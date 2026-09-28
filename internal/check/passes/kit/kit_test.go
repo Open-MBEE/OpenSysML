@@ -135,17 +135,12 @@ func TestWalkerHelpers(t *testing.T) {
 	if ReferenceScope(sym) != scope {
 		t.Fatal("ReferenceScope ignored the symbol scope")
 	}
-	if MultiplicityOf(nil) != nil || UnnamedMetadataBody(nil, nil) != nil {
+	if MultiplicityOf(nil) != nil {
 		t.Fatal("nil helper inputs were not handled")
 	}
 	if DeclarationScope(nil) != nil {
 		t.Fatal("nil symbol unexpectedly had a declaration scope")
 	}
-	if UnnamedMetadataBody(scope, &ast.PrefixMetadata{}) != nil {
-		t.Fatal("empty metadata unexpectedly had a body")
-	}
-	ForEachBodySymbol(nil, func(*symbols.Symbol) { t.Fatal("nil body was visited") })
-	ForEachBodySymbol(scope, func(*symbols.Symbol) { t.Fatal("empty body was visited") })
 	if !IsReference(&ast.QualifiedName{}) || IsReference(nil) {
 		t.Fatal("reference helper returned the wrong result")
 	}

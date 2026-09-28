@@ -251,8 +251,8 @@ package 'Fleet Viewpoints' {
             action 'Per Truck Again' : 'Per Truck';
             first 'Per Truck Again' then final;
             action final terminate;
-            /* applied stereotype «Dynamic_View»: loop = true; title = Per Truck */
             metadata MigrationMetadata::SynthesizedName about final;
+            /* applied stereotype «Dynamic_View»: loop = true; title = Per Truck */
         }
         perform action 'oddities Method' : 'Oddities Method';
     }

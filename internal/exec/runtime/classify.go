@@ -215,6 +215,10 @@ func (ctx *Context) holdWritten(inst *Instance, fv *FeatureValue, val Value) err
 		rollback()
 		return err
 	}
+	if err := ctx.applyPendingToHeld(inst, fv, val, true); err != nil {
+		rollback()
+		return err
+	}
 	commit()
 	return nil
 }
@@ -229,6 +233,10 @@ func (ctx *Context) holdDeclared(inst *Instance, fv *FeatureValue, val Value) (V
 	}
 	val, err := ctx.admitted(fv.Feature, val, admitDeclared)
 	if err != nil {
+		rollback()
+		return Value{}, err
+	}
+	if err := ctx.applyPendingToHeld(inst, fv, val, false); err != nil {
 		rollback()
 		return Value{}, err
 	}
@@ -395,7 +403,13 @@ func (ctx *Context) classify(inst *Instance, typ *symbols.Symbol) error {
 		}
 	}
 	ctx.unfoldSubsettedDefaults(inst, typ, features)
-	if err := ctx.aliasRedefinedFeatureValuesOf(inst, typ, carried); err != nil {
+	if err := ctx.aliasRedefinedFeatureValuesOf(inst, typ, carried, ctx.FeaturesOf(typ)); err != nil {
+		rollback()
+		return err
+	}
+	// The classifier's nested redefinitions refine the children materialized
+	// already; the ones still to materialize pick them up from inst's types.
+	if err := ctx.applyClassifierNestedRedefinitions(inst, typ); err != nil {
 		rollback()
 		return err
 	}
@@ -430,6 +444,14 @@ func (ctx *Context) refineFeatureValue(inst *Instance, fv *FeatureValue, feat *E
 		(!ctx.modelConforms(typ, have.OwnerType) || slices.Contains(ctx.redefinedFeatures(have.Symbol, have.OwnerType), feat.Symbol)) {
 		return nil
 	}
+	return ctx.installFeatureValue(inst, fv, feat)
+}
+
+// installFeatureValue puts the classifier's declaration on a carried feature
+// value without asking whether it outranks the one read: the caller has
+// decided it does (see refineFeatureValue and refineNestedBelow).
+func (ctx *Context) installFeatureValue(inst *Instance, fv *FeatureValue, feat *EffectiveFeature) error {
+	have := fv.Feature
 	ctx.noteProbeWrite(fv)
 	if !fv.Materialized || (!fv.Written && feat.DefaultValue != have.DefaultValue) {
 		ctx.invalidateDependents(fv)

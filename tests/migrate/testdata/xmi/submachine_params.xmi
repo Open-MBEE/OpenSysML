@@ -1,0 +1,47 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<xmi:XMI xmi:version="2.5.1" xmlns:xmi="http://www.omg.org/spec/XMI/20131001"
+         xmlns:uml="http://www.omg.org/spec/UML/20161101"
+         xmlns:sysml="http://www.omg.org/spec/SysML/20181001/SysML">
+  <uml:Model xmi:type="uml:Model" xmi:id="_m" name="Model">
+
+    <packagedElement xmi:type="uml:Signal" xmi:id="_go" name="Go"/>
+    <packagedElement xmi:type="uml:SignalEvent" xmi:id="_goEv" signal="_go"/>
+    <packagedElement xmi:type="uml:Class" xmi:id="_plant" name="Plant" classifierBehavior="_line">
+      <ownedAttribute xmi:type="uml:Property" xmi:id="_count" name="count">
+        <type xmi:type="uml:PrimitiveType" href="http://www.omg.org/spec/UML/20131001/PrimitiveTypes.xmi#Integer"/>
+        <defaultValue xmi:type="uml:LiteralInteger" xmi:id="_count0" value="0"/>
+      </ownedAttribute>
+      <ownedBehavior xmi:type="uml:StateMachine" xmi:id="_line" name="Line">
+        <region xmi:type="uml:Region" xmi:id="_main" name="main">
+          <subvertex xmi:type="uml:Pseudostate" xmi:id="_init0"/>
+          <subvertex xmi:type="uml:State" xmi:id="_idle" name="Idle"/>
+          <subvertex xmi:type="uml:State" xmi:id="_cellSt" name="Cell" submachine="_cell">
+            <entry xmi:type="uml:OpaqueBehavior" xmi:id="_cellEntry" name="tally">
+              <language>JavaScript</language>
+              <body>count = count + 1;</body>
+            </entry>
+          </subvertex>
+          <subvertex xmi:type="uml:FinalState" xmi:id="_fin"/>
+          <transition xmi:type="uml:Transition" xmi:id="_t0" source="_init0" target="_idle"/>
+          <transition xmi:type="uml:Transition" xmi:id="_tGo" source="_idle" target="_cellSt">
+            <trigger xmi:type="uml:Trigger" xmi:id="_trGo" event="_goEv"/>
+          </transition>
+        </region>
+      </ownedBehavior>
+      <ownedBehavior xmi:type="uml:StateMachine" xmi:id="_cell" name="CellMachine">
+        <ownedParameter xmi:type="uml:Parameter" xmi:id="_cellIn" name="x" direction="in">
+          <type xmi:type="uml:PrimitiveType" href="http://www.omg.org/spec/UML/20131001/PrimitiveTypes.xmi#Integer"/>
+        </ownedParameter>
+        <region xmi:type="uml:Region" xmi:id="_rc" name="cell">
+          <subvertex xmi:type="uml:Pseudostate" xmi:id="_initC"/>
+          <subvertex xmi:type="uml:State" xmi:id="_cold" name="Cold"/>
+          <subvertex xmi:type="uml:FinalState" xmi:id="_finC"/>
+          <transition xmi:type="uml:Transition" xmi:id="_tCi" source="_initC" target="_cold"/>
+          <transition xmi:type="uml:Transition" xmi:id="_tCc" source="_cold" target="_finC"/>
+        </region>
+      </ownedBehavior>
+    </packagedElement>
+  </uml:Model>
+
+  <sysml:Block xmi:id="_s1" base_Class="_plant"/>
+</xmi:XMI>

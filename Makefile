@@ -208,10 +208,10 @@ conformance-pkg: ## Run the conformance suite through the public Go API (client/
 
 test: ## Run Go tests with race detection and coverage
 	@echo "Running Go race tests..."
-	@# Per-package timeout: under -race, passes and model run within 1% of go's 10m default.
+	@# Per-package timeout: under -race the runtime package runs 22-29 minutes on CI runners.
 	@# -pgo=off: coverage plus cmd/*/default.pgo trips golang/go#80891 (link: fingerprint mismatch).
-	go test -v -race -pgo=off -timeout 30m -coverprofile=coverage.txt -covermode=atomic ./...
-	go test -C $(TOOLS_DIR) -v -race -pgo=off -timeout 30m ./...
+	go test -v -race -pgo=off -timeout 45m -coverprofile=coverage.txt -covermode=atomic ./...
+	go test -C $(TOOLS_DIR) -v -race -pgo=off -timeout 45m ./...
 
 coverage: ## Write the coverage profile the SonarCloud scan reads
 	@echo "Writing coverage.txt..."

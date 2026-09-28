@@ -2033,3 +2033,1243 @@ func TestActionExecutedOnItsPerformerRunsTheExistingPerformance(t *testing.T) {
 		t.Errorf("Fill on an object performing it twice: %v, want %v naming morning and evening", err, ErrAmbiguousAction)
 	}
 }
+
+// A behavior usage started on an object reads a parameter its own body binds —
+// `in ref :>> context = this` — rather than the object it runs on being the only
+// source of values: the declared binding still applies, for an action invoke and
+// for an exhibited machine.
+func TestUsageDeclaredContextBindingOnAnOccurrence(t *testing.T) {
+	src := `
+		part def Tank {
+			attribute level : Integer = 2;
+			action def Fill {
+				in ref context : Tank;
+				first start;
+				then action bump { assign context.level := context.level + 3; }
+				then done;
+			}
+			action fill : Fill { in ref :>> context = this; }
+			state def Watch {
+				in ref context : Tank;
+				attribute seen : Integer;
+				entry; then watching;
+				state watching {
+					entry action note { assign seen := context.level; }
+				}
+			}
+			exhibit state life : Watch { in ref :>> context = this; }
+		}
+	`
+	model, resolver, root := parseAndBuildLibraryModel(t, src)
+	ctx := NewContext(typedModel(model, resolver), 10000)
+
+	inst, err := ctx.Instantiate(resolveSymbol(t, root, "Tank"))
+	if err != nil {
+		t.Fatalf("Instantiate: %v", err)
+	}
+	behavior, ok := inst.Behavior("life")
+	if !ok {
+		t.Fatal("object runs no life behavior")
+	}
+	if got := behavior.State.stateData["seen"].Const.Int; got != 2 {
+		t.Errorf("life state data seen = %d, want 2: the declared context binding did not reach the entry action", got)
+	}
+	if _, err := ctx.InvokeOperation(inst, "fill", nil); err != nil {
+		t.Fatalf("InvokeOperation: %v", err)
+	}
+	if got := featureInt(t, ctx, inst, "level"); got != 5 {
+		t.Errorf("level = %d, want 5: the declared context binding did not reach the invoked action", got)
+	}
+}
+
+// performedJoinFixture performs Nudge on the object itself, the implicit `in ref`
+// context binding the running performance supplies.
+const performedJoinFixture = `
+	package test {
+		private import ScalarValues::*;
+		part def Heater {
+			attribute level : Integer = 0;
+			action def Nudge {
+				in delta : Integer = 1;
+				in ref context : Heater;
+				first apply;
+				action apply { assign context.level := context.level + delta; }
+				first apply then done;
+			}
+			perform action nudge : Nudge { in ref :>> context = this; }
+		}
+	}
+`
+
+// Joining the performance an object already runs takes only the implicit
+// performer binding: a ref input bound to the object itself is the declaration's
+// own binding, not an argument, and the caller's map is read, never written. A
+// ref input bound to a different object is an argument the call stated, and the
+// join is refused.
+func TestPerformedActionJoinReadsOnlyTheImplicitBinding(t *testing.T) {
+	idx, _, ctx := buildRuntimeWithLibraries(t, "<test>", parseAndBuild(t, performedJoinFixture))
+	nudge := oneSymbol(t, idx, "test::Heater::Nudge")
+	heater := findSymbolByName(idx.DocumentRoot("<test>"), "Heater", ast.DefPart)
+	inst, err := ctx.Instantiate(heater)
+	if err != nil {
+		t.Fatalf("Instantiate: %v", err)
+	}
+	if err = ctx.startClassifierBehaviors(inst, 0); err != nil {
+		t.Fatalf("start behaviors: %v", err)
+	}
+
+	inputs := map[string]Value{"context": {Kind: ValInstance, Instance: inst.ID}}
+	if _, err = ctx.ExecuteActionPerformedBy(nudge, inst, inputs); err != nil {
+		t.Fatalf("join with the implicit binding: %v", err)
+	}
+	if len(inputs) != 1 || inputs["context"].Instance != inst.ID {
+		t.Errorf("inputs = %v, want the one implicit binding unchanged", inputs)
+	}
+
+	other, err := ctx.Instantiate(heater)
+	if err != nil {
+		t.Fatalf("Instantiate: %v", err)
+	}
+	_, err = ctx.ExecuteActionPerformedBy(nudge, inst, map[string]Value{
+		"context": {Kind: ValInstance, Instance: other.ID},
+	})
+	if !errors.Is(err, ErrPerformedInputs) {
+		t.Fatalf("join with a binding to another object: %v, want ErrPerformedInputs", err)
+	}
+}
+
+// performedJoinBoundFixture performs Nudge bound to the host's member `other`,
+// so the running performance's stored context binding is that member, not the
+// object that performs.
+const performedJoinBoundFixture = `
+	package test {
+		private import ScalarValues::*;
+		part def Heater {
+			attribute level : Integer = 0;
+		}
+		part def Host {
+			part other : Heater;
+			action def Nudge {
+				in delta : Integer = 1;
+				in ref context : Heater;
+				first apply;
+				action apply { assign context.level := context.level + delta; }
+				first apply then done;
+			}
+			perform action nudge : Nudge { in ref :>> context = other; }
+		}
+	}
+`
+
+// The implicit-binding check compares the offered input against the binding the
+// running performance actually stored, not against the performer: when the
+// declaration binds context to `other`, offering the performer is an argument
+// and the join is refused, while offering `other` reads as the implicit binding
+// and joins.
+func TestPerformedActionJoinReadsTheStoredBinding(t *testing.T) {
+	idx, _, ctx := buildRuntimeWithLibraries(t, "<test>", parseAndBuild(t, performedJoinBoundFixture))
+	nudge := oneSymbol(t, idx, "test::Host::Nudge")
+	host := findSymbolByName(idx.DocumentRoot("<test>"), "Host", ast.DefPart)
+	inst, err := ctx.Instantiate(host)
+	if err != nil {
+		t.Fatalf("Instantiate: %v", err)
+	}
+	if err = ctx.startClassifierBehaviors(inst, 0); err != nil {
+		t.Fatalf("start behaviors: %v", err)
+	}
+	fv, err := inst.GetFeatureValue(ctx, "other")
+	if err != nil {
+		t.Fatalf("read other: %v", err)
+	}
+	other := fv.HeldValue()
+
+	_, err = ctx.ExecuteActionPerformedBy(nudge, inst, map[string]Value{
+		"context": {Kind: ValInstance, Instance: inst.ID},
+	})
+	if !errors.Is(err, ErrPerformedInputs) {
+		t.Fatalf("join offering the performer where `other` is bound: %v, want ErrPerformedInputs", err)
+	}
+	if _, err = ctx.ExecuteActionPerformedBy(nudge, inst, map[string]Value{
+		"context": other,
+	}); err != nil {
+		t.Fatalf("join with the binding the performance stored: %v", err)
+	}
+}
+
+// invokeContextFixture owns an operation whose trailing `in ref` parameter a
+// migrated action declares, read through `context.` in its body.
+const invokeContextFixture = `
+	package test {
+		private import ScalarValues::*;
+		part def Heater {
+			attribute level : Integer = 2;
+			action nudge { in delta : Integer; in ref context : Heater;
+				first apply; action apply { assign context.level := context.level + delta; } }
+		}
+	}
+`
+
+// A positional invocation binds the parameters it argues for and leaves the
+// trailing `in ref` to the performer the operation runs on, positional or
+// named, and the caller's named map is read, never written.
+func TestInvokeOperationPositionalSeedsTheImplicitRef(t *testing.T) {
+	ctx, inst, err := instantiateWithLibraries(t, invokeContextFixture, "test::Heater")
+	if err != nil {
+		t.Fatalf("Instantiate: %v", err)
+	}
+	positional := func(values ...Value) OperationArguments {
+		return OperationArguments{Positional: values}
+	}
+	if _, err = ctx.InvokeOperationWith(inst, "nudge", positional(intArgument(3))); err != nil {
+		t.Fatalf("nudge(3): %v", err)
+	}
+	if got := featureInt(t, ctx, inst, "level"); got != 5 {
+		t.Errorf("level = %d, want 5: the context bound was not the performer", got)
+	}
+
+	args := map[string]Value{"delta": intArgument(1)}
+	if _, err = ctx.InvokeOperationWith(inst, "nudge", OperationArguments{Named: args}); err != nil {
+		t.Fatalf("nudge(delta=1): %v", err)
+	}
+	if len(args) != 1 {
+		t.Errorf("named args = %v, want the caller's map unchanged", args)
+	}
+	if got := featureInt(t, ctx, inst, "level"); got != 6 {
+		t.Errorf("level = %d, want 6", got)
+	}
+}
+
+// performerSeedFixture performs Spin on the member motor through `::>`: its
+// `sensor` ref declares a default the binding resolves to the member's own
+// part, so the performer must not override it, while the defaultless `context`
+// ref takes the performer.
+const performerSeedFixture = `
+	package test {
+		private import ScalarValues::*;
+		part def Sensor;
+		part def Motor {
+			attribute flag : Boolean = false;
+			part s : Sensor;
+			action def Spin {
+				in n : Integer = 0;
+				in ref sensor : Sensor = s;
+				in ref context : Motor;
+				first step;
+				action step { assign context.flag := sensor == s; }
+				first step then done;
+			}
+			action spin : Spin;
+		}
+		part def Rig {
+			part motor : Motor;
+			action def Go {
+				in ref context : Rig;
+				first spin;
+				perform action spin : Motor::Spin ::> context.motor.spin { in n = 1; }
+				first spin then done;
+			}
+			perform action go : Go { in ref :>> context = this; }
+		}
+	}
+`
+
+// performerUnseedableFixture performs Read on the member motor through `::>`:
+// Read's `in ref sensor : Sensor` is a ref the Motor performer cannot supply,
+// so it keeps the caller's own like-named binding instead.
+const performerUnseedableFixture = `
+	package test {
+		private import ScalarValues::*;
+		part def Sensor;
+		part def Motor {
+			attribute got : Boolean = false;
+			action def Read {
+				in ref sensor : Sensor;
+				in ref context : Motor;
+				first step;
+				action step { assign context.got := sensor == sensor; }
+				first step then done;
+			}
+			action read : Read;
+		}
+		part def Rig {
+			part motor : Motor;
+			part s : Sensor;
+			action def Go {
+				in ref context : Rig;
+				in ref sensor : Sensor = context.s;
+				first read;
+				perform action read : Motor::Read ::> context.motor.read;
+				first read then done;
+			}
+			perform action go : Go { in ref :>> context = this; }
+		}
+	}
+`
+
+// A `ref` input the performer cannot supply keeps the caller's like-named
+// enclosing binding: Read's `sensor` takes the Rig's own Sensor, not the
+// Motor — only a binding where one exists lets `sensor == sensor` hold.
+func TestPerformerLeavesAnUnsuppliableRefToTheCaller(t *testing.T) {
+	idx, _, ctx := buildRuntimeWithLibraries(t, "<test>", parseAndBuild(t, performerUnseedableFixture))
+	rig := findSymbolByName(idx.DocumentRoot("<test>"), "Rig", ast.DefPart)
+	inst, err := ctx.Instantiate(rig)
+	if err != nil {
+		t.Fatalf("Instantiate: %v", err)
+	}
+	if err = ctx.startClassifierBehaviors(inst, 0); err != nil {
+		t.Fatalf("start behaviors: %v", err)
+	}
+	if err = ctx.drainObjectBehaviors(); err != nil {
+		t.Fatalf("run behaviors: %v", err)
+	}
+	motor, err := inst.GetFeatureValue(ctx, "motor")
+	if err != nil {
+		t.Fatalf("read motor: %v", err)
+	}
+	motorID, _ := motor.HeldValue().Object()
+	fv, err := ctx.instances[motorID].GetFeatureValue(ctx, "got")
+	if err != nil {
+		t.Fatalf("read got: %v", err)
+	}
+	if fv.HeldValue().Kind != ValConst || !fv.HeldValue().Const.Bool {
+		t.Errorf("got = %v, want true: Read's sensor took the caller's Sensor, which the Motor performer cannot supply", fv.HeldValue())
+	}
+}
+
+// A `::>` performance seeds the performer's `in ref` parameters only where the
+// performer may supply them: a ref declaring a default keeps it (and the type
+// check never sees the performer), while a defaultless conforming ref takes
+// the performer — so `sensor` resolves to the member's part and `context` to
+// the performer.
+func TestPerformerSeedsOnlyTheConformingDefaultlessRef(t *testing.T) {
+	idx, _, ctx := buildRuntimeWithLibraries(t, "<test>", parseAndBuild(t, performerSeedFixture))
+	rig := findSymbolByName(idx.DocumentRoot("<test>"), "Rig", ast.DefPart)
+	inst, err := ctx.Instantiate(rig)
+	if err != nil {
+		t.Fatalf("Instantiate: %v", err)
+	}
+	if err = ctx.startClassifierBehaviors(inst, 0); err != nil {
+		t.Fatalf("start behaviors: %v", err)
+	}
+	if err = ctx.drainObjectBehaviors(); err != nil {
+		t.Fatalf("run behaviors: %v", err)
+	}
+	motor, err := inst.GetFeatureValue(ctx, "motor")
+	if err != nil {
+		t.Fatalf("read motor: %v", err)
+	}
+	motorID, _ := motor.HeldValue().Object()
+	motorInst := ctx.instances[motorID]
+	fv, err := motorInst.GetFeatureValue(ctx, "flag")
+	if err != nil {
+		t.Fatalf("read flag: %v", err)
+	}
+	if got := fv.HeldValue(); !got.Const.Bool {
+		t.Errorf("flag = %v, want true: the sensor binding came from the declared default, not the performer", got)
+	}
+}
+
+// The positional form of InvokeOperationWith seeds the same way: it binds the
+// argued `in` and leaves the defaulted `sensor` to its declaration while the
+// defaultless `context` still takes the object the action runs on.
+func TestInvokeOperationPositionalSeedsOnlyTheConformingDefaultlessRef(t *testing.T) {
+	idx, _, ctx := buildRuntimeWithLibraries(t, "<test>", parseAndBuild(t, performerSeedFixture))
+	motor := findSymbolByName(idx.DocumentRoot("<test>"), "Motor", ast.DefPart)
+	inst, err := ctx.Instantiate(motor)
+	if err != nil {
+		t.Fatalf("Instantiate: %v", err)
+	}
+	if _, err := ctx.InvokeOperationWith(inst, "spin",
+		OperationArguments{Positional: []Value{intArgument(1)}}); err != nil {
+		t.Fatalf("spin(1): %v", err)
+	}
+	fv, err := inst.GetFeatureValue(ctx, "flag")
+	if err != nil {
+		t.Fatalf("read flag: %v", err)
+	}
+	if got := fv.HeldValue(); !got.Const.Bool {
+		t.Errorf("flag = %v, want true: the sensor binding came from the declared default, not the performer", got)
+	}
+}
+
+// defRunThisFixture is the Warm-style action definition run directly: `this`
+// inside its body denotes the run's own occurrence, materialized when first
+// denoted — and the occurrence is authoritative, so `this.delta` reads the
+// value the run was seeded with.
+const defRunThisFixture = `
+	package test {
+		private import ScalarValues::*;
+		part def Heater {
+			attribute flag : Boolean = false;
+			attribute same : Boolean = false;
+			action def Warm {
+				in ref context : Heater;
+				in delta : Integer = 3;
+				first apply;
+				action apply {
+					assign context.flag := this.delta == delta;
+					assign context.same := this == this;
+				}
+				first apply then done;
+			}
+		}
+	}
+`
+
+// Running a behavior definition directly gives the run an occurrence `this`
+// denotes even though no performed usage materialized one: the occurrence is
+// made on first use, seeded with the performance's own features, and `this`
+// compares to itself — so both reads run and land on the performer through
+// the context binding.
+func TestExecuteActionPerformedByDefReadsThis(t *testing.T) {
+	idx, _, ctx := buildRuntimeWithLibraries(t, "<test>", parseAndBuild(t, defRunThisFixture))
+	warm := oneSymbol(t, idx, "test::Heater::Warm")
+	heater := findSymbolByName(idx.DocumentRoot("<test>"), "Heater", ast.DefPart)
+	inst, err := ctx.Instantiate(heater)
+	if err != nil {
+		t.Fatalf("Instantiate: %v", err)
+	}
+	if _, err = ctx.ExecuteActionPerformedBy(warm, inst, nil); err != nil {
+		t.Fatalf("run %s directly: %v", warm.Name, err)
+	}
+	for _, name := range []string{"flag", "same"} {
+		fv, err := inst.GetFeatureValue(ctx, name)
+		if err != nil {
+			t.Fatalf("read %s: %v", name, err)
+		}
+		if got := fv.HeldValue(); !got.Const.Bool {
+			t.Errorf("%s = %v, want true", name, got)
+		}
+	}
+}
+
+// qualifiedAssignFixture is an action def writing its own attribute through its
+// qualified name while another object performs it: `Probe::count` is the Probe
+// run's count, not the performer Host's same-named feature.
+const qualifiedAssignFixture = `
+	package test {
+		private import ScalarValues::*;
+		part def Host {
+			attribute count : Integer default = 7;
+		}
+		action def Probe {
+			attribute count : Integer default = 1;
+			out seen : Integer;
+			action step {
+				assign Probe::count := 3;
+				assign Probe::seen := this.count;
+			}
+			first step;
+		}
+		action def Stray {
+			action step { assign Other::count := 3; }
+			first step;
+		}
+		part def Other {
+			attribute count : Integer default = 5;
+		}
+	}
+`
+
+// A qualified assignment writes the object its qualifier names: the run of the
+// def itself, not the performer; a qualifier matching neither errors.
+func TestQualifiedAssignWritesTheQualifiersObject(t *testing.T) {
+	idx, _, ctx := buildRuntimeWithLibraries(t, "<test>", parseAndBuild(t, qualifiedAssignFixture))
+	host := findSymbolByName(idx.DocumentRoot("<test>"), "Host", ast.DefPart)
+	inst, err := ctx.Instantiate(host)
+	if err != nil {
+		t.Fatalf("Instantiate: %v", err)
+	}
+	probe := oneSymbol(t, idx, "test::Probe")
+	results, err := ctx.ExecuteActionPerformedBy(probe, inst, nil)
+	if err != nil {
+		t.Fatalf("run Probe on Host: %v", err)
+	}
+	if got := results["seen"]; got.Const.Int != 3 {
+		t.Errorf("seen = %v, want 3: Probe::seen bound the output as `assign seen` would", got)
+	}
+	if fv, err := inst.GetFeatureValue(ctx, "count"); err != nil {
+		t.Fatalf("read Host.count: %v", err)
+	} else if got := fv.HeldValue(); got.Const.Int != 7 {
+		t.Errorf("Host.count = %v, want 7: the qualifier's object, not the performer, took the write", got)
+	}
+
+	stray := oneSymbol(t, idx, "test::Stray")
+	if _, err := ctx.ExecuteActionPerformedBy(stray, inst, nil); err == nil {
+		t.Error("Stray on Host: want a typed error — Other names no run or performer here")
+	} else if !strings.Contains(err.Error(), "Other") {
+		t.Errorf("Stray on Host: error %q names no qualifier", err)
+	}
+}
+
+// qualifiedStreamFixture streams a qualified write along a flow out of the
+// performance: only the run's own write path carries it to the caller's pin.
+const qualifiedStreamFixture = `
+	package test {
+		private import ScalarValues::*;
+		part def Host {
+		}
+		action def Outer {
+			out result : Integer;
+			action step { assign Outer::result := 5; }
+			first step;
+		}
+		action def Sees {
+			out seen : Integer;
+			action o : Outer;
+			action sink { in v : Integer; assign Sees::seen := v; }
+			flow o.result to sink.v;
+			first o then sink;
+		}
+		action def BadQualified {
+			out result : Integer;
+			action step { assign BadQualified::result := "text"; }
+			first step;
+		}
+		action def BadLocal {
+			out result : Integer;
+			action step { assign result := "text"; }
+			first step;
+		}
+	}
+`
+
+// A qualified write inside a performance lands on the run's own write path: the
+// caller's flow sees the streamed value, and the declaration check rejects a
+// wrong-typed write the same as an unqualified one does.
+func TestQualifiedWriteStreamsLikeARunWrite(t *testing.T) {
+	idx, _, ctx := buildRuntimeWithLibraries(t, "<test>", parseAndBuild(t, qualifiedStreamFixture))
+	host := findSymbolByName(idx.DocumentRoot("<test>"), "Host", ast.DefPart)
+	inst, err := ctx.Instantiate(host)
+	if err != nil {
+		t.Fatalf("Instantiate: %v", err)
+	}
+	sees := oneSymbol(t, idx, "test::Sees")
+	results, err := ctx.ExecuteActionPerformedBy(sees, inst, nil)
+	if err != nil {
+		t.Fatalf("run Sees on Host: %v", err)
+	}
+	if got := results["seen"]; got.Const.Int != 5 {
+		t.Errorf("seen = %v, want 5: Outer::result streamed out of the performance like `assign result` would", got)
+	}
+
+	badQualified := oneSymbol(t, idx, "test::BadQualified")
+	_, errQ := ctx.ExecuteActionPerformedBy(badQualified, inst, nil)
+	badLocal := oneSymbol(t, idx, "test::BadLocal")
+	_, errL := ctx.ExecuteActionPerformedBy(badLocal, inst, nil)
+	if errQ == nil {
+		t.Error("BadQualified: want a declaration error for a wrong-typed qualified write")
+	} else if errL == nil {
+		t.Fatalf("BadLocal: want a declaration error for the unqualified write, got none")
+	} else {
+		// Both name the same write; only the action the executor reports differs.
+		q := errQ.Error()[strings.Index(errQ.Error(), "assignment"):]
+		l := errL.Error()[strings.Index(errL.Error(), "assignment"):]
+		if q != l {
+			t.Errorf("qualified error %q differs from the unqualified %q", errQ, errL)
+		}
+	}
+}
+
+// A calculation names no object outside its own run: a qualified write to the
+// performing object's feature is an external assignment, rejected outright.
+func TestCalcQualifiedWriteRejectsAnotherObject(t *testing.T) {
+	ctx, idx := contextForSource(t, `package test {
+		private import ScalarValues::*;
+		part def Host { attribute count : Integer = 0; }
+		calc def Bump {
+			assign Host::count := 3;
+			return : Integer = 1;
+		}
+	}`)
+	host := findSymbolByName(idx.DocumentRoot("<test>"), "Host", ast.DefPart)
+	inst, err := ctx.Instantiate(host)
+	if err != nil {
+		t.Fatalf("Instantiate: %v", err)
+	}
+	bump := lookupOne(t, idx, "test::Bump")
+	if _, err := ctx.invokeCalcWithSelf(bump, calcArgs{}, idx.DocumentRoot("<test>"), inst); !errors.Is(err, ErrCalcExternalAssignment) {
+		t.Fatalf("Bump on Host: err = %v; want ErrCalcExternalAssignment", err)
+	}
+	if fv, err := inst.GetFeatureValue(ctx, "count"); err != nil {
+		t.Fatalf("read Host.count: %v", err)
+	} else if got := fv.HeldValue(); got.Const.Int != 0 {
+		t.Errorf("Host.count = %v, want 0: the rejected write changed nothing", got)
+	}
+}
+
+// qualifiedWriteFixture runs a state machine whose entry materializes this and
+// then writes its own attribute through its qualified name: `this` stays live.
+const qualifiedWriteFixture = `
+	package test {
+		private import ScalarValues::*;
+		part def Plant {
+			attribute flag : Boolean = false;
+		}
+		state def Life {
+			in ref context : Plant;
+			attribute n : Integer default = 0;
+			attribute mark : Boolean = false;
+			state on {
+				entry action run {
+					assign Life::mark := this == this;
+					assign Life::n := 5;
+					assign context.flag := this.n == 5;
+				}
+			}
+			first start then on;
+		}
+	}
+`
+
+// A qualified write inside a machine that already materialized this lands on the
+// same occurrence `this` reads, through the machine's own write path.
+func TestQualifiedWriteMirrorsTheLiveOccurrence(t *testing.T) {
+	idx, _, ctx := buildRuntimeWithLibraries(t, "<test>", parseAndBuild(t, qualifiedWriteFixture))
+	plant := findSymbolByName(idx.DocumentRoot("<test>"), "Plant", ast.DefPart)
+	inst, err := ctx.Instantiate(plant)
+	if err != nil {
+		t.Fatalf("Instantiate: %v", err)
+	}
+	life := oneSymbol(t, idx, "test::Life")
+	if _, _, err = ctx.ExecuteStatePerformedBy(life, inst, nil); err != nil {
+		t.Fatalf("run Life on Plant: %v", err)
+	}
+	if fv, err := inst.GetFeatureValue(ctx, "flag"); err != nil {
+		t.Fatalf("read Plant.flag: %v", err)
+	} else if got := fv.HeldValue(); !got.Const.Bool {
+		t.Errorf("flag = %v, want true: this.n read the 5 Life::n wrote", got)
+	}
+}
+
+// calcContextOrderFixture invokes a context-taking calc with a declared input:
+// the context binds first, as the def declares it.
+const calcContextOrderFixture = `
+	package test {
+		private import ScalarValues::*;
+		part def Tank {
+			attribute level : Real default = 1.5;
+		}
+		calc def Rate {
+			in ref context : Tank;
+			in factor : Real;
+			out result : Real = context.level * factor;
+		}
+		part def Plant {
+			part tank : Tank;
+			action def Run {
+				in ref context : Plant;
+				out result : Real;
+				action rate { out result = Rate(Run::context.tank, 2.0); }
+				first rate;
+				bind result = rate.result;
+			}
+		}
+	}
+`
+
+// Tank::Rate(Plant-context.tank, 2.0) binds the context first as declared, so
+// factor takes the second argument and result is level * factor = 3.
+func TestCalcCallBindsContextBeforeItsInputs(t *testing.T) {
+	idx, _, ctx := buildRuntimeWithLibraries(t, "<test>", parseAndBuild(t, calcContextOrderFixture))
+	plant := findSymbolByName(idx.DocumentRoot("<test>"), "Plant", ast.DefPart)
+	inst, err := ctx.Instantiate(plant)
+	if err != nil {
+		t.Fatalf("Instantiate: %v", err)
+	}
+	run := oneSymbol(t, idx, "test::Plant::Run")
+	results, err := ctx.ExecuteActionPerformedBy(run, inst, nil)
+	if err != nil {
+		t.Fatalf("run Run on Plant: %v", err)
+	}
+	if got := results["result"]; got.Const.Real != 3.0 {
+		t.Errorf("result = %v, want 3.0: the tank instance bound context, 2.0 bound factor", got)
+	}
+}
+
+// defRunStateFixture is a state definition started without an exhibiting
+// usage: the entry action's `this` denotes the machine's own occurrence.
+const defRunStateFixture = `
+	package test {
+		private import ScalarValues::*;
+		part def Heater {
+			attribute flag : Boolean = false;
+			state def Life {
+				in ref context : Heater;
+				entry; then work;
+				state work {
+					entry action check { assign context.flag := this == this; }
+				}
+			}
+		}
+	}
+`
+
+// A state machine definition run directly materializes its occurrence on the
+// first `this` as a directly run action definition does.
+func TestExecuteStateDefReadsThis(t *testing.T) {
+	idx, _, ctx := buildRuntimeWithLibraries(t, "<test>", parseAndBuild(t, defRunStateFixture))
+	life := oneSymbol(t, idx, "test::Heater::Life")
+	heater := findSymbolByName(idx.DocumentRoot("<test>"), "Heater", ast.DefPart)
+	inst, err := ctx.Instantiate(heater)
+	if err != nil {
+		t.Fatalf("Instantiate: %v", err)
+	}
+	if _, _, err = ctx.ExecuteStatePerformedBy(life, inst, nil); err != nil {
+		t.Fatalf("run %s directly: %v", life.Name, err)
+	}
+	fv, err := inst.GetFeatureValue(ctx, "flag")
+	if err != nil {
+		t.Fatalf("read flag: %v", err)
+	}
+	if got := fv.HeldValue(); !got.Const.Bool {
+		t.Errorf("flag = %v, want true: this denoted the machine's own occurrence", got)
+	}
+}
+
+// defRunNoPerformerFixture is a definition run outside any object: `this` in
+// its body still denotes the run's own occurrence, which resolves before the
+// missing performer is asked for.
+const defRunNoPerformerFixture = `
+	package test {
+		private import ScalarValues::*;
+		action def Touch {
+			out result : Boolean;
+			first touch;
+			action touch { assign result := this == this; }
+			first touch then done;
+		}
+		state def Vivid {
+			out same : Boolean;
+			entry; then work;
+			state work {
+				entry action check { assign same := this == this; }
+			}
+		}
+	}
+`
+
+// A behavior definition run outside any object still denotes `this` as its own
+// occurrence: the check runs before the absent performer is reached.
+func TestExecuteDefWithoutPerformerReadsThis(t *testing.T) {
+	idx, _, ctx := buildRuntimeWithLibraries(t, "<test>", parseAndBuild(t, defRunNoPerformerFixture))
+	touch := oneSymbol(t, idx, "test::Touch")
+	results, err := ctx.ExecuteAction(touch)
+	if err != nil {
+		t.Fatalf("run %s without performer: %v", touch.Name, err)
+	}
+	if got := results["result"]; !got.Const.Bool {
+		t.Errorf("result = %v, want true: this denoted the run's own occurrence", got)
+	}
+	life := oneSymbol(t, idx, "test::Vivid")
+	outputs, _, err := ctx.ExecuteStatePerformedBy(life, nil, nil)
+	if err != nil {
+		t.Fatalf("run %s without performer: %v", life.Name, err)
+	}
+	if got := outputs["same"]; !got.Const.Bool {
+		t.Errorf("same = %v, want true: this denoted the machine's own occurrence", got)
+	}
+}
+
+// defRunMirrorFixture defaults `early` to a `this` read before `later` is
+// evaluated: materializing mid-loop makes the occurrence authoritative, so the
+// later default mirrors into it and `this.later` reads it back.
+const defRunMirrorFixture = `
+	package test {
+		private import ScalarValues::*;
+		action def Probe {
+			attribute early : Boolean = this == this;
+			attribute later : Integer = 7;
+			out result : Integer;
+			first probe;
+			action probe { assign result := this.later; }
+			first probe then done;
+		}
+		state def Vivid {
+			attribute early : Boolean = this == this;
+			attribute later : Integer = 7;
+			out result : Integer;
+			entry; then work;
+			state work {
+				entry action check { assign result := this.later; }
+			}
+		}
+	}
+`
+
+// An occurrence materialized by an early `this` default stays authoritative for
+// the defaults evaluated after it: they mirror into it, so a body reading
+// `this.<attr>` sees the value the loop stored later.
+func TestExecuteDefMirrorsDefaultsAfterEarlyThis(t *testing.T) {
+	idx, _, ctx := buildRuntimeWithLibraries(t, "<test>", parseAndBuild(t, defRunMirrorFixture))
+	probe := oneSymbol(t, idx, "test::Probe")
+	results, err := ctx.ExecuteAction(probe)
+	if err != nil {
+		t.Fatalf("run %s: %v", probe.Name, err)
+	}
+	if got := results["result"]; got.Const.Int != 7 {
+		t.Errorf("result = %v, want 7: the later default mirrored into the occurrence", got)
+	}
+	vivid := oneSymbol(t, idx, "test::Vivid")
+	outputs, _, err := ctx.ExecuteStatePerformedBy(vivid, nil, nil)
+	if err != nil {
+		t.Fatalf("run %s: %v", vivid.Name, err)
+	}
+	if got := outputs["result"]; got.Const.Int != 7 {
+		t.Errorf("result = %v, want 7: the later default mirrored into the occurrence", got)
+	}
+}
+
+// calcDefThisFixture is a calculation run as a definition: `this` in its body
+// denotes the occurrence the invocation itself is, seeded with its parameters.
+const calcDefThisFixture = `
+	package test {
+		private import ScalarValues::*;
+		calc def Identity { return : Boolean = this == this; }
+		calc def Echo { in x : Integer; return : Integer = this.x; }
+		calc def EchoLate {
+			in early : Boolean = this == this;
+			in x : Integer = 4;
+			return : Integer = this.x;
+		}
+		calc def SetBack {
+			in early : Boolean = this == this;
+			attribute n : Integer = 0;
+			assign n := 5;
+			return : Integer = this.n;
+		}
+		calc def Probe {
+			in early : Boolean = this == this;
+			attribute n : Integer = 0;
+			assign Probe::n := 5;
+			return : Integer = this.n;
+		}
+		calc def NestedProbe {
+			in early : Boolean = this == this;
+			attribute n : Integer = 0;
+			if true { assign NestedProbe::n := 5; }
+			return : Integer = this.n;
+		}
+		action def Step { out n : Integer = 5; }
+		analysis def Shadow {
+			attribute early : Boolean = this == this;
+			attribute n : Integer = 0;
+			if true {
+				attribute n : Integer = 1;
+				action step : Step;
+			}
+			return : Integer = this.n;
+		}
+	}
+`
+
+// A calc definition's `this` is the occurrence of its own invocation: equality
+// holds for it, and a parameter bound into it reads back through it.
+func TestInvokeCalcDefReadsThis(t *testing.T) {
+	idx, _, ctx := buildRuntimeWithLibraries(t, "<test>", parseAndBuild(t, calcDefThisFixture))
+	root := idx.DocumentRoot("<test>")
+
+	identity, identityScope := calcByName(t, root, "test", "Identity")
+	got, err := ctx.InvokeCalc(identity, nil, identityScope)
+	if err != nil {
+		t.Fatalf("Identity(): %v", err)
+	}
+	if !got.Const.Bool {
+		t.Errorf("Identity() = %s, want true: this denoted the invocation's own occurrence", FormatTraceValue(got))
+	}
+
+	echo, echoScope := calcByName(t, root, "test", "Echo")
+	got, err = ctx.InvokeCalc(echo, []Value{constInt(5)}, echoScope)
+	if err != nil {
+		t.Fatalf("Echo(5): %v", err)
+	}
+	if got.Const.Int != 5 {
+		t.Errorf("Echo(5) = %s, want 5: this.x read the bound parameter", FormatTraceValue(got))
+	}
+
+	// early's `this` materializes the occurrence before x binds; x's binding
+	// must still mirror into it, or this.x reads the declared default 4.
+	late, lateScope := calcByName(t, root, "test", "EchoLate")
+	got, err = ctx.InvokeCalcNamed(late, map[string]Value{"x": constInt(9)}, lateScope)
+	if err != nil {
+		t.Fatalf("EchoLate(9): %v", err)
+	}
+	if got.Const.Int != 9 {
+		t.Errorf("EchoLate(9) = %s, want 9: x mirrored into the early occurrence", FormatTraceValue(got))
+	}
+
+	// A write to a declared feature after `this` materialized mirrors into the
+	// occurrence, or this.n reads the declared default 0.
+	setBack, setBackScope := calcByName(t, root, "test", "SetBack")
+	got, err = ctx.InvokeCalc(setBack, nil, setBackScope)
+	if err != nil {
+		t.Fatalf("SetBack(): %v", err)
+	}
+	if got.Const.Int != 5 {
+		t.Errorf("SetBack() = %s, want 5: the assign mirrored into the occurrence", FormatTraceValue(got))
+	}
+
+	// A step's returned output lands in the shadowing block-local `n`, not in
+	// the occurrence's feature, or this.n reads 5 instead of the declared 0.
+	shadow, shadowScope := calcByName(t, root, "test", "Shadow")
+	result, err := ctx.RunAnalysis(shadow, AnalysisArgs{}, shadowScope, nil)
+	if err != nil {
+		t.Fatalf("Shadow(): %v", err)
+	}
+	if len(result.Outputs) != 1 || result.Outputs[0].Value.Const.Int != 0 {
+		t.Errorf("Shadow() = %+v, want 0: the block-local write stayed out of the occurrence", result.Outputs)
+	}
+
+	// A qualified write to the body's own feature lands on the occurrence:
+	// Probe::n is the occurrence's n, which this.n then reads.
+	probe, probeScope := calcByName(t, root, "test", "Probe")
+	got, err = ctx.InvokeCalc(probe, nil, probeScope)
+	if err != nil {
+		t.Fatalf("Probe(): %v", err)
+	}
+	if got.Const.Int != 5 {
+		t.Errorf("Probe() = %s, want 5: the qualified write mirrored into the occurrence", FormatTraceValue(got))
+	}
+
+	// The same write from a nested body reaches the enclosing run's bindings
+	// through the frame's own write path: the occurrence gets n there too.
+	nested, nestedScope := calcByName(t, root, "test", "NestedProbe")
+	got, err = ctx.InvokeCalc(nested, nil, nestedScope)
+	if err != nil {
+		t.Fatalf("NestedProbe(): %v", err)
+	}
+	if got.Const.Int != 5 {
+		t.Errorf("NestedProbe() = %s, want 5: the enclosing frame's write mirrored into the occurrence", FormatTraceValue(got))
+	}
+}
+
+// Each run of a case definition is its own occurrence: `this.n` reads the input
+// that run bound, not the object a shared occurrence cached under the symbol.
+func TestAnalysisDefRunGetsItsOwnOccurrence(t *testing.T) {
+	src := `
+package test {
+	analysis def Occurrence {
+		in n : Integer;
+		out who = this;
+		return : Integer = this.n;
+	}
+	analysis def Ready {
+		in ready : Boolean = this == this;
+		return : Boolean = ready;
+	}
+	analysis def Unbindable {
+		in early : Boolean = this == this;
+		in required : Integer;
+		return : Integer = required;
+	}
+	analysis def Read {
+		in n : Integer;
+		in early : Boolean = this == this;
+		return : Integer = this.n;
+	}
+	analysis def Failing {
+		out who = this;
+		out bad : Real = 1.0 / 0.0;
+	}
+}
+`
+	idx, _, ctx := buildRuntimeWithLibraries(t, "<test>", parseAndBuild(t, src))
+	root := idx.DocumentRoot("<test>")
+	occ, scope := calcByName(t, root, "test", "Occurrence")
+	var lastID int64
+	for _, n := range []int64{3, 8} {
+		result, err := ctx.RunAnalysis(occ, AnalysisArgs{
+			Positional: []Value{constInt(n)},
+		}, scope, nil)
+		if err != nil {
+			t.Fatalf("Occurrence(%d): %v", n, err)
+		}
+		var got Value
+		var selfID int64
+		for _, out := range result.Outputs {
+			switch out.Name {
+			case "who":
+				selfID = out.Value.Instance
+			default:
+				got = out.Value
+			}
+		}
+		if got.Const.Int != n {
+			t.Errorf("Occurrence(%d) = %s, want %d: each run's this holds its own inputs",
+				n, FormatTraceValue(got), n)
+		}
+		if selfID == 0 {
+			t.Fatalf("Occurrence(%d): no `who` output carrying this", n)
+		}
+		if lastID != 0 && selfID == lastID {
+			t.Errorf("Occurrence(%d): this is object #%d, the occurrence the earlier run ended", n, selfID)
+		}
+		lastID = selfID
+		// A case run's occurrence is a performance: once the run's outputs are
+		// all read, its life is ended with the run.
+		if life, ok := ctx.OccurrenceLife(selfID); !ok || life.Alive() {
+			t.Errorf("OccurrenceLife(#%d) = %v, %v; want the run's occurrence ended", selfID, life, ok)
+		}
+	}
+
+	// A case whose outputs error still ends its occurrence: the outputs read
+	// before the failure — `who` carrying this — stay reported and name it.
+	failing, failingScope := calcByName(t, root, "test", "Failing")
+	result, err := ctx.RunAnalysis(failing, AnalysisArgs{}, failingScope, nil)
+	if err == nil {
+		t.Fatal("Failing(): want an output evaluation error")
+	}
+	var failID int64
+	for _, out := range result.Outputs {
+		if out.Name == "who" {
+			failID = out.Value.Instance
+		}
+	}
+	if failID == 0 {
+		t.Fatal("Failing(): no `who` output carrying this")
+	}
+	if life, ok := ctx.OccurrenceLife(failID); !ok || life.Alive() {
+		t.Errorf("OccurrenceLife(#%d) = %v, %v; want the failed run's occurrence ended", failID, life, ok)
+	}
+
+	// A parameter default written `this` reads the run's own occurrence — made
+	// on that first read — so `this == this` binds true.
+	ready, readyScope := calcByName(t, root, "test", "Ready")
+	result, err = ctx.RunAnalysis(ready, AnalysisArgs{}, readyScope, nil)
+	if err != nil {
+		t.Fatalf("Ready(): %v", err)
+	}
+	if len(result.Outputs) != 1 || !result.Outputs[0].Value.Const.Bool {
+		t.Errorf("Ready() = %+v, want true: the default's this is the run's occurrence", result.Outputs)
+	}
+
+	// A `this` materialized by a later parameter's default seeds the inputs the
+	// run bound first — early binds nothing so its default's `this` reads the
+	// occurrence while n is already bound — so this.n reads what the call passed.
+	read, readScope := calcByName(t, root, "test", "Read")
+	readResult, err := ctx.RunAnalysis(read, AnalysisArgs{
+		Positional: []Value{constInt(7)},
+	}, readScope, nil)
+	if err != nil {
+		t.Fatalf("Read(7): %v", err)
+	}
+	if len(readResult.Outputs) != 1 || readResult.Outputs[0].Value.Const.Int != 7 {
+		t.Errorf("Read(7) = %+v, want 7: the occurrence seeded the earlier input", readResult.Outputs)
+	}
+
+	// A run that fails binding ends the occurrence an earlier parameter's `this`
+	// read already materialized — the instance is the only new one the failed
+	// run left behind.
+	before := make(map[int64]bool, len(ctx.instances))
+	for id := range ctx.instances {
+		before[id] = true
+	}
+	unbindable, unbindableScope := calcByName(t, root, "test", "Unbindable")
+	_, err = ctx.RunAnalysis(unbindable, AnalysisArgs{}, unbindableScope, nil)
+	if err == nil {
+		t.Fatal("Unbindable(): want a binding error for the unprovided input")
+	}
+	var occID int64
+	for id, inst := range ctx.instances {
+		if !before[id] && inst.Type.Name == "Unbindable" {
+			occID = id
+		}
+	}
+	if occID == 0 {
+		t.Fatal("Unbindable(): the `this` read in the earlier parameter materialized no occurrence")
+	}
+	// A life begun inside binding still shows began: 0 to a top-level caller, so
+	// Ended — the activation the run's end stamps — is what must be set.
+	if life, ok := ctx.OccurrenceLife(occID); !ok || life.Ended == 0 {
+		t.Errorf("OccurrenceLife(#%d) = %v, %v; want the unbound run's occurrence ended", occID, life, ok)
+	}
+}
+
+// stateFlowThisFixture calls Observer from the entry action of a state
+// definition run directly: the `= this` the call's context binding reads is the
+// machine's occurrence, made lazily when no earlier read produced one, and the
+// one materialized at initialization when an attribute default read it first.
+const stateFlowThisFixture = `
+	package test {
+		private import ScalarValues::*;
+		action def Observer {
+			in ref context : Life;
+			first o;
+			action o { assign context.flag := true; }
+			first o then done;
+		}
+		action def EarlyObserver {
+			in ref context : EarlyLife;
+			first o;
+			action o { assign context.flag := true; }
+			first o then done;
+		}
+		state def Life {
+			attribute flag : Boolean;
+			out result : Boolean;
+			entry; then work;
+			state work {
+				entry action run {
+					first call;
+					action call : Observer { in ref :>> context = this; }
+					first call then note;
+					action note { assign result := this.flag; }
+				}
+			}
+		}
+		state def EarlyLife {
+			attribute early : Boolean = this == this;
+			attribute flag : Boolean;
+			out result : Boolean;
+			entry; then work;
+			state work {
+				entry action run {
+					first call;
+					action call : EarlyObserver { in ref :>> context = this; }
+					first call then note;
+					action note { assign result := this.flag; }
+				}
+			}
+		}
+	}
+`
+
+// `this` in a call's context binding inside a state behavior denotes the
+// machine's own occurrence whether or not an attribute default already made it.
+func TestStateBehaviorCallBindsThisToTheMachineOccurrence(t *testing.T) {
+	idx, _, ctx := buildRuntimeWithLibraries(t, "<test>", parseAndBuild(t, stateFlowThisFixture))
+	for _, name := range []string{"test::Life", "test::EarlyLife"} {
+		def := oneSymbol(t, idx, name)
+		outputs, _, err := ctx.ExecuteStatePerformedBy(def, nil, nil)
+		if err != nil {
+			t.Fatalf("run %s: %v", name, err)
+		}
+		if got := outputs["result"]; !got.Const.Bool {
+			t.Errorf("%s result = %v, want true: the call's `this` bound the machine's occurrence", name, got)
+		}
+	}
+}
+
+// performedJoinRefValueFixture binds a non-instance ref parameter explicitly in
+// the performed usage: only an input equal to the stored binding is implicit.
+const performedJoinRefValueFixture = `
+	package test {
+		private import ScalarValues::*;
+		part def Machine {
+			action def Work {
+				in ref threshold : Integer;
+				out result : Integer;
+				first w;
+				action w { assign result := threshold; }
+				first w then done;
+			}
+		}
+		part def Plant {
+			perform action work : Machine::Work { in ref :>> threshold = 1; }
+		}
+	}
+`
+
+// A ref parameter whose performed usage bound a value, not an object, joins
+// only for an input equal to that stored binding; a different value conflicts.
+func TestPerformedActionJoinRejectsADifferentRefValue(t *testing.T) {
+	idx, _, ctx := buildRuntimeWithLibraries(t, "<test>", parseAndBuild(t, performedJoinRefValueFixture))
+	work := oneSymbol(t, idx, "test::Machine::Work")
+	plant := findSymbolByName(idx.DocumentRoot("<test>"), "Plant", ast.DefPart)
+	inst, err := ctx.Instantiate(plant)
+	if err != nil {
+		t.Fatalf("Instantiate: %v", err)
+	}
+	if err = ctx.startClassifierBehaviors(inst, 0); err != nil {
+		t.Fatalf("start behaviors: %v", err)
+	}
+	_, err = ctx.ExecuteActionPerformedBy(work, inst, map[string]Value{"threshold": constInt(2)})
+	if !errors.Is(err, ErrPerformedInputs) {
+		t.Fatalf("join offering threshold 2 where 1 is bound: %v, want ErrPerformedInputs", err)
+	}
+	if _, err = ctx.ExecuteActionPerformedBy(work, inst, map[string]Value{"threshold": constInt(1)}); err != nil {
+		t.Fatalf("join with the binding the performance stored: %v", err)
+	}
+}
+
+// calcDefOutputThisFixture binds `this` in an output feature's default: the
+// binding reads the occurrence of the invocation evaluating it, as a `return`
+// body's does.
+const calcDefOutputThisFixture = `
+	package test {
+		private import ScalarValues::*;
+		calc def Same { out result : Boolean = this == this; }
+		calc same : Same;
+	}
+`
+
+// An output binding of a calc definition evaluates `this` against the
+// invocation's own occurrence, for the def itself and for a usage of it.
+func TestInvokeCalcDefOutputBindingReadsThis(t *testing.T) {
+	idx, _, ctx := buildRuntimeWithLibraries(t, "<test>", parseAndBuild(t, calcDefOutputThisFixture))
+	root := idx.DocumentRoot("<test>")
+
+	same, sameScope := calcByName(t, root, "test", "Same")
+	got, err := ctx.InvokeCalc(same, nil, sameScope)
+	if err != nil {
+		t.Fatalf("Same(): %v", err)
+	}
+	if !got.Const.Bool {
+		t.Errorf("Same() = %s, want true: the output binding's this denoted the invocation's occurrence", FormatTraceValue(got))
+	}
+
+	usage, usageScope := calcByName(t, root, "test", "same")
+	got, err = ctx.CalcUsageOutput(usage, "result", usageScope, nil)
+	if err != nil {
+		t.Fatalf("same.result: %v", err)
+	}
+	if !got.Const.Bool {
+		t.Errorf("same.result = %s, want true: the usage's run shared the occurrence", FormatTraceValue(got))
+	}
+}
+
+// stateQualifiedContextFixture reads the machine's own context parameter by its
+// qualified name from a transition guard and a `when` trigger: both evaluate
+// over the machine's data frame, which carries the machine as the performance
+// the qualifier runs on.
+const stateQualifiedContextFixture = `
+	package test {
+		private import ScalarValues::*;
+		part def Plant {
+			attribute flag : Boolean = true;
+		}
+		state def Life {
+			in ref context : Plant;
+			state idle; state done;
+			first start then idle;
+			transition first idle if Life::context.flag then done;
+		}
+		state def Watch {
+			in ref context : Plant;
+			state idle; state done;
+			first start then idle;
+			transition first idle accept when Watch::context.flag then done;
+		}
+	}
+`
+
+// A transition's guard and `when` trigger read the machine's own qualified
+// members — `Life::context` — over the machine's data frame, as its bodies do.
+func TestStateTransitionReadsTheMachinesQualifiedContext(t *testing.T) {
+	idx, _, ctx := buildRuntimeWithLibraries(t, "<test>", parseAndBuild(t, stateQualifiedContextFixture))
+	plant := findSymbolByName(idx.DocumentRoot("<test>"), "Plant", ast.DefPart)
+	inst, err := ctx.Instantiate(plant)
+	if err != nil {
+		t.Fatalf("Instantiate: %v", err)
+	}
+	for _, name := range []string{"test::Life", "test::Watch"} {
+		def := oneSymbol(t, idx, name)
+		_, visits, err := ctx.ExecuteStatePerformedBy(def, inst, nil)
+		if err != nil {
+			t.Fatalf("run %s: %v", name, err)
+		}
+		if !slices.Contains(visits, "done") {
+			t.Errorf("%s visits = %v, want done: the qualified context read did not fire the transition", name, visits)
+		}
+	}
+}

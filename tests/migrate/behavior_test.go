@@ -135,7 +135,7 @@ func TestActivityMigratesToAnExecutableActionDef(t *testing.T) {
 	r := migrateDocument(t, missionActivity, missionApplications)
 	for _, line := range []string{
 		"part def Mission {",
-		"action def Acquire {",
+		"action acquire {",
 		"first start then stamp;",
 		"fork 'fork';",
 		"action wait accept after 3.0 [SI::s];",
@@ -162,8 +162,8 @@ func TestActivityMigratesToAnExecutableActionDef(t *testing.T) {
 
 	s := session(t, r)
 	meta(t, s, "%seed 1")
-	wantVerdict(t, s.RunAction("Mission::Acquire"))
-	runs := meta(t, s, "%runs 20 1 Mission::Acquire")
+	wantVerdict(t, s.RunAction("Mission::acquire"))
+	runs := meta(t, s, "%runs 20 1 Mission::acquire")
 	if !strings.Contains(runs, "20 run(s)") || strings.Contains(runs, "error") {
 		t.Errorf("Monte Carlo runs of the migrated activity:\n%s", runs)
 	}
@@ -455,6 +455,70 @@ func TestPropertyBackedProbabilitiesAreReferences(t *testing.T) {
 	})
 }
 
+func TestStrictPropertyProbabilityUsesOnlyLiteralDefaults(t *testing.T) {
+	r := migrateFixtureFileOptions(t, "decision_property_probability", migrate.Options{Strict: true})
+	for _, line := range []string{
+		"first 'with default' then defaulted { @Stochastic::Probability { p = 0.25; } }",
+		"first 'with default' then remainder { @Stochastic::Probability { p = 0.75; } }",
+	} {
+		wantLine(t, r.Notation, line)
+	}
+	if strings.Contains(string(r.Notation), "p = pDefault") || strings.Contains(string(r.Notation), "p = pMissing") {
+		t.Errorf("strict output retains a dynamic probability property:\n%s", r.Notation)
+	}
+	wantNote(t, r, "_eDefault", migrate.Approximated, "the default of property Chooser::pDefault")
+	wantNote(t, r, "_eMissing", migrate.Approximated, "has no finite numeric literal default")
+	if errs := errorsMode(t, "decision_property_probability.sysml", r.Notation, diag.ConformanceStrict); len(errs) > 0 {
+		t.Errorf("strict probability migration has errors: %v\n%s", errs, r.Notation)
+	}
+}
+
+func TestStrictRejectedProbabilityDecisionDoesNotReportUnusedDefault(t *testing.T) {
+	r := migrateFixtureFileOptions(t, "decision_rejected_probability_default", migrate.Options{Strict: true})
+	wantNoLine(t, r.Notation, "@Stochastic::Probability")
+	entries := entriesFor(r, "_eDefault")
+	if len(entries) != 1 ||
+		!strings.Contains(entries[0].Note, "no «Probability» is written on the decision's branches") ||
+		strings.Contains(entries[0].Note, "under strict the probability is written as") {
+		t.Errorf("defaulted branch report = %+v, want only the decision rejection note", entries)
+	}
+	if errs := errorsMode(t, "decision_rejected_probability_default.sysml", r.Notation, diag.ConformanceStrict); len(errs) > 0 {
+		t.Errorf("strict probability migration has errors: %v\n%s", errs, r.Notation)
+	}
+}
+
+func TestExposeUsesPlannedActionUsageName(t *testing.T) {
+	r := migrateFixtureFileOptions(t, "exposed_action_usage", migrate.Options{Strict: true})
+	wantLine(t, r.Notation, "perform action route")
+	wantLine(t, r.Notation, "expose route;")
+	wantNoLine(t, r.Notation, "expose Route;")
+	if errs := errorsMode(t, "exposed_action_usage.sysml", r.Notation, diag.ConformanceStrict); len(errs) > 0 {
+		t.Errorf("strict exposed action migration has errors: %v\n%s", errs, r.Notation)
+	}
+}
+
+func TestAcceptPayloadNameDoesNotShadowSignalType(t *testing.T) {
+	r := migrateFixtureFile(t, "accept_payload_name")
+	wantLine(t, r.Notation, "accept s3 : AccProbe::s3")
+	wantLine(t, r.Notation, "accept AccProbe::start")
+}
+
+func TestAcceptPayloadNameAnchorsShadowedSignalPath(t *testing.T) {
+	r := migrateFixtureFileOptions(t, "accept_payload_package_shadow", migrate.Options{Strict: true})
+	wantLine(t, r.Notation, "accept Alarm : $::Alarm::Alarm;")
+	if errs := errorsMode(t, "accept_payload_package_shadow.sysml", r.Notation, diag.ConformanceStrict); len(errs) > 0 {
+		t.Errorf("strict accept signal migration has errors: %v\n%s", errs, r.Notation)
+	}
+}
+
+func TestAcceptPayloadDoesNotShadowSignalPackagePath(t *testing.T) {
+	r := migrateFixtureFileOptions(t, "accept_payload_package_segment_shadow", migrate.Options{Strict: true})
+	wantLine(t, r.Notation, "accept Alarm : $::Alarm::Beep;")
+	if errs := errorsMode(t, "accept_payload_package_segment_shadow.sysml", r.Notation, diag.ConformanceStrict); len(errs) > 0 {
+		t.Errorf("strict accept signal migration has errors: %v\n%s", errs, r.Notation)
+	}
+}
+
 // widerChooser is a block whose decision weights are properties typed by the
 // wider numeric value types Complex and Number rather than Real.
 const widerChooser = `
@@ -523,8 +587,8 @@ func TestParallelControlFlowsAreEachWritten(t *testing.T) {
 	r := migrateDocument(t, parallelEdges, `
   <sysml:Block xmi:id="_s1" base_Class="_retrier"/>`)
 	for _, line := range []string{
-		"first 'decide' if this.attempts < 3 then Retry;",
-		"first 'decide' if this.manualOverride then Retry;",
+		"first 'decide' if context.attempts < 3 then Retry;",
+		"first 'decide' if context.manualOverride then Retry;",
 		"else 'merge';",
 		"first Retry then 'fork';",
 		"fork 'fork';",
@@ -635,15 +699,15 @@ func TestStateMachineMigratesToAnExecutableStateDef(t *testing.T) {
 		"state Busy {",
 		"entry; then Warm;",
 		"transition first Warm accept after 2.0 [SI::s] then Hot;",
-		"state Cool : Cooling;",
+		"state Cool : Cooling { in ref :>> context = Control::context; }",
 		"transition start2 first Idle accept Go",
-		"assign this.count := this.count + 1;",
+		"assign context.count := context.count + 1;",
 		"then Busy;",
 		"transition first Busy accept after 2.0 [SI::s] then Cool;",
 		"transition first Cool accept Go then done;",
 		"state def Cooling {",
 		"state 'in';",
-		"exhibit state control : Control;",
+		"exhibit state control : Control { in ref :>> context = this; }",
 	} {
 		wantLine(t, r.Notation, line)
 	}
@@ -789,7 +853,7 @@ func TestActivityWithSendAcceptAndOperationCalls(t *testing.T) {
 		"action point {",
 		"in az : ScalarValues::Real;",
 		"action 'set azimuth' {",
-		"assign this.azimuth := value;",
+		"assign azimuth := value;",
 		"bind 'set azimuth'.value = az;",
 		"abstract action def Park;",
 		"action def Go {",
@@ -798,8 +862,8 @@ func TestActivityWithSendAcceptAndOperationCalls(t *testing.T) {
 		"perform action go : Go;",
 		"calc def Twice {",
 		"x * 2.0",
-		"out result = this.tel;",
-		"send new Go() to this.tel;",
+		"out result = tel;",
+		"send new Go() to tel;",
 		"action 'wait Ack' accept Ack;",
 		"out result = 90.0;",
 		"action park : Park;",

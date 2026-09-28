@@ -223,6 +223,24 @@ func TestALookupMadeWhileAConditionIsResolvedIsNotRemembered(t *testing.T) {
 	}
 }
 
+// An import target found while a condition's own names are being resolved is
+// found unfiltered, so it is not remembered either: here `Radio` is reachable
+// only through the filtered import, which rejects it, so `import Radio::*`
+// surfaces nothing to an ordinary lookup, whichever lookup reached it first.
+func TestAnImportTargetFoundWhileAConditionIsResolvedIsNotRemembered(t *testing.T) {
+	idx := expandedIndexOf(t, map[string]string{
+		"lib.sysml": "package Lib { part def SafeBelt; package Radio { part x; } }",
+		"app.sysml": "package App { public import Lib::*[@Safety]; import Radio::*; }",
+	})
+	app := scopeOf(t, idx.DocumentRoot("app.sysml"), "App")
+
+	r := judgingResolver(idx)
+	r.InCondition(func() { r.ResolveName(app, "x", ident("x")) })
+	if _, ok := r.ResolveName(app, "x", ident("x")); ok {
+		t.Error("Radio is filtered out, so x must not resolve because a condition reached Radio first")
+	}
+}
+
 func TestFilteredFailureDoesNotPoisonUnfilteredQualifiedLookup(t *testing.T) {
 	idx := indexOf(t, map[string]string{
 		"app.sysml": "package App { part x; }",

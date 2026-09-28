@@ -77,7 +77,7 @@ part def Heater {
         first start then 'set level';
         action 'set level' {
             in value;
-            assign this.level := value;
+            assign level := value;
         }
         bind 'set level'.value = delta;
     }
@@ -88,7 +88,7 @@ part def Heater {
         first start then 'set level';
         action 'set level' {
             in value;
-            assign this.level := value;
+            assign level := value;
         }
         bind 'set level'.value = value;
     }
@@ -97,7 +97,7 @@ part def Heater {
         first start then 'set level';
         action 'set level' {
             in value;
-            assign this.level := value;
+            assign level := value;
         }
         bind 'set level'.value = amount;
     }
@@ -106,7 +106,7 @@ part def Heater {
         first start then 'set level';
         action 'set level' {
             in value;
-            assign this.level := value;
+            assign level := value;
         }
         bind 'set level'.value = name;
     }
@@ -115,7 +115,7 @@ part def Heater {
         first start then 'set level';
         action 'set level' {
             in value;
-            assign this.level := value;
+            assign level := value;
         }
         bind 'set level'.value = values;
     }
@@ -134,11 +134,11 @@ part def Thermostat {
         first seven then 'send level';
         action 'send level' {
             in value;
-            send new Signals::SetLevel(value) via this.tx;
+            send new Signals::SetLevel(value) via tx;
         }
         first 'send level' then 'send stop';
         action 'send stop' {
-            send new Signals::Stop() via this.tx;
+            send new Signals::Stop() via tx;
         }
         first 'send stop' then final;
         action final terminate;

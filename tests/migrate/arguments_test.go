@@ -266,7 +266,7 @@ func TestResultsTheCalleeNeverProducesAreNotFlowedOn(t *testing.T) {
 		"in image : ScalarValues::Integer[0..1];",
 		"in value[0..1];",
 		"if value->SequenceFunctions::notEmpty() {",
-		"assign this.seen := value;",
+		"assign seen := value;",
 		"bind 'set seen'.value = image;",
 		"perform action apply ::> 'use';",
 		"/* flow fetch.image to apply.image not written: nothing in the called Cache::Fetch gives its parameter image a value */",
@@ -492,8 +492,8 @@ func TestSendsOmittingRequiredSignalAttributesAreReported(t *testing.T) {
 		"/* not migrated: SendSignalAction 'warn' — the send passes no argument for the attribute level of Alert, which must hold a value; v1 sends the signal without it, which v2 does not admit, so the action carries the token and performs nothing */",
 		"send new Alert(code, level);",
 		"/* not migrated: Interaction 'Short' — the message 'warn' binds no argument to the attribute level of Alert, which must hold a value */",
-		"action alarm send new Alert(level = 2, code = 1) to this.s;",
-		"action mixed send new Alert(tag = 7, code = 4, level = 5) to this.s;",
+		"action alarm send new Alert(level = 2, code = 1) to s;",
+		"action mixed send new Alert(tag = 7, code = 4, level = 5) to s;",
 	} {
 		wantLine(t, r.Notation, line)
 	}
@@ -501,8 +501,8 @@ func TestSendsOmittingRequiredSignalAttributesAreReported(t *testing.T) {
 	wantNoLine(t, r.Notation, "level = 4")
 	wantNote(t, r, "_sendShort", migrate.Approximated, "the send passes no argument for the attribute level of Alert, which must hold a value; v1 sends the signal without it, which v2 does not admit, so the action carries the token and performs nothing")
 	wantNote(t, r, "_short", migrate.Unmapped, "the message 'warn' binds no argument to the attribute level of Alert, which must hold a value")
-	wantNote(t, r, "_mFull", migrate.Mapped, "written as a send to this.s")
-	wantNote(t, r, "_mMixed", migrate.Mapped, "written as a send to this.s")
+	wantNote(t, r, "_mFull", migrate.Mapped, "written as a send to s")
+	wantNote(t, r, "_mMixed", migrate.Mapped, "written as a send to s")
 	if diags := errors(t, "t.sysml", r.Notation); len(diags) > 0 {
 		t.Errorf("%v", diags)
 	}
@@ -653,14 +653,14 @@ func TestUnwrittenValuesAreNotPassedToCalls(t *testing.T) {
 		"/* not migrated: ValueSpecificationAction 'zero' — the value 0 is not written: the literal \"0\" is not a value of Coords, which has no scalar base */",
 		"in target : Coords[0..1];",
 		"perform action aim ::> Sky::aim;",
-		"/* flow zero.result to aim.target not written: 'zero' is not migrated and produces no value */",
+		"flow zero.result to aim.target;",
 		"first zero then aim;",
 		"first aim then final;",
 	} {
 		wantLine(t, r.Notation, line)
 	}
 	wantNoLine(t, r.Notation, "not migrated: CallBehaviorAction 'aim'")
-	wantNoLine(t, r.Notation, "flow zero.result to aim.target;")
+	wantNote(t, r, "_of", migrate.Approximated, "the flow is written, but its source 'zero' is not migrated and produces no value")
 	wantNote(t, r, "_zero", migrate.Approximated, "the value 0 is not written: the literal \"0\" is not a value of Coords, which has no scalar base")
 	wantNote(t, r, "_callAim", migrate.Approximated, "the pin 'target' it passes for the parameter target of Sky::Aim receives none: 'zero', which feeds it, produces no value; v1 runs the callee without the value, so the parameter is declared admitting none")
 	wantNote(t, r, "_aimIn", migrate.Approximated, "it is declared admitting no value: the pin 'target' the call 'aim' in Sky::Run passes for it receives none: 'zero', which feeds it, produces no value, and v1 runs the callee without one")

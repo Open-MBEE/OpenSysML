@@ -10,7 +10,7 @@ part def Timer {
         first three then 'set t';
         action 'set t' {
             in value;
-            assign this.t := value;
+            assign t := value;
         }
         first 'set t' then final;
         action final terminate;

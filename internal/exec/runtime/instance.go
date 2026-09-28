@@ -62,6 +62,10 @@ type Instance struct {
 	// owed are the derived values this object took from its shape before
 	// materializing all their derivations read (see shared_default.go).
 	owed []owedDefault
+
+	// nested are the tails of the nested redefinitions applying below this
+	// object, each the chain rest a member of it applies (see nested_redefinition.go).
+	nested []pendingRedefinition
 }
 
 // Owner answers the object holding this one and the feature of it that does, or
@@ -337,6 +341,21 @@ func (ctx *Context) materialize(sym *symbols.Symbol, id int64, owner *Instance, 
 	// Get effective features
 	features := ctx.FeaturesOf(sym)
 
+	// A nested redefinition written on a type of this object's owner redefines a
+	// feature below it: what applies on this object overrides its shape now, and
+	// what applies below carries on it (see nested_redefinition.go).
+	pending := ctx.pendingNestedRedefinitions(owner, feature)
+	// The chains the object's own type and what it specializes declare reach
+	// its members the same way, so a valued one governs an inherited bound
+	// value (GovernedByChain) before the member materializes.
+	for _, src := range append([]*symbols.Symbol{sym}, ctx.model.semantics.MemberSources(sym)...) {
+		for _, nr := range ctx.model.semantics.NestedRedefinitionsOf(src) {
+			if len(nr.Path) > 1 {
+				pending = append(pending, pendingRedefinition{rest: nr.Path, sym: nr.Feature})
+			}
+		}
+	}
+
 	// Create instance
 	inst := &Instance{
 		ID:            id,
@@ -344,6 +363,9 @@ func (ctx *Context) materialize(sym *symbols.Symbol, id int64, owner *Instance, 
 		FeatureValues: make(map[string]*FeatureValue, len(features)),
 		owner:         owner,
 		ownerFeature:  feature,
+	}
+	if len(pending) > 0 {
+		features, inst.nested = ctx.applyNestedRedefinitions(sym, features, pending)
 	}
 
 	// Create feature value for each feature, allocated as one block.
@@ -356,7 +378,7 @@ func (ctx *Context) materialize(sym *symbols.Symbol, id int64, owner *Instance, 
 
 	// A redefining feature declares the feature it redefines again, so the two
 	// names read one feature value.
-	if err := ctx.aliasRedefinedFeatureValuesOf(inst, sym, nil); err != nil {
+	if err := ctx.aliasRedefinedFeatureValuesOf(inst, sym, nil, features); err != nil {
 		return nil, err
 	}
 
@@ -821,6 +843,9 @@ func (inst *Instance) materializeIntrinsic(ctx *Context, fv *FeatureValue, name 
 	if restated := ctx.restatedInValuedBody(fv.Feature); restated != "" {
 		return nil, fmt.Errorf("feature value %s.%s: %w: %s", inst.Type.Name, name, ErrValuedFeatureRestated, restated)
 	}
+	if restated := ctx.restatedByNestedChain(inst, name, fv.Feature); restated != "" {
+		return nil, fmt.Errorf("feature value %s.%s: %w: %s", inst.Type.Name, name, ErrValuedFeatureRestated, restated)
+	}
 
 	// A `default` applies only where nothing else populates the feature: the
 	// members subsetting it do (KerML 1.0 §7.3.4.5).
@@ -1163,37 +1188,13 @@ func untypedPortUsage(sym *symbols.Symbol) bool {
 
 // isSubjectUsage reports whether sym is the subject parameter of a case.
 func isSubjectUsage(sym *symbols.Symbol) bool {
-	if sym == nil {
-		return false
-	}
-	switch decl := sym.Decl.(type) {
-	case *ast.SubjectMember:
-		return true
-	case *ast.Usage:
-		return decl.Kind == ast.UsageSubject
-	}
-	return false
+	return semantics.IsSubjectUsage(sym)
 }
 
 // isReferenceUsage reports a usage declared `ref` or with a `references` relationship
 // (SysML v2 §7.6.2: Usage::isReference), which owns none of the objects it holds.
 func isReferenceUsage(sym *symbols.Symbol) bool {
-	if sym == nil {
-		return false
-	}
-	usage, ok := sym.Decl.(*ast.Usage)
-	if !ok {
-		return false
-	}
-	if usage.IsReference {
-		return true
-	}
-	for _, rel := range usage.Relationships {
-		if rel != nil && rel.Kind == ast.RelReferences {
-			return true
-		}
-	}
-	return false
+	return semantics.IsReferenceUsage(sym)
 }
 
 // declaresFeatures reports whether a usage's own body restates or adds features,
@@ -1224,6 +1225,9 @@ func (ctx *Context) valueBinds(feat *EffectiveFeature) bool {
 // bodyGovernsInheritedValue reports whether a feature's own body values what the value
 // it inherits from the declaration it redefines would supply, superseding that value.
 func (ctx *Context) bodyGovernsInheritedValue(feat *EffectiveFeature) bool {
+	if feat.GovernedByChain {
+		return true
+	}
 	if feat.Symbol == nil || feat.DefaultDecl == nil || feat.DefaultDecl == feat.Symbol {
 		return false
 	}
@@ -1242,6 +1246,26 @@ func (ctx *Context) restatedInValuedBody(feat *EffectiveFeature) string {
 		return ""
 	}
 	return ctx.restatedValueInBody(feat.Symbol, feat.Type)
+}
+
+// restatedByNestedChain returns the next segment of a nested redefinition a
+// type of inst applies below the value-bound feature name — a bound value
+// supplies the feature's own features, so a chain redefining one below it
+// states two values as a restating body would — or "" when none does.
+func (ctx *Context) restatedByNestedChain(inst *Instance, name string, feat *EffectiveFeature) string {
+	if feat.Symbol == nil {
+		return ""
+	}
+	decl, ok := feat.Symbol.Decl.(*ast.Usage)
+	if !ok || decl.Value == nil {
+		return ""
+	}
+	for _, p := range ctx.pendingNestedRedefinitions(inst, name) {
+		if len(p.rest) > 0 && valuedChain(p) && !ctx.chainGovernsValue(p.sym, feat.Symbol) {
+			return p.rest[0]
+		}
+	}
+	return ""
 }
 
 // restatedValueInBody returns the name of a feature the body of sym values
@@ -1365,6 +1389,11 @@ func (ctx *Context) evalFeatureValueDefault(inst *Instance, fv *FeatureValue, na
 		scope = inst.Type.OwnerScope
 	}
 	ec := NewEvalContextIn(ctx, scope, inst)
+	if object := ctx.model.resolver.ThisContext(scope); object != nil && isBehaviorDefKind(object.Kind) {
+		// A feature default written in a behavior def sees `this` as the
+		// def's own occurrence, which the instance being evaluated is.
+		ec.occurrence = inst
+	}
 	defer ec.beginStep()()
 	val, err := ec.Eval(fv.Feature.DefaultValue)
 	if err != nil {
