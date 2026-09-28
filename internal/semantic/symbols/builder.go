@@ -309,7 +309,7 @@ func buildBehaviorDecl(scope *Scope, decl ast.Node, vis ast.Visibility, trivia [
 			// through NameSpan and jumps to DeclSpan.
 			child.Define(d.Variable.Name, &Symbol{
 				Name:       d.Variable.Name,
-				Kind:       SymbolAttributeUsage,
+				Kind:       SymbolReferenceUsage,
 				Decl:       d,
 				DeclSpan:   d.Variable.NameSpan,
 				NameSpan:   d.Variable.NameSpan,
@@ -837,6 +837,12 @@ func classifyUsage(u *ast.Usage) SymbolKind {
 	// NOT: datatype MyReal :>> Real; (this has subsets, stays as usage)
 	if hasSpecializes && !hasTyping && !hasSubsetsOrRedefines {
 		return SymbolAttributeDef
+	}
+
+	// A usage declared without a kind keyword is a ReferenceUsage (SysML v2
+	// §7.6.4); a directed one is referential whatever it declares (§7.6.3).
+	if u.Keyword == "" {
+		return SymbolReferenceUsage
 	}
 
 	// Default: treat as usage

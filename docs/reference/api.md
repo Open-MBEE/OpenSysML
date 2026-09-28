@@ -973,6 +973,7 @@ kind at all, and then reports **no** `@type`: it is answered, but never matches 
 | `package`, `namespace` | `Package`, `Namespace` |
 | `partDef` / `partUsage` | `PartDefinition` / `PartUsage` |
 | `attributeDef` / `attributeUsage` | `AttributeDefinition` / `AttributeUsage` |
+| `referenceUsage` | `ReferenceUsage` (a usage declared with no kind keyword, `ref` included) |
 | `itemDef` / `itemUsage` | `ItemDefinition` / `ItemUsage` |
 | `occurrenceDef` / `occurrenceUsage` | `OccurrenceDefinition` / `OccurrenceUsage` |
 | `portDef` / `portUsage` | `PortDefinition` / `PortUsage` |
