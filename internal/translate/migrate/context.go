@@ -70,6 +70,7 @@ func (m *migration) contextOf(b *sysmlv1.Element) *behaviorContext {
 	}
 	if b.Type != "Activity" {
 		c := m.ownerContext(b)
+		m.contexts[b] = c
 		if c != nil && m.usesFeaturesOf(b, c.classifier) {
 			c.used = true
 		}
@@ -78,7 +79,6 @@ func (m *migration) contextOf(b *sysmlv1.Element) *behaviorContext {
 				c.used = true
 			}
 		}
-		m.contexts[b] = c
 		return c
 	}
 	if m.visiting[b] != nil {

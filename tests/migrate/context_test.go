@@ -403,6 +403,11 @@ func TestContextBoundCallUsesItsLexicalContext(t *testing.T) {
 	}
 }
 
+func TestRecursiveContextCallSettlesContextBeforeFollowingCalls(t *testing.T) {
+	r := migrateFixtureFile(t, "recursive_context_call")
+	wantLine(t, r.Notation, "action 'recursive call' : View { in ref :>> context = View::context; }")
+}
+
 // hostlessCaller is a Console, no Host and holding none, whose Drive calls Relay
 // and whose machine runs Hit as a state's do behavior, then sets `ran`.
 const hostlessCaller = `

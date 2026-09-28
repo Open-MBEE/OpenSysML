@@ -315,6 +315,7 @@ var constructFixtures = []string{
 	"swimlane_context_calls",
 	"nested_context",
 	"context_bound_call",
+	"recursive_context_call",
 	"rig_interactions",
 	"heater_receptions",
 	"accept_via_context_port",
