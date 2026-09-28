@@ -16,8 +16,16 @@ const MigrationNotice = "SysML v1 migration is experimental: the mapping covers 
 	"approximates or leaves behind, and what it writes for a v1 element may change without a " +
 	"compatibility path; see docs/reference/sysml-v1-migration.md § Status"
 
+// FMINotice is the wording every surface reports the FMI model import's
+// status in.
+const FMINotice = "FMI model import is experimental: an FMU's model description becomes a calc " +
+	"def, its variables, experiment and outputs the parameters and @ToolVariable bindings, " +
+	"structural parameters, arrays, Binary and Clock values comments where they stood, and " +
+	"what the import writes may change without a compatibility path; see docs/reference/fmi.md"
+
 // IsExperimental reports whether a conversion between these formats goes
-// through the RDF mapping or the SysML v1 migration. Notation to notation does not.
+// through the RDF mapping, the SysML v1 migration or the FMI model import.
+// Notation to notation does not.
 func IsExperimental(from, to Format) bool {
 	return from == FormatTurtle || to == FormatTurtle ||
 		from == FormatAPIJSON || to == FormatAPIJSON || from == FormatXMI || from == FormatFMU
@@ -30,8 +38,11 @@ func Notices(from, to Format) []string {
 	if from == FormatXMI {
 		notices = append(notices, MigrationNotice)
 	}
-	if from == FormatTurtle || to == FormatTurtle || from == FormatAPIJSON || to == FormatAPIJSON || from == FormatFMU {
+	if from == FormatTurtle || to == FormatTurtle || from == FormatAPIJSON || to == FormatAPIJSON {
 		notices = append(notices, ExperimentalNotice)
+	}
+	if from == FormatFMU {
+		notices = append(notices, FMINotice)
 	}
 	return notices
 }

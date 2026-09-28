@@ -40,6 +40,9 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
+# The reference FMI runner's simulator: opensysml.fmi_runner is the executable
+# OPENSYSML_FMI_RUNNER names (see docs/reference/fmi.md).
+fmi = ["fmpy>=0.3.32"]
 dev = [
     "pytest>=7.0.0",
     "pytest-mock>=3.10.0",
@@ -63,6 +66,7 @@ dev = [
 
 [project.scripts]
 opensysml-generate = "opensysml.generate:main"
+opensysml-fmi-runner = "opensysml.fmi_runner:main"
 
 [project.urls]
 Homepage = "https://github.com/Open-MBEE/OpenSysML"
@@ -94,4 +98,11 @@ markers = [
 python_version = "3.10"
 files = ["opensysml"]
 warn_unused_ignores = true
+
+# fmpy ships no stubs: the runner is the only importer, and its calls are what
+# the fmi/1 protocol shapes, so the missing import is ignored rather than the
+# call sites silenced one by one.
+[[tool.mypy.overrides]]
+module = ["fmpy", "fmpy.*"]
+ignore_missing_imports = true
 

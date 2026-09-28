@@ -133,6 +133,27 @@ Four names carry the experiment rather than a model variable:
 | `fmi:tolerance` | input | the solver tolerance — only when declared |
 | `fmi:time` | output | the reply's `time` — bound when the FMU declares no output |
 
+## Reference runner
+
+A reference runner ships with the Python client; `pip install opensysml[fmi]` installs FMPy and
+the `opensysml-fmi-runner` executable, which simulates co-simulation and model-exchange FMUs
+(scheduled execution is refused with a named error):
+
+```console
+$ pip install opensysml[fmi]
+$ export OPENSYSML_FMI_RUNNER=opensysml-fmi-runner
+```
+
+Try it over the Modelica Reference-FMUs, downloaded by a script beside the other corpus
+downloaders (`examples/reference-fmus/` is gitignored; `OPENSYSML_REQUIRE_REFERENCE_FMUS=1`
+turns its absence in the gate into a failure rather than a skip):
+
+```console
+$ ./scripts/download-reference-fmus.sh
+$ sysml -convert sysml examples/reference-fmus/2.0/BouncingBall.fmu > bouncing.sysml
+$ sysml -calc 'BouncingBall::BouncingBall' bouncing.sysml
+```
+
 ## Limitations
 
 - The runner is external and the FMU is never loaded in-process: no FMI calls cross into
