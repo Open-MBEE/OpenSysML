@@ -1,8 +1,12 @@
 package export_test
 
 import (
+	"encoding/json"
 	"strings"
 	"testing"
+
+	"github.com/Open-MBEE/OpenSysML/internal/translate/convert"
+	"github.com/Open-MBEE/OpenSysML/internal/translate/export"
 )
 
 const verifyModel = `package V {
@@ -56,5 +60,65 @@ func TestVerifyIsARequirementVerificationMembership(t *testing.T) {
 	if strings.Contains(notation, "satisfy r") || strings.Contains(notation, "satisfy requirement") ||
 		strings.Contains(notation, "verify requirement subsets r redefines") {
 		t.Errorf("`verify r` came back as a satisfy:\n%s", notation)
+	}
+}
+
+// toolkitCompact rewrites this tool's element form the way the toolkit's
+// compact element form states a model: UUID ids, only the owning links and the
+// relationship ends, no collapsed properties and no sysx: ones.
+func toolkitCompact(t *testing.T, src string) []byte {
+	t.Helper()
+	full, err := convert.ConvertWith("m.sysml", []byte(src), convert.FormatSysML, convert.FormatAPIJSON, convert.Options{ID: export.IDUUID})
+	if err != nil {
+		t.Fatal(err)
+	}
+	var elements []map[string]any
+	if err := json.Unmarshal(full, &elements); err != nil {
+		t.Fatal(err)
+	}
+	keep := map[string]bool{
+		"@id": true, "@type": true, "elementId": true, "declaredName": true,
+		"ownedRelationship": true, "owningRelationship": true, "ownedRelatedElement": true, "owningRelatedElement": true,
+		"referencedFeature": true, "subsettingFeature": true, "subsettedFeature": true,
+		"redefinedFeature": true, "redefiningFeature": true, "type": true, "typedFeature": true,
+		"general": true, "specific": true, "memberElement": true, "kind": true,
+	}
+	compact := make([]map[string]any, 0, len(elements))
+	for _, element := range elements {
+		out := map[string]any{"isImpliedIncluded": false}
+		for key, value := range element {
+			if !keep[key] {
+				continue
+			}
+			if one, isObject := value.(map[string]any); isObject && (key == "ownedRelationship" || key == "ownedRelatedElement") {
+				value = []any{one}
+			}
+			out[key] = value
+		}
+		compact = append(compact, out)
+	}
+	document, err := json.Marshal(compact)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return document
+}
+
+// The toolkit's compact form states a `verify` by its membership and a
+// ReferenceSubsetting alone, with no sysx:endForm: each form still reads back
+// as written (review finding).
+func TestToolkitVerifyFormsDecode(t *testing.T) {
+	back, err := convert.Convert("m.json", toolkitCompact(t, verifyModel), convert.FormatAPIJSON, convert.FormatSysML)
+	if err != nil {
+		t.Fatalf("toolkit compact decode: %v", err)
+	}
+	notation := string(back)
+	for _, want := range []string{"verify r;\n", "verify requirement v : Q;\n", "verify r redefines req;\n", "verify requirement subsets r;\n", "satisfy q by s;\n"} {
+		if !strings.Contains(notation, want) {
+			t.Errorf("the notation should contain %q:\n%s", want, notation)
+		}
+	}
+	if strings.Contains(notation, "references r") {
+		t.Errorf("a verification reference came back as a declaration:\n%s", notation)
 	}
 }

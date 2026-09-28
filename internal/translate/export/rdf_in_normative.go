@@ -469,9 +469,13 @@ func (d *decoder) verifiedReference(el *element) bool {
 	if !d.verifiedRequirement(el) {
 		return false
 	}
-	for _, relationship := range d.graph.Objects(rdf.IRI(el.iri), rdf.SysML+pOwnedReferenceSubsetting) {
-		if d.metaclass(relationship) == mReferenceSubsetting {
-			return true
+	// ownedReferenceSubsetting is derived: the toolkit's compact form states
+	// only the ownedRelationship it is one of.
+	for _, property := range []string{pOwnedReferenceSubsetting, pOwnedRelationship} {
+		for _, relationship := range d.graph.Objects(rdf.IRI(el.iri), rdf.SysML+property) {
+			if d.metaclass(relationship) == mReferenceSubsetting {
+				return true
+			}
 		}
 	}
 	return false
