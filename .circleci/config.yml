@@ -378,6 +378,12 @@ jobs:
       - install-solvers
       - download-corpora
 
+      # The FMI gate's runner is a Python subprocess over FMPy, which the
+      # coverage pass needs installed the same way the race job does.
+      - run:
+          name: Install fmpy
+          command: pip install --only-binary ":all:" fmpy==0.3.32
+
       - run:
           name: Write the coverage profile the scan reads
           command: make coverage
