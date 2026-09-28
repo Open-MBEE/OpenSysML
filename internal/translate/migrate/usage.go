@@ -223,6 +223,7 @@ func (m *migration) readsOwner(b *sysmlv1.Element) bool {
 	return reads
 }
 
+// readsFeaturesOf finds direct feature reads; unlike usesFeaturesOf, it does not follow calls.
 func (m *migration) readsFeaturesOf(b, c *sysmlv1.Element) bool {
 	uses := false
 	m.walkActions(b, func(e *sysmlv1.Element) {
@@ -234,7 +235,7 @@ func (m *migration) readsFeaturesOf(b, c *sysmlv1.Element) bool {
 				uses = true
 			}
 		case "OpaqueAction":
-			if opaqueUsesOwnerFeature(e, c, m) {
+			if m.opaqueUsesOwnerFeature(e, c) {
 				uses = true
 			}
 		}

@@ -92,6 +92,7 @@ func (m *migration) nameMachine(sm *sysmlv1.Element) map[string]bool {
 	return used
 }
 
+// prepareRelocatedTransitions indexes transitions under the state scope that writes them.
 func (m *migration) prepareRelocatedTransitions(sm *sysmlv1.Element) {
 	var walk func(*sysmlv1.Element)
 	walk = func(e *sysmlv1.Element) {
@@ -306,7 +307,7 @@ func (m *migration) entryPointForm(v, owner *sysmlv1.Element) pointForm {
 		if without := regionsWithoutInitial(m.populatedRegions(owner)); len(without) > 0 {
 			note += "; no initial pseudostate starts the " + pluralRegion(len(without)) + " " + strings.Join(without, ", ") + ", which v1 too leaves inactive on entering the state"
 		}
-		if without := regionsWithoutOrthogonalInitialEntry(m, m.populatedRegions(owner)); len(without) > 0 {
+		if without := m.regionsWithoutOrthogonalInitialEntry(m.populatedRegions(owner)); len(without) > 0 {
 			note += "; the initial target in the " + pluralRegion(len(without)) + " " + strings.Join(without, ", ") + " is in an orthogonal region, so no entry is written for it"
 		}
 		return pointForm{defaultEntry: true, note: note}
@@ -603,8 +604,8 @@ func (m *migration) regions(owner *sysmlv1.Element, regions []*sysmlv1.Element, 
 	default:
 		name := m.parallel[regions[0]]
 		withoutInitial := regionsWithoutInitial(regions)
-		withoutOrthogonal := regionsWithoutOrthogonalInitialEntry(m, regions)
-		withoutEntry := append(withoutInitial, withoutOrthogonal...)
+		withoutOrthogonal := m.regionsWithoutOrthogonalInitialEntry(regions)
+		withoutEntry := slices.Concat(withoutInitial, withoutOrthogonal)
 		if len(withoutEntry) == 0 {
 			m.w.line(entryThen(entered, "", writeName(name)))
 		} else if len(withoutOrthogonal) == 0 {
@@ -650,7 +651,7 @@ func regionsWithoutInitial(regions []*sysmlv1.Element) []string {
 }
 
 // regionsWithoutOrthogonalInitialEntry names regions whose initial targets an orthogonal region.
-func regionsWithoutOrthogonalInitialEntry(m *migration, regions []*sysmlv1.Element) []string {
+func (m *migration) regionsWithoutOrthogonalInitialEntry(regions []*sysmlv1.Element) []string {
 	var out []string
 	for _, r := range regions {
 		var initial *sysmlv1.Element
@@ -1912,6 +1913,7 @@ func (m *migration) referencedBehavior(kw, head string, b, owner *sysmlv1.Elemen
 		}
 	}
 	if contextIn != "" {
+		// The context redefinition follows the parameter bindings.
 		ins = append(ins, contextIn)
 	}
 	line := head + " : " + m.ref(b, owner)
@@ -1953,10 +1955,6 @@ func (m *migration) parameterIns(kw string, b, owner *sysmlv1.Element, params []
 // its name qualified from the state def down, which resolves from any region
 // of the machine; false for a vertex of another machine or one not written.
 func (s *stateRegion) path(v *sysmlv1.Element) (string, bool) {
-	return s.pathWithSeparator(v, ".")
-}
-
-func (s *stateRegion) pathWithSeparator(v *sysmlv1.Element, separator string) (string, bool) {
 	name, ok := s.m.vertexNames[v]
 	if !ok || machineOf(v) != s.machine {
 		return "", false
@@ -1969,9 +1967,10 @@ func (s *stateRegion) pathWithSeparator(v *sysmlv1.Element, separator string) (s
 	if base == nil {
 		base = s.machine
 	}
-	return qualifiedStatePathWithSeparator(segs[len(s.m.segments(base)):], separator), true
+	return qualifiedStatePathWithSeparator(segs[len(s.m.segments(base)):], "."), true
 }
 
+// qualifiedStatePathWithSeparator joins state path segments with the requested separator.
 func qualifiedStatePathWithSeparator(segs []string, separator string) string {
 	parts := make([]string, len(segs))
 	for i, seg := range segs {
@@ -1983,11 +1982,7 @@ func qualifiedStatePathWithSeparator(segs []string, separator string) string {
 // endpoint names an end of a transition that is a state or a pseudostate
 // written as a member, noting on t when it lies outside the region.
 func (s *stateRegion) endpoint(t, v *sysmlv1.Element, role string) (string, bool) {
-	return s.endpointWithSeparator(t, v, role, ".")
-}
-
-func (s *stateRegion) endpointWithSeparator(t, v *sysmlv1.Element, role, separator string) (string, bool) {
-	p, ok := s.pathWithSeparator(v, separator)
+	p, ok := s.path(v)
 	if !ok {
 		return "", false
 	}
@@ -2227,6 +2222,7 @@ func (s *stateRegion) transition(t *sysmlv1.Element) {
 	s.m.add(t, verdictFor(note), s.m.edgeTarget(t), joinNotes(note, strings.Join(info, "; ")))
 }
 
+// relocationHost returns the common state scope where a transition's endpoints can be named.
 func (s *stateRegion) relocationHost(src, tgt *sysmlv1.Element) *sysmlv1.Element {
 	if memberOwner(src) == s.r && memberOwner(tgt) == s.r {
 		return nil
@@ -2238,6 +2234,7 @@ func (s *stateRegion) relocationHost(src, tgt *sysmlv1.Element) *sysmlv1.Element
 	return host
 }
 
+// commonStateScope returns the nearest state or machine scope shared by both vertices.
 func commonStateScope(src, tgt *sysmlv1.Element) *sysmlv1.Element {
 	scope := func(vertex *sysmlv1.Element) *sysmlv1.Element {
 		for cur := memberOwner(vertex); cur != nil; cur = cur.Parent {
@@ -2265,6 +2262,7 @@ func commonStateScope(src, tgt *sysmlv1.Element) *sysmlv1.Element {
 	return nil
 }
 
+// writeRelocatedTransitions writes transitions deferred to their common state scope.
 func (m *migration) writeRelocatedTransitions(host *sysmlv1.Element) {
 	transitions := m.relocated[host]
 	if len(transitions) == 0 {

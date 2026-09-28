@@ -51,6 +51,7 @@ func (m *migration) contextOf(b *sysmlv1.Element) *behaviorContext {
 	if c, settled := m.contexts[b]; settled {
 		return c
 	}
+	// Under a usage's body the object's features resolve on this.
 	for cur := b; cur != nil; cur = cur.Parent {
 		if m.asUsage[cur] || m.asUsage[m.methodOf[cur]] {
 			m.contexts[b] = nil
@@ -95,6 +96,7 @@ func (m *migration) ownerContext(e *sysmlv1.Element) *behaviorContext {
 	if e == nil || !defScope(e) {
 		return nil
 	}
+	// Under a usage's body the object's features resolve on this.
 	for cur := e; cur != nil; cur = cur.Parent {
 		if m.asUsage[cur] {
 			return nil
@@ -329,6 +331,7 @@ func (m *migration) contextIns(c *behaviorContext, scope *sysmlv1.Element) (ins,
 	if c == nil {
 		return "", ""
 	}
+	// A def already written, whose body never read its owner: no parameter was declared, so nothing binds it.
 	if c.owner && c.evaluated && !c.used && !c.bound {
 		return "", ""
 	}
@@ -336,12 +339,12 @@ func (m *migration) contextIns(c *behaviorContext, scope *sysmlv1.Element) (ins,
 	if dc := m.selfContext(scope); dc != nil {
 		self, selfType = m.qualifiedContext(dc, scope), dc.classifier
 	}
-	expr, note := m.contextBinding(c, selfType, self)
+	expr, cnote := m.contextBinding(c, selfType, self)
 	if expr == "" {
-		return "", note
+		return "", cnote
 	}
 	c.bound = true
-	return "in ref :>> " + writeName(c.name) + " = " + expr, note
+	return "in ref :>> " + writeName(c.name) + " = " + expr, cnote
 }
 
 // visitContext reaches b and, through it, the behaviors it calls; once every call
@@ -475,6 +478,7 @@ func (m *migration) usesFeaturesOf(b, c *sysmlv1.Element) bool {
 	return m.usesFeaturesOfSeen(b, c, map[*sysmlv1.Element]bool{})
 }
 
+// usesFeaturesOfSeen follows calls and operation methods while avoiding cycles.
 func (m *migration) usesFeaturesOfSeen(b, c *sysmlv1.Element, seen map[*sysmlv1.Element]bool) bool {
 	if b == nil || c == nil || seen[b] {
 		return false
@@ -510,7 +514,7 @@ func (m *migration) usesFeaturesOfSeen(b, c *sysmlv1.Element, seen map[*sysmlv1.
 				}
 			}
 		case "OpaqueAction", "OpaqueExpression":
-			if opaqueUsesFeature(e, c, m) {
+			if m.opaqueUsesFeature(e, c) {
 				uses = true
 			}
 		case "DurationConstraint":
@@ -519,27 +523,27 @@ func (m *migration) usesFeaturesOfSeen(b, c *sysmlv1.Element, seen map[*sysmlv1.
 				return
 			}
 			for _, endpoint := range []string{"min", "max"} {
-				if d := m.model.Ref(spec, endpoint); d != nil && opaqueUsesFeature(d, c, m) {
+				if d := m.model.Ref(spec, endpoint); d != nil && m.opaqueUsesFeature(d, c) {
 					uses = true
 				}
 			}
 		}
 	})
-	if !uses && (b.Type == "OpaqueBehavior" || b.Type == "FunctionBehavior") && opaqueUsesFeature(b, c, m) {
+	if !uses && (b.Type == "OpaqueBehavior" || b.Type == "FunctionBehavior") && m.opaqueUsesFeature(b, c) {
 		uses = true
 	}
 	return uses
 }
 
-func opaqueUsesFeature(e, c *sysmlv1.Element, m *migration) bool {
-	return opaqueUsesFeatureScope(e, c, m, true)
+func (m *migration) opaqueUsesFeature(e, c *sysmlv1.Element) bool {
+	return m.opaqueUsesFeatureScope(e, c, true)
 }
 
-func opaqueUsesOwnerFeature(e, c *sysmlv1.Element, m *migration) bool {
-	return opaqueUsesFeatureScope(e, c, m, false)
+func (m *migration) opaqueUsesOwnerFeature(e, c *sysmlv1.Element) bool {
+	return m.opaqueUsesFeatureScope(e, c, false)
 }
 
-func opaqueUsesFeatureScope(e, c *sysmlv1.Element, m *migration, includeLane bool) bool {
+func (m *migration) opaqueUsesFeatureScope(e, c *sysmlv1.Element, includeLane bool) bool {
 	if e == nil {
 		return false
 	}
@@ -547,7 +551,7 @@ func opaqueUsesFeatureScope(e, c *sysmlv1.Element, m *migration, includeLane boo
 	if body == "" {
 		switch e.Type {
 		case "Duration":
-			return opaqueUsesFeatureScope(firstOwned(e, "expr"), c, m, includeLane)
+			return m.opaqueUsesFeatureScope(firstOwned(e, "expr"), c, includeLane)
 		case "LiteralString":
 			body = e.Attrs["value"]
 		}
