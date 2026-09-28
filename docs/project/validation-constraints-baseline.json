@@ -754,7 +754,7 @@
     {
       "name": "validatePartUsagePartDefinition",
       "source": "sysml",
-      "status": "unknown"
+      "status": "faithful"
     },
     {
       "name": "validatePartUsageType",
