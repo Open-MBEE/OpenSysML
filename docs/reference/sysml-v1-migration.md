@@ -1847,7 +1847,9 @@ standard encoding cannot hold a signal back from either, so the enclosing state'
 takes each occurrence it can fire on, and a transition of another region fires on an occurrence
 the loop keeps as well — the note names the transition, so the difference is on record. Only a
 transition the migration
-writes takes a signal: one it refuses — into a final state of another region, a state of
+writes takes a signal, whatever it is written to — a transition into a terminate pseudostate,
+written to `done`, or into a submachine state through a connection point reference, written to
+the entry point's state, counts as any other: one it refuses — into a final state of another region, a state of
 another machine, a vertex whose ends it refuses, or, under `-strict`, a pseudostate with no v2
 form such as a choice — takes none, so the deferral keeps every route it would have accepted
 by; nor does such a completion transition drop the deferral. This is the one point where the

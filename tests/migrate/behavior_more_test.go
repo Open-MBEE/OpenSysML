@@ -2381,3 +2381,63 @@ func TestDeferralNotesTransitionsItCannotOutrank(t *testing.T) {
 		t.Errorf("the Ping sent while LWait was active did not both fire the sibling region's transition and stay kept:\n%s", out)
 	}
 }
+
+// A transition the writer names by a route other than a vertex's own name —
+// into a terminate pseudostate, written to done, or into a submachine state
+// through a connection point reference, written to the entry point's state —
+// counts as written for the deferral analysis as any other: an unguarded
+// completion transition of either kind drops the deferral, since the accept
+// loop would never let it fire, and a triggered one takes the signal.
+func TestDeferralCountsTransitionsToUnnamedTargets(t *testing.T) {
+	const terminating = `
+    <packagedElement xmi:type="uml:Signal" xmi:id="_door" name="Door"/>
+    <packagedElement xmi:type="uml:SignalEvent" xmi:id="_doorEv" signal="_door"/>
+    <packagedElement xmi:type="uml:Class" xmi:id="_oven" name="Oven" classifierBehavior="_sm">
+      <ownedBehavior xmi:type="uml:StateMachine" xmi:id="_sm" name="Run">
+        <region xmi:type="uml:Region" xmi:id="_r0">
+          <subvertex xmi:type="uml:Pseudostate" xmi:id="_init"/>
+          <subvertex xmi:type="uml:State" xmi:id="_off" name="Off">
+            <deferrableTrigger xmi:type="uml:Trigger" xmi:id="_dDoor" event="_doorEv"/>
+          </subvertex>
+          <subvertex xmi:type="uml:Pseudostate" xmi:id="_end" kind="terminate"/>
+          <transition xmi:type="uml:Transition" xmi:id="_t0" source="_init" target="_off"/>
+          <transition xmi:type="uml:Transition" xmi:id="_tEnd" source="_off" target="_end"/>
+        </region>
+      </ownedBehavior>
+    </packagedElement>`
+	r := migrateDocumentOptions(t, terminating, `<sysml:Block xmi:id="_b1" base_Class="_oven"/>`, migrate.Options{})
+	wantLine(t, r.Notation, "transition first Off then done;")
+	wantNoLine(t, r.Notation, "item deferred : Door[*] ordered;")
+	wantNote(t, r, "_dDoor", migrate.Unmapped, "the completion transition (_tEnd) leaves the state once its do action ends, which the accept loop that would keep Door never lets it, so the deferral is dropped")
+
+	deferring := strings.Replace(nestedMachines, `<subvertex xmi:type="uml:State" xmi:id="_nfIdle" name="Idle"/>`,
+		`<subvertex xmi:type="uml:State" xmi:id="_nfIdle" name="Idle">
+            <deferrableTrigger xmi:type="uml:Trigger" xmi:id="_dGo" event="_ngoEv"/>
+          </subvertex>`, 1)
+	r = migrateDocumentOptions(t, deferring, nestedMachinesApplications, migrate.Options{})
+	wantLine(t, r.Notation, "transition first Idle accept Go then Sub::start2;")
+	wantNoLine(t, r.Notation, "item deferred : Go[*] ordered;")
+	wantNote(t, r, "_dGo", migrate.Approximated, "the transition (_nfT1) out of the state accepts the signal, which in v1 takes precedence over deferring it, so the state does not keep it")
+
+	completing := strings.Replace(deferring, `<transition xmi:type="uml:Transition" xmi:id="_nfT1" source="_nfIdle" target="_nfRef">
+            <trigger xmi:type="uml:Trigger" xmi:id="_nfTr1" event="_ngoEv"/>
+          </transition>`, `<transition xmi:type="uml:Transition" xmi:id="_nfT1" source="_nfIdle" target="_nfRef"/>`, 1)
+	if completing == deferring {
+		t.Fatal("the triggered transition into the connection point reference was not made a completion transition")
+	}
+	r = migrateDocumentOptions(t, completing, nestedMachinesApplications, migrate.Options{})
+	wantLine(t, r.Notation, "transition first Idle then Sub::start2;")
+	wantNoLine(t, r.Notation, "item deferred : Go[*] ordered;")
+	wantNote(t, r, "_dGo", migrate.Unmapped, "the completion transition (_nfT1) leaves the state once its do action ends, which the accept loop that would keep Go never lets it, so the deferral is dropped")
+	wantClean(t, "deferralCompletionIntoSubmachine", r)
+
+	s := session(t, r)
+	meta(t, s, "%instantiate Rig")
+	meta(t, s, "%state Rig::Front")
+	for i := 0; i < 6 && !strings.Contains(meta(t, s, "%current"), "Sub"); i++ {
+		meta(t, s, "%step")
+	}
+	if out := meta(t, s, "%current"); !strings.Contains(out, "Sub") {
+		t.Errorf("Idle did not complete into the submachine state:\n%s", out)
+	}
+}

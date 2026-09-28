@@ -1510,8 +1510,9 @@ func (s *stateRegion) outrankedBy(v, sig *sysmlv1.Element) (t *sysmlv1.Element, 
 // transitionWritten reports whether transition t is one the output writes, so
 // it accepts its trigger or completes its source: its ends resolve as
 // transitionEnds requires, and its target is one target names — a state of the
-// machine, a final state of the transition's own region, or a pseudostate with
-// a v2 form.
+// machine, a final or terminate state of the transition's own region, a
+// pseudostate with a v2 form, or a connection point reference into a
+// submachine state. It decides as target does, noting nothing.
 func (s *stateRegion) transitionWritten(t *sysmlv1.Element) bool {
 	src, tgt := s.m.model.Ref(t, "source"), s.m.model.Ref(t, "target")
 	internal := t.Attrs["kind"] == "internal"
@@ -1524,13 +1525,63 @@ func (s *stateRegion) transitionWritten(t *sysmlv1.Element) bool {
 	if internal && (src.Type != "State" || tgt != src) {
 		return false
 	}
+	named := func(v *sysmlv1.Element) bool {
+		_, ok := s.path(v)
+		return ok
+	}
 	switch tgt.Type {
 	case "FinalState":
 		return tgt.Parent == t.Parent
+	case "State":
+		return named(tgt)
 	case "Pseudostate":
-		return s.m.extensionVertex(tgt) == "" && s.m.points[tgt].why == ""
+		switch pseudoKind(tgt) {
+		case "terminate":
+			return true
+		case "exitPoint":
+			return s.m.points[tgt].why == "" && (named(tgt) || pointOwner(tgt).Type != "State")
+		case "entryPoint":
+			f := s.m.points[tgt]
+			if f.why != "" {
+				return false
+			}
+			if f.defaultEntry {
+				return named(pointOwner(tgt))
+			}
+			return named(tgt)
+		case "choice", "junction", "shallowHistory", "deepHistory":
+			return s.m.extensionVertex(tgt) == "" && named(tgt)
+		case "fork", "join":
+			return named(tgt)
+		}
+	case "ConnectionPointReference":
+		return s.connectionWritten(tgt, "entry")
 	}
-	_, ok := s.path(tgt)
+	return false
+}
+
+// connectionWritten reports whether a transition through connection point
+// reference v, as role, is one connection writes: the reference lies in a
+// submachine state that is written, and names a connection point of the
+// submachine as its role.
+func (s *stateRegion) connectionWritten(v *sysmlv1.Element, role string) bool {
+	st := v.Parent
+	if st == nil || st.Type != "State" {
+		return false
+	}
+	sub := s.m.model.Ref(st, "submachine")
+	if sub == nil || !s.m.written(sub) {
+		return false
+	}
+	points := s.m.model.Refs(v, role)
+	if len(points) == 0 {
+		return false
+	}
+	s.m.nameMachine(sub)
+	if _, ok := s.m.vertexNames[points[0]]; !ok || machineOf(points[0]) != sub {
+		return false
+	}
+	_, ok := s.path(st)
 	return ok
 }
 
