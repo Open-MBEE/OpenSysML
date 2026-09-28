@@ -254,10 +254,11 @@ func (m *migration) probabilityProperty(body, e *sysmlv1.Element) *sysmlv1.Eleme
 
 // propertyHolder spells the one object holding the property p in reach of a
 // body acting on self, an object of selfType: self itself when p is its
-// feature, else its one part that holds one and is exactly one object. It is
-// "" when no object in reach holds p, why then saying so once the part that
-// does may hold several objects or none, or a number of them that cannot be
-// told, since a read through such a part is not one value.
+// feature, else its one part that holds one, is exactly one object and is a
+// feature the object inherits. It is "" when no object in reach holds p, why
+// then saying so once the part that does is private to a general, which v2
+// does not inherit, or may hold several objects or none, or a number of them
+// that cannot be told, since a read through such a part is not one value.
 func (m *migration) propertyHolder(p, selfType *sysmlv1.Element, self string) (expr, why string) {
 	if p.Parent == nil || selfType == nil {
 		return "", ""
@@ -267,6 +268,9 @@ func (m *migration) propertyHolder(p, selfType *sysmlv1.Element, self string) (e
 		return expr, ""
 	}
 	through := "the action acts on a " + qualifiedName(selfType) + ", whose one part that holds " + qualifiedName(p) + ", " + qualifiedName(part) + ", "
+	if part.Parent != selfType && m.hiddenFromHeirs(part) {
+		return "", through + "is a private feature of " + qualifiedName(part.Parent) + ", which v2 does not inherit, so it cannot be named on the object"
+	}
 	switch lower, upper, ok := bounds(part); {
 	case !ok:
 		return "", through + "has a multiplicity not written in numbers, so whether it holds one object cannot be told"

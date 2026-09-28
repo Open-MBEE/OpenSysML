@@ -982,6 +982,19 @@ func TestNestedDefProbabilityReadsThroughContext(t *testing.T) {
 		wantNote(t, r, "_ea", migrate.Approximated, "whose one part that holds Mission::pr, Mission::Sub::mission, holds 0..1 objects, so a read through it may find no number; a run no longer reads the property")
 		run(t, r)
 	})
+	t.Run("held by a private part of a general", func(t *testing.T) {
+		r := migrateFixtureFile(t, "probability_part_private")
+		wantLine(t, r.Notation, "private part mission : Mission;")
+		wantLine(t, r.Notation, "part def Sub :> Base {")
+		wantLine(t, r.Notation, "first 'decide' then a { @Stochastic::Probability { p = 0.25; } }")
+		wantLine(t, r.Notation, "first 'decide' then b { @Stochastic::Probability { p = 0.75; } }")
+		wantNoLine(t, r.Notation, "context.mission.pr")
+		wantNote(t, r, "_ea", migrate.Approximated, "the probability is written as 0.25, the default of property Mission::pr, since the action acts on a Mission::Sub, whose one part that holds Mission::pr, Mission::Base::mission, is a private feature of Mission::Base, which v2 does not inherit, so it cannot be named on the object; a run no longer reads the property, so an object whose value differs is still weighted by the default")
+		if errs := errors(t, "t.sysml", r.Notation); len(errs) > 0 {
+			t.Errorf("%v\n%s", errs, r.Notation)
+		}
+		run(t, r)
+	})
 	t.Run("held by a part a node of the body is named like", func(t *testing.T) {
 		r := migrateFixtureFile(t, "probability_part_shadowed")
 		wantLine(t, r.Notation, "part mission : Mission;")
