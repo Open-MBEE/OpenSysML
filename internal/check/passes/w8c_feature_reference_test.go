@@ -405,6 +405,244 @@ func TestW8CFeatureReferenceContextParameterAndUsageReads(t *testing.T) {
 	}
 }
 
+func TestW8CInvocationArgumentValuesAreAccessible(t *testing.T) {
+	const inaccessible = `package M {
+	private import ScalarValues::*;
+	part def T { attribute X : String; }
+	calc def F { in e : ScalarValue[0..1]; return r : Boolean; }
+	calc def Q { F(e = T::X ?? "") }
+	calc def Q2 { F(e = T::X) }
+	}`
+	var got []string
+	var gotOffsets []int
+	for _, d := range w8cLibraryDiagnostics(t, "<t>.sysml", inaccessible) {
+		if d.Code == "feature-reference-featuring-types" {
+			got = append(got, strings.TrimSpace(inaccessible[d.Span.Offset:d.Span.End()]))
+			gotOffsets = append(gotOffsets, d.Span.Offset)
+		}
+	}
+	if len(got) != 2 || got[0] != "T::X" || got[1] != "T::X" {
+		t.Errorf("want both invocation argument references to be checked, got %v", got)
+	}
+	wantOffsets := []int{strings.Index(inaccessible, "T::X ??"), strings.LastIndex(inaccessible, "T::X")}
+	if len(gotOffsets) != len(wantOffsets) {
+		t.Fatalf("want invocation argument spans at %v, got %v", wantOffsets, gotOffsets)
+	}
+	for i := range wantOffsets {
+		if gotOffsets[i] != wantOffsets[i] {
+			t.Errorf("invocation argument span %d = %d, want %d", i, gotOffsets[i], wantOffsets[i])
+		}
+	}
+
+	const accessible = `package M {
+	private import ScalarValues::*;
+	part def T { attribute X : String; }
+	part t : T;
+	calc def F { in e : ScalarValue[0..1]; return r : Boolean; }
+	calc def Q { F(e = t.X ?? "") }
+}`
+	if errs := w8cLibraryErrorsIn(t, "<t>.sysml", accessible); len(errs) != 0 {
+		t.Errorf("accessible invocation argument should be clean, got %v", errs)
+	}
+}
+
+func TestW8CInvocationFunctionValuesAndColumnExpressions(t *testing.T) {
+	const src = `package M {
+	private import ScalarValues::*;
+	private import DocumentQueries::*;
+	private import KerML::Root::Element;
+	package Meta {
+		private import ScalarValues::*;
+		metadata def Tagged { attribute tags : String[0..*] ordered = ("alpha", "beta"); }
+	}
+	calc def Sq { in a : Real; return : Real = a * a; }
+	calc def Apply {
+		in calc f { in v : Real; return : Real; }
+		in a : Real;
+		return : Real = f(a);
+	}
+	calc def UseFunction { in a : Real; return : Real = Apply(Sq, a); }
+	calc def BodyClosure {
+		in k : Real;
+		calc scale { in v : Real; return : Real = v * k; }
+	}
+	calc def OuterClosure { in a : Real; return : Real = Apply(BodyClosure::scale, a); }
+	part def Scaler {
+		attribute k : Real;
+		calc scale { in v : Real; return : Real = v * k; }
+	}
+	calc def ObjectCalc { in a : Real; return : Real = Apply(Scaler::scale, a); }
+	calc def Tags :> Query {
+		in root : Element;
+		Project(
+			source = WhereType(source = Descendants(source = root), type = "PartDefinition"),
+			properties = ("name"),
+			columns = (Column(name = "Tags", expression = Meta::Tagged::tags ?? "")))
+	}
+}`
+	if errs := w8cLibraryErrorsIn(t, "<t>.sysml", src); len(errs) != 0 {
+		t.Errorf("function-valued arguments and query-scope column expressions should be clean, got %v", errs)
+	}
+}
+
+func TestW8CAssignmentTargetChecksOnlyAnInaccessibleChainHead(t *testing.T) {
+	const src = `package M {
+	private import ScalarValues::*;
+	part def P {
+		attribute k : Integer;
+		exhibit state s { attribute j : Integer; }
+		action u {
+			action def D {
+				action a { assign k := k + 1; }
+				action b { assign s.j := 2; }
+				action c { assign k := s.j; }
+			}
+		}
+	}
+	}`
+	var got []string
+	var gotOffsets []int
+	for _, d := range w8cLibraryDiagnostics(t, "<t>.sysml", src) {
+		if d.Code == "feature-reference-featuring-types" {
+			got = append(got, strings.TrimSpace(src[d.Span.Offset:d.Span.End()]))
+			gotOffsets = append(gotOffsets, d.Span.Offset)
+		}
+	}
+	if len(got) != 3 || got[0] != "k" || got[1] != "s" || got[2] != "s" {
+		t.Errorf("want one RHS k and the two inaccessible s chain heads, got %v", got)
+	}
+	wantOffsets := []int{
+		strings.Index(src, "assign k := k + 1;") + strings.LastIndex("assign k := k + 1;", "k +"),
+		strings.Index(src, "assign s.j := 2;") + len("assign "),
+		strings.Index(src, "assign k := s.j;") + len("assign k := "),
+	}
+	if len(gotOffsets) != len(wantOffsets) {
+		t.Fatalf("want assignment references at %v, got %v", wantOffsets, gotOffsets)
+	}
+	for i := range wantOffsets {
+		if gotOffsets[i] != wantOffsets[i] {
+			t.Errorf("assignment reference span %d = %d, want %d", i, gotOffsets[i], wantOffsets[i])
+		}
+	}
+
+	const accessible = `package M {
+	private import ScalarValues::*;
+	part def P {
+		var attribute k : Integer;
+		action u { assign k := 1; }
+	}
+}`
+	if errs := w8cLibraryErrorsIn(t, "<t>.sysml", accessible); len(errs) != 0 {
+		t.Errorf("bare assignment target should remain clean, got %v", errs)
+	}
+}
+
+func TestW8CNestedTransitionEndpointsUseTheirStateBody(t *testing.T) {
+	const src = `package P {
+	attribute def Sig;
+	part def Q {
+		state def S {
+			entry; then A;
+			state A;
+			state B {
+				entry; then C;
+				state C;
+				transition t1 first C then A;
+				transition t2 first C accept Sig then A;
+				transition t3 first C accept Sig do action e { } then A;
+			}
+			transition t4 first B.C then A;
+			transition t5 first B.C accept Sig then A;
+			transition t6 first B accept Sig then A;
+			state D {
+				entry; then B::C;
+			}
+		}
+		state def R {
+			state W;
+			state X { state Y; }
+			transition t7 first X.Y then W;
+			transition t8 first W then X::Y;
+			transition t9 first W then X.Y;
+		}
+	}
+	}`
+	var got []string
+	var gotOffsets []int
+	for _, d := range w8cLibraryDiagnostics(t, "<t>.sysml", src) {
+		if d.Code == "feature-reference-featuring-types" {
+			got = append(got, strings.TrimSpace(src[d.Span.Offset:d.Span.End()]))
+			gotOffsets = append(gotOffsets, d.Span.Offset)
+		}
+	}
+	want := []string{"A", "A", "A", "B::C", "X::Y"}
+	if len(got) != len(want) {
+		t.Fatalf("want transition endpoint references %v, got %v", want, got)
+	}
+	for i := range want {
+		if got[i] != want[i] {
+			t.Errorf("transition endpoint %d = %q, want %q", i, got[i], want[i])
+		}
+	}
+	wantOffsets := []int{
+		strings.Index(src, "transition t1 first C then A;") + strings.LastIndex("transition t1 first C then A;", "then A") + len("then "),
+		strings.Index(src, "transition t2 first C accept Sig then A;") + strings.LastIndex("transition t2 first C accept Sig then A;", "then A") + len("then "),
+		strings.Index(src, "transition t3 first C accept Sig do action e { } then A;") + strings.LastIndex("transition t3 first C accept Sig do action e { } then A;", "then A") + len("then "),
+		strings.Index(src, "entry; then B::C;") + strings.Index("entry; then B::C;", "then ") + len("then "),
+		strings.Index(src, "transition t8 first W then X::Y;") + strings.Index("transition t8 first W then X::Y;", "X::Y"),
+	}
+	if len(gotOffsets) != len(wantOffsets) {
+		t.Fatalf("want transition endpoints at %v, got %v", wantOffsets, gotOffsets)
+	}
+	for i := range wantOffsets {
+		if gotOffsets[i] != wantOffsets[i] {
+			t.Errorf("transition endpoint span %d = %d, want %d", i, gotOffsets[i], wantOffsets[i])
+		}
+	}
+
+	const accepted = `package N {
+	state def Modes { state off; }
+	state def Behavior {
+		state modes : Modes;
+		transition reset first modes.off then Modes::off;
+		transition rootReset first modes.off then $::N::Modes::off;
+	}
+	state def S {
+		state A1;
+		state B1 { state C1; }
+		transition first B1.C1 then A1;
+	}
+}`
+	if errs := w8cLibraryErrorsIn(t, "<t>.sysml", accepted); len(errs) != 0 {
+		t.Errorf("a dotted endpoint path written at the common state should be clean, got %v", errs)
+	}
+
+	const nestedEntry = `package N {
+	state def S {
+		state A1;
+		state B1 {
+			state C1;
+			accept after 1 [SI::s] then A1;
+		}
+	}
+	}`
+	var nested []string
+	var nestedOffsets []int
+	for _, d := range w8cLibraryDiagnostics(t, "<t>.sysml", nestedEntry) {
+		if d.Code == "feature-reference-featuring-types" {
+			nested = append(nested, strings.TrimSpace(nestedEntry[d.Span.Offset:d.Span.End()]))
+			nestedOffsets = append(nestedOffsets, d.Span.Offset)
+		}
+	}
+	if len(nested) != 1 || nested[0] != "A1" {
+		t.Errorf("want the nested entry transition's enclosing-state target to be rejected, got %v", nested)
+	}
+	wantNestedOffset := strings.LastIndex(nestedEntry, "then A1;") + len("then ")
+	if len(nestedOffsets) != 1 || nestedOffsets[0] != wantNestedOffset {
+		t.Errorf("nested entry target span = %v, want %d", nestedOffsets, wantNestedOffset)
+	}
+}
+
 // its body values judged like one written in a definition's body.
 func TestW8CFeatureReferenceRootAnnotationBody(t *testing.T) {
 	const invalid = `part def Acme;
@@ -422,7 +660,6 @@ func TestW8CFeatureReferenceRootAnnotationBody(t *testing.T) {
 		t.Errorf("want a clean analysis, got %v", errs)
 	}
 }
-
 func TestW8CFeatureReferenceViaBoundaries(t *testing.T) {
 	const want = msgSubsettingFeaturingTypes
 	reject := map[string]string{
@@ -576,5 +813,41 @@ func TestW8CFeatureReferenceViaBoundaries(t *testing.T) {
 				t.Fatalf("want a clean fixture, got %v", errs)
 			}
 		})
+	}
+}
+
+func TestW8CRunDecidedProbabilityReadsPerformerFeature(t *testing.T) {
+	const src = `package P {
+	private import ScalarValues::*;
+	part def Mission {
+		attribute weight : Real = 0.5;
+	}
+	part def Performer {
+		attribute weight : Real = 0.7;
+		action def Run {
+			action left;
+			action right;
+			calc def OrdinaryRead { Mission::weight }
+			succession weighted first left then right {
+				@Stochastic::Probability { p = Mission::weight; }
+			}
+			succession bareWeighted first left then right {
+				@Stochastic::Probability { p = weight; }
+			}
+		}
+	}
+}`
+	diags := w8cLibraryDiagnostics(t, "<t>.sysml", src)
+	var accessibility []diag.Diagnostic
+	for _, d := range diags {
+		if d.Message == msgSubsettingFeaturingTypes {
+			accessibility = append(accessibility, d)
+		}
+	}
+	if len(accessibility) != 1 {
+		t.Fatalf("want only the ordinary read to be inaccessible, got %v", diags)
+	}
+	if got := strings.TrimSpace(src[accessibility[0].Span.Offset:accessibility[0].Span.End()]); got != "Mission::weight" {
+		t.Errorf("accessibility diagnostic covers %q, want the ordinary read", got)
 	}
 }
