@@ -411,6 +411,9 @@ func (m *migration) v2Expr(text, lang string, scope *sysmlv1.Element) (expr stri
 	if missing := m.invisible(refs, scope); missing != "" {
 		return "", false, missing + langNote(lang)
 	}
+	visible, _ := m.visibleFrom(scope)
+	text = m.renamedRoots(text, refs, visible, nil)
+	refs, _ = exprRefs(text)
 	return m.qualifySelf(text, refs, scope), true, ""
 }
 

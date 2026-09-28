@@ -14,6 +14,18 @@ func wantNoLine(t *testing.T, notation []byte, line string) {
 	}
 }
 
+// wantNoStatement fails when a line of the notation, its indentation aside,
+// is stmt; a comment mentioning it is not.
+func wantNoStatement(t *testing.T, notation []byte, stmt string) {
+	t.Helper()
+	for _, line := range strings.Split(string(notation), "\n") {
+		if strings.TrimSpace(line) == stmt {
+			t.Errorf("notation has the statement %q:\n%s", stmt, notation)
+			return
+		}
+	}
+}
+
 func TestUserPackagesWithLibraryNamesMigrate(t *testing.T) {
 	for _, name := range []string{"SysML", "Libraries", "QUDV", "SI Definitions"} {
 		r := migrateDocument(t, `

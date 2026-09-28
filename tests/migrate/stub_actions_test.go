@@ -405,9 +405,9 @@ func TestMethodCallersKeepTheOperationADefinition(t *testing.T) {
 
 // mixedGenerals is a block Ctl whose activities Active and Run set the block's
 // status, so both are written as its action usages, Run generalized by Active
-// and by the package activity Base, which stays an action def.
+// and by the package activity Basis, which stays an action def.
 const mixedGenerals = `
-    <packagedElement xmi:type="uml:Activity" xmi:id="_base" name="Base"/>
+    <packagedElement xmi:type="uml:Activity" xmi:id="_base" name="Basis"/>
     <packagedElement xmi:type="uml:Class" xmi:id="_ctl" name="Ctl">
       <ownedAttribute xmi:type="uml:Property" xmi:id="_status" name="status">
         <type xmi:type="uml:PrimitiveType" href="http://www.omg.org/spec/UML/20131001/PrimitiveTypes.xmi#Integer"/>
@@ -449,8 +449,8 @@ const mixedGenerals = `
 // as an action usage is subsetted: each keeps its own relationship.
 func TestUsageGeneralsAreTypedByDefinitionsAndSubsetUsages(t *testing.T) {
 	r := migrateDocument(t, mixedGenerals, `<sysml:Block xmi:id="_b1" base_Class="_ctl"/>`)
-	wantLine(t, r.Notation, "action def Base;")
+	wantLine(t, r.Notation, "action def Basis;")
 	wantLine(t, r.Notation, "action active {")
-	wantLine(t, r.Notation, "action run : Base :> active {")
+	wantLine(t, r.Notation, "action run : Basis :> active {")
 	wantClean(t, "t.sysml", r)
 }
