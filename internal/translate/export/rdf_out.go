@@ -959,6 +959,18 @@ func (e *encoder) encodeMember(h memberHead, owner string) error {
 				}
 			}
 		}
+		if n.IsVerifiedRequirement() {
+			// A requirement body's `verify r;` is the RequirementUsage its
+			// RequirementVerificationMembership owns, not a satisfy
+			// (SysML-textual-bnf RequirementVerificationMember).
+			metaclass = usageMetaclass[ast.UsageRequirement]
+			h.membershipClass = mRequirementVerificationMembership
+			h.membershipExtra = func(membership rdf.Term) {
+				e.graph.Add(membership, e.sysml(pKind), rdf.String("requirement"))
+				e.graph.Add(membership, e.sysml(pOwnedRequirement), subject)
+				e.graph.Add(membership, e.sysml(pOwnedConstraint), subject)
+			}
+		}
 		head(rdf.SysMLTerm(metaclass))
 		if !shorthandRelationship(n) {
 			e.ident(subject, n.Ident)

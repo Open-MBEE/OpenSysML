@@ -448,8 +448,18 @@ func (d *decoder) membershipUsageKind(el *element) (ast.UsageKind, bool) {
 		return ast.UsageViewRendering, true
 	case mFramedConcernMembership:
 		return ast.UsageFramedConcern, true
+	case mRequirementVerificationMembership:
+		// `verify r;`, which the notation spells as a satisfy usage.
+		return ast.UsageSatisfy, true
 	}
 	return 0, false
+}
+
+// verifiedRequirement reports whether el is the RequirementUsage of a `verify`
+// member: the one a RequirementVerificationMembership owns.
+func (d *decoder) verifiedRequirement(el *element) bool {
+	m, owned := d.owningMembership[el.iri]
+	return owned && d.metaclass(rdf.IRI(m.iri)) == mRequirementVerificationMembership
 }
 
 // parameterMembershipKind is the kind of the parameter a subject, actor,

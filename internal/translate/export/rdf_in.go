@@ -1775,6 +1775,11 @@ func (d *decoder) usageHead(el *element, kind ast.UsageKind) (string, error) {
 		words = append(words, direction)
 	}
 	keyword := d.keywordOr(el, usageKeyword(kind))
+	// The RequirementUsage a RequirementVerificationMembership owns is spelled
+	// `verify`, whether or not the graph recorded the keyword.
+	if keyword == usageKeyword(ast.UsageSatisfy) && d.verifiedRequirement(el) {
+		keyword = "verify"
+	}
 	// An accept written without the `action` keyword its kind states carries
 	// `accept` as the keyword it was written with; the shorthand writes it.
 	if keyword == "accept" {
