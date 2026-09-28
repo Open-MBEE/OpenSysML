@@ -95,7 +95,10 @@ func (m *migration) ownerContext(e *sysmlv1.Element) *behaviorContext {
 		}
 	}
 	owner := classifierOf(e)
-	if owner == nil || !m.contextClassifierWritable(owner) {
+	if owner == nil {
+		return nil
+	}
+	if writable, _ := m.contextClassifierWritable(owner, e); !writable {
 		return nil
 	}
 	if c, ok := m.ownerCtx[e]; ok {
@@ -106,16 +109,17 @@ func (m *migration) ownerContext(e *sysmlv1.Element) *behaviorContext {
 	return c
 }
 
-// contextClassifierWritable reports whether a context parameter can name c: typed by
-// the definition c is written as, or specializing the view or viewpoint usage it is.
-func (m *migration) contextClassifierWritable(c *sysmlv1.Element) bool {
+// contextClassifierWritable reports whether scope can name c as a context classifier
+// or specialize its view or viewpoint usage, and why not when it cannot.
+func (m *migration) contextClassifierWritable(c, scope *sysmlv1.Element) (bool, string) {
 	if m.asUsage[c] {
-		return false
+		return false, ""
 	}
 	if cat, _ := m.classify(c); cat == catView || cat == catViewpoint {
-		return true
+		note := m.featuredNote(c, scope)
+		return note == "", note
 	}
-	return m.definitionEnd(c)
+	return m.definitionEnd(c), ""
 }
 
 // defScope reports whether e is written as a def whose `this` is its own
@@ -415,9 +419,12 @@ func addOwner(owners []*sysmlv1.Element, c *sysmlv1.Element) []*sysmlv1.Element 
 func (m *migration) decideContext(b *sysmlv1.Element, owners []*sysmlv1.Element) *behaviorContext {
 	how := "its actions go through ports of "
 	eligible := make([]*sysmlv1.Element, 0, len(owners))
+	notes := make([]string, 0, len(owners))
 	for _, owner := range owners {
-		if m.contextClassifierWritable(owner) {
+		if writable, note := m.contextClassifierWritable(owner, b); writable {
 			eligible = append(eligible, owner)
+		} else if note != "" {
+			notes = append(notes, note)
 		}
 	}
 	if len(owners) > 0 && len(eligible) == 0 {
@@ -426,7 +433,10 @@ func (m *migration) decideContext(b *sysmlv1.Element, owners []*sysmlv1.Element)
 			names[i] = qualifiedName(owner)
 		}
 		m.contextNotes[b] = how + strings.Join(names, " and ") +
-			", none of which is written as a definition that can type a context parameter"
+			", none of which is written as a definition that can type a context parameter or a usage it can specialize"
+		if len(notes) > 0 {
+			m.contextNotes[b] += ": " + strings.Join(notes, "; ")
+		}
 	}
 	owners = eligible
 	switch owner := classifierOf(b); {
