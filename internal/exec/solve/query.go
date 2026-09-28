@@ -75,6 +75,12 @@ type Var struct {
 	// Symbol is the feature declaration it stands for.
 	Symbol *symbols.Symbol
 
+	// Root is the first value-holding feature the reference read through, where
+	// the name is a chain — the object the chain's further steps index into.
+	// A subject member's root stands for the object the query is about; another
+	// usage's root stands for one of its member objects.
+	Root *symbols.Symbol
+
 	// Dimension is the quantity dimension its magnitude is expressed in, over
 	// base units, empty for a value that has none.
 	Dimension string

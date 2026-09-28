@@ -66,6 +66,13 @@ const symbolicModelSource = `package P {
 		attribute d : Real = 0.5;
 		assert constraint bad { power * d <= power }
 	}
+
+	part def Engine {
+		attribute power : Real;
+		ref part other : Engine;
+		assert constraint c { power <= other.power }
+	}
+	part eng : Engine { attribute :>> power = 5.0; }
 }
 `
 
@@ -287,6 +294,39 @@ func TestVerifyQuestionsSatisfaction(t *testing.T) {
 	}
 	if resp.Verdicts[0].Question != questionHolds || resp.Verdicts[0].Status != statusHolds {
 		t.Errorf("verdict is question=%q status=%q error=%q, want holds", resp.Verdicts[0].Question, resp.Verdicts[0].Status, resp.Verdicts[0].Error)
+	}
+}
+
+// TestVerifyQuestionsPinsNoChainVarOnAnotherObject: the subject's redefinition
+// pins the def-scope feature, never a chain var naming the same feature on
+// another object — c is violated with a witness where other.power < 5, only
+// power pinned, whichever order the query's variables iterate in.
+func TestVerifyQuestionsPinsNoChainVarOnAnotherObject(t *testing.T) {
+	requireSolver(t)
+	srv := mustNewService(t, 10)
+	hash := mustSymbolicModel(t, srv)
+	for range 20 {
+		resp := verifyQuestion(t, srv, hash, "P::Engine::c", "holds", "P::eng", "")
+		if resp.Verdict.Status != statusViolated {
+			t.Fatalf("status=%q, want violated: %q", resp.Verdict.Status, resp.Verdict.Error)
+		}
+		var other, pinned bool
+		for _, w := range resp.Verdict.Witness {
+			if strings.HasSuffix(w.Feature, "other.power") {
+				other = true
+				if w.Value.GetRealValue() >= 5.0 {
+					t.Fatalf("witness other.power=%v, want < 5", w.Value.GetRealValue())
+				}
+			} else if strings.HasSuffix(w.Feature, "power") {
+				pinned = true
+			}
+		}
+		if !other {
+			t.Fatalf("witness %+v names no other.power", resp.Verdict.Witness)
+		}
+		if pinned {
+			t.Fatalf("witness %+v carries power, which the subject pins", resp.Verdict.Witness)
+		}
 	}
 }
 

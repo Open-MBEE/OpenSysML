@@ -2,6 +2,7 @@ package grpc
 
 import (
 	"context"
+	"math"
 	"math/big"
 
 	"connectrpc.com/connect"
@@ -283,7 +284,7 @@ func (v *verifyContext) witnessValue(value solve.ModelValue) (runtime.Value, boo
 			return runtime.Value{Kind: runtime.ValConst, Const: semantics.Value{Kind: semantics.ValInt, Int: i}}, true
 		}
 	case solve.SortReal:
-		if f, exact := value.Number.Float64(); exact || f == f {
+		if f, _ := value.Number.Float64(); !math.IsInf(f, 0) {
 			return runtime.Value{Kind: runtime.ValConst, Const: semantics.Value{Kind: semantics.ValReal, Real: f}}, true
 		}
 	case solve.SortString:

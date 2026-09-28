@@ -216,7 +216,16 @@ func (t *translator) variableOf(
 	if err != nil {
 		return nil, err
 	}
-	return VarTerm(t.declare(variableName(t, chain), sort, target, dimension)), nil
+	v := t.declare(variableName(t, chain), sort, target, dimension)
+	if v.Root == nil {
+		for _, step := range chain {
+			if featureDecl(step) {
+				v.Root = step
+				break
+			}
+		}
+	}
+	return VarTerm(v), nil
 }
 
 // singleValued reports whether a multiplicity admits exactly one value, which is

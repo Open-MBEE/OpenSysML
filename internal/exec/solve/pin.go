@@ -10,6 +10,7 @@ import (
 	"github.com/Open-MBEE/OpenSysML/internal/exec/runtime"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/semantics"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/symbols"
+	"github.com/Open-MBEE/OpenSysML/internal/syntax/ast"
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/source"
 )
 
@@ -345,24 +346,45 @@ func (t *translator) pinnedVar(p Pin) *Var {
 	if p.Feature == nil {
 		return nil
 	}
-	v, ok := t.vars[t.fqn(p.Feature)]
-	if ok && v.Symbol == p.Feature {
-		return v
+	for _, sym := range append([]*symbols.Symbol{p.Feature}, t.model.AllRedefinedFeatures(p.Feature)...) {
+		if v, ok := t.vars[t.fqn(sym)]; ok && v.Symbol == sym {
+			return v
+		}
 	}
 	// A value fixed on a redefinition fixes what it redefines too, since both
-	// names read the one value — so it fixes the variable standing for the
-	// feature a redefining feature masks, wherever a chain names it.
+	// names read the one value — so it also fixes a chain var standing for one
+	// of them. But a chain var names the feature through an object, so it is
+	// pinned only when its root denotes the pinned object: a subject member
+	// the object fills (`vehicle` where `by craft` binds it), or the very
+	// usage the pin's feature belongs to (`hg` for `hg.power`). Another
+	// usage's root is a different object — `other.power` is never `eng`'s.
+	var best *Var
 	for _, v := range t.vars {
-		if v.Symbol == nil {
+		if v.Root == nil || v.Root == v.Symbol {
 			continue
 		}
-		for _, redefined := range t.model.AllRedefinedFeatures(p.Feature) {
-			if v.Symbol == redefined {
-				return v
+		matched := v.Symbol == p.Feature
+		if !matched {
+			for _, redefined := range t.model.AllRedefinedFeatures(p.Feature) {
+				if v.Symbol == redefined {
+					matched = true
+					break
+				}
 			}
 		}
+		if !matched {
+			continue
+		}
+		_, subject := v.Root.Decl.(*ast.SubjectMember)
+		owned := p.Feature.OwnerScope != nil && p.Feature.OwnerScope.Owner() == v.Root
+		if !subject && !owned {
+			continue
+		}
+		if best == nil || v.Name < best.Name {
+			best = v
+		}
 	}
-	return nil
+	return best
 }
 
 // Openings of the refusals that report what a pinned feature holds.
