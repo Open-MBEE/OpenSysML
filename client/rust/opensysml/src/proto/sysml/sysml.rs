@@ -988,7 +988,7 @@ pub struct ApplyEditsRequest {
 /// EditOperation is one source-preserving change to make.
 #[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
 pub struct EditOperation {
-    #[prost(oneof="edit_operation::Operation", tags="1, 2, 3, 4, 5, 6, 7, 8, 9")]
+    #[prost(oneof="edit_operation::Operation", tags="1, 2, 3, 4, 5, 6, 7, 8, 9, 10")]
     pub operation: ::core::option::Option<edit_operation::Operation>,
 }
 /// Nested message and enum types in `EditOperation`.
@@ -1013,6 +1013,8 @@ pub mod edit_operation {
         AddRequirementConstraint(super::AddRequirementConstraintEdit),
         #[prost(message, tag="9")]
         AddTransition(super::AddTransitionEdit),
+        #[prost(message, tag="10")]
+        AddImport(super::AddImportEdit),
     }
 }
 /// AddMemberEdit inserts a declaration into a namespace or the document root.
@@ -1114,6 +1116,28 @@ pub struct AddTransitionEdit {
     /// Write `entry; then <target>;` instead of a regular transition.
     #[prost(bool, tag="8")]
     pub initial: bool,
+}
+/// AddImportEdit inserts an import declaration into a namespace body or the document root.
+#[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
+pub struct AddImportEdit {
+    /// Namespace FQN receiving the import; empty means the document root.
+    #[prost(string, tag="1")]
+    pub owner: ::prost::alloc::string::String,
+    /// "private", "public" or "protected"; empty writes "private".
+    #[prost(string, tag="2")]
+    pub visibility: ::prost::alloc::string::String,
+    /// Imported qualified name, suffixed "::*" for a namespace import.
+    #[prost(string, tag="3")]
+    pub target: ::prost::alloc::string::String,
+    /// Write "::**" to import recursively.
+    #[prost(bool, tag="4")]
+    pub is_recursive: bool,
+    /// Write "import all" to import non-public members too.
+    #[prost(bool, tag="5")]
+    pub is_import_all: bool,
+    /// Filter conditions, each written as "\[<expression>\]".
+    #[prost(string, repeated, tag="6")]
+    pub filters: ::prost::alloc::vec::Vec<::prost::alloc::string::String>,
 }
 /// AddConnectionEdit inserts a usage whose ends connect two features.
 #[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]

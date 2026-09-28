@@ -117,6 +117,12 @@ func TestCapabilityGatedRequestsAreRefused(t *testing.T) {
 			})
 			return err
 		}},
+		{"import authoring", CapabilityImportAuthoring, func(s *Service) error {
+			_, err := s.ApplyEdits(ctx, &pb.ApplyEditsRequest{
+				Operations: []*pb.EditOperation{addImportOp("P", "", "ScalarValues::*", false, false, nil)},
+			})
+			return err
+		}},
 		{"member modifiers", CapabilityMemberModifiers, func(s *Service) error {
 			_, err := s.ApplyEdits(ctx, &pb.ApplyEditsRequest{
 				Operations: []*pb.EditOperation{{

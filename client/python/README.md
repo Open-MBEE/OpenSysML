@@ -49,11 +49,11 @@ connection-like usages; `add_allocation` and `add_flow` are typed helpers.
 `Editor.add_member` also accepts `abstract`, `redefines`, `default` and `direction`
 options, and supports the SysML `ref` and `return` kinds where they are admitted.
 Use `add_satisfy`, `add_requirement_constraint`, `add_require_constraint`,
-`add_assume_constraint`, `add_transition` or `add_entry_transition` to author
-requirement statements and state transitions. These operations preflight their
-dedicated `member_modifiers`, `satisfy_authoring`,
-`requirement_constraint_authoring` or `transition_authoring` capability as
-applicable.
+`add_assume_constraint`, `add_transition`, `add_entry_transition` or `add_import`
+to author requirement statements, state transitions and import declarations.
+These operations preflight their dedicated `member_modifiers`,
+`satisfy_authoring`, `requirement_constraint_authoring`,
+`transition_authoring` or `import_authoring` capability as applicable.
 `add_calc_def` and `add_calc` accept input pairs, `return_type` and
 `return_expression`; a return expression requires a return type and is bound to
 the result parameter rather than written as `return <expr>;`. `add_action_def`

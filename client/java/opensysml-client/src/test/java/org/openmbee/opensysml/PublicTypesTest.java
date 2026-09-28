@@ -731,6 +731,9 @@ class PublicTypesTest {
     assertEditCapability(
         Edit.AddTransition.of("Demo::S", "idle", "toasting"),
         Capabilities.TRANSITION_AUTHORING);
+    assertEditCapability(
+        Edit.AddImport.of("Demo", "ScalarValues::*"),
+        Capabilities.IMPORT_AUTHORING);
   }
 
   @Test
@@ -747,6 +750,24 @@ class PublicTypesTest {
               () ->
                   model.applyEdits(
                       List.of(Edit.AddTransition.of("Demo::S", "idle", "toasting"))));
+      assertEquals(Capabilities.AUTHORING, refused.capability());
+    }
+  }
+
+  @Test
+  void addingAnImportAlsoRequiresAuthoring() {
+    try (Connection limited =
+        new Connection(
+            new ConnectTransport("127.0.0.1:1", Encoding.PROTOBUF, Duration.ofSeconds(1)),
+            new Capabilities(
+                "dev", java.util.Set.of(Capabilities.APPLY_EDITS, Capabilities.IMPORT_AUTHORING)))) {
+      Model model = new Model(limited, "hash", List.of(), List.of());
+      CapabilityException refused =
+          assertThrows(
+              CapabilityException.class,
+              () ->
+                  model.applyEdits(
+                      List.of(Edit.AddImport.of("Demo", "ScalarValues::*"))));
       assertEquals(Capabilities.AUTHORING, refused.capability());
     }
   }

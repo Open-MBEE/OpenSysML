@@ -55,6 +55,11 @@ func (s *Service) ApplyEdits(ctx context.Context, req *pb.ApplyEditsRequest) (*p
 			return nil, err
 		}
 	}
+	if requestsImportAuthoring(req.Operations) {
+		if err := s.requireCapability(CapabilityImportAuthoring); err != nil {
+			return nil, err
+		}
+	}
 	if requestsMemberModifiers(req.Operations) {
 		if err := s.requireCapability(CapabilityMemberModifiers); err != nil {
 			return nil, err
@@ -206,7 +211,7 @@ func requestsAuthoring(operations []*pb.EditOperation) bool {
 		switch operation.GetOperation().(type) {
 		case *pb.EditOperation_AddMember, *pb.EditOperation_AddConnection,
 			*pb.EditOperation_AddSatisfy, *pb.EditOperation_AddRequirementConstraint,
-			*pb.EditOperation_AddTransition,
+			*pb.EditOperation_AddTransition, *pb.EditOperation_AddImport,
 			*pb.EditOperation_Delete, *pb.EditOperation_Move:
 			return true
 		}
@@ -262,6 +267,15 @@ func requestsTransitionAuthoring(operations []*pb.EditOperation) bool {
 	return false
 }
 
+func requestsImportAuthoring(operations []*pb.EditOperation) bool {
+	for _, operation := range operations {
+		if _, ok := operation.GetOperation().(*pb.EditOperation_AddImport); ok {
+			return true
+		}
+	}
+	return false
+}
+
 // editOperations reads the operations a request carries, rejecting a request
 // that names none of the forms: an unset operation is a client fault rather
 // than a refused edit.
@@ -308,6 +322,12 @@ func editOperations(pbOps []*pb.EditOperation) ([]edit.Operation, error) {
 			ops = append(ops, edit.AddTransition(
 				add.GetOwner(), add.GetName(), add.GetSource(), add.GetTarget(),
 				add.GetTrigger(), add.GetGuard(), add.GetEffect(), add.GetInitial(),
+			))
+		case *pb.EditOperation_AddImport:
+			add := op.AddImport
+			ops = append(ops, edit.AddImport(
+				add.GetOwner(), add.GetVisibility(), add.GetTarget(),
+				add.GetIsRecursive(), add.GetIsImportAll(), add.GetFilters(),
 			))
 		case *pb.EditOperation_Delete:
 			del := op.Delete

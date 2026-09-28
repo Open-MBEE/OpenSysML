@@ -1147,6 +1147,12 @@ declaration. Typed `add_*` helpers cover the common SysML and KerML kinds, inclu
 `return` where admitted by the grammar. `add_satisfy`, `add_requirement_constraint`,
 `add_require_constraint` and `add_assume_constraint` write requirement statements.
 `add_transition` and `add_entry_transition` write regular and entry transitions in state bodies.
+`add_import(owner, target, visibility=None, recursive=False, all=False, filter=None)` writes an
+import declaration in a namespace body or the document root (`""`): `target` is `A::B` for a
+membership import or `A::*` for a namespace import, `recursive` writes `::**`, `all` writes
+`import all`, and `filter` takes one expression string or a list of them, each written
+`[<expression>]`. `visibility` defaults to `private`, the indicator the grammar requires and the
+one legal everywhere including the root.
 `add_calc_def` and `add_calc` accept `inputs`, `return_type` and `return_expression`;
 a return expression requires a return type and is bound to the result parameter,
 not written as `return <expr>;`. `add_action_def` and `add_action` accept
@@ -1246,7 +1252,8 @@ call is made. An `add_connection` edit also requires both `authoring` and
 `connection_authoring`. The new AddMember modifiers and `ref`/`return` kinds
 require `member_modifiers`; satisfy edits require `satisfy_authoring`, and
 requirement-constraint edits require `requirement_constraint_authoring`.
-Transition edits require `transition_authoring` alongside `authoring`.
+Transition edits require `transition_authoring` alongside `authoring`, and import edits require
+`import_authoring`.
 
 ### Querying a model using the standard query model
 
