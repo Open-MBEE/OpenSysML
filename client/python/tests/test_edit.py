@@ -1063,11 +1063,15 @@ def test_an_unknown_operation_kind_is_refused(fake_service):
                 ValueError, match="expected 8, 12 or 13 fields"
             ):
                 conn.apply_edits("fake-hash", [fields])
-        with pytest.raises(ValueError, match="expression must be notation text"):
-            conn.apply_edits(
-                "fake-hash",
-                [("add_member", "P", "constraint", "c", "", "", "", [], False, [], False, "", 1)],
-            )
+        for expression in (1, 0, None):
+            with pytest.raises(ValueError, match="expression must be notation text"):
+                conn.apply_edits(
+                    "fake-hash",
+                    [(
+                        "add_member", "P", "constraint", "c", "", "", "", [],
+                        False, [], False, "", expression,
+                    )],
+                )
     assert service.requests == []
 
 

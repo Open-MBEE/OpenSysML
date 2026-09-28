@@ -1002,9 +1002,14 @@ class Connection:
                         "malformed add_member operation: expected 8, 12 or 13 fields"
                     )
                 (
-                    _, owner, member_kind, name, type_name, multiplicity, value,
-                    specializes, *modifiers
-                ) = operation_data
+                    _, owner, member_kind, name, type_name, multiplicity, value, specializes,
+                ) = operation_data[:8]
+                modifiers = operation_data[8:12] if len(operation_data) >= 12 else ()
+                body_expression = operation_data[12] if len(operation_data) == 13 else ""
+                if not isinstance(body_expression, str):
+                    raise ValueError(
+                        "malformed add_member operation: expression must be notation text"
+                    )
                 require(info, CAPABILITY_AUTHORING, upgrade_remedy(CAPABILITY_AUTHORING))
                 requests_authoring = True
                 add = operation.add_member
@@ -1012,8 +1017,7 @@ class Connection:
                 add.type, add.multiplicity, add.value = type_name, multiplicity, value
                 add.specializes.extend(specializes)
                 if modifiers:
-                    abstract, redefines, default, direction = modifiers[:4]
-                    expression = modifiers[4] if len(modifiers) == 5 else ""
+                    abstract, redefines, default, direction = modifiers
                     if not isinstance(abstract, bool) or not isinstance(default, bool):
                         raise ValueError(
                             "malformed add_member modifiers: abstract and default must be bool"
@@ -1026,10 +1030,6 @@ class Connection:
                         raise ValueError(
                             "malformed add_member modifiers: direction must be notation text"
                         )
-                    if not isinstance(expression, str):
-                        raise ValueError(
-                            "malformed add_member operation: expression must be notation text"
-                        )
                     add.is_abstract = abstract
                     add.redefines.extend(redefines)
                     add.is_default = default
@@ -1038,18 +1038,7 @@ class Connection:
                         abstract or bool(redefines) or default or bool(direction)
                         or member_kind in ("ref", "return")
                     )
-                    add.body_expression = expression
-                else:
-                    add.body_expression = ""
-                if len(operation_data) == 13 and not modifiers:
-                    raise ValueError("malformed add_member operation: missing modifiers")
-                body_expression = operation_data[12] if len(operation_data) == 13 else ""
-                if body_expression and not isinstance(body_expression, str):
-                    raise ValueError(
-                        "malformed add_member operation: expression must be notation text"
-                    )
-                if body_expression:
-                    add.body_expression = body_expression
+                add.body_expression = body_expression
                 if body_expression or member_kind in ("assert constraint", "assert not constraint"):
                     require(
                         info,

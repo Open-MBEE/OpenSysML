@@ -118,6 +118,38 @@ func TestAddExhibitStateAndReference(t *testing.T) {
 	}
 }
 
+func TestAddExhibitStateRedefines(t *testing.T) {
+	source := "package P {\n" +
+		"    state def S;\n" +
+		"    part def Q { exhibit state cycle : S; }\n" +
+		"    part def R :> Q { }\n" +
+		"}\n"
+	model := loadContent(t, "exhibit-state-redefines.sysml", source)
+	op := AddMember("P::R", "exhibit state", "")
+	op.Redefines = []string{"cycle"}
+	result := applyOne(t, model, op)
+	if !strings.Contains(string(result.Content), "exhibit state :>> cycle;") {
+		t.Fatalf("redefined exhibit state notation missing:\n%s", result.Content)
+	}
+	requireClean(t, loadContent(t, "exhibit-state-redefines.sysml", string(result.Content)))
+}
+
+func TestAddMemberReferenceKindsRejectRedefines(t *testing.T) {
+	model := loadContent(t, "reference-redefines.sysml", "package P { part def Holder; }\n")
+	for _, test := range []struct {
+		kind, reference string
+	}{
+		{"perform", "actions.start"},
+		{"exhibit", "states.running"},
+	} {
+		t.Run(test.kind, func(t *testing.T) {
+			op := AddMember("P::Holder", test.kind, test.reference)
+			op.Redefines = []string{"existing"}
+			addFailure(t, model, op, FailureIllegalKind)
+		})
+	}
+}
+
 func TestAddStateActionsInStateBodies(t *testing.T) {
 	source := "package P {\n" +
 		"    action def A;\n" +
@@ -174,6 +206,120 @@ func TestAddStateActionRefusals(t *testing.T) {
 	}
 	addFailure(t, loadContent(t, "part-action.sysml", "part def P;\n"),
 		AddMember("P", "do action", "a"), FailureIllegalKind)
+}
+
+func TestAddNewMemberNamesTaken(t *testing.T) {
+	model := loadContent(t, "new-member-names.sysml",
+		"package P {\n"+
+			"    state def S;\n"+
+			"    action def A;\n"+
+			"    part def Toaster { state running : S; }\n"+
+			"    part toaster : Toaster;\n"+
+			"    part def Host {\n"+
+			"        assert constraint existing { true }\n"+
+			"        exhibit state cycle : S;\n"+
+			"        state running : S;\n"+
+			"    }\n"+
+			"    state def Actions { state work; }\n"+
+			"}\n")
+	tests := []struct {
+		name string
+		op   Operation
+	}{
+		{"assert constraint", AddMember("P::Host", "assert constraint", "existing")},
+		{"exhibit state", AddMember("P::Host", "exhibit state", "cycle")},
+		{"do action", AddMember("P::Actions", "do action", "work")},
+		{"exhibit reference", AddMember("P::Host", "exhibit", "toaster.running")},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			addFailure(t, model, test.op, FailureMemberNameTaken)
+		})
+	}
+}
+
+func TestAddNewMemberModifierRefusals(t *testing.T) {
+	source := "package P {\n" +
+		"    state def S;\n" +
+		"    action def A;\n" +
+		"    part def Toaster { state running : S; }\n" +
+		"    part toaster : Toaster;\n" +
+		"    part def Host;\n" +
+		"    state def Actions;\n" +
+		"}\n"
+	model := loadContent(t, "new-member-modifiers.sysml", source)
+	kinds := []struct {
+		kind, owner, name, typ string
+	}{
+		{"assert constraint", "P::Host", "assertion", ""},
+		{"assert not constraint", "P::Host", "assertion", ""},
+		{"exhibit state", "P::Host", "shown", "S"},
+		{"exhibit", "P::Host", "toaster.running", ""},
+		{"entry action", "P::Actions", "enter", "A"},
+		{"do action", "P::Actions", "processing", "A"},
+		{"exit action", "P::Actions", "leave", "A"},
+	}
+	for _, test := range kinds {
+		t.Run(test.kind, func(t *testing.T) {
+			for _, modifier := range []string{"abstract", "direction", "default"} {
+				t.Run(modifier, func(t *testing.T) {
+					op := AddMember(test.owner, test.kind, test.name)
+					op.Type = test.typ
+					switch modifier {
+					case "abstract":
+						op.IsAbstract = true
+					case "direction":
+						op.Direction = "in"
+					case "default":
+						op.IsDefault = true
+					}
+					addFailure(t, model, op, FailureIllegalKind)
+				})
+			}
+		})
+	}
+}
+
+func TestAddNewMemberKindsRejectKerML(t *testing.T) {
+	model := loadContent(t, "new-member.kerml", "package P;\n")
+	for _, kind := range []string{
+		"assert constraint", "assert not constraint", "exhibit state", "exhibit",
+		"entry action", "do action", "exit action",
+	} {
+		t.Run(kind, func(t *testing.T) {
+			addFailure(t, model, AddMember("", kind, "member"), FailureIllegalKind)
+		})
+	}
+}
+
+func TestAddExhibitKindsRequireBehaviorUsageOwner(t *testing.T) {
+	model := loadContent(t, "exhibit-enum.sysml",
+		"package P { state def S; enum def E { enum one; } }\n")
+	for _, op := range []Operation{
+		func() Operation {
+			op := AddMember("P::E", "exhibit state", "shown")
+			op.Type = "S"
+			return op
+		}(),
+		AddMember("P::E", "exhibit", "someState"),
+	} {
+		failure := addFailure(t, model, op, FailureIllegalKind)
+		if !strings.Contains(failure.Message, "is not admitted in the body") {
+			t.Fatalf("owner refusal = %q; expected behavior-usage admission refusal", failure.Message)
+		}
+	}
+}
+
+func TestAddNewMemberKindsRequireNames(t *testing.T) {
+	model := loadContent(t, "unnamed-new-members.sysml",
+		"package P { state def S; action def A; part def Host; state def Actions; }\n")
+	exhibitState := AddMember("P::Host", "exhibit state", "")
+	exhibitState.Type = "S"
+	doAction := AddMember("P::Actions", "do action", "")
+	doAction.Type = "A"
+	for _, op := range []Operation{exhibitState, doAction} {
+		addFailure(t, model, op, FailureInvalidName)
+	}
 }
 
 func TestAddConstraintBodyRefusals(t *testing.T) {

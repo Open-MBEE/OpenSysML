@@ -153,7 +153,6 @@ func (m Model) addMemberSplice(i int, op Operation) (splice, error) {
 				op.MemberKind, m.Source.Kind(), m.Source.Name()),
 		}
 	}
-	performName := ""
 	referenceName := ""
 	if op.MemberName == "" {
 		switch {
@@ -180,9 +179,6 @@ func (m Model) addMemberSplice(i int, op Operation) (splice, error) {
 			return splice{}, err
 		}
 		referenceName = last
-		if op.MemberKind == "perform" {
-			performName = last
-		}
 	} else if err := checkName(i, op.MemberName); err != nil {
 		e := err.(*Error)
 		e.Failure = FailureInvalidName
@@ -282,11 +278,8 @@ func (m Model) addMemberSplice(i int, op Operation) (splice, error) {
 			Message: fmt.Sprintf("definition kind %q cannot carry redefines targets; use specializes", op.MemberKind),
 		}
 	}
-	if len(op.Redefines) > 0 && (op.MemberKind == "metadata" ||
-		op.MemberKind == "perform" || op.MemberKind == "exhibit" ||
-		op.MemberKind == "assert constraint" || op.MemberKind == "assert not constraint" ||
-		op.MemberKind == "exhibit state" || op.MemberKind == "entry action" ||
-		op.MemberKind == "do action" || op.MemberKind == "exit action") {
+	if len(op.Redefines) > 0 &&
+		(op.MemberKind == "metadata" || op.MemberKind == "perform" || op.MemberKind == "exhibit") {
 		return splice{}, &Error{
 			Failure: FailureIllegalKind, OperationIndex: i,
 			Message: fmt.Sprintf("kind %q cannot carry redefines targets", op.MemberKind),
@@ -361,9 +354,6 @@ func (m Model) addMemberSplice(i int, op Operation) (splice, error) {
 		}
 	}
 	takenName := op.MemberName
-	if performName != "" {
-		takenName = performName
-	}
 	if referenceName != "" {
 		takenName = referenceName
 	}
@@ -538,10 +528,7 @@ func (m Model) memberIndentUnit(owner ast.Node) string {
 	if strings.HasPrefix(memberIndent, ownerIndent) && len(memberIndent) > len(ownerIndent) {
 		return memberIndent[len(ownerIndent):]
 	}
-	if strings.Contains(string(m.Source.Bytes()), "\t") {
-		return "\t"
-	}
-	return "    "
+	return memberIndentStyle(m.Source.Bytes())
 }
 
 // insertion is the splice adding a member to an owner: text replaces span, and
@@ -780,9 +767,12 @@ func (m Model) memberIndent(owner source.Span) string {
 		}
 		start = end + 1
 	}
-	style := "\t"
-	if !strings.Contains(string(content), "\t") {
-		style = "    "
+	return base + memberIndentStyle(content)
+}
+
+func memberIndentStyle(content []byte) string {
+	if strings.Contains(string(content), "\t") {
+		return "\t"
 	}
-	return base + style
+	return "    "
 }
