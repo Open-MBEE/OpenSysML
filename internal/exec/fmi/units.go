@@ -86,7 +86,11 @@ func ParseBaseUnit(unit string) (BaseUnit, bool) {
 			}
 			exponent = n
 		} else {
-			if n, ok := digits(s, &i); ok {
+			if i < len(s) && s[i] >= '0' && s[i] <= '9' {
+				n, ok := digits(s, &i)
+				if !ok {
+					return BaseUnit{}, false
+				}
 				exponent = n
 			}
 			for i < len(s) {
@@ -137,8 +141,8 @@ func digits(s string, i *int) (int, bool) {
 	if *i == start {
 		return 0, false
 	}
-	n, _ := strconv.Atoi(s[start:*i])
-	return n, true
+	n, err := strconv.Atoi(s[start:*i])
+	return n, err == nil
 }
 
 // SIExpression spells the coherent KerML unit expression the exponents read

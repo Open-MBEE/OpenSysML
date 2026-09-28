@@ -40,6 +40,7 @@ func TestParseBaseUnit(t *testing.T) {
 		{"x", BaseUnit{}, false},
 		{"m^", BaseUnit{}, false},
 		{"m^2.5", BaseUnit{}, false},
+		{"m/s99999999999999999999", BaseUnit{}, false},
 	} {
 		got, ok := ParseBaseUnit(tc.unit)
 		if ok != tc.ok {
