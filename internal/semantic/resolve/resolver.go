@@ -127,7 +127,7 @@ type Resolver struct {
 	// Namespace::visibleMemberships intends (KerML 8.2.3.5; issue #633).
 	importVisits map[importVisit]bool
 	importDepth  int
-	Diagnostics      []Diagnostic
+	Diagnostics  []Diagnostic
 	// quiet is nonzero while a lookup is made on behalf of a semantic query
 	// rather than a reference in the document being resolved.
 	quiet int
