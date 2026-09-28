@@ -62,6 +62,33 @@ func TestNestedRedefinitionThroughReference(t *testing.T) {
 	}
 }
 
+// A chain crossing a behavior's parameter is an error like one crossing a
+// reference: an object flows into the parameter, so nothing below it is owned.
+// An owned part in the same action body crosses no reference and reports none.
+func TestNestedRedefinitionThroughAParameter(t *testing.T) {
+	src := `package P {
+		private import ScalarValues::Real;
+		part def Leaf { attribute value : Real; }
+		part def Component { part child : Leaf; }
+		action def A { in part component : Component; }
+		action run : A {
+			part owned : Component;
+			attribute :>> component.child.value = 9.0;
+			attribute :>> owned.child.value = 9.0;
+		}
+	}`
+	got := nestedDiags(t, src, diag.ConformanceDefault)
+	if len(got) != 1 {
+		t.Fatalf("got %d diagnostics %+v, want one error", len(got), got)
+	}
+	if got[0].Code != CodeRedefinitionThroughReference {
+		t.Errorf("code = %q, want %q", got[0].Code, CodeRedefinitionThroughReference)
+	}
+	if !strings.Contains(got[0].Message, "through reference component") {
+		t.Errorf("message = %q, want it to name the parameter segment", got[0].Message)
+	}
+}
+
 // A one-level redefinition and the nested-body form report nothing.
 func TestNestedRedefinitionSilentOnStandard(t *testing.T) {
 	src := `package P {

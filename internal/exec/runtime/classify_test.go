@@ -2532,6 +2532,72 @@ func TestClassifyDuplicateChainsInOneBody(t *testing.T) {
 	})
 }
 
+// A classifier's valued chain governs a bound member read under an alias the
+// classifier also declares: the binding was written on the inherited
+// declaration, so the alias it now shares does not shield it — whichever order
+// the object reads `mid` and classifies, a fresh object takes the chain.
+func TestClassifyChainGovernsAnAliasedBoundMember(t *testing.T) {
+	model := `package test {
+		private import ScalarValues::Real;
+		part def Leaf { attribute value : Real default = 1.0; }
+		part def Mid { part leaf : Leaf; }
+		part existing : Mid;
+		part def Base { part mid : Mid = existing; }
+		part def Derived :> Base {
+			part renamed :>> mid;
+			attribute :>> mid.leaf.value = 9.0;
+		}
+		part b : Base;
+	}`
+	check := func(t *testing.T, ctx *Context, idx *symbols.Index, readFirst bool) {
+		t.Helper()
+		b := instantiateQualified(t, ctx, idx, "test::b")
+		if readFirst {
+			mid := readInstance(t, ctx, b, "mid")
+			leaf := readInstance(t, ctx, mid, "leaf")
+			fv, err := leaf.GetFeatureValue(ctx, "value")
+			if err != nil {
+				t.Fatalf("GetFeatureValue(value): %v", err)
+			}
+			if got := realValue(t, fv.HeldValue()); got != 1.0 {
+				t.Fatalf("b.mid.leaf.value before classify = %v, want the bound 1.0", got)
+			}
+		}
+		if err := ctx.classify(b, idx.LookupQualified("test::Derived")[0]); err != nil {
+			t.Fatalf("classify(b, Derived): %v", err)
+		}
+		mid := readInstance(t, ctx, b, "mid")
+		leaf := readInstance(t, ctx, mid, "leaf")
+		fv, err := leaf.GetFeatureValue(ctx, "value")
+		if err != nil {
+			t.Fatalf("GetFeatureValue(value): %v", err)
+		}
+		if got := realValue(t, fv.HeldValue()); got != 9.0 {
+			t.Fatalf("b.mid.leaf.value = %v, want the chain's 9.0", got)
+		}
+		existing := instantiateQualified(t, ctx, idx, "test::existing")
+		if mid == existing {
+			t.Fatalf("b.mid kept the bound object, want a fresh one")
+		}
+		exLeaf := readInstance(t, ctx, existing, "leaf")
+		exFv, err := exLeaf.GetFeatureValue(ctx, "value")
+		if err != nil {
+			t.Fatalf("GetFeatureValue(value): %v", err)
+		}
+		if got := realValue(t, exFv.HeldValue()); got != 1.0 {
+			t.Fatalf("existing.leaf.value = %v, want its own 1.0", got)
+		}
+	}
+	t.Run("materialized_before_classify", func(t *testing.T) {
+		ctx, idx := libraryShapeContext(t, model)
+		check(t, ctx, idx, true)
+	})
+	t.Run("materialized_after_classify", func(t *testing.T) {
+		ctx, idx := libraryShapeContext(t, model)
+		check(t, ctx, idx, false)
+	})
+}
+
 // TestWriteToRestatedCollectionClassifies pins that an object written into a
 // collection directly is classified by it even when a feature it lives under
 // reaches that collection only through subsetting implied by nesting: the

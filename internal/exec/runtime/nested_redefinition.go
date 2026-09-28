@@ -92,7 +92,7 @@ func (ctx *Context) applyNestedRedefinitions(sym *symbols.Symbol, features []Eff
 	governed := make(map[string]bool)
 	for _, p := range carry {
 		for i := range features {
-			if features[i].Name == p.rest[0] && features[i].DefaultValue != nil && valuedChain(p) && ctx.chainGovernsValue(p.sym, features[i].Symbol) {
+			if features[i].Name == p.rest[0] && features[i].DefaultValue != nil && valuedChain(p) && ctx.chainGovernsValue(p.sym, bindingDecl(&features[i])) {
 				governed[features[i].Name] = true
 			}
 		}
@@ -171,7 +171,7 @@ func (ctx *Context) refineNestedBelow(inst *Instance, chain []string, sym *symbo
 	// mark the feature and reinstall it so the next read materializes a fresh
 	// object the chain applies below, not the bound one.
 	if len(chain) > 1 && fv.Feature != nil && fv.Feature.DefaultValue != nil && !fv.Feature.GovernedByChain &&
-		valuedChain(pendingRedefinition{rest: chain, sym: sym}) && ctx.chainGovernsValue(sym, fv.Feature.Symbol) {
+		valuedChain(pendingRedefinition{rest: chain, sym: sym}) && ctx.chainGovernsValue(sym, bindingDecl(fv.Feature)) {
 		feat := *fv.Feature
 		feat.GovernedByChain = true
 		feat.DefaultValue = nil
@@ -318,6 +318,16 @@ func (ctx *Context) chainOutranks(next, prior *symbols.Symbol) bool {
 func valuedChain(p pendingRedefinition) bool {
 	usage, ok := p.sym.Decl.(*ast.Usage)
 	return ok && valuesAFeature(usage)
+}
+
+// bindingDecl answers the declaration that wrote feat's bound value: a
+// redefinition restating the feature does not move the binding's origin, so
+// that is the declaration a chain's governance is judged against.
+func bindingDecl(feat *EffectiveFeature) *symbols.Symbol {
+	if feat.DefaultDecl != nil {
+		return feat.DefaultDecl
+	}
+	return feat.Symbol
 }
 
 // chainGovernsValue reports whether a chain's context strictly specializes the
