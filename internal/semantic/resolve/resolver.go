@@ -72,6 +72,12 @@ type modeMemoKey struct {
 	borrowedOut bool
 }
 
+// importVisit is one search of an import edge for a name: see Resolver.importVisits.
+type importVisit struct {
+	target, from *symbols.Scope
+	name         string
+}
+
 type filteredMemoKey struct {
 	qn               *ast.QualifiedName
 	decl             ast.Node
@@ -114,6 +120,13 @@ type Resolver struct {
 	imports          map[ast.Node][]*ast.Import
 	importStack      map[*ast.Import]bool
 	resolvingImports map[*ast.Import]bool
+	// importVisits are the import edges already searched for a name by the
+	// imported-member lookup in progress, and importDepth is its nesting:
+	// namespaces importing one another in a cycle are searched once per
+	// lookup, not once per path through the cycle, as the excluded set of
+	// Namespace::visibleMemberships intends (KerML 8.2.3.5; issue #633).
+	importVisits map[importVisit]bool
+	importDepth  int
 	Diagnostics      []Diagnostic
 	// quiet is nonzero while a lookup is made on behalf of a semantic query
 	// rather than a reference in the document being resolved.
@@ -240,6 +253,7 @@ func New(idx *symbols.Index) *Resolver {
 		payloads:              map[*symbols.Scope]map[string]*symbols.Symbol{},
 		implicitParams:        map[*symbols.Scope][]*symbols.Symbol{},
 		importTargets:         map[*ast.Import]resolution{},
+		importVisits:          map[importVisit]bool{},
 		redefined:             map[*symbols.Symbol][]*symbols.Symbol{},
 		bodyOwners:            map[*symbols.Scope]*symbols.Symbol{},
 		effNames:              map[*symbols.Symbol]bool{},
