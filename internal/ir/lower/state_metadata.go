@@ -85,9 +85,10 @@ func pseudostateFromUsage(usage *ast.Usage, kind ast.PseudostateKind) *ast.Pseud
 	return ps
 }
 
-// deferredSourceVertex is the vertex a positional `then` sequences from when
-// the member it would bind is a `#deferred` ref — no feature, like `defer`.
-func (g *StateGraph) deferredSourceVertex(edge *ast.SuccessionEdge, body transitionBody, scope *symbols.Scope) ast.Node {
+// deferredChainSource is the member a positional `then` sequences from when
+// the member it binds is a `#deferred` ref — no feature, like `defer`: the
+// member the chain the ref interrupts left, nil when the ref precedes it.
+func (g *StateGraph) deferredChainSource(edge *ast.SuccessionEdge, body transitionBody, scope *symbols.Scope) ast.Node {
 	var src ast.Node
 	if edge.SourceMember != nil {
 		src = unwrapMembership(edge.SourceMember)
@@ -102,12 +103,7 @@ func (g *StateGraph) deferredSourceVertex(edge *ast.SuccessionEdge, body transit
 	if !ok || !g.deferredRefOf(usage, scope) {
 		return nil
 	}
-	prev := precedingSuccessionSource(body.members, usage, g, scope)
-	if prev == nil {
-		return nil
-	}
-	node, _ := g.findVertex(prev)
-	return node
+	return precedingSuccessionSource(body.members, usage, g, scope)
 }
 
 // precedingSuccessionSource is the nearest member before marker a succession

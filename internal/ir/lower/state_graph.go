@@ -1964,9 +1964,23 @@ func collectSuccessionEdge(graph *StateGraph, n *ast.SuccessionEdge, body transi
 		return nil
 	}
 
-	// `succession first start then off;` out of a named entry action says the same.
+	// `entry; #deferred ref : Ping; then off;` sequences from the entry
+	// subaction the ref interrupts, as `entry; then off;` does.
 	if sourceVertex == nil {
-		sourceVertex = graph.deferredSourceVertex(n, body, scope)
+		if prev := graph.deferredChainSource(n, body, scope); prev != nil {
+			if isEntrySubaction(prev) {
+				if targetVertex == nil {
+					return nil
+				}
+				target, ok := targetVertex.(*ast.StateNode)
+				if !ok {
+					return &EntryTransitionTargetError{Target: targetVertex}
+				}
+				graph.addEntryTransition(entryOwner, &EntryTransition{Decl: n, Target: target, Scope: scope})
+				return nil
+			}
+			sourceVertex, _ = graph.findVertex(prev)
+		}
 	}
 
 	if sourceVertex == nil {

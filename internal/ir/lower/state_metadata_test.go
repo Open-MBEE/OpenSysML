@@ -2,6 +2,7 @@ package lower
 
 import (
 	"reflect"
+	"sort"
 	"strings"
 	"testing"
 
@@ -143,5 +144,37 @@ func TestMetadataPseudostatesMatchKeywordForms(t *testing.T) {
 				t.Errorf("deferred triggers are %v, want %v", got, want)
 			}
 		})
+	}
+}
+
+// entryTransitionShape lists the target names of a graph's entry transitions.
+func entryTransitionShape(g *StateGraph) []string {
+	var shape []string
+	for _, transitions := range g.EntryTransitions {
+		for _, tr := range transitions {
+			shape = append(shape, tr.Target.Name)
+		}
+	}
+	sort.Strings(shape)
+	return shape
+}
+
+// TestMetadataDeferredRefKeepsTheChainSource: a positional `then` after a
+// `#deferred ref` still leaves the member the ref interrupts — the entry
+// subaction here — as the `defer` spelling leaves it.
+func TestMetadataDeferredRefKeepsTheChainSource(t *testing.T) {
+	gOld, err := metadataStateGraph(t, "item def Ping;", "state o { entry; defer Ping; then a; state a; }")
+	if err != nil {
+		t.Fatalf("old form lowers: %v", err)
+	}
+	gNew, err := metadataStateGraph(t, "item def Ping;", "state o { entry; #deferred ref : Ping; then a; state a; }")
+	if err != nil {
+		t.Fatalf("new form lowers: %v", err)
+	}
+	if got, want := entryTransitionShape(gNew), entryTransitionShape(gOld); !reflect.DeepEqual(got, want) {
+		t.Errorf("entry transitions are %v, want %v", got, want)
+	}
+	if got := entryTransitionShape(gNew); !reflect.DeepEqual(got, []string{"a"}) {
+		t.Errorf("entry transitions are %v, want [a]", got)
 	}
 }
