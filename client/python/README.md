@@ -57,7 +57,10 @@ applicable.
 `add_calc_def` and `add_calc` accept input pairs, `return_type` and
 `return_expression`; a return expression requires a return type and is bound to
 the result parameter rather than written as `return <expr>;`. `add_action_def`
-and `add_action` accept input and output pairs.
+and `add_action` accept input and output pairs. `add_perform_action` writes
+`perform action name : Type`, and `add_perform(owner, action)` writes
+`perform <action>;` — a perform usage named by the action usage it references,
+for example `add_perform("Demo::Kitchen", "t.heat")` writes `perform t.heat;`.
 
 Use `opensysml.loads(text, language="kerml")` for inline KerML content.
 

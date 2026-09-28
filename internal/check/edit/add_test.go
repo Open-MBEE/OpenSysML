@@ -270,7 +270,7 @@ func TestAddMemberRejectsQuotedDuplicateName(t *testing.T) {
 var memberKindTypes = map[string]string{
 	"feature": "class", "step": "behavior", "expr": "function", "bool": "predicate",
 	"subject": "part def", "actor": "part def", "stakeholder": "part def", "objective": "requirement def",
-	"ref": "part def", "return": "part def",
+	"ref": "part def", "return": "part def", "perform action": "action def",
 }
 
 // memberKindOwners pairs each kind only some bodies offer with a member of P
@@ -312,6 +312,14 @@ func TestEveryMemberKindWrites(t *testing.T) {
 				case !memberKinds[kind].definition && kind != "package":
 					op.Owner = "P::A"
 				}
+				if kind == "perform" {
+					// A perform usage is named by the action usage it performs:
+					// its name is the feature reference to that action.
+					src = strings.Replace(src, "    use case def U;\n",
+						"    use case def U;\n    part def X {\n        action run : A;\n    }\n    part def B {\n        part x : X;\n    }\n", 1)
+					op.Owner = "P::B"
+					op.MemberName = "x.run"
+				}
 				m := loadContent(t, name, src)
 				requireClean(t, m)
 				res, err := Apply(m, []Operation{op})
@@ -319,7 +327,7 @@ func TestEveryMemberKindWrites(t *testing.T) {
 					t.Fatalf("Apply: %v", err)
 				}
 				got := string(res.Content)
-				want := kind + " added"
+				want := kind + " " + op.MemberName
 				if op.Type != "" {
 					want += " : T"
 				}
@@ -330,6 +338,105 @@ func TestEveryMemberKindWrites(t *testing.T) {
 			})
 		}
 	}
+}
+
+// Perform-action usages are members written two ways: `perform action
+// <name> : <ActionDef>;` declares and types the performed action, while
+// `perform <ref>;` names an existing action usage by feature reference and
+// takes the usage's name from it.
+func TestAddMemberPerformAction(t *testing.T) {
+	src := "package Demo {\n" +
+		"    action def ToastBread;\n" +
+		"    part def Toaster {\n" +
+		"        action heat : ToastBread;\n" +
+		"    }\n" +
+		"    part def Kitchen {\n" +
+		"        part t : Toaster;\n" +
+		"    }\n" +
+		"}\n"
+	t.Run("declaration form", func(t *testing.T) {
+		m := loadContent(t, "perform.sysml", src)
+		requireClean(t, m)
+		op := AddMember("Demo::Kitchen", "perform action", "heat")
+		op.Type = "ToastBread"
+		res, err := Apply(m, []Operation{op})
+		if err != nil {
+			t.Fatalf("Apply: %v", err)
+		}
+		got := string(res.Content)
+		if !strings.Contains(got, "perform action heat : ToastBread;") {
+			t.Fatalf("content lacks the perform action usage:\n%s", got)
+		}
+		requireClean(t, loadContent(t, "perform.sysml", got))
+	})
+	t.Run("declaration form with multiplicity", func(t *testing.T) {
+		m := loadContent(t, "perform.sysml", src)
+		requireClean(t, m)
+		op := AddMember("Demo::Kitchen", "perform action", "heat")
+		op.Type = "ToastBread"
+		op.Multiplicity = "[1]"
+		res, err := Apply(m, []Operation{op})
+		if err != nil {
+			t.Fatalf("Apply: %v", err)
+		}
+		got := string(res.Content)
+		if !strings.Contains(got, "perform action heat : ToastBread [1];") {
+			t.Fatalf("content lacks the perform action usage:\n%s", got)
+		}
+		requireClean(t, loadContent(t, "perform.sysml", got))
+	})
+	t.Run("reference form", func(t *testing.T) {
+		m := loadContent(t, "perform.sysml", src)
+		requireClean(t, m)
+		res, err := Apply(m, []Operation{AddMember("Demo::Kitchen", "perform", "t.heat")})
+		if err != nil {
+			t.Fatalf("Apply: %v", err)
+		}
+		got := string(res.Content)
+		if !strings.Contains(got, "perform t.heat;") {
+			t.Fatalf("content lacks the perform usage:\n%s", got)
+		}
+		requireClean(t, loadContent(t, "perform.sysml", got))
+	})
+	t.Run("rooted reference form", func(t *testing.T) {
+		rooted := "package P {\n    action def A;\n    action run : A;\n}\npackage Q {}\n"
+		m := loadContent(t, "rooted.sysml", rooted)
+		requireClean(t, m)
+		res, err := Apply(m, []Operation{AddMember("Q", "perform", "$::P::run")})
+		if err != nil {
+			t.Fatalf("Apply: %v", err)
+		}
+		got := string(res.Content)
+		if !strings.Contains(got, "perform $::P::run;") {
+			t.Fatalf("content lacks the rooted perform usage:\n%s", got)
+		}
+		requireClean(t, loadContent(t, "rooted.sysml", got))
+		addFailure(t, loadContent(t, "rooted.sysml", rooted),
+			AddMember("Q", "perform", "$"), FailureInvalidName)
+		addFailure(t, loadContent(t, "rooted.sysml", rooted),
+			AddMember("Q", "perform", "$.run"), FailureInvalidName)
+	})
+	t.Run("refusals", func(t *testing.T) {
+		addFailure(t, loadContent(t, "perform.sysml", src),
+			AddMember("Demo::Kitchen", "perform-action", "heat"), FailureIllegalKind)
+		op := AddMember("Demo::Kitchen", "perform", "t.heat")
+		op.Type = "ToastBread"
+		e := addFailure(t, loadContent(t, "perform.sysml", src), op, FailureIllegalKind)
+		if !strings.Contains(e.Message, "cannot carry a typing target") {
+			t.Fatalf("typing refusal message = %q", e.Message)
+		}
+		e = addFailure(t, loadContent(t, "perform.sysml", src),
+			AddMember("Demo::Kitchen", "perform", "nothere"), FailureResultInvalid)
+		if !strings.Contains(e.Message, "nothere") {
+			t.Fatalf("unresolved reference message = %q", e.Message)
+		}
+		addFailure(t, loadContent(t, "perform.sysml", src),
+			AddMember("Demo::Toaster", "perform", "heat"), FailureMemberNameTaken)
+		op = AddMember("Demo::Kitchen", "perform action", "bake")
+		op.Type = "ToastBread"
+		op.Direction = "in"
+		addFailure(t, loadContent(t, "perform.sysml", src), op, FailureIllegalKind)
+	})
 }
 
 // A member only a requirement or case body offers is written into one and
