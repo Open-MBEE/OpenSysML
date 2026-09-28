@@ -55,6 +55,8 @@ type Model struct {
 	ends       map[*symbols.Symbol][]connectorEnd
 	// subtracting memoizes whether a type reaches a difference (see cast.go).
 	subtracting map[*symbols.Symbol]bool
+	// referential memoizes a parameter's referentiality (see shape.go).
+	referential map[*symbols.Symbol]bool
 	// implicitBase memoizes each declaration's kind bases once settled (see implicit.go).
 	implicitBase map[*symbols.Symbol][]*symbols.Symbol
 	// implicitSubsettings memoizes the owner feature each nested usage implicitly
@@ -161,6 +163,7 @@ func NewModel(resolver *resolve.Resolver) *Model {
 		composed:            make(map[composedKey][]*symbols.Symbol),
 		ends:                make(map[*symbols.Symbol][]connectorEnd),
 		subtracting:         make(map[*symbols.Symbol]bool),
+		referential:         make(map[*symbols.Symbol]bool),
 		implicitBase:        make(map[*symbols.Symbol][]*symbols.Symbol),
 		implicitSubsettings: make(map[*symbols.Symbol][]*symbols.Symbol),
 		computingUsageBase:  make(map[*symbols.Symbol]bool),

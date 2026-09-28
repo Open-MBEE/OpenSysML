@@ -402,6 +402,12 @@ func IsBehaviorParameter(sym *symbols.Symbol) bool {
 	return IsParameter(sym) && behaviorLike(sym.Owner())
 }
 
+// IsDataKind reports whether sym is a value-kind usage: an attribute or an
+// enumeration usage holds data, never an object of its own, regardless of typing.
+func IsDataKind(sym *symbols.Symbol) bool {
+	return sym.Kind == symbols.SymbolAttributeUsage || sym.Kind == symbols.SymbolEnumerationUsage
+}
+
 // ReferentialParameter reports whether a behavior parameter holds no object of
 // its own: an object flows into it, so nothing below it is owned. A data-typed
 // parameter — an attribute or enumeration usage, or one typed by a data type —
@@ -410,16 +416,21 @@ func (m *Model) ReferentialParameter(sym *symbols.Symbol) bool {
 	if !IsBehaviorParameter(sym) {
 		return false
 	}
-	switch sym.Kind {
-	case symbols.SymbolAttributeUsage, symbols.SymbolEnumerationUsage:
-		return false
+	if cached, ok := m.referential[sym]; ok {
+		return cached
 	}
-	for _, typ := range m.FeatureTypes(sym) {
-		if m.IsDataType(typ) {
-			return false
+	result := !IsDataKind(sym)
+	if result {
+		for _, typ := range m.DeclaredTypes(sym) {
+			if m.IsDataType(typ) {
+				result = false
+				break
+			}
 		}
 	}
-	return true
+	journal(m, m.referential, sym, sym.Decl)
+	m.referential[sym] = result
+	return result
 }
 
 // IsSelf reports whether sym is a thing's `self` feature: Base::Anything::self or a

@@ -80,6 +80,8 @@ func (p *nestedRedefinitionChecker) checkChainSegments(owner *symbols.Symbol, nr
 		if resolved == nil {
 			continue
 		}
+		// ReferentialParameter exempts untyped attribute parameters; the runtime still
+		// treats those as referential, so a chain through one is permitted but does not apply.
 		if !semantics.IsReferenceUsage(resolved) && !semantics.IsSubjectUsage(resolved) &&
 			!p.model.ReferentialParameter(resolved) && resolved.Kind != symbols.SymbolPortUsage {
 			continue

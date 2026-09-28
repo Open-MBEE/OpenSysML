@@ -94,9 +94,13 @@ func TestNestedRedefinitionThroughAParameter(t *testing.T) {
 func TestNestedRedefinitionThroughADataParameter(t *testing.T) {
 	src := `package P {
 		private import ScalarValues::Real;
-		action def A { out attribute output { attribute voltage : Real; } }
+		action def A {
+			out attribute output { attribute voltage : Real; }
+			in attribute input { attribute voltage : Real; }
+		}
 		action run : A {
 			attribute :>> output.voltage = 9.0;
+			attribute :>> input.voltage = 9.0;
 		}
 	}`
 	if got := nestedDiags(t, src, diag.ConformanceDefault); len(got) != 0 {
