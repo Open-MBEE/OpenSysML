@@ -1132,14 +1132,17 @@ func (a *activity) foreignProbabilities(e *sysmlv1.Element) {
 }
 
 // probabilities weights each branch of a decision carrying a «Probability»: a
-// number is a constant, a property is a reference the run reads, unmarked branches
-// and «Probability» tags without a value share the remainder to 1, constant sums
-// other than 1 are scaled; nil when none has a value.
+// number is constant, non-strict properties are references the run reads, and
+// unmarked branches share the remainder to 1; nil when none has a value.
 func (a *activity) probabilities(outs []*sysmlv1.Element, tos []string) []string {
 	weights := make([]probabilityWeight, len(outs))
 	var unmarked, valueless []int
 	sum, marked, dynamic := 0.0, false, false
 	var notes []string
+	var approximations []struct {
+		edge *sysmlv1.Element
+		note string
+	}
 	for i, e := range outs {
 		if tos[i] == "" {
 			notes = append(notes, "the edge "+describe(e)+" leads to "+describe(ownerNode(a.m.model.Ref(e, "target")))+", "+a.unwritableTarget(e))
@@ -1161,6 +1164,12 @@ func (a *activity) probabilities(outs []*sysmlv1.Element, tos []string) []string
 		if note != "" {
 			notes = append(notes, note)
 			continue
+		}
+		if w.approximation != "" {
+			approximations = append(approximations, struct {
+				edge *sysmlv1.Element
+				note string
+			}{edge: e, note: w.approximation})
 		}
 		if w.property != nil {
 			dynamic = true
@@ -1194,7 +1203,11 @@ func (a *activity) probabilities(outs []*sysmlv1.Element, tos []string) []string
 		}
 		return nil
 	}
-	return a.weightExprs(outs, weights, unmarked, sum, dynamic)
+	exprs := a.weightExprs(outs, weights, unmarked, sum, dynamic)
+	for _, approximation := range approximations {
+		a.m.add(approximation.edge, Approximated, "", approximation.note)
+	}
+	return exprs
 }
 
 // branchWeight reads the «Probability» text of one marked edge: the weight it is
@@ -1255,9 +1268,10 @@ func unmarkedNote(e *sysmlv1.Element) string {
 // probabilityWeight is the weight of one branch: the v2 expression written for
 // it, and the number it is when it is a constant, or the property it reads.
 type probabilityWeight struct {
-	expr     string
-	value    float64
-	property *sysmlv1.Element
+	expr          string
+	value         float64
+	property      *sysmlv1.Element
+	approximation string
 }
 
 // dynamicRemainder writes what the marked branches, one of them a reference,
@@ -1283,9 +1297,8 @@ func (a *activity) dynamicRemainder(weights []probabilityWeight, n int) string {
 // from 1 and still be written as they are.
 const probabilityTolerance = 1e-6
 
-// probability reads a probability tag: a number, written as a constant, or the
-// name or id of a numeric property visible from the activity, written as a
-// reference to it; reason says why it is neither.
+// probability reads a probability tag: a number, or a visible numeric property;
+// strict migration uses a finite literal default instead of a property reference.
 func (a *activity) probability(text string) (probabilityWeight, string) {
 	text = strings.TrimSpace(text)
 	if v, ok := finiteNumber(text); ok {
@@ -1321,6 +1334,27 @@ func (a *activity) probability(text string) (probabilityWeight, string) {
 	}
 	if mult, _ := a.m.multiplicity(p); mult != "" {
 		return probabilityWeight{}, namesProp + qualifiedName(p) + ", which holds " + mult + " values, not one number"
+	}
+	if a.m.strict {
+		defaults := p.Owned("defaultValue")
+		if len(defaults) == 1 {
+			switch defaults[0].Type {
+			case "LiteralReal", "LiteralInteger", "LiteralUnlimitedNatural":
+				_, value, reason := literalNumber(defaults[0])
+				if reason == "" {
+					return probabilityWeight{
+						expr:  computedLiteral(value),
+						value: value,
+						approximation: "under strict the probability is written as " + computedLiteral(value) +
+							", the default of property " + qualifiedName(p) +
+							", since a metadata value must be model-level evaluable; a run no longer reads the property, so an object whose value differs is still weighted by the default",
+					}, ""
+				}
+			}
+		}
+		return probabilityWeight{}, "names the property " + qualifiedName(p) +
+			", whose value a run reads when the decision is reached; a strict migration writes only model-level evaluable metadata values and " +
+			qualifiedName(p) + " has no finite numeric literal default"
 	}
 	return probabilityWeight{expr: a.on(a.self(), writeName(a.m.nameOf(p))), property: p}, ""
 }
@@ -1914,15 +1948,18 @@ func (a *activity) callBehavior(n *sysmlv1.Element, name string) {
 			ctxArg, c.bound, cnote = expr, true, note
 		}
 	}
+	cat, _ := a.m.classify(b)
 	a.m.w.block(actionKw+name, func() {
 		a.pins(n, nil)
 		var args []string
-		if ctxArg != "" {
-			// The def's leading `in ref context` binds positionally first.
+		if ctxArg != "" && a.m.contextLeads(b, cat) {
 			args = append(args, ctxArg)
 		}
 		for _, pin := range n.Owned("argument") {
 			args = append(args, writeName(a.names[pin]))
+		}
+		if ctxArg != "" && !a.m.contextLeads(b, cat) {
+			args = append(args, ctxArg)
 		}
 		results := n.Owned("result")
 		call := a.m.ref(b, a.def) + "(" + strings.Join(args, ", ") + ")"
@@ -2438,7 +2475,7 @@ func (m *migration) acceptClause(ev, scope *sysmlv1.Element, payload string) (cl
 			return "", note, false
 		}
 		if payload != "" {
-			return "accept " + writeName(payload) + " : " + m.ref(sig, scope), "", true
+			return "accept " + writeName(payload) + " : " + m.acceptSignalRef(sig, scope, writeName(payload)), "", true
 		}
 		return "accept " + m.ref(sig, scope), "", true
 	case "TimeEvent":

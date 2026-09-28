@@ -10,7 +10,7 @@
       {
         "name": "pilot-sysml-validator",
         "source": "scripts/pilot-sysml-validator/ValidateSysML.java",
-        "sourceDigest": "sha256:3855d223162d6ece6a08b5e1bc9388ff2706bd52e7f3373be31c7e8abc0a22bb",
+        "sourceDigest": "sha256:fe6dc20d8723bb5022322b5701b98d13d90a560882c0970b90aa7305073f60ad",
         "release": "2026-08 (jupyter-sysml-kernel 0.62.0)"
       },
       {

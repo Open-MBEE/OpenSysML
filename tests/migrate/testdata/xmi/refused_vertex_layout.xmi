@@ -1,0 +1,42 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<xmi:XMI xmi:version="2.5.1" xmlns:xmi="http://www.omg.org/spec/XMI/20131001"
+         xmlns:uml="http://www.omg.org/spec/UML/20161101"
+         xmlns:diagram="http://www.example.com/tool/diagram">
+  <uml:Model xmi:type="uml:Model" xmi:id="_m" name="Model">
+    <packagedElement xmi:type="uml:Class" xmi:id="_controller" name="Controller">
+      <ownedBehavior xmi:type="uml:StateMachine" xmi:id="_modes" name="Modes">
+        <region xmi:type="uml:Region" xmi:id="_region">
+          <subvertex xmi:type="uml:Pseudostate" xmi:id="_initial" kind="initial"/>
+          <subvertex xmi:type="uml:State" xmi:id="_idle" name="Idle"/>
+          <subvertex xmi:type="uml:Pseudostate" xmi:id="_junction" name="junction" kind="junction"/>
+          <subvertex xmi:type="uml:Pseudostate" xmi:id="_choice" name="choice" kind="choice"/>
+          <transition xmi:type="uml:Transition" xmi:id="_t_initial" source="_initial" target="_idle"/>
+          <transition xmi:type="uml:Transition" xmi:id="_t_junction" source="_idle" target="_junction"/>
+          <transition xmi:type="uml:Transition" xmi:id="_t_choice" source="_junction" target="_choice"/>
+          <transition xmi:type="uml:Transition" xmi:id="_t_idle" source="_choice" target="_idle"/>
+        </region>
+      </ownedBehavior>
+    </packagedElement>
+    <xmi:Extension extender="Example UML Tool 1.0">
+      <modelExtension>
+        <ownedDiagram xmi:type="uml:Diagram" xmi:id="_diagram_modes" name="Modes" ownerOfDiagram="_modes">
+          <xmi:Extension extender="Example UML Tool 1.0">
+            <diagramRepresentation>
+              <diagram:DiagramRepresentationObject type="SysML State Machine Diagram" umlType="State Machine Diagram">
+                <diagramContents>
+                  <usedElements>_idle</usedElements>
+                  <usedElements>_junction</usedElements>
+                  <usedElements>_choice</usedElements>
+                  <usedElements>_t_junction</usedElements>
+                  <usedElements>_t_choice</usedElements>
+                  <usedElements>_t_idle</usedElements>
+                </diagramContents>
+                <binaryObject streamContentID="BINARY-refused_vertex_layout"/>
+              </diagram:DiagramRepresentationObject>
+            </diagramRepresentation>
+          </xmi:Extension>
+        </ownedDiagram>
+      </modelExtension>
+    </xmi:Extension>
+  </uml:Model>
+</xmi:XMI>

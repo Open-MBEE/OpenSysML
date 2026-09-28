@@ -1781,6 +1781,11 @@ its deferred signal named by the `@MigrationMetadata::DeferredEvent` annotation 
 writes. What a strict migration still refuses is whatever has no standard v2 form at all; a
 transition to or from an unmapped vertex is refused rather than written to an undeclared name.
 
+To check strict output against the pinned pilot implementation, validate it together with the
+whole OpenSysML library directory, `.kerml` files included (`RandomFunctions`, which migrated
+Monte Carlo analyses call, is KerML); see
+[Pilot differential](../project/pilot-differential.md#the-kerml-side-of-the-bridge).
+
 #### Deferred signals under `-strict`
 
 A v1 state that defers a signal keeps every occurrence arriving while it is active and

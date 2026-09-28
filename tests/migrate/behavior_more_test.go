@@ -4,6 +4,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/Open-MBEE/OpenSysML/internal/syntax/diag"
 	"github.com/Open-MBEE/OpenSysML/internal/translate/migrate"
 )
 
@@ -535,6 +536,128 @@ const portDeferringApplications = `
   <sysml:Block xmi:id="_pb2" base_Class="_console"/>
   <sysml:Block xmi:id="_pb3" base_Class="_site"/>`
 
+// A port named only by a deferred trigger still makes the state def's context
+// necessary, even when no transition or activity uses it.
+func TestStrictDeferredPortRouteDeclaresAndBindsContext(t *testing.T) {
+	const machine = `
+    <packagedElement xmi:type="uml:Signal" xmi:id="_event" name="Event"/>
+    <packagedElement xmi:type="uml:SignalEvent" xmi:id="_eventEv" signal="_event"/>
+    <packagedElement xmi:type="uml:Class" xmi:id="_receiver" name="Receiver" classifierBehavior="_life">
+      <ownedAttribute xmi:type="uml:Port" xmi:id="_p" name="p" aggregation="composite"/>
+      <ownedBehavior xmi:type="uml:StateMachine" xmi:id="_life" name="Life">
+        <region xmi:type="uml:Region" xmi:id="_region">
+          <subvertex xmi:type="uml:Pseudostate" xmi:id="_initial"/>
+          <subvertex xmi:type="uml:State" xmi:id="_waiting" name="Waiting">
+            <deferrableTrigger xmi:type="uml:Trigger" xmi:id="_deferred" event="_eventEv" port="_p"/>
+          </subvertex>
+          <transition xmi:type="uml:Transition" xmi:id="_initialTransition" source="_initial" target="_waiting"/>
+        </region>
+      </ownedBehavior>
+    </packagedElement>`
+	const applications = `<sysml:Block xmi:id="_receiverBlock" base_Class="_receiver"/>`
+	r := migrateDocumentOptions(t, machine, applications, migrate.Options{Strict: true})
+	for _, line := range []string{
+		"in ref context : Receiver;",
+		"accept 'kept via p' : Event via context.p;",
+		"exhibit state life : Life { in ref :>> context = this; }",
+	} {
+		wantLine(t, r.Notation, line)
+	}
+	wantClean(t, "deferredPortContext", r)
+}
+
+func TestClassifierBehaviorContextFollowsInputParameter(t *testing.T) {
+	const machine = `
+    <packagedElement xmi:type="uml:Signal" xmi:id="_event" name="Event"/>
+    <packagedElement xmi:type="uml:SignalEvent" xmi:id="_eventEv" signal="_event"/>
+    <packagedElement xmi:type="uml:Class" xmi:id="_receiver" name="Receiver" classifierBehavior="_life">
+      <ownedAttribute xmi:type="uml:Port" xmi:id="_p" name="p" aggregation="composite"/>
+      <ownedBehavior xmi:type="uml:StateMachine" xmi:id="_life" name="Life">
+        <ownedParameter xmi:type="uml:Parameter" xmi:id="_x" name="x" direction="in">
+          <type xmi:type="uml:PrimitiveType" href="http://www.omg.org/spec/UML/20131001/PrimitiveTypes.xmi#Integer"/>
+        </ownedParameter>
+        <region xmi:type="uml:Region" xmi:id="_region">
+          <subvertex xmi:type="uml:Pseudostate" xmi:id="_initial"/>
+          <subvertex xmi:type="uml:State" xmi:id="_waiting" name="Waiting">
+            <deferrableTrigger xmi:type="uml:Trigger" xmi:id="_deferred" event="_eventEv" port="_p"/>
+          </subvertex>
+          <transition xmi:type="uml:Transition" xmi:id="_initialTransition" source="_initial" target="_waiting"/>
+        </region>
+      </ownedBehavior>
+    </packagedElement>`
+	const applications = `<sysml:Block xmi:id="_receiverBlock" base_Class="_receiver"/>`
+	r := migrateDocumentOptions(t, machine, applications, migrate.Options{Strict: true})
+	for _, line := range []string{
+		"in x : ScalarValues::Integer;",
+		"in ref context : Receiver;",
+		"exhibit state life : Life { in x; in ref :>> context = this; }",
+	} {
+		wantLine(t, r.Notation, line)
+	}
+	wantClean(t, "classifierBehaviorParameterContext", r)
+}
+
+func TestReceptionPortContextForInterfaceBlock(t *testing.T) {
+	const members = `
+    <packagedElement xmi:type="uml:Signal" xmi:id="_ping" name="Ping">
+      <ownedAttribute xmi:type="uml:Property" xmi:id="_pingValue" name="value">
+        <type xmi:type="uml:PrimitiveType" href="http://www.omg.org/spec/UML/20131001/PrimitiveTypes.xmi#Integer"/>
+      </ownedAttribute>
+    </packagedElement>
+    <packagedElement xmi:type="uml:Class" xmi:id="_contract" name="Contract">
+      <ownedAttribute xmi:type="uml:Property" xmi:id="_carriedPing" name="ping" type="_ping"/>
+    </packagedElement>
+    <packagedElement xmi:type="uml:Class" xmi:id="_interfaceOwner" name="IB">
+      <ownedAttribute xmi:type="uml:Port" xmi:id="_interfacePort" name="p" type="_contract" aggregation="composite"/>
+      <ownedReception xmi:type="uml:Reception" xmi:id="_interfaceReception" name="R" signal="_ping">
+        <ownedParameter xmi:type="uml:Parameter" xmi:id="_receptionValue" name="value" direction="in">
+          <type xmi:type="uml:PrimitiveType" href="http://www.omg.org/spec/UML/20131001/PrimitiveTypes.xmi#Integer"/>
+        </ownedParameter>
+      </ownedReception>
+    </packagedElement>
+    <packagedElement xmi:type="uml:Class" xmi:id="_blockOwner" name="Owner">
+      <ownedAttribute xmi:type="uml:Port" xmi:id="_blockPort" name="p" type="_contract" aggregation="composite"/>
+      <ownedReception xmi:type="uml:Reception" xmi:id="_blockReception" name="R" signal="_ping"/>
+    </packagedElement>`
+	const applications = `
+    <sysml:InterfaceBlock xmi:id="_contractInterface" base_Class="_contract"/>
+    <sysml:FlowProperty xmi:id="_carriedPingFlow" base_Property="_carriedPing" direction="in"/>
+    <sysml:InterfaceBlock xmi:id="_interfaceBlock" base_Class="_interfaceOwner"/>
+    <sysml:Block xmi:id="_block" base_Class="_blockOwner"/>`
+	r := migrateDocumentOptions(t, members, applications, migrate.Options{Strict: true})
+	for _, line := range []string{
+		"action def R {",
+		"in ref context : IB;",
+		"action 'receive via p' accept 'ping via p' : Ping via context.p;",
+		"perform action r : R { in ref :>> context = this; }",
+		"perform action r {",
+		"action 'receive via p' accept 'ping via p' : Ping via p;",
+	} {
+		wantLine(t, r.Notation, line)
+	}
+	wantNoLine(t, r.Notation, "in value;")
+	for _, d := range errorsMode(t, "interfaceBlockReception.sysml", r.Notation, diag.ConformanceStrict) {
+		t.Errorf("%v", d)
+	}
+}
+
+func TestStrictAcceptViaContextPortFixture(t *testing.T) {
+	r := migrateFixtureFileOptions(t, "accept_via_context_port", migrate.Options{Strict: true})
+	for _, line := range []string{
+		"in ref context : Receiver;",
+		"in ref context : ActivityReceiver;",
+		"action receive accept Ping via context.p;",
+		"transition first Waiting accept Go via context.p then Done;",
+		"action 'receive via p' accept 'kept via p' : Ping via context.p;",
+		"action 'receive via p' accept 'ping via p' : Ping via p;",
+		"exhibit state life : Life { in ref :>> context = this; }",
+		"perform action await : Await { in ref :>> context = this; }",
+	} {
+		wantLine(t, r.Notation, line)
+	}
+	wantClean(t, "acceptViaContextPortFixture", r)
+}
+
 // Under -strict, a deferred signal is kept by whichever route it reaches the
 // object: from the object itself and via each port a connector delivers it to,
 // or via the ports the deferrable trigger names alone. A transition out of the
@@ -560,10 +683,10 @@ func TestStrictDeferredSignalsAreKeptByEveryRoute(t *testing.T) {
 		"action receiveCmd accept keptCmd : Cmd;",
 		"then action keepCmd { assign deferredCmd := SequenceFunctions::including(deferredCmd, receiveCmd.keptCmd); }",
 		"then receiveCmd;",
-		"action 'receiveCmd via inbox' accept 'keptCmd via inbox' : Cmd via inbox;",
+		"action 'receiveCmd via inbox' accept 'keptCmd via inbox' : Cmd via context.inbox;",
 		"then action 'keepCmd via inbox' { assign deferredCmd := SequenceFunctions::including(deferredCmd, 'receiveCmd via inbox'.'keptCmd via inbox'); }",
 		"then 'receiveCmd via inbox';",
-		"action 'receivePing via side' accept 'keptPing via side' : Ping via side;",
+		"action 'receivePing via side' accept 'keptPing via side' : Ping via context.side;",
 		"then action 'keepPing via side' { assign deferredPing := SequenceFunctions::including(deferredPing, 'receivePing via side'.'keptPing via side'); }",
 		"then 'receivePing via side';",
 		"exit action flush {",

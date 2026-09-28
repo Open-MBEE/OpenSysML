@@ -336,6 +336,18 @@ func (r *Resolver) lookupImports(scope *symbols.Scope, name string) (*symbols.Sy
 // lookupImportedMember resolves a segment surfaced by the namespace being
 // traversed, including a public membership import.
 func (r *Resolver) lookupImportedMember(target *symbols.Symbol, targetScope, from *symbols.Scope, name string) (*symbols.Symbol, bool) {
+	visit := importVisit{target: targetScope, from: from, name: name}
+	if r.importVisits[visit] {
+		return nil, false
+	}
+	r.importVisits[visit] = true
+	r.importDepth++
+	defer func() {
+		r.importDepth--
+		if r.importDepth == 0 {
+			clear(r.importVisits)
+		}
+	}()
 	for _, imp := range r.scopeImports(targetScope) {
 		if r.importStack[imp] {
 			continue

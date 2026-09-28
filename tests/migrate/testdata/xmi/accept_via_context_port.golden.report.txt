@@ -1,0 +1,44 @@
+# SysML v1 to v2 migration report: accept_via_context_port.xmi
+# migrated 38 element(s): 35 mapped, 3 approximated, 0 unmapped (0 skipped as profile, library or notation-only content, 0 as model elements nothing refers to)
+
+## approximated (3)
+Activity	ActivityReceiver::Await	_await	-> ActivityReceiver::Await	(acts on its owner ActivityReceiver, which it takes as its parameter context, since its this is the def's own occurrence; the classifier behavior is run by every object of ActivityReceiver as its usage await)
+StateMachine	Receiver::Life	_life	-> Receiver::Life	(acts on its owner Receiver, which it takes as its parameter context, since its this is the def's own occurrence; the classifier behavior is run by every object of Receiver as its usage life)
+Reception	Receiver::Ping	_reception	-> Receiver::ping	(written as an action usage accepting Ping, which its owner performs as ping from creation, accepting the signal again after each; the reception has no method, so it only accepts the signal; the signal arrives at the port p over the document's connectors or declarations, so the reception is also written accepting via each)
+
+## mapped (35)
+SignalEvent	<SignalEvent>	_pingEvent	(written where a trigger refers to it, as #StateMachines::deferred ref : Ping, the StateMachines library's deferred-event metadata; written where a trigger refers to it, as accept Ping)
+SignalEvent	<SignalEvent>	_goEvent	(written where a trigger refers to it, as accept Go)
+«InterfaceBlock» Class	ActivityReceiver	_activityReceiver	-> ActivityReceiver
+ActivityFinalNode	ActivityReceiver::Await::<ActivityFinalNode>	_awaitFinal	-> final
+ControlFlow	ActivityReceiver::Await::<ControlFlow>	_awaitLast
+InitialNode	ActivityReceiver::Await::<InitialNode>	_awaitInitial	-> start
+AcceptEventAction	ActivityReceiver::Await::receive	_accept	-> receive
+Trigger	ActivityReceiver::Await::receive::<Trigger>	_acceptTrigger
+Port	ActivityReceiver::p	_activityPort	-> ActivityReceiver::p
+Signal	Go	_go	-> Go
+Model	Model	_m	(the root model's members are written at the top level)
+Signal	Ping	_ping	-> Ping
+«Block» Class	Receiver	_receiver	-> Receiver
+Region	Receiver::Life::<Region>	_region	(the one region is written as the body of its owner)
+Pseudostate	Receiver::Life::<Region>::<Pseudostate>	_initial	(written as the entry of the region)
+Transition	Receiver::Life::<Region>::<Transition>	_start
+Transition	Receiver::Life::<Region>::<Transition>	_finish	(the trigger accepts via the port p it names)
+Trigger	Receiver::Life::<Region>::<Transition>::<Trigger>	_finishTrigger	(the trigger accepts via the port p it names)
+State	Receiver::Life::<Region>::Done	_done	-> Done
+State	Receiver::Life::<Region>::Waiting	_waiting	-> Waiting
+Trigger	Receiver::Life::<Region>::Waiting::<Trigger>	_deferred	(written as #StateMachines::deferred ref : Ping, the StateMachines library's deferred-event metadata; the state is annotated @MigrationMetadata::DeferredEvent)
+Port	Receiver::p	_p	-> Receiver::p
+«Block» Class	Rig	_rig	-> Rig
+Connector	Rig::<Connector>	_link
+Property	Rig::receiver	_receiverPart	-> Rig::receiver
+Property	Rig::sender	_senderPart	-> Rig::sender
+«Block» Class	Sender	_sender	-> Sender
+Activity	Sender::Send	_send	-> Sender::'send'	(written as an action usage of Sender, which a call on an object performs, so its body runs on the object and reaches its features)
+ActivityFinalNode	Sender::Send::<ActivityFinalNode>	_sendFinal	-> final
+ControlFlow	Sender::Send::<ControlFlow>	_sendSecond
+ControlFlow	Sender::Send::<ControlFlow>	_sendLast
+InitialNode	Sender::Send::<InitialNode>	_sendInitial	-> start
+SendSignalAction	Sender::Send::send go	_sendGo	-> 'send go'
+SendSignalAction	Sender::Send::send ping	_sendPing	-> 'send ping'
+Port	Sender::out	_out	-> Sender::'out'

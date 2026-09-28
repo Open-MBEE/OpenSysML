@@ -1,0 +1,19 @@
+# SysML v1 to v2 migration report: refused_vertex_layout.xmi
+# migrated 13 element(s): 12 mapped, 1 approximated, 0 unmapped (0 skipped as profile, library or notation-only content, 0 as model elements nothing refers to)
+
+## approximated (1)
+Class	Controller	_controller	-> Controller	(a plain UML class without «Block» is written as a part def)
+
+## mapped (12)
+StateMachine	Controller::Modes	_modes	-> Controller::Modes
+Region	Controller::Modes::<Region>	_region	(the one region is written as the body of its owner)
+Pseudostate	Controller::Modes::<Region>::<Pseudostate>	_initial	(written as the entry of the region)
+Transition	Controller::Modes::<Region>::<Transition>	_t_initial
+Transition	Controller::Modes::<Region>::<Transition>	_t_junction	-> Controller::Modes::'Idle then junction'
+Transition	Controller::Modes::<Region>::<Transition>	_t_choice	-> Controller::Modes::'junction then choice'
+Transition	Controller::Modes::<Region>::<Transition>	_t_idle	-> Controller::Modes::'choice then Idle'
+State	Controller::Modes::<Region>::Idle	_idle	-> Idle
+Pseudostate	Controller::Modes::<Region>::choice	_choice	-> choice	(written as a #StateMachines::choice state pseudostate, whose guarded transitions the runtime reads when it is reached; an unguarded one is its else branch)
+Pseudostate	Controller::Modes::<Region>::junction	_junction	-> junction	(written as a #StateMachines::junction state pseudostate, whose guarded transitions the runtime reads when it is reached; an unguarded one is its else branch)
+Diagram	Controller::Modes::Modes	_diagram_modes	-> Controller::Modes::Modes	(a SysML State Machine Diagram written as a view rendered asInterconnectionDiagram of StateTransitionView; the view exposes state def Controller::Modes, whose graph the rendering draws with the 6 shown nodes and edges of it)
+Model	Model	_m	(the root model's members are written at the top level)

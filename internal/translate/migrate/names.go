@@ -247,6 +247,49 @@ func (m *migration) path(e *sysmlv1.Element) []segment {
 	return segs
 }
 
+// acceptSignalRef qualifies a signal reference when its name matches the payload.
+func (m *migration) acceptSignalRef(sig, scope *sysmlv1.Element, payload string) string {
+	if payload == "" {
+		return m.ref(sig, scope)
+	}
+	path := m.path(sig)
+	if payload != writeName(m.nameFor(sig)) {
+		ref := m.ref(sig, scope)
+		if strings.HasPrefix(ref, "$::") {
+			return ref
+		}
+		if leadingSegment(ref) != payload {
+			return ref
+		}
+		return "$::" + strings.TrimPrefix(m.qualifiedFrom(path, nil, false), "$::")
+	}
+	if len(path) == 1 {
+		return "$::" + writeName(path[0].name)
+	}
+	ref := m.qualifiedFrom(path, scopeChain(scope), false)
+	if writeName(path[0].name) == payload && !strings.HasPrefix(ref, "$::") {
+		return "$::" + ref
+	}
+	return ref
+}
+
+// leadingSegment is the first segment of a written reference, up to its first
+// `::` or `.` outside a quoted name.
+func leadingSegment(ref string) string {
+	quoted := false
+	for i := 0; i < len(ref); i++ {
+		switch {
+		case quoted && ref[i] == '\\':
+			i++
+		case ref[i] == '\'':
+			quoted = !quoted
+		case !quoted && (ref[i] == '.' || strings.HasPrefix(ref[i:], "::")):
+			return ref[:i]
+		}
+	}
+	return ref
+}
+
 // isUsage says whether e is written as a usage whose members are features of
 // it: a view or viewpoint, a property, or a behavior written as its block's
 // action usage. A feature owned by one is reached by a feature chain, not a

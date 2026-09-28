@@ -163,6 +163,6 @@ part def Station {
             }
             then Idle;
     }
-    exhibit state cycle : Cycle;
+    exhibit state cycle : Cycle { in ref :>> context = this; }
 }
 private import StateMachines::*;

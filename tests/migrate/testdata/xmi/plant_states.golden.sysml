@@ -87,6 +87,6 @@ part def Plant {
         transition first warmStart then Hot;
         transition first Hot accept Finish then spent;
     }
-    exhibit state line : Line;
+    exhibit state line : Line { in ref :>> context = this; }
 }
 private import StateMachines::*;

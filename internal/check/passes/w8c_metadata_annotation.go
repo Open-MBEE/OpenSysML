@@ -32,7 +32,10 @@ func (MetadataAnnotationPass) Run(ctx *Context, name string, root *ast.RootNames
 	if rootScope == nil {
 		return nil
 	}
-	c := &metadataAnnotationChecker{model: ctx.Model()}
+	c := &metadataAnnotationChecker{
+		model:      ctx.Model(),
+		runDecided: !ctx.Options.Conformance.IsStrict(),
+	}
 	if c.model == nil {
 		return nil
 	}
@@ -45,8 +48,9 @@ func (MetadataAnnotationPass) Run(ctx *Context, name string, root *ast.RootNames
 }
 
 type metadataAnnotationChecker struct {
-	model *semantics.Model
-	diags []diag.Diagnostic
+	model      *semantics.Model
+	runDecided bool
+	diags      []diag.Diagnostic
 }
 
 // checkSymbol checks each annotation of sym's declaration. The annotated element
@@ -158,7 +162,7 @@ func (c *metadataAnnotationChecker) checkBody(scope *symbols.Scope, prefix *ast.
 			Source:   "constraint",
 		})
 	}
-	for _, value := range c.model.MetadataBodyInevaluableValues(scope, prefix) {
+	for _, value := range c.model.MetadataBodyInevaluableValues(scope, prefix, c.runDecided) {
 		c.diags = append(c.diags, diag.Diagnostic{
 			Severity: diag.SeverityError,
 			Span:     metadataValueSpan(prefix.Body, value),
