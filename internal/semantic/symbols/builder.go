@@ -177,17 +177,15 @@ func buildBehaviorDecl(scope *Scope, decl ast.Node, vis ast.Visibility, trivia [
 		// error nodes have no declaration. Nothing to register here.
 		return true
 	case *ast.PrefixMetadata:
+		// The usage is a member of its namespace, named or anonymous, exactly as
+		// the `metadata` spelling of the same declaration is.
 		child := buildMetadataBodyScope(scope, nil, d)
-		// An identification names the usage as a member of its namespace, exactly
-		// as the `metadata` spelling of the same declaration does.
-		if d.Ident.Name != "" || d.Ident.ShortName != "" {
-			if child == nil {
-				child = NewScope(scope, d)
-				scope.AddChild(child)
-			}
-			sym := newSymbol(d.Ident, SymbolMetadataUsage, d, vis, child, scope, trivia)
-			defineIdent(scope, d.Ident, sym)
+		if child == nil {
+			child = NewScope(scope, d)
+			scope.AddChild(child)
 		}
+		sym := newSymbol(d.Ident, SymbolMetadataUsage, d, vis, child, scope, trivia)
+		defineIdent(scope, d.Ident, sym)
 		return true
 	case *ast.InitialNode:
 		// A start marker is registered by name so transitions can reference it; a

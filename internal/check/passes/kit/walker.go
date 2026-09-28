@@ -84,29 +84,6 @@ func collectMemberSymbols(root *symbols.Scope) []*symbols.Symbol {
 	return out
 }
 
-// unnamedMetadataBody is the scope of an unnamed annotation's body, which no
-// symbol owns and the symbol walk therefore never reaches; nil for a named one.
-func UnnamedMetadataBody(scope *symbols.Scope, prefix *ast.PrefixMetadata) *symbols.Scope {
-	if scope == nil || prefix == nil || prefix.Ident.Name != "" || prefix.Ident.ShortName != "" {
-		return nil
-	}
-	return scope.ChildFor(prefix)
-}
-
-// forEachBodySymbol visits the symbols a metadata body declares, at any depth.
-func ForEachBodySymbol(body *symbols.Scope, visit func(*symbols.Symbol)) {
-	if body == nil {
-		return
-	}
-	body.ForEachMember(func(sym *symbols.Symbol) bool {
-		if sym != nil {
-			visit(sym)
-			ForEachBodySymbol(sym.Scope, visit)
-		}
-		return true
-	})
-}
-
 // w8cScopeOf returns the scope a declaration's own references resolve in.
 func DeclarationScope(sym *symbols.Symbol) *symbols.Scope {
 	if sym == nil {

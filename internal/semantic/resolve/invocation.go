@@ -83,12 +83,45 @@ func (r *Resolver) rootCandidates(scope *symbols.Scope, name string) []*symbols.
 }
 
 // globalCandidates returns every top-level declaration of name the global index
-// admits from scope, in index order (lookupGlobalTop's first).
+// admits from scope, in index order (lookupGlobalTop's first), except that from
+// a workspace document its own documents' declarations come before a bundled
+// library's: a root package shadows a library package of its name from every
+// workspace document, as it does from its own, while the library's documents
+// keep resolving among themselves.
 func (r *Resolver) globalCandidates(scope *symbols.Scope, name string) []*symbols.Symbol {
 	if r.idx == nil {
 		return nil
 	}
-	return r.admittedUnder(r.documentOf(scope), r.ReferringNamespaceFQN(scope), name, r.idx.LookupQualified(name))
+	doc := r.documentOf(scope)
+	cands := r.admittedUnder(doc, r.ReferringNamespaceFQN(scope), name, r.idx.LookupQualified(name))
+	if r.idx.IsLibraryDocument(doc) {
+		return cands
+	}
+	return r.workspaceDeclaredFirst(cands)
+}
+
+// workspaceDeclaredFirst orders the candidates declared by the workspace's own
+// documents before those a bundled library document declares, keeping each
+// group's order. The slice is left alone when nothing moves.
+func (r *Resolver) workspaceDeclaredFirst(cands []*symbols.Symbol) []*symbols.Symbol {
+	var library []*symbols.Symbol
+	var own []*symbols.Symbol
+	for i, sym := range cands {
+		if sym == nil || !r.idx.IsLibraryDocument(sym.DocName) {
+			if library != nil {
+				own = append(own, sym)
+			}
+			continue
+		}
+		if library == nil {
+			own = append(make([]*symbols.Symbol, 0, len(cands)), cands[:i]...)
+		}
+		library = append(library, sym)
+	}
+	if library == nil || len(own) == 0 {
+		return cands
+	}
+	return append(own, library...)
 }
 
 // surfacedMembers returns every member name reaches in cur in the category

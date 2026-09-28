@@ -87,6 +87,7 @@ type imagedObject struct {
 	anonymous    []int64
 	keptAnon     []keptAnonymous
 	keptConn     []keptConnector
+	nested       []pendingRedefinition
 }
 
 // imagedFeature is one feature value by value, with every name the object reads it under.
@@ -331,6 +332,7 @@ func (t *imaging) object(inst *Instance) error {
 		ends:      slices.Clone(inst.Ends),
 		anonymous: slices.Clone(inst.anonymous),
 		keptAnon:  slices.Clone(inst.keptAnonymous),
+		nested:    clonePendingRedefinitions(inst.nested),
 	}
 	if inst.owner != nil {
 		obj.owner = inst.owner.ID
@@ -721,6 +723,7 @@ func (m *materializing) run() error {
 			explicit:      obj.explicit, ownerFeature: obj.ownerFeature,
 			anonymous:     slices.Clone(obj.anonymous),
 			keptAnonymous: slices.Clone(obj.keptAnon),
+			nested:        clonePendingRedefinitions(obj.nested),
 		}
 		dst.registerInstance(inst)
 		dst.claimID(obj.id)
@@ -824,6 +827,8 @@ func (m *materializing) object(obj imagedObject) error {
 
 // feature is dst's declaration of an imaged feature: the one of the object's types
 // declaring the same symbol, so dst's own shape tables answer for it, else a copy.
+// A feature the source adjusted — a chain governing its bound value marks it
+// and clears the declared one — is not the canonical's, and restores as imaged.
 func (m *materializing) feature(inst *Instance, f EffectiveFeature) *EffectiveFeature {
 	if f.Symbol == nil && f.Name == "" {
 		return nil
@@ -831,7 +836,11 @@ func (m *materializing) feature(inst *Instance, f EffectiveFeature) *EffectiveFe
 	for _, typ := range inst.types() {
 		features := m.dst.FeaturesOf(typ)
 		for i := range features {
-			if features[i].Symbol == f.Symbol && features[i].Name == f.Name && features[i].OwnerType == f.OwnerType {
+			if features[i].Symbol != f.Symbol || features[i].Name != f.Name || features[i].OwnerType != f.OwnerType {
+				continue
+			}
+			if features[i].GovernedByChain == f.GovernedByChain &&
+				(features[i].DefaultValue == nil) == (f.DefaultValue == nil) {
 				return &features[i]
 			}
 		}

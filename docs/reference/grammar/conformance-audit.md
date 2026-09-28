@@ -111,6 +111,48 @@ one state substate per region, `entry; then <state>;`, a transition targeting
 | `history <name>;`, `shallow history <name>;`, `deep history <name>;` | same. Deprecated: write `#shallowHistory state <name>;` / `#deepHistory state <name>;` (`ShallowHistoryMetadata`/`DeepHistoryMetadata`) |
 | `defer <event> [, <event>]*;` | no `defer` literal; `StatePerformance::deferrable` has the semantics but no notation. Deprecated: write one `#deferred ref : <event>;` per trigger (`DeferredMetadata`), the trigger named by a signal type or the operation of a call event — call arguments are not carried |
 
+### Chain redefinitions — `redefinition-through-reference`
+
+A redefinition target written as a feature chain of two or more segments,
+`:>> mid.leaf.value = 99.0;`, is standard KerML semantics: the chain-expression
+is itself a feature hosting the chain — its featuring type from the first
+segment and its featured type from the last (KerML 1.0 §7.3.4) — and the host
+feature is redefinable (§8.3.3.3). OpenSysML applies the redefining member
+below every composite feature the chain walks: every object of the type behaves
+as if the chain had been written as nested redefining usages
+(`part :>> mid { part :>> leaf { attribute :>> value = 99.0; } }`), carrying a
+declared value (`=` or `default =`), a declared type, a multiplicity and a body
+of its own. The pinned pilot evaluator accepts the notation but reads the
+original value — a pilot-evaluator gap, not a divergence the model is warned
+about (see the [pilot differential](../../project/pilot-differential.md)).
+
+Rules of the reading, in detail:
+
+- The shorthand ranks exactly as the nested-body form written in the same
+  body does: a nested-body redefinition declared by the chain's owner or
+  something specializing it wins; the child's type's own redefinition and
+  bodies in types the owner specializes lose.
+- Each chain applies below every object of the declaring type, including every
+  element of a multi-valued intermediate (`part wheels : Wheel[2];` then
+  `attribute :>> wheels.radius = 0.4;` redefines `radius` on each wheel).
+- A value the redefining member declares is evaluated in the declaring body's
+  scope, so `= factor * 2.0` reads the outer feature exactly as the nested-body
+  form does.
+- A valued chain below a feature bound to an existing object follows the
+  body's rule for an inherited value: one declared in a more specific body
+  governs the binding (a fresh object materializes below it and the bound one
+  keeps its own value), while one written in the same body as the binding is
+  rejected as a restating body is (`feature both valued and restated in a
+  body`). A chain declaring only a type or multiplicity conflicts with
+  nothing.
+- A chain walking through a reference — a `ref` usage, a port or a `subject` —
+  owns no object below the reference for the redefinition to land on. OpenSysML
+  reports `nested redefinition through reference <segment> has no owned object
+  to redefine on` as an error in every mode, and the redefinition is never
+  applied at runtime.
+- A chain whose target does not resolve declares no nested redefinition and is
+  reported by name resolution instead.
+
 ### Removed extension notation — no longer accepted
 
 Two positional allowances that used to be findings are parse errors now. An

@@ -371,3 +371,37 @@ func TestReplQueryAssignsPositionalIdentityToKerMLDeclarations(t *testing.T) {
 	}
 	t.Fatalf("KerML query candidates have no positional identity for the unnamed feature: %v", candidates)
 }
+
+// The `@Tag;` prefix spelling of a metadata usage declares a member a query
+// reports, identified by position, exactly as the `metadata` spelling does.
+func TestQueryReportsPrefixMetadataUsages(t *testing.T) {
+	s := NewSession()
+	result := s.Submit(`package Q {
+		metadata def Tag;
+		part def S { @Tag; }
+		part def T { metadata Tag; }
+		part def U { @ m : Tag; }
+		part def V { @Tag { doc /* about V */ } }
+	}`)
+	if len(result.Diagnostics) != 0 {
+		t.Fatalf("Submit diagnostics = %v", result.Diagnostics)
+	}
+	lines, err := s.Query(`oslc.where=rdf:type="MetadataUsage"`)
+	if err != nil {
+		t.Fatal(err)
+	}
+	want := []string{
+		"Q::S::@0  MetadataUsage",
+		"Q::T::@0  MetadataUsage",
+		"Q::U::m  MetadataUsage",
+		"Q::V::@0  MetadataUsage",
+	}
+	if len(lines) != len(want) {
+		t.Fatalf("Session.Query = %v, want %v", lines, want)
+	}
+	for i, line := range lines {
+		if line != want[i] {
+			t.Errorf("lines[%d] = %q, want %q", i, line, want[i])
+		}
+	}
+}
