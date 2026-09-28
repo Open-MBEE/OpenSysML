@@ -126,6 +126,9 @@ The runner is a subprocess: one process per evaluation, the minimal tool environ
 `HOME`, `TMPDIR`, `LANG`, plus the names `OPENSYSML_TOOL_ENV_PASSTHROUGH` lists), bounded by
 `OPENSYSML_TOOL_TIMEOUT` and `OPENSYSML_TOOL_MAX_OUTPUT` like any external process.
 
+An FMU is native code, so granting the runner means trusting every model that names an FMU
+on the machine: the grant is for a workspace whose models and archives the operator controls.
+
 ### The runner protocol
 
 The runner reads one JSON object on standard input and writes one JSON object on standard
