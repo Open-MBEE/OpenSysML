@@ -89,7 +89,7 @@ func causality1(name, causality string) (Causality, error) {
 		return CausalityInput, nil
 	case "output":
 		return CausalityOutput, nil
-	case "internal", "none":
+	case "", "internal", "none":
 		return CausalityLocal, nil
 	}
 	return "", &ModelDescriptionError{Detail: fmt.Sprintf("variable %q has unknown causality %q", name, causality)}

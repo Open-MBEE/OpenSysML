@@ -165,6 +165,18 @@ func TestReadsFMI1Description(t *testing.T) {
 	}
 }
 
+func TestFMI1DefaultsCausalityToInternal(t *testing.T) {
+	xml := `<fmiModelDescription fmiVersion="1.0" modelName="D" modelIdentifier="d"><ModelVariables><ScalarVariable name="w" valueReference="1"><Real/></ScalarVariable></ModelVariables></fmiModelDescription>`
+	d, err := ParseModelDescription([]byte(xml))
+	if err != nil {
+		t.Fatalf("ParseModelDescription: %v", err)
+	}
+	v, _ := d.Variable("w")
+	if v.Causality != CausalityLocal {
+		t.Fatalf("w causality = %s, want local — FMI 1.0 defaults an absent causality to internal", v.Causality)
+	}
+}
+
 func TestFMI1WithoutImplementationIsModelExchange(t *testing.T) {
 	xml := `<fmiModelDescription fmiVersion="1.0" modelName="ME" modelIdentifier="me"/>`
 	d, err := ParseModelDescription([]byte(xml))
