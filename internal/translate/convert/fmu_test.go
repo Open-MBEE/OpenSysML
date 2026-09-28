@@ -99,6 +99,21 @@ func TestConvertFMUWithNoFileIsRefused(t *testing.T) {
 	}
 }
 
+// A name on disk that no longer holds the converted bytes is refused: the uri
+// would name an archive the notation never read.
+func TestConvertFMURefusesAChangedArchive(t *testing.T) {
+	const other = `<fmiModelDescription fmiVersion="2.0" modelName="Other" guid="{2}"><CoSimulation modelIdentifier="Other"/><ModelVariables><ScalarVariable name="x" valueReference="1" causality="output"><Real/></ScalarVariable></ModelVariables></fmiModelDescription>`
+	name := filepath.Join(t.TempDir(), "ball.fmu")
+	if err := os.WriteFile(name, fmuBytes(t, ballXML), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	var changed *convert.FMUChangedError
+	_, err := convert.Convert(name, fmuBytes(t, other), convert.FormatFMU, convert.FormatSysML)
+	if !errors.As(err, &changed) || !errors.Is(err, convert.ErrFMUChanged) {
+		t.Fatalf("Convert of different bytes = %v, want FMUChangedError", err)
+	}
+}
+
 // A file that is not an FMU fails the conversion, not as notation.
 func TestConvertRejectsNonFMU(t *testing.T) {
 	if _, err := convert.Convert("text.fmu", []byte("hello"), convert.FormatFMU, convert.FormatSysML); err == nil {
