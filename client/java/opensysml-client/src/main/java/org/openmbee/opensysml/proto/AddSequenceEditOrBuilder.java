@@ -32,7 +32,8 @@ public interface AddSequenceEditOrBuilder extends
 
   /**
    * <pre>
-   * Sequence keyword: "first" or "then".
+   * Sequence keyword: "first", "then", "if", "else", or empty for a plain member.
+   * These action-body forms follow SysML.xtext:1368, 1442–1641; formal/2026-03-02.
    * </pre>
    *
    * <code>string keyword = 2 [json_name = "keyword"];</code>
@@ -41,7 +42,8 @@ public interface AddSequenceEditOrBuilder extends
   java.lang.String getKeyword();
   /**
    * <pre>
-   * Sequence keyword: "first" or "then".
+   * Sequence keyword: "first", "then", "if", "else", or empty for a plain member.
+   * These action-body forms follow SysML.xtext:1368, 1442–1641; formal/2026-03-02.
    * </pre>
    *
    * <code>string keyword = 2 [json_name = "keyword"];</code>
@@ -74,8 +76,8 @@ public interface AddSequenceEditOrBuilder extends
 
   /**
    * <pre>
-   * Usage kind a `then` declares: action, perform action, state, merge,
-   * decide, join or fork; empty when ref names the target.
+   * Body item kind, including action, perform action, state, merge, decide,
+   * join, fork, accept, send, assign, if, while, loop, for or terminate.
    * </pre>
    *
    * <code>string member_kind = 4 [json_name = "memberKind"];</code>
@@ -84,8 +86,8 @@ public interface AddSequenceEditOrBuilder extends
   java.lang.String getMemberKind();
   /**
    * <pre>
-   * Usage kind a `then` declares: action, perform action, state, merge,
-   * decide, join or fork; empty when ref names the target.
+   * Body item kind, including action, perform action, state, merge, decide,
+   * join, fork, accept, send, assign, if, while, loop, for or terminate.
    * </pre>
    *
    * <code>string member_kind = 4 [json_name = "memberKind"];</code>
@@ -153,4 +155,239 @@ public interface AddSequenceEditOrBuilder extends
    */
   com.google.protobuf.ByteString
       getAfterBytes();
+
+  /**
+   * <pre>
+   * Condition or guard expression for if and while.
+   * </pre>
+   *
+   * <code>string condition = 8 [json_name = "condition"];</code>
+   * @return The condition.
+   */
+  java.lang.String getCondition();
+  /**
+   * <pre>
+   * Condition or guard expression for if and while.
+   * </pre>
+   *
+   * <code>string condition = 8 [json_name = "condition"];</code>
+   * @return The bytes for condition.
+   */
+  com.google.protobuf.ByteString
+      getConditionBytes();
+
+  /**
+   * <pre>
+   * Payload, assigned value, collection or terminated occurrence.
+   * </pre>
+   *
+   * <code>string value = 9 [json_name = "value"];</code>
+   * @return The value.
+   */
+  java.lang.String getValue();
+  /**
+   * <pre>
+   * Payload, assigned value, collection or terminated occurrence.
+   * </pre>
+   *
+   * <code>string value = 9 [json_name = "value"];</code>
+   * @return The bytes for value.
+   */
+  com.google.protobuf.ByteString
+      getValueBytes();
+
+  /**
+   * <pre>
+   * Assigned feature or send receiver.
+   * </pre>
+   *
+   * <code>string target = 10 [json_name = "target"];</code>
+   * @return The target.
+   */
+  java.lang.String getTarget();
+  /**
+   * <pre>
+   * Assigned feature or send receiver.
+   * </pre>
+   *
+   * <code>string target = 10 [json_name = "target"];</code>
+   * @return The bytes for target.
+   */
+  com.google.protobuf.ByteString
+      getTargetBytes();
+
+  /**
+   * <pre>
+   * Port expression for accept or send.
+   * </pre>
+   *
+   * <code>string via = 11 [json_name = "via"];</code>
+   * @return The via.
+   */
+  java.lang.String getVia();
+  /**
+   * <pre>
+   * Port expression for accept or send.
+   * </pre>
+   *
+   * <code>string via = 11 [json_name = "via"];</code>
+   * @return The bytes for via.
+   */
+  com.google.protobuf.ByteString
+      getViaBytes();
+
+  /**
+   * <pre>
+   * Optional loop termination condition.
+   * </pre>
+   *
+   * <code>string until = 12 [json_name = "until"];</code>
+   * @return The until.
+   */
+  java.lang.String getUntil();
+  /**
+   * <pre>
+   * Optional loop termination condition.
+   * </pre>
+   *
+   * <code>string until = 12 [json_name = "until"];</code>
+   * @return The bytes for until.
+   */
+  com.google.protobuf.ByteString
+      getUntilBytes();
+
+  /**
+   * <pre>
+   * Nested action-body items.
+   * </pre>
+   *
+   * <code>repeated .sysml.AddSequenceEdit body = 13 [json_name = "body"];</code>
+   */
+  java.util.List<org.openmbee.opensysml.proto.AddSequenceEdit> 
+      getBodyList();
+  /**
+   * <pre>
+   * Nested action-body items.
+   * </pre>
+   *
+   * <code>repeated .sysml.AddSequenceEdit body = 13 [json_name = "body"];</code>
+   */
+  org.openmbee.opensysml.proto.AddSequenceEdit getBody(int index);
+  /**
+   * <pre>
+   * Nested action-body items.
+   * </pre>
+   *
+   * <code>repeated .sysml.AddSequenceEdit body = 13 [json_name = "body"];</code>
+   */
+  int getBodyCount();
+  /**
+   * <pre>
+   * Nested action-body items.
+   * </pre>
+   *
+   * <code>repeated .sysml.AddSequenceEdit body = 13 [json_name = "body"];</code>
+   */
+  java.util.List<? extends org.openmbee.opensysml.proto.AddSequenceEditOrBuilder> 
+      getBodyOrBuilderList();
+  /**
+   * <pre>
+   * Nested action-body items.
+   * </pre>
+   *
+   * <code>repeated .sysml.AddSequenceEdit body = 13 [json_name = "body"];</code>
+   */
+  org.openmbee.opensysml.proto.AddSequenceEditOrBuilder getBodyOrBuilder(
+      int index);
+
+  /**
+   * <pre>
+   * Nested items of the if's else branch; an empty list means no else branch.
+   * An explicit empty `else { }` is not authorable; it performs nothing and is equivalent to omitting it.
+   * </pre>
+   *
+   * <code>repeated .sysml.AddSequenceEdit else_body = 14 [json_name = "elseBody"];</code>
+   */
+  java.util.List<org.openmbee.opensysml.proto.AddSequenceEdit> 
+      getElseBodyList();
+  /**
+   * <pre>
+   * Nested items of the if's else branch; an empty list means no else branch.
+   * An explicit empty `else { }` is not authorable; it performs nothing and is equivalent to omitting it.
+   * </pre>
+   *
+   * <code>repeated .sysml.AddSequenceEdit else_body = 14 [json_name = "elseBody"];</code>
+   */
+  org.openmbee.opensysml.proto.AddSequenceEdit getElseBody(int index);
+  /**
+   * <pre>
+   * Nested items of the if's else branch; an empty list means no else branch.
+   * An explicit empty `else { }` is not authorable; it performs nothing and is equivalent to omitting it.
+   * </pre>
+   *
+   * <code>repeated .sysml.AddSequenceEdit else_body = 14 [json_name = "elseBody"];</code>
+   */
+  int getElseBodyCount();
+  /**
+   * <pre>
+   * Nested items of the if's else branch; an empty list means no else branch.
+   * An explicit empty `else { }` is not authorable; it performs nothing and is equivalent to omitting it.
+   * </pre>
+   *
+   * <code>repeated .sysml.AddSequenceEdit else_body = 14 [json_name = "elseBody"];</code>
+   */
+  java.util.List<? extends org.openmbee.opensysml.proto.AddSequenceEditOrBuilder> 
+      getElseBodyOrBuilderList();
+  /**
+   * <pre>
+   * Nested items of the if's else branch; an empty list means no else branch.
+   * An explicit empty `else { }` is not authorable; it performs nothing and is equivalent to omitting it.
+   * </pre>
+   *
+   * <code>repeated .sysml.AddSequenceEdit else_body = 14 [json_name = "elseBody"];</code>
+   */
+  org.openmbee.opensysml.proto.AddSequenceEditOrBuilder getElseBodyOrBuilder(
+      int index);
+
+  /**
+   * <pre>
+   * Source-end multiplicity, written as bracketed notation, only with "then".
+   * SysML.xtext:878, 887, 1703, 1708, 1714; formal/2026-03-02.
+   * </pre>
+   *
+   * <code>string multiplicity = 15 [json_name = "multiplicity"];</code>
+   * @return The multiplicity.
+   */
+  java.lang.String getMultiplicity();
+  /**
+   * <pre>
+   * Source-end multiplicity, written as bracketed notation, only with "then".
+   * SysML.xtext:878, 887, 1703, 1708, 1714; formal/2026-03-02.
+   * </pre>
+   *
+   * <code>string multiplicity = 15 [json_name = "multiplicity"];</code>
+   * @return The bytes for multiplicity.
+   */
+  com.google.protobuf.ByteString
+      getMultiplicityBytes();
+
+  /**
+   * <pre>
+   * Payload name for accept or loop variable for for.
+   * </pre>
+   *
+   * <code>string parameter = 16 [json_name = "parameter"];</code>
+   * @return The parameter.
+   */
+  java.lang.String getParameter();
+  /**
+   * <pre>
+   * Payload name for accept or loop variable for for.
+   * </pre>
+   *
+   * <code>string parameter = 16 [json_name = "parameter"];</code>
+   * @return The bytes for parameter.
+   */
+  com.google.protobuf.ByteString
+      getParameterBytes();
 }

@@ -113,6 +113,35 @@ that differs by client: `$OPENSYSML_BINARY` for Python and Node, `$OPENSYSML_GRP
 and Rust. [Getting the service binary](#getting-the-service-binary) gives the five ways to provide
 one. The Go API needs none: it is the engine.
 
+### Author an action body
+
+The Python client can add sequence items and recursively nested action statements. `Body` builds
+the contents of `if`, `while`, `loop` and `for`; its first ordinary item is plain and later items
+use `then`. `Editor` methods default to `then=True`. An empty `else_body` is the same as no else,
+because an empty else branch performs nothing; empty action bodies are written as `{ }`.
+These forms follow SysML.xtext:1368, 1442–1641 and formal/2026-03-02. Source-end multiplicities
+follow SysML.xtext:878, 887, 1703, 1708, 1714 and formal/2026-03-02.
+
+```python
+from opensysml import Body
+
+editor.add_if(
+    "Demo::Run",
+    "count < 3",
+    Body().add_assign("count", "count + 1"),
+    else_body=Body().add_terminate(),
+)
+editor.add_while(
+    "Demo::Run",
+    "count < 3",
+    Body().add_assign("count", "count + 1"),
+)
+```
+
+The service requires `authoring`, `sequence_authoring` and
+`action_body_statement_authoring` for these extended items and source-end multiplicities.
+Existing `add_first` and `add_then` requests retain their original wire fields.
+
 ### Parse, evaluate, look up, instantiate
 
 === "Go"

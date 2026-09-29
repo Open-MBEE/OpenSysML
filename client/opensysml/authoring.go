@@ -247,17 +247,17 @@ func AddEntryTransition(owner, target string) AddTransition {
 	return AddTransition{Owner: owner, Target: target, Initial: true}
 }
 
-// AddSequence inserts a `first` or `then` sequencing member into an action body.
+// AddSequence inserts a succession or action-body statement into an action body
+// (SysML.xtext:1368, 1442–1641, 1703, 1708, 1714; formal/2026-03-02).
 type AddSequence struct {
 	// Owner is the action definition or usage receiving the member.
 	Owner string
-	// Keyword is the sequence keyword: "first" or "then".
+	// Keyword is "first", "then", "", "if" or "else".
 	Keyword string
 	// Ref is the node a bare `first <ref>;`/`then <ref>;` names; empty when
 	// the `then` declares a member instead.
 	Ref string
-	// MemberKind is the usage kind a `then` declares: action, perform action,
-	// state, merge, decide, join or fork; empty when Ref names the target.
+	// MemberKind is the action-body item kind, or a kind declared by `then`.
 	MemberKind string
 	// MemberName is the optional declared name of the `then`-declared member.
 	MemberName string
@@ -266,6 +266,51 @@ type AddSequence struct {
 	// After names the body member the new member follows; empty appends it
 	// at the end of the body.
 	After string
+	// Condition, Value, Target, Via, Until and Parameter describe the new
+	// action-body statement fields.
+	Condition    string
+	Value        string
+	Target       string
+	Via          string
+	Until        string
+	Parameter    string
+	Multiplicity string
+	// Body and Else are recursively authored items; nested items have empty
+	// Owner and After.
+	Body []AddSequence
+	Else []AddSequence
+}
+
+func (a AddSequence) needsActionBodyStatementAuthoring() bool {
+	return a.needsActionBodyStatementAuthoringAt(0)
+}
+
+func (a AddSequence) needsActionBodyStatementAuthoringAt(depth int) bool {
+	if depth > 128 {
+		return false
+	}
+	if a.Keyword == "if" || a.Keyword == "else" ||
+		(a.Keyword == "" && a.MemberKind != "") || a.Condition != "" ||
+		a.Value != "" || a.Target != "" || a.Via != "" || a.Until != "" ||
+		a.Parameter != "" || a.Multiplicity != "" || len(a.Body) > 0 ||
+		len(a.Else) > 0 {
+		return true
+	}
+	switch a.MemberKind {
+	case "accept", "send", "assign", "if", "while", "loop", "for", "terminate":
+		return true
+	}
+	for _, item := range a.Body {
+		if item.needsActionBodyStatementAuthoringAt(depth + 1) {
+			return true
+		}
+	}
+	for _, item := range a.Else {
+		if item.needsActionBodyStatementAuthoringAt(depth + 1) {
+			return true
+		}
+	}
+	return false
 }
 
 // AddConnection inserts a connection-like usage into a namespace or document root.
@@ -481,6 +526,9 @@ func (c *client) ApplyDocumentEdits(ctx context.Context, model *Model, document 
 		case AddSequence:
 			required[CapabilityAuthoring] = true
 			required[CapabilitySequenceAuthoring] = true
+			if operation.needsActionBodyStatementAuthoring() {
+				required[CapabilityActionBodyStatementAuthoring] = true
+			}
 		case Delete, Move:
 			required[CapabilityAuthoring] = true
 		}
@@ -492,6 +540,7 @@ func (c *client) ApplyDocumentEdits(ctx context.Context, model *Model, document 
 			CapabilitySatisfyAuthoring, CapabilityRequirementConstraintAuthoring,
 			CapabilityMemberModifiers, CapabilityTransitionAuthoring,
 			CapabilitySequenceAuthoring, CapabilityImplicitParameters,
+			CapabilityActionBodyStatementAuthoring,
 		} {
 			if required[capability] {
 				names = append(names, capability)
@@ -602,12 +651,12 @@ func editToProto(edit Edit) (*pb.EditOperation, error) {
 			},
 		}}, nil
 	case AddSequence:
+		sequence, err := addSequenceToProto(operation, 0)
+		if err != nil {
+			return nil, err
+		}
 		return &pb.EditOperation{Operation: &pb.EditOperation_AddSequence{
-			AddSequence: &pb.AddSequenceEdit{
-				Owner: operation.Owner, Keyword: operation.Keyword, Ref: operation.Ref,
-				MemberKind: operation.MemberKind, MemberName: operation.MemberName,
-				Type: operation.Type, After: operation.After,
-			},
+			AddSequence: sequence,
 		}}, nil
 	case AddConnection:
 		return &pb.EditOperation{Operation: &pb.EditOperation_AddConnection{
@@ -629,4 +678,35 @@ func editToProto(edit Edit) (*pb.EditOperation, error) {
 	default:
 		return nil, &StatusError{Code: CodeInvalidArgument, Message: "unknown edit kind"}
 	}
+}
+
+func addSequenceToProto(operation AddSequence, depth int) (*pb.AddSequenceEdit, error) {
+	if depth > 128 {
+		return nil, &StatusError{
+			Code: CodeInvalidArgument, Message: "nested action-body items exceed the maximum depth",
+		}
+	}
+	sequence := &pb.AddSequenceEdit{
+		Owner: operation.Owner, Keyword: operation.Keyword, Ref: operation.Ref,
+		MemberKind: operation.MemberKind, MemberName: operation.MemberName,
+		Type: operation.Type, After: operation.After, Condition: operation.Condition,
+		Value: operation.Value, Target: operation.Target, Via: operation.Via,
+		Until: operation.Until, Multiplicity: operation.Multiplicity,
+		Parameter: operation.Parameter,
+	}
+	for _, item := range operation.Body {
+		child, err := addSequenceToProto(item, depth+1)
+		if err != nil {
+			return nil, err
+		}
+		sequence.Body = append(sequence.Body, child)
+	}
+	for _, item := range operation.Else {
+		child, err := addSequenceToProto(item, depth+1)
+		if err != nil {
+			return nil, err
+		}
+		sequence.ElseBody = append(sequence.ElseBody, child)
+	}
+	return sequence, nil
 }

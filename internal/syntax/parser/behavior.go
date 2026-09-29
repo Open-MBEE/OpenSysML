@@ -119,6 +119,30 @@ func (p *Parser) parseActionBodyMixed() []ast.Node {
 		p.memberStart()
 		before := p.peek().Span.Offset
 
+		if p.at(lexer.LBracket) {
+			next := p.afterMultiplicity(0)
+			if next >= 0 && p.peekN(next).Kind == lexer.Keyword && p.peekN(next).KeywordID == "then" {
+				multiplicity := p.parseMultiplicity()
+				body.add(p.parseSuccessionEdgeWithMultiplicity(p.advance(), true, multiplicity))
+				continue
+			}
+			start := p.peek().Span.Offset
+			multiplicity := p.parseMultiplicity()
+			span := multiplicity.Span()
+			p.error(span, "a multiplicity in an action body must precede `then`")
+			for !p.at(lexer.Semicolon) && !p.at(lexer.RBrace) && !p.atEOF() {
+				p.advance()
+			}
+			if p.at(lexer.Semicolon) {
+				p.advance()
+			}
+			body.add(&ast.ErrorNode{
+				NodeBase: ast.NodeBase{NodeSpan: p.spanFrom(start)},
+				Message:  "a multiplicity in an action body must precede `then`",
+			})
+			continue
+		}
+
 		// A member-attached `then` sequences the members either side of it, so
 		// the keyword is taken here and the member it prefixes read next time
 		// round, by whichever branch below that member needs (see
@@ -839,11 +863,26 @@ func startsInlineSuccessionStatement(tok lexer.Token) bool {
 // parseSuccessionEdge parses implicit-source targets and inline statements.
 // allowBody admits the UsageBody of an ActionTargetSuccession (SysML.xtext:1698).
 func (p *Parser) parseSuccessionEdge(tok lexer.Token, allowBody bool) ast.Node {
+	return p.parseSuccessionEdgeWithMultiplicity(tok, allowBody, nil)
+}
+
+func (p *Parser) parseSuccessionEdgeWithMultiplicity(tok lexer.Token, allowBody bool, sourceMultiplicity *ast.Multiplicity) ast.Node {
 	start := tok.Span.Offset
+	if sourceMultiplicity != nil {
+		start = sourceMultiplicity.Span().Offset
+	}
 
 	// Check if this is inline statement succession (then followed by behavioral keyword)
 	// Pattern: then assign x := 1; OR then perform foo;
 	if startsInlineSuccessionStatement(p.peek()) {
+		if sourceMultiplicity != nil {
+			const msg = "a source-end multiplicity requires a succession target reference"
+			p.error(sourceMultiplicity.Span(), msg)
+			p.parseActionMember()
+			en := &ast.ErrorNode{Message: msg}
+			en.NodeSpan = p.spanFrom(start)
+			return en
+		}
 		return p.parseActionMember()
 	}
 
@@ -879,6 +918,9 @@ func (p *Parser) parseSuccessionEdge(tok lexer.Token, allowBody bool) ast.Node {
 
 	// Check for optional guard
 	if p.acceptKeyword("if") {
+		if sourceMultiplicity != nil {
+			p.error(sourceMultiplicity.Span(), "a source-end multiplicity cannot be written on a guarded succession")
+		}
 		// 'if' keyword already consumed
 		guard := p.ParseExpression()
 
@@ -906,11 +948,12 @@ func (p *Parser) parseSuccessionEdge(tok lexer.Token, allowBody bool) ast.Node {
 	}
 
 	node := &ast.SuccessionEdge{
-		NodeBase: ast.NodeBase{NodeSpan: p.spanFrom(start)},
-		Source:   source,
-		Target:   target,
-		Members:  members,
-		HasBody:  hasBody,
+		NodeBase:           ast.NodeBase{NodeSpan: p.spanFrom(start)},
+		Source:             source,
+		Target:             target,
+		SourceMultiplicity: sourceMultiplicity,
+		Members:            members,
+		HasBody:            hasBody,
 	}
 	return node
 }

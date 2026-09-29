@@ -46,6 +46,195 @@ func TestAddSequenceForms(t *testing.T) {
 	}
 }
 
+func TestAddActionBodyStatements(t *testing.T) {
+	plain := func(op Operation) Operation {
+		op.SequenceKeyword = ""
+		return op
+	}
+	tests := []struct {
+		name string
+		op   Operation
+		want string
+	}{
+		{"accept", AddAccept("A", "payload", "ScalarValues::Integer", ""), "then accept payload : ScalarValues::Integer;"},
+		{"plain accept", plain(AddAccept("A", "Integer", "", "")), "accept Integer;"},
+		{"send", AddSend("A", "1", "self", "p"), "then send 1 via p to self;"},
+		{"plain send", plain(AddSend("A", "1", "", "")), "send 1;"},
+		{"assign", AddAssign("A", "x", "x + 1"), "then assign x := x + 1;"},
+		{"plain assign", plain(AddAssign("A", "x", "x + 1")), "assign x := x + 1;"},
+		{"if", AddIf("A", "x == 0", []Operation{
+			{Kind: OpAddSequence, MemberKind: "assign", SequenceTarget: "x", SequenceValue: "1"},
+		}, []Operation{
+			{Kind: OpAddSequence, MemberKind: "assign", SequenceTarget: "x", SequenceValue: "2"},
+		}), "then if x == 0 {\n        assign x := 1;\n    } else {\n        assign x := 2;\n    }"},
+		{"plain if", plain(AddIf("A", "x == 0", nil, nil)), "if x == 0 { }"},
+		{"while", AddWhile("A", "x < 2", []Operation{
+			{Kind: OpAddSequence, MemberKind: "assign", SequenceTarget: "x", SequenceValue: "x + 1"},
+		}, "x == 2"), "then while x < 2 {\n        assign x := x + 1;\n    } until x == 2;"},
+		{"plain while", plain(AddWhile("A", "x < 2", nil, "")), "while x < 2 { }"},
+		{"loop", AddLoop("A", []Operation{
+			{Kind: OpAddSequence, MemberKind: "assign", SequenceTarget: "x", SequenceValue: "x + 1"},
+		}, "x == 2"), "then loop {\n        assign x := x + 1;\n    } until x == 2;"},
+		{"plain loop", plain(AddLoop("A", nil, "")), "loop { }"},
+		{"for", AddFor("A", "i", "ScalarValues::Integer", "1..2", []Operation{
+			{Kind: OpAddSequence, MemberKind: "assign", SequenceTarget: "x", SequenceValue: "x + i"},
+		}), "then for i : ScalarValues::Integer in 1..2 {\n        assign x := x + i;\n    }"},
+		{"plain for", plain(AddFor("A", "i", "", "1..2", nil)), "for i in 1..2 { }"},
+		{"terminate", AddTerminate("A", "x"), "then terminate x;"},
+		{"plain terminate", plain(AddTerminate("A", "")), "terminate;"},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			model := loadContent(t, "action-body.sysml", "private import ScalarValues::*;\nport def PortDef;\naction def A {\n    action a;\n    port p : PortDef;\n    attribute x : ScalarValues::Integer = 0;\n}\n")
+			requireClean(t, model)
+			result := applyOne(t, model, test.op)
+			if !strings.Contains(string(result.Content), test.want) {
+				t.Fatalf("want %q in edited content:\n%s", test.want, result.Content)
+			}
+			requireClean(t, loadContent(t, "action-body.sysml", string(result.Content)))
+		})
+	}
+}
+
+func TestAddActionBodyStatementRefusals(t *testing.T) {
+	base := loadContent(t, "action-body-refusals.sysml",
+		"action def A { action a; attribute x : ScalarValues::Integer = 0; }\n")
+	set := func(op Operation, update func(*Operation)) Operation {
+		update(&op)
+		return op
+	}
+	tests := []struct {
+		name string
+		m    Model
+		op   Operation
+		want Failure
+	}{
+		{"missing accept payload", base, AddAccept("A", "", "", ""), FailureIllegalKind},
+		{"invalid accept type", base, set(AddAccept("A", "payload", "T", ""), func(op *Operation) {
+			op.Type = "not a type"
+		}), FailureInvalidName},
+		{"invalid accept via expression", base, set(AddAccept("A", "payload", "", ""), func(op *Operation) {
+			op.SequenceVia = "1 +"
+		}), FailureInvalidValue},
+		{"accept has unsupported target", base, set(AddAccept("A", "payload", "", ""), func(op *Operation) {
+			op.SequenceTarget = "x"
+		}), FailureIllegalKind},
+		{"missing send payload", base, AddSend("A", "", "", ""), FailureIllegalKind},
+		{"invalid send payload", base, AddSend("A", "1 +", "", ""), FailureInvalidValue},
+		{"invalid send receiver", base, AddSend("A", "1", "1 +", ""), FailureInvalidValue},
+		{"invalid send via", base, AddSend("A", "1", "", "1 +"), FailureInvalidValue},
+		{"send has unsupported parameter", base, set(AddSend("A", "1", "", ""), func(op *Operation) {
+			op.SequenceParameter = "payload"
+		}), FailureIllegalKind},
+		{"missing assignment fields", base, AddAssign("A", "", ""), FailureIllegalKind},
+		{"invalid assignment target", base, AddAssign("A", "x +", "1"), FailureInvalidName},
+		{"invalid assignment value", base, AddAssign("A", "x", "1 +"), FailureInvalidValue},
+		{"assignment has unsupported via", base, set(AddAssign("A", "x", "1"), func(op *Operation) {
+			op.SequenceVia = "port"
+		}), FailureIllegalKind},
+		{"missing if condition", base, AddIf("A", "", nil, nil), FailureIllegalKind},
+		{"invalid if condition", base, AddIf("A", "1 +", nil, nil), FailureInvalidValue},
+		{"if has unsupported type", base, set(AddIf("A", "true", nil, nil), func(op *Operation) {
+			op.Type = "T"
+		}), FailureIllegalKind},
+		{"missing while condition", base, AddWhile("A", "", nil, ""), FailureIllegalKind},
+		{"invalid while condition", base, AddWhile("A", "1 +", nil, ""), FailureInvalidValue},
+		{"invalid while until", base, AddWhile("A", "true", nil, "1 +"), FailureInvalidValue},
+		{"while has unsupported else body", base, set(AddWhile("A", "true", nil, ""), func(op *Operation) {
+			op.SequenceElse = []Operation{{Kind: OpAddSequence, MemberKind: "assign", SequenceTarget: "x", SequenceValue: "1"}}
+		}), FailureIllegalKind},
+		{"loop has unsupported condition", base, set(AddLoop("A", nil, ""), func(op *Operation) {
+			op.SequenceCondition = "true"
+		}), FailureIllegalKind},
+		{"invalid loop until", base, AddLoop("A", nil, "1 +"), FailureInvalidValue},
+		{"loop has unsupported value", base, set(AddLoop("A", nil, ""), func(op *Operation) {
+			op.SequenceValue = "1"
+		}), FailureIllegalKind},
+		{"missing for variable", base, AddFor("A", "", "", "1..2", nil), FailureIllegalKind},
+		{"missing for collection", base, AddFor("A", "i", "", "", nil), FailureIllegalKind},
+		{"invalid for variable", base, AddFor("A", "2i", "", "1..2", nil), FailureInvalidName},
+		{"invalid for type", base, set(AddFor("A", "i", "T", "1..2", nil), func(op *Operation) {
+			op.Type = "not a type"
+		}), FailureInvalidName},
+		{"invalid for collection", base, AddFor("A", "i", "", "1 +", nil), FailureInvalidValue},
+		{"for has unsupported via", base, set(AddFor("A", "i", "", "1..2", nil), func(op *Operation) {
+			op.SequenceVia = "port"
+		}), FailureIllegalKind},
+		{"invalid terminate occurrence", base, AddTerminate("A", "1 +"), FailureInvalidValue},
+		{"terminate has unsupported body", base, set(AddTerminate("A", ""), func(op *Operation) {
+			op.SequenceBody = []Operation{{Kind: OpAddSequence, MemberKind: "assign", SequenceTarget: "x", SequenceValue: "1"}}
+		}), FailureIllegalKind},
+		{"missing guarded succession guard", base, AddGuardedThen("A", "", "done"), FailureIllegalKind},
+		{"invalid guarded succession guard", base, AddGuardedThen("A", "1 +", "done"), FailureInvalidValue},
+		{"unknown guarded succession target", base, AddGuardedThen("A", "true", "missing"), FailureUnknownTarget},
+		{"missing default succession target", base, AddElse("A", ""), FailureIllegalKind},
+		{"unknown default succession target", base, AddElse("A", "missing"), FailureUnknownTarget},
+		{"invalid source multiplicity", base, set(AddAssign("A", "x", "1"), func(op *Operation) {
+			op.Multiplicity = "1"
+		}), FailureInvalidValue},
+		{"source multiplicity without then", base, set(plainSequenceStatement(AddAssign("A", "x", "1")), func(op *Operation) {
+			op.Multiplicity = "[1]"
+		}), FailureIllegalKind},
+		{"nested body owner", base, AddIf("A", "true", []Operation{
+			set(AddAssign("", "x", "1"), func(op *Operation) { op.Owner = "A" }),
+		}, nil), FailureIllegalKind},
+		{"nested body after", base, AddIf("A", "true", []Operation{
+			set(AddAssign("", "x", "1"), func(op *Operation) { op.After = "a" }),
+		}, nil), FailureIllegalKind},
+		{"nested then without source", base, AddIf("A", "true", []Operation{
+			AddThen("", "done"),
+		}, nil), FailureIllegalKind},
+		{"unknown after member", base, set(AddAssign("A", "x", "1"), func(op *Operation) {
+			op.After = "missing"
+		}), FailureUnknownTarget},
+		{"action-body item on non-action owner", loadContent(t, "action-body-owner.sysml", "part def P;\n"), AddAssign("P", "x", "1"), FailureIllegalKind},
+		{"unknown action owner", base, AddAssign("Missing", "x", "1"), FailureOwnerUnknown},
+		{"then without source", loadContent(t, "action-body-empty.sysml", "action def Empty;\n"), AddIf("Empty", "true", nil, nil), FailureIllegalKind},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			addFailure(t, test.m, test.op, test.want)
+		})
+	}
+}
+
+func plainSequenceStatement(op Operation) Operation {
+	op.SequenceKeyword = ""
+	return op
+}
+
+func TestAddGuardedAndDefaultSuccessions(t *testing.T) {
+	tests := []struct {
+		name string
+		op   Operation
+		want string
+	}{
+		{"guarded", AddGuardedThen("A", "ready", "done"), "if ready then done;"},
+		{"default", AddElse("A", "done"), "else done;"},
+		{"then source multiplicity", func() Operation {
+			op := AddThen("A", "done")
+			op.Multiplicity = "[0..1]"
+			return op
+		}(), "[0..1] then done;"},
+		{"member source multiplicity", func() Operation {
+			op := AddThenMember("A", "action", "next", "")
+			op.Multiplicity = "[1]"
+			return op
+		}(), "then [1] action next [1];"},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			model := loadContent(t, "action-succession.sysml", "action def A {\n    action a;\n}\n")
+			requireClean(t, model)
+			result := applyOne(t, model, test.op)
+			if !strings.Contains(string(result.Content), test.want) {
+				t.Fatalf("want %q in edited content:\n%s", test.want, result.Content)
+			}
+			requireClean(t, loadContent(t, "action-succession.sysml", string(result.Content)))
+		})
+	}
+}
+
 func TestAddSequenceAfter(t *testing.T) {
 	t.Run("after a plain member", func(t *testing.T) {
 		model := loadContent(t, "sequence-after.sysml", sequenceTestModel)

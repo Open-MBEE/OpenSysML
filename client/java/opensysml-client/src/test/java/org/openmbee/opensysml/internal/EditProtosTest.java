@@ -161,6 +161,69 @@ class EditProtosTest {
   }
 
   @Test
+  void anAddSequenceEditCarriesRecursiveActionBodyFields() {
+    var nested =
+        new Edit.AddSequence(
+            "", "", java.util.Optional.empty(), java.util.Optional.of("assign"),
+            java.util.Optional.empty(), java.util.Optional.empty(), java.util.Optional.empty(),
+            java.util.Optional.empty(), java.util.Optional.of("x + 1"),
+            java.util.Optional.of("x"), java.util.Optional.empty(), java.util.Optional.empty(),
+            List.of(), List.of(), java.util.Optional.empty(), java.util.Optional.empty());
+    var inner =
+        new Edit.AddSequence(
+            "", "", java.util.Optional.empty(), java.util.Optional.of("if"),
+            java.util.Optional.empty(), java.util.Optional.empty(), java.util.Optional.empty(),
+            java.util.Optional.of("ready"), java.util.Optional.empty(), java.util.Optional.empty(),
+            java.util.Optional.empty(), java.util.Optional.empty(), List.of(nested), List.of(),
+            java.util.Optional.empty(), java.util.Optional.empty());
+    var root =
+        new Edit.AddSequence(
+            "Demo::A", "then", java.util.Optional.empty(), java.util.Optional.of("if"),
+            java.util.Optional.empty(), java.util.Optional.empty(), java.util.Optional.empty(),
+            java.util.Optional.of("ready"), java.util.Optional.empty(), java.util.Optional.empty(),
+            java.util.Optional.empty(), java.util.Optional.empty(), List.of(inner), List.of(),
+            java.util.Optional.of("[1]"), java.util.Optional.empty());
+
+    var operation = Protos.proto(root).getAddSequence();
+    assertEquals("[1]", operation.getMultiplicity());
+    assertEquals("ready", operation.getCondition());
+    assertEquals("if", operation.getBody(0).getMemberKind());
+    assertEquals("assign", operation.getBody(0).getBody(0).getMemberKind());
+    assertEquals("x + 1", operation.getBody(0).getBody(0).getValue());
+  }
+
+  @Test
+  void anExtendedAddSequenceEditCarriesItsRecursiveActionBodyFields() throws Exception {
+    var nested =
+        org.openmbee.opensysml.proto.AddSequenceEdit.newBuilder()
+            .setMemberKind("assign")
+            .setTarget("x")
+            .setValue("x + 1")
+            .build();
+    var edit =
+        org.openmbee.opensysml.proto.AddSequenceEdit.newBuilder()
+            .setOwner("Demo::A")
+            .setKeyword("then")
+            .setMemberKind("if")
+            .setCondition("ready")
+            .setMultiplicity("[1]")
+            .addBody(nested)
+            .addElseBody(
+                org.openmbee.opensysml.proto.AddSequenceEdit.newBuilder()
+                    .setKeyword("else")
+                    .setRef("done"))
+            .build();
+    var decoded = org.openmbee.opensysml.proto.AddSequenceEdit.parseFrom(edit.toByteArray());
+    assertEquals(edit, decoded);
+    assertEquals("if", decoded.getMemberKind());
+    assertEquals("ready", decoded.getCondition());
+    assertEquals("[1]", decoded.getMultiplicity());
+    assertEquals("x", decoded.getBody(0).getTarget());
+    assertEquals("x + 1", decoded.getBody(0).getValue());
+    assertEquals("done", decoded.getElseBody(0).getRef());
+  }
+
+  @Test
   void anAddConnectionEditCarriesItsEndsAndOptionalFields() {
     var minimal = Protos.proto(Edit.AddConnection.of("Demo::System", "flow", "a.out", "b.in"));
     assertEquals("Demo::System", minimal.getAddConnection().getOwner());

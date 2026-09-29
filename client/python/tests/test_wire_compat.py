@@ -75,6 +75,26 @@ def test_legacy_field_numbers_are_unchanged():
         assert got == fields, f"{message_name} field numbers moved"
 
 
+def test_add_sequence_statement_fields_keep_their_wire_numbers():
+    descriptor = sysml_pb2.AddSequenceEdit.DESCRIPTOR
+    fields = {
+        "condition": 8,
+        "value": 9,
+        "target": 10,
+        "via": 11,
+        "until": 12,
+        "body": 13,
+        "else_body": 14,
+        "multiplicity": 15,
+        "parameter": 16,
+    }
+    assert {
+        name: descriptor.fields_by_name[name].number
+        for name in fields
+    } == fields
+    assert 17 not in descriptor.fields_by_number
+
+
 def test_the_removed_slots_field_stays_reserved():
     """`slots` went away before 0.1.0, and its number must not be reused."""
     descriptor = sysml_pb2.Instance.DESCRIPTOR
@@ -375,6 +395,9 @@ def test_edit_messages_pin_their_field_numbers():
         "AddSequenceEdit": {
             "owner": 1, "keyword": 2, "ref": 3, "member_kind": 4,
             "member_name": 5, "type": 6, "after": 7,
+            "condition": 8, "value": 9, "target": 10, "via": 11,
+            "until": 12, "body": 13, "else_body": 14,
+            "multiplicity": 15, "parameter": 16,
         },
         "DeleteEdit": {"target": 1, "cascade": 2},
         "MoveEdit": {"target": 1, "owner": 2},

@@ -180,3 +180,105 @@ func TestSequenceAfterInsertionLowersBetween(t *testing.T) {
 		t.Fatalf("node order = %v, want %v", got, want)
 	}
 }
+
+func TestActionBodyStatementsLowerRecursively(t *testing.T) {
+	content := `package Demo {
+    private import ScalarValues::*;
+    attribute def Signal { attribute value : Integer; }
+    action def A {
+        out result : Integer = 0;
+        first start;
+        then send new Signal(value = 7) to self;
+        then accept msg : Signal;
+        then assign result := msg.value;
+        then if result == 0 {
+            assign result := 1;
+        } else {
+            assign result := 2;
+        }
+        then while result < 3 {
+            assign result := result + 1;
+        } until result == 3;
+        then loop {
+            assign result := result + 1;
+        } until result == 4;
+        then for i in (1, 2, 3) {
+            assign result := result + i;
+        }
+        then terminate;
+    }
+}
+`
+	action := actionDefOf(t, content, "A")
+	graph, err := lower.ToActionGraph(action, nil)
+	if err != nil {
+		t.Fatalf("ToActionGraph: %v", err)
+	}
+	counts := map[string]int{}
+	var visitGraph func(*lower.ActionGraph)
+	var visitStatement func(lower.Statement)
+	visitStatement = func(statement lower.Statement) {
+		switch statement := statement.(type) {
+		case lower.Send:
+			counts["send"]++
+		case lower.Assign:
+			counts["assign"]++
+		case lower.Effect:
+			if statement.Kind == lower.EffectTerminate {
+				counts["terminate"]++
+			}
+		case lower.If:
+			counts["if"]++
+			for _, child := range statement.Then.Statements {
+				visitStatement(child)
+			}
+			if statement.Else != nil {
+				for _, child := range statement.Else.Statements {
+					visitStatement(child)
+				}
+			}
+		case lower.Loop:
+			switch statement.Kind {
+			case ast.LoopWhile:
+				counts["while"]++
+			case ast.LoopUntil:
+				counts["loop"]++
+			case ast.LoopFor:
+				counts["for"]++
+			}
+			for _, child := range statement.Body.Statements {
+				visitStatement(child)
+			}
+		case lower.Block:
+			for _, child := range statement.Statements {
+				visitStatement(child)
+			}
+			visitGraph(statement.Graph)
+		}
+	}
+	visitGraph = func(graph *lower.ActionGraph) {
+		if graph == nil {
+			return
+		}
+		counts["accept"] += len(graph.Accepts)
+		for _, statements := range graph.Bodies {
+			for _, statement := range statements {
+				visitStatement(statement)
+			}
+		}
+		for _, subflow := range graph.Subflows {
+			if subflow != nil {
+				visitGraph(subflow.Graph)
+			}
+		}
+	}
+	visitGraph(graph)
+	for kind, want := range map[string]int{
+		"send": 1, "accept": 1, "assign": 6, "if": 1,
+		"while": 1, "loop": 1, "for": 1, "terminate": 1,
+	} {
+		if got := counts[kind]; got != want {
+			t.Errorf("lowered %s statements = %d, want %d (all: %v)", kind, got, want, counts)
+		}
+	}
+}

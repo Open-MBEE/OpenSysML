@@ -21,6 +21,7 @@ from opensysml.capabilities import (
     CAPABILITY_SATISFY_AUTHORING,
     CAPABILITY_TRANSITION_AUTHORING,
     CAPABILITY_SEQUENCE_AUTHORING,
+    CAPABILITY_ACTION_BODY_STATEMENT_AUTHORING,
     CAPABILITY_INLINE_LANGUAGE,
     CAPABILITY_STRICT_CONFORMANCE,
     CAPABILITY_COMPLEX_VALUES,
@@ -90,6 +91,64 @@ from opensysml.values import (
     _Infinity,
     value_to_python,
 )
+
+
+_SEQUENCE_DETAIL_FIELDS = {
+    "condition", "value", "target", "via", "until", "body", "else_body",
+    "multiplicity", "parameter",
+}
+_ACTION_BODY_MEMBER_KINDS = {
+    "accept", "send", "assign", "if", "while", "loop", "for", "terminate",
+}
+
+
+def _add_sequence_message(add, operation_data, depth=0):
+    if depth > 128:
+        raise ValueError("nested action-body items exceed the maximum depth")
+    if not isinstance(operation_data, (tuple, list)) or len(operation_data) not in (8, 9):
+        raise ValueError("malformed add_sequence operation: expected 8 or 9 fields")
+    (
+        _, owner, keyword, ref, member_kind, member_name, type_name, after,
+    ) = operation_data[:8]
+    if not all(isinstance(text, str) for text in (
+        owner, keyword, ref, member_kind, member_name, type_name, after
+    )):
+        raise ValueError("malformed add_sequence operation: fields must be text")
+    fields = operation_data[8] if len(operation_data) == 9 else {}
+    if not isinstance(fields, dict):
+        raise ValueError("malformed add_sequence operation: ninth field must be a dictionary")
+    unknown = set(fields) - _SEQUENCE_DETAIL_FIELDS
+    if unknown:
+        raise ValueError(
+            "malformed add_sequence operation: unknown fields " +
+            ", ".join(sorted(unknown))
+        )
+    for key, value in fields.items():
+        if key in ("body", "else_body"):
+            if not isinstance(value, (tuple, list)):
+                raise ValueError(f"malformed add_sequence operation: {key} must be a list")
+        elif not isinstance(value, str):
+            raise ValueError(f"malformed add_sequence operation: {key} must be text")
+
+    add.owner, add.keyword, add.ref = owner, keyword, ref
+    add.member_kind, add.member_name, add.type = member_kind, member_name, type_name
+    add.after = after
+    for key in ("condition", "value", "target", "via", "until",
+                "multiplicity", "parameter"):
+        if key in fields:
+            setattr(add, key, fields[key])
+
+    extended = (
+        keyword in ("if", "else")
+        or (keyword == "" and bool(member_kind))
+        or member_kind in _ACTION_BODY_MEMBER_KINDS
+    )
+    extended = extended or any(key in fields for key in _SEQUENCE_DETAIL_FIELDS)
+    for child in fields.get("body", ()):
+        extended = _add_sequence_message(add.body.add(), child, depth + 1) or extended
+    for child in fields.get("else_body", ()):
+        extended = _add_sequence_message(add.else_body.add(), child, depth + 1) or extended
+    return extended
 from opensysml.engines import ENGINE_AUTO, EngineInfo, Standing
 from opensysml.verdict import (
     AnalysisResult, CalcResult, CaseEvaluation, SweepRow, SweepTable, Validation,
@@ -984,6 +1043,7 @@ class Connection:
         requests_requirement_constraint_authoring = False
         requests_transition_authoring = False
         requests_sequence_authoring = False
+        requests_action_body_statement_authoring = False
         for operation_data in operations:
             operation = request.operations.add()
             kind = operation_data[0]
@@ -1111,17 +1171,10 @@ class Connection:
                 add.trigger, add.guard, add.effect = trigger, guard, effect
                 add.initial = initial
             elif kind == 'add_sequence':
-                if len(operation_data) != 8:
+                if not isinstance(operation_data, (tuple, list)) or len(operation_data) not in (8, 9):
                     raise ValueError(
-                        "malformed add_sequence operation: expected 8 fields"
+                        "malformed add_sequence operation: expected 8 or 9 fields"
                     )
-                (
-                    _, owner, keyword, ref, member_kind, member_name, type_name, after
-                ) = operation_data
-                if not all(isinstance(text, str) for text in (
-                    owner, keyword, ref, member_kind, member_name, type_name, after
-                )):
-                    raise ValueError("malformed add_sequence operation: fields must be text")
                 require(info, CAPABILITY_AUTHORING, upgrade_remedy(CAPABILITY_AUTHORING))
                 require(
                     info,
@@ -1130,10 +1183,10 @@ class Connection:
                 )
                 requests_authoring = True
                 requests_sequence_authoring = True
-                add = operation.add_sequence
-                add.owner, add.keyword, add.ref = owner, keyword, ref
-                add.member_kind, add.member_name, add.type = member_kind, member_name, type_name
-                add.after = after
+                requests_action_body_statement_authoring = (
+                    _add_sequence_message(operation.add_sequence, operation_data)
+                    or requests_action_body_statement_authoring
+                )
             elif kind == 'delete':
                 if len(operation_data) != 3 or not isinstance(operation_data[2], bool):
                     raise ValueError(
@@ -1173,6 +1226,13 @@ class Connection:
             requested_capabilities.append(CAPABILITY_TRANSITION_AUTHORING)
         if requests_sequence_authoring:
             requested_capabilities.append(CAPABILITY_SEQUENCE_AUTHORING)
+        if requests_action_body_statement_authoring:
+            require(
+                info,
+                CAPABILITY_ACTION_BODY_STATEMENT_AUTHORING,
+                upgrade_remedy(CAPABILITY_ACTION_BODY_STATEMENT_AUTHORING),
+            )
+            requested_capabilities.append(CAPABILITY_ACTION_BODY_STATEMENT_AUTHORING)
         if requests_member_modifiers:
             require(
                 info, CAPABILITY_MEMBER_MODIFIERS,

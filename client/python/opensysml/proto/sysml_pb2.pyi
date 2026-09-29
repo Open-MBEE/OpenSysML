@@ -824,7 +824,7 @@ class AddTransitionEdit(_message.Message):
     def __init__(self, owner: _Optional[str] = ..., name: _Optional[str] = ..., source: _Optional[str] = ..., target: _Optional[str] = ..., trigger: _Optional[str] = ..., guard: _Optional[str] = ..., effect: _Optional[str] = ..., initial: _Optional[bool] = ...) -> None: ...
 
 class AddSequenceEdit(_message.Message):
-    __slots__ = ("owner", "keyword", "ref", "member_kind", "member_name", "type", "after")
+    __slots__ = ("owner", "keyword", "ref", "member_kind", "member_name", "type", "after", "condition", "value", "target", "via", "until", "body", "else_body", "multiplicity", "parameter")
     OWNER_FIELD_NUMBER: _ClassVar[int]
     KEYWORD_FIELD_NUMBER: _ClassVar[int]
     REF_FIELD_NUMBER: _ClassVar[int]
@@ -832,6 +832,15 @@ class AddSequenceEdit(_message.Message):
     MEMBER_NAME_FIELD_NUMBER: _ClassVar[int]
     TYPE_FIELD_NUMBER: _ClassVar[int]
     AFTER_FIELD_NUMBER: _ClassVar[int]
+    CONDITION_FIELD_NUMBER: _ClassVar[int]
+    VALUE_FIELD_NUMBER: _ClassVar[int]
+    TARGET_FIELD_NUMBER: _ClassVar[int]
+    VIA_FIELD_NUMBER: _ClassVar[int]
+    UNTIL_FIELD_NUMBER: _ClassVar[int]
+    BODY_FIELD_NUMBER: _ClassVar[int]
+    ELSE_BODY_FIELD_NUMBER: _ClassVar[int]
+    MULTIPLICITY_FIELD_NUMBER: _ClassVar[int]
+    PARAMETER_FIELD_NUMBER: _ClassVar[int]
     owner: str
     keyword: str
     ref: str
@@ -839,7 +848,16 @@ class AddSequenceEdit(_message.Message):
     member_name: str
     type: str
     after: str
-    def __init__(self, owner: _Optional[str] = ..., keyword: _Optional[str] = ..., ref: _Optional[str] = ..., member_kind: _Optional[str] = ..., member_name: _Optional[str] = ..., type: _Optional[str] = ..., after: _Optional[str] = ...) -> None: ...
+    condition: str
+    value: str
+    target: str
+    via: str
+    until: str
+    body: _containers.RepeatedCompositeFieldContainer[AddSequenceEdit]
+    else_body: _containers.RepeatedCompositeFieldContainer[AddSequenceEdit]
+    multiplicity: str
+    parameter: str
+    def __init__(self, owner: _Optional[str] = ..., keyword: _Optional[str] = ..., ref: _Optional[str] = ..., member_kind: _Optional[str] = ..., member_name: _Optional[str] = ..., type: _Optional[str] = ..., after: _Optional[str] = ..., condition: _Optional[str] = ..., value: _Optional[str] = ..., target: _Optional[str] = ..., via: _Optional[str] = ..., until: _Optional[str] = ..., body: _Optional[_Iterable[_Union[AddSequenceEdit, _Mapping]]] = ..., else_body: _Optional[_Iterable[_Union[AddSequenceEdit, _Mapping]]] = ..., multiplicity: _Optional[str] = ..., parameter: _Optional[str] = ...) -> None: ...
 
 class AddConnectionEdit(_message.Message):
     __slots__ = ("owner", "kind", "from_end", "to_end", "name", "type")

@@ -101,37 +101,43 @@ type conformanceCase struct {
 }
 
 type conformanceEditOperation struct {
-	Kind              string   `json:"kind"`
-	Target            string   `json:"target,omitempty"`
-	Value             string   `json:"value,omitempty"`
-	NewName           string   `json:"new_name,omitempty"`
-	Owner             string   `json:"owner,omitempty"`
-	MemberKind        string   `json:"member_kind,omitempty"`
-	MemberName        string   `json:"member_name,omitempty"`
-	Name              string   `json:"name,omitempty"`
-	FromEnd           string   `json:"from_end,omitempty"`
-	ToEnd             string   `json:"to_end,omitempty"`
-	Type              string   `json:"type,omitempty"`
-	Multiplicity      string   `json:"multiplicity,omitempty"`
-	Specializes       []string `json:"specializes,omitempty"`
-	IsAbstract        bool     `json:"is_abstract,omitempty"`
-	Redefines         []string `json:"redefines,omitempty"`
-	IsDefault         bool     `json:"is_default,omitempty"`
-	Direction         string   `json:"direction,omitempty"`
-	Requirement       string   `json:"requirement,omitempty"`
-	SatisfyingFeature string   `json:"satisfying_feature,omitempty"`
-	TransitionSource  string   `json:"source,omitempty"`
-	Trigger           string   `json:"trigger,omitempty"`
-	Guard             string   `json:"guard,omitempty"`
-	Effect            string   `json:"effect,omitempty"`
-	Initial           bool     `json:"initial,omitempty"`
-	Keyword           string   `json:"keyword,omitempty"`
-	Ref               string   `json:"ref,omitempty"`
-	After             string   `json:"after,omitempty"`
-	Asserted          bool     `json:"is_asserted,omitempty"`
-	Negated           bool     `json:"is_negated,omitempty"`
-	Expression        string   `json:"expression,omitempty"`
-	Cascade           bool     `json:"cascade,omitempty"`
+	Kind              string                     `json:"kind"`
+	Target            string                     `json:"target,omitempty"`
+	Value             string                     `json:"value,omitempty"`
+	NewName           string                     `json:"new_name,omitempty"`
+	Owner             string                     `json:"owner,omitempty"`
+	MemberKind        string                     `json:"member_kind,omitempty"`
+	MemberName        string                     `json:"member_name,omitempty"`
+	Name              string                     `json:"name,omitempty"`
+	FromEnd           string                     `json:"from_end,omitempty"`
+	ToEnd             string                     `json:"to_end,omitempty"`
+	Type              string                     `json:"type,omitempty"`
+	Multiplicity      string                     `json:"multiplicity,omitempty"`
+	Specializes       []string                   `json:"specializes,omitempty"`
+	IsAbstract        bool                       `json:"is_abstract,omitempty"`
+	Redefines         []string                   `json:"redefines,omitempty"`
+	IsDefault         bool                       `json:"is_default,omitempty"`
+	Direction         string                     `json:"direction,omitempty"`
+	Requirement       string                     `json:"requirement,omitempty"`
+	SatisfyingFeature string                     `json:"satisfying_feature,omitempty"`
+	TransitionSource  string                     `json:"source,omitempty"`
+	Trigger           string                     `json:"trigger,omitempty"`
+	Guard             string                     `json:"guard,omitempty"`
+	Effect            string                     `json:"effect,omitempty"`
+	Initial           bool                       `json:"initial,omitempty"`
+	Keyword           string                     `json:"keyword,omitempty"`
+	Ref               string                     `json:"ref,omitempty"`
+	After             string                     `json:"after,omitempty"`
+	Condition         string                     `json:"condition,omitempty"`
+	Via               string                     `json:"via,omitempty"`
+	Until             string                     `json:"until,omitempty"`
+	Parameter         string                     `json:"parameter,omitempty"`
+	Body              []conformanceEditOperation `json:"body,omitempty"`
+	ElseBody          []conformanceEditOperation `json:"else_body,omitempty"`
+	Asserted          bool                       `json:"is_asserted,omitempty"`
+	Negated           bool                       `json:"is_negated,omitempty"`
+	Expression        string                     `json:"expression,omitempty"`
+	Cascade           bool                       `json:"cascade,omitempty"`
 }
 
 // TestGRPCConformance is the AGENTS.md §5.2 Layer 2 contract for the gRPC
@@ -275,11 +281,9 @@ func runApplyEditsCase(t *testing.T, srv *grpc.Service, ctx context.Context, mod
 			})
 		case "add_sequence":
 			operations = append(operations, &pb.EditOperation{
-				Operation: &pb.EditOperation_AddSequence{AddSequence: &pb.AddSequenceEdit{
-					Owner: op.Owner, Keyword: op.Keyword, Ref: op.Ref,
-					MemberKind: op.MemberKind, MemberName: op.MemberName,
-					Type: op.Type, After: op.After,
-				}},
+				Operation: &pb.EditOperation_AddSequence{
+					AddSequence: conformanceSequenceEdit(op),
+				},
 			})
 		case "delete":
 			operations = append(operations, &pb.EditOperation{
@@ -316,6 +320,23 @@ func runApplyEditsCase(t *testing.T, srv *grpc.Service, ctx context.Context, mod
 	if resp.Content != tc.ExpectedContent {
 		t.Errorf("content =\n%s\nwant\n%s", resp.Content, tc.ExpectedContent)
 	}
+}
+
+func conformanceSequenceEdit(op conformanceEditOperation) *pb.AddSequenceEdit {
+	sequence := &pb.AddSequenceEdit{
+		Owner: op.Owner, Keyword: op.Keyword, Ref: op.Ref,
+		MemberKind: op.MemberKind, MemberName: op.MemberName, Type: op.Type,
+		After: op.After, Condition: op.Condition, Value: op.Value, Target: op.Target,
+		Via: op.Via, Until: op.Until, Multiplicity: op.Multiplicity,
+		Parameter: op.Parameter,
+	}
+	for _, child := range op.Body {
+		sequence.Body = append(sequence.Body, conformanceSequenceEdit(child))
+	}
+	for _, child := range op.ElseBody {
+		sequence.ElseBody = append(sequence.ElseBody, conformanceSequenceEdit(child))
+	}
+	return sequence
 }
 
 func runEvaluateCase(t *testing.T, srv *grpc.Service, ctx context.Context, modelHash string, tc conformanceCase) {

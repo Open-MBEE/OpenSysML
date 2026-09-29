@@ -848,7 +848,9 @@ public final class Model {
    *     also requires {@code connection_authoring}; a modifier or a {@code ref}/{@code return}
    *     member requires {@code member_modifiers}, {@link Edit.AddSatisfy} requires
    *     {@code satisfy_authoring}, and {@link Edit.AddRequirementConstraint} requires
-   *     {@code requirement_constraint_authoring}
+   *     {@code requirement_constraint_authoring}; an {@link Edit.AddSequence} carrying an
+   *     action-body statement or source multiplicity requires
+   *     {@code action_body_statement_authoring}
    */
   public EditResult applyEdits(List<Edit> edits) {
     return applyEdits(edits, EditOptions.defaults());
@@ -868,7 +870,8 @@ public final class Model {
    * @throws CapabilityException if the service does not advertise {@code apply_edits}, an edit
    *     writes a declaration and it does not advertise {@code authoring}, or a document is named
    *     and it does not advertise {@code edit_documents}; {@link Edit.AddConnection} also requires
-   *     {@code connection_authoring}
+   *     {@code connection_authoring}; an {@link Edit.AddSequence} carrying an action-body
+   *     statement or source multiplicity requires {@code action_body_statement_authoring}
    */
   public EditResult applyEdits(List<Edit> edits, EditOptions options) {
     Objects.requireNonNull(edits, "edits");
@@ -881,6 +884,7 @@ public final class Model {
     boolean requestsRequirementConstraintAuthoring = false;
     boolean requestsTransitionAuthoring = false;
     boolean requestsSequenceAuthoring = false;
+    boolean requestsActionBodyStatementAuthoring = false;
     boolean requestsImplicitParameters = false;
     for (Edit edit : edits) {
       if (edit instanceof Edit.AddMember
@@ -917,8 +921,10 @@ public final class Model {
       if (edit instanceof Edit.AddTransition) {
         requestsTransitionAuthoring = true;
       }
-      if (edit instanceof Edit.AddSequence) {
+      if (edit instanceof Edit.AddSequence addSequence) {
         requestsSequenceAuthoring = true;
+        requestsActionBodyStatementAuthoring |=
+            addSequence.requiresActionBodyStatementAuthoring();
       }
     }
     if (requestsAuthoring) {
@@ -941,6 +947,9 @@ public final class Model {
     }
     if (requestsSequenceAuthoring) {
       connection.capabilities().require(Capabilities.SEQUENCE_AUTHORING);
+    }
+    if (requestsActionBodyStatementAuthoring) {
+      connection.capabilities().require(Capabilities.ACTION_BODY_STATEMENT_AUTHORING);
     }
     if (requestsImplicitParameters) {
       connection.capabilities().require(Capabilities.IMPLICIT_PARAMETERS);

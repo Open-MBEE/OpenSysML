@@ -127,6 +127,27 @@ func TestNewAuthoringOperationsAreNotSentWithoutTheirCapabilities(t *testing.T) 
 			missing:      CapabilitySequenceAuthoring,
 		},
 		{
+			name: "action-body statement operation",
+			operation: AddSequence{
+				Owner: "Demo::A", Keyword: "then", MemberKind: "assign",
+				Target: "x", Value: "1",
+			},
+			capabilities: []string{
+				CapabilityApplyEdits, CapabilityAuthoring, CapabilitySequenceAuthoring,
+			},
+			missing: CapabilityActionBodyStatementAuthoring,
+		},
+		{
+			name: "source-end multiplicity",
+			operation: AddSequence{
+				Owner: "Demo::A", Keyword: "then", Ref: "done", Multiplicity: "[1]",
+			},
+			capabilities: []string{
+				CapabilityApplyEdits, CapabilityAuthoring, CapabilitySequenceAuthoring,
+			},
+			missing: CapabilityActionBodyStatementAuthoring,
+		},
+		{
 			name:         "sequence requires authoring",
 			operation:    AddSequence{Owner: "Demo::A", Keyword: "first", Ref: "start"},
 			capabilities: []string{CapabilityApplyEdits, CapabilitySequenceAuthoring},
@@ -232,5 +253,30 @@ func TestNewAuthoringOperationsMapToProto(t *testing.T) {
 	if got := refSequenceOperation.GetAddSequence(); got == nil ||
 		got.GetKeyword() != "first" || got.GetRef() != "start" {
 		t.Fatalf("AddSequence ref mapping = %+v", got)
+	}
+	nestedOperation, err := editToProto(AddSequence{
+		Owner: "Demo::A", Keyword: "then", MemberKind: "if",
+		Condition: "ready", Multiplicity: "[0..1]",
+		Body: []AddSequence{{
+			MemberKind: "if", Condition: "nested",
+			Body: []AddSequence{{
+				MemberKind: "send", Value: "payload", Target: "receiver",
+			}},
+		}},
+		Else: []AddSequence{{Keyword: "else", Ref: "done"}},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got := nestedOperation.GetAddSequence(); got == nil ||
+		got.GetCondition() != "ready" || got.GetMultiplicity() != "[0..1]" ||
+		len(got.GetBody()) != 1 || got.GetBody()[0].GetMemberKind() != "if" ||
+		got.GetBody()[0].GetCondition() != "nested" ||
+		len(got.GetBody()[0].GetBody()) != 1 ||
+		got.GetBody()[0].GetBody()[0].GetMemberKind() != "send" ||
+		got.GetBody()[0].GetBody()[0].GetValue() != "payload" ||
+		got.GetBody()[0].GetBody()[0].GetTarget() != "receiver" ||
+		len(got.GetElseBody()) != 1 || got.GetElseBody()[0].GetKeyword() != "else" {
+		t.Fatalf("nested AddSequence mapping = %+v", got)
 	}
 }

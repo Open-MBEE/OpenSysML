@@ -87,6 +87,12 @@ type modelEditOperation struct {
 	Keyword      string               `json:"keyword,omitempty"`
 	Ref          string               `json:"ref,omitempty"`
 	After        string               `json:"after,omitempty"`
+	Condition    string               `json:"condition,omitempty"`
+	Via          string               `json:"via,omitempty"`
+	Until        string               `json:"until,omitempty"`
+	Parameter    string               `json:"parameter,omitempty"`
+	Body         []modelEditOperation `json:"body,omitempty"`
+	ElseBody     []modelEditOperation `json:"elseBody,omitempty"`
 	Layout       *modelEditLayout     `json:"layout,omitempty"`
 	Route        []renderPoint        `json:"route,omitempty"`
 	Canvas       *renderCanvas        `json:"canvas,omitempty"`
@@ -351,12 +357,36 @@ func (op modelEditOperation) operation(content []byte) (modeledit.Operation, err
 		out.Type = op.Type
 		return out, nil
 	case EditAddSequence:
-		return modeledit.Operation{
+		out := modeledit.Operation{
 			Kind: modeledit.OpAddSequence, Owner: op.Owner,
 			SequenceKeyword: op.Keyword, SequenceRef: op.Ref,
 			MemberKind: op.MemberKind, MemberName: op.Name,
-			Type: op.Type, After: op.After,
-		}, nil
+			Type: op.Type, After: op.After, Multiplicity: op.Multiplicity,
+			SequenceCondition: op.Condition, SequenceValue: op.Value,
+			SequenceTarget: op.Target, SequenceVia: op.Via,
+			SequenceUntil: op.Until, SequenceParameter: op.Parameter,
+		}
+		for _, item := range op.Body {
+			if item.Kind != EditAddSequence {
+				return modeledit.Operation{}, errors.New("a nested action-body item must be addSequence")
+			}
+			child, err := item.operation(content)
+			if err != nil {
+				return modeledit.Operation{}, err
+			}
+			out.SequenceBody = append(out.SequenceBody, child)
+		}
+		for _, item := range op.ElseBody {
+			if item.Kind != EditAddSequence {
+				return modeledit.Operation{}, errors.New("a nested action-body item must be addSequence")
+			}
+			child, err := item.operation(content)
+			if err != nil {
+				return modeledit.Operation{}, err
+			}
+			out.SequenceElse = append(out.SequenceElse, child)
+		}
+		return out, nil
 	case EditDelete:
 		return modeledit.Delete(op.Target, op.Cascade), nil
 	case EditMove:

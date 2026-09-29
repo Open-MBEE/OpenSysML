@@ -769,6 +769,28 @@ class PublicTypesTest {
     }
   }
 
+  @Test
+  void anActionBodyStatementAlsoRequiresItsCapability() {
+    try (Connection limited =
+        new Connection(
+            new ConnectTransport("127.0.0.1:1", Encoding.PROTOBUF, Duration.ofSeconds(1)),
+            new Capabilities(
+                "dev",
+                java.util.Set.of(
+                    Capabilities.APPLY_EDITS,
+                    Capabilities.AUTHORING,
+                    Capabilities.SEQUENCE_AUTHORING)))) {
+      Model model = new Model(limited, "hash", List.of(), List.of());
+      Edit.AddSequence statement =
+          Edit.AddSequence.thenMember("Demo::A", "assign", "")
+              .withTarget("x")
+              .withValue("1");
+      CapabilityException refused =
+          assertThrows(CapabilityException.class, () -> model.applyEdits(List.of(statement)));
+      assertEquals(Capabilities.ACTION_BODY_STATEMENT_AUTHORING, refused.capability());
+    }
+  }
+
   private static void assertEditCapability(Edit edit, String capability) {
     try (Connection limited =
         new Connection(

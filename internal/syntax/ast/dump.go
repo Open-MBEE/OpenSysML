@@ -708,8 +708,13 @@ func dumpBehavior(b *strings.Builder, n Node, depth int) bool {
 		// form or the parser desugared a member-attached keyword into it.
 		fmt.Fprintf(b, `(SuccessionEdge source=%q target=%q`,
 			successionEnd(v.Source, v.SourceMember), successionEnd(v.Target, v.TargetMember))
-		if len(v.Members) > 0 {
-			writeChildren(b, depth, v.Members)
+		var children []Node
+		if v.SourceMultiplicity != nil {
+			children = append(children, v.SourceMultiplicity)
+		}
+		children = append(children, v.Members...)
+		if len(children) > 0 {
+			writeChildren(b, depth, children)
 			return true
 		}
 		b.WriteString(`)`)

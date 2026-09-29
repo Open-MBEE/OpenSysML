@@ -1409,17 +1409,34 @@ func editFromProto(operation *pb.EditOperation) (opensysml.Edit, bool) {
 			Name:       kind.AddRequirementConstraint.GetName(),
 		}, true
 	case *pb.EditOperation_AddSequence:
-		return opensysml.AddSequence{
-			Owner: kind.AddSequence.GetOwner(), Keyword: kind.AddSequence.GetKeyword(),
-			Ref: kind.AddSequence.GetRef(), MemberKind: kind.AddSequence.GetMemberKind(),
-			MemberName: kind.AddSequence.GetMemberName(), Type: kind.AddSequence.GetType(),
-			After: kind.AddSequence.GetAfter(),
-		}, true
+		return addSequenceFromProto(kind.AddSequence), true
 	case *pb.EditOperation_Delete:
 		return opensysml.Delete{Target: kind.Delete.GetTarget(), Cascade: kind.Delete.GetCascade()}, true
 	default:
 		return nil, false
 	}
+}
+
+func addSequenceFromProto(sequence *pb.AddSequenceEdit) opensysml.AddSequence {
+	if sequence == nil {
+		return opensysml.AddSequence{}
+	}
+	result := opensysml.AddSequence{
+		Owner: sequence.GetOwner(), Keyword: sequence.GetKeyword(),
+		Ref: sequence.GetRef(), MemberKind: sequence.GetMemberKind(),
+		MemberName: sequence.GetMemberName(), Type: sequence.GetType(),
+		After: sequence.GetAfter(), Condition: sequence.GetCondition(),
+		Value: sequence.GetValue(), Target: sequence.GetTarget(), Via: sequence.GetVia(),
+		Until: sequence.GetUntil(), Parameter: sequence.GetParameter(),
+		Multiplicity: sequence.GetMultiplicity(),
+	}
+	for _, child := range sequence.GetBody() {
+		result.Body = append(result.Body, addSequenceFromProto(child))
+	}
+	for _, child := range sequence.GetElseBody() {
+		result.Else = append(result.Else, addSequenceFromProto(child))
+	}
+	return result
 }
 
 func quantityToProto(quantity opensysml.Quantity) *pb.Quantity {

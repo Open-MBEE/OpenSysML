@@ -105,6 +105,10 @@ const CapabilityImplicitParameters = "implicit_parameters"
 // CapabilitySequenceAuthoring names the ApplyEdits add_sequence operation.
 const CapabilitySequenceAuthoring = "sequence_authoring"
 
+// CapabilityActionBodyStatementAuthoring names the extended action-body items
+// and source-end multiplicities carried by add_sequence.
+const CapabilityActionBodyStatementAuthoring = "action_body_statement_authoring"
+
 // CapabilityEditDocuments names the capability of editing a model of several
 // documents as one batch, for a request accepting documents, and of answering
 // each edited document by name in ApplyEditsResponse.documents.
@@ -225,6 +229,7 @@ var capabilities = []string{
 	CapabilityTransitionAuthoring,
 	CapabilitySequenceAuthoring,
 	CapabilityImplicitParameters,
+	CapabilityActionBodyStatementAuthoring,
 }
 
 type capabilityAvailability struct {

@@ -2,6 +2,7 @@ package edit
 
 import (
 	"fmt"
+	"strings"
 
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/resolve"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/symbols"
@@ -39,80 +40,24 @@ func (m Model) addSequenceSplice(i int, op Operation) (splice, error) {
 	if !actionBodyOwner(owner) {
 		return splice{}, &Error{
 			Failure: FailureIllegalKind, OperationIndex: i,
-			Message: fmt.Sprintf("first and then are only admitted in an action body, which %s does not open",
+			Message: fmt.Sprintf("action-body items are only admitted in an action body, which %s does not open",
 				ownerName(op.Owner)),
 		}
 	}
-	if op.SequenceKeyword != "first" && op.SequenceKeyword != "then" {
+	if op.SequenceKeyword != "" && op.SequenceKeyword != "first" &&
+		op.SequenceKeyword != "then" && op.SequenceKeyword != "if" &&
+		op.SequenceKeyword != "else" {
 		return splice{}, &Error{
 			Failure: FailureIllegalKind, OperationIndex: i,
-			Message: fmt.Sprintf("sequence keyword %q is not first or then", op.SequenceKeyword),
+			Message: fmt.Sprintf("action-body keyword %q is not first, then, if, else or empty", op.SequenceKeyword),
 		}
 	}
-	if op.SequenceKeyword == "first" {
-		if op.SequenceRef == "" || op.MemberKind != "" || op.MemberName != "" || op.Type != "" {
-			return splice{}, &Error{
-				Failure: FailureIllegalKind, OperationIndex: i,
-				Message: "first takes a node reference alone",
-			}
-		}
-	} else if op.SequenceRef != "" {
-		if op.MemberKind != "" || op.MemberName != "" || op.Type != "" {
-			return splice{}, &Error{
-				Failure: FailureIllegalKind, OperationIndex: i,
-				Message: "a then reference takes a node reference alone",
-			}
-		}
-	} else if op.MemberKind == "" {
-		return splice{}, &Error{
-			Failure: FailureIllegalKind, OperationIndex: i,
-			Message: "then takes a node reference or a member declaration, exactly one",
-		}
-	}
-	if op.SequenceRef != "" {
-		if _, err := checkFeatureReference(i, "sequence node", op.SequenceRef); err != nil {
-			return splice{}, err
-		}
-		if !sequenceNodeVisible(ownerScope, op.SequenceRef) {
-			return splice{}, &Error{
-				Failure: FailureUnknownTarget, OperationIndex: i,
-				Message: fmt.Sprintf("sequence node %q resolves to nothing visible from %s",
-					op.SequenceRef, ownerName(op.Owner)),
-			}
-		}
-	}
-	var text string
-	if op.SequenceRef != "" {
-		text = op.SequenceKeyword + " " + op.SequenceRef + ";"
-	} else {
-		typed, ok := sequenceMemberKinds[op.MemberKind]
-		if !ok {
-			return splice{}, &Error{
-				Failure: FailureIllegalKind, OperationIndex: i,
-				Message: fmt.Sprintf("a then-declared member of kind %q is not admitted: it must be action, perform action, state, merge, decide, join or fork",
-					op.MemberKind),
-			}
-		}
-		if op.Type != "" && !typed {
-			return splice{}, &Error{
-				Failure: FailureIllegalKind, OperationIndex: i,
-				Message: fmt.Sprintf("kind %q cannot carry a typing target", op.MemberKind),
-			}
-		}
-		if op.MemberName != "" {
-			if err := checkName(i, op.MemberName); err != nil {
-				e := err.(*Error)
-				e.Message = fmt.Sprintf("member name %q is not an identifier", op.MemberName)
-				return splice{}, e
-			}
-			if ownerScope != nil && len(ownerScope.LookupLocalAll(symbolName(op.MemberName))) > 0 {
-				return splice{}, &Error{
-					Failure: FailureMemberNameTaken, OperationIndex: i,
-					Message: fmt.Sprintf("%s already declares %q", ownerName(op.Owner), op.MemberName),
-				}
-			}
-		}
-		text = "then " + writeMember(op, memberKinds[op.MemberKind])
+	memberIndent := m.ownerMemberIndent(owner)
+	base := lineIndent(m.Source.Bytes(), owner.Span().Offset)
+	unit := strings.TrimPrefix(memberIndent, base)
+	text, err := m.formatSequenceItem(i, op.Owner, ownerScope, op, 0, memberIndent, unit)
+	if err != nil {
+		return splice{}, err
 	}
 	members := ast.DeclMembers(owner)
 	anchor := -1
@@ -134,10 +79,10 @@ func (m Model) addSequenceSplice(i int, op Operation) (splice, error) {
 	if anchor >= 0 {
 		before = members[:anchor+1]
 	}
-	if op.SequenceKeyword == "then" && !sequenceSourceBefore(before) {
+	if requiresSequenceSource(op.SequenceKeyword) && !sequenceSourceBefore(before) {
 		return splice{}, &Error{
 			Failure: FailureIllegalKind, OperationIndex: i,
-			Message: "`then` has no member before it to sequence from: it sequences the member after it with the nearest feature before it, and none precedes it",
+			Message: fmt.Sprintf("%q has no source member before it to sequence from", op.SequenceKeyword),
 		}
 	}
 	var ins insertion
@@ -147,6 +92,421 @@ func (m Model) addSequenceSplice(i int, op Operation) (splice, error) {
 		ins = m.memberInsertion(owner, text)
 	}
 	return splice{span: ins.span, text: ins.text, opIndex: i, target: op.Owner}, nil
+}
+
+func (m Model) formatSequenceItem(i int, owner string, scope *symbols.Scope, op Operation, depth int, memberIndent, unit string) (string, error) {
+	if op.Kind != OpAddSequence {
+		return "", sequenceError(i, "body items must be add-sequence operations")
+	}
+	if depth > 128 {
+		return "", sequenceError(i, "nested action-body items exceed the maximum depth")
+	}
+	if depth > 0 && (op.Owner != "" || op.After != "") {
+		return "", sequenceError(i, "nested body items cannot specify owner or after")
+	}
+	if op.SequenceKeyword != "" && op.SequenceKeyword != "first" &&
+		op.SequenceKeyword != "then" && op.SequenceKeyword != "if" &&
+		op.SequenceKeyword != "else" {
+		return "", sequenceError(i, fmt.Sprintf("action-body keyword %q is not first, then, if, else or empty", op.SequenceKeyword))
+	}
+	if err := validateSourceMultiplicity(i, op.SequenceKeyword, op.Multiplicity); err != nil {
+		return "", err
+	}
+
+	if op.SequenceKeyword == "first" || op.SequenceKeyword == "then" ||
+		op.SequenceKeyword == "if" || op.SequenceKeyword == "else" {
+		if op.SequenceRef != "" {
+			return m.formatSequenceReference(i, owner, scope, op)
+		}
+	}
+	if op.SequenceRef != "" {
+		return "", sequenceError(i, "a plain action-body member cannot name a sequence reference")
+	}
+	if op.SequenceKeyword == "if" || op.SequenceKeyword == "else" {
+		return "", sequenceError(i, fmt.Sprintf("%s succession requires a sequence reference", op.SequenceKeyword))
+	}
+	if op.SequenceKeyword == "first" {
+		return "", sequenceError(i, "first takes a sequence reference alone")
+	}
+	if op.SequenceKeyword == "then" && op.MemberKind == "" {
+		return "", sequenceError(i, "then takes a sequence reference or a member declaration")
+	}
+	if op.MemberKind == "" {
+		return "", sequenceError(i, "a plain action-body item requires a member kind")
+	}
+	if _, ok := sequenceMemberKinds[op.MemberKind]; ok {
+		return m.formatSequenceDeclaration(i, owner, scope, op)
+	}
+	return m.formatActionStatement(i, owner, scope, op, depth, memberIndent, unit)
+}
+
+func (m Model) formatSequenceReference(i int, owner string, scope *symbols.Scope, op Operation) (string, error) {
+	if op.SequenceRef == "" {
+		return "", sequenceError(i, "sequence reference is empty")
+	}
+	if op.MemberKind != "" || op.MemberName != "" || op.Type != "" ||
+		op.SequenceValue != "" || op.SequenceTarget != "" || op.SequenceVia != "" ||
+		op.SequenceUntil != "" || op.SequenceParameter != "" ||
+		len(op.SequenceBody) > 0 || len(op.SequenceElse) > 0 {
+		return "", sequenceError(i, "a sequence reference cannot carry member or statement fields")
+	}
+	switch op.SequenceKeyword {
+	case "first", "then", "else":
+		if op.SequenceCondition != "" {
+			return "", sequenceError(i, fmt.Sprintf("%s succession does not take a condition", op.SequenceKeyword))
+		}
+	case "if":
+		if op.SequenceCondition == "" {
+			return "", sequenceError(i, "guarded then requires a guard")
+		}
+		if err := m.checkExpression(i, "guard", owner, op.SequenceCondition); err != nil {
+			return "", err
+		}
+	default:
+		return "", sequenceError(i, "a sequence reference requires first, then, if or else")
+	}
+	if _, err := checkFeatureReference(i, "sequence node", op.SequenceRef); err != nil {
+		return "", err
+	}
+	if !sequenceNodeVisible(scope, op.SequenceRef) {
+		return "", &Error{
+			Failure: FailureUnknownTarget, OperationIndex: i,
+			Message: fmt.Sprintf("sequence node %q resolves to nothing visible from %s",
+				op.SequenceRef, ownerName(owner)),
+		}
+	}
+	switch op.SequenceKeyword {
+	case "first":
+		return "first " + op.SequenceRef + ";", nil
+	case "then":
+		if op.Multiplicity != "" {
+			return op.Multiplicity + " then " + op.SequenceRef + ";", nil
+		}
+		return "then " + op.SequenceRef + ";", nil
+	case "if":
+		return "if " + op.SequenceCondition + " then " + op.SequenceRef + ";", nil
+	case "else":
+		if op.Multiplicity != "" || op.SequenceCondition != "" {
+			return "", sequenceError(i, "else succession takes a reference alone")
+		}
+		return "else " + op.SequenceRef + ";", nil
+	default:
+		return "", sequenceError(i, "a sequence reference requires first, then, if or else")
+	}
+}
+
+func (m Model) formatSequenceDeclaration(i int, owner string, scope *symbols.Scope, op Operation) (string, error) {
+	typed, admitted := sequenceMemberKinds[op.MemberKind]
+	if !admitted {
+		return "", sequenceError(i, fmt.Sprintf("member kind %q is not admitted in action sequencing", op.MemberKind))
+	}
+	if op.SequenceCondition != "" || op.SequenceValue != "" || op.SequenceTarget != "" ||
+		op.SequenceVia != "" || op.SequenceUntil != "" || op.SequenceParameter != "" ||
+		len(op.SequenceBody) > 0 || len(op.SequenceElse) > 0 {
+		return "", sequenceError(i, "a sequence declaration cannot carry statement fields")
+	}
+	if op.Type != "" && !typed {
+		return "", sequenceError(i, fmt.Sprintf("kind %q cannot carry a typing target", op.MemberKind))
+	}
+	if op.Type != "" {
+		if _, err := checkFeatureReference(i, "typing target", op.Type); err != nil {
+			return "", err
+		}
+	}
+	if op.MemberName != "" {
+		if err := checkName(i, op.MemberName); err != nil {
+			e := err.(*Error)
+			e.Message = fmt.Sprintf("member name %q is not an identifier", op.MemberName)
+			return "", e
+		}
+		if scope != nil && len(scope.LookupLocalAll(symbolName(op.MemberName))) > 0 {
+			return "", &Error{
+				Failure: FailureMemberNameTaken, OperationIndex: i,
+				Message: fmt.Sprintf("%s already declares %q", ownerName(owner), op.MemberName),
+			}
+		}
+	}
+	prefix := ""
+	if op.SequenceKeyword == "then" {
+		prefix = "then "
+		if op.Multiplicity != "" {
+			prefix += op.Multiplicity + " "
+		}
+	} else if op.SequenceKeyword != "" {
+		return "", sequenceError(i, fmt.Sprintf("member declaration cannot use keyword %q", op.SequenceKeyword))
+	}
+	return prefix + writeMember(op, memberKinds[op.MemberKind]), nil
+}
+
+func (m Model) formatActionStatement(i int, owner string, scope *symbols.Scope, op Operation, depth int, memberIndent, unit string) (string, error) {
+	if op.MemberName != "" {
+		return "", sequenceError(i, "action-body statement kinds do not admit member_name")
+	}
+	if op.SequenceKeyword != "" && op.SequenceKeyword != "then" {
+		return "", sequenceError(i, fmt.Sprintf("statement kind %q only admits keyword then or empty", op.MemberKind))
+	}
+	prefix := ""
+	if op.SequenceKeyword == "then" {
+		prefix = "then "
+		if op.Multiplicity != "" {
+			prefix += op.Multiplicity + " "
+		}
+	}
+	bodyText, err := m.formatNestedBody(i, owner, scope, op.SequenceBody, depth, memberIndent, unit)
+	if err != nil {
+		return "", err
+	}
+	var text string
+	switch op.MemberKind {
+	case "accept":
+		if op.SequenceParameter == "" {
+			return "", sequenceError(i, "accept requires a payload parameter")
+		}
+		if err := checkName(i, op.SequenceParameter); err != nil {
+			return "", err
+		}
+		if op.Type != "" {
+			if _, err := checkFeatureReference(i, "accept type", op.Type); err != nil {
+				return "", err
+			}
+		}
+		if op.SequenceVia != "" {
+			if err := m.checkExpression(i, "via port", owner, op.SequenceVia); err != nil {
+				return "", err
+			}
+		}
+		if err := noStatementFields(i, op, "accept", "type", "via", "parameter", "multiplicity"); err != nil {
+			return "", err
+		}
+		text = "accept " + op.SequenceParameter
+		if op.Type != "" {
+			text += " : " + op.Type
+		}
+		if op.SequenceVia != "" {
+			text += " via " + op.SequenceVia
+		}
+		text += ";"
+	case "send":
+		if op.SequenceValue == "" {
+			return "", sequenceError(i, "send requires a payload value")
+		}
+		if err := m.checkExpression(i, "send payload", owner, op.SequenceValue); err != nil {
+			return "", err
+		}
+		if op.SequenceVia != "" {
+			if err := m.checkExpression(i, "via port", owner, op.SequenceVia); err != nil {
+				return "", err
+			}
+		}
+		if op.SequenceTarget != "" {
+			if err := m.checkExpression(i, "send receiver", owner, op.SequenceTarget); err != nil {
+				return "", err
+			}
+		}
+		if err := noStatementFields(i, op, "send", "value", "target", "via", "multiplicity"); err != nil {
+			return "", err
+		}
+		text = "send " + op.SequenceValue
+		if op.SequenceVia != "" {
+			text += " via " + op.SequenceVia
+		}
+		if op.SequenceTarget != "" {
+			text += " to " + op.SequenceTarget
+		}
+		text += ";"
+	case "assign":
+		if op.SequenceTarget == "" || op.SequenceValue == "" {
+			return "", sequenceError(i, "assign requires both target and value")
+		}
+		if _, err := checkFeatureReference(i, "assignment target", op.SequenceTarget); err != nil {
+			return "", err
+		}
+		if err := m.checkExpression(i, "assigned value", owner, op.SequenceValue); err != nil {
+			return "", err
+		}
+		if err := noStatementFields(i, op, "assign", "target", "value", "multiplicity"); err != nil {
+			return "", err
+		}
+		text = "assign " + op.SequenceTarget + " := " + op.SequenceValue + ";"
+	case "if":
+		if op.SequenceCondition == "" {
+			return "", sequenceError(i, "if requires a condition")
+		}
+		if err := m.checkExpression(i, "condition", owner, op.SequenceCondition); err != nil {
+			return "", err
+		}
+		text = "if " + op.SequenceCondition + bodyText
+		if len(op.SequenceElse) > 0 {
+			elseText, err := m.formatNestedBody(i, owner, scope, op.SequenceElse, depth, memberIndent, unit)
+			if err != nil {
+				return "", err
+			}
+			text += " else" + elseText
+		}
+		if err := noStatementFields(i, op, "if", "condition", "body", "else_body", "multiplicity"); err != nil {
+			return "", err
+		}
+	case "while":
+		if op.SequenceCondition == "" {
+			return "", sequenceError(i, "while requires a condition")
+		}
+		if err := m.checkExpression(i, "loop condition", owner, op.SequenceCondition); err != nil {
+			return "", err
+		}
+		if op.SequenceUntil != "" {
+			if err := m.checkExpression(i, "until condition", owner, op.SequenceUntil); err != nil {
+				return "", err
+			}
+		}
+		text = "while " + op.SequenceCondition + bodyText
+		if op.SequenceUntil != "" {
+			text += " until " + op.SequenceUntil + ";"
+		}
+		if err := noStatementFields(i, op, "while", "condition", "body", "until", "multiplicity"); err != nil {
+			return "", err
+		}
+	case "loop":
+		if op.SequenceCondition != "" {
+			return "", sequenceError(i, "loop does not take a condition")
+		}
+		if op.SequenceUntil != "" {
+			if err := m.checkExpression(i, "until condition", owner, op.SequenceUntil); err != nil {
+				return "", err
+			}
+		}
+		text = "loop" + bodyText
+		if op.SequenceUntil != "" {
+			text += " until " + op.SequenceUntil + ";"
+		}
+		if err := noStatementFields(i, op, "loop", "body", "until", "multiplicity"); err != nil {
+			return "", err
+		}
+	case "for":
+		if op.SequenceParameter == "" || op.SequenceValue == "" {
+			return "", sequenceError(i, "for requires a variable and collection")
+		}
+		if err := checkName(i, op.SequenceParameter); err != nil {
+			return "", err
+		}
+		if op.Type != "" {
+			if _, err := checkFeatureReference(i, "for variable type", op.Type); err != nil {
+				return "", err
+			}
+		}
+		if err := m.checkExpression(i, "for collection", owner, op.SequenceValue); err != nil {
+			return "", err
+		}
+		if err := noStatementFields(i, op, "for", "parameter", "type", "value", "body", "multiplicity"); err != nil {
+			return "", err
+		}
+		text = "for " + op.SequenceParameter
+		if op.Type != "" {
+			text += " : " + op.Type
+		}
+		text += " in " + op.SequenceValue + bodyText
+	case "terminate":
+		if op.SequenceValue != "" {
+			if err := m.checkExpression(i, "terminate occurrence", owner, op.SequenceValue); err != nil {
+				return "", err
+			}
+		}
+		if err := noStatementFields(i, op, "terminate", "value", "multiplicity"); err != nil {
+			return "", err
+		}
+		text = "terminate"
+		if op.SequenceValue != "" {
+			text += " " + op.SequenceValue
+		}
+		text += ";"
+	default:
+		return "", sequenceError(i, fmt.Sprintf("member kind %q is not an action-body statement", op.MemberKind))
+	}
+	return prefix + text, nil
+}
+
+func (m Model) formatNestedBody(i int, owner string, scope *symbols.Scope, body []Operation, depth int, memberIndent, unit string) (string, error) {
+	if len(body) == 0 {
+		return " { }", nil
+	}
+	var lines []string
+	hasSource := false
+	for _, item := range body {
+		if item.SequenceKeyword == "then" && !hasSource {
+			return "", sequenceError(i, "`then` in a nested body has no earlier source item")
+		}
+		if requiresSequenceSource(item.SequenceKeyword) && !hasSource {
+			return "", sequenceError(i, fmt.Sprintf("%q in a nested body has no earlier source item", item.SequenceKeyword))
+		}
+		formatted, err := m.formatSequenceItem(i, owner, scope, item, depth+1, memberIndent, unit)
+		if err != nil {
+			return "", err
+		}
+		lines = append(lines, memberIndent+strings.Repeat(unit, depth+1)+formatted)
+		if sequenceItemIsSource(item) {
+			hasSource = true
+		}
+	}
+	return " {\n" + strings.Join(lines, "\n") + "\n" + memberIndent + strings.Repeat(unit, depth) + "}", nil
+}
+
+func sequenceItemIsSource(op Operation) bool {
+	if op.SequenceKeyword == "first" || op.SequenceRef != "" {
+		return false
+	}
+	return op.MemberKind != ""
+}
+
+func requiresSequenceSource(keyword string) bool {
+	return keyword == "then" || keyword == "if" || keyword == "else"
+}
+
+func noStatementFields(i int, op Operation, kind string, allowed ...string) error {
+	allow := map[string]bool{}
+	for _, field := range allowed {
+		allow[field] = true
+	}
+	fields := []struct {
+		name  string
+		value bool
+	}{
+		{"condition", op.SequenceCondition != ""},
+		{"value", op.SequenceValue != ""},
+		{"target", op.SequenceTarget != ""},
+		{"via", op.SequenceVia != ""},
+		{"until", op.SequenceUntil != ""},
+		{"body", len(op.SequenceBody) > 0},
+		{"else_body", len(op.SequenceElse) > 0},
+		{"parameter", op.SequenceParameter != ""},
+		{"type", op.Type != ""},
+		{"multiplicity", op.Multiplicity != ""},
+	}
+	for _, field := range fields {
+		if field.value && !allow[field.name] {
+			return sequenceError(i, fmt.Sprintf("member kind %q does not admit field %s", kind, field.name))
+		}
+	}
+	return nil
+}
+
+func sequenceError(i int, message string) error {
+	return &Error{Failure: FailureIllegalKind, OperationIndex: i, Message: message}
+}
+
+func validateSourceMultiplicity(i int, keyword, multiplicity string) error {
+	if multiplicity == "" {
+		return nil
+	}
+	if keyword != "then" {
+		return sequenceError(i, "source multiplicity is only legal with keyword then")
+	}
+	if len(multiplicity) < 3 || multiplicity[0] != '[' ||
+		multiplicity[len(multiplicity)-1] != ']' {
+		return &Error{
+			Failure: FailureInvalidValue, OperationIndex: i,
+			Message: "source multiplicity must be bracketed, for example [0..1]",
+		}
+	}
+	return nil
 }
 
 // actionBodyOwner reports whether owner opens an action body, the body that

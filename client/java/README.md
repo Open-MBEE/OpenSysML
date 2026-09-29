@@ -402,6 +402,13 @@ an entry transition; `Edit.AddSequence.first`, `.then` and `.thenMember` write
 `first`/`then` members. The client checks
 `member_modifiers`, `satisfy_authoring`, `requirement_constraint_authoring`,
 `transition_authoring` or `sequence_authoring` before sending those additions.
+`Edit.AddSequence` also exposes `withCondition`, `withValue`, `withTarget`,
+`withVia`, `withUntil`, `withBody`, `withElseBody`, `withMultiplicity` and
+`withParameter` for recursive action-body items. An empty else body means no
+else; an explicit empty `else { }` is not authorable. These items and
+source-end multiplicities require `action_body_statement_authoring`; generated
+`AddSequenceEdit` fields carry recursive bodies without another edit-operation
+case. The forms follow SysML.xtext:1368, 1442–1641 and formal/2026-03-02.
 An `Edit.AddMember` with an empty `kind` writes a directed usage with no kind
 keyword (`in x : T;`) and requires `implicit_parameters`.
 

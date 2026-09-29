@@ -800,21 +800,7 @@ final class Api {
       }
       case ADD_SEQUENCE -> {
         org.openmbee.opensysml.proto.AddSequenceEdit add = operation.getAddSequence();
-        Edit.AddSequence sequence =
-            switch (add.getKeyword()) {
-              case "first" -> Edit.AddSequence.first(add.getOwner(), add.getRef());
-              case "then" -> add.getMemberKind().isEmpty()
-                  ? Edit.AddSequence.then(add.getOwner(), add.getRef())
-                  : Edit.AddSequence.thenMember(add.getOwner(), add.getMemberKind(), add.getMemberName());
-              default -> throw new Unsupported("sequence keyword " + add.getKeyword());
-            };
-        if (!add.getType().isEmpty()) {
-          sequence = sequence.withType(add.getType());
-        }
-        if (!add.getAfter().isEmpty()) {
-          sequence = sequence.withAfter(add.getAfter());
-        }
-        yield sequence;
+        yield sequence(add);
       }
       case DELETE ->
           new Edit.Delete(operation.getDelete().getTarget(), operation.getDelete().getCascade());
@@ -823,6 +809,30 @@ final class Api {
       case OPERATION_NOT_SET ->
           throw new Unsupported("the public API cannot send an edit naming no operation");
     };
+  }
+
+  private static Edit.AddSequence sequence(org.openmbee.opensysml.proto.AddSequenceEdit add) {
+    return new Edit.AddSequence(
+        add.getOwner(),
+        add.getKeyword(),
+        optionalText(add.getRef()),
+        optionalText(add.getMemberKind()),
+        optionalText(add.getMemberName()),
+        optionalText(add.getType()),
+        optionalText(add.getAfter()),
+        optionalText(add.getCondition()),
+        optionalText(add.getValue()),
+        optionalText(add.getTarget()),
+        optionalText(add.getVia()),
+        optionalText(add.getUntil()),
+        add.getBodyList().stream().map(Api::sequence).toList(),
+        add.getElseBodyList().stream().map(Api::sequence).toList(),
+        optionalText(add.getMultiplicity()),
+        optionalText(add.getParameter()));
+  }
+
+  private static Optional<String> optionalText(String value) {
+    return value.isEmpty() ? Optional.empty() : Optional.of(value);
   }
 
   private RunSweepResponse runSweep(RunSweepRequest request) {

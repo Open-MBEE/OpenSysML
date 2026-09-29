@@ -439,6 +439,16 @@ func TestApplyEditsNewAuthoringOperationsRequireDedicatedCapabilities(t *testing
 			operation:  addSequenceOp("Demo::S", "then", "idle", "", "", "", ""),
 		},
 		{
+			name:       "action-body statement",
+			capability: CapabilityActionBodyStatementAuthoring,
+			operation: &pb.EditOperation{Operation: &pb.EditOperation_AddSequence{
+				AddSequence: &pb.AddSequenceEdit{
+					Owner: "Demo::A", Keyword: "then", MemberKind: "assign",
+					Target: "x", Value: "1",
+				},
+			}},
+		},
+		{
 			name:       "implicit parameter",
 			capability: CapabilityImplicitParameters,
 			operation: &pb.EditOperation{Operation: &pb.EditOperation_AddMember{
@@ -530,11 +540,15 @@ func TestGetServerInfoAuthoringCapabilities(t *testing.T) {
 	for _, capability := range []string{
 		CapabilityAuthoring, CapabilityConnectionAuthoring,
 		CapabilitySatisfyAuthoring, CapabilityRequirementConstraintAuthoring,
-		CapabilityMemberModifiers, CapabilityTransitionAuthoring, CapabilityInlineLanguage,
+		CapabilityMemberModifiers, CapabilityTransitionAuthoring,
+		CapabilityActionBodyStatementAuthoring, CapabilityInlineLanguage,
 	} {
 		if !slices.Contains(info.Capabilities, capability) {
 			t.Errorf("capabilities = %v, want %q", info.Capabilities, capability)
 		}
+	}
+	if got := info.Capabilities[len(info.Capabilities)-1]; got != CapabilityActionBodyStatementAuthoring {
+		t.Errorf("last capability = %q, want %q", got, CapabilityActionBodyStatementAuthoring)
 	}
 }
 

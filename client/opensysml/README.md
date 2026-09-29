@@ -271,6 +271,9 @@ The new member modifiers and `ref`/`return` kinds require `member_modifiers`;
 `AddSequence` requires `authoring` and `sequence_authoring`, and writes
 `first <ref>;`, `then <ref>;` or `then <kind> <name> : <type>;` members in an
 action body; `After` names the member it follows.
+Action-body statements and source-end multiplicities also require
+`action_body_statement_authoring`; they use the same recursive `AddSequence`
+operation, with nested body items omitting `Owner` and `After`.
 An `AddMember` with an empty `Kind` writes a directed usage with no kind
 keyword (`in x : T;`) and requires `implicit_parameters`.
 

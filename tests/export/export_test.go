@@ -2125,6 +2125,21 @@ func TestSuccessionRoundTripsInEveryBody(t *testing.T) {
 	}
 }
 
+func TestActionSuccessionSourceMultiplicityRoundTripsWithoutSourceText(t *testing.T) {
+	const src = `action def A {
+    action a;
+    then [0..1] action b;
+    [2] then c { action nested; }
+    action c;
+}
+`
+	back := notationFromTheGraphAlone(t, "multiplicity.sysml", src)
+	wantFragments(t, back,
+		"then [0..1] action b;",
+		"[2] then c {",
+	)
+}
+
 // A succession is its two ends, so a graph from elsewhere that names only one of
 // them declares no order: that is reported rather than written back as notation
 // (`succession;`) that says nothing.

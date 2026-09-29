@@ -191,6 +191,217 @@ class EditResult(Conversion):
         return self.write(path)
 
 
+def _sequence_text(label, value, optional=False):
+    if value is None and optional:
+        return
+    if not isinstance(value, str):
+        raise TypeError(f"{label} must be notation text, not {type(value).__name__}")
+
+
+def _sequence_tuple(owner, keyword, ref="", member_kind="", member_name="",
+                    type_name="", after="", **fields):
+    operation = (
+        "add_sequence", owner, keyword, ref, member_kind, member_name,
+        type_name, after,
+    )
+    return operation + (fields,) if fields else operation
+
+
+class Body:
+    """Chainable action-body items for nested ``if`` and loop statements.
+
+    The first ordinary statement is written without ``then`` by default, and
+    later ordinary statements use it. An empty body emits ``{ }``. An empty
+    else branch performs nothing, so an empty ``else_body`` is equivalent to
+    omitting ``else``.
+
+    The statement forms follow SysML.xtext:1368, 1442–1641 and formal/2026-03-02.
+    """
+
+    def __init__(self):
+        self._operations = []
+
+    @property
+    def operations(self):
+        """The body items collected so far."""
+        return list(self._operations)
+
+    def _keyword(self, then):
+        if then is None:
+            return "" if not self._operations else "then"
+        if not isinstance(then, bool):
+            raise TypeError(f"then must be bool or None, not {type(then).__name__}")
+        return "then" if then else ""
+
+    def _add_statement(self, kind, *, then=None, type_name="", **fields):
+        keyword = self._keyword(then)
+        self._operations.append(
+            _sequence_tuple("", keyword, member_kind=kind, type_name=type_name, **fields)
+        )
+        return self
+
+    def add_first(self, ref):
+        _sequence_text("ref", ref)
+        self._operations.append(_sequence_tuple("", "first", ref))
+        return self
+
+    def add_then(self, ref=None, action=None, type=None, kind="action",
+                 multiplicity=None):
+        for label, text in (("ref", ref), ("action", action), ("type", type),
+                            ("kind", kind), ("multiplicity", multiplicity)):
+            _sequence_text(label, text, optional=True)
+        if (ref is None) == (action is None):
+            raise ValueError("exactly one of ref and action is required")
+        fields = {}
+        if multiplicity is not None:
+            fields["multiplicity"] = multiplicity
+        if ref is not None:
+            if type is not None or (kind is not None and kind != "action"):
+                raise ValueError("a then reference takes no type or kind")
+            self._operations.append(_sequence_tuple("", "then", ref, **fields))
+        else:
+            self._operations.append(_sequence_tuple(
+                "", "then", member_kind=kind or "action", member_name=action,
+                type_name=type or "", **fields,
+            ))
+        return self
+
+    def add_action(self, name=None, type=None, kind="action"):
+        for label, text in (("name", name), ("type", type), ("kind", kind)):
+            _sequence_text(label, text, optional=True)
+        self._operations.append(_sequence_tuple(
+            "", "", member_kind=kind or "action", member_name=name or "",
+            type_name=type or "",
+        ))
+        return self
+
+    def add_accept(self, payload, type=None, via=None, *, then=None, multiplicity=None):
+        _sequence_text("payload", payload)
+        _sequence_text("type", type, optional=True)
+        _sequence_text("via", via, optional=True)
+        _sequence_text("multiplicity", multiplicity, optional=True)
+        keyword = self._keyword(then)
+        if multiplicity is not None and keyword != "then":
+            raise ValueError("multiplicity requires then=True")
+        return self._add_statement(
+            "accept", then=keyword == "then", type_name=type or "",
+            parameter=payload, via=via or "",
+            **({"multiplicity": multiplicity} if multiplicity is not None else {}),
+        )
+
+    def add_send(self, payload, to=None, via=None, *, then=None, multiplicity=None):
+        _sequence_text("payload", payload)
+        _sequence_text("to", to, optional=True)
+        _sequence_text("via", via, optional=True)
+        _sequence_text("multiplicity", multiplicity, optional=True)
+        keyword = self._keyword(then)
+        if multiplicity is not None and keyword != "then":
+            raise ValueError("multiplicity requires then=True")
+        return self._add_statement(
+            "send", then=keyword == "then", value=payload, target=to or "",
+            via=via or "",
+            **({"multiplicity": multiplicity} if multiplicity is not None else {}),
+        )
+
+    def add_assign(self, target, value, *, then=None, multiplicity=None):
+        _sequence_text("target", target)
+        _sequence_text("value", value)
+        _sequence_text("multiplicity", multiplicity, optional=True)
+        keyword = self._keyword(then)
+        if multiplicity is not None and keyword != "then":
+            raise ValueError("multiplicity requires then=True")
+        return self._add_statement(
+            "assign", then=keyword == "then", target=target, value=value,
+            **({"multiplicity": multiplicity} if multiplicity is not None else {}),
+        )
+
+    def add_if(self, condition, body, else_body=None, *, then=None, multiplicity=None):
+        _sequence_text("condition", condition)
+        if not isinstance(body, Body):
+            raise TypeError(f"body must be Body, not {body.__class__.__name__}")
+        if else_body is not None and not isinstance(else_body, Body):
+            raise TypeError(f"else_body must be Body or None, not {type(else_body).__name__}")
+        _sequence_text("multiplicity", multiplicity, optional=True)
+        keyword = self._keyword(then)
+        if multiplicity is not None and keyword != "then":
+            raise ValueError("multiplicity requires then=True")
+        return self._add_statement(
+            "if", then=keyword == "then", condition=condition,
+            body=body.operations,
+            else_body=else_body.operations if else_body and else_body.operations else [],
+            **({"multiplicity": multiplicity} if multiplicity is not None else {}),
+        )
+
+    def add_while(self, condition, body, until=None, *, then=None, multiplicity=None):
+        _sequence_text("condition", condition)
+        _sequence_text("until", until, optional=True)
+        if not isinstance(body, Body):
+            raise TypeError(f"body must be Body, not {body.__class__.__name__}")
+        _sequence_text("multiplicity", multiplicity, optional=True)
+        keyword = self._keyword(then)
+        if multiplicity is not None and keyword != "then":
+            raise ValueError("multiplicity requires then=True")
+        return self._add_statement(
+            "while", then=keyword == "then", condition=condition,
+            until=until or "", body=body.operations,
+            **({"multiplicity": multiplicity} if multiplicity is not None else {}),
+        )
+
+    def add_loop(self, body, until=None, *, then=None, multiplicity=None):
+        _sequence_text("until", until, optional=True)
+        if not isinstance(body, Body):
+            raise TypeError(f"body must be Body, not {body.__class__.__name__}")
+        _sequence_text("multiplicity", multiplicity, optional=True)
+        keyword = self._keyword(then)
+        if multiplicity is not None and keyword != "then":
+            raise ValueError("multiplicity requires then=True")
+        return self._add_statement(
+            "loop", then=keyword == "then", until=until or "",
+            body=body.operations,
+            **({"multiplicity": multiplicity} if multiplicity is not None else {}),
+        )
+
+    def add_for(self, variable, collection, body, type=None, *, then=None, multiplicity=None):
+        _sequence_text("variable", variable)
+        _sequence_text("collection", collection)
+        _sequence_text("type", type, optional=True)
+        if not isinstance(body, Body):
+            raise TypeError(f"body must be Body, not {body.__class__.__name__}")
+        _sequence_text("multiplicity", multiplicity, optional=True)
+        keyword = self._keyword(then)
+        if multiplicity is not None and keyword != "then":
+            raise ValueError("multiplicity requires then=True")
+        return self._add_statement(
+            "for", then=keyword == "then", parameter=variable,
+            value=collection, type_name=type or "", body=body.operations,
+            **({"multiplicity": multiplicity} if multiplicity is not None else {}),
+        )
+
+    def add_terminate(self, occurrence=None, *, then=None, multiplicity=None):
+        _sequence_text("occurrence", occurrence, optional=True)
+        _sequence_text("multiplicity", multiplicity, optional=True)
+        keyword = self._keyword(then)
+        if multiplicity is not None and keyword != "then":
+            raise ValueError("multiplicity requires then=True")
+        return self._add_statement(
+            "terminate", then=keyword == "then", value=occurrence or "",
+            **({"multiplicity": multiplicity} if multiplicity is not None else {}),
+        )
+
+    def add_guarded_then(self, guard, ref):
+        _sequence_text("guard", guard)
+        _sequence_text("ref", ref)
+        self._operations.append(_sequence_tuple(
+            "", "if", ref, condition=guard,
+        ))
+        return self
+
+    def add_else(self, ref):
+        _sequence_text("ref", ref)
+        self._operations.append(_sequence_tuple("", "else", ref))
+        return self
+
+
 class Editor:
     """Operations to perform on a loaded model, and the call that performs them.
 
@@ -395,7 +606,7 @@ class Editor:
         return self
 
     def add_then(self, owner, ref=None, action=None, type=None, after=None,
-                 kind="action"):
+                 kind="action", multiplicity=None):
         """Add ``then <ref>;`` or ``then <kind> <name> : <type>;`` to an action
         body, sequencing the member after it with the member before it.
 
@@ -421,7 +632,8 @@ class Editor:
                 other than the default ``"action"``.
         """
         for label, text in (("ref", ref), ("action", action), ("type", type),
-                            ("after", after), ("kind", kind)):
+                            ("after", after), ("kind", kind),
+                            ("multiplicity", multiplicity)):
             if text is not None and not isinstance(text, str):
                 raise TypeError(f"{label} must be notation text, not {text.__class__.__name__}")
         if (ref is None) == (action is None):
@@ -430,12 +642,193 @@ class Editor:
                                 (kind is not None and kind != "action")):
             raise ValueError("a then reference takes no type or kind")
         owner = owner if isinstance(owner, str) else _target_id(owner)
+        fields = {"multiplicity": multiplicity} if multiplicity is not None else {}
         if ref is not None:
-            self._add(("add_sequence", owner, "then", ref, "", "", "", after or ""))
+            self._add(_sequence_tuple(
+                owner, "then", ref, after=after or "", **fields,
+            ))
         else:
-            self._add(("add_sequence", owner, "then", "",
-                       kind if kind is not None else "action", action,
-                       type or "", after or ""))
+            self._add(_sequence_tuple(
+                owner, "then", member_kind=kind if kind is not None else "action",
+                member_name=action, type_name=type or "", after=after or "",
+                **fields,
+            ))
+        return self
+
+    def add_accept(self, owner, payload, type=None, via=None, *, then=True,
+                   multiplicity=None, after=None):
+        _sequence_text("payload", payload)
+        _sequence_text("type", type, optional=True)
+        _sequence_text("via", via, optional=True)
+        _sequence_text("multiplicity", multiplicity, optional=True)
+        _sequence_text("after", after, optional=True)
+        if not isinstance(then, bool):
+            raise TypeError(f"then must be bool, not {then.__class__.__name__}")
+        if multiplicity is not None and not then:
+            raise ValueError("multiplicity requires then=True")
+        owner = owner if isinstance(owner, str) else _target_id(owner)
+        self._add(_sequence_tuple(
+            owner, "then" if then else "", member_kind="accept",
+            type_name=type or "", after=after or "", parameter=payload,
+            via=via or "",
+            **({"multiplicity": multiplicity} if multiplicity is not None else {}),
+        ))
+        return self
+
+    def add_send(self, owner, payload, to=None, via=None, *, then=True,
+                 multiplicity=None, after=None):
+        _sequence_text("payload", payload)
+        _sequence_text("to", to, optional=True)
+        _sequence_text("via", via, optional=True)
+        _sequence_text("multiplicity", multiplicity, optional=True)
+        _sequence_text("after", after, optional=True)
+        if not isinstance(then, bool):
+            raise TypeError(f"then must be bool, not {then.__class__.__name__}")
+        if multiplicity is not None and not then:
+            raise ValueError("multiplicity requires then=True")
+        owner = owner if isinstance(owner, str) else _target_id(owner)
+        self._add(_sequence_tuple(
+            owner, "then" if then else "", member_kind="send",
+            after=after or "", value=payload, target=to or "", via=via or "",
+            **({"multiplicity": multiplicity} if multiplicity is not None else {}),
+        ))
+        return self
+
+    def add_assign(self, owner, target, value, *, then=True, multiplicity=None,
+                   after=None):
+        _sequence_text("target", target)
+        _sequence_text("value", value)
+        _sequence_text("multiplicity", multiplicity, optional=True)
+        _sequence_text("after", after, optional=True)
+        if not isinstance(then, bool):
+            raise TypeError(f"then must be bool, not {then.__class__.__name__}")
+        if multiplicity is not None and not then:
+            raise ValueError("multiplicity requires then=True")
+        owner = owner if isinstance(owner, str) else _target_id(owner)
+        self._add(_sequence_tuple(
+            owner, "then" if then else "", member_kind="assign",
+            after=after or "", target=target, value=value,
+            **({"multiplicity": multiplicity} if multiplicity is not None else {}),
+        ))
+        return self
+
+    def add_if(self, owner, condition, body, else_body=None, *, then=True,
+               multiplicity=None, after=None):
+        """Add an if statement; an empty else branch does nothing, like no else."""
+        _sequence_text("condition", condition)
+        if not isinstance(body, Body):
+            raise TypeError(f"body must be Body, not {body.__class__.__name__}")
+        if else_body is not None and not isinstance(else_body, Body):
+            raise TypeError(f"else_body must be Body or None, not {else_body.__class__.__name__}")
+        _sequence_text("multiplicity", multiplicity, optional=True)
+        _sequence_text("after", after, optional=True)
+        if not isinstance(then, bool):
+            raise TypeError(f"then must be bool, not {then.__class__.__name__}")
+        if multiplicity is not None and not then:
+            raise ValueError("multiplicity requires then=True")
+        owner = owner if isinstance(owner, str) else _target_id(owner)
+        self._add(_sequence_tuple(
+            owner, "then" if then else "", member_kind="if",
+            after=after or "", condition=condition, body=body.operations,
+            else_body=else_body.operations if else_body and else_body.operations else [],
+            **({"multiplicity": multiplicity} if multiplicity is not None else {}),
+        ))
+        return self
+
+    def add_while(self, owner, condition, body, until=None, *, then=True,
+                  multiplicity=None, after=None):
+        _sequence_text("condition", condition)
+        _sequence_text("until", until, optional=True)
+        if not isinstance(body, Body):
+            raise TypeError(f"body must be Body, not {body.__class__.__name__}")
+        _sequence_text("multiplicity", multiplicity, optional=True)
+        _sequence_text("after", after, optional=True)
+        if not isinstance(then, bool):
+            raise TypeError(f"then must be bool, not {then.__class__.__name__}")
+        if multiplicity is not None and not then:
+            raise ValueError("multiplicity requires then=True")
+        owner = owner if isinstance(owner, str) else _target_id(owner)
+        self._add(_sequence_tuple(
+            owner, "then" if then else "", member_kind="while",
+            after=after or "", condition=condition, until=until or "",
+            body=body.operations,
+            **({"multiplicity": multiplicity} if multiplicity is not None else {}),
+        ))
+        return self
+
+    def add_loop(self, owner, body, until=None, *, then=True,
+                 multiplicity=None, after=None):
+        _sequence_text("until", until, optional=True)
+        if not isinstance(body, Body):
+            raise TypeError(f"body must be Body, not {body.__class__.__name__}")
+        _sequence_text("multiplicity", multiplicity, optional=True)
+        _sequence_text("after", after, optional=True)
+        if not isinstance(then, bool):
+            raise TypeError(f"then must be bool, not {then.__class__.__name__}")
+        if multiplicity is not None and not then:
+            raise ValueError("multiplicity requires then=True")
+        owner = owner if isinstance(owner, str) else _target_id(owner)
+        self._add(_sequence_tuple(
+            owner, "then" if then else "", member_kind="loop",
+            after=after or "", until=until or "", body=body.operations,
+            **({"multiplicity": multiplicity} if multiplicity is not None else {}),
+        ))
+        return self
+
+    def add_for(self, owner, variable, collection, body, type=None, *, then=True,
+                multiplicity=None, after=None):
+        _sequence_text("variable", variable)
+        _sequence_text("collection", collection)
+        _sequence_text("type", type, optional=True)
+        if not isinstance(body, Body):
+            raise TypeError(f"body must be Body, not {body.__class__.__name__}")
+        _sequence_text("multiplicity", multiplicity, optional=True)
+        _sequence_text("after", after, optional=True)
+        if not isinstance(then, bool):
+            raise TypeError(f"then must be bool, not {then.__class__.__name__}")
+        if multiplicity is not None and not then:
+            raise ValueError("multiplicity requires then=True")
+        owner = owner if isinstance(owner, str) else _target_id(owner)
+        self._add(_sequence_tuple(
+            owner, "then" if then else "", member_kind="for",
+            type_name=type or "", after=after or "", parameter=variable,
+            value=collection, body=body.operations,
+            **({"multiplicity": multiplicity} if multiplicity is not None else {}),
+        ))
+        return self
+
+    def add_terminate(self, owner, occurrence=None, *, then=True,
+                      multiplicity=None, after=None):
+        _sequence_text("occurrence", occurrence, optional=True)
+        _sequence_text("multiplicity", multiplicity, optional=True)
+        _sequence_text("after", after, optional=True)
+        if not isinstance(then, bool):
+            raise TypeError(f"then must be bool, not {then.__class__.__name__}")
+        if multiplicity is not None and not then:
+            raise ValueError("multiplicity requires then=True")
+        owner = owner if isinstance(owner, str) else _target_id(owner)
+        self._add(_sequence_tuple(
+            owner, "then" if then else "", member_kind="terminate",
+            after=after or "", value=occurrence or "",
+            **({"multiplicity": multiplicity} if multiplicity is not None else {}),
+        ))
+        return self
+
+    def add_guarded_then(self, owner, guard, ref, *, after=None):
+        _sequence_text("guard", guard)
+        _sequence_text("ref", ref)
+        _sequence_text("after", after, optional=True)
+        owner = owner if isinstance(owner, str) else _target_id(owner)
+        self._add(_sequence_tuple(
+            owner, "if", ref, after=after or "", condition=guard,
+        ))
+        return self
+
+    def add_else(self, owner, ref, *, after=None):
+        _sequence_text("ref", ref)
+        _sequence_text("after", after, optional=True)
+        owner = owner if isinstance(owner, str) else _target_id(owner)
+        self._add(_sequence_tuple(owner, "else", ref, after=after or ""))
         return self
 
     def add_require_constraint(self, owner, expression, name=None):

@@ -986,14 +986,14 @@ pub struct ApplyEditsRequest {
     pub accept_documents: bool,
 }
 /// EditOperation is one source-preserving change to make.
-#[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
+#[derive(Clone, PartialEq, ::prost::Message)]
 pub struct EditOperation {
     #[prost(oneof="edit_operation::Operation", tags="1, 2, 3, 4, 5, 6, 7, 8, 9, 14")]
     pub operation: ::core::option::Option<edit_operation::Operation>,
 }
 /// Nested message and enum types in `EditOperation`.
 pub mod edit_operation {
-    #[derive(Clone, PartialEq, Eq, Hash, ::prost::Oneof)]
+    #[derive(Clone, PartialEq, ::prost::Oneof)]
     pub enum Operation {
         #[prost(message, tag="1")]
         SetValue(super::SetValueEdit),
@@ -1118,20 +1118,21 @@ pub struct AddTransitionEdit {
     pub initial: bool,
 }
 /// AddSequenceEdit inserts a `first` or `then` sequencing member into an action body.
-#[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
+#[derive(Clone, PartialEq, ::prost::Message)]
 pub struct AddSequenceEdit {
     /// Action body receiving the member.
     #[prost(string, tag="1")]
     pub owner: ::prost::alloc::string::String,
-    /// Sequence keyword: "first" or "then".
+    /// Sequence keyword: "first", "then", "if", "else", or empty for a plain member.
+    /// These action-body forms follow SysML.xtext:1368, 1442–1641; formal/2026-03-02.
     #[prost(string, tag="2")]
     pub keyword: ::prost::alloc::string::String,
     /// Node a bare `first <ref>;`/`then <ref>;` names; empty when the `then`
     /// declares a member instead.
     #[prost(string, tag="3")]
     pub r#ref: ::prost::alloc::string::String,
-    /// Usage kind a `then` declares: action, perform action, state, merge,
-    /// decide, join or fork; empty when ref names the target.
+    /// Body item kind, including action, perform action, state, merge, decide,
+    /// join, fork, accept, send, assign, if, while, loop, for or terminate.
     #[prost(string, tag="4")]
     pub member_kind: ::prost::alloc::string::String,
     /// Optional declared name of the `then`-declared member.
@@ -1143,6 +1144,35 @@ pub struct AddSequenceEdit {
     /// Optional name of the body member the new member follows.
     #[prost(string, tag="7")]
     pub after: ::prost::alloc::string::String,
+    /// Condition or guard expression for if and while.
+    #[prost(string, tag="8")]
+    pub condition: ::prost::alloc::string::String,
+    /// Payload, assigned value, collection or terminated occurrence.
+    #[prost(string, tag="9")]
+    pub value: ::prost::alloc::string::String,
+    /// Assigned feature or send receiver.
+    #[prost(string, tag="10")]
+    pub target: ::prost::alloc::string::String,
+    /// Port expression for accept or send.
+    #[prost(string, tag="11")]
+    pub via: ::prost::alloc::string::String,
+    /// Optional loop termination condition.
+    #[prost(string, tag="12")]
+    pub until: ::prost::alloc::string::String,
+    /// Nested action-body items.
+    #[prost(message, repeated, tag="13")]
+    pub body: ::prost::alloc::vec::Vec<AddSequenceEdit>,
+    /// Nested items of the if's else branch; an empty list means no else branch.
+    /// An explicit empty `else { }` is not authorable; it performs nothing and is equivalent to omitting it.
+    #[prost(message, repeated, tag="14")]
+    pub else_body: ::prost::alloc::vec::Vec<AddSequenceEdit>,
+    /// Source-end multiplicity, written as bracketed notation, only with "then".
+    /// SysML.xtext:878, 887, 1703, 1708, 1714; formal/2026-03-02.
+    #[prost(string, tag="15")]
+    pub multiplicity: ::prost::alloc::string::String,
+    /// Payload name for accept or loop variable for for.
+    #[prost(string, tag="16")]
+    pub parameter: ::prost::alloc::string::String,
 }
 /// AddConnectionEdit inserts a usage whose ends connect two features.
 #[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]

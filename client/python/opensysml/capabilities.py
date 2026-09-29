@@ -90,6 +90,8 @@ CAPABILITY_REQUIREMENT_CONSTRAINT_AUTHORING = "requirement_constraint_authoring"
 CAPABILITY_TRANSITION_AUTHORING = "transition_authoring"
 #: The ``ApplyEdits`` ``add_sequence`` operation.
 CAPABILITY_SEQUENCE_AUTHORING = "sequence_authoring"
+#: The additional action-body statements and succession source multiplicities.
+CAPABILITY_ACTION_BODY_STATEMENT_AUTHORING = "action_body_statement_authoring"
 #: The additional ``AddMemberEdit`` modifiers and ``ref``/``return`` kinds.
 CAPABILITY_MEMBER_MODIFIERS = "member_modifiers"
 

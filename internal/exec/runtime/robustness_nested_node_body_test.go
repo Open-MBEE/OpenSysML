@@ -201,7 +201,7 @@ func TestRuntimeRobustnessNestedNodeInBody(t *testing.T) {
 			t.Fatalf("error = %v, want a typed deadlock error", err)
 		}
 	})
-	t.Run("accept_in_declaration_order_body_not_executable", func(t *testing.T) {
+	t.Run("accept_in_declaration_order_body_deadlocks", func(t *testing.T) {
 		_, err := executeActionSource(t, "host", `package test {
 			attribute def Never;
 			action host {
@@ -213,8 +213,8 @@ func TestRuntimeRobustnessNestedNodeInBody(t *testing.T) {
 				}
 			}
 		}`)
-		if !errors.Is(err, ErrStatementNotExecutable) {
-			t.Fatalf("error = %v, want ErrStatementNotExecutable", err)
+		if !errors.Is(err, ErrAcceptDeadlock) {
+			t.Fatalf("error = %v, want ErrAcceptDeadlock", err)
 		}
 	})
 	t.Run("calc_body_flow_not_executable", func(t *testing.T) {

@@ -54,7 +54,8 @@ Use `add_satisfy`, `add_requirement_constraint`, `add_require_constraint`,
 and action sequencing. These operations preflight their
 dedicated `member_modifiers`, `satisfy_authoring`,
 `requirement_constraint_authoring`, `transition_authoring`,
-`sequence_authoring` or `implicit_parameters` capability as
+`sequence_authoring`, `action_body_statement_authoring` or
+`implicit_parameters` capability as
 applicable. `add_parameter` writes an implicit directed usage — `in x : T;` —
 unless an explicit `kind` is given (`kind="ref"` writes `in ref x : T;`).
 `add_calc_def` and `add_calc` accept input pairs, `return_type` and

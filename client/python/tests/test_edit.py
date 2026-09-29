@@ -18,6 +18,7 @@ import pytest
 
 from opensysml.capabilities import (
     CAPABILITY_APPLY_EDITS,
+    CAPABILITY_ACTION_BODY_STATEMENT_AUTHORING,
     CAPABILITY_AUTHORING,
     CAPABILITY_CONNECTION_AUTHORING,
     CAPABILITY_IMPLICIT_PARAMETERS,
@@ -32,7 +33,7 @@ from opensysml.capabilities import (
 )
 from opensysml.connection import Connection
 from opensysml.conversion import Conversion, FORMAT_SYSML
-from opensysml.edit import EditedDocument, EditResult, Editor
+from opensysml.edit import Body, EditedDocument, EditResult, Editor
 from opensysml.errors import (
     EditError,
     EditResultError,
@@ -507,6 +508,10 @@ def test_add_member_rejects_invalid_direction_with_type_message(fake_service):
          CAPABILITY_SEQUENCE_AUTHORING),
         (lambda editor: editor.add_then("Demo::A", action="b", type="B"),
          CAPABILITY_SEQUENCE_AUTHORING),
+        (lambda editor: editor.add_assign("Demo::A", "x", "1"),
+         CAPABILITY_ACTION_BODY_STATEMENT_AUTHORING),
+        (lambda editor: editor.add_then("Demo::A", ref="done", multiplicity="[1]"),
+         CAPABILITY_ACTION_BODY_STATEMENT_AUTHORING),
         (lambda editor: editor.add_member("Demo::SC", "", "x"),
          CAPABILITY_IMPLICIT_PARAMETERS),
         (lambda editor: editor.add_parameter("Demo::SC", "in", "x"),
@@ -514,9 +519,10 @@ def test_add_member_rejects_invalid_direction_with_type_message(fake_service):
     ],
 )
 def test_new_authoring_capabilities_are_preflighted(fake_service, operation, missing):
-    port, service = fake_service(
-        capabilities=(CAPABILITY_APPLY_EDITS, CAPABILITY_AUTHORING)
-    )
+    capabilities = [CAPABILITY_APPLY_EDITS, CAPABILITY_AUTHORING]
+    if missing == CAPABILITY_ACTION_BODY_STATEMENT_AUTHORING:
+        capabilities.append(CAPABILITY_SEQUENCE_AUTHORING)
+    port, service = fake_service(capabilities=tuple(capabilities))
     with Connection(port=port, auto_start=False) as conn:
         editor = operation(conn.load_from_content(MODEL).edit())
         with pytest.raises(MissingCapabilityError) as error:
@@ -558,6 +564,140 @@ def test_add_first_and_add_then_serialize_and_validate(fake_service):
     assert (
         ref.add_sequence.keyword, ref.add_sequence.ref,
     ) == ("then", "done")
+
+
+def test_action_body_statements_serialize_recursively(fake_service):
+    port, service = fake_service(
+        capabilities=(
+            CAPABILITY_APPLY_EDITS,
+            CAPABILITY_AUTHORING,
+            CAPABILITY_SEQUENCE_AUTHORING,
+            CAPABILITY_ACTION_BODY_STATEMENT_AUTHORING,
+        )
+    )
+    body = Body().add_assign("x", "x + 1").add_send("x", to="self")
+    else_body = Body().add_terminate()
+    with Connection(port=port, auto_start=False) as conn:
+        (
+            conn.load_from_content(MODEL)
+            .edit()
+            .add_if("Demo::A", "x < 3", body, else_body, multiplicity="[1]")
+            .apply()
+        )
+    operation = service.requests[0].operations[0].add_sequence
+    assert (
+        operation.keyword, operation.member_kind, operation.condition,
+        operation.multiplicity,
+    ) == ("then", "if", "x < 3", "[1]")
+    assert [
+        (item.keyword, item.member_kind, item.target, item.value)
+        for item in operation.body
+    ] == [
+        ("", "assign", "x", "x + 1"),
+        ("then", "send", "self", "x"),
+    ]
+    assert [(item.keyword, item.member_kind) for item in operation.else_body] == [
+        ("", "terminate"),
+    ]
+
+
+def test_action_body_statement_fields_serialize_recursively(fake_service):
+    port, service = fake_service(
+        capabilities=(
+            CAPABILITY_APPLY_EDITS,
+            CAPABILITY_AUTHORING,
+            CAPABILITY_SEQUENCE_AUTHORING,
+            CAPABILITY_ACTION_BODY_STATEMENT_AUTHORING,
+        )
+    )
+    body = (
+        Body()
+        .add_accept("message", type="Signal", via="inPort", then=False)
+        .add_send("new Signal(value = 7)", to="self", via="outPort", multiplicity="[1]")
+        .add_assign("result", "message.value")
+        .add_if(
+            "result > 0",
+            Body().add_assign("result", "result + 1"),
+            Body().add_terminate("message"),
+        )
+        .add_while("result < 3", Body().add_assign("result", "result + 1"),
+                   until="result == 3")
+        .add_loop(Body().add_terminate(), until="result == 3")
+        .add_for("i", "(1, 2)", Body().add_assign("result", "result + i"),
+                 type="Integer")
+        .add_terminate("message")
+    )
+    with Connection(port=port, auto_start=False) as conn:
+        conn.load_from_content(MODEL).edit().add_if(
+            "Demo::A", "true", body, multiplicity="[1]"
+        ).apply()
+
+    operation = service.requests[0].operations[0].add_sequence
+    assert operation.multiplicity == "[1]"
+    assert [item.member_kind for item in operation.body] == [
+        "accept", "send", "assign", "if", "while", "loop", "for", "terminate",
+    ]
+    accept, send, assign, conditional, loop, post_loop, iteration, terminate = (
+        operation.body
+    )
+    assert (accept.keyword, accept.parameter, accept.type, accept.via) == (
+        "", "message", "Signal", "inPort",
+    )
+    assert (send.keyword, send.value, send.target, send.via, send.multiplicity) == (
+        "then", "new Signal(value = 7)", "self", "outPort", "[1]",
+    )
+    assert (assign.target, assign.value) == ("result", "message.value")
+    assert conditional.condition == "result > 0"
+    assert conditional.body[0].member_kind == "assign"
+    assert conditional.else_body[0].value == "message"
+    assert (loop.condition, loop.until, loop.body[0].value) == (
+        "result < 3", "result == 3", "result + 1",
+    )
+    assert (post_loop.until, post_loop.body[0].member_kind) == (
+        "result == 3", "terminate",
+    )
+    assert (iteration.parameter, iteration.type, iteration.value) == (
+        "i", "Integer", "(1, 2)",
+    )
+    assert iteration.body[0].target == "result"
+    assert terminate.value == "message"
+
+
+def test_add_then_multiplicity_serializes(fake_service):
+    port, service = fake_service(
+        capabilities=(
+            CAPABILITY_APPLY_EDITS,
+            CAPABILITY_AUTHORING,
+            CAPABILITY_SEQUENCE_AUTHORING,
+            CAPABILITY_ACTION_BODY_STATEMENT_AUTHORING,
+        )
+    )
+    with Connection(port=port, auto_start=False) as conn:
+        conn.load_from_content(MODEL).edit().add_then(
+            "Demo::A", ref="done", multiplicity="[1]"
+        ).apply()
+    operation = service.requests[0].operations[0].add_sequence
+    assert (operation.keyword, operation.ref, operation.multiplicity) == (
+        "then", "done", "[1]",
+    )
+
+
+def test_empty_else_body_is_omitted_and_body_is_retained(fake_service):
+    port, service = fake_service(
+        capabilities=(
+            CAPABILITY_APPLY_EDITS,
+            CAPABILITY_AUTHORING,
+            CAPABILITY_SEQUENCE_AUTHORING,
+            CAPABILITY_ACTION_BODY_STATEMENT_AUTHORING,
+        )
+    )
+    with Connection(port=port, auto_start=False) as conn:
+        conn.load_from_content(MODEL).edit().add_if(
+            "Demo::A", "true", Body(), Body()
+        ).apply()
+    operation = service.requests[0].operations[0].add_sequence
+    assert operation.body == []
+    assert operation.else_body == []
 
 
 def test_add_then_requires_exactly_one_of_ref_and_action():

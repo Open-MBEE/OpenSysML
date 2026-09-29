@@ -123,6 +123,17 @@ func TestCapabilityGatedRequestsAreRefused(t *testing.T) {
 			})
 			return err
 		}},
+		{"action-body statement authoring", CapabilityActionBodyStatementAuthoring, func(s *Service) error {
+			_, err := s.ApplyEdits(ctx, &pb.ApplyEditsRequest{
+				Operations: []*pb.EditOperation{{
+					Operation: &pb.EditOperation_AddSequence{AddSequence: &pb.AddSequenceEdit{
+						Owner: "P::A", Keyword: "then", MemberKind: "assign",
+						Target: "x", Value: "1",
+					}},
+				}},
+			})
+			return err
+		}},
 		{"implicit parameters", CapabilityImplicitParameters, func(s *Service) error {
 			_, err := s.ApplyEdits(ctx, &pb.ApplyEditsRequest{
 				Operations: []*pb.EditOperation{{

@@ -98,6 +98,9 @@ public final class Capabilities {
   /** {@code ApplyEdits} can add `first`/`then` sequencing members to action bodies. */
   public static final String SEQUENCE_AUTHORING = "sequence_authoring";
 
+  /** {@code ApplyEdits} can add the remaining action-body statements and source multiplicities. */
+  public static final String ACTION_BODY_STATEMENT_AUTHORING = "action_body_statement_authoring";
+
   /** {@code ApplyEdits} can add a directed usage with no kind keyword (`in x : T;`). */
   public static final String IMPLICIT_PARAMETERS = "implicit_parameters";
 

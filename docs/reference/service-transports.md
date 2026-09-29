@@ -56,7 +56,7 @@ capability's definition rather than something a client has to guess:
 
 | The capability describes | A request that needs it | What a client should do |
 |---|---|---|
-| what the service can be *asked*: `strict_conformance`, `inline_language`, `parse_sources`, `evaluate_subject`, `verification`, `convert`, `apply_edits`, `authoring`, `connection_authoring`, `edit_documents`, `query`, `oslc_query`, `document_query`, `render_document`, `render_document_html`, `schedule`, `performer`, `satisfy_authoring`, `requirement_constraint_authoring`, `member_modifiers`, `transition_authoring`, `sequence_authoring`, `implicit_parameters` | is **refused** with `UNIMPLEMENTED`, naming the capability | check the advertised list first, and report the missing capability locally rather than spending a round trip |
+| what the service can be *asked*: `strict_conformance`, `inline_language`, `parse_sources`, `evaluate_subject`, `verification`, `convert`, `apply_edits`, `authoring`, `connection_authoring`, `edit_documents`, `query`, `oslc_query`, `document_query`, `render_document`, `render_document_html`, `schedule`, `performer`, `satisfy_authoring`, `requirement_constraint_authoring`, `member_modifiers`, `transition_authoring`, `sequence_authoring`, `implicit_parameters`, `action_body_statement_authoring` | is **refused** with `UNIMPLEMENTED`, naming the capability | check the advertised list first, and report the missing capability locally rather than spending a round trip |
 | how a response is *populated*: `type_facts`, `symbol_attributes`, `feature_values`, `enum_values`, `unset_value`, `undetermined_value`, `complex_values`, `structured_values`, `measurement_refs`, `function_values`, `metaobject_values`, `verification_verdicts`, `case_evaluations`, `infinity_value`, `diagnostic_codes`, `final_time`, `edit_documents` | is answered with those fields **omitted** | check before reading the fields; an omitted field is not an error |
 
 `edit_documents` sits in both rows: without it `ApplyEdits` still edits a model of one document
@@ -82,6 +82,11 @@ naming the case, Java reports a top-level result as `Optional.empty()` and refus
 in a sequence, feature or array with `TransportException`, and Node reports the `absent`
 kind, which `encodeValue` refuses to send back (`MalformedValueError`) and whose vector
 components are refused when read.
+
+For `ApplyEdits`, ordinary sequence items require `authoring` and `sequence_authoring`. Recursive
+action-body statements and source-end multiplicities also require
+`action_body_statement_authoring`; nested statements remain `AddSequenceEdit` items. The forms
+follow SysML.xtext:878, 887, 1368, 1442–1641, 1703, 1708, 1714 and formal/2026-03-02.
 
 So a client cannot treat "the call succeeded" as "the field was computed", and cannot treat
 "no refusal" as "the capability is there". Every client this repository ships checks the list

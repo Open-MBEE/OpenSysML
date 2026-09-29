@@ -3,6 +3,7 @@ package grpc
 import (
 	"context"
 	"errors"
+	"fmt"
 	"sort"
 	"strings"
 
@@ -57,6 +58,11 @@ func (s *Service) ApplyEdits(ctx context.Context, req *pb.ApplyEditsRequest) (*p
 	}
 	if requestsSequenceAuthoring(req.Operations) {
 		if err := s.requireCapability(CapabilitySequenceAuthoring); err != nil {
+			return nil, err
+		}
+	}
+	if requestsActionBodyStatementAuthoring(req.Operations) {
+		if err := s.requireCapability(CapabilityActionBodyStatementAuthoring); err != nil {
 			return nil, err
 		}
 	}
@@ -293,6 +299,44 @@ func requestsSequenceAuthoring(operations []*pb.EditOperation) bool {
 	return false
 }
 
+func requestsActionBodyStatementAuthoring(operations []*pb.EditOperation) bool {
+	for _, operation := range operations {
+		add, ok := operation.GetOperation().(*pb.EditOperation_AddSequence)
+		if ok && sequenceNeedsActionBodyStatementAuthoring(add.AddSequence, 0) {
+			return true
+		}
+	}
+	return false
+}
+
+func sequenceNeedsActionBodyStatementAuthoring(add *pb.AddSequenceEdit, depth int) bool {
+	if add == nil || depth > 128 {
+		return false
+	}
+	if add.GetCondition() != "" || add.GetValue() != "" || add.GetTarget() != "" ||
+		add.GetVia() != "" || add.GetUntil() != "" || add.GetMultiplicity() != "" ||
+		add.GetParameter() != "" || len(add.GetBody()) > 0 || len(add.GetElseBody()) > 0 ||
+		add.GetKeyword() == "if" || add.GetKeyword() == "else" ||
+		(add.GetKeyword() == "" && add.GetMemberKind() != "") {
+		return true
+	}
+	switch add.GetMemberKind() {
+	case "accept", "send", "assign", "if", "while", "loop", "for", "terminate":
+		return true
+	}
+	for _, child := range add.GetBody() {
+		if sequenceNeedsActionBodyStatementAuthoring(child, depth+1) {
+			return true
+		}
+	}
+	for _, child := range add.GetElseBody() {
+		if sequenceNeedsActionBodyStatementAuthoring(child, depth+1) {
+			return true
+		}
+	}
+	return false
+}
+
 // editOperations reads the operations a request carries, rejecting a request
 // that names none of the forms: an unset operation is a client fault rather
 // than a refused edit.
@@ -341,12 +385,9 @@ func editOperations(pbOps []*pb.EditOperation) ([]edit.Operation, error) {
 				add.GetTrigger(), add.GetGuard(), add.GetEffect(), add.GetInitial(),
 			))
 		case *pb.EditOperation_AddSequence:
-			add := op.AddSequence
-			sequence := edit.Operation{
-				Kind: edit.OpAddSequence, Owner: add.GetOwner(),
-				SequenceKeyword: add.GetKeyword(), SequenceRef: add.GetRef(),
-				MemberKind: add.GetMemberKind(), MemberName: add.GetMemberName(),
-				Type: add.GetType(), After: add.GetAfter(),
+			sequence, err := editSequenceOperation(op.AddSequence, 0)
+			if err != nil {
+				return nil, statusErrorf(connect.CodeInvalidArgument, "operation %d: %v", i, err)
 			}
 			ops = append(ops, sequence)
 		case *pb.EditOperation_Delete:
@@ -360,6 +401,40 @@ func editOperations(pbOps []*pb.EditOperation) ([]edit.Operation, error) {
 		}
 	}
 	return ops, nil
+}
+
+func editSequenceOperation(add *pb.AddSequenceEdit, depth int) (edit.Operation, error) {
+	if add == nil {
+		return edit.Operation{}, fmt.Errorf("add_sequence is empty")
+	}
+	if depth > 128 {
+		return edit.Operation{}, fmt.Errorf("nested action-body items exceed the maximum depth")
+	}
+	sequence := edit.Operation{
+		Kind: edit.OpAddSequence, Owner: add.GetOwner(),
+		SequenceKeyword: add.GetKeyword(), SequenceRef: add.GetRef(),
+		MemberKind: add.GetMemberKind(), MemberName: add.GetMemberName(),
+		Type: add.GetType(), After: add.GetAfter(),
+		SequenceCondition: add.GetCondition(), SequenceValue: add.GetValue(),
+		SequenceTarget: add.GetTarget(), SequenceVia: add.GetVia(),
+		SequenceUntil: add.GetUntil(), Multiplicity: add.GetMultiplicity(),
+		SequenceParameter: add.GetParameter(),
+	}
+	for _, item := range add.GetBody() {
+		child, err := editSequenceOperation(item, depth+1)
+		if err != nil {
+			return edit.Operation{}, err
+		}
+		sequence.SequenceBody = append(sequence.SequenceBody, child)
+	}
+	for _, item := range add.GetElseBody() {
+		child, err := editSequenceOperation(item, depth+1)
+		if err != nil {
+			return edit.Operation{}, err
+		}
+		sequence.SequenceElse = append(sequence.SequenceElse, child)
+	}
+	return sequence, nil
 }
 
 // editRefusal reports a refused edit as a response rather than a call failure:

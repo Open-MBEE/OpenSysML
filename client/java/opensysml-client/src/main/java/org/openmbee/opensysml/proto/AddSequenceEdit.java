@@ -39,6 +39,15 @@ private static final long serialVersionUID = 0L;
     memberName_ = "";
     type_ = "";
     after_ = "";
+    condition_ = "";
+    value_ = "";
+    target_ = "";
+    via_ = "";
+    until_ = "";
+    body_ = java.util.Collections.emptyList();
+    elseBody_ = java.util.Collections.emptyList();
+    multiplicity_ = "";
+    parameter_ = "";
   }
 
   public static final com.google.protobuf.Descriptors.Descriptor
@@ -106,7 +115,8 @@ private static final long serialVersionUID = 0L;
   private volatile java.lang.Object keyword_ = "";
   /**
    * <pre>
-   * Sequence keyword: "first" or "then".
+   * Sequence keyword: "first", "then", "if", "else", or empty for a plain member.
+   * These action-body forms follow SysML.xtext:1368, 1442–1641; formal/2026-03-02.
    * </pre>
    *
    * <code>string keyword = 2 [json_name = "keyword"];</code>
@@ -127,7 +137,8 @@ private static final long serialVersionUID = 0L;
   }
   /**
    * <pre>
-   * Sequence keyword: "first" or "then".
+   * Sequence keyword: "first", "then", "if", "else", or empty for a plain member.
+   * These action-body forms follow SysML.xtext:1368, 1442–1641; formal/2026-03-02.
    * </pre>
    *
    * <code>string keyword = 2 [json_name = "keyword"];</code>
@@ -202,8 +213,8 @@ private static final long serialVersionUID = 0L;
   private volatile java.lang.Object memberKind_ = "";
   /**
    * <pre>
-   * Usage kind a `then` declares: action, perform action, state, merge,
-   * decide, join or fork; empty when ref names the target.
+   * Body item kind, including action, perform action, state, merge, decide,
+   * join, fork, accept, send, assign, if, while, loop, for or terminate.
    * </pre>
    *
    * <code>string member_kind = 4 [json_name = "memberKind"];</code>
@@ -224,8 +235,8 @@ private static final long serialVersionUID = 0L;
   }
   /**
    * <pre>
-   * Usage kind a `then` declares: action, perform action, state, merge,
-   * decide, join or fork; empty when ref names the target.
+   * Body item kind, including action, perform action, state, merge, decide,
+   * join, fork, accept, send, assign, if, while, loop, for or terminate.
    * </pre>
    *
    * <code>string member_kind = 4 [json_name = "memberKind"];</code>
@@ -387,6 +398,464 @@ private static final long serialVersionUID = 0L;
     }
   }
 
+  public static final int CONDITION_FIELD_NUMBER = 8;
+  @SuppressWarnings("serial")
+  private volatile java.lang.Object condition_ = "";
+  /**
+   * <pre>
+   * Condition or guard expression for if and while.
+   * </pre>
+   *
+   * <code>string condition = 8 [json_name = "condition"];</code>
+   * @return The condition.
+   */
+  @java.lang.Override
+  public java.lang.String getCondition() {
+    java.lang.Object ref = condition_;
+    if (ref instanceof java.lang.String) {
+      return (java.lang.String) ref;
+    } else {
+      com.google.protobuf.ByteString bs = 
+          (com.google.protobuf.ByteString) ref;
+      java.lang.String s = bs.toStringUtf8();
+      condition_ = s;
+      return s;
+    }
+  }
+  /**
+   * <pre>
+   * Condition or guard expression for if and while.
+   * </pre>
+   *
+   * <code>string condition = 8 [json_name = "condition"];</code>
+   * @return The bytes for condition.
+   */
+  @java.lang.Override
+  public com.google.protobuf.ByteString
+      getConditionBytes() {
+    java.lang.Object ref = condition_;
+    if (ref instanceof java.lang.String) {
+      com.google.protobuf.ByteString b = 
+          com.google.protobuf.ByteString.copyFromUtf8(
+              (java.lang.String) ref);
+      condition_ = b;
+      return b;
+    } else {
+      return (com.google.protobuf.ByteString) ref;
+    }
+  }
+
+  public static final int VALUE_FIELD_NUMBER = 9;
+  @SuppressWarnings("serial")
+  private volatile java.lang.Object value_ = "";
+  /**
+   * <pre>
+   * Payload, assigned value, collection or terminated occurrence.
+   * </pre>
+   *
+   * <code>string value = 9 [json_name = "value"];</code>
+   * @return The value.
+   */
+  @java.lang.Override
+  public java.lang.String getValue() {
+    java.lang.Object ref = value_;
+    if (ref instanceof java.lang.String) {
+      return (java.lang.String) ref;
+    } else {
+      com.google.protobuf.ByteString bs = 
+          (com.google.protobuf.ByteString) ref;
+      java.lang.String s = bs.toStringUtf8();
+      value_ = s;
+      return s;
+    }
+  }
+  /**
+   * <pre>
+   * Payload, assigned value, collection or terminated occurrence.
+   * </pre>
+   *
+   * <code>string value = 9 [json_name = "value"];</code>
+   * @return The bytes for value.
+   */
+  @java.lang.Override
+  public com.google.protobuf.ByteString
+      getValueBytes() {
+    java.lang.Object ref = value_;
+    if (ref instanceof java.lang.String) {
+      com.google.protobuf.ByteString b = 
+          com.google.protobuf.ByteString.copyFromUtf8(
+              (java.lang.String) ref);
+      value_ = b;
+      return b;
+    } else {
+      return (com.google.protobuf.ByteString) ref;
+    }
+  }
+
+  public static final int TARGET_FIELD_NUMBER = 10;
+  @SuppressWarnings("serial")
+  private volatile java.lang.Object target_ = "";
+  /**
+   * <pre>
+   * Assigned feature or send receiver.
+   * </pre>
+   *
+   * <code>string target = 10 [json_name = "target"];</code>
+   * @return The target.
+   */
+  @java.lang.Override
+  public java.lang.String getTarget() {
+    java.lang.Object ref = target_;
+    if (ref instanceof java.lang.String) {
+      return (java.lang.String) ref;
+    } else {
+      com.google.protobuf.ByteString bs = 
+          (com.google.protobuf.ByteString) ref;
+      java.lang.String s = bs.toStringUtf8();
+      target_ = s;
+      return s;
+    }
+  }
+  /**
+   * <pre>
+   * Assigned feature or send receiver.
+   * </pre>
+   *
+   * <code>string target = 10 [json_name = "target"];</code>
+   * @return The bytes for target.
+   */
+  @java.lang.Override
+  public com.google.protobuf.ByteString
+      getTargetBytes() {
+    java.lang.Object ref = target_;
+    if (ref instanceof java.lang.String) {
+      com.google.protobuf.ByteString b = 
+          com.google.protobuf.ByteString.copyFromUtf8(
+              (java.lang.String) ref);
+      target_ = b;
+      return b;
+    } else {
+      return (com.google.protobuf.ByteString) ref;
+    }
+  }
+
+  public static final int VIA_FIELD_NUMBER = 11;
+  @SuppressWarnings("serial")
+  private volatile java.lang.Object via_ = "";
+  /**
+   * <pre>
+   * Port expression for accept or send.
+   * </pre>
+   *
+   * <code>string via = 11 [json_name = "via"];</code>
+   * @return The via.
+   */
+  @java.lang.Override
+  public java.lang.String getVia() {
+    java.lang.Object ref = via_;
+    if (ref instanceof java.lang.String) {
+      return (java.lang.String) ref;
+    } else {
+      com.google.protobuf.ByteString bs = 
+          (com.google.protobuf.ByteString) ref;
+      java.lang.String s = bs.toStringUtf8();
+      via_ = s;
+      return s;
+    }
+  }
+  /**
+   * <pre>
+   * Port expression for accept or send.
+   * </pre>
+   *
+   * <code>string via = 11 [json_name = "via"];</code>
+   * @return The bytes for via.
+   */
+  @java.lang.Override
+  public com.google.protobuf.ByteString
+      getViaBytes() {
+    java.lang.Object ref = via_;
+    if (ref instanceof java.lang.String) {
+      com.google.protobuf.ByteString b = 
+          com.google.protobuf.ByteString.copyFromUtf8(
+              (java.lang.String) ref);
+      via_ = b;
+      return b;
+    } else {
+      return (com.google.protobuf.ByteString) ref;
+    }
+  }
+
+  public static final int UNTIL_FIELD_NUMBER = 12;
+  @SuppressWarnings("serial")
+  private volatile java.lang.Object until_ = "";
+  /**
+   * <pre>
+   * Optional loop termination condition.
+   * </pre>
+   *
+   * <code>string until = 12 [json_name = "until"];</code>
+   * @return The until.
+   */
+  @java.lang.Override
+  public java.lang.String getUntil() {
+    java.lang.Object ref = until_;
+    if (ref instanceof java.lang.String) {
+      return (java.lang.String) ref;
+    } else {
+      com.google.protobuf.ByteString bs = 
+          (com.google.protobuf.ByteString) ref;
+      java.lang.String s = bs.toStringUtf8();
+      until_ = s;
+      return s;
+    }
+  }
+  /**
+   * <pre>
+   * Optional loop termination condition.
+   * </pre>
+   *
+   * <code>string until = 12 [json_name = "until"];</code>
+   * @return The bytes for until.
+   */
+  @java.lang.Override
+  public com.google.protobuf.ByteString
+      getUntilBytes() {
+    java.lang.Object ref = until_;
+    if (ref instanceof java.lang.String) {
+      com.google.protobuf.ByteString b = 
+          com.google.protobuf.ByteString.copyFromUtf8(
+              (java.lang.String) ref);
+      until_ = b;
+      return b;
+    } else {
+      return (com.google.protobuf.ByteString) ref;
+    }
+  }
+
+  public static final int BODY_FIELD_NUMBER = 13;
+  @SuppressWarnings("serial")
+  private java.util.List<org.openmbee.opensysml.proto.AddSequenceEdit> body_;
+  /**
+   * <pre>
+   * Nested action-body items.
+   * </pre>
+   *
+   * <code>repeated .sysml.AddSequenceEdit body = 13 [json_name = "body"];</code>
+   */
+  @java.lang.Override
+  public java.util.List<org.openmbee.opensysml.proto.AddSequenceEdit> getBodyList() {
+    return body_;
+  }
+  /**
+   * <pre>
+   * Nested action-body items.
+   * </pre>
+   *
+   * <code>repeated .sysml.AddSequenceEdit body = 13 [json_name = "body"];</code>
+   */
+  @java.lang.Override
+  public java.util.List<? extends org.openmbee.opensysml.proto.AddSequenceEditOrBuilder> 
+      getBodyOrBuilderList() {
+    return body_;
+  }
+  /**
+   * <pre>
+   * Nested action-body items.
+   * </pre>
+   *
+   * <code>repeated .sysml.AddSequenceEdit body = 13 [json_name = "body"];</code>
+   */
+  @java.lang.Override
+  public int getBodyCount() {
+    return body_.size();
+  }
+  /**
+   * <pre>
+   * Nested action-body items.
+   * </pre>
+   *
+   * <code>repeated .sysml.AddSequenceEdit body = 13 [json_name = "body"];</code>
+   */
+  @java.lang.Override
+  public org.openmbee.opensysml.proto.AddSequenceEdit getBody(int index) {
+    return body_.get(index);
+  }
+  /**
+   * <pre>
+   * Nested action-body items.
+   * </pre>
+   *
+   * <code>repeated .sysml.AddSequenceEdit body = 13 [json_name = "body"];</code>
+   */
+  @java.lang.Override
+  public org.openmbee.opensysml.proto.AddSequenceEditOrBuilder getBodyOrBuilder(
+      int index) {
+    return body_.get(index);
+  }
+
+  public static final int ELSE_BODY_FIELD_NUMBER = 14;
+  @SuppressWarnings("serial")
+  private java.util.List<org.openmbee.opensysml.proto.AddSequenceEdit> elseBody_;
+  /**
+   * <pre>
+   * Nested items of the if's else branch; an empty list means no else branch.
+   * An explicit empty `else { }` is not authorable; it performs nothing and is equivalent to omitting it.
+   * </pre>
+   *
+   * <code>repeated .sysml.AddSequenceEdit else_body = 14 [json_name = "elseBody"];</code>
+   */
+  @java.lang.Override
+  public java.util.List<org.openmbee.opensysml.proto.AddSequenceEdit> getElseBodyList() {
+    return elseBody_;
+  }
+  /**
+   * <pre>
+   * Nested items of the if's else branch; an empty list means no else branch.
+   * An explicit empty `else { }` is not authorable; it performs nothing and is equivalent to omitting it.
+   * </pre>
+   *
+   * <code>repeated .sysml.AddSequenceEdit else_body = 14 [json_name = "elseBody"];</code>
+   */
+  @java.lang.Override
+  public java.util.List<? extends org.openmbee.opensysml.proto.AddSequenceEditOrBuilder> 
+      getElseBodyOrBuilderList() {
+    return elseBody_;
+  }
+  /**
+   * <pre>
+   * Nested items of the if's else branch; an empty list means no else branch.
+   * An explicit empty `else { }` is not authorable; it performs nothing and is equivalent to omitting it.
+   * </pre>
+   *
+   * <code>repeated .sysml.AddSequenceEdit else_body = 14 [json_name = "elseBody"];</code>
+   */
+  @java.lang.Override
+  public int getElseBodyCount() {
+    return elseBody_.size();
+  }
+  /**
+   * <pre>
+   * Nested items of the if's else branch; an empty list means no else branch.
+   * An explicit empty `else { }` is not authorable; it performs nothing and is equivalent to omitting it.
+   * </pre>
+   *
+   * <code>repeated .sysml.AddSequenceEdit else_body = 14 [json_name = "elseBody"];</code>
+   */
+  @java.lang.Override
+  public org.openmbee.opensysml.proto.AddSequenceEdit getElseBody(int index) {
+    return elseBody_.get(index);
+  }
+  /**
+   * <pre>
+   * Nested items of the if's else branch; an empty list means no else branch.
+   * An explicit empty `else { }` is not authorable; it performs nothing and is equivalent to omitting it.
+   * </pre>
+   *
+   * <code>repeated .sysml.AddSequenceEdit else_body = 14 [json_name = "elseBody"];</code>
+   */
+  @java.lang.Override
+  public org.openmbee.opensysml.proto.AddSequenceEditOrBuilder getElseBodyOrBuilder(
+      int index) {
+    return elseBody_.get(index);
+  }
+
+  public static final int MULTIPLICITY_FIELD_NUMBER = 15;
+  @SuppressWarnings("serial")
+  private volatile java.lang.Object multiplicity_ = "";
+  /**
+   * <pre>
+   * Source-end multiplicity, written as bracketed notation, only with "then".
+   * SysML.xtext:878, 887, 1703, 1708, 1714; formal/2026-03-02.
+   * </pre>
+   *
+   * <code>string multiplicity = 15 [json_name = "multiplicity"];</code>
+   * @return The multiplicity.
+   */
+  @java.lang.Override
+  public java.lang.String getMultiplicity() {
+    java.lang.Object ref = multiplicity_;
+    if (ref instanceof java.lang.String) {
+      return (java.lang.String) ref;
+    } else {
+      com.google.protobuf.ByteString bs = 
+          (com.google.protobuf.ByteString) ref;
+      java.lang.String s = bs.toStringUtf8();
+      multiplicity_ = s;
+      return s;
+    }
+  }
+  /**
+   * <pre>
+   * Source-end multiplicity, written as bracketed notation, only with "then".
+   * SysML.xtext:878, 887, 1703, 1708, 1714; formal/2026-03-02.
+   * </pre>
+   *
+   * <code>string multiplicity = 15 [json_name = "multiplicity"];</code>
+   * @return The bytes for multiplicity.
+   */
+  @java.lang.Override
+  public com.google.protobuf.ByteString
+      getMultiplicityBytes() {
+    java.lang.Object ref = multiplicity_;
+    if (ref instanceof java.lang.String) {
+      com.google.protobuf.ByteString b = 
+          com.google.protobuf.ByteString.copyFromUtf8(
+              (java.lang.String) ref);
+      multiplicity_ = b;
+      return b;
+    } else {
+      return (com.google.protobuf.ByteString) ref;
+    }
+  }
+
+  public static final int PARAMETER_FIELD_NUMBER = 16;
+  @SuppressWarnings("serial")
+  private volatile java.lang.Object parameter_ = "";
+  /**
+   * <pre>
+   * Payload name for accept or loop variable for for.
+   * </pre>
+   *
+   * <code>string parameter = 16 [json_name = "parameter"];</code>
+   * @return The parameter.
+   */
+  @java.lang.Override
+  public java.lang.String getParameter() {
+    java.lang.Object ref = parameter_;
+    if (ref instanceof java.lang.String) {
+      return (java.lang.String) ref;
+    } else {
+      com.google.protobuf.ByteString bs = 
+          (com.google.protobuf.ByteString) ref;
+      java.lang.String s = bs.toStringUtf8();
+      parameter_ = s;
+      return s;
+    }
+  }
+  /**
+   * <pre>
+   * Payload name for accept or loop variable for for.
+   * </pre>
+   *
+   * <code>string parameter = 16 [json_name = "parameter"];</code>
+   * @return The bytes for parameter.
+   */
+  @java.lang.Override
+  public com.google.protobuf.ByteString
+      getParameterBytes() {
+    java.lang.Object ref = parameter_;
+    if (ref instanceof java.lang.String) {
+      com.google.protobuf.ByteString b = 
+          com.google.protobuf.ByteString.copyFromUtf8(
+              (java.lang.String) ref);
+      parameter_ = b;
+      return b;
+    } else {
+      return (com.google.protobuf.ByteString) ref;
+    }
+  }
+
   private byte memoizedIsInitialized = -1;
   @java.lang.Override
   public final boolean isInitialized() {
@@ -422,6 +891,33 @@ private static final long serialVersionUID = 0L;
     if (!com.google.protobuf.GeneratedMessage.isStringEmpty(after_)) {
       com.google.protobuf.GeneratedMessage.writeString(output, 7, after_);
     }
+    if (!com.google.protobuf.GeneratedMessage.isStringEmpty(condition_)) {
+      com.google.protobuf.GeneratedMessage.writeString(output, 8, condition_);
+    }
+    if (!com.google.protobuf.GeneratedMessage.isStringEmpty(value_)) {
+      com.google.protobuf.GeneratedMessage.writeString(output, 9, value_);
+    }
+    if (!com.google.protobuf.GeneratedMessage.isStringEmpty(target_)) {
+      com.google.protobuf.GeneratedMessage.writeString(output, 10, target_);
+    }
+    if (!com.google.protobuf.GeneratedMessage.isStringEmpty(via_)) {
+      com.google.protobuf.GeneratedMessage.writeString(output, 11, via_);
+    }
+    if (!com.google.protobuf.GeneratedMessage.isStringEmpty(until_)) {
+      com.google.protobuf.GeneratedMessage.writeString(output, 12, until_);
+    }
+    for (int i = 0; i < body_.size(); i++) {
+      output.writeMessage(13, body_.get(i));
+    }
+    for (int i = 0; i < elseBody_.size(); i++) {
+      output.writeMessage(14, elseBody_.get(i));
+    }
+    if (!com.google.protobuf.GeneratedMessage.isStringEmpty(multiplicity_)) {
+      com.google.protobuf.GeneratedMessage.writeString(output, 15, multiplicity_);
+    }
+    if (!com.google.protobuf.GeneratedMessage.isStringEmpty(parameter_)) {
+      com.google.protobuf.GeneratedMessage.writeString(output, 16, parameter_);
+    }
     getUnknownFields().writeTo(output);
   }
 
@@ -452,6 +948,35 @@ private static final long serialVersionUID = 0L;
     if (!com.google.protobuf.GeneratedMessage.isStringEmpty(after_)) {
       size += com.google.protobuf.GeneratedMessage.computeStringSize(7, after_);
     }
+    if (!com.google.protobuf.GeneratedMessage.isStringEmpty(condition_)) {
+      size += com.google.protobuf.GeneratedMessage.computeStringSize(8, condition_);
+    }
+    if (!com.google.protobuf.GeneratedMessage.isStringEmpty(value_)) {
+      size += com.google.protobuf.GeneratedMessage.computeStringSize(9, value_);
+    }
+    if (!com.google.protobuf.GeneratedMessage.isStringEmpty(target_)) {
+      size += com.google.protobuf.GeneratedMessage.computeStringSize(10, target_);
+    }
+    if (!com.google.protobuf.GeneratedMessage.isStringEmpty(via_)) {
+      size += com.google.protobuf.GeneratedMessage.computeStringSize(11, via_);
+    }
+    if (!com.google.protobuf.GeneratedMessage.isStringEmpty(until_)) {
+      size += com.google.protobuf.GeneratedMessage.computeStringSize(12, until_);
+    }
+    for (int i = 0; i < body_.size(); i++) {
+      size += com.google.protobuf.CodedOutputStream
+        .computeMessageSize(13, body_.get(i));
+    }
+    for (int i = 0; i < elseBody_.size(); i++) {
+      size += com.google.protobuf.CodedOutputStream
+        .computeMessageSize(14, elseBody_.get(i));
+    }
+    if (!com.google.protobuf.GeneratedMessage.isStringEmpty(multiplicity_)) {
+      size += com.google.protobuf.GeneratedMessage.computeStringSize(15, multiplicity_);
+    }
+    if (!com.google.protobuf.GeneratedMessage.isStringEmpty(parameter_)) {
+      size += com.google.protobuf.GeneratedMessage.computeStringSize(16, parameter_);
+    }
     size += getUnknownFields().getSerializedSize();
     memoizedSize = size;
     return size;
@@ -481,6 +1006,24 @@ private static final long serialVersionUID = 0L;
         .equals(other.getType())) return false;
     if (!getAfter()
         .equals(other.getAfter())) return false;
+    if (!getCondition()
+        .equals(other.getCondition())) return false;
+    if (!getValue()
+        .equals(other.getValue())) return false;
+    if (!getTarget()
+        .equals(other.getTarget())) return false;
+    if (!getVia()
+        .equals(other.getVia())) return false;
+    if (!getUntil()
+        .equals(other.getUntil())) return false;
+    if (!getBodyList()
+        .equals(other.getBodyList())) return false;
+    if (!getElseBodyList()
+        .equals(other.getElseBodyList())) return false;
+    if (!getMultiplicity()
+        .equals(other.getMultiplicity())) return false;
+    if (!getParameter()
+        .equals(other.getParameter())) return false;
     if (!getUnknownFields().equals(other.getUnknownFields())) return false;
     return true;
   }
@@ -506,6 +1049,28 @@ private static final long serialVersionUID = 0L;
     hash = (53 * hash) + getType().hashCode();
     hash = (37 * hash) + AFTER_FIELD_NUMBER;
     hash = (53 * hash) + getAfter().hashCode();
+    hash = (37 * hash) + CONDITION_FIELD_NUMBER;
+    hash = (53 * hash) + getCondition().hashCode();
+    hash = (37 * hash) + VALUE_FIELD_NUMBER;
+    hash = (53 * hash) + getValue().hashCode();
+    hash = (37 * hash) + TARGET_FIELD_NUMBER;
+    hash = (53 * hash) + getTarget().hashCode();
+    hash = (37 * hash) + VIA_FIELD_NUMBER;
+    hash = (53 * hash) + getVia().hashCode();
+    hash = (37 * hash) + UNTIL_FIELD_NUMBER;
+    hash = (53 * hash) + getUntil().hashCode();
+    if (getBodyCount() > 0) {
+      hash = (37 * hash) + BODY_FIELD_NUMBER;
+      hash = (53 * hash) + getBodyList().hashCode();
+    }
+    if (getElseBodyCount() > 0) {
+      hash = (37 * hash) + ELSE_BODY_FIELD_NUMBER;
+      hash = (53 * hash) + getElseBodyList().hashCode();
+    }
+    hash = (37 * hash) + MULTIPLICITY_FIELD_NUMBER;
+    hash = (53 * hash) + getMultiplicity().hashCode();
+    hash = (37 * hash) + PARAMETER_FIELD_NUMBER;
+    hash = (53 * hash) + getParameter().hashCode();
     hash = (29 * hash) + getUnknownFields().hashCode();
     memoizedHashCode = hash;
     return hash;
@@ -648,6 +1213,27 @@ private static final long serialVersionUID = 0L;
       memberName_ = "";
       type_ = "";
       after_ = "";
+      condition_ = "";
+      value_ = "";
+      target_ = "";
+      via_ = "";
+      until_ = "";
+      if (bodyBuilder_ == null) {
+        body_ = java.util.Collections.emptyList();
+      } else {
+        body_ = null;
+        bodyBuilder_.clear();
+      }
+      bitField0_ = (bitField0_ & ~0x00001000);
+      if (elseBodyBuilder_ == null) {
+        elseBody_ = java.util.Collections.emptyList();
+      } else {
+        elseBody_ = null;
+        elseBodyBuilder_.clear();
+      }
+      bitField0_ = (bitField0_ & ~0x00002000);
+      multiplicity_ = "";
+      parameter_ = "";
       return this;
     }
 
@@ -674,9 +1260,31 @@ private static final long serialVersionUID = 0L;
     @java.lang.Override
     public org.openmbee.opensysml.proto.AddSequenceEdit buildPartial() {
       org.openmbee.opensysml.proto.AddSequenceEdit result = new org.openmbee.opensysml.proto.AddSequenceEdit(this);
+      buildPartialRepeatedFields(result);
       if (bitField0_ != 0) { buildPartial0(result); }
       onBuilt();
       return result;
+    }
+
+    private void buildPartialRepeatedFields(org.openmbee.opensysml.proto.AddSequenceEdit result) {
+      if (bodyBuilder_ == null) {
+        if (((bitField0_ & 0x00001000) != 0)) {
+          body_ = java.util.Collections.unmodifiableList(body_);
+          bitField0_ = (bitField0_ & ~0x00001000);
+        }
+        result.body_ = body_;
+      } else {
+        result.body_ = bodyBuilder_.build();
+      }
+      if (elseBodyBuilder_ == null) {
+        if (((bitField0_ & 0x00002000) != 0)) {
+          elseBody_ = java.util.Collections.unmodifiableList(elseBody_);
+          bitField0_ = (bitField0_ & ~0x00002000);
+        }
+        result.elseBody_ = elseBody_;
+      } else {
+        result.elseBody_ = elseBodyBuilder_.build();
+      }
     }
 
     private void buildPartial0(org.openmbee.opensysml.proto.AddSequenceEdit result) {
@@ -701,6 +1309,27 @@ private static final long serialVersionUID = 0L;
       }
       if (((from_bitField0_ & 0x00000040) != 0)) {
         result.after_ = after_;
+      }
+      if (((from_bitField0_ & 0x00000080) != 0)) {
+        result.condition_ = condition_;
+      }
+      if (((from_bitField0_ & 0x00000100) != 0)) {
+        result.value_ = value_;
+      }
+      if (((from_bitField0_ & 0x00000200) != 0)) {
+        result.target_ = target_;
+      }
+      if (((from_bitField0_ & 0x00000400) != 0)) {
+        result.via_ = via_;
+      }
+      if (((from_bitField0_ & 0x00000800) != 0)) {
+        result.until_ = until_;
+      }
+      if (((from_bitField0_ & 0x00004000) != 0)) {
+        result.multiplicity_ = multiplicity_;
+      }
+      if (((from_bitField0_ & 0x00008000) != 0)) {
+        result.parameter_ = parameter_;
       }
     }
 
@@ -749,6 +1378,93 @@ private static final long serialVersionUID = 0L;
       if (!other.getAfter().isEmpty()) {
         after_ = other.after_;
         bitField0_ |= 0x00000040;
+        onChanged();
+      }
+      if (!other.getCondition().isEmpty()) {
+        condition_ = other.condition_;
+        bitField0_ |= 0x00000080;
+        onChanged();
+      }
+      if (!other.getValue().isEmpty()) {
+        value_ = other.value_;
+        bitField0_ |= 0x00000100;
+        onChanged();
+      }
+      if (!other.getTarget().isEmpty()) {
+        target_ = other.target_;
+        bitField0_ |= 0x00000200;
+        onChanged();
+      }
+      if (!other.getVia().isEmpty()) {
+        via_ = other.via_;
+        bitField0_ |= 0x00000400;
+        onChanged();
+      }
+      if (!other.getUntil().isEmpty()) {
+        until_ = other.until_;
+        bitField0_ |= 0x00000800;
+        onChanged();
+      }
+      if (bodyBuilder_ == null) {
+        if (!other.body_.isEmpty()) {
+          if (body_.isEmpty()) {
+            body_ = other.body_;
+            bitField0_ = (bitField0_ & ~0x00001000);
+          } else {
+            ensureBodyIsMutable();
+            body_.addAll(other.body_);
+          }
+          onChanged();
+        }
+      } else {
+        if (!other.body_.isEmpty()) {
+          if (bodyBuilder_.isEmpty()) {
+            bodyBuilder_.dispose();
+            bodyBuilder_ = null;
+            body_ = other.body_;
+            bitField0_ = (bitField0_ & ~0x00001000);
+            bodyBuilder_ = 
+              com.google.protobuf.GeneratedMessage.alwaysUseFieldBuilders ?
+                 internalGetBodyFieldBuilder() : null;
+          } else {
+            bodyBuilder_.addAllMessages(other.body_);
+          }
+        }
+      }
+      if (elseBodyBuilder_ == null) {
+        if (!other.elseBody_.isEmpty()) {
+          if (elseBody_.isEmpty()) {
+            elseBody_ = other.elseBody_;
+            bitField0_ = (bitField0_ & ~0x00002000);
+          } else {
+            ensureElseBodyIsMutable();
+            elseBody_.addAll(other.elseBody_);
+          }
+          onChanged();
+        }
+      } else {
+        if (!other.elseBody_.isEmpty()) {
+          if (elseBodyBuilder_.isEmpty()) {
+            elseBodyBuilder_.dispose();
+            elseBodyBuilder_ = null;
+            elseBody_ = other.elseBody_;
+            bitField0_ = (bitField0_ & ~0x00002000);
+            elseBodyBuilder_ = 
+              com.google.protobuf.GeneratedMessage.alwaysUseFieldBuilders ?
+                 internalGetElseBodyFieldBuilder() : null;
+          } else {
+            elseBodyBuilder_.addAllMessages(other.elseBody_);
+          }
+        }
+      }
+      if (!other.getMultiplicity().isEmpty()) {
+        multiplicity_ = other.multiplicity_;
+        bitField0_ |= 0x00004000;
+        onChanged();
+      }
+      if (!other.getParameter().isEmpty()) {
+        parameter_ = other.parameter_;
+        bitField0_ |= 0x00008000;
         onChanged();
       }
       this.mergeUnknownFields(other.getUnknownFields());
@@ -812,6 +1528,67 @@ private static final long serialVersionUID = 0L;
               bitField0_ |= 0x00000040;
               break;
             } // case 58
+            case 66: {
+              condition_ = input.readStringRequireUtf8();
+              bitField0_ |= 0x00000080;
+              break;
+            } // case 66
+            case 74: {
+              value_ = input.readStringRequireUtf8();
+              bitField0_ |= 0x00000100;
+              break;
+            } // case 74
+            case 82: {
+              target_ = input.readStringRequireUtf8();
+              bitField0_ |= 0x00000200;
+              break;
+            } // case 82
+            case 90: {
+              via_ = input.readStringRequireUtf8();
+              bitField0_ |= 0x00000400;
+              break;
+            } // case 90
+            case 98: {
+              until_ = input.readStringRequireUtf8();
+              bitField0_ |= 0x00000800;
+              break;
+            } // case 98
+            case 106: {
+              org.openmbee.opensysml.proto.AddSequenceEdit m =
+                  input.readMessage(
+                      org.openmbee.opensysml.proto.AddSequenceEdit.parser(),
+                      extensionRegistry);
+              if (bodyBuilder_ == null) {
+                ensureBodyIsMutable();
+                body_.add(m);
+              } else {
+                bodyBuilder_.addMessage(m);
+              }
+              break;
+            } // case 106
+            case 114: {
+              org.openmbee.opensysml.proto.AddSequenceEdit m =
+                  input.readMessage(
+                      org.openmbee.opensysml.proto.AddSequenceEdit.parser(),
+                      extensionRegistry);
+              if (elseBodyBuilder_ == null) {
+                ensureElseBodyIsMutable();
+                elseBody_.add(m);
+              } else {
+                elseBodyBuilder_.addMessage(m);
+              }
+              break;
+            } // case 114
+            case 122: {
+              multiplicity_ = input.readStringRequireUtf8();
+              bitField0_ |= 0x00004000;
+              break;
+            } // case 122
+            case 130: {
+              parameter_ = input.readStringRequireUtf8();
+              bitField0_ |= 0x00008000;
+              break;
+            } // case 130
             default: {
               if (!super.parseUnknownField(input, extensionRegistry, tag)) {
                 done = true; // was an endgroup tag
@@ -924,7 +1701,8 @@ private static final long serialVersionUID = 0L;
     private java.lang.Object keyword_ = "";
     /**
      * <pre>
-     * Sequence keyword: "first" or "then".
+     * Sequence keyword: "first", "then", "if", "else", or empty for a plain member.
+     * These action-body forms follow SysML.xtext:1368, 1442–1641; formal/2026-03-02.
      * </pre>
      *
      * <code>string keyword = 2 [json_name = "keyword"];</code>
@@ -944,7 +1722,8 @@ private static final long serialVersionUID = 0L;
     }
     /**
      * <pre>
-     * Sequence keyword: "first" or "then".
+     * Sequence keyword: "first", "then", "if", "else", or empty for a plain member.
+     * These action-body forms follow SysML.xtext:1368, 1442–1641; formal/2026-03-02.
      * </pre>
      *
      * <code>string keyword = 2 [json_name = "keyword"];</code>
@@ -965,7 +1744,8 @@ private static final long serialVersionUID = 0L;
     }
     /**
      * <pre>
-     * Sequence keyword: "first" or "then".
+     * Sequence keyword: "first", "then", "if", "else", or empty for a plain member.
+     * These action-body forms follow SysML.xtext:1368, 1442–1641; formal/2026-03-02.
      * </pre>
      *
      * <code>string keyword = 2 [json_name = "keyword"];</code>
@@ -982,7 +1762,8 @@ private static final long serialVersionUID = 0L;
     }
     /**
      * <pre>
-     * Sequence keyword: "first" or "then".
+     * Sequence keyword: "first", "then", "if", "else", or empty for a plain member.
+     * These action-body forms follow SysML.xtext:1368, 1442–1641; formal/2026-03-02.
      * </pre>
      *
      * <code>string keyword = 2 [json_name = "keyword"];</code>
@@ -996,7 +1777,8 @@ private static final long serialVersionUID = 0L;
     }
     /**
      * <pre>
-     * Sequence keyword: "first" or "then".
+     * Sequence keyword: "first", "then", "if", "else", or empty for a plain member.
+     * These action-body forms follow SysML.xtext:1368, 1442–1641; formal/2026-03-02.
      * </pre>
      *
      * <code>string keyword = 2 [json_name = "keyword"];</code>
@@ -1113,8 +1895,8 @@ private static final long serialVersionUID = 0L;
     private java.lang.Object memberKind_ = "";
     /**
      * <pre>
-     * Usage kind a `then` declares: action, perform action, state, merge,
-     * decide, join or fork; empty when ref names the target.
+     * Body item kind, including action, perform action, state, merge, decide,
+     * join, fork, accept, send, assign, if, while, loop, for or terminate.
      * </pre>
      *
      * <code>string member_kind = 4 [json_name = "memberKind"];</code>
@@ -1134,8 +1916,8 @@ private static final long serialVersionUID = 0L;
     }
     /**
      * <pre>
-     * Usage kind a `then` declares: action, perform action, state, merge,
-     * decide, join or fork; empty when ref names the target.
+     * Body item kind, including action, perform action, state, merge, decide,
+     * join, fork, accept, send, assign, if, while, loop, for or terminate.
      * </pre>
      *
      * <code>string member_kind = 4 [json_name = "memberKind"];</code>
@@ -1156,8 +1938,8 @@ private static final long serialVersionUID = 0L;
     }
     /**
      * <pre>
-     * Usage kind a `then` declares: action, perform action, state, merge,
-     * decide, join or fork; empty when ref names the target.
+     * Body item kind, including action, perform action, state, merge, decide,
+     * join, fork, accept, send, assign, if, while, loop, for or terminate.
      * </pre>
      *
      * <code>string member_kind = 4 [json_name = "memberKind"];</code>
@@ -1174,8 +1956,8 @@ private static final long serialVersionUID = 0L;
     }
     /**
      * <pre>
-     * Usage kind a `then` declares: action, perform action, state, merge,
-     * decide, join or fork; empty when ref names the target.
+     * Body item kind, including action, perform action, state, merge, decide,
+     * join, fork, accept, send, assign, if, while, loop, for or terminate.
      * </pre>
      *
      * <code>string member_kind = 4 [json_name = "memberKind"];</code>
@@ -1189,8 +1971,8 @@ private static final long serialVersionUID = 0L;
     }
     /**
      * <pre>
-     * Usage kind a `then` declares: action, perform action, state, merge,
-     * decide, join or fork; empty when ref names the target.
+     * Body item kind, including action, perform action, state, merge, decide,
+     * join, fork, accept, send, assign, if, while, loop, for or terminate.
      * </pre>
      *
      * <code>string member_kind = 4 [json_name = "memberKind"];</code>
@@ -1479,6 +2261,1297 @@ private static final long serialVersionUID = 0L;
       checkByteStringIsUtf8(value);
       after_ = value;
       bitField0_ |= 0x00000040;
+      onChanged();
+      return this;
+    }
+
+    private java.lang.Object condition_ = "";
+    /**
+     * <pre>
+     * Condition or guard expression for if and while.
+     * </pre>
+     *
+     * <code>string condition = 8 [json_name = "condition"];</code>
+     * @return The condition.
+     */
+    public java.lang.String getCondition() {
+      java.lang.Object ref = condition_;
+      if (!(ref instanceof java.lang.String)) {
+        com.google.protobuf.ByteString bs =
+            (com.google.protobuf.ByteString) ref;
+        java.lang.String s = bs.toStringUtf8();
+        condition_ = s;
+        return s;
+      } else {
+        return (java.lang.String) ref;
+      }
+    }
+    /**
+     * <pre>
+     * Condition or guard expression for if and while.
+     * </pre>
+     *
+     * <code>string condition = 8 [json_name = "condition"];</code>
+     * @return The bytes for condition.
+     */
+    public com.google.protobuf.ByteString
+        getConditionBytes() {
+      java.lang.Object ref = condition_;
+      if (ref instanceof String) {
+        com.google.protobuf.ByteString b = 
+            com.google.protobuf.ByteString.copyFromUtf8(
+                (java.lang.String) ref);
+        condition_ = b;
+        return b;
+      } else {
+        return (com.google.protobuf.ByteString) ref;
+      }
+    }
+    /**
+     * <pre>
+     * Condition or guard expression for if and while.
+     * </pre>
+     *
+     * <code>string condition = 8 [json_name = "condition"];</code>
+     * @param value The condition to set.
+     * @return This builder for chaining.
+     */
+    public Builder setCondition(
+        java.lang.String value) {
+      if (value == null) { throw new NullPointerException(); }
+      condition_ = value;
+      bitField0_ |= 0x00000080;
+      onChanged();
+      return this;
+    }
+    /**
+     * <pre>
+     * Condition or guard expression for if and while.
+     * </pre>
+     *
+     * <code>string condition = 8 [json_name = "condition"];</code>
+     * @return This builder for chaining.
+     */
+    public Builder clearCondition() {
+      condition_ = getDefaultInstance().getCondition();
+      bitField0_ = (bitField0_ & ~0x00000080);
+      onChanged();
+      return this;
+    }
+    /**
+     * <pre>
+     * Condition or guard expression for if and while.
+     * </pre>
+     *
+     * <code>string condition = 8 [json_name = "condition"];</code>
+     * @param value The bytes for condition to set.
+     * @return This builder for chaining.
+     */
+    public Builder setConditionBytes(
+        com.google.protobuf.ByteString value) {
+      if (value == null) { throw new NullPointerException(); }
+      checkByteStringIsUtf8(value);
+      condition_ = value;
+      bitField0_ |= 0x00000080;
+      onChanged();
+      return this;
+    }
+
+    private java.lang.Object value_ = "";
+    /**
+     * <pre>
+     * Payload, assigned value, collection or terminated occurrence.
+     * </pre>
+     *
+     * <code>string value = 9 [json_name = "value"];</code>
+     * @return The value.
+     */
+    public java.lang.String getValue() {
+      java.lang.Object ref = value_;
+      if (!(ref instanceof java.lang.String)) {
+        com.google.protobuf.ByteString bs =
+            (com.google.protobuf.ByteString) ref;
+        java.lang.String s = bs.toStringUtf8();
+        value_ = s;
+        return s;
+      } else {
+        return (java.lang.String) ref;
+      }
+    }
+    /**
+     * <pre>
+     * Payload, assigned value, collection or terminated occurrence.
+     * </pre>
+     *
+     * <code>string value = 9 [json_name = "value"];</code>
+     * @return The bytes for value.
+     */
+    public com.google.protobuf.ByteString
+        getValueBytes() {
+      java.lang.Object ref = value_;
+      if (ref instanceof String) {
+        com.google.protobuf.ByteString b = 
+            com.google.protobuf.ByteString.copyFromUtf8(
+                (java.lang.String) ref);
+        value_ = b;
+        return b;
+      } else {
+        return (com.google.protobuf.ByteString) ref;
+      }
+    }
+    /**
+     * <pre>
+     * Payload, assigned value, collection or terminated occurrence.
+     * </pre>
+     *
+     * <code>string value = 9 [json_name = "value"];</code>
+     * @param value The value to set.
+     * @return This builder for chaining.
+     */
+    public Builder setValue(
+        java.lang.String value) {
+      if (value == null) { throw new NullPointerException(); }
+      value_ = value;
+      bitField0_ |= 0x00000100;
+      onChanged();
+      return this;
+    }
+    /**
+     * <pre>
+     * Payload, assigned value, collection or terminated occurrence.
+     * </pre>
+     *
+     * <code>string value = 9 [json_name = "value"];</code>
+     * @return This builder for chaining.
+     */
+    public Builder clearValue() {
+      value_ = getDefaultInstance().getValue();
+      bitField0_ = (bitField0_ & ~0x00000100);
+      onChanged();
+      return this;
+    }
+    /**
+     * <pre>
+     * Payload, assigned value, collection or terminated occurrence.
+     * </pre>
+     *
+     * <code>string value = 9 [json_name = "value"];</code>
+     * @param value The bytes for value to set.
+     * @return This builder for chaining.
+     */
+    public Builder setValueBytes(
+        com.google.protobuf.ByteString value) {
+      if (value == null) { throw new NullPointerException(); }
+      checkByteStringIsUtf8(value);
+      value_ = value;
+      bitField0_ |= 0x00000100;
+      onChanged();
+      return this;
+    }
+
+    private java.lang.Object target_ = "";
+    /**
+     * <pre>
+     * Assigned feature or send receiver.
+     * </pre>
+     *
+     * <code>string target = 10 [json_name = "target"];</code>
+     * @return The target.
+     */
+    public java.lang.String getTarget() {
+      java.lang.Object ref = target_;
+      if (!(ref instanceof java.lang.String)) {
+        com.google.protobuf.ByteString bs =
+            (com.google.protobuf.ByteString) ref;
+        java.lang.String s = bs.toStringUtf8();
+        target_ = s;
+        return s;
+      } else {
+        return (java.lang.String) ref;
+      }
+    }
+    /**
+     * <pre>
+     * Assigned feature or send receiver.
+     * </pre>
+     *
+     * <code>string target = 10 [json_name = "target"];</code>
+     * @return The bytes for target.
+     */
+    public com.google.protobuf.ByteString
+        getTargetBytes() {
+      java.lang.Object ref = target_;
+      if (ref instanceof String) {
+        com.google.protobuf.ByteString b = 
+            com.google.protobuf.ByteString.copyFromUtf8(
+                (java.lang.String) ref);
+        target_ = b;
+        return b;
+      } else {
+        return (com.google.protobuf.ByteString) ref;
+      }
+    }
+    /**
+     * <pre>
+     * Assigned feature or send receiver.
+     * </pre>
+     *
+     * <code>string target = 10 [json_name = "target"];</code>
+     * @param value The target to set.
+     * @return This builder for chaining.
+     */
+    public Builder setTarget(
+        java.lang.String value) {
+      if (value == null) { throw new NullPointerException(); }
+      target_ = value;
+      bitField0_ |= 0x00000200;
+      onChanged();
+      return this;
+    }
+    /**
+     * <pre>
+     * Assigned feature or send receiver.
+     * </pre>
+     *
+     * <code>string target = 10 [json_name = "target"];</code>
+     * @return This builder for chaining.
+     */
+    public Builder clearTarget() {
+      target_ = getDefaultInstance().getTarget();
+      bitField0_ = (bitField0_ & ~0x00000200);
+      onChanged();
+      return this;
+    }
+    /**
+     * <pre>
+     * Assigned feature or send receiver.
+     * </pre>
+     *
+     * <code>string target = 10 [json_name = "target"];</code>
+     * @param value The bytes for target to set.
+     * @return This builder for chaining.
+     */
+    public Builder setTargetBytes(
+        com.google.protobuf.ByteString value) {
+      if (value == null) { throw new NullPointerException(); }
+      checkByteStringIsUtf8(value);
+      target_ = value;
+      bitField0_ |= 0x00000200;
+      onChanged();
+      return this;
+    }
+
+    private java.lang.Object via_ = "";
+    /**
+     * <pre>
+     * Port expression for accept or send.
+     * </pre>
+     *
+     * <code>string via = 11 [json_name = "via"];</code>
+     * @return The via.
+     */
+    public java.lang.String getVia() {
+      java.lang.Object ref = via_;
+      if (!(ref instanceof java.lang.String)) {
+        com.google.protobuf.ByteString bs =
+            (com.google.protobuf.ByteString) ref;
+        java.lang.String s = bs.toStringUtf8();
+        via_ = s;
+        return s;
+      } else {
+        return (java.lang.String) ref;
+      }
+    }
+    /**
+     * <pre>
+     * Port expression for accept or send.
+     * </pre>
+     *
+     * <code>string via = 11 [json_name = "via"];</code>
+     * @return The bytes for via.
+     */
+    public com.google.protobuf.ByteString
+        getViaBytes() {
+      java.lang.Object ref = via_;
+      if (ref instanceof String) {
+        com.google.protobuf.ByteString b = 
+            com.google.protobuf.ByteString.copyFromUtf8(
+                (java.lang.String) ref);
+        via_ = b;
+        return b;
+      } else {
+        return (com.google.protobuf.ByteString) ref;
+      }
+    }
+    /**
+     * <pre>
+     * Port expression for accept or send.
+     * </pre>
+     *
+     * <code>string via = 11 [json_name = "via"];</code>
+     * @param value The via to set.
+     * @return This builder for chaining.
+     */
+    public Builder setVia(
+        java.lang.String value) {
+      if (value == null) { throw new NullPointerException(); }
+      via_ = value;
+      bitField0_ |= 0x00000400;
+      onChanged();
+      return this;
+    }
+    /**
+     * <pre>
+     * Port expression for accept or send.
+     * </pre>
+     *
+     * <code>string via = 11 [json_name = "via"];</code>
+     * @return This builder for chaining.
+     */
+    public Builder clearVia() {
+      via_ = getDefaultInstance().getVia();
+      bitField0_ = (bitField0_ & ~0x00000400);
+      onChanged();
+      return this;
+    }
+    /**
+     * <pre>
+     * Port expression for accept or send.
+     * </pre>
+     *
+     * <code>string via = 11 [json_name = "via"];</code>
+     * @param value The bytes for via to set.
+     * @return This builder for chaining.
+     */
+    public Builder setViaBytes(
+        com.google.protobuf.ByteString value) {
+      if (value == null) { throw new NullPointerException(); }
+      checkByteStringIsUtf8(value);
+      via_ = value;
+      bitField0_ |= 0x00000400;
+      onChanged();
+      return this;
+    }
+
+    private java.lang.Object until_ = "";
+    /**
+     * <pre>
+     * Optional loop termination condition.
+     * </pre>
+     *
+     * <code>string until = 12 [json_name = "until"];</code>
+     * @return The until.
+     */
+    public java.lang.String getUntil() {
+      java.lang.Object ref = until_;
+      if (!(ref instanceof java.lang.String)) {
+        com.google.protobuf.ByteString bs =
+            (com.google.protobuf.ByteString) ref;
+        java.lang.String s = bs.toStringUtf8();
+        until_ = s;
+        return s;
+      } else {
+        return (java.lang.String) ref;
+      }
+    }
+    /**
+     * <pre>
+     * Optional loop termination condition.
+     * </pre>
+     *
+     * <code>string until = 12 [json_name = "until"];</code>
+     * @return The bytes for until.
+     */
+    public com.google.protobuf.ByteString
+        getUntilBytes() {
+      java.lang.Object ref = until_;
+      if (ref instanceof String) {
+        com.google.protobuf.ByteString b = 
+            com.google.protobuf.ByteString.copyFromUtf8(
+                (java.lang.String) ref);
+        until_ = b;
+        return b;
+      } else {
+        return (com.google.protobuf.ByteString) ref;
+      }
+    }
+    /**
+     * <pre>
+     * Optional loop termination condition.
+     * </pre>
+     *
+     * <code>string until = 12 [json_name = "until"];</code>
+     * @param value The until to set.
+     * @return This builder for chaining.
+     */
+    public Builder setUntil(
+        java.lang.String value) {
+      if (value == null) { throw new NullPointerException(); }
+      until_ = value;
+      bitField0_ |= 0x00000800;
+      onChanged();
+      return this;
+    }
+    /**
+     * <pre>
+     * Optional loop termination condition.
+     * </pre>
+     *
+     * <code>string until = 12 [json_name = "until"];</code>
+     * @return This builder for chaining.
+     */
+    public Builder clearUntil() {
+      until_ = getDefaultInstance().getUntil();
+      bitField0_ = (bitField0_ & ~0x00000800);
+      onChanged();
+      return this;
+    }
+    /**
+     * <pre>
+     * Optional loop termination condition.
+     * </pre>
+     *
+     * <code>string until = 12 [json_name = "until"];</code>
+     * @param value The bytes for until to set.
+     * @return This builder for chaining.
+     */
+    public Builder setUntilBytes(
+        com.google.protobuf.ByteString value) {
+      if (value == null) { throw new NullPointerException(); }
+      checkByteStringIsUtf8(value);
+      until_ = value;
+      bitField0_ |= 0x00000800;
+      onChanged();
+      return this;
+    }
+
+    private java.util.List<org.openmbee.opensysml.proto.AddSequenceEdit> body_ =
+      java.util.Collections.emptyList();
+    private void ensureBodyIsMutable() {
+      if (!((bitField0_ & 0x00001000) != 0)) {
+        body_ = new java.util.ArrayList<org.openmbee.opensysml.proto.AddSequenceEdit>(body_);
+        bitField0_ |= 0x00001000;
+       }
+    }
+
+    private com.google.protobuf.RepeatedFieldBuilder<
+        org.openmbee.opensysml.proto.AddSequenceEdit, org.openmbee.opensysml.proto.AddSequenceEdit.Builder, org.openmbee.opensysml.proto.AddSequenceEditOrBuilder> bodyBuilder_;
+
+    /**
+     * <pre>
+     * Nested action-body items.
+     * </pre>
+     *
+     * <code>repeated .sysml.AddSequenceEdit body = 13 [json_name = "body"];</code>
+     */
+    public java.util.List<org.openmbee.opensysml.proto.AddSequenceEdit> getBodyList() {
+      if (bodyBuilder_ == null) {
+        return java.util.Collections.unmodifiableList(body_);
+      } else {
+        return bodyBuilder_.getMessageList();
+      }
+    }
+    /**
+     * <pre>
+     * Nested action-body items.
+     * </pre>
+     *
+     * <code>repeated .sysml.AddSequenceEdit body = 13 [json_name = "body"];</code>
+     */
+    public int getBodyCount() {
+      if (bodyBuilder_ == null) {
+        return body_.size();
+      } else {
+        return bodyBuilder_.getCount();
+      }
+    }
+    /**
+     * <pre>
+     * Nested action-body items.
+     * </pre>
+     *
+     * <code>repeated .sysml.AddSequenceEdit body = 13 [json_name = "body"];</code>
+     */
+    public org.openmbee.opensysml.proto.AddSequenceEdit getBody(int index) {
+      if (bodyBuilder_ == null) {
+        return body_.get(index);
+      } else {
+        return bodyBuilder_.getMessage(index);
+      }
+    }
+    /**
+     * <pre>
+     * Nested action-body items.
+     * </pre>
+     *
+     * <code>repeated .sysml.AddSequenceEdit body = 13 [json_name = "body"];</code>
+     */
+    public Builder setBody(
+        int index, org.openmbee.opensysml.proto.AddSequenceEdit value) {
+      if (bodyBuilder_ == null) {
+        if (value == null) {
+          throw new NullPointerException();
+        }
+        ensureBodyIsMutable();
+        body_.set(index, value);
+        onChanged();
+      } else {
+        bodyBuilder_.setMessage(index, value);
+      }
+      return this;
+    }
+    /**
+     * <pre>
+     * Nested action-body items.
+     * </pre>
+     *
+     * <code>repeated .sysml.AddSequenceEdit body = 13 [json_name = "body"];</code>
+     */
+    public Builder setBody(
+        int index, org.openmbee.opensysml.proto.AddSequenceEdit.Builder builderForValue) {
+      if (bodyBuilder_ == null) {
+        ensureBodyIsMutable();
+        body_.set(index, builderForValue.build());
+        onChanged();
+      } else {
+        bodyBuilder_.setMessage(index, builderForValue.build());
+      }
+      return this;
+    }
+    /**
+     * <pre>
+     * Nested action-body items.
+     * </pre>
+     *
+     * <code>repeated .sysml.AddSequenceEdit body = 13 [json_name = "body"];</code>
+     */
+    public Builder addBody(org.openmbee.opensysml.proto.AddSequenceEdit value) {
+      if (bodyBuilder_ == null) {
+        if (value == null) {
+          throw new NullPointerException();
+        }
+        ensureBodyIsMutable();
+        body_.add(value);
+        onChanged();
+      } else {
+        bodyBuilder_.addMessage(value);
+      }
+      return this;
+    }
+    /**
+     * <pre>
+     * Nested action-body items.
+     * </pre>
+     *
+     * <code>repeated .sysml.AddSequenceEdit body = 13 [json_name = "body"];</code>
+     */
+    public Builder addBody(
+        int index, org.openmbee.opensysml.proto.AddSequenceEdit value) {
+      if (bodyBuilder_ == null) {
+        if (value == null) {
+          throw new NullPointerException();
+        }
+        ensureBodyIsMutable();
+        body_.add(index, value);
+        onChanged();
+      } else {
+        bodyBuilder_.addMessage(index, value);
+      }
+      return this;
+    }
+    /**
+     * <pre>
+     * Nested action-body items.
+     * </pre>
+     *
+     * <code>repeated .sysml.AddSequenceEdit body = 13 [json_name = "body"];</code>
+     */
+    public Builder addBody(
+        org.openmbee.opensysml.proto.AddSequenceEdit.Builder builderForValue) {
+      if (bodyBuilder_ == null) {
+        ensureBodyIsMutable();
+        body_.add(builderForValue.build());
+        onChanged();
+      } else {
+        bodyBuilder_.addMessage(builderForValue.build());
+      }
+      return this;
+    }
+    /**
+     * <pre>
+     * Nested action-body items.
+     * </pre>
+     *
+     * <code>repeated .sysml.AddSequenceEdit body = 13 [json_name = "body"];</code>
+     */
+    public Builder addBody(
+        int index, org.openmbee.opensysml.proto.AddSequenceEdit.Builder builderForValue) {
+      if (bodyBuilder_ == null) {
+        ensureBodyIsMutable();
+        body_.add(index, builderForValue.build());
+        onChanged();
+      } else {
+        bodyBuilder_.addMessage(index, builderForValue.build());
+      }
+      return this;
+    }
+    /**
+     * <pre>
+     * Nested action-body items.
+     * </pre>
+     *
+     * <code>repeated .sysml.AddSequenceEdit body = 13 [json_name = "body"];</code>
+     */
+    public Builder addAllBody(
+        java.lang.Iterable<? extends org.openmbee.opensysml.proto.AddSequenceEdit> values) {
+      if (bodyBuilder_ == null) {
+        ensureBodyIsMutable();
+        com.google.protobuf.AbstractMessageLite.Builder.addAll(
+            values, body_);
+        onChanged();
+      } else {
+        bodyBuilder_.addAllMessages(values);
+      }
+      return this;
+    }
+    /**
+     * <pre>
+     * Nested action-body items.
+     * </pre>
+     *
+     * <code>repeated .sysml.AddSequenceEdit body = 13 [json_name = "body"];</code>
+     */
+    public Builder clearBody() {
+      if (bodyBuilder_ == null) {
+        body_ = java.util.Collections.emptyList();
+        bitField0_ = (bitField0_ & ~0x00001000);
+        onChanged();
+      } else {
+        bodyBuilder_.clear();
+      }
+      return this;
+    }
+    /**
+     * <pre>
+     * Nested action-body items.
+     * </pre>
+     *
+     * <code>repeated .sysml.AddSequenceEdit body = 13 [json_name = "body"];</code>
+     */
+    public Builder removeBody(int index) {
+      if (bodyBuilder_ == null) {
+        ensureBodyIsMutable();
+        body_.remove(index);
+        onChanged();
+      } else {
+        bodyBuilder_.remove(index);
+      }
+      return this;
+    }
+    /**
+     * <pre>
+     * Nested action-body items.
+     * </pre>
+     *
+     * <code>repeated .sysml.AddSequenceEdit body = 13 [json_name = "body"];</code>
+     */
+    public org.openmbee.opensysml.proto.AddSequenceEdit.Builder getBodyBuilder(
+        int index) {
+      return internalGetBodyFieldBuilder().getBuilder(index);
+    }
+    /**
+     * <pre>
+     * Nested action-body items.
+     * </pre>
+     *
+     * <code>repeated .sysml.AddSequenceEdit body = 13 [json_name = "body"];</code>
+     */
+    public org.openmbee.opensysml.proto.AddSequenceEditOrBuilder getBodyOrBuilder(
+        int index) {
+      if (bodyBuilder_ == null) {
+        return body_.get(index);  } else {
+        return bodyBuilder_.getMessageOrBuilder(index);
+      }
+    }
+    /**
+     * <pre>
+     * Nested action-body items.
+     * </pre>
+     *
+     * <code>repeated .sysml.AddSequenceEdit body = 13 [json_name = "body"];</code>
+     */
+    public java.util.List<? extends org.openmbee.opensysml.proto.AddSequenceEditOrBuilder> 
+         getBodyOrBuilderList() {
+      if (bodyBuilder_ != null) {
+        return bodyBuilder_.getMessageOrBuilderList();
+      } else {
+        return java.util.Collections.unmodifiableList(body_);
+      }
+    }
+    /**
+     * <pre>
+     * Nested action-body items.
+     * </pre>
+     *
+     * <code>repeated .sysml.AddSequenceEdit body = 13 [json_name = "body"];</code>
+     */
+    public org.openmbee.opensysml.proto.AddSequenceEdit.Builder addBodyBuilder() {
+      return internalGetBodyFieldBuilder().addBuilder(
+          org.openmbee.opensysml.proto.AddSequenceEdit.getDefaultInstance());
+    }
+    /**
+     * <pre>
+     * Nested action-body items.
+     * </pre>
+     *
+     * <code>repeated .sysml.AddSequenceEdit body = 13 [json_name = "body"];</code>
+     */
+    public org.openmbee.opensysml.proto.AddSequenceEdit.Builder addBodyBuilder(
+        int index) {
+      return internalGetBodyFieldBuilder().addBuilder(
+          index, org.openmbee.opensysml.proto.AddSequenceEdit.getDefaultInstance());
+    }
+    /**
+     * <pre>
+     * Nested action-body items.
+     * </pre>
+     *
+     * <code>repeated .sysml.AddSequenceEdit body = 13 [json_name = "body"];</code>
+     */
+    public java.util.List<org.openmbee.opensysml.proto.AddSequenceEdit.Builder> 
+         getBodyBuilderList() {
+      return internalGetBodyFieldBuilder().getBuilderList();
+    }
+    private com.google.protobuf.RepeatedFieldBuilder<
+        org.openmbee.opensysml.proto.AddSequenceEdit, org.openmbee.opensysml.proto.AddSequenceEdit.Builder, org.openmbee.opensysml.proto.AddSequenceEditOrBuilder> 
+        internalGetBodyFieldBuilder() {
+      if (bodyBuilder_ == null) {
+        bodyBuilder_ = new com.google.protobuf.RepeatedFieldBuilder<
+            org.openmbee.opensysml.proto.AddSequenceEdit, org.openmbee.opensysml.proto.AddSequenceEdit.Builder, org.openmbee.opensysml.proto.AddSequenceEditOrBuilder>(
+                body_,
+                ((bitField0_ & 0x00001000) != 0),
+                getParentForChildren(),
+                isClean());
+        body_ = null;
+      }
+      return bodyBuilder_;
+    }
+
+    private java.util.List<org.openmbee.opensysml.proto.AddSequenceEdit> elseBody_ =
+      java.util.Collections.emptyList();
+    private void ensureElseBodyIsMutable() {
+      if (!((bitField0_ & 0x00002000) != 0)) {
+        elseBody_ = new java.util.ArrayList<org.openmbee.opensysml.proto.AddSequenceEdit>(elseBody_);
+        bitField0_ |= 0x00002000;
+       }
+    }
+
+    private com.google.protobuf.RepeatedFieldBuilder<
+        org.openmbee.opensysml.proto.AddSequenceEdit, org.openmbee.opensysml.proto.AddSequenceEdit.Builder, org.openmbee.opensysml.proto.AddSequenceEditOrBuilder> elseBodyBuilder_;
+
+    /**
+     * <pre>
+     * Nested items of the if's else branch; an empty list means no else branch.
+     * An explicit empty `else { }` is not authorable; it performs nothing and is equivalent to omitting it.
+     * </pre>
+     *
+     * <code>repeated .sysml.AddSequenceEdit else_body = 14 [json_name = "elseBody"];</code>
+     */
+    public java.util.List<org.openmbee.opensysml.proto.AddSequenceEdit> getElseBodyList() {
+      if (elseBodyBuilder_ == null) {
+        return java.util.Collections.unmodifiableList(elseBody_);
+      } else {
+        return elseBodyBuilder_.getMessageList();
+      }
+    }
+    /**
+     * <pre>
+     * Nested items of the if's else branch; an empty list means no else branch.
+     * An explicit empty `else { }` is not authorable; it performs nothing and is equivalent to omitting it.
+     * </pre>
+     *
+     * <code>repeated .sysml.AddSequenceEdit else_body = 14 [json_name = "elseBody"];</code>
+     */
+    public int getElseBodyCount() {
+      if (elseBodyBuilder_ == null) {
+        return elseBody_.size();
+      } else {
+        return elseBodyBuilder_.getCount();
+      }
+    }
+    /**
+     * <pre>
+     * Nested items of the if's else branch; an empty list means no else branch.
+     * An explicit empty `else { }` is not authorable; it performs nothing and is equivalent to omitting it.
+     * </pre>
+     *
+     * <code>repeated .sysml.AddSequenceEdit else_body = 14 [json_name = "elseBody"];</code>
+     */
+    public org.openmbee.opensysml.proto.AddSequenceEdit getElseBody(int index) {
+      if (elseBodyBuilder_ == null) {
+        return elseBody_.get(index);
+      } else {
+        return elseBodyBuilder_.getMessage(index);
+      }
+    }
+    /**
+     * <pre>
+     * Nested items of the if's else branch; an empty list means no else branch.
+     * An explicit empty `else { }` is not authorable; it performs nothing and is equivalent to omitting it.
+     * </pre>
+     *
+     * <code>repeated .sysml.AddSequenceEdit else_body = 14 [json_name = "elseBody"];</code>
+     */
+    public Builder setElseBody(
+        int index, org.openmbee.opensysml.proto.AddSequenceEdit value) {
+      if (elseBodyBuilder_ == null) {
+        if (value == null) {
+          throw new NullPointerException();
+        }
+        ensureElseBodyIsMutable();
+        elseBody_.set(index, value);
+        onChanged();
+      } else {
+        elseBodyBuilder_.setMessage(index, value);
+      }
+      return this;
+    }
+    /**
+     * <pre>
+     * Nested items of the if's else branch; an empty list means no else branch.
+     * An explicit empty `else { }` is not authorable; it performs nothing and is equivalent to omitting it.
+     * </pre>
+     *
+     * <code>repeated .sysml.AddSequenceEdit else_body = 14 [json_name = "elseBody"];</code>
+     */
+    public Builder setElseBody(
+        int index, org.openmbee.opensysml.proto.AddSequenceEdit.Builder builderForValue) {
+      if (elseBodyBuilder_ == null) {
+        ensureElseBodyIsMutable();
+        elseBody_.set(index, builderForValue.build());
+        onChanged();
+      } else {
+        elseBodyBuilder_.setMessage(index, builderForValue.build());
+      }
+      return this;
+    }
+    /**
+     * <pre>
+     * Nested items of the if's else branch; an empty list means no else branch.
+     * An explicit empty `else { }` is not authorable; it performs nothing and is equivalent to omitting it.
+     * </pre>
+     *
+     * <code>repeated .sysml.AddSequenceEdit else_body = 14 [json_name = "elseBody"];</code>
+     */
+    public Builder addElseBody(org.openmbee.opensysml.proto.AddSequenceEdit value) {
+      if (elseBodyBuilder_ == null) {
+        if (value == null) {
+          throw new NullPointerException();
+        }
+        ensureElseBodyIsMutable();
+        elseBody_.add(value);
+        onChanged();
+      } else {
+        elseBodyBuilder_.addMessage(value);
+      }
+      return this;
+    }
+    /**
+     * <pre>
+     * Nested items of the if's else branch; an empty list means no else branch.
+     * An explicit empty `else { }` is not authorable; it performs nothing and is equivalent to omitting it.
+     * </pre>
+     *
+     * <code>repeated .sysml.AddSequenceEdit else_body = 14 [json_name = "elseBody"];</code>
+     */
+    public Builder addElseBody(
+        int index, org.openmbee.opensysml.proto.AddSequenceEdit value) {
+      if (elseBodyBuilder_ == null) {
+        if (value == null) {
+          throw new NullPointerException();
+        }
+        ensureElseBodyIsMutable();
+        elseBody_.add(index, value);
+        onChanged();
+      } else {
+        elseBodyBuilder_.addMessage(index, value);
+      }
+      return this;
+    }
+    /**
+     * <pre>
+     * Nested items of the if's else branch; an empty list means no else branch.
+     * An explicit empty `else { }` is not authorable; it performs nothing and is equivalent to omitting it.
+     * </pre>
+     *
+     * <code>repeated .sysml.AddSequenceEdit else_body = 14 [json_name = "elseBody"];</code>
+     */
+    public Builder addElseBody(
+        org.openmbee.opensysml.proto.AddSequenceEdit.Builder builderForValue) {
+      if (elseBodyBuilder_ == null) {
+        ensureElseBodyIsMutable();
+        elseBody_.add(builderForValue.build());
+        onChanged();
+      } else {
+        elseBodyBuilder_.addMessage(builderForValue.build());
+      }
+      return this;
+    }
+    /**
+     * <pre>
+     * Nested items of the if's else branch; an empty list means no else branch.
+     * An explicit empty `else { }` is not authorable; it performs nothing and is equivalent to omitting it.
+     * </pre>
+     *
+     * <code>repeated .sysml.AddSequenceEdit else_body = 14 [json_name = "elseBody"];</code>
+     */
+    public Builder addElseBody(
+        int index, org.openmbee.opensysml.proto.AddSequenceEdit.Builder builderForValue) {
+      if (elseBodyBuilder_ == null) {
+        ensureElseBodyIsMutable();
+        elseBody_.add(index, builderForValue.build());
+        onChanged();
+      } else {
+        elseBodyBuilder_.addMessage(index, builderForValue.build());
+      }
+      return this;
+    }
+    /**
+     * <pre>
+     * Nested items of the if's else branch; an empty list means no else branch.
+     * An explicit empty `else { }` is not authorable; it performs nothing and is equivalent to omitting it.
+     * </pre>
+     *
+     * <code>repeated .sysml.AddSequenceEdit else_body = 14 [json_name = "elseBody"];</code>
+     */
+    public Builder addAllElseBody(
+        java.lang.Iterable<? extends org.openmbee.opensysml.proto.AddSequenceEdit> values) {
+      if (elseBodyBuilder_ == null) {
+        ensureElseBodyIsMutable();
+        com.google.protobuf.AbstractMessageLite.Builder.addAll(
+            values, elseBody_);
+        onChanged();
+      } else {
+        elseBodyBuilder_.addAllMessages(values);
+      }
+      return this;
+    }
+    /**
+     * <pre>
+     * Nested items of the if's else branch; an empty list means no else branch.
+     * An explicit empty `else { }` is not authorable; it performs nothing and is equivalent to omitting it.
+     * </pre>
+     *
+     * <code>repeated .sysml.AddSequenceEdit else_body = 14 [json_name = "elseBody"];</code>
+     */
+    public Builder clearElseBody() {
+      if (elseBodyBuilder_ == null) {
+        elseBody_ = java.util.Collections.emptyList();
+        bitField0_ = (bitField0_ & ~0x00002000);
+        onChanged();
+      } else {
+        elseBodyBuilder_.clear();
+      }
+      return this;
+    }
+    /**
+     * <pre>
+     * Nested items of the if's else branch; an empty list means no else branch.
+     * An explicit empty `else { }` is not authorable; it performs nothing and is equivalent to omitting it.
+     * </pre>
+     *
+     * <code>repeated .sysml.AddSequenceEdit else_body = 14 [json_name = "elseBody"];</code>
+     */
+    public Builder removeElseBody(int index) {
+      if (elseBodyBuilder_ == null) {
+        ensureElseBodyIsMutable();
+        elseBody_.remove(index);
+        onChanged();
+      } else {
+        elseBodyBuilder_.remove(index);
+      }
+      return this;
+    }
+    /**
+     * <pre>
+     * Nested items of the if's else branch; an empty list means no else branch.
+     * An explicit empty `else { }` is not authorable; it performs nothing and is equivalent to omitting it.
+     * </pre>
+     *
+     * <code>repeated .sysml.AddSequenceEdit else_body = 14 [json_name = "elseBody"];</code>
+     */
+    public org.openmbee.opensysml.proto.AddSequenceEdit.Builder getElseBodyBuilder(
+        int index) {
+      return internalGetElseBodyFieldBuilder().getBuilder(index);
+    }
+    /**
+     * <pre>
+     * Nested items of the if's else branch; an empty list means no else branch.
+     * An explicit empty `else { }` is not authorable; it performs nothing and is equivalent to omitting it.
+     * </pre>
+     *
+     * <code>repeated .sysml.AddSequenceEdit else_body = 14 [json_name = "elseBody"];</code>
+     */
+    public org.openmbee.opensysml.proto.AddSequenceEditOrBuilder getElseBodyOrBuilder(
+        int index) {
+      if (elseBodyBuilder_ == null) {
+        return elseBody_.get(index);  } else {
+        return elseBodyBuilder_.getMessageOrBuilder(index);
+      }
+    }
+    /**
+     * <pre>
+     * Nested items of the if's else branch; an empty list means no else branch.
+     * An explicit empty `else { }` is not authorable; it performs nothing and is equivalent to omitting it.
+     * </pre>
+     *
+     * <code>repeated .sysml.AddSequenceEdit else_body = 14 [json_name = "elseBody"];</code>
+     */
+    public java.util.List<? extends org.openmbee.opensysml.proto.AddSequenceEditOrBuilder> 
+         getElseBodyOrBuilderList() {
+      if (elseBodyBuilder_ != null) {
+        return elseBodyBuilder_.getMessageOrBuilderList();
+      } else {
+        return java.util.Collections.unmodifiableList(elseBody_);
+      }
+    }
+    /**
+     * <pre>
+     * Nested items of the if's else branch; an empty list means no else branch.
+     * An explicit empty `else { }` is not authorable; it performs nothing and is equivalent to omitting it.
+     * </pre>
+     *
+     * <code>repeated .sysml.AddSequenceEdit else_body = 14 [json_name = "elseBody"];</code>
+     */
+    public org.openmbee.opensysml.proto.AddSequenceEdit.Builder addElseBodyBuilder() {
+      return internalGetElseBodyFieldBuilder().addBuilder(
+          org.openmbee.opensysml.proto.AddSequenceEdit.getDefaultInstance());
+    }
+    /**
+     * <pre>
+     * Nested items of the if's else branch; an empty list means no else branch.
+     * An explicit empty `else { }` is not authorable; it performs nothing and is equivalent to omitting it.
+     * </pre>
+     *
+     * <code>repeated .sysml.AddSequenceEdit else_body = 14 [json_name = "elseBody"];</code>
+     */
+    public org.openmbee.opensysml.proto.AddSequenceEdit.Builder addElseBodyBuilder(
+        int index) {
+      return internalGetElseBodyFieldBuilder().addBuilder(
+          index, org.openmbee.opensysml.proto.AddSequenceEdit.getDefaultInstance());
+    }
+    /**
+     * <pre>
+     * Nested items of the if's else branch; an empty list means no else branch.
+     * An explicit empty `else { }` is not authorable; it performs nothing and is equivalent to omitting it.
+     * </pre>
+     *
+     * <code>repeated .sysml.AddSequenceEdit else_body = 14 [json_name = "elseBody"];</code>
+     */
+    public java.util.List<org.openmbee.opensysml.proto.AddSequenceEdit.Builder> 
+         getElseBodyBuilderList() {
+      return internalGetElseBodyFieldBuilder().getBuilderList();
+    }
+    private com.google.protobuf.RepeatedFieldBuilder<
+        org.openmbee.opensysml.proto.AddSequenceEdit, org.openmbee.opensysml.proto.AddSequenceEdit.Builder, org.openmbee.opensysml.proto.AddSequenceEditOrBuilder> 
+        internalGetElseBodyFieldBuilder() {
+      if (elseBodyBuilder_ == null) {
+        elseBodyBuilder_ = new com.google.protobuf.RepeatedFieldBuilder<
+            org.openmbee.opensysml.proto.AddSequenceEdit, org.openmbee.opensysml.proto.AddSequenceEdit.Builder, org.openmbee.opensysml.proto.AddSequenceEditOrBuilder>(
+                elseBody_,
+                ((bitField0_ & 0x00002000) != 0),
+                getParentForChildren(),
+                isClean());
+        elseBody_ = null;
+      }
+      return elseBodyBuilder_;
+    }
+
+    private java.lang.Object multiplicity_ = "";
+    /**
+     * <pre>
+     * Source-end multiplicity, written as bracketed notation, only with "then".
+     * SysML.xtext:878, 887, 1703, 1708, 1714; formal/2026-03-02.
+     * </pre>
+     *
+     * <code>string multiplicity = 15 [json_name = "multiplicity"];</code>
+     * @return The multiplicity.
+     */
+    public java.lang.String getMultiplicity() {
+      java.lang.Object ref = multiplicity_;
+      if (!(ref instanceof java.lang.String)) {
+        com.google.protobuf.ByteString bs =
+            (com.google.protobuf.ByteString) ref;
+        java.lang.String s = bs.toStringUtf8();
+        multiplicity_ = s;
+        return s;
+      } else {
+        return (java.lang.String) ref;
+      }
+    }
+    /**
+     * <pre>
+     * Source-end multiplicity, written as bracketed notation, only with "then".
+     * SysML.xtext:878, 887, 1703, 1708, 1714; formal/2026-03-02.
+     * </pre>
+     *
+     * <code>string multiplicity = 15 [json_name = "multiplicity"];</code>
+     * @return The bytes for multiplicity.
+     */
+    public com.google.protobuf.ByteString
+        getMultiplicityBytes() {
+      java.lang.Object ref = multiplicity_;
+      if (ref instanceof String) {
+        com.google.protobuf.ByteString b = 
+            com.google.protobuf.ByteString.copyFromUtf8(
+                (java.lang.String) ref);
+        multiplicity_ = b;
+        return b;
+      } else {
+        return (com.google.protobuf.ByteString) ref;
+      }
+    }
+    /**
+     * <pre>
+     * Source-end multiplicity, written as bracketed notation, only with "then".
+     * SysML.xtext:878, 887, 1703, 1708, 1714; formal/2026-03-02.
+     * </pre>
+     *
+     * <code>string multiplicity = 15 [json_name = "multiplicity"];</code>
+     * @param value The multiplicity to set.
+     * @return This builder for chaining.
+     */
+    public Builder setMultiplicity(
+        java.lang.String value) {
+      if (value == null) { throw new NullPointerException(); }
+      multiplicity_ = value;
+      bitField0_ |= 0x00004000;
+      onChanged();
+      return this;
+    }
+    /**
+     * <pre>
+     * Source-end multiplicity, written as bracketed notation, only with "then".
+     * SysML.xtext:878, 887, 1703, 1708, 1714; formal/2026-03-02.
+     * </pre>
+     *
+     * <code>string multiplicity = 15 [json_name = "multiplicity"];</code>
+     * @return This builder for chaining.
+     */
+    public Builder clearMultiplicity() {
+      multiplicity_ = getDefaultInstance().getMultiplicity();
+      bitField0_ = (bitField0_ & ~0x00004000);
+      onChanged();
+      return this;
+    }
+    /**
+     * <pre>
+     * Source-end multiplicity, written as bracketed notation, only with "then".
+     * SysML.xtext:878, 887, 1703, 1708, 1714; formal/2026-03-02.
+     * </pre>
+     *
+     * <code>string multiplicity = 15 [json_name = "multiplicity"];</code>
+     * @param value The bytes for multiplicity to set.
+     * @return This builder for chaining.
+     */
+    public Builder setMultiplicityBytes(
+        com.google.protobuf.ByteString value) {
+      if (value == null) { throw new NullPointerException(); }
+      checkByteStringIsUtf8(value);
+      multiplicity_ = value;
+      bitField0_ |= 0x00004000;
+      onChanged();
+      return this;
+    }
+
+    private java.lang.Object parameter_ = "";
+    /**
+     * <pre>
+     * Payload name for accept or loop variable for for.
+     * </pre>
+     *
+     * <code>string parameter = 16 [json_name = "parameter"];</code>
+     * @return The parameter.
+     */
+    public java.lang.String getParameter() {
+      java.lang.Object ref = parameter_;
+      if (!(ref instanceof java.lang.String)) {
+        com.google.protobuf.ByteString bs =
+            (com.google.protobuf.ByteString) ref;
+        java.lang.String s = bs.toStringUtf8();
+        parameter_ = s;
+        return s;
+      } else {
+        return (java.lang.String) ref;
+      }
+    }
+    /**
+     * <pre>
+     * Payload name for accept or loop variable for for.
+     * </pre>
+     *
+     * <code>string parameter = 16 [json_name = "parameter"];</code>
+     * @return The bytes for parameter.
+     */
+    public com.google.protobuf.ByteString
+        getParameterBytes() {
+      java.lang.Object ref = parameter_;
+      if (ref instanceof String) {
+        com.google.protobuf.ByteString b = 
+            com.google.protobuf.ByteString.copyFromUtf8(
+                (java.lang.String) ref);
+        parameter_ = b;
+        return b;
+      } else {
+        return (com.google.protobuf.ByteString) ref;
+      }
+    }
+    /**
+     * <pre>
+     * Payload name for accept or loop variable for for.
+     * </pre>
+     *
+     * <code>string parameter = 16 [json_name = "parameter"];</code>
+     * @param value The parameter to set.
+     * @return This builder for chaining.
+     */
+    public Builder setParameter(
+        java.lang.String value) {
+      if (value == null) { throw new NullPointerException(); }
+      parameter_ = value;
+      bitField0_ |= 0x00008000;
+      onChanged();
+      return this;
+    }
+    /**
+     * <pre>
+     * Payload name for accept or loop variable for for.
+     * </pre>
+     *
+     * <code>string parameter = 16 [json_name = "parameter"];</code>
+     * @return This builder for chaining.
+     */
+    public Builder clearParameter() {
+      parameter_ = getDefaultInstance().getParameter();
+      bitField0_ = (bitField0_ & ~0x00008000);
+      onChanged();
+      return this;
+    }
+    /**
+     * <pre>
+     * Payload name for accept or loop variable for for.
+     * </pre>
+     *
+     * <code>string parameter = 16 [json_name = "parameter"];</code>
+     * @param value The bytes for parameter to set.
+     * @return This builder for chaining.
+     */
+    public Builder setParameterBytes(
+        com.google.protobuf.ByteString value) {
+      if (value == null) { throw new NullPointerException(); }
+      checkByteStringIsUtf8(value);
+      parameter_ = value;
+      bitField0_ |= 0x00008000;
       onChanged();
       return this;
     }

@@ -91,6 +91,36 @@ func TestAcceptKeepsItsQualifiedSignalType(t *testing.T) {
 	}
 }
 
+func TestAcceptInConditionalBodyIsLoweredOnItsBlockFlow(t *testing.T) {
+	graph := actionGraphFor(t, `
+		action test {
+			first start;
+			then if true {
+				accept msg : Integer;
+			}
+			then done;
+		}
+	`)
+
+	var conditional If
+	for _, body := range graph.Bodies {
+		for _, statement := range body {
+			if branch, ok := statement.(If); ok {
+				conditional = branch
+			}
+		}
+	}
+	if conditional.Then.Graph == nil {
+		t.Fatal("conditional body has no block flow")
+	}
+	if len(conditional.Then.Graph.Nodes) != 1 {
+		t.Fatalf("conditional body nodes = %d, want 1", len(conditional.Then.Graph.Nodes))
+	}
+	if _, ok := conditional.Then.Graph.Accepts[conditional.Then.Graph.Nodes[0]]; !ok {
+		t.Fatal("conditional body accept is not lowered on its block flow")
+	}
+}
+
 // A globally qualified accept type keeps its root marker distinct from a
 // package literally named `$`, since the two resolve to different definitions.
 func TestAcceptKeepsTheGlobalQualifier(t *testing.T) {
@@ -265,10 +295,8 @@ func TestActionBodyUnexecutableMemberIsLowered(t *testing.T) {
 	}
 }
 
-// An accept node written in a loop body would have to suspend the action, which
-// the block's flow has no token to park, so it is lowered as unsupported rather
-// than passed over silently.
-func TestAcceptInALoopBodyIsLoweredAsUnsupported(t *testing.T) {
+// An accept node in a loop body is registered on that block flow for runtime execution.
+func TestAcceptInALoopBodyIsLoweredOnItsBlockFlow(t *testing.T) {
 	graph := actionGraphFor(t, `
 		action test {
 			first start;
@@ -292,16 +320,11 @@ func TestAcceptInALoopBodyIsLoweredAsUnsupported(t *testing.T) {
 	if flow == nil {
 		t.Fatalf("the loop body lowered to statements, want the flow its accept node states")
 	}
-	stmts := flow.Bodies[flow.Initial]
-	if len(stmts) != 1 {
-		t.Fatalf("the accept node lowered to %d statements, want 1", len(stmts))
+	if len(flow.Nodes) != 1 {
+		t.Fatalf("the loop body flow has %d nodes, want 1", len(flow.Nodes))
 	}
-	unsupported, ok := stmts[0].(Unsupported)
-	if !ok {
-		t.Fatalf("the accept node lowered to %T, want Unsupported", stmts[0])
-	}
-	if !strings.Contains(unsupported.Description, "'accept'") {
-		t.Errorf("description = %q, want it to name the accept", unsupported.Description)
+	if _, ok := flow.Accepts[flow.Nodes[0]]; !ok {
+		t.Fatal("the accept node is not registered on its loop body flow")
 	}
 }
 

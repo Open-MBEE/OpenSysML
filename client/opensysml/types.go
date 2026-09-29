@@ -31,6 +31,7 @@ const (
 	CapabilityMemberModifiers                = sysmlgrpc.CapabilityMemberModifiers
 	CapabilityTransitionAuthoring            = sysmlgrpc.CapabilityTransitionAuthoring
 	CapabilitySequenceAuthoring              = sysmlgrpc.CapabilitySequenceAuthoring
+	CapabilityActionBodyStatementAuthoring   = sysmlgrpc.CapabilityActionBodyStatementAuthoring
 	CapabilityImplicitParameters             = sysmlgrpc.CapabilityImplicitParameters
 	CapabilityEditDocuments                  = sysmlgrpc.CapabilityEditDocuments
 	CapabilityInlineLanguage                 = sysmlgrpc.CapabilityInlineLanguage

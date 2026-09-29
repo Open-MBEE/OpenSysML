@@ -556,7 +556,7 @@ func (e *stmtEngine) runBlock(block lower.Block) (stmtFlow, error) {
 		return e.run(block.Statements)
 	case block.Stated && block.Own:
 		return e.host.runFlow(block)
-	case block.Stated:
+	case block.Stated || len(block.Graph.Accepts) > 0:
 		return e.host.runBlockFlow(e, block)
 	}
 	return e.blockFlow(block)

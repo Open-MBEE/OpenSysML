@@ -114,12 +114,13 @@ const (
 	xEndRole         = "endRole"
 	xEndName         = "endName"
 	// The ReferencesKeyword a named end spells, when it is not `::>`.
-	xEndReferencesKeyword = "endReferencesKeyword"
-	xEndForm              = "endForm"
-	xConjugatedTyping     = "conjugatedTyping"
-	xEndVerb              = "endVerb"
-	xSourceMember         = "sourceMember"
-	xTargetMember         = "targetMember"
+	xEndReferencesKeyword         = "endReferencesKeyword"
+	xEndForm                      = "endForm"
+	xSourceMultiplicityBeforeThen = "sourceMultiplicityBeforeThen"
+	xConjugatedTyping             = "conjugatedTyping"
+	xEndVerb                      = "endVerb"
+	xSourceMember                 = "sourceMember"
+	xTargetMember                 = "targetMember"
 	// The identity properties: whether an element's id came from an explicit
 	// ElementId annotation, and the ProjectRef provenance of a scope root.
 	xDeclaredID = "declaredId"
@@ -1767,7 +1768,7 @@ func (e *encoder) connectorEnd(subject rdf.Term, end connectorEndSpec) error {
 		}
 	}
 	if end.target == nil && end.targetTerm.Value == "" {
-		return nil
+		return e.multiplicity(feature, end.owner, end.mult)
 	}
 	if end.targetTerm.Value != "" {
 		e.referenceSubsetting(feature, end.targetTerm)

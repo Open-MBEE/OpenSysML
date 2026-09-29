@@ -315,7 +315,7 @@ public sealed interface Edit {
     }
   }
 
-  /** Inserts a {@code first} or {@code then} sequencing member into an action body. */
+  /** Inserts a sequencing member or statement into an action body. */
   record AddSequence(
       String owner,
       String keyword,
@@ -323,8 +323,31 @@ public sealed interface Edit {
       Optional<String> memberKind,
       Optional<String> memberName,
       Optional<String> type,
-      Optional<String> after)
+      Optional<String> after,
+      Optional<String> condition,
+      Optional<String> value,
+      Optional<String> target,
+      Optional<String> via,
+      Optional<String> until,
+      List<AddSequence> body,
+      List<AddSequence> elseBody,
+      Optional<String> multiplicity,
+      Optional<String> parameter)
       implements Edit {
+
+    public AddSequence(
+        String owner,
+        String keyword,
+        Optional<String> ref,
+        Optional<String> memberKind,
+        Optional<String> memberName,
+        Optional<String> type,
+        Optional<String> after) {
+      this(
+          owner, keyword, ref, memberKind, memberName, type, after,
+          Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty(),
+          Optional.empty(), List.of(), List.of(), Optional.empty(), Optional.empty());
+    }
 
     public AddSequence {
       Objects.requireNonNull(owner, "owner");
@@ -334,6 +357,15 @@ public sealed interface Edit {
       Objects.requireNonNull(memberName, "memberName");
       Objects.requireNonNull(type, "type");
       Objects.requireNonNull(after, "after");
+      Objects.requireNonNull(condition, "condition");
+      Objects.requireNonNull(value, "value");
+      Objects.requireNonNull(target, "target");
+      Objects.requireNonNull(via, "via");
+      Objects.requireNonNull(until, "until");
+      body = List.copyOf(Objects.requireNonNull(body, "body"));
+      elseBody = List.copyOf(Objects.requireNonNull(elseBody, "elseBody"));
+      Objects.requireNonNull(multiplicity, "multiplicity");
+      Objects.requireNonNull(parameter, "parameter");
     }
 
     /** A {@code first <ref>;} member. */
@@ -358,21 +390,110 @@ public sealed interface Edit {
     }
 
     public AddSequence withRef(String ref) {
-      if (memberKind.isPresent() || memberName.isPresent() || type.isPresent()) {
+      if (memberKind.isPresent() || memberName.isPresent() || type.isPresent()
+          || hasActionBodyFields()) {
         throw new IllegalStateException("a then reference takes no member kind, name or type");
       }
-      return new AddSequence(owner, keyword, Optional.of(ref), memberKind, memberName, type, after);
+      return copy(Optional.of(ref), memberKind, memberName, type, after);
     }
 
     public AddSequence withType(String type) {
-      if (ref.isPresent()) {
+      if (ref.isPresent() || hasActionBodyFields()) {
         throw new IllegalStateException("a then reference takes no member kind, name or type");
       }
-      return new AddSequence(owner, keyword, ref, memberKind, memberName, Optional.of(type), after);
+      return copy(ref, memberKind, memberName, Optional.of(type), after);
     }
 
     public AddSequence withAfter(String after) {
-      return new AddSequence(owner, keyword, ref, memberKind, memberName, type, Optional.of(after));
+      return copy(ref, memberKind, memberName, type, Optional.of(after));
+    }
+
+    public AddSequence withCondition(String condition) {
+      return copyActionBody(Optional.of(condition), value, target, via, until, body, elseBody,
+          multiplicity, parameter);
+    }
+
+    public AddSequence withValue(String value) {
+      return copyActionBody(condition, Optional.of(value), target, via, until, body, elseBody,
+          multiplicity, parameter);
+    }
+
+    public AddSequence withTarget(String target) {
+      return copyActionBody(condition, value, Optional.of(target), via, until, body, elseBody,
+          multiplicity, parameter);
+    }
+
+    public AddSequence withVia(String via) {
+      return copyActionBody(condition, value, target, Optional.of(via), until, body, elseBody,
+          multiplicity, parameter);
+    }
+
+    public AddSequence withUntil(String until) {
+      return copyActionBody(condition, value, target, via, Optional.of(until), body, elseBody,
+          multiplicity, parameter);
+    }
+
+    public AddSequence withBody(List<AddSequence> body) {
+      return copyActionBody(condition, value, target, via, until, body, elseBody,
+          multiplicity, parameter);
+    }
+
+    public AddSequence withElseBody(List<AddSequence> elseBody) {
+      return copyActionBody(condition, value, target, via, until, body, elseBody,
+          multiplicity, parameter);
+    }
+
+    public AddSequence withMultiplicity(String multiplicity) {
+      return copyActionBody(condition, value, target, via, until, body, elseBody,
+          Optional.of(multiplicity), parameter);
+    }
+
+    public AddSequence withParameter(String parameter) {
+      return copyActionBody(condition, value, target, via, until, body, elseBody,
+          multiplicity, Optional.of(parameter));
+    }
+
+    private AddSequence copy(
+        Optional<String> ref,
+        Optional<String> memberKind,
+        Optional<String> memberName,
+        Optional<String> type,
+        Optional<String> after) {
+      return new AddSequence(
+          owner, keyword, ref, memberKind, memberName, type, after,
+          condition, value, target, via, until, body, elseBody, multiplicity, parameter);
+    }
+
+    private AddSequence copyActionBody(
+        Optional<String> condition,
+        Optional<String> value,
+        Optional<String> target,
+        Optional<String> via,
+        Optional<String> until,
+        List<AddSequence> body,
+        List<AddSequence> elseBody,
+        Optional<String> multiplicity,
+        Optional<String> parameter) {
+      return new AddSequence(
+          owner, keyword, ref, memberKind, memberName, type, after,
+          condition, value, target, via, until, body, elseBody, multiplicity, parameter);
+    }
+
+    private boolean hasActionBodyFields() {
+      return condition.isPresent() || value.isPresent() || target.isPresent() || via.isPresent()
+          || until.isPresent() || !body.isEmpty() || !elseBody.isEmpty()
+          || multiplicity.isPresent() || parameter.isPresent();
+    }
+
+    public boolean requiresActionBodyStatementAuthoring() {
+      return keyword.equals("if") || keyword.equals("else") || multiplicity.isPresent()
+          || memberKind.filter(kind -> switch (kind) {
+            case "accept", "send", "assign", "if", "while", "loop", "for", "terminate" -> true;
+            default -> false;
+          }).isPresent()
+          || hasActionBodyFields()
+          || body.stream().anyMatch(AddSequence::requiresActionBodyStatementAuthoring)
+          || elseBody.stream().anyMatch(AddSequence::requiresActionBodyStatementAuthoring);
     }
   }
 

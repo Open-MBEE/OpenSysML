@@ -1059,16 +1059,7 @@ public final class Protos {
       addTransition.effect().ifPresent(add::setEffect);
       builder.setAddTransition(add);
     } else if (edit instanceof Edit.AddSequence addSequence) {
-      org.openmbee.opensysml.proto.AddSequenceEdit.Builder add =
-          org.openmbee.opensysml.proto.AddSequenceEdit.newBuilder()
-              .setOwner(addSequence.owner())
-              .setKeyword(addSequence.keyword());
-      addSequence.ref().ifPresent(add::setRef);
-      addSequence.memberKind().ifPresent(add::setMemberKind);
-      addSequence.memberName().ifPresent(add::setMemberName);
-      addSequence.type().ifPresent(add::setType);
-      addSequence.after().ifPresent(add::setAfter);
-      builder.setAddSequence(add);
+      builder.setAddSequence(sequenceProto(addSequence));
     } else if (edit instanceof Edit.AddConnection addConnection) {
       org.openmbee.opensysml.proto.AddConnectionEdit.Builder add =
           org.openmbee.opensysml.proto.AddConnectionEdit.newBuilder()
@@ -1091,6 +1082,29 @@ public final class Protos {
               .setOwner(move.owner()));
     }
     return builder.build();
+  }
+
+  private static org.openmbee.opensysml.proto.AddSequenceEdit sequenceProto(
+      Edit.AddSequence sequence) {
+    org.openmbee.opensysml.proto.AddSequenceEdit.Builder add =
+        org.openmbee.opensysml.proto.AddSequenceEdit.newBuilder()
+            .setOwner(sequence.owner())
+            .setKeyword(sequence.keyword());
+    sequence.ref().ifPresent(add::setRef);
+    sequence.memberKind().ifPresent(add::setMemberKind);
+    sequence.memberName().ifPresent(add::setMemberName);
+    sequence.type().ifPresent(add::setType);
+    sequence.after().ifPresent(add::setAfter);
+    sequence.condition().ifPresent(add::setCondition);
+    sequence.value().ifPresent(add::setValue);
+    sequence.target().ifPresent(add::setTarget);
+    sequence.via().ifPresent(add::setVia);
+    sequence.until().ifPresent(add::setUntil);
+    sequence.body().stream().map(Protos::sequenceProto).forEach(add::addBody);
+    sequence.elseBody().stream().map(Protos::sequenceProto).forEach(add::addElseBody);
+    sequence.multiplicity().ifPresent(add::setMultiplicity);
+    sequence.parameter().ifPresent(add::setParameter);
+    return add.build();
   }
 
   /**

@@ -212,11 +212,14 @@ func (e *encoder) encodeBehavior(node ast.Node, head func(rdf.Term), subject rdf
 	case *ast.SuccessionEdge:
 		head(rdf.SysMLTerm(mSuccession))
 		implied := impliedSource(n, n.Source)
+		if n.SourceMultiplicity != nil && n.SourceMultiplicity.Span().Offset == n.Span().Offset {
+			e.graph.Add(subject, e.sysx(xSourceMultiplicityBeforeThen), rdf.Bool(true))
+		}
 		if implied {
 			// `then b;` sequences from the member before it: an empty source
 			// end and the target end (SysML.xtext TargetSuccession).
 			e.graph.Add(subject, e.sysx(xEndForm), rdf.String(formThen))
-			if err := e.connectorEnd(subject, connectorEndSpec{owner: owner, slot: "end0", index: 0, ends: 2, empty: true, noCollapse: true}); err != nil {
+			if err := e.connectorEnd(subject, connectorEndSpec{owner: owner, slot: "end0", index: 0, ends: 2, empty: true, mult: n.SourceMultiplicity, noCollapse: true}); err != nil {
 				return true, err
 			}
 			target := connectorEndSpec{owner: owner, slot: "end1", index: 1, ends: 2, noCollapse: true}
@@ -1016,12 +1019,12 @@ func (d *decoder) successionHead(el *element) (string, error) {
 		if term, ok := d.graph.Object(rdf.IRI(el.iri), rdf.SysML+pTargetFeature); ok && term.IsIRI() {
 			if done, err := d.referencedElement(term.Value); err == nil && done.qname == qualifiedText(libraryDone) {
 				delete(d.wanted.references, nameKey{member: el.qname, target: done.qname})
-				return "then done", nil
+				return d.thenSuccessionText("done", el)
 			}
 		}
 		// The source end is the member written before, which this form leaves
 		// unwritten.
-		return "then " + target, nil
+		return d.thenSuccessionText(target, el)
 	}
 	// Only the forms that name the source read it, so no spelling is chosen
 	// for one the notation leaves unwritten.
@@ -1040,6 +1043,46 @@ func (d *decoder) successionHead(el *element) (string, error) {
 		words = []string{"succession", "first", source, "if", guard, "then", target}
 	}
 	return strings.Join(words, " "), nil
+}
+
+func (d *decoder) thenSuccessionText(target string, el *element) (string, error) {
+	prefix, err := d.positionalSuccessionPrefix(el)
+	if err != nil {
+		return "", err
+	}
+	return prefix + target, nil
+}
+
+func (d *decoder) positionalSuccessionPrefix(el *element) (string, error) {
+	multiplicity, err := d.positionalSourceMultiplicity(el)
+	if err != nil {
+		return "", err
+	}
+	if multiplicity == "" {
+		return "then ", nil
+	}
+	if d.boolOf(el, rdf.OpenSysML+xSourceMultiplicityBeforeThen) {
+		return multiplicity + " then ", nil
+	}
+	return "then " + multiplicity + " ", nil
+}
+
+func (d *decoder) positionalSourceMultiplicity(el *element) (string, error) {
+	ends := d.graph.Objects(rdf.IRI(el.iri), rdf.SysML+pConnectorEnd)
+	if len(ends) == 0 {
+		ends = d.standardEndFeatures(el)
+	}
+	for _, end := range ends {
+		_, hasTarget, err := d.standardEndTarget(end, el)
+		if err != nil {
+			return "", err
+		}
+		if hasTarget {
+			continue
+		}
+		return d.endMultiplicity(end, el)
+	}
+	return "", nil
 }
 
 // positionalSuccession reports a succession written as `then`, whose unnamed
@@ -1129,6 +1172,10 @@ func (d *decoder) successionChild(src *keptSources, child *element) (bool, error
 	if d.sequencesTo(child, target) && (positionalTarget || d.keywordOr(child, "then") == "then") {
 		// The target is the member written just before, which this form
 		// introduces: `then` is written ahead of that member's declaration.
+		prefix, err := d.positionalSuccessionPrefix(child)
+		if err != nil {
+			return false, err
+		}
 		from := src.sourceBefore(1)
 		if positionalTarget {
 			from = src.sourceBeforeMember(target)
@@ -1136,7 +1183,7 @@ func (d *decoder) successionChild(src *keptSources, child *element) (bool, error
 		if err := d.attachable(child, from); err != nil {
 			return false, err
 		}
-		target.prefix = "then "
+		target.prefix = prefix
 		d.folded[child] = target
 		return false, nil
 	}

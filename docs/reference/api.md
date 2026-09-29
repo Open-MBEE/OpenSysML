@@ -107,12 +107,17 @@ and `type` fields:
 | `add_requirement_constraint` | `owner`, `kind`, `expression`, `name?` | A `require constraint` or `assume constraint` in a requirement-like body. The expression must parse and analyze; other kinds and placements are refused. |
 | `add_transition` | `owner`, `source`, `target`, `name?`, `trigger?`, `guard?`, `effect?`, `initial` | A state transition in a state definition or usage, including an exhibited or bodiless nested state. Each free-text clause must form exactly one grammar-admissible transition. With `initial`, an entry transition (`entry; then <target>;`) in a state body that has no existing entry action. |
 | `add_sequence` | `owner`, `keyword`, `ref?`, `member_kind?`, `member_name?`, `type?`, `after?` | A `first <ref>;`, `then <ref>;` or `then <member_kind> <member_name> : <type>;` member in an action body's sequencing notation. Exactly one of `ref` and `member_kind` is set for `then`; `first` takes `ref` alone. With `after` naming a member of the body, the member is written right after it: it sequences from that member, and a `then` that previously followed it now sequences from the new member. |
+| `add_sequence` action-body items | `condition?`, `value?`, `target?`, `via?`, `until?`, `body[]`, `else_body[]`, `multiplicity?`, `parameter?` | Recursive `accept`, `send`, `assign`, `if`, `while`, `loop`, `for` and `terminate` items, plus guarded `if <guard> then <ref>;` and `else <ref>;`. Nested items use the same message with no `owner` or `after`. An empty else body means no `else`; an explicit empty `else { }` is not authorable. Empty action bodies, including an `if` then-branch, write `{ }`. |
 
 `type` is accepted only for connection kinds that permit a typing target.
 `add_connection` requires both the `authoring` and `connection_authoring` capabilities.
 `add_satisfy` requires `authoring` and `satisfy_authoring`; `add_requirement_constraint` requires
 `authoring` and `requirement_constraint_authoring`; transition edits require `authoring` and
-`transition_authoring`; sequence edits require `authoring` and `sequence_authoring`. An `add_member` edit with any new modifier or
+`transition_authoring`; existing sequence edits require `authoring` and `sequence_authoring`, and
+action-body items or source-end multiplicities additionally require
+`action_body_statement_authoring`. Action-body statements follow SysML.xtext:1368, 1442–1641;
+succession ends follow 878, 887, 1703, 1708 and 1714; the settled semantics are in
+formal/2026-03-02. An `add_member` edit with any new modifier or
 the `ref`/`return` kind also requires `member_modifiers`. An `add_member` edit with an empty `kind` writes a
 directed usage with no kind keyword (`in x : T;`) — direction is required and `abstract` is refused — and
 requires `authoring` and `implicit_parameters`. Clients preflight these capabilities
@@ -122,10 +127,10 @@ Regular transitions always write `first <source>` and may add at most one `accep
 `if <guard>` and one `do <effect>` clause, in that order. An entry transition has no name, source or
 clauses, and is refused when the state already has an entry action.
 
-Sequence edits write the `first`/`then` forms above and no others: `then` cannot introduce an
-`accept`, `send`, `assign`, `if`, `while`, `for` or `terminate` member, a guarded `if <g> then <x>;`,
-an `else` branch, a two-ended `first a then b;` (write it with `add_connection`/`add_succession`), or
-a source end carrying multiplicity.
+The original `add_sequence` forms write the `first`/`then` forms above; the extended fields add the
+action-body forms in the table without another `EditOperation` case. Source multiplicity may be
+written as `then [m] <member>;` or `[m] then <ref>;`; non-unit values receive the existing
+`end-feature-multiplicity` warning at the source end.
 
 ```go
 result, err := client.ApplyEdits(ctx, model, opensysml.Rename{Target: "Lib::Engine", NewName: "Motor"})

@@ -44,7 +44,7 @@ from opensysml.conversion import (
     ExperimentalFeatureWarning,
     format_of_path, is_experimental,
 )
-from opensysml.edit import AppliedEdit, EditedDocument, EditResult, Editor
+from opensysml.edit import AppliedEdit, Body, EditedDocument, EditResult, Editor
 from opensysml.errors import (
     OpenSysMLError, AnalysisRunError, ChecksumMismatchError, ConnectionError, ConversionError,
     EditError, EditResultError, EditTargetError, ExecutionError,
@@ -71,7 +71,7 @@ __all__ = [
     "Conversion", "FORMAT_API_JSON", "FORMAT_SYSML", "FORMAT_TURTLE",
     "format_of_path",
     "ExperimentalFeatureWarning", "is_experimental",
-    "Editor", "EditResult", "AppliedEdit", "EditedDocument", "Referrer",
+    "Editor", "Body", "EditResult", "AppliedEdit", "EditedDocument", "Referrer",
     "Verdict", "CalcResult", "AnalysisResult", "CaseEvaluation", "SweepRow", "SweepTable",
     "Validation", "VerificationVerdict",
     "Exploration", "Outcome",
