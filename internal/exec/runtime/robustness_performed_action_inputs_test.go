@@ -173,12 +173,13 @@ func testDeclaredBehaviorStartFailsUnbound(t *testing.T) {
 
 func testNestedActionParameterMultiplicity(t *testing.T) {
 	for _, tc := range []struct {
-		name, outerMult, innerMult string
-		wantErr                    error
+		name, outerMult, innerMult, action string
+		checkTargets                       bool
+		wantErr                            error
 	}{
-		{name: "bare parameters admit no input"},
-		{name: "required inner rejects no input", innerMult: "[1]", wantErr: ErrMultiplicityViolation},
-		{name: "required outer remains unbound", outerMult: "[1]", wantErr: ErrUnboundParameter},
+		{name: "bare parameters admit no input", action: "Outer", checkTargets: true},
+		{name: "required inner rejects no input", innerMult: "[1]", action: "Outer", wantErr: ErrMultiplicityViolation},
+		{name: "required outer remains unbound", outerMult: "[1]", action: "Runner", wantErr: ErrUnboundParameter},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			src := `package test {
@@ -199,16 +200,12 @@ func testNestedActionParameterMultiplicity(t *testing.T) {
 			}
 			}`
 			idx, _, ctx := buildRuntimeWithLibraries(t, "<test>", parseAndBuild(t, src))
-			actionName := "Outer"
-			if tc.wantErr == ErrUnboundParameter {
-				actionName = "Runner"
-			}
-			_, err := ctx.ExecuteAction(oneSymbol(t, idx, "test::"+actionName))
+			_, err := ctx.ExecuteAction(oneSymbol(t, idx, "test::"+tc.action))
 			if tc.wantErr == nil {
 				if err != nil {
-					t.Fatalf("ExecuteAction(%s) = %v, want success", actionName, err)
+					t.Fatalf("ExecuteAction(%s) = %v, want success", tc.action, err)
 				}
-				if tc.name == "bare parameters admit no input" {
+				if tc.checkTargets {
 					found := false
 					for key, target := range ctx.model.writeTargets {
 						if key.name != "bread" || target == nil {
@@ -233,7 +230,7 @@ func testNestedActionParameterMultiplicity(t *testing.T) {
 				return
 			}
 			if !errors.Is(err, tc.wantErr) {
-				t.Fatalf("ExecuteAction(%s) = %v, want %v", actionName, err, tc.wantErr)
+				t.Fatalf("ExecuteAction(%s) = %v, want %v", tc.action, err, tc.wantErr)
 			}
 		})
 	}
