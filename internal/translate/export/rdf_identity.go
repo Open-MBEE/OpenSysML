@@ -58,6 +58,41 @@ type identityFacts struct {
 	localOf map[string]string
 }
 
+// analyzeModel indexes the documents of one model together over the standard
+// library and resolves each, as a workspace does: a reference from one to an
+// element another declares resolves to it. A library file among them takes the
+// bundled one's place, as it does for analyzeDocument.
+func analyzeModel(documents []ModelDocument) (*resolve.Resolver, *semantics.Model) {
+	idx := libs.NewModelIndex()
+	for _, doc := range documents {
+		name, digest := doc.File.Name(), symbols.TextDigest(doc.File.Bytes())
+		library := ""
+		if lib, _, ok := idx.LibraryDocumentByDigest(digest); ok && idx.DocumentKind(lib) == doc.File.Kind() {
+			library = lib
+		}
+		if library == "" {
+			library = documentLibrary(doc.File, doc.Root)
+		}
+		tier := idx.DocumentLibraryTier(library)
+		if tier.Library() {
+			idx.RemoveDocument(library)
+		}
+		idx.AddDocumentWithKind(name, doc.Root, doc.File.Kind())
+		if tier.Library() {
+			idx.MarkLibraryDocument(name, symbols.LibraryDocument{Tier: tier, Digest: digest})
+		}
+	}
+	// What a wildcard import re-exports is registered once every document is in.
+	idx.ExpandWildcardImports()
+	res := resolve.New(idx)
+	model := semantics.NewModel(res)
+	res.SetModel(model)
+	for _, doc := range documents {
+		res.ResolveDocument(doc.File.Name(), doc.Root)
+	}
+	return res, model
+}
+
 // analyzeDocument indexes one parsed document over the standard library and resolves every
 // name it writes; a library file, or a copy in its language rooted at its packages, takes the bundled one's place.
 func analyzeDocument(file *source.SourceFile, root *ast.RootNamespace, library string) (*resolve.Resolver, *semantics.Model) {

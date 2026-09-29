@@ -7,6 +7,7 @@ import (
 	"unicode"
 
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/resolve"
+	"github.com/Open-MBEE/OpenSysML/internal/semantic/semantics"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/symbols"
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/ast"
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/lexer"
@@ -100,6 +101,9 @@ const (
 	xSourceText     = "sourceText"
 	xSourceTail     = "sourceTail"
 	xSourceLanguage = "sourceLanguage"
+	// xSourceDocument names the document a root element was written in, when
+	// several documents are converted as one model.
+	xSourceDocument = "sourceDocument"
 	xFilter         = "filter"
 	// xIsConstructor is only read: an older graph flags `new` on an InvocationExpression.
 	xIsConstructor = "isConstructor"
@@ -242,6 +246,87 @@ func ToRDFWith(file *source.SourceFile, root *ast.RootNamespace, form IDForm) (*
 	return e.graph, nil
 }
 
+// ModelDocument is one parsed document of a model converted as a whole.
+type ModelDocument struct {
+	File *source.SourceFile
+	Root *ast.RootNamespace
+}
+
+// modelEncoders are the encoders of one model's documents, over one analysis.
+type modelEncoders struct {
+	// declaring is the encoder of the document that declares each node.
+	declaring map[ast.Node]*encoder
+}
+
+// declares reports whether node is declared by one of the model's documents.
+func (m *modelEncoders) declares(node ast.Node) bool {
+	return m != nil && m.declaring[node] != nil
+}
+
+// siblingElement is the qualified name of an element another document of the
+// model declares, as that document's encoder names it, whose identity this
+// document then links it by: the same subject that document writes.
+func (e *encoder) siblingElement(sym *symbols.Symbol) (string, bool) {
+	owner := e.model.declaringEncoder(sym.Decl)
+	if owner == nil || owner == e {
+		return "", false
+	}
+	fqn := owner.fqn[sym.Decl]
+	if name, _ := declaredNameAndMembers(sym.Decl); name == "" && !sym.EffectiveName() {
+		return "", false
+	}
+	if el, ok := owner.ids.byNode[sym.Decl]; ok {
+		e.ids.byNode[sym.Decl] = el
+	}
+	return fqn, true
+}
+
+func (m *modelEncoders) declaringEncoder(node ast.Node) *encoder {
+	if m == nil {
+		return nil
+	}
+	return m.declaring[node]
+}
+
+// ModelToRDFWith converts the documents of one model to a single graph. They are
+// analyzed together, as a workspace analyzes them, and a reference from one
+// document to an element another declares links the subject that document
+// writes for it, as a reference within one document does. Each document's
+// root elements name it (sysx:sourceDocument), since one graph no longer keeps
+// the documents apart.
+func ModelToRDFWith(documents []ModelDocument, form IDForm) (*rdf.Graph, error) {
+	res, model := analyzeModel(documents)
+	shared := &modelEncoders{declaring: map[ast.Node]*encoder{}}
+	encoders := make([]*encoder, len(documents))
+	for i, doc := range documents {
+		e, err := newEncoderOver(doc.File, doc.Root, form, res, model)
+		if err != nil {
+			return nil, fmt.Errorf("%s: %w", doc.File.Name(), err)
+		}
+		e.model = shared
+		for node := range e.fqn {
+			shared.declaring[node] = e
+		}
+		encoders[i] = e
+	}
+	out := rdf.NewGraph()
+	for i, e := range encoders {
+		if err := e.encodeDocument(documents[i].Root); err != nil {
+			return nil, fmt.Errorf("%s: %w", documents[i].File.Name(), err)
+		}
+		for prefix, ns := range e.graph.Prefixes {
+			out.Prefixes[prefix] = ns
+		}
+		for _, triple := range e.graph.Triples() {
+			out.AddTriple(triple)
+			if triple.Predicate.Value == rdf.OpenSysML+xSourceLanguage {
+				out.Add(triple.Subject, rdf.OpenSysMLTerm(xSourceDocument), rdf.String(documents[i].File.Name()))
+			}
+		}
+	}
+	return out, nil
+}
+
 // encodeDocument converts a parsed document, returning the encoder that holds
 // the graph and where in file each element was written; library is as for analyzeDocument.
 func encodeDocument(file *source.SourceFile, root *ast.RootNamespace, library string, form IDForm) (*encoder, error) {
@@ -252,20 +337,28 @@ func encodeDocument(file *source.SourceFile, root *ast.RootNamespace, library st
 	if err != nil {
 		return nil, err
 	}
-	e.src = newAuthoredSource(file)
-	if err := e.encode(root.Members, "", rdf.Term{}); err != nil {
+	if err := e.encodeDocument(root); err != nil {
 		return nil, err
+	}
+	return e, nil
+}
+
+// encodeDocument writes the graph of the document the encoder was made for.
+func (e *encoder) encodeDocument(root *ast.RootNamespace) error {
+	e.src = newAuthoredSource(e.file)
+	if err := e.encode(root.Members, "", rdf.Term{}); err != nil {
+		return err
 	}
 	e.importedMemberships()
 	e.materializeNormative()
 	if e.idErr != nil {
-		return nil, e.idErr
+		return e.idErr
 	}
 	e.sourceText()
 	if err := rdf.AnnotateCollections(e.graph); err != nil {
-		return nil, err
+		return err
 	}
-	return e, nil
+	return nil
 }
 
 // languageName is the name a document's grammar is recorded under on its roots,
@@ -304,6 +397,12 @@ func (e *encoder) sourceText() {
 // records each member's qualified name, so references can be told from names.
 func newEncoder(file *source.SourceFile, root *ast.RootNamespace, library string, form IDForm) (*encoder, error) {
 	res, model := analyzeDocument(file, root, library)
+	return newEncoderOver(file, root, form, res, model)
+}
+
+// newEncoderOver is newEncoder over an analysis already made: one document's,
+// or a whole model's (analyzeModel).
+func newEncoderOver(file *source.SourceFile, root *ast.RootNamespace, form IDForm, res *resolve.Resolver, model *semantics.Model) (*encoder, error) {
 	ids, err := documentIdentity(file.Name(), res, model, form)
 	if err != nil {
 		return nil, err
@@ -339,7 +438,10 @@ func newEncoder(file *source.SourceFile, root *ast.RootNamespace, library string
 }
 
 type encoder struct {
-	file *source.SourceFile
+	// model, when the document is converted as one of a model's documents,
+	// holds the encoder of every document, for the elements the others declare.
+	model *modelEncoders
+	file  *source.SourceFile
 	// src is the text of file as written, which is what sysx:sourceText carries.
 	src   *authoredSource
 	graph *rdf.Graph
@@ -484,7 +586,9 @@ func (e *encoder) importedMembership(name *ast.QualifiedName) rdf.Term {
 			return e.ids.subjectForNode(decl, fqn)
 		}
 		membership := e.ids.owningMembershipOf(decl, e.ids.subjectForNode(decl, fqn))
-		if _, minted := e.subjects[membership.Value]; minted || e.ids.normativeMembership(decl) {
+		// A membership minted here, a library element's normative one, or one
+		// another document of the model mints for what it declares.
+		if _, minted := e.subjects[membership.Value]; minted || e.ids.normativeMembership(decl) || e.model.declares(decl) {
 			return membership
 		}
 	}
@@ -2322,6 +2426,9 @@ func (e *encoder) linked(sym *symbols.Symbol, ok bool) (ast.Node, string, bool) 
 	}
 	fqn, declared := e.fqn[sym.Decl]
 	if !declared {
+		if fqn, ok := e.siblingElement(sym); ok {
+			return sym.Decl, fqn, true
+		}
 		if fqn, declared = e.ids.libraryElement(sym); !declared {
 			return nil, "", false
 		}

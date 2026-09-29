@@ -203,6 +203,37 @@ func Convert(name string, data []byte, from, to Format) ([]byte, error) {
 	return ConvertWith(name, data, from, to, Options{})
 }
 
+// Input is one named document of a model converted as a whole.
+type Input struct {
+	Name string
+	Data []byte
+}
+
+// ConvertModel converts the notation of several documents, one model, to one
+// graph written in to (Turtle or the API's JSON element form): a reference
+// from one document to an element another declares links it, as within one
+// document. A document that does not parse fails the conversion.
+func ConvertModel(inputs []Input, to Format, opts Options) ([]byte, error) {
+	if to != FormatTurtle && to != FormatAPIJSON {
+		return nil, fmt.Errorf("a model of several documents converts to %s or %s, not %s", FormatTurtle, FormatAPIJSON, to)
+	}
+	documents := make([]export.ModelDocument, 0, len(inputs))
+	for _, input := range inputs {
+		file := source.New(input.Name, input.Data)
+		p := parser.New(file)
+		root := p.ParseFile()
+		if err := syntaxError(input.Name, file, p); err != nil {
+			return nil, err
+		}
+		documents = append(documents, export.ModelDocument{File: file, Root: root})
+	}
+	graph, err := export.ModelToRDFWith(documents, opts.ID)
+	if err != nil {
+		return nil, err
+	}
+	return FromGraph(graph, to)
+}
+
 // ConvertWith is Convert under non-default options.
 func ConvertWith(name string, data []byte, from, to Format, opts Options) ([]byte, error) {
 	out, _, err := convert(name, data, from, to, false, opts)
