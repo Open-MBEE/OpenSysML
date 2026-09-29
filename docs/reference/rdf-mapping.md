@@ -466,8 +466,14 @@ triples come); a set of classes with no such member is refused, naming the subje
   and `sysx:declaredKeyword` `"@"` or `"#"` for the sigil it was written with
   (`metadata` is the absence of both). The body's members are its owned members
   like any other body's: a value binding (`level = 2;`) is a `sysml:ReferenceUsage`
-  carrying `sysml:value`, a redefinition (`:>> level = 3;`) carries
-  `sysml:redefines`, a nested feature keeps its own kind, and `sysx:memberIndex`
+  carrying `sysml:value` and no `sysml:declaredName`, owning one
+  `sysml:redefines`/Redefinition of the metadata definition's feature — a
+  `MetadataBodyUsage`'s name is the redefinition's target, not a declared name
+  (SysML.xtext) — and flagged `sysx:isRedefinitionImplicit` so the bare form
+  reads back; a name resolving to no feature of the metadata type keeps its
+  `sysml:declaredName` and owns no redefinition, a stated redefinition
+  (`:>> level = 3;`) carries `sysml:redefines`, a nested feature keeps its
+  own kind, and `sysx:memberIndex`
   orders them. A `#` prefix is an owned member of the declaration it prefixes,
   indexed after the body's members so their indices are the same with or without
   it, and is written back at the head of that declaration rather than in its body,
@@ -509,6 +515,7 @@ The `sysx:` properties:
 | `sysx:bodyParameter`, `sysx:bodyMember` | The `in` parameters an expression body declares, each a node carrying its name, type, bounds and value, and the other declarations it makes ahead of its result, each a node typed by its own metaclass and carrying what a member declaration carries. Both share one `sysx:memberIndex` sequence, the order they were written in. |
 | `sysx:declaredId` | The element's id came from an explicit `@IdentityMetadata::ElementId` annotation, see [Element identity](#element-identity). |
 | `sysx:projectId`, `sysx:branch`, `sysx:org` | The `@IdentityMetadata::ProjectRef` provenance of a scope root, see [Element identity](#element-identity). |
+| `sysx:isRedefinitionImplicit` | A metadata body's bare `name = …` owns a Redefinition of the metadata definition's feature of that name (SysML.xtext `MetadataBodyUsage`): the name is no declared name but the redefinition's target, flagged implicit so the graph writes the bare form back rather than `:>> name` or a declared name. A body name resolving to no feature of the metadata type keeps its `sysml:declaredName` and owns none. |
 | `sysx:isKindImplicit` | The declaration wrote no kind keyword (`in x : Real;`), which takes its kind from its owner. Without it the canonical keyword would come back written out, declaring what the author did not. A kind named in a comment in the head (`in /* attribute */ x : Real;`) is trivia, not a keyword the declaration wrote. |
 | the behavioral properties | `sysx:guard`, `sysx:expression`, `sysx:payload`, … — the parts of a behavioral node the vocabulary has no predicate for, listed under [Behavior](#behavior). |
 

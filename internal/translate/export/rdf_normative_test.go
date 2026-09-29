@@ -516,3 +516,33 @@ func TestReferentMembershipIDCollisionIsRefused(t *testing.T) {
 		t.Fatalf("want an UnsupportedError, got %v", e.idErr)
 	}
 }
+
+// A metadata body's bare `a = …` owns the Redefinition of the metadata
+// definition's feature it names, flagged implicit rather than declared.
+func TestNormativeImplicitMetadataBodyRedefinition(t *testing.T) {
+	graph := normativeGraph(t, `package P {
+		metadata def M { attribute a; }
+		part def C {
+			metadata M { a = 1; }
+		}
+	}`)
+	member := elmt("P__C___400__a")
+	target := elmt("P__M__a")
+	if name := graph.Objects(member, rdf.SysML+pDeclaredName); len(name) != 0 {
+		t.Fatalf("the body member declares %v", name)
+	}
+	stated := objects(graph, member.Value, "redefines")
+	if len(stated) != 1 || stated[0].Value != target.Value {
+		t.Fatalf("redefines = %v, want %s", stated, target.Value)
+	}
+	if flag := graph.Objects(member, rdf.OpenSysML+xImplicitRedefinition); len(flag) != 1 || flag[0] != rdf.Bool(true) {
+		t.Fatalf("no sysx:%s on %s", xImplicitRedefinition, member.Value)
+	}
+	rels := objects(graph, member.Value, "ownedRedefinition")
+	if len(rels) != 1 {
+		t.Fatalf("ownedRedefinition %v", rels)
+	}
+	assertEnds(t, graph, rels[0], "Redefinition", member, target,
+		[]string{"redefiningFeature", "subsettingFeature", "owningFeature"},
+		[]string{"redefinedFeature", "subsettedFeature", "general"})
+}

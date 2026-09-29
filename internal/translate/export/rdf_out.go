@@ -6,6 +6,7 @@ import (
 	"strings"
 	"unicode"
 
+	"github.com/Open-MBEE/OpenSysML/internal/semantic/identity"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/resolve"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/symbols"
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/ast"
@@ -108,11 +109,15 @@ const (
 	xDeclaredKeyword = "declaredKeyword"
 	xDeclaredPrefix  = "declaredPrefix"
 	xImplicitKind    = "isKindImplicit"
-	xCondition       = "condition"
-	xRelatedFeature  = "relatedFeature"
-	xEndIndex        = "endIndex"
-	xEndRole         = "endRole"
-	xEndName         = "endName"
+	// xImplicitRedefinition flags a metadata body's `name = …` member: the
+	// name is no declared name but the target of an owned Redefinition
+	// (SysML.xtext MetadataBodyUsage).
+	xImplicitRedefinition = "isRedefinitionImplicit"
+	xCondition            = "condition"
+	xRelatedFeature       = "relatedFeature"
+	xEndIndex             = "endIndex"
+	xEndRole              = "endRole"
+	xEndName              = "endName"
 	// The ReferencesKeyword a named end spells, when it is not `::>`.
 	xEndReferencesKeyword = "endReferencesKeyword"
 	xEndForm              = "endForm"
@@ -980,9 +985,18 @@ func (e *encoder) encodeMember(h memberHead, owner string) error {
 				e.verifiedReferences[subject] = true
 			}
 		}
+		implicitTarget := e.implicitMetadataBodyTarget(inBody, n)
 		head(rdf.SysMLTerm(metaclass))
 		if !shorthandRelationship(n) {
-			e.ident(subject, n.Ident)
+			if implicitTarget.Value != "" {
+				// A metadata body's `name = …` redefines the metadata
+				// definition's feature of that name; it declares none.
+				if n.Ident.ShortName != "" {
+					e.graph.Add(subject, e.sysml(pDeclaredShortName), rdf.String(n.Ident.ShortName))
+				}
+			} else {
+				e.ident(subject, n.Ident)
+			}
 		}
 		switch {
 		case verbatimUsage(n):
@@ -1065,6 +1079,10 @@ func (e *encoder) encodeMember(h memberHead, owner string) error {
 		}
 		if err := e.crossFeature(subject, fqn, n); err != nil {
 			return err
+		}
+		if implicitTarget.Value != "" {
+			e.graph.Add(subject, e.sysml(relationshipProperty[ast.RelRedefines]), implicitTarget)
+			e.graph.Add(subject, e.sysx(xImplicitRedefinition), rdf.Bool(true))
 		}
 		if err := e.featureValue(subject, within, n.Value, n.ValueIsDefault, n.ValueIsInitial); err != nil {
 			return err
@@ -1895,6 +1913,42 @@ func (e *encoder) documentation(subject rdf.Term, n *ast.Documentation) {
 		e.graph.Add(subject, e.sysml(pLocale), rdf.String(source.StringValue(n.Locale)))
 	}
 	e.graph.Add(subject, e.sysml(pBody), rdf.String(commentBody(e.src.slice(n.BodySpan))))
+}
+
+// implicitMetadataBodyTarget is the term of the feature a metadata body's bare
+// `name = …` member implicitly redefines (SysML.xtext MetadataBodyUsage: the
+// name is no declared name but the target of an owned Redefinition), or the
+// zero term when the member states a redefinition of its own or the name is no
+// feature of the metadata type.
+func (e *encoder) implicitMetadataBodyTarget(inBody bool, n *ast.Usage) rdf.Term {
+	if !inBody {
+		return rdf.Term{}
+	}
+	for _, rel := range n.Relationships {
+		if rel != nil && rel.Kind == ast.RelRedefines {
+			return rdf.Term{}
+		}
+	}
+	sym := e.ids.declSym[n]
+	if sym == nil {
+		return rdf.Term{}
+	}
+	owner := e.res.MetadataBodyOwner(sym.OwnerScope)
+	target := symbols.MetadataBodyTarget(e.ids.model, owner, n.Ident)
+	if target == nil || target == sym {
+		return rdf.Term{}
+	}
+	if decl, fqn, ok := e.linked(target, true); ok {
+		return e.ids.subjectForNode(decl, fqn)
+	}
+	// The member's own identity already claims a normative target's qualified
+	// name, which linked refuses to repeat; name its IRI as a reference does.
+	info, ok := identity.Of(e.ids.model, e.res, target)
+	if !ok || info.Source != identity.SourceNormative {
+		return rdf.Term{}
+	}
+	el := elementIdentity{id: info.EffectiveID, source: info.Source, membership: info.OwningMembershipID()}
+	return e.ids.subjectOf(el, info.FQN)
 }
 
 func (e *encoder) ident(subject rdf.Term, ident ast.Identification) {

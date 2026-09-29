@@ -1788,10 +1788,24 @@ func (d *decoder) usageHead(el *element, kind ast.UsageKind) (string, error) {
 	// A reference usage owned by a metadata usage is a metadata body member
 	// (`text = "…"`, SysML.xtext MetadataBodyUsage); a kind keyword has no
 	// notation there even when the graph states none as implicit.
-	if d.metadataBodyMember(el) {
+	metadataBody := d.metadataBodyMember(el)
+	if metadataBody {
 		keyword = ""
 	}
 	identWords := d.identWords(el)
+	// A metadata body's `name = …` member is written bare: its name is the
+	// feature its implicit Redefinition targets, no declared name and no `:>>`
+	// (SysML.xtext MetadataBodyUsage). Without the flag an older graph's
+	// declared name keeps the `name = …` shape it always had.
+	implicitName := ""
+	if d.boolOf(el, rdf.OpenSysML+xImplicitRedefinition) {
+		if implicitName, err = d.implicitRedefinitionName(el); err != nil {
+			return "", err
+		}
+		if implicitName != "" {
+			identWords = append(identWords, implicitName)
+		}
+	}
 	references, err := d.referenceList(el, rdf.SysML+relationshipProperty[ast.RelReferences])
 	if err != nil {
 		return "", err
@@ -1963,6 +1977,9 @@ func (d *decoder) usageHead(el *element, kind ast.UsageKind) (string, error) {
 	// member declares a usage, spelling out the kind keyword (SysML.xtext
 	// ViewRenderingUsage, FramedConcernUsage) even when it declares no name.
 	var skip []ast.RelationshipKind
+	if implicitName != "" {
+		skip = append(skip, ast.RelRedefines)
+	}
 	if endForm == formEquals {
 		// The bound feature is an end of the binding, written by the ends
 		// notation rather than as a `references` clause.
@@ -2742,6 +2759,29 @@ func (d *decoder) keywordOr(el *element, canonical string) string {
 		return ""
 	}
 	return canonical
+}
+
+// implicitRedefinitionName is the name a metadata body's `name = …` member
+// writes: the name of the one feature its implicit Redefinition targets, or
+// "" when the member redefines none or several — which the notation cannot
+// write bare, so the `:>>` form stays.
+func (d *decoder) implicitRedefinitionName(el *element) (string, error) {
+	terms := d.graph.Objects(rdf.IRI(el.iri), rdf.SysML+relationshipProperty[ast.RelRedefines])
+	if len(terms) != 1 {
+		return "", nil
+	}
+	if terms[0].IsLiteral() {
+		segments, ok := source.QualifiedNameSegments(terms[0].Value)
+		if !ok {
+			segments = strings.Split(terms[0].Value, "::")
+		}
+		return nameText(segments[len(segments)-1]), nil
+	}
+	_, name, err := d.namedMember(terms[0])
+	if err != nil {
+		return "", err
+	}
+	return nameText(name), nil
 }
 
 // metadataBodyMember reports whether el is a `text = "…"` line inside a
