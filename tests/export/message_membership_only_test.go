@@ -209,3 +209,59 @@ func TestPartlyLinkedMessageEndsRefuseADisagreeingOrder(t *testing.T) {
 		t.Errorf("the refusal should name the disagreement:\n%v", err)
 	}
 }
+
+// messageIndexes sets sysx:memberIndex on each end's membership in order.
+func messageIndexes(graph *rdf.Graph, indexes ...int) *rdf.Graph {
+	out := rdf.NewGraph()
+	out.Prefixes = graph.Prefixes
+	for _, triple := range graph.Triples() {
+		out.AddTriple(triple)
+	}
+	for i, index := range indexes {
+		out.AddTriple(rdf.Triple{
+			Subject:   rdf.IRI(rdf.Expression + "M__Talk__m_pend" + string(rune('0'+i)) + "_om"),
+			Predicate: rdf.OpenSysMLTerm("memberIndex"),
+			Object:    rdf.Int(index),
+		})
+	}
+	return out
+}
+
+func TestPartlyLinkedMessageEndsRefuseDuplicateIndexes(t *testing.T) {
+	graph := partlyLinkedMessage(t)
+	stripped := withoutFlowTriples(graph, messageFlow(graph), "sourceFeature", "targetFeature", "relatedFeature")
+	stripped = messageIndexes(stripped, 0, 0)
+	_, err := convert.Convert("m.ttl", rdf.WriteTurtle(stripped), convert.FormatTurtle, convert.FormatSysML)
+	var unsupported *export.UnsupportedError
+	if !errors.As(err, &unsupported) {
+		t.Fatalf("expected an UnsupportedError, got %v", err)
+	}
+}
+
+func TestPartlyLinkedMessageEndsRefuseAMalformedIndex(t *testing.T) {
+	graph := partlyLinkedMessage(t)
+	stripped := withoutFlowTriples(graph, messageFlow(graph), "sourceFeature", "targetFeature", "relatedFeature")
+	stripped = messageIndexes(stripped, 0, 1)
+	stripped.AddTriple(rdf.Triple{
+		Subject:   rdf.IRI(rdf.Expression + "M__Talk__m_pend1_om"),
+		Predicate: rdf.OpenSysMLTerm("memberIndex"),
+		Object:    rdf.String("x"),
+	})
+	_, err := convert.Convert("m.ttl", rdf.WriteTurtle(stripped), convert.FormatTurtle, convert.FormatSysML)
+	var unsupported *export.UnsupportedError
+	if !errors.As(err, &unsupported) {
+		t.Fatalf("expected an UnsupportedError, got %v", err)
+	}
+}
+
+func TestPartlyLinkedMessageEndsFallBackToSourceAndTarget(t *testing.T) {
+	graph := partlyLinkedMessage(t)
+	stripped := messageIndexes(graph, 0, 0)
+	back, err := convert.Convert("m.ttl", rdf.WriteTurtle(stripped), convert.FormatTurtle, convert.FormatSysML)
+	if err != nil {
+		t.Fatalf("back to notation: %v", err)
+	}
+	if !strings.Contains(string(back), "message m from a to b;\n") {
+		t.Errorf("the source and target did not order the ends:\n%s", back)
+	}
+}

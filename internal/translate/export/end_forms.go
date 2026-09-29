@@ -3,6 +3,7 @@ package export
 import (
 	"fmt"
 	"slices"
+	"strconv"
 	"strings"
 
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/ast"
@@ -588,22 +589,30 @@ func (d *decoder) messageEnds(el *element) ([]rdf.Term, error) {
 	}
 
 	// byIndex orders the ends by the position each membership, or else its
-	// member, states.
-	indexOf := func(i int) (int, bool) {
-		if d.graph.HasProperty(memberships[i], rdf.OpenSysML+xMemberIndex) {
-			return intOf(d.graph, memberships[i], rdf.OpenSysML+xMemberIndex), true
+	// member, states. A value present but not an integer is no index at all,
+	// and ends tied at one index have no order.
+	indexOf := func(term rdf.Term) (int, bool) {
+		value, ok := d.graph.Lexical(term, rdf.OpenSysML+xMemberIndex)
+		if !ok {
+			return 0, false
 		}
-		if d.graph.HasProperty(ends[i], rdf.OpenSysML+xMemberIndex) {
-			return intOf(d.graph, ends[i], rdf.OpenSysML+xMemberIndex), true
-		}
-		return 0, false
+		n, err := strconv.Atoi(value)
+		return n, err == nil
 	}
 	byIndex := len(ends) > 0
+	seenIndex := map[int]bool{}
+	indexes := map[string]int{}
 	for i := range ends {
-		if _, ok := indexOf(i); !ok {
+		index, ok := indexOf(memberships[i])
+		if !ok {
+			index, ok = indexOf(ends[i])
+		}
+		if !ok || seenIndex[index] {
 			byIndex = false
 			break
 		}
+		seenIndex[index] = true
+		indexes[ends[i].Value] = index
 	}
 	// bySource orders the two ends by the flow's own sysml:sourceFeature and
 	// sysml:targetFeature, each end's referenced feature matching one.
@@ -644,10 +653,7 @@ func (d *decoder) messageEnds(el *element) ([]rdf.Term, error) {
 	if byIndex {
 		order := slices.Clone(ends)
 		slices.SortStableFunc(order, func(a, b rdf.Term) int {
-			ae, be := slices.Index(ends, a), slices.Index(ends, b)
-			ai, _ := indexOf(ae)
-			bi, _ := indexOf(be)
-			return ai - bi
+			return indexes[a.Value] - indexes[b.Value]
 		})
 		if bySource && !slices.Equal(order, sourceFirst) {
 			return nil, &UnsupportedError{
