@@ -155,20 +155,28 @@ func judgeSolved(values []Evaluation, asked int) (Claim, Strength, string) {
 // holds over every assignment of the free features.
 func judgeHeld(values []Evaluation, asked int) (Claim, Strength, string) {
 	violated := false
+	uncovered := ""
 	for i, v := range values {
 		if i >= asked {
-			return ClaimNone, NotCovered, v.Name + " was left unasked by the runs budget"
+			if uncovered == "" {
+				uncovered = v.Name + " was left unasked by the runs budget"
+			}
+			continue
 		}
 		c, s, reason := judgeOne(v, Holds)
 		switch {
-		case s == NotCovered:
-			return ClaimNone, NotCovered, reason
 		case c == ClaimViolated:
 			violated = true
+		case s == NotCovered && uncovered == "":
+			uncovered = reason
 		}
 	}
+	// A witnessed violation refutes the claim whatever the other queries say.
 	if violated {
 		return ClaimViolated, Witnessed, ""
+	}
+	if uncovered != "" {
+		return ClaimNone, NotCovered, uncovered
 	}
 	return ClaimHolds, Proved, ""
 }

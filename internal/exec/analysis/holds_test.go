@@ -323,3 +323,32 @@ func TestHoldsWithoutSolverErrors(t *testing.T) {
 		t.Fatalf("prove: %v, want the solver's absence", err)
 	}
 }
+
+// TestJudgeHeldLetsAWitnessedViolationDecide: a sat — replay-confirmed —
+// violation refutes the claim whatever the other queries answer, so it wins over
+// an undecided or an unasked query either side of it.
+func TestJudgeHeldLetsAWitnessedViolationDecide(t *testing.T) {
+	sat := Evaluation{Name: "sat", Solved: &solve.Result{Status: solve.StatusSat}}
+	unsat := Evaluation{Name: "unsat", Solved: &solve.Result{Status: solve.StatusUnsat, Query: &solve.Query{}}}
+	unknown := Evaluation{Name: "unknown", Solved: &solve.Result{Status: solve.StatusUnknown, Reason: "the solver gave up"}}
+	tests := []struct {
+		name   string
+		values []Evaluation
+		asked  int
+		claim  Claim
+	}{
+		{"witnessed then unknown", []Evaluation{sat, unknown}, 2, ClaimViolated},
+		{"unknown then witnessed", []Evaluation{unknown, sat}, 2, ClaimViolated},
+		{"witnessed then unasked", []Evaluation{sat, unknown}, 1, ClaimViolated},
+		{"proved then unknown", []Evaluation{unsat, unknown}, 2, ClaimNone},
+		{"all proved", []Evaluation{unsat, unsat}, 2, ClaimHolds},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			claim, _, _ := judgeHeld(tt.values, tt.asked)
+			if claim != tt.claim {
+				t.Errorf("judgeHeld is %s, want %s", claim, tt.claim)
+			}
+		})
+	}
+}
