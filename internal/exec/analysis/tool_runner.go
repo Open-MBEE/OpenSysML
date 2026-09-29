@@ -138,7 +138,7 @@ func refusalOf(plan Plan, tool string) error {
 // earlier call with the same request was answered another; the reply is compared as the
 // canonical rendering of every mapped output, not as any one action binds it.
 func (t *toolRunner) remember(call *runtime.ToolCall, answer string) (bool, error) {
-	request, err := ToolRequestOf(call)
+	request, err := canonicalRequestOf(call)
 	if err != nil {
 		return false, err
 	}

@@ -153,6 +153,11 @@ func (d *DryRunner) RunTool(call *runtime.ToolCall) (runtime.ToolAnswer, error) 
 				}
 				continue
 			}
+			// A built-in answers Covers of a question not theirs, so it can
+			// be passed without deciding the preview.
+			if !external && c.Covers(nil, q).Refusal != nil {
+				continue
+			}
 			return runtime.ToolAnswer{}, &PreviewUndecidedError{Engine: c.Name(), Tool: call.ToolName}
 		}
 		cov := c.Covers(nil, q)

@@ -182,7 +182,7 @@ package OpenSysMLPipeline {
     #SemanticEngine part def PassRegistry :> Stage {
         attribute :>> goPackage = "internal/check/passes";
         attribute tierCount : Integer = 4;
-        attribute passCount : Integer = 60;
+        attribute passCount : Integer = 61;
         attribute sortsByLevel : Boolean = true;
         attribute skipsDocumentScopedAboveFailure : Boolean = true;
 
@@ -234,6 +234,7 @@ package OpenSysMLPipeline {
         part typeRelationships : ConstraintCheck { attribute :>> goType = "TypeRelationshipsPass"; }
         part conjugatedSpecialization : TypeCheck { attribute :>> goType = "W11EConjugatedSpecializationPass"; }
         part implicitBase : ConstraintCheck { attribute :>> goType = "ImplicitBasePass"; }
+        part partUsageDefinition : ConstraintCheck { attribute :>> goType = "PartUsageDefinitionPass"; }
         part multiplicityBounds : ConstraintCheck { attribute :>> goType = "MultiplicityBoundsPass"; }
         part referenceSubsetting : ConstraintCheck { attribute :>> goType = "ReferenceSubsettingPass"; }
         part topLevelImports : ConstraintCheck { attribute :>> goType = "TopLevelImportPass"; }
@@ -591,6 +592,18 @@ package OpenSysMLPipeline {
         attribute :>> adapts = "internal/exec/smt";
     }
 
+    // An FMU's model description behind the fmi/1 runner protocol; registered
+    // whether or not OPENSYSML_FMI_RUNNER names a runner, and refusing through
+    // coverage when none is.
+    part def FmiEngine :> AnalysisEngine {
+        attribute :>> engineName = "tool:fmi";
+        attribute :>> answers = "compute";
+        attribute :>> bounds = "tool";
+        attribute :>> authority = "observed";
+        attribute :>> needsProcess = true;
+        attribute :>> adapts = "internal/exec/fmi";
+    }
+
     // What can be asked of a subject, and what a question may leave free.
     part def QuestionKinds {
         attribute kinds : String = "evaluate, outcomes, holds, sensitive, satisfiable, sweep, compute";
@@ -613,8 +626,8 @@ package OpenSysMLPipeline {
     // framework's own and, assembled by internal/exec/engines, those of other packages.
     part def EngineRegistry :> CodeUnit {
         attribute :>> goPackage = "internal/exec/analysis";
-        attribute engineCount : Integer = 6;
-        attribute engineNames : String = "check, explore, run, smt, solve, sweep";
+        attribute engineCount : Integer = 7;
+        attribute engineNames : String = "check, explore, run, smt, solve, sweep, tool:fmi";
         attribute perOwner : Boolean = true;
         attribute refusesDuplicateNames : Boolean = true;
         attribute listsInNameOrder : Boolean = true;
@@ -629,7 +642,7 @@ package OpenSysMLPipeline {
         attribute strongestFirst : Boolean = true;
         // The default engines declaring each kind: outcomes has two, explore ranked over
         // check, and holds and sensitive two each, smt ranked over check.
-        attribute candidatesPerKind : String = "evaluate: 1, holds: 2, outcomes: 2, satisfiable: 1, sensitive: 2, sweep: 1";
+        attribute candidatesPerKind : String = "compute: 1, evaluate: 1, holds: 2, outcomes: 2, satisfiable: 1, sensitive: 2, sweep: 1";
         attribute advancesOnNotCovered : Boolean = true;
         attribute stopsOnFault : Boolean = true;
         attribute recordsEveryStep : Boolean = true;
@@ -679,6 +692,7 @@ package OpenSysMLPipeline {
         part explore : ExploreEngine;
         part check : CheckEngine;
         part sweep : SweepEngine;
+        part fmi : FmiEngine;
         part solve : SolveEngine;
         part smt : SmtEngine;
 

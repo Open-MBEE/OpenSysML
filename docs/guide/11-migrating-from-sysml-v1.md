@@ -304,14 +304,11 @@ migrated.
 
 ## Portable output with `-strict`
 
-By default a migration may write OpenSysML's own extensions — `defer <event>;` and the
-`choice`, `junction` and `history` pseudostates — which the runtime executes but no SysML v2
-production admits, so another tool would not read them. Pass `-strict` (see
+By default a migration may write OpenSysML's own pseudostate extensions — `choice`, `junction`
+and `history` — which the runtime executes but no SysML v2 production admits, so another tool
+would not read them. Pass `-strict` (see
 [Strict conformance](03-command-line.md#strict-conformance)) and the migration writes
-conforming SysML v2 only: a deferred signal becomes standard notation — an `item` buffer the
-state's do action fills from an accept loop while the state is active, substates included,
-and its exit action sends back to the object once the state is left — and each pseudostate
-extension is refused as **unmapped** instead:
+conforming SysML v2 only, each pseudostate extension refused as **unmapped** instead:
 
 ```console
 $ sysml Project.xmi -strict -convert sysml -o Project.sysml
@@ -319,12 +316,19 @@ $ sysml -strict -validate Project.sysml
 ✓ Project.sysml: no errors
 ```
 
-What a strict migration refuses, and how it encodes a deferred signal, is described in the
-reference under
+What a strict migration refuses is described in the reference under
 [Portable output with `-strict`](../reference/sysml-v1-migration.md#portable-output-with--strict).
-In both modes a state that defers a signal is annotated
-`@MigrationMetadata::DeferredEvent { ref :>> signal : Sig; }`, so a reader sees what was
-deferred without reading the encoding.
+
+A deferred signal is standard notation in both modes: the state gets an `item` buffer its do
+action fills from an accept loop while the state is active, substates included, and its exit
+action sends the kept occurrences back to the object once the state is left, so the state
+entered next takes them as if they had just arrived. The state is annotated
+`@MigrationMetadata::DeferredEvent { ref :>> signal : Sig; }` as well, so a reader sees what
+was deferred without reading the encoding; the encoding and its rules are described under
+[Deferred signals](../reference/sysml-v1-migration.md#deferred-signals). The one difference
+between the modes is which transitions take the signal: a transition out of the deferring
+state into a `choice` accepts it in the default migration, which writes both, while `-strict`
+refuses them and the state keeps the signal.
 
 ## Publishing a migrated document with Cameo-style diagrams
 

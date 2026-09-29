@@ -39,6 +39,7 @@ func TestListEnginesNamesEveryEngine(t *testing.T) {
 		{"smt", "proved", []string{"holds", "sensitive"}},
 		{"solve", "proved", []string{"satisfiable"}},
 		{"sweep", "observed", []string{"sweep"}},
+		{"tool:fmi", "observed", []string{"compute"}},
 	}
 	if len(resp.Engines) != len(want) {
 		t.Fatalf("engines = %v, want %d", resp.Engines, len(want))
@@ -48,11 +49,11 @@ func TestListEnginesNamesEveryEngine(t *testing.T) {
 		if got.Name != w.name || got.Authority != w.authority || strings.Join(got.Answers, ",") != strings.Join(w.answers, ",") {
 			t.Errorf("engine %d = %v, want %s %s %v", i, got, w.name, w.authority, w.answers)
 		}
-		if got.Name != "solve" && got.Name != "smt" && (!got.Ready || got.Process != "" || got.Unavailable != "") {
+		if got.Name != "solve" && got.Name != "smt" && got.Name != "tool:fmi" && (!got.Ready || got.Process != "" || got.Unavailable != "") {
 			t.Errorf("in-process engine %s = %v, want ready with no process", got.Name, got)
 		}
 	}
-	for _, external := range []*pb.EngineInfo{resp.Engines[3], resp.Engines[4]} {
+	for _, external := range []*pb.EngineInfo{resp.Engines[3], resp.Engines[4], resp.Engines[6]} {
 		if external.Process == "" || external.Ready == (external.Unavailable != "") {
 			t.Errorf("%s = %v, want a process and ready or a reason", external.Name, external)
 		}
@@ -375,6 +376,12 @@ func TestManifestEnginesAreListedButNotServedByDefault(t *testing.T) {
 		t.Fatal(err)
 	}
 	for _, e := range resp.Engines {
+		if e.Name == "tool:fmi" {
+			if e.Kind != "tool" || e.Protocol != "fmi/1" || !e.Served {
+				t.Errorf("tool:fmi = %v, want a tool kind listing its protocol, served", e)
+			}
+			continue
+		}
 		if e.Name != "standin" && (e.Kind != "built-in" || e.Protocol != "-" || e.Source != "" || !e.Served) {
 			t.Errorf("built-in %s = %v, want kind built-in, no protocol or source, served", e.Name, e)
 		}
