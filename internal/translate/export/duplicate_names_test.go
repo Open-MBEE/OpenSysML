@@ -204,21 +204,61 @@ func TestDuplicateMemberNamesRoundTrip(t *testing.T) {
 
 // TestDuplicateMemberNamesToolkit checks a graph carrying no qualified names —
 // the toolkit's interchange form — decodes two same-named members of one
-// namespace as two members, the later addressed by position.
+// namespace as two members, the later addressed by position. The order an
+// owner lists its ownedMembership is the order both the names and the
+// notation take, whatever order the elements themselves appear in: a comes
+// first in the list but second in the document, and still keeps P::A and
+// prints first.
 func TestDuplicateMemberNamesToolkit(t *testing.T) {
 	doc := `[
-		{"@type": "Package", "@id": "P", "declaredName": "P",
+		{"@type": "Package", "@id": "P", "declaredName": "P", "isImpliedIncluded": false,
 		 "ownedMembership": [{"@id": "m1"}, {"@id": "m2"}]},
-		{"@type": "OwningMembership", "@id": "m1",
+		{"@type": "OwningMembership", "@id": "m1", "isImpliedIncluded": false,
 		 "memberElement": {"@id": "a"}, "membershipOwningNamespace": {"@id": "P"}},
-		{"@type": "OwningMembership", "@id": "m2",
+		{"@type": "OwningMembership", "@id": "m2", "isImpliedIncluded": false,
 		 "memberElement": {"@id": "b"}, "membershipOwningNamespace": {"@id": "P"}},
-		{"@type": "PartDefinition", "@id": "a", "declaredName": "A"},
-		{"@type": "PartDefinition", "@id": "b", "declaredName": "A"}
+		{"@type": "PartDefinition", "@id": "b", "declaredName": "A", "isImpliedIncluded": false,
+		 "ownedMembership": [{"@id": "my"}]},
+		{"@type": "FeatureMembership", "@id": "my", "isImpliedIncluded": false,
+		 "memberElement": {"@id": "y"}, "membershipOwningNamespace": {"@id": "b"}},
+		{"@type": "AttributeUsage", "@id": "y", "declaredName": "y", "isImpliedIncluded": false},
+		{"@type": "PartDefinition", "@id": "a", "declaredName": "A", "isImpliedIncluded": false,
+		 "ownedMembership": [{"@id": "mx"}]},
+		{"@type": "FeatureMembership", "@id": "mx", "isImpliedIncluded": false,
+		 "memberElement": {"@id": "x"}, "membershipOwningNamespace": {"@id": "a"}},
+		{"@type": "AttributeUsage", "@id": "x", "declaredName": "x", "isImpliedIncluded": false}
 	]`
+	graph, err := ReadAPIJSON([]byte(doc))
+	if err != nil {
+		t.Fatalf("ReadAPIJSON: %v", err)
+	}
+	metaclasses, err := checkTypes(graph)
+	if err != nil {
+		t.Fatalf("checkTypes: %v", err)
+	}
+	normative, err := deriveNormativeGraph(graph, metaclasses)
+	if err != nil {
+		t.Fatalf("deriveNormativeGraph: %v", err)
+	}
+	qualified := map[string]string{}
+	for _, subject := range normative.Subjects() {
+		if name, ok := normative.Lexical(subject, rdf.SysML+pDeclaredName); ok {
+			qualified[name], _ = normative.Lexical(subject, rdf.SysML+pQualifiedName)
+		}
+	}
+	for name, want := range map[string]string{"x": "P::A::x", "y": "P::@1::y"} {
+		if qualified[name] != want {
+			t.Fatalf("%s has qualified name %q, want %q", name, qualified[name], want)
+		}
+	}
 	out := decodeAPIJSON(t, []byte(doc))
 	if n := strings.Count(string(out), "part def A"); n != 2 {
 		t.Fatalf("got %d `part def A`, want 2:\n%s", n, out)
+	}
+	xi := strings.Index(string(out), "x")
+	yi := strings.Index(string(out), "y")
+	if xi < 0 || yi < 0 || xi > yi {
+		t.Fatalf("the A owning x does not precede the A owning y:\n%s", out)
 	}
 }
 
