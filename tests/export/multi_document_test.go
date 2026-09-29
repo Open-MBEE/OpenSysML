@@ -544,3 +544,37 @@ func TestScopesInSeparateDocumentsQualifyTheirIDs(t *testing.T) {
 		}
 	}
 }
+
+// A part typed through an import chain reaches the element the chain declares:
+// `Engine` via a wildcard import, and `EngineFacade::Engine` qualified, both
+// type to the same EngineLib element.
+func TestATypeThroughAnImportChainLinksAcrossDocuments(t *testing.T) {
+	lib := []convert.Source{
+		{Name: "a.sysml", Data: []byte("package EngineLib { part def Engine; }\n")},
+		{Name: "b.sysml", Data: []byte("package EngineFacade { public import EngineLib::*; }\n")},
+	}
+	for _, form := range []string{
+		"package App { private import EngineFacade::*; part e : Engine; }\n",
+		"package App { part e : EngineFacade::Engine; }\n",
+	} {
+		docs := append(append([]convert.Source{}, lib...), convert.Source{Name: "c.sysml", Data: []byte(form)})
+
+		turtle, err := convert.ConvertDocuments(docs, convert.FormatTurtle, convert.Options{})
+		if err != nil {
+			t.Fatalf("ConvertDocuments: %v", err)
+		}
+		if !strings.Contains(string(turtle), "elmt:App__e") ||
+			!strings.Contains(string(turtle), "> elmt:EngineLib__Engine") {
+			t.Errorf("the Turtle of %q does not type e as EngineLib__Engine", form)
+		}
+
+		apiJSON, err := convert.ConvertDocuments(docs, convert.FormatAPIJSON, convert.Options{})
+		if err != nil {
+			t.Fatalf("ConvertDocuments to API JSON: %v", err)
+		}
+		if !strings.Contains(string(apiJSON), "\"App__e\"") ||
+			!strings.Contains(string(apiJSON), "\"EngineLib__Engine\"") {
+			t.Errorf("the API JSON of %q does not type e as EngineLib__Engine", form)
+		}
+	}
+}
