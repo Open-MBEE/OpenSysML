@@ -486,59 +486,76 @@ func (d *decoder) standardEndText(end rdf.Term, in *element) (string, error) {
 // representation, including the ownership-only shape accepted by standardEnds.
 func (d *decoder) standardEndFeatures(el *element) ([]rdf.Term, error) {
 	var terms []rdf.Term
-	appendUnique := func(term rdf.Term) {
-		if d.declaredChild(el, term) {
-			// An end the connector declares as a member is written in its
-			// body as `end`, not in its head: the abstract syntax is the same.
-			return
-		}
-		for _, prior := range terms {
-			if prior == term {
-				return
-			}
-		}
-		terms = append(terms, term)
-	}
-	for _, term := range d.graph.Objects(rdf.IRI(el.iri), rdf.SysML+pConnectorEnd) {
-		appendUnique(term)
-	}
-	if len(terms) == 0 {
-		for _, membership := range d.graph.Objects(rdf.IRI(el.iri), rdf.SysML+pOwnedFeatureMembership) {
-			if d.metaclass(membership) != mEndFeatureMembership {
-				continue
-			}
-			if member, ok := d.graph.Object(membership, rdf.SysML+pMemberElement); ok {
-				appendUnique(member)
-			}
-		}
-	}
-	if len(terms) == 0 {
-		ends, err := d.messageEnds(el)
+	for _, candidates := range []func(*element) ([]rdf.Term, error){
+		d.connectorEndTerms, d.endMembershipMembers, d.messageEnds, d.endMembershipFeatures, d.headEndChildren,
+	} {
+		ends, err := candidates(el)
 		if err != nil {
 			return nil, err
 		}
 		for _, end := range ends {
-			appendUnique(end)
+			terms = d.appendEnd(el, terms, end)
 		}
-	}
-	if len(terms) == 0 {
-		for _, feature := range d.graph.Objects(rdf.IRI(el.iri), rdf.SysML+pOwnedFeature) {
-			for _, membership := range d.graph.Objects(feature, rdf.SysML+pOwningMembership) {
-				if d.metaclass(membership) == mEndFeatureMembership {
-					appendUnique(feature)
-					break
-				}
-			}
-		}
-	}
-	if len(terms) == 0 {
-		for _, child := range el.children {
-			if d.headEnd(child, el) {
-				appendUnique(rdf.IRI(child.iri))
-			}
+		if len(terms) > 0 {
+			break
 		}
 	}
 	return terms, nil
+}
+
+// appendEnd appends a connector end once; an end the connector declares as a
+// member is written in its body as `end`, not in its head: the abstract
+// syntax is the same.
+func (d *decoder) appendEnd(el *element, terms []rdf.Term, term rdf.Term) []rdf.Term {
+	if d.declaredChild(el, term) || slices.Contains(terms, term) {
+		return terms
+	}
+	return append(terms, term)
+}
+
+// connectorEndTerms is the ends the connector states as sysml:connectorEnd.
+func (d *decoder) connectorEndTerms(el *element) ([]rdf.Term, error) {
+	return d.graph.Objects(rdf.IRI(el.iri), rdf.SysML+pConnectorEnd), nil
+}
+
+// endMembershipMembers is the members of the connector's EndFeatureMemberships.
+func (d *decoder) endMembershipMembers(el *element) ([]rdf.Term, error) {
+	var ends []rdf.Term
+	for _, membership := range d.graph.Objects(rdf.IRI(el.iri), rdf.SysML+pOwnedFeatureMembership) {
+		if d.metaclass(membership) != mEndFeatureMembership {
+			continue
+		}
+		if member, ok := d.graph.Object(membership, rdf.SysML+pMemberElement); ok {
+			ends = append(ends, member)
+		}
+	}
+	return ends, nil
+}
+
+// endMembershipFeatures is the connector's owned features that name an
+// EndFeatureMembership as their owning membership.
+func (d *decoder) endMembershipFeatures(el *element) ([]rdf.Term, error) {
+	var ends []rdf.Term
+	for _, feature := range d.graph.Objects(rdf.IRI(el.iri), rdf.SysML+pOwnedFeature) {
+		for _, membership := range d.graph.Objects(feature, rdf.SysML+pOwningMembership) {
+			if d.metaclass(membership) == mEndFeatureMembership {
+				ends = append(ends, feature)
+				break
+			}
+		}
+	}
+	return ends, nil
+}
+
+// headEndChildren is the connector's children written as head ends.
+func (d *decoder) headEndChildren(el *element) ([]rdf.Term, error) {
+	var ends []rdf.Term
+	for _, child := range el.children {
+		if d.headEnd(child, el) {
+			ends = append(ends, rdf.IRI(child.iri))
+		}
+	}
+	return ends, nil
 }
 
 // messageEnds returns the event ends a `message` owns through
@@ -553,9 +570,43 @@ func (d *decoder) messageEnds(el *element) ([]rdf.Term, error) {
 	if el.metaclass != usageMetaclass[ast.UsageFlow] {
 		return nil, nil
 	}
-	var ends, memberships []rdf.Term
+	ends, memberships, linked, standalone := d.messageEndMemberships(el)
+	indexes, byIndex := messageEndIndexes(d.graph, ends, memberships)
+	sourceFirst, err := d.messageEndsBySource(el, ends)
+	if err != nil {
+		return nil, err
+	}
+	bySource := sourceFirst != nil
+	if byIndex {
+		order := slices.Clone(ends)
+		slices.SortStableFunc(order, func(a, b rdf.Term) int {
+			return indexes[a.Value] - indexes[b.Value]
+		})
+		if bySource && !slices.Equal(order, sourceFirst) {
+			return nil, &UnsupportedError{
+				What: fmt.Sprintf("the message ends of <%s>", el.iri),
+				Note: "its sysx:memberIndex order and its sysml:sourceFeature/sysml:targetFeature disagree",
+			}
+		}
+		return order, nil
+	}
+	if bySource {
+		return sourceFirst, nil
+	}
+	if !linked || !standalone {
+		return ends, nil
+	}
+	return nil, &UnsupportedError{
+		What: fmt.Sprintf("the message ends of <%s>", el.iri),
+		Note: "its ends are stated partly by the flow's own memberships and partly by memberships naming the flow alone, and neither sysx:memberIndex nor sysml:sourceFeature/sysml:targetFeature orders them",
+	}
+}
+
+// messageEndMemberships is the flow's event ends and the ParameterMemberships
+// owning them, in the order the graph states them, and whether any came from
+// a membership the flow links (linked) or one naming the flow alone (standalone).
+func (d *decoder) messageEndMemberships(el *element) (ends, memberships []rdf.Term, linked, standalone bool) {
 	seen := map[string]bool{}
-	var linked, standalone bool
 	consider := func(membership rdf.Term, isLinked bool) {
 		if seen[membership.Value] || d.metaclass(membership) != mParameterMembership {
 			return
@@ -587,19 +638,22 @@ func (d *decoder) messageEnds(el *element) ([]rdf.Term, error) {
 	for _, membership := range d.parameterOwned[el.iri] {
 		consider(membership, false)
 	}
+	return ends, memberships, linked, standalone
+}
 
-	// byIndex orders the ends by the position each membership, or else its
-	// member, states. A value present but not an integer is no index at all,
-	// and ends tied at one index have no order.
+// messageEndIndexes is the position each membership, or else its member,
+// states for its end, and whether those positions order every end. A value
+// present but not an integer is no index at all, and ends tied at one index
+// have no order.
+func messageEndIndexes(graph *rdf.Graph, ends, memberships []rdf.Term) (map[string]int, bool) {
 	indexOf := func(term rdf.Term) (int, bool) {
-		value, ok := d.graph.Lexical(term, rdf.OpenSysML+xMemberIndex)
+		value, ok := graph.Lexical(term, rdf.OpenSysML+xMemberIndex)
 		if !ok {
 			return 0, false
 		}
 		n, err := strconv.Atoi(value)
 		return n, err == nil
 	}
-	byIndex := len(ends) > 0
 	seenIndex := map[int]bool{}
 	indexes := map[string]int{}
 	for i := range ends {
@@ -608,71 +662,53 @@ func (d *decoder) messageEnds(el *element) ([]rdf.Term, error) {
 			index, ok = indexOf(ends[i])
 		}
 		if !ok || seenIndex[index] {
-			byIndex = false
-			break
+			return nil, false
 		}
 		seenIndex[index] = true
 		indexes[ends[i].Value] = index
 	}
-	// bySource orders the two ends by the flow's own sysml:sourceFeature and
-	// sysml:targetFeature, each end's referenced feature matching one.
-	var sourceFirst []rdf.Term
-	bySource := false
-	if len(ends) == 2 {
-		sources := d.graph.Objects(rdf.IRI(el.iri), rdf.SysML+pSourceFeature)
-		targets := d.graph.Objects(rdf.IRI(el.iri), rdf.SysML+pTargetFeature)
-		if len(sources) == 1 && len(targets) == 1 && sources[0] != targets[0] {
-			var first rdf.Term
-			matched := true
-			for _, end := range ends {
-				target, ok, err := d.standardEndTarget(end, el)
-				if err != nil {
-					return nil, err
-				}
-				switch {
-				case !ok:
-					matched = false
-				case target == sources[0] && first.Value == "":
-					first = end
-				case target == targets[0]:
-				default:
-					matched = false
-				}
-			}
-			if matched && first.Value != "" {
-				bySource = true
-				sourceFirst = []rdf.Term{first}
-				for _, end := range ends {
-					if end != first {
-						sourceFirst = append(sourceFirst, end)
-					}
-				}
-			}
+	return indexes, len(ends) > 0
+}
+
+// messageEndsBySource orders two ends by the flow's own sysml:sourceFeature
+// and sysml:targetFeature, each end's referenced feature matching one; nil
+// when they do not order them.
+func (d *decoder) messageEndsBySource(el *element, ends []rdf.Term) ([]rdf.Term, error) {
+	if len(ends) != 2 {
+		return nil, nil
+	}
+	sources := d.graph.Objects(rdf.IRI(el.iri), rdf.SysML+pSourceFeature)
+	targets := d.graph.Objects(rdf.IRI(el.iri), rdf.SysML+pTargetFeature)
+	if len(sources) != 1 || len(targets) != 1 || sources[0] == targets[0] {
+		return nil, nil
+	}
+	var first rdf.Term
+	matched := true
+	for _, end := range ends {
+		target, ok, err := d.standardEndTarget(end, el)
+		if err != nil {
+			return nil, err
+		}
+		switch {
+		case !ok:
+			matched = false
+		case target == sources[0] && first.Value == "":
+			first = end
+		case target == targets[0]:
+		default:
+			matched = false
 		}
 	}
-	if byIndex {
-		order := slices.Clone(ends)
-		slices.SortStableFunc(order, func(a, b rdf.Term) int {
-			return indexes[a.Value] - indexes[b.Value]
-		})
-		if bySource && !slices.Equal(order, sourceFirst) {
-			return nil, &UnsupportedError{
-				What: fmt.Sprintf("the message ends of <%s>", el.iri),
-				Note: "its sysx:memberIndex order and its sysml:sourceFeature/sysml:targetFeature disagree",
-			}
+	if !matched || first.Value == "" {
+		return nil, nil
+	}
+	sourceFirst := []rdf.Term{first}
+	for _, end := range ends {
+		if end != first {
+			sourceFirst = append(sourceFirst, end)
 		}
-		return order, nil
 	}
-	if bySource {
-		return sourceFirst, nil
-	}
-	if !linked || !standalone {
-		return ends, nil
-	}
-	return nil, &UnsupportedError{
-		What: fmt.Sprintf("the message ends of <%s>", el.iri),
-		Note: "its ends are stated partly by the flow's own memberships and partly by memberships naming the flow alone, and neither sysx:memberIndex nor sysml:sourceFeature/sysml:targetFeature orders them",
-	}
+	return sourceFirst, nil
 }
 
 // parameterOwnerIndex indexes the ParameterMembership elements by the
