@@ -62,59 +62,12 @@ func (ctx *Context) pendingNestedRedefinitions(owner *Instance, feature string) 
 // feature of the object here, a longer one is carried on the object for its
 // members. It returns the effective features to use and the tails to carry.
 func (ctx *Context) applyNestedRedefinitions(sym *symbols.Symbol, features []EffectiveFeature, pending []pendingRedefinition) ([]EffectiveFeature, []pendingRedefinition) {
-	var carry []pendingRedefinition
-	var overrides map[string]*symbols.Symbol
-	for _, p := range pending {
-		if len(p.rest) == 0 {
-			continue
-		}
-		if len(p.rest) > 1 {
-			carry = append(carry, p)
-			continue
-		}
-		if overrides == nil {
-			overrides = make(map[string]*symbols.Symbol)
-		}
-		taken, ok := overrides[p.rest[0]]
-		if !ok {
-			overrides[p.rest[0]] = p.sym
-			continue
-		}
-		// A chain declared by a type specializing the earlier chain's context
-		// outranks it, as a nested redefining body in the subtype does; in one
-		// body the later declaration wins, as two same-named members do;
-		// unrelated contexts keep the first, the tails carried down first.
-		if ctx.chainOutranks(p.sym, taken) || ctx.redefinitionContext(p.sym) == ctx.redefinitionContext(taken) {
-			overrides[p.rest[0]] = p.sym
-		}
-	}
+	overrides, carry := ctx.splitRedefinitions(pending)
+	governed := ctx.governedByCarried(sym, features, carry)
 	cloned := false
-	governed := make(map[string]bool)
-	for _, p := range carry {
-		for i := range features {
-			if features[i].Name == p.rest[0] && features[i].DefaultValue != nil && valuedChain(p) && ctx.chainGovernsValue(p.sym, bindingDecl(&features[i])) {
-				governed[features[i].Name] = true
-			}
-		}
-	}
 	if len(governed) > 0 {
-		// A bound part's names read one feature value, so the chain governs
-		// the binding under each name its redefinition group gives it.
-		for _, group := range ctx.redefinitionGroups(sym) {
-			marks := false
-			for _, name := range group {
-				marks = marks || governed[name]
-			}
-			if marks {
-				for _, name := range group {
-					governed[name] = true
-				}
-			}
-		}
-		if !cloned {
-			features = slices.Clone(features)
-			cloned = true
-		}
+		features = slices.Clone(features)
+		cloned = true
 		for i := range features {
 			if governed[features[i].Name] {
 				features[i].GovernedByChain = true
@@ -139,6 +92,65 @@ func (ctx *Context) applyNestedRedefinitions(sym *symbols.Symbol, features []Eff
 		}
 	}
 	return features, carry
+}
+
+// splitRedefinitions sorts the pending redefinitions into the features they
+// override here, by name, and the longer chains carried on for the members.
+func (ctx *Context) splitRedefinitions(pending []pendingRedefinition) (overrides map[string]*symbols.Symbol, carry []pendingRedefinition) {
+	for _, p := range pending {
+		if len(p.rest) == 0 {
+			continue
+		}
+		if len(p.rest) > 1 {
+			carry = append(carry, p)
+			continue
+		}
+		if overrides == nil {
+			overrides = make(map[string]*symbols.Symbol)
+		}
+		taken, ok := overrides[p.rest[0]]
+		if !ok {
+			overrides[p.rest[0]] = p.sym
+			continue
+		}
+		// A chain declared by a type specializing the earlier chain's context
+		// outranks it, as a nested redefining body in the subtype does; in one
+		// body the later declaration wins, as two same-named members do;
+		// unrelated contexts keep the first, the tails carried down first.
+		if ctx.chainOutranks(p.sym, taken) || ctx.redefinitionContext(p.sym) == ctx.redefinitionContext(taken) {
+			overrides[p.rest[0]] = p.sym
+		}
+	}
+	return overrides, carry
+}
+
+// governedByCarried names the bound features whose binding a carried valued
+// chain governs; a bound part's names read one feature value, so the chain
+// governs the binding under each name its redefinition group gives it.
+func (ctx *Context) governedByCarried(sym *symbols.Symbol, features []EffectiveFeature, carry []pendingRedefinition) map[string]bool {
+	governed := make(map[string]bool)
+	for _, p := range carry {
+		for i := range features {
+			if features[i].Name == p.rest[0] && features[i].DefaultValue != nil && valuedChain(p) && ctx.chainGovernsValue(p.sym, bindingDecl(&features[i])) {
+				governed[features[i].Name] = true
+			}
+		}
+	}
+	if len(governed) == 0 {
+		return governed
+	}
+	for _, group := range ctx.redefinitionGroups(sym) {
+		marks := false
+		for _, name := range group {
+			marks = marks || governed[name]
+		}
+		if marks {
+			for _, name := range group {
+				governed[name] = true
+			}
+		}
+	}
+	return governed
 }
 
 // applyClassifierNestedRedefinitions applies the nested redefinitions typ and

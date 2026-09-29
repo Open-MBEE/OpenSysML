@@ -1911,79 +1911,95 @@ func (e *StateExecutor) transitionWeights(source ast.Node, transitions []*lower.
 	if firstWeighted < 0 {
 		return nil, nil
 	}
-	evalWeight := func(pos int) (float64, error) {
-		trans := transitions[pos]
-		if event != nil && trans.Trigger != nil {
-			unbind, err := e.bindTriggerArguments(trans, event)
-			defer unbind()
-			if err != nil {
-				return 0, fmt.Errorf("%w: %s: weight of %s: %v",
-					ErrBranchWeights, weightWhere(source, transitions, pos), transitionName(transitions, pos), err)
-			}
-		}
-		val, err := e.evalTransitionStep(trans, trans.Probability.Expr, trans.BodyScope)
-		if err != nil {
-			return 0, fmt.Errorf("%w: %s: weight of %s: %v",
-				ErrBranchWeights, weightWhere(source, transitions, pos), transitionName(transitions, pos), err)
-		}
-		val = soleElement(val)
-		if val.Kind != ValConst || !val.Const.IsNumeric() {
-			return 0, fmt.Errorf("%w: %s: weight of %s is %s, not a number",
-				ErrBranchWeights, weightWhere(source, transitions, pos), transitionName(transitions, pos), describeValue(val))
-		}
-		return asReal(val.Const), nil
-	}
-	unweighted := func(pos int) error {
-		return fmt.Errorf("%w: %s: %s is unweighted while %s carries a weight",
-			ErrBranchWeights, weightWhere(source, transitions, pos),
-			transitionName(transitions, pos), transitionName(transitions, firstWeighted))
-	}
+	w := &weighing{e: e, source: source, transitions: transitions, event: event, firstWeighted: firstWeighted, evaluated: make(map[int]float64)}
 	// The whole distribution of a group is checked, as a decision's is: every
 	// member's weight is a probability and they sum to 1, the enabled or not.
-	evaluated := make(map[int]float64)
 	for _, group := range lower.TransitionGroups(source, transitions) {
-		inSet := false
-		for _, pos := range group {
-			if slices.Contains(enabled, pos) {
-				inSet = true
-				break
-			}
-		}
-		if !inSet {
+		if !slices.ContainsFunc(group, func(pos int) bool { return slices.Contains(enabled, pos) }) {
 			continue
 		}
-		total := 0.0
-		for _, pos := range group {
-			if transitions[pos].Probability == nil {
-				return nil, unweighted(pos)
-			}
-			w, err := evalWeight(pos)
-			if err != nil {
-				return nil, err
-			}
-			if !lower.WeightInRange(w) {
-				return nil, fmt.Errorf("%w: %s: weight of %s is %s, not a probability in [0, 1]",
-					ErrBranchWeights, weightWhere(source, transitions, pos), transitionName(transitions, pos), FormatWeight(w))
-			}
-			evaluated[pos] = w
-			total += w
-		}
-		if math.Abs(total-1) > lower.ProbabilityTolerance {
-			return nil, fmt.Errorf("%w: %s: the weights of its transitions sum to %s, not 1.0",
-				ErrBranchWeights, weightWhere(source, transitions, group[0]), FormatWeight(total))
+		if err := w.weighGroup(group); err != nil {
+			return nil, err
 		}
 	}
 	weights := make([]float64, len(enabled))
 	for i, pos := range enabled {
 		if transitions[pos].Probability == nil {
-			return nil, unweighted(pos)
+			return nil, w.unweighted(pos)
 		}
-		weights[i] = evaluated[pos]
+		weights[i] = w.evaluated[pos]
 	}
 	if _, err := checkWeights(weightWhere(source, transitions, enabled[0]), weights); err != nil {
 		return nil, err
 	}
 	return weights, nil
+}
+
+// weighing evaluates the weights of the transitions out of one source.
+type weighing struct {
+	e             *StateExecutor
+	source        ast.Node
+	transitions   []*lower.Transition
+	event         *Event
+	firstWeighted int
+	evaluated     map[int]float64
+}
+
+func (w *weighing) where(pos int) string { return weightWhere(w.source, w.transitions, pos) }
+
+func (w *weighing) name(pos int) string { return transitionName(w.transitions, pos) }
+
+func (w *weighing) unweighted(pos int) error {
+	return fmt.Errorf("%w: %s: %s is unweighted while %s carries a weight",
+		ErrBranchWeights, w.where(pos), w.name(pos), w.name(w.firstWeighted))
+}
+
+// weighGroup evaluates every weight of a group and checks they sum to 1.
+func (w *weighing) weighGroup(group []int) error {
+	total := 0.0
+	for _, pos := range group {
+		if w.transitions[pos].Probability == nil {
+			return w.unweighted(pos)
+		}
+		weight, err := w.evalWeight(pos)
+		if err != nil {
+			return err
+		}
+		if !lower.WeightInRange(weight) {
+			return fmt.Errorf("%w: %s: weight of %s is %s, not a probability in [0, 1]",
+				ErrBranchWeights, w.where(pos), w.name(pos), FormatWeight(weight))
+		}
+		w.evaluated[pos] = weight
+		total += weight
+	}
+	if math.Abs(total-1) > lower.ProbabilityTolerance {
+		return fmt.Errorf("%w: %s: the weights of its transitions sum to %s, not 1.0",
+			ErrBranchWeights, w.where(group[0]), FormatWeight(total))
+	}
+	return nil
+}
+
+// evalWeight evaluates one transition's weight where its guard is, the
+// trigger's arguments bound from the event it reacts to.
+func (w *weighing) evalWeight(pos int) (float64, error) {
+	trans := w.transitions[pos]
+	if w.event != nil && trans.Trigger != nil {
+		unbind, err := w.e.bindTriggerArguments(trans, w.event)
+		defer unbind()
+		if err != nil {
+			return 0, fmt.Errorf("%w: %s: weight of %s: %v", ErrBranchWeights, w.where(pos), w.name(pos), err)
+		}
+	}
+	val, err := w.e.evalTransitionStep(trans, trans.Probability.Expr, trans.BodyScope)
+	if err != nil {
+		return 0, fmt.Errorf("%w: %s: weight of %s: %v", ErrBranchWeights, w.where(pos), w.name(pos), err)
+	}
+	val = soleElement(val)
+	if val.Kind != ValConst || !val.Const.IsNumeric() {
+		return 0, fmt.Errorf("%w: %s: weight of %s is %s, not a number",
+			ErrBranchWeights, w.where(pos), w.name(pos), describeValue(val))
+	}
+	return asReal(val.Const), nil
 }
 
 // weightWhere names the state and the event the transition at pos reacts to,
