@@ -1,0 +1,1 @@
+- **SysML v1 migration keeps a parameter's declared multiplicity where it redeclares, binds, or orders it.** A call redeclaring a callee's `in x[0..1]` now writes `in x[0..1]` rather than requiring one, a reception binds a plural signal attribute at `[0..*]` rather than `[1]`, and a directed ordered v1 1..1 property is `[1] ordered` rather than `ordered` alone.

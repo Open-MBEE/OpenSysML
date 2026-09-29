@@ -1570,12 +1570,12 @@ func TestStrictMigrationWritesNoExtensionNotation(t *testing.T) {
 // context redeclares its method-only parameter after the leading context.
 func TestOperationUsageRedeclaresUnmatchedMethodParameters(t *testing.T) {
 	r := migrateFixtureFile(t, "operation_extra_params")
-	wantLine(t, r.Notation, "action adjust : Adjust { in ref :>> context = Drive::context; in x[1]; in y[1]; }")
+	wantLine(t, r.Notation, "action adjust : Adjust { in ref :>> context = Drive::context; in x[0..1]; in y[0..1]; }")
 }
 
 func TestOperationUsageWritesContextBeforeOutputParameters(t *testing.T) {
 	r := migrateFixtureFile(t, "operation_context_out")
-	wantLine(t, r.Notation, "action adjust : Adjust { in ref :>> context = Drive::context; in x[1]; out result[1]; }")
+	wantLine(t, r.Notation, "action adjust : Adjust { in ref :>> context = Drive::context; in x[0..1]; out result[1]; }")
 }
 
 // testdata/xmi/swimlane_context_calls.xmi: calls in partitions representing the

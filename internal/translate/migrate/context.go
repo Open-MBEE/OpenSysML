@@ -404,7 +404,8 @@ func (m *migration) contextBody(callee *sysmlv1.Element, ins string) []string {
 	}
 	for _, p := range m.actionParameters(callee) {
 		dir, _ := parameterDirection(p)
-		members = append(members, dir+" "+writeName(m.nameFor(p))+"[1]")
+		mult, _ := m.parameterMultiplicity(p)
+		members = append(members, dir+" "+writeName(m.nameFor(p))+mult)
 	}
 	if !leads {
 		members = append(members, ins)

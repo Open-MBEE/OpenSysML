@@ -2129,12 +2129,12 @@ func (m *migration) feature(p *sysmlv1.Element) {
 	if shape := tm.shape(); shape != "" {
 		mult, mnote = shape, ""
 	} else {
+		if mult == "" && (param || dir != "") {
+			// A v1 parameter writing no multiplicity means a single value; §7.6.3
+			// gives a bare v2 parameter [0..*], so state the one it meant.
+			mult = "[1]"
+		}
 		mult += collection(p)
-	}
-	if mult == "" && (param || dir != "") {
-		// A v1 parameter writing no multiplicity means a single value; §7.6.3
-		// gives a bare v2 parameter [0..*], so state the one it meant.
-		mult = "[1]"
 	}
 	b.WriteString(mult)
 	note = joinNotes(joinNotes(note, mnote), tm.note())
@@ -2637,6 +2637,20 @@ func (m *migration) typeRef(t, scope *sysmlv1.Element) (string, string) {
 		}
 	}
 	return m.ref(t, scope), ""
+}
+
+// parameterMultiplicity is p's multiplicity as a v2 parameter: its type
+// modifier's shape, else as v1 declares it, else [1], since §7.6.3 gives a
+// bare one [0..*].
+func (m *migration) parameterMultiplicity(p *sysmlv1.Element) (mult, note string) {
+	if shape := m.typeModifier(p).shape(); shape != "" {
+		return shape, ""
+	}
+	mult, note = m.multiplicity(p)
+	if mult == "" {
+		mult = "[1]"
+	}
+	return mult, note
 }
 
 // multiplicity writes a parameter's or pin's [lower..upper] multiplicity, with
