@@ -320,3 +320,75 @@ func TestUnimportedVerificationMethodKindNamesNoBogusImport(t *testing.T) {
 		}
 	}
 }
+
+// An alias as the first segment is dereferenced when probing the candidate
+// path: `Lib::A` is importable, `A` aliases `Lib::Real`, and `A::Item`
+// resolves through it.
+func TestUnimportedAliasNamesTheImport(t *testing.T) {
+	src := `package Lib {
+		namespace Real {
+			attribute Item;
+		}
+		alias A for Real;
+	}
+	package Use {
+		part x : A::Item;
+	}`
+	r := resolveStdlib(t, "d.sysml", src)
+	var d *resolve.Diagnostic
+	for i := range r.Diagnostics {
+		if strings.Contains(r.Diagnostics[i].Message, "A::Item") {
+			d = &r.Diagnostics[i]
+		}
+	}
+	if d == nil {
+		t.Fatalf("no diagnostic names A::Item: %v", r.Diagnostics)
+	}
+	want := "unresolved reference: A::Item — \"A\" is not visible here; did you mean Lib::A::Item? To use the bare name, import its package: private import Lib::*;"
+	if d.Message != want {
+		t.Fatalf("message = %q, want %q", d.Message, want)
+	}
+	var change, imported bool
+	for _, fix := range d.Fixes {
+		switch fix.Title {
+		case "Change 'A' to 'Lib::A'":
+			change = true
+		case "Import 'Lib::*'":
+			imported = true
+		}
+	}
+	if !change || !imported {
+		t.Errorf("fixes = %+v, want the change and import fixes", d.Fixes)
+	}
+}
+
+// An ambiguous tail segment names nothing a rewrite could resolve to, so no
+// qualification or import is offered.
+func TestUnimportedAmbiguousTailNamesNoImport(t *testing.T) {
+	src := `package Lib {
+		part def N :> B1, B2;
+		part def B1 { part item; }
+		part def B2 { part item; }
+	}
+	package Use {
+		part x : N::item;
+	}`
+	r := resolveStdlib(t, "d.sysml", src)
+	var d *resolve.Diagnostic
+	for i := range r.Diagnostics {
+		if strings.Contains(r.Diagnostics[i].Message, "N::item") {
+			d = &r.Diagnostics[i]
+		}
+	}
+	if d == nil {
+		t.Fatalf("no diagnostic names N::item: %v", r.Diagnostics)
+	}
+	if strings.Contains(d.Message, "private import") || strings.Contains(d.Message, "Lib::N::item") {
+		t.Fatalf("message = %q, want no qualification or import offered", d.Message)
+	}
+	for _, fix := range d.Fixes {
+		if strings.HasPrefix(fix.Title, "Change ") || strings.HasPrefix(fix.Title, "Import ") {
+			t.Errorf("fix %q should not be offered for an ambiguous path", fix.Title)
+		}
+	}
+}

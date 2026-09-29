@@ -302,7 +302,7 @@ func (r *Resolver) unresolvedMember(scope *symbols.Scope, qn *ast.QualifiedName,
 func (r *Resolver) unresolvedNamespace(scope *symbols.Scope, qn *ast.QualifiedName, ns string) {
 	if !qn.Global && len(qn.Parts) > 1 {
 		s := r.suggestionFor(scope, ns, qn)
-		if cand, ok := r.importCandidate(s.spellings, ns); ok && r.candidatePathResolves(scope, cand, qn.Parts[1:]) {
+		if cand, ok := r.importCandidate(s.spellings, ns); ok && r.candidatePathResolves(scope, qn, cand) {
 			rest := qnText(&ast.QualifiedName{Parts: qn.Parts[1:]})
 			msg := fmt.Sprintf("unresolved reference: %s — %q is not visible here; did you mean %s? To use the bare name, import its package: %s",
 				qnText(qn), ns, cand+"::"+rest, importStatement(cand))
@@ -329,20 +329,26 @@ func (r *Resolver) unresolvedNamespace(scope *symbols.Scope, qn *ast.QualifiedNa
 	r.reportQualified(qn, Diagnostic{Span: qn.Span(), Message: msg})
 }
 
-// candidatePathResolves reports whether the qualified name cand extended by
-// rest names an element, walking cand's own members like the qualified-name
-// walk does; the candidate is worth offering only when the full path does.
-func (r *Resolver) candidatePathResolves(scope *symbols.Scope, cand string, rest []ast.NameSegment) bool {
-	cur := r.idx.Declaring(cand)
-	if cur == nil {
+// candidatePathResolves reports whether qn rewritten to start at cand names
+// an element, mirroring walkQualifiedTail — aliases followed, ambiguity
+// refused — so only a path the rewritten name would actually resolve is
+// offered.
+func (r *Resolver) candidatePathResolves(scope *symbols.Scope, qn *ast.QualifiedName, cand string) bool {
+	first := r.idx.Declaring(cand)
+	if first == nil || r.AliasNamesNothing(first) {
 		return false
 	}
-	for _, part := range rest {
-		all := r.membersNamed(scope, cur, part.Text, false, nil)
-		if len(all) == 0 {
+	cur := r.AliasedElement(first)
+	last := len(qn.Parts) - 1
+	for i := 1; i <= last; i++ {
+		all := r.membersNamed(scope, cur, qn.Parts[i].Text, false, nil)
+		if len(all) == 0 || (len(all) > 1 && !(i == last && r.invocationNames[qn])) {
 			return false
 		}
-		cur = all[0]
+		if r.AliasNamesNothing(all[0]) {
+			return false
+		}
+		cur = r.AliasedElement(all[0])
 	}
 	return true
 }
