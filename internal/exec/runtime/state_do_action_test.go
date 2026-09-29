@@ -242,3 +242,17 @@ func TestDoBehaviorsOfOrthogonalRegionsInterleave(t *testing.T) {
 		t.Errorf("do behaviors ran %d actions, want 6", ticks)
 	}
 }
+
+// acceptTrigger builds the trigger of a transition that reacts to a signal. The
+// machines built on the AST directly, the way the history tests are, use it.
+func acceptTrigger(signal string) *ast.AcceptEvent {
+	return &ast.AcceptEvent{
+		SignalType: &ast.QualifiedName{Parts: []ast.NameSegment{{Text: signal}}},
+	}
+}
+
+func triggeredTransition(source, target, signal string) *ast.TransitionMember {
+	trans := transitionMember(source, target)
+	trans.Trigger = acceptTrigger(signal)
+	return trans
+}

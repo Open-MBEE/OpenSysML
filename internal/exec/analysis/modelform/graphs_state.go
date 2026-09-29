@@ -59,8 +59,6 @@ type StateVertexForm struct {
 	Entry      []BehaviorForm  `json:"entry,omitempty"`
 	Do         []BehaviorForm  `json:"do,omitempty"`
 	Exit       []BehaviorForm  `json:"exit,omitempty"`
-	// Deferred are the triggers the state defers while active.
-	Deferred []TriggerForm `json:"deferred,omitempty"`
 }
 
 // RegionForm is a region of a composite state.
@@ -162,9 +160,6 @@ func (x *graphsExporter) stateForm(sym *symbols.Symbol, graph *lower.StateGraph)
 		restNodes = append(restNodes, s)
 	}
 	for s := range graph.ParentState {
-		restNodes = append(restNodes, s)
-	}
-	for s := range graph.Deferred {
 		restNodes = append(restNodes, s)
 	}
 	for s := range graph.StateAttributes {
@@ -280,11 +275,6 @@ func (x *graphsExporter) stateForm(sym *symbols.Symbol, graph *lower.StateGraph)
 				}
 				if v.Exit, err = x.behaviors(ids, scope, b.Exit); err != nil {
 					return nil, err
-				}
-			}
-			for _, trigger := range graph.Deferred[n] {
-				if t := x.trigger(scope, trigger); t != nil {
-					v.Deferred = append(v.Deferred, *t)
 				}
 			}
 		case *ast.PseudostateNode:

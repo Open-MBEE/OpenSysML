@@ -61,9 +61,9 @@ note's [construct-to-notation table](../internals/design/precise-semantics-align
 
 | Class | Meaning | Count |
 |---|---|---:|
-| **standard** | every construct has a spelling in standard SysML v2 notation | 41 |
-| **extension** | spellable with this project's state-body extensions (`fork`, `join`, `junction`, `choice`, `history`, `defer`) | 32 |
-| **not-expressible** | uses a construct with no spelling (entry and exit points, local and internal transitions, state-machine redefinition), a behavior shape the translation does not spell, or a shape this project's lowerer refuses | 30 |
+| **standard** | every construct has a spelling in standard SysML v2 notation — a deferred signal is spelled as the standard buffer / accept-loop / exit-flush encoding the migrator writes | 47 |
+| **extension** | spellable with this project's state-body extensions (`fork`, `join`, `junction`, `choice`, `history`) | 22 |
+| **not-expressible** | uses a construct with no spelling (entry and exit points, local and internal transitions, state-machine redefinition, a deferred operation call, a deferral in a state an unguarded completion transition leaves), a behavior shape the translation does not spell, or a shape this project's lowerer refuses | 34 |
 
 A test using any construct with no spelling or no translation is not expressible whatever else
 it uses; otherwise the extensions win over standard. A terminate pseudostate is standard
@@ -232,7 +232,9 @@ send with no receiver) are not state-machine rows and no test in the suite reach
 
 ## Baseline
 
-Recorded **2026-09-22** on develop commit **`e3d17f5e5`** with entry, do and effect behaviors
+Recorded **2026-09-28** on develop commit **`074aceb88`** with deferred signals written in the
+standard buffer / accept-loop / exit-flush encoding the migrator writes (the `defer` state member,
+an OpenSysML extension, and the runtime's deferral machinery are removed), with entry, do and effect behaviors
 bound to the triggering event's data, exit behaviors to the leaving transition's payload, the
 behaviors returning the call's outputs, the tester's calls and traces
 driven in the tester's order and standalone machines read as targets, with completion events queued in the
@@ -254,15 +256,65 @@ baseline — `go run -C tools ./cmd/pssm-referee` prints the current ones.
 
 | Bucket | Tests |
 |---|---:|
-| `pass` | 60 |
+| `pass` | 52 |
 | `fail` | 12 |
-| `not-expressible` | 30 |
-| `differs-by-design` | 1 |
+| `not-expressible` | 34 |
+| `differs-by-design` | 5 |
 | **Total** | **103** |
 
 ### Movements since the previous baseline
 
-Three tests moved from `not-expressible` to `pass` since the previous baseline (develop
+Nine tests moved since the previous baseline (develop `e3d17f5e5`, 2026-09-22): `pass` 60 → 52,
+`not-expressible` 30 → 34 and `differs-by-design` 1 → 5; `fail` stays at 12 with every reason
+byte-identical. One change made every movement: the `defer <event>;` state member was an
+OpenSysML extension and is removed from the language and the runtime, so the referee now writes
+a deferred signal the way the SysML v1 migrator does — an ordered buffer
+(`attribute deferredX : X[*] ordered;`, an `attribute` because the suite's signals are
+`attribute def`s), a do action whose accept loop keeps each occurrence while the state is active,
+and an exit action that sends each kept occurrence to `self` after the state's own exit behavior
+(`internal/translate/deferred`, the one lowering both tools share). The standard encoding is
+weaker than the extension was in three ways UML's deferral semantics need, and the classifier and
+the rows name each:
+
+- **A deferring state no longer outranks a transition elsewhere in the configuration** (SM7). The
+  runtime's `deferralOutranks` rule is gone with the extension; the accept loop competes for the
+  occurrence with the enabled transitions, and a transition that is enabled — in an enclosing
+  state or a sibling region — fires. *Deferred 003*, *Deferred 004 A* and *Deferred 004 B* move
+  `pass` → `differs-by-design` on SM7: in *004 A* the sibling region's `T2.2` fires on `Continue`
+  before `S1.1` is left where PSSM holds it until the release
+  (`S2.1(exit)::T2.2(effect)::S1.1(exit)::T1.2(effect)::…` against the admitted
+  `S1.1(exit)::T1.2(effect)::S2.1(exit)::T2.2(effect)::…`); in *003* the machine's own transition
+  out of `S1` on `AnotherSignal` ends the run where PSSM lets `S1.1` keep the occurrence.
+- **A kept occurrence re-enters the pool behind what is already there** (SM6). `send kept to self`
+  is an ordinary send, so the replay lands behind the occurrences pooled meanwhile and behind
+  what the state's own exit behavior sent; PSSM places released occurrences ahead of every
+  non-completion occurrence in the pool. *Deferred 001* moves `pass` → `differs-by-design`: the
+  tester's `Pending`, pooled while `Continue` was kept, fires `T5` where PSSM's released
+  `Continue` fires `T4`. *Deferred 005* moves the same way: `S1`'s exit behavior sends `Pending`
+  before the flush replays `Continue` and `AnotherSignal`, and that `Pending` ends the machine
+  from `S2` before either replay is dispatched (`T3(effect)::S2(entry)` against the admitted
+  `…::T4(effect)::S2(entry)::T5(effect)::S2(entry)`). Both report on SM6, whose row now records
+  the standard encoding's order.
+- **Two shapes have no standard spelling at all.** A deferred *operation call*: the buffer holds
+  signals, and a call has no occurrence to keep and re-send, so *Deferred 007* moves
+  `pass` → `not-expressible` (reason `deferred call`). A deferral in a state that an *unguarded
+  completion transition* leaves: the state's do action is the accept loop, which never
+  completes, so the completion transition never fires and the state is never left — where UML
+  completes the state once its own do activity ends. *Deferred 006 A*, *Deferred 006 B*
+  (previously `differs-by-design` on SM15) and *Deferred 006 C* move to `not-expressible` (reason
+  `deferral in a state left by an unguarded completion transition`). The classifier names both
+  reasons (`ConstructDeferredCall`, `ConstructDeferredCompletion`), so a future spelling would
+  have to be adjudicated here rather than fall into `fail`.
+
+*Deferred 002* keeps passing: `S1` keeps `Continue` and `Pending` while its own transition on
+`AnotherSignal` is the only one enabled, and the replay's order between the two kept signals is
+their arrival order, which the standard encoding preserves per signal. The SM15 row *Deferred 006
+B* reported on — a do activity and the machine competing for one occurrence — is no longer
+observed by any test the suite runs against the standard encoding.
+
+### Movements before that
+
+Three tests moved from `not-expressible` to `pass` since the baseline before (develop
 `4780bd5f9`, 2026-09-22), `not-expressible` 33 → 30 and `pass` 57 → 60, and one reason shrank: an
 exit behavior with parameters now reads the leaving transition's own payload,
 `in data : Data = 'T1.2'.data;`, bound while that transition is the one being taken — the exit
@@ -442,7 +494,7 @@ reason closed and the rest standing. The rows of finding 11 keep their reasons b
 
 *Deferred 006 C* explores more runs (the dispatch of `Continue` drawn against each region's do
 step) and reaches the same two admitted traces and nothing else; *Deferred 006 A* and *Deferred
-006 B* are unchanged: a dispatch that would defer its occurrence is not drawn ahead of a due do
+006 B* are unchanged: a dispatch that would have deferred its occurrence is not drawn ahead of a due do
 step, so `S2`'s do activity, for which `S2` defers `AnotherSignal`, reaches its `accept` before
 the signal is dispatched, as it did.
 *Entering 010*, *Entering 011*, *Junction 005*, *History 001-C* and *History 002-B* (finding 11)
@@ -663,25 +715,26 @@ short trace to a budget exhaustion: with SM11 its `S1` now completes and fires `
 history, and the history-record timing of finding 7 makes that re-enter `S1.1` without end. The
 remaining failures' reasons are byte-identical to the previous baseline's.
 
-### `pass` (60)
+### `pass` (52)
 
 Behavior 001, Behavior 002, Behavior 003 A, Behavior 003 B, Transition 001, Transition 007, Transition 011 C,
 Transition 015, Transition 016, Transition 020, Transition 022, Event 001, Event 002, Event 008, Event 009,
 Event 010, Event 015, Event 016 A (reports on SM11), Event 016 B, Event 017 A, Event 017 B, Event 018, Event 019 A,
 Event 019 B, Event 019 C, Event 019 D, Event 019 E, Entering 004,
 Entering 005, Exiting 001, Exiting 003, Exiting 005, Fork 002, Choice 001 and Choice 002 (report on SM30), Choice 003,
-Choice 004, Final001 (reports on SM11), Deferred 001, Deferred 002, Deferred 003 (reports on
-SM7), Deferred 004 A and Deferred 004 B (report on SM7), Deferred 005, Deferred 006 A (reports
-on SM15: the runtime's rule and PSSM's agree on this variant), Deferred 006 C (reports on SM15:
-both do activities take the occurrence under either rule, and their order is drawn), Deferred 007, History 001-A, History 001-B,
+Choice 004, Final001 (reports on SM11), Deferred 002, History 001-A, History 001-B,
 History 001-D, History 002-A, History 002-C (reports on SM28), History 002-D, Join002, Junction 001,
 Junction 003, Standalone 003, Terminate 001, Terminate 002.
 
-### `differs-by-design` (1)
+### `differs-by-design` (5)
 
 | Test | Row | Admitted trace not reached |
 |---|---|---|
-| Deferred 006 B | SM15 | `S2(doActivityPartI)::S2(doActivityPartII)` — PSSM gives the deferred occurrence to the do activity alone; the runtime dispatches it to every scope |
+| Deferred 001 | SM6 | `S1(exit)::S2(entry)::T4(effect)::S3(entry)` — the kept `Continue`, sent back to `self` when `S1` is left, enters the pool behind the `Pending` already there, so `T5` fires; PSSM releases it ahead |
+| Deferred 005 | SM6 | `T3(effect)::S2(entry)::T4(effect)::S2(entry)::T5(effect)::S2(entry)` — `S1`'s exit behavior sends `Pending` before the flush replays the kept signals, and that `Pending` ends the machine from `S2`; PSSM dispatches the released `Continue` and `AnotherSignal` first |
+| Deferred 003 | SM7 | `S1.1.1(exit)::T1.1.2(effect)::S1.1(exit)::T1.2(effect)::S1.2(exit)::T1.3(effect)` — the machine's transition out of `S1` on `AnotherSignal` fires while `S1.1` keeps the signal; PSSM lets the deferring substate hold it |
+| Deferred 004 A | SM7 | `S1.1(exit)::T1.2(effect)::S2.1(exit)::T2.2(effect)::S1(exit)::T4(effect)` — the sibling region's `T2.2` fires on `Continue` at once; PSSM holds it until `S1.1` releases the occurrence |
+| Deferred 004 B | SM7 | `S1.1.1(exit)::T1.1.2(effect)::S1.1(exit)::S2.1(exit)::T2.2(effect)::S1(exit)` — the same with the deferring state nested one level deeper than the sibling's transition |
 
 ### `fail` (12)
 
@@ -724,7 +777,7 @@ quoted and the number given. The full sets are in the baseline file.
 Every reason in full — each extra trace, each missing trace, each error — is in the baseline
 file's `reasons`.
 
-### `not-expressible` (30)
+### `not-expressible` (34)
 
 By reason, as the classifier names them:
 
@@ -737,11 +790,17 @@ By reason, as the classifier names them:
   Entering 009, Entry 002 B, Entry 002 C, Entry 002 F, TransitionExecutionAlgorithm.
 - **redefined state machine, extended region, redefined transition** (no spelling):
   Redefinition 001 to 006.
+- **deferred call** (no spelling): Deferred 007. The standard deferred-signal encoding keeps and
+  re-sends signal occurrences; an operation call has none to keep.
+- **deferral in a state left by an unguarded completion transition** (no spelling): Deferred
+  006 A, Deferred 006 B, Deferred 006 C. The accept loop that keeps the signals is the state's
+  do action and never completes, so the completion transition UML fires when the state's own
+  do activity ends never fires under the encoding.
 - **behavior parameter** is no longer a reason of any test: entry, do and effect behaviors
   with parameters bind to the triggering event's data, an exit's to the leaving transition's
   payload, and a behavior producing the operation's result returns it, so Event 017 B,
-  Event 019 B, Event 019 C, Event 019 D, Event 019 E, Deferred 007 and Standalone 003 run and
-  pass; Standalone 002's exits bind and it stays on its entry and exit points. The classifier
+  Event 019 B, Event 019 C, Event 019 D, Event 019 E and Standalone 003 run and
+  pass (Deferred 007 ran too, until its deferred call became the reason it is not expressible); Standalone 002's exits bind and it stays on its entry and exit points. The classifier
   still names the reason for a behavior whose parameters no path binds (a site reached, or an
   exit left, only by completion transitions or by paths accepting different events).
 - A standalone state machine is read as the target class, and a tester's `trace(...)` after a
@@ -857,7 +916,7 @@ the runtime; a `fail` cites a tool choice, a translation limit or the suite's de
   one move is one token move of a state's do behavior (`stepDoAction`) or the dispatch, "dispatch it
   now" against "keep moving the do flow", drawn again after every move while a do behavior is
   due; the fixed policies finish the whole do round before they
-  dispatch as they always did, so no default trace moved. A dispatch that would drop or defer its
+  dispatch as they always did, so no default trace moved. A dispatch that would drop its
   occurrence is not drawn ahead of a due do step — neither is an acceptance, and the do step may
   be the `accept` that takes it — so it waits until no do move is due. Moved: *Behavior 003 A* to
   `pass`; *Terminate 002* and *Transition 017* reach every admitted trace of the do step's

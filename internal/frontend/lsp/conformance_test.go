@@ -12,7 +12,7 @@ import (
 
 // lspExtension uses notation of ours: a warning in the editor by default, an
 // error once the editor asks strictly.
-const lspExtension = "package P { attribute def Alarm; state def S { state a { defer Alarm; } } }"
+const lspExtension = "package P { state def S { state idle; state on; choice evaluate; transition first idle then evaluate; transition first evaluate then on; } }"
 
 func TestInitializeReadsTheStrictConformanceOption(t *testing.T) {
 	for _, tc := range []struct {

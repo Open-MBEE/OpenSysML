@@ -103,7 +103,7 @@ Neither `lower` nor any `exec` package imports `internal/syntax/parser` or `inte
 | role | `ActionGraph` | `StateGraph` |
 |---|---|---|
 | node identity | `Nodes []ast.Node`, `Initial ast.Node`, `Finals []ast.Node` | `Machine`, `Initial *ast.StateNode`, `States []*ast.StateNode`, `Pseudostates []*ast.PseudostateNode`, `Terminates []*ast.Usage`, `TopRegions []*ast.StateRegion`, `CompositeStateOrder` |
-| node-keyed side tables | `Edges`, `DataFlows`, `Bodies`, `footprints`, `Features`, `Scopes`, `Accepts`, `Subflows`, `StatementRuns`, `BlockNodes`, `declaredIn` (11 maps) | `StateScopes`, `Behaviors`, `HiddenStates`, `HiddenRegionOf`, `RegionState`, `PseudostateOwner`, `TerminateOwner`, `Transitions`, `behaviorFootprints`, `CompositeStates`, `RegionInitials`, `ParentState`, `RegionOwner`, `Deferred`, `RegionOf`, `EntryTransitions`, `ForkPlans`, `ForkEntered`, `JoinPlans`, `StateAttributes`, `designatedInitials`, `completing`, `parallelState` and the private inheritance/materialization maps (`declOf`, `regionDecl`, `vertexOf`, `stateByDecl`, `completionOf`, `instanceOf`, `materializing`, `scopeOf`, `regionScopeOf`, `declaredIn`, `copiedFrom`, `behaviorScope`, `attributeScope`, `bodyOf`) |
+| node-keyed side tables | `Edges`, `DataFlows`, `Bodies`, `footprints`, `Features`, `Scopes`, `Accepts`, `Subflows`, `StatementRuns`, `BlockNodes`, `declaredIn` (11 maps) | `StateScopes`, `Behaviors`, `HiddenStates`, `HiddenRegionOf`, `RegionState`, `PseudostateOwner`, `TerminateOwner`, `Transitions`, `behaviorFootprints`, `CompositeStates`, `RegionInitials`, `ParentState`, `RegionOwner`, `RegionOf`, `EntryTransitions`, `ForkPlans`, `ForkEntered`, `JoinPlans`, `StateAttributes`, `designatedInitials`, `completing`, `parallelState` and the private inheritance/materialization maps (`declOf`, `regionDecl`, `vertexOf`, `stateByDecl`, `completionOf`, `instanceOf`, `materializing`, `scopeOf`, `regionScopeOf`, `declaredIn`, `copiedFrom`, `behaviorScope`, `attributeScope`, `bodyOf`) |
 
 The edge and statement records repeat the pattern. `ActionEdge{Source, Target, Guard, Decl
 ast.Node}`, `ObjectFlow{Target, Decl}`, `Transition{Decl, Source, Target, Trigger, Guard
@@ -344,7 +344,6 @@ type State struct {
 	Region     RegionID  // the region that owns it
 	Regions    []RegionID // orthogonal regions, in order; empty for a simple state
 	Entry, Do, Exit []BehaviorID
-	Deferred   []ExprID  // deferred triggers
 	Attributes []Feature
 	Transitions []TransID // outgoing, in declaration order
 	Hidden, Completing, DesignatedInitial, Parallel bool

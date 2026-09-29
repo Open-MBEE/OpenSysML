@@ -2389,6 +2389,9 @@ func (p *Parser) parseStateMember(allowBody bool) ast.Node {
 		p.advance()
 		return p.parseStateNotationMember(start, w)
 	}
+	if p.atRemovedDeferMember() {
+		return p.parseRemovedDeferMember(start)
+	}
 
 	// Check for state-specific keywords first
 	if p.at(lexer.Keyword) {
@@ -2472,10 +2475,6 @@ func (p *Parser) parseStateNotationMember(start int, w string) ast.Node {
 		return p.parsePseudostate(start, w, ast.PseudostateChoice)
 	case "junction":
 		return p.parsePseudostate(start, w, ast.PseudostateJunction)
-	case "history":
-		// Bare `history <name>;` is shallow: SysML v2 has no history notation, so
-		// UML's H vs H* is the reference for this OpenSysML extension.
-		return p.parsePseudostate(start, w, ast.PseudostateShallowHistory)
 	case "shallow", "deep":
 		kind := ast.PseudostateShallowHistory
 		if w == "deep" {
@@ -2483,9 +2482,26 @@ func (p *Parser) parseStateNotationMember(start int, w string) ast.Node {
 		}
 		p.advance() // consume 'history'
 		return p.parsePseudostate(start, w+" history", kind)
-	default: // "defer", the last word atStateNotationWord admits
-		return p.parseDeferMember(start)
+	default: // "history", the last word atStateNotationWord admits
+		// Bare `history <name>;` is shallow: SysML v2 has no history notation, so
+		// UML's H vs H* is the reference for this OpenSysML extension.
+		return p.parsePseudostate(start, w, ast.PseudostateShallowHistory)
 	}
+}
+
+// parseRemovedDeferMember reports the removed `defer <event>;` extension with
+// the standard notation that replaces it and skips the member to its semicolon
+// or the next member start, so the state body goes on being read.
+func (p *Parser) parseRemovedDeferMember(start int) ast.Node {
+	p.errorWithCode(p.peek().Span, msgDeferNotationRemoved, codeDeferNotationRemoved)
+	p.advance() // consume 'defer'
+	for !p.atMemberSync() {
+		p.advance()
+	}
+	p.accept2(lexer.Semicolon)
+	en := &ast.ErrorNode{Message: msgDeferNotationRemoved}
+	en.NodeSpan = p.spanFrom(start)
+	return en
 }
 
 // parseMemberLeadingSuccession reports `<name> then …`, which no SysML succession
@@ -2955,37 +2971,6 @@ func (p *Parser) parseSubstateMember(start int) ast.Node {
 		Name:     name,
 		NameSpan: nameToken.Span,
 	}
-	node.NodeSpan = p.spanFrom(start)
-	return node
-}
-
-// parseDeferMember parses `defer <event> [, <event>]* ;` in a state body: the
-// events the state retains while it is active instead of dropping them. Each
-// event is parsed exactly like a transition trigger, so a signal name and a
-// call event (`defer setSpeed(value)`) both work.
-func (p *Parser) parseDeferMember(start int) ast.Node {
-	// 'defer' already consumed
-	if p.at(lexer.Semicolon) || p.atEOF() || p.at(lexer.RBrace) {
-		p.error(p.peek().Span, "expected an event after 'defer'")
-		en := &ast.ErrorNode{Message: "expected an event after 'defer'"}
-		if p.at(lexer.Semicolon) {
-			p.advance()
-		}
-		en.NodeSpan = p.spanFrom(start)
-		return en
-	}
-
-	var triggers []ast.Node
-	for {
-		triggers = append(triggers, p.parseTriggerEvent())
-		if !p.accept2(lexer.Comma) {
-			break
-		}
-	}
-
-	p.expectSemicolon("deferred events")
-
-	node := &ast.DeferMember{Triggers: triggers}
 	node.NodeSpan = p.spanFrom(start)
 	return node
 }

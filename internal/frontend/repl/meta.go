@@ -3312,9 +3312,8 @@ func (s *Session) doEvents() ([]string, bool, error) {
 	if err != nil {
 		return nil, false, err
 	}
-	deferred := exec.DeferredEvents()
 
-	if queue.Len() == 0 && len(signals) == 0 && len(deferred) == 0 {
+	if queue.Len() == 0 && len(signals) == 0 {
 		return []string{"Event queue empty"}, false, nil
 	}
 
@@ -3327,12 +3326,6 @@ func (s *Session) doEvents() ([]string, bool, error) {
 		out = append(out, fmt.Sprintf("Signals in flight: %d", len(signals)))
 		for _, msg := range signals {
 			out = append(out, "  "+signalText(msg))
-		}
-	}
-	if len(deferred) > 0 {
-		out = append(out, fmt.Sprintf("Deferred by the active state, held until it leaves: %d", len(deferred)))
-		for _, event := range deferred {
-			out = append(out, "  "+eventText(event))
 		}
 	}
 	return append(out, "Use %advance <time> to process next event"), false, nil

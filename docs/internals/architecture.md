@@ -292,7 +292,9 @@ source → lexer → parser → AST → symbol index → resolve → passes
   and `ToSysML` — and never migrates; it parses only where the decoder needs the grammar (to
   check preserved source text still encodes to the graph, to judge an expression's binding, and
   to read names). `internal/translate/migrate` reads SysML v1 XMI and writes SysML v2 notation, and
-  knows nothing of RDF. A hygiene test pins `export` free of `migrate` and the entry point as the
+  knows nothing of RDF; the standard encoding of a deferred signal it writes — the ordered buffer,
+  the do action's accept loop, the exit action's flush — is lowered by `internal/translate/deferred`,
+  which the PSSM referee shares with it. A hygiene test pins `export` free of `migrate` and the entry point as the
   only package besides the CLI (which prints the migration report) that imports it. The result
   sidecar a migration writes (`-migration-results`) has its schema in `internal/translate/simresults`,
   which the migrator fills and the comparison (`repl`, `-compare-results`) reads without the migrator.
@@ -377,7 +379,7 @@ Parse + model all behavioral bodies with unified fallback grammar:
    - Choice + Junction pseudostates
    - Golden trace recording for transitions/entry/exit
    - APIs: `ProcessNextEvent()`, `CurrentState()`, `EventQueue()`, `StateData()`, `SetTrace()`
-   - Deferred events: an event no active transition handles is retained while a state deferring it is active, and delivered afterwards in arrival order
+   - Deferred signals in standard notation: an ordered buffer, a do-action accept loop that keeps each occurrence while the state is active, and an exit-action flush that sends each kept occurrence to `self`, executed by the ordinary do-behavior and `send` machinery (no deferral machinery of its own)
    - CallEvent matches the operation named by the trigger (`signal.go`, `state_executor.go`; `signal_test.go:TestCallEventMatchesOperationName`)
 
 3. **Scheduler and choice points** — one resolution rule for what the library leaves unordered ([design note](design/scheduling.md))
@@ -417,7 +419,7 @@ Parse + model all behavioral bodies with unified fallback grammar:
 - **Conformance gate**: `.sysml` + `.expected.json` pairs, all passing - `conformance_test.go` — counts and per-category breakdown in [the measured counts](../project/spec-compliance.md); a case whose model admits several results lists them as `outcomes`, each cited to [the semantic oracle](../project/behavior-semantic-oracle.md), and is explored to prove every one reachable and nothing else; `TestExecutionConformanceUnderPolicies` re-runs the suite under `declared` and `seed:1`
 - **Golden traces**: `.trace.golden` files - `trace_test.go` — count in [the measured counts](../project/spec-compliance.md); `.trace.order` files state the partial order a trace must respect (`a < b`), and a case with `outcomes` owns a `<case>.<policy>.trace.golden` per sweep policy
 - **Exploration**: `explore_test.go` — every linearization reached once, determinism, each budget's incompleteness, an error as an outcome, transition, region and due order
-- **Robustness**: failure-mode cases (deadlock, unbound params, missing features, dangling transitions, sourceless accept, step budget, pseudostate dead ends and cycles, history and defer misuse, send/accept misrouting, calc arity/recursion, `perform` reference failures) - `robustness_test.go` and the per-feature `robustness_*_test.go`
+- **Robustness**: failure-mode cases (deadlock, unbound params, missing features, dangling transitions, sourceless accept, step budget, pseudostate dead ends and cycles, history misuse, send/accept misrouting, calc arity/recursion, `perform` reference failures) - `robustness_test.go` and the per-feature `robustness_*_test.go`
 - **Coverage**: All behavioral types fully functional. Action: 14/14 features ✅. State: 13/13 features ✅. Calc: 8/8 ✅. Constraint: 5/5 ✅. Requirement: 5/5 ✅. Evaluation: 7/7 ✅.
 
 **Measured Compliance:** See [SPEC_COMPLIANCE.md](../project/spec-compliance.md) for semantic rule → implementation → test case mapping with status (✅ faithful / ⚠️ approximate / ❌ not yet implemented).
@@ -740,7 +742,7 @@ New behavioral features (actions, states, calc, constraints, requirements) requi
 
 **Behavioral fixtures:**
 - `action_control_flow.sysml`, `action_if_branch_body.sysml`, `action_mixed_params.sysml`, `action_send_port.sysml`
-- `state.sysml`, `state_full.sysml`, `state_transition_variants.sysml`, `state_call_trigger.sysml`, `state_def_region_pseudostate.sysml`, `state_defer.sysml`, `state_fork_join.sysml`, `state_history.sysml`, `state_timed_triggers.sysml`
+- `state.sysml`, `state_full.sysml`, `state_transition_variants.sysml`, `state_call_trigger.sysml`, `state_def_region_pseudostate.sysml`, `defer_ordinary_name.sysml`, `state_fork_join.sysml`, `state_history.sysml`, `state_timed_triggers.sysml`
 - `calc.sysml`, `calc_defaults_and_invocation.sysml`, `calc_return.sysml`, `calc_return_parameter.sysml`
 - `constraint_assert_assume.sysml`
 - `requirement.sysml`, `requirement_members.sysml`
@@ -756,7 +758,7 @@ New behavioral features (actions, states, calc, constraints, requirements) requi
 **Coverage (by fixture prefix, all passing; counts in [the measured counts](../project/spec-compliance.md)):**
 - Calc: parameter binding, return values, defaults, inherited parameters, unary operators, type coercion, qualified names, body-local usages, statement bodies, nested and from-constraint invocation
 - Action: token flow, outputs, nested invocation, send/accept, port communication, `perform` reference and shorthand, accept...then, flows, loops and decisions
-- State: simple, do behavior, concurrent do, transition effect, choice/junction/fork-join pseudostates, orthogonal regions and region pseudostates, shallow/deep history, deferred/undeferred events, call and timed triggers, signal discrimination/unmatched, self signal
+- State: simple, do behavior, concurrent do, transition effect, choice/junction/fork-join pseudostates, orthogonal regions and region pseudostates, shallow/deep history, deferred signals in the standard buffer encoding, call and timed triggers, signal discrimination/unmatched, self signal
 - Requirement: require/subject/actor/assume satisfaction, nested
 - Instance: derived feature values, constraint binding, inherited constraints, nested usage bodies
 - Unit and quantity evaluation
@@ -800,7 +802,6 @@ go test -v -run TestExecutionConformance ./internal/exec/runtime
 - Non-numeric time trigger
 - Send that reaches only its addressee, accept of an unsent type, send through an unconnected port
 - History outside a composite state, or without a record or default
-- Defer of a non-deferrable trigger
 - Non-terminating do behavior
 - Call of an unhandled operation, call argument of the wrong type
 - `perform` of a missing action, `perform` reference cycle
@@ -843,7 +844,7 @@ Every behavioral feature must have:
 - **Corpus agreement:** 344 of 380 files agree diagnostic-by-diagnostic; 42 diagnostics are ours alone and 1614 the reference's alone, and the first number must be read by root: our diagnostics against the reference's own corpora fell while our non-standard-notation warnings on our own example models rose ([differential](../project/pilot-differential.md), `go run -C tools ./cmd/pilot-diff`).
 - **Declared-diagnostic silence:** of the 512 declared `errors` rows in the reference's own Xpect suites, we report nothing for 0. 245 we report word-for-word; 248 wording-only and 7 location-only differences are agreement in substance and are not counted as gaps; 0 more we report as a warning and 2 elsewhere in the file ([Xpect oracle](../project/pilot-xpect.md), `go run -C tools ./cmd/pilot-xpect`).
 - **Scope agreement:** 230 of 230 declared scope assertions match exactly (same source).
-- **Permissiveness gaps:** of 307 invalid models we wrote ourselves, the reference rejects 4 that we accept by default, and 294 both reject; 4 further cases agree only when we are asked strictly. We authored every one of these cases ourselves, so the denominator measures the reach of our own corpus and not our conformance; agreement reached only under an opt-in strict mode is weaker evidence than agreement by default ([rejection oracle](../project/pilot-rejection.md), `go run -C tools ./cmd/pilot-reject`).
+- **Permissiveness gaps:** of 307 invalid models we wrote ourselves, the reference rejects 3 that we accept by default, and 295 both reject; 3 further cases agree only when we are asked strictly. We authored every one of these cases ourselves, so the denominator measures the reach of our own corpus and not our conformance; agreement reached only under an opt-in strict mode is weaker evidence than agreement by default ([rejection oracle](../project/pilot-rejection.md), `go run -C tools ./cmd/pilot-reject`).
 - **Declared errata:** the registry declares 12 defect(s) in the published reference material — 4 with a specification-derived correction, 8 documented without one, since no intended reading can be inferred ([OMG issues](../project/omg-issues.md), `tools/oracle/errata`). Every figure above is as published and stays the conformance statement; running the same oracles over the corrected text instead reports 345 of 380 files agreeing, 41 diagnostics ours alone and 1614 the reference's alone, 0 declared rows we are silent on, and 0 of 307 authored cases the reference alone rejects. The corrected figures are diagnostic only: an erratum never reclassifies a divergence category, and the published corpus is never edited.
 - **Self-assessed surface:** the action, state-machine and classifier-behavior rows have no external referee at all — the four refereed figures above cannot see them, because the pinned artifact evaluates expressions but executes neither actions nor state machines. [Spec compliance](../project/spec-compliance.md) counts them.
 

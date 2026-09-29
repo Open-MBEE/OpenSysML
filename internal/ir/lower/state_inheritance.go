@@ -331,8 +331,6 @@ func (g *StateGraph) addMember(content *stateContent, member ast.Node, parallel 
 		state.Do = append(state.Do, g.behaviorsIn(m.Actions, scope)...)
 	case *ast.ExitMember:
 		state.Exit = append(state.Exit, g.behaviorsIn(m.Actions, scope)...)
-	case *ast.DeferMember:
-		state.Defer = append(state.Defer, m.Triggers...)
 	case *ast.StateRegion:
 		if !copied {
 			state.Regions = append(state.Regions, m)
@@ -450,7 +448,6 @@ func cloneStateNode(g *StateGraph, node *ast.StateNode, scope *symbols.Scope) *a
 		Entry:    g.behaviorsIn(node.Entry, childScope(scope, node)),
 		Do:       g.behaviorsIn(node.Do, childScope(scope, node)),
 		Exit:     g.behaviorsIn(node.Exit, childScope(scope, node)),
-		Defer:    node.Defer,
 	}
 	g.declOf[clone] = node
 	g.scopeOf[clone] = childScope(scope, node)
@@ -494,7 +491,6 @@ func redeclare(state *ast.StateNode, inherited, own *ast.StateNode) map[ast.Node
 	state.Entry = pickBehaviors(inherited.Entry, own.Entry)
 	state.Do = pickBehaviors(inherited.Do, own.Do)
 	state.Exit = pickBehaviors(inherited.Exit, own.Exit)
-	state.Defer = append(append([]ast.Node{}, inherited.Defer...), own.Defer...)
 	state.Substates = append(keptSubstates(inherited.Substates, own.Substates), own.Substates...)
 	state.Regions = append(keptRegions(inherited.Regions, own.Regions), own.Regions...)
 	return replacedSubstates(inherited.Substates, own.Substates)

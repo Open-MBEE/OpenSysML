@@ -413,25 +413,26 @@ func TestStateOnAnObjectAttachesToItsRunningMachine(t *testing.T) {
 	wants(t, run(t, s, "%state Lamps::Bulb::lamp bulb"), `✓ Debugging state machine "lamp" exhibited by object #1`, "attaches to that running machine")
 }
 
-// TestSendDefersWhatTheActiveStateDefers: a signal the active state defers
-// rather than accepts is sent, held by the machine once dispatched, and recalled
-// to fire once a state accepting it is reached; one it neither accepts nor
-// defers is still refused.
-func TestSendDefersWhatTheActiveStateDefers(t *testing.T) {
+// TestSendReachesTheBufferOfTheActiveState: a signal the active state keeps
+// through the standard deferred-signal encoding rather than accepts is sent,
+// taken by the do behavior parked at its accept, and sent back to self by the
+// state's exit action to fire once a state accepting it is reached; one the
+// machine neither accepts nor keeps is still refused.
+func TestSendReachesTheBufferOfTheActiveState(t *testing.T) {
 	s := loadFixture(t, "testdata/deferring.sysml")
 	run(t, s, "%instantiate Deferring::server")
 	wants(t, run(t, s, "%state Deferring::server"), `✓ Debugging state machine "worker"`, "Current state: busy")
 
 	wants(t, run(t, s, "%send Noise"), `accepts no signal Noise now: state machine "Worker" in state busy`)
-	wants(t, run(t, s, "%send Ping"), "✓ Sent Ping", `Deferred by state machine "Worker" in state busy, to be dispatched once it leaves`)
+	wants(t, run(t, s, "%send Ping"), "✓ Sent Ping",
+		`Accepted by state machine "Worker" in state busy: the do behavior of state busy goes on from its accept`)
 	wants(t, run(t, s, "%events"), "Signals in flight: 1", "  Ping")
-	wants(t, run(t, s, "%step"), "Current state: busy", "Ping was deferred by the active state, to be dispatched again once it leaves")
-	wants(t, run(t, s, "%events"), "Deferred by the active state, held until it leaves: 1", "  Ping")
+	wants(t, run(t, s, "%step"), "✓ Event dispatched, letting the do behavior of state busy go on from its accept", "Current state: busy")
 	rejects(t, run(t, s, "%events"), "Signals in flight")
 
 	wants(t, run(t, s, "%send Go"), `Accepted by state machine "Worker" in state busy: transition busy_ready fires on it`)
 	wants(t, run(t, s, "%step"), "Current state: ready")
-	wants(t, run(t, s, "%events"), "Event queue: 1 events")
+	wants(t, run(t, s, "%events"), "Signals in flight: 1", "  Ping")
 	wants(t, run(t, s, "%step"), "Current state: finished")
 	wants(t, run(t, s, "%events"), "Event queue empty")
 }

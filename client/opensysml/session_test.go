@@ -294,7 +294,7 @@ func TestSessionSeesEnclosingStatesAndEveryMachine(t *testing.T) {
 
 const twinSource = `package Twin {
 	private import ScalarValues::*;
-	attribute def Ping;
+	item def Ping;
 	attribute def Go;
 	part def Pair {
 		attribute leftArmed : Boolean = false;
@@ -307,7 +307,19 @@ const twinSource = `package Twin {
 		}
 		exhibit state right {
 			entry; then busy;
-			state busy { defer Ping; }
+			state busy {
+				item deferred : Ping[*] ordered;
+				do action buffer {
+					first start then receive;
+					action receive accept kept : Ping;
+					then action keep { assign deferred := SequenceFunctions::including(deferred, receive.kept); }
+					then receive;
+				}
+				exit action flush {
+					for kept in deferred { send kept to self; }
+					then action clear { assign deferred := (); }
+				}
+			}
 			transition right_ready first busy accept Go then ready;
 			state ready;
 			transition right_go first ready accept Ping if rightArmed then done;
@@ -355,17 +367,20 @@ func TestSessionAcceptsMatchesDispatchAcrossMachines(t *testing.T) {
 		}
 	}
 
-	// left's guard is false and right only defers: the signal is taken, deferred,
-	// and no transition is triggered by it, distinct facts Send agrees with.
+	// left's guard is false and right's busy only keeps the signal in its buffer
+	// (the standard deferred-signal encoding): the signal is taken, resumes busy's
+	// do behavior, and no transition is triggered by it, distinct facts Send
+	// agrees with.
 	acceptance := ping()
-	if acceptance.Accepted || !acceptance.Deferred || len(acceptance.Fires) != 0 || !acceptance.Taken() || !acceptance.Enabled() {
-		t.Fatalf("Accepts Ping with left disarmed and right busy = %+v; want deferred only", acceptance)
+	if acceptance.Accepted || len(acceptance.Fires) != 0 || !reflect.DeepEqual(acceptance.Resumes, []string{"do behavior of state busy"}) || !acceptance.Taken() || !acceptance.Enabled() {
+		t.Fatalf("Accepts Ping with left disarmed and right busy = %+v; want busy resumed only", acceptance)
 	}
 	send("Ping")
 	states("idle", "busy")
 
-	// Go readies right, which then fires on the deferred Ping alone; left, whose
-	// guard is false, yields it rather than dropping it.
+	// Go readies right, whose exit from busy sends the kept Ping back; right then
+	// fires on it alone, and left, whose guard is false, yields it rather than
+	// dropping it.
 	send("Go")
 	states("idle", "done")
 
@@ -384,7 +399,7 @@ func TestSessionAcceptsMatchesDispatchAcrossMachines(t *testing.T) {
 	send("Go")
 	states("idle", "ready")
 	acceptance = ping()
-	if !acceptance.Accepted || acceptance.Deferred || len(acceptance.Fires) != 1 || acceptance.Fires[0].Name != "left_go" {
+	if !acceptance.Accepted || len(acceptance.Resumes) != 0 || len(acceptance.Fires) != 1 || acceptance.Fires[0].Name != "left_go" {
 		t.Fatalf("Accepts Ping with only left armed = %+v; want left_go alone", acceptance)
 	}
 	send("Ping")

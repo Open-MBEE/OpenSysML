@@ -475,6 +475,12 @@ func (p *Parser) error(sp source.Span, msg string) {
 	p.Diagnostics = append(p.Diagnostics, Diagnostic{Span: sp, Message: msg})
 }
 
+// errorWithCode records an ill-formed-parse diagnostic under a code of its
+// own, for a consumer to report it by instead of the general syntax code.
+func (p *Parser) errorWithCode(sp source.Span, msg, code string) {
+	p.Diagnostics = append(p.Diagnostics, Diagnostic{Span: sp, Message: msg, Code: code})
+}
+
 // errorWithFixes records an ill-formed-parse diagnostic that unambiguous edits
 // resolve.
 func (p *Parser) errorWithFixes(sp source.Span, msg string, fixes ...diag.Fix) {

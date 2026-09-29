@@ -178,7 +178,7 @@ func parseDiagnostics(diags []parser.Diagnostic) []diag.Diagnostic {
 			Severity: diag.SeverityError,
 			Span:     d.Span,
 			Message:  d.Message,
-			Code:     "syntax",
+			Code:     d.ErrorCode(),
 			Source:   "syntax",
 		})
 	}

@@ -415,11 +415,6 @@ func (c *refCollector) behaviorDecl(scope *symbols.Scope, decl ast.Node) bool {
 	case *ast.ExitMember:
 		c.walkMembers(scope, d.Actions)
 		return true
-	case *ast.DeferMember:
-		for _, trigger := range d.Triggers {
-			c.trigger(scope, trigger)
-		}
-		return true
 	case *ast.StateNode:
 		body := scope
 		if child := c.childScope(scope, d); child != nil {

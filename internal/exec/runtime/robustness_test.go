@@ -355,7 +355,6 @@ func TestRuntimeRobustness(t *testing.T) {
 	t.Run("accept_statement_deadlock_in_a_loop", testAcceptStatementDeadlockInALoop)
 	t.Run("history_outside_composite_state", testHistoryOutsideCompositeState)
 	t.Run("history_without_record_default_or_entry", testHistoryWithoutRecordDefaultOrEntry)
-	t.Run("defer_of_non_deferrable_trigger", testDeferOfNonDeferrableTrigger)
 	t.Run("non_terminating_do_behavior", testNonTerminatingDoBehavior)
 	t.Run("empty_anonymous_action_body", testEmptyAnonymousActionBody)
 	t.Run("non_terminating_anonymous_do_body", testNonTerminatingAnonymousDoBody)
@@ -3427,41 +3426,6 @@ func testPerformReferenceCycle(t *testing.T) {
 		}
 	case <-watchdog(10 * time.Second):
 		t.Fatal("self-performing action did not terminate")
-	}
-}
-
-// testDeferOfNonDeferrableTrigger: only signals and calls are dispatched from
-// the event pool, so a state deferring a time trigger is reported at lowering
-// rather than deferring nothing at run time.
-func testDeferOfNonDeferrableTrigger(t *testing.T) {
-	idx := symbols.NewIndex()
-	resolver := resolve.New(idx)
-	ctx := NewContext(typedModel(semantics.NewModel(resolver), resolver), 1000)
-
-	machine := &ast.Usage{
-		Kind:  ast.UsageState,
-		Ident: ast.Identification{Name: "Machine"},
-		Members: []ast.Node{
-			entryStart("init"),
-			&ast.StateNode{Name: "init"},
-			&ast.StateNode{
-				Name:  "busy",
-				Defer: []ast.Node{&ast.TimeEvent{Duration: &ast.LiteralInteger{Value: "1"}}},
-			},
-			transitionMember("init", "busy"),
-		},
-	}
-
-	_, err := newStateExecutor(ctx, &symbols.Symbol{
-		Kind: symbols.SymbolStateUsage,
-		Name: machine.Ident.Name,
-		Decl: machine,
-	}, nil)
-	if err == nil {
-		t.Fatal("expected an error for a state deferring a time trigger")
-	}
-	if !strings.Contains(err.Error(), "only signal and call triggers can be deferred") {
-		t.Errorf("expected a deferrability error, got: %v", err)
 	}
 }
 
@@ -14739,7 +14703,7 @@ func testStateDoBodyAcceptIsDecidedForASend(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Decide(Go): %v", err)
 	}
-	if len(decision.Fires) != 0 || decision.Deferred || len(decision.Resumes) != 1 || decision.Resumes[0] != "do behavior of state active" {
+	if len(decision.Fires) != 0 || len(decision.Resumes) != 1 || decision.Resumes[0] != "do behavior of state active" {
 		t.Errorf("Decide(Go) = %+v, want only the do behavior of active resumed", decision)
 	}
 	if activeLeaf(exec) != "active" || exec.HasPendingDoWork() || len(ctx.PendingMessages()) != 0 {
@@ -14753,7 +14717,7 @@ func testStateDoBodyAcceptIsDecidedForASend(t *testing.T) {
 		t.Fatalf("dispatch the message: %v", err)
 	}
 	dispatch, ok := exec.LastDispatch()
-	if !ok || dispatch.Fired || dispatch.Deferred || len(dispatch.Resumed) != 1 || dispatch.Resumed[0] != decision.Resumes[0] {
+	if !ok || dispatch.Fired || len(dispatch.Resumed) != 1 || dispatch.Resumed[0] != decision.Resumes[0] {
 		t.Errorf("dispatch = %+v, %v; want the do behavior of active resumed, as decided", dispatch, ok)
 	}
 	if err := exec.RunToCompletion(); err != nil {
@@ -14805,7 +14769,7 @@ func testStateDoBodyAcceptYieldsToATransition(t *testing.T) {
 		t.Fatalf("dispatch the message: %v", err)
 	}
 	dispatch, ok := exec.LastDispatch()
-	if !ok || !dispatch.Fired || dispatch.Deferred || len(dispatch.Resumed) != 0 {
+	if !ok || !dispatch.Fired || len(dispatch.Resumed) != 0 {
 		t.Errorf("dispatch = %+v, %v; want the transition fired and no do behavior resumed, as decided", dispatch, ok)
 	}
 	if activeLeaf(exec) != "stopped" || len(ctx.PendingMessages()) != 0 {
@@ -14860,7 +14824,7 @@ func testStateDoBodyAcceptYieldsToASubstateTransition(t *testing.T) {
 		t.Fatalf("dispatch the message: %v", err)
 	}
 	dispatch, ok := exec.LastDispatch()
-	if !ok || !dispatch.Fired || dispatch.Deferred || len(dispatch.Resumed) != 0 {
+	if !ok || !dispatch.Fired || len(dispatch.Resumed) != 0 {
 		t.Errorf("dispatch = %+v, %v; want the transition fired and no do behavior resumed, as decided", dispatch, ok)
 	}
 	if activeLeaf(exec) != "right" || len(ctx.PendingMessages()) != 0 {
@@ -14932,7 +14896,7 @@ func testStateDoBodyAcceptYieldsToASubstateTransitionLeavingIt(t *testing.T) {
 		t.Fatalf("dispatch the message: %v", err)
 	}
 	dispatch, ok := exec.LastDispatch()
-	if !ok || !dispatch.Fired || dispatch.Deferred || len(dispatch.Resumed) != 0 {
+	if !ok || !dispatch.Fired || len(dispatch.Resumed) != 0 {
 		t.Errorf("dispatch = %+v, %v; want the transition fired and no do behavior resumed, as decided", dispatch, ok)
 	}
 	if activeLeaf(exec) != "stopped" || len(ctx.PendingMessages()) != 0 {
@@ -14989,7 +14953,7 @@ func testStateDoBodyAcceptFollowsTheTransitionChosen(t *testing.T) {
 		t.Fatalf("dispatch the message: %v", err)
 	}
 	dispatch, ok := exec.LastDispatch()
-	if !ok || !dispatch.Fired || dispatch.Deferred || len(dispatch.Resumed) != 0 {
+	if !ok || !dispatch.Fired || len(dispatch.Resumed) != 0 {
 		t.Errorf("dispatch = %+v, %v; want the transition fired and no do behavior resumed, as decided", dispatch, ok)
 	}
 	if activeLeaf(exec) != "right" || len(ctx.PendingMessages()) != 0 {
@@ -15060,7 +15024,7 @@ func testStateDoBodyAcceptYieldsToAnOpenChoice(t *testing.T) {
 			t.Fatalf("stay = %s: dispatch the message: %v", tc.stay, err)
 		}
 		dispatch, ok := exec.LastDispatch()
-		if !ok || !dispatch.Fired || dispatch.Deferred || !reflect.DeepEqual(dispatch.Resumed, tc.want.Resumes) {
+		if !ok || !dispatch.Fired || !reflect.DeepEqual(dispatch.Resumed, tc.want.Resumes) {
 			t.Errorf("stay = %s: dispatch = %+v, %v; want the transition fired and the do behavior resumed as decided", tc.stay, dispatch, ok)
 		}
 		if activeLeaf(exec) != tc.leaf || len(ctx.PendingMessages()) != 0 {
@@ -15116,7 +15080,7 @@ func testStateDoBodyAcceptYieldsToATransitionIntoItsRegion(t *testing.T) {
 		t.Fatalf("dispatch the message: %v", err)
 	}
 	dispatch, ok := exec.LastDispatch()
-	if !ok || !dispatch.Fired || dispatch.Deferred || len(dispatch.Resumed) != 0 {
+	if !ok || !dispatch.Fired || len(dispatch.Resumed) != 0 {
 		t.Errorf("dispatch = %+v, %v; want the transition fired and no do behavior resumed", dispatch, ok)
 	}
 	assertRegionConfig(t, exec, map[string]string{"right": "r2"})
@@ -15179,7 +15143,7 @@ func testStateDoBodyAcceptRunsBeforeTheChoiceReads(t *testing.T) {
 		t.Fatalf("dispatch the message: %v", err)
 	}
 	dispatch, ok := exec.LastDispatch()
-	if !ok || !dispatch.Fired || dispatch.Deferred || !reflect.DeepEqual(dispatch.Resumed, want.Resumes) {
+	if !ok || !dispatch.Fired || !reflect.DeepEqual(dispatch.Resumed, want.Resumes) {
 		t.Errorf("dispatch = %+v, %v; want the transition fired and the do behavior resumed as decided", dispatch, ok)
 	}
 	assertRegionConfig(t, exec, map[string]string{"watcher": "work", "active": "other"})
@@ -15244,7 +15208,7 @@ func testStateDoBodyAcceptSharesTheDispatchWithARegion(t *testing.T) {
 		t.Fatalf("dispatch the message: %v", err)
 	}
 	dispatch, ok := exec.LastDispatch()
-	if !ok || !dispatch.Fired || dispatch.Deferred || !reflect.DeepEqual(dispatch.Resumed, want.Resumes) {
+	if !ok || !dispatch.Fired || !reflect.DeepEqual(dispatch.Resumed, want.Resumes) {
 		t.Errorf("dispatch = %+v, %v; want the transition fired and the do behavior resumed, as decided", dispatch, ok)
 	}
 	if len(ctx.PendingMessages()) != 0 {
@@ -15310,7 +15274,7 @@ func testStateDoBodyAcceptSharesTheDispatchWithAForkInARegion(t *testing.T) {
 		t.Fatalf("dispatch the message: %v", err)
 	}
 	dispatch, ok := exec.LastDispatch()
-	if !ok || !dispatch.Fired || dispatch.Deferred || !reflect.DeepEqual(dispatch.Resumed, want.Resumes) {
+	if !ok || !dispatch.Fired || !reflect.DeepEqual(dispatch.Resumed, want.Resumes) {
 		t.Errorf("dispatch = %+v, %v; want the transition fired and the do behavior resumed, as decided", dispatch, ok)
 	}
 	if len(ctx.PendingMessages()) != 0 {

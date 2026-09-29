@@ -125,8 +125,8 @@ func (r *steppedRun) digest() string {
 		for _, state := range exec.ActiveStates() {
 			active = append(active, StateVertexName(state))
 		}
-		fmt.Fprintf(&b, "state %s state=%v active=%v stack=%d queue=%d deferred=%d data=%s\n",
-			symbolText(exec.stateMachine), exec.State(), active, len(exec.stateStack), exec.eventQueue.Len(), len(exec.deferred), formatValues(exec.StateData()))
+		fmt.Fprintf(&b, "state %s state=%v active=%v stack=%d queue=%d data=%s\n",
+			symbolText(exec.stateMachine), exec.State(), active, len(exec.stateStack), exec.eventQueue.Len(), formatValues(exec.StateData()))
 	}
 	return b.String()
 }
@@ -700,8 +700,8 @@ func TestSnapshotRestoreBringsTheTraceBackToTheMark(t *testing.T) {
 }
 
 // The round trips above snapshot every step of these cases, so they must reach a
-// queued composite completion and a deferral holding back a sibling's transition.
-func TestSnapshotStepsReachAPendingCompositeCompletionAndAHeldDeferral(t *testing.T) {
+// queued composite completion and a signal kept in a state's deferral buffer.
+func TestSnapshotStepsReachAPendingCompositeCompletionAndAKeptSignal(t *testing.T) {
 	conformanceDir := filepath.Join("testdata", "conformance")
 	reaches := func(t *testing.T, testName string, at func(*StateExecutor) bool) {
 		t.Helper()
@@ -731,18 +731,10 @@ func TestSnapshotStepsReachAPendingCompositeCompletionAndAHeldDeferral(t *testin
 			return false
 		})
 	})
-	t.Run("deferral_held_over_a_sibling_transition", func(t *testing.T) {
-		reaches(t, "state_deferral_outranks_sibling_region", func(exec *StateExecutor) bool {
-			if len(exec.deferred) != 1 {
-				return false
-			}
-			if msg, ok := exec.deferred[0].Payload.(Message); !ok || msg.SignalType != "Ping" {
-				return false
-			}
-			candidates, err := exec.selectCandidates(func(source *ast.StateNode) ([]int, []RunNote, error) {
-				return exec.enabledTransitions(source, &exec.deferred[0])
-			})
-			return err == nil && len(candidates) == 1 && StateVertexName(candidates[0].source) == "idle"
+	t.Run("signal_kept_in_a_deferral_buffer", func(t *testing.T) {
+		reaches(t, "state_deferred_signal_kept_and_replayed", func(exec *StateExecutor) bool {
+			kept := exec.StateData()["busy.deferred"]
+			return activeLeaf(exec) == "busy" && sequenceLen(kept) == 1
 		})
 	})
 }

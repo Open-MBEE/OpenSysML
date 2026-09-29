@@ -6,14 +6,14 @@
     "url": "https://www.omg.org/spec/PSSM/20181101/PSSM_TestSuite.xmi",
     "suiteDigest": "c355b249c356774377a46b60345019d827af1ce417bde88e533aa5f39206ae07",
     "tests": 103,
-    "recorded": "2026-09-22",
-    "develop": "e3d17f5e5325051c893cbf81f500b110c346764c"
+    "recorded": "2026-09-28",
+    "develop": "074aceb8882dc43b0ba576cfa214cf612b36c7ca"
   },
   "buckets": {
-    "differs-by-design": 1,
+    "differs-by-design": 5,
     "fail": 12,
-    "not-expressible": 30,
-    "pass": 60
+    "not-expressible": 34,
+    "pass": 52
   },
   "tests": [
     {
@@ -1080,20 +1080,27 @@
     {
       "name": "Deferred 001",
       "area": "Deferred",
-      "class": "extension",
-      "bucket": "pass",
+      "class": "standard",
+      "row": "SM6",
+      "rowKind": "differs because v2 differs",
+      "bucket": "differs-by-design",
+      "reasons": [
+        "reached a trace the suite does not admit: S1(exit)::S2(entry)::T5(effect)::S3(entry)",
+        "admitted trace not reached: S1(exit)::S2(entry)::T4(effect)::S3(entry)",
+        "reports on SM6 (Order of a kept signal's replay against occurrences already pooled): differs because v2 differs"
+      ],
       "expected": [
         "S1(exit)::S2(entry)::T4(effect)::S3(entry)"
       ],
       "reached": [
-        "S1(exit)::S2(entry)::T4(effect)::S3(entry)"
+        "S1(exit)::S2(entry)::T5(effect)::S3(entry)"
       ],
-      "runs": 1
+      "runs": 2
     },
     {
       "name": "Deferred 002",
       "area": "Deferred",
-      "class": "extension",
+      "class": "standard",
       "bucket": "pass",
       "expected": [
         "S1(exit)::T4(effect)::S2(entry)::T6(effect)::S3(entry)"
@@ -1101,130 +1108,123 @@
       "reached": [
         "S1(exit)::T4(effect)::S2(entry)::T6(effect)::S3(entry)"
       ],
-      "runs": 1
+      "runs": 2
     },
     {
       "name": "Deferred 003",
       "area": "Deferred",
-      "class": "extension",
+      "class": "standard",
       "row": "SM7",
-      "rowKind": "differs, v2 silent",
-      "bucket": "pass",
+      "rowKind": "differs because v2 differs",
+      "bucket": "differs-by-design",
+      "reasons": [
+        "reached a trace the suite does not admit: S1.1.1(exit)::T1.1.2(effect)::S1.1(exit)",
+        "admitted trace not reached: S1.1.1(exit)::T1.1.2(effect)::S1.1(exit)::T1.2(effect)::S1.2(exit)::T1.3(effect)",
+        "reports on SM7 (Deferral against a transition elsewhere in the configuration): differs because v2 differs"
+      ],
       "expected": [
         "S1.1.1(exit)::T1.1.2(effect)::S1.1(exit)::T1.2(effect)::S1.2(exit)::T1.3(effect)"
       ],
       "reached": [
-        "S1.1.1(exit)::T1.1.2(effect)::S1.1(exit)::T1.2(effect)::S1.2(exit)::T1.3(effect)"
+        "S1.1.1(exit)::T1.1.2(effect)::S1.1(exit)"
       ],
-      "runs": 1
+      "runs": 6
     },
     {
       "name": "Deferred 004 A",
       "area": "Deferred",
-      "class": "extension",
+      "class": "standard",
       "row": "SM7",
-      "rowKind": "differs, v2 silent",
-      "bucket": "pass",
+      "rowKind": "differs because v2 differs",
+      "bucket": "differs-by-design",
+      "reasons": [
+        "reached a trace the suite does not admit: S2.1(exit)::T2.2(effect)::S1.1(exit)::T1.2(effect)::S1(exit)::T4(effect)",
+        "admitted trace not reached: S1.1(exit)::T1.2(effect)::S2.1(exit)::T2.2(effect)::S1(exit)::T4(effect)",
+        "reports on SM7 (Deferral against a transition elsewhere in the configuration): differs because v2 differs"
+      ],
       "expected": [
         "S1.1(exit)::T1.2(effect)::S2.1(exit)::T2.2(effect)::S1(exit)::T4(effect)"
       ],
       "reached": [
-        "S1.1(exit)::T1.2(effect)::S2.1(exit)::T2.2(effect)::S1(exit)::T4(effect)"
+        "S2.1(exit)::T2.2(effect)::S1.1(exit)::T1.2(effect)::S1(exit)::T4(effect)"
       ],
-      "runs": 4
+      "runs": 20
     },
     {
       "name": "Deferred 004 B",
       "area": "Deferred",
-      "class": "extension",
+      "class": "standard",
       "row": "SM7",
-      "rowKind": "differs, v2 silent",
-      "bucket": "pass",
+      "rowKind": "differs because v2 differs",
+      "bucket": "differs-by-design",
+      "reasons": [
+        "reached a trace the suite does not admit: S2.1(exit)::T2.2(effect)::S1.1.1(exit)::T1.1.2(effect)::S1.1(exit)::S1(exit)",
+        "admitted trace not reached: S1.1.1(exit)::T1.1.2(effect)::S1.1(exit)::S2.1(exit)::T2.2(effect)::S1(exit)",
+        "reports on SM7 (Deferral against a transition elsewhere in the configuration): differs because v2 differs"
+      ],
       "expected": [
         "S1.1.1(exit)::T1.1.2(effect)::S1.1(exit)::S2.1(exit)::T2.2(effect)::S1(exit)"
       ],
       "reached": [
-        "S1.1.1(exit)::T1.1.2(effect)::S1.1(exit)::S2.1(exit)::T2.2(effect)::S1(exit)"
+        "S2.1(exit)::T2.2(effect)::S1.1.1(exit)::T1.1.2(effect)::S1.1(exit)::S1(exit)"
       ],
-      "runs": 4
+      "runs": 20
     },
     {
       "name": "Deferred 005",
       "area": "Deferred",
-      "class": "extension",
-      "bucket": "pass",
+      "class": "standard",
+      "row": "SM6",
+      "rowKind": "differs because v2 differs",
+      "bucket": "differs-by-design",
+      "reasons": [
+        "reached a trace the suite does not admit: T3(effect)::S2(entry)",
+        "admitted trace not reached: T3(effect)::S2(entry)::T4(effect)::S2(entry)::T5(effect)::S2(entry)",
+        "reports on SM6 (Order of a kept signal's replay against occurrences already pooled): differs because v2 differs"
+      ],
       "expected": [
         "T3(effect)::S2(entry)::T4(effect)::S2(entry)::T5(effect)::S2(entry)"
       ],
       "reached": [
-        "T3(effect)::S2(entry)::T4(effect)::S2(entry)::T5(effect)::S2(entry)"
+        "T3(effect)::S2(entry)"
       ],
-      "runs": 1
+      "runs": 9
     },
     {
       "name": "Deferred 006 A",
       "area": "Deferred",
-      "class": "extension",
-      "row": "SM15",
-      "rowKind": "differs because v2 differs",
-      "bucket": "pass",
-      "expected": [
-        "S2(doActivity-AnotherSignal)"
-      ],
-      "reached": [
-        "S2(doActivity-AnotherSignal)"
-      ],
-      "runs": 1
+      "class": "not-expressible",
+      "bucket": "not-expressible",
+      "reasons": [
+        "deferral in a state left by an unguarded completion transition S2"
+      ]
     },
     {
       "name": "Deferred 006 B",
       "area": "Deferred",
-      "class": "extension",
-      "row": "SM15",
-      "rowKind": "differs because v2 differs",
-      "bucket": "differs-by-design",
+      "class": "not-expressible",
+      "bucket": "not-expressible",
       "reasons": [
-        "admitted trace not reached: S2(doActivityPartI)::S2(doActivityPartII)",
-        "reports on SM15 (A do activity and the machine competing for one occurrence): differs because v2 differs"
-      ],
-      "expected": [
-        "",
-        "S2(doActivityPartI)::S2(doActivityPartII)"
-      ],
-      "reached": [
-        ""
-      ],
-      "runs": 1
+        "deferral in a state left by an unguarded completion transition S2"
+      ]
     },
     {
       "name": "Deferred 006 C",
       "area": "Deferred",
-      "class": "extension",
-      "row": "SM15",
-      "rowKind": "differs because v2 differs",
-      "bucket": "pass",
-      "expected": [
-        "S1.1(doActivity)::S1.2(doActivity)",
-        "S1.2(doActivity)::S1.1(doActivity)"
-      ],
-      "reached": [
-        "S1.1(doActivity)::S1.2(doActivity)",
-        "S1.2(doActivity)::S1.1(doActivity)"
-      ],
-      "runs": 552
+      "class": "not-expressible",
+      "bucket": "not-expressible",
+      "reasons": [
+        "deferral in a state left by an unguarded completion transition S1.S1.1"
+      ]
     },
     {
       "name": "Deferred 007",
       "area": "Deferred",
-      "class": "extension",
-      "bucket": "pass",
-      "expected": [
-        "S1(exit)::T3(effect)::T4(effect)[in=true][out=false]::[out=false]"
-      ],
-      "reached": [
-        "S1(exit)::T3(effect)::T4(effect)[in=true][out=false]::[out=false]"
-      ],
-      "runs": 1
+      "class": "not-expressible",
+      "bucket": "not-expressible",
+      "reasons": [
+        "deferred call S1"
+      ]
     },
     {
       "name": "Redefinition 001",

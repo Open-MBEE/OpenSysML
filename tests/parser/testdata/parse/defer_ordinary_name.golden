@@ -1,0 +1,40 @@
+(RootNamespace
+  (Membership visibility="default"
+    (Package name="DeferIsAName" library=false standard=false
+      (Membership visibility="default"
+        (Definition kind="attribute" abstract=false variation=false name="Setting"
+          (Membership visibility="default"
+            (Usage kind="attribute" name="defer" ref=false direction="none" composite=false derived=false ordered=false nonunique=false
+              (Relationship kind="typing" target=ScalarValues::Boolean
+                (*ast.QualifiedName))))))
+      (Membership visibility="default"
+        (Definition kind="action" abstract=false variation=false name="Plan"
+          (Usage kind="action" name="defer" ref=false direction="none" composite=false derived=false ordered=false nonunique=false)
+          (FinalNode)
+          (SuccessionEdge source="defer" target="@done")))
+      (Membership visibility="default"
+        (Definition kind="state" abstract=false variation=false name="Controller"
+          (Membership visibility="default"
+            (Usage kind="attribute" name="defer" ref=false direction="none" composite=false derived=false ordered=false nonunique=false
+              (Relationship kind="typing" target=ScalarValues::Integer
+                (*ast.QualifiedName))))
+          (EntryMember)
+          (SuccessionEdge source="@entry" target="defer")
+          (SubstateMember name="defer")
+          (SubstateMember name="ready")
+          (TransitionMember source="defer" target="ready"
+            (OperatorExpr operator="=="
+              (FeatureReference name="defer")
+              (LiteralInteger value="1")))
+          (TransitionMember source="ready" target="defer" trigger="Ping"
+            (*ast.AssignmentActionNode))))
+      (Membership visibility="default"
+        (Definition kind="part" abstract=false variation=false name="Holder"
+          (Membership visibility="default"
+            (Usage kind="part" name="defer" ref=false direction="none" composite=false derived=false ordered=false nonunique=false
+              (Relationship kind="typing" target=Setting
+                (*ast.QualifiedName))))
+          (Membership visibility="default"
+            (Usage kind="attribute" name="flag" ref=false direction="none" composite=false derived=false ordered=false nonunique=false
+              (FeatureChainExpr member="defer"
+                (FeatureReference name="defer")))))))))

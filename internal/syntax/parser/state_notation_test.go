@@ -1,6 +1,7 @@
 package parser
 
 import (
+	"strings"
 	"testing"
 
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/ast"
@@ -91,41 +92,81 @@ package Test {
 	}
 }
 
-// `defer` collects the events of one declaration in order, parsing each of them
-// exactly like a transition trigger.
-func TestDeferMemberParsing(t *testing.T) {
+// `defer` is an ordinary name: a state, an action and an attribute may carry
+// it, and a reference through it (`defer.x`) resolves like any other.
+func TestDeferIsAnOrdinaryName(t *testing.T) {
 	members := stateDefMembers(t, `
 package Test {
 	state def Controller {
-		defer Ping, setSpeed(value);
-		defer Pong;
+		attribute defer : ScalarValues::Boolean;
+		state defer;
+		do action defer { assign defer.x := 1; }
+		transition first defer if defer.x == 1 then defer;
 	}
 }`)
-
-	var defers []*ast.DeferMember
+	var named []string
 	for _, member := range members {
-		if d, ok := member.(*ast.DeferMember); ok {
-			defers = append(defers, d)
+		switch n := member.(type) {
+		case *ast.Usage:
+			named = append(named, n.Kind.String()+" "+n.Ident.Name)
+		case *ast.SubstateMember:
+			named = append(named, "state "+n.Name)
 		}
 	}
-	if len(defers) != 2 {
-		t.Fatalf("expected 2 defer members, got %d", len(defers))
+	want := []string{"attribute defer", "state defer"}
+	for _, w := range want {
+		found := false
+		for _, n := range named {
+			found = found || n == w
+		}
+		if !found {
+			t.Errorf("no member %q among %v", w, named)
+		}
 	}
-	if len(defers[0].Triggers) != 2 {
-		t.Fatalf("expected the first defer to carry 2 events, got %d", len(defers[0].Triggers))
-	}
-	if name, ok := defers[0].Triggers[0].(*ast.QualifiedName); !ok || ast.SimpleName(name) != "Ping" {
-		t.Errorf("expected the first deferred event to be the signal Ping, got %T", defers[0].Triggers[0])
-	}
-	call, ok := defers[0].Triggers[1].(*ast.CallEvent)
-	if !ok {
-		t.Fatalf("expected the second deferred event to be a call event, got %T", defers[0].Triggers[1])
-	}
-	if ast.SimpleName(call.Operation) != "setSpeed" {
-		t.Errorf("expected the deferred call to be setSpeed, got %q", ast.SimpleName(call.Operation))
-	}
-	if len(defers[1].Triggers) != 1 {
-		t.Errorf("expected the second defer to carry 1 event, got %d", len(defers[1].Triggers))
+}
+
+// The removed `defer <event>;` extension is reported once, under its own code,
+// and the member becomes an ErrorNode: the rest of the body is still read.
+func TestRemovedDeferMemberIsDiagnosedOnce(t *testing.T) {
+	for _, src := range []string{
+		"state def S { state a; defer Ping; state b; }",
+		"state def S { state a; defer Ping, setSpeed(value); state b; }",
+		"state def S { state a; defer Ping state b; }",
+	} {
+		p := New(source.New("test.sysml", []byte(src)))
+		root := p.ParseFile()
+		if len(p.Diagnostics) != 1 {
+			t.Errorf("%s: %d diagnostics, want 1: %v", src, len(p.Diagnostics), p.Diagnostics)
+			continue
+		}
+		d := p.Diagnostics[0]
+		if d.Code != codeDeferNotationRemoved || d.ErrorCode() != codeDeferNotationRemoved {
+			t.Errorf("%s: code %q, want %q", src, d.Code, codeDeferNotationRemoved)
+		}
+		if d.Message != msgDeferNotationRemoved || !strings.Contains(d.Message, "ordered") || !strings.Contains(d.Message, "exit action") {
+			t.Errorf("%s: message %q does not describe the standard encoding", src, d.Message)
+		}
+		if p.src.Text(d.Span) != "defer" {
+			t.Errorf("%s: diagnostic on %q, want the `defer` word", src, p.src.Text(d.Span))
+		}
+		var errs, states int
+		for _, m := range unwrapAll(root.Members) {
+			def, ok := m.(*ast.Definition)
+			if !ok {
+				continue
+			}
+			for _, mm := range unwrapAll(def.Members) {
+				switch mm.(type) {
+				case *ast.ErrorNode:
+					errs++
+				case *ast.SubstateMember:
+					states++
+				}
+			}
+		}
+		if errs != 1 || states != 2 {
+			t.Errorf("%s: %d error nodes and %d substates, want 1 and 2", src, errs, states)
+		}
 	}
 }
 

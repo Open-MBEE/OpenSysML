@@ -134,10 +134,6 @@ type StateGraph struct {
 	// RegionOwner: region → owning composite state
 	RegionOwner map[*ast.StateRegion]*ast.StateNode
 
-	// Deferred: state → the triggers it defers while active, normalized the same
-	// way transition triggers are.
-	Deferred map[*ast.StateNode][]ast.Node
-
 	// TopRegions are the machine's own orthogonal regions, in declaration order.
 	// The order is observable: it is the order regions are entered and exited in.
 	TopRegions []*ast.StateRegion
@@ -349,13 +345,6 @@ func ToStateGraphWithEndpoints(stateMachineDecl ast.Node, scope *symbols.Scope, 
 	graph.collectRegions(body)
 	if err := graph.resolveRunToCompletion(); err != nil {
 		return nil, err
-	}
-
-	// Record the triggers each state defers, once every state is collected.
-	for _, state := range graph.States {
-		if err := collectDeferred(graph, state); err != nil {
-			return nil, err
-		}
 	}
 
 	// Third pass: collect transitions
@@ -662,7 +651,6 @@ func newStateGraph(scope *symbols.Scope, endpoints EndpointResolver) *StateGraph
 		ParentState:          make(map[*ast.StateNode]*ast.StateNode),
 		RegionOwner:          make(map[*ast.StateRegion]*ast.StateNode),
 		RegionOf:             make(map[*ast.StateNode]*ast.StateRegion),
-		Deferred:             make(map[*ast.StateNode][]ast.Node),
 		regionDecl:           make(map[*ast.StateRegion]ast.Node),
 
 		designatedInitials: make(map[*ast.StateNode]bool),
@@ -877,10 +865,6 @@ func collectVertices(graph *StateGraph, members []ast.Node, scope *symbols.Scope
 			}
 		case *ast.PseudostateNode:
 			graph.addPseudostate(n, scope)
-		case *ast.DeferMember:
-			// The machine's own body has no state to defer for: an event deferred
-			// there would be retained for the whole run and never redelivered.
-			return fmt.Errorf("defer must be declared inside a state, not in the state machine body")
 		}
 	}
 	return nil
@@ -917,9 +901,6 @@ func collectGraphOnlyState(graph *StateGraph, state *ast.StateNode, parent *ast.
 	graph.Behaviors[state] = graph.lowerStateBehaviors(state, scope)
 	if parent != nil {
 		graph.ParentState[state] = parent
-	}
-	if err := collectDeferred(graph, state); err != nil {
-		return err
 	}
 	if inst := graph.instanceOf[state]; inst != nil {
 		graph.push(inst)
@@ -1050,9 +1031,6 @@ func collectRegionStates(graph *StateGraph, region *ast.StateRegion, parent *ast
 				graph.PseudostateOwner[n] = parent
 			}
 			continue
-		case *ast.DeferMember:
-			// A region is not a state: only a state can retain an event.
-			return fmt.Errorf("defer must be declared inside a state, not in a region body")
 		default:
 			continue
 		}
@@ -1092,7 +1070,7 @@ func isParallelRegionMember(member ast.Node) bool {
 }
 
 // parallelOwnedMember reports whether a parallel state may own a member itself
-// rather than contribute it to a region: its behaviors, its deferred events, the
+// rather than contribute it to a region: its behaviors, the
 // pseudostates its regions branch through, the edges between them, a metadata
 // usage annotating it, and a definition written in its body, which declares a
 // type rather than a region.
@@ -1100,7 +1078,7 @@ func parallelOwnedMember(member ast.Node) bool {
 	switch n := member.(type) {
 	case *ast.Comment, *ast.Documentation, *ast.TextualRepresentation,
 		*ast.EntryMember, *ast.DoMember, *ast.ExitMember,
-		*ast.PseudostateNode, *ast.DeferMember,
+		*ast.PseudostateNode,
 		*ast.SuccessionEdge, *ast.TransitionEdge, *ast.TransitionMember,
 		*ast.Definition, *ast.Package, *ast.ErrorNode:
 		return true
@@ -1250,11 +1228,10 @@ func parallelRegionBody(member ast.Node) (string, []ast.Node) {
 		name, _ := ast.EffectiveName(n)
 		return name, n.Members
 	case *ast.StateNode:
-		body := make([]ast.Node, 0, len(n.Entry)+len(n.Do)+len(n.Exit)+len(n.Defer)+len(n.Substates)+len(n.Regions))
+		body := make([]ast.Node, 0, len(n.Entry)+len(n.Do)+len(n.Exit)+len(n.Substates)+len(n.Regions))
 		body = append(body, n.Entry...)
 		body = append(body, n.Do...)
 		body = append(body, n.Exit...)
-		body = append(body, n.Defer...)
 		body = append(body, n.Substates...)
 		for _, region := range n.Regions {
 			body = append(body, region)
@@ -1277,30 +1254,6 @@ func (g *StateGraph) regionScope(scope *symbols.Scope, region *ast.StateRegion) 
 		return childScope(scope, decl)
 	}
 	return childScope(scope, region)
-}
-
-// collectDeferred records the triggers a state defers, normalized the same way
-// transition triggers are. Only a signal or a call can be deferred: a time or
-// change event is not dispatched from the event pool, so retaining one has no
-// meaning and is reported rather than silently ignored.
-func collectDeferred(graph *StateGraph, state *ast.StateNode) error {
-	for _, trigger := range state.Defer {
-		if trigger == nil {
-			return fmt.Errorf("state %s defers a nil trigger", state.Name)
-		}
-		switch typed := classifyTrigger(trigger).(type) {
-		case *ast.AcceptEvent:
-			if ast.SimpleName(typed.SignalType) == "" {
-				return fmt.Errorf("state %s defers a signal trigger that names no signal", state.Name)
-			}
-			graph.Deferred[state] = append(graph.Deferred[state], typed)
-		case *ast.CallEvent:
-			graph.Deferred[state] = append(graph.Deferred[state], typed)
-		default:
-			return fmt.Errorf("state %s defers a %T trigger: only signal and call triggers can be deferred", state.Name, typed)
-		}
-	}
-	return nil
 }
 
 // endpointVertex is the vertex a succession's or a marker's endpoint names, or

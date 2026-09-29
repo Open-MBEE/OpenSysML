@@ -123,8 +123,8 @@ authors mean by "protocol" they write as the part's own behavior.
 |---|---|---|---|
 | 1 Order, machine on the part | `part def P { port p; exhibit state m { … accept S via p … } }` | Runs at materialization of the part (`lower.ExhibitedState`, `runtime/classifier_behavior.go:startClassifierBehaviors`); a message to `p` reaches the transition (`state_executor.go:matchesEvent`, `acceptsSignalFrom`) | `classifier_behavior_test.go:TestInstantiateStartsExhibitedStateMachine`, conformance `state_transition_accept_via_port`, `accept_via_bound_context_port`; compliance rows *Classifier behaviors* and *`accept … via <port>`* |
 | 1 Order, machine on the port definition | `port def FilePort { in item open : Open; exhibit state protocol { … accept Open then opened; … } }` | Runs at materialization of the port object, which is an object of the port definition; a bare `accept` takes a transfer addressed **to the port object itself** (the REPL's `%send … to #1.f`). A transfer a model action sends `to file.f` is routed to the port *of the part* (`signal.go:deliveryOf` → `DeliverPort`) and the port's own machine does not take it: it stays on the bus | Probed against the tree, not a fixture — see *Probes* below |
-| 1 Order, an arrival the current state does not accept | — | **Directly injected event** (`StateExecutor.SendSignal`, a debugger driving one machine): dispatched, no transition fires, dropped and reported (`advance.go:dueProgress.noteDispatch`, `AdvanceReport.Dropped`); the machine stays in its state. **Model-posted message** (an action's `send`, `signal.go:Context.postFrom`): left on the context-wide bus — a machine takes a message only when its active configuration accepts or defers it (`state_executor.go:takesMessage`, `acceptableMessage`), so nothing is dispatched, nothing is reported, and the message is **taken later** by the first state that accepts it. **Debugger surface:** the REPL's `%send` refuses to enqueue it — `object … accepts no signal Read now: state machine "protocol" in state closed` (`frontend/repl/send.go`) | `state_deferred_test.go:TestUndeferredEventIsDroppedWhereNoTransitionHandlesIt` (direct injection only), `robustness_test.go:testCallOfUnhandledOperation` (state stays `waiting`), `repl/send_test.go` (`accepts no signal … now`); the model-posted case has no test — see *Probes* |
-| 1 Order, deferral | `state s { defer S; }` | Held and re-dispatched after the state is left | `TestDeferredEventIsDeliveredAfterLeavingTheDeferringState`, conformance `state_deferred_event` |
+| 1 Order, an arrival the current state does not accept | — | **Directly injected event** (`StateExecutor.SendSignal`, a debugger driving one machine): dispatched, no transition fires, dropped and reported (`advance.go:dueProgress.noteDispatch`, `AdvanceReport.Dropped`); the machine stays in its state. **Model-posted message** (an action's `send`, `signal.go:Context.postFrom`): left on the context-wide bus — a machine takes a message only when its active configuration accepts it (`state_executor.go:takesMessage`, `acceptableMessage`), so nothing is dispatched, nothing is reported, and the message is **taken later** by the first state that accepts it. **Debugger surface:** the REPL's `%send` refuses to enqueue it — `object … accepts no signal Read now: state machine "protocol" in state closed` (`frontend/repl/send.go`) | conformance `state_undeferred_event` (direct injection only), `robustness_test.go:testCallOfUnhandledOperation` (state stays `waiting`), `repl/send_test.go` (`accepts no signal … now`); the model-posted case has no test — see *Probes* |
+| 1 Order, deferral | the standard encoding: `item deferred : S[*] ordered;`, a do action whose accept loop keeps each `S`, an exit action that sends each kept `S` to `self` | Kept while the state is active and re-sent to the object as the state is left, so it is dispatched to the configuration the exit leaves (behind whatever is already queued) | conformance `state_deferred_signal_kept_and_replayed`, `state_guard_reads_deferred_payload` |
 | 2 Pre-condition | `accept S if <guard>` | Guard evaluated against the performer at dispatch | compliance *State Machine* rows for guards; conformance `state_transition_guard_exit_effect_entry_order` |
 | 2 Post-condition | no spelling (a transition has no post-condition slot) | — | — |
 | 2 "Constrains, does not perform" | a machine whose transitions have no `do` | Runs like any other; nothing marks it as a protocol or forbids effects | — |
@@ -201,7 +201,7 @@ variants:
 
 So at the model surface the runtime does not refuse an out-of-order reception; the context-wide
 bus holds it until some state accepts it, which is an implicit, unbounded deferral that the model
-did not write (`defer` is the spelling for it, §7.18.3). UML's behavior-state-machine semantics,
+did not write (SysML v2 has no deferral notation; the standard encoding above is the spelling for a chosen one). UML's behavior-state-machine semantics,
 and the PSSM suite the referee runs, discard an event the active configuration neither accepts nor
 defers; the direct-injection path (`SendSignal` → dispatch → `Dropped`) does that, the bus path
 does not.
@@ -240,13 +240,13 @@ point: the item asked whether OpenSysML *executes or checks* the construct, and 
 surface the answer is no.
 
 **B — Keep open; make the runtime discard, and report, a model-posted reception the active
-configuration neither accepts nor defers (follow-up).** Two changes in the state executor, no IR
+configuration does not accept (follow-up).** Two changes in the state executor, no IR
 change, no new notation:
 
 1. *An addressed message no machine of its destination takes is consumed and dropped, not held.*
    When a message with a destination (`DeliverPort`, `DeliverPortReceiver`, `DeliverReceiver`,
    `DeliverObject` — not `DeliverAnyone`, which has no destination to hold it to) reaches a
-   performer whose exhibited machines are all started and none of which accepts or defers it in
+   performer whose exhibited machines are all started and none of which accepts it in
    its active configuration (`takesMessage` false for every one), the machine that would have been
    its receiver takes it off the bus and dispatches it as a non-firing `Dispatch`, so it lands in
    `AdvanceReport.Dropped` through `dueProgress.noteDispatch` exactly as a directly injected event

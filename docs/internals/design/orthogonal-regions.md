@@ -160,24 +160,21 @@ drawn first, so the label reads the same under every policy. Change triggers
 hold and dispatch through the same loop. See
 [scheduling policies, choice points and exploration](scheduling.md).
 
-**Deferral against a sibling region.** Before the survivors are dispatched, `selectTransitions`
-asks `deferralOutranks`: a state in the active configuration that defers the occurrence
-(`deferringStates`, over `StateGraph.Deferred`) holds it back from every candidate whose source is
-not that state or a state nested in it (`encloses`). A transition in a sibling region or in an
-enclosing state therefore waits: the occurrence is deferred, and recalled — with its arrival
-identity and the current clock time, ahead of the events that arrived meanwhile — once the
-deferring state is exited, into whatever configuration that exit leaves, where the sibling's
-transition then fires (`state_deferral_outranks_sibling_region`,
-`state_deferral_outranks_enclosing_state`). Only a transition nested in the deferring state
-overrides its deferral and consumes the occurrence (`state_deferral_nested_override`). With two
-orthogonal regions each holding a deferring state, the rule applies to each deferring state: the
-occurrence fires only if *every* deferring state has an overriding transition nested in it, else it
-is deferred whole, a nested override in one region included
-(`TestDeferralInEachRegionMustBeOverriddenForTheEventToFire`); a deferring state nested deeper than
-the sibling's transition outranks it all the same
-(`state_deferral_nested_outranks_sibling_region`). The outcome is determined by the
-configuration, so it is never a choice point; a do behavior's `accept` still takes the occurrence
-ahead of any deferral.
+**A deferred signal against a sibling region.** A deferred signal is modelled in standard
+notation — an ordered buffer, a do action whose accept loop keeps each occurrence, an exit action
+that sends each kept occurrence to `self` — and gets no priority from the executor: the accept
+loop is a do behavior parked at an `accept`, and a transition in a sibling region or in an
+enclosing state that accepts the same signal fires when it is enabled, the do behavior taking the
+occurrence only when no transition consumes it
+(`state_deferred_buffer_yields_to_sibling_region_transition`,
+`state_deferred_buffer_yields_to_enclosing_transition`,
+`state_deferred_buffer_nested_yields_to_sibling_region_transition`). A transition nested in the
+buffering state consumes the occurrence the same way
+(`state_deferred_buffer_yields_to_nested_transition`). What the buffer kept is re-sent as the
+state is left and dispatched, behind whatever is already queued, to the configuration that exit
+leaves (`state_deferred_signal_kept_and_replayed`). The removed `defer` extension held the
+occurrence back from every transition not nested in the deferring state; UML's deferral priority
+has no standard SysML v2 spelling, so a model that needs it cannot be written.
 
 **Completion of a composite state.** `done` written in a composite state's body is that state's
 own end (`States.sysml`: `done` is `StatePerformance::endShot`), so when every region of a
@@ -312,7 +309,7 @@ state working parallel {
 `internal/ir/lower/state_graph.go` synthesizes one `ast.StateRegion` per state substate
 (`parallelRegions`, `isParallelRegionMember`), named after that substate, and fills `RegionOf`,
 `RegionOwner`, `RegionInitials` and `CompositeStates` from it. The parallel state itself keeps what
-it declares directly — its behaviors, `defer`, its pseudostates and the edges between them — so a
+it declares directly — its behaviors, its pseudostates and the edges between them — so a
 choice its regions branch through is owned by the parallel state, not by a region.
 
 ## Test Cases
@@ -416,7 +413,7 @@ state def Parallel {
 - §14.2.3.3.5: Join transitions (N→1 with AND condition)
 
 **Not implemented (future):**
-- Transition priorities within regions beyond the nesting rule (a nested transition and a nested
-  override of a deferral outrank an enclosing state's)
+- Transition priorities within regions beyond the nesting rule (a nested transition outranks an
+  enclosing state's)
 - Inter-region communication (requires ports)
 - Region-specific event queues (single queue sufficient for most cases)

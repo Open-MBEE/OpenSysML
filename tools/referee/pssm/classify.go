@@ -17,7 +17,7 @@ type Expressibility int
 const (
 	// NotExpressible: the model uses a construct with no SysML v2 spelling.
 	NotExpressible Expressibility = iota
-	// Extension: spellable with this project's extensions (defer, fork, join,
+	// Extension: spellable with this project's extensions (fork, join,
 	// junction, choice, history).
 	Extension
 	// Standard: spellable in standard SysML v2 notation.
@@ -60,6 +60,13 @@ const (
 	ConstructSubmachine          Construct = "submachine state"
 	ConstructUnknownVertex       Construct = "unknown pseudostate kind"
 	ConstructNoMachine           Construct = "no state machine"
+	// A deferred signal is kept in standard notation, by an ordered buffer the
+	// state's do action fills from an accept loop and its exit action flushes.
+	// A deferred call is not; nor is a deferral in a state an unguarded
+	// completion transition leaves, since the accept loop never completes and
+	// the completion transition would never fire.
+	ConstructDeferredCall       Construct = "deferred call"
+	ConstructDeferredCompletion Construct = "deferral in a state left by an unguarded completion transition"
 	// No translation: the model's behaviors read what no transition's accept
 	// carries to them, or the tester computes what the driver cannot.
 	ConstructBehaviorParameter   Construct = "behavior parameter"
@@ -73,7 +80,6 @@ const (
 	// is neither an entry nor an exit point and that no transition reaches.
 	ConstructStrayConnectionPoint Construct = "stray connection point"
 	// This project's extensions.
-	ConstructDefer          Construct = "defer"
 	ConstructFork           Construct = "fork"
 	ConstructJoin           Construct = "join"
 	ConstructJunction       Construct = "junction"
@@ -96,12 +102,13 @@ var constructClass = map[Construct]Expressibility{
 	ConstructSubmachine:           NotExpressible,
 	ConstructUnknownVertex:        NotExpressible,
 	ConstructNoMachine:            NotExpressible,
+	ConstructDeferredCall:         NotExpressible,
+	ConstructDeferredCompletion:   NotExpressible,
 	ConstructBehaviorParameter:    NotExpressible,
 	ConstructTesterTrace:          NotExpressible,
 	ConstructGuardSideEffect:      NotExpressible,
 	ConstructGuardBehaviorUnread:  NotExpressible,
 	ConstructRegionNoEntry:        NotExpressible,
-	ConstructDefer:                Extension,
 	ConstructFork:                 Extension,
 	ConstructJoin:                 Extension,
 	ConstructJunction:             Extension,
@@ -182,6 +189,20 @@ func Classify(t *Test) Classification {
 		return constructClass[uses[i].Construct] < constructClass[uses[j].Construct]
 	})
 	return Classification{Class: class, Uses: uses}
+}
+
+// unguardedCompletionOutOf reports whether a transition with neither trigger
+// nor guard leaves v.
+func unguardedCompletionOutOf(v *Vertex) bool {
+	if v.Region == nil {
+		return false
+	}
+	for _, tr := range v.Region.Transitions {
+		if tr.Source == v && len(tr.Triggers) == 0 && tr.Guard == nil {
+			return true
+		}
+	}
+	return false
 }
 
 // reachedVertices collects every vertex some transition in the regions, at
@@ -436,8 +457,13 @@ func (w *walker) vertex(v *Vertex) {
 	w.behavior(v.Entry, where)
 	w.behavior(v.Exit, where)
 	w.behavior(v.Do, where)
-	if len(v.Deferred) > 0 {
-		w.add(ConstructDefer, where)
+	for _, t := range v.Deferred {
+		if t.Event == nil || t.Event.Kind != EventSignal {
+			w.add(ConstructDeferredCall, where)
+		}
+	}
+	if len(v.Deferred) > 0 && unguardedCompletionOutOf(v) {
+		w.add(ConstructDeferredCompletion, where)
 	}
 	if v.Redefines != "" {
 		w.add(ConstructRedefinedState, where)

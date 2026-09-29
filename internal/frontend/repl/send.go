@@ -173,7 +173,7 @@ func (r signalReceiver) accepts(msg runtime.Message) (bool, error) {
 }
 
 // decide says what the receiver would do with msg once dispatched (what a machine
-// fires, defers or resumes on it; the accepts an action is parked at for it), false for nothing.
+// fires or resumes on it; the accepts an action is parked at for it), false for nothing.
 func (r signalReceiver) decide(msg runtime.Message) (acceptance, bool, error) {
 	if r.machine != nil {
 		decision, err := r.machine.Decide(msg)
@@ -313,9 +313,6 @@ func (a acceptance) text() string {
 		return fmt.Sprintf("Accepted by performed action %q waiting at %s; the step dispatching it lets one of them take it", a.receiver.name, strings.Join(accepts, " and at "))
 	}
 	where := a.receiver.status()
-	if a.decision.Deferred {
-		return fmt.Sprintf("Deferred by %s, to be dispatched once it leaves", where)
-	}
 	resumes := ""
 	if len(a.decision.Resumes) > 0 {
 		resumes = fmt.Sprintf("the %s goes on from its accept", strings.Join(a.decision.Resumes, " and the "))
@@ -330,7 +327,7 @@ func (a acceptance) text() string {
 }
 
 // decideReceivers decides the message with each receiver as its dispatch would,
-// keeping those that fire on it, defer it, or go on from an accept with it.
+// keeping those that fire on it or go on from an accept with it.
 func decideReceivers(receivers []signalReceiver, msg runtime.Message) ([]acceptance, error) {
 	var out []acceptance
 	for _, r := range receivers {
@@ -522,9 +519,6 @@ func droppedDispatchNote(d runtime.Dispatch) string {
 	msg, isSignal := d.Event.Payload.(runtime.Message)
 	if !isSignal || d.Fired || len(d.Resumed) > 0 {
 		return ""
-	}
-	if d.Deferred {
-		return msg.SignalType + " was deferred by the active state, to be dispatched again once it leaves"
 	}
 	return msg.SignalType + " was consumed by no transition: since it was sent, the state or the data its guards read had changed"
 }

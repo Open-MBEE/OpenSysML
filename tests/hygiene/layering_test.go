@@ -88,6 +88,7 @@ var packageLayer = map[string]string{
 	"internal/translate/filename":         "translate",
 	"internal/translate/imagefile":        "translate",
 	"internal/translate/migrate":          "translate",
+	"internal/translate/deferred":         "translate",
 	"internal/translate/mtip":             "translate",
 	"internal/translate/simresults":       "translate",
 	"internal/translate/xmi":              "translate",

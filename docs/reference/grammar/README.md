@@ -44,7 +44,18 @@ They are a documented extension, not OMG notation, and using one produces a
 | `history <name>;` | shallow history (UML `H`) | UML `shallowHistory` pseudostate |
 | `shallow history <name>;` | shallow history, spelled out | UML `shallowHistory` pseudostate |
 | `deep history <name>;` | deep history (UML `H*`) | UML `deepHistory` pseudostate |
-| `defer <event> [, <event>]*;` | events the state retains while active | KerML `StatePerformances::StatePerformance::deferrable: Transfer[0..*] subsets acceptable` — "transfers … can be considered for acceptance more than once"; dispatch order is `Occurrences::Occurrence::incomingTransferSort`, defaulting to `earlierFirstIncomingTransferSort` |
+
+**Removed:** `defer <event> [, <event>]*;`, a state member that named the events the state
+retained while active, was an OpenSysML extension and is no longer notation. `defer` is an
+ordinary name (`state defer;`, `attribute defer : Real;`, `defer.x`), and a legacy `defer` member
+is one `defer-notation-removed` parse error in either conformance mode. A deferred signal is
+modelled in standard SysML v2 instead: an ordered buffer (`item deferred : Sig[*] ordered;`), a
+do action whose accept loop keeps each occurrence while the state is active, and an exit action
+that sends each kept occurrence to `self` — the encoding the SysML v1 migrator writes, described
+with its limits in [sysml-v1-migration.md § Deferred signals](../sysml-v1-migration.md#deferred-signals).
+It does not recreate the removed extension's priority of a deferring substate over a transition
+of an enclosing state or a sibling region (a transition that is enabled fires), does not order the
+replay of different signals against each other, and cannot defer an operation call.
 
 The action-level `fork` and `join` control nodes are SysML v2's `Actions::ForkAction`
 and `JoinAction`. The library gives them no behavior of their own (a
@@ -57,7 +68,7 @@ Notes:
 - `fork` and `join` are the exception in the table above. Both are action node
   literals that a state body already admits (`SysML.xtext:1684`, `:1678`, `:1761-1763`), so
   they count as standard and are not warned about.
-- None of `choice`, `decision`, `deep`, `defer`, `done`, `final`, `history`,
+- None of `choice`, `decision`, `deep`, `done`, `final`, `history`,
   `initial`, `junction` or `shallow` is a reserved word. None of them appears as a literal
   in the pinned grammars, so they remain ordinary names and are recognized only in the
   positions where the notation above needs them.
@@ -80,17 +91,6 @@ Notes:
   transition when it has one and otherwise performs the owning state's ordinary entry — its
   `entry; then <state>;` — as a first entry would; an owner with neither is a runtime error. A
   region left through `done` records no history, so a history into it is such an entry.
-- A deferred event is parsed exactly like a transition trigger, so both a signal
-  name (`defer Ping;`) and a call event (`defer setSpeed(value);`) are accepted.
-  Time and change events cannot be deferred; lowering reports them.
-- While a state that defers an event is active, the event is held back from every transition
-  except one whose source is that state or nested in it: a transition in an enclosing state or
-  in a sibling orthogonal region waits until the deferring state is exited, and the event is
-  then dispatched, in its arrival order, to the configuration that exit leaves. When two
-  regions each hold a deferring state, the event fires only if every deferring state has such
-  a nested transition; otherwise it is deferred.
-- `defer` is only meaningful inside a state. One written in the machine's own body is
-  reported by `lower.ToStateGraph`.
 - A transition without a source part (`accept go then s;`, `if c then s;`, `then s;`,
   `transition if c then s;`) is parsed with no source; the state declared before it in
   the same body is its source (SysML v2 §7.18.3, `TargetTransitionUsage`), derived by

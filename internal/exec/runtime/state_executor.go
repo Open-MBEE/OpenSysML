@@ -63,9 +63,6 @@ type StateExecutor struct {
 	// instead of the composite state's initial one.
 	history map[*ast.StateNode]*historyRecord
 
-	// deferred holds, in arrival order, the events an active state defers and no
-	// transition of the active configuration handled.
-	deferred []Event
 	// pendingCall is the synchronous Call the machine is running, if any.
 	pendingCall *pendingCall
 	// callTriggers memoizes the declared operations each call trigger names.
@@ -275,7 +272,6 @@ func newStateExecutorOn(
 		stateVisits:        make([]string, 0),
 		stateStack:         make([]*ast.StateNode, 0),
 		history:            make(map[*ast.StateNode]*historyRecord),
-		deferred:           make([]Event, 0),
 		timerScheduled:     make(map[*lower.Transition]bool),
 		timeTriggerVerdict: make(map[*lower.Transition]error),
 		changeFired:        make(map[*lower.Transition]bool),
@@ -758,9 +754,7 @@ func (e *StateExecutor) checkTimeTriggerType(trans *lower.Transition, t *ast.Tim
 }
 
 // processNextEvent pops and processes the next event from queue. It is one
-// run-to-completion step: the event is dispatched, and only once it has been
-// fully handled are events the new configuration no longer defers dispatched
-// again.
+// run-to-completion step.
 func (e *StateExecutor) processNextEvent() error {
 	if e.eventQueue.Len() == 0 {
 		return fmt.Errorf("no events to process")
@@ -782,10 +776,7 @@ func (e *StateExecutor) processNextEvent() error {
 		return err
 	}
 	e.lastDispatch = &dispatch
-	if !dispatch.Deferred {
-		e.recordAccept(event, mark, at)
-	}
-	e.recallDeferredEvents()
+	e.recordAccept(event, mark, at)
 	e.pauseAtBreakpoint()
 	return nil
 }
@@ -917,13 +908,12 @@ func (e *StateExecutor) eventLabel(event Event) string {
 }
 
 // Dispatch is what became of an event a step took off the queue: a transition
-// fired on it, a state deferred it, or nothing was enabled for it and it was
-// dropped; Resumed names the states whose do behavior went on from an accept with it.
+// fired on it, or nothing was enabled for it and it was dropped; Resumed names
+// the states whose do behavior went on from an accept with it.
 type Dispatch struct {
-	Event    Event
-	Fired    bool
-	Deferred bool
-	Resumed  []string
+	Event   Event
+	Fired   bool
+	Resumed []string
 }
 
 // LastDispatch returns what became of the event the last ProcessNextEvent
@@ -1108,83 +1098,14 @@ func (e *StateExecutor) dispatchEvent(event Event) (Dispatch, error) {
 			return dispatch, err
 		}
 		dispatch.Fired, dispatch.Resumed = consumed, resumed
-		if !consumed && len(resumed) == 0 && e.defersEvent(&event) {
-			dispatch.Deferred = true
-			e.deferred = append(e.deferred, event)
-		}
 		return dispatch, nil
 	}
 }
 
-// defersEvent reports whether any state of the active configuration, or an
-// ancestor of one, defers this event. A composite state's deferral holds while
-// any of its substates is active.
-func (e *StateExecutor) defersEvent(event *Event) bool {
-	return len(e.deferringStates(event)) > 0
-}
-
-// deferringStates lists the states of the active configuration, each active leaf
-// and its ancestors, that defer this event; each is listed once.
-func (e *StateExecutor) deferringStates(event *Event) []*ast.StateNode {
-	var deferring []*ast.StateNode
-	asked := make(map[*ast.StateNode]bool)
-	for _, state := range e.activeStates() {
-		for _, ancestor := range e.getParentChain(state) {
-			if asked[ancestor] {
-				continue
-			}
-			asked[ancestor] = true
-			for _, trigger := range e.graph.Deferred[ancestor] {
-				if e.triggerMatches(trigger, e.graph.StateScopes[ancestor], event) {
-					deferring = append(deferring, ancestor)
-					break
-				}
-			}
-		}
-	}
-	return deferring
-}
-
-// deferralOutranks reports whether a deferring state of the configuration holds
-// the event back from the selected transitions: only a transition out of that
-// state, or out of a state nested in it, is nested deeply enough to override its
-// deferral, and every deferring state must be overridden for any of them to fire.
-func (e *StateExecutor) deferralOutranks(candidates []dispatchCandidate, event *Event) bool {
-	for _, deferring := range e.deferringStates(event) {
-		overridden := slices.ContainsFunc(candidates, func(candidate dispatchCandidate) bool {
-			return e.encloses(deferring, candidate.source)
-		})
-		if !overridden {
-			return true
-		}
-	}
-	return false
-}
-
-// recallDeferredEvents returns every deferred event the configuration reached by
-// the step just finished no longer defers to the event pool. A recalled event
-// keeps its ID, so it is dispatched ahead of whatever arrived while it was held
-// back, but not its original timestamp, which would move virtual time backwards.
-func (e *StateExecutor) recallDeferredEvents() {
-	if len(e.deferred) == 0 {
-		return
-	}
-	retained := make([]Event, 0, len(e.deferred))
-	for _, event := range e.deferred {
-		if e.defersEvent(&event) {
-			retained = append(retained, event)
-			continue
-		}
-		event.Timestamp = e.ctx.clock.now
-		e.enqueue(event)
-	}
-	e.deferred = retained
-}
-
 // broadcastEvent offers an event to the active configuration, reporting whether
 // any transition consumed it and the states whose do behavior went on with it.
-// An event nothing consumed is either deferred or dropped by the caller, so "a
-// transition fired" and "nothing happened" must not look alike here.
+// An event nothing consumed is dropped by the caller, so "a transition fired"
+// and "nothing happened" must not look alike here.
 //
 // Dispatch selects the transitions to take against the configuration and data the
 // event was taken off the queue for, so a state this event entered never reacts to
@@ -1345,19 +1266,10 @@ type dispatchCandidate struct {
 // innermost state with an enabled transition. A false guard does not consume
 // the event, so the walk carries on past it. Leaves in sibling regions of one
 // composite state select the same state, which the event still leaves only once.
-// A state that defers the event outranks every transition not nested in it: it
-// selects nothing, to defer the event, unless each deferring state is overridden.
 func (e *StateExecutor) selectTransitions(event *Event) ([]dispatchCandidate, error) {
-	candidates, err := e.selectCandidates(func(source *ast.StateNode) ([]int, []RunNote, error) {
+	return e.selectCandidates(func(source *ast.StateNode) ([]int, []RunNote, error) {
 		return e.enabledTransitions(source, event)
 	})
-	if err != nil {
-		return nil, err
-	}
-	if e.deferralOutranks(candidates, event) {
-		return nil, nil
-	}
-	return candidates, nil
 }
 
 // selectCandidates walks outward from every active leaf, asking enabled which
@@ -2168,9 +2080,8 @@ func (e *StateExecutor) matchesEvent(trans *lower.Transition, event *Event) (boo
 	}
 }
 
-// triggerMatches reports whether a trigger reacts to an event, whether the
-// trigger belongs to a transition or to a state's deferred set. scope is where
-// the trigger was declared, in which the type it accepts resolves.
+// triggerMatches reports whether a transition's trigger reacts to an event.
+// scope is where the trigger was declared, in which the type it accepts resolves.
 func (e *StateExecutor) triggerMatches(trigger ast.Node, scope *symbols.Scope, event *Event) bool {
 	switch event.Type {
 	case EventAccept:
@@ -2420,9 +2331,8 @@ func (e *StateExecutor) abandonMachine() []string {
 	e.activeConfig.regionStates = make(map[*ast.StateRegion]*ast.StateNode)
 	e.stateStack = nil
 	e.completionDue = false
-	// Nothing dispatches on an ended machine: what it queued or deferred is discarded.
+	// Nothing dispatches on an ended machine: what it queued is discarded.
 	e.eventQueue.Withdraw(func(Event) bool { return true })
-	e.deferred = e.deferred[:0]
 	clear(e.timerScheduled)
 	e.changeWaits = nil
 	e.machineExited = true
@@ -3689,7 +3599,7 @@ func (e *StateExecutor) actingEvents(events []Event) []Event {
 }
 
 // eventActs reports whether dispatching the event now would take it — fire a
-// transition or let a do behavior parked at an accept go on — not defer or drop it.
+// transition or let a do behavior parked at an accept go on — not drop it.
 func (e *StateExecutor) eventActs(event Event) (bool, error) {
 	if trans, ok := event.Payload.(*lower.Transition); ok && event.Type == EventTime {
 		source, _ := trans.Source.(*ast.StateNode)
@@ -4329,7 +4239,7 @@ func (e *StateExecutor) deliverPendingSignal() (bool, error) {
 
 // takesMessage reports whether this machine is the one to take a message in
 // flight: one it can react to, unless its guards would drop it while a sibling
-// machine of the same object would fire on or defer it.
+// machine of the same object would fire on it.
 func (e *StateExecutor) takesMessage(m Message) (bool, error) {
 	if reacts, err := e.reactsTo(m); err != nil || !reacts {
 		return reacts, err
@@ -4338,7 +4248,7 @@ func (e *StateExecutor) takesMessage(m Message) (bool, error) {
 }
 
 // yieldsTo reports whether a machine the performer also exhibits, one that
-// would fire on or defer the message where this one would only drop it, should
+// would fire on the message where this one would only drop it, should
 // take it instead. A guard error is left for the dispatch of the machine whose
 // guard it is to report: this machine takes the message when its own guard
 // fails, and leaves it when a sibling's does.
@@ -4380,8 +4290,8 @@ func (e *StateExecutor) siblingsAccepting(m Message) []*StateExecutor {
 }
 
 // reactsTo reports whether a message in flight is one this machine would act on:
-// its configuration accepts or defers it, or a do behavior under way is parked at
-// an accept for it, which dispatching the message lets go on with it.
+// its configuration accepts it, or a do behavior under way is parked at an
+// accept for it, which dispatching the message lets go on with it.
 func (e *StateExecutor) reactsTo(m Message) (bool, error) {
 	if accepted, err := e.acceptableMessage(m); err != nil || accepted {
 		return accepted, err
@@ -4392,35 +4302,23 @@ func (e *StateExecutor) reactsTo(m Message) (bool, error) {
 
 // acceptableMessage reports whether a message in flight is one this machine can
 // react to now: a transition out of the active configuration accepts it (one
-// routed to a port only `via` that port), or the message reaches this machine —
-// addressed to it, or at a port of the object performing it — and a state of the
-// configuration defers it, to be held until a transition accepts it. Resolving
-// the port a `via` names may materialize it, which can fail.
+// routed to a port only `via` that port). Resolving the port a `via` names may
+// materialize it, which can fail.
 func (e *StateExecutor) acceptableMessage(m Message) (bool, error) {
-	if accepted, err := e.acceptsSignal(m); err != nil || accepted {
-		return accepted, err
-	}
-	return m.reaches(e.stateMachine.Name, m.Port, objectID(e.self)) && e.defersMessage(m), nil
-}
-
-// defersMessage reports whether the active configuration defers a message,
-// whatever route it came by, as a trigger naming no port takes it.
-func (e *StateExecutor) defersMessage(m Message) bool {
-	event := Event{Type: EventAccept, Timestamp: e.ctx.clock.now, Payload: m}
-	return e.defersEvent(&event)
+	return e.acceptsSignal(m)
 }
 
 // HasPendingSignal reports whether a signal this machine reacts to is in flight:
-// one its configuration accepts or defers, or a do behavior under way is parked at
-// an accept for. Such a signal is due now, unlike a queued event's timestamp: the
+// one its configuration accepts, or a do behavior under way is parked at an
+// accept for. Such a signal is due now, unlike a queued event's timestamp: the
 // next step delivers and dispatches it.
 func (e *StateExecutor) HasPendingSignal() bool {
 	return e.hasPendingSignal()
 }
 
 // AcceptsMessage reports whether the machine would take a message in flight: it
-// reaches this machine and triggers a transition out of an active state, is
-// deferred by one, or lets a do behavior parked at an accept go on. Whether a
+// reaches this machine and triggers a transition out of an active state, or lets
+// a do behavior parked at an accept go on. Whether a
 // transition fires is decided by its guard; see Decide. Resolving the port a
 // trigger accepts `via` may fail; a port it materializes on the way is discarded,
 // as everything the preview builds.
@@ -4430,7 +4328,7 @@ func (e *StateExecutor) AcceptsMessage(m Message) (accepted bool, err error) {
 }
 
 // TakesMessage previews whether delivery would let this machine take the message:
-// it reacts to it and does not yield it to a sibling machine that would fire or defer.
+// it reacts to it and does not yield it to a sibling machine that would fire.
 func (e *StateExecutor) TakesMessage(m Message) (takes bool, err error) {
 	defer e.ctx.previewExecutorRun(&e.driven)()
 	e.preview(func() { takes, err = e.takesMessage(m) })
@@ -4438,7 +4336,7 @@ func (e *StateExecutor) TakesMessage(m Message) (takes bool, err error) {
 }
 
 // TriggeredBy previews whether a transition out of an active or enclosing state is
-// triggered by the message, whatever its guard; deferral and do behaviors aside.
+// triggered by the message, whatever its guard; do behaviors aside.
 func (e *StateExecutor) TriggeredBy(m Message) (triggered bool, err error) {
 	e.preview(func() { triggered, err = e.acceptsSignal(m) })
 	return triggered, err
@@ -4451,17 +4349,15 @@ func (e *StateExecutor) preview(fn func()) {
 }
 
 // Decision is what dispatching a message now would do: the transitions that
-// would fire on it, that the active state would defer it, or the do behaviors
-// parked at an accept it lets go on.
+// would fire on it, or the do behaviors parked at an accept it lets go on.
 type Decision struct {
-	Fires    []string
-	Deferred bool
-	Resumes  []string
+	Fires   []string
+	Resumes []string
 }
 
 // Enabled reports whether dispatching the message would do something with it.
 func (d Decision) Enabled() bool {
-	return len(d.Fires) > 0 || d.Deferred || len(d.Resumes) > 0
+	return len(d.Fires) > 0 || len(d.Resumes) > 0
 }
 
 // Decide decides a message as the step dispatching it would — the payload bound,
@@ -4519,9 +4415,6 @@ func (e *StateExecutor) decide(m Message) (Decision, []*lower.Transition, error)
 	}
 	for _, act := range taking {
 		decision.Resumes = append(decision.Resumes, doBehaviorDescription(act.state))
-	}
-	if accepted && !decision.Enabled() {
-		decision.Deferred = e.defersEvent(&event)
 	}
 	return decision, transitions, nil
 }
@@ -5385,13 +5278,6 @@ func (e *StateExecutor) SetTrace(trace *TraceRecorder) {
 // EventQueue returns the event queue (not copied - read-only access).
 func (e *StateExecutor) EventQueue() *EventQueue {
 	return e.eventQueue
-}
-
-// DeferredEvents returns the events the active configuration holds deferred, in
-// the order they were deferred; they return to the queue once no active state
-// defers them.
-func (e *StateExecutor) DeferredEvents() []Event {
-	return append([]Event(nil), e.deferred...)
 }
 
 // CurrentTime returns the current instant of the clock this machine shares with

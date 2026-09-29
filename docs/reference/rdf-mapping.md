@@ -568,8 +568,9 @@ from:
   and `history` vertices, with `sysx:pseudostateKind`. The SysML v2 grammar
   has no pseudostate production, and the library's `States` package defines
   no state to specialize for one, so a `StateUsage` would misstate them.
-- `sysx:DeferMember` — the `defer sig;` member of a state, carrying
-  `sysx:deferredEvent` per event; SysML v2 has no deferred triggers.
+- A graph from an older mapping that carries `sysx:DeferMember` or `sysx:deferredEvent` —
+  the removed `defer sig;` state member — is refused with a diagnostic naming the standard
+  deferred-signal encoding to model it with, rather than read with the member dropped.
 - `sysx:ActionExecutionNode` — `action a { x + 1 }`, an action node
   performing an inline expression, which no SysML v2 production spells.
 
@@ -1214,12 +1215,11 @@ the node, that name is used; the rest are `sysx:` terms, marked below.
 | `if c { … } else { … }` | `sysml:IfActionUsage`, owning through `sysml:ParameterMembership`s its condition and then a `sysml:ActionUsage` per branch | `sysx:condition`, and `sysx:branchKind` and `sysx:hasBody` on each branch; a `sysx:IfBranch` from an older graph reads as the same branch |
 | `state s { … }`, `state s parallel { … }`, `entry; then s; state s;` | `sysml:StateUsage` | `sysml:declaredName`, `sysx:declaredKeyword`, `sysml:isParallel`, its members |
 | `entry`/`do`/`exit`, `entry do { … }` (whatever separates the `do` from the body) | `sysml:StateSubactionMembership` | `sysml:kind` (`entry`, `do`, `exit`) beside `sysx:subactionKind`, `sysx:declaredKeyword`, the one action it performs, which a `perform a;` states as a `sysml:PerformActionUsage` and an empty `entry;` as an anonymous `sysml:ActionUsage` with no name and no body; a braced block `entry { … }` is an anonymous `sysml:ActionUsage` with `sysx:isKindImplicit` (no `action` keyword was written) whose `sysx:hasBody` is the braces. A graph from an older mapping that wrote a braced block as its statements under the membership, `sysx:hasBody` on the membership itself, is refused as unsupported: it holds no anonymous action to read the block back as |
-| `defer sig, other;` | `sysx:DeferMember` | `sysx:deferredEvent` per event |
 | `choice`, `junction`, `fork`, `join`, `shallow`/`deep history` | `sysx:Pseudostate` | `sysx:pseudostateKind`, `sysx:declaredKeyword` |
 | `transition [n] [first] s [accept t] [if g] [do e] then t;`, `… then t { … }` | `sysml:TransitionUsage` | `sysml:sourceFeature`, `sysml:targetFeature`, `sysx:trigger`, `sysx:triggerKeyword`, `sysx:guard`, `sysx:transitionSyntax`, its effect and body as members: the effect is owned through a `sysml:TransitionFeatureMembership` with `sysml:kind "effect"` and `sysml:transitionFeature` (SysML v2 1.0 § 8.3.18.8), the transition stating it as `sysml:effectAction`, and the collapsed `sysx:effectMember`, `sysx:bodyMember` links are written beside; a graph carrying either form alone reads, and one whose `TransitionFeatureMembership` and `sysx:effectMember` name different members is refused, with `sysx:hasEffect` on every transition written with `do` (its braced effect `do { … }` is an anonymous action as for a state's `entry { … }`, so an empty `do { }` survives as that action's `sysx:hasBody`) and `sysx:hasBody` for a trailing body; a graph with members linked by neither owns an effect alone, `sysx:hasBody` its braces. A graph from an older mapping that wrote a braced effect as its statements (`sysx:bracedEffect`, or `sysx:hasBody` on an unlinked effect) is refused as unsupported: it holds no anonymous action to read the block back as |
 
 A state's members are held in the AST in one bucket per kind (entry, do, exit,
-defer, substates); they are written back in the order they were
+substates); they are written back in the order they were
 declared, taken from their source spans, so `do` before `entry` stays that way.
 
 The conditions and expressions these nodes carry are expression trees, like
@@ -1627,7 +1627,7 @@ the declaration the `then` was written ahead of.
 The member a `then` sequences from is the one the parser gives it: the nearest
 feature before it that is not a connector or a transition. A member that is not
 a feature — a `doc`, a `comment`, a `rep`, an `import`, an `alias`, a nested
-definition or `package`, a `multiplicity` declaration, a state's `defer` — declares
+definition or `package`, a `multiplicity` declaration — declares
 nothing a succession can run from, so a `then` written after one is read past it. A connector of any kind, named or not
 (`connect p to q;`, `interface i connect …`, `allocate`, `bind`, `flow`,
 `succession`), and a transition relate other members rather than declaring one,

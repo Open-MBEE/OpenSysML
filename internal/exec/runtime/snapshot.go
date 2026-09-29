@@ -635,7 +635,6 @@ type stateCapture struct {
 	pausedAt           ast.Node
 	completionDue      bool
 	history            map[*ast.StateNode]historyRecord
-	deferred           []Event
 	lastDispatch       *Dispatch
 	lastEventAt        float64
 	doActions          []doActionCapture
@@ -687,7 +686,6 @@ func (e *StateExecutor) capture() stateCapture {
 		pausedAt:           e.pausedAt,
 		completionDue:      e.completionDue,
 		history:            make(map[*ast.StateNode]historyRecord, len(e.history)),
-		deferred:           slices.Clone(e.deferred),
 		lastDispatch:       cloneDispatch(e.lastDispatch),
 		lastEventAt:        e.lastEventAt,
 		machineExited:      e.machineExited,
@@ -744,7 +742,7 @@ func (c stateCapture) restore() {
 			e.history[node] = &historyRecord{child: record.child, regions: maps.Clone(record.regions)}
 		}
 	}
-	e.deferred, e.lastDispatch, e.lastEventAt = slices.Clone(c.deferred), cloneDispatch(c.lastDispatch), c.lastEventAt
+	e.lastDispatch, e.lastEventAt = cloneDispatch(c.lastDispatch), c.lastEventAt
 	e.doActions = e.doActions[:0]
 	for _, act := range c.doActions {
 		act.act.pending, act.act.firing, act.act.run = slices.Clone(act.pending), act.firing.snapshot(), act.run

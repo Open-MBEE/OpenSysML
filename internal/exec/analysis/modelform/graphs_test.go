@@ -26,7 +26,7 @@ var update = flag.Bool("update", false, "rewrite the graphs goldens in testdata"
 // graphsFixture holds every shape the lowered graphs carry: a flow with a fork,
 // a join, a guarded decision, a nested body performing another action, and a
 // machine with orthogonal regions, entry/do/exit behaviors, a call-triggered
-// guarded transition with an effect and a deferred trigger; and a flow whose
+// guarded transition with an effect; and a flow whose
 // decision weights its successions.
 const graphsFixture = `package test {
 	private import ScalarValues::*;

@@ -1,9 +1,10 @@
 {
     "type": "state",
+    "libraries": true,
     "schedule": "reverse",
     "events": [
-        {"signal": "Ping", "args": null},
-        {"signal": "Leave", "args": null}
+        {"signal": "Ping"},
+        {"signal": "Leave"}
     ],
     "finalState": "done",
     "stateVisits": ["start", "outer", "a1", "b1", "waited", "done"],

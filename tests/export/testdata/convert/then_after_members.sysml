@@ -160,9 +160,9 @@ package ThenAfterMembers {
         then idle;
         state idle;
     }
-    state def AfterDefer {
+    state def AfterStateComment {
         state on;
-        defer Ping;
+        comment /* on precedes off */
         then state off;
     }
 }

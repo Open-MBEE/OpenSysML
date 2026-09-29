@@ -171,9 +171,6 @@ func (w *notationWalker) walk(members []ast.Node) {
 			w.stateNode(n)
 		case *ast.PseudostateNode:
 			w.pseudostate(n)
-		case *ast.DeferMember:
-			w.extension(keywordSpan(n, "defer"), "`defer <event>;`",
-				"no notation states a deferred event")
 		case *ast.InitialNode:
 			w.initialNode(n)
 			// `first a then b { … }` ends in the succession's UsageBody (SysML.xtext:1698).
@@ -419,7 +416,6 @@ func (w *notationWalker) stateNode(n *ast.StateNode) {
 	w.walkActionBody(n.Entry)
 	w.walkActionBody(n.Do)
 	w.walkActionBody(n.Exit)
-	w.walk(n.Defer)
 	w.walk(n.Substates)
 	for _, region := range n.Regions {
 		w.walk([]ast.Node{region})

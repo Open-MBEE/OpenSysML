@@ -102,7 +102,6 @@ type imagedState struct {
 	pausedAt           ast.Node
 	completionDue      bool
 	history            map[*ast.StateNode]historyRecord
-	deferred           []Event
 	lastDispatch       *Dispatch
 	lastEventAt        float64
 	doActions          []doActionCapture
@@ -340,7 +339,6 @@ func (t *imaging) stateExecutor(e *StateExecutor) (*imagedState, error) {
 		pausedAt:           e.pausedAt,
 		completionDue:      e.completionDue,
 		history:            make(map[*ast.StateNode]historyRecord, len(e.history)),
-		deferred:           slices.Clone(e.deferred),
 		lastDispatch:       cloneDispatch(e.lastDispatch),
 		lastEventAt:        e.lastEventAt,
 		machineExited:      e.machineExited,
@@ -387,11 +385,6 @@ func (t *imaging) stateExecutor(e *StateExecutor) (*imagedState, error) {
 		img.events = slices.Clone(e.eventQueue.events)
 	}
 	for _, event := range img.events {
-		if err := t.event(event); err != nil {
-			return nil, err
-		}
-	}
-	for _, event := range img.deferred {
 		if err := t.event(event); err != nil {
 			return nil, err
 		}
@@ -707,14 +700,6 @@ func (m *materializing) stateExecutor(e *StateExecutor, img *imagedState) error 
 			return err
 		}
 		e.eventQueue.events = append(e.eventQueue.events, carried)
-	}
-	e.deferred = make([]Event, 0, len(img.deferred))
-	for _, event := range img.deferred {
-		carried, err := m.event(event)
-		if err != nil {
-			return err
-		}
-		e.deferred = append(e.deferred, carried)
 	}
 	if img.lastDispatch != nil {
 		dispatch := cloneDispatch(img.lastDispatch)

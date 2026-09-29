@@ -166,10 +166,6 @@ func (w ExprWalker) Decl(scope *Scope, decl ast.Node) {
 		w.Members(scope, d.Actions)
 	case *ast.ExitMember:
 		w.Members(scope, d.Actions)
-	case *ast.DeferMember:
-		for _, trigger := range d.Triggers {
-			w.Trigger(scope, trigger)
-		}
 	case *ast.StateNode:
 		body := nodeBodyScope(scope, d)
 		w.Members(body, d.Entry)

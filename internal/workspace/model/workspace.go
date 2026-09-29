@@ -569,7 +569,7 @@ func (w *Workspace) analyze(name string, doc *Document, batch *passes.Batch) ([]
 			Severity: diag.SeverityError,
 			Span:     pd.Span,
 			Message:  pd.Message,
-			Code:     "syntax",
+			Code:     pd.ErrorCode(),
 			Source:   "syntax",
 			Fixes:    pd.Fixes,
 		})

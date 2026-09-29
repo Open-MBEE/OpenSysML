@@ -165,9 +165,9 @@ func TestThenSequencesFromTheNearestFeatureBefore(t *testing.T) {
 	}
 }
 
-// A state's deferral declares no feature, so a `then` after it sequences from the state before.
-func TestThenSequencesPastADeferral(t *testing.T) {
-	edges, p := parseSuccessions(t, "state def S { state a; defer Ping; then state b; }")
+// A comment in a state body declares no feature, so a `then` after it sequences from the state before.
+func TestThenSequencesPastAStateBodyComment(t *testing.T) {
+	edges, p := parseSuccessions(t, "state def S { state a; comment /* a precedes b */ then state b; }")
 	if len(p.Diagnostics) != 0 {
 		t.Fatalf("unexpected diagnostics: %v", p.Diagnostics)
 	}

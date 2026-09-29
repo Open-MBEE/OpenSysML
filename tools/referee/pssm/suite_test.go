@@ -79,7 +79,7 @@ func TestSuiteClassification(t *testing.T) {
 		"Entering": {4, 0, 1}, "Exiting": {4, 0, 1}, "Entry": {0, 0, 6},
 		"Exit": {0, 0, 3}, "Choice": {0, 4, 1}, "Junction": {0, 5, 1},
 		"Fork": {0, 1, 1}, "Join": {0, 3, 0}, "Final": {1, 0, 0},
-		"Terminate": {3, 0, 0}, "History": {0, 8, 0}, "Deferred": {0, 10, 0},
+		"Terminate": {3, 0, 0}, "History": {0, 8, 0}, "Deferred": {6, 0, 4},
 		"Redefinition": {0, 0, 6}, "Standalone": {1, 0, 2}, "Other": {0, 0, 1},
 	}
 	got := map[string]row{}
@@ -125,8 +125,8 @@ func TestSuiteClassification(t *testing.T) {
 			t.Errorf("%s = %+v, want %+v", area, got[area], w)
 		}
 	}
-	if total != (row{41, 32, 30}) {
-		t.Errorf("total = %+v, want {41 32 30}", total)
+	if total != (row{47, 22, 34}) {
+		t.Errorf("total = %+v, want {47 22 34}", total)
 	}
 }
 
@@ -144,7 +144,10 @@ func TestSuiteNoTranslationReasons(t *testing.T) {
 		"Event 019 C":    {Standard, "standard notation only"},
 		"Event 019 D":    {Standard, "standard notation only"},
 		"Event 019 E":    {Standard, "standard notation only"},
-		"Deferred 007":   {Extension, "defer S1"},
+		"Deferred 006 A": {NotExpressible, "deferral in a state left by an unguarded completion transition S2"},
+		"Deferred 006 B": {NotExpressible, "deferral in a state left by an unguarded completion transition S2"},
+		"Deferred 006 C": {NotExpressible, "deferral in a state left by an unguarded completion transition S1.S1.1"},
+		"Deferred 007":   {NotExpressible, "deferred call S1"},
 		"Standalone 001": {NotExpressible, "exit point ExitPoint1; exit point ExitPoint1; entry point EntryPoint1"},
 		"Standalone 002": {NotExpressible, "exit point ExitPoint1; entry point EntryPoint1"},
 		"Standalone 003": {Standard, "standard notation only"},

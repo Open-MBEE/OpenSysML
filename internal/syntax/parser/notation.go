@@ -14,7 +14,6 @@ import (
 var notationWords = map[string]bool{
 	"choice":   true,
 	"deep":     true,
-	"defer":    true,
 	"done":     true,
 	"history":  true,
 	"junction": true,
@@ -122,12 +121,14 @@ func (p *Parser) atStateNotationWord() (string, bool) {
 		if p.notationWordAt(1) == "history" && p.peekIsName(2) && p.peekN(3).Kind == lexer.Semicolon {
 			return w, true
 		}
-	case "defer":
-		// `defer <event> [, <event>]*;`, the event parsed as a trigger is a name
-		// or a call, so anything else after the word names a feature.
-		if p.peekIsName(1) {
-			return w, true
-		}
 	}
 	return "", false
+}
+
+// atRemovedDeferMember reports the legacy `defer <event> [, <event>]* ;` state
+// body member of the removed OpenSysML extension: the word, no longer notation,
+// heads no member the grammar admits when a name follows it, so the shape is
+// diagnosed as the removed notation rather than left to cascade.
+func (p *Parser) atRemovedDeferMember() bool {
+	return p.peek().Kind == lexer.Identifier && p.src.Text(p.peek().Span) == "defer" && p.peekIsName(1)
 }

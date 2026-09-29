@@ -246,21 +246,8 @@ func (r *Renderer) stateNode(state *ast.StateNode, graph *lower.StateGraph, mach
 			}
 		}
 	}
-	if deferred := graph.Deferred[state]; len(deferred) > 0 {
-		detail = append(detail, r.deferredLabel(node.Origin.Doc, deferred))
-	}
 	node.Detail = strings.Join(detail, ", ")
 	return node
-}
-
-// deferredLabel is a state's compartment line for the triggers it defers,
-// `defers Ping, Stop`, each by the name a transition accepts it under.
-func (r *Renderer) deferredLabel(doc string, triggers []ast.Node) string {
-	names := make([]string, 0, len(triggers))
-	for _, trigger := range triggers {
-		names = append(names, strings.TrimPrefix(r.triggerLabel(doc, trigger), "accept "))
-	}
-	return "defers " + strings.Join(names, ", ")
 }
 
 // bodyOwning is the body a state is declared in, as StateGraph.StartOf names it:

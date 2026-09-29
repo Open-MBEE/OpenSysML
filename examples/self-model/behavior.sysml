@@ -365,23 +365,22 @@ package OpenSysMLBehavior {
         transition first idle if not progressed then completed;
     }
 
-    // Event dispatch: run-to-completion, with unhandled events deferred while a
-    // deferring state is active.
+    // Event dispatch: run-to-completion; an event no transition and no parked
+    // accept takes is dropped.
     state def EventDispatch {
         attribute handled : Boolean = true;
-        attribute deferring : Boolean = false;
 
         entry; then waiting;
 
         state waiting;
         state dispatching;
-        state deferred;
+        state dropped;
         state settled;
 
         transition first waiting accept SignalEvent then dispatching;
         transition first dispatching if handled then settled;
-        transition first dispatching if not handled and deferring then deferred;
-        transition first deferred then waiting;
+        transition first dispatching if not handled then dropped;
+        transition first dropped then waiting;
         transition first settled then waiting;
     }
 

@@ -1,0 +1,29 @@
+do: waiting
+stmt action body
+enter action node: state behavior buffer
+do: waiting
+materialize: Ping #1
+  stmt assign deferred
+      enter calc SequenceFunctions::including
+        eval feature deferred -> ()
+        eval chain kept -> instance#1
+        bind seq = () [argument]
+        bind values = instance#1 [argument]
+      exit calc SequenceFunctions::including -> (instance#1)
+    eval invoke SequenceFunctions::including -> (instance#1)
+exit: idle
+enter: pinged
+transition: idle -> pinged (event: accept Ping)
+exit: waiting (exit action)
+stmt action body
+enter action node: state behavior flush
+  stmt for kept
+    eval feature deferred -> (instance#1)
+    iteration 1
+      stmt send
+        eval feature kept -> instance#1
+  stmt assign deferred
+    eval null -> null
+leave action node: state behavior flush
+enter: open
+transition: waiting -> open (event: accept Go)

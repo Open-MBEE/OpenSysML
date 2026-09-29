@@ -31,7 +31,7 @@ own notation needs it, which is how `point`, `on` and `var` were already treated
 | `choice` | absent | absent | absent | unreserve; notation is an OpenSysML extension (warning) |
 | `decision` | absent | absent | absent | unreserve; **an ordinary name only** — the action node spelled `decision` is no longer accepted, write `decide` |
 | `deep` | absent | absent | absent | unreserve; notation is an OpenSysML extension (warning) |
-| `defer` | absent | absent | absent | unreserve; notation is an OpenSysML extension (warning) |
+| `defer` | absent | absent | absent | unreserve; **an ordinary name only** — the `defer <event>;` state member was an OpenSysML extension, since removed (`defer-notation-removed`) |
 | `done` | absent | absent | absent | unreserve; **silent** — see "`done` is a library name, not notation" |
 | `final` | absent | absent | absent | unreserve; **an ordinary name only** — neither the action node nor the state marker spelled `final` is accepted, write `done` |
 | `history` | absent | absent | absent | unreserve; notation is an OpenSysML extension (warning) |
@@ -109,7 +109,6 @@ one state substate per region, `entry; then <state>;`, a transition targeting
 |-----------|------------------------|
 | `choice <name>;`, `junction <name>;` | no literal; no pseudostate production of any kind |
 | `history <name>;`, `shallow history <name>;`, `deep history <name>;` | same |
-| `defer <event> [, <event>]*;` | no `defer` literal; `StatePerformance::deferrable` has the semantics but no notation |
 
 Two further findings are about position rather than spelling: the construct is
 standard where a production allows it and an OpenSysML extension everywhere else, so

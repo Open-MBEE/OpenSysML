@@ -36,7 +36,6 @@ package StateMachine {
         entry action {
             perform Warm;
         }
-        defer sig, other;
         choice pick;
         junction meet;
         fork split;
