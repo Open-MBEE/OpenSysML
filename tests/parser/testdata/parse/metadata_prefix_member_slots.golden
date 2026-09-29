@@ -1,0 +1,37 @@
+(RootNamespace
+  (Membership visibility="default"
+    (Definition kind="metadata" abstract=false variation=false name="M"))
+  (Membership visibility="default"
+    (Package name="LibraryPackage" library=true standard=false
+      (PrefixMetadata type="M")))
+  (Membership visibility="default"
+    (Package name="StandardLibrary" library=true standard=true
+      (PrefixMetadata type="M")))
+  (Membership visibility="default"
+    (Definition kind="action" abstract=false variation=false name="Chain"
+      (Usage kind="action" name="" ref=false direction="none" composite=false derived=false ordered=false nonunique=false node=true
+        (InitialNode name="" successor=""))
+      (Membership visibility="default"
+        (Usage kind="action" name="second" ref=false direction="none" composite=false derived=false ordered=false nonunique=false
+          (PrefixMetadata type="M")))
+      (SuccessionEdge source="@action" target="second")))
+  (Membership visibility="default"
+    (Definition kind="calc" abstract=false variation=false name="Result"
+      (Usage kind="attribute" name="result" ref=false direction="out" composite=false derived=false ordered=false nonunique=false
+        (PrefixMetadata type="M")
+        (Relationship kind="typing" target=Real
+          (*ast.QualifiedName)))))
+  (Membership visibility="default"
+    (Definition kind="requirement" abstract=false variation=false name="Requirement"
+      (Usage kind="frame" name="concern" ref=false direction="none" composite=false derived=false ordered=false nonunique=false
+        (PrefixMetadata type="M"))))
+  (Membership visibility="default"
+    (Definition kind="verification case" abstract=false variation=false name="Verification"
+      (Membership visibility="default"
+        (Usage kind="satisfy" name="requirement" ref=false direction="none" composite=false derived=false ordered=false nonunique=false keyword="verify"
+          (PrefixMetadata type="M")))))
+  (Membership visibility="default"
+    (Definition kind="view" abstract=false variation=false name="View"
+      (Membership visibility="default"
+        (Usage kind="render" name="rendering" ref=false direction="none" composite=false derived=false ordered=false nonunique=false
+          (PrefixMetadata type="M"))))))

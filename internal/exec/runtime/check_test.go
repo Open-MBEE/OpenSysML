@@ -698,7 +698,7 @@ func TestCheckReportsFailuresAsViolations(t *testing.T) {
 		}`, ViolationDeadlock, ErrActionDeadlock},
 		{"unbound parameter", "outer", `package test {
 			private import ScalarValues::*;
-			action def Adder { in a : Integer; in b : Integer; out sum : Integer; first step; action step { assign sum := a + b; } }
+			action def Adder { in a : Integer[1]; in b : Integer[1]; out sum : Integer; first step; action step { assign sum := a + b; } }
 			action adder : Adder;
 			action outer {
 				attribute a : Integer = 1;

@@ -15,6 +15,7 @@ import (
 const scheduleModel = `
 package Sched {
   private import ScalarValues::*;
+  item def Go;
 
   action tally {
     attribute leftCount : Integer = 0;

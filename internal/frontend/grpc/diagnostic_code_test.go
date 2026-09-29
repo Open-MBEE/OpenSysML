@@ -204,6 +204,7 @@ func TestExecuteState_DiagnosticCodes(t *testing.T) {
 	srv := mustNewService(t, 10)
 	hash := mustParse(t, srv, `
 package Test {
+  item def Go;
   state Dispatcher {
     attribute level : Integer = 8;
     entry; then idle;
@@ -345,6 +346,7 @@ func TestDiagnosticCodes_Capability(t *testing.T) {
 
 	stateMachine := `
 package Test {
+  item def Go;
   state Dispatcher {
     attribute level : Integer = 8;
     entry; then idle;

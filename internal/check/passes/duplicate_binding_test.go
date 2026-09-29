@@ -99,7 +99,7 @@ func TestInvocationOverloadSelectedByResolvedParameterName(t *testing.T) {
 func TestInvocationDuplicateParameterBindingThroughUsage(t *testing.T) {
 	const model = `package P {
 		private import ScalarValues::*;
-		calc def K { in <a> alpha : Integer; in b : Integer = 0; return r : Integer = alpha + b; }
+		calc def K { in <a> alpha : Integer[1]; in b : Integer = 0; return r : Integer = alpha + b; }
 		calc k : K;
 		attribute v : Integer = %s;
 	}`
@@ -137,9 +137,9 @@ func TestInvocationDuplicateParameterBindingSysML(t *testing.T) {
 func TestInvocationHeadingFeatureChain(t *testing.T) {
 	const model = `package P {
 		private import ScalarValues::*;
-		calc def K { in <a> alpha : Integer; in b : Integer = 0; return r : Integer = alpha + b; }
+		calc def K { in <a> alpha : Integer[1]; in b : Integer = 0; return r : Integer = alpha + b; }
 		item def Sig { attribute p : Integer; ref item inner : Sig; }
-		calc def M { in n : Integer; return r : Sig; }
+		calc def M { in n : Integer[1]; return r : Sig; }
 		part def Recv;
 		action def Owner {
 			part rcv : Recv;

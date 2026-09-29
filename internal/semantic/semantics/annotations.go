@@ -937,7 +937,7 @@ func (m *Model) declaredValue(scope *symbols.Scope, value ast.Node) symbols.Filt
 // holds rather than the element sym itself: a unit and an enumeration literal are
 // values by identity, a definition or an object feature is no value at all.
 func (m *Model) readsValueOf(sym *symbols.Symbol) bool {
-	if sym == nil || (sym.Kind != symbols.SymbolAttributeUsage && sym.Kind != symbols.SymbolEnumerationUsage) {
+	if sym == nil || (!sym.Kind.IsAttributeLike() && sym.Kind != symbols.SymbolEnumerationUsage) {
 		return false
 	}
 	return EnumerationOwning(sym) == nil && !m.IsMeasurementUnit(sym)
@@ -1471,6 +1471,7 @@ var metaclassNames = map[symbols.SymbolKind]string{
 	symbols.SymbolPartUsage:               "PartUsage",
 	symbols.SymbolAttributeDef:            "AttributeDefinition",
 	symbols.SymbolAttributeUsage:          "AttributeUsage",
+	symbols.SymbolReferenceUsage:          "ReferenceUsage",
 	symbols.SymbolItemDef:                 "ItemDefinition",
 	symbols.SymbolItemUsage:               "ItemUsage",
 	symbols.SymbolOccurrenceDef:           "OccurrenceDefinition",

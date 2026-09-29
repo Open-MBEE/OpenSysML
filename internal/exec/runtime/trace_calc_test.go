@@ -153,7 +153,7 @@ func TestCalcTraceRecordsFailure(t *testing.T) {
 		package test {
 			calc add {
 				in x : Integer;
-				in y : Integer;
+				in y : Integer[1];
 				x + y
 			}
 		}

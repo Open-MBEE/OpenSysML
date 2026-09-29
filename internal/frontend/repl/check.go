@@ -121,9 +121,10 @@ const roundedUnsat = "Reason: no exact-real values satisfy it, but the evaluator
 const roundedClaim = "Reason: the conditions round in floating point when evaluated, which the exact-real encoding does not decide"
 
 // roundedUnsatReport downgrades an unsat about conditions the evaluator rounds:
-// exact-real unsatisfiability does not decide the evaluator's own arithmetic.
+// exact-real unsatisfiability does not decide the evaluator's own arithmetic —
+// unless the rounding-sound recheck proved it, which is a real unsat.
 func roundedUnsatReport(name, subject string, result *solve.Result, q *solve.Query) (SolveReport, bool) {
-	if !q.Rounded() {
+	if !q.Rounded() || result.RoundingProved {
 		return SolveReport{}, false
 	}
 	return SolveReport{Subject: name, Status: SolveUnknown, Solver: result.Solver, Lines: []string{

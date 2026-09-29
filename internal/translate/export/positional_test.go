@@ -30,7 +30,7 @@ func TestDeclarationNamesUsesPositionalExporterName(t *testing.T) {
 	}
 }
 
-func TestDeclarationNamesRefusesPositionalCollision(t *testing.T) {
+func TestDeclarationNamesKeepsNamedAndPositionalIdentitiesDistinct(t *testing.T) {
 	file := source.New("collision.sysml", []byte(`package Collision {
 		metadata def M;
 		#M part def Car {
@@ -42,8 +42,18 @@ func TestDeclarationNamesRefusesPositionalCollision(t *testing.T) {
 	if len(p.Diagnostics) != 0 {
 		t.Fatalf("parse diagnostics = %v", p.Diagnostics)
 	}
-	if _, err := DeclarationNames(file, root); err == nil {
-		t.Fatal("DeclarationNames succeeded, want the exporter's positional collision error")
+	names, err := DeclarationNames(file, root)
+	if err != nil {
+		t.Fatalf("DeclarationNames: %v", err)
+	}
+	pkg := root.Members[0].(*ast.Membership).Member.(*ast.Package)
+	car := pkg.Members[1].(*ast.Membership).Member.(*ast.Definition)
+	member := car.Members[0].(*ast.Membership).Member.(*ast.Definition)
+	if got := names[member.Span()]; got != "Collision::Car::'@1'" {
+		t.Errorf("named member identity = %q, want Collision::Car::'@1'", got)
+	}
+	if got := names[car.Prefixes[0].Span()]; got != "Collision::Car::@1" {
+		t.Errorf("prefix identity = %q, want Collision::Car::@1", got)
 	}
 }
 
@@ -100,6 +110,8 @@ func TestIsPositionalIdentityRequiresCanonicalIndex(t *testing.T) {
 		{"Demo::@1::wheel", true},
 		{"Demo::@01", false},
 		{"Demo::@-1", false},
+		{"P::'@2'", false},
+		{"P::'@2'::@0", true},
 		{"Demo::wheel", false},
 	} {
 		if got := IsPositionalIdentity(test.name); got != test.want {

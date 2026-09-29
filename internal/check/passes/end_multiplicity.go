@@ -1,6 +1,7 @@
 package passes
 
 import (
+	"github.com/Open-MBEE/OpenSysML/internal/semantic/semantics"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/symbols"
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/ast"
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/diag"
@@ -33,6 +34,26 @@ func (cc *constraintChecker) checkFeatureEndFeatureMultiplicity(sym *symbols.Sym
 			}
 			cc.reportEndMultiplicity(end.Span())
 		}
+	}
+}
+
+func (cc *constraintChecker) checkActionSuccessionSourceMultiplicity(sym *symbols.Symbol) {
+	if sym == nil || cc.model == nil || !semantics.ActionDeclaration(sym.Decl) {
+		return
+	}
+	for _, succession := range cc.model.ActionSuccessions(sym) {
+		multiplicity := succession.Source.Multiplicity
+		if succession.Owner != sym || multiplicity == nil {
+			continue
+		}
+		r, ok := cc.model.RangeIn(sym.Scope, multiplicity)
+		if !ok {
+			continue
+		}
+		if value, exact := r.Exactly(); exact && value == 1 {
+			continue
+		}
+		cc.reportEndMultiplicity(multiplicity.Span())
 	}
 }
 

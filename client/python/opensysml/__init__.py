@@ -22,7 +22,12 @@ from opensysml.typefacts import (
     SymbolFacts,
     TypeFacts,
 )
-from opensysml.capabilities import MissingCapabilityError, ServerInfo
+from opensysml.capabilities import (
+    CAPABILITY_CONSTRAINT_BODY_AUTHORING,
+    CAPABILITY_STATE_ACTION_AUTHORING,
+    MissingCapabilityError,
+    ServerInfo,
+)
 from opensysml.values import (
     UNSET, Array, Function, InstanceRef, MeasurementRef, Metaobject, SetValue, TensorQuantity,
     Undetermined, UnsetType,
@@ -33,6 +38,7 @@ from opensysml.verdict import (
     Verdict, VerificationVerdict,
 )
 from opensysml.exploration import Exploration, Outcome
+from opensysml.action_run import ActionOutputs
 from opensysml.engines import Bound, EngineInfo, Standing
 from opensysml.query import QueryElement, QueryError
 from opensysml.document import (
@@ -44,7 +50,7 @@ from opensysml.conversion import (
     ExperimentalFeatureWarning,
     format_of_path, is_experimental,
 )
-from opensysml.edit import AppliedEdit, EditedDocument, EditResult, Editor
+from opensysml.edit import AppliedEdit, Body, EditedDocument, EditResult, Editor
 from opensysml.errors import (
     OpenSysMLError, AnalysisRunError, ChecksumMismatchError, ConnectionError, ConversionError,
     EditError, EditResultError, EditTargetError, ExecutionError,
@@ -71,10 +77,10 @@ __all__ = [
     "Conversion", "FORMAT_API_JSON", "FORMAT_SYSML", "FORMAT_TURTLE",
     "format_of_path",
     "ExperimentalFeatureWarning", "is_experimental",
-    "Editor", "EditResult", "AppliedEdit", "EditedDocument", "Referrer",
+    "Editor", "Body", "EditResult", "AppliedEdit", "EditedDocument", "Referrer",
     "Verdict", "CalcResult", "AnalysisResult", "CaseEvaluation", "SweepRow", "SweepTable",
     "Validation", "VerificationVerdict",
-    "Exploration", "Outcome",
+    "Exploration", "Outcome", "ActionOutputs",
     "Bound", "EngineInfo", "Standing",
     "QueryElement", "QueryError",
     "DocumentEvent", "DocumentQueryError", "DocumentQueryResult", "DocumentRow",
@@ -88,6 +94,7 @@ __all__ = [
     "MoveReferencedError", "ReferencedElsewhereError",
     "InstanceTypeError", "InvalidRequestError", "ManifestSignatureError",
     "MissingCapabilityError",
+    "CAPABILITY_CONSTRAINT_BODY_AUTHORING", "CAPABILITY_STATE_ACTION_AUTHORING",
     "ModelError", "ModelFileNotFoundError", "ModelNotFoundError",
     "ServiceError", "ServiceTimeoutError", "StaleServiceError",
     "SymbolNotFoundError",

@@ -399,7 +399,7 @@ func TestCompiledNamedArgumentsIllFormed(t *testing.T) {
 	f := buildCompiledFixture("ill_formed_named.sysml", []byte(`package test {
 		private import ScalarValues::*;
 		calc def Weighted {
-			in value : Real;
+			in value : Real[1];
 			in weight : Real = 1.0;
 			return : Real = value * weight;
 		}

@@ -185,7 +185,7 @@ func TestCompileRejectsAmbiguousQueryInvocation(t *testing.T) {
 
 func TestCompileColumnSelectsTheLibraryColumnAmongOverloads(t *testing.T) {
 	const src = `
-		package Other { private import ScalarValues::*; calc def Column { in name : String; in expression : Integer; in width : Integer; return : Integer = width; } }
+		package Other { private import ScalarValues::*; calc def Column { in name : String; in expression : Integer; in width : Integer[1]; return : Integer = width; } }
 		package Fixture {
 			private import Other::*;
 			%s

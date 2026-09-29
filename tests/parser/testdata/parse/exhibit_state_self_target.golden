@@ -17,7 +17,10 @@
               (SuccessionEdge source="@entry" target="a")
               (SubstateMember name="a")
               (SubstateMember name="b")
-              (TransitionMember source="a" target="b" trigger="EngineCommand")))
+              (TransitionMember source="a" target="b"
+                (Usage kind="attribute" name="" ref=true direction="out" composite=false derived=false ordered=false nonunique=false
+                  (Relationship kind="typing" target=EngineCommand
+                    (*ast.QualifiedName))))))
           (Membership visibility="default"
             (Usage kind="state" name="idle" ref=false direction="none" composite=false derived=false ordered=false nonunique=false keyword="exhibit state"))
           (Membership visibility="default"
