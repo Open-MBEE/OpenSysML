@@ -984,12 +984,9 @@ var alfGuard = regexp.MustCompile(`^[A-Za-z_][A-Za-z0-9_]*(\.[A-Za-z_][A-Za-z0-9
 // the unguarded default.
 func (e *emitter) guard(g *Guard, param, where string) (string, error) {
 	switch {
-	case g == nil, g.Kind == GuardElse:
+	case g.unconditional():
 		return "", nil
 	case g.Kind == GuardLiteral:
-		if g.Literal {
-			return "", nil
-		}
 		return " if false", nil
 	case g.Kind == GuardOpaque:
 		if guardSideEffect(g) {

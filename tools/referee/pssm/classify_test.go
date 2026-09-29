@@ -88,8 +88,13 @@ func TestClassifyDeferral(t *testing.T) {
 	if c.Class != NotExpressible || c.Reason() != "deferral in a state left by an unguarded completion transition D" {
 		t.Errorf("deferral before an unguarded completion classified %s (%s)", c.Class, c.Reason())
 	}
-	c = classifyFixture(t, "", fmt.Sprintf(deferring, "evData")+`
-          <transition xmi:type="uml:Transition" xmi:id="xTd" name="TD" source="xD" target="xFin" guard="xTdg"><ownedRule xmi:type="uml:Constraint" xmi:id="xTdg"><specification xmi:type="uml:LiteralBoolean" xmi:id="xTdgv" value="true"/></ownedRule></transition>`)
+	completion := `
+          <transition xmi:type="uml:Transition" xmi:id="xTd" name="TD" source="xD" target="xFin" guard="xTdg"><ownedRule xmi:type="uml:Constraint" xmi:id="xTdg"><specification xmi:type="uml:LiteralBoolean" xmi:id="xTdgv" value="%s"/></ownedRule></transition>`
+	c = classifyFixture(t, "", fmt.Sprintf(deferring, "evData")+fmt.Sprintf(completion, "true"))
+	if c.Class != NotExpressible || c.Reason() != "deferral in a state left by an unguarded completion transition D" {
+		t.Errorf("deferral before a completion guarded by a literal true classified %s (%s)", c.Class, c.Reason())
+	}
+	c = classifyFixture(t, "", fmt.Sprintf(deferring, "evData")+fmt.Sprintf(completion, "false"))
 	if c.Class != Standard || len(c.Uses) != 0 {
 		t.Errorf("deferral before a guarded completion classified %s (%s)", c.Class, c.Reason())
 	}

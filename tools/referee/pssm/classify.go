@@ -191,14 +191,14 @@ func Classify(t *Test) Classification {
 	return Classification{Class: class, Uses: uses}
 }
 
-// unguardedCompletionOutOf reports whether a transition with neither trigger
-// nor guard leaves v.
+// unguardedCompletionOutOf reports whether a transition with no trigger and
+// no guard that can hold it back leaves v.
 func unguardedCompletionOutOf(v *Vertex) bool {
 	if v.Region == nil {
 		return false
 	}
 	for _, tr := range v.Region.Transitions {
-		if tr.Source == v && len(tr.Triggers) == 0 && tr.Guard == nil {
+		if tr.Source == v && len(tr.Triggers) == 0 && tr.Guard.unconditional() {
 			return true
 		}
 	}
