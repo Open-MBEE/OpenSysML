@@ -175,5 +175,20 @@ public interface EditOperationOrBuilder extends
    */
   org.openmbee.opensysml.proto.AddMetadataEditOrBuilder getAddMetadataOrBuilder();
 
+  /**
+   * <code>.sysml.AddMetadataPrefixEdit add_metadata_prefix = 15 [json_name = "addMetadataPrefix"];</code>
+   * @return Whether the addMetadataPrefix field is set.
+   */
+  boolean hasAddMetadataPrefix();
+  /**
+   * <code>.sysml.AddMetadataPrefixEdit add_metadata_prefix = 15 [json_name = "addMetadataPrefix"];</code>
+   * @return The addMetadataPrefix.
+   */
+  org.openmbee.opensysml.proto.AddMetadataPrefixEdit getAddMetadataPrefix();
+  /**
+   * <code>.sysml.AddMetadataPrefixEdit add_metadata_prefix = 15 [json_name = "addMetadataPrefix"];</code>
+   */
+  org.openmbee.opensysml.proto.AddMetadataPrefixEditOrBuilder getAddMetadataPrefixOrBuilder();
+
   org.openmbee.opensysml.proto.EditOperation.OperationCase getOperationCase();
 }

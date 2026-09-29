@@ -22,6 +22,7 @@ from opensysml.capabilities import (
     CAPABILITY_TRANSITION_AUTHORING,
     CAPABILITY_VERIFICATION_OBJECTIVE_AUTHORING,
     CAPABILITY_METADATA_AUTHORING,
+    CAPABILITY_METADATA_PREFIX_AUTHORING,
     CAPABILITY_INLINE_LANGUAGE,
     CAPABILITY_STRICT_CONFORMANCE,
     CAPABILITY_COMPLEX_VALUES,
@@ -983,6 +984,7 @@ class Connection:
         requests_transition_authoring = False
         requests_verification_objective_authoring = False
         requests_metadata_authoring = False
+        requests_metadata_prefix_authoring = False
         for operation_data in operations:
             operation = request.operations.add()
             kind = operation_data[0]
@@ -1180,6 +1182,24 @@ class Connection:
                         )
                     binding = add.values.add()
                     binding.feature, binding.value = pair
+            elif kind == 'add_metadata_prefix':
+                if len(operation_data) != 3:
+                    raise ValueError(
+                        "malformed add_metadata_prefix operation: expected 3 fields"
+                    )
+                _, target, metadata_type = operation_data
+                if not isinstance(target, str) or not isinstance(metadata_type, str):
+                    raise ValueError(
+                        "malformed add_metadata_prefix operation: fields must be notation text"
+                    )
+                require(
+                    info,
+                    CAPABILITY_METADATA_PREFIX_AUTHORING,
+                    upgrade_remedy(CAPABILITY_METADATA_PREFIX_AUTHORING),
+                )
+                requests_metadata_prefix_authoring = True
+                operation.add_metadata_prefix.target = target
+                operation.add_metadata_prefix.metadata_type = metadata_type
             elif kind == 'delete':
                 if len(operation_data) != 3 or not isinstance(operation_data[2], bool):
                     raise ValueError(
@@ -1203,7 +1223,7 @@ class Connection:
                     f"unknown edit operation {kind!r}: expected set_value, rename, "
                     f"add_member, add_connection, add_satisfy, "
                     f"add_requirement_constraint, add_transition, add_verify, "
-                    f"add_metadata, delete or move"
+                    f"add_metadata, add_metadata_prefix, delete or move"
                 )
 
         requested_capabilities = [CAPABILITY_APPLY_EDITS]
@@ -1221,6 +1241,8 @@ class Connection:
             requested_capabilities.append(CAPABILITY_VERIFICATION_OBJECTIVE_AUTHORING)
         if requests_metadata_authoring:
             requested_capabilities.append(CAPABILITY_METADATA_AUTHORING)
+        if requests_metadata_prefix_authoring:
+            requested_capabilities.append(CAPABILITY_METADATA_PREFIX_AUTHORING)
         if requests_member_modifiers:
             require(
                 info, CAPABILITY_MEMBER_MODIFIERS,

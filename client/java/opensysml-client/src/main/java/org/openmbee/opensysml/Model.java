@@ -882,6 +882,7 @@ public final class Model {
     boolean requestsTransitionAuthoring = false;
     boolean requestsVerificationObjectiveAuthoring = false;
     boolean requestsMetadataAuthoring = false;
+    boolean requestsMetadataPrefixAuthoring = false;
     for (Edit edit : edits) {
       if (edit instanceof Edit.AddMember
           || edit instanceof Edit.AddConnection
@@ -890,6 +891,7 @@ public final class Model {
           || edit instanceof Edit.AddTransition
           || edit instanceof Edit.AddVerify
           || edit instanceof Edit.AddMetadata
+          || edit instanceof Edit.AddMetadataPrefix
           || edit instanceof Edit.Delete
           || edit instanceof Edit.Move) {
         requestsAuthoring = true;
@@ -926,6 +928,9 @@ public final class Model {
               && !addMember.metadataPrefixes().isEmpty()) {
         requestsMetadataAuthoring = true;
       }
+      if (edit instanceof Edit.AddMetadataPrefix) {
+        requestsMetadataPrefixAuthoring = true;
+      }
     }
     if (requestsAuthoring) {
       connection.capabilities().require(Capabilities.AUTHORING);
@@ -950,6 +955,9 @@ public final class Model {
     }
     if (requestsMetadataAuthoring) {
       connection.capabilities().require(Capabilities.METADATA_AUTHORING);
+    }
+    if (requestsMetadataPrefixAuthoring) {
+      connection.capabilities().require(Capabilities.METADATA_PREFIX_AUTHORING);
     }
     options.document().ifPresent(document -> connection.capabilities().require(Capabilities.EDIT_DOCUMENTS));
     ApplyEditsRequest.Builder request =

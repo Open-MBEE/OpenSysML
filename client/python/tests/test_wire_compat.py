@@ -352,6 +352,7 @@ def test_edit_messages_pin_their_field_numbers():
             "set_value": 1, "rename": 2, "add_member": 3, "delete": 4, "move": 5,
             "add_connection": 6, "add_satisfy": 7, "add_requirement_constraint": 8,
             "add_transition": 9, "add_verify": 12, "add_metadata": 13,
+            "add_metadata_prefix": 15,
         },
         "AddMemberEdit": {
             "owner": 1, "kind": 2, "name": 3, "type": 4,
@@ -379,6 +380,7 @@ def test_edit_messages_pin_their_field_numbers():
             "owner": 1, "metadata_type": 2, "name": 3, "about": 4,
             "values": 5, "shorthand": 6,
         },
+        "AddMetadataPrefixEdit": {"target": 1, "metadata_type": 2},
         "DeleteEdit": {"target": 1, "cascade": 2},
         "MoveEdit": {"target": 1, "owner": 2},
         "SetValueEdit": {"target": 1, "value": 2},

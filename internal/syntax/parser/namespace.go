@@ -839,6 +839,7 @@ func (p *Parser) parsePackage(start int) ast.Node {
 	prefixes := p.parsePrefixMetadata()
 	isStandard := p.acceptKeyword("standard")
 	isLibrary := p.acceptKeyword("library")
+	prefixes = append(prefixes, p.parsePrefixMetadata()...)
 	if !p.acceptKeyword("package") {
 		return p.errorNodeSkip(start, "expected 'package'")
 	}

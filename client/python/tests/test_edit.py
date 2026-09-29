@@ -26,6 +26,7 @@ from opensysml.capabilities import (
     CAPABILITY_TRANSITION_AUTHORING,
     CAPABILITY_VERIFICATION_OBJECTIVE_AUTHORING,
     CAPABILITY_METADATA_AUTHORING,
+    CAPABILITY_METADATA_PREFIX_AUTHORING,
     CAPABILITY_EDIT_DOCUMENTS,
     CAPABILITY_INLINE_LANGUAGE,
     MissingCapabilityError,
@@ -429,6 +430,7 @@ def test_verify_metadata_objective_and_prefix_operations_are_exact(fake_service)
             CAPABILITY_AUTHORING,
             CAPABILITY_VERIFICATION_OBJECTIVE_AUTHORING,
             CAPABILITY_METADATA_AUTHORING,
+            CAPABILITY_METADATA_PREFIX_AUTHORING,
         )
     )
     with Connection(port=port, auto_start=False) as conn:
@@ -447,10 +449,11 @@ def test_verify_metadata_objective_and_prefix_operations_are_exact(fake_service)
                 values=[["kind", "VerificationMethodKind::test"]],
                 shorthand=True,
             )
+            .add_metadata_prefix("Demo::SC", "Demo::Safety")
             .add_member("Demo::SC", "part", "heater", metadata=["Safety", "Risk"])
             .apply()
         )
-    objective, verify, metadata, shorthand, member = service.requests[0].operations
+    objective, verify, metadata, shorthand, prefix, member = service.requests[0].operations
     assert objective.add_member.kind == "objective"
     assert objective.add_member.name == ""
     assert verify.WhichOneof("operation") == "add_verify"
@@ -472,6 +475,10 @@ def test_verify_metadata_objective_and_prefix_operations_are_exact(fake_service)
         for binding in metadata.add_metadata.values
     ] == [("kind", "VerificationMethodKind::test")]
     assert shorthand.add_metadata.shorthand
+    assert prefix.WhichOneof("operation") == "add_metadata_prefix"
+    assert (prefix.add_metadata_prefix.target, prefix.add_metadata_prefix.metadata_type) == (
+        "Demo::SC", "Demo::Safety",
+    )
     assert member.add_member.metadata_prefixes == ["Safety", "Risk"]
 
 
@@ -483,6 +490,7 @@ def test_objective_and_metadata_authoring_tuples_preserve_optional_fields():
         "Demo::Case", "M", values={"a": "1"}, about=("Demo::x", "Demo::y"),
         shorthand=True,
     )
+    editor.add_metadata_prefix("Demo::P", "M")
     assert editor.operations == [
         ("add_member", "Demo::Case", "objective", "", "", "", "", []),
         (
@@ -490,6 +498,7 @@ def test_objective_and_metadata_authoring_tuples_preserve_optional_fields():
             False, [], False, "", ["Safety"],
         ),
         ("add_metadata", "Demo::Case", "M", "", ["Demo::x", "Demo::y"], [("a", "1")], True),
+        ("add_metadata_prefix", "Demo::P", "M"),
     ]
 
 
@@ -504,6 +513,8 @@ def test_objective_and_metadata_authoring_tuples_preserve_optional_fields():
          CAPABILITY_METADATA_AUTHORING),
         (lambda editor: editor.add_member("Demo", "part", "p", metadata=["M"]),
          CAPABILITY_METADATA_AUTHORING),
+        (lambda editor: editor.add_metadata_prefix("Demo::Part", "M"),
+         CAPABILITY_METADATA_PREFIX_AUTHORING),
     ],
 )
 def test_verification_and_metadata_authoring_capabilities_are_preflighted(
@@ -1309,6 +1320,16 @@ class TestEditRoundTripAgainstRealService:
                 "    #Safety part def Heater;\n"
                 "}\n"
             )
+            again = conn.load_from_content(edited)
+            assert again.ok, [str(d) for d in again.errors]
+
+    def test_metadata_prefix_is_added_to_an_existing_declaration(self, real_service):
+        source = "metadata def Safety;\npart def Vehicle;\n"
+        with Connection(port=real_service, auto_start=False) as conn:
+            model = conn.load_from_content(source)
+            result = model.edit().add_metadata_prefix("Vehicle", "Safety").apply()
+            edited = str(result)
+            assert edited == "metadata def Safety;\n#Safety part def Vehicle;\n"
             again = conn.load_from_content(edited)
             assert again.ok, [str(d) for d in again.errors]
 

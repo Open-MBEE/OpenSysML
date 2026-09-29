@@ -541,6 +541,11 @@ func (r *Resolver) bodyScope(scope *symbols.Scope, node ast.Node) *symbols.Scope
 	return scope
 }
 
+// PrefixScope returns the scope in which prefix metadata on decl resolves.
+func (r *Resolver) PrefixScope(scope *symbols.Scope, decl ast.Node) *symbols.Scope {
+	return r.bodyScope(scope, decl)
+}
+
 // resolvePrefixes resolves the prefix annotations of decl, a member of scope.
 // The annotated element owns them (KerML 8.2.4.2 PrefixMetadataMember), so
 // their names resolve in its own scope.

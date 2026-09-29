@@ -825,6 +825,11 @@ final class Api {
         }
         yield metadata;
       }
+      case ADD_METADATA_PREFIX -> {
+        org.openmbee.opensysml.proto.AddMetadataPrefixEdit add =
+            operation.getAddMetadataPrefix();
+        yield Edit.addMetadataPrefix(add.getTarget(), add.getMetadataType());
+      }
       case DELETE ->
           new Edit.Delete(operation.getDelete().getTarget(), operation.getDelete().getCascade());
       case MOVE ->

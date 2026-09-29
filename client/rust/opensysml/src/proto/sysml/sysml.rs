@@ -988,7 +988,7 @@ pub struct ApplyEditsRequest {
 /// EditOperation is one source-preserving change to make.
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct EditOperation {
-    #[prost(oneof="edit_operation::Operation", tags="1, 2, 3, 4, 5, 6, 7, 8, 9, 12, 13")]
+    #[prost(oneof="edit_operation::Operation", tags="1, 2, 3, 4, 5, 6, 7, 8, 9, 12, 13, 15")]
     pub operation: ::core::option::Option<edit_operation::Operation>,
 }
 /// Nested message and enum types in `EditOperation`.
@@ -1017,6 +1017,8 @@ pub mod edit_operation {
         AddVerify(super::AddVerifyEdit),
         #[prost(message, tag="13")]
         AddMetadata(super::AddMetadataEdit),
+        #[prost(message, tag="15")]
+        AddMetadataPrefix(super::AddMetadataPrefixEdit),
     }
 }
 /// AddMemberEdit inserts a declaration into a namespace or the document root.
@@ -1163,6 +1165,16 @@ pub struct AddMetadataEdit {
     /// Write shorthand `@` notation instead of `metadata`.
     #[prost(bool, tag="6")]
     pub shorthand: bool,
+}
+/// AddMetadataPrefixEdit annotates an existing declaration with prefix metadata.
+#[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
+pub struct AddMetadataPrefixEdit {
+    /// Declaration to annotate, by its qualified name.
+    #[prost(string, tag="1")]
+    pub target: ::prost::alloc::string::String,
+    /// Metadata definition reference to add as a prefix.
+    #[prost(string, tag="2")]
+    pub metadata_type: ::prost::alloc::string::String,
 }
 /// AddConnectionEdit inserts a usage whose ends connect two features.
 #[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]

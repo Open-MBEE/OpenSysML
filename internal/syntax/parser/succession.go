@@ -126,14 +126,15 @@ func (b *bodyBuilder) atSuccession() bool {
 	if !p.atKeyword("then") {
 		return false
 	}
-	next := p.peekN(1)
+	nextOffset := p.prefixMetadataEndAt(1)
+	next := p.peekN(nextOffset)
 	// `succession first a then b;` and `then a;` name members; the edge parser
 	// reads them. Unreserved node words such as `then done;` are identified by
 	// notation shape (see notation.go).
 	kw := ""
 	if next.Kind == lexer.Keyword {
 		kw = next.KeywordID
-	} else if w, ok := p.actionNodeWordAt(1); ok {
+	} else if w, ok := p.actionNodeWordAt(nextOffset); ok {
 		kw = w
 	} else {
 		return false

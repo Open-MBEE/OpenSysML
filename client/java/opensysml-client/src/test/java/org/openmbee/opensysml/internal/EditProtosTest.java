@@ -155,6 +155,10 @@ class EditProtosTest {
     assertEquals("kind", metadata.getAddMetadata().getValues(0).getFeature());
     assertEquals("Kind::test", metadata.getAddMetadata().getValues(0).getValue());
     assertTrue(metadata.getAddMetadata().getShorthand());
+
+    var prefix = Protos.proto(Edit.addMetadataPrefix("Demo::Part", "Demo::M"));
+    assertEquals("Demo::Part", prefix.getAddMetadataPrefix().getTarget());
+    assertEquals("Demo::M", prefix.getAddMetadataPrefix().getMetadataType());
   }
 
   @Test

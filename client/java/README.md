@@ -396,14 +396,16 @@ and `SuiteTest.aCorruptedAnswerIsCaught` asserts each corruption is caught:
 
 `Edit.AddMember` exposes `withAbstract`, `withRedefines`, `withDefault` and
 `withDirection`; `Edit.AddSatisfy`, `Edit.AddRequirementConstraint` and
-`Edit.AddTransition`, `Edit.AddVerify` and `Edit.AddMetadata` expose requirement,
-verification and metadata authoring.
+`Edit.AddTransition`, `Edit.AddVerify`, `Edit.AddMetadata` and
+`Edit.AddMetadataPrefix` expose requirement, verification and metadata authoring.
 `Edit.AddTransition.entry` constructs an entry transition. The client checks
 `member_modifiers`, `satisfy_authoring`, `requirement_constraint_authoring` or
-`transition_authoring`, `verification_objective_authoring` or `metadata_authoring`
+`transition_authoring`, `verification_objective_authoring`, `metadata_authoring` or
+`metadata_prefix_authoring`
 before sending those additions. `AddMetadata` supports ordered feature values,
 `about` references and `@` shorthand; `AddMember.withMetadataPrefixes` writes
-prefix metadata on the new member.
+prefix metadata on the new member. `Edit.addMetadataPrefix(target, metadataType)` adds a prefix
+to an existing declaration.
 
 ## Running the tests
 

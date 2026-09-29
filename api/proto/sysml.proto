@@ -847,6 +847,7 @@ message EditOperation {
     AddTransitionEdit add_transition = 9;
     AddVerifyEdit add_verify = 12;
     AddMetadataEdit add_metadata = 13;
+    AddMetadataPrefixEdit add_metadata_prefix = 15;
   }
 }
 
@@ -954,6 +955,14 @@ message AddMetadataEdit {
   repeated MetadataFeatureValue values = 5;
   // Write shorthand `@` notation instead of `metadata`.
   bool shorthand = 6;
+}
+
+// AddMetadataPrefixEdit annotates an existing declaration with prefix metadata.
+message AddMetadataPrefixEdit {
+  // Declaration to annotate, by its qualified name.
+  string target = 1;
+  // Metadata definition reference to add as a prefix.
+  string metadata_type = 2;
 }
 
 // AddConnectionEdit inserts a usage whose ends connect two features.

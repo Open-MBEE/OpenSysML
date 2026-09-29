@@ -1153,6 +1153,9 @@ strings for the declaration. `metadata` is a metadata type name or a sequence of
 needed. `add_metadata(owner, metadata_type, values=None, name=None, about=None, shorthand=False)`
 writes a metadata usage; values are a mapping or ordered sequence of `(feature, value)` pairs,
 and `about` accepts one reference or a sequence. `shorthand=True` writes `@M` notation.
+`add_metadata_prefix(target, metadata_type)` adds `#M` to an existing declaration, resolving the
+metadata definition from the declaration's own scope and refusing a duplicate or a declaration
+without a grammar-admitted prefix slot.
 `add_calc_def` and `add_calc` accept `inputs`, `return_type` and `return_expression`;
 a return expression requires a return type and is bound to the result parameter,
 not written as `return <expr>;`. `add_action_def` and `add_action` accept
@@ -1254,7 +1257,8 @@ require `member_modifiers`; satisfy edits require `satisfy_authoring`, and
 requirement-constraint edits require `requirement_constraint_authoring`.
 Transition edits require `transition_authoring` alongside `authoring`.
 Verification edits and unnamed objectives require `verification_objective_authoring`; metadata
-usages and metadata prefixes require `metadata_authoring`.
+usages and prefixes on new members require `metadata_authoring`; adding a prefix to an existing
+declaration requires `metadata_prefix_authoring`.
 
 ### Querying a model using the standard query model
 

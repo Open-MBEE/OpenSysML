@@ -48,6 +48,8 @@ const (
 	OpAddVerify
 	// OpAddMetadata inserts a metadata usage.
 	OpAddMetadata
+	// OpAddMetadataPrefix adds prefix metadata to an existing declaration.
+	OpAddMetadataPrefix
 )
 
 // Operation is one change to make to a model's source.
@@ -107,7 +109,7 @@ type Operation struct {
 	Effect           string
 	Initial          bool
 	// MetadataType, MetadataName, About, MetadataValues and Shorthand describe
-	// an OpAddMetadata. Requirement is the requirement verified by OpAddVerify.
+	// an OpAddMetadata or OpAddMetadataPrefix. Requirement is verified by OpAddVerify.
 	MetadataType   string
 	MetadataName   string
 	About          []string
@@ -192,6 +194,11 @@ func AddMetadata(owner, metadataType, name string, about []string, values []Meta
 		Kind: OpAddMetadata, Owner: owner, MetadataType: metadataType,
 		MetadataName: name, About: about, MetadataValues: values, Shorthand: shorthand,
 	}
+}
+
+// AddMetadataPrefix annotates an existing declaration with a metadata prefix.
+func AddMetadataPrefix(target, metadataType string) Operation {
+	return Operation{Kind: OpAddMetadataPrefix, Target: target, MetadataType: metadataType}
 }
 
 // Move is an operation making target a member of newOwner, "" for the root.
@@ -642,6 +649,13 @@ func (m Model) splicesFor(i int, op Operation) ([]splice, error) {
 	}
 	if op.Kind == OpAddMetadata {
 		sp, err := m.addMetadataSplice(i, op)
+		if err != nil {
+			return nil, err
+		}
+		return []splice{sp}, nil
+	}
+	if op.Kind == OpAddMetadataPrefix {
+		sp, err := m.addMetadataPrefixSplice(i, op)
 		if err != nil {
 			return nil, err
 		}

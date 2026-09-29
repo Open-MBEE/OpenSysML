@@ -25,7 +25,12 @@
       "metadata_prefixes": [
         "ToasterDemo::Safety"
       ]
+    },
+    {
+      "kind": "add_metadata_prefix",
+      "target": "ToasterDemo::TimelyToast",
+      "metadata_type": "ToasterDemo::Safety"
     }
   ],
-  "expected_content": "package ToasterDemo {\n    private import ISQ::*;\n    private import SI::*;\n    private import VerificationCases::*;\n    metadata def Safety;\n    part def Toaster { attribute cycleTime : ISQ::DurationValue; }\n    requirement def TimelyToast {\n        subject toaster : Toaster;\n        require constraint { toaster.cycleTime <= 180.0 [SI::s] }\n    }\n    requirement timely : TimelyToast;\n    verification def TimelyToastTest {\n        subject toaster : Toaster;\n        objective {\n            verify timely;\n        }\n        metadata VerificationMethod { kind = VerificationMethodKind::test; }\n    }\n    #ToasterDemo::Safety part def Heater;\n}\n"
+  "expected_content": "package ToasterDemo {\n    private import ISQ::*;\n    private import SI::*;\n    private import VerificationCases::*;\n    metadata def Safety;\n    part def Toaster { attribute cycleTime : ISQ::DurationValue; }\n    #ToasterDemo::Safety requirement def TimelyToast {\n        subject toaster : Toaster;\n        require constraint { toaster.cycleTime <= 180.0 [SI::s] }\n    }\n    requirement timely : TimelyToast;\n    verification def TimelyToastTest {\n        subject toaster : Toaster;\n        objective {\n            verify timely;\n        }\n        metadata VerificationMethod { kind = VerificationMethodKind::test; }\n    }\n    #ToasterDemo::Safety part def Heater;\n}\n"
 }

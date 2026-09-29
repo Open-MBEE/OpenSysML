@@ -1079,6 +1079,11 @@ public final class Protos {
                 .setValue(value.value()));
       }
       builder.setAddMetadata(add);
+    } else if (edit instanceof Edit.AddMetadataPrefix addMetadataPrefix) {
+      builder.setAddMetadataPrefix(
+          org.openmbee.opensysml.proto.AddMetadataPrefixEdit.newBuilder()
+              .setTarget(addMetadataPrefix.target())
+              .setMetadataType(addMetadataPrefix.metadataType()));
     } else if (edit instanceof Edit.AddConnection addConnection) {
       org.openmbee.opensysml.proto.AddConnectionEdit.Builder add =
           org.openmbee.opensysml.proto.AddConnectionEdit.newBuilder()

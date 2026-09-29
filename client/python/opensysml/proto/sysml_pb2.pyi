@@ -728,7 +728,7 @@ class ApplyEditsRequest(_message.Message):
     def __init__(self, model_hash: _Optional[str] = ..., operations: _Optional[_Iterable[_Union[EditOperation, _Mapping]]] = ..., document: _Optional[str] = ..., accept_documents: _Optional[bool] = ...) -> None: ...
 
 class EditOperation(_message.Message):
-    __slots__ = ("set_value", "rename", "add_member", "delete", "move", "add_connection", "add_satisfy", "add_requirement_constraint", "add_transition", "add_verify", "add_metadata")
+    __slots__ = ("set_value", "rename", "add_member", "delete", "move", "add_connection", "add_satisfy", "add_requirement_constraint", "add_transition", "add_verify", "add_metadata", "add_metadata_prefix")
     SET_VALUE_FIELD_NUMBER: _ClassVar[int]
     RENAME_FIELD_NUMBER: _ClassVar[int]
     ADD_MEMBER_FIELD_NUMBER: _ClassVar[int]
@@ -740,6 +740,7 @@ class EditOperation(_message.Message):
     ADD_TRANSITION_FIELD_NUMBER: _ClassVar[int]
     ADD_VERIFY_FIELD_NUMBER: _ClassVar[int]
     ADD_METADATA_FIELD_NUMBER: _ClassVar[int]
+    ADD_METADATA_PREFIX_FIELD_NUMBER: _ClassVar[int]
     set_value: SetValueEdit
     rename: RenameEdit
     add_member: AddMemberEdit
@@ -751,7 +752,8 @@ class EditOperation(_message.Message):
     add_transition: AddTransitionEdit
     add_verify: AddVerifyEdit
     add_metadata: AddMetadataEdit
-    def __init__(self, set_value: _Optional[_Union[SetValueEdit, _Mapping]] = ..., rename: _Optional[_Union[RenameEdit, _Mapping]] = ..., add_member: _Optional[_Union[AddMemberEdit, _Mapping]] = ..., delete: _Optional[_Union[DeleteEdit, _Mapping]] = ..., move: _Optional[_Union[MoveEdit, _Mapping]] = ..., add_connection: _Optional[_Union[AddConnectionEdit, _Mapping]] = ..., add_satisfy: _Optional[_Union[AddSatisfyEdit, _Mapping]] = ..., add_requirement_constraint: _Optional[_Union[AddRequirementConstraintEdit, _Mapping]] = ..., add_transition: _Optional[_Union[AddTransitionEdit, _Mapping]] = ..., add_verify: _Optional[_Union[AddVerifyEdit, _Mapping]] = ..., add_metadata: _Optional[_Union[AddMetadataEdit, _Mapping]] = ...) -> None: ...
+    add_metadata_prefix: AddMetadataPrefixEdit
+    def __init__(self, set_value: _Optional[_Union[SetValueEdit, _Mapping]] = ..., rename: _Optional[_Union[RenameEdit, _Mapping]] = ..., add_member: _Optional[_Union[AddMemberEdit, _Mapping]] = ..., delete: _Optional[_Union[DeleteEdit, _Mapping]] = ..., move: _Optional[_Union[MoveEdit, _Mapping]] = ..., add_connection: _Optional[_Union[AddConnectionEdit, _Mapping]] = ..., add_satisfy: _Optional[_Union[AddSatisfyEdit, _Mapping]] = ..., add_requirement_constraint: _Optional[_Union[AddRequirementConstraintEdit, _Mapping]] = ..., add_transition: _Optional[_Union[AddTransitionEdit, _Mapping]] = ..., add_verify: _Optional[_Union[AddVerifyEdit, _Mapping]] = ..., add_metadata: _Optional[_Union[AddMetadataEdit, _Mapping]] = ..., add_metadata_prefix: _Optional[_Union[AddMetadataPrefixEdit, _Mapping]] = ...) -> None: ...
 
 class AddMemberEdit(_message.Message):
     __slots__ = ("owner", "kind", "name", "type", "multiplicity", "value", "specializes", "is_abstract", "redefines", "is_default", "direction", "metadata_prefixes")
@@ -858,6 +860,14 @@ class AddMetadataEdit(_message.Message):
     values: _containers.RepeatedCompositeFieldContainer[MetadataFeatureValue]
     shorthand: bool
     def __init__(self, owner: _Optional[str] = ..., metadata_type: _Optional[str] = ..., name: _Optional[str] = ..., about: _Optional[_Iterable[str]] = ..., values: _Optional[_Iterable[_Union[MetadataFeatureValue, _Mapping]]] = ..., shorthand: _Optional[bool] = ...) -> None: ...
+
+class AddMetadataPrefixEdit(_message.Message):
+    __slots__ = ("target", "metadata_type")
+    TARGET_FIELD_NUMBER: _ClassVar[int]
+    METADATA_TYPE_FIELD_NUMBER: _ClassVar[int]
+    target: str
+    metadata_type: str
+    def __init__(self, target: _Optional[str] = ..., metadata_type: _Optional[str] = ...) -> None: ...
 
 class AddConnectionEdit(_message.Message):
     __slots__ = ("owner", "kind", "from_end", "to_end", "name", "type")

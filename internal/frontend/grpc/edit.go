@@ -65,6 +65,11 @@ func (s *Service) ApplyEdits(ctx context.Context, req *pb.ApplyEditsRequest) (*p
 			return nil, err
 		}
 	}
+	if requestsMetadataPrefixAuthoring(req.Operations) {
+		if err := s.requireCapability(CapabilityMetadataPrefixAuthoring); err != nil {
+			return nil, err
+		}
+	}
 	if requestsMemberModifiers(req.Operations) {
 		if err := s.requireCapability(CapabilityMemberModifiers); err != nil {
 			return nil, err
@@ -298,6 +303,15 @@ func requestsMetadataAuthoring(operations []*pb.EditOperation) bool {
 	return false
 }
 
+func requestsMetadataPrefixAuthoring(operations []*pb.EditOperation) bool {
+	for _, operation := range operations {
+		if _, ok := operation.GetOperation().(*pb.EditOperation_AddMetadataPrefix); ok {
+			return true
+		}
+	}
+	return false
+}
+
 // editOperations reads the operations a request carries, rejecting a request
 // that names none of the forms: an unset operation is a client fault rather
 // than a refused edit.
@@ -356,6 +370,9 @@ func editOperations(pbOps []*pb.EditOperation) ([]edit.Operation, error) {
 			}
 			ops = append(ops, edit.AddMetadata(add.GetOwner(), add.GetMetadataType(), add.GetName(),
 				append([]string(nil), add.GetAbout()...), values, add.GetShorthand()))
+		case *pb.EditOperation_AddMetadataPrefix:
+			add := op.AddMetadataPrefix
+			ops = append(ops, edit.AddMetadataPrefix(add.GetTarget(), add.GetMetadataType()))
 		case *pb.EditOperation_Delete:
 			del := op.Delete
 			ops = append(ops, edit.Delete(del.GetTarget(), del.GetCascade()))

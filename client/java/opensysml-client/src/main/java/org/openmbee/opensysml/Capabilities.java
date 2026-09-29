@@ -99,8 +99,11 @@ public final class Capabilities {
   public static final String VERIFICATION_OBJECTIVE_AUTHORING =
       "verification_objective_authoring";
 
-  /** {@code ApplyEdits} can add metadata usages and metadata prefixes. */
+  /** {@code ApplyEdits} can add metadata usages and prefixes on new members. */
   public static final String METADATA_AUTHORING = "metadata_authoring";
+
+  /** {@code ApplyEdits} can add metadata prefixes to existing declarations. */
+  public static final String METADATA_PREFIX_AUTHORING = "metadata_prefix_authoring";
 
   /** {@code ApplyEdits} edits a model of several documents as one batch, answering each edited document by name. */
   public static final String EDIT_DOCUMENTS = "edit_documents";

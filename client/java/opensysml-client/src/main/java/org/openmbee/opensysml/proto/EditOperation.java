@@ -64,6 +64,7 @@ private static final long serialVersionUID = 0L;
     ADD_TRANSITION(9),
     ADD_VERIFY(12),
     ADD_METADATA(13),
+    ADD_METADATA_PREFIX(15),
     OPERATION_NOT_SET(0);
     private final int value;
     private OperationCase(int value) {
@@ -92,6 +93,7 @@ private static final long serialVersionUID = 0L;
         case 9: return ADD_TRANSITION;
         case 12: return ADD_VERIFY;
         case 13: return ADD_METADATA;
+        case 15: return ADD_METADATA_PREFIX;
         case 0: return OPERATION_NOT_SET;
         default: return null;
       }
@@ -448,6 +450,37 @@ private static final long serialVersionUID = 0L;
     return org.openmbee.opensysml.proto.AddMetadataEdit.getDefaultInstance();
   }
 
+  public static final int ADD_METADATA_PREFIX_FIELD_NUMBER = 15;
+  /**
+   * <code>.sysml.AddMetadataPrefixEdit add_metadata_prefix = 15 [json_name = "addMetadataPrefix"];</code>
+   * @return Whether the addMetadataPrefix field is set.
+   */
+  @java.lang.Override
+  public boolean hasAddMetadataPrefix() {
+    return operationCase_ == 15;
+  }
+  /**
+   * <code>.sysml.AddMetadataPrefixEdit add_metadata_prefix = 15 [json_name = "addMetadataPrefix"];</code>
+   * @return The addMetadataPrefix.
+   */
+  @java.lang.Override
+  public org.openmbee.opensysml.proto.AddMetadataPrefixEdit getAddMetadataPrefix() {
+    if (operationCase_ == 15) {
+       return (org.openmbee.opensysml.proto.AddMetadataPrefixEdit) operation_;
+    }
+    return org.openmbee.opensysml.proto.AddMetadataPrefixEdit.getDefaultInstance();
+  }
+  /**
+   * <code>.sysml.AddMetadataPrefixEdit add_metadata_prefix = 15 [json_name = "addMetadataPrefix"];</code>
+   */
+  @java.lang.Override
+  public org.openmbee.opensysml.proto.AddMetadataPrefixEditOrBuilder getAddMetadataPrefixOrBuilder() {
+    if (operationCase_ == 15) {
+       return (org.openmbee.opensysml.proto.AddMetadataPrefixEdit) operation_;
+    }
+    return org.openmbee.opensysml.proto.AddMetadataPrefixEdit.getDefaultInstance();
+  }
+
   private byte memoizedIsInitialized = -1;
   @java.lang.Override
   public final boolean isInitialized() {
@@ -494,6 +527,9 @@ private static final long serialVersionUID = 0L;
     }
     if (operationCase_ == 13) {
       output.writeMessage(13, (org.openmbee.opensysml.proto.AddMetadataEdit) operation_);
+    }
+    if (operationCase_ == 15) {
+      output.writeMessage(15, (org.openmbee.opensysml.proto.AddMetadataPrefixEdit) operation_);
     }
     getUnknownFields().writeTo(output);
   }
@@ -547,6 +583,10 @@ private static final long serialVersionUID = 0L;
     if (operationCase_ == 13) {
       size += com.google.protobuf.CodedOutputStream
         .computeMessageSize(13, (org.openmbee.opensysml.proto.AddMetadataEdit) operation_);
+    }
+    if (operationCase_ == 15) {
+      size += com.google.protobuf.CodedOutputStream
+        .computeMessageSize(15, (org.openmbee.opensysml.proto.AddMetadataPrefixEdit) operation_);
     }
     size += getUnknownFields().getSerializedSize();
     memoizedSize = size;
@@ -609,6 +649,10 @@ private static final long serialVersionUID = 0L;
         if (!getAddMetadata()
             .equals(other.getAddMetadata())) return false;
         break;
+      case 15:
+        if (!getAddMetadataPrefix()
+            .equals(other.getAddMetadataPrefix())) return false;
+        break;
       case 0:
       default:
     }
@@ -667,6 +711,10 @@ private static final long serialVersionUID = 0L;
       case 13:
         hash = (37 * hash) + ADD_METADATA_FIELD_NUMBER;
         hash = (53 * hash) + getAddMetadata().hashCode();
+        break;
+      case 15:
+        hash = (37 * hash) + ADD_METADATA_PREFIX_FIELD_NUMBER;
+        hash = (53 * hash) + getAddMetadataPrefix().hashCode();
         break;
       case 0:
       default:
@@ -839,6 +887,9 @@ private static final long serialVersionUID = 0L;
       if (addMetadataBuilder_ != null) {
         addMetadataBuilder_.clear();
       }
+      if (addMetadataPrefixBuilder_ != null) {
+        addMetadataPrefixBuilder_.clear();
+      }
       operationCase_ = 0;
       operation_ = null;
       return this;
@@ -924,6 +975,10 @@ private static final long serialVersionUID = 0L;
           addMetadataBuilder_ != null) {
         result.operation_ = addMetadataBuilder_.build();
       }
+      if (operationCase_ == 15 &&
+          addMetadataPrefixBuilder_ != null) {
+        result.operation_ = addMetadataPrefixBuilder_.build();
+      }
     }
 
     @java.lang.Override
@@ -981,6 +1036,10 @@ private static final long serialVersionUID = 0L;
         }
         case ADD_METADATA: {
           mergeAddMetadata(other.getAddMetadata());
+          break;
+        }
+        case ADD_METADATA_PREFIX: {
+          mergeAddMetadataPrefix(other.getAddMetadataPrefix());
           break;
         }
         case OPERATION_NOT_SET: {
@@ -1090,6 +1149,13 @@ private static final long serialVersionUID = 0L;
               operationCase_ = 13;
               break;
             } // case 106
+            case 122: {
+              input.readMessage(
+                  internalGetAddMetadataPrefixFieldBuilder().getBuilder(),
+                  extensionRegistry);
+              operationCase_ = 15;
+              break;
+            } // case 122
             default: {
               if (!super.parseUnknownField(input, extensionRegistry, tag)) {
                 done = true; // was an endgroup tag
@@ -2682,6 +2748,148 @@ private static final long serialVersionUID = 0L;
       operationCase_ = 13;
       onChanged();
       return addMetadataBuilder_;
+    }
+
+    private com.google.protobuf.SingleFieldBuilder<
+        org.openmbee.opensysml.proto.AddMetadataPrefixEdit, org.openmbee.opensysml.proto.AddMetadataPrefixEdit.Builder, org.openmbee.opensysml.proto.AddMetadataPrefixEditOrBuilder> addMetadataPrefixBuilder_;
+    /**
+     * <code>.sysml.AddMetadataPrefixEdit add_metadata_prefix = 15 [json_name = "addMetadataPrefix"];</code>
+     * @return Whether the addMetadataPrefix field is set.
+     */
+    @java.lang.Override
+    public boolean hasAddMetadataPrefix() {
+      return operationCase_ == 15;
+    }
+    /**
+     * <code>.sysml.AddMetadataPrefixEdit add_metadata_prefix = 15 [json_name = "addMetadataPrefix"];</code>
+     * @return The addMetadataPrefix.
+     */
+    @java.lang.Override
+    public org.openmbee.opensysml.proto.AddMetadataPrefixEdit getAddMetadataPrefix() {
+      if (addMetadataPrefixBuilder_ == null) {
+        if (operationCase_ == 15) {
+          return (org.openmbee.opensysml.proto.AddMetadataPrefixEdit) operation_;
+        }
+        return org.openmbee.opensysml.proto.AddMetadataPrefixEdit.getDefaultInstance();
+      } else {
+        if (operationCase_ == 15) {
+          return addMetadataPrefixBuilder_.getMessage();
+        }
+        return org.openmbee.opensysml.proto.AddMetadataPrefixEdit.getDefaultInstance();
+      }
+    }
+    /**
+     * <code>.sysml.AddMetadataPrefixEdit add_metadata_prefix = 15 [json_name = "addMetadataPrefix"];</code>
+     */
+    public Builder setAddMetadataPrefix(org.openmbee.opensysml.proto.AddMetadataPrefixEdit value) {
+      if (addMetadataPrefixBuilder_ == null) {
+        if (value == null) {
+          throw new NullPointerException();
+        }
+        operation_ = value;
+        onChanged();
+      } else {
+        addMetadataPrefixBuilder_.setMessage(value);
+      }
+      operationCase_ = 15;
+      return this;
+    }
+    /**
+     * <code>.sysml.AddMetadataPrefixEdit add_metadata_prefix = 15 [json_name = "addMetadataPrefix"];</code>
+     */
+    public Builder setAddMetadataPrefix(
+        org.openmbee.opensysml.proto.AddMetadataPrefixEdit.Builder builderForValue) {
+      if (addMetadataPrefixBuilder_ == null) {
+        operation_ = builderForValue.build();
+        onChanged();
+      } else {
+        addMetadataPrefixBuilder_.setMessage(builderForValue.build());
+      }
+      operationCase_ = 15;
+      return this;
+    }
+    /**
+     * <code>.sysml.AddMetadataPrefixEdit add_metadata_prefix = 15 [json_name = "addMetadataPrefix"];</code>
+     */
+    public Builder mergeAddMetadataPrefix(org.openmbee.opensysml.proto.AddMetadataPrefixEdit value) {
+      if (addMetadataPrefixBuilder_ == null) {
+        if (operationCase_ == 15 &&
+            operation_ != org.openmbee.opensysml.proto.AddMetadataPrefixEdit.getDefaultInstance()) {
+          operation_ = org.openmbee.opensysml.proto.AddMetadataPrefixEdit.newBuilder((org.openmbee.opensysml.proto.AddMetadataPrefixEdit) operation_)
+              .mergeFrom(value).buildPartial();
+        } else {
+          operation_ = value;
+        }
+        onChanged();
+      } else {
+        if (operationCase_ == 15) {
+          addMetadataPrefixBuilder_.mergeFrom(value);
+        } else {
+          addMetadataPrefixBuilder_.setMessage(value);
+        }
+      }
+      operationCase_ = 15;
+      return this;
+    }
+    /**
+     * <code>.sysml.AddMetadataPrefixEdit add_metadata_prefix = 15 [json_name = "addMetadataPrefix"];</code>
+     */
+    public Builder clearAddMetadataPrefix() {
+      if (addMetadataPrefixBuilder_ == null) {
+        if (operationCase_ == 15) {
+          operationCase_ = 0;
+          operation_ = null;
+          onChanged();
+        }
+      } else {
+        if (operationCase_ == 15) {
+          operationCase_ = 0;
+          operation_ = null;
+        }
+        addMetadataPrefixBuilder_.clear();
+      }
+      return this;
+    }
+    /**
+     * <code>.sysml.AddMetadataPrefixEdit add_metadata_prefix = 15 [json_name = "addMetadataPrefix"];</code>
+     */
+    public org.openmbee.opensysml.proto.AddMetadataPrefixEdit.Builder getAddMetadataPrefixBuilder() {
+      return internalGetAddMetadataPrefixFieldBuilder().getBuilder();
+    }
+    /**
+     * <code>.sysml.AddMetadataPrefixEdit add_metadata_prefix = 15 [json_name = "addMetadataPrefix"];</code>
+     */
+    @java.lang.Override
+    public org.openmbee.opensysml.proto.AddMetadataPrefixEditOrBuilder getAddMetadataPrefixOrBuilder() {
+      if ((operationCase_ == 15) && (addMetadataPrefixBuilder_ != null)) {
+        return addMetadataPrefixBuilder_.getMessageOrBuilder();
+      } else {
+        if (operationCase_ == 15) {
+          return (org.openmbee.opensysml.proto.AddMetadataPrefixEdit) operation_;
+        }
+        return org.openmbee.opensysml.proto.AddMetadataPrefixEdit.getDefaultInstance();
+      }
+    }
+    /**
+     * <code>.sysml.AddMetadataPrefixEdit add_metadata_prefix = 15 [json_name = "addMetadataPrefix"];</code>
+     */
+    private com.google.protobuf.SingleFieldBuilder<
+        org.openmbee.opensysml.proto.AddMetadataPrefixEdit, org.openmbee.opensysml.proto.AddMetadataPrefixEdit.Builder, org.openmbee.opensysml.proto.AddMetadataPrefixEditOrBuilder> 
+        internalGetAddMetadataPrefixFieldBuilder() {
+      if (addMetadataPrefixBuilder_ == null) {
+        if (!(operationCase_ == 15)) {
+          operation_ = org.openmbee.opensysml.proto.AddMetadataPrefixEdit.getDefaultInstance();
+        }
+        addMetadataPrefixBuilder_ = new com.google.protobuf.SingleFieldBuilder<
+            org.openmbee.opensysml.proto.AddMetadataPrefixEdit, org.openmbee.opensysml.proto.AddMetadataPrefixEdit.Builder, org.openmbee.opensysml.proto.AddMetadataPrefixEditOrBuilder>(
+                (org.openmbee.opensysml.proto.AddMetadataPrefixEdit) operation_,
+                getParentForChildren(),
+                isClean());
+        operation_ = null;
+      }
+      operationCase_ = 15;
+      onChanged();
+      return addMetadataPrefixBuilder_;
     }
 
     // @@protoc_insertion_point(builder_scope:sysml.EditOperation)

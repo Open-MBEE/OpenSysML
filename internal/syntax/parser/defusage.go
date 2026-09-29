@@ -3440,7 +3440,8 @@ func (p *Parser) atMemberKeywordUsedAsKeyword(kw string) bool {
 // (`subject #M s;`, SysML.xtext `'keyword' UsageExtensionKeyword* …`), unlike `#B assert …`.
 func prefixMetadataFollowsKeyword(kw string) bool {
 	switch kw {
-	case "subject", "actor", "stakeholder", "objective", "variant", "assume", "require":
+	case "subject", "actor", "stakeholder", "objective", "variant", "assume", "require",
+		"verify", "frame", "render":
 		return true
 	}
 	return false

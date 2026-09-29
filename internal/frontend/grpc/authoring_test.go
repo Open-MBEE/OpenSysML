@@ -67,6 +67,14 @@ func addMetadataOp(owner, metadataType, name string, about []string, values []*p
 	}}
 }
 
+func addMetadataPrefixOp(target, metadataType string) *pb.EditOperation {
+	return &pb.EditOperation{Operation: &pb.EditOperation_AddMetadataPrefix{
+		AddMetadataPrefix: &pb.AddMetadataPrefixEdit{
+			Target: target, MetadataType: metadataType,
+		},
+	}}
+}
+
 func deleteOp(target string, cascade bool) *pb.EditOperation {
 	return &pb.EditOperation{Operation: &pb.EditOperation_Delete{
 		Delete: &pb.DeleteEdit{Target: target, Cascade: cascade},
@@ -346,6 +354,24 @@ func TestApplyEditsAuthorsVerificationAndMetadata(t *testing.T) {
 	}
 }
 
+func TestApplyEditsAddsMetadataPrefixToExistingDeclaration(t *testing.T) {
+	srv := mustNewService(t, 10)
+	source := "package Demo { metadata def M; part def A; }\n"
+	hash := mustParsedModel(t, srv, source)
+	added, err := srv.ApplyEdits(context.Background(), &pb.ApplyEditsRequest{
+		ModelHash: hash,
+		Operations: []*pb.EditOperation{
+			addMetadataPrefixOp("Demo::A", "M"),
+		},
+	})
+	if err != nil {
+		t.Fatalf("ApplyEdits: %v", err)
+	}
+	if added.Error != "" || added.Content != "package Demo { metadata def M; #M part def A; }\n" {
+		t.Fatalf("ApplyEdits response = %+v", added)
+	}
+}
+
 func TestApplyEditsNewAuthoringOperationsRequireDedicatedCapabilities(t *testing.T) {
 	tests := []struct {
 		name       string
@@ -395,6 +421,11 @@ func TestApplyEditsNewAuthoringOperationsRequireDedicatedCapabilities(t *testing
 			name:       "metadata usage",
 			capability: CapabilityMetadataAuthoring,
 			operation:  addMetadataOp("Demo", "Demo::Safety", "", nil, nil, false),
+		},
+		{
+			name:       "existing metadata prefix",
+			capability: CapabilityMetadataPrefixAuthoring,
+			operation:  addMetadataPrefixOp("Demo::t", "Demo::Safety"),
 		},
 		{
 			name:       "metadata prefix",
@@ -548,7 +579,7 @@ func TestGetServerInfoAuthoringCapabilities(t *testing.T) {
 		CapabilitySatisfyAuthoring, CapabilityRequirementConstraintAuthoring,
 		CapabilityMemberModifiers, CapabilityTransitionAuthoring,
 		CapabilityVerificationObjectiveAuthoring, CapabilityMetadataAuthoring,
-		CapabilityInlineLanguage,
+		CapabilityMetadataPrefixAuthoring, CapabilityInlineLanguage,
 	} {
 		if !slices.Contains(info.Capabilities, capability) {
 			t.Errorf("capabilities = %v, want %q", info.Capabilities, capability)

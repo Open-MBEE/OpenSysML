@@ -1430,6 +1430,11 @@ func editFromProto(operation *pb.EditOperation) (opensysml.Edit, bool) {
 			Values:       values,
 			Shorthand:    kind.AddMetadata.GetShorthand(),
 		}, true
+	case *pb.EditOperation_AddMetadataPrefix:
+		return opensysml.AddMetadataPrefix{
+			Target:       kind.AddMetadataPrefix.GetTarget(),
+			MetadataType: kind.AddMetadataPrefix.GetMetadataType(),
+		}, true
 	case *pb.EditOperation_Delete:
 		return opensysml.Delete{Target: kind.Delete.GetTarget(), Cascade: kind.Delete.GetCascade()}, true
 	default:

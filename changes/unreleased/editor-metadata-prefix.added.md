@@ -1,0 +1,1 @@
+- **Add source-preserving metadata prefixes to existing declarations.** `add_metadata_prefix` resolves the metadata definition in the declaration's scope, refuses duplicates and declarations without a grammar slot, and preserves all untouched source bytes.

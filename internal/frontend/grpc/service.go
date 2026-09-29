@@ -104,6 +104,9 @@ const CapabilityVerificationObjectiveAuthoring = "verification_objective_authori
 // CapabilityMetadataAuthoring names metadata usages and metadata prefixes.
 const CapabilityMetadataAuthoring = "metadata_authoring"
 
+// CapabilityMetadataPrefixAuthoring names edits that add metadata to an existing declaration.
+const CapabilityMetadataPrefixAuthoring = "metadata_prefix_authoring"
+
 // CapabilityEditDocuments names the capability of editing a model of several
 // documents as one batch, for a request accepting documents, and of answering
 // each edited document by name in ApplyEditsResponse.documents.
@@ -224,6 +227,7 @@ var capabilities = []string{
 	CapabilityTransitionAuthoring,
 	CapabilityVerificationObjectiveAuthoring,
 	CapabilityMetadataAuthoring,
+	CapabilityMetadataPrefixAuthoring,
 }
 
 type capabilityAvailability struct {

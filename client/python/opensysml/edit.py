@@ -376,6 +376,16 @@ class Editor:
         self._add(("add_metadata", owner, metadata_type, name or "", about, normalized, shorthand))
         return self
 
+    def add_metadata_prefix(self, target, metadata_type):
+        """Add a metadata prefix to an existing declaration."""
+        if not isinstance(metadata_type, str):
+            raise TypeError(
+                f"metadata_type must be notation text, not {type(metadata_type).__name__}"
+            )
+        target = target if isinstance(target, str) else _target_id(target)
+        self._add(("add_metadata_prefix", target, metadata_type))
+        return self
+
     def add_satisfy(self, owner, requirement, by=None, asserted=False, negated=False):
         """Add a ``satisfy`` usage to a body that admits behavior usages."""
         if not isinstance(requirement, str):

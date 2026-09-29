@@ -98,6 +98,11 @@ direction or abstract flag is refused. A return parameter is restricted to calcu
 refuses inadmissible placements even when analysis would only warn.
 `metadata_prefixes` writes metadata references such as `#Safety` on the new declaration, in the
 position required by its member kind; prefixes on `return` are refused.
+`add_metadata_prefix` adds one metadata prefix to an existing SysML declaration. The target must
+be a declaration that admits prefix metadata, and the metadata type must resolve from that
+declaration's scope to a metadata definition. A duplicate is refused by resolved identity. The
+source edit inserts after existing prefixes, or at the grammar-defined prefix slot while preserving
+all untouched source bytes.
 
 The `add_connection` operation takes `owner`, `kind`, `from_end`, `to_end`, and optional `name`
 and `type` fields:
@@ -110,6 +115,7 @@ and `type` fields:
 | `add_transition` | `owner`, `source`, `target`, `name?`, `trigger?`, `guard?`, `effect?`, `initial` | A state transition in a state definition or usage, including an exhibited or bodiless nested state. Each free-text clause must form exactly one grammar-admissible transition. With `initial`, an entry transition (`entry; then <target>;`) in a state body that has no existing entry action. |
 | `add_verify` | `owner`, `requirement` | A `verify <requirement>;` membership in a verification case's objective. When the case has no owned objective and no inherited user objective, the edit creates one; ambiguous or inherited-only objectives are refused. |
 | `add_metadata` | `owner`, `metadata_type`, `name?`, `about[]`, `values[]`, `shorthand` | A metadata usage in SysML or KerML, with optional `about` references and feature-value bindings. `shorthand` writes `@M` rather than `metadata M`; semantic type and value correctness is checked by re-analysis. |
+| `add_metadata_prefix` | `target`, `metadata_type` | Adds `#M` to an existing SysML declaration, resolving `metadata_type` in the declaration's own scope; duplicate metadata types and targets without a prefix slot are refused. |
 
 `type` is accepted only for connection kinds that permit a typing target.
 `add_connection` requires both the `authoring` and `connection_authoring` capabilities.
@@ -117,7 +123,8 @@ and `type` fields:
 `authoring` and `requirement_constraint_authoring`; transition edits require `authoring` and
 `transition_authoring`. `add_verify` and an unnamed `objective` member require
 `verification_objective_authoring`; `add_metadata` and an `add_member` with `metadata_prefixes`
-require `metadata_authoring`. An `add_member` edit with any new modifier or the `ref`/`return`
+require `metadata_authoring`; `add_metadata_prefix` requires `metadata_prefix_authoring`. An
+`add_member` edit with any new modifier or the `ref`/`return`
 kind also requires `member_modifiers`. Clients preflight these capabilities before sending the
 operation.
 

@@ -1658,11 +1658,6 @@ func (d *decoder) namespaceHead(el *element) (string, error) {
 	if keyword := d.visibility(el); keyword != "" {
 		words = append(words, keyword)
 	}
-	prefixes, err := d.prefixWords(el)
-	if err != nil {
-		return "", err
-	}
-	words = append(words, prefixes...)
 	if el.metaclass == mPackage || el.metaclass == mLibraryPackage {
 		// A LibraryPackage's isStandard, or an older graph's sysx: flags on a Package.
 		if d.boolOf(el, rdf.SysML+pIsStandard) || d.boolOf(el, rdf.OpenSysML+"isStandardLibraryPackage") {
@@ -1671,8 +1666,18 @@ func (d *decoder) namespaceHead(el *element) (string, error) {
 		if el.metaclass == mLibraryPackage || d.boolOf(el, rdf.OpenSysML+"isLibraryPackage") {
 			words = append(words, "library")
 		}
+		prefixes, err := d.prefixWords(el)
+		if err != nil {
+			return "", err
+		}
+		words = append(words, prefixes...)
 		words = append(words, "package")
 	} else {
+		prefixes, err := d.prefixWords(el)
+		if err != nil {
+			return "", err
+		}
+		words = append(words, prefixes...)
 		words = append(words, "namespace")
 	}
 	words = append(words, d.identWords(el)...)

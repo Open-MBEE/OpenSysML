@@ -141,6 +141,12 @@ func TestNewAuthoringOperationsAreNotSentWithoutTheirCapabilities(t *testing.T) 
 			missing:      CapabilityMetadataAuthoring,
 		},
 		{
+			name:         "existing metadata prefix",
+			operation:    AddMetadataPrefix{Target: "Demo::P", MetadataType: "Demo::M"},
+			capabilities: []string{CapabilityApplyEdits, CapabilityAuthoring},
+			missing:      CapabilityMetadataPrefixAuthoring,
+		},
+		{
 			name: "metadata prefix",
 			operation: AddMember{
 				Owner: "Demo", Kind: "part def", Name: "P",
@@ -263,5 +269,16 @@ func TestNewAuthoringOperationsMapToProto(t *testing.T) {
 		len(got.GetValues()) != 1 || got.GetValues()[0].GetFeature() != "kind" ||
 		got.GetValues()[0].GetValue() != "Kind::test" {
 		t.Fatalf("AddMetadata mapping = %+v", got)
+	}
+
+	prefixOperation, err := editToProto(AddMetadataPrefix{
+		Target: "Demo::P", MetadataType: "Demo::M",
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got := prefixOperation.GetAddMetadataPrefix(); got == nil ||
+		got.GetTarget() != "Demo::P" || got.GetMetadataType() != "Demo::M" {
+		t.Fatalf("AddMetadataPrefix mapping = %+v", got)
 	}
 }

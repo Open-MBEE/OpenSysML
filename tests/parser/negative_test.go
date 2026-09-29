@@ -85,6 +85,9 @@ func TestNegative(t *testing.T) {
 		{"assume_prefix_metadata_before_keyword", "requirement r { #goal assume constraint a : C; }"},
 		{"require_prefix_metadata_before_keyword", "requirement r { #goal require constraint r : C; }"},
 		{"require_prefix_metadata_before_keyword_bare", "requirement r { #goal require ; }"},
+		{"verify_prefix_metadata_before_keyword", "verification def V { #goal verify requirement r; }"},
+		{"frame_prefix_metadata_before_keyword", "requirement def R { #goal frame concern c; }"},
+		{"render_prefix_metadata_before_keyword", "view def V { #goal render rendering r; }"},
 		// An assertion's prefix metadata comes ahead of `assert`, not after it or
 		// its `not` (SysML.xtext AssertConstraintUsage `OccurrenceUsagePrefix 'assert'`).
 		{"assert_prefix_metadata_after_keyword", "package P { part def D { assert #B constraint c; } }"},
