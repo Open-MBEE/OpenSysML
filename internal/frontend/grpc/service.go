@@ -40,6 +40,11 @@ const CapabilityConvert = "convert"
 // answer.
 const CapabilityVerification = "verification"
 
+// CapabilityVerificationQuestions names the `question` field of the
+// verification requests — the solver questions "holds" and "satisfiable" —
+// and the `question`, `status` and `witness` fields of every Verdict.
+const CapabilityVerificationQuestions = "verification_questions"
+
 // CapabilityQuery names the capability of the Query RPC, which evaluates a
 // SysML v2 API & Services Query over a parsed model.
 const CapabilityQuery = "query"
@@ -79,7 +84,8 @@ const CapabilityUnsetValue = "unset_value"
 // a parsed model's own source, preserving everything the edit did not touch.
 const CapabilityApplyEdits = "apply_edits"
 
-// CapabilityAuthoring names add-member and delete source authoring operations.
+// CapabilityAuthoring gates source-authoring ApplyEdits operations; dedicated
+// capabilities further gate specialized authoring operations.
 const CapabilityAuthoring = "authoring"
 
 // CapabilityConnectionAuthoring names the ApplyEdits add_connection operation.
@@ -97,6 +103,43 @@ const CapabilityMemberModifiers = "member_modifiers"
 
 // CapabilityTransitionAuthoring names the ApplyEdits add_transition operation.
 const CapabilityTransitionAuthoring = "transition_authoring"
+
+// CapabilityVerificationObjectiveAuthoring names verification-case objective authoring.
+const CapabilityVerificationObjectiveAuthoring = "verification_objective_authoring"
+
+// CapabilityMetadataAuthoring names metadata usages and metadata prefixes.
+const CapabilityMetadataAuthoring = "metadata_authoring"
+
+// CapabilityMetadataPrefixAuthoring names edits that add metadata to an existing declaration.
+const CapabilityMetadataPrefixAuthoring = "metadata_prefix_authoring"
+
+// CapabilityImplicitParameters names the ApplyEdits add_member operation with
+// no kind: an implicit directed usage (`in x : T;`).
+const CapabilityImplicitParameters = "implicit_parameters"
+
+// CapabilitySequenceAuthoring names the ApplyEdits add_sequence operation.
+const CapabilitySequenceAuthoring = "sequence_authoring"
+
+// CapabilityActionBodyStatementAuthoring names the extended action-body items
+// and source-end multiplicities carried by add_sequence.
+const CapabilityActionBodyStatementAuthoring = "action_body_statement_authoring"
+
+// CapabilityConstraintBodyAuthoring names constraint body expressions and asserted constraints.
+const CapabilityConstraintBodyAuthoring = "constraint_body_authoring"
+
+// CapabilityStateActionAuthoring names state behavior member kinds.
+const CapabilityStateActionAuthoring = "state_action_authoring"
+
+// CapabilityImportAuthoring names the ApplyEdits add_import operation.
+const CapabilityImportAuthoring = "import_authoring"
+
+// CapabilityDocumentationAuthoring names the ApplyEdits add_documentation
+// operation and the AddMember doc field.
+const CapabilityDocumentationAuthoring = "documentation_authoring"
+
+// CapabilityCommentAuthoring names the ApplyEdits add_comment and add_note
+// operations.
+const CapabilityCommentAuthoring = "comment_authoring"
 
 // CapabilityEditDocuments names the capability of editing a model of several
 // documents as one batch, for a request accepting documents, and of answering
@@ -216,6 +259,18 @@ var capabilities = []string{
 	CapabilityRequirementConstraintAuthoring,
 	CapabilityMemberModifiers,
 	CapabilityTransitionAuthoring,
+	CapabilityVerificationQuestions,
+	CapabilityVerificationObjectiveAuthoring,
+	CapabilityMetadataAuthoring,
+	CapabilityMetadataPrefixAuthoring,
+	CapabilitySequenceAuthoring,
+	CapabilityImplicitParameters,
+	CapabilityConstraintBodyAuthoring,
+	CapabilityStateActionAuthoring,
+	CapabilityImportAuthoring,
+	CapabilityDocumentationAuthoring,
+	CapabilityCommentAuthoring,
+	CapabilityActionBodyStatementAuthoring,
 }
 
 type capabilityAvailability struct {
@@ -1047,9 +1102,10 @@ func (s *Service) ExecuteAction(ctx context.Context, req *pb.ExecuteActionReques
 	}
 
 	// Execute action with the supplied inputs
-	outputs, _, err := performOn(ctx, s, runtimeCtx, analysis.Auto(), req.ActionSymbolId, func(rt *runtime.Context) (map[string]runtime.Value, error) {
-		return rt.ExecuteActionPerformedBy(action, self, inputs)
-	}, heldAnswer)
+	ran, _, err := performOn(ctx, s, runtimeCtx, analysis.Auto(), req.ActionSymbolId, func(rt *runtime.Context) (actionRun, error) {
+		outputs, performer, err := rt.ExecuteActionReportingPerformer(action, self, inputs)
+		return actionRun{outputs: outputs, performer: performer}, err
+	}, func(ran actionRun, err error) analysis.Answer { return heldAnswer(ran.outputs, err) })
 	if gone := callerGone(ctx, err); gone != nil {
 		return nil, gone
 	}
@@ -1064,16 +1120,11 @@ func (s *Service) ExecuteAction(ctx context.Context, req *pb.ExecuteActionReques
 		}, nil
 	}
 
-	// Convert outputs to protobuf
-	pbOutputs := make(map[string]*pb.Value)
-	for name, val := range outputs {
-		pbOutputs[name] = s.valueToProto(runtimeCtx, val, cached.Index)
-	}
-
 	return &pb.ExecuteActionResponse{
-		Outputs:     pbOutputs,
-		Diagnostics: diags,
-		FinalTime:   s.finalTime(runtimeCtx),
+		Outputs:             s.valuesToProto(runtimeCtx, ran.outputs, cached.Index),
+		Diagnostics:         diags,
+		FinalTime:           s.finalTime(runtimeCtx),
+		PerformerAttributes: s.valuesToProto(runtimeCtx, ran.performer, cached.Index),
 	}, nil
 }
 
@@ -1143,11 +1194,11 @@ func (s *Service) ExecuteState(ctx context.Context, req *pb.ExecuteStateRequest)
 		return &pb.ExecuteStateResponse{Error: err.Error()}, nil
 	}
 
-	// Execute state machine, injecting the requested events and capturing the
-	// real ordered state-visit trace.
+	// The final context is the outcome an exploration compares: the machine's own
+	// data and, under `this.`, the performer's attributes.
 	ran, _, err := performOn(ctx, s, runtimeCtx, analysis.Auto(), req.StateMachineSymbolId, func(rt *runtime.Context) (stateRun, error) {
-		final, visited, err := rt.ExecuteStatePerformedBy(stateMachine, self, req.Events)
-		return stateRun{final: final, visited: visited}, err
+		outcome, err := rt.StateOutcomePerformedBy(stateMachine, self, req.Events)
+		return stateRun{final: outcome.Outputs, visited: outcome.StateVisits}, err
 	}, func(ran stateRun, err error) analysis.Answer { return heldAnswer(ran.final, err) })
 	if gone := callerGone(ctx, err); gone != nil {
 		return nil, gone

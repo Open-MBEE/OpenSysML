@@ -568,18 +568,12 @@ func (m *Model) signatureParameterOf(sym *symbols.Symbol, name string) signature
 }
 
 // OptionalParameter reports whether a call may omit the parameter: it or a parameter it
-// redefines declares a default, or the nearest stated multiplicity admits no value.
+// redefines declares a default, or its effective multiplicity admits no value.
 func (m *Model) OptionalParameter(sym *symbols.Symbol) bool {
 	if value, _ := m.ParameterDefault(sym); value != nil {
 		return true
 	}
-	for _, p := range m.ParameterRedefinitionChain(sym) {
-		if _, mult, _ := parameterDeclaration(p); mult != nil {
-			r, ok := m.multiplicityRange(mult)
-			return ok && r.AllowsNone()
-		}
-	}
-	return false
+	return m.EffectiveParameterRange(sym).AllowsNone()
 }
 
 // ParameterDefault is the value the parameter takes when a call binds none: the nearest

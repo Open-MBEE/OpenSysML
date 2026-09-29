@@ -33,6 +33,13 @@ CAPABILITY_CONVERT = "convert"
 #: Without it the service refuses those calls with ``UNIMPLEMENTED``.
 CAPABILITY_VERIFICATION = "verification"
 
+#: The ``question`` field of the verification RPCs, asking a constraint,
+#: requirement or satisfaction assertion a ``holds`` or ``satisfiable``
+#: question rather than an evaluation, and reporting the verdict's ``status``
+#: and ``witness``. Without it the service refuses such a question with
+#: ``UNIMPLEMENTED``.
+CAPABILITY_VERIFICATION_QUESTIONS = "verification_questions"
+
 #: The ``Query`` RPC, which evaluates a SysML v2 API & Services ``Query`` over a
 #: loaded model. Without it the service refuses queries with ``UNIMPLEMENTED``.
 CAPABILITY_QUERY = "query"
@@ -88,8 +95,29 @@ CAPABILITY_SATISFY_AUTHORING = "satisfy_authoring"
 CAPABILITY_REQUIREMENT_CONSTRAINT_AUTHORING = "requirement_constraint_authoring"
 #: The ``ApplyEdits`` ``add_transition`` operation.
 CAPABILITY_TRANSITION_AUTHORING = "transition_authoring"
+#: The ``ApplyEdits`` ``add_verify`` operation and anonymous objectives.
+CAPABILITY_VERIFICATION_OBJECTIVE_AUTHORING = "verification_objective_authoring"
+#: The ``ApplyEdits`` ``add_metadata`` operation and metadata prefixes.
+CAPABILITY_METADATA_AUTHORING = "metadata_authoring"
+CAPABILITY_METADATA_PREFIX_AUTHORING = "metadata_prefix_authoring"
+#: The ``ApplyEdits`` ``add_sequence`` operation.
+CAPABILITY_SEQUENCE_AUTHORING = "sequence_authoring"
+#: The additional action-body statements and succession source multiplicities.
+CAPABILITY_ACTION_BODY_STATEMENT_AUTHORING = "action_body_statement_authoring"
+#: The ``ApplyEdits`` ``add_import`` operation.
+CAPABILITY_IMPORT_AUTHORING = "import_authoring"
+#: The ``ApplyEdits`` ``add_documentation`` operation and ``AddMemberEdit.doc``.
+CAPABILITY_DOCUMENTATION_AUTHORING = "documentation_authoring"
+#: The ``ApplyEdits`` ``add_comment`` and ``add_note`` operations.
+CAPABILITY_COMMENT_AUTHORING = "comment_authoring"
 #: The additional ``AddMemberEdit`` modifiers and ``ref``/``return`` kinds.
 CAPABILITY_MEMBER_MODIFIERS = "member_modifiers"
+#: ``ApplyEdits`` adds a directed usage with no kind keyword (``in x : T;``).
+CAPABILITY_IMPLICIT_PARAMETERS = "implicit_parameters"
+#: Constraint body expressions and asserted constraints in ``ApplyEdits``.
+CAPABILITY_CONSTRAINT_BODY_AUTHORING = "constraint_body_authoring"
+#: State behavior member kinds in ``ApplyEdits``.
+CAPABILITY_STATE_ACTION_AUTHORING = "state_action_authoring"
 #: ``ApplyEdits`` edits a model of several documents as one batch and answers
 #: each edited document by name in ``EditResult.documents``, with each applied
 #: edit's document and each referrer's. Without it the service edits a model of

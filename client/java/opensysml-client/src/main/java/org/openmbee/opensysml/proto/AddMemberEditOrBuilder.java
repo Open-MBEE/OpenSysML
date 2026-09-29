@@ -251,4 +251,93 @@ public interface AddMemberEditOrBuilder extends
    */
   com.google.protobuf.ByteString
       getDirectionBytes();
+
+  /**
+   * <pre>
+   * Metadata types annotating the new member.
+   * </pre>
+   *
+   * <code>repeated string metadata_prefixes = 14 [json_name = "metadataPrefixes"];</code>
+   * @return A list containing the metadataPrefixes.
+   */
+  java.util.List<java.lang.String>
+      getMetadataPrefixesList();
+  /**
+   * <pre>
+   * Metadata types annotating the new member.
+   * </pre>
+   *
+   * <code>repeated string metadata_prefixes = 14 [json_name = "metadataPrefixes"];</code>
+   * @return The count of metadataPrefixes.
+   */
+  int getMetadataPrefixesCount();
+  /**
+   * <pre>
+   * Metadata types annotating the new member.
+   * </pre>
+   *
+   * <code>repeated string metadata_prefixes = 14 [json_name = "metadataPrefixes"];</code>
+   * @param index The index of the element to return.
+   * @return The metadataPrefixes at the given index.
+   */
+  java.lang.String getMetadataPrefixes(int index);
+  /**
+   * <pre>
+   * Metadata types annotating the new member.
+   * </pre>
+   *
+   * <code>repeated string metadata_prefixes = 14 [json_name = "metadataPrefixes"];</code>
+   * @param index The index of the value to return.
+   * @return The bytes of the metadataPrefixes at the given index.
+   */
+  com.google.protobuf.ByteString
+      getMetadataPrefixesBytes(int index);
+
+  /**
+   * <pre>
+   * Optional documentation body, as plain text, written as the declaration's
+   * first body member `doc /&#42; ... *&#47;` that reads back as exactly this text.
+   * </pre>
+   *
+   * <code>string doc = 12 [json_name = "doc"];</code>
+   * @return The doc.
+   */
+  java.lang.String getDoc();
+  /**
+   * <pre>
+   * Optional documentation body, as plain text, written as the declaration's
+   * first body member `doc /&#42; ... *&#47;` that reads back as exactly this text.
+   * </pre>
+   *
+   * <code>string doc = 12 [json_name = "doc"];</code>
+   * @return The bytes for doc.
+   */
+  com.google.protobuf.ByteString
+      getDocBytes();
+
+  /**
+   * <pre>
+   * Optional body expression. For constraints, it is the condition; for calc,
+   * case, analysis, verification, and use-case kinds, it is the result
+   * expression. It is written inside `{ ... }`, distinct from value, which
+   * writes `= ...`.
+   * </pre>
+   *
+   * <code>string body_expression = 13 [json_name = "bodyExpression"];</code>
+   * @return The bodyExpression.
+   */
+  java.lang.String getBodyExpression();
+  /**
+   * <pre>
+   * Optional body expression. For constraints, it is the condition; for calc,
+   * case, analysis, verification, and use-case kinds, it is the result
+   * expression. It is written inside `{ ... }`, distinct from value, which
+   * writes `= ...`.
+   * </pre>
+   *
+   * <code>string body_expression = 13 [json_name = "bodyExpression"];</code>
+   * @return The bytes for bodyExpression.
+   */
+  com.google.protobuf.ByteString
+      getBodyExpressionBytes();
 }

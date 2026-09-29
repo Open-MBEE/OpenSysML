@@ -657,3 +657,14 @@ func TestEngineWitnessesIntegerOverflow(t *testing.T) {
 	within := answer(t, e, d, d.holds(t, "test::Within", "test::Within::positive"), analysis.Budget{Depth: 4})
 	expect(t, within, analysis.ClaimHolds, analysis.Proved)
 }
+
+// TestCoversBareHoldsRefuses: a Holds question lacking the engine's payload is
+// refused as malformed, not a panic — the solve engine's Holds is the one a
+// bare violation question reaches.
+func TestCoversBareHoldsRefuses(t *testing.T) {
+	e := New(func() (*solve.Solver, error) { return &solve.Solver{Name: "test"}, nil })
+	c := e.Covers(nil, analysis.Question{Kind: analysis.Holds, Free: analysis.FreeSchedule | analysis.FreeInputs})
+	if c.Covered || !errors.Is(c.Refusal, analysis.ErrMalformedQuestion) {
+		t.Errorf("covered a Holds lacking its ask: %+v", c)
+	}
+}

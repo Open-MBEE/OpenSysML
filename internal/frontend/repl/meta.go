@@ -1517,6 +1517,8 @@ func behaviorStatus(ctx *runtime.Context, inst *runtime.Instance, feat *runtime.
 		return kind + ", not running"
 	}
 	switch {
+	case behavior.Err != nil:
+		return fmt.Sprintf("%s, failed: %s", behavior.Kind, behavior.Err)
 	case behavior.State != nil:
 		return fmt.Sprintf("%s, %s", behavior.Kind, machineStatus(behavior.State))
 	case behavior.Action != nil:

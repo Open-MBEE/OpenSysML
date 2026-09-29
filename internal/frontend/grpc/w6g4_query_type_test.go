@@ -130,3 +130,61 @@ func TestMetamodelTypeNameCoversEveryKindDeclared(t *testing.T) {
 		t.Error("a KerML type kind must be named from its declaration, not its kind")
 	}
 }
+
+// TestQueryTypeOfKindlessUsages verifies a usage declared without a kind keyword
+// reports the metamodel's ReferenceUsage (SysML v2 §7.6.4) and is not selected by
+// AttributeUsage, while the `attribute` keyword keeps its own metaclass.
+func TestQueryTypeOfKindlessUsages(t *testing.T) {
+	types := queryTypesOf(t, `
+package P {
+	part def V {
+		x : Integer;
+		ref r : Integer;
+		attribute a : Integer;
+		action def Act { in energy : Integer; }
+	}
+}
+`)
+	assertTypes(t, types, map[string]string{
+		"P::V::x":           "ReferenceUsage",
+		"P::V::r":           "ReferenceUsage",
+		"P::V::a":           "AttributeUsage",
+		"P::V::Act::energy": "ReferenceUsage",
+	})
+}
+
+// TestQueryByTypeSelectsReferenceUsages verifies `@type = ReferenceUsage`
+// reaches exactly the kindless usages, where AttributeUsage does not.
+func TestQueryByTypeSelectsReferenceUsages(t *testing.T) {
+	srv := mustNewService(t, 10)
+	parsed, err := srv.ParseFile(context.Background(), &pb.ParseFileRequest{
+		Source: &pb.ParseFileRequest_Content{Content: `
+package P {
+	part def V {
+		x : Integer;
+		attribute a : Integer;
+	}
+}
+`},
+	})
+	if err != nil {
+		t.Fatalf("ParseFile failed: %v", err)
+	}
+	resp, err := srv.Query(context.Background(), &pb.QueryRequest{
+		ModelHash: parsed.ModelHash,
+		Query: &pb.Query{
+			Select: []string{QueryPropType},
+			Where:  primitive(QueryPropType, opEqual, false, "ReferenceUsage"),
+		},
+	})
+	if err != nil {
+		t.Fatalf("Query failed: %v", err)
+	}
+	var ids []string
+	for _, element := range resp.Elements {
+		ids = append(ids, element.Id)
+	}
+	if len(ids) != 1 || ids[0] != "P::V::x" {
+		t.Errorf("@type = ReferenceUsage selected %v, want [P::V::x]", ids)
+	}
+}

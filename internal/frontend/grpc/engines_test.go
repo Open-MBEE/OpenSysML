@@ -37,7 +37,7 @@ func TestListEnginesNamesEveryEngine(t *testing.T) {
 		{"explore", "proved", []string{"outcomes"}},
 		{"run", "observed", []string{"evaluate"}},
 		{"smt", "proved", []string{"holds", "sensitive"}},
-		{"solve", "proved", []string{"satisfiable"}},
+		{"solve", "proved", []string{"satisfiable", "holds"}},
 		{"sweep", "observed", []string{"sweep"}},
 		{"tool:fmi", "observed", []string{"compute"}},
 	}

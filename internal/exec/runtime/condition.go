@@ -522,6 +522,18 @@ func (ctx *Context) checkSubject(kind, element string, sym *symbols.Symbol, self
 	return subject, nil
 }
 
+// ConditionCarrier is the object a check of sym is about, resolved as
+// evaluation resolves it — self when it carries the element, else the single
+// object of this runtime that does — with the same error, ambiguity included,
+// an evaluation reports.
+func (ctx *Context) ConditionCarrier(kind, element string, sym *symbols.Symbol, self *Instance) (*Instance, error) {
+	subject, err := ctx.checkSubject(kind, element, sym, self)
+	if err != nil {
+		return nil, err
+	}
+	return subject.instance, nil
+}
+
 // declaringType is the type whose objects carry sym, nil when sym is declared
 // somewhere that has no objects — a package, a library namespace.
 func declaringType(sym *symbols.Symbol) *symbols.Symbol {

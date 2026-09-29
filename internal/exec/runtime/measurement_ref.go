@@ -305,7 +305,7 @@ func (ctx *Context) unitObjectValue(inst *Instance) (Value, bool, error) {
 // declaresUnit reports whether sym declares a measurement unit: a usage typed by a
 // unit definition (`attribute <m> metre : LengthUnit`), which a reference names.
 func (ctx *Context) declaresUnit(sym *symbols.Symbol) bool {
-	return sym != nil && sym.Kind == symbols.SymbolAttributeUsage && ctx.model.semantics != nil && ctx.model.semantics.IsMeasurementUnit(sym)
+	return sym != nil && sym.Kind.IsAttributeLike() && ctx.model.semantics != nil && ctx.model.semantics.IsMeasurementUnit(sym)
 }
 
 // libraryTypeDeclares reports whether the loaded library type has a member name.

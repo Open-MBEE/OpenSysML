@@ -1,0 +1,52 @@
+{
+  "rpc": "ApplyEdits",
+  "operations": [
+    {
+      "kind": "add_sequence",
+      "owner": "Demo::A",
+      "keyword": "first",
+      "ref": "start"
+    },
+    {
+      "kind": "add_sequence",
+      "owner": "Demo::A",
+      "keyword": "then",
+      "member_kind": "if",
+      "condition": "x == 0",
+      "body": [
+        {
+          "member_kind": "if",
+          "condition": "x == 0",
+          "body": [
+            {
+              "member_kind": "assign",
+              "target": "x",
+              "value": "1"
+            }
+          ],
+          "else_body": [
+            {
+              "member_kind": "assign",
+              "target": "x",
+              "value": "2"
+            }
+          ]
+        }
+      ],
+      "else_body": [
+        {
+          "member_kind": "assign",
+          "target": "x",
+          "value": "3"
+        }
+      ]
+    },
+    {
+      "kind": "add_sequence",
+      "owner": "Demo::A",
+      "keyword": "then",
+      "ref": "done"
+    }
+  ],
+  "expected_content": "package Demo {\n    private import ScalarValues::*;\n    action def A {\n        attribute x : Integer = 0;\n        first start;\n        then if x == 0 {\n            if x == 0 {\n                assign x := 1;\n            } else {\n                assign x := 2;\n            }\n        } else {\n            assign x := 3;\n        }\n        then done;\n    }\n}\n"
+}
