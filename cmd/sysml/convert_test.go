@@ -53,13 +53,14 @@ const sampleModel = `package Demo {
 }
 `
 
-// refusedModel names a body member the positional name a duplicate of its
-// sibling takes, which the RDF mapping refuses: the position identifies an
-// element in the graph.
+// refusedModel contains a non-constant ElementId value the RDF mapping cannot
+// carry back from the graph.
 const refusedModel = `package Demo {
-    part def Dup;
-    part def '@2';
-    part def Dup;
+    @IdentityMetadata::ProjectRef { projectId = "proj-1"; }
+    attribute origin = "el-";
+    part def A {
+        @IdentityMetadata::ElementId { id = origin; }
+    }
 }
 `
 
@@ -254,8 +255,14 @@ func TestConvertRDFIsMarkedExperimental(t *testing.T) {
 	binary := buildCLI(t)
 	dir := t.TempDir()
 	model := filepath.Join(dir, "model.sysml")
+	positionalName := filepath.Join(dir, "positional-name.sysml")
+	positionalTurtle := filepath.Join(dir, "positional-name.ttl")
+	positionalBack := filepath.Join(dir, "positional-name-back.sysml")
 	behavior := filepath.Join(dir, "refused.sysml")
 	if err := os.WriteFile(model, []byte(sampleModel), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(positionalName, []byte("package P { part def A; part def '@2'; part def A; }"), 0o644); err != nil {
 		t.Fatal(err)
 	}
 	if err := os.WriteFile(behavior, []byte(refusedModel), 0o644); err != nil {
@@ -269,25 +276,47 @@ func TestConvertRDFIsMarkedExperimental(t *testing.T) {
 	if !strings.Contains(to.stderr, "RDF conversion — Turtle and the API's JSON element form alike — is experimental") {
 		t.Errorf("no experimental notice on stderr:\n%s", to.stderr)
 	}
+	converted := runCommand(t, exec.Command(binary, positionalName, "-convert", "ttl", "-o", positionalTurtle))
+	if converted.status != 0 {
+		t.Fatalf("converting the positional-name model failed: %s%s", converted.stdout, converted.stderr)
+	}
+	turtle, err := os.ReadFile(positionalTurtle)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(string(turtle), `sysml:qualifiedName "P::'@2'"`) {
+		t.Errorf("Turtle lacks the quoted name identity:\n%s", turtle)
+	}
+	back := runCommand(t, exec.Command(binary, positionalTurtle, "-convert", "sysml", "-o", positionalBack))
+	if back.status != 0 {
+		t.Fatalf("converting back from the positional-name graph failed: %s%s", back.stdout, back.stderr)
+	}
+	notation, err := os.ReadFile(positionalBack)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if strings.Count(string(notation), "part def A") != 2 || !strings.Contains(string(notation), "part def '@2'") {
+		t.Errorf("the positional-name model did not come back:\n%s", notation)
+	}
 	if strings.Contains(to.stdout, "experimental") {
 		t.Errorf("the notice landed in the converted model:\n%s", to.stdout)
 	}
 
-	turtle := filepath.Join(dir, "model.ttl")
-	run(t, binary, model, "-convert", "ttl", "-o", turtle)
-	from := runCommand(t, exec.Command(binary, turtle, "-convert", "sysml"))
+	positionalTurtleFile := filepath.Join(dir, "model.ttl")
+	run(t, binary, model, "-convert", "ttl", "-o", positionalTurtleFile)
+	from := runCommand(t, exec.Command(binary, positionalTurtleFile, "-convert", "sysml"))
 	if !strings.Contains(from.stderr, "RDF conversion — Turtle and the API's JSON element form alike — is experimental") {
 		t.Errorf("reading RDF is experimental too, but was not marked:\n%s", from.stderr)
 	}
 
-	notation := runCommand(t, exec.Command(binary, model, "-convert", "sysml"))
-	if strings.Contains(notation.output(), "experimental") {
-		t.Errorf("a notation conversion is stable, but was marked:\n%s", notation.output())
+	positionalNotation := runCommand(t, exec.Command(binary, model, "-convert", "sysml"))
+	if strings.Contains(positionalNotation.output(), "experimental") {
+		t.Errorf("a notation conversion is stable, but was marked:\n%s", positionalNotation.output())
 	}
 
 	refused := runCommand(t, exec.Command(binary, behavior, "-convert", "ttl"))
 	if refused.status == 0 {
-		t.Fatalf("expected the mapping to refuse the position-name collision:\n%s", refused.stdout)
+		t.Fatalf("expected the mapping to refuse a non-constant ElementId:\n%s", refused.stdout)
 	}
 	if !strings.Contains(refused.stderr, "RDF conversion — Turtle and the API's JSON element form alike — is experimental") {
 		t.Errorf("a refusal is the experimental behavior, but was not marked:\n%s", refused.stderr)

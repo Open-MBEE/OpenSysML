@@ -277,7 +277,7 @@ func (e *encoder) segmentReads(refs []resolve.Reference, spelling, target string
 // referenceSpellings are the spellings tried for a reference written fully
 // qualified as qname: its qualifications shortest first, then its global form.
 func referenceSpellings(qname string) []string {
-	return append(qualifications(strings.Split(qname, "::")), "$::"+qname)
+	return append(qualifications(identitySegments(qname)), "$::"+qname)
 }
 
 // qualifications are the ways of naming the last of parts through some of the
@@ -318,7 +318,7 @@ const maxSkippedQualifiers = 8
 // global form.
 func segmentSpellings(name, target string) []string {
 	spellings := []string{name}
-	parts := strings.Split(target, "::")
+	parts := identitySegments(target)
 	for _, spelling := range qualifications(parts) {
 		if spelling != name {
 			spellings = append(spellings, spelling)
@@ -460,8 +460,8 @@ func spelledName(text string) *ast.QualifiedName {
 	if rest, ok := strings.CutPrefix(text, "$::"); ok {
 		qn.Global, text = true, rest
 	}
-	for _, segment := range strings.Split(text, "::") {
-		qn.Parts = append(qn.Parts, ast.NameSegment{Text: segment})
+	for _, segment := range identitySegments(text) {
+		qn.Parts = append(qn.Parts, ast.NameSegment{Text: identityName(segment)})
 	}
 	return qn
 }

@@ -1,0 +1,1 @@
+- **RDF qualified names quote names that would otherwise read as positions or contain `::`.** A member named `'@2'` now has identity `P::'@2'`, distinct from the positional identity `P::@2`; names that need no quotes keep their existing IRI spellings.

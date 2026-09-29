@@ -221,11 +221,8 @@ func chainTextIn(graph *rdf.Graph, meta func(rdf.Term) string, index map[string]
 
 // lastSegmentText writes the last segment of a qualified name as notation.
 func lastSegmentText(qname string) string {
-	segments, ok := source.QualifiedNameSegments(qname)
-	if !ok {
-		segments = strings.Split(qname, "::")
-	}
-	return nameText(segments[len(segments)-1])
+	segments := identitySegments(qname)
+	return nameText(identityName(segments[len(segments)-1]))
 }
 
 // deriveNormativeGraph runs the whole normalization over the graph and
@@ -1407,12 +1404,11 @@ func unresolvedNames(graph *rdf.Graph, meta func(rdf.Term) string) (map[string]s
 	return unresolvedID, unresolvedTR
 }
 
-// plainQualifiedName spells a qualified name the way this mapping's
-// sysml:qualifiedName does: the segments unquoted, joined by `::`.
+// plainQualifiedName spells the identity form of a qualified name.
 func plainQualifiedName(name string) string {
-	segments, ok := source.QualifiedNameSegments(name)
-	if !ok {
-		return name
+	segments := identitySegments(name)
+	for i, segment := range segments {
+		segments[i] = identitySegment(identityName(segment))
 	}
 	return strings.Join(segments, "::")
 }

@@ -582,19 +582,9 @@ func (e *encoder) collect(members []ast.Node, owner string) error {
 		if fqn == "" {
 			continue
 		}
-		// A member whose own name is taken is identified by its position, as
-		// one declared unnamed already is; a body member may then be named
-		// `'@N'`, the position name either takes, and that cannot represent.
-		positional := name == ""
+		// A member whose own name is taken is identified by its position.
 		if name != "" && e.declared[fqn] {
 			fqn = qualify(owner, "", i)
-			positional = true
-		}
-		if positional && e.declared[fqn] {
-			return &UnsupportedError{
-				What: fmt.Sprintf("the declaration of %q at %s", name, e.where(node)),
-				Note: fmt.Sprintf("it is identified by its position as %s, which a sibling member is named, and merging two elements into one subject would be a different model", fqn),
-			}
 		}
 		e.fqn[node] = fqn
 		e.declared[fqn] = true
@@ -621,10 +611,7 @@ func (e *encoder) collectCrossFeature(node ast.Node, owner string) error {
 	cross := u.CrossFeature
 	fqn := qualify(owner, cross.Ident.Name, e.crossFeatureIndex(u))
 	if e.declared[fqn] {
-		return &UnsupportedError{
-			What: fmt.Sprintf("the cross feature at %s", e.where(cross)),
-			Note: fmt.Sprintf("it is identified as %s, which a body member is named too, and merging two elements into one subject would be a different model", fqn),
-		}
+		fqn = qualify(owner, "", e.crossFeatureIndex(u))
 	}
 	e.fqn[cross] = fqn
 	e.declared[fqn] = true
@@ -651,13 +638,6 @@ func (e *encoder) collectPrefixes(node ast.Node, owner string, index int) error 
 			continue
 		}
 		fqn := qualify(owner, "", index)
-		// A body member may be named `'@N'`, the position name the prefix takes.
-		if e.declared[fqn] {
-			return &UnsupportedError{
-				What: fmt.Sprintf("the prefix annotation at %s", e.where(prefix)),
-				Note: fmt.Sprintf("it is identified by its position as %s, which a body member is named, and merging two elements into one subject would be a different model", fqn),
-			}
-		}
 		e.fqn[prefix] = fqn
 		e.declared[fqn] = true
 		if err := e.collect(prefix.Body, fqn); err != nil {
@@ -2601,6 +2581,8 @@ func declaredNameAndMembers(node ast.Node) (string, []ast.Node) {
 func qualify(owner, name string, index int) string {
 	if name == "" {
 		name = fmt.Sprintf("@%d", index)
+	} else {
+		name = identitySegment(name)
 	}
 	if owner == "" {
 		return name
@@ -2614,7 +2596,7 @@ func qualifiedText(name *ast.QualifiedName) string {
 	}
 	parts := make([]string, 0, len(name.Parts))
 	for _, part := range name.Parts {
-		parts = append(parts, part.Text)
+		parts = append(parts, identitySegment(part.Text))
 	}
 	out := strings.Join(parts, "::")
 	if name.Global {

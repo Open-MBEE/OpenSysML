@@ -394,6 +394,30 @@ class TestRoundTripAgainstRealService:
             assert defs[0]["@id"] != defs[1]["@id"]
             assert {defs[0]["qualifiedName"], defs[1]["qualifiedName"]} == {"P::A", "P::@2"}
 
+    def test_positional_looking_name_and_position_export_separately(self, real_service):
+        """A name spelling a position does not share its element identity."""
+        import json
+
+        source = """package P {
+    part def A;
+    part def '@2';
+    part def A;
+}
+"""
+        with Connection(port=real_service, auto_start=False) as conn:
+            model = conn.load_from_content(source)
+            with pytest.warns(ExperimentalFeatureWarning):
+                elements = json.loads(str(model.to_api_json()))
+            defs = [
+                el for el in elements
+                if el.get("@type") == "PartDefinition"
+                and el.get("qualifiedName") in {"P::A", "P::'@2'", "P::@2"}
+            ]
+
+        assert len(defs) == 3
+        assert len({el["@id"] for el in defs}) == 3
+        assert {el["qualifiedName"] for el in defs} == {"P::A", "P::'@2'", "P::@2"}
+
     def test_unreadable_notation_fails_with_spans(self, real_service):
         with Connection(port=real_service, auto_start=False) as conn:
             with pytest.raises(ConversionError) as excinfo:

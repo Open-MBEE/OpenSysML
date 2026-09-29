@@ -1353,32 +1353,24 @@ func TestNegatedInvariantComesBackFromTheGraphAlone(t *testing.T) {
 	}
 }
 
-// A prefix annotation is identified by its position after the body members,
-// so a body member named as that position is refused rather than merged with
-// it; a member named as another position is no collision.
-func TestPrefixCollidingWithAPositionNamedMemberIsReported(t *testing.T) {
+// A prefix annotation's positional identity stays distinct from a member
+// whose name spells that same position.
+func TestPrefixAndPositionNamedMemberConvertDistinctly(t *testing.T) {
 	src := "package P {\n\tmetadata def Safety;\n\t#Safety part def Car {\n\t\tpart '@1';\n\t}\n}"
-	_, err := convert.Convert("m.sysml", []byte(src), convert.FormatSysML, convert.FormatTurtle)
-	var unsupported *export.UnsupportedError
-	if !errors.As(err, &unsupported) {
-		t.Fatalf("expected an unsupported error, got %v", err)
-	}
-	for _, want := range []string{"the prefix annotation at m.sysml:3:2", "identified by its position as P::Car::@1, which a body member is named"} {
-		if !strings.Contains(err.Error(), want) {
-			t.Errorf("expected %q in error:\n%s", want, err.Error())
-		}
-	}
-
-	src = "package P {\n\tmetadata def Safety;\n\t#Safety part def Car {\n\t\tpart '@0';\n\t}\n}"
 	turtle, err := convert.Convert("m.sysml", []byte(src), convert.FormatSysML, convert.FormatTurtle)
 	if err != nil {
 		t.Fatalf("to turtle: %v", err)
+	}
+	for _, want := range []string{`sysml:qualifiedName "P::Car::'@1'"`, `sysml:qualifiedName "P::Car::@1"`} {
+		if !strings.Contains(string(turtle), want) {
+			t.Errorf("Turtle lacks %s:\n%s", want, turtle)
+		}
 	}
 	back, err := convert.Convert("m.ttl", withoutTriples(t, turtle, "sysx:sourceText"), convert.FormatTurtle, convert.FormatSysML)
 	if err != nil {
 		t.Fatalf("back to notation: %v", err)
 	}
-	if !strings.Contains(string(back), "#Safety part def Car {\n        part '@0';\n    }") {
+	if !strings.Contains(string(back), "#Safety part def Car {\n        part '@1';\n    }") {
 		t.Errorf("the prefix and the member should both come back:\n%s", back)
 	}
 }
@@ -2196,15 +2188,20 @@ func TestDuplicateNameConverts(t *testing.T) {
 	}
 }
 
-// A member named the positional name a duplicate of its sibling takes cannot
-// convert: the position would identify two elements.
-func TestPositionalNameCollisionIsUnsupported(t *testing.T) {
+// A member named the positional name a duplicate of its sibling takes converts
+// with a distinct identity for the name and the position.
+func TestPositionalNameCollisionConverts(t *testing.T) {
 	src := "package P {\n\tpart def A;\n\tpart def '@2';\n\tpart def A;\n}"
-	_, err := convert.Convert("m.sysml", []byte(src), convert.FormatSysML, convert.FormatTurtle)
-	var unsupported *export.UnsupportedError
-	if !errors.As(err, &unsupported) {
-		t.Fatalf("want an UnsupportedError for a position-name collision, got %v", err)
+	turtle, err := convert.Convert("m.sysml", []byte(src), convert.FormatSysML, convert.FormatTurtle)
+	if err != nil {
+		t.Fatalf("to turtle: %v", err)
 	}
+	for _, want := range []string{`sysml:qualifiedName "P::'@2'"`, `sysml:qualifiedName "P::@2"`} {
+		if !strings.Contains(string(turtle), want) {
+			t.Errorf("Turtle lacks %s:\n%s", want, turtle)
+		}
+	}
+	structuralRoundTrip(t, "positional-name-collision.sysml", turtle)
 }
 
 // Ownership that forms a cycle leaves no root to print from, which would

@@ -201,23 +201,8 @@ Two members of one namespace sharing a name export as separate elements: the fir
 qualified name and each later one is identified by its position among the owner's members, the same
 name an element declared unnamed takes. The duplicate is still reported as a warning when the model
 is analyzed — SysML has no reopening of a declaration within a namespace, so merge the declarations
-into one (or rename) rather than relying on the position. What is refused is a member named the
-positional name a duplicate or an unnamed member takes:
-
-```sysml
-package Demo {
-  part def Dup;
-  part def '@2';
-  part def Dup;
-}
-```
-
-```bash
-$ sysml dup.sysml -convert ttl; echo $?
-note: RDF conversion is experimental: the mapping covers model structure and the behavior its bodies state, refuses what it cannot write back, and its vocabulary may change without a compatibility path; see docs/reference/rdf-mapping.md § Status
-sysml: cannot convert the declaration of "Dup" at dup.sysml:4:3: it is identified by its position as Demo::@2, which a sibling member is named, and merging two elements into one subject would be a different model
-2
-```
+into one (or rename) rather than relying on the position. A member named `'@2'` is spelled
+`Demo::'@2'`, distinct from the positional identity `Demo::@2`.
 
 ---
 

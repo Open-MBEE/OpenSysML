@@ -148,7 +148,13 @@ func TestConvertMarksRDFExperimental(t *testing.T) {
 	}
 
 	refused, err := srv.Convert(context.Background(), &pb.ConvertRequest{
-		Source:     &pb.ConvertRequest_Content{Content: "package P { part def A; part def '@2'; part def A; }"},
+		Source: &pb.ConvertRequest_Content{Content: `package Demo {
+			@IdentityMetadata::ProjectRef { projectId = "proj-1"; }
+			attribute origin = "el-";
+			part def A {
+				@IdentityMetadata::ElementId { id = origin; }
+			}
+		}`},
 		FromFormat: "sysml",
 		ToFormat:   "ttl",
 	})
@@ -156,10 +162,28 @@ func TestConvertMarksRDFExperimental(t *testing.T) {
 		t.Fatalf("Convert: %v", err)
 	}
 	if refused.Error == "" {
-		t.Fatalf("expected the mapping to refuse the position-name collision:\n%s", refused.Content)
+		t.Fatalf("expected the mapping to refuse a non-constant ElementId:\n%s", refused.Content)
 	}
 	if !refused.Experimental {
 		t.Error("a refusal is the experimental behavior, but was not marked")
+	}
+
+	const positionalName = "package P { part def A; part def '@2'; part def A; }"
+	converted := mustConvert(t, srv, &pb.ConvertRequest{
+		Source:     &pb.ConvertRequest_Content{Content: positionalName},
+		FromFormat: "sysml",
+		ToFormat:   "ttl",
+	})
+	if !strings.Contains(converted.Content, `sysml:qualifiedName "P::'@2'"`) {
+		t.Errorf("Turtle lacks the quoted name identity:\n%s", converted.Content)
+	}
+	positionalBack := mustConvert(t, srv, &pb.ConvertRequest{
+		Source:     &pb.ConvertRequest_Content{Content: converted.Content},
+		FromFormat: "ttl",
+		ToFormat:   "sysml",
+	})
+	if strings.Count(positionalBack.Content, "part def A") != 2 || !strings.Contains(positionalBack.Content, "part def '@2'") {
+		t.Errorf("the positional-name model did not come back:\n%s", positionalBack.Content)
 	}
 }
 

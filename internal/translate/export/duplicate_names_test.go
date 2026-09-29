@@ -37,6 +37,29 @@ func duplicateGraph(t *testing.T, src string, form IDForm) *rdf.Graph {
 	return graph
 }
 
+func withoutIdentitySourceText(graph *rdf.Graph) *rdf.Graph {
+	out := rdf.NewGraph()
+	for _, triple := range graph.Triples() {
+		if triple.Predicate.Value == rdf.OpenSysML+"sourceText" ||
+			triple.Predicate.Value == rdf.OpenSysML+"sourceTail" ||
+			triple.Predicate.Value == rdf.OpenSysML+"sourceLanguage" {
+			continue
+		}
+		out.AddTriple(triple)
+	}
+	return out
+}
+
+func elementSubjectsByQualifiedName(graph *rdf.Graph) map[string]string {
+	subjects := make(map[string]string)
+	for _, subject := range graph.Subjects() {
+		if qname, ok := graph.Lexical(subject, rdf.SysML+"qualifiedName"); ok {
+			subjects[qname] = subject.Value
+		}
+	}
+	return subjects
+}
+
 // apiElements decodes an API JSON document into its element objects.
 func apiElements(t *testing.T, document []byte) []map[string]any {
 	t.Helper()
@@ -203,44 +226,147 @@ func TestDuplicateMemberNamesRoundTrip(t *testing.T) {
 }
 
 // TestDuplicateMemberNamesToolkit checks a graph carrying no qualified names —
-// the toolkit's interchange form — decodes two same-named members of one
-// namespace as two members, the later addressed by position.
+// the toolkit's interchange form — decodes duplicate and positional-looking
+// names as distinct members.
 func TestDuplicateMemberNamesToolkit(t *testing.T) {
 	doc := `[
 		{"@type": "Package", "@id": "P", "declaredName": "P",
-		 "ownedMembership": [{"@id": "m1"}, {"@id": "m2"}]},
+		 "ownedMembership": [{"@id": "m1"}, {"@id": "m2"}, {"@id": "m3"}]},
 		{"@type": "OwningMembership", "@id": "m1",
 		 "memberElement": {"@id": "a"}, "membershipOwningNamespace": {"@id": "P"}},
 		{"@type": "OwningMembership", "@id": "m2",
 		 "memberElement": {"@id": "b"}, "membershipOwningNamespace": {"@id": "P"}},
+		{"@type": "OwningMembership", "@id": "m3",
+		 "memberElement": {"@id": "c"}, "membershipOwningNamespace": {"@id": "P"}},
 		{"@type": "PartDefinition", "@id": "a", "declaredName": "A"},
-		{"@type": "PartDefinition", "@id": "b", "declaredName": "A"}
+		{"@type": "PartDefinition", "@id": "b", "declaredName": "@2"},
+		{"@type": "PartDefinition", "@id": "c", "declaredName": "A"}
 	]`
 	out := decodeAPIJSON(t, []byte(doc))
 	if n := strings.Count(string(out), "part def A"); n != 2 {
 		t.Fatalf("got %d `part def A`, want 2:\n%s", n, out)
 	}
+	if !strings.Contains(string(out), "part def '@2'") {
+		t.Fatalf("the positional-looking name was not quoted:\n%s", out)
+	}
 }
 
-// TestDuplicateMemberNamesPositionalCollision refuses a model where the
-// positional name a duplicate takes is a sibling's declared name.
+// TestDuplicateMemberNamesPositionalCollision keeps a named positional-looking
+// member distinct from a later duplicate identified by its position.
 func TestDuplicateMemberNamesPositionalCollision(t *testing.T) {
 	const src = `package Demo {
 	part def Dup;
 	part def '@2';
 	part def Dup;
 }`
-	file := source.New("d.sysml", []byte(src))
-	p := parser.New(file)
-	root := p.ParseFile()
-	if len(p.Diagnostics) != 0 {
-		t.Fatalf("the fixture does not parse: %v", p.Diagnostics)
+	want := []string{"Demo::Dup", "Demo::'@2'", "Demo::@2"}
+	for _, form := range []IDForm{IDQualifiedName, IDUUID} {
+		graph := duplicateGraph(t, src, form)
+		subjects := elementSubjectsByQualifiedName(graph)
+		ids := make(map[string]bool)
+		for _, qname := range want {
+			id, ok := subjects[qname]
+			if !ok {
+				t.Errorf("%v graph lacks qualified name %q: %v", form, qname, subjects)
+				continue
+			}
+			if ids[id] {
+				t.Errorf("%v graph reuses element IRI %q", form, id)
+			}
+			ids[id] = true
+			if form == IDQualifiedName && id != rdf.ElementIRI(qname).Value {
+				t.Errorf("%s has IRI %q, want %q", qname, id, rdf.ElementIRI(qname).Value)
+			}
+		}
+
+		document, err := WriteAPIJSON(graph)
+		if err != nil {
+			t.Fatalf("WriteAPIJSON: %v", err)
+		}
+		apiIDs := make(map[string]bool)
+		for _, element := range apiElements(t, document) {
+			qname, _ := element["qualifiedName"].(string)
+			switch qname {
+			case "Demo::Dup", "Demo::'@2'", "Demo::@2":
+				id, _ := element["@id"].(string)
+				if apiIDs[id] {
+					t.Errorf("API JSON reuses @id %q", id)
+				}
+				apiIDs[id] = true
+			}
+		}
+		if len(apiIDs) != 3 {
+			t.Errorf("API JSON contains %d distinct collision-member IDs, want 3:\n%s", len(apiIDs), document)
+		}
+
+		stripped, err := ToSysML(withoutIdentitySourceText(graph))
+		if err != nil {
+			t.Fatalf("ToSysML without source text: %v", err)
+		}
+		if strings.Count(string(stripped), "part def Dup") != 2 ||
+			!strings.Contains(string(stripped), "part def '@2'") {
+			t.Errorf("stripped round trip lost a declaration:\n%s", stripped)
+		}
 	}
-	_, err := ToRDF(file, root)
-	if err == nil {
-		t.Fatal("a duplicate whose positional name is a sibling's declared name converted")
+}
+
+func TestPositionalLookingNameAndUnnamedMemberRoundTrip(t *testing.T) {
+	const src = `package P {
+	part def '@1';
+	part def;
+	part def X :> '@1';
+}`
+	graph := duplicateGraph(t, src, IDQualifiedName)
+	if got := elementSubjectsByQualifiedName(graph)["P::'@1'"]; got == "" {
+		t.Fatal("the named positional-looking member lacks P::'@1'")
 	}
-	if !strings.Contains(err.Error(), "identified by its position as Demo::@2, which a sibling member is named") {
-		t.Fatalf("error %q does not name the positional collision", err)
+	if got := elementSubjectsByQualifiedName(graph)["P::@1"]; got == "" {
+		t.Fatal("the unnamed member lacks P::@1")
+	}
+
+	back, err := ToSysML(withoutIdentitySourceText(graph))
+	if err != nil {
+		t.Fatalf("ToSysML without source text: %v", err)
+	}
+	if !strings.Contains(string(back), "part def X specializes '@1'") {
+		t.Fatalf("the reference did not come back as '@1':\n%s", back)
+	}
+	reexported := duplicateGraph(t, string(back), IDQualifiedName)
+	if !reexported.Has(rdf.Triple{
+		Subject:   rdf.ElementIRI("P::X"),
+		Predicate: rdf.IRI(rdf.SysML + "specializes"),
+		Object:    rdf.ElementIRI("P::'@1'"),
+	}) {
+		t.Fatal("the round-tripped reference no longer targets P::'@1'")
+	}
+}
+
+func TestQualifiedNameSeparatorInNameRoundTrip(t *testing.T) {
+	const src = `package 'A::B' {
+	part def X;
+	part def Y :> 'A::B'::X;
+}
+package A {
+	package B {
+		part def Y;
+	}
+}`
+	graph := duplicateGraph(t, src, IDQualifiedName)
+	want := []string{"'A::B'", "'A::B'::X", "'A::B'::Y", "A", "A::B", "A::B::Y"}
+	subjects := elementSubjectsByQualifiedName(graph)
+	for _, qname := range want {
+		if subjects[qname] == "" {
+			t.Errorf("graph lacks qualified name %q: %v", qname, subjects)
+		}
+	}
+
+	back, err := ToSysML(withoutIdentitySourceText(graph))
+	if err != nil {
+		t.Fatalf("ToSysML without source text: %v", err)
+	}
+	reexported := duplicateGraph(t, string(back), IDQualifiedName)
+	target, ok := reexported.Object(rdf.ElementIRI("'A::B'::Y"), rdf.SysML+"specializes")
+	if !ok || target.Value != rdf.ElementIRI("'A::B'::X").Value {
+		t.Errorf("round-tripped reference targets %v, want %q", target, rdf.ElementIRI("'A::B'::X").Value)
 	}
 }

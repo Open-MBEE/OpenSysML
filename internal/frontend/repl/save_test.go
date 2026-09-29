@@ -293,17 +293,48 @@ func TestMetaSaveTurtleIsMarkedExperimental(t *testing.T) {
 	}
 
 	refusing := NewSession()
-	refusing.Submit("package P { part def A; part def '@2'; part def A; }")
+	refusing.Submit(`package Demo {
+		@IdentityMetadata::ProjectRef { projectId = "proj-1"; }
+		attribute origin = "el-";
+		part def A {
+			@IdentityMetadata::ElementId { id = origin; }
+		}
+	}`)
 	out, _, err = refusing.runMeta("%save " + filepath.Join(dir, "refused.ttl"))
 	if err != nil {
 		t.Fatal(err)
 	}
 	joined := strings.Join(out, "\n")
 	if !strings.Contains(joined, "error:") {
-		t.Fatalf("expected the mapping to refuse the position-name collision, got %v", out)
+		t.Fatalf("expected the mapping to refuse a non-constant ElementId, got %v", out)
 	}
 	if !strings.Contains(joined, "RDF conversion — Turtle and the API's JSON element form alike — is experimental") {
 		t.Errorf("a refusal is the experimental behavior, but was not marked: %v", out)
+	}
+
+	collision := NewSession()
+	collision.Submit("package P { part def A; part def '@2'; part def A; }")
+	path := filepath.Join(dir, "positional-name.ttl")
+	out, _, err = collision.runMeta("%save " + path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if strings.Contains(strings.Join(out, "\n"), "error:") {
+		t.Fatalf("the positional-name model should save successfully: %v", out)
+	}
+	turtle, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(string(turtle), `sysml:qualifiedName "P::'@2'"`) {
+		t.Errorf("saved Turtle lacks the quoted name identity:\n%s", turtle)
+	}
+	loaded := NewSession()
+	if _, _, err := loaded.runMeta("%load " + path); err != nil {
+		t.Fatalf("load saved positional-name graph: %v", err)
+	}
+	if notation := strings.Join(loaded.List(), "\n"); !strings.Contains(notation, "part def '@2'") {
+		t.Errorf("the saved positional-name model did not load back:\n%s", notation)
 	}
 }
 

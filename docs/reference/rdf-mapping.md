@@ -122,6 +122,13 @@ elmt:Demo__Vehicle a sysml:PartDefinition ;
     sysml:owner elmt:Demo .
 ```
 
+Qualified-name segments keep their bare spelling unless a name would read back
+as a position — `@` followed by a canonical non-negative integer — or contains
+`::`. Those names use unrestricted-name quotes, so the named member
+`P::'@2'` remains distinct from the positional identity `P::@2`. Names that
+need no quotes keep their existing IRI spelling. For example,
+`P::'@2'` encodes as `P___27_402_27`.
+
 The encoding (`rdf.EncodeElementID`) works over the UTF-8 bytes of the
 qualified name, with `_` as the escape character:
 
@@ -1759,10 +1766,10 @@ positions 0 and 2 — the same name a member declared unnamed takes. Both are
 `sysml:declaredName "Dup"`, each its own element with its own membership, and
 the name resolution pass still reports the duplicate as a warning; SysML has
 no reopening of a declaration within a namespace, so merge the declarations
-into one (or rename) rather than rely on the position. The one shape refused
-is a member named the positional name another member takes — `part def '@2';`
-beside the second `part def Dup;`, or beside an unnamed member at position 2 —
-since the position would then identify two elements.
+into one (or rename) rather than rely on the position. A member named `'@2'`
+has the distinct qualified name `Demo::'@2'`, while the later duplicate is
+`Demo::@2`; quoting keeps the name and position from identifying the same
+element.
 
 A shorthand relationship declares no name of its own: the `result` in `bind result = x;`
 and the `x` in `first x;` name the end the statement relates. Those elements are

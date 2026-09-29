@@ -56,13 +56,6 @@ func TestUnsupportedConversionMessages(t *testing.T) {
 		},
 		want: []string{"cannot convert the `assert` declaration <urn:sysmlv2:element:P__A___401>",
 			"it neither declares a name nor names the feature it refers to (sysml:references)"},
-	}, {
-		// The second `part def A` is identified by its position as P::@2, a
-		// name a sibling declares, so the position would identify two elements.
-		name: "duplicate_declaration",
-		src:  "package P {\n\tpart def A;\n\tpart def '@2';\n\tpart def A;\n}",
-		want: []string{"cannot convert the declaration of \"A\" at m.sysml:4:2",
-			"identified by its position as P::@2, which a sibling member is named"},
 	}}
 
 	for _, tc := range cases {
