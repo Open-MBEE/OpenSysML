@@ -174,6 +174,17 @@ func (m Model) addMemberSplice(i int, op Operation) (splice, error) {
 			Message:        "an implicit directed usage cannot be abstract: `in abstract x` does not parse",
 		}
 	}
+	if op.MemberKind == "return" && len(op.MetadataPrefixes) > 0 {
+		return splice{}, &Error{
+			Failure: FailureIllegalKind, OperationIndex: i,
+			Message: "return parameters cannot carry prefix metadata",
+		}
+	}
+	for _, prefix := range op.MetadataPrefixes {
+		if err := checkQualifiedReference(i, "metadata prefix", prefix); err != nil {
+			return splice{}, err
+		}
+	}
 	referenceName := ""
 	assertReference := op.MemberKind == "assert" || op.MemberKind == "assert not"
 	if assertReference {
@@ -193,12 +204,15 @@ func (m Model) addMemberSplice(i int, op Operation) (splice, error) {
 				Failure: FailureIllegalKind, OperationIndex: i,
 				Message: "an unnamed return parameter needs a type or multiplicity",
 			}
+		case op.MemberKind == "objective":
 		case (op.MemberKind == "constraint" || op.MemberKind == "assert constraint" ||
 			op.MemberKind == "assert not constraint") && (op.Type != "" || op.BodyExpression != ""):
-		case op.MemberKind != "return" && len(op.Redefines) == 0:
+		case op.MemberKind != "return" && op.MemberKind != "objective" && len(op.Redefines) == 0 &&
+			!((op.MemberKind == "constraint" || op.MemberKind == "assert constraint" ||
+				op.MemberKind == "assert not constraint") && (op.Type != "" || op.BodyExpression != "")):
 			return splice{}, &Error{
 				Failure: FailureInvalidName, OperationIndex: i,
-				Message: "an empty member name requires redefines targets, kind return, or a constraint kind with a type or body expression",
+				Message: "an empty member name requires redefines targets, kind return or objective, or a constraint kind with a type or body expression",
 			}
 		}
 	} else if op.MemberKind == "perform" || op.MemberKind == "exhibit" {
@@ -493,6 +507,18 @@ func writeMember(op Operation, kind memberKind, indent, unit, doc, docIndent str
 	if op.IsAbstract {
 		prefix = append(prefix, "abstract")
 	}
+	metadata := make([]string, len(op.MetadataPrefixes))
+	for i, name := range op.MetadataPrefixes {
+		metadata[i] = "#" + name
+	}
+	extensionKeyword := op.MemberKind == "ref" || op.MemberKind == "individual" ||
+		op.MemberKind == "individual def" || op.MemberKind == "subject" ||
+		op.MemberKind == "actor" || op.MemberKind == "stakeholder" ||
+		op.MemberKind == "objective" || op.MemberKind == "entry action" ||
+		op.MemberKind == "do action" || op.MemberKind == "exit action"
+	if !extensionKeyword {
+		prefix = append(prefix, metadata...)
+	}
 	switch op.MemberKind {
 	case "":
 		// An empty kind writes no keyword: the direction itself spells the
@@ -501,6 +527,19 @@ func writeMember(op Operation, kind memberKind, indent, unit, doc, docIndent str
 		prefix = append(prefix, "return")
 	case "ref":
 		prefix = append(prefix, "ref")
+		prefix = append(prefix, metadata...)
+	case "individual", "subject", "actor", "stakeholder", "objective":
+		prefix = append(prefix, op.MemberKind)
+		prefix = append(prefix, metadata...)
+	case "individual def":
+		prefix = append(prefix, "individual")
+		prefix = append(prefix, metadata...)
+		prefix = append(prefix, "def")
+	case "entry action", "do action", "exit action":
+		keyword, _, _ := strings.Cut(op.MemberKind, " ")
+		prefix = append(prefix, keyword)
+		prefix = append(prefix, metadata...)
+		prefix = append(prefix, "action")
 	default:
 		prefix = append(prefix, op.MemberKind)
 	}

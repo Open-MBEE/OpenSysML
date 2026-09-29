@@ -14,6 +14,7 @@ const (
 	CapabilityTypeFacts                      = sysmlgrpc.CapabilityTypeFacts
 	CapabilityConvert                        = sysmlgrpc.CapabilityConvert
 	CapabilityVerification                   = sysmlgrpc.CapabilityVerification
+	CapabilityVerificationQuestions          = sysmlgrpc.CapabilityVerificationQuestions
 	CapabilityQuery                          = sysmlgrpc.CapabilityQuery
 	CapabilityOSLCQuery                      = sysmlgrpc.CapabilityOSLCQuery
 	CapabilityDocumentQuery                  = sysmlgrpc.CapabilityDocumentQuery
@@ -30,6 +31,9 @@ const (
 	CapabilityRequirementConstraintAuthoring = sysmlgrpc.CapabilityRequirementConstraintAuthoring
 	CapabilityMemberModifiers                = sysmlgrpc.CapabilityMemberModifiers
 	CapabilityTransitionAuthoring            = sysmlgrpc.CapabilityTransitionAuthoring
+	CapabilityVerificationObjectiveAuthoring = sysmlgrpc.CapabilityVerificationObjectiveAuthoring
+	CapabilityMetadataAuthoring              = sysmlgrpc.CapabilityMetadataAuthoring
+	CapabilityMetadataPrefixAuthoring        = sysmlgrpc.CapabilityMetadataPrefixAuthoring
 	CapabilitySequenceAuthoring              = sysmlgrpc.CapabilitySequenceAuthoring
 	CapabilityActionBodyStatementAuthoring   = sysmlgrpc.CapabilityActionBodyStatementAuthoring
 	CapabilityImplicitParameters             = sysmlgrpc.CapabilityImplicitParameters

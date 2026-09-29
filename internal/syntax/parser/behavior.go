@@ -154,7 +154,7 @@ func (p *Parser) parseActionBodyMixed() []ast.Node {
 
 		// Try parsing as direction parameter (in/out/inout item/accept/via)
 		if p.isDirectionKeyword() {
-			body.add(p.parseDirectionParameter())
+			body.add(p.parseDirectionOrMember())
 			continue
 		}
 
@@ -299,6 +299,58 @@ func (p *Parser) isDirectionKeyword() bool {
 	return kw == "in" || kw == "out" || kw == "inout"
 }
 
+func (p *Parser) parseDirectionOrMember() ast.Node {
+	hasRefPrefix := false
+	highestRank := 0
+	highestKeyword := ""
+	for i := 1; ; i++ {
+		tok := p.peekN(i)
+		if tok.Kind == lexer.Hash {
+			return p.parseBodyMember()
+		}
+		if tok.Kind != lexer.Keyword {
+			if hasRefPrefix {
+				return p.parseBodyMember()
+			}
+			return p.parseDirectionParameter()
+		}
+
+		rank := 0
+		refPrefix := false
+		switch tok.KeywordID {
+		case "derived":
+			rank, refPrefix = 1, true
+		case "abstract", "variation":
+			rank, refPrefix = 2, true
+		case "constant":
+			rank, refPrefix = 3, true
+		case "ref":
+			rank = 4
+		case "individual", "snapshot", "timeslice", "event":
+			rank = 5
+		}
+		if rank == 0 {
+			if hasRefPrefix {
+				return p.parseBodyMember()
+			}
+			return p.parseDirectionParameter()
+		}
+		if refPrefix {
+			hasRefPrefix = true
+			if rank < highestRank {
+				p.error(tok.Span, fmt.Sprintf(
+					"`%s` must come before `%s`: a usage prefix is written direction, `derived`, `abstract` or `variation`, `constant`, then `ref` (SysML.xtext RefPrefix, BasicUsagePrefix)",
+					tok.KeywordID, highestKeyword,
+				))
+			}
+		}
+		if rank > highestRank {
+			highestRank = rank
+			highestKeyword = tok.KeywordID
+		}
+	}
+}
+
 // parameterKindKeywords are the kind keywords a directed parameter may state; any
 // other keyword there names the parameter instead.
 var parameterKindKeywords = map[string]ast.UsageKind{
@@ -381,9 +433,11 @@ func (p *Parser) parseDirectionParameter() ast.Node {
 	// (SysML.xtext DefaultReferenceUsage, SysML v2 §7.6).
 	kind, _ := modifierImpliedKind(mods)
 	// Any other keyword is left as the parameter's name (kind stays default).
+	var kindKeyword string
 	if p.at(lexer.Keyword) {
 		if k, ok := parameterKindKeywords[p.peek().KeywordID]; ok {
 			kind = k
+			kindKeyword = p.peek().KeywordID
 			p.advance() // consume kind keyword
 		}
 	}
@@ -399,6 +453,7 @@ func (p *Parser) parseDirectionParameter() ast.Node {
 	// Create Usage node with direction
 	usage := &ast.Usage{
 		Kind:         kind,
+		Keyword:      kindKeyword,
 		Ident:        ident,
 		IsReference:  isRef,
 		Direction:    direction,
@@ -455,6 +510,7 @@ func (p *Parser) parseDirectionParameter() ast.Node {
 // parseActionMember parses one action member: node, edge, or nested declaration.
 func (p *Parser) parseActionMember() ast.Node {
 	start := p.peek().Span.Offset
+	prefixes := p.parsePrefixMetadata()
 
 	// A `return` reached in a statement position of a calculation body declares
 	// the result parameter, as one among its members does.
@@ -503,13 +559,13 @@ func (p *Parser) parseActionMember() ast.Node {
 		case "first":
 			return p.parseInitialNode(tok)
 		case "fork":
-			return p.parseForkNode(tok)
+			return p.prefixControlNode(p.parseForkNode(tok), prefixes, start)
 		case "join":
-			return p.parseJoinNode(tok)
+			return p.prefixControlNode(p.parseJoinNode(tok), prefixes, start)
 		case "merge":
-			return p.parseMergeNode(tok)
+			return p.prefixControlNode(p.parseMergeNode(tok), prefixes, start)
 		case "decide":
-			return p.parseDecisionNode(tok)
+			return p.prefixControlNode(p.parseDecisionNode(tok), prefixes, start)
 		case "action":
 			return p.parseActionExecutionNode(tok)
 		case "then":
@@ -798,7 +854,10 @@ func (p *Parser) parseActionExecutionNode(tok lexer.Token) ast.Node {
 // `then send s to t;`) rather than one starting a named succession edge
 // (`succession first a then b;`) over members of the enclosing body.
 func (p *Parser) atChainedThen() bool {
-	return p.atKeyword("then") && p.peekN(1).Kind == lexer.Keyword
+	if !p.atKeyword("then") {
+		return false
+	}
+	return p.peekN(p.prefixMetadataEndAt(1)).Kind == lexer.Keyword
 }
 
 // atNamespaceSuccession reports whether the parser is at a `then` chaining to a
@@ -808,7 +867,7 @@ func (p *Parser) atNamespaceSuccession() bool {
 	if !p.atChainedThen() {
 		return false
 	}
-	next := p.peekN(1)
+	next := p.peekN(p.prefixMetadataEndAt(1))
 	switch next.KeywordID {
 	case "public", "private", "protected":
 		return true
@@ -966,6 +1025,24 @@ func (p *Parser) expectStatementEnd(start int, what string) {
 	if !p.atEffectStatementEnd(start) {
 		p.expectSemicolon(what)
 	}
+}
+
+func (p *Parser) prefixControlNode(node ast.Node, prefixes []*ast.PrefixMetadata, start int) ast.Node {
+	switch n := node.(type) {
+	case *ast.ForkNode:
+		n.Prefixes = prefixes
+		n.NodeSpan = p.spanFrom(start)
+	case *ast.JoinNode:
+		n.Prefixes = prefixes
+		n.NodeSpan = p.spanFrom(start)
+	case *ast.MergeNode:
+		n.Prefixes = prefixes
+		n.NodeSpan = p.spanFrom(start)
+	case *ast.DecisionNode:
+		n.Prefixes = prefixes
+		n.NodeSpan = p.spanFrom(start)
+	}
+	return node
 }
 
 // atEffectStatementEnd reports whether the statement starting at start is ended
@@ -1159,7 +1236,7 @@ func (p *Parser) parseLoopAction(tok lexer.Token) ast.Node {
 
 		// Try direction parameters first
 		if p.isDirectionKeyword() {
-			parsed.add(p.parseDirectionParameter())
+			parsed.add(p.parseDirectionOrMember())
 			continue
 		}
 
@@ -1282,7 +1359,7 @@ func (p *Parser) parseForAction(tok lexer.Token) ast.Node {
 
 		// Try direction parameters
 		if p.isDirectionKeyword() {
-			parsed.add(p.parseDirectionParameter())
+			parsed.add(p.parseDirectionOrMember())
 			continue
 		}
 
@@ -1430,7 +1507,7 @@ func (p *Parser) parseIfBranch(kind ast.IfBranchKind, start int, closeMsg string
 
 		// Direction parameters first.
 		if p.isDirectionKeyword() {
-			parsed.add(p.parseDirectionParameter())
+			parsed.add(p.parseDirectionOrMember())
 			continue
 		}
 
@@ -1590,6 +1667,8 @@ func (p *Parser) parseResultMember() ast.Node {
 		return en
 	}
 
+	prefixes := p.parsePrefixMetadata()
+
 	// Parse optional usage kind keyword (e.g., 'attribute')
 	// Default to UsageAttribute if not specified
 	usageKind := ast.UsageAttribute
@@ -1602,11 +1681,13 @@ func (p *Parser) parseResultMember() ast.Node {
 
 	// Parse optional feature modifiers after kind keyword
 	mods := p.parseFeatureModifiers()
+	prefixes = append(prefixes, p.parsePrefixMetadata()...)
 
 	// A result parameter is a usage, every part optional:
 	// `return [modifiers] <s>? name? : Type[mult] = expr { body }`.
 	if p.atReturnedUsage() {
 		u := &ast.Usage{
+			Prefixes:    prefixes,
 			Kind:        usageKind,
 			Direction:   ast.DirOut,
 			IsResult:    true,
@@ -2947,6 +3028,11 @@ func (p *Parser) parseStateSubactionActions(start int, kind stateSubactionKind) 
 	}
 
 	// An inline action usage or definition: `<kind> action warmUp : WarmUp;`.
+	if p.at(lexer.Hash) {
+		member := p.parseBodyMember()
+		markStateSubaction(member, kind)
+		return []ast.Node{member}, nil
+	}
 	if p.atKeyword("action") {
 		member := p.parseBodyMember()
 		markStateSubaction(member, kind)

@@ -334,4 +334,108 @@ public interface VerdictOrBuilder extends
    */
   com.google.protobuf.ByteString
       getInstancePathBytes();
+
+  /**
+   * <pre>
+   * The question the verdict answers: "evaluate" for an evaluation, "holds"
+   * for a claim proved over every free assignment, "satisfiable" for one
+   * satisfying assignment. Reported as the "verification_questions" capability.
+   * </pre>
+   *
+   * <code>string question = 15 [json_name = "question"];</code>
+   * @return The question.
+   */
+  java.lang.String getQuestion();
+  /**
+   * <pre>
+   * The question the verdict answers: "evaluate" for an evaluation, "holds"
+   * for a claim proved over every free assignment, "satisfiable" for one
+   * satisfying assignment. Reported as the "verification_questions" capability.
+   * </pre>
+   *
+   * <code>string question = 15 [json_name = "question"];</code>
+   * @return The bytes for question.
+   */
+  com.google.protobuf.ByteString
+      getQuestionBytes();
+
+  /**
+   * <pre>
+   * What the question was answered: "holds", "violated" or "undecided" for
+   * an evaluation or a holds question (undecided names `error` carrying the
+   * reason), "satisfiable" or "unsatisfiable" for a satisfiable question.
+   * `holds` is true iff status is "holds" or "satisfiable".
+   * </pre>
+   *
+   * <code>string status = 16 [json_name = "status"];</code>
+   * @return The status.
+   */
+  java.lang.String getStatus();
+  /**
+   * <pre>
+   * What the question was answered: "holds", "violated" or "undecided" for
+   * an evaluation or a holds question (undecided names `error` carrying the
+   * reason), "satisfiable" or "unsatisfiable" for a satisfiable question.
+   * `holds` is true iff status is "holds" or "satisfiable".
+   * </pre>
+   *
+   * <code>string status = 16 [json_name = "status"];</code>
+   * @return The bytes for status.
+   */
+  com.google.protobuf.ByteString
+      getStatusBytes();
+
+  /**
+   * <pre>
+   * The assignment witnessing a "violated" holds answer or a "satisfiable"
+   * satisfiable one: the query's free variables, in query order. Never set
+   * for an undecided answer. Reported as the "verification_questions" capability.
+   * </pre>
+   *
+   * <code>repeated .sysml.WitnessAssignment witness = 17 [json_name = "witness"];</code>
+   */
+  java.util.List<org.openmbee.opensysml.proto.WitnessAssignment> 
+      getWitnessList();
+  /**
+   * <pre>
+   * The assignment witnessing a "violated" holds answer or a "satisfiable"
+   * satisfiable one: the query's free variables, in query order. Never set
+   * for an undecided answer. Reported as the "verification_questions" capability.
+   * </pre>
+   *
+   * <code>repeated .sysml.WitnessAssignment witness = 17 [json_name = "witness"];</code>
+   */
+  org.openmbee.opensysml.proto.WitnessAssignment getWitness(int index);
+  /**
+   * <pre>
+   * The assignment witnessing a "violated" holds answer or a "satisfiable"
+   * satisfiable one: the query's free variables, in query order. Never set
+   * for an undecided answer. Reported as the "verification_questions" capability.
+   * </pre>
+   *
+   * <code>repeated .sysml.WitnessAssignment witness = 17 [json_name = "witness"];</code>
+   */
+  int getWitnessCount();
+  /**
+   * <pre>
+   * The assignment witnessing a "violated" holds answer or a "satisfiable"
+   * satisfiable one: the query's free variables, in query order. Never set
+   * for an undecided answer. Reported as the "verification_questions" capability.
+   * </pre>
+   *
+   * <code>repeated .sysml.WitnessAssignment witness = 17 [json_name = "witness"];</code>
+   */
+  java.util.List<? extends org.openmbee.opensysml.proto.WitnessAssignmentOrBuilder> 
+      getWitnessOrBuilderList();
+  /**
+   * <pre>
+   * The assignment witnessing a "violated" holds answer or a "satisfiable"
+   * satisfiable one: the query's free variables, in query order. Never set
+   * for an undecided answer. Reported as the "verification_questions" capability.
+   * </pre>
+   *
+   * <code>repeated .sysml.WitnessAssignment witness = 17 [json_name = "witness"];</code>
+   */
+  org.openmbee.opensysml.proto.WitnessAssignmentOrBuilder getWitnessOrBuilder(
+      int index);
 }

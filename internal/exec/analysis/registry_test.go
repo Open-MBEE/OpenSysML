@@ -131,15 +131,17 @@ func TestDefaultHoldsTheFrameworksEngines(t *testing.T) {
 	}
 }
 
-// The framework's registry puts a holds question to check alone, which refuses
-// one starting no action; the plan is then not covered, naming that refusal.
+// The framework's registry puts a holds question to the engines claiming it:
+// solve cannot leave the schedule free and check refuses one starting no
+// action; the plan is then not covered, naming those refusals.
 func TestDefaultPutsHoldsToCheckAlone(t *testing.T) {
 	plan, err := Default().Answer(context.Background(), &Model{}, Question{Kind: Holds, Free: FreeSchedule, Holds: &HoldsAsk{}}, Budget{})
 	if err != nil {
 		t.Fatalf("holds under the default registry: %v, want a plan check refused", err)
 	}
-	if len(plan.Steps) != 1 || plan.Steps[0].Engine != CheckEngineName || !errors.Is(plan.Steps[0].Refusal, ErrMalformedQuestion) {
-		t.Fatalf("steps %+v, want check alone refusing the question as malformed", plan.Steps)
+	if len(plan.Steps) != 2 || plan.Steps[0].Engine != SolveEngineName || !errors.Is(plan.Steps[0].Refusal, ErrFreedom) ||
+		plan.Steps[1].Engine != CheckEngineName || !errors.Is(plan.Steps[1].Refusal, ErrMalformedQuestion) {
+		t.Fatalf("steps %+v, want solve refusing the free schedule and check the missing Check", plan.Steps)
 	}
 	if plan.Result.Strength != NotCovered || !strings.Contains(plan.Result.Reason, "a Check starting an invocation") {
 		t.Fatalf("result %s %q, want not covered for want of a Check", plan.Result.Strength, plan.Result.Reason)

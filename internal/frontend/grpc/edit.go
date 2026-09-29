@@ -56,6 +56,21 @@ func (s *Service) ApplyEdits(ctx context.Context, req *pb.ApplyEditsRequest) (*p
 			return nil, err
 		}
 	}
+	if requestsVerificationObjectiveAuthoring(req.Operations) {
+		if err := s.requireCapability(CapabilityVerificationObjectiveAuthoring); err != nil {
+			return nil, err
+		}
+	}
+	if requestsMetadataAuthoring(req.Operations) {
+		if err := s.requireCapability(CapabilityMetadataAuthoring); err != nil {
+			return nil, err
+		}
+	}
+	if requestsMetadataPrefixAuthoring(req.Operations) {
+		if err := s.requireCapability(CapabilityMetadataPrefixAuthoring); err != nil {
+			return nil, err
+		}
+	}
 	if requestsSequenceAuthoring(req.Operations) {
 		if err := s.requireCapability(CapabilitySequenceAuthoring); err != nil {
 			return nil, err
@@ -247,7 +262,9 @@ func requestsAuthoring(operations []*pb.EditOperation) bool {
 		switch operation.GetOperation().(type) {
 		case *pb.EditOperation_AddMember, *pb.EditOperation_AddConnection,
 			*pb.EditOperation_AddSatisfy, *pb.EditOperation_AddRequirementConstraint,
-			*pb.EditOperation_AddTransition, *pb.EditOperation_AddSequence,
+			*pb.EditOperation_AddTransition, *pb.EditOperation_AddVerify,
+			*pb.EditOperation_AddMetadata, *pb.EditOperation_AddMetadataPrefix,
+			*pb.EditOperation_AddSequence,
 			*pb.EditOperation_AddImport,
 			*pb.EditOperation_AddDocumentation, *pb.EditOperation_AddComment,
 			*pb.EditOperation_AddNote,
@@ -338,6 +355,40 @@ func requestsRequirementConstraintAuthoring(operations []*pb.EditOperation) bool
 func requestsTransitionAuthoring(operations []*pb.EditOperation) bool {
 	for _, operation := range operations {
 		if _, ok := operation.GetOperation().(*pb.EditOperation_AddTransition); ok {
+			return true
+		}
+	}
+	return false
+}
+
+func requestsVerificationObjectiveAuthoring(operations []*pb.EditOperation) bool {
+	for _, operation := range operations {
+		if _, ok := operation.GetOperation().(*pb.EditOperation_AddVerify); ok {
+			return true
+		}
+		add := operation.GetAddMember()
+		if add != nil && add.GetKind() == "objective" && add.GetName() == "" {
+			return true
+		}
+	}
+	return false
+}
+
+func requestsMetadataAuthoring(operations []*pb.EditOperation) bool {
+	for _, operation := range operations {
+		if _, ok := operation.GetOperation().(*pb.EditOperation_AddMetadata); ok {
+			return true
+		}
+		if add := operation.GetAddMember(); add != nil && len(add.GetMetadataPrefixes()) > 0 {
+			return true
+		}
+	}
+	return false
+}
+
+func requestsMetadataPrefixAuthoring(operations []*pb.EditOperation) bool {
+	for _, operation := range operations {
+		if _, ok := operation.GetOperation().(*pb.EditOperation_AddMetadataPrefix); ok {
 			return true
 		}
 	}
@@ -444,6 +495,7 @@ func editOperations(pbOps []*pb.EditOperation) ([]edit.Operation, error) {
 			member.Redefines = append([]string(nil), add.GetRedefines()...)
 			member.IsDefault = add.GetIsDefault()
 			member.Direction = add.GetDirection()
+			member.MetadataPrefixes = append([]string(nil), add.GetMetadataPrefixes()...)
 			member.BodyExpression = add.GetBodyExpression()
 			member.Doc = add.GetDoc()
 			ops = append(ops, member)
@@ -471,6 +523,19 @@ func editOperations(pbOps []*pb.EditOperation) ([]edit.Operation, error) {
 				add.GetOwner(), add.GetName(), add.GetSource(), add.GetTarget(),
 				add.GetTrigger(), add.GetGuard(), add.GetEffect(), add.GetInitial(),
 			))
+		case *pb.EditOperation_AddVerify:
+			ops = append(ops, edit.AddVerify(op.AddVerify.GetOwner(), op.AddVerify.GetRequirement()))
+		case *pb.EditOperation_AddMetadata:
+			add := op.AddMetadata
+			values := make([]edit.MetadataValue, 0, len(add.GetValues()))
+			for _, value := range add.GetValues() {
+				values = append(values, edit.MetadataValue{Feature: value.GetFeature(), Value: value.GetValue()})
+			}
+			ops = append(ops, edit.AddMetadata(add.GetOwner(), add.GetMetadataType(), add.GetName(),
+				append([]string(nil), add.GetAbout()...), values, add.GetShorthand()))
+		case *pb.EditOperation_AddMetadataPrefix:
+			add := op.AddMetadataPrefix
+			ops = append(ops, edit.AddMetadataPrefix(add.GetTarget(), add.GetMetadataType()))
 		case *pb.EditOperation_AddSequence:
 			sequence, err := editSequenceOperation(op.AddSequence, 0)
 			if err != nil {

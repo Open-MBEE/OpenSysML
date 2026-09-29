@@ -241,7 +241,12 @@ func (ctx *Context) runWaiter(w clockWaiter, progress *dueProgress) (bool, error
 	moved, err := w.runDue(progress)
 	if err != nil {
 		if behavior := ctx.behaviorOf(w); behavior != nil {
-			err = fmt.Errorf("%s: %w", behavior.Describe(), err)
+			wrapped := fmt.Errorf("%s: %w", behavior.Describe(), err)
+			if recordsFailure(behavior, err) {
+				ctx.endFailedPerformance(behavior, wrapped)
+				return moved, nil
+			}
+			err = wrapped
 		}
 	}
 	return moved, err

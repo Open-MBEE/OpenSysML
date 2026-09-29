@@ -30,7 +30,7 @@ try (Connection connection = Connection.open()) {      // starts a private sysml
   Symbol vehicle = model.symbol("Demo::Vehicle");      // findSymbol returns Optional
   Instantiation built = model.instantiate("Demo::Vehicle");
 
-  ActionRun run = model.executeAction("Test::addFive");           // outputs, final time, diagnostics
+  ActionRun run = model.executeAction("Test::addFive");           // outputs, final time, diagnostics, performer
   Verification v = model.verifyConstraint("Demo::Vehicle::massLight");
   boolean holds = v.holds();                                        // false is an answer, not a failure
   Analysis study = model.runAnalysis("Trade::lightest");            // outputs, verdicts, case evaluations
@@ -395,14 +395,21 @@ and `SuiteTest.aCorruptedAnswerIsCaught` asserts each corruption is caught:
 | `rewrite-strings` | replaces each string            |                  70 |
 
 `Edit.AddMember` exposes `withAbstract`, `withRedefines`, `withDefault` and
-`withDirection`; `Edit.AddSatisfy`, `Edit.AddRequirementConstraint` and
-`Edit.AddTransition` expose requirement and state-transition authoring, and
-`Edit.AddSequence` action-body sequencing. `Edit.AddTransition.entry` constructs
-an entry transition; `Edit.AddSequence.first`, `.then` and `.thenMember` write
-`first`/`then` members. The client checks
-`member_modifiers`, `satisfy_authoring`, `requirement_constraint_authoring`,
-`transition_authoring`, `sequence_authoring` and `implicit_parameters` as
-applicable. `Edit.AddSequence` also exposes `withCondition`, `withValue`,
+`Edit.addMetadataPrefix(target, metadataType)` adds a prefix to an existing declaration and
+requires `metadata_prefix_authoring` alongside `authoring`.
+`withDirection` and `withMetadataPrefixes`; `Edit.AddSatisfy`,
+`Edit.AddRequirementConstraint`, `Edit.AddTransition`, `Edit.AddVerify` and
+`Edit.AddMetadata` expose requirement, state-transition, verification and
+metadata authoring. `Edit.AddTransition.entry` constructs an entry transition.
+`AddMetadata` supports ordered feature values, `about` references and `@`
+shorthand. The client checks `member_modifiers`, `satisfy_authoring`,
+`requirement_constraint_authoring`, `transition_authoring`,
+`verification_objective_authoring` or `metadata_authoring` before sending
+those additions.
+`Edit.AddSequence` authors action-body sequencing. Its `.first`, `.then` and
+`.thenMember` methods write `first`/`then` members. The client checks
+`sequence_authoring` and `implicit_parameters` as applicable. `Edit.AddSequence`
+also exposes `withCondition`, `withValue`,
 `withTarget`, `withVia`, `withUntil`, `withBody`, `withElseBody`,
 `withMultiplicity` and `withParameter` for recursive action-body items. An
 empty else body means no else; an explicit empty `else { }` is not authorable.
@@ -427,10 +434,8 @@ write documentation on a new or existing declaration, after checking
 `documentation_authoring`. `Edit.AddComment.of(owner, body)` (with `withName`, `withAbout` and
 `withLocale`) writes a `comment`, and `new Edit.AddNote(target, text)` a `// text` line note above
 a declaration, after checking `comment_authoring`.
-Constraint-body and assertion additions require `constraint_body_authoring`;
-exhibit and state subaction kinds require `state_action_authoring`, alongside
-`authoring`. Documentation and comment operations check `documentation_authoring`
-and `comment_authoring`.
+`Edit.addMetadataPrefix(target, metadataType)` adds a prefix to an existing declaration and
+requires `metadata_prefix_authoring` alongside `authoring`.
 
 ## Running the tests
 

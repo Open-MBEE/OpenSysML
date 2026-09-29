@@ -35,6 +35,22 @@ A value arrives as the Python value of its kind — `Quantity`, `complex`, `Arra
 `EnumLiteral`, `Undetermined`, `INFINITY` — never a string to parse; every verdict carries a
 `Standing` naming the engine that answered and the strength of its evidence.
 
+The verify calls take a `question` beyond the default `"evaluate"`: `"holds"` proves the claim
+for every assignment the free features can take and `"satisfiable"` finds one, answered by the
+service's solvers against a service advertising `verification_questions`. The verdict's
+`question` and `status` say what was answered (`holds` | `violated` | `undecided` |
+`satisfiable` | `unsatisfiable`); a violated or satisfiable answer reports `witness`, the free
+features' replayed values with `unit` and `exact`, and undecided reports the reason — a refused
+translation, an absent solver, arithmetic the backend could not close, or a rounded unsat that
+is no proof — in `error`, never a false claim:
+
+```python
+v = model.verify_constraint("Demo::lemma", question="holds")
+v.status, v.strength            # 'holds', 'proved'
+v = model.verify_constraint("Demo::bad", question="holds")
+v.status, v.witness             # 'violated', the assignment the evaluator replayed
+```
+
 Declarations can be authored from notation strings while preserving the
 untouched source:
 
@@ -46,20 +62,33 @@ model.edit().add_allocation("Demo::System", "a", "b", name="alloc1").apply()
 
 `Editor.add_connection(owner, kind, from_, to, name=None, type=None)` writes
 connection-like usages; `add_allocation` and `add_flow` are typed helpers.
-`Editor.add_member` also accepts `abstract`, `redefines`, `default` and `direction`
-options, and supports the SysML `ref` and `return` kinds where they are admitted.
-Its `expression=` argument writes a body expression for supported kinds: a
+`Editor.add_member` also accepts `abstract`, `redefines`, `default`, `direction`,
+`metadata`, `expression=` and `doc=` options, and supports the SysML `ref` and
+`return` kinds where they are admitted. `metadata` writes `#M` prefixes on the
+new member. `expression=` writes a body expression for supported kinds: a
 constraint condition, or a calculation/case result expression. Requirement-body
-kinds do not admit result expressions.
+kinds do not admit result expressions. `doc=` writes plain documentation text
+as the new declaration's first body member.
 Use `add_satisfy`, `add_requirement_constraint`, `add_require_constraint`,
 `add_assume_constraint`, `add_transition` or `add_entry_transition` to author
 requirement statements and state transitions; `add_first` and `add_then` write
 `first`/`then` action-body sequencing, with recursive action-body items and
 source-end multiplicities available through the extended sequence fields.
 These operations preflight `member_modifiers`, `satisfy_authoring`,
-`requirement_constraint_authoring`, `transition_authoring`,
-`sequence_authoring`, `action_body_statement_authoring` and
-`implicit_parameters` as applicable. `add_parameter` writes an implicit
+`requirement_constraint_authoring`, `transition_authoring`, `sequence_authoring`,
+`implicit_parameters`, `action_body_statement_authoring`, `constraint_body_authoring`,
+`state_action_authoring`, `import_authoring`, `documentation_authoring` and
+`comment_authoring` as applicable.
+`add_objective(owner, name=None, type=None)` adds a named or anonymous objective,
+and `add_verify(owner, requirement)` writes `verify <requirement>;` in a
+verification case objective. `add_metadata(owner, metadata_type, values=None,
+name=None, about=None, shorthand=False)` writes metadata usages with optional
+ordered feature values and `about` references; `shorthand=True` uses `@M`.
+`add_metadata_prefix(target, metadata_type)` adds a metadata prefix to an existing declaration.
+Verification authoring requires `authoring` and `verification_objective_authoring`; metadata
+usages and new-member prefixes require `authoring` and `metadata_authoring`; existing-declaration
+prefixes require `authoring` and `metadata_prefix_authoring`.
+`add_parameter` writes an implicit
 directed usage — `in x : T;` — unless an explicit `kind` is given
 (`kind="ref"` writes `in ref x : T;`).
 `add_constraint_def` and

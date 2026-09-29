@@ -276,7 +276,7 @@ func featureLike(sym *symbols.Symbol) bool {
 		symbols.SymbolPortDef, symbols.SymbolPortUsage,
 		symbols.SymbolOccurrenceDef, symbols.SymbolOccurrenceUsage,
 		symbols.SymbolIndividualDef, symbols.SymbolIndividualUsage,
-		symbols.SymbolAttributeDef, symbols.SymbolAttributeUsage,
+		symbols.SymbolAttributeDef, symbols.SymbolAttributeUsage, symbols.SymbolReferenceUsage,
 		symbols.SymbolEnumerationDef, symbols.SymbolEnumerationUsage,
 		symbols.SymbolInterfaceDef, symbols.SymbolConnectionDef, symbols.SymbolAllocationDef,
 		symbols.SymbolKerMLType:

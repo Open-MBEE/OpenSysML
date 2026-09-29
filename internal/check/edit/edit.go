@@ -44,6 +44,12 @@ const (
 	OpAddRequirementConstraint
 	// OpAddTransition inserts a transition usage into a state body.
 	OpAddTransition
+	// OpAddVerify inserts a requirement verification into a verification objective.
+	OpAddVerify
+	// OpAddMetadata inserts a metadata usage.
+	OpAddMetadata
+	// OpAddMetadataPrefix adds prefix metadata to an existing declaration.
+	OpAddMetadataPrefix
 	// OpAddSequence inserts a `first`/`then` sequencing member into an action body.
 	OpAddSequence
 	// OpAddImport inserts an import declaration into a namespace body or the
@@ -87,6 +93,8 @@ type Operation struct {
 	Redefines    []string
 	IsDefault    bool
 	Direction    string
+	// MetadataPrefixes are metadata types annotating a new member.
+	MetadataPrefixes []string
 	// BodyExpression is the condition a constraint-kind member states in its body.
 	BodyExpression string
 	// From and To are the ends of an OpAddConnection, written as the notation
@@ -114,6 +122,15 @@ type Operation struct {
 	Guard            string
 	Effect           string
 	Initial          bool
+	// MetadataType, MetadataName, About, MetadataValues and Shorthand describe
+	// an OpAddMetadata. MetadataType also describes OpAddMetadataPrefix.
+	// About names elements annotated by OpAddMetadata or OpAddComment.
+	// Requirement is the requirement verified by OpAddVerify.
+	MetadataType   string
+	MetadataName   string
+	About          []string
+	MetadataValues []MetadataValue
+	Shorthand      bool
 	// SequenceKeyword ("first" or "then"), SequenceRef (the node a bare
 	// `then`/`first` names) and After (the member an OpAddSequence follows)
 	// describe an OpAddSequence; a `then` declaring a member reuses MemberKind,
@@ -134,8 +151,8 @@ type Operation struct {
 	// OpAddDocumentation adds to Target. DocName and DocLocale are the
 	// latter's optional identification and locale, and ReplaceDoc has it
 	// rewrite the one documentation Target owns rather than refuse.
-	// An OpAddComment writes Doc as its body, DocName and DocLocale as its
-	// identification and locale, and About as its annotated elements.
+	// An OpAddComment writes Doc as its body and DocName and DocLocale as its
+	// identification and locale.
 	Doc        string
 	DocName    string
 	DocLocale  string
@@ -147,7 +164,6 @@ type Operation struct {
 	ImportRecursive  bool
 	ImportAll        bool
 	ImportFilters    []string
-	About            []string
 	// Note is the one line of text an OpAddNote writes after `// `.
 	Note string
 	// NewOwner is the namespace an OpMove moves Target into; empty means the root.
@@ -216,6 +232,24 @@ func AddTransition(owner, name, from, to, trigger, guard, effect string, initial
 		TransitionSource: from, TransitionTarget: to, Trigger: trigger,
 		Guard: guard, Effect: effect, Initial: initial,
 	}
+}
+
+// AddVerify creates an operation inserting a requirement verification.
+func AddVerify(owner, requirement string) Operation {
+	return Operation{Kind: OpAddVerify, Owner: owner, Requirement: requirement}
+}
+
+// AddMetadata creates an operation inserting a metadata usage.
+func AddMetadata(owner, metadataType, name string, about []string, values []MetadataValue, shorthand bool) Operation {
+	return Operation{
+		Kind: OpAddMetadata, Owner: owner, MetadataType: metadataType,
+		MetadataName: name, About: about, MetadataValues: values, Shorthand: shorthand,
+	}
+}
+
+// AddMetadataPrefix annotates an existing declaration with a metadata prefix.
+func AddMetadataPrefix(target, metadataType string) Operation {
+	return Operation{Kind: OpAddMetadataPrefix, Target: target, MetadataType: metadataType}
 }
 
 // AddFirst inserts `first <ref>;` into an action body (SysML.xtext:1384 InitialNodeMember; formal/2026-03-02).
@@ -759,6 +793,27 @@ func (m Model) splicesFor(i int, op Operation) ([]splice, error) {
 	}
 	if op.Kind == OpAddTransition {
 		sp, err := m.addTransitionSplice(i, op)
+		if err != nil {
+			return nil, err
+		}
+		return []splice{sp}, nil
+	}
+	if op.Kind == OpAddVerify {
+		sp, err := m.addVerifySplice(i, op)
+		if err != nil {
+			return nil, err
+		}
+		return []splice{sp}, nil
+	}
+	if op.Kind == OpAddMetadata {
+		sp, err := m.addMetadataSplice(i, op)
+		if err != nil {
+			return nil, err
+		}
+		return []splice{sp}, nil
+	}
+	if op.Kind == OpAddMetadataPrefix {
+		sp, err := m.addMetadataPrefixSplice(i, op)
 		if err != nil {
 			return nil, err
 		}

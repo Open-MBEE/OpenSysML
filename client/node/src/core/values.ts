@@ -457,6 +457,8 @@ export function failureCause(reason: FailureReason): FailureCause {
       return "ambiguous_subject";
     case FailureReason.UNSPECIFIED:
       return "unspecified";
+    case FailureReason.UNDECIDED:
+      return "undecided";
   }
 }
 

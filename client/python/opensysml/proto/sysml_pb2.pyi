@@ -13,6 +13,7 @@ class FailureReason(int, metaclass=_enum_type_wrapper.EnumTypeWrapper):
     FAILURE_REASON_EVALUATION: _ClassVar[FailureReason]
     FAILURE_REASON_WRONG_KIND: _ClassVar[FailureReason]
     FAILURE_REASON_AMBIGUOUS_SUBJECT: _ClassVar[FailureReason]
+    FAILURE_REASON_UNDECIDED: _ClassVar[FailureReason]
 
 class EditFailure(int, metaclass=_enum_type_wrapper.EnumTypeWrapper):
     __slots__ = ()
@@ -52,6 +53,7 @@ FAILURE_REASON_UNSPECIFIED: FailureReason
 FAILURE_REASON_EVALUATION: FailureReason
 FAILURE_REASON_WRONG_KIND: FailureReason
 FAILURE_REASON_AMBIGUOUS_SUBJECT: FailureReason
+FAILURE_REASON_UNDECIDED: FailureReason
 EDIT_FAILURE_UNSPECIFIED: EditFailure
 EDIT_FAILURE_NO_OPERATIONS: EditFailure
 EDIT_FAILURE_UNKNOWN_TARGET: EditFailure
@@ -80,7 +82,7 @@ COMPOSITE_OPERATOR_AND: CompositeOperator
 COMPOSITE_OPERATOR_OR: CompositeOperator
 
 class Verdict(_message.Message):
-    __slots__ = ("kind", "element_id", "element", "holds", "condition", "instance_id", "instance_type_id", "error", "failure_reason", "requirement_id", "engine", "strength", "bounds", "instance_path")
+    __slots__ = ("kind", "element_id", "element", "holds", "condition", "instance_id", "instance_type_id", "error", "failure_reason", "requirement_id", "engine", "strength", "bounds", "instance_path", "question", "status", "witness")
     KIND_FIELD_NUMBER: _ClassVar[int]
     ELEMENT_ID_FIELD_NUMBER: _ClassVar[int]
     ELEMENT_FIELD_NUMBER: _ClassVar[int]
@@ -95,6 +97,9 @@ class Verdict(_message.Message):
     STRENGTH_FIELD_NUMBER: _ClassVar[int]
     BOUNDS_FIELD_NUMBER: _ClassVar[int]
     INSTANCE_PATH_FIELD_NUMBER: _ClassVar[int]
+    QUESTION_FIELD_NUMBER: _ClassVar[int]
+    STATUS_FIELD_NUMBER: _ClassVar[int]
+    WITNESS_FIELD_NUMBER: _ClassVar[int]
     kind: str
     element_id: str
     element: str
@@ -109,7 +114,22 @@ class Verdict(_message.Message):
     strength: str
     bounds: _containers.RepeatedCompositeFieldContainer[Bound]
     instance_path: str
-    def __init__(self, kind: _Optional[str] = ..., element_id: _Optional[str] = ..., element: _Optional[str] = ..., holds: _Optional[bool] = ..., condition: _Optional[str] = ..., instance_id: _Optional[int] = ..., instance_type_id: _Optional[str] = ..., error: _Optional[str] = ..., failure_reason: _Optional[_Union[FailureReason, str]] = ..., requirement_id: _Optional[str] = ..., engine: _Optional[str] = ..., strength: _Optional[str] = ..., bounds: _Optional[_Iterable[_Union[Bound, _Mapping]]] = ..., instance_path: _Optional[str] = ...) -> None: ...
+    question: str
+    status: str
+    witness: _containers.RepeatedCompositeFieldContainer[WitnessAssignment]
+    def __init__(self, kind: _Optional[str] = ..., element_id: _Optional[str] = ..., element: _Optional[str] = ..., holds: _Optional[bool] = ..., condition: _Optional[str] = ..., instance_id: _Optional[int] = ..., instance_type_id: _Optional[str] = ..., error: _Optional[str] = ..., failure_reason: _Optional[_Union[FailureReason, str]] = ..., requirement_id: _Optional[str] = ..., engine: _Optional[str] = ..., strength: _Optional[str] = ..., bounds: _Optional[_Iterable[_Union[Bound, _Mapping]]] = ..., instance_path: _Optional[str] = ..., question: _Optional[str] = ..., status: _Optional[str] = ..., witness: _Optional[_Iterable[_Union[WitnessAssignment, _Mapping]]] = ...) -> None: ...
+
+class WitnessAssignment(_message.Message):
+    __slots__ = ("feature", "value", "unit", "exact")
+    FEATURE_FIELD_NUMBER: _ClassVar[int]
+    VALUE_FIELD_NUMBER: _ClassVar[int]
+    UNIT_FIELD_NUMBER: _ClassVar[int]
+    EXACT_FIELD_NUMBER: _ClassVar[int]
+    feature: str
+    value: Value
+    unit: str
+    exact: str
+    def __init__(self, feature: _Optional[str] = ..., value: _Optional[_Union[Value, _Mapping]] = ..., unit: _Optional[str] = ..., exact: _Optional[str] = ...) -> None: ...
 
 class Bound(_message.Message):
     __slots__ = ("name", "limit", "reached")
@@ -122,16 +142,18 @@ class Bound(_message.Message):
     def __init__(self, name: _Optional[str] = ..., limit: _Optional[int] = ..., reached: _Optional[bool] = ...) -> None: ...
 
 class VerifyConstraintRequest(_message.Message):
-    __slots__ = ("model_hash", "symbol_id", "subject_symbol_id", "engine")
+    __slots__ = ("model_hash", "symbol_id", "subject_symbol_id", "engine", "question")
     MODEL_HASH_FIELD_NUMBER: _ClassVar[int]
     SYMBOL_ID_FIELD_NUMBER: _ClassVar[int]
     SUBJECT_SYMBOL_ID_FIELD_NUMBER: _ClassVar[int]
     ENGINE_FIELD_NUMBER: _ClassVar[int]
+    QUESTION_FIELD_NUMBER: _ClassVar[int]
     model_hash: str
     symbol_id: str
     subject_symbol_id: str
     engine: str
-    def __init__(self, model_hash: _Optional[str] = ..., symbol_id: _Optional[str] = ..., subject_symbol_id: _Optional[str] = ..., engine: _Optional[str] = ...) -> None: ...
+    question: str
+    def __init__(self, model_hash: _Optional[str] = ..., symbol_id: _Optional[str] = ..., subject_symbol_id: _Optional[str] = ..., engine: _Optional[str] = ..., question: _Optional[str] = ...) -> None: ...
 
 class VerifyConstraintResponse(_message.Message):
     __slots__ = ("verdict", "instances", "error", "diagnostics")
@@ -146,16 +168,18 @@ class VerifyConstraintResponse(_message.Message):
     def __init__(self, verdict: _Optional[_Union[Verdict, _Mapping]] = ..., instances: _Optional[_Iterable[_Union[Instance, _Mapping]]] = ..., error: _Optional[str] = ..., diagnostics: _Optional[_Iterable[_Union[Diagnostic, _Mapping]]] = ...) -> None: ...
 
 class VerifyRequirementRequest(_message.Message):
-    __slots__ = ("model_hash", "symbol_id", "subject_symbol_id", "engine")
+    __slots__ = ("model_hash", "symbol_id", "subject_symbol_id", "engine", "question")
     MODEL_HASH_FIELD_NUMBER: _ClassVar[int]
     SYMBOL_ID_FIELD_NUMBER: _ClassVar[int]
     SUBJECT_SYMBOL_ID_FIELD_NUMBER: _ClassVar[int]
     ENGINE_FIELD_NUMBER: _ClassVar[int]
+    QUESTION_FIELD_NUMBER: _ClassVar[int]
     model_hash: str
     symbol_id: str
     subject_symbol_id: str
     engine: str
-    def __init__(self, model_hash: _Optional[str] = ..., symbol_id: _Optional[str] = ..., subject_symbol_id: _Optional[str] = ..., engine: _Optional[str] = ...) -> None: ...
+    question: str
+    def __init__(self, model_hash: _Optional[str] = ..., symbol_id: _Optional[str] = ..., subject_symbol_id: _Optional[str] = ..., engine: _Optional[str] = ..., question: _Optional[str] = ...) -> None: ...
 
 class VerificationVerdict(_message.Message):
     __slots__ = ("case_id", "kind", "detail", "subcase", "requirement_id")
@@ -186,14 +210,16 @@ class VerifyRequirementResponse(_message.Message):
     def __init__(self, verdict: _Optional[_Union[Verdict, _Mapping]] = ..., instances: _Optional[_Iterable[_Union[Instance, _Mapping]]] = ..., error: _Optional[str] = ..., diagnostics: _Optional[_Iterable[_Union[Diagnostic, _Mapping]]] = ..., verification_verdicts: _Optional[_Iterable[_Union[VerificationVerdict, _Mapping]]] = ...) -> None: ...
 
 class VerifySatisfactionRequest(_message.Message):
-    __slots__ = ("model_hash", "symbol_id", "engine")
+    __slots__ = ("model_hash", "symbol_id", "engine", "question")
     MODEL_HASH_FIELD_NUMBER: _ClassVar[int]
     SYMBOL_ID_FIELD_NUMBER: _ClassVar[int]
     ENGINE_FIELD_NUMBER: _ClassVar[int]
+    QUESTION_FIELD_NUMBER: _ClassVar[int]
     model_hash: str
     symbol_id: str
     engine: str
-    def __init__(self, model_hash: _Optional[str] = ..., symbol_id: _Optional[str] = ..., engine: _Optional[str] = ...) -> None: ...
+    question: str
+    def __init__(self, model_hash: _Optional[str] = ..., symbol_id: _Optional[str] = ..., engine: _Optional[str] = ..., question: _Optional[str] = ...) -> None: ...
 
 class VerifySatisfactionResponse(_message.Message):
     __slots__ = ("verdicts", "instances", "error", "diagnostics", "failure_reason", "verification_verdicts")
@@ -620,8 +646,15 @@ class ExecuteActionRequest(_message.Message):
     def __init__(self, model_hash: _Optional[str] = ..., action_symbol_id: _Optional[str] = ..., inputs: _Optional[_Mapping[str, Value]] = ..., schedule: _Optional[str] = ..., performer_symbol_id: _Optional[str] = ...) -> None: ...
 
 class ExecuteActionResponse(_message.Message):
-    __slots__ = ("outputs", "error", "diagnostics", "outcomes", "exploration", "final_time")
+    __slots__ = ("outputs", "error", "diagnostics", "outcomes", "exploration", "final_time", "performer_attributes")
     class OutputsEntry(_message.Message):
+        __slots__ = ("key", "value")
+        KEY_FIELD_NUMBER: _ClassVar[int]
+        VALUE_FIELD_NUMBER: _ClassVar[int]
+        key: str
+        value: Value
+        def __init__(self, key: _Optional[str] = ..., value: _Optional[_Union[Value, _Mapping]] = ...) -> None: ...
+    class PerformerAttributesEntry(_message.Message):
         __slots__ = ("key", "value")
         KEY_FIELD_NUMBER: _ClassVar[int]
         VALUE_FIELD_NUMBER: _ClassVar[int]
@@ -634,13 +667,15 @@ class ExecuteActionResponse(_message.Message):
     OUTCOMES_FIELD_NUMBER: _ClassVar[int]
     EXPLORATION_FIELD_NUMBER: _ClassVar[int]
     FINAL_TIME_FIELD_NUMBER: _ClassVar[int]
+    PERFORMER_ATTRIBUTES_FIELD_NUMBER: _ClassVar[int]
     outputs: _containers.MessageMap[str, Value]
     error: str
     diagnostics: _containers.RepeatedCompositeFieldContainer[Diagnostic]
     outcomes: _containers.RepeatedCompositeFieldContainer[Outcome]
     exploration: ExplorationStatus
     final_time: float
-    def __init__(self, outputs: _Optional[_Mapping[str, Value]] = ..., error: _Optional[str] = ..., diagnostics: _Optional[_Iterable[_Union[Diagnostic, _Mapping]]] = ..., outcomes: _Optional[_Iterable[_Union[Outcome, _Mapping]]] = ..., exploration: _Optional[_Union[ExplorationStatus, _Mapping]] = ..., final_time: _Optional[float] = ...) -> None: ...
+    performer_attributes: _containers.MessageMap[str, Value]
+    def __init__(self, outputs: _Optional[_Mapping[str, Value]] = ..., error: _Optional[str] = ..., diagnostics: _Optional[_Iterable[_Union[Diagnostic, _Mapping]]] = ..., outcomes: _Optional[_Iterable[_Union[Outcome, _Mapping]]] = ..., exploration: _Optional[_Union[ExplorationStatus, _Mapping]] = ..., final_time: _Optional[float] = ..., performer_attributes: _Optional[_Mapping[str, Value]] = ...) -> None: ...
 
 class ExecuteStateRequest(_message.Message):
     __slots__ = ("model_hash", "state_machine_symbol_id", "events", "schedule", "performer_symbol_id")
@@ -728,7 +763,7 @@ class ApplyEditsRequest(_message.Message):
     def __init__(self, model_hash: _Optional[str] = ..., operations: _Optional[_Iterable[_Union[EditOperation, _Mapping]]] = ..., document: _Optional[str] = ..., accept_documents: _Optional[bool] = ...) -> None: ...
 
 class EditOperation(_message.Message):
-    __slots__ = ("set_value", "rename", "add_member", "delete", "move", "add_connection", "add_satisfy", "add_requirement_constraint", "add_transition", "add_import", "add_documentation", "add_sequence", "add_comment", "add_note")
+    __slots__ = ("set_value", "rename", "add_member", "delete", "move", "add_connection", "add_satisfy", "add_requirement_constraint", "add_transition", "add_import", "add_documentation", "add_verify", "add_metadata", "add_sequence", "add_metadata_prefix", "add_comment", "add_note")
     SET_VALUE_FIELD_NUMBER: _ClassVar[int]
     RENAME_FIELD_NUMBER: _ClassVar[int]
     ADD_MEMBER_FIELD_NUMBER: _ClassVar[int]
@@ -740,7 +775,10 @@ class EditOperation(_message.Message):
     ADD_TRANSITION_FIELD_NUMBER: _ClassVar[int]
     ADD_IMPORT_FIELD_NUMBER: _ClassVar[int]
     ADD_DOCUMENTATION_FIELD_NUMBER: _ClassVar[int]
+    ADD_VERIFY_FIELD_NUMBER: _ClassVar[int]
+    ADD_METADATA_FIELD_NUMBER: _ClassVar[int]
     ADD_SEQUENCE_FIELD_NUMBER: _ClassVar[int]
+    ADD_METADATA_PREFIX_FIELD_NUMBER: _ClassVar[int]
     ADD_COMMENT_FIELD_NUMBER: _ClassVar[int]
     ADD_NOTE_FIELD_NUMBER: _ClassVar[int]
     set_value: SetValueEdit
@@ -754,13 +792,16 @@ class EditOperation(_message.Message):
     add_transition: AddTransitionEdit
     add_import: AddImportEdit
     add_documentation: AddDocumentationEdit
+    add_verify: AddVerifyEdit
+    add_metadata: AddMetadataEdit
     add_sequence: AddSequenceEdit
+    add_metadata_prefix: AddMetadataPrefixEdit
     add_comment: AddCommentEdit
     add_note: AddNoteEdit
-    def __init__(self, set_value: _Optional[_Union[SetValueEdit, _Mapping]] = ..., rename: _Optional[_Union[RenameEdit, _Mapping]] = ..., add_member: _Optional[_Union[AddMemberEdit, _Mapping]] = ..., delete: _Optional[_Union[DeleteEdit, _Mapping]] = ..., move: _Optional[_Union[MoveEdit, _Mapping]] = ..., add_connection: _Optional[_Union[AddConnectionEdit, _Mapping]] = ..., add_satisfy: _Optional[_Union[AddSatisfyEdit, _Mapping]] = ..., add_requirement_constraint: _Optional[_Union[AddRequirementConstraintEdit, _Mapping]] = ..., add_transition: _Optional[_Union[AddTransitionEdit, _Mapping]] = ..., add_import: _Optional[_Union[AddImportEdit, _Mapping]] = ..., add_documentation: _Optional[_Union[AddDocumentationEdit, _Mapping]] = ..., add_sequence: _Optional[_Union[AddSequenceEdit, _Mapping]] = ..., add_comment: _Optional[_Union[AddCommentEdit, _Mapping]] = ..., add_note: _Optional[_Union[AddNoteEdit, _Mapping]] = ...) -> None: ...
+    def __init__(self, set_value: _Optional[_Union[SetValueEdit, _Mapping]] = ..., rename: _Optional[_Union[RenameEdit, _Mapping]] = ..., add_member: _Optional[_Union[AddMemberEdit, _Mapping]] = ..., delete: _Optional[_Union[DeleteEdit, _Mapping]] = ..., move: _Optional[_Union[MoveEdit, _Mapping]] = ..., add_connection: _Optional[_Union[AddConnectionEdit, _Mapping]] = ..., add_satisfy: _Optional[_Union[AddSatisfyEdit, _Mapping]] = ..., add_requirement_constraint: _Optional[_Union[AddRequirementConstraintEdit, _Mapping]] = ..., add_transition: _Optional[_Union[AddTransitionEdit, _Mapping]] = ..., add_import: _Optional[_Union[AddImportEdit, _Mapping]] = ..., add_documentation: _Optional[_Union[AddDocumentationEdit, _Mapping]] = ..., add_verify: _Optional[_Union[AddVerifyEdit, _Mapping]] = ..., add_metadata: _Optional[_Union[AddMetadataEdit, _Mapping]] = ..., add_sequence: _Optional[_Union[AddSequenceEdit, _Mapping]] = ..., add_metadata_prefix: _Optional[_Union[AddMetadataPrefixEdit, _Mapping]] = ..., add_comment: _Optional[_Union[AddCommentEdit, _Mapping]] = ..., add_note: _Optional[_Union[AddNoteEdit, _Mapping]] = ...) -> None: ...
 
 class AddMemberEdit(_message.Message):
-    __slots__ = ("owner", "kind", "name", "type", "multiplicity", "value", "specializes", "is_abstract", "redefines", "is_default", "direction", "doc", "body_expression")
+    __slots__ = ("owner", "kind", "name", "type", "multiplicity", "value", "specializes", "is_abstract", "redefines", "is_default", "direction", "metadata_prefixes", "doc", "body_expression")
     OWNER_FIELD_NUMBER: _ClassVar[int]
     KIND_FIELD_NUMBER: _ClassVar[int]
     NAME_FIELD_NUMBER: _ClassVar[int]
@@ -772,6 +813,7 @@ class AddMemberEdit(_message.Message):
     REDEFINES_FIELD_NUMBER: _ClassVar[int]
     IS_DEFAULT_FIELD_NUMBER: _ClassVar[int]
     DIRECTION_FIELD_NUMBER: _ClassVar[int]
+    METADATA_PREFIXES_FIELD_NUMBER: _ClassVar[int]
     DOC_FIELD_NUMBER: _ClassVar[int]
     BODY_EXPRESSION_FIELD_NUMBER: _ClassVar[int]
     owner: str
@@ -785,9 +827,10 @@ class AddMemberEdit(_message.Message):
     redefines: _containers.RepeatedScalarFieldContainer[str]
     is_default: bool
     direction: str
+    metadata_prefixes: _containers.RepeatedScalarFieldContainer[str]
     doc: str
     body_expression: str
-    def __init__(self, owner: _Optional[str] = ..., kind: _Optional[str] = ..., name: _Optional[str] = ..., type: _Optional[str] = ..., multiplicity: _Optional[str] = ..., value: _Optional[str] = ..., specializes: _Optional[_Iterable[str]] = ..., is_abstract: _Optional[bool] = ..., redefines: _Optional[_Iterable[str]] = ..., is_default: _Optional[bool] = ..., direction: _Optional[str] = ..., doc: _Optional[str] = ..., body_expression: _Optional[str] = ...) -> None: ...
+    def __init__(self, owner: _Optional[str] = ..., kind: _Optional[str] = ..., name: _Optional[str] = ..., type: _Optional[str] = ..., multiplicity: _Optional[str] = ..., value: _Optional[str] = ..., specializes: _Optional[_Iterable[str]] = ..., is_abstract: _Optional[bool] = ..., redefines: _Optional[_Iterable[str]] = ..., is_default: _Optional[bool] = ..., direction: _Optional[str] = ..., metadata_prefixes: _Optional[_Iterable[str]] = ..., doc: _Optional[str] = ..., body_expression: _Optional[str] = ...) -> None: ...
 
 class AddSatisfyEdit(_message.Message):
     __slots__ = ("owner", "requirement", "satisfying_feature", "is_asserted", "is_negated")
@@ -834,6 +877,46 @@ class AddTransitionEdit(_message.Message):
     effect: str
     initial: bool
     def __init__(self, owner: _Optional[str] = ..., name: _Optional[str] = ..., source: _Optional[str] = ..., target: _Optional[str] = ..., trigger: _Optional[str] = ..., guard: _Optional[str] = ..., effect: _Optional[str] = ..., initial: _Optional[bool] = ...) -> None: ...
+
+class AddVerifyEdit(_message.Message):
+    __slots__ = ("owner", "requirement")
+    OWNER_FIELD_NUMBER: _ClassVar[int]
+    REQUIREMENT_FIELD_NUMBER: _ClassVar[int]
+    owner: str
+    requirement: str
+    def __init__(self, owner: _Optional[str] = ..., requirement: _Optional[str] = ...) -> None: ...
+
+class MetadataFeatureValue(_message.Message):
+    __slots__ = ("feature", "value")
+    FEATURE_FIELD_NUMBER: _ClassVar[int]
+    VALUE_FIELD_NUMBER: _ClassVar[int]
+    feature: str
+    value: str
+    def __init__(self, feature: _Optional[str] = ..., value: _Optional[str] = ...) -> None: ...
+
+class AddMetadataEdit(_message.Message):
+    __slots__ = ("owner", "metadata_type", "name", "about", "values", "shorthand")
+    OWNER_FIELD_NUMBER: _ClassVar[int]
+    METADATA_TYPE_FIELD_NUMBER: _ClassVar[int]
+    NAME_FIELD_NUMBER: _ClassVar[int]
+    ABOUT_FIELD_NUMBER: _ClassVar[int]
+    VALUES_FIELD_NUMBER: _ClassVar[int]
+    SHORTHAND_FIELD_NUMBER: _ClassVar[int]
+    owner: str
+    metadata_type: str
+    name: str
+    about: _containers.RepeatedScalarFieldContainer[str]
+    values: _containers.RepeatedCompositeFieldContainer[MetadataFeatureValue]
+    shorthand: bool
+    def __init__(self, owner: _Optional[str] = ..., metadata_type: _Optional[str] = ..., name: _Optional[str] = ..., about: _Optional[_Iterable[str]] = ..., values: _Optional[_Iterable[_Union[MetadataFeatureValue, _Mapping]]] = ..., shorthand: _Optional[bool] = ...) -> None: ...
+
+class AddMetadataPrefixEdit(_message.Message):
+    __slots__ = ("target", "metadata_type")
+    TARGET_FIELD_NUMBER: _ClassVar[int]
+    METADATA_TYPE_FIELD_NUMBER: _ClassVar[int]
+    target: str
+    metadata_type: str
+    def __init__(self, target: _Optional[str] = ..., metadata_type: _Optional[str] = ...) -> None: ...
 
 class AddImportEdit(_message.Message):
     __slots__ = ("owner", "visibility", "target", "is_recursive", "is_import_all", "filters")

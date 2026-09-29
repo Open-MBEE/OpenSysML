@@ -137,6 +137,7 @@ type conformanceEditOperation struct {
 	Specializes       []string                   `json:"specializes,omitempty"`
 	IsAbstract        bool                       `json:"is_abstract,omitempty"`
 	Redefines         []string                   `json:"redefines,omitempty"`
+	MetadataPrefixes  []string                   `json:"metadata_prefixes,omitempty"`
 	IsDefault         bool                       `json:"is_default,omitempty"`
 	Direction         string                     `json:"direction,omitempty"`
 	BodyExpression    string                     `json:"body_expression,omitempty"`
@@ -168,7 +169,15 @@ type conformanceEditOperation struct {
 	Asserted          bool                       `json:"is_asserted,omitempty"`
 	Negated           bool                       `json:"is_negated,omitempty"`
 	Expression        string                     `json:"expression,omitempty"`
+	MetadataType      string                     `json:"metadata_type,omitempty"`
+	MetadataValues    []conformanceMetadataValue `json:"metadata_values,omitempty"`
+	Shorthand         bool                       `json:"shorthand,omitempty"`
 	Cascade           bool                       `json:"cascade,omitempty"`
+}
+
+type conformanceMetadataValue struct {
+	Feature string `json:"feature"`
+	Value   string `json:"value"`
 }
 
 // TestGRPCConformance is the AGENTS.md §5.2 Layer 2 contract for the gRPC
@@ -276,8 +285,9 @@ func runApplyEditsCase(t *testing.T, srv *grpc.Service, ctx context.Context, mod
 					Value: op.Value, Specializes: op.Specializes,
 					IsAbstract: op.IsAbstract, Redefines: op.Redefines,
 					IsDefault: op.IsDefault, Direction: op.Direction,
-					BodyExpression: op.BodyExpression,
-					Doc:            op.Doc,
+					MetadataPrefixes: op.MetadataPrefixes,
+					BodyExpression:   op.BodyExpression,
+					Doc:              op.Doc,
 				}},
 			})
 		case "add_documentation":
@@ -328,6 +338,33 @@ func runApplyEditsCase(t *testing.T, srv *grpc.Service, ctx context.Context, mod
 					Target: op.Target, Trigger: op.Trigger, Guard: op.Guard,
 					Effect: op.Effect, Initial: op.Initial,
 				}},
+			})
+		case "add_verify":
+			operations = append(operations, &pb.EditOperation{
+				Operation: &pb.EditOperation_AddVerify{AddVerify: &pb.AddVerifyEdit{
+					Owner: op.Owner, Requirement: op.Requirement,
+				}},
+			})
+		case "add_metadata":
+			values := make([]*pb.MetadataFeatureValue, 0, len(op.MetadataValues))
+			for _, value := range op.MetadataValues {
+				values = append(values, &pb.MetadataFeatureValue{
+					Feature: value.Feature, Value: value.Value,
+				})
+			}
+			operations = append(operations, &pb.EditOperation{
+				Operation: &pb.EditOperation_AddMetadata{AddMetadata: &pb.AddMetadataEdit{
+					Owner: op.Owner, MetadataType: op.MetadataType, Name: op.Name,
+					About: op.About, Values: values, Shorthand: op.Shorthand,
+				}},
+			})
+		case "add_metadata_prefix":
+			operations = append(operations, &pb.EditOperation{
+				Operation: &pb.EditOperation_AddMetadataPrefix{
+					AddMetadataPrefix: &pb.AddMetadataPrefixEdit{
+						Target: op.Target, MetadataType: op.MetadataType,
+					},
+				},
 			})
 		case "add_sequence":
 			operations = append(operations, &pb.EditOperation{

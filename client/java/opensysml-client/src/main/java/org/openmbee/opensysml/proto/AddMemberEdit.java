@@ -43,6 +43,8 @@ private static final long serialVersionUID = 0L;
     redefines_ =
         com.google.protobuf.LazyStringArrayList.emptyList();
     direction_ = "";
+    metadataPrefixes_ =
+        com.google.protobuf.LazyStringArrayList.emptyList();
     doc_ = "";
     bodyExpression_ = "";
   }
@@ -525,6 +527,59 @@ private static final long serialVersionUID = 0L;
     }
   }
 
+  public static final int METADATA_PREFIXES_FIELD_NUMBER = 14;
+  @SuppressWarnings("serial")
+  private com.google.protobuf.LazyStringArrayList metadataPrefixes_ =
+      com.google.protobuf.LazyStringArrayList.emptyList();
+  /**
+   * <pre>
+   * Metadata types annotating the new member.
+   * </pre>
+   *
+   * <code>repeated string metadata_prefixes = 14 [json_name = "metadataPrefixes"];</code>
+   * @return A list containing the metadataPrefixes.
+   */
+  public com.google.protobuf.ProtocolStringList
+      getMetadataPrefixesList() {
+    return metadataPrefixes_;
+  }
+  /**
+   * <pre>
+   * Metadata types annotating the new member.
+   * </pre>
+   *
+   * <code>repeated string metadata_prefixes = 14 [json_name = "metadataPrefixes"];</code>
+   * @return The count of metadataPrefixes.
+   */
+  public int getMetadataPrefixesCount() {
+    return metadataPrefixes_.size();
+  }
+  /**
+   * <pre>
+   * Metadata types annotating the new member.
+   * </pre>
+   *
+   * <code>repeated string metadata_prefixes = 14 [json_name = "metadataPrefixes"];</code>
+   * @param index The index of the element to return.
+   * @return The metadataPrefixes at the given index.
+   */
+  public java.lang.String getMetadataPrefixes(int index) {
+    return metadataPrefixes_.get(index);
+  }
+  /**
+   * <pre>
+   * Metadata types annotating the new member.
+   * </pre>
+   *
+   * <code>repeated string metadata_prefixes = 14 [json_name = "metadataPrefixes"];</code>
+   * @param index The index of the value to return.
+   * @return The bytes of the metadataPrefixes at the given index.
+   */
+  public com.google.protobuf.ByteString
+      getMetadataPrefixesBytes(int index) {
+    return metadataPrefixes_.getByteString(index);
+  }
+
   public static final int DOC_FIELD_NUMBER = 12;
   @SuppressWarnings("serial")
   private volatile java.lang.Object doc_ = "";
@@ -680,6 +735,9 @@ private static final long serialVersionUID = 0L;
     if (!com.google.protobuf.GeneratedMessage.isStringEmpty(bodyExpression_)) {
       com.google.protobuf.GeneratedMessage.writeString(output, 13, bodyExpression_);
     }
+    for (int i = 0; i < metadataPrefixes_.size(); i++) {
+      com.google.protobuf.GeneratedMessage.writeString(output, 14, metadataPrefixes_.getRaw(i));
+    }
     getUnknownFields().writeTo(output);
   }
 
@@ -740,6 +798,14 @@ private static final long serialVersionUID = 0L;
     if (!com.google.protobuf.GeneratedMessage.isStringEmpty(bodyExpression_)) {
       size += com.google.protobuf.GeneratedMessage.computeStringSize(13, bodyExpression_);
     }
+    {
+      int dataSize = 0;
+      for (int i = 0; i < metadataPrefixes_.size(); i++) {
+        dataSize += computeStringSizeNoTag(metadataPrefixes_.getRaw(i));
+      }
+      size += dataSize;
+      size += 1 * getMetadataPrefixesList().size();
+    }
     size += getUnknownFields().getSerializedSize();
     memoizedSize = size;
     return size;
@@ -777,6 +843,8 @@ private static final long serialVersionUID = 0L;
         != other.getIsDefault()) return false;
     if (!getDirection()
         .equals(other.getDirection())) return false;
+    if (!getMetadataPrefixesList()
+        .equals(other.getMetadataPrefixesList())) return false;
     if (!getDoc()
         .equals(other.getDoc())) return false;
     if (!getBodyExpression()
@@ -820,6 +888,10 @@ private static final long serialVersionUID = 0L;
         getIsDefault());
     hash = (37 * hash) + DIRECTION_FIELD_NUMBER;
     hash = (53 * hash) + getDirection().hashCode();
+    if (getMetadataPrefixesCount() > 0) {
+      hash = (37 * hash) + METADATA_PREFIXES_FIELD_NUMBER;
+      hash = (53 * hash) + getMetadataPrefixesList().hashCode();
+    }
     hash = (37 * hash) + DOC_FIELD_NUMBER;
     hash = (53 * hash) + getDoc().hashCode();
     hash = (37 * hash) + BODY_EXPRESSION_FIELD_NUMBER;
@@ -972,6 +1044,8 @@ private static final long serialVersionUID = 0L;
           com.google.protobuf.LazyStringArrayList.emptyList();
       isDefault_ = false;
       direction_ = "";
+      metadataPrefixes_ =
+          com.google.protobuf.LazyStringArrayList.emptyList();
       doc_ = "";
       bodyExpression_ = "";
       return this;
@@ -1043,9 +1117,13 @@ private static final long serialVersionUID = 0L;
         result.direction_ = direction_;
       }
       if (((from_bitField0_ & 0x00000800) != 0)) {
-        result.doc_ = doc_;
+        metadataPrefixes_.makeImmutable();
+        result.metadataPrefixes_ = metadataPrefixes_;
       }
       if (((from_bitField0_ & 0x00001000) != 0)) {
+        result.doc_ = doc_;
+      }
+      if (((from_bitField0_ & 0x00002000) != 0)) {
         result.bodyExpression_ = bodyExpression_;
       }
     }
@@ -1123,14 +1201,24 @@ private static final long serialVersionUID = 0L;
         bitField0_ |= 0x00000400;
         onChanged();
       }
+      if (!other.metadataPrefixes_.isEmpty()) {
+        if (metadataPrefixes_.isEmpty()) {
+          metadataPrefixes_ = other.metadataPrefixes_;
+          bitField0_ |= 0x00000800;
+        } else {
+          ensureMetadataPrefixesIsMutable();
+          metadataPrefixes_.addAll(other.metadataPrefixes_);
+        }
+        onChanged();
+      }
       if (!other.getDoc().isEmpty()) {
         doc_ = other.doc_;
-        bitField0_ |= 0x00000800;
+        bitField0_ |= 0x00001000;
         onChanged();
       }
       if (!other.getBodyExpression().isEmpty()) {
         bodyExpression_ = other.bodyExpression_;
-        bitField0_ |= 0x00001000;
+        bitField0_ |= 0x00002000;
         onChanged();
       }
       this.mergeUnknownFields(other.getUnknownFields());
@@ -1218,14 +1306,20 @@ private static final long serialVersionUID = 0L;
             } // case 90
             case 98: {
               doc_ = input.readStringRequireUtf8();
-              bitField0_ |= 0x00000800;
+              bitField0_ |= 0x00001000;
               break;
             } // case 98
             case 106: {
               bodyExpression_ = input.readStringRequireUtf8();
-              bitField0_ |= 0x00001000;
+              bitField0_ |= 0x00002000;
               break;
             } // case 106
+            case 114: {
+              java.lang.String s = input.readStringRequireUtf8();
+              ensureMetadataPrefixesIsMutable();
+              metadataPrefixes_.add(s);
+              break;
+            } // case 114
             default: {
               if (!super.parseUnknownField(input, extensionRegistry, tag)) {
                 done = true; // was an endgroup tag
@@ -2269,6 +2363,153 @@ private static final long serialVersionUID = 0L;
       return this;
     }
 
+    private com.google.protobuf.LazyStringArrayList metadataPrefixes_ =
+        com.google.protobuf.LazyStringArrayList.emptyList();
+    private void ensureMetadataPrefixesIsMutable() {
+      if (!metadataPrefixes_.isModifiable()) {
+        metadataPrefixes_ = new com.google.protobuf.LazyStringArrayList(metadataPrefixes_);
+      }
+      bitField0_ |= 0x00000800;
+    }
+    /**
+     * <pre>
+     * Metadata types annotating the new member.
+     * </pre>
+     *
+     * <code>repeated string metadata_prefixes = 14 [json_name = "metadataPrefixes"];</code>
+     * @return A list containing the metadataPrefixes.
+     */
+    public com.google.protobuf.ProtocolStringList
+        getMetadataPrefixesList() {
+      metadataPrefixes_.makeImmutable();
+      return metadataPrefixes_;
+    }
+    /**
+     * <pre>
+     * Metadata types annotating the new member.
+     * </pre>
+     *
+     * <code>repeated string metadata_prefixes = 14 [json_name = "metadataPrefixes"];</code>
+     * @return The count of metadataPrefixes.
+     */
+    public int getMetadataPrefixesCount() {
+      return metadataPrefixes_.size();
+    }
+    /**
+     * <pre>
+     * Metadata types annotating the new member.
+     * </pre>
+     *
+     * <code>repeated string metadata_prefixes = 14 [json_name = "metadataPrefixes"];</code>
+     * @param index The index of the element to return.
+     * @return The metadataPrefixes at the given index.
+     */
+    public java.lang.String getMetadataPrefixes(int index) {
+      return metadataPrefixes_.get(index);
+    }
+    /**
+     * <pre>
+     * Metadata types annotating the new member.
+     * </pre>
+     *
+     * <code>repeated string metadata_prefixes = 14 [json_name = "metadataPrefixes"];</code>
+     * @param index The index of the value to return.
+     * @return The bytes of the metadataPrefixes at the given index.
+     */
+    public com.google.protobuf.ByteString
+        getMetadataPrefixesBytes(int index) {
+      return metadataPrefixes_.getByteString(index);
+    }
+    /**
+     * <pre>
+     * Metadata types annotating the new member.
+     * </pre>
+     *
+     * <code>repeated string metadata_prefixes = 14 [json_name = "metadataPrefixes"];</code>
+     * @param index The index to set the value at.
+     * @param value The metadataPrefixes to set.
+     * @return This builder for chaining.
+     */
+    public Builder setMetadataPrefixes(
+        int index, java.lang.String value) {
+      if (value == null) { throw new NullPointerException(); }
+      ensureMetadataPrefixesIsMutable();
+      metadataPrefixes_.set(index, value);
+      bitField0_ |= 0x00000800;
+      onChanged();
+      return this;
+    }
+    /**
+     * <pre>
+     * Metadata types annotating the new member.
+     * </pre>
+     *
+     * <code>repeated string metadata_prefixes = 14 [json_name = "metadataPrefixes"];</code>
+     * @param value The metadataPrefixes to add.
+     * @return This builder for chaining.
+     */
+    public Builder addMetadataPrefixes(
+        java.lang.String value) {
+      if (value == null) { throw new NullPointerException(); }
+      ensureMetadataPrefixesIsMutable();
+      metadataPrefixes_.add(value);
+      bitField0_ |= 0x00000800;
+      onChanged();
+      return this;
+    }
+    /**
+     * <pre>
+     * Metadata types annotating the new member.
+     * </pre>
+     *
+     * <code>repeated string metadata_prefixes = 14 [json_name = "metadataPrefixes"];</code>
+     * @param values The metadataPrefixes to add.
+     * @return This builder for chaining.
+     */
+    public Builder addAllMetadataPrefixes(
+        java.lang.Iterable<java.lang.String> values) {
+      ensureMetadataPrefixesIsMutable();
+      com.google.protobuf.AbstractMessageLite.Builder.addAll(
+          values, metadataPrefixes_);
+      bitField0_ |= 0x00000800;
+      onChanged();
+      return this;
+    }
+    /**
+     * <pre>
+     * Metadata types annotating the new member.
+     * </pre>
+     *
+     * <code>repeated string metadata_prefixes = 14 [json_name = "metadataPrefixes"];</code>
+     * @return This builder for chaining.
+     */
+    public Builder clearMetadataPrefixes() {
+      metadataPrefixes_ =
+        com.google.protobuf.LazyStringArrayList.emptyList();
+      bitField0_ = (bitField0_ & ~0x00000800);;
+      onChanged();
+      return this;
+    }
+    /**
+     * <pre>
+     * Metadata types annotating the new member.
+     * </pre>
+     *
+     * <code>repeated string metadata_prefixes = 14 [json_name = "metadataPrefixes"];</code>
+     * @param value The bytes of the metadataPrefixes to add.
+     * @return This builder for chaining.
+     */
+    public Builder addMetadataPrefixesBytes(
+        com.google.protobuf.ByteString value) {
+      if (value == null) { throw new NullPointerException(); }
+      checkByteStringIsUtf8(value);
+      ensureMetadataPrefixesIsMutable();
+      metadataPrefixes_.add(value);
+      bitField0_ |= 0x00000800;
+      onChanged();
+      return this;
+    }
+
     private java.lang.Object doc_ = "";
     /**
      * <pre>
@@ -2327,7 +2568,7 @@ private static final long serialVersionUID = 0L;
         java.lang.String value) {
       if (value == null) { throw new NullPointerException(); }
       doc_ = value;
-      bitField0_ |= 0x00000800;
+      bitField0_ |= 0x00001000;
       onChanged();
       return this;
     }
@@ -2342,7 +2583,7 @@ private static final long serialVersionUID = 0L;
      */
     public Builder clearDoc() {
       doc_ = getDefaultInstance().getDoc();
-      bitField0_ = (bitField0_ & ~0x00000800);
+      bitField0_ = (bitField0_ & ~0x00001000);
       onChanged();
       return this;
     }
@@ -2361,7 +2602,7 @@ private static final long serialVersionUID = 0L;
       if (value == null) { throw new NullPointerException(); }
       checkByteStringIsUtf8(value);
       doc_ = value;
-      bitField0_ |= 0x00000800;
+      bitField0_ |= 0x00001000;
       onChanged();
       return this;
     }
@@ -2430,7 +2671,7 @@ private static final long serialVersionUID = 0L;
         java.lang.String value) {
       if (value == null) { throw new NullPointerException(); }
       bodyExpression_ = value;
-      bitField0_ |= 0x00001000;
+      bitField0_ |= 0x00002000;
       onChanged();
       return this;
     }
@@ -2447,7 +2688,7 @@ private static final long serialVersionUID = 0L;
      */
     public Builder clearBodyExpression() {
       bodyExpression_ = getDefaultInstance().getBodyExpression();
-      bitField0_ = (bitField0_ & ~0x00001000);
+      bitField0_ = (bitField0_ & ~0x00002000);
       onChanged();
       return this;
     }
@@ -2468,7 +2709,7 @@ private static final long serialVersionUID = 0L;
       if (value == null) { throw new NullPointerException(); }
       checkByteStringIsUtf8(value);
       bodyExpression_ = value;
-      bitField0_ |= 0x00001000;
+      bitField0_ |= 0x00002000;
       onChanged();
       return this;
     }

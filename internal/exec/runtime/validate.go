@@ -142,7 +142,7 @@ type validationWalk struct {
 // or usage that is neither a namespace nor a data value (attribute, enumeration).
 func RequireObject(sym *symbols.Symbol) error {
 	switch sym.Kind {
-	case symbols.SymbolAttributeDef, symbols.SymbolAttributeUsage,
+	case symbols.SymbolAttributeDef, symbols.SymbolAttributeUsage, symbols.SymbolReferenceUsage,
 		symbols.SymbolEnumerationDef, symbols.SymbolEnumerationUsage,
 		symbols.SymbolConnectorEnd, symbols.SymbolCrossFeature, symbols.SymbolMultiplicity:
 		return notAnObject(sym)

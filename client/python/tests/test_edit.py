@@ -30,6 +30,9 @@ from opensysml.capabilities import (
     CAPABILITY_REQUIREMENT_CONSTRAINT_AUTHORING,
     CAPABILITY_SATISFY_AUTHORING,
     CAPABILITY_TRANSITION_AUTHORING,
+    CAPABILITY_VERIFICATION_OBJECTIVE_AUTHORING,
+    CAPABILITY_METADATA_AUTHORING,
+    CAPABILITY_METADATA_PREFIX_AUTHORING,
     CAPABILITY_SEQUENCE_AUTHORING,
     CAPABILITY_STATE_ACTION_AUTHORING,
     CAPABILITY_IMPORT_AUTHORING,
@@ -83,6 +86,22 @@ MODEL = """package Demo {
 
     part sc : SC {
         attribute redefines unitMass = 1200.0[SI::kg];
+    }
+}
+"""
+
+VERIFICATION_MODEL = """package ToasterDemo {
+    private import ISQ::*;
+    private import SI::*;
+    private import VerificationCases::*;
+    part def Toaster { attribute cycleTime : ISQ::DurationValue; }
+    requirement def TimelyToast {
+        subject toaster : Toaster;
+        require constraint { toaster.cycleTime <= 180.0 [SI::s] }
+    }
+    requirement timely : TimelyToast;
+    verification def TimelyToastTest {
+        subject toaster : Toaster;
     }
 }
 """
@@ -452,6 +471,142 @@ def test_new_authoring_operations_and_member_modifiers_are_exact(fake_service):
     ) == ("Demo::SC", "public", "ScalarValues::*", True, True, ["@Safety", "@Approved"])
 
 
+def test_verify_metadata_objective_and_prefix_operations_are_exact(fake_service):
+    port, service = fake_service(
+        capabilities=(
+            CAPABILITY_APPLY_EDITS,
+            CAPABILITY_AUTHORING,
+            CAPABILITY_VERIFICATION_OBJECTIVE_AUTHORING,
+            CAPABILITY_METADATA_AUTHORING,
+            CAPABILITY_METADATA_PREFIX_AUTHORING,
+        )
+    )
+    with Connection(port=port, auto_start=False) as conn:
+        (
+            conn.load_from_content(MODEL)
+            .edit()
+            .add_objective("Demo::SC")
+            .add_verify("Demo::SC::objective", "Demo::SC::r")
+            .add_metadata(
+                "Demo::SC", "Demo::VerificationMethod",
+                values={"kind": "VerificationMethodKind::test"},
+                name="vm", about="Demo::SC",
+            )
+            .add_metadata(
+                "Demo::SC", "Demo::VerificationMethod",
+                values=[["kind", "VerificationMethodKind::test"]],
+                shorthand=True,
+            )
+            .add_metadata_prefix("Demo::SC", "Demo::Safety")
+            .add_member("Demo::SC", "part", "heater", metadata=["Safety", "Risk"])
+            .apply()
+        )
+    objective, verify, metadata, shorthand, prefix, member = service.requests[0].operations
+    assert objective.add_member.kind == "objective"
+    assert objective.add_member.name == ""
+    assert verify.WhichOneof("operation") == "add_verify"
+    assert (verify.add_verify.owner, verify.add_verify.requirement) == (
+        "Demo::SC::objective", "Demo::SC::r",
+    )
+    assert metadata.WhichOneof("operation") == "add_metadata"
+    assert (
+        metadata.add_metadata.owner,
+        metadata.add_metadata.metadata_type,
+        metadata.add_metadata.name,
+        list(metadata.add_metadata.about),
+        metadata.add_metadata.shorthand,
+    ) == (
+        "Demo::SC", "Demo::VerificationMethod", "vm", ["Demo::SC"], False,
+    )
+    assert [
+        (binding.feature, binding.value)
+        for binding in metadata.add_metadata.values
+    ] == [("kind", "VerificationMethodKind::test")]
+    assert shorthand.add_metadata.shorthand
+    assert prefix.WhichOneof("operation") == "add_metadata_prefix"
+    assert (prefix.add_metadata_prefix.target, prefix.add_metadata_prefix.metadata_type) == (
+        "Demo::SC", "Demo::Safety",
+    )
+    assert member.add_member.metadata_prefixes == ["Safety", "Risk"]
+
+
+def test_objective_and_metadata_authoring_tuples_preserve_optional_fields():
+    editor = Editor("hash", None)
+    editor.add_objective("Demo::Case")
+    editor.add_member("Demo::P", "part def", "Heater", metadata="Safety")
+    editor.add_metadata(
+        "Demo::Case", "M", values={"a": "1"}, about=("Demo::x", "Demo::y"),
+        shorthand=True,
+    )
+    editor.add_metadata_prefix("Demo::P", "M")
+    assert editor.operations == [
+        ("add_member", "Demo::Case", "objective", "", "", "", "", []),
+        (
+            "add_member", "Demo::P", "part def", "Heater", "", "", "", [],
+            False, [], False, "", ["Safety"],
+        ),
+        ("add_metadata", "Demo::Case", "M", "", ["Demo::x", "Demo::y"], [("a", "1")], True),
+        ("add_metadata_prefix", "Demo::P", "M"),
+    ]
+
+
+@pytest.mark.parametrize("metadata", [42, {"Safety": "ignored"}])
+def test_malformed_member_metadata_prefixes_are_rejected(fake_service, metadata):
+    port, service = fake_service(
+        capabilities=(CAPABILITY_APPLY_EDITS, CAPABILITY_AUTHORING)
+    )
+    with Connection(port=port, auto_start=False) as conn:
+        editor = conn.load_from_content(MODEL).edit()
+        editor._operations.append((
+            "add_member", "Demo::SC", "part", "heater", "", "", "", [],
+            False, [], False, "", metadata,
+        ))
+        with pytest.raises(ValueError, match="malformed add_member metadata"):
+            editor.apply()
+    assert service.requests == []
+
+
+@pytest.mark.parametrize(
+    "operation,missing",
+    [
+        (lambda editor: editor.add_verify("Demo::Case", "Demo::r"),
+         CAPABILITY_VERIFICATION_OBJECTIVE_AUTHORING),
+        (lambda editor: editor.add_objective("Demo::Case"),
+         CAPABILITY_VERIFICATION_OBJECTIVE_AUTHORING),
+        (lambda editor: editor.add_metadata("Demo", "M"),
+         CAPABILITY_METADATA_AUTHORING),
+        (lambda editor: editor.add_member("Demo", "part", "p", metadata=["M"]),
+         CAPABILITY_METADATA_AUTHORING),
+        (lambda editor: editor.add_metadata_prefix("Demo::Part", "M"),
+         CAPABILITY_METADATA_PREFIX_AUTHORING),
+    ],
+)
+def test_verification_and_metadata_authoring_capabilities_are_preflighted(
+    fake_service, operation, missing
+):
+    port, service = fake_service(
+        capabilities=(CAPABILITY_APPLY_EDITS, CAPABILITY_AUTHORING)
+    )
+    with Connection(port=port, auto_start=False) as conn:
+        edit = operation(conn.load_from_content(MODEL).edit())
+        with pytest.raises(MissingCapabilityError) as error:
+            edit.apply()
+    assert error.value.capability == missing
+    assert service.requests == []
+
+
+def test_metadata_prefix_authoring_requires_authoring(fake_service):
+    port, service = fake_service(
+        capabilities=(CAPABILITY_APPLY_EDITS, CAPABILITY_METADATA_PREFIX_AUTHORING)
+    )
+    with Connection(port=port, auto_start=False) as conn:
+        edit = conn.load_from_content(MODEL).edit()
+        edit.add_metadata_prefix("Demo::Part", "M")
+        with pytest.raises(MissingCapabilityError) as error:
+            edit.apply()
+    assert error.value.capability == CAPABILITY_AUTHORING
+    assert service.requests == []
+
 def test_add_import_accepts_a_single_filter_expression():
     editor = Editor("hash", None)
     editor.add_import("Demo", "A::*", filter="@Safety")
@@ -608,6 +763,7 @@ def test_new_add_member_expression_and_helper_arguments_are_checked():
         editor.add_state_action("Demo::S", 1, "a")
     with pytest.raises(ValueError, match="kind must be 'entry', 'do' or 'exit'"):
         editor.add_state_action("Demo::S", "transition", "a")
+
 def test_member_modifier_capability_accumulates_across_operations(fake_service):
     port, service = fake_service(
         capabilities=(CAPABILITY_APPLY_EDITS, CAPABILITY_AUTHORING)
@@ -1634,9 +1790,9 @@ def test_an_unknown_operation_kind_is_refused(fake_service):
             conn.apply_edits("fake-hash", [("delete", "Demo::SC", "")])
         with pytest.raises(ValueError, match="malformed move operation"):
             conn.apply_edits("fake-hash", [("move", "Demo::SC")])
-        for fields in (("add_member",), ("add_member",) * 9, ("add_member",) * 15):
+        for fields in (("add_member",), ("add_member",) * 9, ("add_member",) * 16):
             with pytest.raises(
-                ValueError, match="expected 8, 12, 13 or 14 fields"
+                ValueError, match="expected 8, 12, 13, 14 or 15 fields"
             ):
                 conn.apply_edits("fake-hash", [fields])
         for expression in (1, 0, None):
@@ -1645,7 +1801,7 @@ def test_an_unknown_operation_kind_is_refused(fake_service):
                     "fake-hash",
                     [(
                         "add_member", "P", "constraint", "c", "", "", "", [],
-                        False, [], False, "", expression,
+                        False, [], False, "", [], expression,
                     )],
                 )
     assert service.requests == []
@@ -2085,6 +2241,116 @@ class TestEditRoundTripAgainstRealService:
                 "transition toasting_to_idle first toasting accept CycleEnd then idle;"
                 in edited
             )
+            again = conn.load_from_content(edited)
+            assert again.ok, [str(d) for d in again.errors]
+
+    @pytest.mark.parametrize(
+        "shorthand,metadata_line",
+        [
+            (
+                False,
+                "metadata VerificationMethod { kind = VerificationMethodKind::test; }",
+            ),
+            (
+                True,
+                "@VerificationMethod { kind = VerificationMethodKind::test; }",
+            ),
+        ],
+    )
+    def test_verification_objective_and_metadata_reproduce_api_results(
+        self, real_service, shorthand, metadata_line
+    ):
+        expected = VERIFICATION_MODEL.replace(
+            "        subject toaster : Toaster;\n    }\n}",
+            "        subject toaster : Toaster;\n"
+            "        objective {\n"
+            "            verify timely;\n"
+            "        }\n"
+            f"        {metadata_line}\n"
+            "    }\n}",
+        )
+
+        def api_signature(model):
+            elements = json.loads(str(model.to_api_json()))
+            if isinstance(elements, dict):
+                elements = elements.get("elements", [elements])
+            signature = [
+                (element.get("@type"), element.get("qualifiedName"))
+                for element in elements
+            ]
+            return sorted(
+                signature,
+                key=lambda item: (item[0] or "", item[1] or ""),
+            )
+
+        def metadata_query(model):
+            return model.query(
+                select=["@type", "qualifiedName"],
+                where={
+                    "@type": "PrimitiveConstraint",
+                    "operator": "=",
+                    "property": "@type",
+                    "value": ["MetadataUsage"],
+                },
+            )
+
+        def verification_signature(model):
+            verdict = model.verify_requirement("ToasterDemo::timely")
+            return [
+                (entry.case_id, entry.kind, entry.detail, entry.subcase, entry.requirement_id)
+                for entry in verdict.verifications
+            ]
+
+        with Connection(port=real_service, auto_start=False) as conn:
+            model = conn.load_from_content(VERIFICATION_MODEL)
+            result = (
+                model.edit()
+                .add_verify("ToasterDemo::TimelyToastTest", "timely")
+                .add_metadata(
+                    "ToasterDemo::TimelyToastTest",
+                    "VerificationMethod",
+                    values={"kind": "VerificationMethodKind::test"},
+                    shorthand=shorthand,
+                )
+                .apply()
+            )
+            authored_text = str(result)
+            assert authored_text == expected
+            authored = conn.load_from_content(authored_text)
+            direct = conn.load_from_content(expected)
+            assert authored.ok, [str(d) for d in authored.errors]
+            assert direct.ok, [str(d) for d in direct.errors]
+            assert api_signature(authored) == api_signature(direct)
+            assert [
+                element.as_dict() for element in metadata_query(authored)
+            ] == [
+                element.as_dict() for element in metadata_query(direct)
+            ]
+            authored_verdicts = verification_signature(authored)
+            direct_verdicts = verification_signature(direct)
+            assert authored_verdicts == direct_verdicts
+
+    def test_metadata_prefix_is_written_on_a_new_part_definition(self, real_service):
+        with Connection(port=real_service, auto_start=False) as conn:
+            model = conn.load_from_content("metadata def Safety;\npackage P;\n")
+            result = model.edit().add_part_def("P", "Heater", metadata=["Safety"]).apply()
+            edited = str(result)
+            assert edited == (
+                "metadata def Safety;\n"
+                "package P {\n"
+                "    #Safety part def Heater;\n"
+                "}\n"
+            )
+            again = conn.load_from_content(edited)
+            assert again.ok, [str(d) for d in again.errors]
+
+    def test_metadata_prefix_is_added_to_an_existing_declaration(self, real_service):
+        source = "metadata def Safety;\npart def Vehicle;\n"
+        with Connection(port=real_service, auto_start=False) as conn:
+            model = conn.load_from_content(source)
+            result = model.edit().add_metadata_prefix("Vehicle", "Safety").apply()
+            edited = str(result)
+            assert edited == "metadata def Safety;\n#Safety part def Vehicle;\n"
             again = conn.load_from_content(edited)
             assert again.ok, [str(d) for d in again.errors]
 

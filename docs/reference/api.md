@@ -60,6 +60,15 @@ to the service; a name the service does not register is `CodeInvalidArgument`, a
 needs the `engines` capability. `Verdict`, `Calculation` and `Analysis` each carry a `Standing`:
 the `Engine` that answered, the `Strength` of its evidence and the `Bounds` it ran under.
 
+`VerifyConstraint`, `VerifyRequirement` and `VerifySatisfaction` also take `Asking(question)` —
+`QuestionEvaluate` (the default), `QuestionHolds` or `QuestionSatisfiable` — to ask the service's
+solvers rather than evaluate a point: `holds` proves the claim for every assignment the free
+features can take, `satisfiable` finds one. A `Verdict` answers it through `Question` and `Status`
+(`holds` | `violated` | `undecided` | `satisfiable` | `unsatisfiable`), and a violated or
+satisfiable answer carries `Witness`, the free features' replayed values with their units and exact
+spellings; undecided names the reason and reports `ReasonUndecided`. A question other than evaluate
+needs the `verification_questions` capability, checked before anything is sent.
+
 ```go
 exploration, err := client.ExploreAction(ctx, model, "Demo::race", nil)
 for _, outcome := range exploration.Outcomes {
@@ -112,6 +121,13 @@ usage by reference. `entry action`, `do action` and `exit action` add state suba
 one of each kind in a state body. These assertion, exhibit and state-action kinds are SysML-only.
 A return parameter is restricted to calculation, constraint, and case bodies; the edit layer
 refuses inadmissible placements even when analysis would only warn.
+`metadata_prefixes` writes metadata references such as `#Safety` on the new declaration, in the
+position required by its member kind; prefixes on `return` are refused.
+`add_metadata_prefix` adds one metadata prefix to an existing SysML declaration. The target must
+be a declaration that admits prefix metadata, and the metadata type must resolve from that
+declaration's scope to a metadata definition. A duplicate is refused by resolved identity. The
+source edit inserts after existing prefixes, or at the grammar-defined prefix slot while preserving
+all untouched source bytes.
 
 `add_member` also takes an optional `doc`: plain text written as the new member's documentation. A
 member that would end in `;` is given a body holding `doc /* ... */`, and one
@@ -132,6 +148,9 @@ and `type` fields:
 | `add_comment` | `owner`, `body`, `name?`, `about[]`, `locale?` | A `comment [name] [about a, b] [locale "..."] /* body */` where a new member of `owner` goes — the document root when `owner` is empty — with each `about` name written as it is given and resolved from the owner's scope. The body follows `add_documentation`'s rules. |
 | `add_note` | `target`, `text` | A line note `// text` on its own line directly above the declaration `target` names, at its indentation. A note is lexical trivia (KerML §8.2.2.2), not a model element, so it is in the edited source and `sysx:sourceText` but not in the model; a later edit keeps it above the declaration it precedes. Text containing a line break is refused. |
 | `add_transition` | `owner`, `source`, `target`, `name?`, `trigger?`, `guard?`, `effect?`, `initial` | A state transition in a state definition or usage, including an exhibited or bodiless nested state. Each free-text clause must form exactly one grammar-admissible transition. With `initial`, an entry transition (`entry; then <target>;`) in a state body that has no existing entry action. |
+| `add_verify` | `owner`, `requirement` | A `verify <requirement>;` membership in a verification case's objective. When the case has no owned objective and no inherited user objective, the edit creates one; ambiguous or inherited-only objectives are refused. |
+| `add_metadata` | `owner`, `metadata_type`, `name?`, `about[]`, `values[]`, `shorthand` | A metadata usage in SysML or KerML, with optional `about` references and feature-value bindings. `shorthand` writes `@M` rather than `metadata M`; semantic type and value correctness is checked by re-analysis. |
+| `add_metadata_prefix` | `target`, `metadata_type` | Adds `#M` to an existing SysML declaration, resolving `metadata_type` in the declaration's own scope; duplicate metadata types and targets without a prefix slot are refused. |
 | `add_sequence` | `owner`, `keyword`, `ref?`, `member_kind?`, `member_name?`, `type?`, `after?` | A `first <ref>;`, `then <ref>;` or `then <member_kind> <member_name> : <type>;` member in an action body's sequencing notation. Exactly one of `ref` and `member_kind` is set for `then`; `first` takes `ref` alone. With `after` naming a member of the body, the member is written right after it: it sequences from that member, and a `then` that previously followed it now sequences from the new member. |
 | `add_sequence` action-body items | `condition?`, `value?`, `target?`, `via?`, `until?`, `body[]`, `else_body[]`, `multiplicity?`, `parameter?` | Recursive `accept`, `send`, `assign`, `if`, `while`, `loop`, `for` and `terminate` items, plus guarded `if <guard> then <ref>;` and `else <ref>;`. Nested items use the same message with no `owner` or `after`. An empty else body means no `else`; an explicit empty `else { }` is not authorable. Empty action bodies, including an `if` then-branch, write `{ }`. |
 
@@ -142,23 +161,23 @@ An `add_member` with `body_expression`, an asserted-constraint kind, or a refere
 `add_connection` requires both the `authoring` and `connection_authoring` capabilities.
 `add_satisfy` requires `authoring` and `satisfy_authoring`; `add_requirement_constraint` requires
 `authoring` and `requirement_constraint_authoring`; transition edits require `authoring` and
-`transition_authoring`; existing sequence edits require `authoring` and `sequence_authoring`, and
-action-body items or source-end multiplicities additionally require
+`transition_authoring`; `add_verify` and an unnamed `objective` member require `authoring` and
+`verification_objective_authoring`; `add_metadata` and an `add_member` with `metadata_prefixes`
+require `authoring` and `metadata_authoring`. Existing sequence edits require `authoring` and `sequence_authoring`,
+and action-body items or source-end multiplicities additionally require
 `action_body_statement_authoring`. Action-body statements follow SysML.xtext:1607 ActionBodyParameter,
 1442 AcceptNode, 1499 SendNode, 1535 AssignmentNode, 1596 IfNode, 1615 WhileLoopNode, 1624 ForLoopNode,
 and 1641 TerminateNode; succession ends follow 878, 887, 1703 TargetSuccession, 1708 GuardedTargetSuccession
-and 1714 DefaultTargetSuccession; the settled semantics are in formal/2026-03-02. An `add_member` edit with any new modifier or
-the `ref`/`return` kind also requires `member_modifiers`. An `add_member` edit with an empty `kind` writes a
-directed usage with no kind keyword (`in x : T;`) — direction is required and `abstract` is refused — and
-requires `authoring` and `implicit_parameters`. Import edits require `authoring` and
-`import_authoring`. Constraint-body and assertion edits require `authoring` and
-`constraint_body_authoring`; exhibit and state subaction edits require `authoring`
-and `state_action_authoring`.
-`add_documentation` and an `add_member` with a `doc` require `authoring` and
-`documentation_authoring`; `add_comment` and `add_note` require `authoring` and
-`comment_authoring`. An `add_member` edit with any new modifier or
-the `ref`/`return` kind also requires `member_modifiers`. Clients preflight these capabilities
-before sending the operation.
+and 1714 DefaultTargetSuccession; the settled semantics are in formal/2026-03-02. An `add_member` edit
+with an empty `kind` writes a directed usage with no kind keyword (`in x : T;`) — direction is
+required and `abstract` is refused — and requires `authoring` and `implicit_parameters`. Import edits
+require `authoring` and `import_authoring`; constraint-body and assertion edits require `authoring`
+and `constraint_body_authoring`; exhibit and state subaction edits require `authoring` and
+`state_action_authoring`. `add_documentation` and an `add_member` with a `doc` require `authoring`
+and `documentation_authoring`; `add_comment` and `add_note` require `authoring` and
+`comment_authoring`. An `add_member` edit with any new modifier or the `ref`/`return` kind also
+requires `member_modifiers`. `add_metadata_prefix` requires `authoring` and
+`metadata_prefix_authoring`. Clients preflight these capabilities before sending the operation.
 
 Regular transitions always write `first <source>` and may add at most one `accept <trigger>`, one
 `if <guard>` and one `do <effect>` clause, in that order. An entry transition has no name, source or
@@ -1035,6 +1054,7 @@ kind at all, and then reports **no** `@type`: it is answered, but never matches 
 | `package`, `namespace` | `Package`, `Namespace` |
 | `partDef` / `partUsage` | `PartDefinition` / `PartUsage` |
 | `attributeDef` / `attributeUsage` | `AttributeDefinition` / `AttributeUsage` |
+| `referenceUsage` | `ReferenceUsage` (a usage declared with no kind keyword, `ref` included) |
 | `itemDef` / `itemUsage` | `ItemDefinition` / `ItemUsage` |
 | `occurrenceDef` / `occurrenceUsage` | `OccurrenceDefinition` / `OccurrenceUsage` |
 | `portDef` / `portUsage` | `PortDefinition` / `PortUsage` |

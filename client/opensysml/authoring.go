@@ -194,6 +194,8 @@ type AddMember struct {
 	IsDefault bool
 	// Direction is an optional usage direction: "in", "out" or "inout".
 	Direction string
+	// MetadataPrefixes are metadata types prefixed to the new member with #.
+	MetadataPrefixes []string
 	// BodyExpression is the optional condition stated in a constraint-kind member's body.
 	BodyExpression string
 	// Doc is optional documentation body text, written as the declaration's
@@ -245,6 +247,46 @@ type AddTransition struct {
 	Effect string
 	// Initial writes an entry transition instead of a regular transition.
 	Initial bool
+}
+
+// AddVerify inserts a verify usage into a verification case objective.
+type AddVerify struct {
+	// Owner is the verification case or objective receiving the verify usage.
+	Owner string
+	// Requirement is the requirement reference to verify.
+	Requirement string
+}
+
+// MetadataValue is one feature binding in a metadata usage.
+type MetadataValue struct {
+	// Feature is the metadata feature reference.
+	Feature string
+	// Value is the feature value expression, written as notation.
+	Value string
+}
+
+// AddMetadata inserts a metadata usage with optional about references and values.
+type AddMetadata struct {
+	// Owner is the namespace receiving the metadata usage; empty is the document root.
+	Owner string
+	// MetadataType is the metadata definition reference.
+	MetadataType string
+	// Name is the optional usage name.
+	Name string
+	// About are optional references annotated by this usage.
+	About []string
+	// Values are the metadata feature bindings.
+	Values []MetadataValue
+	// Shorthand writes the usage with @ instead of metadata.
+	Shorthand bool
+}
+
+// AddMetadataPrefix adds a metadata prefix to an existing declaration.
+type AddMetadataPrefix struct {
+	// Target is the declaration to annotate, by its qualified name.
+	Target string
+	// MetadataType is the metadata definition reference.
+	MetadataType string
 }
 
 // AddEntryTransition constructs an entry transition to target in owner.
@@ -418,6 +460,11 @@ func (AddRequirementConstraint) isEdit() {
 	/* marker: closed Edit set */
 }
 func (AddTransition) isEdit() { /* marker: closed Edit set */ }
+func (AddVerify) isEdit()     { /* marker: closed Edit set */ }
+func (AddMetadata) isEdit()   { /* marker: closed Edit set */ }
+func (AddMetadataPrefix) isEdit() {
+	/* marker: closed Edit set */
+}
 func (AddSequence) isEdit()   { /* marker: closed Edit set */ }
 func (AddImport) isEdit()     { /* marker: closed Edit set */ }
 func (AddConnection) isEdit() { /* marker: closed Edit set */ }
@@ -581,6 +628,12 @@ func (c *client) ApplyDocumentEdits(ctx context.Context, model *Model, document 
 				operation.Kind == "ref" || operation.Kind == "return" {
 				required[CapabilityMemberModifiers] = true
 			}
+			if operation.Kind == "objective" && operation.Name == "" {
+				required[CapabilityVerificationObjectiveAuthoring] = true
+			}
+			if len(operation.MetadataPrefixes) > 0 {
+				required[CapabilityMetadataAuthoring] = true
+			}
 			if operation.BodyExpression != "" ||
 				operation.Kind == "assert" || operation.Kind == "assert not" ||
 				operation.Kind == "assert constraint" || operation.Kind == "assert not constraint" {
@@ -605,6 +658,15 @@ func (c *client) ApplyDocumentEdits(ctx context.Context, model *Model, document 
 		case AddTransition:
 			required[CapabilityAuthoring] = true
 			required[CapabilityTransitionAuthoring] = true
+		case AddVerify:
+			required[CapabilityAuthoring] = true
+			required[CapabilityVerificationObjectiveAuthoring] = true
+		case AddMetadata:
+			required[CapabilityAuthoring] = true
+			required[CapabilityMetadataAuthoring] = true
+		case AddMetadataPrefix:
+			required[CapabilityAuthoring] = true
+			required[CapabilityMetadataPrefixAuthoring] = true
 		case AddSequence:
 			required[CapabilityAuthoring] = true
 			required[CapabilitySequenceAuthoring] = true
@@ -630,6 +692,8 @@ func (c *client) ApplyDocumentEdits(ctx context.Context, model *Model, document 
 			CapabilityAuthoring, CapabilityConnectionAuthoring,
 			CapabilitySatisfyAuthoring, CapabilityRequirementConstraintAuthoring,
 			CapabilityMemberModifiers, CapabilityTransitionAuthoring,
+			CapabilityVerificationObjectiveAuthoring, CapabilityMetadataAuthoring,
+			CapabilityMetadataPrefixAuthoring,
 			CapabilitySequenceAuthoring, CapabilityImplicitParameters,
 			CapabilityActionBodyStatementAuthoring,
 			CapabilityConstraintBodyAuthoring, CapabilityStateActionAuthoring,
@@ -709,19 +773,20 @@ func editToProto(edit Edit) (*pb.EditOperation, error) {
 		}}}, nil
 	case AddMember:
 		return &pb.EditOperation{Operation: &pb.EditOperation_AddMember{AddMember: &pb.AddMemberEdit{
-			Owner:          operation.Owner,
-			Kind:           operation.Kind,
-			Name:           operation.Name,
-			Type:           operation.Type,
-			Multiplicity:   operation.Multiplicity,
-			Value:          operation.Value,
-			Specializes:    append([]string(nil), operation.Specializes...),
-			IsAbstract:     operation.IsAbstract,
-			Redefines:      append([]string(nil), operation.Redefines...),
-			IsDefault:      operation.IsDefault,
-			Direction:      operation.Direction,
-			BodyExpression: operation.BodyExpression,
-			Doc:            operation.Doc,
+			Owner:            operation.Owner,
+			Kind:             operation.Kind,
+			Name:             operation.Name,
+			Type:             operation.Type,
+			Multiplicity:     operation.Multiplicity,
+			Value:            operation.Value,
+			Specializes:      append([]string(nil), operation.Specializes...),
+			IsAbstract:       operation.IsAbstract,
+			Redefines:        append([]string(nil), operation.Redefines...),
+			IsDefault:        operation.IsDefault,
+			Direction:        operation.Direction,
+			MetadataPrefixes: append([]string(nil), operation.MetadataPrefixes...),
+			BodyExpression:   operation.BodyExpression,
+			Doc:              operation.Doc,
 		}}}, nil
 	case AddSatisfy:
 		return &pb.EditOperation{Operation: &pb.EditOperation_AddSatisfy{
@@ -744,6 +809,32 @@ func editToProto(edit Edit) (*pb.EditOperation, error) {
 				Owner: operation.Owner, Name: operation.Name, Source: operation.Source,
 				Target: operation.Target, Trigger: operation.Trigger, Guard: operation.Guard,
 				Effect: operation.Effect, Initial: operation.Initial,
+			},
+		}}, nil
+	case AddVerify:
+		return &pb.EditOperation{Operation: &pb.EditOperation_AddVerify{
+			AddVerify: &pb.AddVerifyEdit{
+				Owner: operation.Owner, Requirement: operation.Requirement,
+			},
+		}}, nil
+	case AddMetadata:
+		values := make([]*pb.MetadataFeatureValue, 0, len(operation.Values))
+		for _, value := range operation.Values {
+			values = append(values, &pb.MetadataFeatureValue{
+				Feature: value.Feature, Value: value.Value,
+			})
+		}
+		return &pb.EditOperation{Operation: &pb.EditOperation_AddMetadata{
+			AddMetadata: &pb.AddMetadataEdit{
+				Owner: operation.Owner, MetadataType: operation.MetadataType,
+				Name: operation.Name, About: append([]string(nil), operation.About...),
+				Values: values, Shorthand: operation.Shorthand,
+			},
+		}}, nil
+	case AddMetadataPrefix:
+		return &pb.EditOperation{Operation: &pb.EditOperation_AddMetadataPrefix{
+			AddMetadataPrefix: &pb.AddMetadataPrefixEdit{
+				Target: operation.Target, MetadataType: operation.MetadataType,
 			},
 		}}, nil
 	case AddSequence:

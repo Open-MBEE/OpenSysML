@@ -371,8 +371,9 @@ def test_edit_messages_pin_their_field_numbers():
         "EditOperation": {
             "set_value": 1, "rename": 2, "add_member": 3, "delete": 4, "move": 5,
             "add_connection": 6, "add_satisfy": 7, "add_requirement_constraint": 8,
-            "add_transition": 9, "add_sequence": 14,
-            "add_import": 10, "add_documentation": 11,
+            "add_transition": 9, "add_import": 10, "add_documentation": 11,
+            "add_verify": 12, "add_metadata": 13, "add_sequence": 14,
+            "add_metadata_prefix": 15,
             "add_comment": 16,
             "add_note": 18,
         },
@@ -380,8 +381,8 @@ def test_edit_messages_pin_their_field_numbers():
             "owner": 1, "kind": 2, "name": 3, "type": 4,
             "multiplicity": 5, "value": 6, "specializes": 7,
             "is_abstract": 8, "redefines": 9, "is_default": 10, "direction": 11,
-            "body_expression": 13,
-            "doc": 12,
+            "doc": 12, "body_expression": 13,
+            "metadata_prefixes": 14,
         },
         "AddConnectionEdit": {
             "owner": 1, "kind": 2, "from_end": 3, "to_end": 4, "name": 5, "type": 6,
@@ -397,6 +398,13 @@ def test_edit_messages_pin_their_field_numbers():
             "owner": 1, "name": 2, "source": 3, "target": 4, "trigger": 5,
             "guard": 6, "effect": 7, "initial": 8,
         },
+        "AddVerifyEdit": {"owner": 1, "requirement": 2},
+        "MetadataFeatureValue": {"feature": 1, "value": 2},
+        "AddMetadataEdit": {
+            "owner": 1, "metadata_type": 2, "name": 3, "about": 4,
+            "values": 5, "shorthand": 6,
+        },
+        "AddMetadataPrefixEdit": {"target": 1, "metadata_type": 2},
         "AddSequenceEdit": {
             "owner": 1, "keyword": 2, "ref": 3, "member_kind": 4,
             "member_name": 5, "type": 6, "after": 7,

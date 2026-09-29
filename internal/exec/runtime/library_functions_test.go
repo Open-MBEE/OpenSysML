@@ -1281,10 +1281,22 @@ func checkLibrarySignature(t *testing.T, ctx *Context, fqn string, sym *symbols.
 	for _, param := range ctx.calcParameters(ctx.calcChain(sym), new(map[string]string)) {
 		declared = append(declared, declaredParam{
 			name:     param.Name,
-			optional: param.Default != nil || param.optional(),
+			optional: param.Default != nil || param.optional(ctx.model.semantics),
 		})
 	}
-	if !slices.Equal(declared, fn.params) {
+	// An implementation may pin a parameter the declaration leaves optional;
+	// the reverse, an implementation looser than the declaration, does not hold.
+	for i, dp := range declared {
+		if i >= len(fn.params) || fn.params[i].name != dp.name || fn.params[i].deferred != dp.deferred {
+			t.Errorf("%s declares %+v, implementation takes %+v", fqn, declared, fn.params)
+			return
+		}
+		if fn.params[i].optional && !dp.optional {
+			t.Errorf("%s implementation loosens %q the declaration requires: %+v vs %+v", fqn, dp.name, declared, fn.params)
+			return
+		}
+	}
+	if len(fn.params) != len(declared) {
 		t.Errorf("%s declares %+v, implementation takes %+v", fqn, declared, fn.params)
 	}
 }

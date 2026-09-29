@@ -35,6 +35,14 @@ func (s *Service) valueToProto(rt *runtime.Context, value runtime.Value, idx *sy
 	return out
 }
 
+func (s *Service) valuesToProto(rt *runtime.Context, values map[string]runtime.Value, idx *symbols.Index) map[string]*pb.Value {
+	out := make(map[string]*pb.Value, len(values))
+	for name, value := range values {
+		out[name] = s.valueToProto(rt, value, idx)
+	}
+	return out
+}
+
 func (s *Service) instanceGraphToProto(rt *runtime.Context, inst *runtime.Instance, idx *symbols.Index) protoconv.InstanceGraph {
 	graph := protoconv.InstanceGraphToProtoWithin(rt, inst, idx, protoconv.DefaultGraphBounds())
 	for _, instance := range graph.All {

@@ -350,7 +350,8 @@ func (c *pkgClient) verifyConstraint(ctx context.Context, request protoreflect.M
 		return nil, err
 	}
 	verification, err := c.api.VerifyConstraint(ctx, c.model(req.ModelHash), req.SymbolId,
-		opensysml.Against(req.SubjectSymbolId), opensysml.WithEngine(req.Engine))
+		opensysml.Against(req.SubjectSymbolId), opensysml.WithEngine(req.Engine),
+		opensysml.Asking(req.Question))
 	var failure *opensysml.FailureError
 	if errors.As(err, &failure) {
 		return &pb.VerifyConstraintResponse{
@@ -374,7 +375,8 @@ func (c *pkgClient) verifyRequirement(ctx context.Context, request protoreflect.
 		return nil, err
 	}
 	verification, err := c.api.VerifyRequirement(ctx, c.model(req.ModelHash), req.SymbolId,
-		opensysml.Against(req.SubjectSymbolId), opensysml.WithEngine(req.Engine))
+		opensysml.Against(req.SubjectSymbolId), opensysml.WithEngine(req.Engine),
+		opensysml.Asking(req.Question))
 	var failure *opensysml.FailureError
 	if errors.As(err, &failure) {
 		return &pb.VerifyRequirementResponse{
@@ -399,7 +401,7 @@ func (c *pkgClient) verifySatisfaction(ctx context.Context, request protoreflect
 		return nil, err
 	}
 	satisfaction, err := c.api.VerifySatisfaction(ctx, c.model(req.ModelHash), req.SymbolId,
-		opensysml.WithEngine(req.Engine))
+		opensysml.WithEngine(req.Engine), opensysml.Asking(req.Question))
 	var verifyErr *opensysml.VerifyError
 	if errors.As(err, &verifyErr) {
 		return &pb.VerifySatisfactionResponse{
@@ -1108,10 +1110,29 @@ func verdictToProto(verdict *opensysml.Verdict) *pb.Verdict {
 		FailureReason:  pb.FailureReason(verdict.Reason),
 		RequirementId:  verdict.RequirementID,
 		InstancePath:   verdict.InstancePath,
+		Question:       verdict.Question,
+		Status:         verdict.Status,
+		Witness:        witnessToProto(verdict.Witness),
 		Engine:         verdict.Standing.Engine,
 		Strength:       verdict.Standing.Strength,
 		Bounds:         boundsToProto(verdict.Standing.Bounds),
 	}
+}
+
+func witnessToProto(witness []opensysml.WitnessAssignment) []*pb.WitnessAssignment {
+	if len(witness) == 0 {
+		return nil
+	}
+	out := make([]*pb.WitnessAssignment, 0, len(witness))
+	for _, assignment := range witness {
+		out = append(out, &pb.WitnessAssignment{
+			Feature: assignment.Feature,
+			Value:   valueToProto(assignment.Value),
+			Unit:    assignment.Unit,
+			Exact:   assignment.Exact,
+		})
+	}
+	return out
 }
 
 func verificationVerdictsToProto(verdicts []opensysml.VerificationVerdict) []*pb.VerificationVerdict {
@@ -1374,18 +1395,20 @@ func editFromProto(operation *pb.EditOperation) (opensysml.Edit, bool) {
 		return opensysml.Rename{Target: kind.Rename.GetTarget(), NewName: kind.Rename.GetNewName()}, true
 	case *pb.EditOperation_AddMember:
 		return opensysml.AddMember{
-			Owner:          kind.AddMember.GetOwner(),
-			Kind:           kind.AddMember.GetKind(),
-			Name:           kind.AddMember.GetName(),
-			Type:           kind.AddMember.GetType(),
-			Multiplicity:   kind.AddMember.GetMultiplicity(),
-			Value:          kind.AddMember.GetValue(),
-			BodyExpression: kind.AddMember.GetBodyExpression(),
-			Specializes:    kind.AddMember.GetSpecializes(),
-			IsAbstract:     kind.AddMember.GetIsAbstract(),
-			Redefines:      kind.AddMember.GetRedefines(),
-			IsDefault:      kind.AddMember.GetIsDefault(),
-			Direction:      kind.AddMember.GetDirection(),
+			Owner:            kind.AddMember.GetOwner(),
+			Kind:             kind.AddMember.GetKind(),
+			Name:             kind.AddMember.GetName(),
+			Type:             kind.AddMember.GetType(),
+			Multiplicity:     kind.AddMember.GetMultiplicity(),
+			Value:            kind.AddMember.GetValue(),
+			Specializes:      kind.AddMember.GetSpecializes(),
+			IsAbstract:       kind.AddMember.GetIsAbstract(),
+			Redefines:        kind.AddMember.GetRedefines(),
+			IsDefault:        kind.AddMember.GetIsDefault(),
+			Direction:        kind.AddMember.GetDirection(),
+			MetadataPrefixes: kind.AddMember.GetMetadataPrefixes(),
+			BodyExpression:   kind.AddMember.GetBodyExpression(),
+			Doc:              kind.AddMember.GetDoc(),
 		}, true
 	case *pb.EditOperation_AddConnection:
 		return opensysml.AddConnection{
@@ -1408,6 +1431,32 @@ func editFromProto(operation *pb.EditOperation) (opensysml.Edit, bool) {
 			Kind:       kind.AddRequirementConstraint.GetKind(),
 			Expression: kind.AddRequirementConstraint.GetExpression(),
 			Name:       kind.AddRequirementConstraint.GetName(),
+		}, true
+	case *pb.EditOperation_AddVerify:
+		return opensysml.AddVerify{
+			Owner:       kind.AddVerify.GetOwner(),
+			Requirement: kind.AddVerify.GetRequirement(),
+		}, true
+	case *pb.EditOperation_AddMetadata:
+		values := make([]opensysml.MetadataValue, 0, len(kind.AddMetadata.GetValues()))
+		for _, value := range kind.AddMetadata.GetValues() {
+			values = append(values, opensysml.MetadataValue{
+				Feature: value.GetFeature(),
+				Value:   value.GetValue(),
+			})
+		}
+		return opensysml.AddMetadata{
+			Owner:        kind.AddMetadata.GetOwner(),
+			MetadataType: kind.AddMetadata.GetMetadataType(),
+			Name:         kind.AddMetadata.GetName(),
+			About:        kind.AddMetadata.GetAbout(),
+			Values:       values,
+			Shorthand:    kind.AddMetadata.GetShorthand(),
+		}, true
+	case *pb.EditOperation_AddMetadataPrefix:
+		return opensysml.AddMetadataPrefix{
+			Target:       kind.AddMetadataPrefix.GetTarget(),
+			MetadataType: kind.AddMetadataPrefix.GetMetadataType(),
 		}, true
 	case *pb.EditOperation_AddSequence:
 		return addSequenceFromProto(kind.AddSequence), true
