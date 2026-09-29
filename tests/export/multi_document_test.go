@@ -114,15 +114,26 @@ func TestCrossDocumentReferenceLinks(t *testing.T) {
 	}
 }
 
-// Two documents declaring one element IRI are refused the way one document
-// declaring it twice is, rather than merged into one subject.
-func TestTwoDocumentsMintingOneIRIAreRefused(t *testing.T) {
+// Two documents declaring a package of one name export both, the way one
+// document's same-named members do: the second takes a position-derived
+// identity rather than merging into the first's subject.
+func TestTwoDocumentsDeclaringOnePackageNameExportBoth(t *testing.T) {
 	sources := []convert.Source{
 		{Name: "a.sysml", Data: []byte("package P {\n\tpart def A;\n}\n")},
 		{Name: "b.sysml", Data: []byte("package P {\n\tpart def B;\n}\n")},
 	}
-	if _, err := convert.ConvertDocuments(sources, convert.FormatTurtle, convert.Options{}); err == nil {
-		t.Error("two documents declaring package P were merged into one element")
+	out, err := convert.ConvertDocuments(sources, convert.FormatAPIJSON, convert.Options{})
+	if err != nil {
+		t.Fatalf("ConvertDocuments: %v", err)
+	}
+	packages := map[string]bool{}
+	for _, el := range rootElements(t, out) {
+		if rootString(t, el["@type"]) == "Package" && rootString(t, el["declaredName"]) == "P" {
+			packages[rootString(t, el["@id"])] = true
+		}
+	}
+	if len(packages) != 2 {
+		t.Errorf("expected both documents' package P as distinct elements, found %v", packages)
 	}
 }
 
