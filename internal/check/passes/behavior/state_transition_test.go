@@ -48,6 +48,60 @@ func analyzeTransitions(t *testing.T, src string) []diag.Diagnostic {
 	return out
 }
 
+// A metadata pseudostate in a parallel state's body is not one of its regions,
+// so a transition ordering it is checked like the `choice` keyword spelling.
+func TestParallelStateMetadataPseudostateIsNotARegion(t *testing.T) {
+	keyword := transitionDiags(t, `package test {
+	state def M parallel {
+		state left {
+			state a;
+		}
+		choice pick;
+		transition first pick then a;
+	}
+}`)
+	metadata := transitionDiags(t, `package test {
+	private import StateMachines::*;
+	state def M parallel {
+		state left {
+			state a;
+		}
+		#choice state pick;
+		transition first pick then a;
+	}
+}`)
+	if len(keyword) != len(metadata) {
+		t.Fatalf("keyword spelling got %+v, metadata spelling got %+v", keyword, metadata)
+	}
+	for i := range keyword {
+		if keyword[i].Code != metadata[i].Code {
+			t.Fatalf("diagnostic %d: keyword %s, metadata %s", i, keyword[i].Code, metadata[i].Code)
+		}
+		if metadata[i].Code == behavior.CodeParallelStateTransition {
+			t.Fatalf("metadata spelling reported %s: %+v", behavior.CodeParallelStateTransition, metadata[i])
+		}
+	}
+}
+
+// A transition between real regions still misorders a parallel state when a
+// metadata pseudostate sits beside them.
+func TestParallelStateTransitionBetweenRegionsWithMetadataPseudostate(t *testing.T) {
+	wantOneError(t, `package test {
+	private import StateMachines::*;
+	state def M parallel {
+		state left {
+			state a;
+		}
+		state right {
+			state b;
+		}
+		#choice state pick;
+		transition first pick then a;
+		transition first left then right;
+	}
+}`, behavior.CodeParallelStateTransition, behavior.MsgParallelStateTransition)
+}
+
 // wantClean fails when the pass reports anything about a legal model, which is
 // the failure mode that breaks models a modeller wrote correctly.
 func wantClean(t *testing.T, src string) {

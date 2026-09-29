@@ -113,14 +113,14 @@ func (c *transitionChecker) findMachines(scope *symbols.Scope, members []ast.Nod
 			c.findMachines(child, n.Members)
 		case *ast.Definition:
 			if n.Kind == ast.DefState {
-				c.checkParallelStates(n.Members, n.IsParallel)
+				c.checkParallelStates(n.Members, n.IsParallel, child)
 				c.checkMachine(n, child)
 				continue
 			}
 			c.findMachines(child, n.Members)
 		case *ast.Usage:
 			if n.Kind == ast.UsageState {
-				c.checkParallelStates(n.Members, n.IsParallel)
+				c.checkParallelStates(n.Members, n.IsParallel, child)
 				c.checkMachine(n, child)
 				continue
 			}
@@ -159,10 +159,10 @@ func (c *transitionChecker) checkMachine(decl ast.Node, scope *symbols.Scope) {
 // direct substates of a parallel state, each of which is one of its concurrent
 // regions (SysML v2 §7.16, isParallel). A parallel state may still own the
 // pseudostates its regions branch through and the edges between them.
-func (c *transitionChecker) checkParallelStates(members []ast.Node, parallel bool) {
+func (c *transitionChecker) checkParallelStates(members []ast.Node, parallel bool, scope *symbols.Scope) {
 	var regions map[string]bool
 	if parallel {
-		regions = directSubstateNames(members)
+		regions = c.directSubstateNames(members, scope)
 	}
 	for _, member := range members {
 		decl := kit.UnwrapMembership(member)
@@ -176,21 +176,21 @@ func (c *transitionChecker) checkParallelStates(members []ast.Node, parallel boo
 		switch n := decl.(type) {
 		case *ast.Definition:
 			if n.Kind == ast.DefState {
-				c.checkParallelStates(n.Members, n.IsParallel)
+				c.checkParallelStates(n.Members, n.IsParallel, kit.BodyScope(scope, n))
 			}
 		case *ast.Usage:
 			if n.Kind == ast.UsageState {
-				c.checkParallelStates(n.Members, n.IsParallel)
+				c.checkParallelStates(n.Members, n.IsParallel, kit.BodyScope(scope, n))
 			}
 		case *ast.StateNode:
-			c.checkParallelStates(n.Substates, false)
+			c.checkParallelStates(n.Substates, false, kit.BodyScope(scope, n))
 		}
 	}
 }
 
 // directSubstateNames are the names of the states a body declares directly,
 // which in a parallel body are the names of its regions.
-func directSubstateNames(members []ast.Node) map[string]bool {
+func (c *transitionChecker) directSubstateNames(members []ast.Node, scope *symbols.Scope) map[string]bool {
 	names := map[string]bool{}
 	for _, member := range members {
 		switch n := kit.UnwrapMembership(member).(type) {
@@ -200,6 +200,9 @@ func directSubstateNames(members []ast.Node) map[string]bool {
 			names[n.Name] = true
 		case *ast.Usage:
 			if n.Kind == ast.UsageState {
+				if _, ok := lower.PseudostateMetadata(c.resolver, scope, n); ok {
+					continue
+				}
 				if name, _ := ast.EffectiveName(n); name != "" {
 					names[name] = true
 				}
