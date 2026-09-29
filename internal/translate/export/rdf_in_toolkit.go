@@ -905,8 +905,9 @@ func deriveNormativeGraph(graph *rdf.Graph, metaclasses map[rdf.Term]string) (*r
 			if name == "" {
 				continue
 			}
-			graph.Add(subject, rdf.SysMLTerm(pQualifiedName), rdf.String(name))
-			qname[subject.Value] = name
+			segment := identitySegment(name)
+			graph.Add(subject, rdf.SysMLTerm(pQualifiedName), rdf.String(segment))
+			qname[subject.Value] = segment
 			continue
 		}
 		_ = owner

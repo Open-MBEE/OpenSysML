@@ -294,6 +294,127 @@ func TestDuplicateMemberNamesToolkit(t *testing.T) {
 	}
 }
 
+func TestToolkitQuotedIdentityNamesEscape(t *testing.T) {
+	for _, test := range []struct {
+		name         string
+		definition   string
+		child        string
+		notationName string
+	}{
+		{
+			name:         `a'::b`,
+			definition:   `P::'a\'::b'`,
+			child:        `P::'a\'::b'::x`,
+			notationName: `part def 'a\'::b'`,
+		},
+		{
+			name:       `a::b\`,
+			definition: `P::'a::b\\'`,
+			child:      `P::'a::b\\'::x`,
+		},
+	} {
+		declaredName, err := json.Marshal(test.name)
+		if err != nil {
+			t.Fatalf("marshal declared name: %v", err)
+		}
+		doc := []byte(`[
+			{"@type": "Package", "@id": "P", "declaredName": "P", "isImpliedIncluded": false,
+			 "ownedMembership": [{"@id": "m1"}, {"@id": "m2"}]},
+			{"@type": "OwningMembership", "@id": "m1", "isImpliedIncluded": false,
+			 "memberElement": {"@id": "definition"}, "membershipOwningNamespace": {"@id": "P"}},
+			{"@type": "OwningMembership", "@id": "m2", "isImpliedIncluded": false,
+			 "memberElement": {"@id": "sibling"}, "membershipOwningNamespace": {"@id": "P"}},
+			{"@type": "PartDefinition", "@id": "definition", "declaredName": ` + string(declaredName) + `, "isImpliedIncluded": false,
+			 "ownedMembership": [{"@id": "featureMembership"}]},
+			{"@type": "FeatureMembership", "@id": "featureMembership", "isImpliedIncluded": false,
+			 "memberElement": {"@id": "x"}, "membershipOwningNamespace": {"@id": "definition"}},
+			{"@type": "PartUsage", "@id": "x", "declaredName": "x", "isImpliedIncluded": false},
+			{"@type": "PartDefinition", "@id": "sibling", "declaredName": "a", "isImpliedIncluded": false}
+		]`)
+		graph, err := ReadAPIJSON(doc)
+		if err != nil {
+			t.Fatalf("ReadAPIJSON for %q: %v", test.name, err)
+		}
+		metaclasses, err := checkTypes(graph)
+		if err != nil {
+			t.Fatalf("checkTypes for %q: %v", test.name, err)
+		}
+		normative, err := deriveNormativeGraph(graph, metaclasses)
+		if err != nil {
+			t.Fatalf("deriveNormativeGraph for %q: %v", test.name, err)
+		}
+		qualified := elementSubjectsByQualifiedName(normative)
+		for _, name := range []string{test.definition, test.child, "P::a"} {
+			if qualified[name] == "" {
+				t.Errorf("%q: no subject has qualified name %q", test.name, name)
+			}
+		}
+		if got := plainQualifiedName(test.child); got != test.child {
+			t.Errorf("plainQualifiedName(%q) = %q", test.child, got)
+		}
+		if test.notationName != "" {
+			notation := decodeAPIJSON(t, doc)
+			if !strings.Contains(string(notation), test.notationName) || !strings.Contains(string(notation), "part x;") {
+				t.Errorf("notation for %q lacks the escaped definition or child:\n%s", test.name, notation)
+			}
+		}
+	}
+}
+
+func TestToolkitRootIdentityNamesQuoteSegments(t *testing.T) {
+	doc := `[
+		{"@type": "PartDefinition", "@id": "rootAB", "declaredName": "A::B", "isImpliedIncluded": false,
+		 "ownedMembership": [{"@id": "membershipAB"}]},
+		{"@type": "OwningMembership", "@id": "membershipAB", "isImpliedIncluded": false,
+		 "memberElement": {"@id": "memberAB"}, "membershipOwningNamespace": {"@id": "rootAB"}},
+		{"@type": "PartDefinition", "@id": "memberAB", "declaredName": "x", "isImpliedIncluded": false},
+		{"@type": "PartDefinition", "@id": "rootPosition", "declaredName": "@2", "isImpliedIncluded": false,
+		 "ownedMembership": [{"@id": "membershipPosition"}]},
+		{"@type": "OwningMembership", "@id": "membershipPosition", "isImpliedIncluded": false,
+		 "memberElement": {"@id": "memberPosition"}, "membershipOwningNamespace": {"@id": "rootPosition"}},
+		{"@type": "PartDefinition", "@id": "memberPosition", "declaredName": "x", "isImpliedIncluded": false},
+		{"@type": "PartDefinition", "@id": "Y", "declaredName": "Y", "isImpliedIncluded": false,
+		 "ownedSpecialization": [{"@id": "specializationAB"}, {"@id": "specializationPosition"}]},
+		{"@type": "Subclassification", "@id": "specializationAB", "isImpliedIncluded": false,
+		 "general": {"@id": "memberAB"}, "specific": {"@id": "Y"}, "owningRelatedElement": {"@id": "Y"}},
+		{"@type": "Subclassification", "@id": "specializationPosition", "isImpliedIncluded": false,
+		 "general": {"@id": "memberPosition"}, "specific": {"@id": "Y"}, "owningRelatedElement": {"@id": "Y"}}
+	]`
+	graph, err := ReadAPIJSON([]byte(doc))
+	if err != nil {
+		t.Fatalf("ReadAPIJSON: %v", err)
+	}
+	metaclasses, err := checkTypes(graph)
+	if err != nil {
+		t.Fatalf("checkTypes: %v", err)
+	}
+	normative, err := deriveNormativeGraph(graph, metaclasses)
+	if err != nil {
+		t.Fatalf("deriveNormativeGraph: %v", err)
+	}
+	qualified := elementSubjectsByQualifiedName(normative)
+	for _, name := range []string{
+		`'A::B'`,
+		`'A::B'::x`,
+		`'@2'`,
+		`'@2'::x`,
+	} {
+		if qualified[name] == "" {
+			t.Errorf("no subject has qualified name %q", name)
+		}
+	}
+	notation := decodeAPIJSON(t, []byte(doc))
+	y := strings.Index(string(notation), "part def Y")
+	if y < 0 {
+		t.Fatalf("notation has no sibling part def Y:\n%s", notation)
+	}
+	for _, reference := range []string{`'A::B'::x`, `'@2'::x`} {
+		if !strings.Contains(string(notation)[y:], reference) {
+			t.Errorf("Y's specialization does not print %q:\n%s", reference, notation)
+		}
+	}
+}
+
 // TestDuplicateMemberNamesPositionalCollision keeps a named positional-looking
 // member distinct from a later duplicate identified by its position.
 func TestDuplicateMemberNamesPositionalCollision(t *testing.T) {

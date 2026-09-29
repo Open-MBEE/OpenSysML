@@ -127,7 +127,8 @@ as a position — `@` followed by a canonical non-negative integer — or contai
 `::`. Those names use unrestricted-name quotes, so the named member
 `P::'@2'` remains distinct from the positional identity `P::@2`. Names that
 need no quotes keep their existing IRI spelling. For example,
-`P::'@2'` encodes as `P___27_402_27`.
+`P::'@2'` encodes as `P___27_402_27`. Inside the quotes, `\` and `'` are
+backslash-escaped.
 
 The encoding (`rdf.EncodeElementID`) works over the UTF-8 bytes of the
 qualified name, with `_` as the escape character:

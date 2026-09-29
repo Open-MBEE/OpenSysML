@@ -7,7 +7,17 @@ import (
 
 func identitySegment(name string) string {
 	if positionalSegment(name) || strings.Contains(name, "::") {
-		return "'" + name + "'"
+		var segment strings.Builder
+		segment.Grow(len(name) + 2)
+		segment.WriteByte('\'')
+		for i := 0; i < len(name); i++ {
+			if name[i] == '\\' || name[i] == '\'' {
+				segment.WriteByte('\\')
+			}
+			segment.WriteByte(name[i])
+		}
+		segment.WriteByte('\'')
+		return segment.String()
 	}
 	return name
 }
@@ -65,7 +75,14 @@ func identityName(segment string) string {
 		}
 		if segment[i] == '\'' {
 			if i == len(segment)-1 {
-				return segment[1:i]
+				var name strings.Builder
+				for j := 1; j < i; j++ {
+					if segment[j] == '\\' && j+1 < i {
+						j++
+					}
+					name.WriteByte(segment[j])
+				}
+				return name.String()
 			}
 			return segment
 		}

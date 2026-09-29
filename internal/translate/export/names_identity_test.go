@@ -7,18 +7,44 @@ import (
 
 func TestIdentityNameSegments(t *testing.T) {
 	tests := []struct {
-		name     string
-		identity string
+		name string
 	}{
-		{"@2", "'@2'"},
-		{"@02", "@02"},
-		{"@", "@"},
-		{"A::B", "'A::B'"},
-		{`it\'s`, `it\'s`},
+		{"@2"},
+		{"@02"},
+		{"@"},
+		{"a::b"},
+		{"a'::b"},
+		{`a::b\`},
+		{`a\::b`},
+		{"x'"},
+		{"'"},
+		{`x\`},
+		{`it\'s`},
+		{`'A::B'::X`},
 	}
 	for _, test := range tests {
-		if got := identitySegment(test.name); got != test.identity {
-			t.Errorf("identitySegment(%q) = %q, want %q", test.name, got, test.identity)
+		segment := identitySegment(test.name)
+		if got := identityName(segment); got != test.name {
+			t.Errorf("identityName(identitySegment(%q)) = %q", test.name, got)
+		}
+		segments := identitySegments(segment + "::x")
+		if len(segments) != 2 || segments[1] != "x" {
+			t.Errorf("identitySegments(%q) = %q, want a name and x", segment+"::x", segments)
+		}
+	}
+	if got := identitySegment("Vehicle"); got != "Vehicle" {
+		t.Errorf("identitySegment(Vehicle) = %q, want it unquoted", got)
+	}
+	for _, test := range []struct {
+		segment string
+		name    string
+	}{
+		{`'a\qb'`, "aqb"},
+		{`'unfinished`, `'unfinished`},
+		{`'closed'next`, `'closed'next`},
+	} {
+		if got := identityName(test.segment); got != test.name {
+			t.Errorf("identityName(%q) = %q, want %q", test.segment, got, test.name)
 		}
 	}
 
