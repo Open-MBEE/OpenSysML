@@ -394,6 +394,7 @@ func (c *compiler) compileColumnChain(
 		return Expression{
 			operation: OperationRowMember,
 			target:    source.MemberPathOf(segments),
+			value:     symbols.FQNOf(row.typeSymbol),
 			origin:    symbols.NodeOrigin(owner.DocName, expression),
 		}, semantics.PrimUnknown, nil
 	}

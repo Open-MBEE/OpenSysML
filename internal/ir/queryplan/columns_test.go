@@ -113,6 +113,9 @@ calc def Cells :> Query {
 	if nested.Operation() != OperationRowMember || nested.Target() != "nested.weight" {
 		t.Fatalf("nested cell = %s %q, want row member nested.weight", nested.Operation(), nested.Target())
 	}
+	if nested.value != "Fixture::Container" {
+		t.Fatalf("nested cell declaring type = %q, want Fixture::Container", nested.value)
+	}
 	path, _ := argumentOf(t, elements[2].Value, "expression")
 	if path.Operation() != OperationRowMember || path.Target() != "'Monte Carlo'.mean" {
 		t.Fatalf("path column = %s %q, want row member 'Monte Carlo'.mean", path.Operation(), path.Target())
@@ -143,6 +146,39 @@ calc def Tags :> Query {
 	}
 	if rowProperty.value != "Fixture::TagMetadata" {
 		t.Fatalf("metadata cell declaring type = %q, want Fixture::TagMetadata", rowProperty.value)
+	}
+}
+
+func TestCompileNestedMetadataCellRetainsDeclaringType(t *testing.T) {
+	fixture := loadQueryFixture(t, `
+metadata def TagMetadata {
+	part nested : Nested;
+}
+part def Nested {
+	attribute weight : Integer;
+}
+calc def Tags :> Query {
+	in root : Element;
+	Project(
+		source = Descendants(source = root, maxDepth = 1),
+		columns = (
+			Column(name = "weight", cell = { in row : TagMetadata; row.nested.weight ?? 0 })
+		)
+	)
+}
+`)
+	project := entryDefinition(t, fixture.compile(t, "Tags")).Expression()
+	columns, _ := argumentOf(t, project, "columns")
+	column, _ := argumentOf(t, columns.Arguments()[0].Value, "expression")
+	if column.Operation() != OperationColumnOperator {
+		t.Fatalf("metadata nested cell = %s, want null coalesce", column.Operation())
+	}
+	rowMember, _ := argumentOf(t, column, "")
+	if rowMember.Operation() != OperationRowMember || rowMember.Target() != "nested.weight" {
+		t.Fatalf("metadata nested path = %s %q, want nested.weight", rowMember.Operation(), rowMember.Target())
+	}
+	if rowMember.value != "Fixture::TagMetadata" {
+		t.Fatalf("metadata nested declaring type = %q, want Fixture::TagMetadata", rowMember.value)
 	}
 }
 

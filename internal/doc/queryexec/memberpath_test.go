@@ -277,6 +277,51 @@ calc def Names :> Query {
 	}
 }
 
+func TestExecuteTypedCellMemberPathGatesOnRowType(t *testing.T) {
+	fixture := memberPathFixture(t, `
+package NestedRows {
+	part def Nested {
+		attribute weight : Integer;
+	}
+	part def Container {
+		part nested : Nested {
+			attribute redefines weight = 7;
+		}
+	}
+	part def Unrelated {
+		part nested : Nested {
+			attribute redefines weight = 9;
+		}
+	}
+}
+calc def Weights :> Query {
+	in root : Element;
+	Project(
+		source = Descendants(source = root, maxDepth = 1),
+		properties = ("name"),
+		columns = (Column(name = "weight", cell = { in row : NestedRows::Container; row.nested.weight ?? 0 }))
+	)
+}`)
+	result, err := fixture.execute(t, "Weights", Bindings{
+		"root": {ElementValue(fixture.symbol(t, "NestedRows"))},
+	}, Options{})
+	if err != nil {
+		t.Fatalf("execute Weights: %v", err)
+	}
+	got := make(map[string]int64)
+	for _, row := range result.Rows() {
+		name, _ := row.Cells()[0].Values()[0].String()
+		value, ok := row.Cells()[1].Values()[0].Integer()
+		if !ok {
+			t.Fatalf("%s weight = %+v, want integer", name, row.Cells()[1].Values())
+		}
+		got[name] = value
+	}
+	if got["Container"] != 7 || got["Unrelated"] != 0 {
+		t.Fatalf("weights = %v, want Container=7 and Unrelated=0", got)
+	}
+}
+
 // A member path orders rows by the nested value; the projected column name
 // orders them the same way after a projection.
 func TestExecuteOrderByMemberPath(t *testing.T) {
