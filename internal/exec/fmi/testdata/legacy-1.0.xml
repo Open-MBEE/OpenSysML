@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<fmiModelDescription fmiVersion="1.0" modelName="Legacy" modelIdentifier="legacy_me" description="An old model.">
+  <Implementation>
+    <CoSimulation_StandAlone modelIdentifier="legacy_cs" needsExecutionTool="true"/>
+  </Implementation>
+  <ModelVariables>
+    <ScalarVariable name="x" valueReference="1" causality="input" variability="parameter"><Real start="2"/></ScalarVariable>
+    <ScalarVariable name="y" valueReference="2" causality="output"><Real/></ScalarVariable>
+    <ScalarVariable name="z" valueReference="3" causality="internal"><Integer/></ScalarVariable>
+    <ScalarVariable name="w" valueReference="4" causality="none"><Boolean/></ScalarVariable>
+  </ModelVariables>
+</fmiModelDescription>

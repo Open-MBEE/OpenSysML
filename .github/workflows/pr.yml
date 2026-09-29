@@ -30,6 +30,9 @@ env:
   # The WebAssembly gate runs the wasm binaries under Node 24, set up by its jobs;
   # without a runtime it would skip instead of proving they run (see tests/wasm).
   OPENSYSML_REQUIRE_WASM: "1"
+  # Same for the Modelica Reference-FMUs, downloaded below and gated by
+  # tests/fmi and the Python runner's real test: absent means failure, not skip.
+  OPENSYSML_REQUIRE_REFERENCE_FMUS: "1"
 
 jobs:
   # Which areas the pull request touches. A path no area claims turns every area
@@ -217,6 +220,23 @@ jobs:
 
       - name: Download the pilot library XMI
         run: ./scripts/download-pilot-library-xmi.sh
+
+      # The FMI gate's simulator: the reference runner (client/python) is a
+      # Python subprocess, so the library it drives is installed here, pinned
+      # and wheel-only like every pip install of this workflow.
+      - name: Install fmpy
+        run: pip install --only-binary ":all:" fmpy==0.3.32
+
+      # The Modelica Reference-FMUs, checksummed; keyed on the download script
+      # and its pin. A restored cache is verified by the script's own check.
+      - name: Cache the Reference-FMUs
+        uses: actions/cache@v4
+        with:
+          path: examples/reference-fmus
+          key: reference-fmus-${{ hashFiles('scripts/download-reference-fmus.sh', 'scripts/reference-fmus-pin.sh') }}
+
+      - name: Download the Reference-FMUs
+        run: ./scripts/download-reference-fmus.sh
 
       # Per-package timeout: under -race the runtime package runs 22-29 minutes on
       # these runners. Matches `make test-shard`.
@@ -1108,7 +1128,17 @@ jobs:
           make python-install
           # Pinned and wheel-only: an unpinned resolve runs whatever was
           # published today, and a source distribution runs its own build code.
-          pip install --only-binary :all: pytest==9.0.3 pytest-mock==3.15.1 psutil==7.2.2
+          pip install --only-binary :all: pytest==9.0.3 pytest-mock==3.15.1 psutil==7.2.2 fmpy==0.3.32
+
+      # The FMI runner test's FMUs, same pin as the Go gate's.
+      - name: Cache the Reference-FMUs
+        uses: actions/cache@v4
+        with:
+          path: examples/reference-fmus
+          key: reference-fmus-${{ hashFiles('scripts/download-reference-fmus.sh', 'scripts/reference-fmus-pin.sh') }}
+
+      - name: Download the Reference-FMUs
+        run: ./scripts/download-reference-fmus.sh
 
       # The integration tests connect to a service on the standard port with
       # auto_start=False, the explicit opt-in to one the client does not manage;

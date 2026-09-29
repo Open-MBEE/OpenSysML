@@ -20,7 +20,7 @@ type externalEngine struct {
 // NewEngine is the engine of a manifest entry: registered whether or not this build serves
 // it, listing the typed reason through Process and refusing every question through Covers.
 func NewEngine(entry EngineEntry) Manifested {
-	return externalEngine{entry: entry, timeout: toolTimeoutFromEnv, limit: outputLimitFromEnv}
+	return externalEngine{entry: entry, timeout: ToolTimeoutFromEnv, limit: OutputLimitFromEnv}
 }
 
 // Name is the entry's.
