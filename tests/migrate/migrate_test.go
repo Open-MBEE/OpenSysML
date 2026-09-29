@@ -308,10 +308,16 @@ func TestRejectsNonXMI(t *testing.T) {
 // one family of behavioral or profile constructs; their notation and report are golden.
 var constructFixtures = []string{
 	"plant_states",
+	"transition_relocation",
 	"station_points",
 	"submachine_params",
 	"operation_extra_params",
 	"swimlane_context_calls",
+	"nested_context",
+	"context_bound_call",
+	"recursive_context_call",
+	"recursive_context_cycle_ab",
+	"recursive_context_cycle_ba",
 	"rig_interactions",
 	"heater_receptions",
 	"accept_via_context_port",

@@ -537,16 +537,21 @@ func (m *migration) translatedStatements(body, lang string, scope *sysmlv1.Eleme
 	return lines, note, strings.Join(notes, "; "), nil
 }
 
-// symbolicDuration reads a duration written as an expression, optionally
-// followed by a time unit (`ditSetup s`, `t * 2 min`; none is milliseconds), as seconds read at scope.
-func (m *migration) symbolicDuration(text, lang string, scope *sysmlv1.Element) (expr string, ok bool, note string) {
-	body := strings.TrimSpace(durationVariable.ReplaceAllString(strings.TrimSpace(text), ""))
-	scale, bare := durationUnits[""], true
+func durationBody(text string) (body string, scale float64, bare bool) {
+	body = strings.TrimSpace(durationVariable.ReplaceAllString(strings.TrimSpace(text), ""))
+	scale, bare = durationUnits[""], true
 	if i := strings.LastIndexAny(body, " \t"); i >= 0 {
 		if s, known := durationUnits[strings.ToLower(body[i+1:])]; known {
 			body, scale, bare = strings.TrimSpace(body[:i]), s, false
 		}
 	}
+	return body, scale, bare
+}
+
+// symbolicDuration reads a duration written as an expression, optionally
+// followed by a time unit (`ditSetup s`, `t * 2 min`; none is milliseconds), as seconds read at scope.
+func (m *migration) symbolicDuration(text, lang string, scope *sysmlv1.Element) (expr string, ok bool, note string) {
+	body, scale, bare := durationBody(text)
 	if body == "" {
 		return "", false, "the duration has no expression"
 	}
