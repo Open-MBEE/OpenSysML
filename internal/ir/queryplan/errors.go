@@ -35,6 +35,7 @@ const (
 	ErrorDefaultType            ErrorKind = "default-type"
 	ErrorDefaultMultiplicity    ErrorKind = "default-multiplicity"
 	ErrorInvalidColumn          ErrorKind = "invalid-column"
+	ErrorColumnSource           ErrorKind = "column-source"
 	ErrorColumnName             ErrorKind = "column-name"
 	ErrorUnknownColumnProperty  ErrorKind = "unknown-column-property"
 	ErrorColumnOperator         ErrorKind = "column-operator"
@@ -131,7 +132,9 @@ func (e *Error) Error() string {
 			e.Expected,
 		)
 	case ErrorInvalidColumn:
-		return fmt.Sprintf("query %s must build the columns of Project from Column(name, expression) or RelatedColumn(name, relationshipKind, direction, maxDepth, aggregate) invocations", e.Query)
+		return fmt.Sprintf("query %s must build the columns of Project from Column(name, expression|cell|path) or RelatedColumn(name, relationshipKind, direction, maxDepth, aggregate) invocations", e.Query)
+	case ErrorColumnSource:
+		return fmt.Sprintf("query %s column %s must provide exactly one of expression, cell, or path", e.Query, e.Target)
 	case ErrorColumnName:
 		return fmt.Sprintf("query %s must name each computed column with a string literal", e.Query)
 	case ErrorUnknownColumnProperty:

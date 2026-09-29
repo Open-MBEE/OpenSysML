@@ -155,6 +155,14 @@ func noteSentSignal(ctx *Context, scope *symbols.Scope, expr ast.Node, sent map[
 		return
 	case *ast.ConstructorExpr:
 		noteSentName(e.Type, sent)
+	case *ast.LiteralString:
+		sent[semantics.StringTypeName] = true
+	case *ast.LiteralInteger, *ast.LiteralReal, *ast.LiteralBool:
+		if value, ok := ctx.Model().Eval(e); ok {
+			if name := semantics.ScalarTypeName(value.Kind); name != "" {
+				sent[name] = true
+			}
+		}
 	case *ast.InvocationExpr:
 		if e.Operand != nil || e.Type == nil {
 			return

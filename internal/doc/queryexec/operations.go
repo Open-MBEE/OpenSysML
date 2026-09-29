@@ -676,6 +676,23 @@ func (e *executor) evaluateProject(expression queryplan.Expression) (sequence, e
 // the model for an element row. A dotted name reads a declared feature of that
 // own name first, falling back to the member path.
 func (e *executor) propertyValues(row Value, property string) ([]Value, bool, error) {
+	values, present, err := e.propertyValuesBeforeMemberPath(row, property)
+	if present || err != nil {
+		return values, present, err
+	}
+	sym, isElement := row.Element()
+	if !isElement {
+		return nil, false, nil
+	}
+	segments, ok := parseMemberPath(property)
+	if !ok || len(segments) <= 1 {
+		return nil, false, nil
+	}
+	values, present, _, err = e.memberPathValues(sym, segments)
+	return values, present, err
+}
+
+func (e *executor) propertyValuesBeforeMemberPath(row Value, property string) ([]Value, bool, error) {
 	if _, _, isObject := row.Object(); isObject {
 		return e.objectPropertyValues(row, property)
 	}
@@ -704,10 +721,6 @@ func (e *executor) propertyValues(row Value, property string) ([]Value, bool, er
 		return values, present, err
 	}
 	if values, present, err := e.metadataPathValues(sym, property); present || err != nil {
-		return values, present, err
-	}
-	if segments, ok := parseMemberPath(property); ok && len(segments) > 1 {
-		values, present, _, err := e.memberPathValues(sym, segments)
 		return values, present, err
 	}
 	return nil, false, nil

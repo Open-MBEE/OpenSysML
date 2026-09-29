@@ -214,7 +214,7 @@ func (w *interfaceWriter) facts(sym *symbols.Symbol) symbols.LibraryFacts {
 		if rel == nil {
 			continue
 		}
-		rf := symbols.RelationshipFacts{Kind: rel.Kind}
+		rf := symbols.RelationshipFacts{Kind: rel.Kind, Conjugated: rel.Conjugated}
 		if target := m.RelationshipTarget(sym, rel); target != nil {
 			rf.Target = w.ref(sym, target, rel.Kind.String()+" target")
 		}

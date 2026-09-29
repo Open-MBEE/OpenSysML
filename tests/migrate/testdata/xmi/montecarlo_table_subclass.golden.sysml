@@ -40,7 +40,7 @@ package Results {
                 multiple = "first"),
             properties = ("name"),
             columns = (
-                DocumentQueries::Column(name = "N", expression = 'Monte Carlo'.runs)))
+                DocumentQueries::Column(name = "N", path = "'Monte Carlo'.runs")))
     }
     part def 'Fast Statistics Document' :> DocumentQueries::Document {
         attribute redefines title = "Fast Statistics";
