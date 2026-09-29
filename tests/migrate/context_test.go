@@ -120,6 +120,62 @@ func TestUnownedActivityAcceptsViaThePortsOfTheBlocksRunningIt(t *testing.T) {
 	}
 }
 
+func TestRelativeAcceptEventReadsOwnerFeature(t *testing.T) {
+	r := migrateDocument(t, `
+    <packagedElement xmi:type="uml:Class" xmi:id="_host" name="Host">
+      <ownedAttribute xmi:type="uml:Property" xmi:id="_ditSetup" name="ditSetup">`+realHref+`</ownedAttribute>
+      <ownedBehavior xmi:type="uml:Activity" xmi:id="_wait" name="Wait">
+        <node xmi:type="uml:InitialNode" xmi:id="_start"/>
+        <node xmi:type="uml:AcceptEventAction" xmi:id="_accept" name="wait">
+          <trigger xmi:type="uml:Trigger" xmi:id="_trigger" event="_timer"/>
+        </node>
+        <node xmi:type="uml:ActivityFinalNode" xmi:id="_finish"/>
+        <edge xmi:type="uml:ControlFlow" xmi:id="_startFlow" source="_start" target="_accept"/>
+        <edge xmi:type="uml:ControlFlow" xmi:id="_finishFlow" source="_accept" target="_finish"/>
+      </ownedBehavior>
+    </packagedElement>
+    <packagedElement xmi:type="uml:TimeEvent" xmi:id="_timer" isRelative="true">
+      <when xmi:type="uml:TimeExpression" xmi:id="_when">
+        <expr xmi:type="uml:LiteralString" xmi:id="_duration" value="ditSetup s"/>
+      </when>
+    </packagedElement>`, `
+  <sysml:Block xmi:id="_hostBlock" base_Class="_host"/>`)
+	wantLine(t, r.Notation, "action wait {")
+	wantLine(t, r.Notation, "action wait accept after ditSetup [SI::s];")
+	wantNoLine(t, r.Notation, "in ref context : Host;")
+	wantClean(t, "t.sysml", r)
+}
+
+func TestDurationConstraintReadsOwnerFeature(t *testing.T) {
+	r := migrateDocument(t, `
+    <packagedElement xmi:type="uml:Class" xmi:id="_host" name="Host">
+      <ownedAttribute xmi:type="uml:Property" xmi:id="_ditSetup" name="ditSetup">`+realHref+`</ownedAttribute>
+      <ownedBehavior xmi:type="uml:Activity" xmi:id="_wait" name="Wait">
+        <node xmi:type="uml:InitialNode" xmi:id="_start"/>
+        <node xmi:type="uml:ValueSpecificationAction" xmi:id="_value" name="value">
+          <value xmi:type="uml:LiteralInteger" xmi:id="_one" value="1"/>
+          <result xmi:type="uml:OutputPin" xmi:id="_result" name="result"/>
+        </node>
+        <node xmi:type="uml:ActivityFinalNode" xmi:id="_finish"/>
+        <edge xmi:type="uml:ControlFlow" xmi:id="_startFlow" source="_start" target="_value"/>
+        <edge xmi:type="uml:ControlFlow" xmi:id="_finishFlow" source="_value" target="_finish"/>
+        <ownedRule xmi:type="uml:DurationConstraint" xmi:id="_delay">
+          <constrainedElement xmi:idref="_value"/>
+          <specification xmi:type="uml:DurationInterval" xmi:id="_interval" min="_min" max="_max"/>
+        </ownedRule>
+      </ownedBehavior>
+    </packagedElement>
+    <packagedElement xmi:type="uml:Duration" xmi:id="_min">
+      <expr xmi:type="uml:LiteralString" xmi:id="_minExpr" value="ditSetup s"/>
+    </packagedElement>
+    <packagedElement xmi:type="uml:Duration" xmi:id="_max">
+      <expr xmi:type="uml:LiteralString" xmi:id="_maxExpr" value="ditSetup s"/>
+    </packagedElement>`, `
+  <sysml:Block xmi:id="_hostBlock" base_Class="_host"/>`)
+	wantLine(t, r.Notation, "action wait accept after ditSetup [SI::s];")
+	wantClean(t, "t.sysml", r)
+}
+
 func TestViewpointActivityContextSpecializesUsage(t *testing.T) {
 	r := migrateFixtureFile(t, "viewpoint_context")
 	wantLine(t, r.Notation, "in ref context :> 'Review Viewpoint';")

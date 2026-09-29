@@ -685,9 +685,75 @@ func (m *migration) usesFeaturesOf(b, c *sysmlv1.Element) bool {
 			if body, lang := opaqueBody(e); m.bodyReads(body, lang, opaqueScope(e), c, false) {
 				uses = true
 			}
+		case "DurationConstraint":
+			if spec := firstOwned(e, "specification"); spec != nil {
+				for _, scope := range m.model.Refs(e, "constrainedElement") {
+					for _, endpoint := range []string{"min", "max"} {
+						if m.durationReads(m.model.Ref(spec, endpoint), scope, c) {
+							uses = true
+						}
+					}
+				}
+			}
+		case "AcceptEventAction":
+			for _, trigger := range e.Owned("trigger") {
+				ev := m.model.Ref(trigger, "event")
+				if ev == nil {
+					continue
+				}
+				switch ev.Type {
+				case "TimeEvent":
+					if ev.Attrs["isRelative"] != "true" {
+						continue
+					}
+					if m.durationReads(firstOwned(ev, "when"), e, c) {
+						uses = true
+					}
+				case "ChangeEvent":
+					v := firstOwned(ev, "changeExpression")
+					if v == nil {
+						continue
+					}
+					var body, lang string
+					switch v.Type {
+					case "LiteralString":
+						body = v.Attrs["value"]
+					case "OpaqueExpression":
+						body, lang = opaqueBody(v)
+					default:
+						continue
+					}
+					if m.bodyReads(body, lang, e, c, false) {
+						uses = true
+					}
+				}
+			}
 		}
 	})
 	return uses
+}
+
+func (m *migration) durationReads(v, scope, c *sysmlv1.Element) bool {
+	for v != nil && (v.Type == "Duration" || v.Type == "TimeExpression") {
+		v = firstOwned(v, "expr")
+	}
+	if v == nil {
+		return false
+	}
+	var text, lang string
+	switch v.Type {
+	case "LiteralString":
+		text = v.Attrs["value"]
+	case "OpaqueExpression":
+		text, lang = opaqueBody(v)
+	default:
+		return false
+	}
+	body, _, _ := durationBody(text)
+	if _, _, ok := parseDuration(text); ok {
+		return false
+	}
+	return m.bodyReads(body, lang, scope, c, false)
 }
 
 // bodyReads reports whether an opaque body, read where scope's names resolve,
