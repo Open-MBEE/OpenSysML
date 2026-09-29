@@ -204,9 +204,9 @@ input may be a Flexo branch URL (host[:port][/base]/projects/{p}/branches/{b}
 of the FLEXO_SYSMLV2_URL endpoint, or flexo://{p}/{b}), read as its RDF graph
 .TP
 .BR \-from " \fIformat\fP"
-Input format for \-convert: sysml, kerml, ttl, turtle, rdf, api\-json, or xmi,
-uml or mdzip for a SysML v1 model to migrate (experimental); default the
-input's extension
+Input format for \-convert: sysml, kerml, ttl, turtle, rdf, api\-json, fmu for
+a Functional Mock\-up Unit to import, or xmi, uml or mdzip for a SysML v1
+model to migrate (experimental); default the input's extension
 .TP
 .BR \-id " \fIname\fP"
 With \-convert ttl or api\-json, how derived element ids are spelled:
@@ -701,10 +701,11 @@ sysml model.sysml \-convert ttl \-o flexo://demo/main
 .RE
 .PP
 The input format is taken from the file extension (.sysml, .kerml, .ttl,
-\&.json) unless \-from names it: sysml, kerml, ttl, turtle, rdf, api\-json, or
-xmi, uml or mdzip for a SysML v1 model to migrate, whose element\-by\-element
-report \-migration\-report writes out; \-layout names an MTIP export of the
-same project, whose diagram geometry is written into the migrated views as
+\&.json, .fmu) unless \-from names it: sysml, kerml, ttl, turtle, rdf,
+api\-json, fmu for a Functional Mock\-up Unit to import, or xmi, uml or mdzip
+for a SysML v1 model to migrate, whose element\-by\-element report
+\-migration\-report writes out; \-layout names an MTIP export of the same
+project, whose diagram geometry is written into the migrated views as
 DiagramLayout metadata. Converting to the format it is already in rewrites the
 input: notation is reformatted, Turtle is normalized.
 .PP

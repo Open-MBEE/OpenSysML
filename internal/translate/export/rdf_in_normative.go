@@ -382,7 +382,8 @@ func (d *decoder) verifyConjugated(el, parent *element) error {
 	name, _ := d.stringOf(el, rdf.SysML+pDeclaredName)
 	original, ok := d.stringOf(parent, rdf.SysML+pDeclaredName)
 	if !ok {
-		original = parent.qname[strings.LastIndex(parent.qname, "::")+2:]
+		segments := identitySegments(parent.qname)
+		original = identityName(segments[len(segments)-1])
 	}
 	expected := "~" + original
 	if name != expected {

@@ -571,8 +571,9 @@ func (e *encoder) provenance(subject rdf.Term, node ast.Node) {
 }
 
 // collect walks the tree recording every qualified name it declares. A name
-// declared twice in one namespace is reported: the qualified name is an
-// element's identity in the graph, so two such members would merge into one.
+// declared twice in one namespace is not an identity: the first member keeps
+// the qualified name, as the language's own naming rule fixes it, and each
+// later one is identified by its position, like a member declared unnamed.
 func (e *encoder) collect(members []ast.Node, owner string) error {
 	for i, member := range e.kept(members) {
 		node, _ := unwrapMember(member)
@@ -581,13 +582,11 @@ func (e *encoder) collect(members []ast.Node, owner string) error {
 		if fqn == "" {
 			continue
 		}
-		e.fqn[node] = fqn
-		if e.declared[fqn] {
-			return &UnsupportedError{
-				What: fmt.Sprintf("the duplicate declaration of %q at %s", name, e.where(node)),
-				Note: "a name identifies an element in the graph, so two members of one namespace cannot share it",
-			}
+		// A member whose own name is taken is identified by its position.
+		if name != "" && e.declared[fqn] {
+			fqn = qualify(owner, "", i)
 		}
+		e.fqn[node] = fqn
 		e.declared[fqn] = true
 		if err := e.collect(children, fqn); err != nil {
 			return err
@@ -612,10 +611,7 @@ func (e *encoder) collectCrossFeature(node ast.Node, owner string) error {
 	cross := u.CrossFeature
 	fqn := qualify(owner, cross.Ident.Name, e.crossFeatureIndex(u))
 	if e.declared[fqn] {
-		return &UnsupportedError{
-			What: fmt.Sprintf("the cross feature at %s", e.where(cross)),
-			Note: fmt.Sprintf("it is identified as %s, which a body member is named too, and merging two elements into one subject would be a different model", fqn),
-		}
+		fqn = qualify(owner, "", e.crossFeatureIndex(u))
 	}
 	e.fqn[cross] = fqn
 	e.declared[fqn] = true
@@ -642,13 +638,6 @@ func (e *encoder) collectPrefixes(node ast.Node, owner string, index int) error 
 			continue
 		}
 		fqn := qualify(owner, "", index)
-		// A body member may be named `'@N'`, the position name the prefix takes.
-		if e.declared[fqn] {
-			return &UnsupportedError{
-				What: fmt.Sprintf("the prefix annotation at %s", e.where(prefix)),
-				Note: fmt.Sprintf("it is identified by its position as %s, which a body member is named, and merging two elements into one subject would be a different model", fqn),
-			}
-		}
 		e.fqn[prefix] = fqn
 		e.declared[fqn] = true
 		if err := e.collect(prefix.Body, fqn); err != nil {
@@ -831,8 +820,13 @@ func (e *encoder) head(subject rdf.Term, h memberHead) {
 // the member whose expression body declares it when h.local names it.
 func (e *encoder) encodeMember(h memberHead, owner string) error {
 	node, ownerTerm, index := h.node, h.owner, h.index
-	name, _ := declaredNameAndMembers(node)
-	fqn := qualify(owner, name, index)
+	// collect has already fixed this member's qualified name: a name a
+	// sibling of the same owner declared first is addressed by position there.
+	fqn, collected := e.fqn[node]
+	if !collected {
+		name, _ := declaredNameAndMembers(node)
+		fqn = qualify(owner, name, index)
+	}
 	subject := h.local
 	local := subject.Value != ""
 	// within is the member the expressions written here are part of.
@@ -1677,7 +1671,7 @@ func (e *encoder) bindingEnds(subject rdf.Term, owner string, n *ast.Usage) erro
 		if target == nil {
 			continue
 		}
-		if err := e.connectorEnd(subject, connectorEndSpec{owner: owner, slot: fmt.Sprintf("end%d", i), index: i, ends: 2, target: target}); err != nil {
+		if err := e.connectorEnd(subject, connectorEndSpec{owner: owner, slot: fmt.Sprintf("end%d", i), index: i, ends: 2, target: target, flow: true}); err != nil {
 			return err
 		}
 	}
@@ -1709,6 +1703,9 @@ type connectorEndSpec struct {
 	// noCollapse leaves the collapsed end properties to the caller: a
 	// succession's edgeEnds states them beside the ends it owns.
 	noCollapse bool
+	// flow makes a flow's end a FlowEnd when its target is a name or a chain
+	// (SysML.xtext FlowEnd), rather than a ReferenceUsage.
+	flow bool
 }
 
 // connectorEnd emits a standard ConnectorEnd feature and its EndFeatureMembership.
@@ -1722,6 +1719,10 @@ func (e *encoder) connectorEnd(subject rdf.Term, end connectorEndSpec) error {
 	metaclass := crossFeatureMetaclass(false)
 	if end.port {
 		metaclass = mPortUsage
+	}
+	flowSegments := e.flowEndSegments(end)
+	if len(flowSegments) > 0 {
+		metaclass = mFlowEnd
 	}
 	e.typed(feature, metaclass)
 	e.graph.Add(feature, e.sysml(pElementID), rdf.String(rdf.LocalName(feature.Value)))
@@ -1754,12 +1755,65 @@ func (e *encoder) connectorEnd(subject rdf.Term, end connectorEndSpec) error {
 	if end.target == nil && end.targetTerm.Value == "" {
 		return nil
 	}
-	if end.targetTerm.Value != "" {
+	switch {
+	case len(flowSegments) > 0:
+		e.flowEndReferences(feature, flowSegments)
+	case end.targetTerm.Value != "":
 		e.referenceSubsetting(feature, end.targetTerm)
-	} else if err := e.endReferences(feature, end.target); err != nil {
-		return err
+	default:
+		if err := e.endReferences(feature, end.target); err != nil {
+			return err
+		}
 	}
 	return e.multiplicity(feature, end.owner, end.mult)
+}
+
+// flowEndSegments is the name or chain a flow end names, one term per segment,
+// or nil when the end is no flow end or names something else.
+func (e *encoder) flowEndSegments(end connectorEndSpec) []rdf.Term {
+	if !end.flow {
+		return nil
+	}
+	switch target := end.target.(type) {
+	case *ast.QualifiedName:
+		if qualifiedNameHasChain(target) {
+			return e.qualifiedChainReferences(target)
+		}
+		return []rdf.Term{e.reference(target)}
+	case *ast.FeatureChainExpr:
+		var segments []rdf.Term
+		for _, segment := range featureChainSegments(target) {
+			segments = append(segments, e.reference(segment))
+		}
+		return segments
+	}
+	return nil
+}
+
+// flowEndReferences states a FlowEnd's target as the grammar does
+// (SysML.xtext FlowEnd): a ReferenceSubsetting of all but the last segment —
+// the feature itself for one, a FeatureChainPrefix for more — and a
+// FlowFeature, a ReferenceUsage the end owns, redefining the last segment.
+// `a.p.fuel` subsets the chain a.p and redefines fuel; a lone `a` only redefines a.
+func (e *encoder) flowEndReferences(feature rdf.Term, segments []rdf.Term) {
+	prefix, last := segments[:len(segments)-1], segments[len(segments)-1]
+	switch len(prefix) {
+	case 0:
+	case 1:
+		e.referenceSubsetting(feature, prefix[0])
+	default:
+		e.chainFeature(feature, prefix)
+	}
+	flowFeature := e.ids.mintedNode(rdf.ExpressionIRI(feature, "ff"), feature, "ff")
+	membership := e.ids.minted(rdf.OwningMembershipIRIOf(flowFeature), flowFeature, rdf.OwningMembershipSuffix)
+	e.typed(flowFeature, mReferenceUsage)
+	e.graph.Add(flowFeature, e.sysml(pElementID), rdf.String(rdf.LocalName(flowFeature.Value)))
+	e.graph.Add(feature, e.sysml(pOwnedRelationship), membership)
+	e.graph.Add(feature, e.sysml(pOwnedMembership), membership)
+	e.graph.Add(feature, e.sysml(pOwnedFeatureMembership), membership)
+	e.graph.Add(feature, e.sysml(pOwnedFeature), flowFeature)
+	e.emitMembershipCore(membership, flowFeature, feature, mFeatureMembership, true)
+	e.graph.Add(flowFeature, e.sysml(relationshipProperty[ast.RelRedefines]), last)
 }
 
 // endReferenceIRI returns a linked simple-name target, excluding chains.
@@ -2587,6 +2641,8 @@ func declaredNameAndMembers(node ast.Node) (string, []ast.Node) {
 func qualify(owner, name string, index int) string {
 	if name == "" {
 		name = fmt.Sprintf("@%d", index)
+	} else {
+		name = identitySegment(name)
 	}
 	if owner == "" {
 		return name
@@ -2600,7 +2656,7 @@ func qualifiedText(name *ast.QualifiedName) string {
 	}
 	parts := make([]string, 0, len(name.Parts))
 	for _, part := range name.Parts {
-		parts = append(parts, part.Text)
+		parts = append(parts, identitySegment(part.Text))
 	}
 	out := strings.Join(parts, "::")
 	if name.Global {

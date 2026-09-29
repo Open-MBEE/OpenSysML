@@ -122,6 +122,14 @@ elmt:Demo__Vehicle a sysml:PartDefinition ;
     sysml:owner elmt:Demo .
 ```
 
+Qualified-name segments keep their bare spelling unless a name would read back
+as a position — `@` followed by a canonical non-negative integer — or contains
+`::` or begins with a literal `'`. Those names use unrestricted-name quotes,
+so the named member `P::'@2'` remains distinct from the positional identity
+`P::@2`. Names that need no quotes keep their existing IRI spelling. For example,
+`P::'@2'` encodes as `P___27_402_27`. Inside the quotes, `\` and `'` are
+backslash-escaped.
+
 The encoding (`rdf.EncodeElementID`) works over the UTF-8 bytes of the
 qualified name, with `_` as the escape character:
 
@@ -1412,6 +1420,15 @@ expr:P__Car___402_pend0_om
     sysml:owningRelatedElement elmt:P__Car___402 .
 ```
 
+A `flow`'s end (and a `succession flow`'s) is a `sysml:FlowEnd` instead
+(SysML.xtext FlowEnd), under the same `EndFeatureMembership`. Its
+`ReferenceSubsetting` names all but the last segment of the end as written —
+the feature itself for `t.fuel`, a chain feature for `a.p.fuel`, nothing for a
+lone name — and the end owns, through a `sysml:FeatureMembership`, a
+`sysml:ReferenceUsage` (its FlowFeature) with `sysml:redefines` the last
+segment: `a.p.fuel` subsets the chain `a.p` and redefines `fuel`. Read back,
+the segments and the redefined feature are written as the one chain.
+
 `sysml:connectorEnd` is ordered by its `json:connectorEnd` annotation. Each end
 is a `ReferenceUsage` with `sysml:isEnd` — a `PortUsage` for an `interface`'s
 end, whose grammar declares `InterfaceEnd returns SysML::PortUsage`
@@ -1751,9 +1768,18 @@ prefix carrying a name, an `about` clause or a body (the grammar's
 `@` introduces a member of its own, so the parser reports the missing `;` or
 `{` after `@Safety` — and it is refused at the parser, before conversion.
 
-**A name declared twice in one namespace is refused.** An element's derived id
-is the encoding of its qualified name, so `part def A; part def A;` in one
-container would merge into a single subject. The duplicate is reported instead.
+**A name declared twice in one namespace is not an element's identity.** The
+first member with the name keeps the qualified name, as the language's own
+naming rule fixes it, and each later one is identified by its position among
+the owner's members — `Demo::Dup` then `Demo::@2` for two `part def Dup` at
+positions 0 and 2 — the same name a member declared unnamed takes. Both are
+`sysml:declaredName "Dup"`, each its own element with its own membership, and
+the name resolution pass still reports the duplicate as a warning; SysML has
+no reopening of a declaration within a namespace, so merge the declarations
+into one (or rename) rather than rely on the position. A member named `'@2'`
+has the distinct qualified name `Demo::'@2'`, while the later duplicate is
+`Demo::@2`; quoting keeps the name and position from identifying the same
+element.
 
 A shorthand relationship declares no name of its own: the `result` in `bind result = x;`
 and the `x` in `first x;` name the end the statement relates. Those elements are
