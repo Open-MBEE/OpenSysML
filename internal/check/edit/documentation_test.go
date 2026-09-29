@@ -178,16 +178,16 @@ func TestAddDocumentationReplacesTheOneDocumentation(t *testing.T) {
 }
 
 func TestAddDocumentationReplaceKeepsVisibility(t *testing.T) {
-	for _, vis := range []string{"public", "private", "protected"} {
-		t.Run(vis, func(t *testing.T) {
+	for _, vis := range []string{"", "public ", "private ", "protected "} {
+		t.Run("visibility="+vis, func(t *testing.T) {
 			m := loadContent(t, "doc.sysml",
-				"package P {\n    part def A {\n        "+vis+" doc Summary /* Old. */\n    }\n}\n")
+				"package P {\n    part def A {\n        "+vis+"doc Summary /* Old. */\n    }\n}\n")
 			requireClean(t, m)
 			op := AddDocumentation("P::A", "New.")
 			op.ReplaceDoc = true
 			op.DocName = "Summary"
 			got := applyContent(t, m, op)
-			want := "package P {\n    part def A {\n        " + vis + " doc Summary /* New.*/\n    }\n}\n"
+			want := "package P {\n    part def A {\n        " + vis + "doc Summary /* New.*/\n    }\n}\n"
 			if got != want {
 				t.Fatalf("content =\n%s\nwant\n%s", got, want)
 			}
