@@ -419,6 +419,15 @@ func (d *decoder) payloadText(el *element) (string, error) {
 		}
 	}
 	mult := d.multiplicityText(payload)
+	// `ordered` and `nonunique` follow the multiplicity of a declared payload
+	// (PayloadFeatureSpecializationPart's MultiplicityPart); `of T[1]` has none.
+	flags := ""
+	if d.boolOf(payload, rdf.SysML+"isOrdered") {
+		flags += " ordered"
+	}
+	if d.boolOf(payload, rdf.SysML+"isNonunique") {
+		flags += " nonunique"
+	}
 	words := d.identWords(payload)
 	typed, err := d.referenceList(payload, rdf.SysML+relationshipProperty[ast.RelTyping])
 	if err != nil {
@@ -429,7 +438,7 @@ func (d *decoder) payloadText(el *element) (string, error) {
 		if err != nil {
 			return "", err
 		}
-		if _, valued := d.stringOf(payload, rdf.SysML+pValue); len(typed) != 1 || len(rest) > 0 || valued {
+		if _, valued := d.stringOf(payload, rdf.SysML+pValue); len(typed) != 1 || len(rest) > 0 || valued || flags != "" {
 			return "", &UnsupportedError{
 				What: fmt.Sprintf("the payload <%s>", payload.iri),
 				Note: "a payload with no name is written by its one type alone (SysML-textual-bnf PayloadFeature), so one that states anything else has no notation",
@@ -437,6 +446,7 @@ func (d *decoder) payloadText(el *element) (string, error) {
 		}
 		return typed[0] + mult, nil
 	}
+	mult += flags
 	if len(typed) == 0 && mult != "" {
 		words[len(words)-1] += mult
 		mult = ""
@@ -468,6 +478,13 @@ func (d *decoder) flowPayload(el *element) *element {
 		}
 		payload = child
 	}
+	// A flow owns its payload through a FeatureMembership
+	// (FlowPayloadFeatureMember); one owned otherwise has no `of` notation.
+	if payload != nil {
+		if m, ok := d.owningMembership[payload.iri]; !ok || d.metaclass(rdf.IRI(m.iri)) != mFeatureMembership {
+			return nil
+		}
+	}
 	return payload
 }
 
@@ -496,6 +513,22 @@ func (d *decoder) relatedEnds(el *element) (ends []string, payload string, err e
 		}
 		payload, err = d.payloadText(el)
 		return standard, payload, err
+	}
+	// Legacy ends may state the payload as an end role, and the flow may state
+	// it again as sysx:payload or a PayloadFeature: each shape is read, and two
+	// that disagree are refused rather than one dropped.
+	stated, err := d.payloadText(el)
+	if err != nil {
+		return nil, "", err
+	}
+	switch {
+	case legacyPayload == "":
+		legacyPayload = stated
+	case stated != "" && stated != legacyPayload:
+		return nil, "", &UnsupportedError{
+			What: fmt.Sprintf("the payload of <%s>", el.iri),
+			Note: fmt.Sprintf("its legacy payload end says %q and the flow says %q, and the head writes one payload", legacyPayload, stated),
+		}
 	}
 	return legacy, legacyPayload, nil
 }

@@ -1,0 +1,1 @@
+- **A declared flow payload takes `ordered` and `nonunique`.** `flow of p : T[*] ordered from a to b;` was a syntax error, though the payload's multiplicity part allows them (SysML-textual-bnf PayloadFeatureSpecializationPart, MultiplicityPart). They are parsed, exported on the `PayloadFeature` and written back.

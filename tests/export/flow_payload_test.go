@@ -226,3 +226,115 @@ func withBody(t *testing.T, turtle, head string) string {
 	}
 	return turtle[:at] + flipped + turtle[end:]
 }
+
+// A release before standard connector ends wrote a flow's ends as
+// sysx:relatedFeature and its payload as the end of role "payload". That graph
+// reads back with its payload, as does one stating the payload as sysx:payload
+// beside such ends; two shapes that disagree are refused.
+func TestLegacyEndFlowPayloadStillReads(t *testing.T) {
+	legacy, err := os.ReadFile(filepath.Join("testdata", "legacy_flow_ends.ttl"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	graph := string(withoutSourceText(t, legacy))
+	role := `    sysx:endRole "payload" .`
+	ends := ", expr:LegacyFlow__Ctx___402_pflowPayload ;"
+	if !strings.Contains(graph, "sysx:relatedFeature") || !strings.Contains(graph, role) || !strings.Contains(graph, ends) {
+		t.Fatal("the legacy fixture no longer states its payload as an end role")
+	}
+	flow := "elmt:LegacyFlow__Ctx___402\n    a sysml:FlowUsage ;"
+	if !strings.Contains(graph, flow) {
+		t.Fatal("the legacy fixture's flow is not where the test looks")
+	}
+	// The same payload stated as sysx:payload beside the relatedFeature ends.
+	separate := strings.Replace(graph, ends, " ;", 1)
+	separate = strings.Replace(separate, " ;\n"+role, " .", 1)
+	separate = strings.Replace(separate, flow, flow+"\n    sysx:payload expr:LegacyFlow__Ctx___402_pflowPayload ;", 1)
+	for name, g := range map[string]string{"an end role": graph, "sysx:payload": separate} {
+		back, err := convert.Convert("legacy.ttl", []byte(g), convert.FormatTurtle, convert.FormatSysML)
+		if err != nil {
+			t.Fatalf("%s: legacy graph refused: %v", name, err)
+		}
+		if !strings.Contains(string(back), "flow of Fuel from x.i to y.j;") {
+			t.Errorf("%s: the legacy payload was lost:\n%s", name, back)
+		}
+	}
+	conflict := strings.Replace(graph, flow, flow+"\n    sysx:payload \"Other\" ;", 1)
+	if back, err := convert.Convert("legacy.ttl", []byte(conflict), convert.FormatTurtle, convert.FormatSysML); err == nil {
+		t.Errorf("a payload end role and a disagreeing sysx:payload were converted:\n%s", back)
+	}
+}
+
+// A payload's `ordered` (and `nonunique`, read the same way) follows its
+// multiplicity (PayloadFeatureSpecializationPart's MultiplicityPart) and comes
+// back from the graph alone; `of T[1]` has no place for them, so an unnamed payload stating
+// one is refused.
+func TestPayloadOrderingFlags(t *testing.T) {
+	const model = `package O {
+    item def Fuel;
+    part def A { out item i : Fuel[*]; }
+    part def B { in item j : Fuel[*]; }
+    part def Ctx {
+        part x : A;
+        part y : B;
+        flow of p : Fuel[*] ordered from x.i to y.j;
+        flow of Fuel[*] from x.i to y.j;
+    }
+}
+`
+	turtle, back := graphOnlyRoundTrip(t, "o.sysml", []byte(model))
+	for _, want := range []string{
+		"flow of p : Fuel[*] ordered from x.i to y.j;",
+	} {
+		if !strings.Contains(string(back), want) {
+			t.Errorf("the notation should contain %q:\n%s", want, back)
+		}
+	}
+	unnamed := "elmt:O__Ctx___403___400\n    a sysml:PayloadFeature ;"
+	if !strings.Contains(string(turtle), unnamed) {
+		t.Fatalf("the graph no longer states %q", unnamed)
+	}
+	flagged := strings.Replace(string(turtle), unnamed, unnamed+"\n    sysml:isOrdered \"true\"^^xsd:boolean ;", 1)
+	if back, err := convert.Convert("o.ttl", withoutSourceText(t, []byte(flagged)), convert.FormatTurtle, convert.FormatSysML); err == nil {
+		t.Errorf("an unnamed ordered payload was converted:\n%s", back)
+	}
+}
+
+// A payload's declared id is annotated `about` it in its flow's body, since
+// the head it is written in has no place for it, and so survives the graph
+// alone; a payload owned by anything but a FeatureMembership is refused.
+func TestPayloadIdentityAndMembership(t *testing.T) {
+	turtle, err := convert.Convert("p.sysml", []byte(flowPayloadModel), convert.FormatSysML, convert.FormatTurtle)
+	if err != nil {
+		t.Fatal(err)
+	}
+	derived := `sysml:elementId "P__Ctx__m__cmd" ;`
+	if !strings.Contains(string(turtle), derived) {
+		t.Fatalf("the graph no longer states %q", derived)
+	}
+	declared := strings.Replace(string(turtle), derived, `sysml:elementId "external-cmd" ;
+    sysx:declaredId "true"^^xsd:boolean ;`, 1)
+	back, err := convert.Convert("p.ttl", withoutSourceText(t, []byte(declared)), convert.FormatTurtle, convert.FormatSysML)
+	if err != nil {
+		t.Fatalf("a payload with a declared id was refused: %v", err)
+	}
+	if !strings.Contains(string(back), "about cmd") || !strings.Contains(string(back), `"external-cmd"`) {
+		t.Errorf("the payload's id is not annotated about it:\n%s", back)
+	}
+	again, err := convert.Convert("p.sysml", back, convert.FormatSysML, convert.FormatTurtle)
+	if err != nil {
+		t.Fatalf("the notation written back does not convert: %v\n%s", err, back)
+	}
+	if !strings.Contains(string(again), `sysml:elementId "external-cmd"`) {
+		t.Errorf("the declared id did not survive the round trip:\n%s", back)
+	}
+
+	membership := "elmt:P__Ctx__m__cmd_om\n    a sysml:FeatureMembership ;"
+	if !strings.Contains(string(turtle), membership) {
+		t.Fatalf("the graph no longer states %q", membership)
+	}
+	owning := strings.Replace(string(turtle), membership, "elmt:P__Ctx__m__cmd_om\n    a sysml:OwningMembership ;", 1)
+	if back, err := convert.Convert("p.ttl", withoutSourceText(t, []byte(owning)), convert.FormatTurtle, convert.FormatSysML); err == nil {
+		t.Errorf("a payload under an OwningMembership was written after `of`:\n%s", back)
+	}
+}
