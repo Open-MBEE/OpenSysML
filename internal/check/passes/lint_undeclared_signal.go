@@ -7,6 +7,7 @@ import (
 
 	"github.com/Open-MBEE/OpenSysML/internal/check/passes/kit"
 	"github.com/Open-MBEE/OpenSysML/internal/ir/lower"
+	"github.com/Open-MBEE/OpenSysML/internal/semantic/semantics"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/suggest"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/symbols"
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/ast"
@@ -155,8 +156,22 @@ func noteSentSignal(ctx *Context, scope *symbols.Scope, expr ast.Node, sent map[
 	case *ast.ConstructorExpr:
 		noteSentName(e.Type, sent)
 	case *ast.InvocationExpr:
-		if e.Operand == nil {
+		if e.Operand != nil || e.Type == nil {
+			return
+		}
+		model := ctx.Model()
+		sel := model.SelectCall(scope, e, semantics.PerformsBehavior)
+		if !model.CallsCalc(sel) {
 			noteSentName(e.Type, sent)
+			return
+		}
+		// The calculation's value is sent, typed by its result.
+		for _, called := range selectedCalcs(sel) {
+			for _, typ := range model.DeclaredTypes(model.ResultParameterOf(called)) {
+				if typ != nil && typ.Name != "" {
+					sent[typ.Name] = true
+				}
+			}
 		}
 	case *ast.QualifiedName, *ast.FeatureReference, *ast.FeatureChainExpr:
 		noteSentName(e, sent)
@@ -176,6 +191,15 @@ func noteSentSignal(ctx *Context, scope *symbols.Scope, expr ast.Node, sent map[
 }
 
 // noteSentName records the last segment of a name written in a send.
+// selectedCalcs is what a call of a calculation may run: the one selected, or
+// every tied candidate when the arguments' values choose.
+func selectedCalcs(sel *semantics.InvocationSelection) []*symbols.Symbol {
+	if sel.Ambiguous {
+		return sel.Tied
+	}
+	return []*symbols.Symbol{sel.Called()}
+}
+
 func noteSentName(node ast.Node, sent map[string]bool) {
 	var qn *ast.QualifiedName
 	switch n := node.(type) {

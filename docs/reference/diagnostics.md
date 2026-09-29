@@ -44,6 +44,8 @@ The lint reports the name when all of the following hold:
 - no `send` anywhere in the workspace sends a signal by that name — neither the name of a
   payload's type (`send new Ping() to self;`) nor the name of a payload feature
   (`send ping to self;`) — the final segment being compared, as the runtime compares it.
+  A send invoking a calculation (`send Ping() to self;` with `calc def Ping`) sends the
+  calculation's value, as the runtime does, so it counts the result's type, not `Ping`.
   A document held as its interface record counts too: the record keeps the names its body
   sends.
 

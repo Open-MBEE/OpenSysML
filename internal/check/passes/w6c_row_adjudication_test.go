@@ -87,7 +87,7 @@ func TestW6CSignalTriggerNameIsResolved(t *testing.T) {
 }
 
 // The OpenSysML `when <name>` spelling remains an injected signal, unlike the
-// grammar's `accept <name>` payload typing.
+// grammar's `accept <name>` payload typing: only the advisory lint reports it.
 func TestW6CWhenSignalNameIsNotResolved(t *testing.T) {
 	got := w6cDiags(t, "w6c_when_trigger.sysml", `package P {
 	state def S {
@@ -96,8 +96,8 @@ func TestW6CWhenSignalNameIsNotResolved(t *testing.T) {
 		transition first a when sigX then b;
 	}
 }`)
-	if len(got) != 0 {
-		t.Fatalf("got %+v, want no diagnostics", got)
+	if len(got) != 1 || got[0].Code != CodeUndeclaredSignal || got[0].Severity != diag.SeverityWarning {
+		t.Fatalf("got %+v, want only the %s warning", got, CodeUndeclaredSignal)
 	}
 }
 

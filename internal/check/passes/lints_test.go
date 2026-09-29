@@ -172,6 +172,40 @@ func TestUndeclaredSignalLintReadsOtherDocuments(t *testing.T) {
 	}
 }
 
+// A send invoking a calculation sends its value, typed by the calculation's
+// result; one invoking anything else sends a signal by the invoked name.
+func TestUndeclaredSignalLintInvokedSend(t *testing.T) {
+	machine := `package M {
+	state def Machine {
+		entry; then idle;
+		state idle; state busy;
+		transition first idle when Ping then busy;
+		transition first busy when Reading then idle;
+		transition first busy when Halt then idle;
+	}
+}`
+	sender := `package S {
+	item def Reading;
+	attribute def Halt;
+	calc def Ping { return r : Reading; }
+	part def Sender { action a { send Ping() to self; send Halt() to self; } }
+}`
+	idx := newTestIndex()
+	mroot := parser.New(source.New("m.sysml", []byte(machine))).ParseFile()
+	sroot := parser.New(source.New("s.sysml", []byte(sender))).ParseFile()
+	idx.AddDocument("m.sysml", mroot)
+	idx.AddDocument("s.sysml", sroot)
+	var got []string
+	for _, d := range Analyze("m.sysml", mroot, nil, idx) {
+		if d.Code == CodeUndeclaredSignal {
+			got = append(got, d.Message)
+		}
+	}
+	if len(got) != 1 || !strings.Contains(got[0], "`when Ping`") {
+		t.Fatalf("got %q, want one finding, on `when Ping`", got)
+	}
+}
+
 func TestWithoutLints(t *testing.T) {
 	diags := []diag.Diagnostic{
 		{Code: CodeUndeclaredSignal, Source: lintSource},

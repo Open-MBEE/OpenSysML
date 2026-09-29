@@ -200,6 +200,16 @@ func (m *Model) Evaluates(sym *symbols.Symbol) bool {
 	return m.performs(sym, calcLike)
 }
 
+// CallsCalc reports whether a call selecting sel calls a calculation, whose value
+// a send sends, rather than naming a signal: the selected declaration evaluates,
+// or the choice is left to the arguments' values, which only a calculation reads.
+func (m *Model) CallsCalc(sel *InvocationSelection) bool {
+	if sel == nil {
+		return false
+	}
+	return sel.Ambiguous || m.Evaluates(sel.Called())
+}
+
 // performs reports whether sym, or a behavior it is typed by, satisfies is.
 func (m *Model) performs(sym *symbols.Symbol, is func(*symbols.Symbol) bool) bool {
 	visited := map[*symbols.Symbol]bool{}
