@@ -56,14 +56,14 @@ func TestMessageEndsAreEventOccurrenceUsages(t *testing.T) {
 		strings.Contains(graph, "expr:M__Talk__m_pend0_om\n    a sysml:EndFeatureMembership") {
 		t.Errorf("a message end is no ReferenceUsage end feature:\n%s", graph)
 	}
-	// The `flow` keeps its connector ends: ReferenceUsage ends under
+	// The `flow` keeps its flow ends: FlowEnd features under
 	// EndFeatureMemberships, unchanged by the message shape.
 	for _, want := range []string{
-		"expr:M__Talk__f_pend0\n    a sysml:ReferenceUsage ;",
+		"expr:M__Talk__f_pend0\n    a sysml:FlowEnd ;",
 		"expr:M__Talk__f_pend0_om\n    a sysml:EndFeatureMembership ;",
 	} {
 		if !strings.Contains(graph, want) {
-			t.Errorf("a flow end should stay a ReferenceUsage end feature %q:\n%s", want, graph)
+			t.Errorf("a flow end should stay a FlowEnd end feature %q:\n%s", want, graph)
 		}
 	}
 	notation := string(back)
@@ -114,7 +114,7 @@ func TestMessageEndsInAPIJSON(t *testing.T) {
 		"M__Talk__m_pend1":    "EventOccurrenceUsage",
 		"M__Talk__m_pend0_om": "ParameterMembership",
 		"M__Talk__m_pend1_om": "ParameterMembership",
-		"M__Talk__f_pend0":    "ReferenceUsage",
+		"M__Talk__f_pend0":    "FlowEnd",
 		"M__Talk__f_pend0_om": "EndFeatureMembership",
 	} {
 		if typ := typeOf(id); typ != want {

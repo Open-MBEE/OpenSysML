@@ -1693,7 +1693,7 @@ func (e *encoder) bindingEnds(subject rdf.Term, owner string, n *ast.Usage) erro
 			}
 			continue
 		}
-		if err := e.connectorEnd(subject, connectorEndSpec{owner: owner, slot: fmt.Sprintf("end%d", i), index: i, ends: 2, target: target}); err != nil {
+		if err := e.connectorEnd(subject, connectorEndSpec{owner: owner, slot: fmt.Sprintf("end%d", i), index: i, ends: 2, target: target, flow: true}); err != nil {
 			return err
 		}
 	}
@@ -1757,6 +1757,9 @@ type connectorEndSpec struct {
 	// noCollapse leaves the collapsed end properties to the caller: a
 	// succession's edgeEnds states them beside the ends it owns.
 	noCollapse bool
+	// flow makes a flow's end a FlowEnd when its target is a name or a chain
+	// (SysML.xtext FlowEnd), rather than a ReferenceUsage.
+	flow bool
 }
 
 // connectorEnd emits a standard ConnectorEnd feature and its EndFeatureMembership.
@@ -1770,6 +1773,10 @@ func (e *encoder) connectorEnd(subject rdf.Term, end connectorEndSpec) error {
 	metaclass := crossFeatureMetaclass(false)
 	if end.port {
 		metaclass = mPortUsage
+	}
+	flowSegments := e.flowEndSegments(end)
+	if len(flowSegments) > 0 {
+		metaclass = mFlowEnd
 	}
 	e.typed(feature, metaclass)
 	e.graph.Add(feature, e.sysml(pElementID), rdf.String(rdf.LocalName(feature.Value)))
@@ -1802,12 +1809,65 @@ func (e *encoder) connectorEnd(subject rdf.Term, end connectorEndSpec) error {
 	if end.target == nil && end.targetTerm.Value == "" {
 		return nil
 	}
-	if end.targetTerm.Value != "" {
+	switch {
+	case len(flowSegments) > 0:
+		e.flowEndReferences(feature, flowSegments)
+	case end.targetTerm.Value != "":
 		e.referenceSubsetting(feature, end.targetTerm)
-	} else if err := e.endReferences(feature, end.target); err != nil {
-		return err
+	default:
+		if err := e.endReferences(feature, end.target); err != nil {
+			return err
+		}
 	}
 	return e.multiplicity(feature, end.owner, end.mult)
+}
+
+// flowEndSegments is the name or chain a flow end names, one term per segment,
+// or nil when the end is no flow end or names something else.
+func (e *encoder) flowEndSegments(end connectorEndSpec) []rdf.Term {
+	if !end.flow {
+		return nil
+	}
+	switch target := end.target.(type) {
+	case *ast.QualifiedName:
+		if qualifiedNameHasChain(target) {
+			return e.qualifiedChainReferences(target)
+		}
+		return []rdf.Term{e.reference(target)}
+	case *ast.FeatureChainExpr:
+		var segments []rdf.Term
+		for _, segment := range featureChainSegments(target) {
+			segments = append(segments, e.reference(segment))
+		}
+		return segments
+	}
+	return nil
+}
+
+// flowEndReferences states a FlowEnd's target as the grammar does
+// (SysML.xtext FlowEnd): a ReferenceSubsetting of all but the last segment —
+// the feature itself for one, a FeatureChainPrefix for more — and a
+// FlowFeature, a ReferenceUsage the end owns, redefining the last segment.
+// `a.p.fuel` subsets the chain a.p and redefines fuel; a lone `a` only redefines a.
+func (e *encoder) flowEndReferences(feature rdf.Term, segments []rdf.Term) {
+	prefix, last := segments[:len(segments)-1], segments[len(segments)-1]
+	switch len(prefix) {
+	case 0:
+	case 1:
+		e.referenceSubsetting(feature, prefix[0])
+	default:
+		e.chainFeature(feature, prefix)
+	}
+	flowFeature := e.ids.mintedNode(rdf.ExpressionIRI(feature, "ff"), feature, "ff")
+	membership := e.ids.minted(rdf.OwningMembershipIRIOf(flowFeature), flowFeature, rdf.OwningMembershipSuffix)
+	e.typed(flowFeature, mReferenceUsage)
+	e.graph.Add(flowFeature, e.sysml(pElementID), rdf.String(rdf.LocalName(flowFeature.Value)))
+	e.graph.Add(feature, e.sysml(pOwnedRelationship), membership)
+	e.graph.Add(feature, e.sysml(pOwnedMembership), membership)
+	e.graph.Add(feature, e.sysml(pOwnedFeatureMembership), membership)
+	e.graph.Add(feature, e.sysml(pOwnedFeature), flowFeature)
+	e.emitMembershipCore(membership, flowFeature, feature, mFeatureMembership, true)
+	e.graph.Add(flowFeature, e.sysml(relationshipProperty[ast.RelRedefines]), last)
 }
 
 // endReferenceIRI returns a linked simple-name target, excluding chains.
