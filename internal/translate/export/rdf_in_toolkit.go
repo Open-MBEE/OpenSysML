@@ -785,10 +785,27 @@ func deriveNormativeGraph(graph *rdf.Graph, metaclasses map[rdf.Term]string) (*r
 	}
 
 	// Qualified names: the compact form carries none, and every name the
-	// decoder writes is read from one. An element's is its owner's qualified
-	// name plus its declared name, or its position among the owner's members.
+	// decoder writes is read from one. Members use their owner's name and
+	// position among its members; roots use the same positioning rule.
 	qname := map[string]string{}
 	visiting := map[string]bool{}
+	roots := []rdf.Term{}
+	for _, subject := range graph.Subjects() {
+		m := meta(subject)
+		if membershipSubject[subject.Value] || nodeMember[subject.Value] && expressionMetaclasses[m] {
+			continue
+		}
+		_, owned := memberOwner[subject.Value]
+		if m == "" || expressionMetaclasses[m] && !(m == mMembership && owned) {
+			continue
+		}
+		if !owned && relationshipLike(m) {
+			continue
+		}
+		if !owned {
+			roots = append(roots, subject)
+		}
+	}
 	var nameOf func(subject rdf.Term) string
 	nameOf = func(subject rdf.Term) string {
 		if q, ok := qname[subject.Value]; ok {
@@ -813,6 +830,10 @@ func deriveNormativeGraph(graph *rdf.Graph, metaclasses map[rdf.Term]string) (*r
 		if name == "" {
 			name, _ = graph.Lexical(subject, rdf.SysML+pDeclaredShortName)
 		}
+		siblings := roots
+		if owned {
+			siblings = ownerMembers[owner.Value]
+		}
 		if name == "" {
 			if !owned {
 				// An unnamed element no membership owns — the root namespace
@@ -821,8 +842,8 @@ func deriveNormativeGraph(graph *rdf.Graph, metaclasses map[rdf.Term]string) (*r
 				return ""
 			}
 			index := 0
-			for i, member := range ownerMembers[owner.Value] {
-				if member == subject {
+			for i, sibling := range siblings {
+				if sibling == subject {
 					index = i
 					break
 				}
@@ -832,14 +853,13 @@ func deriveNormativeGraph(graph *rdf.Graph, metaclasses map[rdf.Term]string) (*r
 			return q
 		}
 		q := qualify(base, name, 0)
-		// A name an earlier sibling of the same owner already took is not an
-		// identity: the later member is addressed by its position, as the
-		// mapping names a member declared unnamed.
-		for i, member := range ownerMembers[owner.Value] {
-			if member != subject {
+		// A name an earlier sibling already took is not an identity: the
+		// later element is addressed by its position.
+		for i, sibling := range siblings {
+			if sibling != subject {
 				continue
 			}
-			for _, earlier := range ownerMembers[owner.Value][:i] {
+			for _, earlier := range siblings[:i] {
 				if prior := nameOf(earlier); prior != "" && prior == q {
 					q = qualify(base, "", i)
 					break
@@ -858,7 +878,7 @@ func deriveNormativeGraph(graph *rdf.Graph, metaclasses map[rdf.Term]string) (*r
 		if graph.HasProperty(subject, rdf.SysML+pQualifiedName) {
 			continue
 		}
-		owner, owned := memberOwner[subject.Value]
+		_, owned := memberOwner[subject.Value]
 		if m == "" || expressionMetaclasses[m] && !(m == mMembership && owned) {
 			continue
 		}
@@ -867,7 +887,6 @@ func deriveNormativeGraph(graph *rdf.Graph, metaclasses map[rdf.Term]string) (*r
 			continue
 		}
 		if !owned {
-			// A root: named by its declared name alone, or left unnamed.
 			name, _ := graph.Lexical(subject, rdf.SysML+pDeclaredName)
 			if name == "" {
 				name, _ = graph.Lexical(subject, rdf.SysML+pDeclaredShortName)
@@ -875,12 +894,7 @@ func deriveNormativeGraph(graph *rdf.Graph, metaclasses map[rdf.Term]string) (*r
 			if name == "" {
 				continue
 			}
-			segment := identitySegment(name)
-			graph.Add(subject, rdf.SysMLTerm(pQualifiedName), rdf.String(segment))
-			qname[subject.Value] = segment
-			continue
 		}
-		_ = owner
 		graph.Add(subject, rdf.SysMLTerm(pQualifiedName), rdf.String(nameOf(subject)))
 	}
 

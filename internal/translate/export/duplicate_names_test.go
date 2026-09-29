@@ -294,6 +294,88 @@ func TestDuplicateMemberNamesToolkit(t *testing.T) {
 	}
 }
 
+// TestDuplicateRootNamesToolkit checks duplicate root names receive distinct
+// positional identities, matching the notation export's root ordering.
+func TestDuplicateRootNamesToolkit(t *testing.T) {
+	doc := `[
+		{"@type": "Package", "@id": "p1", "declaredName": "P", "isImpliedIncluded": false,
+		 "ownedMembership": [{"@id": "m1"}]},
+		{"@type": "Package", "@id": "q", "declaredName": "Q", "isImpliedIncluded": false},
+		{"@type": "Package", "@id": "p2", "declaredName": "P", "isImpliedIncluded": false,
+		 "ownedMembership": [{"@id": "m2"}]},
+		{"@type": "OwningMembership", "@id": "m1", "isImpliedIncluded": false,
+		 "memberElement": {"@id": "x1"}, "membershipOwningNamespace": {"@id": "p1"}},
+		{"@type": "OwningMembership", "@id": "m2", "isImpliedIncluded": false,
+		 "memberElement": {"@id": "x2"}, "membershipOwningNamespace": {"@id": "p2"}},
+		{"@type": "PartDefinition", "@id": "x1", "declaredName": "X", "isImpliedIncluded": false},
+		{"@type": "PartDefinition", "@id": "x2", "declaredName": "X", "isImpliedIncluded": false}
+	]`
+	graph, err := ReadAPIJSON([]byte(doc))
+	if err != nil {
+		t.Fatalf("ReadAPIJSON: %v", err)
+	}
+	metaclasses, err := checkTypes(graph)
+	if err != nil {
+		t.Fatalf("checkTypes: %v", err)
+	}
+	normative, err := deriveNormativeGraph(graph, metaclasses)
+	if err != nil {
+		t.Fatalf("deriveNormativeGraph: %v", err)
+	}
+	for id, want := range map[string]string{
+		"p1": "P",
+		"x1": "P::X",
+		"q":  "Q",
+		"p2": "@2",
+		"x2": "@2::X",
+	} {
+		subject := rdf.IRI(rdf.Element + id)
+		got, ok := normative.Lexical(subject, rdf.SysML+pQualifiedName)
+		if !ok || got != want {
+			t.Errorf("%s has qualified name %q, want %q", id, got, want)
+		}
+	}
+
+	file := source.New("duplicate-root.sysml", []byte(
+		"package P { part def X; }\npackage Q;\npackage P { part def X; }\n",
+	))
+	p := parser.New(file)
+	root := p.ParseFile()
+	if len(p.Diagnostics) != 0 {
+		t.Fatalf("the notation fixture does not parse: %v", p.Diagnostics)
+	}
+	notation, err := ToRDF(file, root)
+	if err != nil {
+		t.Fatalf("ToRDF: %v", err)
+	}
+	wantNames := []string{"P", "P::X", "Q", "@2", "@2::X"}
+	for _, tc := range []struct {
+		name  string
+		graph *rdf.Graph
+	}{
+		{name: "toolkit", graph: normative},
+		{name: "notation", graph: notation},
+	} {
+		got := elementSubjectsByQualifiedName(tc.graph)
+		if len(got) != len(wantNames) {
+			t.Errorf("%s graph has qualified names %v, want %v", tc.name, got, wantNames)
+		}
+		for _, want := range wantNames {
+			if _, ok := got[want]; !ok {
+				t.Errorf("%s graph is missing qualified name %q", tc.name, want)
+			}
+		}
+	}
+
+	decoded := decodeAPIJSON(t, []byte(doc))
+	if n := strings.Count(string(decoded), "package P"); n != 2 {
+		t.Errorf("decoded notation has %d `package P` declarations, want 2:\n%s", n, decoded)
+	}
+	if n := strings.Count(string(decoded), "part def X"); n != 2 {
+		t.Errorf("decoded notation has %d `part def X` declarations, want 2:\n%s", n, decoded)
+	}
+}
+
 func TestToolkitQuotedIdentityNamesEscape(t *testing.T) {
 	for _, test := range []struct {
 		name         string

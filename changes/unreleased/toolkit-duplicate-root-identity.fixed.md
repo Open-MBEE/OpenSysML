@@ -1,0 +1,1 @@
+- **Toolkit JSON roots that share a name keep distinct identities.** A later root with an earlier root's name is identified by its position among the roots, matching notation export, instead of receiving the same qualified name.
