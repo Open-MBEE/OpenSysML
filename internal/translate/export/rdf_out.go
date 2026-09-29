@@ -1422,7 +1422,7 @@ func (e *encoder) owningMembership(node ast.Node, member, owner rdf.Term, member
 	// the dependency owns, not a member of it (SysML-textual-bnf Dependency,
 	// PrefixMetadataAnnotation).
 	if metadata && ownerClass == mDependency {
-		annotation := e.ids.minted(rdf.RelationshipIRI(member, annotationSuffix), member, annotationSuffix)
+		annotation := e.ids.minted(rdf.RelationshipIRI(member, AnnotationSuffix), member, AnnotationSuffix)
 		return e.prefixAnnotation(annotation, member, owner, memberFQN)
 	}
 	membership := e.ids.owningMembershipOf(node, member)
@@ -1479,9 +1479,9 @@ func (e *encoder) owningMembership(node ast.Node, member, owner rdf.Term, member
 	return membership
 }
 
-// annotationSuffix names the Annotation by which a dependency owns a prefix
+// AnnotationSuffix names the Annotation by which a dependency owns a prefix
 // metadata usage, after the usage it owns, as `_om` names a membership.
-const annotationSuffix = "_an"
+const AnnotationSuffix = "_an"
 
 // prefixAnnotation writes the Annotation by which owner, a relationship, owns
 // the metadata usage member that annotates it.

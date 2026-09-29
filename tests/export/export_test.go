@@ -1439,6 +1439,25 @@ func TestMetadataOnARelationshipIsOwnedThroughAMembership(t *testing.T) {
 	}
 }
 
+// A dependency's prefix annotates the dependency; an Annotation it owns that
+// names another element is refused rather than written as its prefix.
+func TestDependencyPrefixAnnotatingAnotherElementIsRefused(t *testing.T) {
+	src := "package P {\n\tmetadata def Safety;\n\tpart def Car;\n\t#Safety dependency from P to Car;\n}"
+	turtle, err := convert.Convert("m.sysml", []byte(src), convert.FormatSysML, convert.FormatTurtle)
+	if err != nil {
+		t.Fatalf("to turtle: %v", err)
+	}
+	stated := "sysml:annotatedElement elmt:P___402 ."
+	if !strings.Contains(string(turtle), stated) {
+		t.Fatalf("the graph no longer states %q:\n%s", stated, turtle)
+	}
+	moved := strings.Replace(string(turtle), stated, "sysml:annotatedElement elmt:P__Car .", 1)
+	back, err := convert.Convert("m.ttl", []byte(moved), convert.FormatTurtle, convert.FormatSysML)
+	if err == nil || !strings.Contains(err.Error(), "annotates") {
+		t.Errorf("an annotation of another element came back as the dependency's prefix (%v):\n%s", err, back)
+	}
+}
+
 // A metadata usage member carries its body's feature values, its name, the
 // elements it is about and the `@` it was written with, so every member form
 // comes back from the mapping alone and converts to the same graph again. A

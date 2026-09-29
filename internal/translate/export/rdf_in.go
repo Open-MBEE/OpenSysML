@@ -905,6 +905,18 @@ func (d *decoder) readMembership(subject rdf.Term) error {
 			Note: "a membership states the namespace it belongs to in sysml:membershipOwningNamespace and the element it owns in sysml:memberElement, and this one states one of them or neither",
 		}
 	}
+	if d.prefixAnnotation(subject) {
+		// A prefix annotates the relationship that owns it; one naming another
+		// element would be written as that owner's prefix and change meaning.
+		for _, annotated := range d.graph.Objects(subject, rdf.SysML+pAnnotatedElement) {
+			if annotated != owner {
+				return &UnsupportedError{
+					What: fmt.Sprintf("the annotation <%s>", subject.Value),
+					Note: fmt.Sprintf("it annotates <%s> but is owned by <%s>, and a `#` prefix annotates the element it is written on", annotated.Value, owner.Value),
+				}
+			}
+		}
+	}
 	m := membership{iri: subject.Value, owner: owner.Value, member: member.Value}
 	if d.isNodeMembership(subject) {
 		d.nodeMemberships[m.member] = m
