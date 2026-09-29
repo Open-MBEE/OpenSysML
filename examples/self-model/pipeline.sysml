@@ -182,7 +182,7 @@ package OpenSysMLPipeline {
     #SemanticEngine part def PassRegistry :> Stage {
         attribute :>> goPackage = "internal/check/passes";
         attribute tierCount : Integer = 4;
-        attribute passCount : Integer = 61;
+        attribute passCount : Integer = 63;
         attribute sortsByLevel : Boolean = true;
         attribute skipsDocumentScopedAboveFailure : Boolean = true;
 
@@ -200,6 +200,8 @@ package OpenSysMLPipeline {
             attribute :>> goType = "ActionEndpointPass";
             attribute :>> elementScoped = true;
         }
+        // A lint: a signal trigger's name no declaration and no send accounts for.
+        part undeclaredSignals : NameResolutionCheck { attribute :>> goType = "UndeclaredSignalPass"; }
         part typeCheck : TypeCheck { attribute :>> goType = "TypeCheckPass"; }
         part transitionGuards : TypeCheck {
             attribute :>> goType = "TransitionGuardPass";
@@ -299,6 +301,8 @@ package OpenSysMLPipeline {
         part oosemMethod : ConstraintCheck { attribute :>> goType = "OOSEMMethodPass"; }
         part mosa : ConstraintCheck { attribute :>> goType = "MOSAPass"; }
         part nestedRedefinitions : ConstraintCheck { attribute :>> goType = "NestedRedefinitionPass"; }
+        // A lint: a connection between ports of unrelated definitions.
+        part portTypeMismatch : ConstraintCheck { attribute :>> goType = "PortTypeMismatchPass"; }
 
         in item typed : TypeTable;
         out item findings : Diagnostic;

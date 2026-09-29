@@ -175,3 +175,42 @@ func BodyScope(scope *symbols.Scope, decl ast.Node) *symbols.Scope {
 	}
 	return scope
 }
+
+// WalkScoped visits every node of the document whose scope tree root heads,
+// each with the scope it is written in: a node that declares a scope of its own
+// is visited in the enclosing one, and its descendants in its own.
+func WalkScoped(root *symbols.Scope, visit func(scope *symbols.Scope, node ast.Node)) {
+	if root == nil {
+		return
+	}
+	owned := map[ast.Node]*symbols.Scope{}
+	var index func(*symbols.Scope)
+	index = func(s *symbols.Scope) {
+		if n := s.Node(); n != nil {
+			if _, seen := owned[n]; !seen {
+				owned[n] = s
+			}
+		}
+		for _, child := range s.Children() {
+			index(child)
+		}
+	}
+	index(root)
+	var walk func(*symbols.Scope)
+	walk = func(s *symbols.Scope) {
+		if n := s.Node(); n != nil && owned[n] == s {
+			ast.Inspect(n, func(node ast.Node) bool {
+				if node == n {
+					return true
+				}
+				visit(s, node)
+				_, nested := owned[node]
+				return !nested
+			})
+		}
+		for _, child := range s.Children() {
+			walk(child)
+		}
+	}
+	walk(root)
+}

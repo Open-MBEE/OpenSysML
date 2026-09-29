@@ -39,6 +39,8 @@ func Contributors(ctx *Context, name string) ([]string, bool) {
 		return oosemUnionOf(ctx).Contributors(name)
 	case strings.HasPrefix(name, "\x00mosa/"):
 		return mosaUnionOf(ctx).Contributors(name)
+	case strings.HasPrefix(name, signalUnionPrefix):
+		return signalUnionOf(ctx).Contributors(name)
 	}
 	return identity.Contributors(ctx, name)
 }

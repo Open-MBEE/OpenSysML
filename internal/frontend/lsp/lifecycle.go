@@ -13,6 +13,7 @@ func (s *Server) Initialize(ctx context.Context, params *protocol.InitializePara
 	s.setFolders(initializeFolders(params))
 	if params != nil {
 		s.applyConformanceSettings(ctx, params.InitializationOptions)
+		s.applyLintSettings(ctx, params.InitializationOptions)
 		s.setHoverMarkdown(clientRendersMarkdownHover(params.Capabilities))
 		s.setCompletionMarkdown(clientRendersMarkdownCompletion(params.Capabilities))
 		s.setCrossDocument(clientAdvertisesCrossDocument(params.Capabilities))
