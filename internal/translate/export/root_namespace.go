@@ -40,9 +40,8 @@ func withRootNamespace(graph *rdf.Graph) (*rdf.Graph, error) {
 		}
 	}
 	groups := documentGroups(graph, roots)
-	// One minter hands out every group's ids: a namespace one group mints is
-	// not in the graph yet when the next group mints, so the taken set is what
-	// keeps two groups from picking one id.
+	// One minter serves every group: no wrapper is in the graph while the
+	// groups mint, so only its taken set keeps two groups from sharing an id.
 	mint := &subjectMinter{graph: graph, taken: map[string]bool{}}
 	for i, group := range groups {
 		namespace, memberships := rootNamespaceIDs(graph, mint, group.roots)
