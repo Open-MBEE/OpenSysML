@@ -165,20 +165,9 @@ func (c *compiler) validColumnPath(path string) bool {
 	if _, ok := source.MemberPathSegments(path); ok {
 		return true
 	}
-	separator := strings.LastIndex(path, "::")
-	if separator <= 0 || separator+2 >= len(path) {
+	metadataSegments, feature, ok := source.MetadataPathSegments(path)
+	if !ok {
 		return false
-	}
-	metadataSegments, ok := source.QualifiedNameSegments(path[:separator])
-	if !ok || len(metadataSegments) == 0 {
-		return false
-	}
-	feature := path[separator+2:]
-	if feature == "" {
-		return false
-	}
-	if featureSegments, ok := source.MemberPathSegments(feature); ok && len(featureSegments) == 1 {
-		feature = featureSegments[0]
 	}
 	for _, metadata := range c.index.LookupQualified(strings.Join(metadataSegments, "::")) {
 		if metadata.Kind != symbols.SymbolMetadataDef {

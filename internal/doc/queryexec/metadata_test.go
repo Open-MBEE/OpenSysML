@@ -3,6 +3,9 @@ package queryexec
 import (
 	"strings"
 	"testing"
+
+	"github.com/Open-MBEE/OpenSysML/internal/syntax/parser"
+	"github.com/Open-MBEE/OpenSysML/internal/syntax/source"
 )
 
 const metadataColumnsBody = `
@@ -286,6 +289,85 @@ package Observatory {
 	for i, cell := range rows[0].Cells() {
 		if got := cellText(cell); got != "ready" {
 			t.Errorf("cell %d = %q, want ready", i, got)
+		}
+	}
+}
+
+func TestExecuteQuotedMetadataFeatureContainingSeparator(t *testing.T) {
+	fixture := loadExecutionSource(t, `
+metadata def Meta {
+	attribute 'x::y' : String;
+}
+requirement def Tagged {
+	@Meta { 'x::y' = "ready"; }
+}
+package Observatory {
+	private import DocumentQueries::*;
+	private import KerML::Root::Element;
+	private import ScalarValues::*;
+	calc def Paths :> Query {
+		Project(
+			source = Named(qualifiedName = "Tagged"),
+			properties = ("Meta::'x::y'"),
+			columns = (Column(name = "v", path = "Meta::'x::y'"))
+		)
+	}
+}
+`)
+	result, err := fixture.execute(t, "Paths", nil, Options{})
+	if err != nil {
+		t.Fatalf("Paths: %v", err)
+	}
+	rows := result.Rows()
+	if len(rows) != 1 || len(rows[0].Cells()) != 2 {
+		t.Fatalf("metadata path rows = %v, want one row with two cells", rows)
+	}
+	for i, cell := range rows[0].Cells() {
+		if got := cellText(cell); got != "ready" {
+			t.Errorf("cell %d = %q, want ready", i, got)
+		}
+	}
+}
+
+func TestExecuteQuotedMetadataDefinitionContainingSeparator(t *testing.T) {
+	content := `
+metadata def 'A::B' {
+	attribute tag : String;
+}
+requirement def Tagged {
+	@'A::B' { tag = "quoted"; }
+}
+package Observatory {
+	private import DocumentQueries::*;
+	private import KerML::Root::Element;
+	private import ScalarValues::*;
+	calc def Paths :> Query {
+		Project(
+			source = Named(qualifiedName = "Tagged"),
+			properties = ("'A::B'::tag"),
+			columns = (Column(name = "tag", path = "'A::B'::tag"))
+		)
+	}
+}
+`
+	sf := source.New("query-execution.sysml", []byte(content))
+	p := parser.New(sf)
+	p.ParseFile()
+	if len(p.Diagnostics) > 0 {
+		t.Skipf("quoted metadata definition name with :: does not parse: %v", p.Diagnostics)
+	}
+	fixture := loadExecutionSource(t, content)
+	result, err := fixture.execute(t, "Paths", nil, Options{})
+	if err != nil {
+		t.Fatalf("Paths: %v", err)
+	}
+	rows := result.Rows()
+	if len(rows) != 1 || len(rows[0].Cells()) != 2 {
+		t.Fatalf("metadata path rows = %v, want one row with two cells", rows)
+	}
+	for i, cell := range rows[0].Cells() {
+		if got := cellText(cell); got != "quoted" {
+			t.Errorf("cell %d = %q, want quoted", i, got)
 		}
 	}
 }

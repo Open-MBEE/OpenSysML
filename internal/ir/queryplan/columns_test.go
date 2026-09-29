@@ -173,6 +173,28 @@ calc def Tags :> Query {
 	}
 }
 
+func TestCompileQuotedMetadataFeatureContainingSeparatorPathColumn(t *testing.T) {
+	fixture := loadQueryFixture(t, `
+metadata def Meta {
+	attribute 'x::y' : String;
+}
+calc def Tags :> Query {
+	in root : Element;
+	Project(
+		source = Descendants(source = root, maxDepth = 1),
+		columns = (Column(name = "value", path = "Fixture::Meta::'x::y'"))
+	)
+}
+`)
+	program := fixture.compile(t, "Tags")
+	project := entryDefinition(t, program).Expression()
+	columns, _ := argumentOf(t, project, "columns")
+	column, _ := argumentOf(t, columns.Arguments()[0].Value, "expression")
+	if column.Operation() != OperationRowMember || column.Target() != "Fixture::Meta::'x::y'" {
+		t.Fatalf("metadata path = %s %q, want row member Fixture::Meta::'x::y'", column.Operation(), column.Target())
+	}
+}
+
 func TestCompileMalformedColumnPathIsUnsupported(t *testing.T) {
 	fixture := loadQueryFixture(t, `
 calc def BadPath :> Query {

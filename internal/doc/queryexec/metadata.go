@@ -67,21 +67,9 @@ func (e *executor) metadataConforms(actual, declaring string) bool {
 // qualified name of a feature of a metadata def: what the annotations of that
 // def on the row bind the feature to. Not such a spelling: present is false.
 func (e *executor) metadataPathValues(sym *symbols.Symbol, property string) ([]Value, bool, error) {
-	i := strings.LastIndex(property, "::")
-	if i < 0 {
+	metadataSegments, feature, ok := source.MetadataPathSegments(property)
+	if !ok {
 		return nil, false, nil
-	}
-	metadataSegments, ok := source.QualifiedNameSegments(property[:i])
-	if !ok || len(metadataSegments) == 0 {
-		return nil, false, nil
-	}
-	raw := property[i+2:]
-	if raw == "" {
-		return nil, false, nil
-	}
-	feature := raw
-	if featureSegments, ok := source.MemberPathSegments(raw); ok && len(featureSegments) == 1 {
-		feature = featureSegments[0]
 	}
 	declaring := strings.Join(metadataSegments, "::")
 	metadata := e.metadataType(declaring)
