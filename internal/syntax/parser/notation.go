@@ -128,7 +128,10 @@ func (p *Parser) atStateNotationWord() (string, bool) {
 // atRemovedDeferMember reports the legacy `defer <event> [, <event>]* ;` state
 // body member of the removed OpenSysML extension: the word, no longer notation,
 // heads no member the grammar admits when a name follows it, so the shape is
-// diagnosed as the removed notation rather than left to cascade.
+// diagnosed as the removed notation rather than left to cascade. A feature
+// specialization after the word (`defer references setting;`) makes it the
+// name of a keywordless feature instead.
 func (p *Parser) atRemovedDeferMember() bool {
-	return p.peek().Kind == lexer.Identifier && p.src.Text(p.peek().Span) == "defer" && p.peekIsName(1)
+	return p.peek().Kind == lexer.Identifier && p.src.Text(p.peek().Span) == "defer" &&
+		p.peekIsName(1) && !p.featureSpecializationAt(1)
 }

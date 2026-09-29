@@ -32,6 +32,16 @@
                 (*ast.QualifiedName)))
             (*ast.AssignmentActionNode))))
       (Membership visibility="default"
+        (Definition kind="state" abstract=false variation=false name="Monitor"
+          (Membership visibility="default"
+            (Usage kind="attribute" name="setting" ref=false direction="none" composite=false derived=false ordered=false nonunique=false
+              (Relationship kind="typing" target=ScalarValues::Integer
+                (*ast.QualifiedName))))
+          (Membership visibility="default"
+            (Usage kind="attribute" name="defer" ref=false direction="none" composite=false derived=false ordered=false nonunique=false
+              (Relationship kind="references" target=setting
+                (*ast.QualifiedName))))))
+      (Membership visibility="default"
         (Definition kind="part" abstract=false variation=false name="Holder"
           (Membership visibility="default"
             (Usage kind="part" name="defer" ref=false direction="none" composite=false derived=false ordered=false nonunique=false

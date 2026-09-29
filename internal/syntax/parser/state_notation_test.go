@@ -125,6 +125,47 @@ package Test {
 	}
 }
 
+// A keywordless feature named `defer` whose specialization keyword follows the
+// name is a feature, not the removed notation.
+func TestDeferNamesAKeywordlessFeature(t *testing.T) {
+	for _, member := range []string{
+		"defer references setting;",
+		"defer redefines setting;",
+		"defer subsets setting;",
+		"defer defined by Setting;",
+		"defer : Setting;",
+		"defer :> setting;",
+		"defer :>> setting;",
+		"defer default 1;",
+	} {
+		src := "state def S { attribute setting; " + member + " state b; }"
+		p := New(source.New("test.sysml", []byte(src)))
+		root := p.ParseFile()
+		if len(p.Diagnostics) != 0 {
+			t.Errorf("%s: diagnostics %v, want none", src, p.Diagnostics)
+			continue
+		}
+		var named bool
+		for _, m := range unwrapAll(root.Members) {
+			def, ok := m.(*ast.Definition)
+			if !ok {
+				continue
+			}
+			for _, bm := range unwrapAll(def.Members) {
+				if _, isErr := bm.(*ast.ErrorNode); isErr {
+					t.Errorf("%s: member became an ErrorNode", src)
+				}
+				if u, ok := bm.(*ast.Usage); ok && u.Ident.Name == "defer" {
+					named = true
+				}
+			}
+		}
+		if !named {
+			t.Errorf("%s: no usage named `defer` in the body", src)
+		}
+	}
+}
+
 // The removed `defer <event>;` extension is reported once, under its own code,
 // and the member becomes an ErrorNode: the rest of the body is still read.
 func TestRemovedDeferMemberIsDiagnosedOnce(t *testing.T) {

@@ -19,6 +19,11 @@ package DeferIsAName {
         transition first ready accept Ping do assign defer := defer + 1 then defer;
     }
 
+    state def Monitor {
+        attribute setting : ScalarValues::Integer;
+        defer references setting;
+    }
+
     part def Holder {
         part defer : Setting;
         attribute flag = defer.defer;
