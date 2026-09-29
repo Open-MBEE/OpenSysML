@@ -246,6 +246,9 @@ func ToRDFWith(file *source.SourceFile, root *ast.RootNamespace, form IDForm) (*
 	return e.graph, nil
 }
 
+// mintedSubject is a subject an encoder minted for a declaration, and where.
+type mintedSubject struct{ iri, fqn, at string }
+
 // ModelDocument is one parsed document of a model converted as a whole.
 type ModelDocument struct {
 	File *source.SourceFile
@@ -298,6 +301,7 @@ func ModelToRDFWith(documents []ModelDocument, form IDForm) (*rdf.Graph, error) 
 	res, model := analyzeModel(documents)
 	shared := &modelEncoders{declaring: map[ast.Node]*encoder{}}
 	encoders := make([]*encoder, len(documents))
+	scopes := map[string]bool{}
 	for i, doc := range documents {
 		e, err := newEncoderOver(doc.File, doc.Root, form, res, model)
 		if err != nil {
@@ -307,12 +311,36 @@ func ModelToRDFWith(documents []ModelDocument, form IDForm) (*rdf.Graph, error) 
 		for node := range e.fqn {
 			shared.declaring[node] = e
 		}
+		for key := range e.ids.scopes {
+			scopes[key] = true
+		}
 		encoders[i] = e
 	}
+	// Ids repeated across identity scopes stay apart when the model, not only
+	// one of its documents, declares more than one scope.
+	if len(scopes) > 1 {
+		for _, e := range encoders {
+			e.ids.qualified = true
+		}
+	}
 	out := rdf.NewGraph()
+	// declaredIn is the document and declaration each subject was minted for:
+	// two documents declaring one subject would merge two elements into one.
+	declaredIn := map[string]mintedSubject{}
 	for i, e := range encoders {
 		if err := e.encodeDocument(documents[i].Root); err != nil {
 			return nil, fmt.Errorf("%s: %w", documents[i].File.Name(), err)
+		}
+		for _, minted := range e.minted {
+			if prior, taken := declaredIn[minted.iri]; taken {
+				return nil, &UnsupportedError{
+					What: fmt.Sprintf("the declaration of %s at %s", minted.fqn, minted.at),
+					Note: fmt.Sprintf("its id lands on the same IRI as %s at %s, which another document declares, and merging two elements into one subject would be a different model", prior.fqn, prior.at),
+				}
+			}
+		}
+		for _, minted := range e.minted {
+			declaredIn[minted.iri] = minted
 		}
 		for prefix, ns := range e.graph.Prefixes {
 			out.Prefixes[prefix] = ns
@@ -438,6 +466,9 @@ func newEncoderOver(file *source.SourceFile, root *ast.RootNamespace, form IDFor
 }
 
 type encoder struct {
+	// minted lists the subjects minted for this document's declarations, which a
+	// model of several documents checks no other document declares too.
+	minted []mintedSubject
 	// model, when the document is converted as one of a model's documents,
 	// holds the encoder of every document, for the elements the others declare.
 	model *modelEncoders
@@ -853,6 +884,7 @@ func (e *encoder) mint(node ast.Node, fqn string) (rdf.Term, error) {
 			Note: fmt.Sprintf("its id lands on the same IRI as %s, and merging two elements into one subject would be a different model", prior),
 		}
 	}
+	e.minted = append(e.minted, mintedSubject{iri: subject.Value, fqn: fqn, at: e.where(node)})
 	return subject, nil
 }
 

@@ -135,3 +135,46 @@ func TestModelReferencesAcrossDocumentsLinkWrittenSubjects(t *testing.T) {
 		}
 	}
 }
+
+// Two documents declaring the same element would merge two elements into one
+// subject; the model is refused, naming both declarations.
+func TestModelOfSeveralDocumentsRefusesOneSubjectDeclaredTwice(t *testing.T) {
+	_, err := export.ModelToRDFWith(modelDocuments(t,
+		"a.sysml", "package P { part def A; }\n",
+		"b.sysml", "package P { part def B; }\n",
+	), export.IDQualifiedName)
+	if err == nil || !strings.Contains(err.Error(), "a.sysml") || !strings.Contains(err.Error(), "b.sysml") {
+		t.Errorf("a package declared in two documents: err = %v, want a refusal naming both", err)
+	}
+}
+
+// Ids are scope-qualified when the model declares two identity scopes, though
+// each document declares one: the same declared id in two projects is two
+// elements, not one.
+func TestModelOfSeveralDocumentsQualifiesIdsAcrossScopes(t *testing.T) {
+	graph, err := export.ModelToRDFWith(modelDocuments(t,
+		"one.sysml", `package P {
+    @IdentityMetadata::ProjectRef { projectId = "one"; branch = "main"; }
+    part def A { @IdentityMetadata::ElementId { id = "shared"; } }
+}
+`,
+		"two.sysml", `package Q {
+    @IdentityMetadata::ProjectRef { projectId = "two"; branch = "main"; }
+    part def B { @IdentityMetadata::ElementId { id = "shared"; } }
+}
+`,
+	), export.IDQualifiedName)
+	if err != nil {
+		t.Fatal(err)
+	}
+	subjects := map[string]string{}
+	for _, triple := range graph.Triples() {
+		if triple.Predicate.Value == "https://www.omg.org/spec/SysML#qualifiedName" {
+			subjects[triple.Object.Value] = triple.Subject.Value
+		}
+	}
+	a, b := subjects["P::A"], subjects["Q::B"]
+	if a == "" || b == "" || a == b {
+		t.Errorf("P::A is %q and Q::B is %q, want two subjects", a, b)
+	}
+}

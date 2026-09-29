@@ -58,3 +58,37 @@ func TestConvertModelOfSeveralDocuments(t *testing.T) {
 		t.Errorf("a notation target for two documents: err = %v, want a FAILED_PRECONDITION naming the one-document limit", err)
 	}
 }
+
+// A document the parser could not read whole is refused with its syntax
+// diagnostics, as one converted alone is, rather than exported from the tree
+// the parser recovered.
+func TestConvertModelRefusesADocumentWithSyntaxErrors(t *testing.T) {
+	srv := mustNewService(t, 10)
+	defer srv.Close()
+	parsed, err := srv.ParseSources(context.Background(), &pb.ParseSourcesRequest{
+		Documents: inlineDocuments(
+			"lib.sysml", "package Lib { part def Engine; }\n",
+			"app.sysml", "package App { private import Lib::*; part e : Engine\n"),
+	})
+	if err != nil {
+		t.Fatalf("ParseSources: %v", err)
+	}
+	resp, err := srv.Convert(context.Background(), &pb.ConvertRequest{
+		Source:   &pb.ConvertRequest_ModelHash{ModelHash: parsed.ModelHash},
+		ToFormat: "ttl",
+	})
+	if err != nil {
+		t.Fatalf("Convert: %v", err)
+	}
+	if resp.Error == "" || resp.Content != "" {
+		t.Fatalf("a broken document was converted:\n%s", resp.Content)
+	}
+	if !strings.Contains(resp.Error, "app.sysml") || len(resp.Diagnostics) == 0 {
+		t.Errorf("the refusal should name app.sysml and carry its diagnostics: %q %v", resp.Error, resp.Diagnostics)
+	}
+	for _, diag := range resp.Diagnostics {
+		if diag.GetSpan().GetFile() != "app.sysml" {
+			t.Errorf("a diagnostic points into %q, want app.sysml", diag.GetSpan().GetFile())
+		}
+	}
+}

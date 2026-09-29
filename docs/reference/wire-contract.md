@@ -1789,8 +1789,11 @@ A `modelHash` from `ParseSources` of several documents converts the whole model 
 `api-json` as one graph: a reference from one document to an element another declares links that
 element, as a reference within one document does, and each document's root elements carry
 `sysx:sourceDocument`, the name the request gave it. Notation is written for one document, so a
-`sysml`/`kerml` target for such a model is `failed_precondition`. The command line does the same for several files:
-`sysml a.sysml b.sysml -convert api-json`.
+`sysml`/`kerml` target for such a model is `failed_precondition`. A document with syntax errors is
+reported in `error` and `diagnostics`, as a single document is, and so is an element two documents
+both declare (`package P` in each), which one graph would merge into one. Ids are scope-qualified
+when the documents together declare more than one identity scope. The command line does the same
+for several files, to a file or standard output: `sysml a.sysml b.sysml -convert api-json`.
 
 ```console
 $ … /Convert -d '{"filePath":"Vehicle.xmi","toFormat":"sysml"}'

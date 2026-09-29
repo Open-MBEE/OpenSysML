@@ -194,6 +194,7 @@ func TestConvertErrors(t *testing.T) {
 		"unknown format":      {[]string{model, "-convert", "xml"}, "unknown format"},
 		"file as format":      {[]string{"-convert", model}, "-convert names the format"},
 		"several to notation": {[]string{model, model, "-convert", "sysml"}, "converts to ttl or api-json"},
+		"several to a branch": {[]string{model, model, "-convert", "ttl", "-o", "flexo://p/main"}, "is written to a file"},
 		"replaced -to flag":   {[]string{model, "-convert", "ttl", "-to", "sysml"}, "-to has been replaced by -convert"},
 		"forgotten value":     {[]string{model, "-convert", "ttl", "-o"}, "flag needs an argument: -o"},
 		"syntax error":        {[]string{broken, "-convert", "ttl"}, "syntax error"},

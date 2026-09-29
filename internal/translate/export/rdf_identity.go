@@ -42,6 +42,10 @@ type identityFacts struct {
 	// qualified reports a multi-scope document, whose scoped elements get
 	// IRIs qualified by their scope so ids repeated across scopes stay apart.
 	qualified bool
+	// scopes are the keys of the identity scopes the document declares; a
+	// model of several documents qualifies its IRIs when they number more
+	// than one across all of them.
+	scopes map[string]bool
 	// model and res read the identity of a library element the document
 	// refers to, which the table over its own root does not hold.
 	model *semantics.Model
@@ -179,6 +183,7 @@ func documentIdentity(name string, res *resolve.Resolver, model *semantics.Model
 		facts.byNode[sym.Decl] = el
 	}
 	facts.qualified = len(scopeKeys) > 1
+	facts.scopes = scopeKeys
 	return facts, nil
 }
 

@@ -769,6 +769,13 @@ func convertModel(files []string, to convert.Format) (int, error) {
 	if len(modelChecks.records) > 0 || migrationReport != "" || migrationResults != "" || syncState != "" {
 		return 0, errors.New("a model of several files converts on its own: -record, -migration-report, -migration-results and -sync-state take one file")
 	}
+	if outputPath != "" {
+		if _, isURL, err := flexo.ParseBranchURL(outputPath); err != nil {
+			return 0, err
+		} else if isURL {
+			return 0, fmt.Errorf("-o %s: a model of several files is written to a file; a repository branch is pushed from one file", outputPath)
+		}
+	}
 	inputs := make([]convert.Input, 0, len(files))
 	for _, file := range files {
 		if _, isURL, err := flexo.ParseBranchURL(file); err != nil || isURL {

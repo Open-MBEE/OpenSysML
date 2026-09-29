@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"os"
+	"strings"
 
 	"connectrpc.com/connect"
 	pb "github.com/Open-MBEE/OpenSysML/api/proto"
@@ -181,14 +182,27 @@ func (s *Service) convertModelOfDocuments(req *pb.ConvertRequest) (*pb.ConvertRe
 			"notation is written for one document, and this model has %d; convert it to %s or %s, or convert each document",
 			len(cached.Documents), convert.FormatTurtle, convert.FormatAPIJSON)
 	}
-	documents := make([]export.ModelDocument, 0, len(cached.Documents))
-	for _, doc := range cached.Documents {
-		documents = append(documents, export.ModelDocument{File: doc.Source, Root: doc.Root})
-	}
 	resp := &pb.ConvertResponse{FromFormat: convert.FormatSysML.String(), ToFormat: to.String()}
 	if convert.IsExperimental(convert.FormatSysML, to) {
 		resp.Experimental = true
 		resp.ExperimentalNotice = convert.Notice(convert.FormatSysML, to)
+	}
+	// A document the parser could not read whole is refused, as one converted
+	// alone is: the graph would silently miss what the parser skipped.
+	var refused []string
+	documents := make([]export.ModelDocument, 0, len(cached.Documents))
+	for _, doc := range cached.Documents {
+		if syntax := convert.SyntaxErrorOf(doc.Source.Name(), doc.Source, doc.ParseDiags); syntax != nil {
+			refused = append(refused, syntax.Error())
+			resp.Diagnostics = append(resp.Diagnostics, syntaxDiagnostics(syntax)...)
+			continue
+		}
+		documents = append(documents, export.ModelDocument{File: doc.Source, Root: doc.Root})
+	}
+	if len(refused) > 0 {
+		resp.Diagnostics = s.filterDiagnosticCapabilities(resp.Diagnostics)
+		resp.Error = strings.Join(refused, "\n")
+		return resp, true, nil
 	}
 	graph, err := export.ModelToRDFWith(documents, export.IDQualifiedName)
 	if err != nil {

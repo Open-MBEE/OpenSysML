@@ -448,14 +448,21 @@ func checkSyntax(name string, data []byte) *SyntaxError {
 // syntaxError turns a parse's diagnostics into a SyntaxError, or nil when the
 // input parsed clean.
 func syntaxError(name string, file *source.SourceFile, p *parser.Parser) *SyntaxError {
-	if len(p.Diagnostics) == 0 {
+	return SyntaxErrorOf(name, file, p.Diagnostics)
+}
+
+// SyntaxErrorOf reports a document's parser diagnostics as a SyntaxError, or
+// nil when there are none: a graph built from a tree the parser could not read
+// whole would silently miss what it skipped.
+func SyntaxErrorOf(name string, file *source.SourceFile, diags []parser.Diagnostic) *SyntaxError {
+	if len(diags) == 0 {
 		return nil
 	}
 	lines := file.Lines()
-	messages := make([]string, 0, len(p.Diagnostics))
-	for _, diag := range p.Diagnostics {
+	messages := make([]string, 0, len(diags))
+	for _, diag := range diags {
 		pos := lines.PosAt(diag.Span.Offset)
 		messages = append(messages, fmt.Sprintf("%d:%d: %s", pos.Line, pos.Col, diag.Message))
 	}
-	return &SyntaxError{Name: name, Messages: messages, Diags: p.Diagnostics, File: file}
+	return &SyntaxError{Name: name, Messages: messages, Diags: diags, File: file}
 }
