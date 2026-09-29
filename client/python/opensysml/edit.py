@@ -671,7 +671,8 @@ class Editor:
 
     def add_member(self, owner, kind, name, type=None, multiplicity=None,
                    value=None, specializes=None, abstract=False, redefines=None,
-                   default=False, direction=None, metadata=None, expression=None, doc=None):
+                   default=False, direction=None, expression=None, doc=None,
+                   metadata=None):
         """Add one declaration, using strings for all SysML/KerML notation.
 
         ``expression`` writes a body expression for kinds whose bodies admit
