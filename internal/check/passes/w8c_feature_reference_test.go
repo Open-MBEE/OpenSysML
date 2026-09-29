@@ -186,6 +186,57 @@ func TestW8CFeatureReferenceBodyInaccessible(t *testing.T) {
 
 // The traps the reverted attempt fell into: a body reaches its own type's
 // features, inherited ones included, and a dot path reaches a nested one.
+func TestW8CFeatureReferenceBodyExprInaccessible(t *testing.T) {
+	src := `package P {
+	private import DocumentQueries::*;
+	private import KerML::Root::Element;
+	private import ScalarValues::*;
+	part def Pump { attribute mass : Integer; }
+	calc def UsesQualifiedFeature :> Query {
+		in root : Element;
+		Project(
+			source = Descendants(source = root, maxDepth = 1),
+			columns = (
+				Column(name = "v", cell = { in row : Pump; Pump::mass })
+			)
+		)
+	}
+}`
+	var errors []diag.Diagnostic
+	for _, diagnostic := range w8cLibraryDiagnostics(t, "<t>.sysml", src) {
+		if diagnostic.Severity == diag.SeverityError {
+			errors = append(errors, diagnostic)
+		}
+	}
+	if len(errors) != 1 || errors[0].Message != msgSubsettingFeaturingTypes {
+		t.Fatalf("errors = %v, want one %q", errors, msgSubsettingFeaturingTypes)
+	}
+	if got := strings.TrimSpace(src[errors[0].Span.Offset:errors[0].Span.End()]); got != "Pump::mass" {
+		t.Errorf("diagnostic span = %q, want Pump::mass", got)
+	}
+}
+
+func TestW8CFeatureReferenceBodyExprAccessible(t *testing.T) {
+	src := `package P {
+	private import DocumentQueries::*;
+	private import KerML::Root::Element;
+	private import ScalarValues::*;
+	part def Pump { attribute mass : Integer; }
+	calc def UsesRowFeature :> Query {
+		in root : Element;
+		Project(
+			source = Descendants(source = root, maxDepth = 1),
+			columns = (
+				Column(name = "v", cell = { in row : Pump; row.mass })
+			)
+		)
+	}
+}`
+	if errors := w8cLibraryErrorsIn(t, "<t>.sysml", src); len(errors) != 0 {
+		t.Fatalf("unexpected errors: %v", errors)
+	}
+}
+
 func TestW8CFeatureReferenceBodyAccessible(t *testing.T) {
 	cases := map[string]string{
 		"own feature": `package P {
