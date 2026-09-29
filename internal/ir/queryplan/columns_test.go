@@ -202,7 +202,7 @@ calc def Tags :> Query {
 	}
 }
 
-func TestCompileNestedMetadataCellRetainsDeclaringType(t *testing.T) {
+func TestCompileNestedMetadataCellChainIsUnsupported(t *testing.T) {
 	fixture := loadQueryFixture(t, `
 metadata def TagMetadata {
 	part nested : Nested;
@@ -220,18 +220,13 @@ calc def Tags :> Query {
 	)
 }
 `)
-	project := entryDefinition(t, fixture.compile(t, "Tags")).Expression()
-	columns, _ := argumentOf(t, project, "columns")
-	column, _ := argumentOf(t, columns.Arguments()[0].Value, "expression")
-	if column.Operation() != OperationColumnOperator {
-		t.Fatalf("metadata nested cell = %s, want null coalesce", column.Operation())
+	_, err := Compile(fixture.index, fixture.model, fixture.resolver, fixture.symbol(t, "Tags"))
+	planning := planningError(t, err, ErrorUnsupportedExpression)
+	if planning.Target != "weight" {
+		t.Fatalf("unsupported metadata cell column = %q, want weight", planning.Target)
 	}
-	rowMember, _ := argumentOf(t, column, "")
-	if rowMember.Operation() != OperationRowMember || rowMember.Target() != "nested.weight" {
-		t.Fatalf("metadata nested path = %s %q, want nested.weight", rowMember.Operation(), rowMember.Target())
-	}
-	if rowMember.value != "Fixture::TagMetadata" {
-		t.Fatalf("metadata nested declaring type = %q, want Fixture::TagMetadata", rowMember.value)
+	if !planning.Origin.Located() {
+		t.Fatal("unsupported metadata cell chain must carry its origin")
 	}
 }
 

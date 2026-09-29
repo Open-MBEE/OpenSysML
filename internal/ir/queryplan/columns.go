@@ -419,6 +419,9 @@ func (c *compiler) compileColumnChain(
 				segments = append(segments, part.Text)
 			}
 		}
+		if len(segments) > 1 && row.typeSymbol.Kind == symbols.SymbolMetadataDef {
+			return Expression{}, semantics.PrimUnknown, unsupported()
+		}
 		return Expression{
 			operation: OperationRowMember,
 			target:    source.MemberPathOf(segments),

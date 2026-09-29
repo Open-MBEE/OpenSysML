@@ -264,15 +264,7 @@ func (e *executor) rowMemberValues(
 			tracker.record(path, false)
 			return nil, nil
 		}
-		if e.metadataType(declaring) != nil {
-			_, present, err := e.annotationFeatureValues(sym, declaring, "")
-			if err != nil {
-				return nil, e.unevaluable(expression, path, row, err)
-			}
-			if !present {
-				return nil, nil
-			}
-		} else if !e.rowConformsTo(sym, declaring) {
+		if !e.rowConformsTo(sym, declaring) {
 			return nil, nil
 		}
 	}

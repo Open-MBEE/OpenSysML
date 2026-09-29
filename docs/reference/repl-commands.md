@@ -9,7 +9,8 @@ or `Column(name = "...", path = "<member.path>")`. Expressions run in query scop
 each row as a typed parameter, and paths read dotted members from each row; see the
 [query cookbook](../manual/query-cookbook.md#computed-columns). A cell's direct `row.feature`
 reference compiles as a row-property read; deeper chains compile as row-member reads. A path uses
-the same member-path parser as `Project` and `OrderBy`.
+the same member-path parser as `Project` and `OrderBy`. A cell over a metadata row reads its direct
+features only.
 
 Every command that takes a `<name>` accepts the quoted spelling the notation uses, including a
 quoted segment containing a space and a quoted segment in the middle of a chain:
