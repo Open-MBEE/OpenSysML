@@ -724,175 +724,23 @@ final class Api {
           new Edit.SetValue(operation.getSetValue().getTarget(), operation.getSetValue().getValue());
       case RENAME ->
           new Edit.Rename(operation.getRename().getTarget(), operation.getRename().getNewName());
-      case ADD_MEMBER -> {
-        org.openmbee.opensysml.proto.AddMemberEdit add = operation.getAddMember();
-        Edit.AddMember member = Edit.AddMember.of(add.getOwner(), add.getKind(), add.getName());
-        if (!add.getType().isEmpty()) {
-          member = member.withType(add.getType());
-        }
-        if (!add.getMultiplicity().isEmpty()) {
-          member = member.withMultiplicity(add.getMultiplicity());
-        }
-        if (!add.getValue().isEmpty()) {
-          member = member.withValue(add.getValue());
-        }
-        if (add.getSpecializesCount() > 0) {
-          member = member.withSpecializes(add.getSpecializesList());
-        }
-        if (add.getIsAbstract()) {
-          member = member.withAbstract(true);
-        }
-        if (add.getRedefinesCount() > 0) {
-          member = member.withRedefines(add.getRedefinesList());
-        }
-        if (add.getIsDefault()) {
-          member = member.withDefault(true);
-        }
-        if (!add.getDirection().isEmpty()) {
-          member = member.withDirection(add.getDirection());
-        }
-        if (add.getMetadataPrefixesCount() > 0) {
-          member = member.withMetadataPrefixes(add.getMetadataPrefixesList());
-        }
-        if (!add.getBodyExpression().isEmpty()) {
-          member = member.withBodyExpression(add.getBodyExpression());
-        }
-        if (!add.getDoc().isEmpty()) {
-          member = member.withDoc(add.getDoc());
-        }
-        yield member;
-      }
-      case ADD_DOCUMENTATION -> {
-        org.openmbee.opensysml.proto.AddDocumentationEdit add = operation.getAddDocumentation();
-        Edit.AddDocumentation documentation =
-            Edit.AddDocumentation.of(add.getTarget(), add.getBody()).withReplace(add.getReplace());
-        if (!add.getName().isEmpty()) {
-          documentation = documentation.withName(add.getName());
-        }
-        if (!add.getLocale().isEmpty()) {
-          documentation = documentation.withLocale(add.getLocale());
-        }
-        yield documentation;
-      }
-      case ADD_COMMENT -> {
-        org.openmbee.opensysml.proto.AddCommentEdit add = operation.getAddComment();
-        Edit.AddComment comment =
-            Edit.AddComment.of(add.getOwner(), add.getBody()).withAbout(add.getAboutList());
-        if (!add.getName().isEmpty()) {
-          comment = comment.withName(add.getName());
-        }
-        if (!add.getLocale().isEmpty()) {
-          comment = comment.withLocale(add.getLocale());
-        }
-        yield comment;
-      }
+      case ADD_MEMBER -> addMember(operation.getAddMember());
+      case ADD_DOCUMENTATION -> addDocumentation(operation.getAddDocumentation());
+      case ADD_COMMENT -> addComment(operation.getAddComment());
       case ADD_NOTE -> new Edit.AddNote(operation.getAddNote().getTarget(), operation.getAddNote().getText());
-      case ADD_CONNECTION -> {
-        org.openmbee.opensysml.proto.AddConnectionEdit add = operation.getAddConnection();
-        Edit.AddConnection connection =
-            Edit.AddConnection.of(
-                add.getOwner(), add.getKind(), add.getFromEnd(), add.getToEnd());
-        if (!add.getName().isEmpty()) {
-          connection = connection.withName(add.getName());
-        }
-        if (!add.getType().isEmpty()) {
-          connection = connection.withType(add.getType());
-        }
-        yield connection;
-      }
-      case ADD_SATISFY -> {
-        org.openmbee.opensysml.proto.AddSatisfyEdit add = operation.getAddSatisfy();
-        Edit.AddSatisfy satisfy = Edit.AddSatisfy.of(add.getOwner(), add.getRequirement());
-        if (!add.getSatisfyingFeature().isEmpty()) {
-          satisfy = satisfy.withSatisfyingFeature(add.getSatisfyingFeature());
-        }
-        if (add.getIsAsserted()) {
-          satisfy = satisfy.withAsserted(true);
-        }
-        if (add.getIsNegated()) {
-          satisfy = satisfy.withNegated(true);
-        }
-        yield satisfy;
-      }
-      case ADD_REQUIREMENT_CONSTRAINT -> {
-        org.openmbee.opensysml.proto.AddRequirementConstraintEdit add =
-            operation.getAddRequirementConstraint();
-        Edit.AddRequirementConstraint constraint =
-            Edit.AddRequirementConstraint.of(add.getOwner(), add.getKind(), add.getExpression());
-        if (!add.getName().isEmpty()) {
-          constraint = constraint.withName(add.getName());
-        }
-        yield constraint;
-      }
-      case ADD_TRANSITION -> {
-        org.openmbee.opensysml.proto.AddTransitionEdit add = operation.getAddTransition();
-        Edit.AddTransition transition = add.getInitial()
-            ? Edit.AddTransition.entry(add.getOwner(), add.getTarget())
-            : Edit.AddTransition.of(add.getOwner(), add.getSource(), add.getTarget());
-        if (!add.getName().isEmpty()) {
-          transition = transition.withName(add.getName());
-        }
-        if (!add.getTrigger().isEmpty()) {
-          transition = transition.withTrigger(add.getTrigger());
-        }
-        if (!add.getGuard().isEmpty()) {
-          transition = transition.withGuard(add.getGuard());
-        }
-        if (!add.getEffect().isEmpty()) {
-          transition = transition.withEffect(add.getEffect());
-        }
-        yield transition;
-      }
-      case ADD_VERIFY -> {
-        org.openmbee.opensysml.proto.AddVerifyEdit add = operation.getAddVerify();
-        yield Edit.AddVerify.of(add.getOwner(), add.getRequirement());
-      }
-      case ADD_METADATA -> {
-        org.openmbee.opensysml.proto.AddMetadataEdit add = operation.getAddMetadata();
-        Edit.AddMetadata metadata = Edit.AddMetadata.of(add.getOwner(), add.getMetadataType());
-        if (!add.getName().isEmpty()) {
-          metadata = metadata.withName(add.getName());
-        }
-        if (add.getAboutCount() > 0) {
-          metadata = metadata.withAbout(add.getAboutList());
-        }
-        if (add.getValuesCount() > 0) {
-          metadata = metadata.withValues(
-              add.getValuesList().stream()
-                  .map(value -> new Edit.MetadataValue(value.getFeature(), value.getValue()))
-                  .toList());
-        }
-        if (add.getShorthand()) {
-          metadata = metadata.withShorthand(true);
-        }
-        yield metadata;
-      }
-      case ADD_METADATA_PREFIX -> {
-        org.openmbee.opensysml.proto.AddMetadataPrefixEdit add =
-            operation.getAddMetadataPrefix();
-        yield Edit.addMetadataPrefix(add.getTarget(), add.getMetadataType());
-      }
-      case ADD_SEQUENCE -> {
-        org.openmbee.opensysml.proto.AddSequenceEdit add = operation.getAddSequence();
-        yield sequence(add);
-      }
-      case ADD_IMPORT -> {
-        org.openmbee.opensysml.proto.AddImportEdit add = operation.getAddImport();
-        Edit.AddImport in = Edit.AddImport.of(add.getOwner(), add.getTarget());
-        if (!add.getVisibility().isEmpty()) {
-          in = in.withVisibility(add.getVisibility());
-        }
-        if (add.getIsRecursive()) {
-          in = in.withRecursive();
-        }
-        if (add.getIsImportAll()) {
-          in = in.withAll();
-        }
-        if (!add.getFiltersList().isEmpty()) {
-          in = in.withFilters(add.getFiltersList());
-        }
-        yield in;
-      }
+      case ADD_CONNECTION -> addConnection(operation.getAddConnection());
+      case ADD_SATISFY -> addSatisfy(operation.getAddSatisfy());
+      case ADD_REQUIREMENT_CONSTRAINT -> addRequirementConstraint(operation.getAddRequirementConstraint());
+      case ADD_TRANSITION -> addTransition(operation.getAddTransition());
+      case ADD_VERIFY ->
+          Edit.AddVerify.of(operation.getAddVerify().getOwner(), operation.getAddVerify().getRequirement());
+      case ADD_METADATA -> addMetadata(operation.getAddMetadata());
+      case ADD_METADATA_PREFIX ->
+          Edit.addMetadataPrefix(
+              operation.getAddMetadataPrefix().getTarget(),
+              operation.getAddMetadataPrefix().getMetadataType());
+      case ADD_SEQUENCE -> sequence(operation.getAddSequence());
+      case ADD_IMPORT -> addImport(operation.getAddImport());
       case DELETE ->
           new Edit.Delete(operation.getDelete().getTarget(), operation.getDelete().getCascade());
       case MOVE ->
@@ -900,6 +748,162 @@ final class Api {
       case OPERATION_NOT_SET ->
           throw new Unsupported("the public API cannot send an edit naming no operation");
     };
+  }
+
+  private static Edit addMember(org.openmbee.opensysml.proto.AddMemberEdit add) {
+    Edit.AddMember member = Edit.AddMember.of(add.getOwner(), add.getKind(), add.getName());
+    if (!add.getType().isEmpty()) {
+      member = member.withType(add.getType());
+    }
+    if (!add.getMultiplicity().isEmpty()) {
+      member = member.withMultiplicity(add.getMultiplicity());
+    }
+    if (!add.getValue().isEmpty()) {
+      member = member.withValue(add.getValue());
+    }
+    if (add.getSpecializesCount() > 0) {
+      member = member.withSpecializes(add.getSpecializesList());
+    }
+    if (add.getIsAbstract()) {
+      member = member.withAbstract(true);
+    }
+    if (add.getRedefinesCount() > 0) {
+      member = member.withRedefines(add.getRedefinesList());
+    }
+    if (add.getIsDefault()) {
+      member = member.withDefault(true);
+    }
+    if (!add.getDirection().isEmpty()) {
+      member = member.withDirection(add.getDirection());
+    }
+    if (add.getMetadataPrefixesCount() > 0) {
+      member = member.withMetadataPrefixes(add.getMetadataPrefixesList());
+    }
+    if (!add.getBodyExpression().isEmpty()) {
+      member = member.withBodyExpression(add.getBodyExpression());
+    }
+    if (!add.getDoc().isEmpty()) {
+      member = member.withDoc(add.getDoc());
+    }
+    return member;
+  }
+
+  private static Edit addDocumentation(org.openmbee.opensysml.proto.AddDocumentationEdit add) {
+    Edit.AddDocumentation documentation =
+        Edit.AddDocumentation.of(add.getTarget(), add.getBody()).withReplace(add.getReplace());
+    if (!add.getName().isEmpty()) {
+      documentation = documentation.withName(add.getName());
+    }
+    if (!add.getLocale().isEmpty()) {
+      documentation = documentation.withLocale(add.getLocale());
+    }
+    return documentation;
+  }
+
+  private static Edit addComment(org.openmbee.opensysml.proto.AddCommentEdit add) {
+    Edit.AddComment comment =
+        Edit.AddComment.of(add.getOwner(), add.getBody()).withAbout(add.getAboutList());
+    if (!add.getName().isEmpty()) {
+      comment = comment.withName(add.getName());
+    }
+    if (!add.getLocale().isEmpty()) {
+      comment = comment.withLocale(add.getLocale());
+    }
+    return comment;
+  }
+
+  private static Edit addConnection(org.openmbee.opensysml.proto.AddConnectionEdit add) {
+    Edit.AddConnection connection =
+        Edit.AddConnection.of(add.getOwner(), add.getKind(), add.getFromEnd(), add.getToEnd());
+    if (!add.getName().isEmpty()) {
+      connection = connection.withName(add.getName());
+    }
+    if (!add.getType().isEmpty()) {
+      connection = connection.withType(add.getType());
+    }
+    return connection;
+  }
+
+  private static Edit addSatisfy(org.openmbee.opensysml.proto.AddSatisfyEdit add) {
+    Edit.AddSatisfy satisfy = Edit.AddSatisfy.of(add.getOwner(), add.getRequirement());
+    if (!add.getSatisfyingFeature().isEmpty()) {
+      satisfy = satisfy.withSatisfyingFeature(add.getSatisfyingFeature());
+    }
+    if (add.getIsAsserted()) {
+      satisfy = satisfy.withAsserted(true);
+    }
+    if (add.getIsNegated()) {
+      satisfy = satisfy.withNegated(true);
+    }
+    return satisfy;
+  }
+
+  private static Edit addRequirementConstraint(
+      org.openmbee.opensysml.proto.AddRequirementConstraintEdit add) {
+    Edit.AddRequirementConstraint constraint =
+        Edit.AddRequirementConstraint.of(add.getOwner(), add.getKind(), add.getExpression());
+    if (!add.getName().isEmpty()) {
+      constraint = constraint.withName(add.getName());
+    }
+    return constraint;
+  }
+
+  private static Edit addTransition(org.openmbee.opensysml.proto.AddTransitionEdit add) {
+    Edit.AddTransition transition =
+        add.getInitial()
+            ? Edit.AddTransition.entry(add.getOwner(), add.getTarget())
+            : Edit.AddTransition.of(add.getOwner(), add.getSource(), add.getTarget());
+    if (!add.getName().isEmpty()) {
+      transition = transition.withName(add.getName());
+    }
+    if (!add.getTrigger().isEmpty()) {
+      transition = transition.withTrigger(add.getTrigger());
+    }
+    if (!add.getGuard().isEmpty()) {
+      transition = transition.withGuard(add.getGuard());
+    }
+    if (!add.getEffect().isEmpty()) {
+      transition = transition.withEffect(add.getEffect());
+    }
+    return transition;
+  }
+
+  private static Edit addMetadata(org.openmbee.opensysml.proto.AddMetadataEdit add) {
+    Edit.AddMetadata metadata = Edit.AddMetadata.of(add.getOwner(), add.getMetadataType());
+    if (!add.getName().isEmpty()) {
+      metadata = metadata.withName(add.getName());
+    }
+    if (add.getAboutCount() > 0) {
+      metadata = metadata.withAbout(add.getAboutList());
+    }
+    if (add.getValuesCount() > 0) {
+      metadata =
+          metadata.withValues(
+              add.getValuesList().stream()
+                  .map(value -> new Edit.MetadataValue(value.getFeature(), value.getValue()))
+                  .toList());
+    }
+    if (add.getShorthand()) {
+      metadata = metadata.withShorthand(true);
+    }
+    return metadata;
+  }
+
+  private static Edit addImport(org.openmbee.opensysml.proto.AddImportEdit add) {
+    Edit.AddImport in = Edit.AddImport.of(add.getOwner(), add.getTarget());
+    if (!add.getVisibility().isEmpty()) {
+      in = in.withVisibility(add.getVisibility());
+    }
+    if (add.getIsRecursive()) {
+      in = in.withRecursive();
+    }
+    if (add.getIsImportAll()) {
+      in = in.withAll();
+    }
+    if (!add.getFiltersList().isEmpty()) {
+      in = in.withFilters(add.getFiltersList());
+    }
+    return in;
   }
 
   private static Edit.AddSequence sequence(org.openmbee.opensysml.proto.AddSequenceEdit add) {
