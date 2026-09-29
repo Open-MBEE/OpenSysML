@@ -277,7 +277,8 @@ func (e *encoder) chooseSegment(key segmentKey, written string, refs []resolve.R
 
 // chooseRoot spells the first segment of an end chain the shortest way that
 // reads as its element from every occurrence written alike (refs), as a
-// reference is spelled. A root no spelling reaches keeps the one written.
+// reference is spelled. A root no spelling reaches is refused, unless it is an
+// unnamed member, whose chain is written by position.
 func (e *encoder) chooseRoot(key segmentKey, written string, refs []resolve.Reference, previous *nameChoices, spelled map[segmentKey]string) (string, bool, error) {
 	spellings := referenceSpellings(key.target)
 	if previous != nil {
@@ -300,9 +301,20 @@ func (e *encoder) chooseRoot(key segmentKey, written string, refs []resolve.Refe
 			return spelling, spelling != written, nil
 		}
 	}
-	// Nothing that names the root reads as it (an unnamed member, say): it is
-	// written as it was, unchecked, as it always has been.
-	return written, false, nil
+	// An unnamed member (`@0`) has no name to read as it; its chain is written by
+	// position, unchecked, as it always has been. A named root no spelling
+	// reaches cannot be stated: writing its name would name something else.
+	last := key.target
+	if i := strings.LastIndex(last, "::"); i >= 0 {
+		last = last[i+len("::"):]
+	}
+	if strings.HasPrefix(last, "@") {
+		return written, false, nil
+	}
+	return "", false, &UnsupportedError{
+		What: fmt.Sprintf("the end chain in %s starting at %s", key.member, key.target),
+		Note: "no spelling of its first segment reads as that element from where the chain is written, so the notation cannot state it",
+	}
 }
 
 // segmentReads reports whether spelling, written as the segment of every one

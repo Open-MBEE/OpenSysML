@@ -122,3 +122,48 @@ func TestFlowEndFeatureFoundThroughItsMembership(t *testing.T) {
 		t.Errorf("the flow did not read back as written:\n%s", back)
 	}
 }
+
+// A flow end whose root no spelling reaches from where the flow is written is
+// refused, not written by a name that reads as another feature: with `A::t`
+// made private in the graph, `t.fuel` in B would connect `B::t` (review finding).
+func TestUnreachableFlowEndRootIsRefused(t *testing.T) {
+	const model = `package S {
+    item def Fuel;
+    part def Tank { out item fuel : Fuel; }
+    part def Engine { in item fuel : Fuel; }
+    package A { part t : Tank; }
+    part e : Engine;
+    package B {
+        part t : Tank;
+        flow A::t.fuel to e.fuel;
+    }
+}
+`
+	turtle, err := convert.Convert("s.sysml", []byte(model), convert.FormatSysML, convert.FormatTurtle)
+	if err != nil {
+		t.Fatal(err)
+	}
+	g, err := rdf.ParseTurtle(withoutLayout(t, turtle))
+	if err != nil {
+		t.Fatal(err)
+	}
+	membership := rdf.IRI(rdf.Element + "S__A__t_om")
+	if !g.HasProperty(membership, rdf.SysML+"memberElement") {
+		t.Fatalf("no membership %s for A::t", membership.Value)
+	}
+	private := rdf.NewGraph()
+	for _, triple := range g.Triples() {
+		if triple.Subject == membership && triple.Predicate == rdf.SysMLTerm("visibility") {
+			continue
+		}
+		private.AddTriple(triple)
+	}
+	private.Add(membership, rdf.SysMLTerm("visibility"), rdf.String("private"))
+	back, err := convert.Convert("s.ttl", rdf.WriteTurtle(private), convert.FormatTurtle, convert.FormatSysML)
+	if err == nil {
+		t.Fatalf("the flow's end A::t cannot be named from B, yet the graph read back:\n%s", back)
+	}
+	if !strings.Contains(err.Error(), "S::A::t") {
+		t.Errorf("the refusal should name the unreachable root S::A::t: %v", err)
+	}
+}
