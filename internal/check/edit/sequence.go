@@ -246,18 +246,22 @@ func (m Model) memberInsertionAfter(member ast.Node, text string) insertion {
 	for end > 0 && (content[end-1] == ' ' || content[end-1] == '\t' || content[end-1] == '\n' || content[end-1] == '\r') {
 		end--
 	}
-	// When the member's `;` shares its line with the body's closing brace, the
-	// new member takes the line between them: `a; then b; }` reads `a;\n    then b; }`.
+	// The rest of the member's line decides the placement: a member or the
+	// body's `}` sharing it takes the new member inline right after this one
+	// (`a; then b; c;`); an empty rest, or a rest holding a comment alone,
+	// puts it on the next line at this member's indent.
 	next := end
 	for next < len(content) && (content[next] == ' ' || content[next] == '\t') {
 		next++
 	}
 	indent := lineIndent(content, member.Span().Offset)
-	if next < len(content) && content[next] == '}' {
+	if next < len(content) && content[next] != '\n' &&
+		!(content[next] == '/' && next+1 < len(content) &&
+			(content[next+1] == '/' || content[next+1] == '*')) {
 		return insertion{
 			span: source.Span{Offset: end, Len: next - end},
-			text: "\n" + indent + text + " ",
-			at:   1 + len(indent),
+			text: " " + text + " ",
+			at:   1 + len(text),
 		}
 	}
 	lineEnd := end

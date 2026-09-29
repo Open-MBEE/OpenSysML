@@ -71,6 +71,45 @@ func TestAddSequenceAfter(t *testing.T) {
 		}
 		requireClean(t, loadContent(t, "sequence-after-body.sysml", string(result.Content)))
 	})
+	t.Run("before a same-line sibling", func(t *testing.T) {
+		model := loadContent(t, "sequence-inline.sysml",
+			"action def A { action a; action b; }\n")
+		requireClean(t, model)
+		op := AddThen("A", "done")
+		op.After = "a"
+		result := applyOne(t, model, op)
+		const want = "action def A { action a; then done; action b; }\n"
+		if string(result.Content) != want {
+			t.Fatalf("content = %q, want %q", result.Content, want)
+		}
+		requireClean(t, loadContent(t, "sequence-inline.sysml", string(result.Content)))
+	})
+	t.Run("before a same-line closing brace", func(t *testing.T) {
+		model := loadContent(t, "sequence-inline-brace.sysml",
+			"action def A { action a; }\n")
+		requireClean(t, model)
+		op := AddThen("A", "done")
+		op.After = "a"
+		result := applyOne(t, model, op)
+		const want = "action def A { action a; then done; }\n"
+		if string(result.Content) != want {
+			t.Fatalf("content = %q, want %q", result.Content, want)
+		}
+		requireClean(t, loadContent(t, "sequence-inline-brace.sysml", string(result.Content)))
+	})
+	t.Run("after a member with a trailing comment", func(t *testing.T) {
+		model := loadContent(t, "sequence-comment.sysml",
+			"action def A {\n    action a; // c\n    action b;\n}\n")
+		requireClean(t, model)
+		op := AddThen("A", "done")
+		op.After = "a"
+		result := applyOne(t, model, op)
+		const want = "action def A {\n    action a; // c\n    then done;\n    action b;\n}\n"
+		if string(result.Content) != want {
+			t.Fatalf("content = %q, want %q", result.Content, want)
+		}
+		requireClean(t, loadContent(t, "sequence-comment.sysml", string(result.Content)))
+	})
 	t.Run("chain insertion", func(t *testing.T) {
 		model := loadContent(t, "sequence-chain.sysml",
 			"action def A {\n    action a;\n    action b;\n    then c;\n    action c;\n}\n")
