@@ -7,6 +7,7 @@ import (
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/resolve"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/symbols"
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/ast"
+	"github.com/Open-MBEE/OpenSysML/internal/syntax/lexer"
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/source"
 )
 
@@ -254,11 +255,15 @@ func identificationName(id ast.Identification) string {
 // member's, the member's `;` or `}` and any comment on its line staying with it.
 func (m Model) memberInsertionAfter(member ast.Node, text string) insertion {
 	content := m.Source.Bytes()
-	// A member's span runs on over the trivia after it; its own text ends at
-	// its last token, which is the line the new member follows.
+	// A member's span runs on over the trivia after it — trailing whitespace
+	// and the comments on the lines after it — so what the new member follows
+	// is its last code token, which the trivia trim below cannot reach.
 	end := member.Span().End()
-	for end > 0 && (content[end-1] == ' ' || content[end-1] == '\t' || content[end-1] == '\n' || content[end-1] == '\r') {
-		end--
+	lx := lexer.New(m.Source)
+	for tok := lx.Next(); tok.Kind != lexer.EOF && tok.Span.Offset < member.Span().End(); tok = lx.Next() {
+		if !tok.IsTrivia() && tok.Kind != lexer.RegularComment {
+			end = tok.Span.End()
+		}
 	}
 	// The rest of the member's line decides the placement: a member or the
 	// body's `}` sharing it takes the new member inline right after this one

@@ -110,6 +110,32 @@ func TestAddSequenceAfter(t *testing.T) {
 		}
 		requireClean(t, loadContent(t, "sequence-comment.sysml", string(result.Content)))
 	})
+	t.Run("before the next member's comment", func(t *testing.T) {
+		model := loadContent(t, "sequence-comment-before.sysml",
+			"action def A {\n    action a;\n    // explain b\n    action b;\n}\n")
+		requireClean(t, model)
+		op := AddThenMember("A", "action", "x", "")
+		op.After = "a"
+		result := applyOne(t, model, op)
+		const want = "action def A {\n    action a;\n    then action x;\n    // explain b\n    action b;\n}\n"
+		if string(result.Content) != want {
+			t.Fatalf("content = %q, want %q", result.Content, want)
+		}
+		requireClean(t, loadContent(t, "sequence-comment-before.sysml", string(result.Content)))
+	})
+	t.Run("before a blank line", func(t *testing.T) {
+		model := loadContent(t, "sequence-blank.sysml",
+			"action def A {\n    action a;\n\n    action b;\n}\n")
+		requireClean(t, model)
+		op := AddThen("A", "done")
+		op.After = "a"
+		result := applyOne(t, model, op)
+		const want = "action def A {\n    action a;\n    then done;\n\n    action b;\n}\n"
+		if string(result.Content) != want {
+			t.Fatalf("content = %q, want %q", result.Content, want)
+		}
+		requireClean(t, loadContent(t, "sequence-blank.sysml", string(result.Content)))
+	})
 	t.Run("chain insertion", func(t *testing.T) {
 		model := loadContent(t, "sequence-chain.sysml",
 			"action def A {\n    action a;\n    action b;\n    then c;\n    action c;\n}\n")
