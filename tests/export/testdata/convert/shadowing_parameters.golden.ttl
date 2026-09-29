@@ -491,16 +491,16 @@ elmt:Shadows__Governor___404
     sysml:owningMembership elmt:Shadows__Governor___404_om ;
     sysx:transitionSyntax "source" ;
     sysml:succession elmt:Shadows__Governor___404_succession ;
-    sysml:ownedRelationship elmt:Shadows__Governor___404_succession_om, expr:Shadows__Governor___404_pguard_om ;
-    sysml:ownedMembership elmt:Shadows__Governor___404_succession_om, expr:Shadows__Governor___404_pguard_om ;
-    sysml:source elmt:Shadows__Governor__idle ;
-    sysml:target elmt:Shadows__Governor__fast ;
     sysx:trigger "setSpeed(value)" ;
     sysx:triggerKeyword "accept" ;
     sysx:guard expr:Shadows__Governor___404_pguard ;
+    sysml:ownedRelationship expr:Shadows__Governor___404_pguard_om, elmt:Shadows__Governor___404_succession_om ;
+    sysml:ownedMembership expr:Shadows__Governor___404_pguard_om, elmt:Shadows__Governor___404_succession_om ;
+    sysml:source elmt:Shadows__Governor__idle ;
+    sysml:target elmt:Shadows__Governor__fast ;
     sysx:sourceText "        transition idle then fast accept setSpeed(value) if value > 0;\n" ;
-    json:ownedRelationship "[{\"@id\":\"Shadows__Governor___404_succession_om\"},{\"@id\":\"Shadows__Governor___404_pguard_om\"}]" ;
-    json:ownedMembership "[{\"@id\":\"Shadows__Governor___404_succession_om\"},{\"@id\":\"Shadows__Governor___404_pguard_om\"}]" .
+    json:ownedRelationship "[{\"@id\":\"Shadows__Governor___404_pguard_om\"},{\"@id\":\"Shadows__Governor___404_succession_om\"}]" ;
+    json:ownedMembership "[{\"@id\":\"Shadows__Governor___404_pguard_om\"},{\"@id\":\"Shadows__Governor___404_succession_om\"}]" .
 
 elmt:Shadows__Governor___404_om
     a sysml:FeatureMembership ;
@@ -517,31 +517,21 @@ elmt:Shadows__Governor___404_om
 elmt:Shadows__Governor___404_succession
     a sysml:SuccessionAsUsage ;
     sysml:elementId "Shadows__Governor___404_succession" ;
-    sysml:owner elmt:Shadows__Governor___404 ;
-    sysml:owningRelationship elmt:Shadows__Governor___404_succession_om ;
-    sysml:owningMembership elmt:Shadows__Governor___404_succession_om ;
     sysml:connectorEnd expr:Shadows__Governor___404_succession_pend0, expr:Shadows__Governor___404_succession_pend1 ;
     sysml:ownedRelationship expr:Shadows__Governor___404_succession_pend0_om, expr:Shadows__Governor___404_succession_pend1_om ;
     sysml:ownedMembership expr:Shadows__Governor___404_succession_pend0_om, expr:Shadows__Governor___404_succession_pend1_om ;
     sysml:ownedFeatureMembership expr:Shadows__Governor___404_succession_pend0_om, expr:Shadows__Governor___404_succession_pend1_om ;
     sysml:ownedFeature expr:Shadows__Governor___404_succession_pend0, expr:Shadows__Governor___404_succession_pend1 ;
     sysml:ownedEndFeature expr:Shadows__Governor___404_succession_pend0, expr:Shadows__Governor___404_succession_pend1 ;
+    sysml:owner elmt:Shadows__Governor___404 ;
+    sysml:owningRelationship elmt:Shadows__Governor___404_succession_om ;
+    sysml:owningMembership elmt:Shadows__Governor___404_succession_om ;
     json:connectorEnd "[{\"@id\":\"Shadows__Governor___404_succession_pend0\"},{\"@id\":\"Shadows__Governor___404_succession_pend1\"}]" ;
     json:ownedRelationship "[{\"@id\":\"Shadows__Governor___404_succession_pend0_om\"},{\"@id\":\"Shadows__Governor___404_succession_pend1_om\"}]" ;
     json:ownedMembership "[{\"@id\":\"Shadows__Governor___404_succession_pend0_om\"},{\"@id\":\"Shadows__Governor___404_succession_pend1_om\"}]" ;
     json:ownedFeatureMembership "[{\"@id\":\"Shadows__Governor___404_succession_pend0_om\"},{\"@id\":\"Shadows__Governor___404_succession_pend1_om\"}]" ;
     json:ownedFeature "[{\"@id\":\"Shadows__Governor___404_succession_pend0\"},{\"@id\":\"Shadows__Governor___404_succession_pend1\"}]" ;
     json:ownedEndFeature "[{\"@id\":\"Shadows__Governor___404_succession_pend0\"},{\"@id\":\"Shadows__Governor___404_succession_pend1\"}]" .
-
-elmt:Shadows__Governor___404_succession_om
-    a sysml:OwningMembership ;
-    sysml:elementId "Shadows__Governor___404_succession_om" ;
-    sysml:owner elmt:Shadows__Governor___404 ;
-    sysml:memberElement elmt:Shadows__Governor___404_succession ;
-    sysml:ownedMemberElement elmt:Shadows__Governor___404_succession ;
-    sysml:ownedRelatedElement elmt:Shadows__Governor___404_succession ;
-    sysml:owningRelatedElement elmt:Shadows__Governor___404 ;
-    sysml:membershipOwningNamespace elmt:Shadows__Governor___404 .
 
 expr:Shadows__Governor___404_succession_pend0
     a sysml:ReferenceUsage ;
@@ -768,6 +758,16 @@ expr:Shadows__Governor___404_pguard_om
     sysml:owningRelatedElement elmt:Shadows__Governor___404 ;
     sysml:membershipOwningNamespace elmt:Shadows__Governor___404 .
 
+elmt:Shadows__Governor___404_succession_om
+    a sysml:OwningMembership ;
+    sysml:elementId "Shadows__Governor___404_succession_om" ;
+    sysml:owner elmt:Shadows__Governor___404 ;
+    sysml:memberElement elmt:Shadows__Governor___404_succession ;
+    sysml:ownedMemberElement elmt:Shadows__Governor___404_succession ;
+    sysml:ownedRelatedElement elmt:Shadows__Governor___404_succession ;
+    sysml:owningRelatedElement elmt:Shadows__Governor___404 ;
+    sysml:membershipOwningNamespace elmt:Shadows__Governor___404 .
+
 elmt:Shadows__Governor___405
     a sysml:TransitionUsage ;
     sysml:qualifiedName "Shadows::Governor::@5" ;
@@ -779,16 +779,16 @@ elmt:Shadows__Governor___405
     sysml:owningMembership elmt:Shadows__Governor___405_om ;
     sysx:transitionSyntax "source" ;
     sysml:succession elmt:Shadows__Governor___405_succession ;
-    sysml:ownedRelationship elmt:Shadows__Governor___405_succession_om, expr:Shadows__Governor___405_pguard_om ;
-    sysml:ownedMembership elmt:Shadows__Governor___405_succession_om, expr:Shadows__Governor___405_pguard_om ;
-    sysml:source elmt:Shadows__Governor__fast ;
-    sysml:target elmt:Shadows__Governor__idle ;
     sysx:trigger "w : Speed" ;
     sysx:triggerKeyword "accept" ;
     sysx:guard expr:Shadows__Governor___405_pguard ;
+    sysml:ownedRelationship expr:Shadows__Governor___405_pguard_om, elmt:Shadows__Governor___405_succession_om ;
+    sysml:ownedMembership expr:Shadows__Governor___405_pguard_om, elmt:Shadows__Governor___405_succession_om ;
+    sysml:source elmt:Shadows__Governor__fast ;
+    sysml:target elmt:Shadows__Governor__idle ;
     sysx:sourceText "        transition fast then idle accept w : Speed if w > 0;\n" ;
-    json:ownedRelationship "[{\"@id\":\"Shadows__Governor___405_succession_om\"},{\"@id\":\"Shadows__Governor___405_pguard_om\"}]" ;
-    json:ownedMembership "[{\"@id\":\"Shadows__Governor___405_succession_om\"},{\"@id\":\"Shadows__Governor___405_pguard_om\"}]" .
+    json:ownedRelationship "[{\"@id\":\"Shadows__Governor___405_pguard_om\"},{\"@id\":\"Shadows__Governor___405_succession_om\"}]" ;
+    json:ownedMembership "[{\"@id\":\"Shadows__Governor___405_pguard_om\"},{\"@id\":\"Shadows__Governor___405_succession_om\"}]" .
 
 elmt:Shadows__Governor___405_om
     a sysml:FeatureMembership ;
@@ -805,31 +805,21 @@ elmt:Shadows__Governor___405_om
 elmt:Shadows__Governor___405_succession
     a sysml:SuccessionAsUsage ;
     sysml:elementId "Shadows__Governor___405_succession" ;
-    sysml:owner elmt:Shadows__Governor___405 ;
-    sysml:owningRelationship elmt:Shadows__Governor___405_succession_om ;
-    sysml:owningMembership elmt:Shadows__Governor___405_succession_om ;
     sysml:connectorEnd expr:Shadows__Governor___405_succession_pend0, expr:Shadows__Governor___405_succession_pend1 ;
     sysml:ownedRelationship expr:Shadows__Governor___405_succession_pend0_om, expr:Shadows__Governor___405_succession_pend1_om ;
     sysml:ownedMembership expr:Shadows__Governor___405_succession_pend0_om, expr:Shadows__Governor___405_succession_pend1_om ;
     sysml:ownedFeatureMembership expr:Shadows__Governor___405_succession_pend0_om, expr:Shadows__Governor___405_succession_pend1_om ;
     sysml:ownedFeature expr:Shadows__Governor___405_succession_pend0, expr:Shadows__Governor___405_succession_pend1 ;
     sysml:ownedEndFeature expr:Shadows__Governor___405_succession_pend0, expr:Shadows__Governor___405_succession_pend1 ;
+    sysml:owner elmt:Shadows__Governor___405 ;
+    sysml:owningRelationship elmt:Shadows__Governor___405_succession_om ;
+    sysml:owningMembership elmt:Shadows__Governor___405_succession_om ;
     json:connectorEnd "[{\"@id\":\"Shadows__Governor___405_succession_pend0\"},{\"@id\":\"Shadows__Governor___405_succession_pend1\"}]" ;
     json:ownedRelationship "[{\"@id\":\"Shadows__Governor___405_succession_pend0_om\"},{\"@id\":\"Shadows__Governor___405_succession_pend1_om\"}]" ;
     json:ownedMembership "[{\"@id\":\"Shadows__Governor___405_succession_pend0_om\"},{\"@id\":\"Shadows__Governor___405_succession_pend1_om\"}]" ;
     json:ownedFeatureMembership "[{\"@id\":\"Shadows__Governor___405_succession_pend0_om\"},{\"@id\":\"Shadows__Governor___405_succession_pend1_om\"}]" ;
     json:ownedFeature "[{\"@id\":\"Shadows__Governor___405_succession_pend0\"},{\"@id\":\"Shadows__Governor___405_succession_pend1\"}]" ;
     json:ownedEndFeature "[{\"@id\":\"Shadows__Governor___405_succession_pend0\"},{\"@id\":\"Shadows__Governor___405_succession_pend1\"}]" .
-
-elmt:Shadows__Governor___405_succession_om
-    a sysml:OwningMembership ;
-    sysml:elementId "Shadows__Governor___405_succession_om" ;
-    sysml:owner elmt:Shadows__Governor___405 ;
-    sysml:memberElement elmt:Shadows__Governor___405_succession ;
-    sysml:ownedMemberElement elmt:Shadows__Governor___405_succession ;
-    sysml:ownedRelatedElement elmt:Shadows__Governor___405_succession ;
-    sysml:owningRelatedElement elmt:Shadows__Governor___405 ;
-    sysml:membershipOwningNamespace elmt:Shadows__Governor___405 .
 
 expr:Shadows__Governor___405_succession_pend0
     a sysml:ReferenceUsage ;
@@ -1053,6 +1043,16 @@ expr:Shadows__Governor___405_pguard_om
     sysml:memberElement expr:Shadows__Governor___405_pguard ;
     sysml:ownedMemberElement expr:Shadows__Governor___405_pguard ;
     sysml:ownedRelatedElement expr:Shadows__Governor___405_pguard ;
+    sysml:owningRelatedElement elmt:Shadows__Governor___405 ;
+    sysml:membershipOwningNamespace elmt:Shadows__Governor___405 .
+
+elmt:Shadows__Governor___405_succession_om
+    a sysml:OwningMembership ;
+    sysml:elementId "Shadows__Governor___405_succession_om" ;
+    sysml:owner elmt:Shadows__Governor___405 ;
+    sysml:memberElement elmt:Shadows__Governor___405_succession ;
+    sysml:ownedMemberElement elmt:Shadows__Governor___405_succession ;
+    sysml:ownedRelatedElement elmt:Shadows__Governor___405_succession ;
     sysml:owningRelatedElement elmt:Shadows__Governor___405 ;
     sysml:membershipOwningNamespace elmt:Shadows__Governor___405 .
 

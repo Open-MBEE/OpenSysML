@@ -684,17 +684,23 @@ func (e *encoder) encode(members []ast.Node, owner string, ownerTerm rdf.Term) e
 		}
 		e.bodies[ownerTerm] = body
 	}
-	return e.encodeMembers(kept, regions, inline, owner, ownerTerm)
+	return e.encodeMembers(kept, regions, inline, owner, ownerTerm, 0)
 }
 
 // encodeInline walks members whose lines interleave with their owner's own
 // notation, so the owner is written whole or rebuilt whole.
 func (e *encoder) encodeInline(members []ast.Node, owner string, ownerTerm rdf.Term) error {
-	kept := e.kept(members)
-	return e.encodeMembers(kept, make([]region, len(kept)), true, owner, ownerTerm)
+	return e.encodeInlineAt(members, 0, owner, ownerTerm)
 }
 
-func (e *encoder) encodeMembers(kept []ast.Node, regions []region, inline bool, owner string, ownerTerm rdf.Term) error {
+// encodeInlineAt is encodeInline with the member indexes continuing an earlier
+// member group's: a transition's body members index after its effect's.
+func (e *encoder) encodeInlineAt(members []ast.Node, indexOffset int, owner string, ownerTerm rdf.Term) error {
+	kept := e.kept(members)
+	return e.encodeMembers(kept, make([]region, len(kept)), true, owner, ownerTerm, indexOffset)
+}
+
+func (e *encoder) encodeMembers(kept []ast.Node, regions []region, inline bool, owner string, ownerTerm rdf.Term, indexOffset int) error {
 	// last and beforeLast are the latest members a `then` sequences from; a
 	// member-attached `then` follows its target prev, so its source is the
 	// latest of them before prev.
@@ -714,7 +720,7 @@ func (e *encoder) encodeMembers(kept []ast.Node, regions []region, inline bool, 
 		if preceding != nil {
 			e.preceding[node] = preceding
 		}
-		h := memberHead{node: node, visibility: visibility, owner: ownerTerm, index: i,
+		h := memberHead{node: node, visibility: visibility, owner: ownerTerm, index: i + indexOffset,
 			lines: regions[i], inline: inline, typeFeature: isTypeFeatureMember(member), last: i == len(kept)-1}
 		if err := e.encodeMember(h, owner); err != nil {
 			return err

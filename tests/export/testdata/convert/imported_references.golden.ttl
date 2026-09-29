@@ -1153,31 +1153,21 @@ elmt:R90__Run___403_om
 elmt:R90__Run___403_succession
     a sysml:SuccessionAsUsage ;
     sysml:elementId "R90__Run___403_succession" ;
-    sysml:owner elmt:R90__Run___403 ;
-    sysml:owningRelationship elmt:R90__Run___403_succession_om ;
-    sysml:owningMembership elmt:R90__Run___403_succession_om ;
     sysml:connectorEnd expr:R90__Run___403_succession_pend0, expr:R90__Run___403_succession_pend1 ;
     sysml:ownedRelationship expr:R90__Run___403_succession_pend0_om, expr:R90__Run___403_succession_pend1_om ;
     sysml:ownedMembership expr:R90__Run___403_succession_pend0_om, expr:R90__Run___403_succession_pend1_om ;
     sysml:ownedFeatureMembership expr:R90__Run___403_succession_pend0_om, expr:R90__Run___403_succession_pend1_om ;
     sysml:ownedFeature expr:R90__Run___403_succession_pend0, expr:R90__Run___403_succession_pend1 ;
     sysml:ownedEndFeature expr:R90__Run___403_succession_pend0, expr:R90__Run___403_succession_pend1 ;
+    sysml:owner elmt:R90__Run___403 ;
+    sysml:owningRelationship elmt:R90__Run___403_succession_om ;
+    sysml:owningMembership elmt:R90__Run___403_succession_om ;
     json:connectorEnd "[{\"@id\":\"R90__Run___403_succession_pend0\"},{\"@id\":\"R90__Run___403_succession_pend1\"}]" ;
     json:ownedRelationship "[{\"@id\":\"R90__Run___403_succession_pend0_om\"},{\"@id\":\"R90__Run___403_succession_pend1_om\"}]" ;
     json:ownedMembership "[{\"@id\":\"R90__Run___403_succession_pend0_om\"},{\"@id\":\"R90__Run___403_succession_pend1_om\"}]" ;
     json:ownedFeatureMembership "[{\"@id\":\"R90__Run___403_succession_pend0_om\"},{\"@id\":\"R90__Run___403_succession_pend1_om\"}]" ;
     json:ownedFeature "[{\"@id\":\"R90__Run___403_succession_pend0\"},{\"@id\":\"R90__Run___403_succession_pend1\"}]" ;
     json:ownedEndFeature "[{\"@id\":\"R90__Run___403_succession_pend0\"},{\"@id\":\"R90__Run___403_succession_pend1\"}]" .
-
-elmt:R90__Run___403_succession_om
-    a sysml:OwningMembership ;
-    sysml:elementId "R90__Run___403_succession_om" ;
-    sysml:owner elmt:R90__Run___403 ;
-    sysml:memberElement elmt:R90__Run___403_succession ;
-    sysml:ownedMemberElement elmt:R90__Run___403_succession ;
-    sysml:ownedRelatedElement elmt:R90__Run___403_succession ;
-    sysml:owningRelatedElement elmt:R90__Run___403 ;
-    sysml:membershipOwningNamespace elmt:R90__Run___403 .
 
 expr:R90__Run___403_succession_pend0
     a sysml:ReferenceUsage ;
@@ -1236,6 +1226,16 @@ expr:R90__Run___403_succession_pend1_prs
     sysml:owner expr:R90__Run___403_succession_pend1 ;
     sysml:owningRelatedElement expr:R90__Run___403_succession_pend1 ;
     json:relatedElement "[{\"@id\":\"R90__Run___403_succession_pend1\"},{\"@id\":\"R90__Done__done\"}]" .
+
+elmt:R90__Run___403_succession_om
+    a sysml:OwningMembership ;
+    sysml:elementId "R90__Run___403_succession_om" ;
+    sysml:owner elmt:R90__Run___403 ;
+    sysml:memberElement elmt:R90__Run___403_succession ;
+    sysml:ownedMemberElement elmt:R90__Run___403_succession ;
+    sysml:ownedRelatedElement elmt:R90__Run___403_succession ;
+    sysml:owningRelatedElement elmt:R90__Run___403 ;
+    sysml:membershipOwningNamespace elmt:R90__Run___403 .
 
 elmt:R90__Done
     a sysml:StateDefinition ;

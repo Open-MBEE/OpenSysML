@@ -2888,13 +2888,13 @@ elmt:IrregularLayout__Ops___404
     sysml:owningMembership elmt:IrregularLayout__Ops___404_om ;
     sysx:transitionSyntax "first" ;
     sysml:succession elmt:IrregularLayout__Ops___404_succession ;
-    sysml:ownedRelationship elmt:IrregularLayout__Ops___404_succession_om, expr:IrregularLayout__Ops___404_pguard_om ;
-    sysml:ownedMembership elmt:IrregularLayout__Ops___404_succession_om, expr:IrregularLayout__Ops___404_pguard_om ;
+    sysx:guard expr:IrregularLayout__Ops___404_pguard ;
+    sysml:ownedRelationship expr:IrregularLayout__Ops___404_pguard_om, elmt:IrregularLayout__Ops___404_succession_om ;
+    sysml:ownedMembership expr:IrregularLayout__Ops___404_pguard_om, elmt:IrregularLayout__Ops___404_succession_om ;
     sysml:source elmt:IrregularLayout__Ops__off ;
     sysml:target elmt:IrregularLayout__Ops__on ;
-    sysx:guard expr:IrregularLayout__Ops___404_pguard ;
-    json:ownedRelationship "[{\"@id\":\"IrregularLayout__Ops___404_succession_om\"},{\"@id\":\"IrregularLayout__Ops___404_pguard_om\"}]" ;
-    json:ownedMembership "[{\"@id\":\"IrregularLayout__Ops___404_succession_om\"},{\"@id\":\"IrregularLayout__Ops___404_pguard_om\"}]" .
+    json:ownedRelationship "[{\"@id\":\"IrregularLayout__Ops___404_pguard_om\"},{\"@id\":\"IrregularLayout__Ops___404_succession_om\"}]" ;
+    json:ownedMembership "[{\"@id\":\"IrregularLayout__Ops___404_pguard_om\"},{\"@id\":\"IrregularLayout__Ops___404_succession_om\"}]" .
 
 elmt:IrregularLayout__Ops___404_om
     a sysml:FeatureMembership ;
@@ -2911,31 +2911,21 @@ elmt:IrregularLayout__Ops___404_om
 elmt:IrregularLayout__Ops___404_succession
     a sysml:SuccessionAsUsage ;
     sysml:elementId "IrregularLayout__Ops___404_succession" ;
-    sysml:owner elmt:IrregularLayout__Ops___404 ;
-    sysml:owningRelationship elmt:IrregularLayout__Ops___404_succession_om ;
-    sysml:owningMembership elmt:IrregularLayout__Ops___404_succession_om ;
     sysml:connectorEnd expr:IrregularLayout__Ops___404_succession_pend0, expr:IrregularLayout__Ops___404_succession_pend1 ;
     sysml:ownedRelationship expr:IrregularLayout__Ops___404_succession_pend0_om, expr:IrregularLayout__Ops___404_succession_pend1_om ;
     sysml:ownedMembership expr:IrregularLayout__Ops___404_succession_pend0_om, expr:IrregularLayout__Ops___404_succession_pend1_om ;
     sysml:ownedFeatureMembership expr:IrregularLayout__Ops___404_succession_pend0_om, expr:IrregularLayout__Ops___404_succession_pend1_om ;
     sysml:ownedFeature expr:IrregularLayout__Ops___404_succession_pend0, expr:IrregularLayout__Ops___404_succession_pend1 ;
     sysml:ownedEndFeature expr:IrregularLayout__Ops___404_succession_pend0, expr:IrregularLayout__Ops___404_succession_pend1 ;
+    sysml:owner elmt:IrregularLayout__Ops___404 ;
+    sysml:owningRelationship elmt:IrregularLayout__Ops___404_succession_om ;
+    sysml:owningMembership elmt:IrregularLayout__Ops___404_succession_om ;
     json:connectorEnd "[{\"@id\":\"IrregularLayout__Ops___404_succession_pend0\"},{\"@id\":\"IrregularLayout__Ops___404_succession_pend1\"}]" ;
     json:ownedRelationship "[{\"@id\":\"IrregularLayout__Ops___404_succession_pend0_om\"},{\"@id\":\"IrregularLayout__Ops___404_succession_pend1_om\"}]" ;
     json:ownedMembership "[{\"@id\":\"IrregularLayout__Ops___404_succession_pend0_om\"},{\"@id\":\"IrregularLayout__Ops___404_succession_pend1_om\"}]" ;
     json:ownedFeatureMembership "[{\"@id\":\"IrregularLayout__Ops___404_succession_pend0_om\"},{\"@id\":\"IrregularLayout__Ops___404_succession_pend1_om\"}]" ;
     json:ownedFeature "[{\"@id\":\"IrregularLayout__Ops___404_succession_pend0\"},{\"@id\":\"IrregularLayout__Ops___404_succession_pend1\"}]" ;
     json:ownedEndFeature "[{\"@id\":\"IrregularLayout__Ops___404_succession_pend0\"},{\"@id\":\"IrregularLayout__Ops___404_succession_pend1\"}]" .
-
-elmt:IrregularLayout__Ops___404_succession_om
-    a sysml:OwningMembership ;
-    sysml:elementId "IrregularLayout__Ops___404_succession_om" ;
-    sysml:owner elmt:IrregularLayout__Ops___404 ;
-    sysml:memberElement elmt:IrregularLayout__Ops___404_succession ;
-    sysml:ownedMemberElement elmt:IrregularLayout__Ops___404_succession ;
-    sysml:ownedRelatedElement elmt:IrregularLayout__Ops___404_succession ;
-    sysml:owningRelatedElement elmt:IrregularLayout__Ops___404 ;
-    sysml:membershipOwningNamespace elmt:IrregularLayout__Ops___404 .
 
 expr:IrregularLayout__Ops___404_succession_pend0
     a sysml:ReferenceUsage ;
@@ -3132,6 +3122,16 @@ expr:IrregularLayout__Ops___404_pguard_om
     sysml:memberElement expr:IrregularLayout__Ops___404_pguard ;
     sysml:ownedMemberElement expr:IrregularLayout__Ops___404_pguard ;
     sysml:ownedRelatedElement expr:IrregularLayout__Ops___404_pguard ;
+    sysml:owningRelatedElement elmt:IrregularLayout__Ops___404 ;
+    sysml:membershipOwningNamespace elmt:IrregularLayout__Ops___404 .
+
+elmt:IrregularLayout__Ops___404_succession_om
+    a sysml:OwningMembership ;
+    sysml:elementId "IrregularLayout__Ops___404_succession_om" ;
+    sysml:owner elmt:IrregularLayout__Ops___404 ;
+    sysml:memberElement elmt:IrregularLayout__Ops___404_succession ;
+    sysml:ownedMemberElement elmt:IrregularLayout__Ops___404_succession ;
+    sysml:ownedRelatedElement elmt:IrregularLayout__Ops___404_succession ;
     sysml:owningRelatedElement elmt:IrregularLayout__Ops___404 ;
     sysml:membershipOwningNamespace elmt:IrregularLayout__Ops___404 .
 

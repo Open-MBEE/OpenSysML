@@ -298,31 +298,21 @@ elmt:Machines__Lamp__on__heat___404_om
 elmt:Machines__Lamp__on__heat___404_succession
     a sysml:SuccessionAsUsage ;
     sysml:elementId "Machines__Lamp__on__heat___404_succession" ;
-    sysml:owner elmt:Machines__Lamp__on__heat___404 ;
-    sysml:owningRelationship elmt:Machines__Lamp__on__heat___404_succession_om ;
-    sysml:owningMembership elmt:Machines__Lamp__on__heat___404_succession_om ;
     sysml:connectorEnd expr:Machines__Lamp__on__heat___404_succession_pend0, expr:Machines__Lamp__on__heat___404_succession_pend1 ;
     sysml:ownedRelationship expr:Machines__Lamp__on__heat___404_succession_pend0_om, expr:Machines__Lamp__on__heat___404_succession_pend1_om ;
     sysml:ownedMembership expr:Machines__Lamp__on__heat___404_succession_pend0_om, expr:Machines__Lamp__on__heat___404_succession_pend1_om ;
     sysml:ownedFeatureMembership expr:Machines__Lamp__on__heat___404_succession_pend0_om, expr:Machines__Lamp__on__heat___404_succession_pend1_om ;
     sysml:ownedFeature expr:Machines__Lamp__on__heat___404_succession_pend0, expr:Machines__Lamp__on__heat___404_succession_pend1 ;
     sysml:ownedEndFeature expr:Machines__Lamp__on__heat___404_succession_pend0, expr:Machines__Lamp__on__heat___404_succession_pend1 ;
+    sysml:owner elmt:Machines__Lamp__on__heat___404 ;
+    sysml:owningRelationship elmt:Machines__Lamp__on__heat___404_succession_om ;
+    sysml:owningMembership elmt:Machines__Lamp__on__heat___404_succession_om ;
     json:connectorEnd "[{\"@id\":\"Machines__Lamp__on__heat___404_succession_pend0\"},{\"@id\":\"Machines__Lamp__on__heat___404_succession_pend1\"}]" ;
     json:ownedRelationship "[{\"@id\":\"Machines__Lamp__on__heat___404_succession_pend0_om\"},{\"@id\":\"Machines__Lamp__on__heat___404_succession_pend1_om\"}]" ;
     json:ownedMembership "[{\"@id\":\"Machines__Lamp__on__heat___404_succession_pend0_om\"},{\"@id\":\"Machines__Lamp__on__heat___404_succession_pend1_om\"}]" ;
     json:ownedFeatureMembership "[{\"@id\":\"Machines__Lamp__on__heat___404_succession_pend0_om\"},{\"@id\":\"Machines__Lamp__on__heat___404_succession_pend1_om\"}]" ;
     json:ownedFeature "[{\"@id\":\"Machines__Lamp__on__heat___404_succession_pend0\"},{\"@id\":\"Machines__Lamp__on__heat___404_succession_pend1\"}]" ;
     json:ownedEndFeature "[{\"@id\":\"Machines__Lamp__on__heat___404_succession_pend0\"},{\"@id\":\"Machines__Lamp__on__heat___404_succession_pend1\"}]" .
-
-elmt:Machines__Lamp__on__heat___404_succession_om
-    a sysml:OwningMembership ;
-    sysml:elementId "Machines__Lamp__on__heat___404_succession_om" ;
-    sysml:owner elmt:Machines__Lamp__on__heat___404 ;
-    sysml:memberElement elmt:Machines__Lamp__on__heat___404_succession ;
-    sysml:ownedMemberElement elmt:Machines__Lamp__on__heat___404_succession ;
-    sysml:ownedRelatedElement elmt:Machines__Lamp__on__heat___404_succession ;
-    sysml:owningRelatedElement elmt:Machines__Lamp__on__heat___404 ;
-    sysml:membershipOwningNamespace elmt:Machines__Lamp__on__heat___404 .
 
 expr:Machines__Lamp__on__heat___404_succession_pend0
     a sysml:ReferenceUsage ;
@@ -381,6 +371,16 @@ expr:Machines__Lamp__on__heat___404_succession_pend1_prs
     sysml:owner expr:Machines__Lamp__on__heat___404_succession_pend1 ;
     sysml:owningRelatedElement expr:Machines__Lamp__on__heat___404_succession_pend1 ;
     json:relatedElement "[{\"@id\":\"Machines__Lamp__on__heat___404_succession_pend1\"},{\"@id\":\"Machines__Lamp__on__heat__hot\"}]" .
+
+elmt:Machines__Lamp__on__heat___404_succession_om
+    a sysml:OwningMembership ;
+    sysml:elementId "Machines__Lamp__on__heat___404_succession_om" ;
+    sysml:owner elmt:Machines__Lamp__on__heat___404 ;
+    sysml:memberElement elmt:Machines__Lamp__on__heat___404_succession ;
+    sysml:ownedMemberElement elmt:Machines__Lamp__on__heat___404_succession ;
+    sysml:ownedRelatedElement elmt:Machines__Lamp__on__heat___404_succession ;
+    sysml:owningRelatedElement elmt:Machines__Lamp__on__heat___404 ;
+    sysml:membershipOwningNamespace elmt:Machines__Lamp__on__heat___404 .
 
 elmt:Machines__Lamp__on__light
     a sysml:StateUsage ;
@@ -532,31 +532,21 @@ elmt:Machines__Lamp__on__light___404_om
 elmt:Machines__Lamp__on__light___404_succession
     a sysml:SuccessionAsUsage ;
     sysml:elementId "Machines__Lamp__on__light___404_succession" ;
-    sysml:owner elmt:Machines__Lamp__on__light___404 ;
-    sysml:owningRelationship elmt:Machines__Lamp__on__light___404_succession_om ;
-    sysml:owningMembership elmt:Machines__Lamp__on__light___404_succession_om ;
     sysml:connectorEnd expr:Machines__Lamp__on__light___404_succession_pend0, expr:Machines__Lamp__on__light___404_succession_pend1 ;
     sysml:ownedRelationship expr:Machines__Lamp__on__light___404_succession_pend0_om, expr:Machines__Lamp__on__light___404_succession_pend1_om ;
     sysml:ownedMembership expr:Machines__Lamp__on__light___404_succession_pend0_om, expr:Machines__Lamp__on__light___404_succession_pend1_om ;
     sysml:ownedFeatureMembership expr:Machines__Lamp__on__light___404_succession_pend0_om, expr:Machines__Lamp__on__light___404_succession_pend1_om ;
     sysml:ownedFeature expr:Machines__Lamp__on__light___404_succession_pend0, expr:Machines__Lamp__on__light___404_succession_pend1 ;
     sysml:ownedEndFeature expr:Machines__Lamp__on__light___404_succession_pend0, expr:Machines__Lamp__on__light___404_succession_pend1 ;
+    sysml:owner elmt:Machines__Lamp__on__light___404 ;
+    sysml:owningRelationship elmt:Machines__Lamp__on__light___404_succession_om ;
+    sysml:owningMembership elmt:Machines__Lamp__on__light___404_succession_om ;
     json:connectorEnd "[{\"@id\":\"Machines__Lamp__on__light___404_succession_pend0\"},{\"@id\":\"Machines__Lamp__on__light___404_succession_pend1\"}]" ;
     json:ownedRelationship "[{\"@id\":\"Machines__Lamp__on__light___404_succession_pend0_om\"},{\"@id\":\"Machines__Lamp__on__light___404_succession_pend1_om\"}]" ;
     json:ownedMembership "[{\"@id\":\"Machines__Lamp__on__light___404_succession_pend0_om\"},{\"@id\":\"Machines__Lamp__on__light___404_succession_pend1_om\"}]" ;
     json:ownedFeatureMembership "[{\"@id\":\"Machines__Lamp__on__light___404_succession_pend0_om\"},{\"@id\":\"Machines__Lamp__on__light___404_succession_pend1_om\"}]" ;
     json:ownedFeature "[{\"@id\":\"Machines__Lamp__on__light___404_succession_pend0\"},{\"@id\":\"Machines__Lamp__on__light___404_succession_pend1\"}]" ;
     json:ownedEndFeature "[{\"@id\":\"Machines__Lamp__on__light___404_succession_pend0\"},{\"@id\":\"Machines__Lamp__on__light___404_succession_pend1\"}]" .
-
-elmt:Machines__Lamp__on__light___404_succession_om
-    a sysml:OwningMembership ;
-    sysml:elementId "Machines__Lamp__on__light___404_succession_om" ;
-    sysml:owner elmt:Machines__Lamp__on__light___404 ;
-    sysml:memberElement elmt:Machines__Lamp__on__light___404_succession ;
-    sysml:ownedMemberElement elmt:Machines__Lamp__on__light___404_succession ;
-    sysml:ownedRelatedElement elmt:Machines__Lamp__on__light___404_succession ;
-    sysml:owningRelatedElement elmt:Machines__Lamp__on__light___404 ;
-    sysml:membershipOwningNamespace elmt:Machines__Lamp__on__light___404 .
 
 expr:Machines__Lamp__on__light___404_succession_pend0
     a sysml:ReferenceUsage ;
@@ -616,6 +606,16 @@ expr:Machines__Lamp__on__light___404_succession_pend1_prs
     sysml:owningRelatedElement expr:Machines__Lamp__on__light___404_succession_pend1 ;
     json:relatedElement "[{\"@id\":\"Machines__Lamp__on__light___404_succession_pend1\"},{\"@id\":\"Machines__Lamp__on__light__bright\"}]" .
 
+elmt:Machines__Lamp__on__light___404_succession_om
+    a sysml:OwningMembership ;
+    sysml:elementId "Machines__Lamp__on__light___404_succession_om" ;
+    sysml:owner elmt:Machines__Lamp__on__light___404 ;
+    sysml:memberElement elmt:Machines__Lamp__on__light___404_succession ;
+    sysml:ownedMemberElement elmt:Machines__Lamp__on__light___404_succession ;
+    sysml:ownedRelatedElement elmt:Machines__Lamp__on__light___404_succession ;
+    sysml:owningRelatedElement elmt:Machines__Lamp__on__light___404 ;
+    sysml:membershipOwningNamespace elmt:Machines__Lamp__on__light___404 .
+
 elmt:Machines__Lamp__on__light___405
     a sysml:TransitionUsage ;
     sysml:qualifiedName "Machines::Lamp::on::light::@5" ;
@@ -647,31 +647,21 @@ elmt:Machines__Lamp__on__light___405_om
 elmt:Machines__Lamp__on__light___405_succession
     a sysml:SuccessionAsUsage ;
     sysml:elementId "Machines__Lamp__on__light___405_succession" ;
-    sysml:owner elmt:Machines__Lamp__on__light___405 ;
-    sysml:owningRelationship elmt:Machines__Lamp__on__light___405_succession_om ;
-    sysml:owningMembership elmt:Machines__Lamp__on__light___405_succession_om ;
     sysml:connectorEnd expr:Machines__Lamp__on__light___405_succession_pend0, expr:Machines__Lamp__on__light___405_succession_pend1 ;
     sysml:ownedRelationship expr:Machines__Lamp__on__light___405_succession_pend0_om, expr:Machines__Lamp__on__light___405_succession_pend1_om ;
     sysml:ownedMembership expr:Machines__Lamp__on__light___405_succession_pend0_om, expr:Machines__Lamp__on__light___405_succession_pend1_om ;
     sysml:ownedFeatureMembership expr:Machines__Lamp__on__light___405_succession_pend0_om, expr:Machines__Lamp__on__light___405_succession_pend1_om ;
     sysml:ownedFeature expr:Machines__Lamp__on__light___405_succession_pend0, expr:Machines__Lamp__on__light___405_succession_pend1 ;
     sysml:ownedEndFeature expr:Machines__Lamp__on__light___405_succession_pend0, expr:Machines__Lamp__on__light___405_succession_pend1 ;
+    sysml:owner elmt:Machines__Lamp__on__light___405 ;
+    sysml:owningRelationship elmt:Machines__Lamp__on__light___405_succession_om ;
+    sysml:owningMembership elmt:Machines__Lamp__on__light___405_succession_om ;
     json:connectorEnd "[{\"@id\":\"Machines__Lamp__on__light___405_succession_pend0\"},{\"@id\":\"Machines__Lamp__on__light___405_succession_pend1\"}]" ;
     json:ownedRelationship "[{\"@id\":\"Machines__Lamp__on__light___405_succession_pend0_om\"},{\"@id\":\"Machines__Lamp__on__light___405_succession_pend1_om\"}]" ;
     json:ownedMembership "[{\"@id\":\"Machines__Lamp__on__light___405_succession_pend0_om\"},{\"@id\":\"Machines__Lamp__on__light___405_succession_pend1_om\"}]" ;
     json:ownedFeatureMembership "[{\"@id\":\"Machines__Lamp__on__light___405_succession_pend0_om\"},{\"@id\":\"Machines__Lamp__on__light___405_succession_pend1_om\"}]" ;
     json:ownedFeature "[{\"@id\":\"Machines__Lamp__on__light___405_succession_pend0\"},{\"@id\":\"Machines__Lamp__on__light___405_succession_pend1\"}]" ;
     json:ownedEndFeature "[{\"@id\":\"Machines__Lamp__on__light___405_succession_pend0\"},{\"@id\":\"Machines__Lamp__on__light___405_succession_pend1\"}]" .
-
-elmt:Machines__Lamp__on__light___405_succession_om
-    a sysml:OwningMembership ;
-    sysml:elementId "Machines__Lamp__on__light___405_succession_om" ;
-    sysml:owner elmt:Machines__Lamp__on__light___405 ;
-    sysml:memberElement elmt:Machines__Lamp__on__light___405_succession ;
-    sysml:ownedMemberElement elmt:Machines__Lamp__on__light___405_succession ;
-    sysml:ownedRelatedElement elmt:Machines__Lamp__on__light___405_succession ;
-    sysml:owningRelatedElement elmt:Machines__Lamp__on__light___405 ;
-    sysml:membershipOwningNamespace elmt:Machines__Lamp__on__light___405 .
 
 expr:Machines__Lamp__on__light___405_succession_pend0
     a sysml:ReferenceUsage ;
@@ -731,6 +721,16 @@ expr:Machines__Lamp__on__light___405_succession_pend1_prs
     sysml:owningRelatedElement expr:Machines__Lamp__on__light___405_succession_pend1 ;
     json:relatedElement "[{\"@id\":\"Machines__Lamp__on__light___405_succession_pend1\"},{\"@id\":\"Machines__Lamp__on__heat__hot\"}]" .
 
+elmt:Machines__Lamp__on__light___405_succession_om
+    a sysml:OwningMembership ;
+    sysml:elementId "Machines__Lamp__on__light___405_succession_om" ;
+    sysml:owner elmt:Machines__Lamp__on__light___405 ;
+    sysml:memberElement elmt:Machines__Lamp__on__light___405_succession ;
+    sysml:ownedMemberElement elmt:Machines__Lamp__on__light___405_succession ;
+    sysml:ownedRelatedElement elmt:Machines__Lamp__on__light___405_succession ;
+    sysml:owningRelatedElement elmt:Machines__Lamp__on__light___405 ;
+    sysml:membershipOwningNamespace elmt:Machines__Lamp__on__light___405 .
+
 elmt:Machines__Lamp___404
     a sysml:TransitionUsage ;
     sysml:qualifiedName "Machines::Lamp::@4" ;
@@ -762,31 +762,21 @@ elmt:Machines__Lamp___404_om
 elmt:Machines__Lamp___404_succession
     a sysml:SuccessionAsUsage ;
     sysml:elementId "Machines__Lamp___404_succession" ;
-    sysml:owner elmt:Machines__Lamp___404 ;
-    sysml:owningRelationship elmt:Machines__Lamp___404_succession_om ;
-    sysml:owningMembership elmt:Machines__Lamp___404_succession_om ;
     sysml:connectorEnd expr:Machines__Lamp___404_succession_pend0, expr:Machines__Lamp___404_succession_pend1 ;
     sysml:ownedRelationship expr:Machines__Lamp___404_succession_pend0_om, expr:Machines__Lamp___404_succession_pend1_om ;
     sysml:ownedMembership expr:Machines__Lamp___404_succession_pend0_om, expr:Machines__Lamp___404_succession_pend1_om ;
     sysml:ownedFeatureMembership expr:Machines__Lamp___404_succession_pend0_om, expr:Machines__Lamp___404_succession_pend1_om ;
     sysml:ownedFeature expr:Machines__Lamp___404_succession_pend0, expr:Machines__Lamp___404_succession_pend1 ;
     sysml:ownedEndFeature expr:Machines__Lamp___404_succession_pend0, expr:Machines__Lamp___404_succession_pend1 ;
+    sysml:owner elmt:Machines__Lamp___404 ;
+    sysml:owningRelationship elmt:Machines__Lamp___404_succession_om ;
+    sysml:owningMembership elmt:Machines__Lamp___404_succession_om ;
     json:connectorEnd "[{\"@id\":\"Machines__Lamp___404_succession_pend0\"},{\"@id\":\"Machines__Lamp___404_succession_pend1\"}]" ;
     json:ownedRelationship "[{\"@id\":\"Machines__Lamp___404_succession_pend0_om\"},{\"@id\":\"Machines__Lamp___404_succession_pend1_om\"}]" ;
     json:ownedMembership "[{\"@id\":\"Machines__Lamp___404_succession_pend0_om\"},{\"@id\":\"Machines__Lamp___404_succession_pend1_om\"}]" ;
     json:ownedFeatureMembership "[{\"@id\":\"Machines__Lamp___404_succession_pend0_om\"},{\"@id\":\"Machines__Lamp___404_succession_pend1_om\"}]" ;
     json:ownedFeature "[{\"@id\":\"Machines__Lamp___404_succession_pend0\"},{\"@id\":\"Machines__Lamp___404_succession_pend1\"}]" ;
     json:ownedEndFeature "[{\"@id\":\"Machines__Lamp___404_succession_pend0\"},{\"@id\":\"Machines__Lamp___404_succession_pend1\"}]" .
-
-elmt:Machines__Lamp___404_succession_om
-    a sysml:OwningMembership ;
-    sysml:elementId "Machines__Lamp___404_succession_om" ;
-    sysml:owner elmt:Machines__Lamp___404 ;
-    sysml:memberElement elmt:Machines__Lamp___404_succession ;
-    sysml:ownedMemberElement elmt:Machines__Lamp___404_succession ;
-    sysml:ownedRelatedElement elmt:Machines__Lamp___404_succession ;
-    sysml:owningRelatedElement elmt:Machines__Lamp___404 ;
-    sysml:membershipOwningNamespace elmt:Machines__Lamp___404 .
 
 expr:Machines__Lamp___404_succession_pend0
     a sysml:ReferenceUsage ;
@@ -846,6 +836,16 @@ expr:Machines__Lamp___404_succession_pend1_prs
     sysml:owningRelatedElement expr:Machines__Lamp___404_succession_pend1 ;
     json:relatedElement "[{\"@id\":\"Machines__Lamp___404_succession_pend1\"},{\"@id\":\"Machines__Lamp__on\"}]" .
 
+elmt:Machines__Lamp___404_succession_om
+    a sysml:OwningMembership ;
+    sysml:elementId "Machines__Lamp___404_succession_om" ;
+    sysml:owner elmt:Machines__Lamp___404 ;
+    sysml:memberElement elmt:Machines__Lamp___404_succession ;
+    sysml:ownedMemberElement elmt:Machines__Lamp___404_succession ;
+    sysml:ownedRelatedElement elmt:Machines__Lamp___404_succession ;
+    sysml:owningRelatedElement elmt:Machines__Lamp___404 ;
+    sysml:membershipOwningNamespace elmt:Machines__Lamp___404 .
+
 elmt:Machines__Lamp___405
     a sysml:TransitionUsage ;
     sysml:qualifiedName "Machines::Lamp::@5" ;
@@ -877,31 +877,21 @@ elmt:Machines__Lamp___405_om
 elmt:Machines__Lamp___405_succession
     a sysml:SuccessionAsUsage ;
     sysml:elementId "Machines__Lamp___405_succession" ;
-    sysml:owner elmt:Machines__Lamp___405 ;
-    sysml:owningRelationship elmt:Machines__Lamp___405_succession_om ;
-    sysml:owningMembership elmt:Machines__Lamp___405_succession_om ;
     sysml:connectorEnd expr:Machines__Lamp___405_succession_pend0, expr:Machines__Lamp___405_succession_pend1 ;
     sysml:ownedRelationship expr:Machines__Lamp___405_succession_pend0_om, expr:Machines__Lamp___405_succession_pend1_om ;
     sysml:ownedMembership expr:Machines__Lamp___405_succession_pend0_om, expr:Machines__Lamp___405_succession_pend1_om ;
     sysml:ownedFeatureMembership expr:Machines__Lamp___405_succession_pend0_om, expr:Machines__Lamp___405_succession_pend1_om ;
     sysml:ownedFeature expr:Machines__Lamp___405_succession_pend0, expr:Machines__Lamp___405_succession_pend1 ;
     sysml:ownedEndFeature expr:Machines__Lamp___405_succession_pend0, expr:Machines__Lamp___405_succession_pend1 ;
+    sysml:owner elmt:Machines__Lamp___405 ;
+    sysml:owningRelationship elmt:Machines__Lamp___405_succession_om ;
+    sysml:owningMembership elmt:Machines__Lamp___405_succession_om ;
     json:connectorEnd "[{\"@id\":\"Machines__Lamp___405_succession_pend0\"},{\"@id\":\"Machines__Lamp___405_succession_pend1\"}]" ;
     json:ownedRelationship "[{\"@id\":\"Machines__Lamp___405_succession_pend0_om\"},{\"@id\":\"Machines__Lamp___405_succession_pend1_om\"}]" ;
     json:ownedMembership "[{\"@id\":\"Machines__Lamp___405_succession_pend0_om\"},{\"@id\":\"Machines__Lamp___405_succession_pend1_om\"}]" ;
     json:ownedFeatureMembership "[{\"@id\":\"Machines__Lamp___405_succession_pend0_om\"},{\"@id\":\"Machines__Lamp___405_succession_pend1_om\"}]" ;
     json:ownedFeature "[{\"@id\":\"Machines__Lamp___405_succession_pend0\"},{\"@id\":\"Machines__Lamp___405_succession_pend1\"}]" ;
     json:ownedEndFeature "[{\"@id\":\"Machines__Lamp___405_succession_pend0\"},{\"@id\":\"Machines__Lamp___405_succession_pend1\"}]" .
-
-elmt:Machines__Lamp___405_succession_om
-    a sysml:OwningMembership ;
-    sysml:elementId "Machines__Lamp___405_succession_om" ;
-    sysml:owner elmt:Machines__Lamp___405 ;
-    sysml:memberElement elmt:Machines__Lamp___405_succession ;
-    sysml:ownedMemberElement elmt:Machines__Lamp___405_succession ;
-    sysml:ownedRelatedElement elmt:Machines__Lamp___405_succession ;
-    sysml:owningRelatedElement elmt:Machines__Lamp___405 ;
-    sysml:membershipOwningNamespace elmt:Machines__Lamp___405 .
 
 expr:Machines__Lamp___405_succession_pend0
     a sysml:ReferenceUsage ;
@@ -961,6 +951,16 @@ expr:Machines__Lamp___405_succession_pend1_prs
     sysml:owningRelatedElement expr:Machines__Lamp___405_succession_pend1 ;
     json:relatedElement "[{\"@id\":\"Machines__Lamp___405_succession_pend1\"},{\"@id\":\"Machines__Lamp__on__light__bright\"}]" .
 
+elmt:Machines__Lamp___405_succession_om
+    a sysml:OwningMembership ;
+    sysml:elementId "Machines__Lamp___405_succession_om" ;
+    sysml:owner elmt:Machines__Lamp___405 ;
+    sysml:memberElement elmt:Machines__Lamp___405_succession ;
+    sysml:ownedMemberElement elmt:Machines__Lamp___405_succession ;
+    sysml:ownedRelatedElement elmt:Machines__Lamp___405_succession ;
+    sysml:owningRelatedElement elmt:Machines__Lamp___405 ;
+    sysml:membershipOwningNamespace elmt:Machines__Lamp___405 .
+
 elmt:Machines__Lamp___406
     a sysml:TransitionUsage ;
     sysml:qualifiedName "Machines::Lamp::@6" ;
@@ -992,31 +992,21 @@ elmt:Machines__Lamp___406_om
 elmt:Machines__Lamp___406_succession
     a sysml:SuccessionAsUsage ;
     sysml:elementId "Machines__Lamp___406_succession" ;
-    sysml:owner elmt:Machines__Lamp___406 ;
-    sysml:owningRelationship elmt:Machines__Lamp___406_succession_om ;
-    sysml:owningMembership elmt:Machines__Lamp___406_succession_om ;
     sysml:connectorEnd expr:Machines__Lamp___406_succession_pend0, expr:Machines__Lamp___406_succession_pend1 ;
     sysml:ownedRelationship expr:Machines__Lamp___406_succession_pend0_om, expr:Machines__Lamp___406_succession_pend1_om ;
     sysml:ownedMembership expr:Machines__Lamp___406_succession_pend0_om, expr:Machines__Lamp___406_succession_pend1_om ;
     sysml:ownedFeatureMembership expr:Machines__Lamp___406_succession_pend0_om, expr:Machines__Lamp___406_succession_pend1_om ;
     sysml:ownedFeature expr:Machines__Lamp___406_succession_pend0, expr:Machines__Lamp___406_succession_pend1 ;
     sysml:ownedEndFeature expr:Machines__Lamp___406_succession_pend0, expr:Machines__Lamp___406_succession_pend1 ;
+    sysml:owner elmt:Machines__Lamp___406 ;
+    sysml:owningRelationship elmt:Machines__Lamp___406_succession_om ;
+    sysml:owningMembership elmt:Machines__Lamp___406_succession_om ;
     json:connectorEnd "[{\"@id\":\"Machines__Lamp___406_succession_pend0\"},{\"@id\":\"Machines__Lamp___406_succession_pend1\"}]" ;
     json:ownedRelationship "[{\"@id\":\"Machines__Lamp___406_succession_pend0_om\"},{\"@id\":\"Machines__Lamp___406_succession_pend1_om\"}]" ;
     json:ownedMembership "[{\"@id\":\"Machines__Lamp___406_succession_pend0_om\"},{\"@id\":\"Machines__Lamp___406_succession_pend1_om\"}]" ;
     json:ownedFeatureMembership "[{\"@id\":\"Machines__Lamp___406_succession_pend0_om\"},{\"@id\":\"Machines__Lamp___406_succession_pend1_om\"}]" ;
     json:ownedFeature "[{\"@id\":\"Machines__Lamp___406_succession_pend0\"},{\"@id\":\"Machines__Lamp___406_succession_pend1\"}]" ;
     json:ownedEndFeature "[{\"@id\":\"Machines__Lamp___406_succession_pend0\"},{\"@id\":\"Machines__Lamp___406_succession_pend1\"}]" .
-
-elmt:Machines__Lamp___406_succession_om
-    a sysml:OwningMembership ;
-    sysml:elementId "Machines__Lamp___406_succession_om" ;
-    sysml:owner elmt:Machines__Lamp___406 ;
-    sysml:memberElement elmt:Machines__Lamp___406_succession ;
-    sysml:ownedMemberElement elmt:Machines__Lamp___406_succession ;
-    sysml:ownedRelatedElement elmt:Machines__Lamp___406_succession ;
-    sysml:owningRelatedElement elmt:Machines__Lamp___406 ;
-    sysml:membershipOwningNamespace elmt:Machines__Lamp___406 .
 
 expr:Machines__Lamp___406_succession_pend0
     a sysml:ReferenceUsage ;
@@ -1075,3 +1065,13 @@ expr:Machines__Lamp___406_succession_pend1_prs
     sysml:owner expr:Machines__Lamp___406_succession_pend1 ;
     sysml:owningRelatedElement expr:Machines__Lamp___406_succession_pend1 ;
     json:relatedElement "[{\"@id\":\"Machines__Lamp___406_succession_pend1\"},{\"@id\":\"Machines__Lamp__off\"}]" .
+
+elmt:Machines__Lamp___406_succession_om
+    a sysml:OwningMembership ;
+    sysml:elementId "Machines__Lamp___406_succession_om" ;
+    sysml:owner elmt:Machines__Lamp___406 ;
+    sysml:memberElement elmt:Machines__Lamp___406_succession ;
+    sysml:ownedMemberElement elmt:Machines__Lamp___406_succession ;
+    sysml:ownedRelatedElement elmt:Machines__Lamp___406_succession ;
+    sysml:owningRelatedElement elmt:Machines__Lamp___406 ;
+    sysml:membershipOwningNamespace elmt:Machines__Lamp___406 .

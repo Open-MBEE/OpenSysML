@@ -74,6 +74,36 @@ func TestTransitionOwnsItsSuccession(t *testing.T) {
 	}
 }
 
+// The grammar's member order puts the TransitionSuccessionMember after the
+// guard and effect memberships and before the body's (SysML.xtext
+// TransitionUsage): the ownedRelationship list states it in that order.
+func TestTransitionSuccessionFollowsEffectAndPrecedesBody(t *testing.T) {
+	src := `package T {
+    attribute g : Boolean;
+    state def S {
+        state a;
+        state b;
+        state c;
+        transition t first a if g do send a to b then c {
+            state inner;
+        }
+    }
+}
+`
+	turtle, back := graphOnlyRoundTrip(t, "t.sysml", []byte(src))
+	graph := string(turtle)
+	if !strings.Contains(graph,
+		"sysml:ownedRelationship expr:T__S__t_pguard_om, elmt:T__S__t___400_om, elmt:T__S__t_succession_om, elmt:T__S__t__inner_om ;") {
+		t.Errorf("the memberships should order guard, effect, succession, body:\n%s", graph)
+	}
+	notation := string(back)
+	for _, want := range []string{"transition t first a if g do send a to b then c {\n", "state inner;\n"} {
+		if !strings.Contains(notation, want) {
+			t.Errorf("the notation should contain %q:\n%s", want, notation)
+		}
+	}
+}
+
 // A succession whose target disagrees with the transition's sysml:target is no
 // restatement of the head: the conversion refuses it rather than dropping one.
 func TestTransitionSuccessionDisagreementIsRefused(t *testing.T) {
