@@ -788,6 +788,9 @@ func convertModel(files []string, to convert.Format) (int, error) {
 		if from != convert.FormatSysML {
 			return 0, fmt.Errorf("%s: a model of several files converts SysML or KerML notation, not %s", file, from)
 		}
+		if outputPath != "" && samePath(outputPath, file) {
+			return 0, fmt.Errorf("-o names one of the model's files, %s; the %s would replace it", file, to)
+		}
 		name, data, err := project.ReadFile(file)
 		if err != nil {
 			return 0, err
