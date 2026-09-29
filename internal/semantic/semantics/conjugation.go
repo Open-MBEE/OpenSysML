@@ -549,14 +549,24 @@ func (m *Model) typedByPortEnds(connector *symbols.Symbol) bool {
 	return false
 }
 
-// typedByPort reports whether end is typed by a port definition.
+// typedByPort reports whether end is typed by a port definition, by its own
+// typing or else by that of the nearest model end it redefines; a library end
+// types every connector end by a library base, which decides nothing.
 func (m *Model) typedByPort(end *symbols.Symbol) bool {
 	if end == nil {
 		return false
 	}
-	return slices.ContainsFunc(m.DeclaredTypes(end), func(typ *symbols.Symbol) bool {
-		return typ != nil && typ.Kind == symbols.SymbolPortDef
-	})
+	for _, sym := range append([]*symbols.Symbol{end}, m.redefinedTransitively(end)...) {
+		if m.libraryTier(sym).Library() {
+			continue
+		}
+		if types := m.DeclaredTypes(sym); len(types) > 0 {
+			return slices.ContainsFunc(types, func(typ *symbols.Symbol) bool {
+				return typ != nil && typ.Kind == symbols.SymbolPortDef
+			})
+		}
+	}
+	return false
 }
 
 // shareModelSupertype reports whether a and b both specialize one definition

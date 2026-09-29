@@ -70,8 +70,8 @@ holds:
   conjugate direction (`in` against `out`; `inout` against `inout`) and a conforming type —
   a conjugated port (`port p : ~P`) reverses its definition's directions first;
 - the connector is typed by an interface or connection definition with two or more ends,
-  every one typed by a port definition: that definition decides what the ends pair, and its
-  own ends are judged by `port-conjugation`. A definition leaving an end untyped decides
+  every one typed by a port definition, directly or through a model end it redefines: that
+  definition decides what the ends pair, and its own ends are judged by `port-conjugation`. A definition leaving an end untyped decides
   nothing, so the concrete ends are judged.
 
 Otherwise the lint reports the connector at its first end:

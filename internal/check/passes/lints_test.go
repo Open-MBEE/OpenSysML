@@ -211,6 +211,7 @@ const portDefs = `
 	part def Sink { port fuel : FuelIn; port powerIn : PowerIn; }
 	interface def Link { end a : PowerOut; end b : PowerIn; }
 	interface def HalfLink { end a : PowerOut; end b; }
+	interface def SubMount :> Mount { end x; }
 `
 
 func TestPortTypeMismatchLint(t *testing.T) {
@@ -247,6 +248,7 @@ func TestPortTypeMismatchLintSilent(t *testing.T) {
 		"non-port ends":                        `connect a to b;`,
 		"one port's features all conjugate":    `connect a.wide to b.powerIn;`,
 		"typed by an interface with port ends": `interface : Mount connect a.other to b.powerIn;`,
+		"port ends inherited by redefinition":  `interface : SubMount connect a.other to b.powerIn;`,
 	}
 	for name, body := range cases {
 		t.Run(name, func(t *testing.T) {
