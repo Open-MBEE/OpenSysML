@@ -111,7 +111,9 @@ func analyzeModel(docs []modelDocument) (*resolve.Resolver, *semantics.Model) {
 
 // documentIdentity builds the identity side table for one parsed document,
 // refusing an id that is not a constant string or is outside the id alphabet.
-func documentIdentity(name string, res *resolve.Resolver, model *semantics.Model, form IDForm) (*identityFacts, error) {
+// It also returns the scope keys the document declares, so a multi-document
+// encode can qualify every document's scoped elements over their union.
+func documentIdentity(name string, res *resolve.Resolver, model *semantics.Model, form IDForm) (*identityFacts, map[string]bool, error) {
 	table := identity.Build(model, res, res.Index().DocumentRoot(name))
 
 	facts := &identityFacts{
@@ -135,7 +137,7 @@ func documentIdentity(name string, res *resolve.Resolver, model *semantics.Model
 		}
 		if info.Annotated {
 			if err := exportableID(info); err != nil {
-				return nil, err
+				return nil, nil, err
 			}
 			for _, d := range info.Declarations {
 				facts.consumed[d.Node] = true
@@ -172,7 +174,7 @@ func documentIdentity(name string, res *resolve.Resolver, model *semantics.Model
 		facts.byNode[sym.Decl] = el
 	}
 	facts.qualified = len(scopeKeys) > 1
-	return facts, nil
+	return facts, scopeKeys, nil
 }
 
 // exportableID rejects an ElementId annotation the graph cannot carry back.

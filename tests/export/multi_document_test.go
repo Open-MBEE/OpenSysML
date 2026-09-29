@@ -517,3 +517,30 @@ func TestSameNamedRootsAcrossThreeDocumentsDoNotMerge(t *testing.T) {
 		}
 	}
 }
+
+// Scopes declared in separate documents qualify the same way scopes in one
+// document do: the same ElementId in two projects mints two distinct IRIs.
+func TestScopesInSeparateDocumentsQualifyTheirIDs(t *testing.T) {
+	sources := []convert.Source{
+		{Name: "s1.sysml", Data: []byte("package P {\n\t@IdentityMetadata::ProjectRef { projectId = \"proj-1\"; org = \"acme\"; }\n\tpart def A {\n\t\t@IdentityMetadata::ElementId { id = \"shared\"; }\n\t}\n}\n")},
+		{Name: "s2.sysml", Data: []byte("package Q {\n\t@IdentityMetadata::ProjectRef { projectId = \"proj-2\"; org = \"acme\"; }\n\tpart def B {\n\t\t@IdentityMetadata::ElementId { id = \"shared\"; }\n\t}\n}\n")},
+	}
+	single, err := convert.Convert("s12.sysml", []byte("package P {\n\t@IdentityMetadata::ProjectRef { projectId = \"proj-1\"; org = \"acme\"; }\n\tpart def A {\n\t\t@IdentityMetadata::ElementId { id = \"shared\"; }\n\t}\n}\npackage Q {\n\t@IdentityMetadata::ProjectRef { projectId = \"proj-2\"; org = \"acme\"; }\n\tpart def B {\n\t\t@IdentityMetadata::ElementId { id = \"shared\"; }\n\t}\n}\n"), convert.FormatSysML, convert.FormatTurtle)
+	if err != nil {
+		t.Fatalf("single-document conversion: %v", err)
+	}
+	multi, err := convert.ConvertDocuments(sources, convert.FormatTurtle, convert.Options{})
+	if err != nil {
+		t.Fatalf("ConvertDocuments: %v", err)
+	}
+	for _, subject := range []string{"acme.proj-1:shared", "acme.proj-2:shared"} {
+		if !strings.Contains(string(multi), "elmt:"+subject) {
+			t.Fatalf("the two-document conversion lacks elmt:%s", subject)
+		}
+	}
+	for _, subject := range []string{"acme.proj-1:shared", "acme.proj-2:shared"} {
+		if !strings.Contains(string(single), "elmt:"+subject) {
+			t.Fatalf("the single-document conversion lacks elmt:%s", subject)
+		}
+	}
+}

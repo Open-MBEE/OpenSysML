@@ -379,7 +379,8 @@ func newEncoder(file *source.SourceFile, root *ast.RootNamespace, library string
 		localOf:            map[string]string{},
 		verifiedReferences: map[rdf.Term]bool{},
 	}
-	return encoderFor(file, root, res, model, form, shared, 0)
+	e, _, err := encoderFor(file, root, res, model, form, shared, 0)
+	return e, err
 }
 
 // newEncoders builds one encoder per document of a model, all over one model
@@ -410,8 +411,9 @@ func newEncoders(docs []Document, form IDForm) ([]*encoder, error) {
 	}
 	encoders := make([]*encoder, len(docs))
 	rootOffset := 0
+	scopeKeys := map[string]bool{}
 	for i, doc := range docs {
-		e, err := encoderFor(doc.File, doc.Root, res, model, form, shared, rootOffset)
+		e, keys, err := encoderFor(doc.File, doc.Root, res, model, form, shared, rootOffset)
 		if err != nil {
 			return nil, err
 		}
@@ -419,6 +421,17 @@ func newEncoders(docs []Document, form IDForm) ([]*encoder, error) {
 		// A root identified by position holds its position in the whole model,
 		// which is where the reader's one notation text writes it.
 		rootOffset += len(e.kept(doc.Root.Members))
+		for key := range keys {
+			scopeKeys[key] = true
+		}
+	}
+	// Whether scoped elements get scope-qualified IRIs is decided over the
+	// whole model: two scopes in separate documents collide the same way two
+	// scopes in one document do.
+	if len(scopeKeys) > 1 {
+		for _, e := range encoders {
+			e.ids.qualified = true
+		}
 	}
 	return encoders, nil
 }
@@ -426,10 +439,10 @@ func newEncoders(docs []Document, form IDForm) ([]*encoder, error) {
 // encoderFor builds the encoder of one document over the shared model state:
 // its own identity facts, source text regions and links, the shared graph,
 // qualified-name and collision maps.
-func encoderFor(file *source.SourceFile, root *ast.RootNamespace, res *resolve.Resolver, model *semantics.Model, form IDForm, shared *sharedEncoding, rootOffset int) (*encoder, error) {
-	ids, err := documentIdentity(file.Name(), res, model, form)
+func encoderFor(file *source.SourceFile, root *ast.RootNamespace, res *resolve.Resolver, model *semantics.Model, form IDForm, shared *sharedEncoding, rootOffset int) (*encoder, map[string]bool, error) {
+	ids, scopeKeys, err := documentIdentity(file.Name(), res, model, form)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 	ids.pkgOf, ids.localOf = shared.pkgOf, shared.localOf
 	e := &encoder{
@@ -466,9 +479,9 @@ func encoderFor(file *source.SourceFile, root *ast.RootNamespace, res *resolve.R
 		}
 	}
 	if err := e.collect(root.Members, ""); err != nil {
-		return nil, err
+		return nil, nil, err
 	}
-	return e, nil
+	return e, scopeKeys, nil
 }
 
 type encoder struct {
