@@ -1766,10 +1766,10 @@ def test_an_unknown_operation_kind_is_refused(fake_service):
             conn.apply_edits("fake-hash", [("delete", "Demo::SC", "")])
         with pytest.raises(ValueError, match="malformed move operation"):
             conn.apply_edits("fake-hash", [("move", "Demo::SC")])
-            for fields in (("add_member",), ("add_member",) * 9, ("add_member",) * 15):
-                with pytest.raises(
-                    ValueError, match="expected 8, 12, 13, 14 or 15 fields"
-                ):
+        for fields in (("add_member",), ("add_member",) * 9, ("add_member",) * 16):
+            with pytest.raises(
+                ValueError, match="expected 8, 12, 13, 14 or 15 fields"
+            ):
                 conn.apply_edits("fake-hash", [fields])
         for expression in (1, 0, None):
             with pytest.raises(ValueError, match="expression must be notation text"):
@@ -1777,7 +1777,7 @@ def test_an_unknown_operation_kind_is_refused(fake_service):
                     "fake-hash",
                     [(
                         "add_member", "P", "constraint", "c", "", "", "", [],
-                        False, [], False, "", expression,
+                        False, [], False, "", [], expression,
                     )],
                 )
     assert service.requests == []
