@@ -210,6 +210,7 @@ const portDefs = `
 	part def Source { port power : PowerOut; port base : Base; port derived : Derived; port sibling : Sibling; port conj : ~PowerOut; port wide : Wide; port other : Other; }
 	part def Sink { port fuel : FuelIn; port powerIn : PowerIn; }
 	interface def Link { end a : PowerOut; end b : PowerIn; }
+	interface def HalfLink { end a : PowerOut; end b; }
 `
 
 func TestPortTypeMismatchLint(t *testing.T) {
@@ -223,6 +224,7 @@ func TestPortTypeMismatchLint(t *testing.T) {
 		{"interface", `interface i connect a.power to b.fuel;`, []string{"interface i connects port power : PowerOut to port fuel : FuelIn"}},
 		{"flow", `flow from a.power to b.fuel;`, []string{"flow connects port power : PowerOut to port fuel : FuelIn"}},
 		{"features by other names", `connect a.other to b.powerIn;`, []string{"port other : Other to port powerIn : PowerIn"}},
+		{"interface with one port-typed end", `interface : HalfLink connect a.power to b.fuel;`, []string{"port power : PowerOut to port fuel : FuelIn"}},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {

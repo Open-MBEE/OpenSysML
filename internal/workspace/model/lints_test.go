@@ -81,3 +81,31 @@ func TestWorkspaceSignalLintFollowsOtherDocuments(t *testing.T) {
 		t.Fatal("closing the sender did not bring the finding back")
 	}
 }
+
+// A sender held as its interface record still silences the lint: the record
+// keeps the names its body sends.
+func TestWorkspaceSignalLintReadsRecordedSenders(t *testing.T) {
+	sender := []byte(`package S { attribute Strat; part def Sender { action a { send Strat to self; } } }`)
+	loaded := NewWorkspace()
+	loaded.OpenAll([]Input{{Name: "b.sysml", Content: sender, Version: 1}})
+	loaded.DiagnosticsAll([]string{"b.sysml"})
+	rec, err := loaded.InterfaceRecord("b.sysml")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got := rec.Scope.Gathered.SentSignals; len(got) != 1 || got[0] != "Strat" {
+		t.Fatalf("the record keeps sent signals %v, want [Strat]", got)
+	}
+
+	ws := NewWorkspace()
+	if err := ws.OpenRecorded(rec, sender); err != nil {
+		t.Fatal(err)
+	}
+	ws.Open("a.sysml", []byte(lintModel), 1)
+	if n := lintCount(ws.Diagnostics("a.sysml"), passes.CodeUndeclaredSignal); n != 0 {
+		t.Fatalf("a recorded sender's signal kept %d finding(s)", n)
+	}
+	if !ws.Recorded("b.sysml") {
+		t.Fatal("b.sysml was hydrated: the fixture does not exercise a recorded sender")
+	}
+}

@@ -40,7 +40,15 @@ func (u *signalUnion) Regather(ctx *Context, g *Gathers, doc string, changed map
 	var cur map[string]bool
 	if g.Gathered(doc) {
 		cur = map[string]bool{}
-		g.Gather(ctx, doc, func(root *symbols.Scope) { gatherSentSignals(ctx, root, cur) })
+		g.Gather(ctx, doc, func(root *symbols.Scope) {
+			gatherSentSignals(ctx, root, cur)
+			// A recorded document's body is gone; its record kept what it sent.
+			if rec := ctx.Index.Gathered(doc); rec != nil {
+				for _, name := range rec.SentSignals {
+					cur[name] = true
+				}
+			}
+		})
 	}
 	moved := map[string]bool{}
 	kit.Move(u.sent, old, cur, signalSentName, moved)

@@ -44,6 +44,8 @@ The lint reports the name when all of the following hold:
 - no `send` anywhere in the workspace sends a signal by that name — neither the name of a
   payload's type (`send new Ping() to self;`) nor the name of a payload feature
   (`send ping to self;`) — the final segment being compared, as the runtime compares it.
+  A document held as its interface record counts too: the record keeps the names its body
+  sends.
 
 The finding offers the resolver's nearest names in scope as `did you mean …?`:
 
@@ -67,9 +69,10 @@ holds:
 - one port's directed features each have a feature of the other with the same name, the
   conjugate direction (`in` against `out`; `inout` against `inout`) and a conforming type —
   a conjugated port (`port p : ~P`) reverses its definition's directions first;
-- the connector is typed by an interface or connection definition whose ends are typed by
-  port definitions: that definition decides what the ends pair, and its own ends are judged
-  by `port-conjugation`.
+- the connector is typed by an interface or connection definition with two or more ends,
+  every one typed by a port definition: that definition decides what the ends pair, and its
+  own ends are judged by `port-conjugation`. A definition leaving an end untyped decides
+  nothing, so the concrete ends are judged.
 
 Otherwise the lint reports the connector at its first end:
 

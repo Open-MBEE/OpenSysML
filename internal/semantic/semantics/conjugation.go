@@ -1,6 +1,8 @@
 package semantics
 
 import (
+	"slices"
+
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/symbols"
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/ast"
 )
@@ -513,7 +515,7 @@ func (m *Model) DeclaredTypes(sym *symbols.Symbol) []*symbols.Symbol {
 // neither port's directed features all match the other's with conjugate
 // directions and conforming types (§7.12.2). An end not typed by a port
 // definition is not reported, nor is a connector typed by a definition whose
-// own ends name the ports it joins: that definition decides what they pair.
+// own ends are all typed by ports: that definition decides what they pair.
 func (m *Model) ConnectedPortsMismatch(connector, a, b *symbols.Symbol) (portA, portB *symbols.Symbol, mismatch bool) {
 	portA, featuresA, ok := m.endPortFeatures(a)
 	if !ok {
@@ -535,19 +537,26 @@ func (m *Model) ConnectedPortsMismatch(connector, a, b *symbols.Symbol) (portA, 
 	return portA, portB, true
 }
 
-// typedByPortEnds reports whether a type of connector declares an end typed by
-// a port definition.
+// typedByPortEnds reports whether a type of connector types two or more ends,
+// every one of them, by a port definition.
 func (m *Model) typedByPortEnds(connector *symbols.Symbol) bool {
 	for _, typ := range m.DeclaredTypes(connector) {
-		for _, end := range m.endsOf(typ) {
-			for _, endType := range m.DeclaredTypes(end) {
-				if endType != nil && endType.Kind == symbols.SymbolPortDef {
-					return true
-				}
-			}
+		ends := m.endsOf(typ)
+		if len(ends) >= 2 && slices.IndexFunc(ends, func(end *symbols.Symbol) bool { return !m.typedByPort(end) }) < 0 {
+			return true
 		}
 	}
 	return false
+}
+
+// typedByPort reports whether end is typed by a port definition.
+func (m *Model) typedByPort(end *symbols.Symbol) bool {
+	if end == nil {
+		return false
+	}
+	return slices.ContainsFunc(m.DeclaredTypes(end), func(typ *symbols.Symbol) bool {
+		return typ != nil && typ.Kind == symbols.SymbolPortDef
+	})
 }
 
 // shareModelSupertype reports whether a and b both specialize one definition
