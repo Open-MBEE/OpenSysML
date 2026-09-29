@@ -28,6 +28,43 @@ from tests.service_gate import fail_if_service_promised, is_server_available
 #: A solver the tests needing an answer need of the service.
 REQUIRE_SMT_ENV = 'OPENSYSML_REQUIRE_SMT'
 
+FAILED_DEFAULT_SOURCE = '''
+package P {
+    private import ScalarValues::*;
+    attribute level : Real = 1.0 / 0.0;
+    assert constraint nonneg { level >= 0.0 }
+}
+'''
+
+SATISFACTION_CHAIN_SOURCE = '''
+package P {
+    private import ScalarValues::*;
+    part def Inner { attribute power : Real; }
+    part def Sub { attribute power : Real; part inner : Inner; }
+    part def Thing { part sub : Sub; }
+    requirement def R2 {
+        subject vehicle : Thing;
+        require constraint { vehicle.sub.power > 0.0 }
+    }
+    requirement def R3 {
+        subject vehicle : Thing;
+        require constraint { vehicle.sub.inner.power > 0.0 }
+    }
+    requirement r2 : R2;
+    requirement r3 : R3;
+    part craft : Thing {
+        part :>> sub {
+            attribute :>> power = 5.0;
+            part :>> inner { attribute :>> power = 7.0; }
+        }
+    }
+    part analysis {
+        assert satisfy r2 by craft;
+        assert satisfy r3 by craft;
+    }
+}
+'''
+
 
 def make_connection(stub, capabilities=None):
     """Build a Connection over a mock stub reporting the given capabilities."""
@@ -292,6 +329,25 @@ class TestVerificationQuestions:
         assert verdict.status == "undecided"
         assert not verdict.holds
         assert verdict.error
+
+    def test_failed_default_read_is_undecided(self):
+        model = self.conn.load_from_content(FAILED_DEFAULT_SOURCE)
+        verdict = model.verify_constraint("P::nonneg", question="holds")
+        assert verdict.status == "undecided"
+        assert "division by zero" in verdict.error
+
+    def test_satisfaction_chain_reads_the_by_subject(self):
+        require_solver()
+        model = self.conn.load_from_content(SATISFACTION_CHAIN_SOURCE)
+        verdicts = model.verify_satisfaction(question="holds")
+        by_assertion = {
+            assertion: next(v for v in verdicts if f"satisfy {assertion} by craft" in v.element)
+            for assertion in ("r2", "r3")
+        }
+        assert {name: verdict.status for name, verdict in by_assertion.items()} == {
+            "r2": "holds",
+            "r3": "holds",
+        }
 
     def test_a_quantity_claim_proves(self):
         require_solver()

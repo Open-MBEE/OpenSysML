@@ -8,13 +8,16 @@ package export
 
 import (
 	"fmt"
+	"slices"
 	"sort"
 	"strings"
 
+	"github.com/Open-MBEE/OpenSysML/internal/semantic/identity"
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/ast"
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/source"
 	"github.com/Open-MBEE/OpenSysML/internal/translate/rdf"
 	"github.com/Open-MBEE/OpenSysML/internal/translate/rdf/ontology"
+	"github.com/Open-MBEE/OpenSysML/internal/workspace/libs"
 )
 
 // Metaclass names for the behavioral nodes the SysML metamodel has no
@@ -1808,7 +1811,7 @@ func (d *decoder) transitionTrigger(el *element) ([]string, error) {
 		if written, ok := d.stringOf(el, rdf.OpenSysML+xTriggerKeyword); ok {
 			keyword = written
 		}
-		if !sameUpToQualification([]string{keyword, trigger}, words) {
+		if !d.sameNames(el, []string{keyword, trigger}, words) {
 			return nil, triggerDisagreement(el, "sysx:trigger", keyword+" "+trigger, words)
 		}
 	}
@@ -1821,7 +1824,7 @@ func (d *decoder) transitionTrigger(el *element) ([]string, error) {
 		if err != nil {
 			return nil, err
 		}
-		if !sameUpToQualification([]string{stated}, []string{via}) {
+		if !d.sameNames(el, []string{stated}, []string{via}) {
 			return nil, triggerDisagreement(el, "sysml:via", stated, []string{via})
 		}
 	}
@@ -1838,20 +1841,137 @@ func triggerDisagreement(el *element, property, stated string, structural []stri
 	}
 }
 
-// sameUpToQualification reports whether stated and structural spell the same
-// tokens, a name in stated matching the qualified name structural writes for it.
-func sameUpToQualification(stated, structural []string) bool {
-	a := strings.Fields(strings.Join(stated, " "))
-	b := strings.Fields(strings.Join(structural, " "))
+// sameNames reports whether stated and structural spell the same tokens, a
+// name in one naming the element the other does from where el is written.
+func (d *decoder) sameNames(el *element, stated, structural []string) bool {
+	a := nameFields(strings.Join(stated, " "))
+	b := nameFields(strings.Join(structural, " "))
 	if len(a) != len(b) {
 		return false
 	}
 	for i := range a {
-		if a[i] != b[i] && !strings.HasSuffix(b[i], "::"+a[i]) {
+		if a[i] != b[i] && !d.sameName(el, a[i], b[i]) {
 			return false
 		}
 	}
 	return true
+}
+
+// sameName reports whether stated reaches the element structural does from el.
+// A name only an import or inheritance brings into scope is not looked up, so
+// it agrees when it ends the qualified name the other reaches.
+func (d *decoder) sameName(el *element, stated, structural string) bool {
+	left, leftOK := d.lookupName(stated, el.qname, false)
+	// Until names are chosen, the structure writes references fully qualified.
+	right, rightOK := d.lookupName(structural, el.qname, d.names == nil)
+	switch {
+	case leftOK && rightOK:
+		return canonicalQName(left) == canonicalQName(right)
+	case rightOK:
+		return nameSuffix(stated, right)
+	case leftOK:
+		return nameSuffix(structural, left)
+	default:
+		return nameSuffix(stated, structural)
+	}
+}
+
+// lookupName is the qualified name of the element name reaches written in
+// scope: a global name `$::…` from the root, any other from the nearest
+// enclosing namespace that declares it, or from the root first if absolute.
+func (d *decoder) lookupName(name, scope string, absolute bool) (string, bool) {
+	if rest, ok := strings.CutPrefix(name, "$::"); ok {
+		return d.declaredName(rest)
+	}
+	if absolute {
+		if qname, ok := d.declaredName(name); ok {
+			return qname, true
+		}
+	}
+	segments := identitySegments(scope)
+	for n := len(segments); n >= 0; n-- {
+		qname := name
+		if prefix := strings.Join(segments[:n], "::"); prefix != "" {
+			qname = prefix + "::" + name
+		}
+		if found, ok := d.declaredName(qname); ok {
+			return found, true
+		}
+	}
+	return "", false
+}
+
+// declaredName is the qualified name of the element the graph or the standard
+// library declares by qname, however its segments are quoted.
+func (d *decoder) declaredName(qname string) (string, bool) {
+	if d.byQName == nil {
+		d.byQName = map[string]string{}
+		for _, el := range d.byIRI {
+			if el.qname != "" {
+				d.byQName[canonicalQName(el.qname)] = el.qname
+			}
+		}
+	}
+	if found, ok := d.byQName[canonicalQName(qname)]; ok {
+		return found, true
+	}
+	if lib, ok := identity.LibraryCatalog(libs.NewModelIndex()).ElementNamed(qname); ok {
+		return lib.FQN, true
+	}
+	return "", false
+}
+
+// canonicalQName spells each segment of qname as its name alone, unquoted.
+func canonicalQName(qname string) string {
+	segments := identitySegments(qname)
+	for i, segment := range segments {
+		segments[i] = identityName(segment)
+	}
+	return strings.Join(segments, "\x00")
+}
+
+// nameSuffix reports whether short's segments end long's, a global name only
+// matching the whole of it.
+func nameSuffix(short, long string) bool {
+	long = strings.TrimPrefix(long, "$::")
+	if rest, ok := strings.CutPrefix(short, "$::"); ok {
+		return canonicalQName(rest) == canonicalQName(long)
+	}
+	s := strings.Split(canonicalQName(short), "\x00")
+	l := strings.Split(canonicalQName(long), "\x00")
+	return len(s) <= len(l) && slices.Equal(s, l[len(l)-len(s):])
+}
+
+// nameFields splits text at the spaces outside unrestricted names and string
+// literals, which may hold spaces of their own.
+func nameFields(text string) []string {
+	var fields []string
+	start := -1
+	var quote byte
+	for i := 0; i < len(text); i++ {
+		c := text[i]
+		switch {
+		case quote != 0 && c == '\\':
+			i++
+		case quote != 0 && c == quote:
+			quote = 0
+		case quote == 0 && (c == '\'' || c == '"'):
+			quote = c
+		case quote == 0 && (c == ' ' || c == '\t' || c == '\n' || c == '\r'):
+			if start >= 0 {
+				fields = append(fields, text[start:i])
+				start = -1
+			}
+			continue
+		}
+		if start < 0 {
+			start = i
+		}
+	}
+	if start >= 0 {
+		fields = append(fields, text[start:])
+	}
+	return fields
 }
 
 // triggerTransition is the transition whose trigger action has el as a

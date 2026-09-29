@@ -1,0 +1,1 @@
+- **Reference-form assertions accept globally qualified references.** `assert` and `assert not` can refer to features rooted at `$::`, including through a dotted feature chain.

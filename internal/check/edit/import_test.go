@@ -525,3 +525,43 @@ func TestAddImportRefusesADuplicate(t *testing.T) {
 		})
 	}
 }
+
+// A keyword of the other language is a plain name in this one; a keyword of
+// this one needs quoting.
+func TestAddImportKeywordTargets(t *testing.T) {
+	t.Run("accepted", func(t *testing.T) {
+		cases := []struct {
+			file, model, target string
+		}{
+			{"import.sysml", "package A {\n    part type;\n}\npackage P {\n}\n", "A::type"},
+			{"import.sysml", "package type {\n    part x;\n}\npackage P {\n}\n", "type::*"},
+			{"import.kerml", "package A {\n    feature part;\n}\npackage P {\n}\n", "A::part"},
+			{"import.sysml", "package A {\n    part 'part';\n}\npackage P {\n}\n", "A::'part'"},
+		}
+		for _, tc := range cases {
+			t.Run(tc.target, func(t *testing.T) {
+				model := loadContent(t, tc.file, tc.model)
+				requireClean(t, model)
+				result := applyOne(t, model, AddImport("P", "", tc.target, false, false, nil))
+				want := "    private import " + tc.target + ";"
+				if !strings.Contains(string(result.Content), want) {
+					t.Fatalf("want %q in:\n%s", want, result.Content)
+				}
+				requireClean(t, loadContent(t, tc.file, string(result.Content)))
+			})
+		}
+	})
+	t.Run("refused", func(t *testing.T) {
+		model := loadContent(t, "import.sysml",
+			"package A {\n    part 'part';\n}\npackage P {\n}\n")
+		requireClean(t, model)
+		_, err := Apply(model, []Operation{AddImport("P", "", "A::part", false, false, nil)})
+		e := editError(t, err)
+		if e.Failure != FailureInvalidName {
+			t.Fatalf("failure = %v, want %v", e.Failure, FailureInvalidName)
+		}
+		if !strings.Contains(e.Message, "quote it as 'part'") {
+			t.Fatalf("message %q does not tell the modeler to quote 'part'", e.Message)
+		}
+	})
+}

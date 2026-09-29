@@ -1,0 +1,26 @@
+(RootNamespace
+  (Membership visibility="default"
+    (Package name="P" library=false standard=false
+      (Membership visibility="default"
+        (Usage kind="constraint" name="c" ref=false direction="none" composite=false derived=false ordered=false nonunique=false))
+      (Membership visibility="default"
+        (Definition kind="part" abstract=false variation=false name="Holder"
+          (Membership visibility="default"
+            (Usage kind="constraint" name="c" ref=false direction="none" composite=false derived=false ordered=false nonunique=false))))
+      (Membership visibility="default"
+        (Usage kind="part" name="h" ref=false direction="none" composite=false derived=false ordered=false nonunique=false
+          (Relationship kind="typing" target=Holder
+            (*ast.QualifiedName))))
+      (Membership visibility="default"
+        (Usage kind="constraint" name="" ref=false direction="none" composite=false derived=false ordered=false nonunique=false keyword="assert"
+          (Relationship kind="references" target=$::P::c
+            (*ast.QualifiedName))))
+      (Membership visibility="default"
+        (Usage kind="constraint" name="" ref=false direction="none" composite=false derived=false ordered=false nonunique=false keyword="assert" negated=true
+          (Relationship kind="references" target=$::P::c
+            (*ast.QualifiedName))))
+      (Membership visibility="default"
+        (Usage kind="constraint" name="" ref=false direction="none" composite=false derived=false ordered=false nonunique=false keyword="assert"
+          (Relationship kind="references" target=(expr)
+            (FeatureChainExpr member="c"
+              (FeatureReference name="$::P::h"))))))))
