@@ -506,3 +506,64 @@ func (m *Model) DeclaredTypes(sym *symbols.Symbol) []*symbols.Symbol {
 	}
 	return types
 }
+
+// ConnectedPortsMismatch returns the port definitions typing the end features
+// a and b the connector joins when they are incompatible: neither conforms to
+// the other, they specialize no common definition of the model's own, and
+// neither port's directed features all match the other's with conjugate
+// directions and conforming types (§7.12.2). An end not typed by a port
+// definition is not reported, nor is a connector typed by a definition whose
+// own ends name the ports it joins: that definition decides what they pair.
+func (m *Model) ConnectedPortsMismatch(connector, a, b *symbols.Symbol) (portA, portB *symbols.Symbol, mismatch bool) {
+	portA, featuresA, ok := m.endPortFeatures(a)
+	if !ok {
+		return nil, nil, false
+	}
+	portB, featuresB, ok := m.endPortFeatures(b)
+	if !ok {
+		return nil, nil, false
+	}
+	if m.Conforms(portA, portB) || m.Conforms(portB, portA) || m.shareModelSupertype(portA, portB) {
+		return nil, nil, false
+	}
+	if m.featuresMatchConjugate(featuresA, featuresB, nil) || m.featuresMatchConjugate(featuresB, featuresA, nil) {
+		return nil, nil, false
+	}
+	if m.typedByPortEnds(connector) {
+		return nil, nil, false
+	}
+	return portA, portB, true
+}
+
+// typedByPortEnds reports whether a type of connector declares an end typed by
+// a port definition.
+func (m *Model) typedByPortEnds(connector *symbols.Symbol) bool {
+	for _, typ := range m.DeclaredTypes(connector) {
+		for _, end := range m.endsOf(typ) {
+			for _, endType := range m.DeclaredTypes(end) {
+				if endType != nil && endType.Kind == symbols.SymbolPortDef {
+					return true
+				}
+			}
+		}
+	}
+	return false
+}
+
+// shareModelSupertype reports whether a and b both specialize one definition
+// the model declares; every port specializes the library's Ports::Port, which
+// relates nothing.
+func (m *Model) shareModelSupertype(a, b *symbols.Symbol) bool {
+	supers := make(map[*symbols.Symbol]bool)
+	for _, typ := range m.conjugatedSupertypes(a) {
+		if typ.sym != a && !m.libraryTier(typ.sym).Library() {
+			supers[typ.sym] = true
+		}
+	}
+	for _, typ := range m.conjugatedSupertypes(b) {
+		if typ.sym != b && supers[typ.sym] {
+			return true
+		}
+	}
+	return false
+}

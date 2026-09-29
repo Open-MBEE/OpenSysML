@@ -264,6 +264,19 @@ func (r *Resolver) UnresolvedName(scope *symbols.Scope, name string, at ast.Node
 	return suggest.Hint(name, name, spellings, s.unquoted)
 }
 
+// SuggestName appends to msg, about the unqualified name written at in scope,
+// the spellings it may mean: first the candidates the caller offers, then the
+// names reachable from scope that an unresolved reference would suggest.
+func (r *Resolver) SuggestName(msg string, scope *symbols.Scope, name string, at ast.Node, candidates []string) string {
+	s := r.suggestionFor(scope, name, at)
+	spellings := make([]string, 0, len(candidates)+len(s.spellings))
+	spellings = append(spellings, candidates...)
+	for _, spelling := range s.spellings {
+		spellings = append(spellings, suggest.Notation(spelling))
+	}
+	return suggest.Hint(msg, name, spellings, s.unquoted)
+}
+
 // UnresolvedMember is the text after "unresolved reference: " for a qualified
 // name read from scope whose segment i names no member of owner: as written,
 // plus `T::'SA-506'` for `T::SA` when that spelling would resolve from scope.
