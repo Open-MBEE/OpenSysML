@@ -14,7 +14,7 @@ package StateGuardReadsDeferredPayload {
 
         entry; then busy;
         state busy {
-            item deferred : Level[*] ordered;
+            attribute deferred : Level[*] ordered;
             do action buffer {
                 first start then receive;
                 action receive accept kept : Level;
@@ -32,7 +32,7 @@ package StateGuardReadsDeferredPayload {
 
         transition first busy accept Go then ready;
         transition raise first ready accept l : Level if raise.l.level > 5 do assign chosen := raise.l.level then high;
-        transition drop first ready accept l : Level if raise.l.level <= 5 then low;
+        transition drop first ready accept l : Level if drop.l.level <= 5 then low;
         transition first high then done;
         transition first low then done;
     }

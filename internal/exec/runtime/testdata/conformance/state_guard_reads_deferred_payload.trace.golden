@@ -30,7 +30,6 @@ eval operator > -> true
   eval chain level -> 8
   eval literal 5 -> 5
 eval operator > -> true
-unevaluable guard state ready on accept Level: transition 2->low: eval guard of transition drop: type mismatch: operator '<=' is not defined for null and an Integer; DataFunctions::'<=' takes one DataValue per operand (not selected)
 exit: ready
 stmt assign chosen
   eval chain level -> 8
