@@ -235,6 +235,82 @@ func TestTransitionTriggerStructureAndLegacyTextAgree(t *testing.T) {
 	}
 }
 
+// A sysx:trigger beside the structure agrees with it when its name reaches the
+// same type from the transition, however each spelling qualifies or quotes it.
+func TestLegacyTransitionTriggerNamesResolve(t *testing.T) {
+	models := map[string]string{
+		// A name with a space is one unrestricted name (KerML § 8.2.2).
+		"quoted": `package T {
+    attribute def 'Stop Signal';
+    attribute def 'Go Signal';
+    state def S {
+        entry; then s1;
+        state s1;
+        state s2;
+        transition t1 first s1 accept 'Stop Signal' then s2;
+    }
+}
+`,
+		// A library type reached through an import.
+		"library": `package T {
+    private import ScalarValues::*;
+    state def S {
+        entry; then s1;
+        state s1;
+        state s2;
+        transition t1 first s1 accept Real then s2;
+    }
+}
+`,
+		// Sig and T are shadowed inside S, so only the global name reaches T::Sig.
+		"global": `package T {
+    attribute def Sig;
+    state def S {
+        attribute def Sig;
+        part def T { attribute def Sig; }
+        entry; then s1;
+        state s1;
+        state s2;
+        transition t1 first s1 accept $::T::Sig then s2;
+    }
+}
+`,
+	}
+	for _, c := range []struct {
+		model, trigger string
+		agrees         bool
+	}{
+		{"quoted", "'Stop Signal'", true},
+		{"quoted", "T::'Stop Signal'", true},
+		{"quoted", "T::'Go Signal'", false},
+		{"library", "Real", true},
+		{"library", "ScalarValues::Real", true},
+		{"library", "ScalarValues::Integer", false},
+		{"library", "Integer", false},
+		{"global", "$::T::Sig", true},
+		{"global", "T::Sig", false},
+		{"global", "Sig", false},
+	} {
+		turtle, err := convert.Convert("t.sysml", []byte(models[c.model]), convert.FormatSysML, convert.FormatTurtle)
+		if err != nil {
+			t.Fatalf("%s: to turtle: %v", c.model, err)
+		}
+		stripped := string(withoutSourceText(t, turtle))
+		marker := "    sysml:triggerAction elmt:T__S__t1___40trigger ;"
+		if !strings.Contains(stripped, marker) {
+			t.Fatalf("%s: the graph no longer spells t1's head as expected:\n%s", c.model, stripped)
+		}
+		graph := strings.Replace(stripped, marker, "    sysx:trigger \""+c.trigger+"\" ;\n"+marker, 1)
+		_, err = convert.Convert("m.ttl", []byte(graph), convert.FormatTurtle, convert.FormatSysML)
+		switch {
+		case c.agrees && err != nil:
+			t.Errorf("%s: sysx:trigger %q names t1's payload type but was refused: %v", c.model, c.trigger, err)
+		case !c.agrees && (err == nil || !strings.Contains(err.Error(), "its sysx:trigger states")):
+			t.Errorf("%s: sysx:trigger %q names another type and should be refused, got %v", c.model, c.trigger, err)
+		}
+	}
+}
+
 // Links the structure states twice must agree with each other, or the graph
 // is refused rather than one of them dropped.
 func TestTransitionTriggerLinksAgree(t *testing.T) {

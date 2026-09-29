@@ -644,8 +644,9 @@ type decoder struct {
 	// chainOwned indexes the FeatureChaining elements by the chain feature
 	// each names its owningRelatedElement, built on first lookup.
 	chainOwned map[string][]rdf.Term
-	// byQName keys the elements on their qualified name, built on first lookup.
-	byQName map[string]*element
+	// byQName holds the canonical qualified names of the elements, built on
+	// first lookup.
+	byQName map[string]bool
 	// prefixed marks the elements whose head wrote their `#M` annotations.
 	prefixed map[*element]bool
 	// names is the spelling chosen for each reference; while nil, references are
