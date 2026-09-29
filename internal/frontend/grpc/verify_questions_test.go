@@ -628,7 +628,7 @@ func TestVerifyQuestionsPinsTheValuesChainsRead(t *testing.T) {
 }
 
 // failedDefaultsModelSource has failed defaults both relevant and irrelevant to
-// a query, and a satisfaction whose subject reads a failed mass value.
+// a query, including a dependency with no value, and a satisfaction reading a failed mass value.
 const failedDefaultsModelSource = `package P {
 	private import ScalarValues::*;
 	attribute level : Real = 1.0 / 0.0;
@@ -642,6 +642,12 @@ const failedDefaultsModelSource = `package P {
 		assert constraint s { spare >= 0.0 }
 	}
 	part tank : Tank;
+	part def Dep {
+		attribute y : Real;
+		attribute z : Real = y + 1.0;
+		assert constraint c { z > 0.0 }
+	}
+	part dep : Dep;
 	part def Craft { attribute mass : Real; }
 	requirement def MassLimit {
 		subject vehicle : Craft;
@@ -658,11 +664,13 @@ func TestVerifyQuestionsAFailedDefaultIsUndecided(t *testing.T) {
 	srv := mustNewService(t, 10)
 	hash := mustVerifyModel(t, srv, failedDefaultsModelSource, "verify-failed-defaults")
 	constraints := []struct {
-		symbol, subject, feature string
+		symbol, subject, feature, reason string
 	}{
-		{"P::nonneg", "", "level"},
-		{"P::Tank::c", "P::Tank", "lvl"},
-		{"P::Tank::c", "P::tank", "lvl"},
+		{"P::nonneg", "", "level", "division by zero"},
+		{"P::Tank::c", "P::Tank", "lvl", "division by zero"},
+		{"P::Tank::c", "P::tank", "lvl", "division by zero"},
+		{"P::Dep::c", "P::Dep", "z", "no value"},
+		{"P::Dep::c", "P::dep", "z", "no value"},
 	}
 	for _, question := range []string{questionHolds, questionSatisfiable} {
 		for _, tc := range constraints {
@@ -672,9 +680,9 @@ func TestVerifyQuestionsAFailedDefaultIsUndecided(t *testing.T) {
 				t.Errorf("%s on %s with %s: status=%q holds=%v, want undecided: %q",
 					tc.symbol, tc.subject, question, v.Status, v.Holds, v.Error)
 			}
-			if !strings.Contains(v.Error, "division by zero") || !strings.Contains(v.Error, tc.feature) {
-				t.Errorf("%s on %s with %s: error=%q, want division by zero and %s",
-					tc.symbol, tc.subject, question, v.Error, tc.feature)
+			if !strings.Contains(v.Error, tc.reason) || !strings.Contains(v.Error, tc.feature) {
+				t.Errorf("%s on %s with %s: error=%q, want %s and %s",
+					tc.symbol, tc.subject, question, v.Error, tc.reason, tc.feature)
 			}
 			if len(v.Witness) != 0 {
 				t.Errorf("%s on %s with %s: undecided verdict has witness %+v",

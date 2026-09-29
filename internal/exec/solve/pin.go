@@ -687,15 +687,14 @@ func ChainPins(ctx *runtime.Context, q *Query, read Reader, self *runtime.Instan
 	return out, nil
 }
 
-// UnfixedRead is the read failure of an unfixed feature a variable of q reads; nil when none is read
-// or the feature merely has no value (runtime.ErrNoValue), which leaves it free.
+// UnfixedRead is the read failure of an unfixed feature a variable of q reads; nil when none is read.
 func UnfixedRead(ctx *runtime.Context, q *Query, unfixed []Unfixed) error {
 	t := &translator{ctx: ctx, model: ctx.Semantics(), vars: make(map[string]*Var, len(q.Vars))}
 	for _, v := range q.Vars {
 		t.vars[v.Name] = v
 	}
 	for _, u := range unfixed {
-		if u.Err == nil || errors.Is(u.Err, runtime.ErrNoValue) {
+		if u.Err == nil {
 			continue
 		}
 		if t.pinnedVar(Pin{Feature: u.Feature, Name: u.Name}) != nil {

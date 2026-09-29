@@ -435,43 +435,77 @@ func TestUnfixedReadRefusesOnlyReadFailures(t *testing.T) {
 		part def Item {
 			attribute broken : Real = 1.0 / 0.0;
 			attribute free : Real;
+			attribute input : Real;
+			attribute dependent : Real = input + 1.0;
 			assert constraint readsBroken { broken >= 0.0 }
 			assert constraint readsFree { free >= 0.0 }
+			assert constraint readsDependent { dependent > 0.0 }
 		}
+		part item : Item;
 	}`)
 	owner := symbolNamed(t, idx, "test::Item")
 	broken := symbolNamed(t, idx, "test::Item::readsBroken")
-	pins, unfixed := FixedFor(ctx, Fixing{Element: broken, Owner: owner})
-	if len(unfixed) != 1 || unfixed[0].Name != "broken" || unfixed[0].Err == nil {
+	item, err := ctx.Instantiate(symbolNamed(t, idx, "test::item"))
+	if err != nil {
+		t.Fatalf("instantiate item: %v", err)
+	}
+	pins, unfixed := FixedFor(ctx, Fixing{Element: broken, Owner: owner, Object: item, ObjectType: owner})
+	unfixedByName := func(name string) (Unfixed, bool) {
+		for _, u := range unfixed {
+			if u.Name == name {
+				return u, true
+			}
+		}
+		return Unfixed{}, false
+	}
+	brokenUnfixed, ok := unfixedByName("broken")
+	if !ok || brokenUnfixed.Err == nil {
 		t.Fatalf("unfixed = %+v, want failed read of broken", unfixed)
 	}
-	if unfixed[0].Reason != unfixed[0].Err.Error() {
-		t.Fatalf("Reason = %q, Err = %q", unfixed[0].Reason, unfixed[0].Err)
+	if brokenUnfixed.Reason != brokenUnfixed.Err.Error() {
+		t.Fatalf("Reason = %q, Err = %q", brokenUnfixed.Reason, brokenUnfixed.Err)
 	}
 	q, err := ConstraintWith(ctx, broken, broken.OwnerScope, pins)
 	if err != nil {
 		t.Fatalf("translate readsBroken: %v", err)
 	}
 	readErr := UnfixedRead(ctx, q, unfixed)
-	if readErr == nil || !errors.Is(readErr, unfixed[0].Err) || !strings.Contains(readErr.Error(), "broken") {
+	if readErr == nil || !errors.Is(readErr, brokenUnfixed.Err) || !strings.Contains(readErr.Error(), "broken") {
 		t.Fatalf("UnfixedRead readsBroken = %v, want wrapped read error naming broken", readErr)
 	}
 
 	irrelevant := symbolNamed(t, idx, "test::Item::readsFree")
-	q, err = ConstraintWith(ctx, irrelevant, irrelevant.OwnerScope, pins)
+	freeQuery, err := ConstraintWith(ctx, irrelevant, irrelevant.OwnerScope, pins)
 	if err != nil {
 		t.Fatalf("translate readsFree: %v", err)
 	}
-	if err := UnfixedRead(ctx, q, unfixed); err != nil {
+	if err := UnfixedRead(ctx, freeQuery, unfixed); err != nil {
 		t.Fatalf("UnfixedRead readsFree = %v, want nil for unread broken feature", err)
 	}
+	if _, ok := unfixedByName("free"); ok {
+		t.Fatalf("unfixed = %+v, want free omitted", unfixed)
+	}
 	noValue := []Unfixed{{
-		Feature: unfixed[0].Feature,
-		Name:    unfixed[0].Name,
+		Feature: brokenUnfixed.Feature,
+		Name:    brokenUnfixed.Name,
 		Err:     errors.Join(errors.New("wrapped"), runtime.ErrNoValue),
 	}}
-	if err := UnfixedRead(ctx, q, noValue); err != nil {
-		t.Fatalf("UnfixedRead missing value = %v, want nil", err)
+	if err := UnfixedRead(ctx, q, noValue); err == nil || !errors.Is(err, runtime.ErrNoValue) {
+		t.Fatalf("UnfixedRead wrapped missing dependency = %v, want error wrapping ErrNoValue", err)
+	}
+
+	dependentUnfixed, ok := unfixedByName("dependent")
+	if !ok || !errors.Is(dependentUnfixed.Err, runtime.ErrNoValue) {
+		t.Fatalf("unfixed = %+v, want dependent failed read wrapping ErrNoValue", unfixed)
+	}
+	dependent := symbolNamed(t, idx, "test::Item::readsDependent")
+	dependentQuery, err := ConstraintWith(ctx, dependent, dependent.OwnerScope, pins)
+	if err != nil {
+		t.Fatalf("translate readsDependent: %v", err)
+	}
+	if err := UnfixedRead(ctx, dependentQuery, unfixed); err == nil ||
+		!errors.Is(err, runtime.ErrNoValue) || !strings.Contains(err.Error(), "dependent") {
+		t.Fatalf("UnfixedRead readsDependent = %v, want error wrapping ErrNoValue and naming dependent", err)
 	}
 }
 
