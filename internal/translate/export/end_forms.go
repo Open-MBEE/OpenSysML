@@ -544,20 +544,48 @@ func (d *decoder) messageEnds(el *element) []rdf.Term {
 	}
 	var ends []rdf.Term
 	seen := map[string]bool{}
+	consider := func(membership rdf.Term) {
+		if seen[membership.Value] || d.metaclass(membership) != mParameterMembership {
+			return
+		}
+		seen[membership.Value] = true
+		member := firstIRI(d.graph, membership, pMemberElement, pOwnedMemberElement, pOwnedMemberParameter, pOwnedRelatedElement)
+		if member.Value == "" || d.metaclass(member) != mEventOccurrenceUsage {
+			return
+		}
+		ends = append(ends, member)
+	}
 	for _, property := range []string{pOwnedMembership, pOwnedRelationship} {
 		for _, membership := range d.graph.Objects(rdf.IRI(el.iri), rdf.SysML+property) {
-			if seen[membership.Value] || d.metaclass(membership) != mParameterMembership {
-				continue
-			}
-			seen[membership.Value] = true
-			member := firstIRI(d.graph, membership, pMemberElement, pOwnedMemberElement, pOwnedMemberParameter, pOwnedRelatedElement)
-			if member.Value == "" || d.metaclass(member) != mEventOccurrenceUsage {
-				continue
-			}
-			ends = append(ends, member)
+			consider(membership)
 		}
 	}
+	// A membership may state the flow it belongs to from its own side alone
+	// (sysml:membershipOwningNamespace, sysml:owningRelatedElement), the way
+	// readMembership accepts it; those follow in the order the graph states them.
+	if d.parameterOwned == nil {
+		d.parameterOwned = parameterOwnerIndex(d.graph, d.metaclass)
+	}
+	for _, membership := range d.parameterOwned[el.iri] {
+		consider(membership)
+	}
 	return ends
+}
+
+// parameterOwnerIndex indexes the ParameterMembership elements by the
+// namespace each states as its own (sysml:membershipOwningNamespace, else
+// sysml:owningRelatedElement), in the order the graph states them.
+func parameterOwnerIndex(graph *rdf.Graph, meta func(rdf.Term) string) map[string][]rdf.Term {
+	index := map[string][]rdf.Term{}
+	for _, subject := range graph.Subjects() {
+		if meta(subject) != mParameterMembership {
+			continue
+		}
+		if owner := firstIRI(graph, subject, pMembershipOwningNamespace, pOwningRelatedElement); owner.Value != "" {
+			index[owner.Value] = append(index[owner.Value], subject)
+		}
+	}
+	return index
 }
 
 // declaredChild reports whether term is an element the graph declares under el

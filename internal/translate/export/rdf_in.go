@@ -644,6 +644,9 @@ type decoder struct {
 	// chainOwned indexes the FeatureChaining elements by the chain feature
 	// each names its owningRelatedElement, built on first lookup.
 	chainOwned map[string][]rdf.Term
+	// parameterOwned indexes the ParameterMembership elements by the namespace
+	// each names as its own, built on first lookup.
+	parameterOwned map[string][]rdf.Term
 	// prefixed marks the elements whose head wrote their `#M` annotations.
 	prefixed map[*element]bool
 	// names is the spelling chosen for each reference; while nil, references are
