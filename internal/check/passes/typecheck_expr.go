@@ -1549,19 +1549,27 @@ type parameter struct {
 }
 
 // required reports whether an invocation must supply the parameter: it has no
-// default, its own or inherited, and its multiplicity admits no omission.
+// default, its own or inherited, and its effective multiplicity admits no
+// omission — the same rule the runtime binds by.
 func (p parameter) required(m *semantics.Model) bool {
 	for q := &p; q != nil; q = q.redefined {
 		if q.valued() {
 			return false
 		}
-	}
-	for q := &p; q != nil; q = q.redefined {
+		if q.sym != nil {
+			if r, ok := m.MultiplicityOf(q.sym); ok {
+				return !r.AllowsNone()
+			}
+			if m.ImplicitMultiplicityApplies(q.sym) {
+				return true
+			}
+			continue
+		}
 		if optional, stated := q.optional(m); stated {
 			return !optional
 		}
 	}
-	return true
+	return false
 }
 
 // valued reports whether the declaration binds the parameter a value.
@@ -1808,7 +1816,7 @@ func declaredParameters(sym *symbols.Symbol) []parameter {
 			continue
 		}
 		if u.Direction != ast.DirNone && !u.IsResult {
-			params = append(params, parameter{usage: u, owner: sym})
+			params = append(params, parameter{usage: u, sym: sym.Scope.MemberDeclaring(u), owner: sym})
 		}
 	}
 	return params

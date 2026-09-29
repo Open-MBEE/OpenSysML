@@ -357,9 +357,11 @@ func (p *Parser) parseDirectionParameter() ast.Node {
 	// (SysML.xtext DefaultReferenceUsage, SysML v2 §7.6).
 	kind, _ := modifierImpliedKind(mods)
 	// Any other keyword is left as the parameter's name (kind stays default).
+	var kindKeyword string
 	if p.at(lexer.Keyword) {
 		if k, ok := parameterKindKeywords[p.peek().KeywordID]; ok {
 			kind = k
+			kindKeyword = p.peek().KeywordID
 			p.advance() // consume kind keyword
 		}
 	}
@@ -375,6 +377,7 @@ func (p *Parser) parseDirectionParameter() ast.Node {
 	// Create Usage node with direction
 	usage := &ast.Usage{
 		Kind:         kind,
+		Keyword:      kindKeyword,
 		Ident:        ident,
 		IsReference:  isRef,
 		Direction:    direction,

@@ -995,8 +995,8 @@ declared under that name through the scope tree (`action_graph.go:namesStartable
 vehicle.start;` where `Vehicle` declares `action start : Launch;` performs that action
 (`TestPerformOfDeclaredStartActionStaysPerform`). The fUML referee's emitter takes the
 second path for an active class, so `ActiveClassBehaviorSender` runs the reference's order:
-create, start, send. A performed action whose start or run fails for a required `in`
-parameter bound by nothing (`ErrUnboundParameter`) is recorded on the performance itself —
+create, start, send. A performed action whose start or run fails for an `in` parameter whose §7.6.3
+effective multiplicity requires a value, bound by nothing (`ErrUnboundParameter`) is recorded on the performance itself —
 `ObjectBehavior.Err` marks it ended for good: no step, no message, no restart — rather than
 failing the object's creation, so `P::slow.cycleTime` evaluates past `toastBread`'s refusal;
 every other failure, and every failure of a merely-declared behavior's explicit start, still

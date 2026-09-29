@@ -22,7 +22,7 @@ const analysisModel = `
 		}
 		analysis def Scaled {
 			subject s : Ship;
-			in factor : Real;
+			in factor : Real[1];
 			out total : Real = s.cost * factor;
 		}
 		analysis def FailingStep {

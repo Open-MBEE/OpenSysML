@@ -18,6 +18,9 @@ package P {
 }
 '''
 
+MODEL_REQUIRED = MODEL.replace(
+    'in energy : ISQ::EnergyValue', 'in energy : ISQ::EnergyValue[1]')
+
 @pytest.mark.integration
 class TestPerformedActionUnboundInput:
     """Integration tests requiring live sysml-grpc service."""
@@ -49,13 +52,27 @@ class TestPerformedActionUnboundInput:
             self.conn.close()
 
     def test_eval_reads_past_a_failed_performance(self):
-        """An unbound input ends the performance, not the performer's creation:
-        the object's other features still evaluate."""
+        """A bare input admits no value, so the performance runs and the
+        object's other features still evaluate."""
         model = self.conn.load_from_content(MODEL)
         result = model.eval("slow.cycleTime", context_symbol_id="P")
         assert isinstance(result, Quantity)
         assert result.magnitude == 200.0
         assert result.unit.text == "SI::s"
+        model.execute_action("P::ToastBread")
+
+    def test_required_input_records_the_failure_but_eval_succeeds(self):
+        """An input declaring [1] must be bound: the performed action records
+        the unbound parameter, evaluation succeeds, and an explicit execution
+        is refused."""
+        model = self.conn.load_from_content(MODEL_REQUIRED)
+        result = model.eval("slow.cycleTime", context_symbol_id="P")
+        assert isinstance(result, Quantity)
+        assert result.magnitude == 200.0
+        assert result.unit.text == "SI::s"
+        with pytest.raises(Exception) as excinfo:
+            model.execute_action("P::ToastBread")
+        assert "unbound" in str(excinfo.value).lower()
 
     def test_kindless_parameter_is_a_reference_usage(self):
         """A parameter declared with no kind keyword is a referenceUsage."""

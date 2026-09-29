@@ -1,5 +1,5 @@
-// An explicit execution of the action an object's performance failed is refused
-// for the same unbound input the performance recorded.
+// An explicit execution of the action the object's performance performs
+// succeeds: a parameter writing no multiplicity may hold no value.
 package test {
 	private import ISQ::*;
 	private import SI::*;

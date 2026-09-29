@@ -19,7 +19,7 @@ func TestRuntimeRobustnessPerformedActionInputs(t *testing.T) {
 		mult     string
 		required bool
 	}{
-		{"bare", "", true},
+		{"bare", "", false},
 		{"one", "[1]", true},
 		{"one_one", "[1..1]", true},
 		{"one_many", "[1..*]", true},
@@ -148,7 +148,7 @@ func testDeclaredBehaviorStartFailsUnbound(t *testing.T) {
 	src := `package test {
 	private import ISQ::*;
 
-	action def ApplyHeat { in energy : ISQ::EnergyValue; }
+	action def ApplyHeat { in energy : ISQ::EnergyValue[1]; }
 	action def ToastBread { action applyHeat : ApplyHeat; }
 	part def Holder { action beh : ToastBread; }
 	part slow : Holder;
@@ -208,7 +208,7 @@ func awaitingInputModel() string {
 	return `package test {
 	private import ISQ::*;
 
-	action def ApplyHeat { in energy : ISQ::EnergyValue; }
+	action def ApplyHeat { in energy : ISQ::EnergyValue[1]; }
 	action def ToastBread {
 		first start;
 		action heard accept g : Integer;
@@ -285,7 +285,7 @@ func testSnapshotRestoreUndoesRecordedFailure(t *testing.T) {
 // recorded failure and its type-bound marking, so the materialized copy is
 // ended the same way rather than starting over.
 func testHeldImageCarriesRecordedFailure(t *testing.T) {
-	ctx, inst, err := instantiateWithLibraries(t, unboundInputModel(""), "test::slow")
+	ctx, inst, err := instantiateWithLibraries(t, unboundInputModel("[1]"), "test::slow")
 	if err != nil {
 		t.Fatalf("instantiate slow: %v", err)
 	}
@@ -319,7 +319,7 @@ func timedInputModel() string {
 	private import ISQ::*;
 	private import SI::*;
 
-	action def ApplyHeat { in energy : ISQ::EnergyValue; }
+	action def ApplyHeat { in energy : ISQ::EnergyValue[1]; }
 	action def ToastBread {
 		first start;
 		then action pause accept after 5 [s];
@@ -373,7 +373,7 @@ func testSharedClockRecordsClockDrivenFailure(t *testing.T) {
 	private import ISQ::*;
 	private import SI::*;
 
-	action def ApplyHeat { in energy : ISQ::EnergyValue; }
+	action def ApplyHeat { in energy : ISQ::EnergyValue[1]; }
 	action def ToastBread {
 		first start;
 		then action pause accept after 5 [s];

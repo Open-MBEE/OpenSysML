@@ -129,7 +129,7 @@ const toolCalcRobustnessModel = `package test {
 
 	calc def Needing {
 		metadata ToolExecution { toolName = "Thermo"; uri = "u"; }
-		in m : MassValue { @ToolVariable { name = "mass"; } }
+		in m : MassValue[1] { @ToolVariable { name = "mass"; } }
 		return : TemperatureValue { @ToolVariable { name = "Tmax"; } }
 	}
 	calc tbare : Needing;
