@@ -1383,34 +1383,46 @@ func TestPrefixCollidingWithAPositionNamedMemberIsReported(t *testing.T) {
 	}
 }
 
-// A metadata usage is owned through an OwningMembership even when a
-// relationship owns it, so a client reaches it the way it reaches any member.
-func TestMetadataOnARelationshipIsOwnedThroughAMembership(t *testing.T) {
+// A metadata usage a usage owns is owned through an OwningMembership; a `#`
+// prefix ahead of a dependency is owned through an Annotation instead
+// (SysML.xtext PrefixMetadataAnnotation).
+func TestMetadataOnARelationshipIsOwnedThroughAnAnnotation(t *testing.T) {
 	src := "package P {\n\tmetadata def Safety;\n\tpart def Car;\n\t#Safety dependency from P to Car;\n\trequirement def R {\n\t\tsubject #Safety s : Car;\n\t}\n}"
 	turtle, err := convert.Convert("m.sysml", []byte(src), convert.FormatSysML, convert.FormatTurtle)
 	if err != nil {
 		t.Fatalf("to turtle: %v", err)
 	}
-	// The dependency is a relationship and the subject a usage: a relationship
-	// is no namespace, so only the usage's membership states one.
-	for _, owner := range []string{"P___402", "P__R__s"} {
-		member, membership := "elmt:"+owner+"___400", "elmt:"+owner+"___400_om"
-		for _, want := range []string{
-			membership + "\n    a sysml:OwningMembership ;",
-			"sysml:memberElement " + member,
-			"sysml:ownedMemberElement " + member,
-			"sysml:owningRelatedElement elmt:" + owner,
-			"sysml:owningMembership " + membership,
-			"sysml:ownedRelationship " + membership,
-		} {
-			if !strings.Contains(string(turtle), want) {
-				t.Errorf("the graph does not state %q:\n%s", want, turtle)
-			}
+	// The dependency's prefix is an Annotation relating the usage to the
+	// dependency; the subject's is an ordinary OwningMembership.
+	owner, member, annotation := "P___402", "elmt:P___402___400", "elmt:P___402___400_an"
+	for _, want := range []string{
+		annotation + "\n    a sysml:Annotation ;",
+		"sysml:annotatingElement " + member,
+		"sysml:annotatedElement elmt:" + owner,
+		"sysml:owningAnnotatedElement elmt:" + owner,
+		"sysml:ownedRelationship " + member,
+		"sysml:ownedAnnotation " + annotation,
+		"sysml:owningRelationship " + annotation,
+		"sysml:owner elmt:" + owner,
+	} {
+		if !strings.Contains(string(turtle), want) {
+			t.Errorf("the graph does not state %q:\n%s", want, turtle)
 		}
-		for _, reject := range []string{"sysml:memberElement " + member + " ;\n    sysml:ownedMemberFeature", "sysml:membershipOwningNamespace elmt:P___402"} {
-			if strings.Contains(string(turtle), reject) {
-				t.Errorf("a relationship is no namespace, yet the graph states %q:\n%s", reject, turtle)
-			}
+	}
+	if strings.Contains(string(turtle), member+"_om\n    a sysml:OwningMembership ;") {
+		t.Errorf("a dependency's prefix is an annotation, yet the graph mints it a membership:\n%s", turtle)
+	}
+	owner, member, membership := "P__R__s", "elmt:P__R__s___400", "elmt:P__R__s___400_om"
+	for _, want := range []string{
+		membership + "\n    a sysml:OwningMembership ;",
+		"sysml:memberElement " + member,
+		"sysml:ownedMemberElement " + member,
+		"sysml:owningRelatedElement elmt:" + owner,
+		"sysml:owningMembership " + membership,
+		"sysml:ownedRelationship " + membership,
+	} {
+		if !strings.Contains(string(turtle), want) {
+			t.Errorf("the graph does not state %q:\n%s", want, turtle)
 		}
 	}
 	back, err := convert.Convert("m.ttl", withoutTriples(t, turtle, "sysx:sourceText"), convert.FormatTurtle, convert.FormatSysML)
@@ -3151,7 +3163,7 @@ func TestElementIRIsEncodeQualifiedNames(t *testing.T) {
 // the satisfy subject `_subject`, the conjugate `_conjugated` and its `_pc`,
 // the referent memberships an expression's referent edge restates, and a
 // filtered import's unnamed `_fp` package with its `_im` import and `_efm` filter.
-var materializedSuffixID = regexp.MustCompile(`_(ft|sc|ss|sp|rd|rs)[0-9]*(_om)?$|_(subject|conjugated|pc|referent|preferent|targetFeature)(_om)?$|_fp(_im|_efm)?$`)
+var materializedSuffixID = regexp.MustCompile(`_(ft|sc|ss|sp|rd|rs)[0-9]*(_om)?$|_(subject|conjugated|pc|referent|preferent|targetFeature)(_om)?$|_fp(_im|_efm)?$|_an$`)
 
 // materializedExprID is the same convention inside an expression node's id.
 var materializedExprID = regexp.MustCompile(`_(subject|conjugated|pc|referent|preferent|targetFeature)(_|$)|_(ft|sc|ss|sp|rd|rs)[0-9]`)

@@ -403,10 +403,123 @@ func (d *decoder) relatedEnds(el *element) (ends []string, payload string, err e
 				Note: "its standard sysml:connectorEnd and legacy sysx:relatedFeature shapes disagree",
 			}
 		}
-		payload, _ = d.stringOf(el, rdf.OpenSysML+xPayload)
+		payload, err := d.payloadText(el, el)
+		if err != nil {
+			return nil, "", err
+		}
+		if payload == "" {
+			// An older graph states the payload's text as sysx:payload.
+			payload, _ = d.stringOf(el, rdf.OpenSysML+xPayload)
+		}
 		return standard, payload, nil
 	}
 	return legacy, legacyPayload, nil
+}
+
+// payloadFeatureTerm finds the PayloadFeature a flow owns through a
+// FeatureMembership — the member its `of` clause names or declares.
+func (d *decoder) payloadFeatureTerm(el *element) rdf.Term {
+	for _, membership := range d.graph.Objects(rdf.IRI(el.iri), rdf.SysML+pOwnedFeatureMembership) {
+		if d.metaclass(membership) != mFeatureMembership {
+			continue
+		}
+		if member, ok := d.graph.Object(membership, rdf.SysML+pMemberElement); ok &&
+			d.metaclass(member) == mPayloadFeature {
+			return member
+		}
+	}
+	return rdf.Term{}
+}
+
+// payloadText rebuilds the `of` clause of a flow's head from its PayloadFeature:
+// the typing target or chain of the undeclared `of Type` form, or the declared
+// `of name : Type` usage's name, typing, multiplicity and value.
+func (d *decoder) payloadText(el, in *element) (string, error) {
+	feature := d.payloadFeatureTerm(el)
+	if feature.Value == "" {
+		return "", nil
+	}
+	if child, declared := d.byIRI[feature.Value]; declared {
+		return d.declaredPayloadText(child, in)
+	}
+	// The undeclared `of Type` form: the payload feature's FeatureTyping names
+	// the referent, or owns the chain feature that carries a chained one.
+	typed, err := d.payloadTypingTarget(feature, in)
+	if err != nil {
+		return "", err
+	}
+	mult, err := d.endMultiplicity(feature, in)
+	if err != nil {
+		return "", err
+	}
+	return typed + mult, nil
+}
+
+// declaredPayloadText writes the payload the `of name : Type` clause declares:
+// the usage's own head, minus any kind keyword the payload form does not spell.
+func (d *decoder) declaredPayloadText(el, in *element) (string, error) {
+	var words []string
+	words = append(words, d.identWords(el)...)
+	typed, err := d.referenceList(el, rdf.SysML+relationshipProperty[ast.RelTyping])
+	if err != nil {
+		return "", err
+	}
+	mult := d.multiplicityText(el)
+	if len(typed) > 0 {
+		words = append(words, ": "+strings.Join(typed, ", ")+mult)
+	} else if mult != "" {
+		words = append(words, mult)
+	}
+	if value, hasValue := d.stringOf(el, rdf.SysML+pValue); hasValue {
+		words = append(words, d.valueOperator(el), value)
+	}
+	return strings.Join(words, " "), nil
+}
+
+// payloadTypingTarget resolves the type an undeclared payload feature states,
+// through the FeatureTyping it owns; a chained name is carried by the typing's
+// owned chain feature.
+func (d *decoder) payloadTypingTarget(feature rdf.Term, in *element) (string, error) {
+	var typing rdf.Term
+	for _, object := range d.graph.Objects(feature, rdf.SysML+"ownedTyping") {
+		if d.metaclass(object) == mFeatureTyping {
+			typing = object
+			break
+		}
+	}
+	if typing.Value == "" {
+		for _, object := range d.graph.Objects(feature, rdf.SysML+pOwnedRelationship) {
+			if d.metaclass(object) == mFeatureTyping {
+				typing = object
+				break
+			}
+		}
+	}
+	if typing.Value == "" {
+		return "", d.missing(in, sysmlPrefix+"FeatureTyping", "a flow's payload feature is typed by what `of` names")
+	}
+	target, ok := d.graph.Object(typing, rdf.SysML+"type")
+	if !ok {
+		target, ok = d.graph.Object(typing, rdf.SysML+pTarget)
+	}
+	if !ok {
+		return "", d.missing(in, sysmlPrefix+"type", "a feature typing states the type it names")
+	}
+	isChain, err := d.chainFeatureTerm(target)
+	if err != nil {
+		return "", err
+	}
+	if isChain {
+		parts, err := d.standardChainText(target, in)
+		if err != nil {
+			return "", err
+		}
+		return strings.Join(parts, "."), nil
+	}
+	if target.IsLiteral() {
+		return target.Value, nil
+	}
+	return d.referenceName(target, in)
 }
 
 // standardEnds reads connectorEnd features in graph order, with ownership fallbacks.

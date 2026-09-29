@@ -854,6 +854,13 @@ func (d *decoder) isNodeMembership(subject rdf.Term) bool {
 	if metaclass == mFeatureValue {
 		return true
 	}
+	// The PayloadFeature an undeclared `of` clause owns through a
+	// FeatureMembership is part of the flow's head, not a member of its body;
+	// a declared payload is an element and is excluded by normativeImplied.
+	if metaclass == mFeatureMembership && d.metaclass(member) == mPayloadFeature &&
+		d.metaclass(owner) == usageMetaclass[ast.UsageFlow] && d.isExpressionIRI(member) {
+		return true
+	}
 	return d.expressionOwner(owner)
 }
 
@@ -979,6 +986,12 @@ func (d *decoder) ownerOf(el *element) (*element, error) {
 		}
 		if m, known := d.memberships[relationship.Value]; known {
 			ownerIRI = m.owner
+		} else if d.metaclass(rdf.IRI(relationship.Value)) == mAnnotation {
+			// An Annotation owns its annotating element itself; the element it
+			// annotates stands in for the namespace a membership would state
+			// (SysML.xtext PrefixMetadataAnnotation).
+			ownerIRI = firstIRI(d.graph, rdf.IRI(relationship.Value),
+				pOwningRelatedElement, pOwningAnnotatedElement, pAnnotatedElement, pOwner).Value
 		} else {
 			ownerIRI = relationship.Value
 		}
@@ -2129,6 +2142,16 @@ func (d *decoder) usageHead(el *element, kind ast.UsageKind) (string, error) {
 		return "", err
 	}
 	words = append(words, relationships...)
+	// A flow that binds no ends still writes its payload: `flow f of Fuel`.
+	if !hasEnds && el.metaclass == usageMetaclass[ast.UsageFlow] {
+		payload, err := d.payloadText(el, el)
+		if err != nil {
+			return "", err
+		}
+		if payload != "" {
+			words = append(words, "of", payload)
+		}
+	}
 	if hasEnds {
 		// A connector's own multiplicity is its declaration, written ahead of
 		// the ends; after them it would read as the last end's.

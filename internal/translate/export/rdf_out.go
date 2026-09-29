@@ -83,6 +83,9 @@ const (
 	pLanguage                  = "language"
 	pLocale                    = "locale"
 	pAnnotatedElement          = "annotatedElement"
+	pAnnotatingElement         = "annotatingElement"
+	pOwningAnnotatedElement    = "owningAnnotatedElement"
+	pOwnedAnnotation           = "ownedAnnotation"
 	pIsImportAll               = "isImportAll"
 	pSourceFeature             = "sourceFeature"
 	pTargetFeature             = "targetFeature"
@@ -166,6 +169,12 @@ const (
 	mReturnParameterMembership = "ReturnParameterMembership"
 	mFeature                   = "Feature"
 	mEndFeatureMembership      = "EndFeatureMembership"
+	// The metaclasses this mapping writes that the 202407 ontology table does
+	// not know: PayloadFeature is the pilot's name for ItemFeature, and
+	// Annotation a Dependency owns its `#` prefix metadata through.
+	mPayloadFeature = "PayloadFeature"
+	mAnnotation     = "Annotation"
+	mDependency     = "Dependency"
 	// The membership a body owns its result expression through, which states
 	// the expression as sysml:ownedResultExpression.
 	mResultExpressionMembership = "ResultExpressionMembership"
@@ -1387,6 +1396,13 @@ func (e *encoder) owningMembership(node ast.Node, member, owner rdf.Term, member
 	// A metadata usage annotates its owner through an OwningMembership whatever
 	// the owner is, a relationship included (SysML.xtext PrefixMetadataMember).
 	metadata := memberClass == "MetadataUsage"
+	if metadata && ownerClass == mDependency {
+		// A `#` prefix ahead of a dependency is owned through an Annotation
+		// rather than a membership (SysML.xtext PrefixMetadataAnnotation): only
+		// Dependency's grammar states the annotation; every other declaration
+		// keeps the membership (PrefixMetadataMember).
+		return e.prefixMetadataAnnotation(member, owner)
+	}
 	switch {
 	case isRelationship(ownerClass) && !metadata:
 		// A relationship owns its related element itself, as a state's entry
@@ -1673,6 +1689,10 @@ func (e *encoder) bindingEnds(subject rdf.Term, owner string, n *ast.Usage) erro
 	if n.FlowEnds == nil {
 		return nil
 	}
+	// The `of` payload member precedes the end members in the grammar order.
+	if err := e.payloadFeature(subject, owner, n); err != nil {
+		return err
+	}
 	for i, target := range []ast.Node{n.FlowEnds.From, n.FlowEnds.To} {
 		if target == nil {
 			continue
@@ -1681,12 +1701,140 @@ func (e *encoder) bindingEnds(subject rdf.Term, owner string, n *ast.Usage) erro
 			return err
 		}
 	}
-	if n.FlowEnds.Payload != nil {
-		if err := e.expression(subject, e.sysx(xPayload), xPayload, owner, n.FlowEnds.Payload); err != nil {
+	return nil
+}
+
+// payloadFeature states the payload a flow's `of` clause names or declares as
+// the PayloadFeature the flow owns through a FeatureMembership — the member
+// the grammar puts ahead of the flow's end members (SysML.xtext
+// PayloadFeatureMember).
+func (e *encoder) payloadFeature(subject rdf.Term, owner string, n *ast.Usage) error {
+	flow := n.FlowEnds
+	feature, err := e.payloadFeatureNode(subject, owner, n)
+	if err != nil || feature.Value == "" {
+		return err
+	}
+	membership := e.ids.minted(rdf.OwningMembershipIRIOf(feature), feature, rdf.OwningMembershipSuffix)
+	e.emitMembershipCore(membership, feature, subject, mFeatureMembership, true)
+	for _, property := range []string{pOwnedRelationship, pOwnedMembership, pOwnedFeatureMembership} {
+		e.graph.Add(subject, e.sysml(property), membership)
+	}
+	e.graph.Add(subject, e.sysml(pOwnedFeature), feature)
+	e.graph.Add(membership, e.sysml(pOwnedMemberFeature), feature)
+	e.graph.Add(membership, e.sysml(pOwningType), subject)
+	if flow.PayloadDecl == nil {
+		if err := e.payloadTyping(feature, flow.Payload); err != nil {
 			return err
 		}
+		return e.multiplicity(feature, owner, flow.PayloadMultiplicity)
+	}
+	decl := flow.PayloadDecl
+	e.ident(feature, decl.Ident)
+	e.flags(feature, []boolProperty{
+		{"isAbstract", decl.IsAbstract},
+		{"isVariation", decl.IsVariation},
+		{"isReference", decl.IsReference},
+		{"isConstant", decl.IsConstant},
+		{"isComposite", decl.IsComposite},
+		{"isPortion", decl.IsPortion || decl.Portion != ast.PortionNone},
+		{"isDerived", decl.IsDerived},
+		{"isOrdered", decl.IsOrdered},
+		{"isNonunique", decl.IsNonunique},
+	})
+	if keyword := directionKeyword(decl.Direction); keyword != "" {
+		e.graph.Add(feature, e.sysml(pDirection), rdf.String(keyword))
+	}
+	e.relationships(feature, owner, decl.Relationships)
+	if err := e.multiplicity(feature, owner, decl.Multiplicity); err != nil {
+		return err
+	}
+	return e.featureValue(feature, owner, decl.Value, decl.ValueIsDefault, decl.ValueIsInitial)
+}
+
+// payloadFeatureNode mints the PayloadFeature's subject: the element the id
+// table gives the declared `of name : Type` usage, or the expression node of
+// the undeclared `of Type` form.
+func (e *encoder) payloadFeatureNode(subject rdf.Term, owner string, n *ast.Usage) (rdf.Term, error) {
+	flow := n.FlowEnds
+	if decl := flow.PayloadDecl; decl != nil {
+		index := 0
+		for i, member := range n.Members {
+			if member == ast.Node(decl) {
+				index = i
+				break
+			}
+		}
+		fqn := e.fqn[decl]
+		if fqn == "" {
+			fqn = qualify(owner, decl.Ident.Name, index)
+		}
+		feature, err := e.mint(decl, fqn)
+		if err != nil {
+			return rdf.Term{}, err
+		}
+		e.head(feature, memberHead{node: decl, fqn: fqn, index: index,
+			metaclass: rdf.SysMLTerm(mPayloadFeature), inline: true})
+		return feature, nil
+	}
+	if flow.PayloadDecl == nil && flow.Payload == nil {
+		return rdf.Term{}, nil
+	}
+	feature := e.ids.mintedNode(rdf.ExpressionIRI(subject, "payload"), subject, "payload")
+	e.graph.Prefixes[rdf.ExpressionPrefix] = rdf.Expression
+	e.typed(feature, mPayloadFeature)
+	e.graph.Add(feature, e.sysml(pElementID), rdf.String(rdf.LocalName(feature.Value)))
+	text := flow.Payload
+	if text == nil {
+		text = flow.PayloadDecl
+	}
+	e.graph.Add(feature, e.sysx(xSourceText), rdf.String(e.text(text)))
+	return feature, nil
+}
+
+// payloadTyping types an undeclared payload feature by its referent — a name,
+// a chained name or a feature chain — through the FeatureTyping a declared
+// feature would own, with a chain carried by the FeatureTyping's own chain
+// feature the way an end's reference subsetting carries its end's.
+func (e *encoder) payloadTyping(feature rdf.Term, target ast.Node) error {
+	spec, _ := e.relationshipSpec(feature, ast.RelTyping, 1, 0)
+	switch target := target.(type) {
+	case *ast.QualifiedName:
+		if qualifiedNameHasChain(target) {
+			e.emitRelationship(feature, e.chainFeatureNode(feature, e.qualifiedChainReferences(target)), spec)
+			return nil
+		}
+		e.emitRelationship(feature, e.reference(target), spec)
+	case *ast.FeatureChainExpr:
+		segments := make([]rdf.Term, 0, len(featureChainSegments(target)))
+		for _, segment := range featureChainSegments(target) {
+			segments = append(segments, e.reference(segment))
+		}
+		e.emitRelationship(feature, e.chainFeatureNode(feature, segments), spec)
+	default:
+		e.emitRelationship(feature, rdf.TypedLiteral(e.text(target), rdf.OpenSysML+dtExpression), spec)
 	}
 	return nil
+}
+
+// prefixMetadataAnnotation owns a dependency's `#` prefix metadata usage
+// through an Annotation rather than a membership (SysML.xtext
+// PrefixMetadataAnnotation): the usage is the annotation's annotating element
+// and the dependency its annotated element.
+func (e *encoder) prefixMetadataAnnotation(member, owner rdf.Term) rdf.Term {
+	annotation := e.ids.minted(rdf.IRI(member.Value+"_an"), member, "_an")
+	e.typed(annotation, mAnnotation)
+	e.graph.Add(annotation, e.sysml(pElementID), rdf.String(rdf.LocalName(annotation.Value)))
+	e.graph.Add(owner, e.sysml(pOwnedRelationship), annotation)
+	e.graph.Add(owner, e.sysml(pOwnedAnnotation), annotation)
+	for _, property := range []string{pOwningRelatedElement, pOwner, pOwningAnnotatedElement, pAnnotatedElement} {
+		e.graph.Add(annotation, e.sysml(property), owner)
+	}
+	for _, property := range []string{pOwnedRelatedElement, pAnnotatingElement} {
+		e.graph.Add(annotation, e.sysml(property), member)
+	}
+	e.graph.Add(member, e.sysml(pOwningRelationship), annotation)
+	e.graph.Add(member, e.sysml(pOwner), owner)
+	return rdf.Term{}
 }
 
 // connectorEndSpec is one connector end to emit: which end it is, its target,
@@ -1817,14 +1965,22 @@ func (e *encoder) referenceSubsetting(feature, target rdf.Term) rdf.Term {
 // (OwnedReferenceSubsetting's OwnedFeatureChain): it is related to the end
 // through the ReferenceSubsetting, whose ownedRelatedElement it is.
 func (e *encoder) chainFeature(feature rdf.Term, segments []rdf.Term) {
-	chain := e.ids.mintedNode(rdf.ExpressionIRI(feature, "chain"), feature, "chain")
-	e.typed(chain, mFeature)
-	e.graph.Add(chain, e.sysml(pElementID), rdf.String(rdf.LocalName(chain.Value)))
-	e.featureChainings(chain, segments)
+	chain := e.chainFeatureNode(feature, segments)
 	subsetting := e.referenceSubsetting(feature, chain)
 	e.graph.Add(subsetting, e.sysml(pOwnedRelatedElement), chain)
 	e.graph.Add(chain, e.sysml(pOwningRelationship), subsetting)
 	e.graph.Add(chain, e.sysml(pOwner), feature)
+}
+
+// chainFeatureNode mints the unnamed Feature that carries a chained target's
+// FeatureChaining links; the relationship that types or references through it
+// owns it as its owned related element.
+func (e *encoder) chainFeatureNode(feature rdf.Term, segments []rdf.Term) rdf.Term {
+	chain := e.ids.mintedNode(rdf.ExpressionIRI(feature, "chain"), feature, "chain")
+	e.typed(chain, mFeature)
+	e.graph.Add(chain, e.sysml(pElementID), rdf.String(rdf.LocalName(chain.Value)))
+	e.featureChainings(chain, segments)
+	return chain
 }
 
 func (e *encoder) endChainReferences(feature rdf.Term, target *ast.QualifiedName) error {

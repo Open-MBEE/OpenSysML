@@ -460,7 +460,11 @@ triples come); a set of classes with no such member is refused, naming the subje
   `sysml:MetadataUsage` owned by the element it is written in or ahead of,
   through an `OwningMembership` (never a `FeatureMembership`: the annotation is
   not a feature of what it annotates), even when that element is itself a
-  relationship such as a `dependency` or a `subject` membership. It carries
+  relationship such as a `subject` membership. The one exception is a `dependency`:
+  its grammar owns a `#` prefix through a `sysml:Annotation`
+  (`PrefixMetadataAnnotation`), which the dependency states as
+  `sysml:ownedAnnotation` and which relates the dependency (`annotatedElement`)
+  to the usage (`annotatingElement`). It carries
   `sysml:type` for its metadata definition, one `sysml:annotatedElement` per
   `about` target, `sysx:hasBody`,
   and `sysx:declaredKeyword` `"@"` or `"#"` for the sigil it was written with
@@ -529,7 +533,7 @@ no property; they are annotations, not replacements for the standard shape:
 | `endVerb` | Preserve the noun-form head's explicit verb (`connect` or `from`), which the connector metaclass does not distinguish. |
 | `endReferencesKeyword` | Preserve whether a named end used the `references` keyword rather than `::>`, a notation choice not represented by the end's standard reference relationship. |
 | `sourceMember`, `targetMember` | Preserve the members named by positional `then` succession ends when no standard end name or resolvable element carries that notation. |
-| `payload` | Preserve a flow payload as an expression; the 202407 ontology table has no direct `payloadFeature` property for this graph shape. The metamodel models the payload as a feature/`ItemFlowEnd`, while this mapping keeps the payload expression rather than materializing that feature structure. |
+| `payload` | Read-only: an older graph's way of preserving a flow payload as an expression. The payload is now the `sysml:PayloadFeature` the flow owns through a `sysml:FeatureMembership`, ahead of its end members (SysML.xtext `PayloadFeatureMember`). |
 
 Every construct the metamodel has an element for is typed by that element,
 so a consumer reading `sysml:` terms alone sees the abstract syntax the pilot
@@ -1491,8 +1495,12 @@ owns (KerML `OwnedFeatureChainMember`), the same element an end's carries.
 For a binary connector, `sysml:sourceFeature` and `sysml:targetFeature`
 identify the two related features; `sysml:relatedFeature` remains the
 collection-valued relation for every arity. These two predicates are not
-written for n-ary connectors. A flow's payload remains the `sysx:payload`
-expression, not an additional connector end. Transitions use
+written for n-ary connectors. A flow's payload is not an additional connector
+end: it is a `sysml:PayloadFeature` the flow owns through a
+`sysml:FeatureMembership`, listed ahead of the two end memberships and typed by
+the referent `of` names — or carrying the declared `of name : Type` usage as
+the feature itself. An older graph's `sysx:payload` expression is still read
+as the `of` clause. Transitions use
 `sysml:source` and `sysml:target`; `sourceFeature` and `targetFeature` remain
 the legacy transition spelling accepted on import.
 

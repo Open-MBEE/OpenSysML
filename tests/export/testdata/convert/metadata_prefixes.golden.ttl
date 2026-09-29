@@ -496,7 +496,8 @@ elmt:Prefixed___409
     sysml:owningMembership elmt:Prefixed___409_om ;
     sysml:client elmt:Prefixed__Car ;
     sysml:supplier elmt:Prefixed__Vehicle ;
-    sysml:ownedRelationship elmt:Prefixed___409___400_om ;
+    sysml:ownedRelationship elmt:Prefixed___409___400_an ;
+    sysml:ownedAnnotation elmt:Prefixed___409___400_an ;
     sysx:hasBody "false"^^xsd:boolean ;
     sysx:sourceText "    #Safety dependency from Car to Vehicle;\n" .
 
@@ -515,9 +516,8 @@ elmt:Prefixed___409___400
     sysml:qualifiedName "Prefixed::@9::@0" ;
     sysml:elementId "Prefixed___409___400" ;
     sysx:memberIndex "0"^^xsd:integer ;
+    sysml:owningRelationship elmt:Prefixed___409___400_an ;
     sysml:owner elmt:Prefixed___409 ;
-    sysml:owningRelationship elmt:Prefixed___409___400_om ;
-    sysml:owningMembership elmt:Prefixed___409___400_om ;
     sysx:declaredKeyword "#" ;
     sysml:type elmt:Prefixed__Safety ;
     sysx:hasBody "false"^^xsd:boolean ;
@@ -525,14 +525,15 @@ elmt:Prefixed___409___400
     sysml:ownedSpecialization elmt:Prefixed___409___400_ft0 ;
     sysml:ownedRelationship elmt:Prefixed___409___400_ft0 .
 
-elmt:Prefixed___409___400_om
-    a sysml:OwningMembership ;
-    sysml:elementId "Prefixed___409___400_om" ;
+elmt:Prefixed___409___400_an
+    a sysml:Annotation ;
+    sysml:elementId "Prefixed___409___400_an" ;
+    sysml:owningRelatedElement elmt:Prefixed___409 ;
     sysml:owner elmt:Prefixed___409 ;
-    sysml:memberElement elmt:Prefixed___409___400 ;
-    sysml:ownedMemberElement elmt:Prefixed___409___400 ;
+    sysml:owningAnnotatedElement elmt:Prefixed___409 ;
+    sysml:annotatedElement elmt:Prefixed___409 ;
     sysml:ownedRelatedElement elmt:Prefixed___409___400 ;
-    sysml:owningRelatedElement elmt:Prefixed___409 .
+    sysml:annotatingElement elmt:Prefixed___409___400 .
 
 elmt:Prefixed__Stopped
     a sysml:ConstraintDefinition ;

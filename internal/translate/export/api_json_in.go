@@ -144,6 +144,7 @@ func parseAPIJSON(data []byte) ([]apiJSONElementData, map[string]bool, error) {
 	// child may be listed before its parent. Opaque ids such as UUIDs carry no
 	// parent, so the membership that states the node as its member stands in.
 	nodeOwner := map[string]string{}
+	nodeOwnerMeta := map[string]string{}
 	relationshipOwner := map[string]string{}
 	for i := range objects {
 		object := &objects[i]
@@ -163,6 +164,7 @@ func parseAPIJSON(data []byte) ([]apiJSONElementData, map[string]bool, error) {
 		}
 		if member != "" && owner != "" && nodeMembershipMetaclass(object.typ) {
 			nodeOwner[member] = owner
+			nodeOwnerMeta[member] = object.typ
 		}
 	}
 	expressionIDs := map[string]bool{}
@@ -188,6 +190,13 @@ func parseAPIJSON(data []byte) ([]apiJSONElementData, map[string]bool, error) {
 				// A referent Membership is a node; other owned relationships are
 				// nodes only while their id derives from the node's (qualified form).
 				expression = object.typ == mMembership || strings.HasPrefix(object.id, owner+"_")
+			}
+			if !expression && object.typ == mPayloadFeature &&
+				types[nodeOwner[object.id]] == usageMetaclass[ast.UsageFlow] &&
+				nodeOwnerMeta[object.id] == mFeatureMembership {
+				// A flow's `of` payload is a part of its head, owned through a
+				// FeatureMembership rather than declared as a member.
+				expression = true
 			}
 			if expression {
 				object.expression = true

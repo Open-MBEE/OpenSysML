@@ -122,6 +122,21 @@ func (d *decoder) normativeImplied(el, parent *element) (bool, error) {
 		return true, d.verifyConjugated(el, parent)
 	case parent != nil && parent.metaclass == mTransition:
 		return d.transitionImplied(el, parent)
+	case el.metaclass == mPayloadFeature:
+		// The payload a flow's `of` clause declares is written by the flow's
+		// head; the FeatureMembership that owns it is the payload's membership,
+		// not a membership of the flow's body (SysML.xtext PayloadFeatureMember).
+		m, owned := d.owningMembership[el.iri]
+		if !owned || parent == nil || parent.metaclass != usageMetaclass[ast.UsageFlow] ||
+			d.metaclass(rdf.IRI(m.iri)) != mFeatureMembership {
+			return false, nil
+		}
+		return true, nil
+	case el.metaclass == mAnnotation:
+		// The Annotation a dependency owns its `#` prefix metadata through is
+		// part of the dependency's head, not a member (SysML.xtext
+		// PrefixMetadataAnnotation).
+		return parent != nil && parent.metaclass == mDependency, nil
 	case d.headEnd(el, parent):
 		return true, nil
 	case el.metaclass == mReferenceUsage:
