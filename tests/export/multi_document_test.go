@@ -564,7 +564,7 @@ func TestATypeThroughAnImportChainLinksAcrossDocuments(t *testing.T) {
 			t.Fatalf("ConvertDocuments: %v", err)
 		}
 		if !strings.Contains(string(turtle), "elmt:App__e") ||
-			!strings.Contains(string(turtle), "> elmt:EngineLib__Engine") {
+			!strings.Contains(string(turtle), "sysml:type elmt:EngineLib__Engine") {
 			t.Errorf("the Turtle of %q does not type e as EngineLib__Engine", form)
 		}
 
