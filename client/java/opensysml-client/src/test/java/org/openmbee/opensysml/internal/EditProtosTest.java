@@ -106,6 +106,34 @@ class EditProtosTest {
   }
 
   @Test
+  void anAddCommentEditCarriesItsBodyNameAboutAndLocale() {
+    var minimal = Protos.proto(Edit.AddComment.of("", "Text."));
+    assertEquals("", minimal.getAddComment().getOwner());
+    assertEquals("Text.", minimal.getAddComment().getBody());
+    assertEquals(0, minimal.getAddComment().getAboutCount());
+
+    var full =
+        Protos.proto(
+            Edit.AddComment.of("Demo", " Two\nlines ")
+                .withName("Why")
+                .withAbout(java.util.List.of("Demo::A", "Demo"))
+                .withLocale("en"));
+    assertEquals(" Two\nlines ", full.getAddComment().getBody());
+    assertEquals("Why", full.getAddComment().getName());
+    assertEquals(java.util.List.of("Demo::A", "Demo"), full.getAddComment().getAboutList());
+    assertEquals("en", full.getAddComment().getLocale());
+  }
+
+  @Test
+  void anAddNoteEditCarriesItsTargetAndOneLineOfText() {
+    var operation = Protos.proto(new Edit.AddNote("Demo::A", "DimensionOneValue"));
+    assertEquals("Demo::A", operation.getAddNote().getTarget());
+    assertEquals("DimensionOneValue", operation.getAddNote().getText());
+    org.junit.jupiter.api.Assertions.assertThrows(
+        IllegalArgumentException.class, () -> new Edit.AddNote("Demo::A", "one\ntwo"));
+  }
+
+  @Test
   void anAddSatisfyEditCarriesItsRequirementAndFlags() {
     var operation =
         Protos.proto(

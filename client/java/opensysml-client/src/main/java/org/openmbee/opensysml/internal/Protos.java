@@ -1068,6 +1068,20 @@ public final class Protos {
       addDocumentation.name().ifPresent(add::setName);
       addDocumentation.locale().ifPresent(add::setLocale);
       builder.setAddDocumentation(add);
+    } else if (edit instanceof Edit.AddComment addComment) {
+      org.openmbee.opensysml.proto.AddCommentEdit.Builder add =
+          org.openmbee.opensysml.proto.AddCommentEdit.newBuilder()
+              .setOwner(addComment.owner())
+              .setBody(addComment.body())
+              .addAllAbout(addComment.about());
+      addComment.name().ifPresent(add::setName);
+      addComment.locale().ifPresent(add::setLocale);
+      builder.setAddComment(add);
+    } else if (edit instanceof Edit.AddNote addNote) {
+      builder.setAddNote(
+          org.openmbee.opensysml.proto.AddNoteEdit.newBuilder()
+              .setTarget(addNote.target())
+              .setText(addNote.text()));
     } else if (edit instanceof Edit.AddConnection addConnection) {
       org.openmbee.opensysml.proto.AddConnectionEdit.Builder add =
           org.openmbee.opensysml.proto.AddConnectionEdit.newBuilder()

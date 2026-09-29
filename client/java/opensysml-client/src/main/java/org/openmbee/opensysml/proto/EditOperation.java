@@ -63,6 +63,8 @@ private static final long serialVersionUID = 0L;
     ADD_REQUIREMENT_CONSTRAINT(8),
     ADD_TRANSITION(9),
     ADD_DOCUMENTATION(11),
+    ADD_COMMENT(16),
+    ADD_NOTE(18),
     OPERATION_NOT_SET(0);
     private final int value;
     private OperationCase(int value) {
@@ -90,6 +92,8 @@ private static final long serialVersionUID = 0L;
         case 8: return ADD_REQUIREMENT_CONSTRAINT;
         case 9: return ADD_TRANSITION;
         case 11: return ADD_DOCUMENTATION;
+        case 16: return ADD_COMMENT;
+        case 18: return ADD_NOTE;
         case 0: return OPERATION_NOT_SET;
         default: return null;
       }
@@ -415,6 +419,68 @@ private static final long serialVersionUID = 0L;
     return org.openmbee.opensysml.proto.AddDocumentationEdit.getDefaultInstance();
   }
 
+  public static final int ADD_COMMENT_FIELD_NUMBER = 16;
+  /**
+   * <code>.sysml.AddCommentEdit add_comment = 16 [json_name = "addComment"];</code>
+   * @return Whether the addComment field is set.
+   */
+  @java.lang.Override
+  public boolean hasAddComment() {
+    return operationCase_ == 16;
+  }
+  /**
+   * <code>.sysml.AddCommentEdit add_comment = 16 [json_name = "addComment"];</code>
+   * @return The addComment.
+   */
+  @java.lang.Override
+  public org.openmbee.opensysml.proto.AddCommentEdit getAddComment() {
+    if (operationCase_ == 16) {
+       return (org.openmbee.opensysml.proto.AddCommentEdit) operation_;
+    }
+    return org.openmbee.opensysml.proto.AddCommentEdit.getDefaultInstance();
+  }
+  /**
+   * <code>.sysml.AddCommentEdit add_comment = 16 [json_name = "addComment"];</code>
+   */
+  @java.lang.Override
+  public org.openmbee.opensysml.proto.AddCommentEditOrBuilder getAddCommentOrBuilder() {
+    if (operationCase_ == 16) {
+       return (org.openmbee.opensysml.proto.AddCommentEdit) operation_;
+    }
+    return org.openmbee.opensysml.proto.AddCommentEdit.getDefaultInstance();
+  }
+
+  public static final int ADD_NOTE_FIELD_NUMBER = 18;
+  /**
+   * <code>.sysml.AddNoteEdit add_note = 18 [json_name = "addNote"];</code>
+   * @return Whether the addNote field is set.
+   */
+  @java.lang.Override
+  public boolean hasAddNote() {
+    return operationCase_ == 18;
+  }
+  /**
+   * <code>.sysml.AddNoteEdit add_note = 18 [json_name = "addNote"];</code>
+   * @return The addNote.
+   */
+  @java.lang.Override
+  public org.openmbee.opensysml.proto.AddNoteEdit getAddNote() {
+    if (operationCase_ == 18) {
+       return (org.openmbee.opensysml.proto.AddNoteEdit) operation_;
+    }
+    return org.openmbee.opensysml.proto.AddNoteEdit.getDefaultInstance();
+  }
+  /**
+   * <code>.sysml.AddNoteEdit add_note = 18 [json_name = "addNote"];</code>
+   */
+  @java.lang.Override
+  public org.openmbee.opensysml.proto.AddNoteEditOrBuilder getAddNoteOrBuilder() {
+    if (operationCase_ == 18) {
+       return (org.openmbee.opensysml.proto.AddNoteEdit) operation_;
+    }
+    return org.openmbee.opensysml.proto.AddNoteEdit.getDefaultInstance();
+  }
+
   private byte memoizedIsInitialized = -1;
   @java.lang.Override
   public final boolean isInitialized() {
@@ -458,6 +524,12 @@ private static final long serialVersionUID = 0L;
     }
     if (operationCase_ == 11) {
       output.writeMessage(11, (org.openmbee.opensysml.proto.AddDocumentationEdit) operation_);
+    }
+    if (operationCase_ == 16) {
+      output.writeMessage(16, (org.openmbee.opensysml.proto.AddCommentEdit) operation_);
+    }
+    if (operationCase_ == 18) {
+      output.writeMessage(18, (org.openmbee.opensysml.proto.AddNoteEdit) operation_);
     }
     getUnknownFields().writeTo(output);
   }
@@ -507,6 +579,14 @@ private static final long serialVersionUID = 0L;
     if (operationCase_ == 11) {
       size += com.google.protobuf.CodedOutputStream
         .computeMessageSize(11, (org.openmbee.opensysml.proto.AddDocumentationEdit) operation_);
+    }
+    if (operationCase_ == 16) {
+      size += com.google.protobuf.CodedOutputStream
+        .computeMessageSize(16, (org.openmbee.opensysml.proto.AddCommentEdit) operation_);
+    }
+    if (operationCase_ == 18) {
+      size += com.google.protobuf.CodedOutputStream
+        .computeMessageSize(18, (org.openmbee.opensysml.proto.AddNoteEdit) operation_);
     }
     size += getUnknownFields().getSerializedSize();
     memoizedSize = size;
@@ -565,6 +645,14 @@ private static final long serialVersionUID = 0L;
         if (!getAddDocumentation()
             .equals(other.getAddDocumentation())) return false;
         break;
+      case 16:
+        if (!getAddComment()
+            .equals(other.getAddComment())) return false;
+        break;
+      case 18:
+        if (!getAddNote()
+            .equals(other.getAddNote())) return false;
+        break;
       case 0:
       default:
     }
@@ -619,6 +707,14 @@ private static final long serialVersionUID = 0L;
       case 11:
         hash = (37 * hash) + ADD_DOCUMENTATION_FIELD_NUMBER;
         hash = (53 * hash) + getAddDocumentation().hashCode();
+        break;
+      case 16:
+        hash = (37 * hash) + ADD_COMMENT_FIELD_NUMBER;
+        hash = (53 * hash) + getAddComment().hashCode();
+        break;
+      case 18:
+        hash = (37 * hash) + ADD_NOTE_FIELD_NUMBER;
+        hash = (53 * hash) + getAddNote().hashCode();
         break;
       case 0:
       default:
@@ -788,6 +884,12 @@ private static final long serialVersionUID = 0L;
       if (addDocumentationBuilder_ != null) {
         addDocumentationBuilder_.clear();
       }
+      if (addCommentBuilder_ != null) {
+        addCommentBuilder_.clear();
+      }
+      if (addNoteBuilder_ != null) {
+        addNoteBuilder_.clear();
+      }
       operationCase_ = 0;
       operation_ = null;
       return this;
@@ -869,6 +971,14 @@ private static final long serialVersionUID = 0L;
           addDocumentationBuilder_ != null) {
         result.operation_ = addDocumentationBuilder_.build();
       }
+      if (operationCase_ == 16 &&
+          addCommentBuilder_ != null) {
+        result.operation_ = addCommentBuilder_.build();
+      }
+      if (operationCase_ == 18 &&
+          addNoteBuilder_ != null) {
+        result.operation_ = addNoteBuilder_.build();
+      }
     }
 
     @java.lang.Override
@@ -922,6 +1032,14 @@ private static final long serialVersionUID = 0L;
         }
         case ADD_DOCUMENTATION: {
           mergeAddDocumentation(other.getAddDocumentation());
+          break;
+        }
+        case ADD_COMMENT: {
+          mergeAddComment(other.getAddComment());
+          break;
+        }
+        case ADD_NOTE: {
+          mergeAddNote(other.getAddNote());
           break;
         }
         case OPERATION_NOT_SET: {
@@ -1024,6 +1142,20 @@ private static final long serialVersionUID = 0L;
               operationCase_ = 11;
               break;
             } // case 90
+            case 130: {
+              input.readMessage(
+                  internalGetAddCommentFieldBuilder().getBuilder(),
+                  extensionRegistry);
+              operationCase_ = 16;
+              break;
+            } // case 130
+            case 146: {
+              input.readMessage(
+                  internalGetAddNoteFieldBuilder().getBuilder(),
+                  extensionRegistry);
+              operationCase_ = 18;
+              break;
+            } // case 146
             default: {
               if (!super.parseUnknownField(input, extensionRegistry, tag)) {
                 done = true; // was an endgroup tag
@@ -2474,6 +2606,290 @@ private static final long serialVersionUID = 0L;
       operationCase_ = 11;
       onChanged();
       return addDocumentationBuilder_;
+    }
+
+    private com.google.protobuf.SingleFieldBuilder<
+        org.openmbee.opensysml.proto.AddCommentEdit, org.openmbee.opensysml.proto.AddCommentEdit.Builder, org.openmbee.opensysml.proto.AddCommentEditOrBuilder> addCommentBuilder_;
+    /**
+     * <code>.sysml.AddCommentEdit add_comment = 16 [json_name = "addComment"];</code>
+     * @return Whether the addComment field is set.
+     */
+    @java.lang.Override
+    public boolean hasAddComment() {
+      return operationCase_ == 16;
+    }
+    /**
+     * <code>.sysml.AddCommentEdit add_comment = 16 [json_name = "addComment"];</code>
+     * @return The addComment.
+     */
+    @java.lang.Override
+    public org.openmbee.opensysml.proto.AddCommentEdit getAddComment() {
+      if (addCommentBuilder_ == null) {
+        if (operationCase_ == 16) {
+          return (org.openmbee.opensysml.proto.AddCommentEdit) operation_;
+        }
+        return org.openmbee.opensysml.proto.AddCommentEdit.getDefaultInstance();
+      } else {
+        if (operationCase_ == 16) {
+          return addCommentBuilder_.getMessage();
+        }
+        return org.openmbee.opensysml.proto.AddCommentEdit.getDefaultInstance();
+      }
+    }
+    /**
+     * <code>.sysml.AddCommentEdit add_comment = 16 [json_name = "addComment"];</code>
+     */
+    public Builder setAddComment(org.openmbee.opensysml.proto.AddCommentEdit value) {
+      if (addCommentBuilder_ == null) {
+        if (value == null) {
+          throw new NullPointerException();
+        }
+        operation_ = value;
+        onChanged();
+      } else {
+        addCommentBuilder_.setMessage(value);
+      }
+      operationCase_ = 16;
+      return this;
+    }
+    /**
+     * <code>.sysml.AddCommentEdit add_comment = 16 [json_name = "addComment"];</code>
+     */
+    public Builder setAddComment(
+        org.openmbee.opensysml.proto.AddCommentEdit.Builder builderForValue) {
+      if (addCommentBuilder_ == null) {
+        operation_ = builderForValue.build();
+        onChanged();
+      } else {
+        addCommentBuilder_.setMessage(builderForValue.build());
+      }
+      operationCase_ = 16;
+      return this;
+    }
+    /**
+     * <code>.sysml.AddCommentEdit add_comment = 16 [json_name = "addComment"];</code>
+     */
+    public Builder mergeAddComment(org.openmbee.opensysml.proto.AddCommentEdit value) {
+      if (addCommentBuilder_ == null) {
+        if (operationCase_ == 16 &&
+            operation_ != org.openmbee.opensysml.proto.AddCommentEdit.getDefaultInstance()) {
+          operation_ = org.openmbee.opensysml.proto.AddCommentEdit.newBuilder((org.openmbee.opensysml.proto.AddCommentEdit) operation_)
+              .mergeFrom(value).buildPartial();
+        } else {
+          operation_ = value;
+        }
+        onChanged();
+      } else {
+        if (operationCase_ == 16) {
+          addCommentBuilder_.mergeFrom(value);
+        } else {
+          addCommentBuilder_.setMessage(value);
+        }
+      }
+      operationCase_ = 16;
+      return this;
+    }
+    /**
+     * <code>.sysml.AddCommentEdit add_comment = 16 [json_name = "addComment"];</code>
+     */
+    public Builder clearAddComment() {
+      if (addCommentBuilder_ == null) {
+        if (operationCase_ == 16) {
+          operationCase_ = 0;
+          operation_ = null;
+          onChanged();
+        }
+      } else {
+        if (operationCase_ == 16) {
+          operationCase_ = 0;
+          operation_ = null;
+        }
+        addCommentBuilder_.clear();
+      }
+      return this;
+    }
+    /**
+     * <code>.sysml.AddCommentEdit add_comment = 16 [json_name = "addComment"];</code>
+     */
+    public org.openmbee.opensysml.proto.AddCommentEdit.Builder getAddCommentBuilder() {
+      return internalGetAddCommentFieldBuilder().getBuilder();
+    }
+    /**
+     * <code>.sysml.AddCommentEdit add_comment = 16 [json_name = "addComment"];</code>
+     */
+    @java.lang.Override
+    public org.openmbee.opensysml.proto.AddCommentEditOrBuilder getAddCommentOrBuilder() {
+      if ((operationCase_ == 16) && (addCommentBuilder_ != null)) {
+        return addCommentBuilder_.getMessageOrBuilder();
+      } else {
+        if (operationCase_ == 16) {
+          return (org.openmbee.opensysml.proto.AddCommentEdit) operation_;
+        }
+        return org.openmbee.opensysml.proto.AddCommentEdit.getDefaultInstance();
+      }
+    }
+    /**
+     * <code>.sysml.AddCommentEdit add_comment = 16 [json_name = "addComment"];</code>
+     */
+    private com.google.protobuf.SingleFieldBuilder<
+        org.openmbee.opensysml.proto.AddCommentEdit, org.openmbee.opensysml.proto.AddCommentEdit.Builder, org.openmbee.opensysml.proto.AddCommentEditOrBuilder> 
+        internalGetAddCommentFieldBuilder() {
+      if (addCommentBuilder_ == null) {
+        if (!(operationCase_ == 16)) {
+          operation_ = org.openmbee.opensysml.proto.AddCommentEdit.getDefaultInstance();
+        }
+        addCommentBuilder_ = new com.google.protobuf.SingleFieldBuilder<
+            org.openmbee.opensysml.proto.AddCommentEdit, org.openmbee.opensysml.proto.AddCommentEdit.Builder, org.openmbee.opensysml.proto.AddCommentEditOrBuilder>(
+                (org.openmbee.opensysml.proto.AddCommentEdit) operation_,
+                getParentForChildren(),
+                isClean());
+        operation_ = null;
+      }
+      operationCase_ = 16;
+      onChanged();
+      return addCommentBuilder_;
+    }
+
+    private com.google.protobuf.SingleFieldBuilder<
+        org.openmbee.opensysml.proto.AddNoteEdit, org.openmbee.opensysml.proto.AddNoteEdit.Builder, org.openmbee.opensysml.proto.AddNoteEditOrBuilder> addNoteBuilder_;
+    /**
+     * <code>.sysml.AddNoteEdit add_note = 18 [json_name = "addNote"];</code>
+     * @return Whether the addNote field is set.
+     */
+    @java.lang.Override
+    public boolean hasAddNote() {
+      return operationCase_ == 18;
+    }
+    /**
+     * <code>.sysml.AddNoteEdit add_note = 18 [json_name = "addNote"];</code>
+     * @return The addNote.
+     */
+    @java.lang.Override
+    public org.openmbee.opensysml.proto.AddNoteEdit getAddNote() {
+      if (addNoteBuilder_ == null) {
+        if (operationCase_ == 18) {
+          return (org.openmbee.opensysml.proto.AddNoteEdit) operation_;
+        }
+        return org.openmbee.opensysml.proto.AddNoteEdit.getDefaultInstance();
+      } else {
+        if (operationCase_ == 18) {
+          return addNoteBuilder_.getMessage();
+        }
+        return org.openmbee.opensysml.proto.AddNoteEdit.getDefaultInstance();
+      }
+    }
+    /**
+     * <code>.sysml.AddNoteEdit add_note = 18 [json_name = "addNote"];</code>
+     */
+    public Builder setAddNote(org.openmbee.opensysml.proto.AddNoteEdit value) {
+      if (addNoteBuilder_ == null) {
+        if (value == null) {
+          throw new NullPointerException();
+        }
+        operation_ = value;
+        onChanged();
+      } else {
+        addNoteBuilder_.setMessage(value);
+      }
+      operationCase_ = 18;
+      return this;
+    }
+    /**
+     * <code>.sysml.AddNoteEdit add_note = 18 [json_name = "addNote"];</code>
+     */
+    public Builder setAddNote(
+        org.openmbee.opensysml.proto.AddNoteEdit.Builder builderForValue) {
+      if (addNoteBuilder_ == null) {
+        operation_ = builderForValue.build();
+        onChanged();
+      } else {
+        addNoteBuilder_.setMessage(builderForValue.build());
+      }
+      operationCase_ = 18;
+      return this;
+    }
+    /**
+     * <code>.sysml.AddNoteEdit add_note = 18 [json_name = "addNote"];</code>
+     */
+    public Builder mergeAddNote(org.openmbee.opensysml.proto.AddNoteEdit value) {
+      if (addNoteBuilder_ == null) {
+        if (operationCase_ == 18 &&
+            operation_ != org.openmbee.opensysml.proto.AddNoteEdit.getDefaultInstance()) {
+          operation_ = org.openmbee.opensysml.proto.AddNoteEdit.newBuilder((org.openmbee.opensysml.proto.AddNoteEdit) operation_)
+              .mergeFrom(value).buildPartial();
+        } else {
+          operation_ = value;
+        }
+        onChanged();
+      } else {
+        if (operationCase_ == 18) {
+          addNoteBuilder_.mergeFrom(value);
+        } else {
+          addNoteBuilder_.setMessage(value);
+        }
+      }
+      operationCase_ = 18;
+      return this;
+    }
+    /**
+     * <code>.sysml.AddNoteEdit add_note = 18 [json_name = "addNote"];</code>
+     */
+    public Builder clearAddNote() {
+      if (addNoteBuilder_ == null) {
+        if (operationCase_ == 18) {
+          operationCase_ = 0;
+          operation_ = null;
+          onChanged();
+        }
+      } else {
+        if (operationCase_ == 18) {
+          operationCase_ = 0;
+          operation_ = null;
+        }
+        addNoteBuilder_.clear();
+      }
+      return this;
+    }
+    /**
+     * <code>.sysml.AddNoteEdit add_note = 18 [json_name = "addNote"];</code>
+     */
+    public org.openmbee.opensysml.proto.AddNoteEdit.Builder getAddNoteBuilder() {
+      return internalGetAddNoteFieldBuilder().getBuilder();
+    }
+    /**
+     * <code>.sysml.AddNoteEdit add_note = 18 [json_name = "addNote"];</code>
+     */
+    @java.lang.Override
+    public org.openmbee.opensysml.proto.AddNoteEditOrBuilder getAddNoteOrBuilder() {
+      if ((operationCase_ == 18) && (addNoteBuilder_ != null)) {
+        return addNoteBuilder_.getMessageOrBuilder();
+      } else {
+        if (operationCase_ == 18) {
+          return (org.openmbee.opensysml.proto.AddNoteEdit) operation_;
+        }
+        return org.openmbee.opensysml.proto.AddNoteEdit.getDefaultInstance();
+      }
+    }
+    /**
+     * <code>.sysml.AddNoteEdit add_note = 18 [json_name = "addNote"];</code>
+     */
+    private com.google.protobuf.SingleFieldBuilder<
+        org.openmbee.opensysml.proto.AddNoteEdit, org.openmbee.opensysml.proto.AddNoteEdit.Builder, org.openmbee.opensysml.proto.AddNoteEditOrBuilder> 
+        internalGetAddNoteFieldBuilder() {
+      if (addNoteBuilder_ == null) {
+        if (!(operationCase_ == 18)) {
+          operation_ = org.openmbee.opensysml.proto.AddNoteEdit.getDefaultInstance();
+        }
+        addNoteBuilder_ = new com.google.protobuf.SingleFieldBuilder<
+            org.openmbee.opensysml.proto.AddNoteEdit, org.openmbee.opensysml.proto.AddNoteEdit.Builder, org.openmbee.opensysml.proto.AddNoteEditOrBuilder>(
+                (org.openmbee.opensysml.proto.AddNoteEdit) operation_,
+                getParentForChildren(),
+                isClean());
+        operation_ = null;
+      }
+      operationCase_ = 18;
+      onChanged();
+      return addNoteBuilder_;
     }
 
     // @@protoc_insertion_point(builder_scope:sysml.EditOperation)

@@ -455,6 +455,12 @@ triples come); a set of classes with no such member is refused, naming the subje
   binding `= 1`, which a redefinition may not override)
 - `sysml:aliasedElement`, `sysml:client`, `sysml:supplier`, `sysml:body`,
   `sysml:language`, `sysml:locale`, `sysml:annotatedElement`
+- A comment's or documentation's `sysml:body` is its `Comment::body`, the text
+  KerML §8.2.3.3.2's body processing leaves — white space at either end kept — and
+  a graph without source text writes it back as a comment that processes to the
+  same string. A body holding `*/`, which no regular comment can state, or a
+  carriage return is refused rather than written as something else. A line note
+  (`// ...`) is not an element, so it reaches the graph only in `sysx:sourceText`.
 - A metadata annotation — `@Safety;`, `@Safety { level = 2; }`, `metadata m :
   Safety about a, b;` or the prefix `#Safety part def P;` — is a
   `sysml:MetadataUsage` owned by the element it is written in or ahead of,

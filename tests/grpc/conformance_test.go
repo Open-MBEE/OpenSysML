@@ -122,6 +122,8 @@ type conformanceEditOperation struct {
 	Body              string   `json:"body,omitempty"`
 	Locale            string   `json:"locale,omitempty"`
 	Replace           bool     `json:"replace,omitempty"`
+	About             []string `json:"about,omitempty"`
+	Text              string   `json:"text,omitempty"`
 	Requirement       string   `json:"requirement,omitempty"`
 	SatisfyingFeature string   `json:"satisfying_feature,omitempty"`
 	TransitionSource  string   `json:"source,omitempty"`
@@ -248,6 +250,16 @@ func runApplyEditsCase(t *testing.T, srv *grpc.Service, ctx context.Context, mod
 					Target: op.Target, Body: op.Body, Name: op.Name,
 					Locale: op.Locale, Replace: op.Replace,
 				}},
+			})
+		case "add_comment":
+			operations = append(operations, &pb.EditOperation{
+				Operation: &pb.EditOperation_AddComment{AddComment: &pb.AddCommentEdit{
+					Owner: op.Owner, Body: op.Body, Name: op.Name, About: op.About, Locale: op.Locale,
+				}},
+			})
+		case "add_note":
+			operations = append(operations, &pb.EditOperation{
+				Operation: &pb.EditOperation_AddNote{AddNote: &pb.AddNoteEdit{Target: op.Target, Text: op.Text}},
 			})
 		case "add_connection":
 			operations = append(operations, &pb.EditOperation{

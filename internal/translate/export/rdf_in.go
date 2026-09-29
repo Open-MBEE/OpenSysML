@@ -1313,6 +1313,9 @@ func (d *decoder) printElement(b *strings.Builder, el *element, depth int) error
 	if err != nil {
 		return err
 	}
+	if annotationMetaclasses[el.metaclass] {
+		head = strings.ReplaceAll(head, "\n", d.nl+indent)
+	}
 	b.WriteString(lead + head)
 	if err := d.unwrittenPrefix(el); err != nil {
 		return err
@@ -1568,7 +1571,7 @@ func (d *decoder) declarationHead(el *element) (string, error) {
 	case "Comment":
 		return d.commentHead(el)
 	case "Documentation":
-		return d.documentationHead(el), nil
+		return d.documentationHead(el)
 	case "TextualRepresentation":
 		return d.representationHead(el)
 	case mMultiplicity, mMultiplicityClass, mMultiplicityRange:
@@ -2680,16 +2683,28 @@ func (d *decoder) commentHead(el *element) (string, error) {
 		words = append(words, "about", strings.Join(about, ", "))
 	}
 	words = append(words, d.localeWords(el)...)
-	body, _ := d.stringOf(el, rdf.SysML+pBody)
-	return strings.Join(words, " ") + " /*" + body + "*/", nil
+	return d.withBody(el, words)
 }
 
-func (d *decoder) documentationHead(el *element) string {
+func (d *decoder) documentationHead(el *element) (string, error) {
 	words := []string{"doc"}
 	words = append(words, d.identWords(el)...)
 	words = append(words, d.localeWords(el)...)
+	return d.withBody(el, words)
+}
+
+// withBody ends an annotation head with the REGULAR_COMMENT that reads back as
+// its sysml:body; its later lines are indented where the head is printed.
+func (d *decoder) withBody(el *element, words []string) (string, error) {
 	body, _ := d.stringOf(el, rdf.SysML+pBody)
-	return strings.Join(words, " ") + " /*" + body + "*/"
+	comment, ok := source.CommentText(body, "")
+	if !ok {
+		return "", &UnsupportedError{
+			What: fmt.Sprintf("the element <%s>", el.iri),
+			Note: "its sysml:body holds `*/` or a carriage return, which no comment body can carry",
+		}
+	}
+	return strings.Join(words, " ") + " " + comment, nil
 }
 
 func (d *decoder) representationHead(el *element) (string, error) {
@@ -2699,9 +2714,8 @@ func (d *decoder) representationHead(el *element) (string, error) {
 	if !ok {
 		return "", d.missing(el, sysmlPrefix+pLanguage, "a textual representation states the language it is written in")
 	}
-	body, _ := d.stringOf(el, rdf.SysML+pBody)
 	words = append(words, "language", source.StringText(language))
-	return strings.Join(words, " ") + " /*" + body + "*/", nil
+	return d.withBody(el, words)
 }
 
 func (d *decoder) multiplicityHead(el *element) (string, error) {

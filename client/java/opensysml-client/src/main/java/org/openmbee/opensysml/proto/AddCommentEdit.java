@@ -7,17 +7,17 @@ package org.openmbee.opensysml.proto;
 
 /**
  * <pre>
- * AddDocumentationEdit adds a `doc /&#42; ... *&#47;` as the first body member of an
- * existing declaration, opening a body for one ended by `;`.
+ * AddCommentEdit inserts `comment [name] [about a, b] [locale "..."] /&#42; ... *&#47;`
+ * where a new member of owner goes.
  * </pre>
  *
- * Protobuf type {@code sysml.AddDocumentationEdit}
+ * Protobuf type {@code sysml.AddCommentEdit}
  */
 @com.google.protobuf.Generated
-public final class AddDocumentationEdit extends
+public final class AddCommentEdit extends
     com.google.protobuf.GeneratedMessage implements
-    // @@protoc_insertion_point(message_implements:sysml.AddDocumentationEdit)
-    AddDocumentationEditOrBuilder {
+    // @@protoc_insertion_point(message_implements:sysml.AddCommentEdit)
+    AddCommentEditOrBuilder {
 private static final long serialVersionUID = 0L;
   static {
     com.google.protobuf.RuntimeVersion.validateProtobufGencodeVersion(
@@ -26,73 +26,75 @@ private static final long serialVersionUID = 0L;
       /* minor= */ 33,
       /* patch= */ 1,
       /* suffix= */ "",
-      "AddDocumentationEdit");
+      "AddCommentEdit");
   }
-  // Use AddDocumentationEdit.newBuilder() to construct.
-  private AddDocumentationEdit(com.google.protobuf.GeneratedMessage.Builder<?> builder) {
+  // Use AddCommentEdit.newBuilder() to construct.
+  private AddCommentEdit(com.google.protobuf.GeneratedMessage.Builder<?> builder) {
     super(builder);
   }
-  private AddDocumentationEdit() {
-    target_ = "";
+  private AddCommentEdit() {
+    owner_ = "";
     body_ = "";
     name_ = "";
+    about_ =
+        com.google.protobuf.LazyStringArrayList.emptyList();
     locale_ = "";
   }
 
   public static final com.google.protobuf.Descriptors.Descriptor
       getDescriptor() {
-    return org.openmbee.opensysml.proto.Sysml.internal_static_sysml_AddDocumentationEdit_descriptor;
+    return org.openmbee.opensysml.proto.Sysml.internal_static_sysml_AddCommentEdit_descriptor;
   }
 
   @java.lang.Override
   protected com.google.protobuf.GeneratedMessage.FieldAccessorTable
       internalGetFieldAccessorTable() {
-    return org.openmbee.opensysml.proto.Sysml.internal_static_sysml_AddDocumentationEdit_fieldAccessorTable
+    return org.openmbee.opensysml.proto.Sysml.internal_static_sysml_AddCommentEdit_fieldAccessorTable
         .ensureFieldAccessorsInitialized(
-            org.openmbee.opensysml.proto.AddDocumentationEdit.class, org.openmbee.opensysml.proto.AddDocumentationEdit.Builder.class);
+            org.openmbee.opensysml.proto.AddCommentEdit.class, org.openmbee.opensysml.proto.AddCommentEdit.Builder.class);
   }
 
-  public static final int TARGET_FIELD_NUMBER = 1;
+  public static final int OWNER_FIELD_NUMBER = 1;
   @SuppressWarnings("serial")
-  private volatile java.lang.Object target_ = "";
+  private volatile java.lang.Object owner_ = "";
   /**
    * <pre>
-   * Fully qualified name of the documented declaration.
+   * Namespace FQN receiving the comment; empty means the document root.
    * </pre>
    *
-   * <code>string target = 1 [json_name = "target"];</code>
-   * @return The target.
+   * <code>string owner = 1 [json_name = "owner"];</code>
+   * @return The owner.
    */
   @java.lang.Override
-  public java.lang.String getTarget() {
-    java.lang.Object ref = target_;
+  public java.lang.String getOwner() {
+    java.lang.Object ref = owner_;
     if (ref instanceof java.lang.String) {
       return (java.lang.String) ref;
     } else {
       com.google.protobuf.ByteString bs = 
           (com.google.protobuf.ByteString) ref;
       java.lang.String s = bs.toStringUtf8();
-      target_ = s;
+      owner_ = s;
       return s;
     }
   }
   /**
    * <pre>
-   * Fully qualified name of the documented declaration.
+   * Namespace FQN receiving the comment; empty means the document root.
    * </pre>
    *
-   * <code>string target = 1 [json_name = "target"];</code>
-   * @return The bytes for target.
+   * <code>string owner = 1 [json_name = "owner"];</code>
+   * @return The bytes for owner.
    */
   @java.lang.Override
   public com.google.protobuf.ByteString
-      getTargetBytes() {
-    java.lang.Object ref = target_;
+      getOwnerBytes() {
+    java.lang.Object ref = owner_;
     if (ref instanceof java.lang.String) {
       com.google.protobuf.ByteString b = 
           com.google.protobuf.ByteString.copyFromUtf8(
               (java.lang.String) ref);
-      target_ = b;
+      owner_ = b;
       return b;
     } else {
       return (com.google.protobuf.ByteString) ref;
@@ -104,8 +106,8 @@ private static final long serialVersionUID = 0L;
   private volatile java.lang.Object body_ = "";
   /**
    * <pre>
-   * Documentation body, as plain text that Documentation::body reads back
-   * exactly, whitespace included; it may not contain `*&#47;` or a carriage return.
+   * Comment body, as plain text that Comment::body reads back exactly; it may
+   * not contain `*&#47;` or a carriage return.
    * </pre>
    *
    * <code>string body = 2 [json_name = "body"];</code>
@@ -126,8 +128,8 @@ private static final long serialVersionUID = 0L;
   }
   /**
    * <pre>
-   * Documentation body, as plain text that Documentation::body reads back
-   * exactly, whitespace included; it may not contain `*&#47;` or a carriage return.
+   * Comment body, as plain text that Comment::body reads back exactly; it may
+   * not contain `*&#47;` or a carriage return.
    * </pre>
    *
    * <code>string body = 2 [json_name = "body"];</code>
@@ -153,7 +155,7 @@ private static final long serialVersionUID = 0L;
   private volatile java.lang.Object name_ = "";
   /**
    * <pre>
-   * Optional declared name of the documentation.
+   * Optional declared name of the comment.
    * </pre>
    *
    * <code>string name = 3 [json_name = "name"];</code>
@@ -174,7 +176,7 @@ private static final long serialVersionUID = 0L;
   }
   /**
    * <pre>
-   * Optional declared name of the documentation.
+   * Optional declared name of the comment.
    * </pre>
    *
    * <code>string name = 3 [json_name = "name"];</code>
@@ -195,7 +197,60 @@ private static final long serialVersionUID = 0L;
     }
   }
 
-  public static final int LOCALE_FIELD_NUMBER = 4;
+  public static final int ABOUT_FIELD_NUMBER = 4;
+  @SuppressWarnings("serial")
+  private com.google.protobuf.LazyStringArrayList about_ =
+      com.google.protobuf.LazyStringArrayList.emptyList();
+  /**
+   * <pre>
+   * Optional annotated elements, each a qualified name written after `about`.
+   * </pre>
+   *
+   * <code>repeated string about = 4 [json_name = "about"];</code>
+   * @return A list containing the about.
+   */
+  public com.google.protobuf.ProtocolStringList
+      getAboutList() {
+    return about_;
+  }
+  /**
+   * <pre>
+   * Optional annotated elements, each a qualified name written after `about`.
+   * </pre>
+   *
+   * <code>repeated string about = 4 [json_name = "about"];</code>
+   * @return The count of about.
+   */
+  public int getAboutCount() {
+    return about_.size();
+  }
+  /**
+   * <pre>
+   * Optional annotated elements, each a qualified name written after `about`.
+   * </pre>
+   *
+   * <code>repeated string about = 4 [json_name = "about"];</code>
+   * @param index The index of the element to return.
+   * @return The about at the given index.
+   */
+  public java.lang.String getAbout(int index) {
+    return about_.get(index);
+  }
+  /**
+   * <pre>
+   * Optional annotated elements, each a qualified name written after `about`.
+   * </pre>
+   *
+   * <code>repeated string about = 4 [json_name = "about"];</code>
+   * @param index The index of the value to return.
+   * @return The bytes of the about at the given index.
+   */
+  public com.google.protobuf.ByteString
+      getAboutBytes(int index) {
+    return about_.getByteString(index);
+  }
+
+  public static final int LOCALE_FIELD_NUMBER = 5;
   @SuppressWarnings("serial")
   private volatile java.lang.Object locale_ = "";
   /**
@@ -203,7 +258,7 @@ private static final long serialVersionUID = 0L;
    * Optional locale, written as `locale "..."`.
    * </pre>
    *
-   * <code>string locale = 4 [json_name = "locale"];</code>
+   * <code>string locale = 5 [json_name = "locale"];</code>
    * @return The locale.
    */
   @java.lang.Override
@@ -224,7 +279,7 @@ private static final long serialVersionUID = 0L;
    * Optional locale, written as `locale "..."`.
    * </pre>
    *
-   * <code>string locale = 4 [json_name = "locale"];</code>
+   * <code>string locale = 5 [json_name = "locale"];</code>
    * @return The bytes for locale.
    */
   @java.lang.Override
@@ -242,21 +297,6 @@ private static final long serialVersionUID = 0L;
     }
   }
 
-  public static final int REPLACE_FIELD_NUMBER = 5;
-  private boolean replace_ = false;
-  /**
-   * <pre>
-   * Rewrite the one documentation target already owns instead of refusing.
-   * </pre>
-   *
-   * <code>bool replace = 5 [json_name = "replace"];</code>
-   * @return The replace.
-   */
-  @java.lang.Override
-  public boolean getReplace() {
-    return replace_;
-  }
-
   private byte memoizedIsInitialized = -1;
   @java.lang.Override
   public final boolean isInitialized() {
@@ -271,8 +311,8 @@ private static final long serialVersionUID = 0L;
   @java.lang.Override
   public void writeTo(com.google.protobuf.CodedOutputStream output)
                       throws java.io.IOException {
-    if (!com.google.protobuf.GeneratedMessage.isStringEmpty(target_)) {
-      com.google.protobuf.GeneratedMessage.writeString(output, 1, target_);
+    if (!com.google.protobuf.GeneratedMessage.isStringEmpty(owner_)) {
+      com.google.protobuf.GeneratedMessage.writeString(output, 1, owner_);
     }
     if (!com.google.protobuf.GeneratedMessage.isStringEmpty(body_)) {
       com.google.protobuf.GeneratedMessage.writeString(output, 2, body_);
@@ -280,11 +320,11 @@ private static final long serialVersionUID = 0L;
     if (!com.google.protobuf.GeneratedMessage.isStringEmpty(name_)) {
       com.google.protobuf.GeneratedMessage.writeString(output, 3, name_);
     }
-    if (!com.google.protobuf.GeneratedMessage.isStringEmpty(locale_)) {
-      com.google.protobuf.GeneratedMessage.writeString(output, 4, locale_);
+    for (int i = 0; i < about_.size(); i++) {
+      com.google.protobuf.GeneratedMessage.writeString(output, 4, about_.getRaw(i));
     }
-    if (replace_ != false) {
-      output.writeBool(5, replace_);
+    if (!com.google.protobuf.GeneratedMessage.isStringEmpty(locale_)) {
+      com.google.protobuf.GeneratedMessage.writeString(output, 5, locale_);
     }
     getUnknownFields().writeTo(output);
   }
@@ -295,8 +335,8 @@ private static final long serialVersionUID = 0L;
     if (size != -1) return size;
 
     size = 0;
-    if (!com.google.protobuf.GeneratedMessage.isStringEmpty(target_)) {
-      size += com.google.protobuf.GeneratedMessage.computeStringSize(1, target_);
+    if (!com.google.protobuf.GeneratedMessage.isStringEmpty(owner_)) {
+      size += com.google.protobuf.GeneratedMessage.computeStringSize(1, owner_);
     }
     if (!com.google.protobuf.GeneratedMessage.isStringEmpty(body_)) {
       size += com.google.protobuf.GeneratedMessage.computeStringSize(2, body_);
@@ -304,12 +344,16 @@ private static final long serialVersionUID = 0L;
     if (!com.google.protobuf.GeneratedMessage.isStringEmpty(name_)) {
       size += com.google.protobuf.GeneratedMessage.computeStringSize(3, name_);
     }
-    if (!com.google.protobuf.GeneratedMessage.isStringEmpty(locale_)) {
-      size += com.google.protobuf.GeneratedMessage.computeStringSize(4, locale_);
+    {
+      int dataSize = 0;
+      for (int i = 0; i < about_.size(); i++) {
+        dataSize += computeStringSizeNoTag(about_.getRaw(i));
+      }
+      size += dataSize;
+      size += 1 * getAboutList().size();
     }
-    if (replace_ != false) {
-      size += com.google.protobuf.CodedOutputStream
-        .computeBoolSize(5, replace_);
+    if (!com.google.protobuf.GeneratedMessage.isStringEmpty(locale_)) {
+      size += com.google.protobuf.GeneratedMessage.computeStringSize(5, locale_);
     }
     size += getUnknownFields().getSerializedSize();
     memoizedSize = size;
@@ -321,21 +365,21 @@ private static final long serialVersionUID = 0L;
     if (obj == this) {
      return true;
     }
-    if (!(obj instanceof org.openmbee.opensysml.proto.AddDocumentationEdit)) {
+    if (!(obj instanceof org.openmbee.opensysml.proto.AddCommentEdit)) {
       return super.equals(obj);
     }
-    org.openmbee.opensysml.proto.AddDocumentationEdit other = (org.openmbee.opensysml.proto.AddDocumentationEdit) obj;
+    org.openmbee.opensysml.proto.AddCommentEdit other = (org.openmbee.opensysml.proto.AddCommentEdit) obj;
 
-    if (!getTarget()
-        .equals(other.getTarget())) return false;
+    if (!getOwner()
+        .equals(other.getOwner())) return false;
     if (!getBody()
         .equals(other.getBody())) return false;
     if (!getName()
         .equals(other.getName())) return false;
+    if (!getAboutList()
+        .equals(other.getAboutList())) return false;
     if (!getLocale()
         .equals(other.getLocale())) return false;
-    if (getReplace()
-        != other.getReplace()) return false;
     if (!getUnknownFields().equals(other.getUnknownFields())) return false;
     return true;
   }
@@ -347,60 +391,61 @@ private static final long serialVersionUID = 0L;
     }
     int hash = 41;
     hash = (19 * hash) + getDescriptor().hashCode();
-    hash = (37 * hash) + TARGET_FIELD_NUMBER;
-    hash = (53 * hash) + getTarget().hashCode();
+    hash = (37 * hash) + OWNER_FIELD_NUMBER;
+    hash = (53 * hash) + getOwner().hashCode();
     hash = (37 * hash) + BODY_FIELD_NUMBER;
     hash = (53 * hash) + getBody().hashCode();
     hash = (37 * hash) + NAME_FIELD_NUMBER;
     hash = (53 * hash) + getName().hashCode();
+    if (getAboutCount() > 0) {
+      hash = (37 * hash) + ABOUT_FIELD_NUMBER;
+      hash = (53 * hash) + getAboutList().hashCode();
+    }
     hash = (37 * hash) + LOCALE_FIELD_NUMBER;
     hash = (53 * hash) + getLocale().hashCode();
-    hash = (37 * hash) + REPLACE_FIELD_NUMBER;
-    hash = (53 * hash) + com.google.protobuf.Internal.hashBoolean(
-        getReplace());
     hash = (29 * hash) + getUnknownFields().hashCode();
     memoizedHashCode = hash;
     return hash;
   }
 
-  public static org.openmbee.opensysml.proto.AddDocumentationEdit parseFrom(
+  public static org.openmbee.opensysml.proto.AddCommentEdit parseFrom(
       java.nio.ByteBuffer data)
       throws com.google.protobuf.InvalidProtocolBufferException {
     return PARSER.parseFrom(data);
   }
-  public static org.openmbee.opensysml.proto.AddDocumentationEdit parseFrom(
+  public static org.openmbee.opensysml.proto.AddCommentEdit parseFrom(
       java.nio.ByteBuffer data,
       com.google.protobuf.ExtensionRegistryLite extensionRegistry)
       throws com.google.protobuf.InvalidProtocolBufferException {
     return PARSER.parseFrom(data, extensionRegistry);
   }
-  public static org.openmbee.opensysml.proto.AddDocumentationEdit parseFrom(
+  public static org.openmbee.opensysml.proto.AddCommentEdit parseFrom(
       com.google.protobuf.ByteString data)
       throws com.google.protobuf.InvalidProtocolBufferException {
     return PARSER.parseFrom(data);
   }
-  public static org.openmbee.opensysml.proto.AddDocumentationEdit parseFrom(
+  public static org.openmbee.opensysml.proto.AddCommentEdit parseFrom(
       com.google.protobuf.ByteString data,
       com.google.protobuf.ExtensionRegistryLite extensionRegistry)
       throws com.google.protobuf.InvalidProtocolBufferException {
     return PARSER.parseFrom(data, extensionRegistry);
   }
-  public static org.openmbee.opensysml.proto.AddDocumentationEdit parseFrom(byte[] data)
+  public static org.openmbee.opensysml.proto.AddCommentEdit parseFrom(byte[] data)
       throws com.google.protobuf.InvalidProtocolBufferException {
     return PARSER.parseFrom(data);
   }
-  public static org.openmbee.opensysml.proto.AddDocumentationEdit parseFrom(
+  public static org.openmbee.opensysml.proto.AddCommentEdit parseFrom(
       byte[] data,
       com.google.protobuf.ExtensionRegistryLite extensionRegistry)
       throws com.google.protobuf.InvalidProtocolBufferException {
     return PARSER.parseFrom(data, extensionRegistry);
   }
-  public static org.openmbee.opensysml.proto.AddDocumentationEdit parseFrom(java.io.InputStream input)
+  public static org.openmbee.opensysml.proto.AddCommentEdit parseFrom(java.io.InputStream input)
       throws java.io.IOException {
     return com.google.protobuf.GeneratedMessage
         .parseWithIOException(PARSER, input);
   }
-  public static org.openmbee.opensysml.proto.AddDocumentationEdit parseFrom(
+  public static org.openmbee.opensysml.proto.AddCommentEdit parseFrom(
       java.io.InputStream input,
       com.google.protobuf.ExtensionRegistryLite extensionRegistry)
       throws java.io.IOException {
@@ -408,26 +453,26 @@ private static final long serialVersionUID = 0L;
         .parseWithIOException(PARSER, input, extensionRegistry);
   }
 
-  public static org.openmbee.opensysml.proto.AddDocumentationEdit parseDelimitedFrom(java.io.InputStream input)
+  public static org.openmbee.opensysml.proto.AddCommentEdit parseDelimitedFrom(java.io.InputStream input)
       throws java.io.IOException {
     return com.google.protobuf.GeneratedMessage
         .parseDelimitedWithIOException(PARSER, input);
   }
 
-  public static org.openmbee.opensysml.proto.AddDocumentationEdit parseDelimitedFrom(
+  public static org.openmbee.opensysml.proto.AddCommentEdit parseDelimitedFrom(
       java.io.InputStream input,
       com.google.protobuf.ExtensionRegistryLite extensionRegistry)
       throws java.io.IOException {
     return com.google.protobuf.GeneratedMessage
         .parseDelimitedWithIOException(PARSER, input, extensionRegistry);
   }
-  public static org.openmbee.opensysml.proto.AddDocumentationEdit parseFrom(
+  public static org.openmbee.opensysml.proto.AddCommentEdit parseFrom(
       com.google.protobuf.CodedInputStream input)
       throws java.io.IOException {
     return com.google.protobuf.GeneratedMessage
         .parseWithIOException(PARSER, input);
   }
-  public static org.openmbee.opensysml.proto.AddDocumentationEdit parseFrom(
+  public static org.openmbee.opensysml.proto.AddCommentEdit parseFrom(
       com.google.protobuf.CodedInputStream input,
       com.google.protobuf.ExtensionRegistryLite extensionRegistry)
       throws java.io.IOException {
@@ -440,7 +485,7 @@ private static final long serialVersionUID = 0L;
   public static Builder newBuilder() {
     return DEFAULT_INSTANCE.toBuilder();
   }
-  public static Builder newBuilder(org.openmbee.opensysml.proto.AddDocumentationEdit prototype) {
+  public static Builder newBuilder(org.openmbee.opensysml.proto.AddCommentEdit prototype) {
     return DEFAULT_INSTANCE.toBuilder().mergeFrom(prototype);
   }
   @java.lang.Override
@@ -457,30 +502,30 @@ private static final long serialVersionUID = 0L;
   }
   /**
    * <pre>
-   * AddDocumentationEdit adds a `doc /&#42; ... *&#47;` as the first body member of an
-   * existing declaration, opening a body for one ended by `;`.
+   * AddCommentEdit inserts `comment [name] [about a, b] [locale "..."] /&#42; ... *&#47;`
+   * where a new member of owner goes.
    * </pre>
    *
-   * Protobuf type {@code sysml.AddDocumentationEdit}
+   * Protobuf type {@code sysml.AddCommentEdit}
    */
   public static final class Builder extends
       com.google.protobuf.GeneratedMessage.Builder<Builder> implements
-      // @@protoc_insertion_point(builder_implements:sysml.AddDocumentationEdit)
-      org.openmbee.opensysml.proto.AddDocumentationEditOrBuilder {
+      // @@protoc_insertion_point(builder_implements:sysml.AddCommentEdit)
+      org.openmbee.opensysml.proto.AddCommentEditOrBuilder {
     public static final com.google.protobuf.Descriptors.Descriptor
         getDescriptor() {
-      return org.openmbee.opensysml.proto.Sysml.internal_static_sysml_AddDocumentationEdit_descriptor;
+      return org.openmbee.opensysml.proto.Sysml.internal_static_sysml_AddCommentEdit_descriptor;
     }
 
     @java.lang.Override
     protected com.google.protobuf.GeneratedMessage.FieldAccessorTable
         internalGetFieldAccessorTable() {
-      return org.openmbee.opensysml.proto.Sysml.internal_static_sysml_AddDocumentationEdit_fieldAccessorTable
+      return org.openmbee.opensysml.proto.Sysml.internal_static_sysml_AddCommentEdit_fieldAccessorTable
           .ensureFieldAccessorsInitialized(
-              org.openmbee.opensysml.proto.AddDocumentationEdit.class, org.openmbee.opensysml.proto.AddDocumentationEdit.Builder.class);
+              org.openmbee.opensysml.proto.AddCommentEdit.class, org.openmbee.opensysml.proto.AddCommentEdit.Builder.class);
     }
 
-    // Construct using org.openmbee.opensysml.proto.AddDocumentationEdit.newBuilder()
+    // Construct using org.openmbee.opensysml.proto.AddCommentEdit.newBuilder()
     private Builder() {
 
     }
@@ -494,28 +539,29 @@ private static final long serialVersionUID = 0L;
     public Builder clear() {
       super.clear();
       bitField0_ = 0;
-      target_ = "";
+      owner_ = "";
       body_ = "";
       name_ = "";
+      about_ =
+          com.google.protobuf.LazyStringArrayList.emptyList();
       locale_ = "";
-      replace_ = false;
       return this;
     }
 
     @java.lang.Override
     public com.google.protobuf.Descriptors.Descriptor
         getDescriptorForType() {
-      return org.openmbee.opensysml.proto.Sysml.internal_static_sysml_AddDocumentationEdit_descriptor;
+      return org.openmbee.opensysml.proto.Sysml.internal_static_sysml_AddCommentEdit_descriptor;
     }
 
     @java.lang.Override
-    public org.openmbee.opensysml.proto.AddDocumentationEdit getDefaultInstanceForType() {
-      return org.openmbee.opensysml.proto.AddDocumentationEdit.getDefaultInstance();
+    public org.openmbee.opensysml.proto.AddCommentEdit getDefaultInstanceForType() {
+      return org.openmbee.opensysml.proto.AddCommentEdit.getDefaultInstance();
     }
 
     @java.lang.Override
-    public org.openmbee.opensysml.proto.AddDocumentationEdit build() {
-      org.openmbee.opensysml.proto.AddDocumentationEdit result = buildPartial();
+    public org.openmbee.opensysml.proto.AddCommentEdit build() {
+      org.openmbee.opensysml.proto.AddCommentEdit result = buildPartial();
       if (!result.isInitialized()) {
         throw newUninitializedMessageException(result);
       }
@@ -523,17 +569,17 @@ private static final long serialVersionUID = 0L;
     }
 
     @java.lang.Override
-    public org.openmbee.opensysml.proto.AddDocumentationEdit buildPartial() {
-      org.openmbee.opensysml.proto.AddDocumentationEdit result = new org.openmbee.opensysml.proto.AddDocumentationEdit(this);
+    public org.openmbee.opensysml.proto.AddCommentEdit buildPartial() {
+      org.openmbee.opensysml.proto.AddCommentEdit result = new org.openmbee.opensysml.proto.AddCommentEdit(this);
       if (bitField0_ != 0) { buildPartial0(result); }
       onBuilt();
       return result;
     }
 
-    private void buildPartial0(org.openmbee.opensysml.proto.AddDocumentationEdit result) {
+    private void buildPartial0(org.openmbee.opensysml.proto.AddCommentEdit result) {
       int from_bitField0_ = bitField0_;
       if (((from_bitField0_ & 0x00000001) != 0)) {
-        result.target_ = target_;
+        result.owner_ = owner_;
       }
       if (((from_bitField0_ & 0x00000002) != 0)) {
         result.body_ = body_;
@@ -542,27 +588,28 @@ private static final long serialVersionUID = 0L;
         result.name_ = name_;
       }
       if (((from_bitField0_ & 0x00000008) != 0)) {
-        result.locale_ = locale_;
+        about_.makeImmutable();
+        result.about_ = about_;
       }
       if (((from_bitField0_ & 0x00000010) != 0)) {
-        result.replace_ = replace_;
+        result.locale_ = locale_;
       }
     }
 
     @java.lang.Override
     public Builder mergeFrom(com.google.protobuf.Message other) {
-      if (other instanceof org.openmbee.opensysml.proto.AddDocumentationEdit) {
-        return mergeFrom((org.openmbee.opensysml.proto.AddDocumentationEdit)other);
+      if (other instanceof org.openmbee.opensysml.proto.AddCommentEdit) {
+        return mergeFrom((org.openmbee.opensysml.proto.AddCommentEdit)other);
       } else {
         super.mergeFrom(other);
         return this;
       }
     }
 
-    public Builder mergeFrom(org.openmbee.opensysml.proto.AddDocumentationEdit other) {
-      if (other == org.openmbee.opensysml.proto.AddDocumentationEdit.getDefaultInstance()) return this;
-      if (!other.getTarget().isEmpty()) {
-        target_ = other.target_;
+    public Builder mergeFrom(org.openmbee.opensysml.proto.AddCommentEdit other) {
+      if (other == org.openmbee.opensysml.proto.AddCommentEdit.getDefaultInstance()) return this;
+      if (!other.getOwner().isEmpty()) {
+        owner_ = other.owner_;
         bitField0_ |= 0x00000001;
         onChanged();
       }
@@ -576,13 +623,20 @@ private static final long serialVersionUID = 0L;
         bitField0_ |= 0x00000004;
         onChanged();
       }
-      if (!other.getLocale().isEmpty()) {
-        locale_ = other.locale_;
-        bitField0_ |= 0x00000008;
+      if (!other.about_.isEmpty()) {
+        if (about_.isEmpty()) {
+          about_ = other.about_;
+          bitField0_ |= 0x00000008;
+        } else {
+          ensureAboutIsMutable();
+          about_.addAll(other.about_);
+        }
         onChanged();
       }
-      if (other.getReplace() != false) {
-        setReplace(other.getReplace());
+      if (!other.getLocale().isEmpty()) {
+        locale_ = other.locale_;
+        bitField0_ |= 0x00000010;
+        onChanged();
       }
       this.mergeUnknownFields(other.getUnknownFields());
       onChanged();
@@ -611,7 +665,7 @@ private static final long serialVersionUID = 0L;
               done = true;
               break;
             case 10: {
-              target_ = input.readStringRequireUtf8();
+              owner_ = input.readStringRequireUtf8();
               bitField0_ |= 0x00000001;
               break;
             } // case 10
@@ -626,15 +680,16 @@ private static final long serialVersionUID = 0L;
               break;
             } // case 26
             case 34: {
-              locale_ = input.readStringRequireUtf8();
-              bitField0_ |= 0x00000008;
+              java.lang.String s = input.readStringRequireUtf8();
+              ensureAboutIsMutable();
+              about_.add(s);
               break;
             } // case 34
-            case 40: {
-              replace_ = input.readBool();
+            case 42: {
+              locale_ = input.readStringRequireUtf8();
               bitField0_ |= 0x00000010;
               break;
-            } // case 40
+            } // case 42
             default: {
               if (!super.parseUnknownField(input, extensionRegistry, tag)) {
                 done = true; // was an endgroup tag
@@ -652,22 +707,22 @@ private static final long serialVersionUID = 0L;
     }
     private int bitField0_;
 
-    private java.lang.Object target_ = "";
+    private java.lang.Object owner_ = "";
     /**
      * <pre>
-     * Fully qualified name of the documented declaration.
+     * Namespace FQN receiving the comment; empty means the document root.
      * </pre>
      *
-     * <code>string target = 1 [json_name = "target"];</code>
-     * @return The target.
+     * <code>string owner = 1 [json_name = "owner"];</code>
+     * @return The owner.
      */
-    public java.lang.String getTarget() {
-      java.lang.Object ref = target_;
+    public java.lang.String getOwner() {
+      java.lang.Object ref = owner_;
       if (!(ref instanceof java.lang.String)) {
         com.google.protobuf.ByteString bs =
             (com.google.protobuf.ByteString) ref;
         java.lang.String s = bs.toStringUtf8();
-        target_ = s;
+        owner_ = s;
         return s;
       } else {
         return (java.lang.String) ref;
@@ -675,20 +730,20 @@ private static final long serialVersionUID = 0L;
     }
     /**
      * <pre>
-     * Fully qualified name of the documented declaration.
+     * Namespace FQN receiving the comment; empty means the document root.
      * </pre>
      *
-     * <code>string target = 1 [json_name = "target"];</code>
-     * @return The bytes for target.
+     * <code>string owner = 1 [json_name = "owner"];</code>
+     * @return The bytes for owner.
      */
     public com.google.protobuf.ByteString
-        getTargetBytes() {
-      java.lang.Object ref = target_;
+        getOwnerBytes() {
+      java.lang.Object ref = owner_;
       if (ref instanceof String) {
         com.google.protobuf.ByteString b = 
             com.google.protobuf.ByteString.copyFromUtf8(
                 (java.lang.String) ref);
-        target_ = b;
+        owner_ = b;
         return b;
       } else {
         return (com.google.protobuf.ByteString) ref;
@@ -696,49 +751,49 @@ private static final long serialVersionUID = 0L;
     }
     /**
      * <pre>
-     * Fully qualified name of the documented declaration.
+     * Namespace FQN receiving the comment; empty means the document root.
      * </pre>
      *
-     * <code>string target = 1 [json_name = "target"];</code>
-     * @param value The target to set.
+     * <code>string owner = 1 [json_name = "owner"];</code>
+     * @param value The owner to set.
      * @return This builder for chaining.
      */
-    public Builder setTarget(
+    public Builder setOwner(
         java.lang.String value) {
       if (value == null) { throw new NullPointerException(); }
-      target_ = value;
+      owner_ = value;
       bitField0_ |= 0x00000001;
       onChanged();
       return this;
     }
     /**
      * <pre>
-     * Fully qualified name of the documented declaration.
+     * Namespace FQN receiving the comment; empty means the document root.
      * </pre>
      *
-     * <code>string target = 1 [json_name = "target"];</code>
+     * <code>string owner = 1 [json_name = "owner"];</code>
      * @return This builder for chaining.
      */
-    public Builder clearTarget() {
-      target_ = getDefaultInstance().getTarget();
+    public Builder clearOwner() {
+      owner_ = getDefaultInstance().getOwner();
       bitField0_ = (bitField0_ & ~0x00000001);
       onChanged();
       return this;
     }
     /**
      * <pre>
-     * Fully qualified name of the documented declaration.
+     * Namespace FQN receiving the comment; empty means the document root.
      * </pre>
      *
-     * <code>string target = 1 [json_name = "target"];</code>
-     * @param value The bytes for target to set.
+     * <code>string owner = 1 [json_name = "owner"];</code>
+     * @param value The bytes for owner to set.
      * @return This builder for chaining.
      */
-    public Builder setTargetBytes(
+    public Builder setOwnerBytes(
         com.google.protobuf.ByteString value) {
       if (value == null) { throw new NullPointerException(); }
       checkByteStringIsUtf8(value);
-      target_ = value;
+      owner_ = value;
       bitField0_ |= 0x00000001;
       onChanged();
       return this;
@@ -747,8 +802,8 @@ private static final long serialVersionUID = 0L;
     private java.lang.Object body_ = "";
     /**
      * <pre>
-     * Documentation body, as plain text that Documentation::body reads back
-     * exactly, whitespace included; it may not contain `*&#47;` or a carriage return.
+     * Comment body, as plain text that Comment::body reads back exactly; it may
+     * not contain `*&#47;` or a carriage return.
      * </pre>
      *
      * <code>string body = 2 [json_name = "body"];</code>
@@ -768,8 +823,8 @@ private static final long serialVersionUID = 0L;
     }
     /**
      * <pre>
-     * Documentation body, as plain text that Documentation::body reads back
-     * exactly, whitespace included; it may not contain `*&#47;` or a carriage return.
+     * Comment body, as plain text that Comment::body reads back exactly; it may
+     * not contain `*&#47;` or a carriage return.
      * </pre>
      *
      * <code>string body = 2 [json_name = "body"];</code>
@@ -790,8 +845,8 @@ private static final long serialVersionUID = 0L;
     }
     /**
      * <pre>
-     * Documentation body, as plain text that Documentation::body reads back
-     * exactly, whitespace included; it may not contain `*&#47;` or a carriage return.
+     * Comment body, as plain text that Comment::body reads back exactly; it may
+     * not contain `*&#47;` or a carriage return.
      * </pre>
      *
      * <code>string body = 2 [json_name = "body"];</code>
@@ -808,8 +863,8 @@ private static final long serialVersionUID = 0L;
     }
     /**
      * <pre>
-     * Documentation body, as plain text that Documentation::body reads back
-     * exactly, whitespace included; it may not contain `*&#47;` or a carriage return.
+     * Comment body, as plain text that Comment::body reads back exactly; it may
+     * not contain `*&#47;` or a carriage return.
      * </pre>
      *
      * <code>string body = 2 [json_name = "body"];</code>
@@ -823,8 +878,8 @@ private static final long serialVersionUID = 0L;
     }
     /**
      * <pre>
-     * Documentation body, as plain text that Documentation::body reads back
-     * exactly, whitespace included; it may not contain `*&#47;` or a carriage return.
+     * Comment body, as plain text that Comment::body reads back exactly; it may
+     * not contain `*&#47;` or a carriage return.
      * </pre>
      *
      * <code>string body = 2 [json_name = "body"];</code>
@@ -844,7 +899,7 @@ private static final long serialVersionUID = 0L;
     private java.lang.Object name_ = "";
     /**
      * <pre>
-     * Optional declared name of the documentation.
+     * Optional declared name of the comment.
      * </pre>
      *
      * <code>string name = 3 [json_name = "name"];</code>
@@ -864,7 +919,7 @@ private static final long serialVersionUID = 0L;
     }
     /**
      * <pre>
-     * Optional declared name of the documentation.
+     * Optional declared name of the comment.
      * </pre>
      *
      * <code>string name = 3 [json_name = "name"];</code>
@@ -885,7 +940,7 @@ private static final long serialVersionUID = 0L;
     }
     /**
      * <pre>
-     * Optional declared name of the documentation.
+     * Optional declared name of the comment.
      * </pre>
      *
      * <code>string name = 3 [json_name = "name"];</code>
@@ -902,7 +957,7 @@ private static final long serialVersionUID = 0L;
     }
     /**
      * <pre>
-     * Optional declared name of the documentation.
+     * Optional declared name of the comment.
      * </pre>
      *
      * <code>string name = 3 [json_name = "name"];</code>
@@ -916,7 +971,7 @@ private static final long serialVersionUID = 0L;
     }
     /**
      * <pre>
-     * Optional declared name of the documentation.
+     * Optional declared name of the comment.
      * </pre>
      *
      * <code>string name = 3 [json_name = "name"];</code>
@@ -933,13 +988,160 @@ private static final long serialVersionUID = 0L;
       return this;
     }
 
+    private com.google.protobuf.LazyStringArrayList about_ =
+        com.google.protobuf.LazyStringArrayList.emptyList();
+    private void ensureAboutIsMutable() {
+      if (!about_.isModifiable()) {
+        about_ = new com.google.protobuf.LazyStringArrayList(about_);
+      }
+      bitField0_ |= 0x00000008;
+    }
+    /**
+     * <pre>
+     * Optional annotated elements, each a qualified name written after `about`.
+     * </pre>
+     *
+     * <code>repeated string about = 4 [json_name = "about"];</code>
+     * @return A list containing the about.
+     */
+    public com.google.protobuf.ProtocolStringList
+        getAboutList() {
+      about_.makeImmutable();
+      return about_;
+    }
+    /**
+     * <pre>
+     * Optional annotated elements, each a qualified name written after `about`.
+     * </pre>
+     *
+     * <code>repeated string about = 4 [json_name = "about"];</code>
+     * @return The count of about.
+     */
+    public int getAboutCount() {
+      return about_.size();
+    }
+    /**
+     * <pre>
+     * Optional annotated elements, each a qualified name written after `about`.
+     * </pre>
+     *
+     * <code>repeated string about = 4 [json_name = "about"];</code>
+     * @param index The index of the element to return.
+     * @return The about at the given index.
+     */
+    public java.lang.String getAbout(int index) {
+      return about_.get(index);
+    }
+    /**
+     * <pre>
+     * Optional annotated elements, each a qualified name written after `about`.
+     * </pre>
+     *
+     * <code>repeated string about = 4 [json_name = "about"];</code>
+     * @param index The index of the value to return.
+     * @return The bytes of the about at the given index.
+     */
+    public com.google.protobuf.ByteString
+        getAboutBytes(int index) {
+      return about_.getByteString(index);
+    }
+    /**
+     * <pre>
+     * Optional annotated elements, each a qualified name written after `about`.
+     * </pre>
+     *
+     * <code>repeated string about = 4 [json_name = "about"];</code>
+     * @param index The index to set the value at.
+     * @param value The about to set.
+     * @return This builder for chaining.
+     */
+    public Builder setAbout(
+        int index, java.lang.String value) {
+      if (value == null) { throw new NullPointerException(); }
+      ensureAboutIsMutable();
+      about_.set(index, value);
+      bitField0_ |= 0x00000008;
+      onChanged();
+      return this;
+    }
+    /**
+     * <pre>
+     * Optional annotated elements, each a qualified name written after `about`.
+     * </pre>
+     *
+     * <code>repeated string about = 4 [json_name = "about"];</code>
+     * @param value The about to add.
+     * @return This builder for chaining.
+     */
+    public Builder addAbout(
+        java.lang.String value) {
+      if (value == null) { throw new NullPointerException(); }
+      ensureAboutIsMutable();
+      about_.add(value);
+      bitField0_ |= 0x00000008;
+      onChanged();
+      return this;
+    }
+    /**
+     * <pre>
+     * Optional annotated elements, each a qualified name written after `about`.
+     * </pre>
+     *
+     * <code>repeated string about = 4 [json_name = "about"];</code>
+     * @param values The about to add.
+     * @return This builder for chaining.
+     */
+    public Builder addAllAbout(
+        java.lang.Iterable<java.lang.String> values) {
+      ensureAboutIsMutable();
+      com.google.protobuf.AbstractMessageLite.Builder.addAll(
+          values, about_);
+      bitField0_ |= 0x00000008;
+      onChanged();
+      return this;
+    }
+    /**
+     * <pre>
+     * Optional annotated elements, each a qualified name written after `about`.
+     * </pre>
+     *
+     * <code>repeated string about = 4 [json_name = "about"];</code>
+     * @return This builder for chaining.
+     */
+    public Builder clearAbout() {
+      about_ =
+        com.google.protobuf.LazyStringArrayList.emptyList();
+      bitField0_ = (bitField0_ & ~0x00000008);;
+      onChanged();
+      return this;
+    }
+    /**
+     * <pre>
+     * Optional annotated elements, each a qualified name written after `about`.
+     * </pre>
+     *
+     * <code>repeated string about = 4 [json_name = "about"];</code>
+     * @param value The bytes of the about to add.
+     * @return This builder for chaining.
+     */
+    public Builder addAboutBytes(
+        com.google.protobuf.ByteString value) {
+      if (value == null) { throw new NullPointerException(); }
+      checkByteStringIsUtf8(value);
+      ensureAboutIsMutable();
+      about_.add(value);
+      bitField0_ |= 0x00000008;
+      onChanged();
+      return this;
+    }
+
     private java.lang.Object locale_ = "";
     /**
      * <pre>
      * Optional locale, written as `locale "..."`.
      * </pre>
      *
-     * <code>string locale = 4 [json_name = "locale"];</code>
+     * <code>string locale = 5 [json_name = "locale"];</code>
      * @return The locale.
      */
     public java.lang.String getLocale() {
@@ -959,7 +1161,7 @@ private static final long serialVersionUID = 0L;
      * Optional locale, written as `locale "..."`.
      * </pre>
      *
-     * <code>string locale = 4 [json_name = "locale"];</code>
+     * <code>string locale = 5 [json_name = "locale"];</code>
      * @return The bytes for locale.
      */
     public com.google.protobuf.ByteString
@@ -980,7 +1182,7 @@ private static final long serialVersionUID = 0L;
      * Optional locale, written as `locale "..."`.
      * </pre>
      *
-     * <code>string locale = 4 [json_name = "locale"];</code>
+     * <code>string locale = 5 [json_name = "locale"];</code>
      * @param value The locale to set.
      * @return This builder for chaining.
      */
@@ -988,7 +1190,7 @@ private static final long serialVersionUID = 0L;
         java.lang.String value) {
       if (value == null) { throw new NullPointerException(); }
       locale_ = value;
-      bitField0_ |= 0x00000008;
+      bitField0_ |= 0x00000010;
       onChanged();
       return this;
     }
@@ -997,12 +1199,12 @@ private static final long serialVersionUID = 0L;
      * Optional locale, written as `locale "..."`.
      * </pre>
      *
-     * <code>string locale = 4 [json_name = "locale"];</code>
+     * <code>string locale = 5 [json_name = "locale"];</code>
      * @return This builder for chaining.
      */
     public Builder clearLocale() {
       locale_ = getDefaultInstance().getLocale();
-      bitField0_ = (bitField0_ & ~0x00000008);
+      bitField0_ = (bitField0_ & ~0x00000010);
       onChanged();
       return this;
     }
@@ -1011,7 +1213,7 @@ private static final long serialVersionUID = 0L;
      * Optional locale, written as `locale "..."`.
      * </pre>
      *
-     * <code>string locale = 4 [json_name = "locale"];</code>
+     * <code>string locale = 5 [json_name = "locale"];</code>
      * @param value The bytes for locale to set.
      * @return This builder for chaining.
      */
@@ -1020,72 +1222,28 @@ private static final long serialVersionUID = 0L;
       if (value == null) { throw new NullPointerException(); }
       checkByteStringIsUtf8(value);
       locale_ = value;
-      bitField0_ |= 0x00000008;
-      onChanged();
-      return this;
-    }
-
-    private boolean replace_ ;
-    /**
-     * <pre>
-     * Rewrite the one documentation target already owns instead of refusing.
-     * </pre>
-     *
-     * <code>bool replace = 5 [json_name = "replace"];</code>
-     * @return The replace.
-     */
-    @java.lang.Override
-    public boolean getReplace() {
-      return replace_;
-    }
-    /**
-     * <pre>
-     * Rewrite the one documentation target already owns instead of refusing.
-     * </pre>
-     *
-     * <code>bool replace = 5 [json_name = "replace"];</code>
-     * @param value The replace to set.
-     * @return This builder for chaining.
-     */
-    public Builder setReplace(boolean value) {
-
-      replace_ = value;
       bitField0_ |= 0x00000010;
       onChanged();
       return this;
     }
-    /**
-     * <pre>
-     * Rewrite the one documentation target already owns instead of refusing.
-     * </pre>
-     *
-     * <code>bool replace = 5 [json_name = "replace"];</code>
-     * @return This builder for chaining.
-     */
-    public Builder clearReplace() {
-      bitField0_ = (bitField0_ & ~0x00000010);
-      replace_ = false;
-      onChanged();
-      return this;
-    }
 
-    // @@protoc_insertion_point(builder_scope:sysml.AddDocumentationEdit)
+    // @@protoc_insertion_point(builder_scope:sysml.AddCommentEdit)
   }
 
-  // @@protoc_insertion_point(class_scope:sysml.AddDocumentationEdit)
-  private static final org.openmbee.opensysml.proto.AddDocumentationEdit DEFAULT_INSTANCE;
+  // @@protoc_insertion_point(class_scope:sysml.AddCommentEdit)
+  private static final org.openmbee.opensysml.proto.AddCommentEdit DEFAULT_INSTANCE;
   static {
-    DEFAULT_INSTANCE = new org.openmbee.opensysml.proto.AddDocumentationEdit();
+    DEFAULT_INSTANCE = new org.openmbee.opensysml.proto.AddCommentEdit();
   }
 
-  public static org.openmbee.opensysml.proto.AddDocumentationEdit getDefaultInstance() {
+  public static org.openmbee.opensysml.proto.AddCommentEdit getDefaultInstance() {
     return DEFAULT_INSTANCE;
   }
 
-  private static final com.google.protobuf.Parser<AddDocumentationEdit>
-      PARSER = new com.google.protobuf.AbstractParser<AddDocumentationEdit>() {
+  private static final com.google.protobuf.Parser<AddCommentEdit>
+      PARSER = new com.google.protobuf.AbstractParser<AddCommentEdit>() {
     @java.lang.Override
-    public AddDocumentationEdit parsePartialFrom(
+    public AddCommentEdit parsePartialFrom(
         com.google.protobuf.CodedInputStream input,
         com.google.protobuf.ExtensionRegistryLite extensionRegistry)
         throws com.google.protobuf.InvalidProtocolBufferException {
@@ -1104,17 +1262,17 @@ private static final long serialVersionUID = 0L;
     }
   };
 
-  public static com.google.protobuf.Parser<AddDocumentationEdit> parser() {
+  public static com.google.protobuf.Parser<AddCommentEdit> parser() {
     return PARSER;
   }
 
   @java.lang.Override
-  public com.google.protobuf.Parser<AddDocumentationEdit> getParserForType() {
+  public com.google.protobuf.Parser<AddCommentEdit> getParserForType() {
     return PARSER;
   }
 
   @java.lang.Override
-  public org.openmbee.opensysml.proto.AddDocumentationEdit getDefaultInstanceForType() {
+  public org.openmbee.opensysml.proto.AddCommentEdit getDefaultInstanceForType() {
     return DEFAULT_INSTANCE;
   }
 

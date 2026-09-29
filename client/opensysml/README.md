@@ -235,7 +235,8 @@ elements, err := client.Query(ctx, model, opensysml.Query{
 ```
 
 Edits are typed the same way — `SetValue`, `Rename`, `AddMember`, `AddConnection`,
-`AddSatisfy`, `AddRequirementConstraint`, `AddTransition`, `AddDocumentation`, `Delete`, `Move` — and either all apply, answering the edited source, or none do and the
+`AddSatisfy`, `AddRequirementConstraint`, `AddTransition`, `AddDocumentation`, `AddComment`,
+`AddNote`, `Delete`, `Move` — and either all apply, answering the edited source, or none do and the
 refusal arrives as an `*EditError` naming its kind:
 
 ```go
@@ -270,6 +271,9 @@ The new member modifiers and `ref`/`return` kinds require `member_modifiers`;
 `AddEntryTransition` to construct its entry-transition form. `AddMember.Doc` and
 `AddDocumentation{Target, Body, Name, Locale, Replace}` write `doc /* ... */` on a new or an
 existing declaration and require `authoring` and `documentation_authoring`.
+`AddComment{Owner, Body, Name, About, Locale}` writes a `comment` element and
+`AddNote{Target, Text}` a `// text` line note above a declaration; both require `authoring` and
+`comment_authoring`.
 
 The edited source is `result.Documents`, one `EditedDocument` per document the
 batch reached, under the name the model was parsed with; `result.Content` is the

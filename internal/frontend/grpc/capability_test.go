@@ -133,6 +133,18 @@ func TestCapabilityGatedRequestsAreRefused(t *testing.T) {
 			})
 			return err
 		}},
+		{"comment authoring", CapabilityCommentAuthoring, func(s *Service) error {
+			_, err := s.ApplyEdits(ctx, &pb.ApplyEditsRequest{
+				Operations: []*pb.EditOperation{addCommentOp("P", "Text.")},
+			})
+			return err
+		}},
+		{"note authoring", CapabilityCommentAuthoring, func(s *Service) error {
+			_, err := s.ApplyEdits(ctx, &pb.ApplyEditsRequest{
+				Operations: []*pb.EditOperation{addNoteOp("P", "Text.")},
+			})
+			return err
+		}},
 		{"edit documents", CapabilityEditDocuments, func(s *Service) error {
 			_, err := s.ApplyEdits(ctx, &pb.ApplyEditsRequest{Document: "q.sysml"})
 			return err

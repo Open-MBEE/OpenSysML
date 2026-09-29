@@ -1167,7 +1167,7 @@ func (e *encoder) encodeMember(h memberHead, owner string) error {
 		if n.Locale != "" {
 			e.graph.Add(subject, e.sysml(pLocale), rdf.String(source.StringValue(n.Locale)))
 		}
-		e.graph.Add(subject, e.sysml(pBody), rdf.String(commentBody(e.src.slice(n.BodySpan))))
+		e.graph.Add(subject, e.sysml(pBody), rdf.String(source.CommentBody(e.src.slice(n.BodySpan))))
 		return nil
 
 	case *ast.Documentation:
@@ -1179,7 +1179,7 @@ func (e *encoder) encodeMember(h memberHead, owner string) error {
 		head(rdf.SysMLTerm("TextualRepresentation"))
 		e.ident(subject, n.Ident)
 		e.graph.Add(subject, e.sysml(pLanguage), rdf.String(source.StringValue(n.Language)))
-		e.graph.Add(subject, e.sysml(pBody), rdf.String(commentBody(e.src.slice(n.BodySpan))))
+		e.graph.Add(subject, e.sysml(pBody), rdf.String(source.CommentBody(e.src.slice(n.BodySpan))))
 		return nil
 
 	case *ast.MultiplicityDecl:
@@ -1894,7 +1894,7 @@ func (e *encoder) documentation(subject rdf.Term, n *ast.Documentation) {
 	if n.Locale != "" {
 		e.graph.Add(subject, e.sysml(pLocale), rdf.String(source.StringValue(n.Locale)))
 	}
-	e.graph.Add(subject, e.sysml(pBody), rdf.String(commentBody(e.src.slice(n.BodySpan))))
+	e.graph.Add(subject, e.sysml(pBody), rdf.String(source.CommentBody(e.src.slice(n.BodySpan))))
 }
 
 func (e *encoder) ident(subject rdf.Term, ident ast.Identification) {
@@ -2607,12 +2607,4 @@ func qualifiedText(name *ast.QualifiedName) string {
 		return "$::" + out
 	}
 	return out
-}
-
-// commentBody strips the /* */ delimiters from a comment token, leaving the
-// text the printer re-wraps.
-func commentBody(raw string) string {
-	raw = strings.TrimPrefix(raw, "/*")
-	raw = strings.TrimSuffix(raw, "*/")
-	return raw
 }

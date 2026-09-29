@@ -102,6 +102,10 @@ const CapabilityTransitionAuthoring = "transition_authoring"
 // operation and the AddMember doc field.
 const CapabilityDocumentationAuthoring = "documentation_authoring"
 
+// CapabilityCommentAuthoring names the ApplyEdits add_comment and add_note
+// operations.
+const CapabilityCommentAuthoring = "comment_authoring"
+
 // CapabilityEditDocuments names the capability of editing a model of several
 // documents as one batch, for a request accepting documents, and of answering
 // each edited document by name in ApplyEditsResponse.documents.
@@ -221,6 +225,7 @@ var capabilities = []string{
 	CapabilityMemberModifiers,
 	CapabilityTransitionAuthoring,
 	CapabilityDocumentationAuthoring,
+	CapabilityCommentAuthoring,
 }
 
 type capabilityAvailability struct {

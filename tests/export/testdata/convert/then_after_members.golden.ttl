@@ -3619,7 +3619,7 @@ elmt:ThenAfterMembers__AfterDoc___401
     sysml:owner elmt:ThenAfterMembers__AfterDoc ;
     sysml:owningRelationship elmt:ThenAfterMembers__AfterDoc___401_om ;
     sysml:owningMembership elmt:ThenAfterMembers__AfterDoc___401_om ;
-    sysml:body " a is followed by b " ;
+    sysml:body "a is followed by b " ;
     sysx:sourceText "        doc /* a is followed by b */\n" .
 
 elmt:ThenAfterMembers__AfterDoc___401_om
@@ -3831,7 +3831,7 @@ elmt:ThenAfterMembers__AfterComment___401
     sysml:owningRelationship elmt:ThenAfterMembers__AfterComment___401_om ;
     sysml:owningMembership elmt:ThenAfterMembers__AfterComment___401_om ;
     sysml:annotatedElement elmt:ThenAfterMembers__AfterComment__a ;
-    sysml:body " the first step " ;
+    sysml:body "the first step " ;
     sysx:sourceText "        comment about a /* the first step */\n" .
 
 elmt:ThenAfterMembers__AfterComment___401_om
@@ -5162,7 +5162,7 @@ elmt:ThenAfterMembers__AfterSeveralNonFeatures___401
     sysml:owner elmt:ThenAfterMembers__AfterSeveralNonFeatures ;
     sysml:owningRelationship elmt:ThenAfterMembers__AfterSeveralNonFeatures___401_om ;
     sysml:owningMembership elmt:ThenAfterMembers__AfterSeveralNonFeatures___401_om ;
-    sysml:body " a is followed by b " ;
+    sysml:body "a is followed by b " ;
     sysx:sourceText "        doc /* a is followed by b */\n" .
 
 elmt:ThenAfterMembers__AfterSeveralNonFeatures___401_om
@@ -5222,7 +5222,7 @@ elmt:ThenAfterMembers__AfterSeveralNonFeatures___404
     sysml:owningRelationship elmt:ThenAfterMembers__AfterSeveralNonFeatures___404_om ;
     sysml:owningMembership elmt:ThenAfterMembers__AfterSeveralNonFeatures___404_om ;
     sysml:annotatedElement elmt:ThenAfterMembers__AfterSeveralNonFeatures__a ;
-    sysml:body " the first step " ;
+    sysml:body "the first step " ;
     sysx:sourceText "        comment about a /* the first step */\n" .
 
 elmt:ThenAfterMembers__AfterSeveralNonFeatures___404_om
@@ -5433,7 +5433,7 @@ elmt:ThenAfterMembers__AfterNonFeatures___401
     sysml:owner elmt:ThenAfterMembers__AfterNonFeatures ;
     sysml:owningRelationship elmt:ThenAfterMembers__AfterNonFeatures___401_om ;
     sysml:owningMembership elmt:ThenAfterMembers__AfterNonFeatures___401_om ;
-    sysml:body " a precedes b " ;
+    sysml:body "a precedes b " ;
     sysx:sourceText "        doc /* a precedes b */\n" .
 
 elmt:ThenAfterMembers__AfterNonFeatures___401_om
@@ -7348,7 +7348,7 @@ elmt:ThenAfterMembers__Lamp___402
     sysml:owner elmt:ThenAfterMembers__Lamp ;
     sysml:owningRelationship elmt:ThenAfterMembers__Lamp___402_om ;
     sysml:owningMembership elmt:ThenAfterMembers__Lamp___402_om ;
-    sysml:body " on precedes off " ;
+    sysml:body "on precedes off " ;
     sysx:sourceText "        doc /* on precedes off */\n" .
 
 elmt:ThenAfterMembers__Lamp___402_om

@@ -111,7 +111,9 @@ and `type` fields:
 | `add_connection` | `owner`, `kind`, `from_end`, `to_end`, `name?`, `type?` | A `connection`, `interface`, `allocation`, `binding`, `flow`, `succession` or `transition` (KerML: `connector`, `binding`, `flow`, `succession`) in the owner's body, with `from_end` and `to_end` written as they resolve from the owner's scope (`tank.fuelOut`). |
 | `add_satisfy` | `owner`, `requirement`, `satisfying_feature?`, `is_asserted`, `is_negated` | A SysML `satisfy` usage in a package or body whose grammar admits behavior usages. Both targets are lexical feature references; analysis checks that the resolved requirement target is a requirement. |
 | `add_requirement_constraint` | `owner`, `kind`, `expression`, `name?` | A `require constraint` or `assume constraint` in a requirement-like body. The expression must parse and analyze; other kinds and placements are refused. |
-| `add_documentation` | `target`, `body`, `name?`, `locale?`, `replace` | A `doc [name] [locale "..."] /* body */` as the first member of the declaration `target` names, turning a declaration that ends in `;` into one with a body and leaving every other byte as it was. A target that already owns documentation is refused as a taken member name unless `replace` is set, which rewrites the one it owns (and is refused when it owns several). The body is plain text: empty text, text containing `*/`, and a line with leading or trailing white space (which the comment would not read back) are refused. |
+| `add_documentation` | `target`, `body`, `name?`, `locale?`, `replace` | A `doc [name] [locale "..."] /* body */` as the first member of the declaration `target` names, turning a declaration that ends in `;` into one with a body and leaving every other byte as it was. A target that already owns documentation is refused as a taken member name unless `replace` is set, which rewrites the one it owns (and is refused when it owns several). The body is read back exactly as `Comment::body` (KerML §8.2.3.3.2), white space and empty text included; text containing `*/` is refused, since a regular comment's text excludes it and no escape exists, as is a carriage return, which the body processing reads as a line break. |
+| `add_comment` | `owner`, `body`, `name?`, `about[]`, `locale?` | A `comment [name] [about a, b] [locale "..."] /* body */` where a new member of `owner` goes — the document root when `owner` is empty — with each `about` name written as it is given and resolved from the owner's scope. The body follows `add_documentation`'s rules. |
+| `add_note` | `target`, `text` | A line note `// text` on its own line directly above the declaration `target` names, at its indentation. A note is lexical trivia (KerML §8.2.2.2), not a model element, so it is in the edited source and `sysx:sourceText` but not in the model; a later edit keeps it above the declaration it precedes. Text containing a line break is refused. |
 | `add_transition` | `owner`, `source`, `target`, `name?`, `trigger?`, `guard?`, `effect?`, `initial` | A state transition in a state definition or usage, including an exhibited or bodiless nested state. Each free-text clause must form exactly one grammar-admissible transition. With `initial`, an entry transition (`entry; then <target>;`) in a state body that has no existing entry action. |
 
 `type` is accepted only for connection kinds that permit a typing target.
@@ -119,7 +121,8 @@ and `type` fields:
 `add_satisfy` requires `authoring` and `satisfy_authoring`; `add_requirement_constraint` requires
 `authoring` and `requirement_constraint_authoring`; transition edits require `authoring` and
 `transition_authoring`; `add_documentation` and an `add_member` with a `doc` require `authoring`
-and `documentation_authoring`. An `add_member` edit with any new modifier or
+and `documentation_authoring`; `add_comment` and `add_note` require `authoring` and
+`comment_authoring`. An `add_member` edit with any new modifier or
 the `ref`/`return` kind also requires `member_modifiers`. Clients preflight these capabilities
 before sending the operation.
 
@@ -167,7 +170,8 @@ doc=None)` and its typed `add_*` helpers create declarations while preserving un
 source bytes; every helper passes `doc` through. The editor also exposes `add_satisfy`,
 `add_requirement_constraint`, `add_require_constraint`, `add_assume_constraint`,
 `add_transition`, `add_entry_transition` and
-`add_documentation(target, body, name=None, locale=None, replace=False)`. The calculation helpers accept `inputs`, `return_type`
+`add_documentation(target, body, name=None, locale=None, replace=False)`,
+`add_comment(owner, body, name=None, about=None, locale=None)` and `add_note(target, text)`. The calculation helpers accept `inputs`, `return_type`
 and `return_expression`; a return expression requires a return type and is
 bound to the result parameter, not written as a `return <expr>;` statement.
 Action helpers accept `inputs` and `outputs`, each a list of `(name, type)` string pairs.

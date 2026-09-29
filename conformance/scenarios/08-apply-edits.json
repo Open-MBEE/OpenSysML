@@ -253,8 +253,8 @@
       "expect": {
         "contains_all": {
           "content": [
-            "    item def Bread {\n        doc /* Sliced bread. */\n    }\n",
-            "    item def Toast {\n        doc /* Browned bread.\n         * Ready to eat. */\n    }\n"
+            "    item def Bread {\n        doc /* Sliced bread.*/\n    }\n",
+            "    item def Toast {\n        doc /* Browned bread.\n         * Ready to eat.*/\n    }\n"
           ]
         },
         "absent": [
@@ -262,6 +262,63 @@
         ],
         "counts": {
           "applied": 2
+        }
+      }
+    },
+    {
+      "id": "apply_edits/comments_and_notes_are_written",
+      "description": "A comment is written where a new member of its owner goes, at the top level or in a body, and a line note is written on its own line above a named member.",
+      "rpc": "ApplyEdits",
+      "requires_capabilities": [
+        "apply_edits",
+        "authoring",
+        "comment_authoring"
+      ],
+      "model": {
+        "fixture": "apply_edits_comment.sysml"
+      },
+      "request": {
+        "model_hash": "${model_hash}",
+        "operations": [
+          {
+            "add_comment": {
+              "owner": "Demo",
+              "body": "Toasting.\n  Indented, with a trailing space ",
+              "name": "Why",
+              "about": [
+                "Bread",
+                "Demo::Toaster"
+              ],
+              "locale": "en"
+            }
+          },
+          {
+            "add_comment": {
+              "owner": "",
+              "body": "File note."
+            }
+          },
+          {
+            "add_note": {
+              "target": "Demo::Toaster::power",
+              "text": "DimensionOneValue"
+            }
+          }
+        ]
+      },
+      "expect": {
+        "contains_all": {
+          "content": [
+            "    comment Why about Bread, Demo::Toaster locale \"en\" /* Toasting.\n     *   Indented, with a trailing space */\n}\n",
+            "}\ncomment /* File note.*/\n",
+            "        // DimensionOneValue\n        attribute power;\n"
+          ]
+        },
+        "absent": [
+          "error"
+        ],
+        "counts": {
+          "applied": 3
         }
       }
     },

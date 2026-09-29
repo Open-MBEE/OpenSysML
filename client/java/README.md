@@ -402,7 +402,9 @@ and `SuiteTest.aCorruptedAnswerIsCaught` asserts each corruption is caught:
 `transition_authoring` before sending those additions. `Edit.AddMember.withDoc` and
 `Edit.AddDocumentation.of(target, body)` (with `withName`, `withLocale` and `withReplace`)
 write documentation on a new or existing declaration, after checking
-`documentation_authoring`.
+`documentation_authoring`. `Edit.AddComment.of(owner, body)` (with `withName`, `withAbout` and
+`withLocale`) writes a `comment`, and `new Edit.AddNote(target, text)` a `// text` line note above
+a declaration, after checking `comment_authoring`.
 
 ## Running the tests
 

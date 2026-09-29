@@ -21,6 +21,7 @@ from opensysml.capabilities import (
     CAPABILITY_SATISFY_AUTHORING,
     CAPABILITY_TRANSITION_AUTHORING,
     CAPABILITY_DOCUMENTATION_AUTHORING,
+    CAPABILITY_COMMENT_AUTHORING,
     CAPABILITY_INLINE_LANGUAGE,
     CAPABILITY_STRICT_CONFORMANCE,
     CAPABILITY_COMPLEX_VALUES,
@@ -959,7 +960,9 @@ class Connection:
                 ``('rename', target, new_name)`` tuples, as
                 :class:`~opensysml.edit.Editor` collects them, along with
                 ``('add_connection', owner, kind, from_end, to_end, name, type)``
-                and ``('add_documentation', target, body, name, locale, replace)``
+                ``('add_documentation', target, body, name, locale, replace)``,
+                ``('add_comment', owner, body, name, about, locale)`` and
+                ``('add_note', target, text)``
 
         Returns:
             EditResult: The edited notation and what each operation changed
@@ -982,6 +985,7 @@ class Connection:
         requests_requirement_constraint_authoring = False
         requests_transition_authoring = False
         requests_documentation_authoring = False
+        requests_comment_authoring = False
         for operation_data in operations:
             operation = request.operations.add()
             kind = operation_data[0]
@@ -1137,6 +1141,40 @@ class Connection:
                 add = operation.add_documentation
                 add.target, add.body, add.name, add.locale = target, body, name, locale
                 add.replace = replace
+            elif kind == 'add_comment':
+                if len(operation_data) != 6:
+                    raise ValueError("malformed add_comment operation: expected 6 fields")
+                _, owner, body, name, about, locale = operation_data
+                if not all(isinstance(text, str) for text in (owner, body, name, locale)) or (
+                    isinstance(about, str) or not all(isinstance(x, str) for x in about)
+                ):
+                    raise ValueError(
+                        "malformed add_comment operation: text fields and about must be valid"
+                    )
+                require(info, CAPABILITY_AUTHORING, upgrade_remedy(CAPABILITY_AUTHORING))
+                require(
+                    info, CAPABILITY_COMMENT_AUTHORING,
+                    upgrade_remedy(CAPABILITY_COMMENT_AUTHORING),
+                )
+                requests_authoring = True
+                requests_comment_authoring = True
+                add = operation.add_comment
+                add.owner, add.body, add.name, add.locale = owner, body, name, locale
+                add.about.extend(about)
+            elif kind == 'add_note':
+                if len(operation_data) != 3 or not all(
+                    isinstance(text, str) for text in operation_data[1:]
+                ):
+                    raise ValueError("malformed add_note operation: expected target and text")
+                _, target, text = operation_data
+                require(info, CAPABILITY_AUTHORING, upgrade_remedy(CAPABILITY_AUTHORING))
+                require(
+                    info, CAPABILITY_COMMENT_AUTHORING,
+                    upgrade_remedy(CAPABILITY_COMMENT_AUTHORING),
+                )
+                requests_authoring = True
+                requests_comment_authoring = True
+                operation.add_note.target, operation.add_note.text = target, text
             elif kind == 'delete':
                 if len(operation_data) != 3 or not isinstance(operation_data[2], bool):
                     raise ValueError(
@@ -1160,7 +1198,7 @@ class Connection:
                     f"unknown edit operation {kind!r}: expected set_value, rename, "
                     f"add_member, add_connection, add_satisfy, "
                     f"add_requirement_constraint, add_transition, add_documentation, "
-                    f"delete or move"
+                    f"add_comment, add_note, delete or move"
                 )
 
         requested_capabilities = [CAPABILITY_APPLY_EDITS]
@@ -1176,6 +1214,8 @@ class Connection:
             requested_capabilities.append(CAPABILITY_TRANSITION_AUTHORING)
         if requests_documentation_authoring:
             requested_capabilities.append(CAPABILITY_DOCUMENTATION_AUTHORING)
+        if requests_comment_authoring:
+            requested_capabilities.append(CAPABILITY_COMMENT_AUTHORING)
         if requests_member_modifiers:
             require(
                 info, CAPABILITY_MEMBER_MODIFIERS,

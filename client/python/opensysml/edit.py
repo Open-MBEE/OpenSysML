@@ -297,8 +297,8 @@ class Editor:
         """Add one declaration, using strings for all SysML/KerML notation.
 
         ``doc`` is plain documentation text, written as the new declaration's
-        first body member ``doc /* ... */``; it may not contain ``*/``, and no
-        line of it may begin or end with whitespace.
+        first body member ``doc /* ... */``; it reads back unchanged as
+        ``Documentation.body``, and may not contain ``*/`` or a carriage return.
         """
         if not isinstance(kind, str):
             raise TypeError(f"kind must be notation text, not {kind.__class__.__name__}")
@@ -341,9 +341,9 @@ class Editor:
 
         Args:
             target (str or Symbol): Declaration to document, by FQN/id or symbol
-            body (str): Plain documentation text, as ``Documentation.body``
-                reads back; it may not contain ``*/``, and no line of it may
-                begin or end with whitespace
+            body (str): Plain documentation text, exactly as
+                ``Documentation.body`` reads back (whitespace included); it may
+                not contain ``*/``, which closes a comment, or a carriage return
             name (str): Optional documentation name, ``doc name /* ... */``
             locale (str): Optional locale, ``doc locale "en" /* ... */``
             replace (bool): Rewrite the target's documentation instead of
@@ -362,6 +362,60 @@ class Editor:
         self._add((
             "add_documentation", _target_id(target), body, name or "", locale or "", replace,
         ))
+        return self
+
+    def add_comment(self, owner, body, name=None, about=None, locale=None):
+        """Add ``comment [name] [about a, b] [locale "..."] /* body */`` to a body.
+
+        The comment goes where a new member of ``owner`` goes; a declaration
+        ended by ``;`` is given a body, and an empty owner is the document root.
+
+        Args:
+            owner (str or Symbol): Namespace receiving the comment, by FQN/id
+                or symbol; ``""`` for the top level
+            body (str): Plain comment text, exactly as ``Comment.body`` reads
+                back (whitespace included); it may not contain ``*/``, which
+                closes a comment, or a carriage return
+            name (str): Optional comment name, ``comment name /* ... */``
+            about (list[str or Symbol]): Optional annotated elements, each a
+                qualified name (or symbol) resolved from ``owner``
+            locale (str): Optional locale, ``comment locale "en" /* ... */``
+
+        Returns:
+            Editor: self, so operations can be chained
+        """
+        if not isinstance(body, str):
+            raise TypeError(f"body must be text, not {body.__class__.__name__}")
+        for label, text in (("name", name), ("locale", locale)):
+            if text is not None and not isinstance(text, str):
+                raise TypeError(f"{label} must be text, not {text.__class__.__name__}")
+        if isinstance(about, str):
+            raise TypeError("about must be a sequence of names or symbols, not one name")
+        owner = owner if isinstance(owner, str) else _target_id(owner)
+        about = tuple(_target_id(element) for element in about or ())
+        self._add(("add_comment", owner, body, name or "", about, locale or ""))
+        return self
+
+    def add_note(self, target, text):
+        """Write the line note ``// text`` on its own line above a declaration.
+
+        A note is lexical trivia, not a model element: no query, export or
+        ``to_api_json()`` sees it, but the edited text keeps it, and later
+        edits that move or delete ``target`` carry it along.
+
+        Args:
+            target (str or Symbol): Declaration the note precedes, by FQN/id or
+                symbol
+            text (str): One line of note text; it may not contain a line break
+
+        Returns:
+            Editor: self, so operations can be chained
+        """
+        if not isinstance(text, str):
+            raise TypeError(f"text must be text, not {text.__class__.__name__}")
+        if "\n" in text or "\r" in text:
+            raise ValueError("a note is one line: its text may not contain a line break")
+        self._add(("add_note", _target_id(target), text))
         return self
 
     def add_satisfy(self, owner, requirement, by=None, asserted=False, negated=False):

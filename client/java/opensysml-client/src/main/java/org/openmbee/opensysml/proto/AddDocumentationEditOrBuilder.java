@@ -32,8 +32,8 @@ public interface AddDocumentationEditOrBuilder extends
 
   /**
    * <pre>
-   * Documentation body, as plain text; it may not contain `*&#47;`, and no line
-   * may begin or end with whitespace.
+   * Documentation body, as plain text that Documentation::body reads back
+   * exactly, whitespace included; it may not contain `*&#47;` or a carriage return.
    * </pre>
    *
    * <code>string body = 2 [json_name = "body"];</code>
@@ -42,8 +42,8 @@ public interface AddDocumentationEditOrBuilder extends
   java.lang.String getBody();
   /**
    * <pre>
-   * Documentation body, as plain text; it may not contain `*&#47;`, and no line
-   * may begin or end with whitespace.
+   * Documentation body, as plain text that Documentation::body reads back
+   * exactly, whitespace included; it may not contain `*&#47;` or a carriage return.
    * </pre>
    *
    * <code>string body = 2 [json_name = "body"];</code>

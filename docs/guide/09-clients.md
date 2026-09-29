@@ -1151,6 +1151,10 @@ through. Typed `add_*` helpers cover the common SysML and KerML kinds, including
 `add_documentation(target, body, name=None, locale=None, replace=False)` gives an existing
 declaration its documentation, as the first member of its body; a declaration ending in `;`
 gains a body, and one already documented is refused unless `replace=True`.
+`add_comment(owner, body, name=None, about=None, locale=None)` writes a
+`comment [name] [about a, b] [locale "..."] /* ... */` in `owner`'s body, or at the top
+level when `owner` is `""`, and `add_note(target, text)` writes the line note `// text`
+above a declaration. A note is not a model element, so it is kept in the source only.
 `add_calc_def` and `add_calc` accept `inputs`, `return_type` and `return_expression`;
 a return expression requires a return type and is bound to the result parameter,
 not written as `return <expr>;`. `add_action_def` and `add_action` accept
@@ -1251,7 +1255,8 @@ call is made. An `add_connection` edit also requires both `authoring` and
 require `member_modifiers`; satisfy edits require `satisfy_authoring`, and
 requirement-constraint edits require `requirement_constraint_authoring`.
 Transition edits require `transition_authoring` alongside `authoring`, and documentation
-edits — `add_documentation` or an `add_member` with `doc` — require `documentation_authoring`.
+edits — `add_documentation` or an `add_member` with `doc` — require `documentation_authoring`;
+comment and note edits require `comment_authoring`.
 
 ### Querying a model using the standard query model
 

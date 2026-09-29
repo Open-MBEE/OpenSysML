@@ -243,8 +243,8 @@ public sealed interface Edit {
    * a body for one ended by {@code ;}.
    *
    * @param target the documented declaration, as {@link Symbol#id()} names it
-   * @param body the documentation text; it may not contain the comment close, and no line may begin
-   *     or end with whitespace
+   * @param body the documentation text, read back exactly as {@code Documentation::body}; it may
+   *     not contain the comment close or a carriage return
    * @param name the documentation's declared name, when written
    * @param locale the documentation's locale, when written
    * @param replace rewrite the one documentation the target owns instead of refusing
@@ -274,6 +274,64 @@ public sealed interface Edit {
 
     public AddDocumentation withReplace(boolean replace) {
       return new AddDocumentation(target, body, name, locale, replace);
+    }
+  }
+
+  /**
+   * Inserts {@code comment [name] [about a, b] [locale "..."] /* ... *}{@code /} where a new member
+   * of the owner goes, opening a body for one ended by {@code ;}.
+   *
+   * @param owner the namespace receiving the comment; empty is the document root
+   * @param body the comment text, read back exactly as {@code Comment::body}; it may not contain
+   *     the comment close or a carriage return
+   * @param name the comment's declared name, when written
+   * @param about the annotated elements, by qualified name
+   * @param locale the comment's locale, when written
+   */
+  record AddComment(
+      String owner, String body, Optional<String> name, List<String> about, Optional<String> locale)
+      implements Edit {
+
+    public AddComment {
+      Objects.requireNonNull(owner, "owner");
+      Objects.requireNonNull(body, "body");
+      Objects.requireNonNull(name, "name");
+      about = List.copyOf(about);
+      Objects.requireNonNull(locale, "locale");
+    }
+
+    public static AddComment of(String owner, String body) {
+      return new AddComment(owner, body, Optional.empty(), List.of(), Optional.empty());
+    }
+
+    public AddComment withName(String name) {
+      return new AddComment(owner, body, Optional.of(name), about, locale);
+    }
+
+    public AddComment withAbout(List<String> about) {
+      return new AddComment(owner, body, name, about, locale);
+    }
+
+    public AddComment withLocale(String locale) {
+      return new AddComment(owner, body, name, about, Optional.of(locale));
+    }
+  }
+
+  /**
+   * Writes the line note {@code // text} on its own line above a declaration. A note is lexical
+   * trivia, not a model element.
+   *
+   * @param target the declaration the note precedes, as {@link Symbol#id()} names it
+   * @param text the one line of note text; it may not contain a line break
+   */
+  record AddNote(String target, String text) implements Edit {
+
+    public AddNote {
+      requireTarget(target);
+      Objects.requireNonNull(text, "text");
+      if (text.indexOf('\n') >= 0 || text.indexOf('\r') >= 0) {
+        throw new IllegalArgumentException("a note is one line: its text may not contain a line break");
+      }
     }
   }
 

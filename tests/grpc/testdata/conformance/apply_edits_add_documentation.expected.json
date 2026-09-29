@@ -14,5 +14,5 @@
       "doc": "Browned bread.\nReady to eat."
     }
   ],
-  "expected_content": "package Demo {\n    item def Bread {\n        doc /* Sliced bread. */\n    }\n    item def Toast {\n        doc /* Browned bread.\n         * Ready to eat. */\n    }\n}\n"
+  "expected_content": "package Demo {\n    item def Bread {\n        doc /* Sliced bread.*/\n    }\n    item def Toast {\n        doc /* Browned bread.\n         * Ready to eat.*/\n    }\n}\n"
 }

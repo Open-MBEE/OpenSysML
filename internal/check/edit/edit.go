@@ -47,6 +47,10 @@ const (
 	// OpAddDocumentation adds a `doc` to an existing declaration, or rewrites
 	// the one it owns.
 	OpAddDocumentation
+	// OpAddComment inserts a `comment` element into Owner.
+	OpAddComment
+	// OpAddNote writes a `//` line note above Target's declaration.
+	OpAddNote
 )
 
 // Operation is one change to make to a model's source.
@@ -108,10 +112,15 @@ type Operation struct {
 	// OpAddDocumentation adds to Target. DocName and DocLocale are the
 	// latter's optional identification and locale, and ReplaceDoc has it
 	// rewrite the one documentation Target owns rather than refuse.
+	// An OpAddComment writes Doc as its body, DocName and DocLocale as its
+	// identification and locale, and About as its annotated elements.
 	Doc        string
 	DocName    string
 	DocLocale  string
 	ReplaceDoc bool
+	About      []string
+	// Note is the one line of text an OpAddNote writes after `// `.
+	Note string
 	// NewOwner is the namespace an OpMove moves Target into; empty means the root.
 	NewOwner string
 	// Annotation is the DiagramLayout metadata an OpSetLayout writes, by FQN
@@ -183,6 +192,17 @@ func AddTransition(owner, name, from, to, trigger, guard, effect string, initial
 // AddDocumentation creates an operation adding a `doc` with body text to target.
 func AddDocumentation(target, body string) Operation {
 	return Operation{Kind: OpAddDocumentation, Target: target, Doc: body}
+}
+
+// AddComment creates an operation adding a `comment` with body text to owner,
+// "" for the root.
+func AddComment(owner, body string) Operation {
+	return Operation{Kind: OpAddComment, Owner: owner, Doc: body}
+}
+
+// AddNote creates an operation writing the line note `// text` above target.
+func AddNote(target, text string) Operation {
+	return Operation{Kind: OpAddNote, Target: target, Note: text}
 }
 
 // Move is an operation making target a member of newOwner, "" for the root.
@@ -626,6 +646,17 @@ func (m Model) splicesFor(i int, op Operation) ([]splice, error) {
 	}
 	if op.Kind == OpAddDocumentation {
 		sp, err := m.addDocumentationSplice(i, op)
+		if err != nil {
+			return nil, err
+		}
+		return []splice{sp}, nil
+	}
+	if op.Kind == OpAddComment || op.Kind == OpAddNote {
+		add := m.addCommentSplice
+		if op.Kind == OpAddNote {
+			add = m.addNoteSplice
+		}
+		sp, err := add(i, op)
 		if err != nil {
 			return nil, err
 		}

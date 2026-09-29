@@ -757,6 +757,19 @@ final class Api {
         }
         yield documentation;
       }
+      case ADD_COMMENT -> {
+        org.openmbee.opensysml.proto.AddCommentEdit add = operation.getAddComment();
+        Edit.AddComment comment =
+            Edit.AddComment.of(add.getOwner(), add.getBody()).withAbout(add.getAboutList());
+        if (!add.getName().isEmpty()) {
+          comment = comment.withName(add.getName());
+        }
+        if (!add.getLocale().isEmpty()) {
+          comment = comment.withLocale(add.getLocale());
+        }
+        yield comment;
+      }
+      case ADD_NOTE -> new Edit.AddNote(operation.getAddNote().getTarget(), operation.getAddNote().getText());
       case ADD_CONNECTION -> {
         org.openmbee.opensysml.proto.AddConnectionEdit add = operation.getAddConnection();
         Edit.AddConnection connection =

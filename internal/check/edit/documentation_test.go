@@ -28,7 +28,7 @@ func TestAddMemberWritesDocumentationBody(t *testing.T) {
 	param.Type = "Bread"
 	got := applyContent(t, m, add, param)
 	want := "package P {\n    item def Bread;\n    action def ToastBread {\n" +
-		"        doc /* Transform bread into toast. */\n        in ref bread : Bread;\n    }\n}\n"
+		"        doc /* Transform bread into toast.*/\n        in ref bread : Bread;\n    }\n}\n"
 	if got != want {
 		t.Fatalf("content =\n%s\nwant\n%s", got, want)
 	}
@@ -44,7 +44,7 @@ func TestAddMemberWritesMultilineDocumentationUnderOwnerIndent(t *testing.T) {
 	got := applyContent(t, m, add)
 	want := "package P {\n    action def A {\n        in ref duration : ISQ::DurationValue [0..*] {\n" +
 		"            doc /* First line.\n             * Second line.\n             *\n" +
-		"             * After a blank. */\n        }\n    }\n}\n"
+		"             * After a blank.*/\n        }\n    }\n}\n"
 	if got != want {
 		t.Fatalf("content =\n%s\nwant\n%s", got, want)
 	}
@@ -55,7 +55,7 @@ func TestAddMemberWritesDocumentationWithTabs(t *testing.T) {
 	add := AddMember("P", "part def", "B")
 	add.Doc = "One.\nTwo."
 	got := applyContent(t, m, add)
-	if want := "\tpart def B {\n\t\tdoc /* One.\n\t\t * Two. */\n\t}\n"; !strings.Contains(got, want) {
+	if want := "\tpart def B {\n\t\tdoc /* One.\n\t\t * Two.*/\n\t}\n"; !strings.Contains(got, want) {
 		t.Fatalf("content does not contain %q:\n%s", want, got)
 	}
 }
@@ -63,7 +63,7 @@ func TestAddMemberWritesDocumentationWithTabs(t *testing.T) {
 func TestAddDocumentationOpensBodyOfBodylessDeclaration(t *testing.T) {
 	m := loadContent(t, "doc.sysml", "package P {\n    item def Bread; // kept\n    item def Toast;\n}\n")
 	got := applyContent(t, m, AddDocumentation("P::Bread", "Sliced bread."))
-	want := "package P {\n    item def Bread {\n        doc /* Sliced bread. */\n    } // kept\n    item def Toast;\n}\n"
+	want := "package P {\n    item def Bread {\n        doc /* Sliced bread.*/\n    } // kept\n    item def Toast;\n}\n"
 	if got != want {
 		t.Fatalf("content =\n%s\nwant\n%s", got, want)
 	}
@@ -73,7 +73,7 @@ func TestAddDocumentationPrecedesExistingMembers(t *testing.T) {
 	m := loadContent(t, "doc.sysml",
 		"package P {\n    part def A {\n        // leading note\n        attribute x;\n        attribute y;\n    }\n}\n")
 	got := applyContent(t, m, AddDocumentation("P::A", "Documented."))
-	want := "package P {\n    part def A {\n        doc /* Documented. */\n        // leading note\n" +
+	want := "package P {\n    part def A {\n        doc /* Documented.*/\n        // leading note\n" +
 		"        attribute x;\n        attribute y;\n    }\n}\n"
 	if got != want {
 		t.Fatalf("content =\n%s\nwant\n%s", got, want)
@@ -84,8 +84,8 @@ func TestAddDocumentationIntoEmptyAndInlineBodies(t *testing.T) {
 	m := loadContent(t, "doc.sysml", "package P {\n    part def A {\n    }\n    part def B { attribute x; }\n}\n")
 	got := applyContent(t, m, AddDocumentation("P::A", "Empty."), AddDocumentation("P::B", "Inline."))
 	for _, want := range []string{
-		"    part def A {\n        doc /* Empty. */\n    }\n",
-		"    part def B { doc /* Inline. */ attribute x; }\n",
+		"    part def A {\n        doc /* Empty.*/\n    }\n",
+		"    part def B { doc /* Inline.*/ attribute x; }\n",
 	} {
 		if !strings.Contains(got, want) {
 			t.Fatalf("content does not contain %q:\n%s", want, got)
@@ -103,8 +103,8 @@ func TestAddDocumentationToPackageAndConnectorLikeUsages(t *testing.T) {
 		AddDocumentation("P::M::go", "Starts work."),
 	)
 	for _, want := range []string{
-		"package P {\n    doc /* The package. */\n    requirement def R;\n",
-		"        transition go first idle then busy {\n            doc /* Starts work. */\n        }\n",
+		"package P {\n    doc /* The package.*/\n    requirement def R;\n",
+		"        transition go first idle then busy {\n            doc /* Starts work.*/\n        }\n",
 	} {
 		if !strings.Contains(got, want) {
 			t.Fatalf("content does not contain %q:\n%s", want, got)
@@ -118,24 +118,24 @@ func TestAddDocumentationToRelationshipDeclarations(t *testing.T) {
 	}{
 		{"dependency", "doc.sysml",
 			"package P {\n    part def A;\n    part def B;\n    dependency D from A to B;\n}\n", "P::D",
-			"    dependency D from A to B {\n        doc /* Relates. */\n    }\n"},
+			"    dependency D from A to B {\n        doc /* Relates.*/\n    }\n"},
 		{"dependency with body", "doc.sysml",
 			"package P {\n    part def A;\n    part def B;\n    dependency D from A to B {\n        comment /* Kept. */\n    }\n}\n",
 			"P::D",
-			"    dependency D from A to B {\n        doc /* Relates. */\n        comment /* Kept. */\n    }\n"},
+			"    dependency D from A to B {\n        doc /* Relates.*/\n        comment /* Kept. */\n    }\n"},
 		{"multiplicity", "doc.kerml",
 			"package P {\n    multiplicity m [1..2];\n}\n", "P::m",
-			"    multiplicity m [1..2] {\n        doc /* Relates. */\n    }\n"},
+			"    multiplicity m [1..2] {\n        doc /* Relates.*/\n    }\n"},
 		{"multiplicity with body", "doc.kerml",
 			"package P {\n    multiplicity m [1..2] {\n        comment /* Kept. */\n    }\n}\n", "P::m",
-			"    multiplicity m [1..2] {\n        doc /* Relates. */\n        comment /* Kept. */\n    }\n"},
+			"    multiplicity m [1..2] {\n        doc /* Relates.*/\n        comment /* Kept. */\n    }\n"},
 		{"relationship", "doc.kerml",
 			"package P {\n    classifier A;\n    classifier B;\n    specialization S subclassifier A specializes B;\n}\n", "P::S",
-			"    specialization S subclassifier A specializes B {\n        doc /* Relates. */\n    }\n"},
+			"    specialization S subclassifier A specializes B {\n        doc /* Relates.*/\n    }\n"},
 		{"relationship with body", "doc.kerml",
 			"package P {\n    classifier A;\n    classifier B;\n    specialization S subclassifier A specializes B {\n" +
 				"        comment /* Kept. */\n    }\n}\n", "P::S",
-			"    specialization S subclassifier A specializes B {\n        doc /* Relates. */\n        comment /* Kept. */\n    }\n"},
+			"    specialization S subclassifier A specializes B {\n        doc /* Relates.*/\n        comment /* Kept. */\n    }\n"},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			m := loadContent(t, tc.file, tc.content)
@@ -154,7 +154,7 @@ func TestAddDocumentationWritesNameAndLocale(t *testing.T) {
 	op.DocName = "English"
 	op.DocLocale = "en-US"
 	got := applyContent(t, m, op)
-	if want := `doc English locale "en-US" /* Anglais. */`; !strings.Contains(got, want) {
+	if want := `doc English locale "en-US" /* Anglais.*/`; !strings.Contains(got, want) {
 		t.Fatalf("content does not contain %q:\n%s", want, got)
 	}
 }
@@ -171,7 +171,7 @@ func TestAddDocumentationReplacesTheOneDocumentation(t *testing.T) {
 	op.ReplaceDoc = true
 	op.DocName = "Old"
 	got := applyContent(t, m, op)
-	want := "package P {\n    part def A {\n        doc Old /* New.\n         * Lines. */\n        attribute x;\n    }\n}\n"
+	want := "package P {\n    part def A {\n        doc Old /* New.\n         * Lines.*/\n        attribute x;\n    }\n}\n"
 	if got != want {
 		t.Fatalf("content =\n%s\nwant\n%s", got, want)
 	}
@@ -199,10 +199,8 @@ func TestAddDocumentationRefusals(t *testing.T) {
 		want Failure
 	}{
 		{"unknown target", AddDocumentation("P::Missing", "Text."), FailureUnknownTarget},
-		{"empty body", AddDocumentation("P::A", "  "), FailureInvalidValue},
 		{"comment close", AddDocumentation("P::A", "a */ b"), FailureInvalidValue},
-		{"trailing space", AddDocumentation("P::A", "a \nb"), FailureInvalidValue},
-		{"leading space", AddDocumentation("P::A", " a"), FailureInvalidValue},
+		{"carriage return", AddDocumentation("P::A", "a\r\nb"), FailureInvalidValue},
 		{"name taken", named, FailureMemberNameTaken},
 		{"name keyword", badName, FailureInvalidName},
 		{"member doc comment close", docMember, FailureInvalidValue},
@@ -229,6 +227,15 @@ func TestAddDocumentationBodyReadsBackExactly(t *testing.T) {
 		"Signal from a control function: how long to apply heat.\nNo control function is modeled in this chapter, so this input\nis declared and typed but not yet connected to a value.",
 		"Paragraph.\n\nAnother, with * inside and a trailing star *",
 		"Unicode — ✓ and a / slash",
+		"",
+		"  ",
+		" leading space",
+		"trailing space ",
+		"a \n  indented\n\ttabbed\t",
+		"\nopens with a blank line",
+		"ends with a line break\n",
+		"* a bullet\n* another",
+		"ends with a star*",
 	} {
 		m := loadContent(t, "doc.sysml", "package P {\n    part def A;\n}\n")
 		got := applyContent(t, m, AddDocumentation("P::A", body))

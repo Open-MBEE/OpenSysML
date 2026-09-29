@@ -3,6 +3,7 @@ package opensysml
 import (
 	"context"
 	"errors"
+	"slices"
 	"strings"
 	"testing"
 
@@ -127,6 +128,18 @@ func TestNewAuthoringOperationsAreNotSentWithoutTheirCapabilities(t *testing.T) 
 			missing:      CapabilityDocumentationAuthoring,
 		},
 		{
+			name:         "comment operation",
+			operation:    AddComment{Owner: "Demo", Body: "A note."},
+			capabilities: []string{CapabilityApplyEdits, CapabilityAuthoring},
+			missing:      CapabilityCommentAuthoring,
+		},
+		{
+			name:         "note operation",
+			operation:    AddNote{Target: "Demo::r", Text: "A note."},
+			capabilities: []string{CapabilityApplyEdits, CapabilityAuthoring},
+			missing:      CapabilityCommentAuthoring,
+		},
+		{
 			name:         "transition requires authoring",
 			operation:    AddTransition{Owner: "Demo::S", Source: "idle", Target: "toasting"},
 			capabilities: []string{CapabilityApplyEdits, CapabilityTransitionAuthoring},
@@ -218,6 +231,25 @@ func TestNewAuthoringOperationsMapToProto(t *testing.T) {
 		got.GetTarget() != "Demo::X" || got.GetBody() != "Text." || got.GetName() != "Summary" ||
 		got.GetLocale() != "en" || !got.GetReplace() {
 		t.Fatalf("AddDocumentation mapping = %+v", got)
+	}
+	commentOperation, err := editToProto(AddComment{
+		Owner: "Demo", Body: " Two\nlines ", Name: "Why", About: []string{"Demo::X", "Demo"}, Locale: "en",
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got := commentOperation.GetAddComment(); got == nil ||
+		got.GetOwner() != "Demo" || got.GetBody() != " Two\nlines " || got.GetName() != "Why" ||
+		!slices.Equal(got.GetAbout(), []string{"Demo::X", "Demo"}) || got.GetLocale() != "en" {
+		t.Fatalf("AddComment mapping = %+v", got)
+	}
+	noteOperation, err := editToProto(AddNote{Target: "Demo::X", Text: "DimensionOneValue"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got := noteOperation.GetAddNote(); got == nil ||
+		got.GetTarget() != "Demo::X" || got.GetText() != "DimensionOneValue" {
+		t.Fatalf("AddNote mapping = %+v", got)
 	}
 	entryOperation, err := editToProto(AddEntryTransition("Demo::S", "idle"))
 	if err != nil {

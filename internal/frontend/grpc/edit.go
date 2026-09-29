@@ -65,6 +65,11 @@ func (s *Service) ApplyEdits(ctx context.Context, req *pb.ApplyEditsRequest) (*p
 			return nil, err
 		}
 	}
+	if requestsCommentAuthoring(req.Operations) {
+		if err := s.requireCapability(CapabilityCommentAuthoring); err != nil {
+			return nil, err
+		}
+	}
 	documents := s.capabilities.has(CapabilityEditDocuments)
 	if req.Document != "" && !documents {
 		return nil, s.requireCapability(CapabilityEditDocuments)
@@ -212,6 +217,7 @@ func requestsAuthoring(operations []*pb.EditOperation) bool {
 		case *pb.EditOperation_AddMember, *pb.EditOperation_AddConnection,
 			*pb.EditOperation_AddSatisfy, *pb.EditOperation_AddRequirementConstraint,
 			*pb.EditOperation_AddTransition, *pb.EditOperation_AddDocumentation,
+			*pb.EditOperation_AddComment, *pb.EditOperation_AddNote,
 			*pb.EditOperation_Delete, *pb.EditOperation_Move:
 			return true
 		}
@@ -279,6 +285,16 @@ func requestsDocumentationAuthoring(operations []*pb.EditOperation) bool {
 	return false
 }
 
+func requestsCommentAuthoring(operations []*pb.EditOperation) bool {
+	for _, operation := range operations {
+		switch operation.GetOperation().(type) {
+		case *pb.EditOperation_AddComment, *pb.EditOperation_AddNote:
+			return true
+		}
+	}
+	return false
+}
+
 // editOperations reads the operations a request carries, rejecting a request
 // that names none of the forms: an unset operation is a client fault rather
 // than a refused edit.
@@ -334,6 +350,15 @@ func editOperations(pbOps []*pb.EditOperation) ([]edit.Operation, error) {
 			doc.DocLocale = add.GetLocale()
 			doc.ReplaceDoc = add.GetReplace()
 			ops = append(ops, doc)
+		case *pb.EditOperation_AddComment:
+			add := op.AddComment
+			comment := edit.AddComment(add.GetOwner(), add.GetBody())
+			comment.DocName = add.GetName()
+			comment.About = append([]string(nil), add.GetAbout()...)
+			comment.DocLocale = add.GetLocale()
+			ops = append(ops, comment)
+		case *pb.EditOperation_AddNote:
+			ops = append(ops, edit.AddNote(op.AddNote.GetTarget(), op.AddNote.GetText()))
 		case *pb.EditOperation_Delete:
 			del := op.Delete
 			ops = append(ops, edit.Delete(del.GetTarget(), del.GetCascade()))

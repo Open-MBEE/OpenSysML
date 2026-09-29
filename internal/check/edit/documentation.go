@@ -95,34 +95,13 @@ func ownedDocumentation(sym *symbols.Symbol) []*symbols.Symbol {
 	return docs
 }
 
-// documentationText writes `doc [name] [locale "…"] /* body */`, its later
-// lines opening with the ` * ` margin under indent, the indentation of the
-// line the `doc` starts. The body is refused unless the comment reads back as
-// exactly body (source.CommentBody): no `*/`, and no line with leading or
-// trailing whitespace the reading would trim.
+// documentationText writes `doc [name] [locale "…"] /* body */`, the comment
+// reading back as exactly body (source.CommentText) under indent, the
+// indentation of the line the `doc` starts.
 func documentationText(i int, name, locale, body, indent string) (string, error) {
-	refuse := func(reason string) error {
-		return &Error{Failure: FailureInvalidValue, OperationIndex: i,
-			Message: "documentation body " + reason}
-	}
-	if strings.TrimSpace(body) == "" {
-		return "", refuse("is empty")
-	}
-	if strings.Contains(body, "*/") {
-		return "", refuse("contains \"*/\", which would close its comment")
-	}
-	lines := strings.Split(body, "\n")
-	comment := "/* " + lines[0]
-	for _, line := range lines[1:] {
-		if line == "" {
-			comment += "\n" + indent + " *"
-		} else {
-			comment += "\n" + indent + " * " + line
-		}
-	}
-	comment += " */"
-	if source.CommentBody(comment) != body {
-		return "", refuse("has a line with leading or trailing whitespace, which a comment body does not keep")
+	comment, err := commentBodyText(i, "documentation", body, indent)
+	if err != nil {
+		return "", err
 	}
 	header := "doc"
 	if name != "" {
@@ -132,6 +111,21 @@ func documentationText(i int, name, locale, body, indent string) (string, error)
 		header += " locale " + source.StringText(locale)
 	}
 	return header + " " + comment, nil
+}
+
+// commentBodyText is the REGULAR_COMMENT whose body is exactly body. `*/` ends
+// the token (KerML 1.1 §8.2.2.2 COMMENT_LINE_TEXT excludes it), and a `\r` is
+// not a line terminator the body reads back, so neither can be written.
+func commentBodyText(i int, what, body, indent string) (string, error) {
+	comment, ok := source.CommentText(body, indent)
+	if ok {
+		return comment, nil
+	}
+	reason := "contains a carriage return; write line breaks as \"\\n\""
+	if strings.Contains(body, "*/") {
+		reason = "contains \"*/\", which would close its comment"
+	}
+	return "", &Error{Failure: FailureInvalidValue, OperationIndex: i, Message: what + " body " + reason}
 }
 
 // indentUnit is the step one body level indents by, under owner: what its

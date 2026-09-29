@@ -736,6 +736,8 @@ class PublicTypesTest {
     assertEditCapability(
         Edit.AddMember.of("Demo", "part def", "A").withDoc("Text."),
         Capabilities.DOCUMENTATION_AUTHORING);
+    assertEditCapability(Edit.AddComment.of("Demo", "Text."), Capabilities.COMMENT_AUTHORING);
+    assertEditCapability(new Edit.AddNote("Demo::A", "Text."), Capabilities.COMMENT_AUTHORING);
   }
 
   @Test

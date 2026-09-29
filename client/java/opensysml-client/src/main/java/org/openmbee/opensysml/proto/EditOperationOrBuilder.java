@@ -160,5 +160,35 @@ public interface EditOperationOrBuilder extends
    */
   org.openmbee.opensysml.proto.AddDocumentationEditOrBuilder getAddDocumentationOrBuilder();
 
+  /**
+   * <code>.sysml.AddCommentEdit add_comment = 16 [json_name = "addComment"];</code>
+   * @return Whether the addComment field is set.
+   */
+  boolean hasAddComment();
+  /**
+   * <code>.sysml.AddCommentEdit add_comment = 16 [json_name = "addComment"];</code>
+   * @return The addComment.
+   */
+  org.openmbee.opensysml.proto.AddCommentEdit getAddComment();
+  /**
+   * <code>.sysml.AddCommentEdit add_comment = 16 [json_name = "addComment"];</code>
+   */
+  org.openmbee.opensysml.proto.AddCommentEditOrBuilder getAddCommentOrBuilder();
+
+  /**
+   * <code>.sysml.AddNoteEdit add_note = 18 [json_name = "addNote"];</code>
+   * @return Whether the addNote field is set.
+   */
+  boolean hasAddNote();
+  /**
+   * <code>.sysml.AddNoteEdit add_note = 18 [json_name = "addNote"];</code>
+   * @return The addNote.
+   */
+  org.openmbee.opensysml.proto.AddNoteEdit getAddNote();
+  /**
+   * <code>.sysml.AddNoteEdit add_note = 18 [json_name = "addNote"];</code>
+   */
+  org.openmbee.opensysml.proto.AddNoteEditOrBuilder getAddNoteOrBuilder();
+
   org.openmbee.opensysml.proto.EditOperation.OperationCase getOperationCase();
 }

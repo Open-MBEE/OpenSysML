@@ -54,10 +54,12 @@ requirement statements and state transitions. `add_member` and every typed helpe
 accept `doc="..."`, written as the new member's `doc /* ... */`, and
 `add_documentation(target, body, name=None, locale=None, replace=False)` documents
 an existing declaration, refusing one that already has documentation unless
-`replace=True`. These operations preflight their
+`replace=True`. `add_comment(owner, body, name=None, about=None, locale=None)` writes a
+`comment` element and `add_note(target, text)` a `// text` line note above a declaration.
+These operations preflight their
 dedicated `member_modifiers`, `satisfy_authoring`,
 `requirement_constraint_authoring`, `transition_authoring` or
-`documentation_authoring` capability as applicable.
+`documentation_authoring` or `comment_authoring` capability as applicable.
 `add_calc_def` and `add_calc` accept input pairs, `return_type` and
 `return_expression`; a return expression requires a return type and is bound to
 the result parameter rather than written as `return <expr>;`. `add_action_def`

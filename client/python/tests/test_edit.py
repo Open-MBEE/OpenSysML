@@ -19,6 +19,7 @@ import pytest
 from opensysml.capabilities import (
     CAPABILITY_APPLY_EDITS,
     CAPABILITY_AUTHORING,
+    CAPABILITY_COMMENT_AUTHORING,
     CAPABILITY_CONNECTION_AUTHORING,
     CAPABILITY_DOCUMENTATION_AUTHORING,
     CAPABILITY_MEMBER_MODIFIERS,
@@ -481,6 +482,8 @@ def test_add_member_rejects_invalid_direction_with_type_message(fake_service):
          CAPABILITY_DOCUMENTATION_AUTHORING),
         (lambda editor: editor.add_documentation("Demo::SC", "A spacecraft."),
          CAPABILITY_DOCUMENTATION_AUTHORING),
+        (lambda editor: editor.add_comment("Demo", "A note."), CAPABILITY_COMMENT_AUTHORING),
+        (lambda editor: editor.add_note("Demo::SC", "A note."), CAPABILITY_COMMENT_AUTHORING),
     ],
 )
 def test_new_authoring_capabilities_are_preflighted(fake_service, operation, missing):
@@ -577,6 +580,80 @@ def test_documentation_arguments_are_type_checked(call, error):
         call(editor)
     assert str(excinfo.value) == error
     assert len(editor) == 0
+
+
+def test_comment_and_note_requests_are_exact(fake_service):
+    port, service = fake_service(
+        capabilities=(CAPABILITY_APPLY_EDITS, CAPABILITY_AUTHORING, CAPABILITY_COMMENT_AUTHORING)
+    )
+    with Connection(port=port, auto_start=False) as conn:
+        model = conn.load_from_content(MODEL)
+        (
+            model.edit()
+            .add_comment("", "Top.")
+            .add_comment(
+                "Demo", " Two\nlines ", name="Why", about=["Demo::SC", "Demo"], locale="en",
+            )
+            .add_note("Demo::SC", "DimensionOneValue")
+            .apply()
+        )
+    top, full, note = service.requests[0].operations
+    assert top.WhichOneof("operation") == "add_comment"
+    comment = top.add_comment
+    assert (comment.owner, comment.body, comment.name, list(comment.about), comment.locale) == (
+        "", "Top.", "", [], "",
+    )
+    comment = full.add_comment
+    assert (comment.owner, comment.body, comment.name, list(comment.about), comment.locale) == (
+        "Demo", " Two\nlines ", "Why", ["Demo::SC", "Demo"], "en",
+    )
+    assert note.WhichOneof("operation") == "add_note"
+    assert (note.add_note.target, note.add_note.text) == ("Demo::SC", "DimensionOneValue")
+
+
+@pytest.mark.parametrize(
+    "call,error",
+    [
+        (lambda e: e.add_comment("Demo", None), "body must be text, not NoneType"),
+        (lambda e: e.add_comment("Demo", "b", name=3), "name must be text, not int"),
+        (lambda e: e.add_comment("Demo", "b", locale=3), "locale must be text, not int"),
+        (lambda e: e.add_comment("Demo", "b", about="Demo::SC"),
+         "about must be a sequence of names or symbols, not one name"),
+        (lambda e: e.add_comment("Demo", "b", about=[3]),
+         "target must be a symbol id (FQN) or a Symbol, not int"),
+        (lambda e: e.add_note("Demo::SC", None), "text must be text, not NoneType"),
+    ],
+)
+def test_comment_and_note_arguments_are_type_checked(call, error):
+    editor = Editor("hash", None)
+    with pytest.raises(TypeError) as excinfo:
+        call(editor)
+    assert str(excinfo.value) == error
+    assert len(editor) == 0
+
+
+@pytest.mark.parametrize("text", ["one\ntwo", "one\rtwo", "trailing\n"])
+def test_a_note_of_several_lines_is_refused(text):
+    editor = Editor("hash", None)
+    with pytest.raises(ValueError, match="a note is one line"):
+        editor.add_note("Demo::SC", text)
+    assert len(editor) == 0
+
+
+def test_malformed_comment_and_note_operations_are_refused(fake_service):
+    port, service = fake_service(
+        capabilities=(CAPABILITY_APPLY_EDITS, CAPABILITY_AUTHORING, CAPABILITY_COMMENT_AUTHORING)
+    )
+    with Connection(port=port, auto_start=False) as conn:
+        with pytest.raises(ValueError, match="malformed add_comment operation"):
+            conn.apply_edits("fake-hash", [("add_comment", "Demo", "b")])
+        with pytest.raises(ValueError, match="malformed add_comment operation"):
+            conn.apply_edits("fake-hash", [("add_comment", "Demo", "b", "", "Demo::SC", "")])
+        with pytest.raises(ValueError, match="malformed add_note operation"):
+            conn.apply_edits("fake-hash", [("add_note", "Demo::SC")])
+        with pytest.raises(ValueError, match="malformed add_note operation"):
+            conn.apply_edits("fake-hash", [("add_note", "Demo::SC", 3)])
+    assert service.requests == []
 
 
 def test_malformed_documentation_operations_are_refused(fake_service):
@@ -1420,11 +1497,11 @@ class TestEditRoundTripAgainstRealService:
         target = (
             "package ToasterDemo {\n"
             "    item def Bread {\n"
-            "        doc /* A slice of bread, before toasting. */\n"
+            "        doc /* A slice of bread, before toasting.*/\n"
             "    }\n"
             "    item def Toast;\n"
             "    action def ToastBread {\n"
-            "        doc /* Transform bread into toast acceptable to its user. */\n"
+            "        doc /* Transform bread into toast acceptable to its user.*/\n"
             "        in bread : Bread;\n"
             "        out toast : Toast;\n"
             "    }\n"
@@ -1432,7 +1509,7 @@ class TestEditRoundTripAgainstRealService:
             "        in duration : ISQ::DurationValue[0..*] {\n"
             "            doc /* Signal from a control function: how long to apply heat.\n"
             "             * No control function is modeled in this chapter, so this input\n"
-            "             * is declared and typed but not yet connected to a value. */\n"
+            "             * is declared and typed but not yet connected to a value.*/\n"
             "        }\n"
             "    }\n"
             "}\n"
@@ -1462,11 +1539,11 @@ class TestEditRoundTripAgainstRealService:
             assert edited == (
                 "package ToasterDemo {\n"
                 "    item def Bread {\n"
-                "        doc /* A slice of bread, before toasting. */\n"
+                "        doc /* A slice of bread, before toasting.*/\n"
                 "    }\n"
                 "    item def Toast;\n"
                 "    action def ToastBread {\n"
-                "        doc /* Transform bread into toast acceptable to its user. */\n"
+                "        doc /* Transform bread into toast acceptable to its user.*/\n"
                 "        in ref bread : Bread;\n"
                 "        out ref toast : Toast;\n"
                 "    }\n"
@@ -1474,7 +1551,7 @@ class TestEditRoundTripAgainstRealService:
                 "        in ref duration : ISQ::DurationValue [0..*] {\n"
                 "            doc /* Signal from a control function: how long to apply heat.\n"
                 "             * No control function is modeled in this chapter, so this input\n"
-                "             * is declared and typed but not yet connected to a value. */\n"
+                "             * is declared and typed but not yet connected to a value.*/\n"
                 "        }\n"
                 "    }\n"
                 "}\n"
@@ -1524,7 +1601,7 @@ class TestEditRoundTripAgainstRealService:
             edited = str(model.edit().add_documentation("P::V", "A vehicle.").apply())
             assert edited == (
                 "package P {\n    part def V {\n"
-                "        doc /* A vehicle. */\n"
+                "        doc /* A vehicle.*/\n"
                 "        attribute m;\n    }\n}\n"
             )
             documented = conn.load_from_content(edited)
@@ -1533,11 +1610,92 @@ class TestEditRoundTripAgainstRealService:
             replaced = str(
                 documented.edit().add_documentation("P::V", "A car.", replace=True).apply()
             )
-            assert "doc /* A car. */" in replaced and "A vehicle." not in replaced
+            assert "doc /* A car.*/" in replaced and "A vehicle." not in replaced
             with pytest.raises(InvalidEditError):
                 model.edit().add_documentation("P::V", "ends */ early").apply()
             with pytest.raises(EditTargetError):
                 model.edit().add_documentation("P::W", "Nothing.").apply()
+
+    @pytest.mark.filterwarnings("ignore::opensysml.conversion.ExperimentalFeatureWarning")
+    @pytest.mark.parametrize("body", [
+        "One line.", "", "  ", " leading", "trailing ", "a \n  indented\n\ttabbed\t",
+        "\nopens blank", "ends with a break\n", "* bullet\n* bullet",
+    ])
+    def test_comment_and_documentation_bodies_read_back_exactly(self, real_service, body):
+        source = "package P {\n    part def V;\n}\n"
+        with Connection(port=real_service, auto_start=False) as conn:
+            edited = str(
+                conn.load_from_content(source).edit()
+                .add_comment("P", body, name="C", about=["P::V"], locale="en")
+                .add_documentation("P::V", body)
+                .apply()
+            )
+            model = conn.load_from_content(edited)
+            assert model.ok, [str(d) for d in model.errors]
+            bodies = {
+                e["@type"]: e.get("body")
+                for e in json.loads(str(model.to_api_json()))
+                if e["@type"] in ("Comment", "Documentation")
+            }
+            assert bodies == {"Comment": body, "Documentation": body}
+            comment = [
+                e for e in json.loads(str(model.to_api_json())) if e["@type"] == "Comment"
+            ][0]
+            assert (comment.get("declaredName"), comment.get("locale")) == ("C", "en")
+
+    def test_comments_go_at_the_top_level_and_in_a_body(self, real_service):
+        source = "package P {\n    part def V;\n    part def W;\n}\n"
+        with Connection(port=real_service, auto_start=False) as conn:
+            edited = str(
+                conn.load_from_content(source).edit()
+                .add_comment("", "File note.")
+                .add_comment("P", "Both.", about=["V", "P::W"])
+                .add_comment("P::W", "Inside.\nTwo lines.")
+                .apply()
+            )
+            assert edited == (
+                "package P {\n    part def V;\n    part def W {\n"
+                "        comment /* Inside.\n         * Two lines.*/\n    }\n"
+                "    comment about V, P::W /* Both.*/\n}\ncomment /* File note.*/\n"
+            )
+            assert conn.load_from_content(edited).ok
+            with pytest.raises(EditResultError):
+                conn.load_from_content(source).edit().add_comment(
+                    "P", "Dangling.", about=["Nowhere"],
+                ).apply()
+            with pytest.raises(InvalidEditError):
+                conn.load_from_content(source).edit().add_comment("P", "ends */ early").apply()
+
+    def test_a_note_survives_reparsing_and_later_edits(self, real_service):
+        source = (
+            "package P {\n    attribute def A;\n"
+            "    part def V {\n        attribute m : A;\n    }\n}\n"
+        )
+        with Connection(port=real_service, auto_start=False) as conn:
+            noted = str(
+                conn.load_from_content(source).edit()
+                .add_note("P::V::m", "DimensionOneValue").apply()
+            )
+            assert "        // DimensionOneValue\n        attribute m : A;\n" in noted
+            model = conn.load_from_content(noted)
+            assert model.ok
+            later = str(
+                model.edit()
+                .rename("P::V::m", "mass")
+                .add_attribute("P::V", "extra", type="A")
+                .add_documentation("P::V", "A vehicle.")
+                .apply()
+            )
+            assert "        // DimensionOneValue\n        attribute mass : A;\n" in later
+            moved = str(conn.load_from_content(later).edit().move("P::V::mass", "P").apply())
+            assert "    // DimensionOneValue\n    attribute mass : A;\n" in moved
+            elements = json.loads(str(conn.load_from_content(later).to_api_json()))
+            assert not any(
+                "DimensionOneValue" in json.dumps(value)
+                for e in elements for key, value in e.items() if not key.startswith("sysx:")
+            )
+            with pytest.raises(EditTargetError):
+                model.edit().add_note("P::Nowhere", "text").apply()
 
     def test_overlapping_edits_are_refused(self, real_service):
         with Connection(port=real_service, auto_start=False) as conn:

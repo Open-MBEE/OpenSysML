@@ -728,7 +728,7 @@ class ApplyEditsRequest(_message.Message):
     def __init__(self, model_hash: _Optional[str] = ..., operations: _Optional[_Iterable[_Union[EditOperation, _Mapping]]] = ..., document: _Optional[str] = ..., accept_documents: _Optional[bool] = ...) -> None: ...
 
 class EditOperation(_message.Message):
-    __slots__ = ("set_value", "rename", "add_member", "delete", "move", "add_connection", "add_satisfy", "add_requirement_constraint", "add_transition", "add_documentation")
+    __slots__ = ("set_value", "rename", "add_member", "delete", "move", "add_connection", "add_satisfy", "add_requirement_constraint", "add_transition", "add_documentation", "add_comment", "add_note")
     SET_VALUE_FIELD_NUMBER: _ClassVar[int]
     RENAME_FIELD_NUMBER: _ClassVar[int]
     ADD_MEMBER_FIELD_NUMBER: _ClassVar[int]
@@ -739,6 +739,8 @@ class EditOperation(_message.Message):
     ADD_REQUIREMENT_CONSTRAINT_FIELD_NUMBER: _ClassVar[int]
     ADD_TRANSITION_FIELD_NUMBER: _ClassVar[int]
     ADD_DOCUMENTATION_FIELD_NUMBER: _ClassVar[int]
+    ADD_COMMENT_FIELD_NUMBER: _ClassVar[int]
+    ADD_NOTE_FIELD_NUMBER: _ClassVar[int]
     set_value: SetValueEdit
     rename: RenameEdit
     add_member: AddMemberEdit
@@ -749,7 +751,9 @@ class EditOperation(_message.Message):
     add_requirement_constraint: AddRequirementConstraintEdit
     add_transition: AddTransitionEdit
     add_documentation: AddDocumentationEdit
-    def __init__(self, set_value: _Optional[_Union[SetValueEdit, _Mapping]] = ..., rename: _Optional[_Union[RenameEdit, _Mapping]] = ..., add_member: _Optional[_Union[AddMemberEdit, _Mapping]] = ..., delete: _Optional[_Union[DeleteEdit, _Mapping]] = ..., move: _Optional[_Union[MoveEdit, _Mapping]] = ..., add_connection: _Optional[_Union[AddConnectionEdit, _Mapping]] = ..., add_satisfy: _Optional[_Union[AddSatisfyEdit, _Mapping]] = ..., add_requirement_constraint: _Optional[_Union[AddRequirementConstraintEdit, _Mapping]] = ..., add_transition: _Optional[_Union[AddTransitionEdit, _Mapping]] = ..., add_documentation: _Optional[_Union[AddDocumentationEdit, _Mapping]] = ...) -> None: ...
+    add_comment: AddCommentEdit
+    add_note: AddNoteEdit
+    def __init__(self, set_value: _Optional[_Union[SetValueEdit, _Mapping]] = ..., rename: _Optional[_Union[RenameEdit, _Mapping]] = ..., add_member: _Optional[_Union[AddMemberEdit, _Mapping]] = ..., delete: _Optional[_Union[DeleteEdit, _Mapping]] = ..., move: _Optional[_Union[MoveEdit, _Mapping]] = ..., add_connection: _Optional[_Union[AddConnectionEdit, _Mapping]] = ..., add_satisfy: _Optional[_Union[AddSatisfyEdit, _Mapping]] = ..., add_requirement_constraint: _Optional[_Union[AddRequirementConstraintEdit, _Mapping]] = ..., add_transition: _Optional[_Union[AddTransitionEdit, _Mapping]] = ..., add_documentation: _Optional[_Union[AddDocumentationEdit, _Mapping]] = ..., add_comment: _Optional[_Union[AddCommentEdit, _Mapping]] = ..., add_note: _Optional[_Union[AddNoteEdit, _Mapping]] = ...) -> None: ...
 
 class AddMemberEdit(_message.Message):
     __slots__ = ("owner", "kind", "name", "type", "multiplicity", "value", "specializes", "is_abstract", "redefines", "is_default", "direction", "doc")
@@ -838,6 +842,28 @@ class AddDocumentationEdit(_message.Message):
     locale: str
     replace: bool
     def __init__(self, target: _Optional[str] = ..., body: _Optional[str] = ..., name: _Optional[str] = ..., locale: _Optional[str] = ..., replace: _Optional[bool] = ...) -> None: ...
+
+class AddCommentEdit(_message.Message):
+    __slots__ = ("owner", "body", "name", "about", "locale")
+    OWNER_FIELD_NUMBER: _ClassVar[int]
+    BODY_FIELD_NUMBER: _ClassVar[int]
+    NAME_FIELD_NUMBER: _ClassVar[int]
+    ABOUT_FIELD_NUMBER: _ClassVar[int]
+    LOCALE_FIELD_NUMBER: _ClassVar[int]
+    owner: str
+    body: str
+    name: str
+    about: _containers.RepeatedScalarFieldContainer[str]
+    locale: str
+    def __init__(self, owner: _Optional[str] = ..., body: _Optional[str] = ..., name: _Optional[str] = ..., about: _Optional[_Iterable[str]] = ..., locale: _Optional[str] = ...) -> None: ...
+
+class AddNoteEdit(_message.Message):
+    __slots__ = ("target", "text")
+    TARGET_FIELD_NUMBER: _ClassVar[int]
+    TEXT_FIELD_NUMBER: _ClassVar[int]
+    target: str
+    text: str
+    def __init__(self, target: _Optional[str] = ..., text: _Optional[str] = ...) -> None: ...
 
 class AddConnectionEdit(_message.Message):
     __slots__ = ("owner", "kind", "from_end", "to_end", "name", "type")

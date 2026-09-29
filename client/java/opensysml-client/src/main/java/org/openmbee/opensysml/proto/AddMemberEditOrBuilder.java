@@ -255,7 +255,7 @@ public interface AddMemberEditOrBuilder extends
   /**
    * <pre>
    * Optional documentation body, as plain text, written as the declaration's
-   * first body member `doc /&#42; ... *&#47;`.
+   * first body member `doc /&#42; ... *&#47;` that reads back as exactly this text.
    * </pre>
    *
    * <code>string doc = 12 [json_name = "doc"];</code>
@@ -265,7 +265,7 @@ public interface AddMemberEditOrBuilder extends
   /**
    * <pre>
    * Optional documentation body, as plain text, written as the declaration's
-   * first body member `doc /&#42; ... *&#47;`.
+   * first body member `doc /&#42; ... *&#47;` that reads back as exactly this text.
    * </pre>
    *
    * <code>string doc = 12 [json_name = "doc"];</code>

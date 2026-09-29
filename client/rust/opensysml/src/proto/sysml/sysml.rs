@@ -988,7 +988,7 @@ pub struct ApplyEditsRequest {
 /// EditOperation is one source-preserving change to make.
 #[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
 pub struct EditOperation {
-    #[prost(oneof="edit_operation::Operation", tags="1, 2, 3, 4, 5, 6, 7, 8, 9, 11")]
+    #[prost(oneof="edit_operation::Operation", tags="1, 2, 3, 4, 5, 6, 7, 8, 9, 11, 16, 18")]
     pub operation: ::core::option::Option<edit_operation::Operation>,
 }
 /// Nested message and enum types in `EditOperation`.
@@ -1015,6 +1015,10 @@ pub mod edit_operation {
         AddTransition(super::AddTransitionEdit),
         #[prost(message, tag="11")]
         AddDocumentation(super::AddDocumentationEdit),
+        #[prost(message, tag="16")]
+        AddComment(super::AddCommentEdit),
+        #[prost(message, tag="18")]
+        AddNote(super::AddNoteEdit),
     }
 }
 /// AddMemberEdit inserts a declaration into a namespace or the document root.
@@ -1054,7 +1058,7 @@ pub struct AddMemberEdit {
     #[prost(string, tag="11")]
     pub direction: ::prost::alloc::string::String,
     /// Optional documentation body, as plain text, written as the declaration's
-    /// first body member `doc /* ... */`.
+    /// first body member `doc /* ... */` that reads back as exactly this text.
     #[prost(string, tag="12")]
     pub doc: ::prost::alloc::string::String,
 }
@@ -1128,8 +1132,8 @@ pub struct AddDocumentationEdit {
     /// Fully qualified name of the documented declaration.
     #[prost(string, tag="1")]
     pub target: ::prost::alloc::string::String,
-    /// Documentation body, as plain text; it may not contain `*/`, and no line
-    /// may begin or end with whitespace.
+    /// Documentation body, as plain text that Documentation::body reads back
+    /// exactly, whitespace included; it may not contain `*/` or a carriage return.
     #[prost(string, tag="2")]
     pub body: ::prost::alloc::string::String,
     /// Optional declared name of the documentation.
@@ -1141,6 +1145,38 @@ pub struct AddDocumentationEdit {
     /// Rewrite the one documentation target already owns instead of refusing.
     #[prost(bool, tag="5")]
     pub replace: bool,
+}
+/// AddCommentEdit inserts `comment \[name\] [about a, b] \[locale "..."\] /* ... */`
+/// where a new member of owner goes.
+#[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
+pub struct AddCommentEdit {
+    /// Namespace FQN receiving the comment; empty means the document root.
+    #[prost(string, tag="1")]
+    pub owner: ::prost::alloc::string::String,
+    /// Comment body, as plain text that Comment::body reads back exactly; it may
+    /// not contain `*/` or a carriage return.
+    #[prost(string, tag="2")]
+    pub body: ::prost::alloc::string::String,
+    /// Optional declared name of the comment.
+    #[prost(string, tag="3")]
+    pub name: ::prost::alloc::string::String,
+    /// Optional annotated elements, each a qualified name written after `about`.
+    #[prost(string, repeated, tag="4")]
+    pub about: ::prost::alloc::vec::Vec<::prost::alloc::string::String>,
+    /// Optional locale, written as `locale "..."`.
+    #[prost(string, tag="5")]
+    pub locale: ::prost::alloc::string::String,
+}
+/// AddNoteEdit writes the line note `// text` on its own line above a declaration.
+/// A note is lexical trivia, not a model element.
+#[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
+pub struct AddNoteEdit {
+    /// Fully qualified name of the declaration the note precedes.
+    #[prost(string, tag="1")]
+    pub target: ::prost::alloc::string::String,
+    /// Note text, one line: it may not contain a line break.
+    #[prost(string, tag="2")]
+    pub text: ::prost::alloc::string::String,
 }
 /// AddConnectionEdit inserts a usage whose ends connect two features.
 #[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]

@@ -195,7 +195,7 @@ type AddMember struct {
 	// Direction is an optional usage direction: "in", "out" or "inout".
 	Direction string
 	// Doc is optional documentation body text, written as the declaration's
-	// first body member `doc /* ... */`.
+	// first body member `doc /* ... */` that reads back as exactly this text.
 	Doc string
 }
 
@@ -255,8 +255,8 @@ func AddEntryTransition(owner, target string) AddTransition {
 type AddDocumentation struct {
 	// Target is the documented declaration, by qualified name.
 	Target string
-	// Body is the documentation text; it may not contain `*/`, and no line may
-	// begin or end with whitespace.
+	// Body is the documentation text, read back exactly as Documentation::body;
+	// it may not contain `*/`, which closes a comment, or a carriage return.
 	Body string
 	// Name is the documentation's optional declared name.
 	Name string
@@ -264,6 +264,31 @@ type AddDocumentation struct {
 	Locale string
 	// Replace rewrites the one documentation Target owns instead of refusing.
 	Replace bool
+}
+
+// AddComment inserts `comment [name] [about a, b] [locale "..."] /* ... */`
+// where a new member of Owner goes, opening a body for one ended by `;`.
+type AddComment struct {
+	// Owner is the namespace receiving the comment; empty is the document root.
+	Owner string
+	// Body is the comment text, read back exactly as Comment::body; it may not
+	// contain `*/`, which closes a comment, or a carriage return.
+	Body string
+	// Name is the comment's optional declared name.
+	Name string
+	// About are the optional annotated elements, by qualified name.
+	About []string
+	// Locale is the optional locale, written as `locale "..."`.
+	Locale string
+}
+
+// AddNote writes the line note `// text` on its own line above a declaration.
+// A note is lexical trivia, not a model element.
+type AddNote struct {
+	// Target is the declaration the note precedes, by qualified name.
+	Target string
+	// Text is the one line of note text; it may not contain a line break.
+	Text string
 }
 
 // AddConnection inserts a connection-like usage into a namespace or document root.
@@ -313,6 +338,8 @@ func (Move) isEdit()          { /* marker: closed Edit set */ }
 func (AddDocumentation) isEdit() {
 	/* marker: closed Edit set */
 }
+func (AddComment) isEdit() { /* marker: closed Edit set */ }
+func (AddNote) isEdit()    { /* marker: closed Edit set */ }
 
 // EditFailure says why edits were refused.
 type EditFailure int32
@@ -481,6 +508,9 @@ func (c *client) ApplyDocumentEdits(ctx context.Context, model *Model, document 
 		case AddDocumentation:
 			required[CapabilityAuthoring] = true
 			required[CapabilityDocumentationAuthoring] = true
+		case AddComment, AddNote:
+			required[CapabilityAuthoring] = true
+			required[CapabilityCommentAuthoring] = true
 		case Delete, Move:
 			required[CapabilityAuthoring] = true
 		}
@@ -491,7 +521,7 @@ func (c *client) ApplyDocumentEdits(ctx context.Context, model *Model, document 
 			CapabilityAuthoring, CapabilityConnectionAuthoring,
 			CapabilitySatisfyAuthoring, CapabilityRequirementConstraintAuthoring,
 			CapabilityMemberModifiers, CapabilityTransitionAuthoring,
-			CapabilityDocumentationAuthoring,
+			CapabilityDocumentationAuthoring, CapabilityCommentAuthoring,
 		} {
 			if required[capability] {
 				names = append(names, capability)
@@ -608,6 +638,17 @@ func editToProto(edit Edit) (*pb.EditOperation, error) {
 				Target: operation.Target, Body: operation.Body, Name: operation.Name,
 				Locale: operation.Locale, Replace: operation.Replace,
 			},
+		}}, nil
+	case AddComment:
+		return &pb.EditOperation{Operation: &pb.EditOperation_AddComment{
+			AddComment: &pb.AddCommentEdit{
+				Owner: operation.Owner, Body: operation.Body, Name: operation.Name,
+				About: append([]string(nil), operation.About...), Locale: operation.Locale,
+			},
+		}}, nil
+	case AddNote:
+		return &pb.EditOperation{Operation: &pb.EditOperation_AddNote{
+			AddNote: &pb.AddNoteEdit{Target: operation.Target, Text: operation.Text},
 		}}, nil
 	case AddConnection:
 		return &pb.EditOperation{Operation: &pb.EditOperation_AddConnection{
