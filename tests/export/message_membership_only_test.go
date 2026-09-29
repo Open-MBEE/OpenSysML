@@ -241,7 +241,7 @@ func TestPartlyLinkedMessageEndsRefuseDuplicateIndexes(t *testing.T) {
 func TestPartlyLinkedMessageEndsRefuseAMalformedIndex(t *testing.T) {
 	graph := partlyLinkedMessage(t)
 	stripped := withoutFlowTriples(graph, messageFlow(graph), "sourceFeature", "targetFeature", "relatedFeature")
-	stripped = messageIndexes(stripped, 0, 1)
+	stripped = messageIndexes(stripped, 0)
 	stripped.AddTriple(rdf.Triple{
 		Subject:   rdf.IRI(rdf.Expression + "M__Talk__m_pend1_om"),
 		Predicate: rdf.OpenSysMLTerm("memberIndex"),
