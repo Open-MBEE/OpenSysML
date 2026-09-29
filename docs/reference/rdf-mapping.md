@@ -1420,6 +1420,15 @@ expr:P__Car___402_pend0_om
     sysml:owningRelatedElement elmt:P__Car___402 .
 ```
 
+A `flow`'s end (and a `succession flow`'s) is a `sysml:FlowEnd` instead
+(SysML.xtext FlowEnd), under the same `EndFeatureMembership`. Its
+`ReferenceSubsetting` names all but the last segment of the end as written —
+the feature itself for `t.fuel`, a chain feature for `a.p.fuel`, nothing for a
+lone name — and the end owns, through a `sysml:FeatureMembership`, a
+`sysml:ReferenceUsage` (its FlowFeature) with `sysml:redefines` the last
+segment: `a.p.fuel` subsets the chain `a.p` and redefines `fuel`. Read back,
+the segments and the redefined feature are written as the one chain.
+
 `sysml:connectorEnd` is ordered by its `json:connectorEnd` annotation. Each end
 is a `ReferenceUsage` with `sysml:isEnd` — a `PortUsage` for an `interface`'s
 end, whose grammar declares `InterfaceEnd returns SysML::PortUsage`

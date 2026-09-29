@@ -99,7 +99,12 @@ func chooseNames(name, library string, text []byte, want *wanted, previous *name
 	}
 	memberAliases, targetAliases := parserAliases(want.references)
 	written := writtenKeys(want.references)
+	writtenAs := writtenSegments(want.segments, previous)
 	occurrences := map[nameKey][]resolve.Reference{}
+	// roots are the first segments of end chains (`connect t.fuel to …`, a
+	// flow end), which read back as plain references and are spelled as
+	// segments with no operand.
+	roots := map[segmentKey][]resolve.Reference{}
 	var chains, misread []resolve.Reference
 	for _, ref := range resolve.References(root, e.res.Index().DocumentRoot(file.Name())) {
 		if ref.QN == nil || ref.Member == nil {
@@ -119,6 +124,10 @@ func chooseNames(name, library string, text []byte, want *wanted, previous *name
 		key := nameKey{member: member, target: target}
 		if _, ok := want.references[key]; ok {
 			occurrences[key] = append(occurrences[key], ref)
+			continue
+		}
+		if as := (segmentKey{member: e.memberOf(ref), name: qualifiedText(ref.QN)}); len(writtenAs[as]) > 0 {
+			roots[as] = append(roots[as], ref)
 			continue
 		}
 		misread = append(misread, ref)
@@ -168,9 +177,20 @@ func chooseNames(name, library string, text []byte, want *wanted, previous *name
 			chosen[r.QN] = spelling
 		}
 	}
+	for as, refs := range roots {
+		for _, key := range writtenAs[as] {
+			spelling, rootChanged, err := e.chooseRoot(key, as.name, refs, previous, names.segments)
+			if err != nil {
+				return nil, false, err
+			}
+			changed = changed || rootChanged
+			for _, r := range refs {
+				chosen[r.QN] = spelling
+			}
+		}
+	}
 	// A chain reads from its root, so its segments are spelled once the root is:
 	// what a segment reaches depends on the operand before it.
-	writtenAs := writtenSegments(want.segments, previous)
 	segments := map[segmentKey][]resolve.Reference{}
 	for _, ref := range chains {
 		read := ref
@@ -278,6 +298,48 @@ func (e *encoder) chooseSegment(key segmentKey, written string, refs []resolve.R
 	return false, &UnsupportedError{
 		What: fmt.Sprintf("the feature chain in %s reaching %s", key.member, key.target),
 		Note: "no spelling of the segment reads as the element the graph names from the operand it is written after, so the notation cannot state it",
+	}
+}
+
+// chooseRoot spells the first segment of an end chain the shortest way that
+// reads as its element from every occurrence written alike (refs), as a
+// reference is spelled. A root no spelling reaches is refused, unless it is an
+// unnamed member, whose chain is written by position.
+func (e *encoder) chooseRoot(key segmentKey, written string, refs []resolve.Reference, previous *nameChoices, spelled map[segmentKey]string) (string, bool, error) {
+	spellings := referenceSpellings(key.target)
+	if previous != nil {
+		spellings = fromWritten(spellings, written)
+	}
+	for _, spelling := range spellings {
+		reads := true
+		for _, ref := range refs {
+			trial := ref
+			trial.QN = spelledName(spelling)
+			if _, reached, ok := e.reads(trial); !ok || reached != key.target {
+				reads = false
+				break
+			}
+		}
+		if reads {
+			if spelling != key.name {
+				spelled[key] = spelling
+			}
+			return spelling, spelling != written, nil
+		}
+	}
+	// An unnamed member (`@0`) has no name to read as it; its chain is written by
+	// position, unchecked, as it always has been. A named root no spelling
+	// reaches cannot be stated: writing its name would name something else.
+	last := key.target
+	if i := strings.LastIndex(last, "::"); i >= 0 {
+		last = last[i+len("::"):]
+	}
+	if strings.HasPrefix(last, "@") {
+		return written, false, nil
+	}
+	return "", false, &UnsupportedError{
+		What: fmt.Sprintf("the end chain in %s starting at %s", key.member, key.target),
+		Note: "no spelling of its first segment reads as that element from where the chain is written, so the notation cannot state it",
 	}
 }
 

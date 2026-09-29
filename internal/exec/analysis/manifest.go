@@ -418,9 +418,9 @@ func lookExecutable(entry ToolEntry) (string, error) {
 	return path, nil
 }
 
-// toolTimeoutFromEnv reads the tool timeout, falling back to DefaultToolTimeout for an
+// ToolTimeoutFromEnv reads the tool timeout, falling back to DefaultToolTimeout for an
 // unset, unparsable or non-positive value.
-func toolTimeoutFromEnv() time.Duration {
+func ToolTimeoutFromEnv() time.Duration {
 	text := strings.TrimSpace(os.Getenv(ToolTimeoutEnv))
 	if text == "" {
 		return DefaultToolTimeout
