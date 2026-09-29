@@ -12,6 +12,7 @@ import (
 	"github.com/Open-MBEE/OpenSysML/internal/exec/solve"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/semantics"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/symbols"
+	"github.com/Open-MBEE/OpenSysML/internal/syntax/ast"
 )
 
 // The questions a verification request asks, as Verdict.question reports them;
@@ -155,7 +156,13 @@ func (v *verifyContext) symbolicElement(ctx context.Context, question, kind stri
 		Object:     resolved,
 		ObjectType: objectType,
 	})
-	q, terr := v.translatedQuestion(translate, pins, resolved)
+	read, err := v.runtime.ConditionReader(kind, sym, v.declaringScope(sym), resolved, nil)
+	if err != nil {
+		verdict.Error = err.Error()
+		verdict.FailureReason = failureReason(err)
+		return verdict, resolved, nil
+	}
+	q, terr := v.translatedQuestion(translate, pins, resolved, read)
 	var queries []*solve.Query
 	if terr == nil {
 		queries = []*solve.Query{q}
@@ -168,16 +175,21 @@ func (v *verifyContext) symbolicElement(ctx context.Context, question, kind stri
 // chain variables name where the conditions would read them, then translates
 // again with those values pinned — a chain's value left free would answer
 // about assignments the model does not hold.
-func (v *verifyContext) translatedQuestion(translate func(*runtime.Context, []solve.Pin) (*solve.Query, error), pins []solve.Pin, resolved *runtime.Instance) (*solve.Query, error) {
+func (v *verifyContext) translatedQuestion(translate func(*runtime.Context, []solve.Pin) (*solve.Query, error), pins []solve.Pin, resolved *runtime.Instance, read func(ast.Node, *symbols.Scope) (runtime.Value, error)) (*solve.Query, error) {
 	q, err := translate(v.runtime, pins)
 	if err != nil {
 		return nil, err
 	}
-	chainPins, err := solve.ChainPins(v.runtime, q, resolved)
-	if err != nil || len(chainPins) == 0 {
-		return q, err
+	chainPins, err := solve.ChainPins(v.runtime, q, resolved, read)
+	if err != nil {
+		return nil, err
 	}
-	return translate(v.runtime, append(pins, chainPins...))
+	if len(chainPins) != 0 {
+		if q, err = translate(v.runtime, append(pins, chainPins...)); err != nil {
+			return nil, err
+		}
+	}
+	return q, nil
 }
 
 // proveConstraint answers a holds or satisfiable question about a constraint.
@@ -248,12 +260,19 @@ func (v *verifyContext) symbolicSatisfy(ctx context.Context, question string, a 
 		Object:     resolved,
 		ObjectType: objectType,
 	})
+	read, err := v.runtime.ConditionReader("satisfaction", nil, nil, resolved, a)
+	if err != nil {
+		verdict := v.verdict(verdictSatisfy, a.Symbol, a.Text(), nil, false, err, analysis.Plan{})
+		verdict.Question = question
+		v.associateRequirement(verdict, a)
+		return verdict, nil, nil
+	}
 	q, terr := v.translatedQuestion(func(rt *runtime.Context, pins []solve.Pin) (*solve.Query, error) {
 		if question == questionHolds {
 			return solve.SatisfactionViolation(rt, a, pins)
 		}
 		return solve.SatisfactionWith(rt, a, pins)
-	}, pins, resolved)
+	}, pins, resolved, read)
 	var queries []*solve.Query
 	if terr == nil {
 		queries = []*solve.Query{q}

@@ -294,7 +294,7 @@ func (ctx *Context) checkSatisfactionOn(a *SatisfyAssertion, target *symbols.Sym
 	// what satisfies the requirement (SysML v2 §8.3.17.15); the other values the
 	// requirement binds by name are visible to its conditions here too, as they
 	// are when the requirement is evaluated directly.
-	bindings, err := ctx.memberBindings(target, "requirement", a.Text(), members, subject, subject, frame{})
+	bindings, err := ctx.requirementMemberBindings(target, "requirement", a.Text(), members, subject, subject)
 	if err != nil {
 		return ctx.satisfactionResult(false, subject, reached), err
 	}

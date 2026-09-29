@@ -534,6 +534,41 @@ func (ctx *Context) ConditionCarrier(kind, element string, sym *symbols.Symbol, 
 	return subject.instance, nil
 }
 
+// ConditionReader reads a node the way a check of kind on sym reads it:
+// against self, under the member bindings that check builds — a requirement's
+// subject and actor values, a satisfaction's `by` object — a constraint
+// binding nothing. A bindings failure is the read failure a check reports.
+func (ctx *Context) ConditionReader(kind string, sym *symbols.Symbol, scope *symbols.Scope, self *Instance, a *SatisfyAssertion) (func(ast.Node, *symbols.Scope) (Value, error), error) {
+	var bindings frame
+	checked := sym
+	switch kind {
+	case "requirement":
+		members := ctx.chainMembers(sym, scope)
+		reqBindings, err := ctx.requirementMemberBindings(sym, "requirement", sym.Name, members, self, nil)
+		if err != nil {
+			return nil, err
+		}
+		bindings = mapFrame(reqBindings)
+	case "satisfaction":
+		checked = a.Symbol
+		members := ctx.chainMembers(checked, checked.OwnerScope)
+		satBindings, err := ctx.requirementMemberBindings(checked, "requirement", a.Text(), members, self, self)
+		if err != nil {
+			return nil, err
+		}
+		bindings = mapFrame(satBindings)
+	}
+	features := ctx.conditionFeatures(checked)
+	return func(node ast.Node, scope *symbols.Scope) (Value, error) {
+		ec := NewEvalContextIn(ctx, scope, self)
+		ec.features = features
+		if bindings.vars != nil {
+			ec.pushFrame(bindings)
+		}
+		return ec.Eval(node)
+	}, nil
+}
+
 // declaringType is the type whose objects carry sym, nil when sym is declared
 // somewhere that has no objects — a package, a library namespace.
 func declaringType(sym *symbols.Symbol) *symbols.Symbol {

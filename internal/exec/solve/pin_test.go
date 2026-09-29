@@ -8,6 +8,7 @@ import (
 	"github.com/Open-MBEE/OpenSysML/internal/exec/runtime"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/semantics"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/symbols"
+	"github.com/Open-MBEE/OpenSysML/internal/syntax/ast"
 )
 
 // pinnedQuery translates one constraint of the panel fixture with the values the
@@ -408,7 +409,10 @@ func TestChainPinsReadTheValuesAChainNames(t *testing.T) {
 	if err != nil {
 		t.Fatalf("translate: %v", err)
 	}
-	pins, err := ChainPins(ctx, q, nil)
+	read := func(node ast.Node, scope *symbols.Scope) (runtime.Value, error) {
+		return runtime.NewEvalContextIn(ctx, scope, nil).Eval(node)
+	}
+	pins, err := ChainPins(ctx, q, nil, read)
 	if err != nil {
 		t.Fatalf("ChainPins: %v", err)
 	}
@@ -420,11 +424,58 @@ func TestChainPinsReadTheValuesAChainNames(t *testing.T) {
 	if err != nil {
 		t.Fatalf("translate bounded: %v", err)
 	}
-	pins, err = ChainPins(ctx, q, nil)
+	pins, err = ChainPins(ctx, q, nil, read)
 	if err != nil {
 		t.Fatalf("ChainPins bounded: %v", err)
 	}
 	if len(pins) != 0 {
 		t.Fatalf("bounded chain pins = %+v, want none — hg.free carries no value", pins)
+	}
+}
+
+// TestChainPinsReadThroughTheChecksBindings: under a satisfaction's `by`, the
+// subject member names the bound object, so a chain through it reads that
+// object's values rather than an unbound feature's.
+func TestChainPinsReadThroughTheChecksBindings(t *testing.T) {
+	ctx, idx := fixture(t, "chain_bound.sysml", `package test {
+		private import ScalarValues::*;
+		part def Sub { attribute power : Real; }
+		part def Vehicle { part sub : Sub; }
+		requirement r {
+			subject vehicle : Vehicle;
+			require constraint { vehicle.sub.power > 0.0 }
+		}
+		part craft : Vehicle {
+			part :>> sub { attribute :>> power = 5.0; }
+		}
+		assert satisfy r by craft;
+	}`)
+	assertions := ctx.SatisfyAssertionsIn(idx.DocumentRoot("chain_bound.sysml"))
+	if len(assertions) != 1 {
+		t.Fatalf("found %d satisfaction assertions, want 1", len(assertions))
+	}
+	a := assertions[0]
+	subject, err := ctx.SatisfySubject(a)
+	if err != nil {
+		t.Fatalf("SatisfySubject: %v", err)
+	}
+	resolved, err := ctx.ConditionCarrier("satisfaction", a.Text(), a.Requirement, subject)
+	if err != nil {
+		t.Fatalf("ConditionCarrier: %v", err)
+	}
+	read, err := ctx.ConditionReader("satisfaction", nil, nil, resolved, a)
+	if err != nil {
+		t.Fatalf("ConditionReader: %v", err)
+	}
+	q, err := SatisfactionViolation(ctx, a, nil)
+	if err != nil {
+		t.Fatalf("translate: %v", err)
+	}
+	pins, err := ChainPins(ctx, q, resolved, read)
+	if err != nil {
+		t.Fatalf("ChainPins: %v", err)
+	}
+	if len(pins) != 1 || !strings.HasSuffix(pins[0].Var, "vehicle.sub.power") {
+		t.Fatalf("chain pins = %+v, want one pinning vehicle.sub.power", pins)
 	}
 }

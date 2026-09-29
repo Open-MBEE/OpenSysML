@@ -637,10 +637,10 @@ func ratOfFloat(f float64) (*big.Rat, bool) {
 
 // ChainPins reads the value each unpinned chain variable of a translated query
 // names — a feature a chain of two or more steps reaches, which no fixed value
-// names directly — by the same evaluation the conditions run: the variable is
-// free when the evaluator reports it has no value, and any other read failure
-// is returned, since the evaluator errors there too.
-func ChainPins(ctx *runtime.Context, q *Query, self *runtime.Instance) ([]Pin, error) {
+// names directly — by the reader the conditions themselves read through: the
+// variable is free when it reports the chain has no value, and any other read
+// failure is returned, since the evaluator errors there too.
+func ChainPins(ctx *runtime.Context, q *Query, self *runtime.Instance, read func(ast.Node, *symbols.Scope) (runtime.Value, error)) ([]Pin, error) {
 	pinned := make(map[string]bool, len(q.Pinned))
 	for _, p := range q.Pinned {
 		pinned[p.Var.Name] = true
@@ -650,7 +650,7 @@ func ChainPins(ctx *runtime.Context, q *Query, self *runtime.Instance) ([]Pin, e
 		if len(v.Steps) < 2 || v.Ref == nil || v.Scope == nil || pinned[v.Name] {
 			continue
 		}
-		value, err := runtime.NewEvalContextIn(ctx, v.Scope, self).Eval(v.Ref)
+		value, err := read(v.Ref, v.Scope)
 		if err != nil {
 			if errors.Is(err, runtime.ErrNoValue) {
 				continue

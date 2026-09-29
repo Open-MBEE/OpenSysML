@@ -1462,6 +1462,12 @@ func (ctx *Context) CheckRequirementOn(sym *symbols.Symbol, scope *symbols.Scope
 	})
 }
 
+// requirementMemberBindings are the values a requirement's members bind by
+// name for a check, shared by the check and by any reader of its chains.
+func (ctx *Context) requirementMemberBindings(sym *symbols.Symbol, kind, element string, members []scopedMember, self, subject *Instance) (map[string]Value, error) {
+	return ctx.memberBindings(sym, kind, element, members, self, subject, frame{})
+}
+
 // checkRequirementOn is CheckRequirementOn evaluated on the object it resolved to.
 func (ctx *Context) checkRequirementOn(sym *symbols.Symbol, scope *symbols.Scope, subject carrier) (CheckResult, error) {
 	// Requirement-local bindings are shared by every member, whichever scope it
@@ -1469,7 +1475,7 @@ func (ctx *Context) checkRequirementOn(sym *symbols.Symbol, scope *symbols.Scope
 	members := ctx.chainMembers(sym, scope)
 
 	// First pass: process subject/actor bindings
-	reqBindings, err := ctx.memberBindings(sym, "requirement", sym.Name, members, subject.instance, nil, frame{})
+	reqBindings, err := ctx.requirementMemberBindings(sym, "requirement", sym.Name, members, subject.instance, nil)
 
 	if err != nil {
 		return ctx.checkResultOf(false, subject), err

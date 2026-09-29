@@ -626,3 +626,78 @@ func TestVerifyQuestionsPinsTheValuesChainsRead(t *testing.T) {
 		}
 	}
 }
+
+// boundChainsModelSource binds a requirement's subject through `by`, so chains
+// through it read the bound object's values at any depth.
+const boundChainsModelSource = `package P {
+	private import ScalarValues::*;
+	part def Sub { attribute power : Real; }
+	part def Vehicle { part sub : Sub; }
+	requirement r {
+		subject vehicle : Vehicle;
+		require constraint { vehicle.sub.power > 0.0 }
+	}
+	requirement rNeg {
+		subject vehicle : Vehicle;
+		require constraint { vehicle.sub.power < 0.0 }
+	}
+	part craft : Vehicle {
+		part :>> sub { attribute :>> power = 5.0; }
+	}
+	assert satisfy r by craft;
+	assert satisfy rNeg by craft;
+}
+`
+
+// TestVerifyQuestionsReadsChainsThroughTheBoundSubject: under `assert satisfy
+// r by craft`, `vehicle` names craft, so `vehicle.sub.power` pins craft's own
+// 5.0 — r is proved, rNeg is violated with power pinned out of the witness —
+// and the same requirement asked of craft by name answers the same way.
+func TestVerifyQuestionsReadsChainsThroughTheBoundSubject(t *testing.T) {
+	requireSolver(t)
+	srv := mustNewService(t, 10)
+	hash := mustVerifyModel(t, srv, boundChainsModelSource, "verify-bound-chains")
+
+	resp, err := srv.VerifySatisfaction(context.Background(), &pb.VerifySatisfactionRequest{
+		ModelHash: hash, Question: "holds",
+	})
+	if err != nil {
+		t.Fatalf("VerifySatisfaction: %v", err)
+	}
+	if len(resp.Verdicts) != 2 {
+		t.Fatalf("got %d verdicts, want both assertions': %v", len(resp.Verdicts), resp.Verdicts)
+	}
+	if resp.Verdicts[0].Status != statusHolds || !resp.Verdicts[0].Holds {
+		t.Fatalf("satisfy r: status=%q holds=%v error=%q, want proved holds", resp.Verdicts[0].Status, resp.Verdicts[0].Holds, resp.Verdicts[0].Error)
+	}
+	if resp.Verdicts[1].Status != statusViolated {
+		t.Fatalf("satisfy rNeg: status=%q error=%q, want violated — vehicle.sub.power = 5.0 fails < 0.0", resp.Verdicts[1].Status, resp.Verdicts[1].Error)
+	}
+	for _, w := range resp.Verdicts[1].Witness {
+		if strings.HasSuffix(w.Feature, "power") {
+			t.Fatalf("power in witness %+v, want it pinned", w)
+		}
+	}
+
+	// `%requirement` on an object binds no subject, so `vehicle.sub.power` stays
+	// free — evaluate reports the unbound read; holds reports the violating
+	// assignment the free variable admits.
+	req, err := srv.VerifyRequirement(context.Background(), &pb.VerifyRequirementRequest{
+		ModelHash: hash, SymbolId: "P::r", Question: "evaluate", SubjectSymbolId: "P::craft",
+	})
+	if err != nil {
+		t.Fatalf("VerifyRequirement: %v", err)
+	}
+	if req.Verdict.Status != statusUndecided {
+		t.Fatalf("evaluate r on craft: status=%q error=%q, want undecided on the unbound subject", req.Verdict.Status, req.Verdict.Error)
+	}
+	req, err = srv.VerifyRequirement(context.Background(), &pb.VerifyRequirementRequest{
+		ModelHash: hash, SymbolId: "P::r", Question: "holds", SubjectSymbolId: "P::craft",
+	})
+	if err != nil {
+		t.Fatalf("VerifyRequirement: %v", err)
+	}
+	if req.Verdict.Status != statusViolated {
+		t.Fatalf("holds r on craft: status=%q error=%q, want violated — vehicle is unbound", req.Verdict.Status, req.Verdict.Error)
+	}
+}
