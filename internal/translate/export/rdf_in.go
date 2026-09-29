@@ -826,8 +826,23 @@ func (d *decoder) transparentRoot(el *element) bool {
 func (d *decoder) isMembership(subject rdf.Term) bool {
 	metaclass := d.metaclass(subject)
 	return metaclass != "" && (metaclass == mFeatureValue || metaclass == mParameterMembership ||
-		ontology.IsAncestorOrSelf(metaclass, mOwningMembership)) &&
+		ontology.IsAncestorOrSelf(metaclass, mOwningMembership) || d.prefixAnnotation(subject)) &&
 		!d.graph.HasProperty(subject, rdf.SysML+pQualifiedName)
+}
+
+// prefixAnnotation reports whether subject is the Annotation by which a
+// relationship owns its prefix metadata (SysML-textual-bnf PrefixMetadataAnnotation):
+// it states ownership as an OwningMembership does, through its related elements.
+func (d *decoder) prefixAnnotation(subject rdf.Term) bool {
+	if d.metaclass(subject) != mAnnotation {
+		return false
+	}
+	annotating, ok := d.graph.Object(subject, rdf.SysML+pAnnotatingElement)
+	if !ok || d.metaclass(annotating) != usageMetaclass[ast.UsageMetadata] {
+		return false
+	}
+	owned, ok := d.graph.Object(subject, rdf.SysML+pOwnedRelatedElement)
+	return ok && owned == annotating
 }
 
 // isNodeMembership identifies membership objects that own expression parts.

@@ -83,6 +83,10 @@ const (
 	pLanguage                  = "language"
 	pLocale                    = "locale"
 	pAnnotatedElement          = "annotatedElement"
+	pAnnotatingElement         = "annotatingElement"
+	pOwnedAnnotation           = "ownedAnnotation"
+	mAnnotation                = "Annotation"
+	mDependency                = "Dependency"
 	pIsImportAll               = "isImportAll"
 	pSourceFeature             = "sourceFeature"
 	pTargetFeature             = "targetFeature"
@@ -1414,6 +1418,13 @@ func (e *encoder) owningMembership(node ast.Node, member, owner rdf.Term, member
 	// the API's payloads carry for it; anything else, a metadata usage included,
 	// through an OwningMembership.
 	feature := ontology.IsAncestorOrSelf(memberClass, mFeature) && isType(ownerClass) && !metadata
+	// A dependency's prefix metadata is the annotating element of an Annotation
+	// the dependency owns, not a member of it (SysML-textual-bnf Dependency,
+	// PrefixMetadataAnnotation).
+	if metadata && ownerClass == mDependency {
+		annotation := e.ids.minted(rdf.RelationshipIRI(member, annotationSuffix), member, annotationSuffix)
+		return e.prefixAnnotation(annotation, member, owner, memberFQN)
+	}
 	membership := e.ids.owningMembershipOf(node, member)
 	// The membership shares the element namespace, so its IRI is reserved too.
 	if prior, taken := e.claim(membership.Value, memberFQN+"'s owning membership"); taken && e.idErr == nil {
@@ -1466,6 +1477,33 @@ func (e *encoder) owningMembership(node ast.Node, member, owner rdf.Term, member
 		}
 	}
 	return membership
+}
+
+// annotationSuffix names the Annotation by which a dependency owns a prefix
+// metadata usage, after the usage it owns, as `_om` names a membership.
+const annotationSuffix = "_an"
+
+// prefixAnnotation writes the Annotation by which owner, a relationship, owns
+// the metadata usage member that annotates it.
+func (e *encoder) prefixAnnotation(annotation, member, owner rdf.Term, memberFQN string) rdf.Term {
+	if prior, taken := e.claim(annotation.Value, memberFQN+"'s annotation"); taken && e.idErr == nil {
+		e.idErr = &UnsupportedError{
+			What: fmt.Sprintf("the annotation of %s", memberFQN),
+			Note: fmt.Sprintf("its id lands on the same IRI as %s, and merging two elements into one subject would be a different model", prior),
+		}
+	}
+	e.graph.Add(annotation, rdf.IRI(rdf.RDFType), e.sysml(mAnnotation))
+	e.graph.Add(annotation, e.sysml(pElementID), rdf.String(rdf.LocalName(annotation.Value)))
+	e.graph.Add(annotation, e.sysml(pOwner), owner)
+	e.graph.Add(annotation, e.sysml(pOwningRelatedElement), owner)
+	e.graph.Add(annotation, e.sysml(pOwnedRelatedElement), member)
+	e.graph.Add(annotation, e.sysml(pAnnotatingElement), member)
+	e.graph.Add(annotation, e.sysml(pAnnotatedElement), owner)
+	e.graph.Add(owner, e.sysml(pOwnedRelationship), annotation)
+	e.graph.Add(owner, e.sysml(pOwnedAnnotation), annotation)
+	e.graph.Add(member, e.sysml(pOwner), owner)
+	e.graph.Add(member, e.sysml(pOwningRelationship), annotation)
+	return annotation
 }
 
 // emitMembershipCore writes the shared ownership triples for a membership.
