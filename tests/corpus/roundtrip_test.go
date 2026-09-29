@@ -37,10 +37,11 @@ const (
 	corpusRoundTripHeader = "# Round-trip verdict for every model under examples/, as \"<verdict>\\t<path>\":\n" +
 		"# notation -> Turtle (hop 1) -> notation -> Turtle (hop 2), then the two\n" +
 		"# Turtle graphs compared as triple sets. Verdicts: stable (hop 2 is\n" +
-		"# byte-identical), whitespace-only (bytes differ, triple sets equal once the\n" +
-		"# whitespace inside sysx:sourceText literals is normalised and the\n" +
-		"# provenance values of sysx:sourceRange and sysx:sourceDocument are\n" +
-		"# ignored), graph-diff,\n" +
+		"# byte-identical, or triple-for-triple identical once the\n" +
+		"# sysx:sourceRange and sysx:sourceDocument provenance is dropped),\n" +
+		"# whitespace-only (bytes differ, triple sets equal once the\n" +
+		"# whitespace inside sysx:sourceText literals is normalised, with that\n" +
+		"# provenance dropped), graph-diff,\n" +
 		"# unwritable (Turtle -> notation refused), unparseable (the written notation\n" +
 		"# no longer converts) and refused:<class> (notation -> Turtle refused). This\n" +
 		"# is a per-file ratchet, not a claim that any verdict is right; see\n" +
@@ -50,10 +51,11 @@ const (
 	apiJSONRoundTripHeader = "# Round-trip verdict for every model under examples/, as \"<verdict>\\t<path>\":\n" +
 		"# notation -> the API's JSON element form (hop 1) -> notation -> the JSON\n" +
 		"# element form (hop 2), then the two graphs compared as triple sets.\n" +
-		"# Verdicts: stable (hop 2 is byte-identical), whitespace-only (bytes\n" +
+		"# Verdicts: stable (hop 2 is byte-identical, or triple-for-triple\n" +
+		"# identical once the sysx:sourceRange and sysx:sourceDocument\n" +
+		"# provenance is dropped), whitespace-only (bytes\n" +
 		"# differ, triple sets equal once the whitespace inside sysx:sourceText\n" +
-		"# literals is normalised and the provenance values of sysx:sourceRange\n" +
-		"# and sysx:sourceDocument are ignored), graph-diff, unwritable (the JSON form ->\n" +
+		"# literals is normalised, with that provenance dropped), graph-diff, unwritable (the JSON form ->\n" +
 		"# notation refused), unparseable (the written notation no longer\n" +
 		"# converts) and refused:<class> (notation -> the JSON form refused).\n" +
 		"# This is a per-file ratchet, not a claim that any verdict is right;\n" +
@@ -230,6 +232,9 @@ func corpusRoundTripVerdict(rel string, src []byte) (string, error) {
 	if err != nil {
 		return "", fmt.Errorf("hop 2 Turtle does not parse: %w", err)
 	}
+	if sameExceptProvenance(first, second) {
+		return "stable", nil
+	}
 	if sameTriples(first, second) {
 		return "whitespace-only", nil
 	}
@@ -263,34 +268,62 @@ func apiJSONRoundTripVerdict(rel string, src []byte) (string, error) {
 	if err != nil {
 		return "", fmt.Errorf("hop 2 api-json does not parse: %w", err)
 	}
+	if sameExceptProvenance(first, second) {
+		return "stable", nil
+	}
 	if sameTriples(first, second) {
 		return "whitespace-only", nil
 	}
 	return "graph-diff", nil
 }
 
+// provenancePredicates are the sysx: triples that say where an element was
+// written from: a hop's positions and document name follow wherever its
+// notation placed them, so they are dropped rather than compared.
+var provenancePredicates = map[rdf.Term]bool{
+	rdf.OpenSysMLTerm("sourceRange"):    true,
+	rdf.OpenSysMLTerm("sourceDocument"): true,
+}
+
+// sameExceptProvenance reports whether two graphs' triple lists are equal in
+// order, triple for triple, once every provenance triple is dropped. Both
+// readers list triples in document order, so an equal list is the same graph.
+func sameExceptProvenance(a, b *rdf.Graph) bool {
+	list := func(g *rdf.Graph) []rdf.Triple {
+		out := make([]rdf.Triple, 0, len(g.Triples()))
+		for _, triple := range g.Triples() {
+			if !provenancePredicates[triple.Predicate] {
+				out = append(out, triple)
+			}
+		}
+		return out
+	}
+	first, second := list(a), list(b)
+	if len(first) != len(second) {
+		return false
+	}
+	for i, triple := range first {
+		if triple != second[i] {
+			return false
+		}
+	}
+	return true
+}
+
 // sameTriples compares two graphs as sets, ignoring triple order, the
-// whitespace inside sysx:sourceText literals and the values of the
-// sysx:sourceRange/sysx:sourceDocument provenance, which follow wherever the
-// notation each hop was read from placed the element.
+// whitespace inside sysx:sourceText literals and the sysx:sourceRange and
+// sysx:sourceDocument provenance, which follow wherever the notation each hop
+// was read from placed the element.
 func sameTriples(a, b *rdf.Graph) bool {
 	set := func(g *rdf.Graph) map[rdf.Triple]bool {
 		sourceText := rdf.OpenSysMLTerm("sourceText")
-		provenance := map[rdf.Term]bool{
-			rdf.OpenSysMLTerm("sourceRange"):    true,
-			rdf.OpenSysMLTerm("sourceDocument"): true,
-		}
 		out := make(map[rdf.Triple]bool, len(g.Triples()))
 		for _, triple := range g.Triples() {
-			if !triple.Object.IsLiteral() {
-				out[triple] = true
+			if provenancePredicates[triple.Predicate] {
 				continue
 			}
-			switch {
-			case triple.Predicate == sourceText:
+			if triple.Predicate == sourceText && triple.Object.IsLiteral() {
 				triple.Object.Value = strings.Join(strings.Fields(triple.Object.Value), " ")
-			case provenance[triple.Predicate]:
-				triple.Object.Value = ""
 			}
 			out[triple] = true
 		}
