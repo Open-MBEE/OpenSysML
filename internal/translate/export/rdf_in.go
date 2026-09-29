@@ -647,6 +647,9 @@ type decoder struct {
 	// parameterOwned indexes the ParameterMembership elements by the namespace
 	// each names as its own, built on first lookup.
 	parameterOwned map[string][]rdf.Term
+	// byQName keys the elements' qualified names on their canonical form, built
+	// on first lookup.
+	byQName map[string]string
 	// prefixed marks the elements whose head wrote their `#M` annotations.
 	prefixed map[*element]bool
 	// names is the spelling chosen for each reference; while nil, references are
@@ -3695,7 +3698,7 @@ func relativeName(qname, scope string) string {
 	qnameParts := identitySegments(qname)
 	scopeParts := identitySegments(scope)
 	for n := len(scopeParts); n > 0; n-- {
-		if len(qnameParts) >= n && slices.Equal(qnameParts[:n], scopeParts[:n]) {
+		if len(qnameParts) > n && slices.Equal(qnameParts[:n], scopeParts[:n]) {
 			return strings.Join(qnameParts[n:], "::")
 		}
 	}

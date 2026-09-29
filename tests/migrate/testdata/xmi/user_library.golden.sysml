@@ -2,7 +2,7 @@ package fUML_Library {
     package PrimitiveBehaviors {
         package ListFunctions {
             action def ListSize {
-                in list : ScalarValues::String[0..*];
+                in list : ScalarValues::String[0..*] ordered nonunique;
                 out result : ScalarValues::Integer[1];
                 /* body not migrated (the body is empty) */
             }

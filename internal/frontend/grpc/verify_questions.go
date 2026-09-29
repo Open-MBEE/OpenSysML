@@ -149,13 +149,13 @@ func (v *verifyContext) symbolicElement(ctx context.Context, question, kind stri
 	if resolved != nil {
 		objectType = resolved.Type
 	}
-	pins, _ := solve.FixedFor(v.runtime, solve.Fixing{
+	pins, unfixed := solve.FixedFor(v.runtime, solve.Fixing{
 		Element:    sym,
 		Owner:      owningElement(sym),
 		Object:     resolved,
 		ObjectType: objectType,
 	})
-	q, terr := v.translatedQuestion(translate, pins, resolved)
+	q, terr := v.translatedQuestion(translate, pins, unfixed, solve.ObjectReader(v.runtime, resolved), resolved)
 	var queries []*solve.Query
 	if terr == nil {
 		queries = []*solve.Query{q}
@@ -164,16 +164,18 @@ func (v *verifyContext) symbolicElement(ctx context.Context, question, kind stri
 	return verdict, resolved, verr
 }
 
-// translatedQuestion translates the query once, reads the values the query's
-// chain variables name where the conditions would read them, then translates
-// again with those values pinned — a chain's value left free would answer
-// about assignments the model does not hold.
-func (v *verifyContext) translatedQuestion(translate func(*runtime.Context, []solve.Pin) (*solve.Query, error), pins []solve.Pin, resolved *runtime.Instance) (*solve.Query, error) {
+// translatedQuestion refuses unreadable values a query reads, then translates
+// again with chain values read as its conditions would — values left free would
+// answer about assignments the model does not hold.
+func (v *verifyContext) translatedQuestion(translate func(*runtime.Context, []solve.Pin) (*solve.Query, error), pins []solve.Pin, unfixed []solve.Unfixed, read solve.Reader, resolved *runtime.Instance) (*solve.Query, error) {
 	q, err := translate(v.runtime, pins)
 	if err != nil {
 		return nil, err
 	}
-	chainPins, err := solve.ChainPins(v.runtime, q, resolved)
+	if err := solve.UnfixedRead(v.runtime, q, unfixed); err != nil {
+		return nil, err
+	}
+	chainPins, err := solve.ChainPins(v.runtime, q, read, resolved)
 	if err != nil || len(chainPins) == 0 {
 		return q, err
 	}
@@ -242,7 +244,7 @@ func (v *verifyContext) symbolicSatisfy(ctx context.Context, question string, a 
 	if resolved != nil {
 		objectType = resolved.Type
 	}
-	pins, _ := solve.FixedFor(v.runtime, solve.Fixing{
+	pins, unfixed := solve.FixedFor(v.runtime, solve.Fixing{
 		Element:    a.Symbol,
 		Owner:      owningElement(a.Symbol),
 		Object:     resolved,
@@ -253,7 +255,7 @@ func (v *verifyContext) symbolicSatisfy(ctx context.Context, question string, a 
 			return solve.SatisfactionViolation(rt, a, pins)
 		}
 		return solve.SatisfactionWith(rt, a, pins)
-	}, pins, resolved)
+	}, pins, unfixed, solve.SatisfactionReader(v.runtime, a, resolved), resolved)
 	var queries []*solve.Query
 	if terr == nil {
 		queries = []*solve.Query{q}
