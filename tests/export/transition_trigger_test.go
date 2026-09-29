@@ -217,6 +217,22 @@ func TestTransitionTriggerStructureAndLegacyTextAgree(t *testing.T) {
 	if _, err := with("d : Cmd"); err == nil || !strings.Contains(err.Error(), "its sysx:trigger states") {
 		t.Errorf("a disagreeing sysx:trigger should be refused, got %v", err)
 	}
+
+	// A qualified spelling of the payload's type names the same type.
+	t1 := "    sysml:triggerAction elmt:T__S__t1___40trigger ;"
+	qualified := strings.Replace(stripped, t1, "    sysx:trigger \"T::Sig\" ;\n"+t1, 1)
+	back, err = convert.Convert("m.ttl", []byte(qualified), convert.FormatTurtle, convert.FormatSysML)
+	if err != nil {
+		t.Fatalf("a qualified agreeing sysx:trigger was refused: %v", err)
+	}
+	if !strings.Contains(string(back), "transition t1 first s1 accept Sig then s2;") {
+		t.Errorf("a qualified agreeing sysx:trigger changed t1:\n%s", back)
+	}
+	other := strings.Replace(stripped, t1, "    sysx:trigger \"T::Cmd\" ;\n"+t1, 1)
+	if _, err := convert.Convert("m.ttl", []byte(other), convert.FormatTurtle, convert.FormatSysML); err == nil ||
+		!strings.Contains(err.Error(), "its sysx:trigger states") {
+		t.Errorf("a sysx:trigger naming another type should be refused, got %v", err)
+	}
 }
 
 // Links the structure states twice must agree with each other, or the graph

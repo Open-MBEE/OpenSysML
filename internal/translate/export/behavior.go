@@ -1821,7 +1821,7 @@ func (d *decoder) transitionTrigger(el *element) ([]string, error) {
 		if written, ok := d.stringOf(el, rdf.OpenSysML+xTriggerKeyword); ok {
 			keyword = written
 		}
-		if !sameUpToQualification([]string{keyword, trigger}, words) {
+		if !d.sameNames(el, []string{keyword, trigger}, words) {
 			return nil, triggerDisagreement(el, "sysx:trigger", keyword+" "+trigger, words)
 		}
 	}
@@ -1834,7 +1834,7 @@ func (d *decoder) transitionTrigger(el *element) ([]string, error) {
 		if err != nil {
 			return nil, err
 		}
-		if !sameUpToQualification([]string{stated}, []string{via}) {
+		if !d.sameNames(el, []string{stated}, []string{via}) {
 			return nil, triggerDisagreement(el, "sysml:via", stated, []string{via})
 		}
 	}
@@ -1851,20 +1851,51 @@ func triggerDisagreement(el *element, property, stated string, structural []stri
 	}
 }
 
-// sameUpToQualification reports whether stated and structural spell the same
-// tokens, a name in stated matching the qualified name structural writes for it.
-func sameUpToQualification(stated, structural []string) bool {
+// sameNames reports whether stated and structural spell the same tokens, a
+// name in one naming the element the other does from where el is written.
+func (d *decoder) sameNames(el *element, stated, structural []string) bool {
 	a := strings.Fields(strings.Join(stated, " "))
 	b := strings.Fields(strings.Join(structural, " "))
 	if len(a) != len(b) {
 		return false
 	}
 	for i := range a {
-		if a[i] != b[i] && !strings.HasSuffix(b[i], "::"+a[i]) {
+		if a[i] == b[i] {
+			continue
+		}
+		left, ok := d.lookupName(a[i], el.qname)
+		if !ok {
+			return false
+		}
+		if right, ok := d.lookupName(b[i], el.qname); !ok || left != right {
 			return false
 		}
 	}
 	return true
+}
+
+// lookupName is the element a qualified name written in scope names, found in
+// the nearest enclosing namespace that declares it.
+func (d *decoder) lookupName(name, scope string) (*element, bool) {
+	if d.byQName == nil {
+		d.byQName = map[string]*element{}
+		for _, el := range d.byIRI {
+			if el.qname != "" {
+				d.byQName[el.qname] = el
+			}
+		}
+	}
+	segments := identitySegments(scope)
+	for n := len(segments); n >= 0; n-- {
+		qname := name
+		if prefix := strings.Join(segments[:n], "::"); prefix != "" {
+			qname = prefix + "::" + name
+		}
+		if found, ok := d.byQName[qname]; ok {
+			return found, true
+		}
+	}
+	return nil, false
 }
 
 // triggerTransition is the transition whose trigger action has el as a
