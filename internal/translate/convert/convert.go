@@ -36,6 +36,10 @@ const (
 	// "@type", "@id" and the metamodel properties as keys, over the same graph
 	// the Turtle mapping builds.
 	FormatAPIJSON
+	// FormatFMU is a Functional Mock-up Unit: a zip archive whose
+	// modelDescription.xml imports as a calc def computed by the `fmi` tool.
+	// It is input only.
+	FormatFMU
 )
 
 func (f Format) String() string {
@@ -46,13 +50,15 @@ func (f Format) String() string {
 		return "xmi"
 	case FormatAPIJSON:
 		return "api-json"
+	case FormatFMU:
+		return "fmu"
 	}
 	return "sysml"
 }
 
 // Writable reports whether models can be written in the format.
 func (f Format) Writable() bool {
-	return f != FormatXMI
+	return f != FormatXMI && f != FormatFMU
 }
 
 // formatNames are the names accepted on the command line for each format.
@@ -68,10 +74,11 @@ var formatNames = map[string]Format{
 	"mdzip":    FormatXMI,
 	"api-json": FormatAPIJSON,
 	"json":     FormatAPIJSON,
+	"fmu":      FormatFMU,
 }
 
 // FormatList is the wording every surface lists the format names in.
-const FormatList = "sysml, kerml, ttl, turtle, rdf, api-json, or xmi/uml/mdzip (input only)"
+const FormatList = "sysml, kerml, ttl, turtle, rdf, api-json, fmu or xmi/uml/mdzip (input only)"
 
 // FormatNames returns every name ParseFormat accepts, sorted.
 func FormatNames() []string {
@@ -95,7 +102,7 @@ func ParseFormat(name string) (Format, error) {
 type NotWritableError struct{ Format Format }
 
 func (e *NotWritableError) Error() string {
-	return fmt.Sprintf("cannot write %s: SysML v1 XMI is read and migrated, never written; convert to sysml or ttl", e.Format)
+	return fmt.Sprintf("cannot write %s: it is read and imported, never written; convert to sysml or ttl", e.Format)
 }
 
 // UnknownFormatError reports that a path does not say which format to write.
@@ -124,7 +131,7 @@ func (e *UnknownFormatError) Error() string {
 
 // ExtensionAdvice is the remedy every surface shares: the file name says which
 // format to write. A surface with a format flag names it alongside this.
-const ExtensionAdvice = "name the file with a .sysml, .kerml, .ttl or .json extension"
+const ExtensionAdvice = "name the file with a .sysml, .kerml, .ttl, .json or .fmu extension"
 
 // Advise returns err with the surface's remedy attached when it is an
 // *UnknownFormatError, and unchanged otherwise.
@@ -148,6 +155,8 @@ func FormatOfPath(path string) (Format, error) {
 		return FormatTurtle, nil
 	case ".json":
 		return FormatAPIJSON, nil
+	case ".fmu":
+		return FormatFMU, nil
 	case ".xmi", ".uml", ".mdzip":
 		return FormatXMI, nil
 	case "":
@@ -333,6 +342,17 @@ func convert(name string, data []byte, from, to Format, tolerateSyntaxErrors boo
 		}
 		out, err := FromGraph(graph, to)
 		return out, nil, err
+
+	case from == FormatFMU:
+		notation, err := fmuToNotation(name, data)
+		if err != nil {
+			return nil, nil, err
+		}
+		out, syntax, err := convert(name+".sysml", notation, FormatSysML, to, tolerateSyntaxErrors, opts)
+		if err != nil {
+			return nil, nil, fmt.Errorf("the imported notation could not be written: %w", err)
+		}
+		return out, syntax, nil
 
 	default:
 		// The input is a graph: Turtle parsed, or one read from a repository.

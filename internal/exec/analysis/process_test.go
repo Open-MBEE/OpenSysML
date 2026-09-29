@@ -25,7 +25,7 @@ func TestOutputLimitFromEnv(t *testing.T) {
 	}
 	for text, want := range cases {
 		t.Setenv(OutputLimitEnv, text)
-		if got := outputLimitFromEnv(); got != want {
+		if got := OutputLimitFromEnv(); got != want {
 			t.Errorf("%s=%q: %d, want %d", OutputLimitEnv, text, got, want)
 		}
 	}
@@ -36,7 +36,7 @@ func TestOutputLimitFromEnv(t *testing.T) {
 func TestBoundedBufferKeepsThePrefixAndStops(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
-	b := newBoundedBuffer(8, cancel)
+	b := NewBoundedBuffer(8, cancel)
 	if n, err := b.Write([]byte("abcd")); n != 4 || err != nil || b.Over() {
 		t.Fatalf("within the limit: %d %v over %v", n, err, b.Over())
 	}
@@ -49,7 +49,7 @@ func TestBoundedBufferKeepsThePrefixAndStops(t *testing.T) {
 	if ctx.Err() == nil {
 		t.Error("the process was not stopped at the overflow")
 	}
-	empty := newBoundedBuffer(-1, nil)
+	empty := NewBoundedBuffer(-1, nil)
 	if _, err := empty.Write([]byte("x")); err != nil || !empty.Over() || len(empty.Bytes()) != 0 {
 		t.Errorf("limit below zero: %v over %v kept %q; want nothing kept and the overflow recorded", err, empty.Over(), empty.Bytes())
 	}
