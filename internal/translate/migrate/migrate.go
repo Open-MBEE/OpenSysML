@@ -185,6 +185,8 @@ func FromModelOptions(name string, model *sysmlv1.Model, opts Options) *Result {
 		points:        map[*sysmlv1.Element]pointForm{},
 		incoming:      map[*sysmlv1.Element][]*sysmlv1.Element{},
 		outgoing:      map[*sysmlv1.Element][]*sysmlv1.Element{},
+		relocated:     map[*sysmlv1.Element][]*sysmlv1.Element{},
+		relocatedTo:   map[*sysmlv1.Element]*sysmlv1.Element{},
 		instant:       map[*sysmlv1.Element]map[*sysmlv1.Element]instantValue{},
 		self:          "this",
 		lanes:         map[*sysmlv1.Element]*lanes{},
@@ -528,6 +530,8 @@ type migration struct {
 	// incoming and outgoing list the transitions into and out of each vertex
 	// of the machines named so far.
 	incoming, outgoing map[*sysmlv1.Element][]*sysmlv1.Element
+	relocated          map[*sysmlv1.Element][]*sysmlv1.Element // transitions written under their common state scope
+	relocatedTo        map[*sysmlv1.Element]*sysmlv1.Element   // each transition's writing scope
 	// instant names, per state machine, the TimeInstantValue attribute each
 	// absolute time event its transitions accept is written as.
 	instant map[*sysmlv1.Element]map[*sysmlv1.Element]instantValue
@@ -2408,6 +2412,9 @@ func (m *migration) written(e *sysmlv1.Element) bool {
 		return em.name != "" && m.reaches(em.owner)
 	}
 	if vertexBase(e) != "" {
+		if e.Type == "Pseudostate" && m.extensionVertex(e) != "" {
+			return false
+		}
 		return m.vertexWritten(e)
 	}
 	if e.Type == "Region" && e.Role == "region" {

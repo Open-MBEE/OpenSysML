@@ -2100,7 +2100,11 @@ func (c *chain) table(s *sysmlv1.DocGenStep) {
 		case prop != "":
 			p.property(prop, c.caption(col, ""), 0)
 		default:
-			p.column(expr.name, "", qlit(expr.expression), 0)
+			value := qlit(expr.expression)
+			if expr.argument == "path" {
+				value = qstr(expr.expression)
+			}
+			p.computedColumn(expr.name, "", expr.argument, value, 0)
 		}
 	}
 	if s.Application.Tag("includeDoc") == "true" {
@@ -2128,7 +2132,7 @@ func (c *chain) table(s *sysmlv1.DocGenStep) {
 
 // columnExpr is a Column over a feature of the row's type.
 type columnExpr struct {
-	name, expression string
+	name, argument, expression string
 }
 
 // column lowers one column node: a query property, or a Column reading a
@@ -2166,11 +2170,15 @@ func (c *chain) column(col *sysmlv1.DocGenStep) (prop string, expr columnExpr, w
 			return "", expr, s.why
 		}
 		if s.path {
-			return "", columnExpr{name: c.caption(col, s.caption), expression: s.key}, ""
+			return "", columnExpr{name: c.caption(col, s.caption), argument: "path", expression: s.key}, ""
 		}
 		c.m.expose(s.feature, "a column of a document table reads it")
 		name := c.caption(col, s.key)
-		return "", columnExpr{name: name, expression: c.m.ref(s.feature, c.dp.host) + " ?? \"\""}, ""
+		if s.cell {
+			cell := "{ in row : " + c.m.ref(s.feature.Parent, c.dp.host) + "; row." + writeName(c.m.nameOf(s.feature)) + " ?? \"\" }"
+			return "", columnExpr{name: name, argument: "cell", expression: cell}, ""
+		}
+		return "", columnExpr{name: name, argument: "expression", expression: c.m.ref(s.feature, c.dp.host) + " ?? \"\""}, ""
 	case "TableExpressionColumn":
 		e := strings.TrimSpace(col.Application.Tag("expression"))
 		if p, ok := queryProperties[e]; ok {
