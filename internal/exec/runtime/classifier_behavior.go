@@ -686,9 +686,12 @@ func (ctx *Context) startBehaviorsOf(inst *Instance) error {
 			ctx.behaviorAttached(inst, decl.member)
 			if err != nil {
 				if behavior == nil || !errors.Is(err, ErrUnboundParameter) {
+					if behavior != nil {
+						behavior.leaveClock()
+					}
 					return err
 				}
-				behavior.Err = fmt.Errorf("%s: %w", behavior.Describe(), err)
+				ctx.failBehavior(behavior, fmt.Errorf("%s: %w", behavior.Describe(), err))
 			}
 			behavior.typeBound = true
 			behavior.binding = i
@@ -855,6 +858,14 @@ func (ctx *Context) forgetBehaviors(behaviors []*ObjectBehavior) {
 	ctx.workChanged()
 }
 
+// failBehavior records a failure that ends the behavior for good, through the
+// journal, so a snapshot restore or a rolled-back creation undoes the record.
+func (ctx *Context) failBehavior(b *ObjectBehavior, err error) {
+	prior := b.Err
+	ctx.noteProbeUndo(func() { b.Err = prior })
+	b.Err = err
+}
+
 // leaveClock releases the behavior's execution, ending the work it left paused
 // and withdrawing it from the clock, so a behavior dropped from its object is never driven again.
 func (b *ObjectBehavior) leaveClock() {
@@ -898,7 +909,7 @@ func (ctx *Context) drainObjectBehaviors() error {
 		if err := behavior.run(); err != nil {
 			wrapped := fmt.Errorf("%s: %w", behavior.Describe(), err)
 			if behavior.typeBound && behavior.Kind == lower.PerformedAction && errors.Is(err, ErrUnboundParameter) {
-				behavior.Err = wrapped
+				ctx.failBehavior(behavior, wrapped)
 				behavior.leaveClock()
 				continue
 			}

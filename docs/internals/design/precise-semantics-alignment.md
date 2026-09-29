@@ -1000,7 +1000,9 @@ parameter bound by nothing (`ErrUnboundParameter`) is recorded on the performanc
 `ObjectBehavior.Err` marks it ended for good: no step, no message, no restart — rather than
 failing the object's creation, so `P::slow.cycleTime` evaluates past `toastBread`'s refusal;
 every other failure, and every failure of a merely-declared behavior's explicit start, still
-fails the creation or the start as before. One pool per machine rather than per object (SM1)
+fails the creation or the start as before. The record is journaled (`Context.failBehavior`), so a
+snapshot restore or a rolled-back creation undoes it, and a held image carries it and the type-bound
+marking into the materialized copy. One pool per machine rather than per object (SM1)
 is the one structural difference, and it is the v2 one. **agrees.**
 
 **SM44. The machine ends; the object does not.** fUML §8.8.1: a classifier behavior completing

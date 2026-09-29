@@ -3,6 +3,8 @@ package runtime
 import (
 	"errors"
 	"testing"
+
+	"github.com/Open-MBEE/OpenSysML/internal/semantic/semantics"
 )
 
 // TestRuntimeRobustnessPerformedActionInputs exercises a performed action whose
@@ -33,6 +35,8 @@ func TestRuntimeRobustnessPerformedActionInputs(t *testing.T) {
 	}
 	t.Run("declared_behavior_start_fails", testDeclaredBehaviorStartFailsUnbound)
 	t.Run("other_failure_fails_creation", testPerformedActionOtherFailureFailsCreation)
+	t.Run("snapshot_restore_undoes_recorded_failure", testSnapshotRestoreUndoesRecordedFailure)
+	t.Run("held_image_carries_recorded_failure", testHeldImageCarriesRecordedFailure)
 }
 
 // unboundInputModel is a Toaster performing toastBread, whose applyHeat step
@@ -151,8 +155,12 @@ func testDeclaredBehaviorStartFailsUnbound(t *testing.T) {
 	}
 }`
 	idx, _, ctx := buildRuntimeWithLibraries(t, "<test>", parseAndBuild(t, src))
+	waiters := len(ctx.clock.waiters)
 	if _, err := ctx.ExecuteAction(oneSymbol(t, idx, "test::Kick")); !errors.Is(err, ErrUnboundParameter) {
 		t.Fatalf("ExecuteAction(Kick) = %v, want ErrUnboundParameter", err)
+	}
+	if got := len(ctx.clock.waiters); got != waiters {
+		t.Errorf("clock waiters = %d after the failed start, want %d: the failed executor leaked", got, waiters)
 	}
 }
 
@@ -176,7 +184,116 @@ func testPerformedActionOtherFailureFailsCreation(t *testing.T) {
 		}
 	}
 }`
-	if _, _, err := instantiateWithLibraries(t, src, "test::Host"); !errors.Is(err, ErrTypeMismatch) {
+	idx, _, ctx := buildRuntimeWithLibraries(t, "<test>", parseAndBuild(t, src))
+	waiters := len(ctx.clock.waiters)
+	if _, err := ctx.Instantiate(oneSymbol(t, idx, "test::Host")); !errors.Is(err, ErrTypeMismatch) {
 		t.Fatalf("instantiate Host = %v, want ErrTypeMismatch", err)
+	}
+	if got := len(ctx.clock.waiters); got != waiters {
+		t.Errorf("clock waiters = %d after the failed creation, want %d: the failed executor leaked", got, waiters)
+	}
+}
+
+// awaitingInputModel is a Toaster performing toastBread, which parks at an
+// accept of a signal and then reaches applyHeat, whose energy input nothing
+// binds: the failure is the message's, not the creation's, and so lands only
+// after the object stands.
+func awaitingInputModel() string {
+	return `package test {
+	private import ISQ::*;
+
+	action def ApplyHeat { in energy : ISQ::EnergyValue; }
+	action def ToastBread {
+		first start;
+		action heard accept g : Integer;
+		action applyHeat : ApplyHeat;
+		done;
+		succession first start then heard;
+		succession first heard then applyHeat;
+		succession first applyHeat then done;
+	}
+	part def Toaster { perform action toastBread : ToastBread; }
+	part slow : Toaster;
+}`
+}
+
+// testSnapshotRestoreUndoesRecordedFailure: the failure a woken performed
+// action records is journaled, so restoring a snapshot taken while it was
+// parked undoes the record, and the parked action hears the message again.
+func testSnapshotRestoreUndoesRecordedFailure(t *testing.T) {
+	ctx, inst, err := instantiateWithLibraries(t, awaitingInputModel(), "test::slow")
+	if err != nil {
+		t.Fatalf("instantiate slow: %v", err)
+	}
+	behavior, ok := inst.Behavior("toastBread")
+	if !ok || behavior.Action == nil {
+		t.Fatalf("slow performs no toastBread, behaviors: %v", inst.Behaviors())
+	}
+	if behavior.Err != nil || behavior.completed() {
+		t.Fatalf("toastBread parked at its accept records %v, want still running", behavior.Err)
+	}
+	snap, err := ctx.Snapshot()
+	if err != nil {
+		t.Fatalf("Snapshot: %v", err)
+	}
+	defer snap.Release()
+
+	post := func() {
+		one := Value{Kind: ValConst, Const: semantics.Value{Kind: semantics.ValInt, Int: 1}}
+		ctx.PostMessage(Message{SignalType: "Integer", Object: inst.ID, Value: &one})
+		if !behavior.hasPendingWork() {
+			t.Fatal("the message in flight is work of the parked toastBread")
+		}
+		if err := ctx.drainObjectBehaviors(); err != nil {
+			t.Fatalf("drainObjectBehaviors: %v", err)
+		}
+	}
+
+	post()
+	if !errors.Is(behavior.Err, ErrUnboundParameter) {
+		t.Fatalf("behavior.Err = %v, want ErrUnboundParameter", behavior.Err)
+	}
+
+	snap.Restore()
+	if behavior.Err != nil {
+		t.Errorf("restored behavior.Err = %v, want the record undone", behavior.Err)
+	}
+	if behavior.completed() {
+		t.Error("restored toastBread is completed, want parked at its accept again")
+	}
+
+	post()
+	if !errors.Is(behavior.Err, ErrUnboundParameter) {
+		t.Fatalf("re-woken behavior.Err = %v, want ErrUnboundParameter", behavior.Err)
+	}
+}
+
+// testHeldImageCarriesRecordedFailure: a held image carries a performance's
+// recorded failure and its type-bound marking, so the materialized copy is
+// ended the same way rather than starting over.
+func testHeldImageCarriesRecordedFailure(t *testing.T) {
+	ctx, inst, err := instantiateWithLibraries(t, unboundInputModel(""), "test::slow")
+	if err != nil {
+		t.Fatalf("instantiate slow: %v", err)
+	}
+	behavior, ok := inst.Behavior("toastBread")
+	if !ok || !errors.Is(behavior.Err, ErrUnboundParameter) {
+		t.Fatalf("slow performs no failed toastBread: %v", inst.Behaviors())
+	}
+
+	dst := imageInto(t, ctx, inst)
+	copied, _ := dst.Instance(inst.ID)
+	copy, ok := copied.Behavior("toastBread")
+	if !ok {
+		t.Fatalf("the copy performs no toastBread, behaviors: %v", copied.Behaviors())
+	}
+	if !errors.Is(copy.Err, ErrUnboundParameter) {
+		t.Errorf("copy.Err = %v, want ErrUnboundParameter", copy.Err)
+	}
+	if !copy.typeBound {
+		t.Error("the copy is not marked type-bound, want carried from the image")
+	}
+	if !copy.completed() || copy.hasPendingWork() {
+		t.Error("the copied performance must be ended and hold no pending work")
 	}
 }
