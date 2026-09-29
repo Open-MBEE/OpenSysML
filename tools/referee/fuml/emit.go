@@ -634,7 +634,11 @@ func (cl *closure) emitObject(o *objectDef, names map[string]bool, spelled map[*
 			if p.Direction == Return {
 				dir = "out"
 			}
-			members = append(members, dir+" "+quote(spelled[p]))
+			m := p.Multiplicity
+			if dir == "out" {
+				m.Lower = 0
+			}
+			members = append(members, dir+" "+quote(spelled[p])+multiplicity(m))
 		}
 		members = append(members, "in ref :>> context = this")
 		fmt.Fprintf(&b, "\t\taction %s : %s { %s; }\n", startMember, quote(o.behaviorName(o.classifier)), strings.Join(members, "; "))
@@ -933,7 +937,7 @@ func (cl *closure) emitActivity(a *Activity, owner *objectDef, indent string, na
 		// A definition nested in a part definition is its own occurrence: `this`
 		// is the performance, not the object, so the object performing the
 		// behavior arrives as a parameter, bound by the usage that starts it.
-		decls = append(decls, "in ref context : "+quote(owner.name)+";")
+		decls = append(decls, "in ref context : "+quote(owner.name)+"[1];")
 	}
 	name := a.Name
 	if owner != nil {
@@ -949,12 +953,15 @@ func (cl *closure) emitActivity(a *Activity, owner *objectDef, indent string, na
 	return b.String(), s, nil
 }
 
-// parameter spells a parameter, t being its `: Type` or nothing. An optional
-// output holds nothing until a token arrives, so it is declared empty rather
-// than left without a value.
+// parameter spells a parameter, t being its `: Type` or nothing. An output
+// holds nothing until a token arrives, so its lower bound is 0 and it is
+// declared empty rather than left without a value.
 func parameter(dir, name, t string, m Multiplicity) string {
+	if dir == "out" {
+		m.Lower = 0
+	}
 	decl := fmt.Sprintf("%s %s%s%s", dir, quote(name), t, multiplicity(m))
-	if dir == "out" && m.Lower == 0 {
+	if dir == "out" {
 		decl += " = ()"
 	}
 	return decl + ";"
@@ -982,7 +989,8 @@ func (s *scope) produces() map[string][]string {
 func multiplicity(m Multiplicity) string {
 	switch {
 	case m.Lower == 1 && m.Upper == 1:
-		return ""
+		// An unstated parameter multiplicity is [0..*], so one is spelled.
+		return "[1]"
 	case m.Upper == 1:
 		return fmt.Sprintf("[%d..1]", m.Lower)
 	case m.Ordered:
@@ -1349,7 +1357,7 @@ func (s *scope) createNode(n *Node) error {
 	name := s.names.name(nodeName(n))
 	s.pins[outs[0]] = "result"
 	s.add(&snode{name: name, kind: kindAction, node: n,
-		decl: fmt.Sprintf("action %s { out result : %s = new %s(); }", quote(name), quote(o.name), quote(o.name))})
+		decl: fmt.Sprintf("action %s { out result : %s[1] = new %s(); }", quote(name), quote(o.name), quote(o.name))})
 	return nil
 }
 
@@ -1368,7 +1376,7 @@ func (s *scope) selfNode(n *Node) error {
 	name := s.names.name(nodeName(n))
 	s.pins[outs[0]] = "result"
 	s.add(&snode{name: name, kind: kindAction, node: n,
-		decl: fmt.Sprintf("action %s { out result : %s = context; }", quote(name), quote(o.name))})
+		decl: fmt.Sprintf("action %s { out result : %s[1] = context; }", quote(name), quote(o.name))})
 	return nil
 }
 
@@ -1410,7 +1418,7 @@ func (s *scope) startNode(n *Node) error {
 	s.pins[object] = "object"
 	name := s.names.name(nodeName(n))
 	s.add(&snode{name: name, kind: kindAction, node: n, pending: unfed(n),
-		decl: fmt.Sprintf("action %s { in object : %s; perform object.%s.start; }", quote(name), quote(o.name), startMember)})
+		decl: fmt.Sprintf("action %s { in object : %s[1]; perform object.%s.start; }", quote(name), quote(o.name), startMember)})
 	return nil
 }
 
@@ -1445,7 +1453,7 @@ func (s *scope) featureNode(n *Node) error {
 		return err
 	}
 	s.pins[object] = "object"
-	features := []string{fmt.Sprintf("in object : %s;", objectType)}
+	features := []string{fmt.Sprintf("in object : %s[1];", objectType)}
 	value := pins["value"]
 	writes := n.Kind == AddStructuralFeatureValueAction || n.Kind == RemoveStructuralFeatureValueAction
 	switch {
@@ -1459,7 +1467,7 @@ func (s *scope) featureNode(n *Node) error {
 			return err
 		}
 		s.pins[value] = "value"
-		features = append(features, fmt.Sprintf("in value : %s;", t))
+		features = append(features, fmt.Sprintf("in value : %s[1];", t))
 	}
 	position := pins["insertAt"]
 	if n.Kind == RemoveStructuralFeatureValueAction {
@@ -1467,7 +1475,7 @@ func (s *scope) featureNode(n *Node) error {
 	}
 	if position != nil {
 		s.pins[position] = position.Role
-		features = append(features, fmt.Sprintf("in %s : %s;", position.Role, e.a.Model.scalar("Integer")))
+		features = append(features, fmt.Sprintf("in %s : %s[1];", position.Role, e.a.Model.scalar("Integer")))
 	}
 	result := pins["result"]
 	if n.Kind == ReadStructuralFeatureAction {
@@ -1487,7 +1495,7 @@ func (s *scope) featureNode(n *Node) error {
 	} else {
 		if result != nil {
 			s.pins[result] = "result"
-			features = append(features, fmt.Sprintf("out result : %s = object;", objectType))
+			features = append(features, fmt.Sprintf("out result : %s[1] = object;", objectType))
 		}
 		features = append(features, fmt.Sprintf("assign object.%s := %s;", quote(f.Name), featureUpdate(n, f, position != nil)))
 	}
@@ -1537,7 +1545,7 @@ func (s *scope) sendNode(n *Node) error {
 	}
 	pins := newNamer("target")
 	s.pins[target] = "target"
-	features := []string{fmt.Sprintf("in target : %s;", targetType)}
+	features := []string{fmt.Sprintf("in target : %s[1];", targetType)}
 	var values []string
 	for i, p := range args {
 		t, err := e.pinType(p)
