@@ -48,6 +48,18 @@ const (
 	OpAddVerify
 	// OpAddMetadata inserts a metadata usage.
 	OpAddMetadata
+	// OpAddSequence inserts a `first`/`then` sequencing member into an action body.
+	OpAddSequence
+	// OpAddImport inserts an import declaration into a namespace body or the
+	// document root.
+	OpAddImport
+	// OpAddDocumentation adds a `doc` to an existing declaration, or rewrites
+	// the one it owns.
+	OpAddDocumentation
+	// OpAddComment inserts a `comment` element into Owner.
+	OpAddComment
+	// OpAddNote writes a `//` line note above Target's declaration.
+	OpAddNote
 )
 
 // Operation is one change to make to a model's source.
@@ -81,6 +93,8 @@ type Operation struct {
 	Direction    string
 	// MetadataPrefixes are metadata types annotating a new member.
 	MetadataPrefixes []string
+	// BodyExpression is the condition a constraint-kind member states in its body.
+	BodyExpression string
 	// From and To are the ends of an OpAddConnection, written as the notation
 	// references features (`a.p`, `A::b`).
 	From    string
@@ -106,13 +120,49 @@ type Operation struct {
 	Guard            string
 	Effect           string
 	Initial          bool
-	// MetadataType, MetadataName, About, MetadataValues and Shorthand describe
-	// an OpAddMetadata. Requirement is the requirement verified by OpAddVerify.
+	// MetadataType, MetadataValues and Shorthand describe an OpAddMetadata.
+	// About names elements annotated by OpAddMetadata or OpAddComment.
+	// Requirement is the requirement verified by OpAddVerify.
 	MetadataType   string
 	MetadataName   string
 	About          []string
 	MetadataValues []MetadataValue
 	Shorthand      bool
+	// SequenceKeyword ("first" or "then"), SequenceRef (the node a bare
+	// `then`/`first` names) and After (the member an OpAddSequence follows)
+	// describe an OpAddSequence; a `then` declaring a member reuses MemberKind,
+	// MemberName and Type.
+	SequenceKeyword   string
+	SequenceRef       string
+	SequenceCondition string
+	SequenceValue     string
+	SequenceTarget    string
+	SequenceVia       string
+	SequenceUntil     string
+	SequenceParameter string
+	SequenceBody      []Operation
+	SequenceElse      []Operation
+	After             string
+	// Doc is the plain body text of a `doc`: the first body member of the
+	// declaration an OpAddMember writes, or the documentation an
+	// OpAddDocumentation adds to Target. DocName and DocLocale are the
+	// latter's optional identification and locale, and ReplaceDoc has it
+	// rewrite the one documentation Target owns rather than refuse.
+	// An OpAddComment writes Doc as its body and DocName and DocLocale as its
+	// identification and locale.
+	Doc        string
+	DocName    string
+	DocLocale  string
+	ReplaceDoc bool
+	// ImportVisibility, ImportTarget, ImportRecursive, ImportAll and
+	// ImportFilters describe an OpAddImport.
+	ImportVisibility string
+	ImportTarget     string
+	ImportRecursive  bool
+	ImportAll        bool
+	ImportFilters    []string
+	// Note is the one line of text an OpAddNote writes after `// `.
+	Note string
 	// NewOwner is the namespace an OpMove moves Target into; empty means the root.
 	NewOwner string
 	// Annotation is the DiagramLayout metadata an OpSetLayout writes, by FQN
@@ -192,6 +242,113 @@ func AddMetadata(owner, metadataType, name string, about []string, values []Meta
 		Kind: OpAddMetadata, Owner: owner, MetadataType: metadataType,
 		MetadataName: name, About: about, MetadataValues: values, Shorthand: shorthand,
 	}
+}
+
+// AddFirst inserts `first <ref>;` into an action body (SysML.xtext:1384 InitialNodeMember; formal/2026-03-02).
+func AddFirst(owner, ref string) Operation {
+	return Operation{Kind: OpAddSequence, Owner: owner, SequenceKeyword: "first", SequenceRef: ref}
+}
+
+// AddThen inserts `then <ref>;` into an action body (SysML.xtext:1703 TargetSuccession; formal/2026-03-02).
+func AddThen(owner, ref string) Operation {
+	return Operation{Kind: OpAddSequence, Owner: owner, SequenceKeyword: "then", SequenceRef: ref}
+}
+
+// AddAccept inserts an accept node, optionally typed and associated with a port (SysML.xtext:1442 AcceptNode; formal/2026-03-02).
+func AddAccept(owner, payload, typ, via string) Operation {
+	return Operation{Kind: OpAddSequence, Owner: owner, SequenceKeyword: "then", MemberKind: "accept",
+		SequenceParameter: payload, Type: typ, SequenceVia: via}
+}
+
+// AddSend inserts a send node with a payload and optional receiver and port (SysML.xtext:1499 SendNode; formal/2026-03-02).
+func AddSend(owner, payload, to, via string) Operation {
+	return Operation{Kind: OpAddSequence, Owner: owner, SequenceKeyword: "then", MemberKind: "send",
+		SequenceValue: payload, SequenceTarget: to, SequenceVia: via}
+}
+
+// AddAssign inserts an assignment action (SysML.xtext:1535 AssignmentNode; formal/2026-03-02).
+func AddAssign(owner, target, value string) Operation {
+	return Operation{Kind: OpAddSequence, Owner: owner, SequenceKeyword: "then", MemberKind: "assign",
+		SequenceTarget: target, SequenceValue: value}
+}
+
+// AddIf inserts a conditional action with optional else-body items (SysML.xtext:1596 IfNode, 1607 ActionBodyParameter; formal/2026-03-02).
+func AddIf(owner, condition string, body, elseBody []Operation) Operation {
+	return Operation{Kind: OpAddSequence, Owner: owner, SequenceKeyword: "then", MemberKind: "if",
+		SequenceCondition: condition, SequenceBody: body, SequenceElse: elseBody}
+}
+
+// AddWhile inserts a while loop with an optional until condition (SysML.xtext:1615 WhileLoopNode, 1607 ActionBodyParameter; formal/2026-03-02).
+func AddWhile(owner, condition string, body []Operation, until string) Operation {
+	return Operation{Kind: OpAddSequence, Owner: owner, SequenceKeyword: "then", MemberKind: "while",
+		SequenceCondition: condition, SequenceBody: body, SequenceUntil: until}
+}
+
+// AddLoop inserts a loop with an optional until condition (SysML.xtext:1615 WhileLoopNode, 1607 ActionBodyParameter; formal/2026-03-02).
+func AddLoop(owner string, body []Operation, until string) Operation {
+	return Operation{Kind: OpAddSequence, Owner: owner, SequenceKeyword: "then", MemberKind: "loop",
+		SequenceBody: body, SequenceUntil: until}
+}
+
+// AddFor inserts an iteration over a collection with an optional type (SysML.xtext:1624 ForLoopNode, 1607 ActionBodyParameter; formal/2026-03-02).
+func AddFor(owner, variable, typ, collection string, body []Operation) Operation {
+	return Operation{Kind: OpAddSequence, Owner: owner, SequenceKeyword: "then", MemberKind: "for",
+		SequenceParameter: variable, Type: typ, SequenceValue: collection, SequenceBody: body}
+}
+
+// AddTerminate inserts a terminate action with an optional occurrence (SysML.xtext:1641 TerminateNode; formal/2026-03-02).
+func AddTerminate(owner, occurrence string) Operation {
+	return Operation{Kind: OpAddSequence, Owner: owner, SequenceKeyword: "then", MemberKind: "terminate",
+		SequenceValue: occurrence}
+}
+
+// AddGuardedThen inserts a guarded target succession (SysML.xtext:1708 GuardedTargetSuccession; formal/2026-03-02).
+func AddGuardedThen(owner, guard, ref string) Operation {
+	return Operation{Kind: OpAddSequence, Owner: owner, SequenceKeyword: "if",
+		SequenceCondition: guard, SequenceRef: ref}
+}
+
+// AddElse inserts a default target succession (SysML.xtext:1714 DefaultTargetSuccession; formal/2026-03-02).
+func AddElse(owner, ref string) Operation {
+	return Operation{Kind: OpAddSequence, Owner: owner, SequenceKeyword: "else",
+		SequenceRef: ref}
+}
+
+// AddThenMember inserts `then <kind> <name> : <type>;` (SysML.xtext:1368 ActionNodeMember, 1703 TargetSuccession; formal/2026-03-02),
+// declaring the member
+// the `then` sequences to; kind is action, perform action, state, merge,
+// decide, join or fork, and the control nodes take no type.
+func AddThenMember(owner, kind, name, typ string) Operation {
+	return Operation{Kind: OpAddSequence, Owner: owner, SequenceKeyword: "then",
+		MemberKind: kind, MemberName: name, Type: typ}
+}
+
+// AddImport inserts an import declaration of target into owner: a membership
+// import for a qualified name, a namespace import for one suffixed `::*`,
+// recursive or importing non-public members when recursive or all are set, and
+// filtered by the filter expressions, each written `[<expression>]`.
+func AddImport(owner, visibility, target string, recursive, all bool, filters []string) Operation {
+	return Operation{
+		Kind: OpAddImport, Owner: owner, ImportVisibility: visibility,
+		ImportTarget: target, ImportRecursive: recursive, ImportAll: all,
+		ImportFilters: filters,
+	}
+}
+
+// AddDocumentation creates an operation adding a `doc` with body text to target.
+func AddDocumentation(target, body string) Operation {
+	return Operation{Kind: OpAddDocumentation, Target: target, Doc: body}
+}
+
+// AddComment creates an operation adding a `comment` with body text to owner,
+// "" for the root.
+func AddComment(owner, body string) Operation {
+	return Operation{Kind: OpAddComment, Owner: owner, Doc: body}
+}
+
+// AddNote creates an operation writing the line note `// text` above target.
+func AddNote(target, text string) Operation {
+	return Operation{Kind: OpAddNote, Target: target, Note: text}
 }
 
 // Move is an operation making target a member of newOwner, "" for the root.
@@ -642,6 +799,38 @@ func (m Model) splicesFor(i int, op Operation) ([]splice, error) {
 	}
 	if op.Kind == OpAddMetadata {
 		sp, err := m.addMetadataSplice(i, op)
+		if err != nil {
+			return nil, err
+		}
+		return []splice{sp}, nil
+	}
+	if op.Kind == OpAddSequence {
+		sp, err := m.addSequenceSplice(i, op)
+		if err != nil {
+			return nil, err
+		}
+		return []splice{sp}, nil
+	}
+	if op.Kind == OpAddImport {
+		sp, err := m.addImportSplice(i, op)
+		if err != nil {
+			return nil, err
+		}
+		return []splice{sp}, nil
+	}
+	if op.Kind == OpAddDocumentation {
+		sp, err := m.addDocumentationSplice(i, op)
+		if err != nil {
+			return nil, err
+		}
+		return []splice{sp}, nil
+	}
+	if op.Kind == OpAddComment || op.Kind == OpAddNote {
+		add := m.addCommentSplice
+		if op.Kind == OpAddNote {
+			add = m.addNoteSplice
+		}
+		sp, err := add(i, op)
 		if err != nil {
 			return nil, err
 		}

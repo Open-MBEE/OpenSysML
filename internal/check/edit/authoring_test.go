@@ -376,17 +376,22 @@ func TestAddMemberMetadataPrefixPlacementForEveryMemberKind(t *testing.T) {
 				if kindName == "ref" {
 					op.Type = "Q"
 				}
-				text := writeMember(op, memberKinds[kindName])
+				text := writeMember(op, memberKinds[kindName], "", "", "", "")
 				extension := kindName == "ref" || kindName == "individual" ||
 					kindName == "individual def" || kindName == "subject" ||
 					kindName == "actor" || kindName == "stakeholder" ||
-					kindName == "objective"
+					kindName == "objective" || kindName == "entry action" ||
+					kindName == "do action" || kindName == "exit action"
 				var want string
 				if extension {
 					if kindName == "individual def" {
 						want = "individual #Safety def x;"
 					} else if kindName == "ref" {
 						want = "ref #Safety x : Q;"
+					} else if kindName == "entry action" || kindName == "do action" ||
+						kindName == "exit action" {
+						keyword, _, _ := strings.Cut(kindName, " ")
+						want = keyword + " #Safety action x;"
 					} else {
 						want = kindName + " #Safety x;"
 					}
@@ -402,6 +407,8 @@ func TestAddMemberMetadataPrefixPlacementForEveryMemberKind(t *testing.T) {
 					content = "requirement def R { " + text + " }\n"
 				case "case":
 					content = "verification def V { " + text + " }\n"
+				case "state":
+					content = "state def S { " + text + " }\n"
 				default:
 					switch kindName {
 					case "decide", "fork", "join", "merge", "perform", "perform action":

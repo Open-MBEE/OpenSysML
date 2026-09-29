@@ -264,7 +264,7 @@ func (m *migration) propertyHolder(p, selfType *sysmlv1.Element, self string) (e
 		return "", ""
 	}
 	expr, part, _ := m.objectOf(p.Parent, selfType, self)
-	if expr == "" || part == nil {
+	if part == nil {
 		return expr, ""
 	}
 	through := "the action acts on a " + qualifiedName(selfType) + ", whose one part that holds " + qualifiedName(p) + ", " + qualifiedName(part) + ", "

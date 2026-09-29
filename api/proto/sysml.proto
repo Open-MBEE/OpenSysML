@@ -847,6 +847,11 @@ message EditOperation {
     AddTransitionEdit add_transition = 9;
     AddVerifyEdit add_verify = 12;
     AddMetadataEdit add_metadata = 13;
+    AddImportEdit add_import = 10;
+    AddDocumentationEdit add_documentation = 11;
+    AddSequenceEdit add_sequence = 14;
+    AddCommentEdit add_comment = 16;
+    AddNoteEdit add_note = 18;
   }
 }
 
@@ -876,6 +881,14 @@ message AddMemberEdit {
   string direction = 11;
   // Metadata types annotating the new member.
   repeated string metadata_prefixes = 14;
+  // Optional documentation body, as plain text, written as the declaration's
+  // first body member `doc /* ... */` that reads back as exactly this text.
+  string doc = 12;
+  // Optional body expression. For constraints, it is the condition; for calc,
+  // case, analysis, verification, and use-case kinds, it is the result
+  // expression. It is written inside `{ ... }`, distinct from value, which
+  // writes `= ...`.
+  string body_expression = 13;
 }
 
 // AddSatisfyEdit inserts a satisfy usage into any package or body that admits behavior usages.
@@ -956,6 +969,105 @@ message AddMetadataEdit {
   bool shorthand = 6;
 }
 
+// AddImportEdit inserts an import declaration into a namespace body or the document root.
+message AddImportEdit {
+  // Namespace FQN receiving the import; empty means the document root.
+  string owner = 1;
+  // "private", "public" or "protected"; empty writes "private".
+  string visibility = 2;
+  // Imported qualified name, optionally rooted "$::", suffixed "::*" for a namespace import.
+  string target = 3;
+  // Write "::**" to import recursively.
+  bool is_recursive = 4;
+  // Write "import all" to import non-public members too.
+  bool is_import_all = 5;
+  // Filter conditions, each written as "[<expression>]".
+  repeated string filters = 6;
+}
+
+// AddDocumentationEdit adds a `doc /* ... */` as the first body member of an
+// existing declaration, opening a body for one ended by `;`.
+message AddDocumentationEdit {
+  // Fully qualified name of the documented declaration.
+  string target = 1;
+  // Documentation body, as plain text that Documentation::body reads back
+  // exactly, whitespace included; it may not contain `*/` or a carriage return.
+  string body = 2;
+  // Optional declared name of the documentation.
+  string name = 3;
+  // Optional locale, written as `locale "..."`.
+  string locale = 4;
+  // Rewrite the one documentation target already owns instead of refusing.
+  bool replace = 5;
+}
+
+
+// AddCommentEdit inserts `comment [name] [about a, b] [locale "..."] /* ... */`
+// where a new member of owner goes.
+message AddCommentEdit {
+  // Namespace FQN receiving the comment; empty means the document root.
+  string owner = 1;
+  // Comment body, as plain text that Comment::body reads back exactly; it may
+  // not contain `*/` or a carriage return.
+  string body = 2;
+  // Optional declared name of the comment.
+  string name = 3;
+  // Optional annotated elements, each a qualified name written after `about`.
+  repeated string about = 4;
+  // Optional locale, written as `locale "..."`.
+  string locale = 5;
+}
+
+// AddNoteEdit writes the line note `// text` on its own line above a declaration.
+// A note is lexical trivia, not a model element.
+message AddNoteEdit {
+  // Fully qualified name of the declaration the note precedes.
+  string target = 1;
+  // Note text, one line: it may not contain a line break.
+  string text = 2;
+}
+
+// AddSequenceEdit inserts a `first` or `then` sequencing member into an action body.
+message AddSequenceEdit {
+  // Action body receiving the member.
+  string owner = 1;
+  // Sequence keyword: "first", "then", "if", "else", or empty for a plain member.
+  // These action-body forms follow SysML.xtext:1607 ActionBodyParameter, 1442 AcceptNode,
+  // 1499 SendNode, 1535 AssignmentNode, 1596 IfNode, 1615 WhileLoopNode, 1624 ForLoopNode, 1641 TerminateNode; formal/2026-03-02.
+  string keyword = 2;
+  // Node a bare `first <ref>;`/`then <ref>;` names; empty when the `then`
+  // declares a member instead.
+  string ref = 3;
+  // Body item kind, including action, perform action, state, merge, decide,
+  // join, fork, accept, send, assign, if, while, loop, for or terminate.
+  string member_kind = 4;
+  // Optional declared name of the `then`-declared member.
+  string member_name = 5;
+  // Optional typing target of the `then`-declared member.
+  string type = 6;
+  // Optional name of the body member the new member follows.
+  string after = 7;
+  // Condition or guard expression for if and while.
+  string condition = 8;
+  // Payload, assigned value, collection or terminated occurrence.
+  string value = 9;
+  // Assigned feature or send receiver.
+  string target = 10;
+  // Port expression for accept or send.
+  string via = 11;
+  // Optional loop termination condition.
+  string until = 12;
+  // Nested action-body items.
+  repeated AddSequenceEdit body = 13;
+  // Nested items of the if's else branch; an empty list means no else branch.
+  // An explicit empty `else { }` is not authorable; it performs nothing and is equivalent to omitting it.
+  repeated AddSequenceEdit else_body = 14;
+  // Source-end multiplicity, written as bracketed notation, only with "then".
+  // SysML.xtext:878, 887, 1703 TargetSuccession, 1708 GuardedTargetSuccession, 1714 DefaultTargetSuccession; formal/2026-03-02.
+  string multiplicity = 15;
+  // Payload name for accept or loop variable for for.
+  string parameter = 16;
+}
 // AddConnectionEdit inserts a usage whose ends connect two features.
 message AddConnectionEdit {
   // Namespace FQN receiving the usage; empty means the document root.

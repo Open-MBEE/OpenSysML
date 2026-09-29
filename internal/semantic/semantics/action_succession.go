@@ -123,10 +123,12 @@ func (m *Model) DeclaredSuccessions(scope *symbols.Scope, owner *symbols.Symbol,
 				Target: m.referenceEnd(scope, owner, n.Successor),
 			})
 		case *ast.SuccessionEdge:
+			source := m.edgeEnd(scope, owner, n.Source, n.SourceMember)
+			source.Multiplicity = n.SourceMultiplicity
 			out = append(out, ActionSuccession{
 				Decl:   n,
 				Owner:  owner,
-				Source: m.edgeEnd(scope, owner, n.Source, n.SourceMember),
+				Source: source,
 				Target: m.edgeEnd(scope, owner, n.Target, n.TargetMember),
 			})
 		case *ast.ControlFlowEdge:

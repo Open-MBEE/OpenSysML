@@ -623,3 +623,59 @@ func TestAPIJSONAnnotationMembers(t *testing.T) {
 		t.Errorf("WriteAPIJSON with a repeated member = %v, want a refusal naming it", err)
 	}
 }
+
+// A member-attached `then done;` is one SuccessionAsUsage whose target end's
+// ReferenceSubsetting reaches the library's Actions::Action::done element —
+// the shape `succession first x then done;` writes — not a Membership the end
+// would reference, which ReferenceSubsetting cannot target.
+func TestAPIJSONThenDoneTargetsLibraryDone(t *testing.T) {
+	graph, err := convert.SysMLToRDF("p.sysml", []byte(
+		"package P { action def Step; action def A { first start; then action a : Step; then done; } }"))
+	if err != nil {
+		t.Fatalf("SysMLToRDF: %v", err)
+	}
+	document, err := export.WriteAPIJSON(graph)
+	if err != nil {
+		t.Fatalf("WriteAPIJSON: %v", err)
+	}
+	var elements []map[string]json.RawMessage
+	if err := json.Unmarshal(document, &elements); err != nil {
+		t.Fatalf("the document is not a JSON array: %v\n%s", err, document)
+	}
+	const doneID = "0cdc3cd3-b06c-5c32-beda-0cf4ba164a64"
+	idRef := func(raw json.RawMessage) string {
+		var ref map[string]string
+		if err := json.Unmarshal(raw, &ref); err != nil {
+			return ""
+		}
+		return ref["@id"]
+	}
+	successions, doneMemberships, doneEnds := 0, 0, 0
+	for _, element := range elements {
+		var typ string
+		if err := json.Unmarshal(element["@type"], &typ); err != nil {
+			continue
+		}
+		switch typ {
+		case "SuccessionAsUsage":
+			successions++
+		case "Membership":
+			if idRef(element["memberElement"]) == doneID {
+				doneMemberships++
+			}
+		case "ReferenceSubsetting":
+			if idRef(element["referencedFeature"]) == doneID {
+				doneEnds++
+			}
+		}
+	}
+	if successions != 2 {
+		t.Errorf("want the two `then` successions alone, found %d SuccessionAsUsage", successions)
+	}
+	if doneMemberships != 0 {
+		t.Errorf("`then done;` should state no Membership of the library's done, found %d", doneMemberships)
+	}
+	if doneEnds != 1 {
+		t.Errorf("the `then done` end should subset the library's done feature exactly once, found %d", doneEnds)
+	}
+}

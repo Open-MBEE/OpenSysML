@@ -75,7 +75,7 @@ func notationBinding(text string) int {
 	text = strings.TrimSpace(text)
 	p := parser.New(source.New("<expression>", []byte(text)))
 	node := p.ParseExpression()
-	if len(p.Diagnostics) > 0 || node == nil || node.Span().End() != len(text) {
+	if len(p.Diagnostics) > 0 || node == nil || p.Offset() != len(text) {
 		return bindConditional
 	}
 	return nodeBinding(node)

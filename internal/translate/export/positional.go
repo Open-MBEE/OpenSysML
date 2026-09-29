@@ -2,7 +2,6 @@ package export
 
 import (
 	"slices"
-	"strconv"
 	"strings"
 
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/symbols"
@@ -108,7 +107,7 @@ func PositionalIdentities(index *symbols.Index, docs []PositionalDocument, ident
 		}
 	}
 	slices.SortFunc(accepted, func(a, b positionalCandidate) int {
-		aDepth, bDepth := strings.Count(a.name, "::"), strings.Count(b.name, "::")
+		aDepth, bDepth := len(identitySegments(a.name)), len(identitySegments(b.name))
 		if aDepth < bDepth {
 			return -1
 		}
@@ -136,12 +135,8 @@ func PositionalIdentities(index *symbols.Index, docs []PositionalDocument, ident
 
 // IsPositionalIdentity reports whether a name contains a canonical `@N` segment.
 func IsPositionalIdentity(name string) bool {
-	for _, segment := range strings.Split(name, "::") {
-		if len(segment) < 2 || segment[0] != '@' {
-			continue
-		}
-		value, err := strconv.Atoi(segment[1:])
-		if err == nil && value >= 0 && strconv.Itoa(value) == segment[1:] {
+	for _, segment := range identitySegments(name) {
+		if positionalSegment(segment) {
 			return true
 		}
 	}
