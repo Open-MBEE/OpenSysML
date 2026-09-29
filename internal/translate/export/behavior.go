@@ -957,7 +957,7 @@ func (d *decoder) initialNodeHead(el *element) (string, error) {
 			return "", err
 		}
 		if target != nil {
-			d.wanted.starts[el.qname] = target.qname
+			d.wanted.starts[d.writtenQName(el)] = target.qname
 		}
 		words = append(words, name)
 	}

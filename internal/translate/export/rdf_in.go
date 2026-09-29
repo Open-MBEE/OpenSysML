@@ -2934,6 +2934,25 @@ func (d *decoder) identWords(el *element) []string {
 	return words
 }
 
+// writtenQName is the qualified name the notation written for el gives it back:
+// its graph name, unless its head states no name — no declared name and no
+// implicit metadata-body name — when the rendering's anonymous index names it,
+// as the name the member's position reads it as.
+func (d *decoder) writtenQName(el *element) string {
+	q := el.qname
+	i := strings.LastIndex(q, "::")
+	if i < 0 || strings.HasPrefix(q[i+len("::"):], "@") {
+		return q
+	}
+	if !d.metadataBodyMember(el) || d.boolOf(el, rdf.OpenSysML+xImplicitRedefinition) {
+		return q
+	}
+	if _, declared := d.stringOf(el, rdf.SysML+pDeclaredName); declared {
+		return q
+	}
+	return q[:i] + "::@" + strconv.Itoa(el.memberIndex)
+}
+
 // nameText writes a name as the notation spells it: the graph carries the name
 // itself, so one that is not a basic name needs its quotes back (KerML §8.2.2).
 // A reserved word lexes as a keyword rather than a name, so a name spelling one
@@ -3477,7 +3496,7 @@ func (d *decoder) referenceName(term rdf.Term, el *element) (string, error) {
 		return "", err
 	}
 	spelled := d.spelledName(target)
-	key := nameKey{member: el.qname, target: target.qname}
+	key := nameKey{member: d.writtenQName(el), target: target.qname}
 	written := spelled
 	if d.names != nil {
 		var ok bool

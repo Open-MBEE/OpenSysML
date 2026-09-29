@@ -1951,6 +1951,17 @@ func (e *encoder) implicitMetadataBodyTarget(inBody bool, n *ast.Usage) rdf.Term
 	return e.ids.subjectOf(el, info.FQN)
 }
 
+// normativeFQN is the qualified name a symbol carries in the norm, or "" for
+// any other element: linked hides a library element whose qualified name the
+// element stating it already claimed, which this answers anyway.
+func (e *encoder) normativeFQN(sym *symbols.Symbol) string {
+	info, ok := identity.Of(e.ids.model, e.res, sym)
+	if !ok || info.Source != identity.SourceNormative {
+		return ""
+	}
+	return info.FQN
+}
+
 func (e *encoder) ident(subject rdf.Term, ident ast.Identification) {
 	if ident.Name != "" {
 		e.graph.Add(subject, e.sysml(pDeclaredName), rdf.String(ident.Name))

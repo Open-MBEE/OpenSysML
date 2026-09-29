@@ -176,6 +176,40 @@ func TestVerificationMethodBodyComesBackFromTheGraphAlone(t *testing.T) {
 	}
 }
 
+// A foreign graph's implicit member — a redefines with no
+// sysx:isRedefinitionImplicit flag — decodes to the canonical `redefines`
+// spelling, like a pilot-shaped ownedRedefinition.
+func TestUnflaggedMetadataBodyMemberReadsBackAsRedefines(t *testing.T) {
+	stripped := verificationMethodTurtle(t)
+	for _, prop := range []string{"sysx:sourceText", "sysx:sourceTail", "sysx:isRedefinitionImplicit"} {
+		stripped = withoutTriples(t, stripped, prop)
+	}
+	back, err := convert.Convert("m.ttl", stripped, convert.FormatTurtle, convert.FormatSysML)
+	if err != nil {
+		t.Fatalf("back to notation: %v", err)
+	}
+	for _, want := range []string{
+		"redefines kind = VerificationMethodKind::test;",
+		"redefines kind = (VerificationMethodKind::test, VerificationMethodKind::analyze);",
+	} {
+		if !strings.Contains(string(back), want) {
+			t.Errorf("notation lacks %q:\n%s", want, back)
+		}
+	}
+	// The written model validates and re-exports stably.
+	second, err := convert.Convert("m.sysml", back, convert.FormatSysML, convert.FormatTurtle)
+	if err != nil {
+		t.Fatalf("second hop to turtle: %v", err)
+	}
+	third, err := convert.Convert("m.ttl", withoutTriples(t, withoutTriples(t, second, "sysx:sourceText"), "sysx:sourceTail"), convert.FormatTurtle, convert.FormatSysML)
+	if err != nil {
+		t.Fatalf("third hop to notation: %v", err)
+	}
+	if string(third) != string(back) {
+		t.Errorf("the third hop differs:\n%s\n---\n%s", back, third)
+	}
+}
+
 // A body name that resolves to nothing keeps the old shape: a declared name
 // and no redefinition.
 func TestUnresolvedMetadataBodyNameKeepsDeclaredName(t *testing.T) {
