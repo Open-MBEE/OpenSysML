@@ -37,14 +37,62 @@ func WriteAPIJSON(graph *rdf.Graph) ([]byte, error) {
 		}
 		elements = append(elements, element)
 	}
-	var b bytes.Buffer
-	enc := json.NewEncoder(&b)
-	enc.SetEscapeHTML(false)
-	enc.SetIndent("", "  ")
-	if err := enc.Encode(elements); err != nil {
+	// Written compact in one pass and indented once. Encoding the array through
+	// each object's MarshalJSON had the encoder parse and re-indent every
+	// object it returned, which cost more than building the elements.
+	var compact bytes.Buffer
+	w := apiJSONWriter{buf: &compact, enc: json.NewEncoder(&compact)}
+	compact.WriteByte('[')
+	for i, element := range elements {
+		if i > 0 {
+			compact.WriteByte(',')
+		}
+		if err := w.object(element); err != nil {
+			return nil, err
+		}
+	}
+	compact.WriteByte(']')
+	var out bytes.Buffer
+	out.Grow(compact.Len() * 2)
+	if err := json.Indent(&out, compact.Bytes(), "", "  "); err != nil {
 		return nil, err
 	}
-	return b.Bytes(), nil
+	out.WriteByte('\n')
+	return out.Bytes(), nil
+}
+
+// apiJSONWriter writes element objects compact into one buffer. Strings keep
+// the HTML escaping (`>` as \u003e) the output has always had.
+type apiJSONWriter struct {
+	buf *bytes.Buffer
+	enc *json.Encoder
+}
+
+func (w apiJSONWriter) object(o apiJSONObject) error {
+	w.buf.WriteByte('{')
+	for i, member := range o {
+		if i > 0 {
+			w.buf.WriteByte(',')
+		}
+		if err := w.value(member.key); err != nil {
+			return err
+		}
+		w.buf.WriteByte(':')
+		if err := w.value(member.value); err != nil {
+			return fmt.Errorf("%s: %w", member.key, err)
+		}
+	}
+	w.buf.WriteByte('}')
+	return nil
+}
+
+// value encodes v in place, dropping the newline Encode ends each value with.
+func (w apiJSONWriter) value(v any) error {
+	if err := w.enc.Encode(v); err != nil {
+		return err
+	}
+	w.buf.Truncate(w.buf.Len() - 1)
+	return nil
 }
 
 // apiJSONMember is one key-value pair of an element object, order preserved.

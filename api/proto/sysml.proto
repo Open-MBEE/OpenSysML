@@ -845,6 +845,10 @@ message EditOperation {
     AddSatisfyEdit add_satisfy = 7;
     AddRequirementConstraintEdit add_requirement_constraint = 8;
     AddTransitionEdit add_transition = 9;
+    AddImportEdit add_import = 10;
+    AddDocumentationEdit add_documentation = 11;
+    AddCommentEdit add_comment = 16;
+    AddNoteEdit add_note = 18;
   }
 }
 
@@ -872,9 +876,13 @@ message AddMemberEdit {
   bool is_default = 10;
   // Optional usage direction: "in", "out" or "inout".
   string direction = 11;
-  // Optional result expression in a CalculationBody or CaseBody, as in
-  // "calc c { <expr> }"; used by constraint, calc, case, analysis,
-  // verification and use case kinds, distinct from value, which writes "= <expr>".
+  // Optional documentation body, as plain text, written as the declaration's
+  // first body member `doc /* ... */` that reads back as exactly this text.
+  string doc = 12;
+  // Optional body expression. For constraints, it is the condition; for calc,
+  // case, analysis, verification, and use-case kinds, it is the result
+  // expression. It is written inside `{ ... }`, distinct from value, which
+  // writes `= ...`.
   string body_expression = 13;
 }
 
@@ -922,6 +930,63 @@ message AddTransitionEdit {
   string effect = 7;
   // Write `entry; then <target>;` instead of a regular transition.
   bool initial = 8;
+}
+
+// AddImportEdit inserts an import declaration into a namespace body or the document root.
+message AddImportEdit {
+  // Namespace FQN receiving the import; empty means the document root.
+  string owner = 1;
+  // "private", "public" or "protected"; empty writes "private".
+  string visibility = 2;
+  // Imported qualified name, optionally rooted "$::", suffixed "::*" for a namespace import.
+  string target = 3;
+  // Write "::**" to import recursively.
+  bool is_recursive = 4;
+  // Write "import all" to import non-public members too.
+  bool is_import_all = 5;
+  // Filter conditions, each written as "[<expression>]".
+  repeated string filters = 6;
+}
+
+// AddDocumentationEdit adds a `doc /* ... */` as the first body member of an
+// existing declaration, opening a body for one ended by `;`.
+message AddDocumentationEdit {
+  // Fully qualified name of the documented declaration.
+  string target = 1;
+  // Documentation body, as plain text that Documentation::body reads back
+  // exactly, whitespace included; it may not contain `*/` or a carriage return.
+  string body = 2;
+  // Optional declared name of the documentation.
+  string name = 3;
+  // Optional locale, written as `locale "..."`.
+  string locale = 4;
+  // Rewrite the one documentation target already owns instead of refusing.
+  bool replace = 5;
+}
+
+// AddCommentEdit inserts `comment [name] [about a, b] [locale "..."] /* ... */`
+// where a new member of owner goes.
+message AddCommentEdit {
+  // Namespace FQN receiving the comment; empty means the document root.
+  string owner = 1;
+  // Comment body, as plain text that Comment::body reads back exactly; it may
+  // not contain `*/` or a carriage return.
+  string body = 2;
+  // Optional declared name of the comment.
+  string name = 3;
+  // Optional annotated elements, each a qualified name written after `about`.
+  repeated string about = 4;
+  // Optional locale, written as `locale "..."`.
+  string locale = 5;
+}
+
+// AddNoteEdit writes the line note `// text` on its own line above a declaration.
+// A note is lexical trivia, not a model element.
+message AddNoteEdit {
+  // Fully qualified name of the declaration the note precedes.
+  string target = 1;
+  // Note text, one line: it may not contain a line break.
+  string text = 2;
 }
 
 // AddConnectionEdit inserts a usage whose ends connect two features.

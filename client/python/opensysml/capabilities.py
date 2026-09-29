@@ -88,6 +88,12 @@ CAPABILITY_SATISFY_AUTHORING = "satisfy_authoring"
 CAPABILITY_REQUIREMENT_CONSTRAINT_AUTHORING = "requirement_constraint_authoring"
 #: The ``ApplyEdits`` ``add_transition`` operation.
 CAPABILITY_TRANSITION_AUTHORING = "transition_authoring"
+#: The ``ApplyEdits`` ``add_import`` operation.
+CAPABILITY_IMPORT_AUTHORING = "import_authoring"
+#: The ``ApplyEdits`` ``add_documentation`` operation and ``AddMemberEdit.doc``.
+CAPABILITY_DOCUMENTATION_AUTHORING = "documentation_authoring"
+#: The ``ApplyEdits`` ``add_comment`` and ``add_note`` operations.
+CAPABILITY_COMMENT_AUTHORING = "comment_authoring"
 #: The additional ``AddMemberEdit`` modifiers and ``ref``/``return`` kinds.
 CAPABILITY_MEMBER_MODIFIERS = "member_modifiers"
 #: Constraint body expressions and asserted constraints in ``ApplyEdits``.

@@ -882,12 +882,19 @@ public final class Model {
     boolean requestsTransitionAuthoring = false;
     boolean requestsConstraintBodyAuthoring = false;
     boolean requestsStateActionAuthoring = false;
+    boolean requestsImportAuthoring = false;
+    boolean requestsDocumentationAuthoring = false;
+    boolean requestsCommentAuthoring = false;
     for (Edit edit : edits) {
       if (edit instanceof Edit.AddMember
           || edit instanceof Edit.AddConnection
           || edit instanceof Edit.AddSatisfy
           || edit instanceof Edit.AddRequirementConstraint
           || edit instanceof Edit.AddTransition
+          || edit instanceof Edit.AddImport
+          || edit instanceof Edit.AddDocumentation
+          || edit instanceof Edit.AddComment
+          || edit instanceof Edit.AddNote
           || edit instanceof Edit.Delete
           || edit instanceof Edit.Move) {
         requestsAuthoring = true;
@@ -926,6 +933,16 @@ public final class Model {
       if (edit instanceof Edit.AddTransition) {
         requestsTransitionAuthoring = true;
       }
+      if (edit instanceof Edit.AddImport) {
+        requestsImportAuthoring = true;
+      }
+      if (edit instanceof Edit.AddDocumentation
+          || edit instanceof Edit.AddMember addMember && !addMember.doc().isEmpty()) {
+        requestsDocumentationAuthoring = true;
+      }
+      if (edit instanceof Edit.AddComment || edit instanceof Edit.AddNote) {
+        requestsCommentAuthoring = true;
+      }
     }
     if (requestsAuthoring) {
       connection.capabilities().require(Capabilities.AUTHORING);
@@ -950,6 +967,15 @@ public final class Model {
     }
     if (requestsStateActionAuthoring) {
       connection.capabilities().require(Capabilities.STATE_ACTION_AUTHORING);
+    }
+    if (requestsImportAuthoring) {
+      connection.capabilities().require(Capabilities.IMPORT_AUTHORING);
+    }
+    if (requestsDocumentationAuthoring) {
+      connection.capabilities().require(Capabilities.DOCUMENTATION_AUTHORING);
+    }
+    if (requestsCommentAuthoring) {
+      connection.capabilities().require(Capabilities.COMMENT_AUTHORING);
     }
     options.document().ifPresent(document -> connection.capabilities().require(Capabilities.EDIT_DOCUMENTS));
     ApplyEditsRequest.Builder request =

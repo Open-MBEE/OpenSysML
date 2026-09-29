@@ -300,7 +300,7 @@ type session struct {
 	timeout time.Duration
 	cmd     *exec.Cmd
 	stdin   io.WriteCloser
-	stderr  *boundedBuffer
+	stderr  *BoundedBuffer
 	writeMu sync.Mutex
 
 	mu       sync.Mutex
@@ -332,7 +332,7 @@ func startSession(entry EngineEntry, limit int, timeout time.Duration) (*session
 	s.cmd = exec.Command(entry.Executable, entry.Command[1:]...) // #nosec G204 -- the manifest names the command
 	s.cmd.Dir = entry.Dir
 	ownProcessGroup(s.cmd)
-	s.stderr = newBoundedBuffer(limit, s.stderrOver)
+	s.stderr = NewBoundedBuffer(limit, s.stderrOver)
 	s.cmd.Stderr = s.stderr
 	stdin, err := s.cmd.StdinPipe()
 	if err != nil {

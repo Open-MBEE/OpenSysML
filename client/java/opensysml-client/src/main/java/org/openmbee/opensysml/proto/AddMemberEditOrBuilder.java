@@ -254,9 +254,32 @@ public interface AddMemberEditOrBuilder extends
 
   /**
    * <pre>
-   * Optional result expression in a CalculationBody or CaseBody, as in
-   * "calc c { &lt;expr&gt; }"; used by constraint, calc, case, analysis,
-   * verification and use case kinds, distinct from value, which writes "= &lt;expr&gt;".
+   * Optional documentation body, as plain text, written as the declaration's
+   * first body member `doc /&#42; ... *&#47;` that reads back as exactly this text.
+   * </pre>
+   *
+   * <code>string doc = 12 [json_name = "doc"];</code>
+   * @return The doc.
+   */
+  java.lang.String getDoc();
+  /**
+   * <pre>
+   * Optional documentation body, as plain text, written as the declaration's
+   * first body member `doc /&#42; ... *&#47;` that reads back as exactly this text.
+   * </pre>
+   *
+   * <code>string doc = 12 [json_name = "doc"];</code>
+   * @return The bytes for doc.
+   */
+  com.google.protobuf.ByteString
+      getDocBytes();
+
+  /**
+   * <pre>
+   * Optional body expression. For constraints, it is the condition; for calc,
+   * case, analysis, verification, and use-case kinds, it is the result
+   * expression. It is written inside `{ ... }`, distinct from value, which
+   * writes `= ...`.
    * </pre>
    *
    * <code>string body_expression = 13 [json_name = "bodyExpression"];</code>
@@ -265,9 +288,10 @@ public interface AddMemberEditOrBuilder extends
   java.lang.String getBodyExpression();
   /**
    * <pre>
-   * Optional result expression in a CalculationBody or CaseBody, as in
-   * "calc c { &lt;expr&gt; }"; used by constraint, calc, case, analysis,
-   * verification and use case kinds, distinct from value, which writes "= &lt;expr&gt;".
+   * Optional body expression. For constraints, it is the condition; for calc,
+   * case, analysis, verification, and use-case kinds, it is the result
+   * expression. It is written inside `{ ... }`, distinct from value, which
+   * writes `= ...`.
    * </pre>
    *
    * <code>string body_expression = 13 [json_name = "bodyExpression"];</code>

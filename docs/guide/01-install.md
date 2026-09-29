@@ -197,6 +197,10 @@ its default build links GMP under LGPL-3, and it can be built against GPL librar
 do not affect the terms under which you may use OpenSysML, because OpenSysML links neither
 solver.
 
+An FMI runner is an optional extra of the same kind: `pip install opensysml[fmi]` installs the
+`opensysml-fmi-runner` executable, and `OPENSYSML_FMI_RUNNER` points the `tool:fmi` engine at it
+for `calc def`s imported from FMUs (see [reference/fmi.md](../reference/fmi.md)).
+
 ### Solver compatibility — pointing the driver at another solver
 
 `OPENSYSML_SMT` accepts **any** executable that reads SMT-LIB2 on standard input and answers on

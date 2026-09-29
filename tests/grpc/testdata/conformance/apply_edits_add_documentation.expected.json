@@ -1,0 +1,18 @@
+{
+  "rpc": "ApplyEdits",
+  "operations": [
+    {
+      "kind": "add_documentation",
+      "target": "Demo::Bread",
+      "body": "Sliced bread."
+    },
+    {
+      "kind": "add_member",
+      "owner": "Demo",
+      "member_kind": "item def",
+      "member_name": "Toast",
+      "doc": "Browned bread.\nReady to eat."
+    }
+  ],
+  "expected_content": "package Demo {\n    item def Bread {\n        doc /* Sliced bread.*/\n    }\n    item def Toast {\n        doc /* Browned bread.\n         * Ready to eat.*/\n    }\n}\n"
+}

@@ -1142,8 +1142,10 @@ result = model.edit().add_part_def("", "Vehicle").apply()
 ```
 
 `add_member(owner, kind, name, type=None, multiplicity=None, value=None, specializes=None,
-abstract=False, redefines=None, default=False, direction=None, expression=None)` accepts notation strings for the
-declaration. Typed `add_*` helpers cover the common SysML and KerML kinds, including `ref` and
+abstract=False, redefines=None, default=False, direction=None, expression=None, doc=None)` accepts
+notation strings for the declaration, and `doc` as plain text written as its `doc /* ... */`;
+every typed helper passes `doc` through. Typed `add_*` helpers cover the common SysML and KerML
+kinds, including `ref` and
 `return` where admitted by the grammar. `add_satisfy`, `add_requirement_constraint`,
 `add_require_constraint` and `add_assume_constraint` write requirement statements.
 `add_transition` and `add_entry_transition` write regular and entry transitions in state bodies.
@@ -1152,6 +1154,19 @@ distinct from `value=`, which writes a feature value (`= ...`). `add_assert_cons
 optional types and negation; `add_exhibit_state`, `add_exhibit` and `add_state_action` author
 exhibits and `entry`/`do`/`exit` subactions. These edits preflight
 `constraint_body_authoring` and `state_action_authoring`.
+`add_documentation(target, body, name=None, locale=None, replace=False)` gives an existing
+declaration its documentation, as the first member of its body; a declaration ending in `;`
+gains a body, and one already documented is refused unless `replace=True`.
+`add_import(owner, target, visibility=None, recursive=False, all=False, filter=None)` writes an
+import declaration in a namespace body or the document root (`""`): `target` is `A::B` for a
+membership import or `A::*` for a namespace import, `recursive` writes `::**`, `all` writes
+`import all`, and `filter` takes one expression string or a list of them, each written
+`[<expression>]`. `visibility` defaults to `private`, the indicator the grammar requires and the
+one legal everywhere including the root.
+`add_comment(owner, body, name=None, about=None, locale=None)` writes a
+`comment [name] [about a, b] [locale "..."] /* ... */` in `owner`'s body, or at the top
+level when `owner` is `""`, and `add_note(target, text)` writes the line note `// text`
+above a declaration. A note is not a model element, so it is kept in the source only.
 `add_calc_def` and `add_calc` accept `inputs`, `return_type` and `return_expression`;
 a return expression requires a return type and is bound to the result parameter,
 not written as `return <expr>;`. `add_action_def` and `add_action` accept
@@ -1254,6 +1269,9 @@ requirement-constraint edits require `requirement_constraint_authoring`.
 Transition edits require `transition_authoring` alongside `authoring`.
 Constraint-body and asserted-constraint edits require `constraint_body_authoring`; exhibit and
 state subaction edits require `state_action_authoring`.
+Import edits require `import_authoring`.
+Documentation edits — `add_documentation` or an `add_member` with `doc` — require
+`documentation_authoring`; comment and note edits require `comment_authoring`.
 
 ### Querying a model using the standard query model
 

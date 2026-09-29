@@ -86,7 +86,7 @@ func (m *Model) collectInevaluableValues(owner *symbols.Symbol, scope *symbols.S
 		if usage == nil {
 			continue
 		}
-		target := m.metadataBodyTargetOf(owner, scope, usage)
+		target := m.MetadataBodyTargetOf(owner, scope, usage)
 		if usage.Value != nil && !(runDecided && RunDecidedMetadataFeature(owner, target)) && !m.ModelLevelEvaluable(scope, usage.Value) {
 			*out = append(*out, usage.Value)
 		}
@@ -94,9 +94,10 @@ func (m *Model) collectInevaluableValues(owner *symbols.Symbol, scope *symbols.S
 	}
 }
 
-// metadataBodyTargetOf is the feature of owner a body declaration restates, by
-// `:>>` or by name; nil when owner is unknown or it restates none.
-func (m *Model) metadataBodyTargetOf(owner *symbols.Symbol, scope *symbols.Scope, usage *ast.Usage) *symbols.Symbol {
+// MetadataBodyTargetOf is the feature of the metadata type owner a body
+// declaration restates, by `:>>` or by name; nil when owner is unknown or it
+// restates none.
+func (m *Model) MetadataBodyTargetOf(owner *symbols.Symbol, scope *symbols.Scope, usage *ast.Usage) *symbols.Symbol {
 	if owner == nil {
 		return nil
 	}

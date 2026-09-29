@@ -133,6 +133,12 @@ func TestCapabilityGatedRequestsAreRefused(t *testing.T) {
 			})
 			return err
 		}},
+		{"import authoring", CapabilityImportAuthoring, func(s *Service) error {
+			_, err := s.ApplyEdits(ctx, &pb.ApplyEditsRequest{
+				Operations: []*pb.EditOperation{addImportOp("P", "", "ScalarValues::*", false, false, nil)},
+			})
+			return err
+		}},
 		{"member modifiers", CapabilityMemberModifiers, func(s *Service) error {
 			_, err := s.ApplyEdits(ctx, &pb.ApplyEditsRequest{
 				Operations: []*pb.EditOperation{{
@@ -140,6 +146,24 @@ func TestCapabilityGatedRequestsAreRefused(t *testing.T) {
 						Owner: "P", Kind: "part def", Name: "X", IsAbstract: true,
 					}},
 				}},
+			})
+			return err
+		}},
+		{"documentation authoring", CapabilityDocumentationAuthoring, func(s *Service) error {
+			_, err := s.ApplyEdits(ctx, &pb.ApplyEditsRequest{
+				Operations: []*pb.EditOperation{addDocumentationOp("P", "Text.", false)},
+			})
+			return err
+		}},
+		{"comment authoring", CapabilityCommentAuthoring, func(s *Service) error {
+			_, err := s.ApplyEdits(ctx, &pb.ApplyEditsRequest{
+				Operations: []*pb.EditOperation{addCommentOp("P", "Text.")},
+			})
+			return err
+		}},
+		{"note authoring", CapabilityCommentAuthoring, func(s *Service) error {
+			_, err := s.ApplyEdits(ctx, &pb.ApplyEditsRequest{
+				Operations: []*pb.EditOperation{addNoteOp("P", "Text.")},
 			})
 			return err
 		}},

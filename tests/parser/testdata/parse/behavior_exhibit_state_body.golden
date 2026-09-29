@@ -8,7 +8,10 @@
           (SubstateMember name="off")
           (SubstateMember name="waitingGSPing")
           (SubstateMember name="transmitting")
-          (TransitionMember source="waitingGSPing" target="transmitting" trigger="Ground Station Ping")
+          (TransitionMember source="waitingGSPing" target="transmitting"
+            (Usage kind="attribute" name="" ref=true direction="out" composite=false derived=false ordered=false nonunique=false
+              (Relationship kind="typing" target=Ground Station Ping
+                (*ast.QualifiedName))))
           (TransitionMember source="transmitting" target="off"
             (ChangeEvent
               (FeatureReference name="done"))

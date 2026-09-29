@@ -55,6 +55,11 @@ func (s *Service) ApplyEdits(ctx context.Context, req *pb.ApplyEditsRequest) (*p
 			return nil, err
 		}
 	}
+	if requestsImportAuthoring(req.Operations) {
+		if err := s.requireCapability(CapabilityImportAuthoring); err != nil {
+			return nil, err
+		}
+	}
 	if requestsMemberModifiers(req.Operations) {
 		if err := s.requireCapability(CapabilityMemberModifiers); err != nil {
 			return nil, err
@@ -67,6 +72,16 @@ func (s *Service) ApplyEdits(ctx context.Context, req *pb.ApplyEditsRequest) (*p
 	}
 	if requestsStateActionAuthoring(req.Operations) {
 		if err := s.requireCapability(CapabilityStateActionAuthoring); err != nil {
+			return nil, err
+		}
+	}
+	if requestsDocumentationAuthoring(req.Operations) {
+		if err := s.requireCapability(CapabilityDocumentationAuthoring); err != nil {
+			return nil, err
+		}
+	}
+	if requestsCommentAuthoring(req.Operations) {
+		if err := s.requireCapability(CapabilityCommentAuthoring); err != nil {
 			return nil, err
 		}
 	}
@@ -216,7 +231,9 @@ func requestsAuthoring(operations []*pb.EditOperation) bool {
 		switch operation.GetOperation().(type) {
 		case *pb.EditOperation_AddMember, *pb.EditOperation_AddConnection,
 			*pb.EditOperation_AddSatisfy, *pb.EditOperation_AddRequirementConstraint,
-			*pb.EditOperation_AddTransition,
+			*pb.EditOperation_AddTransition, *pb.EditOperation_AddImport,
+			*pb.EditOperation_AddDocumentation, *pb.EditOperation_AddComment,
+			*pb.EditOperation_AddNote,
 			*pb.EditOperation_Delete, *pb.EditOperation_Move:
 			return true
 		}
@@ -298,6 +315,37 @@ func requestsTransitionAuthoring(operations []*pb.EditOperation) bool {
 	return false
 }
 
+func requestsImportAuthoring(operations []*pb.EditOperation) bool {
+	for _, operation := range operations {
+		if _, ok := operation.GetOperation().(*pb.EditOperation_AddImport); ok {
+			return true
+		}
+	}
+	return false
+}
+
+func requestsDocumentationAuthoring(operations []*pb.EditOperation) bool {
+	for _, operation := range operations {
+		if _, ok := operation.GetOperation().(*pb.EditOperation_AddDocumentation); ok {
+			return true
+		}
+		if operation.GetAddMember().GetDoc() != "" {
+			return true
+		}
+	}
+	return false
+}
+
+func requestsCommentAuthoring(operations []*pb.EditOperation) bool {
+	for _, operation := range operations {
+		switch operation.GetOperation().(type) {
+		case *pb.EditOperation_AddComment, *pb.EditOperation_AddNote:
+			return true
+		}
+	}
+	return false
+}
+
 // editOperations reads the operations a request carries, rejecting a request
 // that names none of the forms: an unset operation is a client fault rather
 // than a refused edit.
@@ -321,6 +369,7 @@ func editOperations(pbOps []*pb.EditOperation) ([]edit.Operation, error) {
 			member.IsDefault = add.GetIsDefault()
 			member.Direction = add.GetDirection()
 			member.BodyExpression = add.GetBodyExpression()
+			member.Doc = add.GetDoc()
 			ops = append(ops, member)
 		case *pb.EditOperation_AddConnection:
 			add := op.AddConnection
@@ -346,6 +395,28 @@ func editOperations(pbOps []*pb.EditOperation) ([]edit.Operation, error) {
 				add.GetOwner(), add.GetName(), add.GetSource(), add.GetTarget(),
 				add.GetTrigger(), add.GetGuard(), add.GetEffect(), add.GetInitial(),
 			))
+		case *pb.EditOperation_AddImport:
+			add := op.AddImport
+			ops = append(ops, edit.AddImport(
+				add.GetOwner(), add.GetVisibility(), add.GetTarget(),
+				add.GetIsRecursive(), add.GetIsImportAll(), add.GetFilters(),
+			))
+		case *pb.EditOperation_AddDocumentation:
+			add := op.AddDocumentation
+			doc := edit.AddDocumentation(add.GetTarget(), add.GetBody())
+			doc.DocName = add.GetName()
+			doc.DocLocale = add.GetLocale()
+			doc.ReplaceDoc = add.GetReplace()
+			ops = append(ops, doc)
+		case *pb.EditOperation_AddComment:
+			add := op.AddComment
+			comment := edit.AddComment(add.GetOwner(), add.GetBody())
+			comment.DocName = add.GetName()
+			comment.About = append([]string(nil), add.GetAbout()...)
+			comment.DocLocale = add.GetLocale()
+			ops = append(ops, comment)
+		case *pb.EditOperation_AddNote:
+			ops = append(ops, edit.AddNote(op.AddNote.GetTarget(), op.AddNote.GetText()))
 		case *pb.EditOperation_Delete:
 			del := op.Delete
 			ops = append(ops, edit.Delete(del.GetTarget(), del.GetCascade()))

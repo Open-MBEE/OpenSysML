@@ -95,7 +95,9 @@ type Triple struct {
 // conversion of the same model is idempotent.
 type Graph struct {
 	triples []Triple
-	seen    map[Triple]bool
+	// seen is the set of triples, for dropping duplicates. Nil until needed on a
+	// graph made by NewGraphOf, whose triples are distinct already.
+	seen map[Triple]bool
 	// Prefixes maps prefix label to namespace IRI for serialization. It never
 	// affects the meaning of the graph.
 	Prefixes map[string]string
@@ -121,6 +123,29 @@ func NewGraph() *Graph {
 	return g
 }
 
+// NewGraphOf returns a graph holding triples, in order, with prefixes. The
+// triples must be distinct: the set that drops duplicates is built only when a
+// triple is added or looked up, so a graph assembled from a known-distinct list
+// and then only read never builds it.
+func NewGraphOf(triples []Triple, prefixes map[string]string) *Graph {
+	g := &Graph{triples: triples, Prefixes: make(map[string]string, len(prefixes))}
+	for prefix, ns := range prefixes {
+		g.Prefixes[prefix] = ns
+	}
+	return g
+}
+
+// set returns the set of the graph's triples, building it on first use.
+func (g *Graph) set() map[Triple]bool {
+	if g.seen == nil {
+		g.seen = make(map[Triple]bool, len(g.triples))
+		for _, t := range g.triples {
+			g.seen[t] = true
+		}
+	}
+	return g.seen
+}
+
 // Add appends a triple unless the graph already contains it.
 func (g *Graph) Add(subject, predicate, object Term) {
 	g.AddTriple(Triple{Subject: subject, Predicate: predicate, Object: object})
@@ -128,10 +153,11 @@ func (g *Graph) Add(subject, predicate, object Term) {
 
 // AddTriple appends t unless the graph already contains it.
 func (g *Graph) AddTriple(t Triple) {
-	if g.seen[t] {
+	seen := g.set()
+	if seen[t] {
 		return
 	}
-	g.seen[t] = true
+	seen[t] = true
 	g.triples = append(g.triples, t)
 	if g.index != nil {
 		g.index[t.Subject] = indexTriple(g.index[t.Subject], t)
@@ -170,7 +196,7 @@ func (g *Graph) subjects() map[Term]*subjectIndex {
 func (g *Graph) Triples() []Triple { return g.triples }
 
 // Has reports whether the graph contains t.
-func (g *Graph) Has(t Triple) bool { return g.seen[t] }
+func (g *Graph) Has(t Triple) bool { return g.set()[t] }
 
 // Len returns the number of triples.
 func (g *Graph) Len() int { return len(g.triples) }

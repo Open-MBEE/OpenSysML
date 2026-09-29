@@ -214,6 +214,7 @@ nav:
       - Wire contract: reference/wire-contract.md
       - RDF mapping: reference/rdf-mapping.md
       - SysML v1 migration: reference/sysml-v1-migration.md
+      - FMI models: reference/fmi.md
       - Grammar: reference/grammar/README.md
       - Grammar conformance audit: reference/grammar/conformance-audit.md
       - WebAssembly builds: reference/wasm.md

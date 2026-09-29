@@ -1029,6 +1029,7 @@ public final class Protos {
       add.setIsDefault(addMember.isDefault());
       add.setDirection(addMember.direction());
       addMember.bodyExpression().ifPresent(add::setBodyExpression);
+      add.setDoc(addMember.doc());
       builder.setAddMember(add);
     } else if (edit instanceof Edit.AddSatisfy addSatisfy) {
       org.openmbee.opensysml.proto.AddSatisfyEdit.Builder add =
@@ -1059,6 +1060,39 @@ public final class Protos {
       addTransition.guard().ifPresent(add::setGuard);
       addTransition.effect().ifPresent(add::setEffect);
       builder.setAddTransition(add);
+    } else if (edit instanceof Edit.AddImport addImport) {
+      org.openmbee.opensysml.proto.AddImportEdit.Builder add =
+          org.openmbee.opensysml.proto.AddImportEdit.newBuilder()
+              .setOwner(addImport.owner())
+              .setVisibility(addImport.visibility())
+              .setTarget(addImport.target())
+              .setIsRecursive(addImport.recursive())
+              .setIsImportAll(addImport.all())
+              .addAllFilters(addImport.filters());
+      builder.setAddImport(add);
+    } else if (edit instanceof Edit.AddDocumentation addDocumentation) {
+      org.openmbee.opensysml.proto.AddDocumentationEdit.Builder add =
+          org.openmbee.opensysml.proto.AddDocumentationEdit.newBuilder()
+              .setTarget(addDocumentation.target())
+              .setBody(addDocumentation.body())
+              .setReplace(addDocumentation.replace());
+      addDocumentation.name().ifPresent(add::setName);
+      addDocumentation.locale().ifPresent(add::setLocale);
+      builder.setAddDocumentation(add);
+    } else if (edit instanceof Edit.AddComment addComment) {
+      org.openmbee.opensysml.proto.AddCommentEdit.Builder add =
+          org.openmbee.opensysml.proto.AddCommentEdit.newBuilder()
+              .setOwner(addComment.owner())
+              .setBody(addComment.body())
+              .addAllAbout(addComment.about());
+      addComment.name().ifPresent(add::setName);
+      addComment.locale().ifPresent(add::setLocale);
+      builder.setAddComment(add);
+    } else if (edit instanceof Edit.AddNote addNote) {
+      builder.setAddNote(
+          org.openmbee.opensysml.proto.AddNoteEdit.newBuilder()
+              .setTarget(addNote.target())
+              .setText(addNote.text()));
     } else if (edit instanceof Edit.AddConnection addConnection) {
       org.openmbee.opensysml.proto.AddConnectionEdit.Builder add =
           org.openmbee.opensysml.proto.AddConnectionEdit.newBuilder()
