@@ -316,6 +316,7 @@ func newEncoder(file *source.SourceFile, root *ast.RootNamespace, library string
 		metadataBodies:     map[string]bool{},
 		performed:          map[ast.Node]bool{},
 		effects:            map[ast.Node]bool{},
+		triggerParams:      map[ast.Node]string{},
 		fqn:                map[ast.Node]string{},
 		links:              map[*ast.QualifiedName]*symbols.Symbol{},
 		preceding:          map[ast.Node]ast.Node{},
@@ -356,6 +357,9 @@ type encoder struct {
 	// effects holds the members of a transition's `do` effect, which a
 	// TransitionFeatureMembership of kind effect owns.
 	effects map[ast.Node]bool
+	// triggerParams holds the parameters of a transition's trigger action: each
+	// maps to the AcceptActionUsage property that names it, if any.
+	triggerParams map[ast.Node]string
 	// fqn is the qualified name of each member node, which is how a succession
 	// end the notation leaves unnamed addresses the member it binds.
 	fqn map[ast.Node]string
@@ -582,6 +586,12 @@ func (e *encoder) collect(members []ast.Node, owner string) error {
 			continue
 		}
 		e.fqn[node] = fqn
+		// A trigger's payload is a parameter of the transition's trigger action.
+		if transition, ok := node.(*ast.TransitionMember); ok {
+			if payload := e.triggerPayload(transition); payload != nil && payload == transition.Trigger {
+				e.fqn[payload] = qualify(fqn+"::"+triggerSegment, paramName(payload), 0)
+			}
+		}
 		if e.declared[fqn] {
 			return &UnsupportedError{
 				What: fmt.Sprintf("the duplicate declaration of %q at %s", name, e.where(node)),
@@ -856,6 +866,17 @@ func (e *encoder) encodeMember(h memberHead, owner string) error {
 			e.graph.Add(ownerTerm, e.sysml(pEffectAction), subject)
 		}
 	}
+	if property, ok := e.triggerParams[node]; ok {
+		h.membershipClass = mParameterMembership
+		h.membershipExtra = func(membership rdf.Term) {
+			e.graph.Add(membership, e.sysml(pOwnedMemberParameter), subject)
+			e.graph.Add(ownerTerm, e.sysml(pParameter), subject)
+			e.graph.Add(ownerTerm, e.sysml(pInput), subject)
+			if property != "" {
+				e.graph.Add(ownerTerm, e.sysml(property), subject)
+			}
+		}
+	}
 	// A bare expression among a body's members is the result the body computes.
 	result := ast.IsExpression(node)
 	head := func(metaclass rdf.Term) {
@@ -1036,7 +1057,10 @@ func (e *encoder) encodeMember(h memberHead, owner string) error {
 		if err := e.prefixes(subject, fqn, n.Prefixes, bodyMembers(n)); err != nil {
 			return err
 		}
-		if keyword := directionKeyword(n.Direction); keyword != "" {
+		if _, trigger := e.triggerParams[n]; trigger {
+			// A trigger action's parameters are its inputs (SysML.xtext PayloadParameterMember, NodeParameterMember).
+			e.graph.Add(subject, e.sysml(pDirection), rdf.String("in"))
+		} else if keyword := directionKeyword(n.Direction); keyword != "" {
 			e.graph.Add(subject, e.sysml(pDirection), rdf.String(keyword))
 		} else if parameterClass != "" {
 			// A parameter member is read `in` when it states no direction of its own.

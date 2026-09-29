@@ -2105,18 +2105,12 @@ func (d *decoder) usageHead(el *element, kind ast.UsageKind) (string, error) {
 	// The accept shorthand writes its parameter into the head, ahead of the
 	// `via` clause the parent's relationships supply.
 	if accept := d.acceptParam(el); accept != nil {
-		words = append(words, "accept")
-		words = append(words, d.identWords(accept)...)
-		acceptWords, err := d.relationshipWords(accept, "")
+		acceptWords, err := d.payloadWords(accept)
 		if err != nil {
 			return "", err
 		}
+		words = append(words, "accept")
 		words = append(words, acceptWords...)
-		// A trigger (`when`/`at`/`after` …) is what the payload accepts, written
-		// in place of a type rather than as a value clause.
-		if trigger, ok := d.stringOf(accept, rdf.SysML+pValue); ok {
-			words = append(words, trigger)
-		}
 	}
 	// `metadata M about x;` writes its typing bare (SysML.xtext MetadataUsageDeclaration).
 	if kind == ast.UsageMetadata && len(identWords) == 0 && len(typed) == 1 {
@@ -2352,6 +2346,22 @@ func (d *decoder) acceptParam(el *element) *element {
 		}
 	}
 	return nil
+}
+
+// payloadWords writes the payload parameter an accept declares, after `accept`.
+func (d *decoder) payloadWords(accept *element) ([]string, error) {
+	words := d.identWords(accept)
+	relationships, err := d.relationshipWords(accept, "")
+	if err != nil {
+		return nil, err
+	}
+	words = append(words, relationships...)
+	// A trigger (`when`/`at`/`after` …) is what the payload accepts, written
+	// in place of a type rather than as a value clause.
+	if trigger, ok := d.stringOf(accept, rdf.SysML+pValue); ok {
+		words = append(words, trigger)
+	}
+	return words, nil
 }
 
 // missing reports a graph element that cannot be written back as notation

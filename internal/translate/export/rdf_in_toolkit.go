@@ -900,18 +900,10 @@ func deriveTransitionHeads(graph *rdf.Graph, meta func(rdf.Term) string) {
 					graph.Add(subject, rdf.SysMLTerm(pSource), member)
 				}
 			case mTransitionFeatureMembership:
-				kind, _ := graph.Lexical(ms, rdf.SysML+pKind)
-				if kind == "effect" {
+				// The trigger AcceptActionUsage is read by the decoder itself.
+				if kind, _ := graph.Lexical(ms, rdf.SysML+pKind); kind == "effect" {
 					graph.Add(subject, rdf.OpenSysMLTerm(xEffectMember), member)
 					graph.Add(subject, rdf.OpenSysMLTerm(xHasEffect), rdf.Bool(true))
-					continue
-				}
-				if kind != "trigger" {
-					continue
-				}
-				if trigger, ok := acceptTriggerText(graph, meta, member); ok &&
-					!graph.HasProperty(subject, rdf.OpenSysML+xTrigger) {
-					graph.Add(subject, rdf.OpenSysMLTerm(xTrigger), rdf.String(trigger))
 				}
 			case mOwningMembership:
 				if meta(member) == mSuccession {

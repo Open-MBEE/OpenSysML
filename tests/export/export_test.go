@@ -83,9 +83,7 @@ func TestConvertedNotationParses(t *testing.T) {
 
 // textOnlyFixtures are the models whose graph the mapping cannot write back
 // without its source text, by the refusal it must keep reporting for them.
-var textOnlyFixtures = map[string]string{
-	"action_nodes": "this expression states no notation and no structure",
-}
+var textOnlyFixtures = map[string]string{}
 
 // TestRoundTripIsLossless is the fidelity contract: converting the notation a
 // graph produced back to a graph gives the same graph. Notation and RDF say the
@@ -3974,7 +3972,8 @@ func TestShadowingParametersStayNames(t *testing.T) {
 	for _, want := range []string{
 		`sysml:referent "value" ;`,
 		`sysml:referent "value"`,
-		`sysml:referent "w" ;`,
+		// A trigger's payload is a parameter of the transition's trigger action.
+		"sysml:referent elmt:Shadows__Governor___405___40trigger__w",
 		"sysml:referent elmt:Shadows__Sweep__items",
 	} {
 		if !strings.Contains(turtle, want) {

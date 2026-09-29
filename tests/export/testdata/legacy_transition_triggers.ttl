@@ -441,12 +441,8 @@ elmt:StateMachine__VehicleStates__active___401
     sysml:owningMembership elmt:StateMachine__VehicleStates__active___401_om ;
     sysx:transitionSyntax "accept" ;
     sysml:target elmt:StateMachine__VehicleStates__off ;
-    sysml:triggerAction elmt:StateMachine__VehicleStates__active___401___40trigger ;
-    sysml:ownedMember elmt:StateMachine__VehicleStates__active___401___40trigger ;
-    sysml:ownedMembership elmt:StateMachine__VehicleStates__active___401___40trigger_om ;
-    sysml:ownedRelationship elmt:StateMachine__VehicleStates__active___401___40trigger_om ;
-    sysml:ownedFeature elmt:StateMachine__VehicleStates__active___401___40trigger ;
-    sysml:ownedFeatureMembership elmt:StateMachine__VehicleStates__active___401___40trigger_om ;
+    sysx:trigger "sig : Signal" ;
+    sysx:triggerKeyword "accept" ;
     sysx:sourceText "            accept sig : Signal then off;\n" .
 
 elmt:StateMachine__VehicleStates__active___401_om
@@ -461,70 +457,6 @@ elmt:StateMachine__VehicleStates__active___401_om
     sysml:ownedMemberFeature elmt:StateMachine__VehicleStates__active___401 ;
     sysml:owningType elmt:StateMachine__VehicleStates__active .
 
-elmt:StateMachine__VehicleStates__active___401___40trigger
-    a sysml:AcceptActionUsage ;
-    sysml:qualifiedName "StateMachine::VehicleStates::active::@1::@trigger" ;
-    sysml:elementId "StateMachine__VehicleStates__active___401___40trigger" ;
-    sysml:owningNamespace elmt:StateMachine__VehicleStates__active___401 ;
-    sysml:owner elmt:StateMachine__VehicleStates__active___401 ;
-    sysml:owningRelationship elmt:StateMachine__VehicleStates__active___401___40trigger_om ;
-    sysml:owningMembership elmt:StateMachine__VehicleStates__active___401___40trigger_om ;
-    sysml:parameter elmt:StateMachine__VehicleStates__active___401___40trigger__sig ;
-    sysml:input elmt:StateMachine__VehicleStates__active___401___40trigger__sig ;
-    sysml:payloadParameter elmt:StateMachine__VehicleStates__active___401___40trigger__sig ;
-    sysml:ownedMember elmt:StateMachine__VehicleStates__active___401___40trigger__sig ;
-    sysml:ownedMembership elmt:StateMachine__VehicleStates__active___401___40trigger__sig_om ;
-    sysml:ownedRelationship elmt:StateMachine__VehicleStates__active___401___40trigger__sig_om ;
-    sysml:ownedFeature elmt:StateMachine__VehicleStates__active___401___40trigger__sig ;
-    sysml:ownedFeatureMembership elmt:StateMachine__VehicleStates__active___401___40trigger__sig_om .
-
-elmt:StateMachine__VehicleStates__active___401___40trigger_om
-    a sysml:TransitionFeatureMembership ;
-    sysml:elementId "StateMachine__VehicleStates__active___401___40trigger_om" ;
-    sysml:owner elmt:StateMachine__VehicleStates__active___401 ;
-    sysml:memberElement elmt:StateMachine__VehicleStates__active___401___40trigger ;
-    sysml:ownedMemberElement elmt:StateMachine__VehicleStates__active___401___40trigger ;
-    sysml:ownedRelatedElement elmt:StateMachine__VehicleStates__active___401___40trigger ;
-    sysml:owningRelatedElement elmt:StateMachine__VehicleStates__active___401 ;
-    sysml:membershipOwningNamespace elmt:StateMachine__VehicleStates__active___401 ;
-    sysml:kind "trigger" ;
-    sysml:transitionFeature elmt:StateMachine__VehicleStates__active___401___40trigger ;
-    sysml:ownedMemberFeature elmt:StateMachine__VehicleStates__active___401___40trigger ;
-    sysml:owningType elmt:StateMachine__VehicleStates__active___401 .
-
-elmt:StateMachine__VehicleStates__active___401___40trigger__sig
-    a sysml:ReferenceUsage ;
-    sysml:qualifiedName "StateMachine::VehicleStates::active::@1::@trigger::sig" ;
-    sysml:elementId "StateMachine__VehicleStates__active___401___40trigger__sig" ;
-    sysx:memberIndex "0"^^xsd:integer ;
-    sysml:owningNamespace elmt:StateMachine__VehicleStates__active___401___40trigger ;
-    sysml:owner elmt:StateMachine__VehicleStates__active___401___40trigger ;
-    sysml:owningRelationship elmt:StateMachine__VehicleStates__active___401___40trigger__sig_om ;
-    sysml:owningMembership elmt:StateMachine__VehicleStates__active___401___40trigger__sig_om ;
-    sysml:declaredName "sig" ;
-    sysx:isKindImplicit "true"^^xsd:boolean ;
-    sysml:isReference "true"^^xsd:boolean ;
-    sysml:isAccept "true"^^xsd:boolean ;
-    sysml:direction "in" ;
-    sysml:type elmt:StateMachine__Signal ;
-    sysx:hasBody "false"^^xsd:boolean ;
-    sysml:ownedTyping elmt:StateMachine__VehicleStates__active___401___40trigger__sig_ft0 ;
-    sysml:ownedSpecialization elmt:StateMachine__VehicleStates__active___401___40trigger__sig_ft0 ;
-    sysml:ownedRelationship elmt:StateMachine__VehicleStates__active___401___40trigger__sig_ft0 .
-
-elmt:StateMachine__VehicleStates__active___401___40trigger__sig_om
-    a sysml:ParameterMembership ;
-    sysml:elementId "StateMachine__VehicleStates__active___401___40trigger__sig_om" ;
-    sysml:owner elmt:StateMachine__VehicleStates__active___401___40trigger ;
-    sysml:memberElement elmt:StateMachine__VehicleStates__active___401___40trigger__sig ;
-    sysml:ownedMemberElement elmt:StateMachine__VehicleStates__active___401___40trigger__sig ;
-    sysml:ownedRelatedElement elmt:StateMachine__VehicleStates__active___401___40trigger__sig ;
-    sysml:owningRelatedElement elmt:StateMachine__VehicleStates__active___401___40trigger ;
-    sysml:membershipOwningNamespace elmt:StateMachine__VehicleStates__active___401___40trigger ;
-    sysml:ownedMemberParameter elmt:StateMachine__VehicleStates__active___401___40trigger__sig ;
-    sysml:ownedMemberFeature elmt:StateMachine__VehicleStates__active___401___40trigger__sig ;
-    sysml:owningType elmt:StateMachine__VehicleStates__active___401___40trigger .
-
 elmt:StateMachine__VehicleStates__off_5fto_5fstart
     a sysml:TransitionUsage ;
     sysml:qualifiedName "StateMachine::VehicleStates::off_to_start" ;
@@ -538,12 +470,8 @@ elmt:StateMachine__VehicleStates__off_5fto_5fstart
     sysx:transitionSyntax "first" ;
     sysml:source elmt:StateMachine__VehicleStates__off ;
     sysml:target elmt:StateMachine__VehicleStates__starting ;
-    sysml:triggerAction elmt:StateMachine__VehicleStates__off_5fto_5fstart___40trigger ;
-    sysml:ownedMember elmt:StateMachine__VehicleStates__off_5fto_5fstart___40trigger ;
-    sysml:ownedMembership elmt:StateMachine__VehicleStates__off_5fto_5fstart___40trigger_om ;
-    sysml:ownedRelationship elmt:StateMachine__VehicleStates__off_5fto_5fstart___40trigger_om ;
-    sysml:ownedFeature elmt:StateMachine__VehicleStates__off_5fto_5fstart___40trigger ;
-    sysml:ownedFeatureMembership elmt:StateMachine__VehicleStates__off_5fto_5fstart___40trigger_om ;
+    sysx:trigger "sig : Signal" ;
+    sysx:triggerKeyword "accept" ;
     sysx:sourceText "        transition off_to_start first off accept sig : Signal then starting;\n" .
 
 elmt:StateMachine__VehicleStates__off_5fto_5fstart_om
@@ -557,70 +485,6 @@ elmt:StateMachine__VehicleStates__off_5fto_5fstart_om
     sysml:membershipOwningNamespace elmt:StateMachine__VehicleStates ;
     sysml:ownedMemberFeature elmt:StateMachine__VehicleStates__off_5fto_5fstart ;
     sysml:owningType elmt:StateMachine__VehicleStates .
-
-elmt:StateMachine__VehicleStates__off_5fto_5fstart___40trigger
-    a sysml:AcceptActionUsage ;
-    sysml:qualifiedName "StateMachine::VehicleStates::off_to_start::@trigger" ;
-    sysml:elementId "StateMachine__VehicleStates__off_5fto_5fstart___40trigger" ;
-    sysml:owningNamespace elmt:StateMachine__VehicleStates__off_5fto_5fstart ;
-    sysml:owner elmt:StateMachine__VehicleStates__off_5fto_5fstart ;
-    sysml:owningRelationship elmt:StateMachine__VehicleStates__off_5fto_5fstart___40trigger_om ;
-    sysml:owningMembership elmt:StateMachine__VehicleStates__off_5fto_5fstart___40trigger_om ;
-    sysml:parameter elmt:StateMachine__VehicleStates__off_5fto_5fstart___40trigger__sig ;
-    sysml:input elmt:StateMachine__VehicleStates__off_5fto_5fstart___40trigger__sig ;
-    sysml:payloadParameter elmt:StateMachine__VehicleStates__off_5fto_5fstart___40trigger__sig ;
-    sysml:ownedMember elmt:StateMachine__VehicleStates__off_5fto_5fstart___40trigger__sig ;
-    sysml:ownedMembership elmt:StateMachine__VehicleStates__off_5fto_5fstart___40trigger__sig_om ;
-    sysml:ownedRelationship elmt:StateMachine__VehicleStates__off_5fto_5fstart___40trigger__sig_om ;
-    sysml:ownedFeature elmt:StateMachine__VehicleStates__off_5fto_5fstart___40trigger__sig ;
-    sysml:ownedFeatureMembership elmt:StateMachine__VehicleStates__off_5fto_5fstart___40trigger__sig_om .
-
-elmt:StateMachine__VehicleStates__off_5fto_5fstart___40trigger_om
-    a sysml:TransitionFeatureMembership ;
-    sysml:elementId "StateMachine__VehicleStates__off_5fto_5fstart___40trigger_om" ;
-    sysml:owner elmt:StateMachine__VehicleStates__off_5fto_5fstart ;
-    sysml:memberElement elmt:StateMachine__VehicleStates__off_5fto_5fstart___40trigger ;
-    sysml:ownedMemberElement elmt:StateMachine__VehicleStates__off_5fto_5fstart___40trigger ;
-    sysml:ownedRelatedElement elmt:StateMachine__VehicleStates__off_5fto_5fstart___40trigger ;
-    sysml:owningRelatedElement elmt:StateMachine__VehicleStates__off_5fto_5fstart ;
-    sysml:membershipOwningNamespace elmt:StateMachine__VehicleStates__off_5fto_5fstart ;
-    sysml:kind "trigger" ;
-    sysml:transitionFeature elmt:StateMachine__VehicleStates__off_5fto_5fstart___40trigger ;
-    sysml:ownedMemberFeature elmt:StateMachine__VehicleStates__off_5fto_5fstart___40trigger ;
-    sysml:owningType elmt:StateMachine__VehicleStates__off_5fto_5fstart .
-
-elmt:StateMachine__VehicleStates__off_5fto_5fstart___40trigger__sig
-    a sysml:ReferenceUsage ;
-    sysml:qualifiedName "StateMachine::VehicleStates::off_to_start::@trigger::sig" ;
-    sysml:elementId "StateMachine__VehicleStates__off_5fto_5fstart___40trigger__sig" ;
-    sysx:memberIndex "0"^^xsd:integer ;
-    sysml:owningNamespace elmt:StateMachine__VehicleStates__off_5fto_5fstart___40trigger ;
-    sysml:owner elmt:StateMachine__VehicleStates__off_5fto_5fstart___40trigger ;
-    sysml:owningRelationship elmt:StateMachine__VehicleStates__off_5fto_5fstart___40trigger__sig_om ;
-    sysml:owningMembership elmt:StateMachine__VehicleStates__off_5fto_5fstart___40trigger__sig_om ;
-    sysml:declaredName "sig" ;
-    sysx:isKindImplicit "true"^^xsd:boolean ;
-    sysml:isReference "true"^^xsd:boolean ;
-    sysml:isAccept "true"^^xsd:boolean ;
-    sysml:direction "in" ;
-    sysml:type elmt:StateMachine__Signal ;
-    sysx:hasBody "false"^^xsd:boolean ;
-    sysml:ownedTyping elmt:StateMachine__VehicleStates__off_5fto_5fstart___40trigger__sig_ft0 ;
-    sysml:ownedSpecialization elmt:StateMachine__VehicleStates__off_5fto_5fstart___40trigger__sig_ft0 ;
-    sysml:ownedRelationship elmt:StateMachine__VehicleStates__off_5fto_5fstart___40trigger__sig_ft0 .
-
-elmt:StateMachine__VehicleStates__off_5fto_5fstart___40trigger__sig_om
-    a sysml:ParameterMembership ;
-    sysml:elementId "StateMachine__VehicleStates__off_5fto_5fstart___40trigger__sig_om" ;
-    sysml:owner elmt:StateMachine__VehicleStates__off_5fto_5fstart___40trigger ;
-    sysml:memberElement elmt:StateMachine__VehicleStates__off_5fto_5fstart___40trigger__sig ;
-    sysml:ownedMemberElement elmt:StateMachine__VehicleStates__off_5fto_5fstart___40trigger__sig ;
-    sysml:ownedRelatedElement elmt:StateMachine__VehicleStates__off_5fto_5fstart___40trigger__sig ;
-    sysml:owningRelatedElement elmt:StateMachine__VehicleStates__off_5fto_5fstart___40trigger ;
-    sysml:membershipOwningNamespace elmt:StateMachine__VehicleStates__off_5fto_5fstart___40trigger ;
-    sysml:ownedMemberParameter elmt:StateMachine__VehicleStates__off_5fto_5fstart___40trigger__sig ;
-    sysml:ownedMemberFeature elmt:StateMachine__VehicleStates__off_5fto_5fstart___40trigger__sig ;
-    sysml:owningType elmt:StateMachine__VehicleStates__off_5fto_5fstart___40trigger .
 
 elmt:StateMachine__VehicleStates___405
     a sysml:TransitionUsage ;
@@ -710,22 +574,21 @@ elmt:StateMachine__VehicleStates__active_5fto_5foff
     sysx:transitionSyntax "first" ;
     sysml:source elmt:StateMachine__VehicleStates__active ;
     sysml:target elmt:StateMachine__VehicleStates__off ;
-    sysml:triggerAction elmt:StateMachine__VehicleStates__active_5fto_5foff___40trigger ;
-    sysml:ownedMember elmt:StateMachine__VehicleStates__active_5fto_5foff___40trigger, elmt:StateMachine__VehicleStates__active_5fto_5foff__stop ;
-    sysml:ownedMembership elmt:StateMachine__VehicleStates__active_5fto_5foff___40trigger_om, expr:StateMachine__VehicleStates__active_5fto_5foff_pguard_om, elmt:StateMachine__VehicleStates__active_5fto_5foff__stop_om ;
-    sysml:ownedRelationship elmt:StateMachine__VehicleStates__active_5fto_5foff___40trigger_om, expr:StateMachine__VehicleStates__active_5fto_5foff_pguard_om, elmt:StateMachine__VehicleStates__active_5fto_5foff__stop_om ;
-    sysml:ownedFeature elmt:StateMachine__VehicleStates__active_5fto_5foff___40trigger, elmt:StateMachine__VehicleStates__active_5fto_5foff__stop ;
-    sysml:ownedFeatureMembership elmt:StateMachine__VehicleStates__active_5fto_5foff___40trigger_om, elmt:StateMachine__VehicleStates__active_5fto_5foff__stop_om ;
+    sysx:trigger "sig : Signal" ;
+    sysx:triggerKeyword "accept" ;
+    sysml:via elmt:StateMachine__VehicleStates__lane ;
     sysx:guard expr:StateMachine__VehicleStates__active_5fto_5foff_pguard ;
+    sysml:ownedRelationship expr:StateMachine__VehicleStates__active_5fto_5foff_pguard_om, elmt:StateMachine__VehicleStates__active_5fto_5foff__stop_om ;
+    sysml:ownedMembership expr:StateMachine__VehicleStates__active_5fto_5foff_pguard_om, elmt:StateMachine__VehicleStates__active_5fto_5foff__stop_om ;
     sysx:hasEffect "true"^^xsd:boolean ;
     sysx:effectMember elmt:StateMachine__VehicleStates__active_5fto_5foff__stop ;
     sysml:effectAction elmt:StateMachine__VehicleStates__active_5fto_5foff__stop ;
+    sysml:ownedMember elmt:StateMachine__VehicleStates__active_5fto_5foff__stop ;
+    sysml:ownedFeature elmt:StateMachine__VehicleStates__active_5fto_5foff__stop ;
+    sysml:ownedFeatureMembership elmt:StateMachine__VehicleStates__active_5fto_5foff__stop_om ;
     sysx:sourceText "        transition active_to_off first active accept sig : Signal via lane if monitor do action stop : Warm then off;\n" ;
-    json:ownedMember "[{\"@id\":\"StateMachine__VehicleStates__active_5fto_5foff___40trigger\"},{\"@id\":\"StateMachine__VehicleStates__active_5fto_5foff__stop\"}]" ;
-    json:ownedMembership "[{\"@id\":\"StateMachine__VehicleStates__active_5fto_5foff___40trigger_om\"},{\"@id\":\"StateMachine__VehicleStates__active_5fto_5foff_pguard_om\"},{\"@id\":\"StateMachine__VehicleStates__active_5fto_5foff__stop_om\"}]" ;
-    json:ownedRelationship "[{\"@id\":\"StateMachine__VehicleStates__active_5fto_5foff___40trigger_om\"},{\"@id\":\"StateMachine__VehicleStates__active_5fto_5foff_pguard_om\"},{\"@id\":\"StateMachine__VehicleStates__active_5fto_5foff__stop_om\"}]" ;
-    json:ownedFeature "[{\"@id\":\"StateMachine__VehicleStates__active_5fto_5foff___40trigger\"},{\"@id\":\"StateMachine__VehicleStates__active_5fto_5foff__stop\"}]" ;
-    json:ownedFeatureMembership "[{\"@id\":\"StateMachine__VehicleStates__active_5fto_5foff___40trigger_om\"},{\"@id\":\"StateMachine__VehicleStates__active_5fto_5foff__stop_om\"}]" .
+    json:ownedRelationship "[{\"@id\":\"StateMachine__VehicleStates__active_5fto_5foff_pguard_om\"},{\"@id\":\"StateMachine__VehicleStates__active_5fto_5foff__stop_om\"}]" ;
+    json:ownedMembership "[{\"@id\":\"StateMachine__VehicleStates__active_5fto_5foff_pguard_om\"},{\"@id\":\"StateMachine__VehicleStates__active_5fto_5foff__stop_om\"}]" .
 
 elmt:StateMachine__VehicleStates__active_5fto_5foff_om
     a sysml:FeatureMembership ;
@@ -738,156 +601,6 @@ elmt:StateMachine__VehicleStates__active_5fto_5foff_om
     sysml:membershipOwningNamespace elmt:StateMachine__VehicleStates ;
     sysml:ownedMemberFeature elmt:StateMachine__VehicleStates__active_5fto_5foff ;
     sysml:owningType elmt:StateMachine__VehicleStates .
-
-elmt:StateMachine__VehicleStates__active_5fto_5foff___40trigger
-    a sysml:AcceptActionUsage ;
-    sysml:qualifiedName "StateMachine::VehicleStates::active_to_off::@trigger" ;
-    sysml:elementId "StateMachine__VehicleStates__active_5fto_5foff___40trigger" ;
-    sysml:owningNamespace elmt:StateMachine__VehicleStates__active_5fto_5foff ;
-    sysml:owner elmt:StateMachine__VehicleStates__active_5fto_5foff ;
-    sysml:owningRelationship elmt:StateMachine__VehicleStates__active_5fto_5foff___40trigger_om ;
-    sysml:owningMembership elmt:StateMachine__VehicleStates__active_5fto_5foff___40trigger_om ;
-    sysml:parameter elmt:StateMachine__VehicleStates__active_5fto_5foff___40trigger__sig, elmt:StateMachine__VehicleStates__active_5fto_5foff___40trigger___401 ;
-    sysml:input elmt:StateMachine__VehicleStates__active_5fto_5foff___40trigger__sig, elmt:StateMachine__VehicleStates__active_5fto_5foff___40trigger___401 ;
-    sysml:payloadParameter elmt:StateMachine__VehicleStates__active_5fto_5foff___40trigger__sig ;
-    sysml:ownedMember elmt:StateMachine__VehicleStates__active_5fto_5foff___40trigger__sig, elmt:StateMachine__VehicleStates__active_5fto_5foff___40trigger___401 ;
-    sysml:ownedMembership elmt:StateMachine__VehicleStates__active_5fto_5foff___40trigger__sig_om, elmt:StateMachine__VehicleStates__active_5fto_5foff___40trigger___401_om ;
-    sysml:ownedRelationship elmt:StateMachine__VehicleStates__active_5fto_5foff___40trigger__sig_om, elmt:StateMachine__VehicleStates__active_5fto_5foff___40trigger___401_om ;
-    sysml:ownedFeature elmt:StateMachine__VehicleStates__active_5fto_5foff___40trigger__sig, elmt:StateMachine__VehicleStates__active_5fto_5foff___40trigger___401 ;
-    sysml:ownedFeatureMembership elmt:StateMachine__VehicleStates__active_5fto_5foff___40trigger__sig_om, elmt:StateMachine__VehicleStates__active_5fto_5foff___40trigger___401_om ;
-    sysml:receiverArgument expr:StateMachine__VehicleStates__active_5fto_5foff___40trigger___401_pvalue ;
-    json:parameter "[{\"@id\":\"StateMachine__VehicleStates__active_5fto_5foff___40trigger__sig\"},{\"@id\":\"StateMachine__VehicleStates__active_5fto_5foff___40trigger___401\"}]" ;
-    json:input "[{\"@id\":\"StateMachine__VehicleStates__active_5fto_5foff___40trigger__sig\"},{\"@id\":\"StateMachine__VehicleStates__active_5fto_5foff___40trigger___401\"}]" ;
-    json:ownedMember "[{\"@id\":\"StateMachine__VehicleStates__active_5fto_5foff___40trigger__sig\"},{\"@id\":\"StateMachine__VehicleStates__active_5fto_5foff___40trigger___401\"}]" ;
-    json:ownedMembership "[{\"@id\":\"StateMachine__VehicleStates__active_5fto_5foff___40trigger__sig_om\"},{\"@id\":\"StateMachine__VehicleStates__active_5fto_5foff___40trigger___401_om\"}]" ;
-    json:ownedRelationship "[{\"@id\":\"StateMachine__VehicleStates__active_5fto_5foff___40trigger__sig_om\"},{\"@id\":\"StateMachine__VehicleStates__active_5fto_5foff___40trigger___401_om\"}]" ;
-    json:ownedFeature "[{\"@id\":\"StateMachine__VehicleStates__active_5fto_5foff___40trigger__sig\"},{\"@id\":\"StateMachine__VehicleStates__active_5fto_5foff___40trigger___401\"}]" ;
-    json:ownedFeatureMembership "[{\"@id\":\"StateMachine__VehicleStates__active_5fto_5foff___40trigger__sig_om\"},{\"@id\":\"StateMachine__VehicleStates__active_5fto_5foff___40trigger___401_om\"}]" .
-
-elmt:StateMachine__VehicleStates__active_5fto_5foff___40trigger_om
-    a sysml:TransitionFeatureMembership ;
-    sysml:elementId "StateMachine__VehicleStates__active_5fto_5foff___40trigger_om" ;
-    sysml:owner elmt:StateMachine__VehicleStates__active_5fto_5foff ;
-    sysml:memberElement elmt:StateMachine__VehicleStates__active_5fto_5foff___40trigger ;
-    sysml:ownedMemberElement elmt:StateMachine__VehicleStates__active_5fto_5foff___40trigger ;
-    sysml:ownedRelatedElement elmt:StateMachine__VehicleStates__active_5fto_5foff___40trigger ;
-    sysml:owningRelatedElement elmt:StateMachine__VehicleStates__active_5fto_5foff ;
-    sysml:membershipOwningNamespace elmt:StateMachine__VehicleStates__active_5fto_5foff ;
-    sysml:kind "trigger" ;
-    sysml:transitionFeature elmt:StateMachine__VehicleStates__active_5fto_5foff___40trigger ;
-    sysml:ownedMemberFeature elmt:StateMachine__VehicleStates__active_5fto_5foff___40trigger ;
-    sysml:owningType elmt:StateMachine__VehicleStates__active_5fto_5foff .
-
-elmt:StateMachine__VehicleStates__active_5fto_5foff___40trigger__sig
-    a sysml:ReferenceUsage ;
-    sysml:qualifiedName "StateMachine::VehicleStates::active_to_off::@trigger::sig" ;
-    sysml:elementId "StateMachine__VehicleStates__active_5fto_5foff___40trigger__sig" ;
-    sysx:memberIndex "0"^^xsd:integer ;
-    sysml:owningNamespace elmt:StateMachine__VehicleStates__active_5fto_5foff___40trigger ;
-    sysml:owner elmt:StateMachine__VehicleStates__active_5fto_5foff___40trigger ;
-    sysml:owningRelationship elmt:StateMachine__VehicleStates__active_5fto_5foff___40trigger__sig_om ;
-    sysml:owningMembership elmt:StateMachine__VehicleStates__active_5fto_5foff___40trigger__sig_om ;
-    sysml:declaredName "sig" ;
-    sysx:isKindImplicit "true"^^xsd:boolean ;
-    sysml:isReference "true"^^xsd:boolean ;
-    sysml:isAccept "true"^^xsd:boolean ;
-    sysml:direction "in" ;
-    sysml:type elmt:StateMachine__Signal ;
-    sysx:hasBody "false"^^xsd:boolean ;
-    sysml:ownedTyping elmt:StateMachine__VehicleStates__active_5fto_5foff___40trigger__sig_ft0 ;
-    sysml:ownedSpecialization elmt:StateMachine__VehicleStates__active_5fto_5foff___40trigger__sig_ft0 ;
-    sysml:ownedRelationship elmt:StateMachine__VehicleStates__active_5fto_5foff___40trigger__sig_ft0 .
-
-elmt:StateMachine__VehicleStates__active_5fto_5foff___40trigger__sig_om
-    a sysml:ParameterMembership ;
-    sysml:elementId "StateMachine__VehicleStates__active_5fto_5foff___40trigger__sig_om" ;
-    sysml:owner elmt:StateMachine__VehicleStates__active_5fto_5foff___40trigger ;
-    sysml:memberElement elmt:StateMachine__VehicleStates__active_5fto_5foff___40trigger__sig ;
-    sysml:ownedMemberElement elmt:StateMachine__VehicleStates__active_5fto_5foff___40trigger__sig ;
-    sysml:ownedRelatedElement elmt:StateMachine__VehicleStates__active_5fto_5foff___40trigger__sig ;
-    sysml:owningRelatedElement elmt:StateMachine__VehicleStates__active_5fto_5foff___40trigger ;
-    sysml:membershipOwningNamespace elmt:StateMachine__VehicleStates__active_5fto_5foff___40trigger ;
-    sysml:ownedMemberParameter elmt:StateMachine__VehicleStates__active_5fto_5foff___40trigger__sig ;
-    sysml:ownedMemberFeature elmt:StateMachine__VehicleStates__active_5fto_5foff___40trigger__sig ;
-    sysml:owningType elmt:StateMachine__VehicleStates__active_5fto_5foff___40trigger .
-
-elmt:StateMachine__VehicleStates__active_5fto_5foff___40trigger___401
-    a sysml:ReferenceUsage ;
-    sysml:qualifiedName "StateMachine::VehicleStates::active_to_off::@trigger::@1" ;
-    sysml:elementId "StateMachine__VehicleStates__active_5fto_5foff___40trigger___401" ;
-    sysx:memberIndex "1"^^xsd:integer ;
-    sysml:owningNamespace elmt:StateMachine__VehicleStates__active_5fto_5foff___40trigger ;
-    sysml:owner elmt:StateMachine__VehicleStates__active_5fto_5foff___40trigger ;
-    sysml:owningRelationship elmt:StateMachine__VehicleStates__active_5fto_5foff___40trigger___401_om ;
-    sysml:owningMembership elmt:StateMachine__VehicleStates__active_5fto_5foff___40trigger___401_om ;
-    sysx:isKindImplicit "true"^^xsd:boolean ;
-    sysml:isReference "true"^^xsd:boolean ;
-    sysml:direction "in" ;
-    sysml:value expr:StateMachine__VehicleStates__active_5fto_5foff___40trigger___401_pvalue ;
-    sysml:ownedRelationship expr:StateMachine__VehicleStates__active_5fto_5foff___40trigger___401_pvalue_om ;
-    sysml:ownedMembership expr:StateMachine__VehicleStates__active_5fto_5foff___40trigger___401_pvalue_om ;
-    sysx:hasBody "false"^^xsd:boolean .
-
-elmt:StateMachine__VehicleStates__active_5fto_5foff___40trigger___401_om
-    a sysml:ParameterMembership ;
-    sysml:elementId "StateMachine__VehicleStates__active_5fto_5foff___40trigger___401_om" ;
-    sysml:owner elmt:StateMachine__VehicleStates__active_5fto_5foff___40trigger ;
-    sysml:memberElement elmt:StateMachine__VehicleStates__active_5fto_5foff___40trigger___401 ;
-    sysml:ownedMemberElement elmt:StateMachine__VehicleStates__active_5fto_5foff___40trigger___401 ;
-    sysml:ownedRelatedElement elmt:StateMachine__VehicleStates__active_5fto_5foff___40trigger___401 ;
-    sysml:owningRelatedElement elmt:StateMachine__VehicleStates__active_5fto_5foff___40trigger ;
-    sysml:membershipOwningNamespace elmt:StateMachine__VehicleStates__active_5fto_5foff___40trigger ;
-    sysml:ownedMemberParameter elmt:StateMachine__VehicleStates__active_5fto_5foff___40trigger___401 ;
-    sysml:ownedMemberFeature elmt:StateMachine__VehicleStates__active_5fto_5foff___40trigger___401 ;
-    sysml:owningType elmt:StateMachine__VehicleStates__active_5fto_5foff___40trigger .
-
-expr:StateMachine__VehicleStates__active_5fto_5foff___40trigger___401_pvalue
-    a sysml:FeatureReferenceExpression ;
-    sysx:sourceText "lane" ;
-    sysml:elementId "StateMachine__VehicleStates__active_5fto_5foff___40trigger___401_pvalue" ;
-    sysml:referent elmt:StateMachine__VehicleStates__lane ;
-    sysml:ownedRelationship expr:StateMachine__VehicleStates__active_5fto_5foff___40trigger___401_pvalue_pout_om, expr:StateMachine__VehicleStates__active_5fto_5foff___40trigger___401_pvalue_preferent ;
-    sysml:ownedMembership expr:StateMachine__VehicleStates__active_5fto_5foff___40trigger___401_pvalue_pout_om ;
-    sysml:ownedFeatureMembership expr:StateMachine__VehicleStates__active_5fto_5foff___40trigger___401_pvalue_pout_om ;
-    sysml:ownedFeature expr:StateMachine__VehicleStates__active_5fto_5foff___40trigger___401_pvalue_pout ;
-    sysml:parameter expr:StateMachine__VehicleStates__active_5fto_5foff___40trigger___401_pvalue_pout ;
-    sysml:result expr:StateMachine__VehicleStates__active_5fto_5foff___40trigger___401_pvalue_pout ;
-    sysml:owner elmt:StateMachine__VehicleStates__active_5fto_5foff___40trigger___401 ;
-    sysml:owningRelationship expr:StateMachine__VehicleStates__active_5fto_5foff___40trigger___401_pvalue_om ;
-    sysml:owningMembership expr:StateMachine__VehicleStates__active_5fto_5foff___40trigger___401_pvalue_om ;
-    json:ownedRelationship "[{\"@id\":\"StateMachine__VehicleStates__active_5fto_5foff___40trigger___401_pvalue_pout_om\"},{\"@id\":\"StateMachine__VehicleStates__active_5fto_5foff___40trigger___401_pvalue_preferent\"}]" .
-
-expr:StateMachine__VehicleStates__active_5fto_5foff___40trigger___401_pvalue_pout
-    a sysml:Feature ;
-    sysml:elementId "StateMachine__VehicleStates__active_5fto_5foff___40trigger___401_pvalue_pout" ;
-    sysml:direction "out" ;
-    sysml:owner expr:StateMachine__VehicleStates__active_5fto_5foff___40trigger___401_pvalue ;
-    sysml:owningRelationship expr:StateMachine__VehicleStates__active_5fto_5foff___40trigger___401_pvalue_pout_om ;
-    sysml:owningMembership expr:StateMachine__VehicleStates__active_5fto_5foff___40trigger___401_pvalue_pout_om .
-
-expr:StateMachine__VehicleStates__active_5fto_5foff___40trigger___401_pvalue_pout_om
-    a sysml:ReturnParameterMembership ;
-    sysml:elementId "StateMachine__VehicleStates__active_5fto_5foff___40trigger___401_pvalue_pout_om" ;
-    sysml:owner expr:StateMachine__VehicleStates__active_5fto_5foff___40trigger___401_pvalue ;
-    sysml:memberElement expr:StateMachine__VehicleStates__active_5fto_5foff___40trigger___401_pvalue_pout ;
-    sysml:ownedMemberElement expr:StateMachine__VehicleStates__active_5fto_5foff___40trigger___401_pvalue_pout ;
-    sysml:ownedRelatedElement expr:StateMachine__VehicleStates__active_5fto_5foff___40trigger___401_pvalue_pout ;
-    sysml:owningRelatedElement expr:StateMachine__VehicleStates__active_5fto_5foff___40trigger___401_pvalue ;
-    sysml:membershipOwningNamespace expr:StateMachine__VehicleStates__active_5fto_5foff___40trigger___401_pvalue ;
-    sysml:ownedMemberFeature expr:StateMachine__VehicleStates__active_5fto_5foff___40trigger___401_pvalue_pout ;
-    sysml:ownedMemberParameter expr:StateMachine__VehicleStates__active_5fto_5foff___40trigger___401_pvalue_pout .
-
-expr:StateMachine__VehicleStates__active_5fto_5foff___40trigger___401_pvalue_om
-    a sysml:FeatureValue ;
-    sysml:elementId "StateMachine__VehicleStates__active_5fto_5foff___40trigger___401_pvalue_om" ;
-    sysml:owner elmt:StateMachine__VehicleStates__active_5fto_5foff___40trigger___401 ;
-    sysml:memberElement expr:StateMachine__VehicleStates__active_5fto_5foff___40trigger___401_pvalue ;
-    sysml:ownedMemberElement expr:StateMachine__VehicleStates__active_5fto_5foff___40trigger___401_pvalue ;
-    sysml:ownedRelatedElement expr:StateMachine__VehicleStates__active_5fto_5foff___40trigger___401_pvalue ;
-    sysml:owningRelatedElement elmt:StateMachine__VehicleStates__active_5fto_5foff___40trigger___401 ;
-    sysml:membershipOwningNamespace elmt:StateMachine__VehicleStates__active_5fto_5foff___40trigger___401 ;
-    sysml:featureWithValue elmt:StateMachine__VehicleStates__active_5fto_5foff___40trigger___401 ;
-    sysml:value expr:StateMachine__VehicleStates__active_5fto_5foff___40trigger___401_pvalue .
 
 expr:StateMachine__VehicleStates__active_5fto_5foff_pguard
     a sysml:FeatureReferenceExpression ;
@@ -1601,64 +1314,12 @@ elmt:StateMachine__VehicleStates__active___400__monitor_ft0
     sysml:relatedElement elmt:StateMachine__VehicleStates__active___400__monitor, elmt:StateMachine__Warm ;
     json:relatedElement "[{\"@id\":\"StateMachine__VehicleStates__active___400__monitor\"},{\"@id\":\"StateMachine__Warm\"}]" .
 
-elmt:StateMachine__VehicleStates__active___401___40trigger__sig_ft0
-    a sysml:FeatureTyping ;
-    sysml:elementId "StateMachine__VehicleStates__active___401___40trigger__sig_ft0" ;
-    sysml:typedFeature elmt:StateMachine__VehicleStates__active___401___40trigger__sig ;
-    sysml:owningFeature elmt:StateMachine__VehicleStates__active___401___40trigger__sig ;
-    sysml:specific elmt:StateMachine__VehicleStates__active___401___40trigger__sig ;
-    sysml:source elmt:StateMachine__VehicleStates__active___401___40trigger__sig ;
-    sysml:owningRelatedElement elmt:StateMachine__VehicleStates__active___401___40trigger__sig ;
-    sysml:type elmt:StateMachine__Signal ;
-    sysml:general elmt:StateMachine__Signal ;
-    sysml:target elmt:StateMachine__Signal ;
-    sysml:owner elmt:StateMachine__VehicleStates__active___401___40trigger__sig ;
-    sysml:relatedElement elmt:StateMachine__VehicleStates__active___401___40trigger__sig, elmt:StateMachine__Signal ;
-    json:relatedElement "[{\"@id\":\"StateMachine__VehicleStates__active___401___40trigger__sig\"},{\"@id\":\"StateMachine__Signal\"}]" .
-
-elmt:StateMachine__VehicleStates__off_5fto_5fstart___40trigger__sig_ft0
-    a sysml:FeatureTyping ;
-    sysml:elementId "StateMachine__VehicleStates__off_5fto_5fstart___40trigger__sig_ft0" ;
-    sysml:typedFeature elmt:StateMachine__VehicleStates__off_5fto_5fstart___40trigger__sig ;
-    sysml:owningFeature elmt:StateMachine__VehicleStates__off_5fto_5fstart___40trigger__sig ;
-    sysml:specific elmt:StateMachine__VehicleStates__off_5fto_5fstart___40trigger__sig ;
-    sysml:source elmt:StateMachine__VehicleStates__off_5fto_5fstart___40trigger__sig ;
-    sysml:owningRelatedElement elmt:StateMachine__VehicleStates__off_5fto_5fstart___40trigger__sig ;
-    sysml:type elmt:StateMachine__Signal ;
-    sysml:general elmt:StateMachine__Signal ;
-    sysml:target elmt:StateMachine__Signal ;
-    sysml:owner elmt:StateMachine__VehicleStates__off_5fto_5fstart___40trigger__sig ;
-    sysml:relatedElement elmt:StateMachine__VehicleStates__off_5fto_5fstart___40trigger__sig, elmt:StateMachine__Signal ;
-    json:relatedElement "[{\"@id\":\"StateMachine__VehicleStates__off_5fto_5fstart___40trigger__sig\"},{\"@id\":\"StateMachine__Signal\"}]" .
-
 expr:StateMachine__VehicleStates___405_pguard_preferent
     a sysml:Membership ;
     sysml:elementId "StateMachine__VehicleStates___405_pguard_preferent" ;
     sysml:memberElement "ready" ;
     sysml:owner expr:StateMachine__VehicleStates___405_pguard ;
     sysml:owningRelatedElement expr:StateMachine__VehicleStates___405_pguard .
-
-elmt:StateMachine__VehicleStates__active_5fto_5foff___40trigger__sig_ft0
-    a sysml:FeatureTyping ;
-    sysml:elementId "StateMachine__VehicleStates__active_5fto_5foff___40trigger__sig_ft0" ;
-    sysml:typedFeature elmt:StateMachine__VehicleStates__active_5fto_5foff___40trigger__sig ;
-    sysml:owningFeature elmt:StateMachine__VehicleStates__active_5fto_5foff___40trigger__sig ;
-    sysml:specific elmt:StateMachine__VehicleStates__active_5fto_5foff___40trigger__sig ;
-    sysml:source elmt:StateMachine__VehicleStates__active_5fto_5foff___40trigger__sig ;
-    sysml:owningRelatedElement elmt:StateMachine__VehicleStates__active_5fto_5foff___40trigger__sig ;
-    sysml:type elmt:StateMachine__Signal ;
-    sysml:general elmt:StateMachine__Signal ;
-    sysml:target elmt:StateMachine__Signal ;
-    sysml:owner elmt:StateMachine__VehicleStates__active_5fto_5foff___40trigger__sig ;
-    sysml:relatedElement elmt:StateMachine__VehicleStates__active_5fto_5foff___40trigger__sig, elmt:StateMachine__Signal ;
-    json:relatedElement "[{\"@id\":\"StateMachine__VehicleStates__active_5fto_5foff___40trigger__sig\"},{\"@id\":\"StateMachine__Signal\"}]" .
-
-expr:StateMachine__VehicleStates__active_5fto_5foff___40trigger___401_pvalue_preferent
-    a sysml:Membership ;
-    sysml:elementId "StateMachine__VehicleStates__active_5fto_5foff___40trigger___401_pvalue_preferent" ;
-    sysml:memberElement elmt:StateMachine__VehicleStates__lane ;
-    sysml:owner expr:StateMachine__VehicleStates__active_5fto_5foff___40trigger___401_pvalue ;
-    sysml:owningRelatedElement expr:StateMachine__VehicleStates__active_5fto_5foff___40trigger___401_pvalue .
 
 expr:StateMachine__VehicleStates__active_5fto_5foff_pguard_preferent
     a sysml:Membership ;
