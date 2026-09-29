@@ -78,6 +78,7 @@ var packageLayer = map[string]string{
 	"internal/exec/analysis/modelform":  "exec",
 	"internal/exec/analysis/record":     "exec",
 	"internal/exec/engines":             "exec",
+	"internal/exec/fmi":                 "exec",
 	"internal/exec/hostcap":             "exec",
 	"internal/exec/objref":              "exec",
 
@@ -86,6 +87,7 @@ var packageLayer = map[string]string{
 	"internal/translate/convert":          "translate",
 	"internal/translate/export":           "translate",
 	"internal/translate/filename":         "translate",
+	"internal/translate/fmi":              "translate",
 	"internal/translate/imagefile":        "translate",
 	"internal/translate/migrate":          "translate",
 	"internal/translate/deferred":         "translate",

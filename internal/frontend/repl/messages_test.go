@@ -111,7 +111,7 @@ func TestMessageQuality(t *testing.T) {
 		line:  "%save /tmp/opensysml-message-test.txt",
 		want: []string{
 			`error: cannot tell the format of "/tmp/opensysml-message-test.txt": expected .sysml, .kerml, .ttl or .json, ` +
-				"so name the file with a .sysml, .kerml, .ttl or .json extension, or pass -convert on the command line",
+				"so name the file with a .sysml, .kerml, .ttl, .json or .fmu extension, or pass -convert on the command line",
 		},
 	}}
 

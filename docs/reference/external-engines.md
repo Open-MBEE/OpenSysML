@@ -10,7 +10,9 @@ interpreter did not check: a witness is replayed and the claim evaluated where t
 says, and a universal claim without executions to replay is *not covered* with the claim kept
 in the reason. The design is
 [bring your own engine](../internals/design/bring-your-own-engines.md); this page is the
-contract an engine author and a site operator hold each other to.
+contract an engine author and a site operator hold each other to. One engine is built in for a
+tool with a protocol of its own: `tool:fmi` evaluates a `calc def` imported from an FMI model
+through the runner `OPENSYSML_FMI_RUNNER` names — see [FMI models (FMUs)](fmi.md).
 
 ## The manifest entry
 

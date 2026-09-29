@@ -154,6 +154,21 @@ commands:
           paths:
             - build/pilot-library-xmi
 
+      # The Modelica Reference-FMUs, gated by tests/fmi and the Python runner's
+      # real test; pinned by tag and checksum like the corpora above.
+      - restore_cache:
+          keys:
+            - reference-fmus-v1-{{ checksum "scripts/download-reference-fmus.sh" }}-{{ checksum "scripts/reference-fmus-pin.sh" }}
+
+      - run:
+          name: Download the Reference-FMUs
+          command: ./scripts/download-reference-fmus.sh
+
+      - save_cache:
+          key: reference-fmus-v1-{{ checksum "scripts/download-reference-fmus.sh" }}-{{ checksum "scripts/reference-fmus-pin.sh" }}
+          paths:
+            - examples/reference-fmus
+
       - run:
           name: Verify the OMG pilot corpora
           command: |
@@ -314,6 +329,12 @@ jobs:
       - install-solvers
       - download-corpora
 
+      # The FMI gate's runner is a Python subprocess over FMPy; the executor
+      # carries python3, the library it drives is installed here.
+      - run:
+          name: Install fmpy
+          command: pip install --only-binary ":all:" fmpy==0.3.32
+
       # Sharded by package: the suite's slowest packages run near the 30m
       # per-package timeout when they share one executor.
       - run:
@@ -339,6 +360,9 @@ jobs:
             # Same for Node, which the executor carries: the WebAssembly gate runs
             # the wasm binaries rather than skipping without a runtime (tests/wasm).
             OPENSYSML_REQUIRE_WASM: "1"
+            # Same for the Reference-FMUs and fmpy, fetched and installed above:
+            # the FMI gate runs rather than skips (tests/fmi).
+            OPENSYSML_REQUIRE_REFERENCE_FMUS: "1"
 
   # A second, race-free pass, because the profile the scan reads is written
   # with -coverpkg, which is too slow to instrument under -race.
@@ -354,6 +378,12 @@ jobs:
       - install-solvers
       - download-corpora
 
+      # The FMI gate's runner is a Python subprocess over FMPy, which the
+      # coverage pass needs installed the same way the race job does.
+      - run:
+          name: Install fmpy
+          command: pip install --only-binary ":all:" fmpy==0.3.32
+
       - run:
           name: Write the coverage profile the scan reads
           command: make coverage
@@ -368,6 +398,8 @@ jobs:
             # Node is on the executor, so the WebAssembly gate runs rather than
             # skips without a runtime (tests/wasm).
             OPENSYSML_REQUIRE_WASM: "1"
+            # Same for the Reference-FMUs and fmpy (tests/fmi).
+            OPENSYSML_REQUIRE_REFERENCE_FMUS: "1"
 
       - persist_to_workspace:
           root: .
@@ -847,6 +879,10 @@ jobs:
           command: |
             go version
 
+      # The FMI runner test reads the Reference-FMUs under examples/, downloaded
+      # by the same command the Go jobs run.
+      - download-corpora
+
       - run:
           name: Install sysml-grpc
           command: |
@@ -859,7 +895,7 @@ jobs:
           command: |
             make python-install
             # Pinned and wheel-only, as in .github/workflows/pr.yml.
-            pip install --only-binary :all: pytest==9.0.3 pytest-mock==3.15.1 psutil==7.2.2 pytest-cov==7.0.0
+            pip install --only-binary :all: pytest==9.0.3 pytest-mock==3.15.1 psutil==7.2.2 pytest-cov==7.0.0 fmpy==0.3.32
       
       # The integration tests connect to a service on the standard port with
       # auto_start=False, which is the explicit opt-in to one the client does not
@@ -893,7 +929,7 @@ jobs:
       # service is provided here, so its absence is the bug, not a pass.
       - run:
           name: Run Python client tests
-          command: OPENSYSML_REQUIRE_SERVICE=1 make python-coverage
+          command: OPENSYSML_REQUIRE_SERVICE=1 OPENSYSML_REQUIRE_REFERENCE_FMUS=1 make python-coverage
 
       # The repository scripts the Go static checks run are Python too; running
       # them and their tests under coverage here credits what those checks execute.
