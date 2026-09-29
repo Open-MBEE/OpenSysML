@@ -104,3 +104,31 @@ func sourceRanges(t *testing.T, src string) map[string][4]float64 {
 	}
 	return got
 }
+
+// A declaration's body is the `/* … */` comment the parser attached to it, even
+// after a note: `doc // note` followed by its body on the next line ends at
+// the body, as does a `comment` or a textual representation written that way.
+func TestSourceRangeIncludesBodyAfterNote(t *testing.T) {
+	const src = `package C {
+    doc // note
+    /* body */
+    part p {
+        comment // n
+        /* about */
+        rep inline language "text" // n
+        /* text */
+    }
+}
+`
+	got := sourceRanges(t, src)
+	for name, want := range map[string][4]float64{
+		"C::@0":        {2, 5, 3, 15},
+		"C::p":         {4, 5, 9, 6},
+		"C::p::@0":     {5, 9, 6, 20},
+		"C::p::inline": {7, 9, 8, 19},
+	} {
+		if got[name] != want {
+			t.Errorf("%s: range %v, want %v", name, got[name], want)
+		}
+	}
+}

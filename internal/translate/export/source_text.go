@@ -5,6 +5,7 @@ import (
 	"sort"
 	"strings"
 
+	"github.com/Open-MBEE/OpenSysML/internal/syntax/ast"
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/lexer"
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/source"
 )
@@ -15,11 +16,30 @@ type authoredSource struct {
 	text  []byte
 	kinds []lexer.Kind
 	spans []source.Span
+	// bodies holds the offset of each `/* */` comment the parser attached to a
+	// declaration as its body (`doc /* … */`, `comment`, `rep`); every other
+	// one is trivia.
+	bodies map[int]bool
 }
 
-func newAuthoredSource(file *source.SourceFile) *authoredSource {
-	s := &authoredSource{text: file.Bytes()}
+func newAuthoredSource(file *source.SourceFile, root *ast.RootNamespace) *authoredSource {
+	s := &authoredSource{text: file.Bytes(), bodies: map[int]bool{}}
 	s.kinds, s.spans = significantTokens(file)
+	ast.Inspect(root, func(n ast.Node) bool {
+		var body source.Span
+		switch n := n.(type) {
+		case *ast.Documentation:
+			body = n.BodySpan
+		case *ast.Comment:
+			body = n.BodySpan
+		case *ast.TextualRepresentation:
+			body = n.BodySpan
+		}
+		if body.Len > 0 {
+			s.bodies[body.Offset] = true
+		}
+		return true
+	})
 	return s
 }
 
@@ -224,19 +244,15 @@ func (s *authoredSource) lineStart(pos int) int {
 }
 
 // trivia reports whether token k is one the parser skips: a note, or a `/* */`
-// comment not following a declaration head, which would make it its body.
+// comment the parser attached to no declaration as its body. Deciding by the
+// parse rather than the token before it keeps `doc // note` followed by its
+// body on the next line whole.
 func (s *authoredSource) trivia(k int) bool {
 	switch s.kinds[k] {
 	case lexer.SLNote, lexer.MLNote:
 		return true
 	case lexer.RegularComment:
-		if k == 0 {
-			return true
-		}
-		switch s.kinds[k-1] {
-		case lexer.Semicolon, lexer.LBrace, lexer.RBrace, lexer.SLNote, lexer.MLNote, lexer.RegularComment:
-			return true
-		}
+		return !s.bodies[s.spans[k].Offset]
 	}
 	return false
 }

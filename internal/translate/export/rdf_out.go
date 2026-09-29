@@ -385,7 +385,7 @@ func encodeDocument(file *source.SourceFile, root *ast.RootNamespace, library st
 
 // encodeDocument writes the graph of the document the encoder was made for.
 func (e *encoder) encodeDocument(root *ast.RootNamespace) error {
-	e.src = newAuthoredSource(e.file)
+	e.src = newAuthoredSource(e.file, root)
 	if err := e.encode(root.Members, "", rdf.Term{}); err != nil {
 		return err
 	}
