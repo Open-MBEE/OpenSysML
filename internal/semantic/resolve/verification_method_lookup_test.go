@@ -289,3 +289,34 @@ func TestUnimportedPrefixBodyNamesTheValue(t *testing.T) {
 		t.Errorf("fixes = %+v, want the change and import fixes", r.Diagnostics[1].Fixes)
 	}
 }
+
+// A candidate that names nothing under the written segments is not offered:
+// `VerificationMethodKind::bogus` resolves to nothing as
+// `VerificationCases::VerificationMethodKind::bogus`, so no qualification or
+// import is suggested.
+func TestUnimportedVerificationMethodKindNamesNoBogusImport(t *testing.T) {
+	src := `package S8 {
+		verification def T {
+			metadata VerificationMethod { kind = VerificationMethodKind::bogus; }
+		}
+	}`
+	r := resolveStdlib(t, "d.sysml", src)
+	var d *resolve.Diagnostic
+	for i := range r.Diagnostics {
+		if strings.Contains(r.Diagnostics[i].Message, "VerificationMethodKind") {
+			d = &r.Diagnostics[i]
+		}
+	}
+	if d == nil {
+		t.Fatalf("no diagnostic names VerificationMethodKind: %v", r.Diagnostics)
+	}
+	if strings.Contains(d.Message, "did you mean VerificationCases::VerificationMethodKind::bogus") ||
+		strings.Contains(d.Message, "private import") {
+		t.Fatalf("message = %q, want no qualification or import offered", d.Message)
+	}
+	for _, fix := range d.Fixes {
+		if strings.HasPrefix(fix.Title, "Change ") || strings.HasPrefix(fix.Title, "Import ") {
+			t.Errorf("fix %q should not be offered for a path that resolves to nothing", fix.Title)
+		}
+	}
+}

@@ -297,11 +297,12 @@ func (r *Resolver) unresolvedMember(scope *symbols.Scope, qn *ast.QualifiedName,
 // diagnostic says so — a reference into a library the name was not imported
 // from — with fixes writing it qualified or importing its package; otherwise
 // it names elements of the same simple name found elsewhere, which is what a
-// reference into a library the workspace does not have looks like.
+// reference into a library the workspace does not have looks like. The
+// qualified spelling is offered only when its whole path resolves.
 func (r *Resolver) unresolvedNamespace(scope *symbols.Scope, qn *ast.QualifiedName, ns string) {
 	if !qn.Global && len(qn.Parts) > 1 {
 		s := r.suggestionFor(scope, ns, qn)
-		if cand, ok := r.importCandidate(s.spellings, ns); ok {
+		if cand, ok := r.importCandidate(s.spellings, ns); ok && r.candidatePathResolves(scope, cand, qn.Parts[1:]) {
 			rest := qnText(&ast.QualifiedName{Parts: qn.Parts[1:]})
 			msg := fmt.Sprintf("unresolved reference: %s — %q is not visible here; did you mean %s? To use the bare name, import its package: %s",
 				qnText(qn), ns, cand+"::"+rest, importStatement(cand))
@@ -326,6 +327,24 @@ func (r *Resolver) unresolvedNamespace(scope *symbols.Scope, qn *ast.QualifiedNa
 		}
 	}
 	r.reportQualified(qn, Diagnostic{Span: qn.Span(), Message: msg})
+}
+
+// candidatePathResolves reports whether the qualified name cand extended by
+// rest names an element, walking cand's own members like the qualified-name
+// walk does; the candidate is worth offering only when the full path does.
+func (r *Resolver) candidatePathResolves(scope *symbols.Scope, cand string, rest []ast.NameSegment) bool {
+	cur := r.idx.Declaring(cand)
+	if cur == nil {
+		return false
+	}
+	for _, part := range rest {
+		all := r.membersNamed(scope, cur, part.Text, false, nil)
+		if len(all) == 0 {
+			return false
+		}
+		cur = all[0]
+	}
+	return true
 }
 
 // ambiguous records an ambiguity diagnostic reporting the number of matches.
