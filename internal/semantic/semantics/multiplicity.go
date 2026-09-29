@@ -205,6 +205,122 @@ func AssumedRange() Range {
 	}
 }
 
+// UnboundedRange is the multiplicity a parameter takes when nothing it
+// redefines or subsets bounds it: [0..*] (SysML v2 §7.6.3).
+func UnboundedRange() Range {
+	return Range{
+		Lower: Bound{Value: 0, Known: true},
+		Upper: Bound{Infinite: true, Known: true},
+	}
+}
+
+// ImplicitMultiplicityApplies reports whether a usage takes the implicit
+// [1..1] of SysML v2 §7.6.3: written `attribute`, `item`, `part` or `port`,
+// owned by a type, and subsetting or redefining no feature a type owns. The
+// keyword, not the kind: KerML's `feature` parses to an attribute usage and
+// takes no default multiplicity.
+func (m *Model) ImplicitMultiplicityApplies(sym *symbols.Symbol) bool {
+	if sym == nil || !featureOwnedByType(sym) {
+		return false
+	}
+	switch sym.Keyword() {
+	case "attribute", "item", "part", "port":
+	default:
+		return false
+	}
+	for _, rel := range RelationshipsOf(sym) {
+		if rel == nil || rel.Target == nil {
+			continue
+		}
+		if rel.Kind != ast.RelSubsets && rel.Kind != ast.RelRedefines {
+			continue
+		}
+		if target := m.RelationshipTarget(sym, rel); target != nil && featureOwnedByType(target) {
+			return false
+		}
+	}
+	return true
+}
+
+// featureOwnedByType reports whether a feature is owned by a definition or
+// usage rather than by a package or namespace.
+func featureOwnedByType(sym *symbols.Symbol) bool {
+	if sym == nil || sym.OwnerScope == nil {
+		return false
+	}
+	owner := sym.OwnerScope.Owner()
+	if owner == nil {
+		return false
+	}
+	switch owner.Kind {
+	case symbols.SymbolPackage, symbols.SymbolNamespace:
+		return false
+	}
+	return true
+}
+
+// EffectiveParameterRange is the multiplicity a parameter is held to
+// (SysML v2 §7.6.3): what its redefinition chain and the features it
+// subsets declare, the implicit [1..1] where it qualifies, else [0..*].
+func (m *Model) EffectiveParameterRange(sym *symbols.Symbol) Range {
+	return m.EffectiveParameterRangeAlong(m.ParameterRedefinitionChain(sym))
+}
+
+// EffectiveParameterRangeAlong is EffectiveParameterRange over an explicit
+// redefinition chain; the ranges of all subsetted and redefined features
+// intersect (KerML 1.0 §7.3.4.4, §7.3.4.5).
+func (m *Model) EffectiveParameterRangeAlong(chain []*symbols.Symbol) Range {
+	if len(chain) == 0 {
+		return UnboundedRange()
+	}
+	next := make(map[*symbols.Symbol]*symbols.Symbol, len(chain))
+	for i := 0; i+1 < len(chain); i++ {
+		next[chain[i]] = chain[i+1]
+	}
+	visited := map[*symbols.Symbol]bool{}
+	var rangeOf func(p *symbols.Symbol) (Range, bool)
+	rangeOf = func(p *symbols.Symbol) (Range, bool) {
+		if visited[p] {
+			return Range{}, false
+		}
+		visited[p] = true
+		if r, ok := m.MultiplicityOf(p); ok {
+			return r, true
+		}
+		if m.ImplicitMultiplicityApplies(p) {
+			return AssumedRange(), true
+		}
+		var targets []*symbols.Symbol
+		for _, rel := range RelationshipsOf(p) {
+			if rel == nil || rel.Target == nil || (rel.Kind != ast.RelSubsets && rel.Kind != ast.RelRedefines) {
+				continue
+			}
+			if target := m.RelationshipTarget(p, rel); target != nil {
+				targets = append(targets, target)
+			}
+		}
+		if n, ok := next[p]; ok {
+			targets = append(targets, n)
+		}
+		var acc Range
+		found := false
+		for _, t := range targets {
+			if r, ok := rangeOf(t); ok {
+				if found {
+					acc = acc.Intersect(r)
+				} else {
+					acc, found = r, true
+				}
+			}
+		}
+		return acc, found
+	}
+	if r, ok := rangeOf(chain[0]); ok {
+		return r
+	}
+	return UnboundedRange()
+}
+
 // EffectiveMultiplicityOf returns the multiplicity governing a usage symbol: the
 // one it declares, or the assumed 1..1 when it declares none.
 func (m *Model) EffectiveMultiplicityOf(sym *symbols.Symbol) Range {

@@ -1,6 +1,8 @@
 package semantics
 
 import (
+	"slices"
+
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/symbols"
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/ast"
 )
@@ -505,4 +507,86 @@ func (m *Model) DeclaredTypes(sym *symbols.Symbol) []*symbols.Symbol {
 		}
 	}
 	return types
+}
+
+// ConnectedPortsMismatch returns the port definitions typing the end features
+// a and b the connector joins when they are incompatible: neither conforms to
+// the other, they specialize no common definition of the model's own, and
+// neither port's directed features all match the other's with conjugate
+// directions and conforming types (§7.12.2). An end not typed by a port
+// definition is not reported, nor is a connector typed by an interface whose
+// two ends are typed by ports: that interface decides what they pair.
+func (m *Model) ConnectedPortsMismatch(connector, a, b *symbols.Symbol) (portA, portB *symbols.Symbol, mismatch bool) {
+	portA, featuresA, ok := m.endPortFeatures(a)
+	if !ok {
+		return nil, nil, false
+	}
+	portB, featuresB, ok := m.endPortFeatures(b)
+	if !ok {
+		return nil, nil, false
+	}
+	if m.Conforms(portA, portB) || m.Conforms(portB, portA) || m.shareModelSupertype(portA, portB) {
+		return nil, nil, false
+	}
+	if m.featuresMatchConjugate(featuresA, featuresB, nil) || m.featuresMatchConjugate(featuresB, featuresA, nil) {
+		return nil, nil, false
+	}
+	if m.typedByPortEnds(connector) {
+		return nil, nil, false
+	}
+	return portA, portB, true
+}
+
+// typedByPortEnds reports whether connector is typed by an interface whose two
+// ends are both typed by port definitions: InterfaceEndPortMismatch judges that
+// pairing, so the interface decides what its usages' ends pair.
+func (m *Model) typedByPortEnds(connector *symbols.Symbol) bool {
+	for _, typ := range m.DeclaredTypes(connector) {
+		if !interfaceLike(typ) {
+			continue
+		}
+		ends := m.endsOf(typ)
+		if len(ends) == 2 && m.typedByPort(ends[0]) && m.typedByPort(ends[1]) {
+			return true
+		}
+	}
+	return false
+}
+
+// typedByPort reports whether end is typed by a port definition, by its own
+// typing or else by that of the nearest model end it redefines; a library end
+// types every connector end by a library base, which decides nothing.
+func (m *Model) typedByPort(end *symbols.Symbol) bool {
+	if end == nil {
+		return false
+	}
+	for _, sym := range append([]*symbols.Symbol{end}, m.redefinedTransitively(end)...) {
+		if m.libraryTier(sym).Library() {
+			continue
+		}
+		if types := m.DeclaredTypes(sym); len(types) > 0 {
+			return slices.ContainsFunc(types, func(typ *symbols.Symbol) bool {
+				return typ != nil && typ.Kind == symbols.SymbolPortDef
+			})
+		}
+	}
+	return false
+}
+
+// shareModelSupertype reports whether a and b both specialize one definition
+// the model declares; every port specializes the library's Ports::Port, which
+// relates nothing.
+func (m *Model) shareModelSupertype(a, b *symbols.Symbol) bool {
+	supers := make(map[*symbols.Symbol]bool)
+	for _, typ := range m.conjugatedSupertypes(a) {
+		if typ.sym != a && !m.libraryTier(typ.sym).Library() {
+			supers[typ.sym] = true
+		}
+	}
+	for _, typ := range m.conjugatedSupertypes(b) {
+		if typ.sym != b && supers[typ.sym] {
+			return true
+		}
+	}
+	return false
 }

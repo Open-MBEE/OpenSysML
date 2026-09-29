@@ -220,6 +220,334 @@
       }
     },
     {
+      "id": "apply_edits/action_sequencing_is_written",
+      "rpc": "ApplyEdits",
+      "requires_capabilities": [
+        "apply_edits",
+        "authoring",
+        "sequence_authoring"
+      ],
+      "model": {
+        "fixture": "apply_edits_sequence.sysml"
+      },
+      "request": {
+        "model_hash": "${model_hash}",
+        "operations": [
+          {
+            "add_sequence": {
+              "owner": "A",
+              "keyword": "first",
+              "ref": "start"
+            }
+          },
+          {
+            "add_sequence": {
+              "owner": "A",
+              "keyword": "then",
+              "member_kind": "action",
+              "member_name": "b",
+              "after": "a"
+            }
+          },
+          {
+            "add_sequence": {
+              "owner": "A",
+              "keyword": "then",
+              "ref": "done"
+            }
+          }
+        ]
+      },
+      "expect": {
+        "contains_all": {
+          "content": [
+            "then action b;",
+            "first start;",
+            "then done;"
+          ]
+        },
+        "absent": [
+          "error"
+        ],
+        "counts": {
+          "applied": 3
+        }
+      }
+    },
+    {
+      "id": "apply_edits/nested_action_body_statements_are_written",
+      "rpc": "ApplyEdits",
+      "requires_capabilities": [
+        "apply_edits",
+        "authoring",
+        "sequence_authoring",
+        "action_body_statement_authoring"
+      ],
+      "model": {
+        "fixture": "apply_edits_action_body.sysml"
+      },
+      "request": {
+        "model_hash": "${model_hash}",
+        "operations": [
+          {
+            "add_sequence": {
+              "owner": "A",
+              "keyword": "first",
+              "ref": "start"
+            }
+          },
+          {
+            "add_sequence": {
+              "owner": "A",
+              "keyword": "then",
+              "member_kind": "if",
+              "condition": "x == 0",
+              "body": [
+                {
+                  "member_kind": "if",
+                  "condition": "x == 0",
+                  "body": [
+                    {
+                      "member_kind": "assign",
+                      "target": "x",
+                      "value": "1"
+                    }
+                  ],
+                  "else_body": [
+                    {
+                      "member_kind": "assign",
+                      "target": "x",
+                      "value": "2"
+                    }
+                  ]
+                }
+              ],
+              "else_body": [
+                {
+                  "member_kind": "assign",
+                  "target": "x",
+                  "value": "3"
+                }
+              ]
+            }
+          },
+          {
+            "add_sequence": {
+              "owner": "A",
+              "keyword": "then",
+              "ref": "done",
+              "multiplicity": "[1]"
+            }
+          }
+        ]
+      },
+      "expect": {
+        "contains_all": {
+          "content": [
+            "then if x == 0 {",
+            "if x == 0 {",
+            "assign x := 1;",
+            "assign x := 2;",
+            "assign x := 3;",
+            "[1] then done;"
+          ]
+        },
+        "absent": [
+          "error"
+        ],
+        "counts": {
+          "applied": 3
+        },
+        "response": {
+          "content": "private import ScalarValues::*;\n\naction def A {\n    attribute x : Integer = 0;\n    first start;\n    then if x == 0 {\n        if x == 0 {\n            assign x := 1;\n        } else {\n            assign x := 2;\n        }\n    } else {\n        assign x := 3;\n    }\n    [1] then done;\n}\n"
+        }
+      }
+    },
+    {
+      "id": "apply_edits/documentation_is_written_on_new_and_existing_declarations",
+      "description": "A doc on a new member and a doc added to an existing declaration ended by a semicolon each open a body whose first member is the delimited comment.",
+      "rpc": "ApplyEdits",
+      "requires_capabilities": [
+        "apply_edits",
+        "authoring",
+        "documentation_authoring"
+      ],
+      "model": {
+        "fixture": "apply_edits_documentation.sysml"
+      },
+      "request": {
+        "model_hash": "${model_hash}",
+        "operations": [
+          {
+            "add_documentation": {
+              "target": "Demo::Bread",
+              "body": "Sliced bread."
+            }
+          },
+          {
+            "add_member": {
+              "owner": "Demo",
+              "kind": "item def",
+              "name": "Toast",
+              "doc": "Browned bread.\nReady to eat."
+            }
+          }
+        ]
+      },
+      "expect": {
+        "contains_all": {
+          "content": [
+            "    item def Bread {\n        doc /* Sliced bread.*/\n    }\n",
+            "    item def Toast {\n        doc /* Browned bread.\n         * Ready to eat.*/\n    }\n"
+          ]
+        },
+        "absent": [
+          "error"
+        ],
+        "counts": {
+          "applied": 2
+        }
+      }
+    },
+    {
+      "id": "apply_edits/comments_and_notes_are_written",
+      "description": "A comment is written where a new member of its owner goes, at the top level or in a body, and a line note is written on its own line above a named member.",
+      "rpc": "ApplyEdits",
+      "requires_capabilities": [
+        "apply_edits",
+        "authoring",
+        "comment_authoring"
+      ],
+      "model": {
+        "fixture": "apply_edits_comment.sysml"
+      },
+      "request": {
+        "model_hash": "${model_hash}",
+        "operations": [
+          {
+            "add_comment": {
+              "owner": "Demo",
+              "body": "Toasting.\n  Indented, with a trailing space ",
+              "name": "Why",
+              "about": [
+                "Bread",
+                "Demo::Toaster"
+              ],
+              "locale": "en"
+            }
+          },
+          {
+            "add_comment": {
+              "owner": "",
+              "body": "File note."
+            }
+          },
+          {
+            "add_note": {
+              "target": "Demo::Toaster::power",
+              "text": "DimensionOneValue"
+            }
+          }
+        ]
+      },
+      "expect": {
+        "contains_all": {
+          "content": [
+            "    comment Why about Bread, Demo::Toaster locale \"en\" /* Toasting.\n     *   Indented, with a trailing space */\n}\n",
+            "}\ncomment /* File note.*/\n",
+            "        // DimensionOneValue\n        attribute power;\n"
+          ]
+        },
+        "absent": [
+          "error"
+        ],
+        "counts": {
+          "applied": 3
+        }
+      }
+    },
+    {
+      "id": "apply_edits/import_declarations_are_written",
+      "rpc": "ApplyEdits",
+      "requires_capabilities": [
+        "apply_edits",
+        "authoring",
+        "import_authoring"
+      ],
+      "model": {
+        "fixture": "apply_edits_import.sysml"
+      },
+      "request": {
+        "model_hash": "${model_hash}",
+        "operations": [
+          {
+            "add_import": {
+              "owner": "ToasterDemo",
+              "target": "ScalarValues::*"
+            }
+          },
+          {
+            "add_import": {
+              "owner": "ToasterDemo",
+              "target": "ISQ::*",
+              "is_import_all": true
+            }
+          }
+        ]
+      },
+      "expect": {
+        "contains_all": {
+          "content": [
+            "    private import ScalarValues::*;\n",
+            "    private import all ISQ::*;\n"
+          ]
+        },
+        "absent": [
+          "error"
+        ],
+        "counts": {
+          "applied": 2
+        }
+      }
+    },
+    {
+      "id": "apply_edits/an_unresolved_import_target_is_refused_by_kind",
+      "description": "A client acts on failure, not on the message text, so the kind is part of the contract.",
+      "rpc": "ApplyEdits",
+      "requires_capabilities": [
+        "apply_edits",
+        "authoring",
+        "import_authoring"
+      ],
+      "model": {
+        "fixture": "apply_edits_import.sysml"
+      },
+      "request": {
+        "model_hash": "${model_hash}",
+        "operations": [
+          {
+            "add_import": {
+              "owner": "ToasterDemo",
+              "target": "Nope::*"
+            }
+          }
+        ]
+      },
+      "expect": {
+        "response": {
+          "failure": "EDIT_FAILURE_RESULT_INVALID"
+        },
+        "non_empty": [
+          "error"
+        ],
+        "absent": [
+          "applied",
+          "content",
+          "documents"
+        ]
+      }
+    },
+    {
       "id": "apply_edits/a_requirement_constraint_is_written",
       "rpc": "ApplyEdits",
       "requires_capabilities": [
@@ -254,6 +582,106 @@
         ],
         "counts": {
           "applied": 1
+        }
+      }
+    },
+    {
+      "id": "apply_edits/constraint_bodies_assertions_exhibits_and_state_actions_are_written",
+      "rpc": "ApplyEdits",
+      "requires_capabilities": [
+        "apply_edits",
+        "authoring",
+        "constraint_body_authoring",
+        "state_action_authoring"
+      ],
+      "model": {
+        "fixture": "apply_edits_constraint_body.sysml"
+      },
+      "request": {
+        "model_hash": "${model_hash}",
+        "operations": [
+          {
+            "add_member": {
+              "owner": "Demo",
+              "kind": "constraint def",
+              "name": "C",
+              "body_expression": "true"
+            }
+          },
+          {
+            "add_member": {
+              "owner": "Demo",
+              "kind": "constraint",
+              "body_expression": "x > 0"
+            }
+          },
+          {
+            "add_member": {
+              "owner": "Demo",
+              "kind": "assert not constraint",
+              "name": "notPositive",
+              "body_expression": "x <= 0"
+            }
+          },
+          {
+            "add_member": {
+              "owner": "Demo::Host",
+              "kind": "exhibit state",
+              "name": "shown",
+              "type": "Machine"
+            }
+          },
+          {
+            "add_member": {
+              "owner": "Demo::Host",
+              "kind": "exhibit",
+              "name": "appliance.idle"
+            }
+          },
+          {
+            "add_member": {
+              "owner": "Demo::Machine",
+              "kind": "entry action",
+              "name": "entryWork",
+              "type": "Work"
+            }
+          },
+          {
+            "add_member": {
+              "owner": "Demo::Machine",
+              "kind": "do action",
+              "name": "doWork",
+              "type": "Work"
+            }
+          },
+          {
+            "add_member": {
+              "owner": "Demo::Machine",
+              "kind": "exit action",
+              "name": "exitWork",
+              "type": "Work"
+            }
+          }
+        ]
+      },
+      "expect": {
+        "contains_all": {
+          "content": [
+            "constraint def C { true }",
+            "constraint { x > 0 }",
+            "assert not constraint notPositive { x <= 0 }",
+            "exhibit state shown : Machine;",
+            "exhibit appliance.idle;",
+            "entry action entryWork : Work;",
+            "do action doWork : Work;",
+            "exit action exitWork : Work;"
+          ]
+        },
+        "absent": [
+          "error"
+        ],
+        "counts": {
+          "applied": 8
         }
       }
     },
@@ -616,6 +1044,70 @@
       }
     },
     {
+      "id": "apply_edits/adds_reference_assertions_and_calc_case_result_bodies",
+      "description": "Reference-form assertions remain anonymous, while calculation and case bodies end with result expressions.",
+      "rpc": "ApplyEdits",
+      "requires_capabilities": [
+        "apply_edits",
+        "authoring",
+        "constraint_body_authoring"
+      ],
+      "model": {
+        "fixture": "apply_edits_assert_result_expression.sysml"
+      },
+      "request": {
+        "model_hash": "${model_hash}",
+        "operations": [
+          {
+            "add_member": {
+              "owner": "Demo",
+              "kind": "assert",
+              "name": "c"
+            }
+          },
+          {
+            "add_member": {
+              "owner": "Demo",
+              "kind": "assert not",
+              "name": "c"
+            }
+          },
+          {
+            "add_member": {
+              "owner": "Demo",
+              "kind": "calc def",
+              "name": "Double",
+              "body_expression": "3 * 2"
+            }
+          },
+          {
+            "add_member": {
+              "owner": "Demo",
+              "kind": "case def",
+              "name": "Example",
+              "body_expression": "1"
+            }
+          }
+        ]
+      },
+      "expect": {
+        "contains_all": {
+          "content": [
+            "assert c;",
+            "assert not c;",
+            "calc def Double { 3 * 2 }",
+            "case def Example { 1 }"
+          ]
+        },
+        "counts": {
+          "applied": 4
+        },
+        "absent": [
+          "error"
+        ]
+      }
+    },
+    {
       "id": "apply_edits/no_operations_is_refused_rather_than_echoing_the_source",
       "rpc": "ApplyEdits",
       "requires_capabilities": [
@@ -641,6 +1133,77 @@
         ]
       },
       "description": "An empty batch is refused in-band, with neither content nor documents, exactly as before documents existed."
+    },
+    {
+      "id": "apply_edits/a_verification_objective_and_metadata_are_authored",
+      "description": "A verification case can gain an objective containing a verify membership and metadata usages, including metadata prefixes on a new definition.",
+      "rpc": "ApplyEdits",
+      "requires_capabilities": [
+        "apply_edits",
+        "authoring",
+        "verification_objective_authoring",
+        "metadata_authoring",
+        "metadata_prefix_authoring"
+      ],
+      "model": {
+        "fixture": "verification_metadata_authoring.sysml"
+      },
+      "request": {
+        "model_hash": "${model_hash}",
+        "operations": [
+          {
+            "add_verify": {
+              "owner": "ToasterDemo::TimelyToastTest",
+              "requirement": "timely"
+            }
+          },
+          {
+            "add_metadata": {
+              "owner": "ToasterDemo::TimelyToastTest",
+              "metadata_type": "VerificationMethod",
+              "values": [
+                {
+                  "feature": "kind",
+                  "value": "VerificationMethodKind::test"
+                }
+              ]
+            }
+          },
+          {
+            "add_member": {
+              "owner": "ToasterDemo",
+              "kind": "part def",
+              "name": "Heater",
+              "metadata_prefixes": [
+                "ToasterDemo::Safety"
+              ]
+            }
+          },
+          {
+            "add_metadata_prefix": {
+              "target": "ToasterDemo::TimelyToast",
+              "metadata_type": "ToasterDemo::Safety"
+            }
+          }
+        ]
+      },
+      "expect": {
+        "contains_all": {
+          "content": [
+            "verify timely;",
+            "metadata VerificationMethod { kind = VerificationMethodKind::test; }",
+            "#ToasterDemo::Safety part def Heater;",
+            "part def Toaster {",
+            "#ToasterDemo::Safety requirement def TimelyToast {"
+          ]
+        },
+        "absent": [
+          "error"
+        ],
+        "counts": {
+            "applied": 4
+        }
+      }
     }
   ]
 }

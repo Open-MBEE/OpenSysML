@@ -199,6 +199,9 @@ var featureModifierKeywords = map[string]bool{
 	"readonly":   true,
 }
 
+// IsPrefixModifierKeyword reports whether kw is a feature/usage prefix modifier the parser reads before a declaration's kind keyword.
+func IsPrefixModifierKeyword(kw string) bool { return featureModifierKeywords[kw] }
+
 // relationshipKeywords maps a spelled-out relationship keyword to its kind.
 var relationshipKeywords = map[string]ast.RelationshipKind{
 	"specializes": ast.RelSpecializes,
@@ -2858,6 +2861,9 @@ func (p *Parser) parseBodyMember() ast.Node {
 	// Check for `#MetadataType` prefix (user-defined keyword)
 	// Parse prefixes and then parse def/usage declaration
 	if p.at(lexer.Hash) {
+		if p.leadingPrefixIsActionNode() {
+			return p.parseActionMember()
+		}
 		// Delegate to parseDefUsage which handles prefixes; a prefixed
 		// dependency keeps its prefixes the way a namespace member does.
 		var inner ast.Node
@@ -3437,7 +3443,8 @@ func (p *Parser) atMemberKeywordUsedAsKeyword(kw string) bool {
 // (`subject #M s;`, SysML.xtext `'keyword' UsageExtensionKeyword* …`), unlike `#B assert …`.
 func prefixMetadataFollowsKeyword(kw string) bool {
 	switch kw {
-	case "subject", "actor", "stakeholder", "objective", "variant", "assume", "require":
+	case "subject", "actor", "stakeholder", "objective", "variant", "assume", "require",
+		"verify", "frame", "render":
 		return true
 	}
 	return false
@@ -4660,8 +4667,12 @@ func (p *Parser) parseMultiplicity() *ast.Multiplicity {
 		m.IsRange = true
 		m.Upper = p.parseMultiplicityBound()
 	}
-	p.expect(lexer.RBracket, "expected ']' to close multiplicity")
-	m.NodeSpan = p.spanFrom(start)
+	close, ok := p.expect(lexer.RBracket, "expected ']' to close multiplicity")
+	if ok {
+		m.NodeSpan = source.Span{Offset: start, Len: close.Span.End() - start}
+	} else {
+		m.NodeSpan = p.spanFrom(start)
+	}
 	return m
 }
 

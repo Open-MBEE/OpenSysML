@@ -149,7 +149,7 @@ func TestNotationCoversTheFixture(t *testing.T) {
 		"attribute def Mass :> ScalarValues::Real {",
 		"enum def Color {",
 		"port def FuelInterface {",
-		"in item fuel : Fuel;",
+		"in item fuel : Fuel[1];",
 		"part def Vehicle :> System {",
 		"attribute mass : 'Vehicle Design'::'Value Types'::Mass default = 1200.0;",
 		"part engine : Engine[1..2];",

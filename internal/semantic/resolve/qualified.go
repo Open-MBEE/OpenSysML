@@ -6,6 +6,7 @@ import (
 
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/diag"
 
+	"github.com/Open-MBEE/OpenSysML/internal/semantic/suggest"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/symbols"
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/ast"
 )
@@ -55,7 +56,7 @@ func (r *Resolver) walkQualified(scope *symbols.Scope, qn *ast.QualifiedName, hi
 		cur = r.lookupGlobalTop(scope, first)
 	}
 	if cur == nil {
-		r.unresolvedNamespace(qn, first)
+		r.unresolvedNamespace(scope, qn, first)
 		return resolution{nil, false}
 	}
 	cur = r.resolvedPart(qn, 0, cur)
@@ -291,10 +292,32 @@ func (r *Resolver) unresolvedMember(scope *symbols.Scope, qn *ast.QualifiedName,
 }
 
 // unresolvedNamespace records an unresolved-reference diagnostic for a
-// qualified name whose qualifying namespace ns is not loaded at all, naming
-// elements of the same simple name found elsewhere — which is what a reference
-// into a library the workspace does not have looks like.
-func (r *Resolver) unresolvedNamespace(qn *ast.QualifiedName, ns string) {
+// qualified name whose qualifying namespace ns is not loaded at all. When
+// exactly one importable declaration answers to the first segment, the
+// diagnostic says so — a reference into a library the name was not imported
+// from — with fixes writing it qualified or importing its package; otherwise
+// it names elements of the same simple name found elsewhere, which is what a
+// reference into a library the workspace does not have looks like. The
+// qualified spelling is offered only when its whole path resolves.
+func (r *Resolver) unresolvedNamespace(scope *symbols.Scope, qn *ast.QualifiedName, ns string) {
+	if !qn.Global && len(qn.Parts) > 1 {
+		s := r.suggestionFor(scope, ns, qn)
+		if cand, ok := r.importCandidate(s.spellings, ns); ok && r.candidatePathResolves(scope, qn, cand) {
+			rest := qnText(&ast.QualifiedName{Parts: qn.Parts[1:]})
+			msg := fmt.Sprintf("unresolved reference: %s — %q is not visible here; did you mean %s? To use the bare name, import its package: %s",
+				qnText(qn), ns, cand+"::"+rest, importStatement(cand))
+			written := suggest.Notation(cand)
+			fixes := []diag.Fix{{
+				Title: "Change " + titled(ns) + " to " + titled(written),
+				Edits: []diag.Edit{diag.Replace(qn.Parts[0].Span, written)},
+			}}
+			if fix, ok := r.importFix(scope, ns, cand); ok {
+				fixes = append(fixes, fix)
+			}
+			r.reportQualified(qn, Diagnostic{Span: qn.Span(), Message: msg, Fixes: fixes})
+			return
+		}
+	}
 	msg := "unresolved reference: " + qnText(qn)
 	if r.idx != nil && len(qn.Parts) > 1 {
 		last := qn.Parts[len(qn.Parts)-1].Text
@@ -304,6 +327,30 @@ func (r *Resolver) unresolvedNamespace(qn *ast.QualifiedName, ns string) {
 		}
 	}
 	r.reportQualified(qn, Diagnostic{Span: qn.Span(), Message: msg})
+}
+
+// candidatePathResolves reports whether qn rewritten to start at cand names
+// an element, mirroring walkQualifiedTail — aliases followed, ambiguity
+// refused — so only a path the rewritten name would actually resolve is
+// offered.
+func (r *Resolver) candidatePathResolves(scope *symbols.Scope, qn *ast.QualifiedName, cand string) bool {
+	first := r.idx.Declaring(cand)
+	if first == nil || r.AliasNamesNothing(first) {
+		return false
+	}
+	cur := r.AliasedElement(first)
+	last := len(qn.Parts) - 1
+	for i := 1; i <= last; i++ {
+		all := r.membersNamed(scope, cur, qn.Parts[i].Text, false, nil)
+		if len(all) == 0 || (len(all) > 1 && !(i == last && r.invocationNames[qn])) {
+			return false
+		}
+		if r.AliasNamesNothing(all[0]) {
+			return false
+		}
+		cur = r.AliasedElement(all[0])
+	}
+	return true
 }
 
 // ambiguous records an ambiguity diagnostic reporting the number of matches.

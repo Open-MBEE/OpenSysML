@@ -91,7 +91,7 @@ func TestCallsWithoutRequiredArgumentsAdmitNone(t *testing.T) {
 		"in image : ScalarValues::Integer[0..1];",
 		"action def Tune {",
 		"in gain : ScalarValues::Integer[0..1];",
-		"in image : ScalarValues::Integer default = 3;",
+		"in image : ScalarValues::Integer[1] default = 3;",
 		"action find : Needs;",
 		"action refind : Needs;",
 		"action peek : Admits;",

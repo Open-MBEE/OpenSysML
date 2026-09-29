@@ -168,6 +168,7 @@ var metaCommandTable = []metaCommand{
 	{name: "%verbosity", group: groupSettings, args: "[level]", desc: "show or set output level: quiet, normal or debug"},
 	{name: "%trace", group: groupSettings, args: "[on|off]", desc: "show or set execution tracing (evaluation, calc, action and state steps)"},
 	{name: "%strict", group: groupSettings, args: "[on|off]", desc: "show or set strict conformance: report notation no SysML v2 production admits as an error"},
+	{name: "%lint", group: groupSettings, args: "[<code> on|off]", desc: "list the lints — warnings about models the specification accepts — each on or off, or switch one by its code: undeclared-signal, port-type-mismatch"},
 	{name: "%schedule", group: groupSettings, args: "[<policy>]", desc: "show or set the scheduling policy runs started from here on resolve choice points under: declared, reverse or seed:<n>"},
 	{name: "%seed", group: groupSettings, args: "[<n>|off]", desc: "show or set the seed runs started from here on draw their modeled randomness from — Probability-weighted decisions, RandomFunctions — whatever the schedule; off leaves it to the schedule's seed:<n>"},
 	{name: "%draws", group: groupSettings, args: "[<policy>]", desc: "show or set how runs started from here on resolve RandomFunctions draws: random (from the seed), min, max or average of each call's distribution; min, max and average need no seed"},
@@ -371,6 +372,8 @@ func (s *Session) metaSessionCommand(fields []string, line string) (metaResult, 
 		return metaOut(s.doTrace(fields[1:]), false, nil), true
 	case "%strict":
 		return metaOut(s.doStrict(fields[1:]), false, nil), true
+	case "%lint":
+		return metaOut(s.doLint(fields[1:]), false, nil), true
 	case "%schedule":
 		return metaOut(s.doSchedule(fields[1:]), false, nil), true
 	case "%seed":
@@ -1517,6 +1520,8 @@ func behaviorStatus(ctx *runtime.Context, inst *runtime.Instance, feat *runtime.
 		return kind + ", not running"
 	}
 	switch {
+	case behavior.Err != nil:
+		return fmt.Sprintf("%s, failed: %s", behavior.Kind, behavior.Err)
 	case behavior.State != nil:
 		return fmt.Sprintf("%s, %s", behavior.Kind, machineStatus(behavior.State))
 	case behavior.Action != nil:

@@ -25,6 +25,7 @@ func DefaultRegistry() *Registry {
 	reg.Register(NameResolutionPass{})
 	reg.Register(behavior.StateTransitionPass{})
 	reg.Register(behavior.ActionEndpointPass{})
+	reg.Register(UndeclaredSignalPass{})
 	reg.Register(TypeCheckPass{})
 	reg.Register(TransitionGuardPass{})
 	reg.Register(TriggerArgumentPass{})
@@ -79,6 +80,7 @@ func DefaultRegistry() *Registry {
 	reg.Register(OOSEMMethodPass{})
 	reg.Register(MOSAPass{})
 	reg.Register(NestedRedefinitionPass{})
+	reg.Register(PortTypeMismatchPass{})
 	return reg
 }
 

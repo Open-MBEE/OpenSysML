@@ -291,6 +291,11 @@ func (m *migration) parameter(p, scope *sysmlv1.Element, declared map[string]boo
 	if shape := tm.shape(); shape != "" {
 		mult, mnote = shape, ""
 	}
+	if mult == "" && dir != "" {
+		// A v1 parameter writing no multiplicity means a single value; §7.6.3
+		// gives a bare v2 parameter [0..*], so state the one it meant.
+		mult = "[1]"
+	}
 	b.WriteString(mult)
 	note = joinNotes(joinNotes(note, mnote), tm.note())
 	var body []string
@@ -423,17 +428,33 @@ func literalExprAs(expr string, want wanted) (value string, ok bool, note string
 // v2Expr writes text, already v2 expression syntax, read inside scope, or
 // refuses with the reason: it is not expression syntax, or a name resolves to nothing.
 func (m *migration) v2Expr(text, lang string, scope *sysmlv1.Element) (expr string, ok bool, note string) {
-	refs, ok := exprRefs(text)
+	refs, ok, note := m.v2Refs(text, lang, scope)
 	if !ok {
-		return "", false, "not v2 expression syntax" + langNote(lang)
+		return "", false, note
+	}
+	return m.v2Spelled(text, refs, scope), true, ""
+}
+
+// v2Refs lists what text, already v2 expression syntax, reads inside scope, or
+// refuses with the reason: it is not expression syntax, or a name resolves to nothing.
+func (m *migration) v2Refs(text, lang string, scope *sysmlv1.Element) (refs []reference, ok bool, note string) {
+	refs, ok = exprRefs(text)
+	if !ok {
+		return nil, false, "not v2 expression syntax" + langNote(lang)
 	}
 	if missing := m.invisible(refs, scope); missing != "" {
-		return "", false, missing + langNote(lang)
+		return nil, false, missing + langNote(lang)
 	}
+	return refs, true, ""
+}
+
+// v2Spelled writes text, whose names are refs, as read inside scope: its
+// library roots renamed and its owner's features qualified.
+func (m *migration) v2Spelled(text string, refs []reference, scope *sysmlv1.Element) string {
 	visible, _ := m.visibleFrom(scope)
 	text = m.renamedRoots(text, refs, visible, nil)
 	refs, _ = exprRefs(text)
-	return m.qualifySelf(text, refs, scope), true, ""
+	return m.qualifySelf(text, refs, scope)
 }
 
 // qualifySelf prefixes `this.` (or the subject's name, in a test case) to each name
@@ -526,6 +547,40 @@ func (m *migration) statements(body, lang string, scope *sysmlv1.Element) (lines
 // v2Statements writes an opaque body whose every statement assigns a v2
 // expression to a visible feature, else refuses with the reason.
 func (m *migration) v2Statements(body, lang string, scope *sysmlv1.Element) (lines []string, ok bool, note string) {
+	assigns, ok, note := m.v2Assignments(body, lang, scope)
+	if !ok {
+		return nil, false, note
+	}
+	for _, a := range assigns {
+		target := m.assignable(a.feature, a.name, scope)
+		switch a.op {
+		case "++", "--":
+			lines = append(lines, "assign "+target+" := "+target+" "+a.op[:1]+" 1;")
+			continue
+		}
+		expr := m.v2Spelled(a.rhs, a.refs, scope)
+		if a.op != "=" {
+			expr = target + " " + a.op[:1] + " (" + expr + ")"
+		}
+		lines = append(lines, "assign "+target+" := "+expr+";")
+	}
+	return lines, true, "the " + langName(lang) + " body is written as v2 assignments"
+}
+
+// v2Assignment is one statement of an opaque body written as v2 assignments:
+// the feature assigned by name, the operator, and the v2 expression assigned
+// with the names it reads (none for `++` and `--`).
+type v2Assignment struct {
+	feature *sysmlv1.Element
+	name    string
+	op      string
+	rhs     string
+	refs    []reference
+}
+
+// v2Assignments reads an opaque body as assignments of v2 expressions to
+// features visible from scope, else refuses with the reason.
+func (m *migration) v2Assignments(body, lang string, scope *sysmlv1.Element) (assigns []v2Assignment, ok bool, note string) {
 	if strings.ContainsAny(body, "{}") {
 		return nil, false, "the body is not a sequence of assignments" + langNote(lang)
 	}
@@ -538,52 +593,56 @@ func (m *migration) v2Statements(body, lang string, scope *sysmlv1.Element) (lin
 		if mt == nil || strings.HasPrefix(mt[3], "=") {
 			return nil, false, stmtNote + strconv.Quote(st) + " is not an assignment of a v2 expression" + langNote(lang)
 		}
-		lhs, op, rhs := strings.TrimSpace(mt[1]), mt[2], strings.TrimSpace(mt[3])
-		target, ok := m.assignable(lhs, scope)
-		if !ok {
-			return nil, false, "the statement assigns " + lhs + ", which nothing visible from " + qualifiedName(scope) + " is called" + langNote(lang)
+		a := v2Assignment{name: strings.TrimSpace(mt[1]), op: mt[2], rhs: strings.TrimSpace(mt[3])}
+		if a.feature = m.assignableFeature(a.name, scope); a.feature == nil {
+			return nil, false, "the statement assigns " + a.name + ", which nothing visible from " + qualifiedName(scope) + " is called" + langNote(lang)
 		}
-		switch op {
+		switch a.op {
 		case "++", "--":
-			if rhs != "" {
+			if a.rhs != "" {
 				return nil, false, stmtNote + strconv.Quote(st) + " is not an assignment" + langNote(lang)
 			}
-			lines = append(lines, "assign "+target+" := "+target+" "+op[:1]+" 1;")
+			assigns = append(assigns, a)
 			continue
 		}
-		expr, ok, enote := m.v2Expr(rhs, lang, scope)
+		refs, ok, enote := m.v2Refs(a.rhs, lang, scope)
 		if !ok {
 			return nil, false, stmtNote + strconv.Quote(st) + " assigns a value whose expression is not migrated: " + enote
 		}
-		if op != "=" {
-			expr = target + " " + op[:1] + " (" + expr + ")"
-		}
-		lines = append(lines, "assign "+target+" := "+expr+";")
+		a.refs = refs
+		assigns = append(assigns, a)
 	}
-	if len(lines) == 0 {
+	if len(assigns) == 0 {
 		return nil, false, "the body is empty"
 	}
-	return lines, true, "the " + langName(lang) + " body is written as v2 assignments"
+	return assigns, true, ""
 }
 
-// assignable writes the v2 target of an assignment to name read in scope: a
-// parameter or local of the behavior bare, a feature of its classifier through
-// the context parameter in a def or bare inside the object's usages.
-func (m *migration) assignable(name string, scope *sysmlv1.Element) (string, bool) {
+// assignableFeature is the feature an assignment to name read in scope writes:
+// a parameter or local of the behavior, or a feature of its classifier; nil
+// when nothing visible so named is one.
+func (m *migration) assignableFeature(name string, scope *sysmlv1.Element) *sysmlv1.Element {
 	visible, _ := m.visibleFrom(scope)
 	f := visible[name]
 	if f == nil {
-		return "", false
+		return nil
 	}
 	switch f.Type {
 	case "Parameter", "Property", "Port":
-	default:
-		return "", false
+		return f
 	}
+	return nil
+}
+
+// assignable writes the v2 target of an assignment to the feature f, called
+// name in scope: a parameter or local of the behavior bare, a feature of its
+// classifier through the context parameter in a def or bare inside the
+// object's usages.
+func (m *migration) assignable(f *sysmlv1.Element, name string, scope *sysmlv1.Element) string {
 	if m.ownedByClassifier(f, scope) {
-		return m.ownerPrefix(scope) + writeName(name), true
+		return m.ownerPrefix(scope) + writeName(name)
 	}
-	return writeName(name), true
+	return writeName(name)
 }
 
 // durationUnits scales a v1 duration's unit to seconds, spelled as the simulation toolkit
@@ -1154,7 +1213,7 @@ func (m *migration) receptionArguments(method, sig *sysmlv1.Element, payload str
 // usage of its behavior, keeping p's direction so an inout value is written back.
 func (m *migration) parameterBinding(p *sysmlv1.Element, name, expr string) string {
 	dir, _ := parameterDirection(p)
-	return dir + " " + writeName(name) + " = " + expr
+	return dir + " " + writeName(name) + "[1] = " + expr
 }
 
 // bindingMismatch says why feature a cannot be bound to parameter p: its type does not conform

@@ -18,7 +18,7 @@ func TestSynthesizedNamesMarked(t *testing.T) {
 			     <type xmi:type="uml:PrimitiveType" href="http://www.omg.org/spec/UML/20131001/PrimitiveTypes.xmi#Real"/>
 			   </ownedParameter>
 			 </packagedElement>`,
-			[]string{"action def Run {\n    in real : ScalarValues::Real;\n    metadata MigrationMetadata::SynthesizedName about real;\n}"}},
+			[]string{"action def Run {\n    in real : ScalarValues::Real[1];\n    metadata MigrationMetadata::SynthesizedName about real;\n}"}},
 		{"an anonymous port's payload",
 			`<packagedElement xmi:type="uml:Class" xmi:id="_c" name="Ctrl">
 			   <ownedAttribute xmi:type="uml:Port" xmi:id="_q" type="_pump" aggregation="composite"/>

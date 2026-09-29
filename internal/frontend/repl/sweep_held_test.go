@@ -43,8 +43,8 @@ const heldBehaviourModel = `package Held {
 	part tug : Tug;
 	analysis def Quote {
 		subject s : Ship;
-		in tax : Real;
-		out total : Real = s.cost * (1.0 + tax);
+		in tax : Real[1];
+		out total : Real[1] = s.cost * (1.0 + tax);
 	}
 }`
 

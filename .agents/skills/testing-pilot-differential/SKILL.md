@@ -21,13 +21,16 @@ GNU-format diagnostics **relative to `--root`**. Consequences for testing:
 - The pin `tools/referee/diff` reports comes from `build/pilot-sysml-validator/pilot-pin.txt`
   (written by the new script), not from the DeciSym `pom.xml`.
 - `-validator /nonexistent` now says `run ./scripts/download-pilot-sysml-validator.sh`.
-- Measured at the `2026-08` pin, with a fresh library cache: `380 file(s), 344 fully agreeing; 38 agreed,
-  42 only ours, 1614 only the pilot's`, JSON totals `openSysMLDiagnostics 83 / pilotDiagnostics
-  1655 / severityMismatch 3`; ~2 min wall, byte-identical across runs *and* after a from-scratch
-  rebuild of `build/pilot-validator`. The six `kerml-examples` pilot-only rows the `2026-07` run
-  carried (`The opposite features 'owningType' … do not refer to each other`) are gone: the pilot
-  fixed its `ownedDisjoining` delegate, and nothing on our side moved. `kerml-examples` carries no `syntax` diagnostic on either
-  side. Refresh this paragraph with every rebaseline, and treat a stale one as a finding.
+- Measured at the `2026-08` pin after bare parameters took their effective range `[0..*]`, removing
+  the adjudicated `Behaviors.kerml:14` multiplicity warning (the `[1]` `RocketEquation` inputs keep
+  its warning at `delta-v-budget.sysml:93`): `380 file(s), 345 fully agreeing; 38 agreed, 41 only
+  ours, 1614 only the pilot's`, JSON totals `openSysMLDiagnostics 82 / pilotDiagnostics 1655 /
+  severityMismatch 3`; ~2 min wall, byte-identical across runs *and* after a from-scratch rebuild of
+  `build/pilot-validator`. The six `kerml-examples` pilot-only rows the `2026-07` run carried (`The
+  opposite features 'owningType' … do not refer to each other`) are gone: the pilot fixed its
+  `ownedDisjoining` delegate, which did not move our side at that time. `kerml-examples` carries no
+  `syntax` diagnostic on either side. Refresh this paragraph with every rebaseline, and treat a
+  stale one as a finding.
 - **`tools/referee/diff` has no `-jobs` flag.** Its full flag set is
   `-repo -validator -kerml-validator -syside -out -timeout`; passing `-jobs` exits **2** with
   `flag provided but not defined: -jobs`. Only `tools/referee/xpect` is job-parallel. So a PR that
@@ -136,14 +139,19 @@ The harness compares OpenSysML diagnostics against the OMG SysML v2 Pilot Implem
 (via two pinned plain-Java bridges over the pilot's own validators) over four corpus roots and writes
 `build/pilot-diff/pilot-diff.{txt,json}`. `docs/project/pilot-differential-baseline.json` is the
 committed result of the *last refreshed* run, so **the harness is testable by reproduction** —
-but only while the baseline is current. Check that first. As of the rebaseline that came when the Legend of the Red Dragon example left for its own repository it **is**
-current: a live run gives `380 file(s), 344 fully agreeing; 38 agreed, 42 only ours, 1614 only the
-pilot's`, byte-identical to the committed baseline, and `docs/project/pilot-differential.md`'s
-"Results" table matches. The rebaseline before it, at the architecture self-model's landing, covered two rounds, because the succession-shorthand
-removal before it landed without refreshing the baseline; a control run of its merge commit gives
-`32 agreed, 54 only ours, 79 only the pilot's`. When it is stale (it was at `ac4ac4fb`, and again while the F60–F69 fix
-PRs were in flight), a non-empty `jq -S` baseline diff is *not* by itself evidence of a
-regression — see "Isolating one change's effect" below.
+but only while the baseline is current. Check that first. The latest rebaseline, after bare
+parameters took their effective range `[0..*]` and removed the adjudicated `Behaviors.kerml:14`
+warning (the `[1]` `RocketEquation` inputs still produce the warning at
+`delta-v-budget.sysml:93`), is current: a live run gives `380 file(s), 345 fully agreeing; 38
+agreed, 41 only ours, 1614 only the pilot's`, byte-identical to the committed baseline, and
+`docs/project/pilot-differential.md`'s "Results" table matches. The prior rebaseline, when the
+Legend of the Red Dragon example left for its own repository, gave
+<!-- doc-count:historical -->`380 file(s), 344 fully agreeing; 38 agreed, 42 only ours, 1614 only the pilot's`.
+The rebaseline before that, at the architecture self-model's landing, covered two rounds, because
+the succession-shorthand removal before it landed without refreshing the baseline; a control run
+of its merge commit gives `32 agreed, 54 only ours, 79 only the pilot's`. When it is stale (it was
+at `ac4ac4fb`, and again while the F60–F69 fix PRs were in flight), a non-empty `jq -S` baseline
+diff is *not* by itself evidence of a regression — see "Isolating one change's effect" below.
 
 ## Prerequisites
 

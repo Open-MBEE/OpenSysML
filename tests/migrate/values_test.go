@@ -234,7 +234,7 @@ func TestValueActionLiteralTakesTheResultPinsType(t *testing.T) {
         <edge xmi:type="uml:ControlFlow" xmi:id="_e4" source="_script" target="_final"/>
       </ownedBehavior>
     </packagedElement>`, `<sysml:Block xmi:id="_sb" base_Class="_b"/>`)
-	wantLine(t, r.Notation, "out result : ScalarValues::Real = -1.0;")
+	wantLine(t, r.Notation, "out result : ScalarValues::Real[1] = -1.0;")
 	wantNoLine(t, r.Notation, `= "-1deg";`)
 	wantNoLine(t, r.Notation, `= "2deg";`)
 	wantNote(t, r, "_deg", migrate.Approximated, `the value -1deg is not written: the string "-1deg" is not a value of Real, which the feature holds`)
@@ -495,7 +495,7 @@ func TestUndirectedItemInAnInterfaceBlockIsAReference(t *testing.T) {
   <sysml:Block xmi:id="_s1" base_Class="_fuel"/>
   <sysml:InterfaceBlock xmi:id="_s2" base_Class="_if"/>
   <sysml:FlowProperty xmi:id="_s3" base_Property="_flow" direction="in"/>`)
-	wantLine(t, r.Notation, "in item fuel : Fuel;")
+	wantLine(t, r.Notation, "in item fuel : Fuel[1];")
 	wantLine(t, r.Notation, "ref item spare : Fuel;")
 	wantNote(t, r, "_spare", migrate.Approximated, "the undirected item of an interface block is written as a reference")
 	wantClean(t, "interface.sysml", r)

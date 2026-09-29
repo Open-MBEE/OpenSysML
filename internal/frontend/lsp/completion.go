@@ -274,7 +274,7 @@ func completionKind(k symbols.SymbolKind) protocol.CompletionItemKind {
 		symbols.SymbolCaseUsage, symbols.SymbolAnalysisCaseUsage,
 		symbols.SymbolVerificationCaseUsage, symbols.SymbolUseCaseUsage:
 		return protocol.CompletionItemKindMethod
-	case symbols.SymbolAttributeUsage:
+	case symbols.SymbolAttributeUsage, symbols.SymbolReferenceUsage:
 		return protocol.CompletionItemKindProperty
 	default:
 		return protocol.CompletionItemKindField

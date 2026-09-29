@@ -84,7 +84,7 @@ const undeterminedModel = `package test {
 	attribute vast : Real[0..9223372036854775807];
 	attribute big : Real[5000000];
 	attribute known : Real = 2.0;
-	calc twice { in x : Real; return : Real = x * 2.0; }
+	calc twice { in x : Real[1]; return : Real = x * 2.0; }
 	attribute doubled : Real = twice(u);
 }`
 

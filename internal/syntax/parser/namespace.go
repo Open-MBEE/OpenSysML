@@ -839,6 +839,7 @@ func (p *Parser) parsePackage(start int) ast.Node {
 	prefixes := p.parsePrefixMetadata()
 	isStandard := p.acceptKeyword("standard")
 	isLibrary := p.acceptKeyword("library")
+	prefixes = append(prefixes, p.parsePrefixMetadata()...)
 	if !p.acceptKeyword("package") {
 		return p.errorNodeSkip(start, "expected 'package'")
 	}
@@ -889,6 +890,19 @@ func (p *Parser) leadingPrefixIsNamespace() bool {
 func (p *Parser) leadingPrefixIsDependency() bool {
 	t := p.peekN(p.prefixLookahead())
 	return t.Kind == lexer.Keyword && t.KeywordID == "dependency"
+}
+
+func (p *Parser) leadingPrefixIsActionNode() bool {
+	t := p.peekN(p.prefixLookahead())
+	if t.Kind != lexer.Keyword {
+		return false
+	}
+	switch t.KeywordID {
+	case "fork", "join", "merge", "decide":
+		return true
+	default:
+		return false
+	}
 }
 
 func (p *Parser) leadingPrefixIsDefUsage() bool {

@@ -135,7 +135,7 @@ func TestActivityMigratesToAnExecutableActionDef(t *testing.T) {
 	r := migrateDocument(t, missionActivity, missionApplications)
 	for _, line := range []string{
 		"part def Mission {",
-		"action acquire {",
+		"action def Acquire {",
 		"first start then stamp;",
 		"fork 'fork';",
 		"action wait accept after 3.0 [SI::s];",
@@ -162,8 +162,8 @@ func TestActivityMigratesToAnExecutableActionDef(t *testing.T) {
 
 	s := session(t, r)
 	meta(t, s, "%seed 1")
-	wantVerdict(t, s.RunAction("Mission::acquire"))
-	runs := meta(t, s, "%runs 20 1 Mission::acquire")
+	wantVerdict(t, s.RunAction("Mission::Acquire"))
+	runs := meta(t, s, "%runs 20 1 Mission::Acquire")
 	if !strings.Contains(runs, "20 run(s)") || strings.Contains(runs, "error") {
 		t.Errorf("Monte Carlo runs of the migrated activity:\n%s", runs)
 	}
@@ -587,8 +587,8 @@ func TestParallelControlFlowsAreEachWritten(t *testing.T) {
 	r := migrateDocument(t, parallelEdges, `
   <sysml:Block xmi:id="_s1" base_Class="_retrier"/>`)
 	for _, line := range []string{
-		"first 'decide' if context.attempts < 3 then Retry;",
-		"first 'decide' if context.manualOverride then Retry;",
+		"first 'decide' if attempts < 3 then Retry;",
+		"first 'decide' if manualOverride then Retry;",
 		"else 'merge';",
 		"first Retry then 'fork';",
 		"fork 'fork';",
@@ -611,7 +611,7 @@ func TestParallelControlFlowsAreEachWritten(t *testing.T) {
 	wantNote(t, r, "_retry", migrate.Approximated, "several edges leave the node, which a fork fork carries")
 	s := session(t, r)
 	meta(t, s, "%instantiate Retrier")
-	meta(t, s, "%action Retrier::Recover #1")
+	meta(t, s, "%action Retrier::recover #1")
 	if out := meta(t, s, "%continue"); !strings.Contains(out, "Completed") {
 		t.Errorf("the action with parallel flows did not run to completion:\n%s", out)
 	}
@@ -851,7 +851,7 @@ func TestActivityWithSendAcceptAndOperationCalls(t *testing.T) {
 	r := migrateDocument(t, stationActivity, stationApplications)
 	for _, line := range []string{
 		"action point {",
-		"in az : ScalarValues::Real;",
+		"in az : ScalarValues::Real[1];",
 		"action 'set azimuth' {",
 		"assign azimuth := value;",
 		"bind 'set azimuth'.value = az;",
@@ -862,10 +862,10 @@ func TestActivityWithSendAcceptAndOperationCalls(t *testing.T) {
 		"perform action go : Go;",
 		"calc def Twice {",
 		"x * 2.0",
-		"out result = tel;",
+		"out result[1] = tel;",
 		"send new Go() to tel;",
 		"action 'wait Ack' accept Ack;",
-		"out result = 90.0;",
+		"out result[1] = 90.0;",
 		"action park : Park;",
 		"perform action point ::> tel.point;",
 		"* var t = java.lang.System.currentTimeMillis();",
@@ -937,7 +937,7 @@ func TestNestedDefProbabilityReadsThroughContext(t *testing.T) {
 	}
 	t.Run("inherited by the object", func(t *testing.T) {
 		r := migrateFixtureFile(t, "probability_nested_def_context")
-		wantLine(t, r.Notation, "in ref context : Sub;")
+		wantLine(t, r.Notation, "in ref context : Sub[1];")
 		wantLine(t, r.Notation, "first 'decide' then a { @Stochastic::Probability { p = context.pr; } }")
 		wantLine(t, r.Notation, "first 'decide' then b { @Stochastic::Probability { p = 1.0 - context.pr; } }")
 		wantLine(t, r.Notation, "action call : Inner { in ref :>> context = Run::context; }")
@@ -966,7 +966,7 @@ func TestNestedDefProbabilityReadsThroughContext(t *testing.T) {
 	})
 	t.Run("held by one part of the object, the def uncalled", func(t *testing.T) {
 		r := migrateFixtureFile(t, "probability_nested_def_part_uncalled")
-		wantLine(t, r.Notation, "in ref context : Sub;")
+		wantLine(t, r.Notation, "in ref context : Sub[1];")
 		wantLine(t, r.Notation, "first 'decide' then a { @Stochastic::Probability { p = context.mission.pr; } }")
 		wantLine(t, r.Notation, "first 'decide' then b { @Stochastic::Probability { p = 1.0 - context.mission.pr; } }")
 		if errs := errors(t, "t.sysml", r.Notation); len(errs) > 0 {

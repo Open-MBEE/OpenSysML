@@ -105,6 +105,11 @@ const (
 	// SymbolMultiplicity classifies a named multiplicity member, `multiplicity
 	// exactlyOne [1..1]` or `multiplicity single subsets exactlyOne`.
 	SymbolMultiplicity
+	// SymbolReferenceUsage classifies a usage declared without a kind keyword:
+	// a ReferenceUsage (SysML v2 §7.6.4), which a directed usage always is
+	// (§7.6.3). It is an attribute usage for every purpose but the metaclass it
+	// names.
+	SymbolReferenceUsage
 )
 
 var symbolKindNames = map[SymbolKind]string{
@@ -175,6 +180,7 @@ var symbolKindNames = map[SymbolKind]string{
 	SymbolConnectorEnd:            "connectorEnd",
 	SymbolCrossFeature:            "crossFeature",
 	SymbolKerMLType:               "kermlType",
+	SymbolReferenceUsage:          "referenceUsage",
 }
 
 // String returns the display name of the kind.
@@ -204,10 +210,17 @@ func (k SymbolKind) IsFeature() bool {
 		SymbolAllocationUsage, SymbolActionUsage, SymbolStateUsage, SymbolCalcUsage,
 		SymbolConstraintUsage, SymbolRequirementUsage, SymbolSatisfyRequirementUsage,
 		SymbolCaseUsage, SymbolAnalysisCaseUsage, SymbolVerificationCaseUsage, SymbolUseCaseUsage,
-		SymbolConnectorEnd, SymbolCrossFeature, SymbolMultiplicity:
+		SymbolConnectorEnd, SymbolCrossFeature, SymbolMultiplicity, SymbolReferenceUsage:
 		return true
 	}
 	return false
+}
+
+// IsAttributeLike reports whether k classifies a usage carrying attribute
+// features: an attribute usage, or a kindless reference usage, which is an
+// attribute for every purpose but the metaclass it names.
+func (k SymbolKind) IsAttributeLike() bool {
+	return k == SymbolAttributeUsage || k == SymbolReferenceUsage
 }
 
 // IsFeature reports whether s declares a KerML Feature: by its kind, or by its

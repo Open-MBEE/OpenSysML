@@ -1596,10 +1596,7 @@ func (e *EvalContext) invokesCalc(scope *symbols.Scope, invocation *ast.Invocati
 	if err != nil {
 		return false, err
 	}
-	if sel.Ambiguous {
-		return true, nil
-	}
-	return e.ctx.model.semantics.Evaluates(sel.Called()), nil
+	return e.ctx.model.semantics.CallsCalc(sel), nil
 }
 
 // buildInvokedMessage builds the message of `send shutDown(7) to self`: the

@@ -1,0 +1,1 @@
+- End every syntax node's span at its last token (or the comment body it owns) instead of at the next token's start, so diagnostic ranges in the CLI, LSP and gRPC service, and LSP reference and declaration locations, no longer cover the whitespace and line comments after the name or declaration they report.

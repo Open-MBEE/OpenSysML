@@ -47,7 +47,7 @@ elmt:IrregularLayout___401
     sysml:owner elmt:IrregularLayout ;
     sysml:owningRelationship elmt:IrregularLayout___401_om ;
     sysml:owningMembership elmt:IrregularLayout___401_om ;
-    sysml:body " A model whose author laid the heads out\n       *   over several lines,\n\t *\twith tabs,\n\n       * blank lines and odd indentation. " ;
+    sysml:body "A model whose author laid the heads out\n  over several lines,\n\twith tabs,\n\nblank lines and odd indentation. " ;
     sysx:sourceText "    doc /* A model whose author laid the heads out\n       *   over several lines,\n\t *\twith tabs,\n\n       * blank lines and odd indentation. */\n" .
 
 elmt:IrregularLayout___401_om
@@ -243,7 +243,7 @@ elmt:IrregularLayout__Rover___400
     sysml:owner elmt:IrregularLayout__Rover ;
     sysml:owningRelationship elmt:IrregularLayout__Rover___400_om ;
     sysml:owningMembership elmt:IrregularLayout__Rover___400_om ;
-    sysml:body " the rover:\n             its doc spans\n                lines too " ;
+    sysml:body "the rover:\nits doc spans\nlines too " ;
     sysx:sourceText "        doc /* the rover:\n             its doc spans\n                lines too */\n" .
 
 elmt:IrregularLayout__Rover___400_om
@@ -1878,7 +1878,7 @@ elmt:IrregularLayout__Rover___4011
     sysml:owningRelationship elmt:IrregularLayout__Rover___4011_om ;
     sysml:owningMembership elmt:IrregularLayout__Rover___4011_om ;
     sysml:annotatedElement elmt:IrregularLayout__Rover ;
-    sysml:body " a comment\n   that wanders back\n\t\t\t  and forth " ;
+    sysml:body "a comment\nthat wanders back\nand forth " ;
     sysx:sourceText "        comment about Rover /* a comment\n   that wanders back\n\t\t\t  and forth */\n" .
 
 elmt:IrregularLayout__Rover___4011_om
@@ -1926,7 +1926,7 @@ elmt:IrregularLayout__Drive_om
     sysml:membershipOwningNamespace elmt:IrregularLayout .
 
 elmt:IrregularLayout__Drive__count
-    a sysml:ReferenceUsage ;
+    a sysml:AttributeUsage ;
     sysml:qualifiedName "IrregularLayout::Drive::count" ;
     sysml:elementId "IrregularLayout__Drive__count" ;
     sysx:memberIndex "0"^^xsd:integer ;

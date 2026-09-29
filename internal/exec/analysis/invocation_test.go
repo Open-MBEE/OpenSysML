@@ -483,25 +483,25 @@ const echoDriver = `package Probe {
 			toolName = "Echo";
 			uri = "echo://host/a?x=1 2";
 		}
-		in mass : MassValue        { @ToolVariable { name = "mass"; } }
-		in power : PowerValue      { @ToolVariable { name = "power"; } }
-		in label : String          { @ToolVariable { name = "label"; } }
-		in count : Integer         { @ToolVariable { name = "count"; } }
-		out argv : String          { @ToolVariable { name = "argv"; } }
-		out env : String           { @ToolVariable { name = "env"; } }
-		out cwd : String           { @ToolVariable { name = "cwd"; } }
-		out stdin : String         { @ToolVariable { name = "stdin"; } }
-		out input : String         { @ToolVariable { name = "input"; } }
-		out outDir : String        { @ToolVariable { name = "outDir"; } }
+		in mass : MassValue[1]        { @ToolVariable { name = "mass"; } }
+		in power : PowerValue[1]      { @ToolVariable { name = "power"; } }
+		in label : String[1]          { @ToolVariable { name = "label"; } }
+		in count : Integer[1]         { @ToolVariable { name = "count"; } }
+		out argv : String[1]          { @ToolVariable { name = "argv"; } }
+		out env : String[1]           { @ToolVariable { name = "env"; } }
+		out cwd : String[1]           { @ToolVariable { name = "cwd"; } }
+		out stdin : String[1]         { @ToolVariable { name = "stdin"; } }
+		out input : String[1]         { @ToolVariable { name = "input"; } }
+		out outDir : String[1]        { @ToolVariable { name = "outDir"; } }
 	}
 
 	action def Once {
-		out argv : String;
-		out env : String;
-		out cwd : String;
-		out stdin : String;
-		out input : String;
-		out outDir : String;
+		out argv : String[1];
+		out env : String[1];
+		out cwd : String[1];
+		out stdin : String[1];
+		out input : String[1];
+		out outDir : String[1];
 		action step : Echo {
 			in mass = 1500 [SI::kg];
 			in power = 2 [SI::kW];

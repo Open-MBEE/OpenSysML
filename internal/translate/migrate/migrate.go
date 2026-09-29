@@ -389,6 +389,9 @@ type migration struct {
 	// parameter; contextNotes says why an activity naming ports of several gets none.
 	contexts     map[*sysmlv1.Element]*behaviorContext
 	contextNotes map[*sysmlv1.Element]string
+	// marked holds, in order, the context parameters spelling marked
+	// used, so a refused body can unmark those it marked; see markUsed.
+	marked []*bool
 	// ownerCtx holds the context a def declares for the object its owner is,
 	// which its `this` does not reach.
 	ownerCtx map[*sysmlv1.Element]*behaviorContext
@@ -2123,6 +2126,11 @@ func (m *migration) feature(p *sysmlv1.Element) {
 		mult, mnote = shape, ""
 	} else {
 		mult += collection(p)
+	}
+	if mult == "" && (param || dir != "") {
+		// A v1 parameter writing no multiplicity means a single value; §7.6.3
+		// gives a bare v2 parameter [0..*], so state the one it meant.
+		mult = "[1]"
 	}
 	b.WriteString(mult)
 	note = joinNotes(joinNotes(note, mnote), tm.note())

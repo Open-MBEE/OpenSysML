@@ -36,7 +36,7 @@ part def Probe :> Stage {
 	attribute :>> length = 1 [m];
 }
 part def Payload :> Stage {
-	action weigh { in reading : Real; }
+	action weigh { in reading : Real[1]; }
 	attribute :>> mass = weigh.reading [kg];
 }
 part def Cargo :> Stage {
@@ -120,7 +120,7 @@ func executionError(t *testing.T, err error, kind ErrorKind) *Error {
 
 const massesQuery = `
 calc def Masses :> Query {
-	in root : Element;
+	in root : Element[1];
 	Project(
 		source = WhereType(source = Descendants(source = root, maxDepth = 1), type = "PartUsage"),
 		properties = ("name", "mass")
@@ -194,7 +194,7 @@ func TestQuantityCellsAreImmutable(t *testing.T) {
 func TestExecuteFiltersQuantitiesByBareMagnitude(t *testing.T) {
 	fixture := quantityFixture(t, `
 calc def Heavy :> Query {
-	in root : Element;
+	in root : Element[1];
 	Project(
 		source = WhereFeature(
 			source = WhereType(source = Descendants(source = root, maxDepth = 1), type = "PartUsage"),
@@ -206,7 +206,7 @@ calc def Heavy :> Query {
 	)
 }
 calc def Exact :> Query {
-	in root : Element;
+	in root : Element[1];
 	Project(
 		source = WhereFeature(
 			source = WhereType(source = Descendants(source = root, maxDepth = 1), type = "PartUsage"),
@@ -218,7 +218,7 @@ calc def Exact :> Query {
 	)
 }
 calc def UnitInValue :> Query {
-	in root : Element;
+	in root : Element[1];
 	WhereFeature(
 		source = WhereType(source = Descendants(source = root, maxDepth = 1), type = "PartUsage"),
 		'feature' = "mass",
@@ -246,7 +246,7 @@ calc def UnitInValue :> Query {
 
 const orderedQuery = `
 calc def Ordered :> Query {
-	in root : Element;
+	in root : Element[1];
 	OrderBy(
 		source = Project(
 			source = WhereType(source = Descendants(source = root, maxDepth = 1), type = "PartUsage"),
@@ -259,7 +259,7 @@ calc def Ordered :> Query {
 	)
 }
 calc def ByLength :> Query {
-	in root : Element;
+	in root : Element[1];
 	OrderBy(
 		source = Project(
 			source = WhereType(source = Descendants(source = root, maxDepth = 1), type = "PartUsage"),
@@ -306,7 +306,7 @@ part mixed {
 	}
 }
 calc def Ordered :> Query {
-	in root : Element;
+	in root : Element[1];
 	OrderBy(
 		source = Project(
 			source = WhereType(source = Descendants(source = root, maxDepth = 1), type = "PartUsage"),
@@ -349,7 +349,7 @@ part heavy {
 	}
 }
 calc def Ascending :> Query {
-	in root : Element;
+	in root : Element[1];
 	OrderBy(
 		source = Project(
 			source = WhereType(source = Descendants(source = root, maxDepth = 1), type = "PartUsage"),
@@ -362,7 +362,7 @@ calc def Ascending :> Query {
 	)
 }
 calc def Descending :> Query {
-	in root : Element;
+	in root : Element[1];
 	OrderBy(
 		source = Project(
 			source = WhereType(source = Descendants(source = root, maxDepth = 1), type = "PartUsage"),
@@ -390,7 +390,7 @@ calc def Descending :> Query {
 func TestExecuteComputesQuantityColumns(t *testing.T) {
 	fixture := quantityFixture(t, `
 calc def Derived :> Query {
-	in root : Element;
+	in root : Element[1];
 	Project(
 		source = WhereType(source = Descendants(source = root, maxDepth = 1), type = "PartUsage"),
 		properties = ("name"),
@@ -435,7 +435,7 @@ part convoy {
 	part lead : Cruiser;
 }
 calc def Signed :> Query {
-	in root : Element;
+	in root : Element[1];
 	Project(
 		source = WhereType(source = Descendants(source = root, maxDepth = 1), type = "PartUsage"),
 		properties = ("name"),
@@ -470,7 +470,7 @@ calc def Signed :> Query {
 func TestExecuteRefusesIncommensurableColumnArithmetic(t *testing.T) {
 	fixture := quantityFixture(t, `
 calc def Nonsense :> Query {
-	in root : Element;
+	in root : Element[1];
 	Project(
 		source = WhereType(source = Descendants(source = root, maxDepth = 1), type = "PartUsage"),
 		properties = ("name"),
@@ -542,8 +542,8 @@ func boundQuantity(t *testing.T, fixture executionFixture, expr string) Value {
 func TestExecuteBindsQuantityParameters(t *testing.T) {
 	fixture := quantityFixture(t, `
 calc def Margin :> Query {
-	in root : Element;
-	in budget : MassValue;
+	in root : Element[1];
+	in budget : MassValue[1];
 	Project(
 		source = WhereType(source = Descendants(source = root, maxDepth = 1), type = "PartUsage"),
 		properties = ("name"),
@@ -551,8 +551,8 @@ calc def Margin :> Query {
 	)
 }
 calc def Labelled :> Query {
-	in root : Element;
-	in label : String;
+	in root : Element[1];
+	in label : String[1];
 	WhereFeature(source = Descendants(source = root, maxDepth = 1), 'feature' = "name", operator = "=", value = label)
 }
 `)

@@ -392,3 +392,39 @@ package test {
 		}
 	}
 }
+
+// TestChainPinsReadTheValuesAChainNames: a feature a chain of steps reaches
+// gets the value the evaluator reads there, fixed to the variable the chain
+// names — and a chain reading no value stays free.
+func TestChainPinsReadTheValuesAChainNames(t *testing.T) {
+	ctx, idx := fixture(t, "chain_pins.sysml", `package test {
+		private import ScalarValues::*;
+		part hg { attribute power : Real = 5.0; attribute free : Real; }
+		assert constraint positive { hg.power > 0.0 }
+		assert constraint bounded { hg.free < 1.0 }
+	}`)
+	sym := symbolNamed(t, idx, "test::positive")
+	q, err := ConstraintViolation(ctx, sym, sym.OwnerScope, nil)
+	if err != nil {
+		t.Fatalf("translate: %v", err)
+	}
+	pins, err := ChainPins(ctx, q, nil)
+	if err != nil {
+		t.Fatalf("ChainPins: %v", err)
+	}
+	if len(pins) != 1 || !strings.HasSuffix(pins[0].Var, "hg.power") {
+		t.Fatalf("chain pins = %+v, want one pinning hg.power", pins)
+	}
+	sym = symbolNamed(t, idx, "test::bounded")
+	q, err = ConstraintViolation(ctx, sym, sym.OwnerScope, nil)
+	if err != nil {
+		t.Fatalf("translate bounded: %v", err)
+	}
+	pins, err = ChainPins(ctx, q, nil)
+	if err != nil {
+		t.Fatalf("ChainPins bounded: %v", err)
+	}
+	if len(pins) != 0 {
+		t.Fatalf("bounded chain pins = %+v, want none — hg.free carries no value", pins)
+	}
+}

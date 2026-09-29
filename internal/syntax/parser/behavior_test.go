@@ -767,6 +767,63 @@ func TestParseStateBody_AcceptTransitionTriggerKinds(t *testing.T) {
 	}
 }
 
+func TestParseTransitionAcceptPayloadTyping(t *testing.T) {
+	for _, tc := range []struct {
+		name string
+		src  string
+		want []string
+	}{
+		{"bare", "transition first a accept Start then b;", []string{"Start"}},
+		{"qualified", "transition first a accept Outer::Start then b;", []string{"Outer", "Start"}},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			nodes := parseStateBodyTest(t, "{\n"+tc.src+"\n}")
+			if len(nodes) != 1 {
+				t.Fatalf("got %d state members, want 1", len(nodes))
+			}
+			transition, ok := nodes[0].(*ast.TransitionMember)
+			if !ok {
+				t.Fatalf("got %T, want *ast.TransitionMember", nodes[0])
+			}
+			payload, ok := transition.Trigger.(*ast.Usage)
+			if !ok {
+				t.Fatalf("got trigger %T, want *ast.Usage", transition.Trigger)
+			}
+			if !payload.IsAccept || !payload.IsReference || payload.Kind != ast.UsageAttribute || payload.Direction != ast.DirOut {
+				t.Errorf("unexpected payload flags: %+v", payload)
+			}
+			if len(payload.Relationships) != 1 || payload.Relationships[0].Kind != ast.RelTyping {
+				t.Fatalf("payload relationships = %+v, want one typing", payload.Relationships)
+			}
+			name, ok := payload.Relationships[0].Target.(*ast.QualifiedName)
+			if !ok {
+				t.Errorf("typing target = %T %v, want %q", payload.Relationships[0].Target, payload.Relationships[0].Target, tc.want)
+				return
+			}
+			got := make([]string, len(name.Parts))
+			for i, part := range name.Parts {
+				got[i] = part.Text
+			}
+			if len(got) != len(tc.want) {
+				t.Errorf("typing target parts = %v, want %v", got, tc.want)
+				return
+			}
+			for i := range got {
+				if got[i] != tc.want[i] {
+					t.Errorf("typing target parts = %v, want %v", got, tc.want)
+					break
+				}
+			}
+		})
+	}
+
+	nodes := parseStateBodyTest(t, "{\ntransition first a accept op(x) then b;\n}")
+	transition := nodes[0].(*ast.TransitionMember)
+	if _, ok := transition.Trigger.(*ast.CallEvent); !ok {
+		t.Errorf("call trigger = %T, want *ast.CallEvent", transition.Trigger)
+	}
+}
+
 func TestParseStateBody_TransitionWithGuardAndEffect(t *testing.T) {
 	input := `{
 		transition first Running if ready do { action finalize; } then Stopped;

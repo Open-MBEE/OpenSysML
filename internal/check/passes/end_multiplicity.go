@@ -1,6 +1,8 @@
 package passes
 
 import (
+	"github.com/Open-MBEE/OpenSysML/internal/check/passes/kit"
+	"github.com/Open-MBEE/OpenSysML/internal/semantic/semantics"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/symbols"
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/ast"
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/diag"
@@ -34,6 +36,60 @@ func (cc *constraintChecker) checkFeatureEndFeatureMultiplicity(sym *symbols.Sym
 			cc.reportEndMultiplicity(end.Span())
 		}
 	}
+}
+
+func (cc *constraintChecker) checkActionSuccessionSourceMultiplicity(sym *symbols.Symbol) {
+	if sym == nil || cc.model == nil || !semantics.ActionDeclaration(sym.Decl) {
+		return
+	}
+	for _, succession := range cc.model.ActionSuccessions(sym) {
+		edge, shorthand := succession.Decl.(*ast.SuccessionEdge)
+		if succession.Owner != sym || !shorthand {
+			continue
+		}
+		cc.checkActionSuccessionSourceMultiplicityRange(sym.Scope, edge.SourceMultiplicity)
+	}
+	members := ast.DeclMembers(sym.Decl)
+	if members == nil {
+		members = ast.NodeBodyMembers(sym.Decl)
+	}
+	cc.checkNestedActionBodySourceMultiplicities(sym.Scope, members, false)
+}
+
+func (cc *constraintChecker) checkNestedActionBodySourceMultiplicities(scope *symbols.Scope, members []ast.Node, checkSuccessions bool) {
+	for _, member := range members {
+		switch n := kit.UnwrapMembership(member).(type) {
+		case *ast.SuccessionEdge:
+			if checkSuccessions {
+				cc.checkActionSuccessionSourceMultiplicityRange(scope, n.SourceMultiplicity)
+			}
+			if len(n.Members) > 0 {
+				cc.checkNestedActionBodySourceMultiplicities(kit.BodyScope(scope, n), n.Members, true)
+			}
+		case *ast.IfActionNode:
+			for _, branch := range n.Branches() {
+				cc.checkNestedActionBodySourceMultiplicities(kit.BodyScope(scope, branch), branch.Body, true)
+			}
+		case *ast.IfBranchNode:
+			cc.checkNestedActionBodySourceMultiplicities(kit.BodyScope(scope, n), n.Body, true)
+		case *ast.WhileLoopActionNode:
+			cc.checkNestedActionBodySourceMultiplicities(kit.BodyScope(scope, n), n.Body, true)
+		}
+	}
+}
+
+func (cc *constraintChecker) checkActionSuccessionSourceMultiplicityRange(scope *symbols.Scope, multiplicity *ast.Multiplicity) {
+	if multiplicity == nil {
+		return
+	}
+	r, ok := cc.model.RangeIn(scope, multiplicity)
+	if !ok {
+		return
+	}
+	if value, exact := r.Exactly(); exact && value == 1 {
+		return
+	}
+	cc.reportEndMultiplicity(multiplicity.Span())
 }
 
 func (cc *constraintChecker) reportEndMultiplicity(span source.Span) {

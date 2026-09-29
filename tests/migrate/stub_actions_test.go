@@ -62,8 +62,8 @@ func TestStubActionsInMethodsKeepTheirPinsAndAllocation(t *testing.T) {
 	wantNote(t, r, "_alloc", migrate.Approximated, mixedEndsNote)
 	for _, line := range []string{
 		"action sweep {",
-		"in rate : ScalarValues::Real;",
-		"in mode;",
+		"in rate : ScalarValues::Real[1];",
+		"in mode[1];",
 		"out frames : ScalarValues::Integer[0..*];",
 		"dependency Cam::Scan::sweep to Cam::glass;",
 	} {
@@ -220,7 +220,7 @@ func TestIncompletelySerializedCallsAreRefusedNotStubbed(t *testing.T) {
 	wantNote(t, r, "_oddOut", migrate.Approximated, "it is declared admitting no value: the action calls no behavior, so nothing computes it")
 	for _, line := range []string{
 		"action odd {",
-		"in gain;",
+		"in gain[1];",
 		"out reading[0..1];",
 	} {
 		wantLine(t, r.Notation, line)
@@ -361,8 +361,8 @@ func TestUnfedTargetPinDoesNotPickAPart(t *testing.T) {
 }
 
 // externalMethodCall is the block Motor of unfedTargetCall, whose operation Spin
-// no call names, and a package activity Bench that calls Spin's method Spinning
-// directly, holding no object of Motor.
+// no call names, and the block Rig, whose activity Bench calls Spin's method
+// Spinning directly while Rig holds no object of Motor.
 const externalMethodCall = `
     <packagedElement xmi:type="uml:Class" xmi:id="_motor" name="Motor">
       <ownedAttribute xmi:type="uml:Property" xmi:id="_rpm" name="rpm">
@@ -385,21 +385,24 @@ const externalMethodCall = `
         <edge xmi:type="uml:ControlFlow" xmi:id="_se2" source="_setRpm" target="_sf"/>
       </ownedBehavior>
     </packagedElement>
-    <packagedElement xmi:type="uml:Activity" xmi:id="_bench" name="Bench">
-      <node xmi:type="uml:InitialNode" xmi:id="_bi"/>
-      <node xmi:type="uml:CallBehaviorAction" xmi:id="_callSpinning" name="spin" behavior="_spinning"/>
-      <node xmi:type="uml:ActivityFinalNode" xmi:id="_bf"/>
-      <edge xmi:type="uml:ControlFlow" xmi:id="_be1" source="_bi" target="_callSpinning"/>
-      <edge xmi:type="uml:ControlFlow" xmi:id="_be2" source="_callSpinning" target="_bf"/>
+    <packagedElement xmi:type="uml:Class" xmi:id="_rig" name="Rig">
+      <ownedBehavior xmi:type="uml:Activity" xmi:id="_bench" name="Bench">
+        <node xmi:type="uml:InitialNode" xmi:id="_bi"/>
+        <node xmi:type="uml:CallBehaviorAction" xmi:id="_callSpinning" name="spin" behavior="_spinning"/>
+        <node xmi:type="uml:ActivityFinalNode" xmi:id="_bf"/>
+        <edge xmi:type="uml:ControlFlow" xmi:id="_be1" source="_bi" target="_callSpinning"/>
+        <edge xmi:type="uml:ControlFlow" xmi:id="_be2" source="_callSpinning" target="_bf"/>
+      </ownedBehavior>
     </packagedElement>`
 
 // A caller of an operation's method is a caller of the operation: one that
 // reaches no object of the block keeps the operation a definition the call
 // names, rather than a usage the call could only stand for by an empty step.
 func TestMethodCallersKeepTheOperationADefinition(t *testing.T) {
-	r := migrateDocument(t, externalMethodCall, `<sysml:Block xmi:id="_b1" base_Class="_motor"/>`)
+	r := migrateDocument(t, externalMethodCall, `<sysml:Block xmi:id="_b1" base_Class="_motor"/><sysml:Block xmi:id="_b2" base_Class="_rig"/>`)
 	wantLine(t, r.Notation, "action def Spin {")
 	wantLine(t, r.Notation, "action spin : Spin;")
+	wantNote(t, r, "_callSpinning", migrate.Approximated, "which is left unbound: the caller is a Rig, which is no Motor and has no part that is one")
 	wantClean(t, "t.sysml", r)
 }
 

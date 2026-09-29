@@ -16,7 +16,7 @@ var metamodelTypeNames = map[symbols.SymbolKind]string{
 	symbols.SymbolDocumentation:         "Documentation",
 	symbols.SymbolTextualRepresentation: "TextualRepresentation",
 	symbols.SymbolPartDef:               "PartDefinition", symbols.SymbolAttributeDef: "AttributeDefinition",
-	symbols.SymbolPartUsage: "PartUsage", symbols.SymbolAttributeUsage: "AttributeUsage",
+	symbols.SymbolPartUsage: "PartUsage", symbols.SymbolAttributeUsage: "AttributeUsage", symbols.SymbolReferenceUsage: "ReferenceUsage",
 	symbols.SymbolItemDef: "ItemDefinition", symbols.SymbolOccurrenceDef: "OccurrenceDefinition",
 	symbols.SymbolIndividualDef: "OccurrenceDefinition", symbols.SymbolMetadataDef: "MetadataDefinition",
 	symbols.SymbolMetaclass: "Metaclass", symbols.SymbolEnumerationDef: "EnumerationDefinition",

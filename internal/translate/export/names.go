@@ -97,6 +97,7 @@ func chooseNames(name, library string, text []byte, want *wanted, previous *name
 	for node, fqn := range e.fqn {
 		declared[fqn] = node
 	}
+	memberAliases, targetAliases := parserAliases(want.references)
 	written := writtenKeys(want.references)
 	writtenAs := writtenSegments(want.segments, previous)
 	occurrences := map[nameKey][]resolve.Reference{}
@@ -113,7 +114,14 @@ func chooseNames(name, library string, text []byte, want *wanted, previous *name
 			chains = append(chains, ref)
 			continue
 		}
-		key := nameKey{member: e.memberOf(ref), target: e.writtenTarget(ref)}
+		member, target := e.memberOf(ref), e.writtenTarget(ref)
+		if alias, ok := memberAliases[member]; ok && alias != "" {
+			member = alias
+		}
+		if alias, ok := targetAliases[target]; ok && alias != "" {
+			target = alias
+		}
+		key := nameKey{member: member, target: target}
 		if _, ok := want.references[key]; ok {
 			occurrences[key] = append(occurrences[key], ref)
 			continue
@@ -207,6 +215,24 @@ func chooseNames(name, library string, text []byte, want *wanted, previous *name
 		}
 	}
 	return names, changed, nil
+}
+
+func parserAliases(references map[nameKey]wantedReference) (map[string]string, map[string]string) {
+	members := map[string]string{}
+	targets := map[string]string{}
+	for key := range references {
+		addParserAlias(members, parserQualifiedName(key.member), key.member)
+		addParserAlias(targets, parserQualifiedName(key.target), key.target)
+	}
+	return members, targets
+}
+
+func addParserAlias(aliases map[string]string, parsed, identity string) {
+	if previous, ok := aliases[parsed]; ok && previous != identity {
+		aliases[parsed] = ""
+		return
+	}
+	aliases[parsed] = identity
 }
 
 // memberOf is the qualified name of the member a reference is written in: the
@@ -339,7 +365,7 @@ func (e *encoder) segmentReads(refs []resolve.Reference, spelling, target string
 // referenceSpellings are the spellings tried for a reference written fully
 // qualified as qname: its qualifications shortest first, then its global form.
 func referenceSpellings(qname string) []string {
-	return append(qualifications(strings.Split(qname, "::")), "$::"+qname)
+	return append(qualifications(identitySegments(qname)), "$::"+qname)
 }
 
 // qualifications are the ways of naming the last of parts through some of the
@@ -380,7 +406,7 @@ const maxSkippedQualifiers = 8
 // global form.
 func segmentSpellings(name, target string) []string {
 	spellings := []string{name}
-	parts := strings.Split(target, "::")
+	parts := identitySegments(target)
 	for _, spelling := range qualifications(parts) {
 		if spelling != name {
 			spellings = append(spellings, spelling)
@@ -522,8 +548,8 @@ func spelledName(text string) *ast.QualifiedName {
 	if rest, ok := strings.CutPrefix(text, "$::"); ok {
 		qn.Global, text = true, rest
 	}
-	for _, segment := range strings.Split(text, "::") {
-		qn.Parts = append(qn.Parts, ast.NameSegment{Text: segment})
+	for _, segment := range identitySegments(text) {
+		qn.Parts = append(qn.Parts, ast.NameSegment{Text: identityName(segment)})
 	}
 	return qn
 }
@@ -545,6 +571,11 @@ func (e *encoder) resolvesTo(refs []resolve.Reference, spelling, target string) 
 			return false
 		}
 		if _, fqn, ok := e.linked(sym, true); ok && fqn == target {
+			continue
+		}
+		// An element's own identity may already claim a normative target's
+		// qualified name; linked refuses to repeat it, so ask the norm itself.
+		if fqn := e.normativeFQN(sym); fqn != "" && fqn == target {
 			continue
 		}
 		// The graph links a name written through an alias to that alias.

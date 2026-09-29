@@ -545,7 +545,7 @@ func literalDatatypes(metaclass, predicate string) []string {
 	switch {
 	case isIndexProperty(predicate):
 		return integerLiterals
-	case strings.HasPrefix(name, "is"), name == xHasBody, name == xDeclaredID, name == xHasEffect, name == xBracedEffect, name == xConjugatedTyping:
+	case strings.HasPrefix(name, "is"), name == xHasBody, name == xDeclaredID, name == xHasEffect, name == xBracedEffect, name == xConjugatedTyping, name == xSourceMultiplicityBeforeThen:
 		return booleanLiterals
 	case strings.HasPrefix(predicate, rdf.SysML) && (name == pLowerBound || name == pUpperBound):
 		// A feature's bound is an Expression the notation also states as a bare number.
@@ -1320,6 +1320,9 @@ func (d *decoder) printElement(b *strings.Builder, el *element, depth int) error
 	if err != nil {
 		return err
 	}
+	if annotationMetaclasses[el.metaclass] {
+		head = strings.ReplaceAll(head, "\n", d.nl+indent)
+	}
 	b.WriteString(lead + head)
 	if err := d.unwrittenPrefix(el); err != nil {
 		return err
@@ -1575,7 +1578,7 @@ func (d *decoder) declarationHead(el *element) (string, error) {
 	case "Comment":
 		return d.commentHead(el)
 	case "Documentation":
-		return d.documentationHead(el), nil
+		return d.documentationHead(el)
 	case "TextualRepresentation":
 		return d.representationHead(el)
 	case mMultiplicity, mMultiplicityClass, mMultiplicityRange:
@@ -1665,11 +1668,6 @@ func (d *decoder) namespaceHead(el *element) (string, error) {
 	if keyword := d.visibility(el); keyword != "" {
 		words = append(words, keyword)
 	}
-	prefixes, err := d.prefixWords(el)
-	if err != nil {
-		return "", err
-	}
-	words = append(words, prefixes...)
 	if el.metaclass == mPackage || el.metaclass == mLibraryPackage {
 		// A LibraryPackage's isStandard, or an older graph's sysx: flags on a Package.
 		if d.boolOf(el, rdf.SysML+pIsStandard) || d.boolOf(el, rdf.OpenSysML+"isStandardLibraryPackage") {
@@ -1678,8 +1676,18 @@ func (d *decoder) namespaceHead(el *element) (string, error) {
 		if el.metaclass == mLibraryPackage || d.boolOf(el, rdf.OpenSysML+"isLibraryPackage") {
 			words = append(words, "library")
 		}
+		prefixes, err := d.prefixWords(el)
+		if err != nil {
+			return "", err
+		}
+		words = append(words, prefixes...)
 		words = append(words, "package")
 	} else {
+		prefixes, err := d.prefixWords(el)
+		if err != nil {
+			return "", err
+		}
+		words = append(words, prefixes...)
 		words = append(words, "namespace")
 	}
 	words = append(words, d.identWords(el)...)
@@ -1800,10 +1808,24 @@ func (d *decoder) usageHead(el *element, kind ast.UsageKind) (string, error) {
 	// A reference usage owned by a metadata usage is a metadata body member
 	// (`text = "…"`, SysML.xtext MetadataBodyUsage); a kind keyword has no
 	// notation there even when the graph states none as implicit.
-	if d.metadataBodyMember(el) {
+	metadataBody := d.metadataBodyMember(el)
+	if metadataBody {
 		keyword = ""
 	}
 	identWords := d.identWords(el)
+	// A metadata body's `name = …` member is written bare: its name is the
+	// feature its implicit Redefinition targets, no declared name and no `:>>`
+	// (SysML.xtext MetadataBodyUsage). Without the flag an older graph's
+	// declared name keeps the `name = …` shape it always had.
+	implicitName := ""
+	if d.boolOf(el, rdf.OpenSysML+xImplicitRedefinition) {
+		if implicitName, err = d.implicitRedefinitionName(el); err != nil {
+			return "", err
+		}
+		if implicitName != "" {
+			identWords = append(identWords, implicitName)
+		}
+	}
 	references, err := d.referenceList(el, rdf.SysML+relationshipProperty[ast.RelReferences])
 	if err != nil {
 		return "", err
@@ -1975,6 +1997,9 @@ func (d *decoder) usageHead(el *element, kind ast.UsageKind) (string, error) {
 	// member declares a usage, spelling out the kind keyword (SysML.xtext
 	// ViewRenderingUsage, FramedConcernUsage) even when it declares no name.
 	var skip []ast.RelationshipKind
+	if implicitName != "" {
+		skip = append(skip, ast.RelRedefines)
+	}
 	if endForm == formEquals {
 		// The bound feature is an end of the binding, written by the ends
 		// notation rather than as a `references` clause.
@@ -2117,18 +2142,12 @@ func (d *decoder) usageHead(el *element, kind ast.UsageKind) (string, error) {
 	// The accept shorthand writes its parameter into the head, ahead of the
 	// `via` clause the parent's relationships supply.
 	if accept := d.acceptParam(el); accept != nil {
-		words = append(words, "accept")
-		words = append(words, d.identWords(accept)...)
-		acceptWords, err := d.relationshipWords(accept, "")
+		acceptWords, err := d.payloadWords(accept)
 		if err != nil {
 			return "", err
 		}
+		words = append(words, "accept")
 		words = append(words, acceptWords...)
-		// A trigger (`when`/`at`/`after` …) is what the payload accepts, written
-		// in place of a type rather than as a value clause.
-		if trigger, ok := d.stringOf(accept, rdf.SysML+pValue); ok {
-			words = append(words, trigger)
-		}
 	}
 	// `metadata M about x;` writes its typing bare (SysML.xtext MetadataUsageDeclaration).
 	if kind == ast.UsageMetadata && len(identWords) == 0 && len(typed) == 1 {
@@ -2364,6 +2383,22 @@ func (d *decoder) acceptParam(el *element) *element {
 		}
 	}
 	return nil
+}
+
+// payloadWords writes the payload parameter an accept declares, after `accept`.
+func (d *decoder) payloadWords(accept *element) ([]string, error) {
+	words := d.identWords(accept)
+	relationships, err := d.relationshipWords(accept, "")
+	if err != nil {
+		return nil, err
+	}
+	words = append(words, relationships...)
+	// A trigger (`when`/`at`/`after` …) is what the payload accepts, written
+	// in place of a type rather than as a value clause.
+	if trigger, ok := d.stringOf(accept, rdf.SysML+pValue); ok {
+		words = append(words, trigger)
+	}
+	return words, nil
 }
 
 // missing reports a graph element that cannot be written back as notation
@@ -2692,16 +2727,28 @@ func (d *decoder) commentHead(el *element) (string, error) {
 		words = append(words, "about", strings.Join(about, ", "))
 	}
 	words = append(words, d.localeWords(el)...)
-	body, _ := d.stringOf(el, rdf.SysML+pBody)
-	return strings.Join(words, " ") + " /*" + body + "*/", nil
+	return d.withBody(el, words)
 }
 
-func (d *decoder) documentationHead(el *element) string {
+func (d *decoder) documentationHead(el *element) (string, error) {
 	words := []string{"doc"}
 	words = append(words, d.identWords(el)...)
 	words = append(words, d.localeWords(el)...)
+	return d.withBody(el, words)
+}
+
+// withBody ends an annotation head with the REGULAR_COMMENT that reads back as
+// its sysml:body; its later lines are indented where the head is printed.
+func (d *decoder) withBody(el *element, words []string) (string, error) {
 	body, _ := d.stringOf(el, rdf.SysML+pBody)
-	return strings.Join(words, " ") + " /*" + body + "*/"
+	comment, ok := source.CommentText(body, "")
+	if !ok {
+		return "", &UnsupportedError{
+			What: fmt.Sprintf("the element <%s>", el.iri),
+			Note: "its sysml:body holds `*/` or a carriage return, which no comment body can carry",
+		}
+	}
+	return strings.Join(words, " ") + " " + comment, nil
 }
 
 func (d *decoder) representationHead(el *element) (string, error) {
@@ -2711,9 +2758,8 @@ func (d *decoder) representationHead(el *element) (string, error) {
 	if !ok {
 		return "", d.missing(el, sysmlPrefix+pLanguage, "a textual representation states the language it is written in")
 	}
-	body, _ := d.stringOf(el, rdf.SysML+pBody)
 	words = append(words, "language", source.StringText(language))
-	return strings.Join(words, " ") + " /*" + body + "*/", nil
+	return d.withBody(el, words)
 }
 
 func (d *decoder) multiplicityHead(el *element) (string, error) {
@@ -2754,6 +2800,29 @@ func (d *decoder) keywordOr(el *element, canonical string) string {
 		return ""
 	}
 	return canonical
+}
+
+// implicitRedefinitionName is the name a metadata body's `name = …` member
+// writes: the name of the one feature its implicit Redefinition targets, or
+// "" when the member redefines none or several — which the notation cannot
+// write bare, so the `:>>` form stays.
+func (d *decoder) implicitRedefinitionName(el *element) (string, error) {
+	terms := d.graph.Objects(rdf.IRI(el.iri), rdf.SysML+relationshipProperty[ast.RelRedefines])
+	if len(terms) != 1 {
+		return "", nil
+	}
+	if terms[0].IsLiteral() {
+		segments, ok := source.QualifiedNameSegments(terms[0].Value)
+		if !ok {
+			segments = strings.Split(terms[0].Value, "::")
+		}
+		return nameText(segments[len(segments)-1]), nil
+	}
+	_, name, err := d.namedMember(terms[0])
+	if err != nil {
+		return "", err
+	}
+	return nameText(name), nil
 }
 
 // metadataBodyMember reports whether el is a `text = "…"` line inside a
@@ -2906,6 +2975,25 @@ func (d *decoder) identWords(el *element) []string {
 	return words
 }
 
+// writtenQName is the qualified name the notation written for el gives it back:
+// its graph name, unless its head states no name — no declared name and no
+// implicit metadata-body name — when the rendering's anonymous index names it,
+// as the name the member's position reads it as.
+func (d *decoder) writtenQName(el *element) string {
+	q := el.qname
+	i := strings.LastIndex(q, "::")
+	if i < 0 || strings.HasPrefix(q[i+len("::"):], "@") {
+		return q
+	}
+	if !d.metadataBodyMember(el) || d.boolOf(el, rdf.OpenSysML+xImplicitRedefinition) {
+		return q
+	}
+	if _, declared := d.stringOf(el, rdf.SysML+pDeclaredName); declared {
+		return q
+	}
+	return q[:i] + "::@" + strconv.Itoa(el.memberIndex)
+}
+
 // nameText writes a name as the notation spells it: the graph carries the name
 // itself, so one that is not a basic name needs its quotes back (KerML §8.2.2).
 // A reserved word lexes as a keyword rather than a name, so a name spelling one
@@ -2946,12 +3034,9 @@ func qualifiedNameText(qname string) string {
 	if global {
 		qname = strings.TrimPrefix(qname, "$::")
 	}
-	segments, ok := source.QualifiedNameSegments(qname)
-	if !ok {
-		segments = strings.Split(qname, "::")
-	}
+	segments := identitySegments(qname)
 	for i, segment := range segments {
-		segments[i] = nameText(segment)
+		segments[i] = nameText(identityName(segment))
 	}
 	out := strings.Join(segments, "::")
 	if global {
@@ -3449,13 +3534,17 @@ func (d *decoder) referenceName(term rdf.Term, el *element) (string, error) {
 		return "", err
 	}
 	spelled := d.spelledName(target)
-	key := nameKey{member: el.qname, target: target.qname}
+	key := nameKey{member: d.writtenQName(el), target: target.qname}
+	scope := referenceScope(spelled, target.qname, el.qname, el.scope)
 	written := spelled
 	if d.names != nil {
-		var ok bool
-		if written, ok = d.names.references[key]; !ok {
-			written = relativeName(spelled, el.scope)
+		if selected, ok := d.names.references[key]; ok {
+			written = selected
+		} else {
+			written = relativeName(spelled, scope)
 		}
+	} else if scope != el.scope {
+		written = relativeName(spelled, scope)
 	}
 	// An implied element is never written, so a reference inside it is no
 	// spelling a rendering could check.
@@ -3512,17 +3601,21 @@ func (d *decoder) namedMember(term rdf.Term) (*element, string, error) {
 // segment is the name it answers to, and a membership holding its member (rather
 // than standing as a usage, as a subject does) has no segment of its own.
 func (d *decoder) spelledName(el *element) string {
-	segments := strings.Split(el.qname, "::")
+	segments := identitySegments(el.qname)
 	spelled := make([]string, 0, len(segments))
 	for i, cur := len(segments)-1, el; i >= 0; i-- {
 		segment := segments[i]
-		if cur != nil && strings.HasPrefix(segment, "@") {
-			if name, ok := d.effectiveName(cur); ok {
-				segment = name
+		name := identityName(segment)
+		if cur != nil && positionalSegment(segment) {
+			effective, ok := d.effectiveName(cur)
+			if ok && effective != name {
+				segment = identitySegment(effective)
 			} else if ontology.IsAncestorOrSelf(cur.metaclass, mOwningMembership) {
 				cur = cur.owner
 				continue
 			}
+		} else {
+			segment = identitySegment(name)
 		}
 		spelled = append(spelled, segment)
 		if cur != nil {
@@ -3540,7 +3633,8 @@ func (d *decoder) effectiveName(el *element) (string, bool) {
 	for !seen[el.iri] {
 		seen[el.iri] = true
 		if el.library {
-			return el.qname[strings.LastIndex(el.qname, "::")+len("::"):], true
+			segments := identitySegments(el.qname)
+			return identityName(segments[len(segments)-1]), true
 		}
 		if name, ok := d.stringOf(el, rdf.SysML+pDeclaredName); ok {
 			return name, true
@@ -3595,20 +3689,34 @@ func (d *decoder) namingFeature(el *element) (rdf.Term, bool) {
 // relativeName strips from qname the longest prefix of scope it is declared
 // under, the textual approximation for a reference the resolver does not read.
 func relativeName(qname, scope string) string {
-	for {
-		if scope == "" {
-			return qname
+	qnameParts := identitySegments(qname)
+	scopeParts := identitySegments(scope)
+	for n := len(scopeParts); n > 0; n-- {
+		if len(qnameParts) >= n && slices.Equal(qnameParts[:n], scopeParts[:n]) {
+			return strings.Join(qnameParts[n:], "::")
 		}
-		if rest, found := strings.CutPrefix(qname, scope+"::"); found {
-			return rest
-		}
-		cut := strings.LastIndex(scope, "::")
-		if cut < 0 {
-			scope = ""
-			continue
-		}
-		scope = scope[:cut]
 	}
+	return qname
+}
+
+func referenceScope(spelled, target, member, owner string) string {
+	relativeParts := identitySegments(relativeName(spelled, owner))
+	hasPosition := false
+	for _, part := range relativeParts {
+		if positionalSegment(part) {
+			hasPosition = true
+			break
+		}
+	}
+	if !hasPosition {
+		return owner
+	}
+	targetParts := identitySegments(target)
+	memberParts := identitySegments(member)
+	if len(targetParts) > len(memberParts) && slices.Equal(targetParts[:len(memberParts)], memberParts) {
+		return member
+	}
+	return owner
 }
 
 // notAName says why a string literal cannot be written as a qualified name —
@@ -3618,7 +3726,8 @@ func notAName(term rdf.Term) string {
 	if term.Value == "" {
 		return "it is empty"
 	}
-	for _, segment := range strings.Split(strings.TrimPrefix(term.Value, "$::"), "::") {
+	for _, segment := range identitySegments(strings.TrimPrefix(term.Value, "$::")) {
+		segment = identityName(segment)
 		switch {
 		case segment == "":
 			return "it has an empty name segment"
@@ -3650,10 +3759,8 @@ func literalTarget(term rdf.Term) ast.Node {
 }
 
 func lastSegment(qname string) string {
-	if cut := strings.LastIndex(qname, "::"); cut >= 0 {
-		return qname[cut+2:]
-	}
-	return qname
+	segments := identitySegments(qname)
+	return identityName(segments[len(segments)-1])
 }
 
 func (d *decoder) stringOf(el *element, property string) (string, bool) {

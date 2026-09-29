@@ -22,23 +22,23 @@ const toolModel = `package test {
 			uri = "aserv://localhost/Vehicle/Equation1";
 		}
 
-		in dt : TimeValue             { @ToolVariable { name = "deltaT"; } }
-		in whlpwr : PowerValue        { @ToolVariable { name = "power"; } }
-		in Cd : Real                  { @ToolVariable { name = "C_D"; } }
-		in Cf: Real                   { @ToolVariable { name = "C_F"; } }
-		in tm : MassValue             { @ToolVariable { name = "mass"; } }
-		in v_in : SpeedValue          { @ToolVariable { name = "v0"; } }
-		in x_in : LengthValue         { @ToolVariable { name = "x0"; } }
+		in dt : TimeValue[1]             { @ToolVariable { name = "deltaT"; } }
+		in whlpwr : PowerValue[1]        { @ToolVariable { name = "power"; } }
+		in Cd : Real[1]                  { @ToolVariable { name = "C_D"; } }
+		in Cf : Real[1]                   { @ToolVariable { name = "C_F"; } }
+		in tm : MassValue[1]             { @ToolVariable { name = "mass"; } }
+		in v_in : SpeedValue[1]          { @ToolVariable { name = "v0"; } }
+		in x_in : LengthValue[1]         { @ToolVariable { name = "x0"; } }
 
-		out a_out : AccelerationValue { @ToolVariable { name = "a"; } }
-		out v_out : SpeedValue          { @ToolVariable { name = "v"; } }
-		out x_out : LengthValue         { @ToolVariable { name = "x"; } }
+		out a_out : AccelerationValue[1] { @ToolVariable { name = "a"; } }
+		out v_out : SpeedValue[1]          { @ToolVariable { name = "v"; } }
+		out x_out : LengthValue[1]         { @ToolVariable { name = "x"; } }
 	}
 
 	action def Drive {
-		out a : AccelerationValue;
-		out v : SpeedValue;
-		out x : LengthValue;
+		out a : AccelerationValue[1];
+		out v : SpeedValue[1];
+		out x : LengthValue[1];
 		action step : ComputeDynamics {
 			in dt = 1 [SI::s];
 			in whlpwr = 2 [SI::kW];
@@ -239,9 +239,9 @@ const quantityOutputModel = `package test {
 
 	action def Measure {
 		metadata ToolExecution { toolName = "MC"; uri = "u"; }
-		out q : ScalarQuantityValue { @ToolVariable { name = "q"; } }
+		out q : ScalarQuantityValue[1] { @ToolVariable { name = "q"; } }
 	}
-	action def Measured { out q : ScalarQuantityValue; action s : Measure; bind q = s.q; }
+	action def Measured { out q : ScalarQuantityValue[1]; action s : Measure; bind q = s.q; }
 }`
 
 // A runner reporting that equal inputs were answered differently leaves the run a note.
@@ -285,37 +285,37 @@ const scaleModel = `package test {
 
 	action def Scale {
 		metadata ToolExecution { toolName = "MC"; uri = "u"; }
-		in k : Real          { @ToolVariable { name = "k"; } }
+		in k : Real[1]       { @ToolVariable { name = "k"; } }
 		in bias : Real [0..1] { @ToolVariable { name = "bias"; } }
-		out y : Real         { @ToolVariable { name = "y"; } }
+		out y : Real[1]         { @ToolVariable { name = "y"; } }
 	}
-	action def Scaled { out y : Real; action s : Scale { in k = 2.0; } bind y = s.y; }
-	action def Biased { out y : Real; action s : Scale { in k = 2.0; in bias = 1.0; } bind y = s.y; }
-	action def Unscaled { out y : Real; action s : Scale { in bias :>> bias = 1.0; } bind y = s.y; }
+	action def Scaled { out y : Real[1]; action s : Scale { in k = 2.0; } bind y = s.y; }
+	action def Biased { out y : Real[1]; action s : Scale { in k = 2.0; in bias = 1.0; } bind y = s.y; }
+	action def Unscaled { out y : Real[1]; action s : Scale { in bias :>> bias = 1.0; } bind y = s.y; }
 
 	action def TwoInputs {
 		metadata ToolExecution { toolName = "MC"; uri = "u"; }
-		in a : Real  { @ToolVariable { name = "x"; } }
-		in b : Real  { @ToolVariable { name = "x"; } }
-		out y : Real { @ToolVariable { name = "y"; } }
+		in a : Real[1]  { @ToolVariable { name = "x"; } }
+		in b : Real[1]  { @ToolVariable { name = "x"; } }
+		out y : Real[1] { @ToolVariable { name = "y"; } }
 	}
 	action def TwoOutputs {
 		metadata ToolExecution { toolName = "MC"; uri = "u"; }
-		in a : Real  { @ToolVariable { name = "x"; } }
-		out y : Real { @ToolVariable { name = "y"; } }
-		out z : Real { @ToolVariable { name = "y"; } }
+		in a : Real[1]  { @ToolVariable { name = "x"; } }
+		out y : Real[1] { @ToolVariable { name = "y"; } }
+		out z : Real[1] { @ToolVariable { name = "y"; } }
 	}
 	action def InAndOut {
 		metadata ToolExecution { toolName = "MC"; uri = "u"; }
-		in a : Real  { @ToolVariable { name = "x"; } }
-		out y : Real { @ToolVariable { name = "x"; } }
+		in a : Real[1]  { @ToolVariable { name = "x"; } }
+		out y : Real[1] { @ToolVariable { name = "x"; } }
 	}
-	action def Collides { out y : Real; action s : InAndOut { in a = 1.0; } bind y = s.y; }
+	action def Collides { out y : Real[1]; action s : InAndOut { in a = 1.0; } bind y = s.y; }
 
 	action def Doubling {
 		metadata ToolExecution { toolName = "MC"; uri = "u"; }
-		in k : Real = 2.0 { @ToolVariable { name = "k"; } }
-		out y : Real     { @ToolVariable { name = "y"; } }
+		in k : Real[1] = 2.0 { @ToolVariable { name = "k"; } }
+		out y : Real[1]     { @ToolVariable { name = "y"; } }
 	}
 }`
 
@@ -428,11 +428,11 @@ const annotatedUsageModel = `package test {
 	private import ScalarValues::Real;
 	private import AnalysisTooling::*;
 
-	action def Plain { in k : Real; out y : Real; }
-	action def Stepped { in k : Real; out y : Real; first start; then done; }
+	action def Plain { in k : Real[1]; out y : Real[1]; }
+	action def Stepped { in k : Real[1]; out y : Real[1]; first start; then done; }
 
 	action def UsageOfPlain {
-		out y : Real;
+		out y : Real[1];
 		action s : Plain {
 			metadata ToolExecution { toolName = "MC"; uri = "u"; }
 			in k :>> k = 2.0 { @ToolVariable { name = "k"; } }
@@ -441,7 +441,7 @@ const annotatedUsageModel = `package test {
 		bind y = s.y;
 	}
 	action def UsageOfStepped {
-		out y : Real;
+		out y : Real[1];
 		action s : Stepped {
 			metadata ToolExecution { toolName = "MC"; uri = "u"; }
 			in k :>> k = 2.0 { @ToolVariable { name = "k"; } }
@@ -458,16 +458,16 @@ const annotatedUsageModel = `package test {
 
 	action def Doubling {
 		metadata ToolExecution { toolName = "MC"; uri = "u"; }
-		in k : Real = 2.0 { @ToolVariable { name = "k"; } }
-		out y : Real     { @ToolVariable { name = "y"; } }
+		in k : Real[1] = 2.0 { @ToolVariable { name = "k"; } }
+		out y : Real[1]     { @ToolVariable { name = "y"; } }
 	}
 	action def Renamed {
-		out y : Real;
+		out y : Real[1];
 		action s : Doubling { in kk :>> k = 3.0; out yy :>> y; }
 		bind y = s.yy;
 	}
 	action def RenamedAndRenamedVariables {
-		out y : Real;
+		out y : Real[1];
 		action s : Stepped {
 			metadata ToolExecution { toolName = "MC"; uri = "u"; }
 			in kk :>> k = 3.0 { @ToolVariable { name = "kay"; } }
@@ -563,32 +563,32 @@ const specializedModel = `package test {
 	private import AnalysisTooling::*;
 
 	action def Base { first start; then done; }
-	action def Sized { in n : Real { @ToolVariable { name = "n"; } } first start; then done; }
+	action def Sized { in n : Real[1] { @ToolVariable { name = "n"; } } first start; then done; }
 
 	action def Run : Base {
 		metadata ToolExecution { toolName = "MC"; uri = "u"; }
-		in x : Real  { @ToolVariable { name = "x"; } }
-		out y : Real { @ToolVariable { name = "y"; } }
+		in x : Real[1] { @ToolVariable { name = "x"; } }
+		out y : Real[1] { @ToolVariable { name = "y"; } }
 	}
 	action def RunSized : Sized {
 		metadata ToolExecution { toolName = "MC"; uri = "u"; }
 		in n :>> n;
-		in x : Real  { @ToolVariable { name = "x"; } }
-		out y : Real { @ToolVariable { name = "y"; } }
+		in x : Real[1] { @ToolVariable { name = "x"; } }
+		out y : Real[1] { @ToolVariable { name = "y"; } }
 	}
 	action def Driving {
 		in a : Real = 2.0;
-		out y : Real;
+		out y : Real[1];
 		action s : RunSized { in n = 7.0; in x = a; }
 		bind y = s.y;
 	}
 	action def DrivingUsage {
 		in a : Real = 2.0;
-		out y : Real;
+		out y : Real[1];
 		action s : Base {
 			metadata ToolExecution { toolName = "MC"; uri = "u"; }
 			in x : Real = a { @ToolVariable { name = "x"; } }
-			out y : Real   { @ToolVariable { name = "y"; } }
+			out y : Real[1]   { @ToolVariable { name = "y"; } }
 		}
 		bind y = s.y;
 	}
@@ -661,49 +661,49 @@ const expressionCallModel = `package test {
 
 	action def Doubling {
 		metadata ToolExecution { toolName = "MC"; uri = "u"; }
-		in k : Real { @ToolVariable { name = "k"; } }
-		out y : Real { @ToolVariable { name = "y"; } }
+		in k : Real[1] { @ToolVariable { name = "k"; } }
+		out y : Real[1] { @ToolVariable { name = "y"; } }
 	}
 	action def Base { first start; then done; }
 
 	action def CallingTheDefinition {
-		out y : Real;
+		out y : Real[1];
 		action s = Doubling(3.0);
 		bind y = s.y;
 	}
 	action def CallingWithAnAddedInput {
-		out y : Real;
+		out y : Real[1];
 		action s = Base(5.0) {
 			metadata ToolExecution { toolName = "MC"; uri = "u"; }
-			in x : Real { @ToolVariable { name = "x"; } }
-			out y : Real { @ToolVariable { name = "y"; } }
+			in x : Real[1] { @ToolVariable { name = "x"; } }
+			out y : Real[1] { @ToolVariable { name = "y"; } }
 		}
 		bind y = s.y;
 	}
 	action def CallingWithAnAddedInputByName {
-		out y : Real;
+		out y : Real[1];
 		action s = Base(x = 5.0) {
 			metadata ToolExecution { toolName = "MC"; uri = "u"; }
-			in x : Real { @ToolVariable { name = "x"; } }
-			out y : Real { @ToolVariable { name = "y"; } }
+			in x : Real[1] { @ToolVariable { name = "x"; } }
+			out y : Real[1] { @ToolVariable { name = "y"; } }
 		}
 		bind y = s.y;
 	}
 	action def CallingWithTooManyArguments {
-		out y : Real;
+		out y : Real[1];
 		action s = Base(5.0, 6.0) {
 			metadata ToolExecution { toolName = "MC"; uri = "u"; }
-			in x : Real { @ToolVariable { name = "x"; } }
-			out y : Real { @ToolVariable { name = "y"; } }
+			in x : Real[1] { @ToolVariable { name = "x"; } }
+			out y : Real[1] { @ToolVariable { name = "y"; } }
 		}
 		bind y = s.y;
 	}
 	action def CallingAnUnknownParameter {
-		out y : Real;
+		out y : Real[1];
 		action s = Base(z = 5.0) {
 			metadata ToolExecution { toolName = "MC"; uri = "u"; }
-			in x : Real { @ToolVariable { name = "x"; } }
-			out y : Real { @ToolVariable { name = "y"; } }
+			in x : Real[1] { @ToolVariable { name = "x"; } }
+			out y : Real[1] { @ToolVariable { name = "y"; } }
 		}
 		bind y = s.y;
 	}
@@ -828,13 +828,13 @@ const typedOutputsModel = `package test {
 
 	action def Counter {
 		metadata ToolExecution { toolName = "MC"; uri = "u"; }
-		in k : Real        { @ToolVariable { name = "k"; } }
-		out n : Integer    { @ToolVariable { name = "n"; } }
-		out label : String { @ToolVariable { name = "label"; } }
+		in k : Real[1]        { @ToolVariable { name = "k"; } }
+		out n : Integer[1]    { @ToolVariable { name = "n"; } }
+		out label : String[1] { @ToolVariable { name = "label"; } }
 	}
 	action def Count {
-		out n : Integer;
-		out label : String;
+		out n : Integer[1];
+		out label : String[1];
 		action s : Counter { in k = 2.0; }
 		bind n = s.n;
 		bind label = s.label;
