@@ -834,6 +834,12 @@ pub struct ExecuteActionResponse {
     /// at` the action waited on. Populated under the "final_time" capability.
     #[prost(double, tag="6")]
     pub final_time: f64,
+    /// The attributes the object named by performer_symbol_id holds when the run
+    /// ends, keyed as an explored outcome's `outputs` key them (`this.level`);
+    /// `outputs` stays the output parameters alone. Empty without a performer and
+    /// under an explore schedule, whose outcomes carry them.
+    #[prost(map="string, message", tag="7")]
+    pub performer_attributes: ::std::collections::HashMap<::prost::alloc::string::String, Value>,
 }
 /// ExecuteStateRequest requests state machine execution
 #[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]

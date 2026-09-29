@@ -1038,9 +1038,10 @@ func (s *Service) ExecuteAction(ctx context.Context, req *pb.ExecuteActionReques
 	}
 
 	// Execute action with the supplied inputs
-	outputs, _, err := performOn(ctx, s, runtimeCtx, analysis.Auto(), req.ActionSymbolId, func(rt *runtime.Context) (map[string]runtime.Value, error) {
-		return rt.ExecuteActionPerformedBy(action, self, inputs)
-	}, heldAnswer)
+	ran, _, err := performOn(ctx, s, runtimeCtx, analysis.Auto(), req.ActionSymbolId, func(rt *runtime.Context) (actionRun, error) {
+		outputs, performer, err := rt.ExecuteActionReportingPerformer(action, self, inputs)
+		return actionRun{outputs: outputs, performer: performer}, err
+	}, func(ran actionRun, err error) analysis.Answer { return heldAnswer(ran.outputs, err) })
 	if gone := callerGone(ctx, err); gone != nil {
 		return nil, gone
 	}
@@ -1055,16 +1056,11 @@ func (s *Service) ExecuteAction(ctx context.Context, req *pb.ExecuteActionReques
 		}, nil
 	}
 
-	// Convert outputs to protobuf
-	pbOutputs := make(map[string]*pb.Value)
-	for name, val := range outputs {
-		pbOutputs[name] = s.valueToProto(runtimeCtx, val, cached.Index)
-	}
-
 	return &pb.ExecuteActionResponse{
-		Outputs:     pbOutputs,
-		Diagnostics: diags,
-		FinalTime:   s.finalTime(runtimeCtx),
+		Outputs:             s.valuesToProto(runtimeCtx, ran.outputs, cached.Index),
+		Diagnostics:         diags,
+		FinalTime:           s.finalTime(runtimeCtx),
+		PerformerAttributes: s.valuesToProto(runtimeCtx, ran.performer, cached.Index),
 	}, nil
 }
 

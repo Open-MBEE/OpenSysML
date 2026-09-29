@@ -130,6 +130,7 @@ package Road {
     part def Vehicle {
         attribute speed : Integer default 0;
         attribute seen : Integer default -1;
+        attribute logged : Integer default -1;
     }
     state def Mode {
         in ref vehicle : Vehicle;
@@ -148,6 +149,12 @@ package Road {
             transition first idle if speed <= 5 then slow;
             state fast { entry assign seen := speed * 10; }
             state slow { entry assign seen := speed; }
+        }
+        action rate {
+            out rated : Integer;
+            first start;
+            then action read { assign rated := speed * 2; assign logged := speed + 1; }
+            then done;
         }
     }
     part slowCar : Car { attribute :>> speed = 2; }
@@ -214,6 +221,22 @@ class TestPerformerAgainstTheService:
             assert fast["states_visited"][-1] == "fast"
             assert slow["final_context"]["this.seen"] == 2
             assert fast["final_context"]["this.seen"] == 90
+
+    def test_an_action_run_reports_its_performer_beside_its_outputs(self):
+        road = self.conn.load_from_content(ROAD_MODEL)
+        for performer, rated, logged in (("Road::slowCar", 4, 3), ("Road::fastCar", 18, 10)):
+            outputs = road.execute_action("Road::Car::rate", performer=performer)
+            assert outputs["rated"] == rated
+            assert not [name for name in outputs if name.startswith("this.")]
+            assert outputs.performer["this.logged"] == logged
+            (outcome,) = road.explore_action("Road::Car::rate", performer=performer)
+            assert outcome.outputs == {**outputs, **outputs.performer}
+
+    def test_an_action_run_alone_reports_no_performer(self):
+        road = self.conn.load_from_content(ROAD_MODEL)
+        outputs = road.execute_action("Road::Car::rate")
+        assert outputs.performer == {}
+        assert not [name for name in outputs if name.startswith("this.")]
 
     def test_an_explored_outcome_reports_the_performer_as_the_run_does(self):
         road = self.conn.load_from_content(ROAD_MODEL)

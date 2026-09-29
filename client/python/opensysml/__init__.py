@@ -33,6 +33,7 @@ from opensysml.verdict import (
     Verdict, VerificationVerdict,
 )
 from opensysml.exploration import Exploration, Outcome
+from opensysml.action_run import ActionOutputs
 from opensysml.engines import Bound, EngineInfo, Standing
 from opensysml.query import QueryElement, QueryError
 from opensysml.document import (
@@ -74,7 +75,7 @@ __all__ = [
     "Editor", "EditResult", "AppliedEdit", "EditedDocument", "Referrer",
     "Verdict", "CalcResult", "AnalysisResult", "CaseEvaluation", "SweepRow", "SweepTable",
     "Validation", "VerificationVerdict",
-    "Exploration", "Outcome",
+    "Exploration", "Outcome", "ActionOutputs",
     "Bound", "EngineInfo", "Standing",
     "QueryElement", "QueryError",
     "DocumentEvent", "DocumentQueryError", "DocumentQueryResult", "DocumentRow",

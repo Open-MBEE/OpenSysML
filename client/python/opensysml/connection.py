@@ -11,6 +11,7 @@ from collections import deque
 from typing import Deque, Dict, Optional
 from opensysml.proto import sysml_pb2, sysml_pb2_grpc
 from opensysml.model import Model
+from opensysml.action_run import ActionOutputs
 from opensysml.binary import ensure_binary, resolve_latest_version
 from opensysml.capabilities import (
     CAPABILITY_APPLY_EDITS,
@@ -1415,9 +1416,13 @@ class Connection:
                 reaches it. Without one the action runs outside any object
             
         Returns:
-            dict: Output parameter name → value; an output the wire format cannot
-                represent is reported as an UnsupportedValueError in its place,
-                so one such output does not discard the rest
+            ActionOutputs: Output parameter name → value, a ``dict``; an output
+                the wire format cannot represent is reported as an
+                UnsupportedValueError in its place, so one such output does not
+                discard the rest. Its ``performer`` holds the performer's
+                attributes as the run left them under ``this.``
+                (``'this.level'``), as an explored outcome's outputs spell them;
+                empty without a performer
             
         Raises:
             ValueError: If the schedule explores
@@ -1445,7 +1450,10 @@ class Connection:
             wrapped_diags = [Diagnostic(d) for d in response.diagnostics]
             raise ExecutionError(response.error, diagnostics=wrapped_diags)
         
-        return self._values_to_python(response.outputs)
+        return ActionOutputs(
+            self._values_to_python(response.outputs),
+            self._values_to_python(response.performer_attributes),
+        )
 
     def explore_action(self, action_symbol_id, model_hash, inputs=None,
                        schedule="explore", performer=None):

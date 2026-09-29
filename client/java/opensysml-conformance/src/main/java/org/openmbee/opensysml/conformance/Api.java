@@ -395,7 +395,8 @@ final class Api {
       ExecuteActionResponse.Builder response =
           ExecuteActionResponse.newBuilder()
               .putAllOutputs(Rendering.values(run.outputs()))
-              .addAllDiagnostics(Rendering.diagnostics(run.diagnostics()));
+              .addAllDiagnostics(Rendering.diagnostics(run.diagnostics()))
+              .putAllPerformerAttributes(Rendering.values(run.performer()));
       run.finalTime().ifPresent(response::setFinalTime);
       return response.build();
     } catch (ModelException e) {

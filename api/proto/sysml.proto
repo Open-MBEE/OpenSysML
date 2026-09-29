@@ -720,6 +720,11 @@ message ExecuteActionResponse {
   // it started at: the clock advances through every `accept after`/`accept
   // at` the action waited on. Populated under the "final_time" capability.
   double final_time = 6;
+  // The attributes the object named by performer_symbol_id holds when the run
+  // ends, keyed as an explored outcome's `outputs` key them (`this.level`);
+  // `outputs` stays the output parameters alone. Empty without a performer and
+  // under an explore schedule, whose outcomes carry them.
+  map<string, Value> performer_attributes = 7;
 }
 
 // ExecuteStateRequest requests state machine execution

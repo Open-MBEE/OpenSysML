@@ -901,7 +901,8 @@ public final class Protos {
     return new ActionRun(
         values(response.getOutputsMap()),
         finalTimeReported ? OptionalDouble.of(response.getFinalTime()) : OptionalDouble.empty(),
-        diagnostics(response.getDiagnosticsList()));
+        diagnostics(response.getDiagnosticsList()),
+        values(response.getPerformerAttributesMap()));
   }
 
   /**

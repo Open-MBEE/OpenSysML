@@ -546,9 +546,11 @@ class Model:
                 call and run inside its assembly
 
         Returns:
-            dict: Output parameter name → value; an output the wire format
-                cannot represent is reported as an UnsupportedValueError in its
-                place, so one such output does not discard the rest
+            ActionOutputs: Output parameter name → value, a ``dict``; an output
+                the wire format cannot represent is reported as an
+                UnsupportedValueError in its place, so one such output does not
+                discard the rest. Its ``performer`` holds the performer's
+                attributes under ``this.`` (``'this.level'``), empty without one
 
         Raises:
             ValueError: If the schedule explores
