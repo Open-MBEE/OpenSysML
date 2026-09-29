@@ -396,3 +396,27 @@ elmt:App
 		t.Errorf("App should sit under a root Namespace of its own, found %v", namespaces)
 	}
 }
+
+// The verbatim layout a root's sourceText carries survives a multi-document
+// round trip: the document provenance the re-encode adds is not a structural
+// disagreement to demote it over.
+func TestMultiDocumentVerbatimLayoutSurvives(t *testing.T) {
+	lib := "package   Lib {  part def   P; }\n"
+	app := "package App {  part   p : Lib::P; }\n"
+	out, err := convert.ConvertDocuments([]convert.Source{
+		{Name: "lib.sysml", Data: []byte(lib)},
+		{Name: "app.sysml", Data: []byte(app)},
+	}, convert.FormatTurtle, convert.Options{})
+	if err != nil {
+		t.Fatalf("ConvertDocuments: %v", err)
+	}
+	back, err := convert.Convert("m.ttl", out, convert.FormatTurtle, convert.FormatSysML)
+	if err != nil {
+		t.Fatalf("back to notation: %v", err)
+	}
+	for _, want := range []string{"package   Lib {  part def   P; }", "package App {  part   p : Lib::P; }"} {
+		if !strings.Contains(string(back), want) {
+			t.Errorf("the verbatim layout %q did not survive the round trip:\n%s", want, back)
+		}
+	}
+}
