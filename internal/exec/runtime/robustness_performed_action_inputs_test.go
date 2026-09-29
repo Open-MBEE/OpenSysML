@@ -35,6 +35,7 @@ func TestRuntimeRobustnessPerformedActionInputs(t *testing.T) {
 		})
 	}
 	t.Run("declared_behavior_start_fails", testDeclaredBehaviorStartFailsUnbound)
+	t.Run("nested_action_parameter_multiplicity", testNestedActionParameterMultiplicity)
 	t.Run("other_failure_fails_creation", testPerformedActionOtherFailureFailsCreation)
 	t.Run("snapshot_restore_undoes_recorded_failure", testSnapshotRestoreUndoesRecordedFailure)
 	t.Run("held_image_carries_recorded_failure", testHeldImageCarriesRecordedFailure)
@@ -167,6 +168,74 @@ func testDeclaredBehaviorStartFailsUnbound(t *testing.T) {
 	}
 	if got := len(ctx.clock.waiters); got != waiters {
 		t.Errorf("clock waiters = %d after the failed start, want %d: the failed executor leaked", got, waiters)
+	}
+}
+
+func testNestedActionParameterMultiplicity(t *testing.T) {
+	for _, tc := range []struct {
+		name, outerMult, innerMult string
+		wantErr                    error
+	}{
+		{name: "bare parameters admit no input"},
+		{name: "required inner rejects no input", innerMult: "[1]", wantErr: ErrMultiplicityViolation},
+		{name: "required outer remains unbound", outerMult: "[1]", wantErr: ErrUnboundParameter},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			src := `package test {
+				item def Bread;
+				action def Inner { in bread` + tc.innerMult + ` : Bread; }
+				action def Outer {
+					in bread` + tc.outerMult + ` : Bread;
+				first start;
+				then action applyHeat : Inner {
+					in bread = Outer::bread;
+				}
+				then done;
+			}
+			action def Runner {
+				first start;
+				then action outer : Outer;
+				then done;
+			}
+			}`
+			idx, _, ctx := buildRuntimeWithLibraries(t, "<test>", parseAndBuild(t, src))
+			actionName := "Outer"
+			if tc.wantErr == ErrUnboundParameter {
+				actionName = "Runner"
+			}
+			_, err := ctx.ExecuteAction(oneSymbol(t, idx, "test::"+actionName))
+			if tc.wantErr == nil {
+				if err != nil {
+					t.Fatalf("ExecuteAction(%s) = %v, want success", actionName, err)
+				}
+				if tc.name == "bare parameters admit no input" {
+					found := false
+					for key, target := range ctx.model.writeTargets {
+						if key.name != "bread" || target == nil {
+							continue
+						}
+						sym, ok := ctx.lookupName(key.scope, key.name)
+						if !ok || !semantics.IsParameter(sym) {
+							continue
+						}
+						found = true
+						if want := ctx.model.semantics.EffectiveParameterRange(sym); target.mult != want {
+							t.Errorf("write target multiplicity = %s, want effective parameter range %s", target.mult.Text(), want.Text())
+						}
+						if !target.countJudged {
+							t.Error("write target does not judge the effective parameter range")
+						}
+					}
+					if !found {
+						t.Fatal("execution did not check a parameter write target for bread")
+					}
+				}
+				return
+			}
+			if !errors.Is(err, tc.wantErr) {
+				t.Fatalf("ExecuteAction(%s) = %v, want %v", actionName, err, tc.wantErr)
+			}
+		})
 	}
 }
 

@@ -102,7 +102,7 @@ func testBindingEndUnresolvedName(t *testing.T) {
 // testBindingEndRequiredPinGivenNone: a required pin bound to an empty parameter
 // is refused, not filled from the part.
 func testBindingEndRequiredPinGivenNone(t *testing.T) {
-	_, _, err := instantiateWithLibraries(t, bindingEndHost("in n : Integer;", "bind noting.n = level;"), "test::Host")
+	_, _, err := instantiateWithLibraries(t, bindingEndHost("in n : Integer[1];", "bind noting.n = level;"), "test::Host")
 	if err == nil {
 		t.Fatal("a required pin bound to an empty parameter was accepted")
 	}
