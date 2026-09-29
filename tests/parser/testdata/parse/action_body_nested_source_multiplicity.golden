@@ -1,0 +1,61 @@
+(RootNamespace
+  (Membership visibility="default"
+    (Package name="NestedSourceMultiplicity" library=false standard=false
+      (Membership visibility="default"
+        (Definition kind="action" abstract=false variation=false name="A"
+          (Usage kind="action" name="outer" ref=false direction="none" composite=false derived=false ordered=false nonunique=false)
+          (IfActionNode
+            (LiteralBool value=true)
+            (IfBranchNode kind="then"
+              (Membership visibility="default"
+                (Usage kind="action" name="ifSource" ref=false direction="none" composite=false derived=false ordered=false nonunique=false))
+              (SuccessionEdge source="ifSource" target="done"
+                (Multiplicity range=false
+                  (LiteralInteger value="1")))
+              (SuccessionEdge source="ifSource" target="ifSource"
+                (Multiplicity range=true
+                  (LiteralInteger value="0")
+                  (LiteralInteger value="1"))))
+            (IfBranchNode kind="else"
+              (Membership visibility="default"
+                (Usage kind="action" name="elseSource" ref=false direction="none" composite=false derived=false ordered=false nonunique=false))
+              (SuccessionEdge source="elseSource" target="done"
+                (Multiplicity range=false
+                  (LiteralInteger value="1")))
+              (SuccessionEdge source="elseSource" target="elseSource"
+                (Multiplicity range=true
+                  (LiteralInteger value="0")
+                  (LiteralInteger value="1")))))
+          (WhileLoopActionNode kind="while" variable=""
+            (LiteralBool value=true)
+            (Usage kind="action" name="whileSource" ref=false direction="none" composite=false derived=false ordered=false nonunique=false)
+            (SuccessionEdge source="whileSource" target="done"
+              (Multiplicity range=false
+                (LiteralInteger value="1")))
+            (SuccessionEdge source="whileSource" target="whileSource"
+              (Multiplicity range=true
+                (LiteralInteger value="0")
+                (LiteralInteger value="1"))))
+          (WhileLoopActionNode kind="loop" variable=""
+            (Membership visibility="default"
+              (Usage kind="action" name="loopSource" ref=false direction="none" composite=false derived=false ordered=false nonunique=false))
+            (SuccessionEdge source="loopSource" target="done"
+              (Multiplicity range=false
+                (LiteralInteger value="1")))
+            (SuccessionEdge source="loopSource" target="loopSource"
+              (Multiplicity range=true
+                (LiteralInteger value="0")
+                (LiteralInteger value="1"))))
+          (WhileLoopActionNode kind="for" variable="i"
+            (SequenceExpr
+              (LiteralInteger value="1")
+              (LiteralInteger value="2"))
+            (Membership visibility="default"
+              (Usage kind="action" name="forSource" ref=false direction="none" composite=false derived=false ordered=false nonunique=false))
+            (SuccessionEdge source="forSource" target="done"
+              (Multiplicity range=false
+                (LiteralInteger value="1")))
+            (SuccessionEdge source="forSource" target="forSource"
+              (Multiplicity range=true
+                (LiteralInteger value="0")
+                (LiteralInteger value="1")))))))))

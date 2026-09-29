@@ -237,9 +237,9 @@ nor double-counted as two independent disagreements.
 | `examples/pilot-corpora/sysml-validation` | 56 | 56 | 0 | 0 | 0 | 0 | 0 | 0 |
 | `examples/pilot-corpora/kerml-examples` | 58 | 56 | 9 | 0 | 0 | 0 | 9 | 0 |
 | `tests/testdata` | 18 | 10 | 43 | 55 | 34 | 1 | 8 | 20 |
-| `examples` | 45 | 29 | 11 | 1601 | 4 | 1 | 6 | 1596 |
+| `examples` | 45 | 30 | 10 | 1601 | 4 | 1 | 5 | 1596 |
 | `tools/referee/diff/testdata` (probes) | 4 | 1 | 6 | 0 | 0 | 0 | 6 | 0 |
-| **Total** | **380** | **344** | **80** | **1656** | **38** | **2** | **40** | **1616** |
+| **Total** | **380** | **345** | **79** | **1656** | **38** | **2** | **39** | **1616** |
 
 **Read the `only ours` total by root, never as one number.** Step 2 removes nine resolver false
 positives from the reference's **own** corpora: `pilot-examples` 16 → **7** and
@@ -252,9 +252,10 @@ then takes `kerml-examples` to **4**, and the
 [collection-body element typing round](#collection-body-element-typing-round) to **6**, and the
 [bare feature-reference typing round](#bare-feature-reference-typing-round) to **10**. Our
 diagnostics on those roots therefore fall 20 → **17**. The
-`examples` root's only-ours rows are the demos that draw diagnostics on purpose (the five MOSA
-warnings of the [MOSA library round](#mosa-library-round) and the unbound-parameter advisory of
-the [runtime showcase round](#runtime-showcase-round)). It carried 64 before the demos were rewritten to standard notation: the
+`examples` root carries 1 outside the demos that draw diagnostics on purpose (the five MOSA
+warnings of the [MOSA library round](#mosa-library-round)): the non-standard-notation warning on the
+`junction` of `pseudostates-demo.sysml`, the one demo that keeps the pseudostate notation because
+no SysML v2 spelling of it exists. It carried 64 before the demos were rewritten to standard notation: the
 succession shorthands retired 30, removing `initial <state>;` and `transition <src> to <tgt>;`
 retired 27 more, and the standard-notation round below retired the last 7. `testdata` carries 8:
 the 3 adjudicated below and the 5 value-uniqueness diagnostics of `passes/unique_values.sysml`, a
@@ -645,15 +646,21 @@ error at a bare call and unreported at a chain head, so `A()` and `A().y` agains
 every omission form (positional, named, `[1]`, `[1..*]`, calc, behavior, constructor, chain head)
 and the pinned evaluator forms and evaluates the call; the transcript is in
 [omg-issues.md](omg-issues.md#an-invocation-leaving-an-input-parameter-unbound-validates-clean-pilot-2026-07).
+The optional bare-`in` parameter rule merged from develop means those parameters no longer draw
+this advisory.
 
-The advisory reaches one file of the reference corpora, `kerml-examples/Simple Tests/Behaviors.kerml`,
+At the then-current baseline, the advisory reached `kerml-examples/Simple Tests/Behaviors.kerml`,
 line 14: `var z = A().y;` — formerly exempt as a chain head — leaves `A`'s `in x` unbound,
 which the pilot's `validate-kerml` accepts and its `ParsingTests_Behaviors.kerml.xt` declares
-error-free. It is **ours, one-sided by design**: an advisory that the call cannot be evaluated,
+error-free. It was **ours, one-sided by design**: an advisory that the call cannot be evaluated,
 which the runtime confirms with `ErrUnboundParameter`, on a file that is nonetheless well formed.
-It is recorded in the pilot-corpora ratchet (`Behaviors.kerml` 0 → 1) and here, and it moves no
-Xpect row: the suite carries no `// ERROR` for the line and we report a warning, so the Xpect
-harness is 1268 agree / 57 disagree before and after, the 57 being the pre-existing rows.
+It moved no Xpect row: the suite carries no `// ERROR` for the line and we report a warning, so
+the Xpect harness is 1268 agree / 57 disagree before and after, the 57 being the pre-existing rows.
+
+The later optional-bare-`in` change in develop removes this warning and the warning at
+`runtime-showcase/delta-v-budget.sysml:93`. Both are absent in the detached
+`develop@07cbe053e` control and in the merged branch; the old committed baseline predates that
+change. The KerML warning is the additional movement in this baseline refresh.
 
 | Count | Before | Now |
 |---|---:|---:|
@@ -743,7 +750,7 @@ What remains is adjudicated as extension notation this project supports delibera
 
 - **`choice` and `junction`** — no SysML v2 production exists for pseudostates, so the notation stays
   supported and stays demonstrated. `pseudostates-demo.sysml` is now the only file that writes it, and
-  says so; its 6 pilot rows are that file alone.
+  says so; its 1 only-ours warning, 1 severity-only pair and 5 pilot rows are that file alone.
 - **a second objective** (`solver-demo.sysml`, `robot.sysml`) — the reference admits one
   objective per analysis case where we improve several lexicographically
   (`internal/core/solve/doc.go`): 1 + 1 `unmapped` rows that stay the reference's. The objective's
@@ -937,8 +944,7 @@ Xpect assertions not present in these seven differential roots.
 
 Per category, the only-ours totals are: `pilot-examples` 4 `unmapped`, 2
 `units`, 5 `kind-mismatch`; `kerml-examples` 9 `unmapped`; `examples` 4 `unmapped`,
-2 `multiplicity` (the five warnings the MOSA demo draws on purpose, below, and the unbound-parameter
-advisory of the [runtime showcase round](#runtime-showcase-round)); `testdata` 7
+1 `multiplicity` (the warnings the MOSA demo draws on purpose, below); `testdata` 7
 `unmapped`, 1 `multiplicity`; `probes` 6 `unmapped`.
 Only-pilot: `testdata` 12 `kind-mismatch`, 3 `unmapped`, 3 syntax, 2 `unresolved-reference`;
 `examples` 6 syntax, 29 `unmapped`, 673 `kind-mismatch`, 888 `unresolved-reference` — of which
@@ -1032,7 +1038,7 @@ page's history.
 
 | Count | Now |
 |---|---:|
-| overall: fully agreeing / only ours / our diagnostics | **344 / 40 / 80** |
+| overall: fully agreeing / only ours / our diagnostics | **345 / 39 / 79** |
 | only pilot | **1616** |
 | pilot diagnostics | **1656** |
 | severity-only | **2** |
@@ -3075,10 +3081,10 @@ own `Must have a Boolean result` can agree with the pilot's identical string ins
 
 ## The remaining only-ours rows
 
-The only-ours column is **26** as published and **25** with the declared errata applied, and every
-row in it is adjudicated. Most of them are not candidate false positives at all: 6 are our
+The only-ours column is **27** as published and **26** with the declared errata applied, and every
+row in it is adjudicated. Three quarters of them are not candidate false positives at all: 7 are our
 own non-standard-notation warnings on our own demo models (`solver-demo.sysml`, 6 `require` outside a
-requirement body), 3 are our own fixtures under
+requirement body, and `pseudostates-demo.sysml`, 1 `junction`), 3 are our own fixtures under
 `testdata/passes/`, and 6+4+3 are the one-sided specialization-cycle family — the committed probes,
 `Simple Tests/PartTest.sysml:51,52,53,55` and `Simple Tests/Circular.kerml:9,10,11` — whose
 adjudication is [above](#specialization-cycles-f4). That leaves the reference's own corpora carrying

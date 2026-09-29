@@ -715,10 +715,14 @@ func namesDeclaration(t lexer.Token) bool {
 // as against stating a condition of its own: the name is the whole declaration,
 // so only a body or a terminator may follow it.
 func (p *Parser) atAssertedReference() bool {
-	if p.isKindKeyword(p.peek()) || !p.namesReference(0) {
+	nameOffset := 0
+	if p.peekN(0).Kind == lexer.Dollar && p.peekN(1).Kind == lexer.ColonColon {
+		nameOffset = 2
+	}
+	if p.isKindKeyword(p.peekN(nameOffset)) || !p.namesReference(nameOffset) {
 		return false
 	}
-	for i := 1; ; i += 2 {
+	for i := nameOffset + 1; ; i += 2 {
 		switch sep := p.peekN(i).Kind; sep {
 		case lexer.Dot, lexer.ColonColon:
 			if next := p.peekN(i + 1); next.Kind != lexer.Identifier &&
@@ -734,8 +738,11 @@ func (p *Parser) atAssertedReference() bool {
 }
 
 // namesReference reports whether the token at n can name a referenced usage —
-// `assert c;`, `assert not c;` — rather than beginning an expression.
+// `assert c;`, `assert not $::P::c;` — rather than beginning an expression.
 func (p *Parser) namesReference(n int) bool {
+	if p.peekN(n).Kind == lexer.Dollar && p.peekN(n+1).Kind == lexer.ColonColon {
+		n += 2
+	}
 	t := p.peekN(n)
 	switch t.Kind {
 	case lexer.Identifier, lexer.UnrestrictedName:

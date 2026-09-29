@@ -41,7 +41,7 @@ func (m Model) addImportSplice(i int, op Operation) (splice, error) {
 			Message: fmt.Sprintf("visibility %q is not private, public or protected", op.ImportVisibility),
 		}
 	}
-	global, namespaceImport, segments, err := importTarget(i, op.ImportTarget)
+	global, namespaceImport, segments, err := importTarget(i, op.ImportTarget, m.Source.Kind())
 	if err != nil {
 		return splice{}, err
 	}
@@ -82,7 +82,7 @@ func (m Model) addImportSplice(i int, op Operation) (splice, error) {
 // `$::` and optionally suffixed `::*` for a namespace import, refusing every
 // other shape; it answers whether the name is global, whether the suffix was
 // present and the name's segments.
-func importTarget(i int, target string) (bool, bool, []string, error) {
+func importTarget(i int, target string, kind source.Kind) (bool, bool, []string, error) {
 	refuse := func(reason string) error {
 		return &Error{
 			Failure: FailureInvalidName, OperationIndex: i,
@@ -105,7 +105,10 @@ func importTarget(i int, target string) (bool, bool, []string, error) {
 	if global {
 		name = name[len("$::"):]
 	}
-	if !lexesAsQualifiedName(name) {
+	if reserved, ok := qualifiedNameReserved(name, kind); !ok {
+		if reserved != "" {
+			return false, false, nil, refuse(fmt.Sprintf("uses the reserved word %q; quote it as '%s'", reserved, reserved))
+		}
 		return false, false, nil, refuse("is not a qualified name")
 	}
 	segments, ok := source.QualifiedNameSegments(name)
@@ -115,21 +118,31 @@ func importTarget(i int, target string) (bool, bool, []string, error) {
 	return global, namespaceImport, segments, nil
 }
 
-// lexesAsQualifiedName reports whether name lexes as exactly one qualified
-// name: name tokens `::`-separated and nothing else.
-func lexesAsQualifiedName(name string) bool {
+// qualifiedNameReserved reports whether name lexes as exactly one qualified
+// name in a file of kind: `::`-separated name tokens, where a keyword of the
+// other language counts as a name and one of its own does not.
+func qualifiedNameReserved(name string, kind source.Kind) (reserved string, ok bool) {
+	if kind == source.KindUnknown {
+		kind = source.KindSysML
+	}
 	lx := lexer.New(source.New("<target>", []byte(name)))
 	for {
 		tok := lx.Next()
-		if (tok.Kind != lexer.Identifier && tok.Kind != lexer.UnrestrictedName) || tok.Unterminated {
-			return false
+		valid := !tok.Unterminated &&
+			(tok.Kind == lexer.Identifier || tok.Kind == lexer.UnrestrictedName ||
+				(tok.Kind == lexer.Keyword && !source.IsKeywordIn(tok.KeywordID, kind)))
+		if !valid {
+			if tok.Kind == lexer.Keyword && !tok.Unterminated {
+				return tok.KeywordID, false
+			}
+			return "", false
 		}
 		switch lx.Next().Kind {
 		case lexer.EOF:
-			return true
+			return "", true
 		case lexer.ColonColon:
 		default:
-			return false
+			return "", false
 		}
 	}
 }

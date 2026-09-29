@@ -122,6 +122,9 @@ type Unfixed struct {
 
 	// Reason says why no value was read.
 	Reason string
+
+	// Err is the error returned while reading the feature's value.
+	Err error
 }
 
 // PinError says which value could not be fixed, why, and where the feature was
@@ -190,7 +193,7 @@ func Fixed(ctx *runtime.Context, sym *symbols.Symbol, inst *runtime.Instance) ([
 		value, source, object, err := fixedValue(ctx, &feature, inst)
 		switch {
 		case err != nil:
-			unfixed = append(unfixed, Unfixed{Feature: feature.Symbol, Name: feature.Name, Reason: err.Error()})
+			unfixed = append(unfixed, Unfixed{Feature: feature.Symbol, Name: feature.Name, Reason: err.Error(), Err: err})
 		case value.Kind == runtime.ValInvalid, ctx.HoldsNoValue(value):
 			// No value is fixed, which is what leaves the feature free.
 		default:
@@ -635,12 +638,26 @@ func ratOfFloat(f float64) (*big.Rat, bool) {
 	return new(big.Rat).SetString(strconv.FormatFloat(f, 'g', -1, 64))
 }
 
-// ChainPins reads the value each unpinned chain variable of a translated query
-// names — a feature a chain of two or more steps reaches, which no fixed value
-// names directly — by the same evaluation the conditions run: the variable is
-// free when the evaluator reports it has no value, and any other read failure
-// is returned, since the evaluator errors there too.
-func ChainPins(ctx *runtime.Context, q *Query, self *runtime.Instance) ([]Pin, error) {
+// A Reader reads the value ref, written in scope, names, as the query's conditions read it.
+type Reader func(scope *symbols.Scope, ref ast.Node) (runtime.Value, error)
+
+// ObjectReader reads a reference in the scope of an object.
+func ObjectReader(ctx *runtime.Context, self *runtime.Instance) Reader {
+	return func(scope *symbols.Scope, ref ast.Node) (runtime.Value, error) {
+		return runtime.NewEvalContextIn(ctx, scope, self).Eval(ref)
+	}
+}
+
+// SatisfactionReader reads a reference with the requirement bindings of a satisfaction.
+func SatisfactionReader(ctx *runtime.Context, a *runtime.SatisfyAssertion, subject *runtime.Instance) Reader {
+	return func(scope *symbols.Scope, ref ast.Node) (runtime.Value, error) {
+		return ctx.ReadInSatisfaction(a, subject, scope, ref)
+	}
+}
+
+// ChainPins reads the value each unpinned chain variable names through read:
+// a feature a chain of two or more steps reaches, which no fixed value names directly.
+func ChainPins(ctx *runtime.Context, q *Query, read Reader, self *runtime.Instance) ([]Pin, error) {
 	pinned := make(map[string]bool, len(q.Pinned))
 	for _, p := range q.Pinned {
 		pinned[p.Var.Name] = true
@@ -650,7 +667,7 @@ func ChainPins(ctx *runtime.Context, q *Query, self *runtime.Instance) ([]Pin, e
 		if len(v.Steps) < 2 || v.Ref == nil || v.Scope == nil || pinned[v.Name] {
 			continue
 		}
-		value, err := runtime.NewEvalContextIn(ctx, v.Scope, self).Eval(v.Ref)
+		value, err := read(v.Scope, v.Ref)
 		if err != nil {
 			if errors.Is(err, runtime.ErrNoValue) {
 				continue
@@ -668,4 +685,21 @@ func ChainPins(ctx *runtime.Context, q *Query, self *runtime.Instance) ([]Pin, e
 		out = append(out, Pin{Feature: v.Symbol, Name: v.Name, Var: v.Name, Value: value, Source: source, Object: object})
 	}
 	return out, nil
+}
+
+// UnfixedRead is the read failure of an unfixed feature a variable of q reads; nil when none is read.
+func UnfixedRead(ctx *runtime.Context, q *Query, unfixed []Unfixed) error {
+	t := &translator{ctx: ctx, model: ctx.Semantics(), vars: make(map[string]*Var, len(q.Vars))}
+	for _, v := range q.Vars {
+		t.vars[v.Name] = v
+	}
+	for _, u := range unfixed {
+		if u.Err == nil {
+			continue
+		}
+		if t.pinnedVar(Pin{Feature: u.Feature, Name: u.Name}) != nil {
+			return fmt.Errorf("%s %s reads %s, whose value could not be read: %w", q.Kind, q.Element, u.Name, u.Err)
+		}
+	}
+	return nil
 }

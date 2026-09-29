@@ -996,56 +996,6 @@ func successionEndReferents(graph *rdf.Graph, meta func(rdf.Term) string, succes
 	return out
 }
 
-// acceptTriggerText is the `accept` clause an AcceptActionUsage states through
-// its payload parameter: `T` for a typed unnamed payload, `x : T` for a named one.
-func acceptTriggerText(graph *rdf.Graph, meta func(rdf.Term) string, accept rdf.Term) (string, bool) {
-	if meta(accept) != mAcceptAction {
-		return "", false
-	}
-	var payloads []rdf.Term
-	for _, ms := range graph.Objects(accept, rdf.SysML+pOwnedRelationship) {
-		if impliedRelationshipMetaclasses[meta(ms)] {
-			// The library subsetting every accept action carries is implied.
-			continue
-		}
-		if meta(ms) != mParameterMembership {
-			return "", false
-		}
-		payloads = append(payloads, firstIRI(graph, ms, pMemberElement, pOwnedMemberElement, pOwnedRelatedElement))
-	}
-	if len(payloads) != 1 || payloads[0].Value == "" {
-		return "", false
-	}
-	payload := payloads[0]
-	var typeName string
-	for _, ms := range graph.Objects(payload, rdf.SysML+pOwnedRelationship) {
-		if graph.BoolValue(ms, rdf.SysML+pIsImplied) {
-			continue
-		}
-		if meta(ms) != mFeatureTyping || typeName != "" {
-			return "", false
-		}
-		typed := firstObject(graph, ms, relationshipTargetEnds...)
-		switch {
-		case typed.IsIRI():
-			name, ok := graph.Lexical(typed, rdf.SysML+pDeclaredName)
-			if !ok {
-				return "", false
-			}
-			typeName = nameText(name)
-		case typed.Value != "":
-			typeName = qualifiedNameText(canonicalName(typed.Value))
-		}
-	}
-	if typeName == "" || graph.HasProperty(payload, rdf.SysML+pValue) {
-		return "", false
-	}
-	if name, ok := graph.Lexical(payload, rdf.SysML+pDeclaredName); ok {
-		return nameText(name) + " : " + typeName, true
-	}
-	return typeName, true
-}
-
 // dropStatedDefaults copies the graph without the triples the sparse form
 // writes where this mapping writes nothing: a stated default reads identically
 // to an absent one, and a printed keyword would declare it twice.

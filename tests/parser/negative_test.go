@@ -152,6 +152,7 @@ func TestNegative(t *testing.T) {
 		// `to`/`then` delimiter, not the delimiter misread as the end's name.
 		{"connection_first_end_missing", "part def C { connection c : I connect to ; }"},
 		{"then_no_target", "action a { then; }"},
+		{"nested_source_multiplicity_then_no_target", "action def A { if true { action a; [1] then ; } }"},
 		{"satisfy_dangling_by", "requirement r { assert satisfy x by; }"},
 		{"allocate_missing_target", "package q { allocate a to ; }"},
 		// `allocate` is one keyword with one role, and it must be followed by a
@@ -420,6 +421,8 @@ func TestNegative(t *testing.T) {
 		{"variant_use_case_no_type", "use case def U { variant use case uc : ; }"},
 		{"assert_not_no_condition", "part def T { assert not ; }"},
 		{"assert_not_no_body_end", "part def T { assert not c { }"},
+		{"assert_global_name_missing", "package P { assert $; }"},
+		{"assert_global_scope_missing_name", "package P { assert $::; }"},
 
 		// `frame` and `render` are SysML keywords, so a framing or rendering
 		// with no reference is reported rather than read as a name.

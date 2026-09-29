@@ -7,12 +7,11 @@ import "strings"
 // then the white space after `/*` up to and including the first line
 // terminator; each later line loses its initial white space, then a `*`, then
 // one space. All other text, line breaks and white space stay as entered. A
-// `\r\n` line terminator reads as `\n`.
+// `\r\n` or `\r` line terminator reads as `\n`.
 func CommentBody(raw string) string {
 	raw = strings.TrimPrefix(raw, "/*")
 	raw = strings.TrimSuffix(raw, "*/")
-	raw = strings.ReplaceAll(raw, "\r\n", "\n")
-	lines := strings.Split(raw, "\n")
+	lines := strings.Split(lineBreaks(raw), "\n")
 	lines[0] = strings.TrimLeft(lines[0], commentSpace)
 	for i, line := range lines[1:] {
 		line = strings.TrimLeft(line, commentSpace)
@@ -23,6 +22,12 @@ func CommentBody(raw string) string {
 		lines = lines[1:]
 	}
 	return strings.Join(lines, "\n")
+}
+
+// lineBreaks spells each line terminator, `\r\n`, `\r` or `\n` (KerML 1.1
+// §8.2.2.1), as `\n`.
+func lineBreaks(raw string) string {
+	return strings.ReplaceAll(strings.ReplaceAll(raw, "\r\n", "\n"), "\r", "\n")
 }
 
 // commentSpace is the white space other than line terminators (KerML 1.1 §8.2.2.1).
@@ -72,7 +77,7 @@ func CommentProse(raw string) string {
 			break
 		}
 	}
-	lines := strings.Split(raw, "\n")
+	lines := strings.Split(lineBreaks(raw), "\n")
 	for i, line := range lines {
 		line = strings.TrimSpace(line)
 		if !block {

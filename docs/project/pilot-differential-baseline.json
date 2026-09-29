@@ -75,12 +75,12 @@
   },
   "totals": {
     "files": 380,
-    "filesFullyAgreeing": 344,
+    "filesFullyAgreeing": 345,
     "agreement": 38,
     "severityMismatch": 2,
-    "openSysMLOnly": 40,
+    "openSysMLOnly": 39,
     "pilotOnly": 1616,
-    "openSysMLDiagnostics": 80,
+    "openSysMLDiagnostics": 79,
     "pilotDiagnostics": 1656
   },
   "roots": [
@@ -781,12 +781,12 @@
       "dir": "examples",
       "totals": {
         "files": 45,
-        "filesFullyAgreeing": 29,
+        "filesFullyAgreeing": 30,
         "agreement": 4,
         "severityMismatch": 1,
-        "openSysMLOnly": 6,
+        "openSysMLOnly": 5,
         "pilotOnly": 1596,
-        "openSysMLDiagnostics": 11,
+        "openSysMLDiagnostics": 10,
         "pilotDiagnostics": 1601
       },
       "files": [
@@ -5603,20 +5603,6 @@
           ]
         },
         {
-          "path": "parser_features_demo_connectors.sysml",
-          "agreement": [],
-          "severityMismatch": [],
-          "openSysMLOnly": [
-            {
-              "line": 108,
-              "severity": "warning",
-              "category": "multiplicity",
-              "count": 1
-            }
-          ],
-          "pilotOnly": []
-        },
-        {
           "path": "pseudostates-demo.sysml",
           "agreement": [],
           "severityMismatch": [],
@@ -8368,12 +8354,12 @@
     ],
     "totals": {
       "files": 380,
-      "filesFullyAgreeing": 345,
+      "filesFullyAgreeing": 346,
       "agreement": 38,
       "severityMismatch": 2,
-      "openSysMLOnly": 39,
+      "openSysMLOnly": 38,
       "pilotOnly": 1616,
-      "openSysMLDiagnostics": 79,
+      "openSysMLDiagnostics": 78,
       "pilotDiagnostics": 1656
     },
     "findings": [
