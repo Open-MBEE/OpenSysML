@@ -84,6 +84,7 @@ func (m *migration) stateMachineBody(sm *sysmlv1.Element) {
 			m.connectionPoint(cp)
 		}
 		m.regions(sm, m.populatedRegions(sm), false, func() { /* no extra nesting to write */ })
+		m.writeRelocatedTransitions(sm)
 	})
 }
 
@@ -103,7 +104,32 @@ func (m *migration) nameMachine(sm *sysmlv1.Element) map[string]bool {
 		m.nameVertex(cp, sm, used)
 	}
 	m.nameRegions(m.populatedRegions(sm), sm, used)
+	m.prepareRelocatedTransitions(sm)
 	return used
+}
+
+// prepareRelocatedTransitions indexes transitions under the state scope that writes them.
+func (m *migration) prepareRelocatedTransitions(sm *sysmlv1.Element) {
+	var walk func(*sysmlv1.Element)
+	walk = func(e *sysmlv1.Element) {
+		for _, child := range e.Children {
+			if child.Type == "StateMachine" {
+				continue
+			}
+			if child.Role == "transition" && child.Parent != nil && child.Parent.Type == "Region" {
+				src, tgt := m.model.Ref(child, "source"), m.model.Ref(child, "target")
+				if src != nil && tgt != nil && pseudoKind(src) != "initial" {
+					s := m.region(child.Parent)
+					if host := s.relocationHost(src, tgt); host != nil {
+						m.relocated[host] = append(m.relocated[host], child)
+						m.relocatedTo[child] = host
+					}
+				}
+			}
+			walk(child)
+		}
+	}
+	walk(sm)
 }
 
 // indexTransitions lists the transitions into and out of every vertex of a machine, so a
@@ -296,6 +322,9 @@ func (m *migration) entryPointForm(v, owner *sysmlv1.Element) pointForm {
 		note := "no transition leaves the entry point, so entering through it enters " + describe(owner) + " by its default entry; a transition to it is written to the state"
 		if without := regionsWithoutInitial(m.populatedRegions(owner)); len(without) > 0 {
 			note += "; no initial pseudostate starts the " + pluralRegion(len(without)) + " " + strings.Join(without, ", ") + ", which v1 too leaves inactive on entering the state"
+		}
+		if without := m.regionsWithoutOrthogonalInitialEntry(m.populatedRegions(owner)); len(without) > 0 {
+			note += "; the initial target in the " + pluralRegion(len(without)) + " " + strings.Join(without, ", ") + " is in an orthogonal region, so no entry is written for it"
 		}
 		return pointForm{defaultEntry: true, note: note}
 	}
@@ -579,11 +608,17 @@ func (m *migration) regions(owner *sysmlv1.Element, regions []*sysmlv1.Element, 
 		st.write()
 	default:
 		name := m.parallel[regions[0]]
-		if without := regionsWithoutInitial(regions); len(without) == 0 {
+		withoutInitial := regionsWithoutInitial(regions)
+		withoutOrthogonal := m.regionsWithoutOrthogonalInitialEntry(regions)
+		withoutEntry := slices.Concat(withoutInitial, withoutOrthogonal)
+		if len(withoutEntry) == 0 {
 			m.w.line(entryThen(entered, "", writeName(name)))
-		} else {
-			m.w.lines(commentLines("no default entry: the " + pluralRegion(len(without)) + " " + strings.Join(without, ", ") +
+		} else if len(withoutOrthogonal) == 0 {
+			m.w.lines(commentLines("no default entry: the " + pluralRegion(len(withoutInitial)) + " " + strings.Join(withoutInitial, ", ") +
 				" have no initial pseudostate, so only a fork or a transition naming a nested state enters the regions"))
+		} else {
+			m.w.lines(commentLines("no default entry: these regions have no written entry: " + strings.Join(withoutEntry, ", ") +
+				"; only a fork or a transition naming a nested state enters them"))
 		}
 		between()
 		m.w.block(stateKw+writeName(name)+" parallel", func() {
@@ -615,6 +650,32 @@ func regionsWithoutInitial(regions []*sysmlv1.Element) []string {
 		}
 		if !has {
 			out = append(out, describe(r))
+		}
+	}
+	return out
+}
+
+// regionsWithoutOrthogonalInitialEntry names regions whose initial targets an orthogonal region.
+func (m *migration) regionsWithoutOrthogonalInitialEntry(regions []*sysmlv1.Element) []string {
+	var out []string
+	for _, r := range regions {
+		var initial *sysmlv1.Element
+		for _, v := range r.Owned("subvertex") {
+			if pseudoKind(v) == "initial" {
+				initial = v
+				break
+			}
+		}
+		if initial == nil {
+			continue
+		}
+		for _, t := range r.Owned("transition") {
+			if m.model.Ref(t, "source") == initial {
+				if isOrthogonalRegionTarget(r, m.model.Ref(t, "target")) {
+					out = append(out, describe(r))
+				}
+				break
+			}
 		}
 	}
 	return out
@@ -672,11 +733,12 @@ func entryThen(entered bool, name, to string) string {
 // stateRegion writes one region: its entry, then its states and transitions,
 // named against owner's body as its vertices were (nil for a parallel region's).
 type stateRegion struct {
-	m       *migration
-	r       *sysmlv1.Element
-	owner   *sysmlv1.Element
-	used    map[string]bool
-	machine *sysmlv1.Element
+	m          *migration
+	r          *sysmlv1.Element
+	owner      *sysmlv1.Element
+	used       map[string]bool
+	machine    *sysmlv1.Element
+	ownerScope bool
 }
 
 // enter writes the region's entry succession.
@@ -753,13 +815,21 @@ func (s *stateRegion) initial(vertices, transitions []*sysmlv1.Element, entered 
 		s.m.unmapped(other, "an initial pseudostate has one outgoing transition; "+describe(t)+" is written as it")
 	}
 	tgt := s.m.model.Ref(t, "target")
-	to, ok := s.target(t, tgt)
+	orthogonalTarget := isOrthogonalRegionTarget(s.r, tgt)
+	var to string
+	var ok bool
+	if !orthogonalTarget {
+		to, ok = s.target(t, tgt)
+	}
 	if !ok {
 		s.m.unmapped(init, "the initial transition's target has no v2 form here")
 		if tgt == nil {
 			s.m.unmapped(t, joinNotes(s.m.dangling(t, "target"), "the transition lacks a target"))
 		} else {
 			why := "the target " + describe(tgt) + isA + kindOf(tgt) + outsideRegion
+			if orthogonalTarget {
+				why = "its target lies in an orthogonal region"
+			}
 			s.m.unmapped(t, why)
 			if s.m.strict {
 				s.refusedParts(t, why)
@@ -794,6 +864,31 @@ func (s *stateRegion) initial(vertices, transitions []*sysmlv1.Element, entered 
 	}
 	s.m.add(init, Mapped, "", "written as the entry of the region")
 	s.m.add(t, verdictFor(note), s.m.edgeTarget(t), note)
+}
+
+// isOrthogonalRegionTarget reports whether target belongs to a region unrelated to region.
+func isOrthogonalRegionTarget(region, target *sysmlv1.Element) bool {
+	var targetRegion *sysmlv1.Element
+	for cur := target; cur != nil; cur = cur.Parent {
+		if cur.Type == "Region" {
+			targetRegion = cur
+			break
+		}
+	}
+	if targetRegion == nil || targetRegion == region {
+		return false
+	}
+	for cur := targetRegion.Parent; cur != nil; cur = cur.Parent {
+		if cur == region {
+			return false
+		}
+	}
+	for cur := region.Parent; cur != nil; cur = cur.Parent {
+		if cur == targetRegion {
+			return false
+		}
+	}
+	return true
 }
 
 // initialName is the name the initial transition t is declared under when a
@@ -960,6 +1055,7 @@ func (s *stateRegion) state(v *sysmlv1.Element) {
 			s.m.regions(v, regions, entered, between)
 		}
 		s.pointTransitions(regions, pointRegs)
+		s.m.writeRelocatedTransitions(v)
 	})
 }
 
@@ -1017,6 +1113,9 @@ func (s *stateRegion) pointTransitions(regions, pointRegs []*sysmlv1.Element) {
 			host = regions[0]
 		}
 		for _, t := range pr.Owned("transition") {
+			if _, relocated := s.m.relocatedTo[t]; relocated {
+				continue
+			}
 			s.m.region(host).transition(t)
 		}
 	}
@@ -1923,10 +2022,8 @@ func (m *migration) referencedBehavior(kw, head string, b, owner *sysmlv1.Elemen
 			return false
 		}
 	}
-	// The context redefinition follows the parameter bindings: a directioned
-	// member in a usage body redefines parameters positionally, so it must come
-	// after the members that bind them.
 	if contextIn != "" {
+		// The context redefinition follows the parameter bindings.
 		ins = append(ins, contextIn)
 	}
 	line := head + " : " + m.ref(b, owner)
@@ -1972,11 +2069,24 @@ func (s *stateRegion) path(v *sysmlv1.Element) (string, bool) {
 	if !ok || machineOf(v) != s.machine {
 		return "", false
 	}
-	if owner := memberOwner(v); owner == s.r || owner == s.machine {
+	if owner := memberOwner(v); owner == s.machine || owner == s.r && !s.ownerScope {
 		return writeName(name), true
 	}
 	segs := s.m.segments(v)
-	return s.m.qualified(segs[len(s.m.segments(s.machine)):]), true
+	base := s.owner
+	if base == nil {
+		base = s.machine
+	}
+	return qualifiedStatePathWithSeparator(segs[len(s.m.segments(base)):], "."), true
+}
+
+// qualifiedStatePathWithSeparator joins state path segments with the requested separator.
+func qualifiedStatePathWithSeparator(segs []string, separator string) string {
+	parts := make([]string, len(segs))
+	for i, seg := range segs {
+		parts[i] = writeName(seg)
+	}
+	return strings.Join(parts, separator)
 }
 
 // endpoint names an end of a transition that is a state or a pseudostate
@@ -2095,7 +2205,7 @@ func transient(v *sysmlv1.Element) bool {
 }
 
 // connection names the state of a submachine's state def a connection point
-// reference stands for, through the submachine state: `sub::point`. The
+// reference stands for, through the submachine state: `sub.point`. The
 // reference is reported once, where the first transition passes through it.
 func (s *stateRegion) connection(t, v *sysmlv1.Element, role string) (string, bool) {
 	st := v.Parent
@@ -2133,7 +2243,7 @@ func (s *stateRegion) connection(t, v *sysmlv1.Element, role string) (string, bo
 	if !ok {
 		return "", false
 	}
-	target := base + "::" + writeName(pname)
+	target := base + "." + writeName(pname)
 	s.m.add(v, Mapped, target, "written as the "+role+" point's state in the submachine state, "+target)
 	return target, true
 }
@@ -2141,8 +2251,16 @@ func (s *stateRegion) connection(t, v *sysmlv1.Element, role string) (string, bo
 // transition writes a transition: one per trigger, since a v2 transition
 // accepts one, sharing the guard and effect.
 func (s *stateRegion) transition(t *sysmlv1.Element) {
+	if host, relocated := s.m.relocatedTo[t]; relocated && s.owner != host {
+		return
+	}
 	src, tgt, internal, ok := s.transitionEnds(t)
 	if !ok {
+		return
+	}
+	if host := s.relocationHost(src, tgt); host != nil {
+		s.m.relocated[host] = append(s.m.relocated[host], t)
+		s.m.relocatedTo[t] = host
 		return
 	}
 	if transient(src) && (pseudoKind(tgt) == "shallowHistory" || pseudoKind(tgt) == "deepHistory") {
@@ -2203,6 +2321,68 @@ func (s *stateRegion) transition(t *sysmlv1.Element) {
 	s.writeAccepts(t, accepts, tname, guard, eff, from, to)
 	note := strings.Join(notes, "; ")
 	s.m.add(t, verdictFor(note), s.m.edgeTarget(t), joinNotes(note, strings.Join(info, "; ")))
+}
+
+// relocationHost returns the common state scope where a transition's endpoints can be named.
+func (s *stateRegion) relocationHost(src, tgt *sysmlv1.Element) *sysmlv1.Element {
+	if memberOwner(src) == s.r && memberOwner(tgt) == s.r {
+		return nil
+	}
+	host := commonStateScope(src, tgt)
+	if host == nil || host == s.owner {
+		return nil
+	}
+	return host
+}
+
+// commonStateScope returns the nearest state or machine scope shared by both vertices.
+func commonStateScope(src, tgt *sysmlv1.Element) *sysmlv1.Element {
+	scope := func(vertex *sysmlv1.Element) *sysmlv1.Element {
+		for cur := memberOwner(vertex); cur != nil; cur = cur.Parent {
+			if cur.Type == "State" || cur.Type == "StateMachine" {
+				return cur
+			}
+		}
+		return nil
+	}
+	left, right := scope(src), scope(tgt)
+	if left == nil || right == nil || machineOf(left) != machineOf(right) {
+		return nil
+	}
+	ancestors := map[*sysmlv1.Element]bool{}
+	for cur := left; cur != nil; cur = cur.Parent {
+		if cur.Type == "State" || cur.Type == "StateMachine" {
+			ancestors[cur] = true
+		}
+	}
+	for cur := right; cur != nil; cur = cur.Parent {
+		if (cur.Type == "State" || cur.Type == "StateMachine") && ancestors[cur] {
+			return cur
+		}
+	}
+	return nil
+}
+
+// writeRelocatedTransitions writes transitions deferred to their common state scope.
+func (m *migration) writeRelocatedTransitions(host *sysmlv1.Element) {
+	transitions := m.relocated[host]
+	if len(transitions) == 0 {
+		return
+	}
+	delete(m.relocated, host)
+	regions := m.populatedRegions(host)
+	if len(regions) == 0 {
+		return
+	}
+	s := m.region(regions[0])
+	s.owner = host
+	s.ownerScope = true
+	if host.Type == "State" {
+		s.used = m.stateUsed[host]
+	}
+	for _, transition := range transitions {
+		s.transition(transition)
+	}
 }
 
 // refusedParts accounts for the children of a transition a strict migration

@@ -2413,7 +2413,7 @@ func TestDeferralCountsTransitionsToUnnamedTargets(t *testing.T) {
             <deferrableTrigger xmi:type="uml:Trigger" xmi:id="_dGo" event="_ngoEv"/>
           </subvertex>`, 1)
 	r = migrateDocumentOptions(t, deferring, nestedMachinesApplications, migrate.Options{})
-	wantLine(t, r.Notation, "transition first Idle accept Go then Sub::start2;")
+	wantLine(t, r.Notation, "transition first Idle accept Go then Sub.start2;")
 	wantNoLine(t, r.Notation, "item deferred : Go[*] ordered;")
 	wantNote(t, r, "_dGo", migrate.Approximated, "the transition (_nfT1) out of the state accepts the signal, which in v1 takes precedence over deferring it, so the state does not keep it")
 
@@ -2424,7 +2424,7 @@ func TestDeferralCountsTransitionsToUnnamedTargets(t *testing.T) {
 		t.Fatal("the triggered transition into the connection point reference was not made a completion transition")
 	}
 	r = migrateDocumentOptions(t, completing, nestedMachinesApplications, migrate.Options{})
-	wantLine(t, r.Notation, "transition first Idle then Sub::start2;")
+	wantLine(t, r.Notation, "transition first Idle then Sub.start2;")
 	wantNoLine(t, r.Notation, "item deferred : Go[*] ordered;")
 	wantNote(t, r, "_dGo", migrate.Unmapped, "the completion transition (_nfT1) leaves the state once its do action ends, which the accept loop that would keep Go never lets it, so the deferral is dropped")
 	wantClean(t, "deferralCompletionIntoSubmachine", r)

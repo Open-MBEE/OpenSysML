@@ -711,6 +711,9 @@ func TestStateMachineMigratesToAnExecutableStateDef(t *testing.T) {
 	} {
 		wantLine(t, r.Notation, line)
 	}
+	if diags := errors(t, "controller.sysml", r.Notation); len(diags) > 0 {
+		t.Errorf("%v", diags)
+	}
 	wantNote(t, r, "_sm", migrate.Approximated, "the classifier behavior is run by every object of Controller as its usage control")
 	wantNote(t, r, "_cool", migrate.Mapped, "")
 	wantNote(t, r, "_cpr", migrate.Unmapped, "no transition of the machine passes through the connection point reference")

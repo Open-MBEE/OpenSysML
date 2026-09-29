@@ -1,0 +1,34 @@
+# SysML v1 to v2 migration report: transition_relocation.xmi
+# migrated 28 element(s): 26 mapped, 0 approximated, 2 unmapped (0 skipped as profile, library or notation-only content, 0 as model elements nothing refers to)
+
+## unmapped (2)
+Pseudostate	Plant::Life::main::Parallel::region4::<Pseudostate>	_region4Init	(the initial transition's target has no v2 form here)
+Transition	Plant::Life::main::Parallel::region4::<Transition>	_crossRegionInit	(its target lies in an orthogonal region)
+
+## mapped (26)
+Model	Model	_m	(the root model's members are written at the top level)
+«Block» Class	Plant	_plant	-> Plant
+StateMachine	Plant::Life	_life	-> Plant::Life
+Region	Plant::Life::main	_main	(the one region is written as the body of its owner)
+Pseudostate	Plant::Life::main::<Pseudostate>	_init	(written as the entry of the region)
+Transition	Plant::Life::main::<Transition>	_enterWork
+State	Plant::Life::main::Parallel	_parallel	-> Parallel
+Region	Plant::Life::main::Parallel::region3	_region3	-> region3	(the one region is written as the body of its owner; an orthogonal region is written as a sub-state of the parallel state regions)
+Pseudostate	Plant::Life::main::Parallel::region3::<Pseudostate>	_region3Init	(written as the entry of the region)
+Transition	Plant::Life::main::Parallel::region3::<Transition>	_enterWait3
+State	Plant::Life::main::Parallel::region3::wait3	_wait3	-> wait3
+Region	Plant::Life::main::Parallel::region4	_region4	-> region4	(the one region is written as the body of its owner; an orthogonal region is written as a sub-state of the parallel state regions)
+State	Plant::Life::main::Parked	_parked	-> Parked
+Region	Plant::Life::main::Parked::parked	_parkedRegion	(the one region is written as the body of its owner)
+Pseudostate	Plant::Life::main::Parked::parked::<Pseudostate>	_parkedInit	(written as the entry of the region)
+Transition	Plant::Life::main::Parked::parked::<Transition>	_enterReady
+State	Plant::Life::main::Parked::parked::Ready	_ready	-> Ready
+State	Plant::Life::main::Work	_work	-> Work
+Region	Plant::Life::main::Work::work	_workRegion	(the one region is written as the body of its owner)
+Pseudostate	Plant::Life::main::Work::work::<Pseudostate>	_workInit	(written as the entry of the region)
+Transition	Plant::Life::main::Work::work::<Transition>	_enterRun
+Transition	Plant::Life::main::Work::work::<Transition>	_leaveRun	(the source 'Run' lies in another region and is named by its path Work.Run; the target 'Ready' lies in another region and is named by its path Parked.Ready)
+Trigger	Plant::Life::main::Work::work::<Transition>::<Trigger>	_stopTrigger
+State	Plant::Life::main::Work::work::Run	_run	-> Run
+Signal	Stop	_stop	-> Stop
+SignalEvent	stopEvent	_stopEvent	(written where a trigger refers to it, as accept Stop)
