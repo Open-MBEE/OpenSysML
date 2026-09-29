@@ -1879,7 +1879,7 @@ func (d *decoder) sameName(el *element, stated, structural string) bool {
 	right, rightOK := d.lookupName(structural, el.qname, d.names == nil)
 	switch {
 	case leftOK && rightOK:
-		return left == right
+		return canonicalQName(left) == canonicalQName(right)
 	case rightOK:
 		return nameSuffix(stated, right)
 	case leftOK:
@@ -1914,23 +1914,22 @@ func (d *decoder) lookupName(name, scope string, absolute bool) (string, bool) {
 	return "", false
 }
 
-// declaredName is qname in its canonical form, if the graph or the standard
-// library declares an element by it.
+// declaredName is the qualified name of the element the graph or the standard
+// library declares by qname, however its segments are quoted.
 func (d *decoder) declaredName(qname string) (string, bool) {
 	if d.byQName == nil {
-		d.byQName = map[string]bool{}
+		d.byQName = map[string]string{}
 		for _, el := range d.byIRI {
 			if el.qname != "" {
-				d.byQName[canonicalQName(el.qname)] = true
+				d.byQName[canonicalQName(el.qname)] = el.qname
 			}
 		}
 	}
-	canonical := canonicalQName(qname)
-	if d.byQName[canonical] {
-		return canonical, true
+	if found, ok := d.byQName[canonicalQName(qname)]; ok {
+		return found, true
 	}
 	if lib, ok := identity.LibraryCatalog(libs.NewModelIndex()).ElementNamed(qname); ok {
-		return canonicalQName(lib.FQN), true
+		return lib.FQN, true
 	}
 	return "", false
 }
