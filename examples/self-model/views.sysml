@@ -29,7 +29,7 @@ package OpenSysMLViews {
     }
 
     view documentFlow : ActionFlowView {
-        doc /* One document rendered, and the two branches in it. */
+        doc /* One document rendered, and the three forms it branches to. */
         expose OpenSysMLSurfaces::RenderDocument;
     }
 
@@ -95,7 +95,7 @@ package OpenSysMLViews {
     }
 
     view budgetExhaustion : StateTransitionView {
-        doc /* Six budgets, six ways a run can end early, each naming itself. */
+        doc /* Seven budgets, seven ways a run can end early, each naming itself. */
         expose OpenSysMLBehavior::BudgetExhaustion;
     }
 
