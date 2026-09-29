@@ -261,7 +261,7 @@ func (m Model) memberInsertionAfter(member ast.Node, text string) insertion {
 		return insertion{
 			span: source.Span{Offset: end, Len: next - end},
 			text: " " + text + " ",
-			at:   1 + len(text),
+			at:   1,
 		}
 	}
 	lineEnd := end
