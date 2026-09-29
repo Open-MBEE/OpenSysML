@@ -236,10 +236,7 @@ func disagreeingTriples(graph, check *rdf.Graph) []rdf.Triple {
 			rdf.OpenSysML + xMemberIndex:
 			return false
 		}
-		if IsSourceRangeProperty(t.Predicate.Value) {
-			return false
-		}
-		return true
+		return !IsSourceRangeProperty(t.Predicate.Value)
 	}
 	for _, t := range graph.Triples() {
 		if structural(t) && !check.Has(t) {
