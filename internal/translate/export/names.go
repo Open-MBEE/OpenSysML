@@ -215,6 +215,14 @@ func (e *encoder) memberOf(ref resolve.Reference) string {
 	if ref.Within != nil {
 		return e.fqn[ref.Within]
 	}
+	// The type of `flow of T` is the typing of the payload feature the flow
+	// owns, which the graph states it from.
+	if u, ok := ref.Member.(*ast.Usage); ok && u.FlowEnds != nil && u.FlowEnds.PayloadDecl == nil &&
+		ref.QN != nil && ast.Node(ref.QN) == u.FlowEnds.Payload {
+		if payload := e.payloadOf(u); payload != nil {
+			return e.fqn[payload]
+		}
+	}
 	return e.fqn[ref.Member]
 }
 

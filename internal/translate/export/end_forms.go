@@ -384,6 +384,54 @@ func (d *decoder) endWords(el *element, form string, declared bool) (string, err
 	return endNotation{form: form, keyword: verb, ends: ends, payload: payload}.text()
 }
 
+// payloadText writes the payload a flow's head states after `of`, from the
+// PayloadFeature the flow owns (SysML-textual-bnf FlowPayloadFeatureMember):
+// `p : T[1] = v` for a declared one, `T[1]` for one that states only its type.
+func (d *decoder) payloadText(el *element) (string, error) {
+	var payload *element
+	for _, child := range el.children {
+		if child.metaclass == mPayloadFeature {
+			payload = child
+			break
+		}
+	}
+	if payload == nil {
+		return "", nil
+	}
+	mult := d.multiplicityText(payload)
+	words := d.identWords(payload)
+	typed, err := d.referenceList(payload, rdf.SysML+relationshipProperty[ast.RelTyping])
+	if err != nil {
+		return "", err
+	}
+	if len(words) == 0 {
+		rest, err := d.relationshipWords(payload, "", ast.RelTyping)
+		if err != nil {
+			return "", err
+		}
+		if _, valued := d.stringOf(payload, rdf.SysML+pValue); len(typed) != 1 || len(rest) > 0 || valued {
+			return "", &UnsupportedError{
+				What: fmt.Sprintf("the payload <%s>", payload.iri),
+				Note: "a payload with no name is written by its one type alone (SysML-textual-bnf PayloadFeature), so one that states anything else has no notation",
+			}
+		}
+		return typed[0] + mult, nil
+	}
+	if len(typed) == 0 && mult != "" {
+		words[len(words)-1] += mult
+		mult = ""
+	}
+	relationships, err := d.relationshipWords(payload, mult)
+	if err != nil {
+		return "", err
+	}
+	words = append(words, relationships...)
+	if value, ok := d.stringOf(payload, rdf.SysML+pValue); ok {
+		words = append(words, d.valueOperator(payload), value)
+	}
+	return strings.Join(words, " "), nil
+}
+
 // relatedEnds reads the ends of a head in the order they are written, each
 // behind the multiplicity it states, with the payload of a flow kept apart: it
 // is written ahead of them, after `of`.
@@ -403,8 +451,8 @@ func (d *decoder) relatedEnds(el *element) (ends []string, payload string, err e
 				Note: "its standard sysml:connectorEnd and legacy sysx:relatedFeature shapes disagree",
 			}
 		}
-		payload, _ = d.stringOf(el, rdf.OpenSysML+xPayload)
-		return standard, payload, nil
+		payload, err = d.payloadText(el)
+		return standard, payload, err
 	}
 	return legacy, legacyPayload, nil
 }

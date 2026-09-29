@@ -529,7 +529,6 @@ no property; they are annotations, not replacements for the standard shape:
 | `endVerb` | Preserve the noun-form head's explicit verb (`connect` or `from`), which the connector metaclass does not distinguish. |
 | `endReferencesKeyword` | Preserve whether a named end used the `references` keyword rather than `::>`, a notation choice not represented by the end's standard reference relationship. |
 | `sourceMember`, `targetMember` | Preserve the members named by positional `then` succession ends when no standard end name or resolvable element carries that notation. |
-| `payload` | Preserve a flow payload as an expression; the 202407 ontology table has no direct `payloadFeature` property for this graph shape. The metamodel models the payload as a feature/`ItemFlowEnd`, while this mapping keeps the payload expression rather than materializing that feature structure. |
 
 Every construct the metamodel has an element for is typed by that element,
 so a consumer reading `sysml:` terms alone sees the abstract syntax the pilot
@@ -1421,6 +1420,14 @@ lone name — and the end owns, through a `sysml:FeatureMembership`, a
 segment: `a.p.fuel` subsets the chain `a.p` and redefines `fuel`. Read back,
 the segments and the redefined feature are written as the one chain.
 
+A flow's `of` clause is a `sysml:PayloadFeature` the flow owns through a
+`sysml:FeatureMembership` (SysML-textual-bnf FlowPayloadFeatureMember). `of p : T`
+is that feature, named `p`, so `m.p` reaches it; `of T` and `of T[1]` state
+only its `FeatureTyping` and multiplicity, and the feature takes the flow's next
+position as its name (`…::@0` in a flow with no body members). Read back, the
+feature is written after `of`, not in the flow's body. 202407 names the
+metaclass `ItemFeature`.
+
 `sysml:connectorEnd` is ordered by its `json:connectorEnd` annotation. Each end
 is a `ReferenceUsage` with `sysml:isEnd` — a `PortUsage` for an `interface`'s
 end, whose grammar declares `InterfaceEnd returns SysML::PortUsage`
@@ -1500,8 +1507,8 @@ owns (KerML `OwnedFeatureChainMember`), the same element an end's carries.
 For a binary connector, `sysml:sourceFeature` and `sysml:targetFeature`
 identify the two related features; `sysml:relatedFeature` remains the
 collection-valued relation for every arity. These two predicates are not
-written for n-ary connectors. A flow's payload remains the `sysx:payload`
-expression, not an additional connector end. Transitions use
+written for n-ary connectors. A flow's payload is its `PayloadFeature`, not an
+additional connector end. Transitions use
 `sysml:source` and `sysml:target`; `sourceFeature` and `targetFeature` remain
 the legacy transition spelling accepted on import.
 
@@ -1582,7 +1589,8 @@ several lines, or with a note inside it, records its form like any other
 cannot rebuild carries no form and stays readable as text alone. Those are the heads that say
 more than their ends: an end that redefines, an inline payload declaration
 (`flow of x : P from a to b`), or a satisfy that declares a name of its own
-(`satisfy s : R by v`).
+(`satisfy s : R by v`). A payload declaration is still rebuilt from the graph
+alone, from the `PayloadFeature` the flow owns.
 Converting such an element from a graph that carries no `sysx:sourceText` is
 reported, not guessed. A graph that relates ends but gives no form at all is
 reported the same way (`export_test.go:TestEndsWithoutTheirFormAreReported`).

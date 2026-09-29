@@ -316,6 +316,8 @@ func newEncoder(file *source.SourceFile, root *ast.RootNamespace, library string
 		metadataBodies:     map[string]bool{},
 		performed:          map[ast.Node]bool{},
 		effects:            map[ast.Node]bool{},
+		payloads:           map[*ast.Usage]*ast.Usage{},
+		payloadFeatures:    map[*ast.Usage]bool{},
 		fqn:                map[ast.Node]string{},
 		links:              map[*ast.QualifiedName]*symbols.Symbol{},
 		preceding:          map[ast.Node]ast.Node{},
@@ -356,6 +358,11 @@ type encoder struct {
 	// effects holds the members of a transition's `do` effect, which a
 	// TransitionFeatureMembership of kind effect owns.
 	effects map[ast.Node]bool
+	// payloads holds the PayloadFeature each flow's `of` clause declares, keyed
+	// by the flow: the declared feature of `of p : T`, or one made up for
+	// `of T`, which states only its typing (SysML-textual-bnf PayloadFeature).
+	payloads        map[*ast.Usage]*ast.Usage
+	payloadFeatures map[*ast.Usage]bool
 	// fqn is the qualified name of each member node, which is how a succession
 	// end the notation leaves unnamed addresses the member it binds.
 	fqn map[ast.Node]string
@@ -598,8 +605,71 @@ func (e *encoder) collect(members []ast.Node, owner string) error {
 		if err := e.collectCrossFeature(node, fqn); err != nil {
 			return err
 		}
+		if err := e.collectPayload(node, fqn); err != nil {
+			return err
+		}
 	}
 	return nil
+}
+
+// collectPayload records the name of the payload feature a flow's `of` clause
+// declares, which the flow owns after its body members and prefixes; an
+// unnamed one (`of T`) is named by that position.
+func (e *encoder) collectPayload(node ast.Node, owner string) error {
+	u, ok := node.(*ast.Usage)
+	if !ok {
+		return nil
+	}
+	payload := e.payloadOf(u)
+	if payload == nil {
+		return nil
+	}
+	fqn := qualify(owner, payload.Ident.Name, e.crossFeatureIndex(u))
+	if e.declared[fqn] {
+		return &UnsupportedError{
+			What: fmt.Sprintf("the payload at %s", e.where(payload)),
+			Note: fmt.Sprintf("it is identified as %s, which a body member is named too, and merging two elements into one subject would be a different model", fqn),
+		}
+	}
+	e.fqn[payload] = fqn
+	e.declared[fqn] = true
+	return nil
+}
+
+// payloadOf returns the PayloadFeature a flow's `of` clause declares, or nil.
+// `of p : T` declares one; `of T` and `of T[1]` state only its typing and
+// multiplicity (SysML-textual-bnf PayloadFeature, :851-857), so a feature is
+// made up to carry them.
+func (e *encoder) payloadOf(u *ast.Usage) *ast.Usage {
+	if u.FlowEnds == nil || u.FlowEnds.Payload == nil && u.FlowEnds.PayloadDecl == nil {
+		return nil
+	}
+	if payload, ok := e.payloads[u]; ok {
+		return payload
+	}
+	payload := u.FlowEnds.PayloadDecl
+	if payload == nil {
+		span := u.FlowEnds.Payload.Span()
+		if mult := u.FlowEnds.PayloadMultiplicity; mult != nil {
+			span = spanUnion(span, mult.Span())
+		}
+		payload = &ast.Usage{
+			NodeBase:      ast.NodeBase{NodeSpan: span},
+			Kind:          ast.UsageAttribute,
+			Relationships: []*ast.Relationship{{NodeBase: ast.NodeBase{NodeSpan: u.FlowEnds.Payload.Span()}, Kind: ast.RelTyping, Target: u.FlowEnds.Payload}},
+			Multiplicity:  u.FlowEnds.PayloadMultiplicity,
+		}
+	}
+	e.payloads[u] = payload
+	e.payloadFeatures[payload] = true
+	return payload
+}
+
+// spanUnion is the smallest span covering both.
+func spanUnion(a, b source.Span) source.Span {
+	start := min(a.Offset, b.Offset)
+	end := max(a.Offset+a.Len, b.Offset+b.Len)
+	return source.Span{Offset: start, Len: end - start}
 }
 
 // collectCrossFeature records the name of the cross feature an end declares
@@ -934,6 +1004,19 @@ func (e *encoder) encodeMember(h memberHead, owner string) error {
 		if e.performed[n] {
 			metaclass = mPerform
 		}
+		payload := e.payloadFeatures[n]
+		if payload {
+			// A flow owns its payload through a FeatureMembership
+			// (SysML-textual-bnf FlowPayloadFeatureMember, :845-846).
+			metaclass, ok = mPayloadFeature, true
+			h.membershipClass = mFeatureMembership
+			h.membershipExtra = func(membership rdf.Term) {
+				e.graph.Add(membership, e.sysml(pOwnedMemberFeature), subject)
+				e.graph.Add(membership, e.sysml(pOwningType), ownerTerm)
+				e.graph.Add(ownerTerm, e.sysml(pOwnedFeature), subject)
+				e.graph.Add(ownerTerm, e.sysml(pOwnedFeatureMembership), membership)
+			}
+		}
 		if !ok {
 			return &UnsupportedError{What: fmt.Sprintf("usage kind %q at %s", n.Kind, e.where(n))}
 		}
@@ -985,6 +1068,8 @@ func (e *encoder) encodeMember(h memberHead, owner string) error {
 			e.ident(subject, n.Ident)
 		}
 		switch {
+		case payload:
+			// A payload is written after `of` with no kind keyword of its own.
 		case verbatimUsage(n):
 			// A verbatim head is reproduced as written, so its keyword needs no
 			// reconstructing and never has to be refused.
@@ -1082,6 +1167,12 @@ func (e *encoder) encodeMember(h memberHead, owner string) error {
 				return err
 			}
 			e.endForm(subject, n)
+		}
+		if payload := e.payloadOf(n); payload != nil {
+			h := memberHead{node: payload, owner: subject, index: e.crossFeatureIndex(n), inline: true}
+			if err := e.encodeMember(h, fqn); err != nil {
+				return err
+			}
 		}
 		e.graph.Add(subject, e.sysx(xHasBody), rdf.Bool(n.HasBody))
 		if !local && (inBody || n.Kind == ast.UsageMetadata) {
@@ -1678,11 +1769,6 @@ func (e *encoder) bindingEnds(subject rdf.Term, owner string, n *ast.Usage) erro
 			continue
 		}
 		if err := e.connectorEnd(subject, connectorEndSpec{owner: owner, slot: fmt.Sprintf("end%d", i), index: i, ends: 2, target: target, flow: true}); err != nil {
-			return err
-		}
-	}
-	if n.FlowEnds.Payload != nil {
-		if err := e.expression(subject, e.sysx(xPayload), xPayload, owner, n.FlowEnds.Payload); err != nil {
 			return err
 		}
 	}

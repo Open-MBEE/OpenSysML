@@ -3089,7 +3089,8 @@ func (d *decoder) bodyChildren(el *element) []*element {
 	cross := d.ownedCrossFeature(el)
 	var out []*element
 	for _, child := range el.children {
-		if child != cross && !child.implied && d.metadataSigil(child) != "#" {
+		// A flow's payload is written in its head, after `of`.
+		if child != cross && !child.implied && d.metadataSigil(child) != "#" && child.metaclass != mPayloadFeature {
 			out = append(out, child)
 		}
 	}
