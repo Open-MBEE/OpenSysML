@@ -123,6 +123,57 @@ func TestAddSequenceAfter(t *testing.T) {
 		}
 		requireClean(t, loadContent(t, "sequence-comment-before.sysml", string(result.Content)))
 	})
+	t.Run("block comment that does not close on the line", func(t *testing.T) {
+		model := loadContent(t, "sequence-block-open.sysml",
+			"action def A {\n    action a; /* explanation\n continued */\n    action b;\n}\n")
+		requireClean(t, model)
+		op := AddThenMember("A", "action", "x", "")
+		op.After = "a"
+		result := applyOne(t, model, op)
+		const want = "action def A {\n    action a; then action x; /* explanation\n continued */\n    action b;\n}\n"
+		if string(result.Content) != want {
+			t.Fatalf("content = %q, want %q", result.Content, want)
+		}
+		parsed := loadContent(t, "sequence-block-open.sysml", string(result.Content))
+		requireClean(t, parsed)
+		if syms := parsed.Index.LookupQualified("A::x"); len(syms) != 1 {
+			t.Fatalf("A::x = %d symbols, want the then member to parse", len(syms))
+		}
+	})
+	t.Run("block comment followed by code on the line", func(t *testing.T) {
+		model := loadContent(t, "sequence-block-code.sysml",
+			"action def A { action a; /* note */ action b; }\n")
+		requireClean(t, model)
+		op := AddThenMember("A", "action", "x", "")
+		op.After = "a"
+		result := applyOne(t, model, op)
+		const want = "action def A { action a; then action x; /* note */ action b; }\n"
+		if string(result.Content) != want {
+			t.Fatalf("content = %q, want %q", result.Content, want)
+		}
+		parsed := loadContent(t, "sequence-block-code.sysml", string(result.Content))
+		requireClean(t, parsed)
+		if syms := parsed.Index.LookupQualified("A::x"); len(syms) != 1 {
+			t.Fatalf("A::x = %d symbols, want the then member to parse", len(syms))
+		}
+	})
+	t.Run("block comment closing on the anchor's line", func(t *testing.T) {
+		model := loadContent(t, "sequence-block-close.sysml",
+			"action def A {\n    action a; /* note */\n    action b;\n}\n")
+		requireClean(t, model)
+		op := AddThenMember("A", "action", "x", "")
+		op.After = "a"
+		result := applyOne(t, model, op)
+		const want = "action def A {\n    action a; /* note */\n    then action x;\n    action b;\n}\n"
+		if string(result.Content) != want {
+			t.Fatalf("content = %q, want %q", result.Content, want)
+		}
+		parsed := loadContent(t, "sequence-block-close.sysml", string(result.Content))
+		requireClean(t, parsed)
+		if syms := parsed.Index.LookupQualified("A::x"); len(syms) != 1 {
+			t.Fatalf("A::x = %d symbols, want the then member to parse", len(syms))
+		}
+	})
 	t.Run("before a blank line", func(t *testing.T) {
 		model := loadContent(t, "sequence-blank.sysml",
 			"action def A {\n    action a;\n\n    action b;\n}\n")

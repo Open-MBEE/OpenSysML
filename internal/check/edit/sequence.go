@@ -265,27 +265,44 @@ func (m Model) memberInsertionAfter(member ast.Node, text string) insertion {
 			end = tok.Span.End()
 		}
 	}
-	// The rest of the member's line decides the placement: a member or the
-	// body's `}` sharing it takes the new member inline right after this one
-	// (`a; then b; c;`); an empty rest, or a rest holding a comment alone,
-	// puts it on the next line at this member's indent.
-	next := end
-	for next < len(content) && (content[next] == ' ' || content[next] == '\t') {
-		next++
-	}
 	indent := lineIndent(content, member.Span().Offset)
-	if next < len(content) && content[next] != '\n' &&
-		!(content[next] == '/' && next+1 < len(content) &&
-			(content[next+1] == '/' || content[next+1] == '*')) {
+	lineEnd := end
+	for lineEnd < len(content) && content[lineEnd] != '\n' {
+		lineEnd++
+	}
+	// What the rest of the anchor's line holds decides the placement. An
+	// empty rest, `//` notes, or block comments that close on the line with
+	// nothing but whitespace and notes after them put the new member on the
+	// next line at the anchor's indent; anything else — a member, the body's
+	// `}`, a block comment that does not close on the line, or code after a
+	// block comment — takes it inline right after the anchor's last token.
+	// The new member is never written inside a comment.
+	nextLine := true
+	lx = lexer.New(m.Source)
+	for tok := lx.Next(); tok.Kind != lexer.EOF && tok.Span.Offset < lineEnd; tok = lx.Next() {
+		if tok.Span.End() <= end || tok.Kind == lexer.Whitespace || tok.Kind == lexer.SLNote {
+			continue
+		}
+		switch tok.Kind {
+		case lexer.MLNote, lexer.RegularComment:
+			nextLine = tok.Span.End() <= lineEnd
+		default:
+			nextLine = false
+		}
+		if !nextLine {
+			break
+		}
+	}
+	if !nextLine {
+		next := end
+		for next < len(content) && (content[next] == ' ' || content[next] == '\t') {
+			next++
+		}
 		return insertion{
 			span: source.Span{Offset: end, Len: next - end},
 			text: " " + text + " ",
 			at:   1,
 		}
-	}
-	lineEnd := end
-	for lineEnd < len(content) && content[lineEnd] != '\n' {
-		lineEnd++
 	}
 	if lineEnd == len(content) {
 		return insertion{
