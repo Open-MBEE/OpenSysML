@@ -128,20 +128,6 @@ func commentBodyText(i int, what, body, indent string) (string, error) {
 	return "", &Error{Failure: FailureInvalidValue, OperationIndex: i, Message: what + " body " + reason}
 }
 
-// indentUnit is the step one body level indents by, under owner: what its
-// members' indentation adds to its own, else the document's style.
-func (m Model) indentUnit(owner ast.Node) string {
-	if owner != m.Root {
-		if unit := strings.TrimPrefix(m.ownerMemberIndent(owner), lineIndent(m.Source.Bytes(), owner.Span().Offset)); unit != "" {
-			return unit
-		}
-	}
-	if strings.Contains(string(m.Source.Bytes()), "\t") {
-		return "\t"
-	}
-	return "    "
-}
-
 // firstMemberInsertion places text ahead of owner's first body member, or where
 // memberInsertion puts it when the body is empty or not yet opened.
 func (m Model) firstMemberInsertion(owner ast.Node, text string) insertion {
