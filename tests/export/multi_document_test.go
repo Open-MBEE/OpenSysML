@@ -489,9 +489,14 @@ func TestSameNamedRootsAcrossThreeDocumentsDoNotMerge(t *testing.T) {
 	if err != nil {
 		t.Fatalf("to turtle again: %v", err)
 	}
-	first, second := structuralTriples(t, turtle), structuralTriples(t, again)
-	// The read-back is one document: provenance cannot survive it, and a
-	// memberIndex is the position in the one notation text it is written into.
+	sameStructure(t, structuralTriples(t, turtle), structuralTriples(t, again))
+}
+
+// sameStructure reports the triples two graphs differ on. The read-back is
+// one document: provenance cannot survive it, and a memberIndex is the
+// position in the one notation text it is written into.
+func sameStructure(t *testing.T, first, second map[rdf.Triple]bool) {
+	t.Helper()
 	noise := map[rdf.Term]bool{
 		rdf.OpenSysMLTerm("sourceDocument"): true,
 		rdf.OpenSysMLTerm("memberIndex"):    true,
@@ -508,14 +513,23 @@ func TestSameNamedRootsAcrossThreeDocumentsDoNotMerge(t *testing.T) {
 	}
 	for triple := range first {
 		if !second[triple] {
-			t.Errorf("the second hop lost %s %s %s", triple.Subject.Value, triple.Predicate.Value, triple.Object.Value)
+			t.Errorf("the second graph lost %s %s %s", triple.Subject.Value, triple.Predicate.Value, triple.Object.Value)
 		}
 	}
 	for triple := range second {
 		if !first[triple] {
-			t.Errorf("the second hop added %s %s %s", triple.Subject.Value, triple.Predicate.Value, triple.Object.Value)
+			t.Errorf("the second graph added %s %s %s", triple.Subject.Value, triple.Predicate.Value, triple.Object.Value)
 		}
 	}
+}
+
+// subjectsOf returns the set of subject IRIs a triple set states.
+func subjectsOf(triples map[rdf.Triple]bool) map[string]bool {
+	out := map[string]bool{}
+	for triple := range triples {
+		out[triple.Subject.Value] = true
+	}
+	return out
 }
 
 // Scopes declared in separate documents qualify the same way scopes in one
@@ -533,16 +547,72 @@ func TestScopesInSeparateDocumentsQualifyTheirIDs(t *testing.T) {
 	if err != nil {
 		t.Fatalf("ConvertDocuments: %v", err)
 	}
+	multiSubjects := subjectsOf(structuralTriples(t, multi))
 	for _, subject := range []string{"acme.proj-1:shared", "acme.proj-2:shared"} {
-		if !strings.Contains(string(multi), "elmt:"+subject) {
+		if !multiSubjects["urn:sysmlv2:element:"+subject] {
 			t.Fatalf("the two-document conversion lacks elmt:%s", subject)
 		}
 	}
-	for _, subject := range []string{"acme.proj-1:shared", "acme.proj-2:shared"} {
-		if !strings.Contains(string(single), "elmt:"+subject) {
-			t.Fatalf("the single-document conversion lacks elmt:%s", subject)
+	// The two-document graph's subjects equal the single-document graph's.
+	singleSubjects := subjectsOf(structuralTriples(t, single))
+	for subject := range multiSubjects {
+		if !singleSubjects[subject] {
+			t.Errorf("only the two-document graph has %s", subject)
 		}
 	}
+	for subject := range singleSubjects {
+		if !multiSubjects[subject] {
+			t.Errorf("only the single-document graph has %s", subject)
+		}
+	}
+
+	// The graph reads back structurally identical once its source text is gone.
+	stripped := withoutTriples(t, withoutTriples(t, multi, "sysx:sourceText"), "sysx:sourceTail")
+	back, err := convert.Convert("m.ttl", stripped, convert.FormatTurtle, convert.FormatSysML)
+	if err != nil {
+		t.Fatalf("back to notation: %v", err)
+	}
+	again, err := convert.Convert("m.sysml", back, convert.FormatSysML, convert.FormatTurtle)
+	if err != nil {
+		t.Fatalf("to turtle again: %v", err)
+	}
+	sameStructure(t, structuralTriples(t, multi), structuralTriples(t, again))
+}
+
+// A document whose only member is an unnamed usage contributes that usage at
+// the root: unnamed roots in separate documents are numbered over the model.
+func TestUnnamedRootsInSeparateDocumentsDoNotCollide(t *testing.T) {
+	sources := []convert.Source{
+		{Name: "t.sysml", Data: []byte("part def T;\n")},
+		{Name: "u1.sysml", Data: []byte("part : T;\n")},
+		{Name: "u2.sysml", Data: []byte("part : T;\n")},
+	}
+	turtle, err := convert.ConvertDocuments(sources, convert.FormatTurtle, convert.Options{})
+	if err != nil {
+		t.Fatalf("ConvertDocuments: %v", err)
+	}
+	usages := map[string]bool{}
+	for triple := range structuralTriples(t, turtle) {
+		if triple.Predicate == rdf.SysMLTerm("qualifiedName") {
+			if name := triple.Object.Value; name == "@1" || name == "@2" {
+				usages[triple.Subject.Value] = true
+			}
+		}
+	}
+	if len(usages) != 2 {
+		t.Fatalf("expected two distinct unnamed root usages, found %v", usages)
+	}
+
+	stripped := withoutTriples(t, withoutTriples(t, turtle, "sysx:sourceText"), "sysx:sourceTail")
+	back, err := convert.Convert("m.ttl", stripped, convert.FormatTurtle, convert.FormatSysML)
+	if err != nil {
+		t.Fatalf("back to notation: %v", err)
+	}
+	again, err := convert.Convert("m.sysml", back, convert.FormatSysML, convert.FormatTurtle)
+	if err != nil {
+		t.Fatalf("to turtle again: %v", err)
+	}
+	sameStructure(t, structuralTriples(t, turtle), structuralTriples(t, again))
 }
 
 // A part typed through an import chain reaches the element the chain declares:
@@ -563,18 +633,39 @@ func TestATypeThroughAnImportChainLinksAcrossDocuments(t *testing.T) {
 		if err != nil {
 			t.Fatalf("ConvertDocuments: %v", err)
 		}
-		if !strings.Contains(string(turtle), "elmt:App__e") ||
-			!strings.Contains(string(turtle), "sysml:type elmt:EngineLib__Engine") {
-			t.Errorf("the Turtle of %q does not type e as EngineLib__Engine", form)
+		// App__e's own block carries its typing.
+		var eBlock string
+		for _, block := range strings.Split(string(turtle), "\n\n") {
+			if strings.HasPrefix(block, "elmt:App__e\n") {
+				eBlock = block
+			}
+		}
+		if !strings.Contains(eBlock, "sysml:type elmt:EngineLib__Engine") {
+			t.Errorf("the Turtle of %q does not type e as EngineLib__Engine:\n%s", form, eBlock)
 		}
 
 		apiJSON, err := convert.ConvertDocuments(docs, convert.FormatAPIJSON, convert.Options{})
 		if err != nil {
 			t.Fatalf("ConvertDocuments to API JSON: %v", err)
 		}
-		if !strings.Contains(string(apiJSON), "\"App__e\"") ||
-			!strings.Contains(string(apiJSON), "\"EngineLib__Engine\"") {
-			t.Errorf("the API JSON of %q does not type e as EngineLib__Engine", form)
+		elements := map[string]map[string]json.RawMessage{}
+		for _, el := range rootElements(t, apiJSON) {
+			elements[rootString(t, el["@id"])] = el
+		}
+		e, ok := elements["App__e"]
+		if !ok {
+			t.Fatalf("the API JSON of %q has no App__e element", form)
+		}
+		typings := refsOf(t, e["ownedTyping"])
+		if len(typings) != 1 {
+			t.Fatalf("App__e should own one typing, found %v", typings)
+		}
+		typing, ok := elements[typings[0]]
+		if !ok {
+			t.Fatalf("the API JSON of %q has no %s element", form, typings[0])
+		}
+		if refs := refsOf(t, typing["type"]); len(refs) != 1 || refs[0] != "EngineLib__Engine" {
+			t.Errorf("the API JSON of %q does not type e as EngineLib__Engine: %v", form, refs)
 		}
 	}
 }
