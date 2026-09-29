@@ -99,5 +99,14 @@ func (v *verifyContext) summaryVerdict(symbolID string, root *runtime.Instance, 
 		out.Error = analysis.ValidationReason(report)
 		out.FailureReason = pb.FailureReason_FAILURE_REASON_EVALUATION
 	}
+	out.Question = questionEvaluate
+	switch {
+	case out.Error != "":
+		out.Status = statusUndecided
+	case out.Holds:
+		out.Status = statusHolds
+	default:
+		out.Status = statusViolated
+	}
 	return out
 }

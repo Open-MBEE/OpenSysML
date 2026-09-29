@@ -170,6 +170,9 @@ func TestValidateInstanceOfAValidObjectHolds(t *testing.T) {
 	if !resp.Summary.Holds || resp.Summary.Error != "" {
 		t.Errorf("summary holds=%v error=%q, want it to hold", resp.Summary.Holds, resp.Summary.Error)
 	}
+	if resp.Summary.Question != questionEvaluate || resp.Summary.Status != statusHolds {
+		t.Errorf("summary question=%q status=%q, want evaluate/holds", resp.Summary.Question, resp.Summary.Status)
+	}
 }
 
 // TestValidateInstanceUndecidedIsNotAVerdict verifies an assertion that cannot
@@ -202,6 +205,30 @@ func TestValidateInstanceUndecidedIsNotAVerdict(t *testing.T) {
 	}
 	if resp.Summary.FailureReason != pb.FailureReason_FAILURE_REASON_EVALUATION {
 		t.Errorf("summary failure_reason = %v, want EVALUATION", resp.Summary.FailureReason)
+	}
+	if resp.Summary.Question != questionEvaluate || resp.Summary.Status != statusUndecided {
+		t.Errorf("summary question=%q status=%q, want evaluate/undecided", resp.Summary.Question, resp.Summary.Status)
+	}
+}
+
+// TestValidateInstanceOfAViolatedObjectIsViolated verifies a failing assertion
+// stamps the summary violated, as a verify verdict's status does.
+func TestValidateInstanceOfAViolatedObjectIsViolated(t *testing.T) {
+	srv := mustNewService(t, 10)
+	hash := mustVerifyModel(t, srv, validateModelSource, "validate-instance")
+
+	resp, err := srv.ValidateInstance(context.Background(), &pb.ValidateInstanceRequest{
+		ModelHash: hash,
+		SymbolId:  "Demo::car",
+	})
+	if err != nil {
+		t.Fatalf("ValidateInstance: %v", err)
+	}
+	if resp.Error != "" {
+		t.Fatalf("ValidateInstance reported %q", resp.Error)
+	}
+	if resp.Summary.Holds || resp.Summary.Question != questionEvaluate || resp.Summary.Status != statusViolated {
+		t.Errorf("summary holds=%v question=%q status=%q, want evaluate/violated", resp.Summary.Holds, resp.Summary.Question, resp.Summary.Status)
 	}
 }
 
