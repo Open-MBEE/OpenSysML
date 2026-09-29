@@ -293,3 +293,37 @@ func TestPortTypeMismatchLintSilent(t *testing.T) {
 		})
 	}
 }
+
+// A literal sends a value, typed by its scalar type as the runtime names it.
+func TestUndeclaredSignalLintLiteralSend(t *testing.T) {
+	machine := `package M {
+	state def Machine {
+		entry; then idle;
+		state idle; state busy;
+		transition first idle when String then busy;
+		transition first busy when Integer then idle;
+		transition first busy when Real then idle;
+		transition first busy when Boolean then idle;
+	}
+}`
+	count := func(sender string) int {
+		idx := newTestIndex()
+		mroot := parser.New(source.New("m.sysml", []byte(machine))).ParseFile()
+		sroot := parser.New(source.New("s.sysml", []byte(sender))).ParseFile()
+		idx.AddDocument("m.sysml", mroot)
+		idx.AddDocument("s.sysml", sroot)
+		n := 0
+		for _, d := range Analyze("m.sysml", mroot, nil, idx) {
+			if d.Code == CodeUndeclaredSignal {
+				n++
+			}
+		}
+		return n
+	}
+	if n := count(`package S { part def Sender { action a { send "go" to self; } } }`); n != 3 {
+		t.Fatalf("a string send left %d finding(s), want 3", n)
+	}
+	if n := count(`package S { part def Sender { action a { send "go" to self; send 1 to self; send 2.5 to self; send true to self; } } }`); n != 0 {
+		t.Fatalf("literal sends left %d finding(s), want none", n)
+	}
+}

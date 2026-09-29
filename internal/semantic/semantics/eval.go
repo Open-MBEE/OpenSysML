@@ -95,6 +95,23 @@ const (
 	ValInfinity // the `*` bound / unbounded value
 )
 
+// StringTypeName names the scalar type of a string value, as a sent signal's type.
+const StringTypeName = "String"
+
+// ScalarTypeName names the scalar type of a constant of kind, as a sent
+// signal's type, or "" for a kind no sent value has.
+func ScalarTypeName(kind ValueKind) string {
+	switch kind {
+	case ValInt:
+		return "Integer"
+	case ValReal:
+		return "Real"
+	case ValBool:
+		return "Boolean"
+	}
+	return ""
+}
+
 // Value is a model-level-evaluated constant. Only the field selected by Kind is
 // meaningful. This is a deliberately small subset: the constraint checks that
 // need evaluation (multiplicity bounds, some guards) operate over integers,
