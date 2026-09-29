@@ -416,6 +416,89 @@
           ]
         }
       }
+    },
+    {
+      "id": "verify_constraint/a_bogus_question_is_invalid",
+      "description": "A question other than evaluate, holds or satisfiable is refused as malformed.",
+      "rpc": "VerifyConstraint",
+      "requires_capabilities": [
+        "verification",
+        "verification_questions"
+      ],
+      "model": {
+        "fixture": "verification.sysml"
+      },
+      "request": {
+        "model_hash": "${model_hash}",
+        "symbol_id": "Demo::Vehicle::massPositive",
+        "question": "bogus"
+      },
+      "expect": {
+        "status": "INVALID_ARGUMENT"
+      }
+    },
+    {
+      "id": "verify_constraint/an_undecided_holds_question_names_the_reason",
+      "description": "Exponentiation is outside the decided fragment: a holds question about it is undecided, the verdict naming why rather than claiming an answer.",
+      "rpc": "VerifyConstraint",
+      "requires_capabilities": [
+        "verification",
+        "verification_questions"
+      ],
+      "model": {
+        "fixture": "verification_questions.sysml"
+      },
+      "request": {
+        "model_hash": "${model_hash}",
+        "symbol_id": "Demo::sq",
+        "question": "holds"
+      },
+      "expect": {
+        "response": {
+          "verdict": {
+            "kind": "constraint",
+            "element_id": "Demo::sq",
+            "holds": false,
+            "question": "holds",
+            "status": "undecided",
+            "failure_reason": "FAILURE_REASON_UNDECIDED"
+          }
+        },
+        "non_empty": [
+          "verdict.error"
+        ]
+      }
+    },
+    {
+      "id": "verify_constraint/an_explicit_evaluate_question_is_the_default",
+      "description": "Question evaluate evaluates as an omitted question does: the verdict's question and status name what was answered.",
+      "rpc": "VerifyConstraint",
+      "requires_capabilities": [
+        "verification",
+        "verification_questions"
+      ],
+      "model": {
+        "fixture": "verification.sysml"
+      },
+      "request": {
+        "model_hash": "${model_hash}",
+        "symbol_id": "Demo::Vehicle::massPositive",
+        "question": "evaluate"
+      },
+      "expect": {
+        "response": {
+          "verdict": {
+            "kind": "constraint",
+            "element_id": "Demo::Vehicle::massPositive",
+            "holds": true,
+            "question": "evaluate",
+            "status": "holds"
+          }
+        },
+        "absent": [
+          "verdict.error"
+        ]
+      }
     }
   ]
 }

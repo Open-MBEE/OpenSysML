@@ -526,9 +526,8 @@ func (c *refCollector) behaviorDecl(scope *symbols.Scope, decl ast.Node) bool {
 	}
 }
 
-// trigger collects the references a transition trigger carries. Bare signal and
-// call event names are not model references (see resolve/document.go), so they
-// are skipped here too: renaming a declaration must not rewrite them.
+// trigger collects the references a transition trigger carries. Bare signal names and call event names are not model references
+// (see resolve/document.go), so they are skipped here too.
 func (c *refCollector) trigger(scope *symbols.Scope, trigger ast.Node) {
 	switch t := trigger.(type) {
 	case nil:

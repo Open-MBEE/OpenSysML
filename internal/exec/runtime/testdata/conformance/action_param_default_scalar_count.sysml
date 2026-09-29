@@ -1,5 +1,4 @@
-// An action parameter stating no multiplicity holds one value (KerML 1.0
-// §7.4.5): a default that yields two at run time is a multiplicity violation
+// An action parameter declaring [1] rejects a default that yields two values
 // when the node's own features are seeded, as an argument of two would be.
 package test {
 	private import ScalarValues::*;
@@ -11,7 +10,7 @@ package test {
 		first start;
 
 		action hold {
-			in x : Integer = src;
+			in x : Integer[1] = src;
 			assign r := SequenceFunctions::size(x);
 		}
 

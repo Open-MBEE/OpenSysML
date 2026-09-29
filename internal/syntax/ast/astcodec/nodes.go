@@ -757,6 +757,7 @@ func (e *Encoder) encodeFields(node ast.Node) {
 		e.span(n.NameSpan)
 		e.nodes(n.Members)
 		e.w.Bool(n.HasBody)
+		e.prefixes(n.Prefixes)
 	case *ast.Definition:
 		e.base(&n.NodeBase)
 		e.prefixes(n.Prefixes)
@@ -826,6 +827,7 @@ func (e *Encoder) encodeFields(node ast.Node) {
 		e.span(n.NameSpan)
 		e.nodes(n.Members)
 		e.w.Bool(n.HasBody)
+		e.prefixes(n.Prefixes)
 	case *ast.IfActionNode:
 		e.base(&n.NodeBase)
 		e.node(n.Condition)
@@ -870,6 +872,7 @@ func (e *Encoder) encodeFields(node ast.Node) {
 		e.span(n.NameSpan)
 		e.nodes(n.Members)
 		e.w.Bool(n.HasBody)
+		e.prefixes(n.Prefixes)
 	case *ast.LiteralBool:
 		e.base(&n.NodeBase)
 		e.w.Bool(n.Value)
@@ -895,6 +898,7 @@ func (e *Encoder) encodeFields(node ast.Node) {
 		e.span(n.NameSpan)
 		e.nodes(n.Members)
 		e.w.Bool(n.HasBody)
+		e.prefixes(n.Prefixes)
 	case *ast.MetadataAccessExpr:
 		e.base(&n.NodeBase)
 		e.node(n.Ref)
@@ -1039,6 +1043,7 @@ func (e *Encoder) encodeFields(node ast.Node) {
 		e.base(&n.NodeBase)
 		e.node(n.Source)
 		e.node(n.Target)
+		e.node(n.SourceMultiplicity)
 		e.node(n.SourceMember)
 		e.node(n.TargetMember)
 		e.w.Bool(n.SourceImplied)
@@ -1257,6 +1262,7 @@ func (d *Decoder) decodeFields(node ast.Node) {
 		n.NameSpan = d.span()
 		n.Members = d.nodes()
 		n.HasBody = d.r.Bool()
+		n.Prefixes = d.prefixes()
 	case *ast.Definition:
 		d.base(&n.NodeBase)
 		n.Prefixes = d.prefixes()
@@ -1326,6 +1332,7 @@ func (d *Decoder) decodeFields(node ast.Node) {
 		n.NameSpan = d.span()
 		n.Members = d.nodes()
 		n.HasBody = d.r.Bool()
+		n.Prefixes = d.prefixes()
 	case *ast.IfActionNode:
 		d.base(&n.NodeBase)
 		n.Condition = d.node()
@@ -1370,6 +1377,7 @@ func (d *Decoder) decodeFields(node ast.Node) {
 		n.NameSpan = d.span()
 		n.Members = d.nodes()
 		n.HasBody = d.r.Bool()
+		n.Prefixes = d.prefixes()
 	case *ast.LiteralBool:
 		d.base(&n.NodeBase)
 		n.Value = d.r.Bool()
@@ -1395,6 +1403,7 @@ func (d *Decoder) decodeFields(node ast.Node) {
 		n.NameSpan = d.span()
 		n.Members = d.nodes()
 		n.HasBody = d.r.Bool()
+		n.Prefixes = d.prefixes()
 	case *ast.MetadataAccessExpr:
 		d.base(&n.NodeBase)
 		n.Ref = typed[*ast.QualifiedName](d)
@@ -1539,6 +1548,7 @@ func (d *Decoder) decodeFields(node ast.Node) {
 		d.base(&n.NodeBase)
 		n.Source = typed[*ast.QualifiedName](d)
 		n.Target = typed[*ast.QualifiedName](d)
+		n.SourceMultiplicity = typed[*ast.Multiplicity](d)
 		n.SourceMember = d.node()
 		n.TargetMember = d.node()
 		n.SourceImplied = d.r.Bool()

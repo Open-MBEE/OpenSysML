@@ -47,6 +47,7 @@ type FinalNode struct {
 // ForkNode splits execution into concurrent flows (1 incoming → N outgoing).
 type ForkNode struct {
 	NodeBase
+	Prefixes []*PrefixMetadata
 	Name     string
 	NameSpan source.Span // span of Name, empty for an unnamed node
 	// Members and HasBody carry the body every ControlNode may declare
@@ -59,6 +60,7 @@ type ForkNode struct {
 // JoinNode synchronizes concurrent flows (N incoming → 1 outgoing).
 type JoinNode struct {
 	NodeBase
+	Prefixes []*PrefixMetadata
 	Name     string
 	NameSpan source.Span // span of Name, empty for an unnamed node
 	Members  []Node      // body members, as on ForkNode
@@ -68,6 +70,7 @@ type JoinNode struct {
 // MergeNode merges alternative flows (N incoming → 1 outgoing, each arrival passes).
 type MergeNode struct {
 	NodeBase
+	Prefixes []*PrefixMetadata
 	Name     string
 	NameSpan source.Span // span of Name, empty for an unnamed node
 	Members  []Node      // body members, as on ForkNode
@@ -77,6 +80,7 @@ type MergeNode struct {
 // DecisionNode is a conditional branch point (1 incoming → N guarded outgoing).
 type DecisionNode struct {
 	NodeBase
+	Prefixes []*PrefixMetadata
 	Name     string
 	NameSpan source.Span // span of Name, empty for an unnamed node
 	Members  []Node      // body members, as on ForkNode
@@ -312,6 +316,9 @@ type SuccessionEdge struct {
 	NodeBase
 	Source *QualifiedName // source action node
 	Target *QualifiedName // target action node
+	// SourceMultiplicity is the source-end multiplicity of an action succession
+	// (SysML.xtext:878, 887, 1703; formal/2026-03-02).
+	SourceMultiplicity *Multiplicity
 	// SourceMember and TargetMember are the members a member-attached `then`
 	// (SysML.xtext EmptySuccessionMember) sequences when the member declares no
 	// name a reference could use — `then send fullyCharged() to self;`, `then

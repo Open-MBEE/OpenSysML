@@ -1013,6 +1013,7 @@ var defSymbolKinds = map[symbols.SymbolKind]bool{
 var usageSymbolKinds = map[symbols.SymbolKind]bool{
 	symbols.SymbolPartUsage:               true,
 	symbols.SymbolAttributeUsage:          true,
+	symbols.SymbolReferenceUsage:          true,
 	symbols.SymbolItemUsage:               true,
 	symbols.SymbolOccurrenceUsage:         true,
 	symbols.SymbolIndividualUsage:         true,
@@ -1277,6 +1278,14 @@ func compatibleTyping(useKind ast.UsageKind, direction ast.FeatureDirection, def
 	// §8.3.16.6 validateActionUsageType), so any behavior-family def works.
 	if useKind == ast.UsageAction {
 		return defKindSpecializes(defKind, symbols.SymbolActionDef)
+	}
+
+	// A connection is typed by connection definitions (SysML v2 §8.3.14.5
+	// ConnectionUsage::connectionDefinition): an allocation or an interface
+	// definition is one, as the metamodel's AllocationDefinition and
+	// InterfaceDefinition specialize ConnectionDefinition.
+	if useKind == ast.UsageConnection {
+		return defKindSpecializes(defKind, symbols.SymbolConnectionDef)
 	}
 
 	// A case may be typed by a case definition of any kind (SysML v2 §8.3.24.4

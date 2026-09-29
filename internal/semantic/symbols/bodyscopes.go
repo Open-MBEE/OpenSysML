@@ -65,7 +65,7 @@ func newBodyExprScope(parent *Scope, body *ast.BodyExpr) *Scope {
 		// through NameSpan and jumps to DeclSpan.
 		scope.Define(p.Name, &Symbol{
 			Name:       p.Name,
-			Kind:       SymbolAttributeUsage,
+			Kind:       SymbolReferenceUsage,
 			Decl:       body,
 			DeclSpan:   p.Span,
 			NameSpan:   p.Span,
@@ -246,7 +246,7 @@ func triggerParameterDefiner(trigger ast.Node) func(*Scope) {
 			for _, param := range t.Parameters {
 				scope.Define(param.Text, &Symbol{
 					Name:       param.Text,
-					Kind:       SymbolAttributeUsage,
+					Kind:       SymbolReferenceUsage,
 					Decl:       t,
 					DeclSpan:   param.Span,
 					NameSpan:   param.Span,

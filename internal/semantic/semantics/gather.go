@@ -71,7 +71,7 @@ func collectUnitCandidates(scope *symbols.Scope, g *docGather) {
 			if sym.Scope != nil {
 				collectUnitCandidates(sym.Scope, g)
 			}
-		case symbols.SymbolAttributeUsage:
+		case symbols.SymbolAttributeUsage, symbols.SymbolReferenceUsage:
 			g.units = append(g.units, sym)
 		}
 	}

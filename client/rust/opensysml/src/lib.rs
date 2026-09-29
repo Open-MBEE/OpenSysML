@@ -22,6 +22,9 @@ pub use domain::{
 };
 pub use error::{Error, Status};
 
+/// Capability for `ApplyEdits` action-body statements and succession source multiplicities.
+pub const CAPABILITY_ACTION_BODY_STATEMENT_AUTHORING: &str = "action_body_statement_authoring";
+
 /// Parse a SysML file using a private or externally selected service.
 pub fn load(path: impl AsRef<std::path::Path>) -> Result<Model, Error> {
     Connection::connect()?.parse_file(path.as_ref(), &ParseOptions::default())

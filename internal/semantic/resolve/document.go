@@ -455,10 +455,9 @@ func isImplicitCalcResult(scope *symbols.Scope, node ast.Node) bool {
 
 // resolveTrigger resolves the references a transition trigger carries.
 //
-// A bare name after `when` is classified by lowering as a signal, and signals
-// are injected by the event source rather than declared in the model, so bare
-// names are left unresolved here; resolving them would report every signal-
-// triggered transition as an unresolved reference.
+// Bare names in the OpenSysML transition spelling `when` are injected
+// signals, so they remain unresolved here.
+// A bare name after `accept` is a typed payload usage and resolves normally.
 func (r *Resolver) resolveTrigger(scope *symbols.Scope, trigger ast.Node) {
 	switch t := trigger.(type) {
 	case nil:
@@ -482,8 +481,8 @@ func (r *Resolver) resolveTrigger(scope *symbols.Scope, trigger ast.Node) {
 			r.resolveDecl(scope, t.Payload)
 		}
 	case *ast.Usage:
-		// A named payload (`accept m : Warning`) declares a parameter, so its
-		// typing resolves like any other declaration's.
+		// Typed and named payload usages resolve their typing like any other
+		// declaration's; a bare `when` name is handled separately below.
 		r.resolveDecl(scope, t)
 	case *ast.QualifiedName, *ast.FeatureReference, *ast.CallEvent:
 		// Signal and call triggers name events, not model elements.
@@ -532,6 +531,11 @@ func (r *Resolver) bodyScope(scope *symbols.Scope, node ast.Node) *symbols.Scope
 		return child
 	}
 	return scope
+}
+
+// PrefixScope returns the scope in which prefix metadata on decl resolves.
+func (r *Resolver) PrefixScope(scope *symbols.Scope, decl ast.Node) *symbols.Scope {
+	return r.bodyScope(scope, decl)
 }
 
 // resolvePrefixes resolves the prefix annotations of decl, a member of scope.

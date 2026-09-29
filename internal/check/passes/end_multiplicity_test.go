@@ -80,6 +80,17 @@ func TestKerMLEndOwnMultiplicityNotOne(t *testing.T) {
 	})
 }
 
+func TestActionSuccessionSourceMultiplicity(t *testing.T) {
+	const src = `action def A {
+		action a;
+		then [0..1] action b;
+		then [*] action c;
+		then [1] action d;
+	}`
+	got := endMultiplicityTexts(t, constraintDiags(t, src), src)
+	wantEndMultiplicity(t, got, []string{"[0..1]", "[*]"})
+}
+
 // An end's own multiplicity is the only one it has (KerML 1.1 Type::multiplicities),
 // so a stated non-one range warns even when a redefined or subsetted end is one.
 func TestKerMLEndOwnMultiplicityShadowsGenerals(t *testing.T) {

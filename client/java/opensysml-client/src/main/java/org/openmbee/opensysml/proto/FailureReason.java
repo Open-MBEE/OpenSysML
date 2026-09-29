@@ -48,6 +48,14 @@ public enum FailureReason
    * <code>FAILURE_REASON_AMBIGUOUS_SUBJECT = 3;</code>
    */
   FAILURE_REASON_AMBIGUOUS_SUBJECT(3),
+  /**
+   * <pre>
+   * an engine was asked but decided nothing
+   * </pre>
+   *
+   * <code>FAILURE_REASON_UNDECIDED = 4;</code>
+   */
+  FAILURE_REASON_UNDECIDED(4),
   UNRECOGNIZED(-1),
   ;
 
@@ -92,6 +100,14 @@ public enum FailureReason
    * <code>FAILURE_REASON_AMBIGUOUS_SUBJECT = 3;</code>
    */
   public static final int FAILURE_REASON_AMBIGUOUS_SUBJECT_VALUE = 3;
+  /**
+   * <pre>
+   * an engine was asked but decided nothing
+   * </pre>
+   *
+   * <code>FAILURE_REASON_UNDECIDED = 4;</code>
+   */
+  public static final int FAILURE_REASON_UNDECIDED_VALUE = 4;
 
 
   public final int getNumber() {
@@ -122,6 +138,7 @@ public enum FailureReason
       case 1: return FAILURE_REASON_EVALUATION;
       case 2: return FAILURE_REASON_WRONG_KIND;
       case 3: return FAILURE_REASON_AMBIGUOUS_SUBJECT;
+      case 4: return FAILURE_REASON_UNDECIDED;
       default: return null;
     }
   }

@@ -22,6 +22,10 @@ type behaviorContext struct {
 	holder *sysmlv1.Element
 	// owner is whether the object is the def's own classifier, spelled for `this`.
 	owner bool
+	// implied is whether only the body's own reads or bindings call for it,
+	// none of its actions going through ports: a caller is then not held to
+	// name an object of the classifier for the def. Settled once, with the def.
+	implied bool
 	// used is whether the def's body spelled it; bound whether a usage bound it.
 	// The parameter is written when either holds once the body is evaluated.
 	used, bound, evaluated bool
@@ -40,6 +44,9 @@ func (c *behaviorContext) objectType() *sysmlv1.Element {
 type contextVisit struct {
 	index, low int
 	owners     []*sysmlv1.Element
+	// implied are the classifiers the contexts its calls lead to take for their
+	// own reads alone, which the visited behavior binds but need not act on.
+	implied []*sysmlv1.Element
 }
 
 // contextOf settles, once, the context an activity needs: the one classifier whose
@@ -265,8 +272,27 @@ func (m *migration) contextSpelling(c *behaviorContext, e *sysmlv1.Element) stri
 	if cur != c.holder {
 		return withChain(m.qualifiedContext(c, e))
 	}
-	c.used = true
+	m.markUsed(&c.used)
 	return withChain(writeName(c.name))
+}
+
+// markUsed marks a context parameter as used by a name spelled through it,
+// remembering the mark so that a body the translator refuses after spelling
+// some of its names can unmark what it marked: the def declares the parameter
+// only for names it writes.
+func (m *migration) markUsed(used *bool) {
+	if !*used {
+		*used = true
+		m.marked = append(m.marked, used)
+	}
+}
+
+// unmark undoes the marks made since there were n of them.
+func (m *migration) unmark(n int) {
+	for _, used := range m.marked[n:] {
+		*used = false
+	}
+	m.marked = m.marked[:n]
 }
 
 // respellThis rewrites an expression built on `this` — `this` itself or a
@@ -351,7 +377,13 @@ func (m *migration) callBodyExpr(expr string, e *sysmlv1.Element) string {
 // qualifiedContext writes a def's context parameter as it is named from inside
 // its own body, where a call's own redefinition would shadow the bare name.
 func (m *migration) qualifiedContext(c *behaviorContext, scope *sysmlv1.Element) string {
-	c.used = true
+	m.markUsed(&c.used)
+	return m.contextName(c, scope)
+}
+
+// contextName is qualifiedContext's spelling alone, for a binding that may
+// come to nothing: the parameter is used once the binding is written.
+func (m *migration) contextName(c *behaviorContext, scope *sysmlv1.Element) string {
 	return m.ref(c.holder, scope) + "::" + writeName(c.name)
 }
 
@@ -389,12 +421,16 @@ func (m *migration) contextIns(c *behaviorContext, scope *sysmlv1.Element) (ins,
 		return "", ""
 	}
 	self, selfType := "this", m.contextClassifier(scope)
-	if dc := m.selfContext(scope); dc != nil {
-		self, selfType = m.qualifiedContext(dc, scope), dc.objectType()
+	dc := m.selfContext(scope)
+	if dc != nil {
+		self, selfType = m.contextName(dc, scope), dc.objectType()
 	}
 	expr, cnote := m.contextBinding(c, selfType, self)
 	if expr == "" {
 		return "", cnote
+	}
+	if dc != nil {
+		m.markUsed(&dc.used)
 	}
 	c.bound = true
 	return "in ref :>> " + writeName(c.name) + " = " + expr, cnote
@@ -408,9 +444,7 @@ func (m *migration) visitContext(b *sysmlv1.Element) {
 	m.visits = append(m.visits, b)
 	for _, c := range m.calledActivities(b) {
 		if ctx, settled := m.contexts[c]; settled {
-			if ctx != nil {
-				v.owners = addOwner(v.owners, ctx.classifier)
-			}
+			v.reach(ctx)
 			continue
 		}
 		if w := m.visiting[c]; w != nil {
@@ -419,9 +453,7 @@ func (m *migration) visitContext(b *sysmlv1.Element) {
 		}
 		m.visitContext(c)
 		if ctx, settled := m.contexts[c]; settled {
-			if ctx != nil {
-				v.owners = addOwner(v.owners, ctx.classifier)
-			}
+			v.reach(ctx)
 		} else {
 			v.low = min(v.low, m.visiting[c].low)
 		}
@@ -431,10 +463,13 @@ func (m *migration) visitContext(b *sysmlv1.Element) {
 	}
 	members := slices.Clone(m.visits[v.index:])
 	m.visits = m.visits[:v.index]
-	var owners []*sysmlv1.Element
+	var owners, implied []*sysmlv1.Element
 	for _, e := range members {
 		for _, o := range m.visiting[e].owners {
 			owners = addOwner(owners, o)
+		}
+		for _, o := range m.visiting[e].implied {
+			implied = addOwner(implied, o)
 		}
 		delete(m.visiting, e)
 		// Settled as none while the members decide, so a cycle contributes nothing to itself.
@@ -444,8 +479,89 @@ func (m *migration) visitContext(b *sysmlv1.Element) {
 	for i, e := range members {
 		decided[i] = m.decideContext(e, owners)
 	}
+	// A member whose body reads its owner, or binds a callee's context to it or
+	// to one of its parts, takes the owner as its own context; the fellow members
+	// calling it then bind that, until no member's need is new to the cycle.
+	for settled := false; !settled; {
+		settled = true
+		for i, e := range members {
+			owner := classifierOf(e)
+			if decided[i] != nil || owner == nil || !(m.usesFeaturesOf(e, owner) || m.providesAny(owner, implied)) {
+				continue
+			}
+			if decided[i] = m.ownerContext(e); decided[i] != nil {
+				decided[i].implied = true
+				implied = addOwner(implied, owner)
+				settled = false
+			}
+		}
+	}
 	for i, e := range members {
+		if decided[i] == nil && len(owners) == 0 {
+			decided[i] = m.impliedContext(e, implied)
+		}
 		m.contexts[e] = decided[i]
+	}
+}
+
+// impliedContext is the context a behavior of no classifier takes for the
+// behaviors it calls that act on their owners for their own reads: the one of
+// those classifiers an object of which is, or holds a part that is, an object of
+// each of the others, since nothing else the behavior has could be bound to them.
+// A behavior of a classifier binds them to its own object instead, or not at all.
+func (m *migration) impliedContext(b *sysmlv1.Element, implied []*sysmlv1.Element) *behaviorContext {
+	if classifierOf(b) != nil {
+		return nil
+	}
+	var eligible []*sysmlv1.Element
+	for _, c := range implied {
+		if m.definitionEnd(c) {
+			eligible = append(eligible, c)
+		}
+	}
+	if len(eligible) == 0 {
+		return nil
+	}
+	if c := m.encompassing(eligible); c != nil {
+		return &behaviorContext{name: m.freshName(b, "context"), classifier: c, holder: b, implied: true}
+	}
+	names := make([]string, len(eligible))
+	for i, c := range eligible {
+		names[i] = qualifiedName(c)
+	}
+	m.contextNotes[b] = "the behaviors it calls act on " + strings.Join(names, " and ") +
+		", none of which is or holds a part that is each of the others, so no one object is written for them to act on"
+	return nil
+}
+
+// encompassing is the classifier among cs an object of which is, or holds one
+// part that is, an object of every other; nil when none is.
+func (m *migration) encompassing(cs []*sysmlv1.Element) *sysmlv1.Element {
+	for _, c := range cs {
+		holds := true
+		for _, o := range cs {
+			if expr, _, _ := m.objectOf(o, c, "this"); o != c && expr == "" {
+				holds = false
+				break
+			}
+		}
+		if holds {
+			return c
+		}
+	}
+	return nil
+}
+
+// reach records the context of a behavior the visit's calls lead to: the
+// classifier whose ports it acts through as a port owner, one it takes only for
+// its own reads as implied, which holds the caller to no object of it.
+func (v *contextVisit) reach(ctx *behaviorContext) {
+	switch {
+	case ctx == nil:
+	case ctx.implied:
+		v.implied = addOwner(v.implied, ctx.classifier)
+	default:
+		v.owners = addOwner(v.owners, ctx.classifier)
 	}
 }
 
@@ -556,19 +672,86 @@ func (m *migration) usesFeaturesOf(b, c *sysmlv1.Element) bool {
 			}
 		case "OpaqueAction":
 			// A body written in its own language reads a feature by its name.
-			if body, _ := opaqueBody(e); body != "" {
-				if toks, err := lexOpaque(body); err == nil {
-					members, _ := m.membersOf(c, memberAny)
-					for _, t := range toks {
-						if t.kind == tokIdent && members[t.text] != nil {
-							uses = true
-						}
-					}
-				}
+			if body, lang := opaqueBody(e); m.bodyReads(body, lang, e, c, true) {
+				uses = true
+			}
+		case "OpaqueExpression":
+			// So does a guard, a value, or any other expression the body carries.
+			if body, lang := opaqueBody(e); m.bodyReads(body, lang, opaqueScope(e), c, false) {
+				uses = true
 			}
 		}
 	})
 	return uses
+}
+
+// bodyReads reports whether an opaque body, read where scope's names resolve,
+// names a feature of the classifier c as the writer spells it: a name the
+// translator resolves reading the body — as statements or as one expression —
+// none being a local the body declares; or, for a body in a language it does
+// not read, each name the body copied as v2 syntax reads. A body the writer
+// keeps as a comment reads nothing. A name after a dot is a member of what
+// precedes it, not a read of its own; a name reads c directly or through a
+// swimlane over one of its parts.
+func (m *migration) bodyReads(body, lang string, scope, c *sysmlv1.Element, statements bool) bool {
+	body = strings.TrimSpace(body)
+	if body == "" || scope == nil {
+		return false
+	}
+	s := m.bodyScope(scope)
+	s.probe = true
+	names, ok, final := s.namesRead(body, lang, statements)
+	switch {
+	case final:
+		return false
+	case !ok:
+		names = m.v2Names(body, lang, scope, statements)
+	}
+	for _, name := range names {
+		if s.readsFeatureOf(name, c) {
+			return true
+		}
+	}
+	return false
+}
+
+// v2Names lists the first step of every name a body the writer copies as v2
+// syntax reads at scope — the features its statements assign and the roots of
+// its expressions — none when the writer refuses the body and keeps it as a comment.
+func (m *migration) v2Names(body, lang string, scope *sysmlv1.Element, statements bool) []string {
+	var names []string
+	roots := func(refs []reference) {
+		for _, r := range refs {
+			if !r.global && r.local == "" && len(r.steps) > 0 {
+				names = append(names, r.steps[0].name)
+			}
+		}
+	}
+	if !statements {
+		if refs, ok, _ := m.v2Refs(body, lang, scope); ok {
+			roots(refs)
+		}
+		return names
+	}
+	assigns, ok, _ := m.v2Assignments(body, lang, scope)
+	if !ok {
+		return nil
+	}
+	for _, a := range assigns {
+		names = append(names, a.name)
+		roots(a.refs)
+	}
+	return names
+}
+
+// opaqueScope is the element whose names an opaque expression's body reads:
+// the node or edge holding it, a pin's value reading at the pin's node.
+func opaqueScope(v *sysmlv1.Element) *sysmlv1.Element {
+	scope := v.Parent
+	if scope != nil && nodeKind(scope) == nodePin {
+		scope = scope.Parent
+	}
+	return scope
 }
 
 // portOwners lists the classifiers whose ports the actions of b, or the
@@ -815,7 +998,7 @@ func (a *activity) self() string {
 // caller is writing output, so the def declares it.
 func (a *activity) markSelf() {
 	if a.ctx != nil {
-		a.ctx.used = true
+		a.m.markUsed(&a.ctx.used)
 	}
 }
 
@@ -934,13 +1117,16 @@ func (a *activity) viaPrefix() string {
 // parameter: the caller's object — its context parameter qualified from the
 // def — when it is one, else its one part that is.
 func (a *activity) contextArgument(c *behaviorContext) (expr, note string) {
-	self := a.self()
+	self := "this"
 	selfType := a.selfType()
 	if a.ctx != nil {
-		self = a.m.qualifiedContext(a.ctx, a.def)
+		self = a.m.contextName(a.ctx, a.def)
 		selfType = a.ctx.objectType()
 	}
 	expr, note = a.m.contextBinding(c, selfType, self)
+	if expr != "" && a.ctx != nil {
+		a.m.markUsed(&a.ctx.used)
+	}
 	return expr, note
 }
 
@@ -966,9 +1152,12 @@ func (m *migration) contextBinding(c *behaviorContext, selfType *sysmlv1.Element
 }
 
 // objectOf finds, from an activity acting on self of selfType, the one object
-// of classifier c in reach: self itself, or self's one part that is a c, which
-// part is then returned too. The last result completes a sentence: how the
-// object was found, or why none was.
+// of classifier c in reach: self itself, or self's one part that is a c and
+// holds one object, which part is then returned too. A part holding a
+// collection, or a number of objects the bounds do not tell, is no one object;
+// when it is the caller's only part that is a c it is still returned, with no
+// expr, so the caller can say what it holds. The last result completes a
+// sentence: how the object was found, or why none was.
 func (m *migration) objectOf(c, selfType *sysmlv1.Element, self string) (expr string, part *sysmlv1.Element, why string) {
 	kind := qualifiedName(c)
 	switch {
@@ -985,21 +1174,35 @@ func (m *migration) objectOf(c, selfType *sysmlv1.Element, self string) (expr st
 			}
 		}
 	}
-	var parts []*sysmlv1.Element
+	var parts, collections []*sysmlv1.Element
 	for _, f := range m.attributesOf(selfType) {
 		if f.Type != "Property" || !m.written(f) {
 			continue
 		}
 		if t := m.model.Ref(f, "type"); t != nil && (t == c || m.inherits(t, c)) {
-			parts = append(parts, f)
+			if manyValued(f) || unreadableBounds(f) {
+				collections = append(collections, f)
+			} else {
+				parts = append(parts, f)
+			}
 		}
 	}
-	if len(parts) == 1 {
+	switch {
+	case len(parts) == 1:
 		return self + "." + writeName(m.nameFor(parts[0])), parts[0], ", the caller's one part that is one"
-	}
-	why = "has no part that is one"
-	if len(parts) > 1 {
+	case len(parts) > 1:
 		why = "has " + strconv.Itoa(len(parts)) + " parts that are one, so no one of them is chosen"
+	case len(collections) > 0:
+		names := make([]string, len(collections))
+		for i, f := range collections {
+			names[i] = writeName(m.nameFor(f))
+		}
+		why = "holds them only as the collection " + strings.Join(names, " and ") + ", no one object of which is chosen"
+		if len(collections) == 1 {
+			part = collections[0]
+		}
+	default:
+		why = "has no part that is one"
 	}
-	return "", nil, "the caller is a " + qualifiedName(selfType) + ", which is no " + kind + " and " + why
+	return "", part, "the caller is a " + qualifiedName(selfType) + ", which is no " + kind + " and " + why
 }

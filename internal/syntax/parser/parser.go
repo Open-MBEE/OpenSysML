@@ -47,6 +47,9 @@ type Parser struct {
 
 	pendingComment    source.Span // span of the most recent /* */ regular comment
 	hasPendingComment bool
+	// bodyEnd is the end of the latest /* */ comment consumed as a comment body,
+	// which a node's span covers though the comment is not a non-trivia token.
+	bodyEnd int
 
 	// comments are the regular comments lexed, each with the token following it,
 	// so the ones written where no member may start can be reported.
@@ -160,6 +163,7 @@ type parseCheckpoint struct {
 	trivLogLen  int
 	pendingSpan source.Span
 	hadPending  bool
+	bodyEnd     int
 }
 
 // tokenWindow is how many consumed tokens the buffer keeps before compacting.
@@ -510,13 +514,17 @@ func (p *Parser) takePendingComment() (source.Span, bool) {
 	sp := p.pendingComment
 	p.hasPendingComment = false
 	p.commentBodies = append(p.commentBodies, sp.Offset)
+	p.bodyEnd = sp.End()
 	return sp, true
 }
 
-// spanFrom builds a span from a start offset to the end of the previously
-// consumed token region (current token's start).
+// spanFrom builds a span from a start offset to the end of the last consumed
+// token or comment body, so a node's span never covers the trivia after it.
 func (p *Parser) spanFrom(start int) source.Span {
-	end := p.peek().Span.Offset
+	end := p.lastEnd()
+	if p.bodyEnd > end && p.bodyEnd <= p.peek().Span.Offset {
+		end = p.bodyEnd
+	}
 	if end < start {
 		end = start
 	}
@@ -623,6 +631,7 @@ func (p *Parser) checkpoint() parseCheckpoint {
 		trivLogLen:     len(p.trivLog),
 		pendingSpan:    p.pendingComment,
 		hadPending:     p.hasPendingComment,
+		bodyEnd:        p.bodyEnd,
 	}
 }
 
@@ -641,6 +650,7 @@ func (p *Parser) restore(cp parseCheckpoint) {
 	p.resultEnds = p.resultEnds[:cp.resultEndLen]
 	p.pendingComment = cp.pendingSpan
 	p.hasPendingComment = cp.hadPending
+	p.bodyEnd = cp.bodyEnd
 	p.triv = append(cp.triv, p.trivLog[cp.trivLogLen:]...)
 }
 

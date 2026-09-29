@@ -42,7 +42,7 @@ func (m Model) checkExpression(i int, label, target, value string) error {
 	if expr == nil {
 		return refuse("does not parse as an expression", nil)
 	}
-	if end := expr.Span().End(); end != len(text) {
+	if end := p.Offset(); end != len(text) {
 		return refuse(fmt.Sprintf("is not one expression: %q is left over", text[end:]), nil)
 	}
 	return nil

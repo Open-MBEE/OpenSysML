@@ -113,6 +113,37 @@ that differs by client: `$OPENSYSML_BINARY` for Python and Node, `$OPENSYSML_GRP
 and Rust. [Getting the service binary](#getting-the-service-binary) gives the five ways to provide
 one. The Go API needs none: it is the engine.
 
+### Author an action body
+
+The Python client can add sequence items and recursively nested action statements. `Body` builds
+the contents of `if`, `while`, `loop` and `for`; its first ordinary item is plain and later items
+use `then`. `Editor` methods default to `then=True`. An empty `else_body` is the same as no else,
+because an empty else branch performs nothing; empty action bodies are written as `{ }`.
+These forms follow SysML.xtext:1607 ActionBodyParameter, 1442 AcceptNode, 1499 SendNode,
+1535 AssignmentNode, 1596 IfNode, 1615 WhileLoopNode, 1624 ForLoopNode, and 1641 TerminateNode;
+formal/2026-03-02. Source-end multiplicities follow SysML.xtext:878, 887, 1703 TargetSuccession,
+1708 GuardedTargetSuccession, 1714 DefaultTargetSuccession and formal/2026-03-02.
+
+```python
+from opensysml import Body
+
+editor.add_if(
+    "Demo::Run",
+    "count < 3",
+    Body().add_assign("count", "count + 1"),
+    else_body=Body().add_terminate(),
+)
+editor.add_while(
+    "Demo::Run",
+    "count < 3",
+    Body().add_assign("count", "count + 1"),
+)
+```
+
+The service requires `authoring`, `sequence_authoring` and
+`action_body_statement_authoring` for these extended items and source-end multiplicities.
+Existing `add_first` and `add_then` requests retain their original wire fields.
+
 ### Parse, evaluate, look up, instantiate
 
 === "Go"
@@ -316,8 +347,8 @@ Which [analysis engine](../reference/cli.md#analysis-engines) answers is chosen 
 with options — takes `opensysml.CalcEngine(...)` beside `opensysml.CalcArguments(...)`, `opensysml.EngineAll`
 asks every engine that covers the question and `opensysml.EngineAuto` — the default — leaves the
 choice to the service. `ListEngines` names the engines the service registers — the `check` and
-`smt` model checkers among them, though no request yet asks the `holds` question they answer, so
-naming one is its typed refusal until the wire gains that request. Every `Verdict`,
+`smt` model checkers among them; a `holds` or `satisfiable` question is theirs to answer, and an
+engine that does not cover it refuses by name. Every `Verdict`,
 `Calculation` and `Analysis` carries a `Standing` — the `Engine` that answered, the `Strength` of
 its evidence and the `Bounds` it ran under, each `Reached` or not — which is what the `standing:`
 line under a REPL verdict prints. A service that does not advertise `engines` refuses a named
@@ -785,6 +816,32 @@ model.verify_constraint("Demo::Wheel")
 The kind is read from a typed `failure_reason` reported by the service, never from the message
 text.
 
+**Questions beyond evaluation.** `question=` asks the service's solvers rather than evaluate a
+point: `"holds"` proves the constraint or requirement for every assignment the free features can
+take, `"satisfiable"` finds one — the same constraint can be violated for some values while still
+satisfiable:
+
+```python
+verdict = model.verify_constraint("Demo::lemma", question="holds")
+verdict.question     # 'holds'
+verdict.status       # 'holds' | 'violated' | 'undecided' | 'satisfiable' | 'unsatisfiable'
+verdict.strength     # 'proved' when a solver proved it
+verdict.witness      # the free features' values for a violated or satisfiable answer
+verdict.witness[0].feature, verdict.witness[0].value, verdict.witness[0].unit, verdict.witness[0].exact
+verdict.error        # why nothing was decided: a refused translation, an absent solver,
+                     # nonlinear arithmetic the backend could not close, a rounded unsat
+                     # that is no proof
+```
+
+Every verdict stamps `question` and `status` — an evaluation's are `'evaluate'` and its
+`holds`/`violated`/`undecided` as before — and `verdict.holds` stays the boolean: true for
+`holds` and `satisfiable`, false otherwise. Undecided is reported, never a false proof: the
+service proves only what its solvers decide soundly, and names why otherwise. A question other
+than `"evaluate"` needs `verification_questions`
+(`opensysml.capabilities.CAPABILITY_VERIFICATION_QUESTIONS`), checked before anything is sent;
+any other spelling is `InvalidRequestError`. The `Connection` methods take the same
+`question=None`.
+
 `verify_satisfaction` evaluates many assertions in one call and reports a single object graph for
 all of them, so `verdict.instances` holds every object the call built. Pick out the object a
 verdict is about using its `instance_id`:
@@ -1142,11 +1199,42 @@ result = model.edit().add_part_def("", "Vehicle").apply()
 ```
 
 `add_member(owner, kind, name, type=None, multiplicity=None, value=None, specializes=None,
-abstract=False, redefines=None, default=False, direction=None)` accepts notation strings for the
-declaration. Typed `add_*` helpers cover the common SysML and KerML kinds, including `ref` and
+abstract=False, redefines=None, default=False, direction=None, metadata=None, expression=None,
+doc=None)` accepts notation strings for the declaration. `metadata` is a metadata type name or a
+sequence of names written as `#M` prefixes on the new member; `expression` writes a body expression,
+and `doc` is plain text written as `doc /* ... */`. Typed `add_*` helpers cover the common SysML and
+KerML kinds, including `ref` and
 `return` where admitted by the grammar. `add_satisfy`, `add_requirement_constraint`,
 `add_require_constraint` and `add_assume_constraint` write requirement statements.
 `add_transition` and `add_entry_transition` write regular and entry transitions in state bodies.
+`add_objective(owner, name=None, type=None)` creates a verification objective;
+`add_verify(owner, requirement)` adds `verify <requirement>;`, creating a case objective when
+needed. `add_metadata(owner, metadata_type, values=None, name=None, about=None, shorthand=False)`
+writes a metadata usage; values are a mapping or ordered sequence of `(feature, value)` pairs,
+and `about` accepts one reference or a sequence. `shorthand=True` writes `@M` notation.
+`add_metadata_prefix(target, metadata_type)` adds `#M` to an existing declaration, resolving the
+metadata definition from the declaration's own scope and refusing a duplicate or a declaration
+without a grammar-admitted prefix slot.
+`add_first` and `add_then` write `first`/`then` sequencing members in action bodies — `then` takes a
+`ref` to an existing node (`done`, a member name) or `action=`/`kind=`/`type=` for a member it declares.
+`add_constraint_def` and `add_constraint` accept `expression=` for a constraint body (`{ ... }`),
+distinct from `value=`, which writes a feature value (`= ...`). `add_assert_constraint` supports
+optional types and negation; `add_exhibit_state`, `add_exhibit` and `add_state_action` author
+exhibits and `entry`/`do`/`exit` subactions. These edits preflight
+`constraint_body_authoring` and `state_action_authoring`.
+`add_documentation(target, body, name=None, locale=None, replace=False)` gives an existing
+declaration its documentation, as the first member of its body; a declaration ending in `;`
+gains a body, and one already documented is refused unless `replace=True`.
+`add_import(owner, target, visibility=None, recursive=False, all=False, filter=None)` writes an
+import declaration in a namespace body or the document root (`""`): `target` is `A::B` for a
+membership import or `A::*` for a namespace import, `recursive` writes `::**`, `all` writes
+`import all`, and `filter` takes one expression string or a list of them, each written
+`[<expression>]`. `visibility` defaults to `private`, the indicator the grammar requires and the
+one legal everywhere including the root.
+`add_comment(owner, body, name=None, about=None, locale=None)` writes a
+`comment [name] [about a, b] [locale "..."] /* ... */` in `owner`'s body, or at the top
+level when `owner` is `""`, and `add_note(target, text)` writes the line note `// text`
+above a declaration. A note is not a model element, so it is kept in the source only.
 `add_calc_def` and `add_calc` accept `inputs`, `return_type` and `return_expression`;
 a return expression requires a return type and is bound to the result parameter,
 not written as `return <expr>;`. `add_action_def` and `add_action` accept
@@ -1247,6 +1335,18 @@ call is made. An `add_connection` edit also requires both `authoring` and
 require `member_modifiers`; satisfy edits require `satisfy_authoring`, and
 requirement-constraint edits require `requirement_constraint_authoring`.
 Transition edits require `transition_authoring` alongside `authoring`.
+Verification edits and unnamed objectives require `verification_objective_authoring`; metadata
+usages and prefixes on new members require `metadata_authoring`; adding a prefix to an existing
+declaration requires `metadata_prefix_authoring`.
+Sequence edits require `sequence_authoring` alongside `authoring`.
+An `add_member` edit with an empty kind — `add_parameter` writes one by default —
+spells a directed usage with no keyword (`in x : T;`) and requires
+`implicit_parameters`; an explicit `ref` kind still writes `in ref x : T;`.
+Constraint-body and asserted-constraint edits require `constraint_body_authoring`; exhibit and
+state subaction edits require `state_action_authoring`.
+Import edits require `import_authoring`.
+Documentation edits — `add_documentation` or an `add_member` with `doc` — require
+`documentation_authoring`; comment and note edits require `comment_authoring`.
 
 ### Querying a model using the standard query model
 

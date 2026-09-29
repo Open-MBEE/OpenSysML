@@ -96,7 +96,7 @@ func TestStrictConformanceKeepsUnboundParameterAdvisory(t *testing.T) {
 	binary := buildCLI(t)
 	const unbound = `package Arity {
     private import ScalarValues::*;
-    calc def F { in x : Real; in y : Real; return : Real = x + y; }
+    calc def F { in x : Real; in y : Real[1]; return : Real = x + y; }
     attribute plain : Real = F(1.0);
     attribute head : Real = F(1.0).result;
 }

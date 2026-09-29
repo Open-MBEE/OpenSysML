@@ -400,6 +400,9 @@ func (s *Session) debuggedTarget(ctx *runtime.Context) (signalTarget, error) {
 func (s *Session) receiversOf(ctx *runtime.Context, inst *runtime.Instance) []signalReceiver {
 	var receivers []signalReceiver
 	for _, b := range inst.Behaviors() {
+		if b.Err != nil {
+			continue
+		}
 		switch {
 		case b.State != nil:
 			receivers = append(receivers, machineReceiver(b.State))

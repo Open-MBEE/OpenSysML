@@ -71,8 +71,24 @@ func (c *triggerArgumentChecker) walk(scope *symbols.Scope, members []ast.Node) 
 // SysML 7.6 and 8.3.17 treat a transition's bare accept name as its payload type;
 // the pilot's validateUsageType rejects it when ordinary lookup finds a usage.
 func (c *triggerArgumentChecker) checkTransitionAccept(scope *symbols.Scope, trigger ast.Node) {
-	qn, ok := trigger.(*ast.QualifiedName)
-	if !ok {
+	var qn *ast.QualifiedName
+	switch t := trigger.(type) {
+	case *ast.QualifiedName:
+		qn = t
+	case *ast.Usage:
+		if !t.IsAccept {
+			return
+		}
+		for _, rel := range t.Relationships {
+			if rel != nil && rel.Kind == ast.RelTyping {
+				qn, _ = rel.Target.(*ast.QualifiedName)
+				break
+			}
+		}
+	default:
+		return
+	}
+	if qn == nil {
 		return
 	}
 	resolver := c.ctx.Resolver()

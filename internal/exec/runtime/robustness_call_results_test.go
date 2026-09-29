@@ -180,7 +180,7 @@ func testCallResultsOverloaded(t *testing.T) {
 const callArgumentsModel = `package P {
 	private import ScalarValues::*;
 	part def Owner {
-		action def compute { in x : Integer; out n : Integer; }
+		action def compute { in x : Integer[1]; out n : Integer; }
 		action def One {
 			out n : Integer;
 			first start;
@@ -231,7 +231,7 @@ const callDispatchModel = `package P {
 	private import ScalarValues::*;
 	part def Owner {
 		action def compute { in x : Integer; out n : Integer; }
-		action def compute { in x : Integer; in y : Integer; out n : Integer; }
+		action def compute { in x : Integer; in y : Integer[1]; out n : Integer; }
 		action def One {
 			out n : Integer;
 			first start;

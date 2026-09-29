@@ -26,7 +26,10 @@
             (OperatorExpr operator="=="
               (FeatureReference name="defer")
               (LiteralInteger value="1")))
-          (TransitionMember source="ready" target="defer" trigger="Ping"
+          (TransitionMember source="ready" target="defer"
+            (Usage kind="attribute" name="" ref=true direction="out" composite=false derived=false ordered=false nonunique=false
+              (Relationship kind="typing" target=Ping
+                (*ast.QualifiedName)))
             (*ast.AssignmentActionNode))))
       (Membership visibility="default"
         (Definition kind="part" abstract=false variation=false name="Holder"

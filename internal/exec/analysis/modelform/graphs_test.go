@@ -81,8 +81,8 @@ const graphsFixture = `package test {
 	}
 
 	action def Bump {
-		in i : Integer;
-		out doubled : Integer;
+		in i : Integer[1];
+		out doubled : Integer[1];
 
 		first start;
 		action compute { assign doubled := i * 2; }
@@ -473,8 +473,8 @@ func TestGraphsActionCarriesTheFlowKind(t *testing.T) {
 
 	action stream {
 		action producer { out value : Integer; assign value := 1; }
-		action consumer { in value : Integer; }
-		action last { in value : Integer; }
+		action consumer { in value : Integer[1]; }
+		action last { in value : Integer[1]; }
 
 		succession first start then producer;
 		succession first producer then consumer;
