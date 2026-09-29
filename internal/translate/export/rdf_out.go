@@ -169,9 +169,8 @@ const (
 	mReturnParameterMembership = "ReturnParameterMembership"
 	mFeature                   = "Feature"
 	mEndFeatureMembership      = "EndFeatureMembership"
-	// The metaclasses this mapping writes that the 202407 ontology table does
-	// not know: PayloadFeature is the pilot's name for ItemFeature, and
-	// Annotation a Dependency owns its `#` prefix metadata through.
+	// PayloadFeature is the pilot's name for the 202407 table's ItemFeature;
+	// Annotation owns a Dependency's `#` prefix metadata.
 	mPayloadFeature = "PayloadFeature"
 	mAnnotation     = "Annotation"
 	mDependency     = "Dependency"
