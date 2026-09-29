@@ -14,7 +14,7 @@ func TestInteractionCallsRepliesAndFragments(t *testing.T) {
 	r := migrateFixtureFile(t, "rig_interactions")
 	for _, line := range []string{
 		"action spinup {",
-		"perform action spin ::> drive.motor.spin { in rpm = 30.0; in times = 2; }",
+		"perform action spin ::> drive.motor.spin { in rpm[1] = 30.0; in times[1] = 2; }",
 		"first start then spin;",
 		"action spun {",
 		"assign ctrl.got := spin.result;",
@@ -25,12 +25,12 @@ func TestInteractionCallsRepliesAndFragments(t *testing.T) {
 		"action go send new Go(n = 3) to drive.motor;",
 		"else {",
 		"action altOp2 {",
-		"perform action brake : Motor::Brake ::> drive.motor.brake { in force = 0.5; }",
+		"perform action brake : Motor::Brake ::> drive.motor.brake { in force[1] = 0.5; }",
 		"first spun then alt;",
 		"action 'loop' {",
 		"for i in 1..2 {",
 		"action loopOp1 {",
-		"perform action callSpin ::> drive.motor.spin { in rpm = 40.0; }",
+		"perform action callSpin ::> drive.motor.spin { in rpm[1] = 40.0; }",
 		"first alt then 'loop';",
 		"fork par;",
 		"first 'loop' then par;",
@@ -49,7 +49,7 @@ func TestInteractionCallsRepliesAndFragments(t *testing.T) {
 		"/* not migrated: Interaction 'Twinned' — the lifeline 'm' stands for 'motor', which Twin reaches as both left.motor and right.motor */",
 		"verification def 'Spinup Test' {",
 		"subject context : Rig;",
-		"perform action spin ::> context.drive.motor.spin { in rpm = 12.0; }",
+		"perform action spin ::> context.drive.motor.spin { in rpm[1] = 12.0; }",
 	} {
 		wantLine(t, r.Notation, line)
 	}

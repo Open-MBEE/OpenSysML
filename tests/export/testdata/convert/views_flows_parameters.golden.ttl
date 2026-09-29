@@ -328,7 +328,7 @@ elmt:FlowsAndViews__FuelInterface___402_om
     sysml:membershipOwningNamespace elmt:FlowsAndViews__FuelInterface .
 
 expr:FlowsAndViews__FuelInterface___402_pend0
-    a sysml:ReferenceUsage ;
+    a sysml:FlowEnd ;
     sysml:elementId "FlowsAndViews__FuelInterface___402_pend0" ;
     sysml:isEnd "true"^^xsd:boolean ;
     sysml:owner elmt:FlowsAndViews__FuelInterface___402 ;
@@ -338,7 +338,11 @@ expr:FlowsAndViews__FuelInterface___402_pend0
     sysml:ownedReferenceSubsetting expr:FlowsAndViews__FuelInterface___402_pend0_prs ;
     sysml:ownedSubsetting expr:FlowsAndViews__FuelInterface___402_pend0_prs ;
     sysml:ownedSpecialization expr:FlowsAndViews__FuelInterface___402_pend0_prs ;
-    sysml:ownedRelationship expr:FlowsAndViews__FuelInterface___402_pend0_prs .
+    sysml:ownedRelationship expr:FlowsAndViews__FuelInterface___402_pend0_prs, expr:FlowsAndViews__FuelInterface___402_pend0_pff_om ;
+    sysml:ownedMembership expr:FlowsAndViews__FuelInterface___402_pend0_pff_om ;
+    sysml:ownedFeatureMembership expr:FlowsAndViews__FuelInterface___402_pend0_pff_om ;
+    sysml:ownedFeature expr:FlowsAndViews__FuelInterface___402_pend0_pff ;
+    json:ownedRelationship "[{\"@id\":\"FlowsAndViews__FuelInterface___402_pend0_prs\"},{\"@id\":\"FlowsAndViews__FuelInterface___402_pend0_pff_om\"}]" .
 
 expr:FlowsAndViews__FuelInterface___402_pend0_om
     a sysml:EndFeatureMembership ;
@@ -350,42 +354,6 @@ expr:FlowsAndViews__FuelInterface___402_pend0_om
     sysml:owningRelatedElement elmt:FlowsAndViews__FuelInterface___402 ;
     sysml:membershipOwningNamespace elmt:FlowsAndViews__FuelInterface___402 .
 
-expr:FlowsAndViews__FuelInterface___402_pend0_pchain
-    a sysml:Feature ;
-    sysml:elementId "FlowsAndViews__FuelInterface___402_pend0_pchain" ;
-    sysml:ownedFeatureChaining expr:FlowsAndViews__FuelInterface___402_pend0_pchain_pfc0, expr:FlowsAndViews__FuelInterface___402_pend0_pchain_pfc1 ;
-    sysml:ownedRelationship expr:FlowsAndViews__FuelInterface___402_pend0_pchain_pfc0, expr:FlowsAndViews__FuelInterface___402_pend0_pchain_pfc1 ;
-    sysml:chainingFeature elmt:FlowsAndViews__FuelInterface__supplierPort, elmt:FlowsAndViews__FuelPort__fuelSupply ;
-    sysml:owningRelationship expr:FlowsAndViews__FuelInterface___402_pend0_prs ;
-    sysml:owner expr:FlowsAndViews__FuelInterface___402_pend0 ;
-    json:ownedFeatureChaining "[{\"@id\":\"FlowsAndViews__FuelInterface___402_pend0_pchain_pfc0\"},{\"@id\":\"FlowsAndViews__FuelInterface___402_pend0_pchain_pfc1\"}]" ;
-    json:ownedRelationship "[{\"@id\":\"FlowsAndViews__FuelInterface___402_pend0_pchain_pfc0\"},{\"@id\":\"FlowsAndViews__FuelInterface___402_pend0_pchain_pfc1\"}]" ;
-    json:chainingFeature "[{\"@id\":\"FlowsAndViews__FuelInterface__supplierPort\"},{\"@id\":\"FlowsAndViews__FuelPort__fuelSupply\"}]" .
-
-expr:FlowsAndViews__FuelInterface___402_pend0_pchain_pfc0
-    a sysml:FeatureChaining ;
-    sysml:elementId "FlowsAndViews__FuelInterface___402_pend0_pchain_pfc0" ;
-    sysml:featureChained expr:FlowsAndViews__FuelInterface___402_pend0_pchain ;
-    sysml:source expr:FlowsAndViews__FuelInterface___402_pend0_pchain ;
-    sysml:owningRelatedElement expr:FlowsAndViews__FuelInterface___402_pend0_pchain ;
-    sysml:chainingFeature elmt:FlowsAndViews__FuelInterface__supplierPort ;
-    sysml:target elmt:FlowsAndViews__FuelInterface__supplierPort ;
-    sysml:owner expr:FlowsAndViews__FuelInterface___402_pend0_pchain ;
-    sysml:relatedElement expr:FlowsAndViews__FuelInterface___402_pend0_pchain, elmt:FlowsAndViews__FuelInterface__supplierPort ;
-    json:relatedElement "[{\"@id\":\"FlowsAndViews__FuelInterface___402_pend0_pchain\"},{\"@id\":\"FlowsAndViews__FuelInterface__supplierPort\"}]" .
-
-expr:FlowsAndViews__FuelInterface___402_pend0_pchain_pfc1
-    a sysml:FeatureChaining ;
-    sysml:elementId "FlowsAndViews__FuelInterface___402_pend0_pchain_pfc1" ;
-    sysml:featureChained expr:FlowsAndViews__FuelInterface___402_pend0_pchain ;
-    sysml:source expr:FlowsAndViews__FuelInterface___402_pend0_pchain ;
-    sysml:owningRelatedElement expr:FlowsAndViews__FuelInterface___402_pend0_pchain ;
-    sysml:chainingFeature elmt:FlowsAndViews__FuelPort__fuelSupply ;
-    sysml:target elmt:FlowsAndViews__FuelPort__fuelSupply ;
-    sysml:owner expr:FlowsAndViews__FuelInterface___402_pend0_pchain ;
-    sysml:relatedElement expr:FlowsAndViews__FuelInterface___402_pend0_pchain, elmt:FlowsAndViews__FuelPort__fuelSupply ;
-    json:relatedElement "[{\"@id\":\"FlowsAndViews__FuelInterface___402_pend0_pchain\"},{\"@id\":\"FlowsAndViews__FuelPort__fuelSupply\"}]" .
-
 expr:FlowsAndViews__FuelInterface___402_pend0_prs
     a sysml:ReferenceSubsetting ;
     sysml:elementId "FlowsAndViews__FuelInterface___402_pend0_prs" ;
@@ -395,18 +363,39 @@ expr:FlowsAndViews__FuelInterface___402_pend0_prs
     sysml:source expr:FlowsAndViews__FuelInterface___402_pend0 ;
     sysml:owningFeature expr:FlowsAndViews__FuelInterface___402_pend0 ;
     sysml:owningType expr:FlowsAndViews__FuelInterface___402_pend0 ;
-    sysml:referencedFeature expr:FlowsAndViews__FuelInterface___402_pend0_pchain ;
-    sysml:subsettedFeature expr:FlowsAndViews__FuelInterface___402_pend0_pchain ;
-    sysml:general expr:FlowsAndViews__FuelInterface___402_pend0_pchain ;
-    sysml:target expr:FlowsAndViews__FuelInterface___402_pend0_pchain ;
-    sysml:relatedElement expr:FlowsAndViews__FuelInterface___402_pend0, expr:FlowsAndViews__FuelInterface___402_pend0_pchain ;
+    sysml:referencedFeature elmt:FlowsAndViews__FuelInterface__supplierPort ;
+    sysml:subsettedFeature elmt:FlowsAndViews__FuelInterface__supplierPort ;
+    sysml:general elmt:FlowsAndViews__FuelInterface__supplierPort ;
+    sysml:target elmt:FlowsAndViews__FuelInterface__supplierPort ;
+    sysml:relatedElement expr:FlowsAndViews__FuelInterface___402_pend0, elmt:FlowsAndViews__FuelInterface__supplierPort ;
     sysml:owner expr:FlowsAndViews__FuelInterface___402_pend0 ;
     sysml:owningRelatedElement expr:FlowsAndViews__FuelInterface___402_pend0 ;
-    sysml:ownedRelatedElement expr:FlowsAndViews__FuelInterface___402_pend0_pchain ;
-    json:relatedElement "[{\"@id\":\"FlowsAndViews__FuelInterface___402_pend0\"},{\"@id\":\"FlowsAndViews__FuelInterface___402_pend0_pchain\"}]" .
+    json:relatedElement "[{\"@id\":\"FlowsAndViews__FuelInterface___402_pend0\"},{\"@id\":\"FlowsAndViews__FuelInterface__supplierPort\"}]" .
+
+expr:FlowsAndViews__FuelInterface___402_pend0_pff
+    a sysml:ReferenceUsage ;
+    sysml:elementId "FlowsAndViews__FuelInterface___402_pend0_pff" ;
+    sysml:owner expr:FlowsAndViews__FuelInterface___402_pend0 ;
+    sysml:owningRelationship expr:FlowsAndViews__FuelInterface___402_pend0_pff_om ;
+    sysml:owningMembership expr:FlowsAndViews__FuelInterface___402_pend0_pff_om ;
+    sysml:redefines elmt:FlowsAndViews__FuelPort__fuelSupply ;
+    sysml:ownedRedefinition expr:FlowsAndViews__FuelInterface___402_pend0_pff_rd0 ;
+    sysml:ownedSubsetting expr:FlowsAndViews__FuelInterface___402_pend0_pff_rd0 ;
+    sysml:ownedSpecialization expr:FlowsAndViews__FuelInterface___402_pend0_pff_rd0 ;
+    sysml:ownedRelationship expr:FlowsAndViews__FuelInterface___402_pend0_pff_rd0 .
+
+expr:FlowsAndViews__FuelInterface___402_pend0_pff_om
+    a sysml:FeatureMembership ;
+    sysml:elementId "FlowsAndViews__FuelInterface___402_pend0_pff_om" ;
+    sysml:owner expr:FlowsAndViews__FuelInterface___402_pend0 ;
+    sysml:memberElement expr:FlowsAndViews__FuelInterface___402_pend0_pff ;
+    sysml:ownedMemberElement expr:FlowsAndViews__FuelInterface___402_pend0_pff ;
+    sysml:ownedRelatedElement expr:FlowsAndViews__FuelInterface___402_pend0_pff ;
+    sysml:owningRelatedElement expr:FlowsAndViews__FuelInterface___402_pend0 ;
+    sysml:membershipOwningNamespace expr:FlowsAndViews__FuelInterface___402_pend0 .
 
 expr:FlowsAndViews__FuelInterface___402_pend1
-    a sysml:ReferenceUsage ;
+    a sysml:FlowEnd ;
     sysml:elementId "FlowsAndViews__FuelInterface___402_pend1" ;
     sysml:isEnd "true"^^xsd:boolean ;
     sysml:owner elmt:FlowsAndViews__FuelInterface___402 ;
@@ -416,7 +405,11 @@ expr:FlowsAndViews__FuelInterface___402_pend1
     sysml:ownedReferenceSubsetting expr:FlowsAndViews__FuelInterface___402_pend1_prs ;
     sysml:ownedSubsetting expr:FlowsAndViews__FuelInterface___402_pend1_prs ;
     sysml:ownedSpecialization expr:FlowsAndViews__FuelInterface___402_pend1_prs ;
-    sysml:ownedRelationship expr:FlowsAndViews__FuelInterface___402_pend1_prs .
+    sysml:ownedRelationship expr:FlowsAndViews__FuelInterface___402_pend1_prs, expr:FlowsAndViews__FuelInterface___402_pend1_pff_om ;
+    sysml:ownedMembership expr:FlowsAndViews__FuelInterface___402_pend1_pff_om ;
+    sysml:ownedFeatureMembership expr:FlowsAndViews__FuelInterface___402_pend1_pff_om ;
+    sysml:ownedFeature expr:FlowsAndViews__FuelInterface___402_pend1_pff ;
+    json:ownedRelationship "[{\"@id\":\"FlowsAndViews__FuelInterface___402_pend1_prs\"},{\"@id\":\"FlowsAndViews__FuelInterface___402_pend1_pff_om\"}]" .
 
 expr:FlowsAndViews__FuelInterface___402_pend1_om
     a sysml:EndFeatureMembership ;
@@ -428,42 +421,6 @@ expr:FlowsAndViews__FuelInterface___402_pend1_om
     sysml:owningRelatedElement elmt:FlowsAndViews__FuelInterface___402 ;
     sysml:membershipOwningNamespace elmt:FlowsAndViews__FuelInterface___402 .
 
-expr:FlowsAndViews__FuelInterface___402_pend1_pchain
-    a sysml:Feature ;
-    sysml:elementId "FlowsAndViews__FuelInterface___402_pend1_pchain" ;
-    sysml:ownedFeatureChaining expr:FlowsAndViews__FuelInterface___402_pend1_pchain_pfc0, expr:FlowsAndViews__FuelInterface___402_pend1_pchain_pfc1 ;
-    sysml:ownedRelationship expr:FlowsAndViews__FuelInterface___402_pend1_pchain_pfc0, expr:FlowsAndViews__FuelInterface___402_pend1_pchain_pfc1 ;
-    sysml:chainingFeature elmt:FlowsAndViews__FuelInterface__consumerPort, elmt:FlowsAndViews__FuelPort__fuelSupply ;
-    sysml:owningRelationship expr:FlowsAndViews__FuelInterface___402_pend1_prs ;
-    sysml:owner expr:FlowsAndViews__FuelInterface___402_pend1 ;
-    json:ownedFeatureChaining "[{\"@id\":\"FlowsAndViews__FuelInterface___402_pend1_pchain_pfc0\"},{\"@id\":\"FlowsAndViews__FuelInterface___402_pend1_pchain_pfc1\"}]" ;
-    json:ownedRelationship "[{\"@id\":\"FlowsAndViews__FuelInterface___402_pend1_pchain_pfc0\"},{\"@id\":\"FlowsAndViews__FuelInterface___402_pend1_pchain_pfc1\"}]" ;
-    json:chainingFeature "[{\"@id\":\"FlowsAndViews__FuelInterface__consumerPort\"},{\"@id\":\"FlowsAndViews__FuelPort__fuelSupply\"}]" .
-
-expr:FlowsAndViews__FuelInterface___402_pend1_pchain_pfc0
-    a sysml:FeatureChaining ;
-    sysml:elementId "FlowsAndViews__FuelInterface___402_pend1_pchain_pfc0" ;
-    sysml:featureChained expr:FlowsAndViews__FuelInterface___402_pend1_pchain ;
-    sysml:source expr:FlowsAndViews__FuelInterface___402_pend1_pchain ;
-    sysml:owningRelatedElement expr:FlowsAndViews__FuelInterface___402_pend1_pchain ;
-    sysml:chainingFeature elmt:FlowsAndViews__FuelInterface__consumerPort ;
-    sysml:target elmt:FlowsAndViews__FuelInterface__consumerPort ;
-    sysml:owner expr:FlowsAndViews__FuelInterface___402_pend1_pchain ;
-    sysml:relatedElement expr:FlowsAndViews__FuelInterface___402_pend1_pchain, elmt:FlowsAndViews__FuelInterface__consumerPort ;
-    json:relatedElement "[{\"@id\":\"FlowsAndViews__FuelInterface___402_pend1_pchain\"},{\"@id\":\"FlowsAndViews__FuelInterface__consumerPort\"}]" .
-
-expr:FlowsAndViews__FuelInterface___402_pend1_pchain_pfc1
-    a sysml:FeatureChaining ;
-    sysml:elementId "FlowsAndViews__FuelInterface___402_pend1_pchain_pfc1" ;
-    sysml:featureChained expr:FlowsAndViews__FuelInterface___402_pend1_pchain ;
-    sysml:source expr:FlowsAndViews__FuelInterface___402_pend1_pchain ;
-    sysml:owningRelatedElement expr:FlowsAndViews__FuelInterface___402_pend1_pchain ;
-    sysml:chainingFeature elmt:FlowsAndViews__FuelPort__fuelSupply ;
-    sysml:target elmt:FlowsAndViews__FuelPort__fuelSupply ;
-    sysml:owner expr:FlowsAndViews__FuelInterface___402_pend1_pchain ;
-    sysml:relatedElement expr:FlowsAndViews__FuelInterface___402_pend1_pchain, elmt:FlowsAndViews__FuelPort__fuelSupply ;
-    json:relatedElement "[{\"@id\":\"FlowsAndViews__FuelInterface___402_pend1_pchain\"},{\"@id\":\"FlowsAndViews__FuelPort__fuelSupply\"}]" .
-
 expr:FlowsAndViews__FuelInterface___402_pend1_prs
     a sysml:ReferenceSubsetting ;
     sysml:elementId "FlowsAndViews__FuelInterface___402_pend1_prs" ;
@@ -473,15 +430,36 @@ expr:FlowsAndViews__FuelInterface___402_pend1_prs
     sysml:source expr:FlowsAndViews__FuelInterface___402_pend1 ;
     sysml:owningFeature expr:FlowsAndViews__FuelInterface___402_pend1 ;
     sysml:owningType expr:FlowsAndViews__FuelInterface___402_pend1 ;
-    sysml:referencedFeature expr:FlowsAndViews__FuelInterface___402_pend1_pchain ;
-    sysml:subsettedFeature expr:FlowsAndViews__FuelInterface___402_pend1_pchain ;
-    sysml:general expr:FlowsAndViews__FuelInterface___402_pend1_pchain ;
-    sysml:target expr:FlowsAndViews__FuelInterface___402_pend1_pchain ;
-    sysml:relatedElement expr:FlowsAndViews__FuelInterface___402_pend1, expr:FlowsAndViews__FuelInterface___402_pend1_pchain ;
+    sysml:referencedFeature elmt:FlowsAndViews__FuelInterface__consumerPort ;
+    sysml:subsettedFeature elmt:FlowsAndViews__FuelInterface__consumerPort ;
+    sysml:general elmt:FlowsAndViews__FuelInterface__consumerPort ;
+    sysml:target elmt:FlowsAndViews__FuelInterface__consumerPort ;
+    sysml:relatedElement expr:FlowsAndViews__FuelInterface___402_pend1, elmt:FlowsAndViews__FuelInterface__consumerPort ;
     sysml:owner expr:FlowsAndViews__FuelInterface___402_pend1 ;
     sysml:owningRelatedElement expr:FlowsAndViews__FuelInterface___402_pend1 ;
-    sysml:ownedRelatedElement expr:FlowsAndViews__FuelInterface___402_pend1_pchain ;
-    json:relatedElement "[{\"@id\":\"FlowsAndViews__FuelInterface___402_pend1\"},{\"@id\":\"FlowsAndViews__FuelInterface___402_pend1_pchain\"}]" .
+    json:relatedElement "[{\"@id\":\"FlowsAndViews__FuelInterface___402_pend1\"},{\"@id\":\"FlowsAndViews__FuelInterface__consumerPort\"}]" .
+
+expr:FlowsAndViews__FuelInterface___402_pend1_pff
+    a sysml:ReferenceUsage ;
+    sysml:elementId "FlowsAndViews__FuelInterface___402_pend1_pff" ;
+    sysml:owner expr:FlowsAndViews__FuelInterface___402_pend1 ;
+    sysml:owningRelationship expr:FlowsAndViews__FuelInterface___402_pend1_pff_om ;
+    sysml:owningMembership expr:FlowsAndViews__FuelInterface___402_pend1_pff_om ;
+    sysml:redefines elmt:FlowsAndViews__FuelPort__fuelSupply ;
+    sysml:ownedRedefinition expr:FlowsAndViews__FuelInterface___402_pend1_pff_rd0 ;
+    sysml:ownedSubsetting expr:FlowsAndViews__FuelInterface___402_pend1_pff_rd0 ;
+    sysml:ownedSpecialization expr:FlowsAndViews__FuelInterface___402_pend1_pff_rd0 ;
+    sysml:ownedRelationship expr:FlowsAndViews__FuelInterface___402_pend1_pff_rd0 .
+
+expr:FlowsAndViews__FuelInterface___402_pend1_pff_om
+    a sysml:FeatureMembership ;
+    sysml:elementId "FlowsAndViews__FuelInterface___402_pend1_pff_om" ;
+    sysml:owner expr:FlowsAndViews__FuelInterface___402_pend1 ;
+    sysml:memberElement expr:FlowsAndViews__FuelInterface___402_pend1_pff ;
+    sysml:ownedMemberElement expr:FlowsAndViews__FuelInterface___402_pend1_pff ;
+    sysml:ownedRelatedElement expr:FlowsAndViews__FuelInterface___402_pend1_pff ;
+    sysml:owningRelatedElement expr:FlowsAndViews__FuelInterface___402_pend1 ;
+    sysml:membershipOwningNamespace expr:FlowsAndViews__FuelInterface___402_pend1 .
 
 elmt:FlowsAndViews__tanks
     a sysml:PartUsage ;
@@ -1242,6 +1220,40 @@ elmt:FlowsAndViews__FuelInterface__consumerPort_ft0
     sysml:owner elmt:FlowsAndViews__FuelInterface__consumerPort ;
     sysml:relatedElement elmt:FlowsAndViews__FuelInterface__consumerPort, elmt:FlowsAndViews__FuelPort ;
     json:relatedElement "[{\"@id\":\"FlowsAndViews__FuelInterface__consumerPort\"},{\"@id\":\"FlowsAndViews__FuelPort\"}]" .
+
+expr:FlowsAndViews__FuelInterface___402_pend0_pff_rd0
+    a sysml:Redefinition ;
+    sysml:elementId "FlowsAndViews__FuelInterface___402_pend0_pff_rd0" ;
+    sysml:redefiningFeature expr:FlowsAndViews__FuelInterface___402_pend0_pff ;
+    sysml:subsettingFeature expr:FlowsAndViews__FuelInterface___402_pend0_pff ;
+    sysml:owningFeature expr:FlowsAndViews__FuelInterface___402_pend0_pff ;
+    sysml:specific expr:FlowsAndViews__FuelInterface___402_pend0_pff ;
+    sysml:source expr:FlowsAndViews__FuelInterface___402_pend0_pff ;
+    sysml:owningRelatedElement expr:FlowsAndViews__FuelInterface___402_pend0_pff ;
+    sysml:redefinedFeature elmt:FlowsAndViews__FuelPort__fuelSupply ;
+    sysml:subsettedFeature elmt:FlowsAndViews__FuelPort__fuelSupply ;
+    sysml:general elmt:FlowsAndViews__FuelPort__fuelSupply ;
+    sysml:target elmt:FlowsAndViews__FuelPort__fuelSupply ;
+    sysml:owner expr:FlowsAndViews__FuelInterface___402_pend0_pff ;
+    sysml:relatedElement expr:FlowsAndViews__FuelInterface___402_pend0_pff, elmt:FlowsAndViews__FuelPort__fuelSupply ;
+    json:relatedElement "[{\"@id\":\"FlowsAndViews__FuelInterface___402_pend0_pff\"},{\"@id\":\"FlowsAndViews__FuelPort__fuelSupply\"}]" .
+
+expr:FlowsAndViews__FuelInterface___402_pend1_pff_rd0
+    a sysml:Redefinition ;
+    sysml:elementId "FlowsAndViews__FuelInterface___402_pend1_pff_rd0" ;
+    sysml:redefiningFeature expr:FlowsAndViews__FuelInterface___402_pend1_pff ;
+    sysml:subsettingFeature expr:FlowsAndViews__FuelInterface___402_pend1_pff ;
+    sysml:owningFeature expr:FlowsAndViews__FuelInterface___402_pend1_pff ;
+    sysml:specific expr:FlowsAndViews__FuelInterface___402_pend1_pff ;
+    sysml:source expr:FlowsAndViews__FuelInterface___402_pend1_pff ;
+    sysml:owningRelatedElement expr:FlowsAndViews__FuelInterface___402_pend1_pff ;
+    sysml:redefinedFeature elmt:FlowsAndViews__FuelPort__fuelSupply ;
+    sysml:subsettedFeature elmt:FlowsAndViews__FuelPort__fuelSupply ;
+    sysml:general elmt:FlowsAndViews__FuelPort__fuelSupply ;
+    sysml:target elmt:FlowsAndViews__FuelPort__fuelSupply ;
+    sysml:owner expr:FlowsAndViews__FuelInterface___402_pend1_pff ;
+    sysml:relatedElement expr:FlowsAndViews__FuelInterface___402_pend1_pff, elmt:FlowsAndViews__FuelPort__fuelSupply ;
+    json:relatedElement "[{\"@id\":\"FlowsAndViews__FuelInterface___402_pend1_pff\"},{\"@id\":\"FlowsAndViews__FuelPort__fuelSupply\"}]" .
 
 elmt:FlowsAndViews__tanks_ft0
     a sysml:FeatureTyping ;

@@ -1,0 +1,1 @@
+- **Warn on non-unit succession source multiplicities inside nested action bodies.** Validation checks if/else, while, loop, and for bodies in their own scopes, matching the pinned validator.

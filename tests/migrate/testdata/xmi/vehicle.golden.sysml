@@ -21,8 +21,8 @@ package 'Vehicle Design' {
     }
     package Interfaces {
         port def FuelInterface {
-            in item fuel : Fuel;
-            out attribute rate : 'Vehicle Design'::'Value Types'::Speed;
+            in item fuel : Fuel[1];
+            out attribute rate : 'Vehicle Design'::'Value Types'::Speed[1];
         }
         part def Fuel;
     }
@@ -40,7 +40,7 @@ package 'Vehicle Design' {
         private ref part sharedCharger : Engine;
         constraint massLimit : MassLimit;
         port fuelIn : ~'Vehicle Design'::Interfaces::FuelInterface;
-        out port speedOut {
+        out port speedOut[1] {
             out attribute speedOut : 'Vehicle Design'::'Value Types'::Speed;
         }
         port diag;
@@ -49,7 +49,7 @@ package 'Vehicle Design' {
         bind mass = massLimit.m;
         bind speedOut = engine.piston.p;
         abstract action def start {
-            in key : ScalarValues::Integer;
+            in key : ScalarValues::Integer[1];
         }
         action 'start 2' : start;
         state def 'Vehicle States' {
@@ -69,13 +69,13 @@ package 'Vehicle Design' {
         attribute mass : 'Vehicle Design'::'Value Types'::Mass;
         part piston : Piston;
         port fuelPort : 'Vehicle Design'::Interfaces::FuelInterface;
-        in port speedIn {
+        in port speedIn[1] {
             in attribute speedIn : 'Vehicle Design'::'Value Types'::Speed;
         }
         /* applied stereotype «Critical»: level = high */
     }
     part def Piston {
-        in port p {
+        in port p[1] {
             in attribute p : 'Vehicle Design'::'Value Types'::Speed;
         }
     }
@@ -92,8 +92,8 @@ package 'Vehicle Design' {
         end vehicle : Vehicle;
     }
     constraint def MassLimit {
-        in attribute m : 'Vehicle Design'::'Value Types'::Mass;
-        in attribute limit : 'Vehicle Design'::'Value Types'::Mass;
+        in attribute m : 'Vehicle Design'::'Value Types'::Mass[1];
+        in attribute limit : 'Vehicle Design'::'Value Types'::Mass[1];
         m < limit
     }
     individual part def myCar :> Vehicle {

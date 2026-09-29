@@ -69,6 +69,11 @@ func TestMemberAttachedThenDesugars(t *testing.T) {
 			[]string{"b->a"},
 		},
 		{
+			"a then-prefixed if body is an action node member",
+			"action def A { first start; then if true { assign x := 1; } }",
+			[]string{"start->@if"},
+		},
+		{
 			"the short state form is named, so it is sequenced",
 			"state def S { state a; then state b; }",
 			[]string{"a->b"},
@@ -118,6 +123,56 @@ func TestMemberAttachedThenDesugars(t *testing.T) {
 			}
 			if strings.Join(edges, " ") != strings.Join(tt.want, " ") {
 				t.Errorf("succession edges %v, want %v", edges, tt.want)
+			}
+		})
+	}
+}
+
+func TestSuccessionSourceMultiplicityForms(t *testing.T) {
+	tests := []struct {
+		name, body, multiplicity string
+		hasBody                  bool
+	}{
+		{"member attached", "then [0..1] action b;", "[0..1]", false},
+		{"reference target", "[*] then b;", "[*]", false},
+		{"reference target with body", "[1] then b { action c; }", "[1]", true},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			src := "action def A { action a; " + tt.body + " }"
+			p := New(source.New("multiplicity.sysml", []byte(src)))
+			root := p.ParseFile()
+			if len(p.Diagnostics) != 0 {
+				t.Fatalf("parse diagnostics: %v", p.Diagnostics)
+			}
+			var edges []*ast.SuccessionEdge
+			for _, member := range root.Members {
+				membership, ok := member.(*ast.Membership)
+				if !ok {
+					continue
+				}
+				definition, ok := membership.Member.(*ast.Definition)
+				if !ok {
+					continue
+				}
+				for _, member := range definition.Members {
+					if edge, ok := member.(*ast.SuccessionEdge); ok {
+						edges = append(edges, edge)
+					}
+				}
+			}
+			if len(edges) != 1 {
+				t.Fatalf("parsed %d succession edges, want one:\n%s", len(edges), ast.Dump(root))
+			}
+			edge := edges[0]
+			if edge.SourceMultiplicity == nil {
+				t.Fatal("source multiplicity was not recorded")
+			}
+			if got := p.src.Text(edge.SourceMultiplicity.Span()); got != tt.multiplicity {
+				t.Errorf("source multiplicity = %q, want %q", got, tt.multiplicity)
+			}
+			if edge.HasBody != tt.hasBody {
+				t.Errorf("HasBody = %t, want %t", edge.HasBody, tt.hasBody)
 			}
 		})
 	}

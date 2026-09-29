@@ -185,6 +185,8 @@ func FromModelOptions(name string, model *sysmlv1.Model, opts Options) *Result {
 		points:        map[*sysmlv1.Element]pointForm{},
 		incoming:      map[*sysmlv1.Element][]*sysmlv1.Element{},
 		outgoing:      map[*sysmlv1.Element][]*sysmlv1.Element{},
+		relocated:     map[*sysmlv1.Element][]*sysmlv1.Element{},
+		relocatedTo:   map[*sysmlv1.Element]*sysmlv1.Element{},
 		instant:       map[*sysmlv1.Element]map[*sysmlv1.Element]instantValue{},
 		self:          "this",
 		lanes:         map[*sysmlv1.Element]*lanes{},
@@ -389,6 +391,9 @@ type migration struct {
 	// parameter; contextNotes says why an activity naming ports of several gets none.
 	contexts     map[*sysmlv1.Element]*behaviorContext
 	contextNotes map[*sysmlv1.Element]string
+	// marked holds, in order, the context parameters spelling marked
+	// used, so a refused body can unmark those it marked; see markUsed.
+	marked []*bool
 	// ownerCtx holds the context a def declares for the object its owner is,
 	// which its `this` does not reach.
 	ownerCtx map[*sysmlv1.Element]*behaviorContext
@@ -525,6 +530,8 @@ type migration struct {
 	// incoming and outgoing list the transitions into and out of each vertex
 	// of the machines named so far.
 	incoming, outgoing map[*sysmlv1.Element][]*sysmlv1.Element
+	relocated          map[*sysmlv1.Element][]*sysmlv1.Element // transitions written under their common state scope
+	relocatedTo        map[*sysmlv1.Element]*sysmlv1.Element   // each transition's writing scope
 	// instant names, per state machine, the TimeInstantValue attribute each
 	// absolute time event its transitions accept is written as.
 	instant map[*sysmlv1.Element]map[*sysmlv1.Element]instantValue
@@ -2122,7 +2129,7 @@ func (m *migration) feature(p *sysmlv1.Element) {
 	if shape := tm.shape(); shape != "" {
 		mult, mnote = shape, ""
 	} else {
-		mult += collection(p)
+		mult = shaped(mult, p, param || dir != "")
 	}
 	b.WriteString(mult)
 	note = joinNotes(joinNotes(note, mnote), tm.note())
@@ -2400,6 +2407,9 @@ func (m *migration) written(e *sysmlv1.Element) bool {
 		return em.name != "" && m.reaches(em.owner)
 	}
 	if vertexBase(e) != "" {
+		if e.Type == "Pseudostate" && m.extensionVertex(e) != "" {
+			return false
+		}
 		return m.vertexWritten(e)
 	}
 	if e.Type == "Region" && e.Role == "region" {
@@ -2668,6 +2678,28 @@ func (m *migration) declaredMultiplicity(p *sysmlv1.Element) (string, string) {
 		return "[" + lower + "]", ""
 	}
 	return "[" + lower + ".." + upper + "]", ""
+}
+
+// shaped writes the multiplicity mult declares for p and the collection
+// modifiers after it. A v1 parameter writing no multiplicity means a single
+// value, where §7.6.3 gives a bare v2 parameter [0..*], so a parameter states
+// the one it meant before any modifier.
+func shaped(mult string, p *sysmlv1.Element, parameter bool) string {
+	if mult == "" && parameter {
+		mult = "[1]"
+	}
+	return mult + collection(p)
+}
+
+// parameterShape is the multiplicity a redeclaration of parameter p writes:
+// the one p's own declaration does, so the callee's range carries over rather
+// than a bare parameter's [0..*].
+func (m *migration) parameterShape(p *sysmlv1.Element) string {
+	if shape := m.typeModifier(p).shape(); shape != "" {
+		return shape
+	}
+	mult, _ := m.multiplicity(p)
+	return shaped(mult, p, true)
 }
 
 // collection writes the ordered and nonunique modifiers of a property; UML and

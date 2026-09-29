@@ -151,7 +151,7 @@ state def S {
 			}
 			wantSpan := transitionAcceptTriggerSpan(t, tc.src)
 			if d.Span != wantSpan {
-				t.Errorf("got span %+v, want qualified-name span %+v", d.Span, wantSpan)
+				t.Errorf("got span %+v, want payload typing span %+v", d.Span, wantSpan)
 			}
 		})
 	}
@@ -166,15 +166,20 @@ func transitionAcceptTriggerSpan(t *testing.T, src string) source.Span {
 		if !ok {
 			return true
 		}
-		qn, ok := transition.Trigger.(*ast.QualifiedName)
+		payload, ok := transition.Trigger.(*ast.Usage)
 		if !ok {
 			return true
 		}
-		span = qn.Span()
-		return false
+		for _, rel := range payload.Relationships {
+			if rel != nil && rel.Kind == ast.RelTyping {
+				span = rel.Span()
+				return false
+			}
+		}
+		return true
 	})
 	if span == (source.Span{}) {
-		t.Fatal("fixture has no bare qualified-name transition trigger")
+		t.Fatal("fixture has no bare typed-payload transition trigger")
 	}
 	return span
 }

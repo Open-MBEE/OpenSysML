@@ -1,15 +1,15 @@
 # SysML v1 to v2 migration report: decision_else.xmi
 # exported by Example UML Tool
-# migrated 15 element(s): 13 mapped, 2 approximated, 0 unmapped (0 skipped as profile, library or notation-only content, 0 as model elements nothing refers to)
+# migrated 15 element(s): 14 mapped, 1 approximated, 0 unmapped (0 skipped as profile, library or notation-only content, 0 as model elements nothing refers to)
 
-## approximated (2)
-Activity	Recovery::Retrier::Recover	_act_recover	-> Recovery::Retrier::Recover	(acts on its owner Recovery::Retrier, which it takes as its parameter context, since its this is the def's own occurrence; the classifier behavior is run by every object of Recovery::Retrier as its usage recover)
+## approximated (1)
 OpaqueAction	Recovery::Retrier::Recover::retry	_de_retry	-> retry	(the body is kept as a comment: the body is empty)
 
-## mapped (13)
+## mapped (14)
 Model	Model	_m	(the root model's members are written at the top level)
 Package	Recovery	_pkg	-> Recovery
 «Block» Class	Recovery::Retrier	_blk_retrier	-> Recovery::Retrier
+Activity	Recovery::Retrier::Recover	_act_recover	-> Recovery::Retrier::recover	(written as an action usage every object of Recovery::Retrier performs from creation, so its body runs on the object and reaches its features)
 ActivityFinalNode	Recovery::Retrier::Recover::<ActivityFinalNode>	_de_final	-> final
 ControlFlow	Recovery::Retrier::Recover::<ControlFlow>	_de_e3
 ControlFlow	Recovery::Retrier::Recover::<ControlFlow>	_de_e2

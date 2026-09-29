@@ -1596,10 +1596,7 @@ func (e *EvalContext) invokesCalc(scope *symbols.Scope, invocation *ast.Invocati
 	if err != nil {
 		return false, err
 	}
-	if sel.Ambiguous {
-		return true, nil
-	}
-	return e.ctx.model.semantics.Evaluates(sel.Called()), nil
+	return e.ctx.model.semantics.CallsCalc(sel), nil
 }
 
 // buildInvokedMessage builds the message of `send shutDown(7) to self`: the
@@ -1975,16 +1972,9 @@ func isDefinitionSymbol(sym *symbols.Symbol) bool {
 func valueTypeName(v Value) string {
 	switch v.Kind {
 	case ValString:
-		return "String"
+		return semantics.StringTypeName
 	case ValConst:
-		switch v.Const.Kind {
-		case semantics.ValInt:
-			return "Integer"
-		case semantics.ValReal:
-			return "Real"
-		case semantics.ValBool:
-			return "Boolean"
-		}
+		return semantics.ScalarTypeName(v.Const.Kind)
 	}
 	return ""
 }

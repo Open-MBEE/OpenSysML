@@ -5,7 +5,7 @@ analysis def 'Base Analysis Monte Carlo' :> Simulation::MonteCarlo {
     subject analysed : 'Base Analysis';
     /* one run performs no behavior: neither Base Analysis nor any general of it has a classifier behavior */
     attribute :>> observed : ScalarValues::Real = analysed.t;
-    return Mean : ScalarValues::Real = mean;
+    return Mean : ScalarValues::Real[1] = mean;
 }
 part def 'Fast Analysis' :> 'Base Analysis';
 package Results {
@@ -40,7 +40,7 @@ package Results {
                 multiple = "first"),
             properties = ("name"),
             columns = (
-                DocumentQueries::Column(name = "N", expression = 'Monte Carlo'.runs)))
+                DocumentQueries::Column(name = "N", path = "'Monte Carlo'.runs")))
     }
     part def 'Fast Statistics Document' :> DocumentQueries::Document {
         attribute redefines title = "Fast Statistics";

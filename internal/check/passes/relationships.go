@@ -2,6 +2,8 @@ package passes
 
 import (
 	"fmt"
+	"maps"
+	"slices"
 
 	"github.com/Open-MBEE/OpenSysML/internal/check/passes/kit"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/symbols"
@@ -54,6 +56,9 @@ func GatherRelationships(ctx *Context, doc string) (*symbols.GatheredRelationshi
 	if g.err != nil {
 		return nil, g.err
 	}
+	sent := map[string]bool{}
+	gatherSentSignals(ctx, root, sent)
+	g.out.SentSignals = slices.Sorted(maps.Keys(sent))
 	if g.out.Empty() {
 		return nil, nil
 	}

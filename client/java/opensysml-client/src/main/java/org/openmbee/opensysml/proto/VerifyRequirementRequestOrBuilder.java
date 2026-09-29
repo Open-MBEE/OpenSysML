@@ -83,4 +83,24 @@ public interface VerifyRequirementRequestOrBuilder extends
    */
   com.google.protobuf.ByteString
       getEngineBytes();
+
+  /**
+   * <pre>
+   * The question asked; see VerifyConstraintRequest.question.
+   * </pre>
+   *
+   * <code>string question = 5 [json_name = "question"];</code>
+   * @return The question.
+   */
+  java.lang.String getQuestion();
+  /**
+   * <pre>
+   * The question asked; see VerifyConstraintRequest.question.
+   * </pre>
+   *
+   * <code>string question = 5 [json_name = "question"];</code>
+   * @return The bytes for question.
+   */
+  com.google.protobuf.ByteString
+      getQuestionBytes();
 }

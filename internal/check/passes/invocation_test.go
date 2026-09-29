@@ -301,7 +301,7 @@ func TestInvocationOverloadOmittedInputSelectsTheFittingCandidate(t *testing.T) 
 	wantLibraryWarning(t, `package P {
 		private import ScalarValues::*;
 		package A { calc def pick { in x : Integer; return : Integer = 1; } }
-		package B { calc def pick { in s : String; in y : Real; return : Integer = 2; } }
+		package B { calc def pick { in s : String; in y : Real[1]; return : Integer = 2; } }
 		package C {
 			private import A::*;
 			private import B::*;
@@ -802,7 +802,7 @@ func TestInvocationNamedArgumentsAreTypeChecked(t *testing.T) {
 		private import ScalarValues::*;
 		attribute def Mass :> Real;
 		attribute def Volume :> Real;
-		calc def density { in m : Mass; in v : Volume; in scale : Real = 1.0; return : Real = m / v * scale; }
+		calc def density { in m : Mass; in v : Volume[1]; in scale : Real = 1.0; return : Real = m / v * scale; }
 		attribute kg : Mass = 3.0;
 		attribute litre : Volume = 2.0;
 		attribute %s
@@ -1071,7 +1071,7 @@ func TestInvocationPerformedActionOptionalInputs(t *testing.T) {
 	wantLibraryWarning(t, `package B {
 		private import ScalarValues::*;
 		action def base { in x : Integer = 3; out code : Integer; }
-		action def tag :> base { in x : Integer :>> x; in y : Integer; }
+		action def tag :> base { in x : Integer :>> x; in y : Integer[1]; }
 	}`+outer, CodeUnboundParameter, "tag leaves parameter y unbound")
 }
 
@@ -1094,7 +1094,7 @@ func TestInvocationOverloadDefaultedSubjectIsOptional(t *testing.T) {
 			requirement def Light {
 				subject w : Widget;
 				in limit : Real;
-				in slack : Real;
+				in slack : Real[1];
 				require constraint { limit + slack > 0.0 }
 			}
 		}
@@ -1106,7 +1106,7 @@ func TestInvocationOverloadDefaultedSubjectIsOptional(t *testing.T) {
 	}`
 	wantLibraryClean(t, fmt.Sprintf(model, `subject w : Widget default = light;`))
 	wantLibraryClean(t, fmt.Sprintf(model, `subject w : Widget[0..1];`))
-	wantLibraryDiag(t, fmt.Sprintf(model, `subject w : Widget;`),
+	wantLibraryDiag(t, fmt.Sprintf(model, `subject w : Widget[1];`),
 		"invocation-ambiguous", "call of Light is ambiguous between P::A::Light, P::B::Light")
 }
 

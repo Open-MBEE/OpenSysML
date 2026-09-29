@@ -191,7 +191,7 @@ func classOfKind(k symbols.SymbolKind) (Class, bool) {
 
 	// Usages: an attribute is a property, an enumeration literal an enum member,
 	// a behavioral usage a method, and everything else a variable.
-	case symbols.SymbolAttributeUsage:
+	case symbols.SymbolAttributeUsage, symbols.SymbolReferenceUsage:
 		return ClassProperty, false
 	case symbols.SymbolEnumerationUsage:
 		return ClassEnumMember, false

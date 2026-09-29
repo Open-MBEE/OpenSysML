@@ -1,0 +1,3 @@
+- **Holds and satisfiable questions now report undecided when a read feature's declared value cannot be evaluated, including when it depends on a feature with no value.** A feature with no value remains free for the solver.
+- **Satisfaction questions now read chained values through the subject supplied by `by`.**
+- **Validation summary verdicts now carry the `evaluate` question and the object's status.**

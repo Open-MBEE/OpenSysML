@@ -479,7 +479,7 @@ elmt:Results__AfterMembers___401
     sysml:owner elmt:Results__AfterMembers ;
     sysml:owningRelationship elmt:Results__AfterMembers___401_om ;
     sysml:owningMembership elmt:Results__AfterMembers___401_om ;
-    sysml:body " the answer " ;
+    sysml:body "the answer " ;
     sysx:sourceText "        doc /* the answer */\n" .
 
 elmt:Results__AfterMembers___401_om
@@ -2368,7 +2368,7 @@ expr:Results__Documented___401_pm0
     a sysml:Documentation ;
     sysml:elementId "Results__Documented___401_pm0" ;
     sysx:memberIndex "0"^^xsd:integer ;
-    sysml:body " the parameter, unchanged " ;
+    sysml:body "the parameter, unchanged " ;
     sysml:owner expr:Results__Documented___401_pbody ;
     sysml:owningRelationship expr:Results__Documented___401_pm0_om ;
     sysml:owningMembership expr:Results__Documented___401_pm0_om .

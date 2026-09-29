@@ -72,6 +72,17 @@ func TestPerformedByRunsOnTheObjectAPathReaches(t *testing.T) {
 	if err != nil || len(exploration.Outcomes) != 1 || exploration.Outcomes[0].Outputs["seen"] != opensysml.Bool(true) {
 		t.Errorf("ExploreAction look on pair.craft: %v %+v, want one outcome with seen true", err, exploration)
 	}
+	if run.Performer["this.pinged"] != opensysml.Bool(true) {
+		t.Errorf("ExecuteAction look on pair.craft performer %v, want this.pinged true", run.Performer)
+	}
+	if len(exploration.Outcomes) == 1 && exploration.Outcomes[0].Outputs["this.pinged"] != run.Performer["this.pinged"] {
+		t.Errorf("ExploreAction look on pair.craft outcome %v, want this.pinged as executed", exploration.Outcomes[0].Outputs)
+	}
+	for name := range run.Outputs {
+		if strings.HasPrefix(name, "this.") {
+			t.Errorf("ExecuteAction look on pair.craft reports %s among its outputs", name)
+		}
+	}
 
 	_, err = client.ExecuteState(ctx, model, "Wire::Craft::modes", nil, opensysml.PerformedBy("Wire::pair.tug"))
 	var failure *opensysml.FailureError

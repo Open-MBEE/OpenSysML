@@ -505,6 +505,7 @@ type columnSource struct {
 	caption string
 	label   string
 	path    bool
+	cell    bool
 	why     string
 }
 
@@ -526,10 +527,10 @@ func (m *migration) columnKey(c sysmlv1.Column, host *sysmlv1.Element, rows rowS
 			return m.monteCarloColumn(monteCarloFeature(f), rows)
 		case !m.written(f):
 			return columnSource{why: "the column's " + kindOf(f) + " " + qualifiedName(f) + " is not migrated"}
-		case f.Parent == nil || f.Type != "Property" || !m.isDefinition(f.Parent):
-			return columnSource{why: "the column's " + kindOf(f) + " " + qualifiedName(f) + " is not a property of a classifier"}
+		case f.Parent == nil || f.Type != "Property":
+			return columnSource{why: "the column's " + kindOf(f) + " " + qualifiedName(f) + " is not a property"}
 		}
-		return columnSource{key: m.nameOf(f), feature: f}
+		return columnSource{key: m.nameOf(f), feature: f, cell: m.isDefinition(f.Parent)}
 	case sysmlv1.ColumnPropertyPair:
 		return columnSource{why: columnSubject + c.ID + " reads a property of a property, which no Column expression reads"}
 	case sysmlv1.ColumnStereotypeTag:
@@ -645,8 +646,8 @@ func columnByID(t *sysmlv1.Table, id string) (sysmlv1.Column, bool) {
 }
 
 // projected selects the table's shown columns in their order: query
-// properties as properties, features and tags as Column expressions reading
-// them, each with the width the tool saved for it.
+// properties as properties, features and tags as Column cells, each with the
+// width the tool saved for it.
 func (m *migration) projected(rows qx, t *sysmlv1.Table, host *sysmlv1.Element, l *lowered) (qx, *projection) {
 	p := &projection{}
 	shown, visible := 0, 0
@@ -668,12 +669,14 @@ func (m *migration) projected(rows qx, t *sysmlv1.Table, host *sysmlv1.Element, 
 		}
 		switch {
 		case src.path:
-			// A member path reads an absent statistic as an empty cell already.
-			p.column(src.caption, src.label, qlit(src.key), c.Width)
+			p.pathColumn(src.caption, src.label, src.key, c.Width)
 		case src.feature == nil:
 			if !p.property(src.key, src.label, c.Width) {
 				l.note(columnSubject + c.ID + " repeats the column " + src.key + " and is omitted")
 			}
+		case src.cell:
+			cell := qlit("{ in row : " + m.ref(src.feature.Parent, host) + "; row." + writeName(m.nameOf(src.feature)) + " ?? \"\" }")
+			p.cellColumn(src.captionOrKey(), src.label, cell, c.Width)
 		case src.caption != "":
 			p.column(src.caption, src.label, qlit(m.ref(src.feature, host)+" ?? \"\""), c.Width)
 		default:
@@ -693,6 +696,13 @@ func (m *migration) projected(rows qx, t *sysmlv1.Table, host *sysmlv1.Element, 
 		l.note(n)
 	}
 	return project, p
+}
+
+func (src columnSource) captionOrKey() string {
+	if src.caption != "" {
+		return src.caption
+	}
+	return src.key
 }
 
 // projection is a table's columns in source order: query properties and
@@ -716,6 +726,7 @@ type projectionEntry struct {
 	name       string
 	label      string
 	computed   bool
+	argument   string
 	expression qx
 	ordinal    int
 	width      int
@@ -738,7 +749,19 @@ func (p *projection) property(name, label string, width int) bool {
 
 // column adds a computed column captioned name and headed label.
 func (p *projection) column(name, label string, expression qx, width int) {
-	p.entries = append(p.entries, projectionEntry{name: name, label: label, computed: true, expression: expression, ordinal: p.ordinal, width: width})
+	p.computedColumn(name, label, "expression", expression, width)
+}
+
+func (p *projection) cellColumn(name, label string, cell qx, width int) {
+	p.computedColumn(name, label, "cell", cell, width)
+}
+
+func (p *projection) pathColumn(name, label, path string, width int) {
+	p.computedColumn(name, label, "path", qstr(path), width)
+}
+
+func (p *projection) computedColumn(name, label, argument string, expression qx, width int) {
+	p.entries = append(p.entries, projectionEntry{name: name, label: label, computed: true, argument: argument, expression: expression, ordinal: p.ordinal, width: width})
 }
 
 // heading is the label a projected column named name is headed by: the
@@ -807,7 +830,7 @@ func (p *projection) build(source qx) (project qx, notes []string) {
 		if name != e.name {
 			notes = append(notes, columnSubject+e.name+" is written as "+name+", headed "+e.name+": column names are unique")
 		}
-		cols = append(cols, qcall("Column", qarg1("name", qstr(name)), qarg1("expression", e.expression)))
+		cols = append(cols, qcall("Column", qarg1("name", qstr(name)), qarg1(e.argument, e.expression)))
 		widths = append(widths, e.width)
 		labels = append(labels, e.heading(name))
 		p.alias(e.ordinal, name)

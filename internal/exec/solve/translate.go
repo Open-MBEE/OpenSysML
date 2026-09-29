@@ -31,6 +31,23 @@ type Subject struct {
 	// Negated is set for `assert not …`, which denies the conjunction of the
 	// required conditions rather than asserting each one.
 	Negated bool
+
+	// Violation is set for a query whose models are the assignments violating
+	// the element's claim rather than meeting it: unsatisfiable proves the claim
+	// holds for every assignment of the free features.
+	Violation bool
+}
+
+// subject is the element's subject as the conditions sym states: kind, name,
+// symbol and negation, with the violation mode the caller set.
+func subjectOf(sym *symbols.Symbol, kind string, violation bool) Subject {
+	return Subject{
+		Kind:      kind,
+		Name:      sym.Name,
+		Symbol:    sym,
+		Negated:   runtime.NegatedDecl(sym),
+		Violation: violation,
+	}
 }
 
 // Constraint translates the conditions sym states as a constraint, inherited ones
@@ -46,13 +63,18 @@ func ConstraintWith(ctx *runtime.Context, sym *symbols.Symbol, scope *symbols.Sc
 	if err := runtime.RequireConstraint(sym); err != nil {
 		return nil, err
 	}
-	subject := Subject{
-		Kind:    "constraint",
-		Name:    sym.Name,
-		Symbol:  sym,
-		Negated: runtime.NegatedDecl(sym),
+	return TranslateWith(ctx, subjectOf(sym, "constraint", false), ctx.ConditionsOf(sym, scope), pins)
+}
+
+// ConstraintViolation translates sym's conditions as a violation query: its
+// models are the assignments violating the constraint's claim, so an
+// unsatisfiable one proves the claim holds for every assignment of the free
+// features.
+func ConstraintViolation(ctx *runtime.Context, sym *symbols.Symbol, scope *symbols.Scope, pins []Pin) (*Query, error) {
+	if err := runtime.RequireConstraint(sym); err != nil {
+		return nil, err
 	}
-	return TranslateWith(ctx, subject, ctx.ConditionsOf(sym, scope), pins)
+	return TranslateWith(ctx, subjectOf(sym, "constraint", true), ctx.ConditionsOf(sym, scope), pins)
 }
 
 // Requirement translates the conditions sym states as a requirement, its
@@ -67,13 +89,18 @@ func RequirementWith(ctx *runtime.Context, sym *symbols.Symbol, scope *symbols.S
 	if err := runtime.RequireRequirement(sym); err != nil {
 		return nil, err
 	}
-	subject := Subject{
-		Kind:    "requirement",
-		Name:    sym.Name,
-		Symbol:  sym,
-		Negated: runtime.NegatedDecl(sym),
+	return TranslateWith(ctx, subjectOf(sym, "requirement", false), ctx.ConditionsOf(sym, scope), pins)
+}
+
+// RequirementViolation translates sym's conditions as a violation query: its
+// models are the assignments violating the requirement's claim, its assumptions
+// kept as hypotheses of it, so an unsatisfiable one proves the claim holds for
+// every assignment of the free features.
+func RequirementViolation(ctx *runtime.Context, sym *symbols.Symbol, scope *symbols.Scope, pins []Pin) (*Query, error) {
+	if err := runtime.RequireRequirement(sym); err != nil {
+		return nil, err
 	}
-	return TranslateWith(ctx, subject, ctx.ConditionsOf(sym, scope), pins)
+	return TranslateWith(ctx, subjectOf(sym, "requirement", true), ctx.ConditionsOf(sym, scope), pins)
 }
 
 // Satisfaction translates the conditions an `assert satisfy` checks: those of the
@@ -94,6 +121,24 @@ func SatisfactionWith(ctx *runtime.Context, assertion *runtime.SatisfyAssertion,
 		Name:    assertion.Text(),
 		Symbol:  assertion.Symbol,
 		Negated: assertion.Negated,
+	}
+	return TranslateWith(ctx, subject, ctx.ConditionsOf(assertion.Symbol, assertion.Symbol.OwnerScope), pins)
+}
+
+// SatisfactionViolation translates an `assert satisfy` as a violation query:
+// its models are the assignments violating the requirement's claim, so an
+// unsatisfiable one proves satisfaction for every assignment of the free
+// features.
+func SatisfactionViolation(ctx *runtime.Context, assertion *runtime.SatisfyAssertion, pins []Pin) (*Query, error) {
+	if assertion == nil || assertion.Symbol == nil {
+		return nil, fmt.Errorf("satisfaction: %w", ErrNoConditions)
+	}
+	subject := Subject{
+		Kind:      "satisfaction",
+		Name:      assertion.Text(),
+		Symbol:    assertion.Symbol,
+		Negated:   assertion.Negated,
+		Violation: true,
 	}
 	return TranslateWith(ctx, subject, ctx.ConditionsOf(assertion.Symbol, assertion.Symbol.OwnerScope), pins)
 }
@@ -208,7 +253,8 @@ func effectiveFeatures(ctx *runtime.Context, sym *symbols.Symbol) map[string]*sy
 
 // translate builds an assertion per condition, in the order the evaluator checks
 // them. A negated element instead denies the conjunction of its required
-// conditions, as evaluating it negates their verdict as a whole.
+// conditions, as evaluating it negates their verdict as a whole; a violation
+// query denies the element's claim as a whole, its models the counterexamples.
 func (t *translator) translate(conds []runtime.Condition) error {
 	var required []*Term
 	var labels []string
@@ -223,7 +269,7 @@ func (t *translator) translate(conds []runtime.Condition) error {
 		if err != nil {
 			return err
 		}
-		if t.subject.Negated && cond.Required {
+		if (t.subject.Negated || t.subject.Violation) && cond.Required {
 			required = append(required, term)
 			labels = append(labels, cond.Label())
 			continue
@@ -233,6 +279,9 @@ func (t *translator) translate(conds []runtime.Condition) error {
 			role = RoleRequired
 		}
 		t.asserts = append(t.asserts, Assertion{Term: term, From: t.provenance(role, owner, span)})
+	}
+	if t.subject.Violation {
+		return t.violated(required, labels)
 	}
 	if !t.subject.Negated {
 		return nil
@@ -250,6 +299,31 @@ func (t *translator) translate(conds []runtime.Condition) error {
 	return nil
 }
 
+// violated asserts the denial of the element's claim as a whole, which for a
+// negated element is the denial of its denial: all of its required conditions.
+// Assumed conditions stay assumptions — hypotheses of the claim, not of the
+// violation — and a violation stating no required condition has no claim to
+// violate.
+func (t *translator) violated(required []*Term, labels []string) error {
+	if len(required) == 0 {
+		return fmt.Errorf("%s %s: %w to violate", t.subject.Kind, t.subject.Name, ErrNoConditions)
+	}
+	claim := required
+	claimLabels := labels
+	if t.subject.Negated {
+		claim = []*Term{Not(And(required...))}
+		claimLabels = []string{"not (" + strings.Join(labels, " and ") + ")"}
+	}
+	t.condLabel = "not (" + strings.Join(claimLabels, " and ") + ")"
+	from := t.provenance(RoleViolated, t.subject.Symbol, declSpan(t.subject.Symbol))
+	if t.subject.Symbol != nil {
+		from.File = t.subject.Symbol.DocName
+		from.Location = t.ctx.SourceLocation(from.File, from.Span)
+	}
+	t.asserts = append(t.asserts, Assertion{Term: Not(And(claim...)), From: from})
+	return nil
+}
+
 // query assembles the translated parts, declarations ordered by name and domain
 // assertions before the conditions, which is what makes a script deterministic.
 func (t *translator) query() *Query {
@@ -257,6 +331,7 @@ func (t *translator) query() *Query {
 		Kind:            t.subject.Kind,
 		Element:         t.subject.Name,
 		Negated:         t.subject.Negated,
+		Violation:       t.subject.Violation,
 		Nonlinear:       t.nonlinear,
 		IntegerDivision: t.intDiv,
 	}
@@ -709,8 +784,11 @@ func (t *translator) divisor(n *ast.OperatorExpr, divisor *Term) error {
 // hoistable reports whether a definedness assertion over the whole query says
 // what the evaluator says: only where the expression is always evaluated and read
 // unnegated, since a division the evaluator never performs cannot constrain it.
+// A violation query hoists nothing: the evaluator stops at the first failing
+// required condition, so a guard hoisted from a later one could exclude real
+// counterexamples and yield a false proof.
 func (t *translator) hoistable() bool {
-	return t.branched == 0 && !t.subject.Negated
+	return t.branched == 0 && !t.subject.Negated && !t.subject.Violation
 }
 
 // guard asserts a side condition a translated condition needs to mean what the

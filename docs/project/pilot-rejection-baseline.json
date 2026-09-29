@@ -27,15 +27,15 @@
         "name": "negative-corpus",
         "dir": "tools/referee/reject/testdata/negative",
         "origin": "ours",
-        "files": 307,
-        "digest": "sha256:4c3312f06e030b3747aced47f88d7ae529f6881db9974ffb01b3d13fb2844cd6"
+        "files": 310,
+        "digest": "sha256:a91ef00902ba0cf0b6586e7279985115d63dc547376386a990115989a4e147b6"
       }
     ],
-    "recorded": "2026-09-28"
+    "recorded": "2026-09-29"
   },
   "totals": {
-    "cases": 307,
-    "bothReject": 298,
+    "cases": 310,
+    "bothReject": 301,
     "pilotOnlyRejects": 0,
     "oursOnlyRejects": 9,
     "bothAccept": 0
@@ -57,16 +57,16 @@
     },
     {
       "source": "grammar",
-      "cases": 106,
-      "bothReject": 106,
+      "cases": 108,
+      "bothReject": 108,
       "pilotOnlyRejects": 0,
       "oursOnlyRejects": 0,
       "bothAccept": 0
     },
     {
       "source": "semantic",
-      "cases": 157,
-      "bothReject": 148,
+      "cases": 158,
+      "bothReject": 149,
       "pilotOnlyRejects": 0,
       "oursOnlyRejects": 9,
       "bothAccept": 0
@@ -886,6 +886,24 @@
       "bucket": "both-reject",
       "oursErrors": 1,
       "pilotErrors": 4
+    },
+    {
+      "path": "grammar/g80-action-parameter-ref-prefix-order.sysml",
+      "source": "grammar",
+      "rule": "RefPrefix modifiers precede the optional 'ref' (SysML.xtext:556-566 RefPrefix, :563 BasicUsagePrefix).",
+      "mode": "default",
+      "bucket": "both-reject",
+      "oursErrors": 1,
+      "pilotErrors": 3
+    },
+    {
+      "path": "grammar/g81-action-parameter-modifier-order.sysml",
+      "source": "grammar",
+      "rule": "RefPrefix modifiers follow their grammar order (SysML.xtext:556-566 RefPrefix, :563 BasicUsagePrefix).",
+      "mode": "default",
+      "bucket": "both-reject",
+      "oursErrors": 1,
+      "pilotErrors": 3
     },
     {
       "path": "grammar/k01-specializes-without-target.kerml",
@@ -1983,6 +2001,15 @@
       "pilotErrors": 1
     },
     {
+      "path": "semantic/s100-verification-method-unimported.sysml",
+      "source": "semantic",
+      "rule": "library members are not implicitly visible — only a root namespace's own top-level members resolve unqualified ([SysML, 7.2] over [KerML, 8.2.3.2, 8.2.3.5]). VerificationCases::VerificationMethod and VerificationMethodKind need an import or qualification; the pilot reports \"Couldn't resolve reference to Type 'VerificationMethod'\".",
+      "mode": "default",
+      "bucket": "both-reject",
+      "oursErrors": 4,
+      "pilotErrors": 12
+    },
+    {
       "path": "semantic/s11-case-two-objectives.sysml",
       "source": "semantic",
       "rule": "A case usage may have at most one objective (SysML 7.21 Cases; pilot validateCaseUsageOnlyOneObjective).",
@@ -2990,8 +3017,8 @@
       }
     ],
     "totals": {
-      "cases": 307,
-      "bothReject": 298,
+      "cases": 310,
+      "bothReject": 301,
       "pilotOnlyRejects": 0,
       "oursOnlyRejects": 9,
       "bothAccept": 0

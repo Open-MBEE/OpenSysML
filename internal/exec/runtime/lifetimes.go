@@ -289,8 +289,12 @@ func (ctx *Context) checkLiving(inst *Instance) error {
 	return nil
 }
 
-// completed reports whether the behavior's executor has reached its end.
+// completed reports whether the behavior's executor has reached its end, or its
+// start recorded a failure that ended it.
 func (b *ObjectBehavior) completed() bool {
+	if b.Err != nil {
+		return true
+	}
 	switch {
 	case b.Action != nil:
 		return b.Action.State().Ended()

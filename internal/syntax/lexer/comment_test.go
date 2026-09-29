@@ -6,7 +6,7 @@ import (
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/source"
 )
 
-func TestCommentBody(t *testing.T) {
+func TestCommentProse(t *testing.T) {
 	cases := []struct{ name, raw, want string }{
 		{"block", "/* The mission shall return the crew. */", "The mission shall return the crew."},
 		{"note", "//* a note */", "a note"},
@@ -37,8 +37,8 @@ func TestCommentBody(t *testing.T) {
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
-			if got := source.CommentBody(tc.raw); got != tc.want {
-				t.Errorf("source.CommentBody(%q) = %q, want %q", tc.raw, got, tc.want)
+			if got := source.CommentProse(tc.raw); got != tc.want {
+				t.Errorf("source.CommentProse(%q) = %q, want %q", tc.raw, got, tc.want)
 			}
 		})
 	}

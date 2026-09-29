@@ -52,6 +52,10 @@ export const CAPABILITY_CASE_EVALUATIONS = "case_evaluations";
 export const CAPABILITY_QUERY = "query";
 /** The `ApplyEdits` RPC. Not used by this version; see the README. */
 export const CAPABILITY_APPLY_EDITS = "apply_edits";
+/** `ApplyEdits` can add `first`/`then` action sequencing members. */
+export const CAPABILITY_SEQUENCE_AUTHORING = "sequence_authoring";
+/** `ApplyEdits` can add action-body statements and succession source multiplicities. */
+export const CAPABILITY_ACTION_BODY_STATEMENT_AUTHORING = "action_body_statement_authoring";
 /** `ApplyEdits` edits a model of several documents as one batch and answers each edited document by name in `documents`. Not used by this version; see the README. */
 export const CAPABILITY_EDIT_DOCUMENTS = "edit_documents";
 /** The `schedule` field of the execution requests, naming the scheduling policy. Not used by this version; see the README. */

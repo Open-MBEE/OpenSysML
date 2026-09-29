@@ -400,7 +400,7 @@ func (m *migration) monteCarloAnalysis(block *sysmlv1.Element) {
 				kw = "return "
 			}
 			member := monteCarloMembers[r.stat]
-			multiplicity := ""
+			multiplicity := "[1]"
 			if member.optional {
 				multiplicity = "[0..1]"
 			}

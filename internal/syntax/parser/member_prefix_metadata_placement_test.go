@@ -10,7 +10,8 @@ import (
 
 // Each case writes prefix metadata ahead of a member keyword that takes it
 // after itself (SysML.xtext SubjectUsage, ActorUsage, StakeholderUsage,
-// ObjectiveRequirementUsage, VariantUsageElement, RequirementConstraintUsage).
+// ObjectiveRequirementUsage, VariantUsageElement, RequirementConstraintUsage,
+// RequirementVerificationUsage, FramedConcernUsage and ViewRenderingUsage).
 // The pilot parser rejects every one of them at the `#`.
 var misplacedMemberPrefixCases = []struct {
 	name    string
@@ -36,6 +37,12 @@ var misplacedMemberPrefixCases = []struct {
 		"prefix metadata follows 'require': write `require #M constraint`"},
 	{"require_short_name", "requirement def R { #M require <r> x : C; }", "requirement def R { require #M <r> x : C; }",
 		"prefix metadata follows 'require': write `require #M`"},
+	{"verify", "verification def V { #M verify requirement r; }", "verification def V { verify #M requirement r; }",
+		"prefix metadata follows 'verify': write `verify #M requirement`"},
+	{"frame", "requirement def R { #M frame concern c; }", "requirement def R { frame #M concern c; }",
+		"prefix metadata follows 'frame': write `frame #M concern`"},
+	{"render", "view def V { #M render rendering r; }", "view def V { render #M rendering r; }",
+		"prefix metadata follows 'render': write `render #M rendering`"},
 	{"two_prefixes", "requirement def R { #M #B subject s : T; }", "requirement def R { subject #M #B s : T; }",
 		"prefix metadata follows 'subject': write `subject #M #B s`"},
 }
@@ -129,6 +136,13 @@ func TestPrefixMetadataPlacementsThatStayClean(t *testing.T) {
 		{"assume_short", "requirement def R { assume #M constraint <a> ac : C; }"},
 		{"require", "requirement def R { require #M constraint r : C; }"},
 		{"require_short", "requirement def R { require #M <r> rc : C; }"},
+		{"verify", "verification def V { verify #M requirement r; }"},
+		{"frame", "requirement def R { frame #M concern c; }"},
+		{"render", "view def V { render #M rendering r; }"},
+		{"library", "library #M package Q;"},
+		{"standard_library", "standard library #M package Q;"},
+		{"then", "action def A { action before; then #M action after; }"},
+		{"return", "calc def C { return #M attribute result : Real; }"},
 		{"assert", "part def D { #B assert not constraint c; }"},
 		{"usage", "part def D { #M part p; }"},
 		{"definition", "#M part def D;"},

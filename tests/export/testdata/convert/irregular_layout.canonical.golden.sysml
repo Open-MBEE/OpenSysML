@@ -1,10 +1,10 @@
 package IrregularLayout {
     private import ScalarValues::*;
     doc /* A model whose author laid the heads out
-       *   over several lines,
-	 *	with tabs,
-
-       * blank lines and odd indentation. */
+     *   over several lines,
+     * 	with tabs,
+     *
+     * blank lines and odd indentation. */
     calc def Speed {
         in m : Real;
         return : Real;
@@ -13,8 +13,8 @@ package IrregularLayout {
     part def Axle;
     part def Rover {
         doc /* the rover:
-             its doc spans
-                lines too */
+         * its doc spans
+         * lines too */
         attribute mass : Real = 80;
         attribute limit : Real = 100 + 20;
         attribute label = "two\nlines";
@@ -32,8 +32,8 @@ package IrregularLayout {
             in m = mass * 2 - 1;
         }
         comment about Rover /* a comment
-   that wanders back
-			  and forth */
+         * that wanders back
+         * and forth */
     }
     action def Drive {
         in attribute count;

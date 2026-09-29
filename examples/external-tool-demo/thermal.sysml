@@ -35,11 +35,11 @@ package ThermalDemo {
             toolName = "ThermalSolver";
             uri = "thermal://demo/solve";
         }
-        in mass : MassValue           { @ToolVariable { name = "mass"; } }
-        in power : PowerValue         { @ToolVariable { name = "power"; } }
-        in ambient : TemperatureValue { @ToolVariable { name = "ambient"; } }
-        out tMax : TemperatureValue   { @ToolVariable { name = "tMax"; } }
-        out margin : TemperatureValue { @ToolVariable { name = "margin"; } }
+        in mass : MassValue[1]           { @ToolVariable { name = "mass"; } }
+        in power : PowerValue[1]         { @ToolVariable { name = "power"; } }
+        in ambient : TemperatureValue[1] { @ToolVariable { name = "ambient"; } }
+        out tMax : TemperatureValue[1]   { @ToolVariable { name = "tMax"; } }
+        out margin : TemperatureValue[1] { @ToolVariable { name = "margin"; } }
     }
 
     analysis def Heating {
@@ -53,8 +53,8 @@ package ThermalDemo {
             in ambient = ambient;
         }
 
-        return tMax : TemperatureValue = solve.tMax;
-        out margin : TemperatureValue = solve.margin;
+        return tMax : TemperatureValue[1] = solve.tMax;
+        out margin : TemperatureValue[1] = solve.margin;
 
         objective marginHeld : ThermalMargin {
             subject = h;

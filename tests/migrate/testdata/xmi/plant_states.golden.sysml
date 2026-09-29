@@ -13,7 +13,7 @@ item def Unused;
 part def Plant {
     attribute count : ScalarValues::Integer default = 0;
     state def Line {
-        in ref context : Plant;
+        in ref context : Plant[1];
         attribute dawn : Time::TimeInstantValue = 21600.0 [SI::s];
         entry; then Idle;
         state Idle;
@@ -54,30 +54,30 @@ part def Plant {
             metadata MigrationMetadata::SynthesizedName about regions;
         }
         transition first Idle accept Go then Work;
-        transition first Work::Run accept Stop then Idle;
-        transition first Idle accept Resume then Work::Run;
+        transition first Work.Run accept Stop then Idle;
+        transition first Idle accept Resume then Work.Run;
         transition first Work accept Hold then Pause;
         transition first Pause accept Resume
             do action log { }
-            then Work::last;
-        transition first Idle accept Enter then Cell::warmStart;
-        transition first Cell::spent then Idle;
+            then Work.last;
+        transition first Idle accept Enter then Cell.warmStart;
+        transition first Cell.spent then Idle;
         transition first Idle accept Route then route;
         transition first route if context.count < 2 then Work;
         transition first route then done;
         transition first Idle accept Split then spread;
-        transition first spread then Both::regions::a::A1;
-        transition first spread then Both::regions::b::B1;
-        transition first Both::regions::a::A2 then gather;
-        transition first Both::regions::b::B2 then gather;
+        transition first spread then Both.regions.a.A1;
+        transition first spread then Both.regions.b.B1;
+        transition first Both.regions.a.A2 then gather;
+        transition first Both.regions.b.B2 then gather;
         transition first gather then Idle;
         transition first Idle accept Ping then Idle;
-        transition first Work accept Bump then Work::Prep;
+        transition first Work accept Bump then Work.Prep;
         transition first Pause accept at dawn then Idle;
         /* transition (_tNever) from Pause to done not migrated — a trigger is dropped: the time event's time is not written: the instant "next Tuesday" is neither a number with a time unit nor an expression: not v2 expression syntax */
     }
     state def CellMachine {
-        in ref context : Plant;
+        in ref context : Plant[1];
         state warmStart;
         state spent;
         entry; then Cold;

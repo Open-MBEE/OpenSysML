@@ -39,7 +39,7 @@ elmt:Chains___400
     sysml:owner elmt:Chains ;
     sysml:owningRelationship elmt:Chains___400_om ;
     sysml:owningMembership elmt:Chains___400_om ;
-    sysml:body " a comment with no name and no about clause " ;
+    sysml:body "a comment with no name and no about clause " ;
     sysx:sourceText "    comment /* a comment with no name and no about clause */\n" .
 
 elmt:Chains___400_om
@@ -196,7 +196,7 @@ elmt:Chains__Named
     sysml:owningMembership elmt:Chains__Named_om ;
     sysml:declaredName "Named" ;
     sysml:annotatedElement elmt:Chains__V ;
-    sysml:body " a comment that is identified " ;
+    sysml:body "a comment that is identified " ;
     sysx:sourceText "    comment Named about V /* a comment that is identified */\n" .
 
 elmt:Chains__Named_om

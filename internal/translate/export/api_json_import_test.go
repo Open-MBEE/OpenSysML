@@ -224,11 +224,11 @@ func TestUUIDQuotedRootPackage(t *testing.T) {
 	if err != nil {
 		t.Fatalf("ToRDFWith: %v", err)
 	}
-	pkg := identity.NamespaceOf(rdf.Element + rdf.EncodeElementID("Sep::Pkg"))
+	pkg := identity.NamespaceOf(rdf.Element + rdf.EncodeElementID("'Sep::Pkg'"))
 	if !graph.HasProperty(rdf.ElementIRIForID(pkg), rdf.SysML+"qualifiedName") {
 		t.Fatalf("the package's id is not its namespace uuid %s:\n%s", pkg, rdf.WriteTurtle(graph))
 	}
-	member := rdf.ElementIRIForID(identity.DerivedID(pkg, rdf.EncodeElementID("Sep::Pkg::p")))
+	member := rdf.ElementIRIForID(identity.DerivedID(pkg, rdf.EncodeElementID("'Sep::Pkg'::p")))
 	if !graph.HasProperty(member, rdf.SysML+"qualifiedName") {
 		t.Fatalf("the member's id is not derived under the root uuid %s:\n%s", member, rdf.WriteTurtle(graph))
 	}
@@ -274,8 +274,8 @@ func TestUUIDQuotedRootDecodesImplied(t *testing.T) {
 	if strings.Contains(string(back), "IdentityMetadata::ElementId") {
 		t.Fatalf("a mode-derived uuid was re-declared:\n%s", back)
 	}
-	pkg := identity.NamespaceOf(rdf.Element + rdf.EncodeElementID("Sep::Pkg"))
-	member := rdf.ElementIRIForID(identity.DerivedID(pkg, rdf.EncodeElementID("Sep::Pkg::p")))
+	pkg := identity.NamespaceOf(rdf.Element + rdf.EncodeElementID("'Sep::Pkg'"))
+	member := rdf.ElementIRIForID(identity.DerivedID(pkg, rdf.EncodeElementID("'Sep::Pkg'::p")))
 	mut := rdf.NewGraph()
 	for _, tr := range strip(graph).Triples() {
 		if tr.Subject == member && tr.Predicate.Value == rdf.SysML+"elementId" {

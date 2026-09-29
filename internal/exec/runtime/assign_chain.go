@@ -73,7 +73,7 @@ func (ec *EvalContext) chainRoot(base ast.Node) (Value, error) {
 			ErrTypeMismatch, symbolText(sym))
 	}
 	if sym, ok := ec.occurrenceOperand(base); ok {
-		// A collection reads as its objects, which the step after it refuses as several.
+		// A collection reads as its objects; the step after it writes on one of them.
 		if ec.ctx.namesObjects(sym) {
 			return ec.ctx.denotedValue(sym)
 		}
@@ -87,8 +87,9 @@ func (ec *EvalContext) chainRoot(base ast.Node) (Value, error) {
 }
 
 // chainObject is the one object a step of a chained target reaches, which the
-// step after it walks from and the last step writes on. named names the step for
-// the diagnostic.
+// step after it walks from and the last step writes on. A collection of one
+// element is that element, as KerML reads a single value as a sequence of one.
+// named names the step for the diagnostic.
 func (ec *EvalContext) chainObject(value Value, named string) (*Instance, error) {
 	if literal := value.EnumerationLiteral(); literal != nil {
 		return ec.ctx.enumLiteralObject(literal)
@@ -97,6 +98,18 @@ func (ec *EvalContext) chainObject(value Value, named string) (*Instance, error)
 	case ValNull, ValInvalid:
 		return nil, fmt.Errorf("%w: %s", ErrUninitializedFeatureValue, named)
 	case ValSequence, ValSet:
+		var elements []Value
+		if value.Kind == ValSequence {
+			elements = value.Sequence().Elements()
+		} else {
+			elements = value.Set().Elements()
+		}
+		switch len(elements) {
+		case 0:
+			return nil, fmt.Errorf("%w: %s", ErrUninitializedFeatureValue, named)
+		case 1:
+			return ec.chainObject(elements[0], named)
+		}
 		return nil, fmt.Errorf("%w: %s holds %s, and a write reaches one object",
 			ErrTypeMismatch, named, describeValue(value))
 	}
