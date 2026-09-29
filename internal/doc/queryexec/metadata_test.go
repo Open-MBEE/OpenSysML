@@ -214,3 +214,78 @@ package Observatory {
 		t.Fatalf("quoted metadata property rows = %v, want one row with quoted", rows)
 	}
 }
+
+func TestExecuteQuotedMetadataDefinitionColumnPath(t *testing.T) {
+	fixture := loadExecutionSource(t, `
+metadata def 'My Meta' {
+	attribute tag : String;
+}
+requirement def Tagged {
+	@'My Meta' { tag = "quoted"; }
+}
+package Observatory {
+	private import DocumentQueries::*;
+	private import KerML::Root::Element;
+	private import ScalarValues::*;
+	calc def Paths :> Query {
+		Project(
+			source = Named(qualifiedName = "Tagged"),
+			properties = ("'My Meta'::tag"),
+			columns = (Column(name = "tag", path = "'My Meta'::tag"))
+		)
+	}
+}
+`)
+	result, err := fixture.execute(t, "Paths", nil, Options{})
+	if err != nil {
+		t.Fatalf("Paths: %v", err)
+	}
+	rows := result.Rows()
+	if len(rows) != 1 || len(rows[0].Cells()) != 2 {
+		t.Fatalf("quoted metadata path rows = %v, want one row with two cells", rows)
+	}
+	for i, cell := range rows[0].Cells() {
+		if got := cellText(cell); got != "quoted" {
+			t.Errorf("cell %d = %q, want quoted", i, got)
+		}
+	}
+}
+
+func TestExecuteDottedMetadataFeaturePathsReadLikeProjectProperties(t *testing.T) {
+	fixture := loadExecutionSource(t, `
+metadata def Meta {
+	attribute 'x.y' : String;
+}
+requirement def Tagged {
+	@Meta { 'x.y' = "ready"; }
+}
+package Observatory {
+	private import DocumentQueries::*;
+	private import KerML::Root::Element;
+	private import ScalarValues::*;
+	calc def Paths :> Query {
+		Project(
+			source = Named(qualifiedName = "Tagged"),
+			properties = ("Meta::x.y", "Meta::'x.y'"),
+			columns = (
+				Column(name = "raw", path = "Meta::x.y"),
+				Column(name = "quoted", path = "Meta::'x.y'")
+			)
+		)
+	}
+}
+`)
+	result, err := fixture.execute(t, "Paths", nil, Options{})
+	if err != nil {
+		t.Fatalf("Paths: %v", err)
+	}
+	rows := result.Rows()
+	if len(rows) != 1 || len(rows[0].Cells()) != 4 {
+		t.Fatalf("dotted metadata path rows = %v, want one row with four cells", rows)
+	}
+	for i, cell := range rows[0].Cells() {
+		if got := cellText(cell); got != "ready" {
+			t.Errorf("cell %d = %q, want ready", i, got)
+		}
+	}
+}

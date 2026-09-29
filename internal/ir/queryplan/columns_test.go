@@ -152,6 +152,27 @@ calc def Tags :> Query {
 	}
 }
 
+func TestCompileQuotedMetadataDefinitionPathColumn(t *testing.T) {
+	fixture := loadQueryFixture(t, `
+metadata def 'My Meta' {
+	attribute tag : String;
+}
+calc def Tags :> Query {
+	in root : Element;
+	Project(
+		source = Descendants(source = root, maxDepth = 1),
+		columns = (Column(name = "tag", path = "Fixture::'My Meta'::tag"))
+	)
+}
+`)
+	project := entryDefinition(t, fixture.compile(t, "Tags")).Expression()
+	columns, _ := argumentOf(t, project, "columns")
+	column, _ := argumentOf(t, columns.Arguments()[0].Value, "expression")
+	if column.Operation() != OperationRowMember || column.Target() != "Fixture::'My Meta'::tag" {
+		t.Fatalf("metadata path = %s %q, want row member Fixture::'My Meta'::tag", column.Operation(), column.Target())
+	}
+}
+
 func TestCompileMalformedColumnPathIsUnsupported(t *testing.T) {
 	fixture := loadQueryFixture(t, `
 calc def BadPath :> Query {
