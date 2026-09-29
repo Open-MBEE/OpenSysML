@@ -247,6 +247,32 @@ func TestTransitionTriggerLinksAgree(t *testing.T) {
 		"    sysml:receiverArgument expr:T__S__t2___40trigger___401_pvalue",
 		"    sysml:receiverArgument expr:T__S__t6___40trigger___401_pvalue",
 		"is not the value of its receiver parameter")
+	refused("payloadParameter",
+		"    sysml:payloadParameter elmt:T__S__t2___40trigger__c ;",
+		"    sysml:payloadParameter elmt:T__S__t2___40trigger___401 ;",
+		"is flagged sysml:isAccept")
+
+	// A second valued receiver parameter under t2's trigger action: the one
+	// `via` cannot write both.
+	var blocks []string
+	moved := 0
+	for _, block := range strings.Split(stripped, "\n\n") {
+		if strings.HasPrefix(block, "elmt:T__S__t6___40trigger___401") {
+			block = strings.NewReplacer(
+				"elmt:T__S__t6___40trigger ;", "elmt:T__S__t2___40trigger ;",
+				"elmt:T__S__t6___40trigger .", "elmt:T__S__t2___40trigger .",
+			).Replace(block)
+			moved++
+		}
+		blocks = append(blocks, block)
+	}
+	if moved != 2 {
+		t.Fatalf("moved %d blocks of t6's receiver parameter, want its parameter and membership", moved)
+	}
+	back, err := convert.Convert("m.ttl", []byte(strings.Join(blocks, "\n\n")), convert.FormatTurtle, convert.FormatSysML)
+	if err == nil || !strings.Contains(err.Error(), "valued parameters besides its payload") {
+		t.Errorf("two receiver parameters should be refused, got %v:\n%s", err, back)
+	}
 }
 
 // A comment between `accept` and the payload does not hide the trigger form.

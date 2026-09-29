@@ -1707,7 +1707,10 @@ func (d *decoder) transitionTrigger(el *element) ([]string, error) {
 		}
 		return d.triggerWords(el, trigger)
 	}
-	payload := d.triggerPayload(accepter)
+	payload, err := d.triggerPayload(accepter)
+	if err != nil {
+		return nil, err
+	}
 	if payload == nil {
 		return nil, &UnsupportedError{
 			What: fmt.Sprintf("the trigger action <%s>", accepter.iri),
@@ -1895,17 +1898,32 @@ func (d *decoder) transitionFeatureKind(el *element) string {
 }
 
 // triggerPayload is the payload parameter of a trigger action: the one
-// sysml:payloadParameter names, else the parameter flagged sysml:isAccept.
-func (d *decoder) triggerPayload(accepter *element) *element {
-	if payload, ok := d.graph.Object(rdf.IRI(accepter.iri), rdf.SysML+pPayloadParameter); ok {
-		for _, child := range accepter.children {
-			if child.iri == payload.Value {
-				return child
-			}
-		}
-		return nil
+// sysml:payloadParameter names, which no other parameter's sysml:isAccept contradicts.
+func (d *decoder) triggerPayload(accepter *element) (*element, error) {
+	accepted := d.acceptParam(accepter)
+	stated := d.graph.Objects(rdf.IRI(accepter.iri), rdf.SysML+pPayloadParameter)
+	if len(stated) == 0 {
+		return accepted, nil
 	}
-	return d.acceptParam(accepter)
+	refuse := func(note string) error {
+		return &UnsupportedError{What: fmt.Sprintf("the trigger action <%s>", accepter.iri), Note: note}
+	}
+	if len(stated) > 1 {
+		return nil, refuse("it states more than one sysml:payloadParameter, and the notation writes one payload")
+	}
+	for _, child := range accepter.children {
+		if child.iri != stated[0].Value {
+			continue
+		}
+		if m, ok := d.owningMembership[child.iri]; !ok || d.metaclass(rdf.IRI(m.iri)) != mParameterMembership {
+			return nil, refuse(fmt.Sprintf("its sysml:payloadParameter <%s> is not owned as a parameter", child.iri))
+		}
+		if accepted != nil && accepted != child {
+			return nil, refuse(fmt.Sprintf("its sysml:payloadParameter names <%s> while <%s> is flagged sysml:isAccept, and writing one would drop the other", child.iri, accepted.iri))
+		}
+		return child, nil
+	}
+	return nil, refuse(fmt.Sprintf("its sysml:payloadParameter <%s> is not a parameter it owns", stated[0].Value))
 }
 
 // triggerReceiver writes the `via` port: the receiver parameter value its
@@ -1919,6 +1937,8 @@ func (d *decoder) triggerReceiver(el, accepter, payload *element) (string, error
 	switch {
 	case len(stated) > 1:
 		return "", refuse("it states more than one sysml:receiverArgument, and the notation writes one `via`")
+	case len(params) > 1:
+		return "", refuse(fmt.Sprintf("it binds %d valued parameters besides its payload, and the notation writes one `via`", len(params)))
 	case len(stated) == 0 && len(params) > 0:
 		return "", refuse(fmt.Sprintf("its receiver parameter <%s> has a value but no sysml:receiverArgument names it, so the `via` it binds cannot be told apart", params[0].iri))
 	case len(stated) == 0:
