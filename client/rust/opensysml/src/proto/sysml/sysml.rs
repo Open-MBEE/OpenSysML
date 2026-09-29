@@ -992,14 +992,14 @@ pub struct ApplyEditsRequest {
     pub accept_documents: bool,
 }
 /// EditOperation is one source-preserving change to make.
-#[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
+#[derive(Clone, PartialEq, ::prost::Message)]
 pub struct EditOperation {
-    #[prost(oneof="edit_operation::Operation", tags="1, 2, 3, 4, 5, 6, 7, 8, 9")]
+    #[prost(oneof="edit_operation::Operation", tags="1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 18")]
     pub operation: ::core::option::Option<edit_operation::Operation>,
 }
 /// Nested message and enum types in `EditOperation`.
 pub mod edit_operation {
-    #[derive(Clone, PartialEq, Eq, Hash, ::prost::Oneof)]
+    #[derive(Clone, PartialEq, ::prost::Oneof)]
     pub enum Operation {
         #[prost(message, tag="1")]
         SetValue(super::SetValueEdit),
@@ -1019,6 +1019,22 @@ pub mod edit_operation {
         AddRequirementConstraint(super::AddRequirementConstraintEdit),
         #[prost(message, tag="9")]
         AddTransition(super::AddTransitionEdit),
+        #[prost(message, tag="10")]
+        AddImport(super::AddImportEdit),
+        #[prost(message, tag="11")]
+        AddDocumentation(super::AddDocumentationEdit),
+        #[prost(message, tag="12")]
+        AddVerify(super::AddVerifyEdit),
+        #[prost(message, tag="13")]
+        AddMetadata(super::AddMetadataEdit),
+        #[prost(message, tag="14")]
+        AddSequence(super::AddSequenceEdit),
+        #[prost(message, tag="15")]
+        AddMetadataPrefix(super::AddMetadataPrefixEdit),
+        #[prost(message, tag="16")]
+        AddComment(super::AddCommentEdit),
+        #[prost(message, tag="18")]
+        AddNote(super::AddNoteEdit),
     }
 }
 /// AddMemberEdit inserts a declaration into a namespace or the document root.
@@ -1057,6 +1073,19 @@ pub struct AddMemberEdit {
     /// Optional usage direction: "in", "out" or "inout".
     #[prost(string, tag="11")]
     pub direction: ::prost::alloc::string::String,
+    /// Metadata types annotating the new member.
+    #[prost(string, repeated, tag="14")]
+    pub metadata_prefixes: ::prost::alloc::vec::Vec<::prost::alloc::string::String>,
+    /// Optional documentation body, as plain text, written as the declaration's
+    /// first body member `doc /* ... */` that reads back as exactly this text.
+    #[prost(string, tag="12")]
+    pub doc: ::prost::alloc::string::String,
+    /// Optional body expression. For constraints, it is the condition; for calc,
+    /// case, analysis, verification, and use-case kinds, it is the result
+    /// expression. It is written inside `{ ... }`, distinct from value, which
+    /// writes `= ...`.
+    #[prost(string, tag="13")]
+    pub body_expression: ::prost::alloc::string::String,
 }
 /// AddSatisfyEdit inserts a satisfy usage into any package or body that admits behavior usages.
 #[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
@@ -1120,6 +1149,191 @@ pub struct AddTransitionEdit {
     /// Write `entry; then <target>;` instead of a regular transition.
     #[prost(bool, tag="8")]
     pub initial: bool,
+}
+/// AddVerifyEdit inserts a requirement verification into a verification case.
+#[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
+pub struct AddVerifyEdit {
+    /// Verification case or objective receiving the verification.
+    #[prost(string, tag="1")]
+    pub owner: ::prost::alloc::string::String,
+    /// Requirement feature reference.
+    #[prost(string, tag="2")]
+    pub requirement: ::prost::alloc::string::String,
+}
+/// MetadataFeatureValue binds one metadata feature to a value expression.
+#[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
+pub struct MetadataFeatureValue {
+    /// Feature reference to bind.
+    #[prost(string, tag="1")]
+    pub feature: ::prost::alloc::string::String,
+    /// Value expression, written as notation.
+    #[prost(string, tag="2")]
+    pub value: ::prost::alloc::string::String,
+}
+/// AddMetadataEdit inserts a metadata usage.
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct AddMetadataEdit {
+    /// Namespace or body receiving the metadata usage.
+    #[prost(string, tag="1")]
+    pub owner: ::prost::alloc::string::String,
+    /// Metadata definition reference.
+    #[prost(string, tag="2")]
+    pub metadata_type: ::prost::alloc::string::String,
+    /// Optional declared name for the usage.
+    #[prost(string, tag="3")]
+    pub name: ::prost::alloc::string::String,
+    /// Optional references the metadata usage is about.
+    #[prost(string, repeated, tag="4")]
+    pub about: ::prost::alloc::vec::Vec<::prost::alloc::string::String>,
+    /// Feature values in written order.
+    #[prost(message, repeated, tag="5")]
+    pub values: ::prost::alloc::vec::Vec<MetadataFeatureValue>,
+    /// Write shorthand `@` notation instead of `metadata`.
+    #[prost(bool, tag="6")]
+    pub shorthand: bool,
+}
+/// AddMetadataPrefixEdit annotates an existing declaration with prefix metadata.
+#[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
+pub struct AddMetadataPrefixEdit {
+    /// Declaration to annotate, by its qualified name.
+    #[prost(string, tag="1")]
+    pub target: ::prost::alloc::string::String,
+    /// Metadata definition reference to add as a prefix.
+    #[prost(string, tag="2")]
+    pub metadata_type: ::prost::alloc::string::String,
+}
+/// AddImportEdit inserts an import declaration into a namespace body or the document root.
+#[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
+pub struct AddImportEdit {
+    /// Namespace FQN receiving the import; empty means the document root.
+    #[prost(string, tag="1")]
+    pub owner: ::prost::alloc::string::String,
+    /// "private", "public" or "protected"; empty writes "private".
+    #[prost(string, tag="2")]
+    pub visibility: ::prost::alloc::string::String,
+    /// Imported qualified name, optionally rooted "$::", suffixed "::*" for a namespace import.
+    #[prost(string, tag="3")]
+    pub target: ::prost::alloc::string::String,
+    /// Write "::**" to import recursively.
+    #[prost(bool, tag="4")]
+    pub is_recursive: bool,
+    /// Write "import all" to import non-public members too.
+    #[prost(bool, tag="5")]
+    pub is_import_all: bool,
+    /// Filter conditions, each written as "\[<expression>\]".
+    #[prost(string, repeated, tag="6")]
+    pub filters: ::prost::alloc::vec::Vec<::prost::alloc::string::String>,
+}
+/// AddDocumentationEdit adds a `doc /* ... */` as the first body member of an
+/// existing declaration, opening a body for one ended by `;`.
+#[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
+pub struct AddDocumentationEdit {
+    /// Fully qualified name of the documented declaration.
+    #[prost(string, tag="1")]
+    pub target: ::prost::alloc::string::String,
+    /// Documentation body, as plain text that Documentation::body reads back
+    /// exactly, whitespace included; it may not contain `*/` or a carriage return.
+    #[prost(string, tag="2")]
+    pub body: ::prost::alloc::string::String,
+    /// Optional declared name of the documentation.
+    #[prost(string, tag="3")]
+    pub name: ::prost::alloc::string::String,
+    /// Optional locale, written as `locale "..."`.
+    #[prost(string, tag="4")]
+    pub locale: ::prost::alloc::string::String,
+    /// Rewrite the one documentation target already owns instead of refusing.
+    #[prost(bool, tag="5")]
+    pub replace: bool,
+}
+/// AddCommentEdit inserts `comment \[name\] [about a, b] \[locale "..."\] /* ... */`
+/// where a new member of owner goes.
+#[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
+pub struct AddCommentEdit {
+    /// Namespace FQN receiving the comment; empty means the document root.
+    #[prost(string, tag="1")]
+    pub owner: ::prost::alloc::string::String,
+    /// Comment body, as plain text that Comment::body reads back exactly; it may
+    /// not contain `*/` or a carriage return.
+    #[prost(string, tag="2")]
+    pub body: ::prost::alloc::string::String,
+    /// Optional declared name of the comment.
+    #[prost(string, tag="3")]
+    pub name: ::prost::alloc::string::String,
+    /// Optional annotated elements, each a qualified name written after `about`.
+    #[prost(string, repeated, tag="4")]
+    pub about: ::prost::alloc::vec::Vec<::prost::alloc::string::String>,
+    /// Optional locale, written as `locale "..."`.
+    #[prost(string, tag="5")]
+    pub locale: ::prost::alloc::string::String,
+}
+/// AddNoteEdit writes the line note `// text` on its own line above a declaration.
+/// A note is lexical trivia, not a model element.
+#[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
+pub struct AddNoteEdit {
+    /// Fully qualified name of the declaration the note precedes.
+    #[prost(string, tag="1")]
+    pub target: ::prost::alloc::string::String,
+    /// Note text, one line: it may not contain a line break.
+    #[prost(string, tag="2")]
+    pub text: ::prost::alloc::string::String,
+}
+/// AddSequenceEdit inserts a `first` or `then` sequencing member into an action body.
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct AddSequenceEdit {
+    /// Action body receiving the member.
+    #[prost(string, tag="1")]
+    pub owner: ::prost::alloc::string::String,
+    /// Sequence keyword: "first", "then", "if", "else", or empty for a plain member.
+    /// These action-body forms follow SysML.xtext:1607 ActionBodyParameter, 1442 AcceptNode,
+    /// 1499 SendNode, 1535 AssignmentNode, 1596 IfNode, 1615 WhileLoopNode, 1624 ForLoopNode, 1641 TerminateNode; formal/2026-03-02.
+    #[prost(string, tag="2")]
+    pub keyword: ::prost::alloc::string::String,
+    /// Node a bare `first <ref>;`/`then <ref>;` names; empty when the `then`
+    /// declares a member instead.
+    #[prost(string, tag="3")]
+    pub r#ref: ::prost::alloc::string::String,
+    /// Body item kind, including action, perform action, state, merge, decide,
+    /// join, fork, accept, send, assign, if, while, loop, for or terminate.
+    #[prost(string, tag="4")]
+    pub member_kind: ::prost::alloc::string::String,
+    /// Optional declared name of the `then`-declared member.
+    #[prost(string, tag="5")]
+    pub member_name: ::prost::alloc::string::String,
+    /// Optional typing target of the `then`-declared member.
+    #[prost(string, tag="6")]
+    pub r#type: ::prost::alloc::string::String,
+    /// Optional name of the body member the new member follows.
+    #[prost(string, tag="7")]
+    pub after: ::prost::alloc::string::String,
+    /// Condition or guard expression for if and while.
+    #[prost(string, tag="8")]
+    pub condition: ::prost::alloc::string::String,
+    /// Payload, assigned value, collection or terminated occurrence.
+    #[prost(string, tag="9")]
+    pub value: ::prost::alloc::string::String,
+    /// Assigned feature or send receiver.
+    #[prost(string, tag="10")]
+    pub target: ::prost::alloc::string::String,
+    /// Port expression for accept or send.
+    #[prost(string, tag="11")]
+    pub via: ::prost::alloc::string::String,
+    /// Optional loop termination condition.
+    #[prost(string, tag="12")]
+    pub until: ::prost::alloc::string::String,
+    /// Nested action-body items.
+    #[prost(message, repeated, tag="13")]
+    pub body: ::prost::alloc::vec::Vec<AddSequenceEdit>,
+    /// Nested items of the if's else branch; an empty list means no else branch.
+    /// An explicit empty `else { }` is not authorable; it performs nothing and is equivalent to omitting it.
+    #[prost(message, repeated, tag="14")]
+    pub else_body: ::prost::alloc::vec::Vec<AddSequenceEdit>,
+    /// Source-end multiplicity, written as bracketed notation, only with "then".
+    /// SysML.xtext:878, 887, 1703 TargetSuccession, 1708 GuardedTargetSuccession, 1714 DefaultTargetSuccession; formal/2026-03-02.
+    #[prost(string, tag="15")]
+    pub multiplicity: ::prost::alloc::string::String,
+    /// Payload name for accept or loop variable for for.
+    #[prost(string, tag="16")]
+    pub parameter: ::prost::alloc::string::String,
 }
 /// AddConnectionEdit inserts a usage whose ends connect two features.
 #[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]

@@ -210,7 +210,7 @@ func IsShapeFeature(sym *symbols.Symbol) bool {
 		return false
 	}
 	switch sym.Kind {
-	case symbols.SymbolAttributeUsage, symbols.SymbolPartUsage, symbols.SymbolItemUsage,
+	case symbols.SymbolAttributeUsage, symbols.SymbolReferenceUsage, symbols.SymbolPartUsage, symbols.SymbolItemUsage,
 		symbols.SymbolPortUsage, symbols.SymbolConnectionUsage, symbols.SymbolActionUsage,
 		symbols.SymbolStateUsage, symbols.SymbolConstraintUsage, symbols.SymbolRequirementUsage,
 		symbols.SymbolOccurrenceUsage, symbols.SymbolIndividualUsage,
@@ -232,7 +232,7 @@ func IsValueType(sym *symbols.Symbol) bool {
 	}
 	switch sym.Kind {
 	case symbols.SymbolAttributeDef, symbols.SymbolEnumerationDef,
-		symbols.SymbolAttributeUsage, symbols.SymbolEnumerationUsage:
+		symbols.SymbolAttributeUsage, symbols.SymbolReferenceUsage, symbols.SymbolEnumerationUsage:
 		return true
 	default:
 		return false
@@ -278,7 +278,7 @@ func (m *Model) IsDescribedReference(typ *symbols.Symbol) bool {
 // DescribesReference reports whether member, a library attribute of a described
 // reference type, is kept in typ's shape although a value type declares it.
 func (m *Model) DescribesReference(typ, member *symbols.Symbol) bool {
-	if member == nil || member.Kind != symbols.SymbolAttributeUsage || IsParameter(member) {
+	if member == nil || !member.Kind.IsAttributeLike() || IsParameter(member) {
 		return false
 	}
 	// The Kernel Semantic Library (Anything::that) frames a reference as it does
@@ -295,7 +295,7 @@ func (m *Model) DescribesReference(typ, member *symbols.Symbol) bool {
 		if m.IsDescribedReference(cur) {
 			return true
 		}
-		if cur.Kind != symbols.SymbolAttributeUsage {
+		if !cur.Kind.IsAttributeLike() {
 			return false
 		}
 	}
@@ -347,7 +347,7 @@ func (m *Model) HeldByValue(sym *symbols.Symbol) bool {
 		return false
 	}
 	usage, ok := sym.Decl.(*ast.Usage)
-	if !ok || (sym.Kind != symbols.SymbolAttributeUsage && sym.Kind != symbols.SymbolEnumerationUsage) {
+	if !ok || (!sym.Kind.IsAttributeLike() && sym.Kind != symbols.SymbolEnumerationUsage) {
 		return true
 	}
 	return usage.Value == nil && m.ValueHeld(sym)
@@ -405,7 +405,7 @@ func IsBehaviorParameter(sym *symbols.Symbol) bool {
 // IsDataKind reports whether sym is a value-kind usage: an attribute or an
 // enumeration usage holds data, never an object of its own, regardless of typing.
 func IsDataKind(sym *symbols.Symbol) bool {
-	return sym.Kind == symbols.SymbolAttributeUsage || sym.Kind == symbols.SymbolEnumerationUsage
+	return sym.Kind.IsAttributeLike() || sym.Kind == symbols.SymbolEnumerationUsage
 }
 
 // ReferentialParameter reports whether a behavior parameter holds no object of

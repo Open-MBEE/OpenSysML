@@ -79,7 +79,8 @@ const CapabilityUnsetValue = "unset_value"
 // a parsed model's own source, preserving everything the edit did not touch.
 const CapabilityApplyEdits = "apply_edits"
 
-// CapabilityAuthoring names add-member and delete source authoring operations.
+// CapabilityAuthoring gates source-authoring ApplyEdits operations; dedicated
+// capabilities further gate specialized authoring operations.
 const CapabilityAuthoring = "authoring"
 
 // CapabilityConnectionAuthoring names the ApplyEdits add_connection operation.
@@ -97,6 +98,43 @@ const CapabilityMemberModifiers = "member_modifiers"
 
 // CapabilityTransitionAuthoring names the ApplyEdits add_transition operation.
 const CapabilityTransitionAuthoring = "transition_authoring"
+
+// CapabilityVerificationObjectiveAuthoring names verification-case objective authoring.
+const CapabilityVerificationObjectiveAuthoring = "verification_objective_authoring"
+
+// CapabilityMetadataAuthoring names metadata usages and metadata prefixes.
+const CapabilityMetadataAuthoring = "metadata_authoring"
+
+// CapabilityMetadataPrefixAuthoring names edits that add metadata to an existing declaration.
+const CapabilityMetadataPrefixAuthoring = "metadata_prefix_authoring"
+
+// CapabilityImplicitParameters names the ApplyEdits add_member operation with
+// no kind: an implicit directed usage (`in x : T;`).
+const CapabilityImplicitParameters = "implicit_parameters"
+
+// CapabilitySequenceAuthoring names the ApplyEdits add_sequence operation.
+const CapabilitySequenceAuthoring = "sequence_authoring"
+
+// CapabilityActionBodyStatementAuthoring names the extended action-body items
+// and source-end multiplicities carried by add_sequence.
+const CapabilityActionBodyStatementAuthoring = "action_body_statement_authoring"
+
+// CapabilityConstraintBodyAuthoring names constraint body expressions and asserted constraints.
+const CapabilityConstraintBodyAuthoring = "constraint_body_authoring"
+
+// CapabilityStateActionAuthoring names state behavior member kinds.
+const CapabilityStateActionAuthoring = "state_action_authoring"
+
+// CapabilityImportAuthoring names the ApplyEdits add_import operation.
+const CapabilityImportAuthoring = "import_authoring"
+
+// CapabilityDocumentationAuthoring names the ApplyEdits add_documentation
+// operation and the AddMember doc field.
+const CapabilityDocumentationAuthoring = "documentation_authoring"
+
+// CapabilityCommentAuthoring names the ApplyEdits add_comment and add_note
+// operations.
+const CapabilityCommentAuthoring = "comment_authoring"
 
 // CapabilityEditDocuments names the capability of editing a model of several
 // documents as one batch, for a request accepting documents, and of answering
@@ -216,6 +254,17 @@ var capabilities = []string{
 	CapabilityRequirementConstraintAuthoring,
 	CapabilityMemberModifiers,
 	CapabilityTransitionAuthoring,
+	CapabilityVerificationObjectiveAuthoring,
+	CapabilityMetadataAuthoring,
+	CapabilityMetadataPrefixAuthoring,
+	CapabilitySequenceAuthoring,
+	CapabilityImplicitParameters,
+	CapabilityConstraintBodyAuthoring,
+	CapabilityStateActionAuthoring,
+	CapabilityImportAuthoring,
+	CapabilityDocumentationAuthoring,
+	CapabilityCommentAuthoring,
+	CapabilityActionBodyStatementAuthoring,
 }
 
 type capabilityAvailability struct {
@@ -716,9 +765,18 @@ func (s *Service) parseModel(inputs []sourceInput, mode diag.ConformanceMode) (s
 	idx.ExpandWildcardImports()
 
 	if parsedClean {
+		// One batch over the model, as a workspace analyzes one: the index is
+		// linked once and the workspace-wide audits gather once, where a context
+		// of its own per document gathered them over every document again.
+		names := make([]string, len(inputs))
+		for i, input := range inputs {
+			names[i] = input.name
+		}
+		batch := &passes.Batch{Documents: names, Gathers: passes.NewGathers()}
+		passes.PrepareBatch(idx, batch)
 		for i, doc := range documents {
-			doc.PassesDiags = passes.AnalyzeWithOptions(inputs[i].name, inputs[i].kind, doc.Root,
-				make([]diag.Diagnostic, 0), idx, passes.Options{Conformance: mode})
+			doc.PassesDiags, _ = passes.AnalyzeInBatch(inputs[i].name, inputs[i].kind, doc.Root,
+				make([]diag.Diagnostic, 0), idx, passes.Options{Conformance: mode}, batch)
 		}
 	}
 

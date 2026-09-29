@@ -1,0 +1,1 @@
+- **ApplyEdits can add anonymous `assert` and `assert not` references and result expressions to calculation and case body kinds.** Assertion references must resolve to constraints during post-edit analysis; calculations, cases, analyses, verifications and use cases can end their body with a result expression.

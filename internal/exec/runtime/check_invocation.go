@@ -10,7 +10,6 @@ import (
 	"strings"
 
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/semantics"
-	"github.com/Open-MBEE/OpenSysML/internal/semantic/symbols"
 )
 
 // Invocation is what one check searches: the behaviors started on one clock, in
@@ -298,7 +297,7 @@ func (inv *Invocation) PerformerAttributes() map[string]Value {
 func (ctx *Context) attributesHeld(self *Instance) map[string]Value {
 	held := make(map[string]Value)
 	for name, fv := range self.FeatureValues {
-		if of := fv.Feature; of == nil || of.Symbol == nil || of.Symbol.Kind != symbols.SymbolAttributeUsage {
+		if of := fv.Feature; of == nil || of.Symbol == nil || !of.Symbol.Kind.IsAttributeLike() {
 			continue
 		}
 		fv, err := self.GetFeatureValue(ctx, name)
@@ -325,6 +324,9 @@ func (inv *Invocation) executors() []checkedExecutor {
 		execs = append(execs, exec)
 	}
 	for _, behavior := range ctx.objectBehaviors {
+		if behavior.Err != nil {
+			continue
+		}
 		switch {
 		case behavior.State != nil && !slices.Contains(inv.States, behavior.State):
 			execs = append(execs, behavior.State)

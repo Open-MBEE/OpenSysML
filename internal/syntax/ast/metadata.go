@@ -5,7 +5,8 @@ package ast
 // SysML.xtext UsageExtensionKeyword on SubjectUsage and RequirementConstraintUsage).
 // A document root's members annotate the root namespace, an annotation's body
 // members annotate the annotation itself, a transition's or succession's body
-// members annotate that edge, and a dependency's body members the dependency.
+// members annotate that edge, a control node's prefixes annotate its usage,
+// and a dependency's body members the dependency.
 // ok is false for a node that carries neither.
 func DeclaredMetadata(node Node) (prefixes []*PrefixMetadata, body []Node, ok bool) {
 	switch d := node.(type) {
@@ -17,6 +18,14 @@ func DeclaredMetadata(node Node) (prefixes []*PrefixMetadata, body []Node, ok bo
 		return nil, d.Members, true
 	case *SuccessionEdge:
 		return nil, d.Members, true
+	case *ForkNode:
+		return d.Prefixes, d.Members, true
+	case *JoinNode:
+		return d.Prefixes, d.Members, true
+	case *MergeNode:
+		return d.Prefixes, d.Members, true
+	case *DecisionNode:
+		return d.Prefixes, d.Members, true
 	case *Definition:
 		return d.Prefixes, d.Members, true
 	case *Usage:

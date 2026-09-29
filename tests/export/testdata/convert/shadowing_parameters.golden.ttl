@@ -690,12 +690,16 @@ elmt:Shadows__Governor___405
     sysx:transitionSyntax "source" ;
     sysml:source elmt:Shadows__Governor__fast ;
     sysml:target elmt:Shadows__Governor__idle ;
-    sysx:trigger "w : Speed" ;
-    sysx:triggerKeyword "accept" ;
+    sysml:triggerAction elmt:Shadows__Governor___405___40trigger ;
+    sysml:ownedMember elmt:Shadows__Governor___405___40trigger ;
+    sysml:ownedMembership elmt:Shadows__Governor___405___40trigger_om, expr:Shadows__Governor___405_pguard_om ;
+    sysml:ownedRelationship elmt:Shadows__Governor___405___40trigger_om, expr:Shadows__Governor___405_pguard_om ;
+    sysml:ownedFeature elmt:Shadows__Governor___405___40trigger ;
+    sysml:ownedFeatureMembership elmt:Shadows__Governor___405___40trigger_om ;
     sysx:guard expr:Shadows__Governor___405_pguard ;
-    sysml:ownedRelationship expr:Shadows__Governor___405_pguard_om ;
-    sysml:ownedMembership expr:Shadows__Governor___405_pguard_om ;
-    sysx:sourceText "        transition fast then idle accept w : Speed if w > 0;\n" .
+    sysx:sourceText "        transition fast then idle accept w : Speed if w > 0;\n" ;
+    json:ownedMembership "[{\"@id\":\"Shadows__Governor___405___40trigger_om\"},{\"@id\":\"Shadows__Governor___405_pguard_om\"}]" ;
+    json:ownedRelationship "[{\"@id\":\"Shadows__Governor___405___40trigger_om\"},{\"@id\":\"Shadows__Governor___405_pguard_om\"}]" .
 
 elmt:Shadows__Governor___405_om
     a sysml:FeatureMembership ;
@@ -708,6 +712,70 @@ elmt:Shadows__Governor___405_om
     sysml:membershipOwningNamespace elmt:Shadows__Governor ;
     sysml:ownedMemberFeature elmt:Shadows__Governor___405 ;
     sysml:owningType elmt:Shadows__Governor .
+
+elmt:Shadows__Governor___405___40trigger
+    a sysml:AcceptActionUsage ;
+    sysml:qualifiedName "Shadows::Governor::@5::@trigger" ;
+    sysml:elementId "Shadows__Governor___405___40trigger" ;
+    sysml:owningNamespace elmt:Shadows__Governor___405 ;
+    sysml:owner elmt:Shadows__Governor___405 ;
+    sysml:owningRelationship elmt:Shadows__Governor___405___40trigger_om ;
+    sysml:owningMembership elmt:Shadows__Governor___405___40trigger_om ;
+    sysml:parameter elmt:Shadows__Governor___405___40trigger__w ;
+    sysml:input elmt:Shadows__Governor___405___40trigger__w ;
+    sysml:payloadParameter elmt:Shadows__Governor___405___40trigger__w ;
+    sysml:ownedMember elmt:Shadows__Governor___405___40trigger__w ;
+    sysml:ownedMembership elmt:Shadows__Governor___405___40trigger__w_om ;
+    sysml:ownedRelationship elmt:Shadows__Governor___405___40trigger__w_om ;
+    sysml:ownedFeature elmt:Shadows__Governor___405___40trigger__w ;
+    sysml:ownedFeatureMembership elmt:Shadows__Governor___405___40trigger__w_om .
+
+elmt:Shadows__Governor___405___40trigger_om
+    a sysml:TransitionFeatureMembership ;
+    sysml:elementId "Shadows__Governor___405___40trigger_om" ;
+    sysml:owner elmt:Shadows__Governor___405 ;
+    sysml:memberElement elmt:Shadows__Governor___405___40trigger ;
+    sysml:ownedMemberElement elmt:Shadows__Governor___405___40trigger ;
+    sysml:ownedRelatedElement elmt:Shadows__Governor___405___40trigger ;
+    sysml:owningRelatedElement elmt:Shadows__Governor___405 ;
+    sysml:membershipOwningNamespace elmt:Shadows__Governor___405 ;
+    sysml:kind "trigger" ;
+    sysml:transitionFeature elmt:Shadows__Governor___405___40trigger ;
+    sysml:ownedMemberFeature elmt:Shadows__Governor___405___40trigger ;
+    sysml:owningType elmt:Shadows__Governor___405 .
+
+elmt:Shadows__Governor___405___40trigger__w
+    a sysml:ReferenceUsage ;
+    sysml:qualifiedName "Shadows::Governor::@5::@trigger::w" ;
+    sysml:elementId "Shadows__Governor___405___40trigger__w" ;
+    sysx:memberIndex "0"^^xsd:integer ;
+    sysml:owningNamespace elmt:Shadows__Governor___405___40trigger ;
+    sysml:owner elmt:Shadows__Governor___405___40trigger ;
+    sysml:owningRelationship elmt:Shadows__Governor___405___40trigger__w_om ;
+    sysml:owningMembership elmt:Shadows__Governor___405___40trigger__w_om ;
+    sysml:declaredName "w" ;
+    sysx:isKindImplicit "true"^^xsd:boolean ;
+    sysml:isReference "true"^^xsd:boolean ;
+    sysml:isAccept "true"^^xsd:boolean ;
+    sysml:direction "in" ;
+    sysml:type elmt:Shadows__Speed ;
+    sysx:hasBody "false"^^xsd:boolean ;
+    sysml:ownedTyping elmt:Shadows__Governor___405___40trigger__w_ft0 ;
+    sysml:ownedSpecialization elmt:Shadows__Governor___405___40trigger__w_ft0 ;
+    sysml:ownedRelationship elmt:Shadows__Governor___405___40trigger__w_ft0 .
+
+elmt:Shadows__Governor___405___40trigger__w_om
+    a sysml:ParameterMembership ;
+    sysml:elementId "Shadows__Governor___405___40trigger__w_om" ;
+    sysml:owner elmt:Shadows__Governor___405___40trigger ;
+    sysml:memberElement elmt:Shadows__Governor___405___40trigger__w ;
+    sysml:ownedMemberElement elmt:Shadows__Governor___405___40trigger__w ;
+    sysml:ownedRelatedElement elmt:Shadows__Governor___405___40trigger__w ;
+    sysml:owningRelatedElement elmt:Shadows__Governor___405___40trigger ;
+    sysml:membershipOwningNamespace elmt:Shadows__Governor___405___40trigger ;
+    sysml:ownedMemberParameter elmt:Shadows__Governor___405___40trigger__w ;
+    sysml:ownedMemberFeature elmt:Shadows__Governor___405___40trigger__w ;
+    sysml:owningType elmt:Shadows__Governor___405___40trigger .
 
 expr:Shadows__Governor___405_pguard
     a sysml:OperatorExpression ;
@@ -737,7 +805,7 @@ expr:Shadows__Governor___405_pguard_pa0
     a sysml:FeatureReferenceExpression ;
     sysx:sourceText "w" ;
     sysml:elementId "Shadows__Governor___405_pguard_pa0" ;
-    sysml:referent "w" ;
+    sysml:referent elmt:Shadows__Governor___405___40trigger__w ;
     sysml:ownedRelationship expr:Shadows__Governor___405_pguard_pa0_pout_om, expr:Shadows__Governor___405_pguard_pa0_preferent ;
     sysml:ownedMembership expr:Shadows__Governor___405_pguard_pa0_pout_om ;
     sysml:ownedFeatureMembership expr:Shadows__Governor___405_pguard_pa0_pout_om ;
@@ -957,9 +1025,24 @@ expr:Shadows__Governor___404_pguard_pa0_preferent
     sysml:owner expr:Shadows__Governor___404_pguard_pa0 ;
     sysml:owningRelatedElement expr:Shadows__Governor___404_pguard_pa0 .
 
+elmt:Shadows__Governor___405___40trigger__w_ft0
+    a sysml:FeatureTyping ;
+    sysml:elementId "Shadows__Governor___405___40trigger__w_ft0" ;
+    sysml:typedFeature elmt:Shadows__Governor___405___40trigger__w ;
+    sysml:owningFeature elmt:Shadows__Governor___405___40trigger__w ;
+    sysml:specific elmt:Shadows__Governor___405___40trigger__w ;
+    sysml:source elmt:Shadows__Governor___405___40trigger__w ;
+    sysml:owningRelatedElement elmt:Shadows__Governor___405___40trigger__w ;
+    sysml:type elmt:Shadows__Speed ;
+    sysml:general elmt:Shadows__Speed ;
+    sysml:target elmt:Shadows__Speed ;
+    sysml:owner elmt:Shadows__Governor___405___40trigger__w ;
+    sysml:relatedElement elmt:Shadows__Governor___405___40trigger__w, elmt:Shadows__Speed ;
+    json:relatedElement "[{\"@id\":\"Shadows__Governor___405___40trigger__w\"},{\"@id\":\"Shadows__Speed\"}]" .
+
 expr:Shadows__Governor___405_pguard_pa0_preferent
     a sysml:Membership ;
     sysml:elementId "Shadows__Governor___405_pguard_pa0_preferent" ;
-    sysml:memberElement "w" ;
+    sysml:memberElement elmt:Shadows__Governor___405___40trigger__w ;
     sysml:owner expr:Shadows__Governor___405_pguard_pa0 ;
     sysml:owningRelatedElement expr:Shadows__Governor___405_pguard_pa0 .

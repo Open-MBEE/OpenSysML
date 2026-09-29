@@ -1,0 +1,8 @@
+{
+	"type": "instance",
+	"libraries": true,
+	"instantiate": "test::slow",
+	"slots": {
+		"cycleTime": {"type": "Quantity", "value": 200.0, "unit": "SI::s"}
+	}
+}

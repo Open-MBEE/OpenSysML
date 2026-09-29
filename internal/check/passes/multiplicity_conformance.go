@@ -98,58 +98,10 @@ func (cc *constraintChecker) conformanceMultiplicity(sym *symbols.Symbol) (seman
 	if declaresEndFeature(sym) {
 		return semantics.AssumedRange(), true
 	}
-	if !defaultMultiplicityKind(sym) || !ownedByType(sym) {
+	if !cc.model.ImplicitMultiplicityApplies(sym) {
 		return semantics.Range{}, false
 	}
-	for _, rel := range semantics.RelationshipsOf(sym) {
-		if rel == nil || rel.Target == nil {
-			continue
-		}
-		if rel.Kind != ast.RelSubsets && rel.Kind != ast.RelRedefines {
-			continue
-		}
-		if subsetted := cc.resolveRelationshipTarget(sym, rel); subsetted != nil && ownedByType(subsetted) {
-			return semantics.Range{}, false
-		}
-	}
 	return semantics.AssumedRange(), true
-}
-
-// defaultMultiplicityKind reports whether a usage's kind is one the reference
-// gives a default multiplicity of 1..1 (AttributeUsage, ItemUsage — which
-// PartUsage specializes — and PortUsage).
-func defaultMultiplicityKind(sym *symbols.Symbol) bool {
-	if sym == nil {
-		return false
-	}
-	u, isUsage := sym.Decl.(*ast.Usage)
-	if !isUsage {
-		return false
-	}
-	// The keyword, not the kind: KerML's `feature` parses to an attribute usage
-	// and the reference gives it no default multiplicity.
-	switch u.Keyword {
-	case "attribute", "item", "part", "port":
-		return true
-	}
-	return false
-}
-
-// ownedByType reports whether a feature is owned by a definition or usage rather
-// than by a package or namespace.
-func ownedByType(sym *symbols.Symbol) bool {
-	if sym == nil || sym.OwnerScope == nil {
-		return false
-	}
-	owner := sym.OwnerScope.Owner()
-	if owner == nil {
-		return false
-	}
-	switch owner.Kind {
-	case symbols.SymbolPackage, symbols.SymbolNamespace:
-		return false
-	}
-	return true
 }
 
 // declaresEndFeature reports whether a feature is a connector end or carries the

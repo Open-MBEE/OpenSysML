@@ -606,7 +606,7 @@ package Road {
     attribute logged : Integer default -1;
   }
   state def Mode {
-    in ref vehicle : Vehicle;
+    in ref vehicle : Vehicle[1];
     entry; then idle;
     state idle;
     transition first idle if vehicle.speed > 5 then fast;

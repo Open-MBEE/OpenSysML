@@ -25,7 +25,7 @@ const positionalInvokeSource = `
 			attribute total : Integer = 0;
 			action add { in addend : Integer; in times : Integer = 1; out sum : Integer;
 				first apply; action apply { assign total := total + addend * times; assign sum := total; } }
-			action moveTo { in amount : Integer; inout sink : Integer;
+			action moveTo { in amount : Integer; inout sink : Integer[1];
 				first apply; action apply { assign sink := sink + amount; } }
 			calc scaled { in factor : Integer; return : Integer = total * factor; }
 			calc scaled { in factor : Integer; in offset : Integer; return : Integer = total * factor + offset; }
