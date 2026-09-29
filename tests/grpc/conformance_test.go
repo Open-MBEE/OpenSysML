@@ -1,6 +1,7 @@
 package grpc_test
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
@@ -100,6 +101,26 @@ type conformanceCase struct {
 	ExpectedError string `json:"expected_error,omitempty"`
 }
 
+type conformanceEditBody struct {
+	text       string
+	operations []conformanceEditOperation
+}
+
+func (body *conformanceEditBody) UnmarshalJSON(data []byte) error {
+	data = bytes.TrimSpace(data)
+	if len(data) == 0 || string(data) == "null" {
+		return nil
+	}
+	switch data[0] {
+	case '"':
+		return json.Unmarshal(data, &body.text)
+	case '[':
+		return json.Unmarshal(data, &body.operations)
+	default:
+		return fmt.Errorf("edit body must be a string or operation array")
+	}
+}
+
 type conformanceEditOperation struct {
 	Kind              string                     `json:"kind"`
 	Target            string                     `json:"target,omitempty"`
@@ -118,6 +139,13 @@ type conformanceEditOperation struct {
 	Redefines         []string                   `json:"redefines,omitempty"`
 	IsDefault         bool                       `json:"is_default,omitempty"`
 	Direction         string                     `json:"direction,omitempty"`
+	BodyExpression    string                     `json:"body_expression,omitempty"`
+	Doc               string                     `json:"doc,omitempty"`
+	Body              conformanceEditBody        `json:"body,omitempty"`
+	Locale            string                     `json:"locale,omitempty"`
+	Replace           bool                       `json:"replace,omitempty"`
+	About             []string                   `json:"about,omitempty"`
+	Text              string                     `json:"text,omitempty"`
 	Requirement       string                     `json:"requirement,omitempty"`
 	SatisfyingFeature string                     `json:"satisfying_feature,omitempty"`
 	TransitionSource  string                     `json:"source,omitempty"`
@@ -132,8 +160,11 @@ type conformanceEditOperation struct {
 	Via               string                     `json:"via,omitempty"`
 	Until             string                     `json:"until,omitempty"`
 	Parameter         string                     `json:"parameter,omitempty"`
-	Body              []conformanceEditOperation `json:"body,omitempty"`
 	ElseBody          []conformanceEditOperation `json:"else_body,omitempty"`
+	Visibility        string                     `json:"visibility,omitempty"`
+	Recursive         bool                       `json:"is_recursive,omitempty"`
+	ImportAll         bool                       `json:"is_import_all,omitempty"`
+	Filters           []string                   `json:"filters,omitempty"`
 	Asserted          bool                       `json:"is_asserted,omitempty"`
 	Negated           bool                       `json:"is_negated,omitempty"`
 	Expression        string                     `json:"expression,omitempty"`
@@ -245,7 +276,26 @@ func runApplyEditsCase(t *testing.T, srv *grpc.Service, ctx context.Context, mod
 					Value: op.Value, Specializes: op.Specializes,
 					IsAbstract: op.IsAbstract, Redefines: op.Redefines,
 					IsDefault: op.IsDefault, Direction: op.Direction,
+					BodyExpression: op.BodyExpression,
+					Doc:            op.Doc,
 				}},
+			})
+		case "add_documentation":
+			operations = append(operations, &pb.EditOperation{
+				Operation: &pb.EditOperation_AddDocumentation{AddDocumentation: &pb.AddDocumentationEdit{
+					Target: op.Target, Body: op.Body.text, Name: op.Name,
+					Locale: op.Locale, Replace: op.Replace,
+				}},
+			})
+		case "add_comment":
+			operations = append(operations, &pb.EditOperation{
+				Operation: &pb.EditOperation_AddComment{AddComment: &pb.AddCommentEdit{
+					Owner: op.Owner, Body: op.Body.text, Name: op.Name, About: op.About, Locale: op.Locale,
+				}},
+			})
+		case "add_note":
+			operations = append(operations, &pb.EditOperation{
+				Operation: &pb.EditOperation_AddNote{AddNote: &pb.AddNoteEdit{Target: op.Target, Text: op.Text}},
 			})
 		case "add_connection":
 			operations = append(operations, &pb.EditOperation{
@@ -284,6 +334,14 @@ func runApplyEditsCase(t *testing.T, srv *grpc.Service, ctx context.Context, mod
 				Operation: &pb.EditOperation_AddSequence{
 					AddSequence: conformanceSequenceEdit(op),
 				},
+			})
+		case "add_import":
+			operations = append(operations, &pb.EditOperation{
+				Operation: &pb.EditOperation_AddImport{AddImport: &pb.AddImportEdit{
+					Owner: op.Owner, Visibility: op.Visibility, Target: op.Target,
+					IsRecursive: op.Recursive, IsImportAll: op.ImportAll,
+					Filters: op.Filters,
+				}},
 			})
 		case "delete":
 			operations = append(operations, &pb.EditOperation{
@@ -330,7 +388,7 @@ func conformanceSequenceEdit(op conformanceEditOperation) *pb.AddSequenceEdit {
 		Via: op.Via, Until: op.Until, Multiplicity: op.Multiplicity,
 		Parameter: op.Parameter,
 	}
-	for _, child := range op.Body {
+	for _, child := range op.Body.operations {
 		sequence.Body = append(sequence.Body, conformanceSequenceEdit(child))
 	}
 	for _, child := range op.ElseBody {

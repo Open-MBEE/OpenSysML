@@ -240,7 +240,7 @@ func (m Model) formatSequenceDeclaration(i int, owner string, scope *symbols.Sco
 	}
 	member := op
 	member.Multiplicity = ""
-	return prefix + writeMember(member, memberKinds[op.MemberKind]), nil
+	return prefix + writeMember(member, memberKinds[op.MemberKind], "", "", "", ""), nil
 }
 
 func (m Model) formatActionStatement(i int, owner string, scope *symbols.Scope, op Operation, depth int, memberIndent, unit string) (string, error) {

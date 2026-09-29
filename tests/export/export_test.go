@@ -83,9 +83,7 @@ func TestConvertedNotationParses(t *testing.T) {
 
 // textOnlyFixtures are the models whose graph the mapping cannot write back
 // without its source text, by the refusal it must keep reporting for them.
-var textOnlyFixtures = map[string]string{
-	"action_nodes": "this expression states no notation and no structure",
-}
+var textOnlyFixtures = map[string]string{}
 
 // TestRoundTripIsLossless is the fidelity contract: converting the notation a
 // graph produced back to a graph gives the same graph. Notation and RDF say the
@@ -1353,32 +1351,24 @@ func TestNegatedInvariantComesBackFromTheGraphAlone(t *testing.T) {
 	}
 }
 
-// A prefix annotation is identified by its position after the body members,
-// so a body member named as that position is refused rather than merged with
-// it; a member named as another position is no collision.
-func TestPrefixCollidingWithAPositionNamedMemberIsReported(t *testing.T) {
+// A prefix annotation's positional identity stays distinct from a member
+// whose name spells that same position.
+func TestPrefixAndPositionNamedMemberConvertDistinctly(t *testing.T) {
 	src := "package P {\n\tmetadata def Safety;\n\t#Safety part def Car {\n\t\tpart '@1';\n\t}\n}"
-	_, err := convert.Convert("m.sysml", []byte(src), convert.FormatSysML, convert.FormatTurtle)
-	var unsupported *export.UnsupportedError
-	if !errors.As(err, &unsupported) {
-		t.Fatalf("expected an unsupported error, got %v", err)
-	}
-	for _, want := range []string{"the prefix annotation at m.sysml:3:2", "identified by its position as P::Car::@1, which a body member is named"} {
-		if !strings.Contains(err.Error(), want) {
-			t.Errorf("expected %q in error:\n%s", want, err.Error())
-		}
-	}
-
-	src = "package P {\n\tmetadata def Safety;\n\t#Safety part def Car {\n\t\tpart '@0';\n\t}\n}"
 	turtle, err := convert.Convert("m.sysml", []byte(src), convert.FormatSysML, convert.FormatTurtle)
 	if err != nil {
 		t.Fatalf("to turtle: %v", err)
+	}
+	for _, want := range []string{`sysml:qualifiedName "P::Car::'@1'"`, `sysml:qualifiedName "P::Car::@1"`} {
+		if !strings.Contains(string(turtle), want) {
+			t.Errorf("Turtle lacks %s:\n%s", want, turtle)
+		}
 	}
 	back, err := convert.Convert("m.ttl", withoutTriples(t, turtle, "sysx:sourceText"), convert.FormatTurtle, convert.FormatSysML)
 	if err != nil {
 		t.Fatalf("back to notation: %v", err)
 	}
-	if !strings.Contains(string(back), "#Safety part def Car {\n        part '@0';\n    }") {
+	if !strings.Contains(string(back), "#Safety part def Car {\n        part '@1';\n    }") {
 		t.Errorf("the prefix and the member should both come back:\n%s", back)
 	}
 }
@@ -2211,15 +2201,35 @@ func TestSuccessionOnNonUsageIsASyntaxError(t *testing.T) {
 	}
 }
 
-// A qualified name identifies an element, so two members of one namespace
-// sharing a name would merge into a single subject.
-func TestDuplicateNameIsUnsupported(t *testing.T) {
+// Two members of one namespace sharing a name convert as separate elements:
+// the first keeps the qualified name, the later is identified by its position.
+func TestDuplicateNameConverts(t *testing.T) {
 	src := "package P {\n\tpart def A;\n\tpart def A;\n}"
-	_, err := convert.Convert("m.sysml", []byte(src), convert.FormatSysML, convert.FormatTurtle)
-	var unsupported *export.UnsupportedError
-	if !errors.As(err, &unsupported) {
-		t.Fatalf("want an UnsupportedError for a duplicate name, got %v", err)
+	out, err := convert.Convert("m.sysml", []byte(src), convert.FormatSysML, convert.FormatTurtle)
+	if err != nil {
+		t.Fatalf("a duplicate name was refused: %v", err)
 	}
+	for _, want := range []string{`sysml:qualifiedName "P::A"`, `sysml:qualifiedName "P::@1"`} {
+		if !strings.Contains(string(out), want) {
+			t.Errorf("the Turtle lacks %s:\n%s", want, out)
+		}
+	}
+}
+
+// A member named the positional name a duplicate of its sibling takes converts
+// with a distinct identity for the name and the position.
+func TestPositionalNameCollisionConverts(t *testing.T) {
+	src := "package P {\n\tpart def A;\n\tpart def '@2';\n\tpart def A;\n}"
+	turtle, err := convert.Convert("m.sysml", []byte(src), convert.FormatSysML, convert.FormatTurtle)
+	if err != nil {
+		t.Fatalf("to turtle: %v", err)
+	}
+	for _, want := range []string{`sysml:qualifiedName "P::'@2'"`, `sysml:qualifiedName "P::@2"`} {
+		if !strings.Contains(string(turtle), want) {
+			t.Errorf("Turtle lacks %s:\n%s", want, turtle)
+		}
+	}
+	structuralRoundTrip(t, "positional-name-collision.sysml", turtle)
 }
 
 // Ownership that forms a cycle leaves no root to print from, which would
@@ -4004,7 +4014,8 @@ func TestShadowingParametersStayNames(t *testing.T) {
 	for _, want := range []string{
 		`sysml:referent "value" ;`,
 		`sysml:referent "value"`,
-		`sysml:referent "w" ;`,
+		// A trigger's payload is a parameter of the transition's trigger action.
+		"sysml:referent elmt:Shadows__Governor___405___40trigger__w",
 		"sysml:referent elmt:Shadows__Sweep__items",
 	} {
 		if !strings.Contains(turtle, want) {

@@ -220,11 +220,8 @@ func chainTextIn(graph *rdf.Graph, meta func(rdf.Term) string, index map[string]
 
 // lastSegmentText writes the last segment of a qualified name as notation.
 func lastSegmentText(qname string) string {
-	segments, ok := source.QualifiedNameSegments(qname)
-	if !ok {
-		segments = strings.Split(qname, "::")
-	}
-	return nameText(segments[len(segments)-1])
+	segments := identitySegments(qname)
+	return nameText(identityName(segments[len(segments)-1]))
 }
 
 // deriveNormativeGraph runs the whole normalization over the graph and
@@ -358,14 +355,14 @@ func deriveNormativeGraph(graph *rdf.Graph, metaclasses map[rdf.Term]string) (*r
 				ordered = append(ordered, m)
 			}
 		}
-		for _, ms := range graph.Objects(term, rdf.SysML+pOwnedRelationship) {
+		appendMembership := func(ms rdf.Term) {
 			// Only memberships and imports take a position; a specialization
 			// or typing beside them is part of the owner's head.
 			if m := meta(ms); m == "" || !strings.HasSuffix(m, "Membership") && !strings.HasSuffix(m, "Import") {
-				continue
+				return
 			} else if m == mSubaction {
 				appendMember(ms)
-				continue
+				return
 			}
 			if member := firstObject(graph, ms, pMemberElement, "memberFeature", "memberNamespace",
 				pOwnedMemberElement, pOwnedMemberFeature, pOwnedVariantUsage, pOwnedResultExpression,
@@ -373,6 +370,12 @@ func deriveNormativeGraph(graph *rdf.Graph, metaclasses map[rdf.Term]string) (*r
 				"importedNamespace"); member.Value != "" {
 				appendMember(member)
 			}
+		}
+		for _, ms := range graph.Objects(term, rdf.SysML+pOwnedRelationship) {
+			appendMembership(ms)
+		}
+		for _, ms := range graph.Objects(term, rdf.SysML+pOwnedMembership) {
+			appendMembership(ms)
 		}
 		for _, m := range graph.Objects(term, rdf.SysML+pOwnedMember) {
 			appendMember(m)
@@ -629,6 +632,69 @@ func deriveNormativeGraph(graph *rdf.Graph, metaclasses map[rdf.Term]string) (*r
 		}
 	}
 
+	// The decoder orders an owner's members by the sysx:memberIndex each
+	// states, keeping the graph's subject order where none is stated. Where
+	// the positional order above — the order the names are derived by —
+	// differs from the subject order, state every member's place so both
+	// agree: a positional member takes its position, every other member
+	// keeps the slot it appears in, and a result expression keeps none —
+	// its trailing place is the absence of an index. An owner whose members
+	// state an index keeps it: the order it states is the order it takes.
+	for owner, members := range ownerMembers {
+		positional := map[string]bool{}
+		for _, m := range members {
+			positional[m.Value] = true
+		}
+		var all, merged []rdf.Term
+		children := map[string]bool{}
+		indexed := false
+		next := 0
+		for _, subject := range graph.Subjects() {
+			if o, ok := memberOwner[subject.Value]; !ok || o.Value != owner {
+				continue
+			}
+			if graph.HasProperty(subject, rdf.OpenSysML+xMemberIndex) {
+				indexed = true
+				break
+			}
+			children[subject.Value] = true
+			all = append(all, subject)
+			if positional[subject.Value] {
+				merged = append(merged, members[next])
+				next++
+			} else {
+				merged = append(merged, subject)
+			}
+		}
+		if indexed {
+			continue
+		}
+		merged = append(merged, members[next:]...)
+		same := len(all) == len(merged)
+		for i := range all {
+			if same && all[i] != merged[i] {
+				same = false
+			}
+		}
+		if same {
+			continue
+		}
+		for i, m := range merged {
+			if !children[m.Value] || meta(memberMembership[m.Value]) == mResultExpressionMembership {
+				continue
+			}
+			graph.Add(m, rdf.OpenSysMLTerm(xMemberIndex), rdf.Int(i))
+			if ms, ok := memberMembership[m.Value]; ok {
+				graph.Add(ms, rdf.OpenSysMLTerm(xMemberIndex), rdf.Int(i))
+			}
+			for _, ms := range graph.Objects(rdf.IRI(owner), rdf.SysML+pOwnedRelationship) {
+				if meta(ms) == mMembership && firstIRI(graph, ms, pMemberElement) == m {
+					graph.Add(ms, rdf.OpenSysMLTerm(xMemberIndex), rdf.Int(i))
+				}
+			}
+		}
+	}
+
 	// An element with members is written with a body; the compact form states
 	// no hasBody flag.
 	bodied := map[string]bool{}
@@ -766,6 +832,21 @@ func deriveNormativeGraph(graph *rdf.Graph, metaclasses map[rdf.Term]string) (*r
 			return q
 		}
 		q := qualify(base, name, 0)
+		// A name an earlier sibling of the same owner already took is not an
+		// identity: the later member is addressed by its position, as the
+		// mapping names a member declared unnamed.
+		for i, member := range ownerMembers[owner.Value] {
+			if member != subject {
+				continue
+			}
+			for _, earlier := range ownerMembers[owner.Value][:i] {
+				if prior := nameOf(earlier); prior != "" && prior == q {
+					q = qualify(base, "", i)
+					break
+				}
+			}
+			break
+		}
 		qname[subject.Value] = q
 		return q
 	}
@@ -794,8 +875,9 @@ func deriveNormativeGraph(graph *rdf.Graph, metaclasses map[rdf.Term]string) (*r
 			if name == "" {
 				continue
 			}
-			graph.Add(subject, rdf.SysMLTerm(pQualifiedName), rdf.String(name))
-			qname[subject.Value] = name
+			segment := identitySegment(name)
+			graph.Add(subject, rdf.SysMLTerm(pQualifiedName), rdf.String(segment))
+			qname[subject.Value] = segment
 			continue
 		}
 		_ = owner
@@ -870,18 +952,10 @@ func deriveTransitionHeads(graph *rdf.Graph, meta func(rdf.Term) string) {
 					graph.Add(subject, rdf.SysMLTerm(pSource), member)
 				}
 			case mTransitionFeatureMembership:
-				kind, _ := graph.Lexical(ms, rdf.SysML+pKind)
-				if kind == "effect" {
+				// The trigger AcceptActionUsage is read by the decoder itself.
+				if kind, _ := graph.Lexical(ms, rdf.SysML+pKind); kind == "effect" {
 					graph.Add(subject, rdf.OpenSysMLTerm(xEffectMember), member)
 					graph.Add(subject, rdf.OpenSysMLTerm(xHasEffect), rdf.Bool(true))
-					continue
-				}
-				if kind != "trigger" {
-					continue
-				}
-				if trigger, ok := acceptTriggerText(graph, meta, member); ok &&
-					!graph.HasProperty(subject, rdf.OpenSysML+xTrigger) {
-					graph.Add(subject, rdf.OpenSysMLTerm(xTrigger), rdf.String(trigger))
 				}
 			case mOwningMembership:
 				if meta(member) == mSuccession {
@@ -1362,12 +1436,11 @@ func unresolvedNames(graph *rdf.Graph, meta func(rdf.Term) string) (map[string]s
 	return unresolvedID, unresolvedTR
 }
 
-// plainQualifiedName spells a qualified name the way this mapping's
-// sysml:qualifiedName does: the segments unquoted, joined by `::`.
+// plainQualifiedName spells the identity form of a qualified name.
 func plainQualifiedName(name string) string {
-	segments, ok := source.QualifiedNameSegments(name)
-	if !ok {
-		return name
+	segments := identitySegments(name)
+	for i, segment := range segments {
+		segments[i] = identitySegment(identityName(segment))
 	}
 	return strings.Join(segments, "::")
 }

@@ -17,11 +17,16 @@ from opensysml.capabilities import (
     CAPABILITY_AUTHORING,
     CAPABILITY_CONNECTION_AUTHORING,
     CAPABILITY_MEMBER_MODIFIERS,
+    CAPABILITY_CONSTRAINT_BODY_AUTHORING,
+    CAPABILITY_STATE_ACTION_AUTHORING,
     CAPABILITY_REQUIREMENT_CONSTRAINT_AUTHORING,
     CAPABILITY_SATISFY_AUTHORING,
     CAPABILITY_TRANSITION_AUTHORING,
     CAPABILITY_SEQUENCE_AUTHORING,
     CAPABILITY_ACTION_BODY_STATEMENT_AUTHORING,
+    CAPABILITY_IMPORT_AUTHORING,
+    CAPABILITY_DOCUMENTATION_AUTHORING,
+    CAPABILITY_COMMENT_AUTHORING,
     CAPABILITY_INLINE_LANGUAGE,
     CAPABILITY_STRICT_CONFORMANCE,
     CAPABILITY_COMPLEX_VALUES,
@@ -1019,7 +1024,14 @@ class Connection:
                 ``('rename', target, new_name)`` tuples, as
                 :class:`~opensysml.edit.Editor` collects them, along with
                 ``('add_connection', owner, kind, from_end, to_end, name, type)`` and
-                ``('add_sequence', owner, keyword, ref, member_kind, member_name, type, after)``
+                ``('add_sequence', owner, keyword, ref, member_kind, member_name, type, after)``,
+                add-member tuples of 8, 12, 13 or 14 fields; the last carries
+                modifiers, an optional constraint ``body_expression``, and optional
+                documentation text. It also accepts
+                ``('add_import', owner, visibility, target, recursive, import_all, filters)``
+                and ``('add_documentation', target, body, name, locale, replace)``,
+                ``('add_comment', owner, body, name, about, locale)`` (``about`` a list
+                or tuple of names) and ``('add_note', target, text)``
 
         Returns:
             EditResult: The edited notation and what each operation changed
@@ -1044,6 +1056,11 @@ class Connection:
         requests_transition_authoring = False
         requests_sequence_authoring = False
         requests_action_body_statement_authoring = False
+        requests_constraint_body_authoring = False
+        requests_state_action_authoring = False
+        requests_import_authoring = False
+        requests_documentation_authoring = False
+        requests_comment_authoring = False
         for operation_data in operations:
             operation = request.operations.add()
             kind = operation_data[0]
@@ -1056,14 +1073,23 @@ class Connection:
                 operation.rename.target = target
                 operation.rename.new_name = text
             elif kind == 'add_member':
-                if len(operation_data) not in (8, 12):
+                if len(operation_data) not in (8, 12, 13, 14):
                     raise ValueError(
-                        "malformed add_member operation: expected 8 or 12 fields"
+                        "malformed add_member operation: expected 8, 12, 13 or 14 fields"
                     )
-                (
-                    _, owner, member_kind, name, type_name, multiplicity, value,
-                    specializes, *modifiers
-                ) = operation_data
+                _, owner, member_kind, name, type_name, multiplicity, value, specializes = operation_data[:8]
+                modifiers = operation_data[8:12] if len(operation_data) >= 12 else ()
+                body_expression = operation_data[12] if len(operation_data) == 13 else ""
+                if len(operation_data) == 14:
+                    body_expression, doc = operation_data[12:14]
+                else:
+                    doc = ""
+                if not isinstance(body_expression, str):
+                    raise ValueError(
+                        "malformed add_member operation: expression must be notation text"
+                    )
+                if not isinstance(doc, str):
+                    raise ValueError("malformed add_member operation: doc must be text")
                 require(info, CAPABILITY_AUTHORING, upgrade_remedy(CAPABILITY_AUTHORING))
                 requests_authoring = True
                 requests_implicit_parameters = (
@@ -1073,6 +1099,14 @@ class Connection:
                 add.owner, add.kind, add.name = owner, member_kind, name
                 add.type, add.multiplicity, add.value = type_name, multiplicity, value
                 add.specializes.extend(specializes)
+                if doc:
+                    require(
+                        info,
+                        CAPABILITY_DOCUMENTATION_AUTHORING,
+                        upgrade_remedy(CAPABILITY_DOCUMENTATION_AUTHORING),
+                    )
+                    requests_documentation_authoring = True
+                    add.doc = doc
                 if modifiers:
                     abstract, redefines, default, direction = modifiers
                     if not isinstance(abstract, bool) or not isinstance(default, bool):
@@ -1095,6 +1129,25 @@ class Connection:
                         abstract or bool(redefines) or default or bool(direction)
                         or member_kind in ("ref", "return")
                     )
+                add.body_expression = body_expression
+                if body_expression or member_kind in (
+                    "assert", "assert not", "assert constraint", "assert not constraint"
+                ):
+                    require(
+                        info,
+                        CAPABILITY_CONSTRAINT_BODY_AUTHORING,
+                        upgrade_remedy(CAPABILITY_CONSTRAINT_BODY_AUTHORING),
+                    )
+                    requests_constraint_body_authoring = True
+                if member_kind in (
+                    "exhibit state", "exhibit", "entry action", "do action", "exit action"
+                ):
+                    require(
+                        info,
+                        CAPABILITY_STATE_ACTION_AUTHORING,
+                        upgrade_remedy(CAPABILITY_STATE_ACTION_AUTHORING),
+                    )
+                    requests_state_action_authoring = True
             elif kind == 'add_connection':
                 if len(operation_data) != 7:
                     raise ValueError(
@@ -1187,6 +1240,90 @@ class Connection:
                     _add_sequence_message(operation.add_sequence, operation_data)
                     or requests_action_body_statement_authoring
                 )
+            elif kind == 'add_import':
+                if len(operation_data) != 7:
+                    raise ValueError("malformed add_import operation: expected 7 fields")
+                (
+                    _, owner, visibility, target, recursive, import_all, filters
+                ) = operation_data
+                if not all(isinstance(text, str) for text in (
+                    owner, visibility, target
+                )) or not isinstance(recursive, bool) or \
+                        not isinstance(import_all, bool) or \
+                        not isinstance(filters, tuple) or \
+                        not all(isinstance(text, str) for text in filters):
+                    raise ValueError("malformed add_import operation: text fields, recursive, import_all and filters must be valid")
+                require(info, CAPABILITY_AUTHORING, upgrade_remedy(CAPABILITY_AUTHORING))
+                require(
+                    info,
+                    CAPABILITY_IMPORT_AUTHORING,
+                    upgrade_remedy(CAPABILITY_IMPORT_AUTHORING),
+                )
+                requests_authoring = True
+                requests_import_authoring = True
+                add = operation.add_import
+                add.owner, add.visibility, add.target = owner, visibility, target
+                add.is_recursive, add.is_import_all = recursive, import_all
+                add.filters.extend(filters)
+            elif kind == 'add_documentation':
+                if len(operation_data) != 6:
+                    raise ValueError("malformed add_documentation operation: expected 6 fields")
+                _, target, body, name, locale, replace = operation_data
+                if not all(isinstance(text, str) for text in (
+                    target, body, name, locale
+                )) or not isinstance(replace, bool):
+                    raise ValueError(
+                        "malformed add_documentation operation: text fields and replace must be valid"
+                    )
+                require(info, CAPABILITY_AUTHORING, upgrade_remedy(CAPABILITY_AUTHORING))
+                require(
+                    info,
+                    CAPABILITY_DOCUMENTATION_AUTHORING,
+                    upgrade_remedy(CAPABILITY_DOCUMENTATION_AUTHORING),
+                )
+                requests_authoring = True
+                requests_documentation_authoring = True
+                add = operation.add_documentation
+                add.target, add.body, add.name, add.locale = target, body, name, locale
+                add.replace = replace
+            elif kind == 'add_comment':
+                if len(operation_data) != 6:
+                    raise ValueError("malformed add_comment operation: expected 6 fields")
+                _, owner, body, name, about, locale = operation_data
+                if isinstance(about, (list, tuple)):
+                    about = list(about)
+                else:
+                    about = None
+                if not all(isinstance(text, str) for text in (owner, body, name, locale)) or (
+                    about is None or not all(isinstance(x, str) for x in about)
+                ):
+                    raise ValueError(
+                        "malformed add_comment operation: text fields and about must be valid"
+                    )
+                require(info, CAPABILITY_AUTHORING, upgrade_remedy(CAPABILITY_AUTHORING))
+                require(
+                    info, CAPABILITY_COMMENT_AUTHORING,
+                    upgrade_remedy(CAPABILITY_COMMENT_AUTHORING),
+                )
+                requests_authoring = True
+                requests_comment_authoring = True
+                add = operation.add_comment
+                add.owner, add.body, add.name, add.locale = owner, body, name, locale
+                add.about.extend(about)
+            elif kind == 'add_note':
+                if len(operation_data) != 3 or not all(
+                    isinstance(text, str) for text in operation_data[1:]
+                ):
+                    raise ValueError("malformed add_note operation: expected target and text")
+                _, target, text = operation_data
+                require(info, CAPABILITY_AUTHORING, upgrade_remedy(CAPABILITY_AUTHORING))
+                require(
+                    info, CAPABILITY_COMMENT_AUTHORING,
+                    upgrade_remedy(CAPABILITY_COMMENT_AUTHORING),
+                )
+                requests_authoring = True
+                requests_comment_authoring = True
+                operation.add_note.target, operation.add_note.text = target, text
             elif kind == 'delete':
                 if len(operation_data) != 3 or not isinstance(operation_data[2], bool):
                     raise ValueError(
@@ -1209,8 +1346,8 @@ class Connection:
                 raise ValueError(
                     f"unknown edit operation {kind!r}: expected set_value, rename, "
                     f"add_member, add_connection, add_satisfy, "
-                    f"add_requirement_constraint, add_transition, add_sequence, "
-                    f"delete or move"
+                    f"add_requirement_constraint, add_transition, add_sequence, add_import, "
+                    f"add_documentation, add_comment, add_note, delete or move"
                 )
 
         requested_capabilities = [CAPABILITY_APPLY_EDITS]
@@ -1233,6 +1370,12 @@ class Connection:
                 upgrade_remedy(CAPABILITY_ACTION_BODY_STATEMENT_AUTHORING),
             )
             requested_capabilities.append(CAPABILITY_ACTION_BODY_STATEMENT_AUTHORING)
+        if requests_import_authoring:
+            requested_capabilities.append(CAPABILITY_IMPORT_AUTHORING)
+        if requests_documentation_authoring:
+            requested_capabilities.append(CAPABILITY_DOCUMENTATION_AUTHORING)
+        if requests_comment_authoring:
+            requested_capabilities.append(CAPABILITY_COMMENT_AUTHORING)
         if requests_member_modifiers:
             require(
                 info, CAPABILITY_MEMBER_MODIFIERS,
@@ -1245,6 +1388,10 @@ class Connection:
                 upgrade_remedy(CAPABILITY_IMPLICIT_PARAMETERS),
             )
             requested_capabilities.append(CAPABILITY_IMPLICIT_PARAMETERS)
+        if requests_constraint_body_authoring:
+            requested_capabilities.append(CAPABILITY_CONSTRAINT_BODY_AUTHORING)
+        if requests_state_action_authoring:
+            requested_capabilities.append(CAPABILITY_STATE_ACTION_AUTHORING)
         with translate_rpc_errors(
             unimplemented=self._capability_refusal(requested_capabilities)
         ):

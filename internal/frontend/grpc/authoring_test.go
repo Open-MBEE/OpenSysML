@@ -2,6 +2,7 @@ package grpc
 
 import (
 	"context"
+	"encoding/json"
 	"slices"
 	"strings"
 	"testing"
@@ -9,6 +10,7 @@ import (
 	"connectrpc.com/connect"
 	pb "github.com/Open-MBEE/OpenSysML/api/proto"
 	"github.com/Open-MBEE/OpenSysML/internal/check/edit"
+	"google.golang.org/protobuf/proto"
 )
 
 func addMemberOp(owner, kind, name string) *pb.EditOperation {
@@ -58,6 +60,33 @@ func addSequenceOp(owner, keyword, ref, memberKind, memberName, typ, after strin
 			MemberKind: memberKind, MemberName: memberName,
 			Type: typ, After: after,
 		},
+	}}
+}
+
+func addImportOp(owner, visibility, target string, recursive, all bool, filters []string) *pb.EditOperation {
+	return &pb.EditOperation{Operation: &pb.EditOperation_AddImport{
+		AddImport: &pb.AddImportEdit{
+			Owner: owner, Visibility: visibility, Target: target,
+			IsRecursive: recursive, IsImportAll: all, Filters: filters,
+		},
+	}}
+}
+
+func addDocumentationOp(target, body string, replace bool) *pb.EditOperation {
+	return &pb.EditOperation{Operation: &pb.EditOperation_AddDocumentation{
+		AddDocumentation: &pb.AddDocumentationEdit{Target: target, Body: body, Replace: replace},
+	}}
+}
+
+func addCommentOp(owner, body string) *pb.EditOperation {
+	return &pb.EditOperation{Operation: &pb.EditOperation_AddComment{
+		AddComment: &pb.AddCommentEdit{Owner: owner, Body: body},
+	}}
+}
+
+func addNoteOp(target, text string) *pb.EditOperation {
+	return &pb.EditOperation{Operation: &pb.EditOperation_AddNote{
+		AddNote: &pb.AddNoteEdit{Target: target, Text: text},
 	}}
 }
 
@@ -398,6 +427,63 @@ func TestApplyEditsImplicitParameter(t *testing.T) {
 	}
 }
 
+func TestApplyEditsAddImportRequiresImportAuthoring(t *testing.T) {
+	srv := mustNewServiceWithout(t, CapabilityImportAuthoring)
+	ctx := context.Background()
+	hash := mustParsedModel(t, srv, "package P {\n}\n")
+	_, err := srv.ApplyEdits(ctx, &pb.ApplyEditsRequest{
+		ModelHash: hash,
+		Operations: []*pb.EditOperation{
+			addImportOp("P", "", "ScalarValues::*", false, false, nil),
+		},
+	})
+	if connect.CodeOf(err) != connect.CodeUnimplemented ||
+		!strings.Contains(err.Error(), CapabilityImportAuthoring) {
+		t.Fatalf("ApplyEdits refusal = %v, want UNIMPLEMENTED naming %q", err, CapabilityImportAuthoring)
+	}
+
+	added, err := srv.ApplyEdits(ctx, &pb.ApplyEditsRequest{
+		ModelHash: hash, Operations: []*pb.EditOperation{addMemberOp("P", "part", "a")},
+	})
+	if err != nil {
+		t.Fatalf("ApplyEdits add_member: %v", err)
+	}
+	if added.Error != "" || !strings.Contains(added.Content, "part a") {
+		t.Fatalf("add_member response = %+v, want the new part", added)
+	}
+}
+
+func TestApplyEditsAddImportWritesAndRefuses(t *testing.T) {
+	srv := mustNewService(t, 10)
+	ctx := context.Background()
+	hash := mustParsedModel(t, srv, "package P {\n}\n")
+	added, err := srv.ApplyEdits(ctx, &pb.ApplyEditsRequest{
+		ModelHash: hash,
+		Operations: []*pb.EditOperation{
+			addImportOp("P", "", "ScalarValues::*", false, false, nil),
+		},
+	})
+	if err != nil {
+		t.Fatalf("ApplyEdits: %v", err)
+	}
+	if added.Error != "" || !strings.Contains(added.Content, "private import ScalarValues::*;") {
+		t.Fatalf("add_import response = %+v, want the import written", added)
+	}
+
+	refused, err := srv.ApplyEdits(ctx, &pb.ApplyEditsRequest{
+		ModelHash: hash,
+		Operations: []*pb.EditOperation{
+			addImportOp("P", "", "Nope::*", false, false, nil),
+		},
+	})
+	if err != nil {
+		t.Fatalf("ApplyEdits refusal: %v", err)
+	}
+	if refused.Error == "" || refused.Content != "" {
+		t.Fatalf("unresolved import response = %+v, want an in-band refusal", refused)
+	}
+}
+
 func TestApplyEditsNewAuthoringOperationsRequireDedicatedCapabilities(t *testing.T) {
 	tests := []struct {
 		name       string
@@ -453,6 +539,61 @@ func TestApplyEditsNewAuthoringOperationsRequireDedicatedCapabilities(t *testing
 			capability: CapabilityImplicitParameters,
 			operation: &pb.EditOperation{Operation: &pb.EditOperation_AddMember{
 				AddMember: &pb.AddMemberEdit{Owner: "Demo", Kind: "", Name: "x", Direction: "in"},
+			}},
+		},
+		{
+			name:       "constraint body",
+			capability: CapabilityConstraintBodyAuthoring,
+			operation: &pb.EditOperation{Operation: &pb.EditOperation_AddMember{
+				AddMember: &pb.AddMemberEdit{
+					Owner: "Demo", Kind: "constraint", Name: "c", BodyExpression: "true",
+				},
+			}},
+		},
+		{
+			name:       "assert constraint",
+			capability: CapabilityConstraintBodyAuthoring,
+			operation:  addMemberOp("Demo", "assert constraint", "c"),
+		},
+		{
+			name:       "reference assertion",
+			capability: CapabilityConstraintBodyAuthoring,
+			operation:  addMemberOp("Demo", "assert", "c"),
+		},
+		{
+			name:       "negated reference assertion",
+			capability: CapabilityConstraintBodyAuthoring,
+			operation:  addMemberOp("Demo", "assert not", "c"),
+		},
+		{
+			name:       "calculation result expression",
+			capability: CapabilityConstraintBodyAuthoring,
+			operation: &pb.EditOperation{Operation: &pb.EditOperation_AddMember{
+				AddMember: &pb.AddMemberEdit{
+					Owner: "Demo", Kind: "calc def", Name: "D", BodyExpression: "x * 2",
+				},
+			}},
+		},
+		{
+			name:       "state behavior kind",
+			capability: CapabilityStateActionAuthoring,
+			operation:  addMemberOp("Demo", "exhibit state", "shown"),
+		},
+		{
+			name:       "import",
+			capability: CapabilityImportAuthoring,
+			operation:  addImportOp("Demo", "", "ScalarValues::*", false, false, nil),
+		},
+		{
+			name:       "documentation",
+			capability: CapabilityDocumentationAuthoring,
+			operation:  addDocumentationOp("Demo::t", "A part.", false),
+		},
+		{
+			name:       "member documentation",
+			capability: CapabilityDocumentationAuthoring,
+			operation: &pb.EditOperation{Operation: &pb.EditOperation_AddMember{
+				AddMember: &pb.AddMemberEdit{Owner: "Demo", Kind: "part def", Name: "X", Doc: "A definition."},
 			}},
 		},
 	}
@@ -511,6 +652,394 @@ func TestApplyEditsNewOperationsRoundTrip(t *testing.T) {
 	}
 }
 
+func TestApplyEditsReferenceAssertionsAndResultBodiesRoundTrip(t *testing.T) {
+	srv := mustNewService(t, 10)
+	hash := mustParsedModel(t, srv, `package Demo {
+    constraint c;
+}
+`)
+	ops := []*pb.EditOperation{
+		addMemberOp("Demo", "assert", "c"),
+		addMemberOp("Demo", "assert not", "c"),
+		addMemberOp("Demo", "assert", "c"),
+		{Operation: &pb.EditOperation_AddMember{AddMember: &pb.AddMemberEdit{
+			Owner: "Demo", Kind: "calc def", Name: "Double", BodyExpression: "3 * 2",
+		}}},
+		{Operation: &pb.EditOperation_AddMember{AddMember: &pb.AddMemberEdit{
+			Owner: "Demo", Kind: "case def", Name: "Example", BodyExpression: "1",
+		}}},
+	}
+	added, err := srv.ApplyEdits(context.Background(), &pb.ApplyEditsRequest{
+		ModelHash: hash, Operations: ops,
+	})
+	if err != nil {
+		t.Fatalf("ApplyEdits: %v", err)
+	}
+	if added.Error != "" {
+		t.Fatalf("edit refused: %s\n%s", added.Error, added.Content)
+	}
+	for _, want := range []string{
+		"assert c;", "assert not c;", "calc def Double { 3 * 2 }",
+		"case def Example { 1 }",
+	} {
+		if !strings.Contains(added.Content, want) {
+			t.Errorf("edited content missing %q:\n%s", want, added.Content)
+		}
+	}
+	if got := strings.Count(added.Content, "assert c;"); got != 2 {
+		t.Errorf("assert c count = %d, want 2:\n%s", got, added.Content)
+	}
+	if reparsed := mustParsedModel(t, srv, added.Content); reparsed == "" {
+		t.Fatal("edited notation did not parse")
+	}
+}
+
+func TestApplyEditsConstraintBodiesAndStateBehaviorRoundTrip(t *testing.T) {
+	srv := mustNewService(t, 10)
+	hash := mustParsedModel(t, srv, `package Demo {
+    constraint def ConstraintType;
+    action def GenerateHeat;
+    state def Cycle {
+        state heating;
+    }
+    part def Toaster {
+        state cycle : Cycle;
+    }
+    part toaster : Toaster;
+    part def Host;
+}
+`)
+	ops := []*pb.EditOperation{
+		{Operation: &pb.EditOperation_AddMember{AddMember: &pb.AddMemberEdit{
+			Owner: "Demo", Kind: "constraint def", Name: "C", BodyExpression: "true",
+		}}},
+		{Operation: &pb.EditOperation_AddMember{AddMember: &pb.AddMemberEdit{
+			Owner: "Demo", Kind: "constraint", Name: "c", BodyExpression: "true",
+		}}},
+		{Operation: &pb.EditOperation_AddMember{AddMember: &pb.AddMemberEdit{
+			Owner: "Demo", Kind: "assert constraint", Name: "positive", BodyExpression: "true",
+		}}},
+		{Operation: &pb.EditOperation_AddMember{AddMember: &pb.AddMemberEdit{
+			Owner: "Demo", Kind: "assert not constraint", Name: "negative", BodyExpression: "false",
+		}}},
+		{Operation: &pb.EditOperation_AddMember{AddMember: &pb.AddMemberEdit{
+			Owner: "Demo", Kind: "assert constraint", Type: "ConstraintType",
+		}}},
+		{Operation: &pb.EditOperation_AddMember{AddMember: &pb.AddMemberEdit{
+			Owner: "Demo::Host", Kind: "exhibit state", Name: "shown", Type: "Cycle",
+		}}},
+		{Operation: &pb.EditOperation_AddMember{AddMember: &pb.AddMemberEdit{
+			Owner: "Demo::Host", Kind: "exhibit", Name: "toaster.cycle",
+		}}},
+		{Operation: &pb.EditOperation_AddMember{AddMember: &pb.AddMemberEdit{
+			Owner: "Demo::Cycle", Kind: "entry action", Name: "entryWork", Type: "GenerateHeat",
+		}}},
+		{Operation: &pb.EditOperation_AddMember{AddMember: &pb.AddMemberEdit{
+			Owner: "Demo::Cycle", Kind: "do action", Name: "doWork", Type: "GenerateHeat",
+		}}},
+		{Operation: &pb.EditOperation_AddMember{AddMember: &pb.AddMemberEdit{
+			Owner: "Demo::Cycle", Kind: "exit action", Name: "exitWork", Type: "GenerateHeat",
+		}}},
+	}
+	added, err := srv.ApplyEdits(context.Background(), &pb.ApplyEditsRequest{
+		ModelHash: hash, Operations: ops,
+	})
+	if err != nil {
+		t.Fatalf("ApplyEdits: %v", err)
+	}
+	if added.Error != "" {
+		t.Fatalf("edit refused: %s\n%s", added.Error, added.Content)
+	}
+	for _, want := range []string{
+		"constraint def C { true }",
+		"constraint c { true }",
+		"assert constraint positive { true }",
+		"assert not constraint negative { false }",
+		"assert constraint : ConstraintType;",
+		"exhibit state shown : Cycle;",
+		"exhibit toaster.cycle;",
+		"entry action entryWork : GenerateHeat;",
+		"do action doWork : GenerateHeat;",
+		"exit action exitWork : GenerateHeat;",
+	} {
+		if !strings.Contains(added.Content, want) {
+			t.Errorf("edited content missing %q:\n%s", want, added.Content)
+		}
+	}
+	if reparsed := mustParsedModel(t, srv, added.Content); reparsed == "" {
+		t.Fatal("edited notation did not parse")
+	}
+}
+
+func TestApplyEditsNewConstraintAndStateKindsRefuseIllegalCases(t *testing.T) {
+	srv := mustNewService(t, 10)
+	hash := mustParsedModel(t, srv, `package Demo {
+    enum def Values { enum one; }
+    part def P;
+}`)
+	for _, operation := range []*pb.EditOperation{
+		{Operation: &pb.EditOperation_AddMember{AddMember: &pb.AddMemberEdit{
+			Owner: "Demo::Values", Kind: "assert constraint", Name: "bad", BodyExpression: "true",
+		}}},
+		{Operation: &pb.EditOperation_AddMember{AddMember: &pb.AddMemberEdit{
+			Owner: "Demo::P", Kind: "part", Name: "bad", BodyExpression: "true",
+		}}},
+		{Operation: &pb.EditOperation_AddMember{AddMember: &pb.AddMemberEdit{
+			Owner: "Demo::P", Kind: "do action", Name: "bad",
+		}}},
+	} {
+		response, err := srv.ApplyEdits(context.Background(), &pb.ApplyEditsRequest{
+			ModelHash: hash, Operations: []*pb.EditOperation{operation},
+		})
+		if err != nil {
+			t.Fatalf("ApplyEdits transport: %v", err)
+		}
+		if response.Content != "" || response.Failure != pb.EditFailure_EDIT_FAILURE_ILLEGAL_KIND {
+			t.Errorf("ApplyEdits refusal = %+v, want illegal-kind with no content", response)
+		}
+	}
+}
+
+func TestApplyEditsConstraintRuntimeMatchesParsedTarget(t *testing.T) {
+	ctx := context.Background()
+	srv := mustNewService(t, 10)
+	source := `package P {
+    private import ScalarValues::*;
+    attribute x : Real = 3.0;
+}`
+	hash := mustParsedModel(t, srv, source)
+	edited, err := srv.ApplyEdits(ctx, &pb.ApplyEditsRequest{
+		ModelHash: hash,
+		Operations: []*pb.EditOperation{
+			{Operation: &pb.EditOperation_AddMember{AddMember: &pb.AddMemberEdit{
+				Owner: "P", Kind: "assert constraint", Name: "holding", BodyExpression: "x == 3.0",
+			}}},
+			{Operation: &pb.EditOperation_AddMember{AddMember: &pb.AddMemberEdit{
+				Owner: "P", Kind: "assert not constraint", Name: "negated", BodyExpression: "x < 0.0",
+			}}},
+			{Operation: &pb.EditOperation_AddMember{AddMember: &pb.AddMemberEdit{
+				Owner: "P", Kind: "assert constraint", Name: "violated", BodyExpression: "x < 0.0",
+			}}},
+		},
+	})
+	if err != nil || edited.Error != "" {
+		t.Fatalf("ApplyEdits: response=%+v, err=%v", edited, err)
+	}
+	target := `package P {
+    private import ScalarValues::*;
+    attribute x : Real = 3.0;
+    assert constraint holding { x == 3.0 }
+    assert not constraint negated { x < 0.0 }
+    assert constraint violated { x < 0.0 }
+}`
+	editedHash := mustParsedModel(t, srv, edited.Content)
+	targetHash := mustParsedModel(t, srv, target)
+	for _, tc := range []struct {
+		symbol string
+		holds  bool
+	}{
+		{"P::holding", true},
+		{"P::negated", true},
+		{"P::violated", false},
+	} {
+		editedVerdict, err := srv.VerifyConstraint(ctx, &pb.VerifyConstraintRequest{
+			ModelHash: editedHash, SymbolId: tc.symbol,
+		})
+		if err != nil || editedVerdict.Error != "" {
+			t.Fatalf("edited VerifyConstraint(%s): response=%+v err=%v", tc.symbol, editedVerdict, err)
+		}
+		targetVerdict, err := srv.VerifyConstraint(ctx, &pb.VerifyConstraintRequest{
+			ModelHash: targetHash, SymbolId: tc.symbol,
+		})
+		if err != nil || targetVerdict.Error != "" {
+			t.Fatalf("target VerifyConstraint(%s): response=%+v err=%v", tc.symbol, targetVerdict, err)
+		}
+		if editedVerdict.Verdict.Holds != tc.holds ||
+			editedVerdict.Verdict.Holds != targetVerdict.Verdict.Holds ||
+			editedVerdict.Verdict.Condition != targetVerdict.Verdict.Condition {
+			t.Errorf("%s edited verdict=%+v target=%+v, want holds=%t",
+				tc.symbol, editedVerdict.Verdict, targetVerdict.Verdict, tc.holds)
+		}
+	}
+}
+
+func TestApplyEditsStateActionExecutionMatchesParsedTarget(t *testing.T) {
+	ctx := context.Background()
+	srv := mustNewService(t, 10)
+	source := `package P {
+    action def Work {
+        out result : ScalarValues::Real = 2.0;
+    }
+    state def Machine {
+        entry; then active;
+        state active;
+    }
+}`
+	hash := mustParsedModel(t, srv, source)
+	edited, err := srv.ApplyEdits(ctx, &pb.ApplyEditsRequest{
+		ModelHash: hash,
+		Operations: []*pb.EditOperation{{Operation: &pb.EditOperation_AddMember{
+			AddMember: &pb.AddMemberEdit{
+				Owner: "P::Machine::active", Kind: "do action", Name: "work", Type: "Work",
+			},
+		}}},
+	})
+	if err != nil || edited.Error != "" {
+		t.Fatalf("ApplyEdits: response=%+v err=%v", edited, err)
+	}
+	target := `package P {
+    action def Work {
+        out result : ScalarValues::Real = 2.0;
+    }
+    state def Machine {
+        entry; then active;
+        state active {
+            do action work : Work;
+        }
+    }
+}`
+	editedHash := mustParsedModel(t, srv, edited.Content)
+	targetHash := mustParsedModel(t, srv, target)
+	editedRun, err := srv.ExecuteState(ctx, &pb.ExecuteStateRequest{
+		ModelHash: editedHash, StateMachineSymbolId: "P::Machine",
+	})
+	if err != nil || editedRun.Error != "" {
+		t.Fatalf("edited ExecuteState: response=%+v err=%v", editedRun, err)
+	}
+	targetRun, err := srv.ExecuteState(ctx, &pb.ExecuteStateRequest{
+		ModelHash: targetHash, StateMachineSymbolId: "P::Machine",
+	})
+	if err != nil || targetRun.Error != "" {
+		t.Fatalf("target ExecuteState: response=%+v err=%v", targetRun, err)
+	}
+	if !proto.Equal(editedRun, targetRun) {
+		t.Fatalf("edited state run=%+v target=%+v", editedRun, targetRun)
+	}
+}
+
+func TestApplyEditsDocumentationRoundTrip(t *testing.T) {
+	srv := mustNewService(t, 10)
+	hash := mustParsedModel(t, srv, "package Demo {\n    item def Bread;\n}\n")
+	added, err := srv.ApplyEdits(context.Background(), &pb.ApplyEditsRequest{
+		ModelHash: hash,
+		Operations: []*pb.EditOperation{
+			{Operation: &pb.EditOperation_AddMember{AddMember: &pb.AddMemberEdit{
+				Owner: "Demo", Kind: "action def", Name: "ToastBread", Doc: "Toast it.\nEvenly.",
+			}}},
+			{Operation: &pb.EditOperation_AddMember{AddMember: &pb.AddMemberEdit{
+				Owner: "Demo", Kind: "constraint", Name: "bounded",
+				BodyExpression: "true", Doc: "Checks true.",
+			}}},
+			addDocumentationOp("Demo::Bread", "Sliced.", false),
+			{Operation: &pb.EditOperation_AddDocumentation{AddDocumentation: &pb.AddDocumentationEdit{
+				Target: "Demo", Body: "The demo.", Name: "Summary", Locale: "en",
+			}}},
+		},
+	})
+	if err != nil {
+		t.Fatalf("ApplyEdits: %v", err)
+	}
+	if added.Error != "" {
+		t.Fatalf("edit refused: %s", added.Error)
+	}
+	want := "package Demo {\n    doc Summary locale \"en\" /* The demo.*/\n    item def Bread {\n" +
+		"        doc /* Sliced.*/\n    }\n    action def ToastBread {\n" +
+		"        doc /* Toast it.\n         * Evenly.*/\n    }\n    constraint bounded {\n" +
+		"        doc /* Checks true.*/\n        true\n    }\n}\n"
+	if added.Content != want {
+		t.Fatalf("content =\n%s\nwant\n%s", added.Content, want)
+	}
+
+	hash = mustParsedModel(t, srv, added.Content)
+	refused, err := srv.ApplyEdits(context.Background(), &pb.ApplyEditsRequest{
+		ModelHash:  hash,
+		Operations: []*pb.EditOperation{addDocumentationOp("Demo::Bread", "Again.", false)},
+	})
+	if err != nil {
+		t.Fatalf("ApplyEdits: %v", err)
+	}
+	if refused.Failure != pb.EditFailure_EDIT_FAILURE_MEMBER_NAME_TAKEN {
+		t.Fatalf("second documentation = %+v, want MEMBER_NAME_TAKEN", refused)
+	}
+	replaced, err := srv.ApplyEdits(context.Background(), &pb.ApplyEditsRequest{
+		ModelHash:  hash,
+		Operations: []*pb.EditOperation{addDocumentationOp("Demo::Bread", "Again.", true)},
+	})
+	if err != nil || replaced.Error != "" || !strings.Contains(replaced.Content, "doc /* Again.*/") ||
+		strings.Contains(replaced.Content, "Sliced.") {
+		t.Fatalf("replaced documentation = %+v, %v", replaced, err)
+	}
+}
+
+func TestApplyEditsCommentAndNoteRoundTrip(t *testing.T) {
+	srv := mustNewService(t, 10)
+	hash := mustParsedModel(t, srv, "package Demo {\n    item def Bread;\n    item def Toast;\n}\n")
+	body := " Browned.\n\tTwice. "
+	added, err := srv.ApplyEdits(context.Background(), &pb.ApplyEditsRequest{
+		ModelHash: hash,
+		Operations: []*pb.EditOperation{
+			{Operation: &pb.EditOperation_AddComment{AddComment: &pb.AddCommentEdit{
+				Owner: "Demo", Body: body, Name: "Why", About: []string{"Bread", "Demo::Toast"}, Locale: "en",
+			}}},
+			addCommentOp("", "Top."),
+			addNoteOp("Demo::Toast", "DimensionOneValue"),
+		},
+	})
+	if err != nil {
+		t.Fatalf("ApplyEdits: %v", err)
+	}
+	if added.Error != "" {
+		t.Fatalf("edit refused: %s", added.Error)
+	}
+	want := "package Demo {\n    item def Bread;\n    // DimensionOneValue\n    item def Toast;\n" +
+		"    comment Why about Bread, Demo::Toast locale \"en\" /*\n     *  Browned.\n     * \tTwice. */\n}\n" +
+		"comment /* Top.*/\n"
+	if added.Content != want {
+		t.Fatalf("content =\n%s\nwant\n%s", added.Content, want)
+	}
+
+	hash = mustParsedModel(t, srv, added.Content)
+	converted := mustConvert(t, srv, &pb.ConvertRequest{
+		Source:     &pb.ConvertRequest_Content{Content: added.Content},
+		FromFormat: "sysml",
+		ToFormat:   "api-json",
+	})
+	var elements []map[string]any
+	if err := json.Unmarshal([]byte(converted.Content), &elements); err != nil {
+		t.Fatalf("api-json: %v", err)
+	}
+	var bodies []string
+	for _, element := range elements {
+		if element["@type"] == "Comment" {
+			bodies = append(bodies, element["body"].(string))
+		}
+	}
+	slices.Sort(bodies)
+	if !slices.Equal(bodies, []string{body, "Top."}) {
+		t.Fatalf("comment bodies = %q, want %q and %q", bodies, body, "Top.")
+	}
+
+	for _, tc := range []struct {
+		op   *pb.EditOperation
+		want pb.EditFailure
+	}{
+		{addNoteOp("Demo::Bread", "one\ntwo"), pb.EditFailure_EDIT_FAILURE_INVALID_VALUE},
+		{addNoteOp("Demo::Missing", "text"), pb.EditFailure_EDIT_FAILURE_UNKNOWN_TARGET},
+		{addCommentOp("Demo", "ends */ early"), pb.EditFailure_EDIT_FAILURE_INVALID_VALUE},
+		{addCommentOp("Demo::Missing", "text"), pb.EditFailure_EDIT_FAILURE_OWNER_UNKNOWN},
+	} {
+		refused, err := srv.ApplyEdits(context.Background(), &pb.ApplyEditsRequest{
+			ModelHash: hash, Operations: []*pb.EditOperation{tc.op},
+		})
+		if err != nil {
+			t.Fatalf("ApplyEdits: %v", err)
+		}
+		if refused.Failure != tc.want {
+			t.Errorf("%v = %s (%s), want %s", tc.op, refused.Failure, refused.Error, tc.want)
+		}
+	}
+}
+
 func TestApplyEditsNewFailureEnumsAreMapped(t *testing.T) {
 	tests := []struct {
 		failure edit.Failure
@@ -541,7 +1070,10 @@ func TestGetServerInfoAuthoringCapabilities(t *testing.T) {
 		CapabilityAuthoring, CapabilityConnectionAuthoring,
 		CapabilitySatisfyAuthoring, CapabilityRequirementConstraintAuthoring,
 		CapabilityMemberModifiers, CapabilityTransitionAuthoring,
-		CapabilityActionBodyStatementAuthoring, CapabilityInlineLanguage,
+		CapabilityConstraintBodyAuthoring, CapabilityStateActionAuthoring,
+		CapabilityImportAuthoring, CapabilityDocumentationAuthoring,
+		CapabilityCommentAuthoring,
+		CapabilityInlineLanguage, CapabilityActionBodyStatementAuthoring,
 	} {
 		if !slices.Contains(info.Capabilities, capability) {
 			t.Errorf("capabilities = %v, want %q", info.Capabilities, capability)

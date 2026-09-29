@@ -16,81 +16,91 @@ type memberKind struct {
 	languages  map[source.Kind]bool
 	definition bool
 	typed      bool
+	body       bool
 }
 
 // memberKinds are the kinds an OpAddMember writes by name alone: not connectors
 // (ConnectionKinds) nor connector definitions, which need ends; `fork f;` is neither typed nor a definition.
 // A kind only some bodies offer (`subject`, `actor`) is refused for any other owner.
 var memberKinds = map[string]memberKind{
-	"package":          {languages: bothLangs},
-	"ref":              {languages: sysmlOnly, typed: true},
-	"return":           {languages: sysmlOnly, typed: true},
-	"part def":         {languages: sysmlOnly, definition: true},
-	"part":             {languages: sysmlOnly, typed: true},
-	"attribute def":    {languages: sysmlOnly, definition: true},
-	"attribute":        {languages: sysmlOnly, typed: true},
-	"item def":         {languages: sysmlOnly, definition: true},
-	"item":             {languages: sysmlOnly, typed: true},
-	"port def":         {languages: sysmlOnly, definition: true},
-	"port":             {languages: sysmlOnly, typed: true},
-	"enum def":         {languages: sysmlOnly, definition: true},
-	"enum":             {languages: sysmlOnly, typed: true},
-	"individual def":   {languages: sysmlOnly, definition: true},
-	"individual":       {languages: sysmlOnly, typed: true},
-	"metadata def":     {languages: sysmlOnly, definition: true},
-	"metadata":         {languages: sysmlOnly, typed: true},
-	"view def":         {languages: sysmlOnly, definition: true},
-	"view":             {languages: sysmlOnly, typed: true},
-	"viewpoint def":    {languages: sysmlOnly, definition: true},
-	"viewpoint":        {languages: sysmlOnly, typed: true},
-	"rendering def":    {languages: sysmlOnly, definition: true},
-	"rendering":        {languages: sysmlOnly, typed: true},
-	"concern def":      {languages: sysmlOnly, definition: true},
-	"concern":          {languages: sysmlOnly, typed: true},
-	"calc def":         {languages: sysmlOnly, definition: true},
-	"calc":             {languages: sysmlOnly, typed: true},
-	"action def":       {languages: sysmlOnly, definition: true},
-	"action":           {languages: sysmlOnly, typed: true},
-	"perform action":   {languages: sysmlOnly, typed: true},
-	"perform":          {languages: sysmlOnly},
-	"state def":        {languages: sysmlOnly, definition: true},
-	"state":            {languages: sysmlOnly, typed: true},
-	"occurrence def":   {languages: sysmlOnly, definition: true},
-	"occurrence":       {languages: sysmlOnly, typed: true},
-	"allocation def":   {languages: sysmlOnly, definition: true},
-	"binding def":      {languages: sysmlOnly, definition: true},
-	"constraint def":   {languages: sysmlOnly, definition: true},
-	"constraint":       {languages: sysmlOnly, typed: true},
-	"requirement def":  {languages: sysmlOnly, definition: true},
-	"requirement":      {languages: sysmlOnly, typed: true},
-	"case def":         {languages: sysmlOnly, definition: true},
-	"case":             {languages: sysmlOnly, typed: true},
-	"analysis def":     {languages: sysmlOnly, definition: true},
-	"analysis":         {languages: sysmlOnly, typed: true},
-	"verification def": {languages: sysmlOnly, definition: true},
-	"verification":     {languages: sysmlOnly, typed: true},
-	"use case def":     {languages: sysmlOnly, definition: true},
-	"use case":         {languages: sysmlOnly, typed: true},
-	"subject":          {languages: sysmlOnly, typed: true},
-	"actor":            {languages: sysmlOnly, typed: true},
-	"stakeholder":      {languages: sysmlOnly, typed: true},
-	"objective":        {languages: sysmlOnly, typed: true},
-	"fork":             {languages: sysmlOnly},
-	"join":             {languages: sysmlOnly},
-	"merge":            {languages: sysmlOnly},
-	"decide":           {languages: sysmlOnly},
-	"class":            {languages: kermlOnly, definition: true},
-	"struct":           {languages: kermlOnly, definition: true},
-	"datatype":         {languages: kermlOnly, definition: true},
-	"classifier":       {languages: kermlOnly, definition: true},
-	"feature":          {languages: kermlOnly, typed: true},
-	"step":             {languages: kermlOnly, typed: true},
-	"expr":             {languages: kermlOnly, typed: true},
-	"bool":             {languages: kermlOnly, typed: true},
-	"behavior":         {languages: kermlOnly, definition: true},
-	"function":         {languages: kermlOnly, definition: true},
-	"predicate":        {languages: kermlOnly, definition: true},
-	"metaclass":        {languages: kermlOnly, definition: true},
+	"package":               {languages: bothLangs},
+	"ref":                   {languages: sysmlOnly, typed: true},
+	"return":                {languages: sysmlOnly, typed: true},
+	"part def":              {languages: sysmlOnly, definition: true},
+	"part":                  {languages: sysmlOnly, typed: true},
+	"attribute def":         {languages: sysmlOnly, definition: true},
+	"attribute":             {languages: sysmlOnly, typed: true},
+	"item def":              {languages: sysmlOnly, definition: true},
+	"item":                  {languages: sysmlOnly, typed: true},
+	"port def":              {languages: sysmlOnly, definition: true},
+	"port":                  {languages: sysmlOnly, typed: true},
+	"enum def":              {languages: sysmlOnly, definition: true},
+	"enum":                  {languages: sysmlOnly, typed: true},
+	"individual def":        {languages: sysmlOnly, definition: true},
+	"individual":            {languages: sysmlOnly, typed: true},
+	"metadata def":          {languages: sysmlOnly, definition: true},
+	"metadata":              {languages: sysmlOnly, typed: true},
+	"view def":              {languages: sysmlOnly, definition: true},
+	"view":                  {languages: sysmlOnly, typed: true},
+	"viewpoint def":         {languages: sysmlOnly, definition: true},
+	"viewpoint":             {languages: sysmlOnly, typed: true},
+	"rendering def":         {languages: sysmlOnly, definition: true},
+	"rendering":             {languages: sysmlOnly, typed: true},
+	"concern def":           {languages: sysmlOnly, definition: true},
+	"concern":               {languages: sysmlOnly, typed: true},
+	"calc def":              {languages: sysmlOnly, definition: true, body: true},
+	"calc":                  {languages: sysmlOnly, typed: true, body: true},
+	"action def":            {languages: sysmlOnly, definition: true},
+	"action":                {languages: sysmlOnly, typed: true},
+	"perform action":        {languages: sysmlOnly, typed: true},
+	"perform":               {languages: sysmlOnly},
+	"assert":                {languages: sysmlOnly},
+	"assert not":            {languages: sysmlOnly},
+	"assert constraint":     {languages: sysmlOnly, typed: true, body: true},
+	"assert not constraint": {languages: sysmlOnly, typed: true, body: true},
+	"exhibit state":         {languages: sysmlOnly, typed: true},
+	"exhibit":               {languages: sysmlOnly},
+	"entry action":          {languages: sysmlOnly, typed: true},
+	"do action":             {languages: sysmlOnly, typed: true},
+	"exit action":           {languages: sysmlOnly, typed: true},
+	"state def":             {languages: sysmlOnly, definition: true},
+	"state":                 {languages: sysmlOnly, typed: true},
+	"occurrence def":        {languages: sysmlOnly, definition: true},
+	"occurrence":            {languages: sysmlOnly, typed: true},
+	"allocation def":        {languages: sysmlOnly, definition: true},
+	"binding def":           {languages: sysmlOnly, definition: true},
+	"constraint def":        {languages: sysmlOnly, definition: true, body: true},
+	"constraint":            {languages: sysmlOnly, typed: true, body: true},
+	"requirement def":       {languages: sysmlOnly, definition: true},
+	"requirement":           {languages: sysmlOnly, typed: true},
+	"case def":              {languages: sysmlOnly, definition: true, body: true},
+	"case":                  {languages: sysmlOnly, typed: true, body: true},
+	"analysis def":          {languages: sysmlOnly, definition: true, body: true},
+	"analysis":              {languages: sysmlOnly, typed: true, body: true},
+	"verification def":      {languages: sysmlOnly, definition: true, body: true},
+	"verification":          {languages: sysmlOnly, typed: true, body: true},
+	"use case def":          {languages: sysmlOnly, definition: true, body: true},
+	"use case":              {languages: sysmlOnly, typed: true, body: true},
+	"subject":               {languages: sysmlOnly, typed: true},
+	"actor":                 {languages: sysmlOnly, typed: true},
+	"stakeholder":           {languages: sysmlOnly, typed: true},
+	"objective":             {languages: sysmlOnly, typed: true},
+	"fork":                  {languages: sysmlOnly},
+	"join":                  {languages: sysmlOnly},
+	"merge":                 {languages: sysmlOnly},
+	"decide":                {languages: sysmlOnly},
+	"class":                 {languages: kermlOnly, definition: true},
+	"struct":                {languages: kermlOnly, definition: true},
+	"datatype":              {languages: kermlOnly, definition: true},
+	"classifier":            {languages: kermlOnly, definition: true},
+	"feature":               {languages: kermlOnly, typed: true},
+	"step":                  {languages: kermlOnly, typed: true},
+	"expr":                  {languages: kermlOnly, typed: true},
+	"bool":                  {languages: kermlOnly, typed: true},
+	"behavior":              {languages: kermlOnly, definition: true},
+	"function":              {languages: kermlOnly, definition: true},
+	"predicate":             {languages: kermlOnly, definition: true},
+	"metaclass":             {languages: kermlOnly, definition: true},
 }
 
 // MemberKinds lists the member kinds legal in a language, sorted.
@@ -164,26 +174,43 @@ func (m Model) addMemberSplice(i int, op Operation) (splice, error) {
 			Message:        "an implicit directed usage cannot be abstract: `in abstract x` does not parse",
 		}
 	}
-	performName := ""
-	if op.MemberName == "" {
+	referenceName := ""
+	assertReference := op.MemberKind == "assert" || op.MemberKind == "assert not"
+	if assertReference {
+		if _, err := checkFeatureReference(i, "asserted constraint", op.MemberName); err != nil {
+			return splice{}, err
+		}
+		if op.Value != "" {
+			return splice{}, &Error{
+				Failure: FailureIllegalKind, OperationIndex: i,
+				Message: fmt.Sprintf("kind %q cannot carry a value", op.MemberKind),
+			}
+		}
+	} else if op.MemberName == "" {
 		switch {
 		case op.MemberKind == "return" && op.Type == "" && op.Multiplicity == "":
 			return splice{}, &Error{
 				Failure: FailureIllegalKind, OperationIndex: i,
 				Message: "an unnamed return parameter needs a type or multiplicity",
 			}
+		case (op.MemberKind == "constraint" || op.MemberKind == "assert constraint" ||
+			op.MemberKind == "assert not constraint") && (op.Type != "" || op.BodyExpression != ""):
 		case op.MemberKind != "return" && len(op.Redefines) == 0:
 			return splice{}, &Error{
 				Failure: FailureInvalidName, OperationIndex: i,
-				Message: "an empty member name requires redefines targets or kind return",
+				Message: "an empty member name requires redefines targets, kind return, or a constraint kind with a type or body expression",
 			}
 		}
-	} else if op.MemberKind == "perform" {
-		last, err := checkFeatureReference(i, "performed action", op.MemberName)
+	} else if op.MemberKind == "perform" || op.MemberKind == "exhibit" {
+		role := "performed action"
+		if op.MemberKind == "exhibit" {
+			role = "exhibited state"
+		}
+		last, err := checkFeatureReference(i, role, op.MemberName)
 		if err != nil {
 			return splice{}, err
 		}
-		performName = last
+		referenceName = last
 	} else if err := checkName(i, op.MemberName); err != nil {
 		e := err.(*Error)
 		e.Failure = FailureInvalidName
@@ -200,6 +227,25 @@ func (m Model) addMemberSplice(i int, op Operation) (splice, error) {
 		valueOp := op
 		valueOp.Target = op.MemberName
 		if err := m.checkValue(i, valueOp); err != nil {
+			return splice{}, err
+		}
+	}
+	if op.BodyExpression != "" {
+		if !kind.body {
+			message := fmt.Sprintf("kind %q cannot state a body expression", op.MemberKind)
+			if refusal, ok := noResultBodyKinds[op.MemberKind]; ok {
+				message = fmt.Sprintf("kind %q cannot state a body expression: %s", op.MemberKind, refusal)
+			}
+			return splice{}, &Error{
+				Failure: FailureIllegalKind, OperationIndex: i,
+				Message: message,
+			}
+		}
+		target := op.MemberName
+		if target == "" {
+			target = op.Owner
+		}
+		if err := m.checkExpression(i, "body expression", target, op.BodyExpression); err != nil {
 			return splice{}, err
 		}
 	}
@@ -268,7 +314,9 @@ func (m Model) addMemberSplice(i int, op Operation) (splice, error) {
 			Message: fmt.Sprintf("definition kind %q cannot carry redefines targets; use specializes", op.MemberKind),
 		}
 	}
-	if len(op.Redefines) > 0 && (op.MemberKind == "metadata" || op.MemberKind == "perform") {
+	if len(op.Redefines) > 0 &&
+		(op.MemberKind == "metadata" || op.MemberKind == "perform" || op.MemberKind == "exhibit" ||
+			op.MemberKind == "assert" || op.MemberKind == "assert not") {
 		return splice{}, &Error{
 			Failure: FailureIllegalKind, OperationIndex: i,
 			Message: fmt.Sprintf("kind %q cannot carry redefines targets", op.MemberKind),
@@ -311,6 +359,30 @@ func (m Model) addMemberSplice(i int, op Operation) (splice, error) {
 			Message: "return parameters are only admitted in calculation, constraint and case bodies",
 		}
 	}
+	switch op.MemberKind {
+	case "assert", "assert not", "assert constraint", "assert not constraint", "exhibit state", "exhibit":
+		if !parser.BodyAdmitsBehaviorUsage(owner) {
+			return splice{}, &Error{
+				Failure: FailureIllegalKind, OperationIndex: i,
+				Message: fmt.Sprintf("%s is not admitted in the body of %s",
+					op.MemberKind, ownerName(op.Owner)),
+			}
+		}
+	case "entry action", "do action", "exit action":
+		if !stateBodyOwner(owner) {
+			return splice{}, &Error{
+				Failure: FailureIllegalKind, OperationIndex: i,
+				Message: fmt.Sprintf("%s is only admitted in a state body, which %s does not open",
+					op.MemberKind, ownerName(op.Owner)),
+			}
+		}
+		if hasStateSubaction(owner, memberSubactionKind(op.MemberKind)) {
+			return splice{}, &Error{
+				Failure: FailureIllegalKind, OperationIndex: i,
+				Message: fmt.Sprintf("%s already has a %s action", ownerName(op.Owner), memberSubactionKind(op.MemberKind)),
+			}
+		}
+	}
 	if op.MemberKind == "return" {
 		for _, member := range ast.DeclMembers(owner) {
 			if membership, ok := member.(*ast.Membership); ok && membership != nil {
@@ -325,8 +397,10 @@ func (m Model) addMemberSplice(i int, op Operation) (splice, error) {
 		}
 	}
 	takenName := op.MemberName
-	if performName != "" {
-		takenName = performName
+	if assertReference {
+		takenName = ""
+	} else if referenceName != "" {
+		takenName = referenceName
 	}
 	if takenName != "" && ownerScope != nil && len(ownerScope.LookupLocalAll(symbolName(takenName))) > 0 {
 		return splice{}, &Error{
@@ -335,7 +409,17 @@ func (m Model) addMemberSplice(i int, op Operation) (splice, error) {
 			Message:        fmt.Sprintf("%s already declares %q", op.Owner, takenName),
 		}
 	}
-	ins := m.memberInsertion(owner, writeMember(op, kind))
+	indent := m.ownerMemberIndent(owner)
+	unit := m.memberIndentUnit(owner)
+	docIndent := indent + unit
+	doc := ""
+	if op.Doc != "" {
+		doc, err = documentationText(i, "", "", op.Doc, docIndent)
+		if err != nil {
+			return splice{}, err
+		}
+	}
+	ins := m.memberInsertion(owner, writeMember(op, kind, indent, unit, doc, docIndent))
 	return splice{span: ins.span, text: ins.text, opIndex: i, target: op.Owner}, nil
 }
 
@@ -343,11 +427,22 @@ func memberPrefixExcluded(kind string) bool {
 	switch kind {
 	case "package", "subject", "actor", "stakeholder", "objective",
 		"fork", "join", "merge", "decide", "metadata", "return",
-		"perform", "perform action":
+		"perform", "perform action", "assert", "assert not", "assert constraint", "assert not constraint",
+		"exhibit state", "exhibit", "entry action", "do action", "exit action":
 		return true
 	default:
 		return false
 	}
+}
+
+var noResultBodyKinds = map[string]string{
+	"requirement def": "a requirement body has no result expression; add a require constraint instead",
+	"requirement":     "a requirement body has no result expression; add a require constraint instead",
+	"concern def":     "a requirement body has no result expression; add a require constraint instead",
+	"concern":         "a requirement body has no result expression; add a require constraint instead",
+	"viewpoint def":   "a requirement body has no result expression; add a require constraint instead",
+	"viewpoint":       "a requirement body has no result expression; add a require constraint instead",
+	"objective":       "a requirement body has no result expression; add a require constraint instead",
 }
 
 func (m Model) addOwner(fqn string) (ast.Node, *symbols.Scope, error) {
@@ -390,7 +485,7 @@ func ownerName(fqn string) string {
 	return fmt.Sprintf("%q", fqn)
 }
 
-func writeMember(op Operation, kind memberKind) string {
+func writeMember(op Operation, kind memberKind, indent, unit, doc, docIndent string) string {
 	prefix := make([]string, 0, 3)
 	if op.Direction != "" {
 		prefix = append(prefix, op.Direction)
@@ -431,7 +526,83 @@ func writeMember(op Operation, kind memberKind) string {
 			header += " = " + op.Value
 		}
 	}
+	if op.BodyExpression != "" {
+		return writeBodyExpression(header, op.BodyExpression, indent, unit, doc, docIndent)
+	}
+	if doc != "" {
+		return header + " {\n" + docIndent + doc + "\n" + indent + "}"
+	}
 	return header + ";"
+}
+
+func writeBodyExpression(header, expression, indent, unit, doc, docIndent string) string {
+	lines := strings.Split(strings.ReplaceAll(expression, "\r\n", "\n"), "\n")
+	if len(lines) == 1 && doc == "" {
+		return header + " { " + strings.TrimSpace(lines[0]) + " }"
+	}
+	for i := range lines {
+		lines[i] = strings.TrimRight(lines[i], " \t\r")
+	}
+	common := ""
+	hasCommon := false
+	for _, line := range lines {
+		if strings.TrimSpace(line) == "" {
+			continue
+		}
+		leading := line[:len(line)-len(strings.TrimLeft(line, " \t"))]
+		if !hasCommon {
+			common = leading
+			hasCommon = true
+			continue
+		}
+		for !strings.HasPrefix(leading, common) && common != "" {
+			common = common[:len(common)-1]
+		}
+	}
+	for i, line := range lines {
+		if strings.TrimSpace(line) == "" {
+			lines[i] = ""
+			continue
+		}
+		lines[i] = strings.TrimPrefix(line, common)
+	}
+	for len(lines) > 0 && lines[0] == "" {
+		lines = lines[1:]
+	}
+	for len(lines) > 0 && lines[len(lines)-1] == "" {
+		lines = lines[:len(lines)-1]
+	}
+	var text strings.Builder
+	text.WriteString(header)
+	text.WriteString(" {\n")
+	if doc != "" {
+		text.WriteString(docIndent)
+		text.WriteString(doc)
+		text.WriteByte('\n')
+	}
+	for i, line := range lines {
+		if line != "" {
+			text.WriteString(indent)
+			text.WriteString(unit)
+			text.WriteString(line)
+		}
+		if i+1 < len(lines) {
+			text.WriteByte('\n')
+		}
+	}
+	text.WriteByte('\n')
+	text.WriteString(indent)
+	text.WriteByte('}')
+	return text.String()
+}
+
+func (m Model) memberIndentUnit(owner ast.Node) string {
+	ownerIndent := lineIndent(m.Source.Bytes(), owner.Span().Offset)
+	memberIndent := m.memberIndent(owner.Span())
+	if strings.HasPrefix(memberIndent, ownerIndent) && len(memberIndent) > len(ownerIndent) {
+		return memberIndent[len(ownerIndent):]
+	}
+	return memberIndentStyle(m.Source.Bytes())
 }
 
 // insertion is the splice adding a member to an owner: text replaces span, and
@@ -480,6 +651,9 @@ func (m Model) memberInsertion(owner ast.Node, text string) insertion {
 		closeIndent := string(m.Source.Bytes()[lineStart:closeOffset])
 		if closeIndent != "" && !onlyWhitespace([]byte(closeIndent)) {
 			lineStart = closeOffset
+			for lineStart > 0 && (m.Source.Bytes()[lineStart-1] == ' ' || m.Source.Bytes()[lineStart-1] == '\t') {
+				lineStart--
+			}
 			closeIndent = ownerIndent
 		}
 		prefix := "\n"
@@ -510,8 +684,14 @@ func isCalculationResultMember(member ast.Node) bool {
 }
 
 func (m Model) memberInsertionBeforeResult(result ast.Node, text string) insertion {
+	return m.memberInsertionBefore(result.Span().Offset, text)
+}
+
+// memberInsertionBefore places text as a member ahead of the one starting at
+// offset: on its own line above that member's leading comments when the member
+// opens its line, else inline before it.
+func (m Model) memberInsertionBefore(offset int, text string) insertion {
 	content := m.Source.Bytes()
-	offset := result.Span().Offset
 	lineStart := offset
 	for lineStart > 0 && content[lineStart-1] != '\n' {
 		lineStart--
@@ -615,6 +795,12 @@ func bodyInfo(node ast.Node) (source.Span, bool) {
 		return d.Span(), d.HasBody
 	case *ast.SuccessionEdge:
 		return d.Span(), d.HasBody
+	case *ast.Dependency:
+		return d.Span(), d.HasBody
+	case *ast.MultiplicityDecl:
+		return d.Span(), d.HasBody
+	case *ast.RelationshipMember:
+		return d.Span(), d.HasBody
 	default:
 		return source.Span{}, false
 	}
@@ -670,9 +856,12 @@ func (m Model) memberIndent(owner source.Span) string {
 		}
 		start = end + 1
 	}
-	style := "\t"
-	if !strings.Contains(string(content), "\t") {
-		style = "    "
+	return base + memberIndentStyle(content)
+}
+
+func memberIndentStyle(content []byte) string {
+	if strings.Contains(string(content), "\t") {
+		return "\t"
 	}
-	return base + style
+	return "    "
 }

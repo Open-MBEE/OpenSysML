@@ -372,11 +372,16 @@ def test_edit_messages_pin_their_field_numbers():
             "set_value": 1, "rename": 2, "add_member": 3, "delete": 4, "move": 5,
             "add_connection": 6, "add_satisfy": 7, "add_requirement_constraint": 8,
             "add_transition": 9, "add_sequence": 14,
+            "add_import": 10, "add_documentation": 11,
+            "add_comment": 16,
+            "add_note": 18,
         },
         "AddMemberEdit": {
             "owner": 1, "kind": 2, "name": 3, "type": 4,
             "multiplicity": 5, "value": 6, "specializes": 7,
             "is_abstract": 8, "redefines": 9, "is_default": 10, "direction": 11,
+            "body_expression": 13,
+            "doc": 12,
         },
         "AddConnectionEdit": {
             "owner": 1, "kind": 2, "from_end": 3, "to_end": 4, "name": 5, "type": 6,
@@ -399,6 +404,17 @@ def test_edit_messages_pin_their_field_numbers():
             "until": 12, "body": 13, "else_body": 14,
             "multiplicity": 15, "parameter": 16,
         },
+        "AddImportEdit": {
+            "owner": 1, "visibility": 2, "target": 3, "is_recursive": 4,
+            "is_import_all": 5, "filters": 6,
+        },
+        "AddDocumentationEdit": {
+            "target": 1, "body": 2, "name": 3, "locale": 4, "replace": 5,
+        },
+        "AddCommentEdit": {
+            "owner": 1, "body": 2, "name": 3, "about": 4, "locale": 5,
+        },
+        "AddNoteEdit": {"target": 1, "text": 2},
         "DeleteEdit": {"target": 1, "cascade": 2},
         "MoveEdit": {"target": 1, "owner": 2},
         "SetValueEdit": {"target": 1, "value": 2},

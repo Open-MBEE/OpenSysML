@@ -85,7 +85,14 @@ A service advertising `apply_edits` without `edit_documents` (`CapabilityEditDoc
 capability before reading `Documents`, `Referrers` or an applied edit's `Document`.
 
 `add_member` accepts the existing `specializes`, type, multiplicity and value fields, plus
-`is_abstract`, `redefines`, `is_default` and `direction`. Abstract and directional notation is
+`body_expression`, `is_abstract`, `redefines`, `is_default` and `direction`. `body_expression`
+writes a body expression in `{ ... }`, distinct from `value`, which writes a feature value
+with `= ...`; when both are present they are emitted in that order. Constraint definitions and usages,
+asserted-constraint kinds, and `calc`, `case`, `analysis`, `verification` and `use case` definition and
+usage kinds accept it. For the latter kinds it is the result expression at the end of a calculation or
+case body. Requirement, concern, viewpoint and other requirement-body kinds have no result expression;
+for example, `requirement` refuses with `kind "requirement" cannot state a body expression: a
+requirement body has no result expression; add a require constraint instead`. Abstract and directional notation is
 limited to grammar-admitted member kinds; `redefines` is only for usages and takes lexical feature
 references, while `is_default` requires a value. The `ref` and `return` kinds are also available
 for SysML members, as are the perform-action usages (SysML v2 §7.17.6): `perform action` writes
@@ -94,8 +101,23 @@ is the feature reference to the performed action usage (`t.heat`, `Pkg::x.run`) 
 named by the action it references, so the name is checked as a feature reference, resolved from
 the owner's scope, and the last segment is what the member-name-taken check refuses a duplicate
 of. `perform` takes the reference alone: a type, multiplicity, value, specializes, redefines,
-direction or abstract flag is refused. A return parameter is restricted to calculation, constraint, and case bodies; the edit layer
+direction or abstract flag is refused. Reference-form `assert` and `assert not` write
+`assert <ref>;` and `assert not <ref>;`; the reference is validated as a feature reference and
+must resolve to a constraint during post-edit analysis. These assertion members are anonymous:
+the reference is not their member name and may be repeated or coexist with a declaration of the
+same name. Constraint definitions and usages accept `body_expression`;
+`assert constraint` and `assert not constraint` also accept it, and may omit the name when a type or
+body is supplied. `exhibit state` adds a typed state usage, while `exhibit` names an existing state
+usage by reference. `entry action`, `do action` and `exit action` add state subactions, with at most
+one of each kind in a state body. These assertion, exhibit and state-action kinds are SysML-only.
+A return parameter is restricted to calculation, constraint, and case bodies; the edit layer
 refuses inadmissible placements even when analysis would only warn.
+
+`add_member` also takes an optional `doc`: plain text written as the new member's documentation. A
+member that would end in `;` is given a body holding `doc /* ... */`, and one
+whose notation already has a body gets the documentation as its first member. A multi-line text
+is written with ` * ` continuation lines aligned under the opening `/*`, so the `Documentation.body`
+the notation reads back is exactly the text given.
 
 The `add_connection` operation takes `owner`, `kind`, `from_end`, `to_end`, and optional `name`
 and `type` fields:
@@ -105,10 +127,17 @@ and `type` fields:
 | `add_connection` | `owner`, `kind`, `from_end`, `to_end`, `name?`, `type?` | A `connection`, `interface`, `allocation`, `binding`, `flow`, `succession` or `transition` (KerML: `connector`, `binding`, `flow`, `succession`) in the owner's body, with `from_end` and `to_end` written as they resolve from the owner's scope (`tank.fuelOut`). |
 | `add_satisfy` | `owner`, `requirement`, `satisfying_feature?`, `is_asserted`, `is_negated` | A SysML `satisfy` usage in a package or body whose grammar admits behavior usages. Both targets are lexical feature references; analysis checks that the resolved requirement target is a requirement. |
 | `add_requirement_constraint` | `owner`, `kind`, `expression`, `name?` | A `require constraint` or `assume constraint` in a requirement-like body. The expression must parse and analyze; other kinds and placements are refused. |
+| `add_documentation` | `target`, `body`, `name?`, `locale?`, `replace` | A `doc [name] [locale "..."] /* body */` as the first member of the declaration `target` names, turning a declaration that ends in `;` into one with a body and leaving every other byte as it was. A target that already owns documentation is refused as a taken member name unless `replace` is set, which rewrites the one it owns (and is refused when it owns several). The body is read back exactly as `Comment::body` (KerML §8.2.3.3.2), white space and empty text included; text containing `*/` is refused, since a regular comment's text excludes it and no escape exists, as is a carriage return, which the body processing reads as a line break. |
+| `add_import` | `owner`, `target`, `visibility?`, `is_recursive`, `is_import_all`, `filters` | An import declaration in a namespace body or the document root (`owner` empty). `target` is a qualified name, optionally `$::`-rooted, for a membership import or one suffixed `::*` for a namespace import; `is_recursive` writes `::**`, `is_import_all` writes `import all`, and each entry of `filters` is written `[<expression>]`. Imports land after the owner's existing imports, or before its first member. |
+| `add_comment` | `owner`, `body`, `name?`, `about[]`, `locale?` | A `comment [name] [about a, b] [locale "..."] /* body */` where a new member of `owner` goes — the document root when `owner` is empty — with each `about` name written as it is given and resolved from the owner's scope. The body follows `add_documentation`'s rules. |
+| `add_note` | `target`, `text` | A line note `// text` on its own line directly above the declaration `target` names, at its indentation. A note is lexical trivia (KerML §8.2.2.2), not a model element, so it is in the edited source and `sysx:sourceText` but not in the model; a later edit keeps it above the declaration it precedes. Text containing a line break is refused. |
 | `add_transition` | `owner`, `source`, `target`, `name?`, `trigger?`, `guard?`, `effect?`, `initial` | A state transition in a state definition or usage, including an exhibited or bodiless nested state. Each free-text clause must form exactly one grammar-admissible transition. With `initial`, an entry transition (`entry; then <target>;`) in a state body that has no existing entry action. |
 | `add_sequence` | `owner`, `keyword`, `ref?`, `member_kind?`, `member_name?`, `type?`, `after?` | A `first <ref>;`, `then <ref>;` or `then <member_kind> <member_name> : <type>;` member in an action body's sequencing notation. Exactly one of `ref` and `member_kind` is set for `then`; `first` takes `ref` alone. With `after` naming a member of the body, the member is written right after it: it sequences from that member, and a `then` that previously followed it now sequences from the new member. |
 | `add_sequence` action-body items | `condition?`, `value?`, `target?`, `via?`, `until?`, `body[]`, `else_body[]`, `multiplicity?`, `parameter?` | Recursive `accept`, `send`, `assign`, `if`, `while`, `loop`, `for` and `terminate` items, plus guarded `if <guard> then <ref>;` and `else <ref>;`. Nested items use the same message with no `owner` or `after`. An empty else body means no `else`; an explicit empty `else { }` is not authorable. Empty action bodies, including an `if` then-branch, write `{ }`. |
 
+An `add_member` with `body_expression`, an asserted-constraint kind, or a reference-form assertion requires `authoring` and
+`constraint_body_authoring`. `exhibit state`, `exhibit`, and state subaction kinds require
+`authoring` and `state_action_authoring`.
 `type` is accepted only for connection kinds that permit a typing target.
 `add_connection` requires both the `authoring` and `connection_authoring` capabilities.
 `add_satisfy` requires `authoring` and `satisfy_authoring`; `add_requirement_constraint` requires
@@ -121,7 +150,14 @@ and 1641 TerminateNode; succession ends follow 878, 887, 1703 TargetSuccession, 
 and 1714 DefaultTargetSuccession; the settled semantics are in formal/2026-03-02. An `add_member` edit with any new modifier or
 the `ref`/`return` kind also requires `member_modifiers`. An `add_member` edit with an empty `kind` writes a
 directed usage with no kind keyword (`in x : T;`) — direction is required and `abstract` is refused — and
-requires `authoring` and `implicit_parameters`. Clients preflight these capabilities
+requires `authoring` and `implicit_parameters`. Import edits require `authoring` and
+`import_authoring`. Constraint-body and assertion edits require `authoring` and
+`constraint_body_authoring`; exhibit and state subaction edits require `authoring`
+and `state_action_authoring`.
+`add_documentation` and an `add_member` with a `doc` require `authoring` and
+`documentation_authoring`; `add_comment` and `add_note` require `authoring` and
+`comment_authoring`. An `add_member` edit with any new modifier or
+the `ref`/`return` kind also requires `member_modifiers`. Clients preflight these capabilities
 before sending the operation.
 
 Regular transitions always write `first <source>` and may add at most one `accept <trigger>`, one
@@ -133,6 +169,10 @@ action-body forms in the table without another `EditOperation` case. Source mult
 written as `then [m] <member>;` or `[m] then <ref>;`; non-unit values receive the existing
 `end-feature-multiplicity` warning at the source end.
 
+Imports always write an explicit visibility indicator — `private` when `visibility` is empty —
+because the grammar requires one; `private` is legal in every body including the document root.
+A duplicate import (same visibility, kind, recursion, name and filters) is refused, and a target
+nothing resolves is refused by the re-analysis of the edited notation.
 ```go
 result, err := client.ApplyEdits(ctx, model, opensysml.Rename{Target: "Lib::Engine", NewName: "Motor"})
 for _, doc := range result.Documents {
@@ -168,11 +208,19 @@ by hand decodes the answers by [the wire contract](wire-contract.md).
 ## Python authoring
 
 `Editor.add_member(owner, kind, name, type=None, multiplicity=None, value=None,
-specializes=None, abstract=False, redefines=None, default=False, direction=None)`
+specializes=None, abstract=False, redefines=None, default=False, direction=None,
+expression=None, doc=None)`
 and its typed `add_*` helpers create declarations while preserving untouched
-source bytes. The editor also exposes `add_satisfy`, `add_requirement_constraint`,
-`add_require_constraint`, `add_assume_constraint`, `add_transition` and
-`add_entry_transition`. The calculation helpers accept `inputs`, `return_type`
+source bytes; every typed helper passes `doc` through. The editor also exposes
+`add_satisfy`, `add_requirement_constraint`, `add_require_constraint`,
+`add_assume_constraint`, `add_transition`, `add_entry_transition`, `add_import`,
+`add_documentation(target, body, name=None, locale=None, replace=False)`,
+`add_comment(owner, body, name=None, about=None, locale=None)` and `add_note(target, text)`.
+`add_constraint_def` and `add_constraint` use `expression=` for a constraint
+body (`{ ... }`), while `value=` writes a feature value (`= ...`).
+`add_assert_constraint` supports an optional type and negation;
+`add_exhibit_state`, `add_exhibit` and `add_state_action` author state exhibits
+and `entry`/`do`/`exit` subactions. The calculation helpers accept `inputs`, `return_type`
 and `return_expression`; a return expression requires a return type and is
 bound to the result parameter, not written as a `return <expr>;` statement.
 Action helpers accept `inputs` and `outputs`, each a list of `(name, type)` string pairs.
