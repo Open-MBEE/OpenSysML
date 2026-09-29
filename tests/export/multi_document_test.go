@@ -431,3 +431,89 @@ func TestMultiDocumentVerbatimLayoutSurvives(t *testing.T) {
 		}
 	}
 }
+
+// A top-level member identified by position is numbered in the whole model,
+// where the reader writes every root: three documents each declaring
+// `package P` export three subjects, each owning only its own child.
+func TestSameNamedRootsAcrossThreeDocumentsDoNotMerge(t *testing.T) {
+	sources := []convert.Source{
+		{Name: "p1.sysml", Data: []byte("package P {\n\tpart x;\n}\n")},
+		{Name: "p2.sysml", Data: []byte("package P {\n\tpart y;\n}\n")},
+		{Name: "p3.sysml", Data: []byte("package P {\n\tpart z;\n}\n")},
+	}
+	out, err := convert.ConvertDocuments(sources, convert.FormatAPIJSON, convert.Options{})
+	if err != nil {
+		t.Fatalf("ConvertDocuments: %v", err)
+	}
+	packages := map[string][]string{}
+	for _, el := range rootElements(t, out) {
+		if rootString(t, el["@type"]) == "Package" && rootString(t, el["declaredName"]) == "P" {
+			for _, member := range refsOf(t, el["ownedMember"]) {
+				packages[rootString(t, el["@id"])] = append(packages[rootString(t, el["@id"])], member)
+			}
+		}
+	}
+	if len(packages) != 3 {
+		t.Fatalf("expected three distinct package subjects, found %v", packages)
+	}
+	var children []string
+	for _, members := range packages {
+		if len(members) != 1 {
+			t.Fatalf("each package should own only its own child, found %v", packages)
+		}
+		children = append(children, members[0])
+	}
+	for _, suffix := range []string{"__x", "__y", "__z"} {
+		var found bool
+		for _, child := range children {
+			if strings.HasSuffix(child, suffix) {
+				found = true
+			}
+		}
+		if !found {
+			t.Errorf("no package owns its own *%s member: %v", suffix, packages)
+		}
+	}
+
+	// The graph reads back structurally identical once its source text is gone.
+	turtle, err := convert.ConvertDocuments(sources, convert.FormatTurtle, convert.Options{})
+	if err != nil {
+		t.Fatalf("to turtle: %v", err)
+	}
+	stripped := withoutTriples(t, withoutTriples(t, turtle, "sysx:sourceText"), "sysx:sourceTail")
+	back, err := convert.Convert("m.ttl", stripped, convert.FormatTurtle, convert.FormatSysML)
+	if err != nil {
+		t.Fatalf("back to notation: %v", err)
+	}
+	again, err := convert.Convert("m.sysml", back, convert.FormatSysML, convert.FormatTurtle)
+	if err != nil {
+		t.Fatalf("to turtle again: %v", err)
+	}
+	first, second := structuralTriples(t, turtle), structuralTriples(t, again)
+	// The read-back is one document: provenance cannot survive it, and a
+	// memberIndex is the position in the one notation text it is written into.
+	noise := map[rdf.Term]bool{
+		rdf.OpenSysMLTerm("sourceDocument"): true,
+		rdf.OpenSysMLTerm("memberIndex"):    true,
+	}
+	for triple := range first {
+		if noise[triple.Predicate] {
+			delete(first, triple)
+		}
+	}
+	for triple := range second {
+		if noise[triple.Predicate] {
+			delete(second, triple)
+		}
+	}
+	for triple := range first {
+		if !second[triple] {
+			t.Errorf("the second hop lost %s %s %s", triple.Subject.Value, triple.Predicate.Value, triple.Object.Value)
+		}
+	}
+	for triple := range second {
+		if !first[triple] {
+			t.Errorf("the second hop added %s %s %s", triple.Subject.Value, triple.Predicate.Value, triple.Object.Value)
+		}
+	}
+}

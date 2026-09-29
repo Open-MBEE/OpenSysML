@@ -379,7 +379,7 @@ func newEncoder(file *source.SourceFile, root *ast.RootNamespace, library string
 		localOf:            map[string]string{},
 		verifiedReferences: map[rdf.Term]bool{},
 	}
-	return encoderFor(file, root, res, model, form, shared)
+	return encoderFor(file, root, res, model, form, shared, 0)
 }
 
 // newEncoders builds one encoder per document of a model, all over one model
@@ -409,12 +409,16 @@ func newEncoders(docs []Document, form IDForm) ([]*encoder, error) {
 		verifiedReferences: map[rdf.Term]bool{},
 	}
 	encoders := make([]*encoder, len(docs))
+	rootOffset := 0
 	for i, doc := range docs {
-		e, err := encoderFor(doc.File, doc.Root, res, model, form, shared)
+		e, err := encoderFor(doc.File, doc.Root, res, model, form, shared, rootOffset)
 		if err != nil {
 			return nil, err
 		}
 		encoders[i] = e
+		// A root identified by position holds its position in the whole model,
+		// which is where the reader's one notation text writes it.
+		rootOffset += len(e.kept(doc.Root.Members))
 	}
 	return encoders, nil
 }
@@ -422,7 +426,7 @@ func newEncoders(docs []Document, form IDForm) ([]*encoder, error) {
 // encoderFor builds the encoder of one document over the shared model state:
 // its own identity facts, source text regions and links, the shared graph,
 // qualified-name and collision maps.
-func encoderFor(file *source.SourceFile, root *ast.RootNamespace, res *resolve.Resolver, model *semantics.Model, form IDForm, shared *sharedEncoding) (*encoder, error) {
+func encoderFor(file *source.SourceFile, root *ast.RootNamespace, res *resolve.Resolver, model *semantics.Model, form IDForm, shared *sharedEncoding, rootOffset int) (*encoder, error) {
 	ids, err := documentIdentity(file.Name(), res, model, form)
 	if err != nil {
 		return nil, err
@@ -448,6 +452,7 @@ func encoderFor(file *source.SourceFile, root *ast.RootNamespace, res *resolve.R
 		verifiedReferences: shared.verifiedReferences,
 		bodies:             map[rdf.Term]region{},
 		offsets:            map[string]int{},
+		rootOffset:         rootOffset,
 	}
 	if shared.multi {
 		e.sourceDoc = file.Name()
@@ -519,6 +524,10 @@ type encoder struct {
 	bodies  map[rdf.Term]region
 	// offsets holds where in file each element's declaration starts.
 	offsets map[string]int
+	// rootOffset is the count of kept top-level members in the documents
+	// encoded before this one: a root identified by position is numbered in
+	// the whole model, not in its document.
+	rootOffset int
 	// verifiedReferences holds the `verify` members written as a reference
 	// (`verify r;`, `verify r :>> req;`), whose subsetting is the
 	// OwnedReferenceSubsetting of RequirementVerificationUsage, as against a
@@ -718,13 +727,20 @@ func (e *encoder) collect(members []ast.Node, owner string) error {
 	for i, member := range e.kept(members) {
 		node, _ := unwrapMember(member)
 		name, children := declaredNameAndMembers(node)
-		fqn := qualify(owner, name, i)
+		// A root's position is its position in the whole model: every document's
+		// first root is index 0 of its own document, but index i+offset of the
+		// one notation the reader writes all the roots into.
+		position := i
+		if owner == "" {
+			position += e.rootOffset
+		}
+		fqn := qualify(owner, name, position)
 		if fqn == "" {
 			continue
 		}
 		// A member whose own name is taken is identified by its position.
 		if name != "" && e.declared[fqn] {
-			fqn = qualify(owner, "", i)
+			fqn = qualify(owner, "", position)
 		}
 		e.fqn[node] = fqn
 		// A trigger's payload is a parameter of the transition's trigger action.
