@@ -387,16 +387,28 @@ func (d *decoder) endWords(el *element, form string, declared bool) (string, err
 // payloadText writes the payload a flow's head states after `of`, from the
 // PayloadFeature the flow owns (SysML-textual-bnf FlowPayloadFeatureMember):
 // `p : T[1] = v` for a declared one, `T[1]` for one that states only its type.
+// A graph written before the payload was a feature states it as the
+// expression sysx:payload instead, which is read as written; one stating both
+// is refused rather than one chosen.
 func (d *decoder) payloadText(el *element) (string, error) {
-	var payload *element
-	for _, child := range el.children {
-		if child.metaclass == mPayloadFeature {
-			payload = child
-			break
-		}
-	}
+	legacy, hasLegacy := d.stringOf(el, rdf.OpenSysML+xPayload)
+	payload := d.flowPayload(el)
 	if payload == nil {
-		return "", nil
+		for _, child := range el.children {
+			if child.metaclass == mPayloadFeature {
+				return "", &UnsupportedError{
+					What: fmt.Sprintf("the payload features of <%s>", el.iri),
+					Note: "a flow writes one payload after `of`, and only a flow has one",
+				}
+			}
+		}
+		return legacy, nil
+	}
+	if hasLegacy {
+		return "", &UnsupportedError{
+			What: fmt.Sprintf("the payload of <%s>", el.iri),
+			Note: "it states both a PayloadFeature and the earlier sysx:payload expression, and the head writes one payload",
+		}
 	}
 	mult := d.multiplicityText(payload)
 	words := d.identWords(payload)
@@ -431,6 +443,29 @@ func (d *decoder) payloadText(el *element) (string, error) {
 	}
 	return strings.Join(words, " "), nil
 }
+
+// flowPayload returns the PayloadFeature a flow's head writes after `of`: the
+// one a flow owns, or nil when el is no flow or owns none or several.
+func (d *decoder) flowPayload(el *element) *element {
+	if !flowMetaclasses[el.metaclass] {
+		return nil
+	}
+	var payload *element
+	for _, child := range el.children {
+		if child.metaclass != mPayloadFeature {
+			continue
+		}
+		if payload != nil {
+			return nil
+		}
+		payload = child
+	}
+	return payload
+}
+
+// flowMetaclasses are the usages whose head takes an `of` clause
+// (SysML-textual-bnf FlowDeclaration, MessageDeclaration).
+var flowMetaclasses = map[string]bool{"FlowUsage": true, "SuccessionFlowUsage": true}
 
 // relatedEnds reads the ends of a head in the order they are written, each
 // behind the multiplicity it states, with the payload of a flow kept apart: it

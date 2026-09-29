@@ -1426,7 +1426,9 @@ is that feature, named `p`, so `m.p` reaches it; `of T` and `of T[1]` state
 only its `FeatureTyping` and multiplicity, and the feature takes the flow's next
 position as its name (`…::@0` in a flow with no body members). Read back, the
 feature is written after `of`, not in the flow's body. 202407 names the
-metaclass `ItemFeature`.
+metaclass `ItemFeature`. A graph written before this states the payload as the
+expression `sysx:payload` and still reads back with it; a flow stating both, or
+a `PayloadFeature` owned by anything but a flow, is refused.
 
 `sysml:connectorEnd` is ordered by its `json:connectorEnd` annotation. Each end
 is a `ReferenceUsage` with `sysml:isEnd` — a `PortUsage` for an `interface`'s

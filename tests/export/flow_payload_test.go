@@ -1,6 +1,8 @@
 package export_test
 
 import (
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 
@@ -92,6 +94,50 @@ func TestFlowPayloadInAPIJSON(t *testing.T) {
 	} {
 		if !strings.Contains(string(back), want) {
 			t.Errorf("the notation should contain %q:\n%s", want, back)
+		}
+	}
+}
+
+// An earlier release wrote `of Fuel` as the expression sysx:payload beside
+// standard connector ends. That graph still reads back, source text stripped,
+// with its payload.
+func TestLegacyFlowPayloadStillReads(t *testing.T) {
+	legacy, err := os.ReadFile(filepath.Join("testdata", "legacy_flow_payload.ttl"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(string(legacy), "sysx:payload") || strings.Contains(string(legacy), "PayloadFeature") {
+		t.Fatal("the legacy fixture is written in today's shape")
+	}
+	back, err := convert.Convert("legacy.ttl", withoutSourceText(t, legacy), convert.FormatTurtle, convert.FormatSysML)
+	if err != nil {
+		t.Fatalf("legacy graph refused: %v", err)
+	}
+	if !strings.Contains(string(back), "flow of Fuel from x.i to y.j;") {
+		t.Errorf("the legacy payload was lost:\n%s", back)
+	}
+}
+
+// A payload feature the notation has no place for is refused, not dropped:
+// one owned by a usage that is no flow, and a flow stating both payload shapes.
+func TestUnwritablePayloadFeaturesAreRefused(t *testing.T) {
+	turtle, err := convert.Convert("p.sysml", []byte(flowPayloadModel), convert.FormatSysML, convert.FormatTurtle)
+	if err != nil {
+		t.Fatal(err)
+	}
+	flow := "elmt:P__Ctx___402\n    a sysml:FlowUsage ;"
+	if !strings.Contains(string(turtle), flow) {
+		t.Fatalf("the graph no longer states %q", flow)
+	}
+	for name, graph := range map[string]string{
+		"owned by a connection": strings.Replace(string(turtle), flow, "elmt:P__Ctx___402\n    a sysml:ConnectionUsage ;", 1),
+		"both shapes":           strings.Replace(string(turtle), flow, flow+"\n    sysx:payload \"Fuel\" ;", 1),
+	} {
+		back, err := convert.Convert("p.ttl", withoutSourceText(t, []byte(graph)), convert.FormatTurtle, convert.FormatSysML)
+		if err == nil {
+			t.Errorf("%s: converted instead of refused:\n%s", name, back)
+		} else if !strings.Contains(err.Error(), "payload") {
+			t.Errorf("%s: refused for another reason: %v", name, err)
 		}
 	}
 }

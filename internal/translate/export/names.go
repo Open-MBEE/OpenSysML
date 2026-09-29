@@ -114,6 +114,15 @@ func chooseNames(name, library string, text []byte, want *wanted, previous *name
 			continue
 		}
 		key := nameKey{member: e.memberOf(ref), target: e.writtenTarget(ref)}
+		if _, ok := want.references[key]; !ok && ref.Within == nil {
+			// A graph written before the payload was a feature states `of T`
+			// from the flow itself.
+			if flow := (nameKey{member: e.fqn[ref.Member], target: key.target}); flow != key {
+				if _, ok := want.references[flow]; ok {
+					key = flow
+				}
+			}
+		}
 		if _, ok := want.references[key]; ok {
 			occurrences[key] = append(occurrences[key], ref)
 			continue

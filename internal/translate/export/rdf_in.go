@@ -3087,10 +3087,12 @@ func (d *decoder) unwrittenPrefix(el *element) error {
 // but the prefix annotations and the cross feature its head writes.
 func (d *decoder) bodyChildren(el *element) []*element {
 	cross := d.ownedCrossFeature(el)
+	// A flow's payload is written in its head, after `of`; any other payload
+	// feature stays a child, which has no notation and is refused.
+	payload := d.flowPayload(el)
 	var out []*element
 	for _, child := range el.children {
-		// A flow's payload is written in its head, after `of`.
-		if child != cross && !child.implied && d.metadataSigil(child) != "#" && child.metaclass != mPayloadFeature {
+		if child != cross && child != payload && !child.implied && d.metadataSigil(child) != "#" {
 			out = append(out, child)
 		}
 	}
