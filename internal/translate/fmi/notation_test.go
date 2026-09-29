@@ -108,8 +108,8 @@ func TestNamingCollisions(t *testing.T) {
 	text := string(out)
 	for _, want := range []string{
 		"package _2_stroke", "calc def _2_stroke",
-		"in in_ : Real", "in stopTime_2 : Real", "in weird_name : Real", "in weird_name_2 : Real",
-		"in stopTime : Real", // the reserved experiment parameter claims its name first
+		"in in_ : Real[1]", "in stopTime_2 : Real[1]", "in weird_name : Real[1]", "in weird_name_2 : Real[1]",
+		"in stopTime : Real[1]", // the reserved experiment parameter claims its name first
 	} {
 		if !bytes.Contains([]byte(text), []byte(want)) {
 			t.Errorf("notation lacks %q:\n%s", want, text)
@@ -124,7 +124,7 @@ func TestNoOutputsReturnsTime(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !bytes.Contains(out, []byte(`return time : Real { @ToolVariable { name = "fmi:time"; } }`)) {
+	if !bytes.Contains(out, []byte(`return time : Real[1] { @ToolVariable { name = "fmi:time"; } }`)) {
 		t.Errorf("notation lacks the fmi:time return:\n%s", out)
 	}
 }
@@ -153,7 +153,7 @@ func TestSkipsDocumented(t *testing.T) {
 		"// structural parameter n not imported",
 		"// array grid with a structural dimension not imported",
 		"// tick Clock not imported",
-		"return y : Real",
+		"return y : Real[1]",
 	} {
 		if !bytes.Contains([]byte(text), []byte(want)) {
 			t.Errorf("notation lacks %q:\n%s", want, text)

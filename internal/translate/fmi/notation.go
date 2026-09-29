@@ -150,7 +150,7 @@ func Notation(d *execfmi.Description, opts Options) ([]byte, error) {
 		it.write(&body)
 	}
 	if firstOut {
-		body.WriteString("\t\treturn time : Real { @ToolVariable { name = \"fmi:time\"; } }\n")
+		body.WriteString("\t\treturn time : Real[1] { @ToolVariable { name = \"fmi:time\"; } }\n")
 	}
 	b.WriteString(body.String())
 	b.WriteString("\t}\n}\n")
@@ -199,10 +199,14 @@ func importable(v execfmi.Variable) (skip bool, reason string) {
 	return false, ""
 }
 
-// write emits the parameter's declaration line.
+// write emits the parameter's declaration line; a scalar's multiplicity is
+// spelled, an unstated one being [0..*].
 func (m member) write(b *strings.Builder) {
 	v := m.v
 	fmt.Fprintf(b, "\t\t%s %s : %s", m.direction, m.ident, m.typ)
+	if len(v.Dimensions) == 0 {
+		fmt.Fprintf(b, "[1]")
+	}
 	if v.HasStart && m.direction == "in" {
 		fmt.Fprintf(b, " = %s", literal(v))
 		if m.unit != "" {
@@ -348,13 +352,13 @@ func writeExperiment(b *strings.Builder, d *execfmi.Description) {
 		hasStep, hasTol = e.HasStepSize, e.HasTolerance
 		step, tol = e.StepSize, e.Tolerance
 	}
-	fmt.Fprintf(b, "\t\tin startTime : Real = %s { @ToolVariable { name = \"fmi:startTime\"; } }\n", realLiteral(start))
-	fmt.Fprintf(b, "\t\tin stopTime : Real = %s { @ToolVariable { name = \"fmi:stopTime\"; } }\n", realLiteral(stop))
+	fmt.Fprintf(b, "\t\tin startTime : Real[1] = %s { @ToolVariable { name = \"fmi:startTime\"; } }\n", realLiteral(start))
+	fmt.Fprintf(b, "\t\tin stopTime : Real[1] = %s { @ToolVariable { name = \"fmi:stopTime\"; } }\n", realLiteral(stop))
 	if hasStep {
-		fmt.Fprintf(b, "\t\tin stepSize : Real = %s { @ToolVariable { name = \"fmi:stepSize\"; } }\n", realLiteral(step))
+		fmt.Fprintf(b, "\t\tin stepSize : Real[1] = %s { @ToolVariable { name = \"fmi:stepSize\"; } }\n", realLiteral(step))
 	}
 	if hasTol {
-		fmt.Fprintf(b, "\t\tin tolerance : Real = %s { @ToolVariable { name = \"fmi:tolerance\"; } }\n", realLiteral(tol))
+		fmt.Fprintf(b, "\t\tin tolerance : Real[1] = %s { @ToolVariable { name = \"fmi:tolerance\"; } }\n", realLiteral(tol))
 	}
 }
 
