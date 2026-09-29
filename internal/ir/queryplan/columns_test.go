@@ -86,7 +86,8 @@ calc def Cells :> Query {
 		columns = (
 			Column(name = "weight", cell = { in row : Subsystem; row.mass ?? 0.0 }),
 			Column(name = "nested", cell = { in row : Container; row.nested.weight }),
-			Column(name = "path", path = "'Monte Carlo'.mean")
+			Column(name = "path", path = "'Monte Carlo'.mean"),
+			Column(name = "single", path = "name")
 		)
 	)
 }
@@ -119,6 +120,58 @@ calc def Cells :> Query {
 	path, _ := argumentOf(t, elements[2].Value, "expression")
 	if path.Operation() != OperationRowMember || path.Target() != "'Monte Carlo'.mean" {
 		t.Fatalf("path column = %s %q, want row member 'Monte Carlo'.mean", path.Operation(), path.Target())
+	}
+	single, _ := argumentOf(t, elements[3].Value, "expression")
+	if single.Operation() != OperationRowMember || single.Target() != "name" {
+		t.Fatalf("single-segment path = %s %q, want row member name", single.Operation(), single.Target())
+	}
+}
+
+func TestCompileMetadataPathColumn(t *testing.T) {
+	fixture := loadQueryFixture(t, `
+metadata def TagMetadata {
+	attribute tag : String;
+}
+calc def Tags :> Query {
+	in root : Element;
+	Project(
+		source = Descendants(source = root, maxDepth = 1),
+		columns = (Column(name = "tag", path = "Fixture::TagMetadata::tag"))
+	)
+}
+`)
+	program, err := Compile(fixture.index, fixture.model, fixture.resolver, fixture.symbol(t, "Tags"))
+	if err != nil {
+		t.Fatalf("compile Tags: %v", err)
+	}
+	project := entryDefinition(t, program).Expression()
+	columns, _ := argumentOf(t, project, "columns")
+	column, _ := argumentOf(t, columns.Arguments()[0].Value, "expression")
+	if column.Operation() != OperationRowMember || column.Target() != "Fixture::TagMetadata::tag" {
+		t.Fatalf("metadata path = %s %q, want row member Fixture::TagMetadata::tag", column.Operation(), column.Target())
+	}
+}
+
+func TestCompileMalformedColumnPathIsUnsupported(t *testing.T) {
+	fixture := loadQueryFixture(t, `
+calc def BadPath :> Query {
+	in root : Element;
+	Project(
+		source = Descendants(source = root, maxDepth = 1),
+		columns = (Column(name = "broken", path = "a..b"))
+	)
+}
+`)
+	_, err := Compile(fixture.index, fixture.model, fixture.resolver, fixture.symbol(t, "BadPath"))
+	planning := planningError(t, err, ErrorUnsupportedExpression)
+	if planning.Parameter != "path" {
+		t.Fatalf("unsupported path parameter = %q, want path", planning.Parameter)
+	}
+	if planning.Target != "broken" {
+		t.Fatalf("unsupported path target = %q, want broken", planning.Target)
+	}
+	if !planning.Origin.Located() {
+		t.Fatal("unsupported path error must carry the path origin")
 	}
 }
 

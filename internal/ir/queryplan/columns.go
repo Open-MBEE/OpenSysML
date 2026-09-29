@@ -2,6 +2,7 @@ package queryplan
 
 import (
 	"strconv"
+	"strings"
 
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/semantics"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/symbols"
@@ -128,10 +129,13 @@ func (c *compiler) compileColumn(
 			var text string
 			text, err = strconv.Unquote(literal.Value)
 			if err == nil {
-				expression = Expression{
-					operation: OperationRowMember,
-					target:    text,
-					origin:    symbols.NodeOrigin(owner.DocName, pathNode),
+				ok = c.validColumnPath(text)
+				if ok {
+					expression = Expression{
+						operation: OperationRowMember,
+						target:    text,
+						origin:    symbols.NodeOrigin(owner.DocName, pathNode),
+					}
 				}
 			}
 		}
@@ -155,6 +159,30 @@ func (c *compiler) compileColumn(
 		arguments: arguments,
 		origin:    symbols.NodeOrigin(owner.DocName, node),
 	}, nil
+}
+
+func (c *compiler) validColumnPath(path string) bool {
+	if _, ok := source.MemberPathSegments(path); ok {
+		return true
+	}
+	separator := strings.LastIndex(path, "::")
+	if separator <= 0 || separator+2 >= len(path) {
+		return false
+	}
+	metadataSegments, ok := source.QualifiedNameSegments(path[:separator])
+	if !ok || len(metadataSegments) == 0 {
+		return false
+	}
+	featureSegments, ok := source.MemberPathSegments(path[separator+2:])
+	if !ok || len(featureSegments) != 1 {
+		return false
+	}
+	for _, metadata := range c.index.LookupQualified(source.QualifiedNameOf(metadataSegments)) {
+		if metadata.Kind == symbols.SymbolMetadataDef {
+			return true
+		}
+	}
+	return false
 }
 
 // columnName reads a column's name, which must be a string literal.
