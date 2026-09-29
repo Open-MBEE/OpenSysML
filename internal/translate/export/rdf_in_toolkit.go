@@ -232,7 +232,6 @@ func lastSegmentText(qname string) string {
 func deriveNormativeGraph(graph *rdf.Graph, metaclasses map[rdf.Term]string) (*rdf.Graph, error) {
 	meta := func(t rdf.Term) string { return rdf.LocalName(metaclasses[t]) }
 	chainIndex := chainOwnerIndex(graph, meta)
-	chainFeature := func(graph *rdf.Graph, t rdf.Term) (bool, error) { return chainFeatureIn(graph, meta, chainIndex, t) }
 	// A graph written in the API element form spells every default, so its
 	// stated defaults are dropped and its collapsed properties derived; a
 	// graph minted to this mapping states only what it means.
@@ -250,15 +249,70 @@ func deriveNormativeGraph(graph *rdf.Graph, metaclasses map[rdf.Term]string) (*r
 	if !elementForm {
 		return graph, nil
 	}
+	n := &normalizer{
+		graph:             graph,
+		meta:              meta,
+		chainIndex:        chainIndex,
+		elementForm:       elementForm,
+		memberOwner:       map[string]rdf.Term{},
+		memberMembership:  map[string]rdf.Term{},
+		nodeMember:        map[string]bool{},
+		nodeOwner:         map[string]rdf.Term{},
+		membershipSubject: map[string]bool{},
+		ownerMembers:      map[string][]rdf.Term{},
+		qname:             map[string]string{},
+		visiting:          map[string]bool{},
+	}
+	n.indexMemberships()
+	n.orderMembers()
+	n.collapseRelationships()
+	n.collapseLiteralRelationships()
+	if err := n.deriveChainingFeatures(); err != nil {
+		return nil, err
+	}
+	if err := n.deriveReferents(); err != nil {
+		return nil, err
+	}
+	n.deriveMultiplicities()
+	n.deriveSuccessionEnds()
+	n.stateMemberIndices()
+	n.markBodies()
+	n.deriveSatisfySubjects()
+	n.deriveQualifiedNames()
+	deriveTransitionHeads(graph, meta)
+	n.derivePerformExpressions()
+	n.markImplicitKinds()
+	return graph, nil
+}
 
-	// Index the owning memberships: member -> owner, and which memberships own
-	// expression parts rather than element members.
-	memberOwner := map[string]rdf.Term{}
-	memberMembership := map[string]rdf.Term{}
-	nodeMember := map[string]bool{}
-	nodeOwner := map[string]rdf.Term{}
-	membershipSubject := map[string]bool{}
-	ownerMembers := map[string][]rdf.Term{}
+// normalizer carries the element-form graph through the derivation passes
+// and the membership indexes they share: member -> owner, the membership that
+// owns each member, which members are expression-tree nodes rather than body
+// members, and each owner's members in positional order.
+type normalizer struct {
+	graph             *rdf.Graph
+	meta              func(rdf.Term) string
+	chainIndex        map[string][]rdf.Term
+	elementForm       bool
+	memberOwner       map[string]rdf.Term
+	memberMembership  map[string]rdf.Term
+	nodeMember        map[string]bool
+	nodeOwner         map[string]rdf.Term
+	membershipSubject map[string]bool
+	ownerMembers      map[string][]rdf.Term
+	qname             map[string]string
+	visiting          map[string]bool
+	roots             []rdf.Term
+}
+
+func (n *normalizer) chainFeature(t rdf.Term) (bool, error) {
+	return chainFeatureIn(n.graph, n.meta, n.chainIndex, t)
+}
+
+// indexMemberships indexes the owning memberships: member -> owner, and which
+// memberships own expression parts rather than element members.
+func (n *normalizer) indexMemberships() {
+	graph, meta, memberOwner, memberMembership, nodeMember, nodeOwner, membershipSubject, ownerMembers := n.graph, n.meta, n.memberOwner, n.memberMembership, n.nodeMember, n.nodeOwner, n.membershipSubject, n.ownerMembers
 	for _, subject := range graph.Subjects() {
 		m := meta(subject)
 		if !owningMembershipLike(m) {
@@ -310,10 +364,21 @@ func deriveNormativeGraph(graph *rdf.Graph, metaclasses map[rdf.Term]string) (*r
 			ownerMembers[owner.Value] = append(ownerMembers[owner.Value], member)
 		}
 	}
-	// Order each owner's members the way the owner lists them: the position a
-	// member takes among the owner's memberships is its position in
-	// ownedRelationship order, import memberships included; a member whose
-	// owner lists none takes the order the memberships appear.
+}
+
+// orderMembers orders each owner's members the way the owner lists them: the
+// position a member takes among the owner's memberships is its position in
+// ownedRelationship order, import memberships included; a member whose owner
+// lists none takes the order the memberships appear.
+func (n *normalizer) orderMembers() {
+	for owner := range n.membershipOwners() {
+		n.ownerMembers[owner] = n.orderedMembersOf(owner)
+	}
+}
+
+// membershipOwners is every element that owns a member, a membership, or an import.
+func (n *normalizer) membershipOwners() map[string]bool {
+	graph, meta, memberOwner, nodeOwner, membershipSubject := n.graph, n.meta, n.memberOwner, n.nodeOwner, n.membershipSubject
 	owners := map[string]bool{}
 	for _, owner := range memberOwner {
 		owners[owner.Value] = true
@@ -337,57 +402,64 @@ func deriveNormativeGraph(graph *rdf.Graph, metaclasses map[rdf.Term]string) (*r
 		}
 		owners[owner.Value] = true
 	}
-	for owner := range owners {
-		term := rdf.IRI(owner)
-		var ordered []rdf.Term
-		seen := map[string]bool{}
-		appendMember := func(m rdf.Term) {
-			// A feature's `[n]` range and the expressions valuing it are part
-			// of its head, not body members that take a position.
-			if nodeMember[m.Value] || meta(m) == mMultiplicityRange && !graph.HasProperty(m, rdf.SysML+pDeclaredName) {
-				return
-			}
-			if m.Value != "" && !seen[m.Value] {
-				seen[m.Value] = true
-				ordered = append(ordered, m)
-			}
-		}
-		appendMembership := func(ms rdf.Term) {
-			// Only memberships and imports take a position; a specialization
-			// or typing beside them is part of the owner's head.
-			if m := meta(ms); m == "" || !strings.HasSuffix(m, "Membership") && !strings.HasSuffix(m, "Import") {
-				return
-			} else if m == mSubaction {
-				appendMember(ms)
-				return
-			}
-			if member := firstObject(graph, ms, pMemberElement, "memberFeature", "memberNamespace",
-				pOwnedMemberElement, pOwnedMemberFeature, pOwnedVariantUsage, pOwnedResultExpression,
-				pOwnedMemberParameter, pOwnedSubjectParameter, pOwnedRelatedElement, pImportedMembership,
-				"importedNamespace"); member.Value != "" {
-				appendMember(member)
-			}
-		}
-		for _, ms := range graph.Objects(term, rdf.SysML+pOwnedRelationship) {
-			appendMembership(ms)
-		}
-		for _, ms := range graph.Objects(term, rdf.SysML+pOwnedMembership) {
-			appendMembership(ms)
-		}
-		for _, m := range graph.Objects(term, rdf.SysML+pOwnedMember) {
-			appendMember(m)
-		}
-		for member, o := range memberOwner {
-			if o.Value == owner {
-				appendMember(rdf.IRI(member))
-			}
-		}
-		ownerMembers[owner] = ordered
-	}
+	return owners
+}
 
-	// Collapse the minted relationship elements into the head properties their
-	// owner states them as, when the element is owned directly rather than
-	// declared through a membership.
+// orderedMembersOf is the owner's members in the order its memberships list them.
+func (n *normalizer) orderedMembersOf(owner string) []rdf.Term {
+	graph, meta, memberOwner, nodeMember := n.graph, n.meta, n.memberOwner, n.nodeMember
+	term := rdf.IRI(owner)
+	var ordered []rdf.Term
+	seen := map[string]bool{}
+	appendMember := func(m rdf.Term) {
+		// A feature's `[n]` range and the expressions valuing it are part
+		// of its head, not body members that take a position.
+		if nodeMember[m.Value] || meta(m) == mMultiplicityRange && !graph.HasProperty(m, rdf.SysML+pDeclaredName) {
+			return
+		}
+		if m.Value != "" && !seen[m.Value] {
+			seen[m.Value] = true
+			ordered = append(ordered, m)
+		}
+	}
+	appendMembership := func(ms rdf.Term) {
+		// Only memberships and imports take a position; a specialization
+		// or typing beside them is part of the owner's head.
+		if m := meta(ms); m == "" || !strings.HasSuffix(m, "Membership") && !strings.HasSuffix(m, "Import") {
+			return
+		} else if m == mSubaction {
+			appendMember(ms)
+			return
+		}
+		if member := firstObject(graph, ms, pMemberElement, "memberFeature", "memberNamespace",
+			pOwnedMemberElement, pOwnedMemberFeature, pOwnedVariantUsage, pOwnedResultExpression,
+			pOwnedMemberParameter, pOwnedSubjectParameter, pOwnedRelatedElement, pImportedMembership,
+			"importedNamespace"); member.Value != "" {
+			appendMember(member)
+		}
+	}
+	for _, ms := range graph.Objects(term, rdf.SysML+pOwnedRelationship) {
+		appendMembership(ms)
+	}
+	for _, ms := range graph.Objects(term, rdf.SysML+pOwnedMembership) {
+		appendMembership(ms)
+	}
+	for _, m := range graph.Objects(term, rdf.SysML+pOwnedMember) {
+		appendMember(m)
+	}
+	for member, o := range memberOwner {
+		if o.Value == owner {
+			appendMember(rdf.IRI(member))
+		}
+	}
+	return ordered
+}
+
+// collapseRelationships collapses the minted relationship elements into the
+// head properties their owner states them as, when the element is owned
+// directly rather than declared through a membership.
+func (n *normalizer) collapseRelationships() {
+	graph, meta, memberOwner, membershipSubject := n.graph, n.meta, n.memberOwner, n.membershipSubject
 	for _, subject := range graph.Subjects() {
 		if membershipSubject[subject.Value] || memberOwner[subject.Value] != (rdf.Term{}) {
 			continue
@@ -418,9 +490,13 @@ func deriveNormativeGraph(graph *rdf.Graph, metaclasses map[rdf.Term]string) (*r
 		}
 		graph.Add(owner, rdf.SysMLTerm(property), target)
 	}
-	// Literal targets: the minted element's literal ends restate the literal
-	// collapsed value the same way; the loop above only reads IRIs, so repeat
-	// it for literals.
+}
+
+// collapseLiteralRelationships restates the minted element's literal ends as
+// the literal collapsed value the same way; collapseRelationships only reads
+// IRIs, so the walk is repeated for literals.
+func (n *normalizer) collapseLiteralRelationships() {
+	graph, meta, memberOwner, membershipSubject := n.graph, n.meta, n.memberOwner, n.membershipSubject
 	for _, subject := range graph.Subjects() {
 		if membershipSubject[subject.Value] || memberOwner[subject.Value] != (rdf.Term{}) {
 			continue
@@ -450,25 +526,36 @@ func deriveNormativeGraph(graph *rdf.Graph, metaclasses map[rdf.Term]string) (*r
 			graph.Add(owner, rdf.OpenSysMLTerm(xConjugatedTyping), rdf.Bool(true))
 		}
 	}
+}
 
-	// A chain feature's collapsed chainingFeature list is derived from the
-	// FeatureChainings it owns, in ownedRelationship order.
+// deriveChainingFeatures derives a chain feature's collapsed chainingFeature
+// list from the FeatureChainings it owns, in ownedRelationship order.
+func (n *normalizer) deriveChainingFeatures() error {
+	graph, meta, chainIndex := n.graph, n.meta, n.chainIndex
 	for _, subject := range graph.Subjects() {
-		isChain, err := chainFeature(graph, subject)
+		isChain, err := n.chainFeature(subject)
 		if err != nil {
-			return nil, err
+			return err
 		}
 		if !isChain || graph.HasProperty(subject, rdf.SysML+pChainingFeature) {
 			continue
 		}
 		links, err := chainLinksOf(graph, meta, chainIndex, subject)
 		if err != nil {
-			return nil, err
+			return err
 		}
 		for _, link := range links {
 			graph.Add(subject, rdf.SysMLTerm(pChainingFeature), link)
 		}
 	}
+	return nil
+}
+
+// deriveReferents states the collapsed property our decoder reads from the
+// Membership relating an expression to its referent; a chain the expression
+// reaches is a Feature of FeatureChainings, read as the chain's text.
+func (n *normalizer) deriveReferents() error {
+	graph, meta, chainIndex := n.graph, n.meta, n.chainIndex
 	unresolvedID, _ := unresolvedNames(graph, meta)
 	// The Membership relating an expression to its referent states the
 	// collapsed property our decoder reads; a chain the expression reaches is
@@ -494,7 +581,7 @@ func deriveNormativeGraph(graph *rdf.Graph, metaclasses map[rdf.Term]string) (*r
 		if meta(subject) == mOwningMembership {
 			text, chain, err := chainTextIn(graph, meta, chainIndex, unresolvedID, member)
 			if err != nil {
-				return nil, err
+				return err
 			}
 			if !chain || property == pFunction {
 				continue
@@ -507,11 +594,15 @@ func deriveNormativeGraph(graph *rdf.Graph, metaclasses map[rdf.Term]string) (*r
 			graph.Add(owner, rdf.SysMLTerm(property), member)
 		}
 	}
+	return nil
+}
 
-	// A MultiplicityRange owned by a feature states the feature's collapsed
-	// bounds and the range itself.
+// deriveMultiplicities states a feature's collapsed bounds and the range
+// itself from the MultiplicityRange it owns.
+func (n *normalizer) deriveMultiplicities() {
+	graph := n.graph
 	for _, subject := range graph.Subjects() {
-		if meta(subject) != mMultiplicityRange {
+		if n.meta(subject) != mMultiplicityRange {
 			continue
 		}
 		owner := firstIRI(graph, subject, pOwningRelatedElement, pOwner)
@@ -525,25 +616,9 @@ func deriveNormativeGraph(graph *rdf.Graph, metaclasses map[rdf.Term]string) (*r
 			continue
 		}
 		graph.Add(owner, rdf.SysMLTerm(pMultiplicity), subject)
-		var bounds []rdf.Term
-		for _, property := range []string{pLowerBound, pUpperBound} {
-			bounds = append(bounds, graph.Objects(subject, rdf.SysML+property)...)
-		}
-		stated := len(bounds)
-		if len(bounds) == 0 {
-			// The bounds are the range's owned bound expressions, in
-			// ownedRelationship order.
-			for _, ms := range graph.Objects(subject, rdf.SysML+pOwnedRelationship) {
-				if meta(ms) == "" || !ontology.IsAncestorOrSelf(meta(ms), mOwningMembership) {
-					continue
-				}
-				if bound := firstIRI(graph, ms, pMemberElement, pOwnedMemberElement, pOwnedRelatedElement); bound.Value != "" {
-					bounds = append(bounds, bound)
-				}
-			}
-		}
+		bounds, stated := n.rangeBounds(subject)
 		switch {
-		case stated > 0 && !elementForm:
+		case stated > 0 && !n.elementForm:
 			// Stated bounds are the statement; copying them to the owner
 			// would hide a disagreement from verification.
 		case len(bounds) == 1:
@@ -556,63 +631,52 @@ func deriveNormativeGraph(graph *rdf.Graph, metaclasses map[rdf.Term]string) (*r
 			graph.Add(subject, rdf.SysMLTerm(pUpperBound), bounds[len(bounds)-1])
 		}
 	}
+}
 
-	// A succession written between members states its ends through unnamed
-	// reference features: the member an end targets where the toolkit
-	// resolves it, `then` beside the next member where it names nothing.
+// rangeBounds is a MultiplicityRange's bounds — the stated ones, or else its
+// owned bound expressions in ownedRelationship order — and how many it states.
+func (n *normalizer) rangeBounds(subject rdf.Term) ([]rdf.Term, int) {
+	graph, meta := n.graph, n.meta
+	var bounds []rdf.Term
+	for _, property := range []string{pLowerBound, pUpperBound} {
+		bounds = append(bounds, graph.Objects(subject, rdf.SysML+property)...)
+	}
+	stated := len(bounds)
+	if stated == 0 {
+		// The bounds are the range's owned bound expressions, in
+		// ownedRelationship order.
+		for _, ms := range graph.Objects(subject, rdf.SysML+pOwnedRelationship) {
+			if meta(ms) == "" || !ontology.IsAncestorOrSelf(meta(ms), mOwningMembership) {
+				continue
+			}
+			if bound := firstIRI(graph, ms, pMemberElement, pOwnedMemberElement, pOwnedRelatedElement); bound.Value != "" {
+				bounds = append(bounds, bound)
+			}
+		}
+	}
+	return bounds, stated
+}
+
+// deriveSuccessionEnds states the ends of a succession written between
+// members through its unnamed reference features: the member an end targets
+// where the toolkit resolves it, `then` beside the next member where it names
+// nothing.
+func (n *normalizer) deriveSuccessionEnds() {
+	graph := n.graph
 	for _, subject := range graph.Subjects() {
-		m := meta(subject)
+		m := n.meta(subject)
 		if m == "" || !ontology.IsAncestorOrSelf(m, "Succession") {
 			continue
 		}
-		owner := memberOwner[subject.Value]
+		owner := n.memberOwner[subject.Value]
 		if owner.Value == "" {
 			continue
 		}
-		var source, target rdf.Term
-		if referents := successionEndReferents(graph, meta, subject); len(referents) == 2 {
-			source, target = referents[0], referents[1]
-		}
-		if ends := ownerMembers[subject.Value]; len(ends) >= 2 {
-			if t := firstIRI(graph, ends[0], "featureTarget"); source.Value == "" && t.IsIRI() && t != ends[0] {
-				source = t
-			}
-			last := ends[len(ends)-1]
-			if t := firstIRI(graph, last, "featureTarget"); target.Value == "" && t.IsIRI() && t != last {
-				target = t
-			}
-		}
+		source, target := n.successionEnds(subject)
 		if source.Value != "" {
 			graph.Add(subject, rdf.SysMLTerm(pSourceFeature), source)
 		}
-		// The members a `then` is written between: the feature (or `first`
-		// member) before it, which an empty source end sequences from
-		// (SysML v2 1.0 § 7.17.4), and the next, which `then` ahead of it targets.
-		var previous, next rdf.Term
-		sequenced := func(t rdf.Term) bool {
-			m := meta(t)
-			return m != "" && !ontology.IsAncestorOrSelf(m, "Succession") &&
-				(m == mMembership || !relationshipLike(m))
-		}
-		members := ownerMembers[owner.Value]
-		for i, member := range members {
-			if member != subject {
-				continue
-			}
-			for j := i - 1; j >= 0; j-- {
-				if sequenced(members[j]) {
-					previous = members[j]
-					break
-				}
-			}
-			for _, candidate := range members[i+1:] {
-				if sequenced(candidate) {
-					next = candidate
-					break
-				}
-			}
-			break
-		}
+		previous, next := n.sequencedNeighbours(owner, subject)
 		if source.Value == "" && previous.Value != "" && target.Value != "" {
 			graph.Add(subject, rdf.OpenSysMLTerm(xSourceMember), previous)
 		}
@@ -628,74 +692,170 @@ func deriveNormativeGraph(graph *rdf.Graph, metaclasses map[rdf.Term]string) (*r
 			graph.Add(subject, rdf.OpenSysMLTerm(xTargetMember), next)
 		}
 	}
+}
 
-	// The decoder orders an owner's members by the sysx:memberIndex each
-	// states, keeping the graph's subject order where none is stated. Where
-	// the positional order above — the order the names are derived by —
-	// differs from the subject order, state every member's place so both
-	// agree: a positional member takes its position, every other member
-	// keeps the slot it appears in, and a result expression keeps none —
-	// its trailing place is the absence of an index. An owner whose members
-	// state an index keeps it: the order it states is the order it takes.
-	for owner, members := range ownerMembers {
-		positional := map[string]bool{}
-		for _, m := range members {
-			positional[m.Value] = true
+// successionEnds is what a succession's end features refer to, falling back
+// to the featureTarget of its first and last unnamed ends.
+func (n *normalizer) successionEnds(subject rdf.Term) (source, target rdf.Term) {
+	graph, meta, ownerMembers := n.graph, n.meta, n.ownerMembers
+	if referents := successionEndReferents(graph, meta, subject); len(referents) == 2 {
+		source, target = referents[0], referents[1]
+	}
+	if ends := ownerMembers[subject.Value]; len(ends) >= 2 {
+		if t := firstIRI(graph, ends[0], "featureTarget"); source.Value == "" && t.IsIRI() && t != ends[0] {
+			source = t
 		}
-		var all, merged []rdf.Term
-		children := map[string]bool{}
-		indexed := false
-		next := 0
-		for _, subject := range graph.Subjects() {
-			if o, ok := memberOwner[subject.Value]; !ok || o.Value != owner {
-				continue
-			}
-			if graph.HasProperty(subject, rdf.OpenSysML+xMemberIndex) {
-				indexed = true
-				break
-			}
-			children[subject.Value] = true
-			all = append(all, subject)
-			if positional[subject.Value] {
-				merged = append(merged, members[next])
-				next++
-			} else {
-				merged = append(merged, subject)
-			}
+		last := ends[len(ends)-1]
+		if t := firstIRI(graph, last, "featureTarget"); target.Value == "" && t.IsIRI() && t != last {
+			target = t
 		}
-		if indexed {
+	}
+	if source.Value != "" {
+		graph.Add(subject, rdf.SysMLTerm(pSourceFeature), source)
+	}
+	return source, target
+}
+
+// sequencedNeighbours is the members a `then` is written between: the
+// feature (or `first` member) before it, which an empty source end sequences
+// from (SysML v2 1.0 § 7.17.4), and the next, which `then` ahead of it targets.
+func (n *normalizer) sequencedNeighbours(owner, subject rdf.Term) (previous, next rdf.Term) {
+	sequenced := func(t rdf.Term) bool {
+		m := n.meta(t)
+		return m != "" && !ontology.IsAncestorOrSelf(m, "Succession") &&
+			(m == mMembership || !relationshipLike(m))
+	}
+	members := n.ownerMembers[owner.Value]
+	for i, member := range members {
+		if member != subject {
 			continue
 		}
-		merged = append(merged, members[next:]...)
-		same := len(all) == len(merged)
-		for i := range all {
-			if same && all[i] != merged[i] {
-				same = false
+		for j := i - 1; j >= 0; j-- {
+			if sequenced(members[j]) {
+				previous = members[j]
+				break
 			}
 		}
-		if same {
+		for _, candidate := range members[i+1:] {
+			if sequenced(candidate) {
+				next = candidate
+				break
+			}
+		}
+		break
+	}
+	return previous, next
+}
+
+// stateMemberIndices states every member's place where the positional order —
+// the order the names are derived by — differs from the subject order the
+// decoder falls back to: a positional member takes its position, every other
+// member keeps the slot it appears in, and a result expression keeps none —
+// its trailing place is the absence of an index. An owner whose members state
+// an index keeps it: the order it states is the order it takes.
+func (n *normalizer) stateMemberIndices() {
+	for owner, members := range n.ownerMembers {
+		all, merged, children, indexed := n.mergedMemberOrder(owner, members)
+		if indexed || sameTerms(all, merged) {
 			continue
 		}
 		for i, m := range merged {
-			if !children[m.Value] || meta(memberMembership[m.Value]) == mResultExpressionMembership {
+			if !children[m.Value] || n.meta(n.memberMembership[m.Value]) == mResultExpressionMembership {
 				continue
 			}
-			graph.Add(m, rdf.OpenSysMLTerm(xMemberIndex), rdf.Int(i))
-			if ms, ok := memberMembership[m.Value]; ok {
-				graph.Add(ms, rdf.OpenSysMLTerm(xMemberIndex), rdf.Int(i))
-			}
-			for _, ms := range graph.Objects(rdf.IRI(owner), rdf.SysML+pOwnedRelationship) {
-				if meta(ms) == mMembership && firstIRI(graph, ms, pMemberElement) == m {
-					graph.Add(ms, rdf.OpenSysMLTerm(xMemberIndex), rdf.Int(i))
-				}
-			}
+			n.indexMember(owner, m, i)
 		}
 	}
+}
 
-	// An element with members is written with a body; the compact form states
-	// no hasBody flag.
+// mergedMemberOrder is the owner's members in subject order, the same slots
+// with the positional members in their positional order, the members among
+// them, and whether one already states an index.
+func (n *normalizer) mergedMemberOrder(owner string, members []rdf.Term) (all, merged []rdf.Term, children map[string]bool, indexed bool) {
+	positional := map[string]bool{}
+	for _, m := range members {
+		positional[m.Value] = true
+	}
+	children = map[string]bool{}
+	next := 0
+	for _, subject := range n.graph.Subjects() {
+		if o, ok := n.memberOwner[subject.Value]; !ok || o.Value != owner {
+			continue
+		}
+		if n.graph.HasProperty(subject, rdf.OpenSysML+xMemberIndex) {
+			return nil, nil, nil, true
+		}
+		children[subject.Value] = true
+		all = append(all, subject)
+		if positional[subject.Value] {
+			merged = append(merged, members[next])
+			next++
+		} else {
+			merged = append(merged, subject)
+		}
+	}
+	merged = append(merged, members[next:]...)
+	return all, merged, children, false
+}
+
+// indexMember states the member's place on it, its owning membership, and any
+// plain Membership of the owner naming it.
+func (n *normalizer) indexMember(owner string, m rdf.Term, i int) {
+	graph := n.graph
+	graph.Add(m, rdf.OpenSysMLTerm(xMemberIndex), rdf.Int(i))
+	if ms, ok := n.memberMembership[m.Value]; ok {
+		graph.Add(ms, rdf.OpenSysMLTerm(xMemberIndex), rdf.Int(i))
+	}
+	for _, ms := range graph.Objects(rdf.IRI(owner), rdf.SysML+pOwnedRelationship) {
+		if n.meta(ms) == mMembership && firstIRI(graph, ms, pMemberElement) == m {
+			graph.Add(ms, rdf.OpenSysMLTerm(xMemberIndex), rdf.Int(i))
+		}
+	}
+}
+
+func sameTerms(a, b []rdf.Term) bool {
+	if len(a) != len(b) {
+		return false
+	}
+	for i := range a {
+		if a[i] != b[i] {
+			return false
+		}
+	}
+	return true
+}
+
+// markBodies flags the elements written with a body: those with members,
+// the compact form stating no hasBody flag.
+func (n *normalizer) markBodies() {
+	graph := n.graph
+	bodied := n.bodiedOwners()
+	for _, subject := range graph.Subjects() {
+		if !bodied[subject.Value] || graph.HasProperty(subject, rdf.OpenSysML+xHasBody) {
+			continue
+		}
+		m := n.meta(subject)
+		// A satisfy's members are its head's subject parameter and the
+		// relationships it implies, not a body.
+		if m == "SatisfyRequirementUsage" {
+			continue
+		}
+		// A relationship's members that are metadata usages are its `#`
+		// prefixes, not a body, so owning only those braces nothing.
+		if isRelationship(m) && n.onlyMetadataMembers(subject) {
+			continue
+		}
+		if m != "" && !expressionMetaclasses[m] && !n.membershipSubject[subject.Value] {
+			graph.Add(subject, rdf.OpenSysMLTerm(xHasBody), rdf.Bool(true))
+		}
+	}
+}
+
+// bodiedOwners is every owner with a member written in a body.
+func (n *normalizer) bodiedOwners() map[string]bool {
+	graph, meta, memberMembership := n.graph, n.meta, n.memberMembership
 	bodied := map[string]bool{}
-	for member, owner := range memberOwner {
+	for member, owner := range n.memberOwner {
 		// A subaction's one action and a connector's unnamed ends are written
 		// in the head, not in a body.
 		if meta(owner) == mSubaction || meta(memberMembership[member]) == mTransitionFeatureMembership {
@@ -711,81 +871,79 @@ func deriveNormativeGraph(graph *rdf.Graph, metaclasses map[rdf.Term]string) (*r
 		}
 		bodied[owner.Value] = true
 	}
-	for _, subject := range graph.Subjects() {
-		if bodied[subject.Value] && !graph.HasProperty(subject, rdf.OpenSysML+xHasBody) {
-			m := meta(subject)
-			// A satisfy's members are its head's subject parameter and the
-			// relationships it implies, not a body.
-			if m == "SatisfyRequirementUsage" {
+	return bodied
+}
+
+func (n *normalizer) onlyMetadataMembers(subject rdf.Term) bool {
+	for _, member := range n.ownerMembers[subject.Value] {
+		if n.meta(member) != "MetadataUsage" {
+			return false
+		}
+	}
+	return true
+}
+
+// deriveSatisfySubjects follows each satisfy's subject chain —
+// SubjectMembership -> ReferenceUsage -> FeatureValue -> expression — which
+// the collapsed `subject` states by its referent.
+func (n *normalizer) deriveSatisfySubjects() {
+	for _, subject := range n.graph.Subjects() {
+		if n.meta(subject) == "SatisfyRequirementUsage" {
+			n.deriveSatisfySubject(subject)
+		}
+	}
+}
+
+// deriveSatisfySubject is deriveSatisfySubjects for one satisfy.
+func (n *normalizer) deriveSatisfySubject(subject rdf.Term) {
+	graph, meta := n.graph, n.meta
+	// Only the reference form is a satisfy head: unnamed, naming the
+	// requirement it satisfies by what it subsets.
+	if !graph.HasProperty(subject, rdf.OpenSysML+xEndForm) &&
+		!graph.HasProperty(subject, rdf.SysML+pDeclaredName) &&
+		graph.HasProperty(subject, rdf.SysML+"subsets") {
+		graph.Add(subject, rdf.OpenSysMLTerm(xEndForm), rdf.String("satisfy"))
+	}
+	if graph.HasProperty(subject, rdf.SysML+"subject") {
+		return
+	}
+	for _, ms := range graph.Objects(subject, rdf.SysML+pOwnedRelationship) {
+		if meta(ms) != mSubjectMembership {
+			continue
+		}
+		parameter := firstIRI(graph, ms, pOwnedSubjectParameter, pMemberElement, pOwnedMemberElement, pOwnedRelatedElement)
+		if parameter.Value == "" {
+			continue
+		}
+		for _, fv := range graph.Objects(parameter, rdf.SysML+pOwnedRelationship) {
+			if meta(fv) != mFeatureValue {
 				continue
 			}
-			// A relationship's members that are metadata usages are its `#`
-			// prefixes, not a body, so owning only those braces nothing.
-			if isRelationship(m) {
-				allMetadata := true
-				for _, member := range ownerMembers[subject.Value] {
-					if meta(member) != "MetadataUsage" {
-						allMetadata = false
-						break
-					}
-				}
-				if allMetadata {
-					continue
-				}
+			value := firstIRI(graph, fv, pValue, pMemberElement, pOwnedRelatedElement)
+			if value.Value == "" {
+				continue
 			}
-			if m != "" && !expressionMetaclasses[m] && !membershipSubject[subject.Value] {
-				graph.Add(subject, rdf.OpenSysMLTerm(xHasBody), rdf.Bool(true))
+			graph.Add(parameter, rdf.SysMLTerm(pValue), value)
+			target := firstIRI(graph, value, pReferent, pTargetFeature)
+			if target.Value != "" {
+				graph.Add(subject, rdf.SysMLTerm("subject"), target)
 			}
 		}
 	}
+}
 
-	// A satisfy's subject chain: SubjectMembership -> ReferenceUsage ->
-	// FeatureValue -> expression, which the collapsed `subject` states by its
-	// referent.
-	for _, subject := range graph.Subjects() {
-		if meta(subject) != "SatisfyRequirementUsage" {
-			continue
-		}
-		// Only the reference form is a satisfy head: unnamed, naming the
-		// requirement it satisfies by what it subsets.
-		if !graph.HasProperty(subject, rdf.OpenSysML+xEndForm) &&
-			!graph.HasProperty(subject, rdf.SysML+pDeclaredName) &&
-			graph.HasProperty(subject, rdf.SysML+"subsets") {
-			graph.Add(subject, rdf.OpenSysMLTerm(xEndForm), rdf.String("satisfy"))
-		}
-		if graph.HasProperty(subject, rdf.SysML+"subject") {
-			continue
-		}
-		for _, ms := range graph.Objects(subject, rdf.SysML+pOwnedRelationship) {
-			if meta(ms) != mSubjectMembership {
-				continue
-			}
-			parameter := firstIRI(graph, ms, pOwnedSubjectParameter, pMemberElement, pOwnedMemberElement, pOwnedRelatedElement)
-			if parameter.Value == "" {
-				continue
-			}
-			for _, fv := range graph.Objects(parameter, rdf.SysML+pOwnedRelationship) {
-				if meta(fv) != mFeatureValue {
-					continue
-				}
-				value := firstIRI(graph, fv, pValue, pMemberElement, pOwnedRelatedElement)
-				if value.Value == "" {
-					continue
-				}
-				graph.Add(parameter, rdf.SysMLTerm(pValue), value)
-				target := firstIRI(graph, value, pReferent, pTargetFeature)
-				if target.Value != "" {
-					graph.Add(subject, rdf.SysMLTerm("subject"), target)
-				}
-			}
-		}
-	}
+// deriveQualifiedNames states the qualified name of every element the
+// compact form carries none for, since every name the decoder writes is read
+// from one. Members use their owner's position among its members; roots use
+// their position among the roots the same way.
+func (n *normalizer) deriveQualifiedNames() {
+	n.roots = n.collectRoots()
+	n.stateQualifiedNames()
+}
 
-	// Qualified names: the compact form carries none, and every name the
-	// decoder writes is read from one. Members use their owner's position among
-	// its members; roots use their position among the roots the same way.
-	qname := map[string]string{}
-	visiting := map[string]bool{}
+// collectRoots is the elements no membership owns, in memberIndex order.
+func (n *normalizer) collectRoots() []rdf.Term {
+	graph, meta, memberOwner, nodeMember, membershipSubject := n.graph, n.meta, n.memberOwner, n.nodeMember, n.membershipSubject
 	roots := []rdf.Term{}
 	for _, subject := range graph.Subjects() {
 		m := meta(subject)
@@ -806,70 +964,79 @@ func deriveNormativeGraph(graph *rdf.Graph, metaclasses map[rdf.Term]string) (*r
 	sort.SliceStable(roots, func(i, j int) bool {
 		return intOf(graph, roots[i], rdf.OpenSysML+xMemberIndex) < intOf(graph, roots[j], rdf.OpenSysML+xMemberIndex)
 	})
-	var nameOf func(subject rdf.Term) string
-	nameOf = func(subject rdf.Term) string {
-		if q, ok := qname[subject.Value]; ok {
-			return q
-		}
-		if visiting[subject.Value] {
-			// An element owned through a relationship can loop back to itself.
-			return ""
-		}
-		visiting[subject.Value] = true
-		defer delete(visiting, subject.Value)
-		if q, ok := graph.Lexical(subject, rdf.SysML+pQualifiedName); ok {
-			qname[subject.Value] = q
-			return q
-		}
-		owner, owned := memberOwner[subject.Value]
-		base := ""
-		if owned {
-			base = nameOf(owner)
-		}
-		name, _ := graph.Lexical(subject, rdf.SysML+pDeclaredName)
-		if name == "" {
-			name, _ = graph.Lexical(subject, rdf.SysML+pDeclaredShortName)
-		}
-		siblings := roots
-		if owned {
-			siblings = ownerMembers[owner.Value]
-		}
-		if name == "" {
-			if !owned {
-				// An unnamed element no membership owns — the root namespace
-				// is the one — contributes no name.
-				qname[subject.Value] = ""
-				return ""
-			}
-			index := 0
-			for i, sibling := range siblings {
-				if sibling == subject {
-					index = i
-					break
-				}
-			}
-			q := qualify(base, "", index)
-			qname[subject.Value] = q
-			return q
-		}
-		q := qualify(base, name, 0)
-		// A name an earlier sibling already took is not an identity: the
-		// later element is addressed by its position.
-		for i, sibling := range siblings {
-			if sibling != subject {
-				continue
-			}
-			for _, earlier := range siblings[:i] {
-				if prior := nameOf(earlier); prior != "" && prior == q {
-					q = qualify(base, "", i)
-					break
-				}
-			}
-			break
-		}
+	return roots
+}
+
+// nameOf is the qualified name derived for subject, or empty for an element
+// that contributes none.
+func (n *normalizer) nameOf(subject rdf.Term) string {
+	graph, memberOwner, ownerMembers, qname, visiting, roots := n.graph, n.memberOwner, n.ownerMembers, n.qname, n.visiting, n.roots
+	if q, ok := qname[subject.Value]; ok {
+		return q
+	}
+	if visiting[subject.Value] {
+		// An element owned through a relationship can loop back to itself.
+		return ""
+	}
+	visiting[subject.Value] = true
+	defer delete(visiting, subject.Value)
+	if q, ok := graph.Lexical(subject, rdf.SysML+pQualifiedName); ok {
 		qname[subject.Value] = q
 		return q
 	}
+	owner, owned := memberOwner[subject.Value]
+	base := ""
+	if owned {
+		base = n.nameOf(owner)
+	}
+	name, _ := graph.Lexical(subject, rdf.SysML+pDeclaredName)
+	if name == "" {
+		name, _ = graph.Lexical(subject, rdf.SysML+pDeclaredShortName)
+	}
+	siblings := roots
+	if owned {
+		siblings = ownerMembers[owner.Value]
+	}
+	if name == "" {
+		if !owned {
+			// An unnamed element no membership owns — the root namespace
+			// is the one — contributes no name.
+			qname[subject.Value] = ""
+			return ""
+		}
+		index := 0
+		for i, sibling := range siblings {
+			if sibling == subject {
+				index = i
+				break
+			}
+		}
+		q := qualify(base, "", index)
+		qname[subject.Value] = q
+		return q
+	}
+	q := qualify(base, name, 0)
+	// A name an earlier sibling already took is not an identity: the
+	// later element is addressed by its position.
+	for i, sibling := range siblings {
+		if sibling != subject {
+			continue
+		}
+		for _, earlier := range siblings[:i] {
+			if prior := n.nameOf(earlier); prior != "" && prior == q {
+				q = qualify(base, "", i)
+				break
+			}
+		}
+		break
+	}
+	qname[subject.Value] = q
+	return q
+}
+
+// stateQualifiedNames writes nameOf onto every element it names.
+func (n *normalizer) stateQualifiedNames() {
+	graph, meta, memberOwner, nodeMember, membershipSubject := n.graph, n.meta, n.memberOwner, n.nodeMember, n.membershipSubject
 	for _, subject := range graph.Subjects() {
 		m := meta(subject)
 		if membershipSubject[subject.Value] || nodeMember[subject.Value] && expressionMetaclasses[m] {
@@ -895,43 +1062,55 @@ func deriveNormativeGraph(graph *rdf.Graph, metaclasses map[rdf.Term]string) (*r
 				continue
 			}
 		}
-		graph.Add(subject, rdf.SysMLTerm(pQualifiedName), rdf.String(nameOf(subject)))
+		graph.Add(subject, rdf.SysMLTerm(pQualifiedName), rdf.String(n.nameOf(subject)))
 	}
+}
 
-	deriveTransitionHeads(graph, meta)
-
-	// A perform's action is the type its head is typed by, written back as
-	// the expression the `perform` statement names.
+// derivePerformExpressions writes a perform's action — the type its head is
+// typed by — back as the expression the `perform` statement names.
+func (n *normalizer) derivePerformExpressions() {
+	graph := n.graph
 	for _, subject := range graph.Subjects() {
-		if meta(subject) != mPerform || graph.HasProperty(subject, rdf.OpenSysML+xExpression) {
+		if n.meta(subject) != mPerform || graph.HasProperty(subject, rdf.OpenSysML+xExpression) {
 			continue
 		}
 		// A state's `entry action e : A` and a transition's `do action f : A`
 		// are performed actions too, written as usage heads after the keyword.
 		ms := firstIRI(graph, subject, pOwningRelationship, pOwningMembership)
-		if m := meta(ms); m == mSubaction || m == mTransitionFeatureMembership {
-			if !graph.HasProperty(subject, rdf.SysML+pDeclaredName) && graph.HasProperty(subject, rdf.SysML+pReferences) {
-				if kind, ok := graph.Lexical(ms, rdf.SysML+pKind); ok && m == mSubaction {
-					graph.Add(subject, rdf.OpenSysMLTerm(xDeclaredKeyword), rdf.String(kind))
-				}
-			}
+		if m := n.meta(ms); m == mSubaction || m == mTransitionFeatureMembership {
+			n.statePerformedKeyword(subject, ms, m)
 			continue
 		}
 		for _, target := range graph.Objects(subject, rdf.SysML+"type") {
-			if target.IsIRI() {
-				if name, ok := qname[target.Value]; ok && name != "" {
-					graph.Add(subject, rdf.OpenSysMLTerm(xExpression), rdf.String(name))
-				}
+			if !target.IsIRI() {
+				graph.Add(subject, rdf.OpenSysMLTerm(xExpression), target)
 				continue
 			}
-			graph.Add(subject, rdf.OpenSysMLTerm(xExpression), target)
+			if name, ok := n.qname[target.Value]; ok && name != "" {
+				graph.Add(subject, rdf.OpenSysMLTerm(xExpression), rdf.String(name))
+			}
 		}
 	}
+}
 
-	// A ReferenceUsage is the kindless member metaclass — `ref` states the
-	// kind when the keyword is written, and the compact form records no
-	// keyword for it, so a toolkit ReferenceUsage prints none. A parameter
-	// whose membership spells its keyword — a satisfy's `subject` — keeps it.
+// statePerformedKeyword restates a subaction membership's kind as the
+// declared keyword of the unnamed performed action it owns.
+func (n *normalizer) statePerformedKeyword(subject, ms rdf.Term, m string) {
+	graph := n.graph
+	if graph.HasProperty(subject, rdf.SysML+pDeclaredName) || !graph.HasProperty(subject, rdf.SysML+pReferences) {
+		return
+	}
+	if kind, ok := graph.Lexical(ms, rdf.SysML+pKind); ok && m == mSubaction {
+		graph.Add(subject, rdf.OpenSysMLTerm(xDeclaredKeyword), rdf.String(kind))
+	}
+}
+
+// markImplicitKinds flags the toolkit ReferenceUsages that print no keyword:
+// ReferenceUsage is the kindless member metaclass — `ref` states the kind when
+// the keyword is written, and the compact form records no keyword for it. A
+// parameter whose membership spells its keyword — a satisfy's `subject` — keeps it.
+func (n *normalizer) markImplicitKinds() {
+	graph, meta := n.graph, n.meta
 	for _, subject := range graph.Subjects() {
 		if meta(subject) != "ReferenceUsage" {
 			continue
@@ -944,7 +1123,6 @@ func deriveNormativeGraph(graph *rdf.Graph, metaclasses map[rdf.Term]string) (*r
 			graph.Add(subject, rdf.OpenSysMLTerm(xImplicitKind), rdf.Bool(true))
 		}
 	}
-	return graph, nil
 }
 
 // deriveTransitionHeads states a TransitionUsage's collapsed head from the
@@ -1019,26 +1197,320 @@ func dropStatedDefaults(graph *rdf.Graph, meta func(rdf.Term) string, elementFor
 		// graph minted to this mapping means every triple it writes.
 		return graph, nil
 	}
-	// An element owned by a membership — an annotation of the membership, or
-	// an implied-include membership nested under one — is no member of the
-	// model; the compact form writes it as the memberElement literal alone.
-	membershipOwned := map[string]bool{}
-	if elementForm {
-		for _, subject := range graph.Subjects() {
-			owner := firstIRI(graph, subject, pOwningRelatedElement, pOwner, pMembershipOwningNamespace, pOwningNamespace)
-			if owner.Value == "" {
-				if ms := firstIRI(graph, subject, pOwningRelationship, pOwningMembership); ms.Value != "" {
-					owner = firstIRI(graph, ms, pOwningRelatedElement, pOwner, pMembershipOwningNamespace)
-				}
-			}
-			if m := meta(owner); m != "" && (strings.HasSuffix(m, "Membership") || strings.HasSuffix(m, "Import")) {
-				membershipOwned[subject.Value] = true
+	d, err := newDefaultDropper(graph, meta, chainIndex)
+	if err != nil {
+		return nil, err
+	}
+	out := rdf.NewGraph()
+	for _, triple := range graph.Triples() {
+		if d.dropped(triple.Subject.Value) || d.ownsDroppedMember(triple.Subject) {
+			continue
+		}
+		object, keep := triple.Object, true
+		if object.IsIRI() {
+			var unresolvedName string
+			object, unresolvedName, keep = d.iriObject(triple)
+			if keep && unresolvedName != "" {
+				out.Add(triple.Subject, triple.Predicate, writtenReference(unresolvedName))
+				continue
 			}
 		}
+		if keep && !object.IsIRI() {
+			object, keep = d.literalObject(triple, object)
+		}
+		if !keep {
+			continue
+		}
+		triple.Object = object
+		out.AddTriple(triple)
 	}
-	// The collections a derived property lists count expression parts —
-	// a MultiplicityRange or a bound is part of its owner's structure, not a
-	// member — as members of the element collections the mapping reads.
+	for member, name := range d.unresolvedRef {
+		out.Add(rdf.IRI(member), rdf.SysMLTerm(pMemberElement), rdf.String(name))
+	}
+	return out, nil
+}
+
+var (
+	// The element collections the mapping reads members from.
+	memberCollections = map[string]bool{
+		"member": true, "ownedMember": true, "ownedElement": true,
+		"ownedFeature": true, "input": true, "output": true,
+	}
+	// A membership's generic relationship ends restate its member ends; when
+	// the member is an expression part they would reference a node.
+	membershipEnds = map[string]bool{
+		"source": true, "target": true, "relatedElement": true,
+	}
+	// The collapsed head properties a minted relationship restates.
+	collapsedProps = map[string]bool{
+		"type": true, "specializes": true, "subsets": true,
+		"redefines": true, "references": true,
+	}
+	// The structural ends an element owns and is owned through: a chain
+	// segment stays an element to these, a written name to everything else.
+	structuralProps = map[string]bool{
+		pOwningRelatedElement: true, pOwner: true, pOwningNamespace: true,
+		pOwningRelationship: true, pOwningMembership: true, pOwnedRelationship: true,
+		pOwnedRelatedElement: true, "relatedElement": true, pMemberElement: true,
+		pOwnedMemberElement: true, pMembershipOwningNamespace: true,
+		"owningFeatureMembership": true, "owningFeature": true,
+	}
+	// The properties whose literal objects are a reference written as a name;
+	// each is canonicalized so writing it back quotes it once.
+	referenceNameProps = map[string]bool{
+		pMemberElement: true, "referent": true, pTargetFeature: true,
+		pFunction: true, pClient: true, pSupplier: true, pSource: true,
+		pTarget: true, "relatedElement": true, "importedNamespace": true,
+		"type": true, "specializes": true, "subsets": true,
+		"redefines": true, "references": true,
+	}
+)
+
+// derivedCollections reports the derived collections the full form restates
+// over owned structure: the owned relationships state them, so the derived
+// list cannot contradict them.
+func derivedCollections(local string) bool {
+	switch local {
+	case pChainingFeature, "relatedFeature", "relatedType", "associationEnd", "connectorEnd":
+		return true
+	}
+	return local == pArgument || local == "definition" || strings.HasSuffix(local, "Definition")
+}
+
+// defaultDropper indexes what the element form restates or derives, so the
+// copy can tell a statement from a restatement triple by triple.
+type defaultDropper struct {
+	graph              *rdf.Graph
+	meta               func(rdf.Term) string
+	membershipOwned    map[string]bool
+	nodeOwned          map[string]bool
+	membershipSubjects map[string]bool
+	backed             map[string]map[string]bool
+	unresolvedRef      map[string]string
+	unresolvedID       map[string]string
+	unresolvedTR       map[string]bool
+	chainSegment       map[string]string
+	unresolvedOwner    map[string]bool
+	memberOwnerOf      map[string]string
+	implied            map[string]bool
+}
+
+func newDefaultDropper(graph *rdf.Graph, meta func(rdf.Term) string, chainIndex map[string][]rdf.Term) (*defaultDropper, error) {
+	unresolvedID, unresolvedTR := unresolvedNames(graph, meta)
+	chainSegment, err := chainSegmentsIn(graph, meta, chainIndex, unresolvedID)
+	if err != nil {
+		return nil, err
+	}
+	unresolvedRef := unresolvedRefsIn(graph, meta)
+	return &defaultDropper{
+		graph:              graph,
+		meta:               meta,
+		membershipOwned:    membershipOwnedIn(graph, meta),
+		nodeOwned:          nodeOwnedIn(graph, meta),
+		membershipSubjects: membershipSubjectsIn(graph, meta),
+		backed:             backedIn(graph, meta),
+		unresolvedRef:      unresolvedRef,
+		unresolvedID:       unresolvedID,
+		unresolvedTR:       unresolvedTR,
+		chainSegment:       chainSegment,
+		unresolvedOwner:    unresolvedOwnersIn(graph, unresolvedRef),
+		memberOwnerOf:      memberOwnersIn(graph, meta),
+		implied:            impliedIn(graph),
+	}, nil
+}
+
+// dropped reports whether every triple of the subject is dropped: an element
+// a membership owns, an implied one, or an unresolved-name annotation.
+func (d *defaultDropper) dropped(v string) bool {
+	return d.membershipOwned[v] || d.implied[v] || d.unresolvedTR[v]
+}
+
+// ownsDroppedMember reports a membership existing only to own an artifact the
+// copy drops; a member the name restore already handled stays literal.
+func (d *defaultDropper) ownsDroppedMember(subject rdf.Term) bool {
+	if !d.membershipSubjects[subject.Value] {
+		return false
+	}
+	member := firstIRI(d.graph, subject, pMemberElement, pOwnedMemberElement)
+	return member.Value != "" && d.unresolvedTR[member.Value]
+}
+
+func (d *defaultDropper) impliedIncluded(subject rdf.Term) bool {
+	return d.graph.HasProperty(subject, rdf.SysML+"isImpliedIncluded")
+}
+
+// iriObject is the object an IRI-valued triple is copied with — a chain
+// segment becomes the chain's text — the name an unresolved reference was
+// written as, and whether the triple is kept at all.
+func (d *defaultDropper) iriObject(triple rdf.Triple) (object rdf.Term, unresolvedName string, keep bool) {
+	object = triple.Object
+	local := rdf.LocalName(triple.Predicate.Value)
+	if text, segment := d.chainSegment[object.Value]; segment && !structuralProps[local] {
+		object = rdf.TypedLiteral(text, rdf.OpenSysML+dtExpression)
+	}
+	// A reference the writer could not resolve becomes the name it wrote,
+	// once the derived edges restating it are dropped.
+	if tail := object.Value[strings.LastIndex(object.Value, ":")+1:]; d.unresolvedID[tail] != "" && d.meta(object) == "" {
+		unresolvedName = d.unresolvedID[tail]
+	}
+	if _, unresolved := d.unresolvedRef[triple.Subject.Value]; unresolved && local == pMemberElement {
+		return object, unresolvedName, false
+	}
+	if d.dropsRestatedEnd(triple.Subject, local, object) {
+		return object, unresolvedName, false
+	}
+	if d.unresolvedOwner[triple.Subject.Value] && d.meta(object) == "" && unresolvedName == "" {
+		switch local {
+		case "referent", pTargetFeature, pFunction:
+			return object, unresolvedName, false
+		}
+	}
+	if d.dropsDerivedEdge(triple.Subject, local, object) {
+		return object, unresolvedName, false
+	}
+	return object, unresolvedName, true
+}
+
+// dropsRestatedEnd reports an IRI edge that restates ownership or a member end
+// the copy already carries.
+func (d *defaultDropper) dropsRestatedEnd(subject rdf.Term, local string, object rdf.Term) bool {
+	membership := d.membershipSubjects[subject.Value]
+	switch {
+	case (d.nodeOwned[object.Value] || d.dropped(object.Value)) &&
+		(memberCollections[local] || membership && membershipEnds[local]):
+		return true
+	case membership && membershipEnds[local]:
+		// A membership's generic ends restate its member ends; a member an
+		// expression owns by node is not among them.
+		return true
+	case membershipEnds[local] && relationshipLike(d.meta(subject)) && d.meta(subject) != "ReferenceSubsetting":
+		// A relationship's generic ends restate its member ends, the client
+		// and supplier it owns by name aside.
+		return true
+	case local == pAnnotatedElement && d.memberOwnerOf[subject.Value] == object.Value:
+		// An annotating member's annotated element is its owner, restated:
+		// the compact form states ownership alone.
+		return true
+	case d.nodeOwned[subject.Value] && (local == pOwningNamespace || local == pOwner):
+		// A node's namespace is its owning membership's, which the full
+		// form also states directly.
+		return true
+	}
+	return false
+}
+
+// dropsDerivedEdge reports a derived head property or argument list no
+// declared relationship backs.
+func (d *defaultDropper) dropsDerivedEdge(subject rdf.Term, local string, object rdf.Term) bool {
+	switch local {
+	case "type", "specializes", "subsets", "redefines", "references":
+		return !relationshipLike(d.meta(subject)) && !d.backed[subject.Value][object.Value] && d.impliedIncluded(subject)
+	case pArgument:
+		// The argument list is derived from the parameters the expression
+		// owns; the owned structure is what is stated.
+		return d.impliedIncluded(subject) && ownsParameterMembership(d.graph, d.meta, subject)
+	}
+	return false
+}
+
+// literalObject is the object a literal-valued triple is copied with, and
+// whether it is kept at all.
+func (d *defaultDropper) literalObject(triple rdf.Triple, object rdf.Term) (rdf.Term, bool) {
+	local := rdf.LocalName(triple.Predicate.Value)
+	json := strings.HasPrefix(triple.Predicate.Value, rdf.AnnotationJSON)
+	if json && (memberCollections[local] || membershipEnds[local] ||
+		derivedCollections(local) && d.impliedIncluded(triple.Subject) ||
+		collapsedProps[local] && !relationshipLike(d.meta(triple.Subject)) && d.impliedIncluded(triple.Subject)) {
+		// A collection restated under json: agrees with the typed triples
+		// only while none is dropped; the derived list is dropped whole instead.
+		return object, false
+	}
+	if referenceNameProps[local] && object.Datatype != rdf.OpenSysML+dtExpression && !json {
+		object = rdf.String(canonicalName(object.Value))
+	}
+	if local == pQualifiedName && !json {
+		object = rdf.String(plainQualifiedName(object.Value))
+	}
+	return object, !d.dropsLiteral(triple.Subject, local, object)
+}
+
+// dropsLiteral reports a literal that states a default or a derivable value.
+func (d *defaultDropper) dropsLiteral(subject rdf.Term, local string, object rdf.Term) bool {
+	graph, meta := d.graph, d.meta
+	switch {
+	case local == pQualifiedName && d.impliedIncluded(subject) &&
+		!graph.HasProperty(subject, rdf.SysML+pDeclaredName) &&
+		!graph.HasProperty(subject, rdf.SysML+pDeclaredShortName):
+		// The full form derives a qualified name for the unnamed too;
+		// the compact form leaves the name to be derived.
+		return true
+	case local == pQualifiedName && underSubaction(graph, meta, subject):
+		// This mapping positions a subaction's action under its
+		// membership (`S::@0::ops`); the full form's name skips it.
+		return true
+	case local == pElementID && strings.HasSuffix(subject.Value, object.Value):
+		// An elementId identical to the IRI's id is derivable.
+		return true
+	case local == "isReference" && object.Value == "true" && d.impliedIncluded(subject):
+		// A derived reference usage writes no `ref` of its own.
+		return true
+	case (local == "mayTimeVary" || local == "isVariable") && object.Value == "true" && d.impliedIncluded(subject):
+		// A feature is variable and time-varying without a keyword.
+		return true
+	case local == "isConstant" && object.Value == "true" &&
+		graph.BoolValue(subject, rdf.SysML+"isEnd") && d.impliedIncluded(subject):
+		// KerML Feature: `isEnd and isVariable implies isConstant`, so a
+		// variable end is constant without the keyword.
+		return true
+	case local == pVisibility && object.Value == "public":
+		// Public is the visibility a member writes nothing for.
+		return true
+	case local == "isComposite" && object.Value == "true":
+		return d.compositeByDefault(subject)
+	}
+	return false
+}
+
+// compositeByDefault reports a usage that is composite without a keyword.
+func (d *defaultDropper) compositeByDefault(subject rdf.Term) bool {
+	graph, meta := d.graph, d.meta
+	switch meta(subject) {
+	case "PartUsage", mPortUsage, "ItemUsage", "ConstraintUsage":
+		// Compositional usages are composite without a keyword.
+		return true
+	}
+	// A usage nested in a type is composite unless `ref` (SysML
+	// Usage::isComposite); only one elsewhere writes `composite`.
+	owner := firstIRI(graph, firstIRI(graph, subject, pOwningRelationship), pOwningRelatedElement, pOwner)
+	return ontology.IsAncestorOrSelf(meta(subject), "Usage") && owner.IsIRI() &&
+		ontology.IsAncestorOrSelf(meta(owner), "Type")
+}
+
+// membershipOwnedIn is every element owned by a membership — an annotation of
+// the membership, or an implied-include membership nested under one — which is
+// no member of the model; the compact form writes it as the memberElement
+// literal alone.
+func membershipOwnedIn(graph *rdf.Graph, meta func(rdf.Term) string) map[string]bool {
+	membershipOwned := map[string]bool{}
+	for _, subject := range graph.Subjects() {
+		owner := firstIRI(graph, subject, pOwningRelatedElement, pOwner, pMembershipOwningNamespace, pOwningNamespace)
+		if owner.Value == "" {
+			if ms := firstIRI(graph, subject, pOwningRelationship, pOwningMembership); ms.Value != "" {
+				owner = firstIRI(graph, ms, pOwningRelatedElement, pOwner, pMembershipOwningNamespace)
+			}
+		}
+		if m := meta(owner); m != "" && (strings.HasSuffix(m, "Membership") || strings.HasSuffix(m, "Import")) {
+			membershipOwned[subject.Value] = true
+		}
+	}
+	return membershipOwned
+}
+
+// nodeOwnedIn is every expression part the collections a derived property
+// lists count — a MultiplicityRange or a bound is part of its owner's
+// structure, not a member — as a member of the element collections the
+// mapping reads.
+func nodeOwnedIn(graph *rdf.Graph, meta func(rdf.Term) string) map[string]bool {
 	nodeOwned := map[string]bool{}
 	for _, subject := range graph.Subjects() {
 		m := meta(subject)
@@ -1055,47 +1527,11 @@ func dropStatedDefaults(graph *rdf.Graph, meta func(rdf.Term) string, elementFor
 			nodeOwned[member.Value] = true
 		}
 	}
-	memberCollections := map[string]bool{
-		"member": true, "ownedMember": true, "ownedElement": true,
-		"ownedFeature": true, "input": true, "output": true,
-	}
-	// A membership's generic relationship ends restate its member ends; when
-	// the member is an expression part they would reference a node.
-	membershipEnds := map[string]bool{
-		"source": true, "target": true, "relatedElement": true,
-	}
-	// The collapsed head properties a minted relationship restates.
-	collapsedProps := map[string]bool{
-		"type": true, "specializes": true, "subsets": true,
-		"redefines": true, "references": true,
-	}
-	// Derived collections the full form restates over owned structure: the
-	// owned relationships state them, so the derived list cannot contradict them.
-	derivedCollections := func(local string) bool {
-		switch local {
-		case pChainingFeature, "relatedFeature", "relatedType", "associationEnd", "connectorEnd":
-			return true
-		}
-		return local == pArgument || local == "definition" || strings.HasSuffix(local, "Definition")
-	}
-	// The structural ends an element owns and is owned through: a chain
-	// segment stays an element to these, a written name to everything else.
-	structuralProps := map[string]bool{
-		pOwningRelatedElement: true, pOwner: true, pOwningNamespace: true,
-		pOwningRelationship: true, pOwningMembership: true, pOwnedRelationship: true,
-		pOwnedRelatedElement: true, "relatedElement": true, pMemberElement: true,
-		pOwnedMemberElement: true, pMembershipOwningNamespace: true,
-		"owningFeatureMembership": true, "owningFeature": true,
-	}
-	// The properties whose literal objects are a reference written as a name;
-	// each is canonicalized so writing it back quotes it once.
-	referenceNameProps := map[string]bool{
-		pMemberElement: true, "referent": true, pTargetFeature: true,
-		pFunction: true, pClient: true, pSupplier: true, pSource: true,
-		pTarget: true, "relatedElement": true, "importedNamespace": true,
-		"type": true, "specializes": true, "subsets": true,
-		"redefines": true, "references": true,
-	}
+	return nodeOwned
+}
+
+// membershipSubjectsIn is every membership and import.
+func membershipSubjectsIn(graph *rdf.Graph, meta func(rdf.Term) string) map[string]bool {
 	membershipSubjects := map[string]bool{}
 	for _, subject := range graph.Subjects() {
 		m := meta(subject)
@@ -1103,10 +1539,15 @@ func dropStatedDefaults(graph *rdf.Graph, meta func(rdf.Term) string, elementFor
 			membershipSubjects[subject.Value] = true
 		}
 	}
-	// The full form restates each declared relationship as a derived property
-	// on its owner; only an edge a minted relationship element carries is a
-	// statement. A derived edge unbacked by one is dropped — the toolkit marks
-	// the elements it derives these for with isImpliedIncluded.
+	return membershipSubjects
+}
+
+// backedIn is owner -> target for every declared relationship: the full form
+// restates each as a derived property on its owner; only an edge a minted
+// relationship element carries is a statement. A derived edge unbacked by one
+// is dropped — the toolkit marks the elements it derives these for with
+// isImpliedIncluded.
+func backedIn(graph *rdf.Graph, meta func(rdf.Term) string) map[string]map[string]bool {
 	backed := map[string]map[string]bool{}
 	for _, subject := range graph.Subjects() {
 		m := meta(subject)
@@ -1135,9 +1576,13 @@ func dropStatedDefaults(graph *rdf.Graph, meta func(rdf.Term) string, elementFor
 			}
 		}
 	}
-	// A memberElement the compact form writes as a `{"@ref"}` name the full
-	// form resolves to a library IRI and annotates with the name it could not
-	// resolve; the name is what the member states.
+	return backed
+}
+
+// unresolvedRefsIn is member -> name for every memberElement the compact form
+// wrote as a `{"@ref"}` name the full form resolved to a library IRI and
+// annotated with the name it could not resolve; the name is what the member states.
+func unresolvedRefsIn(graph *rdf.Graph, meta func(rdf.Term) string) map[string]string {
 	unresolvedRef := map[string]string{}
 	for _, subject := range graph.Subjects() {
 		if meta(subject) != "TextualRepresentation" {
@@ -1153,10 +1598,14 @@ func dropStatedDefaults(graph *rdf.Graph, meta func(rdf.Term) string, elementFor
 			unresolvedRef[owner.Value] = canonicalName(body)
 		}
 	}
-	unresolvedID, unresolvedTR := unresolvedNames(graph, meta)
-	// An unnamed Feature a relationship relates is a feature chain's segment:
-	// `a.b.c` is the chain of features its FeatureChaining elements name, so a
-	// reference to it is written as that chain's text, not as the element.
+	return unresolvedRef
+}
+
+// chainSegmentsIn is the text of every unnamed Feature a relationship relates
+// as a feature chain's segment: `a.b.c` is the chain of features its
+// FeatureChaining elements name, so a reference to it is written as that
+// chain's text, not as the element.
+func chainSegmentsIn(graph *rdf.Graph, meta func(rdf.Term) string, chainIndex map[string][]rdf.Term, unresolvedID map[string]string) (map[string]string, error) {
 	chainSegment := map[string]string{}
 	for _, subject := range graph.Subjects() {
 		text, ok, err := chainTextIn(graph, meta, chainIndex, unresolvedID, subject)
@@ -1169,6 +1618,12 @@ func dropStatedDefaults(graph *rdf.Graph, meta func(rdf.Term) string, elementFor
 	}
 	// The element owning an unresolved membership is annotated the same way
 	// through its derived referent properties.
+	return chainSegment, nil
+}
+
+// unresolvedOwnersIn is every element owning an unresolved membership, which is
+// annotated the same way through its derived referent properties.
+func unresolvedOwnersIn(graph *rdf.Graph, unresolvedRef map[string]string) map[string]bool {
 	unresolvedOwner := map[string]bool{}
 	for member := range unresolvedRef {
 		if owner := firstIRI(graph, rdf.IRI(member), pOwningRelatedElement, pOwner); owner.Value != "" {
@@ -1176,6 +1631,11 @@ func dropStatedDefaults(graph *rdf.Graph, meta func(rdf.Term) string, elementFor
 		}
 	}
 	// memberOwnerOf is the element a membership-owned member belongs to.
+	return unresolvedOwner
+}
+
+// memberOwnersIn is member -> the element a membership-owned member belongs to.
+func memberOwnersIn(graph *rdf.Graph, meta func(rdf.Term) string) map[string]string {
 	memberOwnerOf := map[string]string{}
 	for _, subject := range graph.Subjects() {
 		m := meta(subject)
@@ -1188,8 +1648,13 @@ func dropStatedDefaults(graph *rdf.Graph, meta func(rdf.Term) string, elementFor
 			memberOwnerOf[member.Value] = owner.Value
 		}
 	}
-	// An implied element restates a derivation, not a statement: the extra
-	// specialization a minted element does not declare is dropped whole.
+	return memberOwnerOf
+}
+
+// impliedIn is every implied element, which restates a derivation rather than
+// stating one: the extra specialization a minted element does not declare is
+// dropped whole.
+func impliedIn(graph *rdf.Graph) map[string]bool {
 	implied := map[string]bool{}
 	for _, triple := range graph.Triples() {
 		if rdf.LocalName(triple.Predicate.Value) == "isImplied" &&
@@ -1197,167 +1662,7 @@ func dropStatedDefaults(graph *rdf.Graph, meta func(rdf.Term) string, elementFor
 			implied[triple.Subject.Value] = true
 		}
 	}
-	dropped := func(v string) bool {
-		return membershipOwned[v] || implied[v] || unresolvedTR[v]
-	}
-	out := rdf.NewGraph()
-	for _, triple := range graph.Triples() {
-		if dropped(triple.Subject.Value) {
-			continue
-		}
-		if elementForm && membershipSubjects[triple.Subject.Value] {
-			// The membership exists only to own an artifact the copy drops;
-			// a member the name restore already handled stays literal.
-			if member := firstIRI(graph, triple.Subject, pMemberElement, pOwnedMemberElement); member.Value != "" &&
-				unresolvedTR[member.Value] {
-				continue
-			}
-		}
-		object := triple.Object
-		if object.IsIRI() {
-			local := rdf.LocalName(triple.Predicate.Value)
-			if _, segment := chainSegment[object.Value]; segment && !structuralProps[local] {
-				object = rdf.TypedLiteral(chainSegment[object.Value], rdf.OpenSysML+dtExpression)
-				triple.Object = object
-			}
-			// A reference the writer could not resolve becomes the name it
-			// wrote, once the derived edges restating it are dropped below.
-			unresolvedName := ""
-			if tail := object.Value[strings.LastIndex(object.Value, ":")+1:]; unresolvedID[tail] != "" && meta(object) == "" {
-				unresolvedName = unresolvedID[tail]
-			}
-			if _, unresolved := unresolvedRef[triple.Subject.Value]; unresolved && local == pMemberElement {
-				continue
-			}
-			if elementForm && (nodeOwned[object.Value] || dropped(object.Value)) &&
-				(memberCollections[local] ||
-					membershipSubjects[triple.Subject.Value] && membershipEnds[local]) {
-				continue
-			}
-			if elementForm {
-				if membershipSubjects[triple.Subject.Value] && membershipEnds[local] {
-					// A membership's generic ends restate its member ends; a
-					// member an expression owns by node is not among them.
-					continue
-				}
-				if membershipEnds[local] && relationshipLike(meta(triple.Subject)) &&
-					meta(triple.Subject) != "ReferenceSubsetting" {
-					// A relationship's generic ends restate its member ends, the
-					// client and supplier it owns by name aside.
-					continue
-				}
-				if local == pAnnotatedElement && memberOwnerOf[triple.Subject.Value] == object.Value {
-					// An annotating member's annotated element is its owner,
-					// restated: the compact form states ownership alone.
-					continue
-				}
-			}
-			if unresolvedOwner[triple.Subject.Value] && meta(object) == "" && unresolvedName == "" {
-				switch local {
-				case "referent", pTargetFeature, pFunction:
-					continue
-				}
-			}
-			if elementForm && nodeOwned[triple.Subject.Value] && (local == pOwningNamespace || local == pOwner) {
-				// A node's namespace is its owning membership's, which the
-				// full form also states directly.
-				continue
-			}
-			switch rdf.LocalName(triple.Predicate.Value) {
-			case "type", "specializes", "subsets", "redefines", "references":
-				if m := meta(triple.Subject); !relationshipLike(m) &&
-					!backed[triple.Subject.Value][object.Value] &&
-					graph.HasProperty(triple.Subject, rdf.SysML+"isImpliedIncluded") {
-					continue
-				}
-			case pArgument:
-				// The argument list is derived from the parameters the
-				// expression owns; the owned structure is what is stated.
-				if graph.HasProperty(triple.Subject, rdf.SysML+"isImpliedIncluded") &&
-					ownsParameterMembership(graph, meta, triple.Subject) {
-					continue
-				}
-			}
-			if unresolvedName != "" {
-				out.Add(triple.Subject, triple.Predicate, writtenReference(unresolvedName))
-				continue
-			}
-		}
-		if !object.IsIRI() {
-			local := rdf.LocalName(triple.Predicate.Value)
-			if strings.HasPrefix(triple.Predicate.Value, rdf.AnnotationJSON) &&
-				(memberCollections[local] || membershipEnds[local] ||
-					derivedCollections(local) && graph.HasProperty(triple.Subject, rdf.SysML+"isImpliedIncluded") ||
-					collapsedProps[local] && !relationshipLike(meta(triple.Subject)) &&
-						graph.HasProperty(triple.Subject, rdf.SysML+"isImpliedIncluded")) {
-				// A collection restated under json: agrees with the typed
-				// triples only while none is dropped; the derived list is
-				// dropped whole instead.
-				continue
-			}
-			if referenceNameProps[local] && object.Datatype != rdf.OpenSysML+dtExpression &&
-				!strings.HasPrefix(triple.Predicate.Value, rdf.AnnotationJSON) {
-				object = rdf.String(canonicalName(object.Value))
-			}
-			if local == pQualifiedName && elementForm && !strings.HasPrefix(triple.Predicate.Value, rdf.AnnotationJSON) {
-				object = rdf.String(plainQualifiedName(object.Value))
-			}
-			drop := false
-			switch {
-			case local == pQualifiedName && graph.HasProperty(triple.Subject, rdf.SysML+"isImpliedIncluded") &&
-				!graph.HasProperty(triple.Subject, rdf.SysML+pDeclaredName) &&
-				!graph.HasProperty(triple.Subject, rdf.SysML+pDeclaredShortName):
-				// The full form derives a qualified name for the unnamed too;
-				// the compact form leaves the name to be derived.
-				drop = true
-			case local == pQualifiedName && underSubaction(graph, meta, triple.Subject):
-				// This mapping positions a subaction's action under its
-				// membership (`S::@0::ops`); the full form's name skips it.
-				drop = true
-			case local == pElementID && strings.HasSuffix(triple.Subject.Value, object.Value):
-				// An elementId identical to the IRI's id is derivable.
-				drop = true
-			case local == "isReference" && object.Value == "true" &&
-				graph.HasProperty(triple.Subject, rdf.SysML+"isImpliedIncluded"):
-				// A derived reference usage writes no `ref` of its own.
-				drop = true
-			case (local == "mayTimeVary" || local == "isVariable") && object.Value == "true" &&
-				graph.HasProperty(triple.Subject, rdf.SysML+"isImpliedIncluded"):
-				// A feature is variable and time-varying without a keyword.
-				drop = true
-			case local == "isConstant" && object.Value == "true" &&
-				graph.BoolValue(triple.Subject, rdf.SysML+"isEnd") &&
-				graph.HasProperty(triple.Subject, rdf.SysML+"isImpliedIncluded"):
-				// KerML Feature: `isEnd and isVariable implies isConstant`, so a
-				// variable end is constant without the keyword.
-				drop = true
-			case local == pVisibility && object.Value == "public":
-				// Public is the visibility a member writes nothing for.
-				drop = true
-			case local == "isComposite" && object.Value == "true":
-				switch meta(triple.Subject) {
-				case "PartUsage", mPortUsage, "ItemUsage", "ConstraintUsage":
-					// Compositional usages are composite without a keyword.
-					drop = true
-				default:
-					// A usage nested in a type is composite unless `ref`
-					// (SysML Usage::isComposite); only one elsewhere writes `composite`.
-					owner := firstIRI(graph, firstIRI(graph, triple.Subject, pOwningRelationship), pOwningRelatedElement, pOwner)
-					drop = ontology.IsAncestorOrSelf(meta(triple.Subject), "Usage") && owner.IsIRI() &&
-						ontology.IsAncestorOrSelf(meta(owner), "Type")
-				}
-			}
-			if drop {
-				continue
-			}
-			triple.Object = object
-		}
-		out.AddTriple(triple)
-	}
-	for member, name := range unresolvedRef {
-		out.Add(rdf.IRI(member), rdf.SysMLTerm(pMemberElement), rdf.String(name))
-	}
-	return out, nil
+	return implied
 }
 
 // ownsParameterMembership reports whether subject owns a ParameterMembership.
