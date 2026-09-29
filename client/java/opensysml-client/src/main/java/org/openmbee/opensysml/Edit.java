@@ -233,7 +233,7 @@ public sealed interface Edit {
     public AddMember withDirection(String direction) {
       return new AddMember(
           owner, kind, name, type, multiplicity, value, specializes,
-          isAbstract, redefines, isDefault, direction);
+          isAbstract, redefines, isDefault, direction, bodyExpression);
     }
   }
 

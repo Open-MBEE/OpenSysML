@@ -907,7 +907,7 @@ public final class Model {
       if (edit instanceof Edit.AddMember addMember) {
         requestsConstraintBodyAuthoring =
             requestsConstraintBodyAuthoring
-                || addMember.bodyExpression().isPresent()
+                || addMember.bodyExpression().filter(e -> !e.isEmpty()).isPresent()
                 || addMember.kind().equals("assert constraint")
                 || addMember.kind().equals("assert not constraint");
         requestsStateActionAuthoring =

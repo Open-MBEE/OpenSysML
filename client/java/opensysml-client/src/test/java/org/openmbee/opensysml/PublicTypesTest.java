@@ -743,6 +743,35 @@ class PublicTypesTest {
   }
 
   @Test
+  void anEmptyConstraintBodyDoesNotRequireConstraintBodyAuthoring() {
+    try (Connection limited =
+        new Connection(
+            new ConnectTransport("127.0.0.1:1", Encoding.PROTOBUF, Duration.ofSeconds(1)),
+            new Capabilities(
+                "dev", java.util.Set.of(Capabilities.APPLY_EDITS, Capabilities.AUTHORING)))) {
+      Model model = new Model(limited, "hash", List.of(), List.of());
+      assertThrows(
+          TransportException.class,
+          () ->
+              model.applyEdits(
+                  List.of(
+                      Edit.AddMember.of("Demo", "constraint", "bounded")
+                          .withBodyExpression(""))));
+    }
+  }
+
+  @Test
+  void anAddMemberDirectionRetainsItsBodyExpression() {
+    Edit.AddMember member =
+        Edit.AddMember.of("Demo", "constraint", "bounded")
+            .withBodyExpression("x > 1")
+            .withDirection("in");
+
+    assertEquals(Optional.of("x > 1"), member.bodyExpression());
+    assertEquals("in", member.direction());
+  }
+
+  @Test
   void addingATransitionAlsoRequiresAuthoring() {
     try (Connection limited =
         new Connection(
