@@ -942,11 +942,11 @@ func (t *nameTable) sorted() []string {
 	return out
 }
 
-// docScopes returns the scope trees of the session's open documents, in
-// buffer order, so a lookup reads both languages.
+// docScopes returns syntax-tree-backed scopes for the session's documents,
+// hydrating any file held as its record.
 func (s *Session) docScopes() []*symbols.Scope {
 	var out []*symbols.Scope
-	for _, doc := range s.sessionDocs() {
+	for _, doc := range s.hydratedDocs() {
 		if doc.Scope != nil {
 			out = append(out, doc.Scope)
 		}
