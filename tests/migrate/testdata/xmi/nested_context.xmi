@@ -1,0 +1,98 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<xmi:XMI xmi:version="2.5.1" xmlns:xmi="http://www.omg.org/spec/XMI/20131001"
+         xmlns:uml="http://www.omg.org/spec/UML/20161101"
+         xmlns:sysml="http://www.omg.org/spec/SysML/20181001/SysML">
+  <uml:Model xmi:type="uml:Model" xmi:id="_m" name="Model">
+    <packagedElement xmi:type="uml:Class" xmi:id="_seq" name="Sequencer" classifierBehavior="_sm">
+      <ownedAttribute xmi:type="uml:Property" xmi:id="_k" name="k">
+        <type xmi:type="uml:PrimitiveType" href="http://www.omg.org/spec/UML/20131001/PrimitiveTypes.xmi#Integer"/>
+        <defaultValue xmi:type="uml:LiteralInteger" xmi:id="_k0" value="0"/>
+      </ownedAttribute>
+      <ownedBehavior xmi:type="uml:StateMachine" xmi:id="_sm" name="AO Sequencer">
+        <region xmi:type="uml:Region" xmi:id="_sr">
+          <subvertex xmi:type="uml:Pseudostate" xmi:id="_si"/>
+          <subvertex xmi:type="uml:State" xmi:id="_idle" name="Idle"/>
+          <transition xmi:type="uml:Transition" xmi:id="_st" source="_si" target="_idle"/>
+        </region>
+      </ownedBehavior>
+    </packagedElement>
+    <packagedElement xmi:type="uml:Class" xmi:id="_host" name="Host" classifierBehavior="_run">
+      <ownedAttribute xmi:type="uml:Property" xmi:id="_seqPart" name="aO Sequencer" type="_seq" aggregation="composite"/>
+      <ownedBehavior xmi:type="uml:Activity" xmi:id="_align" name="Align">
+        <node xmi:type="uml:InitialNode" xmi:id="_ai"/>
+        <node xmi:type="uml:ReadStructuralFeatureAction" xmi:id="_observe" name="observe sequencer" structuralFeature="_seqPart">
+          <result xmi:type="uml:OutputPin" xmi:id="_observeOut" name="result"/>
+        </node>
+        <node xmi:type="uml:CallBehaviorAction" xmi:id="_callWrite" name="write" behavior="_write"/>
+        <node xmi:type="uml:ActivityFinalNode" xmi:id="_af"/>
+        <edge xmi:type="uml:ControlFlow" xmi:id="_ae1" source="_ai" target="_observe"/>
+        <edge xmi:type="uml:ControlFlow" xmi:id="_ae2" source="_observe" target="_callWrite"/>
+        <edge xmi:type="uml:ControlFlow" xmi:id="_ae3" source="_callWrite" target="_af"/>
+        <ownedBehavior xmi:type="uml:Activity" xmi:id="_write" name="Write">
+          <node xmi:type="uml:InitialNode" xmi:id="_wi"/>
+          <node xmi:type="uml:CallBehaviorAction" xmi:id="_callSet" name="set" behavior="_set"/>
+          <node xmi:type="uml:ActivityFinalNode" xmi:id="_wf"/>
+          <edge xmi:type="uml:ControlFlow" xmi:id="_we1" source="_wi" target="_callSet"/>
+          <edge xmi:type="uml:ControlFlow" xmi:id="_we2" source="_callSet" target="_wf"/>
+          <ownedBehavior xmi:type="uml:Activity" xmi:id="_set" name="Set">
+            <node xmi:type="uml:InitialNode" xmi:id="_si2"/>
+            <node xmi:type="uml:ReadStructuralFeatureAction" xmi:id="_readSeq" name="read sequencer" structuralFeature="_seqPart">
+              <result xmi:type="uml:OutputPin" xmi:id="_seqOut" name="result"/>
+            </node>
+            <node xmi:type="uml:ValueSpecificationAction" xmi:id="_one" name="one">
+              <value xmi:type="uml:LiteralInteger" xmi:id="_oneValue" value="1"/>
+              <result xmi:type="uml:OutputPin" xmi:id="_oneOut" name="result"/>
+            </node>
+            <node xmi:type="uml:AddStructuralFeatureValueAction" xmi:id="_setK" name="set k" structuralFeature="_k" isReplaceAll="true">
+              <object xmi:type="uml:InputPin" xmi:id="_setObject" name="object"/>
+              <value xmi:type="uml:InputPin" xmi:id="_setValue" name="value"/>
+            </node>
+            <node xmi:type="uml:ActivityFinalNode" xmi:id="_sf"/>
+            <edge xmi:type="uml:ControlFlow" xmi:id="_se1" source="_si2" target="_readSeq"/>
+            <edge xmi:type="uml:ControlFlow" xmi:id="_se2" source="_readSeq" target="_one"/>
+            <edge xmi:type="uml:ObjectFlow" xmi:id="_sof1" source="_seqOut" target="_setObject"/>
+            <edge xmi:type="uml:ObjectFlow" xmi:id="_sof2" source="_oneOut" target="_setValue"/>
+            <edge xmi:type="uml:ControlFlow" xmi:id="_se3" source="_setK" target="_sf"/>
+          </ownedBehavior>
+        </ownedBehavior>
+      </ownedBehavior>
+      <ownedBehavior xmi:type="uml:Activity" xmi:id="_direct" name="Direct">
+        <node xmi:type="uml:InitialNode" xmi:id="_di"/>
+        <node xmi:type="uml:OpaqueAction" xmi:id="_directWrite" name="write state data">
+          <language>JavaScript Rhino</language>
+          <body>k = 2</body>
+        </node>
+        <node xmi:type="uml:DecisionNode" xmi:id="_directDecision"/>
+        <node xmi:type="uml:ActivityFinalNode" xmi:id="_directFinal"/>
+        <edge xmi:type="uml:ControlFlow" xmi:id="_directStart" source="_di" target="_directWrite"/>
+        <edge xmi:type="uml:ControlFlow" xmi:id="_directTest" source="_directDecision" target="_directFinal">
+          <guard xmi:type="uml:OpaqueExpression" xmi:id="_directGuard">
+            <language>JavaScript Rhino</language>
+            <body>k &gt;= 2</body>
+          </guard>
+        </edge>
+        <group xmi:type="uml:ActivityPartition" xmi:id="_directLane" represents="_seqPart">
+          <node xmi:idref="_directWrite"/>
+          <edge xmi:idref="_directStep"/>
+          <edge xmi:idref="_directTest"/>
+        </group>
+        <edge xmi:type="uml:ControlFlow" xmi:id="_directStep" source="_directWrite" target="_directDecision"/>
+      </ownedBehavior>
+      <ownedBehavior xmi:type="uml:Activity" xmi:id="_run" name="Run">
+        <node xmi:type="uml:InitialNode" xmi:id="_ri"/>
+        <node xmi:type="uml:CallBehaviorAction" xmi:id="_callAlign" name="align" behavior="_align"/>
+        <node xmi:type="uml:CallBehaviorAction" xmi:id="_callDirect" name="direct" behavior="_direct"/>
+        <node xmi:type="uml:ActivityFinalNode" xmi:id="_rf"/>
+        <edge xmi:type="uml:ControlFlow" xmi:id="_re1" source="_ri" target="_callAlign"/>
+        <edge xmi:type="uml:ControlFlow" xmi:id="_re2" source="_callAlign" target="_callDirect"/>
+        <edge xmi:type="uml:ControlFlow" xmi:id="_re3" source="_callDirect" target="_rf"/>
+      </ownedBehavior>
+    </packagedElement>
+    <packagedElement xmi:type="uml:Class" xmi:id="_rig" name="Rig">
+      <ownedAttribute xmi:type="uml:Property" xmi:id="_hostPart" name="h" type="_host" aggregation="composite"/>
+    </packagedElement>
+  </uml:Model>
+  <sysml:Block xmi:id="_seqBlock" base_Class="_seq"/>
+  <sysml:Block xmi:id="_hostBlock" base_Class="_host"/>
+  <sysml:Block xmi:id="_rigBlock" base_Class="_rig"/>
+</xmi:XMI>

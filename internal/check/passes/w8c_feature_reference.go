@@ -73,13 +73,26 @@ type featureReferenceChecker struct {
 // refSite is where a reference is written: the declaration owning it, and
 // whether it stands in that declaration's body, which the declaration features.
 type refSite struct {
-	sym             *symbols.Symbol
-	inBody          bool
-	inElementFilter bool
+	sym                      *symbols.Symbol
+	inBody                   bool
+	inElementFilter          bool
+	transitionEnd            bool
+	rejectStatePath          bool
+	allowStateDefinitionPath bool
+	invocationArgumentValue  bool
 }
 
 // accessibleFrom reports whether target is reachable from the site.
 func (c *featureReferenceChecker) accessibleFrom(site refSite, target *symbols.Symbol) bool {
+	if site.transitionEnd && site.sym != nil && target.Kind == symbols.SymbolStateUsage {
+		// A state-usage qualifier grants no access, and a state cannot reach a sibling in its region.
+		if site.rejectStatePath || site.sym.Kind == symbols.SymbolStateUsage && target.OwnerScope == site.sym.OwnerScope {
+			return false
+		}
+		if site.allowStateDefinitionPath {
+			return true
+		}
+	}
 	if site.inBody && site.sym != nil && c.cc.featuredWithin(target, site.sym) {
 		return true
 	}
@@ -229,6 +242,7 @@ func (c *featureReferenceChecker) walkMember(site refSite, scope *symbols.Scope,
 	case *ast.SubjectMember:
 		c.walkExpr(site, scope, n.BindingExpr)
 	case *ast.AssignmentActionNode:
+		c.walkAssignmentTarget(site, scope, n.Target)
 		c.walkExpr(site, scope, n.Value)
 	case *ast.ActionExecutionNode:
 		c.walkExpr(site, scope, n.Expression)
@@ -247,6 +261,8 @@ func (c *featureReferenceChecker) walkMember(site refSite, scope *symbols.Scope,
 		c.walkMembers(site, body, n.Body)
 	case *ast.TransitionMember:
 		c.checkVia(site, scope, n.Via)
+		c.checkTransitionEndpoint(site, scope, n.Source)
+		c.checkTransitionEndpoint(site, scope, n.Target)
 		if change, ok := n.Trigger.(*ast.ChangeEvent); ok {
 			c.walkExpr(site, scope, change.Condition)
 		}
@@ -263,18 +279,28 @@ func (c *featureReferenceChecker) walkMember(site refSite, scope *symbols.Scope,
 		c.walkMembers(site, body, n.Members)
 	case *ast.StateNode:
 		body := childScopeOr(scope, n)
-		c.walkMembers(site, body, n.Entry)
-		c.walkMembers(site, body, n.Do)
-		c.walkMembers(site, body, n.Exit)
-		c.walkMembers(site, body, n.Substates)
+		bodySite := siteForBody(site, scope, body)
+		c.walkMembers(bodySite, body, n.Entry)
+		c.walkMembers(bodySite, body, n.Do)
+		c.walkMembers(bodySite, body, n.Exit)
+		c.walkMembers(bodySite, body, n.Substates)
 		for _, region := range n.Regions {
-			c.walkMember(site, body, region)
+			c.walkMember(bodySite, body, region)
 		}
 	case *ast.StateRegion:
-		c.walkMembers(site, childScopeOr(scope, n), n.States)
+		body := childScopeOr(scope, n)
+		c.walkMembers(siteForBody(site, scope, body), body, n.States)
 	case *ast.InitialNode:
 		c.walkMembers(site, childScopeOr(scope, n), n.Members)
 	case *ast.SuccessionEdge:
+		if site.sym != nil && (site.sym.Kind == symbols.SymbolStateDef || site.sym.Kind == symbols.SymbolStateUsage) {
+			if !n.SourceImplied {
+				c.checkTransitionEndpoint(site, scope, n.Source)
+			}
+			if !n.TargetImplied {
+				c.checkTransitionEndpoint(site, scope, n.Target)
+			}
+		}
 		c.walkMembers(site, childScopeOr(scope, n), n.Members)
 	case *ast.PrefixMetadata:
 		c.walkRunDecidedValues(site, childScopeOr(scope, n), n.Body)
@@ -378,8 +404,23 @@ func (c *featureReferenceChecker) walkExpr(site refSite, scope *symbols.Scope, n
 		c.walkExpr(site, scope, e.Operand)
 		c.walkExpr(site, scope, e.Index)
 	case *ast.InvocationExpr:
-		// An invocation names its function, and may pass one as an argument,
-		// so neither position is a feature reference.
+		column := c.isDocumentQueryColumn(scope, e)
+		for i, arg := range e.Args {
+			if column && i == 1 {
+				continue
+			}
+			argSite := site
+			argSite.invocationArgumentValue = true
+			c.walkExpr(argSite, scope, arg)
+		}
+		for _, arg := range e.NamedArgs {
+			if column && namedArgumentIs(arg.Name, "expression") {
+				continue
+			}
+			argSite := site
+			argSite.invocationArgumentValue = true
+			c.walkExpr(argSite, scope, arg.Value)
+		}
 	case *ast.ConstructorExpr:
 		for _, a := range e.Args {
 			c.walkExpr(site, scope, a)
@@ -391,7 +432,151 @@ func (c *featureReferenceChecker) walkExpr(site refSite, scope *symbols.Scope, n
 		for _, el := range e.Elements {
 			c.walkExpr(site, scope, el)
 		}
+	case *ast.BodyExpr:
+		body := symbols.BodyExprScope(scope, e)
+		for i := range e.Params {
+			c.walkExpr(site, body, e.Params[i].Value)
+			c.walkMembers(site, body, e.Params[i].Members)
+		}
+		c.walkMembers(site, body, e.Members)
+		c.walkExpr(site, body, e.Result)
 	}
+}
+
+// walkAssignmentTarget checks the prefixes of a chained assignment target.
+func (c *featureReferenceChecker) walkAssignmentTarget(site refSite, scope *symbols.Scope, target ast.Node) {
+	switch target := target.(type) {
+	case *ast.FeatureChainExpr:
+		var current ast.Node = target
+		for {
+			switch chain := current.(type) {
+			case *ast.FeatureChainExpr:
+				current = chain.Operand
+			default:
+				c.walkExpr(site, scope, current)
+				return
+			}
+		}
+	case *ast.QualifiedName:
+		name := target
+		for i := 1; i < len(name.Parts); i++ {
+			if !name.Parts[i].Chained {
+				continue
+			}
+			head := qualifiedNamePrefix(name, i)
+			c.checkReferent(site, scope, head, head.Span())
+			return
+		}
+	}
+}
+
+// checkTransitionEndpoint checks the feature prefixes of a transition endpoint.
+func (c *featureReferenceChecker) checkTransitionEndpoint(site refSite, scope *symbols.Scope, name *ast.QualifiedName) {
+	if name == nil {
+		return
+	}
+	for i := 1; i < len(name.Parts); i++ {
+		if !name.Parts[i].Chained {
+			continue
+		}
+		head := qualifiedNamePrefix(name, i)
+		endpointSite := site
+		endpointSite.transitionEnd = true
+		endpointSite.rejectStatePath = transitionPathUsesStateQualification(c, scope, name)
+		endpointSite.allowStateDefinitionPath = transitionPathUsesStateDefinitionQualifier(c, scope, name)
+		c.checkReferent(endpointSite, scope, head, head.Span())
+		return
+	}
+	endpointSite := site
+	endpointSite.transitionEnd = true
+	endpointSite.rejectStatePath = transitionPathUsesStateQualification(c, scope, name)
+	endpointSite.allowStateDefinitionPath = transitionPathUsesStateDefinitionQualifier(c, scope, name)
+	c.checkReferent(endpointSite, scope, name, name.Span())
+}
+
+// qualifiedNamePrefix copies the first count parts of name and their source span.
+func qualifiedNamePrefix(name *ast.QualifiedName, count int) *ast.QualifiedName {
+	parts := append(name.Parts[:0:0], name.Parts[:count]...)
+	return &ast.QualifiedName{
+		NodeBase: ast.NodeBase{NodeSpan: source.Span{
+			Offset: name.Parts[0].Span.Offset,
+			Len:    name.Parts[count-1].Span.End() - name.Parts[0].Span.Offset,
+		}},
+		Global: name.Global,
+		Parts:  parts,
+	}
+}
+
+// transitionPathUsesStateQualification reports whether a path qualifies a state usage.
+func transitionPathUsesStateQualification(c *featureReferenceChecker, scope *symbols.Scope, name *ast.QualifiedName) bool {
+	for i := 1; i < len(name.Parts); i++ {
+		if name.Parts[i].Chained {
+			continue
+		}
+		prefix := qualifiedNamePrefix(name, i)
+		target, ok := c.cc.resolver.ResolveQualified(scope, prefix)
+		if ok && target != nil && target.Kind == symbols.SymbolStateUsage {
+			return true
+		}
+	}
+	return false
+}
+
+// transitionPathUsesStateDefinitionQualifier reports whether a path qualifies its state definition.
+func transitionPathUsesStateDefinitionQualifier(c *featureReferenceChecker, scope *symbols.Scope, name *ast.QualifiedName) bool {
+	if name == nil {
+		return false
+	}
+	target, ok := c.cc.resolver.ResolveTarget(scope, name)
+	if !ok || target == nil || target.Kind != symbols.SymbolStateUsage || target.OwnerScope == nil {
+		return false
+	}
+	owner := target.OwnerScope.Owner()
+	if owner == nil || owner.Kind != symbols.SymbolStateDef {
+		return false
+	}
+	for i := 1; i < len(name.Parts); i++ {
+		if name.Parts[i].Chained {
+			continue
+		}
+		prefix := qualifiedNamePrefix(name, i)
+		qualifier, ok := c.cc.resolver.ResolveQualified(scope, prefix)
+		if ok && qualifier == owner {
+			return true
+		}
+	}
+	return false
+}
+
+// isDocumentQueryColumn reports whether invocation names DocumentQueries::Column.
+func (c *featureReferenceChecker) isDocumentQueryColumn(scope *symbols.Scope, invocation *ast.InvocationExpr) bool {
+	if invocation == nil || invocation.Type == nil || len(invocation.Type.Parts) == 0 ||
+		invocation.Type.Parts[len(invocation.Type.Parts)-1].Text != "Column" {
+		return false
+	}
+	target, ok := c.cc.resolver.ResolveInvocationName(scope, invocation.Type)
+	if !ok || target == nil {
+		return false
+	}
+	if resolved, aliasOK := c.cc.resolver.ResolveAliasTarget(target); aliasOK {
+		target = resolved
+	}
+	return symbols.HasFQN(target, "DocumentQueries::Column")
+}
+
+// namedArgumentIs reports whether name consists of the single part text.
+func namedArgumentIs(name *ast.QualifiedName, text string) bool {
+	return name != nil && len(name.Parts) == 1 && name.Parts[0].Text == text
+}
+
+// siteForBody assigns body references to the symbol that owns the nested scope.
+func siteForBody(site refSite, parent, body *symbols.Scope) refSite {
+	if body != parent {
+		if owner := body.Owner(); owner != nil {
+			return refSite{sym: owner, inBody: true}
+		}
+	}
+	return site
 }
 
 // checkReferent reports a referent that is not a feature, or a feature that the
@@ -402,7 +587,13 @@ func (c *featureReferenceChecker) checkReferent(site refSite, scope *symbols.Sco
 	if !ok || target == nil || target == site.sym {
 		return
 	}
+	if site.invocationArgumentValue && target.Kind == symbols.SymbolCalcUsage {
+		return
+	}
 	if !isUsageKind(target.Kind) {
+		if site.invocationArgumentValue {
+			return
+		}
 		c.diags = append(c.diags, diag.Diagnostic{
 			Severity: diag.SeverityError,
 			Span:     span,
