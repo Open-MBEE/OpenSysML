@@ -128,22 +128,31 @@ func (v *verifyContext) askSolvers(ctx context.Context, question string, queries
 // the query the question asks — violation queries for holds — and puts it to
 // the engines. The kind is checked as an evaluation's is, so a wrong symbol
 // answers a wrong-kind verdict rather than an undecided one.
-func (v *verifyContext) symbolicElement(ctx context.Context, question, kind string, sym *symbols.Symbol, inst *runtime.Instance, wrongKind func(*symbols.Symbol) error, translate func(*runtime.Context, []solve.Pin) (*solve.Query, error)) (*pb.Verdict, error) {
+func (v *verifyContext) symbolicElement(ctx context.Context, question, kind string, sym *symbols.Symbol, inst *runtime.Instance, wrongKind func(*symbols.Symbol) error, translate func(*runtime.Context, []solve.Pin) (*solve.Query, error)) (*pb.Verdict, *runtime.Instance, error) {
 	verdict := v.verdict(kind, sym, "", inst, false, nil, analysis.Plan{})
 	verdict.Question, verdict.Status = question, statusUndecided
 	if err := wrongKind(sym); err != nil {
 		verdict.Error = err.Error()
 		verdict.FailureReason = failureReason(err)
-		return verdict, nil
+		return verdict, inst, nil
+	}
+	// The question is about the object carrying the element, resolved as
+	// evaluation resolves it — a nested carrier, or an ambiguity an evaluation
+	// reports the same way — never the supplied object read directly.
+	resolved, err := v.runtime.ConditionCarrier(kind, sym.Name, sym, inst)
+	if err != nil {
+		verdict.Error = err.Error()
+		verdict.FailureReason = failureReason(err)
+		return verdict, inst, nil
 	}
 	var objectType *symbols.Symbol
-	if inst != nil {
-		objectType = inst.Type
+	if resolved != nil {
+		objectType = resolved.Type
 	}
 	pins, _ := solve.FixedFor(v.runtime, solve.Fixing{
 		Element:    sym,
 		Owner:      owningElement(sym),
-		Object:     inst,
+		Object:     resolved,
 		ObjectType: objectType,
 	})
 	q, terr := translate(v.runtime, pins)
@@ -151,12 +160,13 @@ func (v *verifyContext) symbolicElement(ctx context.Context, question, kind stri
 	if terr == nil {
 		queries = []*solve.Query{q}
 	}
-	return v.symbolicVerdict(ctx, question, kind, sym, "", inst, queries, terr)
+	verdict, verr := v.symbolicVerdict(ctx, question, kind, sym, "", resolved, queries, terr)
+	return verdict, resolved, verr
 }
 
 // proveConstraint answers a holds or satisfiable question about a constraint.
 func (v *verifyContext) proveConstraint(ctx context.Context, question string, sym *symbols.Symbol, inst *runtime.Instance) (*pb.VerifyConstraintResponse, error) {
-	verdict, err := v.symbolicElement(ctx, question, verdictConstraint, sym, inst, runtime.RequireConstraint,
+	verdict, resolved, err := v.symbolicElement(ctx, question, verdictConstraint, sym, inst, runtime.RequireConstraint,
 		func(rt *runtime.Context, pins []solve.Pin) (*solve.Query, error) {
 			if question == questionHolds {
 				return solve.ConstraintViolation(rt, sym, v.declaringScope(sym), pins)
@@ -166,12 +176,12 @@ func (v *verifyContext) proveConstraint(ctx context.Context, question string, sy
 	if err != nil {
 		return nil, err
 	}
-	return &pb.VerifyConstraintResponse{Verdict: verdict, Instances: v.instanceGraph(inst)}, nil
+	return &pb.VerifyConstraintResponse{Verdict: verdict, Instances: v.instanceGraph(resolved)}, nil
 }
 
 // proveRequirement answers a holds or satisfiable question about a requirement.
 func (v *verifyContext) proveRequirement(ctx context.Context, question string, sym *symbols.Symbol, inst *runtime.Instance) (*pb.VerifyRequirementResponse, error) {
-	verdict, err := v.symbolicElement(ctx, question, verdictRequirement, sym, inst, runtime.RequireRequirement,
+	verdict, resolved, err := v.symbolicElement(ctx, question, verdictRequirement, sym, inst, runtime.RequireRequirement,
 		func(rt *runtime.Context, pins []solve.Pin) (*solve.Query, error) {
 			if question == questionHolds {
 				return solve.RequirementViolation(rt, sym, v.declaringScope(sym), pins)
@@ -181,7 +191,7 @@ func (v *verifyContext) proveRequirement(ctx context.Context, question string, s
 	if err != nil {
 		return nil, err
 	}
-	return &pb.VerifyRequirementResponse{Verdict: verdict, Instances: v.instanceGraph(inst)}, nil
+	return &pb.VerifyRequirementResponse{Verdict: verdict, Instances: v.instanceGraph(resolved)}, nil
 }
 
 // symbolicSatisfy answers a holds or satisfiable question about one
@@ -199,14 +209,27 @@ func (v *verifyContext) symbolicSatisfy(ctx context.Context, question string, a 
 		}
 		subject = inst
 	}
+	// The question is about the object carrying the requirement, resolved as
+	// evaluation resolves it beyond the `by` object.
+	carrying := a.Requirement
+	if carrying == nil {
+		carrying = a.Symbol
+	}
+	resolved, err := v.runtime.ConditionCarrier("satisfaction", a.Text(), carrying, subject)
+	if err != nil {
+		verdict := v.verdict(verdictSatisfy, a.Symbol, a.Text(), nil, false, err, analysis.Plan{})
+		verdict.Question = question
+		v.associateRequirement(verdict, a)
+		return verdict, nil, nil
+	}
 	var objectType *symbols.Symbol
-	if subject != nil {
-		objectType = subject.Type
+	if resolved != nil {
+		objectType = resolved.Type
 	}
 	pins, _ := solve.FixedFor(v.runtime, solve.Fixing{
 		Element:    a.Symbol,
 		Owner:      owningElement(a.Symbol),
-		Object:     subject,
+		Object:     resolved,
 		ObjectType: objectType,
 	})
 	var q *solve.Query
@@ -220,12 +243,12 @@ func (v *verifyContext) symbolicSatisfy(ctx context.Context, question string, a 
 	if terr == nil {
 		queries = []*solve.Query{q}
 	}
-	verdict, err := v.symbolicVerdict(ctx, question, verdictSatisfy, a.Symbol, a.Text(), subject, queries, terr)
+	verdict, err := v.symbolicVerdict(ctx, question, verdictSatisfy, a.Symbol, a.Text(), resolved, queries, terr)
 	if err != nil {
 		return nil, nil, err
 	}
 	v.associateRequirement(verdict, a)
-	return verdict, v.instanceGraph(subject), nil
+	return verdict, v.instanceGraph(resolved), nil
 }
 
 // witnessOf is the assignment witnessing a sat answer: the query's free

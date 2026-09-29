@@ -526,3 +526,65 @@ func TestVerifyQuestionsOverflowIsNoVerdict(t *testing.T) {
 		t.Errorf("holds is status=%q holds=%v error=%q, want proved — an evaluation error is no counterexample", held.Verdict.Status, held.Verdict.Holds, held.Verdict.Error)
 	}
 }
+
+// nestedCarrierModelSource redefines a nested feature on two cars and adds a
+// two-wheel van, so the symbolic path's carrier resolution is exercised the
+// way evaluation resolves it.
+const nestedCarrierModelSource = `package Demo {
+	private import ScalarValues::*;
+	part def Wheel {
+		attribute pressure : Real default = 30.0;
+		constraint inflated {
+			pressure > 20.0
+		}
+	}
+	part def Car {
+		part wheel : Wheel;
+	}
+	part def Van {
+		part front : Wheel;
+		part back : Wheel;
+	}
+	part flat : Car {
+		part :>> wheel {
+			attribute :>> pressure = 5.0;
+		}
+	}
+	part pumped : Car {
+		part :>> wheel {
+			attribute :>> pressure = 25.0;
+		}
+	}
+	part van : Van;
+}
+`
+
+// TestVerifyQuestionsAsksTheObjectThatCarries: a holds question pins the values
+// of the object the element is checked on — flat's wheel at pressure 5.0
+// violates inflated, pumped's at 25.0 proves it, and a van carrying two wheels
+// is ambiguous, reporting the same evaluation error evaluate does.
+func TestVerifyQuestionsAsksTheObjectThatCarries(t *testing.T) {
+	requireSolver(t)
+	srv := mustNewService(t, 10)
+	hash := mustVerifyModel(t, srv, nestedCarrierModelSource, "verify-nested-carrier")
+
+	resp := verifyQuestion(t, srv, hash, "Demo::Wheel::inflated", "holds", "Demo::flat", "")
+	if resp.Verdict.Status != statusViolated {
+		t.Fatalf("flat: status=%q error=%q, want violated — flat.wheel.pressure = 5.0 fails > 20.0", resp.Verdict.Status, resp.Verdict.Error)
+	}
+	resp = verifyQuestion(t, srv, hash, "Demo::Wheel::inflated", "holds", "Demo::pumped", "")
+	if resp.Verdict.Status != statusHolds || !resp.Verdict.Holds {
+		t.Fatalf("pumped: status=%q holds=%v, want proved holds — pumped.wheel.pressure = 25.0", resp.Verdict.Status, resp.Verdict.Holds)
+	}
+	amb := verifyQuestion(t, srv, hash, "Demo::Wheel::inflated", "holds", "Demo::van", "")
+	eval := verifyQuestion(t, srv, hash, "Demo::Wheel::inflated", "evaluate", "Demo::van", "")
+	if eval.Verdict.Status != statusUndecided {
+		t.Fatalf("evaluate on van: status=%q, want undecided on the ambiguous carrier", eval.Verdict.Status)
+	}
+	if amb.Verdict.Status != statusUndecided {
+		t.Fatalf("holds on van: status=%q, want undecided on the ambiguous carrier", amb.Verdict.Status)
+	}
+	if amb.Verdict.Error != eval.Verdict.Error {
+		t.Fatalf("holds error %q differs from the evaluate error %q", amb.Verdict.Error, eval.Verdict.Error)
+	}
+}
