@@ -257,6 +257,26 @@ calc def Runs :> Query {
 	}
 }
 
+func TestExecuteColumnPathReadsSinglePropertyLikeProject(t *testing.T) {
+	fixture := memberPathFixture(t, `
+calc def Names :> Query {
+	in root : Element;
+	Project(
+		source = Descendants(source = root, maxDepth = 1),
+		properties = ("name"),
+		columns = (Column(name = "label", path = "name"))
+	)
+}`)
+	result := memberPathRows(t, fixture, "Names")
+	for i, row := range result.Rows() {
+		projected, _ := row.Cells()[0].Values()[0].String()
+		path, _ := row.Cells()[1].Values()[0].String()
+		if path != projected {
+			t.Errorf("row %d path = %q, Project property = %q", i, path, projected)
+		}
+	}
+}
+
 // A member path orders rows by the nested value; the projected column name
 // orders them the same way after a projection.
 func TestExecuteOrderByMemberPath(t *testing.T) {

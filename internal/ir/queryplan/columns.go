@@ -128,14 +128,10 @@ func (c *compiler) compileColumn(
 			var text string
 			text, err = strconv.Unquote(literal.Value)
 			if err == nil {
-				var segments []string
-				segments, ok = source.MemberPathSegments(text)
-				if ok {
-					expression = Expression{
-						operation: OperationRowMember,
-						target:    source.MemberPathOf(segments),
-						origin:    symbols.NodeOrigin(owner.DocName, pathNode),
-					}
+				expression = Expression{
+					operation: OperationRowMember,
+					target:    text,
+					origin:    symbols.NodeOrigin(owner.DocName, pathNode),
 				}
 			}
 		}

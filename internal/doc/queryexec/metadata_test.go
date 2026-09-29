@@ -112,3 +112,29 @@ func TestExecuteMetadataFeatureColumns(t *testing.T) {
 		t.Fatalf("ByKey = %v", names)
 	}
 }
+
+func TestExecuteColumnMetadataPathReadsLikeProjectProperty(t *testing.T) {
+	fixture := loadExecutionFixture(t, metadataColumnsBody+`
+calc def Keys :> Query {
+	in root : Element;
+	Project(
+		source = WhereType(source = Descendants(source = root), type = "RequirementDefinition"),
+		properties = ("Observatory::Reqs::Properties::key"),
+		columns = (Column(name = "keyPath", path = "Observatory::Reqs::Properties::key"))
+	)
+}
+`)
+	result, err := fixture.execute(t, "Keys", Bindings{
+		"root": {ElementValue(fixture.symbol(t, "Reqs"))},
+	}, Options{})
+	if err != nil {
+		t.Fatalf("Keys: %v", err)
+	}
+	for i, row := range result.Rows() {
+		projected := cellText(row.Cells()[0])
+		path := cellText(row.Cells()[1])
+		if path != projected {
+			t.Errorf("row %d metadata path = %q, Project property = %q", i, path, projected)
+		}
+	}
+}
