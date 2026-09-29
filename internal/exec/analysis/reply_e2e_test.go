@@ -33,20 +33,20 @@ const replyDriver = `package ProbeR {
 			toolName = "Thermal";
 			uri = "thermal://host/solve";
 		}
-		in mass : MassValue          { @ToolVariable { name = "mass"; } }
-		out T_max : TemperatureValue { @ToolVariable { name = "T_max"; } }
-		out v_out : SpeedValue       { @ToolVariable { name = "v_out"; } }
-		out ok : Boolean             { @ToolVariable { name = "done"; } }
-		out code : Integer           { @ToolVariable { name = "code"; } }
-		out note : String            { @ToolVariable { name = "note"; } }
+		in mass : MassValue[1]          { @ToolVariable { name = "mass"; } }
+		out T_max : TemperatureValue[1] { @ToolVariable { name = "T_max"; } }
+		out v_out : SpeedValue[1]       { @ToolVariable { name = "v_out"; } }
+		out ok : Boolean[1]             { @ToolVariable { name = "done"; } }
+		out code : Integer[1]           { @ToolVariable { name = "code"; } }
+		out note : String[1]            { @ToolVariable { name = "note"; } }
 	}
 
 	action def Once {
-		out T : TemperatureValue;
-		out v : SpeedValue;
-		out ok : Boolean;
-		out code : Integer;
-		out note : String;
+		out T : TemperatureValue[1];
+		out v : SpeedValue[1];
+		out ok : Boolean[1];
+		out code : Integer[1];
+		out note : String[1];
 		action step : Thermal {
 			in mass = 1500 [SI::kg];
 		}
@@ -58,8 +58,8 @@ const replyDriver = `package ProbeR {
 	}
 
 	action def Twice {
-		out T1 : TemperatureValue;
-		out T2 : TemperatureValue;
+		out T1 : TemperatureValue[1];
+		out T2 : TemperatureValue[1];
 		first start;
 		then action stepA : Thermal { in mass = 1500 [SI::kg]; }
 		then action stepB : Thermal { in mass = 1500 [SI::kg]; }
@@ -72,11 +72,11 @@ const replyDriver = `package ProbeR {
 			toolName = "Thermal";
 			uri = "thermal://host/solve";
 		}
-		out ok : Boolean { @ToolVariable { name = "done"; } }
+		out ok : Boolean[1] { @ToolVariable { name = "done"; } }
 	}
 
 	action def ProbeOnce {
-		out ok : Boolean;
+		out ok : Boolean[1];
 		action step : Probe;
 		bind ok = step.ok;
 	}
@@ -86,11 +86,11 @@ const replyDriver = `package ProbeR {
 			toolName = "Thermal";
 			uri = "thermal://host/solve";
 		}
-		out code : Integer { @ToolVariable { name = "code"; } }
+		out code : Integer[1] { @ToolVariable { name = "code"; } }
 	}
 
 	action def ExitOnce {
-		out code : Integer;
+		out code : Integer[1];
 		action step : Exit;
 		bind code = step.code;
 	}
@@ -100,7 +100,7 @@ const replyDriver = `package ProbeR {
 			toolName = "Thermal";
 			uri = "thermal://host/solve";
 		}
-		in mass : MassValue { @ToolVariable { name = "mass"; } }
+		in mass : MassValue[1] { @ToolVariable { name = "mass"; } }
 	}
 
 	action def SignalOnce {

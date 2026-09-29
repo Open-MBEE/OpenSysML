@@ -955,6 +955,7 @@ class Editor:
         """Emit ``then [m] <ref>;`` or ``then [m] <kind> <name> : <type>;`` (SysML.xtext:878, 887, 1703 TargetSuccession; formal/2026-03-02).
 
         The member is sequenced after the member before it.
+        A `then` item can only follow a member that is a succession source.
 
         Args:
             owner: The action body, by qualified name or Symbol.

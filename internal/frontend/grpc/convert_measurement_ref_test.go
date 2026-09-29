@@ -31,17 +31,17 @@ package M {
   attribute speed = m / s;
   attribute units : MeasurementUnit[*] = (m, s);
 
-  calc def ToUnit { in x : ScalarQuantityValue; in target : MeasurementUnit; return : ScalarQuantityValue = ConvertQuantity(x, target); }
+  calc def ToUnit { in x : ScalarQuantityValue[1]; in target : MeasurementUnit[1]; return : ScalarQuantityValue = ConvertQuantity(x, target); }
   calc toUnit : ToUnit;
-  calc def UnitOf { in x : ScalarQuantityValue; return : MeasurementUnit = x.mRef; }
+  calc def UnitOf { in x : ScalarQuantityValue[1]; return : MeasurementUnit = x.mRef; }
   calc unitOf : UnitOf;
-  calc def Measured { in n : Real; in target : MeasurementUnit; return : ScalarQuantityValue = '['(n, target); }
+  calc def Measured { in n : Real[1]; in target : MeasurementUnit[1]; return : ScalarQuantityValue = '['(n, target); }
   calc measured : Measured;
 
   action convert {
-    in x : ScalarQuantityValue;
-    in target : MeasurementUnit;
-    out y : ScalarQuantityValue;
+    in x : ScalarQuantityValue[1];
+    in target : MeasurementUnit[1];
+    out y : ScalarQuantityValue[1];
     first start;
     action inner { assign y := ConvertQuantity(x, target); }
     then done;

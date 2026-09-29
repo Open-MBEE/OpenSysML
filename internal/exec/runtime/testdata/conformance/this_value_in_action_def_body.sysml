@@ -9,7 +9,7 @@ package test {
 		attribute flag : Boolean = false;
 
 		action def Warm {
-			in ref context : Heater;
+			in ref context : Heater[1];
 			first step;
 			action step {
 				assign context.flag := this == this;

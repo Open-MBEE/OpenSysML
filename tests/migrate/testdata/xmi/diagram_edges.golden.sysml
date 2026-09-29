@@ -20,14 +20,14 @@ package Structure {
             view 'Driving Sketch' {
                 render Views::asTextualNotation;
             }
-            in target : ScalarValues::Real;
+            in target : ScalarValues::Real[1];
             succession 'start to gain' first start then gain;
             action gain {
-                out result = 2.5;
+                out result[1] = 2.5;
             }
             first gain then 'set speed';
             action 'set speed' {
-                in value;
+                in value[1];
                 assign speed := value;
             }
             succession finish first 'set speed' then final;

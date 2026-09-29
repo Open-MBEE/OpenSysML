@@ -8,6 +8,7 @@ import (
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/ast"
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/diag"
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/lexer"
+	"github.com/Open-MBEE/OpenSysML/internal/syntax/parser"
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/source"
 )
 
@@ -151,12 +152,8 @@ func metadataQualifiedName(text string) (*ast.QualifiedName, bool) {
 func metadataPrefixInsertion(m Model, decl ast.Node) (int, bool) {
 	span := decl.Span()
 	end := span.End()
-	skip := map[string]bool{
-		"public": true, "private": true, "protected": true,
-		"in": true, "out": true, "inout": true,
-		"derived": true, "abstract": true, "variation": true, "constant": true,
-		"ref": true, "individual": true, "snapshot": true, "timeslice": true,
-		"end": true, "standard": true, "library": true,
+	nonModifierKeywords := map[string]bool{
+		"standard": true, "library": true, "timeslice": true,
 		"subject": true, "actor": true, "stakeholder": true, "objective": true,
 		"variant": true, "assume": true, "require": true, "then": true,
 		"verify": true, "frame": true, "render": true, "return": true,
@@ -176,7 +173,8 @@ func metadataPrefixInsertion(m Model, decl ast.Node) (int, bool) {
 		if tok.IsTrivia() || tok.Kind == lexer.RegularComment || tok.Span.End() <= skipThrough {
 			continue
 		}
-		if tok.Kind == lexer.Keyword && skip[tok.KeywordID] {
+		if tok.Kind == lexer.Keyword &&
+			(parser.IsPrefixModifierKeyword(tok.KeywordID) || nonModifierKeywords[tok.KeywordID]) {
 			continue
 		}
 		return tok.Span.Offset, true

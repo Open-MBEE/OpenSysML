@@ -3,7 +3,7 @@ part def Mission {
     part def Sub {
         part mission : Mission[2];
         action def Run {
-            in ref context : Sub;
+            in ref context : Sub[1];
             action def Inner {
                 first start then 'decide';
                 decide 'decide';

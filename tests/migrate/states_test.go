@@ -121,7 +121,7 @@ func TestStateMachineCrossRegionTransitionsAndPseudostates(t *testing.T) {
 	meta(t, s, "%send Stop")
 	meta(t, s, "%step")
 
-	// Ping stays in Idle; the shallow history returns to Run after a pause.
+	// Ping stays in Idle[1]; the shallow history returns to Run after a pause.
 	meta(t, s, "%send Ping")
 	meta(t, s, "%step")
 	if out := meta(t, s, "%current"); !strings.Contains(out, "Current state: Idle") {
@@ -198,14 +198,14 @@ func TestSubmachineStateBlockRedeclaresParameters(t *testing.T) {
 	r := migrateFixtureFile(t, "submachine_params")
 	for _, line := range []string{
 		"state Cell : CellMachine {",
-		"in x;",
+		"in x[1];",
 		"in ref :>> context = Line::context;",
 		"entry action tally {",
 	} {
 		wantLine(t, r.Notation, line)
 	}
 	notation := string(r.Notation)
-	in := strings.Index(notation, "in x;")
+	in := strings.Index(notation, "in x[1];")
 	ref := strings.Index(notation, "in ref :>> context = Line::context;")
 	entry := strings.Index(notation, "entry action tally")
 	if !(in >= 0 && in < ref && ref < entry) {
@@ -1543,12 +1543,12 @@ func TestStrictMigrationWritesNoExtensionNotation(t *testing.T) {
 // context redeclares its method-only parameter after the leading context.
 func TestOperationUsageRedeclaresUnmatchedMethodParameters(t *testing.T) {
 	r := migrateFixtureFile(t, "operation_extra_params")
-	wantLine(t, r.Notation, "action adjust : Adjust { in ref :>> context = Drive::context; in x; in y; }")
+	wantLine(t, r.Notation, "action adjust : Adjust { in ref :>> context = Drive::context; in x[1]; in y[1]; }")
 }
 
 func TestOperationUsageWritesContextBeforeOutputParameters(t *testing.T) {
 	r := migrateFixtureFile(t, "operation_context_out")
-	wantLine(t, r.Notation, "action adjust : Adjust { in ref :>> context = Drive::context; in x; out result; }")
+	wantLine(t, r.Notation, "action adjust : Adjust { in ref :>> context = Drive::context; in x[1]; out result[1]; }")
 }
 
 // testdata/xmi/swimlane_context_calls.xmi: calls in partitions representing the

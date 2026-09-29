@@ -167,7 +167,7 @@ const quantityModel = `package Orbit {
         attribute :>> unitPowerFactors = (m3, s_2);
     }
     calc def velocity { in a :> ISQ::acceleration; in t :> ISQ::time; return v :> ISQ::speed = a * t; }
-    calc def orbital { in mu : GravParam; in r :> ISQ::length; return v :> ISQ::speed = (mu / r)^(1/2); }
+    calc def orbital { in mu : GravParam[1]; in r :> ISQ::length; return v :> ISQ::speed = (mu / r)^(1/2); }
     calc def perMass { in f :> ISQ::force; in m :> ISQ::mass; return a :> ISQ::acceleration = f / m; }
 }
 `
@@ -189,10 +189,10 @@ func TestRunCalcQuantity(t *testing.T) {
 const analysisModel = `package An {
     private import ScalarValues::*;
     part def Ship { attribute cost : Real default = 5.0; attribute other : Real = 7.0; }
-    calc def Sum { in a : Real; in b : Real; return : Real = a + b; }
+    calc def Sum { in a : Real[1]; in b : Real[1]; return : Real = a + b; }
     analysis def Priced {
         subject s : Ship;
-        in tax : Real;
+        in tax : Real[1];
         in limit : Real default = 100.0;
         objective { require constraint { total <= limit } }
         out total : Real = Sum(s.cost, s.other) * (1.0 + tax);

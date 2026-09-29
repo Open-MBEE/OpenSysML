@@ -57,13 +57,13 @@ part def Meter {
     action measure {
         first start then sense;
         action sense {
-            in x : ScalarValues::Real = 1.5;
-            out y : ScalarValues::Real;
+            in x : ScalarValues::Real[1] = 1.5;
+            out y : ScalarValues::Real[1];
             assign y := x * 2;
         }
         first sense then record;
         action record {
-            in v : ScalarValues::Real;
+            in v : ScalarValues::Real[1];
             assign total := v + 1;
             assign peak := v;
         }
@@ -84,9 +84,9 @@ part def Meter {
         }
         first cc then judge;
         action judge {
-            in ok : ScalarValues::Boolean;
-            in n : ScalarValues::Integer = RealFunctions::floor(total);
-            in m : ScalarValues::Integer = 2;
+            in ok : ScalarValues::Boolean[1];
+            in n : ScalarValues::Integer[1] = RealFunctions::floor(total);
+            in m : ScalarValues::Integer[1] = 2;
             assign count := n + m;
         }
         first judge then log;
@@ -103,7 +103,7 @@ part def Meter {
     action skip {
         first start then idle;
         action idle {
-            out z : ScalarValues::Real;
+            out z : ScalarValues::Real[1];
             assign total := total * 1;
         }
         first idle then sink;
@@ -113,7 +113,7 @@ part def Meter {
         }
         first sink then dark;
         action dark {
-            out q : ScalarValues::Real;
+            out q : ScalarValues::Real[1];
             /* body not migrated (the statement assigns q, which nothing visible from Meter::Skip::dark is called (language Python)) {Python}:
              * q = 1
              */
@@ -184,10 +184,10 @@ part def Meter {
         metadata MigrationMetadata::SynthesizedName about final;
     }
     action arm {
-        in armed : ScalarValues::Boolean {
+        in armed : ScalarValues::Boolean[1] {
             /* default value not migrated: {JavaScript} Math.sqrt(total) — the types at "Math.sqrt(total)" disagree: the expression is a Real, not the Boolean wanted */
         }
-        in limit : ScalarValues::Integer default = count + 1;
+        in limit : ScalarValues::Integer[1] default = count + 1;
         first start then fuse;
         action fuse {
             /* body not migrated (the text "and" is not expression syntax: a statement ends at `;` or a newline) {JavaScript}:

@@ -21,23 +21,23 @@ const toolCalcModel = `package test {
 
 	calc def Thermal {
 		metadata ToolExecution { toolName = "Thermo"; uri = "thermo://x"; }
-		in m : MassValue   { @ToolVariable { name = "mass"; } }
-		in p : PowerValue  { @ToolVariable { name = "power"; } }
-		out warn : Boolean { @ToolVariable { name = "warn"; } }
-		out rating : PowerValue { @ToolVariable { name = "rating"; } }
-		return : TemperatureValue { @ToolVariable { name = "Tmax"; } }
+		in m : MassValue[1]   { @ToolVariable { name = "mass"; } }
+		in p : PowerValue[1]  { @ToolVariable { name = "power"; } }
+		out warn : Boolean[1] { @ToolVariable { name = "warn"; } }
+		out rating : PowerValue[1] { @ToolVariable { name = "rating"; } }
+		return : TemperatureValue[1] { @ToolVariable { name = "Tmax"; } }
 	}
 
 	calc def Poisoned {
 		metadata ToolExecution { toolName = "Thermo"; uri = "u"; }
-		in a : Real { @ToolVariable { name = "a"; } }
-		return : Real = 1 / 0;
+		in a : Real[1] { @ToolVariable { name = "a"; } }
+		return : Real[1] = 1 / 0;
 	}
 
 	calc def Nameless {
 		metadata ToolExecution { toolName = ""; uri = "u"; }
-		in a : Real { @ToolVariable { name = "a"; } }
-		return : Real;
+		in a : Real[1] { @ToolVariable { name = "a"; } }
+		return : Real[1];
 	}
 
 	calc t : Thermal {
@@ -47,10 +47,10 @@ const toolCalcModel = `package test {
 
 	calc def Warned {
 		metadata ToolExecution { toolName = "Thermo"; uri = "w"; }
-		in m : MassValue   { @ToolVariable { name = "mass"; } }
-		in p : PowerValue  { @ToolVariable { name = "power"; } }
-		out warn : Boolean { @ToolVariable { name = "warn"; } }
-		out rating : PowerValue { @ToolVariable { name = "rating"; } }
+		in m : MassValue[1]   { @ToolVariable { name = "mass"; } }
+		in p : PowerValue[1]  { @ToolVariable { name = "power"; } }
+		out warn : Boolean[1] { @ToolVariable { name = "warn"; } }
+		out rating : PowerValue[1] { @ToolVariable { name = "rating"; } }
 	}
 
 	calc w : Warned {
@@ -60,15 +60,15 @@ const toolCalcModel = `package test {
 
 	calc def Probe {
 		metadata ToolExecution { toolName = "Thermo"; uri = "p"; }
-		in a : Real { @ToolVariable { name = "a"; } }
-		out ok : Boolean { @ToolVariable { name = "ok"; } }
+		in a : Real[1] { @ToolVariable { name = "a"; } }
+		out ok : Boolean[1] { @ToolVariable { name = "ok"; } }
 	}
 
 	calc def TwoOuts {
 		metadata ToolExecution { toolName = "Thermo"; uri = "t"; }
-		in a : Real { @ToolVariable { name = "a"; } }
-		out ok : Boolean { @ToolVariable { name = "ok"; } }
-		out n : Real { @ToolVariable { name = "n"; } }
+		in a : Real[1] { @ToolVariable { name = "a"; } }
+		out ok : Boolean[1] { @ToolVariable { name = "ok"; } }
+		out n : Real[1] { @ToolVariable { name = "n"; } }
 	}
 
 	calc p : Probe {
@@ -81,29 +81,29 @@ const toolCalcModel = `package test {
 	}
 
 	calc def UsesCustom {
-		return : Real = Custom(-4);
+		return : Real[1] = Custom(-4);
 	}
 
 	calc def External {
 		metadata ToolExecution { toolName = "Thermo"; uri = "u"; }
-		in x : Real { @ToolVariable { name = "x"; } }
-		return : Real = x * 2.0;
+		in x : Real[1] { @ToolVariable { name = "x"; } }
+		return : Real[1] = x * 2.0;
 	}
 
 	calc def Wrapper {
-		in x : Real;
-		return : Real = External(x);
+		in x : Real[1];
+		return : Real[1] = External(x);
 	}
 
 	calc def Biased {
 		metadata ToolExecution { toolName = "Thermo"; uri = "u"; }
 		in bias : Real [0..1] { @ToolVariable { name = "bias"; } }
-		return : Real;
+		return : Real[1];
 	}
 
 	analysis def Surveyed {
 		metadata ToolExecution { toolName = "Thermo"; uri = "u"; }
-		return r : Real = 42;
+		return r : Real[1] = 42;
 	}
 
 	analysis s : Surveyed;
@@ -115,7 +115,7 @@ const toolCalcModel = `package test {
 	}
 
 	calc def Driven {
-		return : TemperatureValue = Thermal(2 [SI::kg], 10 [SI::W]);
+		return : TemperatureValue[1] = Thermal(2 [SI::kg], 10 [SI::W]);
 	}
 }`
 

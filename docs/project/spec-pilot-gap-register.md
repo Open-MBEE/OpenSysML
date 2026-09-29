@@ -245,7 +245,7 @@ matter, or neither?
 **Model text**
 
 ```sysml
-calc def F { in x : Real; in y : Real; return : Real = x + y; }
+calc def F { in x : Real; in y[1] : Real; return : Real = x + y; }
 attribute f1 = F(1.0);
 ```
 
@@ -258,9 +258,9 @@ advisory only.
 **Specification:** KerML §8.3.4.8.8 `InvocationExpression` constrains the arguments an
 invocation *writes* (`validateInvocationExpressionParameterRedefinition`,
 `validateInvocationExpressionNoDuplicateParameterRedefinition`) and states no constraint on
-parameters left without an argument. A parameter `y : Real` has multiplicity `[1]` by the KerML
-default, so the *instance* described has a feature with no value where one is required, but no
-constraint on the expression says so.
+parameters left without an argument. A bare input parameter has the effective range `[0..*]`;
+`y[1]` explicitly requires one value, so the *instance* described has a feature with no value
+where one is required, but no constraint on the expression says so.
 
 **Assessment:** spec ambiguous; both tools accept, and a modeler gets a result computed with an
 unbound operand (the pilot) or an advisory (ours). This is the closest analogue to item 1: the
