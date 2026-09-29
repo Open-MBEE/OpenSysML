@@ -1875,12 +1875,13 @@ func (m *migration) sortKey(e *sysmlv1.Element, property string) string {
 	return ""
 }
 
-// docKey is the body a query reads back from the doc comment written for text.
+// docKey is the documentation a query reads back from the doc comment written
+// for text, as DocumentationOf presents it.
 func docKey(text string) string {
 	if text == "" {
 		return ""
 	}
-	return source.CommentBody(strings.Join(commentLines(text), "\n"))
+	return source.CommentProse(strings.Join(commentLines(text), "\n"))
 }
 
 // attribute reads a desiredAttribute tag as the query property it names.
