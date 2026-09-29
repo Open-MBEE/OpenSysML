@@ -18,7 +18,7 @@ type writeTarget struct {
 	mult        semantics.Range
 	unique      bool // holds no two equal values (KerML isUnique, the default)
 	holdsSet    bool // values form a set, which drops repeats itself
-	countJudged bool
+	countJudged bool // Count is judged against mult (a parameter's effective range or a stated multiplicity), never an unstated non-parameter range.
 }
 
 // admission is how an object written to a feature answers to the feature's type: a declared value
