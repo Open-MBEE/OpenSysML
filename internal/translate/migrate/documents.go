@@ -2178,7 +2178,7 @@ func (c *chain) column(col *sysmlv1.DocGenStep) (prop string, expr columnExpr, w
 			cell := "{ in row : " + c.m.ref(s.feature.Parent, c.dp.host) + "; row." + writeName(c.m.nameOf(s.feature)) + " ?? \"\" }"
 			return "", columnExpr{name: name, argument: "cell", expression: cell}, ""
 		}
-		return "", columnExpr{name: name, expression: c.m.ref(s.feature, c.dp.host) + " ?? \"\""}, ""
+		return "", columnExpr{name: name, argument: "expression", expression: c.m.ref(s.feature, c.dp.host) + " ?? \"\""}, ""
 	case "TableExpressionColumn":
 		e := strings.TrimSpace(col.Application.Tag("expression"))
 		if p, ok := queryProperties[e]; ok {

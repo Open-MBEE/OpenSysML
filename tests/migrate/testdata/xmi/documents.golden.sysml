@@ -8,7 +8,9 @@ package Fleet {
         part def Truck {
             doc /* Hauls one trailer. */
             attribute payload : ScalarValues::Real;
-            part axles : Axle[2];
+            part axles : Axle[2] {
+                attribute mass : ScalarValues::Real;
+            }
             satisfy requirement : Fleet::Requirements::'Load Limit';
             view 'Truck Internals' {
                 expose axles;
@@ -78,7 +80,9 @@ package 'Fleet Viewpoints' {
                 action 'Owner Name';
                 first 'Owner Name' then Alias;
                 action Alias;
-                first Alias then done;
+                first Alias then 'Axle Mass';
+                action 'Axle Mass';
+                first 'Axle Mass' then done;
             }
             first 'Fleet Parts' then final;
             action final terminate;
@@ -372,7 +376,8 @@ package 'Fleet Documents' {
             properties = ("name", "qualifiedName", "documentation"),
             columns = (
                 DocumentQueries::Column(name = "Payload", cell = { in row : Fleet::Structure::Truck; row.payload ?? "" }),
-                DocumentQueries::Column(name = "name 2", cell = { in row : Fleet::Structure::Truck; row.payload ?? "" })))
+                DocumentQueries::Column(name = "name 2", cell = { in row : Fleet::Structure::Truck; row.payload ?? "" }),
+                DocumentQueries::Column(name = "Axle Mass", expression = Fleet::Structure::Truck::axles.mass ?? "")))
     }
     calc def 'Fleet Handbook Requirement List Rows' :> DocumentQueries::Query {
         DocumentQueries::Project(
