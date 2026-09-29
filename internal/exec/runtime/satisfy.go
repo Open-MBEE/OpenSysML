@@ -335,6 +335,8 @@ func (ctx *Context) checkSatisfactionOn(a *SatisfyAssertion, target *symbols.Sym
 	return ctx.satisfactionResult(holds, subject, reached), err
 }
 
+// satisfactionBindings are the members of target's requirement chain and the values
+// they bind on subject, every subject member naming subject itself.
 func (ctx *Context) satisfactionBindings(a *SatisfyAssertion, target *symbols.Symbol, subject *Instance) ([]scopedMember, map[string]Value, error) {
 	members := ctx.chainMembers(target, target.OwnerScope)
 	bindings, err := ctx.memberBindings(target, "requirement", a.Text(), members, subject, subject, frame{})

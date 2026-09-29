@@ -247,6 +247,8 @@ func (v *verifyContext) verdict(kind string, sym *symbols.Symbol, element string
 	return stampEvaluation(out)
 }
 
+// stampEvaluation marks out as the answer to an evaluate question: undecided when
+// it carries an error, else holds or violated.
 func stampEvaluation(out *pb.Verdict) *pb.Verdict {
 	out.Question = questionEvaluate
 	switch {
