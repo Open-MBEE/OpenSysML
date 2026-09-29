@@ -478,6 +478,7 @@
       outline: 2px solid #fff;
       outline-offset: 2px;
     }
+    .osml-sponsor__icon { display: inline-flex; }
     .osml-sponsor svg {
       width: 1rem;
       height: 1rem;
@@ -529,7 +530,7 @@
 {% block hero %}
 <a class="osml-sponsor" href="https://numfocus.org/donate-to-openmbee" target="_blank" rel="noopener"
    title="Sponsor OpenMBEE through NumFOCUS">
-  <span aria-hidden="true">{% include ".icons/octicons/heart-fill-24.svg" %}</span>
+  <span class="osml-sponsor__icon" aria-hidden="true">{% include ".icons/octicons/heart-fill-24.svg" %}</span>
   <span class="osml-sponsor__label">Sponsor</span>
 </a>
 <section class="osml-hero">
