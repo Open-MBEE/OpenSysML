@@ -192,10 +192,12 @@ type Options struct {
 	ID export.IDForm
 }
 
-// Source is one named document of a model.
+// Source is one named document of a model. Kind is the document's language;
+// its zero value, source.KindUnknown, means infer it from the name.
 type Source struct {
 	Name string
 	Data []byte
+	Kind source.Kind
 }
 
 // ConvertDocuments converts the notation documents of one model to a graph
@@ -214,6 +216,9 @@ func ConvertDocuments(sources []Source, to Format, opts Options) ([]byte, error)
 	docs := make([]export.Document, len(sources))
 	for i, src := range sources {
 		file := source.New(src.Name, src.Data)
+		if src.Kind != source.KindUnknown {
+			file = source.NewWithKind(src.Name, src.Data, src.Kind)
+		}
 		p := parser.New(file)
 		root := p.ParseFile()
 		if err := syntaxError(src.Name, file, p); err != nil {

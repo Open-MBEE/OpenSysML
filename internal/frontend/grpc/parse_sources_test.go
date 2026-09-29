@@ -242,3 +242,42 @@ func TestTwoDocumentSetsDoNotShareAModel(t *testing.T) {
 		t.Error("two document sets share one model hash")
 	}
 }
+
+// An inline KerML document converts by its declared language, not the language
+// its name suggests: the model's SourceDocument carries the language the
+// client parsed it as, and Convert parses each document back in that kind.
+func TestConvertParsesAnInlineKerMLDocumentAsKerML(t *testing.T) {
+	srv := mustNewService(t, 10)
+	defer srv.Close()
+
+	resp, err := srv.ParseSources(context.Background(), &pb.ParseSourcesRequest{
+		Documents: []*pb.SourceDocument{
+			{
+				Source:   &pb.SourceDocument_Content{Content: "classifier C;\n"},
+				Name:     "<content-0>",
+				Language: "kerml",
+			},
+			{
+				Source: &pb.SourceDocument_Content{Content: sourcesTop},
+				Name:   "<content-1>",
+			},
+		},
+	})
+	if err != nil {
+		t.Fatalf("ParseSources: %v", err)
+	}
+
+	converted, err := srv.Convert(context.Background(), &pb.ConvertRequest{
+		Source:   &pb.ConvertRequest_ModelHash{ModelHash: resp.ModelHash},
+		ToFormat: "turtle",
+	})
+	if err != nil {
+		t.Fatalf("Convert: %v", err)
+	}
+	if converted.Error != "" {
+		t.Fatalf("Convert: %s", converted.Error)
+	}
+	if !strings.Contains(converted.Content, "sysx:declaredKeyword \"classifier\"") {
+		t.Errorf("the KerML document's classifier did not convert:\n%s", converted.Content)
+	}
+}

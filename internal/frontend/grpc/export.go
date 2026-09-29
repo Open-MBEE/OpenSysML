@@ -102,7 +102,7 @@ func (s *Service) convertSources(req *pb.ConvertRequest) ([]convert.Source, erro
 		}
 		sources := make([]convert.Source, 0, len(cached.Documents))
 		for _, doc := range cached.Documents {
-			sources = append(sources, convert.Source{Name: doc.Source.Name(), Data: doc.Source.Bytes()})
+			sources = append(sources, convert.Source{Name: doc.Source.Name(), Data: doc.Source.Bytes(), Kind: doc.Source.Kind()})
 		}
 		return sources, nil
 	case *pb.ConvertRequest_FilePath:

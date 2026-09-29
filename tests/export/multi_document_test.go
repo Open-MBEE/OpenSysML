@@ -10,6 +10,7 @@ import (
 	"github.com/Open-MBEE/OpenSysML/internal/translate/convert"
 	"github.com/Open-MBEE/OpenSysML/internal/translate/export"
 	"github.com/Open-MBEE/OpenSysML/internal/translate/rdf"
+	"github.com/Open-MBEE/OpenSysML/internal/translate/rdf/ontology"
 )
 
 // multiDocModel is the issue's library/application pair: the application
@@ -167,5 +168,103 @@ func TestConvertDocumentsRefusals(t *testing.T) {
 	}
 	if !strings.Contains(err.Error(), "broken.sysml") {
 		t.Errorf("the syntax error is not reported against the second document: %v", err)
+	}
+}
+
+// A `verify` reference in a later document of the model materializes the same
+// way it does in one document: the materialization pass reads the whole model's
+// shared reference set, not one document's.
+func TestVerifyReferenceAcrossDocumentsMaterializesTheSame(t *testing.T) {
+	docV := "package V {\n\trequirement r;\n\trequirement def P {\n\t\trequirement req;\n\t}\n}\n"
+	docW := "package W {\n\tverification def T {\n\t\tobjective : V::P {\n\t\t\tverify V::r :>> req;\n\t\t}\n\t}\n}\n"
+
+	graphOf := func(sources []convert.Source) *rdf.Graph {
+		docs := make([]export.Document, len(sources))
+		for i, src := range sources {
+			file := source.New(src.Name, src.Data)
+			docs[i] = export.Document{File: file, Root: parser.New(file).ParseFile()}
+		}
+		graph, err := export.ToRDFDocuments(docs, export.IDQualifiedName)
+		if err != nil {
+			t.Fatalf("ToRDFDocuments: %v", err)
+		}
+		return graph
+	}
+	oneDocument := graphOf([]convert.Source{{Name: "one.sysml", Data: []byte(docV + docW)}})
+	twoDocuments := graphOf([]convert.Source{
+		{Name: "v.sysml", Data: []byte(docV)},
+		{Name: "w.sysml", Data: []byte(docW)},
+	})
+
+	// The metaclass of the relationship the verify member's `verify V::r`
+	// materializes: the relationship element owned by the verify usage whose
+	// general end is V::r, in each graph.
+	verifyRelationship := func(graph *rdf.Graph) string {
+		var metaclass string
+		for _, subject := range graph.Subjects() {
+			for _, target := range graph.Objects(subject, rdf.SysML+"subsets") {
+				if name, _ := graph.Lexical(target, rdf.SysML+"qualifiedName"); name != "V::r" {
+					continue
+				}
+				for _, rel := range graph.Objects(subject, rdf.SysML+"ownedRelationship") {
+					switch ontology.LocalName(graph.Type(rel)) {
+					case "Subsetting", "ReferenceSubsetting":
+						if general, ok := graph.Object(rel, rdf.SysML+"general"); ok && general == target {
+							metaclass = ontology.LocalName(graph.Type(rel))
+						}
+					}
+				}
+			}
+		}
+		return metaclass
+	}
+	want := verifyRelationship(oneDocument)
+	if want == "" {
+		t.Fatal("the single-document graph holds no materialized verify relationship")
+	}
+	if got := verifyRelationship(twoDocuments); got != want {
+		t.Errorf("the two-document graph materialized the verify's :>> as %s, the one-document graph as %s", got, want)
+	}
+
+	// Stripped of its source text the two-document graph reads back the same
+	// notation the one-document graph does, keeping the verify's reference
+	// form (`verify V::r`, with its redefinition spelled canonically).
+	readBack := func(graph *rdf.Graph) string {
+		turtle := rdf.WriteTurtle(graph)
+		stripped := withoutTriples(t, withoutTriples(t, turtle, "sysx:sourceText"), "sysx:sourceTail")
+		back, err := convert.Convert("m.ttl", stripped, convert.FormatTurtle, convert.FormatSysML)
+		if err != nil {
+			t.Fatalf("back to notation: %v", err)
+		}
+		return string(back)
+	}
+	back, wantBack := readBack(twoDocuments), readBack(oneDocument)
+	if back != wantBack {
+		t.Errorf("the two-document read-back differs from the one-document one:\n--- two ---\n%s--- one ---\n%s", back, wantBack)
+	}
+	if !strings.Contains(back, "verify V::r") {
+		t.Errorf("the notation should keep the verify's reference form:\n%s", back)
+	}
+}
+
+// A document that declares no elements contributes no root Namespace: a graph
+// states elements, not files.
+func TestAnEmptyDocumentAddsNoRootNamespace(t *testing.T) {
+	sources := []convert.Source{
+		{Name: "lib.sysml", Data: []byte("package Lib {\n\titem def Engine;\n}\n")},
+		{Name: "empty.sysml", Data: []byte("")},
+	}
+	out, err := convert.ConvertDocuments(sources, convert.FormatAPIJSON, convert.Options{})
+	if err != nil {
+		t.Fatalf("ConvertDocuments: %v", err)
+	}
+	namespaces := 0
+	for _, el := range rootElements(t, out) {
+		if rootString(t, el["@type"]) == "Namespace" {
+			namespaces++
+		}
+	}
+	if namespaces != 1 {
+		t.Errorf("expected exactly the one root Namespace the declaring document wraps under, found %d:\n%s", namespaces, out)
 	}
 }

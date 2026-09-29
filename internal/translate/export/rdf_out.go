@@ -358,6 +358,10 @@ type sharedEncoding struct {
 	// multi marks a conversion of several documents, whose top-level elements
 	// record their document as sysx:sourceDocument.
 	multi bool
+	// verifiedReferences holds the `verify` members every document wrote as a
+	// reference, which the materialization pass reads for every document at
+	// once, so all encoders share the one map.
+	verifiedReferences map[rdf.Term]bool
 }
 
 // newEncoder resolves a parsed document, builds its identity side table and
@@ -365,13 +369,14 @@ type sharedEncoding struct {
 func newEncoder(file *source.SourceFile, root *ast.RootNamespace, library string, form IDForm) (*encoder, error) {
 	res, model := analyzeDocument(file, root, library)
 	shared := &sharedEncoding{
-		graph:    rdf.NewGraph(),
-		declared: map[string]bool{},
-		fqn:      map[ast.Node]string{},
-		subjects: map[string]string{},
-		facts:    map[ast.Node]*identityFacts{},
-		pkgOf:    map[string]string{},
-		localOf:  map[string]string{},
+		graph:              rdf.NewGraph(),
+		declared:           map[string]bool{},
+		fqn:                map[ast.Node]string{},
+		subjects:           map[string]string{},
+		facts:              map[ast.Node]*identityFacts{},
+		pkgOf:              map[string]string{},
+		localOf:            map[string]string{},
+		verifiedReferences: map[rdf.Term]bool{},
 	}
 	return encoderFor(file, root, res, model, form, shared)
 }
@@ -392,14 +397,15 @@ func newEncoders(docs []Document, form IDForm) ([]*encoder, error) {
 	}
 	res, model := analyzeModel(modelDocs)
 	shared := &sharedEncoding{
-		graph:    rdf.NewGraph(),
-		declared: map[string]bool{},
-		fqn:      map[ast.Node]string{},
-		subjects: map[string]string{},
-		facts:    map[ast.Node]*identityFacts{},
-		pkgOf:    map[string]string{},
-		localOf:  map[string]string{},
-		multi:    len(docs) > 1,
+		graph:              rdf.NewGraph(),
+		declared:           map[string]bool{},
+		fqn:                map[ast.Node]string{},
+		subjects:           map[string]string{},
+		facts:              map[ast.Node]*identityFacts{},
+		pkgOf:              map[string]string{},
+		localOf:            map[string]string{},
+		multi:              len(docs) > 1,
+		verifiedReferences: map[rdf.Term]bool{},
 	}
 	encoders := make([]*encoder, len(docs))
 	for i, doc := range docs {
@@ -437,7 +443,7 @@ func encoderFor(file *source.SourceFile, root *ast.RootNamespace, res *resolve.R
 		facts:              shared.facts,
 		subjects:           shared.subjects,
 		regions:            map[rdf.Term]region{},
-		verifiedReferences: map[rdf.Term]bool{},
+		verifiedReferences: shared.verifiedReferences,
 		bodies:             map[rdf.Term]region{},
 		offsets:            map[string]int{},
 	}
