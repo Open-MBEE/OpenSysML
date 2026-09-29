@@ -62,6 +62,78 @@ func TestEmitStandard(t *testing.T) {
 	}
 }
 
+func TestEmitTransitionTargetInEnclosingRegion(t *testing.T) {
+	m, err := emitFixture(t, "", `
+          <subvertex xmi:type="uml:State" xmi:id="xOuter" name="Outer">
+            <region xmi:type="uml:Region" xmi:id="xOuterRegion" name="R1">
+              <subvertex xmi:type="uml:State" xmi:id="xInner" name="Inner">
+                <region xmi:type="uml:Region" xmi:id="xInnerRegion" name="R1">
+                  <subvertex xmi:type="uml:State" xmi:id="xA" name="A"/>
+                  <transition xmi:type="uml:Transition" xmi:id="xInnerToH" source="xA" target="xH">
+                    <trigger xmi:type="uml:Trigger" xmi:id="xInnerToHTrigger" event="evContinue"/>
+                  </transition>
+                </region>
+              </subvertex>
+              <subvertex xmi:type="uml:Pseudostate" xmi:id="xH" name="H" kind="deepHistory"/>
+            </region>
+          </subvertex>
+          <transition xmi:type="uml:Transition" xmi:id="xOuterToH" source="xOuter" target="xH"/>`)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, want := range []string{
+		"transition first Outer_Inner.Outer_Inner_A accept Continue then Outer_H;",
+		"transition first Outer then Outer.Outer_H;",
+	} {
+		if !strings.Contains(m.Text, want) {
+			t.Errorf("model lacks %q:\n%s", want, m.Text)
+		}
+	}
+	if problems := Validate(m); len(problems) > 0 {
+		t.Errorf("%s\n%s", strings.Join(problems, "\n"), m.Text)
+	}
+}
+
+func TestEmitTransitionFromOrthogonalRegionUsesScopedPaths(t *testing.T) {
+	m, err := emitFixture(t, "", `
+          <subvertex xmi:type="uml:State" xmi:id="xOuter" name="Outer">
+            <region xmi:type="uml:Region" xmi:id="xOuterRegion" name="R1">
+              <subvertex xmi:type="uml:State" xmi:id="xParallel" name="Parallel">
+                <region xmi:type="uml:Region" xmi:id="xRegion1" name="Region1">
+                  <subvertex xmi:type="uml:Pseudostate" xmi:id="xInitial1" name="I"/>
+                  <subvertex xmi:type="uml:State" xmi:id="xA" name="A"/>
+                  <transition xmi:type="uml:Transition" xmi:id="xInitialToA" source="xInitial1" target="xA"/>
+                  <transition xmi:type="uml:Transition" xmi:id="xAToJoin" source="xA" target="xJoin"/>
+                </region>
+                <region xmi:type="uml:Region" xmi:id="xRegion2" name="Region2">
+                  <subvertex xmi:type="uml:Pseudostate" xmi:id="xInitial2" name="I"/>
+                  <subvertex xmi:type="uml:State" xmi:id="xB" name="B"/>
+                  <transition xmi:type="uml:Transition" xmi:id="xInitialToB" source="xInitial2" target="xB"/>
+                  <transition xmi:type="uml:Transition" xmi:id="xBToJoin" source="xB" target="xJoin"/>
+                </region>
+              </subvertex>
+              <subvertex xmi:type="uml:Pseudostate" xmi:id="xJoin" name="J" kind="join"/>
+              <transition xmi:type="uml:Transition" xmi:id="xJoinToSibling" source="xJoin" target="xSibling"/>
+            </region>
+          </subvertex>
+          <subvertex xmi:type="uml:State" xmi:id="xSibling" name="Sibling"/>`)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, want := range []string{
+		"transition first Outer_Parallel.'Outer.Parallel/Region1'.Outer_Parallel_A then Outer_J;",
+		"transition first Outer_Parallel.'Outer.Parallel/Region2'.Outer_Parallel_B then Outer_J;",
+		"transition first Outer.Outer_J then Sibling;",
+	} {
+		if !strings.Contains(m.Text, want) {
+			t.Errorf("model lacks %q:\n%s", want, m.Text)
+		}
+	}
+	if problems := Validate(m); len(problems) > 0 {
+		t.Errorf("%s\n%s", strings.Join(problems, "\n"), m.Text)
+	}
+}
+
 // TestEmitInitialIntoPseudostate pins the rewrite of an initial transition
 // into a junction: the region starts in a helper state whose completion
 // transition reaches the junction, and the model lowers clean.

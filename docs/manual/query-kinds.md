@@ -27,7 +27,7 @@ body composes the library's operations — `OwnedElements`, `Descendants`,
 [vocabulary](introduction.md#the-vocabulary) — into a relation over the model.
 It answers with **rows**: each row stands for an element, and `Project` gives
 the rows named, typed columns read from the element's properties or computed
-by a `Column(name, expression)`. The order of the rows is the model's
+by a `Column` using `expression`, `cell`, or `path`. The order of the rows is the model's
 declaration order until an `OrderBy` says otherwise, which is what makes a
 document regenerate byte-identically.
 

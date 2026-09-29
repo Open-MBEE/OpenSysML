@@ -1,0 +1,46 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<xmi:XMI xmi:version="2.5.1" xmlns:xmi="http://www.omg.org/spec/XMI/20131001"
+         xmlns:uml="http://www.omg.org/spec/UML/20161101"
+         xmlns:sysml="http://www.omg.org/spec/SysML/20181001/SysML">
+  <uml:Model xmi:type="uml:Model" xmi:id="_m" name="Model">
+    <packagedElement xmi:type="uml:Signal" xmi:id="_stop" name="Stop"/>
+    <packagedElement xmi:type="uml:SignalEvent" xmi:id="_stopEvent" name="stopEvent" signal="_stop"/>
+    <packagedElement xmi:type="uml:Class" xmi:id="_plant" name="Plant">
+      <ownedBehavior xmi:type="uml:StateMachine" xmi:id="_life" name="Life">
+        <region xmi:type="uml:Region" xmi:id="_main" name="main">
+          <subvertex xmi:type="uml:Pseudostate" xmi:id="_init" kind="initial"/>
+          <subvertex xmi:type="uml:State" xmi:id="_work" name="Work">
+            <region xmi:type="uml:Region" xmi:id="_workRegion" name="work">
+              <subvertex xmi:type="uml:Pseudostate" xmi:id="_workInit" kind="initial"/>
+              <subvertex xmi:type="uml:State" xmi:id="_run" name="Run"/>
+              <transition xmi:type="uml:Transition" xmi:id="_enterRun" source="_workInit" target="_run"/>
+              <transition xmi:type="uml:Transition" xmi:id="_leaveRun" source="_run" target="_ready">
+                <trigger xmi:type="uml:Trigger" xmi:id="_stopTrigger" event="_stopEvent"/>
+              </transition>
+            </region>
+          </subvertex>
+          <subvertex xmi:type="uml:State" xmi:id="_parked" name="Parked">
+            <region xmi:type="uml:Region" xmi:id="_parkedRegion" name="parked">
+              <subvertex xmi:type="uml:Pseudostate" xmi:id="_parkedInit" kind="initial"/>
+              <subvertex xmi:type="uml:State" xmi:id="_ready" name="Ready"/>
+              <transition xmi:type="uml:Transition" xmi:id="_enterReady" source="_parkedInit" target="_ready"/>
+            </region>
+          </subvertex>
+          <subvertex xmi:type="uml:State" xmi:id="_parallel" name="Parallel">
+            <region xmi:type="uml:Region" xmi:id="_region3" name="region3">
+              <subvertex xmi:type="uml:Pseudostate" xmi:id="_region3Init" kind="initial"/>
+              <subvertex xmi:type="uml:State" xmi:id="_wait3" name="wait3"/>
+              <transition xmi:type="uml:Transition" xmi:id="_enterWait3" source="_region3Init" target="_wait3"/>
+            </region>
+            <region xmi:type="uml:Region" xmi:id="_region4" name="region4">
+              <subvertex xmi:type="uml:Pseudostate" xmi:id="_region4Init" kind="initial"/>
+              <transition xmi:type="uml:Transition" xmi:id="_crossRegionInit" source="_region4Init" target="_wait3"/>
+            </region>
+          </subvertex>
+          <transition xmi:type="uml:Transition" xmi:id="_enterWork" source="_init" target="_work"/>
+        </region>
+      </ownedBehavior>
+    </packagedElement>
+  </uml:Model>
+  <sysml:Block xmi:id="_plantBlock" base_Class="_plant"/>
+</xmi:XMI>

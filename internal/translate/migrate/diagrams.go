@@ -357,9 +357,18 @@ func (x exposures) shadows(name string) bool {
 	return x.names[name]
 }
 
-// diagramLayoutAttribute qualifies an attribute when a view exposure shadows it.
+// diagramLayoutAttribute qualifies an attribute when its name is shadowed in the view.
 func diagramLayoutAttribute(prefix, definition, name, value string, x exposures) string {
-	if x.shadows(name) {
+	return diagramLayoutAttributeText(prefix, definition, name, value, x.shadows(name))
+}
+
+// diagramLayoutAttributeForHost also qualifies an attribute shadowed by its containing scopes.
+func (m *migration) diagramLayoutAttributeForHost(prefix, definition, name, value string, host *sysmlv1.Element, x exposures) string {
+	return diagramLayoutAttributeText(prefix, definition, name, value, x.shadows(name) || m.shadows(scopeChain(host), name))
+}
+
+func diagramLayoutAttributeText(prefix, definition, name, value string, shadowed bool) string {
+	if shadowed {
 		return ":>> " + prefix + definition + "::" + name + " = " + value
 	}
 	return name + " = " + value
@@ -872,10 +881,10 @@ func (m *migration) viewGeometry(v *view, x exposures, form viewForm) viewGeomet
 		s.PlacementsWritten++
 		written++
 		attrs := []string{
-			diagramLayoutAttribute(prefix, "Layout", "x", layoutNumber(p.X), x),
-			diagramLayoutAttribute(prefix, "Layout", "y", layoutNumber(p.Y), x),
-			diagramLayoutAttribute(prefix, "Layout", "width", layoutNumber(p.Width), x),
-			diagramLayoutAttribute(prefix, "Layout", "height", layoutNumber(p.Height), x),
+			m.diagramLayoutAttributeForHost(prefix, "Layout", "x", layoutNumber(p.X), v.host, x),
+			m.diagramLayoutAttributeForHost(prefix, "Layout", "y", layoutNumber(p.Y), v.host, x),
+			m.diagramLayoutAttributeForHost(prefix, "Layout", "width", layoutNumber(p.Width), v.host, x),
+			m.diagramLayoutAttributeForHost(prefix, "Layout", "height", layoutNumber(p.Height), v.host, x),
 		}
 		placements = append(placements, fmt.Sprintf("metadata %sLayout about %s { %s; }",
 			prefix, ref, strings.Join(attrs, "; ")))
@@ -916,7 +925,7 @@ func (m *migration) viewGeometry(v *view, x exposures, form viewForm) viewGeomet
 		m.routeKinds.add(kind, routeWritten)
 		var b strings.Builder
 		b.WriteString("metadata " + prefix + "Route about " + ref + " { ")
-		b.WriteString(diagramLayoutAttribute(prefix, "Route", "points", "(", x))
+		b.WriteString(m.diagramLayoutAttributeForHost(prefix, "Route", "points", "(", v.host, x))
 		for i, n := range c.Points {
 			if i > 0 {
 				b.WriteString(", ")
@@ -946,9 +955,9 @@ func (m *migration) viewGeometry(v *view, x exposures, form viewForm) viewGeomet
 	geo := viewGeometry{pictures: dress.pictures, underlaid: dress.underlaid, undrawn: dress.undrawn, lost: dress.lost}
 	if size {
 		attrs := []string{
-			diagramLayoutAttribute(prefix, "Canvas", "unit", `"px"`, x),
-			diagramLayoutAttribute(prefix, "Canvas", "width", layoutNumber(maxX), x),
-			diagramLayoutAttribute(prefix, "Canvas", "height", layoutNumber(maxY), x),
+			m.diagramLayoutAttributeForHost(prefix, "Canvas", "unit", `"px"`, v.host, x),
+			m.diagramLayoutAttributeForHost(prefix, "Canvas", "width", layoutNumber(maxX), v.host, x),
+			m.diagramLayoutAttributeForHost(prefix, "Canvas", "height", layoutNumber(maxY), v.host, x),
 		}
 		geo.lines = append(geo.lines, fmt.Sprintf("@%sCanvas { %s; }", prefix, strings.Join(attrs, "; ")))
 	}

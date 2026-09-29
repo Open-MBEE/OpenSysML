@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<packet>
+  <metadata><mtipVersion>2022x v1.0.0</mtipVersion></metadata>
+  <data>
+    <attributes _dtype="dict">
+      <attribute _dtype="dict" key="name"><attribute _dtype="str" key="value">Model</attribute></attribute>
+    </attributes>
+    <id _dtype="dict"><cameo _dtype="str">_m</cameo></id>
+    <relationships _dtype="dict"/>
+    <type _dtype="str">sysml.Model</type>
+  </data>
+  <data>
+    <attributes _dtype="dict">
+      <attribute _dtype="dict" key="name"><attribute _dtype="str" key="value">Vehicle Picture</attribute></attribute>
+    </attributes>
+    <id _dtype="dict"><cameo _dtype="str">_diag_picture</cameo></id>
+    <relationships _dtype="dict"/>
+    <type _dtype="str">sysml.InternalBlockDiagram</type>
+  </data>
+</packet>

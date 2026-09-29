@@ -397,9 +397,9 @@ func zeroLiteral(typ string) string {
 	return "0"
 }
 
-// placeTransitions files each transition under the region whose scope must
-// declare it: its own, or the region of the final state it targets, where
-// `done` names that final state.
+// placeTransitions files each transition under the innermost region that
+// contains both ends, except that a transition to a final state stays under
+// that final state's region, where `done` names the target.
 func (e *emitter) placeTransitions(regions []*Region) error {
 	var visit func([]*Region) error
 	visit = func(regions []*Region) error {
@@ -408,6 +408,11 @@ func (e *emitter) placeTransitions(regions []*Region) error {
 				scope := r
 				if t.Target != nil && t.Target.Kind == VertexFinal && t.Target.Region != nil {
 					scope = t.Target.Region
+				} else if t.Source != nil && t.Target != nil {
+					scope = commonRegion(t.Source, t.Target)
+					if scope == nil {
+						return e.fail(t.Describe(), "transition ends have no common region")
+					}
 				}
 				e.placed[scope] = append(e.placed[scope], t)
 				e.scopeOf[t] = scope
@@ -421,6 +426,27 @@ func (e *emitter) placeTransitions(regions []*Region) error {
 		return nil
 	}
 	return visit(regions)
+}
+
+// commonRegion returns the innermost region containing both vertices.
+func commonRegion(a, b *Vertex) *Region {
+	contains := map[*Region]bool{}
+	for r := a.Region; r != nil; r = regionParent(r) {
+		contains[r] = true
+	}
+	for r := b.Region; r != nil; r = regionParent(r) {
+		if contains[r] {
+			return r
+		}
+	}
+	return nil
+}
+
+func regionParent(r *Region) *Region {
+	if r == nil || r.owner == nil {
+		return nil
+	}
+	return r.owner.Region
 }
 
 // stateBody emits `state <name> [parallel] { ... }` for a state or the machine:
@@ -840,9 +866,12 @@ func (e *emitter) transition(b *strings.Builder, ind string, t *Transition) erro
 	if t.Source == nil || t.Target == nil {
 		return e.fail(where, "a transition without both ends")
 	}
-	source := e.names[t.Source]
-	if source == "" {
+	if e.names[t.Source] == "" {
 		return e.fail(where, "a transition out of an unnamed vertex")
+	}
+	source, err := e.endpoint(t.Source, e.scopeOf[t], where)
+	if err != nil {
+		return err
 	}
 	target, err := e.target(t, where)
 	if err != nil {
@@ -889,7 +918,7 @@ func (e *emitter) transition(b *strings.Builder, ind string, t *Transition) erro
 		if named := e.named[t]; named != "" {
 			name = spell(named) + " "
 		}
-		fmt.Fprintf(b, "%stransition %sfirst %s%s%s", ind, name, spell(source), accept, guard)
+		fmt.Fprintf(b, "%stransition %sfirst %s%s%s", ind, name, source, accept, guard)
 		if len(effect) > 0 {
 			b.WriteString(" do {\n")
 			writeStmts(b, ind+"    ", effect)
@@ -900,7 +929,8 @@ func (e *emitter) transition(b *strings.Builder, ind string, t *Transition) erro
 	return nil
 }
 
-// target spells a transition's target: `done` for a final state, else its name.
+// target spells a transition's target relative to the region declaring it:
+// `done` for a final state, else its scoped name.
 func (e *emitter) target(t *Transition, where string) (string, error) {
 	if t.Target == nil {
 		return "", e.fail(where, "a transition without a target")
@@ -912,7 +942,40 @@ func (e *emitter) target(t *Transition, where string) (string, error) {
 	if name == "" || t.Target.Kind == VertexInitial {
 		return "", e.fail(where, "a transition into an unnamed vertex")
 	}
-	return spell(name), nil
+	return e.endpoint(t.Target, e.scopeOf[t], where)
+}
+
+// endpoint spells a vertex relative to the region where its transition is
+// declared, including the state wrapper emitted for an orthogonal region.
+func (e *emitter) endpoint(v *Vertex, scope *Region, where string) (string, error) {
+	var path []*Vertex
+	for cur := v; ; {
+		path = append(path, cur)
+		if cur.Region == scope {
+			break
+		}
+		if cur.Region == nil || cur.Region.owner == nil {
+			return "", e.fail(where, "a transition endpoint is outside its scope")
+		}
+		cur = cur.Region.owner
+	}
+	for i, j := 0, len(path)-1; i < j; i, j = i+1, j-1 {
+		path[i], path[j] = path[j], path[i]
+	}
+	parts := make([]string, 0, len(path)*2)
+	for i, v := range path {
+		if e.names[v] == "" {
+			return "", e.fail(where, "a transition endpoint is unnamed")
+		}
+		parts = append(parts, spell(e.names[v]))
+		if i+1 < len(path) {
+			region := path[i+1].Region
+			if len(v.Regions) > 1 {
+				parts = append(parts, spell(v.Path()+"/"+region.Name))
+			}
+		}
+	}
+	return strings.Join(parts, "."), nil
 }
 
 // trigger spells a trigger as an accept clause, returning the parameter name a

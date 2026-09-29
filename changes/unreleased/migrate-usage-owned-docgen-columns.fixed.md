@@ -1,0 +1,1 @@
+- **DocGen tables can now display attributes owned by part usages as columns.**

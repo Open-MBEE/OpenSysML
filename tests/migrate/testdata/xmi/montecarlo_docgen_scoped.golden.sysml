@@ -74,7 +74,7 @@ package Documents {
                 maxDepth = 1),
             properties = ("name", "documentation"),
             columns = (
-                DocumentQueries::Column(name = "Mean", expression = 'Monte Carlo'.mean)))
+                DocumentQueries::Column(name = "Mean", path = "'Monte Carlo'.mean")))
     }
     part def 'Statistics Report Document' :> DocumentQueries::Document {
         attribute redefines title = "Statistics Report";
