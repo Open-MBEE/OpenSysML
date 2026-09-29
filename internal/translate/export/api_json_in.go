@@ -144,6 +144,7 @@ func parseAPIJSON(data []byte) ([]apiJSONElementData, map[string]bool, error) {
 	// child may be listed before its parent. Opaque ids such as UUIDs carry no
 	// parent, so the membership that states the node as its member stands in.
 	nodeOwner := map[string]string{}
+	nodeOwnerMeta := map[string]string{}
 	relationshipOwner := map[string]string{}
 	for i := range objects {
 		object := &objects[i]
@@ -163,6 +164,7 @@ func parseAPIJSON(data []byte) ([]apiJSONElementData, map[string]bool, error) {
 		}
 		if member != "" && owner != "" && nodeMembershipMetaclass(object.typ) {
 			nodeOwner[member] = owner
+			nodeOwnerMeta[member] = object.typ
 		}
 	}
 	expressionIDs := map[string]bool{}
@@ -177,13 +179,15 @@ func parseAPIJSON(data []byte) ([]apiJSONElementData, map[string]bool, error) {
 			if base, isMembership := strings.CutSuffix(object.id, rdf.OwningMembershipSuffix); isMembership {
 				expression = ids[base] && expressionIDs[base]
 			} else if owner, ok := rdf.ExpressionNodeOwner(object.id, func(prefix string) bool { return ids[prefix] }); ok {
-				expression = expressionIDs[owner] || isExpressionRoot(object.typ) || expressionMetaclasses[types[owner]]
+				expression = expressionIDs[owner] || isExpressionRoot(object.typ) || expressionMetaclasses[types[owner]] ||
+					messageParameterEnd(types[nodeOwner[object.id]], nodeOwnerMeta[object.id], object.typ)
 			} else if object.typ != mMembership && expressionMetaclasses[object.typ] {
 				// A Membership carries a referent element, not an owned node;
 				// only an owning membership marks one a node.
 				expression = true
 			} else if owner := nodeOwner[object.id]; owner != "" {
-				expression = expressionIDs[owner] || expressionMetaclasses[types[owner]]
+				expression = expressionIDs[owner] || expressionMetaclasses[types[owner]] ||
+					messageParameterEnd(types[owner], nodeOwnerMeta[object.id], object.typ)
 			} else if owner := relationshipOwner[object.id]; owner != "" && expressionIDs[owner] {
 				// A referent Membership is a node; other owned relationships are
 				// nodes only while their id derives from the node's (qualified form).
@@ -197,6 +201,15 @@ func parseAPIJSON(data []byte) ([]apiJSONElementData, map[string]bool, error) {
 		}
 	}
 	return objects, expressionIDs, nil
+}
+
+// messageParameterEnd reports whether an element is a `message` end: an
+// EventOccurrenceUsage a FlowUsage owns through a ParameterMembership
+// (SysML.xtext MessageEventMember), a part of the flow's head. A declared
+// `event occurrence` usage is never a node — its owner is a namespace, not a
+// FlowUsage, so the metaclass alone decides nothing here.
+func messageParameterEnd(ownerType, membershipType, memberType string) bool {
+	return ownerType == "FlowUsage" && membershipType == mParameterMembership && memberType == mEventOccurrenceUsage
 }
 
 // nodeMembershipMetaclass reports whether an element of this metaclass can

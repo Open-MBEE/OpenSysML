@@ -644,6 +644,9 @@ type decoder struct {
 	// chainOwned indexes the FeatureChaining elements by the chain feature
 	// each names its owningRelatedElement, built on first lookup.
 	chainOwned map[string][]rdf.Term
+	// parameterOwned indexes the ParameterMembership elements by the namespace
+	// each names as its own, built on first lookup.
+	parameterOwned map[string][]rdf.Term
 	// byQName keys the elements' qualified names on their canonical form, built
 	// on first lookup.
 	byQName map[string]string
@@ -852,6 +855,13 @@ func (d *decoder) isNodeMembership(subject rdf.Term) bool {
 	// element of its own — `in expr keep : T` declares one — not a node.
 	if d.isExpressionIRI(member) || expressionMetaclasses[d.metaclass(member)] &&
 		!d.graph.HasProperty(member, rdf.SysML+pQualifiedName) {
+		return true
+	}
+	// A `message` owns its ends through ParameterMembership
+	// (SysML.xtext MessageEventMember): they are parts of the flow's head, not
+	// member elements of their own.
+	if metaclass == mParameterMembership && d.metaclass(owner) == usageMetaclass[ast.UsageFlow] &&
+		d.metaclass(member) == mEventOccurrenceUsage {
 		return true
 	}
 	if metaclass == mFeatureValue {
@@ -1786,6 +1796,14 @@ func (d *decoder) usageHead(el *element, kind ast.UsageKind) (string, error) {
 		words = append(words, direction)
 	}
 	keyword := d.keywordOr(el, usageKeyword(kind))
+	// A `message` is the flow whose ends are event occurrences it owns as
+	// parameters; their metaclass says `message` where the graph states none.
+	if kind == ast.UsageFlow && keyword == usageKeyword(kind) {
+		// The ends' own error surfaces where the head writes them.
+		if ends, err := d.messageEnds(el); err == nil && len(ends) > 0 {
+			keyword = "message"
+		}
+	}
 	// The RequirementUsage a RequirementVerificationMembership owns is spelled
 	// `verify`, whether or not the graph recorded the keyword.
 	if keyword == usageKeyword(ast.UsageSatisfy) && d.verifiedRequirement(el) {

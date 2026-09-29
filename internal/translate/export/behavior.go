@@ -402,8 +402,9 @@ func (e *encoder) encodeTransition(n *ast.TransitionMember, head func(rdf.Term),
 	e.name(subject, n.Name)
 	e.graph.Add(subject, e.sysx(xTransitionSyntax), rdf.String(e.transitionSyntax(n)))
 	e.transitionKeyword(subject, n)
-	if qualifiedText(n.Source) != "" {
-		e.graph.Add(subject, e.sysml(pSource), e.edgeReference(n.Source))
+	succession, membership, err := e.transitionSuccession(subject, n, owner)
+	if err != nil {
+		return err
 	}
 	if qualifiedText(n.Target) == "" {
 		return &UnsupportedError{
@@ -411,7 +412,6 @@ func (e *encoder) encodeTransition(n *ast.TransitionMember, head func(rdf.Term),
 			Note: "it names no target state, so the edge it declares cannot be written back",
 		}
 	}
-	e.graph.Add(subject, e.sysml(pTarget), e.edgeReference(n.Target))
 	structural, err := e.encodeTrigger(n, subject, fqn)
 	if err != nil {
 		return err
@@ -446,11 +446,58 @@ func (e *encoder) encodeTransition(n *ast.TransitionMember, head func(rdf.Term),
 		e.graph.Add(subject, e.sysx(xHasBody), rdf.Bool(true))
 	}
 	// `then t` lies between the effect and the body, so neither tiles the
-	// transition's lines on its own.
-	if len(n.Effect) > 0 && len(n.Members) > 0 {
-		return e.encodeInline(transitionMembers(n), fqn, subject)
+	// transition's lines on its own — and the grammar's member order puts the
+	// TransitionSuccessionMember there too: after the guard and effect
+	// memberships, before the body's (SysML.xtext TransitionUsage).
+	ownSuccession := func() {
+		e.graph.Add(subject, e.sysml(pOwnedRelationship), membership)
+		e.graph.Add(subject, e.sysml(pOwnedMembership), membership)
+		e.emitMembershipCore(membership, succession, subject, mOwningMembership, true)
 	}
-	return e.encode(transitionMembers(n), fqn, subject)
+	var encoded error
+	if len(n.Effect) > 0 && len(n.Members) > 0 {
+		if err := e.encodeInline(n.Effect, fqn, subject); err != nil {
+			return err
+		}
+		ownSuccession()
+		encoded = e.encodeInlineAt(n.Members, len(e.kept(n.Effect)), fqn, subject)
+	} else {
+		if err := e.encode(n.Effect, fqn, subject); err != nil {
+			return err
+		}
+		ownSuccession()
+		encoded = e.encode(n.Members, fqn, subject)
+	}
+	if encoded != nil {
+		return encoded
+	}
+	// The ends come last: sysml:target closes the statement block, the way the
+	// membership-free mapping left it.
+	if qualifiedText(n.Source) != "" {
+		e.graph.Add(subject, e.sysml(pSource), e.edgeReference(n.Source))
+	}
+	e.graph.Add(subject, e.sysml(pTarget), e.edgeReference(n.Target))
+	return nil
+}
+
+// transitionSuccession emits the SuccessionAsUsage a transition owns for its
+// `then` clause (SysML.xtext TransitionSuccessionMember, whose
+// TransitionSuccession holds an empty source end and an end referring to the
+// target): the succession and its two end features; the caller links the
+// OwningMembership into the member order the grammar states.
+func (e *encoder) transitionSuccession(subject rdf.Term, n *ast.TransitionMember, owner string) (rdf.Term, rdf.Term, error) {
+	succession := e.ids.minted(rdf.IRI(subject.Value+"_succession"), subject, "_succession")
+	membership := e.ids.minted(rdf.OwningMembershipIRIOf(succession), succession, rdf.OwningMembershipSuffix)
+	e.typed(succession, mSuccession)
+	e.graph.Add(succession, e.sysml(pElementID), rdf.String(rdf.LocalName(succession.Value)))
+	e.graph.Add(subject, e.sysml("succession"), succession)
+	if err := e.connectorEnd(succession, connectorEndSpec{owner: owner, slot: "end0", index: 0, ends: 2, empty: true, noCollapse: true}); err != nil {
+		return rdf.Term{}, rdf.Term{}, err
+	}
+	if err := e.connectorEnd(succession, connectorEndSpec{owner: owner, slot: "end1", index: 1, ends: 2, targetTerm: e.edgeReference(n.Target), noCollapse: true}); err != nil {
+		return rdf.Term{}, rdf.Term{}, err
+	}
+	return succession, membership, nil
 }
 
 // triggerSegment is the qualified-name segment of a transition's trigger
@@ -1176,7 +1223,10 @@ func (d *decoder) positionalSuccessionPrefix(el *element) (string, error) {
 func (d *decoder) positionalSourceMultiplicity(el *element) (string, error) {
 	ends := d.graph.Objects(rdf.IRI(el.iri), rdf.SysML+pConnectorEnd)
 	if len(ends) == 0 {
-		ends = d.standardEndFeatures(el)
+		var err error
+		if ends, err = d.standardEndFeatures(el); err != nil {
+			return "", err
+		}
 	}
 	for _, end := range ends {
 		_, hasTarget, err := d.standardEndTarget(end, el)

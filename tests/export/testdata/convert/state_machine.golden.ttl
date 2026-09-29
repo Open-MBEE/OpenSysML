@@ -440,14 +440,17 @@ elmt:StateMachine__VehicleStates__active___401
     sysml:owningRelationship elmt:StateMachine__VehicleStates__active___401_om ;
     sysml:owningMembership elmt:StateMachine__VehicleStates__active___401_om ;
     sysx:transitionSyntax "accept" ;
-    sysml:target elmt:StateMachine__VehicleStates__off ;
+    sysml:succession elmt:StateMachine__VehicleStates__active___401_succession ;
     sysml:triggerAction elmt:StateMachine__VehicleStates__active___401___40trigger ;
     sysml:ownedMember elmt:StateMachine__VehicleStates__active___401___40trigger ;
-    sysml:ownedMembership elmt:StateMachine__VehicleStates__active___401___40trigger_om ;
-    sysml:ownedRelationship elmt:StateMachine__VehicleStates__active___401___40trigger_om ;
+    sysml:ownedMembership elmt:StateMachine__VehicleStates__active___401___40trigger_om, elmt:StateMachine__VehicleStates__active___401_succession_om ;
+    sysml:ownedRelationship elmt:StateMachine__VehicleStates__active___401___40trigger_om, elmt:StateMachine__VehicleStates__active___401_succession_om ;
     sysml:ownedFeature elmt:StateMachine__VehicleStates__active___401___40trigger ;
     sysml:ownedFeatureMembership elmt:StateMachine__VehicleStates__active___401___40trigger_om ;
-    sysx:sourceText "            accept sig : Signal then off;\n" .
+    sysml:target elmt:StateMachine__VehicleStates__off ;
+    sysx:sourceText "            accept sig : Signal then off;\n" ;
+    json:ownedMembership "[{\"@id\":\"StateMachine__VehicleStates__active___401___40trigger_om\"},{\"@id\":\"StateMachine__VehicleStates__active___401_succession_om\"}]" ;
+    json:ownedRelationship "[{\"@id\":\"StateMachine__VehicleStates__active___401___40trigger_om\"},{\"@id\":\"StateMachine__VehicleStates__active___401_succession_om\"}]" .
 
 elmt:StateMachine__VehicleStates__active___401_om
     a sysml:FeatureMembership ;
@@ -460,6 +463,83 @@ elmt:StateMachine__VehicleStates__active___401_om
     sysml:membershipOwningNamespace elmt:StateMachine__VehicleStates__active ;
     sysml:ownedMemberFeature elmt:StateMachine__VehicleStates__active___401 ;
     sysml:owningType elmt:StateMachine__VehicleStates__active .
+
+elmt:StateMachine__VehicleStates__active___401_succession
+    a sysml:SuccessionAsUsage ;
+    sysml:elementId "StateMachine__VehicleStates__active___401_succession" ;
+    sysml:connectorEnd expr:StateMachine__VehicleStates__active___401_succession_pend0, expr:StateMachine__VehicleStates__active___401_succession_pend1 ;
+    sysml:ownedRelationship expr:StateMachine__VehicleStates__active___401_succession_pend0_om, expr:StateMachine__VehicleStates__active___401_succession_pend1_om ;
+    sysml:ownedMembership expr:StateMachine__VehicleStates__active___401_succession_pend0_om, expr:StateMachine__VehicleStates__active___401_succession_pend1_om ;
+    sysml:ownedFeatureMembership expr:StateMachine__VehicleStates__active___401_succession_pend0_om, expr:StateMachine__VehicleStates__active___401_succession_pend1_om ;
+    sysml:ownedFeature expr:StateMachine__VehicleStates__active___401_succession_pend0, expr:StateMachine__VehicleStates__active___401_succession_pend1 ;
+    sysml:ownedEndFeature expr:StateMachine__VehicleStates__active___401_succession_pend0, expr:StateMachine__VehicleStates__active___401_succession_pend1 ;
+    sysml:owner elmt:StateMachine__VehicleStates__active___401 ;
+    sysml:owningRelationship elmt:StateMachine__VehicleStates__active___401_succession_om ;
+    sysml:owningMembership elmt:StateMachine__VehicleStates__active___401_succession_om ;
+    json:connectorEnd "[{\"@id\":\"StateMachine__VehicleStates__active___401_succession_pend0\"},{\"@id\":\"StateMachine__VehicleStates__active___401_succession_pend1\"}]" ;
+    json:ownedRelationship "[{\"@id\":\"StateMachine__VehicleStates__active___401_succession_pend0_om\"},{\"@id\":\"StateMachine__VehicleStates__active___401_succession_pend1_om\"}]" ;
+    json:ownedMembership "[{\"@id\":\"StateMachine__VehicleStates__active___401_succession_pend0_om\"},{\"@id\":\"StateMachine__VehicleStates__active___401_succession_pend1_om\"}]" ;
+    json:ownedFeatureMembership "[{\"@id\":\"StateMachine__VehicleStates__active___401_succession_pend0_om\"},{\"@id\":\"StateMachine__VehicleStates__active___401_succession_pend1_om\"}]" ;
+    json:ownedFeature "[{\"@id\":\"StateMachine__VehicleStates__active___401_succession_pend0\"},{\"@id\":\"StateMachine__VehicleStates__active___401_succession_pend1\"}]" ;
+    json:ownedEndFeature "[{\"@id\":\"StateMachine__VehicleStates__active___401_succession_pend0\"},{\"@id\":\"StateMachine__VehicleStates__active___401_succession_pend1\"}]" .
+
+expr:StateMachine__VehicleStates__active___401_succession_pend0
+    a sysml:ReferenceUsage ;
+    sysml:elementId "StateMachine__VehicleStates__active___401_succession_pend0" ;
+    sysml:isEnd "true"^^xsd:boolean ;
+    sysml:owner elmt:StateMachine__VehicleStates__active___401_succession ;
+    sysml:owningRelationship expr:StateMachine__VehicleStates__active___401_succession_pend0_om ;
+    sysml:owningMembership expr:StateMachine__VehicleStates__active___401_succession_pend0_om .
+
+expr:StateMachine__VehicleStates__active___401_succession_pend0_om
+    a sysml:EndFeatureMembership ;
+    sysml:elementId "StateMachine__VehicleStates__active___401_succession_pend0_om" ;
+    sysml:owner elmt:StateMachine__VehicleStates__active___401_succession ;
+    sysml:memberElement expr:StateMachine__VehicleStates__active___401_succession_pend0 ;
+    sysml:ownedMemberElement expr:StateMachine__VehicleStates__active___401_succession_pend0 ;
+    sysml:ownedRelatedElement expr:StateMachine__VehicleStates__active___401_succession_pend0 ;
+    sysml:owningRelatedElement elmt:StateMachine__VehicleStates__active___401_succession ;
+    sysml:membershipOwningNamespace elmt:StateMachine__VehicleStates__active___401_succession .
+
+expr:StateMachine__VehicleStates__active___401_succession_pend1
+    a sysml:ReferenceUsage ;
+    sysml:elementId "StateMachine__VehicleStates__active___401_succession_pend1" ;
+    sysml:isEnd "true"^^xsd:boolean ;
+    sysml:owner elmt:StateMachine__VehicleStates__active___401_succession ;
+    sysml:owningRelationship expr:StateMachine__VehicleStates__active___401_succession_pend1_om ;
+    sysml:owningMembership expr:StateMachine__VehicleStates__active___401_succession_pend1_om ;
+    sysml:ownedReferenceSubsetting expr:StateMachine__VehicleStates__active___401_succession_pend1_prs ;
+    sysml:ownedSubsetting expr:StateMachine__VehicleStates__active___401_succession_pend1_prs ;
+    sysml:ownedSpecialization expr:StateMachine__VehicleStates__active___401_succession_pend1_prs ;
+    sysml:ownedRelationship expr:StateMachine__VehicleStates__active___401_succession_pend1_prs .
+
+expr:StateMachine__VehicleStates__active___401_succession_pend1_om
+    a sysml:EndFeatureMembership ;
+    sysml:elementId "StateMachine__VehicleStates__active___401_succession_pend1_om" ;
+    sysml:owner elmt:StateMachine__VehicleStates__active___401_succession ;
+    sysml:memberElement expr:StateMachine__VehicleStates__active___401_succession_pend1 ;
+    sysml:ownedMemberElement expr:StateMachine__VehicleStates__active___401_succession_pend1 ;
+    sysml:ownedRelatedElement expr:StateMachine__VehicleStates__active___401_succession_pend1 ;
+    sysml:owningRelatedElement elmt:StateMachine__VehicleStates__active___401_succession ;
+    sysml:membershipOwningNamespace elmt:StateMachine__VehicleStates__active___401_succession .
+
+expr:StateMachine__VehicleStates__active___401_succession_pend1_prs
+    a sysml:ReferenceSubsetting ;
+    sysml:elementId "StateMachine__VehicleStates__active___401_succession_pend1_prs" ;
+    sysml:referencingFeature expr:StateMachine__VehicleStates__active___401_succession_pend1 ;
+    sysml:subsettingFeature expr:StateMachine__VehicleStates__active___401_succession_pend1 ;
+    sysml:specific expr:StateMachine__VehicleStates__active___401_succession_pend1 ;
+    sysml:source expr:StateMachine__VehicleStates__active___401_succession_pend1 ;
+    sysml:owningFeature expr:StateMachine__VehicleStates__active___401_succession_pend1 ;
+    sysml:owningType expr:StateMachine__VehicleStates__active___401_succession_pend1 ;
+    sysml:referencedFeature elmt:StateMachine__VehicleStates__off ;
+    sysml:subsettedFeature elmt:StateMachine__VehicleStates__off ;
+    sysml:general elmt:StateMachine__VehicleStates__off ;
+    sysml:target elmt:StateMachine__VehicleStates__off ;
+    sysml:relatedElement expr:StateMachine__VehicleStates__active___401_succession_pend1, elmt:StateMachine__VehicleStates__off ;
+    sysml:owner expr:StateMachine__VehicleStates__active___401_succession_pend1 ;
+    sysml:owningRelatedElement expr:StateMachine__VehicleStates__active___401_succession_pend1 ;
+    json:relatedElement "[{\"@id\":\"StateMachine__VehicleStates__active___401_succession_pend1\"},{\"@id\":\"StateMachine__VehicleStates__off\"}]" .
 
 elmt:StateMachine__VehicleStates__active___401___40trigger
     a sysml:AcceptActionUsage ;
@@ -525,6 +605,16 @@ elmt:StateMachine__VehicleStates__active___401___40trigger__sig_om
     sysml:ownedMemberFeature elmt:StateMachine__VehicleStates__active___401___40trigger__sig ;
     sysml:owningType elmt:StateMachine__VehicleStates__active___401___40trigger .
 
+elmt:StateMachine__VehicleStates__active___401_succession_om
+    a sysml:OwningMembership ;
+    sysml:elementId "StateMachine__VehicleStates__active___401_succession_om" ;
+    sysml:owner elmt:StateMachine__VehicleStates__active___401 ;
+    sysml:memberElement elmt:StateMachine__VehicleStates__active___401_succession ;
+    sysml:ownedMemberElement elmt:StateMachine__VehicleStates__active___401_succession ;
+    sysml:ownedRelatedElement elmt:StateMachine__VehicleStates__active___401_succession ;
+    sysml:owningRelatedElement elmt:StateMachine__VehicleStates__active___401 ;
+    sysml:membershipOwningNamespace elmt:StateMachine__VehicleStates__active___401 .
+
 elmt:StateMachine__VehicleStates__off_5fto_5fstart
     a sysml:TransitionUsage ;
     sysml:qualifiedName "StateMachine::VehicleStates::off_to_start" ;
@@ -536,15 +626,18 @@ elmt:StateMachine__VehicleStates__off_5fto_5fstart
     sysml:owningMembership elmt:StateMachine__VehicleStates__off_5fto_5fstart_om ;
     sysml:declaredName "off_to_start" ;
     sysx:transitionSyntax "first" ;
-    sysml:source elmt:StateMachine__VehicleStates__off ;
-    sysml:target elmt:StateMachine__VehicleStates__starting ;
+    sysml:succession elmt:StateMachine__VehicleStates__off_5fto_5fstart_succession ;
     sysml:triggerAction elmt:StateMachine__VehicleStates__off_5fto_5fstart___40trigger ;
     sysml:ownedMember elmt:StateMachine__VehicleStates__off_5fto_5fstart___40trigger ;
-    sysml:ownedMembership elmt:StateMachine__VehicleStates__off_5fto_5fstart___40trigger_om ;
-    sysml:ownedRelationship elmt:StateMachine__VehicleStates__off_5fto_5fstart___40trigger_om ;
+    sysml:ownedMembership elmt:StateMachine__VehicleStates__off_5fto_5fstart___40trigger_om, elmt:StateMachine__VehicleStates__off_5fto_5fstart_succession_om ;
+    sysml:ownedRelationship elmt:StateMachine__VehicleStates__off_5fto_5fstart___40trigger_om, elmt:StateMachine__VehicleStates__off_5fto_5fstart_succession_om ;
     sysml:ownedFeature elmt:StateMachine__VehicleStates__off_5fto_5fstart___40trigger ;
     sysml:ownedFeatureMembership elmt:StateMachine__VehicleStates__off_5fto_5fstart___40trigger_om ;
-    sysx:sourceText "        transition off_to_start first off accept sig : Signal then starting;\n" .
+    sysml:source elmt:StateMachine__VehicleStates__off ;
+    sysml:target elmt:StateMachine__VehicleStates__starting ;
+    sysx:sourceText "        transition off_to_start first off accept sig : Signal then starting;\n" ;
+    json:ownedMembership "[{\"@id\":\"StateMachine__VehicleStates__off_5fto_5fstart___40trigger_om\"},{\"@id\":\"StateMachine__VehicleStates__off_5fto_5fstart_succession_om\"}]" ;
+    json:ownedRelationship "[{\"@id\":\"StateMachine__VehicleStates__off_5fto_5fstart___40trigger_om\"},{\"@id\":\"StateMachine__VehicleStates__off_5fto_5fstart_succession_om\"}]" .
 
 elmt:StateMachine__VehicleStates__off_5fto_5fstart_om
     a sysml:FeatureMembership ;
@@ -557,6 +650,83 @@ elmt:StateMachine__VehicleStates__off_5fto_5fstart_om
     sysml:membershipOwningNamespace elmt:StateMachine__VehicleStates ;
     sysml:ownedMemberFeature elmt:StateMachine__VehicleStates__off_5fto_5fstart ;
     sysml:owningType elmt:StateMachine__VehicleStates .
+
+elmt:StateMachine__VehicleStates__off_5fto_5fstart_succession
+    a sysml:SuccessionAsUsage ;
+    sysml:elementId "StateMachine__VehicleStates__off_5fto_5fstart_succession" ;
+    sysml:connectorEnd expr:StateMachine__VehicleStates__off_5fto_5fstart_succession_pend0, expr:StateMachine__VehicleStates__off_5fto_5fstart_succession_pend1 ;
+    sysml:ownedRelationship expr:StateMachine__VehicleStates__off_5fto_5fstart_succession_pend0_om, expr:StateMachine__VehicleStates__off_5fto_5fstart_succession_pend1_om ;
+    sysml:ownedMembership expr:StateMachine__VehicleStates__off_5fto_5fstart_succession_pend0_om, expr:StateMachine__VehicleStates__off_5fto_5fstart_succession_pend1_om ;
+    sysml:ownedFeatureMembership expr:StateMachine__VehicleStates__off_5fto_5fstart_succession_pend0_om, expr:StateMachine__VehicleStates__off_5fto_5fstart_succession_pend1_om ;
+    sysml:ownedFeature expr:StateMachine__VehicleStates__off_5fto_5fstart_succession_pend0, expr:StateMachine__VehicleStates__off_5fto_5fstart_succession_pend1 ;
+    sysml:ownedEndFeature expr:StateMachine__VehicleStates__off_5fto_5fstart_succession_pend0, expr:StateMachine__VehicleStates__off_5fto_5fstart_succession_pend1 ;
+    sysml:owner elmt:StateMachine__VehicleStates__off_5fto_5fstart ;
+    sysml:owningRelationship elmt:StateMachine__VehicleStates__off_5fto_5fstart_succession_om ;
+    sysml:owningMembership elmt:StateMachine__VehicleStates__off_5fto_5fstart_succession_om ;
+    json:connectorEnd "[{\"@id\":\"StateMachine__VehicleStates__off_5fto_5fstart_succession_pend0\"},{\"@id\":\"StateMachine__VehicleStates__off_5fto_5fstart_succession_pend1\"}]" ;
+    json:ownedRelationship "[{\"@id\":\"StateMachine__VehicleStates__off_5fto_5fstart_succession_pend0_om\"},{\"@id\":\"StateMachine__VehicleStates__off_5fto_5fstart_succession_pend1_om\"}]" ;
+    json:ownedMembership "[{\"@id\":\"StateMachine__VehicleStates__off_5fto_5fstart_succession_pend0_om\"},{\"@id\":\"StateMachine__VehicleStates__off_5fto_5fstart_succession_pend1_om\"}]" ;
+    json:ownedFeatureMembership "[{\"@id\":\"StateMachine__VehicleStates__off_5fto_5fstart_succession_pend0_om\"},{\"@id\":\"StateMachine__VehicleStates__off_5fto_5fstart_succession_pend1_om\"}]" ;
+    json:ownedFeature "[{\"@id\":\"StateMachine__VehicleStates__off_5fto_5fstart_succession_pend0\"},{\"@id\":\"StateMachine__VehicleStates__off_5fto_5fstart_succession_pend1\"}]" ;
+    json:ownedEndFeature "[{\"@id\":\"StateMachine__VehicleStates__off_5fto_5fstart_succession_pend0\"},{\"@id\":\"StateMachine__VehicleStates__off_5fto_5fstart_succession_pend1\"}]" .
+
+expr:StateMachine__VehicleStates__off_5fto_5fstart_succession_pend0
+    a sysml:ReferenceUsage ;
+    sysml:elementId "StateMachine__VehicleStates__off_5fto_5fstart_succession_pend0" ;
+    sysml:isEnd "true"^^xsd:boolean ;
+    sysml:owner elmt:StateMachine__VehicleStates__off_5fto_5fstart_succession ;
+    sysml:owningRelationship expr:StateMachine__VehicleStates__off_5fto_5fstart_succession_pend0_om ;
+    sysml:owningMembership expr:StateMachine__VehicleStates__off_5fto_5fstart_succession_pend0_om .
+
+expr:StateMachine__VehicleStates__off_5fto_5fstart_succession_pend0_om
+    a sysml:EndFeatureMembership ;
+    sysml:elementId "StateMachine__VehicleStates__off_5fto_5fstart_succession_pend0_om" ;
+    sysml:owner elmt:StateMachine__VehicleStates__off_5fto_5fstart_succession ;
+    sysml:memberElement expr:StateMachine__VehicleStates__off_5fto_5fstart_succession_pend0 ;
+    sysml:ownedMemberElement expr:StateMachine__VehicleStates__off_5fto_5fstart_succession_pend0 ;
+    sysml:ownedRelatedElement expr:StateMachine__VehicleStates__off_5fto_5fstart_succession_pend0 ;
+    sysml:owningRelatedElement elmt:StateMachine__VehicleStates__off_5fto_5fstart_succession ;
+    sysml:membershipOwningNamespace elmt:StateMachine__VehicleStates__off_5fto_5fstart_succession .
+
+expr:StateMachine__VehicleStates__off_5fto_5fstart_succession_pend1
+    a sysml:ReferenceUsage ;
+    sysml:elementId "StateMachine__VehicleStates__off_5fto_5fstart_succession_pend1" ;
+    sysml:isEnd "true"^^xsd:boolean ;
+    sysml:owner elmt:StateMachine__VehicleStates__off_5fto_5fstart_succession ;
+    sysml:owningRelationship expr:StateMachine__VehicleStates__off_5fto_5fstart_succession_pend1_om ;
+    sysml:owningMembership expr:StateMachine__VehicleStates__off_5fto_5fstart_succession_pend1_om ;
+    sysml:ownedReferenceSubsetting expr:StateMachine__VehicleStates__off_5fto_5fstart_succession_pend1_prs ;
+    sysml:ownedSubsetting expr:StateMachine__VehicleStates__off_5fto_5fstart_succession_pend1_prs ;
+    sysml:ownedSpecialization expr:StateMachine__VehicleStates__off_5fto_5fstart_succession_pend1_prs ;
+    sysml:ownedRelationship expr:StateMachine__VehicleStates__off_5fto_5fstart_succession_pend1_prs .
+
+expr:StateMachine__VehicleStates__off_5fto_5fstart_succession_pend1_om
+    a sysml:EndFeatureMembership ;
+    sysml:elementId "StateMachine__VehicleStates__off_5fto_5fstart_succession_pend1_om" ;
+    sysml:owner elmt:StateMachine__VehicleStates__off_5fto_5fstart_succession ;
+    sysml:memberElement expr:StateMachine__VehicleStates__off_5fto_5fstart_succession_pend1 ;
+    sysml:ownedMemberElement expr:StateMachine__VehicleStates__off_5fto_5fstart_succession_pend1 ;
+    sysml:ownedRelatedElement expr:StateMachine__VehicleStates__off_5fto_5fstart_succession_pend1 ;
+    sysml:owningRelatedElement elmt:StateMachine__VehicleStates__off_5fto_5fstart_succession ;
+    sysml:membershipOwningNamespace elmt:StateMachine__VehicleStates__off_5fto_5fstart_succession .
+
+expr:StateMachine__VehicleStates__off_5fto_5fstart_succession_pend1_prs
+    a sysml:ReferenceSubsetting ;
+    sysml:elementId "StateMachine__VehicleStates__off_5fto_5fstart_succession_pend1_prs" ;
+    sysml:referencingFeature expr:StateMachine__VehicleStates__off_5fto_5fstart_succession_pend1 ;
+    sysml:subsettingFeature expr:StateMachine__VehicleStates__off_5fto_5fstart_succession_pend1 ;
+    sysml:specific expr:StateMachine__VehicleStates__off_5fto_5fstart_succession_pend1 ;
+    sysml:source expr:StateMachine__VehicleStates__off_5fto_5fstart_succession_pend1 ;
+    sysml:owningFeature expr:StateMachine__VehicleStates__off_5fto_5fstart_succession_pend1 ;
+    sysml:owningType expr:StateMachine__VehicleStates__off_5fto_5fstart_succession_pend1 ;
+    sysml:referencedFeature elmt:StateMachine__VehicleStates__starting ;
+    sysml:subsettedFeature elmt:StateMachine__VehicleStates__starting ;
+    sysml:general elmt:StateMachine__VehicleStates__starting ;
+    sysml:target elmt:StateMachine__VehicleStates__starting ;
+    sysml:relatedElement expr:StateMachine__VehicleStates__off_5fto_5fstart_succession_pend1, elmt:StateMachine__VehicleStates__starting ;
+    sysml:owner expr:StateMachine__VehicleStates__off_5fto_5fstart_succession_pend1 ;
+    sysml:owningRelatedElement expr:StateMachine__VehicleStates__off_5fto_5fstart_succession_pend1 ;
+    json:relatedElement "[{\"@id\":\"StateMachine__VehicleStates__off_5fto_5fstart_succession_pend1\"},{\"@id\":\"StateMachine__VehicleStates__starting\"}]" .
 
 elmt:StateMachine__VehicleStates__off_5fto_5fstart___40trigger
     a sysml:AcceptActionUsage ;
@@ -622,6 +792,16 @@ elmt:StateMachine__VehicleStates__off_5fto_5fstart___40trigger__sig_om
     sysml:ownedMemberFeature elmt:StateMachine__VehicleStates__off_5fto_5fstart___40trigger__sig ;
     sysml:owningType elmt:StateMachine__VehicleStates__off_5fto_5fstart___40trigger .
 
+elmt:StateMachine__VehicleStates__off_5fto_5fstart_succession_om
+    a sysml:OwningMembership ;
+    sysml:elementId "StateMachine__VehicleStates__off_5fto_5fstart_succession_om" ;
+    sysml:owner elmt:StateMachine__VehicleStates__off_5fto_5fstart ;
+    sysml:memberElement elmt:StateMachine__VehicleStates__off_5fto_5fstart_succession ;
+    sysml:ownedMemberElement elmt:StateMachine__VehicleStates__off_5fto_5fstart_succession ;
+    sysml:ownedRelatedElement elmt:StateMachine__VehicleStates__off_5fto_5fstart_succession ;
+    sysml:owningRelatedElement elmt:StateMachine__VehicleStates__off_5fto_5fstart ;
+    sysml:membershipOwningNamespace elmt:StateMachine__VehicleStates__off_5fto_5fstart .
+
 elmt:StateMachine__VehicleStates___405
     a sysml:TransitionUsage ;
     sysml:qualifiedName "StateMachine::VehicleStates::@5" ;
@@ -632,12 +812,15 @@ elmt:StateMachine__VehicleStates___405
     sysml:owningRelationship elmt:StateMachine__VehicleStates___405_om ;
     sysml:owningMembership elmt:StateMachine__VehicleStates___405_om ;
     sysx:transitionSyntax "first" ;
+    sysml:succession elmt:StateMachine__VehicleStates___405_succession ;
+    sysx:guard expr:StateMachine__VehicleStates___405_pguard ;
+    sysml:ownedRelationship expr:StateMachine__VehicleStates___405_pguard_om, elmt:StateMachine__VehicleStates___405_succession_om ;
+    sysml:ownedMembership expr:StateMachine__VehicleStates___405_pguard_om, elmt:StateMachine__VehicleStates___405_succession_om ;
     sysml:source elmt:StateMachine__VehicleStates__starting ;
     sysml:target elmt:StateMachine__VehicleStates__active ;
-    sysx:guard expr:StateMachine__VehicleStates___405_pguard ;
-    sysml:ownedRelationship expr:StateMachine__VehicleStates___405_pguard_om ;
-    sysml:ownedMembership expr:StateMachine__VehicleStates___405_pguard_om ;
-    sysx:sourceText "        transition first starting if ready then active;\n" .
+    sysx:sourceText "        transition first starting if ready then active;\n" ;
+    json:ownedRelationship "[{\"@id\":\"StateMachine__VehicleStates___405_pguard_om\"},{\"@id\":\"StateMachine__VehicleStates___405_succession_om\"}]" ;
+    json:ownedMembership "[{\"@id\":\"StateMachine__VehicleStates___405_pguard_om\"},{\"@id\":\"StateMachine__VehicleStates___405_succession_om\"}]" .
 
 elmt:StateMachine__VehicleStates___405_om
     a sysml:FeatureMembership ;
@@ -650,6 +833,83 @@ elmt:StateMachine__VehicleStates___405_om
     sysml:membershipOwningNamespace elmt:StateMachine__VehicleStates ;
     sysml:ownedMemberFeature elmt:StateMachine__VehicleStates___405 ;
     sysml:owningType elmt:StateMachine__VehicleStates .
+
+elmt:StateMachine__VehicleStates___405_succession
+    a sysml:SuccessionAsUsage ;
+    sysml:elementId "StateMachine__VehicleStates___405_succession" ;
+    sysml:connectorEnd expr:StateMachine__VehicleStates___405_succession_pend0, expr:StateMachine__VehicleStates___405_succession_pend1 ;
+    sysml:ownedRelationship expr:StateMachine__VehicleStates___405_succession_pend0_om, expr:StateMachine__VehicleStates___405_succession_pend1_om ;
+    sysml:ownedMembership expr:StateMachine__VehicleStates___405_succession_pend0_om, expr:StateMachine__VehicleStates___405_succession_pend1_om ;
+    sysml:ownedFeatureMembership expr:StateMachine__VehicleStates___405_succession_pend0_om, expr:StateMachine__VehicleStates___405_succession_pend1_om ;
+    sysml:ownedFeature expr:StateMachine__VehicleStates___405_succession_pend0, expr:StateMachine__VehicleStates___405_succession_pend1 ;
+    sysml:ownedEndFeature expr:StateMachine__VehicleStates___405_succession_pend0, expr:StateMachine__VehicleStates___405_succession_pend1 ;
+    sysml:owner elmt:StateMachine__VehicleStates___405 ;
+    sysml:owningRelationship elmt:StateMachine__VehicleStates___405_succession_om ;
+    sysml:owningMembership elmt:StateMachine__VehicleStates___405_succession_om ;
+    json:connectorEnd "[{\"@id\":\"StateMachine__VehicleStates___405_succession_pend0\"},{\"@id\":\"StateMachine__VehicleStates___405_succession_pend1\"}]" ;
+    json:ownedRelationship "[{\"@id\":\"StateMachine__VehicleStates___405_succession_pend0_om\"},{\"@id\":\"StateMachine__VehicleStates___405_succession_pend1_om\"}]" ;
+    json:ownedMembership "[{\"@id\":\"StateMachine__VehicleStates___405_succession_pend0_om\"},{\"@id\":\"StateMachine__VehicleStates___405_succession_pend1_om\"}]" ;
+    json:ownedFeatureMembership "[{\"@id\":\"StateMachine__VehicleStates___405_succession_pend0_om\"},{\"@id\":\"StateMachine__VehicleStates___405_succession_pend1_om\"}]" ;
+    json:ownedFeature "[{\"@id\":\"StateMachine__VehicleStates___405_succession_pend0\"},{\"@id\":\"StateMachine__VehicleStates___405_succession_pend1\"}]" ;
+    json:ownedEndFeature "[{\"@id\":\"StateMachine__VehicleStates___405_succession_pend0\"},{\"@id\":\"StateMachine__VehicleStates___405_succession_pend1\"}]" .
+
+expr:StateMachine__VehicleStates___405_succession_pend0
+    a sysml:ReferenceUsage ;
+    sysml:elementId "StateMachine__VehicleStates___405_succession_pend0" ;
+    sysml:isEnd "true"^^xsd:boolean ;
+    sysml:owner elmt:StateMachine__VehicleStates___405_succession ;
+    sysml:owningRelationship expr:StateMachine__VehicleStates___405_succession_pend0_om ;
+    sysml:owningMembership expr:StateMachine__VehicleStates___405_succession_pend0_om .
+
+expr:StateMachine__VehicleStates___405_succession_pend0_om
+    a sysml:EndFeatureMembership ;
+    sysml:elementId "StateMachine__VehicleStates___405_succession_pend0_om" ;
+    sysml:owner elmt:StateMachine__VehicleStates___405_succession ;
+    sysml:memberElement expr:StateMachine__VehicleStates___405_succession_pend0 ;
+    sysml:ownedMemberElement expr:StateMachine__VehicleStates___405_succession_pend0 ;
+    sysml:ownedRelatedElement expr:StateMachine__VehicleStates___405_succession_pend0 ;
+    sysml:owningRelatedElement elmt:StateMachine__VehicleStates___405_succession ;
+    sysml:membershipOwningNamespace elmt:StateMachine__VehicleStates___405_succession .
+
+expr:StateMachine__VehicleStates___405_succession_pend1
+    a sysml:ReferenceUsage ;
+    sysml:elementId "StateMachine__VehicleStates___405_succession_pend1" ;
+    sysml:isEnd "true"^^xsd:boolean ;
+    sysml:owner elmt:StateMachine__VehicleStates___405_succession ;
+    sysml:owningRelationship expr:StateMachine__VehicleStates___405_succession_pend1_om ;
+    sysml:owningMembership expr:StateMachine__VehicleStates___405_succession_pend1_om ;
+    sysml:ownedReferenceSubsetting expr:StateMachine__VehicleStates___405_succession_pend1_prs ;
+    sysml:ownedSubsetting expr:StateMachine__VehicleStates___405_succession_pend1_prs ;
+    sysml:ownedSpecialization expr:StateMachine__VehicleStates___405_succession_pend1_prs ;
+    sysml:ownedRelationship expr:StateMachine__VehicleStates___405_succession_pend1_prs .
+
+expr:StateMachine__VehicleStates___405_succession_pend1_om
+    a sysml:EndFeatureMembership ;
+    sysml:elementId "StateMachine__VehicleStates___405_succession_pend1_om" ;
+    sysml:owner elmt:StateMachine__VehicleStates___405_succession ;
+    sysml:memberElement expr:StateMachine__VehicleStates___405_succession_pend1 ;
+    sysml:ownedMemberElement expr:StateMachine__VehicleStates___405_succession_pend1 ;
+    sysml:ownedRelatedElement expr:StateMachine__VehicleStates___405_succession_pend1 ;
+    sysml:owningRelatedElement elmt:StateMachine__VehicleStates___405_succession ;
+    sysml:membershipOwningNamespace elmt:StateMachine__VehicleStates___405_succession .
+
+expr:StateMachine__VehicleStates___405_succession_pend1_prs
+    a sysml:ReferenceSubsetting ;
+    sysml:elementId "StateMachine__VehicleStates___405_succession_pend1_prs" ;
+    sysml:referencingFeature expr:StateMachine__VehicleStates___405_succession_pend1 ;
+    sysml:subsettingFeature expr:StateMachine__VehicleStates___405_succession_pend1 ;
+    sysml:specific expr:StateMachine__VehicleStates___405_succession_pend1 ;
+    sysml:source expr:StateMachine__VehicleStates___405_succession_pend1 ;
+    sysml:owningFeature expr:StateMachine__VehicleStates___405_succession_pend1 ;
+    sysml:owningType expr:StateMachine__VehicleStates___405_succession_pend1 ;
+    sysml:referencedFeature elmt:StateMachine__VehicleStates__active ;
+    sysml:subsettedFeature elmt:StateMachine__VehicleStates__active ;
+    sysml:general elmt:StateMachine__VehicleStates__active ;
+    sysml:target elmt:StateMachine__VehicleStates__active ;
+    sysml:relatedElement expr:StateMachine__VehicleStates___405_succession_pend1, elmt:StateMachine__VehicleStates__active ;
+    sysml:owner expr:StateMachine__VehicleStates___405_succession_pend1 ;
+    sysml:owningRelatedElement expr:StateMachine__VehicleStates___405_succession_pend1 ;
+    json:relatedElement "[{\"@id\":\"StateMachine__VehicleStates___405_succession_pend1\"},{\"@id\":\"StateMachine__VehicleStates__active\"}]" .
 
 expr:StateMachine__VehicleStates___405_pguard
     a sysml:FeatureReferenceExpression ;
@@ -697,6 +957,16 @@ expr:StateMachine__VehicleStates___405_pguard_om
     sysml:owningRelatedElement elmt:StateMachine__VehicleStates___405 ;
     sysml:membershipOwningNamespace elmt:StateMachine__VehicleStates___405 .
 
+elmt:StateMachine__VehicleStates___405_succession_om
+    a sysml:OwningMembership ;
+    sysml:elementId "StateMachine__VehicleStates___405_succession_om" ;
+    sysml:owner elmt:StateMachine__VehicleStates___405 ;
+    sysml:memberElement elmt:StateMachine__VehicleStates___405_succession ;
+    sysml:ownedMemberElement elmt:StateMachine__VehicleStates___405_succession ;
+    sysml:ownedRelatedElement elmt:StateMachine__VehicleStates___405_succession ;
+    sysml:owningRelatedElement elmt:StateMachine__VehicleStates___405 ;
+    sysml:membershipOwningNamespace elmt:StateMachine__VehicleStates___405 .
+
 elmt:StateMachine__VehicleStates__active_5fto_5foff
     a sysml:TransitionUsage ;
     sysml:qualifiedName "StateMachine::VehicleStates::active_to_off" ;
@@ -708,22 +978,23 @@ elmt:StateMachine__VehicleStates__active_5fto_5foff
     sysml:owningMembership elmt:StateMachine__VehicleStates__active_5fto_5foff_om ;
     sysml:declaredName "active_to_off" ;
     sysx:transitionSyntax "first" ;
-    sysml:source elmt:StateMachine__VehicleStates__active ;
-    sysml:target elmt:StateMachine__VehicleStates__off ;
+    sysml:succession elmt:StateMachine__VehicleStates__active_5fto_5foff_succession ;
     sysml:triggerAction elmt:StateMachine__VehicleStates__active_5fto_5foff___40trigger ;
     sysml:ownedMember elmt:StateMachine__VehicleStates__active_5fto_5foff___40trigger, elmt:StateMachine__VehicleStates__active_5fto_5foff__stop ;
-    sysml:ownedMembership elmt:StateMachine__VehicleStates__active_5fto_5foff___40trigger_om, expr:StateMachine__VehicleStates__active_5fto_5foff_pguard_om, elmt:StateMachine__VehicleStates__active_5fto_5foff__stop_om ;
-    sysml:ownedRelationship elmt:StateMachine__VehicleStates__active_5fto_5foff___40trigger_om, expr:StateMachine__VehicleStates__active_5fto_5foff_pguard_om, elmt:StateMachine__VehicleStates__active_5fto_5foff__stop_om ;
+    sysml:ownedMembership elmt:StateMachine__VehicleStates__active_5fto_5foff___40trigger_om, expr:StateMachine__VehicleStates__active_5fto_5foff_pguard_om, elmt:StateMachine__VehicleStates__active_5fto_5foff__stop_om, elmt:StateMachine__VehicleStates__active_5fto_5foff_succession_om ;
+    sysml:ownedRelationship elmt:StateMachine__VehicleStates__active_5fto_5foff___40trigger_om, expr:StateMachine__VehicleStates__active_5fto_5foff_pguard_om, elmt:StateMachine__VehicleStates__active_5fto_5foff__stop_om, elmt:StateMachine__VehicleStates__active_5fto_5foff_succession_om ;
     sysml:ownedFeature elmt:StateMachine__VehicleStates__active_5fto_5foff___40trigger, elmt:StateMachine__VehicleStates__active_5fto_5foff__stop ;
     sysml:ownedFeatureMembership elmt:StateMachine__VehicleStates__active_5fto_5foff___40trigger_om, elmt:StateMachine__VehicleStates__active_5fto_5foff__stop_om ;
     sysx:guard expr:StateMachine__VehicleStates__active_5fto_5foff_pguard ;
     sysx:hasEffect "true"^^xsd:boolean ;
     sysx:effectMember elmt:StateMachine__VehicleStates__active_5fto_5foff__stop ;
     sysml:effectAction elmt:StateMachine__VehicleStates__active_5fto_5foff__stop ;
+    sysml:source elmt:StateMachine__VehicleStates__active ;
+    sysml:target elmt:StateMachine__VehicleStates__off ;
     sysx:sourceText "        transition active_to_off first active accept sig : Signal via lane if monitor do action stop : Warm then off;\n" ;
     json:ownedMember "[{\"@id\":\"StateMachine__VehicleStates__active_5fto_5foff___40trigger\"},{\"@id\":\"StateMachine__VehicleStates__active_5fto_5foff__stop\"}]" ;
-    json:ownedMembership "[{\"@id\":\"StateMachine__VehicleStates__active_5fto_5foff___40trigger_om\"},{\"@id\":\"StateMachine__VehicleStates__active_5fto_5foff_pguard_om\"},{\"@id\":\"StateMachine__VehicleStates__active_5fto_5foff__stop_om\"}]" ;
-    json:ownedRelationship "[{\"@id\":\"StateMachine__VehicleStates__active_5fto_5foff___40trigger_om\"},{\"@id\":\"StateMachine__VehicleStates__active_5fto_5foff_pguard_om\"},{\"@id\":\"StateMachine__VehicleStates__active_5fto_5foff__stop_om\"}]" ;
+    json:ownedMembership "[{\"@id\":\"StateMachine__VehicleStates__active_5fto_5foff___40trigger_om\"},{\"@id\":\"StateMachine__VehicleStates__active_5fto_5foff_pguard_om\"},{\"@id\":\"StateMachine__VehicleStates__active_5fto_5foff__stop_om\"},{\"@id\":\"StateMachine__VehicleStates__active_5fto_5foff_succession_om\"}]" ;
+    json:ownedRelationship "[{\"@id\":\"StateMachine__VehicleStates__active_5fto_5foff___40trigger_om\"},{\"@id\":\"StateMachine__VehicleStates__active_5fto_5foff_pguard_om\"},{\"@id\":\"StateMachine__VehicleStates__active_5fto_5foff__stop_om\"},{\"@id\":\"StateMachine__VehicleStates__active_5fto_5foff_succession_om\"}]" ;
     json:ownedFeature "[{\"@id\":\"StateMachine__VehicleStates__active_5fto_5foff___40trigger\"},{\"@id\":\"StateMachine__VehicleStates__active_5fto_5foff__stop\"}]" ;
     json:ownedFeatureMembership "[{\"@id\":\"StateMachine__VehicleStates__active_5fto_5foff___40trigger_om\"},{\"@id\":\"StateMachine__VehicleStates__active_5fto_5foff__stop_om\"}]" .
 
@@ -738,6 +1009,83 @@ elmt:StateMachine__VehicleStates__active_5fto_5foff_om
     sysml:membershipOwningNamespace elmt:StateMachine__VehicleStates ;
     sysml:ownedMemberFeature elmt:StateMachine__VehicleStates__active_5fto_5foff ;
     sysml:owningType elmt:StateMachine__VehicleStates .
+
+elmt:StateMachine__VehicleStates__active_5fto_5foff_succession
+    a sysml:SuccessionAsUsage ;
+    sysml:elementId "StateMachine__VehicleStates__active_5fto_5foff_succession" ;
+    sysml:connectorEnd expr:StateMachine__VehicleStates__active_5fto_5foff_succession_pend0, expr:StateMachine__VehicleStates__active_5fto_5foff_succession_pend1 ;
+    sysml:ownedRelationship expr:StateMachine__VehicleStates__active_5fto_5foff_succession_pend0_om, expr:StateMachine__VehicleStates__active_5fto_5foff_succession_pend1_om ;
+    sysml:ownedMembership expr:StateMachine__VehicleStates__active_5fto_5foff_succession_pend0_om, expr:StateMachine__VehicleStates__active_5fto_5foff_succession_pend1_om ;
+    sysml:ownedFeatureMembership expr:StateMachine__VehicleStates__active_5fto_5foff_succession_pend0_om, expr:StateMachine__VehicleStates__active_5fto_5foff_succession_pend1_om ;
+    sysml:ownedFeature expr:StateMachine__VehicleStates__active_5fto_5foff_succession_pend0, expr:StateMachine__VehicleStates__active_5fto_5foff_succession_pend1 ;
+    sysml:ownedEndFeature expr:StateMachine__VehicleStates__active_5fto_5foff_succession_pend0, expr:StateMachine__VehicleStates__active_5fto_5foff_succession_pend1 ;
+    sysml:owner elmt:StateMachine__VehicleStates__active_5fto_5foff ;
+    sysml:owningRelationship elmt:StateMachine__VehicleStates__active_5fto_5foff_succession_om ;
+    sysml:owningMembership elmt:StateMachine__VehicleStates__active_5fto_5foff_succession_om ;
+    json:connectorEnd "[{\"@id\":\"StateMachine__VehicleStates__active_5fto_5foff_succession_pend0\"},{\"@id\":\"StateMachine__VehicleStates__active_5fto_5foff_succession_pend1\"}]" ;
+    json:ownedRelationship "[{\"@id\":\"StateMachine__VehicleStates__active_5fto_5foff_succession_pend0_om\"},{\"@id\":\"StateMachine__VehicleStates__active_5fto_5foff_succession_pend1_om\"}]" ;
+    json:ownedMembership "[{\"@id\":\"StateMachine__VehicleStates__active_5fto_5foff_succession_pend0_om\"},{\"@id\":\"StateMachine__VehicleStates__active_5fto_5foff_succession_pend1_om\"}]" ;
+    json:ownedFeatureMembership "[{\"@id\":\"StateMachine__VehicleStates__active_5fto_5foff_succession_pend0_om\"},{\"@id\":\"StateMachine__VehicleStates__active_5fto_5foff_succession_pend1_om\"}]" ;
+    json:ownedFeature "[{\"@id\":\"StateMachine__VehicleStates__active_5fto_5foff_succession_pend0\"},{\"@id\":\"StateMachine__VehicleStates__active_5fto_5foff_succession_pend1\"}]" ;
+    json:ownedEndFeature "[{\"@id\":\"StateMachine__VehicleStates__active_5fto_5foff_succession_pend0\"},{\"@id\":\"StateMachine__VehicleStates__active_5fto_5foff_succession_pend1\"}]" .
+
+expr:StateMachine__VehicleStates__active_5fto_5foff_succession_pend0
+    a sysml:ReferenceUsage ;
+    sysml:elementId "StateMachine__VehicleStates__active_5fto_5foff_succession_pend0" ;
+    sysml:isEnd "true"^^xsd:boolean ;
+    sysml:owner elmt:StateMachine__VehicleStates__active_5fto_5foff_succession ;
+    sysml:owningRelationship expr:StateMachine__VehicleStates__active_5fto_5foff_succession_pend0_om ;
+    sysml:owningMembership expr:StateMachine__VehicleStates__active_5fto_5foff_succession_pend0_om .
+
+expr:StateMachine__VehicleStates__active_5fto_5foff_succession_pend0_om
+    a sysml:EndFeatureMembership ;
+    sysml:elementId "StateMachine__VehicleStates__active_5fto_5foff_succession_pend0_om" ;
+    sysml:owner elmt:StateMachine__VehicleStates__active_5fto_5foff_succession ;
+    sysml:memberElement expr:StateMachine__VehicleStates__active_5fto_5foff_succession_pend0 ;
+    sysml:ownedMemberElement expr:StateMachine__VehicleStates__active_5fto_5foff_succession_pend0 ;
+    sysml:ownedRelatedElement expr:StateMachine__VehicleStates__active_5fto_5foff_succession_pend0 ;
+    sysml:owningRelatedElement elmt:StateMachine__VehicleStates__active_5fto_5foff_succession ;
+    sysml:membershipOwningNamespace elmt:StateMachine__VehicleStates__active_5fto_5foff_succession .
+
+expr:StateMachine__VehicleStates__active_5fto_5foff_succession_pend1
+    a sysml:ReferenceUsage ;
+    sysml:elementId "StateMachine__VehicleStates__active_5fto_5foff_succession_pend1" ;
+    sysml:isEnd "true"^^xsd:boolean ;
+    sysml:owner elmt:StateMachine__VehicleStates__active_5fto_5foff_succession ;
+    sysml:owningRelationship expr:StateMachine__VehicleStates__active_5fto_5foff_succession_pend1_om ;
+    sysml:owningMembership expr:StateMachine__VehicleStates__active_5fto_5foff_succession_pend1_om ;
+    sysml:ownedReferenceSubsetting expr:StateMachine__VehicleStates__active_5fto_5foff_succession_pend1_prs ;
+    sysml:ownedSubsetting expr:StateMachine__VehicleStates__active_5fto_5foff_succession_pend1_prs ;
+    sysml:ownedSpecialization expr:StateMachine__VehicleStates__active_5fto_5foff_succession_pend1_prs ;
+    sysml:ownedRelationship expr:StateMachine__VehicleStates__active_5fto_5foff_succession_pend1_prs .
+
+expr:StateMachine__VehicleStates__active_5fto_5foff_succession_pend1_om
+    a sysml:EndFeatureMembership ;
+    sysml:elementId "StateMachine__VehicleStates__active_5fto_5foff_succession_pend1_om" ;
+    sysml:owner elmt:StateMachine__VehicleStates__active_5fto_5foff_succession ;
+    sysml:memberElement expr:StateMachine__VehicleStates__active_5fto_5foff_succession_pend1 ;
+    sysml:ownedMemberElement expr:StateMachine__VehicleStates__active_5fto_5foff_succession_pend1 ;
+    sysml:ownedRelatedElement expr:StateMachine__VehicleStates__active_5fto_5foff_succession_pend1 ;
+    sysml:owningRelatedElement elmt:StateMachine__VehicleStates__active_5fto_5foff_succession ;
+    sysml:membershipOwningNamespace elmt:StateMachine__VehicleStates__active_5fto_5foff_succession .
+
+expr:StateMachine__VehicleStates__active_5fto_5foff_succession_pend1_prs
+    a sysml:ReferenceSubsetting ;
+    sysml:elementId "StateMachine__VehicleStates__active_5fto_5foff_succession_pend1_prs" ;
+    sysml:referencingFeature expr:StateMachine__VehicleStates__active_5fto_5foff_succession_pend1 ;
+    sysml:subsettingFeature expr:StateMachine__VehicleStates__active_5fto_5foff_succession_pend1 ;
+    sysml:specific expr:StateMachine__VehicleStates__active_5fto_5foff_succession_pend1 ;
+    sysml:source expr:StateMachine__VehicleStates__active_5fto_5foff_succession_pend1 ;
+    sysml:owningFeature expr:StateMachine__VehicleStates__active_5fto_5foff_succession_pend1 ;
+    sysml:owningType expr:StateMachine__VehicleStates__active_5fto_5foff_succession_pend1 ;
+    sysml:referencedFeature elmt:StateMachine__VehicleStates__off ;
+    sysml:subsettedFeature elmt:StateMachine__VehicleStates__off ;
+    sysml:general elmt:StateMachine__VehicleStates__off ;
+    sysml:target elmt:StateMachine__VehicleStates__off ;
+    sysml:relatedElement expr:StateMachine__VehicleStates__active_5fto_5foff_succession_pend1, elmt:StateMachine__VehicleStates__off ;
+    sysml:owner expr:StateMachine__VehicleStates__active_5fto_5foff_succession_pend1 ;
+    sysml:owningRelatedElement expr:StateMachine__VehicleStates__active_5fto_5foff_succession_pend1 ;
+    json:relatedElement "[{\"@id\":\"StateMachine__VehicleStates__active_5fto_5foff_succession_pend1\"},{\"@id\":\"StateMachine__VehicleStates__off\"}]" .
 
 elmt:StateMachine__VehicleStates__active_5fto_5foff___40trigger
     a sysml:AcceptActionUsage ;
@@ -964,6 +1312,16 @@ elmt:StateMachine__VehicleStates__active_5fto_5foff__stop_om
     sysml:transitionFeature elmt:StateMachine__VehicleStates__active_5fto_5foff__stop ;
     sysml:ownedMemberFeature elmt:StateMachine__VehicleStates__active_5fto_5foff__stop ;
     sysml:owningType elmt:StateMachine__VehicleStates__active_5fto_5foff .
+
+elmt:StateMachine__VehicleStates__active_5fto_5foff_succession_om
+    a sysml:OwningMembership ;
+    sysml:elementId "StateMachine__VehicleStates__active_5fto_5foff_succession_om" ;
+    sysml:owner elmt:StateMachine__VehicleStates__active_5fto_5foff ;
+    sysml:memberElement elmt:StateMachine__VehicleStates__active_5fto_5foff_succession ;
+    sysml:ownedMemberElement elmt:StateMachine__VehicleStates__active_5fto_5foff_succession ;
+    sysml:ownedRelatedElement elmt:StateMachine__VehicleStates__active_5fto_5foff_succession ;
+    sysml:owningRelatedElement elmt:StateMachine__VehicleStates__active_5fto_5foff ;
+    sysml:membershipOwningNamespace elmt:StateMachine__VehicleStates__active_5fto_5foff .
 
 elmt:StateMachine__VehicleStates__lane
     a sysml:PortUsage ;
