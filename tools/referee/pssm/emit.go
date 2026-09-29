@@ -500,7 +500,8 @@ func (e *emitter) stateBody(b *strings.Builder, depth int, name, path string, st
 // defers none: each is kept in an ordered buffer by an accept loop of the
 // state's do action and sent back to the machine by its exit action. The
 // buffer is an attribute, as the suite's signals are attribute definitions.
-// A deferred call has no such spelling, the encoding keeping signals only,
+// Triggers deferring one signal share its buffer and loop, as two loops would
+// keep each occurrence twice. A deferred call has no such spelling, the encoding keeping signals only,
 // nor has a deferral in a state an unguarded completion transition leaves.
 func (e *emitter) kept(state *Vertex, where string) (*deferred.Encoding, error) {
 	if state == nil || len(state.Deferred) == 0 {
@@ -509,19 +510,24 @@ func (e *emitter) kept(state *Vertex, where string) (*deferred.Encoding, error) 
 	if unguardedCompletionOutOf(state) {
 		return nil, e.fail(where, "a deferral in a state left by an unguarded completion transition has no standard spelling: the accept loop keeping the signal never completes, so the completion transition would never fire")
 	}
-	enc := &deferred.Encoding{Including: "SequenceFunctions::including"}
+	var names []string
+	seen := map[string]bool{}
 	for _, trig := range state.Deferred {
 		if trig.Event == nil || trig.Event.Kind != EventSignal || trig.Event.Signal == nil {
 			return nil, e.fail(where, fmt.Sprintf("deferring %s has no standard spelling: an ordered buffer keeps signals only", trig.Event.Describe()))
 		}
-		name := trig.Event.Signal.Name
+		if name := trig.Event.Signal.Name; !seen[name] {
+			seen[name] = true
+			names = append(names, name)
+		}
+	}
+	enc := &deferred.Encoding{Including: "SequenceFunctions::including"}
+	for _, name := range names {
 		e.signals[name] = true
 		base := "deferred"
-		if len(state.Deferred) > 1 {
-			base += identifier(name)
-		}
 		suffix := ""
-		if len(state.Deferred) > 1 {
+		if len(names) > 1 {
+			base += identifier(name)
 			suffix = identifier(name)
 		}
 		enc.Signals = append(enc.Signals, deferred.Signal{

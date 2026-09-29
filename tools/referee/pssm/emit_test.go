@@ -469,3 +469,33 @@ func TestEmitRejects(t *testing.T) {
 		})
 	}
 }
+
+// TestEmitSharesABufferAmongTriggersDeferringOneSignal keeps a signal two
+// triggers of a state defer in one buffer with one accept loop: a loop per
+// trigger would keep each occurrence twice and declare its actions twice.
+func TestEmitSharesABufferAmongTriggersDeferringOneSignal(t *testing.T) {
+	m, err := emitFixture(t, "", `
+          <subvertex xmi:type="uml:State" xmi:id="xD" name="D">
+            <deferrableTrigger xmi:type="uml:Trigger" xmi:id="xDt1" event="evData"/>
+            <deferrableTrigger xmi:type="uml:Trigger" xmi:id="xDt2" event="evData"/>
+          </subvertex>
+          <transition xmi:type="uml:Transition" xmi:id="xT3" name="T3" source="xS1" target="xD">
+            <trigger xmi:type="uml:Trigger" xmi:id="xT3trig" event="evContinue"/>
+          </transition>`)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for want, n := range map[string]int{
+		"attribute deferred : IntegerData[*] ordered;": 1,
+		"action receive ":           1,
+		"action keep ":              1,
+		"accept kept : IntegerData": 1,
+	} {
+		if got := strings.Count(m.Text, want); got != n {
+			t.Errorf("model has %d of %q, want %d:\n%s", got, want, n, m.Text)
+		}
+	}
+	if problems := Validate(m); len(problems) > 0 {
+		t.Errorf("%s\n%s", strings.Join(problems, "\n"), m.Text)
+	}
+}
