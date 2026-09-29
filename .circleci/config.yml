@@ -73,6 +73,19 @@ commands:
             sudo install -m 0755 /tmp/cvc5-bin /usr/local/bin/cvc5
             cvc5 --version | head -1
 
+  # The FMI gate runs `python3` over FMPy; the executor's python3 has no pip and is
+  # externally managed, so FMPy goes in a venv that later steps put first on PATH.
+  install-fmpy:
+    steps:
+      - run:
+          name: Install fmpy
+          command: |
+            sudo apt-get update
+            sudo apt-get install -y --no-install-recommends python3-venv
+            python3 -m venv "$HOME/fmpy-venv"
+            "$HOME/fmpy-venv/bin/pip" install --only-binary ":all:" fmpy==0.3.32
+            echo 'export PATH="$HOME/fmpy-venv/bin:$PATH"' >> "$BASH_ENV"
+
   # The corpora are not vendored and the gates skip while they are absent, so a
   # release tag could be cut over a corpus regression without them.
   download-corpora:
@@ -329,11 +342,7 @@ jobs:
       - install-solvers
       - download-corpora
 
-      # The FMI gate's runner is a Python subprocess over FMPy; the executor
-      # carries python3, the library it drives is installed here.
-      - run:
-          name: Install fmpy
-          command: pip install --only-binary ":all:" fmpy==0.3.32
+      - install-fmpy
 
       # Sharded by package: the suite's slowest packages run near the 30m
       # per-package timeout when they share one executor.
@@ -378,11 +387,7 @@ jobs:
       - install-solvers
       - download-corpora
 
-      # The FMI gate's runner is a Python subprocess over FMPy, which the
-      # coverage pass needs installed the same way the race job does.
-      - run:
-          name: Install fmpy
-          command: pip install --only-binary ":all:" fmpy==0.3.32
+      - install-fmpy
 
       - run:
           name: Write the coverage profile the scan reads

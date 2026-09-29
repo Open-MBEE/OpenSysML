@@ -1,0 +1,10 @@
+{
+  "type": "state",
+  "events": [
+    {"signal": "Stop"},
+    {"signal": "Start"}
+  ],
+  "finalState": "heating",
+  "stateVisits": ["idle", "heating"],
+  "outputs": {}
+}

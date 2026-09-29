@@ -1,0 +1,1 @@
+- **Extend source-preserving editing to verification objectives and metadata.** Clients can add `verify` memberships and anonymous objectives, author metadata usages with feature values in long or shorthand notation, and prefix new members with metadata references.

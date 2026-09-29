@@ -7,6 +7,7 @@ import (
 	"testing"
 
 	"connectrpc.com/connect"
+	"google.golang.org/protobuf/proto"
 
 	pb "github.com/Open-MBEE/OpenSysML/api/proto"
 )
@@ -588,6 +589,181 @@ func TestExecuteActionCanceledCallerFailsTheCall(t *testing.T) {
 		}
 		if resp != nil {
 			t.Errorf("schedule %q: a canceled call answered %v; want no response", schedule, resp)
+		}
+	}
+}
+
+// roadModel has two cars differing only in speed, each exhibiting a machine whose
+// guards and entry actions read and write the car, and a truck performing the same
+// machine definition through its `in ref` parameter.
+const roadModel = `
+package Road {
+  private import ScalarValues::*;
+  part def Vehicle {
+    attribute speed : Integer default 0;
+    attribute seen : Integer default -1;
+    attribute shifted : Integer default -1;
+    attribute logged : Integer default -1;
+  }
+  state def Mode {
+    in ref vehicle : Vehicle[1];
+    entry; then idle;
+    state idle;
+    transition first idle if vehicle.speed > 5 then fast;
+    transition first idle if vehicle.speed <= 5 then slow;
+    state fast { entry assign vehicle.seen := vehicle.speed * 10; }
+    state slow { entry assign vehicle.seen := vehicle.speed; }
+  }
+  part def Car :> Vehicle {
+    exhibit state gear {
+      entry; then idle;
+      state idle;
+      transition first idle if speed > 5 then fast;
+      transition first idle if speed <= 5 then slow;
+      state fast { entry assign shifted := speed * 10; }
+      state slow { entry assign shifted := speed; }
+    }
+    exhibit state mode : Mode;
+    action rate {
+      out rated : Integer;
+      first start;
+      then action read { assign rated := speed * 2; assign logged := speed + 1; }
+      then done;
+    }
+  }
+  part def Truck :> Vehicle;
+  part slowCar : Car { attribute :>> speed = 2; }
+  part fastCar : Car { attribute :>> speed = 9; }
+  part truck : Truck { attribute :>> speed = 8; }
+}
+`
+
+// A machine run on a performer takes its guards against the performer's feature
+// values and writes the performer, executed or explored; the final context, like
+// an explored outcome's outputs, reports the performer's attributes under `this.`.
+func TestStateMachineRunsOnItsPerformerOverTheWire(t *testing.T) {
+	ctx := context.Background()
+	srv := mustNewService(t, 10)
+	hash := mustVerifyModel(t, srv, roadModel, "state-performer")
+
+	for _, tc := range []struct {
+		machine, performer, final, feature string
+		want                               int64
+	}{
+		{"Road::Car::gear", "Road::slowCar", "slow", "shifted", 2},
+		{"Road::Car::gear", "Road::fastCar", "fast", "shifted", 90},
+		{"Road::Mode", "Road::slowCar", "slow", "seen", 2},
+		{"Road::Mode", "Road::fastCar", "fast", "seen", 90},
+		{"Road::Car::mode", "Road::fastCar", "fast", "seen", 90},
+		{"Road::Mode", "Road::truck", "fast", "seen", 80},
+	} {
+		resp, err := srv.ExecuteState(ctx, &pb.ExecuteStateRequest{
+			ModelHash: hash, StateMachineSymbolId: tc.machine, PerformerSymbolId: tc.performer,
+		})
+		if err != nil || resp.Error != "" {
+			t.Fatalf("%s on %s: %v %q", tc.machine, tc.performer, err, resp.GetError())
+		}
+		if got := resp.StatesVisited; len(got) == 0 || got[len(got)-1] != tc.final {
+			t.Errorf("%s on %s visited %v, want to end in %s", tc.machine, tc.performer, got, tc.final)
+		}
+		if got, held := resp.FinalContext["this."+tc.feature]; !held || got.GetIntValue() != tc.want {
+			t.Errorf("%s on %s final context %v, want this.%s = %d", tc.machine, tc.performer, resp.FinalContext, tc.feature, tc.want)
+		}
+		x, err := srv.ExecuteState(ctx, &pb.ExecuteStateRequest{
+			ModelHash: hash, StateMachineSymbolId: tc.machine, PerformerSymbolId: tc.performer, Schedule: "explore",
+		})
+		if err != nil || x.Error != "" || len(x.Outcomes) != 1 {
+			t.Fatalf("explored %s on %s: %v %q %v", tc.machine, tc.performer, err, x.GetError(), x.GetOutcomes())
+		}
+		outcome := x.Outcomes[0]
+		if outcome.FinalState != tc.final {
+			t.Errorf("explored %s on %s rests in %q, want %s", tc.machine, tc.performer, outcome.FinalState, tc.final)
+		}
+		if len(outcome.Outputs) != len(resp.FinalContext) {
+			t.Errorf("explored %s on %s outputs %v, want the executed final context %v", tc.machine, tc.performer, outcome.Outputs, resp.FinalContext)
+		}
+		for name, value := range resp.FinalContext {
+			if got, held := outcome.Outputs[name]; !held || !proto.Equal(got, value) {
+				t.Errorf("explored %s on %s: %s = %v, want the executed %v", tc.machine, tc.performer, name, got, value)
+			}
+		}
+	}
+
+	resp, err := srv.ExecuteState(ctx, &pb.ExecuteStateRequest{ModelHash: hash, StateMachineSymbolId: "Road::Mode"})
+	if err != nil || resp.Error != "" {
+		t.Fatalf("Road::Mode alone: %v %q", err, resp.GetError())
+	}
+	for name := range resp.FinalContext {
+		if strings.HasPrefix(name, "this.") {
+			t.Errorf("Road::Mode alone reports %s: no object performs it", name)
+		}
+	}
+}
+
+// An action run on a performer reads and writes the performer's features and,
+// executed, reports the performer's attributes in performer_attributes keyed as
+// its explored outcome's outputs key them, leaving outputs its parameters alone.
+func TestActionRunReportsItsPerformerOverTheWire(t *testing.T) {
+	ctx := context.Background()
+	srv := mustNewService(t, 10)
+	hash := mustVerifyModel(t, srv, roadModel, "action-performer")
+
+	for _, tc := range []struct {
+		performer     string
+		rated, logged int64
+	}{
+		{"Road::slowCar", 4, 3},
+		{"Road::fastCar", 18, 10},
+	} {
+		resp, err := srv.ExecuteAction(ctx, &pb.ExecuteActionRequest{
+			ModelHash: hash, ActionSymbolId: "Road::Car::rate", PerformerSymbolId: tc.performer,
+		})
+		if err != nil || resp.Error != "" {
+			t.Fatalf("rate on %s: %v %q", tc.performer, err, resp.GetError())
+		}
+		if got := resp.Outputs["rated"].GetIntValue(); got != tc.rated {
+			t.Errorf("rate on %s outputs %v, want rated = %d", tc.performer, resp.Outputs, tc.rated)
+		}
+		for name := range resp.Outputs {
+			if strings.HasPrefix(name, "this.") {
+				t.Errorf("rate on %s reports %s among its outputs", tc.performer, name)
+			}
+		}
+		if got, held := resp.PerformerAttributes["this.logged"]; !held || got.GetIntValue() != tc.logged {
+			t.Errorf("rate on %s performer attributes %v, want this.logged = %d", tc.performer, resp.PerformerAttributes, tc.logged)
+		}
+		x, err := srv.ExecuteAction(ctx, &pb.ExecuteActionRequest{
+			ModelHash: hash, ActionSymbolId: "Road::Car::rate", PerformerSymbolId: tc.performer, Schedule: "explore",
+		})
+		if err != nil || x.Error != "" || len(x.Outcomes) != 1 {
+			t.Fatalf("explored rate on %s: %v %q %v", tc.performer, err, x.GetError(), x.GetOutcomes())
+		}
+		if len(x.PerformerAttributes) != 0 {
+			t.Errorf("explored rate on %s reports performer attributes %v beside its outcomes", tc.performer, x.PerformerAttributes)
+		}
+		outcome := x.Outcomes[0]
+		if len(outcome.Outputs) != len(resp.Outputs)+len(resp.PerformerAttributes) {
+			t.Errorf("explored rate on %s outputs %v, want the executed %v and %v", tc.performer, outcome.Outputs, resp.Outputs, resp.PerformerAttributes)
+		}
+		for _, run := range []map[string]*pb.Value{resp.Outputs, resp.PerformerAttributes} {
+			for name, value := range run {
+				if got, held := outcome.Outputs[name]; !held || !proto.Equal(got, value) {
+					t.Errorf("explored rate on %s: %s = %v, want the executed %v", tc.performer, name, got, value)
+				}
+			}
+		}
+	}
+
+	resp, err := srv.ExecuteAction(ctx, &pb.ExecuteActionRequest{ModelHash: hash, ActionSymbolId: "Road::Car::rate"})
+	if err != nil || resp.Error != "" {
+		t.Fatalf("rate alone: %v %q", err, resp.GetError())
+	}
+	if len(resp.PerformerAttributes) != 0 {
+		t.Errorf("rate alone reports performer attributes %v: no object performs it", resp.PerformerAttributes)
+	}
+	for name := range resp.Outputs {
+		if strings.HasPrefix(name, "this.") {
+			t.Errorf("rate alone reports %s", name)
 		}
 	}
 }

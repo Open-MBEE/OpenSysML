@@ -614,9 +614,8 @@ func dumpBehavior(b *strings.Builder, n Node, depth int) bool {
 			b.WriteString(` emptyBody=true`)
 		}
 		kids := make([]Node, 0, len(v.Effect)+2)
-		// A trigger written as a bare name — `accept 'Ground Station Ping'` —
-		// is the signal it names, which reads better beside the ends than as a
-		// nameless child.
+		// Keep bare-name injected-signal triggers written with `when` beside
+		// the ends; typed `accept` payload usages remain children.
 		if qn, ok := v.Trigger.(*QualifiedName); ok {
 			fmt.Fprintf(b, ` trigger=%q`, qnString(qn))
 		} else if v.Trigger != nil {
@@ -708,8 +707,13 @@ func dumpBehavior(b *strings.Builder, n Node, depth int) bool {
 		// form or the parser desugared a member-attached keyword into it.
 		fmt.Fprintf(b, `(SuccessionEdge source=%q target=%q`,
 			successionEnd(v.Source, v.SourceMember), successionEnd(v.Target, v.TargetMember))
-		if len(v.Members) > 0 {
-			writeChildren(b, depth, v.Members)
+		var children []Node
+		if v.SourceMultiplicity != nil {
+			children = append(children, v.SourceMultiplicity)
+		}
+		children = append(children, v.Members...)
+		if len(children) > 0 {
+			writeChildren(b, depth, children)
 			return true
 		}
 		b.WriteString(`)`)
@@ -739,19 +743,19 @@ func dumpBehavior(b *strings.Builder, n Node, depth int) bool {
 		return true
 	case *ForkNode:
 		fmt.Fprintf(b, `(ForkNode name=%q`, v.Name)
-		writeChildren(b, depth, v.Members)
+		writeChildren(b, depth, prefixesAnd(v.Prefixes, v.Members))
 		return true
 	case *JoinNode:
 		fmt.Fprintf(b, `(JoinNode name=%q`, v.Name)
-		writeChildren(b, depth, v.Members)
+		writeChildren(b, depth, prefixesAnd(v.Prefixes, v.Members))
 		return true
 	case *MergeNode:
 		fmt.Fprintf(b, `(MergeNode name=%q`, v.Name)
-		writeChildren(b, depth, v.Members)
+		writeChildren(b, depth, prefixesAnd(v.Prefixes, v.Members))
 		return true
 	case *DecisionNode:
 		fmt.Fprintf(b, `(DecisionNode name=%q`, v.Name)
-		writeChildren(b, depth, v.Members)
+		writeChildren(b, depth, prefixesAnd(v.Prefixes, v.Members))
 		return true
 	case *TerminateStatement:
 		b.WriteString(`(TerminateStatement`)

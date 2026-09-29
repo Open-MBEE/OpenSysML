@@ -403,7 +403,7 @@ func TestEncodeStreamsConditionalWrite(t *testing.T) {
 	ctx, action, graph, held := loweredDocument(t, "conditional_stream_test.sysml", `package test {
 	private import ScalarValues::*;
 	action outer {
-		in enabled : Boolean;
+		in enabled : Boolean[1];
 		attribute seen : Integer = -1;
 		first start;
 		action producer { out value : Integer = 5; if enabled { assign value := 7; } }

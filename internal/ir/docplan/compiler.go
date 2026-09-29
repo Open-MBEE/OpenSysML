@@ -1116,7 +1116,7 @@ func (c *compiler) optionalLabels(member *symbols.Symbol) ([]string, error) {
 // literals of its value: the elements of a sequence, or the one value itself.
 func (c *compiler) optionalSequence(member *symbols.Symbol, name string) (*symbols.Symbol, []ast.Node) {
 	for _, candidate := range c.effectiveMembers(member) {
-		if candidate.Kind != symbols.SymbolAttributeUsage || c.effectiveName(candidate) != name {
+		if !candidate.Kind.IsAttributeLike() || c.effectiveName(candidate) != name {
 			continue
 		}
 		value := c.attributeValue(candidate, make(map[*symbols.Symbol]bool))
@@ -2213,7 +2213,7 @@ func (c *compiler) requiredText(member *symbols.Symbol, attribute string, missin
 // optionalText reads an optional string attribute of one structural member.
 func (c *compiler) optionalText(member *symbols.Symbol, attribute string) (string, bool, error) {
 	for _, candidate := range c.effectiveMembers(member) {
-		if candidate.Kind != symbols.SymbolAttributeUsage || c.effectiveName(candidate) != attribute {
+		if !candidate.Kind.IsAttributeLike() || c.effectiveName(candidate) != attribute {
 			continue
 		}
 		text, stated, err := c.attributeText(member, candidate, attribute, make(map[*symbols.Symbol]bool))

@@ -6,6 +6,7 @@ import (
 	"strings"
 
 	"github.com/Open-MBEE/OpenSysML/internal/ir/lower"
+	"github.com/Open-MBEE/OpenSysML/internal/semantic/semantics"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/symbols"
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/ast"
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/source"
@@ -16,6 +17,7 @@ type calcParameter struct {
 	Name    string          // parameter name arguments bind to
 	Default ast.Node        // value-binding expression used when no argument is passed (nil if none)
 	Owner   *symbols.Symbol // the calc that declares the default (a supertype for an inherited one)
+	Sym     *symbols.Symbol // the parameter's own symbol, which its effective multiplicity is read off
 	Decl    calcMemberDecl  // the declaration, closest to the invoked calc, a bound value answers to
 	// IsSubject marks a case's subject parameter, the object the case is about.
 	IsSubject bool
@@ -349,6 +351,7 @@ func (ctx *Context) calcParameters(chain []*symbols.Symbol, aliases *map[string]
 			sym := memberSymbol(DeclScope(link), usage)
 			param := calcParameter{
 				Name: name, Default: usage.Value, Owner: link,
+				Sym:  sym,
 				Decl: ctx.calcMemberDeclOf(link, sym, name), IsCalc: isCalcUsageSymbol(sym),
 			}
 			if at, seen := ctx.redeclaredIndex(index, sym, name); seen {
@@ -815,11 +818,17 @@ func (ctx *Context) bindCalcParameters(
 			return err
 		}
 		// The parameter holds the value bound to it, so that value answers to the
-		// parameter's declaration as a written one does.
+		// parameter's effective multiplicity as a written one does to its declared one.
 		what := func() string {
 			return fmt.Sprintf("%s: %s for parameter %q", shape.Label, source, param.Name)
 		}
-		if err := param.Decl.check(ctx, &value, what); err != nil {
+		decl := param.Decl
+		if decl.Target != nil && param.Sym != nil {
+			target := *decl.Target
+			target.mult = ctx.model.semantics.EffectiveParameterRange(param.Sym)
+			decl.Target = &target
+		}
+		if err := decl.check(ctx, &value, what); err != nil {
 			return err
 		}
 		if err := param.checkFunction(&value, what); err != nil {
@@ -979,9 +988,15 @@ func (shape *calcShape) checkArgs(args calcArgs) error {
 }
 
 // optional reports whether the parameter may go without an argument: its
-// declared multiplicity admits no value, as `[0..1]` does.
-func (param *calcParameter) optional() bool {
-	return param.Decl.Target != nil && param.Decl.multStated && param.Decl.Target.mult.AllowsNone()
+// effective multiplicity admits no value, as `[0..1]` does.
+func (param *calcParameter) optional(m *semantics.Model) bool {
+	return param.Sym != nil && m.EffectiveParameterRange(param.Sym).AllowsNone()
+}
+
+// declaredOptional answers the read rule — whether the parameter as written
+// admits no value — not invocation, where a bare parameter is optional anyway.
+func (param *calcParameter) declaredOptional() bool {
+	return param.Decl.multStated && param.Decl.Target != nil && param.Decl.Target.mult.AllowsNone()
 }
 
 // hasParameter reports whether the calc declares an input parameter of that name.
@@ -1039,7 +1054,7 @@ func (ec *EvalContext) bindCalcParameter(
 			}
 			return Value{}, "", shape.unboundSubject(param)
 		}
-		if param.optional() {
+		if param.optional(ec.ctx.model.semantics) {
 			return nullValue(), "omitted", nil
 		}
 		return Value{}, "", fmt.Errorf(
@@ -1140,7 +1155,7 @@ func (ctx *Context) resolveLibraryPerformance(sym *symbols.Symbol) *libraryPerfo
 // written, declared and defaulted by the nearest of its redefinitions the model
 // states — with the position of the library input it redefines, -1 for none.
 func (ctx *Context) effectiveParameter(sym *symbols.Symbol, libInputs []*symbols.Symbol) (calcParameter, int) {
-	param := calcParameter{Name: sym.Name, IsCalc: isCalcUsageSymbol(sym)}
+	param := calcParameter{Name: sym.Name, Sym: sym, IsCalc: isCalcUsageSymbol(sym)}
 	if effective, _ := ast.EffectiveName(sym.Decl.(*ast.Usage)); effective != "" {
 		param.Name = effective
 	}

@@ -1,0 +1,15 @@
+// A part's performed action whose nested step binds nothing to a required input
+// records the failure on the performance: its performer's other features still
+// evaluate.
+package test {
+	private import ISQ::*;
+	private import SI::*;
+
+	action def ApplyHeat { in energy : ISQ::EnergyValue; }
+	action def ToastBread { action applyHeat : ApplyHeat; }
+	part def Toaster {
+		attribute cycleTime : ISQ::DurationValue;
+		perform action toastBread : ToastBread;
+	}
+	part slow : Toaster { attribute :>> cycleTime = 200.0 [SI::s]; }
+}

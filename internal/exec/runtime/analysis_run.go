@@ -44,6 +44,7 @@ func (ctx *Context) subjectParameter(
 	sym := memberSymbol(DeclScope(link), member)
 	param := calcParameter{
 		Name: subject.Name, Default: subject.Value, Owner: link, IsSubject: true,
+		Sym:  sym,
 		Decl: ctx.calcMemberDeclOf(link, sym, subject.Name),
 	}
 	at := -1

@@ -1395,17 +1395,20 @@ func editFromProto(operation *pb.EditOperation) (opensysml.Edit, bool) {
 		return opensysml.Rename{Target: kind.Rename.GetTarget(), NewName: kind.Rename.GetNewName()}, true
 	case *pb.EditOperation_AddMember:
 		return opensysml.AddMember{
-			Owner:        kind.AddMember.GetOwner(),
-			Kind:         kind.AddMember.GetKind(),
-			Name:         kind.AddMember.GetName(),
-			Type:         kind.AddMember.GetType(),
-			Multiplicity: kind.AddMember.GetMultiplicity(),
-			Value:        kind.AddMember.GetValue(),
-			Specializes:  kind.AddMember.GetSpecializes(),
-			IsAbstract:   kind.AddMember.GetIsAbstract(),
-			Redefines:    kind.AddMember.GetRedefines(),
-			IsDefault:    kind.AddMember.GetIsDefault(),
-			Direction:    kind.AddMember.GetDirection(),
+			Owner:            kind.AddMember.GetOwner(),
+			Kind:             kind.AddMember.GetKind(),
+			Name:             kind.AddMember.GetName(),
+			Type:             kind.AddMember.GetType(),
+			Multiplicity:     kind.AddMember.GetMultiplicity(),
+			Value:            kind.AddMember.GetValue(),
+			Specializes:      kind.AddMember.GetSpecializes(),
+			IsAbstract:       kind.AddMember.GetIsAbstract(),
+			Redefines:        kind.AddMember.GetRedefines(),
+			IsDefault:        kind.AddMember.GetIsDefault(),
+			Direction:        kind.AddMember.GetDirection(),
+			MetadataPrefixes: kind.AddMember.GetMetadataPrefixes(),
+			BodyExpression:   kind.AddMember.GetBodyExpression(),
+			Doc:              kind.AddMember.GetDoc(),
 		}, true
 	case *pb.EditOperation_AddConnection:
 		return opensysml.AddConnection{
@@ -1429,11 +1432,67 @@ func editFromProto(operation *pb.EditOperation) (opensysml.Edit, bool) {
 			Expression: kind.AddRequirementConstraint.GetExpression(),
 			Name:       kind.AddRequirementConstraint.GetName(),
 		}, true
+	case *pb.EditOperation_AddVerify:
+		return opensysml.AddVerify{
+			Owner:       kind.AddVerify.GetOwner(),
+			Requirement: kind.AddVerify.GetRequirement(),
+		}, true
+	case *pb.EditOperation_AddMetadata:
+		values := make([]opensysml.MetadataValue, 0, len(kind.AddMetadata.GetValues()))
+		for _, value := range kind.AddMetadata.GetValues() {
+			values = append(values, opensysml.MetadataValue{
+				Feature: value.GetFeature(),
+				Value:   value.GetValue(),
+			})
+		}
+		return opensysml.AddMetadata{
+			Owner:        kind.AddMetadata.GetOwner(),
+			MetadataType: kind.AddMetadata.GetMetadataType(),
+			Name:         kind.AddMetadata.GetName(),
+			About:        kind.AddMetadata.GetAbout(),
+			Values:       values,
+			Shorthand:    kind.AddMetadata.GetShorthand(),
+		}, true
+	case *pb.EditOperation_AddMetadataPrefix:
+		return opensysml.AddMetadataPrefix{
+			Target:       kind.AddMetadataPrefix.GetTarget(),
+			MetadataType: kind.AddMetadataPrefix.GetMetadataType(),
+		}, true
+	case *pb.EditOperation_AddSequence:
+		return addSequenceFromProto(kind.AddSequence), true
+	case *pb.EditOperation_AddImport:
+		return opensysml.AddImport{
+			Owner: kind.AddImport.GetOwner(), Visibility: kind.AddImport.GetVisibility(),
+			Target: kind.AddImport.GetTarget(), Recursive: kind.AddImport.GetIsRecursive(),
+			All: kind.AddImport.GetIsImportAll(), Filters: kind.AddImport.GetFilters(),
+		}, true
 	case *pb.EditOperation_Delete:
 		return opensysml.Delete{Target: kind.Delete.GetTarget(), Cascade: kind.Delete.GetCascade()}, true
 	default:
 		return nil, false
 	}
+}
+
+func addSequenceFromProto(sequence *pb.AddSequenceEdit) opensysml.AddSequence {
+	if sequence == nil {
+		return opensysml.AddSequence{}
+	}
+	result := opensysml.AddSequence{
+		Owner: sequence.GetOwner(), Keyword: sequence.GetKeyword(),
+		Ref: sequence.GetRef(), MemberKind: sequence.GetMemberKind(),
+		MemberName: sequence.GetMemberName(), Type: sequence.GetType(),
+		After: sequence.GetAfter(), Condition: sequence.GetCondition(),
+		Value: sequence.GetValue(), Target: sequence.GetTarget(), Via: sequence.GetVia(),
+		Until: sequence.GetUntil(), Parameter: sequence.GetParameter(),
+		Multiplicity: sequence.GetMultiplicity(),
+	}
+	for _, child := range sequence.GetBody() {
+		result.Body = append(result.Body, addSequenceFromProto(child))
+	}
+	for _, child := range sequence.GetElseBody() {
+		result.Else = append(result.Else, addSequenceFromProto(child))
+	}
+	return result
 }
 
 func quantityToProto(quantity opensysml.Quantity) *pb.Quantity {

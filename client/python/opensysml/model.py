@@ -546,9 +546,11 @@ class Model:
                 call and run inside its assembly
 
         Returns:
-            dict: Output parameter name → value; an output the wire format
-                cannot represent is reported as an UnsupportedValueError in its
-                place, so one such output does not discard the rest
+            ActionOutputs: Output parameter name → value, a ``dict``; an output
+                the wire format cannot represent is reported as an
+                UnsupportedValueError in its place, so one such output does not
+                discard the rest. Its ``performer`` holds the performer's
+                attributes under ``this.`` (``'this.level'``), empty without one
 
         Raises:
             ValueError: If the schedule explores
@@ -603,13 +605,16 @@ class Model:
                 ``"explore"`` belongs to :meth:`explore_state`
             performer (str, optional): The object the machine runs on, as for
                 :meth:`execute_action`; an object exhibiting the machine runs
-                the one it exhibits, hearing its siblings over their connectors
+                the one it exhibits, hearing its siblings over their connectors.
+                Guards and actions read and write the object's feature values
 
         Returns:
             dict: {'states_visited': [...], 'final_context': {...}, 'final_time': float};
-                a context value the wire format cannot represent is reported as
-                an UnsupportedValueError in its place; ``final_time`` is the
-                run's simulation clock when it ended, in seconds
+                ``final_context`` also holds the performer's attributes under
+                ``this.`` (``'this.speed'``); a context value the wire format
+                cannot represent is reported as an UnsupportedValueError in its
+                place; ``final_time`` is the run's simulation clock when it
+                ended, in seconds
 
         Raises:
             ValueError: If the schedule explores

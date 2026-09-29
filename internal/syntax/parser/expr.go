@@ -19,6 +19,11 @@ func (p *Parser) ParseExpression() ast.Node {
 	return p.parseConditional()
 }
 
+// ParseMultiplicity parses one multiplicity beginning with `[` (SysML.xtext:878, 887; formal/2026-03-02).
+func (p *Parser) ParseMultiplicity() *ast.Multiplicity {
+	return p.parseMultiplicity()
+}
+
 // parseConditional parses `if cond ? then else else` or falls through.
 func (p *Parser) parseConditional() ast.Node {
 	if p.atKeyword("if") {
