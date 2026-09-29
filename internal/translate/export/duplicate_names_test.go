@@ -776,6 +776,107 @@ func TestToolkitRootMemberIndexesOrderRoots(t *testing.T) {
 	}
 }
 
+// TestAPIJSONRoundTripPartialRootIndexes keeps the decoder's root order when
+// wrapping and reading a graph whose roots have only some explicit indexes.
+func TestAPIJSONRoundTripPartialRootIndexes(t *testing.T) {
+	file := source.New("partial-root-indexes.sysml", []byte(
+		"package P { part def X; }\npackage Q;\npackage P { part def X; part def Y; }\n",
+	))
+	p := parser.New(file)
+	root := p.ParseFile()
+	if len(p.Diagnostics) != 0 {
+		t.Fatalf("the notation fixture does not parse: %v", p.Diagnostics)
+	}
+	notation, err := ToRDF(file, root)
+	if err != nil {
+		t.Fatalf("ToRDF: %v", err)
+	}
+	byName := elementSubjectsByQualifiedName(notation)
+	p1 := rdf.IRI(byName["P"])
+	q := rdf.IRI(byName["Q"])
+	p2 := rdf.IRI(byName["@2"])
+	roots := []rdf.Term{p2, q, p1}
+	rootSubjects := map[string]bool{p1.Value: true, q.Value: true, p2.Value: true}
+	var triples []rdf.Triple
+	for _, subject := range roots {
+		for _, triple := range notation.Triples() {
+			if triple.Subject == subject && triple.Predicate.Value != rdf.OpenSysML+xMemberIndex {
+				triples = append(triples, triple)
+			}
+		}
+	}
+	for _, triple := range notation.Triples() {
+		if !rootSubjects[triple.Subject.Value] {
+			triples = append(triples, triple)
+		}
+	}
+	graph := rdf.NewGraphOf(triples, notation.Prefixes)
+	graph.Add(p2, rdf.OpenSysMLTerm(xMemberIndex), rdf.Int(2))
+	graph.Add(p1, rdf.OpenSysMLTerm(xMemberIndex), rdf.Int(0))
+
+	decode := func(graph *rdf.Graph) []byte {
+		t.Helper()
+		notation, err := ToSysML(withoutIdentitySourceText(graph))
+		if err != nil {
+			t.Fatalf("ToSysML: %v", err)
+		}
+		return notation
+	}
+	assertRootOrder := func(label string, notation []byte) {
+		t.Helper()
+		text := string(notation)
+		q := strings.Index(text, "package Q")
+		firstP := strings.Index(text, "package P")
+		secondP := strings.LastIndex(text, "package P")
+		y := strings.Index(text, "part def Y")
+		if !(q >= 0 && q < firstP && firstP < secondP && secondP < y) {
+			t.Errorf("%s did not order q, p1, p2 (p2 owns Y):\n%s", label, text)
+		}
+	}
+	assertRootOrder("original graph", decode(graph))
+
+	written, err := WriteAPIJSON(graph)
+	if err != nil {
+		t.Fatalf("WriteAPIJSON: %v", err)
+	}
+	roundTrip, err := ReadAPIJSON(written)
+	if err != nil {
+		t.Fatalf("ReadAPIJSON round trip: %v", err)
+	}
+	assertRootOrder("round trip", decode(roundTrip))
+
+	toolkitElements := apiElements(t, written)
+	idsByName := make(map[string]string)
+	for _, element := range toolkitElements {
+		if name, ok := element["qualifiedName"].(string); ok {
+			idsByName[name], _ = element["@id"].(string)
+		}
+		delete(element, "qualifiedName")
+		element["isImpliedIncluded"] = false
+	}
+	toolkitDocument, err := json.Marshal(toolkitElements)
+	if err != nil {
+		t.Fatalf("marshal toolkit API JSON: %v", err)
+	}
+	normative := deriveToolkitGraph(t, toolkitDocument)
+	for name, want := range map[string]string{
+		"P":     "P",
+		"P::X":  "P::X",
+		"@2":    "@2",
+		"@2::X": "@2::X",
+	} {
+		id := idsByName[name]
+		if id == "" {
+			t.Fatalf("written API JSON has no element with qualified name %q", name)
+		}
+		subject := rdf.ReferenceIRI(rdf.Term{}, id)
+		got, ok := normative.Lexical(subject, rdf.SysML+pQualifiedName)
+		if !ok || got != want {
+			t.Errorf("%s has qualified name %q, want %q", name, got, want)
+		}
+	}
+}
+
 func rootPackageAndPartNames(graph *rdf.Graph) map[string]bool {
 	names := map[string]bool{}
 	for _, subject := range graph.Subjects() {

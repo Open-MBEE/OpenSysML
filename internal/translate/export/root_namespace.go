@@ -1,6 +1,7 @@
 package export
 
 import (
+	"sort"
 	"strings"
 
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/identity"
@@ -20,6 +21,9 @@ const mNamespace = "Namespace"
 // already carries such a root is returned as it is.
 func withRootNamespace(graph *rdf.Graph) (*rdf.Graph, error) {
 	roots := unownedElements(graph)
+	sort.SliceStable(roots, func(i, j int) bool {
+		return intOf(graph, roots[i], rdf.OpenSysML+xMemberIndex) < intOf(graph, roots[j], rdf.OpenSysML+xMemberIndex)
+	})
 	if len(roots) == 0 {
 		return graph, nil
 	}
