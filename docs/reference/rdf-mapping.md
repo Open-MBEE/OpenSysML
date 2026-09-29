@@ -1918,6 +1918,16 @@ read from another writer may already use any id, so a suffix is repeated
 (`P_ns_ns`, `P_om_om`) until it names a subject the graph does not hold; the
 choice depends only on the graph, so it too is the same on every run.
 
+A graph converted from several documents at once — several notation files to
+`sysml ... -convert ttl|api-json`, or a multi-document `model_hash` to the
+service's `Convert` — marks each document's top-level elements with
+`sysx:sourceDocument`, the document's name as it was given, and wraps each
+document's roots under its own root `Namespace`, in the order the documents
+appear: the pilot's one-Namespace-per-resource form. A single-document graph
+states no `sysx:sourceDocument` and keeps the one wrapper it always had. The
+reader accepts several root namespaces and writes one notation holding every
+document's roots in document order.
+
 The Turtle form does not carry the wrapper. Turtle is this mapping's own
 notation round-trip carrier, and its root subjects are the document's own
 packages; adding a subject the notation has no spelling for would change

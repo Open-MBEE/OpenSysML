@@ -60,7 +60,7 @@ func runConvert(files []string) (int, error) {
 		return 0, errors.New("no model to convert; name the file to convert, as `sysml model.sysml -convert ttl`")
 	}
 	if len(files) > 1 {
-		return 0, fmt.Errorf("-convert converts one file; unexpected extra argument %q", files[1])
+		return runConvertDocuments(files, to)
 	}
 	input := files[0]
 
@@ -172,6 +172,85 @@ func runConvert(files []string) (int, error) {
 		return 0, err
 	}
 	return exitHolds, nil
+}
+
+// runConvertDocuments converts the model several files name to one graph: the
+// documents of a model are written as one document, resolved against each
+// other, when every input is a local SysML or KerML file and the target is
+// ttl or api-json. Anything else keeps the refusal it had when -convert took
+// one file: standard input has no document name, a repository branch is a
+// whole graph already, and a migration or recorded session produces one file's
+// worth of model.
+func runConvertDocuments(files []string, to convert.Format) (int, error) {
+	if to != convert.FormatTurtle && to != convert.FormatAPIJSON {
+		return 0, fmt.Errorf("-convert converts several files into one graph, ttl or api-json; %s writes a single document", to)
+	}
+	if len(modelChecks.records) > 0 {
+		return 0, errors.New("-record-run converts the recorded session model; -convert of several files does not apply")
+	}
+	if fromFormat != "" {
+		from, err := convert.ParseFormat(fromFormat)
+		if err != nil {
+			return 0, err
+		}
+		if from != convert.FormatSysML {
+			return 0, fmt.Errorf("-convert of several files reads SysML or KerML notation; -from %s does not apply", fromFormat)
+		}
+	}
+	sources := make([]convert.Source, 0, len(files))
+	for _, input := range files {
+		if project.IsStdin(input) {
+			return 0, errors.New("-convert of several files reads named documents; standard input cannot be one of them")
+		}
+		if _, isURL, err := flexo.ParseBranchURL(input); err != nil {
+			return 0, err
+		} else if isURL {
+			return 0, fmt.Errorf("-convert of several files reads local documents; %s names a repository branch", input)
+		}
+		from, err := resolveFormat(fromFormat, input)
+		if err != nil {
+			return 0, err
+		}
+		if from != convert.FormatSysML {
+			return 0, fmt.Errorf("-convert of several files reads SysML or KerML notation; %s is %s", input, from)
+		}
+		name, data, err := project.ReadFile(input)
+		if err != nil {
+			return 0, err
+		}
+		sources = append(sources, convert.Source{Name: name, Data: data})
+	}
+	for _, notice := range convert.Notices(convert.FormatSysML, to) {
+		fmt.Fprintf(os.Stderr, "note: %s\n", notice)
+	}
+	if migrationReport != "" {
+		return 0, fmt.Errorf("-migration-report describes a SysML v1 migration, and -convert of several files is not migrated; pass it with -from xmi or a .xmi/.uml/.mdzip file")
+	}
+	if migrationResults != "" {
+		return 0, fmt.Errorf("-migration-results indexes the result snapshots of a SysML v1 migration, and -convert of several files is not migrated; pass it with -from xmi or a .xmi/.uml/.mdzip file")
+	}
+	if layoutPath != "" {
+		return 0, fmt.Errorf("-layout augments a SysML v1 migration, and -convert of several files is not migrated; pass it with -from xmi or a .xmi/.uml/.mdzip file")
+	}
+	if imageBaseURL != "" {
+		return 0, fmt.Errorf("-image-base-url resolves images of a SysML v1 migration, and -convert of several files is not migrated; pass it with -from xmi or a .xmi/.uml/.mdzip file")
+	}
+	if syncState != "" {
+		return 0, fmt.Errorf("-sync-state records a repository branch's head; -convert of several files names no branch")
+	}
+	opts, err := convertOptions(convert.FormatSysML, to)
+	if err != nil {
+		return 0, err
+	}
+	out, err := convert.ConvertDocuments(sources, to, opts)
+	if err != nil {
+		return 0, err
+	}
+	if outputPath == "" {
+		_, err := os.Stdout.Write(out)
+		return exitHolds, err
+	}
+	return exitHolds, writeConversion(outputPath, out, to)
 }
 
 // convertInput runs the conversion the input format asks for: a SysML v1 model

@@ -138,6 +138,12 @@ all of which are experimental mappings. The service does not return the migratio
 command writes with `-migration-report`; what the migration covers is in
 [sysml-v1-migration.md](sysml-v1-migration.md).
 
+Converting a `model_hash` of several documents — parsed with `ParseFiles` or `ParseDocuments` —
+writes them as one model: `FormatTTL` and `FormatAPIJSON` convert every document into one graph,
+resolved against each other, each document's top-level elements marked with its `sysx:sourceDocument`
+and wrapped under a root `Namespace` of their own. A notation target — or any other non-graph target —
+is still defined on one document and returns `CodeFailedPrecondition`, as it always has.
+
 ```go
 conversion, err := client.ConvertFile(ctx, "Vehicle.mdzip", opensysml.FormatSysML)
 if conversion.Experimental {

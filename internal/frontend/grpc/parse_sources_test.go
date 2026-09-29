@@ -118,9 +118,10 @@ func TestParseSourcesIsCapabilityGated(t *testing.T) {
 	}
 }
 
-// Convert writes one document back out, so a model of several is refused;
-// ApplyEdits edits the model as a whole, so the same model is answered, and an
-// empty request is refused as it is for one document: it names no edit.
+// Convert writes the documents of a multi-document model as one graph, so a
+// notation target is still refused; ApplyEdits edits the model as a whole, so
+// the same model is answered, and an empty request is refused as it is for one
+// document: it names no edit.
 func TestOneDocumentOperationsRefuseAModelOfSeveral(t *testing.T) {
 	srv := mustNewService(t, 10)
 	defer srv.Close()
@@ -134,7 +135,7 @@ func TestOneDocumentOperationsRefuseAModelOfSeveral(t *testing.T) {
 
 	_, convertErr := srv.Convert(context.Background(), &pb.ConvertRequest{
 		Source:   &pb.ConvertRequest_ModelHash{ModelHash: resp.ModelHash},
-		ToFormat: "turtle",
+		ToFormat: "sysml",
 	})
 	if connect.CodeOf(convertErr) != connect.CodeFailedPrecondition ||
 		!strings.Contains(convertErr.Error(), "one document") {
@@ -185,6 +186,40 @@ func TestAReexportBetweenDocumentsIsIndexed(t *testing.T) {
 	}
 	if syms := lookupNamed(cached.Index, "EngineFacade::Engine"); len(syms) == 0 {
 		t.Error("the name EngineFacade re-exports is not in the model's index")
+	}
+}
+
+// A cached model of several documents converts to a graph as one model:
+// the documents' elements resolve against each other, so the cross-document
+// reference links to the element it declares in the library document.
+func TestConvertConvertsEveryDocumentOfAModel(t *testing.T) {
+	srv := mustNewService(t, 10)
+	defer srv.Close()
+
+	resp, err := srv.ParseSources(context.Background(), &pb.ParseSourcesRequest{
+		Documents: inlineDocuments("lib.sysml", sourcesLibrary, "top.sysml", sourcesTop),
+	})
+	if err != nil {
+		t.Fatalf("ParseSources: %v", err)
+	}
+
+	for _, format := range []string{"turtle", "api-json"} {
+		converted, err := srv.Convert(context.Background(), &pb.ConvertRequest{
+			Source:   &pb.ConvertRequest_ModelHash{ModelHash: resp.ModelHash},
+			ToFormat: format,
+		})
+		if err != nil {
+			t.Fatalf("Convert to %s: %v", format, err)
+		}
+		if converted.Error != "" {
+			t.Fatalf("Convert to %s: %s", format, converted.Error)
+		}
+		if !strings.Contains(converted.Content, "Lib__Engine") {
+			t.Errorf("the %s output lost the library document's element:\n%s", format, converted.Content)
+		}
+		if !strings.Contains(converted.Content, "sourceDocument") {
+			t.Errorf("the %s output carries no document provenance:\n%s", format, converted.Content)
+		}
 	}
 }
 

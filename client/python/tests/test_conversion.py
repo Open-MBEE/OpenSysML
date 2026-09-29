@@ -7,6 +7,7 @@ notation, and a trip through RDF Turtle — which is the part a mock cannot tell
 you anything about.
 """
 
+import json
 import os
 import subprocess
 import time
@@ -412,6 +413,40 @@ class TestRoundTripAgainstRealService:
         cause = excinfo.value.__cause__
         assert isinstance(cause, grpc.RpcError)
         assert cause.code() == grpc.StatusCode.NOT_FOUND
+
+    def test_a_model_of_several_documents_converts_to_one_graph(self, real_service):
+        # The client's load_* calls parse one document; a model of several is
+        # what ParseSources caches, which this test parses directly.
+        lib = "package Lib {\n\titem def Engine;\n}\n"
+        app = "package App {\n\timport Lib::*;\n\tpart e : Engine;\n}\n"
+        documents = [
+            sysml_pb2.SourceDocument(name="lib.sysml", content=lib),
+            sysml_pb2.SourceDocument(name="app.sysml", content=app),
+        ]
+        with Connection(port=real_service, auto_start=False) as conn:
+            parsed = conn._stub.ParseSources(
+                sysml_pb2.ParseSourcesRequest(documents=documents)
+            )
+            result = conn.convert("api-json", model_hash=parsed.model_hash)
+            text = str(result)
+            assert "Lib__Engine" in text
+            assert "App__e" in text
+            assert "sourceDocument" in text
+            # The cross-document reference links to the element it declares:
+            # App::e's FeatureTyping names Lib__Engine, not the text "Engine".
+            elements = json.loads(text)
+            typings = [
+                e
+                for e in elements
+                if e.get("@type") == "FeatureTyping"
+            ]
+            assert any(
+                t.get("type") == {"@id": "Lib__Engine"}
+                or t.get("type") == [{"@id": "Lib__Engine"}]
+                for t in typings
+            )
+            namespaces = [e for e in elements if e.get("@type") == "Namespace"]
+            assert len(namespaces) == 2
 
     def test_an_unknown_format_is_an_invalid_request(self, real_service):
         with Connection(port=real_service, auto_start=False) as conn:

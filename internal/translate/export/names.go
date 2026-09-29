@@ -139,7 +139,7 @@ func chooseNames(name, library string, text []byte, want *wanted, previous *name
 	}
 	chosen := map[*ast.QualifiedName]string{}
 	for key, refs := range occurrences {
-		if _, ok := declared[key.target]; !ok && !e.ids.libraryName(key.target) {
+		if _, ok := declared[key.target]; !ok && !e.libraryNamed(key.target) {
 			continue
 		}
 		ref := want.references[key]

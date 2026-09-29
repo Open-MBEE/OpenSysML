@@ -7,6 +7,7 @@ import (
 	"unicode"
 
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/resolve"
+	"github.com/Open-MBEE/OpenSysML/internal/semantic/semantics"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/symbols"
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/ast"
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/lexer"
@@ -99,6 +100,7 @@ const (
 	xHasBody        = "hasBody"
 	xSourceText     = "sourceText"
 	xSourceTail     = "sourceTail"
+	xSourceDocument = "sourceDocument"
 	xSourceLanguage = "sourceLanguage"
 	xFilter         = "filter"
 	// xIsConstructor is only read: an older graph flags `new` on an InvocationExpression.
@@ -235,11 +237,46 @@ func ToRDF(file *source.SourceFile, root *ast.RootNamespace) (*rdf.Graph, error)
 
 // ToRDFWith is ToRDF with the id form the caller asks for.
 func ToRDFWith(file *source.SourceFile, root *ast.RootNamespace, form IDForm) (*rdf.Graph, error) {
-	e, err := encodeDocument(file, root, "", form)
+	return ToRDFDocuments([]Document{{File: file, Root: root}}, form)
+}
+
+// Document is one parsed document of a model converted as a whole.
+type Document struct {
+	File *source.SourceFile
+	Root *ast.RootNamespace
+}
+
+// ToRDFDocuments converts the documents of one model into one graph: each is
+// resolved against all of them, so a reference into another document links to it.
+func ToRDFDocuments(docs []Document, form IDForm) (*rdf.Graph, error) {
+	encoders, err := newEncoders(docs, form)
 	if err != nil {
 		return nil, err
 	}
-	return e.graph, nil
+	graph := encoders[0].graph
+	for i, e := range encoders {
+		e.src = newAuthoredSource(docs[i].File)
+		if err := e.encode(docs[i].Root.Members, "", rdf.Term{}); err != nil {
+			return nil, err
+		}
+	}
+	for _, e := range encoders {
+		e.importedMemberships()
+	}
+	// The normative relationships are materialized once over every document's
+	// subjects: the elements it mints state collapsed properties of their own,
+	// which a second pass would materialize again.
+	encoders[0].materializeNormative()
+	for _, e := range encoders {
+		if e.idErr != nil {
+			return nil, e.idErr
+		}
+		e.sourceText()
+	}
+	if err := rdf.AnnotateCollections(graph); err != nil {
+		return nil, err
+	}
+	return graph, nil
 }
 
 // encodeDocument converts a parsed document, returning the encoder that holds
@@ -300,32 +337,115 @@ func (e *encoder) sourceText() {
 	}
 }
 
+// sharedEncoding is what the encoders of one model's documents share: the
+// graph, the collision map that refuses two documents minting one IRI, the
+// qualified names every document's collect recorded — which is how a
+// reference in one document links to an element another declares — and each
+// declared node's own document's identity side table, whose ids and scopes
+// its IRI is spelled from.
+type sharedEncoding struct {
+	graph    *rdf.Graph
+	declared map[string]bool
+	fqn      map[ast.Node]string
+	subjects map[string]string
+	facts    map[ast.Node]*identityFacts
+	// pkgOf and localOf hold, per minted subject, the uuid namespace and the
+	// name-derived local id derived subjects mint under — the materialization
+	// pass mints them for every document at once, so all encoders read the one
+	// map each subject's own document recorded.
+	pkgOf   map[string]string
+	localOf map[string]string
+	// multi marks a conversion of several documents, whose top-level elements
+	// record their document as sysx:sourceDocument.
+	multi bool
+}
+
 // newEncoder resolves a parsed document, builds its identity side table and
 // records each member's qualified name, so references can be told from names.
 func newEncoder(file *source.SourceFile, root *ast.RootNamespace, library string, form IDForm) (*encoder, error) {
 	res, model := analyzeDocument(file, root, library)
+	shared := &sharedEncoding{
+		graph:    rdf.NewGraph(),
+		declared: map[string]bool{},
+		fqn:      map[ast.Node]string{},
+		subjects: map[string]string{},
+		facts:    map[ast.Node]*identityFacts{},
+		pkgOf:    map[string]string{},
+		localOf:  map[string]string{},
+	}
+	return encoderFor(file, root, res, model, form, shared)
+}
+
+// newEncoders builds one encoder per document of a model, all over one model
+// index and one graph, so a reference into another document links to its
+// element. Every document is collected before any is encoded.
+func newEncoders(docs []Document, form IDForm) ([]*encoder, error) {
+	if len(docs) == 0 {
+		return nil, &UnsupportedError{What: "an empty model", Note: "nothing to convert"}
+	}
+	modelDocs := make([]modelDocument, len(docs))
+	for i, doc := range docs {
+		if doc.File == nil || doc.Root == nil {
+			return nil, &UnsupportedError{What: "an empty document", Note: "nothing to convert"}
+		}
+		modelDocs[i] = modelDocument{file: doc.File, root: doc.Root}
+	}
+	res, model := analyzeModel(modelDocs)
+	shared := &sharedEncoding{
+		graph:    rdf.NewGraph(),
+		declared: map[string]bool{},
+		fqn:      map[ast.Node]string{},
+		subjects: map[string]string{},
+		facts:    map[ast.Node]*identityFacts{},
+		pkgOf:    map[string]string{},
+		localOf:  map[string]string{},
+		multi:    len(docs) > 1,
+	}
+	encoders := make([]*encoder, len(docs))
+	for i, doc := range docs {
+		e, err := encoderFor(doc.File, doc.Root, res, model, form, shared)
+		if err != nil {
+			return nil, err
+		}
+		encoders[i] = e
+	}
+	return encoders, nil
+}
+
+// encoderFor builds the encoder of one document over the shared model state:
+// its own identity facts, source text regions and links, the shared graph,
+// qualified-name and collision maps.
+func encoderFor(file *source.SourceFile, root *ast.RootNamespace, res *resolve.Resolver, model *semantics.Model, form IDForm, shared *sharedEncoding) (*encoder, error) {
 	ids, err := documentIdentity(file.Name(), res, model, form)
 	if err != nil {
 		return nil, err
 	}
+	ids.pkgOf, ids.localOf = shared.pkgOf, shared.localOf
 	e := &encoder{
 		file:               file,
-		graph:              rdf.NewGraph(),
+		graph:              shared.graph,
 		res:                res,
-		declared:           map[string]bool{},
+		declared:           shared.declared,
 		metadataBodies:     map[string]bool{},
 		performed:          map[ast.Node]bool{},
 		effects:            map[ast.Node]bool{},
-		fqn:                map[ast.Node]string{},
+		fqn:                shared.fqn,
 		links:              map[*ast.QualifiedName]*symbols.Symbol{},
 		preceding:          map[ast.Node]ast.Node{},
 		introduced:         map[ast.Node]ast.Node{},
 		ids:                ids,
-		subjects:           map[string]string{},
+		facts:              shared.facts,
+		subjects:           shared.subjects,
 		regions:            map[rdf.Term]region{},
 		verifiedReferences: map[rdf.Term]bool{},
 		bodies:             map[rdf.Term]region{},
 		offsets:            map[string]int{},
+	}
+	if shared.multi {
+		e.sourceDoc = file.Name()
+	}
+	for node := range ids.byNode {
+		shared.facts[node] = ids
 	}
 	for _, ref := range resolve.References(root, res.Index().DocumentRoot(file.Name())) {
 		if sym, ok := res.ProbeReference(ref); ok && sym != nil {
@@ -371,6 +491,13 @@ type encoder struct {
 	// ids is the document's identity side table: effective ids, declaredness,
 	// scopes, and the annotation nodes consumed into it.
 	ids *identityFacts
+	// facts is the identity side table of each declared node of the model,
+	// shared by the documents' encoders: the document a node is declared in
+	// spells its IRI from its own facts.
+	facts map[ast.Node]*identityFacts
+	// sourceDoc is the document's name as given, stated as sysx:sourceDocument
+	// on its top-level elements when the model holds several documents.
+	sourceDoc string
 	// subjects maps each minted IRI — element or membership — to what it
 	// stands for, so two ids landing on one IRI are refused rather than merged.
 	subjects map[string]string
@@ -479,12 +606,13 @@ func (e *encoder) importedMembership(name *ast.QualifiedName) rdf.Term {
 		decl, fqn, ok = e.referent(name)
 	}
 	if ok {
+		facts := e.idsFor(decl)
 		// An alias is itself the Membership an import of it imports.
 		if _, isAlias := decl.(*ast.Alias); isAlias {
-			return e.ids.subjectForNode(decl, fqn)
+			return facts.subjectForNode(decl, fqn)
 		}
-		membership := e.ids.owningMembershipOf(decl, e.ids.subjectForNode(decl, fqn))
-		if _, minted := e.subjects[membership.Value]; minted || e.ids.normativeMembership(decl) {
+		membership := facts.owningMembershipOf(decl, facts.subjectForNode(decl, fqn))
+		if _, minted := e.subjects[membership.Value]; minted || facts.normativeMembership(decl) {
 			return membership
 		}
 	}
@@ -494,11 +622,12 @@ func (e *encoder) importedMembership(name *ast.QualifiedName) rdf.Term {
 // claimLibrary reserves the IRIs of a library element the document links to,
 // and of its owning membership, so no element declared here lands on them.
 func (e *encoder) claimLibrary(node ast.Node, fqn string) {
-	subject := e.ids.subjectForNode(node, fqn)
+	facts := e.idsFor(node)
+	subject := facts.subjectForNode(node, fqn)
 	claims := []struct{ iri, standsFor string }{{subject.Value, fqn}}
-	if e.ids.normativeMembership(node) {
+	if facts.normativeMembership(node) {
 		claims = append(claims, struct{ iri, standsFor string }{
-			e.ids.owningMembershipOf(node, subject).Value, fqn + "'s owning membership",
+			facts.owningMembershipOf(node, subject).Value, fqn + "'s owning membership",
 		})
 	}
 	for _, c := range claims {
@@ -742,7 +871,7 @@ func (e *encoder) kept(members []ast.Node) []ast.Node {
 
 // mint reserves the subject IRI of the element node declares as fqn.
 func (e *encoder) mint(node ast.Node, fqn string) (rdf.Term, error) {
-	subject := e.ids.subjectForNode(node, fqn)
+	subject := e.idsFor(node).subjectForNode(node, fqn)
 	if prior, taken := e.claim(subject.Value, fqn); taken {
 		return rdf.Term{}, &UnsupportedError{
 			What: fmt.Sprintf("the declaration of %s at %s", fqn, e.where(node)),
@@ -797,8 +926,13 @@ func (e *encoder) head(subject rdf.Term, h memberHead) {
 	if !inline {
 		e.regions[subject] = lines
 	}
-	if language := languageName(e.file.Kind()); ownerTerm.Value == "" && h.local.Value == "" && language != "" {
-		e.graph.Add(subject, e.sysx(xSourceLanguage), rdf.String(language))
+	if ownerTerm.Value == "" && h.local.Value == "" {
+		if language := languageName(e.file.Kind()); language != "" {
+			e.graph.Add(subject, e.sysx(xSourceLanguage), rdf.String(language))
+		}
+		if e.sourceDoc != "" {
+			e.graph.Add(subject, e.sysx(xSourceDocument), rdf.String(e.sourceDoc))
+		}
 	}
 	if e.ids.declaredIDAt(node) {
 		e.graph.Add(subject, e.sysx(xDeclaredID), rdf.Bool(true))
@@ -2261,7 +2395,7 @@ func (e *encoder) reference(name *ast.QualifiedName) rdf.Term {
 		return rdf.String("")
 	}
 	if decl, fqn, ok := e.referent(name); ok {
-		return e.ids.subjectForNode(decl, fqn)
+		return e.idsFor(decl).subjectForNode(decl, fqn)
 	}
 	return rdf.String(qualifiedText(name))
 }
@@ -2292,7 +2426,7 @@ func (e *encoder) edgeReference(name *ast.QualifiedName) rdf.Term {
 // alias declared here it was written through, else carries it as written.
 func (e *encoder) linkOrText(name *ast.QualifiedName, sym *symbols.Symbol, ok bool) rdf.Term {
 	if decl, fqn, ok := e.linkedElement(name, sym, ok); ok {
-		return e.ids.subjectForNode(decl, fqn)
+		return e.idsFor(decl).subjectForNode(decl, fqn)
 	}
 	// The quotes an unrestricted name needs are notation, added when it is
 	// written back out.
@@ -2306,6 +2440,31 @@ func (e *encoder) linkedElement(name *ast.QualifiedName, sym *symbols.Symbol, ok
 		return decl, fqn, true
 	}
 	return e.linked(e.res.PartAlias(name, len(name.Parts)-1))
+}
+
+// idsFor is the identity side table of the document node is declared in: a
+// reference resolved into another document of the model spells the element's
+// IRI from that document's own ids and scopes.
+func (e *encoder) idsFor(node ast.Node) *identityFacts {
+	if f, ok := e.facts[node]; ok {
+		return f
+	}
+	return e.ids
+}
+
+// libraryNamed reports whether fqn names an element of the model — declared
+// in any of its documents — or a standard library element the norm fixes an
+// id for, so a reference to it links rather than carries text.
+func (e *encoder) libraryNamed(fqn string) bool {
+	if e.ids.libraryName(fqn) {
+		return true
+	}
+	for _, f := range e.facts {
+		if f != e.ids && f.libraryName(fqn) {
+			return true
+		}
+	}
+	return false
 }
 
 // linked is the declaration and qualified name of the element a symbol names,

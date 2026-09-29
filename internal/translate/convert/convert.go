@@ -192,6 +192,45 @@ type Options struct {
 	ID export.IDForm
 }
 
+// Source is one named document of a model.
+type Source struct {
+	Name string
+	Data []byte
+}
+
+// ConvertDocuments converts the notation documents of one model to a graph
+// format. Each document is parsed by its name's extension kind the way
+// sysmlToRDFWith parses one, and all are resolved against each other, so a
+// reference into another document links to the element it declares there.
+// Several documents convert only to a graph — there is no multi-document
+// notation or other target — so a request for one is refused.
+func ConvertDocuments(sources []Source, to Format, opts Options) ([]byte, error) {
+	if to != FormatTurtle && to != FormatAPIJSON {
+		return nil, fmt.Errorf("several documents convert only to a graph format, ttl or api-json, not %s", to)
+	}
+	if len(sources) == 0 {
+		return nil, errors.New("nothing to convert")
+	}
+	docs := make([]export.Document, len(sources))
+	for i, src := range sources {
+		file := source.New(src.Name, src.Data)
+		p := parser.New(file)
+		root := p.ParseFile()
+		if err := syntaxError(src.Name, file, p); err != nil {
+			return nil, err
+		}
+		docs[i] = export.Document{File: file, Root: root}
+	}
+	graph, err := export.ToRDFDocuments(docs, opts.ID)
+	if err != nil {
+		return nil, err
+	}
+	if to == FormatTurtle {
+		return rdf.WriteTurtle(graph), nil
+	}
+	return export.WriteAPIJSON(graph)
+}
+
 // Convert reads data in the from format and writes it in the to format. name is
 // used in diagnostics and needs no relation to a file on disk.
 //

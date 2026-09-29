@@ -86,7 +86,7 @@ var libraryDone = ast.QualifiedNameOf("Actions", "Action", "done")
 // the global scope, or its name when no library is loaded.
 func (e *encoder) libraryReference(name *ast.QualifiedName) rdf.Term {
 	if decl, fqn, ok := e.linked(e.res.ResolveQualified(nil, name)); ok {
-		return e.ids.subjectForNode(decl, fqn)
+		return e.idsFor(decl).subjectForNode(decl, fqn)
 	}
 	return rdf.String(qualifiedText(name))
 }
@@ -107,7 +107,7 @@ func (e *encoder) encodeBehavior(node ast.Node, head func(rdf.Term), subject rdf
 		if n.Name() != "" {
 			start := rdf.Term(rdf.String(n.Name()))
 			if decl, fqn, ok := e.linked(e.res.InitialSymbol(n)); ok {
-				start = e.ids.subjectForNode(decl, fqn)
+				start = e.idsFor(decl).subjectForNode(decl, fqn)
 			}
 			if qualifiedText(n.Successor) != "" {
 				e.graph.Add(subject, e.sysml(pSourceFeature), start)
@@ -224,7 +224,7 @@ func (e *encoder) encodeBehavior(node ast.Node, head func(rdf.Term), subject rdf
 				target.target = n.Target
 			} else if n.TargetMember != nil {
 				if fqn, ok := e.fqn[n.TargetMember]; ok {
-					target.targetTerm = e.ids.subjectForNode(n.TargetMember, fqn)
+					target.targetTerm = e.idsFor(n.TargetMember).subjectForNode(n.TargetMember, fqn)
 				}
 			}
 			if err := e.connectorEnd(subject, target); err != nil {
@@ -453,7 +453,7 @@ func (e *encoder) transitionMemberLinks(n *ast.TransitionMember, subject rdf.Ter
 				Note: "it owns a member the graph gives no identity, so its effect cannot be told from its body",
 			}
 		}
-		e.graph.Add(subject, e.sysx(property), e.ids.subjectForNode(node, memberFQN))
+		e.graph.Add(subject, e.sysx(property), e.idsFor(node).subjectForNode(node, memberFQN))
 	}
 	return nil
 }
@@ -514,14 +514,14 @@ func (e *encoder) edgeEnds(subject rdf.Term, node ast.Node, owner string, src, t
 					Note: fmt.Sprintf("it neither names nor reaches the member it %s, so the order it declares cannot be written back", end.sequence),
 				}
 			}
-			e.graph.Add(subject, e.sysx(end.member), e.ids.subjectForNode(end.end.member, fqn))
+			e.graph.Add(subject, e.sysx(end.member), e.idsFor(end.end.member).subjectForNode(end.end.member, fqn))
 			continue
 		}
 		// A name the parser took from an unnamed member is its naming feature's,
 		// which another member may share: the end is that member itself.
 		if end.end.implied && answersToFeature(end.end.stands) {
 			if fqn, ok := e.fqn[end.end.stands]; ok {
-				e.graph.Add(subject, e.sysml(end.feature), e.ids.subjectForNode(end.end.stands, fqn))
+				e.graph.Add(subject, e.sysml(end.feature), e.idsFor(end.end.stands).subjectForNode(end.end.stands, fqn))
 				continue
 			}
 		}
@@ -531,7 +531,7 @@ func (e *encoder) edgeEnds(subject rdf.Term, node ast.Node, owner string, src, t
 		// still binds that member: the graph states it by position as well.
 		if before, ok := e.preceding[node]; ok && end.end.implied && term.IsLiteral() {
 			if fqn, ok := e.fqn[before]; ok {
-				e.graph.Add(subject, e.sysx(end.member), e.ids.subjectForNode(before, fqn))
+				e.graph.Add(subject, e.sysx(end.member), e.idsFor(before).subjectForNode(before, fqn))
 			}
 		}
 	}

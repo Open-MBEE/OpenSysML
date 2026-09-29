@@ -132,6 +132,50 @@ func TestConvertFlagOrder(t *testing.T) {
 	}
 }
 
+// A model written over several notation files converts to one graph when the
+// target is a graph format: the documents resolve against each other, so a
+// reference into another document links to the element it declares.
+func TestConvertSeveralDocumentsToOneGraph(t *testing.T) {
+	binary := buildCLI(t)
+	dir := t.TempDir()
+	lib := filepath.Join(dir, "lib.sysml")
+	app := filepath.Join(dir, "app.sysml")
+	if err := os.WriteFile(lib, []byte("package Lib {\n\titem def Engine;\n}\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(app, []byte("package App {\n\timport Lib::*;\n\tpart e : Engine;\n}\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	out := run(t, binary, lib, app, "-convert", "api-json")
+	// The experimental notice precedes the document on the combined output.
+	document := out[strings.IndexByte(out, '['):]
+	var elements []map[string]any
+	if err := json.Unmarshal([]byte(document), &elements); err != nil {
+		t.Fatalf("the api-json output does not parse: %v\n%s", err, out)
+	}
+	var roots, engineLink int
+	for _, el := range elements {
+		if el["@type"] == "Namespace" {
+			roots++
+		}
+		if el["@type"] == "FeatureTyping" {
+			if target, ok := el["type"].(map[string]any); ok && target["@id"] == "Lib__Engine" {
+				engineLink++
+			}
+		}
+	}
+	if roots != 2 {
+		t.Errorf("expected one root Namespace per document, got %d", roots)
+	}
+	if engineLink == 0 {
+		t.Errorf("App::e's FeatureTyping does not link to Lib::Engine:\n%s", out)
+	}
+	if !strings.Contains(out, "sourceDocument") {
+		t.Errorf("the documents' elements carry no sourceDocument:\n%s", out)
+	}
+}
+
 func TestConvertExplicitFormats(t *testing.T) {
 	binary := buildCLI(t)
 	dir := t.TempDir()
@@ -188,16 +232,18 @@ func TestConvertErrors(t *testing.T) {
 		args []string
 		want string
 	}{
-		"missing input":     {[]string{filepath.Join(dir, "absent.sysml"), "-convert", "ttl"}, "absent.sysml"},
-		"no input":          {[]string{"-convert", "ttl"}, "no model to convert"},
-		"unknown extension": {[]string{unknownExt, "-convert", "ttl"}, "cannot tell the format"},
-		"unknown format":    {[]string{model, "-convert", "xml"}, "unknown format"},
-		"file as format":    {[]string{"-convert", model}, "-convert names the format"},
-		"extra argument":    {[]string{model, filepath.Join(dir, "other.sysml"), "-convert", "ttl"}, "unexpected extra argument"},
-		"replaced -to flag": {[]string{model, "-convert", "ttl", "-to", "sysml"}, "-to has been replaced by -convert"},
-		"forgotten value":   {[]string{model, "-convert", "ttl", "-o"}, "flag needs an argument: -o"},
-		"syntax error":      {[]string{broken, "-convert", "ttl"}, "syntax error"},
-		"unsupported rdf":   {[]string{badTurtle, "-convert", "sysml"}, "blank node"},
+		"missing input":       {[]string{filepath.Join(dir, "absent.sysml"), "-convert", "ttl"}, "absent.sysml"},
+		"no input":            {[]string{"-convert", "ttl"}, "no model to convert"},
+		"unknown extension":   {[]string{unknownExt, "-convert", "ttl"}, "cannot tell the format"},
+		"unknown format":      {[]string{model, "-convert", "xml"}, "unknown format"},
+		"file as format":      {[]string{"-convert", model}, "-convert names the format"},
+		"several to notation": {[]string{model, filepath.Join(dir, "other.sysml"), "-convert", "sysml"}, "several files into one graph"},
+		"several with stdin":  {[]string{model, "-", "-convert", "ttl"}, "standard input cannot be one of them"},
+		"several from xmi":    {[]string{model, filepath.Join(dir, "other.sysml"), "-convert", "ttl", "-from", "xmi"}, "-from xmi does not apply"},
+		"replaced -to flag":   {[]string{model, "-convert", "ttl", "-to", "sysml"}, "-to has been replaced by -convert"},
+		"forgotten value":     {[]string{model, "-convert", "ttl", "-o"}, "flag needs an argument: -o"},
+		"syntax error":        {[]string{broken, "-convert", "ttl"}, "syntax error"},
+		"unsupported rdf":     {[]string{badTurtle, "-convert", "sysml"}, "blank node"},
 	}
 	for name, tc := range cases {
 		t.Run(name, func(t *testing.T) {

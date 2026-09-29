@@ -17,11 +17,11 @@ func (s *Service) Convert(ctx context.Context, req *pb.ConvertRequest) (*pb.Conv
 	if err := s.requireCapability(CapabilityConvert); err != nil {
 		return nil, err
 	}
-	name, data, err := s.convertSource(req)
+	sources, err := s.convertSources(req)
 	if err != nil {
 		return nil, err
 	}
-	from, err := convertFrom(req, name)
+	from, err := convertFrom(req, sources[0].Name)
 	if err != nil {
 		return nil, err
 	}
@@ -35,6 +35,17 @@ func (s *Service) Convert(ctx context.Context, req *pb.ConvertRequest) (*pb.Conv
 	if !to.Writable() {
 		return nil, statusError(connect.CodeInvalidArgument, (&convert.NotWritableError{Format: to}).Error())
 	}
+	if len(sources) > 1 {
+		if to != convert.FormatTurtle && to != convert.FormatAPIJSON {
+			return nil, statusErrorf(connect.CodeFailedPrecondition,
+				"this operation is defined on one document, and the model has %d: "+
+					"name the document to operate on by parsing it on its own", len(sources))
+		}
+		if from != convert.FormatSysML {
+			return nil, statusErrorf(connect.CodeFailedPrecondition,
+				"a cached model's documents are notation; -from %s does not apply to converting several documents", from)
+		}
+	}
 
 	resp := &pb.ConvertResponse{FromFormat: from.String(), ToFormat: to.String()}
 	// Marked on the response rather than left to the client to infer, so a caller
@@ -43,7 +54,13 @@ func (s *Service) Convert(ctx context.Context, req *pb.ConvertRequest) (*pb.Conv
 		resp.Experimental = true
 		resp.ExperimentalNotice = convert.Notice(from, to)
 	}
-	out, syntax, err := convertModel(name, data, from, to, req.TolerateSyntaxErrors)
+	var out []byte
+	var syntax *convert.SyntaxError
+	if len(sources) > 1 {
+		out, err = convert.ConvertDocuments(sources, to, convert.Options{})
+	} else {
+		out, syntax, err = convertModel(sources[0].Name, sources[0].Data, from, to, req.TolerateSyntaxErrors)
+	}
 	if err != nil {
 		resp.Error = err.Error()
 		var broken *convert.SyntaxError
@@ -67,37 +84,37 @@ func convertModel(name string, data []byte, from, to convert.Format, tolerant bo
 	return out, nil, err
 }
 
-// convertSource reads the model the request names, and the name to report it by.
-// A model_hash converts the source that parse read rather than the file as it
-// stands now, so a model is written back out as the client inspected it.
-func (s *Service) convertSource(req *pb.ConvertRequest) (string, []byte, error) {
+// convertSources reads the documents of the model the request names, and the
+// name each is reported by. A model_hash converts the sources that parse read
+// rather than the files as they stand now, so a model is written back out as
+// the client inspected it — every one of its documents: the caller refuses the
+// shapes a multi-document conversion cannot take.
+func (s *Service) convertSources(req *pb.ConvertRequest) ([]convert.Source, error) {
 	switch src := req.Source.(type) {
 	case *pb.ConvertRequest_Content:
-		return "<content>", []byte(src.Content), nil
+		return []convert.Source{{Name: "<content>", Data: []byte(src.Content)}}, nil
 	case *pb.ConvertRequest_ModelHash:
 		cached, ok := s.cache.Get(src.ModelHash)
 		if !ok {
-			return "", nil, statusErrorf(connect.CodeNotFound,
+			return nil, statusErrorf(connect.CodeNotFound,
 				"model %s is no longer cached: parse it again, or convert its file_path or content",
 				src.ModelHash)
 		}
-		// Conversion writes one document out, so a model of several is refused
-		// rather than converted from one of them.
-		doc, err := cached.SoleDocument()
-		if err != nil {
-			return "", nil, err
+		sources := make([]convert.Source, 0, len(cached.Documents))
+		for _, doc := range cached.Documents {
+			sources = append(sources, convert.Source{Name: doc.Source.Name(), Data: doc.Source.Bytes()})
 		}
-		return doc.Source.Name(), doc.Source.Bytes(), nil
+		return sources, nil
 	case *pb.ConvertRequest_FilePath:
 		// #nosec G304 -- reading the model file the client names is the point,
 		// and the service runs with the caller's own privileges.
 		data, err := os.ReadFile(src.FilePath)
 		if err != nil {
-			return "", nil, statusErrorf(connect.CodeNotFound, "file not found: %v", err)
+			return nil, statusErrorf(connect.CodeNotFound, "file not found: %v", err)
 		}
-		return src.FilePath, data, nil
+		return []convert.Source{{Name: src.FilePath, Data: data}}, nil
 	default:
-		return "", nil, statusError(connect.CodeInvalidArgument, "source must be model_hash, file_path or content")
+		return nil, statusError(connect.CodeInvalidArgument, "source must be model_hash, file_path or content")
 	}
 }
 

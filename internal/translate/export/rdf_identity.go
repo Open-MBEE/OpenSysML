@@ -58,32 +58,54 @@ type identityFacts struct {
 	localOf map[string]string
 }
 
+// modelDocument is one parsed document of a model: its source, its tree, and
+// the bundled library document it stands in for, if the caller already knows.
+type modelDocument struct {
+	file    *source.SourceFile
+	root    *ast.RootNamespace
+	library string
+}
+
 // analyzeDocument indexes one parsed document over the standard library and resolves every
 // name it writes; a library file, or a copy in its language rooted at its packages, takes the bundled one's place.
 func analyzeDocument(file *source.SourceFile, root *ast.RootNamespace, library string) (*resolve.Resolver, *semantics.Model) {
-	name := file.Name()
+	return analyzeModel([]modelDocument{{file: file, root: root, library: library}})
+}
+
+// analyzeModel indexes every document of a model over the standard library,
+// then resolves each against them all, so a name one document writes may
+// declare in another. Each document's own library handling is as
+// analyzeDocument's: a library file, or a copy in its language rooted at its
+// packages, takes the bundled one's place.
+func analyzeModel(docs []modelDocument) (*resolve.Resolver, *semantics.Model) {
 	idx := libs.NewModelIndex()
-	digest := symbols.TextDigest(file.Bytes())
-	if library == "" {
-		if doc, _, ok := idx.LibraryDocumentByDigest(digest); ok && idx.DocumentKind(doc) == file.Kind() {
-			library = doc
+	for _, doc := range docs {
+		file, root, library := doc.file, doc.root, doc.library
+		name := file.Name()
+		digest := symbols.TextDigest(file.Bytes())
+		if library == "" {
+			if bundled, _, ok := idx.LibraryDocumentByDigest(digest); ok && idx.DocumentKind(bundled) == file.Kind() {
+				library = bundled
+			}
 		}
-	}
-	if library == "" {
-		library = documentLibrary(file, root)
-	}
-	tier := idx.DocumentLibraryTier(library)
-	if tier.Library() {
-		idx.RemoveDocument(library)
-	}
-	idx.AddDocumentWithKind(name, root, file.Kind())
-	if tier.Library() {
-		idx.MarkLibraryDocument(name, symbols.LibraryDocument{Tier: tier, Digest: digest})
+		if library == "" {
+			library = documentLibrary(file, root)
+		}
+		tier := idx.DocumentLibraryTier(library)
+		if tier.Library() {
+			idx.RemoveDocument(library)
+		}
+		idx.AddDocumentWithKind(name, root, file.Kind())
+		if tier.Library() {
+			idx.MarkLibraryDocument(name, symbols.LibraryDocument{Tier: tier, Digest: digest})
+		}
 	}
 	res := resolve.New(idx)
 	model := semantics.NewModel(res)
 	res.SetModel(model)
-	res.ResolveDocument(name, root)
+	for _, doc := range docs {
+		res.ResolveDocument(doc.file.Name(), doc.root)
+	}
 	return res, model
 }
 
