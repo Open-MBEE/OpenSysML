@@ -148,13 +148,13 @@ func TestStateBehaviorsTakeTheSignalTheirTransitionsAccept(t *testing.T) {
 		"action keep {",
 		"first keep then count;",
 		"state Heating {",
-		"in target : ScalarValues::Real = setPoint.level;",
-		"in keep : ScalarValues::Boolean = setPoint.hold;",
+		"in target : ScalarValues::Real[1] = setPoint.level;",
+		"in keep : ScalarValues::Boolean[1] = setPoint.hold;",
 		"assign context.last := target;",
 		"do action Run {",
-		"in level : ScalarValues::Real = setPoint.level;",
-		"in hold : ScalarValues::Boolean = setPoint.hold;",
-		"action warm : Warm { in l; in h; in ref :>> context = Ctl::context; }",
+		"in level : ScalarValues::Real[1] = setPoint.level;",
+		"in hold : ScalarValues::Boolean[1] = setPoint.hold;",
+		"action warm : Warm { in l[1]; in h[1]; in ref :>> context = Ctl::context; }",
 		"bind warm.l = level;",
 		"bind warm.h = hold;",
 	} {
@@ -273,8 +273,8 @@ func TestStateBehaviorsTakeInheritedSignalAttributes(t *testing.T) {
 	r := migrateDocument(t, dimmerMachine, dimmerApplications)
 	for _, line := range []string{
 		"item fine : Fine;",
-		"in keep : ScalarValues::Boolean = fine.hold;",
-		"in target : ScalarValues::Real = fine.level;",
+		"in keep : ScalarValues::Boolean[1] = fine.hold;",
+		"in target : ScalarValues::Real[1] = fine.level;",
 		"assign context.last := target;",
 	} {
 		wantLine(t, r.Notation, line)
@@ -349,7 +349,7 @@ func TestReferencedStateBehaviorsTakeTheSignalTheirTransitionsAccept(t *testing.
 	for _, line := range []string{
 		"item warning : Warning;",
 		"state Ready {",
-		"entry action : Handle { in level = warning.level; in ref :>> context = Watch::context; }",
+		"entry action : Handle { in level[1] = warning.level; in ref :>> context = Watch::context; }",
 		"exhibit state watch : Watch { in ref :>> context = this; }",
 		"/* do action Monitor::Handle is not run: its parameter level must hold a value that nothing supplies: a state performs its do action with no arguments; the signal the transitions into the state accept would value them, but the transition from the initial pseudostate (_minit) enters the state with no signal of its own */",
 	} {
@@ -437,8 +437,8 @@ const gaugeApplications = `
 // reads the accepted signal's attribute and writes its value back.
 func TestReferencedStateBehaviorsKeepTheParameterDirection(t *testing.T) {
 	r := migrateDocument(t, gaugeMachine, gaugeApplications)
-	wantLine(t, r.Notation, "entry action : Adjust { inout value = level.value; in ref :>> context = Track::context; }")
-	wantNoLine(t, r.Notation, "{ in value = level.value; }")
+	wantLine(t, r.Notation, "entry action : Adjust { inout value[1] = level.value; in ref :>> context = Track::context; }")
+	wantNoLine(t, r.Notation, "{ in value[1] = level.value; }")
 	if diags := errors(t, "t.sysml", r.Notation); len(diags) > 0 {
 		t.Errorf("%v", diags)
 	}

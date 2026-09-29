@@ -5,7 +5,7 @@ analysis def 'DocGen Analysis Monte Carlo' :> Simulation::MonteCarlo {
     subject analysed : 'DocGen Analysis';
     /* one run performs no behavior: neither DocGen Analysis nor any general of it has a classifier behavior */
     attribute :>> observed : ScalarValues::Real = analysed.t;
-    return Mean : ScalarValues::Real = mean;
+    return Mean : ScalarValues::Real[1] = mean;
 }
 package ResultsA {
     individual part def 'analysis of 6 runs' :> 'DocGen Analysis' {

@@ -564,9 +564,7 @@ func (r *Resolver) resolveMetadataPrefix(names, parent *symbols.Scope, prefix *a
 	}
 	// Body values resolve against the metadata definition, not the annotated element.
 	linkMetadataBody(body, owner)
-	if owner != nil {
-		r.resolveMetadataBody(body, prefix.Body)
-	}
+	r.resolveMetadataBody(body, prefix.Body)
 }
 
 // metadataBodyOwner is the metadata definition the body of prefix resolves against,

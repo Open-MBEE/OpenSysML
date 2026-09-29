@@ -44,7 +44,7 @@ func TestTypeModifierPointersBecomeReferences(t *testing.T) {
 	wantLine(t, r.Notation, "attribute level : ScalarValues::Real {")
 	wantLine(t, r.Notation, "/* applied stereotype «typeModifier»: typeModifier = * */")
 	wantNote(t, r, "_level", migrate.Approximated, "«typeModifier» * is kept as a comment: the type modifier * has no v2 form: only a part or item is held by reference, not an attribute")
-	wantLine(t, r.Notation, "in handle : ScalarValues::Real {")
+	wantLine(t, r.Notation, "in handle : ScalarValues::Real[1] {")
 	wantNote(t, r, "_par_handle", migrate.Approximated, "«typeModifier» * is kept as a comment: the type modifier * has no v2 form: a parameter is not held by reference")
 }
 

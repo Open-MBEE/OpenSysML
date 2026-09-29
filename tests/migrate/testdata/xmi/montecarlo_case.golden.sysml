@@ -32,9 +32,9 @@ analysis def 'Settling Analysis Monte Carlo' :> Simulation::MonteCarlo {
     subject analysed : 'Settling Analysis';
     perform action run ::> analysed.settle;
     attribute :>> observed : ScalarValues::Real = analysed.settleTime;
-    return Mean : ScalarValues::Real = mean;
+    return Mean : ScalarValues::Real[1] = mean;
     out Deviation : ScalarValues::Real[0..1] = deviation;
-    out OutOfSpec : ScalarValues::Integer = outOfSpec;
+    out OutOfSpec : ScalarValues::Integer[1] = outOfSpec;
 }
 individual part def 'settling analysis' :> 'Settling Analysis';
 part def 'Retried Settling' :> 'Settling Analysis' {
@@ -44,9 +44,9 @@ analysis def 'Retried Settling Monte Carlo' :> Simulation::MonteCarlo {
     subject analysed : 'Retried Settling';
     perform action run ::> analysed.settle;
     attribute :>> observed : ScalarValues::Real = analysed.settleTime;
-    return Mean : ScalarValues::Real = mean;
-    out N : ScalarValues::Integer = runs;
-    out OutOfSpec : ScalarValues::Integer = outOfSpec;
+    return Mean : ScalarValues::Real[1] = mean;
+    out N : ScalarValues::Integer[1] = runs;
+    out OutOfSpec : ScalarValues::Integer[1] = outOfSpec;
     out Deviation : ScalarValues::Real[0..1] = deviation;
 }
 individual part def 'retried settling' :> 'Retried Settling';

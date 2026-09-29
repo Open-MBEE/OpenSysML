@@ -1,0 +1,102 @@
+# Diagnostics: lints
+
+A *lint* is a warning about a model the specification accepts: nothing in SysML v2 or KerML
+makes the written model wrong, but it is almost always a slip. Each lint has a stable code,
+carried as the diagnostic's `code` under `-json`, in the editor and over the wire, and each
+can be switched off by that code. A lint is a warning in every mode:
+[`-strict`](../guide/03-command-line.md#strict-conformance) promotes notation no SysML v2
+production admits, and a lint is not about notation, so it stays a warning and never changes
+the exit status or blocks a check.
+
+| Code | Reported on | Tier |
+|------|-------------|------|
+| `undeclared-signal` | a transition's `when <name>` whose name matches no declaration visible where it is written and no signal the model sends | name resolution |
+| `port-type-mismatch` | a `connect`, an interface usage or a `flow` joining two ports whose definitions are unrelated | constraint |
+
+## Switching a lint off
+
+| Surface | Setting |
+|---------|---------|
+| CLI | `-disable-lint <code>[,<code>…]`, repeatable; an unknown code is a usage error (exit 2) |
+| REPL | `%lint` lists every lint, on or off; `%lint <code> on\|off` switches one and reprints the session's diagnostics |
+| Language server | `disabledLints`, a list of codes, in `initializationOptions` or `workspace/didChangeConfiguration` ([LSP extensions](lsp.md#disabled-lints-setting)) |
+| Go | `model.WithDisabledLints(codes...)` when the workspace is made, or `(*model.Workspace).SetDisabledLints(codes)` |
+
+A disabled lint is left out of what the workspace reports, not out of the analysis, so
+switching it back on needs no re-analysis. The gRPC service and the clients report both lints
+with their codes; a client that does not want one drops the diagnostics carrying its code.
+
+## `undeclared-signal`
+
+OpenSysML accepts a signal trigger written without `accept` — `transition first a when Ping
+then b;`. The spelling is not standard: the pinned pilot grammar admits `when` only as a
+change trigger over a Boolean expression inside an `accept` (`SysML.xtext:1483-1485`,
+`ChangeTriggerKind`) ([conformance audit](grammar/conformance-audit.md)). The name such a
+trigger carries names an event, not a model element: it is left unresolved, and at run time it
+matches a signal injected or sent by that name. A misspelled name therefore matches nothing
+and the transition never fires, silently.
+
+The lint reports the name when all of the following hold:
+
+- no declaration of that name is visible where the trigger is written, by the ordinary
+  scoping rules (KerML §7.2.5, §8.2.3.5);
+- no `send` anywhere in the workspace sends a signal by that name, the name the runtime
+  gives its message and compares the trigger's final segment with: the definition a
+  payload names or constructs (`send Ping to self;`, `send new Ping() to self;`), through
+  any alias to the definition it reaches, and the type of a payload feature's value
+  (`send reading to self;` with `attribute reading : Real = 1.0;` sends `Real`, not
+  `reading`). A written message is the one sent; the body's `payload` parameter is read
+  only where the send writes none. A name that resolves to nothing counts as written.
+  A send invoking a calculation (`send Ping() to self;` with `calc def Ping`) sends the
+  calculation's value, as the runtime does, so it counts the result's type, not `Ping`.
+  A literal payload counts its scalar type, as the runtime names it: `send "go" to self;`
+  sends `String`, and integer, real and boolean literals send `Integer`, `Real` and `Boolean`.
+  A computed payload counts the scalar type its value is known to have (`send 1 + 2 to self;`
+  sends `Integer`, `send "a" + "b" to self;` `String`, `send not ready to self;` `Boolean`);
+  a number whose kind is not known statically (`send r * 2.0 to self;`) counts both
+  `Integer` and `Real`, the two names the runtime gives a number it sends.
+  A document held as its interface record counts too: the record keeps the names its body
+  sends.
+
+The finding offers the resolver's nearest names in scope as `did you mean …?`:
+
+```text
+m.sysml:3:73: warning: `when Pnig` names no declaration visible here and no signal the model sends, so only a signal injected by that name triggers it — did you mean Ping?
+```
+
+A signal the model only ever receives from outside (`%send` at the prompt, an injected
+event over the wire) is reported, since nothing in the model says it exists; declare it
+(`attribute def Ping;`) to say so, or switch the lint off. The trigger's resolution and
+behavior are unchanged either way.
+
+## `port-type-mismatch`
+
+Two ports a connector joins are compatible (SysML v2 §7.12.2, §7.12.3) when one of these
+holds:
+
+- one's definition specializes the other's, or both specialize a common definition of the
+  model (a library definition such as `Ports::Port`, which every port specializes, does not
+  count);
+- one port's directed features each have a feature of the other with the same name, the
+  conjugate direction (`in` against `out`; `inout` against `inout`) and a conforming type —
+  a conjugated port (`port p : ~P`) reverses its definition's directions first;
+- the connector is typed by an interface definition with two ends, both typed by a port
+  definition, directly or through a model end it redefines: that interface decides what the
+  ends pair, and its own ends are judged by `port-conjugation`. An interface leaving an end
+  untyped decides nothing, and nothing judges a connection definition's or a many-ended
+  interface's ends, so their usages' concrete ends are judged.
+
+A port connected is typed by its own declaration, or else by the nearest model port it
+redefines (`port :>> p;` keeps the type and conjugation of the `p` it redefines).
+
+Otherwise the lint reports the connector at its first end:
+
+```text
+m.sysml:9:13: warning: this connection connects port power : PowerOut to port fuel : FuelIn, whose definitions are unrelated and whose directed features are not conjugate; type one end by the conjugate port (~PowerOut) or by a common definition
+```
+
+It covers `connect a.p to b.q;` (and `connection … connect`), interface usages
+(`interface connect a.p to b.q;`) and `flow` between two ports, whose syntax is
+`ConnectionUsage`, `InterfaceUsage` and `FlowUsage` (`SysML.xtext:1062`, `:1153`, `:1269`).
+An end that is not a port, or whose port type does not resolve, is not judged. The
+specification states no constraint of this kind, so it is a lint rather than an error.

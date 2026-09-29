@@ -606,7 +606,7 @@ func TestSignalIsAnItemDef(t *testing.T) {
   <sysml:FlowProperty xmi:id="_s3" base_Property="_fp" direction="in"/>
   <sysml:FlowPort xmi:id="_s4" base_Port="_port" direction="in"/>`)
 	wantLine(t, r.Notation, "item def Start {")
-	wantLine(t, r.Notation, "in item start : Start;")
+	wantLine(t, r.Notation, "in item start : Start[1];")
 	wantLine(t, r.Notation, "item pending : Start;")
 	wantLine(t, r.Notation, "ref item last : Start;")
 	wantLine(t, r.Notation, "in item cmd : Start;")

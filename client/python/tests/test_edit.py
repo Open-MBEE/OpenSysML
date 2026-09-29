@@ -1884,6 +1884,40 @@ class TestEditRoundTripAgainstRealService:
             assert vehicle is not None
             assert any(part.name == "engine" for part in vehicle.parts())
 
+    def test_add_member_positional_order_matches_documented_signature(self, real_service):
+        source = """package P {
+    private import ScalarValues::*;
+    metadata def Safety;
+    attribute x : Real = 1.0;
+}
+"""
+        with Connection(port=real_service, auto_start=False) as conn:
+            model = conn.load_from_content(source)
+            result = (
+                model.edit()
+                .add_member(
+                    "P", "part def", "H", None, None, None, None,
+                    False, None, False, None, ["Safety"],
+                )
+                .add_member(
+                    "P", "constraint", "documented", None, None, None, None,
+                    False, None, False, None, None, "x > 0", "Checks x.",
+                )
+                .add_member("P", "constraint", "keyword", expression="x > 0")
+                .apply()
+            )
+            edited = str(result)
+            assert "#Safety part def H;" in edited
+            assert "constraint keyword { x > 0 }" in edited
+            assert (
+                "constraint documented {\n"
+                "        doc /* Checks x.*/\n"
+                "        x > 0\n"
+                "    }"
+            ) in edited
+            again = conn.load_from_content(edited)
+            assert again.ok, [str(d) for d in again.errors]
+
     def test_constraint_assert_exhibit_and_state_action_forms(self, real_service):
         source = """package P {
     private import ScalarValues::*;

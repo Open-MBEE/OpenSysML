@@ -1,31 +1,31 @@
 part def Tank {
     attribute level : ScalarValues::Real default = 1.5;
     calc def Rate {
-        in ref context : Tank;
-        in factor : ScalarValues::Real;
-        out result : ScalarValues::Real;
+        in ref context : Tank[1];
+        in factor : ScalarValues::Real[1];
+        out result : ScalarValues::Real[1];
         context.level * factor
     }
 }
 part def Plant {
     part tank : Tank;
     action def Run {
-        out result : ScalarValues::Real;
-        in ref context : Plant;
+        out result : ScalarValues::Real[1];
+        in ref context : Plant[1];
         first start then 'fork';
         fork 'fork';
         first 'fork' then 'join';
         first 'fork' then two;
         action two {
-            out result = 2.0;
+            out result[1] = 2.0;
         }
         first two then 'join';
         join 'join';
         first 'join' then rate;
         action rate {
-            in factor;
-            out result;
-            out result = Tank::Rate(Run::context.tank, factor);
+            in factor[1];
+            out result[1];
+            out result[1] = Tank::Rate(Run::context.tank, factor);
         }
         first rate then final;
         action final terminate;

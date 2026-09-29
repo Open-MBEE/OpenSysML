@@ -174,6 +174,7 @@ func TestRuntimeRobustness(t *testing.T) {
 	t.Run("region_entry_guards_read_the_region_state_attributes", testRegionEntryGuardsReadTheRegionStateAttributes)
 	t.Run("leaving_regions_descends_through_entry_transitions", testLeavingRegionsDescendsThroughEntryTransitions)
 	t.Run("calc_unbound_parameter", testCalcUnboundParameter)
+	t.Run("calc_this_default_required_parameter_unbound", testCalcThisDefaultRequiredParameterUnbound)
 	t.Run("calc_calls_an_unimported_extension_function", testCalcCallsAnUnimportedExtensionFunction)
 	t.Run("calc_calls_an_unimported_library_function", testCalcCallsAnUnimportedLibraryFunction)
 	t.Run("calc_unbound_keyword_named_parameter", testCalcUnboundKeywordNamedParameter)
@@ -8462,6 +8463,27 @@ func testCalcUnboundParameter(t *testing.T) {
 	}
 }
 
+// testCalcThisDefaultRequiredParameterUnbound: a parameter's default evaluating
+// `this` materializes the occurrence before the later parameter binds, and the
+// required [1] input an argument never bound still fails the invocation as
+// unbound, whatever shape the occurrence already holds.
+func testCalcThisDefaultRequiredParameterUnbound(t *testing.T) {
+	src := `package test {
+		calc def Pair {
+			in self = this;
+			in b : Integer[1];
+			return : Integer = b->size();
+		}
+	}`
+	err := invokeCalcExpecting(t, src, "test::Pair()")
+	if !errors.Is(err, ErrUnboundParameter) {
+		t.Fatalf("error = %v, want ErrUnboundParameter for the required b", err)
+	}
+	if !strings.Contains(err.Error(), `"b"`) {
+		t.Errorf("error = %v, want it naming the parameter b", err)
+	}
+}
+
 // testCalcCallsAnUnimportedExtensionFunction: `exp(x)` with no import of the
 // OpenSysML extension library is reported unresolved by name resolution, so the
 // call fails with a typed error naming the declaration whose package an import
@@ -8490,7 +8512,7 @@ func testCalcCallsAnUnimportedExtensionFunction(t *testing.T) {
 	if !errors.Is(err, ErrUnresolvedReference) {
 		t.Fatalf("expected ErrUnresolvedReference, got: %v", err)
 	}
-	if want := ": unresolved reference: exp — did you mean OpenSysMLMathFunctions::exp?"; !strings.HasSuffix(err.Error(), want) {
+	if want := ": unresolved reference: exp — did you mean OpenSysMLMathFunctions::exp? To use the bare name, import its package: private import OpenSysMLMathFunctions::*;"; !strings.HasSuffix(err.Error(), want) {
 		t.Errorf("error %q does not end in %q", err, want)
 	}
 }

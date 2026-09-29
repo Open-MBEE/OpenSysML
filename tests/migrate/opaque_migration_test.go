@@ -75,7 +75,7 @@ func TestSwimlaneBodiesAndGuardsRunAgainstTheRepresentedPart(t *testing.T) {
 		"first merge3 then stamp12;",
 		"assign Time_Drop := localClock.currentTime - 'Time_Drop start';",
 		"first stamp12 then done;",
-		"in Retries : ScalarValues::Integer = 2;",
+		"in Retries : ScalarValues::Integer[1] = 2;",
 		"assign tcs.GS_Found := Retries < 1;",
 	} {
 		wantLine(t, r.Notation, line)
@@ -370,13 +370,13 @@ func TestTranslatedOutputPinsFeedTheirFlows(t *testing.T) {
 	wantNote(t, r, "_judgen", migrate.Mapped, "")
 	wantNote(t, r, "_judgem", migrate.Mapped, "")
 	for _, line := range []string{
-		"in ok : ScalarValues::Boolean;",
-		"in n : ScalarValues::Integer = RealFunctions::floor(total);",
-		"in m : ScalarValues::Integer = 2;",
+		"in ok : ScalarValues::Boolean[1];",
+		"in n : ScalarValues::Integer[1] = RealFunctions::floor(total);",
+		"in m : ScalarValues::Integer[1] = 2;",
 	} {
 		wantLine(t, r.Notation, line)
 	}
-	wantNoLine(t, r.Notation, "in ok : ScalarValues::Boolean = RealFunctions::sqrt(this.total);")
+	wantNoLine(t, r.Notation, "in ok : ScalarValues::Boolean[1] = RealFunctions::sqrt(this.total);")
 	wantNote(t, r, "_sense", migrate.Mapped, "the JavaScript body is translated to v2")
 	wantNote(t, r, "_o1", migrate.Mapped, "")
 	wantNote(t, r, "_split", migrate.Mapped, "the Java body is translated to v2")
@@ -433,7 +433,7 @@ func TestNonScalarFeaturesAndScriptLiterals(t *testing.T) {
 		"/* default value not migrated: {JavaScript} -total ** 2 — the construct \"-total **\" is outside the translated subset: JavaScript parenthesizes a unary operand of `**` */",
 		`/* default value not migrated: {JavaScript} ready or enabled — the text "or" is not expression syntax: text follows the expression */`,
 		`/* default value not migrated: {JavaScript} Math.sqrt(total) — the types at "Math.sqrt(total)" disagree: the expression is a Real, not the Boolean wanted */`,
-		"in limit : ScalarValues::Integer default = count + 1;",
+		"in limit : ScalarValues::Integer[1] default = count + 1;",
 		"/* guard not migrated: [{JavaScript} ready and enabled] — the text \"and\" is not expression syntax: text follows the expression */",
 		"/* body not migrated (the text \"and\" is not expression syntax: a statement ends at `;` or a newline) {JavaScript}:",
 		"assign flag := ready and enabled;",
@@ -441,7 +441,7 @@ func TestNonScalarFeaturesAndScriptLiterals(t *testing.T) {
 		wantLine(t, r.Notation, line)
 	}
 	wantNoLine(t, r.Notation, "attribute lit : ScalarValues::Boolean default = ready or enabled;")
-	wantNoLine(t, r.Notation, "in armed : ScalarValues::Boolean default = RealFunctions::sqrt(this.total);")
+	wantNoLine(t, r.Notation, "in armed : ScalarValues::Boolean[1] default = RealFunctions::sqrt(this.total);")
 	wantNoLine(t, r.Notation, "if ready and enabled")
 	wantNoLine(t, r.Notation, "assign this.flag := ready and enabled;")
 	wantNoLine(t, r.Notation, "default = total(count);")

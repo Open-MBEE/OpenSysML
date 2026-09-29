@@ -1555,7 +1555,7 @@ func (a *activity) declarePins(n *sysmlv1.Element, ins, outs []*sysmlv1.Element,
 		}
 		mult, mnote := a.m.multiplicity(pin)
 		note = joinNotes(note, mnote)
-		decl += mult + collection(pin)
+		decl += shaped(mult, pin, dir != "")
 		if v := firstOwned(pin, "value"); v != nil && pin.Type == "ValuePin" {
 			expr, ok, vnote := a.m.typedBehaviorValue(v, pin, n)
 			if ok {
@@ -2004,7 +2004,7 @@ func (a *activity) callBehavior(n *sysmlv1.Element, name string) {
 		for _, r := range results[1:] {
 			a.m.add(r, Unmapped, "", "a calc has one result; the pin takes nothing")
 		}
-		a.m.w.line("out " + writeName(a.names[results[0]]) + " = " + call + ";")
+		a.m.w.line("out " + writeName(a.names[results[0]]) + "[1] = " + call + ";")
 	})
 	a.m.add(n, Approximated, name, joinNotes(cnote, "the calc "+qualifiedName(b)+" is evaluated when the action runs; a calc is no action node"))
 }
@@ -2211,7 +2211,9 @@ func (a *activity) valueAction(n *sysmlv1.Element, name string) {
 		typ, tnote := a.m.typeRef(a.m.model.Ref(r, "type"), a.def)
 		decl := "out " + writeName(pname)
 		if typ != "" {
-			decl += " : " + typ
+			decl += " : " + typ + "[1]"
+		} else {
+			decl += "[1]"
 		}
 		a.m.w.line(decl + " = " + expr + ";")
 		a.m.add(r, verdictFor(tnote), a.m.v2Name(n)+"."+pname, tnote)
@@ -2317,7 +2319,7 @@ func (a *activity) readFeature(n *sysmlv1.Element, name string) {
 			pname = "result"
 		}
 		a.names[r] = pname
-		a.m.w.line("out " + writeName(pname) + " = " + expr + ";")
+		a.m.w.line("out " + writeName(pname) + "[1] = " + expr + ";")
 		a.m.add(r, Mapped, a.m.v2Name(n)+"."+pname, "")
 		a.m.add(n, Mapped, name, "")
 	})

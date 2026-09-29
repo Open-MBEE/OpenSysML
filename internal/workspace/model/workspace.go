@@ -60,6 +60,9 @@ type Workspace struct {
 	// analysis is the options every document of this workspace is analyzed under,
 	// so one session asks one question of all its files.
 	analysis passes.Options
+	// disabledLints holds the codes of the lints this workspace's diagnostics
+	// leave out; they are computed and recorded whatever it holds.
+	disabledLints map[string]bool
 	// libSource yields the text of the library files the index was built from,
 	// nil when the index came without one; libDocs caches them parsed.
 	libSource libs.Source
@@ -96,6 +99,12 @@ type Option func(*Workspace)
 // WithConformanceMode analyzes this workspace's documents at mode.
 func WithConformanceMode(mode diag.ConformanceMode) Option {
 	return func(w *Workspace) { w.analysis.Conformance = mode }
+}
+
+// WithDisabledLints leaves the lints with these codes (see passes.LintCodes)
+// out of this workspace's diagnostics.
+func WithDisabledLints(codes ...string) Option {
+	return func(w *Workspace) { w.disabledLints = lintSet(codes) }
 }
 
 // WithLibrarySource names the source the index's library documents were read
@@ -268,6 +277,40 @@ func (w *Workspace) SetConformanceMode(mode diag.ConformanceMode) error {
 	w.analysis.Conformance = mode
 	w.invalidateAllLocked()
 	return nil
+}
+
+// DisabledLints reports the codes of the lints this workspace leaves out of its
+// diagnostics, sorted.
+func (w *Workspace) DisabledLints() []string {
+	w.mu.RLock()
+	defer w.mu.RUnlock()
+	return slices.Sorted(maps.Keys(w.disabledLints))
+}
+
+// SetDisabledLints replaces the lints this workspace leaves out of its
+// diagnostics with codes; none enables every lint. A code that names no lint is
+// an error, and leaves the setting as it was. Nothing is re-analyzed: a lint is
+// filtered from what analysis found, so a record answers either setting.
+func (w *Workspace) SetDisabledLints(codes []string) error {
+	if err := passes.CheckLintCodes(codes); err != nil {
+		return err
+	}
+	w.mu.Lock()
+	defer w.mu.Unlock()
+	w.disabledLints = lintSet(codes)
+	return nil
+}
+
+// lintSet is codes as a set, nil for none.
+func lintSet(codes []string) map[string]bool {
+	if len(codes) == 0 {
+		return nil
+	}
+	set := make(map[string]bool, len(codes))
+	for _, code := range codes {
+		set[code] = true
+	}
+	return set
 }
 
 // NewIndexWithStdlib returns an index carrying the standard library for a
@@ -528,7 +571,7 @@ func (w *Workspace) Diagnostics(name string) []diag.Diagnostic {
 	if doc == nil {
 		return nil
 	}
-	return w.diagnosticsLocked(name, doc)
+	return passes.WithoutLints(w.diagnosticsLocked(name, doc), w.disabledLints)
 }
 
 // AnalyzedContent returns a document's diagnostics together with the content
@@ -541,7 +584,7 @@ func (w *Workspace) AnalyzedContent(name string) ([]byte, []diag.Diagnostic, boo
 	if doc == nil {
 		return nil, nil, false
 	}
-	return doc.Content, w.diagnosticsLocked(name, doc), true
+	return doc.Content, passes.WithoutLints(w.diagnosticsLocked(name, doc), w.disabledLints), true
 }
 
 // diagnosticsLocked analyzes doc, caching the result. Caller holds the lock.
