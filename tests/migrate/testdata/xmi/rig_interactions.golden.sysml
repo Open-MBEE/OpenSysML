@@ -5,23 +5,23 @@ item def Done;
 part def Motor {
     attribute speed : ScalarValues::Real default = 0.0;
     action spin {
-        in rpm : ScalarValues::Real;
-        in times : ScalarValues::Integer default = 1;
-        out result : ScalarValues::Real;
+        in rpm : ScalarValues::Real[1];
+        in times : ScalarValues::Integer[1] default = 1;
+        out result : ScalarValues::Real[1];
         first start then 'set speed';
         action 'set speed' {
-            in value;
+            in value[1];
             assign speed := value;
         }
         first 'set speed' then 'read speed';
         action 'read speed' {
-            out result = speed;
+            out result[1] = speed;
         }
         bind 'set speed'.value = rpm;
         bind result = 'read speed'.result;
     }
     abstract action def Brake {
-        in force : ScalarValues::Real;
+        in force : ScalarValues::Real[1];
         in hold : ScalarValues::Integer[0..1];
     }
     action brake : Brake;
@@ -45,7 +45,7 @@ part def Rig {
     part drive : Drive;
     attribute mode : ScalarValues::Integer default = 1;
     action spinup {
-        perform action spin ::> drive.motor.spin { in rpm = 30.0; in times = 2; }
+        perform action spin ::> drive.motor.spin { in rpm[1] = 30.0; in times[1] = 2; }
         first start then spin;
         action spun {
             assign ctrl.got := spin.result;
@@ -61,7 +61,7 @@ part def Rig {
             }
             else {
                 action altOp2 {
-                    perform action brake : Motor::Brake ::> drive.motor.brake { in force = 0.5; }
+                    perform action brake : Motor::Brake ::> drive.motor.brake { in force[1] = 0.5; }
                     first start then brake;
                     first brake then done;
                 }
@@ -71,7 +71,7 @@ part def Rig {
         action 'loop' {
             for i in 1..2 {
                 action loopOp1 {
-                    perform action callSpin ::> drive.motor.spin { in rpm = 40.0; }
+                    perform action callSpin ::> drive.motor.spin { in rpm[1] = 40.0; }
                     first start then callSpin;
                     first callSpin then done;
                 }
@@ -110,7 +110,7 @@ part def Rig {
     /* not migrated: Interaction 'Spinup at 12.01' — the interaction has no message: it records 2 state invariant(s) under 2 time constraint(s), a timing trace, which no scenario step performs */
     verification def 'Spinup Test' {
         subject context : Rig;
-        perform action spin ::> context.drive.motor.spin { in rpm = 12.0; }
+        perform action spin ::> context.drive.motor.spin { in rpm[1] = 12.0; }
         first start then spin;
         first spin then done;
     }

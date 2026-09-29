@@ -1,10 +1,10 @@
 item def Ping;
 action def Make {
-    out integer : ScalarValues::Integer;
-    in ref context : Host;
+    out integer : ScalarValues::Integer[1];
+    in ref context : Host[1];
     first start then one;
     action one {
-        out result = 1;
+        out result[1] = 1;
     }
     first one then 'send ping';
     action 'send ping' {
@@ -17,14 +17,14 @@ action def Make {
     metadata MigrationMetadata::SynthesizedName about integer;
 }
 action def Consume {
-    in value : ScalarValues::Integer;
+    in value : ScalarValues::Integer[1];
 }
 part def Host {
     port tx;
     action def Run {
-        in ref context : Host;
+        in ref context : Host[1];
         first start then make;
-        action make : Make { out integer; in ref :>> context = Run::context; }
+        action make : Make { out integer[1]; in ref :>> context = Run::context; }
         first make then consume;
         action consume : Consume;
         first consume then final;

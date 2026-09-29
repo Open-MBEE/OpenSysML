@@ -30,14 +30,14 @@ package S {
   attribute v : CartesianVectorValue = VectorOf((3.0, 4.0));
   attribute d : VectorQuantityValue = VectorOf((3.0, 4.0)) [m];
 
-  calc def Length { in x : CartesianVectorValue; return : Real = norm(x); }
+  calc def Length { in x : CartesianVectorValue[1]; return : Real = norm(x); }
   calc length : Length;
-  calc def Doubled { in x : CartesianVectorValue; return : CartesianVectorValue = cartesianVectorScalarMult(x, 2.0); }
+  calc def Doubled { in x : CartesianVectorValue[1]; return : CartesianVectorValue = cartesianVectorScalarMult(x, 2.0); }
   calc doubled : Doubled;
 
   action scale {
-    in x : CartesianVectorValue;
-    out y : CartesianVectorValue;
+    in x : CartesianVectorValue[1];
+    out y : CartesianVectorValue[1];
     first start;
     action inner { assign y := cartesianVectorScalarMult(x, 2.0); }
     then done;

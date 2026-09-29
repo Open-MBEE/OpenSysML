@@ -11,10 +11,10 @@ package DeltaVBudget {
     // Tsiolkovsky: Δv = Isp · g0 · ln(m0 / mf). Seconds times m/s² is a speed;
     // the mass ratio is dimensionless, as ln requires.
     calc def RocketEquation {
-        in isp :> ISQ::time;
-        in g0 :> ISQ::acceleration;
-        in m0 :> ISQ::mass;
-        in mf :> ISQ::mass;
+        in isp[1] :> ISQ::time;
+        in g0[1] :> ISQ::acceleration;
+        in m0[1] :> ISQ::mass;
+        in mf[1] :> ISQ::mass;
         return deltaV :> ISQ::speed = isp * g0 * ln(m0 / mf);
     }
 

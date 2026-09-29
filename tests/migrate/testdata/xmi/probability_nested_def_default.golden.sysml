@@ -2,7 +2,7 @@ part def Mission {
     attribute pr : ScalarValues::Real default = 0.25;
     part def Sub {
         action def Run {
-            in ref context : Sub;
+            in ref context : Sub[1];
             action def Inner {
                 first start then 'decide';
                 decide 'decide';

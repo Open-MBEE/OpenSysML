@@ -618,7 +618,7 @@ func (d *decoder) segmentsText(segments []rdf.Term, in *element) ([]string, erro
 		}
 		spelling := nameText(name)
 		if d.names != nil {
-			key := segmentKey{member: in.qname, operand: operand, name: name, target: target.qname}
+			key := segmentKey{member: d.writtenQName(in), operand: operand, name: name, target: target.qname}
 			if chosen, ok := d.names.segments[key]; ok {
 				spelling = qualifiedNameText(chosen)
 			}

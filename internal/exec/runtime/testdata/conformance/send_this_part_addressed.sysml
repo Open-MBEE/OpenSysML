@@ -12,7 +12,7 @@ package SendThisPart {
 		attribute got : Integer = 0;
 
 		state def Listen {
-			in ref context : Worker;
+			in ref context : Worker[1];
 			entry; then idle;
 			state idle;
 			transition first idle accept g : Go do assign context.got := g.n then idle;
@@ -26,7 +26,7 @@ package SendThisPart {
 		part worker : Worker;
 
 		action def Notify {
-			in ref context : Host;
+			in ref context : Host[1];
 			first start;
 			then action poke send new Go(n = 7) to context.worker;
 			then action note assign context.mark := 1;

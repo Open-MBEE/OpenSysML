@@ -2133,7 +2133,7 @@ func (m *migration) feature(p *sysmlv1.Element) {
 	if shape := tm.shape(); shape != "" {
 		mult, mnote = shape, ""
 	} else {
-		mult += collection(p)
+		mult = shaped(mult, p, param || dir != "")
 	}
 	b.WriteString(mult)
 	note = joinNotes(joinNotes(note, mnote), tm.note())
@@ -2679,6 +2679,28 @@ func (m *migration) declaredMultiplicity(p *sysmlv1.Element) (string, string) {
 		return "[" + lower + "]", ""
 	}
 	return "[" + lower + ".." + upper + "]", ""
+}
+
+// shaped writes the multiplicity mult declares for p and the collection
+// modifiers after it. A v1 parameter writing no multiplicity means a single
+// value, where §7.6.3 gives a bare v2 parameter [0..*], so a parameter states
+// the one it meant before any modifier.
+func shaped(mult string, p *sysmlv1.Element, parameter bool) string {
+	if mult == "" && parameter {
+		mult = "[1]"
+	}
+	return mult + collection(p)
+}
+
+// parameterShape is the multiplicity a redeclaration of parameter p writes:
+// the one p's own declaration does, so the callee's range carries over rather
+// than a bare parameter's [0..*].
+func (m *migration) parameterShape(p *sysmlv1.Element) string {
+	if shape := m.typeModifier(p).shape(); shape != "" {
+		return shape
+	}
+	mult, _ := m.multiplicity(p)
+	return shaped(mult, p, true)
 }
 
 // collection writes the ordered and nonunique modifiers of a property; UML and

@@ -17,6 +17,8 @@ type GatheredRelationships struct {
 	// `#conformance` connection, Targets those of its `#conformant` ends.
 	Conformances  []GatheredEnds
 	Satisfactions []GatheredSatisfaction
+	// SentSignals are the signal names the body's `send` actions send, sorted.
+	SentSignals []string
 }
 
 // GatheredEnds are the two sides of one gathered relationship.
@@ -51,6 +53,7 @@ func (g *GatheredRelationships) Clone() *GatheredRelationships {
 		Allocations:   ends(g.Allocations),
 		Conformances:  ends(g.Conformances),
 		Satisfactions: slices.Clone(g.Satisfactions),
+		SentSignals:   slices.Clone(g.SentSignals),
 	}
 	for i := range out.Satisfactions {
 		out.Satisfactions[i].Requirements = cloneRefs(out.Satisfactions[i].Requirements)
@@ -61,7 +64,7 @@ func (g *GatheredRelationships) Clone() *GatheredRelationships {
 
 // Empty reports whether g states no relationship.
 func (g *GatheredRelationships) Empty() bool {
-	return g == nil || len(g.Derivations)+len(g.Allocations)+len(g.Conformances)+len(g.Satisfactions) == 0
+	return g == nil || len(g.Derivations)+len(g.Allocations)+len(g.Conformances)+len(g.Satisfactions)+len(g.SentSignals) == 0
 }
 
 // Gathered returns the relationships doc's record carries, nil for a document

@@ -84,7 +84,7 @@ const hostedWaitApplications = `
 func TestUnownedActivityAcceptsViaThePortsOfTheBlocksRunningIt(t *testing.T) {
 	r := migrateDocument(t, hostedWait, hostedWaitApplications)
 	for _, line := range []string{
-		"in ref context : Host;",
+		"in ref context : Host[1];",
 		"action 'take ack' accept Ack via context.rx;",
 		"action await : Await;",
 		"bind await.context = this;",
@@ -142,7 +142,7 @@ func TestRelativeAcceptEventReadsOwnerFeature(t *testing.T) {
   <sysml:Block xmi:id="_hostBlock" base_Class="_host"/>`)
 	wantLine(t, r.Notation, "action wait {")
 	wantLine(t, r.Notation, "action wait accept after ditSetup [SI::s];")
-	wantNoLine(t, r.Notation, "in ref context : Host;")
+	wantNoLine(t, r.Notation, "in ref context : Host[1];")
 	wantClean(t, "t.sysml", r)
 }
 
@@ -178,7 +178,7 @@ func TestDurationConstraintReadsOwnerFeature(t *testing.T) {
 
 func TestViewpointActivityContextSpecializesUsage(t *testing.T) {
 	r := migrateFixtureFile(t, "viewpoint_context")
-	wantLine(t, r.Notation, "in ref context :> 'Review Viewpoint';")
+	wantLine(t, r.Notation, "in ref context :> 'Review Viewpoint'[1];")
 	if !strings.Contains(string(r.Notation), "in ref :>> context = Review::context;") {
 		t.Errorf("nested call does not bind the viewpoint-owned context:\n%s", r.Notation)
 	}
@@ -202,7 +202,7 @@ func TestFeaturedViewpointContextIsTypedByItsDefinition(t *testing.T) {
     </packagedElement>`, `
   <sysml:Block xmi:id="_hostBlock" base_Class="_host"/>
   <sysml:Viewpoint xmi:id="_vpStereotype" base_Class="_vp"/>`)
-	wantLine(t, r.Notation, "in ref context : Host;")
+	wantLine(t, r.Notation, "in ref context : Host[1];")
 	wantLine(t, r.Notation, "send new Ping() via context.'Review Viewpoint'.tx;")
 	wantNote(t, r, "_inspect", migrate.Mapped, "is a feature of the part def Host")
 	if diags := errors(t, "t.sysml", r.Notation); len(diags) > 0 {
@@ -274,7 +274,7 @@ func TestFeaturedViewpointOwnActivityReachesItsPorts(t *testing.T) {
     <packagedElement xmi:type="uml:Signal" xmi:id="_ping" name="Ping"/>`, `
   <sysml:Block xmi:id="_hostBlock" base_Class="_host"/>
   <sysml:Viewpoint xmi:id="_reviewViewpoint" base_Class="_review"/>`)
-	wantLine(t, r.Notation, "in ref context : Host;")
+	wantLine(t, r.Notation, "in ref context : Host[1];")
 	wantLine(t, r.Notation, "send new Ping() via context.Review.tx;")
 	wantLine(t, r.Notation, "in ref :>> context = Run::context;")
 	wantNote(t, r, "_inspect", migrate.Mapped, "is a feature of the part def Host")
@@ -330,7 +330,7 @@ func TestSiblingViewpointPortsShareTheirDefinitionContext(t *testing.T) {
   <sysml:Block xmi:id="_hostBlock" base_Class="_host"/>
   <sysml:Viewpoint xmi:id="_reviewViewpoint" base_Class="_review"/>
   <sysml:Viewpoint xmi:id="_auditViewpoint" base_Class="_audit"/>`)
-	wantLine(t, r.Notation, "in ref context : Host;")
+	wantLine(t, r.Notation, "in ref context : Host[1];")
 	wantLine(t, r.Notation, "send new Ping() via context.Review.reviewTx;")
 	wantLine(t, r.Notation, "send new Ping() via context.Audit.auditTx;")
 	if diags := errors(t, "t.sysml", r.Notation); len(diags) > 0 {
@@ -359,7 +359,7 @@ func TestHostAndNestedViewpointPortsShareHostContext(t *testing.T) {
     </packagedElement>`, `
   <sysml:Block xmi:id="_hostBlock" base_Class="_host"/>
   <sysml:Viewpoint xmi:id="_reviewViewpoint" base_Class="_review"/>`)
-	wantLine(t, r.Notation, "in ref context : Host;")
+	wantLine(t, r.Notation, "in ref context : Host[1];")
 	wantLine(t, r.Notation, "send new Ping() via context.tx;")
 	wantLine(t, r.Notation, "send new Ack() via context.Review.rx;")
 	if diags := errors(t, "t.sysml", r.Notation); len(diags) > 0 {
@@ -465,7 +465,7 @@ func TestOwnedActivityBorrowsTheContextItsCallsNeed(t *testing.T) {
 	r := migrateDocument(t, borrowedContext, borrowedContextApplications)
 	for _, line := range []string{
 		"action def Relay {",
-		"in ref context : Host;",
+		"in ref context : Host[1];",
 		"action hit : Hit { in ref :>> context = Relay::context; }",
 		"action relay : Controller::Relay { in ref :>> context = Run::context; }",
 		"send new Ping(a, b) via context.tx;",
@@ -500,7 +500,7 @@ func TestOwnedActivityBorrowsTheContextItsCallsNeed(t *testing.T) {
 func TestNestedBehaviorDefinitionsRetainAndPassTheirEnclosingContext(t *testing.T) {
 	r := migrateFixtureFile(t, "nested_context")
 	for _, line := range []string{
-		"in ref context : Host;",
+		"in ref context : Host[1];",
 		"action def Write {",
 		"action def Set {",
 		"assign context.'aO Sequencer'.k := value;",
@@ -528,8 +528,8 @@ func TestNestedBehaviorDefinitionsRetainAndPassTheirEnclosingContext(t *testing.
 func TestContextBoundCallUsesItsLexicalContext(t *testing.T) {
 	r := migrateFixtureFile(t, "context_bound_call")
 	for _, line := range []string{
-		"in ref context : Host;",
-		"action make : Make { out integer; in ref :>> context = Run::context; }",
+		"in ref context : Host[1];",
+		"action make : Make { out integer[1]; in ref :>> context = Run::context; }",
 		"flow make.integer to consume.value;",
 		"send new Ping() via context.tx;",
 	} {
@@ -553,8 +553,8 @@ func TestMutuallyRecursiveActivitiesSettleTheirOwnerContext(t *testing.T) {
 		t.Run(name, func(t *testing.T) {
 			r := migrateFixtureFile(t, name)
 			for _, declaration := range []string{
-				"action def A {\n        in ref context : Host;",
-				"action def B {\n        in ref context : Host;",
+				"action def A {\n        in ref context : Host[1];",
+				"action def B {\n        in ref context : Host[1];",
 			} {
 				if !strings.Contains(string(r.Notation), declaration) {
 					t.Fatalf("notation lacks %q:\n%s", declaration, r.Notation)
@@ -732,7 +732,7 @@ func TestActivitiesCallingEachOtherShareTheContextTheCycleNeeds(t *testing.T) {
 			r := migrateDocument(t, doc, callCycleApplications)
 			for _, line := range []string{
 				"action def Knock {",
-				"in ref context : Host;",
+				"in ref context : Host[1];",
 				"send new Ping() via context.tx;",
 				"action again : Again { in ref :>> context = Knock::context; }",
 				"action def Again {",
@@ -741,8 +741,8 @@ func TestActivitiesCallingEachOtherShareTheContextTheCycleNeeds(t *testing.T) {
 				wantLine(t, r.Notation, line)
 			}
 			wantNoLine(t, r.Notation, "via this.tx")
-			wantNoLine(t, r.Notation, "in ref context : Controller;")
-			if n := strings.Count(string(r.Notation), "in ref context : Host;"); n != 3 {
+			wantNoLine(t, r.Notation, "in ref context : Controller[1];")
+			if n := strings.Count(string(r.Notation), "in ref context : Host[1];"); n != 3 {
 				t.Errorf("the Host context parameter is declared %d times, want 3 (Run, Knock and Again):\n%s", n, r.Notation)
 			}
 			wantNote(t, r, "_knock", migrate.Approximated, "acts on a Host through its ports, which it takes as its parameter context rather than its owner Controller, which is no such object and holds no one part that is: v1 ran it on whichever object called it")

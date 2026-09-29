@@ -557,6 +557,7 @@ func registerFlags(fs *flag.FlagSet) {
 	fs.StringVar(&queryText, "query", "", "Evaluate this OSLC Query text against the model and exit")
 
 	fs.Var(&modelChecks.validate, "validate", "Report the model's diagnostics and exit, nonzero on an error; -validate=<object> checks instead every assertion about that object (repeatable)")
+	fs.Var(&disabledLints, "disable-lint", "Leave this lint out of the model's diagnostics: undeclared-signal or port-type-mismatch, comma-separated or repeated")
 	fs.BoolVar(&noRecordCache, "no-record-cache", false, "Parse every file loaded and hold it loaded, reading no interface record from the record cache and writing none; default off, or OPENSYSML_RECORD_CACHE=0")
 	fs.BoolVar(&strictMode, "strict", false, "Judge the model as conforming SysML v2: notation no pinned production admits is an error, not a warning; a SysML v1 migration writes none of it")
 	fs.Var(&modelChecks.constraints, "constraint", "Evaluate this constraint and exit (repeatable)")
@@ -681,6 +682,7 @@ func optionGroups() []usage.OptionGroup {
 		Options: []usage.Option{
 			usage.Opt("validate", "[=<object>]"),
 			usage.Opt("strict", ""),
+			usage.Opt("disable-lint", "<code>"),
 			usage.Opt("no-record-cache", ""),
 			usage.Opt("constraint", nameArg),
 			usage.Opt("requirement", nameArg),

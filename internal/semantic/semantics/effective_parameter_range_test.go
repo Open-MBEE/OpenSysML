@@ -89,3 +89,54 @@ func TestEffectiveParameterRangeSubsets(t *testing.T) {
 		t.Error("a parameter subsetting a [1..*] feature is required")
 	}
 }
+
+// TestEffectiveParameterRangeIntersectsSubsets: the ranges a parameter's
+// subsetted features give it intersect (KerML 1.0 §7.3.4.4): [0..1] and [1..*]
+// bound the parameter to exactly one value, in either written order.
+func TestEffectiveParameterRangeIntersectsSubsets(t *testing.T) {
+	src := `
+		package test {
+			attribute f1 : Real[0..1];
+			attribute f2 : Real[1..*];
+			action def Both { in x : Real subsets f1, f2; }
+			action def BothR { in x : Real subsets f2, f1; }
+		}`
+	m, root := buildModelNamedWithKind(t, "<t>", source.KindSysML, src)
+	want := AssumedRange()
+	for _, owner := range []string{"Both", "BothR"} {
+		if got := m.EffectiveParameterRange(paramIn(t, root, owner, "x")); got != want {
+			t.Errorf("EffectiveParameterRange(%s::x) = %+v, want %+v", owner, got, want)
+		}
+	}
+}
+
+// TestEffectiveParameterRangeIntersectsChainAndSubset: a chain element's subset
+// targets intersect with the range the next chain element gives it: bare
+// redefining an optional parameter while subsetting a [1..*] feature is required.
+func TestEffectiveParameterRangeIntersectsChainAndSubset(t *testing.T) {
+	src := `
+		package test {
+			attribute f : Real[1..*];
+			calc def C { in a : Real[0..1]; }
+			calc def D specializes C { in a :>> a subsets f; }
+		}`
+	m, root := buildModelNamedWithKind(t, "<t>", source.KindSysML, src)
+	if got := m.EffectiveParameterRange(paramIn(t, root, "D", "a")); got != AssumedRange() {
+		t.Errorf("EffectiveParameterRange(D::a) = %+v, want %+v", got, AssumedRange())
+	}
+}
+
+// TestEffectiveParameterRangeSubsetCycle: parameters subsetting each other hold
+// no range between them, so the walk terminates at the [0..*] default.
+func TestEffectiveParameterRangeSubsetCycle(t *testing.T) {
+	src := `
+		package test {
+			action def Cyc { in a : Real subsets b; in b : Real subsets a; }
+		}`
+	m, root := buildModelNamedWithKind(t, "<t>", source.KindSysML, src)
+	for _, name := range []string{"a", "b"} {
+		if got := m.EffectiveParameterRange(paramIn(t, root, "Cyc", name)); got != UnboundedRange() {
+			t.Errorf("EffectiveParameterRange(Cyc::%s) = %+v, want %+v", name, got, UnboundedRange())
+		}
+	}
+}

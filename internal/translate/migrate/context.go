@@ -404,7 +404,7 @@ func (m *migration) contextBody(callee *sysmlv1.Element, ins string) []string {
 	}
 	for _, p := range m.actionParameters(callee) {
 		dir, _ := parameterDirection(p)
-		members = append(members, dir+" "+writeName(m.nameFor(p)))
+		members = append(members, dir+" "+writeName(m.nameFor(p))+m.parameterShape(p))
 	}
 	if !leads {
 		members = append(members, ins)
@@ -1015,7 +1015,7 @@ func (m *migration) contextParameter(b *sysmlv1.Element) {
 	}
 	objectType := c.objectType()
 	typing := m.typing(objectType)
-	m.w.line("in ref " + writeName(c.name) + typing + m.ref(objectType, b) + ";")
+	m.w.line("in ref " + writeName(c.name) + typing + m.ref(objectType, b) + "[1];")
 	usageNote := ""
 	if c.chain != "" {
 		cat, _ := m.classify(c.classifier)

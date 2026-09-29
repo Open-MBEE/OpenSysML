@@ -199,6 +199,9 @@ var featureModifierKeywords = map[string]bool{
 	"readonly":   true,
 }
 
+// IsPrefixModifierKeyword reports whether kw is a feature/usage prefix modifier the parser reads before a declaration's kind keyword.
+func IsPrefixModifierKeyword(kw string) bool { return featureModifierKeywords[kw] }
+
 // relationshipKeywords maps a spelled-out relationship keyword to its kind.
 var relationshipKeywords = map[string]ast.RelationshipKind{
 	"specializes": ast.RelSpecializes,

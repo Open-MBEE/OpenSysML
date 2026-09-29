@@ -24,14 +24,14 @@ const recordModel = `package Demo {
 	part probe : Probe;
 	analysis def Check {
 		subject s : Probe;
-		in gain : Real;
-		out x : Real = s.t + gain;
+		in gain : Real[1];
+		out x : Real[1] = s.t + gain;
 	}
 	analysis def Bound {
-		out y : Real = 1.0 + 2.0;
+		out y : Real[1] = 1.0 + 2.0;
 	}
 	analysis timed : Check { subject s = probe; in gain = 2.0; }
-	calc def Sum { in a : Real; return : Real = a; }
+	calc def Sum { in a : Real[1]; return : Real[1] = a; }
 }`
 
 func recordSession(t *testing.T) *Session {
@@ -127,7 +127,7 @@ func TestRecordRunQueryable(t *testing.T) {
 	private import DocumentQueries::*;
 	private import KerML::Root::Element;
 	calc def RecordedRuns :> Query {
-		in root : Element;
+		in root : Element[1];
 		Project(source = WhereMetadata(
 			source = Descendants(source = root, maxDepth = 10),
 			'metadata' = "AnalysisRecords::RecordedRun"),
@@ -149,7 +149,7 @@ func TestRecordRunQueryableByFeature(t *testing.T) {
 	private import DocumentQueries::*;
 	private import KerML::Root::Element;
 	calc def TimedRuns :> Query {
-		in root : Element;
+		in root : Element[1];
 		Project(source = WhereFeature(
 			source = WhereMetadata(
 				source = Descendants(source = root, maxDepth = 10),
@@ -174,13 +174,13 @@ func TestRecordPackageFollowsTheCasesPackage(t *testing.T) {
 	s := recordSession(t)
 	if errs := errorDiagnostics(s.Submit(`package A {
 	package Descent {
-		analysis def C { out k : ScalarValues::Real = 1.0; }
+		analysis def C { out k : ScalarValues::Real[1] = 1.0; }
 		analysis c : C;
 	}
 }
 package P {
 	part def H {
-		analysis def Inner { out k : ScalarValues::Real = 1.0; }
+		analysis def Inner { out k : ScalarValues::Real[1] = 1.0; }
 		analysis inner : Inner;
 	}
 }`).Diagnostics); len(errs) > 0 {
@@ -275,8 +275,8 @@ func TestRecordSweepSpellsObjectsInTheirOwnContext(t *testing.T) {
 	part b : Probe;
 	analysis def Pick {
 		subject s : Probe;
-		in n : Real;
-		out chosen : Probe = 'if'(n < 2.0, a, b);
+		in n : Real[1];
+		out chosen : Probe[1] = 'if'(n < 2.0, a, b);
 	}
 	analysis pick : Pick { subject s = a; in n = 1.0; }
 }`).Diagnostics); len(errs) > 0 {
@@ -329,8 +329,8 @@ func TestRecordMonteCarloSkipsOutputErrors(t *testing.T) {
 		subject analysed : Probe;
 		perform action run ::> analysed.settle;
 		attribute :>> observed : Real = analysed.t;
-		return Mean : Real = mean;
-		out Bad : Real = 1.0 / 0.0;
+		return Mean : Real[1] = mean;
+		out Bad : Real[1] = 1.0 / 0.0;
 	}
 }`).Diagnostics); len(errs) > 0 {
 		t.Fatalf("model has errors: %v", errs)
@@ -408,7 +408,7 @@ func TestRecordMonteCarloRecordsNothingWhenNoRunCompletes(t *testing.T) {
 func TestRecordSweepRecordsNothingWhenEveryRowFails(t *testing.T) {
 	s := recordSession(t)
 	if errs := errorDiagnostics(s.Submit(`package Demo {
-	analysis def Breakable { subject s : Probe; in n : Real; out x : Real = 3.0 / n; }
+	analysis def Breakable { subject s : Probe; in n : Real[1]; out x : Real[1] = 3.0 / n; }
 	analysis breakable : Breakable { subject s = probe; }
 }`).Diagnostics); len(errs) > 0 {
 		t.Fatalf("model has errors: %v", errs)
@@ -434,7 +434,7 @@ func TestRecordRunQuotesNames(t *testing.T) {
 	s.now = func() time.Time { return time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC) }
 	const model = `package Demo {
 		private import ScalarValues::*;
-		analysis def Bound { out y : Real = 3.0; }
+		analysis def Bound { out y : Real[1] = 3.0; }
 		analysis 'fuel budget' : Bound;
 	}`
 	if errs := errorDiagnostics(s.Submit(model).Diagnostics); len(errs) > 0 {
@@ -475,11 +475,11 @@ func TestRecordRunPrefixesASiblingsDefinition(t *testing.T) {
 	const model = `package Demo {
 		private import ScalarValues::*;
 		package A {
-			analysis def Check { out x : Real = 1.0; }
+			analysis def Check { out x : Real[1] = 1.0; }
 			analysis check : Check;
 		}
 		package B {
-			analysis def Check { out x : Real = 2.0; }
+			analysis def Check { out x : Real[1] = 2.0; }
 			analysis check : Check;
 		}
 	}`
@@ -598,12 +598,12 @@ func TestRecordInoutRun(t *testing.T) {
 	part probe : Probe;
 	analysis def Doubling {
 		subject s : Probe;
-		inout counter : Integer = 3;
-		return doubled : Integer = counter * 2;
+		inout counter : Integer[1] = 3;
+		return doubled : Integer[1] = counter * 2;
 	}
 	analysis tick : Doubling { subject s = probe; }
 	calc def Counts :> DocumentQueries::Query {
-		in root : Element;
+		in root : Element[1];
 		Project(source = WhereMetadata(
 			source = Descendants(source = root, maxDepth = 10),
 			'metadata' = "AnalysisRecords::RecordedRun"),
@@ -646,7 +646,7 @@ func TestRecordMergesIntoTheFileHoldingTheTargetPackage(t *testing.T) {
 	res := s.SubmitFiles([]SourceFile{
 		{Name: "one.sysml", Text: `package A {
 	private import ScalarValues::*;
-	package Cases { analysis def Bound { out y : Real = 1.0; } analysis check : Bound; }
+	package Cases { analysis def Bound { out y : Real[1] = 1.0; } analysis check : Bound; }
 }`},
 		{Name: "two.sysml", Text: `package A { package Records { attribute keep : ScalarValues::Integer; } }`},
 	})
@@ -675,9 +675,9 @@ func TestRecordRunSettlesNumericFamilyAndKeepsLiterals(t *testing.T) {
 	enum def Grade :> Integer { high = 3; low = 1; }
 	analysis def Mix {
 		subject s = t;
-		in n : Real;
-		return half : Real = if n > 2 ? 3 else n / 2.0;
-		out g : Grade = Grade::high;
+		in n : Real[1];
+		return half : Real[1] = if n > 2 ? 3 else n / 2.0;
+		out g : Grade[1] = Grade::high;
 	}
 }`)
 	if errs := errorDiagnostics(res.Diagnostics); len(errs) > 0 {
@@ -744,16 +744,16 @@ func TestRecordMonteCarloRecordsTheConclusionsToolCall(t *testing.T) {
 	individual def probe :> Probe;
 	calc def Warm {
 		metadata ToolExecution { toolName = "Thermo"; uri = "thermo://local"; }
-		in x : Real { @ToolVariable { name = "mass"; } }
-		in p : Real { @ToolVariable { name = "power"; } }
-		out warn : Boolean { @ToolVariable { name = "warn"; } }
-		return : TemperatureValue { @ToolVariable { name = "Tmax"; } }
+		in x : Real[1] { @ToolVariable { name = "mass"; } }
+		in p : Real[1] { @ToolVariable { name = "power"; } }
+		out warn : Boolean[1] { @ToolVariable { name = "warn"; } }
+		return : TemperatureValue[1] { @ToolVariable { name = "Tmax"; } }
 	}
 	analysis def Mc :> Simulation::MonteCarlo {
 		subject analysed : Probe;
 		perform action run ::> analysed.settle;
 		attribute :>> observed : Real = analysed.t;
-		return Mean : TemperatureValue = Warm(mean, 250.0);
+		return Mean : TemperatureValue[1] = Warm(mean, 250.0);
 	}
 }`).Diagnostics); len(errs) > 0 {
 		t.Fatalf("model has errors: %v", errs)
@@ -832,10 +832,10 @@ func TestRecordMonteCarloKeepsRowToolsWhenUnconcluded(t *testing.T) {
 	individual def probe :> Probe;
 	calc def Warm {
 		metadata ToolExecution { toolName = "Thermo"; uri = "thermo://local"; }
-		in x : Real { @ToolVariable { name = "mass"; } }
-		in p : Real { @ToolVariable { name = "power"; } }
-		out warn : Boolean { @ToolVariable { name = "warn"; } }
-		return : TemperatureValue { @ToolVariable { name = "Tmax"; } }
+		in x : Real[1] { @ToolVariable { name = "mass"; } }
+		in p : Real[1] { @ToolVariable { name = "power"; } }
+		out warn : Boolean[1] { @ToolVariable { name = "warn"; } }
+		return : TemperatureValue[1] { @ToolVariable { name = "Tmax"; } }
 	}
 	analysis def Mc :> Simulation::MonteCarlo {
 		subject analysed : Probe;

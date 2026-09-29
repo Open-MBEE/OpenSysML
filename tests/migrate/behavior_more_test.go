@@ -580,7 +580,7 @@ func TestStrictDeferredPortRouteDeclaresAndBindsContext(t *testing.T) {
 	const applications = `<sysml:Block xmi:id="_receiverBlock" base_Class="_receiver"/>`
 	r := migrateDocumentOptions(t, machine, applications, migrate.Options{Strict: true})
 	for _, line := range []string{
-		"in ref context : Receiver;",
+		"in ref context : Receiver[1];",
 		"accept 'kept via p' : Event via context.p;",
 		"exhibit state life : Life { in ref :>> context = this; }",
 	} {
@@ -611,9 +611,9 @@ func TestClassifierBehaviorContextFollowsInputParameter(t *testing.T) {
 	const applications = `<sysml:Block xmi:id="_receiverBlock" base_Class="_receiver"/>`
 	r := migrateDocumentOptions(t, machine, applications, migrate.Options{Strict: true})
 	for _, line := range []string{
-		"in x : ScalarValues::Integer;",
-		"in ref context : Receiver;",
-		"exhibit state life : Life { in x; in ref :>> context = this; }",
+		"in x : ScalarValues::Integer[1];",
+		"in ref context : Receiver[1];",
+		"exhibit state life : Life { in x[1]; in ref :>> context = this; }",
 	} {
 		wantLine(t, r.Notation, line)
 	}
@@ -650,7 +650,7 @@ func TestReceptionPortContextForInterfaceBlock(t *testing.T) {
 	r := migrateDocumentOptions(t, members, applications, migrate.Options{Strict: true})
 	for _, line := range []string{
 		"action def R {",
-		"in ref context : IB;",
+		"in ref context : IB[1];",
 		"action 'receive via p' accept 'ping via p' : Ping via context.p;",
 		"perform action r : R { in ref :>> context = this; }",
 		"perform action r {",
@@ -658,7 +658,7 @@ func TestReceptionPortContextForInterfaceBlock(t *testing.T) {
 	} {
 		wantLine(t, r.Notation, line)
 	}
-	wantNoLine(t, r.Notation, "in value;")
+	wantNoLine(t, r.Notation, "in value[1];")
 	for _, d := range errorsMode(t, "interfaceBlockReception.sysml", r.Notation, diag.ConformanceStrict) {
 		t.Errorf("%v", d)
 	}
@@ -667,8 +667,8 @@ func TestReceptionPortContextForInterfaceBlock(t *testing.T) {
 func TestStrictAcceptViaContextPortFixture(t *testing.T) {
 	r := migrateFixtureFileOptions(t, "accept_via_context_port", migrate.Options{Strict: true})
 	for _, line := range []string{
-		"in ref context : Receiver;",
-		"in ref context : ActivityReceiver;",
+		"in ref context : Receiver[1];",
+		"in ref context : ActivityReceiver[1];",
 		"action receive accept Ping via context.p;",
 		"transition first Waiting accept Go via context.p then Done;",
 		"action 'receive via p' accept 'kept via p' : Ping via context.p;",
@@ -1567,23 +1567,23 @@ func TestActivityParametersFlowThroughNestedCalls(t *testing.T) {
 	r := migrateDocument(t, pipelineActivity, "")
 	for _, line := range []string{
 		"action def Double {",
-		"in x : ScalarValues::Real;",
-		"out y : ScalarValues::Real;",
+		"in x : ScalarValues::Real[1];",
+		"out y : ScalarValues::Real[1];",
 		"calc def Twice {",
-		"in v : ScalarValues::Real;",
-		"out result : ScalarValues::Real;",
+		"in v : ScalarValues::Real[1];",
+		"out result : ScalarValues::Real[1];",
 		"v * 2.0",
 		"action def Pipeline {",
-		"in seed : ScalarValues::Real;",
-		"out total : ScalarValues::Real;",
+		"in seed : ScalarValues::Real[1];",
+		"out total : ScalarValues::Real[1];",
 		"action double : Double;",
 		"bind double.x = seed;",
 		"bind total = double.y;",
 		"/* partition 'Compute': double */",
 		"action def Run {",
-		"out answer : ScalarValues::Real;",
+		"out answer : ScalarValues::Real[1];",
 		"action pipeline : Pipeline;",
-		"out result = 21.0;",
+		"out result[1] = 21.0;",
 		"flow seed.result to pipeline.seed;",
 		"bind answer = pipeline.total;",
 		"action stray : Double;",
@@ -1996,8 +1996,8 @@ const nestedApplications = `
 func TestNestedRepliesAnswerTheirOwnCalls(t *testing.T) {
 	r := migrateDocument(t, nestedCalls, nestedApplications)
 	for _, line := range []string{
-		"perform action outer ::> motor.spin { in rpm = 30.0; }",
-		"perform action inner ::> motor.spin { in rpm = 40.0; }",
+		"perform action outer ::> motor.spin { in rpm[1] = 30.0; }",
+		"perform action inner ::> motor.spin { in rpm[1] = 40.0; }",
 		"assign ctrl.got := inner.result;",
 		"assign ctrl.'first' := outer.result;",
 		"action either {",
@@ -2164,8 +2164,8 @@ const inoutApplications = `
 // value the callee gives the parameter is written back to what the argument named.
 func TestCallArgumentsKeepTheParameterDirection(t *testing.T) {
 	r := migrateDocument(t, inoutCall, inoutApplications)
-	wantLine(t, r.Notation, "perform action bump ::> counter.bump { inout level = Bench::level; }")
-	wantNoLine(t, r.Notation, "{ in level = this.level; }")
+	wantLine(t, r.Notation, "perform action bump ::> counter.bump { inout level[1] = Bench::level; }")
+	wantNoLine(t, r.Notation, "{ in level[1] = this.level; }")
 	if diags := errors(t, "t.sysml", r.Notation); len(diags) > 0 {
 		t.Errorf("%v", diags)
 	}

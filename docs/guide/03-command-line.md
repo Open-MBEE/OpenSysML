@@ -259,6 +259,16 @@ each extension is measured against. The same setting is available as `%strict` a
 ([8. Editors](08-editors.md)) and as `strict_conformance=True` from Python
 ([9. From your own program](09-clients.md#from-python)).
 
+## Lints
+
+Two further warnings, `undeclared-signal` and `port-type-mismatch`, are *lints*: the model
+is valid SysML v2, but a `when <name>` or `defer <name>` that no declaration or `send`
+accounts for, or a connection between ports whose definitions are unrelated, is almost
+always a slip. `-strict` leaves them warnings, since they are not about notation.
+`-disable-lint <code>` switches one off (`%lint <code> off` at the prompt,
+`disabledLints` in an editor); [the diagnostics reference](../reference/diagnostics.md)
+states exactly what each reports.
+
 ## Running behavior
 
 The debuggers have non-interactive forms that run to completion and report the values they

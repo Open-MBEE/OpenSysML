@@ -134,6 +134,7 @@ var (
 	htmlMath         string
 	htmlTheme        string
 	strictMode       bool
+	disabledLints    lintList
 	noRecordCache    bool
 	modelChecks      checks
 	compileCalc      string
@@ -758,6 +759,11 @@ func newSession() *repl.Session {
 	}
 	if err := sess.SetConformanceMode(diag.ConformanceModeOf(strictMode)); err != nil {
 		// Unreachable: a session that has loaded nothing holds no recorded document.
+		fmt.Fprintln(os.Stderr, errPrefix, err)
+		os.Exit(2)
+	}
+	if err := sess.SetDisabledLints(disabledLints); err != nil {
+		// Unreachable: the codes were validated as the flag was parsed.
 		fmt.Fprintln(os.Stderr, errPrefix, err)
 		os.Exit(2)
 	}
