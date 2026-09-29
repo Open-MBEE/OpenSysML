@@ -60,7 +60,7 @@ package Race {
   }
 
   analysis raced {
-    out r : Integer;
+    out r : Integer[1];
     perform action race : Race;
     return : Integer = r;
   }
@@ -220,7 +220,7 @@ package Wire {
       transition first waiting accept Ping via p then active;
       state active { entry assign pinged := true; }
     }
-    action look { out seen : Boolean; first start; then action read assign seen := pinged; then done; }
+    action look { out seen : Boolean[1]; first start; then action read assign seen := pinged; then done; }
   }
   part def Pair {
     part ground : Ground;
@@ -387,7 +387,7 @@ func TestExploredOutcomesCarryThePerformersAttributesOverTheWire(t *testing.T) {
 const performedActionModel = `
 package Pump {
   private import ScalarValues::*;
-  action def Fill { out poured : Integer; }
+  action def Fill { out poured : Integer[1]; }
   part def Pump {
     attribute level : Integer = 0;
     perform action fill : Fill {

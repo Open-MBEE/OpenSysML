@@ -2,9 +2,9 @@ part def Mission {
     attribute pr : ScalarValues::Real default = 0.25;
     part def Sub :> Mission {
         action def Run {
-            in ref context : Sub;
+            in ref context : Sub[1];
             action def Inner {
-                in ref context : Sub;
+                in ref context : Sub[1];
                 first start then 'decide';
                 decide 'decide';
                 first 'decide' then a { @Stochastic::Probability { p = context.pr; } }

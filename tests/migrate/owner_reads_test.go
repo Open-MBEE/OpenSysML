@@ -102,7 +102,7 @@ func TestDefReadingItsOwnerInGuardsAndThroughSwimlanesTakesItAsContext(t *testin
 	r := migrateDocument(t, ownerReadsModel, ownerReadsApplications)
 	for _, line := range []string{
 		"action def Check {",
-		"in ref context : Scanner;",
+		"in ref context : Scanner[1];",
 		"if context.count >= context.max then done2;",
 		"if context.count < context.max then more;",
 		"action def Acquire {",
@@ -116,7 +116,7 @@ func TestDefReadingItsOwnerInGuardsAndThroughSwimlanesTakesItAsContext(t *testin
 	for _, line := range []string{"if count >= max", "if i >= retries", "assign esw.i", "assign i :="} {
 		wantNoLine(t, r.Notation, line)
 	}
-	if n := strings.Count(string(r.Notation), "in ref context : Scanner;"); n != 4 {
+	if n := strings.Count(string(r.Notation), "in ref context : Scanner[1];"); n != 4 {
 		t.Errorf("Run, Check, Acquire and Life declare %d context parameters, want 4:\n%s", n, r.Notation)
 	}
 	for _, id := range []string{"_check", "_acquire"} {
@@ -209,7 +209,7 @@ func TestDefNestedInAUsageTakesTheUsagesBlockAsContext(t *testing.T) {
 		"action outer {",
 		"assign t := 1.0;",
 		"action def Inner {",
-		"in ref context : Timer;",
+		"in ref context : Timer[1];",
 		"assign context.t := context.t + 1.0;",
 		"action inner : Inner;",
 		"bind inner.context = this;",
@@ -281,14 +281,14 @@ func TestGuardsOnTheDefsOwnParametersKeepItsPortContext(t *testing.T) {
 	r := migrateDocument(t, portContextGuard, portContextGuardApplications)
 	for _, line := range []string{
 		"action def Relay {",
-		"in ref context : Host;",
+		"in ref context : Host[1];",
 		"if n > 0 then hit;",
 		"action hit : Hit { in ref :>> context = Relay::context; }",
 		"send new Ping() via context.tx;",
 	} {
 		wantLine(t, r.Notation, line)
 	}
-	wantNoLine(t, r.Notation, "in ref context : Controller;")
+	wantNoLine(t, r.Notation, "in ref context : Controller[1];")
 	wantNoLine(t, r.Notation, "context.n")
 	wantClean(t, "port-context-guard", r)
 }
@@ -338,7 +338,7 @@ func TestLocalsABodyDeclaresAreNoReadsOfTheOwner(t *testing.T) {
 	} {
 		wantLine(t, r.Notation, line)
 	}
-	for _, line := range []string{"in ref context : Counter;", "action compute", "action def Tally"} {
+	for _, line := range []string{"in ref context : Counter[1];", "action compute", "action def Tally"} {
 		wantNoLine(t, r.Notation, line)
 	}
 }
@@ -403,14 +403,14 @@ func TestCalleeContextIsTheSameWhicheverBlockIsReachedFirst(t *testing.T) {
 	}
 	for _, line := range []string{
 		"action def Inspect {",
-		"in ref context : A;",
+		"in ref context : A[1];",
 		"assign context.status := context.status + 1;",
 		"action def Run {",
 		"which is left unbound: the caller is a B, which is no A and has no part that is one",
 	} {
 		wantLine(t, first.Notation, line)
 	}
-	wantNoLine(t, first.Notation, "in ref context : B;")
+	wantNoLine(t, first.Notation, "in ref context : B[1];")
 
 	a, b = callerBlocks(`
       <ownedAttribute xmi:type="uml:Property" xmi:id="_ba" name="a" type="_a" aggregation="composite"/>`)
@@ -423,12 +423,12 @@ func TestCalleeContextIsTheSameWhicheverBlockIsReachedFirst(t *testing.T) {
 		"part a : A;",
 		"action inspect {",
 		"assign status := status + 1;",
-		"in ref context : B;",
+		"in ref context : B[1];",
 		"perform action inspect ::> context.a.inspect;",
 	} {
 		wantLine(t, first.Notation, line)
 	}
-	wantNoLine(t, first.Notation, "in ref context : A;")
+	wantNoLine(t, first.Notation, "in ref context : A[1];")
 	wantClean(t, "caller-part", first)
 }
 
@@ -449,7 +449,7 @@ func TestCallerOfNoClassifierTakesTheCalleesOwnerAsContext(t *testing.T) {
 		"action inspect {",
 		"assign status := status + 1;",
 		"action def Bench {",
-		"in ref context : A;",
+		"in ref context : A[1];",
 		"perform action inspect ::> context.inspect;",
 	} {
 		wantLine(t, r.Notation, line)
@@ -470,13 +470,13 @@ func TestACollectionOfPartsIsNoOneObjectForAContext(t *testing.T) {
 	for _, line := range []string{
 		"part a : A[0..*];",
 		"action def Inspect {",
-		"in ref context : A;",
+		"in ref context : A[1];",
 		"action def Run {",
 		"which is left unbound: the caller is a B, which is no A and holds them only as the collection a, no one object of which is chosen",
 	} {
 		wantLine(t, r.Notation, line)
 	}
-	for _, line := range []string{"in ref context : B;", "context.a", "::> a.inspect"} {
+	for _, line := range []string{"in ref context : B[1];", "context.a", "::> a.inspect"} {
 		wantNoLine(t, r.Notation, line)
 	}
 }
@@ -532,7 +532,7 @@ func TestCycleMembersBindTheContextAFellowMemberReadsThrough(t *testing.T) {
 		wantLine(t, r.Notation, line)
 	}
 	wantNoLine(t, r.Notation, "bind a.context = this;")
-	if n := strings.Count(string(r.Notation), "in ref context : Timer;"); n != 3 {
+	if n := strings.Count(string(r.Notation), "in ref context : Timer[1];"); n != 3 {
 		t.Errorf("A, B and Life declare %d context parameters, want 3:\n%s", n, r.Notation)
 	}
 	wantNote(t, r, "_b", migrate.Mapped, "acts on its owner Timer, which it takes as its parameter context")
@@ -591,13 +591,13 @@ func TestOwnerReadsThroughASwimlaneOutweighAnotherBlocksPorts(t *testing.T) {
 	r := migrateDocument(t, lanePortModel, lanePortApplications)
 	for _, line := range []string{
 		"action def Probe {",
-		"in ref context : Controller;",
+		"in ref context : Controller[1];",
 		"assign context.sensor.v := 1;",
 		"send new Ping();",
 	} {
 		wantLine(t, r.Notation, line)
 	}
-	for _, line := range []string{"in ref context : Host;", "via context.tx", "context.probe"} {
+	for _, line := range []string{"in ref context : Host[1];", "via context.tx", "context.probe"} {
 		wantNoLine(t, r.Notation, line)
 	}
 	wantNote(t, r, "_probe", migrate.Mapped, "acts on its owner Controller, which it takes as its parameter context")
@@ -668,10 +668,10 @@ func TestADiscardedGuardReadsNothingOfTheOwner(t *testing.T) {
 	r := migrateDocument(t, discardedGuardModel, discardedGuardApplications)
 	for _, line := range []string{
 		"action def Probe {",
-		"in ref context : Host;",
+		"in ref context : Host[1];",
 		"send new Ping() via context.tx;",
 		"action def Watch {",
-		"in ref context : Controller;",
+		"in ref context : Controller[1];",
 		"if context.status then 'send ping';",
 	} {
 		wantLine(t, r.Notation, line)

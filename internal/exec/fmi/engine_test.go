@@ -82,8 +82,8 @@ const driver = `package Drive {
 		in startTime : Real = 0.0 { @ToolVariable { name = "fmi:startTime"; } }
 		in stopTime : Real = 3.0 { @ToolVariable { name = "fmi:stopTime"; } }
 		in stepSize : Real = 0.01 { @ToolVariable { name = "fmi:stepSize"; } }
-		return h : LengthValue { @ToolVariable { name = "h"; } }
-		out v : SpeedValue { @ToolVariable { name = "v"; } }
+		return h : LengthValue[1] { @ToolVariable { name = "h"; } }
+		out v : SpeedValue[1] { @ToolVariable { name = "v"; } }
 	}
 
 	calc bb : BB { }
@@ -252,9 +252,9 @@ func TestVariableDirectionErrors(t *testing.T) {
 			}
 			b.WriteString("\t\tin startTime : Real = 0.0 { @ToolVariable { name = \"fmi:startTime\"; } }\n")
 			for _, name := range tc.outputs {
-				fmt.Fprintf(&b, "\t\tout %s : Real { @ToolVariable { name = %q; } }\n", sanitizeIdent(name), name)
+				fmt.Fprintf(&b, "\t\tout %s : Real[1] { @ToolVariable { name = %q; } }\n", sanitizeIdent(name), name)
 			}
-			b.WriteString("\t\treturn h : Real { @ToolVariable { name = \"h\"; } }\n\t}\n}\n")
+			b.WriteString("\t\treturn h : Real[1] { @ToolVariable { name = \"h\"; } }\n\t}\n}\n")
 			p := parseProbe(t, b.String())
 			sym, _ := p.pkg.LookupLocal("BB")
 			call := &runtime.ToolCall{Action: sym, ToolName: "fmi", URI: uri}
@@ -512,7 +512,7 @@ const unitsDriver = `package Drive {
 	calc def Conv {
 		metadata ToolExecution { toolName = "fmi"; uri = "%s"; }
 		%s
-		return h : LengthValue { @ToolVariable { name = "h"; } }
+		return h : LengthValue[1] { @ToolVariable { name = "h"; } }
 	}
 
 	calc conv : Conv { }

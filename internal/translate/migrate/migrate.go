@@ -2127,6 +2127,11 @@ func (m *migration) feature(p *sysmlv1.Element) {
 	} else {
 		mult += collection(p)
 	}
+	if mult == "" && (param || dir != "") {
+		// A v1 parameter writing no multiplicity means a single value; §7.6.3
+		// gives a bare v2 parameter [0..*], so state the one it meant.
+		mult = "[1]"
+	}
 	b.WriteString(mult)
 	note = joinNotes(joinNotes(note, mnote), tm.note())
 	note = m.featureRedefinitions(&b, p, note)

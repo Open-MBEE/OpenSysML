@@ -800,7 +800,7 @@ func TestOpaqueExpressionsNeedVisibleNames(t *testing.T) {
   <sysml:ValueType xmi:id="_s0" base_DataType="_mode"/>
   <sysml:ConstraintBlock xmi:id="_s1" base_Class="_base"/>
   <sysml:ConstraintBlock xmi:id="_s2" base_Class="_cb"/>`)
-	wantLine(t, r.Notation, "in attribute d : ScalarValues::Real default = s * 2.0 + c;")
+	wantLine(t, r.Notation, "in attribute d : ScalarValues::Real[1] default = s * 2.0 + c;")
 	wantLine(t, r.Notation, "constraint tracking { m == Mode::TRACK }")
 	wantNoLine(t, r.Notation, "constraint fits")
 	wantNoLine(t, r.Notation, "constraint moving")
@@ -906,9 +906,9 @@ func TestOpaqueBodyExpressionsBindTheirOwnNames(t *testing.T) {
       </ownedAttribute>
     </packagedElement>`, `
   <sysml:ConstraintBlock xmi:id="_s2" base_Class="_cb"/>`)
-	wantLine(t, r.Notation, "in attribute bound default = { in v; v > c };")
-	wantLine(t, r.Notation, "in attribute scaled default = { in v; private attribute k = 2.0; v * k > c };")
-	wantLine(t, r.Notation, "in attribute documented default = { in v { doc /* the value */ } v > c };")
+	wantLine(t, r.Notation, "in attribute bound[1] default = { in v; v > c };")
+	wantLine(t, r.Notation, "in attribute scaled[1] default = { in v; private attribute k = 2.0; v * k > c };")
+	wantLine(t, r.Notation, "in attribute documented[1] default = { in v { doc /* the value */ } v > c };")
 	for _, n := range []string{"stray", "each", "twice", "bodied", "nested", "deep", "asserted", "bounded", "imported"} {
 		wantNoLine(t, r.Notation, "constraint "+n)
 	}
@@ -998,9 +998,9 @@ func TestOpaqueBodyChainsAndLibraryNamesAreChecked(t *testing.T) {
       </ownedRule>
     </packagedElement>`, `
   <sysml:ConstraintBlock xmi:id="_s2" base_Class="_cb"/>`)
-	wantLine(t, r.Notation, "in attribute pointed default = { in v : Pt; v.x > c };")
-	wantLine(t, r.Notation, "in attribute counted default = { in v : ScalarValues::Integer; v > c };")
-	wantLine(t, r.Notation, "in attribute weighed default = { in v : ISQ::mass; v.num > c };")
+	wantLine(t, r.Notation, "in attribute pointed[1] default = { in v : Pt; v.x > c };")
+	wantLine(t, r.Notation, "in attribute counted[1] default = { in v : ScalarValues::Integer; v > c };")
+	wantLine(t, r.Notation, "in attribute weighed[1] default = { in v : ISQ::mass; v.num > c };")
 	for _, n := range []string{"astray", "untyped", "misspelled", "unimported", "chained"} {
 		wantNoLine(t, r.Notation, "constraint "+n)
 	}
@@ -1199,8 +1199,8 @@ func TestPrefixModifiersFollowTheGrammarOrder(t *testing.T) {
 	wantLine(t, r.Notation, "constant attribute ro : ScalarValues::Boolean;")
 	wantLine(t, r.Notation, "derived constant part da : A;")
 	wantLine(t, r.Notation, "constant ref part sh : A;")
-	wantLine(t, r.Notation, "in derived constant attribute cp : ScalarValues::Real;")
-	wantLine(t, r.Notation, "out derived constant attribute fp : ScalarValues::Real;")
+	wantLine(t, r.Notation, "in derived constant attribute cp : ScalarValues::Real[1];")
+	wantLine(t, r.Notation, "out derived constant attribute fp : ScalarValues::Real[1];")
 	wantLine(t, r.Notation, "attribute vp : ScalarValues::Real;")
 	for _, id := range []string{"_ro", "_da", "_cp", "_fp"} {
 		if es := entriesFor(r, id); len(es) != 1 || es[0].Verdict != migrate.Mapped {
@@ -1267,12 +1267,12 @@ func TestConstraintParametersStoredAsPortsAreInParameters(t *testing.T) {
   <md:ConstraintParameter xmlns:md="http://www.magicdraw.com/spec/Customization/180/SysML" xmi:id="_c4" base_Port="_p4"/>
   <md:ConstraintParameter xmlns:md="http://www.magicdraw.com/spec/Customization/180/SysML" xmi:id="_c6" base_Port="_p6"/>
   <custom:ConstraintParameter xmlns:custom="http://example.com/tool/customization" xmi:id="_c5" base_Property="_p5"/>`)
-	wantLine(t, r.Notation, "in attribute t : ScalarValues::Real;")
-	wantLine(t, r.Notation, "in attribute maxTime : ScalarValues::Real;")
-	wantLine(t, r.Notation, "in attribute slack : ScalarValues::Real;")
+	wantLine(t, r.Notation, "in attribute t : ScalarValues::Real[1];")
+	wantLine(t, r.Notation, "in attribute maxTime : ScalarValues::Real[1];")
+	wantLine(t, r.Notation, "in attribute slack : ScalarValues::Real[1];")
 	wantLine(t, r.Notation, "constraint inner : Positive;")
-	wantLine(t, r.Notation, "in ref part timer : Timer;")
-	wantLine(t, r.Notation, "in attribute tolerance : ScalarValues::Real {")
+	wantLine(t, r.Notation, "in ref part timer : Timer[1];")
+	wantLine(t, r.Notation, "in attribute tolerance : ScalarValues::Real[1] {")
 	wantLine(t, r.Notation, "/* applied stereotype «ConstraintParameter» */")
 	wantLine(t, r.Notation, "bind elapsed = limit.t;")
 	wantNoLine(t, r.Notation, "port")
@@ -1305,10 +1305,10 @@ func TestPropertyKindMarkersAreNotWritten(t *testing.T) {
 		"ref part spare : Wheel;",
 		"ref part lead : Wheel;",
 		"constraint limit : MaxSpeed;",
-		"in attribute v : ScalarValues::Real;",
-		"in ref part wheel : Wheel;",
-		"in ref part hub : Wheel {",
-		"in attribute k : ScalarValues::Real {",
+		"in attribute v : ScalarValues::Real[1];",
+		"in ref part wheel : Wheel[1];",
+		"in ref part hub : Wheel[1] {",
+		"in attribute k : ScalarValues::Real[1] {",
 		"/* applied stereotype «ReferenceProperty» */",
 		"part odd : Wheel {",
 		"/* applied stereotype «ValueProperty» */",

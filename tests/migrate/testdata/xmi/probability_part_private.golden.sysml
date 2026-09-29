@@ -5,7 +5,7 @@ part def Mission {
     }
     part def Sub :> Base {
         action def Run {
-            in ref context : Sub;
+            in ref context : Sub[1];
             action def Inner {
                 first start then 'decide';
                 decide 'decide';
