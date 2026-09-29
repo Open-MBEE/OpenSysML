@@ -133,6 +133,28 @@ func TestCapabilityGatedRequestsAreRefused(t *testing.T) {
 			})
 			return err
 		}},
+		{"constraint body authoring", CapabilityConstraintBodyAuthoring, func(s *Service) error {
+			_, err := s.ApplyEdits(ctx, &pb.ApplyEditsRequest{
+				Operations: []*pb.EditOperation{{
+					Operation: &pb.EditOperation_AddMember{AddMember: &pb.AddMemberEdit{
+						Owner: "P", Kind: "constraint", Name: "c", BodyExpression: "true",
+					}},
+				}},
+			})
+			return err
+		}},
+		{"state action authoring", CapabilityStateActionAuthoring, func(s *Service) error {
+			_, err := s.ApplyEdits(ctx, &pb.ApplyEditsRequest{
+				Operations: []*pb.EditOperation{addMemberOp("P::S", "do action", "a")},
+			})
+			return err
+		}},
+		{"import authoring", CapabilityImportAuthoring, func(s *Service) error {
+			_, err := s.ApplyEdits(ctx, &pb.ApplyEditsRequest{
+				Operations: []*pb.EditOperation{addImportOp("P", "", "ScalarValues::*", false, false, nil)},
+			})
+			return err
+		}},
 		{"member modifiers", CapabilityMemberModifiers, func(s *Service) error {
 			_, err := s.ApplyEdits(ctx, &pb.ApplyEditsRequest{
 				Operations: []*pb.EditOperation{{
@@ -140,6 +162,24 @@ func TestCapabilityGatedRequestsAreRefused(t *testing.T) {
 						Owner: "P", Kind: "part def", Name: "X", IsAbstract: true,
 					}},
 				}},
+			})
+			return err
+		}},
+		{"documentation authoring", CapabilityDocumentationAuthoring, func(s *Service) error {
+			_, err := s.ApplyEdits(ctx, &pb.ApplyEditsRequest{
+				Operations: []*pb.EditOperation{addDocumentationOp("P", "Text.", false)},
+			})
+			return err
+		}},
+		{"comment authoring", CapabilityCommentAuthoring, func(s *Service) error {
+			_, err := s.ApplyEdits(ctx, &pb.ApplyEditsRequest{
+				Operations: []*pb.EditOperation{addCommentOp("P", "Text.")},
+			})
+			return err
+		}},
+		{"note authoring", CapabilityCommentAuthoring, func(s *Service) error {
+			_, err := s.ApplyEdits(ctx, &pb.ApplyEditsRequest{
+				Operations: []*pb.EditOperation{addNoteOp("P", "Text.")},
 			})
 			return err
 		}},

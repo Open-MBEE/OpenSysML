@@ -3,6 +3,7 @@ package opensysml
 import (
 	"context"
 	"errors"
+	"slices"
 	"strings"
 	"testing"
 
@@ -115,6 +116,30 @@ func TestNewAuthoringOperationsAreNotSentWithoutTheirCapabilities(t *testing.T) 
 			missing:      CapabilityTransitionAuthoring,
 		},
 		{
+			name:         "documentation operation",
+			operation:    AddDocumentation{Target: "Demo::r", Body: "A requirement."},
+			capabilities: []string{CapabilityApplyEdits, CapabilityAuthoring},
+			missing:      CapabilityDocumentationAuthoring,
+		},
+		{
+			name:         "member documentation",
+			operation:    AddMember{Owner: "Demo", Kind: "part def", Name: "X", Doc: "A definition."},
+			capabilities: []string{CapabilityApplyEdits, CapabilityAuthoring},
+			missing:      CapabilityDocumentationAuthoring,
+		},
+		{
+			name:         "comment operation",
+			operation:    AddComment{Owner: "Demo", Body: "A note."},
+			capabilities: []string{CapabilityApplyEdits, CapabilityAuthoring},
+			missing:      CapabilityCommentAuthoring,
+		},
+		{
+			name:         "note operation",
+			operation:    AddNote{Target: "Demo::r", Text: "A note."},
+			capabilities: []string{CapabilityApplyEdits, CapabilityAuthoring},
+			missing:      CapabilityCommentAuthoring,
+		},
+		{
 			name:         "transition requires authoring",
 			operation:    AddTransition{Owner: "Demo::S", Source: "idle", Target: "toasting"},
 			capabilities: []string{CapabilityApplyEdits, CapabilityTransitionAuthoring},
@@ -130,6 +155,58 @@ func TestNewAuthoringOperationsAreNotSentWithoutTheirCapabilities(t *testing.T) 
 			name:         "sequence requires authoring",
 			operation:    AddSequence{Owner: "Demo::A", Keyword: "first", Ref: "start"},
 			capabilities: []string{CapabilityApplyEdits, CapabilitySequenceAuthoring},
+			missing:      CapabilityAuthoring,
+		},
+		{
+			name: "constraint body",
+			operation: AddMember{
+				Owner: "Demo", Kind: "constraint", Name: "c", BodyExpression: "true",
+			},
+			capabilities: []string{CapabilityApplyEdits, CapabilityAuthoring},
+			missing:      CapabilityConstraintBodyAuthoring,
+		},
+		{
+			name:         "assert constraint",
+			operation:    AddMember{Owner: "Demo", Kind: "assert constraint", Name: "c"},
+			capabilities: []string{CapabilityApplyEdits, CapabilityAuthoring},
+			missing:      CapabilityConstraintBodyAuthoring,
+		},
+		{
+			name:         "reference assertion",
+			operation:    AddMember{Owner: "Demo", Kind: "assert", Name: "c"},
+			capabilities: []string{CapabilityApplyEdits, CapabilityAuthoring},
+			missing:      CapabilityConstraintBodyAuthoring,
+		},
+		{
+			name:         "negated reference assertion",
+			operation:    AddMember{Owner: "Demo", Kind: "assert not", Name: "c"},
+			capabilities: []string{CapabilityApplyEdits, CapabilityAuthoring},
+			missing:      CapabilityConstraintBodyAuthoring,
+		},
+		{
+			name: "calculation result expression",
+			operation: AddMember{
+				Owner: "Demo", Kind: "calc def", Name: "D", BodyExpression: "x * 2",
+			},
+			capabilities: []string{CapabilityApplyEdits, CapabilityAuthoring},
+			missing:      CapabilityConstraintBodyAuthoring,
+		},
+		{
+			name:         "state behavior kind",
+			operation:    AddMember{Owner: "Demo::S", Kind: "do action", Name: "run"},
+			capabilities: []string{CapabilityApplyEdits, CapabilityAuthoring},
+			missing:      CapabilityStateActionAuthoring,
+		},
+		{
+			name:         "import operation",
+			operation:    AddImport{Owner: "Demo", Target: "ScalarValues::*"},
+			capabilities: []string{CapabilityApplyEdits, CapabilityAuthoring},
+			missing:      CapabilityImportAuthoring,
+		},
+		{
+			name:         "import requires authoring",
+			operation:    AddImport{Owner: "Demo", Target: "ScalarValues::*"},
+			capabilities: []string{CapabilityApplyEdits, CapabilityImportAuthoring},
 			missing:      CapabilityAuthoring,
 		},
 	}
@@ -151,13 +228,16 @@ func TestNewAuthoringOperationsMapToProto(t *testing.T) {
 	memberOperation, err := editToProto(AddMember{
 		Owner: "Demo", Kind: "attribute", Name: "x", IsAbstract: true,
 		Redefines: []string{"Demo::old"}, IsDefault: true, Direction: "in",
+		BodyExpression: "x > 1", Doc: "Checks the bound.",
 	})
 	if err != nil {
 		t.Fatal(err)
 	}
 	member := memberOperation.GetAddMember()
 	if member == nil || !member.GetIsAbstract() || !member.GetIsDefault() ||
-		member.GetDirection() != "in" || len(member.GetRedefines()) != 1 ||
+		member.GetDirection() != "in" || member.GetBodyExpression() != "x > 1" ||
+		member.GetDoc() != "Checks the bound." ||
+		len(member.GetRedefines()) != 1 ||
 		member.GetRedefines()[0] != "Demo::old" {
 		t.Fatalf("AddMember mapping = %+v", member)
 	}
@@ -201,6 +281,43 @@ func TestNewAuthoringOperationsMapToProto(t *testing.T) {
 		got.GetEffect() != "action cool" || got.GetInitial() {
 		t.Fatalf("AddTransition mapping = %+v", got)
 	}
+	documentedMember, err := editToProto(AddMember{Owner: "Demo", Kind: "part def", Name: "X", Doc: "Text."})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got := documentedMember.GetAddMember(); got == nil || got.GetDoc() != "Text." {
+		t.Fatalf("AddMember doc mapping = %+v", got)
+	}
+	documentationOperation, err := editToProto(AddDocumentation{
+		Target: "Demo::X", Body: "Text.", Name: "Summary", Locale: "en", Replace: true,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got := documentationOperation.GetAddDocumentation(); got == nil ||
+		got.GetTarget() != "Demo::X" || got.GetBody() != "Text." || got.GetName() != "Summary" ||
+		got.GetLocale() != "en" || !got.GetReplace() {
+		t.Fatalf("AddDocumentation mapping = %+v", got)
+	}
+	commentOperation, err := editToProto(AddComment{
+		Owner: "Demo", Body: " Two\nlines ", Name: "Why", About: []string{"Demo::X", "Demo"}, Locale: "en",
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got := commentOperation.GetAddComment(); got == nil ||
+		got.GetOwner() != "Demo" || got.GetBody() != " Two\nlines " || got.GetName() != "Why" ||
+		!slices.Equal(got.GetAbout(), []string{"Demo::X", "Demo"}) || got.GetLocale() != "en" {
+		t.Fatalf("AddComment mapping = %+v", got)
+	}
+	noteOperation, err := editToProto(AddNote{Target: "Demo::X", Text: "DimensionOneValue"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got := noteOperation.GetAddNote(); got == nil ||
+		got.GetTarget() != "Demo::X" || got.GetText() != "DimensionOneValue" {
+		t.Fatalf("AddNote mapping = %+v", got)
+	}
 	entryOperation, err := editToProto(AddEntryTransition("Demo::S", "idle"))
 	if err != nil {
 		t.Fatal(err)
@@ -209,7 +326,6 @@ func TestNewAuthoringOperationsMapToProto(t *testing.T) {
 		got.GetOwner() != "Demo::S" || got.GetTarget() != "idle" || !got.GetInitial() {
 		t.Fatalf("AddEntryTransition mapping = %+v", got)
 	}
-
 	sequenceOperation, err := editToProto(AddSequence{
 		Owner: "Demo::A", Keyword: "then", MemberKind: "action",
 		MemberName: "b", Type: "B", After: "a",
@@ -232,5 +348,19 @@ func TestNewAuthoringOperationsMapToProto(t *testing.T) {
 	if got := refSequenceOperation.GetAddSequence(); got == nil ||
 		got.GetKeyword() != "first" || got.GetRef() != "start" {
 		t.Fatalf("AddSequence ref mapping = %+v", got)
+	}
+	importOperation, err := editToProto(AddImport{
+		Owner: "Demo", Visibility: "public", Target: "ScalarValues::*",
+		Recursive: true, All: true, Filters: []string{"@Safety", "@Approved"},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got := importOperation.GetAddImport(); got == nil ||
+		got.GetOwner() != "Demo" || got.GetVisibility() != "public" ||
+		got.GetTarget() != "ScalarValues::*" || !got.GetIsRecursive() ||
+		!got.GetIsImportAll() || len(got.GetFilters()) != 2 ||
+		got.GetFilters()[0] != "@Safety" || got.GetFilters()[1] != "@Approved" {
+		t.Fatalf("AddImport mapping = %+v", got)
 	}
 }

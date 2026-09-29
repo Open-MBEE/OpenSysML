@@ -235,7 +235,8 @@ elements, err := client.Query(ctx, model, opensysml.Query{
 ```
 
 Edits are typed the same way — `SetValue`, `Rename`, `AddMember`, `AddConnection`,
-`AddSatisfy`, `AddRequirementConstraint`, `AddTransition`, `Delete`, `Move` — and either all apply, answering the edited source, or none do and the
+`AddSatisfy`, `AddRequirementConstraint`, `AddTransition`, `AddImport`, `AddDocumentation`,
+`AddComment`, `AddNote`, `Delete`, `Move` — and either all apply, answering the edited source, or none do and the
 refusal arrives as an `*EditError` naming its kind:
 
 ```go
@@ -273,6 +274,21 @@ The new member modifiers and `ref`/`return` kinds require `member_modifiers`;
 action body; `After` names the member it follows.
 An `AddMember` with an empty `Kind` writes a directed usage with no kind
 keyword (`in x : T;`) and requires `implicit_parameters`.
+`AddMember.BodyExpression` writes a constraint condition in `{ ... }`, distinct
+from `Value`, which writes a feature value with `= ...`. For calc, case, analysis,
+verification and use-case kinds, it writes the body's result expression.
+Reference-form `assert` and `assert not` members are anonymous, and post-edit
+analysis checks that their feature reference denotes a constraint.
+Constraint-body and assertion additions require `constraint_body_authoring`;
+exhibit and state subaction kinds require `state_action_authoring`, both
+alongside `authoring`.
+`AddImport` requires `authoring` and `import_authoring`. `AddMember.Doc` and
+`AddDocumentation{Target, Body, Name, Locale, Replace}` write `doc /* ... */` on
+a new or an existing declaration and require `authoring` and
+`documentation_authoring`.
+`AddComment{Owner, Body, Name, About, Locale}` writes a `comment` element and
+`AddNote{Target, Text}` a `// text` line note above a declaration; both require
+`authoring` and `comment_authoring`.
 
 The edited source is `result.Documents`, one `EditedDocument` per document the
 batch reached, under the name the model was parsed with; `result.Content` is the

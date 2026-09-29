@@ -114,7 +114,7 @@ func (m Model) addSequenceSplice(i int, op Operation) (splice, error) {
 				}
 			}
 		}
-		text = "then " + writeMember(op, memberKinds[op.MemberKind])
+		text = "then " + writeMember(op, memberKinds[op.MemberKind], "", "", "", "")
 	}
 	members := ast.DeclMembers(owner)
 	anchor := -1

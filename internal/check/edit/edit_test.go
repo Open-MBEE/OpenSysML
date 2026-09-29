@@ -274,6 +274,19 @@ func TestSetValueReplacesOnlyTheValueSpan(t *testing.T) {
 	requireClean(t, after)
 }
 
+// A value may carry a comment after its expression: it is trivia, not a second
+// expression left over.
+func TestSetValueAcceptsATrailingComment(t *testing.T) {
+	m := load(t, "spacecraft.sysml")
+	requireClean(t, m)
+
+	res := applyOne(t, m, SetValue("Demo::SC::unitMass", "1050.0[SI::kg] /* measured */"))
+
+	if !strings.Contains(string(res.Content), "default = 1050.0[SI::kg] /* measured */;") {
+		t.Fatalf("value not set:\n%s", res.Content)
+	}
+}
+
 func TestSetValuePreservesCommentsAndBlankLines(t *testing.T) {
 	m := load(t, "spacecraft.sysml")
 	requireClean(t, m)

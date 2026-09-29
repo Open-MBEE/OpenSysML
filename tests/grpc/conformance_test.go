@@ -118,6 +118,13 @@ type conformanceEditOperation struct {
 	Redefines         []string `json:"redefines,omitempty"`
 	IsDefault         bool     `json:"is_default,omitempty"`
 	Direction         string   `json:"direction,omitempty"`
+	BodyExpression    string   `json:"body_expression,omitempty"`
+	Doc               string   `json:"doc,omitempty"`
+	Body              string   `json:"body,omitempty"`
+	Locale            string   `json:"locale,omitempty"`
+	Replace           bool     `json:"replace,omitempty"`
+	About             []string `json:"about,omitempty"`
+	Text              string   `json:"text,omitempty"`
 	Requirement       string   `json:"requirement,omitempty"`
 	SatisfyingFeature string   `json:"satisfying_feature,omitempty"`
 	TransitionSource  string   `json:"source,omitempty"`
@@ -128,6 +135,10 @@ type conformanceEditOperation struct {
 	Keyword           string   `json:"keyword,omitempty"`
 	Ref               string   `json:"ref,omitempty"`
 	After             string   `json:"after,omitempty"`
+	Visibility        string   `json:"visibility,omitempty"`
+	Recursive         bool     `json:"is_recursive,omitempty"`
+	ImportAll         bool     `json:"is_import_all,omitempty"`
+	Filters           []string `json:"filters,omitempty"`
 	Asserted          bool     `json:"is_asserted,omitempty"`
 	Negated           bool     `json:"is_negated,omitempty"`
 	Expression        string   `json:"expression,omitempty"`
@@ -239,7 +250,26 @@ func runApplyEditsCase(t *testing.T, srv *grpc.Service, ctx context.Context, mod
 					Value: op.Value, Specializes: op.Specializes,
 					IsAbstract: op.IsAbstract, Redefines: op.Redefines,
 					IsDefault: op.IsDefault, Direction: op.Direction,
+					BodyExpression: op.BodyExpression,
+					Doc:            op.Doc,
 				}},
+			})
+		case "add_documentation":
+			operations = append(operations, &pb.EditOperation{
+				Operation: &pb.EditOperation_AddDocumentation{AddDocumentation: &pb.AddDocumentationEdit{
+					Target: op.Target, Body: op.Body, Name: op.Name,
+					Locale: op.Locale, Replace: op.Replace,
+				}},
+			})
+		case "add_comment":
+			operations = append(operations, &pb.EditOperation{
+				Operation: &pb.EditOperation_AddComment{AddComment: &pb.AddCommentEdit{
+					Owner: op.Owner, Body: op.Body, Name: op.Name, About: op.About, Locale: op.Locale,
+				}},
+			})
+		case "add_note":
+			operations = append(operations, &pb.EditOperation{
+				Operation: &pb.EditOperation_AddNote{AddNote: &pb.AddNoteEdit{Target: op.Target, Text: op.Text}},
 			})
 		case "add_connection":
 			operations = append(operations, &pb.EditOperation{
@@ -279,6 +309,14 @@ func runApplyEditsCase(t *testing.T, srv *grpc.Service, ctx context.Context, mod
 					Owner: op.Owner, Keyword: op.Keyword, Ref: op.Ref,
 					MemberKind: op.MemberKind, MemberName: op.MemberName,
 					Type: op.Type, After: op.After,
+				}},
+			})
+		case "add_import":
+			operations = append(operations, &pb.EditOperation{
+				Operation: &pb.EditOperation_AddImport{AddImport: &pb.AddImportEdit{
+					Owner: op.Owner, Visibility: op.Visibility, Target: op.Target,
+					IsRecursive: op.Recursive, IsImportAll: op.ImportAll,
+					Filters: op.Filters,
 				}},
 			})
 		case "delete":

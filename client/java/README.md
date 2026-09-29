@@ -399,11 +399,29 @@ and `SuiteTest.aCorruptedAnswerIsCaught` asserts each corruption is caught:
 `Edit.AddTransition` expose requirement and state-transition authoring, and
 `Edit.AddSequence` action-body sequencing. `Edit.AddTransition.entry` constructs
 an entry transition; `Edit.AddSequence.first`, `.then` and `.thenMember` write
-`first`/`then` members. The client checks
-`member_modifiers`, `satisfy_authoring`, `requirement_constraint_authoring`,
-`transition_authoring` or `sequence_authoring` before sending those additions.
-An `Edit.AddMember` with an empty `kind` writes a directed usage with no kind
-keyword (`in x : T;`) and requires `implicit_parameters`.
+`first`/`then` members. `Edit.AddImport` authors import declarations.
+The client checks `member_modifiers`, `satisfy_authoring`,
+`requirement_constraint_authoring`, `transition_authoring`,
+`sequence_authoring` and `implicit_parameters` as applicable.
+`Edit.AddMember.withBodyExpression` writes a body expression in `{ ... }`,
+distinct from `withValue`, which writes a feature value with `= ...`; calc/case/
+analysis/verification/use-case expressions are result expressions. Reference-form
+`assert` and `assert not` members are anonymous, and post-edit analysis checks
+that their feature reference denotes a constraint. Constraint-body and assertion
+additions require `constraint_body_authoring`; exhibit and state subaction kinds
+require `state_action_authoring`, alongside `authoring`.
+`Edit.AddImport` authors import declarations. `Edit.AddMember.withDoc` and
+`Edit.AddDocumentation.of(target, body)` (with `withName`, `withLocale` and `withReplace`)
+write documentation on a new or existing declaration, after checking
+`documentation_authoring`. `Edit.AddComment.of(owner, body)` (with `withName`, `withAbout` and
+`withLocale`) writes a `comment`, and `new Edit.AddNote(target, text)` a `// text` line note above
+a declaration, after checking `comment_authoring`.
+Constraint-body and assertion additions require `constraint_body_authoring`;
+exhibit and state subaction kinds require `state_action_authoring`, alongside
+`authoring`. Documentation and comment operations check `documentation_authoring`
+and `comment_authoring`. An `Edit.AddMember` with an empty `kind` writes a
+directed usage with no kind keyword (`in x : T;`) and requires
+`implicit_parameters`.
 
 ## Running the tests
 

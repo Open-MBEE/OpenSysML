@@ -10,6 +10,7 @@ the value is now — which is the part a mock cannot tell you anything about.
 import json
 import os
 import subprocess
+import textwrap
 import time
 from concurrent import futures
 
@@ -19,13 +20,18 @@ import pytest
 from opensysml.capabilities import (
     CAPABILITY_APPLY_EDITS,
     CAPABILITY_AUTHORING,
+    CAPABILITY_COMMENT_AUTHORING,
     CAPABILITY_CONNECTION_AUTHORING,
     CAPABILITY_IMPLICIT_PARAMETERS,
+    CAPABILITY_CONSTRAINT_BODY_AUTHORING,
+    CAPABILITY_DOCUMENTATION_AUTHORING,
     CAPABILITY_MEMBER_MODIFIERS,
     CAPABILITY_REQUIREMENT_CONSTRAINT_AUTHORING,
     CAPABILITY_SATISFY_AUTHORING,
     CAPABILITY_TRANSITION_AUTHORING,
     CAPABILITY_SEQUENCE_AUTHORING,
+    CAPABILITY_STATE_ACTION_AUTHORING,
+    CAPABILITY_IMPORT_AUTHORING,
     CAPABILITY_EDIT_DOCUMENTS,
     CAPABILITY_INLINE_LANGUAGE,
     MissingCapabilityError,
@@ -370,6 +376,7 @@ def test_new_authoring_operations_and_member_modifiers_are_exact(fake_service):
             CAPABILITY_SATISFY_AUTHORING,
             CAPABILITY_REQUIREMENT_CONSTRAINT_AUTHORING,
             CAPABILITY_TRANSITION_AUTHORING,
+            CAPABILITY_IMPORT_AUTHORING,
         )
     )
     with Connection(port=port, auto_start=False) as conn:
@@ -388,9 +395,15 @@ def test_new_authoring_operations_and_member_modifiers_are_exact(fake_service):
                 guard="ready", effect="action cool",
             )
             .add_entry_transition("Demo::SC", "a")
+            .add_import(
+                "Demo::SC", "ScalarValues::*", visibility="public",
+                recursive=True, all=True, filter=["@Safety", "@Approved"],
+            )
             .apply()
         )
-    member, satisfy, require, assume, transition, entry = service.requests[0].operations
+    (
+        member, satisfy, require, assume, transition, entry, declared_import
+    ) = service.requests[0].operations
     assert member.WhichOneof("operation") == "add_member"
     assert (
         member.add_member.is_abstract,
@@ -427,8 +440,173 @@ def test_new_authoring_operations_and_member_modifiers_are_exact(fake_service):
     assert entry.add_transition.owner == "Demo::SC"
     assert entry.add_transition.target == "a"
     assert entry.add_transition.initial
+    assert declared_import.WhichOneof("operation") == "add_import"
+    assert (
+        declared_import.add_import.owner,
+        declared_import.add_import.visibility,
+        declared_import.add_import.target,
+        declared_import.add_import.is_recursive,
+        declared_import.add_import.is_import_all,
+        list(declared_import.add_import.filters),
+    ) == ("Demo::SC", "public", "ScalarValues::*", True, True, ["@Safety", "@Approved"])
 
 
+def test_add_import_accepts_a_single_filter_expression():
+    editor = Editor("hash", None)
+    editor.add_import("Demo", "A::*", filter="@Safety")
+    assert len(editor) == 1
+
+
+@pytest.mark.parametrize(
+    "argument,value",
+    [
+        ("target", 3),
+        ("visibility", 3),
+        ("recursive", "yes"),
+        ("all", "yes"),
+        ("filter", 3),
+    ],
+)
+def test_add_import_rejects_invalid_arguments(argument, value):
+    editor = Editor("hash", None)
+    with pytest.raises(TypeError, match=argument):
+        editor.add_import("Demo", "A::*", **{argument: value})
+    assert len(editor) == 0
+
+
+def test_constraint_body_and_state_action_helpers_are_exact(fake_service):
+    port, service = fake_service(
+        capabilities=(
+            CAPABILITY_APPLY_EDITS,
+            CAPABILITY_AUTHORING,
+            CAPABILITY_CONSTRAINT_BODY_AUTHORING,
+            CAPABILITY_STATE_ACTION_AUTHORING,
+        )
+    )
+    with Connection(port=port, auto_start=False) as conn:
+        (
+            conn.load_from_content(MODEL)
+            .edit()
+            .add_constraint_def("Demo::SC", "C", expression="x > 0")
+            .add_constraint("Demo::SC", "usage", expression="x > 0")
+            .add_assert_constraint("Demo::SC", "positive", expression="x > 0")
+            .add_assert_constraint(
+                "Demo::SC", "negative", expression="x < 0", negated=True
+            )
+            .add_assert_constraint("Demo::SC", type="C")
+            .add_assert_constraint("Demo::SC", expression="x > 0")
+            .add_assert("Demo::SC", "positive")
+            .add_assert("Demo::SC", "negative", negated=True)
+            .add_calc_def("Demo::SC", "D", expression="x * 2")
+            .add_calc("Demo::SC", "c", expression="x * 3")
+            .add_exhibit_state("Demo::SC", "shown", type="S")
+            .add_exhibit("Demo::SC", "part.state")
+            .add_state_action("Demo::SC", "entry", "start", type="A")
+            .add_state_action("Demo::SC", "do", "run", type="A")
+            .add_state_action("Demo::SC", "exit", "finish", type="A")
+            .apply()
+        )
+
+    operations = [operation.add_member for operation in service.requests[0].operations]
+    assert [
+        (
+            operation.kind,
+            operation.name,
+            operation.type,
+            operation.body_expression,
+        )
+        for operation in operations
+    ] == [
+        ("constraint def", "C", "", "x > 0"),
+        ("constraint", "usage", "", "x > 0"),
+        ("assert constraint", "positive", "", "x > 0"),
+        ("assert not constraint", "negative", "", "x < 0"),
+        ("assert constraint", "", "C", ""),
+        ("assert constraint", "", "", "x > 0"),
+        ("assert", "positive", "", ""),
+        ("assert not", "negative", "", ""),
+        ("calc def", "D", "", "x * 2"),
+        ("calc", "c", "", "x * 3"),
+        ("exhibit state", "shown", "S", ""),
+        ("exhibit", "part.state", "", ""),
+        ("entry action", "start", "A", ""),
+        ("do action", "run", "A", ""),
+        ("exit action", "finish", "A", ""),
+    ]
+
+
+@pytest.mark.parametrize(
+    "operation,missing",
+    [
+        (
+            lambda editor: editor.add_constraint("Demo::SC", "bounded", expression="x > 0"),
+            CAPABILITY_CONSTRAINT_BODY_AUTHORING,
+        ),
+        (
+            lambda editor: editor.add_assert_constraint("Demo::SC", "bounded"),
+            CAPABILITY_CONSTRAINT_BODY_AUTHORING,
+        ),
+        (
+            lambda editor: editor.add_assert("Demo::SC", "bounded"),
+            CAPABILITY_CONSTRAINT_BODY_AUTHORING,
+        ),
+        (
+            lambda editor: editor.add_calc_def("Demo", "Double", expression="x * 2"),
+            CAPABILITY_CONSTRAINT_BODY_AUTHORING,
+        ),
+        (
+            lambda editor: editor.add_exhibit_state("Demo::SC", "running", type="S"),
+            CAPABILITY_STATE_ACTION_AUTHORING,
+        ),
+        (
+            lambda editor: editor.add_exhibit("Demo::SC", "part.state"),
+            CAPABILITY_STATE_ACTION_AUTHORING,
+        ),
+        (
+            lambda editor: editor.add_state_action("Demo::SC", "do", "run"),
+            CAPABILITY_STATE_ACTION_AUTHORING,
+        ),
+    ],
+)
+def test_constraint_and_state_capabilities_are_preflighted(
+    fake_service, operation, missing
+):
+    port, service = fake_service(
+        capabilities=(CAPABILITY_APPLY_EDITS, CAPABILITY_AUTHORING)
+    )
+    with Connection(port=port, auto_start=False) as conn:
+        editor = operation(conn.load_from_content(MODEL).edit())
+        with pytest.raises(MissingCapabilityError) as error:
+            editor.apply()
+    assert error.value.capability == missing
+    assert service.requests == []
+
+
+def test_new_add_member_expression_and_helper_arguments_are_checked():
+    editor = Editor("hash", None)
+    with pytest.raises(TypeError, match="expression must be notation text, not int"):
+        editor.add_member("Demo", "constraint", "c", expression=1)
+    with pytest.raises(TypeError, match="negated must be bool"):
+        editor.add_assert_constraint("Demo", "c", negated=1)
+    with pytest.raises(TypeError, match="negated must be bool"):
+        editor.add_assert("Demo", "c", negated=1)
+    with pytest.raises(TypeError, match="ref must be notation text, not int"):
+        editor.add_assert("Demo", 1)
+    editor.add_calc_def("Demo", "D", return_type="Real", expression="x * 2")
+    editor.add_calc("Demo", "c", return_type="Real", expression="x * 2")
+    for method in ("add_calc", "add_calc_def"):
+        with pytest.raises(
+            ValueError,
+            match="^expression and return_expression both bind the result; give one$",
+        ):
+            getattr(editor, method)(
+                "Demo", "C", return_type="Real", return_expression="x",
+                expression="x * 2",
+            )
+    with pytest.raises(TypeError, match="kind must be notation text, not int"):
+        editor.add_state_action("Demo::S", 1, "a")
+    with pytest.raises(ValueError, match="kind must be 'entry', 'do' or 'exit'"):
+        editor.add_state_action("Demo::S", "transition", "a")
 def test_member_modifier_capability_accumulates_across_operations(fake_service):
     port, service = fake_service(
         capabilities=(CAPABILITY_APPLY_EDITS, CAPABILITY_AUTHORING)
@@ -449,6 +627,19 @@ def test_transition_requires_authoring_alongside_transition_capability(fake_serv
     with Connection(port=port, auto_start=False) as conn:
         edit = conn.load_from_content(MODEL).edit()
         edit.add_transition("Demo::S", "idle", "toasting")
+        with pytest.raises(MissingCapabilityError) as error:
+            edit.apply()
+    assert error.value.capability == CAPABILITY_AUTHORING
+    assert service.requests == []
+
+
+def test_import_requires_authoring_alongside_import_capability(fake_service):
+    port, service = fake_service(
+        capabilities=(CAPABILITY_APPLY_EDITS, CAPABILITY_IMPORT_AUTHORING)
+    )
+    with Connection(port=port, auto_start=False) as conn:
+        edit = conn.load_from_content(MODEL).edit()
+        edit.add_import("Demo", "ScalarValues::*")
         with pytest.raises(MissingCapabilityError) as error:
             edit.apply()
     assert error.value.capability == CAPABILITY_AUTHORING
@@ -511,6 +702,14 @@ def test_add_member_rejects_invalid_direction_with_type_message(fake_service):
          CAPABILITY_IMPLICIT_PARAMETERS),
         (lambda editor: editor.add_parameter("Demo::SC", "in", "x"),
          CAPABILITY_MEMBER_MODIFIERS),
+        (lambda editor: editor.add_part_def("Demo", "Wheel", doc="A wheel."),
+         CAPABILITY_DOCUMENTATION_AUTHORING),
+        (lambda editor: editor.add_import("Demo::SC", "A::*"),
+         CAPABILITY_IMPORT_AUTHORING),
+        (lambda editor: editor.add_documentation("Demo::SC", "A spacecraft."),
+         CAPABILITY_DOCUMENTATION_AUTHORING),
+        (lambda editor: editor.add_comment("Demo", "A note."), CAPABILITY_COMMENT_AUTHORING),
+        (lambda editor: editor.add_note("Demo::SC", "A note."), CAPABILITY_COMMENT_AUTHORING),
     ],
 )
 def test_new_authoring_capabilities_are_preflighted(fake_service, operation, missing):
@@ -598,7 +797,218 @@ def test_sequence_requires_authoring_alongside_sequence_capability(fake_service)
     assert error.value.capability == CAPABILITY_AUTHORING
     assert service.requests == []
 
+def test_documentation_requests_are_exact(fake_service):
+    port, service = fake_service(
+        capabilities=(
+            CAPABILITY_APPLY_EDITS,
+            CAPABILITY_AUTHORING,
+            CAPABILITY_MEMBER_MODIFIERS,
+            CAPABILITY_IMPLICIT_PARAMETERS,
+            CAPABILITY_DOCUMENTATION_AUTHORING,
+        )
+    )
+    with Connection(port=port, auto_start=False) as conn:
+        model = conn.load_from_content(MODEL)
+        (
+            model.edit()
+            .add_part_def("Demo", "Wheel", doc="A wheel.\nRound.")
+            .add_parameter("Demo::SC", "in", "power", type="Real", doc="Power in.")
+            .add_member("Demo::SC", "attribute", "plain")
+            .add_documentation("Demo::SC", "A spacecraft.")
+            .add_documentation(
+                "Demo::SC::unitMass", "Bench mass.",
+                name="Mass", locale="en_US", replace=True,
+            )
+            .apply()
+        )
+    part_def, parameter, plain, documented, replaced = service.requests[0].operations
+    assert part_def.WhichOneof("operation") == "add_member"
+    assert (part_def.add_member.kind, part_def.add_member.name, part_def.add_member.doc) == (
+        "part def", "Wheel", "A wheel.\nRound.",
+    )
+    assert (
+        parameter.add_member.kind, parameter.add_member.direction, parameter.add_member.doc,
+    ) == ("", "in", "Power in.")
+    assert plain.add_member.doc == ""
+    assert documented.WhichOneof("operation") == "add_documentation"
+    doc = documented.add_documentation
+    assert (doc.target, doc.body, doc.name, doc.locale, doc.replace) == (
+        "Demo::SC", "A spacecraft.", "", "", False,
+    )
+    doc = replaced.add_documentation
+    assert (doc.target, doc.body, doc.name, doc.locale, doc.replace) == (
+        "Demo::SC::unitMass", "Bench mass.", "Mass", "en_US", True,
+    )
 
+
+def test_add_member_carries_documentation_and_body_expression(fake_service):
+    port, service = fake_service(
+        capabilities=(
+            CAPABILITY_APPLY_EDITS,
+            CAPABILITY_AUTHORING,
+            CAPABILITY_CONSTRAINT_BODY_AUTHORING,
+            CAPABILITY_DOCUMENTATION_AUTHORING,
+        )
+    )
+    with Connection(port=port, auto_start=False) as conn:
+        (
+            conn.load_from_content(MODEL)
+            .edit()
+            .add_member(
+                "Demo::SC", "constraint", "bounded",
+                expression="true", doc="Checks true.",
+            )
+            .add_member("Demo", "part def", "Wheel", doc="A wheel.")
+            .apply()
+        )
+    bounded, documented = service.requests[0].operations
+    assert (
+        bounded.add_member.body_expression,
+        bounded.add_member.doc,
+    ) == ("true", "Checks true.")
+    assert (
+        documented.add_member.body_expression,
+        documented.add_member.doc,
+    ) == ("", "A wheel.")
+
+
+@pytest.mark.parametrize("method", [
+    "add_part_def", "add_part", "add_attribute", "add_calc_def", "add_calc",
+    "add_action_def", "add_action", "add_perform_action", "add_state_def",
+    "add_state", "add_constraint_def", "add_constraint", "add_requirement_def",
+    "add_requirement", "add_item_def", "add_port_def",
+])
+def test_every_member_helper_carries_documentation(method):
+    editor = Editor("hash", None)
+    getattr(editor, method)("Demo", "x", doc="Text.")
+    (operation,) = [op for op in editor.operations if op[3] == "x"]
+    assert operation[0] == "add_member"
+    assert operation[-1] == "Text."
+
+
+def test_parameter_return_and_perform_helpers_carry_documentation():
+    editor = Editor("hash", None)
+    editor.add_parameter("Demo::A", "in", "x", doc="In.")
+    editor.add_return("Demo::C", "r", doc="Out.")
+    editor.add_perform("Demo::P", "Demo::A", doc="Done.")
+    assert [op[-1] for op in editor.operations] == ["In.", "Out.", "Done."]
+
+
+@pytest.mark.parametrize(
+    "call,error",
+    [
+        (lambda e: e.add_member("Demo", "part", "x", doc=3), "doc must be text, not int"),
+        (lambda e: e.add_documentation("Demo", None), "body must be text, not NoneType"),
+        (lambda e: e.add_documentation("Demo", "b", name=3), "name must be text, not int"),
+        (lambda e: e.add_documentation("Demo", "b", locale=3), "locale must be text, not int"),
+        (lambda e: e.add_documentation("Demo", "b", replace="yes"),
+         "replace must be a bool, not str"),
+    ],
+)
+def test_documentation_arguments_are_type_checked(call, error):
+    editor = Editor("hash", None)
+    with pytest.raises(TypeError) as excinfo:
+        call(editor)
+    assert str(excinfo.value) == error
+    assert len(editor) == 0
+
+
+def test_comment_and_note_requests_are_exact(fake_service):
+    port, service = fake_service(
+        capabilities=(CAPABILITY_APPLY_EDITS, CAPABILITY_AUTHORING, CAPABILITY_COMMENT_AUTHORING)
+    )
+    with Connection(port=port, auto_start=False) as conn:
+        model = conn.load_from_content(MODEL)
+        (
+            model.edit()
+            .add_comment("", "Top.")
+            .add_comment(
+                "Demo", " Two\nlines ", name="Why", about=["Demo::SC", "Demo"], locale="en",
+            )
+            .add_note("Demo::SC", "DimensionOneValue")
+            .apply()
+        )
+    top, full, note = service.requests[0].operations
+    assert top.WhichOneof("operation") == "add_comment"
+    comment = top.add_comment
+    assert (comment.owner, comment.body, comment.name, list(comment.about), comment.locale) == (
+        "", "Top.", "", [], "",
+    )
+    comment = full.add_comment
+    assert (comment.owner, comment.body, comment.name, list(comment.about), comment.locale) == (
+        "Demo", " Two\nlines ", "Why", ["Demo::SC", "Demo"], "en",
+    )
+    assert note.WhichOneof("operation") == "add_note"
+    assert (note.add_note.target, note.add_note.text) == ("Demo::SC", "DimensionOneValue")
+
+
+@pytest.mark.parametrize(
+    "call,error",
+    [
+        (lambda e: e.add_comment("Demo", None), "body must be text, not NoneType"),
+        (lambda e: e.add_comment("Demo", "b", name=3), "name must be text, not int"),
+        (lambda e: e.add_comment("Demo", "b", locale=3), "locale must be text, not int"),
+        (lambda e: e.add_comment("Demo", "b", about="Demo::SC"),
+         "about must be a sequence of names or symbols, not one name"),
+        (lambda e: e.add_comment("Demo", "b", about=[3]),
+         "target must be a symbol id (FQN) or a Symbol, not int"),
+        (lambda e: e.add_note("Demo::SC", None), "text must be text, not NoneType"),
+    ],
+)
+def test_comment_and_note_arguments_are_type_checked(call, error):
+    editor = Editor("hash", None)
+    with pytest.raises(TypeError) as excinfo:
+        call(editor)
+    assert str(excinfo.value) == error
+    assert len(editor) == 0
+
+
+@pytest.mark.parametrize("text", ["one\ntwo", "one\rtwo", "trailing\n"])
+def test_a_note_of_several_lines_is_refused(text):
+    editor = Editor("hash", None)
+    with pytest.raises(ValueError, match="a note is one line"):
+        editor.add_note("Demo::SC", text)
+    assert len(editor) == 0
+
+
+def test_malformed_comment_and_note_operations_are_refused(fake_service):
+    port, service = fake_service(
+        capabilities=(CAPABILITY_APPLY_EDITS, CAPABILITY_AUTHORING, CAPABILITY_COMMENT_AUTHORING)
+    )
+    with Connection(port=port, auto_start=False) as conn:
+        with pytest.raises(ValueError, match="malformed add_comment operation"):
+            conn.apply_edits("fake-hash", [("add_comment", "Demo", "b")])
+        with pytest.raises(ValueError, match="malformed add_comment operation"):
+            conn.apply_edits("fake-hash", [("add_comment", "Demo", "b", "", "Demo::SC", "")])
+        with pytest.raises(ValueError, match="malformed add_comment operation"):
+            conn.apply_edits(
+                "fake-hash",
+                [("add_comment", "Demo", "b", "", (name for name in ["Demo::SC"]), "")],
+            )
+        with pytest.raises(ValueError, match="malformed add_note operation"):
+            conn.apply_edits("fake-hash", [("add_note", "Demo::SC")])
+        with pytest.raises(ValueError, match="malformed add_note operation"):
+            conn.apply_edits("fake-hash", [("add_note", "Demo::SC", 3)])
+    assert service.requests == []
+
+
+def test_malformed_documentation_operations_are_refused(fake_service):
+    port, service = fake_service(
+        capabilities=(
+            CAPABILITY_APPLY_EDITS, CAPABILITY_AUTHORING, CAPABILITY_DOCUMENTATION_AUTHORING,
+        )
+    )
+    with Connection(port=port, auto_start=False) as conn:
+        with pytest.raises(ValueError, match="malformed add_documentation operation"):
+            conn.apply_edits("fake-hash", [("add_documentation", "Demo", "b")])
+        with pytest.raises(ValueError, match="malformed add_documentation operation"):
+            conn.apply_edits("fake-hash", [("add_documentation", "Demo", "b", "", "", "no")])
+        with pytest.raises(ValueError, match="doc must be text"):
+            conn.apply_edits("fake-hash", [(
+                "add_member", "Demo", "part", "x", "", "", "", [],
+                False, [], False, "", "", 3,
+            )])
+    assert service.requests == []
 def test_add_member_normalizes_reference_strings_and_validates_kind():
     editor = Editor("hash", None)
     editor.add_member(
@@ -1054,12 +1464,28 @@ def test_an_evicted_model_names_the_eviction(fake_service):
 
 def test_an_unknown_operation_kind_is_refused(fake_service):
     """The connection's own operation form is checked before anything is sent."""
-    port, service = fake_service()
+    port, service = fake_service(
+        capabilities=(CAPABILITY_APPLY_EDITS, CAPABILITY_AUTHORING)
+    )
     with Connection(port=port, auto_start=False) as conn:
         with pytest.raises(ValueError, match="malformed delete operation"):
             conn.apply_edits("fake-hash", [("delete", "Demo::SC", "")])
         with pytest.raises(ValueError, match="malformed move operation"):
             conn.apply_edits("fake-hash", [("move", "Demo::SC")])
+        for fields in (("add_member",), ("add_member",) * 9, ("add_member",) * 15):
+            with pytest.raises(
+                ValueError, match="expected 8, 12, 13 or 14 fields"
+            ):
+                conn.apply_edits("fake-hash", [fields])
+        for expression in (1, 0, None):
+            with pytest.raises(ValueError, match="expression must be notation text"):
+                conn.apply_edits(
+                    "fake-hash",
+                    [(
+                        "add_member", "P", "constraint", "c", "", "", "", [],
+                        False, [], False, "", expression,
+                    )],
+                )
     assert service.requests == []
 
 
@@ -1140,6 +1566,233 @@ class TestEditRoundTripAgainstRealService:
             assert vehicle is not None
             assert any(part.name == "engine" for part in vehicle.parts())
 
+    def test_constraint_assert_exhibit_and_state_action_forms(self, real_service):
+        source = """package P {
+    private import ScalarValues::*;
+    action def A;
+    constraint def ConstraintType;
+    attribute x : Real = 1.0;
+    state def S { state active; }
+    part def Base { state cycle : S; }
+    part def Host :> Base;
+}
+"""
+        with Connection(port=real_service, auto_start=False) as conn:
+            model = conn.load_from_content(source)
+            result = (
+                model.edit()
+                .add_constraint_def("P", "Positive", expression="x > 0")
+                .add_constraint(
+                    "P", "Bounded", value="true", expression="x > 0"
+                )
+                .add_assert_constraint("P", "checked", expression="true")
+                .add_assert_constraint("P", type="ConstraintType")
+                .add_assert_constraint(
+                    "P", "notChecked", expression="false", negated=True
+                )
+                .add_exhibit_state("P::Host", "shown", type="S")
+                .add_exhibit("P::Host", "cycle")
+                .add_member("P::Host::shown", "state", "nested")
+                .add_state_action("P::S::active", "entry", "onEntry", type="A")
+                .add_state_action("P::S::active", "do", "work", type="A")
+                .add_member(
+                    "P::S::active::work",
+                    "attribute",
+                    "input",
+                    type="ScalarValues::Real",
+                    direction="in",
+                )
+                .add_state_action("P::S::active", "exit", "onExit", type="A")
+                .apply()
+            )
+            edited = str(result)
+            assert "constraint def Positive { x > 0 }" in edited
+            assert "constraint Bounded = true { x > 0 }" in edited
+            assert "assert constraint checked { true }" in edited
+            assert "assert constraint : ConstraintType;" in edited
+            assert "assert not constraint notChecked { false }" in edited
+            assert "exhibit state shown : S {" in edited
+            assert "exhibit cycle;" in edited
+            assert "do action work : A {" in edited
+            assert "in attribute input : ScalarValues::Real;" in edited
+            again = conn.load_from_content(edited)
+            assert again.ok, [str(d) for d in again.errors]
+
+    def test_toaster_constraint_exhibit_and_state_action_authoring_matches_target(
+        self, real_service
+    ):
+        start = """package ToasterDemo {
+    private import ISQ::*;
+    private import SI::*;
+    private import ScalarValues::*;
+    action def GenerateHeat { in energyIn : ISQ::EnergyValue[0..*]; }
+    action def ApplyHeat {
+        in energy : ISQ::EnergyValue[0..*];
+        out delivered : ISQ::EnergyValue;
+        out loss : ISQ::EnergyValue;
+    }
+    state def Cycle { entry; then idle; state idle; state heating; }
+    part def ToastingSystem;
+    part heatGenCheck { attribute efficiency : Real; attribute power : ISQ::PowerValue; }
+    attribute heatGenCheckDuration : ISQ::DurationValue;
+}
+"""
+        expression = textwrap.dedent("""\
+            (heatGenCheck.efficiency >= 0.0 and heatGenCheck.efficiency <= 1.0
+             and heatGenCheck.power >= 0.0 [SI::W] and heatGenCheckDuration >= 0.0 [SI::s])
+            implies (heatGenCheck.power * heatGenCheckDuration * heatGenCheck.efficiency)
+                    <= heatGenCheck.power * heatGenCheckDuration
+        """).rstrip()
+        target = """package ToasterDemo {
+    private import ISQ::*;
+    private import SI::*;
+    private import ScalarValues::*;
+    action def GenerateHeat { in energyIn : ISQ::EnergyValue[0..*]; }
+    action def ApplyHeat {
+        in energy : ISQ::EnergyValue[0..*];
+        out delivered : ISQ::EnergyValue;
+        out loss : ISQ::EnergyValue;
+        assert constraint balance {
+            delivered >= 0.0 [SI::J] and loss >= 0.0 [SI::J] and delivered + loss <= energy
+        }
+    }
+    state def Cycle { entry; then idle; state idle; state heating {
+            do action generateHeat : GenerateHeat;
+        } }
+    part def ToastingSystem {
+        exhibit state cycle : Cycle;
+    }
+    part heatGenCheck { attribute efficiency : Real; attribute power : ISQ::PowerValue; }
+    attribute heatGenCheckDuration : ISQ::DurationValue;
+    assert constraint deliveredEnergyBoundedBySupply {
+        (heatGenCheck.efficiency >= 0.0 and heatGenCheck.efficiency <= 1.0
+         and heatGenCheck.power >= 0.0 [SI::W] and heatGenCheckDuration >= 0.0 [SI::s])
+        implies (heatGenCheck.power * heatGenCheckDuration * heatGenCheck.efficiency)
+                <= heatGenCheck.power * heatGenCheckDuration
+    }
+}
+"""
+        with Connection(port=real_service, auto_start=False) as conn:
+            source_model = conn.load_from_content(start)
+            edited = (
+                source_model.edit()
+                .add_assert_constraint(
+                    "ToasterDemo::ApplyHeat",
+                    "balance",
+                    expression=(
+                        "delivered >= 0.0 [SI::J] and loss >= 0.0 [SI::J] "
+                        "and delivered + loss <= energy"
+                    ),
+                )
+                .add_exhibit_state(
+                    "ToasterDemo::ToastingSystem", "cycle", type="Cycle"
+                )
+                .add_state_action(
+                    "ToasterDemo::Cycle::heating",
+                    "do",
+                    "generateHeat",
+                    type="GenerateHeat",
+                )
+                .add_assert_constraint(
+                    "ToasterDemo",
+                    "deliveredEnergyBoundedBySupply",
+                    expression=expression,
+                )
+                .apply()
+            )
+            edited_text = str(edited)
+            assert (
+                "assert constraint deliveredEnergyBoundedBySupply {\n"
+                "        (heatGenCheck.efficiency >= 0.0 and "
+                "heatGenCheck.efficiency <= 1.0\n"
+                "         and heatGenCheck.power >= 0.0 [SI::W] and "
+                "heatGenCheckDuration >= 0.0 [SI::s])\n"
+                "        implies (heatGenCheck.power * heatGenCheckDuration * "
+                "heatGenCheck.efficiency)\n"
+                "                <= heatGenCheck.power * heatGenCheckDuration\n"
+                "    }"
+            ) in edited_text
+            edited_model = conn.load_from_content(edited_text)
+            target_model = conn.load_from_content(target)
+            assert edited_model.ok, [str(d) for d in edited_model.errors]
+            assert target_model.ok, [str(d) for d in target_model.errors]
+
+            def authoring_elements(model):
+                data = json.loads(str(model.to_api_json()))
+                elements = data if isinstance(data, list) else data.get("elements", data)
+                return {
+                    (element.get("@type"), element.get("qualifiedName"))
+                    for element in elements
+                    if element.get("@type") in {
+                        "AssertConstraintUsage",
+                        "ExhibitStateUsage",
+                        "StateSubactionMembership",
+                        "PerformActionUsage",
+                    }
+                }
+
+            assert authoring_elements(edited_model) == authoring_elements(target_model)
+
+    def test_constraint_verification_and_state_execution_match_parsed_target(
+        self, real_service
+    ):
+        source = """package P {
+    private import ScalarValues::*;
+    attribute x : Real = 3.0;
+    action def Work;
+    state def Machine {
+        entry; then active;
+        state active;
+    }
+}
+"""
+        target = """package P {
+    private import ScalarValues::*;
+    attribute x : Real = 3.0;
+    action def Work;
+    state def Machine {
+        entry; then active;
+        state active {
+            do action work : Work;
+        }
+    }
+    assert constraint holding { x == 3.0 }
+    assert not constraint negated { x < 0.0 }
+    assert constraint violated { x < 0.0 }
+}
+"""
+        with Connection(port=real_service, auto_start=False) as conn:
+            model = conn.load_from_content(source)
+            edited = (
+                model.edit()
+                .add_state_action("P::Machine::active", "do", "work", type="Work")
+                .add_assert_constraint("P", "holding", expression="x == 3.0")
+                .add_assert_constraint(
+                    "P", "negated", expression="x < 0.0", negated=True
+                )
+                .add_assert_constraint("P", "violated", expression="x < 0.0")
+                .apply()
+            )
+            edited_model = conn.load_from_content(str(edited))
+            target_model = conn.load_from_content(target)
+            assert edited_model.ok, [str(d) for d in edited_model.errors]
+            assert target_model.ok, [str(d) for d in target_model.errors]
+
+            for symbol, expected in (
+                ("P::holding", True),
+                ("P::negated", True),
+                ("P::violated", False),
+            ):
+                edited_verdict = edited_model.verify_constraint(symbol)
+                target_verdict = target_model.verify_constraint(symbol)
+                assert edited_verdict.holds is expected
+                assert edited_verdict.holds == target_verdict.holds
+                assert edited_verdict.condition == target_verdict.condition
+
+            edited_run = edited_model.execute_state("P::Machine")
+            target_run = target_model.execute_state("P::Machine")
+            assert edited_run == target_run
+
     def test_add_parameter_precedes_calculation_result(self, real_service):
         source = "calc def C { in x : ScalarValues::Real; x * 2 }\n"
         with Connection(port=real_service, auto_start=False) as conn:
@@ -1154,6 +1807,35 @@ class TestEditRoundTripAgainstRealService:
             )
             again = conn.load_from_content(edited)
             assert again.ok, [str(d) for d in again.errors]
+
+    def test_reference_assertions_and_calculation_result_expression(self, real_service):
+        source = """package P {
+    private import ScalarValues::*;
+    constraint c;
+}
+"""
+        with Connection(port=real_service, auto_start=False) as conn:
+            model = conn.load_from_content(source)
+            result = (
+                model.edit()
+                .add_assert("P", "c")
+                .add_assert("P", "c", negated=True)
+                .add_calc_def(
+                    "P", "D", inputs=[("x", "ScalarValues::Real")],
+                    expression="x * 2",
+                )
+                .apply()
+            )
+            edited = str(result)
+            assert "assert c;" in edited
+            assert "assert not c;" in edited
+            assert (
+                "calc def D { in x : ScalarValues::Real; x * 2 }"
+                in edited
+            )
+            again = conn.load_from_content(edited)
+            assert again.ok, [str(d) for d in again.errors]
+            assert again.calc("P::D", arguments=[3]).value == 6
 
     def test_add_parameter_to_action_definition(self, real_service):
         with Connection(port=real_service, auto_start=False) as conn:
@@ -1243,6 +1925,107 @@ class TestEditRoundTripAgainstRealService:
             )
             again = conn.load_from_content(edited)
             assert again.ok, [str(d) for d in again.errors]
+
+    def test_import_declarations_round_trip_every_form(self, real_service):
+        source = (
+            "package Q {\n"
+            "    metadata def Safety;\n"
+            "    metadata def Approved;\n"
+            "}\n"
+            "package P {\n"
+            "    part x;\n"
+            "}\n"
+        )
+        with Connection(port=real_service, auto_start=False) as conn:
+            model = conn.load_from_content(source)
+            result = (
+                model.edit()
+                .add_import("P", "ScalarValues::*")
+                .add_import("P", "ISQ::MassValue", visibility="public")
+                .add_import("P", "ISQ::MassValue", visibility="protected")
+                .add_import("P", "ISQ::*", recursive=True)
+                .add_import("P", "Q::*", all=True)
+                .add_import("P", "Q::*", filter=["@Q::Safety", "@Q::Approved"])
+                .add_import("P", "$::Q::*")
+                .apply()
+            )
+            edited = str(result)
+            for line in (
+                "private import ScalarValues::*;",
+                "public import ISQ::MassValue;",
+                "protected import ISQ::MassValue;",
+                "private import ISQ::*::**;",
+                "private import all Q::*;",
+                "private import Q::*[@Q::Safety][@Q::Approved];",
+                "private import $::Q::*;",
+            ):
+                assert "    " + line in edited
+            again = conn.load_from_content(edited)
+            assert again.ok, [str(d) for d in again.errors]
+
+    def test_an_import_at_the_document_root_is_private(self, real_service):
+        with Connection(port=real_service, auto_start=False) as conn:
+            model = conn.load_from_content("package P {\n    part x;\n}\n")
+            result = model.edit().add_import("", "ScalarValues::*").apply()
+            assert str(result).startswith("private import ScalarValues::*;\n")
+
+    def test_import_refusals_map_to_typed_errors(self, real_service):
+        source = "package P {\n    private import ScalarValues::*;\n    part x;\n}\n"
+        with Connection(port=real_service, auto_start=False) as conn:
+            model = conn.load_from_content(source)
+            with pytest.raises(OwnerNotFoundError):
+                model.edit().add_import("P::nope", "ScalarValues::*").apply()
+            with pytest.raises(EditResultError):
+                model.edit().add_import("P", "Nope::*").apply()
+            with pytest.raises(MemberNameTakenError):
+                model.edit().add_import("P", "ScalarValues::*").apply()
+
+    def test_imports_author_typed_members_that_resolve_downstream(self, real_service):
+        source = "package ToasterDemo { }\n"
+        target = (
+            "package ToasterDemo {\n"
+            "    private import ScalarValues::*;\n"
+            "    private import SI::*;\n"
+            "    private import ISQ::*;\n"
+            "    private import MeasurementReferences::*;\n"
+            "    attribute efficiency : DimensionOneValue;\n"
+            "}\n"
+        )
+        with Connection(port=real_service, auto_start=False) as conn:
+            result = (
+                conn.load_from_content(source)
+                .edit()
+                .add_import("ToasterDemo", "ScalarValues::*")
+                .add_import("ToasterDemo", "SI::*")
+                .add_import("ToasterDemo", "ISQ::*")
+                .add_import("ToasterDemo", "MeasurementReferences::*")
+                .add_member(
+                    "ToasterDemo", "attribute", "efficiency",
+                    type="DimensionOneValue",
+                )
+                .apply()
+            )
+            edited = str(result)
+            assert edited == target
+            model = conn.load_from_content(edited)
+            assert model.ok, [str(d) for d in model.errors]
+            efficiency = model.get("ToasterDemo::efficiency")
+            assert (
+                efficiency.type_facts.resolved_id
+                == "MeasurementReferences::DimensionOneValue"
+            )
+
+            def element_pairs(conversion):
+                return sorted(
+                    (element.get("@type"), element.get("qualifiedName"))
+                    for element in json.loads(str(conversion))
+                )
+
+            expected = conn.load_from_content(target)
+            assert expected.ok, [str(d) for d in expected.errors]
+            assert element_pairs(model.to_api_json()) == element_pairs(
+                expected.to_api_json()
+            )
 
     def test_calc_helper_adds_inputs_and_bound_result(self, real_service):
         source = "package P {\n    private import ScalarValues::*;\n}\n"
@@ -1448,6 +2231,217 @@ class TestEditRoundTripAgainstRealService:
             with pytest.raises(expected) as excinfo:
                 edit.apply()
         assert str(excinfo.value), "a refusal carried no message"
+
+    @pytest.mark.filterwarnings("ignore::opensysml.conversion.ExperimentalFeatureWarning")
+    def test_the_toaster_tutorial_documentation_is_built_by_the_editor(self, real_service):
+        start = (
+            "package ToasterDemo {\n"
+            "    item def Bread;\n"
+            "    item def Toast;\n"
+            "}\n"
+        )
+        target = (
+            "package ToasterDemo {\n"
+            "    item def Bread {\n"
+            "        doc /* A slice of bread, before toasting.*/\n"
+            "    }\n"
+            "    item def Toast;\n"
+            "    action def ToastBread {\n"
+            "        doc /* Transform bread into toast acceptable to its user.*/\n"
+            "        in bread : Bread;\n"
+            "        out toast : Toast;\n"
+            "    }\n"
+            "    action def ApplyHeat {\n"
+            "        in duration : ISQ::DurationValue[0..*] {\n"
+            "            doc /* Signal from a control function: how long to apply heat.\n"
+            "             * No control function is modeled in this chapter, so this input\n"
+            "             * is declared and typed but not yet connected to a value.*/\n"
+            "        }\n"
+            "    }\n"
+            "}\n"
+        )
+        heat = (
+            "Signal from a control function: how long to apply heat.\n"
+            "No control function is modeled in this chapter, so this input\n"
+            "is declared and typed but not yet connected to a value."
+        )
+        with Connection(port=real_service, auto_start=False) as conn:
+            result = (
+                conn.load_from_content(start).edit()
+                .add_documentation("ToasterDemo::Bread", "A slice of bread, before toasting.")
+                .add_action_def(
+                    "ToasterDemo", "ToastBread",
+                    inputs=[("bread", "Bread")], outputs=[("toast", "Toast")],
+                    doc="Transform bread into toast acceptable to its user.",
+                )
+                .add_action_def("ToasterDemo", "ApplyHeat")
+                .add_parameter(
+                    "ToasterDemo::ApplyHeat", "in", "duration",
+                    type="ISQ::DurationValue", multiplicity="[0..*]", doc=heat,
+                )
+                .apply()
+            )
+            edited = str(result)
+            assert edited == (
+                "package ToasterDemo {\n"
+                "    item def Bread {\n"
+                "        doc /* A slice of bread, before toasting.*/\n"
+                "    }\n"
+                "    item def Toast;\n"
+                "    action def ToastBread {\n"
+                "        doc /* Transform bread into toast acceptable to its user.*/\n"
+                "        in bread : Bread;\n"
+                "        out toast : Toast;\n"
+                "    }\n"
+                "    action def ApplyHeat {\n"
+                "        in duration : ISQ::DurationValue [0..*] {\n"
+                "            doc /* Signal from a control function: how long to apply heat.\n"
+                "             * No control function is modeled in this chapter, so this input\n"
+                "             * is declared and typed but not yet connected to a value.*/\n"
+                "        }\n"
+                "    }\n"
+                "}\n"
+            )
+            built = conn.load_from_content(edited)
+            expected = conn.load_from_content(target)
+            assert built.ok, [str(d) for d in built.errors]
+            assert expected.ok, [str(d) for d in expected.errors]
+
+            def construct(model):
+                return sorted(
+                    (e["@type"], e.get("qualifiedName"), e.get("body"))
+                    for e in json.loads(str(model.to_api_json()))
+                    if e.get("qualifiedName", "").startswith("ToasterDemo")
+                    and e["@type"] in (
+                        "Documentation", "ItemDefinition", "ActionDefinition",
+                        "ReferenceUsage",
+                    )
+                )
+
+            documentation = [e for e in construct(built) if e[0] == "Documentation"]
+            assert [qn for _, qn, _ in documentation] == [
+                "ToasterDemo::ApplyHeat::duration::@0",
+                "ToasterDemo::Bread::@0",
+                "ToasterDemo::ToastBread::@0",
+            ]
+            assert construct(built) == construct(expected)
+
+            def documentation_text(model):
+                return {
+                    e.get("qualifiedName"): e.get("documentation")
+                    for e in model.query(select=["qualifiedName", "documentation"])
+                    if e.get("documentation") is not None
+                }
+
+            assert documentation_text(built) == documentation_text(expected) == {
+                "ToasterDemo::Bread": "A slice of bread, before toasting.",
+                "ToasterDemo::ToastBread":
+                    "Transform bread into toast acceptable to its user.",
+                "ToasterDemo::ApplyHeat::duration": heat,
+            }
+
+    def test_documentation_on_a_body_goes_first_and_is_refused_twice(self, real_service):
+        source = "package P {\n    part def V {\n        attribute m;\n    }\n}\n"
+        with Connection(port=real_service, auto_start=False) as conn:
+            model = conn.load_from_content(source)
+            edited = str(model.edit().add_documentation("P::V", "A vehicle.").apply())
+            assert edited == (
+                "package P {\n    part def V {\n"
+                "        doc /* A vehicle.*/\n"
+                "        attribute m;\n    }\n}\n"
+            )
+            documented = conn.load_from_content(edited)
+            with pytest.raises(MemberNameTakenError):
+                documented.edit().add_documentation("P::V", "Again.").apply()
+            replaced = str(
+                documented.edit().add_documentation("P::V", "A car.", replace=True).apply()
+            )
+            assert "doc /* A car.*/" in replaced and "A vehicle." not in replaced
+            with pytest.raises(InvalidEditError):
+                model.edit().add_documentation("P::V", "ends */ early").apply()
+            with pytest.raises(EditTargetError):
+                model.edit().add_documentation("P::W", "Nothing.").apply()
+
+    @pytest.mark.filterwarnings("ignore::opensysml.conversion.ExperimentalFeatureWarning")
+    @pytest.mark.parametrize("body", [
+        "One line.", "", "  ", " leading", "trailing ", "a \n  indented\n\ttabbed\t",
+        "\nopens blank", "ends with a break\n", "* bullet\n* bullet",
+    ])
+    def test_comment_and_documentation_bodies_read_back_exactly(self, real_service, body):
+        source = "package P {\n    part def V;\n}\n"
+        with Connection(port=real_service, auto_start=False) as conn:
+            edited = str(
+                conn.load_from_content(source).edit()
+                .add_comment("P", body, name="C", about=["P::V"], locale="en")
+                .add_documentation("P::V", body)
+                .apply()
+            )
+            model = conn.load_from_content(edited)
+            assert model.ok, [str(d) for d in model.errors]
+            bodies = {
+                e["@type"]: e.get("body")
+                for e in json.loads(str(model.to_api_json()))
+                if e["@type"] in ("Comment", "Documentation")
+            }
+            assert bodies == {"Comment": body, "Documentation": body}
+            comment = [
+                e for e in json.loads(str(model.to_api_json())) if e["@type"] == "Comment"
+            ][0]
+            assert (comment.get("declaredName"), comment.get("locale")) == ("C", "en")
+
+    def test_comments_go_at_the_top_level_and_in_a_body(self, real_service):
+        source = "package P {\n    part def V;\n    part def W;\n}\n"
+        with Connection(port=real_service, auto_start=False) as conn:
+            edited = str(
+                conn.load_from_content(source).edit()
+                .add_comment("", "File note.")
+                .add_comment("P", "Both.", about=["V", "P::W"])
+                .add_comment("P::W", "Inside.\nTwo lines.")
+                .apply()
+            )
+            assert edited == (
+                "package P {\n    part def V;\n    part def W {\n"
+                "        comment /* Inside.\n         * Two lines.*/\n    }\n"
+                "    comment about V, P::W /* Both.*/\n}\ncomment /* File note.*/\n"
+            )
+            assert conn.load_from_content(edited).ok
+            with pytest.raises(EditResultError):
+                conn.load_from_content(source).edit().add_comment(
+                    "P", "Dangling.", about=["Nowhere"],
+                ).apply()
+            with pytest.raises(InvalidEditError):
+                conn.load_from_content(source).edit().add_comment("P", "ends */ early").apply()
+
+    def test_a_note_survives_reparsing_and_later_edits(self, real_service):
+        source = (
+            "package P {\n    attribute def A;\n"
+            "    part def V {\n        attribute m : A;\n    }\n}\n"
+        )
+        with Connection(port=real_service, auto_start=False) as conn:
+            noted = str(
+                conn.load_from_content(source).edit()
+                .add_note("P::V::m", "DimensionOneValue").apply()
+            )
+            assert "        // DimensionOneValue\n        attribute m : A;\n" in noted
+            model = conn.load_from_content(noted)
+            assert model.ok
+            later = str(
+                model.edit()
+                .rename("P::V::m", "mass")
+                .add_attribute("P::V", "extra", type="A")
+                .add_documentation("P::V", "A vehicle.")
+                .apply()
+            )
+            assert "        // DimensionOneValue\n        attribute mass : A;\n" in later
+            moved = str(conn.load_from_content(later).edit().move("P::V::mass", "P").apply())
+            assert "    // DimensionOneValue\n    attribute mass : A;\n" in moved
+            elements = json.loads(str(conn.load_from_content(later).to_api_json()))
+            assert not any(
+                "DimensionOneValue" in json.dumps(value)
+                for e in elements for key, value in e.items() if not key.startswith("sysx:")
+            )
+            with pytest.raises(EditTargetError):
+                model.edit().add_note("P::Nowhere", "text").apply()
 
     def test_overlapping_edits_are_refused(self, real_service):
         with Connection(port=real_service, auto_start=False) as conn:

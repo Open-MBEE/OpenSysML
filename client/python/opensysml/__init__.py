@@ -22,7 +22,12 @@ from opensysml.typefacts import (
     SymbolFacts,
     TypeFacts,
 )
-from opensysml.capabilities import MissingCapabilityError, ServerInfo
+from opensysml.capabilities import (
+    CAPABILITY_CONSTRAINT_BODY_AUTHORING,
+    CAPABILITY_STATE_ACTION_AUTHORING,
+    MissingCapabilityError,
+    ServerInfo,
+)
 from opensysml.values import (
     UNSET, Array, Function, InstanceRef, MeasurementRef, Metaobject, SetValue, TensorQuantity,
     Undetermined, UnsetType,
@@ -88,6 +93,7 @@ __all__ = [
     "MoveReferencedError", "ReferencedElsewhereError",
     "InstanceTypeError", "InvalidRequestError", "ManifestSignatureError",
     "MissingCapabilityError",
+    "CAPABILITY_CONSTRAINT_BODY_AUTHORING", "CAPABILITY_STATE_ACTION_AUTHORING",
     "ModelError", "ModelFileNotFoundError", "ModelNotFoundError",
     "ServiceError", "ServiceTimeoutError", "StaleServiceError",
     "SymbolNotFoundError",

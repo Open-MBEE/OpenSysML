@@ -151,6 +151,31 @@ func TestApplyModelEditAddsMemberAsWorkspaceEdit(t *testing.T) {
 	}
 }
 
+func TestModelEditAddMemberMapsBodyExpression(t *testing.T) {
+	var request applyModelEditParams
+	if err := json.Unmarshal([]byte(`{
+        "operations": [{
+            "kind": "addMember",
+            "owner": "P",
+            "memberKind": "constraint",
+            "name": "positive",
+            "bodyExpression": "x > 0"
+        }]
+    }`), &request); err != nil {
+		t.Fatalf("decode request: %v", err)
+	}
+	if len(request.Operations) != 1 {
+		t.Fatalf("operations = %d, want one", len(request.Operations))
+	}
+	operation, err := request.Operations[0].operation(nil)
+	if err != nil {
+		t.Fatalf("convert request operation: %v", err)
+	}
+	if operation.BodyExpression != "x > 0" {
+		t.Errorf("body expression = %q, want %q", operation.BodyExpression, "x > 0")
+	}
+}
+
 func TestApplyModelEditAddsConnection(t *testing.T) {
 	s, docURI := renderServer(t, "vehicle.sysml", editModel)
 	op := modelEditOperation{Kind: EditAddConnection, Owner: "Vehicle::Car", MemberKind: "connection",

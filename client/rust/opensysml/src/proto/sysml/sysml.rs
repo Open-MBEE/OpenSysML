@@ -988,7 +988,7 @@ pub struct ApplyEditsRequest {
 /// EditOperation is one source-preserving change to make.
 #[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
 pub struct EditOperation {
-    #[prost(oneof="edit_operation::Operation", tags="1, 2, 3, 4, 5, 6, 7, 8, 9, 14")]
+    #[prost(oneof="edit_operation::Operation", tags="1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 14, 16, 18")]
     pub operation: ::core::option::Option<edit_operation::Operation>,
 }
 /// Nested message and enum types in `EditOperation`.
@@ -1013,8 +1013,16 @@ pub mod edit_operation {
         AddRequirementConstraint(super::AddRequirementConstraintEdit),
         #[prost(message, tag="9")]
         AddTransition(super::AddTransitionEdit),
+        #[prost(message, tag="10")]
+        AddImport(super::AddImportEdit),
+        #[prost(message, tag="11")]
+        AddDocumentation(super::AddDocumentationEdit),
         #[prost(message, tag="14")]
         AddSequence(super::AddSequenceEdit),
+        #[prost(message, tag="16")]
+        AddComment(super::AddCommentEdit),
+        #[prost(message, tag="18")]
+        AddNote(super::AddNoteEdit),
     }
 }
 /// AddMemberEdit inserts a declaration into a namespace or the document root.
@@ -1053,6 +1061,16 @@ pub struct AddMemberEdit {
     /// Optional usage direction: "in", "out" or "inout".
     #[prost(string, tag="11")]
     pub direction: ::prost::alloc::string::String,
+    /// Optional documentation body, as plain text, written as the declaration's
+    /// first body member `doc /* ... */` that reads back as exactly this text.
+    #[prost(string, tag="12")]
+    pub doc: ::prost::alloc::string::String,
+    /// Optional body expression. For constraints, it is the condition; for calc,
+    /// case, analysis, verification, and use-case kinds, it is the result
+    /// expression. It is written inside `{ ... }`, distinct from value, which
+    /// writes `= ...`.
+    #[prost(string, tag="13")]
+    pub body_expression: ::prost::alloc::string::String,
 }
 /// AddSatisfyEdit inserts a satisfy usage into any package or body that admits behavior usages.
 #[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
@@ -1116,6 +1134,81 @@ pub struct AddTransitionEdit {
     /// Write `entry; then <target>;` instead of a regular transition.
     #[prost(bool, tag="8")]
     pub initial: bool,
+}
+/// AddImportEdit inserts an import declaration into a namespace body or the document root.
+#[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
+pub struct AddImportEdit {
+    /// Namespace FQN receiving the import; empty means the document root.
+    #[prost(string, tag="1")]
+    pub owner: ::prost::alloc::string::String,
+    /// "private", "public" or "protected"; empty writes "private".
+    #[prost(string, tag="2")]
+    pub visibility: ::prost::alloc::string::String,
+    /// Imported qualified name, optionally rooted "$::", suffixed "::*" for a namespace import.
+    #[prost(string, tag="3")]
+    pub target: ::prost::alloc::string::String,
+    /// Write "::**" to import recursively.
+    #[prost(bool, tag="4")]
+    pub is_recursive: bool,
+    /// Write "import all" to import non-public members too.
+    #[prost(bool, tag="5")]
+    pub is_import_all: bool,
+    /// Filter conditions, each written as "\[<expression>\]".
+    #[prost(string, repeated, tag="6")]
+    pub filters: ::prost::alloc::vec::Vec<::prost::alloc::string::String>,
+}
+/// AddDocumentationEdit adds a `doc /* ... */` as the first body member of an
+/// existing declaration, opening a body for one ended by `;`.
+#[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
+pub struct AddDocumentationEdit {
+    /// Fully qualified name of the documented declaration.
+    #[prost(string, tag="1")]
+    pub target: ::prost::alloc::string::String,
+    /// Documentation body, as plain text that Documentation::body reads back
+    /// exactly, whitespace included; it may not contain `*/` or a carriage return.
+    #[prost(string, tag="2")]
+    pub body: ::prost::alloc::string::String,
+    /// Optional declared name of the documentation.
+    #[prost(string, tag="3")]
+    pub name: ::prost::alloc::string::String,
+    /// Optional locale, written as `locale "..."`.
+    #[prost(string, tag="4")]
+    pub locale: ::prost::alloc::string::String,
+    /// Rewrite the one documentation target already owns instead of refusing.
+    #[prost(bool, tag="5")]
+    pub replace: bool,
+}
+/// AddCommentEdit inserts `comment \[name\] [about a, b] \[locale "..."\] /* ... */`
+/// where a new member of owner goes.
+#[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
+pub struct AddCommentEdit {
+    /// Namespace FQN receiving the comment; empty means the document root.
+    #[prost(string, tag="1")]
+    pub owner: ::prost::alloc::string::String,
+    /// Comment body, as plain text that Comment::body reads back exactly; it may
+    /// not contain `*/` or a carriage return.
+    #[prost(string, tag="2")]
+    pub body: ::prost::alloc::string::String,
+    /// Optional declared name of the comment.
+    #[prost(string, tag="3")]
+    pub name: ::prost::alloc::string::String,
+    /// Optional annotated elements, each a qualified name written after `about`.
+    #[prost(string, repeated, tag="4")]
+    pub about: ::prost::alloc::vec::Vec<::prost::alloc::string::String>,
+    /// Optional locale, written as `locale "..."`.
+    #[prost(string, tag="5")]
+    pub locale: ::prost::alloc::string::String,
+}
+/// AddNoteEdit writes the line note `// text` on its own line above a declaration.
+/// A note is lexical trivia, not a model element.
+#[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
+pub struct AddNoteEdit {
+    /// Fully qualified name of the declaration the note precedes.
+    #[prost(string, tag="1")]
+    pub target: ::prost::alloc::string::String,
+    /// Note text, one line: it may not contain a line break.
+    #[prost(string, tag="2")]
+    pub text: ::prost::alloc::string::String,
 }
 /// AddSequenceEdit inserts a `first` or `then` sequencing member into an action body.
 #[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]

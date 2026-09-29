@@ -42,13 +42,10 @@ func (m Model) addTransitionSplice(i int, op Operation) (splice, error) {
 				Message: "an entry transition cannot have a name, source, trigger, guard or effect",
 			}
 		}
-		for _, member := range ast.DeclMembers(owner) {
-			member = unwrapMembership(member)
-			if _, ok := member.(*ast.EntryMember); ok {
-				return splice{}, &Error{
-					Failure: FailureIllegalKind, OperationIndex: i,
-					Message: fmt.Sprintf("%s already has an entry action", ownerName(op.Owner)),
-				}
+		if hasStateSubaction(owner, "entry") {
+			return splice{}, &Error{
+				Failure: FailureIllegalKind, OperationIndex: i,
+				Message: fmt.Sprintf("%s already has an entry action", ownerName(op.Owner)),
 			}
 		}
 		ins := m.memberInsertion(owner, "entry; then "+op.TransitionTarget+";")
@@ -77,6 +74,50 @@ func (m Model) addTransitionSplice(i int, op Operation) (splice, error) {
 	}
 	ins := m.memberInsertion(owner, text)
 	return splice{span: ins.span, text: ins.text, opIndex: i, target: op.Owner}, nil
+}
+
+func memberSubactionKind(kind string) string {
+	switch kind {
+	case "entry action":
+		return "entry"
+	case "do action":
+		return "do"
+	case "exit action":
+		return "exit"
+	default:
+		return ""
+	}
+}
+
+func hasStateSubaction(owner ast.Node, kind string) bool {
+	for _, member := range ast.DeclMembers(owner) {
+		switch member := unwrapMembership(member).(type) {
+		case *ast.EntryMember:
+			if kind == "entry" {
+				return true
+			}
+		case *ast.DoMember:
+			if kind == "do" {
+				return true
+			}
+		case *ast.ExitMember:
+			if kind == "exit" {
+				return true
+			}
+		case *ast.Usage:
+			if !member.IsStateAction() {
+				continue
+			}
+			keyword := member.PrefixKeyword
+			if keyword == "" {
+				keyword = member.Keyword
+			}
+			if keyword == kind {
+				return true
+			}
+		}
+	}
+	return false
 }
 
 func stateBodyOwner(owner ast.Node) bool {

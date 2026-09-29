@@ -73,7 +73,9 @@ class EditProtosTest {
                 .withAbstract(true)
                 .withRedefines(List.of("Demo::A::old"))
                 .withDefault(true)
-                .withDirection("in"));
+                .withDirection("in")
+                .withBodyExpression("x > 1")
+                .withDoc("A value."));
     assertEquals("Real", full.getAddMember().getType());
     assertEquals("0..1", full.getAddMember().getMultiplicity());
     assertEquals("1.0", full.getAddMember().getValue());
@@ -82,6 +84,56 @@ class EditProtosTest {
     assertEquals(List.of("Demo::A::old"), full.getAddMember().getRedefinesList());
     assertTrue(full.getAddMember().getIsDefault());
     assertEquals("in", full.getAddMember().getDirection());
+    assertEquals("x > 1", full.getAddMember().getBodyExpression());
+    assertEquals("A value.", full.getAddMember().getDoc());
+    assertEquals("", minimal.getAddMember().getDoc());
+  }
+
+  @Test
+  void anAddDocumentationEditCarriesItsBodyNameLocaleAndReplace() {
+    var minimal = Protos.proto(Edit.AddDocumentation.of("Demo::A", "Text."));
+    assertEquals("Demo::A", minimal.getAddDocumentation().getTarget());
+    assertEquals("Text.", minimal.getAddDocumentation().getBody());
+    assertEquals("", minimal.getAddDocumentation().getName());
+    assertFalse(minimal.getAddDocumentation().getReplace());
+
+    var full =
+        Protos.proto(
+            Edit.AddDocumentation.of("Demo::A", "Text.")
+                .withName("Summary")
+                .withLocale("en")
+                .withReplace(true));
+    assertEquals("Summary", full.getAddDocumentation().getName());
+    assertEquals("en", full.getAddDocumentation().getLocale());
+    assertTrue(full.getAddDocumentation().getReplace());
+  }
+
+  @Test
+  void anAddCommentEditCarriesItsBodyNameAboutAndLocale() {
+    var minimal = Protos.proto(Edit.AddComment.of("", "Text."));
+    assertEquals("", minimal.getAddComment().getOwner());
+    assertEquals("Text.", minimal.getAddComment().getBody());
+    assertEquals(0, minimal.getAddComment().getAboutCount());
+
+    var full =
+        Protos.proto(
+            Edit.AddComment.of("Demo", " Two\nlines ")
+                .withName("Why")
+                .withAbout(java.util.List.of("Demo::A", "Demo"))
+                .withLocale("en"));
+    assertEquals(" Two\nlines ", full.getAddComment().getBody());
+    assertEquals("Why", full.getAddComment().getName());
+    assertEquals(java.util.List.of("Demo::A", "Demo"), full.getAddComment().getAboutList());
+    assertEquals("en", full.getAddComment().getLocale());
+  }
+
+  @Test
+  void anAddNoteEditCarriesItsTargetAndOneLineOfText() {
+    var operation = Protos.proto(new Edit.AddNote("Demo::A", "DimensionOneValue"));
+    assertEquals("Demo::A", operation.getAddNote().getTarget());
+    assertEquals("DimensionOneValue", operation.getAddNote().getText());
+    org.junit.jupiter.api.Assertions.assertThrows(
+        IllegalArgumentException.class, () -> new Edit.AddNote("Demo::A", "one\ntwo"));
   }
 
   @Test
@@ -158,6 +210,23 @@ class EditProtosTest {
     assertThrows(
         IllegalStateException.class,
         () -> Edit.AddSequence.thenMember("Demo::A", "action", "b").withRef("done"));
+  }
+
+  @Test
+  void anAddImportEditCarriesItsFlagsAndFilters() {
+    var operation =
+        Protos.proto(
+            Edit.AddImport.of("Demo", "ScalarValues::*")
+                .withVisibility("public")
+                .withRecursive()
+                .withAll()
+                .withFilters(List.of("@Safety", "@Approved")));
+    assertEquals("Demo", operation.getAddImport().getOwner());
+    assertEquals("public", operation.getAddImport().getVisibility());
+    assertEquals("ScalarValues::*", operation.getAddImport().getTarget());
+    assertTrue(operation.getAddImport().getIsRecursive());
+    assertTrue(operation.getAddImport().getIsImportAll());
+    assertEquals(List.of("@Safety", "@Approved"), operation.getAddImport().getFiltersList());
   }
 
   @Test

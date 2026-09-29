@@ -90,11 +90,20 @@ CAPABILITY_REQUIREMENT_CONSTRAINT_AUTHORING = "requirement_constraint_authoring"
 CAPABILITY_TRANSITION_AUTHORING = "transition_authoring"
 #: The ``ApplyEdits`` ``add_sequence`` operation.
 CAPABILITY_SEQUENCE_AUTHORING = "sequence_authoring"
+#: The ``ApplyEdits`` ``add_import`` operation.
+CAPABILITY_IMPORT_AUTHORING = "import_authoring"
+#: The ``ApplyEdits`` ``add_documentation`` operation and ``AddMemberEdit.doc``.
+CAPABILITY_DOCUMENTATION_AUTHORING = "documentation_authoring"
+#: The ``ApplyEdits`` ``add_comment`` and ``add_note`` operations.
+CAPABILITY_COMMENT_AUTHORING = "comment_authoring"
 #: The additional ``AddMemberEdit`` modifiers and ``ref``/``return`` kinds.
 CAPABILITY_MEMBER_MODIFIERS = "member_modifiers"
-
 #: ``ApplyEdits`` adds a directed usage with no kind keyword (``in x : T;``).
 CAPABILITY_IMPLICIT_PARAMETERS = "implicit_parameters"
+#: Constraint body expressions and asserted constraints in ``ApplyEdits``.
+CAPABILITY_CONSTRAINT_BODY_AUTHORING = "constraint_body_authoring"
+#: State behavior member kinds in ``ApplyEdits``.
+CAPABILITY_STATE_ACTION_AUTHORING = "state_action_authoring"
 #: ``ApplyEdits`` edits a model of several documents as one batch and answers
 #: each edited document by name in ``EditResult.documents``, with each applied
 #: edit's document and each referrer's. Without it the service edits a model of

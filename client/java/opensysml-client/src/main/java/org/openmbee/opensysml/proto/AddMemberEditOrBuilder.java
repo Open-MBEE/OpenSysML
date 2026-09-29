@@ -251,4 +251,52 @@ public interface AddMemberEditOrBuilder extends
    */
   com.google.protobuf.ByteString
       getDirectionBytes();
+
+  /**
+   * <pre>
+   * Optional documentation body, as plain text, written as the declaration's
+   * first body member `doc /&#42; ... *&#47;` that reads back as exactly this text.
+   * </pre>
+   *
+   * <code>string doc = 12 [json_name = "doc"];</code>
+   * @return The doc.
+   */
+  java.lang.String getDoc();
+  /**
+   * <pre>
+   * Optional documentation body, as plain text, written as the declaration's
+   * first body member `doc /&#42; ... *&#47;` that reads back as exactly this text.
+   * </pre>
+   *
+   * <code>string doc = 12 [json_name = "doc"];</code>
+   * @return The bytes for doc.
+   */
+  com.google.protobuf.ByteString
+      getDocBytes();
+
+  /**
+   * <pre>
+   * Optional body expression. For constraints, it is the condition; for calc,
+   * case, analysis, verification, and use-case kinds, it is the result
+   * expression. It is written inside `{ ... }`, distinct from value, which
+   * writes `= ...`.
+   * </pre>
+   *
+   * <code>string body_expression = 13 [json_name = "bodyExpression"];</code>
+   * @return The bodyExpression.
+   */
+  java.lang.String getBodyExpression();
+  /**
+   * <pre>
+   * Optional body expression. For constraints, it is the condition; for calc,
+   * case, analysis, verification, and use-case kinds, it is the result
+   * expression. It is written inside `{ ... }`, distinct from value, which
+   * writes `= ...`.
+   * </pre>
+   *
+   * <code>string body_expression = 13 [json_name = "bodyExpression"];</code>
+   * @return The bytes for bodyExpression.
+   */
+  com.google.protobuf.ByteString
+      getBodyExpressionBytes();
 }

@@ -1374,17 +1374,18 @@ func editFromProto(operation *pb.EditOperation) (opensysml.Edit, bool) {
 		return opensysml.Rename{Target: kind.Rename.GetTarget(), NewName: kind.Rename.GetNewName()}, true
 	case *pb.EditOperation_AddMember:
 		return opensysml.AddMember{
-			Owner:        kind.AddMember.GetOwner(),
-			Kind:         kind.AddMember.GetKind(),
-			Name:         kind.AddMember.GetName(),
-			Type:         kind.AddMember.GetType(),
-			Multiplicity: kind.AddMember.GetMultiplicity(),
-			Value:        kind.AddMember.GetValue(),
-			Specializes:  kind.AddMember.GetSpecializes(),
-			IsAbstract:   kind.AddMember.GetIsAbstract(),
-			Redefines:    kind.AddMember.GetRedefines(),
-			IsDefault:    kind.AddMember.GetIsDefault(),
-			Direction:    kind.AddMember.GetDirection(),
+			Owner:          kind.AddMember.GetOwner(),
+			Kind:           kind.AddMember.GetKind(),
+			Name:           kind.AddMember.GetName(),
+			Type:           kind.AddMember.GetType(),
+			Multiplicity:   kind.AddMember.GetMultiplicity(),
+			Value:          kind.AddMember.GetValue(),
+			BodyExpression: kind.AddMember.GetBodyExpression(),
+			Specializes:    kind.AddMember.GetSpecializes(),
+			IsAbstract:     kind.AddMember.GetIsAbstract(),
+			Redefines:      kind.AddMember.GetRedefines(),
+			IsDefault:      kind.AddMember.GetIsDefault(),
+			Direction:      kind.AddMember.GetDirection(),
 		}, true
 	case *pb.EditOperation_AddConnection:
 		return opensysml.AddConnection{
@@ -1414,6 +1415,12 @@ func editFromProto(operation *pb.EditOperation) (opensysml.Edit, bool) {
 			Ref: kind.AddSequence.GetRef(), MemberKind: kind.AddSequence.GetMemberKind(),
 			MemberName: kind.AddSequence.GetMemberName(), Type: kind.AddSequence.GetType(),
 			After: kind.AddSequence.GetAfter(),
+		}, true
+	case *pb.EditOperation_AddImport:
+		return opensysml.AddImport{
+			Owner: kind.AddImport.GetOwner(), Visibility: kind.AddImport.GetVisibility(),
+			Target: kind.AddImport.GetTarget(), Recursive: kind.AddImport.GetIsRecursive(),
+			All: kind.AddImport.GetIsImportAll(), Filters: kind.AddImport.GetFilters(),
 		}, true
 	case *pb.EditOperation_Delete:
 		return opensysml.Delete{Target: kind.Delete.GetTarget(), Cascade: kind.Delete.GetCascade()}, true

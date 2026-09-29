@@ -882,6 +882,11 @@ public final class Model {
     boolean requestsTransitionAuthoring = false;
     boolean requestsSequenceAuthoring = false;
     boolean requestsImplicitParameters = false;
+    boolean requestsConstraintBodyAuthoring = false;
+    boolean requestsStateActionAuthoring = false;
+    boolean requestsImportAuthoring = false;
+    boolean requestsDocumentationAuthoring = false;
+    boolean requestsCommentAuthoring = false;
     for (Edit edit : edits) {
       if (edit instanceof Edit.AddMember
           || edit instanceof Edit.AddConnection
@@ -889,6 +894,10 @@ public final class Model {
           || edit instanceof Edit.AddRequirementConstraint
           || edit instanceof Edit.AddTransition
           || edit instanceof Edit.AddSequence
+          || edit instanceof Edit.AddImport
+          || edit instanceof Edit.AddDocumentation
+          || edit instanceof Edit.AddComment
+          || edit instanceof Edit.AddNote
           || edit instanceof Edit.Delete
           || edit instanceof Edit.Move) {
         requestsAuthoring = true;
@@ -908,6 +917,19 @@ public final class Model {
       if (edit instanceof Edit.AddMember addMember && addMember.kind().isEmpty()) {
         requestsImplicitParameters = true;
       }
+      if (edit instanceof Edit.AddMember addMember) {
+        requestsConstraintBodyAuthoring =
+            requestsConstraintBodyAuthoring
+                || addMember.bodyExpression().filter(e -> !e.isEmpty()).isPresent()
+                || addMember.kind().equals("assert")
+                || addMember.kind().equals("assert not")
+                || addMember.kind().equals("assert constraint")
+                || addMember.kind().equals("assert not constraint");
+        requestsStateActionAuthoring =
+            requestsStateActionAuthoring
+                || List.of("exhibit state", "exhibit", "entry action", "do action", "exit action")
+                    .contains(addMember.kind());
+      }
       if (edit instanceof Edit.AddSatisfy) {
         requestsSatisfyAuthoring = true;
       }
@@ -919,6 +941,16 @@ public final class Model {
       }
       if (edit instanceof Edit.AddSequence) {
         requestsSequenceAuthoring = true;
+      }
+      if (edit instanceof Edit.AddImport) {
+        requestsImportAuthoring = true;
+      }
+      if (edit instanceof Edit.AddDocumentation
+          || edit instanceof Edit.AddMember addMember && !addMember.doc().isEmpty()) {
+        requestsDocumentationAuthoring = true;
+      }
+      if (edit instanceof Edit.AddComment || edit instanceof Edit.AddNote) {
+        requestsCommentAuthoring = true;
       }
     }
     if (requestsAuthoring) {
@@ -944,6 +976,21 @@ public final class Model {
     }
     if (requestsImplicitParameters) {
       connection.capabilities().require(Capabilities.IMPLICIT_PARAMETERS);
+    }
+    if (requestsConstraintBodyAuthoring) {
+      connection.capabilities().require(Capabilities.CONSTRAINT_BODY_AUTHORING);
+    }
+    if (requestsStateActionAuthoring) {
+      connection.capabilities().require(Capabilities.STATE_ACTION_AUTHORING);
+    }
+    if (requestsImportAuthoring) {
+      connection.capabilities().require(Capabilities.IMPORT_AUTHORING);
+    }
+    if (requestsDocumentationAuthoring) {
+      connection.capabilities().require(Capabilities.DOCUMENTATION_AUTHORING);
+    }
+    if (requestsCommentAuthoring) {
+      connection.capabilities().require(Capabilities.COMMENT_AUTHORING);
     }
     options.document().ifPresent(document -> connection.capabilities().require(Capabilities.EDIT_DOCUMENTS));
     ApplyEditsRequest.Builder request =
