@@ -764,3 +764,36 @@ func TestStrictConvertWritesNoExtensionNotation(t *testing.T) {
 		}
 	}
 }
+
+// TestConvertFMUOverTheArchive: -o naming the FMU being imported refuses, and
+// the archive survives.
+func TestConvertFMUOverTheArchive(t *testing.T) {
+	binary := buildCLI(t)
+	dir := t.TempDir()
+	fmu := filepath.Join(dir, "model.fmu")
+	var buf bytes.Buffer
+	zw := zip.NewWriter(&buf)
+	entry, err := zw.Create("modelDescription.xml")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := entry.Write([]byte(`<fmiModelDescription fmiVersion="2.0" modelName="M" guid="{m}"><ModelVariables/></fmiModelDescription>`)); err != nil {
+		t.Fatal(err)
+	}
+	if err := zw.Close(); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(fmu, buf.Bytes(), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	out, err := exec.Command(binary, fmu, "-convert", "sysml", "-o", fmu).CombinedOutput()
+	if err == nil {
+		t.Fatalf("expected a non-zero exit, got:\n%s", out)
+	}
+	if !strings.Contains(string(out), "names the FMU being imported") {
+		t.Fatalf("output =\n%s\nwant the import's same-file refusal", out)
+	}
+	if got, err := os.ReadFile(fmu); err != nil || !bytes.Equal(got, buf.Bytes()) {
+		t.Fatalf("the FMU archive was modified (err %v)", err)
+	}
+}

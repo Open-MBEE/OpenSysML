@@ -29,6 +29,7 @@ make build            # build bin/sysml and bin/sysml-lsp (with version ldflags)
 make build-sysml      # REPL binary only
 make build-lsp        # LSP binary only
 make test             # full suite: go test -race -coverprofile ... ./...
+make test-shard SHARD=runtime   # one CI shard of the race suite (runtime|model|export|rest)
 make test-short       # faster, no race detector
 make clean            # remove build artifacts
 ```
@@ -67,6 +68,12 @@ migrator is gated over: fetch it with `./scripts/download-pssm-suite.sh` and run
 `OPENSYSML_REQUIRE_PSSM_SUITE=1`. See `docs/project/pssm-migration.md`. Whatever sets a require
 variable must run the matching download script first; the scripts are idempotent, and none
 reports success over an empty corpus.
+
+The Modelica Reference-FMUs gate the FMI integration the same way: fetch them with
+`./scripts/download-reference-fmus.sh` (into `examples/reference-fmus/`, gitignored), install
+the runner's simulator with `pip install fmpy`, and run
+`go test -count=1 ./tests/fmi -run TestReferenceFMUs`. CI sets
+`OPENSYSML_REQUIRE_REFERENCE_FMUS=1`.
 
 All four roots share one mechanism (`tests/corpus/corpus_gate_test.go`) but two
 policies, and the difference is deliberate: the training corpus is **asserted** clean, so its
