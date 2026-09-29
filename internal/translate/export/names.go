@@ -110,10 +110,10 @@ func chooseNames(name, library string, text []byte, want *wanted, previous *name
 			continue
 		}
 		member, target := e.memberOf(ref), e.writtenTarget(ref)
-		if alias, ok := memberAliases[member]; ok {
+		if alias, ok := memberAliases[member]; ok && alias != "" {
 			member = alias
 		}
-		if alias, ok := targetAliases[target]; ok {
+		if alias, ok := targetAliases[target]; ok && alias != "" {
 			target = alias
 		}
 		key := nameKey{member: member, target: target}
