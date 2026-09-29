@@ -97,15 +97,28 @@ func TestVerificationMethodBodyInAPIJSON(t *testing.T) {
 	if member["@type"] != "ReferenceUsage" {
 		t.Errorf("@type = %v, want ReferenceUsage", member["@type"])
 	}
-	// The metadata usage typing element names VerificationMethod.
-	var meta bool
+	// The ids are the pinned pilot library's elementIds of
+	// VerificationCases::VerificationMethod and its kind feature.
+	const methodID, kindID = "0066c1c7-55af-52b8-8197-37c386a91db1", "d25bc7f4-eb89-5940-be2a-3a17de3e856b"
+	var meta, redefined bool
 	for _, el := range elements {
-		if el["@type"] == "MetadataUsage" {
-			meta = true
+		switch el["@type"] {
+		case "MetadataUsage":
+			types, _ := el["type"].([]any)
+			if len(types) == 1 && types[0].(map[string]any)["@id"] == methodID {
+				meta = true
+			}
+		case "Redefinition":
+			if target, _ := el["redefinedFeature"].(map[string]any); target["@id"] == kindID {
+				redefined = true
+			}
 		}
 	}
 	if !meta {
-		t.Error("no MetadataUsage element")
+		t.Errorf("no MetadataUsage typed by VerificationMethod (%s)", methodID)
+	}
+	if !redefined {
+		t.Errorf("no Redefinition of VerificationMethod::kind (%s)", kindID)
 	}
 }
 
