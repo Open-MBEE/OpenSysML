@@ -5,7 +5,6 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/Open-MBEE/OpenSysML/internal/syntax/ast"
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/parser"
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/source"
 	"github.com/Open-MBEE/OpenSysML/internal/translate/convert"
@@ -41,8 +40,7 @@ func multiDocGraph(t *testing.T) *rdf.Graph {
 	docs := make([]export.Document, len(multiDocModel))
 	for i, src := range multiDocModel {
 		file := source.New(src.Name, src.Data)
-		var root *ast.RootNamespace
-		root = parser.New(file).ParseFile()
+		root := parser.New(file).ParseFile()
 		docs[i] = export.Document{File: file, Root: root}
 	}
 	graph, err := export.ToRDFDocuments(docs, export.IDQualifiedName)
