@@ -27,15 +27,15 @@
         "name": "negative-corpus",
         "dir": "tools/referee/reject/testdata/negative",
         "origin": "ours",
-        "files": 307,
-        "digest": "sha256:4c3312f06e030b3747aced47f88d7ae529f6881db9974ffb01b3d13fb2844cd6"
+        "files": 308,
+        "digest": "sha256:4fd7367585279b34c3b85affb15dd9f31a7c9a4978a6e08133c06d3b25cff6ff"
       }
     ],
-    "recorded": "2026-09-28"
+    "recorded": "2026-09-29"
   },
   "totals": {
-    "cases": 307,
-    "bothReject": 298,
+    "cases": 308,
+    "bothReject": 299,
     "pilotOnlyRejects": 0,
     "oursOnlyRejects": 9,
     "bothAccept": 0
@@ -65,8 +65,8 @@
     },
     {
       "source": "semantic",
-      "cases": 157,
-      "bothReject": 148,
+      "cases": 158,
+      "bothReject": 149,
       "pilotOnlyRejects": 0,
       "oursOnlyRejects": 9,
       "bothAccept": 0
@@ -1983,6 +1983,15 @@
       "pilotErrors": 1
     },
     {
+      "path": "semantic/s100-verification-method-unimported.sysml",
+      "source": "semantic",
+      "rule": "library members are not implicitly visible — only a root namespace's own top-level members resolve unqualified ([SysML, 7.2] over [KerML, 8.2.3.2, 8.2.3.5]). VerificationCases::VerificationMethod and VerificationMethodKind need an import or qualification; the pilot reports \"Couldn't resolve reference to Type 'VerificationMethod'\".",
+      "mode": "default",
+      "bucket": "both-reject",
+      "oursErrors": 3,
+      "pilotErrors": 12
+    },
+    {
       "path": "semantic/s11-case-two-objectives.sysml",
       "source": "semantic",
       "rule": "A case usage may have at most one objective (SysML 7.21 Cases; pilot validateCaseUsageOnlyOneObjective).",
@@ -2990,8 +2999,8 @@
       }
     ],
     "totals": {
-      "cases": 307,
-      "bothReject": 298,
+      "cases": 308,
+      "bothReject": 299,
       "pilotOnlyRejects": 0,
       "oursOnlyRejects": 9,
       "bothAccept": 0
