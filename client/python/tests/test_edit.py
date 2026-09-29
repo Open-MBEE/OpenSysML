@@ -565,6 +565,18 @@ def test_add_then_requires_exactly_one_of_ref_and_action():
         editor.add_then("Demo::A")
     with pytest.raises(ValueError, match="exactly one of ref and action"):
         editor.add_then("Demo::A", ref="done", action="b")
+
+
+def test_add_then_reference_takes_no_declaration_fields():
+    editor = Editor("hash", None)
+    with pytest.raises(ValueError, match="no type or kind"):
+        editor.add_then("Demo::A", ref="done", type="B")
+    with pytest.raises(ValueError, match="no type or kind"):
+        editor.add_then("Demo::A", ref="done", kind="merge")
+    editor.add_then("Demo::A", ref="done")
+    editor.add_then("Demo::A", ref="done", kind="action")
+    with pytest.raises(ValueError, match="exactly one of ref and action"):
+        editor.add_then("Demo::A", ref="done", action="b")
     with pytest.raises(TypeError, match="ref must be notation text"):
         editor.add_then("Demo::A", ref=3)
     with pytest.raises(TypeError, match="kind must be notation text"):

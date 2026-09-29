@@ -358,10 +358,16 @@ public sealed interface Edit {
     }
 
     public AddSequence withRef(String ref) {
+      if (memberKind.isPresent() || memberName.isPresent() || type.isPresent()) {
+        throw new IllegalStateException("a then reference takes no member kind, name or type");
+      }
       return new AddSequence(owner, keyword, Optional.of(ref), memberKind, memberName, type, after);
     }
 
     public AddSequence withType(String type) {
+      if (ref.isPresent()) {
+        throw new IllegalStateException("a then reference takes no member kind, name or type");
+      }
       return new AddSequence(owner, keyword, ref, memberKind, memberName, Optional.of(type), after);
     }
 

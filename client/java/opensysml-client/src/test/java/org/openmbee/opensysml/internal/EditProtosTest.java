@@ -2,6 +2,7 @@ package org.openmbee.opensysml.internal;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.nio.file.Path;
@@ -150,6 +151,13 @@ class EditProtosTest {
     var first = Protos.proto(Edit.AddSequence.first("Demo::A", "start"));
     assertEquals("first", first.getAddSequence().getKeyword());
     assertEquals("start", first.getAddSequence().getRef());
+
+    assertThrows(
+        IllegalStateException.class,
+        () -> Edit.AddSequence.then("Demo::A", "done").withType("B"));
+    assertThrows(
+        IllegalStateException.class,
+        () -> Edit.AddSequence.thenMember("Demo::A", "action", "b").withRef("done"));
   }
 
   @Test

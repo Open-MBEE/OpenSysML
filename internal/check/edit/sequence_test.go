@@ -148,6 +148,18 @@ func TestAddSequenceRefusals(t *testing.T) {
 			want: FailureIllegalKind,
 		},
 		{
+			name: "then ref with a member name",
+			m:    loadContent(t, "sequence-kw.sysml", sequenceTestModel),
+			op:   Operation{Kind: OpAddSequence, Owner: "P::A", SequenceKeyword: "then", SequenceRef: "a", MemberName: "g"},
+			want: FailureIllegalKind,
+		},
+		{
+			name: "then ref with a type",
+			m:    loadContent(t, "sequence-kw.sysml", sequenceTestModel),
+			op:   Operation{Kind: OpAddSequence, Owner: "P::A", SequenceKeyword: "then", SequenceRef: "a", Type: "P::Heat"},
+			want: FailureIllegalKind,
+		},
+		{
 			name: "then with neither form",
 			m:    loadContent(t, "sequence-kw.sysml", sequenceTestModel),
 			op:   Operation{Kind: OpAddSequence, Owner: "P::A", SequenceKeyword: "then"},

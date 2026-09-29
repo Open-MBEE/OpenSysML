@@ -56,7 +56,14 @@ func (m Model) addSequenceSplice(i int, op Operation) (splice, error) {
 				Message: "first takes a node reference alone",
 			}
 		}
-	} else if (op.SequenceRef == "") == (op.MemberKind == "") {
+	} else if op.SequenceRef != "" {
+		if op.MemberKind != "" || op.MemberName != "" || op.Type != "" {
+			return splice{}, &Error{
+				Failure: FailureIllegalKind, OperationIndex: i,
+				Message: "a then reference takes a node reference alone",
+			}
+		}
+	} else if op.MemberKind == "" {
 		return splice{}, &Error{
 			Failure: FailureIllegalKind, OperationIndex: i,
 			Message: "then takes a node reference or a member declaration, exactly one",

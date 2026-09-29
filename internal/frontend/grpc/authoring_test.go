@@ -333,6 +333,22 @@ func TestApplyEditsAddSequence(t *testing.T) {
 	if refused.Content != "" || refused.Failure != pb.EditFailure_EDIT_FAILURE_ILLEGAL_KIND {
 		t.Fatalf("bad kind response = %+v", refused)
 	}
+
+	for _, op := range []*pb.EditOperation{
+		addSequenceOp("A", "then", "done", "", "x", "", ""),
+		addSequenceOp("A", "then", "done", "", "", "ScalarValues::Real", ""),
+	} {
+		refused, err := srv.ApplyEdits(context.Background(), &pb.ApplyEditsRequest{
+			ModelHash:  hash,
+			Operations: []*pb.EditOperation{op},
+		})
+		if err != nil {
+			t.Fatalf("refused add sequence call failed: %v", err)
+		}
+		if refused.Content != "" || refused.Failure != pb.EditFailure_EDIT_FAILURE_ILLEGAL_KIND {
+			t.Fatalf("declaration fields on a then reference = %+v, want ILLEGAL_KIND", refused)
+		}
+	}
 }
 
 func TestApplyEditsAddTransitionRequiresTransitionAuthoring(t *testing.T) {

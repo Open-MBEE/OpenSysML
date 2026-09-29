@@ -416,7 +416,9 @@ class Editor:
 
         Raises:
             TypeError: If a text argument is not a string.
-            ValueError: If both or neither of `ref` and `action` is given.
+            ValueError: If both or neither of `ref` and `action` is given, or
+                `ref` comes with declaration fields — a `type` or a `kind`
+                other than the default ``"action"``.
         """
         for label, text in (("ref", ref), ("action", action), ("type", type),
                             ("after", after), ("kind", kind)):
@@ -424,11 +426,15 @@ class Editor:
                 raise TypeError(f"{label} must be notation text, not {text.__class__.__name__}")
         if (ref is None) == (action is None):
             raise ValueError("exactly one of ref and action is required")
+        if ref is not None and (type is not None or
+                                (kind is not None and kind != "action")):
+            raise ValueError("a then reference takes no type or kind")
         owner = owner if isinstance(owner, str) else _target_id(owner)
         if ref is not None:
             self._add(("add_sequence", owner, "then", ref, "", "", "", after or ""))
         else:
-            self._add(("add_sequence", owner, "then", "", kind, action,
+            self._add(("add_sequence", owner, "then", "",
+                       kind if kind is not None else "action", action,
                        type or "", after or ""))
         return self
 
