@@ -2275,11 +2275,23 @@ func TestVerbatimHeadsRoundTrip(t *testing.T) {
 	}
 }
 
+// sourceRangeProperties place a declaration in its document.
+var sourceRangeProperties = []string{"sysx:sourceLine", "sysx:sourceColumn", "sysx:sourceEndLine", "sysx:sourceEndColumn"}
+
 // withoutTriples writes the graph again without the named property, given with
 // its prefix: the head is then rebuilt from the mapping rather than read back
 // from the text it was written as, the shape a graph from another tool has.
+//
+// A declaration's source range is layout with its text: removing
+// sysx:sourceText removes the range it occupies too, since notation written
+// back from the graph places each declaration elsewhere.
 func withoutTriples(t *testing.T, turtle []byte, property string) []byte {
 	t.Helper()
+	if property == "sysx:sourceText" {
+		for _, position := range sourceRangeProperties {
+			turtle = withoutTriples(t, turtle, position)
+		}
+	}
 	var blocks []string
 	for _, block := range strings.Split(string(turtle), "\n\n") {
 		var kept []string
@@ -3945,7 +3957,8 @@ func structuralTriples(t *testing.T, turtle []byte) map[rdf.Triple]bool {
 	}
 	out := map[rdf.Triple]bool{}
 	for _, triple := range g.Triples() {
-		if triple.Predicate == rdf.OpenSysMLTerm("sourceText") || triple.Predicate == rdf.OpenSysMLTerm("sourceTail") {
+		if triple.Predicate == rdf.OpenSysMLTerm("sourceText") || triple.Predicate == rdf.OpenSysMLTerm("sourceTail") ||
+			export.IsSourceRangeProperty(triple.Predicate.Value) {
 			continue
 		}
 		out[triple] = true

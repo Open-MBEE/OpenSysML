@@ -469,6 +469,19 @@ func isIndexProperty(iri string) bool {
 	return false
 }
 
+// IsSourceRangeProperty reports whether iri is one of the four integers that
+// place a declaration in its document: layout, which reading ignores.
+func IsSourceRangeProperty(iri string) bool {
+	if !strings.HasPrefix(iri, rdf.OpenSysML) {
+		return false
+	}
+	switch rdf.LocalName(iri) {
+	case xSourceLine, xSourceColumn, xSourceEndLine, xSourceEndColumn:
+		return true
+	}
+	return false
+}
+
 // termText spells a term as Turtle does, for a diagnostic.
 func termText(term rdf.Term) string {
 	if term.IsIRI() {
@@ -543,7 +556,7 @@ func literalDatatypes(metaclass, predicate string) []string {
 		}
 	}
 	switch {
-	case isIndexProperty(predicate):
+	case isIndexProperty(predicate), IsSourceRangeProperty(predicate):
 		return integerLiterals
 	case strings.HasPrefix(name, "is"), name == xHasBody, name == xDeclaredID, name == xHasEffect, name == xBracedEffect, name == xConjugatedTyping:
 		return booleanLiterals

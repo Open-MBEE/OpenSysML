@@ -8,6 +8,10 @@
 elmt:Documented
     a sysml:Package ;
     sysml:qualifiedName "Documented" ;
+    sysx:sourceLine "1"^^xsd:integer ;
+    sysx:sourceColumn "1"^^xsd:integer ;
+    sysx:sourceEndLine "8"^^xsd:integer ;
+    sysx:sourceEndColumn "2"^^xsd:integer ;
     sysml:elementId "Documented" ;
     sysx:memberIndex "0"^^xsd:integer ;
     sysx:sourceLanguage "sysml" ;
@@ -25,6 +29,10 @@ elmt:Documented
 elmt:Documented___400
     a sysml:Documentation ;
     sysml:qualifiedName "Documented::@0" ;
+    sysx:sourceLine "2"^^xsd:integer ;
+    sysx:sourceColumn "5"^^xsd:integer ;
+    sysx:sourceEndLine "2"^^xsd:integer ;
+    sysx:sourceEndColumn "39"^^xsd:integer ;
     sysml:elementId "Documented___400" ;
     sysx:memberIndex "0"^^xsd:integer ;
     sysml:owningNamespace elmt:Documented ;
@@ -47,6 +55,10 @@ elmt:Documented___400_om
 elmt:Documented__Wheel
     a sysml:PartDefinition ;
     sysml:qualifiedName "Documented::Wheel" ;
+    sysx:sourceLine "3"^^xsd:integer ;
+    sysx:sourceColumn "5"^^xsd:integer ;
+    sysx:sourceEndLine "5"^^xsd:integer ;
+    sysx:sourceEndColumn "6"^^xsd:integer ;
     sysml:elementId "Documented__Wheel" ;
     sysx:memberIndex "1"^^xsd:integer ;
     sysml:owningNamespace elmt:Documented ;
@@ -74,6 +86,10 @@ elmt:Documented__Wheel_om
 elmt:Documented__Wheel___400
     a sysml:Documentation ;
     sysml:qualifiedName "Documented::Wheel::@0" ;
+    sysx:sourceLine "4"^^xsd:integer ;
+    sysx:sourceColumn "9"^^xsd:integer ;
+    sysx:sourceEndLine "4"^^xsd:integer ;
+    sysx:sourceEndColumn "28"^^xsd:integer ;
     sysml:elementId "Documented__Wheel___400" ;
     sysx:memberIndex "0"^^xsd:integer ;
     sysml:owningNamespace elmt:Documented__Wheel ;
@@ -96,6 +112,10 @@ elmt:Documented__Wheel___400_om
 elmt:Documented___402
     a sysml:Comment ;
     sysml:qualifiedName "Documented::@2" ;
+    sysx:sourceLine "6"^^xsd:integer ;
+    sysx:sourceColumn "5"^^xsd:integer ;
+    sysx:sourceEndLine "6"^^xsd:integer ;
+    sysx:sourceEndColumn "47"^^xsd:integer ;
     sysml:elementId "Documented___402" ;
     sysx:memberIndex "2"^^xsd:integer ;
     sysml:owningNamespace elmt:Documented ;
@@ -119,6 +139,10 @@ elmt:Documented___402_om
 elmt:Documented__asJava
     a sysml:TextualRepresentation ;
     sysml:qualifiedName "Documented::asJava" ;
+    sysx:sourceLine "7"^^xsd:integer ;
+    sysx:sourceColumn "5"^^xsd:integer ;
+    sysx:sourceEndLine "7"^^xsd:integer ;
+    sysx:sourceEndColumn "52"^^xsd:integer ;
     sysml:elementId "Documented__asJava" ;
     sysx:memberIndex "3"^^xsd:integer ;
     sysml:owningNamespace elmt:Documented ;

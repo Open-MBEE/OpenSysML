@@ -9,6 +9,10 @@
 elmt:Prefixed
     a sysml:Package ;
     sysml:qualifiedName "Prefixed" ;
+    sysx:sourceLine "1"^^xsd:integer ;
+    sysx:sourceColumn "1"^^xsd:integer ;
+    sysx:sourceEndLine "26"^^xsd:integer ;
+    sysx:sourceEndColumn "2"^^xsd:integer ;
     sysml:elementId "Prefixed" ;
     sysx:memberIndex "0"^^xsd:integer ;
     sysx:sourceLanguage "sysml" ;
@@ -26,6 +30,10 @@ elmt:Prefixed
 elmt:Prefixed__Safety
     a sysml:MetadataDefinition ;
     sysml:qualifiedName "Prefixed::Safety" ;
+    sysx:sourceLine "2"^^xsd:integer ;
+    sysx:sourceColumn "5"^^xsd:integer ;
+    sysx:sourceEndLine "2"^^xsd:integer ;
+    sysx:sourceEndColumn "32"^^xsd:integer ;
     sysml:elementId "Prefixed__Safety" ;
     sysx:memberIndex "0"^^xsd:integer ;
     sysml:owningNamespace elmt:Prefixed ;
@@ -50,6 +58,10 @@ elmt:Prefixed__Safety_om
 elmt:Prefixed__Reviewed
     a sysml:MetadataDefinition ;
     sysml:qualifiedName "Prefixed::Reviewed" ;
+    sysx:sourceLine "3"^^xsd:integer ;
+    sysx:sourceColumn "5"^^xsd:integer ;
+    sysx:sourceEndLine "3"^^xsd:integer ;
+    sysx:sourceEndColumn "27"^^xsd:integer ;
     sysml:elementId "Prefixed__Reviewed" ;
     sysx:memberIndex "1"^^xsd:integer ;
     sysml:owningNamespace elmt:Prefixed ;
@@ -73,6 +85,10 @@ elmt:Prefixed__Reviewed_om
 elmt:Prefixed__Car
     a sysml:PartDefinition ;
     sysml:qualifiedName "Prefixed::Car" ;
+    sysx:sourceLine "4"^^xsd:integer ;
+    sysx:sourceColumn "5"^^xsd:integer ;
+    sysx:sourceEndLine "4"^^xsd:integer ;
+    sysx:sourceEndColumn "26"^^xsd:integer ;
     sysml:elementId "Prefixed__Car" ;
     sysx:memberIndex "2"^^xsd:integer ;
     sysml:owningNamespace elmt:Prefixed ;
@@ -99,6 +115,10 @@ elmt:Prefixed__Car_om
 elmt:Prefixed__Car___400
     a sysml:MetadataUsage ;
     sysml:qualifiedName "Prefixed::Car::@0" ;
+    sysx:sourceLine "4"^^xsd:integer ;
+    sysx:sourceColumn "5"^^xsd:integer ;
+    sysx:sourceEndLine "4"^^xsd:integer ;
+    sysx:sourceEndColumn "12"^^xsd:integer ;
     sysml:elementId "Prefixed__Car___400" ;
     sysx:memberIndex "0"^^xsd:integer ;
     sysml:owningNamespace elmt:Prefixed__Car ;
@@ -125,6 +145,10 @@ elmt:Prefixed__Car___400_om
 elmt:Prefixed__Vehicle
     a sysml:PartDefinition ;
     sysml:qualifiedName "Prefixed::Vehicle" ;
+    sysx:sourceLine "5"^^xsd:integer ;
+    sysx:sourceColumn "5"^^xsd:integer ;
+    sysx:sourceEndLine "5"^^xsd:integer ;
+    sysx:sourceEndColumn "49"^^xsd:integer ;
     sysml:elementId "Prefixed__Vehicle" ;
     sysx:memberIndex "3"^^xsd:integer ;
     sysml:owningNamespace elmt:Prefixed ;
@@ -155,6 +179,10 @@ elmt:Prefixed__Vehicle_om
 elmt:Prefixed__Vehicle___400
     a sysml:MetadataUsage ;
     sysml:qualifiedName "Prefixed::Vehicle::@0" ;
+    sysx:sourceLine "5"^^xsd:integer ;
+    sysx:sourceColumn "14"^^xsd:integer ;
+    sysx:sourceEndLine "5"^^xsd:integer ;
+    sysx:sourceEndColumn "23"^^xsd:integer ;
     sysml:elementId "Prefixed__Vehicle___400" ;
     sysx:memberIndex "0"^^xsd:integer ;
     sysml:owningNamespace elmt:Prefixed__Vehicle ;
@@ -181,6 +209,10 @@ elmt:Prefixed__Vehicle___400_om
 elmt:Prefixed__Vehicle___401
     a sysml:MetadataUsage ;
     sysml:qualifiedName "Prefixed::Vehicle::@1" ;
+    sysx:sourceLine "5"^^xsd:integer ;
+    sysx:sourceColumn "24"^^xsd:integer ;
+    sysx:sourceEndLine "5"^^xsd:integer ;
+    sysx:sourceEndColumn "31"^^xsd:integer ;
     sysml:elementId "Prefixed__Vehicle___401" ;
     sysx:memberIndex "1"^^xsd:integer ;
     sysml:owningNamespace elmt:Prefixed__Vehicle ;
@@ -207,6 +239,10 @@ elmt:Prefixed__Vehicle___401_om
 elmt:Prefixed__car
     a sysml:PartUsage ;
     sysml:qualifiedName "Prefixed::car" ;
+    sysx:sourceLine "6"^^xsd:integer ;
+    sysx:sourceColumn "5"^^xsd:integer ;
+    sysx:sourceEndLine "6"^^xsd:integer ;
+    sysx:sourceEndColumn "26"^^xsd:integer ;
     sysml:elementId "Prefixed__car" ;
     sysx:memberIndex "4"^^xsd:integer ;
     sysml:owningNamespace elmt:Prefixed ;
@@ -237,6 +273,10 @@ elmt:Prefixed__car_om
 elmt:Prefixed__car___400
     a sysml:MetadataUsage ;
     sysml:qualifiedName "Prefixed::car::@0" ;
+    sysx:sourceLine "6"^^xsd:integer ;
+    sysx:sourceColumn "5"^^xsd:integer ;
+    sysx:sourceEndLine "6"^^xsd:integer ;
+    sysx:sourceEndColumn "10"^^xsd:integer ;
     sysml:elementId "Prefixed__car___400" ;
     sysx:memberIndex "0"^^xsd:integer ;
     sysml:owningNamespace elmt:Prefixed__car ;
@@ -263,6 +303,10 @@ elmt:Prefixed__car___400_om
 elmt:Prefixed__spare
     a sysml:PartUsage ;
     sysml:qualifiedName "Prefixed::spare" ;
+    sysx:sourceLine "7"^^xsd:integer ;
+    sysx:sourceColumn "5"^^xsd:integer ;
+    sysx:sourceEndLine "7"^^xsd:integer ;
+    sysx:sourceEndColumn "42"^^xsd:integer ;
     sysml:elementId "Prefixed__spare" ;
     sysx:memberIndex "5"^^xsd:integer ;
     sysml:owningNamespace elmt:Prefixed ;
@@ -295,6 +339,10 @@ elmt:Prefixed__spare_om
 elmt:Prefixed__spare___400
     a sysml:MetadataUsage ;
     sysml:qualifiedName "Prefixed::spare::@0" ;
+    sysx:sourceLine "7"^^xsd:integer ;
+    sysx:sourceColumn "17"^^xsd:integer ;
+    sysx:sourceEndLine "7"^^xsd:integer ;
+    sysx:sourceEndColumn "24"^^xsd:integer ;
     sysml:elementId "Prefixed__spare___400" ;
     sysx:memberIndex "0"^^xsd:integer ;
     sysml:owningNamespace elmt:Prefixed__spare ;
@@ -321,6 +369,10 @@ elmt:Prefixed__spare___400_om
 elmt:Prefixed__option
     a sysml:PartUsage ;
     sysml:qualifiedName "Prefixed::option" ;
+    sysx:sourceLine "8"^^xsd:integer ;
+    sysx:sourceColumn "5"^^xsd:integer ;
+    sysx:sourceEndLine "8"^^xsd:integer ;
+    sysx:sourceEndColumn "41"^^xsd:integer ;
     sysml:elementId "Prefixed__option" ;
     sysx:memberIndex "6"^^xsd:integer ;
     sysml:owningNamespace elmt:Prefixed ;
@@ -353,6 +405,10 @@ elmt:Prefixed__option_om
 elmt:Prefixed__option___400
     a sysml:MetadataUsage ;
     sysml:qualifiedName "Prefixed::option::@0" ;
+    sysx:sourceLine "8"^^xsd:integer ;
+    sysx:sourceColumn "13"^^xsd:integer ;
+    sysx:sourceEndLine "8"^^xsd:integer ;
+    sysx:sourceEndColumn "22"^^xsd:integer ;
     sysml:elementId "Prefixed__option___400" ;
     sysx:memberIndex "0"^^xsd:integer ;
     sysml:owningNamespace elmt:Prefixed__option ;
@@ -379,6 +435,10 @@ elmt:Prefixed__option___400_om
 elmt:Prefixed__wheel
     a sysml:PartUsage ;
     sysml:qualifiedName "Prefixed::wheel" ;
+    sysx:sourceLine "9"^^xsd:integer ;
+    sysx:sourceColumn "5"^^xsd:integer ;
+    sysx:sourceEndLine "9"^^xsd:integer ;
+    sysx:sourceEndColumn "34"^^xsd:integer ;
     sysml:elementId "Prefixed__wheel" ;
     sysx:memberIndex "7"^^xsd:integer ;
     sysml:owningNamespace elmt:Prefixed ;
@@ -410,6 +470,10 @@ elmt:Prefixed__wheel_om
 elmt:Prefixed__wheel___400
     a sysml:MetadataUsage ;
     sysml:qualifiedName "Prefixed::wheel::@0" ;
+    sysx:sourceLine "9"^^xsd:integer ;
+    sysx:sourceColumn "9"^^xsd:integer ;
+    sysx:sourceEndLine "9"^^xsd:integer ;
+    sysx:sourceEndColumn "16"^^xsd:integer ;
     sysml:elementId "Prefixed__wheel___400" ;
     sysx:memberIndex "0"^^xsd:integer ;
     sysml:owningNamespace elmt:Prefixed__wheel ;
@@ -436,6 +500,10 @@ elmt:Prefixed__wheel___400_om
 elmt:Prefixed__Notes
     a sysml:Package ;
     sysml:qualifiedName "Prefixed::Notes" ;
+    sysx:sourceLine "10"^^xsd:integer ;
+    sysx:sourceColumn "5"^^xsd:integer ;
+    sysx:sourceEndLine "10"^^xsd:integer ;
+    sysx:sourceEndColumn "29"^^xsd:integer ;
     sysml:elementId "Prefixed__Notes" ;
     sysx:memberIndex "8"^^xsd:integer ;
     sysml:owningNamespace elmt:Prefixed ;
@@ -462,6 +530,10 @@ elmt:Prefixed__Notes_om
 elmt:Prefixed__Notes___400
     a sysml:MetadataUsage ;
     sysml:qualifiedName "Prefixed::Notes::@0" ;
+    sysx:sourceLine "10"^^xsd:integer ;
+    sysx:sourceColumn "5"^^xsd:integer ;
+    sysx:sourceEndLine "10"^^xsd:integer ;
+    sysx:sourceEndColumn "14"^^xsd:integer ;
     sysml:elementId "Prefixed__Notes___400" ;
     sysx:memberIndex "0"^^xsd:integer ;
     sysml:owningNamespace elmt:Prefixed__Notes ;
@@ -488,6 +560,10 @@ elmt:Prefixed__Notes___400_om
 elmt:Prefixed___409
     a sysml:Dependency ;
     sysml:qualifiedName "Prefixed::@9" ;
+    sysx:sourceLine "11"^^xsd:integer ;
+    sysx:sourceColumn "5"^^xsd:integer ;
+    sysx:sourceEndLine "11"^^xsd:integer ;
+    sysx:sourceEndColumn "44"^^xsd:integer ;
     sysml:elementId "Prefixed___409" ;
     sysx:memberIndex "9"^^xsd:integer ;
     sysml:owningNamespace elmt:Prefixed ;
@@ -513,6 +589,10 @@ elmt:Prefixed___409_om
 elmt:Prefixed___409___400
     a sysml:MetadataUsage ;
     sysml:qualifiedName "Prefixed::@9::@0" ;
+    sysx:sourceLine "11"^^xsd:integer ;
+    sysx:sourceColumn "5"^^xsd:integer ;
+    sysx:sourceEndLine "11"^^xsd:integer ;
+    sysx:sourceEndColumn "12"^^xsd:integer ;
     sysml:elementId "Prefixed___409___400" ;
     sysx:memberIndex "0"^^xsd:integer ;
     sysml:owner elmt:Prefixed___409 ;
@@ -537,6 +617,10 @@ elmt:Prefixed___409___400_om
 elmt:Prefixed__Stopped
     a sysml:ConstraintDefinition ;
     sysml:qualifiedName "Prefixed::Stopped" ;
+    sysx:sourceLine "12"^^xsd:integer ;
+    sysx:sourceColumn "5"^^xsd:integer ;
+    sysx:sourceEndLine "12"^^xsd:integer ;
+    sysx:sourceEndColumn "28"^^xsd:integer ;
     sysml:elementId "Prefixed__Stopped" ;
     sysx:memberIndex "10"^^xsd:integer ;
     sysml:owningNamespace elmt:Prefixed ;
@@ -560,6 +644,10 @@ elmt:Prefixed__Stopped_om
 elmt:Prefixed__Move
     a sysml:ActionDefinition ;
     sysml:qualifiedName "Prefixed::Move" ;
+    sysx:sourceLine "13"^^xsd:integer ;
+    sysx:sourceColumn "5"^^xsd:integer ;
+    sysx:sourceEndLine "13"^^xsd:integer ;
+    sysx:sourceEndColumn "21"^^xsd:integer ;
     sysml:elementId "Prefixed__Move" ;
     sysx:memberIndex "11"^^xsd:integer ;
     sysml:owningNamespace elmt:Prefixed ;
@@ -583,6 +671,10 @@ elmt:Prefixed__Move_om
 elmt:Prefixed__context
     a sysml:PartUsage ;
     sysml:qualifiedName "Prefixed::context" ;
+    sysx:sourceLine "14"^^xsd:integer ;
+    sysx:sourceColumn "5"^^xsd:integer ;
+    sysx:sourceEndLine "18"^^xsd:integer ;
+    sysx:sourceEndColumn "6"^^xsd:integer ;
     sysml:elementId "Prefixed__context" ;
     sysx:memberIndex "12"^^xsd:integer ;
     sysml:owningNamespace elmt:Prefixed ;
@@ -620,6 +712,10 @@ elmt:Prefixed__context_om
 elmt:Prefixed__context__stopped
     a sysml:AssertConstraintUsage ;
     sysml:qualifiedName "Prefixed::context::stopped" ;
+    sysx:sourceLine "15"^^xsd:integer ;
+    sysx:sourceColumn "9"^^xsd:integer ;
+    sysx:sourceEndLine "15"^^xsd:integer ;
+    sysx:sourceEndColumn "53"^^xsd:integer ;
     sysml:elementId "Prefixed__context__stopped" ;
     sysx:memberIndex "0"^^xsd:integer ;
     sysml:owningNamespace elmt:Prefixed__context ;
@@ -652,6 +748,10 @@ elmt:Prefixed__context__stopped_om
 elmt:Prefixed__context__stopped___400
     a sysml:MetadataUsage ;
     sysml:qualifiedName "Prefixed::context::stopped::@0" ;
+    sysx:sourceLine "15"^^xsd:integer ;
+    sysx:sourceColumn "9"^^xsd:integer ;
+    sysx:sourceEndLine "15"^^xsd:integer ;
+    sysx:sourceEndColumn "16"^^xsd:integer ;
     sysml:elementId "Prefixed__context__stopped___400" ;
     sysx:memberIndex "0"^^xsd:integer ;
     sysml:owningNamespace elmt:Prefixed__context__stopped ;
@@ -678,6 +778,10 @@ elmt:Prefixed__context__stopped___400_om
 elmt:Prefixed__context__moving
     a sysml:AssertConstraintUsage ;
     sysml:qualifiedName "Prefixed::context::moving" ;
+    sysx:sourceLine "16"^^xsd:integer ;
+    sysx:sourceColumn "9"^^xsd:integer ;
+    sysx:sourceEndLine "16"^^xsd:integer ;
+    sysx:sourceEndColumn "58"^^xsd:integer ;
     sysml:elementId "Prefixed__context__moving" ;
     sysx:memberIndex "1"^^xsd:integer ;
     sysml:owningNamespace elmt:Prefixed__context ;
@@ -711,6 +815,10 @@ elmt:Prefixed__context__moving_om
 elmt:Prefixed__context__moving___400
     a sysml:MetadataUsage ;
     sysml:qualifiedName "Prefixed::context::moving::@0" ;
+    sysx:sourceLine "16"^^xsd:integer ;
+    sysx:sourceColumn "9"^^xsd:integer ;
+    sysx:sourceEndLine "16"^^xsd:integer ;
+    sysx:sourceEndColumn "18"^^xsd:integer ;
     sysml:elementId "Prefixed__context__moving___400" ;
     sysx:memberIndex "0"^^xsd:integer ;
     sysml:owningNamespace elmt:Prefixed__context__moving ;
@@ -737,6 +845,10 @@ elmt:Prefixed__context__moving___400_om
 elmt:Prefixed__context__go
     a sysml:PerformActionUsage ;
     sysml:qualifiedName "Prefixed::context::go" ;
+    sysx:sourceLine "17"^^xsd:integer ;
+    sysx:sourceColumn "9"^^xsd:integer ;
+    sysx:sourceEndLine "17"^^xsd:integer ;
+    sysx:sourceEndColumn "42"^^xsd:integer ;
     sysml:elementId "Prefixed__context__go" ;
     sysx:memberIndex "2"^^xsd:integer ;
     sysml:owningNamespace elmt:Prefixed__context ;
@@ -770,6 +882,10 @@ elmt:Prefixed__context__go_om
 elmt:Prefixed__context__go___400
     a sysml:MetadataUsage ;
     sysml:qualifiedName "Prefixed::context::go::@0" ;
+    sysx:sourceLine "17"^^xsd:integer ;
+    sysx:sourceColumn "9"^^xsd:integer ;
+    sysx:sourceEndLine "17"^^xsd:integer ;
+    sysx:sourceEndColumn "16"^^xsd:integer ;
     sysml:elementId "Prefixed__context__go___400" ;
     sysx:memberIndex "0"^^xsd:integer ;
     sysml:owningNamespace elmt:Prefixed__context__go ;
@@ -796,6 +912,10 @@ elmt:Prefixed__context__go___400_om
 elmt:Prefixed__Braking
     a sysml:RequirementDefinition ;
     sysml:qualifiedName "Prefixed::Braking" ;
+    sysx:sourceLine "19"^^xsd:integer ;
+    sysx:sourceColumn "5"^^xsd:integer ;
+    sysx:sourceEndLine "25"^^xsd:integer ;
+    sysx:sourceEndColumn "6"^^xsd:integer ;
     sysml:elementId "Prefixed__Braking" ;
     sysx:memberIndex "13"^^xsd:integer ;
     sysml:owningNamespace elmt:Prefixed ;
@@ -830,6 +950,10 @@ elmt:Prefixed__Braking_om
 elmt:Prefixed__Braking__brakes
     a sysml:ReferenceUsage ;
     sysml:qualifiedName "Prefixed::Braking::brakes" ;
+    sysx:sourceLine "20"^^xsd:integer ;
+    sysx:sourceColumn "9"^^xsd:integer ;
+    sysx:sourceEndLine "20"^^xsd:integer ;
+    sysx:sourceEndColumn "38"^^xsd:integer ;
     sysml:elementId "Prefixed__Braking__brakes" ;
     sysx:memberIndex "0"^^xsd:integer ;
     sysml:owningNamespace elmt:Prefixed__Braking ;
@@ -865,6 +989,10 @@ elmt:Prefixed__Braking__brakes_om
 elmt:Prefixed__Braking__brakes___400
     a sysml:MetadataUsage ;
     sysml:qualifiedName "Prefixed::Braking::brakes::@0" ;
+    sysx:sourceLine "20"^^xsd:integer ;
+    sysx:sourceColumn "17"^^xsd:integer ;
+    sysx:sourceEndLine "20"^^xsd:integer ;
+    sysx:sourceEndColumn "24"^^xsd:integer ;
     sysml:elementId "Prefixed__Braking__brakes___400" ;
     sysx:memberIndex "0"^^xsd:integer ;
     sysml:owningNamespace elmt:Prefixed__Braking__brakes ;
@@ -891,6 +1019,10 @@ elmt:Prefixed__Braking__brakes___400_om
 elmt:Prefixed__Braking___401
     a sysml:ConstraintUsage ;
     sysml:qualifiedName "Prefixed::Braking::@1" ;
+    sysx:sourceLine "21"^^xsd:integer ;
+    sysx:sourceColumn "9"^^xsd:integer ;
+    sysx:sourceEndLine "21"^^xsd:integer ;
+    sysx:sourceEndColumn "45"^^xsd:integer ;
     sysml:elementId "Prefixed__Braking___401" ;
     sysx:memberIndex "1"^^xsd:integer ;
     sysml:owningNamespace elmt:Prefixed__Braking ;
@@ -926,6 +1058,10 @@ elmt:Prefixed__Braking___401_om
 elmt:Prefixed__Braking___401___401
     a sysml:MetadataUsage ;
     sysml:qualifiedName "Prefixed::Braking::@1::@1" ;
+    sysx:sourceLine "21"^^xsd:integer ;
+    sysx:sourceColumn "16"^^xsd:integer ;
+    sysx:sourceEndLine "21"^^xsd:integer ;
+    sysx:sourceEndColumn "25"^^xsd:integer ;
     sysml:elementId "Prefixed__Braking___401___401" ;
     sysx:memberIndex "1"^^xsd:integer ;
     sysml:owningNamespace elmt:Prefixed__Braking___401 ;
@@ -952,6 +1088,10 @@ elmt:Prefixed__Braking___401___401_om
 elmt:Prefixed__Braking___401___400
     a sysml:LiteralBoolean ;
     sysml:qualifiedName "Prefixed::Braking::@1::@0" ;
+    sysx:sourceLine "21"^^xsd:integer ;
+    sysx:sourceColumn "39"^^xsd:integer ;
+    sysx:sourceEndLine "21"^^xsd:integer ;
+    sysx:sourceEndColumn "43"^^xsd:integer ;
     sysml:elementId "Prefixed__Braking___401___400" ;
     sysx:memberIndex "0"^^xsd:integer ;
     sysml:owningNamespace elmt:Prefixed__Braking___401 ;
@@ -976,6 +1116,10 @@ elmt:Prefixed__Braking___401___400_om
 elmt:Prefixed__Braking___402
     a sysml:ConstraintUsage ;
     sysml:qualifiedName "Prefixed::Braking::@2" ;
+    sysx:sourceLine "22"^^xsd:integer ;
+    sysx:sourceColumn "9"^^xsd:integer ;
+    sysx:sourceEndLine "22"^^xsd:integer ;
+    sysx:sourceEndColumn "44"^^xsd:integer ;
     sysml:elementId "Prefixed__Braking___402" ;
     sysx:memberIndex "2"^^xsd:integer ;
     sysml:owningNamespace elmt:Prefixed__Braking ;
@@ -1011,6 +1155,10 @@ elmt:Prefixed__Braking___402_om
 elmt:Prefixed__Braking___402___401
     a sysml:MetadataUsage ;
     sysml:qualifiedName "Prefixed::Braking::@2::@1" ;
+    sysx:sourceLine "22"^^xsd:integer ;
+    sysx:sourceColumn "17"^^xsd:integer ;
+    sysx:sourceEndLine "22"^^xsd:integer ;
+    sysx:sourceEndColumn "24"^^xsd:integer ;
     sysml:elementId "Prefixed__Braking___402___401" ;
     sysx:memberIndex "1"^^xsd:integer ;
     sysml:owningNamespace elmt:Prefixed__Braking___402 ;
@@ -1037,6 +1185,10 @@ elmt:Prefixed__Braking___402___401_om
 elmt:Prefixed__Braking___402___400
     a sysml:LiteralBoolean ;
     sysml:qualifiedName "Prefixed::Braking::@2::@0" ;
+    sysx:sourceLine "22"^^xsd:integer ;
+    sysx:sourceColumn "38"^^xsd:integer ;
+    sysx:sourceEndLine "22"^^xsd:integer ;
+    sysx:sourceEndColumn "42"^^xsd:integer ;
     sysml:elementId "Prefixed__Braking___402___400" ;
     sysx:memberIndex "0"^^xsd:integer ;
     sysml:owningNamespace elmt:Prefixed__Braking___402 ;
@@ -1061,6 +1213,10 @@ elmt:Prefixed__Braking___402___400_om
 elmt:Prefixed__Braking__stopped
     a sysml:ConstraintUsage ;
     sysml:qualifiedName "Prefixed::Braking::stopped" ;
+    sysx:sourceLine "23"^^xsd:integer ;
+    sysx:sourceColumn "9"^^xsd:integer ;
+    sysx:sourceEndLine "23"^^xsd:integer ;
+    sysx:sourceEndColumn "55"^^xsd:integer ;
     sysml:elementId "Prefixed__Braking__stopped" ;
     sysx:memberIndex "3"^^xsd:integer ;
     sysml:owningNamespace elmt:Prefixed__Braking ;
@@ -1096,6 +1252,10 @@ elmt:Prefixed__Braking__stopped_om
 elmt:Prefixed__Braking__stopped___400
     a sysml:MetadataUsage ;
     sysml:qualifiedName "Prefixed::Braking::stopped::@0" ;
+    sysx:sourceLine "23"^^xsd:integer ;
+    sysx:sourceColumn "16"^^xsd:integer ;
+    sysx:sourceEndLine "23"^^xsd:integer ;
+    sysx:sourceEndColumn "25"^^xsd:integer ;
     sysml:elementId "Prefixed__Braking__stopped___400" ;
     sysx:memberIndex "0"^^xsd:integer ;
     sysml:owningNamespace elmt:Prefixed__Braking__stopped ;
@@ -1122,6 +1282,10 @@ elmt:Prefixed__Braking__stopped___400_om
 elmt:Prefixed__Braking__braked
     a sysml:ConstraintUsage ;
     sysml:qualifiedName "Prefixed::Braking::braked" ;
+    sysx:sourceLine "24"^^xsd:integer ;
+    sysx:sourceColumn "9"^^xsd:integer ;
+    sysx:sourceEndLine "24"^^xsd:integer ;
+    sysx:sourceEndColumn "53"^^xsd:integer ;
     sysml:elementId "Prefixed__Braking__braked" ;
     sysx:memberIndex "4"^^xsd:integer ;
     sysml:owningNamespace elmt:Prefixed__Braking ;
@@ -1158,6 +1322,10 @@ elmt:Prefixed__Braking__braked_om
 elmt:Prefixed__Braking__braked___400
     a sysml:MetadataUsage ;
     sysml:qualifiedName "Prefixed::Braking::braked::@0" ;
+    sysx:sourceLine "24"^^xsd:integer ;
+    sysx:sourceColumn "17"^^xsd:integer ;
+    sysx:sourceEndLine "24"^^xsd:integer ;
+    sysx:sourceEndColumn "24"^^xsd:integer ;
     sysml:elementId "Prefixed__Braking__braked___400" ;
     sysx:memberIndex "0"^^xsd:integer ;
     sysml:owningNamespace elmt:Prefixed__Braking__braked ;
