@@ -235,11 +235,11 @@ nor double-counted as two independent disagreements.
 | `examples/sysml-v2-training` | 100 | 100 | 0 | 0 | 0 | 0 | 0 | 0 |
 | `examples/pilot-corpora/sysml-examples` | 99 | 92 | 11 | 0 | 0 | 0 | 11 | 0 |
 | `examples/pilot-corpora/sysml-validation` | 56 | 56 | 0 | 0 | 0 | 0 | 0 | 0 |
-| `examples/pilot-corpora/kerml-examples` | 58 | 55 | 10 | 0 | 0 | 0 | 10 | 0 |
+| `examples/pilot-corpora/kerml-examples` | 58 | 56 | 9 | 0 | 0 | 0 | 9 | 0 |
 | `tests/testdata` | 18 | 10 | 43 | 55 | 34 | 1 | 8 | 20 |
-| `examples` | 45 | 30 | 13 | 1600 | 4 | 2 | 7 | 1594 |
+| `examples` | 45 | 29 | 13 | 1600 | 4 | 2 | 7 | 1594 |
 | `tools/referee/diff/testdata` (probes) | 4 | 1 | 6 | 0 | 0 | 0 | 6 | 0 |
-| **Total** | **380** | **344** | **83** | **1655** | **38** | **3** | **42** | **1614** |
+| **Total** | **380** | **344** | **82** | **1655** | **38** | **3** | **41** | **1614** |
 
 **Read the `only ours` total by root, never as one number.** Step 2 removes nine resolver false
 positives from the reference's **own** corpora: `pilot-examples` 16 → **7** and
@@ -264,7 +264,7 @@ fixture that exists to draw them (see [Value uniqueness](#value-uniqueness--only
 pilot has no value-level uniqueness constraint, so all 5 are one-sided by construction. **Those that remain are
 true positives about our own examples, not candidate false positives about our implementation** — the
 column header is wrong for them, and the honest count of suspect diagnostics of ours against the
-reference corpora is **17** — of which seven, the `Behaviors.kerml` advisory and the six
+reference corpora is **20** (11 on `sysml-examples`, 9 on `kerml-examples`) — of which six, the
 `Expressions.kerml` operator diagnostics, are deliberate and adjudicated below rather than suspect. `severity-only` (2) holds pairs of the same shape:
 where the pilot errors on a line we warn on, the pair sits in severity-only rather than either side
 changing what it detects.
@@ -657,6 +657,13 @@ It is recorded in the pilot-corpora ratchet (`Behaviors.kerml` 0 → 1) and here
 Xpect row: the suite carries no `// ERROR` for the line and we report a warning, so the Xpect
 harness is 1268 agree / 57 disagree before and after, the 57 being the pre-existing rows.
 
+Since a parameter that writes no multiplicity takes its §7.6.3 effective multiplicity
+(`145a1469b`), `A`'s bare `in x;` is `[0..*]` and no longer required, so the advisory fires on
+neither `Behaviors.kerml:14` nor `delta-v-budget.sysml:93` (the runtime showcase's deliberate
+case); the pilot-corpora ratchet row left with that change and the differential moved in the
+[parameter effective-multiplicity round](#parameter-effective-multiplicity-round). The table
+below is kept as measured at this round.
+
 | Count | Before | Now |
 |---|---:|---:|
 | overall: fully agreeing | 338 | **337** |
@@ -938,10 +945,10 @@ populated and unchanged: 122 diagnostics total, 66 pilot-only. Step 3's two sema
 Xpect assertions not present in these seven differential roots.
 
 Per category, the only-ours totals are: `pilot-examples` 4 `unmapped`, 2
-`units`, 5 `kind-mismatch`; `kerml-examples` 9 `unmapped`, 1 `multiplicity` (the
-[unbound-parameter advisory](#the-unbound-parameter-advisory)); `examples` 1 syntax, 4 `unmapped`,
-2 `multiplicity` (the five warnings the MOSA demo draws on purpose, below, and the unbound-parameter
-advisory of the [runtime showcase round](#runtime-showcase-round)); `testdata` 7
+`units`, 5 `kind-mismatch`; `kerml-examples` 9 `unmapped`; `examples` 1 syntax, 4 `unmapped`,
+2 `multiplicity` (the five warnings the MOSA demo draws on purpose, below, and the optional
+succession ends of `parser_features_demo_connectors.sysml`, see the
+[parameter effective-multiplicity round](#parameter-effective-multiplicity-round)); `testdata` 7
 `unmapped`, 1 `multiplicity`; `probes` 6 `unmapped`.
 Only-pilot: `testdata` 12 `kind-mismatch`, 3 `unmapped`, 3 syntax, 2 `unresolved-reference`;
 `examples` 10 syntax, 29 `unmapped`, 669 `kind-mismatch`, 886 `unresolved-reference` — of which
@@ -1035,21 +1042,20 @@ page's history.
 
 | Count | Now |
 |---|---:|
-| overall: fully agreeing / only ours / our diagnostics | **344 / 42 / 83** |
+| overall: fully agreeing / only ours / our diagnostics | **344 / 41 / 82** |
 | only pilot | **1614** |
 | pilot diagnostics | **1655** |
 | severity-only | **3** |
 | unmapped, our side | **34** |
-| kerml-examples: only ours | **10** |
+| kerml-examples: only ours | **9** |
 | pilot-examples: only ours | **11** |
 | examples: only pilot | **1594** |
 
-The KerML root is now the *cleanest* of the three OMG roots in proportion: **10** only-ours against 6
+The KerML root is now the *cleanest* of the three OMG roots in proportion: **9** only-ours against 6
 only-pilot, with 49 of 58 files fully
-agreeing (439 / 6 and 10 / 58 when the root was added, and 72 / 39, 15 / 47 and 8 / 48 at earlier rounds). None of the 10 is a syntax or `kind-mismatch` diagnostic — the notation
+agreeing (439 / 6 and 10 / 58 when the root was added, and 72 / 39, 15 / 47 and 8 / 48 at earlier rounds). None of the 9 is a syntax or `kind-mismatch` diagnostic — the notation
 the reference accepts, we parse, and the checks we applied to KerML typings that it does not apply
-are gone. What is left is K5's three specialization cycles, the one deliberate
-[unbound-parameter advisory](#the-unbound-parameter-advisory), the two operator errors of the
+are gone. What is left is K5's three specialization cycles, the two operator errors of the
 [collection-body element typing round](#collection-body-element-typing-round) and the four
 operator diagnostics of the [bare feature-reference typing round](#bare-feature-reference-typing-round),
 all adjudicated. The class tables below
@@ -1200,6 +1206,31 @@ annotations and specializations of the `AnalysisRecords` library defs, and the r
 usages' quoted `'objective'`/`'subject'` names and `ref part :>>`/`part :>>` redefinitions. The
 file draws no diagnostic from this implementation — it validates clean — so `fully agreeing`,
 `only ours`, `agreed` and `severity-only` all stay where the expressions walkthrough left them.
+
+### Parameter effective-multiplicity round
+
+Two changes on `develop` moved three `multiplicity` warnings of ours, and no other column:
+`fully agreeing` stays **344**, our diagnostics fall 83 → **82** and only-ours 42 → **41**, with
+`kerml-examples` 55 → **56** fully agreeing / 10 → **9** only-ours and `examples` 30 → **29**
+fully agreeing at an unchanged 7 only-ours.
+
+- A parameter that writes no multiplicity now takes its §7.6.3 effective multiplicity
+  (`145a1469b`): a bare `in x;` is `[0..*]` and an invocation may leave it unbound, so the
+  [unbound-parameter advisory](#the-unbound-parameter-advisory) no longer fires on
+  `kerml-examples/Simple Tests/Behaviors.kerml:14` (`var z = A().y;`) or on
+  `examples/runtime-showcase/delta-v-budget.sysml:93`, the calculation written to show it. Both
+  were one-sided by design and are now silent on both sides; `Behaviors.kerml` becomes fully
+  agreeing, and the pilot-corpora ratchet row for it left with the same change.
+- `examples/parser_features_demo_connectors.sysml:108`, `succession first [0..1] validate then
+  [0..1] fallback;`, now draws `End feature must have multiplicity 1` (KerML 1.1 8.3.3.3, the
+  [end-feature multiplicity round](#end-feature-multiplicity-round)) on its two declared
+  `[0..1]` ends. The rule is unchanged; the warning surfaces with #711, which reads the
+  syntax-backed scopes of recorded files. The pilot reports nothing on the line, so the row is
+  one-sided: the demo spells an optional path on the ends of a succession, which is the shape
+  the rule exists to flag, and it is left as written so the demo keeps drawing it.
+
+Neither change is a conformance movement against the reference corpora beyond the one file it
+silences; the movement was measured on the merged tree and reproduces on `develop` alone.
 
 ## Adjudications
 
