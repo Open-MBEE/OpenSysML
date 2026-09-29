@@ -761,8 +761,8 @@ def test_new_add_member_expression_and_helper_arguments_are_checked():
             )
     with pytest.raises(TypeError, match="kind must be notation text, not int"):
         editor.add_state_action("Demo::S", 1, "a")
-        with pytest.raises(ValueError, match="kind must be 'entry', 'do' or 'exit'"):
-            editor.add_state_action("Demo::S", "transition", "a")
+    with pytest.raises(ValueError, match="kind must be 'entry', 'do' or 'exit'"):
+        editor.add_state_action("Demo::S", "transition", "a")
 
 def test_member_modifier_capability_accumulates_across_operations(fake_service):
     port, service = fake_service(
