@@ -8526,7 +8526,7 @@ func testCalcCallsAnUnimportedExtensionFunction(t *testing.T) {
 	if !errors.Is(err, ErrUnresolvedReference) {
 		t.Fatalf("expected ErrUnresolvedReference, got: %v", err)
 	}
-	if want := ": unresolved reference: exp — did you mean OpenSysMLMathFunctions::exp?"; !strings.HasSuffix(err.Error(), want) {
+	if want := ": unresolved reference: exp — did you mean OpenSysMLMathFunctions::exp? To use the bare name, import its package: private import OpenSysMLMathFunctions::*;"; !strings.HasSuffix(err.Error(), want) {
 		t.Errorf("error %q does not end in %q", err, want)
 	}
 }
