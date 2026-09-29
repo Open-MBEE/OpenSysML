@@ -1,0 +1,24 @@
+{
+  "rpc": "ApplyEdits",
+  "operations": [
+    {
+      "kind": "add_comment",
+      "owner": "Demo",
+      "body": "Toasting.\n  Indented, with a trailing space ",
+      "name": "Why",
+      "about": ["Bread", "Demo::Toaster"],
+      "locale": "en"
+    },
+    {
+      "kind": "add_comment",
+      "owner": "",
+      "body": "File note."
+    },
+    {
+      "kind": "add_note",
+      "target": "Demo::Toaster::power",
+      "text": "DimensionOneValue"
+    }
+  ],
+  "expected_content": "package Demo {\n    item def Bread;\n    part def Toaster {\n        // DimensionOneValue\n        attribute power;\n    }\n    comment Why about Bread, Demo::Toaster locale \"en\" /* Toasting.\n     *   Indented, with a trailing space */\n}\ncomment /* File note.*/\n"
+}

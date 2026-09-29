@@ -583,6 +583,18 @@ func TestAddMemberIndentationAndRootEOF(t *testing.T) {
 			op:   intoP,
 		},
 		{
+			name: "single-line empty body",
+			src:  "package P { }\n",
+			want: "package P {\n    part def Added;\n}\n",
+			op:   intoP,
+		},
+		{
+			name: "single-line body with a member",
+			src:  "package P { part a; }\n",
+			want: "package P { part a;\n    part def Added;\n}\n",
+			op:   intoP,
+		},
+		{
 			name: "bodyless owner",
 			src:  "part def P;\n",
 			want: "part def P {\n    part x;\n}\n",

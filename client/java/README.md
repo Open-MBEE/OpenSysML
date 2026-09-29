@@ -398,13 +398,20 @@ and `SuiteTest.aCorruptedAnswerIsCaught` asserts each corruption is caught:
 `withDirection`; `Edit.AddSatisfy`, `Edit.AddRequirementConstraint` and
 `Edit.AddTransition` expose requirement and state-transition authoring.
 `Edit.AddTransition.entry` constructs an entry transition. The client checks
-`member_modifiers`, `satisfy_authoring`, `requirement_constraint_authoring` or
-`transition_authoring` before sending those additions.
+`member_modifiers`, `satisfy_authoring`, `requirement_constraint_authoring`,
+`transition_authoring`, `constraint_body_authoring`, `state_action_authoring`
+and `import_authoring` before sending those additions.
 `Edit.AddMember.withBodyExpression` writes a constraint condition in `{ ... }`,
 distinct from `withValue`, which writes a feature value with `= ...`.
 Constraint-body and asserted-constraint additions require
 `constraint_body_authoring`; exhibit and state subaction kinds require
 `state_action_authoring`, alongside `authoring`.
+`Edit.AddImport` authors import declarations. `Edit.AddMember.withDoc` and
+`Edit.AddDocumentation.of(target, body)` (with `withName`, `withLocale` and `withReplace`)
+write documentation on a new or existing declaration, after checking
+`documentation_authoring`. `Edit.AddComment.of(owner, body)` (with `withName`, `withAbout` and
+`withLocale`) writes a `comment`, and `new Edit.AddNote(target, text)` a `// text` line note above
+a declaration, after checking `comment_authoring`.
 
 ## Running the tests
 

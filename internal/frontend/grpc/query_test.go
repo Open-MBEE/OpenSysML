@@ -940,7 +940,7 @@ func TestQueryVerifyHasNoSatisfyEndProperties(t *testing.T) {
 	}
 }
 
-func TestQueryOmitsPositionalIdentityWhenExporterRefusesCollision(t *testing.T) {
+func TestQueryKeepsIDsDistinctForPositionalNameCollision(t *testing.T) {
 	model := `package Collision {
 		metadata def M;
 		#M part def Car {
@@ -964,8 +964,8 @@ func TestQueryOmitsPositionalIdentityWhenExporterRefusesCollision(t *testing.T) 
 		}
 	}
 	for _, element := range resp.Elements {
-		if isPositionalIdentity(element.Id) && element.Id != "Collision::Car::@1" {
-			t.Errorf("element id = %q, want no positional ids after the exporter refused the collision", element.Id)
+		if element.Type == "MetadataUsage" && element.Properties[QueryPropOwner] == "Collision::Car" && element.Id != "Collision::Car::@1" {
+			t.Errorf("prefix annotation id = %q, want its positional identity", element.Id)
 		}
 	}
 }

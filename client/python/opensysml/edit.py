@@ -8,8 +8,8 @@ outside an edited span come back unchanged, and it re-parses what it edited
 before returning it.
 
 Operations include setting a feature's value, renaming a declaration, adding a
-member, connection or transition, deleting a declaration, and moving one into
-another namespace.
+member, connection, transition or documentation, deleting a declaration, and
+moving one into another namespace.
 Renaming rewrites the declaration's name token only and is refused for an
 element that is referenced — see :class:`~opensysml.errors.RenameReferencedError`.
 """
@@ -293,8 +293,13 @@ class Editor:
 
     def add_member(self, owner, kind, name, type=None, multiplicity=None,
                    value=None, specializes=None, abstract=False, redefines=None,
-                   default=False, direction=None, expression=None):
-        """Add one declaration, using strings for all SysML/KerML notation."""
+                   default=False, direction=None, expression=None, doc=None):
+        """Add one declaration, using strings for all SysML/KerML notation.
+
+        ``doc`` is plain documentation text, written as the new declaration's
+        first body member ``doc /* ... */``; it reads back unchanged as
+        ``Documentation.body``, and may not contain ``*/`` or a carriage return.
+        """
         if not isinstance(kind, str):
             raise TypeError(f"kind must be notation text, not {kind.__class__.__name__}")
         for label, text in (("kind", kind), ("type", type),
@@ -316,14 +321,104 @@ class Editor:
             raise TypeError("default must be bool")
         if direction is not None and not isinstance(direction, str):
             raise TypeError(f"direction must be notation text, not {direction.__class__.__name__}")
+        if doc is not None and not isinstance(doc, str):
+            raise TypeError(f"doc must be text, not {doc.__class__.__name__}")
         base = ("add_member", owner, kind, name, type or "", multiplicity or "",
                 value or "", list(specializes))
         if (abstract or redefines or default or direction is not None
-                or kind in ("ref", "return") or expression is not None):
+                or kind in ("ref", "return") or expression is not None or doc):
             base += (abstract, list(redefines), default, direction or "")
-        if expression is not None:
-            base += (expression,)
+        if expression is not None or doc:
+            base += (expression or "",)
+        if doc:
+            base += (doc,)
         self._add(base)
+        return self
+
+    def add_documentation(self, target, body, name=None, locale=None, replace=False):
+        """Add ``doc /* body */`` as the first body member of a declaration.
+
+        A declaration ended by ``;`` is given a body. One that already owns
+        documentation is refused unless ``replace`` is true, which rewrites the
+        one it owns (and is refused if it owns several).
+
+        Args:
+            target (str or Symbol): Declaration to document, by FQN/id or symbol
+            body (str): Plain documentation text, exactly as
+                ``Documentation.body`` reads back (whitespace included); it may
+                not contain ``*/``, which closes a comment, or a carriage return
+            name (str): Optional documentation name, ``doc name /* ... */``
+            locale (str): Optional locale, ``doc locale "en" /* ... */``
+            replace (bool): Rewrite the target's documentation instead of
+                refusing when it has one
+
+        Returns:
+            Editor: self, so operations can be chained
+        """
+        if not isinstance(body, str):
+            raise TypeError(f"body must be text, not {body.__class__.__name__}")
+        for label, text in (("name", name), ("locale", locale)):
+            if text is not None and not isinstance(text, str):
+                raise TypeError(f"{label} must be text, not {text.__class__.__name__}")
+        if not isinstance(replace, bool):
+            raise TypeError(f"replace must be a bool, not {replace.__class__.__name__}")
+        self._add((
+            "add_documentation", _target_id(target), body, name or "", locale or "", replace,
+        ))
+        return self
+
+    def add_comment(self, owner, body, name=None, about=None, locale=None):
+        """Add ``comment [name] [about a, b] [locale "..."] /* body */`` to a body.
+
+        The comment goes where a new member of ``owner`` goes; a declaration
+        ended by ``;`` is given a body, and an empty owner is the document root.
+
+        Args:
+            owner (str or Symbol): Namespace receiving the comment, by FQN/id
+                or symbol; ``""`` for the top level
+            body (str): Plain comment text, exactly as ``Comment.body`` reads
+                back (whitespace included); it may not contain ``*/``, which
+                closes a comment, or a carriage return
+            name (str): Optional comment name, ``comment name /* ... */``
+            about (list[str or Symbol]): Optional annotated elements, each a
+                qualified name (or symbol) resolved from ``owner``
+            locale (str): Optional locale, ``comment locale "en" /* ... */``
+
+        Returns:
+            Editor: self, so operations can be chained
+        """
+        if not isinstance(body, str):
+            raise TypeError(f"body must be text, not {body.__class__.__name__}")
+        for label, text in (("name", name), ("locale", locale)):
+            if text is not None and not isinstance(text, str):
+                raise TypeError(f"{label} must be text, not {text.__class__.__name__}")
+        if isinstance(about, str):
+            raise TypeError("about must be a sequence of names or symbols, not one name")
+        owner = owner if isinstance(owner, str) else _target_id(owner)
+        about = tuple(_target_id(element) for element in about or ())
+        self._add(("add_comment", owner, body, name or "", about, locale or ""))
+        return self
+
+    def add_note(self, target, text):
+        """Write the line note ``// text`` on its own line above a declaration.
+
+        A note is lexical trivia, not a model element: no query, export or
+        ``to_api_json()`` sees it, but the edited text keeps it, and later
+        edits that move or delete ``target`` carry it along.
+
+        Args:
+            target (str or Symbol): Declaration the note precedes, by FQN/id or
+                symbol
+            text (str): One line of note text; it may not contain a line break
+
+        Returns:
+            Editor: self, so operations can be chained
+        """
+        if not isinstance(text, str):
+            raise TypeError(f"text must be text, not {text.__class__.__name__}")
+        if "\n" in text or "\r" in text:
+            raise ValueError("a note is one line: its text may not contain a line break")
+        self._add(("add_note", _target_id(target), text))
         return self
 
     def add_satisfy(self, owner, requirement, by=None, asserted=False, negated=False):
@@ -377,6 +472,46 @@ class Editor:
             raise TypeError(f"target must be notation text, not {target.__class__.__name__}")
         owner = owner if isinstance(owner, str) else _target_id(owner)
         self._add(("add_transition", owner, "", "", target, "", "", "", True))
+        return self
+
+    def add_import(self, owner, target, visibility=None, recursive=False,
+                   all=False, filter=None):
+        """Add an import declaration to a namespace body or the document root.
+
+        ``target`` is the imported qualified name, optionally ``$::``-rooted:
+        ``A::B`` for a membership import, ``A::*`` for a namespace import.
+        ``visibility`` is ``private``,
+        ``public`` or ``protected``; ``None`` writes ``private``, the indicator
+        the grammar requires and the one legal in every body including the
+        document root. ``recursive`` writes ``::**``, ``all`` writes
+        ``import all``, and ``filter`` is one expression string or a list or
+        tuple of them, each written ``[<expression>]``.
+        """
+        if not isinstance(target, str):
+            raise TypeError(f"target must be notation text, not {target.__class__.__name__}")
+        if visibility is not None and not isinstance(visibility, str):
+            raise TypeError(
+                f"visibility must be notation text or None, not {visibility.__class__.__name__}")
+        if not isinstance(recursive, bool):
+            raise TypeError(f"recursive must be a bool, not {recursive.__class__.__name__}")
+        if not isinstance(all, bool):
+            raise TypeError(f"all must be a bool, not {all.__class__.__name__}")
+        if filter is None:
+            filters = ()
+        elif isinstance(filter, str):
+            filters = (filter,)
+        elif isinstance(filter, (list, tuple)):
+            filters = tuple(filter)
+        else:
+            raise TypeError(
+                f"filter must be notation text or a list of it, not {filter.__class__.__name__}")
+        for index, expression in enumerate(filters):
+            if not isinstance(expression, str):
+                raise TypeError(f"filter[{index}] must be notation text")
+        owner = owner if isinstance(owner, str) else _target_id(owner)
+        self._add((
+            "add_import", owner, visibility or "", target, recursive, all, filters,
+        ))
         return self
 
     def add_require_constraint(self, owner, expression, name=None):
@@ -668,10 +803,10 @@ class Editor:
         """Add a ``perform action name : Type`` usage (SysML v2 7.17.6)."""
         return self.add_member(owner, "perform action", name, type=type, **kwargs)
 
-    def add_perform(self, owner, action):
+    def add_perform(self, owner, action, doc=None):
         """Add a ``perform <action>;`` usage naming an existing action usage;
         the member is named by the action it references."""
-        return self.add_member(owner, "perform", action)
+        return self.add_member(owner, "perform", action, doc=doc)
 
     def add_exhibit_state(self, owner, name, type=None):
         """Add an ``exhibit state`` usage."""

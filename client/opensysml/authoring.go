@@ -196,6 +196,9 @@ type AddMember struct {
 	Direction string
 	// BodyExpression is the optional condition stated in a constraint-kind member's body.
 	BodyExpression string
+	// Doc is optional documentation body text, written as the declaration's
+	// first body member `doc /* ... */` that reads back as exactly this text.
+	Doc string
 }
 
 // AddSatisfy inserts a satisfy usage into any package or body that admits behavior usages.
@@ -249,6 +252,65 @@ func AddEntryTransition(owner, target string) AddTransition {
 	return AddTransition{Owner: owner, Target: target, Initial: true}
 }
 
+// AddImport inserts an import declaration into a namespace body or the
+// document root.
+type AddImport struct {
+	// Owner is the namespace receiving the import; empty is the document root.
+	Owner string
+	// Visibility is "private", "public" or "protected"; empty writes "private".
+	Visibility string
+	// Target is the imported qualified name, optionally rooted "$::", suffixed
+	// "::*" for a namespace import.
+	Target string
+	// Recursive writes "::**" to import recursively.
+	Recursive bool
+	// All writes "import all" to import non-public members too.
+	All bool
+	// Filters are filter conditions, each written as "[<expression>]".
+	Filters []string
+}
+
+// AddDocumentation adds `doc /* ... */` as the first body member of an
+// existing declaration, opening a body for one ended by `;`.
+type AddDocumentation struct {
+	// Target is the documented declaration, by qualified name.
+	Target string
+	// Body is the documentation text, read back exactly as Documentation::body;
+	// it may not contain `*/`, which closes a comment, or a carriage return.
+	Body string
+	// Name is the documentation's optional declared name.
+	Name string
+	// Locale is the optional locale, written as `locale "..."`.
+	Locale string
+	// Replace rewrites the one documentation Target owns instead of refusing.
+	Replace bool
+}
+
+// AddComment inserts `comment [name] [about a, b] [locale "..."] /* ... */`
+// where a new member of Owner goes, opening a body for one ended by `;`.
+type AddComment struct {
+	// Owner is the namespace receiving the comment; empty is the document root.
+	Owner string
+	// Body is the comment text, read back exactly as Comment::body; it may not
+	// contain `*/`, which closes a comment, or a carriage return.
+	Body string
+	// Name is the comment's optional declared name.
+	Name string
+	// About are the optional annotated elements, by qualified name.
+	About []string
+	// Locale is the optional locale, written as `locale "..."`.
+	Locale string
+}
+
+// AddNote writes the line note `// text` on its own line above a declaration.
+// A note is lexical trivia, not a model element.
+type AddNote struct {
+	// Target is the declaration the note precedes, by qualified name.
+	Target string
+	// Text is the one line of note text; it may not contain a line break.
+	Text string
+}
+
 // AddConnection inserts a connection-like usage into a namespace or document root.
 type AddConnection struct {
 	// Owner is the namespace to receive the usage; empty is the document root.
@@ -290,9 +352,15 @@ func (AddRequirementConstraint) isEdit() {
 	/* marker: closed Edit set */
 }
 func (AddTransition) isEdit() { /* marker: closed Edit set */ }
+func (AddImport) isEdit()     { /* marker: closed Edit set */ }
 func (AddConnection) isEdit() { /* marker: closed Edit set */ }
 func (Delete) isEdit()        { /* marker: closed Edit set */ }
 func (Move) isEdit()          { /* marker: closed Edit set */ }
+func (AddDocumentation) isEdit() {
+	/* marker: closed Edit set */
+}
+func (AddComment) isEdit() { /* marker: closed Edit set */ }
+func (AddNote) isEdit()    { /* marker: closed Edit set */ }
 
 // EditFailure says why edits were refused.
 type EditFailure int32
@@ -451,6 +519,9 @@ func (c *client) ApplyDocumentEdits(ctx context.Context, model *Model, document 
 			case "exhibit state", "exhibit", "entry action", "do action", "exit action":
 				required[CapabilityStateActionAuthoring] = true
 			}
+			if operation.Doc != "" {
+				required[CapabilityDocumentationAuthoring] = true
+			}
 		case AddConnection:
 			required[CapabilityAuthoring] = true
 			required[CapabilityConnectionAuthoring] = true
@@ -463,6 +534,15 @@ func (c *client) ApplyDocumentEdits(ctx context.Context, model *Model, document 
 		case AddTransition:
 			required[CapabilityAuthoring] = true
 			required[CapabilityTransitionAuthoring] = true
+		case AddImport:
+			required[CapabilityAuthoring] = true
+			required[CapabilityImportAuthoring] = true
+		case AddDocumentation:
+			required[CapabilityAuthoring] = true
+			required[CapabilityDocumentationAuthoring] = true
+		case AddComment, AddNote:
+			required[CapabilityAuthoring] = true
+			required[CapabilityCommentAuthoring] = true
 		case Delete, Move:
 			required[CapabilityAuthoring] = true
 		}
@@ -474,6 +554,8 @@ func (c *client) ApplyDocumentEdits(ctx context.Context, model *Model, document 
 			CapabilitySatisfyAuthoring, CapabilityRequirementConstraintAuthoring,
 			CapabilityMemberModifiers, CapabilityTransitionAuthoring,
 			CapabilityConstraintBodyAuthoring, CapabilityStateActionAuthoring,
+			CapabilityImportAuthoring, CapabilityDocumentationAuthoring,
+			CapabilityCommentAuthoring,
 		} {
 			if required[capability] {
 				names = append(names, capability)
@@ -560,6 +642,7 @@ func editToProto(edit Edit) (*pb.EditOperation, error) {
 			IsDefault:      operation.IsDefault,
 			Direction:      operation.Direction,
 			BodyExpression: operation.BodyExpression,
+			Doc:            operation.Doc,
 		}}}, nil
 	case AddSatisfy:
 		return &pb.EditOperation{Operation: &pb.EditOperation_AddSatisfy{
@@ -583,6 +666,32 @@ func editToProto(edit Edit) (*pb.EditOperation, error) {
 				Target: operation.Target, Trigger: operation.Trigger, Guard: operation.Guard,
 				Effect: operation.Effect, Initial: operation.Initial,
 			},
+		}}, nil
+	case AddImport:
+		return &pb.EditOperation{Operation: &pb.EditOperation_AddImport{
+			AddImport: &pb.AddImportEdit{
+				Owner: operation.Owner, Visibility: operation.Visibility,
+				Target: operation.Target, IsRecursive: operation.Recursive,
+				IsImportAll: operation.All, Filters: operation.Filters,
+			},
+		}}, nil
+	case AddDocumentation:
+		return &pb.EditOperation{Operation: &pb.EditOperation_AddDocumentation{
+			AddDocumentation: &pb.AddDocumentationEdit{
+				Target: operation.Target, Body: operation.Body, Name: operation.Name,
+				Locale: operation.Locale, Replace: operation.Replace,
+			},
+		}}, nil
+	case AddComment:
+		return &pb.EditOperation{Operation: &pb.EditOperation_AddComment{
+			AddComment: &pb.AddCommentEdit{
+				Owner: operation.Owner, Body: operation.Body, Name: operation.Name,
+				About: append([]string(nil), operation.About...), Locale: operation.Locale,
+			},
+		}}, nil
+	case AddNote:
+		return &pb.EditOperation{Operation: &pb.EditOperation_AddNote{
+			AddNote: &pb.AddNoteEdit{Target: operation.Target, Text: operation.Text},
 		}}, nil
 	case AddConnection:
 		return &pb.EditOperation{Operation: &pb.EditOperation_AddConnection{

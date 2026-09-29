@@ -32,6 +32,9 @@ const (
 	CapabilityTransitionAuthoring            = sysmlgrpc.CapabilityTransitionAuthoring
 	CapabilityConstraintBodyAuthoring        = sysmlgrpc.CapabilityConstraintBodyAuthoring
 	CapabilityStateActionAuthoring           = sysmlgrpc.CapabilityStateActionAuthoring
+	CapabilityImportAuthoring                = sysmlgrpc.CapabilityImportAuthoring
+	CapabilityDocumentationAuthoring         = sysmlgrpc.CapabilityDocumentationAuthoring
+	CapabilityCommentAuthoring               = sysmlgrpc.CapabilityCommentAuthoring
 	CapabilityEditDocuments                  = sysmlgrpc.CapabilityEditDocuments
 	CapabilityInlineLanguage                 = sysmlgrpc.CapabilityInlineLanguage
 	CapabilityStrictConformance              = sysmlgrpc.CapabilityStrictConformance

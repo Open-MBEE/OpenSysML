@@ -2,6 +2,7 @@ package grpc
 
 import (
 	"context"
+	"encoding/json"
 	"slices"
 	"strings"
 	"testing"
@@ -49,6 +50,33 @@ func addTransitionOp(owner, name, source, target, trigger, guard, effect string,
 			Owner: owner, Name: name, Source: source, Target: target,
 			Trigger: trigger, Guard: guard, Effect: effect, Initial: initial,
 		},
+	}}
+}
+
+func addImportOp(owner, visibility, target string, recursive, all bool, filters []string) *pb.EditOperation {
+	return &pb.EditOperation{Operation: &pb.EditOperation_AddImport{
+		AddImport: &pb.AddImportEdit{
+			Owner: owner, Visibility: visibility, Target: target,
+			IsRecursive: recursive, IsImportAll: all, Filters: filters,
+		},
+	}}
+}
+
+func addDocumentationOp(target, body string, replace bool) *pb.EditOperation {
+	return &pb.EditOperation{Operation: &pb.EditOperation_AddDocumentation{
+		AddDocumentation: &pb.AddDocumentationEdit{Target: target, Body: body, Replace: replace},
+	}}
+}
+
+func addCommentOp(owner, body string) *pb.EditOperation {
+	return &pb.EditOperation{Operation: &pb.EditOperation_AddComment{
+		AddComment: &pb.AddCommentEdit{Owner: owner, Body: body},
+	}}
+}
+
+func addNoteOp(target, text string) *pb.EditOperation {
+	return &pb.EditOperation{Operation: &pb.EditOperation_AddNote{
+		AddNote: &pb.AddNoteEdit{Target: target, Text: text},
 	}}
 }
 
@@ -294,6 +322,63 @@ func TestApplyEditsAddTransitionRequiresTransitionAuthoring(t *testing.T) {
 	}
 }
 
+func TestApplyEditsAddImportRequiresImportAuthoring(t *testing.T) {
+	srv := mustNewServiceWithout(t, CapabilityImportAuthoring)
+	ctx := context.Background()
+	hash := mustParsedModel(t, srv, "package P {\n}\n")
+	_, err := srv.ApplyEdits(ctx, &pb.ApplyEditsRequest{
+		ModelHash: hash,
+		Operations: []*pb.EditOperation{
+			addImportOp("P", "", "ScalarValues::*", false, false, nil),
+		},
+	})
+	if connect.CodeOf(err) != connect.CodeUnimplemented ||
+		!strings.Contains(err.Error(), CapabilityImportAuthoring) {
+		t.Fatalf("ApplyEdits refusal = %v, want UNIMPLEMENTED naming %q", err, CapabilityImportAuthoring)
+	}
+
+	added, err := srv.ApplyEdits(ctx, &pb.ApplyEditsRequest{
+		ModelHash: hash, Operations: []*pb.EditOperation{addMemberOp("P", "part", "a")},
+	})
+	if err != nil {
+		t.Fatalf("ApplyEdits add_member: %v", err)
+	}
+	if added.Error != "" || !strings.Contains(added.Content, "part a") {
+		t.Fatalf("add_member response = %+v, want the new part", added)
+	}
+}
+
+func TestApplyEditsAddImportWritesAndRefuses(t *testing.T) {
+	srv := mustNewService(t, 10)
+	ctx := context.Background()
+	hash := mustParsedModel(t, srv, "package P {\n}\n")
+	added, err := srv.ApplyEdits(ctx, &pb.ApplyEditsRequest{
+		ModelHash: hash,
+		Operations: []*pb.EditOperation{
+			addImportOp("P", "", "ScalarValues::*", false, false, nil),
+		},
+	})
+	if err != nil {
+		t.Fatalf("ApplyEdits: %v", err)
+	}
+	if added.Error != "" || !strings.Contains(added.Content, "private import ScalarValues::*;") {
+		t.Fatalf("add_import response = %+v, want the import written", added)
+	}
+
+	refused, err := srv.ApplyEdits(ctx, &pb.ApplyEditsRequest{
+		ModelHash: hash,
+		Operations: []*pb.EditOperation{
+			addImportOp("P", "", "Nope::*", false, false, nil),
+		},
+	})
+	if err != nil {
+		t.Fatalf("ApplyEdits refusal: %v", err)
+	}
+	if refused.Error == "" || refused.Content != "" {
+		t.Fatalf("unresolved import response = %+v, want an in-band refusal", refused)
+	}
+}
+
 func TestApplyEditsNewAuthoringOperationsRequireDedicatedCapabilities(t *testing.T) {
 	tests := []struct {
 		name       string
@@ -347,6 +432,23 @@ func TestApplyEditsNewAuthoringOperationsRequireDedicatedCapabilities(t *testing
 			name:       "state behavior kind",
 			capability: CapabilityStateActionAuthoring,
 			operation:  addMemberOp("Demo", "exhibit state", "shown"),
+		},
+		{
+			name:       "import",
+			capability: CapabilityImportAuthoring,
+			operation:  addImportOp("Demo", "", "ScalarValues::*", false, false, nil),
+		},
+		{
+			name:       "documentation",
+			capability: CapabilityDocumentationAuthoring,
+			operation:  addDocumentationOp("Demo::t", "A part.", false),
+		},
+		{
+			name:       "member documentation",
+			capability: CapabilityDocumentationAuthoring,
+			operation: &pb.EditOperation{Operation: &pb.EditOperation_AddMember{
+				AddMember: &pb.AddMemberEdit{Owner: "Demo", Kind: "part def", Name: "X", Doc: "A definition."},
+			}},
 		},
 	}
 	for _, tc := range tests {
@@ -627,6 +729,129 @@ func TestApplyEditsStateActionExecutionMatchesParsedTarget(t *testing.T) {
 	}
 }
 
+func TestApplyEditsDocumentationRoundTrip(t *testing.T) {
+	srv := mustNewService(t, 10)
+	hash := mustParsedModel(t, srv, "package Demo {\n    item def Bread;\n}\n")
+	added, err := srv.ApplyEdits(context.Background(), &pb.ApplyEditsRequest{
+		ModelHash: hash,
+		Operations: []*pb.EditOperation{
+			{Operation: &pb.EditOperation_AddMember{AddMember: &pb.AddMemberEdit{
+				Owner: "Demo", Kind: "action def", Name: "ToastBread", Doc: "Toast it.\nEvenly.",
+			}}},
+			{Operation: &pb.EditOperation_AddMember{AddMember: &pb.AddMemberEdit{
+				Owner: "Demo", Kind: "constraint", Name: "bounded",
+				BodyExpression: "true", Doc: "Checks true.",
+			}}},
+			addDocumentationOp("Demo::Bread", "Sliced.", false),
+			{Operation: &pb.EditOperation_AddDocumentation{AddDocumentation: &pb.AddDocumentationEdit{
+				Target: "Demo", Body: "The demo.", Name: "Summary", Locale: "en",
+			}}},
+		},
+	})
+	if err != nil {
+		t.Fatalf("ApplyEdits: %v", err)
+	}
+	if added.Error != "" {
+		t.Fatalf("edit refused: %s", added.Error)
+	}
+	want := "package Demo {\n    doc Summary locale \"en\" /* The demo.*/\n    item def Bread {\n" +
+		"        doc /* Sliced.*/\n    }\n    action def ToastBread {\n" +
+		"        doc /* Toast it.\n         * Evenly.*/\n    }\n    constraint bounded {\n" +
+		"        doc /* Checks true.*/\n        true\n    }\n}\n"
+	if added.Content != want {
+		t.Fatalf("content =\n%s\nwant\n%s", added.Content, want)
+	}
+
+	hash = mustParsedModel(t, srv, added.Content)
+	refused, err := srv.ApplyEdits(context.Background(), &pb.ApplyEditsRequest{
+		ModelHash:  hash,
+		Operations: []*pb.EditOperation{addDocumentationOp("Demo::Bread", "Again.", false)},
+	})
+	if err != nil {
+		t.Fatalf("ApplyEdits: %v", err)
+	}
+	if refused.Failure != pb.EditFailure_EDIT_FAILURE_MEMBER_NAME_TAKEN {
+		t.Fatalf("second documentation = %+v, want MEMBER_NAME_TAKEN", refused)
+	}
+	replaced, err := srv.ApplyEdits(context.Background(), &pb.ApplyEditsRequest{
+		ModelHash:  hash,
+		Operations: []*pb.EditOperation{addDocumentationOp("Demo::Bread", "Again.", true)},
+	})
+	if err != nil || replaced.Error != "" || !strings.Contains(replaced.Content, "doc /* Again.*/") ||
+		strings.Contains(replaced.Content, "Sliced.") {
+		t.Fatalf("replaced documentation = %+v, %v", replaced, err)
+	}
+}
+
+func TestApplyEditsCommentAndNoteRoundTrip(t *testing.T) {
+	srv := mustNewService(t, 10)
+	hash := mustParsedModel(t, srv, "package Demo {\n    item def Bread;\n    item def Toast;\n}\n")
+	body := " Browned.\n\tTwice. "
+	added, err := srv.ApplyEdits(context.Background(), &pb.ApplyEditsRequest{
+		ModelHash: hash,
+		Operations: []*pb.EditOperation{
+			{Operation: &pb.EditOperation_AddComment{AddComment: &pb.AddCommentEdit{
+				Owner: "Demo", Body: body, Name: "Why", About: []string{"Bread", "Demo::Toast"}, Locale: "en",
+			}}},
+			addCommentOp("", "Top."),
+			addNoteOp("Demo::Toast", "DimensionOneValue"),
+		},
+	})
+	if err != nil {
+		t.Fatalf("ApplyEdits: %v", err)
+	}
+	if added.Error != "" {
+		t.Fatalf("edit refused: %s", added.Error)
+	}
+	want := "package Demo {\n    item def Bread;\n    // DimensionOneValue\n    item def Toast;\n" +
+		"    comment Why about Bread, Demo::Toast locale \"en\" /*\n     *  Browned.\n     * \tTwice. */\n}\n" +
+		"comment /* Top.*/\n"
+	if added.Content != want {
+		t.Fatalf("content =\n%s\nwant\n%s", added.Content, want)
+	}
+
+	hash = mustParsedModel(t, srv, added.Content)
+	converted := mustConvert(t, srv, &pb.ConvertRequest{
+		Source:     &pb.ConvertRequest_Content{Content: added.Content},
+		FromFormat: "sysml",
+		ToFormat:   "api-json",
+	})
+	var elements []map[string]any
+	if err := json.Unmarshal([]byte(converted.Content), &elements); err != nil {
+		t.Fatalf("api-json: %v", err)
+	}
+	var bodies []string
+	for _, element := range elements {
+		if element["@type"] == "Comment" {
+			bodies = append(bodies, element["body"].(string))
+		}
+	}
+	slices.Sort(bodies)
+	if !slices.Equal(bodies, []string{body, "Top."}) {
+		t.Fatalf("comment bodies = %q, want %q and %q", bodies, body, "Top.")
+	}
+
+	for _, tc := range []struct {
+		op   *pb.EditOperation
+		want pb.EditFailure
+	}{
+		{addNoteOp("Demo::Bread", "one\ntwo"), pb.EditFailure_EDIT_FAILURE_INVALID_VALUE},
+		{addNoteOp("Demo::Missing", "text"), pb.EditFailure_EDIT_FAILURE_UNKNOWN_TARGET},
+		{addCommentOp("Demo", "ends */ early"), pb.EditFailure_EDIT_FAILURE_INVALID_VALUE},
+		{addCommentOp("Demo::Missing", "text"), pb.EditFailure_EDIT_FAILURE_OWNER_UNKNOWN},
+	} {
+		refused, err := srv.ApplyEdits(context.Background(), &pb.ApplyEditsRequest{
+			ModelHash: hash, Operations: []*pb.EditOperation{tc.op},
+		})
+		if err != nil {
+			t.Fatalf("ApplyEdits: %v", err)
+		}
+		if refused.Failure != tc.want {
+			t.Errorf("%v = %s (%s), want %s", tc.op, refused.Failure, refused.Error, tc.want)
+		}
+	}
+}
+
 func TestApplyEditsNewFailureEnumsAreMapped(t *testing.T) {
 	tests := []struct {
 		failure edit.Failure
@@ -659,6 +884,8 @@ func TestGetServerInfoAuthoringCapabilities(t *testing.T) {
 		CapabilityMemberModifiers, CapabilityTransitionAuthoring,
 		CapabilityConstraintBodyAuthoring, CapabilityStateActionAuthoring,
 		CapabilityInlineLanguage,
+		CapabilityImportAuthoring, CapabilityDocumentationAuthoring,
+		CapabilityCommentAuthoring,
 	} {
 		if !slices.Contains(info.Capabilities, capability) {
 			t.Errorf("capabilities = %v, want %q", info.Capabilities, capability)

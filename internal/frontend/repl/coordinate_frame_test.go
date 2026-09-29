@@ -33,7 +33,8 @@ func coordinateFrameSession(t *testing.T) *Session {
 		}
 		part def Vehicle { attribute body : CoordinateFrame; attribute clock : TimeScale; }
 		part vehicle : Vehicle { :>> body = spatialCF / s; :>> clock = UTC; }
-		part car : SpatialItem { attribute carDatum :>> coordinateFrame { :>> mRefs = (mm, mm, mm); } }
+		part def CarPart :> SpatialItem;
+		part car : CarPart { attribute carDatum :>> coordinateFrame { :>> mRefs = (mm, mm, mm); } }
 	}`)
 	if len(res.Diagnostics) > 0 {
 		t.Fatalf("fixture has diagnostics: %v", res.Diagnostics)

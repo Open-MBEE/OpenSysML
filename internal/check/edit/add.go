@@ -366,7 +366,15 @@ func (m Model) addMemberSplice(i int, op Operation) (splice, error) {
 	}
 	indent := m.ownerMemberIndent(owner)
 	unit := m.memberIndentUnit(owner)
-	ins := m.memberInsertion(owner, writeMember(op, kind, indent, unit))
+	docIndent := indent + unit
+	doc := ""
+	if op.Doc != "" {
+		doc, err = documentationText(i, "", "", op.Doc, docIndent)
+		if err != nil {
+			return splice{}, err
+		}
+	}
+	ins := m.memberInsertion(owner, writeMember(op, kind, indent, unit, doc, docIndent))
 	return splice{span: ins.span, text: ins.text, opIndex: i, target: op.Owner}, nil
 }
 
@@ -422,7 +430,7 @@ func ownerName(fqn string) string {
 	return fmt.Sprintf("%q", fqn)
 }
 
-func writeMember(op Operation, kind memberKind, indent, unit string) string {
+func writeMember(op Operation, kind memberKind, indent, unit, doc, docIndent string) string {
 	prefix := make([]string, 0, 3)
 	if op.Direction != "" {
 		prefix = append(prefix, op.Direction)
@@ -461,14 +469,17 @@ func writeMember(op Operation, kind memberKind, indent, unit string) string {
 		}
 	}
 	if op.BodyExpression != "" {
-		return writeBodyExpression(header, op.BodyExpression, indent, unit)
+		return writeBodyExpression(header, op.BodyExpression, indent, unit, doc, docIndent)
+	}
+	if doc != "" {
+		return header + " {\n" + docIndent + doc + "\n" + indent + "}"
 	}
 	return header + ";"
 }
 
-func writeBodyExpression(header, expression, indent, unit string) string {
+func writeBodyExpression(header, expression, indent, unit, doc, docIndent string) string {
 	lines := strings.Split(strings.ReplaceAll(expression, "\r\n", "\n"), "\n")
-	if len(lines) == 1 {
+	if len(lines) == 1 && doc == "" {
 		return header + " { " + strings.TrimSpace(lines[0]) + " }"
 	}
 	for i := range lines {
@@ -506,6 +517,11 @@ func writeBodyExpression(header, expression, indent, unit string) string {
 	var text strings.Builder
 	text.WriteString(header)
 	text.WriteString(" {\n")
+	if doc != "" {
+		text.WriteString(docIndent)
+		text.WriteString(doc)
+		text.WriteByte('\n')
+	}
 	for i, line := range lines {
 		if line != "" {
 			text.WriteString(indent)
@@ -577,6 +593,9 @@ func (m Model) memberInsertion(owner ast.Node, text string) insertion {
 		closeIndent := string(m.Source.Bytes()[lineStart:closeOffset])
 		if closeIndent != "" && !onlyWhitespace([]byte(closeIndent)) {
 			lineStart = closeOffset
+			for lineStart > 0 && (m.Source.Bytes()[lineStart-1] == ' ' || m.Source.Bytes()[lineStart-1] == '\t') {
+				lineStart--
+			}
 			closeIndent = ownerIndent
 		}
 		prefix := "\n"
@@ -607,8 +626,14 @@ func isCalculationResultMember(member ast.Node) bool {
 }
 
 func (m Model) memberInsertionBeforeResult(result ast.Node, text string) insertion {
+	return m.memberInsertionBefore(result.Span().Offset, text)
+}
+
+// memberInsertionBefore places text as a member ahead of the one starting at
+// offset: on its own line above that member's leading comments when the member
+// opens its line, else inline before it.
+func (m Model) memberInsertionBefore(offset int, text string) insertion {
 	content := m.Source.Bytes()
-	offset := result.Span().Offset
 	lineStart := offset
 	for lineStart > 0 && content[lineStart-1] != '\n' {
 		lineStart--
@@ -711,6 +736,12 @@ func bodyInfo(node ast.Node) (source.Span, bool) {
 	case *ast.TransitionMember:
 		return d.Span(), d.HasBody
 	case *ast.SuccessionEdge:
+		return d.Span(), d.HasBody
+	case *ast.Dependency:
+		return d.Span(), d.HasBody
+	case *ast.MultiplicityDecl:
+		return d.Span(), d.HasBody
+	case *ast.RelationshipMember:
 		return d.Span(), d.HasBody
 	default:
 		return source.Span{}, false

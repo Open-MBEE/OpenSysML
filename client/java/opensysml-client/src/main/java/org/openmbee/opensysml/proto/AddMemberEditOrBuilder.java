@@ -254,6 +254,28 @@ public interface AddMemberEditOrBuilder extends
 
   /**
    * <pre>
+   * Optional documentation body, as plain text, written as the declaration's
+   * first body member `doc /&#42; ... *&#47;` that reads back as exactly this text.
+   * </pre>
+   *
+   * <code>string doc = 12 [json_name = "doc"];</code>
+   * @return The doc.
+   */
+  java.lang.String getDoc();
+  /**
+   * <pre>
+   * Optional documentation body, as plain text, written as the declaration's
+   * first body member `doc /&#42; ... *&#47;` that reads back as exactly this text.
+   * </pre>
+   *
+   * <code>string doc = 12 [json_name = "doc"];</code>
+   * @return The bytes for doc.
+   */
+  com.google.protobuf.ByteString
+      getDocBytes();
+
+  /**
+   * <pre>
    * Optional condition stated in a constraint-kind member's body, as in
    * "constraint c { &lt;expr&gt; }"; distinct from value, which writes "= &lt;expr&gt;".
    * </pre>

@@ -1409,6 +1409,12 @@ func editFromProto(operation *pb.EditOperation) (opensysml.Edit, bool) {
 			Expression: kind.AddRequirementConstraint.GetExpression(),
 			Name:       kind.AddRequirementConstraint.GetName(),
 		}, true
+	case *pb.EditOperation_AddImport:
+		return opensysml.AddImport{
+			Owner: kind.AddImport.GetOwner(), Visibility: kind.AddImport.GetVisibility(),
+			Target: kind.AddImport.GetTarget(), Recursive: kind.AddImport.GetIsRecursive(),
+			All: kind.AddImport.GetIsImportAll(), Filters: kind.AddImport.GetFilters(),
+		}, true
 	case *pb.EditOperation_Delete:
 		return opensysml.Delete{Target: kind.Delete.GetTarget(), Cascade: kind.Delete.GetCascade()}, true
 	default:

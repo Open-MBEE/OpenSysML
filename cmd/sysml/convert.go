@@ -132,6 +132,10 @@ func runConvert(files []string) (int, error) {
 	if from == convert.FormatXMI && outputPath != "" && input != "-" && samePath(outputPath, input) {
 		return 0, fmt.Errorf("-o names the model being migrated, %s; the v1 model would be replaced by its migration", input)
 	}
+	// So would an FMU's archive, being read in place.
+	if from == convert.FormatFMU && outputPath != "" && input != "-" && samePath(outputPath, input) {
+		return 0, fmt.Errorf("-o names the FMU being imported, %s; the archive would be replaced by its import", input)
+	}
 	out, imageFiles, err := convertInput(name, data, from, to)
 	if err != nil {
 		return 0, err

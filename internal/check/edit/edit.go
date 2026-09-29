@@ -44,6 +44,16 @@ const (
 	OpAddRequirementConstraint
 	// OpAddTransition inserts a transition usage into a state body.
 	OpAddTransition
+	// OpAddImport inserts an import declaration into a namespace body or the
+	// document root.
+	OpAddImport
+	// OpAddDocumentation adds a `doc` to an existing declaration, or rewrites
+	// the one it owns.
+	OpAddDocumentation
+	// OpAddComment inserts a `comment` element into Owner.
+	OpAddComment
+	// OpAddNote writes a `//` line note above Target's declaration.
+	OpAddNote
 )
 
 // Operation is one change to make to a model's source.
@@ -102,6 +112,27 @@ type Operation struct {
 	Guard            string
 	Effect           string
 	Initial          bool
+	// Doc is the plain body text of a `doc`: the first body member of the
+	// declaration an OpAddMember writes, or the documentation an
+	// OpAddDocumentation adds to Target. DocName and DocLocale are the
+	// latter's optional identification and locale, and ReplaceDoc has it
+	// rewrite the one documentation Target owns rather than refuse.
+	// An OpAddComment writes Doc as its body, DocName and DocLocale as its
+	// identification and locale, and About as its annotated elements.
+	Doc        string
+	DocName    string
+	DocLocale  string
+	ReplaceDoc bool
+	// ImportVisibility, ImportTarget, ImportRecursive, ImportAll and
+	// ImportFilters describe an OpAddImport.
+	ImportVisibility string
+	ImportTarget     string
+	ImportRecursive  bool
+	ImportAll        bool
+	ImportFilters    []string
+	About            []string
+	// Note is the one line of text an OpAddNote writes after `// `.
+	Note string
 	// NewOwner is the namespace an OpMove moves Target into; empty means the root.
 	NewOwner string
 	// Annotation is the DiagramLayout metadata an OpSetLayout writes, by FQN
@@ -168,6 +199,34 @@ func AddTransition(owner, name, from, to, trigger, guard, effect string, initial
 		TransitionSource: from, TransitionTarget: to, Trigger: trigger,
 		Guard: guard, Effect: effect, Initial: initial,
 	}
+}
+
+// AddImport inserts an import declaration of target into owner: a membership
+// import for a qualified name, a namespace import for one suffixed `::*`,
+// recursive or importing non-public members when recursive or all are set, and
+// filtered by the filter expressions, each written `[<expression>]`.
+func AddImport(owner, visibility, target string, recursive, all bool, filters []string) Operation {
+	return Operation{
+		Kind: OpAddImport, Owner: owner, ImportVisibility: visibility,
+		ImportTarget: target, ImportRecursive: recursive, ImportAll: all,
+		ImportFilters: filters,
+	}
+}
+
+// AddDocumentation creates an operation adding a `doc` with body text to target.
+func AddDocumentation(target, body string) Operation {
+	return Operation{Kind: OpAddDocumentation, Target: target, Doc: body}
+}
+
+// AddComment creates an operation adding a `comment` with body text to owner,
+// "" for the root.
+func AddComment(owner, body string) Operation {
+	return Operation{Kind: OpAddComment, Owner: owner, Doc: body}
+}
+
+// AddNote creates an operation writing the line note `// text` above target.
+func AddNote(target, text string) Operation {
+	return Operation{Kind: OpAddNote, Target: target, Note: text}
 }
 
 // Move is an operation making target a member of newOwner, "" for the root.
@@ -604,6 +663,31 @@ func (m Model) splicesFor(i int, op Operation) ([]splice, error) {
 	}
 	if op.Kind == OpAddTransition {
 		sp, err := m.addTransitionSplice(i, op)
+		if err != nil {
+			return nil, err
+		}
+		return []splice{sp}, nil
+	}
+	if op.Kind == OpAddImport {
+		sp, err := m.addImportSplice(i, op)
+		if err != nil {
+			return nil, err
+		}
+		return []splice{sp}, nil
+	}
+	if op.Kind == OpAddDocumentation {
+		sp, err := m.addDocumentationSplice(i, op)
+		if err != nil {
+			return nil, err
+		}
+		return []splice{sp}, nil
+	}
+	if op.Kind == OpAddComment || op.Kind == OpAddNote {
+		add := m.addCommentSplice
+		if op.Kind == OpAddNote {
+			add = m.addNoteSplice
+		}
+		sp, err := add(i, op)
 		if err != nil {
 			return nil, err
 		}
