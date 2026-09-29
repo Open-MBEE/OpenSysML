@@ -591,14 +591,3 @@ func signalText(msg runtime.Message) string {
 	}
 	return msg.SignalType + "(" + strings.Join(args, ", ") + ")"
 }
-
-// eventText writes a queued event as the signal or call that raised it.
-func eventText(event runtime.Event) string {
-	switch payload := event.Payload.(type) {
-	case runtime.Message:
-		return signalText(payload)
-	case runtime.Call:
-		return payload.Operation + "()"
-	}
-	return event.Type.String()
-}
