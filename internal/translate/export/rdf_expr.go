@@ -1009,7 +1009,7 @@ func (d *decoder) segmentOwners(node rdf.Term, parents map[string][]rdf.Term, se
 // recordSegment notes one chain segment in each owning element.
 func (d *decoder) recordSegment(operand, name, target string, owners []*element) {
 	for _, in := range owners {
-		d.wanted.segments[segmentKey{member: in.qname, operand: operand, name: name, target: target}] = true
+		d.wanted.segments[segmentKey{member: d.writtenQName(in), operand: operand, name: name, target: target}] = true
 	}
 }
 
@@ -1050,7 +1050,7 @@ func (d *decoder) segmentName(chain, term rdf.Term, in *element) (string, error)
 		return "", err
 	}
 	if d.names != nil {
-		key := segmentKey{member: in.qname, operand: d.operandElement(chain), name: name, target: target.qname}
+		key := segmentKey{member: d.writtenQName(in), operand: d.operandElement(chain), name: name, target: target.qname}
 		if spelling, ok := d.names.segments[key]; ok {
 			return qualifiedNameText(spelling), nil
 		}

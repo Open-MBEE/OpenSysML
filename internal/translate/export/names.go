@@ -573,6 +573,11 @@ func (e *encoder) resolvesTo(refs []resolve.Reference, spelling, target string) 
 		if _, fqn, ok := e.linked(sym, true); ok && fqn == target {
 			continue
 		}
+		// An element's own identity may already claim a normative target's
+		// qualified name; linked refuses to repeat it, so ask the norm itself.
+		if fqn := e.normativeFQN(sym); fqn != "" && fqn == target {
+			continue
+		}
 		// The graph links a name written through an alias to that alias.
 		if _, fqn, ok := e.linked(e.res.PartAlias(qn, len(qn.Parts)-1)); !ok || fqn != target {
 			return false

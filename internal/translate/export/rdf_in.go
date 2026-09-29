@@ -1799,10 +1799,24 @@ func (d *decoder) usageHead(el *element, kind ast.UsageKind) (string, error) {
 	// A reference usage owned by a metadata usage is a metadata body member
 	// (`text = "…"`, SysML.xtext MetadataBodyUsage); a kind keyword has no
 	// notation there even when the graph states none as implicit.
-	if d.metadataBodyMember(el) {
+	metadataBody := d.metadataBodyMember(el)
+	if metadataBody {
 		keyword = ""
 	}
 	identWords := d.identWords(el)
+	// A metadata body's `name = …` member is written bare: its name is the
+	// feature its implicit Redefinition targets, no declared name and no `:>>`
+	// (SysML.xtext MetadataBodyUsage). Without the flag an older graph's
+	// declared name keeps the `name = …` shape it always had.
+	implicitName := ""
+	if d.boolOf(el, rdf.OpenSysML+xImplicitRedefinition) {
+		if implicitName, err = d.implicitRedefinitionName(el); err != nil {
+			return "", err
+		}
+		if implicitName != "" {
+			identWords = append(identWords, implicitName)
+		}
+	}
 	references, err := d.referenceList(el, rdf.SysML+relationshipProperty[ast.RelReferences])
 	if err != nil {
 		return "", err
@@ -1974,6 +1988,9 @@ func (d *decoder) usageHead(el *element, kind ast.UsageKind) (string, error) {
 	// member declares a usage, spelling out the kind keyword (SysML.xtext
 	// ViewRenderingUsage, FramedConcernUsage) even when it declares no name.
 	var skip []ast.RelationshipKind
+	if implicitName != "" {
+		skip = append(skip, ast.RelRedefines)
+	}
 	if endForm == formEquals {
 		// The bound feature is an end of the binding, written by the ends
 		// notation rather than as a `references` clause.
@@ -2776,6 +2793,29 @@ func (d *decoder) keywordOr(el *element, canonical string) string {
 	return canonical
 }
 
+// implicitRedefinitionName is the name a metadata body's `name = …` member
+// writes: the name of the one feature its implicit Redefinition targets, or
+// "" when the member redefines none or several — which the notation cannot
+// write bare, so the `:>>` form stays.
+func (d *decoder) implicitRedefinitionName(el *element) (string, error) {
+	terms := d.graph.Objects(rdf.IRI(el.iri), rdf.SysML+relationshipProperty[ast.RelRedefines])
+	if len(terms) != 1 {
+		return "", nil
+	}
+	if terms[0].IsLiteral() {
+		segments, ok := source.QualifiedNameSegments(terms[0].Value)
+		if !ok {
+			segments = strings.Split(terms[0].Value, "::")
+		}
+		return nameText(segments[len(segments)-1]), nil
+	}
+	_, name, err := d.namedMember(terms[0])
+	if err != nil {
+		return "", err
+	}
+	return nameText(name), nil
+}
+
 // metadataBodyMember reports whether el is a `text = "…"` line inside a
 // metadata body: a ReferenceUsage owned through a FeatureMembership under a
 // MetadataUsage, declaring no kind keyword of its own.
@@ -2924,6 +2964,25 @@ func (d *decoder) identWords(el *element) []string {
 		words = append(words, nameText(name))
 	}
 	return words
+}
+
+// writtenQName is the qualified name the notation written for el gives it back:
+// its graph name, unless its head states no name — no declared name and no
+// implicit metadata-body name — when the rendering's anonymous index names it,
+// as the name the member's position reads it as.
+func (d *decoder) writtenQName(el *element) string {
+	q := el.qname
+	i := strings.LastIndex(q, "::")
+	if i < 0 || strings.HasPrefix(q[i+len("::"):], "@") {
+		return q
+	}
+	if !d.metadataBodyMember(el) || d.boolOf(el, rdf.OpenSysML+xImplicitRedefinition) {
+		return q
+	}
+	if _, declared := d.stringOf(el, rdf.SysML+pDeclaredName); declared {
+		return q
+	}
+	return q[:i] + "::@" + strconv.Itoa(el.memberIndex)
 }
 
 // nameText writes a name as the notation spells it: the graph carries the name
@@ -3466,7 +3525,7 @@ func (d *decoder) referenceName(term rdf.Term, el *element) (string, error) {
 		return "", err
 	}
 	spelled := d.spelledName(target)
-	key := nameKey{member: el.qname, target: target.qname}
+	key := nameKey{member: d.writtenQName(el), target: target.qname}
 	scope := referenceScope(spelled, target.qname, el.qname, el.scope)
 	written := spelled
 	if d.names != nil {
