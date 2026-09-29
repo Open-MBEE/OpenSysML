@@ -245,7 +245,8 @@ package TeamCases {
             verify payloadHolds;
         }
 
-        return attribute verdict : VerdictKind;
+        return attribute verdict : VerdictKind =
+            VerificationCases::PassIf(truck.payload <= truck.payloadLimit);
     }
 
     verification checkPayload : CheckPayload {
