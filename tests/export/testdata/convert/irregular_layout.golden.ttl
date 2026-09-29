@@ -44,7 +44,7 @@ elmt:IrregularLayout___400
 elmt:IrregularLayout___401
     a sysml:Documentation ;
     sysml:qualifiedName "IrregularLayout::@1" ;
-    sysx:sourceRange "3:5-3:8" ;
+    sysx:sourceRange "3:5-7:45" ;
     sysml:elementId "IrregularLayout___401" ;
     sysx:memberIndex "1"^^xsd:integer ;
     sysml:owningNamespace elmt:IrregularLayout ;
@@ -247,7 +247,7 @@ elmt:IrregularLayout__Rover_om
 elmt:IrregularLayout__Rover___400
     a sysml:Documentation ;
     sysml:qualifiedName "IrregularLayout::Rover::@0" ;
-    sysx:sourceRange "12:9-12:12" ;
+    sysx:sourceRange "12:9-14:29" ;
     sysml:elementId "IrregularLayout__Rover___400" ;
     sysx:memberIndex "0"^^xsd:integer ;
     sysml:owningNamespace elmt:IrregularLayout__Rover ;
@@ -1895,7 +1895,7 @@ expr:IrregularLayout__Rover__speed__m_pvalue_om
 elmt:IrregularLayout__Rover___4011
     a sysml:Comment ;
     sysml:qualifiedName "IrregularLayout::Rover::@11" ;
-    sysx:sourceRange "44:9-44:28" ;
+    sysx:sourceRange "44:9-46:18" ;
     sysml:elementId "IrregularLayout__Rover___4011" ;
     sysx:memberIndex "11"^^xsd:integer ;
     sysml:owningNamespace elmt:IrregularLayout__Rover ;

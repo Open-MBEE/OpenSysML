@@ -27,7 +27,7 @@ elmt:Chains
 elmt:Chains___400
     a sysml:Comment ;
     sysml:qualifiedName "Chains::@0" ;
-    sysx:sourceRange "2:5-2:12" ;
+    sysx:sourceRange "2:5-2:61" ;
     sysml:elementId "Chains___400" ;
     sysx:memberIndex "0"^^xsd:integer ;
     sysml:owningNamespace elmt:Chains ;
@@ -167,7 +167,7 @@ elmt:Chains__c_om
 elmt:Chains__Named
     a sysml:Comment ;
     sysml:qualifiedName "Chains::Named" ;
-    sysx:sourceRange "8:5-8:26" ;
+    sysx:sourceRange "8:5-8:61" ;
     sysml:elementId "Chains__Named" ;
     sysx:memberIndex "4"^^xsd:integer ;
     sysml:owningNamespace elmt:Chains ;

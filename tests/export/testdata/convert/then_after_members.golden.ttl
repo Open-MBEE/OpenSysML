@@ -3683,7 +3683,7 @@ elmt:ThenAfterMembers__AfterDoc__a_om
 elmt:ThenAfterMembers__AfterDoc___401
     a sysml:Documentation ;
     sysml:qualifiedName "ThenAfterMembers::AfterDoc::@1" ;
-    sysx:sourceRange "71:9-71:12" ;
+    sysx:sourceRange "71:9-71:37" ;
     sysml:elementId "ThenAfterMembers__AfterDoc___401" ;
     sysx:memberIndex "1"^^xsd:integer ;
     sysml:owningNamespace elmt:ThenAfterMembers__AfterDoc ;
@@ -3899,7 +3899,7 @@ elmt:ThenAfterMembers__AfterComment__a_om
 elmt:ThenAfterMembers__AfterComment___401
     a sysml:Comment ;
     sysml:qualifiedName "ThenAfterMembers::AfterComment::@1" ;
-    sysx:sourceRange "76:9-76:24" ;
+    sysx:sourceRange "76:9-76:45" ;
     sysml:elementId "ThenAfterMembers__AfterComment___401" ;
     sysx:memberIndex "1"^^xsd:integer ;
     sysml:owningNamespace elmt:ThenAfterMembers__AfterComment ;
@@ -5263,7 +5263,7 @@ elmt:ThenAfterMembers__AfterSeveralNonFeatures__a_om
 elmt:ThenAfterMembers__AfterSeveralNonFeatures___401
     a sysml:Documentation ;
     sysml:qualifiedName "ThenAfterMembers::AfterSeveralNonFeatures::@1" ;
-    sysx:sourceRange "109:9-109:12" ;
+    sysx:sourceRange "109:9-109:37" ;
     sysml:elementId "ThenAfterMembers__AfterSeveralNonFeatures___401" ;
     sysx:memberIndex "1"^^xsd:integer ;
     sysml:owningNamespace elmt:ThenAfterMembers__AfterSeveralNonFeatures ;
@@ -5325,7 +5325,7 @@ elmt:ThenAfterMembers__AfterSeveralNonFeatures___403
 elmt:ThenAfterMembers__AfterSeveralNonFeatures___404
     a sysml:Comment ;
     sysml:qualifiedName "ThenAfterMembers::AfterSeveralNonFeatures::@4" ;
-    sysx:sourceRange "112:9-112:24" ;
+    sysx:sourceRange "112:9-112:45" ;
     sysml:elementId "ThenAfterMembers__AfterSeveralNonFeatures___404" ;
     sysx:memberIndex "4"^^xsd:integer ;
     sysml:owningNamespace elmt:ThenAfterMembers__AfterSeveralNonFeatures ;
@@ -5542,7 +5542,7 @@ elmt:ThenAfterMembers__AfterNonFeatures__a_om
 elmt:ThenAfterMembers__AfterNonFeatures___401
     a sysml:Documentation ;
     sysml:qualifiedName "ThenAfterMembers::AfterNonFeatures::@1" ;
-    sysx:sourceRange "117:9-117:12" ;
+    sysx:sourceRange "117:9-117:31" ;
     sysml:elementId "ThenAfterMembers__AfterNonFeatures___401" ;
     sysx:memberIndex "1"^^xsd:integer ;
     sysml:owningNamespace elmt:ThenAfterMembers__AfterNonFeatures ;
@@ -7493,7 +7493,7 @@ elmt:ThenAfterMembers__Lamp__on_om
 elmt:ThenAfterMembers__Lamp___402
     a sysml:Documentation ;
     sysml:qualifiedName "ThenAfterMembers::Lamp::@2" ;
-    sysx:sourceRange "153:9-153:12" ;
+    sysx:sourceRange "153:9-153:34" ;
     sysml:elementId "ThenAfterMembers__Lamp___402" ;
     sysx:memberIndex "2"^^xsd:integer ;
     sysml:owningNamespace elmt:ThenAfterMembers__Lamp ;

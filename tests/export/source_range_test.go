@@ -164,3 +164,47 @@ func TestSourceRangeAndDocumentAreProvenanceOnly(t *testing.T) {
 		}
 	}
 }
+
+// An annotation's `/* ... */` body is its declaration, not a trailing note: a
+// doc's, a comment's and a rep's range runs to the end of the body, over
+// however many lines it spans. A part's trailing comment still stays outside.
+func TestSourceRangeCoversAnAnnotationsBody(t *testing.T) {
+	src := "package A {\n\tpart x; // a note\n\tdoc /* one wheel */\n\tcomment c about x /* a note */\n\trep r language \"text\" /* a rep */\n\tdoc d /* a body\n\tover two lines */\n}\n"
+	turtle, err := convert.Convert("a.sysml", []byte(src), convert.FormatSysML, convert.FormatTurtle)
+	if err != nil {
+		t.Fatalf("to turtle: %v", err)
+	}
+	for _, want := range []string{
+		`sysml:qualifiedName "A::x" ;
+    sysx:sourceRange "2:2-2:9" ;`,
+		`sysx:sourceRange "3:2-3:21" ;`,
+		`sysml:qualifiedName "A::c" ;
+    sysx:sourceRange "4:2-4:32" ;`,
+		`sysml:qualifiedName "A::r" ;
+    sysx:sourceRange "5:2-5:35" ;`,
+		`sysml:qualifiedName "A::d" ;
+    sysx:sourceRange "6:2-7:19" ;`,
+	} {
+		if !strings.Contains(string(turtle), want) {
+			t.Errorf("the graph should carry %q\n%s", want, turtle)
+		}
+	}
+
+	document, err := convert.Convert("a.sysml", []byte(src), convert.FormatSysML, convert.FormatAPIJSON)
+	if err != nil {
+		t.Fatalf("to api-json: %v", err)
+	}
+	var elements []map[string]any
+	if err := json.Unmarshal(document, &elements); err != nil {
+		t.Fatalf("the api-json does not parse: %v", err)
+	}
+	var docRange string
+	for _, el := range elements {
+		if el["@id"] == "A__d" {
+			docRange, _ = el["sysx:sourceRange"].(string)
+		}
+	}
+	if docRange != "6:2-7:19" {
+		t.Errorf("api-json doc range = %q, want %q", docRange, "6:2-7:19")
+	}
+}

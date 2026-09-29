@@ -62,7 +62,7 @@ elmt:Documented__Wheel_om
 elmt:Documented__Wheel___400
     a sysml:Documentation ;
     sysml:qualifiedName "Documented::Wheel::@0" ;
-    sysx:sourceRange "3:9-3:12" ;
+    sysx:sourceRange "3:9-3:28" ;
     sysml:elementId "Documented__Wheel___400" ;
     sysx:memberIndex "0"^^xsd:integer ;
     sysml:owningNamespace elmt:Documented__Wheel ;
@@ -115,7 +115,7 @@ elmt:Documented__Wheel__radius_om
 elmt:Documented__Wheel___402
     a sysml:Comment ;
     sysml:qualifiedName "Documented::Wheel::@2" ;
-    sysx:sourceRange "5:9-5:16" ;
+    sysx:sourceRange "5:9-5:36" ;
     sysml:elementId "Documented__Wheel___402" ;
     sysx:memberIndex "2"^^xsd:integer ;
     sysml:owningNamespace elmt:Documented__Wheel ;
@@ -236,7 +236,7 @@ elmt:Documented__Hub_conjugated_pc
 elmt:Documented__Hub___400
     a sysml:Documentation ;
     sysml:qualifiedName "Documented::Hub::@0" ;
-    sysx:sourceRange "9:9-9:12" ;
+    sysx:sourceRange "9:9-9:31" ;
     sysml:elementId "Documented__Hub___400" ;
     sysx:memberIndex "0"^^xsd:integer ;
     sysml:owningNamespace elmt:Documented__Hub ;
@@ -322,7 +322,7 @@ elmt:Documented__wheel_om
 elmt:Documented__wheel___400
     a sysml:Documentation ;
     sysml:qualifiedName "Documented::wheel::@0" ;
-    sysx:sourceRange "13:9-13:12" ;
+    sysx:sourceRange "13:9-13:26" ;
     sysml:elementId "Documented__wheel___400" ;
     sysx:memberIndex "0"^^xsd:integer ;
     sysml:owningNamespace elmt:Documented__wheel ;

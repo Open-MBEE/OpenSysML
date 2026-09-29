@@ -2461,12 +2461,26 @@ func spacedWords(name string) string {
 // "<startLine>:<startCol>-<endLine>:<endCol>". Positions are 1-based byte
 // offsets as LineIndex.PosAt gives them, the end exclusive, and the range
 // covers only the notation itself: the notes and comments a span runs on
-// over are left out.
+// over are left out — except an annotation's own `/* ... */` body, which
+// is its declaration, not trailing notes.
 func (e *encoder) sourceRange(node ast.Node) string {
 	span := node.Span()
 	lines := e.file.Lines()
 	start := lines.PosAt(span.Offset)
-	end := lines.PosAt(span.Offset + len(e.src.code(span)))
+	endOff := span.Offset + len(e.src.code(span))
+	var body source.Span
+	switch n := node.(type) {
+	case *ast.Comment:
+		body = n.BodySpan
+	case *ast.Documentation:
+		body = n.BodySpan
+	case *ast.TextualRepresentation:
+		body = n.BodySpan
+	}
+	if body.Len > 0 && body.End() > endOff {
+		endOff = body.End()
+	}
+	end := lines.PosAt(endOff)
 	return fmt.Sprintf("%d:%d-%d:%d", start.Line, start.Col, end.Line, end.Col)
 }
 

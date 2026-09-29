@@ -440,7 +440,7 @@ elmt:Results__AfterMembers__x_om
 elmt:Results__AfterMembers___401
     a sysml:Documentation ;
     sysml:qualifiedName "Results::AfterMembers::@1" ;
-    sysx:sourceRange "13:9-13:12" ;
+    sysx:sourceRange "13:9-13:29" ;
     sysml:elementId "Results__AfterMembers___401" ;
     sysx:memberIndex "1"^^xsd:integer ;
     sysml:owningNamespace elmt:Results__AfterMembers ;
