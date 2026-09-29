@@ -1223,7 +1223,10 @@ func (d *decoder) positionalSuccessionPrefix(el *element) (string, error) {
 func (d *decoder) positionalSourceMultiplicity(el *element) (string, error) {
 	ends := d.graph.Objects(rdf.IRI(el.iri), rdf.SysML+pConnectorEnd)
 	if len(ends) == 0 {
-		ends = d.standardEndFeatures(el)
+		var err error
+		if ends, err = d.standardEndFeatures(el); err != nil {
+			return "", err
+		}
 	}
 	for _, end := range ends {
 		_, hasTarget, err := d.standardEndTarget(end, el)

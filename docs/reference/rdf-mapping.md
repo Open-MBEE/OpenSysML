@@ -1469,7 +1469,12 @@ the exception: `message m from a to b;` owns each end through a
 (SysML.xtext `MessageEventMember`, `MessageEvent`), the same
 `ReferenceSubsetting` naming the linked feature and the same chain feature for
 a qualified target; the metaclass of the ends is what reads the head back as
-`message` rather than `flow` when no `sysx:declaredKeyword` is written. Named ends carry `sysml:declaredName` and `sysml:name`; multiplicity
+`message` rather than `flow` when no `sysx:declaredKeyword` is written. The
+ends may be linked from the flow's own `sysml:ownedMembership`, or named only
+by the memberships' side (`sysml:membershipOwningNamespace`); when both shapes
+appear for one message, `sysx:memberIndex` on the memberships orders the ends,
+or the flow's `sysml:sourceFeature`/`sysml:targetFeature` does, and a message
+whose ends neither source can order is refused rather than reversed. Named ends carry `sysml:declaredName` and `sysml:name`; multiplicity
 bounds are on the end. A qualified target such as `rover.telemetry` is an
 owned `sysml:Feature` — a *chain feature* — that owns one `sysml:FeatureChaining`
 relationship per link, in order, and keeps the derived `sysml:chainingFeature`

@@ -1798,8 +1798,11 @@ func (d *decoder) usageHead(el *element, kind ast.UsageKind) (string, error) {
 	keyword := d.keywordOr(el, usageKeyword(kind))
 	// A `message` is the flow whose ends are event occurrences it owns as
 	// parameters; their metaclass says `message` where the graph states none.
-	if kind == ast.UsageFlow && keyword == usageKeyword(kind) && len(d.messageEnds(el)) > 0 {
-		keyword = "message"
+	if kind == ast.UsageFlow && keyword == usageKeyword(kind) {
+		// The ends' own error surfaces where the head writes them.
+		if ends, err := d.messageEnds(el); err == nil && len(ends) > 0 {
+			keyword = "message"
+		}
 	}
 	// The RequirementUsage a RequirementVerificationMembership owns is spelled
 	// `verify`, whether or not the graph recorded the keyword.
