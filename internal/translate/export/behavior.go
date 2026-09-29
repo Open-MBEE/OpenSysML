@@ -215,9 +215,10 @@ func (e *encoder) encodeBehavior(node ast.Node, head func(rdf.Term), subject rdf
 		if n.SourceMultiplicity != nil && n.SourceMultiplicity.Span().Offset == n.Span().Offset {
 			e.graph.Add(subject, e.sysx(xSourceMultiplicityBeforeThen), rdf.Bool(true))
 		}
-		if implied {
-			// `then b;` sequences from the member before it: an empty source
-			// end and the target end (SysML.xtext TargetSuccession).
+		positionalSource := n.Source == nil && n.SourceMember != nil
+		if implied || positionalSource && n.SourceMultiplicity != nil {
+			// A `then` source reached by position needs a structural end to carry its
+			// multiplicity, even when the preceding member has no referenceable name.
 			e.graph.Add(subject, e.sysx(xEndForm), rdf.String(formThen))
 			if err := e.connectorEnd(subject, connectorEndSpec{owner: owner, slot: "end0", index: 0, ends: 2, empty: true, mult: n.SourceMultiplicity, noCollapse: true}); err != nil {
 				return true, err

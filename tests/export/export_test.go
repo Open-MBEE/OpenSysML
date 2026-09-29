@@ -2126,17 +2126,32 @@ func TestSuccessionRoundTripsInEveryBody(t *testing.T) {
 }
 
 func TestActionSuccessionSourceMultiplicityRoundTripsWithoutSourceText(t *testing.T) {
-	const src = `action def A {
-    action a;
-    then [0..1] action b;
-    [2] then c { action nested; }
-    action c;
+	const src = `package P {
+    private import ScalarValues::*;
+    action def A {
+        action a;
+        then [0..1] action b;
+        [2] then c { action nested; }
+        action c;
+    }
+    action def B {
+        out result : Integer = 0;
+        assign result := 1;
+        [1] then done;
+    }
+    action def C {
+        out result : Integer = 0;
+        assign result := 1;
+        [0..1] then done;
+    }
 }
 `
 	back := notationFromTheGraphAlone(t, "multiplicity.sysml", src)
 	wantFragments(t, back,
 		"then [0..1] action b;",
 		"[2] then c {",
+		"[1] then done;",
+		"[0..1] then done;",
 	)
 }
 
