@@ -78,9 +78,9 @@
     "filesFullyAgreeing": 344,
     "agreement": 38,
     "severityMismatch": 3,
-    "openSysMLOnly": 42,
+    "openSysMLOnly": 41,
     "pilotOnly": 1614,
-    "openSysMLDiagnostics": 83,
+    "openSysMLDiagnostics": 82,
     "pilotDiagnostics": 1655
   },
   "roots": [
@@ -267,29 +267,15 @@
       "dir": "examples/pilot-corpora/kerml-examples",
       "totals": {
         "files": 58,
-        "filesFullyAgreeing": 55,
+        "filesFullyAgreeing": 56,
         "agreement": 0,
         "severityMismatch": 0,
-        "openSysMLOnly": 10,
+        "openSysMLOnly": 9,
         "pilotOnly": 0,
-        "openSysMLDiagnostics": 10,
+        "openSysMLDiagnostics": 9,
         "pilotDiagnostics": 0
       },
       "files": [
-        {
-          "path": "Simple Tests/Behaviors.kerml",
-          "agreement": [],
-          "severityMismatch": [],
-          "openSysMLOnly": [
-            {
-              "line": 14,
-              "severity": "warning",
-              "category": "multiplicity",
-              "count": 1
-            }
-          ],
-          "pilotOnly": []
-        },
         {
           "path": "Simple Tests/Circular.kerml",
           "agreement": [],
@@ -795,7 +781,7 @@
       "dir": "examples",
       "totals": {
         "files": 45,
-        "filesFullyAgreeing": 30,
+        "filesFullyAgreeing": 29,
         "agreement": 4,
         "severityMismatch": 2,
         "openSysMLOnly": 7,
@@ -5617,6 +5603,20 @@
           ]
         },
         {
+          "path": "parser_features_demo_connectors.sysml",
+          "agreement": [],
+          "severityMismatch": [],
+          "openSysMLOnly": [
+            {
+              "line": 108,
+              "severity": "warning",
+              "category": "multiplicity",
+              "count": 1
+            }
+          ],
+          "pilotOnly": []
+        },
+        {
           "path": "pseudostates-demo.sysml",
           "agreement": [],
           "severityMismatch": [
@@ -5667,14 +5667,7 @@
           "path": "runtime-showcase/delta-v-budget.sysml",
           "agreement": [],
           "severityMismatch": [],
-          "openSysMLOnly": [
-            {
-              "line": 93,
-              "severity": "warning",
-              "category": "multiplicity",
-              "count": 1
-            }
-          ],
+          "openSysMLOnly": [],
           "pilotOnly": [
             {
               "line": 7,
@@ -8387,9 +8380,9 @@
       "filesFullyAgreeing": 345,
       "agreement": 38,
       "severityMismatch": 3,
-      "openSysMLOnly": 41,
+      "openSysMLOnly": 40,
       "pilotOnly": 1614,
-      "openSysMLDiagnostics": 82,
+      "openSysMLDiagnostics": 81,
       "pilotDiagnostics": 1655
     },
     "findings": [
