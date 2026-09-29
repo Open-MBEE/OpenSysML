@@ -255,9 +255,8 @@ func identificationName(id ast.Identification) string {
 // member's, the member's `;` or `}` and any comment on its line staying with it.
 func (m Model) memberInsertionAfter(member ast.Node, text string) insertion {
 	content := m.Source.Bytes()
-	// A member's span runs on over the trivia after it — trailing whitespace
-	// and the comments on the lines after it — so what the new member follows
-	// is its last code token, which the trivia trim below cannot reach.
+	// A member's span runs on over the whitespace and comments after it, so
+	// the new member follows its last code token.
 	end := member.Span().End()
 	lx := lexer.New(m.Source)
 	for tok := lx.Next(); tok.Kind != lexer.EOF && tok.Span.Offset < member.Span().End(); tok = lx.Next() {
