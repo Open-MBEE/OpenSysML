@@ -128,7 +128,7 @@ func TestEmitParameters(t *testing.T) {
 	s := fixtureSuite(t, flowModel)
 	wantLines(t, emitted(t, s, "Pick"), "in x : Integer[1];", "out low : Integer[0..1] = ();", "out picked : Integer[0..*] ordered nonunique = ();")
 	wantLines(t, emitted(t, s, "Caller"), "out 'all' : Integer[0..*] nonunique = ();")
-	wantLines(t, emitted(t, fixtureSuite(t, fixtureModel), "Sum"), "out result : Integer[0..1] = ();")
+	wantLines(t, emitted(t, fixtureSuite(t, fixtureModel), "Sum"), "out result : Integer[1];")
 }
 
 // An object flow whose target has no control predecessor gets an enabling
@@ -376,12 +376,12 @@ func TestEmitSpellsSharedParameterNamesApart(t *testing.T) {
 	s := fixtureSuite(t, sharedNameModel)
 	em := emitted(t, s, "Outer")
 	wantLines(t, em,
-		"action def Inner {", "in input : Integer[1];", "out Inner_output : Integer[0..1] = ();",
+		"action def Inner {", "in input : Integer[1];", "out Inner_output : Integer[1];",
 		"assign Inner_output := v;",
 		"action def Outer {", "out output : Integer[0..*] nonunique = ();",
 		"flow 'Value(7)'.result to 'Call(Inner)'.input;",
 		"flow 'Call(Inner)'.Inner_output to 'Parameter(output)'.v;")
-	if strings.Contains(em.Text, "out output : Integer[0..1] = ();") {
+	if strings.Contains(em.Text, "out output : Integer[1];") {
 		t.Errorf("Inner keeps the shared name:\n%s", em.Text)
 	}
 	outer := fixtureActivity(t, s, "Outer")
@@ -393,7 +393,7 @@ func TestEmitSpellsSharedParameterNamesApart(t *testing.T) {
 	if !ex.Passed() || strings.Join(ex.Reached, "|") != "output = 7" {
 		t.Errorf("shared name: %+v", ex)
 	}
-	wantLines(t, emitted(t, s, "Inner"), "out output : Integer[0..1] = ();", "assign output := v;")
+	wantLines(t, emitted(t, s, "Inner"), "out output : Integer[1];", "assign output := v;")
 }
 
 // A budget that samples the schedules passes when the sample agrees, the status
@@ -679,7 +679,7 @@ func TestEmitClasses(t *testing.T) {
 	wantLines(t, em,
 		"\tpart def Base {\n\t\tattribute n : Integer;\n\t}\n",
 		"\tpart def Item :> Base {\n\t\tattribute xs : Integer [0..*] ordered nonunique;\n\t\tattribute set : Integer [0..3];\n\t\tattribute opt : String [0..1];\n\t}\n",
-		"out made : Item[0..1] = ();")
+		"out made : Item[1];")
 	if n := strings.Count(em.Text, "part def "); n != 2 {
 		t.Errorf("%d part defs, want Base and Item once each:\n%s", n, em.Text)
 	}
@@ -749,8 +749,8 @@ func TestEmitReadSelf(t *testing.T) {
 	}
 	em := emitted(t, s, "Awakener")
 	wantLines(t, em,
-		"\tpart def Holder {\n\t\tattribute n : Integer;\n\t\taction def Reflect {\n\t\t\tout me : Holder[0..1] = ();\n\t\t\tin ref context : Holder[1];\n\t\t\taction ReadSelf { out result : Holder[1] = context; }\n",
-		"\t\t}\n\t\taction classifierBehavior : Reflect { out me[0..1]; in ref :>> context = this; }\n\t}\n",
+		"\tpart def Holder {\n\t\tattribute n : Integer;\n\t\taction def Reflect {\n\t\t\tout me : Holder[1];\n\t\t\tin ref context : Holder[1];\n\t\t\taction ReadSelf { out result : Holder[1] = context; }\n",
+		"\t\t}\n\t\taction classifierBehavior : Reflect { out me[1]; in ref :>> context = this; }\n\t}\n",
 		"action 'Create(Holder)' { out result : Holder[1] = new Holder(); }",
 		"action 'Start(Holder)' { in object : Holder[1]; perform object.classifierBehavior.start; }",
 		"flow 'Create(Holder)'.result to 'Start(Holder)'.object;")
@@ -766,9 +766,9 @@ func TestEmitActivityAsObject(t *testing.T) {
 	s := fixtureSuite(t, objectModel)
 	em := emitted(t, s, "Instantiator")
 	wantLines(t, em,
-		"\tpart def Reader {\n\t\taction def 'behavior' {\n\t\t\tin given : Item[1];\n\t\t\tout n : Integer[0..1] = ();\n\t\t\tout xs : Integer[0..*] ordered nonunique = ();\n\t\t\tin ref context : Reader[1];\n",
+		"\tpart def Reader {\n\t\taction def 'behavior' {\n\t\t\tin given : Item[1];\n\t\t\tout n : Integer[1];\n\t\t\tout xs : Integer[0..*] ordered nonunique = ();\n\t\t\tin ref context : Reader[1];\n",
 		"\t\t\taction 'Read(n)' { in object : Item[1]; out result : Integer[0..1] = object.n; }\n",
-		"\t\t}\n\t\taction classifierBehavior : 'behavior' { in given[1]; out n[0..1]; out xs[0..*] ordered nonunique; in ref :>> context = this; }\n\t}\n",
+		"\t\t}\n\t\taction classifierBehavior : 'behavior' { in given[1]; out n[1]; out xs[0..*] ordered nonunique; in ref :>> context = this; }\n\t}\n",
 		"action 'Create(Reader)' { out result : Reader[1] = new Reader(); }")
 	if strings.Contains(em.Text, "\n\taction def Reader") {
 		t.Errorf("Reader declared as an action def as well:\n%s", em.Text)
@@ -1352,8 +1352,8 @@ func TestEmitExternalTypesNeverLocalClassifiers(t *testing.T) {
 	em := emitted(t, s, "Sum")
 	wantLines(t, em,
 		"in a : Integer[1];",
-		"out total : Integer[0..1] = ();",
-		"out label : String[0..1] = ();",
+		"out total : Integer[1];",
+		"out label : String[1];",
 		"action 'Value(2)' { out result : Integer[1] = 2; }")
 	if strings.Contains(em.Text, "part def") || strings.Contains(em.Text, "Counter") {
 		t.Errorf("Sum declares a class it never touches:\n%s", em.Text)
@@ -1369,7 +1369,7 @@ func TestEmitExternalTypesNeverLocalClassifiers(t *testing.T) {
 	}
 	wantLines(t, emitted(t, s, "Wrap"),
 		"\tpart def Counter {\n\t\tattribute n : Integer;\n\t}\n",
-		"out made : Counter[0..1] = ();",
+		"out made : Counter[1];",
 		"action 'Create(Counter)' { out result : Counter[1] = new Counter(); }")
 }
 
@@ -1420,11 +1420,11 @@ func TestEmitActivityNamesakeOfPrimitive(t *testing.T) {
 	}
 	em := emitted(t, s, "Minting")
 	wantLines(t, em,
-		"\tpart def Integer {\n\t\tattribute tally : ScalarValues::Integer;\n\t\taction def 'behavior' {\n\t\t\tout n : ScalarValues::Integer[0..1] = ();\n\t\t\tin ref context : Integer[1];\n",
+		"\tpart def Integer {\n\t\tattribute tally : ScalarValues::Integer;\n\t\taction def 'behavior' {\n\t\t\tout n : ScalarValues::Integer[1];\n\t\t\tin ref context : Integer[1];\n",
 		"\t\t\taction 'Value(4)' { out result : ScalarValues::Integer[1] = 4; }\n",
-		"\t\t}\n\t\taction classifierBehavior : 'behavior' { out n[0..1]; in ref :>> context = this; }\n\t}\n",
-		"out made : Integer[0..1] = ();",
-		"out count : ScalarValues::Integer[0..1] = ();",
+		"\t\t}\n\t\taction classifierBehavior : 'behavior' { out n[1]; in ref :>> context = this; }\n\t}\n",
+		"out made : Integer[1];",
+		"out count : ScalarValues::Integer[1];",
 		"action 'Create(Integer)' { out result : Integer[1] = new Integer(); }",
 		"action 'Value(3)' { out result : ScalarValues::Integer[1] = 3; }")
 	if strings.Contains(em.Text, "\n\taction def Integer") {

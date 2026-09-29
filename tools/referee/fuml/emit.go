@@ -634,11 +634,7 @@ func (cl *closure) emitObject(o *objectDef, names map[string]bool, spelled map[*
 			if p.Direction == Return {
 				dir = "out"
 			}
-			m := p.Multiplicity
-			if dir == "out" {
-				m.Lower = 0
-			}
-			members = append(members, dir+" "+quote(spelled[p])+multiplicity(m))
+			members = append(members, dir+" "+quote(spelled[p])+multiplicity(p.Multiplicity))
 		}
 		members = append(members, "in ref :>> context = this")
 		fmt.Fprintf(&b, "\t\taction %s : %s { %s; }\n", startMember, quote(o.behaviorName(o.classifier)), strings.Join(members, "; "))
@@ -953,15 +949,12 @@ func (cl *closure) emitActivity(a *Activity, owner *objectDef, indent string, na
 	return b.String(), s, nil
 }
 
-// parameter spells a parameter, t being its `: Type` or nothing. An output
-// holds nothing until a token arrives, so its lower bound is 0 and it is
-// declared empty rather than left without a value.
+// parameter spells a parameter, t being its `: Type` or nothing. An optional
+// output holds nothing until a token arrives, so it is declared empty rather
+// than left without a value.
 func parameter(dir, name, t string, m Multiplicity) string {
-	if dir == "out" {
-		m.Lower = 0
-	}
 	decl := fmt.Sprintf("%s %s%s%s", dir, quote(name), t, multiplicity(m))
-	if dir == "out" {
+	if dir == "out" && m.Lower == 0 {
 		decl += " = ()"
 	}
 	return decl + ";"
