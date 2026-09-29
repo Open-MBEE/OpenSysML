@@ -971,6 +971,10 @@ elmt:Shadows__Governor___405___40trigger_om
 elmt:Shadows__Governor___405___40trigger__w
     a sysml:ReferenceUsage ;
     sysml:qualifiedName "Shadows::Governor::@5::@trigger::w" ;
+    sysx:sourceLine "16"^^xsd:integer ;
+    sysx:sourceColumn "42"^^xsd:integer ;
+    sysx:sourceEndLine "16"^^xsd:integer ;
+    sysx:sourceEndColumn "51"^^xsd:integer ;
     sysml:elementId "Shadows__Governor___405___40trigger__w" ;
     sysx:memberIndex "0"^^xsd:integer ;
     sysml:owningNamespace elmt:Shadows__Governor___405___40trigger ;
