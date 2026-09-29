@@ -149,6 +149,16 @@ func (g *generator) dataRate(depth, rate int) {
 	g.decl(depth, "attribute :>> dataRate = %d.0;", rate)
 }
 
+// slantRange redefines a link's slant range in kilometres.
+func (g *generator) slantRange(depth, km int) {
+	g.decl(depth, "attribute :>> slantRange = %d [km];", km)
+}
+
+// satelliteCount writes a constellation's satellite count.
+func (g *generator) satelliteCount(depth, total int) {
+	g.decl(depth, "attribute satelliteCount : Integer = %d;", total)
+}
+
 // spacecraftSubject writes the subject every spacecraft requirement constrains.
 func (g *generator) spacecraftSubject(depth int) {
 	g.decl(depth, "subject sc : Spacecraft;")
@@ -429,12 +439,12 @@ func (g *generator) network(n SatelliteNetwork) {
 				g.stats.Connections++
 				g.decl(3, "interface downlink%dTo%d : RFLink connect sat%d.comms.rf to gs%d.uplink {", k, i, i, k)
 				g.dataRate(4, 50+i%200)
-				g.decl(4, "attribute :>> slantRange = %d [km];", 900+i%1500)
+				g.slantRange(4, 900+i%1500)
 				g.line(3, "}")
 			}
 		}
 	}
-	g.decl(3, "attribute satelliteCount : Integer = %d;", total)
+	g.satelliteCount(3, total)
 	g.line(2, "}")
 	g.decl(2, "part network : Network;")
 }
@@ -444,7 +454,7 @@ func (g *generator) link(kind string, a, b int) {
 	g.stats.Connections++
 	g.decl(3, "interface %s%dTo%d : RFLink connect sat%d.comms.crosslinkTx to sat%d.comms.crosslinkRx {", kind, a, b, a, b)
 	g.dataRate(4, 100+(a+b)%400)
-	g.decl(4, "attribute :>> slantRange = %d [km];", 2000+(a*7+b*3)%3000)
+	g.slantRange(4, 2000+(a*7+b*3)%3000)
 	g.line(3, "}")
 }
 
@@ -560,7 +570,7 @@ func (g *generator) fleetBody(n SatelliteNetwork) {
 		g.decl(4, "attribute :>> slantRange = 2000 [km];")
 		g.line(3, "}")
 	}
-	g.decl(3, "attribute satelliteCount : Integer = %d;", n.Satellites)
+	g.satelliteCount(3, n.Satellites)
 	g.line(2, "}")
 	g.line(0, "")
 	g.decl(2, "part def Network {")
@@ -573,20 +583,20 @@ func (g *generator) fleetBody(n SatelliteNetwork) {
 	for p := 0; p+1 < n.Planes; p++ {
 		g.stats.Connections++
 		g.decl(3, "interface plane%dTo%d : RFLink connect [1] plane%d.sats.comms.crosslinkTx to [1] plane%d.sats.comms.crosslinkRx {", p, p+1, p, p+1)
-		g.decl(4, "attribute :>> dataRate = %d.0;", 100+(2*p+1)%400)
-		g.decl(4, "attribute :>> slantRange = %d [km];", 2000+(p*10+3)%3000)
+		g.dataRate(4, 100+(2*p+1)%400)
+		g.slantRange(4, 2000+(p*10+3)%3000)
 		g.line(3, "}")
 	}
 	for p := 0; p < n.Planes; p++ {
 		for k := 0; k < n.GroundStations; k++ {
 			g.stats.Connections++
 			g.decl(3, "interface downlink%dTo%d : RFLink connect [1] plane%d.sats.comms.rf to [1] gs%d.uplink {", k, p, p, k)
-			g.decl(4, "attribute :>> dataRate = %d.0;", 50+p%200)
-			g.decl(4, "attribute :>> slantRange = %d [km];", 900+p%1500)
+			g.dataRate(4, 50+p%200)
+			g.slantRange(4, 900+p%1500)
 			g.line(3, "}")
 		}
 	}
-	g.decl(3, "attribute satelliteCount : Integer = %d;", n.Planes*n.Satellites)
+	g.satelliteCount(3, n.Planes*n.Satellites)
 	g.line(2, "}")
 	g.decl(2, "part network : Network;")
 	g.line(0, "")

@@ -131,8 +131,8 @@ func (e *executor) valueText(value Value) string {
 	if integer, ok := value.Integer(); ok {
 		return strconv.FormatInt(integer, 10)
 	}
-	if real, ok := value.Real(); ok {
-		return strconv.FormatFloat(real, 'g', -1, 64)
+	if number, ok := value.Real(); ok {
+		return strconv.FormatFloat(number, 'g', -1, 64)
 	}
 	if boolean, ok := value.Boolean(); ok {
 		return strconv.FormatBool(boolean)

@@ -526,7 +526,7 @@ func (e *encoder) encodeTrigger(n *ast.TransitionMember, subject rdf.Term, fqn s
 	e.graph.Add(accepter, e.sysml(pQualifiedName), rdf.String(accepterFQN))
 	e.graph.Add(accepter, e.sysml(pElementID), rdf.String(rdf.LocalName(accepter.Value)))
 	e.graph.Add(accepter, e.sysml(pOwningNamespace), subject)
-	e.owningMembership(stub, accepter, subject, accepterFQN, false, false, false, mTransitionFeatureMembership, func(membership rdf.Term) {
+	e.owningMembership(stub, accepter, subject, accepterFQN, membershipRole{}, mTransitionFeatureMembership, func(membership rdf.Term) {
 		e.graph.Add(membership, e.sysml(pKind), rdf.String("trigger"))
 		e.graph.Add(membership, e.sysml(pTransitionFeature), accepter)
 		e.graph.Add(subject, e.sysml(pTriggerAction), accepter)

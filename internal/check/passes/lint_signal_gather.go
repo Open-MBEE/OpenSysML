@@ -67,7 +67,7 @@ func (u *signalUnion) Regather(ctx *Context, g *Gathers, doc string, changed map
 	}
 }
 
-// Contributors implements kit.Contributing: the documents that send any signal.
+// Contributors implements kit.ContributorNamer: the documents that send any signal.
 func (u *signalUnion) Contributors(name string) ([]string, bool) {
 	if !strings.HasPrefix(name, signalUnionPrefix) {
 		return nil, false

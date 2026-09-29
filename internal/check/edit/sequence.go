@@ -58,7 +58,7 @@ func (m Model) addSequenceSplice(i int, op Operation) (splice, error) {
 	memberIndent := m.ownerMemberIndent(owner)
 	base := lineIndent(m.Source.Bytes(), owner.Span().Offset)
 	unit := strings.TrimPrefix(memberIndent, base)
-	text, err := m.formatSequenceItem(i, op.Owner, ownerScope, nil, op, 0, memberIndent, unit)
+	text, err := m.formatSequenceItem(i, op.Owner, ownerScope, nil, op, 0, bodyLayout{memberIndent, unit})
 	if err != nil {
 		return splice{}, err
 	}
@@ -106,7 +106,13 @@ func (m Model) addSequenceSplice(i int, op Operation) (splice, error) {
 	return splice{span: ins.span, text: ins.text, opIndex: i, target: op.Owner}, nil
 }
 
-func (m Model) formatSequenceItem(i int, owner string, scope *symbols.Scope, localNames map[string]bool, op Operation, depth int, memberIndent, unit string) (string, error) {
+// bodyLayout is the indentation of an action body: the indent of the owner's
+// members and the unit each nesting level adds to it.
+type bodyLayout struct {
+	memberIndent, unit string
+}
+
+func (m Model) formatSequenceItem(i int, owner string, scope *symbols.Scope, localNames map[string]bool, op Operation, depth int, layout bodyLayout) (string, error) {
 	if op.Kind != OpAddSequence {
 		return "", sequenceError(i, "body items must be add-sequence operations")
 	}
@@ -149,7 +155,7 @@ func (m Model) formatSequenceItem(i int, owner string, scope *symbols.Scope, loc
 	if _, ok := sequenceMemberKinds[op.MemberKind]; ok {
 		return m.formatSequenceDeclaration(i, owner, scope, op)
 	}
-	return m.formatActionStatement(i, owner, scope, localNames, op, depth, memberIndent, unit)
+	return m.formatActionStatement(i, owner, scope, localNames, op, depth, layout)
 }
 
 func (m Model) formatSequenceReference(i int, owner string, scope *symbols.Scope, localNames map[string]bool, op Operation) (string, error) {
@@ -258,7 +264,7 @@ func (m Model) formatSequenceDeclaration(i int, owner string, scope *symbols.Sco
 	return prefix + writeMember(member, memberKinds[op.MemberKind], "", "", "", ""), nil
 }
 
-func (m Model) formatActionStatement(i int, owner string, scope *symbols.Scope, localNames map[string]bool, op Operation, depth int, memberIndent, unit string) (string, error) {
+func (m Model) formatActionStatement(i int, owner string, scope *symbols.Scope, localNames map[string]bool, op Operation, depth int, layout bodyLayout) (string, error) {
 	if op.MemberName != "" {
 		return "", sequenceError(i, "action-body statement kinds do not admit member_name")
 	}
@@ -272,7 +278,7 @@ func (m Model) formatActionStatement(i int, owner string, scope *symbols.Scope, 
 			prefix += op.Multiplicity + " "
 		}
 	}
-	bodyText, err := m.formatNestedBody(i, owner, scope, localNames, op.SequenceBody, depth, memberIndent, unit)
+	bodyText, err := m.formatNestedBody(i, owner, scope, localNames, op.SequenceBody, depth, layout)
 	if err != nil {
 		return "", err
 	}
@@ -357,7 +363,7 @@ func (m Model) formatActionStatement(i int, owner string, scope *symbols.Scope, 
 		}
 		text = "if " + op.SequenceCondition + bodyText
 		if len(op.SequenceElse) > 0 {
-			elseText, err := m.formatNestedBody(i, owner, scope, localNames, op.SequenceElse, depth, memberIndent, unit)
+			elseText, err := m.formatNestedBody(i, owner, scope, localNames, op.SequenceElse, depth, layout)
 			if err != nil {
 				return "", err
 			}
@@ -444,7 +450,7 @@ func (m Model) formatActionStatement(i int, owner string, scope *symbols.Scope, 
 	return prefix + text, nil
 }
 
-func (m Model) formatNestedBody(i int, owner string, scope *symbols.Scope, inheritedNames map[string]bool, body []Operation, depth int, memberIndent, unit string) (string, error) {
+func (m Model) formatNestedBody(i int, owner string, scope *symbols.Scope, inheritedNames map[string]bool, body []Operation, depth int, layout bodyLayout) (string, error) {
 	if len(body) == 0 {
 		return " { }", nil
 	}
@@ -461,11 +467,11 @@ func (m Model) formatNestedBody(i int, owner string, scope *symbols.Scope, inher
 		if requiresSequenceSource(item.SequenceKeyword) && !hasSource {
 			return "", sequenceError(i, fmt.Sprintf("%q in a nested body has no earlier source item", item.SequenceKeyword))
 		}
-		formatted, err := m.formatSequenceItem(i, owner, scope, localNames, item, depth+1, memberIndent, unit)
+		formatted, err := m.formatSequenceItem(i, owner, scope, localNames, item, depth+1, layout)
 		if err != nil {
 			return "", err
 		}
-		lines = append(lines, memberIndent+strings.Repeat(unit, depth+1)+formatted)
+		lines = append(lines, layout.memberIndent+strings.Repeat(layout.unit, depth+1)+formatted)
 		if _, declaration := sequenceMemberKinds[item.MemberKind]; declaration && item.MemberName != "" {
 			localNames[symbolName(item.MemberName)] = true
 		}
@@ -473,7 +479,7 @@ func (m Model) formatNestedBody(i int, owner string, scope *symbols.Scope, inher
 			hasSource = true
 		}
 	}
-	return " {\n" + strings.Join(lines, "\n") + "\n" + memberIndent + strings.Repeat(unit, depth) + "}", nil
+	return " {\n" + strings.Join(lines, "\n") + "\n" + layout.memberIndent + strings.Repeat(layout.unit, depth) + "}", nil
 }
 
 func sequenceItemIsSource(op Operation) bool {

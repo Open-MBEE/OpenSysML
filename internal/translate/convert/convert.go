@@ -42,6 +42,8 @@ const (
 	FormatFMU
 )
 
+const sysmlExt = ".sysml"
+
 func (f Format) String() string {
 	switch f {
 	case FormatTurtle:
@@ -149,7 +151,7 @@ func Advise(err error, advice string) error {
 // remedy the calling surface offers.
 func FormatOfPath(path string) (Format, error) {
 	switch strings.ToLower(filepath.Ext(path)) {
-	case ".sysml", ".kerml":
+	case sysmlExt, ".kerml":
 		return FormatSysML, nil
 	case ".ttl", ".turtle":
 		return FormatTurtle, nil
@@ -318,7 +320,7 @@ func Migrate(name string, data []byte, to Format, opts migrate.Options) (*Migrat
 	if err != nil {
 		return nil, fmt.Errorf("%s: %w", name, err)
 	}
-	out, _, err := convert(name+".sysml", result.Notation, FormatSysML, to, false, Options{})
+	out, _, err := convert(name+sysmlExt, result.Notation, FormatSysML, to, false, Options{})
 	if err != nil {
 		return nil, fmt.Errorf("the migrated notation could not be written: %w", err)
 	}
@@ -379,7 +381,7 @@ func convert(name string, data []byte, from, to Format, tolerateSyntaxErrors boo
 		if err != nil {
 			return nil, nil, err
 		}
-		out, syntax, err := convert(name+".sysml", notation, FormatSysML, to, tolerateSyntaxErrors, opts)
+		out, syntax, err := convert(name+sysmlExt, notation, FormatSysML, to, tolerateSyntaxErrors, opts)
 		if err != nil {
 			return nil, nil, fmt.Errorf("the imported notation could not be written: %w", err)
 		}

@@ -108,20 +108,21 @@ func (m *migration) tagColumn(c sysmlv1.Column) columnSource {
 	if c.Profile != "" {
 		label = "«" + c.Profile + "::" + c.Stereotype + "»." + c.Tag
 	}
+	theTag := "the tag " + label
 	def, tag := c.Definition, c.TagDefinition
 	switch {
 	case def == nil:
-		return columnSource{why: "the tag " + label + " belongs to no stereotype the document defines"}
+		return columnSource{why: theTag + " belongs to no stereotype the document defines"}
 	case tag == nil:
-		return columnSource{why: "the tag " + label + " is defined by neither the stereotype " + qualifiedName(def) + " nor a stereotype it specializes"}
+		return columnSource{why: theTag + " is defined by neither the stereotype " + qualifiedName(def) + " nor a stereotype it specializes"}
 	case requirementProperty(tag) != "":
 		return columnSource{key: requirementProperty(tag)}
 	case !m.userStereotype(def):
-		return columnSource{why: "the tag " + label + " belongs to a stereotype that is not written as a metadata def: " + m.stereotypeLibraryReason(def)}
+		return columnSource{why: theTag + " belongs to a stereotype that is not written as a metadata def: " + m.stereotypeLibraryReason(def)}
 	case tag.Parent == nil || !m.userStereotype(tag.Parent):
-		return columnSource{why: "the tag " + label + " is defined by a stereotype that is not written as a metadata def: " + m.stereotypeLibraryReason(tag.Parent)}
+		return columnSource{why: theTag + " is defined by a stereotype that is not written as a metadata def: " + m.stereotypeLibraryReason(tag.Parent)}
 	case !m.written(def) || !m.written(tag.Parent) || !m.written(tag):
-		return columnSource{why: "the tag " + label + " is not migrated"}
+		return columnSource{why: theTag + " is not migrated"}
 	}
 	return columnSource{key: m.plainName(def) + "::" + m.nameOf(tag), feature: tag, caption: m.nameOf(tag), label: m.nameOf(tag), cell: true}
 }
@@ -151,13 +152,14 @@ func (m *migration) textFiltered(rows qx, f *sysmlv1.RowFilter, p *projection, l
 	if f == nil {
 		return rows
 	}
+	filter := "the saved row filter " + strconv.Quote(f.Text)
 	if f.Malformed != "" {
-		l.note("the saved row filter " + strconv.Quote(f.Text) + " names its columns in a form the reader does not count, and is dropped: " + f.Malformed)
+		l.note(filter + " names its columns in a form the reader does not count, and is dropped: " + f.Malformed)
 		return rows
 	}
 	pattern := filterPattern(f)
 	if _, err := regexp.Compile(pattern); err != nil {
-		l.note("the saved row filter " + strconv.Quote(f.Text) + " is not a regular expression Go compiles, and is dropped: " + err.Error())
+		l.note(filter + " is not a regular expression Go compiles, and is dropped: " + err.Error())
 		return rows
 	}
 	var columns, unread []string
@@ -170,12 +172,12 @@ func (m *migration) textFiltered(rows qx, f *sysmlv1.RowFilter, p *projection, l
 			unread = append(unread, strconv.Itoa(i))
 		}
 	}
-	applied := "the saved row filter " + strconv.Quote(f.Text) + " keeps the rows"
+	applied := filter + " keeps the rows"
 	switch {
 	case len(columns) > 0:
 		applied += " whose column " + strings.Join(columns, " or ") + " matches"
 	case len(f.Columns) > 0:
-		l.note("the saved row filter " + strconv.Quote(f.Text) + " names only the column " + strings.Join(unread, ", ") + ", which the query does not read, and is dropped: the selection is not read as every column")
+		l.note(filter + " names only the column " + strings.Join(unread, ", ") + ", which the query does not read, and is dropped: the selection is not read as every column")
 		return rows
 	default:
 		applied += " one of whose columns matches"

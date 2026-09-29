@@ -525,7 +525,7 @@ public final class Model {
    *     {@code verification_questions}
    */
   public Verification verifyConstraint(String symbolId, VerifyOptions options) {
-    Objects.requireNonNull(options, "options");
+    Objects.requireNonNull(options, NAME_OPTIONS);
     return verifyConstraint(symbolId, Optional.empty(), options);
   }
 
@@ -545,7 +545,7 @@ public final class Model {
   public Verification verifyConstraint(
       String symbolId, String subjectSymbolId, VerifyOptions options) {
     Objects.requireNonNull(subjectSymbolId, NAME_SUBJECT_SYMBOL_ID);
-    Objects.requireNonNull(options, "options");
+    Objects.requireNonNull(options, NAME_OPTIONS);
     return verifyConstraint(symbolId, Optional.of(subjectSymbolId), options);
   }
 
@@ -607,7 +607,7 @@ public final class Model {
    *     question that is not an evaluation, {@code verification_questions}
    */
   public Verification verifyRequirement(String symbolId, VerifyOptions options) {
-    Objects.requireNonNull(options, "options");
+    Objects.requireNonNull(options, NAME_OPTIONS);
     return verifyRequirement(symbolId, Optional.empty(), options);
   }
 
@@ -627,7 +627,7 @@ public final class Model {
   public Verification verifyRequirement(
       String symbolId, String subjectSymbolId, VerifyOptions options) {
     Objects.requireNonNull(subjectSymbolId, NAME_SUBJECT_SYMBOL_ID);
-    Objects.requireNonNull(options, "options");
+    Objects.requireNonNull(options, NAME_OPTIONS);
     return verifyRequirement(symbolId, Optional.of(subjectSymbolId), options);
   }
 
@@ -671,7 +671,7 @@ public final class Model {
    *     question that is not an evaluation, {@code verification_questions}
    */
   public Satisfaction verifySatisfaction(VerifyOptions options) {
-    Objects.requireNonNull(options, "options");
+    Objects.requireNonNull(options, NAME_OPTIONS);
     return verifySatisfaction(Optional.empty(), options);
   }
 
@@ -704,7 +704,7 @@ public final class Model {
    */
   public Satisfaction verifySatisfaction(String scopeSymbolId, VerifyOptions options) {
     Objects.requireNonNull(scopeSymbolId, "scopeSymbolId");
-    Objects.requireNonNull(options, "options");
+    Objects.requireNonNull(options, NAME_OPTIONS);
     return verifySatisfaction(Optional.of(scopeSymbolId), options);
   }
 

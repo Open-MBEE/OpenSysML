@@ -514,15 +514,22 @@
     @media screen and (max-width: 29.9375em) {
       .osml-referee__grid { grid-template-columns: 1fr; }
       .osml-sponsor { right: .8rem; bottom: .8rem; padding: .7rem; }
-      .osml-sponsor__label { display: none; }
+      .osml-sponsor__label {
+        position: absolute;
+        width: 1px;
+        height: 1px;
+        overflow: hidden;
+        clip: rect(0 0 0 0);
+        white-space: nowrap;
+      }
     }
   </style>
 {% endblock %}
 
 {% block hero %}
 <a class="osml-sponsor" href="https://numfocus.org/donate-to-openmbee" target="_blank" rel="noopener"
-   aria-label="Sponsor OpenMBEE through NumFOCUS" title="Sponsor OpenMBEE through NumFOCUS">
-  {% include ".icons/octicons/heart-fill-24.svg" %}
+   title="Sponsor OpenMBEE through NumFOCUS">
+  <span aria-hidden="true">{% include ".icons/octicons/heart-fill-24.svg" %}</span>
   <span class="osml-sponsor__label">Sponsor</span>
 </a>
 <section class="osml-hero">

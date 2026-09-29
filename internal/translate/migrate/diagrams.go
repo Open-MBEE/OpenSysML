@@ -449,7 +449,7 @@ func (m *migration) emptyView(v *view, f viewForm) string {
 	case !d.Represented():
 		return "no diagram representation is serialized, so what it shows is unknown and its view exposes nothing"
 	case len(d.Shown) == 0 && pictured > 0:
-		return "it shows no model element, only " + plural(pictured, "pasted image") + " a view rendered " + f.rendering + " does not draw, and its view exposes nothing"
+		return "it shows no model element, only " + plural(pictured, pastedImage) + " a view rendered " + f.rendering + " does not draw, and its view exposes nothing"
 	case len(d.Shown) == 0:
 		return "it " + showsNothing(d, "shows no model element") + ", and its view exposes nothing"
 	}
@@ -562,9 +562,9 @@ func (m *migration) writeView(v *view) {
 	case !d.Represented():
 		note = joinNotes(note, "no diagram representation is serialized: what the diagram is and shows is unknown, and the view exposes nothing")
 	case shown == 0 && geo.pictures > 0:
-		note = joinNotes(note, "the diagram shows no model element; the view draws the "+plural(geo.pictures, "pasted image")+" it carries and exposes nothing")
+		note = joinNotes(note, "the diagram shows no model element; the view draws the "+plural(geo.pictures, pastedImage)+" it carries and exposes nothing")
 	case shown == 0 && geo.undrawn > 0:
-		note = joinNotes(note, "the diagram shows no model element, only "+plural(geo.undrawn, "pasted image")+" the view carries and its rendering does not draw; the view exposes nothing")
+		note = joinNotes(note, "the diagram shows no model element, only "+plural(geo.undrawn, pastedImage)+" the view carries and its rendering does not draw; the view exposes nothing")
 	case shown == 0:
 		note = joinNotes(note, "the diagram "+showsNothing(d, "shows nothing")+"; the view exposes nothing")
 	case len(x.refs) == 0:

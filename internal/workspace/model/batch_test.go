@@ -233,7 +233,7 @@ package Q {
 	}
 	var want strings.Builder
 	renderDiagnostics(&want, "a.sysml", serial.Diagnostics("a.sysml"))
-	if n := strings.Count(want.String(), "unresolved reference"); n != 2 {
+	if strings.Count(want.String(), "unresolved reference") != 2 {
 		t.Fatalf("an editor should report Hidden and Q::Hidden unresolved, got:\n%s", want.String())
 	}
 	for _, workers := range []int{1, 8} {

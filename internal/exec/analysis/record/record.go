@@ -499,27 +499,13 @@ func buildFeatures(req *Request) ([]feature, error) {
 	// a plain number, Integer and Real settle to Real, anything else must match.
 	for companion, owner := range companionOf {
 		o, c := shapes[owner], shapes[companion]
-		switch {
-		case o.multi != c.multi:
-			f := feature{name: owner}
-			applyShape(&f, o)
-			if err := compatible(&f, c); err != nil {
-				return nil, fmt.Errorf("case %s: inout %q: %w", req.Case, owner, err)
-			}
-		case o.kind == kindUnset || c.kind == kindUnset:
-		case o.kind == kindQuantity && (c.kind == kindInteger || c.kind == kindReal):
-			shapes[companion] = o
-		case c.kind == kindQuantity && (o.kind == kindInteger || o.kind == kindReal):
-			shapes[owner] = c
-		case numericPair(o.typ, c.typ):
-			shapes[owner] = shape{kind: kindReal, typ: scalarValuesReal, multi: o.multi}
-			shapes[companion] = shape{kind: kindReal, typ: scalarValuesReal, multi: c.multi}
-		default:
-			f := feature{name: owner}
-			applyShape(&f, o)
-			if err := compatible(&f, c); err != nil {
-				return nil, fmt.Errorf("case %s: inout %q: %w", req.Case, owner, err)
-			}
+		if o.multi == c.multi && settleInout(shapes, owner, companion) {
+			continue
+		}
+		f := feature{name: owner}
+		applyShape(&f, o)
+		if err := compatible(&f, c); err != nil {
+			return nil, fmt.Errorf("case %s: inout %q: %w", req.Case, owner, err)
 		}
 	}
 	// Emit the features, each quantity's unit companion after it; a member
@@ -556,6 +542,25 @@ func hasRepeatedElement(elements []runtime.Value) bool {
 		seen.Add(element)
 	}
 	return false
+}
+
+// settleInout merges the shapes of an inout's two sides of one multiplicity,
+// or reports false when they are no pair that settles and must be compatible.
+func settleInout(shapes map[string]shape, owner, companion string) bool {
+	o, c := shapes[owner], shapes[companion]
+	switch {
+	case o.kind == kindUnset || c.kind == kindUnset:
+	case o.kind == kindQuantity && (c.kind == kindInteger || c.kind == kindReal):
+		shapes[companion] = o
+	case c.kind == kindQuantity && (o.kind == kindInteger || o.kind == kindReal):
+		shapes[owner] = c
+	case numericPair(o.typ, c.typ):
+		shapes[owner] = shape{kind: kindReal, typ: scalarValuesReal, multi: o.multi}
+		shapes[companion] = shape{kind: kindReal, typ: scalarValuesReal, multi: c.multi}
+	default:
+		return false
+	}
+	return true
 }
 
 // numericPair reports whether the types are Integer and Real in either order:

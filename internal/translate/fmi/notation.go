@@ -43,7 +43,7 @@ func Notation(d *execfmi.Description, opts Options) ([]byte, error) {
 	// section their causality would have put them in; they are scanned before
 	// the package header so the imports the quantity types need are written
 	// only when used.
-	var inputs, outputs []item
+	var inputs, outputs []lineWriter
 	var useISQ, useSI, useQuantities bool
 	for _, v := range d.Variables {
 		skip, reason := importable(v)
@@ -157,8 +157,8 @@ func Notation(d *execfmi.Description, opts Options) ([]byte, error) {
 	return []byte(b.String()), nil
 }
 
-// item is one line of the calc body: a member or a skip comment.
-type item interface {
+// lineWriter is one line of the calc body: a member or a skip comment.
+type lineWriter interface {
 	write(b *strings.Builder)
 }
 
