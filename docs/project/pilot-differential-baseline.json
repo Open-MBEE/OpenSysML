@@ -61,7 +61,7 @@
         "dir": "examples",
         "origin": "ours",
         "files": 45,
-        "digest": "sha256:2d86da2bd9cefaf0d785fdbee2f0cf760c50609dd115a63a1229de8db76efa1c"
+        "digest": "sha256:298ea1b87f00cbef34b6410115924ddbdfb2d1eb5b9728eca25528e2fef011c3"
       },
       {
         "name": "probes",
@@ -75,12 +75,12 @@
   },
   "totals": {
     "files": 380,
-    "filesFullyAgreeing": 344,
+    "filesFullyAgreeing": 345,
     "agreement": 38,
     "severityMismatch": 3,
-    "openSysMLOnly": 42,
+    "openSysMLOnly": 41,
     "pilotOnly": 1614,
-    "openSysMLDiagnostics": 83,
+    "openSysMLDiagnostics": 82,
     "pilotDiagnostics": 1655
   },
   "roots": [
@@ -267,29 +267,15 @@
       "dir": "examples/pilot-corpora/kerml-examples",
       "totals": {
         "files": 58,
-        "filesFullyAgreeing": 55,
+        "filesFullyAgreeing": 56,
         "agreement": 0,
         "severityMismatch": 0,
-        "openSysMLOnly": 10,
+        "openSysMLOnly": 9,
         "pilotOnly": 0,
-        "openSysMLDiagnostics": 10,
+        "openSysMLDiagnostics": 9,
         "pilotDiagnostics": 0
       },
       "files": [
-        {
-          "path": "Simple Tests/Behaviors.kerml",
-          "agreement": [],
-          "severityMismatch": [],
-          "openSysMLOnly": [
-            {
-              "line": 14,
-              "severity": "warning",
-              "category": "multiplicity",
-              "count": 1
-            }
-          ],
-          "pilotOnly": []
-        },
         {
           "path": "Simple Tests/Circular.kerml",
           "agreement": [],
@@ -8384,12 +8370,12 @@
     ],
     "totals": {
       "files": 380,
-      "filesFullyAgreeing": 345,
+      "filesFullyAgreeing": 346,
       "agreement": 38,
       "severityMismatch": 3,
-      "openSysMLOnly": 41,
+      "openSysMLOnly": 40,
       "pilotOnly": 1614,
-      "openSysMLDiagnostics": 82,
+      "openSysMLDiagnostics": 81,
       "pilotDiagnostics": 1655
     },
     "findings": [

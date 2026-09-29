@@ -13,7 +13,7 @@ item def Unused;
 part def Plant {
     attribute count : ScalarValues::Integer default = 0;
     state def Line {
-        in ref context : Plant;
+        in ref context : Plant[1];
         attribute dawn : Time::TimeInstantValue = 21600.0 [SI::s];
         entry; then Idle;
         state Idle;
@@ -77,7 +77,7 @@ part def Plant {
         /* transition (_tNever) from Pause to done not migrated — a trigger is dropped: the time event's time is not written: the instant "next Tuesday" is neither a number with a time unit nor an expression: not v2 expression syntax */
     }
     state def CellMachine {
-        in ref context : Plant;
+        in ref context : Plant[1];
         state warmStart;
         state spent;
         entry; then Cold;

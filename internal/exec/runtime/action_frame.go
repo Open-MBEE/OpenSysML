@@ -8,7 +8,6 @@ import (
 	"sort"
 
 	"github.com/Open-MBEE/OpenSysML/internal/ir/lower"
-	"github.com/Open-MBEE/OpenSysML/internal/semantic/semantics"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/symbols"
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/ast"
 )
@@ -517,14 +516,8 @@ func (e *performances) pinsOf(
 	for _, feature := range graph.Features[node] {
 		pins.directions[feature.Name] = feature.Direction
 		sym := memberSymbol(feature.Scope, feature.Node)
-		if sym != nil {
-			if semantics.IsParameter(sym) {
-				if e.ctx.model.semantics.EffectiveParameterRange(sym).AllowsNone() {
-					pins.optional[feature.Name] = true
-				}
-			} else if e.ctx.admitsNoValue(sym) {
-				pins.optional[feature.Name] = true
-			}
+		if sym != nil && e.ctx.admitsNoValue(sym) {
+			pins.optional[feature.Name] = true
 		}
 		e.ctx.aliasRedefinitions(&pins.aliases, sym, feature.Name)
 		if feature.IsResult {

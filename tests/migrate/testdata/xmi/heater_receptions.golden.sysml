@@ -25,12 +25,12 @@ part def Heater {
         first spread then receive;
         action receive accept setLevel : Signals::SetLevel;
         first receive then run;
-        perform action run ::> 'apply Level' { in value = receive.setLevel.value; }
+        perform action run ::> 'apply Level' { in value[1] = receive.setLevel.value; }
         first run then receive;
         first spread then 'receive via rx';
         action 'receive via rx' accept 'setLevel via rx' : Signals::SetLevel via rx;
         first 'receive via rx' then 'run via rx';
-        perform action 'run via rx' ::> 'apply Level' { in value = 'receive via rx'.'setLevel via rx'.value; }
+        perform action 'run via rx' ::> 'apply Level' { in value[1] = 'receive via rx'.'setLevel via rx'.value; }
         first 'run via rx' then 'receive via rx';
     }
     perform action stop {
@@ -68,53 +68,53 @@ part def Heater {
         first start then receive;
         action receive accept nudge2 : Signals::Nudge;
         first receive then run;
-        perform action run ::> nudge { in delta = receive.nudge2.delta; }
+        perform action run ::> nudge { in delta[1] = receive.nudge2.delta; }
         first run then receive;
     }
     comment /* reception 'Away' */
     action nudge {
-        in delta : ScalarValues::Real;
+        in delta : ScalarValues::Real[1];
         first start then 'set level';
         action 'set level' {
-            in value;
+            in value[1];
             assign level := value;
         }
         bind 'set level'.value = delta;
     }
     action 'apply Level' {
-        in value : ScalarValues::Real;
-        in gain : ScalarValues::Real default = 1.0;
+        in value : ScalarValues::Real[1];
+        in gain : ScalarValues::Real[1] default = 1.0;
         in slack : ScalarValues::Real[0..1];
         first start then 'set level';
         action 'set level' {
-            in value;
+            in value[1];
             assign level := value;
         }
         bind 'set level'.value = value;
     }
     action boosting {
-        in amount : ScalarValues::Real;
+        in amount : ScalarValues::Real[1];
         first start then 'set level';
         action 'set level' {
-            in value;
+            in value[1];
             assign level := value;
         }
         bind 'set level'.value = amount;
     }
     action naming {
-        in name : ScalarValues::Integer;
+        in name : ScalarValues::Integer[1];
         first start then 'set level';
         action 'set level' {
-            in value;
+            in value[1];
             assign level := value;
         }
         bind 'set level'.value = name;
     }
     action leveling {
-        in values : ScalarValues::Real;
+        in values : ScalarValues::Real[1];
         first start then 'set level';
         action 'set level' {
-            in value;
+            in value[1];
             assign level := value;
         }
         bind 'set level'.value = values;
@@ -129,11 +129,11 @@ part def Thermostat {
     action 'turn Up' {
         first start then seven;
         action seven {
-            out result = 7.25;
+            out result[1] = 7.25;
         }
         first seven then 'send level';
         action 'send level' {
-            in value;
+            in value[1];
             send new Signals::SetLevel(value) via tx;
         }
         first 'send level' then 'send stop';

@@ -13,7 +13,7 @@ part def Receiver {
         first 'receive via p' then 'receive via p';
     }
     state def Life {
-        in ref context : Receiver;
+        in ref context : Receiver[1];
         entry; then Waiting;
         state Waiting {
             @MigrationMetadata::DeferredEvent { ref :>> signal : Ping; }
@@ -40,7 +40,7 @@ part def Receiver {
 port def ActivityReceiver {
     port p;
     action def Await {
-        in ref context : ActivityReceiver;
+        in ref context : ActivityReceiver[1];
         first start then receive;
         action receive accept Ping via context.p;
         first receive then final;

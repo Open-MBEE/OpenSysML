@@ -5,11 +5,11 @@ part def Timer {
     perform action tick {
         first start then three;
         action three {
-            out result = 3.0;
+            out result[1] = 3.0;
         }
         first three then 'set t';
         action 'set t' {
-            in value;
+            in value[1];
             assign t := value;
         }
         first 'set t' then final;
@@ -23,7 +23,7 @@ analysis def 'Timer Analysis Monte Carlo' :> Simulation::MonteCarlo {
     subject analysed : 'Timer Analysis';
     perform action run ::> analysed.tick;
     attribute :>> observed : ScalarValues::Real = analysed.t;
-    return Mean : ScalarValues::Real = mean;
+    return Mean : ScalarValues::Real[1] = mean;
 }
 individual part def 'timer analysis' :> 'Timer Analysis';
 part def 'Unbound Analysis' :> Timer;

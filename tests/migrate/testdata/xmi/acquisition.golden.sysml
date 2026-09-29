@@ -48,7 +48,7 @@ part def Observatory {
         }
         first 'start timer' then seed;
         action seed {
-            in Retries : ScalarValues::Integer = 2;
+            in Retries : ScalarValues::Integer[1] = 2;
             assign tcs.GS_Found := Retries < 1;
         }
         first seed then stamp;

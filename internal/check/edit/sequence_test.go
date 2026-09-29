@@ -3,6 +3,8 @@ package edit
 import (
 	"strings"
 	"testing"
+
+	"github.com/Open-MBEE/OpenSysML/internal/syntax/ast"
 )
 
 const sequenceTestModel = "package P {\n" +
@@ -311,6 +313,190 @@ func TestNestedFirstCountsAsSequenceSource(t *testing.T) {
 	requireClean(t, loadContent(t, "action-body-first-source.sysml", content))
 }
 
+func TestNestedActionBodySourceMultiplicityReferences(t *testing.T) {
+	body := func() []Operation {
+		then := AddThen("", "done")
+		then.Multiplicity = "[1]"
+		return []Operation{
+			plainSequenceStatement(AddThenMember("", "action", "a", "")),
+			then,
+		}
+	}
+	tests := []struct {
+		name string
+		op   Operation
+		want string
+	}{
+		{
+			name: "if",
+			op:   AddIf("A", "true", body(), nil),
+			want: "then if true {\n" +
+				"        action a;\n" +
+				"        [1] then done;\n" +
+				"    }",
+		},
+		{
+			name: "while",
+			op:   AddWhile("A", "true", body(), ""),
+			want: "then while true {\n" +
+				"        action a;\n" +
+				"        [1] then done;\n" +
+				"    }",
+		},
+		{
+			name: "loop",
+			op:   AddLoop("A", body(), ""),
+			want: "then loop {\n" +
+				"        action a;\n" +
+				"        [1] then done;\n" +
+				"    }",
+		},
+		{
+			name: "for",
+			op:   AddFor("A", "i", "", "1..2", body()),
+			want: "then for i in 1..2 {\n" +
+				"        action a;\n" +
+				"        [1] then done;\n" +
+				"    }",
+		},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			model := loadContent(t, "nested-action-body-source-multiplicity.sysml",
+				"action def A {\n    action seed;\n}\n")
+			requireClean(t, model)
+			result := applyOne(t, model, test.op)
+			content := string(result.Content)
+			if !strings.Contains(content, test.want) {
+				t.Fatalf("expected exact nested notation %q:\n%s", test.want, content)
+			}
+			requireClean(t, loadContent(t, "nested-action-body-source-multiplicity.sysml", content))
+		})
+	}
+}
+
+func TestNestedBodyLocalSequenceReferences(t *testing.T) {
+	body := func(name string) []Operation {
+		return []Operation{
+			plainSequenceStatement(AddThenMember("", "action", name, "")),
+			AddThen("", name),
+		}
+	}
+	tests := []struct {
+		name string
+		op   Operation
+		want string
+	}{
+		{
+			name: "if and else",
+			op:   AddIf("A", "true", body("ifAction"), body("elseAction")),
+			want: "then if true {\n" +
+				"        action ifAction;\n" +
+				"        then ifAction;\n" +
+				"    } else {\n" +
+				"        action elseAction;\n" +
+				"        then elseAction;\n" +
+				"    }",
+		},
+		{
+			name: "while",
+			op:   AddWhile("A", "true", body("whileAction"), ""),
+			want: "then while true {\n" +
+				"        action whileAction;\n" +
+				"        then whileAction;\n" +
+				"    }",
+		},
+		{
+			name: "loop",
+			op:   AddLoop("A", body("loopAction"), ""),
+			want: "then loop {\n" +
+				"        action loopAction;\n" +
+				"        then loopAction;\n" +
+				"    }",
+		},
+		{
+			name: "for",
+			op:   AddFor("A", "i", "", "1..2", body("forAction")),
+			want: "then for i in 1..2 {\n" +
+				"        action forAction;\n" +
+				"        then forAction;\n" +
+				"    }",
+		},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			model := loadContent(t, "nested-body-local-sequence-reference.sysml",
+				"action def A {\n    action seed;\n}\n")
+			requireClean(t, model)
+			result := applyOne(t, model, test.op)
+			content := string(result.Content)
+			if !strings.Contains(content, test.want) {
+				t.Fatalf("expected exact nested notation %q:\n%s", test.want, content)
+			}
+			requireClean(t, loadContent(t, "nested-body-local-sequence-reference.sysml", content))
+		})
+	}
+}
+
+func TestNestedBodyCanReferenceEnclosingLocalSequenceName(t *testing.T) {
+	model := loadContent(t, "nested-body-enclosing-sequence-reference.sysml",
+		"action def A {\n    action seed;\n}\n")
+	requireClean(t, model)
+	result := applyOne(t, model, AddIf("A", "true", []Operation{
+		plainSequenceStatement(AddThenMember("", "action", "outerAction", "")),
+		AddIf("", "true", []Operation{
+			plainSequenceStatement(AddThenMember("", "action", "innerAction", "")),
+			AddThen("", "outerAction"),
+		}, nil),
+	}, nil))
+	content := string(result.Content)
+	want := "then if true {\n" +
+		"        action outerAction;\n" +
+		"        then if true {\n" +
+		"            action innerAction;\n" +
+		"            then outerAction;\n" +
+		"        }\n" +
+		"    }"
+	if !strings.Contains(content, want) {
+		t.Fatalf("expected exact nested notation %q:\n%s", want, content)
+	}
+	requireClean(t, loadContent(t, "nested-body-enclosing-sequence-reference.sysml", content))
+}
+
+func TestNestedBodySequenceNamesDoNotEscape(t *testing.T) {
+	base := loadContent(t, "nested-body-sequence-name-scope.sysml",
+		"action def A {\n    action seed;\n}\n")
+	requireClean(t, base)
+
+	t.Run("if declaration is not visible in else", func(t *testing.T) {
+		addFailure(t, base, AddIf("A", "true", []Operation{
+			plainSequenceStatement(AddThenMember("", "action", "ifOnly", "")),
+		}, []Operation{
+			plainSequenceStatement(AddThenMember("", "action", "elseSource", "")),
+			AddElse("", "ifOnly"),
+		}), FailureUnknownTarget)
+	})
+
+	t.Run("child declaration is not visible in enclosing body", func(t *testing.T) {
+		addFailure(t, base, AddIf("A", "true", []Operation{
+			plainSequenceStatement(AddThenMember("", "action", "outerSource", "")),
+			AddIf("", "true", []Operation{
+				plainSequenceStatement(AddThenMember("", "action", "childOnly", "")),
+			}, nil),
+			AddThen("", "childOnly"),
+		}, nil), FailureUnknownTarget)
+	})
+
+	t.Run("nested declaration is not visible at top level", func(t *testing.T) {
+		result := applyOne(t, base, AddIf("A", "true", []Operation{
+			plainSequenceStatement(AddThenMember("", "action", "nestedOnly", "")),
+		}, nil))
+		edited := loadContent(t, "nested-body-sequence-name-scope.sysml", string(result.Content))
+		requireClean(t, edited)
+		addFailure(t, edited, AddThen("A", "nestedOnly"), FailureUnknownTarget)
+	})
+}
+
 func TestAddSequenceAfter(t *testing.T) {
 	t.Run("after a plain member", func(t *testing.T) {
 		model := loadContent(t, "sequence-after.sysml", sequenceTestModel)
@@ -465,6 +651,106 @@ func TestAddSequenceAfter(t *testing.T) {
 		}
 		requireClean(t, loadContent(t, "sequence-chain.sysml", string(result.Content)))
 	})
+}
+
+func TestAddSequenceAfterRejectsNonSourceAnchors(t *testing.T) {
+	tests := []struct {
+		name    string
+		content string
+		after   string
+	}{
+		{
+			name:    "action definition",
+			content: "action def A { action a; action def Inner; action b; }\n",
+			after:   "Inner",
+		},
+		{
+			name:    "directed parameter",
+			content: "action def A { action a; in x : ScalarValues::Real; }\n",
+			after:   "x",
+		},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			model := loadContent(t, "sequence-after-non-source.sysml", test.content)
+			requireClean(t, model)
+			before := string(model.Source.Bytes())
+			op := AddThenMember("A", "action", "newAction", "")
+			op.After = test.after
+			addFailure(t, model, op, FailureIllegalKind)
+			if got := string(model.Source.Bytes()); got != before {
+				t.Fatalf("model changed on refusal:\n%s", got)
+			}
+		})
+	}
+}
+
+func TestAddSequenceAfterSourcesFromItsAnchor(t *testing.T) {
+	model := loadContent(t, "sequence-after-source.sysml",
+		"action def A { action a; action def Inner; action b; }\n")
+	requireClean(t, model)
+	op := AddThenMember("A", "action", "x", "")
+	op.After = "a"
+	result := applyOne(t, model, op)
+	parsed := loadContent(t, "sequence-after-source.sysml", string(result.Content))
+	requireClean(t, parsed)
+
+	var owner *ast.Definition
+	for _, member := range parsed.Root.Members {
+		if membership, ok := member.(*ast.Membership); ok {
+			if definition, ok := membership.Member.(*ast.Definition); ok {
+				owner = definition
+				break
+			}
+		}
+	}
+	if owner == nil {
+		t.Fatal("parsed action definition A not found")
+	}
+	var edge *ast.SuccessionEdge
+	for _, member := range owner.Members {
+		if candidate, ok := member.(*ast.SuccessionEdge); ok {
+			edge = candidate
+			break
+		}
+	}
+	if edge == nil {
+		t.Fatal("parsed succession edge not found")
+	}
+	if edge.Source == nil || len(edge.Source.Parts) != 1 || edge.Source.Parts[0].Text != "a" {
+		t.Fatalf("succession source = %#v, want a", edge.Source)
+	}
+	if edge.Target == nil || len(edge.Target.Parts) != 1 || edge.Target.Parts[0].Text != "x" {
+		t.Fatalf("succession target = %#v, want x", edge.Target)
+	}
+}
+
+func TestAddSequenceAfterInitialReferenceUsesDeclaration(t *testing.T) {
+	model := loadContent(t, "sequence-after-initial-reference.sysml",
+		"action def A {\n    first a;\n    action a;\n    action c;\n}\n")
+	requireClean(t, model)
+	op := AddThenMember("A", "action", "b", "")
+	op.After = "a"
+	result := applyOne(t, model, op)
+	const want = "action def A {\n" +
+		"    first a;\n" +
+		"    action a;\n" +
+		"    then action b;\n" +
+		"    action c;\n" +
+		"}\n"
+	if got := string(result.Content); got != want {
+		t.Fatalf("content = %q, want %q", got, want)
+	}
+	requireClean(t, loadContent(t, "sequence-after-initial-reference.sysml", string(result.Content)))
+}
+
+func TestAddSequenceAfterDoesNotUseInitialReferenceAsAnchor(t *testing.T) {
+	model := loadContent(t, "sequence-after-initial-reference-only.sysml",
+		"action def A {\n    first a;\n    action c;\n}\n")
+	requireClean(t, model)
+	op := AddThenMember("A", "action", "b", "")
+	op.After = "a"
+	addFailure(t, model, op, FailureUnknownTarget)
 }
 
 func TestAddSequenceGlobalReference(t *testing.T) {

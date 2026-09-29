@@ -22,12 +22,12 @@ package Tools {
 	private import AnalysisTooling::*;
 	action def Heating {
 		metadata ToolExecution { toolName = "Solver"; uri = "solver://eq"; }
-		in mass : Real = 12.5 { @ToolVariable { name = "mass"; } }
-		out tMax : Real      { @ToolVariable { name = "tMax"; } }
+		in mass : Real[1] = 12.5 { @ToolVariable { name = "mass"; } }
+		out tMax : Real[1]      { @ToolVariable { name = "tMax"; } }
 	}
 	analysis def CheckHeating {
 		action h : Heating;
-		out result : Real = h.tMax;
+		out result : Real[1] = h.tMax;
 	}
 }
 `
@@ -174,7 +174,7 @@ func TestToolRefusesAnUnsentInput(t *testing.T) {
 func TestToolOnACaseReachingNoTool(t *testing.T) {
 	s := loadSource(t, `package Plain {
 	private import ScalarValues::Real;
-	analysis def Bare { out x : Real = 2.0; }
+	analysis def Bare { out x : Real[1] = 2.0; }
 }`)
 	out := run(t, s, "%tool Plain::Bare")
 	wants(t, out, "error: ", "no ToolExecution-annotated action was reached; nothing to preview")
@@ -221,14 +221,14 @@ const toolSweepSource = `package Tools {
 	part block : Block;
 	action def Heating {
 		metadata ToolExecution { toolName = "Solver"; uri = "solver://eq"; }
-		in mass : Real { @ToolVariable { name = "mass"; } }
-		out tMax : Real { @ToolVariable { name = "tMax"; } }
+		in mass : Real[1] { @ToolVariable { name = "mass"; } }
+		out tMax : Real[1] { @ToolVariable { name = "tMax"; } }
 	}
 	analysis def SweptHeating {
 		subject s : Block;
-		in mass : Real;
+		in mass : Real[1];
 		action h : Heating { in mass = mass; }
-		out result : Real = h.tMax;
+		out result : Real[1] = h.tMax;
 	}
 	analysis swept : SweptHeating { subject s = block; }
 }
@@ -282,8 +282,8 @@ package Tools {
 	part block : Board { attribute :>> mass = 12.5; }
 	action def Heating {
 		metadata ToolExecution { toolName = "Solver"; uri = "solver://eq"; }
-		in mass : Real { @ToolVariable { name = "mass"; } }
-		out tMax : Real { @ToolVariable { name = "tMax"; } }
+		in mass : Real[1] { @ToolVariable { name = "mass"; } }
+		out tMax : Real[1] { @ToolVariable { name = "tMax"; } }
 	}
 	verification def HeatedCheck {
 		subject p : Board;
@@ -366,8 +366,8 @@ package Tools {
 	private import AnalysisTooling::*;
 	action def Base {
 		metadata ToolExecution { toolName = "Solver"; uri = "solver://eq"; }
-		in x : Real { @ToolVariable { name = "mass"; } }
-		out tMax : Real { @ToolVariable { name = "tMax"; } }
+		in x : Real[1] { @ToolVariable { name = "mass"; } }
+		out tMax : Real[1] { @ToolVariable { name = "tMax"; } }
 	}
 	action def Sub :> Base { in attribute load :>> x; }
 }`)
@@ -385,8 +385,8 @@ package Tools {
 	private import AnalysisTooling::*;
 	action def Base {
 		metadata ToolExecution { toolName = "Solver"; uri = "solver://eq"; }
-		in x : Real { @ToolVariable { name = "mass"; } }
-		out tMax : Real { @ToolVariable { name = "tMax"; } }
+		in x : Real[1] { @ToolVariable { name = "mass"; } }
+		out tMax : Real[1] { @ToolVariable { name = "tMax"; } }
 	}
 	action def Sub :> Base { in attribute load :>> x; }
 }`)
@@ -409,8 +409,8 @@ package Tools {
 	private import AnalysisTooling::*;
 	action def Heating {
 		metadata ToolExecution { toolName = "Solver"; uri = "solver://eq"; }
-		in mass : Real = 12.5 { @ToolVariable { name = "mass"; } }
-		out tMax : Real      { @ToolVariable { name = "tMax"; } }
+		in mass : Real[1] = 12.5 { @ToolVariable { name = "mass"; } }
+		out tMax : Real[1]      { @ToolVariable { name = "tMax"; } }
 	}
 	part def Probe {
 		attribute t : Real = 3.0;
@@ -466,12 +466,12 @@ package Tools {
 	private import AnalysisTooling::*;
 	calc def Solve {
 		metadata ToolExecution { toolName = "Solver"; uri = "solver://eq"; }
-		in mass : Real { @ToolVariable { name = "mass"; } }
-		return : Real { @ToolVariable { name = "out"; } }
+		in mass : Real[1] { @ToolVariable { name = "mass"; } }
+		return : Real[1] { @ToolVariable { name = "out"; } }
 	}
 	analysis def CheckSolve {
 		attribute mass : Real = 12.5;
-		out x : Real = 1.0;
+		out x : Real[1] = 1.0;
 		objective { require constraint { Solve(mass) >= 0.0 } }
 	}
 }`)
@@ -555,8 +555,8 @@ package Tools {
 	private import AnalysisTooling::*;
 	action def Heating {
 		metadata ToolExecution { toolName = "Solver"; uri = "solver://eq"; }
-		in mass : Real default = 12.5 { @ToolVariable { name = "mass"; } }
-		out tMax : Real              { @ToolVariable { name = "tMax"; } }
+		in mass : Real[1] default = 12.5 { @ToolVariable { name = "mass"; } }
+		out tMax : Real[1]              { @ToolVariable { name = "tMax"; } }
 	}
 	part def Rig {
 		perform action heat : Heating { in mass = 7.0; }
