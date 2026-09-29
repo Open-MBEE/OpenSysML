@@ -22,6 +22,5 @@ package test {
 		action read { assign n := s.n; }
 		then done;
 		succession first s then read;
-		succession first read then done;
 	}
 }
