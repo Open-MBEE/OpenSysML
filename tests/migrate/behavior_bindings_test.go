@@ -143,6 +143,7 @@ func TestTransitionEffectsTakeTheAcceptedSignal(t *testing.T) {
 	} {
 		wantLine(t, r.Notation, line)
 	}
+	wantNoLine(t, r.Notation, "bind take.context = context;")
 	if strings.Contains(string(r.Notation), "then take;") || strings.Contains(string(r.Notation), "first take then") {
 		t.Errorf("a succession reaches or leaves the call whose input takes no value:\n%s", r.Notation)
 	}

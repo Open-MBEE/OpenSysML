@@ -363,6 +363,7 @@ func TestMigratedDocumentsRender(t *testing.T) {
 		`attribute redefines text = "The truck and what it hauls";`,
 		`attribute redefines caption = "Figure: Inside the truck";`,
 		"ref redefines source = truck.'Truck Internals';\n            }\n        }")
+	wantLine(t, r.Notation, `DocumentQueries::Column(name = "Level", cell = { in row : 'Fleet Profile'::Safety; row.level ?? "" })`)
 	if strings.Contains(string(r.Notation), "showCaptions is false") {
 		t.Fatalf("a caption DocGen hides is written:\n%s", r.Notation)
 	}
@@ -383,7 +384,7 @@ func TestMigratedDocumentsRender(t *testing.T) {
 		"1. Load Limit\n2. Brake Distance\n3. Axle Count",
 		"The payload stays under the axle rating. A loaded truck stops within the legal distance. A truck has two axles.",
 		"### Safety",
-		"| Brake Distance | A loaded truck stops within the legal distance. |",
+		"| Brake Distance | A loaded truck stops within the legal distance. | brakes |",
 		"## Figures",
 		"*Truck Structure*",
 		"```mermaid",

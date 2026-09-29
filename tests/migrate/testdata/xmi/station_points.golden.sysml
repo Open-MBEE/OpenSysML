@@ -48,7 +48,7 @@ part def Station {
                         assign context.trace := context.trace * 100 + 17;
                     }
                 }
-                transition first Work::Run::Deep
+                transition first Deep
                     do action {
                         assign context.trace := context.trace * 100 + 21;
                     }
@@ -57,11 +57,11 @@ part def Station {
                     do action {
                         assign context.trace := context.trace * 100 + 22;
                     }
-                    then Work::Run::Out;
+                    then Out;
             }
             history H;
             transition first Prep accept Next then Run;
-            transition first Work::Start
+            transition first Start
                 do action {
                     assign context.trace := context.trace * 100 + 23;
                 }
@@ -71,8 +71,8 @@ part def Station {
                 do action {
                     assign context.trace := context.trace * 100 + 24;
                 }
-                then Work::Leave;
-            transition first Work::Run::Out
+                then Leave;
+            transition first Run.Out
                 do action {
                     assign context.trace := context.trace * 100 + 25;
                 }
@@ -100,13 +100,7 @@ part def Station {
                             assign context.trace := context.trace * 100 + 34;
                         }
                     }
-                    transition first Sync::Both then A1;
                     transition first A0 accept Bump then A1;
-                    transition first A1
-                        do action {
-                            assign context.trace := context.trace * 100 + 37;
-                        }
-                        then Sync::Gather;
                 }
                 state b {
                     entry; then B0;
@@ -119,33 +113,39 @@ part def Station {
                             assign context.trace := context.trace * 100 + 36;
                         }
                     }
-                    transition first Sync::Both then B1;
                     transition first B0 accept Bump then B1;
-                    transition first B1
-                        do action {
-                            assign context.trace := context.trace * 100 + 38;
-                        }
-                        then Sync::Gather;
                 }
             }
             transition first regions then done;
+            transition first Both then regions.a.A1;
+            transition first regions.a.A1
+                do action {
+                    assign context.trace := context.trace * 100 + 37;
+                }
+                then Gather;
+            transition first Both then regions.b.B1;
+            transition first regions.b.B1
+                do action {
+                    assign context.trace := context.trace * 100 + 38;
+                }
+                then Gather;
             metadata MigrationMetadata::SynthesizedName about regions;
         }
         transition first Idle accept Go
             do action {
                 assign context.trace := context.trace * 100 + 41;
             }
-            then Work::Start;
+            then Work.Start;
         transition first Idle accept Go if false then Work;
         transition first Idle accept Enter then Work;
         transition first Idle accept Dive
             do action {
                 assign context.trace := context.trace * 100 + 42;
             }
-            then Work::Run::Deep;
-        transition first Idle accept Resume then Work::H;
+            then Work.Run.Deep;
+        transition first Idle accept Resume then Work.H;
         /* not migrated: Transition (_tSkip) — the target 'Through' has no v2 form: (_tThrough) leads from the entry point straight to the exit point 'Leave' of the same state, crossing it without settling in it; the runtime would then run neither its entry nor its exit behavior */
-        transition first Work::Leave
+        transition first Work.Leave
             do action {
                 assign context.trace := context.trace * 100 + 43;
             }
@@ -156,8 +156,8 @@ part def Station {
             }
             then Idle;
         transition first Idle accept Pair then Sync;
-        transition first Idle accept Split then Sync::Both;
-        transition first Sync::Gather
+        transition first Idle accept Split then Sync.Both;
+        transition first Sync.Gather
             do action {
                 assign context.trace := context.trace * 100 + 46;
             }

@@ -106,8 +106,8 @@ package Plant {
                         multiple = "first")),
                 properties = ("name", "general"),
                 columns = (
-                    DocumentQueries::Column(name = "mass", expression = Plant::Structure::Pump::mass ?? ""),
-                    DocumentQueries::Column(name = "flow", expression = Plant::Structure::Pump::'flow' ?? "")))
+                    DocumentQueries::Column(name = "mass", cell = { in row : Plant::Structure::Pump; row.mass ?? "" }),
+                    DocumentQueries::Column(name = "flow", cell = { in row : Plant::Structure::Pump; row.'flow' ?? "" })))
         }
         part def 'Pump Table Document' :> DocumentQueries::Document {
             attribute redefines title = "Pump Table";
@@ -143,8 +143,8 @@ package Plant {
                     multiple = "first"),
                 properties = ("name", "qualifiedName"),
                 columns = (
-                    DocumentQueries::Column(name = "name 2", expression = Plant::Structure::Pump::name ?? ""),
-                    DocumentQueries::Column(name = "mass", expression = Plant::Structure::Pump::mass ?? "")))
+                    DocumentQueries::Column(name = "name 2", cell = { in row : Plant::Structure::Pump; row.name ?? "" }),
+                    DocumentQueries::Column(name = "mass", cell = { in row : Plant::Structure::Pump; row.mass ?? "" })))
         }
         part def 'Pump Ledger Document' :> DocumentQueries::Document {
             attribute redefines title = "Pump Ledger";
@@ -236,10 +236,10 @@ package Plant {
                         multiple = "first"),
                     properties = ("shortName", "name", "documentation"),
                     columns = (
-                        DocumentQueries::Column(name = "level", expression = 'Plant Profile'::Critical::level ?? ""),
-                        DocumentQueries::Column(name = "level 2", expression = 'Plant Profile'::Critical::level ?? ""),
-                        DocumentQueries::Column(name = "grade", expression = 'Plant Profile'::Critical::grade ?? ""),
-                        DocumentQueries::Column(name = "level 3", expression = 'Plant Profile'::Critical::level ?? ""))),
+                        DocumentQueries::Column(name = "level", cell = { in row : 'Plant Profile'::Critical; row.level ?? "" }),
+                        DocumentQueries::Column(name = "level 2", cell = { in row : 'Plant Profile'::Critical; row.level ?? "" }),
+                        DocumentQueries::Column(name = "grade", cell = { in row : 'Plant Profile'::Critical; row.grade ?? "" }),
+                        DocumentQueries::Column(name = "level 3", cell = { in row : 'Plant Profile'::Critical; row.level ?? "" }))),
                 columns = ("level 2"),
                 operator = "matches",
                 value = "(?i)1.*")

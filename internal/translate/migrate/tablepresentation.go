@@ -123,7 +123,7 @@ func (m *migration) tagColumn(c sysmlv1.Column) columnSource {
 	case !m.written(def) || !m.written(tag.Parent) || !m.written(tag):
 		return columnSource{why: "the tag " + label + " is not migrated"}
 	}
-	return columnSource{key: m.plainName(def) + "::" + m.nameOf(tag), feature: tag, caption: m.nameOf(tag), label: m.nameOf(tag)}
+	return columnSource{key: m.plainName(def) + "::" + m.nameOf(tag), feature: tag, caption: m.nameOf(tag), label: m.nameOf(tag), cell: true}
 }
 
 // stereotypeLibraryReason says why a stereotype is library content rather
