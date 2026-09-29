@@ -128,7 +128,7 @@ func (ctx *Context) shapeOf(inst *Instance) *shapeNode {
 		return nil
 	}
 	for _, fv := range inst.FeatureValues {
-		if fv.Feature != nil && (fv.Feature.GovernedByChain || (fv.Feature.Symbol != nil && isChainHost(fv.Feature.Symbol))) {
+		if fv.Feature != nil && (fv.Feature.GovernedByChain || fv.Feature.hostsChain()) {
 			return nil
 		}
 	}
@@ -144,7 +144,8 @@ func (ctx *Context) internShape(node shapeNode) *shapeNode {
 	if interned, ok := ctx.shapes[node]; ok {
 		return interned
 	}
-	interned := &node
+	interned := new(shapeNode)
+	*interned = node
 	ctx.shapes[node] = interned
 	return interned
 }
@@ -180,9 +181,17 @@ func shareable(val Value) bool {
 // hold: sharing is on, the feature holds one value its subsetters do not populate,
 // no binding or write determines it, and no behavior run makes the reads its own.
 func (ctx *Context) sharesDefault(inst *Instance, fv *FeatureValue) bool {
-	return ctx.sharing() && fv.Feature.Scalar() && !fv.Written && !fv.BindingDerived &&
-		ctx.behaviorRunDepth == 0 && !ctx.defaultYieldsToSubsetters(inst, fv.Feature) &&
-		ctx.shapeOf(inst) != nil
+	return ctx.sharedShape(inst, fv) != nil
+}
+
+// sharedShape is the shape fv's derived default on inst is shared under, nil when
+// sharesDefault does not hold.
+func (ctx *Context) sharedShape(inst *Instance, fv *FeatureValue) *shapeNode {
+	if !ctx.sharing() || !fv.Feature.Scalar() || fv.Written || fv.BindingDerived ||
+		ctx.behaviorRunDepth != 0 || ctx.defaultYieldsToSubsetters(inst, fv.Feature) {
+		return nil
+	}
+	return ctx.shapeOf(inst)
 }
 
 // beginTrace opens the observation of fv's derivation on inst.
@@ -406,14 +415,18 @@ func (ctx *Context) bindingDeclaredFor(inst *Instance, name string) bool {
 // shareDerived records val as the derived default of fv's feature for inst's shape,
 // when the derivation was clean and the value can be held by every occurrence.
 func (ctx *Context) shareDerived(inst *Instance, fv *FeatureValue, val Value, clean bool, reads []sharedRead) {
-	if !clean || !shareable(val) || !ctx.sharesDefault(inst, fv) {
+	if !clean || !shareable(val) {
+		return
+	}
+	shape := ctx.sharedShape(inst, fv)
+	if shape == nil {
 		return
 	}
 	paths, inputs := ctx.sharedPaths(inst, reads)
 	if paths == nil || len(inputs) != 0 {
 		return
 	}
-	key := sharedKey{shape: ctx.shapeOf(inst), feature: fv.Feature}
+	key := sharedKey{shape: shape, feature: fv.Feature}
 	if prior, ok := ctx.sharedDefaults[key]; ok {
 		ctx.noteProbeUndo(func() { ctx.sharedDefaults[key] = prior })
 	} else {
@@ -427,10 +440,11 @@ func (ctx *Context) shareDerived(inst *Instance, fv *FeatureValue, val Value, cl
 // as declared or not yet materialized. What it would have read is listed as read, and
 // what it did not materialize on the way is owed (see settleOwed).
 func (ctx *Context) takeShared(inst *Instance, fv *FeatureValue) bool {
-	if !ctx.sharesDefault(inst, fv) {
+	shape := ctx.sharedShape(inst, fv)
+	if shape == nil {
 		return false
 	}
-	shared, ok := ctx.sharedDefaults[sharedKey{shape: ctx.shapeOf(inst), feature: fv.Feature}]
+	shared, ok := ctx.sharedDefaults[sharedKey{shape: shape, feature: fv.Feature}]
 	if !ok {
 		return false
 	}

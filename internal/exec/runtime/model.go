@@ -40,6 +40,9 @@ type Model struct {
 	resolver  *resolve.Resolver
 
 	features map[*symbols.Symbol][]EffectiveFeature
+	// declaresChains memoizes, by type, whether it or a member source of it
+	// declares a nested redefinition chain (see pendingNestedRedefinitions).
+	declaresChains map[*symbols.Symbol]bool
 
 	// arrayFeatures memoizes the declarations of Collections::Array's features
 	// by name; see arrayFeatureSymbols.
@@ -190,6 +193,7 @@ func NewModel(sem *semantics.Model, resolver *resolve.Resolver) *Model {
 		semantics:           sem,
 		resolver:            resolver,
 		features:            make(map[*symbols.Symbol][]EffectiveFeature),
+		declaresChains:      make(map[*symbols.Symbol]bool),
 		denotedFeatures:     make(map[*symbols.Symbol]map[*symbols.Symbol]string),
 		holders:             make(map[*symbols.Symbol]map[string][]string),
 		returnedParams:      make(map[*calcShape]*returnedAnalysis),

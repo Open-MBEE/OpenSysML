@@ -22,6 +22,19 @@ type EffectiveFeature struct {
 	// body reaches below, so its bound value does not govern, as with a
 	// redefining body.
 	GovernedByChain bool
+	// chainHost caches isChainHost(Symbol): 0 unknown, 1 no, 2 yes (see shapeOf).
+	chainHost uint8
+}
+
+// hostsChain reports whether the feature redefines a feature chain, cached.
+func (f *EffectiveFeature) hostsChain() bool {
+	if f.chainHost == 0 {
+		f.chainHost = 1
+		if f.Symbol != nil && isChainHost(f.Symbol) {
+			f.chainHost = 2
+		}
+	}
+	return f.chainHost == 2
 }
 
 // Scalar reports whether the feature holds at most one value.
