@@ -391,6 +391,9 @@ func (e *encoder) encodeTransition(n *ast.TransitionMember, head func(rdf.Term),
 	e.name(subject, n.Name)
 	e.graph.Add(subject, e.sysx(xTransitionSyntax), rdf.String(e.transitionSyntax(n)))
 	e.transitionKeyword(subject, n)
+	if err := e.transitionSuccession(subject, n, owner); err != nil {
+		return err
+	}
 	if qualifiedText(n.Source) != "" {
 		e.graph.Add(subject, e.sysml(pSource), e.edgeReference(n.Source))
 	}
@@ -436,6 +439,25 @@ func (e *encoder) encodeTransition(n *ast.TransitionMember, head func(rdf.Term),
 		return e.encodeInline(transitionMembers(n), fqn, subject)
 	}
 	return e.encode(transitionMembers(n), fqn, subject)
+}
+
+// transitionSuccession emits the SuccessionAsUsage a transition owns for its
+// `then` clause (SysML.xtext TransitionSuccessionMember, whose
+// TransitionSuccession holds an empty source end and an end referring to the
+// target): an OwningMembership, the succession, and its two end features.
+func (e *encoder) transitionSuccession(subject rdf.Term, n *ast.TransitionMember, owner string) error {
+	succession := e.ids.minted(rdf.IRI(subject.Value+"_succession"), subject, "_succession")
+	membership := e.ids.minted(rdf.OwningMembershipIRIOf(succession), succession, rdf.OwningMembershipSuffix)
+	e.typed(succession, mSuccession)
+	e.graph.Add(succession, e.sysml(pElementID), rdf.String(rdf.LocalName(succession.Value)))
+	e.graph.Add(subject, e.sysml("succession"), succession)
+	e.graph.Add(subject, e.sysml(pOwnedRelationship), membership)
+	e.graph.Add(subject, e.sysml(pOwnedMembership), membership)
+	e.emitMembershipCore(membership, succession, subject, mOwningMembership, true)
+	if err := e.connectorEnd(succession, connectorEndSpec{owner: owner, slot: "end0", index: 0, ends: 2, empty: true, noCollapse: true}); err != nil {
+		return err
+	}
+	return e.connectorEnd(succession, connectorEndSpec{owner: owner, slot: "end1", index: 1, ends: 2, targetTerm: e.edgeReference(n.Target), noCollapse: true})
 }
 
 // transitionMemberLinks marks each member of a transition's effect or body as

@@ -851,6 +851,13 @@ func (d *decoder) isNodeMembership(subject rdf.Term) bool {
 		!d.graph.HasProperty(member, rdf.SysML+pQualifiedName) {
 		return true
 	}
+	// A `message` owns its ends through ParameterMembership
+	// (SysML.xtext MessageEventMember): they are parts of the flow's head, not
+	// member elements of their own.
+	if metaclass == mParameterMembership && d.metaclass(owner) == usageMetaclass[ast.UsageFlow] &&
+		d.metaclass(member) == mEventOccurrenceUsage {
+		return true
+	}
 	if metaclass == mFeatureValue {
 		return true
 	}
@@ -1775,6 +1782,11 @@ func (d *decoder) usageHead(el *element, kind ast.UsageKind) (string, error) {
 		words = append(words, direction)
 	}
 	keyword := d.keywordOr(el, usageKeyword(kind))
+	// A `message` is the flow whose ends are event occurrences it owns as
+	// parameters; their metaclass says `message` where the graph states none.
+	if kind == ast.UsageFlow && keyword == usageKeyword(kind) && len(d.messageEnds(el)) > 0 {
+		keyword = "message"
+	}
 	// The RequirementUsage a RequirementVerificationMembership owns is spelled
 	// `verify`, whether or not the graph recorded the keyword.
 	if keyword == usageKeyword(ast.UsageSatisfy) && d.verifiedRequirement(el) {

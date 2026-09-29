@@ -1673,8 +1673,18 @@ func (e *encoder) bindingEnds(subject rdf.Term, owner string, n *ast.Usage) erro
 	if n.FlowEnds == nil {
 		return nil
 	}
+	// A `message` is a FlowUsage whose ends are the events it relates
+	// (SysML.xtext MessageDeclaration): an EventOccurrenceUsage held through a
+	// ParameterMembership, not the connector-end features a `flow` owns.
+	message := n.Kind == ast.UsageFlow && n.Keyword == "message"
 	for i, target := range []ast.Node{n.FlowEnds.From, n.FlowEnds.To} {
 		if target == nil {
+			continue
+		}
+		if message {
+			if err := e.messageEnd(subject, i, target); err != nil {
+				return err
+			}
 			continue
 		}
 		if err := e.connectorEnd(subject, connectorEndSpec{owner: owner, slot: fmt.Sprintf("end%d", i), index: i, ends: 2, target: target}); err != nil {
@@ -1687,6 +1697,38 @@ func (e *encoder) bindingEnds(subject rdf.Term, owner string, n *ast.Usage) erro
 		}
 	}
 	return nil
+}
+
+// messageEnd emits one end of a `message`: an EventOccurrenceUsage the flow
+// owns through a ParameterMembership (SysML.xtext MessageEventMember, whose
+// MessageEvent owns a ReferenceSubsetting to the end's target). The collapsed
+// related/source/target features the flow states are the same a connector
+// end's are, and a chained target is written the way a connector end's is.
+func (e *encoder) messageEnd(subject rdf.Term, index int, target ast.Node) error {
+	slot := fmt.Sprintf("end%d", index)
+	feature := e.ids.mintedNode(rdf.ExpressionIRI(subject, slot), subject, slot)
+	membership := e.ids.minted(rdf.OwningMembershipIRIOf(feature), feature, rdf.OwningMembershipSuffix)
+	e.graph.Prefixes[rdf.ExpressionPrefix] = rdf.Expression
+	e.typed(feature, mEventOccurrenceUsage)
+	e.graph.Add(feature, e.sysml(pElementID), rdf.String(rdf.LocalName(feature.Value)))
+	e.graph.Add(subject, e.sysml(pOwnedRelationship), membership)
+	e.graph.Add(subject, e.sysml(pOwnedMembership), membership)
+	e.graph.Add(subject, e.sysml(pOwnedFeatureMembership), membership)
+	e.graph.Add(subject, e.sysml(pOwnedFeature), feature)
+	e.graph.Add(subject, e.sysml(pParameter), feature)
+	if reference, ok := e.endReferenceIRI(target); ok {
+		e.graph.Add(subject, e.sysml(pRelatedFeature), reference)
+		if index == 0 {
+			e.graph.Add(subject, e.sysml(pSourceFeature), reference)
+		} else {
+			e.graph.Add(subject, e.sysml(pTargetFeature), reference)
+		}
+	}
+	e.emitMembershipCore(membership, feature, subject, mParameterMembership, true)
+	e.graph.Add(membership, e.sysml(pOwnedMemberFeature), feature)
+	e.graph.Add(membership, e.sysml(pOwnedMemberParameter), feature)
+	e.graph.Add(feature, e.sysx(xSourceText), rdf.String(e.text(target)))
+	return e.endReferences(feature, target)
 }
 
 // connectorEndSpec is one connector end to emit: which end it is, its target,

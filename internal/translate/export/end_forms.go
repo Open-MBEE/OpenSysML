@@ -506,6 +506,11 @@ func (d *decoder) standardEndFeatures(el *element) []rdf.Term {
 		}
 	}
 	if len(terms) == 0 {
+		for _, end := range d.messageEnds(el) {
+			appendUnique(end)
+		}
+	}
+	if len(terms) == 0 {
 		for _, feature := range d.graph.Objects(rdf.IRI(el.iri), rdf.SysML+pOwnedFeature) {
 			for _, membership := range d.graph.Objects(feature, rdf.SysML+pOwningMembership) {
 				if d.metaclass(membership) == mEndFeatureMembership {
@@ -523,6 +528,33 @@ func (d *decoder) standardEndFeatures(el *element) []rdf.Term {
 		}
 	}
 	return terms
+}
+
+// messageEnds returns the event ends a `message` owns through
+// ParameterMembership (SysML.xtext MessageEventMember), in owned order; a
+// `flow` owns connector ends instead and returns none. Their metaclass —
+// EventOccurrenceUsage — is what the `message` keyword states where the head
+// recorded none.
+func (d *decoder) messageEnds(el *element) []rdf.Term {
+	if el.metaclass != usageMetaclass[ast.UsageFlow] {
+		return nil
+	}
+	var ends []rdf.Term
+	seen := map[string]bool{}
+	for _, property := range []string{pOwnedMembership, pOwnedRelationship} {
+		for _, membership := range d.graph.Objects(rdf.IRI(el.iri), rdf.SysML+property) {
+			if seen[membership.Value] || d.metaclass(membership) != mParameterMembership {
+				continue
+			}
+			seen[membership.Value] = true
+			member := firstIRI(d.graph, membership, pMemberElement, pOwnedMemberElement, pOwnedMemberParameter, pOwnedRelatedElement)
+			if member.Value == "" || d.metaclass(member) != mEventOccurrenceUsage {
+				continue
+			}
+			ends = append(ends, member)
+		}
+	}
+	return ends
 }
 
 // declaredChild reports whether term is an element the graph declares under el

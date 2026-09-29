@@ -716,6 +716,9 @@ var ownershipPredicates = func() map[string]bool {
 		pOwnedReferenceSubsetting, pOwnedSubsetting, pOwnedSpecialization,
 		"ownedTyping", "ownedSubclassification", "ownedRedefinition",
 		pConnectorEnd, pOwnedEndFeature,
+		// A message end is the flow's parameter, a structural edge like the
+		// connector end it replaces rather than an expression to render.
+		pParameter,
 		// The range a head's collapsed bounds are owned by is a structural
 		// edge, not an expression-valued property to render.
 		pMultiplicity, pConjugatedPortDefinition,

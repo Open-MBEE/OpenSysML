@@ -941,10 +941,10 @@ func successionEndReferents(graph *rdf.Graph, meta func(rdf.Term) string, succes
 		if end.Value == "" {
 			continue
 		}
-		referent := firstIRI(graph, end, pReferences)
+		referent := firstObject(graph, end, pReferences)
 		for _, rel := range graph.Objects(end, rdf.SysML+pOwnedRelationship) {
 			if meta(rel) == mReferenceSubsetting {
-				referent = firstIRI(graph, rel, pReferencedFeature, pTarget)
+				referent = firstObject(graph, rel, pReferencedFeature, pTarget)
 			}
 		}
 		out = append(out, referent)
