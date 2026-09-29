@@ -141,3 +141,88 @@ func TestUnwritablePayloadFeaturesAreRefused(t *testing.T) {
 		}
 	}
 }
+
+// A flow or message stating no ends still has its payload: the head writes
+// `of …` after the declaration (SysML-textual-bnf FlowDeclaration,
+// MessageDeclaration), so the graph alone reads back with it.
+func TestEndFreeFlowKeepsItsPayload(t *testing.T) {
+	const model = `package E {
+    attribute def Prio;
+    item def Fuel;
+    part def A {
+        message m of Fuel;
+        message of Fuel[1];
+        flow f of fuel : Fuel;
+        message n [2] of Fuel;
+        message h of level : Prio;
+        flow g of cmd : Prio = h.level;
+        message e;
+    }
+}
+`
+	_, back := graphOnlyRoundTrip(t, "e.sysml", []byte(model))
+	for _, want := range []string{
+		" m of Fuel;\n",
+		" of Fuel[1];\n",
+		" f of fuel : Fuel;\n",
+		" n[2] of Fuel;\n",
+		" h of level : Prio;\n",
+		" g of cmd : Prio = h.level;\n",
+		" e;\n",
+	} {
+		if !strings.Contains(string(back), want) {
+			t.Errorf("the notation should contain %q:\n%s", want, back)
+		}
+	}
+}
+
+// A payload is written inside its flow's head, where it has no body: one the
+// graph gives members or a body is refused rather than written without them.
+func TestPayloadFeatureWithABodyIsRefused(t *testing.T) {
+	turtle, err := convert.Convert("p.sysml", []byte(flowPayloadModel), convert.FormatSysML, convert.FormatTurtle)
+	if err != nil {
+		t.Fatal(err)
+	}
+	payload := "elmt:P__Ctx__m__cmd\n    a sysml:PayloadFeature ;"
+	if !strings.Contains(string(turtle), payload) {
+		t.Fatalf("the graph no longer states %q", payload)
+	}
+	member := `
+elmt:P__Ctx__m__cmd__extra
+    a sysml:AttributeUsage ;
+    sysml:qualifiedName "P::Ctx::m::cmd::extra" ;
+    sysml:declaredName "extra" ;
+    sysml:owningRelationship elmt:P__Ctx__m__cmd__extra_om .
+
+elmt:P__Ctx__m__cmd__extra_om
+    a sysml:FeatureMembership ;
+    sysml:membershipOwningNamespace elmt:P__Ctx__m__cmd ;
+    sysml:owningRelatedElement elmt:P__Ctx__m__cmd ;
+    sysml:memberElement elmt:P__Ctx__m__cmd__extra ;
+    sysml:ownedRelatedElement elmt:P__Ctx__m__cmd__extra .
+`
+	for name, graph := range map[string]string{
+		"a body":   withBody(t, string(turtle), payload),
+		"a member": string(turtle) + member,
+	} {
+		back, err := convert.Convert("p.ttl", withoutSourceText(t, []byte(graph)), convert.FormatTurtle, convert.FormatSysML)
+		if err == nil {
+			t.Errorf("%s: converted instead of refused:\n%s", name, back)
+		} else if !strings.Contains(err.Error(), "payload") {
+			t.Errorf("%s: refused for another reason: %v", name, err)
+		}
+	}
+}
+
+// withBody gives the subject whose block begins with head sysx:hasBody true.
+func withBody(t *testing.T, turtle, head string) string {
+	t.Helper()
+	at := strings.Index(turtle, head)
+	end := at + strings.Index(turtle[at:], "\n\n")
+	block := turtle[at:end]
+	flipped := strings.Replace(block, `sysx:hasBody "false"^^xsd:boolean`, `sysx:hasBody "true"^^xsd:boolean`, 1)
+	if flipped == block {
+		t.Fatalf("%q states no sysx:hasBody", head)
+	}
+	return turtle[:at] + flipped + turtle[end:]
+}

@@ -2210,6 +2210,18 @@ func (d *decoder) usageHead(el *element, kind ast.UsageKind) (string, error) {
 	if hasValue {
 		head += " " + d.valueOperator(el) + " " + value
 	}
+	// A flow stating no ends still writes its payload after its declaration
+	// (SysML-textual-bnf FlowDeclaration, MessageDeclaration: `of` follows the
+	// value part); one with ends wrote it among them.
+	if !hasEnds && flowMetaclasses[el.metaclass] {
+		payload, err := d.payloadText(el)
+		if err != nil {
+			return "", err
+		}
+		if payload != "" {
+			head += " of " + payload
+		}
+	}
 	return head, nil
 }
 

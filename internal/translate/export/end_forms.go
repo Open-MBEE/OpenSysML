@@ -411,6 +411,13 @@ func (d *decoder) payloadText(el *element) (string, error) {
 			Note: "it states both a PayloadFeature and the earlier sysx:payload expression, and the head writes one payload",
 		}
 	}
+	// The payload is written inside the flow's head, where it has no body.
+	if len(d.bodyChildren(payload)) > 0 || d.boolOf(payload, rdf.OpenSysML+xHasBody) {
+		return "", &UnsupportedError{
+			What: fmt.Sprintf("the payload <%s>", payload.iri),
+			Note: "it owns members or states a body, and a payload written after `of` has no place for a body",
+		}
+	}
 	mult := d.multiplicityText(payload)
 	words := d.identWords(payload)
 	typed, err := d.referenceList(payload, rdf.SysML+relationshipProperty[ast.RelTyping])
