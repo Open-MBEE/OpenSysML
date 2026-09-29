@@ -1373,17 +1373,32 @@ func TestPrefixAndPositionNamedMemberConvertDistinctly(t *testing.T) {
 	}
 }
 
-// A metadata usage is owned through an OwningMembership even when a
-// relationship owns it, so a client reaches it the way it reaches any member.
+// A usage's prefix metadata is owned through an OwningMembership
+// (SysML-textual-bnf PrefixMetadataMember); a dependency's is the annotating
+// element of an Annotation the dependency owns (PrefixMetadataAnnotation).
 func TestMetadataOnARelationshipIsOwnedThroughAMembership(t *testing.T) {
 	src := "package P {\n\tmetadata def Safety;\n\tpart def Car;\n\t#Safety dependency from P to Car;\n\trequirement def R {\n\t\tsubject #Safety s : Car;\n\t}\n}"
 	turtle, err := convert.Convert("m.sysml", []byte(src), convert.FormatSysML, convert.FormatTurtle)
 	if err != nil {
 		t.Fatalf("to turtle: %v", err)
 	}
-	// The dependency is a relationship and the subject a usage: a relationship
-	// is no namespace, so only the usage's membership states one.
-	for _, owner := range []string{"P___402", "P__R__s"} {
+	annotation, metadata := "elmt:P___402___400_an", "elmt:P___402___400"
+	for _, want := range []string{
+		annotation + "\n    a sysml:Annotation ;",
+		"sysml:annotatingElement " + metadata,
+		"sysml:annotatedElement elmt:P___402",
+		"sysml:ownedAnnotation " + annotation,
+		"sysml:owningRelationship " + annotation,
+	} {
+		if !strings.Contains(string(turtle), want) {
+			t.Errorf("the graph does not state %q:\n%s", want, turtle)
+		}
+	}
+	if strings.Contains(string(turtle), annotation+"\n    a sysml:OwningMembership ;") {
+		t.Errorf("the dependency's metadata is owned through a membership:\n%s", turtle)
+	}
+	// The subject is a usage, whose prefix is a member through a membership.
+	for _, owner := range []string{"P__R__s"} {
 		member, membership := "elmt:"+owner+"___400", "elmt:"+owner+"___400_om"
 		for _, want := range []string{
 			membership + "\n    a sysml:OwningMembership ;",
@@ -1411,6 +1426,25 @@ func TestMetadataOnARelationshipIsOwnedThroughAMembership(t *testing.T) {
 		if !strings.Contains(string(back), head) {
 			t.Errorf("the head should come back as written:\n%s", back)
 		}
+	}
+}
+
+// A dependency's prefix annotates the dependency; an Annotation it owns that
+// names another element is refused rather than written as its prefix.
+func TestDependencyPrefixAnnotatingAnotherElementIsRefused(t *testing.T) {
+	src := "package P {\n\tmetadata def Safety;\n\tpart def Car;\n\t#Safety dependency from P to Car;\n}"
+	turtle, err := convert.Convert("m.sysml", []byte(src), convert.FormatSysML, convert.FormatTurtle)
+	if err != nil {
+		t.Fatalf("to turtle: %v", err)
+	}
+	stated := "sysml:annotatedElement elmt:P___402 ."
+	if !strings.Contains(string(turtle), stated) {
+		t.Fatalf("the graph no longer states %q:\n%s", stated, turtle)
+	}
+	moved := strings.Replace(string(turtle), stated, "sysml:annotatedElement elmt:P__Car .", 1)
+	back, err := convert.Convert("m.ttl", []byte(moved), convert.FormatTurtle, convert.FormatSysML)
+	if err == nil || !strings.Contains(err.Error(), "annotates") {
+		t.Errorf("an annotation of another element came back as the dependency's prefix (%v):\n%s", err, back)
 	}
 }
 
@@ -3192,7 +3226,7 @@ func TestElementIRIsEncodeQualifiedNames(t *testing.T) {
 // the succession a transition owns (`_succession`), the referent memberships an
 // expression's referent edge restates, and a
 // filtered import's unnamed `_fp` package with its `_im` import and `_efm` filter.
-var materializedSuffixID = regexp.MustCompile(`_(ft|sc|ss|sp|rd|rs)[0-9]*(_om)?$|_(subject|conjugated|pc|referent|preferent|targetFeature|succession)(_om)?$|_fp(_im|_efm)?$`)
+var materializedSuffixID = regexp.MustCompile(`_(ft|sc|ss|sp|rd|rs)[0-9]*(_om)?$|_(subject|conjugated|pc|referent|preferent|targetFeature|succession)(_om)?$|_fp(_im|_efm)?$|_an$`)
 
 // materializedExprID is the same convention inside an expression node's id.
 var materializedExprID = regexp.MustCompile(`_(subject|conjugated|pc|referent|preferent|targetFeature|succession)(_|$)|_(ft|sc|ss|sp|rd|rs)[0-9]`)
