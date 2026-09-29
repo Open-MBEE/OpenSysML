@@ -244,6 +244,10 @@ func (v *verifyContext) verdict(kind string, sym *symbols.Symbol, element string
 		out.Error = err.Error()
 		out.FailureReason = failureReason(err)
 	}
+	return stampEvaluation(out)
+}
+
+func stampEvaluation(out *pb.Verdict) *pb.Verdict {
 	out.Question = questionEvaluate
 	switch {
 	case out.Error != "":

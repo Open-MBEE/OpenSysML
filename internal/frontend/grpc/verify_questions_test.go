@@ -626,3 +626,216 @@ func TestVerifyQuestionsPinsTheValuesChainsRead(t *testing.T) {
 		}
 	}
 }
+
+// failedDefaultsModelSource has failed defaults both relevant and irrelevant to
+// a query, and a satisfaction whose subject reads a failed mass value.
+const failedDefaultsModelSource = `package P {
+	private import ScalarValues::*;
+	attribute level : Real = 1.0 / 0.0;
+	attribute free : Real;
+	assert constraint nonneg { level >= 0.0 }
+	assert constraint freec { free >= 0.0 }
+	part def Tank {
+		attribute lvl : Real = 1.0 / 0.0;
+		attribute spare : Real;
+		assert constraint c { lvl >= 0.0 }
+		assert constraint s { spare >= 0.0 }
+	}
+	part tank : Tank;
+	part def Craft { attribute mass : Real; }
+	requirement def MassLimit {
+		subject vehicle : Craft;
+		require constraint { vehicle.mass >= 0.0 }
+	}
+	requirement massLimit : MassLimit;
+	part craft : Craft { attribute :>> mass = 1.0 / 0.0; }
+	part analysis { assert satisfy massLimit by craft; }
+}
+`
+
+func TestVerifyQuestionsAFailedDefaultIsUndecided(t *testing.T) {
+	requireSolver(t)
+	srv := mustNewService(t, 10)
+	hash := mustVerifyModel(t, srv, failedDefaultsModelSource, "verify-failed-defaults")
+	constraints := []struct {
+		symbol, subject, feature string
+	}{
+		{"P::nonneg", "", "level"},
+		{"P::Tank::c", "P::Tank", "lvl"},
+		{"P::Tank::c", "P::tank", "lvl"},
+	}
+	for _, question := range []string{questionHolds, questionSatisfiable} {
+		for _, tc := range constraints {
+			resp := verifyQuestion(t, srv, hash, tc.symbol, question, tc.subject, "")
+			v := resp.Verdict
+			if v.Status != statusUndecided || v.Holds {
+				t.Errorf("%s on %s with %s: status=%q holds=%v, want undecided: %q",
+					tc.symbol, tc.subject, question, v.Status, v.Holds, v.Error)
+			}
+			if !strings.Contains(v.Error, "division by zero") || !strings.Contains(v.Error, tc.feature) {
+				t.Errorf("%s on %s with %s: error=%q, want division by zero and %s",
+					tc.symbol, tc.subject, question, v.Error, tc.feature)
+			}
+			if len(v.Witness) != 0 {
+				t.Errorf("%s on %s with %s: undecided verdict has witness %+v",
+					tc.symbol, tc.subject, question, v.Witness)
+			}
+		}
+
+		resp, err := srv.VerifySatisfaction(context.Background(), &pb.VerifySatisfactionRequest{
+			ModelHash: hash, Question: question,
+		})
+		if err != nil {
+			t.Fatalf("VerifySatisfaction(%s): %v", question, err)
+		}
+		var found bool
+		for _, v := range resp.Verdicts {
+			if !strings.Contains(v.Element, "satisfy massLimit by craft") {
+				continue
+			}
+			found = true
+			if v.Status != statusUndecided || v.Holds {
+				t.Errorf("satisfaction with %s: status=%q holds=%v, want undecided: %q",
+					question, v.Status, v.Holds, v.Error)
+			}
+			if !strings.Contains(v.Error, "division by zero") || !strings.Contains(v.Error, "mass") {
+				t.Errorf("satisfaction with %s: error=%q, want division by zero and mass", question, v.Error)
+			}
+			if len(v.Witness) != 0 {
+				t.Errorf("satisfaction with %s: undecided verdict has witness %+v", question, v.Witness)
+			}
+		}
+		if !found {
+			t.Errorf("VerifySatisfaction(%s) returned no massLimit assertion: %v", question, resp.Verdicts)
+		}
+	}
+}
+
+func TestVerifyQuestionsLeavesAMissingValueFree(t *testing.T) {
+	requireSolver(t)
+	srv := mustNewService(t, 10)
+	hash := mustVerifyModel(t, srv, failedDefaultsModelSource, "verify-missing-values-free")
+
+	resp := verifyQuestion(t, srv, hash, "P::freec", questionHolds, "", "")
+	if resp.Verdict.Status != statusViolated {
+		t.Fatalf("freec holds: status=%q, want violated", resp.Verdict.Status)
+	}
+	var sawFree bool
+	for _, w := range resp.Verdict.Witness {
+		sawFree = sawFree || strings.Contains(w.Feature, "P::free")
+	}
+	if !sawFree {
+		t.Errorf("freec witness %+v does not name P::free", resp.Verdict.Witness)
+	}
+	resp = verifyQuestion(t, srv, hash, "P::freec", questionSatisfiable, "", "")
+	if resp.Verdict.Status != statusSatisfiable {
+		t.Errorf("freec satisfiable: status=%q, want satisfiable: %q", resp.Verdict.Status, resp.Verdict.Error)
+	}
+
+	resp = verifyQuestion(t, srv, hash, "P::Tank::s", questionHolds, "P::tank", "")
+	if resp.Verdict.Status != statusViolated {
+		t.Fatalf("Tank::s holds on tank: status=%q, want violated", resp.Verdict.Status)
+	}
+	var sawSpare bool
+	for _, w := range resp.Verdict.Witness {
+		sawSpare = sawSpare || strings.Contains(w.Feature, "P::Tank::spare")
+	}
+	if !sawSpare {
+		t.Errorf("Tank::s witness %+v does not name P::Tank::spare", resp.Verdict.Witness)
+	}
+}
+
+const satisfactionChainModelSource = `package P {
+	private import ScalarValues::*;
+	part def Inner { attribute power : Real; }
+	part def Sub { attribute power : Real; part inner : Inner; }
+	part def Thing { part sub : Sub; }
+	requirement def R2 { subject vehicle : Thing; require constraint { vehicle.sub.power > 0.0 } }
+	requirement def R3 { subject vehicle : Thing; require constraint { vehicle.sub.inner.power > 0.0 } }
+	requirement def R4 { subject vehicle : Thing; require constraint { vehicle.sub.inner.power > 8.0 } }
+	requirement r2 : R2;
+	requirement r3 : R3;
+	requirement r4 : R4;
+	part craft : Thing {
+		part :>> sub {
+			attribute :>> power = 5.0;
+			part :>> inner { attribute :>> power = 7.0; }
+		}
+	}
+	part analysis {
+		assert satisfy r2 by craft;
+		assert satisfy r3 by craft;
+		assert satisfy r4 by craft;
+	}
+}
+`
+
+func TestVerifyQuestionsSatisfactionChainsReadTheSubject(t *testing.T) {
+	requireSolver(t)
+	srv := mustNewService(t, 10)
+	hash := mustVerifyModel(t, srv, satisfactionChainModelSource, "verify-satisfaction-chain-values")
+	want := map[string]string{
+		"satisfy r2 by craft": "vehicle.sub.power",
+		"satisfy r3 by craft": "vehicle.sub.inner.power",
+		"satisfy r4 by craft": "vehicle.sub.inner.power",
+	}
+	read := func(question string) map[string]*pb.Verdict {
+		t.Helper()
+		resp, err := srv.VerifySatisfaction(context.Background(), &pb.VerifySatisfactionRequest{
+			ModelHash: hash, Question: question,
+		})
+		if err != nil {
+			t.Fatalf("VerifySatisfaction(%s): %v", question, err)
+		}
+		verdicts := make(map[string]*pb.Verdict)
+		for _, v := range resp.Verdicts {
+			for element := range want {
+				if strings.Contains(v.Element, element) {
+					verdicts[element] = v
+				}
+			}
+		}
+		return verdicts
+	}
+
+	evaluated := read(questionEvaluate)
+	held := read(questionHolds)
+	satisfiable := read(questionSatisfiable)
+	for element, chain := range want {
+		wantEvaluation := statusHolds
+		if element == "satisfy r4 by craft" {
+			wantEvaluation = statusViolated
+		}
+		if evaluated[element] == nil || evaluated[element].Status != wantEvaluation {
+			t.Errorf("%s evaluate = %v, want %s", element, evaluated[element], wantEvaluation)
+		}
+		if held[element] == nil {
+			t.Errorf("%s holds question returned no verdict", element)
+			continue
+		}
+		if element == "satisfy r4 by craft" {
+			if held[element].Status != statusViolated {
+				t.Errorf("%s holds = %q, want violated (the held value is 7.0)",
+					element, held[element].Status)
+			}
+			for _, w := range held[element].Witness {
+				if strings.Contains(w.Feature, chain) {
+					t.Errorf("%s witness includes pinned chain value %+v", element, w)
+				}
+			}
+			continue
+		}
+		if held[element].Status != statusHolds {
+			t.Errorf("%s holds = %q error=%q, want holds", element, held[element].Status, held[element].Error)
+		}
+		if satisfiable[element] == nil || satisfiable[element].Status != statusSatisfiable {
+			t.Errorf("%s satisfiable = %v, want satisfiable", element, satisfiable[element])
+			continue
+		}
+		for _, w := range satisfiable[element].Witness {
+			if strings.Contains(w.Feature, chain) {
+				t.Errorf("%s satisfiable witness includes pinned chain value %+v", element, w)
+			}
+		}
+	}
+}
