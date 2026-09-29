@@ -159,6 +159,12 @@ type Result struct {
 	// caller attaches the core an Explain of the same query found.
 	Core *Core
 
+	// RoundingProved reports that an unsat over a query whose conditions the
+	// evaluator rounds was answered unsat a second time over an
+	// over-approximation of that float64 arithmetic (Query.RoundingSound): the
+	// evaluator's arithmetic satisfies the conditions nowhere either.
+	RoundingProved bool
+
 	// Elapsed is how long the solver took, for an Explain every round of
 	// shrinking the core included.
 	Elapsed time.Duration
@@ -254,6 +260,17 @@ func (s *Solver) Solve(ctx context.Context, q *Query) (*Result, error) {
 		if ok, reason := replayWitness(q, result.Model); !ok {
 			result.Status = StatusUnknown
 			result.Reason = reason
+		}
+	}
+	// An exact-real unsat decides nothing about the float64 arithmetic the
+	// evaluator computes the conditions in; a second unsat over an
+	// over-approximation of it does. The over-approximated query is never
+	// replayed: its own verdict is the only answer read of it, and an error or
+	// a non-unsat leaves the unsat unproved rather than being an error itself.
+	if result.Status == StatusUnsat && q.Rounded() {
+		sound := q.RoundingSound()
+		if recheck, err := s.solve(ctx, sound, func(sess *session) (*Result, error) { return sess.run(sound) }); err == nil && recheck.Status == StatusUnsat {
+			result.RoundingProved = true
 		}
 	}
 	return result, nil

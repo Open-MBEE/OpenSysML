@@ -37,6 +37,28 @@ func (p *Parser) atChainedFirstSuccession() bool {
 	return chained && t.Kind == lexer.Keyword && t.KeywordID == "then"
 }
 
+// afterMultiplicity returns the token offset after the bracketed multiplicity
+// at offset, or -1 when no closing bracket occurs before the member ends.
+func (p *Parser) afterMultiplicity(offset int) int {
+	if p.peekN(offset).Kind != lexer.LBracket {
+		return -1
+	}
+	depth := 0
+	for i := offset; ; i++ {
+		switch p.peekN(i).Kind {
+		case lexer.EOF, lexer.Semicolon, lexer.LBrace, lexer.RBrace:
+			return -1
+		case lexer.LBracket:
+			depth++
+		case lexer.RBracket:
+			depth--
+			if depth == 0 {
+				return i + 1
+			}
+		}
+	}
+}
+
 // atTwoEndedFirst reports whether the `first` at the cursor names both ends —
 // `first <source> then <target>` — before its member ends, as opposed to the
 // one-ended `first <node>;` form that opens an InitialNodeMember. The scan
@@ -107,12 +129,13 @@ type bodyBuilder struct {
 	// pending is set between taking a `then` and adding the member it prefixes;
 	// valid is false once it has been diagnosed, so a bad succession is reported
 	// rather than also synthesised.
-	pending    bool
-	pendingAt  source.Span
-	valid      bool
-	source     string
-	sourceSpan source.Span
-	sourceNode ast.Node
+	pending            bool
+	pendingAt          source.Span
+	valid              bool
+	source             string
+	sourceSpan         source.Span
+	sourceNode         ast.Node
+	sourceMultiplicity *ast.Multiplicity
 }
 
 func (p *Parser) newBodyBuilder() *bodyBuilder {
@@ -126,14 +149,26 @@ func (b *bodyBuilder) atSuccession() bool {
 	if !p.atKeyword("then") {
 		return false
 	}
-	next := p.peekN(1)
+	nextAt := 1
+	prefixEnd := p.prefixMetadataEndAt(nextAt)
+	if prefixEnd > nextAt {
+		nextAt = prefixEnd
+	}
+	if p.peekN(nextAt).Kind == lexer.LBracket {
+		nextAt = p.afterMultiplicity(nextAt)
+		if nextAt < 0 {
+			return false
+		}
+	}
+	nextAt = p.prefixMetadataEndAt(nextAt)
+	next := p.peekN(nextAt)
 	// `succession first a then b;` and `then a;` name members; the edge parser
 	// reads them. Unreserved node words such as `then done;` are identified by
 	// notation shape (see notation.go).
 	kw := ""
 	if next.Kind == lexer.Keyword {
 		kw = next.KeywordID
-	} else if w, ok := p.actionNodeWordAt(1); ok {
+	} else if w, ok := p.actionNodeWordAt(nextAt); ok {
 		kw = w
 	} else {
 		return false
@@ -142,6 +177,9 @@ func (b *bodyBuilder) atSuccession() bool {
 		// `then done;`: a keyword this body declares a member with names an edge
 		// end, not the kind of a member being declared.
 		return false
+	}
+	if kw == "if" && p.ifActionHasBodyAt(nextAt+1) {
+		return true
 	}
 	if _, ok := namespaceMemberKeywords[kw]; ok {
 		// Diagnosed as an illegal target rather than left to parse as a
@@ -162,7 +200,7 @@ func (b *bodyBuilder) atSuccession() bool {
 	}
 	if kw == "use" {
 		// A use case is the only kind spelled in two words.
-		if word := p.peekN(2); word.Kind != lexer.Keyword || word.KeywordID != "case" {
+		if word := p.peekN(nextAt + 1); word.Kind != lexer.Keyword || word.KeywordID != "case" {
 			return false
 		}
 	} else {
@@ -188,6 +226,40 @@ func (b *bodyBuilder) atSuccession() bool {
 	// Anything else after the keyword declares a member the `then` prefixes,
 	// anonymous (`then part;`, `then action { … }`) or named (`then action b;`).
 	return true
+}
+
+func (p *Parser) ifActionHasBodyAt(start int) bool {
+	depth := 0
+	for offset := start; ; offset++ {
+		tok := p.peekN(offset)
+		switch tok.Kind {
+		case lexer.EOF:
+			return false
+		case lexer.Semicolon, lexer.RBrace:
+			if depth == 0 {
+				return false
+			}
+		case lexer.LParen, lexer.LBracket:
+			depth++
+		case lexer.RParen, lexer.RBracket:
+			if depth > 0 {
+				depth--
+			}
+		case lexer.LBrace:
+			if depth == 0 {
+				return true
+			}
+		case lexer.Keyword:
+			if depth == 0 {
+				switch tok.KeywordID {
+				case "then":
+					return false
+				case "action":
+					return true
+				}
+			}
+		}
+	}
 }
 
 // actionNodeKeywords are the words that begin an action node member
@@ -242,6 +314,10 @@ func (b *bodyBuilder) declares(name string) bool {
 func (b *bodyBuilder) takeSuccession() {
 	p := b.p
 	tok := p.advance() // consume 'then'
+	var multiplicity *ast.Multiplicity
+	if p.at(lexer.LBracket) {
+		multiplicity = p.parseMultiplicity()
+	}
 	if w, ok := p.actionNodeWordAt(0); ok && w == "done" {
 		// `then done;` is a target succession to the done node, which the
 		// keyword opens rather than a member: neither offset is a member start.
@@ -253,6 +329,7 @@ func (b *bodyBuilder) takeSuccession() {
 	}
 	b.pending, b.pendingAt, b.valid = true, tok.Span, true
 	b.source, b.sourceSpan, b.sourceNode = b.last, b.lastSpan, b.lastNode
+	b.sourceMultiplicity = multiplicity
 
 	// One diagnostic per keyword: the first thing wrong with it is enough to
 	// say why no succession was built.
@@ -328,7 +405,9 @@ func (b *bodyBuilder) add(m ast.Node) {
 	// it: record it before its source is bound, which clears the mark it is read by.
 	b.p.markAttached(m)
 	pending, at, valid := b.pending, b.pendingAt, b.valid
+	multiplicity := b.sourceMultiplicity
 	b.pending = false
+	b.sourceMultiplicity = nil
 
 	// `then <target>;` leaves its source to the member before it, the same member
 	// a member-attached `then` sequences from, rather than to a consumer's guess.
@@ -357,6 +436,7 @@ func (b *bodyBuilder) add(m ast.Node) {
 		return
 	}
 	edge := synthesizeSuccession(b.source, b.sourceSpan, target, m.Span(), at)
+	edge.SourceMultiplicity = multiplicity
 	if b.source == "" {
 		edge.Source, edge.SourceMember = nil, b.sourceNode
 	}

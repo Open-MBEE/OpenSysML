@@ -206,7 +206,7 @@ func (c *calcCompiler) localCheckFor(s lower.Declare) (*scalarCheck, bool) {
 	if !ok {
 		return nil, true
 	}
-	check, ok := c.scalarCheckFor(&calcMemberDecl{Target: target, Owner: c.shape.BodyOwner, multStated: target.multStated})
+	check, ok := c.scalarCheckFor(&calcMemberDecl{Target: target, Owner: c.shape.BodyOwner, multStated: target.countJudged})
 	if !ok {
 		return nil, false
 	}

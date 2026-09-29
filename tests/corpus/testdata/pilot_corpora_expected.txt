@@ -6,7 +6,6 @@
 # files: kerml-examples 58
 # files: sysml-examples 99
 # files: sysml-validation 56
-1	kerml-examples/Simple Tests/Behaviors.kerml
 3	kerml-examples/Simple Tests/Circular.kerml
 6	kerml-examples/Simple Tests/Expressions.kerml
 1	sysml-examples/Analysis Examples/Dynamics.sysml

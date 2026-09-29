@@ -81,7 +81,7 @@ elmt:LoopsAndConditionals__Control_om
     sysml:membershipOwningNamespace elmt:LoopsAndConditionals .
 
 elmt:LoopsAndConditionals__Control__count
-    a sysml:ReferenceUsage ;
+    a sysml:AttributeUsage ;
     sysml:qualifiedName "LoopsAndConditionals::Control::count" ;
     sysml:elementId "LoopsAndConditionals__Control__count" ;
     sysx:memberIndex "0"^^xsd:integer ;

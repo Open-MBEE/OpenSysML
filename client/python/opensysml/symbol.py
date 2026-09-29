@@ -20,7 +20,7 @@ if TYPE_CHECKING:
 
 # Kind strings emitted by the service (internal/semantic/symbols: symbolKindNames).
 # Matched case-insensitively so older PascalCase producers still work.
-ATTRIBUTE_KINDS = frozenset({"attributedef", "attributeusage"})
+ATTRIBUTE_KINDS = frozenset({"attributedef", "attributeusage", "referenceusage"})
 PART_KINDS = frozenset({"partdef", "partusage"})
 
 

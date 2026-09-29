@@ -36,7 +36,10 @@ type identityFacts struct {
 	byFQN map[string]elementIdentity
 	// byNode keys each identity by its declaration node: an unnamed element's
 	// symbol name and the encoder's positional name cannot join on FQN.
-	byNode     map[ast.Node]elementIdentity
+	byNode map[ast.Node]elementIdentity
+	// declSym is the symbol each declaration node was resolved as, which a
+	// metadata body's members need to find the feature their name restates.
+	declSym    map[ast.Node]*symbols.Symbol
 	consumed   map[ast.Node]bool
 	provenance map[ast.Node]*identity.Scope
 	// qualified reports a multi-scope document, whose scoped elements get
@@ -96,6 +99,7 @@ func documentIdentity(name string, res *resolve.Resolver, model *semantics.Model
 		form:       form,
 		byFQN:      map[string]elementIdentity{},
 		byNode:     map[ast.Node]elementIdentity{},
+		declSym:    map[ast.Node]*symbols.Symbol{},
 		consumed:   map[ast.Node]bool{},
 		provenance: map[ast.Node]*identity.Scope{},
 		model:      model,
@@ -136,12 +140,21 @@ func documentIdentity(name string, res *resolve.Resolver, model *semantics.Model
 		if root := identity.Root(sym); root != sym {
 			if ri, ok := table.Info(root); ok {
 				el.root = ri.FQN
+				if root.Name != "" {
+					el.root = identitySegment(root.Name)
+				}
 			}
 		} else {
 			el.root = info.FQN
+			if sym.Name != "" {
+				el.root = identitySegment(sym.Name)
+			}
 		}
 		facts.byFQN[info.FQN] = el
 		facts.byNode[sym.Decl] = el
+		if sym.Decl != nil {
+			facts.declSym[sym.Decl] = sym
+		}
 	}
 	facts.qualified = len(scopeKeys) > 1
 	return facts, nil

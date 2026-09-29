@@ -2904,7 +2904,7 @@ func testOrderingOperandWithNoLibraryOrdering(t *testing.T) {
 			attribute point : Point;
 			metadata def Tag;
 			#Tag part tagged : Widget;
-			calc twice { in x : Integer; x * 2 }
+			calc twice { in x : Integer[1]; x * 2 }
 			attribute xs : Integer[*] = (1, 2);
 			part other : Widget;
 			attribute widgets : Widget[*] = (widget, other);
@@ -4813,7 +4813,7 @@ func testTwoValuedMemberInScalarContext(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			src := `package test {
 				private import ScalarValues::*;
-				calc def Inc { in x : Real; x + 1.0 }
+				calc def Inc { in x : Real[1]; x + 1.0 }
 				part def Holder { attribute zs : Real[0..*]; }
 				calc def Two {
 					attribute q : Holder = new Holder(zs = (1.0, 2.0));
@@ -8474,8 +8474,8 @@ func testCalcUnboundParameter(t *testing.T) {
 	src := `
 		package test {
 			calc add {
-				in x: Integer;
-				in y: Integer;
+				in x: Integer[1];
+				in y: Integer[1];
 				x + y
 			}
 		}
@@ -8526,7 +8526,7 @@ func testCalcCallsAnUnimportedExtensionFunction(t *testing.T) {
 	if !errors.Is(err, ErrUnresolvedReference) {
 		t.Fatalf("expected ErrUnresolvedReference, got: %v", err)
 	}
-	if want := ": unresolved reference: exp — did you mean OpenSysMLMathFunctions::exp?"; !strings.HasSuffix(err.Error(), want) {
+	if want := ": unresolved reference: exp — did you mean OpenSysMLMathFunctions::exp? To use the bare name, import its package: private import OpenSysMLMathFunctions::*;"; !strings.HasSuffix(err.Error(), want) {
 		t.Errorf("error %q does not end in %q", err, want)
 	}
 }
@@ -8585,8 +8585,8 @@ func testCalcUnboundKeywordNamedParameter(t *testing.T) {
 	src := `
 		package test {
 			calc classify {
-				in 'type': Integer;
-				in 'state': Integer;
+				in 'type': Integer[1];
+				in 'state': Integer[1];
 				'type' + 'state'
 			}
 		}
@@ -9892,7 +9892,7 @@ func testFlowEndNamingNoNode(t *testing.T) {
 					action driveTrain {
 						first start;
 						action generate { out engineTorque : Integer; assign engineTorque := 1; }
-						action amplify { in torqueIn : Integer; }
+						action amplify { in torqueIn : Integer[1]; }
 						done;
 						succession first start then generate;
 						succession first generate then amplify;
@@ -9977,8 +9977,8 @@ func testAcceptPayloadWithoutAValue(t *testing.T) {
 
 // testAcceptPayloadReadBeforeItIsBound: the payload is a declaration of the body
 // wherever the body resolves, so a node running before the accept binds it
-// resolves the name and finds no value — reported as a feature without a value,
-// not read as an empty value and not as a name that fails to resolve.
+// resolves the name — and a payload's bare parameter admits no value, so the read
+// yields the empty sequence its assign target refuses, not an unresolved name.
 func testAcceptPayloadReadBeforeItIsBound(t *testing.T) {
 	_, err := executeActionSource(t, "pipeline", `package P {
 		action pipeline {
@@ -9992,14 +9992,17 @@ func testAcceptPayloadReadBeforeItIsBound(t *testing.T) {
 			succession first waiter then done;
 		}
 	}`)
-	if !errors.Is(err, ErrNoValue) {
-		t.Fatalf("err = %v; want ErrNoValue", err)
+	// A payload names no multiplicity of its own, so §7.6.3 gives it [0..*]:
+	// unbound it resolves to the empty sequence, which a [1..1] assign target
+	// refuses by count — reported, and not read as a name that fails to resolve.
+	if err == nil {
+		t.Fatal("expected the unbound payload read to fail")
 	}
 	if errors.Is(err, ErrUnresolvedReference) {
 		t.Errorf("a declared payload was reported as unresolved: %v", err)
 	}
-	if !strings.Contains(err.Error(), "msg") {
-		t.Errorf("error does not name the payload: %v", err)
+	if !strings.Contains(err.Error(), "seen") || !strings.Contains(err.Error(), "multiplicity") {
+		t.Errorf("error = %v, want the assign target's count refusal naming seen", err)
 	}
 }
 
@@ -10011,8 +10014,8 @@ func testFlowFromANodeThatProducedNothing(t *testing.T) {
 		package test {
 			action driveTrain {
 				first start;
-				action generate { out engineTorque : Integer; }
-				action amplify { in torqueIn : Integer; }
+				action generate { out engineTorque : Integer[1]; }
+				action amplify { in torqueIn : Integer[1]; }
 				done;
 				succession first start then generate;
 				succession first generate then amplify;
@@ -11574,7 +11577,7 @@ func testCalcUsageUnboundInput(t *testing.T) {
 	src := `
 		package test {
 			calc def Two {
-				in n : Integer;
+				in n : Integer[1];
 				out a = n + 1;
 				out b = n * 2;
 			}
@@ -11593,7 +11596,7 @@ func testCalcUsageUnknownOutput(t *testing.T) {
 	src := `
 		package test {
 			calc def Two {
-				in n : Integer;
+				in n : Integer[1];
 				out a = n + 1;
 				out b = n * 2;
 			}
@@ -11817,7 +11820,7 @@ func testMultipleOutputsInvokedAsAnExpression(t *testing.T) {
 	src := `
 		package test {
 			calc def Two {
-				in n : Integer;
+				in n : Integer[1];
 				out a = n + 1;
 				out b = n * 2;
 			}
@@ -11850,12 +11853,12 @@ func testNestedCalcUsageUnboundInput(t *testing.T) {
 	src := `
 		package test {
 			calc def Two {
-				in n : Integer;
+				in n : Integer[1];
 				out a = n + 1;
 				out b = n * 2;
 			}
 			calc def Outer {
-				in m : Integer;
+				in m : Integer[1];
 				calc inner : Two;
 				out d = inner.a;
 			}
@@ -11874,12 +11877,12 @@ func testNestedCalcUsageUnknownOutput(t *testing.T) {
 	src := `
 		package test {
 			calc def Two {
-				in n : Integer;
+				in n : Integer[1];
 				out a = n + 1;
 				out b = n * 2;
 			}
 			calc def Outer {
-				in m : Integer;
+				in m : Integer[1];
 				calc inner : Two { in n = m; }
 				out d = inner.nope;
 			}
@@ -11899,7 +11902,7 @@ func testNestedCalcUsageSelfCycle(t *testing.T) {
 	src := `
 		package test {
 			calc def Two {
-				in n : Integer;
+				in n : Integer[1];
 				out a = n + 1;
 				out b = n * 2;
 			}
@@ -11952,7 +11955,7 @@ func testNestedCalcUsageStepBudget(t *testing.T) {
 				out reached = i;
 			}
 			calc def Outer {
-				in m : Integer;
+				in m : Integer[1];
 				calc inner : Spin { in n = m; }
 				out d = inner.reached;
 			}
@@ -12596,7 +12599,7 @@ func testUsageReadThroughAPartWithoutAnOutput(t *testing.T) {
 	src := `
 		package test {
 			calc def Two {
-				in n : Integer;
+				in n : Integer[1];
 				out a = n + 1;
 				out b = n * 2;
 			}
@@ -13005,7 +13008,7 @@ func testOperationInvokedWithUnboundParameters(t *testing.T) {
 		part def Adder {
 			attribute total : Integer = 0;
 			action add {
-				in addend : Integer;
+				in addend : Integer[1];
 				assign total := total + addend;
 			}
 		}
@@ -13721,8 +13724,8 @@ func runOuterAction(t *testing.T, src string) error {
 
 const adderActionDef = `
 	action def Adder {
-		in a : Integer;
-		in b : Integer;
+		in a : Integer[1];
+		in b : Integer[1];
 		out sum : Integer;
 		first step;
 		action step { assign sum := a + b; }
@@ -13763,8 +13766,8 @@ func testNodeOutputBoundToANestedNodeThatNeverRuns(t *testing.T) {
 				bind leg.inner.v = leg.v;
 				first start;
 				then action leg {
-					out v : Integer;
-					action inner { out v : Integer; assign v := 1; }
+					out v : Integer[1];
+					action inner { out v : Integer[1]; assign v := 1; }
 					first start;
 					then action own { assign legV := 0; }
 					then done;
@@ -15756,7 +15759,7 @@ func testInheritedBindingDoesNotReachAMaskingNode(t *testing.T) {
 				bind add.a = x;
 			}
 			action def Derived :> Base {
-				action add { in a : Integer; out sum : Integer; assign sum := a + 1; }
+				action add { in a : Integer[1]; out sum : Integer; assign sum := a + 1; }
 				first start then add;
 				succession add then done;
 			}
@@ -15791,7 +15794,7 @@ func testInheritedBindingDoesNotReachThroughAReplacedOtherEnd(t *testing.T) {
 	src := `
 		package test {
 			action def Adder {
-				in a : Integer;
+				in a : Integer[1];
 				out sum : Integer;
 				first step;
 				action step { assign sum := a; }
@@ -16110,8 +16113,8 @@ func testNodeFlowIntoAPinTheTargetDoesNotDeclare(t *testing.T) {
 const functionValueFixture = `
 	private import ScalarValues::*;
 	calc def Sq { in v : Real; return : Real = v * v; }
-	calc def Add { in x : Real; in y : Real; return : Real = x + y; }
-	calc def Fn { in calc f { in v : Real; return : Real; } in a : Real; return : Real = f(a); }
+	calc def Add { in x : Real; in y : Real[1]; return : Real = x + y; }
+	calc def Fn { in calc f[1] { in v : Real; return : Real; } in a : Real; return : Real = f(a); }
 `
 
 // invokeCalcExpecting evaluates the calc call expr against src with the standard library,
@@ -16191,7 +16194,7 @@ func testFunctionValueUnknownNamedArgument(t *testing.T) {
 // to fewer arguments than its calc needs is reported the same way.
 func testFunctionValueUnboundCalcParameter(t *testing.T) {
 	src := `package test {` + functionValueFixture + `
-		calc def Partial { in calc f { in x : Real; in y : Real; return : Real; } return : Real = f(1.0); }
+		calc def Partial { in calc f { in x : Real; in y : Real[1]; return : Real; } return : Real = f(1.0); }
 	}`
 	err := invokeCalcExpecting(t, src, "test::Fn(a = 3.0)")
 	if !errors.Is(err, ErrUnboundParameter) || !strings.Contains(err.Error(), `parameter "f"`) {
@@ -16263,9 +16266,9 @@ func testFunctionValueInheritedBodyOutsideTheClosure(t *testing.T) {
 // parameter name while no such run is active, it reads no binding of the caller's.
 func testFunctionValueNestedCalcOutsideItsRun(t *testing.T) {
 	src := `package test {` + functionValueFixture + `
-		calc def Outer { in k : Real; calc inner { in v : Real; return : Real = v * k; } return : Real = inner(1.0); }
-		calc def Called { in k : Real; return : Real = Outer::inner(2.0); }
-		calc def Passed { in k : Real; return : Real = Fn(Outer::inner, 2.0); }
+		calc def Outer { in k : Real[1]; calc inner { in v : Real[1]; return : Real = v * k; } return : Real = inner(1.0); }
+		calc def Called { in k : Real[1]; return : Real = Outer::inner(2.0); }
+		calc def Passed { in k : Real[1]; return : Real = Fn(Outer::inner, 2.0); }
 	}`
 	for _, expr := range []string{"test::Called(3.0)", "test::Passed(3.0)"} {
 		err := invokeCalcExpecting(t, src, expr)
@@ -16307,7 +16310,7 @@ const verificationRobustnessModel = `
 
 		verification def Thresholded {
 			subject sensor : Sensor;
-			in threshold : ScalarValues::Integer;
+			in threshold : ScalarValues::Integer[1];
 			VerificationCases::PassIf(sensor.reading == threshold)
 		}
 
@@ -16944,7 +16947,7 @@ func stateMachineWithLibraries(t *testing.T, src string) *StateExecutor {
 func testStateDoTypedActionInputUnbound(t *testing.T) {
 	exec := stateExecutorForSource(t, "Machine", `package test {
 		private import ScalarValues::*;
-		action def Poll { in n : Integer; assign n := n + 1; }
+		action def Poll { in n : Integer[1]; assign n := n + 1; }
 		state Machine {
 			attribute total : Integer = 0;
 			entry; then active;

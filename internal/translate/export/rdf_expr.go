@@ -37,6 +37,7 @@ const (
 	mCollect             = "CollectExpression"
 	mSelect              = "SelectExpression"
 	mMetadataAccess      = "MetadataAccessExpression"
+	mTriggerInvocation   = "TriggerInvocationExpression"
 	mReferenceSubsetting = "ReferenceSubsetting"
 )
 
@@ -117,6 +118,7 @@ func (e *encoder) expressionNode(subject rdf.Term, owner string, node ast.Node) 
 var resultBearing = map[string]bool{
 	mFeatureReference: true, mFeatureChain: true, mOperator: true, mIndex: true,
 	mInvocation: true, mConstructor: true, mCollect: true, mSelect: true,
+	mTriggerInvocation: true,
 }
 
 // resultParameter emits the `out` Feature an expression's ReturnParameterMembership owns.
@@ -237,8 +239,42 @@ func (e *encoder) expressionOperands(subject rdf.Term, owner string, node ast.No
 
 	case *ast.BodyExpr:
 		return e.bodyExpression(subject, owner, n)
+
+	case *ast.TimeEvent:
+		kind := "after"
+		if n.Absolute {
+			kind = "at"
+		}
+		e.graph.Add(subject, e.sysml(pKind), rdf.String(kind))
+		return e.arguments(subject, owner, []ast.Node{n.Duration})
+
+	case *ast.ChangeEvent:
+		e.graph.Add(subject, e.sysml(pKind), rdf.String("when"))
+		return e.changeArgument(subject, owner, n.Condition)
 	}
 	return nil
+}
+
+// changeArgument emits the argument of a `when` trigger as the pilot does
+// (SysML.xtext ArgumentExpressionMember): a FeatureReferenceExpression whose
+// referent is the condition it owns through a FeatureMembership.
+func (e *encoder) changeArgument(subject rdf.Term, owner string, condition ast.Node) error {
+	if condition == nil {
+		return nil
+	}
+	argument := e.ids.mintedNode(rdf.ExpressionIRI(subject, "a0"), subject, "a0")
+	e.graph.Add(argument, e.sysx(xSourceText), rdf.String(e.text(condition)))
+	e.graph.Add(argument, e.sysml(pElementID), rdf.String(rdf.LocalName(argument.Value)))
+	e.typed(argument, mFeatureReference)
+	target := e.ids.mintedNode(rdf.ExpressionIRI(argument, "change"), argument, "change")
+	if err := e.expressionNode(target, owner, condition); err != nil {
+		return err
+	}
+	e.graph.Add(argument, e.sysml(pReferent), target)
+	e.bodyMembership(argument, target, mFeatureMembership)
+	e.resultParameter(argument)
+	e.graph.Add(subject, e.sysml(pArgument), argument)
+	return e.expressionOperandOwnership(subject, argument, 0)
 }
 
 // bodyExpression emits `{ in x; ... result }` as the pilot does (KerMLExpressions
@@ -336,6 +372,8 @@ func expressionMetaclass(node ast.Node) string {
 		return mSelect
 	case *ast.MetadataAccessExpr:
 		return mMetadataAccess
+	case *ast.TimeEvent, *ast.ChangeEvent:
+		return mTriggerInvocation
 	}
 	return mExpression
 }
@@ -642,7 +680,7 @@ var expressionMetaclasses = map[string]bool{
 	mLiteralRational: true, mLiteralString: true, mLiteralInfinity: true,
 	mNullExpression: true, mFeatureReference: true, mFeatureChain: true,
 	mOperator: true, mIndex: true, mInvocation: true, mConstructor: true,
-	mCollect: true, mSelect: true, mMetadataAccess: true,
+	mCollect: true, mSelect: true, mMetadataAccess: true, mTriggerInvocation: true,
 	// A MultiplicityRange is a part of the feature's declaration, and a
 	// Membership relates an expression to its referent: both are minted in the
 	// expression namespace under the element they belong to.
@@ -656,7 +694,8 @@ var expressionMetaclasses = map[string]bool{
 func isExpressionRoot(metaclass string) bool {
 	return expressionMetaclasses[metaclass] || metaclass == mReferenceSubsetting ||
 		metaclass == crossFeatureMetaclass(true) ||
-		metaclass == crossFeatureMetaclass(false) || metaclass == mPortUsage
+		metaclass == crossFeatureMetaclass(false) || metaclass == mPortUsage ||
+		metaclass == mFlowEnd
 }
 
 // isExpressionNode reports whether a subject is part of a declaration (an expression
@@ -842,7 +881,11 @@ func (d *decoder) resolveExpression(triple rdf.Triple, parents map[string][]rdf.
 			return err
 		}
 	}
-	text, err := d.expressionOperand(triple.Object, el, positionBinding(strings.TrimPrefix(triple.Predicate.Value, rdf.SysML)))
+	written := el
+	if transition := d.triggerTransition(el); transition != nil {
+		written = transition
+	}
+	text, err := d.expressionOperand(triple.Object, written, positionBinding(strings.TrimPrefix(triple.Predicate.Value, rdf.SysML)))
 	if err != nil {
 		return err
 	}
@@ -873,8 +916,12 @@ func (d *decoder) noteSegments(parents map[string][]rdf.Term) error {
 	return nil
 }
 
-// noteSegment records every feature chain segment node reaches in wanted.
+// noteSegment records every feature chain segment node reaches in wanted, and
+// every segment of a flow end, which its FlowFeature ends.
 func (d *decoder) noteSegment(node rdf.Term, parents map[string][]rdf.Term) error {
+	if d.metaclass(node) == mFlowEnd {
+		return d.noteFlowEnd(node)
+	}
 	segments, err := d.chainSegments(node)
 	if err != nil {
 		return err
@@ -911,6 +958,37 @@ func (d *decoder) noteSegment(node rdf.Term, parents map[string][]rdf.Term) erro
 	return nil
 }
 
+// noteFlowEnd records the segments a flow end is written as in the connector
+// that owns it.
+func (d *decoder) noteFlowEnd(end rdf.Term) error {
+	connector, ok := d.graph.Object(end, rdf.SysML+pOwner)
+	if !ok {
+		return nil
+	}
+	owner, ok := d.byIRI[connector.Value]
+	if !ok {
+		return nil
+	}
+	segments, err := d.flowEndSegments(end, owner)
+	if err != nil {
+		return err
+	}
+	operand := ""
+	for _, segment := range segments {
+		if segment.IsLiteral() {
+			operand = ""
+			continue
+		}
+		target, name, err := d.namedMember(segment)
+		if err != nil {
+			return err
+		}
+		d.recordSegment(operand, name, target.qname, []*element{owner})
+		operand = target.qname
+	}
+	return nil
+}
+
 // segmentOwners is the elements a chain is written in: its expression owners,
 // or the connector owning a structural end chain's end.
 func (d *decoder) segmentOwners(node rdf.Term, parents map[string][]rdf.Term, segments []rdf.Term) []*element {
@@ -931,7 +1009,7 @@ func (d *decoder) segmentOwners(node rdf.Term, parents map[string][]rdf.Term, se
 // recordSegment notes one chain segment in each owning element.
 func (d *decoder) recordSegment(operand, name, target string, owners []*element) {
 	for _, in := range owners {
-		d.wanted.segments[segmentKey{member: in.qname, operand: operand, name: name, target: target}] = true
+		d.wanted.segments[segmentKey{member: d.writtenQName(in), operand: operand, name: name, target: target}] = true
 	}
 }
 
@@ -972,7 +1050,7 @@ func (d *decoder) segmentName(chain, term rdf.Term, in *element) (string, error)
 		return "", err
 	}
 	if d.names != nil {
-		key := segmentKey{member: in.qname, operand: d.operandElement(chain), name: name, target: target.qname}
+		key := segmentKey{member: d.writtenQName(in), operand: d.operandElement(chain), name: name, target: target.qname}
 		if spelling, ok := d.names.segments[key]; ok {
 			return qualifiedNameText(spelling), nil
 		}
@@ -1164,8 +1242,44 @@ func (d *decoder) expressionForm(node rdf.Term, in *element) (operand, error) {
 		return d.operatorForm(node, in)
 	case mInvocation, mConstructor:
 		return primary(d.invocationText(node, in))
+	case mTriggerInvocation:
+		return d.triggerForm(node, in)
 	}
 	return primary("", unsupported("this expression states no notation and no structure to write one from; "+rdfLimitationsNote))
+}
+
+// triggerForm writes a TriggerInvocationExpression (SysML.xtext TriggerExpression)
+// as its kind keyword and its one argument: `after d`, `at t`, `when c`.
+func (d *decoder) triggerForm(node rdf.Term, in *element) (operand, error) {
+	unsupported := func(note string) error {
+		return &UnsupportedError{What: fmt.Sprintf("the trigger expression <%s>", node.Value), Note: note}
+	}
+	kind, _ := d.graph.Lexical(node, rdf.SysML+pKind)
+	switch kind {
+	case "after", "at", "when":
+	default:
+		return operand{}, unsupported(fmt.Sprintf("its kind is %q, and a trigger is written `after`, `at` or `when`", kind))
+	}
+	terms, _, err := d.expressionOperandTerms(node)
+	if err != nil {
+		return operand{}, err
+	}
+	if len(terms) != 1 {
+		return operand{}, unsupported("a trigger expression takes exactly one argument")
+	}
+	argument := terms[0].term
+	if kind == "when" {
+		// The change argument refers to the condition it owns.
+		if referent, ok := d.graph.Object(argument, rdf.SysML+pReferent); ok &&
+			d.metaclass(argument) == mFeatureReference && d.isExpressionNode(referent) {
+			argument = referent
+		}
+	}
+	text, err := d.expressionNodeText(argument, in)
+	if err != nil {
+		return operand{}, err
+	}
+	return operand{text: kind + " " + text, binding: bindConditional}, nil
 }
 
 // expressionBody is the body Expression a node writes as `{ ... }`: the node

@@ -10,6 +10,7 @@ import (
 	"github.com/Open-MBEE/OpenSysML/internal/exec/runtime"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/semantics"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/symbols"
+	"github.com/Open-MBEE/OpenSysML/internal/syntax/ast"
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/source"
 )
 
@@ -64,6 +65,9 @@ type Pin struct {
 
 	// Name is the feature as the element naming it writes it.
 	Name string
+
+	// Var is the exact query variable the pin fixes, where it names one.
+	Var string
 
 	// Value is the value it is fixed to, read where the evaluator reads it.
 	Value runtime.Value
@@ -342,14 +346,51 @@ func (t *translator) fix(pins []Pin) error {
 // pinnedVar is the variable a fixed value fixes: the one standing for that very
 // feature, read directly rather than through a chain from another object.
 func (t *translator) pinnedVar(p Pin) *Var {
+	if p.Var != "" {
+		return t.vars[p.Var]
+	}
 	if p.Feature == nil {
 		return nil
 	}
-	v, ok := t.vars[t.fqn(p.Feature)]
-	if !ok || v.Symbol != p.Feature {
-		return nil
+	for _, sym := range append([]*symbols.Symbol{p.Feature}, t.model.AllRedefinedFeatures(p.Feature)...) {
+		if v, ok := t.vars[t.fqn(sym)]; ok && v.Symbol == sym {
+			return v
+		}
 	}
-	return v
+	// A value fixed on a redefinition fixes what it redefines too, since both
+	// names read the one value — so it also fixes a chain var standing for one
+	// of them. But a chain var names the feature through an object, so it is
+	// pinned only when its root denotes the pinned object: a subject member
+	// the object fills (`vehicle` where `by craft` binds it), or the very
+	// usage the pin's feature belongs to (`hg` for `hg.power`). Another
+	// usage's root is a different object — `other.power` is never `eng`'s.
+	var best *Var
+	for _, v := range t.vars {
+		if v.Root == nil || v.Root == v.Symbol {
+			continue
+		}
+		matched := v.Symbol == p.Feature
+		if !matched {
+			for _, redefined := range t.model.AllRedefinedFeatures(p.Feature) {
+				if v.Symbol == redefined {
+					matched = true
+					break
+				}
+			}
+		}
+		if !matched {
+			continue
+		}
+		_, subject := v.Root.Decl.(*ast.SubjectMember)
+		owned := p.Feature.OwnerScope != nil && p.Feature.OwnerScope.Owner() == v.Root
+		if !subject && !owned {
+			continue
+		}
+		if best == nil || v.Name < best.Name {
+			best = v
+		}
+	}
+	return best
 }
 
 // Openings of the refusals that report what a pinned feature holds.
@@ -592,4 +633,39 @@ func ratOfFloat(f float64) (*big.Rat, bool) {
 		return nil, false
 	}
 	return new(big.Rat).SetString(strconv.FormatFloat(f, 'g', -1, 64))
+}
+
+// ChainPins reads the value each unpinned chain variable of a translated query
+// names — a feature a chain of two or more steps reaches, which no fixed value
+// names directly — by the same evaluation the conditions run: the variable is
+// free when the evaluator reports it has no value, and any other read failure
+// is returned, since the evaluator errors there too.
+func ChainPins(ctx *runtime.Context, q *Query, self *runtime.Instance) ([]Pin, error) {
+	pinned := make(map[string]bool, len(q.Pinned))
+	for _, p := range q.Pinned {
+		pinned[p.Var.Name] = true
+	}
+	var out []Pin
+	for _, v := range q.Vars {
+		if len(v.Steps) < 2 || v.Ref == nil || v.Scope == nil || pinned[v.Name] {
+			continue
+		}
+		value, err := runtime.NewEvalContextIn(ctx, v.Scope, self).Eval(v.Ref)
+		if err != nil {
+			if errors.Is(err, runtime.ErrNoValue) {
+				continue
+			}
+			return nil, err
+		}
+		if value.Kind == runtime.ValInvalid || value.Kind == runtime.ValUndetermined || ctx.HoldsNoValue(value) {
+			continue
+		}
+		source := PinDeclared
+		var object int64
+		if self != nil {
+			source, object = PinHeld, self.ID
+		}
+		out = append(out, Pin{Feature: v.Symbol, Name: v.Name, Var: v.Name, Value: value, Source: source, Object: object})
+	}
+	return out, nil
 }

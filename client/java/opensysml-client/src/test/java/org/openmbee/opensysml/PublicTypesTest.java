@@ -731,6 +731,81 @@ class PublicTypesTest {
     assertEditCapability(
         Edit.AddTransition.of("Demo::S", "idle", "toasting"),
         Capabilities.TRANSITION_AUTHORING);
+    assertEditCapability(
+        Edit.AddVerify.of("Demo::Case", "Demo::r"),
+        Capabilities.VERIFICATION_OBJECTIVE_AUTHORING);
+    assertEditCapability(
+        Edit.AddMember.of("Demo::Case", "objective", ""),
+        Capabilities.VERIFICATION_OBJECTIVE_AUTHORING);
+    assertEditCapability(
+        Edit.AddMetadata.of("Demo", "Demo::M"),
+        Capabilities.METADATA_AUTHORING);
+    assertEditCapability(
+        Edit.addMetadataPrefix("Demo::Part", "Demo::M"),
+        Capabilities.METADATA_PREFIX_AUTHORING);
+    assertEditCapability(
+        Edit.AddMember.of("Demo", "part def", "P")
+            .withMetadataPrefixes(List.of("Demo::M")),
+        Capabilities.METADATA_AUTHORING);
+    assertEditCapability(
+        Edit.AddSequence.first("Demo::A", "start"), Capabilities.SEQUENCE_AUTHORING);
+    assertEditCapability(
+        Edit.AddMember.of("Demo", "assert constraint", "bounded"),
+        Capabilities.CONSTRAINT_BODY_AUTHORING);
+    assertEditCapability(
+        Edit.AddMember.of("Demo", "assert", "bounded"),
+        Capabilities.CONSTRAINT_BODY_AUTHORING);
+    assertEditCapability(
+        Edit.AddMember.of("Demo", "assert not", "bounded"),
+        Capabilities.CONSTRAINT_BODY_AUTHORING);
+    assertEditCapability(
+        Edit.AddMember.of("Demo", "constraint", "bounded").withBodyExpression("x > 1"),
+        Capabilities.CONSTRAINT_BODY_AUTHORING);
+    assertEditCapability(
+        Edit.AddMember.of("Demo", "calc def", "Double").withBodyExpression("x * 2"),
+        Capabilities.CONSTRAINT_BODY_AUTHORING);
+    assertEditCapability(
+        Edit.AddMember.of("Demo::S", "do action", "run"),
+        Capabilities.STATE_ACTION_AUTHORING);
+    assertEditCapability(
+        Edit.AddImport.of("Demo", "ScalarValues::*"),
+        Capabilities.IMPORT_AUTHORING);
+    assertEditCapability(
+        Edit.AddDocumentation.of("Demo::A", "Text."), Capabilities.DOCUMENTATION_AUTHORING);
+    assertEditCapability(
+        Edit.AddMember.of("Demo", "part def", "A").withDoc("Text."),
+        Capabilities.DOCUMENTATION_AUTHORING);
+    assertEditCapability(Edit.AddComment.of("Demo", "Text."), Capabilities.COMMENT_AUTHORING);
+    assertEditCapability(new Edit.AddNote("Demo::A", "Text."), Capabilities.COMMENT_AUTHORING);
+  }
+
+  @Test
+  void anEmptyConstraintBodyDoesNotRequireConstraintBodyAuthoring() {
+    try (Connection limited =
+        new Connection(
+            new ConnectTransport("127.0.0.1:1", Encoding.PROTOBUF, Duration.ofSeconds(1)),
+            new Capabilities(
+                "dev", java.util.Set.of(Capabilities.APPLY_EDITS, Capabilities.AUTHORING)))) {
+      Model model = new Model(limited, "hash", List.of(), List.of());
+      assertThrows(
+          TransportException.class,
+          () ->
+              model.applyEdits(
+                  List.of(
+                      Edit.AddMember.of("Demo", "constraint", "bounded")
+                          .withBodyExpression(""))));
+    }
+  }
+
+  @Test
+  void anAddMemberDirectionRetainsItsBodyExpression() {
+    Edit.AddMember member =
+        Edit.AddMember.of("Demo", "constraint", "bounded")
+            .withBodyExpression("x > 1")
+            .withDirection("in");
+
+    assertEquals(Optional.of("x > 1"), member.bodyExpression());
+    assertEquals("in", member.direction());
   }
 
   @Test
@@ -747,6 +822,62 @@ class PublicTypesTest {
               () ->
                   model.applyEdits(
                       List.of(Edit.AddTransition.of("Demo::S", "idle", "toasting"))));
+      assertEquals(Capabilities.AUTHORING, refused.capability());
+    }
+  }
+
+  @Test
+  void addingASequenceAlsoRequiresAuthoring() {
+    try (Connection limited =
+        new Connection(
+            new ConnectTransport("127.0.0.1:1", Encoding.PROTOBUF, Duration.ofSeconds(1)),
+            new Capabilities(
+                "dev", java.util.Set.of(Capabilities.APPLY_EDITS, Capabilities.SEQUENCE_AUTHORING)))) {
+      Model model = new Model(limited, "hash", List.of(), List.of());
+      CapabilityException refused =
+          assertThrows(
+              CapabilityException.class,
+              () -> model.applyEdits(List.of(Edit.AddSequence.then("Demo::A", "done"))));
+      assertEquals(Capabilities.AUTHORING, refused.capability());
+    }
+  }
+
+  @Test
+  void anActionBodyStatementAlsoRequiresItsCapability() {
+    try (Connection limited =
+        new Connection(
+            new ConnectTransport("127.0.0.1:1", Encoding.PROTOBUF, Duration.ofSeconds(1)),
+            new Capabilities(
+                "dev",
+                java.util.Set.of(
+                    Capabilities.APPLY_EDITS,
+                    Capabilities.AUTHORING,
+                    Capabilities.SEQUENCE_AUTHORING)))) {
+      Model model = new Model(limited, "hash", List.of(), List.of());
+      Edit.AddSequence statement =
+          Edit.AddSequence.thenMember("Demo::A", "assign", "")
+              .withTarget("x")
+              .withValue("1");
+      CapabilityException refused =
+          assertThrows(CapabilityException.class, () -> model.applyEdits(List.of(statement)));
+      assertEquals(Capabilities.ACTION_BODY_STATEMENT_AUTHORING, refused.capability());
+    }
+  }
+
+  @Test
+  void addingAnImportAlsoRequiresAuthoring() {
+    try (Connection limited =
+        new Connection(
+            new ConnectTransport("127.0.0.1:1", Encoding.PROTOBUF, Duration.ofSeconds(1)),
+            new Capabilities(
+                "dev", java.util.Set.of(Capabilities.APPLY_EDITS, Capabilities.IMPORT_AUTHORING)))) {
+      Model model = new Model(limited, "hash", List.of(), List.of());
+      CapabilityException refused =
+          assertThrows(
+              CapabilityException.class,
+              () ->
+                  model.applyEdits(
+                      List.of(Edit.AddImport.of("Demo", "ScalarValues::*"))));
       assertEquals(Capabilities.AUTHORING, refused.capability());
     }
   }

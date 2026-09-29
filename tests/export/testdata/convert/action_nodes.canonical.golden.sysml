@@ -1,1 +1,28 @@
-sysml: cannot convert the expression <urn:opensysml:expr:ActionNodes__Drive___4015___400_pvalue>: this expression states no notation and no structure to write one from; save to .sysml or .kerml instead, which writes the source exactly; see docs/reference/rdf-mapping.md § Limitations
+package ActionNodes {
+    attribute def Command;
+    port def Radio;
+    action def Brake;
+    action def Drive {
+        in attribute speed;
+        attribute log;
+        port antenna : Radio;
+        action def Stop;
+        first start;
+        action brake : Brake;
+        fork split;
+        join sync;
+        merge gather;
+        decide pick;
+        perform brake;
+        action Brake;
+        assign log := speed;
+        send new Command() to antenna;
+        send new Command() via antenna;
+        accept when speed > 0;
+        terminate;
+        terminate brake;
+        done;
+        succession first start then brake;
+        succession first brake then done;
+    }
+}

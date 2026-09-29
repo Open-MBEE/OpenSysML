@@ -12,7 +12,7 @@ package test {
 	private import ScalarValues::*;
 	part def Ship {
 		attribute cost : Real = 5.0;
-		calc weigh { in n : Real; return : Real = cost * n; }
+		calc weigh { in n : Real[1]; return : Real = cost * n; }
 	}
 	part ship : Ship;
 	part def Fleet { part flagship : Ship; }
