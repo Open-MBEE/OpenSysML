@@ -185,6 +185,13 @@ func runConvertDocuments(files []string, to convert.Format) (int, error) {
 	if to != convert.FormatTurtle && to != convert.FormatAPIJSON {
 		return 0, fmt.Errorf("-convert converts several files into one graph, ttl or api-json; %s writes a single document", to)
 	}
+	if outputPath != "" {
+		if _, isURL, err := flexo.ParseBranchURL(outputPath); err != nil {
+			return 0, err
+		} else if isURL {
+			return 0, fmt.Errorf("-convert of several files writes a file or standard output; %s names a repository branch", outputPath)
+		}
+	}
 	if len(modelChecks.records) > 0 {
 		return 0, errors.New("-record-run converts the recorded session model; -convert of several files does not apply")
 	}

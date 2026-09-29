@@ -917,3 +917,38 @@ func TestConvertFMUOverTheArchive(t *testing.T) {
 		t.Fatalf("the FMU archive was modified (err %v)", err)
 	}
 }
+
+// A branch URL in -o with several files is refused before any document is
+// written: a multi-document conversion writes a file or standard output, and
+// pushing the graph to a branch is a different operation.
+func TestConvertSeveralDocumentsRefusesABranchOutput(t *testing.T) {
+	binary := buildCLI(t)
+	dir := t.TempDir()
+	lib := filepath.Join(dir, "lib.sysml")
+	app := filepath.Join(dir, "app.sysml")
+	if err := os.WriteFile(lib, []byte("package Lib {\n\titem def Engine;\n}\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(app, []byte("package App {\n\timport Lib::*;\n\tpart e : Engine;\n}\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	cmd := exec.Command(binary, lib, app, "-convert", "ttl", "-o", "flexo://example/main")
+	cmd.Dir = dir
+	out, err := cmd.CombinedOutput()
+	if err == nil {
+		t.Fatalf("a branch URL in -o should fail:\n%s", out)
+	}
+	if !strings.Contains(string(out), "writes a file or standard output; flexo://example/main names a repository branch") {
+		t.Errorf("unexpected refusal:\n%s", out)
+	}
+	entries, err := os.ReadDir(dir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, entry := range entries {
+		if name := entry.Name(); name != "lib.sysml" && name != "app.sysml" {
+			t.Errorf("the refused conversion wrote %s into the working directory", name)
+		}
+	}
+}
