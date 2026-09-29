@@ -54,6 +54,16 @@ func TestAddMemberWritesOptionalNotation(t *testing.T) {
 	}
 }
 
+func TestWriteMemberPlacesAbstractRefAfterDirection(t *testing.T) {
+	op := AddMember("", "ref", "p")
+	op.Direction = "in"
+	op.IsAbstract = true
+	op.Type = "T"
+	if got := writeMember(op, memberKinds["ref"]); got != "in abstract ref p : T;" {
+		t.Fatalf("writeMember = %q, want %q", got, "in abstract ref p : T;")
+	}
+}
+
 func TestAddMemberOptionalFieldCombinations(t *testing.T) {
 	fields := []struct {
 		name, typ, multiplicity, value string

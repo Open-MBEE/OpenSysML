@@ -6,6 +6,7 @@ import (
 
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/symbols"
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/ast"
+	"github.com/Open-MBEE/OpenSysML/internal/syntax/diag"
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/lexer"
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/source"
 )
@@ -83,6 +84,17 @@ func (m Model) addMetadataPrefixSplice(i int, op Operation) (splice, error) {
 			return splice{}, &Error{
 				Failure: FailureInvalidValue, OperationIndex: i,
 				Message: fmt.Sprintf("%q already carries #%s", op.Target, op.MetadataType),
+			}
+		}
+	}
+
+	declSpan := sym.Decl.Span()
+	for _, diagnostic := range parseDiagnostics(m.ParseDiags) {
+		if diagnostic.Span.Offset >= declSpan.Offset && diagnostic.Span.Offset < declSpan.End() {
+			return splice{}, &Error{
+				Failure: FailureResultInvalid, OperationIndex: i,
+				Diagnostics: []diag.Diagnostic{diagnostic}, Diagnosed: m.Source,
+				Message: fmt.Sprintf("cannot add metadata prefix to %q: %s", op.Target, diagnostic.Message),
 			}
 		}
 	}

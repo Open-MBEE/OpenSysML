@@ -238,6 +238,64 @@ func TestAddMetadataPrefixWritesInTheUsagePrefixSlot(t *testing.T) {
 	}
 }
 
+func TestAddMetadataPrefixWritesActionBodyParameterModifierSlots(t *testing.T) {
+	tests := []struct {
+		name, source, want string
+	}{
+		{
+			name: "after ref",
+			source: "metadata def M;\nattribute def T;\n" +
+				"action def A { in derived ref p : T; }\n",
+			want: "metadata def M;\nattribute def T;\n" +
+				"action def A { in derived ref #M p : T; }\n",
+		},
+		{
+			name: "after derived",
+			source: "metadata def M;\nattribute def T;\n" +
+				"action def A { in derived p : T; }\n",
+			want: "metadata def M;\nattribute def T;\n" +
+				"action def A { in derived #M p : T; }\n",
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			model := loadContent(t, "action-parameter-prefix.sysml", tt.source)
+			requireClean(t, model)
+			result, err := Apply(model, []Operation{AddMetadataPrefix("A::p", "M")})
+			if err != nil {
+				t.Fatalf("Apply: %v", err)
+			}
+			if got := string(result.Content); got != tt.want {
+				t.Fatalf("content = %q, want %q", got, tt.want)
+			}
+			requireClean(t, loadContent(t, "action-parameter-prefix.sysml", string(result.Content)))
+		})
+	}
+}
+
+func TestAddMetadataPrefixRefusesMisorderedActionBodyParameter(t *testing.T) {
+	model := loadContent(t, "misordered-action-parameter-prefix.sysml",
+		"metadata def M;\nattribute def T;\n"+
+			"action def A { in ref derived p : T; }\n")
+	if len(model.ParseDiags) == 0 {
+		t.Fatal("misordered action-body parameter was expected to have a parse diagnostic")
+	}
+	result, err := Apply(model, []Operation{AddMetadataPrefix("A::p", "M")})
+	if result != nil {
+		t.Fatalf("edit returned output for a parse-error source:\n%s", result.Content)
+	}
+	if err == nil {
+		t.Fatal("edit of a misordered action-body parameter was accepted")
+	}
+	failure := editError(t, err)
+	if failure.Failure != FailureResultInvalid {
+		t.Fatalf("failure = %s (%s), want result-invalid", failure.Failure, failure.Message)
+	}
+	if !strings.Contains(failure.Message, "`derived` must come before `ref`") {
+		t.Fatalf("failure = %q, want the parameter-order diagnostic", failure.Message)
+	}
+}
+
 func TestAddMetadataPrefixRefusals(t *testing.T) {
 	tests := []struct {
 		name, file, source, target, metadataType string

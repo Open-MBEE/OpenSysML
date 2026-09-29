@@ -276,21 +276,53 @@ func (p *Parser) isDirectionKeyword() bool {
 }
 
 func (p *Parser) parseDirectionOrMember() ast.Node {
+	hasRefPrefix := false
+	highestRank := 0
+	highestKeyword := ""
 	for i := 1; ; i++ {
 		tok := p.peekN(i)
 		if tok.Kind == lexer.Hash {
 			return p.parseBodyMember()
 		}
 		if tok.Kind != lexer.Keyword {
+			if hasRefPrefix {
+				return p.parseBodyMember()
+			}
 			return p.parseDirectionParameter()
 		}
+
+		rank := 0
+		refPrefix := false
 		switch tok.KeywordID {
-		case "derived", "abstract", "variation", "constant":
-			return p.parseBodyMember()
-		case "ref", "individual", "snapshot", "timeslice", "event":
-			continue
-		default:
+		case "derived":
+			rank, refPrefix = 1, true
+		case "abstract", "variation":
+			rank, refPrefix = 2, true
+		case "constant":
+			rank, refPrefix = 3, true
+		case "ref":
+			rank = 4
+		case "individual", "snapshot", "timeslice", "event":
+			rank = 5
+		}
+		if rank == 0 {
+			if hasRefPrefix {
+				return p.parseBodyMember()
+			}
 			return p.parseDirectionParameter()
+		}
+		if refPrefix {
+			hasRefPrefix = true
+			if rank < highestRank {
+				p.error(tok.Span, fmt.Sprintf(
+					"`%s` must come before `%s`: a usage prefix is written direction, `derived`, `abstract` or `variation`, `constant`, then `ref` (SysML.xtext RefPrefix, BasicUsagePrefix)",
+					tok.KeywordID, highestKeyword,
+				))
+			}
+		}
+		if rank > highestRank {
+			highestRank = rank
+			highestKeyword = tok.KeywordID
 		}
 	}
 }
