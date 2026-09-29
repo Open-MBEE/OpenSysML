@@ -41,7 +41,7 @@ package Signals {
         abstract action def smooth {
             in values : ScalarValues::Real[0..*] ordered nonunique;
             in window : ScalarValues::Real[4] ordered nonunique;
-            in handle : ScalarValues::Real {
+            in handle : ScalarValues::Real[1] {
                 /* applied stereotype «typeModifier»: typeModifier = * */
             }
             out result : ScalarValues::Real[0..*] ordered nonunique;

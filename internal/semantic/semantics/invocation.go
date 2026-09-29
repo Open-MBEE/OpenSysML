@@ -200,6 +200,16 @@ func (m *Model) Evaluates(sym *symbols.Symbol) bool {
 	return m.performs(sym, calcLike)
 }
 
+// CallsCalc reports whether a call selecting sel calls a calculation, whose value
+// a send sends, rather than naming a signal: the selected declaration evaluates,
+// or the choice is left to the arguments' values, which only a calculation reads.
+func (m *Model) CallsCalc(sel *InvocationSelection) bool {
+	if sel == nil {
+		return false
+	}
+	return sel.Ambiguous || m.Evaluates(sel.Called())
+}
+
 // performs reports whether sym, or a behavior it is typed by, satisfies is.
 func (m *Model) performs(sym *symbols.Symbol, is func(*symbols.Symbol) bool) bool {
 	visited := map[*symbols.Symbol]bool{}
@@ -568,18 +578,12 @@ func (m *Model) signatureParameterOf(sym *symbols.Symbol, name string) signature
 }
 
 // OptionalParameter reports whether a call may omit the parameter: it or a parameter it
-// redefines declares a default, or the nearest stated multiplicity admits no value.
+// redefines declares a default, or its effective multiplicity admits no value.
 func (m *Model) OptionalParameter(sym *symbols.Symbol) bool {
 	if value, _ := m.ParameterDefault(sym); value != nil {
 		return true
 	}
-	for _, p := range m.ParameterRedefinitionChain(sym) {
-		if _, mult, _ := parameterDeclaration(p); mult != nil {
-			r, ok := m.multiplicityRange(mult)
-			return ok && r.AllowsNone()
-		}
-	}
-	return false
+	return m.EffectiveParameterRange(sym).AllowsNone()
 }
 
 // ParameterDefault is the value the parameter takes when a call binds none: the nearest

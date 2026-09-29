@@ -442,11 +442,11 @@ func assertSingleStringCollection(t *testing.T, name string, value Value, want s
 const invokeFixture = `
 	part def Tank {
 		attribute level: Integer = 2;
-		action fillBy { in n; out filled; first apply; action apply { assign level := level + n; assign filled := level; } }
+		action fillBy { in n[1]; out filled[1]; first apply; action apply { assign level := level + n; assign filled := level; } }
 		exhibit state modes { entry; then holding; state holding; }
-		calc capacity { in bonus : Integer; return total : Integer = level + bonus; }
-		calc rawCapacity { return : Integer = level + 1; }
-		constraint acceptable { in minimum : Integer; level >= minimum }
+		calc capacity { in bonus : Integer[1]; return total : Integer[1] = level + bonus; }
+		calc rawCapacity { return : Integer[1] = level + 1; }
+		constraint acceptable { in minimum : Integer[1]; level >= minimum }
 		constraint rejected { level > 10 }
 	}
 `
@@ -524,19 +524,19 @@ const positionalInvokeFixture = `
 		private import ScalarValues::*;
 		part def Tank {
 			attribute level : Integer = 2;
-			action fillBy { in n : Integer; in times : Integer = 1; out filled : Integer;
+			action fillBy { in n : Integer[1]; in times : Integer[1] = 1; out filled : Integer[1];
 				first apply; action apply { assign level := level + n * times; assign filled := level; } }
-			action drainInto { in n : Integer; inout sink : Integer; out drained : Integer;
+			action drainInto { in n : Integer[1]; inout sink : Integer[1]; out drained : Integer[1];
 				first apply; action apply { assign level := level - n; assign sink := sink + n; assign drained := n; } }
-			calc scaled { in factor : Integer; return : Integer = level * factor; }
-			calc scaled { in factor : Integer; in offset : Integer; return : Integer = level * factor + offset; }
+			calc scaled { in factor : Integer[1]; return : Integer[1] = level * factor; }
+			calc scaled { in factor : Integer[1]; in offset : Integer[1]; return : Integer[1] = level * factor + offset; }
 			attribute label : String = "";
-			action run { in x : String; first apply; action apply { assign label := x; } }
-			calc run { in x : Integer; return : Integer = level + x; }
+			action run { in x : String[1]; first apply; action apply { assign label := x; } }
+			calc run { in x : Integer[1]; return : Integer[1] = level + x; }
 			action countUp : Count { inout redefines tally;
 				first apply; action apply { assign tally := tally + by; assign level := level + by; } }
 		}
-		action def Count { inout tally : Integer; in by : Integer = 1; }
+		action def Count { inout tally : Integer[1]; in by : Integer[1] = 1; }
 	}
 `
 
@@ -744,11 +744,11 @@ const nestedCalcOperationFixture = `
 			calc def ReadsLevel {
 				attribute observed : Integer = 0;
 				assign observed := level;
-				return value : Integer = observed;
+				return value : Integer[1] = observed;
 			}
 			calc reading : ReadsLevel;
 			calc capacityViaUsage {
-				return result : Integer = reading.value;
+				return result : Integer[1] = reading.value;
 			}
 		}
 	}
@@ -811,10 +811,10 @@ const nestedCalcInvocationFixture = `
 		private import ScalarValues::*;
 		part def Robot {
 			attribute charge : Integer = 10;
-			calc direct { return : Integer = charge + 100; }
-			calc anon { return : Integer = charge * 2; }
-			calc nested { return : Integer = anon() + 1; }
-			calc usesDirect { return : Integer = direct() + 1000; }
+			calc direct { return : Integer[1] = charge + 100; }
+			calc anon { return : Integer[1] = charge * 2; }
+			calc nested { return : Integer[1] = anon() + 1; }
+			calc usesDirect { return : Integer[1] = direct() + 1000; }
 			action drain {
 				first start;
 				action cut { assign charge := 3; }
@@ -933,8 +933,8 @@ func TestPerformedActionWithoutAFlowStillMaterializes(t *testing.T) {
 // not an input, so it neither fails the start nor is lost, with or without a flow.
 func TestPerformedActionDeclaringAnOutputDefaultStarts(t *testing.T) {
 	for name, body := range map[string]string{
-		"flowed":  "out total : Integer = 7; first start; then done;",
-		"no_flow": "out total : Integer = 7; action step;",
+		"flowed":  "out total : Integer[1] = 7; first start; then done;",
+		"no_flow": "out total : Integer[1] = 7; action step;",
 	} {
 		src := `
 			private import ScalarValues::*;
@@ -959,7 +959,7 @@ func TestPerformedActionOutputDefaultKeepsTheReferencedFlow(t *testing.T) {
 	model, resolver, root := parseAndBuildLibraryModel(t, `
 		private import ScalarValues::*;
 		action def Report {
-			out total : Integer;
+			out total : Integer[1];
 			attribute steps : Integer = 0;
 			action step { assign steps := steps + 1; }
 			first step;
@@ -1035,7 +1035,7 @@ func TestExhibitedStateNamingNothingExhibitsItself(t *testing.T) {
 		part def Controller {
 			attribute level : Integer = 3;
 			exhibit state modes {
-				in amount : Integer = level;
+				in amount : Integer[1] = level;
 				entry; then a;
 				state a;
 			}
@@ -1067,7 +1067,7 @@ func TestExhibitedStateNamingNothingWithNoInitialStateIsReported(t *testing.T) {
 		{"empty body", "exhibit state idle;", "idle"},
 		{"parameter-only body", `
 			attribute level : Integer = 3;
-			exhibit state modes { in amount : Integer = level; }`, "modes"},
+			exhibit state modes { in amount : Integer[1] = level; }`, "modes"},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			src := `
@@ -1096,7 +1096,7 @@ func TestPerformedActionNamingNothingPerformsItself(t *testing.T) {
 	src := `
 		part def Engine {
 			attribute level : Integer = 3;
-			perform action boost { in amount : Integer = level; }
+			perform action boost { in amount : Integer[1] = level; }
 			perform action idle;
 		}
 	`
@@ -1250,7 +1250,7 @@ func TestOperationOutputNamedLikeAFeatureAnswersTheCaller(t *testing.T) {
 	src := `
 		part def Gauge {
 			attribute level: Integer = 2;
-			action read { out level; first apply; action apply { assign level := 7; } }
+			action read { out level[1]; first apply; action apply { assign level := 7; } }
 		}
 	`
 	model, resolver, root := parseAndBuildModel(t, src)
@@ -1976,7 +1976,7 @@ func TestPerformedActionDecidesOnItsOwnWrite(t *testing.T) {
 // naming the usages; an action the object does not perform is performed anew.
 func TestActionExecutedOnItsPerformerRunsTheExistingPerformance(t *testing.T) {
 	idx, _, ctx := buildRuntime(t, "<test>", parseAndBuild(t, `package P {
-		action def Fill { out poured : Integer; }
+		action def Fill { out poured : Integer[1]; }
 		part def Tank {
 			attribute level : Integer = 0;
 			perform action fill : Fill {
@@ -2043,14 +2043,14 @@ func TestUsageDeclaredContextBindingOnAnOccurrence(t *testing.T) {
 		part def Tank {
 			attribute level : Integer = 2;
 			action def Fill {
-				in ref context : Tank;
+				in ref context : Tank[1];
 				first start;
 				then action bump { assign context.level := context.level + 3; }
 				then done;
 			}
 			action fill : Fill { in ref :>> context = this; }
 			state def Watch {
-				in ref context : Tank;
+				in ref context : Tank[1];
 				attribute seen : Integer;
 				entry; then watching;
 				state watching {
@@ -2090,8 +2090,8 @@ const performedJoinFixture = `
 		part def Heater {
 			attribute level : Integer = 0;
 			action def Nudge {
-				in delta : Integer = 1;
-				in ref context : Heater;
+				in delta : Integer[1] = 1;
+				in ref context : Heater[1];
 				first apply;
 				action apply { assign context.level := context.level + delta; }
 				first apply then done;
@@ -2150,8 +2150,8 @@ const performedJoinBoundFixture = `
 		part def Host {
 			part other : Heater;
 			action def Nudge {
-				in delta : Integer = 1;
-				in ref context : Heater;
+				in delta : Integer[1] = 1;
+				in ref context : Heater[1];
 				first apply;
 				action apply { assign context.level := context.level + delta; }
 				first apply then done;
@@ -2203,7 +2203,7 @@ const invokeContextFixture = `
 		private import ScalarValues::*;
 		part def Heater {
 			attribute level : Integer = 2;
-			action nudge { in delta : Integer; in ref context : Heater;
+			action nudge { in delta : Integer[1]; in ref context : Heater[1];
 				first apply; action apply { assign context.level := context.level + delta; } }
 		}
 	}
@@ -2251,9 +2251,9 @@ const performerSeedFixture = `
 			attribute flag : Boolean = false;
 			part s : Sensor;
 			action def Spin {
-				in n : Integer = 0;
-				in ref sensor : Sensor = s;
-				in ref context : Motor;
+				in n : Integer[1] = 0;
+				in ref sensor : Sensor[1] = s;
+				in ref context : Motor[1];
 				first step;
 				action step { assign context.flag := sensor == s; }
 				first step then done;
@@ -2263,7 +2263,7 @@ const performerSeedFixture = `
 		part def Rig {
 			part motor : Motor;
 			action def Go {
-				in ref context : Rig;
+				in ref context : Rig[1];
 				first spin;
 				perform action spin : Motor::Spin ::> context.motor.spin { in n = 1; }
 				first spin then done;
@@ -2283,8 +2283,8 @@ const performerUnseedableFixture = `
 		part def Motor {
 			attribute got : Boolean = false;
 			action def Read {
-				in ref sensor : Sensor;
-				in ref context : Motor;
+				in ref sensor : Sensor[1];
+				in ref context : Motor[1];
 				first step;
 				action step { assign context.got := sensor == sensor; }
 				first step then done;
@@ -2295,8 +2295,8 @@ const performerUnseedableFixture = `
 			part motor : Motor;
 			part s : Sensor;
 			action def Go {
-				in ref context : Rig;
-				in ref sensor : Sensor = context.s;
+				in ref context : Rig[1];
+				in ref sensor : Sensor[1] = context.s;
 				first read;
 				perform action read : Motor::Read ::> context.motor.read;
 				first read then done;
@@ -2403,8 +2403,8 @@ const defRunThisFixture = `
 			attribute flag : Boolean = false;
 			attribute same : Boolean = false;
 			action def Warm {
-				in ref context : Heater;
-				in delta : Integer = 3;
+				in ref context : Heater[1];
+				in delta : Integer[1] = 3;
 				first apply;
 				action apply {
 					assign context.flag := this.delta == delta;
@@ -2454,7 +2454,7 @@ const qualifiedAssignFixture = `
 		}
 		action def Probe {
 			attribute count : Integer default = 1;
-			out seen : Integer;
+			out seen : Integer[1];
 			action step {
 				assign Probe::count := 3;
 				assign Probe::seen := this.count;
@@ -2510,24 +2510,24 @@ const qualifiedStreamFixture = `
 		part def Host {
 		}
 		action def Outer {
-			out result : Integer;
+			out result : Integer[1];
 			action step { assign Outer::result := 5; }
 			first step;
 		}
 		action def Sees {
-			out seen : Integer;
+			out seen : Integer[1];
 			action o : Outer;
-			action sink { in v : Integer; assign Sees::seen := v; }
+			action sink { in v : Integer[1]; assign Sees::seen := v; }
 			flow o.result to sink.v;
 			first o then sink;
 		}
 		action def BadQualified {
-			out result : Integer;
+			out result : Integer[1];
 			action step { assign BadQualified::result := "text"; }
 			first step;
 		}
 		action def BadLocal {
-			out result : Integer;
+			out result : Integer[1];
 			action step { assign result := "text"; }
 			first step;
 		}
@@ -2579,7 +2579,7 @@ func TestCalcQualifiedWriteRejectsAnotherObject(t *testing.T) {
 		part def Host { attribute count : Integer = 0; }
 		calc def Bump {
 			assign Host::count := 3;
-			return : Integer = 1;
+			return : Integer[1] = 1;
 		}
 	}`)
 	host := findSymbolByName(idx.DocumentRoot("<test>"), "Host", ast.DefPart)
@@ -2607,7 +2607,7 @@ const qualifiedWriteFixture = `
 			attribute flag : Boolean = false;
 		}
 		state def Life {
-			in ref context : Plant;
+			in ref context : Plant[1];
 			attribute n : Integer default = 0;
 			attribute mark : Boolean = false;
 			state on {
@@ -2651,15 +2651,15 @@ const calcContextOrderFixture = `
 			attribute level : Real default = 1.5;
 		}
 		calc def Rate {
-			in ref context : Tank;
-			in factor : Real;
-			out result : Real = context.level * factor;
+			in ref context : Tank[1];
+			in factor : Real[1];
+			out result : Real[1] = context.level * factor;
 		}
 		part def Plant {
 			part tank : Tank;
 			action def Run {
-				in ref context : Plant;
-				out result : Real;
+				in ref context : Plant[1];
+				out result : Real[1];
 				action rate { out result = Rate(Run::context.tank, 2.0); }
 				first rate;
 				bind result = rate.result;
@@ -2695,7 +2695,7 @@ const defRunStateFixture = `
 		part def Heater {
 			attribute flag : Boolean = false;
 			state def Life {
-				in ref context : Heater;
+				in ref context : Heater[1];
 				entry; then work;
 				state work {
 					entry action check { assign context.flag := this == this; }
@@ -2734,13 +2734,13 @@ const defRunNoPerformerFixture = `
 	package test {
 		private import ScalarValues::*;
 		action def Touch {
-			out result : Boolean;
+			out result : Boolean[1];
 			first touch;
 			action touch { assign result := this == this; }
 			first touch then done;
 		}
 		state def Vivid {
-			out same : Boolean;
+			out same : Boolean[1];
 			entry; then work;
 			state work {
 				entry action check { assign same := this == this; }
@@ -2780,7 +2780,7 @@ const defRunMirrorFixture = `
 		action def Probe {
 			attribute early : Boolean = this == this;
 			attribute later : Integer = 7;
-			out result : Integer;
+			out result : Integer[1];
 			first probe;
 			action probe { assign result := this.later; }
 			first probe then done;
@@ -2788,7 +2788,7 @@ const defRunMirrorFixture = `
 		state def Vivid {
 			attribute early : Boolean = this == this;
 			attribute later : Integer = 7;
-			out result : Integer;
+			out result : Integer[1];
 			entry; then work;
 			state work {
 				entry action check { assign result := this.later; }
@@ -2825,32 +2825,32 @@ func TestExecuteDefMirrorsDefaultsAfterEarlyThis(t *testing.T) {
 const calcDefThisFixture = `
 	package test {
 		private import ScalarValues::*;
-		calc def Identity { return : Boolean = this == this; }
-		calc def Echo { in x : Integer; return : Integer = this.x; }
+		calc def Identity { return : Boolean[1] = this == this; }
+		calc def Echo { in x : Integer[1]; return : Integer[1] = this.x; }
 		calc def EchoLate {
-			in early : Boolean = this == this;
-			in x : Integer = 4;
-			return : Integer = this.x;
+			in early : Boolean[1] = this == this;
+			in x : Integer[1] = 4;
+			return : Integer[1] = this.x;
 		}
 		calc def SetBack {
-			in early : Boolean = this == this;
+			in early : Boolean[1] = this == this;
 			attribute n : Integer = 0;
 			assign n := 5;
-			return : Integer = this.n;
+			return : Integer[1] = this.n;
 		}
 		calc def Probe {
-			in early : Boolean = this == this;
+			in early : Boolean[1] = this == this;
 			attribute n : Integer = 0;
 			assign Probe::n := 5;
-			return : Integer = this.n;
+			return : Integer[1] = this.n;
 		}
 		calc def NestedProbe {
-			in early : Boolean = this == this;
+			in early : Boolean[1] = this == this;
 			attribute n : Integer = 0;
 			if true { assign NestedProbe::n := 5; }
-			return : Integer = this.n;
+			return : Integer[1] = this.n;
 		}
-		action def Step { out n : Integer = 5; }
+		action def Step { out n : Integer[1] = 5; }
 		analysis def Shadow {
 			attribute early : Boolean = this == this;
 			attribute n : Integer = 0;
@@ -2858,7 +2858,7 @@ const calcDefThisFixture = `
 				attribute n : Integer = 1;
 				action step : Step;
 			}
-			return : Integer = this.n;
+			return : Integer[1] = this.n;
 		}
 	}
 `
@@ -2949,27 +2949,27 @@ func TestAnalysisDefRunGetsItsOwnOccurrence(t *testing.T) {
 	src := `
 package test {
 	analysis def Occurrence {
-		in n : Integer;
+		in n : Integer[1];
 		out who = this;
-		return : Integer = this.n;
+		return : Integer[1] = this.n;
 	}
 	analysis def Ready {
-		in ready : Boolean = this == this;
-		return : Boolean = ready;
+		in ready : Boolean[1] = this == this;
+		return : Boolean[1] = ready;
 	}
 	analysis def Unbindable {
-		in early : Boolean = this == this;
-		in required : Integer;
-		return : Integer = required;
+		in early : Boolean[1] = this == this;
+		in required : Integer[1];
+		return : Integer[1] = required;
 	}
 	analysis def Read {
-		in n : Integer;
-		in early : Boolean = this == this;
-		return : Integer = this.n;
+		in n : Integer[1];
+		in early : Boolean[1] = this == this;
+		return : Integer[1] = this.n;
 	}
 	analysis def Failing {
 		out who = this;
-		out bad : Real = 1.0 / 0.0;
+		out bad : Real[1] = 1.0 / 0.0;
 	}
 }
 `
@@ -3093,20 +3093,20 @@ const stateFlowThisFixture = `
 	package test {
 		private import ScalarValues::*;
 		action def Observer {
-			in ref context : Life;
+			in ref context : Life[1];
 			first o;
 			action o { assign context.flag := true; }
 			first o then done;
 		}
 		action def EarlyObserver {
-			in ref context : EarlyLife;
+			in ref context : EarlyLife[1];
 			first o;
 			action o { assign context.flag := true; }
 			first o then done;
 		}
 		state def Life {
 			attribute flag : Boolean;
-			out result : Boolean;
+			out result : Boolean[1];
 			entry; then work;
 			state work {
 				entry action run {
@@ -3120,7 +3120,7 @@ const stateFlowThisFixture = `
 		state def EarlyLife {
 			attribute early : Boolean = this == this;
 			attribute flag : Boolean;
-			out result : Boolean;
+			out result : Boolean[1];
 			entry; then work;
 			state work {
 				entry action run {
@@ -3157,8 +3157,8 @@ const performedJoinRefValueFixture = `
 		private import ScalarValues::*;
 		part def Machine {
 			action def Work {
-				in ref threshold : Integer;
-				out result : Integer;
+				in ref threshold : Integer[1];
+				out result : Integer[1];
 				first w;
 				action w { assign result := threshold; }
 				first w then done;
@@ -3198,7 +3198,7 @@ func TestPerformedActionJoinRejectsADifferentRefValue(t *testing.T) {
 const calcDefOutputThisFixture = `
 	package test {
 		private import ScalarValues::*;
-		calc def Same { out result : Boolean = this == this; }
+		calc def Same { out result : Boolean[1] = this == this; }
 		calc same : Same;
 	}
 `
@@ -3239,13 +3239,13 @@ const stateQualifiedContextFixture = `
 			attribute flag : Boolean = true;
 		}
 		state def Life {
-			in ref context : Plant;
+			in ref context : Plant[1];
 			state idle; state done;
 			first start then idle;
 			transition first idle if Life::context.flag then done;
 		}
 		state def Watch {
-			in ref context : Plant;
+			in ref context : Plant[1];
 			state idle; state done;
 			first start then idle;
 			transition first idle accept when Watch::context.flag then done;

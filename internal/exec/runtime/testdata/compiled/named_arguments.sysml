@@ -5,7 +5,7 @@ package test {
 	private import RealFunctions::*;
 
 	calc def Weighted {
-		in value : Real;
+		in value : Real[1];
 		in weight : Real = 1.0;
 		in offset : Real = 0.0;
 		return : Real = value * weight + offset;

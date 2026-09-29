@@ -27,6 +27,8 @@ func TestErrorMessages(t *testing.T) {
 		{ErrorConflictingResult, "query Q inherits conflicting result expressions"},
 		{ErrorUnsupportedResult, "query Q result must be one query expression"},
 		{ErrorUnknownInvocation, "query Q invokes unknown operation T"},
+		{ErrorInvalidColumn, "query Q must build the columns of Project from Column(name, expression|cell|path) or RelatedColumn(name, relationshipKind, direction, maxDepth, aggregate) invocations"},
+		{ErrorColumnSource, "query Q column T must provide exactly one of expression, cell, or path"},
 		{ErrorAmbiguousInvocation, "query Q invokes T, ambiguous between A, B, A"},
 		{ErrorPositionalQueryArgs, "query Q must invoke query T with named arguments"},
 		{ErrorDuplicateArgument, "query Q binds parameter p more than once"},

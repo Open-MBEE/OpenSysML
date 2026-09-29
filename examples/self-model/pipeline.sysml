@@ -182,7 +182,7 @@ package OpenSysMLPipeline {
     #SemanticEngine part def PassRegistry :> Stage {
         attribute :>> goPackage = "internal/check/passes";
         attribute tierCount : Integer = 4;
-        attribute passCount : Integer = 61;
+        attribute passCount : Integer = 63;
         attribute sortsByLevel : Boolean = true;
         attribute skipsDocumentScopedAboveFailure : Boolean = true;
 
@@ -200,6 +200,8 @@ package OpenSysMLPipeline {
             attribute :>> goType = "ActionEndpointPass";
             attribute :>> elementScoped = true;
         }
+        // A lint: a signal trigger's name no declaration and no send accounts for.
+        part undeclaredSignals : NameResolutionCheck { attribute :>> goType = "UndeclaredSignalPass"; }
         part typeCheck : TypeCheck { attribute :>> goType = "TypeCheckPass"; }
         part transitionGuards : TypeCheck {
             attribute :>> goType = "TransitionGuardPass";
@@ -299,6 +301,8 @@ package OpenSysMLPipeline {
         part oosemMethod : ConstraintCheck { attribute :>> goType = "OOSEMMethodPass"; }
         part mosa : ConstraintCheck { attribute :>> goType = "MOSAPass"; }
         part nestedRedefinitions : ConstraintCheck { attribute :>> goType = "NestedRedefinitionPass"; }
+        // A lint: a connection between ports of unrelated definitions.
+        part portTypeMismatch : ConstraintCheck { attribute :>> goType = "PortTypeMismatchPass"; }
 
         in item typed : TypeTable;
         out item findings : Diagnostic;
@@ -572,7 +576,7 @@ package OpenSysMLPipeline {
     // one is found, and refusing through coverage when none is.
     part def SolveEngine :> AnalysisEngine {
         attribute :>> engineName = "solve";
-        attribute :>> answers = "satisfiable";
+        attribute :>> answers = "satisfiable, holds";
         attribute :>> bounds = "runs, solver";
         attribute :>> authority = "proved";
         attribute :>> replays = true;
@@ -641,8 +645,8 @@ package OpenSysMLPipeline {
         attribute defaultSelection : String = "auto";
         attribute strongestFirst : Boolean = true;
         // The default engines declaring each kind: outcomes has two, explore ranked over
-        // check, and holds and sensitive two each, smt ranked over check.
-        attribute candidatesPerKind : String = "compute: 1, evaluate: 1, holds: 2, outcomes: 2, satisfiable: 1, sensitive: 2, sweep: 1";
+        // check, sensitive two, and holds three, smt and solve ranked over check.
+        attribute candidatesPerKind : String = "compute: 1, evaluate: 1, holds: 3, outcomes: 2, satisfiable: 1, sensitive: 2, sweep: 1";
         attribute advancesOnNotCovered : Boolean = true;
         attribute stopsOnFault : Boolean = true;
         attribute recordsEveryStep : Boolean = true;

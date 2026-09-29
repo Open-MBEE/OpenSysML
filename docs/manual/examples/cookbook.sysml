@@ -174,7 +174,7 @@ package Cookbook {
 			source = PartsByMass(root = root),
 			properties = ("name", "mass"),
 			columns = (
-				Column(name = "massLbs", expression = (Subsystem::mass ?? 0.0) * 2.2),
+				Column(name = "massLbs", cell = { in row : Subsystem; (row.mass ?? 0.0) * 2.2 }),
 				Column(name = "label", expression = "part: " + Element::name)
 			)
 		)

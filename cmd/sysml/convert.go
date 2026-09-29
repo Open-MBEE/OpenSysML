@@ -60,7 +60,7 @@ func runConvert(files []string) (int, error) {
 		return 0, errors.New("no model to convert; name the file to convert, as `sysml model.sysml -convert ttl`")
 	}
 	if len(files) > 1 {
-		return 0, fmt.Errorf("-convert converts one file; unexpected extra argument %q", files[1])
+		return convertModel(files, to)
 	}
 	input := files[0]
 
@@ -758,4 +758,59 @@ func resolveFormat(flagValue, path string) (convert.Format, error) {
 	}
 	f, err := convert.FormatOfPath(path)
 	return f, convert.Advise(err, "pass -from, or "+convert.ExtensionAdvice)
+}
+
+// convertModel converts several notation files as one model, each reference
+// from one file to an element another declares linked to that element
+// (convert.ConvertModel), to Turtle or the API's JSON element form. The
+// options of a single conversion that read or write a branch, migrate a v1
+// model or write its images do not apply to it.
+func convertModel(files []string, to convert.Format) (int, error) {
+	if len(modelChecks.records) > 0 || migrationReport != "" || migrationResults != "" || syncState != "" {
+		return 0, errors.New("a model of several files converts on its own: -record, -migration-report, -migration-results and -sync-state take one file")
+	}
+	if outputPath != "" {
+		if _, isURL, err := flexo.ParseBranchURL(outputPath); err != nil {
+			return 0, err
+		} else if isURL {
+			return 0, fmt.Errorf("-o %s: a model of several files is written to a file; a repository branch is pushed from one file", outputPath)
+		}
+	}
+	inputs := make([]convert.Input, 0, len(files))
+	for _, file := range files {
+		if _, isURL, err := flexo.ParseBranchURL(file); err != nil || isURL {
+			return 0, fmt.Errorf("%s: a model of several files converts files, not a repository branch", file)
+		}
+		from, err := resolveFormat(fromFormat, file)
+		if err != nil {
+			return 0, err
+		}
+		if from != convert.FormatSysML {
+			return 0, fmt.Errorf("%s: a model of several files converts SysML or KerML notation, not %s", file, from)
+		}
+		name, data, err := project.ReadFile(file)
+		if err != nil {
+			return 0, err
+		}
+		inputs = append(inputs, convert.Input{Name: name, Data: data})
+	}
+	for _, notice := range convert.Notices(convert.FormatSysML, to) {
+		fmt.Fprintf(os.Stderr, "note: %s\n", notice)
+	}
+	opts, err := convertOptions(convert.FormatSysML, to)
+	if err != nil {
+		return 0, err
+	}
+	out, err := convert.ConvertModel(inputs, to, opts)
+	if err != nil {
+		return 0, err
+	}
+	if outputPath == "" {
+		_, err := os.Stdout.Write(out)
+		return exitHolds, err
+	}
+	if err := writeConversion(outputPath, out, to); err != nil {
+		return 0, err
+	}
+	return exitHolds, nil
 }

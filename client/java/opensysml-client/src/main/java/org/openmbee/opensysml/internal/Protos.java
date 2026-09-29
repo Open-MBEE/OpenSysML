@@ -40,6 +40,7 @@ import org.openmbee.opensysml.Value;
 import org.openmbee.opensysml.Verdict;
 import org.openmbee.opensysml.Verification;
 import org.openmbee.opensysml.VerificationVerdict;
+import org.openmbee.opensysml.WitnessAssignment;
 import org.openmbee.opensysml.proto.AttributeInfo;
 import org.openmbee.opensysml.proto.Bound;
 import org.openmbee.opensysml.proto.CalcOutput;
@@ -676,6 +677,7 @@ public final class Protos {
       case FAILURE_REASON_UNSPECIFIED -> FailureReason.UNSPECIFIED;
       case FAILURE_REASON_EVALUATION -> FailureReason.EVALUATION;
       case FAILURE_REASON_WRONG_KIND -> FailureReason.WRONG_KIND;
+      case FAILURE_REASON_UNDECIDED -> FailureReason.UNDECIDED;
       case FAILURE_REASON_AMBIGUOUS_SUBJECT -> FailureReason.AMBIGUOUS_SUBJECT;
       case UNRECOGNIZED -> FailureReason.UNKNOWN;
     };
@@ -716,7 +718,30 @@ public final class Protos {
         failureReason(verdict.getFailureReason()),
         present(verdict.getRequirementId()),
         present(verdict.getInstancePath()),
+        present(verdict.getQuestion()),
+        present(verdict.getStatus()),
+        witnessAssignments(verdict.getWitnessList()),
         standing(verdict.getEngine(), verdict.getStrength(), verdict.getBoundsList()));
+  }
+
+  /**
+   * Witness assignments of one verdict.
+   *
+   * @param witness the generated assignments
+   * @return the immutable assignments
+   */
+  public static List<WitnessAssignment> witnessAssignments(
+      List<org.openmbee.opensysml.proto.WitnessAssignment> witness) {
+    List<WitnessAssignment> out = new ArrayList<>(witness.size());
+    for (org.openmbee.opensysml.proto.WitnessAssignment assignment : witness) {
+      out.add(
+          new WitnessAssignment(
+              assignment.getFeature(),
+              value(assignment.getValue()),
+              assignment.getUnit(),
+              assignment.getExact()));
+    }
+    return List.copyOf(out);
   }
 
   /**
@@ -901,7 +926,8 @@ public final class Protos {
     return new ActionRun(
         values(response.getOutputsMap()),
         finalTimeReported ? OptionalDouble.of(response.getFinalTime()) : OptionalDouble.empty(),
-        diagnostics(response.getDiagnosticsList()));
+        diagnostics(response.getDiagnosticsList()),
+        values(response.getPerformerAttributesMap()));
   }
 
   /**
@@ -1028,6 +1054,9 @@ public final class Protos {
       add.addAllRedefines(addMember.redefines());
       add.setIsDefault(addMember.isDefault());
       add.setDirection(addMember.direction());
+      add.addAllMetadataPrefixes(addMember.metadataPrefixes());
+      addMember.bodyExpression().ifPresent(add::setBodyExpression);
+      add.setDoc(addMember.doc());
       builder.setAddMember(add);
     } else if (edit instanceof Edit.AddSatisfy addSatisfy) {
       org.openmbee.opensysml.proto.AddSatisfyEdit.Builder add =
@@ -1058,6 +1087,66 @@ public final class Protos {
       addTransition.guard().ifPresent(add::setGuard);
       addTransition.effect().ifPresent(add::setEffect);
       builder.setAddTransition(add);
+    } else if (edit instanceof Edit.AddVerify addVerify) {
+      builder.setAddVerify(
+          org.openmbee.opensysml.proto.AddVerifyEdit.newBuilder()
+              .setOwner(addVerify.owner())
+              .setRequirement(addVerify.requirement()));
+    } else if (edit instanceof Edit.AddMetadata addMetadata) {
+      org.openmbee.opensysml.proto.AddMetadataEdit.Builder add =
+          org.openmbee.opensysml.proto.AddMetadataEdit.newBuilder()
+              .setOwner(addMetadata.owner())
+              .setMetadataType(addMetadata.metadataType())
+              .setShorthand(addMetadata.shorthand())
+              .addAllAbout(addMetadata.about());
+      addMetadata.name().ifPresent(add::setName);
+      for (Edit.MetadataValue value : addMetadata.values()) {
+        add.addValues(
+            org.openmbee.opensysml.proto.MetadataFeatureValue.newBuilder()
+                .setFeature(value.feature())
+                .setValue(value.value()));
+      }
+      builder.setAddMetadata(add);
+    } else if (edit instanceof Edit.AddMetadataPrefix addMetadataPrefix) {
+      builder.setAddMetadataPrefix(
+          org.openmbee.opensysml.proto.AddMetadataPrefixEdit.newBuilder()
+              .setTarget(addMetadataPrefix.target())
+              .setMetadataType(addMetadataPrefix.metadataType()));
+    } else if (edit instanceof Edit.AddSequence addSequence) {
+      builder.setAddSequence(sequenceProto(addSequence));
+    } else if (edit instanceof Edit.AddImport addImport) {
+      org.openmbee.opensysml.proto.AddImportEdit.Builder add =
+          org.openmbee.opensysml.proto.AddImportEdit.newBuilder()
+              .setOwner(addImport.owner())
+              .setVisibility(addImport.visibility())
+              .setTarget(addImport.target())
+              .setIsRecursive(addImport.recursive())
+              .setIsImportAll(addImport.all())
+              .addAllFilters(addImport.filters());
+      builder.setAddImport(add);
+    } else if (edit instanceof Edit.AddDocumentation addDocumentation) {
+      org.openmbee.opensysml.proto.AddDocumentationEdit.Builder add =
+          org.openmbee.opensysml.proto.AddDocumentationEdit.newBuilder()
+              .setTarget(addDocumentation.target())
+              .setBody(addDocumentation.body())
+              .setReplace(addDocumentation.replace());
+      addDocumentation.name().ifPresent(add::setName);
+      addDocumentation.locale().ifPresent(add::setLocale);
+      builder.setAddDocumentation(add);
+    } else if (edit instanceof Edit.AddComment addComment) {
+      org.openmbee.opensysml.proto.AddCommentEdit.Builder add =
+          org.openmbee.opensysml.proto.AddCommentEdit.newBuilder()
+              .setOwner(addComment.owner())
+              .setBody(addComment.body())
+              .addAllAbout(addComment.about());
+      addComment.name().ifPresent(add::setName);
+      addComment.locale().ifPresent(add::setLocale);
+      builder.setAddComment(add);
+    } else if (edit instanceof Edit.AddNote addNote) {
+      builder.setAddNote(
+          org.openmbee.opensysml.proto.AddNoteEdit.newBuilder()
+              .setTarget(addNote.target())
+              .setText(addNote.text()));
     } else if (edit instanceof Edit.AddConnection addConnection) {
       org.openmbee.opensysml.proto.AddConnectionEdit.Builder add =
           org.openmbee.opensysml.proto.AddConnectionEdit.newBuilder()
@@ -1080,6 +1169,29 @@ public final class Protos {
               .setOwner(move.owner()));
     }
     return builder.build();
+  }
+
+  private static org.openmbee.opensysml.proto.AddSequenceEdit sequenceProto(
+      Edit.AddSequence sequence) {
+    org.openmbee.opensysml.proto.AddSequenceEdit.Builder add =
+        org.openmbee.opensysml.proto.AddSequenceEdit.newBuilder()
+            .setOwner(sequence.owner())
+            .setKeyword(sequence.keyword());
+    sequence.ref().ifPresent(add::setRef);
+    sequence.memberKind().ifPresent(add::setMemberKind);
+    sequence.memberName().ifPresent(add::setMemberName);
+    sequence.type().ifPresent(add::setType);
+    sequence.after().ifPresent(add::setAfter);
+    sequence.condition().ifPresent(add::setCondition);
+    sequence.value().ifPresent(add::setValue);
+    sequence.target().ifPresent(add::setTarget);
+    sequence.via().ifPresent(add::setVia);
+    sequence.until().ifPresent(add::setUntil);
+    sequence.body().stream().map(Protos::sequenceProto).forEach(add::addBody);
+    sequence.elseBody().stream().map(Protos::sequenceProto).forEach(add::addElseBody);
+    sequence.multiplicity().ifPresent(add::setMultiplicity);
+    sequence.parameter().ifPresent(add::setParameter);
+    return add.build();
   }
 
   /**

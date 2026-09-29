@@ -16,19 +16,19 @@ package Tanks {
         /* not migrated: Constraint 'sealed' xor(level, capacity) — the UML Expression tree has no v2 form: the call "xor" is not in the translated function table */
     }
     constraint def WithinCapacity {
-        in attribute level : ScalarValues::Real;
-        in attribute capacity : ScalarValues::Real;
-        in attribute margin : ScalarValues::Real;
+        in attribute level : ScalarValues::Real[1];
+        in attribute capacity : ScalarValues::Real[1];
+        in attribute margin : ScalarValues::Real[1];
         RealFunctions::max(level, 0.0) <= capacity and margin * 2 % 7 >= -0.5 and not (level == capacity / 2)
     }
     constraint def Settled {
-        in attribute level : ScalarValues::Real;
+        in attribute level : ScalarValues::Real[1];
         /* not migrated: Constraint (_sRule) >(level, {English} the settling level) — the UML Expression tree has no v2 form: the language "English" is not translated: an opaque operand is read only in a script language */
     }
     constraint def Diagonal {
-        in attribute width : ScalarValues::Real;
-        in attribute height : ScalarValues::Real;
-        in attribute span : ScalarValues::Real;
+        in attribute width : ScalarValues::Real[1];
+        in attribute height : ScalarValues::Real[1];
+        in attribute span : ScalarValues::Real[1];
         width ** 2 + height ** 2 == span ** 2
     }
     individual part def dayTank :> Tank {

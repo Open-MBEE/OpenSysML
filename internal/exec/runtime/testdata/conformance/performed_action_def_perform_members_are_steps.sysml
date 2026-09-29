@@ -13,9 +13,9 @@ package test {
 		part sensor : Sensor;
 
 		action def Cycle {
-			in ref context : Station;
+			in ref context : Station[1];
 			action def Sample {
-				in ref context : Station;
+				in ref context : Station[1];
 				perform action read ::> context.sensor.sample;
 				action sum {
 					assign context.last := context.sensor.reading;
@@ -40,7 +40,7 @@ package test {
 		attribute reading : Real = 0.0;
 
 		action def Read {
-			in ref context : Sensor;
+			in ref context : Sensor[1];
 			action bump {
 				assign context.reading := context.reading + 1.5;
 			}

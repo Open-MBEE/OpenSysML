@@ -49,6 +49,8 @@ private static final long serialVersionUID = 0L;
     switch (number) {
       case 1:
         return internalGetOutputs();
+      case 7:
+        return internalGetPerformerAttributes();
       default:
         throw new RuntimeException(
             "Invalid map field number: " + number);
@@ -357,6 +359,113 @@ org.openmbee.opensysml.proto.Value defaultValue) {
     return finalTime_;
   }
 
+  public static final int PERFORMER_ATTRIBUTES_FIELD_NUMBER = 7;
+  private static final class PerformerAttributesDefaultEntryHolder {
+    static final com.google.protobuf.MapEntry<
+        java.lang.String, org.openmbee.opensysml.proto.Value> defaultEntry =
+            com.google.protobuf.MapEntry
+            .<java.lang.String, org.openmbee.opensysml.proto.Value>newDefaultInstance(
+                org.openmbee.opensysml.proto.Sysml.internal_static_sysml_ExecuteActionResponse_PerformerAttributesEntry_descriptor, 
+                com.google.protobuf.WireFormat.FieldType.STRING,
+                "",
+                com.google.protobuf.WireFormat.FieldType.MESSAGE,
+                org.openmbee.opensysml.proto.Value.getDefaultInstance());
+  }
+  @SuppressWarnings("serial")
+  private com.google.protobuf.MapField<
+      java.lang.String, org.openmbee.opensysml.proto.Value> performerAttributes_;
+  private com.google.protobuf.MapField<java.lang.String, org.openmbee.opensysml.proto.Value>
+  internalGetPerformerAttributes() {
+    if (performerAttributes_ == null) {
+      return com.google.protobuf.MapField.emptyMapField(
+          PerformerAttributesDefaultEntryHolder.defaultEntry);
+    }
+    return performerAttributes_;
+  }
+  public int getPerformerAttributesCount() {
+    return internalGetPerformerAttributes().getMap().size();
+  }
+  /**
+   * <pre>
+   * The attributes the object named by performer_symbol_id holds when the run
+   * ends, keyed as an explored outcome's `outputs` key them (`this.level`);
+   * `outputs` stays the output parameters alone. Empty without a performer and
+   * under an explore schedule, whose outcomes carry them.
+   * </pre>
+   *
+   * <code>map&lt;string, .sysml.Value&gt; performer_attributes = 7 [json_name = "performerAttributes"];</code>
+   */
+  @java.lang.Override
+  public boolean containsPerformerAttributes(
+      java.lang.String key) {
+    if (key == null) { throw new NullPointerException("map key"); }
+    return internalGetPerformerAttributes().getMap().containsKey(key);
+  }
+  /**
+   * Use {@link #getPerformerAttributesMap()} instead.
+   */
+  @java.lang.Override
+  @java.lang.Deprecated
+  public java.util.Map<java.lang.String, org.openmbee.opensysml.proto.Value> getPerformerAttributes() {
+    return getPerformerAttributesMap();
+  }
+  /**
+   * <pre>
+   * The attributes the object named by performer_symbol_id holds when the run
+   * ends, keyed as an explored outcome's `outputs` key them (`this.level`);
+   * `outputs` stays the output parameters alone. Empty without a performer and
+   * under an explore schedule, whose outcomes carry them.
+   * </pre>
+   *
+   * <code>map&lt;string, .sysml.Value&gt; performer_attributes = 7 [json_name = "performerAttributes"];</code>
+   */
+  @java.lang.Override
+  public java.util.Map<java.lang.String, org.openmbee.opensysml.proto.Value> getPerformerAttributesMap() {
+    return internalGetPerformerAttributes().getMap();
+  }
+  /**
+   * <pre>
+   * The attributes the object named by performer_symbol_id holds when the run
+   * ends, keyed as an explored outcome's `outputs` key them (`this.level`);
+   * `outputs` stays the output parameters alone. Empty without a performer and
+   * under an explore schedule, whose outcomes carry them.
+   * </pre>
+   *
+   * <code>map&lt;string, .sysml.Value&gt; performer_attributes = 7 [json_name = "performerAttributes"];</code>
+   */
+  @java.lang.Override
+  public /* nullable */
+org.openmbee.opensysml.proto.Value getPerformerAttributesOrDefault(
+      java.lang.String key,
+      /* nullable */
+org.openmbee.opensysml.proto.Value defaultValue) {
+    if (key == null) { throw new NullPointerException("map key"); }
+    java.util.Map<java.lang.String, org.openmbee.opensysml.proto.Value> map =
+        internalGetPerformerAttributes().getMap();
+    return map.containsKey(key) ? map.get(key) : defaultValue;
+  }
+  /**
+   * <pre>
+   * The attributes the object named by performer_symbol_id holds when the run
+   * ends, keyed as an explored outcome's `outputs` key them (`this.level`);
+   * `outputs` stays the output parameters alone. Empty without a performer and
+   * under an explore schedule, whose outcomes carry them.
+   * </pre>
+   *
+   * <code>map&lt;string, .sysml.Value&gt; performer_attributes = 7 [json_name = "performerAttributes"];</code>
+   */
+  @java.lang.Override
+  public org.openmbee.opensysml.proto.Value getPerformerAttributesOrThrow(
+      java.lang.String key) {
+    if (key == null) { throw new NullPointerException("map key"); }
+    java.util.Map<java.lang.String, org.openmbee.opensysml.proto.Value> map =
+        internalGetPerformerAttributes().getMap();
+    if (!map.containsKey(key)) {
+      throw new java.lang.IllegalArgumentException();
+    }
+    return map.get(key);
+  }
+
   private byte memoizedIsInitialized = -1;
   @java.lang.Override
   public final boolean isInitialized() {
@@ -392,6 +501,12 @@ org.openmbee.opensysml.proto.Value defaultValue) {
     if (java.lang.Double.doubleToRawLongBits(finalTime_) != 0) {
       output.writeDouble(6, finalTime_);
     }
+    com.google.protobuf.GeneratedMessage
+      .serializeStringMapTo(
+        output,
+        internalGetPerformerAttributes(),
+        PerformerAttributesDefaultEntryHolder.defaultEntry,
+        7);
     getUnknownFields().writeTo(output);
   }
 
@@ -430,6 +545,16 @@ org.openmbee.opensysml.proto.Value defaultValue) {
       size += com.google.protobuf.CodedOutputStream
         .computeDoubleSize(6, finalTime_);
     }
+    for (java.util.Map.Entry<java.lang.String, org.openmbee.opensysml.proto.Value> entry
+         : internalGetPerformerAttributes().getMap().entrySet()) {
+      com.google.protobuf.MapEntry<java.lang.String, org.openmbee.opensysml.proto.Value>
+      performerAttributes__ = PerformerAttributesDefaultEntryHolder.defaultEntry.newBuilderForType()
+          .setKey(entry.getKey())
+          .setValue(entry.getValue())
+          .build();
+      size += com.google.protobuf.CodedOutputStream
+          .computeMessageSize(7, performerAttributes__);
+    }
     size += getUnknownFields().getSerializedSize();
     memoizedSize = size;
     return size;
@@ -461,6 +586,8 @@ org.openmbee.opensysml.proto.Value defaultValue) {
     if (java.lang.Double.doubleToLongBits(getFinalTime())
         != java.lang.Double.doubleToLongBits(
             other.getFinalTime())) return false;
+    if (!internalGetPerformerAttributes().equals(
+        other.internalGetPerformerAttributes())) return false;
     if (!getUnknownFields().equals(other.getUnknownFields())) return false;
     return true;
   }
@@ -493,6 +620,10 @@ org.openmbee.opensysml.proto.Value defaultValue) {
     hash = (37 * hash) + FINAL_TIME_FIELD_NUMBER;
     hash = (53 * hash) + com.google.protobuf.Internal.hashLong(
         java.lang.Double.doubleToLongBits(getFinalTime()));
+    if (!internalGetPerformerAttributes().getMap().isEmpty()) {
+      hash = (37 * hash) + PERFORMER_ATTRIBUTES_FIELD_NUMBER;
+      hash = (53 * hash) + internalGetPerformerAttributes().hashCode();
+    }
     hash = (29 * hash) + getUnknownFields().hashCode();
     memoizedHashCode = hash;
     return hash;
@@ -612,6 +743,8 @@ org.openmbee.opensysml.proto.Value defaultValue) {
       switch (number) {
         case 1:
           return internalGetOutputs();
+        case 7:
+          return internalGetPerformerAttributes();
         default:
           throw new RuntimeException(
               "Invalid map field number: " + number);
@@ -623,6 +756,8 @@ org.openmbee.opensysml.proto.Value defaultValue) {
       switch (number) {
         case 1:
           return internalGetMutableOutputs();
+        case 7:
+          return internalGetMutablePerformerAttributes();
         default:
           throw new RuntimeException(
               "Invalid map field number: " + number);
@@ -680,6 +815,7 @@ org.openmbee.opensysml.proto.Value defaultValue) {
         explorationBuilder_ = null;
       }
       finalTime_ = 0D;
+      internalGetMutablePerformerAttributes().clear();
       return this;
     }
 
@@ -750,6 +886,9 @@ org.openmbee.opensysml.proto.Value defaultValue) {
       }
       if (((from_bitField0_ & 0x00000020) != 0)) {
         result.finalTime_ = finalTime_;
+      }
+      if (((from_bitField0_ & 0x00000040) != 0)) {
+        result.performerAttributes_ = internalGetPerformerAttributes().build(PerformerAttributesDefaultEntryHolder.defaultEntry);
       }
       result.bitField0_ |= to_bitField0_;
     }
@@ -832,6 +971,9 @@ org.openmbee.opensysml.proto.Value defaultValue) {
       if (java.lang.Double.doubleToRawLongBits(other.getFinalTime()) != 0) {
         setFinalTime(other.getFinalTime());
       }
+      internalGetMutablePerformerAttributes().mergeFrom(
+          other.internalGetPerformerAttributes());
+      bitField0_ |= 0x00000040;
       this.mergeUnknownFields(other.getUnknownFields());
       onChanged();
       return this;
@@ -910,6 +1052,15 @@ org.openmbee.opensysml.proto.Value defaultValue) {
               bitField0_ |= 0x00000020;
               break;
             } // case 49
+            case 58: {
+              com.google.protobuf.MapEntry<java.lang.String, org.openmbee.opensysml.proto.Value>
+              performerAttributes__ = input.readMessage(
+                  PerformerAttributesDefaultEntryHolder.defaultEntry.getParserForType(), extensionRegistry);
+              internalGetMutablePerformerAttributes().ensureBuilderMap().put(
+                  performerAttributes__.getKey(), performerAttributes__.getValue());
+              bitField0_ |= 0x00000040;
+              break;
+            } // case 58
             default: {
               if (!super.parseUnknownField(input, extensionRegistry, tag)) {
                 done = true; // was an endgroup tag
@@ -1961,6 +2112,217 @@ org.openmbee.opensysml.proto.Value defaultValue) {
       finalTime_ = 0D;
       onChanged();
       return this;
+    }
+
+    private static final class PerformerAttributesConverter implements com.google.protobuf.MapFieldBuilder.Converter<java.lang.String, org.openmbee.opensysml.proto.ValueOrBuilder, org.openmbee.opensysml.proto.Value> {
+      @java.lang.Override
+      public org.openmbee.opensysml.proto.Value build(org.openmbee.opensysml.proto.ValueOrBuilder val) {
+        if (val instanceof org.openmbee.opensysml.proto.Value) { return (org.openmbee.opensysml.proto.Value) val; }
+        return ((org.openmbee.opensysml.proto.Value.Builder) val).build();
+      }
+
+      @java.lang.Override
+      public com.google.protobuf.MapEntry<java.lang.String, org.openmbee.opensysml.proto.Value> defaultEntry() {
+        return PerformerAttributesDefaultEntryHolder.defaultEntry;
+      }
+    };
+    private static final PerformerAttributesConverter performerAttributesConverter = new PerformerAttributesConverter();
+
+    private com.google.protobuf.MapFieldBuilder<
+        java.lang.String, org.openmbee.opensysml.proto.ValueOrBuilder, org.openmbee.opensysml.proto.Value, org.openmbee.opensysml.proto.Value.Builder> performerAttributes_;
+    private com.google.protobuf.MapFieldBuilder<java.lang.String, org.openmbee.opensysml.proto.ValueOrBuilder, org.openmbee.opensysml.proto.Value, org.openmbee.opensysml.proto.Value.Builder>
+        internalGetPerformerAttributes() {
+      if (performerAttributes_ == null) {
+        return new com.google.protobuf.MapFieldBuilder<>(performerAttributesConverter);
+      }
+      return performerAttributes_;
+    }
+    private com.google.protobuf.MapFieldBuilder<java.lang.String, org.openmbee.opensysml.proto.ValueOrBuilder, org.openmbee.opensysml.proto.Value, org.openmbee.opensysml.proto.Value.Builder>
+        internalGetMutablePerformerAttributes() {
+      if (performerAttributes_ == null) {
+        performerAttributes_ = new com.google.protobuf.MapFieldBuilder<>(performerAttributesConverter);
+      }
+      bitField0_ |= 0x00000040;
+      onChanged();
+      return performerAttributes_;
+    }
+    public int getPerformerAttributesCount() {
+      return internalGetPerformerAttributes().ensureBuilderMap().size();
+    }
+    /**
+     * <pre>
+     * The attributes the object named by performer_symbol_id holds when the run
+     * ends, keyed as an explored outcome's `outputs` key them (`this.level`);
+     * `outputs` stays the output parameters alone. Empty without a performer and
+     * under an explore schedule, whose outcomes carry them.
+     * </pre>
+     *
+     * <code>map&lt;string, .sysml.Value&gt; performer_attributes = 7 [json_name = "performerAttributes"];</code>
+     */
+    @java.lang.Override
+    public boolean containsPerformerAttributes(
+        java.lang.String key) {
+      if (key == null) { throw new NullPointerException("map key"); }
+      return internalGetPerformerAttributes().ensureBuilderMap().containsKey(key);
+    }
+    /**
+     * Use {@link #getPerformerAttributesMap()} instead.
+     */
+    @java.lang.Override
+    @java.lang.Deprecated
+    public java.util.Map<java.lang.String, org.openmbee.opensysml.proto.Value> getPerformerAttributes() {
+      return getPerformerAttributesMap();
+    }
+    /**
+     * <pre>
+     * The attributes the object named by performer_symbol_id holds when the run
+     * ends, keyed as an explored outcome's `outputs` key them (`this.level`);
+     * `outputs` stays the output parameters alone. Empty without a performer and
+     * under an explore schedule, whose outcomes carry them.
+     * </pre>
+     *
+     * <code>map&lt;string, .sysml.Value&gt; performer_attributes = 7 [json_name = "performerAttributes"];</code>
+     */
+    @java.lang.Override
+    public java.util.Map<java.lang.String, org.openmbee.opensysml.proto.Value> getPerformerAttributesMap() {
+      return internalGetPerformerAttributes().getImmutableMap();
+    }
+    /**
+     * <pre>
+     * The attributes the object named by performer_symbol_id holds when the run
+     * ends, keyed as an explored outcome's `outputs` key them (`this.level`);
+     * `outputs` stays the output parameters alone. Empty without a performer and
+     * under an explore schedule, whose outcomes carry them.
+     * </pre>
+     *
+     * <code>map&lt;string, .sysml.Value&gt; performer_attributes = 7 [json_name = "performerAttributes"];</code>
+     */
+    @java.lang.Override
+    public /* nullable */
+org.openmbee.opensysml.proto.Value getPerformerAttributesOrDefault(
+        java.lang.String key,
+        /* nullable */
+org.openmbee.opensysml.proto.Value defaultValue) {
+      if (key == null) { throw new NullPointerException("map key"); }
+      java.util.Map<java.lang.String, org.openmbee.opensysml.proto.ValueOrBuilder> map = internalGetMutablePerformerAttributes().ensureBuilderMap();
+      return map.containsKey(key) ? performerAttributesConverter.build(map.get(key)) : defaultValue;
+    }
+    /**
+     * <pre>
+     * The attributes the object named by performer_symbol_id holds when the run
+     * ends, keyed as an explored outcome's `outputs` key them (`this.level`);
+     * `outputs` stays the output parameters alone. Empty without a performer and
+     * under an explore schedule, whose outcomes carry them.
+     * </pre>
+     *
+     * <code>map&lt;string, .sysml.Value&gt; performer_attributes = 7 [json_name = "performerAttributes"];</code>
+     */
+    @java.lang.Override
+    public org.openmbee.opensysml.proto.Value getPerformerAttributesOrThrow(
+        java.lang.String key) {
+      if (key == null) { throw new NullPointerException("map key"); }
+      java.util.Map<java.lang.String, org.openmbee.opensysml.proto.ValueOrBuilder> map = internalGetMutablePerformerAttributes().ensureBuilderMap();
+      if (!map.containsKey(key)) {
+        throw new java.lang.IllegalArgumentException();
+      }
+      return performerAttributesConverter.build(map.get(key));
+    }
+    public Builder clearPerformerAttributes() {
+      bitField0_ = (bitField0_ & ~0x00000040);
+      internalGetMutablePerformerAttributes().clear();
+      return this;
+    }
+    /**
+     * <pre>
+     * The attributes the object named by performer_symbol_id holds when the run
+     * ends, keyed as an explored outcome's `outputs` key them (`this.level`);
+     * `outputs` stays the output parameters alone. Empty without a performer and
+     * under an explore schedule, whose outcomes carry them.
+     * </pre>
+     *
+     * <code>map&lt;string, .sysml.Value&gt; performer_attributes = 7 [json_name = "performerAttributes"];</code>
+     */
+    public Builder removePerformerAttributes(
+        java.lang.String key) {
+      if (key == null) { throw new NullPointerException("map key"); }
+      internalGetMutablePerformerAttributes().ensureBuilderMap()
+          .remove(key);
+      return this;
+    }
+    /**
+     * Use alternate mutation accessors instead.
+     */
+    @java.lang.Deprecated
+    public java.util.Map<java.lang.String, org.openmbee.opensysml.proto.Value>
+        getMutablePerformerAttributes() {
+      bitField0_ |= 0x00000040;
+      return internalGetMutablePerformerAttributes().ensureMessageMap();
+    }
+    /**
+     * <pre>
+     * The attributes the object named by performer_symbol_id holds when the run
+     * ends, keyed as an explored outcome's `outputs` key them (`this.level`);
+     * `outputs` stays the output parameters alone. Empty without a performer and
+     * under an explore schedule, whose outcomes carry them.
+     * </pre>
+     *
+     * <code>map&lt;string, .sysml.Value&gt; performer_attributes = 7 [json_name = "performerAttributes"];</code>
+     */
+    public Builder putPerformerAttributes(
+        java.lang.String key,
+        org.openmbee.opensysml.proto.Value value) {
+      if (key == null) { throw new NullPointerException("map key"); }
+      if (value == null) { throw new NullPointerException("map value"); }
+      internalGetMutablePerformerAttributes().ensureBuilderMap()
+          .put(key, value);
+      bitField0_ |= 0x00000040;
+      return this;
+    }
+    /**
+     * <pre>
+     * The attributes the object named by performer_symbol_id holds when the run
+     * ends, keyed as an explored outcome's `outputs` key them (`this.level`);
+     * `outputs` stays the output parameters alone. Empty without a performer and
+     * under an explore schedule, whose outcomes carry them.
+     * </pre>
+     *
+     * <code>map&lt;string, .sysml.Value&gt; performer_attributes = 7 [json_name = "performerAttributes"];</code>
+     */
+    public Builder putAllPerformerAttributes(
+        java.util.Map<java.lang.String, org.openmbee.opensysml.proto.Value> values) {
+      for (java.util.Map.Entry<java.lang.String, org.openmbee.opensysml.proto.Value> e : values.entrySet()) {
+        if (e.getKey() == null || e.getValue() == null) {
+          throw new NullPointerException();
+        }
+      }
+      internalGetMutablePerformerAttributes().ensureBuilderMap()
+          .putAll(values);
+      bitField0_ |= 0x00000040;
+      return this;
+    }
+    /**
+     * <pre>
+     * The attributes the object named by performer_symbol_id holds when the run
+     * ends, keyed as an explored outcome's `outputs` key them (`this.level`);
+     * `outputs` stays the output parameters alone. Empty without a performer and
+     * under an explore schedule, whose outcomes carry them.
+     * </pre>
+     *
+     * <code>map&lt;string, .sysml.Value&gt; performer_attributes = 7 [json_name = "performerAttributes"];</code>
+     */
+    public org.openmbee.opensysml.proto.Value.Builder putPerformerAttributesBuilderIfAbsent(
+        java.lang.String key) {
+      java.util.Map<java.lang.String, org.openmbee.opensysml.proto.ValueOrBuilder> builderMap = internalGetMutablePerformerAttributes().ensureBuilderMap();
+      org.openmbee.opensysml.proto.ValueOrBuilder entry = builderMap.get(key);
+      if (entry == null) {
+        entry = org.openmbee.opensysml.proto.Value.newBuilder();
+        builderMap.put(key, entry);
+      }
+      if (entry instanceof org.openmbee.opensysml.proto.Value) {
+        entry = ((org.openmbee.opensysml.proto.Value) entry).toBuilder();
+        builderMap.put(key, entry);
+      }
+      return (org.openmbee.opensysml.proto.Value.Builder) entry;
     }
 
     // @@protoc_insertion_point(builder_scope:sysml.ExecuteActionResponse)

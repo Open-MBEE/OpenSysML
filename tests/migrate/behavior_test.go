@@ -711,6 +711,9 @@ func TestStateMachineMigratesToAnExecutableStateDef(t *testing.T) {
 	} {
 		wantLine(t, r.Notation, line)
 	}
+	if diags := errors(t, "controller.sysml", r.Notation); len(diags) > 0 {
+		t.Errorf("%v", diags)
+	}
 	wantNote(t, r, "_sm", migrate.Approximated, "the classifier behavior is run by every object of Controller as its usage control")
 	wantNote(t, r, "_cool", migrate.Mapped, "")
 	wantNote(t, r, "_cpr", migrate.Unmapped, "no transition of the machine passes through the connection point reference")
@@ -851,7 +854,7 @@ func TestActivityWithSendAcceptAndOperationCalls(t *testing.T) {
 	r := migrateDocument(t, stationActivity, stationApplications)
 	for _, line := range []string{
 		"action point {",
-		"in az : ScalarValues::Real;",
+		"in az : ScalarValues::Real[1];",
 		"action 'set azimuth' {",
 		"assign azimuth := value;",
 		"bind 'set azimuth'.value = az;",
@@ -862,10 +865,10 @@ func TestActivityWithSendAcceptAndOperationCalls(t *testing.T) {
 		"perform action go : Go;",
 		"calc def Twice {",
 		"x * 2.0",
-		"out result = tel;",
+		"out result[1] = tel;",
 		"send new Go() to tel;",
 		"action 'wait Ack' accept Ack;",
-		"out result = 90.0;",
+		"out result[1] = 90.0;",
 		"action park : Park;",
 		"perform action point ::> tel.point;",
 		"* var t = java.lang.System.currentTimeMillis();",
@@ -937,7 +940,7 @@ func TestNestedDefProbabilityReadsThroughContext(t *testing.T) {
 	}
 	t.Run("inherited by the object", func(t *testing.T) {
 		r := migrateFixtureFile(t, "probability_nested_def_context")
-		wantLine(t, r.Notation, "in ref context : Sub;")
+		wantLine(t, r.Notation, "in ref context : Sub[1];")
 		wantLine(t, r.Notation, "first 'decide' then a { @Stochastic::Probability { p = context.pr; } }")
 		wantLine(t, r.Notation, "first 'decide' then b { @Stochastic::Probability { p = 1.0 - context.pr; } }")
 		wantLine(t, r.Notation, "action call : Inner { in ref :>> context = Run::context; }")
@@ -966,7 +969,7 @@ func TestNestedDefProbabilityReadsThroughContext(t *testing.T) {
 	})
 	t.Run("held by one part of the object, the def uncalled", func(t *testing.T) {
 		r := migrateFixtureFile(t, "probability_nested_def_part_uncalled")
-		wantLine(t, r.Notation, "in ref context : Sub;")
+		wantLine(t, r.Notation, "in ref context : Sub[1];")
 		wantLine(t, r.Notation, "first 'decide' then a { @Stochastic::Probability { p = context.mission.pr; } }")
 		wantLine(t, r.Notation, "first 'decide' then b { @Stochastic::Probability { p = 1.0 - context.mission.pr; } }")
 		if errs := errors(t, "t.sysml", r.Notation); len(errs) > 0 {

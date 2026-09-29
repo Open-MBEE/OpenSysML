@@ -4,7 +4,7 @@ part def Mission {
         part mission : Mission;
         action def Run {
             action def Inner {
-                in ref context : Sub;
+                in ref context : Sub[1];
                 first start then 'decide';
                 decide 'decide';
                 first 'decide' then a { @Stochastic::Probability { p = context.mission.pr; } }

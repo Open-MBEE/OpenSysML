@@ -48,6 +48,34 @@ func TestRemovedSuccessionFormsProduceDiagnosticsAndErrorNodes(t *testing.T) {
 	}
 }
 
+func TestActionBodyMultiplicityRequiresThen(t *testing.T) {
+	tests := []struct {
+		name string
+		src  string
+	}{
+		{"before member", "action def A { action a; [1] action b; }"},
+		{"malformed bracket", "action def A { action a; [ then b; }"},
+		{"before inline statement", "action def A { [1] then assign x := 1; }"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			defer func() {
+				if r := recover(); r != nil {
+					t.Fatalf("parser panicked: %v", r)
+				}
+			}()
+			p := New(source.New(tt.name+".sysml", []byte(tt.src)))
+			root := p.ParseFile()
+			if len(p.Diagnostics) == 0 {
+				t.Fatal("expected a diagnostic")
+			}
+			if !strings.Contains(ast.Dump(root), "ErrorNode") {
+				t.Fatalf("expected an ErrorNode:\n%s", ast.Dump(root))
+			}
+		})
+	}
+}
+
 // A name written ahead of a kind keyword is no declaration: the stray name is
 // reported and skipped without naming anything, and the members after it parse.
 func TestNameBeforeKeywordIsNotADeclaration(t *testing.T) {

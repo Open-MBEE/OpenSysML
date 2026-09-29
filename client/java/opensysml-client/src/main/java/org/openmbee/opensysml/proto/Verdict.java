@@ -45,6 +45,9 @@ private static final long serialVersionUID = 0L;
     strength_ = "";
     bounds_ = java.util.Collections.emptyList();
     instancePath_ = "";
+    question_ = "";
+    status_ = "";
+    witness_ = java.util.Collections.emptyList();
   }
 
   public static final com.google.protobuf.Descriptors.Descriptor
@@ -689,6 +692,181 @@ private static final long serialVersionUID = 0L;
     }
   }
 
+  public static final int QUESTION_FIELD_NUMBER = 15;
+  @SuppressWarnings("serial")
+  private volatile java.lang.Object question_ = "";
+  /**
+   * <pre>
+   * The question the verdict answers: "evaluate" for an evaluation, "holds"
+   * for a claim proved over every free assignment, "satisfiable" for one
+   * satisfying assignment. Reported as the "verification_questions" capability.
+   * </pre>
+   *
+   * <code>string question = 15 [json_name = "question"];</code>
+   * @return The question.
+   */
+  @java.lang.Override
+  public java.lang.String getQuestion() {
+    java.lang.Object ref = question_;
+    if (ref instanceof java.lang.String) {
+      return (java.lang.String) ref;
+    } else {
+      com.google.protobuf.ByteString bs = 
+          (com.google.protobuf.ByteString) ref;
+      java.lang.String s = bs.toStringUtf8();
+      question_ = s;
+      return s;
+    }
+  }
+  /**
+   * <pre>
+   * The question the verdict answers: "evaluate" for an evaluation, "holds"
+   * for a claim proved over every free assignment, "satisfiable" for one
+   * satisfying assignment. Reported as the "verification_questions" capability.
+   * </pre>
+   *
+   * <code>string question = 15 [json_name = "question"];</code>
+   * @return The bytes for question.
+   */
+  @java.lang.Override
+  public com.google.protobuf.ByteString
+      getQuestionBytes() {
+    java.lang.Object ref = question_;
+    if (ref instanceof java.lang.String) {
+      com.google.protobuf.ByteString b = 
+          com.google.protobuf.ByteString.copyFromUtf8(
+              (java.lang.String) ref);
+      question_ = b;
+      return b;
+    } else {
+      return (com.google.protobuf.ByteString) ref;
+    }
+  }
+
+  public static final int STATUS_FIELD_NUMBER = 16;
+  @SuppressWarnings("serial")
+  private volatile java.lang.Object status_ = "";
+  /**
+   * <pre>
+   * What the question was answered: "holds", "violated" or "undecided" for
+   * an evaluation or a holds question (undecided names `error` carrying the
+   * reason), "satisfiable" or "unsatisfiable" for a satisfiable question.
+   * `holds` is true iff status is "holds" or "satisfiable".
+   * </pre>
+   *
+   * <code>string status = 16 [json_name = "status"];</code>
+   * @return The status.
+   */
+  @java.lang.Override
+  public java.lang.String getStatus() {
+    java.lang.Object ref = status_;
+    if (ref instanceof java.lang.String) {
+      return (java.lang.String) ref;
+    } else {
+      com.google.protobuf.ByteString bs = 
+          (com.google.protobuf.ByteString) ref;
+      java.lang.String s = bs.toStringUtf8();
+      status_ = s;
+      return s;
+    }
+  }
+  /**
+   * <pre>
+   * What the question was answered: "holds", "violated" or "undecided" for
+   * an evaluation or a holds question (undecided names `error` carrying the
+   * reason), "satisfiable" or "unsatisfiable" for a satisfiable question.
+   * `holds` is true iff status is "holds" or "satisfiable".
+   * </pre>
+   *
+   * <code>string status = 16 [json_name = "status"];</code>
+   * @return The bytes for status.
+   */
+  @java.lang.Override
+  public com.google.protobuf.ByteString
+      getStatusBytes() {
+    java.lang.Object ref = status_;
+    if (ref instanceof java.lang.String) {
+      com.google.protobuf.ByteString b = 
+          com.google.protobuf.ByteString.copyFromUtf8(
+              (java.lang.String) ref);
+      status_ = b;
+      return b;
+    } else {
+      return (com.google.protobuf.ByteString) ref;
+    }
+  }
+
+  public static final int WITNESS_FIELD_NUMBER = 17;
+  @SuppressWarnings("serial")
+  private java.util.List<org.openmbee.opensysml.proto.WitnessAssignment> witness_;
+  /**
+   * <pre>
+   * The assignment witnessing a "violated" holds answer or a "satisfiable"
+   * satisfiable one: the query's free variables, in query order. Never set
+   * for an undecided answer. Reported as the "verification_questions" capability.
+   * </pre>
+   *
+   * <code>repeated .sysml.WitnessAssignment witness = 17 [json_name = "witness"];</code>
+   */
+  @java.lang.Override
+  public java.util.List<org.openmbee.opensysml.proto.WitnessAssignment> getWitnessList() {
+    return witness_;
+  }
+  /**
+   * <pre>
+   * The assignment witnessing a "violated" holds answer or a "satisfiable"
+   * satisfiable one: the query's free variables, in query order. Never set
+   * for an undecided answer. Reported as the "verification_questions" capability.
+   * </pre>
+   *
+   * <code>repeated .sysml.WitnessAssignment witness = 17 [json_name = "witness"];</code>
+   */
+  @java.lang.Override
+  public java.util.List<? extends org.openmbee.opensysml.proto.WitnessAssignmentOrBuilder> 
+      getWitnessOrBuilderList() {
+    return witness_;
+  }
+  /**
+   * <pre>
+   * The assignment witnessing a "violated" holds answer or a "satisfiable"
+   * satisfiable one: the query's free variables, in query order. Never set
+   * for an undecided answer. Reported as the "verification_questions" capability.
+   * </pre>
+   *
+   * <code>repeated .sysml.WitnessAssignment witness = 17 [json_name = "witness"];</code>
+   */
+  @java.lang.Override
+  public int getWitnessCount() {
+    return witness_.size();
+  }
+  /**
+   * <pre>
+   * The assignment witnessing a "violated" holds answer or a "satisfiable"
+   * satisfiable one: the query's free variables, in query order. Never set
+   * for an undecided answer. Reported as the "verification_questions" capability.
+   * </pre>
+   *
+   * <code>repeated .sysml.WitnessAssignment witness = 17 [json_name = "witness"];</code>
+   */
+  @java.lang.Override
+  public org.openmbee.opensysml.proto.WitnessAssignment getWitness(int index) {
+    return witness_.get(index);
+  }
+  /**
+   * <pre>
+   * The assignment witnessing a "violated" holds answer or a "satisfiable"
+   * satisfiable one: the query's free variables, in query order. Never set
+   * for an undecided answer. Reported as the "verification_questions" capability.
+   * </pre>
+   *
+   * <code>repeated .sysml.WitnessAssignment witness = 17 [json_name = "witness"];</code>
+   */
+  @java.lang.Override
+  public org.openmbee.opensysml.proto.WitnessAssignmentOrBuilder getWitnessOrBuilder(
+      int index) {
+    return witness_.get(index);
+  }
+
   private byte memoizedIsInitialized = -1;
   @java.lang.Override
   public final boolean isInitialized() {
@@ -745,6 +923,15 @@ private static final long serialVersionUID = 0L;
     if (!com.google.protobuf.GeneratedMessage.isStringEmpty(instancePath_)) {
       com.google.protobuf.GeneratedMessage.writeString(output, 14, instancePath_);
     }
+    if (!com.google.protobuf.GeneratedMessage.isStringEmpty(question_)) {
+      com.google.protobuf.GeneratedMessage.writeString(output, 15, question_);
+    }
+    if (!com.google.protobuf.GeneratedMessage.isStringEmpty(status_)) {
+      com.google.protobuf.GeneratedMessage.writeString(output, 16, status_);
+    }
+    for (int i = 0; i < witness_.size(); i++) {
+      output.writeMessage(17, witness_.get(i));
+    }
     getUnknownFields().writeTo(output);
   }
 
@@ -800,6 +987,16 @@ private static final long serialVersionUID = 0L;
     if (!com.google.protobuf.GeneratedMessage.isStringEmpty(instancePath_)) {
       size += com.google.protobuf.GeneratedMessage.computeStringSize(14, instancePath_);
     }
+    if (!com.google.protobuf.GeneratedMessage.isStringEmpty(question_)) {
+      size += com.google.protobuf.GeneratedMessage.computeStringSize(15, question_);
+    }
+    if (!com.google.protobuf.GeneratedMessage.isStringEmpty(status_)) {
+      size += com.google.protobuf.GeneratedMessage.computeStringSize(16, status_);
+    }
+    for (int i = 0; i < witness_.size(); i++) {
+      size += com.google.protobuf.CodedOutputStream
+        .computeMessageSize(17, witness_.get(i));
+    }
     size += getUnknownFields().getSerializedSize();
     memoizedSize = size;
     return size;
@@ -842,6 +1039,12 @@ private static final long serialVersionUID = 0L;
         .equals(other.getBoundsList())) return false;
     if (!getInstancePath()
         .equals(other.getInstancePath())) return false;
+    if (!getQuestion()
+        .equals(other.getQuestion())) return false;
+    if (!getStatus()
+        .equals(other.getStatus())) return false;
+    if (!getWitnessList()
+        .equals(other.getWitnessList())) return false;
     if (!getUnknownFields().equals(other.getUnknownFields())) return false;
     return true;
   }
@@ -885,6 +1088,14 @@ private static final long serialVersionUID = 0L;
     }
     hash = (37 * hash) + INSTANCE_PATH_FIELD_NUMBER;
     hash = (53 * hash) + getInstancePath().hashCode();
+    hash = (37 * hash) + QUESTION_FIELD_NUMBER;
+    hash = (53 * hash) + getQuestion().hashCode();
+    hash = (37 * hash) + STATUS_FIELD_NUMBER;
+    hash = (53 * hash) + getStatus().hashCode();
+    if (getWitnessCount() > 0) {
+      hash = (37 * hash) + WITNESS_FIELD_NUMBER;
+      hash = (53 * hash) + getWitnessList().hashCode();
+    }
     hash = (29 * hash) + getUnknownFields().hashCode();
     memoizedHashCode = hash;
     return hash;
@@ -1041,6 +1252,15 @@ private static final long serialVersionUID = 0L;
       }
       bitField0_ = (bitField0_ & ~0x00001000);
       instancePath_ = "";
+      question_ = "";
+      status_ = "";
+      if (witnessBuilder_ == null) {
+        witness_ = java.util.Collections.emptyList();
+      } else {
+        witness_ = null;
+        witnessBuilder_.clear();
+      }
+      bitField0_ = (bitField0_ & ~0x00010000);
       return this;
     }
 
@@ -1082,6 +1302,15 @@ private static final long serialVersionUID = 0L;
         result.bounds_ = bounds_;
       } else {
         result.bounds_ = boundsBuilder_.build();
+      }
+      if (witnessBuilder_ == null) {
+        if (((bitField0_ & 0x00010000) != 0)) {
+          witness_ = java.util.Collections.unmodifiableList(witness_);
+          bitField0_ = (bitField0_ & ~0x00010000);
+        }
+        result.witness_ = witness_;
+      } else {
+        result.witness_ = witnessBuilder_.build();
       }
     }
 
@@ -1125,6 +1354,12 @@ private static final long serialVersionUID = 0L;
       }
       if (((from_bitField0_ & 0x00002000) != 0)) {
         result.instancePath_ = instancePath_;
+      }
+      if (((from_bitField0_ & 0x00004000) != 0)) {
+        result.question_ = question_;
+      }
+      if (((from_bitField0_ & 0x00008000) != 0)) {
+        result.status_ = status_;
       }
     }
 
@@ -1224,6 +1459,42 @@ private static final long serialVersionUID = 0L;
         instancePath_ = other.instancePath_;
         bitField0_ |= 0x00002000;
         onChanged();
+      }
+      if (!other.getQuestion().isEmpty()) {
+        question_ = other.question_;
+        bitField0_ |= 0x00004000;
+        onChanged();
+      }
+      if (!other.getStatus().isEmpty()) {
+        status_ = other.status_;
+        bitField0_ |= 0x00008000;
+        onChanged();
+      }
+      if (witnessBuilder_ == null) {
+        if (!other.witness_.isEmpty()) {
+          if (witness_.isEmpty()) {
+            witness_ = other.witness_;
+            bitField0_ = (bitField0_ & ~0x00010000);
+          } else {
+            ensureWitnessIsMutable();
+            witness_.addAll(other.witness_);
+          }
+          onChanged();
+        }
+      } else {
+        if (!other.witness_.isEmpty()) {
+          if (witnessBuilder_.isEmpty()) {
+            witnessBuilder_.dispose();
+            witnessBuilder_ = null;
+            witness_ = other.witness_;
+            bitField0_ = (bitField0_ & ~0x00010000);
+            witnessBuilder_ = 
+              com.google.protobuf.GeneratedMessage.alwaysUseFieldBuilders ?
+                 internalGetWitnessFieldBuilder() : null;
+          } else {
+            witnessBuilder_.addAllMessages(other.witness_);
+          }
+        }
       }
       this.mergeUnknownFields(other.getUnknownFields());
       onChanged();
@@ -1329,6 +1600,29 @@ private static final long serialVersionUID = 0L;
               bitField0_ |= 0x00002000;
               break;
             } // case 114
+            case 122: {
+              question_ = input.readStringRequireUtf8();
+              bitField0_ |= 0x00004000;
+              break;
+            } // case 122
+            case 130: {
+              status_ = input.readStringRequireUtf8();
+              bitField0_ |= 0x00008000;
+              break;
+            } // case 130
+            case 138: {
+              org.openmbee.opensysml.proto.WitnessAssignment m =
+                  input.readMessage(
+                      org.openmbee.opensysml.proto.WitnessAssignment.parser(),
+                      extensionRegistry);
+              if (witnessBuilder_ == null) {
+                ensureWitnessIsMutable();
+                witness_.add(m);
+              } else {
+                witnessBuilder_.addMessage(m);
+              }
+              break;
+            } // case 138
             default: {
               if (!super.parseUnknownField(input, extensionRegistry, tag)) {
                 done = true; // was an endgroup tag
@@ -2841,6 +3135,563 @@ private static final long serialVersionUID = 0L;
       bitField0_ |= 0x00002000;
       onChanged();
       return this;
+    }
+
+    private java.lang.Object question_ = "";
+    /**
+     * <pre>
+     * The question the verdict answers: "evaluate" for an evaluation, "holds"
+     * for a claim proved over every free assignment, "satisfiable" for one
+     * satisfying assignment. Reported as the "verification_questions" capability.
+     * </pre>
+     *
+     * <code>string question = 15 [json_name = "question"];</code>
+     * @return The question.
+     */
+    public java.lang.String getQuestion() {
+      java.lang.Object ref = question_;
+      if (!(ref instanceof java.lang.String)) {
+        com.google.protobuf.ByteString bs =
+            (com.google.protobuf.ByteString) ref;
+        java.lang.String s = bs.toStringUtf8();
+        question_ = s;
+        return s;
+      } else {
+        return (java.lang.String) ref;
+      }
+    }
+    /**
+     * <pre>
+     * The question the verdict answers: "evaluate" for an evaluation, "holds"
+     * for a claim proved over every free assignment, "satisfiable" for one
+     * satisfying assignment. Reported as the "verification_questions" capability.
+     * </pre>
+     *
+     * <code>string question = 15 [json_name = "question"];</code>
+     * @return The bytes for question.
+     */
+    public com.google.protobuf.ByteString
+        getQuestionBytes() {
+      java.lang.Object ref = question_;
+      if (ref instanceof String) {
+        com.google.protobuf.ByteString b = 
+            com.google.protobuf.ByteString.copyFromUtf8(
+                (java.lang.String) ref);
+        question_ = b;
+        return b;
+      } else {
+        return (com.google.protobuf.ByteString) ref;
+      }
+    }
+    /**
+     * <pre>
+     * The question the verdict answers: "evaluate" for an evaluation, "holds"
+     * for a claim proved over every free assignment, "satisfiable" for one
+     * satisfying assignment. Reported as the "verification_questions" capability.
+     * </pre>
+     *
+     * <code>string question = 15 [json_name = "question"];</code>
+     * @param value The question to set.
+     * @return This builder for chaining.
+     */
+    public Builder setQuestion(
+        java.lang.String value) {
+      if (value == null) { throw new NullPointerException(); }
+      question_ = value;
+      bitField0_ |= 0x00004000;
+      onChanged();
+      return this;
+    }
+    /**
+     * <pre>
+     * The question the verdict answers: "evaluate" for an evaluation, "holds"
+     * for a claim proved over every free assignment, "satisfiable" for one
+     * satisfying assignment. Reported as the "verification_questions" capability.
+     * </pre>
+     *
+     * <code>string question = 15 [json_name = "question"];</code>
+     * @return This builder for chaining.
+     */
+    public Builder clearQuestion() {
+      question_ = getDefaultInstance().getQuestion();
+      bitField0_ = (bitField0_ & ~0x00004000);
+      onChanged();
+      return this;
+    }
+    /**
+     * <pre>
+     * The question the verdict answers: "evaluate" for an evaluation, "holds"
+     * for a claim proved over every free assignment, "satisfiable" for one
+     * satisfying assignment. Reported as the "verification_questions" capability.
+     * </pre>
+     *
+     * <code>string question = 15 [json_name = "question"];</code>
+     * @param value The bytes for question to set.
+     * @return This builder for chaining.
+     */
+    public Builder setQuestionBytes(
+        com.google.protobuf.ByteString value) {
+      if (value == null) { throw new NullPointerException(); }
+      checkByteStringIsUtf8(value);
+      question_ = value;
+      bitField0_ |= 0x00004000;
+      onChanged();
+      return this;
+    }
+
+    private java.lang.Object status_ = "";
+    /**
+     * <pre>
+     * What the question was answered: "holds", "violated" or "undecided" for
+     * an evaluation or a holds question (undecided names `error` carrying the
+     * reason), "satisfiable" or "unsatisfiable" for a satisfiable question.
+     * `holds` is true iff status is "holds" or "satisfiable".
+     * </pre>
+     *
+     * <code>string status = 16 [json_name = "status"];</code>
+     * @return The status.
+     */
+    public java.lang.String getStatus() {
+      java.lang.Object ref = status_;
+      if (!(ref instanceof java.lang.String)) {
+        com.google.protobuf.ByteString bs =
+            (com.google.protobuf.ByteString) ref;
+        java.lang.String s = bs.toStringUtf8();
+        status_ = s;
+        return s;
+      } else {
+        return (java.lang.String) ref;
+      }
+    }
+    /**
+     * <pre>
+     * What the question was answered: "holds", "violated" or "undecided" for
+     * an evaluation or a holds question (undecided names `error` carrying the
+     * reason), "satisfiable" or "unsatisfiable" for a satisfiable question.
+     * `holds` is true iff status is "holds" or "satisfiable".
+     * </pre>
+     *
+     * <code>string status = 16 [json_name = "status"];</code>
+     * @return The bytes for status.
+     */
+    public com.google.protobuf.ByteString
+        getStatusBytes() {
+      java.lang.Object ref = status_;
+      if (ref instanceof String) {
+        com.google.protobuf.ByteString b = 
+            com.google.protobuf.ByteString.copyFromUtf8(
+                (java.lang.String) ref);
+        status_ = b;
+        return b;
+      } else {
+        return (com.google.protobuf.ByteString) ref;
+      }
+    }
+    /**
+     * <pre>
+     * What the question was answered: "holds", "violated" or "undecided" for
+     * an evaluation or a holds question (undecided names `error` carrying the
+     * reason), "satisfiable" or "unsatisfiable" for a satisfiable question.
+     * `holds` is true iff status is "holds" or "satisfiable".
+     * </pre>
+     *
+     * <code>string status = 16 [json_name = "status"];</code>
+     * @param value The status to set.
+     * @return This builder for chaining.
+     */
+    public Builder setStatus(
+        java.lang.String value) {
+      if (value == null) { throw new NullPointerException(); }
+      status_ = value;
+      bitField0_ |= 0x00008000;
+      onChanged();
+      return this;
+    }
+    /**
+     * <pre>
+     * What the question was answered: "holds", "violated" or "undecided" for
+     * an evaluation or a holds question (undecided names `error` carrying the
+     * reason), "satisfiable" or "unsatisfiable" for a satisfiable question.
+     * `holds` is true iff status is "holds" or "satisfiable".
+     * </pre>
+     *
+     * <code>string status = 16 [json_name = "status"];</code>
+     * @return This builder for chaining.
+     */
+    public Builder clearStatus() {
+      status_ = getDefaultInstance().getStatus();
+      bitField0_ = (bitField0_ & ~0x00008000);
+      onChanged();
+      return this;
+    }
+    /**
+     * <pre>
+     * What the question was answered: "holds", "violated" or "undecided" for
+     * an evaluation or a holds question (undecided names `error` carrying the
+     * reason), "satisfiable" or "unsatisfiable" for a satisfiable question.
+     * `holds` is true iff status is "holds" or "satisfiable".
+     * </pre>
+     *
+     * <code>string status = 16 [json_name = "status"];</code>
+     * @param value The bytes for status to set.
+     * @return This builder for chaining.
+     */
+    public Builder setStatusBytes(
+        com.google.protobuf.ByteString value) {
+      if (value == null) { throw new NullPointerException(); }
+      checkByteStringIsUtf8(value);
+      status_ = value;
+      bitField0_ |= 0x00008000;
+      onChanged();
+      return this;
+    }
+
+    private java.util.List<org.openmbee.opensysml.proto.WitnessAssignment> witness_ =
+      java.util.Collections.emptyList();
+    private void ensureWitnessIsMutable() {
+      if (!((bitField0_ & 0x00010000) != 0)) {
+        witness_ = new java.util.ArrayList<org.openmbee.opensysml.proto.WitnessAssignment>(witness_);
+        bitField0_ |= 0x00010000;
+       }
+    }
+
+    private com.google.protobuf.RepeatedFieldBuilder<
+        org.openmbee.opensysml.proto.WitnessAssignment, org.openmbee.opensysml.proto.WitnessAssignment.Builder, org.openmbee.opensysml.proto.WitnessAssignmentOrBuilder> witnessBuilder_;
+
+    /**
+     * <pre>
+     * The assignment witnessing a "violated" holds answer or a "satisfiable"
+     * satisfiable one: the query's free variables, in query order. Never set
+     * for an undecided answer. Reported as the "verification_questions" capability.
+     * </pre>
+     *
+     * <code>repeated .sysml.WitnessAssignment witness = 17 [json_name = "witness"];</code>
+     */
+    public java.util.List<org.openmbee.opensysml.proto.WitnessAssignment> getWitnessList() {
+      if (witnessBuilder_ == null) {
+        return java.util.Collections.unmodifiableList(witness_);
+      } else {
+        return witnessBuilder_.getMessageList();
+      }
+    }
+    /**
+     * <pre>
+     * The assignment witnessing a "violated" holds answer or a "satisfiable"
+     * satisfiable one: the query's free variables, in query order. Never set
+     * for an undecided answer. Reported as the "verification_questions" capability.
+     * </pre>
+     *
+     * <code>repeated .sysml.WitnessAssignment witness = 17 [json_name = "witness"];</code>
+     */
+    public int getWitnessCount() {
+      if (witnessBuilder_ == null) {
+        return witness_.size();
+      } else {
+        return witnessBuilder_.getCount();
+      }
+    }
+    /**
+     * <pre>
+     * The assignment witnessing a "violated" holds answer or a "satisfiable"
+     * satisfiable one: the query's free variables, in query order. Never set
+     * for an undecided answer. Reported as the "verification_questions" capability.
+     * </pre>
+     *
+     * <code>repeated .sysml.WitnessAssignment witness = 17 [json_name = "witness"];</code>
+     */
+    public org.openmbee.opensysml.proto.WitnessAssignment getWitness(int index) {
+      if (witnessBuilder_ == null) {
+        return witness_.get(index);
+      } else {
+        return witnessBuilder_.getMessage(index);
+      }
+    }
+    /**
+     * <pre>
+     * The assignment witnessing a "violated" holds answer or a "satisfiable"
+     * satisfiable one: the query's free variables, in query order. Never set
+     * for an undecided answer. Reported as the "verification_questions" capability.
+     * </pre>
+     *
+     * <code>repeated .sysml.WitnessAssignment witness = 17 [json_name = "witness"];</code>
+     */
+    public Builder setWitness(
+        int index, org.openmbee.opensysml.proto.WitnessAssignment value) {
+      if (witnessBuilder_ == null) {
+        if (value == null) {
+          throw new NullPointerException();
+        }
+        ensureWitnessIsMutable();
+        witness_.set(index, value);
+        onChanged();
+      } else {
+        witnessBuilder_.setMessage(index, value);
+      }
+      return this;
+    }
+    /**
+     * <pre>
+     * The assignment witnessing a "violated" holds answer or a "satisfiable"
+     * satisfiable one: the query's free variables, in query order. Never set
+     * for an undecided answer. Reported as the "verification_questions" capability.
+     * </pre>
+     *
+     * <code>repeated .sysml.WitnessAssignment witness = 17 [json_name = "witness"];</code>
+     */
+    public Builder setWitness(
+        int index, org.openmbee.opensysml.proto.WitnessAssignment.Builder builderForValue) {
+      if (witnessBuilder_ == null) {
+        ensureWitnessIsMutable();
+        witness_.set(index, builderForValue.build());
+        onChanged();
+      } else {
+        witnessBuilder_.setMessage(index, builderForValue.build());
+      }
+      return this;
+    }
+    /**
+     * <pre>
+     * The assignment witnessing a "violated" holds answer or a "satisfiable"
+     * satisfiable one: the query's free variables, in query order. Never set
+     * for an undecided answer. Reported as the "verification_questions" capability.
+     * </pre>
+     *
+     * <code>repeated .sysml.WitnessAssignment witness = 17 [json_name = "witness"];</code>
+     */
+    public Builder addWitness(org.openmbee.opensysml.proto.WitnessAssignment value) {
+      if (witnessBuilder_ == null) {
+        if (value == null) {
+          throw new NullPointerException();
+        }
+        ensureWitnessIsMutable();
+        witness_.add(value);
+        onChanged();
+      } else {
+        witnessBuilder_.addMessage(value);
+      }
+      return this;
+    }
+    /**
+     * <pre>
+     * The assignment witnessing a "violated" holds answer or a "satisfiable"
+     * satisfiable one: the query's free variables, in query order. Never set
+     * for an undecided answer. Reported as the "verification_questions" capability.
+     * </pre>
+     *
+     * <code>repeated .sysml.WitnessAssignment witness = 17 [json_name = "witness"];</code>
+     */
+    public Builder addWitness(
+        int index, org.openmbee.opensysml.proto.WitnessAssignment value) {
+      if (witnessBuilder_ == null) {
+        if (value == null) {
+          throw new NullPointerException();
+        }
+        ensureWitnessIsMutable();
+        witness_.add(index, value);
+        onChanged();
+      } else {
+        witnessBuilder_.addMessage(index, value);
+      }
+      return this;
+    }
+    /**
+     * <pre>
+     * The assignment witnessing a "violated" holds answer or a "satisfiable"
+     * satisfiable one: the query's free variables, in query order. Never set
+     * for an undecided answer. Reported as the "verification_questions" capability.
+     * </pre>
+     *
+     * <code>repeated .sysml.WitnessAssignment witness = 17 [json_name = "witness"];</code>
+     */
+    public Builder addWitness(
+        org.openmbee.opensysml.proto.WitnessAssignment.Builder builderForValue) {
+      if (witnessBuilder_ == null) {
+        ensureWitnessIsMutable();
+        witness_.add(builderForValue.build());
+        onChanged();
+      } else {
+        witnessBuilder_.addMessage(builderForValue.build());
+      }
+      return this;
+    }
+    /**
+     * <pre>
+     * The assignment witnessing a "violated" holds answer or a "satisfiable"
+     * satisfiable one: the query's free variables, in query order. Never set
+     * for an undecided answer. Reported as the "verification_questions" capability.
+     * </pre>
+     *
+     * <code>repeated .sysml.WitnessAssignment witness = 17 [json_name = "witness"];</code>
+     */
+    public Builder addWitness(
+        int index, org.openmbee.opensysml.proto.WitnessAssignment.Builder builderForValue) {
+      if (witnessBuilder_ == null) {
+        ensureWitnessIsMutable();
+        witness_.add(index, builderForValue.build());
+        onChanged();
+      } else {
+        witnessBuilder_.addMessage(index, builderForValue.build());
+      }
+      return this;
+    }
+    /**
+     * <pre>
+     * The assignment witnessing a "violated" holds answer or a "satisfiable"
+     * satisfiable one: the query's free variables, in query order. Never set
+     * for an undecided answer. Reported as the "verification_questions" capability.
+     * </pre>
+     *
+     * <code>repeated .sysml.WitnessAssignment witness = 17 [json_name = "witness"];</code>
+     */
+    public Builder addAllWitness(
+        java.lang.Iterable<? extends org.openmbee.opensysml.proto.WitnessAssignment> values) {
+      if (witnessBuilder_ == null) {
+        ensureWitnessIsMutable();
+        com.google.protobuf.AbstractMessageLite.Builder.addAll(
+            values, witness_);
+        onChanged();
+      } else {
+        witnessBuilder_.addAllMessages(values);
+      }
+      return this;
+    }
+    /**
+     * <pre>
+     * The assignment witnessing a "violated" holds answer or a "satisfiable"
+     * satisfiable one: the query's free variables, in query order. Never set
+     * for an undecided answer. Reported as the "verification_questions" capability.
+     * </pre>
+     *
+     * <code>repeated .sysml.WitnessAssignment witness = 17 [json_name = "witness"];</code>
+     */
+    public Builder clearWitness() {
+      if (witnessBuilder_ == null) {
+        witness_ = java.util.Collections.emptyList();
+        bitField0_ = (bitField0_ & ~0x00010000);
+        onChanged();
+      } else {
+        witnessBuilder_.clear();
+      }
+      return this;
+    }
+    /**
+     * <pre>
+     * The assignment witnessing a "violated" holds answer or a "satisfiable"
+     * satisfiable one: the query's free variables, in query order. Never set
+     * for an undecided answer. Reported as the "verification_questions" capability.
+     * </pre>
+     *
+     * <code>repeated .sysml.WitnessAssignment witness = 17 [json_name = "witness"];</code>
+     */
+    public Builder removeWitness(int index) {
+      if (witnessBuilder_ == null) {
+        ensureWitnessIsMutable();
+        witness_.remove(index);
+        onChanged();
+      } else {
+        witnessBuilder_.remove(index);
+      }
+      return this;
+    }
+    /**
+     * <pre>
+     * The assignment witnessing a "violated" holds answer or a "satisfiable"
+     * satisfiable one: the query's free variables, in query order. Never set
+     * for an undecided answer. Reported as the "verification_questions" capability.
+     * </pre>
+     *
+     * <code>repeated .sysml.WitnessAssignment witness = 17 [json_name = "witness"];</code>
+     */
+    public org.openmbee.opensysml.proto.WitnessAssignment.Builder getWitnessBuilder(
+        int index) {
+      return internalGetWitnessFieldBuilder().getBuilder(index);
+    }
+    /**
+     * <pre>
+     * The assignment witnessing a "violated" holds answer or a "satisfiable"
+     * satisfiable one: the query's free variables, in query order. Never set
+     * for an undecided answer. Reported as the "verification_questions" capability.
+     * </pre>
+     *
+     * <code>repeated .sysml.WitnessAssignment witness = 17 [json_name = "witness"];</code>
+     */
+    public org.openmbee.opensysml.proto.WitnessAssignmentOrBuilder getWitnessOrBuilder(
+        int index) {
+      if (witnessBuilder_ == null) {
+        return witness_.get(index);  } else {
+        return witnessBuilder_.getMessageOrBuilder(index);
+      }
+    }
+    /**
+     * <pre>
+     * The assignment witnessing a "violated" holds answer or a "satisfiable"
+     * satisfiable one: the query's free variables, in query order. Never set
+     * for an undecided answer. Reported as the "verification_questions" capability.
+     * </pre>
+     *
+     * <code>repeated .sysml.WitnessAssignment witness = 17 [json_name = "witness"];</code>
+     */
+    public java.util.List<? extends org.openmbee.opensysml.proto.WitnessAssignmentOrBuilder> 
+         getWitnessOrBuilderList() {
+      if (witnessBuilder_ != null) {
+        return witnessBuilder_.getMessageOrBuilderList();
+      } else {
+        return java.util.Collections.unmodifiableList(witness_);
+      }
+    }
+    /**
+     * <pre>
+     * The assignment witnessing a "violated" holds answer or a "satisfiable"
+     * satisfiable one: the query's free variables, in query order. Never set
+     * for an undecided answer. Reported as the "verification_questions" capability.
+     * </pre>
+     *
+     * <code>repeated .sysml.WitnessAssignment witness = 17 [json_name = "witness"];</code>
+     */
+    public org.openmbee.opensysml.proto.WitnessAssignment.Builder addWitnessBuilder() {
+      return internalGetWitnessFieldBuilder().addBuilder(
+          org.openmbee.opensysml.proto.WitnessAssignment.getDefaultInstance());
+    }
+    /**
+     * <pre>
+     * The assignment witnessing a "violated" holds answer or a "satisfiable"
+     * satisfiable one: the query's free variables, in query order. Never set
+     * for an undecided answer. Reported as the "verification_questions" capability.
+     * </pre>
+     *
+     * <code>repeated .sysml.WitnessAssignment witness = 17 [json_name = "witness"];</code>
+     */
+    public org.openmbee.opensysml.proto.WitnessAssignment.Builder addWitnessBuilder(
+        int index) {
+      return internalGetWitnessFieldBuilder().addBuilder(
+          index, org.openmbee.opensysml.proto.WitnessAssignment.getDefaultInstance());
+    }
+    /**
+     * <pre>
+     * The assignment witnessing a "violated" holds answer or a "satisfiable"
+     * satisfiable one: the query's free variables, in query order. Never set
+     * for an undecided answer. Reported as the "verification_questions" capability.
+     * </pre>
+     *
+     * <code>repeated .sysml.WitnessAssignment witness = 17 [json_name = "witness"];</code>
+     */
+    public java.util.List<org.openmbee.opensysml.proto.WitnessAssignment.Builder> 
+         getWitnessBuilderList() {
+      return internalGetWitnessFieldBuilder().getBuilderList();
+    }
+    private com.google.protobuf.RepeatedFieldBuilder<
+        org.openmbee.opensysml.proto.WitnessAssignment, org.openmbee.opensysml.proto.WitnessAssignment.Builder, org.openmbee.opensysml.proto.WitnessAssignmentOrBuilder> 
+        internalGetWitnessFieldBuilder() {
+      if (witnessBuilder_ == null) {
+        witnessBuilder_ = new com.google.protobuf.RepeatedFieldBuilder<
+            org.openmbee.opensysml.proto.WitnessAssignment, org.openmbee.opensysml.proto.WitnessAssignment.Builder, org.openmbee.opensysml.proto.WitnessAssignmentOrBuilder>(
+                witness_,
+                ((bitField0_ & 0x00010000) != 0),
+                getParentForChildren(),
+                isClean());
+        witness_ = null;
+      }
+      return witnessBuilder_;
     }
 
     // @@protoc_insertion_point(builder_scope:sysml.Verdict)

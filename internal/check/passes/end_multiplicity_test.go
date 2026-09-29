@@ -80,6 +80,98 @@ func TestKerMLEndOwnMultiplicityNotOne(t *testing.T) {
 	})
 }
 
+func TestActionSuccessionSourceMultiplicity(t *testing.T) {
+	const src = `action def A {
+		action a;
+		then [0..1] action b;
+		then [*] action c;
+		then [1] action d;
+	}`
+	got := endMultiplicityTexts(t, constraintDiags(t, src), src)
+	wantEndMultiplicity(t, got, []string{"[0..1]", "[*]"})
+}
+
+func TestNestedActionSuccessionSourceMultiplicity(t *testing.T) {
+	const src = `action def A {
+		action root;
+		then [0..1] action top;
+		if true {
+			action ifSource;
+			[0..1] then done;
+			[1] then done;
+			attribute branchOne : ScalarValues::Natural = 1;
+			[branchOne] then done;
+			then [0..1] action inlineAction;
+			then [1] action inlineUnitAction;
+			if true {
+				action innerSource;
+				[0..1] then done;
+				[1] then done;
+			}
+		} else {
+			action elseSource;
+			[0..1] then done;
+			[1] then done;
+		}
+		while true {
+			action whileSource;
+			[0..1] then done;
+			[1] then done;
+		}
+		loop {
+			action loopSource;
+			[0..1] then done;
+			[1] then done;
+		}
+		for i in 1..2 {
+			action forSource;
+			[0..1] then done;
+			[1] then done;
+		}
+	}`
+	got := endMultiplicityTexts(t, constraintDiags(t, src), src)
+	wantEndMultiplicity(t, got, []string{
+		"[0..1]", // top-level
+		"[0..1]", // if
+		"[0..1]", // inline member in if
+		"[0..1]", // nested if
+		"[0..1]", // else
+		"[0..1]", // while
+		"[0..1]", // loop
+		"[0..1]", // for
+	})
+}
+
+func TestExplicitActionSuccessionCrossMultiplicities(t *testing.T) {
+	const src = `package P {
+		action def A {
+			action a;
+			action b;
+			succession first [0..1] a then b;
+			succession first a then [0..1] b;
+			succession s first [0..1] a then [0..1] b;
+			succession first [1] a then b;
+		}
+	}`
+	got := endMultiplicityTexts(t, constraintDiags(t, src), src)
+	wantEndMultiplicity(t, got, nil)
+}
+
+func TestPartDefinitionSuccessionCrossMultiplicities(t *testing.T) {
+	const src = `package P {
+		part def A {
+			action a;
+			action b;
+			succession first [0..1] a then b;
+			succession first a then [0..1] b;
+			succession s first [0..1] a then [0..1] b;
+			succession first [1] a then b;
+		}
+	}`
+	got := endMultiplicityTexts(t, constraintDiags(t, src), src)
+	wantEndMultiplicity(t, got, nil)
+}
+
 // An end's own multiplicity is the only one it has (KerML 1.1 Type::multiplicities),
 // so a stated non-one range warns even when a redefined or subsetted end is one.
 func TestKerMLEndOwnMultiplicityShadowsGenerals(t *testing.T) {

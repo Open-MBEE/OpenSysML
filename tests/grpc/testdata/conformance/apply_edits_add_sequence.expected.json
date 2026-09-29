@@ -1,0 +1,26 @@
+{
+  "rpc": "ApplyEdits",
+  "operations": [
+    {
+      "kind": "add_sequence",
+      "owner": "A",
+      "keyword": "first",
+      "ref": "start"
+    },
+    {
+      "kind": "add_sequence",
+      "owner": "A",
+      "keyword": "then",
+      "member_kind": "action",
+      "member_name": "b",
+      "after": "a"
+    },
+    {
+      "kind": "add_sequence",
+      "owner": "A",
+      "keyword": "then",
+      "ref": "done"
+    }
+  ],
+  "expected_content": "action def A {\n    action a;\n    then action b;\n    first start;\n    then done;\n}\n"
+}

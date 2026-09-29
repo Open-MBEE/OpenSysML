@@ -107,6 +107,7 @@ func TestResolveEndpointsThatNameVertices(t *testing.T) {
 			}
 		`,
 		"sourceless accept then": `
+			item def Ping;
 			state def M {
 				entry; then idle;
 				state idle;

@@ -4,6 +4,9 @@ import (
 	"errors"
 	"strings"
 	"testing"
+
+	"github.com/Open-MBEE/OpenSysML/internal/semantic/semantics"
+	"github.com/Open-MBEE/OpenSysML/internal/syntax/ast"
 )
 
 // satisfyModel is a model whose analysis context states satisfaction
@@ -171,5 +174,45 @@ func TestNegatedSatisfactionInvertsTheVerdict(t *testing.T) {
 	}
 	if !satisfied {
 		t.Fatalf("satisfied = false, want true: the requirement it denies does not hold")
+	}
+}
+
+func TestReadInSatisfactionReadsThroughTheSubject(t *testing.T) {
+	src := `package P {
+		private import ScalarValues::*;
+		part def Inner { attribute power : Real; }
+		part def Sub { part inner : Inner; }
+		part def Thing { part sub : Sub; }
+		requirement def Deep {
+			subject vehicle : Thing;
+			require constraint { vehicle.sub.inner.power > 0.0 }
+		}
+		requirement deep : Deep;
+		part craft : Thing {
+			part :>> sub {
+				part :>> inner { attribute :>> power = 7.0; }
+			}
+		}
+		part analysis { assert satisfy deep by craft; }
+	}`
+	ctx, a := satisfactionOf(t, src, "satisfy deep by craft")
+	subject, err := ctx.SatisfySubject(a)
+	if err != nil {
+		t.Fatalf("SatisfySubject: %v", err)
+	}
+	conditions := ctx.ConditionsOf(a.Symbol, a.Symbol.OwnerScope)
+	if len(conditions) != 1 || conditions[0].Expr == nil {
+		t.Fatalf("conditions = %+v, want one expression", conditions)
+	}
+	expression, ok := conditions[0].Expr.(*ast.OperatorExpr)
+	if !ok || len(expression.Operands) != 2 {
+		t.Fatalf("condition expression = %#v, want a binary operator", conditions[0].Expr)
+	}
+	value, err := ctx.ReadInSatisfaction(a, subject, conditions[0].Scope, expression.Operands[0])
+	if err != nil {
+		t.Fatalf("ReadInSatisfaction: %v", err)
+	}
+	if value.Kind != ValConst || value.Const.Kind != semantics.ValReal || value.Const.Real != 7.0 {
+		t.Fatalf("ReadInSatisfaction = %+v, want 7.0", value)
 	}
 }

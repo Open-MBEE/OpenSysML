@@ -1,0 +1,49 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<xmi:XMI xmi:version="2.5.1" xmlns:xmi="http://www.omg.org/spec/XMI/20131001"
+         xmlns:uml="http://www.omg.org/spec/UML/20161101"
+         xmlns:sysml="http://www.omg.org/spec/SysML/20181001/SysML">
+  <uml:Model xmi:type="uml:Model" xmi:id="_m" name="Model">
+    <packagedElement xmi:type="uml:Signal" xmi:id="_ping" name="Ping"/>
+    <packagedElement xmi:type="uml:Activity" xmi:id="_make" name="Make">
+      <ownedParameter xmi:type="uml:Parameter" xmi:id="_makeOut" direction="out">
+        <type xmi:type="uml:PrimitiveType" href="http://www.omg.org/spec/UML/20131001/PrimitiveTypes.xmi#Integer"/>
+      </ownedParameter>
+      <node xmi:type="uml:InitialNode" xmi:id="_mi"/>
+      <node xmi:type="uml:ValueSpecificationAction" xmi:id="_one" name="one">
+        <value xmi:type="uml:LiteralInteger" xmi:id="_oneValue" value="1"/>
+        <result xmi:type="uml:OutputPin" xmi:id="_oneOut" name="result"/>
+      </node>
+      <node xmi:type="uml:ActivityParameterNode" xmi:id="_makeOutNode" name="result" parameter="_makeOut"/>
+      <node xmi:type="uml:SendSignalAction" xmi:id="_send" name="send ping" signal="_ping" onPort="_tx"/>
+      <node xmi:type="uml:ActivityFinalNode" xmi:id="_mf"/>
+      <edge xmi:type="uml:ControlFlow" xmi:id="_me1" source="_mi" target="_one"/>
+      <edge xmi:type="uml:ControlFlow" xmi:id="_me2" source="_one" target="_send"/>
+      <edge xmi:type="uml:ControlFlow" xmi:id="_me3" source="_send" target="_mf"/>
+      <edge xmi:type="uml:ObjectFlow" xmi:id="_makeOutFlow" source="_oneOut" target="_makeOutNode"/>
+    </packagedElement>
+    <packagedElement xmi:type="uml:Activity" xmi:id="_consume" name="Consume">
+      <ownedParameter xmi:type="uml:Parameter" xmi:id="_consumeIn" name="value" direction="in">
+        <type xmi:type="uml:PrimitiveType" href="http://www.omg.org/spec/UML/20131001/PrimitiveTypes.xmi#Integer"/>
+      </ownedParameter>
+    </packagedElement>
+    <packagedElement xmi:type="uml:Class" xmi:id="_host" name="Host">
+      <ownedAttribute xmi:type="uml:Port" xmi:id="_tx" name="tx" aggregation="composite"/>
+      <ownedBehavior xmi:type="uml:Activity" xmi:id="_run" name="Run">
+        <group xmi:type="uml:ActivityPartition" xmi:id="_hostLane" name="host" represents="_host" node="_callMake"/>
+        <node xmi:type="uml:InitialNode" xmi:id="_ri"/>
+        <node xmi:type="uml:CallBehaviorAction" xmi:id="_callMake" name="make" behavior="_make">
+          <result xmi:type="uml:OutputPin" xmi:id="_callMakeOut" name="result"/>
+        </node>
+        <node xmi:type="uml:CallBehaviorAction" xmi:id="_callConsume" name="consume" behavior="_consume">
+          <argument xmi:type="uml:InputPin" xmi:id="_consumeArg" name="value"/>
+        </node>
+        <node xmi:type="uml:ActivityFinalNode" xmi:id="_rf"/>
+        <edge xmi:type="uml:ControlFlow" xmi:id="_re1" source="_ri" target="_callMake"/>
+        <edge xmi:type="uml:ControlFlow" xmi:id="_re2" source="_callMake" target="_callConsume"/>
+        <edge xmi:type="uml:ControlFlow" xmi:id="_re3" source="_callConsume" target="_rf"/>
+        <edge xmi:type="uml:ObjectFlow" xmi:id="_re4" source="_callMakeOut" target="_consumeArg"/>
+      </ownedBehavior>
+    </packagedElement>
+  </uml:Model>
+  <sysml:Block xmi:id="_hostBlock" base_Class="_host"/>
+</xmi:XMI>

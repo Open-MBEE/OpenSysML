@@ -10,6 +10,9 @@
       <packagedElement xmi:type="uml:Class" xmi:id="_blk_vehicle" name="Vehicle">
         <ownedAttribute xmi:type="uml:Property" xmi:id="_prop_engine" name="engine" type="_blk_engine" aggregation="composite"/>
         <ownedAttribute xmi:type="uml:Property" xmi:id="_prop_wheel" name="wheel" type="_blk_wheel" aggregation="composite"/>
+        <ownedAttribute xmi:type="uml:Property" xmi:id="_prop_height" name="height">
+          <type xmi:type="uml:PrimitiveType" href="http://www.omg.org/spec/SysML/20181001/SysML.xmi#Real"/>
+        </ownedAttribute>
         <ownedConnector xmi:type="uml:Connector" xmi:id="_conn_drive" name="drive">
           <end xmi:type="uml:ConnectorEnd" xmi:id="_ce_drive_1" role="_prop_engine"/>
           <end xmi:type="uml:ConnectorEnd" xmi:id="_ce_drive_2" role="_prop_wheel"/>
@@ -41,6 +44,7 @@
                   <usedElements>_blk_engine</usedElements>
                   <usedElements>_blk_wheel</usedElements>
                   <usedElements>_prop_engine</usedElements>
+                  <usedElements>_prop_height</usedElements>
                   <usedElements>_conn_drive</usedElements>
                   <usedElements>_act_step</usedElements>
                   <usedElements>_ghost</usedElements>

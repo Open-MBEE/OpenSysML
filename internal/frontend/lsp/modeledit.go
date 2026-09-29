@@ -31,6 +31,7 @@ const (
 	EditRename        = "rename"
 	EditAddMember     = "addMember"
 	EditAddConnection = "addConnection"
+	EditAddSequence   = "addSequence"
 	EditDelete        = "delete"
 	EditMove          = "move"
 	EditSetLayout     = "setLayout"
@@ -66,27 +67,37 @@ type applyModelEditParams struct {
 // with no Layout, a setRoute with no or an empty Route, a setCanvas with no
 // Canvas and a setStyle with no Style clear the annotation.
 type modelEditOperation struct {
-	Kind         string               `json:"kind"`
-	Target       string               `json:"target,omitempty"`
-	Declaration  *protocol.Range      `json:"declaration,omitempty"`
-	DeclaredIn   protocol.DocumentURI `json:"declaredIn,omitempty"`
-	Digest       string               `json:"digest,omitempty"`
-	Value        string               `json:"value,omitempty"`
-	NewName      string               `json:"newName,omitempty"`
-	Owner        string               `json:"owner,omitempty"`
-	MemberKind   string               `json:"memberKind,omitempty"`
-	Name         string               `json:"name,omitempty"`
-	Type         string               `json:"type,omitempty"`
-	Multiplicity string               `json:"multiplicity,omitempty"`
-	Specializes  []string             `json:"specializes,omitempty"`
-	From         string               `json:"from,omitempty"`
-	To           string               `json:"to,omitempty"`
-	Cascade      bool                 `json:"cascade,omitempty"`
-	View         string               `json:"view,omitempty"`
-	Layout       *modelEditLayout     `json:"layout,omitempty"`
-	Route        []renderPoint        `json:"route,omitempty"`
-	Canvas       *renderCanvas        `json:"canvas,omitempty"`
-	Style        *renderStyle         `json:"style,omitempty"`
+	Kind           string               `json:"kind"`
+	Target         string               `json:"target,omitempty"`
+	Declaration    *protocol.Range      `json:"declaration,omitempty"`
+	DeclaredIn     protocol.DocumentURI `json:"declaredIn,omitempty"`
+	Digest         string               `json:"digest,omitempty"`
+	Value          string               `json:"value,omitempty"`
+	BodyExpression string               `json:"bodyExpression,omitempty"`
+	NewName        string               `json:"newName,omitempty"`
+	Owner          string               `json:"owner,omitempty"`
+	MemberKind     string               `json:"memberKind,omitempty"`
+	Name           string               `json:"name,omitempty"`
+	Type           string               `json:"type,omitempty"`
+	Multiplicity   string               `json:"multiplicity,omitempty"`
+	Specializes    []string             `json:"specializes,omitempty"`
+	From           string               `json:"from,omitempty"`
+	To             string               `json:"to,omitempty"`
+	Cascade        bool                 `json:"cascade,omitempty"`
+	View           string               `json:"view,omitempty"`
+	Keyword        string               `json:"keyword,omitempty"`
+	Ref            string               `json:"ref,omitempty"`
+	After          string               `json:"after,omitempty"`
+	Condition      string               `json:"condition,omitempty"`
+	Via            string               `json:"via,omitempty"`
+	Until          string               `json:"until,omitempty"`
+	Parameter      string               `json:"parameter,omitempty"`
+	Body           []modelEditOperation `json:"body,omitempty"`
+	ElseBody       []modelEditOperation `json:"elseBody,omitempty"`
+	Layout         *modelEditLayout     `json:"layout,omitempty"`
+	Route          []renderPoint        `json:"route,omitempty"`
+	Canvas         *renderCanvas        `json:"canvas,omitempty"`
+	Style          *renderStyle         `json:"style,omitempty"`
 }
 
 // modelEditLayout is a node's geometry as setLayout writes it, in the units
@@ -341,10 +352,42 @@ func (op modelEditOperation) operation(content []byte) (modeledit.Operation, err
 	case EditAddMember:
 		out := modeledit.AddMember(op.Owner, op.MemberKind, op.Name)
 		out.Type, out.Multiplicity, out.Value, out.Specializes = op.Type, op.Multiplicity, op.Value, op.Specializes
+		out.BodyExpression = op.BodyExpression
 		return out, nil
 	case EditAddConnection:
 		out := modeledit.AddConnection(op.Owner, op.MemberKind, op.From, op.To, op.Name)
 		out.Type = op.Type
+		return out, nil
+	case EditAddSequence:
+		out := modeledit.Operation{
+			Kind: modeledit.OpAddSequence, Owner: op.Owner,
+			SequenceKeyword: op.Keyword, SequenceRef: op.Ref,
+			MemberKind: op.MemberKind, MemberName: op.Name,
+			Type: op.Type, After: op.After, Multiplicity: op.Multiplicity,
+			SequenceCondition: op.Condition, SequenceValue: op.Value,
+			SequenceTarget: op.Target, SequenceVia: op.Via,
+			SequenceUntil: op.Until, SequenceParameter: op.Parameter,
+		}
+		for _, item := range op.Body {
+			if item.Kind != EditAddSequence {
+				return modeledit.Operation{}, errors.New("a nested action-body item must be addSequence")
+			}
+			child, err := item.operation(content)
+			if err != nil {
+				return modeledit.Operation{}, err
+			}
+			out.SequenceBody = append(out.SequenceBody, child)
+		}
+		for _, item := range op.ElseBody {
+			if item.Kind != EditAddSequence {
+				return modeledit.Operation{}, errors.New("a nested action-body item must be addSequence")
+			}
+			child, err := item.operation(content)
+			if err != nil {
+				return modeledit.Operation{}, err
+			}
+			out.SequenceElse = append(out.SequenceElse, child)
+		}
 		return out, nil
 	case EditDelete:
 		return modeledit.Delete(op.Target, op.Cascade), nil
@@ -385,7 +428,7 @@ func (op modelEditOperation) operation(content []byte) (modeledit.Operation, err
 		return modeledit.SetStyle(op.Target, op.View, style), nil
 	}
 	return modeledit.Operation{}, fmt.Errorf("kind %q is none of %s", op.Kind,
-		strings.Join([]string{EditSetValue, EditRename, EditAddMember, EditAddConnection, EditDelete, EditMove, EditSetLayout, EditSetRoute, EditSetCanvas, EditSetStyle}, ", "))
+		strings.Join([]string{EditSetValue, EditRename, EditAddMember, EditAddConnection, EditAddSequence, EditDelete, EditMove, EditSetLayout, EditSetRoute, EditSetCanvas, EditSetStyle}, ", "))
 }
 
 // style reads the wire style as the edit layer writes it; nil clears.
