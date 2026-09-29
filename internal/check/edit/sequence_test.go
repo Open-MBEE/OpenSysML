@@ -125,6 +125,20 @@ func TestAddSequenceAfter(t *testing.T) {
 	})
 }
 
+func TestAddSequenceGlobalReference(t *testing.T) {
+	model := loadContent(t, "sequence-global.sysml",
+		"package P {\n    action def A {\n        action a;\n    }\n}\n")
+	requireClean(t, model)
+	// `first $::x;` is not grammatical — the grammar admits a plain node name
+	// after `first` — so only `then` shares this path.
+	result := applyOne(t, model, AddThen("P::A", "$::P::A::a"))
+	const want = "        then $::P::A::a;\n"
+	if !strings.Contains(string(result.Content), want) {
+		t.Fatalf("%q not written:\n%s", want, result.Content)
+	}
+	requireClean(t, loadContent(t, "sequence-global.sysml", string(result.Content)))
+}
+
 func TestAddSequenceRefusals(t *testing.T) {
 	tests := []struct {
 		name string
@@ -203,6 +217,12 @@ func TestAddSequenceRefusals(t *testing.T) {
 			m:    loadContent(t, "sequence-kw.sysml", sequenceTestModel),
 			op:   Operation{Kind: OpAddSequence, Owner: "P::A", SequenceKeyword: "then"},
 			want: FailureIllegalKind,
+		},
+		{
+			name: "ref resolves to nothing",
+			m:    loadContent(t, "sequence-ref.sysml", sequenceTestModel),
+			op:   AddThen("P::A", "$::P::A::nope"),
+			want: FailureUnknownTarget,
 		},
 		{
 			name: "ref not a feature reference",

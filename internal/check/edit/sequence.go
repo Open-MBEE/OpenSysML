@@ -2,6 +2,7 @@ package edit
 
 import (
 	"fmt"
+	"strings"
 
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/resolve"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/symbols"
@@ -167,6 +168,19 @@ func actionBodyOwner(owner ast.Node) bool {
 // sequence to: a member it declares or inherits, a feature reachable from it,
 // or one of the implicit start/done markers the grammar reserves.
 func sequenceNodeVisible(scope *symbols.Scope, ref string) bool {
+	if strings.HasPrefix(ref, "$::") {
+		// A `$::`-rooted name resolves from the top of the scope chain — the
+		// global namespace root the resolver walks to itself (rootOf).
+		segments, ok := source.QualifiedNameSegments(strings.TrimPrefix(ref, "$::"))
+		if !ok || len(segments) == 0 {
+			return false
+		}
+		for scope.Parent() != nil {
+			scope = scope.Parent()
+		}
+		_, ok = resolve.FeatureSymbolInScope(scope, segments)
+		return ok
+	}
 	segments, ok := source.QualifiedNameSegments(ref)
 	if !ok || len(segments) == 0 {
 		return false
