@@ -13,8 +13,8 @@ package Payloads {
         flow of fuel : Fuel from x.i to y.j {
             attribute w : Prio;
         }
-        flow m of cmd : Prio from x.i to y.j;
-        flow of cmd : Prio = m.cmd from x.i to y.j {
+        message m of cmd : Prio from x.i to y.j;
+        message of cmd : Prio = m.cmd from x.i to y.j {
             attribute w : Prio;
         }
     }

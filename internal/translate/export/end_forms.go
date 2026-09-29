@@ -3,6 +3,7 @@ package export
 import (
 	"fmt"
 	"slices"
+	"strconv"
 	"strings"
 
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/ast"
@@ -494,7 +495,10 @@ func (d *decoder) relatedEnds(el *element) (ends []string, payload string, err e
 
 // standardEnds reads connectorEnd features in graph order, with ownership fallbacks.
 func (d *decoder) standardEnds(el *element) ([]string, bool, error) {
-	terms := d.standardEndFeatures(el)
+	terms, err := d.standardEndFeatures(el)
+	if err != nil {
+		return nil, false, err
+	}
 	if len(terms) == 0 {
 		return nil, false, nil
 	}
@@ -563,7 +567,7 @@ func (d *decoder) standardEndText(end rdf.Term, in *element) (string, error) {
 
 // standardEndFeatures discovers connector ends through each standard ownership
 // representation, including the ownership-only shape accepted by standardEnds.
-func (d *decoder) standardEndFeatures(el *element) []rdf.Term {
+func (d *decoder) standardEndFeatures(el *element) ([]rdf.Term, error) {
 	var terms []rdf.Term
 	appendUnique := func(term rdf.Term) {
 		if d.declaredChild(el, term) {
@@ -592,6 +596,15 @@ func (d *decoder) standardEndFeatures(el *element) []rdf.Term {
 		}
 	}
 	if len(terms) == 0 {
+		ends, err := d.messageEnds(el)
+		if err != nil {
+			return nil, err
+		}
+		for _, end := range ends {
+			appendUnique(end)
+		}
+	}
+	if len(terms) == 0 {
 		for _, feature := range d.graph.Objects(rdf.IRI(el.iri), rdf.SysML+pOwnedFeature) {
 			for _, membership := range d.graph.Objects(feature, rdf.SysML+pOwningMembership) {
 				if d.metaclass(membership) == mEndFeatureMembership {
@@ -608,7 +621,157 @@ func (d *decoder) standardEndFeatures(el *element) []rdf.Term {
 			}
 		}
 	}
-	return terms
+	return terms, nil
+}
+
+// messageEnds returns the event ends a `message` owns through
+// ParameterMembership (SysML.xtext MessageEventMember), in written order; a
+// `flow` owns connector ends instead and returns none. Their metaclass —
+// EventOccurrenceUsage — is what the `message` keyword states where the head
+// recorded none. The ends come from two passes — memberships the flow links,
+// then memberships naming the flow back — so the order the graph states them
+// orders them only when one pass found them all; when both did, sysx:memberIndex
+// or the flow's own source and target must.
+func (d *decoder) messageEnds(el *element) ([]rdf.Term, error) {
+	if el.metaclass != usageMetaclass[ast.UsageFlow] {
+		return nil, nil
+	}
+	var ends, memberships []rdf.Term
+	seen := map[string]bool{}
+	var linked, standalone bool
+	consider := func(membership rdf.Term, isLinked bool) {
+		if seen[membership.Value] || d.metaclass(membership) != mParameterMembership {
+			return
+		}
+		seen[membership.Value] = true
+		member := firstIRI(d.graph, membership, pMemberElement, pOwnedMemberElement, pOwnedMemberParameter, pOwnedRelatedElement)
+		if member.Value == "" || d.metaclass(member) != mEventOccurrenceUsage {
+			return
+		}
+		ends = append(ends, member)
+		memberships = append(memberships, membership)
+		if isLinked {
+			linked = true
+		} else {
+			standalone = true
+		}
+	}
+	for _, property := range []string{pOwnedMembership, pOwnedRelationship} {
+		for _, membership := range d.graph.Objects(rdf.IRI(el.iri), rdf.SysML+property) {
+			consider(membership, true)
+		}
+	}
+	// A membership may state the flow it belongs to from its own side alone
+	// (sysml:membershipOwningNamespace, sysml:owningRelatedElement), the way
+	// readMembership accepts it; those follow in the order the graph states them.
+	if d.parameterOwned == nil {
+		d.parameterOwned = parameterOwnerIndex(d.graph, d.metaclass)
+	}
+	for _, membership := range d.parameterOwned[el.iri] {
+		consider(membership, false)
+	}
+
+	// byIndex orders the ends by the position each membership, or else its
+	// member, states. A value present but not an integer is no index at all,
+	// and ends tied at one index have no order.
+	indexOf := func(term rdf.Term) (int, bool) {
+		value, ok := d.graph.Lexical(term, rdf.OpenSysML+xMemberIndex)
+		if !ok {
+			return 0, false
+		}
+		n, err := strconv.Atoi(value)
+		return n, err == nil
+	}
+	byIndex := len(ends) > 0
+	seenIndex := map[int]bool{}
+	indexes := map[string]int{}
+	for i := range ends {
+		index, ok := indexOf(memberships[i])
+		if !ok {
+			index, ok = indexOf(ends[i])
+		}
+		if !ok || seenIndex[index] {
+			byIndex = false
+			break
+		}
+		seenIndex[index] = true
+		indexes[ends[i].Value] = index
+	}
+	// bySource orders the two ends by the flow's own sysml:sourceFeature and
+	// sysml:targetFeature, each end's referenced feature matching one.
+	var sourceFirst []rdf.Term
+	bySource := false
+	if len(ends) == 2 {
+		sources := d.graph.Objects(rdf.IRI(el.iri), rdf.SysML+pSourceFeature)
+		targets := d.graph.Objects(rdf.IRI(el.iri), rdf.SysML+pTargetFeature)
+		if len(sources) == 1 && len(targets) == 1 && sources[0] != targets[0] {
+			var first rdf.Term
+			matched := true
+			for _, end := range ends {
+				target, ok, err := d.standardEndTarget(end, el)
+				if err != nil {
+					return nil, err
+				}
+				switch {
+				case !ok:
+					matched = false
+				case target == sources[0] && first.Value == "":
+					first = end
+				case target == targets[0]:
+				default:
+					matched = false
+				}
+			}
+			if matched && first.Value != "" {
+				bySource = true
+				sourceFirst = []rdf.Term{first}
+				for _, end := range ends {
+					if end != first {
+						sourceFirst = append(sourceFirst, end)
+					}
+				}
+			}
+		}
+	}
+	if byIndex {
+		order := slices.Clone(ends)
+		slices.SortStableFunc(order, func(a, b rdf.Term) int {
+			return indexes[a.Value] - indexes[b.Value]
+		})
+		if bySource && !slices.Equal(order, sourceFirst) {
+			return nil, &UnsupportedError{
+				What: fmt.Sprintf("the message ends of <%s>", el.iri),
+				Note: "its sysx:memberIndex order and its sysml:sourceFeature/sysml:targetFeature disagree",
+			}
+		}
+		return order, nil
+	}
+	if bySource {
+		return sourceFirst, nil
+	}
+	if !linked || !standalone {
+		return ends, nil
+	}
+	return nil, &UnsupportedError{
+		What: fmt.Sprintf("the message ends of <%s>", el.iri),
+		Note: "its ends are stated partly by the flow's own memberships and partly by memberships naming the flow alone, and neither sysx:memberIndex nor sysml:sourceFeature/sysml:targetFeature orders them",
+	}
+}
+
+// parameterOwnerIndex indexes the ParameterMembership elements by the
+// namespace each states as its own (sysml:membershipOwningNamespace, else
+// sysml:owningRelatedElement), in the order the graph states them.
+func parameterOwnerIndex(graph *rdf.Graph, meta func(rdf.Term) string) map[string][]rdf.Term {
+	index := map[string][]rdf.Term{}
+	for _, subject := range graph.Subjects() {
+		if meta(subject) != mParameterMembership {
+			continue
+		}
+		if owner := firstIRI(graph, subject, pMembershipOwningNamespace, pOwningRelatedElement); owner.Value != "" {
+			index[owner.Value] = append(index[owner.Value], subject)
+		}
+	}
+	return index
 }
 
 // declaredChild reports whether term is an element the graph declares under el
@@ -701,7 +864,7 @@ func (d *decoder) segmentsText(segments []rdf.Term, in *element) ([]string, erro
 		}
 		spelling := nameText(name)
 		if d.names != nil {
-			key := segmentKey{member: in.qname, operand: operand, name: name, target: target.qname}
+			key := segmentKey{member: d.writtenQName(in), operand: operand, name: name, target: target.qname}
 			if chosen, ok := d.names.segments[key]; ok {
 				spelling = qualifiedNameText(chosen)
 			}
@@ -888,7 +1051,8 @@ func (d *decoder) endMultiplicity(end rdf.Term, in *element) (string, error) {
 // statesEnds reports whether an element relates ends of its own, the shape that
 // needs a form to be written back.
 func (d *decoder) statesEnds(el *element) bool {
-	if len(d.standardEndFeatures(el)) > 0 {
+	// An error only arises when ends exist; the later write surfaces the refusal.
+	if terms, err := d.standardEndFeatures(el); err != nil || len(terms) > 0 {
 		return true
 	}
 	return len(d.graph.Objects(rdf.IRI(el.iri), rdf.OpenSysML+xRelatedFeature)) > 0
@@ -907,7 +1071,7 @@ func (d *decoder) inferredEndForm(el *element) string {
 		usageMetaclass[ast.UsageInterface],
 		usageMetaclass[ast.UsageAllocation],
 		usageMetaclass[ast.UsageConnector]:
-		if len(d.standardEndFeatures(el)) > 2 {
+		if ends, err := d.standardEndFeatures(el); err == nil && len(ends) > 2 {
 			return formNary
 		}
 		return formTo

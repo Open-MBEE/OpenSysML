@@ -21,10 +21,10 @@ const functionWireModel = `
 package F {
   private import ScalarValues::*;
 
-  calc def Unary { in v : Real; return : Real; }
+  calc def Unary { in v : Real[1]; return : Real; }
   calc def Sq :> Unary { in :>> v; return : Real = v * v; }
   calc def Cube :> Unary { in :>> v; return : Real = v * v * v; }
-  calc def Apply { in calc f : Unary; in a : Real; return : Real = f(a); }
+  calc def Apply { in calc f : Unary; in a : Real[1]; return : Real = f(a); }
   calc apply : Apply;
   calc sq : Sq;
   calc def PickSq { return : Unary = sq; }
@@ -41,27 +41,27 @@ package F {
   analysis def ApplyCase {
     subject s : Other;
     in calc f : Unary;
-    in a : Real;
+    in a : Real[1];
     out y : Real = f(a);
   }
 
   calc def Outer {
-    in k : Real;
+    in k : Real[1];
     calc inner :> Unary { in :>> v; return : Real = v * k; }
     return : Unary = inner;
   }
   calc outer : Outer;
 
-  calc def Mul { in a : Real; in b : Real; return : Real = a * b; }
-  calc def Fixed { in k : Real; calc inner : Sq; return : Unary = inner; }
+  calc def Mul { in a : Real[1]; in b : Real[1]; return : Real = a * b; }
+  calc def Fixed { in k : Real[1]; calc inner : Sq; return : Unary = inner; }
   calc fixed : Fixed;
-  calc def Scaled { in k : Real; calc inner : Mul { in :>> b = k; } return : Mul = inner; }
+  calc def Scaled { in k : Real[1]; calc inner : Mul { in :>> b = k; } return : Mul = inner; }
   calc scaled : Scaled;
 
   action run {
-    in calc f { in v : Real; return : Real; }
-    in a : Real;
-    out y : Real;
+    in calc f { in v : Real[1]; return : Real; }
+    in a : Real[1];
+    out y : Real[1];
     first start;
     action inner { assign y := f(a); }
     then done;

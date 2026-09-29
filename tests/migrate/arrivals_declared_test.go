@@ -61,7 +61,7 @@ const declaredBench = `
 part def Driver {
     port tx;
     action def Poke {
-        in ref context : Driver;
+        in ref context : Driver[1];
         first start then poke;
         action poke {
             send new Go() via context.tx;

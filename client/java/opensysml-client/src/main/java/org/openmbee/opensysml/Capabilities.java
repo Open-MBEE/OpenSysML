@@ -23,6 +23,9 @@ public final class Capabilities {
   /** A verification, satisfaction or analysis response carries what a case body answered. */
   public static final String VERIFICATION_VERDICTS = "verification_verdicts";
 
+  /** The verification RPCs answer {@code holds} and {@code satisfiable} questions, reporting a verdict's status and witness. */
+  public static final String VERIFICATION_QUESTIONS = "verification_questions";
+
   /** An analysis response carries each call the run made to a calc held as a value, such as a trade study's evaluation of every alternative. */
   public static final String CASE_EVALUATIONS = "case_evaluations";
 
@@ -94,6 +97,40 @@ public final class Capabilities {
 
   /** {@code ApplyEdits} can add transitions to state bodies. */
   public static final String TRANSITION_AUTHORING = "transition_authoring";
+
+  /** {@code ApplyEdits} can add verify usages and anonymous objectives. */
+  public static final String VERIFICATION_OBJECTIVE_AUTHORING =
+      "verification_objective_authoring";
+
+  /** {@code ApplyEdits} can add metadata usages and prefixes on new members. */
+  public static final String METADATA_AUTHORING = "metadata_authoring";
+
+  /** {@code ApplyEdits} can add metadata prefixes to existing declarations. */
+  public static final String METADATA_PREFIX_AUTHORING = "metadata_prefix_authoring";
+
+  /** {@code ApplyEdits} can add `first`/`then` sequencing members to action bodies. */
+  public static final String SEQUENCE_AUTHORING = "sequence_authoring";
+
+  /** {@code ApplyEdits} can add the remaining action-body statements and source multiplicities. */
+  public static final String ACTION_BODY_STATEMENT_AUTHORING = "action_body_statement_authoring";
+
+  /** {@code ApplyEdits} can add a directed usage with no kind keyword (`in x : T;`). */
+  public static final String IMPLICIT_PARAMETERS = "implicit_parameters";
+
+  /** {@code ApplyEdits} can add constraint body expressions and asserted constraints. */
+  public static final String CONSTRAINT_BODY_AUTHORING = "constraint_body_authoring";
+
+  /** {@code ApplyEdits} can add state behavior member kinds. */
+  public static final String STATE_ACTION_AUTHORING = "state_action_authoring";
+
+  /** {@code ApplyEdits} can add import declarations to namespace bodies. */
+  public static final String IMPORT_AUTHORING = "import_authoring";
+
+  /** {@code ApplyEdits} can add documentation to new and existing declarations. */
+  public static final String DOCUMENTATION_AUTHORING = "documentation_authoring";
+
+  /** {@code ApplyEdits} can add comments and line notes. */
+  public static final String COMMENT_AUTHORING = "comment_authoring";
 
   /** {@code ApplyEdits} edits a model of several documents as one batch, answering each edited document by name. */
   public static final String EDIT_DOCUMENTS = "edit_documents";

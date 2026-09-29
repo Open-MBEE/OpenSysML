@@ -14,6 +14,10 @@ type ActionRun struct {
 	// Outputs are the action's output parameters by name, empty for an action
 	// that produces none.
 	Outputs map[string]Value
+	// Performer is the attributes the object the action ran on holds when the
+	// run ends, keyed as an explored Outcome's Outputs key them ("this.level");
+	// empty without PerformedBy.
+	Performer map[string]Value
 	// FinalTime is the run's simulation clock when it ended, in seconds from
 	// the 0 it started at; 0 from a service without CapabilityFinalTime.
 	FinalTime float64
@@ -138,7 +142,12 @@ func (c *client) ExecuteAction(
 	if resp.Error != "" {
 		return nil, &FailureError{Op: "ExecuteAction", Message: resp.Error, Diagnostics: diagnostics}
 	}
-	return &ActionRun{Outputs: valuesFromProto(resp.Outputs), FinalTime: resp.FinalTime, Diagnostics: diagnostics}, nil
+	return &ActionRun{
+		Outputs:     valuesFromProto(resp.Outputs),
+		Performer:   valuesFromProto(resp.PerformerAttributes),
+		FinalTime:   resp.FinalTime,
+		Diagnostics: diagnostics,
+	}, nil
 }
 
 func (c *client) ExecuteState(

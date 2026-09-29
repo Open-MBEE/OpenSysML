@@ -56,21 +56,23 @@ func w8dLegalVerification(sym *symbols.Symbol) bool {
 		return false
 	}
 	objective := sym.OwnerScope.Owner()
-	if objective == nil || !w8dIsObjective(objective.Decl) {
+	if objective == nil || !IsObjectiveUsage(objective.Decl) {
 		return false
 	}
 	if objective.OwnerScope == nil {
 		return false
 	}
-	return w8dIsVerificationCase(objective.OwnerScope.Owner())
+	return IsVerificationCase(objective.OwnerScope.Owner())
 }
 
-func w8dIsObjective(decl ast.Node) bool {
+// IsObjectiveUsage reports whether decl is an objective usage.
+func IsObjectiveUsage(decl ast.Node) bool {
 	u, ok := decl.(*ast.Usage)
 	return ok && u.Kind == ast.UsageObjective
 }
 
-func w8dIsVerificationCase(sym *symbols.Symbol) bool {
+// IsVerificationCase reports whether sym declares a verification case.
+func IsVerificationCase(sym *symbols.Symbol) bool {
 	if sym == nil {
 		return false
 	}

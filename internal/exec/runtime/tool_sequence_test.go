@@ -17,7 +17,7 @@ const sequenceModel = `package test {
 
 	action def Profile {
 		metadata ToolExecution { toolName = "MC"; uri = "u"; }
-		in k : Real                  { @ToolVariable { name = "k"; } }
+		in k : Real[1]                  { @ToolVariable { name = "k"; } }
 		out speeds : SpeedValue[0..*] { @ToolVariable { name = "speeds"; } }
 	}
 	action def RunProfile {
@@ -38,10 +38,10 @@ const sequenceModel = `package test {
 
 	action def One {
 		metadata ToolExecution { toolName = "MC"; uri = "u"; }
-		out one : Real { @ToolVariable { name = "one"; } }
+		out one : Real[1] { @ToolVariable { name = "one"; } }
 	}
 	action def RunOne {
-		out one : Real;
+		out one : Real[1];
 		action s : One {}
 		bind one = s.one;
 	}

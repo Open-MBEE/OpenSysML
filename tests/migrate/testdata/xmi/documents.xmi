@@ -15,6 +15,9 @@
         <ownedAttribute xmi:type="uml:Property" xmi:id="_st_safety_base" name="base_Class" association="_ext_safety">
           <type xmi:type="uml:Class" href="http://www.omg.org/spec/UML/20131001/UML.xmi#Class"/>
         </ownedAttribute>
+        <ownedAttribute xmi:type="uml:Property" xmi:id="_st_safety_level" name="level">
+          <type xmi:type="uml:PrimitiveType" href="http://www.omg.org/spec/SysML/20181001/SysML.xmi#String"/>
+        </ownedAttribute>
       </packagedElement>
       <packagedElement xmi:type="uml:Extension" xmi:id="_ext_safety" memberEnd="_st_safety_base _ext_safety_end">
         <ownedEnd xmi:type="uml:ExtensionEnd" xmi:id="_ext_safety_end" name="extension_Safety" type="_st_safety" aggregation="composite"/>
@@ -29,6 +32,9 @@
             <type xmi:type="uml:PrimitiveType" href="http://www.omg.org/spec/SysML/20181001/SysML.xmi#Real"/>
           </ownedAttribute>
           <ownedAttribute xmi:type="uml:Property" xmi:id="_prop_axles" name="axles" type="_blk_axle" aggregation="composite">
+            <ownedAttribute xmi:type="uml:Property" xmi:id="_prop_axle_mass" name="mass">
+              <type xmi:type="uml:PrimitiveType" href="http://www.omg.org/spec/SysML/20181001/SysML.xmi#Real"/>
+            </ownedAttribute>
             <lowerValue xmi:type="uml:LiteralInteger" xmi:id="_prop_axles_l" value="2"/>
             <upperValue xmi:type="uml:LiteralUnlimitedNatural" xmi:id="_prop_axles_u" value="2"/>
           </ownedAttribute>
@@ -74,13 +80,15 @@
             <node xmi:type="uml:CallBehaviorAction" xmi:id="_parts_col_qname" name="Qualified Name"/>
             <node xmi:type="uml:CallBehaviorAction" xmi:id="_parts_col_owner" name="Owner Name"/>
             <node xmi:type="uml:CallBehaviorAction" xmi:id="_parts_col_alias" name="Alias"/>
+            <node xmi:type="uml:CallBehaviorAction" xmi:id="_parts_col_axle_mass" name="Axle Mass"/>
             <node xmi:type="uml:FlowFinalNode" xmi:id="_parts_table_final"/>
             <edge xmi:type="uml:ControlFlow" xmi:id="_parts_table_e1" source="_parts_table_init" target="_parts_col_name"/>
             <edge xmi:type="uml:ControlFlow" xmi:id="_parts_table_e2" source="_parts_col_name" target="_parts_col_payload"/>
             <edge xmi:type="uml:ControlFlow" xmi:id="_parts_table_e3" source="_parts_col_payload" target="_parts_col_qname"/>
             <edge xmi:type="uml:ControlFlow" xmi:id="_parts_table_e4" source="_parts_col_qname" target="_parts_col_owner"/>
             <edge xmi:type="uml:ControlFlow" xmi:id="_parts_table_e5" source="_parts_col_owner" target="_parts_col_alias"/>
-            <edge xmi:type="uml:ControlFlow" xmi:id="_parts_table_e6" source="_parts_col_alias" target="_parts_table_final"/>
+            <edge xmi:type="uml:ControlFlow" xmi:id="_parts_table_e6" source="_parts_col_alias" target="_parts_col_axle_mass"/>
+            <edge xmi:type="uml:ControlFlow" xmi:id="_parts_table_e7" source="_parts_col_axle_mass" target="_parts_table_final"/>
           </node>
           <node xmi:type="uml:ActivityFinalNode" xmi:id="_parts_final"/>
           <edge xmi:type="uml:ControlFlow" xmi:id="_parts_e1" source="_parts_init" target="_parts_collect"/>
@@ -123,10 +131,12 @@
             <node xmi:type="uml:InitialNode" xmi:id="_safety_table_init"/>
             <node xmi:type="uml:CallBehaviorAction" xmi:id="_safety_col_name" name="Name"/>
             <node xmi:type="uml:CallBehaviorAction" xmi:id="_safety_col_doc" name="Text"/>
+            <node xmi:type="uml:CallBehaviorAction" xmi:id="_safety_col_level" name="Level"/>
             <node xmi:type="uml:CallBehaviorAction" xmi:id="_safety_col_ocl" name="Owner"/>
             <edge xmi:type="uml:ControlFlow" xmi:id="_safety_table_e1" source="_safety_table_init" target="_safety_col_name"/>
             <edge xmi:type="uml:ControlFlow" xmi:id="_safety_table_e2" source="_safety_col_name" target="_safety_col_doc"/>
-            <edge xmi:type="uml:ControlFlow" xmi:id="_safety_table_e3" source="_safety_col_doc" target="_safety_col_ocl"/>
+            <edge xmi:type="uml:ControlFlow" xmi:id="_safety_table_e3" source="_safety_col_doc" target="_safety_col_level"/>
+            <edge xmi:type="uml:ControlFlow" xmi:id="_safety_table_e4" source="_safety_col_level" target="_safety_col_ocl"/>
           </node>
           <node xmi:type="uml:ActivityFinalNode" xmi:id="_safety_final"/>
           <edge xmi:type="uml:ControlFlow" xmi:id="_safety_e1" source="_safety_init" target="_safety_collect"/>
@@ -461,8 +471,8 @@
   <sysml:Requirement xmi:id="_st_req_axles" base_Class="_req_axles" Id="R-3" Text="A truck has two axles."/>
   <sysml:Satisfy xmi:id="_st_satisfy_truck" base_Abstraction="_dep_satisfy_truck"/>
   <sysml:Satisfy xmi:id="_st_satisfy_trailer" base_Abstraction="_dep_satisfy_trailer"/>
-  <Fleet_Profile:Safety xmi:id="_app_safety_brake" base_Class="_req_brake"/>
-  <Fleet_Profile:Safety xmi:id="_app_safety_axles" base_Class="_req_axles"/>
+  <Fleet_Profile:Safety xmi:id="_app_safety_brake" base_Class="_req_brake" level="brakes"/>
+  <Fleet_Profile:Safety xmi:id="_app_safety_axles" base_Class="_req_axles" level="many"/>
 
   <sysml:Viewpoint xmi:id="_st_vp_parts" base_Class="_vp_parts" purpose="List the parts of the fleet."/>
   <sysml:Viewpoint xmi:id="_st_vp_reqs" base_Class="_vp_reqs" method="_act_reqs" purpose="List the requirements."/>
@@ -560,6 +570,9 @@
   <Document_Profile_:TablePropertyColumn xmi:id="_st_parts_col_alias" base_CallBehaviorAction="_parts_col_alias" desiredProperty="_prop_payload">
     <titles>name</titles>
   </Document_Profile_:TablePropertyColumn>
+  <Document_Profile_:TablePropertyColumn xmi:id="_st_parts_col_axle_mass" base_CallBehaviorAction="_parts_col_axle_mass" desiredProperty="_prop_axle_mass">
+    <titles>Axle Mass</titles>
+  </Document_Profile_:TablePropertyColumn>
 
   <Document_Profile_:CollectOwnedElements xmi:id="_st_reqs_collect" base_CallBehaviorAction="_reqs_collect" depth="0"/>
   <Document_Profile_:FilterByStereotypes xmi:id="_st_reqs_filter" base_CallBehaviorAction="_reqs_filter" considerDerived="true" include="true">
@@ -584,6 +597,7 @@
   </Document_Profile_:TableStructure>
   <Document_Profile_:TableAttributeColumn xmi:id="_st_safety_col_name" base_CallBehaviorAction="_safety_col_name" desiredAttribute="Name"/>
   <Document_Profile_:TableAttributeColumn xmi:id="_st_safety_col_doc" base_CallBehaviorAction="_safety_col_doc" desiredAttribute="Documentation"/>
+  <Document_Profile_:TablePropertyColumn xmi:id="_st_safety_col_level" base_CallBehaviorAction="_safety_col_level" desiredProperty="_st_safety_level"/>
   <Document_Profile_:TableExpressionColumn xmi:id="_st_safety_col_ocl" base_CallBehaviorAction="_safety_col_ocl" expression="owner.oclAsType(NamedElement).name"/>
 
   <Document_Profile_:Image xmi:id="_st_figures_image" base_CallBehaviorAction="_figures_image" showCaptions="true">

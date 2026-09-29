@@ -1,0 +1,37 @@
+# SysML v1 to v2 migration report: recursive_context_cycle_ba.xmi
+# migrated 31 element(s): 26 mapped, 5 approximated, 0 unmapped (0 skipped as profile, library or notation-only content, 0 as model elements nothing refers to)
+
+## approximated (5)
+Activity	Host::A	_a	-> Host::A	(acts on its owner Host, which it takes as its parameter context, since its this is the def's own occurrence; also run as the do action of 'A'; the behavior acts on a Host through its parameter context, which is bound to Machine::context)
+CallBehaviorAction	Host::A::b	_callB	-> b	(the behavior acts on a Host through its parameter context, which is bound to A::context)
+Activity	Host::B	_b	-> Host::B	(acts on its owner Host, which it takes as its parameter context, since its this is the def's own occurrence; also run as the do action of 'B'; the behavior acts on a Host through its parameter context, which is bound to Machine::context)
+CallBehaviorAction	Host::B::a	_callA	-> a	(the behavior acts on a Host through its parameter context, which is bound to B::context)
+CallBehaviorAction	Host::Runner::run	_runB	-> run	(the behavior acts on a Host through its parameter context, which is bound to Runner::context)
+
+## mapped (26)
+«Block» Class	Host	_host	-> Host
+ActivityFinalNode	Host::A::<ActivityFinalNode>	_af	-> final
+ControlFlow	Host::A::<ControlFlow>	_ae2
+InitialNode	Host::A::<InitialNode>	_ai	-> start
+ActivityFinalNode	Host::B::<ActivityFinalNode>	_bf	-> final
+ControlFlow	Host::B::<ControlFlow>	_be2
+ControlFlow	Host::B::<ControlFlow>	_be3
+InitialNode	Host::B::<InitialNode>	_bi	-> start
+ObjectFlow	Host::B::<ObjectFlow>	_bof
+ValueSpecificationAction	Host::B::one	_one	-> one
+OutputPin	Host::B::one::result	_oneOut	-> Host::B::one.result
+AddStructuralFeatureValueAction	Host::B::set k	_setK	-> 'set k'
+InputPin	Host::B::set k::value	_setValue	-> Host::B::'set k'.value
+StateMachine	Host::Machine	_sm	-> Host::Machine	(acts on its owner Host, which it takes as its parameter context, since its this is the def's own occurrence)
+Region	Host::Machine::<Region>	_r	(the one region is written as the body of its owner)
+Pseudostate	Host::Machine::<Region>::<Pseudostate>	_i	(written as the entry of the region)
+Transition	Host::Machine::<Region>::<Transition>	_t1
+Transition	Host::Machine::<Region>::<Transition>	_t2
+State	Host::Machine::<Region>::A	_stateA	-> A
+State	Host::Machine::<Region>::B	_stateB	-> B
+Activity	Host::Runner	_runner	-> Host::Runner	(acts on its owner Host, which it takes as its parameter context, since its this is the def's own occurrence)
+ActivityFinalNode	Host::Runner::<ActivityFinalNode>	_runnerEnd	-> final
+ControlFlow	Host::Runner::<ControlFlow>	_runnerFlow2
+InitialNode	Host::Runner::<InitialNode>	_runnerStart	-> start
+Property	Host::k	_k	-> Host::k
+Model	Model	_m	(the root model's members are written at the top level)

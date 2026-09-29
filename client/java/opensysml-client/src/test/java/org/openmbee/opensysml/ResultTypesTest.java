@@ -30,6 +30,9 @@ class ResultTypesTest {
         error.isEmpty() ? FailureReason.UNSPECIFIED : FailureReason.EVALUATION,
         Optional.empty(),
         Optional.empty(),
+        Optional.empty(),
+        Optional.empty(),
+        List.of(),
         Standing.none());
   }
 
@@ -155,6 +158,9 @@ class ResultTypesTest {
             FailureReason.UNSPECIFIED,
             Optional.empty(),
             Optional.empty(),
+            Optional.empty(),
+            Optional.empty(),
+            List.of(),
             Standing.none());
     CaseEvaluation loser =
         new CaseEvaluation(
@@ -340,6 +346,9 @@ class ResultTypesTest {
             FailureReason.UNSPECIFIED,
             Optional.empty(),
             Optional.empty(),
+            Optional.empty(),
+            Optional.empty(),
+            List.of(),
             Standing.none());
     Verification verification = new Verification(about, List.of(), List.of(sedan), List.of());
     assertTrue(verification.holds());

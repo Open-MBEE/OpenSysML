@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<mdOwnedViews>
+  <mdElement elementClass="ImageShape" xmi:id="_symbol_picture">
+    <geometry>10, 20, 30, 40</geometry>
+    <image>89 50 4e 47 0d 0a 1a 0a 00 00 00 0d 49 48 44 52 00 00 00 01 00 00 00 01 08 04 00 00 00 b5 1c 0c 02 00 00 00 0b 49 44 41 54 78 da 63 fc ff 1f 00 03 03 02 00 ef a3 ec fb 00 00 00 00 49 45 4e 44 ae 42 60 82</image>
+  </mdElement>
+</mdOwnedViews>

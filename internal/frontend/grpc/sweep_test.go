@@ -22,24 +22,24 @@ const sweepModelSource = `package Sw {
 	}
 
 	calc def Twice {
-		in n : Integer;
+		in n : Integer[1];
 		return : Integer = n * 2;
 	}
 
 	calc def Plus {
-		in a : Integer;
-		in b : Integer;
+		in a : Integer[1];
+		in b : Integer[1];
 		return : Integer = a + b;
 	}
 
 	calc def Ratio {
-		in a : Real;
-		in b : Real;
+		in a : Real[1];
+		in b : Real[1];
 		return : Real = a / b;
 	}
 
 	calc def Toggle {
-		in on : Boolean;
+		in on : Boolean[1];
 		return : Boolean = not on;
 	}
 
@@ -671,12 +671,12 @@ const sweepWritesModelSource = `package Rows {
 	private import ScalarValues::*;
 	part def Ship {
 		attribute cost : Real = 5.0;
-		calc weigh { in x : Real; return : Real = cost * x; }
+		calc weigh { in x : Real[1]; return : Real = cost * x; }
 	}
 	part ship : Ship;
 	analysis def Bump {
 		subject s : Ship;
-		in tax : Real;
+		in tax : Real[1];
 		action raise { assign s.cost := s.cost + tax; }
 		out total : Real = s.cost;
 		out who : Ship = s;
@@ -787,7 +787,7 @@ const heldBehaviourModelSource = `package Held {
 	part tug : Tug;
 	analysis def Quote {
 		subject s : Ship;
-		in tax : Real;
+		in tax : Real[1];
 		out total : Real = s.cost * (1.0 + tax);
 	}
 }

@@ -7,6 +7,8 @@ reading order.
 - **[CLI](cli.md)** — every flag of `sysml`, the modes, and the exit status
 - **[REPL commands](repl-commands.md)** — every `%` command and its arguments
 - **[LSP extensions](lsp.md)** — the custom render requests `sysml-lsp` serves to a diagram client
+- **[Diagnostics: lints](diagnostics.md)** — the codes of the advisory lints, what each reports and
+  how each surface switches one off
 - **[Environment variables](environment.md)** — the resource limits for a single run, and paths
 - **[External engines](external-engines.md)** — the `OPENSYSML_ENGINES` manifest entry, the
   protocol an engine speaks over its standard input and its JSON Schema, the `sources` and

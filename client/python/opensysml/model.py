@@ -546,9 +546,11 @@ class Model:
                 call and run inside its assembly
 
         Returns:
-            dict: Output parameter name → value; an output the wire format
-                cannot represent is reported as an UnsupportedValueError in its
-                place, so one such output does not discard the rest
+            ActionOutputs: Output parameter name → value, a ``dict``; an output
+                the wire format cannot represent is reported as an
+                UnsupportedValueError in its place, so one such output does not
+                discard the rest. Its ``performer`` holds the performer's
+                attributes under ``this.`` (``'this.level'``), empty without one
 
         Raises:
             ValueError: If the schedule explores
@@ -603,13 +605,16 @@ class Model:
                 ``"explore"`` belongs to :meth:`explore_state`
             performer (str, optional): The object the machine runs on, as for
                 :meth:`execute_action`; an object exhibiting the machine runs
-                the one it exhibits, hearing its siblings over their connectors
+                the one it exhibits, hearing its siblings over their connectors.
+                Guards and actions read and write the object's feature values
 
         Returns:
             dict: {'states_visited': [...], 'final_context': {...}, 'final_time': float};
-                a context value the wire format cannot represent is reported as
-                an UnsupportedValueError in its place; ``final_time`` is the
-                run's simulation clock when it ended, in seconds
+                ``final_context`` also holds the performer's attributes under
+                ``this.`` (``'this.speed'``); a context value the wire format
+                cannot represent is reported as an UnsupportedValueError in its
+                place; ``final_time`` is the run's simulation clock when it
+                ended, in seconds
 
         Raises:
             ValueError: If the schedule explores
@@ -652,7 +657,7 @@ class Model:
             state_machine_symbol_id, self._hash, events=events, schedule=schedule, performer=performer
         )
 
-    def verify_constraint(self, symbol_id, subject=None, engine=None):
+    def verify_constraint(self, symbol_id, subject=None, engine=None, question=None):
         """Ask whether one of this model's constraints holds.
 
         Args:
@@ -662,6 +667,10 @@ class Model:
             engine (str, optional): The engine to ask: ``"auto"`` (the
                 default), ``"all"``, or one by name, as
                 :meth:`~opensysml.Connection.verify_constraint` takes it
+            question (str, optional): The question to ask: ``"evaluate"`` (the
+                default), ``"holds"`` whether the claim holds for every
+                assignment the free features can take, or ``"satisfiable"``
+                whether any assignment satisfies it
 
         Returns:
             Verdict: The answer; false is the model's answer, not an exception
@@ -672,10 +681,11 @@ class Model:
             ExecutionError: If the request could not be answered at all
         """
         return self._client.verify_constraint(
-            symbol_id, self._hash, subject_symbol_id=subject, engine=engine
+            symbol_id, self._hash, subject_symbol_id=subject, engine=engine,
+            question=question,
         )
 
-    def verify_requirement(self, symbol_id, subject=None, engine=None):
+    def verify_requirement(self, symbol_id, subject=None, engine=None, question=None):
         """Ask whether one of this model's requirements is satisfied.
 
         Args:
@@ -683,6 +693,8 @@ class Model:
             subject (str, optional): FQN of a part/usage to instantiate and
                 evaluate against
             engine (str, optional): The engine to ask, as for
+                :meth:`verify_constraint`
+            question (str, optional): The question to ask, as for
                 :meth:`verify_constraint`
 
         Returns:
@@ -694,10 +706,11 @@ class Model:
             ExecutionError: If the request could not be answered at all
         """
         return self._client.verify_requirement(
-            symbol_id, self._hash, subject_symbol_id=subject, engine=engine
+            symbol_id, self._hash, subject_symbol_id=subject, engine=engine,
+            question=question,
         )
 
-    def verify_satisfaction(self, symbol_id=None, engine=None):
+    def verify_satisfaction(self, symbol_id=None, engine=None, question=None):
         """Ask whether this model's satisfaction assertions hold.
 
         This is the scriptable form of "does this model satisfy its
@@ -710,6 +723,8 @@ class Model:
                 a named satisfaction assertion
             engine (str, optional): The engine to ask, as for
                 :meth:`verify_constraint`
+            question (str, optional): The question to ask, as for
+                :meth:`verify_constraint`
 
         Returns:
             list[Verdict]: One verdict per assertion, in declaration order. An
@@ -720,7 +735,9 @@ class Model:
                 satisfaction assertion
             ExecutionError: If the request could not be answered at all
         """
-        return self._client.verify_satisfaction(self._hash, symbol_id=symbol_id, engine=engine)
+        return self._client.verify_satisfaction(
+            self._hash, symbol_id=symbol_id, engine=engine, question=question,
+        )
 
     def satisfied(self, symbol_id=None):
         """Whether every satisfaction assertion evaluated holds.

@@ -152,6 +152,8 @@ class TestModelSurfaceIntegration:
         assert not validation
         assert validation.summary.kind == "object"
         assert validation.summary.element_id == "Fleet::car"
+        assert validation.summary.question == "evaluate"
+        assert validation.summary.status == "violated"
         assert validation.bounded is False
         assert validation.undecided == []
         answered = sorted(
@@ -167,6 +169,8 @@ class TestModelSurfaceIntegration:
 
         spare = model.validate_instance("Fleet::spare")
         assert spare.valid
+        assert spare.summary.question == "evaluate"
+        assert spare.summary.status == "holds"
         assert [(v.element_id, v.instance_path) for v in spare] == [
             ("Fleet::Wheel::pressureOk", ""),
         ]

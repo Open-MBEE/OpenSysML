@@ -51,10 +51,10 @@ package thermo {
 
 	calc def Thermal {
 		metadata ToolExecution { toolName = "Thermo"; uri = "thermo://local"; }
-		in m : MassValue { @ToolVariable { name = "mass"; } }
-		in p : PowerValue { @ToolVariable { name = "power"; } }
-		out warn : Boolean { @ToolVariable { name = "warn"; } }
-		return : TemperatureValue { @ToolVariable { name = "Tmax"; } }
+		in m : MassValue[1] { @ToolVariable { name = "mass"; } }
+		in p : PowerValue[1] { @ToolVariable { name = "power"; } }
+		out warn : Boolean[1] { @ToolVariable { name = "warn"; } }
+		return : TemperatureValue[1] { @ToolVariable { name = "Tmax"; } }
 	}
 }
 `

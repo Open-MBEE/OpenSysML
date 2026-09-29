@@ -83,9 +83,7 @@ func TestConvertedNotationParses(t *testing.T) {
 
 // textOnlyFixtures are the models whose graph the mapping cannot write back
 // without its source text, by the refusal it must keep reporting for them.
-var textOnlyFixtures = map[string]string{
-	"action_nodes": "this expression states no notation and no structure",
-}
+var textOnlyFixtures = map[string]string{}
 
 // TestRoundTripIsLossless is the fidelity contract: converting the notation a
 // graph produced back to a graph gives the same graph. Notation and RDF say the
@@ -1353,32 +1351,24 @@ func TestNegatedInvariantComesBackFromTheGraphAlone(t *testing.T) {
 	}
 }
 
-// A prefix annotation is identified by its position after the body members,
-// so a body member named as that position is refused rather than merged with
-// it; a member named as another position is no collision.
-func TestPrefixCollidingWithAPositionNamedMemberIsReported(t *testing.T) {
+// A prefix annotation's positional identity stays distinct from a member
+// whose name spells that same position.
+func TestPrefixAndPositionNamedMemberConvertDistinctly(t *testing.T) {
 	src := "package P {\n\tmetadata def Safety;\n\t#Safety part def Car {\n\t\tpart '@1';\n\t}\n}"
-	_, err := convert.Convert("m.sysml", []byte(src), convert.FormatSysML, convert.FormatTurtle)
-	var unsupported *export.UnsupportedError
-	if !errors.As(err, &unsupported) {
-		t.Fatalf("expected an unsupported error, got %v", err)
-	}
-	for _, want := range []string{"the prefix annotation at m.sysml:3:2", "identified by its position as P::Car::@1, which a body member is named"} {
-		if !strings.Contains(err.Error(), want) {
-			t.Errorf("expected %q in error:\n%s", want, err.Error())
-		}
-	}
-
-	src = "package P {\n\tmetadata def Safety;\n\t#Safety part def Car {\n\t\tpart '@0';\n\t}\n}"
 	turtle, err := convert.Convert("m.sysml", []byte(src), convert.FormatSysML, convert.FormatTurtle)
 	if err != nil {
 		t.Fatalf("to turtle: %v", err)
+	}
+	for _, want := range []string{`sysml:qualifiedName "P::Car::'@1'"`, `sysml:qualifiedName "P::Car::@1"`} {
+		if !strings.Contains(string(turtle), want) {
+			t.Errorf("Turtle lacks %s:\n%s", want, turtle)
+		}
 	}
 	back, err := convert.Convert("m.ttl", withoutTriples(t, turtle, "sysx:sourceText"), convert.FormatTurtle, convert.FormatSysML)
 	if err != nil {
 		t.Fatalf("back to notation: %v", err)
 	}
-	if !strings.Contains(string(back), "#Safety part def Car {\n        part '@0';\n    }") {
+	if !strings.Contains(string(back), "#Safety part def Car {\n        part '@1';\n    }") {
 		t.Errorf("the prefix and the member should both come back:\n%s", back)
 	}
 }
@@ -2125,6 +2115,36 @@ func TestSuccessionRoundTripsInEveryBody(t *testing.T) {
 	}
 }
 
+func TestActionSuccessionSourceMultiplicityRoundTripsWithoutSourceText(t *testing.T) {
+	const src = `package P {
+    private import ScalarValues::*;
+    action def A {
+        action a;
+        then [0..1] action b;
+        [2] then c { action nested; }
+        action c;
+    }
+    action def B {
+        out result : Integer = 0;
+        assign result := 1;
+        [1] then done;
+    }
+    action def C {
+        out result : Integer = 0;
+        assign result := 1;
+        [0..1] then done;
+    }
+}
+`
+	back := notationFromTheGraphAlone(t, "multiplicity.sysml", src)
+	wantFragments(t, back,
+		"then [0..1] action b;",
+		"[2] then c {",
+		"[1] then done;",
+		"[0..1] then done;",
+	)
+}
+
 // A succession is its two ends, so a graph from elsewhere that names only one of
 // them declares no order: that is reported rather than written back as notation
 // (`succession;`) that says nothing.
@@ -2181,15 +2201,35 @@ func TestSuccessionOnNonUsageIsASyntaxError(t *testing.T) {
 	}
 }
 
-// A qualified name identifies an element, so two members of one namespace
-// sharing a name would merge into a single subject.
-func TestDuplicateNameIsUnsupported(t *testing.T) {
+// Two members of one namespace sharing a name convert as separate elements:
+// the first keeps the qualified name, the later is identified by its position.
+func TestDuplicateNameConverts(t *testing.T) {
 	src := "package P {\n\tpart def A;\n\tpart def A;\n}"
-	_, err := convert.Convert("m.sysml", []byte(src), convert.FormatSysML, convert.FormatTurtle)
-	var unsupported *export.UnsupportedError
-	if !errors.As(err, &unsupported) {
-		t.Fatalf("want an UnsupportedError for a duplicate name, got %v", err)
+	out, err := convert.Convert("m.sysml", []byte(src), convert.FormatSysML, convert.FormatTurtle)
+	if err != nil {
+		t.Fatalf("a duplicate name was refused: %v", err)
 	}
+	for _, want := range []string{`sysml:qualifiedName "P::A"`, `sysml:qualifiedName "P::@1"`} {
+		if !strings.Contains(string(out), want) {
+			t.Errorf("the Turtle lacks %s:\n%s", want, out)
+		}
+	}
+}
+
+// A member named the positional name a duplicate of its sibling takes converts
+// with a distinct identity for the name and the position.
+func TestPositionalNameCollisionConverts(t *testing.T) {
+	src := "package P {\n\tpart def A;\n\tpart def '@2';\n\tpart def A;\n}"
+	turtle, err := convert.Convert("m.sysml", []byte(src), convert.FormatSysML, convert.FormatTurtle)
+	if err != nil {
+		t.Fatalf("to turtle: %v", err)
+	}
+	for _, want := range []string{`sysml:qualifiedName "P::'@2'"`, `sysml:qualifiedName "P::@2"`} {
+		if !strings.Contains(string(turtle), want) {
+			t.Errorf("Turtle lacks %s:\n%s", want, turtle)
+		}
+	}
+	structuralRoundTrip(t, "positional-name-collision.sysml", turtle)
 }
 
 // Ownership that forms a cycle leaves no root to print from, which would
@@ -3149,12 +3189,13 @@ func TestElementIRIsEncodeQualifiedNames(t *testing.T) {
 // materializedSuffixID is the naming convention of the relationship elements
 // the collapsed head properties imply: the `<S>_ft<i>`/`_sc<i>`/`_ss<i>`/`_sp<i>`/`_rd<i>`/`_rs<i>` relationships,
 // the satisfy subject `_subject`, the conjugate `_conjugated` and its `_pc`,
-// the referent memberships an expression's referent edge restates, and a
+// the succession a transition owns (`_succession`), the referent memberships an
+// expression's referent edge restates, and a
 // filtered import's unnamed `_fp` package with its `_im` import and `_efm` filter.
-var materializedSuffixID = regexp.MustCompile(`_(ft|sc|ss|sp|rd|rs)[0-9]*(_om)?$|_(subject|conjugated|pc|referent|preferent|targetFeature)(_om)?$|_fp(_im|_efm)?$`)
+var materializedSuffixID = regexp.MustCompile(`_(ft|sc|ss|sp|rd|rs)[0-9]*(_om)?$|_(subject|conjugated|pc|referent|preferent|targetFeature|succession)(_om)?$|_fp(_im|_efm)?$`)
 
 // materializedExprID is the same convention inside an expression node's id.
-var materializedExprID = regexp.MustCompile(`_(subject|conjugated|pc|referent|preferent|targetFeature)(_|$)|_(ft|sc|ss|sp|rd|rs)[0-9]`)
+var materializedExprID = regexp.MustCompile(`_(subject|conjugated|pc|referent|preferent|targetFeature|succession)(_|$)|_(ft|sc|ss|sp|rd|rs)[0-9]`)
 
 // name the element carries, and the encoding decodes back to that name.
 func TestFixtureElementIDsRoundTrip(t *testing.T) {
@@ -3974,7 +4015,8 @@ func TestShadowingParametersStayNames(t *testing.T) {
 	for _, want := range []string{
 		`sysml:referent "value" ;`,
 		`sysml:referent "value"`,
-		`sysml:referent "w" ;`,
+		// A trigger's payload is a parameter of the transition's trigger action.
+		"sysml:referent elmt:Shadows__Governor___405___40trigger__w",
 		"sysml:referent elmt:Shadows__Sweep__items",
 	} {
 		if !strings.Contains(turtle, want) {

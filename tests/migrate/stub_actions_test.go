@@ -62,8 +62,8 @@ func TestStubActionsInMethodsKeepTheirPinsAndAllocation(t *testing.T) {
 	wantNote(t, r, "_alloc", migrate.Approximated, mixedEndsNote)
 	for _, line := range []string{
 		"action sweep {",
-		"in rate : ScalarValues::Real;",
-		"in mode;",
+		"in rate : ScalarValues::Real[1];",
+		"in mode[1];",
 		"out frames : ScalarValues::Integer[0..*];",
 		"dependency Cam::Scan::sweep to Cam::glass;",
 	} {
@@ -220,7 +220,7 @@ func TestIncompletelySerializedCallsAreRefusedNotStubbed(t *testing.T) {
 	wantNote(t, r, "_oddOut", migrate.Approximated, "it is declared admitting no value: the action calls no behavior, so nothing computes it")
 	for _, line := range []string{
 		"action odd {",
-		"in gain;",
+		"in gain[1];",
 		"out reading[0..1];",
 	} {
 		wantLine(t, r.Notation, line)

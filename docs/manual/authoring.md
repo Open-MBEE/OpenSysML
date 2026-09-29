@@ -197,7 +197,7 @@ query, column and row, since an empty formula has nothing to typeset.
 `targetColumn` naming a projected column that supplies each row's one
 non-empty link destination.
 
-Computed columns (`Column(name, expression)`) feed column runs like any
+Computed columns (`Column` with `expression`, `cell`, or `path`) feed column runs like any
 projected property, so a query can compute both the text and the style or
 target it renders with — the `styleColumn`/`targetColumn` example above uses
 computed `style` and `url` columns. A `RelatedColumn(...)` cell is

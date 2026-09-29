@@ -11,7 +11,7 @@ package test {
         subject :>> studyAlternatives : Engine[1..*];
         objective : MaximizeObjective;
         calc :>> evaluationFunction {
-            in part e :>> alternative : Engine;
+            in part e :>> alternative : Engine[1];
             return :>> result : Real = e.power;
         }
         return part :>> selectedAlternative : Engine;

@@ -54,14 +54,14 @@ part fleet {
 
 const derivedMassesQuery = `
 calc def Masses :> Query {
-	in root : Element;
+	in root : Element[1];
 	Project(
 		source = WhereType(source = Descendants(source = root, maxDepth = 1), type = "PartUsage"),
 		properties = ("name", "dryMass", "mass", "nozzles", "class")
 	)
 }
 calc def Vehicles :> Query {
-	in root : Element;
+	in root : Element[1];
 	Project(
 		source = WhereType(source = Descendants(source = root, maxDepth = 1), type = "PartUsage"),
 		properties = ("name", "liftoffMass", "engineCount", "topMass")
@@ -203,7 +203,7 @@ func TestExecuteAgreesWithTheRuntimeOnDerivedValues(t *testing.T) {
 func TestExecuteFiltersAndOrdersDerivedQuantities(t *testing.T) {
 	fixture := derivedFixture(t, `
 calc def Heavy :> Query {
-	in root : Element;
+	in root : Element[1];
 	Project(
 		source = WhereFeature(
 			source = WhereType(source = Descendants(source = root, maxDepth = 1), type = "PartUsage"),
@@ -215,7 +215,7 @@ calc def Heavy :> Query {
 	)
 }
 calc def Ordered :> Query {
-	in root : Element;
+	in root : Element[1];
 	OrderBy(
 		source = Project(
 			source = WhereType(source = Descendants(source = root, maxDepth = 1), type = "PartUsage"),
@@ -228,7 +228,7 @@ calc def Ordered :> Query {
 	)
 }
 calc def OrderedGrams :> Query {
-	in root : Element;
+	in root : Element[1];
 	OrderBy(
 		source = WhereType(source = Descendants(source = root, maxDepth = 1), type = "PartUsage"),
 		property = "mass",
@@ -285,7 +285,7 @@ part broken {
 func TestExecuteComputesColumnsOverDerivedValues(t *testing.T) {
 	fixture := derivedFixture(t, `
 calc def Derived :> Query {
-	in root : Element;
+	in root : Element[1];
 	Project(
 		source = WhereType(source = Descendants(source = root, maxDepth = 1), type = "PartUsage"),
 		properties = ("name"),
@@ -351,7 +351,7 @@ private import ControlFunctions::collect;
 part def Crate { attribute mass :> ISQ::mass; }
 part def Pallet {
 	part crates : Crate [*];
-	attribute itemMasses :> ISQ::mass [*] = crates->collect { in c : Crate; c.mass };
+	attribute itemMasses :> ISQ::mass [*] = crates->collect { in c : Crate[1]; c.mass };
 	attribute total :> ISQ::mass = sum(itemMasses);
 	attribute items : Natural = size(itemMasses);
 	attribute last :> ISQ::mass = itemMasses#(3);
@@ -369,14 +369,14 @@ part yard {
 	}
 }
 calc def Pallets :> Query {
-	in root : Element;
+	in root : Element[1];
 	Project(
 		source = WhereType(source = Descendants(source = root, maxDepth = 1), type = "PartUsage"),
 		properties = ("name", "total", "items", "last", "alias", "massUnit", "itemMasses")
 	)
 }
 calc def Hearts :> Query {
-	in root : Element;
+	in root : Element[1];
 	Project(
 		source = WhereType(source = Descendants(source = root, maxDepth = 1), type = "PartUsage"),
 		properties = ("name", "heart")
@@ -438,7 +438,7 @@ part def Thing {
 }
 part yard { part thing : Thing; }
 calc def Things :> Query {
-	in root : Element;
+	in root : Element[1];
 	Project(
 		source = WhereType(source = Descendants(source = root, maxDepth = 1), type = "PartUsage"),
 		properties = ("name", "engines", "m", "doubled", "heart", "color", "unit", "level", "cast")
@@ -473,7 +473,7 @@ package Bench {
 	individual part def entry001 :> Entry { attribute :>> beam = Bench::Beam::'650mm'; }
 }
 calc def Entries :> Query {
-	in root : Element;
+	in root : Element[1];
 	Project(
 		source = WhereName(source = Descendants(source = root), operator = "startsWith", value = "entry"),
 		properties = ("name", "beam")
@@ -512,7 +512,7 @@ package Bench {
 	individual part def entry002 :> Entry { attribute :>> beam = Bench::Beam::'700mm'; }
 }
 calc def Entries :> Query {
-	in root : Element;
+	in root : Element[1];
 	Project(
 		source = WhereFeature(
 			source = WhereName(source = Descendants(source = root), operator = "startsWith", value = "entry"),
@@ -540,7 +540,7 @@ part def MassedComponent {
 	part subcomponents : MassedComponent [*];
 	attribute mass :> ISQ::mass;
 	attribute totalMass :> ISQ::mass default = mass + sum(subcomponents.totalMass);
-	attribute childMasses :> ISQ::mass [*] nonunique = subcomponents->collect { in c : MassedComponent; c.mass };
+	attribute childMasses :> ISQ::mass [*] nonunique = subcomponents->collect { in c : MassedComponent[1]; c.mass };
 	attribute children : Natural = size(subcomponents);
 }
 part def Bolt :> MassedComponent {
@@ -559,7 +559,7 @@ part def Stack :> MassedComponent {
 }
 part depot { part stack : Stack; }
 calc def Totals :> Query {
-	in root : Element;
+	in root : Element[1];
 	Project(
 		source = WhereType(source = Descendants(source = root, maxDepth = 1), type = "PartUsage"),
 		properties = ("name", "totalMass", "childMasses", "children")
@@ -624,7 +624,7 @@ part hangar {
 	part stack : Stack;
 }
 calc def Totals :> Query {
-	in root : Element;
+	in root : Element[1];
 	Project(
 		source = WhereType(source = Descendants(source = root, maxDepth = 1), type = "PartUsage"),
 		properties = ("name", "totalMass", "childMasses")
@@ -666,7 +666,7 @@ func TestExecuteNamesTheSubexpressionOfAnUnevaluableDerivedValue(t *testing.T) {
 private import RealFunctions::sum;
 
 part def Sensor :> Stage {
-	action measure { in reading : Real; }
+	action measure { in reading : Real[1]; }
 	attribute :>> dryMass = 1 [kg];
 	attribute :>> propellantMass = measure.reading [kg];
 }

@@ -2,6 +2,7 @@ package opensysml
 
 import (
 	"context"
+	"fmt"
 
 	pb "github.com/Open-MBEE/OpenSysML/api/proto"
 )
@@ -20,6 +21,8 @@ const (
 	ReasonWrongKind Reason = Reason(pb.FailureReason_FAILURE_REASON_WRONG_KIND)
 	// ReasonAmbiguousSubject is several objects carrying the element: name one.
 	ReasonAmbiguousSubject Reason = Reason(pb.FailureReason_FAILURE_REASON_AMBIGUOUS_SUBJECT)
+	// ReasonUndecided is an engine that was asked but decided nothing.
+	ReasonUndecided Reason = Reason(pb.FailureReason_FAILURE_REASON_UNDECIDED)
 )
 
 // String names the reason as the wire enum spells it.
@@ -61,6 +64,16 @@ type Verdict struct {
 	// Verifications are the body verdicts of that requirement's verification
 	// cases, reported beside this verdict rather than instead of it.
 	Verifications []VerificationVerdict
+	// Question is the question the verdict answers: "evaluate" for an
+	// evaluation, reported by a service advertising
+	// CapabilityVerificationQuestions and empty from one predating it.
+	Question string
+	// Status is the answer's status: holds | violated | undecided |
+	// satisfiable | unsatisfiable, as the service spells it.
+	Status string
+	// Witness is the assignment witnessing the answer: the free features' values
+	// for a violated holds question or a satisfiable satisfiable question.
+	Witness []WitnessAssignment
 	// Standing is how strongly the verdict stands: the engine that answered, the
 	// strength of its evidence and the bounds it ran under.
 	Standing Standing
@@ -99,6 +112,36 @@ type VerificationVerdict struct {
 	// RequirementID is the FQN of the requirement this verdict was reported
 	// for, empty when the case ran for itself rather than for a requirement.
 	RequirementID string
+}
+
+// Question names the question a verify call asks: the evaluation of the
+// declared or held values, the claim holding for every assignment the free
+// features can take, or one assignment satisfying it. Questions other than
+// QuestionEvaluate ask the service's solvers, which answer decided or leave
+// the verdict undecided.
+const (
+	// QuestionEvaluate evaluates the constraint as verification always has.
+	QuestionEvaluate = "evaluate"
+	// QuestionHolds asks whether the claim holds for every free assignment.
+	QuestionHolds = "holds"
+	// QuestionSatisfiable asks whether any free assignment satisfies the claim.
+	QuestionSatisfiable = "satisfiable"
+)
+
+// WitnessAssignment is one feature's value in the assignment witnessing a
+// violated holds question or a satisfiable satisfiable question: the value the
+// evaluator replayed, in the base units reported, and the solver's exact
+// spelling of it.
+type WitnessAssignment struct {
+	// Feature is the qualified feature name, chain steps appended with '.'.
+	Feature string
+	// Value is the value the evaluator replayed for the feature.
+	Value Value
+	// Unit names the base units the magnitude is expressed in, empty for a
+	// value that has none.
+	Unit string
+	// Exact is the solver's exact value as text.
+	Exact string
 }
 
 // Undecided reports a verdict that is no answer about the model: evaluation
@@ -214,6 +257,7 @@ type VerifyOption func(*verifyOptions)
 type verifyOptions struct {
 	subjectSymbolID string
 	engine          string
+	question        string
 }
 
 // Against names a part or usage to instantiate and verify against, so the
@@ -221,6 +265,14 @@ type verifyOptions struct {
 // what WithSubject is to Evaluate.
 func Against(symbolID string) VerifyOption {
 	return func(o *verifyOptions) { o.subjectSymbolID = symbolID }
+}
+
+// Asking names the question a verification answers: QuestionEvaluate (the
+// default), QuestionHolds or QuestionSatisfiable. A question other than
+// evaluate requires the verification_questions capability, checked before
+// anything is sent.
+func Asking(question string) VerifyOption {
+	return func(o *verifyOptions) { o.question = question }
 }
 
 func (c *client) VerifyConstraint(
@@ -242,6 +294,7 @@ func (c *client) VerifyConstraint(
 		SymbolId:        symbolID,
 		SubjectSymbolId: options.subjectSymbolID,
 		Engine:          engineField(options.engine),
+		Question:        questionField(options.question),
 	})
 	if err != nil {
 		return nil, err
@@ -269,6 +322,7 @@ func (c *client) VerifyRequirement(
 		SymbolId:        symbolID,
 		SubjectSymbolId: options.subjectSymbolID,
 		Engine:          engineField(options.engine),
+		Question:        questionField(options.question),
 	})
 	if err != nil {
 		return nil, err
@@ -303,6 +357,7 @@ func (c *client) VerifySatisfaction(
 		ModelHash: hash,
 		SymbolId:  symbolID,
 		Engine:    engineField(options.engine),
+		Question:  questionField(options.question),
 	})
 	if err != nil {
 		return nil, err
@@ -478,7 +533,39 @@ func (c *client) verifyOptions(ctx context.Context, opts []VerifyOption) (verify
 	if err := c.requireEngine(ctx, options.engine); err != nil {
 		return verifyOptions{}, err
 	}
+	if err := c.requireQuestion(ctx, options.question); err != nil {
+		return verifyOptions{}, err
+	}
 	return options, nil
+}
+
+// questionField is the question as sent: empty for evaluate, which every
+// service reads as such.
+func questionField(question string) string {
+	if question == QuestionEvaluate {
+		return ""
+	}
+	return question
+}
+
+// requireQuestion refuses to send a question other than evaluate to a service
+// without the verification_questions capability, which would answer an
+// evaluation rather than refuse it.
+func (c *client) requireQuestion(ctx context.Context, question string) error {
+	if questionField(question) == "" {
+		return nil
+	}
+	info, err := c.serverInfo(ctx)
+	if err != nil {
+		return err
+	}
+	if !info.Has(CapabilityVerificationQuestions) {
+		return &StatusError{
+			Code:    CodeUnimplemented,
+			Message: fmt.Sprintf("capability %q is unavailable", CapabilityVerificationQuestions),
+		}
+	}
+	return nil
 }
 
 // verification builds the answer a constraint or requirement verification gives.
@@ -522,8 +609,30 @@ func verdictFromProto(verdict *pb.Verdict) *Verdict {
 		Reason:         Reason(verdict.FailureReason),
 		RequirementID:  verdict.RequirementId,
 		InstancePath:   verdict.InstancePath,
+		Question:       verdict.Question,
+		Status:         verdict.Status,
+		Witness:        witnessFromProto(verdict.Witness),
 		Standing:       standingFromProto(verdict.Engine, verdict.Strength, verdict.Bounds),
 	}
+}
+
+func witnessFromProto(witness []*pb.WitnessAssignment) []WitnessAssignment {
+	if len(witness) == 0 {
+		return nil
+	}
+	out := make([]WitnessAssignment, 0, len(witness))
+	for _, assignment := range witness {
+		if assignment == nil {
+			continue
+		}
+		out = append(out, WitnessAssignment{
+			Feature: assignment.Feature,
+			Value:   valueFromProto(assignment.Value),
+			Unit:    assignment.Unit,
+			Exact:   assignment.Exact,
+		})
+	}
+	return out
 }
 
 func verificationVerdictsFromProto(verdicts []*pb.VerificationVerdict) []VerificationVerdict {

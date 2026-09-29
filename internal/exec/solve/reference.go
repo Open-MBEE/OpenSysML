@@ -216,7 +216,21 @@ func (t *translator) variableOf(
 	if err != nil {
 		return nil, err
 	}
-	return VarTerm(t.declare(variableName(t, chain), sort, target, dimension)), nil
+	v := t.declare(variableName(t, chain), sort, target, dimension)
+	if v.Root == nil && v.Steps == nil {
+		for _, step := range chain {
+			if featureDecl(step) {
+				v.Steps = append(v.Steps, step)
+			}
+		}
+		v.Ref, v.Scope = node, scope
+		// Only a chain of exactly [object, feature] is a pin candidate: a longer
+		// chain's root indexes into a sub-object, never the pinned object.
+		if len(v.Steps) >= 1 && len(v.Steps) <= 2 {
+			v.Root = v.Steps[0]
+		}
+	}
+	return VarTerm(v), nil
 }
 
 // singleValued reports whether a multiplicity admits exactly one value, which is

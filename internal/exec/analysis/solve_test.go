@@ -134,7 +134,7 @@ func TestSolveGradesEachVerdict(t *testing.T) {
 		{"undecided", Evaluation{Name: "C", Solved: &solve.Result{Query: exact, Status: solve.StatusSat, Optima: []solve.Optimum{{Objective: objective, Status: solve.OptimumUndecided, Detail: "unknown"}}}}, ClaimNone, NotCovered, "m: unknown"},
 	}
 	for _, tc := range cases {
-		claim, strength, reason := judgeOne(tc.value)
+		claim, strength, reason := judgeOne(tc.value, Satisfiable)
 		if claim != tc.claim || strength != tc.strength || reason != tc.reason {
 			t.Errorf("%s: %s %s %q, want %s %s %q", tc.name, claim, strength, reason, tc.claim, tc.strength, tc.reason)
 		}
@@ -254,8 +254,8 @@ func TestSolveReportsTheBoundsItDeclares(t *testing.T) {
 func TestSolveRefusesWhatItCannotAsk(t *testing.T) {
 	e := NewSolve(func() (*solve.Solver, error) { return &solve.Solver{Name: "z3", Path: "/usr/bin/z3"}, nil })
 	ask := &SolveAsk{Queries: []*solve.Query{intQuery("C", 2, 5)}, Ask: (*solve.Solver).Solve}
-	if c := e.Covers(nil, Question{Kind: Holds}); c.Covered || !errors.Is(c.Refusal, ErrNotAsked) {
-		t.Fatalf("holds: %+v, want not asked", c)
+	if c := e.Covers(nil, Question{Kind: Holds}); c.Covered || !errors.Is(c.Refusal, ErrMalformedQuestion) {
+		t.Fatalf("holds without violation queries: %+v, want malformed", c)
 	}
 	if c := e.Covers(nil, Question{Kind: Satisfiable, Free: FreeInputs | FreeSchedule, Solve: ask}); c.Covered || !errors.Is(c.Refusal, ErrFreedom) {
 		t.Fatalf("free schedule: %+v, want a freedom refusal", c)

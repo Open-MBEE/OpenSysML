@@ -129,20 +129,21 @@ func TestTransitionEffectsTakeTheAcceptedSignal(t *testing.T) {
 		"assign context.count := context.count + 10;",
 		"assign context.count := context.count + 100;",
 		"transition first Idle accept reading : Reading",
-		"in r : Reading = reading;",
-		"in n : ScalarValues::Integer;",
+		"in r : Reading[1] = reading;",
+		"in n : ScalarValues::Integer[1];",
 		"assign context.last := r.value;",
 		"then Cool;",
 		"transition first Cool accept reading2 : Reading",
-		"in reading = reading2;",
+		"in reading[1] = reading2;",
 		"assign context.count := context.count + 1;",
 		"then done;",
 		"do action Spin {",
-		"in speed : ScalarValues::Real;",
-		"action take : Sample { in v; in ref :>> context = Cooling::context; }",
+		"in speed : ScalarValues::Real[1];",
+		"action take : Sample { in v[1]; in ref :>> context = Cooling::context; }",
 	} {
 		wantLine(t, r.Notation, line)
 	}
+	wantNoLine(t, r.Notation, "bind take.context = context;")
 	if strings.Contains(string(r.Notation), "then take;") || strings.Contains(string(r.Notation), "first take then") {
 		t.Errorf("a succession reaches or leaves the call whose input takes no value:\n%s", r.Notation)
 	}
@@ -250,7 +251,7 @@ func TestInoutParameterFlowsInAndOutOfACall(t *testing.T) {
 	r := migrateDocument(t, bumpActivity, "")
 	for _, line := range []string{
 		"action def Bump {",
-		"inout n : ScalarValues::Integer;",
+		"inout n : ScalarValues::Integer[1];",
 		"bind inc.v = n;",
 		"bind n = inc.result;",
 		"action def Run {",
@@ -378,13 +379,13 @@ func TestMethodParametersStandForTheOperationsByPosition(t *testing.T) {
 	r := migrateDocument(t, pointOperation, pointApplications)
 	for _, line := range []string{
 		"action point {",
-		"in azimuth : ScalarValues::Real;",
+		"in azimuth : ScalarValues::Real[1];",
 		"perform action point ::> Scope::point;",
 		"bind 'set azimuth'.value = azimuth;",
 		"action def Tilt {",
-		"in amount : ScalarValues::Real;",
-		"out was : ScalarValues::Real;",
-		"in extra : ScalarValues::Real;",
+		"in amount : ScalarValues::Real[1];",
+		"out was : ScalarValues::Real[1];",
+		"in extra : ScalarValues::Real[1];",
 		"flow ninety.result to point.azimuth;",
 	} {
 		wantLine(t, r.Notation, line)
@@ -496,7 +497,7 @@ func TestCallsBindTheMethodsExtraParameters(t *testing.T) {
 	r := migrateDocument(t, methodInputs, methodInputsApplications)
 	for _, line := range []string{
 		"action tilt {",
-		"in amount : ScalarValues::Real;",
+		"in amount : ScalarValues::Real[1];",
 		"in extra : ScalarValues::Real[0..1];",
 		"bind 'set reach'.value = extra;",
 		"perform action short ::> tilt;",
@@ -505,7 +506,7 @@ func TestCallsBindTheMethodsExtraParameters(t *testing.T) {
 		"flow seven.result to full.amount;",
 		"flow seven.result to full.extra;",
 		"/* not migrated: Interaction 'Brief' — the message 'tilt' binds no argument to the parameter extra of Tilt, which must hold a value */",
-		"perform action tilt ::> tilter.tilt { in amount = 90.0; in extra = 7.0; }",
+		"perform action tilt ::> tilter.tilt { in amount[1] = 90.0; in extra[0..1] = 7.0; }",
 	} {
 		wantLine(t, r.Notation, line)
 	}

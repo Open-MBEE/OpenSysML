@@ -74,11 +74,11 @@ const pingNetworkApplications = `
 func TestSendTargetFedByParameterReachesTheObjectItHolds(t *testing.T) {
 	r := migrateDocument(t, pingNetwork, pingNetworkApplications)
 	for _, line := range []string{
-		"in recipient : Node;",
-		"in target;",
+		"in recipient : Node[1];",
+		"in target[1];",
 		"send new Ping() to target;",
 		"bind ping.target = recipient;",
-		"out result = b;",
+		"out result[1] = b;",
 		"flow 'read b'.result to notify.recipient;",
 	} {
 		wantLine(t, r.Notation, line)

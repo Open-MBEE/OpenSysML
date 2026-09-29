@@ -4,10 +4,12 @@ import (
 	"context"
 	"errors"
 	"os"
+	"strings"
 
 	"connectrpc.com/connect"
 	pb "github.com/Open-MBEE/OpenSysML/api/proto"
 	"github.com/Open-MBEE/OpenSysML/internal/translate/convert"
+	"github.com/Open-MBEE/OpenSysML/internal/translate/export"
 )
 
 // Convert writes a model in another representation, so a client can save a model
@@ -16,6 +18,9 @@ import (
 func (s *Service) Convert(ctx context.Context, req *pb.ConvertRequest) (*pb.ConvertResponse, error) {
 	if err := s.requireCapability(CapabilityConvert); err != nil {
 		return nil, err
+	}
+	if out, done, err := s.convertModelOfDocuments(req); done {
+		return out, err
 	}
 	name, data, err := s.convertSource(req)
 	if err != nil {
@@ -81,8 +86,7 @@ func (s *Service) convertSource(req *pb.ConvertRequest) (string, []byte, error) 
 				"model %s is no longer cached: parse it again, or convert its file_path or content",
 				src.ModelHash)
 		}
-		// Conversion writes one document out, so a model of several is refused
-		// rather than converted from one of them.
+		// A model of several documents is converted whole (convertModelOfDocuments).
 		doc, err := cached.SoleDocument()
 		if err != nil {
 			return "", nil, err
@@ -149,4 +153,67 @@ func syntaxDiagnostics(syntax *convert.SyntaxError) []*pb.Diagnostic {
 		})
 	}
 	return diags
+}
+
+// convertModelOfDocuments converts a cached model of several documents as one
+// graph, each reference from one document to an element another declares
+// linked to it, to Turtle or the API's JSON element form. done is false for any
+// other request, which converts one document as before.
+func (s *Service) convertModelOfDocuments(req *pb.ConvertRequest) (*pb.ConvertResponse, bool, error) {
+	hash, ok := req.Source.(*pb.ConvertRequest_ModelHash)
+	if !ok {
+		return nil, false, nil
+	}
+	cached, found := s.cache.Get(hash.ModelHash)
+	if !found || len(cached.Documents) < 2 {
+		return nil, false, nil
+	}
+	to, err := convert.ParseFormat(req.ToFormat)
+	if err != nil {
+		return nil, true, statusError(connect.CodeInvalidArgument, err.Error())
+	}
+	if req.FromFormat != "" {
+		if from, err := convert.ParseFormat(req.FromFormat); err != nil || from != convert.FormatSysML {
+			return nil, true, statusError(connect.CodeInvalidArgument, "a model parsed from several documents is notation; from_format must be empty or sysml")
+		}
+	}
+	if to != convert.FormatTurtle && to != convert.FormatAPIJSON {
+		return nil, true, statusErrorf(connect.CodeFailedPrecondition,
+			"notation is written for one document, and this model has %d; convert it to %s or %s, or convert each document",
+			len(cached.Documents), convert.FormatTurtle, convert.FormatAPIJSON)
+	}
+	resp := &pb.ConvertResponse{FromFormat: convert.FormatSysML.String(), ToFormat: to.String()}
+	if convert.IsExperimental(convert.FormatSysML, to) {
+		resp.Experimental = true
+		resp.ExperimentalNotice = convert.Notice(convert.FormatSysML, to)
+	}
+	// A document the parser could not read whole is refused, as one converted
+	// alone is: the graph would silently miss what the parser skipped.
+	var refused []string
+	documents := make([]export.ModelDocument, 0, len(cached.Documents))
+	for _, doc := range cached.Documents {
+		if syntax := convert.SyntaxErrorOf(doc.Source.Name(), doc.Source, doc.ParseDiags); syntax != nil {
+			refused = append(refused, syntax.Error())
+			resp.Diagnostics = append(resp.Diagnostics, syntaxDiagnostics(syntax)...)
+			continue
+		}
+		documents = append(documents, export.ModelDocument{File: doc.Source, Root: doc.Root})
+	}
+	if len(refused) > 0 {
+		resp.Diagnostics = s.filterDiagnosticCapabilities(resp.Diagnostics)
+		resp.Error = strings.Join(refused, "\n")
+		return resp, true, nil
+	}
+	graph, err := export.ModelToRDFWith(documents, export.IDQualifiedName)
+	if err != nil {
+		resp.Error = err.Error()
+		return resp, true, nil
+	}
+	out, err := convert.FromGraph(graph, to)
+	if err != nil {
+		resp.Error = err.Error()
+		return resp, true, nil
+	}
+	resp.Content = string(out)
+	return resp, true, nil
 }

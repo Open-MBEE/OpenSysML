@@ -277,7 +277,7 @@ func TestKindListings(t *testing.T) {
 		t.Fatalf("KerML connection kinds = %q", kerml)
 	}
 	members := MemberKinds(source.KindSysML)
-	for _, want := range []string{"part def", "port", "state", "action", "fork"} {
+	for _, want := range []string{"part def", "port", "state", "action", "fork", "assert", "assert not"} {
 		if !contains(members, want) {
 			t.Fatalf("SysML member kinds %v lack %q", members, want)
 		}

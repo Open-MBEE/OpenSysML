@@ -12,6 +12,10 @@ import (
 // spelled as the CLI's -strict flag and the REPL's %strict command.
 const strictConformanceKey = "strictConformance"
 
+// disabledLintsKey is the setting naming the lints an editor leaves out of the
+// diagnostics, spelled as the CLI's -disable-lint flag.
+const disabledLintsKey = "disabledLints"
+
 // settingsSection is the section an editor nests this server's settings under.
 const settingsSection = "sysml"
 
@@ -34,13 +38,48 @@ func (s *Server) applyConformanceSettings(ctx context.Context, payload any) bool
 }
 
 // DidChangeConfiguration applies the settings the client pushed. Only the
-// conformance mode is read; a payload that does not mention it changes nothing.
+// conformance mode and the disabled lints are read; a payload that mentions
+// neither changes nothing.
 func (s *Server) DidChangeConfiguration(ctx context.Context, params *protocol.DidChangeConfigurationParams) error {
-	if params == nil || !s.applyConformanceSettings(ctx, params.Settings) {
+	if params == nil {
+		return nil
+	}
+	modeChanged := s.applyConformanceSettings(ctx, params.Settings)
+	lintsChanged := s.applyLintSettings(ctx, params.Settings)
+	if !modeChanged && !lintsChanged {
 		return nil
 	}
 	s.republishOpenDiagnostics(ctx)
 	return nil
+}
+
+// applyLintSettings replaces the lints the workspace leaves out with the ones a
+// settings payload names, and reports whether it named any setting: a payload
+// without it leaves the lints alone, and an unknown code is shown the client.
+func (s *Server) applyLintSettings(ctx context.Context, payload any) bool {
+	value, ok := sysmlSetting(payload, disabledLintsKey)
+	if !ok {
+		return false
+	}
+	list, ok := value.([]any)
+	if !ok {
+		return false
+	}
+	codes := make([]string, 0, len(list))
+	for _, item := range list {
+		code, isString := item.(string)
+		if !isString {
+			return false
+		}
+		codes = append(codes, code)
+	}
+	if err := s.ws.SetDisabledLints(codes); err != nil {
+		if s.client != nil {
+			_ = s.client.ShowMessage(ctx, &protocol.ShowMessageParams{Type: protocol.MessageTypeError, Message: err.Error()})
+		}
+		return false
+	}
+	return true
 }
 
 // strictConformanceSetting reads the strict-conformance flag out of an
@@ -49,22 +88,31 @@ func (s *Server) DidChangeConfiguration(ctx context.Context, params *protocol.Di
 // {"strictConformance": true}, {"sysml": {"strictConformance": true}} and the
 // flat {"sysml.strictConformance": true}.
 func strictConformanceSetting(payload any) (bool, bool) {
-	settings, ok := payload.(map[string]any)
+	value, ok := sysmlSetting(payload, strictConformanceKey)
 	if !ok {
 		return false, false
 	}
-	if value, ok := settings[strictConformanceKey]; ok {
-		return boolSetting(value)
+	return boolSetting(value)
+}
+
+// sysmlSetting reads the setting key out of a payload in any of the three shapes.
+func sysmlSetting(payload any, key string) (any, bool) {
+	settings, ok := payload.(map[string]any)
+	if !ok {
+		return nil, false
 	}
-	if value, ok := settings[settingsSection+"."+strictConformanceKey]; ok {
-		return boolSetting(value)
+	if value, ok := settings[key]; ok {
+		return value, true
+	}
+	if value, ok := settings[settingsSection+"."+key]; ok {
+		return value, true
 	}
 	if nested, ok := settings[settingsSection].(map[string]any); ok {
-		if value, ok := nested[strictConformanceKey]; ok {
-			return boolSetting(value)
+		if value, ok := nested[key]; ok {
+			return value, true
 		}
 	}
-	return false, false
+	return nil, false
 }
 
 // boolSetting reads a JSON boolean, ignoring a value of any other type: a
