@@ -60,3 +60,47 @@ func TestEachDeclarationCarriesItsSourceRange(t *testing.T) {
 		t.Errorf("the notation read back changed:\n%s", back)
 	}
 }
+
+// A range ends at the declaration's last token: a note or comment after it
+// belongs to no declaration, while a comment that is a declaration's body
+// (`doc /* … */`) is part of it.
+func TestSourceRangeStopsBeforeTrailingComments(t *testing.T) {
+	const src = `package C {
+    part a; /* note */ part b; // after
+    part d { doc /* body */ }
+}
+`
+	got := sourceRanges(t, src)
+	for name, want := range map[string][4]float64{
+		"C::a":     {2, 5, 2, 12},
+		"C::b":     {2, 24, 2, 31},
+		"C::d":     {3, 5, 3, 30},
+		"C::d::@0": {3, 14, 3, 28},
+	} {
+		if got[name] != want {
+			t.Errorf("%s: range %v, want %v", name, got[name], want)
+		}
+	}
+}
+
+// sourceRanges converts src to the API's JSON form and reads each element's
+// range by qualified name.
+func sourceRanges(t *testing.T, src string) map[string][4]float64 {
+	t.Helper()
+	out, err := convert.Convert("m.sysml", []byte(src), convert.FormatSysML, convert.FormatAPIJSON)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var elements []map[string]any
+	if err := json.Unmarshal(out, &elements); err != nil {
+		t.Fatal(err)
+	}
+	got := map[string][4]float64{}
+	for _, e := range elements {
+		name, _ := e["qualifiedName"].(string)
+		if line, ok := e["sysx:sourceLine"].(float64); ok {
+			got[name] = [4]float64{line, e["sysx:sourceColumn"].(float64), e["sysx:sourceEndLine"].(float64), e["sysx:sourceEndColumn"].(float64)}
+		}
+	}
+	return got
+}

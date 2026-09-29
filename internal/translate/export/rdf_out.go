@@ -794,14 +794,14 @@ func (e *encoder) sourceRange(subject rdf.Term, span source.Span) {
 	if span.Len <= 0 {
 		return
 	}
-	// A declaration's span runs to the next token; its range ends where its text does.
-	text := e.file.Text(span)
-	trimmed := len(strings.TrimRight(text, " \t\r\n"))
-	if trimmed == 0 {
+	// A declaration's span runs to the next token; its range ends where its
+	// last token does, before any whitespace, note or comment that follows.
+	last := e.src.declarationEnd(span)
+	if last <= span.Offset {
 		return
 	}
 	lines := e.file.Lines()
-	start, end := lines.PosAt(span.Offset), lines.PosAt(span.Offset+trimmed)
+	start, end := lines.PosAt(span.Offset), lines.PosAt(last)
 	e.graph.Add(subject, e.sysx(xSourceLine), rdf.Int(start.Line))
 	e.graph.Add(subject, e.sysx(xSourceColumn), rdf.Int(start.Col))
 	e.graph.Add(subject, e.sysx(xSourceEndLine), rdf.Int(end.Line))

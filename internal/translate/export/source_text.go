@@ -74,6 +74,21 @@ func (s *authoredSource) code(span source.Span) string {
 	return string(s.text[span.Offset:min(span.End(), s.spans[last].End())])
 }
 
+// declarationEnd returns the offset a declaration's text ends at: its span
+// runs on to the next token, over the notes and trivia comments after it,
+// which are not part of it. A comment that is a declaration's body (`doc /* … */`)
+// is not trivia and stays. -1 when the span holds no token.
+func (s *authoredSource) declarationEnd(span source.Span) int {
+	last := s.index(span.End() - 1)
+	for last >= 0 && s.spans[last].Offset >= span.Offset && s.trivia(last) {
+		last--
+	}
+	if last < 0 || s.spans[last].Offset < span.Offset {
+		return -1
+	}
+	return min(span.End(), s.spans[last].End())
+}
+
 func isComment(kind lexer.Kind) bool {
 	return kind == lexer.SLNote || kind == lexer.MLNote || kind == lexer.RegularComment
 }
