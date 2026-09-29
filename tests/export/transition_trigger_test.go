@@ -180,10 +180,12 @@ func TestTransitionTriggerStructureIsLoadBearing(t *testing.T) {
 	turtle, _ := triggerGraph(t)
 	stripped := withoutSourceText(t, []byte(turtle))
 
+	// The receiver parameter still holds the port, so its missing link is
+	// refused rather than the `via` silently dropped.
 	noReceiver := withoutTriples(t, stripped, "sysml:receiverArgument")
 	back, err := convert.Convert("m.ttl", noReceiver, convert.FormatTurtle, convert.FormatSysML)
-	if err == nil && strings.Contains(string(back), "via inPort") {
-		t.Errorf("the `via` came back without sysml:receiverArgument:\n%s", back)
+	if err == nil || !strings.Contains(err.Error(), "no sysml:receiverArgument names it") {
+		t.Errorf("a receiver parameter without sysml:receiverArgument should be refused, got %v:\n%s", err, back)
 	}
 
 	noKind := withoutTriples(t, stripped, "sysml:kind")
@@ -214,6 +216,77 @@ func TestTransitionTriggerStructureAndLegacyTextAgree(t *testing.T) {
 	}
 	if _, err := with("d : Cmd"); err == nil || !strings.Contains(err.Error(), "its sysx:trigger states") {
 		t.Errorf("a disagreeing sysx:trigger should be refused, got %v", err)
+	}
+}
+
+// Links the structure states twice must agree with each other, or the graph
+// is refused rather than one of them dropped.
+func TestTransitionTriggerLinksAgree(t *testing.T) {
+	turtle, _ := triggerGraph(t)
+	stripped := string(withoutSourceText(t, []byte(turtle)))
+	refused := func(name, from, to, want string) {
+		t.Helper()
+		if !strings.Contains(stripped, from) {
+			t.Fatalf("%s: the graph no longer states %q", name, from)
+		}
+		graph := strings.Replace(stripped, from, to, 1)
+		back, err := convert.Convert("m.ttl", []byte(graph), convert.FormatTurtle, convert.FormatSysML)
+		if err == nil || !strings.Contains(err.Error(), want) {
+			t.Errorf("%s: want a refusal mentioning %q, got %v:\n%s", name, want, err, back)
+		}
+	}
+	refused("triggerAction",
+		"    sysml:triggerAction elmt:T__S__t1___40trigger ;",
+		"    sysml:triggerAction elmt:T__S__t6___40trigger ;",
+		"while its trigger membership owns")
+	refused("payloadArgument",
+		"    sysml:payloadArgument expr:T__S__t3___40trigger___400_pvalue .",
+		"    sysml:payloadArgument expr:T__S__t4___40trigger___400_pvalue .",
+		"is not the value of its payload parameter")
+	refused("receiverArgument",
+		"    sysml:receiverArgument expr:T__S__t2___40trigger___401_pvalue",
+		"    sysml:receiverArgument expr:T__S__t6___40trigger___401_pvalue",
+		"is not the value of its receiver parameter")
+}
+
+// A comment between `accept` and the payload does not hide the trigger form.
+func TestCommentedTransitionTriggerIsStructure(t *testing.T) {
+	model := `package T {
+    attribute def Sig;
+    state def S {
+        entry; then s1;
+        state s1;
+        state s2;
+        transition t1 first s1 accept /* note */ Sig then s2;
+        transition t2 first s2 accept // note
+            after 5[SI::second] then s1;
+    }
+}
+`
+	turtle, err := convert.Convert("t.sysml", []byte(model), convert.FormatSysML, convert.FormatTurtle)
+	if err != nil {
+		t.Fatalf("to turtle: %v", err)
+	}
+	g, err := rdf.ParseTurtle(turtle)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, name := range []string{"T__S__t1", "T__S__t2"} {
+		if !g.HasProperty(element(name), rdf.SysML+"triggerAction") {
+			t.Errorf("%s: a commented trigger should still be a trigger action", name)
+		}
+		if g.HasProperty(element(name), rdf.OpenSysML+"triggerKeyword") {
+			t.Errorf("%s: a comment was taken for the trigger keyword", name)
+		}
+	}
+	back := backFromTheGraphAlone(t, string(turtle))
+	for _, want := range []string{
+		"transition t1 first s1 accept Sig then s2;",
+		"transition t2 first s2 accept after 5[SI::second] then s1;",
+	} {
+		if !strings.Contains(back, want) {
+			t.Errorf("the graph alone did not write %q\n--- notation ---\n%s", want, back)
+		}
 	}
 }
 

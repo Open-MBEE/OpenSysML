@@ -747,7 +747,7 @@ func (e *encoder) between(from, to ast.Node) string {
 // introducer returns the keyword written immediately before inner, which is
 // what the clause inner belongs to was introduced with.
 func (e *encoder) introducer(node, inner ast.Node) string {
-	fields := strings.Fields(e.before(node, inner))
+	fields := strings.Fields(withoutComments(e.before(node, inner)))
 	if len(fields) == 0 {
 		return ""
 	}
@@ -1696,7 +1696,10 @@ func (d *decoder) triggerWords(el *element, trigger string) ([]string, error) {
 // AcceptActionUsage its trigger membership owns, else from the sysx:trigger
 // text an earlier mapping, or the `when <name>` spelling, states.
 func (d *decoder) transitionTrigger(el *element) ([]string, error) {
-	accepter := d.triggerAction(el)
+	accepter, err := d.triggerAction(el)
+	if err != nil {
+		return nil, err
+	}
 	if accepter == nil {
 		trigger, ok := d.stringOf(el, rdf.OpenSysML+xTrigger)
 		if !ok {
@@ -1710,6 +1713,9 @@ func (d *decoder) transitionTrigger(el *element) ([]string, error) {
 			What: fmt.Sprintf("the trigger action <%s>", accepter.iri),
 			Note: "it owns no payload parameter, which is what a transition's `accept` declares",
 		}
+	}
+	if err := d.payloadArgumentAgrees(accepter, payload); err != nil {
+		return nil, err
 	}
 	payloadWords, err := d.payloadWords(payload)
 	if err != nil {
@@ -1750,7 +1756,7 @@ func (d *decoder) transitionTrigger(el *element) ([]string, error) {
 			return nil, triggerDisagreement(el, "sysx:trigger", keyword+" "+trigger, words)
 		}
 	}
-	via, err := d.triggerReceiver(el, accepter)
+	via, err := d.triggerReceiver(el, accepter, payload)
 	if err != nil {
 		return nil, err
 	}
@@ -1811,15 +1817,71 @@ func (d *decoder) triggerTransition(el *element) *element {
 	return transition
 }
 
-// triggerAction is the AcceptActionUsage a transition's TransitionFeatureMembership
-// of kind trigger owns, nil when there is none.
-func (d *decoder) triggerAction(el *element) *element {
+// triggerAction is the AcceptActionUsage a transition's trigger membership owns,
+// nil when there is none; a sysml:triggerAction stated beside it must name it.
+func (d *decoder) triggerAction(el *element) (*element, error) {
+	var owned []*element
 	for _, child := range el.children {
 		if child.metaclass == mAcceptAction && d.transitionFeatureKind(child) == "trigger" {
-			return child
+			owned = append(owned, child)
+		}
+	}
+	stated := d.graph.Objects(rdf.IRI(el.iri), rdf.SysML+pTriggerAction)
+	refuse := func(note string) error {
+		return &UnsupportedError{What: fmt.Sprintf("the transition <%s>", el.iri), Note: note}
+	}
+	if len(owned) > 1 {
+		return nil, refuse("it owns more than one trigger action, and the notation writes one trigger")
+	}
+	if len(stated) == 0 {
+		if len(owned) == 0 {
+			return nil, nil
+		}
+		return owned[0], nil
+	}
+	if len(owned) == 0 {
+		return nil, refuse(fmt.Sprintf("its sysml:triggerAction names <%s>, which no TransitionFeatureMembership of kind trigger owns", stated[0].Value))
+	}
+	if len(stated) > 1 || stated[0].Value != owned[0].iri {
+		return nil, refuse(fmt.Sprintf("its sysml:triggerAction names <%s> while its trigger membership owns <%s>, and writing one would drop the other", stated[0].Value, owned[0].iri))
+	}
+	return owned[0], nil
+}
+
+// payloadArgumentAgrees checks that a stated sysml:payloadArgument is the value
+// of the trigger action's payload parameter, which is what the notation writes.
+func (d *decoder) payloadArgumentAgrees(accepter, payload *element) error {
+	stated := d.graph.Objects(rdf.IRI(accepter.iri), rdf.SysML+pPayloadArgument)
+	if len(stated) == 0 {
+		return nil
+	}
+	value, ok := d.graph.Object(rdf.IRI(payload.iri), rdf.SysML+pValue)
+	if len(stated) > 1 || !ok || stated[0] != value {
+		return &UnsupportedError{
+			What: fmt.Sprintf("the trigger action <%s>", accepter.iri),
+			Note: fmt.Sprintf("its sysml:payloadArgument <%s> is not the value of its payload parameter <%s>, and writing one would drop the other", stated[0].Value, payload.iri),
 		}
 	}
 	return nil
+}
+
+// receiverParams are the parameters of a trigger action other than its
+// payload that carry a value, which is how a receiver is bound.
+func (d *decoder) receiverParams(accepter, payload *element) []*element {
+	var params []*element
+	for _, child := range accepter.children {
+		if child == payload {
+			continue
+		}
+		m, ok := d.owningMembership[child.iri]
+		if !ok || d.metaclass(rdf.IRI(m.iri)) != mParameterMembership {
+			continue
+		}
+		if d.graph.HasProperty(rdf.IRI(child.iri), rdf.SysML+pValue) {
+			params = append(params, child)
+		}
+	}
+	return params
 }
 
 // transitionFeatureKind is the kind of the TransitionFeatureMembership owning el, if any.
@@ -1846,20 +1908,32 @@ func (d *decoder) triggerPayload(accepter *element) *element {
 	return d.acceptParam(accepter)
 }
 
-// triggerReceiver writes the port a trigger action accepts at: the value of the
-// receiver parameter its sysml:receiverArgument is, else the sysml:via of an
-// earlier mapping.
-func (d *decoder) triggerReceiver(el, accepter *element) (string, error) {
-	receiver, ok := d.graph.Object(rdf.IRI(accepter.iri), rdf.SysML+pReceiverArgument)
-	if !ok {
+// triggerReceiver writes the `via` port: the receiver parameter value its
+// sysml:receiverArgument is, else an earlier mapping's sysml:via.
+func (d *decoder) triggerReceiver(el, accepter, payload *element) (string, error) {
+	params := d.receiverParams(accepter, payload)
+	refuse := func(note string) error {
+		return &UnsupportedError{What: fmt.Sprintf("the trigger action <%s>", accepter.iri), Note: note}
+	}
+	stated := d.graph.Objects(rdf.IRI(accepter.iri), rdf.SysML+pReceiverArgument)
+	switch {
+	case len(stated) > 1:
+		return "", refuse("it states more than one sysml:receiverArgument, and the notation writes one `via`")
+	case len(stated) == 0 && len(params) > 0:
+		return "", refuse(fmt.Sprintf("its receiver parameter <%s> has a value but no sysml:receiverArgument names it, so the `via` it binds cannot be told apart", params[0].iri))
+	case len(stated) == 0:
 		return d.referenceText(el, rdf.SysML+relationshipProperty[ast.RelVia])
 	}
-	for _, child := range accepter.children {
-		if value, ok := d.graph.Object(rdf.IRI(child.iri), rdf.SysML+pValue); ok && value == receiver {
+	receiver := stated[0]
+	for _, child := range params {
+		if value, _ := d.graph.Object(rdf.IRI(child.iri), rdf.SysML+pValue); value == receiver {
 			if text, ok := d.stringOf(child, rdf.SysML+pValue); ok {
 				return text, nil
 			}
 		}
+	}
+	if len(params) > 0 {
+		return "", refuse(fmt.Sprintf("its sysml:receiverArgument <%s> is not the value of its receiver parameter <%s>, and writing one would drop the other", receiver.Value, params[0].iri))
 	}
 	return d.expressionNodeText(receiver, el)
 }
