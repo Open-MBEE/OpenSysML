@@ -20,7 +20,12 @@ func TestParseSourcesAnalyzesManyDocumentsPromptly(t *testing.T) {
 	srv := mustNewService(t, 10)
 	defer srv.Close()
 
-	const n = 800
+	// Under the race detector a deadline says nothing about the algorithm, so
+	// only the diagnostic is checked, on fewer documents.
+	n, deadline := 800, 10*time.Second
+	if raceBuild {
+		n, deadline = 100, time.Hour
+	}
 	var parts []string
 	for k := 0; k < n; k++ {
 		var src strings.Builder
@@ -57,7 +62,7 @@ func TestParseSourcesAnalyzesManyDocumentsPromptly(t *testing.T) {
 		if d.Span.GetFile() != fmt.Sprintf("p%03d.sysml", n-1) || !strings.Contains(d.Message, "Nowhere") {
 			t.Errorf("the diagnostic is %q in %q, want the unresolved Nowhere in the last document", d.Message, d.Span.GetFile())
 		}
-	case <-time.After(10 * time.Second):
-		t.Fatalf("ParseSources of %d documents did not finish in 10s", n)
+	case <-time.After(deadline):
+		t.Fatalf("ParseSources of %d documents did not finish in %v", n, deadline)
 	}
 }
