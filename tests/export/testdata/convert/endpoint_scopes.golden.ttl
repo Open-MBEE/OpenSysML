@@ -8,9 +8,11 @@
 elmt:Machines
     a sysml:Package ;
     sysml:qualifiedName "Machines" ;
+    sysx:sourceRange "1:1-24:2" ;
     sysml:elementId "Machines" ;
     sysx:memberIndex "0"^^xsd:integer ;
     sysx:sourceLanguage "sysml" ;
+    sysx:sourceDocument "testdata/convert/endpoint_scopes.sysml" ;
     sysml:declaredName "Machines" ;
     sysx:hasBody "true"^^xsd:boolean ;
     sysml:ownedMember elmt:Machines__Lamp ;
@@ -22,6 +24,7 @@ elmt:Machines
 elmt:Machines__Lamp
     a sysml:StateDefinition ;
     sysml:qualifiedName "Machines::Lamp" ;
+    sysx:sourceRange "2:5-23:6" ;
     sysml:elementId "Machines__Lamp" ;
     sysx:memberIndex "0"^^xsd:integer ;
     sysml:owningNamespace elmt:Machines ;
@@ -55,6 +58,7 @@ elmt:Machines__Lamp_om
 elmt:Machines__Lamp___400
     a sysml:StateSubactionMembership ;
     sysml:qualifiedName "Machines::Lamp::@0" ;
+    sysx:sourceRange "3:9-3:15" ;
     sysml:elementId "Machines__Lamp___400" ;
     sysx:memberIndex "0"^^xsd:integer ;
     sysml:owningNamespace elmt:Machines__Lamp ;
@@ -67,6 +71,7 @@ elmt:Machines__Lamp___400
 elmt:Machines__Lamp___401
     a sysml:SuccessionAsUsage ;
     sysml:qualifiedName "Machines::Lamp::@1" ;
+    sysx:sourceRange "3:16-3:25" ;
     sysml:elementId "Machines__Lamp___401" ;
     sysx:memberIndex "1"^^xsd:integer ;
     sysml:owningNamespace elmt:Machines__Lamp ;
@@ -91,6 +96,7 @@ elmt:Machines__Lamp___401_om
 elmt:Machines__Lamp__off
     a sysml:StateUsage ;
     sysml:qualifiedName "Machines::Lamp::off" ;
+    sysx:sourceRange "4:9-4:19" ;
     sysml:elementId "Machines__Lamp__off" ;
     sysx:memberIndex "2"^^xsd:integer ;
     sysml:owningNamespace elmt:Machines__Lamp ;
@@ -115,6 +121,7 @@ elmt:Machines__Lamp__off_om
 elmt:Machines__Lamp__on
     a sysml:StateUsage ;
     sysml:qualifiedName "Machines::Lamp::on" ;
+    sysx:sourceRange "5:9-19:10" ;
     sysml:elementId "Machines__Lamp__on" ;
     sysx:memberIndex "3"^^xsd:integer ;
     sysml:owningNamespace elmt:Machines__Lamp ;
@@ -150,6 +157,7 @@ elmt:Machines__Lamp__on_om
 elmt:Machines__Lamp__on__heat
     a sysml:StateUsage ;
     sysml:qualifiedName "Machines::Lamp::on::heat" ;
+    sysx:sourceRange "6:13-11:14" ;
     sysml:elementId "Machines__Lamp__on__heat" ;
     sysx:memberIndex "0"^^xsd:integer ;
     sysml:owningNamespace elmt:Machines__Lamp__on ;
@@ -185,6 +193,7 @@ elmt:Machines__Lamp__on__heat_om
 elmt:Machines__Lamp__on__heat___400
     a sysml:StateSubactionMembership ;
     sysml:qualifiedName "Machines::Lamp::on::heat::@0" ;
+    sysx:sourceRange "7:17-7:23" ;
     sysml:elementId "Machines__Lamp__on__heat___400" ;
     sysx:memberIndex "0"^^xsd:integer ;
     sysml:owningNamespace elmt:Machines__Lamp__on__heat ;
@@ -197,6 +206,7 @@ elmt:Machines__Lamp__on__heat___400
 elmt:Machines__Lamp__on__heat___401
     a sysml:SuccessionAsUsage ;
     sysml:qualifiedName "Machines::Lamp::on::heat::@1" ;
+    sysx:sourceRange "7:24-7:34" ;
     sysml:elementId "Machines__Lamp__on__heat___401" ;
     sysx:memberIndex "1"^^xsd:integer ;
     sysml:owningNamespace elmt:Machines__Lamp__on__heat ;
@@ -221,6 +231,7 @@ elmt:Machines__Lamp__on__heat___401_om
 elmt:Machines__Lamp__on__heat__warm
     a sysml:StateUsage ;
     sysml:qualifiedName "Machines::Lamp::on::heat::warm" ;
+    sysx:sourceRange "8:17-8:28" ;
     sysml:elementId "Machines__Lamp__on__heat__warm" ;
     sysx:memberIndex "2"^^xsd:integer ;
     sysml:owningNamespace elmt:Machines__Lamp__on__heat ;
@@ -245,6 +256,7 @@ elmt:Machines__Lamp__on__heat__warm_om
 elmt:Machines__Lamp__on__heat__hot
     a sysml:StateUsage ;
     sysml:qualifiedName "Machines::Lamp::on::heat::hot" ;
+    sysx:sourceRange "9:17-9:27" ;
     sysml:elementId "Machines__Lamp__on__heat__hot" ;
     sysx:memberIndex "3"^^xsd:integer ;
     sysml:owningNamespace elmt:Machines__Lamp__on__heat ;
@@ -269,6 +281,7 @@ elmt:Machines__Lamp__on__heat__hot_om
 elmt:Machines__Lamp__on__heat___404
     a sysml:TransitionUsage ;
     sysml:qualifiedName "Machines::Lamp::on::heat::@4" ;
+    sysx:sourceRange "10:17-10:42" ;
     sysml:elementId "Machines__Lamp__on__heat___404" ;
     sysx:memberIndex "4"^^xsd:integer ;
     sysml:owningNamespace elmt:Machines__Lamp__on__heat ;
@@ -294,6 +307,7 @@ elmt:Machines__Lamp__on__heat___404_om
 elmt:Machines__Lamp__on__light
     a sysml:StateUsage ;
     sysml:qualifiedName "Machines::Lamp::on::light" ;
+    sysx:sourceRange "12:13-18:14" ;
     sysml:elementId "Machines__Lamp__on__light" ;
     sysx:memberIndex "1"^^xsd:integer ;
     sysml:owningNamespace elmt:Machines__Lamp__on ;
@@ -329,6 +343,7 @@ elmt:Machines__Lamp__on__light_om
 elmt:Machines__Lamp__on__light___400
     a sysml:StateSubactionMembership ;
     sysml:qualifiedName "Machines::Lamp::on::light::@0" ;
+    sysx:sourceRange "13:17-13:23" ;
     sysml:elementId "Machines__Lamp__on__light___400" ;
     sysx:memberIndex "0"^^xsd:integer ;
     sysml:owningNamespace elmt:Machines__Lamp__on__light ;
@@ -341,6 +356,7 @@ elmt:Machines__Lamp__on__light___400
 elmt:Machines__Lamp__on__light___401
     a sysml:SuccessionAsUsage ;
     sysml:qualifiedName "Machines::Lamp::on::light::@1" ;
+    sysx:sourceRange "13:24-13:33" ;
     sysml:elementId "Machines__Lamp__on__light___401" ;
     sysx:memberIndex "1"^^xsd:integer ;
     sysml:owningNamespace elmt:Machines__Lamp__on__light ;
@@ -365,6 +381,7 @@ elmt:Machines__Lamp__on__light___401_om
 elmt:Machines__Lamp__on__light__dim
     a sysml:StateUsage ;
     sysml:qualifiedName "Machines::Lamp::on::light::dim" ;
+    sysx:sourceRange "14:17-14:27" ;
     sysml:elementId "Machines__Lamp__on__light__dim" ;
     sysx:memberIndex "2"^^xsd:integer ;
     sysml:owningNamespace elmt:Machines__Lamp__on__light ;
@@ -389,6 +406,7 @@ elmt:Machines__Lamp__on__light__dim_om
 elmt:Machines__Lamp__on__light__bright
     a sysml:StateUsage ;
     sysml:qualifiedName "Machines::Lamp::on::light::bright" ;
+    sysx:sourceRange "15:17-15:30" ;
     sysml:elementId "Machines__Lamp__on__light__bright" ;
     sysx:memberIndex "3"^^xsd:integer ;
     sysml:owningNamespace elmt:Machines__Lamp__on__light ;
@@ -413,6 +431,7 @@ elmt:Machines__Lamp__on__light__bright_om
 elmt:Machines__Lamp__on__light___404
     a sysml:TransitionUsage ;
     sysml:qualifiedName "Machines::Lamp::on::light::@4" ;
+    sysx:sourceRange "16:17-16:44" ;
     sysml:elementId "Machines__Lamp__on__light___404" ;
     sysx:memberIndex "4"^^xsd:integer ;
     sysml:owningNamespace elmt:Machines__Lamp__on__light ;
@@ -438,6 +457,7 @@ elmt:Machines__Lamp__on__light___404_om
 elmt:Machines__Lamp__on__light___405
     a sysml:TransitionUsage ;
     sysml:qualifiedName "Machines::Lamp::on::light::@5" ;
+    sysx:sourceRange "17:17-17:44" ;
     sysml:elementId "Machines__Lamp__on__light___405" ;
     sysx:memberIndex "5"^^xsd:integer ;
     sysml:owningNamespace elmt:Machines__Lamp__on__light ;
@@ -463,6 +483,7 @@ elmt:Machines__Lamp__on__light___405_om
 elmt:Machines__Lamp___404
     a sysml:TransitionUsage ;
     sysml:qualifiedName "Machines::Lamp::@4" ;
+    sysx:sourceRange "20:9-20:32" ;
     sysml:elementId "Machines__Lamp___404" ;
     sysx:memberIndex "4"^^xsd:integer ;
     sysml:owningNamespace elmt:Machines__Lamp ;
@@ -488,6 +509,7 @@ elmt:Machines__Lamp___404_om
 elmt:Machines__Lamp___405
     a sysml:TransitionUsage ;
     sysml:qualifiedName "Machines::Lamp::@5" ;
+    sysx:sourceRange "21:9-21:35" ;
     sysml:elementId "Machines__Lamp___405" ;
     sysx:memberIndex "5"^^xsd:integer ;
     sysml:owningNamespace elmt:Machines__Lamp ;
@@ -513,6 +535,7 @@ elmt:Machines__Lamp___405_om
 elmt:Machines__Lamp___406
     a sysml:TransitionUsage ;
     sysml:qualifiedName "Machines::Lamp::@6" ;
+    sysx:sourceRange "22:9-22:33" ;
     sysml:elementId "Machines__Lamp___406" ;
     sysx:memberIndex "6"^^xsd:integer ;
     sysml:owningNamespace elmt:Machines__Lamp ;

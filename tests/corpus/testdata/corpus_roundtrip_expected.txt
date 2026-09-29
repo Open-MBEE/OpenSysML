@@ -2,7 +2,9 @@
 # notation -> Turtle (hop 1) -> notation -> Turtle (hop 2), then the two
 # Turtle graphs compared as triple sets. Verdicts: stable (hop 2 is
 # byte-identical), whitespace-only (bytes differ, triple sets equal once the
-# whitespace inside sysx:sourceText literals is normalised), graph-diff,
+# whitespace inside sysx:sourceText literals is normalised and the
+# provenance values of sysx:sourceRange and sysx:sourceDocument are
+# ignored), graph-diff,
 # unwritable (Turtle -> notation refused), unparseable (the written notation
 # no longer converts) and refused:<class> (notation -> Turtle refused). This
 # is a per-file ratchet, not a claim that any verdict is right; see
@@ -45,13 +47,13 @@ stable	pilot-corpora/kerml-examples/Behavior Examples/TakePicture.kerml
 stable	pilot-corpora/kerml-examples/Individuals Examples/JohnIndividualExample.kerml
 stable	pilot-corpora/kerml-examples/KerML Spec Annex A Examples/A-2-Atoms.kerml
 stable	pilot-corpora/kerml-examples/KerML Spec Annex A Examples/A-2-ModelingInstances.kerml
-stable	pilot-corpora/kerml-examples/KerML Spec Annex A Examples/A-3-2-WithoutConnectors.kerml
-stable	pilot-corpora/kerml-examples/KerML Spec Annex A Examples/A-3-3-OneToOneConnectors.kerml
-stable	pilot-corpora/kerml-examples/KerML Spec Annex A Examples/A-3-4-OneToUnrestrictedConnectors.kerml
-stable	pilot-corpora/kerml-examples/KerML Spec Annex A Examples/A-3-5-TimingForStructures.kerml
-stable	pilot-corpora/kerml-examples/KerML Spec Annex A Examples/A-3-6-Sequences.kerml
-stable	pilot-corpora/kerml-examples/KerML Spec Annex A Examples/A-3-7-DecisionsAndMerges.kerml
-stable	pilot-corpora/kerml-examples/KerML Spec Annex A Examples/A-3-8-ChangingFeatureValues.kerml
+whitespace-only	pilot-corpora/kerml-examples/KerML Spec Annex A Examples/A-3-2-WithoutConnectors.kerml
+whitespace-only	pilot-corpora/kerml-examples/KerML Spec Annex A Examples/A-3-3-OneToOneConnectors.kerml
+whitespace-only	pilot-corpora/kerml-examples/KerML Spec Annex A Examples/A-3-4-OneToUnrestrictedConnectors.kerml
+whitespace-only	pilot-corpora/kerml-examples/KerML Spec Annex A Examples/A-3-5-TimingForStructures.kerml
+whitespace-only	pilot-corpora/kerml-examples/KerML Spec Annex A Examples/A-3-6-Sequences.kerml
+whitespace-only	pilot-corpora/kerml-examples/KerML Spec Annex A Examples/A-3-7-DecisionsAndMerges.kerml
+whitespace-only	pilot-corpora/kerml-examples/KerML Spec Annex A Examples/A-3-8-ChangingFeatureValues.kerml
 stable	pilot-corpora/kerml-examples/Mass Roll-up Example/MassRollup_1.kerml
 stable	pilot-corpora/kerml-examples/Mass Roll-up Example/MassRollup_2.kerml
 stable	pilot-corpora/kerml-examples/Mass Roll-up Example/Vehicles_1.kerml

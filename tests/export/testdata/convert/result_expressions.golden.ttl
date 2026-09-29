@@ -9,9 +9,11 @@
 elmt:Results
     a sysml:Package ;
     sysml:qualifiedName "Results" ;
+    sysx:sourceRange "1:1-95:2" ;
     sysml:elementId "Results" ;
     sysx:memberIndex "0"^^xsd:integer ;
     sysx:sourceLanguage "sysml" ;
+    sysx:sourceDocument "testdata/convert/result_expressions.sysml" ;
     sysml:declaredName "Results" ;
     sysx:hasBody "true"^^xsd:boolean ;
     sysml:ownedMember elmt:Results__Real, elmt:Results__Boolean, elmt:Results__Double, elmt:Results__Only, elmt:Results__AfterMembers, elmt:Results__Body, elmt:Results__Quoted, elmt:Results__Nested, elmt:Results__Documented, elmt:Results__Passes, elmt:Results__Says, elmt:Results__Empty, elmt:Results__Named, elmt:Results__Scaled, elmt:Results__Predicate, elmt:Results__Chained, elmt:Results__Conditional, elmt:Results__Widened, elmt:Results__Ranged, elmt:Results__Vehicle, elmt:Results__MassAnalysis, elmt:Results__MassCheck, elmt:Results__MassCase, elmt:Results__rover ;
@@ -26,6 +28,7 @@ elmt:Results
 elmt:Results__Real
     a sysml:AttributeDefinition ;
     sysml:qualifiedName "Results::Real" ;
+    sysx:sourceRange "2:5-2:24" ;
     sysml:elementId "Results__Real" ;
     sysx:memberIndex "0"^^xsd:integer ;
     sysml:owningNamespace elmt:Results ;
@@ -49,6 +52,7 @@ elmt:Results__Real_om
 elmt:Results__Boolean
     a sysml:AttributeDefinition ;
     sysml:qualifiedName "Results::Boolean" ;
+    sysx:sourceRange "3:5-3:27" ;
     sysml:elementId "Results__Boolean" ;
     sysx:memberIndex "1"^^xsd:integer ;
     sysml:owningNamespace elmt:Results ;
@@ -72,6 +76,7 @@ elmt:Results__Boolean_om
 elmt:Results__Double
     a sysml:CalculationDefinition ;
     sysml:qualifiedName "Results::Double" ;
+    sysx:sourceRange "4:5-7:6" ;
     sysml:elementId "Results__Double" ;
     sysx:memberIndex "2"^^xsd:integer ;
     sysml:owningNamespace elmt:Results ;
@@ -106,6 +111,7 @@ elmt:Results__Double_om
 elmt:Results__Double__x
     a sysml:ReferenceUsage ;
     sysml:qualifiedName "Results::Double::x" ;
+    sysx:sourceRange "5:9-5:21" ;
     sysml:elementId "Results__Double__x" ;
     sysx:memberIndex "0"^^xsd:integer ;
     sysml:owningNamespace elmt:Results__Double ;
@@ -137,6 +143,7 @@ elmt:Results__Double__x_om
 elmt:Results__Double___401
     a sysml:OperatorExpression ;
     sysml:qualifiedName "Results::Double::@1" ;
+    sysx:sourceRange "6:9-6:14" ;
     sysml:elementId "Results__Double___401" ;
     sysx:memberIndex "1"^^xsd:integer ;
     sysml:owningNamespace elmt:Results__Double ;
@@ -310,6 +317,7 @@ expr:Results__Double___401_pout_om
 elmt:Results__Only
     a sysml:CalculationDefinition ;
     sysml:qualifiedName "Results::Only" ;
+    sysx:sourceRange "8:5-10:6" ;
     sysml:elementId "Results__Only" ;
     sysx:memberIndex "3"^^xsd:integer ;
     sysml:owningNamespace elmt:Results ;
@@ -339,6 +347,7 @@ elmt:Results__Only_om
 elmt:Results__Only___400
     a sysml:LiteralInteger ;
     sysml:qualifiedName "Results::Only::@0" ;
+    sysx:sourceRange "9:9-9:11" ;
     sysml:elementId "Results__Only___400" ;
     sysx:memberIndex "0"^^xsd:integer ;
     sysml:owningNamespace elmt:Results__Only ;
@@ -364,6 +373,7 @@ elmt:Results__Only___400_om
 elmt:Results__AfterMembers
     a sysml:CalculationDefinition ;
     sysml:qualifiedName "Results::AfterMembers" ;
+    sysx:sourceRange "11:5-16:6" ;
     sysml:elementId "Results__AfterMembers" ;
     sysx:memberIndex "4"^^xsd:integer ;
     sysml:owningNamespace elmt:Results ;
@@ -398,6 +408,7 @@ elmt:Results__AfterMembers_om
 elmt:Results__AfterMembers__x
     a sysml:ReferenceUsage ;
     sysml:qualifiedName "Results::AfterMembers::x" ;
+    sysx:sourceRange "12:9-12:21" ;
     sysml:elementId "Results__AfterMembers__x" ;
     sysx:memberIndex "0"^^xsd:integer ;
     sysml:owningNamespace elmt:Results__AfterMembers ;
@@ -429,6 +440,7 @@ elmt:Results__AfterMembers__x_om
 elmt:Results__AfterMembers___401
     a sysml:Documentation ;
     sysml:qualifiedName "Results::AfterMembers::@1" ;
+    sysx:sourceRange "13:9-13:12" ;
     sysml:elementId "Results__AfterMembers___401" ;
     sysx:memberIndex "1"^^xsd:integer ;
     sysml:owningNamespace elmt:Results__AfterMembers ;
@@ -451,6 +463,7 @@ elmt:Results__AfterMembers___401_om
 elmt:Results__AfterMembers__y
     a sysml:AttributeUsage ;
     sysml:qualifiedName "Results::AfterMembers::y" ;
+    sysx:sourceRange "14:9-14:36" ;
     sysml:elementId "Results__AfterMembers__y" ;
     sysx:memberIndex "2"^^xsd:integer ;
     sysml:owningNamespace elmt:Results__AfterMembers ;
@@ -652,6 +665,7 @@ expr:Results__AfterMembers__y_pvalue_om
 elmt:Results__AfterMembers___403
     a sysml:OperatorExpression ;
     sysml:qualifiedName "Results::AfterMembers::@3" ;
+    sysx:sourceRange "15:9-15:14" ;
     sysml:elementId "Results__AfterMembers___403" ;
     sysx:memberIndex "3"^^xsd:integer ;
     sysml:owningNamespace elmt:Results__AfterMembers ;
@@ -852,6 +866,7 @@ expr:Results__AfterMembers___403_pout_om
 elmt:Results__Body
     a sysml:CalculationDefinition ;
     sysml:qualifiedName "Results::Body" ;
+    sysx:sourceRange "17:5-20:6" ;
     sysml:elementId "Results__Body" ;
     sysx:memberIndex "5"^^xsd:integer ;
     sysml:owningNamespace elmt:Results ;
@@ -886,6 +901,7 @@ elmt:Results__Body_om
 elmt:Results__Body__x
     a sysml:ReferenceUsage ;
     sysml:qualifiedName "Results::Body::x" ;
+    sysx:sourceRange "18:9-18:21" ;
     sysml:elementId "Results__Body__x" ;
     sysx:memberIndex "0"^^xsd:integer ;
     sysml:owningNamespace elmt:Results__Body ;
@@ -917,6 +933,7 @@ elmt:Results__Body__x_om
 elmt:Results__Body___401
     a sysml:FeatureReferenceExpression ;
     sysml:qualifiedName "Results::Body::@1" ;
+    sysx:sourceRange "19:9-19:31" ;
     sysml:elementId "Results__Body___401" ;
     sysx:memberIndex "1"^^xsd:integer ;
     sysml:owningNamespace elmt:Results__Body ;
@@ -1219,6 +1236,7 @@ expr:Results__Body___401_pout_om
 elmt:Results__Quoted
     a sysml:CalculationDefinition ;
     sysml:qualifiedName "Results::Quoted" ;
+    sysx:sourceRange "21:5-24:6" ;
     sysml:elementId "Results__Quoted" ;
     sysx:memberIndex "6"^^xsd:integer ;
     sysml:owningNamespace elmt:Results ;
@@ -1253,6 +1271,7 @@ elmt:Results__Quoted_om
 elmt:Results__Quoted__x
     a sysml:ReferenceUsage ;
     sysml:qualifiedName "Results::Quoted::x" ;
+    sysx:sourceRange "22:9-22:21" ;
     sysml:elementId "Results__Quoted__x" ;
     sysx:memberIndex "0"^^xsd:integer ;
     sysml:owningNamespace elmt:Results__Quoted ;
@@ -1284,6 +1303,7 @@ elmt:Results__Quoted__x_om
 elmt:Results__Quoted___401
     a sysml:FeatureReferenceExpression ;
     sysml:qualifiedName "Results::Quoted::@1" ;
+    sysx:sourceRange "23:9-23:51" ;
     sysml:elementId "Results__Quoted___401" ;
     sysx:memberIndex "1"^^xsd:integer ;
     sysml:owningNamespace elmt:Results__Quoted ;
@@ -1586,6 +1606,7 @@ expr:Results__Quoted___401_pout_om
 elmt:Results__Nested
     a sysml:CalculationDefinition ;
     sysml:qualifiedName "Results::Nested" ;
+    sysx:sourceRange "25:5-28:6" ;
     sysml:elementId "Results__Nested" ;
     sysx:memberIndex "7"^^xsd:integer ;
     sysml:owningNamespace elmt:Results ;
@@ -1620,6 +1641,7 @@ elmt:Results__Nested_om
 elmt:Results__Nested__x
     a sysml:ReferenceUsage ;
     sysml:qualifiedName "Results::Nested::x" ;
+    sysx:sourceRange "26:9-26:21" ;
     sysml:elementId "Results__Nested__x" ;
     sysx:memberIndex "0"^^xsd:integer ;
     sysml:owningNamespace elmt:Results__Nested ;
@@ -1651,6 +1673,7 @@ elmt:Results__Nested__x_om
 elmt:Results__Nested___401
     a sysml:FeatureReferenceExpression ;
     sysml:qualifiedName "Results::Nested::@1" ;
+    sysx:sourceRange "27:9-27:60" ;
     sysml:elementId "Results__Nested___401" ;
     sysx:memberIndex "1"^^xsd:integer ;
     sysml:owningNamespace elmt:Results__Nested ;
@@ -2139,6 +2162,7 @@ expr:Results__Nested___401_pout_om
 elmt:Results__Documented
     a sysml:CalculationDefinition ;
     sysml:qualifiedName "Results::Documented" ;
+    sysx:sourceRange "29:5-32:6" ;
     sysml:elementId "Results__Documented" ;
     sysx:memberIndex "8"^^xsd:integer ;
     sysml:owningNamespace elmt:Results ;
@@ -2173,6 +2197,7 @@ elmt:Results__Documented_om
 elmt:Results__Documented__x
     a sysml:ReferenceUsage ;
     sysml:qualifiedName "Results::Documented::x" ;
+    sysx:sourceRange "30:9-30:21" ;
     sysml:elementId "Results__Documented__x" ;
     sysx:memberIndex "0"^^xsd:integer ;
     sysml:owningNamespace elmt:Results__Documented ;
@@ -2204,6 +2229,7 @@ elmt:Results__Documented__x_om
 elmt:Results__Documented___401
     a sysml:FeatureReferenceExpression ;
     sysml:qualifiedName "Results::Documented::@1" ;
+    sysx:sourceRange "31:9-31:62" ;
     sysml:elementId "Results__Documented___401" ;
     sysx:memberIndex "1"^^xsd:integer ;
     sysml:owningNamespace elmt:Results__Documented ;
@@ -2378,6 +2404,7 @@ expr:Results__Documented___401_pout_om
 elmt:Results__Passes
     a sysml:CalculationDefinition ;
     sysml:qualifiedName "Results::Passes" ;
+    sysx:sourceRange "33:5-36:6" ;
     sysml:elementId "Results__Passes" ;
     sysx:memberIndex "9"^^xsd:integer ;
     sysml:owningNamespace elmt:Results ;
@@ -2412,6 +2439,7 @@ elmt:Results__Passes_om
 elmt:Results__Passes__ok
     a sysml:ReferenceUsage ;
     sysml:qualifiedName "Results::Passes::ok" ;
+    sysx:sourceRange "34:9-34:25" ;
     sysml:elementId "Results__Passes__ok" ;
     sysx:memberIndex "0"^^xsd:integer ;
     sysml:owningNamespace elmt:Results__Passes ;
@@ -2443,6 +2471,7 @@ elmt:Results__Passes__ok_om
 elmt:Results__Passes___401
     a sysml:FeatureReferenceExpression ;
     sysml:qualifiedName "Results::Passes::@1" ;
+    sysx:sourceRange "35:9-35:11" ;
     sysml:elementId "Results__Passes___401" ;
     sysx:memberIndex "1"^^xsd:integer ;
     sysml:owningNamespace elmt:Results__Passes ;
@@ -2495,6 +2524,7 @@ expr:Results__Passes___401_pout_om
 elmt:Results__Says
     a sysml:CalculationDefinition ;
     sysml:qualifiedName "Results::Says" ;
+    sysx:sourceRange "37:5-39:6" ;
     sysml:elementId "Results__Says" ;
     sysx:memberIndex "10"^^xsd:integer ;
     sysml:owningNamespace elmt:Results ;
@@ -2524,6 +2554,7 @@ elmt:Results__Says_om
 elmt:Results__Says___400
     a sysml:LiteralString ;
     sysml:qualifiedName "Results::Says::@0" ;
+    sysx:sourceRange "38:9-38:33" ;
     sysml:elementId "Results__Says___400" ;
     sysx:memberIndex "0"^^xsd:integer ;
     sysml:owningNamespace elmt:Results__Says ;
@@ -2549,6 +2580,7 @@ elmt:Results__Says___400_om
 elmt:Results__Empty
     a sysml:CalculationDefinition ;
     sysml:qualifiedName "Results::Empty" ;
+    sysx:sourceRange "40:5-43:6" ;
     sysml:elementId "Results__Empty" ;
     sysx:memberIndex "11"^^xsd:integer ;
     sysml:owningNamespace elmt:Results ;
@@ -2583,6 +2615,7 @@ elmt:Results__Empty_om
 elmt:Results__Empty__x
     a sysml:ReferenceUsage ;
     sysml:qualifiedName "Results::Empty::x" ;
+    sysx:sourceRange "41:9-41:21" ;
     sysml:elementId "Results__Empty__x" ;
     sysx:memberIndex "0"^^xsd:integer ;
     sysml:owningNamespace elmt:Results__Empty ;
@@ -2614,6 +2647,7 @@ elmt:Results__Empty__x_om
 elmt:Results__Empty___401
     a sysml:FeatureReferenceExpression ;
     sysml:qualifiedName "Results::Empty::@1" ;
+    sysx:sourceRange "42:9-42:11" ;
     sysml:elementId "Results__Empty___401" ;
     sysx:memberIndex "1"^^xsd:integer ;
     sysml:owningNamespace elmt:Results__Empty ;
@@ -2688,6 +2722,7 @@ expr:Results__Empty___401_pout_om
 elmt:Results__Named
     a sysml:CalculationDefinition ;
     sysml:qualifiedName "Results::Named" ;
+    sysx:sourceRange "44:5-47:6" ;
     sysml:elementId "Results__Named" ;
     sysx:memberIndex "12"^^xsd:integer ;
     sysml:owningNamespace elmt:Results ;
@@ -2722,6 +2757,7 @@ elmt:Results__Named_om
 elmt:Results__Named__x
     a sysml:ReferenceUsage ;
     sysml:qualifiedName "Results::Named::x" ;
+    sysx:sourceRange "45:9-45:21" ;
     sysml:elementId "Results__Named__x" ;
     sysx:memberIndex "0"^^xsd:integer ;
     sysml:owningNamespace elmt:Results__Named ;
@@ -2753,6 +2789,7 @@ elmt:Results__Named__x_om
 elmt:Results__Named___401
     a sysml:InvocationExpression ;
     sysml:qualifiedName "Results::Named::@1" ;
+    sysx:sourceRange "46:9-46:32" ;
     sysml:elementId "Results__Named___401" ;
     sysx:memberIndex "1"^^xsd:integer ;
     sysml:owningNamespace elmt:Results__Named ;
@@ -2889,6 +2926,7 @@ expr:Results__Named___401_pout_om
 elmt:Results__Scaled
     a sysml:CalculationDefinition ;
     sysml:qualifiedName "Results::Scaled" ;
+    sysx:sourceRange "48:5-51:6" ;
     sysml:elementId "Results__Scaled" ;
     sysx:memberIndex "13"^^xsd:integer ;
     sysml:owningNamespace elmt:Results ;
@@ -2923,6 +2961,7 @@ elmt:Results__Scaled_om
 elmt:Results__Scaled__x
     a sysml:ReferenceUsage ;
     sysml:qualifiedName "Results::Scaled::x" ;
+    sysx:sourceRange "49:9-49:21" ;
     sysml:elementId "Results__Scaled__x" ;
     sysx:memberIndex "0"^^xsd:integer ;
     sysml:owningNamespace elmt:Results__Scaled ;
@@ -2954,6 +2993,7 @@ elmt:Results__Scaled__x_om
 elmt:Results__Scaled___401
     a sysml:OperatorExpression ;
     sysml:qualifiedName "Results::Scaled::@1" ;
+    sysx:sourceRange "50:9-50:18" ;
     sysml:elementId "Results__Scaled___401" ;
     sysx:memberIndex "1"^^xsd:integer ;
     sysml:owningNamespace elmt:Results__Scaled ;
@@ -3127,6 +3167,7 @@ expr:Results__Scaled___401_pout_om
 elmt:Results__Predicate
     a sysml:CalculationDefinition ;
     sysml:qualifiedName "Results::Predicate" ;
+    sysx:sourceRange "52:5-57:6" ;
     sysml:elementId "Results__Predicate" ;
     sysx:memberIndex "14"^^xsd:integer ;
     sysml:owningNamespace elmt:Results ;
@@ -3161,6 +3202,7 @@ elmt:Results__Predicate_om
 elmt:Results__Predicate__x
     a sysml:ReferenceUsage ;
     sysml:qualifiedName "Results::Predicate::x" ;
+    sysx:sourceRange "53:9-53:21" ;
     sysml:elementId "Results__Predicate__x" ;
     sysx:memberIndex "0"^^xsd:integer ;
     sysml:owningNamespace elmt:Results__Predicate ;
@@ -3192,6 +3234,7 @@ elmt:Results__Predicate__x_om
 elmt:Results__Predicate__keep
     a sysml:Expression ;
     sysml:qualifiedName "Results::Predicate::keep" ;
+    sysx:sourceRange "54:9-54:54" ;
     sysml:elementId "Results__Predicate__keep" ;
     sysx:memberIndex "1"^^xsd:integer ;
     sysml:owningNamespace elmt:Results__Predicate ;
@@ -3231,6 +3274,7 @@ elmt:Results__Predicate__keep_om
 elmt:Results__Predicate__keep__v
     a sysml:ReferenceUsage ;
     sysml:qualifiedName "Results::Predicate::keep::v" ;
+    sysx:sourceRange "54:34-54:46" ;
     sysml:elementId "Results__Predicate__keep__v" ;
     sysx:memberIndex "0"^^xsd:integer ;
     sysml:owningNamespace elmt:Results__Predicate__keep ;
@@ -3261,6 +3305,7 @@ elmt:Results__Predicate__keep__v_om
 elmt:Results__Predicate__keep___401
     a sysml:OperatorExpression ;
     sysml:qualifiedName "Results::Predicate::keep::@1" ;
+    sysx:sourceRange "54:47-54:52" ;
     sysml:elementId "Results__Predicate__keep___401" ;
     sysx:memberIndex "1"^^xsd:integer ;
     sysml:owningNamespace elmt:Results__Predicate__keep ;
@@ -3460,6 +3505,7 @@ expr:Results__Predicate__keep___401_pout_om
 elmt:Results__Predicate__always
     a sysml:Expression ;
     sysml:qualifiedName "Results::Predicate::always" ;
+    sysx:sourceRange "55:9-55:32" ;
     sysml:elementId "Results__Predicate__always" ;
     sysx:memberIndex "2"^^xsd:integer ;
     sysml:owningNamespace elmt:Results__Predicate ;
@@ -3491,6 +3537,7 @@ elmt:Results__Predicate__always_om
 elmt:Results__Predicate__always___400
     a sysml:LiteralBoolean ;
     sysml:qualifiedName "Results::Predicate::always::@0" ;
+    sysx:sourceRange "55:26-55:30" ;
     sysml:elementId "Results__Predicate__always___400" ;
     sysx:memberIndex "0"^^xsd:integer ;
     sysml:owningNamespace elmt:Results__Predicate__always ;
@@ -3515,6 +3562,7 @@ elmt:Results__Predicate__always___400_om
 elmt:Results__Predicate___403
     a sysml:InvocationExpression ;
     sysml:qualifiedName "Results::Predicate::@3" ;
+    sysx:sourceRange "56:9-56:16" ;
     sysml:elementId "Results__Predicate___403" ;
     sysx:memberIndex "3"^^xsd:integer ;
     sysml:owningNamespace elmt:Results__Predicate ;
@@ -3650,6 +3698,7 @@ expr:Results__Predicate___403_pout_om
 elmt:Results__Chained
     a sysml:CalculationDefinition ;
     sysml:qualifiedName "Results::Chained" ;
+    sysx:sourceRange "58:5-61:6" ;
     sysml:elementId "Results__Chained" ;
     sysx:memberIndex "15"^^xsd:integer ;
     sysml:owningNamespace elmt:Results ;
@@ -3684,6 +3733,7 @@ elmt:Results__Chained_om
 elmt:Results__Chained__x
     a sysml:ReferenceUsage ;
     sysml:qualifiedName "Results::Chained::x" ;
+    sysx:sourceRange "59:9-59:21" ;
     sysml:elementId "Results__Chained__x" ;
     sysx:memberIndex "0"^^xsd:integer ;
     sysml:owningNamespace elmt:Results__Chained ;
@@ -3715,6 +3765,7 @@ elmt:Results__Chained__x_om
 elmt:Results__Chained___401
     a sysml:FeatureChainExpression ;
     sysml:qualifiedName "Results::Chained::@1" ;
+    sysx:sourceRange "60:9-60:37" ;
     sysml:elementId "Results__Chained___401" ;
     sysx:memberIndex "1"^^xsd:integer ;
     sysml:owningNamespace elmt:Results__Chained ;
@@ -4010,6 +4061,7 @@ expr:Results__Chained___401_pout_om
 elmt:Results__Conditional
     a sysml:CalculationDefinition ;
     sysml:qualifiedName "Results::Conditional" ;
+    sysx:sourceRange "62:5-65:6" ;
     sysml:elementId "Results__Conditional" ;
     sysx:memberIndex "16"^^xsd:integer ;
     sysml:owningNamespace elmt:Results ;
@@ -4044,6 +4096,7 @@ elmt:Results__Conditional_om
 elmt:Results__Conditional__x
     a sysml:ReferenceUsage ;
     sysml:qualifiedName "Results::Conditional::x" ;
+    sysx:sourceRange "63:9-63:21" ;
     sysml:elementId "Results__Conditional__x" ;
     sysx:memberIndex "0"^^xsd:integer ;
     sysml:owningNamespace elmt:Results__Conditional ;
@@ -4075,6 +4128,7 @@ elmt:Results__Conditional__x_om
 elmt:Results__Conditional___401
     a sysml:OperatorExpression ;
     sysml:qualifiedName "Results::Conditional::@1" ;
+    sysx:sourceRange "64:9-64:29" ;
     sysml:elementId "Results__Conditional___401" ;
     sysx:memberIndex "1"^^xsd:integer ;
     sysml:owningNamespace elmt:Results__Conditional ;
@@ -4542,6 +4596,7 @@ expr:Results__Conditional___401_pout_om
 elmt:Results__Widened
     a sysml:CalculationDefinition ;
     sysml:qualifiedName "Results::Widened" ;
+    sysx:sourceRange "66:5-69:6" ;
     sysml:elementId "Results__Widened" ;
     sysx:memberIndex "17"^^xsd:integer ;
     sysml:owningNamespace elmt:Results ;
@@ -4576,6 +4631,7 @@ elmt:Results__Widened_om
 elmt:Results__Widened__x
     a sysml:ReferenceUsage ;
     sysml:qualifiedName "Results::Widened::x" ;
+    sysx:sourceRange "67:9-67:21" ;
     sysml:elementId "Results__Widened__x" ;
     sysx:memberIndex "0"^^xsd:integer ;
     sysml:owningNamespace elmt:Results__Widened ;
@@ -4607,6 +4663,7 @@ elmt:Results__Widened__x_om
 elmt:Results__Widened___401
     a sysml:OperatorExpression ;
     sysml:qualifiedName "Results::Widened::@1" ;
+    sysx:sourceRange "68:9-68:21" ;
     sysml:elementId "Results__Widened___401" ;
     sysx:memberIndex "1"^^xsd:integer ;
     sysml:owningNamespace elmt:Results__Widened ;
@@ -4744,6 +4801,7 @@ expr:Results__Widened___401_pout_om
 elmt:Results__Ranged
     a sysml:CalculationDefinition ;
     sysml:qualifiedName "Results::Ranged" ;
+    sysx:sourceRange "70:5-73:6" ;
     sysml:elementId "Results__Ranged" ;
     sysx:memberIndex "18"^^xsd:integer ;
     sysml:owningNamespace elmt:Results ;
@@ -4778,6 +4836,7 @@ elmt:Results__Ranged_om
 elmt:Results__Ranged__x
     a sysml:ReferenceUsage ;
     sysml:qualifiedName "Results::Ranged::x" ;
+    sysx:sourceRange "71:9-71:21" ;
     sysml:elementId "Results__Ranged__x" ;
     sysx:memberIndex "0"^^xsd:integer ;
     sysml:owningNamespace elmt:Results__Ranged ;
@@ -4809,6 +4868,7 @@ elmt:Results__Ranged__x_om
 elmt:Results__Ranged___401
     a sysml:OperatorExpression ;
     sysml:qualifiedName "Results::Ranged::@1" ;
+    sysx:sourceRange "72:9-72:24" ;
     sysml:elementId "Results__Ranged___401" ;
     sysx:memberIndex "1"^^xsd:integer ;
     sysml:owningNamespace elmt:Results__Ranged ;
@@ -4968,6 +5028,7 @@ expr:Results__Ranged___401_pout_om
 elmt:Results__Vehicle
     a sysml:PartDefinition ;
     sysml:qualifiedName "Results::Vehicle" ;
+    sysx:sourceRange "74:5-76:6" ;
     sysml:elementId "Results__Vehicle" ;
     sysx:memberIndex "19"^^xsd:integer ;
     sysml:owningNamespace elmt:Results ;
@@ -4997,6 +5058,7 @@ elmt:Results__Vehicle_om
 elmt:Results__Vehicle__mass
     a sysml:AttributeUsage ;
     sysml:qualifiedName "Results::Vehicle::mass" ;
+    sysx:sourceRange "75:9-75:31" ;
     sysml:elementId "Results__Vehicle__mass" ;
     sysx:memberIndex "0"^^xsd:integer ;
     sysml:owningNamespace elmt:Results__Vehicle ;
@@ -5026,6 +5088,7 @@ elmt:Results__Vehicle__mass_om
 elmt:Results__MassAnalysis
     a sysml:AnalysisCaseDefinition ;
     sysml:qualifiedName "Results::MassAnalysis" ;
+    sysx:sourceRange "77:5-80:6" ;
     sysml:elementId "Results__MassAnalysis" ;
     sysx:memberIndex "20"^^xsd:integer ;
     sysml:owningNamespace elmt:Results ;
@@ -5060,6 +5123,7 @@ elmt:Results__MassAnalysis_om
 elmt:Results__MassAnalysis__v
     a sysml:ReferenceUsage ;
     sysml:qualifiedName "Results::MassAnalysis::v" ;
+    sysx:sourceRange "78:9-78:29" ;
     sysml:elementId "Results__MassAnalysis__v" ;
     sysx:memberIndex "0"^^xsd:integer ;
     sysml:owningNamespace elmt:Results__MassAnalysis ;
@@ -5092,6 +5156,7 @@ elmt:Results__MassAnalysis__v_om
 elmt:Results__MassAnalysis___401
     a sysml:FeatureChainExpression ;
     sysml:qualifiedName "Results::MassAnalysis::@1" ;
+    sysx:sourceRange "79:9-79:15" ;
     sysml:elementId "Results__MassAnalysis___401" ;
     sysx:memberIndex "1"^^xsd:integer ;
     sysml:owningNamespace elmt:Results__MassAnalysis ;
@@ -5220,6 +5285,7 @@ expr:Results__MassAnalysis___401_pout_om
 elmt:Results__MassCheck
     a sysml:VerificationCaseDefinition ;
     sysml:qualifiedName "Results::MassCheck" ;
+    sysx:sourceRange "81:5-84:6" ;
     sysml:elementId "Results__MassCheck" ;
     sysx:memberIndex "21"^^xsd:integer ;
     sysml:owningNamespace elmt:Results ;
@@ -5254,6 +5320,7 @@ elmt:Results__MassCheck_om
 elmt:Results__MassCheck__v
     a sysml:ReferenceUsage ;
     sysml:qualifiedName "Results::MassCheck::v" ;
+    sysx:sourceRange "82:9-82:29" ;
     sysml:elementId "Results__MassCheck__v" ;
     sysx:memberIndex "0"^^xsd:integer ;
     sysml:owningNamespace elmt:Results__MassCheck ;
@@ -5286,6 +5353,7 @@ elmt:Results__MassCheck__v_om
 elmt:Results__MassCheck___401
     a sysml:InvocationExpression ;
     sysml:qualifiedName "Results::MassCheck::@1" ;
+    sysx:sourceRange "83:9-83:27" ;
     sysml:elementId "Results__MassCheck___401" ;
     sysx:memberIndex "1"^^xsd:integer ;
     sysml:owningNamespace elmt:Results__MassCheck ;
@@ -5618,6 +5686,7 @@ expr:Results__MassCheck___401_pout_om
 elmt:Results__MassCase
     a sysml:CaseDefinition ;
     sysml:qualifiedName "Results::MassCase" ;
+    sysx:sourceRange "85:5-88:6" ;
     sysml:elementId "Results__MassCase" ;
     sysx:memberIndex "22"^^xsd:integer ;
     sysml:owningNamespace elmt:Results ;
@@ -5652,6 +5721,7 @@ elmt:Results__MassCase_om
 elmt:Results__MassCase__v
     a sysml:ReferenceUsage ;
     sysml:qualifiedName "Results::MassCase::v" ;
+    sysx:sourceRange "86:9-86:29" ;
     sysml:elementId "Results__MassCase__v" ;
     sysx:memberIndex "0"^^xsd:integer ;
     sysml:owningNamespace elmt:Results__MassCase ;
@@ -5684,6 +5754,7 @@ elmt:Results__MassCase__v_om
 elmt:Results__MassCase___401
     a sysml:OperatorExpression ;
     sysml:qualifiedName "Results::MassCase::@1" ;
+    sysx:sourceRange "87:9-87:19" ;
     sysml:elementId "Results__MassCase___401" ;
     sysx:memberIndex "1"^^xsd:integer ;
     sysml:owningNamespace elmt:Results__MassCase ;
@@ -5933,6 +6004,7 @@ expr:Results__MassCase___401_pout_om
 elmt:Results__rover
     a sysml:PartUsage ;
     sysml:qualifiedName "Results::rover" ;
+    sysx:sourceRange "89:5-94:6" ;
     sysml:elementId "Results__rover" ;
     sysx:memberIndex "23"^^xsd:integer ;
     sysml:owningNamespace elmt:Results ;
@@ -5966,6 +6038,7 @@ elmt:Results__rover_om
 elmt:Results__rover__twice
     a sysml:CalculationUsage ;
     sysml:qualifiedName "Results::rover::twice" ;
+    sysx:sourceRange "90:9-93:10" ;
     sysml:elementId "Results__rover__twice" ;
     sysx:memberIndex "0"^^xsd:integer ;
     sysml:owningNamespace elmt:Results__rover ;
@@ -6002,6 +6075,7 @@ elmt:Results__rover__twice_om
 elmt:Results__rover__twice__x
     a sysml:ReferenceUsage ;
     sysml:qualifiedName "Results::rover::twice::x" ;
+    sysx:sourceRange "91:13-91:25" ;
     sysml:elementId "Results__rover__twice__x" ;
     sysx:memberIndex "0"^^xsd:integer ;
     sysml:owningNamespace elmt:Results__rover__twice ;
@@ -6080,6 +6154,7 @@ expr:Results__rover__twice__x_pvalue_om
 elmt:Results__rover__twice___401
     a sysml:OperatorExpression ;
     sysml:qualifiedName "Results::rover::twice::@1" ;
+    sysx:sourceRange "92:13-92:18" ;
     sysml:elementId "Results__rover__twice___401" ;
     sysx:memberIndex "1"^^xsd:integer ;
     sysml:owningNamespace elmt:Results__rover__twice ;

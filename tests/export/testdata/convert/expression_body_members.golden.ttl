@@ -9,9 +9,11 @@
 elmt:Bodies
     a sysml:Package ;
     sysml:qualifiedName "Bodies" ;
+    sysx:sourceRange "1:1-7:2" ;
     sysml:elementId "Bodies" ;
     sysx:memberIndex "0"^^xsd:integer ;
     sysx:sourceLanguage "sysml" ;
+    sysx:sourceDocument "testdata/convert/expression_body_members.sysml" ;
     sysml:declaredName "Bodies" ;
     sysx:hasBody "true"^^xsd:boolean ;
     sysml:ownedMember elmt:Bodies__Real, elmt:Bodies__Scaled ;
@@ -26,6 +28,7 @@ elmt:Bodies
 elmt:Bodies__Real
     a sysml:AttributeDefinition ;
     sysml:qualifiedName "Bodies::Real" ;
+    sysx:sourceRange "2:5-2:24" ;
     sysml:elementId "Bodies__Real" ;
     sysx:memberIndex "0"^^xsd:integer ;
     sysml:owningNamespace elmt:Bodies ;
@@ -49,6 +52,7 @@ elmt:Bodies__Real_om
 elmt:Bodies__Scaled
     a sysml:CalculationDefinition ;
     sysml:qualifiedName "Bodies::Scaled" ;
+    sysx:sourceRange "3:5-6:6" ;
     sysml:elementId "Bodies__Scaled" ;
     sysx:memberIndex "1"^^xsd:integer ;
     sysml:owningNamespace elmt:Bodies ;
@@ -83,6 +87,7 @@ elmt:Bodies__Scaled_om
 elmt:Bodies__Scaled__x
     a sysml:ReferenceUsage ;
     sysml:qualifiedName "Bodies::Scaled::x" ;
+    sysx:sourceRange "4:9-4:21" ;
     sysml:elementId "Bodies__Scaled__x" ;
     sysx:memberIndex "0"^^xsd:integer ;
     sysml:owningNamespace elmt:Bodies__Scaled ;
@@ -114,6 +119,7 @@ elmt:Bodies__Scaled__x_om
 elmt:Bodies__Scaled___401
     a sysml:FeatureReferenceExpression ;
     sysml:qualifiedName "Bodies::Scaled::@1" ;
+    sysx:sourceRange "5:9-5:67" ;
     sysml:elementId "Bodies__Scaled___401" ;
     sysx:memberIndex "1"^^xsd:integer ;
     sysml:owningNamespace elmt:Bodies__Scaled ;

@@ -9,9 +9,11 @@
 elmt:Ordered
     a sysml:Package ;
     sysml:qualifiedName "Ordered" ;
+    sysx:sourceRange "1:1-10:2" ;
     sysml:elementId "Ordered" ;
     sysx:memberIndex "0"^^xsd:integer ;
     sysx:sourceLanguage "sysml" ;
+    sysx:sourceDocument "testdata/convert/expression_body_order.sysml" ;
     sysml:declaredName "Ordered" ;
     sysx:hasBody "true"^^xsd:boolean ;
     sysml:ownedMember elmt:Ordered__Real, elmt:Ordered__Mixed, elmt:Ordered__Declares ;
@@ -26,6 +28,7 @@ elmt:Ordered
 elmt:Ordered__Real
     a sysml:AttributeDefinition ;
     sysml:qualifiedName "Ordered::Real" ;
+    sysx:sourceRange "2:5-2:24" ;
     sysml:elementId "Ordered__Real" ;
     sysx:memberIndex "0"^^xsd:integer ;
     sysml:owningNamespace elmt:Ordered ;
@@ -49,6 +52,7 @@ elmt:Ordered__Real_om
 elmt:Ordered__Mixed
     a sysml:CalculationDefinition ;
     sysml:qualifiedName "Ordered::Mixed" ;
+    sysx:sourceRange "3:5-6:6" ;
     sysml:elementId "Ordered__Mixed" ;
     sysx:memberIndex "1"^^xsd:integer ;
     sysml:owningNamespace elmt:Ordered ;
@@ -83,6 +87,7 @@ elmt:Ordered__Mixed_om
 elmt:Ordered__Mixed__x
     a sysml:ReferenceUsage ;
     sysml:qualifiedName "Ordered::Mixed::x" ;
+    sysx:sourceRange "4:9-4:21" ;
     sysml:elementId "Ordered__Mixed__x" ;
     sysx:memberIndex "0"^^xsd:integer ;
     sysml:owningNamespace elmt:Ordered__Mixed ;
@@ -114,6 +119,7 @@ elmt:Ordered__Mixed__x_om
 elmt:Ordered__Mixed___401
     a sysml:FeatureReferenceExpression ;
     sysml:qualifiedName "Ordered::Mixed::@1" ;
+    sysx:sourceRange "5:9-5:84" ;
     sysml:elementId "Ordered__Mixed___401" ;
     sysx:memberIndex "1"^^xsd:integer ;
     sysml:owningNamespace elmt:Ordered__Mixed ;
@@ -773,6 +779,7 @@ expr:Ordered__Mixed___401_pout_om
 elmt:Ordered__Declares
     a sysml:CalculationDefinition ;
     sysml:qualifiedName "Ordered::Declares" ;
+    sysx:sourceRange "7:5-9:6" ;
     sysml:elementId "Ordered__Declares" ;
     sysx:memberIndex "2"^^xsd:integer ;
     sysml:owningNamespace elmt:Ordered ;
@@ -802,6 +809,7 @@ elmt:Ordered__Declares_om
 elmt:Ordered__Declares___400
     a sysml:FeatureReferenceExpression ;
     sysml:qualifiedName "Ordered::Declares::@0" ;
+    sysx:sourceRange "8:9-8:44" ;
     sysml:elementId "Ordered__Declares___400" ;
     sysx:memberIndex "0"^^xsd:integer ;
     sysml:owningNamespace elmt:Ordered__Declares ;

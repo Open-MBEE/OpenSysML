@@ -9,9 +9,11 @@
 elmt:Prefixed
     a sysml:Package ;
     sysml:qualifiedName "Prefixed" ;
+    sysx:sourceRange "1:1-26:2" ;
     sysml:elementId "Prefixed" ;
     sysx:memberIndex "0"^^xsd:integer ;
     sysx:sourceLanguage "sysml" ;
+    sysx:sourceDocument "testdata/convert/metadata_prefixes.sysml" ;
     sysml:declaredName "Prefixed" ;
     sysx:hasBody "true"^^xsd:boolean ;
     sysml:ownedMember elmt:Prefixed__Safety, elmt:Prefixed__Reviewed, elmt:Prefixed__Car, elmt:Prefixed__Vehicle, elmt:Prefixed__car, elmt:Prefixed__spare, elmt:Prefixed__option, elmt:Prefixed__wheel, elmt:Prefixed__Notes, elmt:Prefixed___409, elmt:Prefixed__Stopped, elmt:Prefixed__Move, elmt:Prefixed__context, elmt:Prefixed__Braking ;
@@ -26,6 +28,7 @@ elmt:Prefixed
 elmt:Prefixed__Safety
     a sysml:MetadataDefinition ;
     sysml:qualifiedName "Prefixed::Safety" ;
+    sysx:sourceRange "2:5-2:32" ;
     sysml:elementId "Prefixed__Safety" ;
     sysx:memberIndex "0"^^xsd:integer ;
     sysml:owningNamespace elmt:Prefixed ;
@@ -50,6 +53,7 @@ elmt:Prefixed__Safety_om
 elmt:Prefixed__Reviewed
     a sysml:MetadataDefinition ;
     sysml:qualifiedName "Prefixed::Reviewed" ;
+    sysx:sourceRange "3:5-3:27" ;
     sysml:elementId "Prefixed__Reviewed" ;
     sysx:memberIndex "1"^^xsd:integer ;
     sysml:owningNamespace elmt:Prefixed ;
@@ -73,6 +77,7 @@ elmt:Prefixed__Reviewed_om
 elmt:Prefixed__Car
     a sysml:PartDefinition ;
     sysml:qualifiedName "Prefixed::Car" ;
+    sysx:sourceRange "4:5-4:26" ;
     sysml:elementId "Prefixed__Car" ;
     sysx:memberIndex "2"^^xsd:integer ;
     sysml:owningNamespace elmt:Prefixed ;
@@ -99,6 +104,7 @@ elmt:Prefixed__Car_om
 elmt:Prefixed__Car___400
     a sysml:MetadataUsage ;
     sysml:qualifiedName "Prefixed::Car::@0" ;
+    sysx:sourceRange "4:5-4:12" ;
     sysml:elementId "Prefixed__Car___400" ;
     sysx:memberIndex "0"^^xsd:integer ;
     sysml:owningNamespace elmt:Prefixed__Car ;
@@ -125,6 +131,7 @@ elmt:Prefixed__Car___400_om
 elmt:Prefixed__Vehicle
     a sysml:PartDefinition ;
     sysml:qualifiedName "Prefixed::Vehicle" ;
+    sysx:sourceRange "5:5-5:49" ;
     sysml:elementId "Prefixed__Vehicle" ;
     sysx:memberIndex "3"^^xsd:integer ;
     sysml:owningNamespace elmt:Prefixed ;
@@ -155,6 +162,7 @@ elmt:Prefixed__Vehicle_om
 elmt:Prefixed__Vehicle___400
     a sysml:MetadataUsage ;
     sysml:qualifiedName "Prefixed::Vehicle::@0" ;
+    sysx:sourceRange "5:14-5:23" ;
     sysml:elementId "Prefixed__Vehicle___400" ;
     sysx:memberIndex "0"^^xsd:integer ;
     sysml:owningNamespace elmt:Prefixed__Vehicle ;
@@ -181,6 +189,7 @@ elmt:Prefixed__Vehicle___400_om
 elmt:Prefixed__Vehicle___401
     a sysml:MetadataUsage ;
     sysml:qualifiedName "Prefixed::Vehicle::@1" ;
+    sysx:sourceRange "5:24-5:31" ;
     sysml:elementId "Prefixed__Vehicle___401" ;
     sysx:memberIndex "1"^^xsd:integer ;
     sysml:owningNamespace elmt:Prefixed__Vehicle ;
@@ -207,6 +216,7 @@ elmt:Prefixed__Vehicle___401_om
 elmt:Prefixed__car
     a sysml:PartUsage ;
     sysml:qualifiedName "Prefixed::car" ;
+    sysx:sourceRange "6:5-6:26" ;
     sysml:elementId "Prefixed__car" ;
     sysx:memberIndex "4"^^xsd:integer ;
     sysml:owningNamespace elmt:Prefixed ;
@@ -237,6 +247,7 @@ elmt:Prefixed__car_om
 elmt:Prefixed__car___400
     a sysml:MetadataUsage ;
     sysml:qualifiedName "Prefixed::car::@0" ;
+    sysx:sourceRange "6:5-6:10" ;
     sysml:elementId "Prefixed__car___400" ;
     sysx:memberIndex "0"^^xsd:integer ;
     sysml:owningNamespace elmt:Prefixed__car ;
@@ -263,6 +274,7 @@ elmt:Prefixed__car___400_om
 elmt:Prefixed__spare
     a sysml:PartUsage ;
     sysml:qualifiedName "Prefixed::spare" ;
+    sysx:sourceRange "7:5-7:42" ;
     sysml:elementId "Prefixed__spare" ;
     sysx:memberIndex "5"^^xsd:integer ;
     sysml:owningNamespace elmt:Prefixed ;
@@ -295,6 +307,7 @@ elmt:Prefixed__spare_om
 elmt:Prefixed__spare___400
     a sysml:MetadataUsage ;
     sysml:qualifiedName "Prefixed::spare::@0" ;
+    sysx:sourceRange "7:17-7:24" ;
     sysml:elementId "Prefixed__spare___400" ;
     sysx:memberIndex "0"^^xsd:integer ;
     sysml:owningNamespace elmt:Prefixed__spare ;
@@ -321,6 +334,7 @@ elmt:Prefixed__spare___400_om
 elmt:Prefixed__option
     a sysml:PartUsage ;
     sysml:qualifiedName "Prefixed::option" ;
+    sysx:sourceRange "8:5-8:41" ;
     sysml:elementId "Prefixed__option" ;
     sysx:memberIndex "6"^^xsd:integer ;
     sysml:owningNamespace elmt:Prefixed ;
@@ -353,6 +367,7 @@ elmt:Prefixed__option_om
 elmt:Prefixed__option___400
     a sysml:MetadataUsage ;
     sysml:qualifiedName "Prefixed::option::@0" ;
+    sysx:sourceRange "8:13-8:22" ;
     sysml:elementId "Prefixed__option___400" ;
     sysx:memberIndex "0"^^xsd:integer ;
     sysml:owningNamespace elmt:Prefixed__option ;
@@ -379,6 +394,7 @@ elmt:Prefixed__option___400_om
 elmt:Prefixed__wheel
     a sysml:PartUsage ;
     sysml:qualifiedName "Prefixed::wheel" ;
+    sysx:sourceRange "9:5-9:34" ;
     sysml:elementId "Prefixed__wheel" ;
     sysx:memberIndex "7"^^xsd:integer ;
     sysml:owningNamespace elmt:Prefixed ;
@@ -410,6 +426,7 @@ elmt:Prefixed__wheel_om
 elmt:Prefixed__wheel___400
     a sysml:MetadataUsage ;
     sysml:qualifiedName "Prefixed::wheel::@0" ;
+    sysx:sourceRange "9:9-9:16" ;
     sysml:elementId "Prefixed__wheel___400" ;
     sysx:memberIndex "0"^^xsd:integer ;
     sysml:owningNamespace elmt:Prefixed__wheel ;
@@ -436,6 +453,7 @@ elmt:Prefixed__wheel___400_om
 elmt:Prefixed__Notes
     a sysml:Package ;
     sysml:qualifiedName "Prefixed::Notes" ;
+    sysx:sourceRange "10:5-10:29" ;
     sysml:elementId "Prefixed__Notes" ;
     sysx:memberIndex "8"^^xsd:integer ;
     sysml:owningNamespace elmt:Prefixed ;
@@ -462,6 +480,7 @@ elmt:Prefixed__Notes_om
 elmt:Prefixed__Notes___400
     a sysml:MetadataUsage ;
     sysml:qualifiedName "Prefixed::Notes::@0" ;
+    sysx:sourceRange "10:5-10:14" ;
     sysml:elementId "Prefixed__Notes___400" ;
     sysx:memberIndex "0"^^xsd:integer ;
     sysml:owningNamespace elmt:Prefixed__Notes ;
@@ -488,6 +507,7 @@ elmt:Prefixed__Notes___400_om
 elmt:Prefixed___409
     a sysml:Dependency ;
     sysml:qualifiedName "Prefixed::@9" ;
+    sysx:sourceRange "11:5-11:44" ;
     sysml:elementId "Prefixed___409" ;
     sysx:memberIndex "9"^^xsd:integer ;
     sysml:owningNamespace elmt:Prefixed ;
@@ -513,6 +533,7 @@ elmt:Prefixed___409_om
 elmt:Prefixed___409___400
     a sysml:MetadataUsage ;
     sysml:qualifiedName "Prefixed::@9::@0" ;
+    sysx:sourceRange "11:5-11:12" ;
     sysml:elementId "Prefixed___409___400" ;
     sysx:memberIndex "0"^^xsd:integer ;
     sysml:owner elmt:Prefixed___409 ;
@@ -537,6 +558,7 @@ elmt:Prefixed___409___400_om
 elmt:Prefixed__Stopped
     a sysml:ConstraintDefinition ;
     sysml:qualifiedName "Prefixed::Stopped" ;
+    sysx:sourceRange "12:5-12:28" ;
     sysml:elementId "Prefixed__Stopped" ;
     sysx:memberIndex "10"^^xsd:integer ;
     sysml:owningNamespace elmt:Prefixed ;
@@ -560,6 +582,7 @@ elmt:Prefixed__Stopped_om
 elmt:Prefixed__Move
     a sysml:ActionDefinition ;
     sysml:qualifiedName "Prefixed::Move" ;
+    sysx:sourceRange "13:5-13:21" ;
     sysml:elementId "Prefixed__Move" ;
     sysx:memberIndex "11"^^xsd:integer ;
     sysml:owningNamespace elmt:Prefixed ;
@@ -583,6 +606,7 @@ elmt:Prefixed__Move_om
 elmt:Prefixed__context
     a sysml:PartUsage ;
     sysml:qualifiedName "Prefixed::context" ;
+    sysx:sourceRange "14:5-18:6" ;
     sysml:elementId "Prefixed__context" ;
     sysx:memberIndex "12"^^xsd:integer ;
     sysml:owningNamespace elmt:Prefixed ;
@@ -620,6 +644,7 @@ elmt:Prefixed__context_om
 elmt:Prefixed__context__stopped
     a sysml:AssertConstraintUsage ;
     sysml:qualifiedName "Prefixed::context::stopped" ;
+    sysx:sourceRange "15:9-15:53" ;
     sysml:elementId "Prefixed__context__stopped" ;
     sysx:memberIndex "0"^^xsd:integer ;
     sysml:owningNamespace elmt:Prefixed__context ;
@@ -652,6 +677,7 @@ elmt:Prefixed__context__stopped_om
 elmt:Prefixed__context__stopped___400
     a sysml:MetadataUsage ;
     sysml:qualifiedName "Prefixed::context::stopped::@0" ;
+    sysx:sourceRange "15:9-15:16" ;
     sysml:elementId "Prefixed__context__stopped___400" ;
     sysx:memberIndex "0"^^xsd:integer ;
     sysml:owningNamespace elmt:Prefixed__context__stopped ;
@@ -678,6 +704,7 @@ elmt:Prefixed__context__stopped___400_om
 elmt:Prefixed__context__moving
     a sysml:AssertConstraintUsage ;
     sysml:qualifiedName "Prefixed::context::moving" ;
+    sysx:sourceRange "16:9-16:58" ;
     sysml:elementId "Prefixed__context__moving" ;
     sysx:memberIndex "1"^^xsd:integer ;
     sysml:owningNamespace elmt:Prefixed__context ;
@@ -711,6 +738,7 @@ elmt:Prefixed__context__moving_om
 elmt:Prefixed__context__moving___400
     a sysml:MetadataUsage ;
     sysml:qualifiedName "Prefixed::context::moving::@0" ;
+    sysx:sourceRange "16:9-16:18" ;
     sysml:elementId "Prefixed__context__moving___400" ;
     sysx:memberIndex "0"^^xsd:integer ;
     sysml:owningNamespace elmt:Prefixed__context__moving ;
@@ -737,6 +765,7 @@ elmt:Prefixed__context__moving___400_om
 elmt:Prefixed__context__go
     a sysml:PerformActionUsage ;
     sysml:qualifiedName "Prefixed::context::go" ;
+    sysx:sourceRange "17:9-17:42" ;
     sysml:elementId "Prefixed__context__go" ;
     sysx:memberIndex "2"^^xsd:integer ;
     sysml:owningNamespace elmt:Prefixed__context ;
@@ -770,6 +799,7 @@ elmt:Prefixed__context__go_om
 elmt:Prefixed__context__go___400
     a sysml:MetadataUsage ;
     sysml:qualifiedName "Prefixed::context::go::@0" ;
+    sysx:sourceRange "17:9-17:16" ;
     sysml:elementId "Prefixed__context__go___400" ;
     sysx:memberIndex "0"^^xsd:integer ;
     sysml:owningNamespace elmt:Prefixed__context__go ;
@@ -796,6 +826,7 @@ elmt:Prefixed__context__go___400_om
 elmt:Prefixed__Braking
     a sysml:RequirementDefinition ;
     sysml:qualifiedName "Prefixed::Braking" ;
+    sysx:sourceRange "19:5-25:6" ;
     sysml:elementId "Prefixed__Braking" ;
     sysx:memberIndex "13"^^xsd:integer ;
     sysml:owningNamespace elmt:Prefixed ;
@@ -830,6 +861,7 @@ elmt:Prefixed__Braking_om
 elmt:Prefixed__Braking__brakes
     a sysml:ReferenceUsage ;
     sysml:qualifiedName "Prefixed::Braking::brakes" ;
+    sysx:sourceRange "20:9-20:38" ;
     sysml:elementId "Prefixed__Braking__brakes" ;
     sysx:memberIndex "0"^^xsd:integer ;
     sysml:owningNamespace elmt:Prefixed__Braking ;
@@ -865,6 +897,7 @@ elmt:Prefixed__Braking__brakes_om
 elmt:Prefixed__Braking__brakes___400
     a sysml:MetadataUsage ;
     sysml:qualifiedName "Prefixed::Braking::brakes::@0" ;
+    sysx:sourceRange "20:17-20:24" ;
     sysml:elementId "Prefixed__Braking__brakes___400" ;
     sysx:memberIndex "0"^^xsd:integer ;
     sysml:owningNamespace elmt:Prefixed__Braking__brakes ;
@@ -891,6 +924,7 @@ elmt:Prefixed__Braking__brakes___400_om
 elmt:Prefixed__Braking___401
     a sysml:ConstraintUsage ;
     sysml:qualifiedName "Prefixed::Braking::@1" ;
+    sysx:sourceRange "21:9-21:45" ;
     sysml:elementId "Prefixed__Braking___401" ;
     sysx:memberIndex "1"^^xsd:integer ;
     sysml:owningNamespace elmt:Prefixed__Braking ;
@@ -926,6 +960,7 @@ elmt:Prefixed__Braking___401_om
 elmt:Prefixed__Braking___401___401
     a sysml:MetadataUsage ;
     sysml:qualifiedName "Prefixed::Braking::@1::@1" ;
+    sysx:sourceRange "21:16-21:25" ;
     sysml:elementId "Prefixed__Braking___401___401" ;
     sysx:memberIndex "1"^^xsd:integer ;
     sysml:owningNamespace elmt:Prefixed__Braking___401 ;
@@ -952,6 +987,7 @@ elmt:Prefixed__Braking___401___401_om
 elmt:Prefixed__Braking___401___400
     a sysml:LiteralBoolean ;
     sysml:qualifiedName "Prefixed::Braking::@1::@0" ;
+    sysx:sourceRange "21:39-21:43" ;
     sysml:elementId "Prefixed__Braking___401___400" ;
     sysx:memberIndex "0"^^xsd:integer ;
     sysml:owningNamespace elmt:Prefixed__Braking___401 ;
@@ -976,6 +1012,7 @@ elmt:Prefixed__Braking___401___400_om
 elmt:Prefixed__Braking___402
     a sysml:ConstraintUsage ;
     sysml:qualifiedName "Prefixed::Braking::@2" ;
+    sysx:sourceRange "22:9-22:44" ;
     sysml:elementId "Prefixed__Braking___402" ;
     sysx:memberIndex "2"^^xsd:integer ;
     sysml:owningNamespace elmt:Prefixed__Braking ;
@@ -1011,6 +1048,7 @@ elmt:Prefixed__Braking___402_om
 elmt:Prefixed__Braking___402___401
     a sysml:MetadataUsage ;
     sysml:qualifiedName "Prefixed::Braking::@2::@1" ;
+    sysx:sourceRange "22:17-22:24" ;
     sysml:elementId "Prefixed__Braking___402___401" ;
     sysx:memberIndex "1"^^xsd:integer ;
     sysml:owningNamespace elmt:Prefixed__Braking___402 ;
@@ -1037,6 +1075,7 @@ elmt:Prefixed__Braking___402___401_om
 elmt:Prefixed__Braking___402___400
     a sysml:LiteralBoolean ;
     sysml:qualifiedName "Prefixed::Braking::@2::@0" ;
+    sysx:sourceRange "22:38-22:42" ;
     sysml:elementId "Prefixed__Braking___402___400" ;
     sysx:memberIndex "0"^^xsd:integer ;
     sysml:owningNamespace elmt:Prefixed__Braking___402 ;
@@ -1061,6 +1100,7 @@ elmt:Prefixed__Braking___402___400_om
 elmt:Prefixed__Braking__stopped
     a sysml:ConstraintUsage ;
     sysml:qualifiedName "Prefixed::Braking::stopped" ;
+    sysx:sourceRange "23:9-23:55" ;
     sysml:elementId "Prefixed__Braking__stopped" ;
     sysx:memberIndex "3"^^xsd:integer ;
     sysml:owningNamespace elmt:Prefixed__Braking ;
@@ -1096,6 +1136,7 @@ elmt:Prefixed__Braking__stopped_om
 elmt:Prefixed__Braking__stopped___400
     a sysml:MetadataUsage ;
     sysml:qualifiedName "Prefixed::Braking::stopped::@0" ;
+    sysx:sourceRange "23:16-23:25" ;
     sysml:elementId "Prefixed__Braking__stopped___400" ;
     sysx:memberIndex "0"^^xsd:integer ;
     sysml:owningNamespace elmt:Prefixed__Braking__stopped ;
@@ -1122,6 +1163,7 @@ elmt:Prefixed__Braking__stopped___400_om
 elmt:Prefixed__Braking__braked
     a sysml:ConstraintUsage ;
     sysml:qualifiedName "Prefixed::Braking::braked" ;
+    sysx:sourceRange "24:9-24:53" ;
     sysml:elementId "Prefixed__Braking__braked" ;
     sysx:memberIndex "4"^^xsd:integer ;
     sysml:owningNamespace elmt:Prefixed__Braking ;
@@ -1158,6 +1200,7 @@ elmt:Prefixed__Braking__braked_om
 elmt:Prefixed__Braking__braked___400
     a sysml:MetadataUsage ;
     sysml:qualifiedName "Prefixed::Braking::braked::@0" ;
+    sysx:sourceRange "24:17-24:24" ;
     sysml:elementId "Prefixed__Braking__braked___400" ;
     sysx:memberIndex "0"^^xsd:integer ;
     sysml:owningNamespace elmt:Prefixed__Braking__braked ;

@@ -198,7 +198,7 @@ func TestOwnershipComesBackFromTheMembershipsAlone(t *testing.T) {
 	if err != nil {
 		t.Fatalf("to turtle again: %v", err)
 	}
-	if string(again) != string(turtle) {
+	if string(withoutProvenance(t, again)) != string(withoutProvenance(t, turtle)) {
 		t.Errorf("the second hop changed the graph\n--- first ---\n%s\n--- second ---\n%s", turtle, again)
 	}
 }

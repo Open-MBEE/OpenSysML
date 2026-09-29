@@ -8,9 +8,11 @@
 elmt:Q
     a sysml:Package ;
     sysml:qualifiedName "Q" ;
+    sysx:sourceRange "1:1-35:2" ;
     sysml:elementId "Q" ;
     sysx:memberIndex "0"^^xsd:integer ;
     sysx:sourceLanguage "sysml" ;
+    sysx:sourceDocument "testdata/convert/qualified_usages.sysml" ;
     sysml:declaredName "Q" ;
     sysx:hasBody "true"^^xsd:boolean ;
     sysml:ownedMember elmt:Q__A, elmt:Q__S, elmt:Q__U, elmt:Q__R, elmt:Q__C, elmt:Q__Ctx, elmt:Q__Sub, elmt:Q__ctx ;
@@ -25,6 +27,7 @@ elmt:Q
 elmt:Q__A
     a sysml:ActionDefinition ;
     sysml:qualifiedName "Q::A" ;
+    sysx:sourceRange "2:5-2:18" ;
     sysml:elementId "Q__A" ;
     sysx:memberIndex "0"^^xsd:integer ;
     sysml:owningNamespace elmt:Q ;
@@ -48,6 +51,7 @@ elmt:Q__A_om
 elmt:Q__S
     a sysml:StateDefinition ;
     sysml:qualifiedName "Q::S" ;
+    sysx:sourceRange "3:5-3:17" ;
     sysml:elementId "Q__S" ;
     sysx:memberIndex "1"^^xsd:integer ;
     sysml:owningNamespace elmt:Q ;
@@ -71,6 +75,7 @@ elmt:Q__S_om
 elmt:Q__U
     a sysml:UseCaseDefinition ;
     sysml:qualifiedName "Q::U" ;
+    sysx:sourceRange "4:5-4:20" ;
     sysml:elementId "Q__U" ;
     sysx:memberIndex "2"^^xsd:integer ;
     sysml:owningNamespace elmt:Q ;
@@ -94,6 +99,7 @@ elmt:Q__U_om
 elmt:Q__R
     a sysml:RequirementDefinition ;
     sysml:qualifiedName "Q::R" ;
+    sysx:sourceRange "5:5-5:23" ;
     sysml:elementId "Q__R" ;
     sysx:memberIndex "3"^^xsd:integer ;
     sysml:owningNamespace elmt:Q ;
@@ -117,6 +123,7 @@ elmt:Q__R_om
 elmt:Q__C
     a sysml:ConstraintDefinition ;
     sysml:qualifiedName "Q::C" ;
+    sysx:sourceRange "6:5-6:22" ;
     sysml:elementId "Q__C" ;
     sysx:memberIndex "4"^^xsd:integer ;
     sysml:owningNamespace elmt:Q ;
@@ -140,6 +147,7 @@ elmt:Q__C_om
 elmt:Q__Ctx
     a sysml:PartDefinition ;
     sysml:qualifiedName "Q::Ctx" ;
+    sysx:sourceRange "7:5-15:6" ;
     sysml:elementId "Q__Ctx" ;
     sysx:memberIndex "5"^^xsd:integer ;
     sysml:owningNamespace elmt:Q ;
@@ -174,6 +182,7 @@ elmt:Q__Ctx_om
 elmt:Q__Ctx__a1
     a sysml:ActionUsage ;
     sysml:qualifiedName "Q::Ctx::a1" ;
+    sysx:sourceRange "8:9-8:23" ;
     sysml:elementId "Q__Ctx__a1" ;
     sysx:memberIndex "0"^^xsd:integer ;
     sysml:owningNamespace elmt:Q__Ctx ;
@@ -203,6 +212,7 @@ elmt:Q__Ctx__a1_om
 elmt:Q__Ctx__a2
     a sysml:ActionUsage ;
     sysml:qualifiedName "Q::Ctx::a2" ;
+    sysx:sourceRange "9:9-9:23" ;
     sysml:elementId "Q__Ctx__a2" ;
     sysx:memberIndex "1"^^xsd:integer ;
     sysml:owningNamespace elmt:Q__Ctx ;
@@ -232,6 +242,7 @@ elmt:Q__Ctx__a2_om
 elmt:Q__Ctx__s1
     a sysml:StateUsage ;
     sysml:qualifiedName "Q::Ctx::s1" ;
+    sysx:sourceRange "10:9-10:22" ;
     sysml:elementId "Q__Ctx__s1" ;
     sysx:memberIndex "2"^^xsd:integer ;
     sysml:owningNamespace elmt:Q__Ctx ;
@@ -261,6 +272,7 @@ elmt:Q__Ctx__s1_om
 elmt:Q__Ctx__s2
     a sysml:StateUsage ;
     sysml:qualifiedName "Q::Ctx::s2" ;
+    sysx:sourceRange "11:9-11:22" ;
     sysml:elementId "Q__Ctx__s2" ;
     sysx:memberIndex "3"^^xsd:integer ;
     sysml:owningNamespace elmt:Q__Ctx ;
@@ -290,6 +302,7 @@ elmt:Q__Ctx__s2_om
 elmt:Q__Ctx__u1
     a sysml:UseCaseUsage ;
     sysml:qualifiedName "Q::Ctx::u1" ;
+    sysx:sourceRange "12:9-12:25" ;
     sysml:elementId "Q__Ctx__u1" ;
     sysx:memberIndex "4"^^xsd:integer ;
     sysml:owningNamespace elmt:Q__Ctx ;
@@ -319,6 +332,7 @@ elmt:Q__Ctx__u1_om
 elmt:Q__Ctx__r1
     a sysml:RequirementUsage ;
     sysml:qualifiedName "Q::Ctx::r1" ;
+    sysx:sourceRange "13:9-13:28" ;
     sysml:elementId "Q__Ctx__r1" ;
     sysx:memberIndex "5"^^xsd:integer ;
     sysml:owningNamespace elmt:Q__Ctx ;
@@ -348,6 +362,7 @@ elmt:Q__Ctx__r1_om
 elmt:Q__Ctx__c1
     a sysml:ConstraintUsage ;
     sysml:qualifiedName "Q::Ctx::c1" ;
+    sysx:sourceRange "14:9-14:27" ;
     sysml:elementId "Q__Ctx__c1" ;
     sysx:memberIndex "6"^^xsd:integer ;
     sysml:owningNamespace elmt:Q__Ctx ;
@@ -377,6 +392,7 @@ elmt:Q__Ctx__c1_om
 elmt:Q__Sub
     a sysml:PartDefinition ;
     sysml:qualifiedName "Q::Sub" ;
+    sysx:sourceRange "16:5-19:6" ;
     sysml:elementId "Q__Sub" ;
     sysx:memberIndex "6"^^xsd:integer ;
     sysml:owningNamespace elmt:Q ;
@@ -411,6 +427,7 @@ elmt:Q__Sub_om
 elmt:Q__Sub__sa
     a sysml:ActionUsage ;
     sysml:qualifiedName "Q::Sub::sa" ;
+    sysx:sourceRange "17:9-17:23" ;
     sysml:elementId "Q__Sub__sa" ;
     sysx:memberIndex "0"^^xsd:integer ;
     sysml:owningNamespace elmt:Q__Sub ;
@@ -440,6 +457,7 @@ elmt:Q__Sub__sa_om
 elmt:Q__Sub__ss
     a sysml:StateUsage ;
     sysml:qualifiedName "Q::Sub::ss" ;
+    sysx:sourceRange "18:9-18:22" ;
     sysml:elementId "Q__Sub__ss" ;
     sysx:memberIndex "1"^^xsd:integer ;
     sysml:owningNamespace elmt:Q__Sub ;
@@ -469,6 +487,7 @@ elmt:Q__Sub__ss_om
 elmt:Q__ctx
     a sysml:PartUsage ;
     sysml:qualifiedName "Q::ctx" ;
+    sysx:sourceRange "20:5-34:6" ;
     sysml:elementId "Q__ctx" ;
     sysx:memberIndex "7"^^xsd:integer ;
     sysml:owningNamespace elmt:Q ;
@@ -506,6 +525,7 @@ elmt:Q__ctx_om
 elmt:Q__ctx__sub
     a sysml:PartUsage ;
     sysml:qualifiedName "Q::ctx::sub" ;
+    sysx:sourceRange "21:9-21:24" ;
     sysml:elementId "Q__ctx__sub" ;
     sysx:memberIndex "0"^^xsd:integer ;
     sysml:owningNamespace elmt:Q__ctx ;
@@ -535,6 +555,7 @@ elmt:Q__ctx__sub_om
 elmt:Q__ctx__pa
     a sysml:PerformActionUsage ;
     sysml:qualifiedName "Q::ctx::pa" ;
+    sysx:sourceRange "22:9-22:31" ;
     sysml:elementId "Q__ctx__pa" ;
     sysx:memberIndex "1"^^xsd:integer ;
     sysml:owningNamespace elmt:Q__ctx ;
@@ -565,6 +586,7 @@ elmt:Q__ctx__pa_om
 elmt:Q__ctx___402
     a sysml:PerformActionUsage ;
     sysml:qualifiedName "Q::ctx::@2" ;
+    sysx:sourceRange "23:9-23:20" ;
     sysml:elementId "Q__ctx___402" ;
     sysx:memberIndex "2"^^xsd:integer ;
     sysml:owningNamespace elmt:Q__ctx ;
@@ -595,6 +617,7 @@ elmt:Q__ctx___402_om
 elmt:Q__ctx___403
     a sysml:PerformActionUsage ;
     sysml:qualifiedName "Q::ctx::@3" ;
+    sysx:sourceRange "24:9-24:31" ;
     sysml:elementId "Q__ctx___403" ;
     sysx:memberIndex "3"^^xsd:integer ;
     sysml:owningNamespace elmt:Q__ctx ;
@@ -666,6 +689,7 @@ elmt:Q__ctx___403_om
 elmt:Q__ctx__es
     a sysml:ExhibitStateUsage ;
     sysml:qualifiedName "Q::ctx::es" ;
+    sysx:sourceRange "25:9-25:30" ;
     sysml:elementId "Q__ctx__es" ;
     sysx:memberIndex "4"^^xsd:integer ;
     sysml:owningNamespace elmt:Q__ctx ;
@@ -696,6 +720,7 @@ elmt:Q__ctx__es_om
 elmt:Q__ctx___405
     a sysml:ExhibitStateUsage ;
     sysml:qualifiedName "Q::ctx::@5" ;
+    sysx:sourceRange "26:9-26:20" ;
     sysml:elementId "Q__ctx___405" ;
     sysx:memberIndex "5"^^xsd:integer ;
     sysml:owningNamespace elmt:Q__ctx ;
@@ -726,6 +751,7 @@ elmt:Q__ctx___405_om
 elmt:Q__ctx___406
     a sysml:ExhibitStateUsage ;
     sysml:qualifiedName "Q::ctx::@6" ;
+    sysx:sourceRange "27:9-27:31" ;
     sysml:elementId "Q__ctx___406" ;
     sysx:memberIndex "6"^^xsd:integer ;
     sysml:owningNamespace elmt:Q__ctx ;
@@ -797,6 +823,7 @@ elmt:Q__ctx___406_om
 elmt:Q__ctx__iu
     a sysml:IncludeUseCaseUsage ;
     sysml:qualifiedName "Q::ctx::iu" ;
+    sysx:sourceRange "28:9-28:33" ;
     sysml:elementId "Q__ctx__iu" ;
     sysx:memberIndex "7"^^xsd:integer ;
     sysml:owningNamespace elmt:Q__ctx ;
@@ -827,6 +854,7 @@ elmt:Q__ctx__iu_om
 elmt:Q__ctx___408
     a sysml:IncludeUseCaseUsage ;
     sysml:qualifiedName "Q::ctx::@8" ;
+    sysx:sourceRange "29:9-29:20" ;
     sysml:elementId "Q__ctx___408" ;
     sysx:memberIndex "8"^^xsd:integer ;
     sysml:owningNamespace elmt:Q__ctx ;
@@ -853,6 +881,7 @@ elmt:Q__ctx___408_om
 elmt:Q__ctx__sr
     a sysml:SatisfyRequirementUsage ;
     sysml:qualifiedName "Q::ctx::sr" ;
+    sysx:sourceRange "30:9-30:36" ;
     sysml:elementId "Q__ctx__sr" ;
     sysx:memberIndex "9"^^xsd:integer ;
     sysml:owningNamespace elmt:Q__ctx ;
@@ -882,6 +911,7 @@ elmt:Q__ctx__sr_om
 elmt:Q__ctx___4010
     a sysml:SatisfyRequirementUsage ;
     sysml:qualifiedName "Q::ctx::@10" ;
+    sysx:sourceRange "31:9-31:20" ;
     sysml:elementId "Q__ctx___4010" ;
     sysx:memberIndex "10"^^xsd:integer ;
     sysml:owningNamespace elmt:Q__ctx ;
@@ -912,6 +942,7 @@ elmt:Q__ctx___4010_om
 elmt:Q__ctx__ac
     a sysml:AssertConstraintUsage ;
     sysml:qualifiedName "Q::ctx::ac" ;
+    sysx:sourceRange "32:9-32:34" ;
     sysml:elementId "Q__ctx__ac" ;
     sysx:memberIndex "11"^^xsd:integer ;
     sysml:owningNamespace elmt:Q__ctx ;
@@ -941,6 +972,7 @@ elmt:Q__ctx__ac_om
 elmt:Q__ctx___4012
     a sysml:AssertConstraintUsage ;
     sysml:qualifiedName "Q::ctx::@12" ;
+    sysx:sourceRange "33:9-33:19" ;
     sysml:elementId "Q__ctx___4012" ;
     sysx:memberIndex "12"^^xsd:integer ;
     sysml:owningNamespace elmt:Q__ctx ;

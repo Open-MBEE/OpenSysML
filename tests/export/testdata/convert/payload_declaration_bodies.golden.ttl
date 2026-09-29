@@ -9,9 +9,11 @@
 elmt:Payloads
     a sysml:Package ;
     sysml:qualifiedName "Payloads" ;
+    sysx:sourceRange "1:1-12:2" ;
     sysml:elementId "Payloads" ;
     sysx:memberIndex "0"^^xsd:integer ;
     sysx:sourceLanguage "sysml" ;
+    sysx:sourceDocument "testdata/convert/payload_declaration_bodies.sysml" ;
     sysml:declaredName "Payloads" ;
     sysx:hasBody "true"^^xsd:boolean ;
     sysml:ownedMember elmt:Payloads__Prio, elmt:Payloads__Fuel, elmt:Payloads__A, elmt:Payloads__B, elmt:Payloads__Ctx ;
@@ -26,6 +28,7 @@ elmt:Payloads
 elmt:Payloads__Prio
     a sysml:AttributeDefinition ;
     sysml:qualifiedName "Payloads::Prio" ;
+    sysx:sourceRange "2:5-2:24" ;
     sysml:elementId "Payloads__Prio" ;
     sysx:memberIndex "0"^^xsd:integer ;
     sysml:owningNamespace elmt:Payloads ;
@@ -49,6 +52,7 @@ elmt:Payloads__Prio_om
 elmt:Payloads__Fuel
     a sysml:ItemDefinition ;
     sysml:qualifiedName "Payloads::Fuel" ;
+    sysx:sourceRange "3:5-3:19" ;
     sysml:elementId "Payloads__Fuel" ;
     sysx:memberIndex "1"^^xsd:integer ;
     sysml:owningNamespace elmt:Payloads ;
@@ -72,6 +76,7 @@ elmt:Payloads__Fuel_om
 elmt:Payloads__A
     a sysml:PartDefinition ;
     sysml:qualifiedName "Payloads::A" ;
+    sysx:sourceRange "4:5-4:38" ;
     sysml:elementId "Payloads__A" ;
     sysx:memberIndex "2"^^xsd:integer ;
     sysml:owningNamespace elmt:Payloads ;
@@ -100,6 +105,7 @@ elmt:Payloads__A_om
 elmt:Payloads__A__i
     a sysml:ItemUsage ;
     sysml:qualifiedName "Payloads::A::i" ;
+    sysx:sourceRange "4:18-4:36" ;
     sysml:elementId "Payloads__A__i" ;
     sysx:memberIndex "0"^^xsd:integer ;
     sysml:owningNamespace elmt:Payloads__A ;
@@ -129,6 +135,7 @@ elmt:Payloads__A__i_om
 elmt:Payloads__B
     a sysml:PartDefinition ;
     sysml:qualifiedName "Payloads::B" ;
+    sysx:sourceRange "5:5-5:37" ;
     sysml:elementId "Payloads__B" ;
     sysx:memberIndex "3"^^xsd:integer ;
     sysml:owningNamespace elmt:Payloads ;
@@ -157,6 +164,7 @@ elmt:Payloads__B_om
 elmt:Payloads__B__j
     a sysml:ItemUsage ;
     sysml:qualifiedName "Payloads::B::j" ;
+    sysx:sourceRange "5:18-5:35" ;
     sysml:elementId "Payloads__B__j" ;
     sysx:memberIndex "0"^^xsd:integer ;
     sysml:owningNamespace elmt:Payloads__B ;
@@ -186,6 +194,7 @@ elmt:Payloads__B__j_om
 elmt:Payloads__Ctx
     a sysml:PartDefinition ;
     sysml:qualifiedName "Payloads::Ctx" ;
+    sysx:sourceRange "6:5-11:6" ;
     sysml:elementId "Payloads__Ctx" ;
     sysx:memberIndex "4"^^xsd:integer ;
     sysml:owningNamespace elmt:Payloads ;
@@ -219,6 +228,7 @@ elmt:Payloads__Ctx_om
 elmt:Payloads__Ctx__x
     a sysml:PartUsage ;
     sysml:qualifiedName "Payloads::Ctx::x" ;
+    sysx:sourceRange "7:9-7:20" ;
     sysml:elementId "Payloads__Ctx__x" ;
     sysx:memberIndex "0"^^xsd:integer ;
     sysml:owningNamespace elmt:Payloads__Ctx ;
@@ -247,6 +257,7 @@ elmt:Payloads__Ctx__x_om
 elmt:Payloads__Ctx__y
     a sysml:PartUsage ;
     sysml:qualifiedName "Payloads::Ctx::y" ;
+    sysx:sourceRange "7:21-7:32" ;
     sysml:elementId "Payloads__Ctx__y" ;
     sysx:memberIndex "1"^^xsd:integer ;
     sysml:owningNamespace elmt:Payloads__Ctx ;
@@ -275,6 +286,7 @@ elmt:Payloads__Ctx__y_om
 elmt:Payloads__Ctx___402
     a sysml:FlowUsage ;
     sysml:qualifiedName "Payloads::Ctx::@2" ;
+    sysx:sourceRange "8:9-8:68" ;
     sysml:elementId "Payloads__Ctx___402" ;
     sysx:memberIndex "2"^^xsd:integer ;
     sysml:owningNamespace elmt:Payloads__Ctx ;
@@ -512,6 +524,7 @@ expr:Payloads__Ctx___402_ppayload_om
 elmt:Payloads__Ctx___402__w
     a sysml:AttributeUsage ;
     sysml:qualifiedName "Payloads::Ctx::@2::w" ;
+    sysx:sourceRange "8:47-8:66" ;
     sysml:elementId "Payloads__Ctx___402__w" ;
     sysx:memberIndex "0"^^xsd:integer ;
     sysml:owningNamespace elmt:Payloads__Ctx___402 ;
@@ -538,6 +551,7 @@ elmt:Payloads__Ctx___402__w_om
 elmt:Payloads__Ctx__m
     a sysml:FlowUsage ;
     sysml:qualifiedName "Payloads::Ctx::m" ;
+    sysx:sourceRange "9:9-9:49" ;
     sysml:elementId "Payloads__Ctx__m" ;
     sysx:memberIndex "3"^^xsd:integer ;
     sysml:owningNamespace elmt:Payloads__Ctx ;
@@ -775,6 +789,7 @@ expr:Payloads__Ctx__m_ppayload_om
 elmt:Payloads__Ctx___404
     a sysml:FlowUsage ;
     sysml:qualifiedName "Payloads::Ctx::@4" ;
+    sysx:sourceRange "10:9-10:78" ;
     sysml:elementId "Payloads__Ctx___404" ;
     sysx:memberIndex "4"^^xsd:integer ;
     sysml:owningNamespace elmt:Payloads__Ctx ;
@@ -1012,6 +1027,7 @@ expr:Payloads__Ctx___404_ppayload_om
 elmt:Payloads__Ctx___404__w
     a sysml:AttributeUsage ;
     sysml:qualifiedName "Payloads::Ctx::@4::w" ;
+    sysx:sourceRange "10:57-10:76" ;
     sysml:elementId "Payloads__Ctx___404__w" ;
     sysx:memberIndex "0"^^xsd:integer ;
     sysml:owningNamespace elmt:Payloads__Ctx___404 ;

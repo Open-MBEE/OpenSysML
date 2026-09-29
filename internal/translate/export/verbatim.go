@@ -226,13 +226,16 @@ func (d *decoder) demoteAll() {
 }
 
 // disagreeingTriples lists the structural triples only one of the two graphs
-// states. Source text differs from canonical notation by design, and a member
-// index states an order the notation keeps whatever the numbers, so both skip.
+// states. Source text differs from canonical notation by design, a member
+// index states an order the notation keeps whatever the numbers, and the
+// source provenance — ranges and the document name — follows wherever the
+// notation was written from, so all skip.
 func disagreeingTriples(graph, check *rdf.Graph) []rdf.Triple {
 	var out []rdf.Triple
 	structural := func(t rdf.Triple) bool {
 		switch t.Predicate.Value {
 		case rdf.OpenSysML + xSourceText, rdf.OpenSysML + xSourceTail, rdf.OpenSysML + xSourceLanguage,
+			rdf.OpenSysML + xSourceRange, rdf.OpenSysML + xSourceDocument,
 			rdf.OpenSysML + xMemberIndex:
 			return false
 		}

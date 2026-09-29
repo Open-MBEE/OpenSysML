@@ -100,6 +100,8 @@ const (
 	xSourceText     = "sourceText"
 	xSourceTail     = "sourceTail"
 	xSourceLanguage = "sourceLanguage"
+	xSourceRange    = "sourceRange"
+	xSourceDocument = "sourceDocument"
 	xFilter         = "filter"
 	// xIsConstructor is only read: an older graph flags `new` on an InvocationExpression.
 	xIsConstructor = "isConstructor"
@@ -789,6 +791,7 @@ func (e *encoder) head(subject rdf.Term, h memberHead) {
 	if h.local.Value == "" {
 		e.graph.Add(subject, e.sysml(pQualifiedName), rdf.String(fqn))
 		e.offsets[subject.Value] = node.Span().Offset
+		e.graph.Add(subject, e.sysx(xSourceRange), rdf.String(e.sourceRange(node)))
 	}
 	// The id an API reader addresses the element by, which is the id its own
 	// IRI ends in, so the two cannot disagree.
@@ -797,8 +800,11 @@ func (e *encoder) head(subject rdf.Term, h memberHead) {
 	if !inline {
 		e.regions[subject] = lines
 	}
-	if language := languageName(e.file.Kind()); ownerTerm.Value == "" && h.local.Value == "" && language != "" {
-		e.graph.Add(subject, e.sysx(xSourceLanguage), rdf.String(language))
+	if ownerTerm.Value == "" && h.local.Value == "" {
+		if language := languageName(e.file.Kind()); language != "" {
+			e.graph.Add(subject, e.sysx(xSourceLanguage), rdf.String(language))
+		}
+		e.graph.Add(subject, e.sysx(xSourceDocument), rdf.String(e.file.Name()))
 	}
 	if e.ids.declaredIDAt(node) {
 		e.graph.Add(subject, e.sysx(xDeclaredID), rdf.Bool(true))
@@ -2449,6 +2455,19 @@ func spacedWords(name string) string {
 		b.WriteRune(r)
 	}
 	return b.String()
+}
+
+// sourceRange is where in the file a node's declaration is written, as
+// "<startLine>:<startCol>-<endLine>:<endCol>". Positions are 1-based byte
+// offsets as LineIndex.PosAt gives them, the end exclusive, and the range
+// covers only the notation itself: the notes and comments a span runs on
+// over are left out.
+func (e *encoder) sourceRange(node ast.Node) string {
+	span := node.Span()
+	lines := e.file.Lines()
+	start := lines.PosAt(span.Offset)
+	end := lines.PosAt(span.Offset + len(e.src.code(span)))
+	return fmt.Sprintf("%d:%d-%d:%d", start.Line, start.Col, end.Line, end.Col)
 }
 
 func (e *encoder) where(node ast.Node) string {

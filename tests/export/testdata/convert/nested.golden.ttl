@@ -8,9 +8,11 @@
 elmt:Outer
     a sysml:Package ;
     sysml:qualifiedName "Outer" ;
+    sysx:sourceRange "1:1-8:2" ;
     sysml:elementId "Outer" ;
     sysx:memberIndex "0"^^xsd:integer ;
     sysx:sourceLanguage "sysml" ;
+    sysx:sourceDocument "testdata/convert/nested.sysml" ;
     sysml:declaredName "Outer" ;
     sysx:hasBody "true"^^xsd:boolean ;
     sysml:ownedMember elmt:Outer__Inner ;
@@ -22,6 +24,7 @@ elmt:Outer
 elmt:Outer__Inner
     a sysml:Package ;
     sysml:qualifiedName "Outer::Inner" ;
+    sysx:sourceRange "2:5-7:6" ;
     sysml:elementId "Outer__Inner" ;
     sysx:memberIndex "0"^^xsd:integer ;
     sysml:owningNamespace elmt:Outer ;
@@ -52,6 +55,7 @@ elmt:Outer__Inner_om
 elmt:Outer__Inner__Widget
     a sysml:PartDefinition ;
     sysml:qualifiedName "Outer::Inner::Widget" ;
+    sysx:sourceRange "3:9-3:25" ;
     sysml:elementId "Outer__Inner__Widget" ;
     sysx:memberIndex "0"^^xsd:integer ;
     sysml:owningNamespace elmt:Outer__Inner ;
@@ -75,6 +79,7 @@ elmt:Outer__Inner__Widget_om
 elmt:Outer__Inner__Sub
     a sysml:Namespace ;
     sysml:qualifiedName "Outer::Inner::Sub" ;
+    sysx:sourceRange "4:9-6:10" ;
     sysml:elementId "Outer__Inner__Sub" ;
     sysx:memberIndex "1"^^xsd:integer ;
     sysml:owningNamespace elmt:Outer__Inner ;
@@ -102,6 +107,7 @@ elmt:Outer__Inner__Sub_om
 elmt:Outer__Inner__Sub__Gear
     a sysml:PartDefinition ;
     sysml:qualifiedName "Outer::Inner::Sub::Gear" ;
+    sysx:sourceRange "5:13-5:27" ;
     sysml:elementId "Outer__Inner__Sub__Gear" ;
     sysx:memberIndex "0"^^xsd:integer ;
     sysml:owningNamespace elmt:Outer__Inner__Sub ;

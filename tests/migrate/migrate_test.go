@@ -103,7 +103,14 @@ func TestMigratedNotationRoundTripsThroughTurtle(t *testing.T) {
 		t.Fatal(err)
 	}
 	sourceText := func(tr rdf.Triple) bool {
-		return tr.Predicate == rdf.OpenSysMLTerm("sourceText") || tr.Predicate == rdf.OpenSysMLTerm("sourceTail")
+		switch tr.Predicate {
+		case rdf.OpenSysMLTerm("sourceText"), rdf.OpenSysMLTerm("sourceTail"),
+			// Provenance of where the element was written, which moves with the
+			// document and layout each hop read.
+			rdf.OpenSysMLTerm("sourceRange"), rdf.OpenSysMLTerm("sourceDocument"):
+			return true
+		}
+		return false
 	}
 	structural := rdf.NewGraph()
 	for _, tr := range g1.Triples() {

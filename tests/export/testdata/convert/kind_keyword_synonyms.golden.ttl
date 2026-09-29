@@ -9,9 +9,11 @@
 elmt:Synonyms
     a sysml:Package ;
     sysml:qualifiedName "Synonyms" ;
+    sysx:sourceRange "1:1-23:2" ;
     sysml:elementId "Synonyms" ;
     sysx:memberIndex "0"^^xsd:integer ;
     sysx:sourceLanguage "sysml" ;
+    sysx:sourceDocument "testdata/convert/kind_keyword_synonyms.sysml" ;
     sysml:declaredName "Synonyms" ;
     sysx:hasBody "true"^^xsd:boolean ;
     sysml:ownedMember elmt:Synonyms__Temperature, elmt:Synonyms__reading, elmt:Synonyms__Average, elmt:Synonyms__base, elmt:Synonyms__atStart, elmt:Synonyms__during, elmt:Synonyms__note, elmt:Synonyms___407, elmt:Synonyms__Drive, elmt:Synonyms__Safe, elmt:Synonyms__Idle, elmt:Synonyms__Vehicle, elmt:Synonyms__AsTree, elmt:Synonyms__Dashboard ;
@@ -26,6 +28,7 @@ elmt:Synonyms
 elmt:Synonyms__Temperature
     a sysml:DataType ;
     sysml:qualifiedName "Synonyms::Temperature" ;
+    sysx:sourceRange "2:5-2:26" ;
     sysml:elementId "Synonyms__Temperature" ;
     sysx:memberIndex "0"^^xsd:integer ;
     sysml:owningNamespace elmt:Synonyms ;
@@ -50,6 +53,7 @@ elmt:Synonyms__Temperature_om
 elmt:Synonyms__reading
     a sysml:AttributeUsage ;
     sysml:qualifiedName "Synonyms::reading" ;
+    sysx:sourceRange "3:5-3:35" ;
     sysml:elementId "Synonyms__reading" ;
     sysx:memberIndex "1"^^xsd:integer ;
     sysml:owningNamespace elmt:Synonyms ;
@@ -78,6 +82,7 @@ elmt:Synonyms__reading_om
 elmt:Synonyms__Average
     a sysml:CalculationDefinition ;
     sysml:qualifiedName "Synonyms::Average" ;
+    sysx:sourceRange "4:5-4:26" ;
     sysml:elementId "Synonyms__Average" ;
     sysx:memberIndex "2"^^xsd:integer ;
     sysml:owningNamespace elmt:Synonyms ;
@@ -102,6 +107,7 @@ elmt:Synonyms__Average_om
 elmt:Synonyms__base
     a sysml:OccurrenceUsage ;
     sysml:qualifiedName "Synonyms::base" ;
+    sysx:sourceRange "5:5-5:21" ;
     sysml:elementId "Synonyms__base" ;
     sysx:memberIndex "3"^^xsd:integer ;
     sysml:owningNamespace elmt:Synonyms ;
@@ -125,6 +131,7 @@ elmt:Synonyms__base_om
 elmt:Synonyms__atStart
     a sysml:OccurrenceUsage ;
     sysml:qualifiedName "Synonyms::atStart" ;
+    sysx:sourceRange "6:5-6:22" ;
     sysml:elementId "Synonyms__atStart" ;
     sysx:memberIndex "4"^^xsd:integer ;
     sysml:owningNamespace elmt:Synonyms ;
@@ -151,6 +158,7 @@ elmt:Synonyms__atStart_om
 elmt:Synonyms__during
     a sysml:OccurrenceUsage ;
     sysml:qualifiedName "Synonyms::during" ;
+    sysx:sourceRange "7:5-7:22" ;
     sysml:elementId "Synonyms__during" ;
     sysx:memberIndex "5"^^xsd:integer ;
     sysml:owningNamespace elmt:Synonyms ;
@@ -177,6 +185,7 @@ elmt:Synonyms__during_om
 elmt:Synonyms__note
     a sysml:FlowUsage ;
     sysml:qualifiedName "Synonyms::note" ;
+    sysx:sourceRange "8:5-8:18" ;
     sysml:elementId "Synonyms__note" ;
     sysx:memberIndex "6"^^xsd:integer ;
     sysml:owningNamespace elmt:Synonyms ;
@@ -200,6 +209,7 @@ elmt:Synonyms__note_om
 elmt:Synonyms___407
     a sysml:AllocationUsage ;
     sysml:qualifiedName "Synonyms::@7" ;
+    sysx:sourceRange "9:5-9:30" ;
     sysml:elementId "Synonyms___407" ;
     sysx:memberIndex "7"^^xsd:integer ;
     sysml:owningNamespace elmt:Synonyms ;
@@ -322,6 +332,7 @@ expr:Synonyms___407_pend1_prs
 elmt:Synonyms__Drive
     a sysml:UseCaseDefinition ;
     sysml:qualifiedName "Synonyms::Drive" ;
+    sysx:sourceRange "10:5-10:24" ;
     sysml:elementId "Synonyms__Drive" ;
     sysx:memberIndex "8"^^xsd:integer ;
     sysml:owningNamespace elmt:Synonyms ;
@@ -345,6 +356,7 @@ elmt:Synonyms__Drive_om
 elmt:Synonyms__Safe
     a sysml:ConstraintDefinition ;
     sysml:qualifiedName "Synonyms::Safe" ;
+    sysx:sourceRange "11:5-11:25" ;
     sysml:elementId "Synonyms__Safe" ;
     sysx:memberIndex "9"^^xsd:integer ;
     sysml:owningNamespace elmt:Synonyms ;
@@ -368,6 +380,7 @@ elmt:Synonyms__Safe_om
 elmt:Synonyms__Idle
     a sysml:StateDefinition ;
     sysml:qualifiedName "Synonyms::Idle" ;
+    sysx:sourceRange "12:5-12:20" ;
     sysml:elementId "Synonyms__Idle" ;
     sysx:memberIndex "10"^^xsd:integer ;
     sysml:owningNamespace elmt:Synonyms ;
@@ -391,6 +404,7 @@ elmt:Synonyms__Idle_om
 elmt:Synonyms__Vehicle
     a sysml:PartDefinition ;
     sysml:qualifiedName "Synonyms::Vehicle" ;
+    sysx:sourceRange "13:5-17:6" ;
     sysml:elementId "Synonyms__Vehicle" ;
     sysx:memberIndex "11"^^xsd:integer ;
     sysml:owningNamespace elmt:Synonyms ;
@@ -425,6 +439,7 @@ elmt:Synonyms__Vehicle_om
 elmt:Synonyms__Vehicle___400
     a sysml:ExhibitStateUsage ;
     sysml:qualifiedName "Synonyms::Vehicle::@0" ;
+    sysx:sourceRange "14:9-14:31" ;
     sysml:elementId "Synonyms__Vehicle___400" ;
     sysx:memberIndex "0"^^xsd:integer ;
     sysml:owningNamespace elmt:Synonyms__Vehicle ;
@@ -459,6 +474,7 @@ elmt:Synonyms__Vehicle___400_om
 elmt:Synonyms__Vehicle__safe
     a sysml:AssertConstraintUsage ;
     sysml:qualifiedName "Synonyms::Vehicle::safe" ;
+    sysx:sourceRange "15:9-15:28" ;
     sysml:elementId "Synonyms__Vehicle__safe" ;
     sysx:memberIndex "1"^^xsd:integer ;
     sysml:owningNamespace elmt:Synonyms__Vehicle ;
@@ -489,6 +505,7 @@ elmt:Synonyms__Vehicle__safe_om
 elmt:Synonyms__Vehicle__alsoSafe
     a sysml:ConstraintUsage ;
     sysml:qualifiedName "Synonyms::Vehicle::alsoSafe" ;
+    sysx:sourceRange "16:9-16:29" ;
     sysml:elementId "Synonyms__Vehicle__alsoSafe" ;
     sysx:memberIndex "2"^^xsd:integer ;
     sysml:owningNamespace elmt:Synonyms__Vehicle ;
@@ -519,6 +536,7 @@ elmt:Synonyms__Vehicle__alsoSafe_om
 elmt:Synonyms__AsTree
     a sysml:RenderingDefinition ;
     sysml:qualifiedName "Synonyms::AsTree" ;
+    sysx:sourceRange "18:5-18:26" ;
     sysml:elementId "Synonyms__AsTree" ;
     sysx:memberIndex "12"^^xsd:integer ;
     sysml:owningNamespace elmt:Synonyms ;
@@ -542,6 +560,7 @@ elmt:Synonyms__AsTree_om
 elmt:Synonyms__Dashboard
     a sysml:ViewDefinition ;
     sysml:qualifiedName "Synonyms::Dashboard" ;
+    sysx:sourceRange "19:5-22:6" ;
     sysml:elementId "Synonyms__Dashboard" ;
     sysx:memberIndex "13"^^xsd:integer ;
     sysml:owningNamespace elmt:Synonyms ;
@@ -576,6 +595,7 @@ elmt:Synonyms__Dashboard_om
 elmt:Synonyms__Dashboard___400
     a sysml:RenderingUsage ;
     sysml:qualifiedName "Synonyms::Dashboard::@0" ;
+    sysx:sourceRange "20:9-20:24" ;
     sysml:elementId "Synonyms__Dashboard___400" ;
     sysx:memberIndex "0"^^xsd:integer ;
     sysml:owningNamespace elmt:Synonyms__Dashboard ;
@@ -606,6 +626,7 @@ elmt:Synonyms__Dashboard___400_om
 elmt:Synonyms__Dashboard___401
     a sysml:RenderingUsage ;
     sysml:qualifiedName "Synonyms::Dashboard::@1" ;
+    sysx:sourceRange "21:9-21:35" ;
     sysml:elementId "Synonyms__Dashboard___401" ;
     sysx:memberIndex "1"^^xsd:integer ;
     sysml:owningNamespace elmt:Synonyms__Dashboard ;

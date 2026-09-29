@@ -9,9 +9,11 @@
 elmt:Values
     a sysml:Package ;
     sysml:qualifiedName "Values" ;
+    sysx:sourceRange "1:1-12:2" ;
     sysml:elementId "Values" ;
     sysx:memberIndex "0"^^xsd:integer ;
     sysx:sourceLanguage "sysml" ;
+    sysx:sourceDocument "testdata/convert/values.sysml" ;
     sysml:declaredName "Values" ;
     sysx:hasBody "true"^^xsd:boolean ;
     sysml:ownedMember elmt:Values__Total, elmt:Values__Sized ;
@@ -26,6 +28,7 @@ elmt:Values
 elmt:Values__Total
     a sysml:CalculationDefinition ;
     sysml:qualifiedName "Values::Total" ;
+    sysx:sourceRange "2:5-6:6" ;
     sysml:elementId "Values__Total" ;
     sysx:memberIndex "0"^^xsd:integer ;
     sysml:owningNamespace elmt:Values ;
@@ -60,6 +63,7 @@ elmt:Values__Total_om
 elmt:Values__Total__x
     a sysml:ReferenceUsage ;
     sysml:qualifiedName "Values::Total::x" ;
+    sysx:sourceRange "3:9-3:21" ;
     sysml:elementId "Values__Total__x" ;
     sysx:memberIndex "0"^^xsd:integer ;
     sysml:owningNamespace elmt:Values__Total ;
@@ -91,6 +95,7 @@ elmt:Values__Total__x_om
 elmt:Values__Total__y
     a sysml:ReferenceUsage ;
     sysml:qualifiedName "Values::Total::y" ;
+    sysx:sourceRange "4:9-4:21" ;
     sysml:elementId "Values__Total__y" ;
     sysx:memberIndex "1"^^xsd:integer ;
     sysml:owningNamespace elmt:Values__Total ;
@@ -122,6 +127,7 @@ elmt:Values__Total__y_om
 elmt:Values__Total__result
     a sysml:ReferenceUsage ;
     sysml:qualifiedName "Values::Total::result" ;
+    sysx:sourceRange "5:9-5:30" ;
     sysml:elementId "Values__Total__result" ;
     sysx:memberIndex "2"^^xsd:integer ;
     sysml:owningNamespace elmt:Values__Total ;
@@ -155,6 +161,7 @@ elmt:Values__Total__result_om
 elmt:Values__Sized
     a sysml:PartDefinition ;
     sysml:qualifiedName "Values::Sized" ;
+    sysx:sourceRange "7:5-11:6" ;
     sysml:elementId "Values__Sized" ;
     sysx:memberIndex "1"^^xsd:integer ;
     sysml:owningNamespace elmt:Values ;
@@ -189,6 +196,7 @@ elmt:Values__Sized_om
 elmt:Values__Sized__size
     a sysml:AttributeUsage ;
     sysml:qualifiedName "Values::Sized::size" ;
+    sysx:sourceRange "8:9-8:37" ;
     sysml:elementId "Values__Sized__size" ;
     sysx:memberIndex "0"^^xsd:integer ;
     sysml:owningNamespace elmt:Values__Sized ;
@@ -242,6 +250,7 @@ expr:Values__Sized__size_pvalue_om
 elmt:Values__Sized__label
     a sysml:AttributeUsage ;
     sysml:qualifiedName "Values::Sized::label" ;
+    sysx:sourceRange "9:9-9:44" ;
     sysml:elementId "Values__Sized__label" ;
     sysx:memberIndex "1"^^xsd:integer ;
     sysml:owningNamespace elmt:Values__Sized ;
@@ -295,6 +304,7 @@ expr:Values__Sized__label_pvalue_om
 elmt:Values__Sized__total
     a sysml:AttributeUsage ;
     sysml:qualifiedName "Values::Sized::total" ;
+    sysx:sourceRange "10:9-10:44" ;
     sysml:elementId "Values__Sized__total" ;
     sysx:memberIndex "2"^^xsd:integer ;
     sysml:owningNamespace elmt:Values__Sized ;

@@ -9,9 +9,11 @@
 elmt:Annotated
     a sysml:Package ;
     sysml:qualifiedName "Annotated" ;
+    sysx:sourceRange "1:1-34:2" ;
     sysml:elementId "Annotated" ;
     sysx:memberIndex "0"^^xsd:integer ;
     sysx:sourceLanguage "sysml" ;
+    sysx:sourceDocument "testdata/convert/metadata_bodies.sysml" ;
     sysml:declaredName "Annotated" ;
     sysx:hasBody "true"^^xsd:boolean ;
     sysml:ownedMember elmt:Annotated__Safety, elmt:Annotated__Car, elmt:Annotated__car, elmt:Annotated___403, elmt:Annotated__tagged, elmt:Annotated___405, elmt:Annotated___406 ;
@@ -26,6 +28,7 @@ elmt:Annotated
 elmt:Annotated__Safety
     a sysml:MetadataDefinition ;
     sysml:qualifiedName "Annotated::Safety" ;
+    sysx:sourceRange "2:5-9:6" ;
     sysml:elementId "Annotated__Safety" ;
     sysx:memberIndex "0"^^xsd:integer ;
     sysml:owningNamespace elmt:Annotated ;
@@ -60,6 +63,7 @@ elmt:Annotated__Safety_om
 elmt:Annotated__Safety__level
     a sysml:AttributeUsage ;
     sysml:qualifiedName "Annotated::Safety::level" ;
+    sysx:sourceRange "3:9-3:35" ;
     sysml:elementId "Annotated__Safety__level" ;
     sysx:memberIndex "0"^^xsd:integer ;
     sysml:owningNamespace elmt:Annotated__Safety ;
@@ -89,6 +93,7 @@ elmt:Annotated__Safety__level_om
 elmt:Annotated__Safety__reviewer
     a sysml:AttributeUsage ;
     sysml:qualifiedName "Annotated::Safety::reviewer" ;
+    sysx:sourceRange "4:9-4:37" ;
     sysml:elementId "Annotated__Safety__reviewer" ;
     sysx:memberIndex "1"^^xsd:integer ;
     sysml:owningNamespace elmt:Annotated__Safety ;
@@ -118,6 +123,7 @@ elmt:Annotated__Safety__reviewer_om
 elmt:Annotated__Safety__isSet
     a sysml:AttributeUsage ;
     sysml:qualifiedName "Annotated::Safety::isSet" ;
+    sysx:sourceRange "5:9-5:35" ;
     sysml:elementId "Annotated__Safety__isSet" ;
     sysx:memberIndex "2"^^xsd:integer ;
     sysml:owningNamespace elmt:Annotated__Safety ;
@@ -147,6 +153,7 @@ elmt:Annotated__Safety__isSet_om
 elmt:Annotated__Safety__audit
     a sysml:ItemUsage ;
     sysml:qualifiedName "Annotated::Safety::audit" ;
+    sysx:sourceRange "6:9-8:10" ;
     sysml:elementId "Annotated__Safety__audit" ;
     sysx:memberIndex "3"^^xsd:integer ;
     sysml:owningNamespace elmt:Annotated__Safety ;
@@ -178,6 +185,7 @@ elmt:Annotated__Safety__audit_om
 elmt:Annotated__Safety__audit__year
     a sysml:AttributeUsage ;
     sysml:qualifiedName "Annotated::Safety::audit::year" ;
+    sysx:sourceRange "7:13-7:38" ;
     sysml:elementId "Annotated__Safety__audit__year" ;
     sysx:memberIndex "0"^^xsd:integer ;
     sysml:owningNamespace elmt:Annotated__Safety__audit ;
@@ -207,6 +215,7 @@ elmt:Annotated__Safety__audit__year_om
 elmt:Annotated__Car
     a sysml:PartDefinition ;
     sysml:qualifiedName "Annotated::Car" ;
+    sysx:sourceRange "10:5-12:6" ;
     sysml:elementId "Annotated__Car" ;
     sysx:memberIndex "1"^^xsd:integer ;
     sysml:owningNamespace elmt:Annotated ;
@@ -236,6 +245,7 @@ elmt:Annotated__Car_om
 elmt:Annotated__Car__mass
     a sysml:AttributeUsage ;
     sysml:qualifiedName "Annotated::Car::mass" ;
+    sysx:sourceRange "11:9-11:31" ;
     sysml:elementId "Annotated__Car__mass" ;
     sysx:memberIndex "0"^^xsd:integer ;
     sysml:owningNamespace elmt:Annotated__Car ;
@@ -265,6 +275,7 @@ elmt:Annotated__Car__mass_om
 elmt:Annotated__car
     a sysml:PartUsage ;
     sysml:qualifiedName "Annotated::car" ;
+    sysx:sourceRange "13:5-24:6" ;
     sysml:elementId "Annotated__car" ;
     sysx:memberIndex "2"^^xsd:integer ;
     sysml:owningNamespace elmt:Annotated ;
@@ -300,6 +311,7 @@ elmt:Annotated__car_om
 elmt:Annotated__car__range
     a sysml:AttributeUsage ;
     sysml:qualifiedName "Annotated::car::range" ;
+    sysx:sourceRange "14:9-14:40" ;
     sysml:elementId "Annotated__car__range" ;
     sysx:memberIndex "0"^^xsd:integer ;
     sysml:owningNamespace elmt:Annotated__car ;
@@ -353,6 +365,7 @@ expr:Annotated__car__range_pvalue_om
 elmt:Annotated__car___401
     a sysml:MetadataUsage ;
     sysml:qualifiedName "Annotated::car::@1" ;
+    sysx:sourceRange "15:9-15:31" ;
     sysml:elementId "Annotated__car___401" ;
     sysx:memberIndex "1"^^xsd:integer ;
     sysml:owningNamespace elmt:Annotated__car ;
@@ -385,6 +398,7 @@ elmt:Annotated__car___401_om
 elmt:Annotated__car___401__level
     a sysml:ReferenceUsage ;
     sysml:qualifiedName "Annotated::car::@1::level" ;
+    sysx:sourceRange "15:19-15:29" ;
     sysml:elementId "Annotated__car___401__level" ;
     sysx:memberIndex "0"^^xsd:integer ;
     sysml:owningNamespace elmt:Annotated__car___401 ;
@@ -434,6 +448,7 @@ expr:Annotated__car___401__level_pvalue_om
 elmt:Annotated__car___402
     a sysml:MetadataUsage ;
     sysml:qualifiedName "Annotated::car::@2" ;
+    sysx:sourceRange "16:9-21:10" ;
     sysml:elementId "Annotated__car___402" ;
     sysx:memberIndex "2"^^xsd:integer ;
     sysml:owningNamespace elmt:Annotated__car ;
@@ -471,6 +486,7 @@ elmt:Annotated__car___402_om
 elmt:Annotated__car___402___400
     a sysml:ReferenceUsage ;
     sysml:qualifiedName "Annotated::car::@2::@0" ;
+    sysx:sourceRange "17:13-17:27" ;
     sysml:elementId "Annotated__car___402___400" ;
     sysx:memberIndex "0"^^xsd:integer ;
     sysml:owningNamespace elmt:Annotated__car___402 ;
@@ -525,6 +541,7 @@ expr:Annotated__car___402___400_pvalue_om
 elmt:Annotated__car___402__reviewer
     a sysml:ReferenceUsage ;
     sysml:qualifiedName "Annotated::car::@2::reviewer" ;
+    sysx:sourceRange "18:13-18:30" ;
     sysml:elementId "Annotated__car___402__reviewer" ;
     sysx:memberIndex "1"^^xsd:integer ;
     sysml:owningNamespace elmt:Annotated__car___402 ;
@@ -575,6 +592,7 @@ expr:Annotated__car___402__reviewer_pvalue_om
 elmt:Annotated__car___402__isSet
     a sysml:ReferenceUsage ;
     sysml:qualifiedName "Annotated::car::@2::isSet" ;
+    sysx:sourceRange "19:13-19:26" ;
     sysml:elementId "Annotated__car___402__isSet" ;
     sysx:memberIndex "2"^^xsd:integer ;
     sysml:owningNamespace elmt:Annotated__car___402 ;
@@ -625,6 +643,7 @@ expr:Annotated__car___402__isSet_pvalue_om
 elmt:Annotated__car___402__audit
     a sysml:ReferenceUsage ;
     sysml:qualifiedName "Annotated::car::@2::audit" ;
+    sysx:sourceRange "20:13-20:35" ;
     sysml:elementId "Annotated__car___402__audit" ;
     sysx:memberIndex "3"^^xsd:integer ;
     sysml:owningNamespace elmt:Annotated__car___402 ;
@@ -656,6 +675,7 @@ elmt:Annotated__car___402__audit_om
 elmt:Annotated__car___402__audit__year
     a sysml:ReferenceUsage ;
     sysml:qualifiedName "Annotated::car::@2::audit::year" ;
+    sysx:sourceRange "20:21-20:33" ;
     sysml:elementId "Annotated__car___402__audit__year" ;
     sysx:memberIndex "0"^^xsd:integer ;
     sysml:owningNamespace elmt:Annotated__car___402__audit ;
@@ -705,6 +725,7 @@ expr:Annotated__car___402__audit__year_pvalue_om
 elmt:Annotated__car__checked
     a sysml:MetadataUsage ;
     sysml:qualifiedName "Annotated::car::checked" ;
+    sysx:sourceRange "22:9-22:28" ;
     sysml:elementId "Annotated__car__checked" ;
     sysx:memberIndex "3"^^xsd:integer ;
     sysml:owningNamespace elmt:Annotated__car ;
@@ -733,6 +754,7 @@ elmt:Annotated__car__checked_om
 elmt:Annotated__car___404
     a sysml:MetadataUsage ;
     sysml:qualifiedName "Annotated::car::@4" ;
+    sysx:sourceRange "23:9-23:17" ;
     sysml:elementId "Annotated__car___404" ;
     sysx:memberIndex "4"^^xsd:integer ;
     sysml:owningNamespace elmt:Annotated__car ;
@@ -760,6 +782,7 @@ elmt:Annotated__car___404_om
 elmt:Annotated___403
     a sysml:MetadataUsage ;
     sysml:qualifiedName "Annotated::@3" ;
+    sysx:sourceRange "25:5-28:6" ;
     sysml:elementId "Annotated___403" ;
     sysx:memberIndex "3"^^xsd:integer ;
     sysml:owningNamespace elmt:Annotated ;
@@ -799,6 +822,7 @@ elmt:Annotated___403_om
 elmt:Annotated___403__level
     a sysml:ReferenceUsage ;
     sysml:qualifiedName "Annotated::@3::level" ;
+    sysx:sourceRange "26:9-26:27" ;
     sysml:elementId "Annotated___403__level" ;
     sysx:memberIndex "0"^^xsd:integer ;
     sysml:owningNamespace elmt:Annotated___403 ;
@@ -952,6 +976,7 @@ expr:Annotated___403__level_pvalue_om
 elmt:Annotated___403__reviewer
     a sysml:ReferenceUsage ;
     sysml:qualifiedName "Annotated::@3::reviewer" ;
+    sysx:sourceRange "27:9-27:30" ;
     sysml:elementId "Annotated___403__reviewer" ;
     sysx:memberIndex "1"^^xsd:integer ;
     sysml:owningNamespace elmt:Annotated___403 ;
@@ -1029,6 +1054,7 @@ expr:Annotated___403__reviewer_pvalue_om
 elmt:Annotated__tagged
     a sysml:MetadataUsage ;
     sysml:qualifiedName "Annotated::tagged" ;
+    sysx:sourceRange "29:5-29:40" ;
     sysml:elementId "Annotated__tagged" ;
     sysx:memberIndex "4"^^xsd:integer ;
     sysml:owningNamespace elmt:Annotated ;
@@ -1057,6 +1083,7 @@ elmt:Annotated__tagged_om
 elmt:Annotated___405
     a sysml:MetadataUsage ;
     sysml:qualifiedName "Annotated::@5" ;
+    sysx:sourceRange "30:5-30:31" ;
     sysml:elementId "Annotated___405" ;
     sysx:memberIndex "5"^^xsd:integer ;
     sysml:owningNamespace elmt:Annotated ;
@@ -1084,6 +1111,7 @@ elmt:Annotated___405_om
 elmt:Annotated___406
     a sysml:MetadataUsage ;
     sysml:qualifiedName "Annotated::@6" ;
+    sysx:sourceRange "31:5-33:6" ;
     sysml:elementId "Annotated___406" ;
     sysx:memberIndex "6"^^xsd:integer ;
     sysml:owningNamespace elmt:Annotated ;
@@ -1117,6 +1145,7 @@ elmt:Annotated___406_om
 elmt:Annotated___406__level
     a sysml:ReferenceUsage ;
     sysml:qualifiedName "Annotated::@6::level" ;
+    sysx:sourceRange "32:9-32:19" ;
     sysml:elementId "Annotated___406__level" ;
     sysx:memberIndex "0"^^xsd:integer ;
     sysml:owningNamespace elmt:Annotated___406 ;

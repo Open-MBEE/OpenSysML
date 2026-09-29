@@ -8,9 +8,11 @@
 elmt:Conjugation
     a sysml:Package ;
     sysml:qualifiedName "Conjugation" ;
+    sysx:sourceRange "1:1-13:2" ;
     sysml:elementId "Conjugation" ;
     sysx:memberIndex "0"^^xsd:integer ;
     sysx:sourceLanguage "sysml" ;
+    sysx:sourceDocument "testdata/convert/conjugation.sysml" ;
     sysml:declaredName "Conjugation" ;
     sysx:hasBody "true"^^xsd:boolean ;
     sysml:ownedMember elmt:Conjugation__CommunicationPort, elmt:Conjugation__Ground, elmt:Conjugation__Link ;
@@ -25,6 +27,7 @@ elmt:Conjugation
 elmt:Conjugation__CommunicationPort
     a sysml:PortDefinition ;
     sysml:qualifiedName "Conjugation::CommunicationPort" ;
+    sysx:sourceRange "2:5-4:6" ;
     sysml:elementId "Conjugation__CommunicationPort" ;
     sysx:memberIndex "0"^^xsd:integer ;
     sysml:owningNamespace elmt:Conjugation ;
@@ -92,6 +95,7 @@ elmt:Conjugation__CommunicationPort_conjugated_pc
 elmt:Conjugation__CommunicationPort__signal
     a sysml:ItemUsage ;
     sysml:qualifiedName "Conjugation::CommunicationPort::signal" ;
+    sysx:sourceRange "3:9-3:25" ;
     sysml:elementId "Conjugation__CommunicationPort__signal" ;
     sysx:memberIndex "0"^^xsd:integer ;
     sysml:owningNamespace elmt:Conjugation__CommunicationPort ;
@@ -118,6 +122,7 @@ elmt:Conjugation__CommunicationPort__signal_om
 elmt:Conjugation__Ground
     a sysml:PartDefinition ;
     sysml:qualifiedName "Conjugation::Ground" ;
+    sysx:sourceRange "5:5-8:6" ;
     sysml:elementId "Conjugation__Ground" ;
     sysx:memberIndex "1"^^xsd:integer ;
     sysml:owningNamespace elmt:Conjugation ;
@@ -152,6 +157,7 @@ elmt:Conjugation__Ground_om
 elmt:Conjugation__Ground__groundPort
     a sysml:PortUsage ;
     sysml:qualifiedName "Conjugation::Ground::groundPort" ;
+    sysx:sourceRange "6:9-6:45" ;
     sysml:elementId "Conjugation__Ground__groundPort" ;
     sysx:memberIndex "0"^^xsd:integer ;
     sysml:owningNamespace elmt:Conjugation__Ground ;
@@ -181,6 +187,7 @@ elmt:Conjugation__Ground__groundPort_om
 elmt:Conjugation__Ground__spacePort
     a sysml:PortUsage ;
     sysml:qualifiedName "Conjugation::Ground::spacePort" ;
+    sysx:sourceRange "7:9-7:45" ;
     sysml:elementId "Conjugation__Ground__spacePort" ;
     sysx:memberIndex "1"^^xsd:integer ;
     sysml:owningNamespace elmt:Conjugation__Ground ;
@@ -211,6 +218,7 @@ elmt:Conjugation__Ground__spacePort_om
 elmt:Conjugation__Link
     a sysml:InterfaceDefinition ;
     sysml:qualifiedName "Conjugation::Link" ;
+    sysx:sourceRange "9:5-12:6" ;
     sysml:elementId "Conjugation__Link" ;
     sysx:memberIndex "2"^^xsd:integer ;
     sysml:owningNamespace elmt:Conjugation ;
@@ -245,6 +253,7 @@ elmt:Conjugation__Link_om
 elmt:Conjugation__Link__a
     a sysml:PortUsage ;
     sysml:qualifiedName "Conjugation::Link::a" ;
+    sysx:sourceRange "10:9-10:40" ;
     sysml:elementId "Conjugation__Link__a" ;
     sysx:memberIndex "0"^^xsd:integer ;
     sysml:owningNamespace elmt:Conjugation__Link ;
@@ -275,6 +284,7 @@ elmt:Conjugation__Link__a_om
 elmt:Conjugation__Link__b
     a sysml:PortUsage ;
     sysml:qualifiedName "Conjugation::Link::b" ;
+    sysx:sourceRange "11:9-11:41" ;
     sysml:elementId "Conjugation__Link__b" ;
     sysx:memberIndex "1"^^xsd:integer ;
     sysml:owningNamespace elmt:Conjugation__Link ;

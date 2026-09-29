@@ -9,9 +9,11 @@
 elmt:ConditionReferences
     a sysml:Package ;
     sysml:qualifiedName "ConditionReferences" ;
+    sysx:sourceRange "1:1-30:2" ;
     sysml:elementId "ConditionReferences" ;
     sysx:memberIndex "0"^^xsd:integer ;
     sysx:sourceLanguage "sysml" ;
+    sysx:sourceDocument "testdata/convert/condition_references.sysml" ;
     sysml:declaredName "ConditionReferences" ;
     sysx:hasBody "true"^^xsd:boolean ;
     sysml:ownedRelationship elmt:ConditionReferences___400, elmt:ConditionReferences__Resistance_om, elmt:ConditionReferences__Rover_om ;
@@ -27,6 +29,7 @@ elmt:ConditionReferences
 elmt:ConditionReferences___400
     a sysml:NamespaceImport ;
     sysml:qualifiedName "ConditionReferences::@0" ;
+    sysx:sourceRange "2:5-2:36" ;
     sysml:elementId "ConditionReferences___400" ;
     sysx:memberIndex "0"^^xsd:integer ;
     sysml:owningNamespace elmt:ConditionReferences ;
@@ -41,6 +44,7 @@ elmt:ConditionReferences___400
 elmt:ConditionReferences__Resistance
     a sysml:RequirementDefinition ;
     sysml:qualifiedName "ConditionReferences::Resistance" ;
+    sysx:sourceRange "3:5-18:6" ;
     sysml:elementId "ConditionReferences__Resistance" ;
     sysx:memberIndex "1"^^xsd:integer ;
     sysml:owningNamespace elmt:ConditionReferences ;
@@ -75,6 +79,7 @@ elmt:ConditionReferences__Resistance_om
 elmt:ConditionReferences__Resistance__structuralIntegrityMaintained
     a sysml:AttributeUsage ;
     sysml:qualifiedName "ConditionReferences::Resistance::structuralIntegrityMaintained" ;
+    sysx:sourceRange "4:9-4:59" ;
     sysml:elementId "ConditionReferences__Resistance__structuralIntegrityMaintained" ;
     sysx:memberIndex "0"^^xsd:integer ;
     sysml:owningNamespace elmt:ConditionReferences__Resistance ;
@@ -104,6 +109,7 @@ elmt:ConditionReferences__Resistance__structuralIntegrityMaintained_om
 elmt:ConditionReferences__Resistance__a
     a sysml:AttributeUsage ;
     sysml:qualifiedName "ConditionReferences::Resistance::a" ;
+    sysx:sourceRange "5:9-5:31" ;
     sysml:elementId "ConditionReferences__Resistance__a" ;
     sysx:memberIndex "1"^^xsd:integer ;
     sysml:owningNamespace elmt:ConditionReferences__Resistance ;
@@ -133,6 +139,7 @@ elmt:ConditionReferences__Resistance__a_om
 elmt:ConditionReferences__Resistance__b
     a sysml:AttributeUsage ;
     sysml:qualifiedName "ConditionReferences::Resistance::b" ;
+    sysx:sourceRange "6:9-6:31" ;
     sysml:elementId "ConditionReferences__Resistance__b" ;
     sysx:memberIndex "2"^^xsd:integer ;
     sysml:owningNamespace elmt:ConditionReferences__Resistance ;
@@ -162,6 +169,7 @@ elmt:ConditionReferences__Resistance__b_om
 elmt:ConditionReferences__Resistance__x
     a sysml:AttributeUsage ;
     sysml:qualifiedName "ConditionReferences::Resistance::x" ;
+    sysx:sourceRange "7:9-7:31" ;
     sysml:elementId "ConditionReferences__Resistance__x" ;
     sysx:memberIndex "3"^^xsd:integer ;
     sysml:owningNamespace elmt:ConditionReferences__Resistance ;
@@ -191,6 +199,7 @@ elmt:ConditionReferences__Resistance__x_om
 elmt:ConditionReferences__Resistance___404
     a sysml:ConstraintUsage ;
     sysml:qualifiedName "ConditionReferences::Resistance::@4" ;
+    sysx:sourceRange "8:9-8:61" ;
     sysml:elementId "ConditionReferences__Resistance___404" ;
     sysx:memberIndex "4"^^xsd:integer ;
     sysml:owningNamespace elmt:ConditionReferences__Resistance ;
@@ -223,6 +232,7 @@ elmt:ConditionReferences__Resistance___404_om
 elmt:ConditionReferences__Resistance___404___400
     a sysml:FeatureReferenceExpression ;
     sysml:qualifiedName "ConditionReferences::Resistance::@4::@0" ;
+    sysx:sourceRange "8:30-8:59" ;
     sysml:elementId "ConditionReferences__Resistance___404___400" ;
     sysx:memberIndex "0"^^xsd:integer ;
     sysml:owningNamespace elmt:ConditionReferences__Resistance___404 ;
@@ -274,6 +284,7 @@ expr:ConditionReferences__Resistance___404___400_pout_om
 elmt:ConditionReferences__Resistance___405
     a sysml:ConstraintUsage ;
     sysml:qualifiedName "ConditionReferences::Resistance::@5" ;
+    sysx:sourceRange "9:9-9:37" ;
     sysml:elementId "ConditionReferences__Resistance___405" ;
     sysx:memberIndex "5"^^xsd:integer ;
     sysml:owningNamespace elmt:ConditionReferences__Resistance ;
@@ -306,6 +317,7 @@ elmt:ConditionReferences__Resistance___405_om
 elmt:ConditionReferences__Resistance___405___400
     a sysml:OperatorExpression ;
     sysml:qualifiedName "ConditionReferences::Resistance::@5::@0" ;
+    sysx:sourceRange "9:30-9:35" ;
     sysml:elementId "ConditionReferences__Resistance___405___400" ;
     sysx:memberIndex "0"^^xsd:integer ;
     sysml:owningNamespace elmt:ConditionReferences__Resistance___405 ;
@@ -433,6 +445,7 @@ expr:ConditionReferences__Resistance___405___400_pout_om
 elmt:ConditionReferences__Resistance___406
     a sysml:ConstraintUsage ;
     sysml:qualifiedName "ConditionReferences::Resistance::@6" ;
+    sysx:sourceRange "10:9-10:32" ;
     sysml:elementId "ConditionReferences__Resistance___406" ;
     sysx:memberIndex "6"^^xsd:integer ;
     sysml:owningNamespace elmt:ConditionReferences__Resistance ;
@@ -465,6 +478,7 @@ elmt:ConditionReferences__Resistance___406_om
 elmt:ConditionReferences__Resistance___406___400
     a sysml:FeatureReferenceExpression ;
     sysml:qualifiedName "ConditionReferences::Resistance::@6::@0" ;
+    sysx:sourceRange "10:29-10:30" ;
     sysml:elementId "ConditionReferences__Resistance___406___400" ;
     sysx:memberIndex "0"^^xsd:integer ;
     sysml:owningNamespace elmt:ConditionReferences__Resistance___406 ;
@@ -516,6 +530,7 @@ expr:ConditionReferences__Resistance___406___400_pout_om
 elmt:ConditionReferences__Resistance___407
     a sysml:ConstraintUsage ;
     sysml:qualifiedName "ConditionReferences::Resistance::@7" ;
+    sysx:sourceRange "11:9-11:46" ;
     sysml:elementId "ConditionReferences__Resistance___407" ;
     sysx:memberIndex "7"^^xsd:integer ;
     sysml:owningNamespace elmt:ConditionReferences__Resistance ;
@@ -549,6 +564,7 @@ elmt:ConditionReferences__Resistance___407_om
 elmt:ConditionReferences__Resistance___407___400
     a sysml:FeatureReferenceExpression ;
     sysml:qualifiedName "ConditionReferences::Resistance::@7::@0" ;
+    sysx:sourceRange "11:43-11:44" ;
     sysml:elementId "ConditionReferences__Resistance___407___400" ;
     sysx:memberIndex "0"^^xsd:integer ;
     sysml:owningNamespace elmt:ConditionReferences__Resistance___407 ;
@@ -600,6 +616,7 @@ expr:ConditionReferences__Resistance___407___400_pout_om
 elmt:ConditionReferences__Resistance__named
     a sysml:ConstraintUsage ;
     sysml:qualifiedName "ConditionReferences::Resistance::named" ;
+    sysx:sourceRange "12:9-12:58" ;
     sysml:elementId "ConditionReferences__Resistance__named" ;
     sysx:memberIndex "8"^^xsd:integer ;
     sysml:owningNamespace elmt:ConditionReferences__Resistance ;
@@ -634,6 +651,7 @@ elmt:ConditionReferences__Resistance__named_om
 elmt:ConditionReferences__Resistance__named___400
     a sysml:OperatorExpression ;
     sysml:qualifiedName "ConditionReferences::Resistance::named::@0" ;
+    sysx:sourceRange "12:49-12:56" ;
     sysml:elementId "ConditionReferences__Resistance__named___400" ;
     sysx:memberIndex "0"^^xsd:integer ;
     sysml:owningNamespace elmt:ConditionReferences__Resistance__named ;
@@ -833,6 +851,7 @@ expr:ConditionReferences__Resistance__named___400_pout_om
 elmt:ConditionReferences__Resistance___409
     a sysml:ConstraintUsage ;
     sysml:qualifiedName "ConditionReferences::Resistance::@9" ;
+    sysx:sourceRange "13:9-13:31" ;
     sysml:elementId "ConditionReferences__Resistance___409" ;
     sysx:memberIndex "9"^^xsd:integer ;
     sysml:owningNamespace elmt:ConditionReferences__Resistance ;
@@ -862,6 +881,7 @@ elmt:ConditionReferences__Resistance___409_om
 elmt:ConditionReferences__Resistance___409___400
     a sysml:OperatorExpression ;
     sysml:qualifiedName "ConditionReferences::Resistance::@9::@0" ;
+    sysx:sourceRange "13:22-13:29" ;
     sysml:elementId "ConditionReferences__Resistance___409___400" ;
     sysx:memberIndex "0"^^xsd:integer ;
     sysml:owningNamespace elmt:ConditionReferences__Resistance___409 ;
@@ -1061,6 +1081,7 @@ expr:ConditionReferences__Resistance___409___400_pout_om
 elmt:ConditionReferences__Resistance__c1
     a sysml:ConstraintUsage ;
     sysml:qualifiedName "ConditionReferences::Resistance::c1" ;
+    sysx:sourceRange "14:9-14:28" ;
     sysml:elementId "ConditionReferences__Resistance__c1" ;
     sysx:memberIndex "10"^^xsd:integer ;
     sysml:owningNamespace elmt:ConditionReferences__Resistance ;
@@ -1091,6 +1112,7 @@ elmt:ConditionReferences__Resistance__c1_om
 elmt:ConditionReferences__Resistance__c1___400
     a sysml:FeatureReferenceExpression ;
     sysml:qualifiedName "ConditionReferences::Resistance::c1::@0" ;
+    sysx:sourceRange "14:25-14:26" ;
     sysml:elementId "ConditionReferences__Resistance__c1___400" ;
     sysx:memberIndex "0"^^xsd:integer ;
     sysml:owningNamespace elmt:ConditionReferences__Resistance__c1 ;
@@ -1142,6 +1164,7 @@ expr:ConditionReferences__Resistance__c1___400_pout_om
 elmt:ConditionReferences__Resistance___4011
     a sysml:AssertConstraintUsage ;
     sysml:qualifiedName "ConditionReferences::Resistance::@11" ;
+    sysx:sourceRange "15:9-15:32" ;
     sysml:elementId "ConditionReferences__Resistance___4011" ;
     sysx:memberIndex "11"^^xsd:integer ;
     sysml:owningNamespace elmt:ConditionReferences__Resistance ;
@@ -1171,6 +1194,7 @@ elmt:ConditionReferences__Resistance___4011_om
 elmt:ConditionReferences__Resistance___4011___400
     a sysml:FeatureReferenceExpression ;
     sysml:qualifiedName "ConditionReferences::Resistance::@11::@0" ;
+    sysx:sourceRange "15:29-15:30" ;
     sysml:elementId "ConditionReferences__Resistance___4011___400" ;
     sysx:memberIndex "0"^^xsd:integer ;
     sysml:owningNamespace elmt:ConditionReferences__Resistance___4011 ;
@@ -1222,6 +1246,7 @@ expr:ConditionReferences__Resistance___4011___400_pout_om
 elmt:ConditionReferences__Resistance___4012
     a sysml:AssertConstraintUsage ;
     sysml:qualifiedName "ConditionReferences::Resistance::@12" ;
+    sysx:sourceRange "16:9-16:36" ;
     sysml:elementId "ConditionReferences__Resistance___4012" ;
     sysx:memberIndex "12"^^xsd:integer ;
     sysml:owningNamespace elmt:ConditionReferences__Resistance ;
@@ -1251,6 +1276,7 @@ elmt:ConditionReferences__Resistance___4012_om
 elmt:ConditionReferences__Resistance___4012___400
     a sysml:OperatorExpression ;
     sysml:qualifiedName "ConditionReferences::Resistance::@12::@0" ;
+    sysx:sourceRange "16:29-16:34" ;
     sysml:elementId "ConditionReferences__Resistance___4012___400" ;
     sysx:memberIndex "0"^^xsd:integer ;
     sysml:owningNamespace elmt:ConditionReferences__Resistance___4012 ;
@@ -1378,6 +1404,7 @@ expr:ConditionReferences__Resistance___4012___400_pout_om
 elmt:ConditionReferences__Resistance___4013
     a sysml:AssertConstraintUsage ;
     sysml:qualifiedName "ConditionReferences::Resistance::@13" ;
+    sysx:sourceRange "17:9-17:36" ;
     sysml:elementId "ConditionReferences__Resistance___4013" ;
     sysx:memberIndex "13"^^xsd:integer ;
     sysml:owningNamespace elmt:ConditionReferences__Resistance ;
@@ -1408,6 +1435,7 @@ elmt:ConditionReferences__Resistance___4013_om
 elmt:ConditionReferences__Resistance___4013___400
     a sysml:FeatureReferenceExpression ;
     sysml:qualifiedName "ConditionReferences::Resistance::@13::@0" ;
+    sysx:sourceRange "17:33-17:34" ;
     sysml:elementId "ConditionReferences__Resistance___4013___400" ;
     sysx:memberIndex "0"^^xsd:integer ;
     sysml:owningNamespace elmt:ConditionReferences__Resistance___4013 ;
@@ -1459,6 +1487,7 @@ expr:ConditionReferences__Resistance___4013___400_pout_om
 elmt:ConditionReferences__Rover
     a sysml:PartDefinition ;
     sysml:qualifiedName "ConditionReferences::Rover" ;
+    sysx:sourceRange "19:5-29:6" ;
     sysml:elementId "ConditionReferences__Rover" ;
     sysx:memberIndex "2"^^xsd:integer ;
     sysml:owningNamespace elmt:ConditionReferences ;
@@ -1493,6 +1522,7 @@ elmt:ConditionReferences__Rover_om
 elmt:ConditionReferences__Rover__ok
     a sysml:AttributeUsage ;
     sysml:qualifiedName "ConditionReferences::Rover::ok" ;
+    sysx:sourceRange "20:9-20:32" ;
     sysml:elementId "ConditionReferences__Rover__ok" ;
     sysx:memberIndex "0"^^xsd:integer ;
     sysml:owningNamespace elmt:ConditionReferences__Rover ;
@@ -1522,6 +1552,7 @@ elmt:ConditionReferences__Rover__ok_om
 elmt:ConditionReferences__Rover__n
     a sysml:AttributeUsage ;
     sysml:qualifiedName "ConditionReferences::Rover::n" ;
+    sysx:sourceRange "21:9-21:28" ;
     sysml:elementId "ConditionReferences__Rover__n" ;
     sysx:memberIndex "1"^^xsd:integer ;
     sysml:owningNamespace elmt:ConditionReferences__Rover ;
@@ -1551,6 +1582,7 @@ elmt:ConditionReferences__Rover__n_om
 elmt:ConditionReferences__Rover___402
     a sysml:AssertConstraintUsage ;
     sysml:qualifiedName "ConditionReferences::Rover::@2" ;
+    sysx:sourceRange "22:9-22:33" ;
     sysml:elementId "ConditionReferences__Rover___402" ;
     sysx:memberIndex "2"^^xsd:integer ;
     sysml:owningNamespace elmt:ConditionReferences__Rover ;
@@ -1580,6 +1612,7 @@ elmt:ConditionReferences__Rover___402_om
 elmt:ConditionReferences__Rover___402___400
     a sysml:FeatureReferenceExpression ;
     sysml:qualifiedName "ConditionReferences::Rover::@2::@0" ;
+    sysx:sourceRange "22:29-22:31" ;
     sysml:elementId "ConditionReferences__Rover___402___400" ;
     sysx:memberIndex "0"^^xsd:integer ;
     sysml:owningNamespace elmt:ConditionReferences__Rover___402 ;
@@ -1631,6 +1664,7 @@ expr:ConditionReferences__Rover___402___400_pout_om
 elmt:ConditionReferences__Rover___403
     a sysml:AssertConstraintUsage ;
     sysml:qualifiedName "ConditionReferences::Rover::@3" ;
+    sysx:sourceRange "23:9-26:10" ;
     sysml:elementId "ConditionReferences__Rover___403" ;
     sysx:memberIndex "3"^^xsd:integer ;
     sysml:owningNamespace elmt:ConditionReferences__Rover ;
@@ -1666,6 +1700,7 @@ elmt:ConditionReferences__Rover___403_om
 elmt:ConditionReferences__Rover___403___400
     a sysml:OperatorExpression ;
     sysml:qualifiedName "ConditionReferences::Rover::@3::@0" ;
+    sysx:sourceRange "24:13-24:18" ;
     sysml:elementId "ConditionReferences__Rover___403___400" ;
     sysx:memberIndex "0"^^xsd:integer ;
     sysml:owningNamespace elmt:ConditionReferences__Rover___403 ;
@@ -1838,6 +1873,7 @@ expr:ConditionReferences__Rover___403___400_pout_om
 elmt:ConditionReferences__Rover___403___401
     a sysml:FeatureReferenceExpression ;
     sysml:qualifiedName "ConditionReferences::Rover::@3::@1" ;
+    sysx:sourceRange "25:13-25:15" ;
     sysml:elementId "ConditionReferences__Rover___403___401" ;
     sysx:memberIndex "1"^^xsd:integer ;
     sysml:owningNamespace elmt:ConditionReferences__Rover___403 ;
@@ -1890,6 +1926,7 @@ expr:ConditionReferences__Rover___403___401_pout_om
 elmt:ConditionReferences__Rover___404
     a sysml:ConstraintUsage ;
     sysml:qualifiedName "ConditionReferences::Rover::@4" ;
+    sysx:sourceRange "27:9-27:26" ;
     sysml:elementId "ConditionReferences__Rover___404" ;
     sysx:memberIndex "4"^^xsd:integer ;
     sysml:owningNamespace elmt:ConditionReferences__Rover ;
@@ -1919,6 +1956,7 @@ elmt:ConditionReferences__Rover___404_om
 elmt:ConditionReferences__Rover___404___400
     a sysml:FeatureReferenceExpression ;
     sysml:qualifiedName "ConditionReferences::Rover::@4::@0" ;
+    sysx:sourceRange "27:22-27:24" ;
     sysml:elementId "ConditionReferences__Rover___404___400" ;
     sysx:memberIndex "0"^^xsd:integer ;
     sysml:owningNamespace elmt:ConditionReferences__Rover___404 ;
@@ -1970,6 +2008,7 @@ expr:ConditionReferences__Rover___404___400_pout_om
 elmt:ConditionReferences__Rover__inv1
     a sysml:ConstraintUsage ;
     sysml:qualifiedName "ConditionReferences::Rover::inv1" ;
+    sysx:sourceRange "28:9-28:35" ;
     sysml:elementId "ConditionReferences__Rover__inv1" ;
     sysx:memberIndex "5"^^xsd:integer ;
     sysml:owningNamespace elmt:ConditionReferences__Rover ;
@@ -2000,6 +2039,7 @@ elmt:ConditionReferences__Rover__inv1_om
 elmt:ConditionReferences__Rover__inv1___400
     a sysml:OperatorExpression ;
     sysml:qualifiedName "ConditionReferences::Rover::inv1::@0" ;
+    sysx:sourceRange "28:27-28:33" ;
     sysml:elementId "ConditionReferences__Rover__inv1___400" ;
     sysx:memberIndex "0"^^xsd:integer ;
     sysml:owningNamespace elmt:ConditionReferences__Rover__inv1 ;

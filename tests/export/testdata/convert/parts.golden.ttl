@@ -9,9 +9,11 @@
 elmt:Vehicles
     a sysml:Package ;
     sysml:qualifiedName "Vehicles" ;
+    sysx:sourceRange "1:1-7:2" ;
     sysml:elementId "Vehicles" ;
     sysx:memberIndex "0"^^xsd:integer ;
     sysx:sourceLanguage "sysml" ;
+    sysx:sourceDocument "testdata/convert/parts.sysml" ;
     sysml:declaredName "Vehicles" ;
     sysx:hasBody "true"^^xsd:boolean ;
     sysml:ownedMember elmt:Vehicles__Vehicle, elmt:Vehicles__Engine ;
@@ -26,6 +28,7 @@ elmt:Vehicles
 elmt:Vehicles__Vehicle
     a sysml:PartDefinition ;
     sysml:qualifiedName "Vehicles::Vehicle" ;
+    sysx:sourceRange "2:5-5:6" ;
     sysml:elementId "Vehicles__Vehicle" ;
     sysx:memberIndex "0"^^xsd:integer ;
     sysml:owningNamespace elmt:Vehicles ;
@@ -60,6 +63,7 @@ elmt:Vehicles__Vehicle_om
 elmt:Vehicles__Vehicle__mass
     a sysml:AttributeUsage ;
     sysml:qualifiedName "Vehicles::Vehicle::mass" ;
+    sysx:sourceRange "3:9-3:41" ;
     sysml:elementId "Vehicles__Vehicle__mass" ;
     sysx:memberIndex "0"^^xsd:integer ;
     sysml:owningNamespace elmt:Vehicles__Vehicle ;
@@ -89,6 +93,7 @@ elmt:Vehicles__Vehicle__mass_om
 elmt:Vehicles__Vehicle__engine
     a sysml:PartUsage ;
     sysml:qualifiedName "Vehicles::Vehicle::engine" ;
+    sysx:sourceRange "4:9-4:33" ;
     sysml:elementId "Vehicles__Vehicle__engine" ;
     sysx:memberIndex "1"^^xsd:integer ;
     sysml:owningNamespace elmt:Vehicles__Vehicle ;
@@ -161,6 +166,7 @@ expr:Vehicles__Vehicle__engine_pupperBound_om
 elmt:Vehicles__Engine
     a sysml:PartDefinition ;
     sysml:qualifiedName "Vehicles::Engine" ;
+    sysx:sourceRange "6:5-6:21" ;
     sysml:elementId "Vehicles__Engine" ;
     sysx:memberIndex "1"^^xsd:integer ;
     sysml:owningNamespace elmt:Vehicles ;

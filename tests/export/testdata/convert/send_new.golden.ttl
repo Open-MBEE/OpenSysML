@@ -9,9 +9,11 @@
 elmt:SendNew
     a sysml:Package ;
     sysml:qualifiedName "SendNew" ;
+    sysx:sourceRange "1:1-14:2" ;
     sysml:elementId "SendNew" ;
     sysx:memberIndex "0"^^xsd:integer ;
     sysx:sourceLanguage "sysml" ;
+    sysx:sourceDocument "testdata/convert/send_new.sysml" ;
     sysml:declaredName "SendNew" ;
     sysx:hasBody "true"^^xsd:boolean ;
     sysml:ownedMember elmt:SendNew__Telemetry, elmt:SendNew__Command, elmt:SendNew__Radio, elmt:SendNew__Station, elmt:SendNew__Downlink ;
@@ -26,6 +28,7 @@ elmt:SendNew
 elmt:SendNew__Telemetry
     a sysml:ItemDefinition ;
     sysml:qualifiedName "SendNew::Telemetry" ;
+    sysx:sourceRange "2:5-4:6" ;
     sysml:elementId "SendNew__Telemetry" ;
     sysx:memberIndex "0"^^xsd:integer ;
     sysml:owningNamespace elmt:SendNew ;
@@ -55,6 +58,7 @@ elmt:SendNew__Telemetry_om
 elmt:SendNew__Telemetry__frames
     a sysml:AttributeUsage ;
     sysml:qualifiedName "SendNew::Telemetry::frames" ;
+    sysx:sourceRange "3:9-3:26" ;
     sysml:elementId "SendNew__Telemetry__frames" ;
     sysx:memberIndex "0"^^xsd:integer ;
     sysml:owningNamespace elmt:SendNew__Telemetry ;
@@ -80,6 +84,7 @@ elmt:SendNew__Telemetry__frames_om
 elmt:SendNew__Command
     a sysml:ItemDefinition ;
     sysml:qualifiedName "SendNew::Command" ;
+    sysx:sourceRange "5:5-5:22" ;
     sysml:elementId "SendNew__Command" ;
     sysx:memberIndex "1"^^xsd:integer ;
     sysml:owningNamespace elmt:SendNew ;
@@ -103,6 +108,7 @@ elmt:SendNew__Command_om
 elmt:SendNew__Radio
     a sysml:PortDefinition ;
     sysml:qualifiedName "SendNew::Radio" ;
+    sysx:sourceRange "6:5-6:20" ;
     sysml:elementId "SendNew__Radio" ;
     sysx:memberIndex "2"^^xsd:integer ;
     sysml:owningNamespace elmt:SendNew ;
@@ -164,6 +170,7 @@ elmt:SendNew__Radio_conjugated_pc
 elmt:SendNew__Station
     a sysml:PartDefinition ;
     sysml:qualifiedName "SendNew::Station" ;
+    sysx:sourceRange "7:5-7:22" ;
     sysml:elementId "SendNew__Station" ;
     sysx:memberIndex "3"^^xsd:integer ;
     sysml:owningNamespace elmt:SendNew ;
@@ -187,6 +194,7 @@ elmt:SendNew__Station_om
 elmt:SendNew__Downlink
     a sysml:ActionDefinition ;
     sysml:qualifiedName "SendNew::Downlink" ;
+    sysx:sourceRange "8:5-13:6" ;
     sysml:elementId "SendNew__Downlink" ;
     sysx:memberIndex "4"^^xsd:integer ;
     sysml:owningNamespace elmt:SendNew ;
@@ -221,6 +229,7 @@ elmt:SendNew__Downlink_om
 elmt:SendNew__Downlink__antenna
     a sysml:PortUsage ;
     sysml:qualifiedName "SendNew::Downlink::antenna" ;
+    sysx:sourceRange "9:9-9:30" ;
     sysml:elementId "SendNew__Downlink__antenna" ;
     sysx:memberIndex "0"^^xsd:integer ;
     sysml:owningNamespace elmt:SendNew__Downlink ;
@@ -250,6 +259,7 @@ elmt:SendNew__Downlink__antenna_om
 elmt:SendNew__Downlink__ground
     a sysml:PartUsage ;
     sysml:qualifiedName "SendNew::Downlink::ground" ;
+    sysx:sourceRange "10:9-10:31" ;
     sysml:elementId "SendNew__Downlink__ground" ;
     sysx:memberIndex "1"^^xsd:integer ;
     sysml:owningNamespace elmt:SendNew__Downlink ;
@@ -279,6 +289,7 @@ elmt:SendNew__Downlink__ground_om
 elmt:SendNew__Downlink___402
     a sysml:SendActionUsage ;
     sysml:qualifiedName "SendNew::Downlink::@2" ;
+    sysx:sourceRange "11:9-11:52" ;
     sysml:elementId "SendNew__Downlink___402" ;
     sysx:memberIndex "2"^^xsd:integer ;
     sysml:owningNamespace elmt:SendNew__Downlink ;
@@ -458,6 +469,7 @@ expr:SendNew__Downlink___402_preceiver_om
 elmt:SendNew__Downlink___403
     a sysml:SendActionUsage ;
     sysml:qualifiedName "SendNew::Downlink::@3" ;
+    sysx:sourceRange "12:9-12:39" ;
     sysml:elementId "SendNew__Downlink___403" ;
     sysx:memberIndex "3"^^xsd:integer ;
     sysml:owningNamespace elmt:SendNew__Downlink ;

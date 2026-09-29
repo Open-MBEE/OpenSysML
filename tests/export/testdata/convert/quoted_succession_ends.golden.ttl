@@ -9,9 +9,11 @@
 elmt:QuotedSuccessionEnds
     a sysml:Package ;
     sysml:qualifiedName "QuotedSuccessionEnds" ;
+    sysx:sourceRange "1:1-18:2" ;
     sysml:elementId "QuotedSuccessionEnds" ;
     sysx:memberIndex "0"^^xsd:integer ;
     sysx:sourceLanguage "sysml" ;
+    sysx:sourceDocument "testdata/convert/quoted_succession_ends.sysml" ;
     sysml:declaredName "QuotedSuccessionEnds" ;
     sysx:hasBody "true"^^xsd:boolean ;
     sysml:ownedMember elmt:QuotedSuccessionEnds__provide_20power, elmt:QuotedSuccessionEnds__drive ;
@@ -26,6 +28,7 @@ elmt:QuotedSuccessionEnds
 elmt:QuotedSuccessionEnds__provide_20power
     a sysml:ActionDefinition ;
     sysml:qualifiedName "QuotedSuccessionEnds::provide power" ;
+    sysx:sourceRange "2:5-10:6" ;
     sysml:elementId "QuotedSuccessionEnds__provide_20power" ;
     sysx:memberIndex "0"^^xsd:integer ;
     sysml:owningNamespace elmt:QuotedSuccessionEnds ;
@@ -60,6 +63,7 @@ elmt:QuotedSuccessionEnds__provide_20power_om
 elmt:QuotedSuccessionEnds__provide_20power__engineStarted
     a sysml:ActionUsage ;
     sysml:qualifiedName "QuotedSuccessionEnds::provide power::engineStarted" ;
+    sysx:sourceRange "3:9-3:30" ;
     sysml:elementId "QuotedSuccessionEnds__provide_20power__engineStarted" ;
     sysx:memberIndex "0"^^xsd:integer ;
     sysml:owningNamespace elmt:QuotedSuccessionEnds__provide_20power ;
@@ -85,6 +89,7 @@ elmt:QuotedSuccessionEnds__provide_20power__engineStarted_om
 elmt:QuotedSuccessionEnds__provide_20power__generate_20torque
     a sysml:ActionUsage ;
     sysml:qualifiedName "QuotedSuccessionEnds::provide power::generate torque" ;
+    sysx:sourceRange "4:9-4:34" ;
     sysml:elementId "QuotedSuccessionEnds__provide_20power__generate_20torque" ;
     sysx:memberIndex "1"^^xsd:integer ;
     sysml:owningNamespace elmt:QuotedSuccessionEnds__provide_20power ;
@@ -110,6 +115,7 @@ elmt:QuotedSuccessionEnds__provide_20power__generate_20torque_om
 elmt:QuotedSuccessionEnds__provide_20power__amplify_20torque
     a sysml:ActionUsage ;
     sysml:qualifiedName "QuotedSuccessionEnds::provide power::amplify torque" ;
+    sysx:sourceRange "5:9-5:33" ;
     sysml:elementId "QuotedSuccessionEnds__provide_20power__amplify_20torque" ;
     sysx:memberIndex "2"^^xsd:integer ;
     sysml:owningNamespace elmt:QuotedSuccessionEnds__provide_20power ;
@@ -135,6 +141,7 @@ elmt:QuotedSuccessionEnds__provide_20power__amplify_20torque_om
 elmt:QuotedSuccessionEnds__provide_20power___403
     a sysml:SuccessionAsUsage ;
     sysml:qualifiedName "QuotedSuccessionEnds::provide power::@3" ;
+    sysx:sourceRange "6:9-6:40" ;
     sysml:elementId "QuotedSuccessionEnds__provide_20power___403" ;
     sysx:memberIndex "3"^^xsd:integer ;
     sysml:owningNamespace elmt:QuotedSuccessionEnds__provide_20power ;
@@ -161,6 +168,7 @@ elmt:QuotedSuccessionEnds__provide_20power___403_om
 elmt:QuotedSuccessionEnds__provide_20power___404
     a sysml:SuccessionAsUsage ;
     sysml:qualifiedName "QuotedSuccessionEnds::provide power::@4" ;
+    sysx:sourceRange "7:9-7:52" ;
     sysml:elementId "QuotedSuccessionEnds__provide_20power___404" ;
     sysx:memberIndex "4"^^xsd:integer ;
     sysml:owningNamespace elmt:QuotedSuccessionEnds__provide_20power ;
@@ -187,6 +195,7 @@ elmt:QuotedSuccessionEnds__provide_20power___404_om
 elmt:QuotedSuccessionEnds__provide_20power___405
     a sysml:SuccessionAsUsage ;
     sysml:qualifiedName "QuotedSuccessionEnds::provide power::@5" ;
+    sysx:sourceRange "8:9-8:55" ;
     sysml:elementId "QuotedSuccessionEnds__provide_20power___405" ;
     sysx:memberIndex "5"^^xsd:integer ;
     sysml:owningNamespace elmt:QuotedSuccessionEnds__provide_20power ;
@@ -213,6 +222,7 @@ elmt:QuotedSuccessionEnds__provide_20power___405_om
 elmt:QuotedSuccessionEnds__provide_20power__s
     a sysml:SuccessionAsUsage ;
     sysml:qualifiedName "QuotedSuccessionEnds::provide power::s" ;
+    sysx:sourceRange "9:9-9:55" ;
     sysml:elementId "QuotedSuccessionEnds__provide_20power__s" ;
     sysx:memberIndex "6"^^xsd:integer ;
     sysml:owningNamespace elmt:QuotedSuccessionEnds__provide_20power ;
@@ -338,6 +348,7 @@ expr:QuotedSuccessionEnds__provide_20power__s_pend1_prs
 elmt:QuotedSuccessionEnds__drive
     a sysml:ActionDefinition ;
     sysml:qualifiedName "QuotedSuccessionEnds::drive" ;
+    sysx:sourceRange "11:5-17:6" ;
     sysml:elementId "QuotedSuccessionEnds__drive" ;
     sysx:memberIndex "1"^^xsd:integer ;
     sysml:owningNamespace elmt:QuotedSuccessionEnds ;
@@ -372,6 +383,7 @@ elmt:QuotedSuccessionEnds__drive_om
 elmt:QuotedSuccessionEnds__drive__enter_20vehicle
     a sysml:ActionUsage ;
     sysml:qualifiedName "QuotedSuccessionEnds::drive::enter vehicle" ;
+    sysx:sourceRange "12:9-12:32" ;
     sysml:elementId "QuotedSuccessionEnds__drive__enter_20vehicle" ;
     sysx:memberIndex "0"^^xsd:integer ;
     sysml:owningNamespace elmt:QuotedSuccessionEnds__drive ;
@@ -397,6 +409,7 @@ elmt:QuotedSuccessionEnds__drive__enter_20vehicle_om
 elmt:QuotedSuccessionEnds__drive___401
     a sysml:SuccessionAsUsage ;
     sysml:qualifiedName "QuotedSuccessionEnds::drive::@1" ;
+    sysx:sourceRange "13:9-13:29" ;
     sysml:elementId "QuotedSuccessionEnds__drive___401" ;
     sysx:memberIndex "1"^^xsd:integer ;
     sysml:owningNamespace elmt:QuotedSuccessionEnds__drive ;
@@ -494,6 +507,7 @@ expr:QuotedSuccessionEnds__drive___401_pend1_prs
 elmt:QuotedSuccessionEnds__drive__start_20engine
     a sysml:ActionUsage ;
     sysml:qualifiedName "QuotedSuccessionEnds::drive::start engine" ;
+    sysx:sourceRange "14:9-14:31" ;
     sysml:elementId "QuotedSuccessionEnds__drive__start_20engine" ;
     sysx:memberIndex "2"^^xsd:integer ;
     sysml:owningNamespace elmt:QuotedSuccessionEnds__drive ;
@@ -519,6 +533,7 @@ elmt:QuotedSuccessionEnds__drive__start_20engine_om
 elmt:QuotedSuccessionEnds__drive___403
     a sysml:SuccessionAsUsage ;
     sysml:qualifiedName "QuotedSuccessionEnds::drive::@3" ;
+    sysx:sourceRange "15:9-15:62" ;
     sysml:elementId "QuotedSuccessionEnds__drive___403" ;
     sysx:memberIndex "3"^^xsd:integer ;
     sysml:owningNamespace elmt:QuotedSuccessionEnds__drive ;
@@ -643,6 +658,7 @@ expr:QuotedSuccessionEnds__drive___403_pend1_prs
 elmt:QuotedSuccessionEnds__drive__drive_20vehicle
     a sysml:ActionUsage ;
     sysml:qualifiedName "QuotedSuccessionEnds::drive::drive vehicle" ;
+    sysx:sourceRange "16:9-16:32" ;
     sysml:elementId "QuotedSuccessionEnds__drive__drive_20vehicle" ;
     sysx:memberIndex "4"^^xsd:integer ;
     sysml:owningNamespace elmt:QuotedSuccessionEnds__drive ;

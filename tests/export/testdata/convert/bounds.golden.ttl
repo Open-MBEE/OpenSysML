@@ -9,9 +9,11 @@
 elmt:Bounds
     a sysml:Package ;
     sysml:qualifiedName "Bounds" ;
+    sysx:sourceRange "1:1-12:2" ;
     sysml:elementId "Bounds" ;
     sysx:memberIndex "0"^^xsd:integer ;
     sysx:sourceLanguage "sysml" ;
+    sysx:sourceDocument "testdata/convert/bounds.sysml" ;
     sysml:declaredName "Bounds" ;
     sysx:hasBody "true"^^xsd:boolean ;
     sysml:ownedMember elmt:Bounds__Vehicle, elmt:Bounds__Fleet ;
@@ -26,6 +28,7 @@ elmt:Bounds
 elmt:Bounds__Vehicle
     a sysml:PartDefinition ;
     sysml:qualifiedName "Bounds::Vehicle" ;
+    sysx:sourceRange "2:5-2:22" ;
     sysml:elementId "Bounds__Vehicle" ;
     sysx:memberIndex "0"^^xsd:integer ;
     sysml:owningNamespace elmt:Bounds ;
@@ -49,6 +52,7 @@ elmt:Bounds__Vehicle_om
 elmt:Bounds__Fleet
     a sysml:PartDefinition ;
     sysml:qualifiedName "Bounds::Fleet" ;
+    sysx:sourceRange "3:5-11:6" ;
     sysml:elementId "Bounds__Fleet" ;
     sysx:memberIndex "1"^^xsd:integer ;
     sysml:owningNamespace elmt:Bounds ;
@@ -83,6 +87,7 @@ elmt:Bounds__Fleet_om
 elmt:Bounds__Fleet__exact
     a sysml:PartUsage ;
     sysml:qualifiedName "Bounds::Fleet::exact" ;
+    sysx:sourceRange "4:9-4:33" ;
     sysml:elementId "Bounds__Fleet__exact" ;
     sysx:memberIndex "0"^^xsd:integer ;
     sysml:owningNamespace elmt:Bounds__Fleet ;
@@ -155,6 +160,7 @@ expr:Bounds__Fleet__exact_pupperBound_om
 elmt:Bounds__Fleet__range
     a sysml:PartUsage ;
     sysml:qualifiedName "Bounds::Fleet::range" ;
+    sysx:sourceRange "5:9-5:36" ;
     sysml:elementId "Bounds__Fleet__range" ;
     sysx:memberIndex "1"^^xsd:integer ;
     sysml:owningNamespace elmt:Bounds__Fleet ;
@@ -250,6 +256,7 @@ expr:Bounds__Fleet__range_pupperBound_om
 elmt:Bounds__Fleet__many
     a sysml:PartUsage ;
     sysml:qualifiedName "Bounds::Fleet::many" ;
+    sysx:sourceRange "6:9-6:35" ;
     sysml:elementId "Bounds__Fleet__many" ;
     sysx:memberIndex "2"^^xsd:integer ;
     sysml:owningNamespace elmt:Bounds__Fleet ;
@@ -344,6 +351,7 @@ expr:Bounds__Fleet__many_pupperBound_om
 elmt:Bounds__Fleet__loose
     a sysml:PartUsage ;
     sysml:qualifiedName "Bounds::Fleet::loose" ;
+    sysx:sourceRange "7:9-7:51" ;
     sysml:elementId "Bounds__Fleet__loose" ;
     sysx:memberIndex "3"^^xsd:integer ;
     sysml:owningNamespace elmt:Bounds__Fleet ;
@@ -417,6 +425,7 @@ expr:Bounds__Fleet__loose_pupperBound_om
 elmt:Bounds__Fleet__shared
     a sysml:PartUsage ;
     sysml:qualifiedName "Bounds::Fleet::shared" ;
+    sysx:sourceRange "8:9-8:35" ;
     sysml:elementId "Bounds__Fleet__shared" ;
     sysx:memberIndex "4"^^xsd:integer ;
     sysml:owningNamespace elmt:Bounds__Fleet ;
@@ -447,6 +456,7 @@ elmt:Bounds__Fleet__shared_om
 elmt:Bounds__Fleet__owned
     a sysml:PartUsage ;
     sysml:qualifiedName "Bounds::Fleet::owned" ;
+    sysx:sourceRange "9:9-9:40" ;
     sysml:elementId "Bounds__Fleet__owned" ;
     sysx:memberIndex "5"^^xsd:integer ;
     sysml:owningNamespace elmt:Bounds__Fleet ;
@@ -477,6 +487,7 @@ elmt:Bounds__Fleet__owned_om
 elmt:Bounds__Fleet__count
     a sysml:AttributeUsage ;
     sysml:qualifiedName "Bounds::Fleet::count" ;
+    sysx:sourceRange "10:9-10:43" ;
     sysml:elementId "Bounds__Fleet__count" ;
     sysx:memberIndex "6"^^xsd:integer ;
     sysml:owningNamespace elmt:Bounds__Fleet ;

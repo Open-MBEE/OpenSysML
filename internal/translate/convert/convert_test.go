@@ -69,8 +69,32 @@ func TestConvertFromXMIComposesTheMigration(t *testing.T) {
 	if err != nil {
 		t.Fatalf("SysMLToRDF of the migrated notation: %v", err)
 	}
-	if string(turtle) != string(rdf.WriteTurtle(direct)) {
+	// The two hops read the same notation under different document names, so
+	// the provenance naming that document legitimately differs.
+	fromTurtle, err := rdf.ParseTurtle(turtle)
+	if err != nil {
+		t.Fatalf("the written Turtle does not parse: %v", err)
+	}
+	structural := func(g *rdf.Graph) map[rdf.Triple]bool {
+		out := map[rdf.Triple]bool{}
+		for _, triple := range g.Triples() {
+			switch triple.Predicate {
+			case rdf.OpenSysMLTerm("sourceRange"), rdf.OpenSysMLTerm("sourceDocument"):
+				continue
+			}
+			out[triple] = true
+		}
+		return out
+	}
+	if first, second := structural(fromTurtle), structural(direct); len(first) != len(second) {
 		t.Error("Convert XMI to Turtle differs from the Turtle of the migrated notation")
+	} else {
+		for triple := range first {
+			if !second[triple] {
+				t.Error("Convert XMI to Turtle differs from the Turtle of the migrated notation")
+				break
+			}
+		}
 	}
 }
 

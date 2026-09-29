@@ -9,9 +9,11 @@
 elmt:IrregularLayout
     a sysml:Package ;
     sysml:qualifiedName "IrregularLayout" ;
+    sysx:sourceRange "1:1-69:2" ;
     sysml:elementId "IrregularLayout" ;
     sysx:memberIndex "0"^^xsd:integer ;
     sysx:sourceLanguage "sysml" ;
+    sysx:sourceDocument "testdata/convert/irregular_layout.sysml" ;
     sysml:declaredName "IrregularLayout" ;
     sysx:hasBody "true"^^xsd:boolean ;
     sysml:ownedRelationship elmt:IrregularLayout___400, elmt:IrregularLayout___401_om, elmt:IrregularLayout__Speed_om, elmt:IrregularLayout__Wheel_om, elmt:IrregularLayout__Axle_om, elmt:IrregularLayout__Rover_om, elmt:IrregularLayout__Drive_om, elmt:IrregularLayout__Ops_om ;
@@ -27,6 +29,7 @@ elmt:IrregularLayout
 elmt:IrregularLayout___400
     a sysml:NamespaceImport ;
     sysml:qualifiedName "IrregularLayout::@0" ;
+    sysx:sourceRange "2:5-2:36" ;
     sysml:elementId "IrregularLayout___400" ;
     sysx:memberIndex "0"^^xsd:integer ;
     sysml:owningNamespace elmt:IrregularLayout ;
@@ -41,6 +44,7 @@ elmt:IrregularLayout___400
 elmt:IrregularLayout___401
     a sysml:Documentation ;
     sysml:qualifiedName "IrregularLayout::@1" ;
+    sysx:sourceRange "3:5-3:8" ;
     sysml:elementId "IrregularLayout___401" ;
     sysx:memberIndex "1"^^xsd:integer ;
     sysml:owningNamespace elmt:IrregularLayout ;
@@ -63,6 +67,7 @@ elmt:IrregularLayout___401_om
 elmt:IrregularLayout__Speed
     a sysml:CalculationDefinition ;
     sysml:qualifiedName "IrregularLayout::Speed" ;
+    sysx:sourceRange "8:5-8:51" ;
     sysml:elementId "IrregularLayout__Speed" ;
     sysx:memberIndex "2"^^xsd:integer ;
     sysml:owningNamespace elmt:IrregularLayout ;
@@ -96,6 +101,7 @@ elmt:IrregularLayout__Speed_om
 elmt:IrregularLayout__Speed__m
     a sysml:ReferenceUsage ;
     sysml:qualifiedName "IrregularLayout::Speed::m" ;
+    sysx:sourceRange "8:22-8:34" ;
     sysml:elementId "IrregularLayout__Speed__m" ;
     sysx:memberIndex "0"^^xsd:integer ;
     sysml:owningNamespace elmt:IrregularLayout__Speed ;
@@ -126,6 +132,7 @@ elmt:IrregularLayout__Speed__m_om
 elmt:IrregularLayout__Speed___401
     a sysml:ReferenceUsage ;
     sysml:qualifiedName "IrregularLayout::Speed::@1" ;
+    sysx:sourceRange "8:35-8:49" ;
     sysml:elementId "IrregularLayout__Speed___401" ;
     sysx:memberIndex "1"^^xsd:integer ;
     sysml:owningNamespace elmt:IrregularLayout__Speed ;
@@ -157,6 +164,7 @@ elmt:IrregularLayout__Speed___401_om
 elmt:IrregularLayout__Wheel
     a sysml:PartDefinition ;
     sysml:qualifiedName "IrregularLayout::Wheel" ;
+    sysx:sourceRange "9:5-9:20" ;
     sysml:elementId "IrregularLayout__Wheel" ;
     sysx:memberIndex "3"^^xsd:integer ;
     sysml:owningNamespace elmt:IrregularLayout ;
@@ -180,6 +188,7 @@ elmt:IrregularLayout__Wheel_om
 elmt:IrregularLayout__Axle
     a sysml:PartDefinition ;
     sysml:qualifiedName "IrregularLayout::Axle" ;
+    sysx:sourceRange "10:5-10:19" ;
     sysml:elementId "IrregularLayout__Axle" ;
     sysx:memberIndex "4"^^xsd:integer ;
     sysml:owningNamespace elmt:IrregularLayout ;
@@ -203,6 +212,7 @@ elmt:IrregularLayout__Axle_om
 elmt:IrregularLayout__Rover
     a sysml:PartDefinition ;
     sysml:qualifiedName "IrregularLayout::Rover" ;
+    sysx:sourceRange "11:5-47:6" ;
     sysml:elementId "IrregularLayout__Rover" ;
     sysx:memberIndex "5"^^xsd:integer ;
     sysml:owningNamespace elmt:IrregularLayout ;
@@ -237,6 +247,7 @@ elmt:IrregularLayout__Rover_om
 elmt:IrregularLayout__Rover___400
     a sysml:Documentation ;
     sysml:qualifiedName "IrregularLayout::Rover::@0" ;
+    sysx:sourceRange "12:9-12:12" ;
     sysml:elementId "IrregularLayout__Rover___400" ;
     sysx:memberIndex "0"^^xsd:integer ;
     sysml:owningNamespace elmt:IrregularLayout__Rover ;
@@ -259,6 +270,7 @@ elmt:IrregularLayout__Rover___400_om
 elmt:IrregularLayout__Rover__mass
     a sysml:AttributeUsage ;
     sysml:qualifiedName "IrregularLayout::Rover::mass" ;
+    sysx:sourceRange "15:9-15:36" ;
     sysml:elementId "IrregularLayout__Rover__mass" ;
     sysx:memberIndex "1"^^xsd:integer ;
     sysml:owningNamespace elmt:IrregularLayout__Rover ;
@@ -312,6 +324,7 @@ expr:IrregularLayout__Rover__mass_pvalue_om
 elmt:IrregularLayout__Rover__limit
     a sysml:AttributeUsage ;
     sysml:qualifiedName "IrregularLayout::Rover::limit" ;
+    sysx:sourceRange "16:9-18:20" ;
     sysml:elementId "IrregularLayout__Rover__limit" ;
     sysx:memberIndex "2"^^xsd:integer ;
     sysml:owningNamespace elmt:IrregularLayout__Rover ;
@@ -486,6 +499,7 @@ expr:IrregularLayout__Rover__limit_pvalue_om
 elmt:IrregularLayout__Rover__label
     a sysml:AttributeUsage ;
     sysml:qualifiedName "IrregularLayout::Rover::label" ;
+    sysx:sourceRange "19:9-20:26" ;
     sysml:elementId "IrregularLayout__Rover__label" ;
     sysx:memberIndex "3"^^xsd:integer ;
     sysml:owningNamespace elmt:IrregularLayout__Rover ;
@@ -535,6 +549,7 @@ expr:IrregularLayout__Rover__label_pvalue_om
 elmt:IrregularLayout__Rover__tabbed
     a sysml:AttributeUsage ;
     sysml:qualifiedName "IrregularLayout::Rover::tabbed" ;
+    sysx:sourceRange "21:9-21:37" ;
     sysml:elementId "IrregularLayout__Rover__tabbed" ;
     sysx:memberIndex "4"^^xsd:integer ;
     sysml:owningNamespace elmt:IrregularLayout__Rover ;
@@ -588,6 +603,7 @@ expr:IrregularLayout__Rover__tabbed_pvalue_om
 elmt:IrregularLayout__Rover__wheels
     a sysml:PartUsage ;
     sysml:qualifiedName "IrregularLayout::Rover::wheels" ;
+    sysx:sourceRange "22:9-24:28" ;
     sysml:elementId "IrregularLayout__Rover__wheels" ;
     sysx:memberIndex "5"^^xsd:integer ;
     sysml:owningNamespace elmt:IrregularLayout__Rover ;
@@ -660,6 +676,7 @@ expr:IrregularLayout__Rover__wheels_pupperBound_om
 elmt:IrregularLayout__Rover__axle
     a sysml:PartUsage ;
     sysml:qualifiedName "IrregularLayout::Rover::axle" ;
+    sysx:sourceRange "25:9-26:18" ;
     sysml:elementId "IrregularLayout__Rover__axle" ;
     sysx:memberIndex "6"^^xsd:integer ;
     sysml:owningNamespace elmt:IrregularLayout__Rover ;
@@ -689,6 +706,7 @@ elmt:IrregularLayout__Rover__axle_om
 elmt:IrregularLayout__Rover___407
     a sysml:ConnectionUsage ;
     sysml:qualifiedName "IrregularLayout::Rover::@7" ;
+    sysx:sourceRange "27:9-28:21" ;
     sysml:elementId "IrregularLayout__Rover___407" ;
     sysx:memberIndex "7"^^xsd:integer ;
     sysml:owningNamespace elmt:IrregularLayout__Rover ;
@@ -813,6 +831,7 @@ expr:IrregularLayout__Rover___407_pend1_prs
 elmt:IrregularLayout__Rover__bounds
     a sysml:ConstraintUsage ;
     sysml:qualifiedName "IrregularLayout::Rover::bounds" ;
+    sysx:sourceRange "29:9-33:10" ;
     sysml:elementId "IrregularLayout__Rover__bounds" ;
     sysx:memberIndex "8"^^xsd:integer ;
     sysml:owningNamespace elmt:IrregularLayout__Rover ;
@@ -844,6 +863,7 @@ elmt:IrregularLayout__Rover__bounds_om
 elmt:IrregularLayout__Rover__bounds___400
     a sysml:OperatorExpression ;
     sysml:qualifiedName "IrregularLayout::Rover::bounds::@0" ;
+    sysx:sourceRange "30:13-32:27" ;
     sysml:elementId "IrregularLayout__Rover__bounds___400" ;
     sysx:memberIndex "0"^^xsd:integer ;
     sysml:owningNamespace elmt:IrregularLayout__Rover__bounds ;
@@ -1313,6 +1333,7 @@ expr:IrregularLayout__Rover__bounds___400_pout_om
 elmt:IrregularLayout__Rover___409
     a sysml:AssertConstraintUsage ;
     sysml:qualifiedName "IrregularLayout::Rover::@9" ;
+    sysx:sourceRange "34:9-38:10" ;
     sysml:elementId "IrregularLayout__Rover___409" ;
     sysx:memberIndex "9"^^xsd:integer ;
     sysml:owningNamespace elmt:IrregularLayout__Rover ;
@@ -1343,6 +1364,7 @@ elmt:IrregularLayout__Rover___409_om
 elmt:IrregularLayout__Rover___409___400
     a sysml:OperatorExpression ;
     sysml:qualifiedName "IrregularLayout::Rover::@9::@0" ;
+    sysx:sourceRange "35:17-37:18" ;
     sysml:elementId "IrregularLayout__Rover___409___400" ;
     sysx:memberIndex "0"^^xsd:integer ;
     sysml:owningNamespace elmt:IrregularLayout__Rover___409 ;
@@ -1516,6 +1538,7 @@ expr:IrregularLayout__Rover___409___400_pout_om
 elmt:IrregularLayout__Rover__speed
     a sysml:CalculationUsage ;
     sysml:qualifiedName "IrregularLayout::Rover::speed" ;
+    sysx:sourceRange "39:9-43:10" ;
     sysml:elementId "IrregularLayout__Rover__speed" ;
     sysx:memberIndex "10"^^xsd:integer ;
     sysml:owningNamespace elmt:IrregularLayout__Rover ;
@@ -1551,6 +1574,7 @@ elmt:IrregularLayout__Rover__speed_om
 elmt:IrregularLayout__Rover__speed__m
     a sysml:ReferenceUsage ;
     sysml:qualifiedName "IrregularLayout::Rover::speed::m" ;
+    sysx:sourceRange "40:13-42:25" ;
     sysml:elementId "IrregularLayout__Rover__speed__m" ;
     sysx:memberIndex "0"^^xsd:integer ;
     sysml:owningNamespace elmt:IrregularLayout__Rover__speed ;
@@ -1871,6 +1895,7 @@ expr:IrregularLayout__Rover__speed__m_pvalue_om
 elmt:IrregularLayout__Rover___4011
     a sysml:Comment ;
     sysml:qualifiedName "IrregularLayout::Rover::@11" ;
+    sysx:sourceRange "44:9-44:28" ;
     sysml:elementId "IrregularLayout__Rover___4011" ;
     sysx:memberIndex "11"^^xsd:integer ;
     sysml:owningNamespace elmt:IrregularLayout__Rover ;
@@ -1894,6 +1919,7 @@ elmt:IrregularLayout__Rover___4011_om
 elmt:IrregularLayout__Drive
     a sysml:ActionDefinition ;
     sysml:qualifiedName "IrregularLayout::Drive" ;
+    sysx:sourceRange "48:5-60:6" ;
     sysml:elementId "IrregularLayout__Drive" ;
     sysx:memberIndex "6"^^xsd:integer ;
     sysml:owningNamespace elmt:IrregularLayout ;
@@ -1928,6 +1954,7 @@ elmt:IrregularLayout__Drive_om
 elmt:IrregularLayout__Drive__count
     a sysml:ReferenceUsage ;
     sysml:qualifiedName "IrregularLayout::Drive::count" ;
+    sysx:sourceRange "49:9-49:28" ;
     sysml:elementId "IrregularLayout__Drive__count" ;
     sysx:memberIndex "0"^^xsd:integer ;
     sysml:owningNamespace elmt:IrregularLayout__Drive ;
@@ -1954,6 +1981,7 @@ elmt:IrregularLayout__Drive__count_om
 elmt:IrregularLayout__Drive__total
     a sysml:AttributeUsage ;
     sysml:qualifiedName "IrregularLayout::Drive::total" ;
+    sysx:sourceRange "50:9-50:25" ;
     sysml:elementId "IrregularLayout__Drive__total" ;
     sysx:memberIndex "1"^^xsd:integer ;
     sysml:owningNamespace elmt:IrregularLayout__Drive ;
@@ -1979,6 +2007,7 @@ elmt:IrregularLayout__Drive__total_om
 elmt:IrregularLayout__Drive__tick
     a sysml:ActionUsage ;
     sysml:qualifiedName "IrregularLayout::Drive::tick" ;
+    sysx:sourceRange "51:9-51:21" ;
     sysml:elementId "IrregularLayout__Drive__tick" ;
     sysx:memberIndex "2"^^xsd:integer ;
     sysml:owningNamespace elmt:IrregularLayout__Drive ;
@@ -2004,6 +2033,7 @@ elmt:IrregularLayout__Drive__tick_om
 elmt:IrregularLayout__Drive___403
     a sysml:IfActionUsage ;
     sysml:qualifiedName "IrregularLayout::Drive::@3" ;
+    sysx:sourceRange "52:9-55:10" ;
     sysml:elementId "IrregularLayout__Drive___403" ;
     sysx:memberIndex "3"^^xsd:integer ;
     sysml:owningNamespace elmt:IrregularLayout__Drive ;
@@ -2473,6 +2503,7 @@ expr:IrregularLayout__Drive___403_pcondition_om
 elmt:IrregularLayout__Drive___403___400
     a sysml:ActionUsage ;
     sysml:qualifiedName "IrregularLayout::Drive::@3::@0" ;
+    sysx:sourceRange "53:29-55:10" ;
     sysml:elementId "IrregularLayout__Drive___403___400" ;
     sysx:memberIndex "0"^^xsd:integer ;
     sysml:owningNamespace elmt:IrregularLayout__Drive___403 ;
@@ -2503,6 +2534,7 @@ elmt:IrregularLayout__Drive___403___400_om
 elmt:IrregularLayout__Drive___403___400___400
     a sysml:PerformActionUsage ;
     sysml:qualifiedName "IrregularLayout::Drive::@3::@0::@0" ;
+    sysx:sourceRange "54:13-54:26" ;
     sysml:elementId "IrregularLayout__Drive___403___400___400" ;
     sysx:memberIndex "0"^^xsd:integer ;
     sysml:owningNamespace elmt:IrregularLayout__Drive___403___400 ;
@@ -2533,6 +2565,7 @@ elmt:IrregularLayout__Drive___403___400___400_om
 elmt:IrregularLayout__Drive___404
     a sysml:WhileLoopActionUsage ;
     sysml:qualifiedName "IrregularLayout::Drive::@4" ;
+    sysx:sourceRange "56:9-59:10" ;
     sysml:elementId "IrregularLayout__Drive___404" ;
     sysx:memberIndex "4"^^xsd:integer ;
     sysml:owningNamespace elmt:IrregularLayout__Drive ;
@@ -2733,6 +2766,7 @@ expr:IrregularLayout__Drive___404_pwhileCondition_om
 elmt:IrregularLayout__Drive___404___400
     a sysml:PerformActionUsage ;
     sysml:qualifiedName "IrregularLayout::Drive::@4::@0" ;
+    sysx:sourceRange "58:13-58:26" ;
     sysml:elementId "IrregularLayout__Drive___404___400" ;
     sysx:memberIndex "0"^^xsd:integer ;
     sysml:owningNamespace elmt:IrregularLayout__Drive___404 ;
@@ -2763,6 +2797,7 @@ elmt:IrregularLayout__Drive___404___400_om
 elmt:IrregularLayout__Ops
     a sysml:StateDefinition ;
     sysml:qualifiedName "IrregularLayout::Ops" ;
+    sysx:sourceRange "61:5-68:6" ;
     sysml:elementId "IrregularLayout__Ops" ;
     sysx:memberIndex "7"^^xsd:integer ;
     sysml:owningNamespace elmt:IrregularLayout ;
@@ -2796,6 +2831,7 @@ elmt:IrregularLayout__Ops_om
 elmt:IrregularLayout__Ops___400
     a sysml:StateSubactionMembership ;
     sysml:qualifiedName "IrregularLayout::Ops::@0" ;
+    sysx:sourceRange "62:9-62:15" ;
     sysml:elementId "IrregularLayout__Ops___400" ;
     sysx:memberIndex "0"^^xsd:integer ;
     sysml:owningNamespace elmt:IrregularLayout__Ops ;
@@ -2808,6 +2844,7 @@ elmt:IrregularLayout__Ops___400
 elmt:IrregularLayout__Ops___401
     a sysml:SuccessionAsUsage ;
     sysml:qualifiedName "IrregularLayout::Ops::@1" ;
+    sysx:sourceRange "62:16-62:25" ;
     sysml:elementId "IrregularLayout__Ops___401" ;
     sysx:memberIndex "1"^^xsd:integer ;
     sysml:owningNamespace elmt:IrregularLayout__Ops ;
@@ -2832,6 +2869,7 @@ elmt:IrregularLayout__Ops___401_om
 elmt:IrregularLayout__Ops__off
     a sysml:StateUsage ;
     sysml:qualifiedName "IrregularLayout::Ops::off" ;
+    sysx:sourceRange "63:9-63:19" ;
     sysml:elementId "IrregularLayout__Ops__off" ;
     sysx:memberIndex "2"^^xsd:integer ;
     sysml:owningNamespace elmt:IrregularLayout__Ops ;
@@ -2856,6 +2894,7 @@ elmt:IrregularLayout__Ops__off_om
 elmt:IrregularLayout__Ops__on
     a sysml:StateUsage ;
     sysml:qualifiedName "IrregularLayout::Ops::on" ;
+    sysx:sourceRange "64:9-64:18" ;
     sysml:elementId "IrregularLayout__Ops__on" ;
     sysx:memberIndex "3"^^xsd:integer ;
     sysml:owningNamespace elmt:IrregularLayout__Ops ;
@@ -2880,6 +2919,7 @@ elmt:IrregularLayout__Ops__on_om
 elmt:IrregularLayout__Ops___404
     a sysml:TransitionUsage ;
     sysml:qualifiedName "IrregularLayout::Ops::@4" ;
+    sysx:sourceRange "65:9-67:21" ;
     sysml:elementId "IrregularLayout__Ops___404" ;
     sysx:memberIndex "4"^^xsd:integer ;
     sysml:owningNamespace elmt:IrregularLayout__Ops ;

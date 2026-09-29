@@ -8,9 +8,11 @@
 elmt:NestedNamespaceImport
     a sysml:Package ;
     sysml:qualifiedName "NestedNamespaceImport" ;
+    sysx:sourceRange "1:1-15:2" ;
     sysml:elementId "NestedNamespaceImport" ;
     sysx:memberIndex "0"^^xsd:integer ;
     sysx:sourceLanguage "sysml" ;
+    sysx:sourceDocument "testdata/convert/nested_namespace_import.sysml" ;
     sysml:declaredName "NestedNamespaceImport" ;
     sysx:hasBody "true"^^xsd:boolean ;
     sysml:ownedMember elmt:NestedNamespaceImport__Pkg1, elmt:NestedNamespaceImport__Pkg2 ;
@@ -25,6 +27,7 @@ elmt:NestedNamespaceImport
 elmt:NestedNamespaceImport__Pkg1
     a sysml:Package ;
     sysml:qualifiedName "NestedNamespaceImport::Pkg1" ;
+    sysx:sourceRange "2:5-7:6" ;
     sysml:elementId "NestedNamespaceImport__Pkg1" ;
     sysx:memberIndex "0"^^xsd:integer ;
     sysml:owningNamespace elmt:NestedNamespaceImport ;
@@ -55,6 +58,7 @@ elmt:NestedNamespaceImport__Pkg1_om
 elmt:NestedNamespaceImport__Pkg1__A
     a sysml:PartDefinition ;
     sysml:qualifiedName "NestedNamespaceImport::Pkg1::A" ;
+    sysx:sourceRange "3:9-3:20" ;
     sysml:elementId "NestedNamespaceImport__Pkg1__A" ;
     sysx:memberIndex "0"^^xsd:integer ;
     sysml:owningNamespace elmt:NestedNamespaceImport__Pkg1 ;
@@ -78,6 +82,7 @@ elmt:NestedNamespaceImport__Pkg1__A_om
 elmt:NestedNamespaceImport__Pkg1__Pkg11
     a sysml:Package ;
     sysml:qualifiedName "NestedNamespaceImport::Pkg1::Pkg11" ;
+    sysx:sourceRange "4:9-6:10" ;
     sysml:elementId "NestedNamespaceImport__Pkg1__Pkg11" ;
     sysx:memberIndex "1"^^xsd:integer ;
     sysml:owningNamespace elmt:NestedNamespaceImport__Pkg1 ;
@@ -105,6 +110,7 @@ elmt:NestedNamespaceImport__Pkg1__Pkg11_om
 elmt:NestedNamespaceImport__Pkg1__Pkg11__B
     a sysml:PartDefinition ;
     sysml:qualifiedName "NestedNamespaceImport::Pkg1::Pkg11::B" ;
+    sysx:sourceRange "5:13-5:24" ;
     sysml:elementId "NestedNamespaceImport__Pkg1__Pkg11__B" ;
     sysx:memberIndex "0"^^xsd:integer ;
     sysml:owningNamespace elmt:NestedNamespaceImport__Pkg1__Pkg11 ;
@@ -128,6 +134,7 @@ elmt:NestedNamespaceImport__Pkg1__Pkg11__B_om
 elmt:NestedNamespaceImport__Pkg2
     a sysml:Package ;
     sysml:qualifiedName "NestedNamespaceImport::Pkg2" ;
+    sysx:sourceRange "8:5-14:6" ;
     sysml:elementId "NestedNamespaceImport__Pkg2" ;
     sysx:memberIndex "1"^^xsd:integer ;
     sysml:owningNamespace elmt:NestedNamespaceImport ;
@@ -160,6 +167,7 @@ elmt:NestedNamespaceImport__Pkg2_om
 elmt:NestedNamespaceImport__Pkg2___400
     a sysml:NamespaceImport ;
     sysml:qualifiedName "NestedNamespaceImport::Pkg2::@0" ;
+    sysx:sourceRange "9:9-9:32" ;
     sysml:elementId "NestedNamespaceImport__Pkg2___400" ;
     sysx:memberIndex "0"^^xsd:integer ;
     sysml:owningNamespace elmt:NestedNamespaceImport__Pkg2 ;
@@ -174,6 +182,7 @@ elmt:NestedNamespaceImport__Pkg2___400
 elmt:NestedNamespaceImport__Pkg2___401
     a sysml:MembershipImport ;
     sysml:qualifiedName "NestedNamespaceImport::Pkg2::@1" ;
+    sysx:sourceRange "10:9-10:32" ;
     sysml:elementId "NestedNamespaceImport__Pkg2___401" ;
     sysx:memberIndex "1"^^xsd:integer ;
     sysml:owningNamespace elmt:NestedNamespaceImport__Pkg2 ;
@@ -189,6 +198,7 @@ elmt:NestedNamespaceImport__Pkg2___401
 elmt:NestedNamespaceImport__Pkg2___402
     a sysml:NamespaceImport ;
     sysml:qualifiedName "NestedNamespaceImport::Pkg2::@2" ;
+    sysx:sourceRange "11:9-11:36" ;
     sysml:elementId "NestedNamespaceImport__Pkg2___402" ;
     sysx:memberIndex "2"^^xsd:integer ;
     sysml:owningNamespace elmt:NestedNamespaceImport__Pkg2 ;
@@ -204,6 +214,7 @@ elmt:NestedNamespaceImport__Pkg2___402
 elmt:NestedNamespaceImport__Pkg2__a
     a sysml:PartUsage ;
     sysml:qualifiedName "NestedNamespaceImport::Pkg2::a" ;
+    sysx:sourceRange "12:9-12:20" ;
     sysml:elementId "NestedNamespaceImport__Pkg2__a" ;
     sysx:memberIndex "3"^^xsd:integer ;
     sysml:owningNamespace elmt:NestedNamespaceImport__Pkg2 ;
@@ -231,6 +242,7 @@ elmt:NestedNamespaceImport__Pkg2__a_om
 elmt:NestedNamespaceImport__Pkg2__b
     a sysml:PartUsage ;
     sysml:qualifiedName "NestedNamespaceImport::Pkg2::b" ;
+    sysx:sourceRange "13:9-13:20" ;
     sysml:elementId "NestedNamespaceImport__Pkg2__b" ;
     sysx:memberIndex "4"^^xsd:integer ;
     sysml:owningNamespace elmt:NestedNamespaceImport__Pkg2 ;

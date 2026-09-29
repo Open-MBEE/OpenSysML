@@ -9,9 +9,11 @@
 elmt:R89
     a sysml:Package ;
     sysml:qualifiedName "R89" ;
+    sysx:sourceRange "1:1-22:2" ;
     sysml:elementId "R89" ;
     sysx:memberIndex "0"^^xsd:integer ;
     sysx:sourceLanguage "sysml" ;
+    sysx:sourceDocument "testdata/convert/end_binding_bodies.sysml" ;
     sysml:declaredName "R89" ;
     sysx:hasBody "true"^^xsd:boolean ;
     sysml:ownedMember elmt:R89__SeamCoupling, elmt:R89__P, elmt:R89__W, elmt:R89__Rd, elmt:R89__Ctx ;
@@ -26,6 +28,7 @@ elmt:R89
 elmt:R89__SeamCoupling
     a sysml:EnumerationDefinition ;
     sysml:qualifiedName "R89::SeamCoupling" ;
+    sysx:sourceRange "2:5-5:6" ;
     sysml:elementId "R89__SeamCoupling" ;
     sysx:memberIndex "0"^^xsd:integer ;
     sysml:owningNamespace elmt:R89 ;
@@ -61,6 +64,7 @@ elmt:R89__SeamCoupling_om
 elmt:R89__SeamCoupling__learnFromData
     a sysml:EnumerationUsage ;
     sysml:qualifiedName "R89::SeamCoupling::learnFromData" ;
+    sysx:sourceRange "3:9-3:23" ;
     sysml:elementId "R89__SeamCoupling__learnFromData" ;
     sysx:memberIndex "0"^^xsd:integer ;
     sysml:owningNamespace elmt:R89__SeamCoupling ;
@@ -87,6 +91,7 @@ elmt:R89__SeamCoupling__learnFromData_om
 elmt:R89__SeamCoupling__fixed
     a sysml:EnumerationUsage ;
     sysml:qualifiedName "R89::SeamCoupling::fixed" ;
+    sysx:sourceRange "4:9-4:15" ;
     sysml:elementId "R89__SeamCoupling__fixed" ;
     sysx:memberIndex "1"^^xsd:integer ;
     sysml:owningNamespace elmt:R89__SeamCoupling ;
@@ -113,6 +118,7 @@ elmt:R89__SeamCoupling__fixed_om
 elmt:R89__P
     a sysml:PortDefinition ;
     sysml:qualifiedName "R89::P" ;
+    sysx:sourceRange "6:5-8:6" ;
     sysml:elementId "R89__P" ;
     sysx:memberIndex "1"^^xsd:integer ;
     sysml:owningNamespace elmt:R89 ;
@@ -180,6 +186,7 @@ elmt:R89__P_conjugated_pc
 elmt:R89__P__x
     a sysml:ItemUsage ;
     sysml:qualifiedName "R89::P::x" ;
+    sysx:sourceRange "7:9-7:20" ;
     sysml:elementId "R89__P__x" ;
     sysx:memberIndex "0"^^xsd:integer ;
     sysml:owningNamespace elmt:R89__P ;
@@ -206,6 +213,7 @@ elmt:R89__P__x_om
 elmt:R89__W
     a sysml:PartDefinition ;
     sysml:qualifiedName "R89::W" ;
+    sysx:sourceRange "9:5-11:6" ;
     sysml:elementId "R89__W" ;
     sysx:memberIndex "2"^^xsd:integer ;
     sysml:owningNamespace elmt:R89 ;
@@ -235,6 +243,7 @@ elmt:R89__W_om
 elmt:R89__W__outp
     a sysml:PortUsage ;
     sysml:qualifiedName "R89::W::outp" ;
+    sysx:sourceRange "10:9-10:23" ;
     sysml:elementId "R89__W__outp" ;
     sysx:memberIndex "0"^^xsd:integer ;
     sysml:owningNamespace elmt:R89__W ;
@@ -264,6 +273,7 @@ elmt:R89__W__outp_om
 elmt:R89__Rd
     a sysml:PartDefinition ;
     sysml:qualifiedName "R89::Rd" ;
+    sysx:sourceRange "12:5-14:6" ;
     sysml:elementId "R89__Rd" ;
     sysx:memberIndex "3"^^xsd:integer ;
     sysml:owningNamespace elmt:R89 ;
@@ -293,6 +303,7 @@ elmt:R89__Rd_om
 elmt:R89__Rd__inp
     a sysml:PortUsage ;
     sysml:qualifiedName "R89::Rd::inp" ;
+    sysx:sourceRange "13:9-13:23" ;
     sysml:elementId "R89__Rd__inp" ;
     sysx:memberIndex "0"^^xsd:integer ;
     sysml:owningNamespace elmt:R89__Rd ;
@@ -323,6 +334,7 @@ elmt:R89__Rd__inp_om
 elmt:R89__Ctx
     a sysml:PartDefinition ;
     sysml:qualifiedName "R89::Ctx" ;
+    sysx:sourceRange "15:5-21:6" ;
     sysml:elementId "R89__Ctx" ;
     sysx:memberIndex "4"^^xsd:integer ;
     sysml:owningNamespace elmt:R89 ;
@@ -357,6 +369,7 @@ elmt:R89__Ctx_om
 elmt:R89__Ctx__w
     a sysml:PartUsage ;
     sysml:qualifiedName "R89::Ctx::w" ;
+    sysx:sourceRange "16:9-16:20" ;
     sysml:elementId "R89__Ctx__w" ;
     sysx:memberIndex "0"^^xsd:integer ;
     sysml:owningNamespace elmt:R89__Ctx ;
@@ -386,6 +399,7 @@ elmt:R89__Ctx__w_om
 elmt:R89__Ctx__r
     a sysml:PartUsage ;
     sysml:qualifiedName "R89::Ctx::r" ;
+    sysx:sourceRange "17:9-17:21" ;
     sysml:elementId "R89__Ctx__r" ;
     sysx:memberIndex "1"^^xsd:integer ;
     sysml:owningNamespace elmt:R89__Ctx ;
@@ -415,6 +429,7 @@ elmt:R89__Ctx__r_om
 elmt:R89__Ctx__seam
     a sysml:InterfaceUsage ;
     sysml:qualifiedName "R89::Ctx::seam" ;
+    sysx:sourceRange "18:9-20:10" ;
     sysml:elementId "R89__Ctx__seam" ;
     sysx:memberIndex "2"^^xsd:integer ;
     sysml:owningNamespace elmt:R89__Ctx ;
@@ -612,6 +627,7 @@ expr:R89__Ctx__seam_pend1_prs
 elmt:R89__Ctx__seam__coupling
     a sysml:AttributeUsage ;
     sysml:qualifiedName "R89::Ctx::seam::coupling" ;
+    sysx:sourceRange "19:13-19:77" ;
     sysml:elementId "R89__Ctx__seam__coupling" ;
     sysx:memberIndex "0"^^xsd:integer ;
     sysml:owningNamespace elmt:R89__Ctx__seam ;
@@ -692,9 +708,11 @@ expr:R89__Ctx__seam__coupling_pvalue_om
 elmt:Bodies
     a sysml:Package ;
     sysml:qualifiedName "Bodies" ;
+    sysx:sourceRange "23:1-92:2" ;
     sysml:elementId "Bodies" ;
     sysx:memberIndex "1"^^xsd:integer ;
     sysx:sourceLanguage "sysml" ;
+    sysx:sourceDocument "testdata/convert/end_binding_bodies.sysml" ;
     sysml:declaredName "Bodies" ;
     sysx:hasBody "true"^^xsd:boolean ;
     sysml:ownedMember elmt:Bodies__Prio, elmt:Bodies__Fuel, elmt:Bodies__A, elmt:Bodies__B, elmt:Bodies__Ctx ;
@@ -709,6 +727,7 @@ elmt:Bodies
 elmt:Bodies__Prio
     a sysml:AttributeDefinition ;
     sysml:qualifiedName "Bodies::Prio" ;
+    sysx:sourceRange "24:5-24:24" ;
     sysml:elementId "Bodies__Prio" ;
     sysx:memberIndex "0"^^xsd:integer ;
     sysml:owningNamespace elmt:Bodies ;
@@ -732,6 +751,7 @@ elmt:Bodies__Prio_om
 elmt:Bodies__Fuel
     a sysml:ItemDefinition ;
     sysml:qualifiedName "Bodies::Fuel" ;
+    sysx:sourceRange "25:5-25:19" ;
     sysml:elementId "Bodies__Fuel" ;
     sysx:memberIndex "1"^^xsd:integer ;
     sysml:owningNamespace elmt:Bodies ;
@@ -755,6 +775,7 @@ elmt:Bodies__Fuel_om
 elmt:Bodies__A
     a sysml:PartDefinition ;
     sysml:qualifiedName "Bodies::A" ;
+    sysx:sourceRange "26:5-30:6" ;
     sysml:elementId "Bodies__A" ;
     sysx:memberIndex "2"^^xsd:integer ;
     sysml:owningNamespace elmt:Bodies ;
@@ -789,6 +810,7 @@ elmt:Bodies__A_om
 elmt:Bodies__A__p
     a sysml:PortUsage ;
     sysml:qualifiedName "Bodies::A::p" ;
+    sysx:sourceRange "27:9-27:16" ;
     sysml:elementId "Bodies__A__p" ;
     sysx:memberIndex "0"^^xsd:integer ;
     sysml:owningNamespace elmt:Bodies__A ;
@@ -814,6 +836,7 @@ elmt:Bodies__A__p_om
 elmt:Bodies__A__a
     a sysml:AttributeUsage ;
     sysml:qualifiedName "Bodies::A::a" ;
+    sysx:sourceRange "28:9-28:21" ;
     sysml:elementId "Bodies__A__a" ;
     sysx:memberIndex "1"^^xsd:integer ;
     sysml:owningNamespace elmt:Bodies__A ;
@@ -839,6 +862,7 @@ elmt:Bodies__A__a_om
 elmt:Bodies__A__i
     a sysml:ItemUsage ;
     sysml:qualifiedName "Bodies::A::i" ;
+    sysx:sourceRange "29:9-29:27" ;
     sysml:elementId "Bodies__A__i" ;
     sysx:memberIndex "2"^^xsd:integer ;
     sysml:owningNamespace elmt:Bodies__A ;
@@ -869,6 +893,7 @@ elmt:Bodies__A__i_om
 elmt:Bodies__B
     a sysml:PartDefinition ;
     sysml:qualifiedName "Bodies::B" ;
+    sysx:sourceRange "31:5-35:6" ;
     sysml:elementId "Bodies__B" ;
     sysx:memberIndex "3"^^xsd:integer ;
     sysml:owningNamespace elmt:Bodies ;
@@ -903,6 +928,7 @@ elmt:Bodies__B_om
 elmt:Bodies__B__q
     a sysml:PortUsage ;
     sysml:qualifiedName "Bodies::B::q" ;
+    sysx:sourceRange "32:9-32:16" ;
     sysml:elementId "Bodies__B__q" ;
     sysx:memberIndex "0"^^xsd:integer ;
     sysml:owningNamespace elmt:Bodies__B ;
@@ -928,6 +954,7 @@ elmt:Bodies__B__q_om
 elmt:Bodies__B__b
     a sysml:AttributeUsage ;
     sysml:qualifiedName "Bodies::B::b" ;
+    sysx:sourceRange "33:9-33:21" ;
     sysml:elementId "Bodies__B__b" ;
     sysx:memberIndex "1"^^xsd:integer ;
     sysml:owningNamespace elmt:Bodies__B ;
@@ -953,6 +980,7 @@ elmt:Bodies__B__b_om
 elmt:Bodies__B__j
     a sysml:ItemUsage ;
     sysml:qualifiedName "Bodies::B::j" ;
+    sysx:sourceRange "34:9-34:26" ;
     sysml:elementId "Bodies__B__j" ;
     sysx:memberIndex "2"^^xsd:integer ;
     sysml:owningNamespace elmt:Bodies__B ;
@@ -983,6 +1011,7 @@ elmt:Bodies__B__j_om
 elmt:Bodies__Ctx
     a sysml:PartDefinition ;
     sysml:qualifiedName "Bodies::Ctx" ;
+    sysx:sourceRange "36:5-91:6" ;
     sysml:elementId "Bodies__Ctx" ;
     sysx:memberIndex "4"^^xsd:integer ;
     sysml:owningNamespace elmt:Bodies ;
@@ -1017,6 +1046,7 @@ elmt:Bodies__Ctx_om
 elmt:Bodies__Ctx__x
     a sysml:PartUsage ;
     sysml:qualifiedName "Bodies::Ctx::x" ;
+    sysx:sourceRange "37:9-37:20" ;
     sysml:elementId "Bodies__Ctx__x" ;
     sysx:memberIndex "0"^^xsd:integer ;
     sysml:owningNamespace elmt:Bodies__Ctx ;
@@ -1046,6 +1076,7 @@ elmt:Bodies__Ctx__x_om
 elmt:Bodies__Ctx__y
     a sysml:PartUsage ;
     sysml:qualifiedName "Bodies::Ctx::y" ;
+    sysx:sourceRange "38:9-38:20" ;
     sysml:elementId "Bodies__Ctx__y" ;
     sysx:memberIndex "1"^^xsd:integer ;
     sysml:owningNamespace elmt:Bodies__Ctx ;
@@ -1075,6 +1106,7 @@ elmt:Bodies__Ctx__y_om
 elmt:Bodies__Ctx__c
     a sysml:ConnectionUsage ;
     sysml:qualifiedName "Bodies::Ctx::c" ;
+    sysx:sourceRange "39:9-41:10" ;
     sysml:elementId "Bodies__Ctx__c" ;
     sysx:memberIndex "2"^^xsd:integer ;
     sysml:owningNamespace elmt:Bodies__Ctx ;
@@ -1272,6 +1304,7 @@ expr:Bodies__Ctx__c_pend1_prs
 elmt:Bodies__Ctx__c__w
     a sysml:AttributeUsage ;
     sysml:qualifiedName "Bodies::Ctx::c::w" ;
+    sysx:sourceRange "40:13-40:32" ;
     sysml:elementId "Bodies__Ctx__c__w" ;
     sysx:memberIndex "0"^^xsd:integer ;
     sysml:owningNamespace elmt:Bodies__Ctx__c ;
@@ -1301,6 +1334,7 @@ elmt:Bodies__Ctx__c__w_om
 elmt:Bodies__Ctx___403
     a sysml:ConnectionUsage ;
     sysml:qualifiedName "Bodies::Ctx::@3" ;
+    sysx:sourceRange "42:9-44:10" ;
     sysml:elementId "Bodies__Ctx___403" ;
     sysx:memberIndex "3"^^xsd:integer ;
     sysml:owningNamespace elmt:Bodies__Ctx ;
@@ -1497,6 +1531,7 @@ expr:Bodies__Ctx___403_pend1_prs
 elmt:Bodies__Ctx___403__w
     a sysml:AttributeUsage ;
     sysml:qualifiedName "Bodies::Ctx::@3::w" ;
+    sysx:sourceRange "43:13-43:32" ;
     sysml:elementId "Bodies__Ctx___403__w" ;
     sysx:memberIndex "0"^^xsd:integer ;
     sysml:owningNamespace elmt:Bodies__Ctx___403 ;
@@ -1526,6 +1561,7 @@ elmt:Bodies__Ctx___403__w_om
 elmt:Bodies__Ctx__f
     a sysml:FlowUsage ;
     sysml:qualifiedName "Bodies::Ctx::f" ;
+    sysx:sourceRange "45:9-47:10" ;
     sysml:elementId "Bodies__Ctx__f" ;
     sysx:memberIndex "4"^^xsd:integer ;
     sysml:owningNamespace elmt:Bodies__Ctx ;
@@ -1720,6 +1756,7 @@ expr:Bodies__Ctx__f_pend1_prs
 elmt:Bodies__Ctx__f__w
     a sysml:AttributeUsage ;
     sysml:qualifiedName "Bodies::Ctx::f::w" ;
+    sysx:sourceRange "46:13-46:32" ;
     sysml:elementId "Bodies__Ctx__f__w" ;
     sysx:memberIndex "0"^^xsd:integer ;
     sysml:owningNamespace elmt:Bodies__Ctx__f ;
@@ -1747,6 +1784,7 @@ elmt:Bodies__Ctx__f__w_om
 elmt:Bodies__Ctx__bd
     a sysml:BindingConnectorAsUsage ;
     sysml:qualifiedName "Bodies::Ctx::bd" ;
+    sysx:sourceRange "48:9-50:10" ;
     sysml:elementId "Bodies__Ctx__bd" ;
     sysx:memberIndex "5"^^xsd:integer ;
     sysml:owningNamespace elmt:Bodies__Ctx ;
@@ -1944,6 +1982,7 @@ expr:Bodies__Ctx__bd_pend1_prs
 elmt:Bodies__Ctx__bd__w
     a sysml:AttributeUsage ;
     sysml:qualifiedName "Bodies::Ctx::bd::w" ;
+    sysx:sourceRange "49:13-49:32" ;
     sysml:elementId "Bodies__Ctx__bd__w" ;
     sysx:memberIndex "0"^^xsd:integer ;
     sysml:owningNamespace elmt:Bodies__Ctx__bd ;
@@ -1973,6 +2012,7 @@ elmt:Bodies__Ctx__bd__w_om
 elmt:Bodies__Ctx___406
     a sysml:BindingConnectorAsUsage ;
     sysml:qualifiedName "Bodies::Ctx::@6" ;
+    sysx:sourceRange "51:9-53:10" ;
     sysml:elementId "Bodies__Ctx___406" ;
     sysx:memberIndex "6"^^xsd:integer ;
     sysml:owningNamespace elmt:Bodies__Ctx ;
@@ -2169,6 +2209,7 @@ expr:Bodies__Ctx___406_pend1_prs
 elmt:Bodies__Ctx___406__w
     a sysml:AttributeUsage ;
     sysml:qualifiedName "Bodies::Ctx::@6::w" ;
+    sysx:sourceRange "52:13-52:32" ;
     sysml:elementId "Bodies__Ctx___406__w" ;
     sysx:memberIndex "0"^^xsd:integer ;
     sysml:owningNamespace elmt:Bodies__Ctx___406 ;
@@ -2198,6 +2239,7 @@ elmt:Bodies__Ctx___406__w_om
 elmt:Bodies__Ctx__al
     a sysml:AllocationUsage ;
     sysml:qualifiedName "Bodies::Ctx::al" ;
+    sysx:sourceRange "54:9-56:10" ;
     sysml:elementId "Bodies__Ctx__al" ;
     sysx:memberIndex "7"^^xsd:integer ;
     sysml:owningNamespace elmt:Bodies__Ctx ;
@@ -2325,6 +2367,7 @@ expr:Bodies__Ctx__al_pend1_prs
 elmt:Bodies__Ctx__al__w
     a sysml:AttributeUsage ;
     sysml:qualifiedName "Bodies::Ctx::al::w" ;
+    sysx:sourceRange "55:13-55:32" ;
     sysml:elementId "Bodies__Ctx__al__w" ;
     sysx:memberIndex "0"^^xsd:integer ;
     sysml:owningNamespace elmt:Bodies__Ctx__al ;
@@ -2354,6 +2397,7 @@ elmt:Bodies__Ctx__al__w_om
 elmt:Bodies__Ctx__s
     a sysml:SuccessionAsUsage ;
     sysml:qualifiedName "Bodies::Ctx::s" ;
+    sysx:sourceRange "57:9-59:10" ;
     sysml:elementId "Bodies__Ctx__s" ;
     sysx:memberIndex "8"^^xsd:integer ;
     sysml:owningNamespace elmt:Bodies__Ctx ;
@@ -2481,6 +2525,7 @@ expr:Bodies__Ctx__s_pend1_prs
 elmt:Bodies__Ctx__s__w
     a sysml:AttributeUsage ;
     sysml:qualifiedName "Bodies::Ctx::s::w" ;
+    sysx:sourceRange "58:13-58:32" ;
     sysml:elementId "Bodies__Ctx__s__w" ;
     sysx:memberIndex "0"^^xsd:integer ;
     sysml:owningNamespace elmt:Bodies__Ctx__s ;
@@ -2510,6 +2555,7 @@ elmt:Bodies__Ctx__s__w_om
 elmt:Bodies__Ctx__Act
     a sysml:ActionDefinition ;
     sysml:qualifiedName "Bodies::Ctx::Act" ;
+    sysx:sourceRange "60:9-76:10" ;
     sysml:elementId "Bodies__Ctx__Act" ;
     sysx:memberIndex "9"^^xsd:integer ;
     sysml:owningNamespace elmt:Bodies__Ctx ;
@@ -2544,6 +2590,7 @@ elmt:Bodies__Ctx__Act_om
 elmt:Bodies__Ctx__Act__a1
     a sysml:ActionUsage ;
     sysml:qualifiedName "Bodies::Ctx::Act::a1" ;
+    sysx:sourceRange "61:13-61:23" ;
     sysml:elementId "Bodies__Ctx__Act__a1" ;
     sysx:memberIndex "0"^^xsd:integer ;
     sysml:owningNamespace elmt:Bodies__Ctx__Act ;
@@ -2569,6 +2616,7 @@ elmt:Bodies__Ctx__Act__a1_om
 elmt:Bodies__Ctx__Act__a2
     a sysml:ActionUsage ;
     sysml:qualifiedName "Bodies::Ctx::Act::a2" ;
+    sysx:sourceRange "62:13-62:23" ;
     sysml:elementId "Bodies__Ctx__Act__a2" ;
     sysx:memberIndex "1"^^xsd:integer ;
     sysml:owningNamespace elmt:Bodies__Ctx__Act ;
@@ -2594,6 +2642,7 @@ elmt:Bodies__Ctx__Act__a2_om
 elmt:Bodies__Ctx__Act___402
     a sysml:SuccessionAsUsage ;
     sysml:qualifiedName "Bodies::Ctx::Act::@2" ;
+    sysx:sourceRange "63:13-65:14" ;
     sysml:elementId "Bodies__Ctx__Act___402" ;
     sysx:memberIndex "2"^^xsd:integer ;
     sysml:owningNamespace elmt:Bodies__Ctx__Act ;
@@ -2720,6 +2769,7 @@ expr:Bodies__Ctx__Act___402_pend1_prs
 elmt:Bodies__Ctx__Act___402__w
     a sysml:AttributeUsage ;
     sysml:qualifiedName "Bodies::Ctx::Act::@2::w" ;
+    sysx:sourceRange "64:17-64:36" ;
     sysml:elementId "Bodies__Ctx__Act___402__w" ;
     sysx:memberIndex "0"^^xsd:integer ;
     sysml:owningNamespace elmt:Bodies__Ctx__Act___402 ;
@@ -2749,6 +2799,7 @@ elmt:Bodies__Ctx__Act___402__w_om
 elmt:Bodies__Ctx__Act___403
     a sysml:SuccessionAsUsage ;
     sysml:qualifiedName "Bodies::Ctx::Act::@3" ;
+    sysx:sourceRange "66:13-68:14" ;
     sysml:elementId "Bodies__Ctx__Act___403" ;
     sysx:memberIndex "3"^^xsd:integer ;
     sysml:owningNamespace elmt:Bodies__Ctx__Act ;
@@ -2782,6 +2833,7 @@ elmt:Bodies__Ctx__Act___403_om
 elmt:Bodies__Ctx__Act___403__w
     a sysml:AttributeUsage ;
     sysml:qualifiedName "Bodies::Ctx::Act::@3::w" ;
+    sysx:sourceRange "67:17-67:36" ;
     sysml:elementId "Bodies__Ctx__Act___403__w" ;
     sysx:memberIndex "0"^^xsd:integer ;
     sysml:owningNamespace elmt:Bodies__Ctx__Act___403 ;
@@ -2811,6 +2863,7 @@ elmt:Bodies__Ctx__Act___403__w_om
 elmt:Bodies__Ctx__Act__a3
     a sysml:ActionUsage ;
     sysml:qualifiedName "Bodies::Ctx::Act::a3" ;
+    sysx:sourceRange "69:13-69:23" ;
     sysml:elementId "Bodies__Ctx__Act__a3" ;
     sysx:memberIndex "4"^^xsd:integer ;
     sysml:owningNamespace elmt:Bodies__Ctx__Act ;
@@ -2836,6 +2889,7 @@ elmt:Bodies__Ctx__Act__a3_om
 elmt:Bodies__Ctx__Act___405
     a sysml:SuccessionAsUsage ;
     sysml:qualifiedName "Bodies::Ctx::Act::@5" ;
+    sysx:sourceRange "70:13-71:14" ;
     sysml:elementId "Bodies__Ctx__Act___405" ;
     sysx:memberIndex "5"^^xsd:integer ;
     sysml:owningNamespace elmt:Bodies__Ctx__Act ;
@@ -2863,6 +2917,7 @@ elmt:Bodies__Ctx__Act___405_om
 elmt:Bodies__Ctx__Act__a4
     a sysml:ActionUsage ;
     sysml:qualifiedName "Bodies::Ctx::Act::a4" ;
+    sysx:sourceRange "72:13-72:23" ;
     sysml:elementId "Bodies__Ctx__Act__a4" ;
     sysx:memberIndex "6"^^xsd:integer ;
     sysml:owningNamespace elmt:Bodies__Ctx__Act ;
@@ -2888,6 +2943,7 @@ elmt:Bodies__Ctx__Act__a4_om
 elmt:Bodies__Ctx__Act___407
     a sysml:SuccessionAsUsage ;
     sysml:qualifiedName "Bodies::Ctx::Act::@7" ;
+    sysx:sourceRange "73:13-74:14" ;
     sysml:elementId "Bodies__Ctx__Act___407" ;
     sysx:memberIndex "7"^^xsd:integer ;
     sysml:owningNamespace elmt:Bodies__Ctx__Act ;
@@ -2986,6 +3042,7 @@ expr:Bodies__Ctx__Act___407_pend1_prs
 elmt:Bodies__Ctx__Act___408
     a sysml:SuccessionAsUsage ;
     sysml:qualifiedName "Bodies::Ctx::Act::@8" ;
+    sysx:sourceRange "75:13-75:29" ;
     sysml:elementId "Bodies__Ctx__Act___408" ;
     sysx:memberIndex "8"^^xsd:integer ;
     sysml:owningNamespace elmt:Bodies__Ctx__Act ;
@@ -3083,6 +3140,7 @@ expr:Bodies__Ctx__Act___408_pend1_prs
 elmt:Bodies__Ctx__Machine
     a sysml:StateDefinition ;
     sysml:qualifiedName "Bodies::Ctx::Machine" ;
+    sysx:sourceRange "77:9-90:10" ;
     sysml:elementId "Bodies__Ctx__Machine" ;
     sysx:memberIndex "10"^^xsd:integer ;
     sysml:owningNamespace elmt:Bodies__Ctx ;
@@ -3117,6 +3175,7 @@ elmt:Bodies__Ctx__Machine_om
 elmt:Bodies__Ctx__Machine__off
     a sysml:StateUsage ;
     sysml:qualifiedName "Bodies::Ctx::Machine::off" ;
+    sysx:sourceRange "78:13-78:23" ;
     sysml:elementId "Bodies__Ctx__Machine__off" ;
     sysx:memberIndex "0"^^xsd:integer ;
     sysml:owningNamespace elmt:Bodies__Ctx__Machine ;
@@ -3142,6 +3201,7 @@ elmt:Bodies__Ctx__Machine__off_om
 elmt:Bodies__Ctx__Machine__on
     a sysml:StateUsage ;
     sysml:qualifiedName "Bodies::Ctx::Machine::on" ;
+    sysx:sourceRange "79:13-79:22" ;
     sysml:elementId "Bodies__Ctx__Machine__on" ;
     sysx:memberIndex "1"^^xsd:integer ;
     sysml:owningNamespace elmt:Bodies__Ctx__Machine ;
@@ -3167,6 +3227,7 @@ elmt:Bodies__Ctx__Machine__on_om
 elmt:Bodies__Ctx__Machine__t1
     a sysml:TransitionUsage ;
     sysml:qualifiedName "Bodies::Ctx::Machine::t1" ;
+    sysx:sourceRange "80:13-82:14" ;
     sysml:elementId "Bodies__Ctx__Machine__t1" ;
     sysx:memberIndex "2"^^xsd:integer ;
     sysml:owningNamespace elmt:Bodies__Ctx__Machine ;
@@ -3202,6 +3263,7 @@ elmt:Bodies__Ctx__Machine__t1_om
 elmt:Bodies__Ctx__Machine__t1__w
     a sysml:AttributeUsage ;
     sysml:qualifiedName "Bodies::Ctx::Machine::t1::w" ;
+    sysx:sourceRange "81:17-81:36" ;
     sysml:elementId "Bodies__Ctx__Machine__t1__w" ;
     sysx:memberIndex "0"^^xsd:integer ;
     sysml:owningNamespace elmt:Bodies__Ctx__Machine__t1 ;
@@ -3231,6 +3293,7 @@ elmt:Bodies__Ctx__Machine__t1__w_om
 elmt:Bodies__Ctx__Machine___403
     a sysml:TransitionUsage ;
     sysml:qualifiedName "Bodies::Ctx::Machine::@3" ;
+    sysx:sourceRange "83:13-84:14" ;
     sysml:elementId "Bodies__Ctx__Machine___403" ;
     sysx:memberIndex "3"^^xsd:integer ;
     sysml:owningNamespace elmt:Bodies__Ctx__Machine ;
@@ -3266,6 +3329,7 @@ elmt:Bodies__Ctx__Machine___403_om
 elmt:Bodies__Ctx__Machine___403___400
     a sysml:AssignmentActionUsage ;
     sysml:qualifiedName "Bodies::Ctx::Machine::@3::@0" ;
+    sysx:sourceRange "83:36-83:51" ;
     sysml:elementId "Bodies__Ctx__Machine___403___400" ;
     sysx:memberIndex "0"^^xsd:integer ;
     sysml:owningNamespace elmt:Bodies__Ctx__Machine___403 ;
@@ -3440,6 +3504,7 @@ expr:Bodies__Ctx__Machine___403___400_pvalue_om
 elmt:Bodies__Ctx__Machine___404
     a sysml:TransitionUsage ;
     sysml:qualifiedName "Bodies::Ctx::Machine::@4" ;
+    sysx:sourceRange "85:13-89:14" ;
     sysml:elementId "Bodies__Ctx__Machine___404" ;
     sysx:memberIndex "4"^^xsd:integer ;
     sysml:owningNamespace elmt:Bodies__Ctx__Machine ;
@@ -3481,6 +3546,7 @@ elmt:Bodies__Ctx__Machine___404_om
 elmt:Bodies__Ctx__Machine___404___400
     a sysml:PerformActionUsage ;
     sysml:qualifiedName "Bodies::Ctx::Machine::@4::@0" ;
+    sysx:sourceRange "85:37-87:14" ;
     sysml:elementId "Bodies__Ctx__Machine___404___400" ;
     sysx:memberIndex "0"^^xsd:integer ;
     sysml:owningNamespace elmt:Bodies__Ctx__Machine___404 ;
@@ -3512,6 +3578,7 @@ elmt:Bodies__Ctx__Machine___404___400_om
 elmt:Bodies__Ctx__Machine___404___400___400
     a sysml:AssignmentActionUsage ;
     sysml:qualifiedName "Bodies::Ctx::Machine::@4::@0::@0" ;
+    sysx:sourceRange "86:17-86:33" ;
     sysml:elementId "Bodies__Ctx__Machine___404___400___400" ;
     sysx:memberIndex "0"^^xsd:integer ;
     sysml:owningNamespace elmt:Bodies__Ctx__Machine___404___400 ;
@@ -3685,6 +3752,7 @@ expr:Bodies__Ctx__Machine___404___400___400_pvalue_om
 elmt:Bodies__Ctx__Machine___404__w
     a sysml:AttributeUsage ;
     sysml:qualifiedName "Bodies::Ctx::Machine::@4::w" ;
+    sysx:sourceRange "88:17-88:36" ;
     sysml:elementId "Bodies__Ctx__Machine___404__w" ;
     sysx:memberIndex "1"^^xsd:integer ;
     sysml:owningNamespace elmt:Bodies__Ctx__Machine___404 ;

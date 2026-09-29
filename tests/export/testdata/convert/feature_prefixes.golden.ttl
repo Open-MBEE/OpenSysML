@@ -9,9 +9,11 @@
 elmt:FeaturePrefixes
     a sysml:Package ;
     sysml:qualifiedName "FeaturePrefixes" ;
+    sysx:sourceRange "1:1-15:2" ;
     sysml:elementId "FeaturePrefixes" ;
     sysx:memberIndex "0"^^xsd:integer ;
     sysx:sourceLanguage "kerml" ;
+    sysx:sourceDocument "testdata/convert/feature_prefixes.kerml" ;
     sysml:declaredName "FeaturePrefixes" ;
     sysx:hasBody "true"^^xsd:boolean ;
     sysml:ownedMember elmt:FeaturePrefixes__A, elmt:FeaturePrefixes__B, elmt:FeaturePrefixes__C ;
@@ -26,6 +28,7 @@ elmt:FeaturePrefixes
 elmt:FeaturePrefixes__A
     a sysml:ClassUsage ;
     sysml:qualifiedName "FeaturePrefixes::A" ;
+    sysx:sourceRange "2:5-2:13" ;
     sysml:elementId "FeaturePrefixes__A" ;
     sysx:memberIndex "0"^^xsd:integer ;
     sysml:owningNamespace elmt:FeaturePrefixes ;
@@ -49,6 +52,7 @@ elmt:FeaturePrefixes__A_om
 elmt:FeaturePrefixes__B
     a sysml:ClassUsage ;
     sysml:qualifiedName "FeaturePrefixes::B" ;
+    sysx:sourceRange "3:5-9:6" ;
     sysml:elementId "FeaturePrefixes__B" ;
     sysx:memberIndex "1"^^xsd:integer ;
     sysml:owningNamespace elmt:FeaturePrefixes ;
@@ -83,6 +87,7 @@ elmt:FeaturePrefixes__B_om
 elmt:FeaturePrefixes__B__k
     a sysml:AttributeUsage ;
     sysml:qualifiedName "FeaturePrefixes::B::k" ;
+    sysx:sourceRange "4:9-4:29" ;
     sysml:elementId "FeaturePrefixes__B__k" ;
     sysx:memberIndex "0"^^xsd:integer ;
     sysml:owningNamespace elmt:FeaturePrefixes__B ;
@@ -114,6 +119,7 @@ elmt:FeaturePrefixes__B__k_om
 elmt:FeaturePrefixes__B__vk
     a sysml:AttributeUsage ;
     sysml:qualifiedName "FeaturePrefixes::B::vk" ;
+    sysx:sourceRange "5:9-5:34" ;
     sysml:elementId "FeaturePrefixes__B__vk" ;
     sysx:memberIndex "1"^^xsd:integer ;
     sysml:owningNamespace elmt:FeaturePrefixes__B ;
@@ -146,6 +152,7 @@ elmt:FeaturePrefixes__B__vk_om
 elmt:FeaturePrefixes__B__p
     a sysml:AttributeUsage ;
     sysml:qualifiedName "FeaturePrefixes::B::p" ;
+    sysx:sourceRange "6:9-6:31" ;
     sysml:elementId "FeaturePrefixes__B__p" ;
     sysx:memberIndex "2"^^xsd:integer ;
     sysml:owningNamespace elmt:FeaturePrefixes__B ;
@@ -178,6 +185,7 @@ elmt:FeaturePrefixes__B__p_om
 elmt:FeaturePrefixes__B__pv
     a sysml:AttributeUsage ;
     sysml:qualifiedName "FeaturePrefixes::B::pv" ;
+    sysx:sourceRange "7:9-7:36" ;
     sysml:elementId "FeaturePrefixes__B__pv" ;
     sysx:memberIndex "3"^^xsd:integer ;
     sysml:owningNamespace elmt:FeaturePrefixes__B ;
@@ -211,6 +219,7 @@ elmt:FeaturePrefixes__B__pv_om
 elmt:FeaturePrefixes__B__slices
     a sysml:AttributeUsage ;
     sysml:qualifiedName "FeaturePrefixes::B::slices" ;
+    sysx:sourceRange "8:9-8:56" ;
     sysml:elementId "FeaturePrefixes__B__slices" ;
     sysx:memberIndex "4"^^xsd:integer ;
     sysml:owningNamespace elmt:FeaturePrefixes__B ;
@@ -312,6 +321,7 @@ expr:FeaturePrefixes__B__slices_pupperBound_om
 elmt:FeaturePrefixes__C
     a sysml:ClassUsage ;
     sysml:qualifiedName "FeaturePrefixes::C" ;
+    sysx:sourceRange "10:5-14:6" ;
     sysml:elementId "FeaturePrefixes__C" ;
     sysx:memberIndex "2"^^xsd:integer ;
     sysml:owningNamespace elmt:FeaturePrefixes ;
@@ -348,6 +358,7 @@ elmt:FeaturePrefixes__C_om
 elmt:FeaturePrefixes__C___400
     a sysml:AttributeUsage ;
     sysml:qualifiedName "FeaturePrefixes::C::@0" ;
+    sysx:sourceRange "11:9-11:41" ;
     sysml:elementId "FeaturePrefixes__C___400" ;
     sysx:memberIndex "0"^^xsd:integer ;
     sysml:owningNamespace elmt:FeaturePrefixes__C ;
@@ -423,6 +434,7 @@ expr:FeaturePrefixes__C___400_pupperBound_om
 elmt:FeaturePrefixes__C___401
     a sysml:ReferenceUsage ;
     sysml:qualifiedName "FeaturePrefixes::C::@1" ;
+    sysx:sourceRange "12:9-12:34" ;
     sysml:elementId "FeaturePrefixes__C___401" ;
     sysx:memberIndex "1"^^xsd:integer ;
     sysml:owningNamespace elmt:FeaturePrefixes__C ;
@@ -506,6 +518,7 @@ expr:FeaturePrefixes__C___401_pvalue_om
 elmt:FeaturePrefixes__C__dk
     a sysml:AttributeUsage ;
     sysml:qualifiedName "FeaturePrefixes::C::dk" ;
+    sysx:sourceRange "13:9-13:38" ;
     sysml:elementId "FeaturePrefixes__C__dk" ;
     sysx:memberIndex "2"^^xsd:integer ;
     sysml:owningNamespace elmt:FeaturePrefixes__C ;

@@ -9,9 +9,11 @@
 elmt:OtherPkg
     a sysml:Package ;
     sysml:qualifiedName "OtherPkg" ;
+    sysx:sourceRange "1:1-14:2" ;
     sysml:elementId "OtherPkg" ;
     sysx:memberIndex "0"^^xsd:integer ;
     sysx:sourceLanguage "sysml" ;
+    sysx:sourceDocument "testdata/convert/imported_references.sysml" ;
     sysml:declaredName "OtherPkg" ;
     sysx:hasBody "true"^^xsd:boolean ;
     sysml:ownedMember elmt:OtherPkg__BudgetLedger, elmt:OtherPkg__Tempo, elmt:OtherPkg__Inner, elmt:OtherPkg__spare ;
@@ -26,6 +28,7 @@ elmt:OtherPkg
 elmt:OtherPkg__BudgetLedger
     a sysml:ItemDefinition ;
     sysml:qualifiedName "OtherPkg::BudgetLedger" ;
+    sysx:sourceRange "2:5-2:27" ;
     sysml:elementId "OtherPkg__BudgetLedger" ;
     sysx:memberIndex "0"^^xsd:integer ;
     sysml:owningNamespace elmt:OtherPkg ;
@@ -49,6 +52,7 @@ elmt:OtherPkg__BudgetLedger_om
 elmt:OtherPkg__Tempo
     a sysml:EnumerationDefinition ;
     sysml:qualifiedName "OtherPkg::Tempo" ;
+    sysx:sourceRange "3:5-6:6" ;
     sysml:elementId "OtherPkg__Tempo" ;
     sysx:memberIndex "1"^^xsd:integer ;
     sysml:owningNamespace elmt:OtherPkg ;
@@ -84,6 +88,7 @@ elmt:OtherPkg__Tempo_om
 elmt:OtherPkg__Tempo__operative
     a sysml:EnumerationUsage ;
     sysml:qualifiedName "OtherPkg::Tempo::operative" ;
+    sysx:sourceRange "4:9-4:19" ;
     sysml:elementId "OtherPkg__Tempo__operative" ;
     sysx:memberIndex "0"^^xsd:integer ;
     sysml:owningNamespace elmt:OtherPkg__Tempo ;
@@ -110,6 +115,7 @@ elmt:OtherPkg__Tempo__operative_om
 elmt:OtherPkg__Tempo__planning
     a sysml:EnumerationUsage ;
     sysml:qualifiedName "OtherPkg::Tempo::planning" ;
+    sysx:sourceRange "5:9-5:18" ;
     sysml:elementId "OtherPkg__Tempo__planning" ;
     sysx:memberIndex "1"^^xsd:integer ;
     sysml:owningNamespace elmt:OtherPkg__Tempo ;
@@ -136,6 +142,7 @@ elmt:OtherPkg__Tempo__planning_om
 elmt:OtherPkg__Inner
     a sysml:Package ;
     sysml:qualifiedName "OtherPkg::Inner" ;
+    sysx:sourceRange "7:5-12:6" ;
     sysml:elementId "OtherPkg__Inner" ;
     sysx:memberIndex "2"^^xsd:integer ;
     sysml:owningNamespace elmt:OtherPkg ;
@@ -166,6 +173,7 @@ elmt:OtherPkg__Inner_om
 elmt:OtherPkg__Inner__Wheel
     a sysml:PartDefinition ;
     sysml:qualifiedName "OtherPkg::Inner::Wheel" ;
+    sysx:sourceRange "8:9-10:10" ;
     sysml:elementId "OtherPkg__Inner__Wheel" ;
     sysx:memberIndex "0"^^xsd:integer ;
     sysml:owningNamespace elmt:OtherPkg__Inner ;
@@ -195,6 +203,7 @@ elmt:OtherPkg__Inner__Wheel_om
 elmt:OtherPkg__Inner__Wheel__size
     a sysml:AttributeUsage ;
     sysml:qualifiedName "OtherPkg::Inner::Wheel::size" ;
+    sysx:sourceRange "9:13-9:28" ;
     sysml:elementId "OtherPkg__Inner__Wheel__size" ;
     sysx:memberIndex "0"^^xsd:integer ;
     sysml:owningNamespace elmt:OtherPkg__Inner__Wheel ;
@@ -220,6 +229,7 @@ elmt:OtherPkg__Inner__Wheel__size_om
 elmt:OtherPkg__Inner__wheels
     a sysml:PartUsage ;
     sysml:qualifiedName "OtherPkg::Inner::wheels" ;
+    sysx:sourceRange "11:9-11:29" ;
     sysml:elementId "OtherPkg__Inner__wheels" ;
     sysx:memberIndex "1"^^xsd:integer ;
     sysml:owningNamespace elmt:OtherPkg__Inner ;
@@ -247,6 +257,7 @@ elmt:OtherPkg__Inner__wheels_om
 elmt:OtherPkg__spare
     a sysml:PartUsage ;
     sysml:qualifiedName "OtherPkg::spare" ;
+    sysx:sourceRange "13:5-13:31" ;
     sysml:elementId "OtherPkg__spare" ;
     sysx:memberIndex "3"^^xsd:integer ;
     sysml:owningNamespace elmt:OtherPkg ;
@@ -274,9 +285,11 @@ elmt:OtherPkg__spare_om
 elmt:R90
     a sysml:Package ;
     sysml:qualifiedName "R90" ;
+    sysx:sourceRange "15:1-49:2" ;
     sysml:elementId "R90" ;
     sysx:memberIndex "1"^^xsd:integer ;
     sysx:sourceLanguage "sysml" ;
+    sysx:sourceDocument "testdata/convert/imported_references.sysml" ;
     sysml:declaredName "R90" ;
     sysx:hasBody "true"^^xsd:boolean ;
     sysml:ownedRelationship elmt:R90___400, elmt:R90__Ledger, elmt:R90__A_om, elmt:R90__B_om, elmt:R90__G1_om, elmt:R90__G2_om, elmt:R90__H_om, elmt:R90__Run_om, elmt:R90__Done_om ;
@@ -292,6 +305,7 @@ elmt:R90
 elmt:R90___400
     a sysml:NamespaceImport ;
     sysml:qualifiedName "R90::@0" ;
+    sysx:sourceRange "16:5-16:31" ;
     sysml:elementId "R90___400" ;
     sysx:memberIndex "0"^^xsd:integer ;
     sysml:owningNamespace elmt:R90 ;
@@ -306,6 +320,7 @@ elmt:R90___400
 elmt:R90__Ledger
     a sysml:Membership ;
     sysml:qualifiedName "R90::Ledger" ;
+    sysx:sourceRange "17:5-17:45" ;
     sysml:elementId "R90__Ledger" ;
     sysx:memberIndex "1"^^xsd:integer ;
     sysml:owningNamespace elmt:R90 ;
@@ -321,6 +336,7 @@ elmt:R90__Ledger
 elmt:R90__A
     a sysml:PartDefinition ;
     sysml:qualifiedName "R90::A" ;
+    sysx:sourceRange "18:5-28:6" ;
     sysml:elementId "R90__A" ;
     sysx:memberIndex "2"^^xsd:integer ;
     sysml:owningNamespace elmt:R90 ;
@@ -355,6 +371,7 @@ elmt:R90__A_om
 elmt:R90__A__custodyBudget
     a sysml:ItemUsage ;
     sysml:qualifiedName "R90::A::custodyBudget" ;
+    sysx:sourceRange "19:9-19:53" ;
     sysml:elementId "R90__A__custodyBudget" ;
     sysx:memberIndex "0"^^xsd:integer ;
     sysml:owningNamespace elmt:R90__A ;
@@ -384,6 +401,7 @@ elmt:R90__A__custodyBudget_om
 elmt:R90__A__t
     a sysml:AttributeUsage ;
     sysml:qualifiedName "R90::A::t" ;
+    sysx:sourceRange "20:9-20:48" ;
     sysml:elementId "R90__A__t" ;
     sysx:memberIndex "1"^^xsd:integer ;
     sysml:owningNamespace elmt:R90__A ;
@@ -464,6 +482,7 @@ expr:R90__A__t_pvalue_om
 elmt:R90__A__b2
     a sysml:ItemUsage ;
     sysml:qualifiedName "R90::A::b2" ;
+    sysx:sourceRange "21:9-21:32" ;
     sysml:elementId "R90__A__b2" ;
     sysx:memberIndex "2"^^xsd:integer ;
     sysml:owningNamespace elmt:R90__A ;
@@ -493,6 +512,7 @@ elmt:R90__A__b2_om
 elmt:R90__A__b3
     a sysml:ItemUsage ;
     sysml:qualifiedName "R90::A::b3" ;
+    sysx:sourceRange "22:9-22:26" ;
     sysml:elementId "R90__A__b3" ;
     sysx:memberIndex "3"^^xsd:integer ;
     sysml:owningNamespace elmt:R90__A ;
@@ -522,6 +542,7 @@ elmt:R90__A__b3_om
 elmt:R90__A__w
     a sysml:PartUsage ;
     sysml:qualifiedName "R90::A::w" ;
+    sysx:sourceRange "23:9-23:48" ;
     sysml:elementId "R90__A__w" ;
     sysx:memberIndex "4"^^xsd:integer ;
     sysml:owningNamespace elmt:R90__A ;
@@ -555,6 +576,7 @@ elmt:R90__A__w_om
 elmt:R90__A__spare
     a sysml:ReferenceUsage ;
     sysml:qualifiedName "R90::A::spare" ;
+    sysx:sourceRange "24:9-24:29" ;
     sysml:elementId "R90__A__spare" ;
     sysx:memberIndex "5"^^xsd:integer ;
     sysml:owningNamespace elmt:R90__A ;
@@ -587,6 +609,7 @@ elmt:R90__A__spare_om
 elmt:R90__A__size
     a sysml:AttributeUsage ;
     sysml:qualifiedName "R90::A::size" ;
+    sysx:sourceRange "25:9-25:24" ;
     sysml:elementId "R90__A__size" ;
     sysx:memberIndex "6"^^xsd:integer ;
     sysml:owningNamespace elmt:R90__A ;
@@ -612,6 +635,7 @@ elmt:R90__A__size_om
 elmt:R90__A__s
     a sysml:AttributeUsage ;
     sysml:qualifiedName "R90::A::s" ;
+    sysx:sourceRange "26:9-26:30" ;
     sysml:elementId "R90__A__s" ;
     sysx:memberIndex "7"^^xsd:integer ;
     sysml:owningNamespace elmt:R90__A ;
@@ -764,6 +788,7 @@ expr:R90__A__s_pvalue_om
 elmt:R90__A__unresolved
     a sysml:PartUsage ;
     sysml:qualifiedName "R90::A::unresolved" ;
+    sysx:sourceRange "27:9-27:46" ;
     sysml:elementId "R90__A__unresolved" ;
     sysx:memberIndex "8"^^xsd:integer ;
     sysml:owningNamespace elmt:R90__A ;
@@ -793,6 +818,7 @@ elmt:R90__A__unresolved_om
 elmt:R90__B
     a sysml:PartDefinition ;
     sysml:qualifiedName "R90::B" ;
+    sysx:sourceRange "29:5-31:6" ;
     sysml:elementId "R90__B" ;
     sysx:memberIndex "3"^^xsd:integer ;
     sysml:owningNamespace elmt:R90 ;
@@ -826,6 +852,7 @@ elmt:R90__B_om
 elmt:R90__B___400
     a sysml:PartUsage ;
     sysml:qualifiedName "R90::B::@0" ;
+    sysx:sourceRange "30:9-30:35" ;
     sysml:elementId "R90__B___400" ;
     sysx:memberIndex "0"^^xsd:integer ;
     sysml:owningNamespace elmt:R90__B ;
@@ -859,6 +886,7 @@ elmt:R90__B___400_om
 elmt:R90__G1
     a sysml:PartDefinition ;
     sysml:qualifiedName "R90::G1" ;
+    sysx:sourceRange "32:5-34:6" ;
     sysml:elementId "R90__G1" ;
     sysx:memberIndex "4"^^xsd:integer ;
     sysml:owningNamespace elmt:R90 ;
@@ -888,6 +916,7 @@ elmt:R90__G1_om
 elmt:R90__G1__x
     a sysml:PartUsage ;
     sysml:qualifiedName "R90::G1::x" ;
+    sysx:sourceRange "33:9-33:16" ;
     sysml:elementId "R90__G1__x" ;
     sysx:memberIndex "0"^^xsd:integer ;
     sysml:owningNamespace elmt:R90__G1 ;
@@ -913,6 +942,7 @@ elmt:R90__G1__x_om
 elmt:R90__G2
     a sysml:PartDefinition ;
     sysml:qualifiedName "R90::G2" ;
+    sysx:sourceRange "35:5-37:6" ;
     sysml:elementId "R90__G2" ;
     sysx:memberIndex "5"^^xsd:integer ;
     sysml:owningNamespace elmt:R90 ;
@@ -942,6 +972,7 @@ elmt:R90__G2_om
 elmt:R90__G2__x
     a sysml:PartUsage ;
     sysml:qualifiedName "R90::G2::x" ;
+    sysx:sourceRange "36:9-36:16" ;
     sysml:elementId "R90__G2__x" ;
     sysx:memberIndex "0"^^xsd:integer ;
     sysml:owningNamespace elmt:R90__G2 ;
@@ -967,6 +998,7 @@ elmt:R90__G2__x_om
 elmt:R90__H
     a sysml:PartDefinition ;
     sysml:qualifiedName "R90::H" ;
+    sysx:sourceRange "38:5-40:6" ;
     sysml:elementId "R90__H" ;
     sysx:memberIndex "6"^^xsd:integer ;
     sysml:owningNamespace elmt:R90 ;
@@ -1003,6 +1035,7 @@ elmt:R90__H_om
 elmt:R90__H___400
     a sysml:PartUsage ;
     sysml:qualifiedName "R90::H::@0" ;
+    sysx:sourceRange "39:9-39:24" ;
     sysml:elementId "R90__H___400" ;
     sysx:memberIndex "0"^^xsd:integer ;
     sysml:owningNamespace elmt:R90__H ;
@@ -1032,6 +1065,7 @@ elmt:R90__H___400_om
 elmt:R90__Run
     a sysml:StateDefinition ;
     sysml:qualifiedName "R90::Run" ;
+    sysx:sourceRange "41:5-45:6" ;
     sysml:elementId "R90__Run" ;
     sysx:memberIndex "7"^^xsd:integer ;
     sysml:owningNamespace elmt:R90 ;
@@ -1065,6 +1099,7 @@ elmt:R90__Run_om
 elmt:R90__Run___400
     a sysml:StateSubactionMembership ;
     sysml:qualifiedName "R90::Run::@0" ;
+    sysx:sourceRange "42:9-42:15" ;
     sysml:elementId "R90__Run___400" ;
     sysx:memberIndex "0"^^xsd:integer ;
     sysml:owningNamespace elmt:R90__Run ;
@@ -1077,6 +1112,7 @@ elmt:R90__Run___400
 elmt:R90__Run___401
     a sysml:SuccessionAsUsage ;
     sysml:qualifiedName "R90::Run::@1" ;
+    sysx:sourceRange "42:16-42:26" ;
     sysml:elementId "R90__Run___401" ;
     sysx:memberIndex "1"^^xsd:integer ;
     sysml:owningNamespace elmt:R90__Run ;
@@ -1101,6 +1137,7 @@ elmt:R90__Run___401_om
 elmt:R90__Run__idle
     a sysml:StateUsage ;
     sysml:qualifiedName "R90::Run::idle" ;
+    sysx:sourceRange "43:9-43:20" ;
     sysml:elementId "R90__Run__idle" ;
     sysx:memberIndex "2"^^xsd:integer ;
     sysml:owningNamespace elmt:R90__Run ;
@@ -1125,6 +1162,7 @@ elmt:R90__Run__idle_om
 elmt:R90__Run___403
     a sysml:TransitionUsage ;
     sysml:qualifiedName "R90::Run::@3" ;
+    sysx:sourceRange "44:9-44:41" ;
     sysml:elementId "R90__Run___403" ;
     sysx:memberIndex "3"^^xsd:integer ;
     sysml:owningNamespace elmt:R90__Run ;
@@ -1150,6 +1188,7 @@ elmt:R90__Run___403_om
 elmt:R90__Done
     a sysml:StateDefinition ;
     sysml:qualifiedName "R90::Done" ;
+    sysx:sourceRange "46:5-48:6" ;
     sysml:elementId "R90__Done" ;
     sysx:memberIndex "8"^^xsd:integer ;
     sysml:owningNamespace elmt:R90 ;
@@ -1179,6 +1218,7 @@ elmt:R90__Done_om
 elmt:R90__Done__done
     a sysml:StateUsage ;
     sysml:qualifiedName "R90::Done::done" ;
+    sysx:sourceRange "47:9-47:20" ;
     sysml:elementId "R90__Done__done" ;
     sysx:memberIndex "0"^^xsd:integer ;
     sysml:owningNamespace elmt:R90__Done ;
@@ -1204,9 +1244,11 @@ elmt:R90__Done__done_om
 elmt:Meta
     a sysml:Package ;
     sysml:qualifiedName "Meta" ;
+    sysx:sourceRange "50:1-54:2" ;
     sysml:elementId "Meta" ;
     sysx:memberIndex "2"^^xsd:integer ;
     sysx:sourceLanguage "sysml" ;
+    sysx:sourceDocument "testdata/convert/imported_references.sysml" ;
     sysml:declaredName "Meta" ;
     sysx:hasBody "true"^^xsd:boolean ;
     sysml:ownedMember elmt:Meta__Safety, elmt:Meta__Tagged, elmt:Meta__Plain ;
@@ -1221,6 +1263,7 @@ elmt:Meta
 elmt:Meta__Safety
     a sysml:MetadataDefinition ;
     sysml:qualifiedName "Meta::Safety" ;
+    sysx:sourceRange "51:5-51:25" ;
     sysml:elementId "Meta__Safety" ;
     sysx:memberIndex "0"^^xsd:integer ;
     sysml:owningNamespace elmt:Meta ;
@@ -1244,6 +1287,7 @@ elmt:Meta__Safety_om
 elmt:Meta__Tagged
     a sysml:PartDefinition ;
     sysml:qualifiedName "Meta::Tagged" ;
+    sysx:sourceRange "52:5-52:29" ;
     sysml:elementId "Meta__Tagged" ;
     sysx:memberIndex "1"^^xsd:integer ;
     sysml:owningNamespace elmt:Meta ;
@@ -1270,6 +1314,7 @@ elmt:Meta__Tagged_om
 elmt:Meta__Tagged___400
     a sysml:MetadataUsage ;
     sysml:qualifiedName "Meta::Tagged::@0" ;
+    sysx:sourceRange "52:5-52:12" ;
     sysml:elementId "Meta__Tagged___400" ;
     sysx:memberIndex "0"^^xsd:integer ;
     sysml:owningNamespace elmt:Meta__Tagged ;
@@ -1296,6 +1341,7 @@ elmt:Meta__Tagged___400_om
 elmt:Meta__Plain
     a sysml:PartDefinition ;
     sysml:qualifiedName "Meta::Plain" ;
+    sysx:sourceRange "53:5-53:20" ;
     sysml:elementId "Meta__Plain" ;
     sysx:memberIndex "2"^^xsd:integer ;
     sysml:owningNamespace elmt:Meta ;
@@ -1319,9 +1365,11 @@ elmt:Meta__Plain_om
 elmt:Filtered
     a sysml:Package ;
     sysml:qualifiedName "Filtered" ;
+    sysx:sourceRange "55:1-61:2" ;
     sysml:elementId "Filtered" ;
     sysx:memberIndex "3"^^xsd:integer ;
     sysx:sourceLanguage "sysml" ;
+    sysx:sourceDocument "testdata/convert/imported_references.sysml" ;
     sysml:declaredName "Filtered" ;
     sysx:hasBody "true"^^xsd:boolean ;
     sysml:ownedRelationship elmt:Filtered___400, elmt:Filtered__C_om ;
@@ -1335,6 +1383,7 @@ elmt:Filtered
 elmt:Filtered___400
     a sysml:NamespaceImport ;
     sysml:qualifiedName "Filtered::@0" ;
+    sysx:sourceRange "56:5-56:36" ;
     sysml:elementId "Filtered___400" ;
     sysx:memberIndex "0"^^xsd:integer ;
     sysml:owningNamespace elmt:Filtered ;
@@ -1461,6 +1510,7 @@ elmt:Filtered___400_fp_efm
 elmt:Filtered__C
     a sysml:PartDefinition ;
     sysml:qualifiedName "Filtered::C" ;
+    sysx:sourceRange "57:5-60:6" ;
     sysml:elementId "Filtered__C" ;
     sysx:memberIndex "1"^^xsd:integer ;
     sysml:owningNamespace elmt:Filtered ;
@@ -1492,6 +1542,7 @@ elmt:Filtered__C_om
 elmt:Filtered__C__other
     a sysml:AttributeUsage ;
     sysml:qualifiedName "Filtered::C::other" ;
+    sysx:sourceRange "58:9-58:34" ;
     sysml:elementId "Filtered__C__other" ;
     sysx:memberIndex "0"^^xsd:integer ;
     sysml:owningNamespace elmt:Filtered__C ;
@@ -1521,6 +1572,7 @@ elmt:Filtered__C__other_om
 elmt:Filtered__C___401
     a sysml:ElementFilterMembership ;
     sysml:qualifiedName "Filtered::C::@1" ;
+    sysx:sourceRange "59:9-59:24" ;
     sysml:elementId "Filtered__C___401" ;
     sysx:memberIndex "1"^^xsd:integer ;
     sysml:owningNamespace elmt:Filtered__C ;

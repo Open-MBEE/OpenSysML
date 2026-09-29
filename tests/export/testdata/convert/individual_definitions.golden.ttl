@@ -9,9 +9,11 @@
 elmt:IndividualDefinitions
     a sysml:Package ;
     sysml:qualifiedName "IndividualDefinitions" ;
+    sysx:sourceRange "1:1-18:2" ;
     sysml:elementId "IndividualDefinitions" ;
     sysx:memberIndex "0"^^xsd:integer ;
     sysx:sourceLanguage "sysml" ;
+    sysx:sourceDocument "testdata/convert/individual_definitions.sysml" ;
     sysml:declaredName "IndividualDefinitions" ;
     sysx:hasBody "true"^^xsd:boolean ;
     sysml:ownedMember elmt:IndividualDefinitions__Astronaut, elmt:IndividualDefinitions__Neil_20Armstrong, elmt:IndividualDefinitions__Sample, elmt:IndividualDefinitions__Sample_2010005, elmt:IndividualDefinitions__FirstLanding, elmt:IndividualDefinitions__PlantFlag, elmt:IndividualDefinitions__Spacecraft, elmt:IndividualDefinitions__Eagle, elmt:IndividualDefinitions__Mission ;
@@ -26,6 +28,7 @@ elmt:IndividualDefinitions
 elmt:IndividualDefinitions__Astronaut
     a sysml:PartDefinition ;
     sysml:qualifiedName "IndividualDefinitions::Astronaut" ;
+    sysx:sourceRange "2:2-2:21" ;
     sysml:elementId "IndividualDefinitions__Astronaut" ;
     sysx:memberIndex "0"^^xsd:integer ;
     sysml:owningNamespace elmt:IndividualDefinitions ;
@@ -49,6 +52,7 @@ elmt:IndividualDefinitions__Astronaut_om
 elmt:IndividualDefinitions__Neil_20Armstrong
     a sysml:PartDefinition ;
     sysml:qualifiedName "IndividualDefinitions::Neil Armstrong" ;
+    sysx:sourceRange "3:2-3:52" ;
     sysml:elementId "IndividualDefinitions__Neil_20Armstrong" ;
     sysx:memberIndex "1"^^xsd:integer ;
     sysml:owningNamespace elmt:IndividualDefinitions ;
@@ -77,6 +81,7 @@ elmt:IndividualDefinitions__Neil_20Armstrong_om
 elmt:IndividualDefinitions__Sample
     a sysml:ItemDefinition ;
     sysml:qualifiedName "IndividualDefinitions::Sample" ;
+    sysx:sourceRange "4:2-4:18" ;
     sysml:elementId "IndividualDefinitions__Sample" ;
     sysx:memberIndex "2"^^xsd:integer ;
     sysml:owningNamespace elmt:IndividualDefinitions ;
@@ -100,6 +105,7 @@ elmt:IndividualDefinitions__Sample_om
 elmt:IndividualDefinitions__Sample_2010005
     a sysml:ItemDefinition ;
     sysml:qualifiedName "IndividualDefinitions::Sample 10005" ;
+    sysx:sourceRange "5:2-5:37" ;
     sysml:elementId "IndividualDefinitions__Sample_2010005" ;
     sysx:memberIndex "3"^^xsd:integer ;
     sysml:owningNamespace elmt:IndividualDefinitions ;
@@ -124,6 +130,7 @@ elmt:IndividualDefinitions__Sample_2010005_om
 elmt:IndividualDefinitions__FirstLanding
     a sysml:OccurrenceDefinition ;
     sysml:qualifiedName "IndividualDefinitions::FirstLanding" ;
+    sysx:sourceRange "6:2-6:41" ;
     sysml:elementId "IndividualDefinitions__FirstLanding" ;
     sysx:memberIndex "4"^^xsd:integer ;
     sysml:owningNamespace elmt:IndividualDefinitions ;
@@ -148,6 +155,7 @@ elmt:IndividualDefinitions__FirstLanding_om
 elmt:IndividualDefinitions__PlantFlag
     a sysml:ActionDefinition ;
     sysml:qualifiedName "IndividualDefinitions::PlantFlag" ;
+    sysx:sourceRange "7:2-7:34" ;
     sysml:elementId "IndividualDefinitions__PlantFlag" ;
     sysx:memberIndex "5"^^xsd:integer ;
     sysml:owningNamespace elmt:IndividualDefinitions ;
@@ -172,6 +180,7 @@ elmt:IndividualDefinitions__PlantFlag_om
 elmt:IndividualDefinitions__Spacecraft
     a sysml:PartDefinition ;
     sysml:qualifiedName "IndividualDefinitions::Spacecraft" ;
+    sysx:sourceRange "8:2-8:42" ;
     sysml:elementId "IndividualDefinitions__Spacecraft" ;
     sysx:memberIndex "6"^^xsd:integer ;
     sysml:owningNamespace elmt:IndividualDefinitions ;
@@ -197,6 +206,7 @@ elmt:IndividualDefinitions__Spacecraft_om
 elmt:IndividualDefinitions__Eagle
     a sysml:IndividualDefinition ;
     sysml:qualifiedName "IndividualDefinitions::Eagle" ;
+    sysx:sourceRange "9:2-9:37" ;
     sysml:elementId "IndividualDefinitions__Eagle" ;
     sysx:memberIndex "7"^^xsd:integer ;
     sysml:owningNamespace elmt:IndividualDefinitions ;
@@ -224,6 +234,7 @@ elmt:IndividualDefinitions__Eagle_om
 elmt:IndividualDefinitions__Mission
     a sysml:PartDefinition ;
     sysml:qualifiedName "IndividualDefinitions::Mission" ;
+    sysx:sourceRange "10:2-17:3" ;
     sysml:elementId "IndividualDefinitions__Mission" ;
     sysx:memberIndex "8"^^xsd:integer ;
     sysml:owningNamespace elmt:IndividualDefinitions ;
@@ -258,6 +269,7 @@ elmt:IndividualDefinitions__Mission_om
 elmt:IndividualDefinitions__Mission__crew
     a sysml:PartUsage ;
     sysml:qualifiedName "IndividualDefinitions::Mission::crew" ;
+    sysx:sourceRange "11:3-11:28" ;
     sysml:elementId "IndividualDefinitions__Mission__crew" ;
     sysx:memberIndex "0"^^xsd:integer ;
     sysml:owningNamespace elmt:IndividualDefinitions__Mission ;
@@ -329,6 +341,7 @@ expr:IndividualDefinitions__Mission__crew_pupperBound_om
 elmt:IndividualDefinitions__Mission__commander
     a sysml:PartUsage ;
     sysml:qualifiedName "IndividualDefinitions::Mission::commander" ;
+    sysx:sourceRange "12:3-12:56" ;
     sysml:elementId "IndividualDefinitions__Mission__commander" ;
     sysx:memberIndex "1"^^xsd:integer ;
     sysml:owningNamespace elmt:IndividualDefinitions__Mission ;
@@ -363,6 +376,7 @@ elmt:IndividualDefinitions__Mission__commander_om
 elmt:IndividualDefinitions__Mission__returned
     a sysml:ItemUsage ;
     sysml:qualifiedName "IndividualDefinitions::Mission::returned" ;
+    sysx:sourceRange "13:3-13:45" ;
     sysml:elementId "IndividualDefinitions__Mission__returned" ;
     sysx:memberIndex "2"^^xsd:integer ;
     sysml:owningNamespace elmt:IndividualDefinitions__Mission ;
@@ -393,6 +407,7 @@ elmt:IndividualDefinitions__Mission__returned_om
 elmt:IndividualDefinitions__Mission__landing
     a sysml:OccurrenceUsage ;
     sysml:qualifiedName "IndividualDefinitions::Mission::landing" ;
+    sysx:sourceRange "14:3-14:48" ;
     sysml:elementId "IndividualDefinitions__Mission__landing" ;
     sysx:memberIndex "3"^^xsd:integer ;
     sysml:owningNamespace elmt:IndividualDefinitions__Mission ;
@@ -423,6 +438,7 @@ elmt:IndividualDefinitions__Mission__landing_om
 elmt:IndividualDefinitions__Mission__flag
     a sysml:ActionUsage ;
     sysml:qualifiedName "IndividualDefinitions::Mission::flag" ;
+    sysx:sourceRange "15:3-15:38" ;
     sysml:elementId "IndividualDefinitions__Mission__flag" ;
     sysx:memberIndex "4"^^xsd:integer ;
     sysml:owningNamespace elmt:IndividualDefinitions__Mission ;
@@ -453,6 +469,7 @@ elmt:IndividualDefinitions__Mission__flag_om
 elmt:IndividualDefinitions__Mission__lander
     a sysml:PartUsage ;
     sysml:qualifiedName "IndividualDefinitions::Mission::lander" ;
+    sysx:sourceRange "16:3-16:34" ;
     sysml:elementId "IndividualDefinitions__Mission__lander" ;
     sysx:memberIndex "5"^^xsd:integer ;
     sysml:owningNamespace elmt:IndividualDefinitions__Mission ;

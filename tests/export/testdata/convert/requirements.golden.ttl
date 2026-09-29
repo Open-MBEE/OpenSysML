@@ -8,9 +8,11 @@
 elmt:Reqs
     a sysml:Package ;
     sysml:qualifiedName "Reqs" ;
+    sysx:sourceRange "1:1-11:2" ;
     sysml:elementId "Reqs" ;
     sysx:memberIndex "0"^^xsd:integer ;
     sysx:sourceLanguage "sysml" ;
+    sysx:sourceDocument "testdata/convert/requirements.sysml" ;
     sysml:declaredName "Reqs" ;
     sysx:hasBody "true"^^xsd:boolean ;
     sysml:ownedMember elmt:Reqs__Safe, elmt:Reqs__Positive, elmt:Reqs__System ;
@@ -25,6 +27,7 @@ elmt:Reqs
 elmt:Reqs__Safe
     a sysml:RequirementDefinition ;
     sysml:qualifiedName "Reqs::Safe" ;
+    sysx:sourceRange "2:5-4:6" ;
     sysml:elementId "Reqs__Safe" ;
     sysx:memberIndex "0"^^xsd:integer ;
     sysml:owningNamespace elmt:Reqs ;
@@ -54,6 +57,7 @@ elmt:Reqs__Safe_om
 elmt:Reqs__Safe__margin
     a sysml:AttributeUsage ;
     sysml:qualifiedName "Reqs::Safe::margin" ;
+    sysx:sourceRange "3:9-3:33" ;
     sysml:elementId "Reqs__Safe__margin" ;
     sysx:memberIndex "0"^^xsd:integer ;
     sysml:owningNamespace elmt:Reqs__Safe ;
@@ -83,6 +87,7 @@ elmt:Reqs__Safe__margin_om
 elmt:Reqs__Positive
     a sysml:ConstraintDefinition ;
     sysml:qualifiedName "Reqs::Positive" ;
+    sysx:sourceRange "5:5-7:6" ;
     sysml:elementId "Reqs__Positive" ;
     sysx:memberIndex "1"^^xsd:integer ;
     sysml:owningNamespace elmt:Reqs ;
@@ -112,6 +117,7 @@ elmt:Reqs__Positive_om
 elmt:Reqs__Positive__value
     a sysml:AttributeUsage ;
     sysml:qualifiedName "Reqs::Positive::value" ;
+    sysx:sourceRange "6:9-6:32" ;
     sysml:elementId "Reqs__Positive__value" ;
     sysx:memberIndex "0"^^xsd:integer ;
     sysml:owningNamespace elmt:Reqs__Positive ;
@@ -141,6 +147,7 @@ elmt:Reqs__Positive__value_om
 elmt:Reqs__System
     a sysml:PartDefinition ;
     sysml:qualifiedName "Reqs::System" ;
+    sysx:sourceRange "8:5-10:6" ;
     sysml:elementId "Reqs__System" ;
     sysx:memberIndex "2"^^xsd:integer ;
     sysml:owningNamespace elmt:Reqs ;
@@ -170,6 +177,7 @@ elmt:Reqs__System_om
 elmt:Reqs__System__safety
     a sysml:RequirementUsage ;
     sysml:qualifiedName "Reqs::System::safety" ;
+    sysx:sourceRange "9:9-9:35" ;
     sysml:elementId "Reqs__System__safety" ;
     sysx:memberIndex "0"^^xsd:integer ;
     sysml:owningNamespace elmt:Reqs__System ;

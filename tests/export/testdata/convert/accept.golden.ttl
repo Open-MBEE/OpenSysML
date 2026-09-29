@@ -8,9 +8,11 @@
 elmt:Accepts
     a sysml:Package ;
     sysml:qualifiedName "Accepts" ;
+    sysx:sourceRange "1:1-11:2" ;
     sysml:elementId "Accepts" ;
     sysx:memberIndex "0"^^xsd:integer ;
     sysx:sourceLanguage "sysml" ;
+    sysx:sourceDocument "testdata/convert/accept.sysml" ;
     sysml:declaredName "Accepts" ;
     sysx:hasBody "true"^^xsd:boolean ;
     sysml:ownedMember elmt:Accepts__Scene, elmt:Accepts__Camera, elmt:Accepts__Observe, elmt:Accepts__Watch ;
@@ -25,6 +27,7 @@ elmt:Accepts
 elmt:Accepts__Scene
     a sysml:ItemDefinition ;
     sysml:qualifiedName "Accepts::Scene" ;
+    sysx:sourceRange "2:5-2:20" ;
     sysml:elementId "Accepts__Scene" ;
     sysx:memberIndex "0"^^xsd:integer ;
     sysml:owningNamespace elmt:Accepts ;
@@ -48,6 +51,7 @@ elmt:Accepts__Scene_om
 elmt:Accepts__Camera
     a sysml:PortDefinition ;
     sysml:qualifiedName "Accepts::Camera" ;
+    sysx:sourceRange "3:5-3:21" ;
     sysml:elementId "Accepts__Camera" ;
     sysx:memberIndex "1"^^xsd:integer ;
     sysml:owningNamespace elmt:Accepts ;
@@ -109,6 +113,7 @@ elmt:Accepts__Camera_conjugated_pc
 elmt:Accepts__Observe
     a sysml:ActionDefinition ;
     sysml:qualifiedName "Accepts::Observe" ;
+    sysx:sourceRange "4:5-6:6" ;
     sysml:elementId "Accepts__Observe" ;
     sysx:memberIndex "2"^^xsd:integer ;
     sysml:owningNamespace elmt:Accepts ;
@@ -138,6 +143,7 @@ elmt:Accepts__Observe_om
 elmt:Accepts__Observe__trigger
     a sysml:ActionUsage ;
     sysml:qualifiedName "Accepts::Observe::trigger" ;
+    sysx:sourceRange "5:9-5:45" ;
     sysml:elementId "Accepts__Observe__trigger" ;
     sysx:memberIndex "0"^^xsd:integer ;
     sysml:owningNamespace elmt:Accepts__Observe ;
@@ -168,6 +174,7 @@ elmt:Accepts__Observe__trigger_om
 elmt:Accepts__Observe__trigger__scene
     a sysml:ReferenceUsage ;
     sysml:qualifiedName "Accepts::Observe::trigger::scene" ;
+    sysx:sourceRange "5:31-5:44" ;
     sysml:elementId "Accepts__Observe__trigger__scene" ;
     sysx:memberIndex "0"^^xsd:integer ;
     sysml:owningNamespace elmt:Accepts__Observe__trigger ;
@@ -200,6 +207,7 @@ elmt:Accepts__Observe__trigger__scene_om
 elmt:Accepts__Watch
     a sysml:ActionDefinition ;
     sysml:qualifiedName "Accepts::Watch" ;
+    sysx:sourceRange "7:5-10:6" ;
     sysml:elementId "Accepts__Watch" ;
     sysx:memberIndex "3"^^xsd:integer ;
     sysml:owningNamespace elmt:Accepts ;
@@ -234,6 +242,7 @@ elmt:Accepts__Watch_om
 elmt:Accepts__Watch__lens
     a sysml:PortUsage ;
     sysml:qualifiedName "Accepts::Watch::lens" ;
+    sysx:sourceRange "8:9-8:28" ;
     sysml:elementId "Accepts__Watch__lens" ;
     sysx:memberIndex "0"^^xsd:integer ;
     sysml:owningNamespace elmt:Accepts__Watch ;
@@ -263,6 +272,7 @@ elmt:Accepts__Watch__lens_om
 elmt:Accepts__Watch__framed
     a sysml:ActionUsage ;
     sysml:qualifiedName "Accepts::Watch::framed" ;
+    sysx:sourceRange "9:9-9:53" ;
     sysml:elementId "Accepts__Watch__framed" ;
     sysx:memberIndex "1"^^xsd:integer ;
     sysml:owningNamespace elmt:Accepts__Watch ;
@@ -294,6 +304,7 @@ elmt:Accepts__Watch__framed_om
 elmt:Accepts__Watch__framed__scene
     a sysml:ReferenceUsage ;
     sysml:qualifiedName "Accepts::Watch::framed::scene" ;
+    sysx:sourceRange "9:30-9:43" ;
     sysml:elementId "Accepts__Watch__framed__scene" ;
     sysx:memberIndex "0"^^xsd:integer ;
     sysml:owningNamespace elmt:Accepts__Watch__framed ;

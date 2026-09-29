@@ -112,7 +112,7 @@ func TestRoundTripIsLossless(t *testing.T) {
 			if err != nil {
 				t.Fatalf("to turtle again: %v", err)
 			}
-			if string(first) != string(second) {
+			if string(withoutProvenance(t, first)) != string(withoutProvenance(t, second)) {
 				t.Errorf("round trip changed the graph\n--- first ---\n%s\n--- second ---\n%s", first, second)
 			}
 			if textOnly, ok := textOnlyFixtures[name]; ok {
@@ -190,10 +190,22 @@ func firstLineDifference(first, second []byte) string {
 	return ""
 }
 
-// withoutSourceText strips the triples that carry notation rather than structure.
+// withoutSourceText strips the triples that carry notation and provenance
+// rather than structure.
 func withoutSourceText(t *testing.T, turtle []byte) []byte {
 	t.Helper()
-	for _, property := range []string{"sysx:sourceText", "sysx:sourceTail", "sysx:sourceLanguage"} {
+	for _, property := range []string{"sysx:sourceText", "sysx:sourceTail", "sysx:sourceLanguage", "sysx:sourceRange", "sysx:sourceDocument"} {
+		turtle = withoutTriples(t, turtle, property)
+	}
+	return turtle
+}
+
+// withoutProvenance strips the triples that say where each element was written
+// from: a hop's positions and document name legitimately move wherever its
+// notation placed them.
+func withoutProvenance(t *testing.T, turtle []byte) []byte {
+	t.Helper()
+	for _, property := range []string{"sysx:sourceRange", "sysx:sourceDocument"} {
 		turtle = withoutTriples(t, turtle, property)
 	}
 	return turtle
@@ -1270,10 +1282,10 @@ func TestPrefixMetadataComesBackFromTheGraphAlone(t *testing.T) {
 			if err != nil {
 				t.Fatalf("to turtle again: %v", err)
 			}
-			first, second := turtle, again
+			first, second := withoutProvenance(t, turtle), withoutProvenance(t, again)
 			if head.back != "" {
-				first = withoutTriples(t, turtle, "sysx:sourceText")
-				second = withoutTriples(t, again, "sysx:sourceText")
+				first = withoutTriples(t, first, "sysx:sourceText")
+				second = withoutTriples(t, second, "sysx:sourceText")
 			}
 			if string(second) != string(first) {
 				t.Errorf("the second hop changed the graph\n--- first ---\n%s\n--- second ---\n%s", first, second)
@@ -1307,7 +1319,7 @@ func TestVarPrefixMetadataComesBackFromTheGraphAlone(t *testing.T) {
 			if err != nil {
 				t.Fatalf("to turtle again: %v", err)
 			}
-			if string(again) != string(turtle) {
+			if string(withoutProvenance(t, again)) != string(withoutProvenance(t, turtle)) {
 				t.Errorf("the second hop changed the graph\n--- first ---\n%s\n--- second ---\n%s", turtle, again)
 			}
 		})
@@ -1325,7 +1337,7 @@ func TestNegatedInvariantComesBackFromTheGraphAlone(t *testing.T) {
 		t.Run(head, func(t *testing.T) {
 			src := "package P {\n    class C {\n        " + head + " 1 > 2 }\n    }\n}\n"
 			structural := func(turtle []byte) []byte {
-				return withoutTriples(t, withoutTriples(t, turtle, "sysx:sourceText"), "sysx:sourceTail")
+				return withoutProvenance(t, withoutTriples(t, withoutTriples(t, turtle, "sysx:sourceText"), "sysx:sourceTail"))
 			}
 			turtle, err := convert.Convert("m.kerml", []byte(src), convert.FormatSysML, convert.FormatTurtle)
 			if err != nil {
@@ -1472,10 +1484,10 @@ func TestMetadataMembersComeBackFromTheGraphAlone(t *testing.T) {
 			if err != nil {
 				t.Fatalf("to turtle again: %v", err)
 			}
-			first, second := turtle, again
+			first, second := withoutProvenance(t, turtle), withoutProvenance(t, again)
 			if member.back != "" {
-				first = withoutTriples(t, turtle, "sysx:sourceText")
-				second = withoutTriples(t, again, "sysx:sourceText")
+				first = withoutTriples(t, first, "sysx:sourceText")
+				second = withoutTriples(t, second, "sysx:sourceText")
 			}
 			if string(second) != string(first) {
 				t.Errorf("the second hop changed the graph\n--- first ---\n%s\n--- second ---\n%s", first, second)
@@ -2083,7 +2095,7 @@ func TestSuccessionRoundTrips(t *testing.T) {
 	if err != nil {
 		t.Fatalf("to turtle again: %v", err)
 	}
-	if string(again) != string(turtle) {
+	if string(withoutProvenance(t, again)) != string(withoutProvenance(t, turtle)) {
 		t.Errorf("round trip changed the graph\n--- first ---\n%s\n--- second ---\n%s", turtle, again)
 	}
 }
@@ -2118,7 +2130,7 @@ func TestSuccessionRoundTripsInEveryBody(t *testing.T) {
 			if err != nil {
 				t.Fatalf("to turtle again (%s):\n%s\n%v", name, back, err)
 			}
-			if string(again) != string(turtle) {
+			if string(withoutProvenance(t, again)) != string(withoutProvenance(t, turtle)) {
 				t.Errorf("round trip changed the graph\n--- first ---\n%s\n--- second ---\n%s", turtle, again)
 			}
 		})
@@ -2347,7 +2359,7 @@ func TestEndBindingHeadsComeBackFromTheGraphAlone(t *testing.T) {
 			if err != nil {
 				t.Fatalf("to turtle again: %v", err)
 			}
-			if string(again) != string(turtle) {
+			if string(withoutProvenance(t, again)) != string(withoutProvenance(t, turtle)) {
 				t.Errorf("the second hop changed the graph\n--- first ---\n%s\n--- second ---\n%s", turtle, again)
 			}
 		})
@@ -2537,7 +2549,7 @@ func TestEndBindingBodiesComeBackFromTheGraphAlone(t *testing.T) {
 	}
 	// Without the text, the notation is rebuilt from the mapping alone; it may
 	// differ in layout from the notation the text writes, never in what it says.
-	structural := withoutTriples(t, withoutTriples(t, turtle, "sysx:sourceText"), "sysx:sourceTail")
+	structural := withoutProvenance(t, withoutTriples(t, withoutTriples(t, turtle, "sysx:sourceText"), "sysx:sourceTail"))
 	back, err := convert.Convert("m.ttl", structural, convert.FormatTurtle, convert.FormatSysML)
 	if err != nil {
 		t.Fatalf("back to notation without source text: %v", err)
@@ -2565,7 +2577,7 @@ func TestEndBindingBodiesComeBackFromTheGraphAlone(t *testing.T) {
 	if err != nil {
 		t.Fatalf("to turtle again: %v", err)
 	}
-	if got := withoutTriples(t, withoutTriples(t, again, "sysx:sourceText"), "sysx:sourceTail"); string(got) != string(structural) {
+	if got := withoutProvenance(t, withoutTriples(t, withoutTriples(t, again, "sysx:sourceText"), "sysx:sourceTail")); string(got) != string(structural) {
 		t.Errorf("the second hop changed the graph\n--- first ---\n%s\n--- second ---\n%s", structural, got)
 	}
 }
@@ -2872,7 +2884,7 @@ func TestBehavioralHeadsComeBackFromTheGraphAlone(t *testing.T) {
 			if err != nil {
 				t.Fatalf("to turtle again: %v", err)
 			}
-			if string(again) != string(turtle) {
+			if string(withoutProvenance(t, again)) != string(withoutProvenance(t, turtle)) {
 				t.Errorf("the head did not come back as written\n--- notation ---\n%s\n--- first ---\n%s\n--- second ---\n%s", back, turtle, again)
 			}
 		})
@@ -2905,7 +2917,7 @@ func TestUnnamedSuccessionEndComesBackFromTheGraph(t *testing.T) {
 	if err != nil {
 		t.Fatalf("to turtle again: %v", err)
 	}
-	if string(again) != string(turtle) {
+	if string(withoutProvenance(t, again)) != string(withoutProvenance(t, turtle)) {
 		t.Errorf("the second hop changed the graph\n--- first ---\n%s\n--- second ---\n%s", turtle, again)
 	}
 	// The form and the member it names carry the succession without the text.
@@ -3936,7 +3948,8 @@ func TestBodyParametersShadowOnlyInsideTheirBody(t *testing.T) {
 	}
 }
 
-// structuralTriples is the set of a graph's triples without the source text.
+// structuralTriples is the set of a graph's triples without the source text
+// or the provenance of where its elements were written.
 func structuralTriples(t *testing.T, turtle []byte) map[rdf.Triple]bool {
 	t.Helper()
 	g, err := rdf.ParseTurtle(turtle)
@@ -3945,7 +3958,9 @@ func structuralTriples(t *testing.T, turtle []byte) map[rdf.Triple]bool {
 	}
 	out := map[rdf.Triple]bool{}
 	for _, triple := range g.Triples() {
-		if triple.Predicate == rdf.OpenSysMLTerm("sourceText") || triple.Predicate == rdf.OpenSysMLTerm("sourceTail") {
+		switch triple.Predicate {
+		case rdf.OpenSysMLTerm("sourceText"), rdf.OpenSysMLTerm("sourceTail"),
+			rdf.OpenSysMLTerm("sourceRange"), rdf.OpenSysMLTerm("sourceDocument"):
 			continue
 		}
 		out[triple] = true

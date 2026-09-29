@@ -28,11 +28,13 @@ const memberFeatureModel = `package T {
 }
 `
 
-// withoutLayout strips the two predicates that carry layout alone, keeping
+// withoutLayout strips the predicates that carry layout alone, keeping
 // sysx:sourceLanguage: the grammar a model is written in is a fact about it.
+// sysx:sourceRange and sysx:sourceDocument are provenance over where the text
+// was written from, so they move with the layout as well.
 func withoutLayout(t *testing.T, turtle []byte) []byte {
 	t.Helper()
-	for _, property := range []string{"sysx:sourceText", "sysx:sourceTail"} {
+	for _, property := range []string{"sysx:sourceText", "sysx:sourceTail", "sysx:sourceRange", "sysx:sourceDocument"} {
 		turtle = withoutTriples(t, turtle, property)
 	}
 	return turtle

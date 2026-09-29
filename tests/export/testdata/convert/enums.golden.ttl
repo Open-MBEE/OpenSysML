@@ -8,9 +8,11 @@
 elmt:Colors
     a sysml:Package ;
     sysml:qualifiedName "Colors" ;
+    sysx:sourceRange "1:1-7:2" ;
     sysml:elementId "Colors" ;
     sysx:memberIndex "0"^^xsd:integer ;
     sysx:sourceLanguage "sysml" ;
+    sysx:sourceDocument "testdata/convert/enums.sysml" ;
     sysml:declaredName "Colors" ;
     sysx:hasBody "true"^^xsd:boolean ;
     sysml:ownedMember elmt:Colors__Color ;
@@ -22,6 +24,7 @@ elmt:Colors
 elmt:Colors__Color
     a sysml:EnumerationDefinition ;
     sysml:qualifiedName "Colors::Color" ;
+    sysx:sourceRange "2:5-6:6" ;
     sysml:elementId "Colors__Color" ;
     sysx:memberIndex "0"^^xsd:integer ;
     sysml:owningNamespace elmt:Colors ;
@@ -57,6 +60,7 @@ elmt:Colors__Color_om
 elmt:Colors__Color__red
     a sysml:EnumerationUsage ;
     sysml:qualifiedName "Colors::Color::red" ;
+    sysx:sourceRange "3:9-3:18" ;
     sysml:elementId "Colors__Color__red" ;
     sysx:memberIndex "0"^^xsd:integer ;
     sysml:owningNamespace elmt:Colors__Color ;
@@ -82,6 +86,7 @@ elmt:Colors__Color__red_om
 elmt:Colors__Color__green
     a sysml:EnumerationUsage ;
     sysml:qualifiedName "Colors::Color::green" ;
+    sysx:sourceRange "4:9-4:20" ;
     sysml:elementId "Colors__Color__green" ;
     sysx:memberIndex "1"^^xsd:integer ;
     sysml:owningNamespace elmt:Colors__Color ;
@@ -107,6 +112,7 @@ elmt:Colors__Color__green_om
 elmt:Colors__Color__blue
     a sysml:EnumerationUsage ;
     sysml:qualifiedName "Colors::Color::blue" ;
+    sysx:sourceRange "5:9-5:19" ;
     sysml:elementId "Colors__Color__blue" ;
     sysx:memberIndex "2"^^xsd:integer ;
     sysml:owningNamespace elmt:Colors__Color ;

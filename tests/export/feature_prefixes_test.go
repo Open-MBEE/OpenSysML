@@ -12,10 +12,15 @@ import (
 )
 
 // withoutSourceLayout strips the lines a graph carries for layout alone, keeping
-// sysx:sourceLanguage: the grammar a root is written under is a fact the mapping reads.
+// sysx:sourceLanguage: the grammar a root is written under is a fact the mapping
+// reads. sysx:sourceRange and sysx:sourceDocument are provenance over where the
+// text was written from, so they move with the layout as well.
 func withoutSourceLayout(t *testing.T, turtle []byte) []byte {
 	t.Helper()
-	return withoutTriples(t, withoutTriples(t, turtle, "sysx:sourceText"), "sysx:sourceTail")
+	for _, property := range []string{"sysx:sourceText", "sysx:sourceTail", "sysx:sourceRange", "sysx:sourceDocument"} {
+		turtle = withoutTriples(t, turtle, property)
+	}
+	return turtle
 }
 
 // mappingAloneRoundTrip converts notation to Turtle, strips the layout lines, writes

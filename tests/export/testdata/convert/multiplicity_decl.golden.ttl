@@ -8,9 +8,11 @@
 elmt:Mult
     a sysml:Package ;
     sysml:qualifiedName "Mult" ;
+    sysx:sourceRange "1:1-5:2" ;
     sysml:elementId "Mult" ;
     sysx:memberIndex "0"^^xsd:integer ;
     sysx:sourceLanguage "sysml" ;
+    sysx:sourceDocument "testdata/convert/multiplicity_decl.sysml" ;
     sysml:declaredName "Mult" ;
     sysx:hasBody "true"^^xsd:boolean ;
     sysml:ownedMember elmt:Mult__exactlyOne, elmt:Mult__optional, elmt:Mult__single ;
@@ -25,6 +27,7 @@ elmt:Mult
 elmt:Mult__exactlyOne
     a sysml:MultiplicityRange ;
     sysml:qualifiedName "Mult::exactlyOne" ;
+    sysx:sourceRange "2:5-2:36" ;
     sysml:elementId "Mult__exactlyOne" ;
     sysx:memberIndex "0"^^xsd:integer ;
     sysml:owningNamespace elmt:Mult ;
@@ -93,6 +96,7 @@ elmt:Mult__exactlyOne_om
 elmt:Mult__optional
     a sysml:MultiplicityRange ;
     sysml:qualifiedName "Mult::optional" ;
+    sysx:sourceRange "3:5-3:34" ;
     sysml:elementId "Mult__optional" ;
     sysx:memberIndex "1"^^xsd:integer ;
     sysml:owningNamespace elmt:Mult ;
@@ -161,6 +165,7 @@ elmt:Mult__optional_om
 elmt:Mult__single
     a sysml:Multiplicity ;
     sysml:qualifiedName "Mult::single" ;
+    sysx:sourceRange "4:5-4:44" ;
     sysml:elementId "Mult__single" ;
     sysx:memberIndex "2"^^xsd:integer ;
     sysml:owningNamespace elmt:Mult ;

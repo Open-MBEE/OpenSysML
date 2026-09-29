@@ -9,9 +9,11 @@
 elmt:StateMachine
     a sysml:Package ;
     sysml:qualifiedName "StateMachine" ;
+    sysx:sourceRange "1:1-50:2" ;
     sysml:elementId "StateMachine" ;
     sysx:memberIndex "0"^^xsd:integer ;
     sysx:sourceLanguage "sysml" ;
+    sysx:sourceDocument "testdata/convert/state_machine.sysml" ;
     sysml:declaredName "StateMachine" ;
     sysx:hasBody "true"^^xsd:boolean ;
     sysml:ownedMember elmt:StateMachine__Signal, elmt:StateMachine__Warm, elmt:StateMachine__Bus, elmt:StateMachine__VehicleStates, elmt:StateMachine__Nested, elmt:StateMachine__Composite ;
@@ -26,6 +28,7 @@ elmt:StateMachine
 elmt:StateMachine__Signal
     a sysml:AttributeDefinition ;
     sysml:qualifiedName "StateMachine::Signal" ;
+    sysx:sourceRange "2:5-2:26" ;
     sysml:elementId "StateMachine__Signal" ;
     sysx:memberIndex "0"^^xsd:integer ;
     sysml:owningNamespace elmt:StateMachine ;
@@ -49,6 +52,7 @@ elmt:StateMachine__Signal_om
 elmt:StateMachine__Warm
     a sysml:ActionDefinition ;
     sysml:qualifiedName "StateMachine::Warm" ;
+    sysx:sourceRange "3:5-3:21" ;
     sysml:elementId "StateMachine__Warm" ;
     sysx:memberIndex "1"^^xsd:integer ;
     sysml:owningNamespace elmt:StateMachine ;
@@ -72,6 +76,7 @@ elmt:StateMachine__Warm_om
 elmt:StateMachine__Bus
     a sysml:PortDefinition ;
     sysml:qualifiedName "StateMachine::Bus" ;
+    sysx:sourceRange "4:5-4:18" ;
     sysml:elementId "StateMachine__Bus" ;
     sysx:memberIndex "2"^^xsd:integer ;
     sysml:owningNamespace elmt:StateMachine ;
@@ -133,6 +138,7 @@ elmt:StateMachine__Bus_conjugated_pc
 elmt:StateMachine__VehicleStates
     a sysml:StateDefinition ;
     sysml:qualifiedName "StateMachine::VehicleStates" ;
+    sysx:sourceRange "5:5-23:6" ;
     sysml:elementId "StateMachine__VehicleStates" ;
     sysx:memberIndex "3"^^xsd:integer ;
     sysml:owningNamespace elmt:StateMachine ;
@@ -167,6 +173,7 @@ elmt:StateMachine__VehicleStates_om
 elmt:StateMachine__VehicleStates___400
     a sysml:StateSubactionMembership ;
     sysml:qualifiedName "StateMachine::VehicleStates::@0" ;
+    sysx:sourceRange "6:9-6:15" ;
     sysml:elementId "StateMachine__VehicleStates___400" ;
     sysx:memberIndex "0"^^xsd:integer ;
     sysml:owningNamespace elmt:StateMachine__VehicleStates ;
@@ -180,6 +187,7 @@ elmt:StateMachine__VehicleStates___400
 elmt:StateMachine__VehicleStates__off
     a sysml:StateUsage ;
     sysml:qualifiedName "StateMachine::VehicleStates::off" ;
+    sysx:sourceRange "7:9-9:10" ;
     sysml:elementId "StateMachine__VehicleStates__off" ;
     sysx:memberIndex "1"^^xsd:integer ;
     sysml:owningNamespace elmt:StateMachine__VehicleStates ;
@@ -208,6 +216,7 @@ elmt:StateMachine__VehicleStates__off_om
 elmt:StateMachine__VehicleStates__off___400
     a sysml:StateSubactionMembership ;
     sysml:qualifiedName "StateMachine::VehicleStates::off::@0" ;
+    sysx:sourceRange "8:13-8:32" ;
     sysml:elementId "StateMachine__VehicleStates__off___400" ;
     sysx:memberIndex "0"^^xsd:integer ;
     sysml:owningNamespace elmt:StateMachine__VehicleStates__off ;
@@ -225,6 +234,7 @@ elmt:StateMachine__VehicleStates__off___400
 elmt:StateMachine__VehicleStates__off___400___400
     a sysml:PerformActionUsage ;
     sysml:qualifiedName "StateMachine::VehicleStates::off::@0::@0" ;
+    sysx:sourceRange "8:19-8:32" ;
     sysml:elementId "StateMachine__VehicleStates__off___400___400" ;
     sysx:memberIndex "0"^^xsd:integer ;
     sysml:owner elmt:StateMachine__VehicleStates__off___400 ;
@@ -241,6 +251,7 @@ elmt:StateMachine__VehicleStates__off___400___400
 elmt:StateMachine__VehicleStates__starting
     a sysml:StateUsage ;
     sysml:qualifiedName "StateMachine::VehicleStates::starting" ;
+    sysx:sourceRange "10:9-14:10" ;
     sysml:elementId "StateMachine__VehicleStates__starting" ;
     sysx:memberIndex "2"^^xsd:integer ;
     sysml:owningNamespace elmt:StateMachine__VehicleStates ;
@@ -271,6 +282,7 @@ elmt:StateMachine__VehicleStates__starting_om
 elmt:StateMachine__VehicleStates__starting___400
     a sysml:StateSubactionMembership ;
     sysml:qualifiedName "StateMachine::VehicleStates::starting::@0" ;
+    sysx:sourceRange "11:13-11:39" ;
     sysml:elementId "StateMachine__VehicleStates__starting___400" ;
     sysx:memberIndex "0"^^xsd:integer ;
     sysml:owningNamespace elmt:StateMachine__VehicleStates__starting ;
@@ -288,6 +300,7 @@ elmt:StateMachine__VehicleStates__starting___400
 elmt:StateMachine__VehicleStates__starting___400__ready
     a sysml:PerformActionUsage ;
     sysml:qualifiedName "StateMachine::VehicleStates::starting::@0::ready" ;
+    sysx:sourceRange "11:19-11:39" ;
     sysml:elementId "StateMachine__VehicleStates__starting___400__ready" ;
     sysx:memberIndex "0"^^xsd:integer ;
     sysml:owner elmt:StateMachine__VehicleStates__starting___400 ;
@@ -303,6 +316,7 @@ elmt:StateMachine__VehicleStates__starting___400__ready
 elmt:StateMachine__VehicleStates__starting___401
     a sysml:StateSubactionMembership ;
     sysml:qualifiedName "StateMachine::VehicleStates::starting::@1" ;
+    sysx:sourceRange "12:13-12:38" ;
     sysml:elementId "StateMachine__VehicleStates__starting___401" ;
     sysx:memberIndex "1"^^xsd:integer ;
     sysml:owningNamespace elmt:StateMachine__VehicleStates__starting ;
@@ -320,6 +334,7 @@ elmt:StateMachine__VehicleStates__starting___401
 elmt:StateMachine__VehicleStates__starting___401__running
     a sysml:PerformActionUsage ;
     sysml:qualifiedName "StateMachine::VehicleStates::starting::@1::running" ;
+    sysx:sourceRange "12:16-12:38" ;
     sysml:elementId "StateMachine__VehicleStates__starting___401__running" ;
     sysx:memberIndex "0"^^xsd:integer ;
     sysml:owner elmt:StateMachine__VehicleStates__starting___401 ;
@@ -335,6 +350,7 @@ elmt:StateMachine__VehicleStates__starting___401__running
 elmt:StateMachine__VehicleStates__starting___402
     a sysml:StateSubactionMembership ;
     sysml:qualifiedName "StateMachine::VehicleStates::starting::@2" ;
+    sysx:sourceRange "13:13-13:31" ;
     sysml:elementId "StateMachine__VehicleStates__starting___402" ;
     sysx:memberIndex "2"^^xsd:integer ;
     sysml:owningNamespace elmt:StateMachine__VehicleStates__starting ;
@@ -352,6 +368,7 @@ elmt:StateMachine__VehicleStates__starting___402
 elmt:StateMachine__VehicleStates__starting___402___400
     a sysml:PerformActionUsage ;
     sysml:qualifiedName "StateMachine::VehicleStates::starting::@2::@0" ;
+    sysx:sourceRange "13:18-13:31" ;
     sysml:elementId "StateMachine__VehicleStates__starting___402___400" ;
     sysx:memberIndex "0"^^xsd:integer ;
     sysml:owner elmt:StateMachine__VehicleStates__starting___402 ;
@@ -368,6 +385,7 @@ elmt:StateMachine__VehicleStates__starting___402___400
 elmt:StateMachine__VehicleStates__active
     a sysml:StateUsage ;
     sysml:qualifiedName "StateMachine::VehicleStates::active" ;
+    sysx:sourceRange "15:9-18:10" ;
     sysml:elementId "StateMachine__VehicleStates__active" ;
     sysx:memberIndex "3"^^xsd:integer ;
     sysml:owningNamespace elmt:StateMachine__VehicleStates ;
@@ -401,6 +419,7 @@ elmt:StateMachine__VehicleStates__active_om
 elmt:StateMachine__VehicleStates__active___400
     a sysml:StateSubactionMembership ;
     sysml:qualifiedName "StateMachine::VehicleStates::active::@0" ;
+    sysx:sourceRange "16:13-16:38" ;
     sysml:elementId "StateMachine__VehicleStates__active___400" ;
     sysx:memberIndex "0"^^xsd:integer ;
     sysml:owningNamespace elmt:StateMachine__VehicleStates__active ;
@@ -418,6 +437,7 @@ elmt:StateMachine__VehicleStates__active___400
 elmt:StateMachine__VehicleStates__active___400__monitor
     a sysml:PerformActionUsage ;
     sysml:qualifiedName "StateMachine::VehicleStates::active::@0::monitor" ;
+    sysx:sourceRange "16:16-16:38" ;
     sysml:elementId "StateMachine__VehicleStates__active___400__monitor" ;
     sysx:memberIndex "0"^^xsd:integer ;
     sysml:owner elmt:StateMachine__VehicleStates__active___400 ;
@@ -433,6 +453,7 @@ elmt:StateMachine__VehicleStates__active___400__monitor
 elmt:StateMachine__VehicleStates__active___401
     a sysml:TransitionUsage ;
     sysml:qualifiedName "StateMachine::VehicleStates::active::@1" ;
+    sysx:sourceRange "17:13-17:42" ;
     sysml:elementId "StateMachine__VehicleStates__active___401" ;
     sysx:memberIndex "1"^^xsd:integer ;
     sysml:owningNamespace elmt:StateMachine__VehicleStates__active ;
@@ -460,6 +481,7 @@ elmt:StateMachine__VehicleStates__active___401_om
 elmt:StateMachine__VehicleStates__off_5fto_5fstart
     a sysml:TransitionUsage ;
     sysml:qualifiedName "StateMachine::VehicleStates::off_to_start" ;
+    sysx:sourceRange "19:9-19:77" ;
     sysml:elementId "StateMachine__VehicleStates__off_5fto_5fstart" ;
     sysx:memberIndex "4"^^xsd:integer ;
     sysml:owningNamespace elmt:StateMachine__VehicleStates ;
@@ -489,6 +511,7 @@ elmt:StateMachine__VehicleStates__off_5fto_5fstart_om
 elmt:StateMachine__VehicleStates___405
     a sysml:TransitionUsage ;
     sysml:qualifiedName "StateMachine::VehicleStates::@5" ;
+    sysx:sourceRange "20:9-20:56" ;
     sysml:elementId "StateMachine__VehicleStates___405" ;
     sysx:memberIndex "5"^^xsd:integer ;
     sysml:owningNamespace elmt:StateMachine__VehicleStates ;
@@ -564,6 +587,7 @@ expr:StateMachine__VehicleStates___405_pguard_om
 elmt:StateMachine__VehicleStates__active_5fto_5foff
     a sysml:TransitionUsage ;
     sysml:qualifiedName "StateMachine::VehicleStates::active_to_off" ;
+    sysx:sourceRange "21:9-21:118" ;
     sysml:elementId "StateMachine__VehicleStates__active_5fto_5foff" ;
     sysx:memberIndex "6"^^xsd:integer ;
     sysml:owningNamespace elmt:StateMachine__VehicleStates ;
@@ -651,6 +675,7 @@ expr:StateMachine__VehicleStates__active_5fto_5foff_pguard_om
 elmt:StateMachine__VehicleStates__active_5fto_5foff__stop
     a sysml:PerformActionUsage ;
     sysml:qualifiedName "StateMachine::VehicleStates::active_to_off::stop" ;
+    sysx:sourceRange "21:90-21:108" ;
     sysml:elementId "StateMachine__VehicleStates__active_5fto_5foff__stop" ;
     sysx:memberIndex "0"^^xsd:integer ;
     sysml:owningNamespace elmt:StateMachine__VehicleStates__active_5fto_5foff ;
@@ -681,6 +706,7 @@ elmt:StateMachine__VehicleStates__active_5fto_5foff__stop_om
 elmt:StateMachine__VehicleStates__lane
     a sysml:PortUsage ;
     sysml:qualifiedName "StateMachine::VehicleStates::lane" ;
+    sysx:sourceRange "22:9-22:25" ;
     sysml:elementId "StateMachine__VehicleStates__lane" ;
     sysx:memberIndex "7"^^xsd:integer ;
     sysml:owningNamespace elmt:StateMachine__VehicleStates ;
@@ -710,6 +736,7 @@ elmt:StateMachine__VehicleStates__lane_om
 elmt:StateMachine__Nested
     a sysml:StateDefinition ;
     sysml:qualifiedName "StateMachine::Nested" ;
+    sysx:sourceRange "24:5-30:6" ;
     sysml:elementId "StateMachine__Nested" ;
     sysx:memberIndex "4"^^xsd:integer ;
     sysml:owningNamespace elmt:StateMachine ;
@@ -739,6 +766,7 @@ elmt:StateMachine__Nested_om
 elmt:StateMachine__Nested__idle
     a sysml:StateUsage ;
     sysml:qualifiedName "StateMachine::Nested::idle" ;
+    sysx:sourceRange "25:9-29:10" ;
     sysml:elementId "StateMachine__Nested__idle" ;
     sysx:memberIndex "0"^^xsd:integer ;
     sysml:owningNamespace elmt:StateMachine__Nested ;
@@ -770,6 +798,7 @@ elmt:StateMachine__Nested__idle_om
 elmt:StateMachine__Nested__idle__substate
     a sysml:StateUsage ;
     sysml:qualifiedName "StateMachine::Nested::idle::substate" ;
+    sysx:sourceRange "26:13-28:14" ;
     sysml:elementId "StateMachine__Nested__idle__substate" ;
     sysx:memberIndex "0"^^xsd:integer ;
     sysml:owningNamespace elmt:StateMachine__Nested__idle ;
@@ -798,6 +827,7 @@ elmt:StateMachine__Nested__idle__substate_om
 elmt:StateMachine__Nested__idle__substate___400
     a sysml:StateSubactionMembership ;
     sysml:qualifiedName "StateMachine::Nested::idle::substate::@0" ;
+    sysx:sourceRange "27:17-27:36" ;
     sysml:elementId "StateMachine__Nested__idle__substate___400" ;
     sysx:memberIndex "0"^^xsd:integer ;
     sysml:owningNamespace elmt:StateMachine__Nested__idle__substate ;
@@ -815,6 +845,7 @@ elmt:StateMachine__Nested__idle__substate___400
 elmt:StateMachine__Nested__idle__substate___400___400
     a sysml:PerformActionUsage ;
     sysml:qualifiedName "StateMachine::Nested::idle::substate::@0::@0" ;
+    sysx:sourceRange "27:23-27:36" ;
     sysml:elementId "StateMachine__Nested__idle__substate___400___400" ;
     sysx:memberIndex "0"^^xsd:integer ;
     sysml:owner elmt:StateMachine__Nested__idle__substate___400 ;
@@ -831,6 +862,7 @@ elmt:StateMachine__Nested__idle__substate___400___400
 elmt:StateMachine__Composite
     a sysml:StateDefinition ;
     sysml:qualifiedName "StateMachine::Composite" ;
+    sysx:sourceRange "31:5-49:6" ;
     sysml:elementId "StateMachine__Composite" ;
     sysx:memberIndex "5"^^xsd:integer ;
     sysml:owningNamespace elmt:StateMachine ;
@@ -865,6 +897,7 @@ elmt:StateMachine__Composite_om
 elmt:StateMachine__Composite___400
     a sysml:StateSubactionMembership ;
     sysml:qualifiedName "StateMachine::Composite::@0" ;
+    sysx:sourceRange "32:9-32:15" ;
     sysml:elementId "StateMachine__Composite___400" ;
     sysx:memberIndex "0"^^xsd:integer ;
     sysml:owningNamespace elmt:StateMachine__Composite ;
@@ -878,6 +911,7 @@ elmt:StateMachine__Composite___400
 elmt:StateMachine__Composite___401
     a sysml:SuccessionAsUsage ;
     sysml:qualifiedName "StateMachine::Composite::@1" ;
+    sysx:sourceRange "33:9-33:21" ;
     sysml:elementId "StateMachine__Composite___401" ;
     sysx:memberIndex "1"^^xsd:integer ;
     sysml:owningNamespace elmt:StateMachine__Composite ;
@@ -903,6 +937,7 @@ elmt:StateMachine__Composite___401_om
 elmt:StateMachine__Composite__launch
     a sysml:StateUsage ;
     sysml:qualifiedName "StateMachine::Composite::launch" ;
+    sysx:sourceRange "34:9-34:22" ;
     sysml:elementId "StateMachine__Composite__launch" ;
     sysx:memberIndex "2"^^xsd:integer ;
     sysml:owningNamespace elmt:StateMachine__Composite ;
@@ -928,6 +963,7 @@ elmt:StateMachine__Composite__launch_om
 elmt:StateMachine__Composite__waiting
     a sysml:StateUsage ;
     sysml:qualifiedName "StateMachine::Composite::waiting" ;
+    sysx:sourceRange "35:9-35:23" ;
     sysml:elementId "StateMachine__Composite__waiting" ;
     sysx:memberIndex "3"^^xsd:integer ;
     sysml:owningNamespace elmt:StateMachine__Composite ;
@@ -953,6 +989,7 @@ elmt:StateMachine__Composite__waiting_om
 elmt:StateMachine__Composite___404
     a sysml:StateSubactionMembership ;
     sysml:qualifiedName "StateMachine::Composite::@4" ;
+    sysx:sourceRange "36:9-38:10" ;
     sysml:elementId "StateMachine__Composite___404" ;
     sysx:memberIndex "4"^^xsd:integer ;
     sysml:owningNamespace elmt:StateMachine__Composite ;
@@ -970,6 +1007,7 @@ elmt:StateMachine__Composite___404
 elmt:StateMachine__Composite___404___400
     a sysml:PerformActionUsage ;
     sysml:qualifiedName "StateMachine::Composite::@4::@0" ;
+    sysx:sourceRange "36:15-38:10" ;
     sysml:elementId "StateMachine__Composite___404___400" ;
     sysx:memberIndex "0"^^xsd:integer ;
     sysml:owner elmt:StateMachine__Composite___404 ;
@@ -985,6 +1023,7 @@ elmt:StateMachine__Composite___404___400
 elmt:StateMachine__Composite___404___400___400
     a sysml:PerformActionUsage ;
     sysml:qualifiedName "StateMachine::Composite::@4::@0::@0" ;
+    sysx:sourceRange "37:13-37:26" ;
     sysml:elementId "StateMachine__Composite___404___400___400" ;
     sysx:memberIndex "0"^^xsd:integer ;
     sysml:owningNamespace elmt:StateMachine__Composite___404___400 ;
@@ -1015,6 +1054,7 @@ elmt:StateMachine__Composite___404___400___400_om
 elmt:StateMachine__Composite___405
     a sysx:DeferMember ;
     sysml:qualifiedName "StateMachine::Composite::@5" ;
+    sysx:sourceRange "39:9-39:26" ;
     sysml:elementId "StateMachine__Composite___405" ;
     sysx:memberIndex "5"^^xsd:integer ;
     sysml:owningNamespace elmt:StateMachine__Composite ;
@@ -1037,6 +1077,7 @@ elmt:StateMachine__Composite___405_om
 elmt:StateMachine__Composite__pick
     a sysx:Pseudostate ;
     sysml:qualifiedName "StateMachine::Composite::pick" ;
+    sysx:sourceRange "40:9-40:21" ;
     sysml:elementId "StateMachine__Composite__pick" ;
     sysx:memberIndex "6"^^xsd:integer ;
     sysml:owningNamespace elmt:StateMachine__Composite ;
@@ -1061,6 +1102,7 @@ elmt:StateMachine__Composite__pick_om
 elmt:StateMachine__Composite__meet
     a sysx:Pseudostate ;
     sysml:qualifiedName "StateMachine::Composite::meet" ;
+    sysx:sourceRange "41:9-41:23" ;
     sysml:elementId "StateMachine__Composite__meet" ;
     sysx:memberIndex "7"^^xsd:integer ;
     sysml:owningNamespace elmt:StateMachine__Composite ;
@@ -1085,6 +1127,7 @@ elmt:StateMachine__Composite__meet_om
 elmt:StateMachine__Composite__split
     a sysx:Pseudostate ;
     sysml:qualifiedName "StateMachine::Composite::split" ;
+    sysx:sourceRange "42:9-42:20" ;
     sysml:elementId "StateMachine__Composite__split" ;
     sysx:memberIndex "8"^^xsd:integer ;
     sysml:owningNamespace elmt:StateMachine__Composite ;
@@ -1109,6 +1152,7 @@ elmt:StateMachine__Composite__split_om
 elmt:StateMachine__Composite__sync
     a sysx:Pseudostate ;
     sysml:qualifiedName "StateMachine::Composite::sync" ;
+    sysx:sourceRange "43:9-43:19" ;
     sysml:elementId "StateMachine__Composite__sync" ;
     sysx:memberIndex "9"^^xsd:integer ;
     sysml:owningNamespace elmt:StateMachine__Composite ;
@@ -1133,6 +1177,7 @@ elmt:StateMachine__Composite__sync_om
 elmt:StateMachine__Composite__recent
     a sysx:Pseudostate ;
     sysml:qualifiedName "StateMachine::Composite::recent" ;
+    sysx:sourceRange "44:9-44:32" ;
     sysml:elementId "StateMachine__Composite__recent" ;
     sysx:memberIndex "10"^^xsd:integer ;
     sysml:owningNamespace elmt:StateMachine__Composite ;
@@ -1157,6 +1202,7 @@ elmt:StateMachine__Composite__recent_om
 elmt:StateMachine__Composite__deepest
     a sysx:Pseudostate ;
     sysml:qualifiedName "StateMachine::Composite::deepest" ;
+    sysx:sourceRange "45:9-45:30" ;
     sysml:elementId "StateMachine__Composite__deepest" ;
     sysx:memberIndex "11"^^xsd:integer ;
     sysml:owningNamespace elmt:StateMachine__Composite ;
@@ -1181,6 +1227,7 @@ elmt:StateMachine__Composite__deepest_om
 elmt:StateMachine__Composite__primary
     a sysml:StateUsage ;
     sysml:qualifiedName "StateMachine::Composite::primary" ;
+    sysx:sourceRange "46:9-48:10" ;
     sysml:elementId "StateMachine__Composite__primary" ;
     sysx:memberIndex "12"^^xsd:integer ;
     sysml:owningNamespace elmt:StateMachine__Composite ;
@@ -1213,6 +1260,7 @@ elmt:StateMachine__Composite__primary_om
 elmt:StateMachine__Composite__primary__ready
     a sysml:StateUsage ;
     sysml:qualifiedName "StateMachine::Composite::primary::ready" ;
+    sysx:sourceRange "47:13-47:25" ;
     sysml:elementId "StateMachine__Composite__primary__ready" ;
     sysx:memberIndex "0"^^xsd:integer ;
     sysml:owningNamespace elmt:StateMachine__Composite__primary ;

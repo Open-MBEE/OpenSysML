@@ -1,0 +1,1 @@
+- RDF and API-JSON conversion now records where each element's declaration was written: `sysx:sourceRange` gives the 1-based `startLine:startCol-endLine:endCol` byte positions of the notation itself, and `sysx:sourceDocument` names each root element's file. Both are provenance a conversion back to notation ignores.

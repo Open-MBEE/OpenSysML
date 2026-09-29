@@ -8,9 +8,11 @@
 elmt:Named
     a sysml:Package ;
     sysml:qualifiedName "Named" ;
+    sysx:sourceRange "1:1-5:2" ;
     sysml:elementId "Named" ;
     sysx:memberIndex "0"^^xsd:integer ;
     sysx:sourceLanguage "sysml" ;
+    sysx:sourceDocument "testdata/convert/names.sysml" ;
     sysml:declaredName "Named" ;
     sysx:hasBody "true"^^xsd:boolean ;
     sysml:ownedMember elmt:Named__Vehicle, elmt:Named__Mass ;
@@ -25,6 +27,7 @@ elmt:Named
 elmt:Named__Vehicle
     a sysml:PartDefinition ;
     sysml:qualifiedName "Named::Vehicle" ;
+    sysx:sourceRange "2:5-2:27" ;
     sysml:elementId "Named__Vehicle" ;
     sysx:memberIndex "0"^^xsd:integer ;
     sysml:owningNamespace elmt:Named ;
@@ -49,6 +52,7 @@ elmt:Named__Vehicle_om
 elmt:Named__Car
     a sysml:Membership ;
     sysml:qualifiedName "Named::Car" ;
+    sysx:sourceRange "3:5-3:27" ;
     sysml:elementId "Named__Car" ;
     sysx:memberIndex "1"^^xsd:integer ;
     sysml:owningNamespace elmt:Named ;
@@ -64,6 +68,7 @@ elmt:Named__Car
 elmt:Named__Mass
     a sysml:AttributeDefinition ;
     sysml:qualifiedName "Named::Mass" ;
+    sysx:sourceRange "4:5-4:28" ;
     sysml:elementId "Named__Mass" ;
     sysx:memberIndex "2"^^xsd:integer ;
     sysml:owningNamespace elmt:Named ;

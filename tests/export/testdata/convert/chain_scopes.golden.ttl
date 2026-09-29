@@ -9,9 +9,11 @@
 elmt:Gen
     a sysml:Package ;
     sysml:qualifiedName "Gen" ;
+    sysx:sourceRange "1:1-9:2" ;
     sysml:elementId "Gen" ;
     sysx:memberIndex "0"^^xsd:integer ;
     sysx:sourceLanguage "sysml" ;
+    sysx:sourceDocument "testdata/convert/chain_scopes.sysml" ;
     sysml:declaredName "Gen" ;
     sysx:hasBody "true"^^xsd:boolean ;
     sysml:ownedMember elmt:Gen__G1, elmt:Gen__G2 ;
@@ -26,6 +28,7 @@ elmt:Gen
 elmt:Gen__G1
     a sysml:PartDefinition ;
     sysml:qualifiedName "Gen::G1" ;
+    sysx:sourceRange "2:5-5:6" ;
     sysml:elementId "Gen__G1" ;
     sysx:memberIndex "0"^^xsd:integer ;
     sysml:owningNamespace elmt:Gen ;
@@ -60,6 +63,7 @@ elmt:Gen__G1_om
 elmt:Gen__G1__x
     a sysml:AttributeUsage ;
     sysml:qualifiedName "Gen::G1::x" ;
+    sysx:sourceRange "3:9-3:21" ;
     sysml:elementId "Gen__G1__x" ;
     sysx:memberIndex "0"^^xsd:integer ;
     sysml:owningNamespace elmt:Gen__G1 ;
@@ -85,6 +89,7 @@ elmt:Gen__G1__x_om
 elmt:Gen__G1__y
     a sysml:AttributeUsage ;
     sysml:qualifiedName "Gen::G1::y" ;
+    sysx:sourceRange "4:9-4:21" ;
     sysml:elementId "Gen__G1__y" ;
     sysx:memberIndex "1"^^xsd:integer ;
     sysml:owningNamespace elmt:Gen__G1 ;
@@ -110,6 +115,7 @@ elmt:Gen__G1__y_om
 elmt:Gen__G2
     a sysml:PartDefinition ;
     sysml:qualifiedName "Gen::G2" ;
+    sysx:sourceRange "6:5-8:6" ;
     sysml:elementId "Gen__G2" ;
     sysx:memberIndex "1"^^xsd:integer ;
     sysml:owningNamespace elmt:Gen ;
@@ -139,6 +145,7 @@ elmt:Gen__G2_om
 elmt:Gen__G2__x
     a sysml:AttributeUsage ;
     sysml:qualifiedName "Gen::G2::x" ;
+    sysx:sourceRange "7:9-7:21" ;
     sysml:elementId "Gen__G2__x" ;
     sysx:memberIndex "0"^^xsd:integer ;
     sysml:owningNamespace elmt:Gen__G2 ;
@@ -164,9 +171,11 @@ elmt:Gen__G2__x_om
 elmt:Chains
     a sysml:Package ;
     sysml:qualifiedName "Chains" ;
+    sysx:sourceRange "10:1-26:2" ;
     sysml:elementId "Chains" ;
     sysx:memberIndex "1"^^xsd:integer ;
     sysx:sourceLanguage "sysml" ;
+    sysx:sourceDocument "testdata/convert/chain_scopes.sysml" ;
     sysml:declaredName "Chains" ;
     sysx:hasBody "true"^^xsd:boolean ;
     sysml:ownedMember elmt:Chains__Wheel, elmt:Chains__Axle, elmt:Chains__Car ;
@@ -181,6 +190,7 @@ elmt:Chains
 elmt:Chains__Wheel
     a sysml:PartDefinition ;
     sysml:qualifiedName "Chains::Wheel" ;
+    sysx:sourceRange "11:5-11:40" ;
     sysml:elementId "Chains__Wheel" ;
     sysx:memberIndex "0"^^xsd:integer ;
     sysml:owningNamespace elmt:Chains ;
@@ -212,6 +222,7 @@ elmt:Chains__Wheel_om
 elmt:Chains__Axle
     a sysml:PartDefinition ;
     sysml:qualifiedName "Chains::Axle" ;
+    sysx:sourceRange "12:5-14:6" ;
     sysml:elementId "Chains__Axle" ;
     sysx:memberIndex "1"^^xsd:integer ;
     sysml:owningNamespace elmt:Chains ;
@@ -241,6 +252,7 @@ elmt:Chains__Axle_om
 elmt:Chains__Axle__hub
     a sysml:PartUsage ;
     sysml:qualifiedName "Chains::Axle::hub" ;
+    sysx:sourceRange "13:9-13:26" ;
     sysml:elementId "Chains__Axle__hub" ;
     sysx:memberIndex "0"^^xsd:integer ;
     sysml:owningNamespace elmt:Chains__Axle ;
@@ -270,6 +282,7 @@ elmt:Chains__Axle__hub_om
 elmt:Chains__Car
     a sysml:PartDefinition ;
     sysml:qualifiedName "Chains::Car" ;
+    sysx:sourceRange "15:5-25:6" ;
     sysml:elementId "Chains__Car" ;
     sysx:memberIndex "2"^^xsd:integer ;
     sysml:owningNamespace elmt:Chains ;
@@ -304,6 +317,7 @@ elmt:Chains__Car_om
 elmt:Chains__Car__w
     a sysml:PartUsage ;
     sysml:qualifiedName "Chains::Car::w" ;
+    sysx:sourceRange "16:9-16:24" ;
     sysml:elementId "Chains__Car__w" ;
     sysx:memberIndex "0"^^xsd:integer ;
     sysml:owningNamespace elmt:Chains__Car ;
@@ -333,6 +347,7 @@ elmt:Chains__Car__w_om
 elmt:Chains__Car__axle
     a sysml:PartUsage ;
     sysml:qualifiedName "Chains::Car::axle" ;
+    sysx:sourceRange "17:9-17:26" ;
     sysml:elementId "Chains__Car__axle" ;
     sysx:memberIndex "1"^^xsd:integer ;
     sysml:owningNamespace elmt:Chains__Car ;
@@ -362,6 +377,7 @@ elmt:Chains__Car__axle_om
 elmt:Chains__Car__a
     a sysml:AttributeUsage ;
     sysml:qualifiedName "Chains::Car::a" ;
+    sysx:sourceRange "18:9-18:36" ;
     sysml:elementId "Chains__Car__a" ;
     sysx:memberIndex "2"^^xsd:integer ;
     sysml:owningNamespace elmt:Chains__Car ;
@@ -514,6 +530,7 @@ expr:Chains__Car__a_pvalue_om
 elmt:Chains__Car__b
     a sysml:AttributeUsage ;
     sysml:qualifiedName "Chains::Car::b" ;
+    sysx:sourceRange "19:9-19:36" ;
     sysml:elementId "Chains__Car__b" ;
     sysx:memberIndex "3"^^xsd:integer ;
     sysml:owningNamespace elmt:Chains__Car ;
@@ -666,6 +683,7 @@ expr:Chains__Car__b_pvalue_om
 elmt:Chains__Car__c
     a sysml:AttributeUsage ;
     sysml:qualifiedName "Chains::Car::c" ;
+    sysx:sourceRange "20:9-20:27" ;
     sysml:elementId "Chains__Car__c" ;
     sysx:memberIndex "4"^^xsd:integer ;
     sysml:owningNamespace elmt:Chains__Car ;
@@ -818,6 +836,7 @@ expr:Chains__Car__c_pvalue_om
 elmt:Chains__Car__d
     a sysml:AttributeUsage ;
     sysml:qualifiedName "Chains::Car::d" ;
+    sysx:sourceRange "21:9-21:43" ;
     sysml:elementId "Chains__Car__d" ;
     sysx:memberIndex "5"^^xsd:integer ;
     sysml:owningNamespace elmt:Chains__Car ;
@@ -1046,6 +1065,7 @@ expr:Chains__Car__d_pvalue_om
 elmt:Chains__Car__e
     a sysml:AttributeUsage ;
     sysml:qualifiedName "Chains::Car::e" ;
+    sysx:sourceRange "22:9-22:34" ;
     sysml:elementId "Chains__Car__e" ;
     sysx:memberIndex "6"^^xsd:integer ;
     sysml:owningNamespace elmt:Chains__Car ;
@@ -1274,6 +1294,7 @@ expr:Chains__Car__e_pvalue_om
 elmt:Chains__Car__spare
     a sysml:PartUsage ;
     sysml:qualifiedName "Chains::Car::spare" ;
+    sysx:sourceRange "23:9-23:25" ;
     sysml:elementId "Chains__Car__spare" ;
     sysx:memberIndex "7"^^xsd:integer ;
     sysml:owningNamespace elmt:Chains__Car ;
@@ -1303,6 +1324,7 @@ elmt:Chains__Car__spare_om
 elmt:Chains__Car__f
     a sysml:AttributeUsage ;
     sysml:qualifiedName "Chains::Car::f" ;
+    sysx:sourceRange "24:9-24:31" ;
     sysml:elementId "Chains__Car__f" ;
     sysx:memberIndex "8"^^xsd:integer ;
     sysml:owningNamespace elmt:Chains__Car ;

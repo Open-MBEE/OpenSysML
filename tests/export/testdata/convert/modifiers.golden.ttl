@@ -8,9 +8,11 @@
 elmt:Modifiers
     a sysml:Package ;
     sysml:qualifiedName "Modifiers" ;
+    sysx:sourceRange "1:1-7:2" ;
     sysml:elementId "Modifiers" ;
     sysx:memberIndex "0"^^xsd:integer ;
     sysx:sourceLanguage "sysml" ;
+    sysx:sourceDocument "testdata/convert/modifiers.sysml" ;
     sysml:declaredName "Modifiers" ;
     sysx:hasBody "true"^^xsd:boolean ;
     sysml:ownedMember elmt:Modifiers__Hidden, elmt:Modifiers__Shown, elmt:Modifiers__Base, elmt:Modifiers__Derived, elmt:Modifiers__Choice ;
@@ -25,6 +27,7 @@ elmt:Modifiers
 elmt:Modifiers__Hidden
     a sysml:PartDefinition ;
     sysml:qualifiedName "Modifiers::Hidden" ;
+    sysx:sourceRange "2:5-2:29" ;
     sysml:elementId "Modifiers__Hidden" ;
     sysx:memberIndex "0"^^xsd:integer ;
     sysml:owningNamespace elmt:Modifiers ;
@@ -49,6 +52,7 @@ elmt:Modifiers__Hidden_om
 elmt:Modifiers__Shown
     a sysml:PartDefinition ;
     sysml:qualifiedName "Modifiers::Shown" ;
+    sysx:sourceRange "3:5-3:27" ;
     sysml:elementId "Modifiers__Shown" ;
     sysx:memberIndex "1"^^xsd:integer ;
     sysml:owningNamespace elmt:Modifiers ;
@@ -73,6 +77,7 @@ elmt:Modifiers__Shown_om
 elmt:Modifiers__Base
     a sysml:PartDefinition ;
     sysml:qualifiedName "Modifiers::Base" ;
+    sysx:sourceRange "4:5-4:28" ;
     sysml:elementId "Modifiers__Base" ;
     sysx:memberIndex "2"^^xsd:integer ;
     sysml:owningNamespace elmt:Modifiers ;
@@ -97,6 +102,7 @@ elmt:Modifiers__Base_om
 elmt:Modifiers__Derived
     a sysml:PartDefinition ;
     sysml:qualifiedName "Modifiers::Derived" ;
+    sysx:sourceRange "5:5-5:30" ;
     sysml:elementId "Modifiers__Derived" ;
     sysx:memberIndex "3"^^xsd:integer ;
     sysml:owningNamespace elmt:Modifiers ;
@@ -124,6 +130,7 @@ elmt:Modifiers__Derived_om
 elmt:Modifiers__Choice
     a sysml:PartDefinition ;
     sysml:qualifiedName "Modifiers::Choice" ;
+    sysx:sourceRange "6:5-6:31" ;
     sysml:elementId "Modifiers__Choice" ;
     sysx:memberIndex "4"^^xsd:integer ;
     sysml:owningNamespace elmt:Modifiers ;

@@ -463,7 +463,7 @@ func TestExpressionTreesKeepTheRoundTripExact(t *testing.T) {
 			if err != nil {
 				t.Fatalf("to turtle again: %v", err)
 			}
-			if string(second) != string(first) {
+			if string(withoutProvenance(t, second)) != string(withoutProvenance(t, first)) {
 				t.Errorf("round trip changed the graph\n--- first ---\n%s\n--- second ---\n%s", first, second)
 			}
 		})

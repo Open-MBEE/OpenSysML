@@ -9,9 +9,11 @@
 elmt:P
     a sysml:Package ;
     sysml:qualifiedName "P" ;
+    sysx:sourceRange "1:1-13:2" ;
     sysml:elementId "P" ;
     sysx:memberIndex "0"^^xsd:integer ;
     sysx:sourceLanguage "sysml" ;
+    sysx:sourceDocument "testdata/convert/feature_chains_repeated.sysml" ;
     sysml:declaredName "P" ;
     sysx:hasBody "true"^^xsd:boolean ;
     sysml:ownedMember elmt:P__Node, elmt:P__n, elmt:P__H, elmt:P__h, elmt:P__c ;
@@ -26,6 +28,7 @@ elmt:P
 elmt:P__Node
     a sysml:PartDefinition ;
     sysml:qualifiedName "P::Node" ;
+    sysx:sourceRange "2:5-4:6" ;
     sysml:elementId "P__Node" ;
     sysx:memberIndex "0"^^xsd:integer ;
     sysml:owningNamespace elmt:P ;
@@ -55,6 +58,7 @@ elmt:P__Node_om
 elmt:P__Node__next
     a sysml:PartUsage ;
     sysml:qualifiedName "P::Node::next" ;
+    sysx:sourceRange "3:9-3:26" ;
     sysml:elementId "P__Node__next" ;
     sysx:memberIndex "0"^^xsd:integer ;
     sysml:owningNamespace elmt:P__Node ;
@@ -84,6 +88,7 @@ elmt:P__Node__next_om
 elmt:P__n
     a sysml:PartUsage ;
     sysml:qualifiedName "P::n" ;
+    sysx:sourceRange "5:5-5:19" ;
     sysml:elementId "P__n" ;
     sysx:memberIndex "1"^^xsd:integer ;
     sysml:owningNamespace elmt:P ;
@@ -111,6 +116,7 @@ elmt:P__n_om
 elmt:P__H
     a sysml:PartDefinition ;
     sysml:qualifiedName "P::H" ;
+    sysx:sourceRange "6:5-8:6" ;
     sysml:elementId "P__H" ;
     sysx:memberIndex "2"^^xsd:integer ;
     sysml:owningNamespace elmt:P ;
@@ -140,6 +146,7 @@ elmt:P__H_om
 elmt:P__H__q
     a sysml:PartUsage ;
     sysml:qualifiedName "P::H::q" ;
+    sysx:sourceRange "7:9-7:23" ;
     sysml:elementId "P__H__q" ;
     sysx:memberIndex "0"^^xsd:integer ;
     sysml:owningNamespace elmt:P__H ;
@@ -169,6 +176,7 @@ elmt:P__H__q_om
 elmt:P__h
     a sysml:PartUsage ;
     sysml:qualifiedName "P::h" ;
+    sysx:sourceRange "9:5-11:6" ;
     sysml:elementId "P__h" ;
     sysx:memberIndex "3"^^xsd:integer ;
     sysml:owningNamespace elmt:P ;
@@ -202,6 +210,7 @@ elmt:P__h_om
 elmt:P__h__r
     a sysml:ReferenceUsage ;
     sysml:qualifiedName "P::h::r" ;
+    sysx:sourceRange "10:9-10:29" ;
     sysml:elementId "P__h__r" ;
     sysx:memberIndex "0"^^xsd:integer ;
     sysml:owningNamespace elmt:P__h ;
@@ -432,6 +441,7 @@ expr:P__h__r_pvalue_om
 elmt:P__c
     a sysml:ConnectionUsage ;
     sysml:qualifiedName "P::c" ;
+    sysx:sourceRange "12:5-12:45" ;
     sysml:elementId "P__c" ;
     sysx:memberIndex "4"^^xsd:integer ;
     sysml:owningNamespace elmt:P ;

@@ -9,9 +9,11 @@
 elmt:Quoted_20Names
     a sysml:Package ;
     sysml:qualifiedName "Quoted Names" ;
+    sysx:sourceRange "1:1-15:2" ;
     sysml:elementId "Quoted_20Names" ;
     sysx:memberIndex "0"^^xsd:integer ;
     sysx:sourceLanguage "sysml" ;
+    sysx:sourceDocument "testdata/convert/quoted_names.sysml" ;
     sysml:declaredName "Quoted Names" ;
     sysx:hasBody "true"^^xsd:boolean ;
     sysml:ownedMember elmt:Quoted_20Names__Mass_20_28kg_29, elmt:Quoted_20Names__Rover_20Model, elmt:Quoted_20Names__my_20rover, elmt:Quoted_20Names__off_20model, elmt:Quoted_20Names__state, elmt:Quoted_20Names__a_20state ;
@@ -26,6 +28,7 @@ elmt:Quoted_20Names
 elmt:Quoted_20Names__Mass_20_28kg_29
     a sysml:AttributeDefinition ;
     sysml:qualifiedName "Quoted Names::Mass (kg)" ;
+    sysx:sourceRange "2:5-2:31" ;
     sysml:elementId "Quoted_20Names__Mass_20_28kg_29" ;
     sysx:memberIndex "0"^^xsd:integer ;
     sysml:owningNamespace elmt:Quoted_20Names ;
@@ -49,6 +52,7 @@ elmt:Quoted_20Names__Mass_20_28kg_29_om
 elmt:Quoted_20Names__Rover_20Model
     a sysml:PartDefinition ;
     sysml:qualifiedName "Quoted Names::Rover Model" ;
+    sysx:sourceRange "3:5-9:6" ;
     sysml:elementId "Quoted_20Names__Rover_20Model" ;
     sysx:memberIndex "1"^^xsd:integer ;
     sysml:owningNamespace elmt:Quoted_20Names ;
@@ -84,6 +88,7 @@ elmt:Quoted_20Names__Rover_20Model_om
 elmt:Quoted_20Names__Rover_20Model__dry_20mass
     a sysml:AttributeUsage ;
     sysml:qualifiedName "Quoted Names::Rover Model::dry mass" ;
+    sysx:sourceRange "4:9-4:44" ;
     sysml:elementId "Quoted_20Names__Rover_20Model__dry_20mass" ;
     sysx:memberIndex "0"^^xsd:integer ;
     sysml:owningNamespace elmt:Quoted_20Names__Rover_20Model ;
@@ -113,6 +118,7 @@ elmt:Quoted_20Names__Rover_20Model__dry_20mass_om
 elmt:Quoted_20Names__Rover_20Model__mass_20limit
     a sysml:ConstraintUsage ;
     sysml:qualifiedName "Quoted Names::Rover Model::mass limit" ;
+    sysx:sourceRange "5:9-7:10" ;
     sysml:elementId "Quoted_20Names__Rover_20Model__mass_20limit" ;
     sysx:memberIndex "1"^^xsd:integer ;
     sysml:owningNamespace elmt:Quoted_20Names__Rover_20Model ;
@@ -144,6 +150,7 @@ elmt:Quoted_20Names__Rover_20Model__mass_20limit_om
 elmt:Quoted_20Names__Rover_20Model__mass_20limit___400
     a sysml:OperatorExpression ;
     sysml:qualifiedName "Quoted Names::Rover Model::mass limit::@0" ;
+    sysx:sourceRange "6:13-6:27" ;
     sysml:elementId "Quoted_20Names__Rover_20Model__mass_20limit___400" ;
     sysx:memberIndex "0"^^xsd:integer ;
     sysml:owningNamespace elmt:Quoted_20Names__Rover_20Model__mass_20limit ;
@@ -317,6 +324,7 @@ expr:Quoted_20Names__Rover_20Model__mass_20limit___400_pout_om
 elmt:Quoted_20Names__Rover_20Model__is_20light
     a sysml:AssertConstraintUsage ;
     sysml:qualifiedName "Quoted Names::Rover Model::is light" ;
+    sysx:sourceRange "8:9-8:53" ;
     sysml:elementId "Quoted_20Names__Rover_20Model__is_20light" ;
     sysx:memberIndex "2"^^xsd:integer ;
     sysml:owningNamespace elmt:Quoted_20Names__Rover_20Model ;
@@ -346,6 +354,7 @@ elmt:Quoted_20Names__Rover_20Model__is_20light_om
 elmt:Quoted_20Names__the_20rover
     a sysml:Membership ;
     sysml:qualifiedName "Quoted Names::the rover" ;
+    sysx:sourceRange "10:5-10:41" ;
     sysml:elementId "Quoted_20Names__the_20rover" ;
     sysx:memberIndex "2"^^xsd:integer ;
     sysml:owningNamespace elmt:Quoted_20Names ;
@@ -361,6 +370,7 @@ elmt:Quoted_20Names__the_20rover
 elmt:Quoted_20Names__my_20rover
     a sysml:PartUsage ;
     sysml:qualifiedName "Quoted Names::my rover" ;
+    sysx:sourceRange "11:5-11:54" ;
     sysml:elementId "Quoted_20Names__my_20rover" ;
     sysx:memberIndex "3"^^xsd:integer ;
     sysml:owningNamespace elmt:Quoted_20Names ;
@@ -392,6 +402,7 @@ elmt:Quoted_20Names__my_20rover_om
 elmt:Quoted_20Names__off_20model
     a sysml:PartUsage ;
     sysml:qualifiedName "Quoted Names::off model" ;
+    sysx:sourceRange "12:5-12:44" ;
     sysml:elementId "Quoted_20Names__off_20model" ;
     sysx:memberIndex "4"^^xsd:integer ;
     sysml:owningNamespace elmt:Quoted_20Names ;
@@ -419,6 +430,7 @@ elmt:Quoted_20Names__off_20model_om
 elmt:Quoted_20Names__state
     a sysml:PartDefinition ;
     sysml:qualifiedName "Quoted Names::state" ;
+    sysx:sourceRange "13:5-13:22" ;
     sysml:elementId "Quoted_20Names__state" ;
     sysx:memberIndex "5"^^xsd:integer ;
     sysml:owningNamespace elmt:Quoted_20Names ;
@@ -442,6 +454,7 @@ elmt:Quoted_20Names__state_om
 elmt:Quoted_20Names__a_20state
     a sysml:PartUsage ;
     sysml:qualifiedName "Quoted Names::a state" ;
+    sysx:sourceRange "14:5-14:30" ;
     sysml:elementId "Quoted_20Names__a_20state" ;
     sysx:memberIndex "6"^^xsd:integer ;
     sysml:owningNamespace elmt:Quoted_20Names ;
@@ -469,9 +482,11 @@ elmt:Quoted_20Names__a_20state_om
 elmt:Consumer
     a sysml:Package ;
     sysml:qualifiedName "Consumer" ;
+    sysx:sourceRange "16:1-20:2" ;
     sysml:elementId "Consumer" ;
     sysx:memberIndex "1"^^xsd:integer ;
     sysx:sourceLanguage "sysml" ;
+    sysx:sourceDocument "testdata/convert/quoted_names.sysml" ;
     sysml:declaredName "Consumer" ;
     sysx:hasBody "true"^^xsd:boolean ;
     sysml:ownedRelationship elmt:Consumer___400, elmt:Consumer__r_om, elmt:Consumer___402_om ;
@@ -487,6 +502,7 @@ elmt:Consumer
 elmt:Consumer___400
     a sysml:NamespaceImport ;
     sysml:qualifiedName "Consumer::@0" ;
+    sysx:sourceRange "17:5-17:38" ;
     sysml:elementId "Consumer___400" ;
     sysx:memberIndex "0"^^xsd:integer ;
     sysml:owningNamespace elmt:Consumer ;
@@ -501,6 +517,7 @@ elmt:Consumer___400
 elmt:Consumer__r
     a sysml:PartUsage ;
     sysml:qualifiedName "Consumer::r" ;
+    sysx:sourceRange "18:5-18:44" ;
     sysml:elementId "Consumer__r" ;
     sysx:memberIndex "1"^^xsd:integer ;
     sysml:owningNamespace elmt:Consumer ;
@@ -528,6 +545,7 @@ elmt:Consumer__r_om
 elmt:Consumer___402
     a sysml:Dependency ;
     sysml:qualifiedName "Consumer::@2" ;
+    sysx:sourceRange "19:5-19:56" ;
     sysml:elementId "Consumer___402" ;
     sysx:memberIndex "2"^^xsd:integer ;
     sysml:owningNamespace elmt:Consumer ;

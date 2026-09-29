@@ -8,9 +8,11 @@
 elmt:Documented
     a sysml:Package ;
     sysml:qualifiedName "Documented" ;
+    sysx:sourceRange "1:1-16:2" ;
     sysml:elementId "Documented" ;
     sysx:memberIndex "0"^^xsd:integer ;
     sysx:sourceLanguage "sysml" ;
+    sysx:sourceDocument "testdata/convert/docs_before_members.sysml" ;
     sysml:declaredName "Documented" ;
     sysx:hasBody "true"^^xsd:boolean ;
     sysml:ownedMember elmt:Documented__Wheel, elmt:Documented__Hub, elmt:Documented__wheel ;
@@ -25,6 +27,7 @@ elmt:Documented
 elmt:Documented__Wheel
     a sysml:PartDefinition ;
     sysml:qualifiedName "Documented::Wheel" ;
+    sysx:sourceRange "2:5-7:6" ;
     sysml:elementId "Documented__Wheel" ;
     sysx:memberIndex "0"^^xsd:integer ;
     sysml:owningNamespace elmt:Documented ;
@@ -59,6 +62,7 @@ elmt:Documented__Wheel_om
 elmt:Documented__Wheel___400
     a sysml:Documentation ;
     sysml:qualifiedName "Documented::Wheel::@0" ;
+    sysx:sourceRange "3:9-3:12" ;
     sysml:elementId "Documented__Wheel___400" ;
     sysx:memberIndex "0"^^xsd:integer ;
     sysml:owningNamespace elmt:Documented__Wheel ;
@@ -81,6 +85,7 @@ elmt:Documented__Wheel___400_om
 elmt:Documented__Wheel__radius
     a sysml:AttributeUsage ;
     sysml:qualifiedName "Documented::Wheel::radius" ;
+    sysx:sourceRange "4:9-4:33" ;
     sysml:elementId "Documented__Wheel__radius" ;
     sysx:memberIndex "1"^^xsd:integer ;
     sysml:owningNamespace elmt:Documented__Wheel ;
@@ -110,6 +115,7 @@ elmt:Documented__Wheel__radius_om
 elmt:Documented__Wheel___402
     a sysml:Comment ;
     sysml:qualifiedName "Documented::Wheel::@2" ;
+    sysx:sourceRange "5:9-5:16" ;
     sysml:elementId "Documented__Wheel___402" ;
     sysx:memberIndex "2"^^xsd:integer ;
     sysml:owningNamespace elmt:Documented__Wheel ;
@@ -132,6 +138,7 @@ elmt:Documented__Wheel___402_om
 elmt:Documented__Wheel__hub
     a sysml:PortUsage ;
     sysml:qualifiedName "Documented::Wheel::hub" ;
+    sysx:sourceRange "6:9-6:24" ;
     sysml:elementId "Documented__Wheel__hub" ;
     sysx:memberIndex "3"^^xsd:integer ;
     sysml:owningNamespace elmt:Documented__Wheel ;
@@ -161,6 +168,7 @@ elmt:Documented__Wheel__hub_om
 elmt:Documented__Hub
     a sysml:PortDefinition ;
     sysml:qualifiedName "Documented::Hub" ;
+    sysx:sourceRange "8:5-11:6" ;
     sysml:elementId "Documented__Hub" ;
     sysx:memberIndex "1"^^xsd:integer ;
     sysml:owningNamespace elmt:Documented ;
@@ -228,6 +236,7 @@ elmt:Documented__Hub_conjugated_pc
 elmt:Documented__Hub___400
     a sysml:Documentation ;
     sysml:qualifiedName "Documented::Hub::@0" ;
+    sysx:sourceRange "9:9-9:12" ;
     sysml:elementId "Documented__Hub___400" ;
     sysx:memberIndex "0"^^xsd:integer ;
     sysml:owningNamespace elmt:Documented__Hub ;
@@ -250,6 +259,7 @@ elmt:Documented__Hub___400_om
 elmt:Documented__Hub__stuff
     a sysml:ItemUsage ;
     sysml:qualifiedName "Documented::Hub::stuff" ;
+    sysx:sourceRange "10:9-10:24" ;
     sysml:elementId "Documented__Hub__stuff" ;
     sysx:memberIndex "1"^^xsd:integer ;
     sysml:owningNamespace elmt:Documented__Hub ;
@@ -276,6 +286,7 @@ elmt:Documented__Hub__stuff_om
 elmt:Documented__wheel
     a sysml:PartUsage ;
     sysml:qualifiedName "Documented::wheel" ;
+    sysx:sourceRange "12:5-15:6" ;
     sysml:elementId "Documented__wheel" ;
     sysx:memberIndex "2"^^xsd:integer ;
     sysml:owningNamespace elmt:Documented ;
@@ -311,6 +322,7 @@ elmt:Documented__wheel_om
 elmt:Documented__wheel___400
     a sysml:Documentation ;
     sysml:qualifiedName "Documented::wheel::@0" ;
+    sysx:sourceRange "13:9-13:12" ;
     sysml:elementId "Documented__wheel___400" ;
     sysx:memberIndex "0"^^xsd:integer ;
     sysml:owningNamespace elmt:Documented__wheel ;
@@ -333,6 +345,7 @@ elmt:Documented__wheel___400_om
 elmt:Documented__wheel__serial
     a sysml:AttributeUsage ;
     sysml:qualifiedName "Documented::wheel::serial" ;
+    sysx:sourceRange "14:9-14:26" ;
     sysml:elementId "Documented__wheel__serial" ;
     sysx:memberIndex "1"^^xsd:integer ;
     sysml:owningNamespace elmt:Documented__wheel ;

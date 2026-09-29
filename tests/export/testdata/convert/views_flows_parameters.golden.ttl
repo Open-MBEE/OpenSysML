@@ -9,9 +9,11 @@
 elmt:FlowsAndViews
     a sysml:Package ;
     sysml:qualifiedName "FlowsAndViews" ;
+    sysx:sourceRange "1:1-30:2" ;
     sysml:elementId "FlowsAndViews" ;
     sysx:memberIndex "0"^^xsd:integer ;
     sysx:sourceLanguage "sysml" ;
+    sysx:sourceDocument "testdata/convert/views_flows_parameters.sysml" ;
     sysml:declaredName "FlowsAndViews" ;
     sysx:hasBody "true"^^xsd:boolean ;
     sysml:ownedMember elmt:FlowsAndViews__FuelPort, elmt:FlowsAndViews__Tank, elmt:FlowsAndViews__Engine, elmt:FlowsAndViews__FuelInterface, elmt:FlowsAndViews__tanks, elmt:FlowsAndViews__vehicle, elmt:FlowsAndViews__Measure, elmt:FlowsAndViews__StructureView, elmt:FlowsAndViews__vehicleView ;
@@ -26,6 +28,7 @@ elmt:FlowsAndViews
 elmt:FlowsAndViews__FuelPort
     a sysml:PortDefinition ;
     sysml:qualifiedName "FlowsAndViews::FuelPort" ;
+    sysx:sourceRange "2:5-4:6" ;
     sysml:elementId "FlowsAndViews__FuelPort" ;
     sysx:memberIndex "0"^^xsd:integer ;
     sysml:owningNamespace elmt:FlowsAndViews ;
@@ -93,6 +96,7 @@ elmt:FlowsAndViews__FuelPort_conjugated_pc
 elmt:FlowsAndViews__FuelPort__fuelSupply
     a sysml:ItemUsage ;
     sysml:qualifiedName "FlowsAndViews::FuelPort::fuelSupply" ;
+    sysx:sourceRange "3:9-3:29" ;
     sysml:elementId "FlowsAndViews__FuelPort__fuelSupply" ;
     sysx:memberIndex "0"^^xsd:integer ;
     sysml:owningNamespace elmt:FlowsAndViews__FuelPort ;
@@ -119,6 +123,7 @@ elmt:FlowsAndViews__FuelPort__fuelSupply_om
 elmt:FlowsAndViews__Tank
     a sysml:PartDefinition ;
     sysml:qualifiedName "FlowsAndViews::Tank" ;
+    sysx:sourceRange "5:5-5:19" ;
     sysml:elementId "FlowsAndViews__Tank" ;
     sysx:memberIndex "1"^^xsd:integer ;
     sysml:owningNamespace elmt:FlowsAndViews ;
@@ -142,6 +147,7 @@ elmt:FlowsAndViews__Tank_om
 elmt:FlowsAndViews__Engine
     a sysml:PartDefinition ;
     sysml:qualifiedName "FlowsAndViews::Engine" ;
+    sysx:sourceRange "6:5-6:21" ;
     sysml:elementId "FlowsAndViews__Engine" ;
     sysx:memberIndex "2"^^xsd:integer ;
     sysml:owningNamespace elmt:FlowsAndViews ;
@@ -165,6 +171,7 @@ elmt:FlowsAndViews__Engine_om
 elmt:FlowsAndViews__FuelInterface
     a sysml:InterfaceDefinition ;
     sysml:qualifiedName "FlowsAndViews::FuelInterface" ;
+    sysx:sourceRange "7:5-11:6" ;
     sysml:elementId "FlowsAndViews__FuelInterface" ;
     sysx:memberIndex "3"^^xsd:integer ;
     sysml:owningNamespace elmt:FlowsAndViews ;
@@ -199,6 +206,7 @@ elmt:FlowsAndViews__FuelInterface_om
 elmt:FlowsAndViews__FuelInterface__supplierPort
     a sysml:PortUsage ;
     sysml:qualifiedName "FlowsAndViews::FuelInterface::supplierPort" ;
+    sysx:sourceRange "8:9-8:42" ;
     sysml:elementId "FlowsAndViews__FuelInterface__supplierPort" ;
     sysx:memberIndex "0"^^xsd:integer ;
     sysml:owningNamespace elmt:FlowsAndViews__FuelInterface ;
@@ -229,6 +237,7 @@ elmt:FlowsAndViews__FuelInterface__supplierPort_om
 elmt:FlowsAndViews__FuelInterface__consumerPort
     a sysml:PortUsage ;
     sysml:qualifiedName "FlowsAndViews::FuelInterface::consumerPort" ;
+    sysx:sourceRange "9:9-9:42" ;
     sysml:elementId "FlowsAndViews__FuelInterface__consumerPort" ;
     sysx:memberIndex "1"^^xsd:integer ;
     sysml:owningNamespace elmt:FlowsAndViews__FuelInterface ;
@@ -259,6 +268,7 @@ elmt:FlowsAndViews__FuelInterface__consumerPort_om
 elmt:FlowsAndViews__FuelInterface___402
     a sysml:FlowUsage ;
     sysml:qualifiedName "FlowsAndViews::FuelInterface::@2" ;
+    sysx:sourceRange "10:9-10:65" ;
     sysml:elementId "FlowsAndViews__FuelInterface___402" ;
     sysx:memberIndex "2"^^xsd:integer ;
     sysml:owningNamespace elmt:FlowsAndViews__FuelInterface ;
@@ -450,6 +460,7 @@ expr:FlowsAndViews__FuelInterface___402_pend1_prs
 elmt:FlowsAndViews__tanks
     a sysml:PartUsage ;
     sysml:qualifiedName "FlowsAndViews::tanks" ;
+    sysx:sourceRange "12:5-12:36" ;
     sysml:elementId "FlowsAndViews__tanks" ;
     sysx:memberIndex "4"^^xsd:integer ;
     sysml:owningNamespace elmt:FlowsAndViews ;
@@ -520,6 +531,7 @@ expr:FlowsAndViews__tanks_pupperBound_om
 elmt:FlowsAndViews__vehicle
     a sysml:PartUsage ;
     sysml:qualifiedName "FlowsAndViews::vehicle" ;
+    sysx:sourceRange "13:5-19:6" ;
     sysml:elementId "FlowsAndViews__vehicle" ;
     sysx:memberIndex "5"^^xsd:integer ;
     sysml:owningNamespace elmt:FlowsAndViews ;
@@ -554,6 +566,7 @@ elmt:FlowsAndViews__vehicle_om
 elmt:FlowsAndViews__vehicle__tank
     a sysml:PartUsage ;
     sysml:qualifiedName "FlowsAndViews::vehicle::tank" ;
+    sysx:sourceRange "14:9-14:26" ;
     sysml:elementId "FlowsAndViews__vehicle__tank" ;
     sysx:memberIndex "0"^^xsd:integer ;
     sysml:owningNamespace elmt:FlowsAndViews__vehicle ;
@@ -583,6 +596,7 @@ elmt:FlowsAndViews__vehicle__tank_om
 elmt:FlowsAndViews__vehicle__spares
     a sysml:PartUsage ;
     sysml:qualifiedName "FlowsAndViews::vehicle::spares" ;
+    sysx:sourceRange "15:9-15:53" ;
     sysml:elementId "FlowsAndViews__vehicle__spares" ;
     sysx:memberIndex "1"^^xsd:integer ;
     sysml:owningNamespace elmt:FlowsAndViews__vehicle ;
@@ -682,6 +696,7 @@ expr:FlowsAndViews__vehicle__spares_pupperBound_om
 elmt:FlowsAndViews__vehicle__firstSpare
     a sysml:PartUsage ;
     sysml:qualifiedName "FlowsAndViews::vehicle::firstSpare" ;
+    sysx:sourceRange "16:9-16:39" ;
     sysml:elementId "FlowsAndViews__vehicle__firstSpare" ;
     sysx:memberIndex "2"^^xsd:integer ;
     sysml:owningNamespace elmt:FlowsAndViews__vehicle ;
@@ -711,6 +726,7 @@ elmt:FlowsAndViews__vehicle__firstSpare_om
 elmt:FlowsAndViews__vehicle__engine
     a sysml:PartUsage ;
     sysml:qualifiedName "FlowsAndViews::vehicle::engine" ;
+    sysx:sourceRange "17:9-17:30" ;
     sysml:elementId "FlowsAndViews__vehicle__engine" ;
     sysx:memberIndex "3"^^xsd:integer ;
     sysml:owningNamespace elmt:FlowsAndViews__vehicle ;
@@ -740,6 +756,7 @@ elmt:FlowsAndViews__vehicle__engine_om
 elmt:FlowsAndViews__vehicle___404
     a sysml:AllocationUsage ;
     sysml:qualifiedName "FlowsAndViews::vehicle::@4" ;
+    sysx:sourceRange "18:9-18:33" ;
     sysml:elementId "FlowsAndViews__vehicle___404" ;
     sysx:memberIndex "4"^^xsd:integer ;
     sysml:owningNamespace elmt:FlowsAndViews__vehicle ;
@@ -864,6 +881,7 @@ expr:FlowsAndViews__vehicle___404_pend1_prs
 elmt:FlowsAndViews__Measure
     a sysml:ActionDefinition ;
     sysml:qualifiedName "FlowsAndViews::Measure" ;
+    sysx:sourceRange "20:5-23:6" ;
     sysml:elementId "FlowsAndViews__Measure" ;
     sysx:memberIndex "6"^^xsd:integer ;
     sysml:owningNamespace elmt:FlowsAndViews ;
@@ -898,6 +916,7 @@ elmt:FlowsAndViews__Measure_om
 elmt:FlowsAndViews__Measure__measured
     a sysml:PartUsage ;
     sysml:qualifiedName "FlowsAndViews::Measure::measured" ;
+    sysx:sourceRange "21:9-21:39" ;
     sysml:elementId "FlowsAndViews__Measure__measured" ;
     sysx:memberIndex "0"^^xsd:integer ;
     sysml:owningNamespace elmt:FlowsAndViews__Measure ;
@@ -928,6 +947,7 @@ elmt:FlowsAndViews__Measure__measured_om
 elmt:FlowsAndViews__Measure__mass
     a sysml:ReferenceUsage ;
     sysml:qualifiedName "FlowsAndViews::Measure::mass" ;
+    sysx:sourceRange "22:9-22:25" ;
     sysml:elementId "FlowsAndViews__Measure__mass" ;
     sysx:memberIndex "1"^^xsd:integer ;
     sysml:owningNamespace elmt:FlowsAndViews__Measure ;
@@ -959,6 +979,7 @@ elmt:FlowsAndViews__Measure__mass_om
 elmt:FlowsAndViews__StructureView
     a sysml:ViewDefinition ;
     sysml:qualifiedName "FlowsAndViews::StructureView" ;
+    sysx:sourceRange "24:5-26:6" ;
     sysml:elementId "FlowsAndViews__StructureView" ;
     sysx:memberIndex "7"^^xsd:integer ;
     sysml:owningNamespace elmt:FlowsAndViews ;
@@ -985,6 +1006,7 @@ elmt:FlowsAndViews__StructureView_om
 elmt:FlowsAndViews__StructureView___400
     a sysml:ElementFilterMembership ;
     sysml:qualifiedName "FlowsAndViews::StructureView::@0" ;
+    sysx:sourceRange "25:9-25:34" ;
     sysml:elementId "FlowsAndViews__StructureView___400" ;
     sysx:memberIndex "0"^^xsd:integer ;
     sysml:owningNamespace elmt:FlowsAndViews__StructureView ;
@@ -1080,6 +1102,7 @@ expr:FlowsAndViews__StructureView___400_pfilter_pout_om
 elmt:FlowsAndViews__vehicleView
     a sysml:ViewUsage ;
     sysml:qualifiedName "FlowsAndViews::vehicleView" ;
+    sysx:sourceRange "27:5-29:6" ;
     sysml:elementId "FlowsAndViews__vehicleView" ;
     sysx:memberIndex "8"^^xsd:integer ;
     sysml:owningNamespace elmt:FlowsAndViews ;
@@ -1109,6 +1132,7 @@ elmt:FlowsAndViews__vehicleView_om
 elmt:FlowsAndViews__vehicleView___400
     a sysml:MembershipExpose ;
     sysml:qualifiedName "FlowsAndViews::vehicleView::@0" ;
+    sysx:sourceRange "28:9-28:27" ;
     sysml:elementId "FlowsAndViews__vehicleView___400" ;
     sysx:memberIndex "0"^^xsd:integer ;
     sysml:owningNamespace elmt:FlowsAndViews__vehicleView ;

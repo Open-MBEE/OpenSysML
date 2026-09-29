@@ -8,9 +8,11 @@
 elmt:Deps
     a sysml:Package ;
     sysml:qualifiedName "Deps" ;
+    sysx:sourceRange "1:1-6:2" ;
     sysml:elementId "Deps" ;
     sysx:memberIndex "0"^^xsd:integer ;
     sysx:sourceLanguage "sysml" ;
+    sysx:sourceDocument "testdata/convert/deps.sysml" ;
     sysml:declaredName "Deps" ;
     sysx:hasBody "true"^^xsd:boolean ;
     sysml:ownedMember elmt:Deps__A, elmt:Deps__B, elmt:Deps___402, elmt:Deps__named ;
@@ -25,6 +27,7 @@ elmt:Deps
 elmt:Deps__A
     a sysml:PartDefinition ;
     sysml:qualifiedName "Deps::A" ;
+    sysx:sourceRange "2:5-2:16" ;
     sysml:elementId "Deps__A" ;
     sysx:memberIndex "0"^^xsd:integer ;
     sysml:owningNamespace elmt:Deps ;
@@ -48,6 +51,7 @@ elmt:Deps__A_om
 elmt:Deps__B
     a sysml:PartDefinition ;
     sysml:qualifiedName "Deps::B" ;
+    sysx:sourceRange "3:5-3:16" ;
     sysml:elementId "Deps__B" ;
     sysx:memberIndex "1"^^xsd:integer ;
     sysml:owningNamespace elmt:Deps ;
@@ -71,6 +75,7 @@ elmt:Deps__B_om
 elmt:Deps___402
     a sysml:Dependency ;
     sysml:qualifiedName "Deps::@2" ;
+    sysx:sourceRange "4:5-4:28" ;
     sysml:elementId "Deps___402" ;
     sysx:memberIndex "2"^^xsd:integer ;
     sysml:owningNamespace elmt:Deps ;
@@ -95,6 +100,7 @@ elmt:Deps___402_om
 elmt:Deps__named
     a sysml:Dependency ;
     sysml:qualifiedName "Deps::named" ;
+    sysx:sourceRange "5:5-5:34" ;
     sysml:elementId "Deps__named" ;
     sysx:memberIndex "3"^^xsd:integer ;
     sysml:owningNamespace elmt:Deps ;

@@ -9,9 +9,11 @@
 elmt:Shadowing
     a sysml:Package ;
     sysml:qualifiedName "Shadowing" ;
+    sysx:sourceRange "1:1-59:2" ;
     sysml:elementId "Shadowing" ;
     sysx:memberIndex "0"^^xsd:integer ;
     sysx:sourceLanguage "sysml" ;
+    sysx:sourceDocument "testdata/convert/shadowed_references.sysml" ;
     sysml:declaredName "Shadowing" ;
     sysx:hasBody "true"^^xsd:boolean ;
     sysml:ownedMember elmt:Shadowing__Field, elmt:Shadowing__packet_20data_20field, elmt:Shadowing__Packet, elmt:Shadowing__Thermal_20Packet, elmt:Shadowing__payload, elmt:Shadowing__Bus, elmt:Shadowing__Budget, elmt:Shadowing__budget, elmt:Shadowing___408, elmt:Shadowing__bus, elmt:Shadowing__Study, elmt:Shadowing__study, elmt:Shadowing__deeper, elmt:Shadowing__Frame, elmt:Shadowing__Lib, elmt:Shadowing__Consumer, elmt:Shadowing__Exposed ;
@@ -26,6 +28,7 @@ elmt:Shadowing
 elmt:Shadowing__Field
     a sysml:AttributeDefinition ;
     sysml:qualifiedName "Shadowing::Field" ;
+    sysx:sourceRange "2:5-2:25" ;
     sysml:elementId "Shadowing__Field" ;
     sysx:memberIndex "0"^^xsd:integer ;
     sysml:owningNamespace elmt:Shadowing ;
@@ -49,6 +52,7 @@ elmt:Shadowing__Field_om
 elmt:Shadowing__packet_20data_20field
     a sysml:AttributeUsage ;
     sysml:qualifiedName "Shadowing::packet data field" ;
+    sysx:sourceRange "3:5-3:43" ;
     sysml:elementId "Shadowing__packet_20data_20field" ;
     sysx:memberIndex "1"^^xsd:integer ;
     sysml:owningNamespace elmt:Shadowing ;
@@ -76,6 +80,7 @@ elmt:Shadowing__packet_20data_20field_om
 elmt:Shadowing__Packet
     a sysml:PartDefinition ;
     sysml:qualifiedName "Shadowing::Packet" ;
+    sysx:sourceRange "4:5-7:6" ;
     sysml:elementId "Shadowing__Packet" ;
     sysx:memberIndex "2"^^xsd:integer ;
     sysml:owningNamespace elmt:Shadowing ;
@@ -110,6 +115,7 @@ elmt:Shadowing__Packet_om
 elmt:Shadowing__Packet__data_20field
     a sysml:AttributeUsage ;
     sysml:qualifiedName "Shadowing::Packet::data field" ;
+    sysx:sourceRange "5:9-5:40" ;
     sysml:elementId "Shadowing__Packet__data_20field" ;
     sysx:memberIndex "0"^^xsd:integer ;
     sysml:owningNamespace elmt:Shadowing__Packet ;
@@ -139,6 +145,7 @@ elmt:Shadowing__Packet__data_20field_om
 elmt:Shadowing__Packet__payload
     a sysml:PartUsage ;
     sysml:qualifiedName "Shadowing::Packet::payload" ;
+    sysx:sourceRange "6:9-6:22" ;
     sysml:elementId "Shadowing__Packet__payload" ;
     sysx:memberIndex "1"^^xsd:integer ;
     sysml:owningNamespace elmt:Shadowing__Packet ;
@@ -164,6 +171,7 @@ elmt:Shadowing__Packet__payload_om
 elmt:Shadowing__Thermal_20Packet
     a sysml:PartDefinition ;
     sysml:qualifiedName "Shadowing::Thermal Packet" ;
+    sysx:sourceRange "8:5-13:6" ;
     sysml:elementId "Shadowing__Thermal_20Packet" ;
     sysx:memberIndex "3"^^xsd:integer ;
     sysml:owningNamespace elmt:Shadowing ;
@@ -201,6 +209,7 @@ elmt:Shadowing__Thermal_20Packet_om
 elmt:Shadowing__Thermal_20Packet__packet_20data_20field
     a sysml:AttributeUsage ;
     sysml:qualifiedName "Shadowing::Thermal Packet::packet data field" ;
+    sysx:sourceRange "9:9-9:74" ;
     sysml:elementId "Shadowing__Thermal_20Packet__packet_20data_20field" ;
     sysx:memberIndex "0"^^xsd:integer ;
     sysml:owningNamespace elmt:Shadowing__Thermal_20Packet ;
@@ -231,6 +240,7 @@ elmt:Shadowing__Thermal_20Packet__packet_20data_20field_om
 elmt:Shadowing__Thermal_20Packet__data_20field
     a sysml:AttributeUsage ;
     sysml:qualifiedName "Shadowing::Thermal Packet::data field" ;
+    sysx:sourceRange "10:9-12:10" ;
     sysml:elementId "Shadowing__Thermal_20Packet__data_20field" ;
     sysx:memberIndex "1"^^xsd:integer ;
     sysml:owningNamespace elmt:Shadowing__Thermal_20Packet ;
@@ -267,6 +277,7 @@ elmt:Shadowing__Thermal_20Packet__data_20field_om
 elmt:Shadowing__Thermal_20Packet__data_20field__data_20field
     a sysml:AttributeUsage ;
     sysml:qualifiedName "Shadowing::Thermal Packet::data field::data field" ;
+    sysx:sourceRange "11:13-11:44" ;
     sysml:elementId "Shadowing__Thermal_20Packet__data_20field__data_20field" ;
     sysx:memberIndex "0"^^xsd:integer ;
     sysml:owningNamespace elmt:Shadowing__Thermal_20Packet__data_20field ;
@@ -296,6 +307,7 @@ elmt:Shadowing__Thermal_20Packet__data_20field__data_20field_om
 elmt:Shadowing__payload
     a sysml:PartUsage ;
     sysml:qualifiedName "Shadowing::payload" ;
+    sysx:sourceRange "14:5-14:18" ;
     sysml:elementId "Shadowing__payload" ;
     sysx:memberIndex "4"^^xsd:integer ;
     sysml:owningNamespace elmt:Shadowing ;
@@ -319,6 +331,7 @@ elmt:Shadowing__payload_om
 elmt:Shadowing__Bus
     a sysml:PartDefinition ;
     sysml:qualifiedName "Shadowing::Bus" ;
+    sysx:sourceRange "15:5-25:6" ;
     sysml:elementId "Shadowing__Bus" ;
     sysx:memberIndex "5"^^xsd:integer ;
     sysml:owningNamespace elmt:Shadowing ;
@@ -353,6 +366,7 @@ elmt:Shadowing__Bus_om
 elmt:Shadowing__Bus__payload
     a sysml:PartUsage ;
     sysml:qualifiedName "Shadowing::Bus::payload" ;
+    sysx:sourceRange "16:9-16:44" ;
     sysml:elementId "Shadowing__Bus__payload" ;
     sysx:memberIndex "0"^^xsd:integer ;
     sysml:owningNamespace elmt:Shadowing__Bus ;
@@ -382,6 +396,7 @@ elmt:Shadowing__Bus__payload_om
 elmt:Shadowing__Bus__cargo
     a sysml:PartUsage ;
     sysml:qualifiedName "Shadowing::Bus::cargo" ;
+    sysx:sourceRange "17:9-17:42" ;
     sysml:elementId "Shadowing__Bus__cargo" ;
     sysx:memberIndex "1"^^xsd:integer ;
     sysml:owningNamespace elmt:Shadowing__Bus ;
@@ -411,6 +426,7 @@ elmt:Shadowing__Bus__cargo_om
 elmt:Shadowing__Bus__carried
     a sysml:PartUsage ;
     sysml:qualifiedName "Shadowing::Bus::carried" ;
+    sysx:sourceRange "18:9-18:45" ;
     sysml:elementId "Shadowing__Bus__carried" ;
     sysx:memberIndex "2"^^xsd:integer ;
     sysml:owningNamespace elmt:Shadowing__Bus ;
@@ -442,6 +458,7 @@ elmt:Shadowing__Bus__carried_om
 elmt:Shadowing__Bus__Packet
     a sysml:PartDefinition ;
     sysml:qualifiedName "Shadowing::Bus::Packet" ;
+    sysx:sourceRange "19:9-19:25" ;
     sysml:elementId "Shadowing__Bus__Packet" ;
     sysx:memberIndex "3"^^xsd:integer ;
     sysml:owningNamespace elmt:Shadowing__Bus ;
@@ -465,6 +482,7 @@ elmt:Shadowing__Bus__Packet_om
 elmt:Shadowing__Bus__wrapped
     a sysml:PartUsage ;
     sysml:qualifiedName "Shadowing::Bus::wrapped" ;
+    sysx:sourceRange "20:9-20:42" ;
     sysml:elementId "Shadowing__Bus__wrapped" ;
     sysx:memberIndex "4"^^xsd:integer ;
     sysml:owningNamespace elmt:Shadowing__Bus ;
@@ -494,6 +512,7 @@ elmt:Shadowing__Bus__wrapped_om
 elmt:Shadowing__Bus__raw
     a sysml:PartUsage ;
     sysml:qualifiedName "Shadowing::Bus::raw" ;
+    sysx:sourceRange "21:9-21:27" ;
     sysml:elementId "Shadowing__Bus__raw" ;
     sysx:memberIndex "5"^^xsd:integer ;
     sysml:owningNamespace elmt:Shadowing__Bus ;
@@ -523,6 +542,7 @@ elmt:Shadowing__Bus__raw_om
 elmt:Shadowing__Bus__link
     a sysml:ConnectionUsage ;
     sysml:qualifiedName "Shadowing::Bus::link" ;
+    sysx:sourceRange "22:9-22:71" ;
     sysml:elementId "Shadowing__Bus__link" ;
     sysx:memberIndex "6"^^xsd:integer ;
     sysml:owningNamespace elmt:Shadowing__Bus ;
@@ -683,6 +703,7 @@ expr:Shadowing__Bus__link_pend1_prs
 elmt:Shadowing__Bus__Budget
     a sysml:RequirementDefinition ;
     sysml:qualifiedName "Shadowing::Bus::Budget" ;
+    sysx:sourceRange "23:9-23:32" ;
     sysml:elementId "Shadowing__Bus__Budget" ;
     sysx:memberIndex "7"^^xsd:integer ;
     sysml:owningNamespace elmt:Shadowing__Bus ;
@@ -706,6 +727,7 @@ elmt:Shadowing__Bus__Budget_om
 elmt:Shadowing__Bus__budgeted
     a sysml:SatisfyRequirementUsage ;
     sysml:qualifiedName "Shadowing::Bus::budgeted" ;
+    sysx:sourceRange "24:9-24:76" ;
     sysml:elementId "Shadowing__Bus__budgeted" ;
     sysx:memberIndex "8"^^xsd:integer ;
     sysml:owningNamespace elmt:Shadowing__Bus ;
@@ -813,6 +835,7 @@ expr:Shadowing__Bus__budgeted_subject_pvalue_om
 elmt:Shadowing__Budget
     a sysml:RequirementDefinition ;
     sysml:qualifiedName "Shadowing::Budget" ;
+    sysx:sourceRange "26:5-26:28" ;
     sysml:elementId "Shadowing__Budget" ;
     sysx:memberIndex "6"^^xsd:integer ;
     sysml:owningNamespace elmt:Shadowing ;
@@ -836,6 +859,7 @@ elmt:Shadowing__Budget_om
 elmt:Shadowing__budget
     a sysml:RequirementUsage ;
     sysml:qualifiedName "Shadowing::budget" ;
+    sysx:sourceRange "27:5-27:33" ;
     sysml:elementId "Shadowing__budget" ;
     sysx:memberIndex "7"^^xsd:integer ;
     sysml:owningNamespace elmt:Shadowing ;
@@ -863,6 +887,7 @@ elmt:Shadowing__budget_om
 elmt:Shadowing___408
     a sysml:SatisfyRequirementUsage ;
     sysml:qualifiedName "Shadowing::@8" ;
+    sysx:sourceRange "28:5-28:31" ;
     sysml:elementId "Shadowing___408" ;
     sysx:memberIndex "8"^^xsd:integer ;
     sysml:owningNamespace elmt:Shadowing ;
@@ -968,6 +993,7 @@ expr:Shadowing___408_subject_pvalue_om
 elmt:Shadowing__bus
     a sysml:PartUsage ;
     sysml:qualifiedName "Shadowing::bus" ;
+    sysx:sourceRange "29:5-29:20" ;
     sysml:elementId "Shadowing__bus" ;
     sysx:memberIndex "9"^^xsd:integer ;
     sysml:owningNamespace elmt:Shadowing ;
@@ -995,6 +1021,7 @@ elmt:Shadowing__bus_om
 elmt:Shadowing__Study
     a sysml:AnalysisCaseDefinition ;
     sysml:qualifiedName "Shadowing::Study" ;
+    sysx:sourceRange "30:5-30:50" ;
     sysml:elementId "Shadowing__Study" ;
     sysx:memberIndex "10"^^xsd:integer ;
     sysml:owningNamespace elmt:Shadowing ;
@@ -1023,6 +1050,7 @@ elmt:Shadowing__Study_om
 elmt:Shadowing__Study__vehicle
     a sysml:ReferenceUsage ;
     sysml:qualifiedName "Shadowing::Study::vehicle" ;
+    sysx:sourceRange "30:26-30:48" ;
     sysml:elementId "Shadowing__Study__vehicle" ;
     sysx:memberIndex "0"^^xsd:integer ;
     sysml:owningNamespace elmt:Shadowing__Study ;
@@ -1054,6 +1082,7 @@ elmt:Shadowing__Study__vehicle_om
 elmt:Shadowing__study
     a sysml:AnalysisCaseUsage ;
     sysml:qualifiedName "Shadowing::study" ;
+    sysx:sourceRange "31:5-33:6" ;
     sysml:elementId "Shadowing__study" ;
     sysx:memberIndex "11"^^xsd:integer ;
     sysml:owningNamespace elmt:Shadowing ;
@@ -1087,6 +1116,7 @@ elmt:Shadowing__study_om
 elmt:Shadowing__study___400
     a sysml:ReferenceUsage ;
     sysml:qualifiedName "Shadowing::study::@0" ;
+    sysx:sourceRange "32:9-32:36" ;
     sysml:elementId "Shadowing__study___400" ;
     sysx:memberIndex "0"^^xsd:integer ;
     sysml:owningNamespace elmt:Shadowing__study ;
@@ -1123,6 +1153,7 @@ elmt:Shadowing__study___400_om
 elmt:Shadowing__deeper
     a sysml:AnalysisCaseUsage ;
     sysml:qualifiedName "Shadowing::deeper" ;
+    sysx:sourceRange "34:5-36:6" ;
     sysml:elementId "Shadowing__deeper" ;
     sysx:memberIndex "12"^^xsd:integer ;
     sysml:owningNamespace elmt:Shadowing ;
@@ -1156,6 +1187,7 @@ elmt:Shadowing__deeper_om
 elmt:Shadowing__deeper__load
     a sysml:AttributeUsage ;
     sysml:qualifiedName "Shadowing::deeper::load" ;
+    sysx:sourceRange "35:9-35:40" ;
     sysml:elementId "Shadowing__deeper__load" ;
     sysx:memberIndex "0"^^xsd:integer ;
     sysml:owningNamespace elmt:Shadowing__deeper ;
@@ -1308,6 +1340,7 @@ expr:Shadowing__deeper__load_pvalue_om
 elmt:Shadowing__Frame
     a sysml:PartDefinition ;
     sysml:qualifiedName "Shadowing::Frame" ;
+    sysx:sourceRange "37:5-43:6" ;
     sysml:elementId "Shadowing__Frame" ;
     sysx:memberIndex "13"^^xsd:integer ;
     sysml:owningNamespace elmt:Shadowing ;
@@ -1342,6 +1375,7 @@ elmt:Shadowing__Frame_om
 elmt:Shadowing__Frame__Frame
     a sysml:PartDefinition ;
     sysml:qualifiedName "Shadowing::Frame::Frame" ;
+    sysx:sourceRange "38:9-38:24" ;
     sysml:elementId "Shadowing__Frame__Frame" ;
     sysx:memberIndex "0"^^xsd:integer ;
     sysml:owningNamespace elmt:Shadowing__Frame ;
@@ -1365,6 +1399,7 @@ elmt:Shadowing__Frame__Frame_om
 elmt:Shadowing__Frame__packet_20data_20field
     a sysml:AttributeUsage ;
     sysml:qualifiedName "Shadowing::Frame::packet data field" ;
+    sysx:sourceRange "39:9-39:58" ;
     sysml:elementId "Shadowing__Frame__packet_20data_20field" ;
     sysx:memberIndex "1"^^xsd:integer ;
     sysml:owningNamespace elmt:Shadowing__Frame ;
@@ -1394,6 +1429,7 @@ elmt:Shadowing__Frame__packet_20data_20field_om
 elmt:Shadowing__Frame__outer
     a sysml:PartUsage ;
     sysml:qualifiedName "Shadowing::Frame::outer" ;
+    sysx:sourceRange "40:9-40:43" ;
     sysml:elementId "Shadowing__Frame__outer" ;
     sysx:memberIndex "2"^^xsd:integer ;
     sysml:owningNamespace elmt:Shadowing__Frame ;
@@ -1424,6 +1460,7 @@ elmt:Shadowing__Frame__outer_om
 elmt:Shadowing__Frame__inner
     a sysml:PartUsage ;
     sysml:qualifiedName "Shadowing::Frame::inner" ;
+    sysx:sourceRange "41:9-41:32" ;
     sysml:elementId "Shadowing__Frame__inner" ;
     sysx:memberIndex "3"^^xsd:integer ;
     sysml:owningNamespace elmt:Shadowing__Frame ;
@@ -1454,6 +1491,7 @@ elmt:Shadowing__Frame__inner_om
 elmt:Shadowing__Frame__Field
     a sysml:PartDefinition ;
     sysml:qualifiedName "Shadowing::Frame::Field" ;
+    sysx:sourceRange "42:9-42:24" ;
     sysml:elementId "Shadowing__Frame__Field" ;
     sysx:memberIndex "4"^^xsd:integer ;
     sysml:owningNamespace elmt:Shadowing__Frame ;
@@ -1477,6 +1515,7 @@ elmt:Shadowing__Frame__Field_om
 elmt:Shadowing__Lib
     a sysml:Package ;
     sysml:qualifiedName "Shadowing::Lib" ;
+    sysx:sourceRange "44:5-46:6" ;
     sysml:elementId "Shadowing__Lib" ;
     sysx:memberIndex "14"^^xsd:integer ;
     sysml:owningNamespace elmt:Shadowing ;
@@ -1504,6 +1543,7 @@ elmt:Shadowing__Lib_om
 elmt:Shadowing__Lib__Cell
     a sysml:PartDefinition ;
     sysml:qualifiedName "Shadowing::Lib::Cell" ;
+    sysx:sourceRange "45:9-45:23" ;
     sysml:elementId "Shadowing__Lib__Cell" ;
     sysx:memberIndex "0"^^xsd:integer ;
     sysml:owningNamespace elmt:Shadowing__Lib ;
@@ -1527,6 +1567,7 @@ elmt:Shadowing__Lib__Cell_om
 elmt:Shadowing__Consumer
     a sysml:Package ;
     sysml:qualifiedName "Shadowing::Consumer" ;
+    sysx:sourceRange "47:5-54:6" ;
     sysml:elementId "Shadowing__Consumer" ;
     sysx:memberIndex "15"^^xsd:integer ;
     sysml:owningNamespace elmt:Shadowing ;
@@ -1558,6 +1599,7 @@ elmt:Shadowing__Consumer_om
 elmt:Shadowing__Consumer__Lib
     a sysml:Package ;
     sysml:qualifiedName "Shadowing::Consumer::Lib" ;
+    sysx:sourceRange "48:9-50:10" ;
     sysml:elementId "Shadowing__Consumer__Lib" ;
     sysx:memberIndex "0"^^xsd:integer ;
     sysml:owningNamespace elmt:Shadowing__Consumer ;
@@ -1585,6 +1627,7 @@ elmt:Shadowing__Consumer__Lib_om
 elmt:Shadowing__Consumer__Lib__Cell
     a sysml:PartDefinition ;
     sysml:qualifiedName "Shadowing::Consumer::Lib::Cell" ;
+    sysx:sourceRange "49:13-49:27" ;
     sysml:elementId "Shadowing__Consumer__Lib__Cell" ;
     sysx:memberIndex "0"^^xsd:integer ;
     sysml:owningNamespace elmt:Shadowing__Consumer__Lib ;
@@ -1608,6 +1651,7 @@ elmt:Shadowing__Consumer__Lib__Cell_om
 elmt:Shadowing__Consumer___401
     a sysml:MembershipImport ;
     sysml:qualifiedName "Shadowing::Consumer::@1" ;
+    sysx:sourceRange "51:9-51:45" ;
     sysml:elementId "Shadowing__Consumer___401" ;
     sysx:memberIndex "1"^^xsd:integer ;
     sysml:owningNamespace elmt:Shadowing__Consumer ;
@@ -1622,6 +1666,7 @@ elmt:Shadowing__Consumer___401
 elmt:Shadowing__Consumer__cell
     a sysml:PartUsage ;
     sysml:qualifiedName "Shadowing::Consumer::cell" ;
+    sysx:sourceRange "52:9-52:26" ;
     sysml:elementId "Shadowing__Consumer__cell" ;
     sysx:memberIndex "2"^^xsd:integer ;
     sysml:owningNamespace elmt:Shadowing__Consumer ;
@@ -1649,6 +1694,7 @@ elmt:Shadowing__Consumer__cell_om
 elmt:Shadowing__Consumer__inner
     a sysml:PartUsage ;
     sysml:qualifiedName "Shadowing::Consumer::inner" ;
+    sysx:sourceRange "53:9-53:32" ;
     sysml:elementId "Shadowing__Consumer__inner" ;
     sysx:memberIndex "3"^^xsd:integer ;
     sysml:owningNamespace elmt:Shadowing__Consumer ;
@@ -1676,6 +1722,7 @@ elmt:Shadowing__Consumer__inner_om
 elmt:Shadowing__Exposed
     a sysml:Package ;
     sysml:qualifiedName "Shadowing::Exposed" ;
+    sysx:sourceRange "55:5-58:6" ;
     sysml:elementId "Shadowing__Exposed" ;
     sysx:memberIndex "16"^^xsd:integer ;
     sysml:owningNamespace elmt:Shadowing ;
@@ -1705,6 +1752,7 @@ elmt:Shadowing__Exposed_om
 elmt:Shadowing__Exposed__Lib
     a sysml:Package ;
     sysml:qualifiedName "Shadowing::Exposed::Lib" ;
+    sysx:sourceRange "56:9-56:21" ;
     sysml:elementId "Shadowing__Exposed__Lib" ;
     sysx:memberIndex "0"^^xsd:integer ;
     sysml:owningNamespace elmt:Shadowing__Exposed ;
@@ -1728,6 +1776,7 @@ elmt:Shadowing__Exposed__Lib_om
 elmt:Shadowing__Exposed___401
     a sysml:NamespaceImport ;
     sysml:qualifiedName "Shadowing::Exposed::@1" ;
+    sysx:sourceRange "57:9-57:42" ;
     sysml:elementId "Shadowing__Exposed___401" ;
     sysx:memberIndex "1"^^xsd:integer ;
     sysml:owningNamespace elmt:Shadowing__Exposed ;

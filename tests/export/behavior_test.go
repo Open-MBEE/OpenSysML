@@ -262,7 +262,7 @@ func TestThenComesBackPastTheMembersTheParserSkips(t *testing.T) {
 	if err != nil {
 		t.Fatalf("to turtle again: %v", err)
 	}
-	if string(again) != turtle {
+	if string(withoutProvenance(t, again)) != string(withoutProvenance(t, []byte(turtle))) {
 		t.Errorf("the second hop changed the graph\n--- first ---\n%s\n--- second ---\n%s", turtle, again)
 	}
 }
@@ -826,7 +826,7 @@ func checkRoundTrip(t *testing.T, src string) {
 	if err != nil {
 		t.Fatalf("to turtle again: %v", err)
 	}
-	if string(again) != string(turtle) {
+	if string(withoutProvenance(t, again)) != string(withoutProvenance(t, turtle)) {
 		t.Errorf("round trip changed the graph\n--- first ---\n%s\n--- second ---\n%s", turtle, again)
 	}
 }

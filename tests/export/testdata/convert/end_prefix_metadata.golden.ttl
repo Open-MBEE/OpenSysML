@@ -9,9 +9,11 @@
 elmt:EndPrefixMetadata
     a sysml:Package ;
     sysml:qualifiedName "EndPrefixMetadata" ;
+    sysx:sourceRange "1:1-21:2" ;
     sysml:elementId "EndPrefixMetadata" ;
     sysx:memberIndex "0"^^xsd:integer ;
     sysx:sourceLanguage "sysml" ;
+    sysx:sourceDocument "testdata/convert/end_prefix_metadata.sysml" ;
     sysml:declaredName "EndPrefixMetadata" ;
     sysx:hasBody "true"^^xsd:boolean ;
     sysml:ownedMember elmt:EndPrefixMetadata__original, elmt:EndPrefixMetadata__derive, elmt:EndPrefixMetadata__Req1, elmt:EndPrefixMetadata__Req1_5f1, elmt:EndPrefixMetadata__Derivation, elmt:EndPrefixMetadata__context ;
@@ -26,6 +28,7 @@ elmt:EndPrefixMetadata
 elmt:EndPrefixMetadata__original
     a sysml:MetadataDefinition ;
     sysml:qualifiedName "EndPrefixMetadata::original" ;
+    sysx:sourceRange "2:5-2:27" ;
     sysml:elementId "EndPrefixMetadata__original" ;
     sysx:memberIndex "0"^^xsd:integer ;
     sysml:owningNamespace elmt:EndPrefixMetadata ;
@@ -49,6 +52,7 @@ elmt:EndPrefixMetadata__original_om
 elmt:EndPrefixMetadata__derive
     a sysml:MetadataDefinition ;
     sysml:qualifiedName "EndPrefixMetadata::derive" ;
+    sysx:sourceRange "3:5-3:25" ;
     sysml:elementId "EndPrefixMetadata__derive" ;
     sysx:memberIndex "1"^^xsd:integer ;
     sysml:owningNamespace elmt:EndPrefixMetadata ;
@@ -72,6 +76,7 @@ elmt:EndPrefixMetadata__derive_om
 elmt:EndPrefixMetadata__Req1
     a sysml:RequirementDefinition ;
     sysml:qualifiedName "EndPrefixMetadata::Req1" ;
+    sysx:sourceRange "4:5-4:26" ;
     sysml:elementId "EndPrefixMetadata__Req1" ;
     sysx:memberIndex "2"^^xsd:integer ;
     sysml:owningNamespace elmt:EndPrefixMetadata ;
@@ -95,6 +100,7 @@ elmt:EndPrefixMetadata__Req1_om
 elmt:EndPrefixMetadata__Req1_5f1
     a sysml:RequirementDefinition ;
     sysml:qualifiedName "EndPrefixMetadata::Req1_1" ;
+    sysx:sourceRange "5:5-5:28" ;
     sysml:elementId "EndPrefixMetadata__Req1_5f1" ;
     sysx:memberIndex "3"^^xsd:integer ;
     sysml:owningNamespace elmt:EndPrefixMetadata ;
@@ -118,6 +124,7 @@ elmt:EndPrefixMetadata__Req1_5f1_om
 elmt:EndPrefixMetadata__Derivation
     a sysml:ConnectionDefinition ;
     sysml:qualifiedName "EndPrefixMetadata::Derivation" ;
+    sysx:sourceRange "6:5-12:6" ;
     sysml:elementId "EndPrefixMetadata__Derivation" ;
     sysx:memberIndex "4"^^xsd:integer ;
     sysml:owningNamespace elmt:EndPrefixMetadata ;
@@ -152,6 +159,7 @@ elmt:EndPrefixMetadata__Derivation_om
 elmt:EndPrefixMetadata__Derivation___405
     a sysml:MetadataUsage ;
     sysml:qualifiedName "EndPrefixMetadata::Derivation::@5" ;
+    sysx:sourceRange "6:5-6:12" ;
     sysml:elementId "EndPrefixMetadata__Derivation___405" ;
     sysx:memberIndex "5"^^xsd:integer ;
     sysml:owningNamespace elmt:EndPrefixMetadata__Derivation ;
@@ -178,6 +186,7 @@ elmt:EndPrefixMetadata__Derivation___405_om
 elmt:EndPrefixMetadata__Derivation__r1
     a sysml:ReferenceUsage ;
     sysml:qualifiedName "EndPrefixMetadata::Derivation::r1" ;
+    sysx:sourceRange "7:9-7:33" ;
     sysml:elementId "EndPrefixMetadata__Derivation__r1" ;
     sysx:memberIndex "0"^^xsd:integer ;
     sysml:owningNamespace elmt:EndPrefixMetadata__Derivation ;
@@ -212,6 +221,7 @@ elmt:EndPrefixMetadata__Derivation__r1_om
 elmt:EndPrefixMetadata__Derivation__r1___400
     a sysml:MetadataUsage ;
     sysml:qualifiedName "EndPrefixMetadata::Derivation::r1::@0" ;
+    sysx:sourceRange "7:13-7:22" ;
     sysml:elementId "EndPrefixMetadata__Derivation__r1___400" ;
     sysx:memberIndex "0"^^xsd:integer ;
     sysml:owningNamespace elmt:EndPrefixMetadata__Derivation__r1 ;
@@ -238,6 +248,7 @@ elmt:EndPrefixMetadata__Derivation__r1___400_om
 elmt:EndPrefixMetadata__Derivation__r1_5f1
     a sysml:ReferenceUsage ;
     sysml:qualifiedName "EndPrefixMetadata::Derivation::r1_1" ;
+    sysx:sourceRange "8:9-8:35" ;
     sysml:elementId "EndPrefixMetadata__Derivation__r1_5f1" ;
     sysx:memberIndex "1"^^xsd:integer ;
     sysml:owningNamespace elmt:EndPrefixMetadata__Derivation ;
@@ -272,6 +283,7 @@ elmt:EndPrefixMetadata__Derivation__r1_5f1_om
 elmt:EndPrefixMetadata__Derivation__r1_5f1___400
     a sysml:MetadataUsage ;
     sysml:qualifiedName "EndPrefixMetadata::Derivation::r1_1::@0" ;
+    sysx:sourceRange "8:13-8:20" ;
     sysml:elementId "EndPrefixMetadata__Derivation__r1_5f1___400" ;
     sysx:memberIndex "0"^^xsd:integer ;
     sysml:owningNamespace elmt:EndPrefixMetadata__Derivation__r1_5f1 ;
@@ -298,6 +310,7 @@ elmt:EndPrefixMetadata__Derivation__r1_5f1___400_om
 elmt:EndPrefixMetadata__Derivation__r1_5f2
     a sysml:ReferenceUsage ;
     sysml:qualifiedName "EndPrefixMetadata::Derivation::r1_2" ;
+    sysx:sourceRange "9:9-9:35" ;
     sysml:elementId "EndPrefixMetadata__Derivation__r1_5f2" ;
     sysx:memberIndex "2"^^xsd:integer ;
     sysml:owningNamespace elmt:EndPrefixMetadata__Derivation ;
@@ -332,6 +345,7 @@ elmt:EndPrefixMetadata__Derivation__r1_5f2_om
 elmt:EndPrefixMetadata__Derivation__r1_5f2___400
     a sysml:MetadataUsage ;
     sysml:qualifiedName "EndPrefixMetadata::Derivation::r1_2::@0" ;
+    sysx:sourceRange "9:9-9:16" ;
     sysml:elementId "EndPrefixMetadata__Derivation__r1_5f2___400" ;
     sysx:memberIndex "0"^^xsd:integer ;
     sysml:owningNamespace elmt:EndPrefixMetadata__Derivation__r1_5f2 ;
@@ -358,6 +372,7 @@ elmt:EndPrefixMetadata__Derivation__r1_5f2___400_om
 elmt:EndPrefixMetadata__Derivation__cause
     a sysml:ReferenceUsage ;
     sysml:qualifiedName "EndPrefixMetadata::Derivation::cause" ;
+    sysx:sourceRange "10:9-10:34" ;
     sysml:elementId "EndPrefixMetadata__Derivation__cause" ;
     sysx:memberIndex "3"^^xsd:integer ;
     sysml:owningNamespace elmt:EndPrefixMetadata__Derivation ;
@@ -393,6 +408,7 @@ elmt:EndPrefixMetadata__Derivation__cause_om
 elmt:EndPrefixMetadata__Derivation__cause___400
     a sysml:ReferenceUsage ;
     sysml:qualifiedName "EndPrefixMetadata::Derivation::cause::@0" ;
+    sysx:sourceRange "10:13-10:16" ;
     sysml:elementId "EndPrefixMetadata__Derivation__cause___400" ;
     sysx:memberIndex "0"^^xsd:integer ;
     sysml:owningNamespace elmt:EndPrefixMetadata__Derivation__cause ;
@@ -455,6 +471,7 @@ expr:EndPrefixMetadata__Derivation__cause___400_pupperBound_om
 elmt:EndPrefixMetadata__Derivation__effect
     a sysml:AttributeUsage ;
     sysml:qualifiedName "EndPrefixMetadata::Derivation::effect" ;
+    sysx:sourceRange "11:9-11:46" ;
     sysml:elementId "EndPrefixMetadata__Derivation__effect" ;
     sysx:memberIndex "4"^^xsd:integer ;
     sysml:owningNamespace elmt:EndPrefixMetadata__Derivation ;
@@ -528,6 +545,7 @@ expr:EndPrefixMetadata__Derivation__effect_pupperBound_om
 elmt:EndPrefixMetadata__context
     a sysml:PartUsage ;
     sysml:qualifiedName "EndPrefixMetadata::context" ;
+    sysx:sourceRange "13:5-20:6" ;
     sysml:elementId "EndPrefixMetadata__context" ;
     sysx:memberIndex "5"^^xsd:integer ;
     sysml:owningNamespace elmt:EndPrefixMetadata ;
@@ -562,6 +580,7 @@ elmt:EndPrefixMetadata__context_om
 elmt:EndPrefixMetadata__context__req1
     a sysml:RequirementUsage ;
     sysml:qualifiedName "EndPrefixMetadata::context::req1" ;
+    sysx:sourceRange "14:9-14:33" ;
     sysml:elementId "EndPrefixMetadata__context__req1" ;
     sysx:memberIndex "0"^^xsd:integer ;
     sysml:owningNamespace elmt:EndPrefixMetadata__context ;
@@ -591,6 +610,7 @@ elmt:EndPrefixMetadata__context__req1_om
 elmt:EndPrefixMetadata__context__req1_5f1
     a sysml:RequirementUsage ;
     sysml:qualifiedName "EndPrefixMetadata::context::req1_1" ;
+    sysx:sourceRange "15:9-15:37" ;
     sysml:elementId "EndPrefixMetadata__context__req1_5f1" ;
     sysx:memberIndex "1"^^xsd:integer ;
     sysml:owningNamespace elmt:EndPrefixMetadata__context ;
@@ -620,6 +640,7 @@ elmt:EndPrefixMetadata__context__req1_5f1_om
 elmt:EndPrefixMetadata__context___402
     a sysml:ConnectionUsage ;
     sysml:qualifiedName "EndPrefixMetadata::context::@2" ;
+    sysx:sourceRange "16:9-19:10" ;
     sysml:elementId "EndPrefixMetadata__context___402" ;
     sysx:memberIndex "2"^^xsd:integer ;
     sysml:owningNamespace elmt:EndPrefixMetadata__context ;
@@ -658,6 +679,7 @@ elmt:EndPrefixMetadata__context___402_om
 elmt:EndPrefixMetadata__context___402___402
     a sysml:MetadataUsage ;
     sysml:qualifiedName "EndPrefixMetadata::context::@2::@2" ;
+    sysx:sourceRange "16:9-16:16" ;
     sysml:elementId "EndPrefixMetadata__context___402___402" ;
     sysx:memberIndex "2"^^xsd:integer ;
     sysml:owningNamespace elmt:EndPrefixMetadata__context___402 ;
@@ -684,6 +706,7 @@ elmt:EndPrefixMetadata__context___402___402_om
 elmt:EndPrefixMetadata__context___402__r1
     a sysml:ReferenceUsage ;
     sysml:qualifiedName "EndPrefixMetadata::context::@2::r1" ;
+    sysx:sourceRange "17:13-17:29" ;
     sysml:elementId "EndPrefixMetadata__context___402__r1" ;
     sysx:memberIndex "0"^^xsd:integer ;
     sysml:owningNamespace elmt:EndPrefixMetadata__context___402 ;
@@ -733,6 +756,7 @@ expr:EndPrefixMetadata__context___402__r1_prs
 elmt:EndPrefixMetadata__context___402__r1_5f1
     a sysml:ReferenceUsage ;
     sysml:qualifiedName "EndPrefixMetadata::context::@2::r1_1" ;
+    sysx:sourceRange "18:13-18:40" ;
     sysml:elementId "EndPrefixMetadata__context___402__r1_5f1" ;
     sysx:memberIndex "1"^^xsd:integer ;
     sysml:owningNamespace elmt:EndPrefixMetadata__context___402 ;

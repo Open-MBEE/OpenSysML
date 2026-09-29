@@ -9,9 +9,11 @@
 elmt:AnonymousFeatures
     a sysml:Package ;
     sysml:qualifiedName "AnonymousFeatures" ;
+    sysx:sourceRange "1:1-17:2" ;
     sysml:elementId "AnonymousFeatures" ;
     sysx:memberIndex "0"^^xsd:integer ;
     sysx:sourceLanguage "kerml" ;
+    sysx:sourceDocument "testdata/convert/anonymous_features.kerml" ;
     sysml:declaredName "AnonymousFeatures" ;
     sysx:hasBody "true"^^xsd:boolean ;
     sysml:ownedMember elmt:AnonymousFeatures__Part, elmt:AnonymousFeatures__v, elmt:AnonymousFeatures__e ;
@@ -26,6 +28,7 @@ elmt:AnonymousFeatures
 elmt:AnonymousFeatures__Part
     a sysml:Class ;
     sysml:qualifiedName "AnonymousFeatures::Part" ;
+    sysx:sourceRange "2:2-7:3" ;
     sysml:elementId "AnonymousFeatures__Part" ;
     sysx:memberIndex "0"^^xsd:integer ;
     sysml:owningNamespace elmt:AnonymousFeatures ;
@@ -61,6 +64,7 @@ elmt:AnonymousFeatures__Part_om
 elmt:AnonymousFeatures__Part__m
     a sysml:AttributeUsage ;
     sysml:qualifiedName "AnonymousFeatures::Part::m" ;
+    sysx:sourceRange "3:3-3:13" ;
     sysml:elementId "AnonymousFeatures__Part__m" ;
     sysx:memberIndex "0"^^xsd:integer ;
     sysml:owningNamespace elmt:AnonymousFeatures__Part ;
@@ -87,6 +91,7 @@ elmt:AnonymousFeatures__Part__m_om
 elmt:AnonymousFeatures__Part__accessedFeature
     a sysml:AttributeUsage ;
     sysml:qualifiedName "AnonymousFeatures::Part::accessedFeature" ;
+    sysx:sourceRange "4:3-4:27" ;
     sysml:elementId "AnonymousFeatures__Part__accessedFeature" ;
     sysx:memberIndex "1"^^xsd:integer ;
     sysml:owningNamespace elmt:AnonymousFeatures__Part ;
@@ -113,6 +118,7 @@ elmt:AnonymousFeatures__Part__accessedFeature_om
 elmt:AnonymousFeatures__Part__engine
     a sysml:AttributeUsage ;
     sysml:qualifiedName "AnonymousFeatures::Part::engine" ;
+    sysx:sourceRange "5:3-5:18" ;
     sysml:elementId "AnonymousFeatures__Part__engine" ;
     sysx:memberIndex "2"^^xsd:integer ;
     sysml:owningNamespace elmt:AnonymousFeatures__Part ;
@@ -139,6 +145,7 @@ elmt:AnonymousFeatures__Part__engine_om
 elmt:AnonymousFeatures__Part__carParts
     a sysml:AttributeUsage ;
     sysml:qualifiedName "AnonymousFeatures::Part::carParts" ;
+    sysx:sourceRange "6:3-6:30" ;
     sysml:elementId "AnonymousFeatures__Part__carParts" ;
     sysx:memberIndex "3"^^xsd:integer ;
     sysml:owningNamespace elmt:AnonymousFeatures__Part ;
@@ -166,6 +173,7 @@ elmt:AnonymousFeatures__Part__carParts_om
 elmt:AnonymousFeatures__v
     a sysml:AttributeUsage ;
     sysml:qualifiedName "AnonymousFeatures::v" ;
+    sysx:sourceRange "8:2-15:3" ;
     sysml:elementId "AnonymousFeatures__v" ;
     sysx:memberIndex "1"^^xsd:integer ;
     sysml:owningNamespace elmt:AnonymousFeatures ;
@@ -204,6 +212,7 @@ elmt:AnonymousFeatures__v_om
 elmt:AnonymousFeatures__v___400
     a sysml:AttributeUsage ;
     sysml:qualifiedName "AnonymousFeatures::v::@0" ;
+    sysx:sourceRange "9:3-11:4" ;
     sysml:elementId "AnonymousFeatures__v___400" ;
     sysx:memberIndex "0"^^xsd:integer ;
     sysml:owningNamespace elmt:AnonymousFeatures__v ;
@@ -240,6 +249,7 @@ elmt:AnonymousFeatures__v___400_om
 elmt:AnonymousFeatures__v___400__g
     a sysml:AttributeUsage ;
     sysml:qualifiedName "AnonymousFeatures::v::@0::g" ;
+    sysx:sourceRange "10:4-10:14" ;
     sysml:elementId "AnonymousFeatures__v___400__g" ;
     sysx:memberIndex "0"^^xsd:integer ;
     sysml:owningNamespace elmt:AnonymousFeatures__v___400 ;
@@ -266,6 +276,7 @@ elmt:AnonymousFeatures__v___400__g_om
 elmt:AnonymousFeatures__v___401
     a sysml:AttributeUsage ;
     sysml:qualifiedName "AnonymousFeatures::v::@1" ;
+    sysx:sourceRange "12:3-12:31" ;
     sysml:elementId "AnonymousFeatures__v___401" ;
     sysx:memberIndex "1"^^xsd:integer ;
     sysml:owningNamespace elmt:AnonymousFeatures__v ;
@@ -296,6 +307,7 @@ elmt:AnonymousFeatures__v___401_om
 elmt:AnonymousFeatures__v___402
     a sysml:ReferenceUsage ;
     sysml:qualifiedName "AnonymousFeatures::v::@2" ;
+    sysx:sourceRange "13:3-13:28" ;
     sysml:elementId "AnonymousFeatures__v___402" ;
     sysx:memberIndex "2"^^xsd:integer ;
     sysml:owningNamespace elmt:AnonymousFeatures__v ;
@@ -378,6 +390,7 @@ expr:AnonymousFeatures__v___402_pvalue_om
 elmt:AnonymousFeatures__v___403
     a sysml:AttributeUsage ;
     sysml:qualifiedName "AnonymousFeatures::v::@3" ;
+    sysx:sourceRange "14:3-14:55" ;
     sysml:elementId "AnonymousFeatures__v___403" ;
     sysx:memberIndex "3"^^xsd:integer ;
     sysml:owningNamespace elmt:AnonymousFeatures__v ;
@@ -414,6 +427,7 @@ elmt:AnonymousFeatures__v___403_om
 elmt:AnonymousFeatures__e
     a sysml:AttributeUsage ;
     sysml:qualifiedName "AnonymousFeatures::e" ;
+    sysx:sourceRange "16:2-16:28" ;
     sysml:elementId "AnonymousFeatures__e" ;
     sysx:memberIndex "2"^^xsd:integer ;
     sysml:owningNamespace elmt:AnonymousFeatures ;

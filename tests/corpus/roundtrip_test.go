@@ -38,7 +38,9 @@ const (
 		"# notation -> Turtle (hop 1) -> notation -> Turtle (hop 2), then the two\n" +
 		"# Turtle graphs compared as triple sets. Verdicts: stable (hop 2 is\n" +
 		"# byte-identical), whitespace-only (bytes differ, triple sets equal once the\n" +
-		"# whitespace inside sysx:sourceText literals is normalised), graph-diff,\n" +
+		"# whitespace inside sysx:sourceText literals is normalised and the\n" +
+		"# provenance values of sysx:sourceRange and sysx:sourceDocument are\n" +
+		"# ignored), graph-diff,\n" +
 		"# unwritable (Turtle -> notation refused), unparseable (the written notation\n" +
 		"# no longer converts) and refused:<class> (notation -> Turtle refused). This\n" +
 		"# is a per-file ratchet, not a claim that any verdict is right; see\n" +
@@ -50,7 +52,8 @@ const (
 		"# element form (hop 2), then the two graphs compared as triple sets.\n" +
 		"# Verdicts: stable (hop 2 is byte-identical), whitespace-only (bytes\n" +
 		"# differ, triple sets equal once the whitespace inside sysx:sourceText\n" +
-		"# literals is normalised), graph-diff, unwritable (the JSON form ->\n" +
+		"# literals is normalised and the provenance values of sysx:sourceRange\n" +
+		"# and sysx:sourceDocument are ignored), graph-diff, unwritable (the JSON form ->\n" +
 		"# notation refused), unparseable (the written notation no longer\n" +
 		"# converts) and refused:<class> (notation -> the JSON form refused).\n" +
 		"# This is a per-file ratchet, not a claim that any verdict is right;\n" +
@@ -266,15 +269,28 @@ func apiJSONRoundTripVerdict(rel string, src []byte) (string, error) {
 	return "graph-diff", nil
 }
 
-// sameTriples compares two graphs as sets, ignoring triple order and the
-// whitespace inside sysx:sourceText literals.
+// sameTriples compares two graphs as sets, ignoring triple order, the
+// whitespace inside sysx:sourceText literals and the values of the
+// sysx:sourceRange/sysx:sourceDocument provenance, which follow wherever the
+// notation each hop was read from placed the element.
 func sameTriples(a, b *rdf.Graph) bool {
 	set := func(g *rdf.Graph) map[rdf.Triple]bool {
 		sourceText := rdf.OpenSysMLTerm("sourceText")
+		provenance := map[rdf.Term]bool{
+			rdf.OpenSysMLTerm("sourceRange"):    true,
+			rdf.OpenSysMLTerm("sourceDocument"): true,
+		}
 		out := make(map[rdf.Triple]bool, len(g.Triples()))
 		for _, triple := range g.Triples() {
-			if triple.Predicate == sourceText && triple.Object.IsLiteral() {
+			if !triple.Object.IsLiteral() {
+				out[triple] = true
+				continue
+			}
+			switch {
+			case triple.Predicate == sourceText:
 				triple.Object.Value = strings.Join(strings.Fields(triple.Object.Value), " ")
+			case provenance[triple.Predicate]:
+				triple.Object.Value = ""
 			}
 			out[triple] = true
 		}

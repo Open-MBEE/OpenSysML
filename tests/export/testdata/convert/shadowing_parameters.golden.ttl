@@ -9,9 +9,11 @@
 elmt:Shadows
     a sysml:Package ;
     sysml:qualifiedName "Shadows" ;
+    sysx:sourceRange "1:1-18:2" ;
     sysml:elementId "Shadows" ;
     sysx:memberIndex "0"^^xsd:integer ;
     sysx:sourceLanguage "sysml" ;
+    sysx:sourceDocument "testdata/convert/shadowing_parameters.sysml" ;
     sysml:declaredName "Shadows" ;
     sysx:hasBody "true"^^xsd:boolean ;
     sysml:ownedMember elmt:Shadows__Speed, elmt:Shadows__Sweep, elmt:Shadows__Governor ;
@@ -26,6 +28,7 @@ elmt:Shadows
 elmt:Shadows__Speed
     a sysml:AttributeDefinition ;
     sysml:qualifiedName "Shadows::Speed" ;
+    sysx:sourceRange "2:5-2:25" ;
     sysml:elementId "Shadows__Speed" ;
     sysx:memberIndex "0"^^xsd:integer ;
     sysml:owningNamespace elmt:Shadows ;
@@ -49,6 +52,7 @@ elmt:Shadows__Speed_om
 elmt:Shadows__Sweep
     a sysml:ActionDefinition ;
     sysml:qualifiedName "Shadows::Sweep" ;
+    sysx:sourceRange "3:5-9:6" ;
     sysml:elementId "Shadows__Sweep" ;
     sysx:memberIndex "1"^^xsd:integer ;
     sysml:owningNamespace elmt:Shadows ;
@@ -83,6 +87,7 @@ elmt:Shadows__Sweep_om
 elmt:Shadows__Sweep__items
     a sysml:ReferenceUsage ;
     sysml:qualifiedName "Shadows::Sweep::items" ;
+    sysx:sourceRange "4:9-4:29" ;
     sysml:elementId "Shadows__Sweep__items" ;
     sysx:memberIndex "0"^^xsd:integer ;
     sysml:owningNamespace elmt:Shadows__Sweep ;
@@ -156,6 +161,7 @@ expr:Shadows__Sweep__items_pupperBound_om
 elmt:Shadows__Sweep__value
     a sysml:AttributeUsage ;
     sysml:qualifiedName "Shadows::Sweep::value" ;
+    sysx:sourceRange "5:9-5:33" ;
     sysml:elementId "Shadows__Sweep__value" ;
     sysx:memberIndex "1"^^xsd:integer ;
     sysml:owningNamespace elmt:Shadows__Sweep ;
@@ -185,6 +191,7 @@ elmt:Shadows__Sweep__value_om
 elmt:Shadows__Sweep___402
     a sysml:ForLoopActionUsage ;
     sysml:qualifiedName "Shadows::Sweep::@2" ;
+    sysx:sourceRange "6:9-8:10" ;
     sysml:elementId "Shadows__Sweep___402" ;
     sysx:memberIndex "2"^^xsd:integer ;
     sysml:owningNamespace elmt:Shadows__Sweep ;
@@ -265,6 +272,7 @@ expr:Shadows__Sweep___402_pcollection_om
 elmt:Shadows__Sweep___402__cur
     a sysml:AttributeUsage ;
     sysml:qualifiedName "Shadows::Sweep::@2::cur" ;
+    sysx:sourceRange "7:13-7:35" ;
     sysml:elementId "Shadows__Sweep___402__cur" ;
     sysx:memberIndex "0"^^xsd:integer ;
     sysml:owningNamespace elmt:Shadows__Sweep___402 ;
@@ -341,6 +349,7 @@ expr:Shadows__Sweep___402__cur_pvalue_om
 elmt:Shadows__Governor
     a sysml:StateDefinition ;
     sysml:qualifiedName "Shadows::Governor" ;
+    sysx:sourceRange "10:5-17:6" ;
     sysml:elementId "Shadows__Governor" ;
     sysx:memberIndex "2"^^xsd:integer ;
     sysml:owningNamespace elmt:Shadows ;
@@ -375,6 +384,7 @@ elmt:Shadows__Governor_om
 elmt:Shadows__Governor__value
     a sysml:AttributeUsage ;
     sysml:qualifiedName "Shadows::Governor::value" ;
+    sysx:sourceRange "11:9-11:33" ;
     sysml:elementId "Shadows__Governor__value" ;
     sysx:memberIndex "0"^^xsd:integer ;
     sysml:owningNamespace elmt:Shadows__Governor ;
@@ -404,6 +414,7 @@ elmt:Shadows__Governor__value_om
 elmt:Shadows__Governor__w
     a sysml:AttributeUsage ;
     sysml:qualifiedName "Shadows::Governor::w" ;
+    sysx:sourceRange "12:9-12:29" ;
     sysml:elementId "Shadows__Governor__w" ;
     sysx:memberIndex "1"^^xsd:integer ;
     sysml:owningNamespace elmt:Shadows__Governor ;
@@ -433,6 +444,7 @@ elmt:Shadows__Governor__w_om
 elmt:Shadows__Governor__idle
     a sysml:StateUsage ;
     sysml:qualifiedName "Shadows::Governor::idle" ;
+    sysx:sourceRange "13:9-13:20" ;
     sysml:elementId "Shadows__Governor__idle" ;
     sysx:memberIndex "2"^^xsd:integer ;
     sysml:owningNamespace elmt:Shadows__Governor ;
@@ -458,6 +470,7 @@ elmt:Shadows__Governor__idle_om
 elmt:Shadows__Governor__fast
     a sysml:StateUsage ;
     sysml:qualifiedName "Shadows::Governor::fast" ;
+    sysx:sourceRange "14:9-14:20" ;
     sysml:elementId "Shadows__Governor__fast" ;
     sysx:memberIndex "3"^^xsd:integer ;
     sysml:owningNamespace elmt:Shadows__Governor ;
@@ -483,6 +496,7 @@ elmt:Shadows__Governor__fast_om
 elmt:Shadows__Governor___404
     a sysml:TransitionUsage ;
     sysml:qualifiedName "Shadows::Governor::@4" ;
+    sysx:sourceRange "15:9-15:71" ;
     sysml:elementId "Shadows__Governor___404" ;
     sysx:memberIndex "4"^^xsd:integer ;
     sysml:owningNamespace elmt:Shadows__Governor ;
@@ -681,6 +695,7 @@ expr:Shadows__Governor___404_pguard_om
 elmt:Shadows__Governor___405
     a sysml:TransitionUsage ;
     sysml:qualifiedName "Shadows::Governor::@5" ;
+    sysx:sourceRange "16:9-16:61" ;
     sysml:elementId "Shadows__Governor___405" ;
     sysx:memberIndex "5"^^xsd:integer ;
     sysml:owningNamespace elmt:Shadows__Governor ;

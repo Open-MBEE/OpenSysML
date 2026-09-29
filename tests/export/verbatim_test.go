@@ -147,7 +147,7 @@ package Rover {
 	// Converting the result again reproduces the edited graph, so the notation
 	// states exactly what the graph states.
 	again := idTurtle(t, back)
-	if got, want := withoutTriples(t, again, "sysx:sourceText"), withoutTriples(t, turtle, "sysx:sourceText"); string(got) != string(want) {
+	if got, want := withoutProvenance(t, withoutTriples(t, again, "sysx:sourceText")), withoutProvenance(t, withoutTriples(t, turtle, "sysx:sourceText")); string(got) != string(want) {
 		t.Errorf("the notation does not state the edited graph:\n--- want ---\n%s--- got ---\n%s", want, got)
 	}
 }
@@ -199,7 +199,7 @@ func TestMembersAfterARemovedOneKeepTheirText(t *testing.T) {
 	// The members after the removed one are renumbered on the way back, but
 	// otherwise the notation states exactly what the graph states.
 	renumbered := func(turtle []byte) string {
-		return string(withoutTriples(t, withoutTriples(t, turtle, "sysx:sourceText"), "sysx:memberIndex"))
+		return string(withoutProvenance(t, withoutTriples(t, withoutTriples(t, turtle, "sysx:sourceText"), "sysx:memberIndex")))
 	}
 	if got, want := renumbered(idTurtle(t, back)), renumbered(turtle); got != want {
 		t.Errorf("the notation does not state the edited graph:\n--- want ---\n%s--- got ---\n%s", want, got)
@@ -475,10 +475,11 @@ func quoteLiteral(value string) string {
 	return `"` + r.Replace(value) + `"`
 }
 
-// structural is a Turtle document without its source text.
+// structural is a Turtle document without its source text or its provenance,
+// which both follow wherever a hop's notation placed the element.
 func structural(t *testing.T, turtle []byte) string {
 	t.Helper()
-	return string(withoutTriples(t, withoutTriples(t, turtle, "sysx:sourceText"), "sysx:sourceTail"))
+	return string(withoutProvenance(t, withoutTriples(t, withoutTriples(t, turtle, "sysx:sourceText"), "sysx:sourceTail")))
 }
 
 // A member written on its owner's lines, such as an accept's payload, has no

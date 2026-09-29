@@ -9,9 +9,11 @@
 elmt:Loops
     a sysml:Package ;
     sysml:qualifiedName "Loops" ;
+    sysx:sourceRange "1:1-11:2" ;
     sysml:elementId "Loops" ;
     sysx:memberIndex "0"^^xsd:integer ;
     sysx:sourceLanguage "sysml" ;
+    sysx:sourceDocument "testdata/convert/loop_scopes.sysml" ;
     sysml:declaredName "Loops" ;
     sysx:hasBody "true"^^xsd:boolean ;
     sysml:ownedMember elmt:Loops__Charge ;
@@ -23,6 +25,7 @@ elmt:Loops
 elmt:Loops__Charge
     a sysml:ActionDefinition ;
     sysml:qualifiedName "Loops::Charge" ;
+    sysx:sourceRange "2:5-10:6" ;
     sysml:elementId "Loops__Charge" ;
     sysx:memberIndex "0"^^xsd:integer ;
     sysml:owningNamespace elmt:Loops ;
@@ -57,6 +60,7 @@ elmt:Loops__Charge_om
 elmt:Loops__Charge__prep
     a sysml:ActionUsage ;
     sysml:qualifiedName "Loops::Charge::prep" ;
+    sysx:sourceRange "3:9-3:21" ;
     sysml:elementId "Loops__Charge__prep" ;
     sysx:memberIndex "0"^^xsd:integer ;
     sysml:owningNamespace elmt:Loops__Charge ;
@@ -82,6 +86,7 @@ elmt:Loops__Charge__prep_om
 elmt:Loops__Charge___401
     a sysml:WhileLoopActionUsage ;
     sysml:qualifiedName "Loops::Charge::@1" ;
+    sysx:sourceRange "4:9-6:31" ;
     sysml:elementId "Loops__Charge___401" ;
     sysx:memberIndex "1"^^xsd:integer ;
     sysml:owningNamespace elmt:Loops__Charge ;
@@ -237,6 +242,7 @@ expr:Loops__Charge___401_puntilCondition_om
 elmt:Loops__Charge___401__charging
     a sysml:ActionUsage ;
     sysml:qualifiedName "Loops::Charge::@1::charging" ;
+    sysx:sourceRange "5:13-5:29" ;
     sysml:elementId "Loops__Charge___401__charging" ;
     sysx:memberIndex "0"^^xsd:integer ;
     sysml:owningNamespace elmt:Loops__Charge___401 ;
@@ -262,6 +268,7 @@ elmt:Loops__Charge___401__charging_om
 elmt:Loops__Charge___402
     a sysml:WhileLoopActionUsage ;
     sysml:qualifiedName "Loops::Charge::@2" ;
+    sysx:sourceRange "7:9-9:27" ;
     sysml:elementId "Loops__Charge___402" ;
     sysx:memberIndex "2"^^xsd:integer ;
     sysml:owningNamespace elmt:Loops__Charge ;
@@ -540,6 +547,7 @@ expr:Loops__Charge___402_puntilCondition_om
 elmt:Loops__Charge___402__pace
     a sysml:ActionUsage ;
     sysml:qualifiedName "Loops::Charge::@2::pace" ;
+    sysx:sourceRange "8:13-8:25" ;
     sysml:elementId "Loops__Charge___402__pace" ;
     sysx:memberIndex "0"^^xsd:integer ;
     sysml:owningNamespace elmt:Loops__Charge___402 ;
