@@ -171,10 +171,10 @@ package Results {
                 multiple = "first"),
             properties = ("name"),
             columns = (
-                DocumentQueries::Column(name = "t", expression = Timer::t ?? ""),
-                DocumentQueries::Column(name = "N", expression = 'Monte Carlo'.runs),
-                DocumentQueries::Column(name = "Mean", expression = 'Monte Carlo'.mean),
-                DocumentQueries::Column(name = "Deviation", expression = 'Monte Carlo'.deviation)))
+                DocumentQueries::Column(name = "t", cell = { in row : Timer; row.t ?? "" }),
+                DocumentQueries::Column(name = "N", path = "'Monte Carlo'.runs"),
+                DocumentQueries::Column(name = "Mean", path = "'Monte Carlo'.mean"),
+                DocumentQueries::Column(name = "Deviation", path = "'Monte Carlo'.deviation")))
     }
     part def 'Statistics Table Document' :> DocumentQueries::Document {
         attribute redefines title = "Statistics Table";

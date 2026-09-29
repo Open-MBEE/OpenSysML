@@ -2,6 +2,7 @@ package Structure {
     part def Vehicle {
         part engine : Engine;
         part wheel : Wheel;
+        attribute height : ScalarValues::Real;
         connection drive connect engine to wheel;
         view 'Vehicle Internals' {
             expose Vehicle;
@@ -19,6 +20,7 @@ package Structure {
         expose Engine;
         expose Wheel;
         expose Structure::Vehicle::engine;
+        expose Structure::Vehicle::height;
         expose Structure::Vehicle::drive;
         expose Behavior::Drive::'step';
         render Views::asTreeDiagram;
