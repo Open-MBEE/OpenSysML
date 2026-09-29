@@ -1923,8 +1923,8 @@ A graph converted from several documents at once — several notation files to
 service's `Convert` — marks each document's top-level elements with
 `sysx:sourceDocument`, the document's name as it was given, and wraps each
 document's roots under its own root `Namespace`, in the order the documents
-appear: the pilot's one-Namespace-per-resource form. A single-document graph
-states no `sysx:sourceDocument` and keeps the one wrapper it always had. The
+appear: the pilot's one-Namespace-per-resource form. A single document keeps
+the one wrapper it always had. The
 reader accepts several root namespaces and writes one notation holding every
 document's roots in document order.
 

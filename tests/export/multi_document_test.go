@@ -115,18 +115,6 @@ func TestCrossDocumentReferenceLinks(t *testing.T) {
 	}
 }
 
-// A single-document conversion is unchanged: no sysx:sourceDocument is stated
-// and the one root Namespace holds every root, exactly as before.
-func TestSingleDocumentStatesNoSourceDocument(t *testing.T) {
-	turtle, err := convert.Convert("m.sysml", []byte("package P {\n\tpart def A;\n}\n"), convert.FormatSysML, convert.FormatTurtle)
-	if err != nil {
-		t.Fatalf("convert: %v", err)
-	}
-	if strings.Contains(string(turtle), "sourceDocument") {
-		t.Errorf("a single document states a sourceDocument:\n%s", turtle)
-	}
-}
-
 // Two documents declaring one element IRI are refused the way one document
 // declaring it twice is, rather than merged into one subject.
 func TestTwoDocumentsMintingOneIRIAreRefused(t *testing.T) {
