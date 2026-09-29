@@ -1583,8 +1583,9 @@ func TestOperationUsageWritesContextBeforeOutputParameters(t *testing.T) {
 func TestSwimlaneCallsRunOnTheirRepresentedObjects(t *testing.T) {
 	r := migrateFixtureFile(t, "swimlane_context_calls")
 	for _, line := range []string{
-		"perform action hit ::> context.hit;",
-		"action tune : Engine::Tune { in ref :>> context = Run::context.engine; }",
+		"perform action hit ::> Host::hit;",
+		"perform action tune ::> Host::engine.tune;",
+		"perform action tune ::> context.engine.tune;",
 	} {
 		wantLine(t, r.Notation, line)
 	}

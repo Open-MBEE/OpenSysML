@@ -391,6 +391,9 @@ type migration struct {
 	// parameter; contextNotes says why an activity naming ports of several gets none.
 	contexts     map[*sysmlv1.Element]*behaviorContext
 	contextNotes map[*sysmlv1.Element]string
+	// marked holds, in order, the context parameters spelling marked
+	// used, so a refused body can unmark those it marked; see markUsed.
+	marked []*bool
 	// ownerCtx holds the context a def declares for the object its owner is,
 	// which its `this` does not reach.
 	ownerCtx map[*sysmlv1.Element]*behaviorContext

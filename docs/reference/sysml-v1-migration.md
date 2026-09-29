@@ -1026,11 +1026,28 @@ it stands where `Nudge` declares `delta` — so the context redefinition goes la
 the declared ones. A usage the block owns —
 states, nested actions, entry/do/exit actions, transition guards and effects — sees the
 block's features lexically instead and names them bare (`assign level := value;`), a bare
-`this` value staying `this`. The block is the one whose ports the activity or the behaviors it calls
+`this` value staying `this`. A read of the block's features is any name the migration
+resolves to one of them wherever the body carries it — an opaque action's body, a guard on a
+control flow, a pin's value — the block's own features and, through a swimlane over one of its
+parts, that part's (`context.'ESW Seq'.i` in a definition, `'ESW Seq'.i` in a usage) alike; a
+name the body declares as a local (`let count = 1;`) reads nothing of the block, and neither
+does a body the writer keeps as a comment — a guard or an action outside the translated subset —
+since nothing written reads through it. A definition
+reading its owner acts on the owner, over the ports of another block its actions name: a send
+through such a port loses the port and the report says so. The block is otherwise the one whose
+ports the activity or the behaviors it calls
 name; activities calling each other in a cycle name the ports of the whole cycle and take the
 same block. An activity naming ports of several blocks none of which specializes the others
 takes no parameter, and the report says which blocks; an activity naming none accepts through
-the ports the signals it waits for arrive at, on the blocks whose behaviors run it.
+the ports the signals it waits for arrive at, on the blocks whose behaviors run it. A
+definition reading its owner holds nothing over its callers: a definition of the same block
+calling it binds its own parameter (`in ref :>> context = Caller::context;`, the block's
+activities calling each other in a cycle all taking the block); one of another block binds
+the block's object among its parts — one part holding one object, never a collection or a
+part whose bounds do not tell — or leaves the parameter unbound and the report says so;
+one no block owns takes the block as its own parameter, the block holding as parts the
+owners of whatever else it calls — v1 ran the callee on the caller's object, so the caller's
+is one of the block.
 
 An action whose input pin must hold a value (`lower` of 1 or more) but which only flows from
 parameters nothing values, or from object flows that trace back to no pin or parameter at all (a

@@ -33,7 +33,7 @@ InputPin	Host::Align::Write::Set::set k::value	_setValue	-> Host::align::Write::
 ReadStructuralFeatureAction	Host::Align::observe sequencer	_observe	-> 'observe sequencer'
 OutputPin	Host::Align::observe sequencer::result	_observeOut	-> Host::align::'observe sequencer'.result
 CallBehaviorAction	Host::Align::write	_callWrite	-> write
-Activity	Host::Direct	_direct	-> Host::Direct	(acts on its owner Host, which it takes as its parameter context, since its this is the def's own occurrence)
+Activity	Host::Direct	_direct	-> Host::direct	(written as an action usage of Host, which a call on an object performs, so its body runs on the object and reaches its features)
 ActivityFinalNode	Host::Direct::<ActivityFinalNode>	_directFinal	-> final
 ActivityPartition	Host::Direct::<ActivityPartition>	_directLane	(the partition represents the context's aO Sequencer, read as this.'aO Sequencer')
 ControlFlow	Host::Direct::<ControlFlow>	_directStep

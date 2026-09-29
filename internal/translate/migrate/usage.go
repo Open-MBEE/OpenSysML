@@ -195,7 +195,7 @@ func (m *migration) readsOwner(b *sysmlv1.Element) bool {
 			return false
 		}
 	}
-	if m.readsFeaturesOf(body, owner) || m.lifelinesOn(body, owner) {
+	if m.usesFeaturesOf(body, owner) || m.lifelinesOn(body, owner) {
 		return true
 	}
 	for _, o := range m.namedPortOwners(body) {
@@ -223,26 +223,6 @@ func (m *migration) readsOwner(b *sysmlv1.Element) bool {
 		}
 	})
 	return reads
-}
-
-// readsFeaturesOf finds direct feature reads; unlike usesFeaturesOf, it does not follow calls.
-func (m *migration) readsFeaturesOf(b, c *sysmlv1.Element) bool {
-	uses := false
-	m.walkActions(b, func(e *sysmlv1.Element) {
-		switch e.Type {
-		case "ReadSelfAction":
-			uses = true
-		case "ReadStructuralFeatureAction", "AddStructuralFeatureValueAction", "RemoveStructuralFeatureValueAction", "ClearStructuralFeatureAction":
-			if f := m.model.Ref(e, "structuralFeature"); f != nil && m.hasFeature(c, f) {
-				uses = true
-			}
-		case "OpaqueAction":
-			if m.opaqueUsesOwnerFeature(e, c) {
-				uses = true
-			}
-		}
-	})
-	return uses
 }
 
 // probabilityProperty is the property the «Probability» on the edge e of body
@@ -284,7 +264,7 @@ func (m *migration) propertyHolder(p, selfType *sysmlv1.Element, self string) (e
 		return "", ""
 	}
 	expr, part, _ := m.objectOf(p.Parent, selfType, self)
-	if expr == "" || part == nil {
+	if part == nil {
 		return expr, ""
 	}
 	through := "the action acts on a " + qualifiedName(selfType) + ", whose one part that holds " + qualifiedName(p) + ", " + qualifiedName(part) + ", "
