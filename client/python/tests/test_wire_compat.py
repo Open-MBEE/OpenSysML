@@ -373,6 +373,7 @@ def test_edit_messages_pin_their_field_numbers():
             "add_connection": 6, "add_satisfy": 7, "add_requirement_constraint": 8,
             "add_transition": 9, "add_import": 10, "add_documentation": 11,
             "add_verify": 12, "add_metadata": 13, "add_sequence": 14,
+            "add_metadata_prefix": 15,
             "add_comment": 16,
             "add_note": 18,
         },
@@ -403,6 +404,7 @@ def test_edit_messages_pin_their_field_numbers():
             "owner": 1, "metadata_type": 2, "name": 3, "about": 4,
             "values": 5, "shorthand": 6,
         },
+        "AddMetadataPrefixEdit": {"target": 1, "metadata_type": 2},
         "AddSequenceEdit": {
             "owner": 1, "keyword": 2, "ref": 3, "member_kind": 4,
             "member_name": 5, "type": 6, "after": 7,

@@ -1142,7 +1142,8 @@
         "apply_edits",
         "authoring",
         "verification_objective_authoring",
-        "metadata_authoring"
+        "metadata_authoring",
+        "metadata_prefix_authoring"
       ],
       "model": {
         "fixture": "verification_metadata_authoring.sysml"
@@ -1177,6 +1178,12 @@
                 "ToasterDemo::Safety"
               ]
             }
+          },
+          {
+            "add_metadata_prefix": {
+              "target": "ToasterDemo::TimelyToast",
+              "metadata_type": "ToasterDemo::Safety"
+            }
           }
         ]
       },
@@ -1185,14 +1192,16 @@
           "content": [
             "verify timely;",
             "metadata VerificationMethod { kind = VerificationMethodKind::test; }",
-            "#ToasterDemo::Safety part def Heater;"
+            "#ToasterDemo::Safety part def Heater;",
+            "part def Toaster {",
+            "#ToasterDemo::Safety requirement def TimelyToast {"
           ]
         },
         "absent": [
           "error"
         ],
         "counts": {
-          "applied": 3
+            "applied": 4
         }
       }
     }

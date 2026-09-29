@@ -27,6 +27,7 @@ func TestGolden(t *testing.T) {
 		{"ring_variants.sysml", "test::ringFamily::finishMatchesNesting", "constraint", "ring_variants.smt2"},
 		{"safe_window.sysml", "test::SafeWindow", "constraint", "safe_window.smt2"},
 		{"safe_window.sysml", "test::rig::safeWindow", "constraint", "safe_window_denied.smt2"},
+		{"safe_window.sysml", "test::SafeWindow", "violation", "safe_window_violated.smt2"},
 		{"objectives.sysml", "test::MassBudget", "analysis", "objective_mass.smt2"},
 		{"objectives.sysml", "test::CostThenMargin", "analysis", "objective_lexicographic.smt2"},
 		{"objectives.sysml", "test::WheelChoice", "analysis", "objective_variants.smt2"},
@@ -57,6 +58,8 @@ func translateElement(ctx *runtime.Context, kind string, sym *symbols.Symbol) (*
 		return Requirement(ctx, sym, sym.OwnerScope)
 	case "analysis":
 		return Analysis(ctx, sym, sym.OwnerScope)
+	case "violation":
+		return ConstraintViolation(ctx, sym, sym.OwnerScope, nil)
 	}
 	return Constraint(ctx, sym, sym.OwnerScope)
 }

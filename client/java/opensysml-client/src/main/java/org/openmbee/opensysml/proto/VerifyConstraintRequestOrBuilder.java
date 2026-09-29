@@ -97,4 +97,34 @@ public interface VerifyConstraintRequestOrBuilder extends
    */
   com.google.protobuf.ByteString
       getEngineBytes();
+
+  /**
+   * <pre>
+   * The question asked: "evaluate" (unset, today's behavior) evaluates the
+   * declared values; "holds" asks whether the claim holds over every
+   * assignment of the free features; "satisfiable" asks whether one
+   * assignment satisfies it. Anything else is INVALID_ARGUMENT. The two
+   * solver questions are reported as the "verification_questions" capability
+   * and need an SMT solver.
+   * </pre>
+   *
+   * <code>string question = 5 [json_name = "question"];</code>
+   * @return The question.
+   */
+  java.lang.String getQuestion();
+  /**
+   * <pre>
+   * The question asked: "evaluate" (unset, today's behavior) evaluates the
+   * declared values; "holds" asks whether the claim holds over every
+   * assignment of the free features; "satisfiable" asks whether one
+   * assignment satisfies it. Anything else is INVALID_ARGUMENT. The two
+   * solver questions are reported as the "verification_questions" capability
+   * and need an SMT solver.
+   * </pre>
+   *
+   * <code>string question = 5 [json_name = "question"];</code>
+   * @return The bytes for question.
+   */
+  com.google.protobuf.ByteString
+      getQuestionBytes();
 }

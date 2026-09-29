@@ -40,6 +40,7 @@ import org.openmbee.opensysml.Value;
 import org.openmbee.opensysml.Verdict;
 import org.openmbee.opensysml.Verification;
 import org.openmbee.opensysml.VerificationVerdict;
+import org.openmbee.opensysml.WitnessAssignment;
 import org.openmbee.opensysml.proto.AttributeInfo;
 import org.openmbee.opensysml.proto.Bound;
 import org.openmbee.opensysml.proto.CalcOutput;
@@ -676,6 +677,7 @@ public final class Protos {
       case FAILURE_REASON_UNSPECIFIED -> FailureReason.UNSPECIFIED;
       case FAILURE_REASON_EVALUATION -> FailureReason.EVALUATION;
       case FAILURE_REASON_WRONG_KIND -> FailureReason.WRONG_KIND;
+      case FAILURE_REASON_UNDECIDED -> FailureReason.UNDECIDED;
       case FAILURE_REASON_AMBIGUOUS_SUBJECT -> FailureReason.AMBIGUOUS_SUBJECT;
       case UNRECOGNIZED -> FailureReason.UNKNOWN;
     };
@@ -716,7 +718,30 @@ public final class Protos {
         failureReason(verdict.getFailureReason()),
         present(verdict.getRequirementId()),
         present(verdict.getInstancePath()),
+        present(verdict.getQuestion()),
+        present(verdict.getStatus()),
+        witnessAssignments(verdict.getWitnessList()),
         standing(verdict.getEngine(), verdict.getStrength(), verdict.getBoundsList()));
+  }
+
+  /**
+   * Witness assignments of one verdict.
+   *
+   * @param witness the generated assignments
+   * @return the immutable assignments
+   */
+  public static List<WitnessAssignment> witnessAssignments(
+      List<org.openmbee.opensysml.proto.WitnessAssignment> witness) {
+    List<WitnessAssignment> out = new ArrayList<>(witness.size());
+    for (org.openmbee.opensysml.proto.WitnessAssignment assignment : witness) {
+      out.add(
+          new WitnessAssignment(
+              assignment.getFeature(),
+              value(assignment.getValue()),
+              assignment.getUnit(),
+              assignment.getExact()));
+    }
+    return List.copyOf(out);
   }
 
   /**
@@ -901,7 +926,8 @@ public final class Protos {
     return new ActionRun(
         values(response.getOutputsMap()),
         finalTimeReported ? OptionalDouble.of(response.getFinalTime()) : OptionalDouble.empty(),
-        diagnostics(response.getDiagnosticsList()));
+        diagnostics(response.getDiagnosticsList()),
+        values(response.getPerformerAttributesMap()));
   }
 
   /**
@@ -1081,6 +1107,11 @@ public final class Protos {
                 .setValue(value.value()));
       }
       builder.setAddMetadata(add);
+    } else if (edit instanceof Edit.AddMetadataPrefix addMetadataPrefix) {
+      builder.setAddMetadataPrefix(
+          org.openmbee.opensysml.proto.AddMetadataPrefixEdit.newBuilder()
+              .setTarget(addMetadataPrefix.target())
+              .setMetadataType(addMetadataPrefix.metadataType()));
     } else if (edit instanceof Edit.AddSequence addSequence) {
       builder.setAddSequence(sequenceProto(addSequence));
     } else if (edit instanceof Edit.AddImport addImport) {

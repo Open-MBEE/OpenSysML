@@ -68,6 +68,42 @@ pub struct Verdict {
     /// and for every other RPC.
     #[prost(string, tag="14")]
     pub instance_path: ::prost::alloc::string::String,
+    /// The question the verdict answers: "evaluate" for an evaluation, "holds"
+    /// for a claim proved over every free assignment, "satisfiable" for one
+    /// satisfying assignment. Reported as the "verification_questions" capability.
+    #[prost(string, tag="15")]
+    pub question: ::prost::alloc::string::String,
+    /// What the question was answered: "holds", "violated" or "undecided" for
+    /// an evaluation or a holds question (undecided names `error` carrying the
+    /// reason), "satisfiable" or "unsatisfiable" for a satisfiable question.
+    /// `holds` is true iff status is "holds" or "satisfiable".
+    #[prost(string, tag="16")]
+    pub status: ::prost::alloc::string::String,
+    /// The assignment witnessing a "violated" holds answer or a "satisfiable"
+    /// satisfiable one: the query's free variables, in query order. Never set
+    /// for an undecided answer. Reported as the "verification_questions" capability.
+    #[prost(message, repeated, tag="17")]
+    pub witness: ::prost::alloc::vec::Vec<WitnessAssignment>,
+}
+/// WitnessAssignment is one free variable's value in a witnessed assignment:
+/// the assignment the solver found, replayed by the evaluator.
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct WitnessAssignment {
+    /// The variable's feature, as a qualified name with chain steps appended
+    /// with '.'.
+    #[prost(string, tag="1")]
+    pub feature: ::prost::alloc::string::String,
+    /// The value the evaluator replayed: a bool, an int, a real as the float64
+    /// of the exact rational, an enum literal.
+    #[prost(message, optional, tag="2")]
+    pub value: ::core::option::Option<Value>,
+    /// The base units a magnitude is expressed in; empty when dimensionless.
+    #[prost(string, tag="3")]
+    pub unit: ::prost::alloc::string::String,
+    /// The solver's exact value as text: a rational for a real, the literal's
+    /// name for an enum.
+    #[prost(string, tag="4")]
+    pub exact: ::prost::alloc::string::String,
 }
 /// Bound is one limit an engine ran under, as its plan names it: a count, or
 /// milliseconds for a time, and whether the run stopped at it.
@@ -107,6 +143,14 @@ pub struct VerifyConstraintRequest {
     /// An unknown name is INVALID_ARGUMENT. Reported as the "engines" capability.
     #[prost(string, tag="4")]
     pub engine: ::prost::alloc::string::String,
+    /// The question asked: "evaluate" (unset, today's behavior) evaluates the
+    /// declared values; "holds" asks whether the claim holds over every
+    /// assignment of the free features; "satisfiable" asks whether one
+    /// assignment satisfies it. Anything else is INVALID_ARGUMENT. The two
+    /// solver questions are reported as the "verification_questions" capability
+    /// and need an SMT solver.
+    #[prost(string, tag="5")]
+    pub question: ::prost::alloc::string::String,
 }
 /// VerifyConstraintResponse carries the verdict; its engine, strength and bounds
 /// are on the verdict.
@@ -141,6 +185,9 @@ pub struct VerifyRequirementRequest {
     /// The engine the question is put to; see VerifyConstraintRequest.engine.
     #[prost(string, tag="4")]
     pub engine: ::prost::alloc::string::String,
+    /// The question asked; see VerifyConstraintRequest.question.
+    #[prost(string, tag="5")]
+    pub question: ::prost::alloc::string::String,
 }
 /// VerificationVerdict is what the body of a verification case answered when it
 /// ran: the VerdictKind its return bound, which is a separate answer from whether
@@ -198,6 +245,9 @@ pub struct VerifySatisfactionRequest {
     /// The engine every assertion is put to; see VerifyConstraintRequest.engine.
     #[prost(string, tag="3")]
     pub engine: ::prost::alloc::string::String,
+    /// The question every assertion is put to; see VerifyConstraintRequest.question.
+    #[prost(string, tag="4")]
+    pub question: ::prost::alloc::string::String,
 }
 /// VerifySatisfactionResponse carries one verdict per assertion evaluated, in
 /// declaration order. No assertion at all is an empty list, not an error.
@@ -834,6 +884,12 @@ pub struct ExecuteActionResponse {
     /// at` the action waited on. Populated under the "final_time" capability.
     #[prost(double, tag="6")]
     pub final_time: f64,
+    /// The attributes the object named by performer_symbol_id holds when the run
+    /// ends, keyed as an explored outcome's `outputs` key them (`this.level`);
+    /// `outputs` stays the output parameters alone. Empty without a performer and
+    /// under an explore schedule, whose outcomes carry them.
+    #[prost(map="string, message", tag="7")]
+    pub performer_attributes: ::std::collections::HashMap<::prost::alloc::string::String, Value>,
 }
 /// ExecuteStateRequest requests state machine execution
 #[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
@@ -988,7 +1044,7 @@ pub struct ApplyEditsRequest {
 /// EditOperation is one source-preserving change to make.
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct EditOperation {
-    #[prost(oneof="edit_operation::Operation", tags="1, 2, 3, 4, 5, 6, 7, 8, 9, 12, 13, 10, 11, 14, 16, 18")]
+    #[prost(oneof="edit_operation::Operation", tags="1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 18")]
     pub operation: ::core::option::Option<edit_operation::Operation>,
 }
 /// Nested message and enum types in `EditOperation`.
@@ -1013,16 +1069,18 @@ pub mod edit_operation {
         AddRequirementConstraint(super::AddRequirementConstraintEdit),
         #[prost(message, tag="9")]
         AddTransition(super::AddTransitionEdit),
-        #[prost(message, tag="12")]
-        AddVerify(super::AddVerifyEdit),
-        #[prost(message, tag="13")]
-        AddMetadata(super::AddMetadataEdit),
         #[prost(message, tag="10")]
         AddImport(super::AddImportEdit),
         #[prost(message, tag="11")]
         AddDocumentation(super::AddDocumentationEdit),
+        #[prost(message, tag="12")]
+        AddVerify(super::AddVerifyEdit),
+        #[prost(message, tag="13")]
+        AddMetadata(super::AddMetadataEdit),
         #[prost(message, tag="14")]
         AddSequence(super::AddSequenceEdit),
+        #[prost(message, tag="15")]
+        AddMetadataPrefix(super::AddMetadataPrefixEdit),
         #[prost(message, tag="16")]
         AddComment(super::AddCommentEdit),
         #[prost(message, tag="18")]
@@ -1183,6 +1241,16 @@ pub struct AddMetadataEdit {
     /// Write shorthand `@` notation instead of `metadata`.
     #[prost(bool, tag="6")]
     pub shorthand: bool,
+}
+/// AddMetadataPrefixEdit annotates an existing declaration with prefix metadata.
+#[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
+pub struct AddMetadataPrefixEdit {
+    /// Declaration to annotate, by its qualified name.
+    #[prost(string, tag="1")]
+    pub target: ::prost::alloc::string::String,
+    /// Metadata definition reference to add as a prefix.
+    #[prost(string, tag="2")]
+    pub metadata_type: ::prost::alloc::string::String,
 }
 /// AddImportEdit inserts an import declaration into a namespace body or the document root.
 #[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
@@ -2553,6 +2621,8 @@ pub enum FailureReason {
     WrongKind = 2,
     /// several objects carry the element; name one as the subject
     AmbiguousSubject = 3,
+    /// an engine was asked but decided nothing
+    Undecided = 4,
 }
 impl FailureReason {
     /// String value of the enum field names used in the ProtoBuf definition.
@@ -2565,6 +2635,7 @@ impl FailureReason {
             Self::Evaluation => "FAILURE_REASON_EVALUATION",
             Self::WrongKind => "FAILURE_REASON_WRONG_KIND",
             Self::AmbiguousSubject => "FAILURE_REASON_AMBIGUOUS_SUBJECT",
+            Self::Undecided => "FAILURE_REASON_UNDECIDED",
         }
     }
     /// Creates an enum from field names used in the ProtoBuf definition.
@@ -2574,6 +2645,7 @@ impl FailureReason {
             "FAILURE_REASON_EVALUATION" => Some(Self::Evaluation),
             "FAILURE_REASON_WRONG_KIND" => Some(Self::WrongKind),
             "FAILURE_REASON_AMBIGUOUS_SUBJECT" => Some(Self::AmbiguousSubject),
+            "FAILURE_REASON_UNDECIDED" => Some(Self::Undecided),
             _ => None,
         }
     }

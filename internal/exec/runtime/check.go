@@ -1022,7 +1022,7 @@ func (c *checker) reportsDivergenceOf(root *actionFrame, prefix, name string) bo
 // named under prefix, is one divergence is reported over; absent names, its attributes are.
 func (c *checker) reportsPerformerDivergenceOf(prefix, name string, of *EffectiveFeature) bool {
 	if len(c.opts.Diverge) == 0 {
-		return of != nil && of.Symbol != nil && of.Symbol.Kind == symbols.SymbolAttributeUsage
+		return of != nil && of.Symbol != nil && of.Symbol.Kind.IsAttributeLike()
 	}
 	return slices.Contains(c.opts.Diverge, prefix+name)
 }
@@ -1094,7 +1094,7 @@ func (e *ActionExecutor) PerformerAttributes() []string {
 	}
 	var names []string
 	for name, held := range self.FeatureValues {
-		if of := held.Feature; of != nil && of.Symbol != nil && of.Symbol.Kind == symbols.SymbolAttributeUsage {
+		if of := held.Feature; of != nil && of.Symbol != nil && of.Symbol.Kind.IsAttributeLike() {
 			names = append(names, name)
 		}
 	}

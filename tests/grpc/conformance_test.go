@@ -358,6 +358,14 @@ func runApplyEditsCase(t *testing.T, srv *grpc.Service, ctx context.Context, mod
 					About: op.About, Values: values, Shorthand: op.Shorthand,
 				}},
 			})
+		case "add_metadata_prefix":
+			operations = append(operations, &pb.EditOperation{
+				Operation: &pb.EditOperation_AddMetadataPrefix{
+					AddMetadataPrefix: &pb.AddMetadataPrefixEdit{
+						Target: op.Target, MetadataType: op.MetadataType,
+					},
+				},
+			})
 		case "add_sequence":
 			operations = append(operations, &pb.EditOperation{
 				Operation: &pb.EditOperation_AddSequence{

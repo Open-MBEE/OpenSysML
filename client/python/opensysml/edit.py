@@ -779,6 +779,16 @@ class Editor:
         self._add(("add_metadata", owner, metadata_type, name or "", about, normalized, shorthand))
         return self
 
+    def add_metadata_prefix(self, target, metadata_type):
+        """Add a metadata prefix to an existing declaration."""
+        if not isinstance(metadata_type, str):
+            raise TypeError(
+                f"metadata_type must be notation text, not {type(metadata_type).__name__}"
+            )
+        target = target if isinstance(target, str) else _target_id(target)
+        self._add(("add_metadata_prefix", target, metadata_type))
+        return self
+
     def add_documentation(self, target, body, name=None, locale=None, replace=False):
         """Add ``doc /* body */`` as the first body member of a declaration.
 
@@ -946,6 +956,7 @@ class Editor:
         """Emit ``then [m] <ref>;`` or ``then [m] <kind> <name> : <type>;`` (SysML.xtext:878, 887, 1703 TargetSuccession; formal/2026-03-02).
 
         The member is sequenced after the member before it.
+        A `then` item can only follow a member that is a succession source.
 
         Args:
             owner: The action body, by qualified name or Symbol.

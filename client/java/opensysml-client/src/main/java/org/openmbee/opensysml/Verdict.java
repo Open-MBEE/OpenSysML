@@ -1,5 +1,6 @@
 package org.openmbee.opensysml;
 
+import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
 
@@ -27,6 +28,12 @@ import java.util.Optional;
  * @param instancePath the features held from a validated object to the one this verdict is about
  *     ({@code "engine.pump"}, {@code "wheels[2]"}), absent for the validated object itself and
  *     outside a {@link Validation}
+ * @param question the question the verdict answers: {@code "evaluate"} for an evaluation, absent
+ *     from a service predating {@code verification_questions}
+ * @param status the answer's status: {@code holds} | {@code violated} | {@code undecided} |
+ *     {@code satisfiable} | {@code unsatisfiable}, as the service spells it
+ * @param witness the assignment witnessing the answer: the free features' values for a violated
+ *     {@code holds} question or a satisfiable {@code satisfiable} question
  * @param standing how strongly the verdict stands
  */
 public record Verdict(
@@ -41,6 +48,9 @@ public record Verdict(
     FailureReason failureReason,
     Optional<String> requirementId,
     Optional<String> instancePath,
+    Optional<String> question,
+    Optional<String> status,
+    List<WitnessAssignment> witness,
     Standing standing) {
 
   /** A constraint verified against declared or an object's values. */
@@ -61,6 +71,15 @@ public record Verdict(
   /** A validated object as a whole. */
   public static final String KIND_OBJECT = "object";
 
+  /** The evaluation a verification asks unless a question names another. */
+  public static final String QUESTION_EVALUATE = "evaluate";
+
+  /** The question whether the claim holds for every free assignment. */
+  public static final String QUESTION_HOLDS = "holds";
+
+  /** The question whether any free assignment satisfies the claim. */
+  public static final String QUESTION_SATISFIABLE = "satisfiable";
+
   /**
    * Creates a verdict.
    *
@@ -75,6 +94,9 @@ public record Verdict(
    * @param failureReason the kind of failure, never {@code null}
    * @param requirementId the requirement asserted satisfied, when named
    * @param instancePath the path to the object, when validating
+   * @param question the question answered, when reported
+   * @param status the answer's status, when reported
+   * @param witness the assignment witnessing the answer, never {@code null}
    * @param standing the standing, never {@code null}
    */
   public Verdict {
@@ -88,6 +110,9 @@ public record Verdict(
     Objects.requireNonNull(failureReason, "failureReason");
     Objects.requireNonNull(requirementId, "requirementId");
     Objects.requireNonNull(instancePath, "instancePath");
+    Objects.requireNonNull(question, "question");
+    Objects.requireNonNull(status, "status");
+    witness = List.copyOf(Objects.requireNonNull(witness, "witness"));
     Objects.requireNonNull(standing, "standing");
   }
 

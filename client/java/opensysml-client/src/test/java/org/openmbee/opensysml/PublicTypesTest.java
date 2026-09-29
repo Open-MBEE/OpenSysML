@@ -741,6 +741,9 @@ class PublicTypesTest {
         Edit.AddMetadata.of("Demo", "Demo::M"),
         Capabilities.METADATA_AUTHORING);
     assertEditCapability(
+        Edit.addMetadataPrefix("Demo::Part", "Demo::M"),
+        Capabilities.METADATA_PREFIX_AUTHORING);
+    assertEditCapability(
         Edit.AddMember.of("Demo", "part def", "P")
             .withMetadataPrefixes(List.of("Demo::M")),
         Capabilities.METADATA_AUTHORING);

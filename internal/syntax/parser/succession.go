@@ -150,12 +150,17 @@ func (b *bodyBuilder) atSuccession() bool {
 		return false
 	}
 	nextAt := 1
+	prefixEnd := p.prefixMetadataEndAt(nextAt)
+	if prefixEnd > nextAt {
+		nextAt = prefixEnd
+	}
 	if p.peekN(nextAt).Kind == lexer.LBracket {
 		nextAt = p.afterMultiplicity(nextAt)
 		if nextAt < 0 {
 			return false
 		}
 	}
+	nextAt = p.prefixMetadataEndAt(nextAt)
 	next := p.peekN(nextAt)
 	// `succession first a then b;` and `then a;` name members; the edge parser
 	// reads them. Unreserved node words such as `then done;` are identified by

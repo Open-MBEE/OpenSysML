@@ -30,7 +30,7 @@ try (Connection connection = Connection.open()) {      // starts a private sysml
   Symbol vehicle = model.symbol("Demo::Vehicle");      // findSymbol returns Optional
   Instantiation built = model.instantiate("Demo::Vehicle");
 
-  ActionRun run = model.executeAction("Test::addFive");           // outputs, final time, diagnostics
+  ActionRun run = model.executeAction("Test::addFive");           // outputs, final time, diagnostics, performer
   Verification v = model.verifyConstraint("Demo::Vehicle::massLight");
   boolean holds = v.holds();                                        // false is an answer, not a failure
   Analysis study = model.runAnalysis("Trade::lightest");            // outputs, verdicts, case evaluations
@@ -395,6 +395,8 @@ and `SuiteTest.aCorruptedAnswerIsCaught` asserts each corruption is caught:
 | `rewrite-strings` | replaces each string            |                  70 |
 
 `Edit.AddMember` exposes `withAbstract`, `withRedefines`, `withDefault` and
+`Edit.addMetadataPrefix(target, metadataType)` adds a prefix to an existing declaration and
+requires `metadata_prefix_authoring` alongside `authoring`.
 `withDirection` and `withMetadataPrefixes`; `Edit.AddSatisfy`,
 `Edit.AddRequirementConstraint`, `Edit.AddTransition`, `Edit.AddVerify` and
 `Edit.AddMetadata` expose requirement, state-transition, verification and
@@ -432,6 +434,8 @@ write documentation on a new or existing declaration, after checking
 `documentation_authoring`. `Edit.AddComment.of(owner, body)` (with `withName`, `withAbout` and
 `withLocale`) writes a `comment`, and `new Edit.AddNote(target, text)` a `// text` line note above
 a declaration, after checking `comment_authoring`.
+`Edit.addMetadataPrefix(target, metadataType)` adds a prefix to an existing declaration and
+requires `metadata_prefix_authoring` alongside `authoring`.
 
 ## Running the tests
 

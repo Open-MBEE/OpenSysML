@@ -23,6 +23,9 @@ public final class Capabilities {
   /** A verification, satisfaction or analysis response carries what a case body answered. */
   public static final String VERIFICATION_VERDICTS = "verification_verdicts";
 
+  /** The verification RPCs answer {@code holds} and {@code satisfiable} questions, reporting a verdict's status and witness. */
+  public static final String VERIFICATION_QUESTIONS = "verification_questions";
+
   /** An analysis response carries each call the run made to a calc held as a value, such as a trade study's evaluation of every alternative. */
   public static final String CASE_EVALUATIONS = "case_evaluations";
 
@@ -99,8 +102,11 @@ public final class Capabilities {
   public static final String VERIFICATION_OBJECTIVE_AUTHORING =
       "verification_objective_authoring";
 
-  /** {@code ApplyEdits} can add metadata usages and metadata prefixes. */
+  /** {@code ApplyEdits} can add metadata usages and prefixes on new members. */
   public static final String METADATA_AUTHORING = "metadata_authoring";
+
+  /** {@code ApplyEdits} can add metadata prefixes to existing declarations. */
+  public static final String METADATA_PREFIX_AUTHORING = "metadata_prefix_authoring";
 
   /** {@code ApplyEdits} can add `first`/`then` sequencing members to action bodies. */
   public static final String SEQUENCE_AUTHORING = "sequence_authoring";

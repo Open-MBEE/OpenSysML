@@ -48,6 +48,8 @@ const (
 	OpAddVerify
 	// OpAddMetadata inserts a metadata usage.
 	OpAddMetadata
+	// OpAddMetadataPrefix adds prefix metadata to an existing declaration.
+	OpAddMetadataPrefix
 	// OpAddSequence inserts a `first`/`then` sequencing member into an action body.
 	OpAddSequence
 	// OpAddImport inserts an import declaration into a namespace body or the
@@ -120,7 +122,8 @@ type Operation struct {
 	Guard            string
 	Effect           string
 	Initial          bool
-	// MetadataType, MetadataValues and Shorthand describe an OpAddMetadata.
+	// MetadataType, MetadataName, About, MetadataValues and Shorthand describe
+	// an OpAddMetadata. MetadataType also describes OpAddMetadataPrefix.
 	// About names elements annotated by OpAddMetadata or OpAddComment.
 	// Requirement is the requirement verified by OpAddVerify.
 	MetadataType   string
@@ -242,6 +245,11 @@ func AddMetadata(owner, metadataType, name string, about []string, values []Meta
 		Kind: OpAddMetadata, Owner: owner, MetadataType: metadataType,
 		MetadataName: name, About: about, MetadataValues: values, Shorthand: shorthand,
 	}
+}
+
+// AddMetadataPrefix annotates an existing declaration with a metadata prefix.
+func AddMetadataPrefix(target, metadataType string) Operation {
+	return Operation{Kind: OpAddMetadataPrefix, Target: target, MetadataType: metadataType}
 }
 
 // AddFirst inserts `first <ref>;` into an action body (SysML.xtext:1384 InitialNodeMember; formal/2026-03-02).
@@ -799,6 +807,13 @@ func (m Model) splicesFor(i int, op Operation) ([]splice, error) {
 	}
 	if op.Kind == OpAddMetadata {
 		sp, err := m.addMetadataSplice(i, op)
+		if err != nil {
+			return nil, err
+		}
+		return []splice{sp}, nil
+	}
+	if op.Kind == OpAddMetadataPrefix {
+		sp, err := m.addMetadataPrefixSplice(i, op)
 		if err != nil {
 			return nil, err
 		}

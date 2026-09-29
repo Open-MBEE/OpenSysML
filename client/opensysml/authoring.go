@@ -281,6 +281,14 @@ type AddMetadata struct {
 	Shorthand bool
 }
 
+// AddMetadataPrefix adds a metadata prefix to an existing declaration.
+type AddMetadataPrefix struct {
+	// Target is the declaration to annotate, by its qualified name.
+	Target string
+	// MetadataType is the metadata definition reference.
+	MetadataType string
+}
+
 // AddEntryTransition constructs an entry transition to target in owner.
 func AddEntryTransition(owner, target string) AddTransition {
 	return AddTransition{Owner: owner, Target: target, Initial: true}
@@ -454,6 +462,9 @@ func (AddRequirementConstraint) isEdit() {
 func (AddTransition) isEdit() { /* marker: closed Edit set */ }
 func (AddVerify) isEdit()     { /* marker: closed Edit set */ }
 func (AddMetadata) isEdit()   { /* marker: closed Edit set */ }
+func (AddMetadataPrefix) isEdit() {
+	/* marker: closed Edit set */
+}
 func (AddSequence) isEdit()   { /* marker: closed Edit set */ }
 func (AddImport) isEdit()     { /* marker: closed Edit set */ }
 func (AddConnection) isEdit() { /* marker: closed Edit set */ }
@@ -653,6 +664,9 @@ func (c *client) ApplyDocumentEdits(ctx context.Context, model *Model, document 
 		case AddMetadata:
 			required[CapabilityAuthoring] = true
 			required[CapabilityMetadataAuthoring] = true
+		case AddMetadataPrefix:
+			required[CapabilityAuthoring] = true
+			required[CapabilityMetadataPrefixAuthoring] = true
 		case AddSequence:
 			required[CapabilityAuthoring] = true
 			required[CapabilitySequenceAuthoring] = true
@@ -679,6 +693,7 @@ func (c *client) ApplyDocumentEdits(ctx context.Context, model *Model, document 
 			CapabilitySatisfyAuthoring, CapabilityRequirementConstraintAuthoring,
 			CapabilityMemberModifiers, CapabilityTransitionAuthoring,
 			CapabilityVerificationObjectiveAuthoring, CapabilityMetadataAuthoring,
+			CapabilityMetadataPrefixAuthoring,
 			CapabilitySequenceAuthoring, CapabilityImplicitParameters,
 			CapabilityActionBodyStatementAuthoring,
 			CapabilityConstraintBodyAuthoring, CapabilityStateActionAuthoring,
@@ -814,6 +829,12 @@ func editToProto(edit Edit) (*pb.EditOperation, error) {
 				Owner: operation.Owner, MetadataType: operation.MetadataType,
 				Name: operation.Name, About: append([]string(nil), operation.About...),
 				Values: values, Shorthand: operation.Shorthand,
+			},
+		}}, nil
+	case AddMetadataPrefix:
+		return &pb.EditOperation{Operation: &pb.EditOperation_AddMetadataPrefix{
+			AddMetadataPrefix: &pb.AddMetadataPrefixEdit{
+				Target: operation.Target, MetadataType: operation.MetadataType,
 			},
 		}}, nil
 	case AddSequence:

@@ -66,6 +66,11 @@ func (s *Service) ApplyEdits(ctx context.Context, req *pb.ApplyEditsRequest) (*p
 			return nil, err
 		}
 	}
+	if requestsMetadataPrefixAuthoring(req.Operations) {
+		if err := s.requireCapability(CapabilityMetadataPrefixAuthoring); err != nil {
+			return nil, err
+		}
+	}
 	if requestsSequenceAuthoring(req.Operations) {
 		if err := s.requireCapability(CapabilitySequenceAuthoring); err != nil {
 			return nil, err
@@ -258,7 +263,8 @@ func requestsAuthoring(operations []*pb.EditOperation) bool {
 		case *pb.EditOperation_AddMember, *pb.EditOperation_AddConnection,
 			*pb.EditOperation_AddSatisfy, *pb.EditOperation_AddRequirementConstraint,
 			*pb.EditOperation_AddTransition, *pb.EditOperation_AddVerify,
-			*pb.EditOperation_AddMetadata, *pb.EditOperation_AddSequence,
+			*pb.EditOperation_AddMetadata, *pb.EditOperation_AddMetadataPrefix,
+			*pb.EditOperation_AddSequence,
 			*pb.EditOperation_AddImport,
 			*pb.EditOperation_AddDocumentation, *pb.EditOperation_AddComment,
 			*pb.EditOperation_AddNote,
@@ -374,6 +380,15 @@ func requestsMetadataAuthoring(operations []*pb.EditOperation) bool {
 			return true
 		}
 		if add := operation.GetAddMember(); add != nil && len(add.GetMetadataPrefixes()) > 0 {
+			return true
+		}
+	}
+	return false
+}
+
+func requestsMetadataPrefixAuthoring(operations []*pb.EditOperation) bool {
+	for _, operation := range operations {
+		if _, ok := operation.GetOperation().(*pb.EditOperation_AddMetadataPrefix); ok {
 			return true
 		}
 	}
@@ -518,6 +533,9 @@ func editOperations(pbOps []*pb.EditOperation) ([]edit.Operation, error) {
 			}
 			ops = append(ops, edit.AddMetadata(add.GetOwner(), add.GetMetadataType(), add.GetName(),
 				append([]string(nil), add.GetAbout()...), values, add.GetShorthand()))
+		case *pb.EditOperation_AddMetadataPrefix:
+			add := op.AddMetadataPrefix
+			ops = append(ops, edit.AddMetadataPrefix(add.GetTarget(), add.GetMetadataType()))
 		case *pb.EditOperation_AddSequence:
 			sequence, err := editSequenceOperation(op.AddSequence, 0)
 			if err != nil {

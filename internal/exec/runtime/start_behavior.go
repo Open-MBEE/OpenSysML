@@ -73,6 +73,10 @@ func (ctx *Context) startBehaviorOn(inst *Instance, member *symbols.Symbol) erro
 	ctx.behaviorAttached(inst, decl.member)
 	ctx.behaviorRunDepth--
 	if err != nil {
+		// An explicit start keeps nothing the failed attachment made.
+		if behavior != nil {
+			behavior.leaveClock()
+		}
 		rollback()
 		return err
 	}

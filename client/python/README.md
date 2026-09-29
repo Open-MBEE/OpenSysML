@@ -35,6 +35,22 @@ A value arrives as the Python value of its kind — `Quantity`, `complex`, `Arra
 `EnumLiteral`, `Undetermined`, `INFINITY` — never a string to parse; every verdict carries a
 `Standing` naming the engine that answered and the strength of its evidence.
 
+The verify calls take a `question` beyond the default `"evaluate"`: `"holds"` proves the claim
+for every assignment the free features can take and `"satisfiable"` finds one, answered by the
+service's solvers against a service advertising `verification_questions`. The verdict's
+`question` and `status` say what was answered (`holds` | `violated` | `undecided` |
+`satisfiable` | `unsatisfiable`); a violated or satisfiable answer reports `witness`, the free
+features' replayed values with `unit` and `exact`, and undecided reports the reason — a refused
+translation, an absent solver, arithmetic the backend could not close, or a rounded unsat that
+is no proof — in `error`, never a false claim:
+
+```python
+v = model.verify_constraint("Demo::lemma", question="holds")
+v.status, v.strength            # 'holds', 'proved'
+v = model.verify_constraint("Demo::bad", question="holds")
+v.status, v.witness             # 'violated', the assignment the evaluator replayed
+```
+
 Declarations can be authored from notation strings while preserving the
 untouched source:
 
@@ -68,8 +84,10 @@ and `add_verify(owner, requirement)` writes `verify <requirement>;` in a
 verification case objective. `add_metadata(owner, metadata_type, values=None,
 name=None, about=None, shorthand=False)` writes metadata usages with optional
 ordered feature values and `about` references; `shorthand=True` uses `@M`.
-Verification authoring requires `verification_objective_authoring`; metadata
-usages and prefixes require `metadata_authoring`.
+`add_metadata_prefix(target, metadata_type)` adds a metadata prefix to an existing declaration.
+Verification authoring requires `authoring` and `verification_objective_authoring`; metadata
+usages and new-member prefixes require `authoring` and `metadata_authoring`; existing-declaration
+prefixes require `authoring` and `metadata_prefix_authoring`.
 `add_parameter` writes an implicit
 directed usage — `in x : T;` — unless an explicit `kind` is given
 (`kind="ref"` writes `in ref x : T;`).

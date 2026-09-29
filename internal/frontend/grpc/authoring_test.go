@@ -68,6 +68,14 @@ func addMetadataOp(owner, metadataType, name string, about []string, values []*p
 	}}
 }
 
+func addMetadataPrefixOp(target, metadataType string) *pb.EditOperation {
+	return &pb.EditOperation{Operation: &pb.EditOperation_AddMetadataPrefix{
+		AddMetadataPrefix: &pb.AddMetadataPrefixEdit{
+			Target: target, MetadataType: metadataType,
+		},
+	}}
+}
+
 func addSequenceOp(owner, keyword, ref, memberKind, memberName, typ, after string) *pb.EditOperation {
 	return &pb.EditOperation{Operation: &pb.EditOperation_AddSequence{
 		AddSequence: &pb.AddSequenceEdit{
@@ -295,6 +303,23 @@ func TestApplyEditsAddConnectionRequiresAuthoring(t *testing.T) {
 	}
 }
 
+func TestApplyEditsAddMetadataPrefixRequiresAuthoring(t *testing.T) {
+	srv := mustNewServiceWithout(t, CapabilityAuthoring)
+	if err := srv.requireCapability(CapabilityMetadataPrefixAuthoring); err != nil {
+		t.Fatalf("metadata prefix capability unexpectedly unavailable: %v", err)
+	}
+	ctx := context.Background()
+	hash := mustParsedModel(t, srv, "package Demo { metadata def Safety; part t; }\n")
+	_, err := srv.ApplyEdits(ctx, &pb.ApplyEditsRequest{
+		ModelHash: hash, Operations: []*pb.EditOperation{addMetadataPrefixOp("Demo::t", "Demo::Safety")},
+	})
+	if connect.CodeOf(err) != connect.CodeUnimplemented ||
+		!strings.Contains(err.Error(), CapabilityAuthoring) {
+		t.Fatalf("ApplyEdits status = %s, want UNIMPLEMENTED naming %q: %v",
+			connect.CodeOf(err), CapabilityAuthoring, err)
+	}
+}
+
 func TestApplyEditsAddConnectionRequiresConnectionAuthoring(t *testing.T) {
 	srv := mustNewServiceWithout(t, CapabilityConnectionAuthoring)
 	ctx := context.Background()
@@ -458,6 +483,24 @@ func TestApplyEditsAuthorsVerificationAndMetadata(t *testing.T) {
 	}
 }
 
+func TestApplyEditsAddsMetadataPrefixToExistingDeclaration(t *testing.T) {
+	srv := mustNewService(t, 10)
+	source := "package Demo { metadata def M; part def A; }\n"
+	hash := mustParsedModel(t, srv, source)
+	added, err := srv.ApplyEdits(context.Background(), &pb.ApplyEditsRequest{
+		ModelHash: hash,
+		Operations: []*pb.EditOperation{
+			addMetadataPrefixOp("Demo::A", "M"),
+		},
+	})
+	if err != nil {
+		t.Fatalf("ApplyEdits: %v", err)
+	}
+	if added.Error != "" || added.Content != "package Demo { metadata def M; #M part def A; }\n" {
+		t.Fatalf("ApplyEdits response = %+v", added)
+	}
+}
+
 // AddMemberEdit with an empty kind writes a directed usage with no keyword
 // (`in x : T;`) and asks for the implicit_parameters capability.
 func TestApplyEditsImplicitParameter(t *testing.T) {
@@ -585,6 +628,11 @@ func TestApplyEditsNewAuthoringOperationsRequireDedicatedCapabilities(t *testing
 			name:       "metadata usage",
 			capability: CapabilityMetadataAuthoring,
 			operation:  addMetadataOp("Demo", "Demo::Safety", "", nil, nil, false),
+		},
+		{
+			name:       "existing metadata prefix",
+			capability: CapabilityMetadataPrefixAuthoring,
+			operation:  addMetadataPrefixOp("Demo::t", "Demo::Safety"),
 		},
 		{
 			name:       "metadata prefix",
@@ -1203,6 +1251,7 @@ func TestGetServerInfoAuthoringCapabilities(t *testing.T) {
 		CapabilitySatisfyAuthoring, CapabilityRequirementConstraintAuthoring,
 		CapabilityMemberModifiers, CapabilityTransitionAuthoring,
 		CapabilityVerificationObjectiveAuthoring, CapabilityMetadataAuthoring,
+		CapabilityMetadataPrefixAuthoring,
 		CapabilitySequenceAuthoring, CapabilityImplicitParameters,
 		CapabilityConstraintBodyAuthoring, CapabilityStateActionAuthoring,
 		CapabilityImportAuthoring, CapabilityDocumentationAuthoring,

@@ -520,6 +520,23 @@ public sealed interface Edit {
     }
   }
 
+  /** Adds a metadata prefix to an existing declaration. */
+  record AddMetadataPrefix(String target, String metadataType) implements Edit {
+
+    public AddMetadataPrefix {
+      requireTarget(target);
+      Objects.requireNonNull(metadataType, "metadataType");
+    }
+
+    public static AddMetadataPrefix of(String target, String metadataType) {
+      return new AddMetadataPrefix(target, metadataType);
+    }
+  }
+
+  static AddMetadataPrefix addMetadataPrefix(String target, String metadataType) {
+    return AddMetadataPrefix.of(target, metadataType);
+  }
+
   /** Inserts a sequencing member or statement into an action body. */
   record AddSequence(
       String owner,

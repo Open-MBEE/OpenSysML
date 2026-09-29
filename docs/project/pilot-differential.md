@@ -235,11 +235,11 @@ nor double-counted as two independent disagreements.
 | `examples/sysml-v2-training` | 100 | 100 | 0 | 0 | 0 | 0 | 0 | 0 |
 | `examples/pilot-corpora/sysml-examples` | 99 | 92 | 11 | 0 | 0 | 0 | 11 | 0 |
 | `examples/pilot-corpora/sysml-validation` | 56 | 56 | 0 | 0 | 0 | 0 | 0 | 0 |
-| `examples/pilot-corpora/kerml-examples` | 58 | 55 | 10 | 0 | 0 | 0 | 10 | 0 |
+| `examples/pilot-corpora/kerml-examples` | 58 | 56 | 9 | 0 | 0 | 0 | 9 | 0 |
 | `tests/testdata` | 18 | 10 | 43 | 55 | 34 | 1 | 8 | 20 |
-| `examples` | 45 | 30 | 13 | 1600 | 4 | 2 | 7 | 1594 |
+| `examples` | 45 | 30 | 12 | 1600 | 4 | 2 | 6 | 1594 |
 | `tools/referee/diff/testdata` (probes) | 4 | 1 | 6 | 0 | 0 | 0 | 6 | 0 |
-| **Total** | **380** | **344** | **83** | **1655** | **38** | **3** | **42** | **1614** |
+| **Total** | **380** | **345** | **81** | **1655** | **38** | **3** | **40** | **1614** |
 
 **Read the `only ours` total by root, never as one number.** Step 2 removes nine resolver false
 positives from the reference's **own** corpora: `pilot-examples` 16 → **7** and
@@ -253,8 +253,7 @@ then takes `kerml-examples` to **4**, and the
 [bare feature-reference typing round](#bare-feature-reference-typing-round) to **10**. Our
 diagnostics on those roots therefore fall 20 → **17**. The
 `examples` root carries 1 outside the demos that draw diagnostics on purpose (the five MOSA
-warnings of the [MOSA library round](#mosa-library-round) and the unbound-parameter advisory of
-the [runtime showcase round](#runtime-showcase-round)): the non-standard-notation warning on the
+warnings of the [MOSA library round](#mosa-library-round)): the non-standard-notation warning on the
 `junction` of `pseudostates-demo.sysml`, the one demo that keeps the pseudostate notation because
 no SysML v2 spelling of it exists. It carried 64 before the demos were rewritten to standard notation: the
 succession shorthands retired 30, removing `initial <state>;` and `transition <src> to <tgt>;`
@@ -647,15 +646,21 @@ error at a bare call and unreported at a chain head, so `A()` and `A().y` agains
 every omission form (positional, named, `[1]`, `[1..*]`, calc, behavior, constructor, chain head)
 and the pinned evaluator forms and evaluates the call; the transcript is in
 [omg-issues.md](omg-issues.md#an-invocation-leaving-an-input-parameter-unbound-validates-clean-pilot-2026-07).
+The optional bare-`in` parameter rule merged from develop means those parameters no longer draw
+this advisory.
 
-The advisory reaches one file of the reference corpora, `kerml-examples/Simple Tests/Behaviors.kerml`,
+At the then-current baseline, the advisory reached `kerml-examples/Simple Tests/Behaviors.kerml`,
 line 14: `var z = A().y;` — formerly exempt as a chain head — leaves `A`'s `in x` unbound,
 which the pilot's `validate-kerml` accepts and its `ParsingTests_Behaviors.kerml.xt` declares
-error-free. It is **ours, one-sided by design**: an advisory that the call cannot be evaluated,
+error-free. It was **ours, one-sided by design**: an advisory that the call cannot be evaluated,
 which the runtime confirms with `ErrUnboundParameter`, on a file that is nonetheless well formed.
-It is recorded in the pilot-corpora ratchet (`Behaviors.kerml` 0 → 1) and here, and it moves no
-Xpect row: the suite carries no `// ERROR` for the line and we report a warning, so the Xpect
-harness is 1268 agree / 57 disagree before and after, the 57 being the pre-existing rows.
+It moved no Xpect row: the suite carries no `// ERROR` for the line and we report a warning, so
+the Xpect harness is 1268 agree / 57 disagree before and after, the 57 being the pre-existing rows.
+
+The later optional-bare-`in` change in develop removes this warning and the warning at
+`runtime-showcase/delta-v-budget.sysml:93`. Both are absent in the detached
+`develop@07cbe053e` control and in the merged branch; the old committed baseline predates that
+change. The KerML warning is the additional movement in this baseline refresh.
 
 | Count | Before | Now |
 |---|---:|---:|
@@ -938,10 +943,8 @@ populated and unchanged: 122 diagnostics total, 66 pilot-only. Step 3's two sema
 Xpect assertions not present in these seven differential roots.
 
 Per category, the only-ours totals are: `pilot-examples` 4 `unmapped`, 2
-`units`, 5 `kind-mismatch`; `kerml-examples` 9 `unmapped`, 1 `multiplicity` (the
-[unbound-parameter advisory](#the-unbound-parameter-advisory)); `examples` 1 syntax, 4 `unmapped`,
-2 `multiplicity` (the five warnings the MOSA demo draws on purpose, below, and the unbound-parameter
-advisory of the [runtime showcase round](#runtime-showcase-round)); `testdata` 7
+`units`, 5 `kind-mismatch`; `kerml-examples` 9 `unmapped`; `examples` 1 syntax, 4 `unmapped`,
+1 `multiplicity` (the warnings the MOSA demo draws on purpose, below); `testdata` 7
 `unmapped`, 1 `multiplicity`; `probes` 6 `unmapped`.
 Only-pilot: `testdata` 12 `kind-mismatch`, 3 `unmapped`, 3 syntax, 2 `unresolved-reference`;
 `examples` 10 syntax, 29 `unmapped`, 669 `kind-mismatch`, 886 `unresolved-reference` — of which
@@ -1035,12 +1038,12 @@ page's history.
 
 | Count | Now |
 |---|---:|
-| overall: fully agreeing / only ours / our diagnostics | **344 / 42 / 83** |
+| overall: fully agreeing / only ours / our diagnostics | **345 / 40 / 81** |
 | only pilot | **1614** |
 | pilot diagnostics | **1655** |
 | severity-only | **3** |
 | unmapped, our side | **34** |
-| kerml-examples: only ours | **10** |
+| kerml-examples: only ours | **9** |
 | pilot-examples: only ours | **11** |
 | examples: only pilot | **1594** |
 
