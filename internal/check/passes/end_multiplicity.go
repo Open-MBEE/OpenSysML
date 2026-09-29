@@ -42,8 +42,12 @@ func (cc *constraintChecker) checkActionSuccessionSourceMultiplicity(sym *symbol
 		return
 	}
 	for _, succession := range cc.model.ActionSuccessions(sym) {
-		multiplicity := succession.Source.Multiplicity
-		if succession.Owner != sym || multiplicity == nil {
+		edge, shorthand := succession.Decl.(*ast.SuccessionEdge)
+		if succession.Owner != sym || !shorthand {
+			continue
+		}
+		multiplicity := edge.SourceMultiplicity
+		if multiplicity == nil {
 			continue
 		}
 		r, ok := cc.model.RangeIn(sym.Scope, multiplicity)
