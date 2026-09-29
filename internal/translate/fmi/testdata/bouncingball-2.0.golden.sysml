@@ -12,15 +12,15 @@ package BouncingBall {
 			uri = "file:///opt/fmus/bouncingball-2.0.fmu";
 		}
 		// parameters and inputs of the model, in document order
-		in g : AccelerationValue = -9.81 [m/s^2] { @ToolVariable { name = "g"; } }
-		in e : Real = 0.7 { @ToolVariable { name = "e"; } }
+		in g : AccelerationValue[1] = -9.81 [m/s^2] { @ToolVariable { name = "g"; } }
+		in e : Real[1] = 0.7 { @ToolVariable { name = "e"; } }
 		// the simulation experiment
-		in startTime : Real = 0.0 { @ToolVariable { name = "fmi:startTime"; } }
-		in stopTime : Real = 3.0 { @ToolVariable { name = "fmi:stopTime"; } }
-		in stepSize : Real = 0.01 { @ToolVariable { name = "fmi:stepSize"; } }
-		in tolerance : Real = 0.0001 { @ToolVariable { name = "fmi:tolerance"; } }
+		in startTime : Real[1] = 0.0 { @ToolVariable { name = "fmi:startTime"; } }
+		in stopTime : Real[1] = 3.0 { @ToolVariable { name = "fmi:stopTime"; } }
+		in stepSize : Real[1] = 0.01 { @ToolVariable { name = "fmi:stepSize"; } }
+		in tolerance : Real[1] = 0.0001 { @ToolVariable { name = "fmi:tolerance"; } }
 		// outputs at stopTime
-		return h : LengthValue { @ToolVariable { name = "h"; } } // Height of the ball
-		out v : SpeedValue { @ToolVariable { name = "v"; } } // Velocity
+		return h : LengthValue[1] { @ToolVariable { name = "h"; } } // Height of the ball
+		out v : SpeedValue[1] { @ToolVariable { name = "v"; } } // Velocity
 	}
 }

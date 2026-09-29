@@ -10,26 +10,26 @@ part def Host {
     part 'aO Sequencer' : Sequencer;
     action align {
         action def Write {
-            in ref context : Host;
+            in ref context : Host[1];
             action def Set {
-                in ref context : Host;
+                in ref context : Host[1];
                 first start then 'read sequencer';
                 action 'read sequencer' {
-                    out result = context.'aO Sequencer';
+                    out result[1] = context.'aO Sequencer';
                 }
                 first 'read sequencer' then 'fork';
                 fork 'fork';
                 first 'fork' then one;
                 first 'fork' then 'join';
                 action one {
-                    out result = 1;
+                    out result[1] = 1;
                 }
                 first one then 'join';
                 join 'join';
                 first 'join' then 'set k';
                 action 'set k' {
-                    in object;
-                    in value;
+                    in object[1];
+                    in value[1];
                     assign context.'aO Sequencer'.k := value;
                 }
                 first 'set k' then final;
@@ -47,7 +47,7 @@ part def Host {
         }
         first start then 'observe sequencer';
         action 'observe sequencer' {
-            out result = 'aO Sequencer';
+            out result[1] = 'aO Sequencer';
         }
         first 'observe sequencer' then write;
         action write : Write;

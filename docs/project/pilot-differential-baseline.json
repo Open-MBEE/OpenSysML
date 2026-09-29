@@ -61,7 +61,7 @@
         "dir": "examples",
         "origin": "ours",
         "files": 45,
-        "digest": "sha256:bd0d76764b155a3741d57d38833956df0ebde066079a2c4df07fec5507dfee28"
+        "digest": "sha256:298ea1b87f00cbef34b6410115924ddbdfb2d1eb5b9728eca25528e2fef011c3"
       },
       {
         "name": "probes",
@@ -78,9 +78,9 @@
     "filesFullyAgreeing": 345,
     "agreement": 38,
     "severityMismatch": 3,
-    "openSysMLOnly": 40,
+    "openSysMLOnly": 41,
     "pilotOnly": 1614,
-    "openSysMLDiagnostics": 81,
+    "openSysMLDiagnostics": 82,
     "pilotDiagnostics": 1655
   },
   "roots": [
@@ -784,9 +784,9 @@
         "filesFullyAgreeing": 30,
         "agreement": 4,
         "severityMismatch": 2,
-        "openSysMLOnly": 6,
+        "openSysMLOnly": 7,
         "pilotOnly": 1594,
-        "openSysMLDiagnostics": 12,
+        "openSysMLDiagnostics": 13,
         "pilotDiagnostics": 1600
       },
       "files": [
@@ -5653,7 +5653,14 @@
           "path": "runtime-showcase/delta-v-budget.sysml",
           "agreement": [],
           "severityMismatch": [],
-          "openSysMLOnly": [],
+          "openSysMLOnly": [
+            {
+              "line": 93,
+              "severity": "warning",
+              "category": "multiplicity",
+              "count": 1
+            }
+          ],
           "pilotOnly": [
             {
               "line": 7,
@@ -8366,9 +8373,9 @@
       "filesFullyAgreeing": 346,
       "agreement": 38,
       "severityMismatch": 3,
-      "openSysMLOnly": 39,
+      "openSysMLOnly": 40,
       "pilotOnly": 1614,
-      "openSysMLDiagnostics": 80,
+      "openSysMLDiagnostics": 81,
       "pilotDiagnostics": 1655
     },
     "findings": [

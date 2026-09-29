@@ -104,8 +104,8 @@ func TestParseWitnessReadsInputsBeforeChoices(t *testing.T) {
 const inputModel = `package test {
 	enum def Mode { Fast; Slow; }
 	action gate {
-		in n : Integer;
-		in mode : Mode;
+		in n : Integer[1];
+		in mode : Mode[1];
 		attribute limit : Integer = 3;
 		attribute over : Boolean = false;
 		attribute fast : Boolean = false;
@@ -121,7 +121,7 @@ const inputModel = `package test {
 // action of its own that declares an n too.
 var performerInputModel = strings.TrimSuffix(inputModel, "}") + `
 	action def Warm {
-		in n : Integer = 0;
+		in n : Integer[1] = 0;
 		attribute warmed : Integer = 0;
 		first start;
 		action mark { assign warmed := n; }
