@@ -119,6 +119,30 @@ func (p *Parser) parseActionBodyMixed() []ast.Node {
 		p.memberStart()
 		before := p.peek().Span.Offset
 
+		if p.at(lexer.LBracket) {
+			next := p.afterMultiplicity(0)
+			if next >= 0 && p.peekN(next).Kind == lexer.Keyword && p.peekN(next).KeywordID == "then" {
+				multiplicity := p.parseMultiplicity()
+				body.add(p.parseSuccessionEdgeWithMultiplicity(p.advance(), true, multiplicity))
+				continue
+			}
+			start := p.peek().Span.Offset
+			multiplicity := p.parseMultiplicity()
+			span := multiplicity.Span()
+			p.error(span, "a multiplicity in an action body must precede `then`")
+			for !p.at(lexer.Semicolon) && !p.at(lexer.RBrace) && !p.atEOF() {
+				p.advance()
+			}
+			if p.at(lexer.Semicolon) {
+				p.advance()
+			}
+			body.add(&ast.ErrorNode{
+				NodeBase: ast.NodeBase{NodeSpan: p.spanFrom(start)},
+				Message:  "a multiplicity in an action body must precede `then`",
+			})
+			continue
+		}
+
 		// A member-attached `then` sequences the members either side of it, so
 		// the keyword is taken here and the member it prefixes read next time
 		// round, by whichever branch below that member needs (see
@@ -895,11 +919,26 @@ func startsInlineSuccessionStatement(tok lexer.Token) bool {
 // parseSuccessionEdge parses implicit-source targets and inline statements.
 // allowBody admits the UsageBody of an ActionTargetSuccession (SysML.xtext:1698).
 func (p *Parser) parseSuccessionEdge(tok lexer.Token, allowBody bool) ast.Node {
+	return p.parseSuccessionEdgeWithMultiplicity(tok, allowBody, nil)
+}
+
+func (p *Parser) parseSuccessionEdgeWithMultiplicity(tok lexer.Token, allowBody bool, sourceMultiplicity *ast.Multiplicity) ast.Node {
 	start := tok.Span.Offset
+	if sourceMultiplicity != nil {
+		start = sourceMultiplicity.Span().Offset
+	}
 
 	// Check if this is inline statement succession (then followed by behavioral keyword)
 	// Pattern: then assign x := 1; OR then perform foo;
 	if startsInlineSuccessionStatement(p.peek()) {
+		if sourceMultiplicity != nil {
+			const msg = "a source-end multiplicity requires a succession target reference"
+			p.error(sourceMultiplicity.Span(), msg)
+			p.parseActionMember()
+			en := &ast.ErrorNode{Message: msg}
+			en.NodeSpan = p.spanFrom(start)
+			return en
+		}
 		return p.parseActionMember()
 	}
 
@@ -935,6 +974,9 @@ func (p *Parser) parseSuccessionEdge(tok lexer.Token, allowBody bool) ast.Node {
 
 	// Check for optional guard
 	if p.acceptKeyword("if") {
+		if sourceMultiplicity != nil {
+			p.error(sourceMultiplicity.Span(), "a source-end multiplicity cannot be written on a guarded succession")
+		}
 		// 'if' keyword already consumed
 		guard := p.ParseExpression()
 
@@ -962,11 +1004,12 @@ func (p *Parser) parseSuccessionEdge(tok lexer.Token, allowBody bool) ast.Node {
 	}
 
 	node := &ast.SuccessionEdge{
-		NodeBase: ast.NodeBase{NodeSpan: p.spanFrom(start)},
-		Source:   source,
-		Target:   target,
-		Members:  members,
-		HasBody:  hasBody,
+		NodeBase:           ast.NodeBase{NodeSpan: p.spanFrom(start)},
+		Source:             source,
+		Target:             target,
+		SourceMultiplicity: sourceMultiplicity,
+		Members:            members,
+		HasBody:            hasBody,
 	}
 	return node
 }
@@ -2707,10 +2750,7 @@ func (p *Parser) parsePayloadParameter() *ast.Usage {
 		// `accept Data`, `accept ISQ::Time`: the one name types the payload
 		// rather than naming it (SysML.xtext `Payload` third alternative, an
 		// OwnedFeatureTyping).
-		typeStart := p.peek().Span.Offset
-		rel := &ast.Relationship{Kind: ast.RelTyping, Target: p.parseQualifiedName()}
-		rel.NodeSpan = p.spanFrom(typeStart)
-		param.Relationships = append(param.Relationships, rel)
+		return p.typedPayload(start, p.parseQualifiedName())
 	default:
 		if p.atName() || p.at(lexer.Lt) {
 			param.Ident = p.parseIdentification()
@@ -2730,6 +2770,20 @@ func (p *Parser) parsePayloadParameter() *ast.Usage {
 
 	param.NodeSpan = p.spanFrom(start)
 	return param
+}
+
+func (p *Parser) typedPayload(start int, name *ast.QualifiedName) *ast.Usage {
+	rel := &ast.Relationship{Kind: ast.RelTyping, Target: name}
+	rel.NodeSpan = name.Span()
+	payload := &ast.Usage{
+		Kind:          ast.UsageAttribute,
+		IsReference:   true,
+		Direction:     ast.DirOut,
+		IsAccept:      true,
+		Relationships: []*ast.Relationship{rel},
+	}
+	payload.NodeSpan = p.spanFrom(start)
+	return payload
 }
 
 // namesPayloadType reports whether the payload is written as a bare name, which
@@ -2805,9 +2859,18 @@ func (p *Parser) parseTriggerExpression() ast.Node {
 // parseTriggerEvent parses the event of a transition trigger, the part after
 // `accept`: a time event (`at <instant>` / `after <duration>`), a change event
 // (`when <condition>`), a call event (`<operation>(<params>)`), a payload
-// parameter (`<name> : <Type>`, `:> <event>`) or a bare signal name. The event
-// kind is decided here so lowering never has to re-derive it.
+// parameter (`<name> : <Type>`, `:> <event>`), or an unnamed payload typed by a
+// bare name. A call event keeps its operation syntax; the separate transition
+// `when <name>` spelling continues to name an injected signal.
 func (p *Parser) parseTriggerEvent() ast.Node {
+	return p.parseTriggerEventWithBareType(true)
+}
+
+func (p *Parser) parseDeferredEvent() ast.Node {
+	return p.parseTriggerEventWithBareType(false)
+}
+
+func (p *Parser) parseTriggerEventWithBareType(bareNameIsType bool) ast.Node {
 	if p.atKeyword("at") || p.atKeyword("after") || p.atKeyword("when") {
 		return p.parseTriggerExpression()
 	}
@@ -2819,7 +2882,7 @@ func (p *Parser) parseTriggerEvent() ast.Node {
 		return p.parsePayloadParameter()
 	}
 
-	// Bare name: a signal reference, or a call event when an argument list follows.
+	// A bare name types an unnamed payload; an argument list makes it a call event.
 	nameStart := p.peek().Span.Offset
 	name := p.parseQualifiedNameRelaxed()
 	if name == nil {
@@ -2832,7 +2895,10 @@ func (p *Parser) parseTriggerEvent() ast.Node {
 	if p.at(lexer.LParen) {
 		return p.parseCallEvent(nameStart, name)
 	}
-	return name
+	if !bareNameIsType {
+		return name
+	}
+	return p.typedPayload(nameStart, name)
 }
 
 // parseCallEvent parses the argument list of a call trigger, `(<name>, ...)`,
@@ -2959,6 +3025,11 @@ func (p *Parser) parseStateSubactionActions(start int, kind stateSubactionKind) 
 	}
 
 	// An inline action usage or definition: `<kind> action warmUp : WarmUp;`.
+	if p.at(lexer.Hash) {
+		member := p.parseBodyMember()
+		markStateSubaction(member, kind)
+		return []ast.Node{member}, nil
+	}
 	if p.atKeyword("action") {
 		member := p.parseBodyMember()
 		markStateSubaction(member, kind)
@@ -3038,9 +3109,9 @@ func (p *Parser) parseSubstateMember(start int) ast.Node {
 }
 
 // parseDeferMember parses `defer <event> [, <event>]* ;` in a state body: the
-// events the state retains while it is active instead of dropping them. Each
-// event is parsed exactly like a transition trigger, so a signal name and a
-// call event (`defer setSpeed(value)`) both work.
+// events the state retains while it is active instead of dropping them. Its
+// event syntax matches a transition trigger, while a bare name remains an
+// injected signal.
 func (p *Parser) parseDeferMember(start int) ast.Node {
 	// 'defer' already consumed
 	if p.at(lexer.Semicolon) || p.atEOF() || p.at(lexer.RBrace) {
@@ -3055,7 +3126,7 @@ func (p *Parser) parseDeferMember(start int) ast.Node {
 
 	var triggers []ast.Node
 	for {
-		triggers = append(triggers, p.parseTriggerEvent())
+		triggers = append(triggers, p.parseDeferredEvent())
 		if !p.accept2(lexer.Comma) {
 			break
 		}

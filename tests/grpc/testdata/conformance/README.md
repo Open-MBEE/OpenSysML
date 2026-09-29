@@ -15,6 +15,12 @@ in this directory, so adding a case is a data-only change.
 | Field | Applies to | Meaning |
 |---|---|---|
 | `rpc` | all | `GetSymbol`, `Evaluate`, `Instantiate`, `ExecuteAction`, `ExecuteState`, `ApplyEdits`, `RunDocumentQuery` or `EvaluateCalc` |
+
+`ApplyEdits` sequence operations may carry the recursive action-body fields
+`condition`, `value`, `target`, `via`, `until`, `body`, `else_body`,
+`multiplicity` and `parameter`. Nested items use the same shape without an
+owner or insertion point. An empty `else_body` means no else branch; explicit
+empty else blocks are not authorable.
 | `expression` | Evaluate | expression source to evaluate |
 | `context_symbol_id` | Evaluate | optional FQN whose scope the expression is evaluated in |
 | `subject_symbol_id` | Evaluate | optional FQN of a part/usage instantiated and evaluated against, so features read its feature values |

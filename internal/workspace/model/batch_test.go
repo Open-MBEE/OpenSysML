@@ -216,7 +216,7 @@ func TestDiagnosticsAllReadsCommentBodiesAsAnEditorDoes(t *testing.T) {
 }`)},
 		{Name: "a.sysml", Version: 1, Content: []byte(`package A {
 	private import KerML::*;
-	private import P::*[Comment::body == "public"];
+	private import P::*[Comment::body == "public "];
 	comment about Shown /* seen */
 	comment about Hidden /* filtered out */
 	private import Q::Hidden;
@@ -224,7 +224,7 @@ func TestDiagnosticsAllReadsCommentBodiesAsAnEditorDoes(t *testing.T) {
 package Q {
 	private import KerML::*;
 	public import P::*;
-	filter Comment::body == "public";
+	filter Comment::body == "public ";
 }`)},
 	}
 	serial := NewWorkspace()

@@ -743,8 +743,39 @@ final class Api {
         if (add.getMetadataPrefixesCount() > 0) {
           member = member.withMetadataPrefixes(add.getMetadataPrefixesList());
         }
+        if (!add.getBodyExpression().isEmpty()) {
+          member = member.withBodyExpression(add.getBodyExpression());
+        }
+        if (!add.getDoc().isEmpty()) {
+          member = member.withDoc(add.getDoc());
+        }
         yield member;
       }
+      case ADD_DOCUMENTATION -> {
+        org.openmbee.opensysml.proto.AddDocumentationEdit add = operation.getAddDocumentation();
+        Edit.AddDocumentation documentation =
+            Edit.AddDocumentation.of(add.getTarget(), add.getBody()).withReplace(add.getReplace());
+        if (!add.getName().isEmpty()) {
+          documentation = documentation.withName(add.getName());
+        }
+        if (!add.getLocale().isEmpty()) {
+          documentation = documentation.withLocale(add.getLocale());
+        }
+        yield documentation;
+      }
+      case ADD_COMMENT -> {
+        org.openmbee.opensysml.proto.AddCommentEdit add = operation.getAddComment();
+        Edit.AddComment comment =
+            Edit.AddComment.of(add.getOwner(), add.getBody()).withAbout(add.getAboutList());
+        if (!add.getName().isEmpty()) {
+          comment = comment.withName(add.getName());
+        }
+        if (!add.getLocale().isEmpty()) {
+          comment = comment.withLocale(add.getLocale());
+        }
+        yield comment;
+      }
+      case ADD_NOTE -> new Edit.AddNote(operation.getAddNote().getTarget(), operation.getAddNote().getText());
       case ADD_CONNECTION -> {
         org.openmbee.opensysml.proto.AddConnectionEdit add = operation.getAddConnection();
         Edit.AddConnection connection =
@@ -830,6 +861,27 @@ final class Api {
             operation.getAddMetadataPrefix();
         yield Edit.addMetadataPrefix(add.getTarget(), add.getMetadataType());
       }
+      case ADD_SEQUENCE -> {
+        org.openmbee.opensysml.proto.AddSequenceEdit add = operation.getAddSequence();
+        yield sequence(add);
+      }
+      case ADD_IMPORT -> {
+        org.openmbee.opensysml.proto.AddImportEdit add = operation.getAddImport();
+        Edit.AddImport in = Edit.AddImport.of(add.getOwner(), add.getTarget());
+        if (!add.getVisibility().isEmpty()) {
+          in = in.withVisibility(add.getVisibility());
+        }
+        if (add.getIsRecursive()) {
+          in = in.withRecursive();
+        }
+        if (add.getIsImportAll()) {
+          in = in.withAll();
+        }
+        if (!add.getFiltersList().isEmpty()) {
+          in = in.withFilters(add.getFiltersList());
+        }
+        yield in;
+      }
       case DELETE ->
           new Edit.Delete(operation.getDelete().getTarget(), operation.getDelete().getCascade());
       case MOVE ->
@@ -837,6 +889,30 @@ final class Api {
       case OPERATION_NOT_SET ->
           throw new Unsupported("the public API cannot send an edit naming no operation");
     };
+  }
+
+  private static Edit.AddSequence sequence(org.openmbee.opensysml.proto.AddSequenceEdit add) {
+    return new Edit.AddSequence(
+        add.getOwner(),
+        add.getKeyword(),
+        optionalText(add.getRef()),
+        optionalText(add.getMemberKind()),
+        optionalText(add.getMemberName()),
+        optionalText(add.getType()),
+        optionalText(add.getAfter()),
+        optionalText(add.getCondition()),
+        optionalText(add.getValue()),
+        optionalText(add.getTarget()),
+        optionalText(add.getVia()),
+        optionalText(add.getUntil()),
+        add.getBodyList().stream().map(Api::sequence).toList(),
+        add.getElseBodyList().stream().map(Api::sequence).toList(),
+        optionalText(add.getMultiplicity()),
+        optionalText(add.getParameter()));
+  }
+
+  private static Optional<String> optionalText(String value) {
+    return value.isEmpty() ? Optional.empty() : Optional.of(value);
   }
 
   private RunSweepResponse runSweep(RunSweepRequest request) {

@@ -21,6 +21,6 @@ package Typed {
 		state one : Inner;
 		state two : Inner;
 
-		transition first one accept Swap then two;
+		transition first one when Swap then two;
 	}
 }

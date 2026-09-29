@@ -146,6 +146,36 @@ public interface EditOperationOrBuilder extends
   org.openmbee.opensysml.proto.AddTransitionEditOrBuilder getAddTransitionOrBuilder();
 
   /**
+   * <code>.sysml.AddImportEdit add_import = 10 [json_name = "addImport"];</code>
+   * @return Whether the addImport field is set.
+   */
+  boolean hasAddImport();
+  /**
+   * <code>.sysml.AddImportEdit add_import = 10 [json_name = "addImport"];</code>
+   * @return The addImport.
+   */
+  org.openmbee.opensysml.proto.AddImportEdit getAddImport();
+  /**
+   * <code>.sysml.AddImportEdit add_import = 10 [json_name = "addImport"];</code>
+   */
+  org.openmbee.opensysml.proto.AddImportEditOrBuilder getAddImportOrBuilder();
+
+  /**
+   * <code>.sysml.AddDocumentationEdit add_documentation = 11 [json_name = "addDocumentation"];</code>
+   * @return Whether the addDocumentation field is set.
+   */
+  boolean hasAddDocumentation();
+  /**
+   * <code>.sysml.AddDocumentationEdit add_documentation = 11 [json_name = "addDocumentation"];</code>
+   * @return The addDocumentation.
+   */
+  org.openmbee.opensysml.proto.AddDocumentationEdit getAddDocumentation();
+  /**
+   * <code>.sysml.AddDocumentationEdit add_documentation = 11 [json_name = "addDocumentation"];</code>
+   */
+  org.openmbee.opensysml.proto.AddDocumentationEditOrBuilder getAddDocumentationOrBuilder();
+
+  /**
    * <code>.sysml.AddVerifyEdit add_verify = 12 [json_name = "addVerify"];</code>
    * @return Whether the addVerify field is set.
    */
@@ -176,6 +206,21 @@ public interface EditOperationOrBuilder extends
   org.openmbee.opensysml.proto.AddMetadataEditOrBuilder getAddMetadataOrBuilder();
 
   /**
+   * <code>.sysml.AddSequenceEdit add_sequence = 14 [json_name = "addSequence"];</code>
+   * @return Whether the addSequence field is set.
+   */
+  boolean hasAddSequence();
+  /**
+   * <code>.sysml.AddSequenceEdit add_sequence = 14 [json_name = "addSequence"];</code>
+   * @return The addSequence.
+   */
+  org.openmbee.opensysml.proto.AddSequenceEdit getAddSequence();
+  /**
+   * <code>.sysml.AddSequenceEdit add_sequence = 14 [json_name = "addSequence"];</code>
+   */
+  org.openmbee.opensysml.proto.AddSequenceEditOrBuilder getAddSequenceOrBuilder();
+
+  /**
    * <code>.sysml.AddMetadataPrefixEdit add_metadata_prefix = 15 [json_name = "addMetadataPrefix"];</code>
    * @return Whether the addMetadataPrefix field is set.
    */
@@ -189,6 +234,36 @@ public interface EditOperationOrBuilder extends
    * <code>.sysml.AddMetadataPrefixEdit add_metadata_prefix = 15 [json_name = "addMetadataPrefix"];</code>
    */
   org.openmbee.opensysml.proto.AddMetadataPrefixEditOrBuilder getAddMetadataPrefixOrBuilder();
+
+  /**
+   * <code>.sysml.AddCommentEdit add_comment = 16 [json_name = "addComment"];</code>
+   * @return Whether the addComment field is set.
+   */
+  boolean hasAddComment();
+  /**
+   * <code>.sysml.AddCommentEdit add_comment = 16 [json_name = "addComment"];</code>
+   * @return The addComment.
+   */
+  org.openmbee.opensysml.proto.AddCommentEdit getAddComment();
+  /**
+   * <code>.sysml.AddCommentEdit add_comment = 16 [json_name = "addComment"];</code>
+   */
+  org.openmbee.opensysml.proto.AddCommentEditOrBuilder getAddCommentOrBuilder();
+
+  /**
+   * <code>.sysml.AddNoteEdit add_note = 18 [json_name = "addNote"];</code>
+   * @return Whether the addNote field is set.
+   */
+  boolean hasAddNote();
+  /**
+   * <code>.sysml.AddNoteEdit add_note = 18 [json_name = "addNote"];</code>
+   * @return The addNote.
+   */
+  org.openmbee.opensysml.proto.AddNoteEdit getAddNote();
+  /**
+   * <code>.sysml.AddNoteEdit add_note = 18 [json_name = "addNote"];</code>
+   */
+  org.openmbee.opensysml.proto.AddNoteEditOrBuilder getAddNoteOrBuilder();
 
   org.openmbee.opensysml.proto.EditOperation.OperationCase getOperationCase();
 }

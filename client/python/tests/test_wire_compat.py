@@ -75,6 +75,26 @@ def test_legacy_field_numbers_are_unchanged():
         assert got == fields, f"{message_name} field numbers moved"
 
 
+def test_add_sequence_statement_fields_keep_their_wire_numbers():
+    descriptor = sysml_pb2.AddSequenceEdit.DESCRIPTOR
+    fields = {
+        "condition": 8,
+        "value": 9,
+        "target": 10,
+        "via": 11,
+        "until": 12,
+        "body": 13,
+        "else_body": 14,
+        "multiplicity": 15,
+        "parameter": 16,
+    }
+    assert {
+        name: descriptor.fields_by_name[name].number
+        for name in fields
+    } == fields
+    assert 17 not in descriptor.fields_by_number
+
+
 def test_the_removed_slots_field_stays_reserved():
     """`slots` went away before 0.1.0, and its number must not be reused."""
     descriptor = sysml_pb2.Instance.DESCRIPTOR
@@ -351,13 +371,17 @@ def test_edit_messages_pin_their_field_numbers():
         "EditOperation": {
             "set_value": 1, "rename": 2, "add_member": 3, "delete": 4, "move": 5,
             "add_connection": 6, "add_satisfy": 7, "add_requirement_constraint": 8,
-            "add_transition": 9, "add_verify": 12, "add_metadata": 13,
+            "add_transition": 9, "add_import": 10, "add_documentation": 11,
+            "add_verify": 12, "add_metadata": 13, "add_sequence": 14,
             "add_metadata_prefix": 15,
+            "add_comment": 16,
+            "add_note": 18,
         },
         "AddMemberEdit": {
             "owner": 1, "kind": 2, "name": 3, "type": 4,
             "multiplicity": 5, "value": 6, "specializes": 7,
             "is_abstract": 8, "redefines": 9, "is_default": 10, "direction": 11,
+            "doc": 12, "body_expression": 13,
             "metadata_prefixes": 14,
         },
         "AddConnectionEdit": {
@@ -381,6 +405,24 @@ def test_edit_messages_pin_their_field_numbers():
             "values": 5, "shorthand": 6,
         },
         "AddMetadataPrefixEdit": {"target": 1, "metadata_type": 2},
+        "AddSequenceEdit": {
+            "owner": 1, "keyword": 2, "ref": 3, "member_kind": 4,
+            "member_name": 5, "type": 6, "after": 7,
+            "condition": 8, "value": 9, "target": 10, "via": 11,
+            "until": 12, "body": 13, "else_body": 14,
+            "multiplicity": 15, "parameter": 16,
+        },
+        "AddImportEdit": {
+            "owner": 1, "visibility": 2, "target": 3, "is_recursive": 4,
+            "is_import_all": 5, "filters": 6,
+        },
+        "AddDocumentationEdit": {
+            "target": 1, "body": 2, "name": 3, "locale": 4, "replace": 5,
+        },
+        "AddCommentEdit": {
+            "owner": 1, "body": 2, "name": 3, "about": 4, "locale": 5,
+        },
+        "AddNoteEdit": {"target": 1, "text": 2},
         "DeleteEdit": {"target": 1, "cascade": 2},
         "MoveEdit": {"target": 1, "owner": 2},
         "SetValueEdit": {"target": 1, "value": 2},

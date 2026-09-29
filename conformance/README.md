@@ -139,6 +139,7 @@ What a request asks for is fixed per capability:
 | `oslc_query` | Refuse `Query` only when `oslc_query` is set; structured queries still use `query`. |
 | `apply_edits` | Refuse `ApplyEdits`. |
 | `authoring` | Refuse `ApplyEdits` only when an operation is `add_member` or `delete`. |
+| `action_body_statement_authoring` | Refuse `ApplyEdits` only when a sequence operation uses an action-body statement, guarded/default succession, or source multiplicity. |
 | `inline_language` | Refuse `ParseFile` only when inline content names a language. |
 | `strict_conformance` | Refuse `ParseFile` only when `strict_conformance` is true. |
 | `evaluate_subject` | Refuse `Evaluate` only when `subject_symbol_id` is set. |

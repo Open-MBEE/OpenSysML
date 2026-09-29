@@ -3,6 +3,7 @@ package grpc
 import (
 	"context"
 	"errors"
+	"fmt"
 	"sort"
 	"strings"
 
@@ -70,8 +71,48 @@ func (s *Service) ApplyEdits(ctx context.Context, req *pb.ApplyEditsRequest) (*p
 			return nil, err
 		}
 	}
+	if requestsSequenceAuthoring(req.Operations) {
+		if err := s.requireCapability(CapabilitySequenceAuthoring); err != nil {
+			return nil, err
+		}
+	}
+	if requestsActionBodyStatementAuthoring(req.Operations) {
+		if err := s.requireCapability(CapabilityActionBodyStatementAuthoring); err != nil {
+			return nil, err
+		}
+	}
+	if requestsImportAuthoring(req.Operations) {
+		if err := s.requireCapability(CapabilityImportAuthoring); err != nil {
+			return nil, err
+		}
+	}
 	if requestsMemberModifiers(req.Operations) {
 		if err := s.requireCapability(CapabilityMemberModifiers); err != nil {
+			return nil, err
+		}
+	}
+	if requestsImplicitParameters(req.Operations) {
+		if err := s.requireCapability(CapabilityImplicitParameters); err != nil {
+			return nil, err
+		}
+	}
+	if requestsConstraintBodyAuthoring(req.Operations) {
+		if err := s.requireCapability(CapabilityConstraintBodyAuthoring); err != nil {
+			return nil, err
+		}
+	}
+	if requestsStateActionAuthoring(req.Operations) {
+		if err := s.requireCapability(CapabilityStateActionAuthoring); err != nil {
+			return nil, err
+		}
+	}
+	if requestsDocumentationAuthoring(req.Operations) {
+		if err := s.requireCapability(CapabilityDocumentationAuthoring); err != nil {
+			return nil, err
+		}
+	}
+	if requestsCommentAuthoring(req.Operations) {
+		if err := s.requireCapability(CapabilityCommentAuthoring); err != nil {
 			return nil, err
 		}
 	}
@@ -223,6 +264,10 @@ func requestsAuthoring(operations []*pb.EditOperation) bool {
 			*pb.EditOperation_AddSatisfy, *pb.EditOperation_AddRequirementConstraint,
 			*pb.EditOperation_AddTransition, *pb.EditOperation_AddVerify,
 			*pb.EditOperation_AddMetadata, *pb.EditOperation_AddMetadataPrefix,
+			*pb.EditOperation_AddSequence,
+			*pb.EditOperation_AddImport,
+			*pb.EditOperation_AddDocumentation, *pb.EditOperation_AddComment,
+			*pb.EditOperation_AddNote,
 			*pb.EditOperation_Delete, *pb.EditOperation_Move:
 			return true
 		}
@@ -236,6 +281,44 @@ func requestsMemberModifiers(operations []*pb.EditOperation) bool {
 		if add != nil && (add.GetIsAbstract() || len(add.GetRedefines()) > 0 ||
 			add.GetIsDefault() || add.GetDirection() != "" ||
 			add.GetKind() == "ref" || add.GetKind() == "return") {
+			return true
+		}
+	}
+	return false
+}
+
+// requestsImplicitParameters reports whether any add-member operation names
+// no kind: an implicit directed usage (`in x : T;`).
+func requestsImplicitParameters(operations []*pb.EditOperation) bool {
+	for _, operation := range operations {
+		add := operation.GetAddMember()
+		if add != nil && add.GetKind() == "" {
+			return true
+		}
+	}
+	return false
+}
+
+func requestsConstraintBodyAuthoring(operations []*pb.EditOperation) bool {
+	for _, operation := range operations {
+		add := operation.GetAddMember()
+		if add != nil && (add.GetBodyExpression() != "" ||
+			add.GetKind() == "assert" || add.GetKind() == "assert not" ||
+			add.GetKind() == "assert constraint" || add.GetKind() == "assert not constraint") {
+			return true
+		}
+	}
+	return false
+}
+
+func requestsStateActionAuthoring(operations []*pb.EditOperation) bool {
+	for _, operation := range operations {
+		add := operation.GetAddMember()
+		if add == nil {
+			continue
+		}
+		switch add.GetKind() {
+		case "exhibit state", "exhibit", "entry action", "do action", "exit action":
 			return true
 		}
 	}
@@ -312,6 +395,84 @@ func requestsMetadataPrefixAuthoring(operations []*pb.EditOperation) bool {
 	return false
 }
 
+func requestsSequenceAuthoring(operations []*pb.EditOperation) bool {
+	for _, operation := range operations {
+		if _, ok := operation.GetOperation().(*pb.EditOperation_AddSequence); ok {
+			return true
+		}
+	}
+	return false
+}
+
+func requestsActionBodyStatementAuthoring(operations []*pb.EditOperation) bool {
+	for _, operation := range operations {
+		add, ok := operation.GetOperation().(*pb.EditOperation_AddSequence)
+		if ok && sequenceNeedsActionBodyStatementAuthoring(add.AddSequence, 0) {
+			return true
+		}
+	}
+	return false
+}
+
+func sequenceNeedsActionBodyStatementAuthoring(add *pb.AddSequenceEdit, depth int) bool {
+	if add == nil || depth > 128 {
+		return false
+	}
+	if add.GetCondition() != "" || add.GetValue() != "" || add.GetTarget() != "" ||
+		add.GetVia() != "" || add.GetUntil() != "" || add.GetMultiplicity() != "" ||
+		add.GetParameter() != "" || len(add.GetBody()) > 0 || len(add.GetElseBody()) > 0 ||
+		add.GetKeyword() == "if" || add.GetKeyword() == "else" ||
+		(add.GetKeyword() == "" && add.GetMemberKind() != "") {
+		return true
+	}
+	switch add.GetMemberKind() {
+	case "accept", "send", "assign", "if", "while", "loop", "for", "terminate":
+		return true
+	}
+	for _, child := range add.GetBody() {
+		if sequenceNeedsActionBodyStatementAuthoring(child, depth+1) {
+			return true
+		}
+	}
+	for _, child := range add.GetElseBody() {
+		if sequenceNeedsActionBodyStatementAuthoring(child, depth+1) {
+			return true
+		}
+	}
+	return false
+}
+
+func requestsImportAuthoring(operations []*pb.EditOperation) bool {
+	for _, operation := range operations {
+		if _, ok := operation.GetOperation().(*pb.EditOperation_AddImport); ok {
+			return true
+		}
+	}
+	return false
+}
+
+func requestsDocumentationAuthoring(operations []*pb.EditOperation) bool {
+	for _, operation := range operations {
+		if _, ok := operation.GetOperation().(*pb.EditOperation_AddDocumentation); ok {
+			return true
+		}
+		if operation.GetAddMember().GetDoc() != "" {
+			return true
+		}
+	}
+	return false
+}
+
+func requestsCommentAuthoring(operations []*pb.EditOperation) bool {
+	for _, operation := range operations {
+		switch operation.GetOperation().(type) {
+		case *pb.EditOperation_AddComment, *pb.EditOperation_AddNote:
+			return true
+		}
+	}
+	return false
+}
+
 // editOperations reads the operations a request carries, rejecting a request
 // that names none of the forms: an unset operation is a client fault rather
 // than a refused edit.
@@ -335,6 +496,8 @@ func editOperations(pbOps []*pb.EditOperation) ([]edit.Operation, error) {
 			member.IsDefault = add.GetIsDefault()
 			member.Direction = add.GetDirection()
 			member.MetadataPrefixes = append([]string(nil), add.GetMetadataPrefixes()...)
+			member.BodyExpression = add.GetBodyExpression()
+			member.Doc = add.GetDoc()
 			ops = append(ops, member)
 		case *pb.EditOperation_AddConnection:
 			add := op.AddConnection
@@ -373,6 +536,34 @@ func editOperations(pbOps []*pb.EditOperation) ([]edit.Operation, error) {
 		case *pb.EditOperation_AddMetadataPrefix:
 			add := op.AddMetadataPrefix
 			ops = append(ops, edit.AddMetadataPrefix(add.GetTarget(), add.GetMetadataType()))
+		case *pb.EditOperation_AddSequence:
+			sequence, err := editSequenceOperation(op.AddSequence, 0)
+			if err != nil {
+				return nil, statusErrorf(connect.CodeInvalidArgument, "operation %d: %v", i, err)
+			}
+			ops = append(ops, sequence)
+		case *pb.EditOperation_AddImport:
+			add := op.AddImport
+			ops = append(ops, edit.AddImport(
+				add.GetOwner(), add.GetVisibility(), add.GetTarget(),
+				add.GetIsRecursive(), add.GetIsImportAll(), add.GetFilters(),
+			))
+		case *pb.EditOperation_AddDocumentation:
+			add := op.AddDocumentation
+			doc := edit.AddDocumentation(add.GetTarget(), add.GetBody())
+			doc.DocName = add.GetName()
+			doc.DocLocale = add.GetLocale()
+			doc.ReplaceDoc = add.GetReplace()
+			ops = append(ops, doc)
+		case *pb.EditOperation_AddComment:
+			add := op.AddComment
+			comment := edit.AddComment(add.GetOwner(), add.GetBody())
+			comment.DocName = add.GetName()
+			comment.About = append([]string(nil), add.GetAbout()...)
+			comment.DocLocale = add.GetLocale()
+			ops = append(ops, comment)
+		case *pb.EditOperation_AddNote:
+			ops = append(ops, edit.AddNote(op.AddNote.GetTarget(), op.AddNote.GetText()))
 		case *pb.EditOperation_Delete:
 			del := op.Delete
 			ops = append(ops, edit.Delete(del.GetTarget(), del.GetCascade()))
@@ -384,6 +575,40 @@ func editOperations(pbOps []*pb.EditOperation) ([]edit.Operation, error) {
 		}
 	}
 	return ops, nil
+}
+
+func editSequenceOperation(add *pb.AddSequenceEdit, depth int) (edit.Operation, error) {
+	if add == nil {
+		return edit.Operation{}, fmt.Errorf("add_sequence is empty")
+	}
+	if depth > 128 {
+		return edit.Operation{}, fmt.Errorf("nested action-body items exceed the maximum depth")
+	}
+	sequence := edit.Operation{
+		Kind: edit.OpAddSequence, Owner: add.GetOwner(),
+		SequenceKeyword: add.GetKeyword(), SequenceRef: add.GetRef(),
+		MemberKind: add.GetMemberKind(), MemberName: add.GetMemberName(),
+		Type: add.GetType(), After: add.GetAfter(),
+		SequenceCondition: add.GetCondition(), SequenceValue: add.GetValue(),
+		SequenceTarget: add.GetTarget(), SequenceVia: add.GetVia(),
+		SequenceUntil: add.GetUntil(), Multiplicity: add.GetMultiplicity(),
+		SequenceParameter: add.GetParameter(),
+	}
+	for _, item := range add.GetBody() {
+		child, err := editSequenceOperation(item, depth+1)
+		if err != nil {
+			return edit.Operation{}, err
+		}
+		sequence.SequenceBody = append(sequence.SequenceBody, child)
+	}
+	for _, item := range add.GetElseBody() {
+		child, err := editSequenceOperation(item, depth+1)
+		if err != nil {
+			return edit.Operation{}, err
+		}
+		sequence.SequenceElse = append(sequence.SequenceElse, child)
+	}
+	return sequence, nil
 }
 
 // editRefusal reports a refused edit as a response rather than a call failure:

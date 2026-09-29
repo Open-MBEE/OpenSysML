@@ -175,7 +175,7 @@ func (s *Server) hoverContents(signature string, comments []string, elementID st
 func docCommentProse(comments []string) string {
 	var paragraphs []string
 	for _, comment := range comments {
-		if prose := source.CommentBody(comment); prose != "" {
+		if prose := source.CommentProse(comment); prose != "" {
 			paragraphs = append(paragraphs, strings.ReplaceAll(prose, "\n", "  \n"))
 		}
 	}
