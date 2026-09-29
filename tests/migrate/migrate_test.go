@@ -316,6 +316,8 @@ var constructFixtures = []string{
 	"nested_context",
 	"context_bound_call",
 	"recursive_context_call",
+	"recursive_context_cycle_ab",
+	"recursive_context_cycle_ba",
 	"rig_interactions",
 	"heater_receptions",
 	"accept_via_context_port",

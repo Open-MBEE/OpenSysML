@@ -450,16 +450,24 @@ func (m *migration) visitContext(b *sysmlv1.Element) {
 		decided[i] = m.decideContext(e, owners)
 	}
 	for i, e := range members {
-		if decided[i] == nil {
+		m.contexts[e] = decided[i]
+	}
+	for changed := true; changed; {
+		changed = false
+		for _, e := range members {
+			if m.contexts[e] != nil {
+				continue
+			}
 			owner := classifierOf(e)
-			if owner != nil && (m.providesAny(owner, owners) || m.usesFeaturesOf(e, owner)) {
-				decided[i] = m.ownerContext(e)
-				if decided[i] != nil {
-					decided[i].used = true
-				}
+			if owner == nil || !(m.providesAny(owner, owners) || m.usesFeaturesOf(e, owner)) {
+				continue
+			}
+			if c := m.ownerContext(e); c != nil {
+				c.used = true
+				m.contexts[e] = c
+				changed = true
 			}
 		}
-		m.contexts[e] = decided[i]
 	}
 }
 

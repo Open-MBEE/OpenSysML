@@ -408,6 +408,23 @@ func TestRecursiveContextCallSettlesContextBeforeFollowingCalls(t *testing.T) {
 	wantLine(t, r.Notation, "action 'recursive call' : View { in ref :>> context = View::context; }")
 }
 
+func TestMutuallyRecursiveActivitiesSettleTheirOwnerContext(t *testing.T) {
+	for _, name := range []string{"recursive_context_cycle_ab", "recursive_context_cycle_ba"} {
+		t.Run(name, func(t *testing.T) {
+			r := migrateFixtureFile(t, name)
+			for _, declaration := range []string{
+				"action def A {\n        in ref context : Host;",
+				"action def B {\n        in ref context : Host;",
+			} {
+				if !strings.Contains(string(r.Notation), declaration) {
+					t.Fatalf("notation lacks %q:\n%s", declaration, r.Notation)
+				}
+			}
+			wantLine(t, r.Notation, "action b : B { in ref :>> context = A::context; }")
+		})
+	}
+}
+
 // hostlessCaller is a Console, no Host and holding none, whose Drive calls Relay
 // and whose machine runs Hit as a state's do behavior, then sets `ran`.
 const hostlessCaller = `
