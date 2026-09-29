@@ -28,16 +28,19 @@ type documentGroup struct {
 // OwningMemberships own every element the graph leaves unowned. A model of
 // several documents marks each document's elements with sysx:sourceDocument and
 // gets one root Namespace per document, in the order the documents appear. A
-// graph that already carries such a root is returned as it is.
+// root that is itself such a wrapper keeps its place: it drops out of the
+// roots to wrap rather than sending the whole graph back unwrapped, so a
+// document joining an already-wrapped model still gets its own root Namespace.
 func withRootNamespace(graph *rdf.Graph) (*rdf.Graph, error) {
-	roots := unownedElements(graph)
+	all := unownedElements(graph)
+	roots := all[:0]
+	for _, root := range all {
+		if !transparentRootSubject(graph, root) {
+			roots = append(roots, root)
+		}
+	}
 	if len(roots) == 0 {
 		return graph, nil
-	}
-	for _, root := range roots {
-		if transparentRootSubject(graph, root) {
-			return graph, nil
-		}
 	}
 	groups := documentGroups(graph, roots)
 	// One minter serves every group: no wrapper is in the graph while the

@@ -327,3 +327,72 @@ elmt:B_om
 		}
 	}
 }
+
+// A graph that already carries one document's wrapper still wraps the bare
+// roots of the other documents: the wrapper keeps its place, and a new root
+// Namespace takes the roots nothing owns.
+func TestAMixedGraphStillWrapsTheBareDocuments(t *testing.T) {
+	turtle := []byte(`@prefix elmt: <urn:sysmlv2:element:> .
+@prefix sysml: <https://www.omg.org/spec/SysML#> .
+@prefix sysx: <urn:opensysml:sysml:> .
+
+elmt:L_ns
+    a sysml:Namespace ;
+    sysx:sourceDocument "lib.sysml" ;
+    sysml:ownedMember elmt:Lib ;
+    sysml:ownedMembership elmt:L_om ;
+    sysml:ownedRelationship elmt:L_om .
+
+elmt:L_om
+    a sysml:OwningMembership ;
+    sysml:elementId "L_om" ;
+    sysml:owner elmt:L_ns ;
+    sysml:memberElement elmt:Lib ;
+    sysml:ownedMemberElement elmt:Lib ;
+    sysml:ownedRelatedElement elmt:Lib ;
+    sysml:owningRelatedElement elmt:L_ns ;
+    sysml:membershipOwningNamespace elmt:L_ns .
+
+elmt:Lib
+    a sysml:Package ;
+    sysml:qualifiedName "Lib" ;
+    sysx:sourceDocument "lib.sysml" ;
+    sysml:owner elmt:L_ns ;
+    sysml:owningRelationship elmt:L_om ;
+    sysml:owningMembership elmt:L_om ;
+    sysml:declaredName "Lib" .
+
+elmt:App
+    a sysml:Package ;
+    sysml:qualifiedName "App" ;
+    sysx:sourceDocument "app.sysml" ;
+    sysml:declaredName "App" .
+`)
+	out, err := convert.Convert("mixed.ttl", turtle, convert.FormatTurtle, convert.FormatAPIJSON)
+	if err != nil {
+		t.Fatalf("to api-json: %v", err)
+	}
+	namespaces := map[string][]string{}
+	for _, el := range rootElements(t, out) {
+		if rootString(t, el["@type"]) == "Namespace" {
+			for _, member := range refsOf(t, el["ownedMember"]) {
+				namespaces[rootString(t, el["@id"])] = append(namespaces[rootString(t, el["@id"])], member)
+			}
+		}
+	}
+	if len(namespaces) != 2 {
+		t.Fatalf("expected the kept wrapper and one new root Namespace, found %v", namespaces)
+	}
+	if members := namespaces["L_ns"]; len(members) != 1 || members[0] != "Lib" {
+		t.Errorf("the existing wrapper should keep its id and own only Lib, found %v", namespaces)
+	}
+	var appNamespace string
+	for ns, members := range namespaces {
+		if len(members) == 1 && members[0] == "App" {
+			appNamespace = ns
+		}
+	}
+	if appNamespace == "" || appNamespace == "L_ns" {
+		t.Errorf("App should sit under a root Namespace of its own, found %v", namespaces)
+	}
+}
