@@ -268,45 +268,62 @@ func (m *Model) EffectiveParameterRange(sym *symbols.Symbol) Range {
 
 // EffectiveParameterRangeAlong is EffectiveParameterRange over an explicit
 // redefinition chain — the same walk, for a caller that holds its own chain.
+// The features a parameter subsets bound it together: a subsetting feature by
+// default shares the subsetted feature's properties and may only restrict its
+// multiplicity (KerML 1.0 §7.3.4.4), so several subsetted features bound it to
+// what satisfies all of them — the intersection of their ranges — and a
+// redefinition must stay consistent with the redefined feature likewise
+// (§7.3.4.5), chain links intersecting the same way.
 func (m *Model) EffectiveParameterRangeAlong(chain []*symbols.Symbol) Range {
-	var subsetted []*symbols.Symbol
-	for _, p := range chain {
-		if r, ok := m.MultiplicityOf(p); ok {
-			return r
-		}
-		if m.ImplicitMultiplicityApplies(p) {
-			return AssumedRange()
-		}
-		for _, rel := range RelationshipsOf(p) {
-			if rel != nil && rel.Kind == ast.RelSubsets && rel.Target != nil {
-				if target := m.RelationshipTarget(p, rel); target != nil {
-					subsetted = append(subsetted, target)
-				}
-			}
-		}
+	if len(chain) == 0 {
+		return UnboundedRange()
 	}
-	visited := make(map[*symbols.Symbol]bool)
-	for len(subsetted) > 0 {
-		p := subsetted[0]
-		subsetted = subsetted[1:]
+	next := make(map[*symbols.Symbol]*symbols.Symbol, len(chain))
+	for i := 0; i+1 < len(chain); i++ {
+		next[chain[i]] = chain[i+1]
+	}
+	visited := map[*symbols.Symbol]bool{}
+	var rangeOf func(p *symbols.Symbol) (Range, bool)
+	rangeOf = func(p *symbols.Symbol) (Range, bool) {
 		if visited[p] {
-			continue
+			return Range{}, false
 		}
 		visited[p] = true
 		if r, ok := m.MultiplicityOf(p); ok {
-			return r
+			return r, true
 		}
 		if m.ImplicitMultiplicityApplies(p) {
-			return AssumedRange()
+			return AssumedRange(), true
 		}
+		var targets []*symbols.Symbol
 		for _, rel := range RelationshipsOf(p) {
 			if rel == nil || rel.Target == nil || (rel.Kind != ast.RelSubsets && rel.Kind != ast.RelRedefines) {
 				continue
 			}
 			if target := m.RelationshipTarget(p, rel); target != nil {
-				subsetted = append(subsetted, target)
+				targets = append(targets, target)
 			}
 		}
+		if n, ok := next[p]; ok {
+			targets = append(targets, n)
+		}
+		var acc Range
+		found := false
+		for _, t := range targets {
+			if r, ok := rangeOf(t); ok {
+				if found {
+					acc = acc.Intersect(r)
+				} else {
+					acc, found = r, true
+				}
+			}
+		}
+		// A target stating nothing, with no implicit default and no bound of
+		// its own, contributes no bound; only then does [0..*] govern p.
+		return acc, found
+	}
+	if r, ok := rangeOf(chain[0]); ok {
+		return r
 	}
 	return UnboundedRange()
 }
