@@ -408,7 +408,7 @@ func TestChainPinsReadTheValuesAChainNames(t *testing.T) {
 	if err != nil {
 		t.Fatalf("translate: %v", err)
 	}
-	pins, err := ChainPins(ctx, q, nil)
+	pins, err := ChainPins(ctx, q, ObjectReader(ctx, nil), nil)
 	if err != nil {
 		t.Fatalf("ChainPins: %v", err)
 	}
@@ -420,11 +420,157 @@ func TestChainPinsReadTheValuesAChainNames(t *testing.T) {
 	if err != nil {
 		t.Fatalf("translate bounded: %v", err)
 	}
-	pins, err = ChainPins(ctx, q, nil)
+	pins, err = ChainPins(ctx, q, ObjectReader(ctx, nil), nil)
 	if err != nil {
 		t.Fatalf("ChainPins bounded: %v", err)
 	}
 	if len(pins) != 0 {
 		t.Fatalf("bounded chain pins = %+v, want none — hg.free carries no value", pins)
+	}
+}
+
+func TestUnfixedReadRefusesOnlyReadFailures(t *testing.T) {
+	ctx, idx := fixture(t, "unfixed_read.sysml", `package test {
+		private import ScalarValues::*;
+		part def Item {
+			attribute broken : Real = 1.0 / 0.0;
+			attribute free : Real;
+			attribute input : Real;
+			attribute dependent : Real = input + 1.0;
+			assert constraint readsBroken { broken >= 0.0 }
+			assert constraint readsFree { free >= 0.0 }
+			assert constraint readsDependent { dependent > 0.0 }
+		}
+		part item : Item;
+	}`)
+	owner := symbolNamed(t, idx, "test::Item")
+	broken := symbolNamed(t, idx, "test::Item::readsBroken")
+	item, err := ctx.Instantiate(symbolNamed(t, idx, "test::item"))
+	if err != nil {
+		t.Fatalf("instantiate item: %v", err)
+	}
+	pins, unfixed := FixedFor(ctx, Fixing{Element: broken, Owner: owner, Object: item, ObjectType: owner})
+	unfixedByName := func(name string) (Unfixed, bool) {
+		for _, u := range unfixed {
+			if u.Name == name {
+				return u, true
+			}
+		}
+		return Unfixed{}, false
+	}
+	brokenUnfixed, ok := unfixedByName("broken")
+	if !ok || brokenUnfixed.Err == nil {
+		t.Fatalf("unfixed = %+v, want failed read of broken", unfixed)
+	}
+	if brokenUnfixed.Reason != brokenUnfixed.Err.Error() {
+		t.Fatalf("Reason = %q, Err = %q", brokenUnfixed.Reason, brokenUnfixed.Err)
+	}
+	q, err := ConstraintWith(ctx, broken, broken.OwnerScope, pins)
+	if err != nil {
+		t.Fatalf("translate readsBroken: %v", err)
+	}
+	readErr := UnfixedRead(ctx, q, unfixed)
+	if readErr == nil || !errors.Is(readErr, brokenUnfixed.Err) || !strings.Contains(readErr.Error(), "broken") {
+		t.Fatalf("UnfixedRead readsBroken = %v, want wrapped read error naming broken", readErr)
+	}
+
+	irrelevant := symbolNamed(t, idx, "test::Item::readsFree")
+	freeQuery, err := ConstraintWith(ctx, irrelevant, irrelevant.OwnerScope, pins)
+	if err != nil {
+		t.Fatalf("translate readsFree: %v", err)
+	}
+	if err := UnfixedRead(ctx, freeQuery, unfixed); err != nil {
+		t.Fatalf("UnfixedRead readsFree = %v, want nil for unread broken feature", err)
+	}
+	if _, ok := unfixedByName("free"); ok {
+		t.Fatalf("unfixed = %+v, want free omitted", unfixed)
+	}
+	noValue := []Unfixed{{
+		Feature: brokenUnfixed.Feature,
+		Name:    brokenUnfixed.Name,
+		Err:     errors.Join(errors.New("wrapped"), runtime.ErrNoValue),
+	}}
+	if err := UnfixedRead(ctx, q, noValue); err == nil || !errors.Is(err, runtime.ErrNoValue) {
+		t.Fatalf("UnfixedRead wrapped missing dependency = %v, want error wrapping ErrNoValue", err)
+	}
+
+	dependentUnfixed, ok := unfixedByName("dependent")
+	if !ok || !errors.Is(dependentUnfixed.Err, runtime.ErrNoValue) {
+		t.Fatalf("unfixed = %+v, want dependent failed read wrapping ErrNoValue", unfixed)
+	}
+	dependent := symbolNamed(t, idx, "test::Item::readsDependent")
+	dependentQuery, err := ConstraintWith(ctx, dependent, dependent.OwnerScope, pins)
+	if err != nil {
+		t.Fatalf("translate readsDependent: %v", err)
+	}
+	if err := UnfixedRead(ctx, dependentQuery, unfixed); err == nil ||
+		!errors.Is(err, runtime.ErrNoValue) || !strings.Contains(err.Error(), "dependent") {
+		t.Fatalf("UnfixedRead readsDependent = %v, want error wrapping ErrNoValue and naming dependent", err)
+	}
+}
+
+func TestSatisfactionChainPinsReadTheSubject(t *testing.T) {
+	ctx, idx := fixture(t, "satisfaction_chain_pins.sysml", `package test {
+		private import ScalarValues::*;
+		part def Inner { attribute power : Real; }
+		part def Sub { attribute power : Real; part inner : Inner; }
+		part def Thing { part sub : Sub; }
+		requirement def R {
+			subject vehicle : Thing;
+			require constraint {
+				vehicle.sub.power > 0.0 and vehicle.sub.inner.power > 0.0
+			}
+		}
+		requirement r : R;
+		part craft : Thing {
+			part :>> sub {
+				attribute :>> power = 5.0;
+				part :>> inner { attribute :>> power = 7.0; }
+			}
+		}
+		part analysis { assert satisfy r by craft; }
+	}`)
+	var assertion *runtime.SatisfyAssertion
+	for _, a := range ctx.SatisfyAssertionsIn(idx.DocumentRoot("satisfaction_chain_pins.sysml")) {
+		if a.Text() == "satisfy r by craft" {
+			assertion = a
+			break
+		}
+	}
+	if assertion == nil {
+		t.Fatal("satisfaction assertion not found")
+	}
+	subject, err := ctx.SatisfySubject(assertion)
+	if err != nil {
+		t.Fatalf("SatisfySubject: %v", err)
+	}
+	q, err := Satisfaction(ctx, assertion)
+	if err != nil {
+		t.Fatalf("translate satisfaction: %v", err)
+	}
+	pins, err := ChainPins(ctx, q, SatisfactionReader(ctx, assertion, subject), subject)
+	if err != nil {
+		t.Fatalf("ChainPins with satisfaction reader: %v", err)
+	}
+	want := map[string]float64{"vehicle.sub.power": 5.0, "vehicle.sub.inner.power": 7.0}
+	for _, pin := range pins {
+		for suffix, value := range want {
+			if strings.HasSuffix(pin.Name, suffix) {
+				if pin.Value.Kind != runtime.ValConst || pin.Value.Const.Real != value {
+					t.Errorf("%s = %+v, want %v", pin.Name, pin.Value, value)
+				}
+				delete(want, suffix)
+			}
+		}
+	}
+	if len(want) != 0 {
+		t.Errorf("satisfaction chain pins %+v do not include %v", pins, want)
+	}
+	objectPins, err := ChainPins(ctx, q, ObjectReader(ctx, nil), nil)
+	if err != nil {
+		t.Fatalf("ChainPins with object reader: %v", err)
+	}
+	if len(objectPins) != 0 {
+		t.Errorf("object-only reader pinned %+v, want neither unbound chain", objectPins)
 	}
 }
