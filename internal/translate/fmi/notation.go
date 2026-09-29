@@ -38,80 +38,10 @@ func Notation(d *execfmi.Description, opts Options) ([]byte, error) {
 	}
 	names := newNamer()
 	calcName := names.take(d.ModelName)
-
-	// The variables keep document order, skipped ones as comment items in the
-	// section their causality would have put them in; they are scanned before
-	// the package header so the imports the quantity types need are written
-	// only when used.
-	var inputs, outputs []lineWriter
-	var useISQ, useSI, useQuantities bool
-	for _, v := range d.Variables {
-		skip, reason := importable(v)
-		m := member{v: v}
-		if !skip {
-			m.typ, m.unit = typeOf(d, v)
-			if len(v.Dimensions) != 0 {
-				// FMI arrays allow repeated values; a bare [n] is unique.
-				m.typ = fmt.Sprintf("%s[%d] nonunique", m.typ, v.Dimensions[0].Start)
-			}
-			switch strings.SplitN(m.typ, "[", 2)[0] {
-			case "ScalarQuantityValue":
-				useQuantities = true
-			case "Real", "Integer", "Boolean", "String":
-			default:
-				useISQ = true
-			}
-			if m.unit != "" && v.HasStart {
-				useSI = true
-			}
-		}
-		switch v.Causality {
-		case execfmi.CausalityInput, execfmi.CausalityParameter, execfmi.CausalityStructuralParameter:
-			if skip {
-				inputs = append(inputs, comment(reason))
-			} else {
-				m.direction = "in"
-				inputs = append(inputs, m)
-			}
-		case execfmi.CausalityOutput, execfmi.CausalityCalculatedParameter:
-			if skip {
-				outputs = append(outputs, comment(reason))
-			} else {
-				m.direction = "out"
-				outputs = append(outputs, m)
-			}
-		default:
-			if skip {
-				outputs = append(outputs, comment(reason))
-			}
-		}
-	}
+	inputs, outputs, uses := variableLines(d)
 
 	var b strings.Builder
-	iface := "model exchange"
-	switch {
-	case d.CoSimulation != nil:
-		iface = "co-simulation"
-	case d.ScheduledExecution != nil:
-		iface = "scheduled execution"
-	}
-	identifier := ""
-	if i := firstInterface(d); i != nil {
-		identifier = ", model identifier " + i.ModelIdentifier
-	}
-	fmt.Fprintf(&b, "// Imported from %s (FMI %s, %s%s)\n", modelFile(d, opts.URI), d.FMIVersion, iface, identifier)
-	fmt.Fprintf(&b, "package %s {\n", pkg)
-	b.WriteString("\tprivate import ScalarValues::*;\n\tprivate import AnalysisTooling::*;\n")
-	if useQuantities {
-		b.WriteString("\tprivate import Quantities::*;\n")
-	}
-	if useISQ {
-		b.WriteString("\tprivate import ISQ::*;\n")
-	}
-	if useSI {
-		b.WriteString("\tprivate import SI::*;\n")
-	}
-	b.WriteString("\n")
+	writeHeader(&b, d, opts, pkg, uses)
 	fmt.Fprintf(&b, "\tcalc def %s {\n", calcName)
 	if d.Description != "" {
 		fmt.Fprintf(&b, "\t\tdoc /* %s */\n", docText(d.Description))
@@ -155,6 +85,87 @@ func Notation(d *execfmi.Description, opts Options) ([]byte, error) {
 	b.WriteString(body.String())
 	b.WriteString("\t}\n}\n")
 	return []byte(b.String()), nil
+}
+
+// libraryUses records which library imports the members' types need.
+type libraryUses struct {
+	isq, si, quantities bool
+}
+
+// variableLines sorts the variables into the input and output sections in
+// document order, skipped ones as comment items in the section their
+// causality would have put them in, noting the imports their types need.
+func variableLines(d *execfmi.Description) (inputs, outputs []lineWriter, uses libraryUses) {
+	for _, v := range d.Variables {
+		skip, reason := importable(v)
+		m := member{v: v}
+		if !skip {
+			m.typ, m.unit = typeOf(d, v)
+			if len(v.Dimensions) != 0 {
+				// FMI arrays allow repeated values; a bare [n] is unique.
+				m.typ = fmt.Sprintf("%s[%d] nonunique", m.typ, v.Dimensions[0].Start)
+			}
+			switch strings.SplitN(m.typ, "[", 2)[0] {
+			case "ScalarQuantityValue":
+				uses.quantities = true
+			case "Real", "Integer", "Boolean", "String":
+			default:
+				uses.isq = true
+			}
+			if m.unit != "" && v.HasStart {
+				uses.si = true
+			}
+		}
+		switch v.Causality {
+		case execfmi.CausalityInput, execfmi.CausalityParameter, execfmi.CausalityStructuralParameter:
+			if skip {
+				inputs = append(inputs, comment(reason))
+			} else {
+				m.direction = "in"
+				inputs = append(inputs, m)
+			}
+		case execfmi.CausalityOutput, execfmi.CausalityCalculatedParameter:
+			if skip {
+				outputs = append(outputs, comment(reason))
+			} else {
+				m.direction = "out"
+				outputs = append(outputs, m)
+			}
+		default:
+			if skip {
+				outputs = append(outputs, comment(reason))
+			}
+		}
+	}
+	return inputs, outputs, uses
+}
+
+// writeHeader writes the provenance comment, the package and its imports.
+func writeHeader(b *strings.Builder, d *execfmi.Description, opts Options, pkg string, uses libraryUses) {
+	iface := "model exchange"
+	switch {
+	case d.CoSimulation != nil:
+		iface = "co-simulation"
+	case d.ScheduledExecution != nil:
+		iface = "scheduled execution"
+	}
+	identifier := ""
+	if i := firstInterface(d); i != nil {
+		identifier = ", model identifier " + i.ModelIdentifier
+	}
+	fmt.Fprintf(b, "// Imported from %s (FMI %s, %s%s)\n", modelFile(d, opts.URI), d.FMIVersion, iface, identifier)
+	fmt.Fprintf(b, "package %s {\n", pkg)
+	b.WriteString("\tprivate import ScalarValues::*;\n\tprivate import AnalysisTooling::*;\n")
+	if uses.quantities {
+		b.WriteString("\tprivate import Quantities::*;\n")
+	}
+	if uses.isq {
+		b.WriteString("\tprivate import ISQ::*;\n")
+	}
+	if uses.si {
+		b.WriteString("\tprivate import SI::*;\n")
+	}
+	b.WriteString("\n")
 }
 
 // lineWriter is one line of the calc body: a member or a skip comment.
