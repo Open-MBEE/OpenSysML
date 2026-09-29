@@ -121,6 +121,10 @@ type Unfixed struct {
 	// Name is the feature as the element naming it writes it.
 	Name string
 
+	// Var is the exact query variable reading the feature, where it names one:
+	// a chain variable, which the feature declaration alone does not identify.
+	Var string
+
 	// Reason says why no value was read.
 	Reason string
 
@@ -679,23 +683,29 @@ func SatisfactionReader(ctx *runtime.Context, a *runtime.SatisfyAssertion, subje
 }
 
 // ChainPins reads the value each unpinned chain variable names through read:
-// a feature a chain of two or more steps reaches, which no fixed value names directly.
-func ChainPins(ctx *runtime.Context, q *Query, read Reader, self *runtime.Instance) ([]Pin, error) {
+// a feature a chain of two or more steps reaches, which no fixed value names
+// directly. A chain reaching a feature that holds nothing stays free. One whose
+// read fails — a declared value that does not evaluate (the runtime marks it
+// ErrFeatureValueMaterialization), or any other failure — is an Unfixed naming
+// the variable, for UnfixedRead to guard or refuse as it does a direct read.
+func ChainPins(ctx *runtime.Context, q *Query, read Reader, self *runtime.Instance) ([]Pin, []Unfixed) {
 	pinned := make(map[string]bool, len(q.Pinned))
 	for _, p := range q.Pinned {
 		pinned[p.Var.Name] = true
 	}
 	var out []Pin
+	var unfixed []Unfixed
 	for _, v := range q.Vars {
 		if len(v.Steps) < 2 || v.Ref == nil || v.Scope == nil || pinned[v.Name] {
 			continue
 		}
 		value, err := read(v.Scope, v.Ref)
 		if err != nil {
-			if errors.Is(err, runtime.ErrNoValue) {
+			if errors.Is(err, runtime.ErrNoValue) && !errors.Is(err, runtime.ErrFeatureValueMaterialization) {
 				continue
 			}
-			return nil, err
+			unfixed = append(unfixed, Unfixed{Feature: v.Symbol, Name: v.Name, Var: v.Name, Reason: err.Error(), Err: err})
+			continue
 		}
 		if value.Kind == runtime.ValInvalid || value.Kind == runtime.ValUndetermined || ctx.HoldsNoValue(value) {
 			continue
@@ -707,7 +717,7 @@ func ChainPins(ctx *runtime.Context, q *Query, read Reader, self *runtime.Instan
 		}
 		out = append(out, Pin{Feature: v.Symbol, Name: v.Name, Var: v.Name, Value: value, Source: source, Object: object})
 	}
-	return out, nil
+	return out, unfixed
 }
 
 // UnfixedRead is the read failure of an unfixed feature a variable of q reads on
@@ -732,7 +742,7 @@ func UnfixedRead(ctx *runtime.Context, q *Query, unfixed []Unfixed) error {
 		if u.Err == nil {
 			continue
 		}
-		v := t.pinnedVar(Pin{Feature: u.Feature, Name: u.Name})
+		v := t.pinnedVar(Pin{Feature: u.Feature, Name: u.Name, Var: u.Var})
 		if v == nil || guarded[v] {
 			continue
 		}

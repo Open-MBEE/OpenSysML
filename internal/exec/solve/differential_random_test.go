@@ -110,7 +110,8 @@ func diffDocuments(t *testing.T) int {
 
 // generateModel emits one document: a definition of the features the generated
 // conditions read, a variation family they select a variant of, and one part per
-// case declaring that case's values and asserting its generated condition.
+// case declaring that case's values — its nested part's included, which a chain
+// reads — and asserting its generated condition.
 func generateModel(seed int64) string {
 	rng := rand.New(rand.NewSource(seed))
 	var b strings.Builder
@@ -123,6 +124,8 @@ package gen {
 	enum def Color { red; green; blue; }
 
 	attribute def Shape { attribute cost : Real; }
+
+	part def Sub { attribute u : Real; }
 
 	part def Case {
 		attribute a : Real;
@@ -137,6 +140,7 @@ package gen {
 		attribute shape : Shape;
 		attribute v : ISQSpaceTime::SpeedValue;
 		attribute w : ISQSpaceTime::SpeedValue;
+		part sub : Sub;
 	}
 
 	abstract part family : Case {
@@ -161,6 +165,7 @@ package gen {
 		fmt.Fprintf(&b, "\t\tattribute :>> shape = shape::%s;\n", g.variant())
 		fmt.Fprintf(&b, "\t\tattribute :>> v = %s [km/h];\n", g.real())
 		fmt.Fprintf(&b, "\t\tattribute :>> w = %s [m/s];\n", g.real())
+		fmt.Fprintf(&b, "\t\tpart :>> sub { attribute :>> u = %s; }\n", g.unreadable())
 		negated := ""
 		if g.chance(4) {
 			negated = "not "
@@ -195,9 +200,9 @@ func (g *generator) integer() string {
 
 func (g *generator) boolean() string { return g.pick("true", "false") }
 
-// unreadable draws the value of u: as often as not a default that does not
-// evaluate, so that a condition reading u is answered only where the evaluator
-// never reaches the read.
+// unreadable draws the value of u, the case's own and its nested part's: as
+// often as not a default that does not evaluate, so that a condition reading u
+// is answered only where the evaluator never reaches the read.
 func (g *generator) unreadable() string {
 	if g.chance(2) {
 		return "1.0 / 0.0"
@@ -243,13 +248,16 @@ func (g *generator) boolExpr(depth int) string {
 // atom draws a boolean expression over the generated features: a numeric
 // comparison, a quantity comparison across units, an enumeration or variant
 // equality, a string equality, a boolean feature or literal, or a comparison
-// reading u, whose value may not evaluate.
+// reading u — the case's own or, through a chain, its nested part's — whose
+// value may not evaluate.
 func (g *generator) atom() string {
-	switch g.rng.Intn(9) {
+	switch g.rng.Intn(10) {
 	case 0:
 		return g.pick("p", "q", "not p", "not q", "true", "false")
 	case 7, 8:
 		return "u " + g.comparison() + " " + g.pick("a", "b", g.real())
+	case 9:
+		return "sub.u " + g.comparison() + " " + g.pick("a", "b", g.real())
 	case 1:
 		return g.realExpr(2) + " " + g.comparison() + " " + g.realExpr(1)
 	case 2:

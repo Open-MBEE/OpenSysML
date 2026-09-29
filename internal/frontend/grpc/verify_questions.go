@@ -212,11 +212,13 @@ func (v *verifyContext) symbolicElement(ctx context.Context, question, kind stri
 	return verdict, resolved, verr
 }
 
-// translatedQuestion refuses unreadable values a query reads, then translates
-// again with chain values read as its conditions would — values left free would
-// answer about assignments the model does not hold.
+// translatedQuestion guards or refuses the unreadable values a query reads, then
+// reads the values its chains name as its conditions would and translates again
+// with them fixed — values left free would answer about assignments the model
+// does not hold. A chain whose declared value does not evaluate is guarded or
+// refused as a direct read is, so it is never left free either.
 func (v *verifyContext) translatedQuestion(translate func(*runtime.Context, []solve.Pin) (*solve.Query, error), pins []solve.Pin, unfixed []solve.Unfixed, read solve.Reader, resolved *runtime.Instance) (*solve.Query, error) {
-	guarded := func(pins []solve.Pin) (*solve.Query, error) {
+	guarded := func(pins []solve.Pin, unfixed []solve.Unfixed) (*solve.Query, error) {
 		q, err := translate(v.runtime, pins)
 		if err != nil {
 			return nil, err
@@ -226,15 +228,18 @@ func (v *verifyContext) translatedQuestion(translate func(*runtime.Context, []so
 		}
 		return q, nil
 	}
-	q, err := guarded(pins)
+	q, err := guarded(pins, unfixed)
 	if err != nil {
 		return nil, err
 	}
-	chainPins, err := solve.ChainPins(v.runtime, q, read, resolved)
-	if err != nil || len(chainPins) == 0 {
-		return q, err
+	chainPins, chainUnfixed := solve.ChainPins(v.runtime, q, read, resolved)
+	if len(chainPins) == 0 {
+		if err := solve.UnfixedRead(v.runtime, q, chainUnfixed); err != nil {
+			return nil, err
+		}
+		return q, nil
 	}
-	return guarded(append(pins, chainPins...))
+	return guarded(append(pins, chainPins...), append(unfixed, chainUnfixed...))
 }
 
 // proveConstraint answers a holds or satisfiable question about a constraint.

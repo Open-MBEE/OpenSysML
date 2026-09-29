@@ -927,3 +927,107 @@ func TestVerifyQuestionsFollowTheEvaluatorsShortCircuitOrder(t *testing.T) {
 		}
 	}
 }
+
+// nestedReadModelSource declares a part whose attributes declare a value that
+// does not evaluate, one reading a feature with no value, or hold nothing, and
+// constraints reading them through a feature chain under the evaluator's
+// short-circuit order.
+const nestedReadModelSource = `package P {
+	private import ScalarValues::*;
+	part def Inner {
+		attribute input : Real;
+		attribute dependent : Real = input + 1.0;
+		attribute broken : Real = 1.0 / 0.0;
+		attribute free : Real;
+	}
+	part def Item {
+		part inner : Inner;
+		attribute gate : Real;
+		assert constraint direct { inner.dependent > 0.0 }
+		assert constraint always { false or inner.dependent > 0.0 }
+		assert constraint never { true or inner.dependent > 0.0 }
+		assert constraint gated { gate > 0.0 or inner.dependent > 0.0 }
+		assert constraint gatedBroken { gate > 0.0 or inner.broken > 0.0 }
+		assert constraint unbound { inner.free > 0.0 }
+	}
+	part item : Item;
+}
+`
+
+// TestVerifyQuestionsGuardNestedReads: a declared value that does not evaluate
+// is never a value the solver chooses when a chain reads it, any more than
+// when the condition names it directly — the question is decided exactly where
+// the evaluator never reaches the read, and a feature a chain reaches that
+// holds nothing stays free.
+func TestVerifyQuestionsGuardNestedReads(t *testing.T) {
+	requireSolver(t)
+	srv := mustNewService(t, 10)
+	hash := mustVerifyModel(t, srv, nestedReadModelSource, "verify-nested-reads")
+	// The read failure names the feature as the evaluator reads it: through the
+	// declaration `inner` with no object under check, through an object of Inner
+	// with one.
+	cases := func(object string) []struct {
+		symbol, question, status string
+		holds                    bool
+		err                      string
+		// witness is the value of P::Item::gate a witness or counterexample
+		// assigns, "" where the verdict carries none.
+		witness string
+	} {
+		missing := "reads P::Item::inner.dependent, whose value could not be read: feature value " + object + ".dependent: no value for feature input"
+		someMissing := "reads P::Item::inner.dependent under some assignment of its free features, whose value could not be read: feature value " + object + ".dependent: no value for feature input"
+		someBroken := "reads P::Item::inner.broken under some assignment of its free features, whose value could not be read: feature value " + object + ".broken: division by zero"
+		return []struct {
+			symbol, question, status string
+			holds                    bool
+			err                      string
+			witness                  string
+		}{
+			{"P::Item::direct", questionEvaluate, statusUndecided, false, "constraint direct: assertion evaluation failed: feature value " + object + ".dependent: no value for feature input", ""},
+			{"P::Item::direct", questionHolds, statusUndecided, false, "constraint direct " + missing, ""},
+			{"P::Item::direct", questionSatisfiable, statusUndecided, false, "constraint direct " + missing, ""},
+
+			{"P::Item::always", questionHolds, statusUndecided, false, "constraint always " + someMissing, ""},
+			{"P::Item::always", questionSatisfiable, statusUndecided, false, "constraint always " + someMissing, ""},
+
+			{"P::Item::never", questionEvaluate, statusHolds, true, "", ""},
+			{"P::Item::never", questionHolds, statusHolds, true, "", ""},
+			{"P::Item::never", questionSatisfiable, statusSatisfiable, true, "", ""},
+
+			{"P::Item::gated", questionHolds, statusUndecided, false, "constraint gated " + someMissing, ""},
+			{"P::Item::gated", questionSatisfiable, statusSatisfiable, true, "", "0.5"},
+
+			{"P::Item::gatedBroken", questionHolds, statusUndecided, false, "constraint gatedBroken " + someBroken, ""},
+			{"P::Item::gatedBroken", questionSatisfiable, statusSatisfiable, true, "", "0.5"},
+		}
+	}
+	for subject, object := range map[string]string{"": "inner", "P::item": "Inner"} {
+		for _, tc := range cases(object) {
+			v := verifyQuestion(t, srv, hash, tc.symbol, tc.question, subject, "").Verdict
+			if v.Status != tc.status || v.Holds != tc.holds || v.Error != tc.err {
+				t.Errorf("%s %s on %q: status=%q holds=%v error=%q, want %q %v %q",
+					tc.symbol, tc.question, subject, v.Status, v.Holds, v.Error, tc.status, tc.holds, tc.err)
+			}
+			if tc.witness == "" {
+				if len(v.Witness) != 0 {
+					t.Errorf("%s %s on %q: witness %+v, want none", tc.symbol, tc.question, subject, v.Witness)
+				}
+				continue
+			}
+			if len(v.Witness) != 1 || v.Witness[0].Feature != "P::Item::gate" || v.Witness[0].Exact != tc.witness {
+				t.Errorf("%s %s on %q: witness %+v, want P::Item::gate = %s and the unreadable chain absent",
+					tc.symbol, tc.question, subject, v.Witness, tc.witness)
+			}
+		}
+
+		// A feature the chain reaches that holds nothing is free, as a direct one is.
+		v := verifyQuestion(t, srv, hash, "P::Item::unbound", questionHolds, subject, "").Verdict
+		if v.Status != statusViolated || len(v.Witness) != 1 || v.Witness[0].Feature != "P::Item::inner.free" {
+			t.Errorf("unbound holds on %q: status=%q witness=%+v, want violated at a chosen inner.free: %q", subject, v.Status, v.Witness, v.Error)
+		}
+		v = verifyQuestion(t, srv, hash, "P::Item::unbound", questionSatisfiable, subject, "").Verdict
+		if v.Status != statusSatisfiable {
+			t.Errorf("unbound satisfiable on %q: status=%q, want satisfiable: %q", subject, v.Status, v.Error)
+		}
+	}
+}

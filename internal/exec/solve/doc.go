@@ -229,11 +229,22 @@
 // evaluator would contradict: decided assignments are decided as it decides
 // them, and a universal claim is made only where it reaches every assignment.
 //
+// A feature a chain reaches (`inner.dependent`) is read the same way. ChainPins
+// reads it where the evaluator reads it, through the object the chain walks:
+// the value it holds is a Pin; a feature holding nothing stays free, as a direct
+// one does; a declared value that does not evaluate — which the runtime marks
+// ErrFeatureValueMaterialization, whatever its cause, a missing value of its
+// own dependency included — is an Unfixed naming the chain variable, for
+// UnfixedRead to refuse or guard by the same Reached. So `false or
+// inner.dependent > 0.0` is undecided, not satisfied by a value the solver
+// chose for inner.dependent, and `true or inner.dependent > 0.0` holds.
+//
 // The differential gate checks this per assignment: a read on every path must
 // leave the evaluator without a verdict, an assignment the guard excludes must be
 // one on which the evaluator fails reading the feature, and the guarded query
 // must agree with the evaluator on every admitted assignment. Its randomized
-// generator declares such a default as often as not.
+// generator declares such a default as often as not, on the case itself and on
+// a nested part its conditions read through a chain.
 //
 // # Value synthesis
 //

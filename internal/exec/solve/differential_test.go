@@ -391,7 +391,8 @@ func (d *declaredValues) held(name string) (runtime.Value, error) {
 	return val, nil
 }
 
-// step reads a feature of the object a chain's previous step named.
+// step reads a feature of the object a chain's previous step named. A declared
+// value of it that does not evaluate is reported as one, as root reports it.
 func (d *declaredValues) step(val runtime.Value, name string) (runtime.Value, error) {
 	id, ok := val.Object()
 	if !ok {
@@ -402,6 +403,9 @@ func (d *declaredValues) step(val runtime.Value, name string) (runtime.Value, er
 		return runtime.Value{}, fmt.Errorf("%w: object %d is not materialized", errNoConcreteValue, id)
 	}
 	fv, err := inst.GetFeatureValue(d.ctx, name)
+	if errors.Is(err, runtime.ErrFeatureValueMaterialization) {
+		return runtime.Value{}, declaredValueError(name, err)
+	}
 	if err != nil || fv == nil {
 		return runtime.Value{}, fmt.Errorf("%w: object %d holds none for %s (%v)", errNoConcreteValue, id, name, err)
 	}
@@ -786,7 +790,7 @@ func unreadableOf(q *Query, from values) []Unfixed {
 		if err == nil || errors.Is(err, errNoConcreteValue) {
 			continue
 		}
-		out = append(out, Unfixed{Feature: v.Symbol, Name: v.Name, Reason: err.Error(), Err: err})
+		out = append(out, Unfixed{Feature: v.Symbol, Name: v.Name, Var: v.Name, Reason: err.Error(), Err: err})
 	}
 	return out
 }
