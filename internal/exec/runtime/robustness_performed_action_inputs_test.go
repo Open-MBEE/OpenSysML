@@ -2,6 +2,7 @@ package runtime
 
 import (
 	"errors"
+	"slices"
 	"testing"
 
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/semantics"
@@ -37,6 +38,8 @@ func TestRuntimeRobustnessPerformedActionInputs(t *testing.T) {
 	t.Run("other_failure_fails_creation", testPerformedActionOtherFailureFailsCreation)
 	t.Run("snapshot_restore_undoes_recorded_failure", testSnapshotRestoreUndoesRecordedFailure)
 	t.Run("held_image_carries_recorded_failure", testHeldImageCarriesRecordedFailure)
+	t.Run("advance_records_clock_driven_failure", testAdvanceRecordsClockDrivenFailure)
+	t.Run("shared_clock_records_clock_driven_failure", testSharedClockRecordsClockDrivenFailure)
 }
 
 // unboundInputModel is a Toaster performing toastBread, whose applyHeat step
@@ -103,6 +106,9 @@ func testPerformedActionUnboundInput(t *testing.T, mult string, required bool) {
 	}
 	if !behavior.completed() || behavior.hasPendingWork() {
 		t.Error("a failed performance must be ended and hold no pending work")
+	}
+	if l, ok := ctx.OccurrenceLife(behavior.Action.occurrence.ID); !ok || l.Ended == 0 {
+		t.Errorf("performance occurrence life = %v, %v; want ended with the recorded failure", l, ok)
 	}
 	// The same action executed on its own is refused for the same input.
 	idx := ctx.model.resolver.Index()
@@ -253,10 +259,17 @@ func testSnapshotRestoreUndoesRecordedFailure(t *testing.T) {
 	if !errors.Is(behavior.Err, ErrUnboundParameter) {
 		t.Fatalf("behavior.Err = %v, want ErrUnboundParameter", behavior.Err)
 	}
+	occID := behavior.Action.occurrence.ID
+	if l, _ := ctx.OccurrenceLife(occID); l.Ended == 0 {
+		t.Error("performance occurrence life un-ended after the recorded failure")
+	}
 
 	snap.Restore()
 	if behavior.Err != nil {
 		t.Errorf("restored behavior.Err = %v, want the record undone", behavior.Err)
+	}
+	if l, _ := ctx.OccurrenceLife(occID); l.Ended != 0 {
+		t.Errorf("restored performance occurrence life = %v, want un-ended", l)
 	}
 	if behavior.completed() {
 		t.Error("restored toastBread is completed, want parked at its accept again")
@@ -295,5 +308,102 @@ func testHeldImageCarriesRecordedFailure(t *testing.T) {
 	}
 	if !copy.completed() || copy.hasPendingWork() {
 		t.Error("the copied performance must be ended and hold no pending work")
+	}
+}
+
+// timedInputModel is a Toaster performing toastBread, which waits on the clock
+// before reaching applyHeat, whose energy input nothing binds: the failure is
+// the wait's wake, not the creation's, and lands when the clock drives it.
+func timedInputModel() string {
+	return `package test {
+	private import ISQ::*;
+	private import SI::*;
+
+	action def ApplyHeat { in energy : ISQ::EnergyValue; }
+	action def ToastBread {
+		first start;
+		then action pause accept after 5 [s];
+		then action applyHeat : ApplyHeat;
+		then done;
+	}
+	part def Toaster { perform action toastBread : ToastBread; }
+	part slow : Toaster;
+}`
+}
+
+// testAdvanceRecordsClockDrivenFailure: a performed action reaching its unbound
+// input after a timed wait fails on the clock's advance, where the same record
+// a message wake takes applies: the failure ends the performance, its life and
+// its clock work, and the advance itself stands.
+func testAdvanceRecordsClockDrivenFailure(t *testing.T) {
+	ctx, inst, err := instantiateWithLibraries(t, timedInputModel(), "test::slow")
+	if err != nil {
+		t.Fatalf("instantiate slow: %v", err)
+	}
+	behavior, ok := inst.Behavior("toastBread")
+	if !ok || behavior.Action == nil {
+		t.Fatalf("slow performs no toastBread, behaviors: %v", inst.Behaviors())
+	}
+	if behavior.Err != nil {
+		t.Fatalf("toastBread waiting on the clock records %v, want no failure yet", behavior.Err)
+	}
+	if !slices.Contains(ctx.clock.waiters, clockWaiter(behavior.Action)) {
+		t.Fatal("toastBread parked at its timed wait is no clock waiter")
+	}
+	if _, err := ctx.Advance(6); err != nil {
+		t.Fatalf("Advance(6) = %v, want nil: the failure is the performance's", err)
+	}
+	if !errors.Is(behavior.Err, ErrUnboundParameter) {
+		t.Fatalf("behavior.Err = %v, want ErrUnboundParameter", behavior.Err)
+	}
+	if l, _ := ctx.OccurrenceLife(behavior.Action.occurrence.ID); l.Ended == 0 {
+		t.Error("performance occurrence life un-ended after the clock-driven failure")
+	}
+	if slices.Contains(ctx.clock.waiters, clockWaiter(behavior.Action)) {
+		t.Error("the failed performance is still a clock waiter")
+	}
+}
+
+// testSharedClockRecordsClockDrivenFailure: the same failure lands when another
+// executor drives the shared clock past the wait — a run that advances time for
+// its own waits runs the object's performance due on the way, and records its
+// failure instead of failing its own.
+func testSharedClockRecordsClockDrivenFailure(t *testing.T) {
+	src := `package test {
+	private import ISQ::*;
+	private import SI::*;
+
+	action def ApplyHeat { in energy : ISQ::EnergyValue; }
+	action def ToastBread {
+		first start;
+		then action pause accept after 5 [s];
+		then action applyHeat : ApplyHeat;
+		then done;
+	}
+	part def Toaster { perform action toastBread : ToastBread; }
+	part slow : Toaster;
+	action def Drive {
+		first start;
+		then action pause accept after 10 [s];
+		then done;
+	}
+}`
+	idx, _, ctx := buildRuntimeWithLibraries(t, "<test>", parseAndBuild(t, src))
+	inst, err := ctx.Instantiate(oneSymbol(t, idx, "test::slow"))
+	if err != nil {
+		t.Fatalf("instantiate slow: %v", err)
+	}
+	behavior, ok := inst.Behavior("toastBread")
+	if !ok || behavior.Action == nil {
+		t.Fatalf("slow performs no toastBread, behaviors: %v", inst.Behaviors())
+	}
+	if _, err := ctx.ExecuteAction(oneSymbol(t, idx, "test::Drive")); err != nil {
+		t.Fatalf("ExecuteAction(Drive) = %v, want nil: the failure is the object's performance's", err)
+	}
+	if !errors.Is(behavior.Err, ErrUnboundParameter) {
+		t.Fatalf("behavior.Err = %v, want ErrUnboundParameter", behavior.Err)
+	}
+	if l, _ := ctx.OccurrenceLife(behavior.Action.occurrence.ID); l.Ended == 0 {
+		t.Error("performance occurrence life un-ended after the clock-driven failure")
 	}
 }

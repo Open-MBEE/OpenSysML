@@ -691,7 +691,7 @@ func (ctx *Context) startBehaviorsOf(inst *Instance) error {
 					}
 					return err
 				}
-				ctx.failBehavior(behavior, fmt.Errorf("%s: %w", behavior.Describe(), err))
+				ctx.endFailedPerformance(behavior, fmt.Errorf("%s: %w", behavior.Describe(), err))
 			}
 			behavior.typeBound = true
 			behavior.binding = i
@@ -858,12 +858,32 @@ func (ctx *Context) forgetBehaviors(behaviors []*ObjectBehavior) {
 	ctx.workChanged()
 }
 
+// recordsFailure reports whether an error of a behavior is recorded on the
+// performance rather than failing what ran it: an unbound input of a performed
+// action the object's type bound.
+func recordsFailure(b *ObjectBehavior, err error) bool {
+	return b != nil && b.typeBound && b.Kind == lower.PerformedAction && errors.Is(err, ErrUnboundParameter)
+}
+
 // failBehavior records a failure that ends the behavior for good, through the
 // journal, so a snapshot restore or a rolled-back creation undoes the record.
 func (ctx *Context) failBehavior(b *ObjectBehavior, err error) {
 	prior := b.Err
 	ctx.noteProbeUndo(func() { b.Err = prior })
 	b.Err = err
+}
+
+// endFailedPerformance records a failure recordsFailure admits, ending the life
+// the performance's occurrence began — unless it failed before beginning — and
+// the work it left paused, all through the journal so a restore undoes them.
+func (ctx *Context) endFailedPerformance(b *ObjectBehavior, err error) {
+	ctx.failBehavior(b, err)
+	if b.Action != nil && b.Action.occurrence != nil {
+		if life := ctx.lives[b.Action.occurrence.ID]; life.began != 0 {
+			ctx.endPerformanceLife(b.Action.occurrence)
+		}
+	}
+	b.leaveClock()
 }
 
 // leaveClock releases the behavior's execution, ending the work it left paused
@@ -908,9 +928,8 @@ func (ctx *Context) drainObjectBehaviors() error {
 		}
 		if err := behavior.run(); err != nil {
 			wrapped := fmt.Errorf("%s: %w", behavior.Describe(), err)
-			if behavior.typeBound && behavior.Kind == lower.PerformedAction && errors.Is(err, ErrUnboundParameter) {
-				ctx.failBehavior(behavior, wrapped)
-				behavior.leaveClock()
+			if recordsFailure(behavior, err) {
+				ctx.endFailedPerformance(behavior, wrapped)
 				continue
 			}
 			return wrapped
