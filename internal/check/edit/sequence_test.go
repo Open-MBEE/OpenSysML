@@ -165,6 +165,26 @@ func TestAddSequenceGlobalReference(t *testing.T) {
 	requireClean(t, loadContent(t, "sequence-global.sysml", string(result.Content)))
 }
 
+func TestAddSequenceGlobalReferenceAcrossDocuments(t *testing.T) {
+	model := loadWorkspace(t, "a.sysml",
+		"package P {\n    action def A {\n        action a;\n    }\n}\n",
+		map[string]string{"q.sysml": "package Q {\n    action def B {\n        action q;\n    }\n}\n"})
+	requireClean(t, model)
+	scope := model.Index.LookupQualified("P::A")[0].Scope
+	// A `$::` name resolves through the index, not the edited document alone:
+	// a sibling document's member and a library member resolve, an unknown
+	// name does not.
+	if !model.sequenceNodeVisible(scope, "$::Q::B::q") {
+		t.Fatal("$::Q::B::q did not resolve through the index")
+	}
+	if !model.sequenceNodeVisible(scope, "$::Actions::Action::done") {
+		t.Fatal("$::Actions::Action::done did not resolve through the library")
+	}
+	if model.sequenceNodeVisible(scope, "$::Q::B::nope") {
+		t.Fatal("$::Q::B::nope resolved; want it unresolvable")
+	}
+}
+
 func TestAddSequenceRefusals(t *testing.T) {
 	tests := []struct {
 		name string

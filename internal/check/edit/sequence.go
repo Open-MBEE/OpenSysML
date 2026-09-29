@@ -75,7 +75,7 @@ func (m Model) addSequenceSplice(i int, op Operation) (splice, error) {
 		if _, err := checkFeatureReference(i, "sequence node", op.SequenceRef); err != nil {
 			return splice{}, err
 		}
-		if !sequenceNodeVisible(ownerScope, op.SequenceRef) {
+		if !m.sequenceNodeVisible(ownerScope, op.SequenceRef) {
 			return splice{}, &Error{
 				Failure: FailureUnknownTarget, OperationIndex: i,
 				Message: fmt.Sprintf("sequence node %q resolves to nothing visible from %s",
@@ -168,18 +168,19 @@ func actionBodyOwner(owner ast.Node) bool {
 // sequenceNodeVisible reports whether ref names a node the owner's body can
 // sequence to: a member it declares or inherits, a feature reachable from it,
 // or one of the implicit start/done markers the grammar reserves.
-func sequenceNodeVisible(scope *symbols.Scope, ref string) bool {
+func (m Model) sequenceNodeVisible(scope *symbols.Scope, ref string) bool {
 	if strings.HasPrefix(ref, "$::") {
-		// A `$::`-rooted name resolves from the top of the scope chain — the
-		// global namespace root the resolver walks to itself (rootOf).
+		// A `$::`-rooted name resolves the way the resolver resolves one: from
+		// the document root, falling back to the global index — other
+		// documents and the loaded libraries — not the edited document alone.
 		segments, ok := source.QualifiedNameSegments(strings.TrimPrefix(ref, "$::"))
 		if !ok || len(segments) == 0 {
 			return false
 		}
-		for scope.Parent() != nil {
-			scope = scope.Parent()
-		}
-		_, ok = resolve.FeatureSymbolInScope(scope, segments)
+		qn := ast.QualifiedNameOf(segments...)
+		qn.Global = true
+		r, _ := m.resolver()
+		_, ok = r.ResolveQualified(scope, qn)
 		return ok
 	}
 	segments, ok := source.QualifiedNameSegments(ref)
