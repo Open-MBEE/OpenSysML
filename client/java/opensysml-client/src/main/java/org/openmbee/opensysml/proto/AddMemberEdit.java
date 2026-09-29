@@ -579,9 +579,10 @@ private static final long serialVersionUID = 0L;
   private volatile java.lang.Object bodyExpression_ = "";
   /**
    * <pre>
-   * Optional result expression in a CalculationBody or CaseBody, as in
-   * "calc c { &lt;expr&gt; }"; used by constraint, calc, case, analysis,
-   * verification and use case kinds, distinct from value, which writes "= &lt;expr&gt;".
+   * Optional body expression. For constraints, it is the condition; for calc,
+   * case, analysis, verification, and use-case kinds, it is the result
+   * expression. It is written inside `{ ... }`, distinct from value, which
+   * writes `= ...`.
    * </pre>
    *
    * <code>string body_expression = 13 [json_name = "bodyExpression"];</code>
@@ -602,9 +603,10 @@ private static final long serialVersionUID = 0L;
   }
   /**
    * <pre>
-   * Optional result expression in a CalculationBody or CaseBody, as in
-   * "calc c { &lt;expr&gt; }"; used by constraint, calc, case, analysis,
-   * verification and use case kinds, distinct from value, which writes "= &lt;expr&gt;".
+   * Optional body expression. For constraints, it is the condition; for calc,
+   * case, analysis, verification, and use-case kinds, it is the result
+   * expression. It is written inside `{ ... }`, distinct from value, which
+   * writes `= ...`.
    * </pre>
    *
    * <code>string body_expression = 13 [json_name = "bodyExpression"];</code>
@@ -2367,9 +2369,10 @@ private static final long serialVersionUID = 0L;
     private java.lang.Object bodyExpression_ = "";
     /**
      * <pre>
-     * Optional result expression in a CalculationBody or CaseBody, as in
-     * "calc c { &lt;expr&gt; }"; used by constraint, calc, case, analysis,
-     * verification and use case kinds, distinct from value, which writes "= &lt;expr&gt;".
+     * Optional body expression. For constraints, it is the condition; for calc,
+     * case, analysis, verification, and use-case kinds, it is the result
+     * expression. It is written inside `{ ... }`, distinct from value, which
+     * writes `= ...`.
      * </pre>
      *
      * <code>string body_expression = 13 [json_name = "bodyExpression"];</code>
@@ -2389,9 +2392,10 @@ private static final long serialVersionUID = 0L;
     }
     /**
      * <pre>
-     * Optional result expression in a CalculationBody or CaseBody, as in
-     * "calc c { &lt;expr&gt; }"; used by constraint, calc, case, analysis,
-     * verification and use case kinds, distinct from value, which writes "= &lt;expr&gt;".
+     * Optional body expression. For constraints, it is the condition; for calc,
+     * case, analysis, verification, and use-case kinds, it is the result
+     * expression. It is written inside `{ ... }`, distinct from value, which
+     * writes `= ...`.
      * </pre>
      *
      * <code>string body_expression = 13 [json_name = "bodyExpression"];</code>
@@ -2412,9 +2416,10 @@ private static final long serialVersionUID = 0L;
     }
     /**
      * <pre>
-     * Optional result expression in a CalculationBody or CaseBody, as in
-     * "calc c { &lt;expr&gt; }"; used by constraint, calc, case, analysis,
-     * verification and use case kinds, distinct from value, which writes "= &lt;expr&gt;".
+     * Optional body expression. For constraints, it is the condition; for calc,
+     * case, analysis, verification, and use-case kinds, it is the result
+     * expression. It is written inside `{ ... }`, distinct from value, which
+     * writes `= ...`.
      * </pre>
      *
      * <code>string body_expression = 13 [json_name = "bodyExpression"];</code>
@@ -2431,9 +2436,10 @@ private static final long serialVersionUID = 0L;
     }
     /**
      * <pre>
-     * Optional result expression in a CalculationBody or CaseBody, as in
-     * "calc c { &lt;expr&gt; }"; used by constraint, calc, case, analysis,
-     * verification and use case kinds, distinct from value, which writes "= &lt;expr&gt;".
+     * Optional body expression. For constraints, it is the condition; for calc,
+     * case, analysis, verification, and use-case kinds, it is the result
+     * expression. It is written inside `{ ... }`, distinct from value, which
+     * writes `= ...`.
      * </pre>
      *
      * <code>string body_expression = 13 [json_name = "bodyExpression"];</code>
@@ -2447,9 +2453,10 @@ private static final long serialVersionUID = 0L;
     }
     /**
      * <pre>
-     * Optional result expression in a CalculationBody or CaseBody, as in
-     * "calc c { &lt;expr&gt; }"; used by constraint, calc, case, analysis,
-     * verification and use case kinds, distinct from value, which writes "= &lt;expr&gt;".
+     * Optional body expression. For constraints, it is the condition; for calc,
+     * case, analysis, verification, and use-case kinds, it is the result
+     * expression. It is written inside `{ ... }`, distinct from value, which
+     * writes `= ...`.
      * </pre>
      *
      * <code>string body_expression = 13 [json_name = "bodyExpression"];</code>
