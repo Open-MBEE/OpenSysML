@@ -373,6 +373,128 @@ func TestNestedActionBodySourceMultiplicityReferences(t *testing.T) {
 	}
 }
 
+func TestNestedBodyLocalSequenceReferences(t *testing.T) {
+	body := func(name string) []Operation {
+		return []Operation{
+			plainSequenceStatement(AddThenMember("", "action", name, "")),
+			AddThen("", name),
+		}
+	}
+	tests := []struct {
+		name string
+		op   Operation
+		want string
+	}{
+		{
+			name: "if and else",
+			op:   AddIf("A", "true", body("ifAction"), body("elseAction")),
+			want: "then if true {\n" +
+				"        action ifAction;\n" +
+				"        then ifAction;\n" +
+				"    } else {\n" +
+				"        action elseAction;\n" +
+				"        then elseAction;\n" +
+				"    }",
+		},
+		{
+			name: "while",
+			op:   AddWhile("A", "true", body("whileAction"), ""),
+			want: "then while true {\n" +
+				"        action whileAction;\n" +
+				"        then whileAction;\n" +
+				"    }",
+		},
+		{
+			name: "loop",
+			op:   AddLoop("A", body("loopAction"), ""),
+			want: "then loop {\n" +
+				"        action loopAction;\n" +
+				"        then loopAction;\n" +
+				"    }",
+		},
+		{
+			name: "for",
+			op:   AddFor("A", "i", "", "1..2", body("forAction")),
+			want: "then for i in 1..2 {\n" +
+				"        action forAction;\n" +
+				"        then forAction;\n" +
+				"    }",
+		},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			model := loadContent(t, "nested-body-local-sequence-reference.sysml",
+				"action def A {\n    action seed;\n}\n")
+			requireClean(t, model)
+			result := applyOne(t, model, test.op)
+			content := string(result.Content)
+			if !strings.Contains(content, test.want) {
+				t.Fatalf("expected exact nested notation %q:\n%s", test.want, content)
+			}
+			requireClean(t, loadContent(t, "nested-body-local-sequence-reference.sysml", content))
+		})
+	}
+}
+
+func TestNestedBodyCanReferenceEnclosingLocalSequenceName(t *testing.T) {
+	model := loadContent(t, "nested-body-enclosing-sequence-reference.sysml",
+		"action def A {\n    action seed;\n}\n")
+	requireClean(t, model)
+	result := applyOne(t, model, AddIf("A", "true", []Operation{
+		plainSequenceStatement(AddThenMember("", "action", "outerAction", "")),
+		AddIf("", "true", []Operation{
+			plainSequenceStatement(AddThenMember("", "action", "innerAction", "")),
+			AddThen("", "outerAction"),
+		}, nil),
+	}, nil))
+	content := string(result.Content)
+	want := "then if true {\n" +
+		"        action outerAction;\n" +
+		"        then if true {\n" +
+		"            action innerAction;\n" +
+		"            then outerAction;\n" +
+		"        }\n" +
+		"    }"
+	if !strings.Contains(content, want) {
+		t.Fatalf("expected exact nested notation %q:\n%s", want, content)
+	}
+	requireClean(t, loadContent(t, "nested-body-enclosing-sequence-reference.sysml", content))
+}
+
+func TestNestedBodySequenceNamesDoNotEscape(t *testing.T) {
+	base := loadContent(t, "nested-body-sequence-name-scope.sysml",
+		"action def A {\n    action seed;\n}\n")
+	requireClean(t, base)
+
+	t.Run("if declaration is not visible in else", func(t *testing.T) {
+		addFailure(t, base, AddIf("A", "true", []Operation{
+			plainSequenceStatement(AddThenMember("", "action", "ifOnly", "")),
+		}, []Operation{
+			plainSequenceStatement(AddThenMember("", "action", "elseSource", "")),
+			AddElse("", "ifOnly"),
+		}), FailureUnknownTarget)
+	})
+
+	t.Run("child declaration is not visible in enclosing body", func(t *testing.T) {
+		addFailure(t, base, AddIf("A", "true", []Operation{
+			plainSequenceStatement(AddThenMember("", "action", "outerSource", "")),
+			AddIf("", "true", []Operation{
+				plainSequenceStatement(AddThenMember("", "action", "childOnly", "")),
+			}, nil),
+			AddThen("", "childOnly"),
+		}, nil), FailureUnknownTarget)
+	})
+
+	t.Run("nested declaration is not visible at top level", func(t *testing.T) {
+		result := applyOne(t, base, AddIf("A", "true", []Operation{
+			plainSequenceStatement(AddThenMember("", "action", "nestedOnly", "")),
+		}, nil))
+		edited := loadContent(t, "nested-body-sequence-name-scope.sysml", string(result.Content))
+		requireClean(t, edited)
+		addFailure(t, edited, AddThen("A", "nestedOnly"), FailureUnknownTarget)
+	})
+}
+
 func TestAddSequenceAfter(t *testing.T) {
 	t.Run("after a plain member", func(t *testing.T) {
 		model := loadContent(t, "sequence-after.sysml", sequenceTestModel)
