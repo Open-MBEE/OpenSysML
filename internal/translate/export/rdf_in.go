@@ -2944,12 +2944,9 @@ func qualifiedNameText(qname string) string {
 	if global {
 		qname = strings.TrimPrefix(qname, "$::")
 	}
-	segments, ok := source.QualifiedNameSegments(qname)
-	if !ok {
-		segments = strings.Split(qname, "::")
-	}
+	segments := identitySegments(qname)
 	for i, segment := range segments {
-		segments[i] = nameText(segment)
+		segments[i] = nameText(identityName(segment))
 	}
 	out := strings.Join(segments, "::")
 	if global {
@@ -3448,12 +3445,16 @@ func (d *decoder) referenceName(term rdf.Term, el *element) (string, error) {
 	}
 	spelled := d.spelledName(target)
 	key := nameKey{member: el.qname, target: target.qname}
+	scope := referenceScope(spelled, target.qname, el.qname, el.scope)
 	written := spelled
 	if d.names != nil {
-		var ok bool
-		if written, ok = d.names.references[key]; !ok {
-			written = relativeName(spelled, el.scope)
+		if selected, ok := d.names.references[key]; ok {
+			written = selected
+		} else {
+			written = relativeName(spelled, scope)
 		}
+	} else if scope != el.scope {
+		written = relativeName(spelled, scope)
 	}
 	// An implied element is never written, so a reference inside it is no
 	// spelling a rendering could check.
@@ -3510,17 +3511,21 @@ func (d *decoder) namedMember(term rdf.Term) (*element, string, error) {
 // segment is the name it answers to, and a membership holding its member (rather
 // than standing as a usage, as a subject does) has no segment of its own.
 func (d *decoder) spelledName(el *element) string {
-	segments := strings.Split(el.qname, "::")
+	segments := identitySegments(el.qname)
 	spelled := make([]string, 0, len(segments))
 	for i, cur := len(segments)-1, el; i >= 0; i-- {
 		segment := segments[i]
-		if cur != nil && strings.HasPrefix(segment, "@") {
-			if name, ok := d.effectiveName(cur); ok {
-				segment = name
+		name := identityName(segment)
+		if cur != nil && positionalSegment(segment) {
+			effective, ok := d.effectiveName(cur)
+			if ok && effective != name {
+				segment = identitySegment(effective)
 			} else if ontology.IsAncestorOrSelf(cur.metaclass, mOwningMembership) {
 				cur = cur.owner
 				continue
 			}
+		} else {
+			segment = identitySegment(name)
 		}
 		spelled = append(spelled, segment)
 		if cur != nil {
@@ -3538,7 +3543,8 @@ func (d *decoder) effectiveName(el *element) (string, bool) {
 	for !seen[el.iri] {
 		seen[el.iri] = true
 		if el.library {
-			return el.qname[strings.LastIndex(el.qname, "::")+len("::"):], true
+			segments := identitySegments(el.qname)
+			return identityName(segments[len(segments)-1]), true
 		}
 		if name, ok := d.stringOf(el, rdf.SysML+pDeclaredName); ok {
 			return name, true
@@ -3593,20 +3599,34 @@ func (d *decoder) namingFeature(el *element) (rdf.Term, bool) {
 // relativeName strips from qname the longest prefix of scope it is declared
 // under, the textual approximation for a reference the resolver does not read.
 func relativeName(qname, scope string) string {
-	for {
-		if scope == "" {
-			return qname
+	qnameParts := identitySegments(qname)
+	scopeParts := identitySegments(scope)
+	for n := len(scopeParts); n > 0; n-- {
+		if len(qnameParts) >= n && slices.Equal(qnameParts[:n], scopeParts[:n]) {
+			return strings.Join(qnameParts[n:], "::")
 		}
-		if rest, found := strings.CutPrefix(qname, scope+"::"); found {
-			return rest
-		}
-		cut := strings.LastIndex(scope, "::")
-		if cut < 0 {
-			scope = ""
-			continue
-		}
-		scope = scope[:cut]
 	}
+	return qname
+}
+
+func referenceScope(spelled, target, member, owner string) string {
+	relativeParts := identitySegments(relativeName(spelled, owner))
+	hasPosition := false
+	for _, part := range relativeParts {
+		if positionalSegment(part) {
+			hasPosition = true
+			break
+		}
+	}
+	if !hasPosition {
+		return owner
+	}
+	targetParts := identitySegments(target)
+	memberParts := identitySegments(member)
+	if len(targetParts) > len(memberParts) && slices.Equal(targetParts[:len(memberParts)], memberParts) {
+		return member
+	}
+	return owner
 }
 
 // notAName says why a string literal cannot be written as a qualified name —
@@ -3616,7 +3636,8 @@ func notAName(term rdf.Term) string {
 	if term.Value == "" {
 		return "it is empty"
 	}
-	for _, segment := range strings.Split(strings.TrimPrefix(term.Value, "$::"), "::") {
+	for _, segment := range identitySegments(strings.TrimPrefix(term.Value, "$::")) {
+		segment = identityName(segment)
 		switch {
 		case segment == "":
 			return "it has an empty name segment"
@@ -3648,10 +3669,8 @@ func literalTarget(term rdf.Term) ast.Node {
 }
 
 func lastSegment(qname string) string {
-	if cut := strings.LastIndex(qname, "::"); cut >= 0 {
-		return qname[cut+2:]
-	}
-	return qname
+	segments := identitySegments(qname)
+	return identityName(segments[len(segments)-1])
 }
 
 func (d *decoder) stringOf(el *element, property string) (string, bool) {

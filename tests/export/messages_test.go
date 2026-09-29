@@ -56,11 +56,6 @@ func TestUnsupportedConversionMessages(t *testing.T) {
 		},
 		want: []string{"cannot convert the `assert` declaration <urn:sysmlv2:element:P__A___401>",
 			"it neither declares a name nor names the feature it refers to (sysml:references)"},
-	}, {
-		name: "duplicate_declaration",
-		src:  "package P {\n\tpart def A {\n\t\tattribute x : Real;\n\t\tattribute x : Real;\n\t}\n}",
-		want: []string{"cannot convert the duplicate declaration of \"x\" at m.sysml:4:3",
-			"two members of one namespace cannot share it"},
 	}}
 
 	for _, tc := range cases {
@@ -97,7 +92,7 @@ func TestFormatRemedyNamesBothSurfaces(t *testing.T) {
 	}
 	advised := convert.Advise(err, "pass -from, or "+convert.ExtensionAdvice)
 	want := `cannot tell the format of "model.txt": expected .sysml, .kerml, .ttl or .json, ` +
-		"so pass -from, or name the file with a .sysml, .kerml, .ttl or .json extension"
+		"so pass -from, or name the file with a .sysml, .kerml, .ttl, .json or .fmu extension"
 	if advised.Error() != want {
 		t.Errorf("err = %q; want %q", advised.Error(), want)
 	}

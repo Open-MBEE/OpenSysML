@@ -136,9 +136,15 @@ func documentIdentity(name string, res *resolve.Resolver, model *semantics.Model
 		if root := identity.Root(sym); root != sym {
 			if ri, ok := table.Info(root); ok {
 				el.root = ri.FQN
+				if root.Name != "" {
+					el.root = identitySegment(root.Name)
+				}
 			}
 		} else {
 			el.root = info.FQN
+			if sym.Name != "" {
+				el.root = identitySegment(sym.Name)
+			}
 		}
 		facts.byFQN[info.FQN] = el
 		facts.byNode[sym.Decl] = el

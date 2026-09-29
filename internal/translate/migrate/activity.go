@@ -1653,6 +1653,16 @@ func (m *migration) pinNamed(n *sysmlv1.Element, name string) (*sysmlv1.Element,
 	return nil, pinDecl{}
 }
 
+// pinCalled is the pin of node n named name, declared or not; nil when none is.
+func (m *migration) pinCalled(n *sysmlv1.Element, name string) *sysmlv1.Element {
+	for _, p := range append(inputPins(n), outputPins(n)...) {
+		if m.nameOf(p) == name {
+			return p
+		}
+	}
+	return nil
+}
+
 // pinClassifier is the classifier a pin is typed by: its own type, else the
 // one settled for it.
 func (a *activity) pinClassifier(pin *sysmlv1.Element) *sysmlv1.Element {
@@ -2371,11 +2381,12 @@ func (a *activity) sendSignal(n *sysmlv1.Element, name string) {
 		note = anote
 		line := "send new " + a.m.ref(sig, a.def) + "(" + strings.Join(args, ", ") + ")"
 		if port := a.m.model.Ref(n, "onPort"); port != nil {
+			path, hasPath := a.portPath(port)
 			switch {
 			case !a.m.written(port):
 				note = "the port " + qualifiedName(port) + " has no v2 declaration; the signal is sent to the sender"
-			case a.hasPort(port):
-				line += " via " + a.m.respellThis(a.self()+"."+writeName(a.m.nameOf(port)), a.act)
+			case hasPath:
+				line += " via " + a.m.respellThis(a.self()+"."+path, a.act)
 			default:
 				note = "the port " + qualifiedName(port) + " is no port of the object the sender acts on; the signal is sent to the sender"
 			}

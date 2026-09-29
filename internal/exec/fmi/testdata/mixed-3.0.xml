@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<fmiModelDescription fmiVersion="3.0" modelName="Mixer" instantiationToken="token-abc-123" description="A mixed I/O model." generationTool="OpenSysML">
+  <CoSimulation modelIdentifier="mixer" needsExecutionTool="false" canHandleVariableCommunicationStepSize="true" canGetAndSetFMUState="true"/>
+  <ModelExchange modelIdentifier="mixer_me"/>
+  <ScheduledExecution modelIdentifier="mixer_se"/>
+  <UnitDefinitions>
+    <Unit name="kg"><BaseUnit kg="1"/></Unit>
+  </UnitDefinitions>
+  <TypeDefinitions>
+    <Float64Type name="mass" unit="kg"/>
+  </TypeDefinitions>
+  <ModelVariables>
+    <Float64 name="m" valueReference="1" causality="input" description="Mass" declaredType="mass" start="2.5"/>
+    <Int32 name="count" valueReference="2" causality="output" description="Count" min="0" max="9"/>
+    <Boolean name="ok" valueReference="3" causality="output"/>
+    <String name="label" valueReference="4" causality="output" start="ready"/>
+    <Enumeration name="mode" valueReference="5" causality="input" start="1"/>
+    <Clock name="tick" valueReference="6" causality="input"/>
+    <Binary name="blob" valueReference="7" causality="local"/>
+    <Float64 name="grid" valueReference="8" causality="output" unit="kg" start="1.5 2.5 3.5 4.5"><Dimension start="4"/></Float64>
+    <Float64 name="matrix" valueReference="10" causality="output"><Dimension start="2"/><Dimension start="2"/></Float64>
+    <Float64 name="vec" valueReference="11" causality="input"><Dimension valueReference="9"/></Float64>
+    <UInt64 name="n" valueReference="9" causality="structuralParameter"/>
+    <Float64 name="t" valueReference="10" causality="independent" variability="continuous"/>
+  </ModelVariables>
+  <DefaultExperiment startTime="0.0" stopTime="1.0"/>
+</fmiModelDescription>
