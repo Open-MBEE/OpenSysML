@@ -1,6 +1,6 @@
 # SysML v1 to v2 migration report: documents.xmi
 # exported by Example UML Tool
-# migrated 323 element(s): 238 mapped, 67 approximated, 18 unmapped (4 skipped as profile, library or notation-only content, 0 as model elements nothing refers to)
+# migrated 329 element(s): 242 mapped, 69 approximated, 18 unmapped (4 skipped as profile, library or notation-only content, 0 as model elements nothing refers to)
 
 ## unmapped (18)
 «CollaboratorParagraph» Comment	Fleet Documents::Introduction::<Comment>	_st_intro_named	(property "META:QPROP:Element:name" is not the comment body)
@@ -22,7 +22,7 @@ CallBehaviorAction	Fleet Viewpoints::Oddities Viewpoint::Oddities Method::Missin
 «Dynamic_View» CallBehaviorAction	Fleet Viewpoints::Oddities Viewpoint::Per Truck::Per Truck Again	_st_per_truck	(the «Dynamic_View» Activity Fleet Viewpoints::Oddities Viewpoint::Per Truck calls itself, and a recursive section has no static spelling)
 Activity	Fleet Viewpoints::Severed Viewpoint::Severed Method	_act_severed	(the method Fleet Viewpoints::Severed Viewpoint::Severed Method is not migrated: ControlFlow _severed_e2's target "_severed_gone" names no node)
 
-## approximated (67)
+## approximated (69)
 «Document» Class	Fleet Documents::Fleet Brief	_doc_brief	-> 'Fleet Documents'::'Fleet Brief'	(a plain UML class without «Block» is written as a part def)
 «Document» Class	Fleet Documents::Fleet Brief	_st_doc_brief	-> part def 'Fleet Documents'::'Fleet Brief Document'	(the «Document» is written as a Document definition of 8 section(s); elements of the stereotypes specializing «Safety» are kept too; the column «TableExpressionColumn» Fleet Viewpoints::Safety Viewpoint::Safety Method::Safety Requirements::Owner is not written: the expression "owner.oclAsType(NamedElement).name" is not a bare query property (name, documentation, qualifiedName, owner, id))
 «Document» Class	Fleet Documents::Fleet Handbook	_doc_handbook	-> 'Fleet Documents'::'Fleet Handbook'	(a plain UML class without «Block» is written as a part def)
@@ -60,6 +60,7 @@ OutputPin	Fleet Viewpoints::Parts Viewpoint::Parts Method::Collect Owned Element
 InputPin	Fleet Viewpoints::Parts Viewpoint::Parts Method::Filter By Metaclasses::input	_parts_filter_in	-> 'Fleet Viewpoints'::'Parts Viewpoint'::'Parts Method'::'Filter By Metaclasses'.input	(it is declared admitting no value: 'Collect Owned Elements', which feeds it, produces no value)
 «TableStructure» StructuredActivityNode	Fleet Viewpoints::Parts Viewpoint::Parts Method::Fleet Parts	_st_parts_table	-> part 'Fleet Documents'::'Fleet Handbook Document'::Introduction::table	(its rows are the query 'Fleet Handbook Fleet Parts Rows'; the column «TableExpressionColumn» Fleet Viewpoints::Parts Viewpoint::Parts Method::Fleet Parts::Owner Name is not written: the expression "owner.name" is not a bare query property (name, documentation, qualifiedName, owner, id); the column name is written as name 2, headed name: column names are unique; Project lists its properties first: name, qualifiedName, documentation precede the other columns)
 «TablePropertyColumn» CallBehaviorAction	Fleet Viewpoints::Parts Viewpoint::Parts Method::Fleet Parts::Alias	_parts_col_alias	-> Alias	(a step with no behavior and no duration; it passes the token on)
+«TablePropertyColumn» CallBehaviorAction	Fleet Viewpoints::Parts Viewpoint::Parts Method::Fleet Parts::Axle Mass	_parts_col_axle_mass	-> 'Axle Mass'	(a step with no behavior and no duration; it passes the token on)
 «TableAttributeColumn» CallBehaviorAction	Fleet Viewpoints::Parts Viewpoint::Parts Method::Fleet Parts::Name	_parts_col_name	-> Name	(a step with no behavior and no duration; it passes the token on)
 «TableExpressionColumn» CallBehaviorAction	Fleet Viewpoints::Parts Viewpoint::Parts Method::Fleet Parts::Owner Name	_parts_col_owner	-> 'Owner Name'	(a step with no behavior and no duration; it passes the token on)
 «TablePropertyColumn» CallBehaviorAction	Fleet Viewpoints::Parts Viewpoint::Parts Method::Fleet Parts::Payload	_parts_col_payload	-> Payload	(a step with no behavior and no duration; it passes the token on)
@@ -76,6 +77,7 @@ InputPin	Fleet Viewpoints::Parts Viewpoint::Parts Method::Filter By Metaclasses:
 «FilterByStereotypes» CallBehaviorAction	Fleet Viewpoints::Safety Viewpoint::Safety Method::Filter By Stereotypes	_safety_filter	-> 'Filter By Stereotypes'	(a step with no behavior and no duration; it passes the token on)
 «TableStructure» StructuredActivityNode	Fleet Viewpoints::Safety Viewpoint::Safety Method::Safety Requirements	_st_safety_table	-> part 'Fleet Documents'::'Fleet Handbook Document'::Requirements::Safety::table	(its rows are the query 'Fleet Handbook Safety Requirements Rows'; elements of the stereotypes specializing «Safety» are kept too; the column «TableExpressionColumn» Fleet Viewpoints::Safety Viewpoint::Safety Method::Safety Requirements::Owner is not written: the expression "owner.oclAsType(NamedElement).name" is not a bare query property (name, documentation, qualifiedName, owner, id))
 «TableStructure» StructuredActivityNode	Fleet Viewpoints::Safety Viewpoint::Safety Method::Safety Requirements	_st_safety_table	-> part 'Fleet Documents'::'Fleet Brief Document'::Safety::table	(its rows are the query 'Fleet Brief Safety Requirements Rows'; elements of the stereotypes specializing «Safety» are kept too; the column «TableExpressionColumn» Fleet Viewpoints::Safety Viewpoint::Safety Method::Safety Requirements::Owner is not written: the expression "owner.oclAsType(NamedElement).name" is not a bare query property (name, documentation, qualifiedName, owner, id))
+«TablePropertyColumn» CallBehaviorAction	Fleet Viewpoints::Safety Viewpoint::Safety Method::Safety Requirements::Level	_safety_col_level	-> Level	(a step with no behavior and no duration; it passes the token on)
 «TableAttributeColumn» CallBehaviorAction	Fleet Viewpoints::Safety Viewpoint::Safety Method::Safety Requirements::Name	_safety_col_name	-> Name	(a step with no behavior and no duration; it passes the token on)
 «TableExpressionColumn» CallBehaviorAction	Fleet Viewpoints::Safety Viewpoint::Safety Method::Safety Requirements::Owner	_safety_col_ocl	-> Owner	(a step with no behavior and no duration; it passes the token on)
 «TableAttributeColumn» CallBehaviorAction	Fleet Viewpoints::Safety Viewpoint::Safety Method::Safety Requirements::Text	_safety_col_doc	-> Text	(a step with no behavior and no duration; it passes the token on)
@@ -91,7 +93,7 @@ Activity	Fleet Viewpoints::Traceability Viewpoint::Traceability Method	_act_trac
 «BulletedList» CallBehaviorAction	Fleet Viewpoints::Traceability Viewpoint::Traceability Method::Related Elements	_trace_list	-> 'Related Elements'	(a step with no behavior and no duration; it passes the token on)
 «BulletedList» CallBehaviorAction	Fleet Viewpoints::Traceability Viewpoint::Traceability Method::Related Elements	_st_trace_list	-> part 'Fleet Documents'::'Fleet Handbook Document'::Traceability::list	(its rows are the query 'Fleet Handbook Related Elements Rows'; each item's documentation follows its name)
 
-## mapped (238)
+## mapped (242)
 Package	Fleet	_pkg_fleet	-> Fleet
 Package	Fleet Documents	_pkg_docs	-> 'Fleet Documents'
 «Expose» Dependency	Fleet Documents::<Dependency>	_expose_intro	-> 'Fleet Documents'::Introduction
@@ -150,6 +152,7 @@ PackageImport	Fleet Documents::Safety::<PackageImport>	_imp_safety	-> Fleet
 «Conform» Generalization	Fleet Documents::Traceability::<Generalization>	_gen_trace	-> 'Fleet Documents'::Traceability
 Profile	Fleet Profile	_fleet_profile	-> 'Fleet Profile'
 Stereotype	Fleet Profile::Safety	_st_safety	-> 'Fleet Profile'::Safety
+Property	Fleet Profile::Safety::level	_st_safety_level	-> 'Fleet Profile'::Safety::level
 Package	Fleet Viewpoints	_pkg_viewpoints	-> 'Fleet Viewpoints'
 «Viewpoint» Class	Fleet Viewpoints::Broken Viewpoint	_vp_broken	-> 'Fleet Viewpoints'::'Broken Viewpoint'
 ActivityFinalNode	Fleet Viewpoints::Broken Viewpoint::Broken Method::<ActivityFinalNode>	_broken_final	-> final
@@ -229,6 +232,7 @@ ControlFlow	Fleet Viewpoints::Parts Viewpoint::Parts Method::Fleet Parts::<Contr
 ControlFlow	Fleet Viewpoints::Parts Viewpoint::Parts Method::Fleet Parts::<ControlFlow>	_parts_table_e4
 ControlFlow	Fleet Viewpoints::Parts Viewpoint::Parts Method::Fleet Parts::<ControlFlow>	_parts_table_e5
 ControlFlow	Fleet Viewpoints::Parts Viewpoint::Parts Method::Fleet Parts::<ControlFlow>	_parts_table_e6
+ControlFlow	Fleet Viewpoints::Parts Viewpoint::Parts Method::Fleet Parts::<ControlFlow>	_parts_table_e7
 FlowFinalNode	Fleet Viewpoints::Parts Viewpoint::Parts Method::Fleet Parts::<FlowFinalNode>	_parts_table_final	-> done	(a flow final ends the token, as done does)
 InitialNode	Fleet Viewpoints::Parts Viewpoint::Parts Method::Fleet Parts::<InitialNode>	_parts_table_init	-> start
 Diagram	Fleet Viewpoints::Parts Viewpoint::Parts Method::Parts Method Flow	_diag_parts_flow	-> 'Fleet Viewpoints'::'Parts Viewpoint'::'Parts Method'::'Parts Method Flow'	(a SysML Activity Diagram written as a view rendered asInterconnectionDiagram of ActionFlowView; the view exposes action def 'Fleet Viewpoints'::'Parts Viewpoint'::'Parts Method', whose graph the rendering draws with the 3 shown nodes and edges of it)
@@ -256,6 +260,7 @@ InitialNode	Fleet Viewpoints::Safety Viewpoint::Safety Method::<InitialNode>	_sa
 «TableStructure» StructuredActivityNode	Fleet Viewpoints::Safety Viewpoint::Safety Method::Safety Requirements	_safety_table	-> 'Safety Requirements'
 ControlFlow	Fleet Viewpoints::Safety Viewpoint::Safety Method::Safety Requirements::<ControlFlow>	_safety_table_e2
 ControlFlow	Fleet Viewpoints::Safety Viewpoint::Safety Method::Safety Requirements::<ControlFlow>	_safety_table_e3
+ControlFlow	Fleet Viewpoints::Safety Viewpoint::Safety Method::Safety Requirements::<ControlFlow>	_safety_table_e4
 InitialNode	Fleet Viewpoints::Safety Viewpoint::Safety Method::Safety Requirements::<InitialNode>	_safety_table_init	-> start
 Operation	Fleet Viewpoints::Safety Viewpoint::View	_op_safety_view	-> 'Fleet Viewpoints'::'Safety Viewpoint'::View	(its owner's usage view performs it, as a call on an object does)
 «Viewpoint» Class	Fleet Viewpoints::Selected Figures Viewpoint	_vp_selected	-> 'Fleet Viewpoints'::'Selected Figures Viewpoint'
@@ -328,6 +333,7 @@ Diagram	Fleet::Structure::Truck Structure	_diag_truck	-> Fleet::Structure::'Truc
 Comment	Fleet::Structure::Truck::<Comment>	_cmt_truck
 Diagram	Fleet::Structure::Truck::Truck Internals	_diag_truck_internals	-> Fleet::Structure::Truck::'Truck Internals'	(a SysML Internal Block Diagram written as a view rendered asInterconnectionDiagram)
 Property	Fleet::Structure::Truck::axles	_prop_axles	-> Fleet::Structure::Truck::axles
+Property	Fleet::Structure::Truck::axles::mass	_prop_axle_mass	-> Fleet::Structure::Truck::axles::mass
 Property	Fleet::Structure::Truck::payload	_prop_payload	-> Fleet::Structure::Truck::payload
 Model	Model	_m	(the root model's members are written at the top level)
 

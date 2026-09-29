@@ -55,3 +55,44 @@ func TestLoadFilesFromRecordsReportsAsLoaded(t *testing.T) {
 		}
 	}
 }
+
+// TestSatisfyOverRecordedFiles checks a session holding its files as their records finds the satisfaction assertions they state.
+func TestSatisfyOverRecordedFiles(t *testing.T) {
+	path, err := filepath.Abs("testdata/satisfy_landing.sysml")
+	if err != nil {
+		t.Fatal(err)
+	}
+	cache, err := libs.NewCacheIn(t.TempDir())
+	if err != nil {
+		t.Fatal(err)
+	}
+	load := func() *Session {
+		t.Helper()
+		s := NewSession()
+		s.SetRecordCache(cache)
+		if _, err := s.LoadFilesSummary([]string{path}); err != nil {
+			t.Fatal(err)
+		}
+		return s
+	}
+	load()
+	warm := load()
+	if !warm.ws.Recorded(path) {
+		t.Fatalf("%s is not held as its record on a warm load", path)
+	}
+
+	wants(t, run(t, warm, "%satisfy"),
+		"✓ satisfy touchdown by slowLander holds",
+		"✗ satisfy touchdown by fastLander fails",
+		"✓ not satisfy touchdown by fastLander holds",
+	)
+	verdicts := warm.CheckSatisfy("")
+	if len(verdicts) <= 1 {
+		t.Fatalf("CheckSatisfy returned %d verdicts, want more than one", len(verdicts))
+	}
+	for _, verdict := range verdicts {
+		if verdict.Status == VerdictUnresolved {
+			t.Errorf("CheckSatisfy returned unresolved verdict: %+v", verdict)
+		}
+	}
+}

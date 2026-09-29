@@ -1,0 +1,1 @@
+- **A behavior's time expressions can read its owner's features.** Relative-time accept events, duration-constraint bounds, and change-event conditions are now considered when choosing an action usage or context parameter; pure literal durations and absolute time events remain unchanged.
