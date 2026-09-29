@@ -1926,7 +1926,7 @@ elmt:IrregularLayout__Drive_om
     sysml:membershipOwningNamespace elmt:IrregularLayout .
 
 elmt:IrregularLayout__Drive__count
-    a sysml:ReferenceUsage ;
+    a sysml:AttributeUsage ;
     sysml:qualifiedName "IrregularLayout::Drive::count" ;
     sysml:elementId "IrregularLayout__Drive__count" ;
     sysx:memberIndex "0"^^xsd:integer ;

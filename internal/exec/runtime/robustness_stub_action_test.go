@@ -91,7 +91,7 @@ func testStubActionRequiredOutputNeverWritten(t *testing.T) {
 // A consumer input declared holding a value gets none when the stub's optional
 // output is empty, which reading it reports as no value rather than as empty.
 func testStubActionRequiredTargetGetsNoValue(t *testing.T) {
-	_, err := executeChain(t, stubChain("[0..1]", "",
+	_, err := executeChain(t, stubChain("[0..1]", "[1]",
 		"assign seen := value;"))
 	var noValue *NoValueError
 	if !errors.As(err, &noValue) || noValue.Feature != "value" {

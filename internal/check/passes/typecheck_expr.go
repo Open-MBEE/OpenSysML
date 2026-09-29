@@ -1556,6 +1556,20 @@ func (p parameter) required(m *semantics.Model) bool {
 		if q.valued() {
 			return false
 		}
+	}
+	var syms []*symbols.Symbol
+	allResolved := true
+	for q := &p; q != nil; q = q.redefined {
+		if q.sym == nil {
+			allResolved = false
+			break
+		}
+		syms = append(syms, q.sym)
+	}
+	if allResolved {
+		return !m.EffectiveParameterRangeAlong(syms).AllowsNone()
+	}
+	for q := &p; q != nil; q = q.redefined {
 		if q.sym != nil {
 			if r, ok := m.MultiplicityOf(q.sym); ok {
 				return !r.AllowsNone()

@@ -3457,14 +3457,6 @@ func (ec *EvalContext) sharedTypes(common, types []*symbols.Symbol) []*symbols.S
 func (ec *EvalContext) evalInvocationArgs(qualName string, exprs []ast.Node, namedArgs []ast.NamedArg, target *invocationTarget) (calcArgs, error) {
 	args := make([]Value, len(exprs))
 	for i, arg := range exprs {
-		if param := target.shapeParameter(i, ""); param != nil && param.IsCalc {
-			val, err := ec.evalCalcArg(arg)
-			if err != nil {
-				return calcArgs{}, err
-			}
-			args[i] = val
-			continue
-		}
 		val, err := ec.Eval(arg)
 		if err != nil {
 			return calcArgs{}, err
@@ -3480,14 +3472,6 @@ func (ec *EvalContext) evalInvocationArgs(qualName string, exprs []ast.Node, nam
 		if err != nil {
 			return calcArgs{}, err
 		}
-		if param := target.shapeParameter(-1, name); param != nil && param.IsCalc {
-			val, err := ec.evalCalcArg(arg.Value)
-			if err != nil {
-				return calcArgs{}, err
-			}
-			named[name] = val
-			continue
-		}
 		val, err := ec.Eval(arg.Value)
 		if err != nil {
 			return calcArgs{}, err
@@ -3495,63 +3479,6 @@ func (ec *EvalContext) evalInvocationArgs(qualName string, exprs []ast.Node, nam
 		named[name] = val
 	}
 	return calcArgs{named: named}, nil
-}
-
-// shapeParameter is the target's parameter positionally at i, or the one named,
-// nil when the target's interface does not reach it.
-func (target *invocationTarget) shapeParameter(i int, name string) *calcParameter {
-	if target == nil || target.shape == nil {
-		return nil
-	}
-	if name != "" {
-		for j := range target.shape.Params {
-			if target.shape.Params[j].Name == name {
-				return &target.shape.Params[j]
-			}
-		}
-		return nil
-	}
-	if i >= 0 && i < len(target.shape.Params) {
-		return &target.shape.Params[i]
-	}
-	return nil
-}
-
-// evalCalcArg evaluates an argument bound for a calc-typed parameter: its value
-// as read, else the function the argument names when it yields none.
-func (ec *EvalContext) evalCalcArg(arg ast.Node) (Value, error) {
-	val, err := ec.Eval(arg)
-	if err == nil {
-		return val, nil
-	}
-	if fn, ok, ferr := ec.calcArgFunction(arg); ok || ferr != nil {
-		if ferr != nil {
-			return Value{}, ferr
-		}
-		return fn, nil
-	}
-	return Value{}, err
-}
-
-// calcArgFunction is the function an argument names when it binds a calc-typed when it binds a calc-typed
-// parameter: an environment binding holding one, else the function the named
-// calc denotes. Reports false for an argument naming no calc.
-func (ec *EvalContext) calcArgFunction(arg ast.Node) (Value, bool, error) {
-	ref, ok := arg.(*ast.FeatureReference)
-	if !ok || ref.Name == nil || len(ref.Name.Parts) == 0 || ec.ctx.model.resolver == nil {
-		return Value{}, false, nil
-	}
-	if len(ref.Name.Parts) == 1 && !ref.Name.Global {
-		if val, ok := ec.Lookup(ref.Name.Parts[0].Text); ok && val.Kind == ValFunction {
-			return val, true, nil
-		}
-	}
-	named, ok := ec.ctx.model.resolver.ResolveQualified(ec.scope, ref.Name)
-	if !ok || !isCalcSymbol(named) {
-		return Value{}, false, nil
-	}
-	val, err := ec.functionValueOf(named)
-	return val, true, err
 }
 
 // bindEvaluatedArgs binds arguments already evaluated in source order, as
@@ -3592,16 +3519,7 @@ func (target *invocationTarget) namedBinding(qualName string, i int, named map[s
 func (ec *EvalContext) invokeCalcShapeStacked(shape *calcShape, exprs []ast.Node, enclosing []frame) (Value, error) {
 	ctx := ec.ctx
 	base := len(ctx.argStack)
-	for i, arg := range exprs {
-		if i < len(shape.Params) && shape.Params[i].IsCalc {
-			val, err := ec.evalCalcArg(arg)
-			if err != nil {
-				ctx.popArgs(base)
-				return Value{}, err
-			}
-			ctx.argStack = append(ctx.argStack, val)
-			continue
-		}
+	for _, arg := range exprs {
 		val, err := ec.Eval(arg)
 		if err != nil {
 			ctx.popArgs(base)

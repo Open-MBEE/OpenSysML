@@ -165,7 +165,7 @@ elmt:ActionNodes__Drive_om
     sysml:membershipOwningNamespace elmt:ActionNodes .
 
 elmt:ActionNodes__Drive__speed
-    a sysml:ReferenceUsage ;
+    a sysml:AttributeUsage ;
     sysml:qualifiedName "ActionNodes::Drive::speed" ;
     sysml:elementId "ActionNodes__Drive__speed" ;
     sysx:memberIndex "0"^^xsd:integer ;

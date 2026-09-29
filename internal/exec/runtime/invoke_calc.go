@@ -993,6 +993,12 @@ func (param *calcParameter) optional(m *semantics.Model) bool {
 	return param.Sym != nil && m.EffectiveParameterRange(param.Sym).AllowsNone()
 }
 
+// declaredOptional answers the read rule — whether the parameter as written
+// admits no value — not invocation, where a bare parameter is optional anyway.
+func (param *calcParameter) declaredOptional() bool {
+	return param.Decl.multStated && param.Decl.Target != nil && param.Decl.Target.mult.AllowsNone()
+}
+
 // hasParameter reports whether the calc declares an input parameter of that name.
 func (shape *calcShape) hasParameter(name string) bool {
 	for _, param := range shape.Params {
@@ -1055,16 +1061,6 @@ func (ec *EvalContext) bindCalcParameter(
 			"%w: %s parameter %q has no argument and no default",
 			ErrUnboundParameter, shape.Label, param.Name,
 		)
-	}
-	// A calc-typed parameter's name default binds the function the name denotes,
-	// the way an `in calc :>> f = g` feature binding does — the usage's unbound
-	// inputs stay the applied function's arguments.
-	if param.IsCalc {
-		if ref, ok := param.Default.(*ast.FeatureReference); ok && ref.Name != nil {
-			if val, applied, err := ec.boundFunction(param.Sym, ref.Name); applied || err != nil {
-				return val, "default", err
-			}
-		}
 	}
 	value, err := ec.Eval(param.Default)
 	if err != nil {

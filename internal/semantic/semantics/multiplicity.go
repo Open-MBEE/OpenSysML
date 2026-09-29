@@ -263,8 +263,14 @@ func featureOwnedByType(sym *symbols.Symbol) bool {
 // (SysML v2 §7.6.3): the nearest its redefinition chain or a feature it
 // subsets declares, the implicit [1..1] where it qualifies, else [0..*].
 func (m *Model) EffectiveParameterRange(sym *symbols.Symbol) Range {
+	return m.EffectiveParameterRangeAlong(m.ParameterRedefinitionChain(sym))
+}
+
+// EffectiveParameterRangeAlong is EffectiveParameterRange over an explicit
+// redefinition chain — the same walk, for a caller that holds its own chain.
+func (m *Model) EffectiveParameterRangeAlong(chain []*symbols.Symbol) Range {
 	var subsetted []*symbols.Symbol
-	for _, p := range m.ParameterRedefinitionChain(sym) {
+	for _, p := range chain {
 		if r, ok := m.MultiplicityOf(p); ok {
 			return r
 		}

@@ -154,7 +154,7 @@ func testDeclaredBehaviorStartFailsUnbound(t *testing.T) {
 	part slow : Holder;
 	action def Kick {
 		first start;
-		action kick { in target : Holder; perform target.beh.start; }
+		action kick { in target : Holder[1]; perform target.beh.start; }
 		done;
 		succession first start then kick;
 		succession first kick then done;

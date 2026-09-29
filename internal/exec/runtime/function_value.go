@@ -1,10 +1,8 @@
 package runtime
 
 import (
-	"errors"
 	"fmt"
 
-	"github.com/Open-MBEE/OpenSysML/internal/semantic/semantics"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/symbols"
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/ast"
 )
@@ -112,15 +110,15 @@ func (ctx *Context) readsAsFunction(sym *symbols.Symbol) bool {
 		return false
 	}
 	shape, err := ctx.calcInterfaceOf(sym)
-	return err == nil && shape.hasUnsuppliedInput(ctx.model.semantics)
+	return err == nil && shape.hasUnsuppliedInput()
 }
 
 // hasUnsuppliedInput reports an input parameter no read of the calc could bind:
 // neither an argument, a default nor the enclosing case supplies one.
-func (shape *calcShape) hasUnsuppliedInput(m *semantics.Model) bool {
+func (shape *calcShape) hasUnsuppliedInput() bool {
 	for i := range shape.Params {
 		param := &shape.Params[i]
-		if param.Default == nil && !param.IsSubject {
+		if param.Default == nil && !param.IsSubject && !param.declaredOptional() {
 			return true
 		}
 	}
@@ -169,9 +167,6 @@ func (ec *EvalContext) boundFunction(callee *symbols.Symbol, qn *ast.QualifiedNa
 	// is called as the function it is bound to.
 	if val, ok, err := ec.valuedFeatureValue(name); ok {
 		if err != nil {
-			if errors.Is(err, ErrNoValue) {
-				return ec.declaredFunction(callee)
-			}
 			return Value{}, true, err
 		}
 		if val.Kind == ValFunction {
@@ -181,9 +176,6 @@ func (ec *EvalContext) boundFunction(callee *symbols.Symbol, qn *ast.QualifiedNa
 	if ec.self != nil && ec.selfFeatureInScope(name) {
 		val, ok, err := ec.selfFeatureValue(name)
 		if err != nil {
-			if errors.Is(err, ErrNoValue) {
-				return ec.declaredFunction(callee)
-			}
 			return Value{}, true, err
 		}
 		if ok && val.Kind == ValFunction {

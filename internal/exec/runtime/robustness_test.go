@@ -9977,8 +9977,8 @@ func testAcceptPayloadWithoutAValue(t *testing.T) {
 
 // testAcceptPayloadReadBeforeItIsBound: the payload is a declaration of the body
 // wherever the body resolves, so a node running before the accept binds it
-// resolves the name and finds no value — reported as a feature without a value,
-// not read as an empty value and not as a name that fails to resolve.
+// resolves the name — and a payload's bare parameter admits no value, so the read
+// yields the empty sequence its assign target refuses, not an unresolved name.
 func testAcceptPayloadReadBeforeItIsBound(t *testing.T) {
 	_, err := executeActionSource(t, "pipeline", `package P {
 		action pipeline {
@@ -9992,14 +9992,17 @@ func testAcceptPayloadReadBeforeItIsBound(t *testing.T) {
 			succession first waiter then done;
 		}
 	}`)
-	if !errors.Is(err, ErrNoValue) {
-		t.Fatalf("err = %v; want ErrNoValue", err)
+	// A payload names no multiplicity of its own, so §7.6.3 gives it [0..*]:
+	// unbound it resolves to the empty sequence, which a [1..1] assign target
+	// refuses by count — reported, and not read as a name that fails to resolve.
+	if err == nil {
+		t.Fatal("expected the unbound payload read to fail")
 	}
 	if errors.Is(err, ErrUnresolvedReference) {
 		t.Errorf("a declared payload was reported as unresolved: %v", err)
 	}
-	if !strings.Contains(err.Error(), "msg") {
-		t.Errorf("error does not name the payload: %v", err)
+	if !strings.Contains(err.Error(), "seen") || !strings.Contains(err.Error(), "multiplicity") {
+		t.Errorf("error = %v, want the assign target's count refusal naming seen", err)
 	}
 }
 
@@ -15756,7 +15759,7 @@ func testInheritedBindingDoesNotReachAMaskingNode(t *testing.T) {
 				bind add.a = x;
 			}
 			action def Derived :> Base {
-				action add { in a : Integer; out sum : Integer; assign sum := a + 1; }
+				action add { in a : Integer[1]; out sum : Integer; assign sum := a + 1; }
 				first start then add;
 				succession add then done;
 			}
@@ -16263,9 +16266,9 @@ func testFunctionValueInheritedBodyOutsideTheClosure(t *testing.T) {
 // parameter name while no such run is active, it reads no binding of the caller's.
 func testFunctionValueNestedCalcOutsideItsRun(t *testing.T) {
 	src := `package test {` + functionValueFixture + `
-		calc def Outer { in k : Real; calc inner { in v : Real; return : Real = v * k; } return : Real = inner(1.0); }
-		calc def Called { in k : Real; return : Real = Outer::inner(2.0); }
-		calc def Passed { in k : Real; return : Real = Fn(Outer::inner, 2.0); }
+		calc def Outer { in k : Real[1]; calc inner { in v : Real[1]; return : Real = v * k; } return : Real = inner(1.0); }
+		calc def Called { in k : Real[1]; return : Real = Outer::inner(2.0); }
+		calc def Passed { in k : Real[1]; return : Real = Fn(Outer::inner, 2.0); }
 	}`
 	for _, expr := range []string{"test::Called(3.0)", "test::Passed(3.0)"} {
 		err := invokeCalcExpecting(t, src, expr)
