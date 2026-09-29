@@ -649,6 +649,11 @@ def test_malformed_comment_and_note_operations_are_refused(fake_service):
             conn.apply_edits("fake-hash", [("add_comment", "Demo", "b")])
         with pytest.raises(ValueError, match="malformed add_comment operation"):
             conn.apply_edits("fake-hash", [("add_comment", "Demo", "b", "", "Demo::SC", "")])
+        with pytest.raises(ValueError, match="malformed add_comment operation"):
+            conn.apply_edits(
+                "fake-hash",
+                [("add_comment", "Demo", "b", "", (name for name in ["Demo::SC"]), "")],
+            )
         with pytest.raises(ValueError, match="malformed add_note operation"):
             conn.apply_edits("fake-hash", [("add_note", "Demo::SC")])
         with pytest.raises(ValueError, match="malformed add_note operation"):

@@ -961,7 +961,8 @@ class Connection:
                 :class:`~opensysml.edit.Editor` collects them, along with
                 ``('add_connection', owner, kind, from_end, to_end, name, type)``
                 ``('add_documentation', target, body, name, locale, replace)``,
-                ``('add_comment', owner, body, name, about, locale)`` and
+                ``('add_comment', owner, body, name, about, locale)`` (``about`` a list
+                or tuple of names) and
                 ``('add_note', target, text)``
 
         Returns:
@@ -1145,8 +1146,12 @@ class Connection:
                 if len(operation_data) != 6:
                     raise ValueError("malformed add_comment operation: expected 6 fields")
                 _, owner, body, name, about, locale = operation_data
+                if isinstance(about, (list, tuple)):
+                    about = list(about)
+                else:
+                    about = None
                 if not all(isinstance(text, str) for text in (owner, body, name, locale)) or (
-                    isinstance(about, str) or not all(isinstance(x, str) for x in about)
+                    about is None or not all(isinstance(x, str) for x in about)
                 ):
                     raise ValueError(
                         "malformed add_comment operation: text fields and about must be valid"
