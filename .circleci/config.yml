@@ -329,7 +329,7 @@ jobs:
               client/java/opensysml-client/src/main/java/org/openmbee/opensysml/proto
 
   # The race-enabled suite. It is the longest single step in the pipeline, so
-  # it gets the larger class and four executors, one package shard each.
+  # it gets the larger class and four executors, one named package shard each.
   go-race-test:
     executor: go-executor
     resource_class: large
@@ -344,15 +344,23 @@ jobs:
 
       - install-fmpy
 
-      # Sharded by package: the suite's slowest packages run near the 30m
-      # per-package timeout when they share one executor.
+      # One scripts/race-shard.sh shard per node: internal/exec/runtime alone peaks near
+      # 6.5 GB under -race, so it shares its 8 GB node only sequentially (tests/wasm, tools).
       - run:
           name: Run Go race tests
           command: |
             set -o pipefail
-            pkgs=$(go list ./... | circleci tests split --split-by=name)
+            shards=(runtime model export rest)
+            if [ "$CIRCLE_NODE_TOTAL" != "${#shards[@]}" ]; then
+              echo "error: parallelism is $CIRCLE_NODE_TOTAL, but scripts/race-shard.sh has ${#shards[@]} shards" >&2
+              exit 1
+            fi
+            shard=${shards[$CIRCLE_NODE_INDEX]}
+            pkgs=$(scripts/race-shard.sh "$shard")
+            echo "shard $shard:"; echo "$pkgs"
             go test -v -race -pgo=off -timeout 30m $pkgs
-            if [ "$CIRCLE_NODE_INDEX" = "0" ]; then
+            if [ "$shard" = runtime ]; then
+              go test -v -race -pgo=off -timeout 30m ./tests/wasm
               go test -C tools -v -race -pgo=off -timeout 30m ./...
             fi
           no_output_timeout: 30m
@@ -603,16 +611,19 @@ jobs:
       # The WebAssembly gate: both wasm targets compiled and vetted, the commands
       # linked and then run. Node is on the executor, so the require variable makes
       # an absent runtime a failure and the check below makes a skip one too.
+      # Compiling both targets takes this executor about ten minutes, so the gate
+      # needs more than go test's default ten-minute budget.
       - run:
           name: Run the WebAssembly gate
           command: |
             set -o pipefail
             node --version
-            go test -count=1 -v ./tests/wasm | tee wasm-gate.log
+            go test -count=1 -v -timeout 30m ./tests/wasm | tee wasm-gate.log
             if grep -qE '^\s*--- SKIP' wasm-gate.log; then
               echo "error: the WebAssembly gate skipped" >&2
               exit 1
             fi
+          no_output_timeout: 30m
           environment:
             OPENSYSML_REQUIRE_WASM: "1"
 
@@ -1052,6 +1063,15 @@ jobs:
     executor: julia-executor
     steps:
       - checkout
+
+      # The julia image carries no make, which the build and conformance steps
+      # run; it runs as root, so apt needs no sudo.
+      - run:
+          name: Install make
+          command: |
+            apt-get update
+            apt-get install -y --no-install-recommends make
+            make --version | head -1
 
       - go/install:
           version: "1.25.0"

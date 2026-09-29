@@ -120,6 +120,62 @@ func TestUnownedActivityAcceptsViaThePortsOfTheBlocksRunningIt(t *testing.T) {
 	}
 }
 
+func TestRelativeAcceptEventReadsOwnerFeature(t *testing.T) {
+	r := migrateDocument(t, `
+    <packagedElement xmi:type="uml:Class" xmi:id="_host" name="Host">
+      <ownedAttribute xmi:type="uml:Property" xmi:id="_ditSetup" name="ditSetup">`+realHref+`</ownedAttribute>
+      <ownedBehavior xmi:type="uml:Activity" xmi:id="_wait" name="Wait">
+        <node xmi:type="uml:InitialNode" xmi:id="_start"/>
+        <node xmi:type="uml:AcceptEventAction" xmi:id="_accept" name="wait">
+          <trigger xmi:type="uml:Trigger" xmi:id="_trigger" event="_timer"/>
+        </node>
+        <node xmi:type="uml:ActivityFinalNode" xmi:id="_finish"/>
+        <edge xmi:type="uml:ControlFlow" xmi:id="_startFlow" source="_start" target="_accept"/>
+        <edge xmi:type="uml:ControlFlow" xmi:id="_finishFlow" source="_accept" target="_finish"/>
+      </ownedBehavior>
+    </packagedElement>
+    <packagedElement xmi:type="uml:TimeEvent" xmi:id="_timer" isRelative="true">
+      <when xmi:type="uml:TimeExpression" xmi:id="_when">
+        <expr xmi:type="uml:LiteralString" xmi:id="_duration" value="ditSetup s"/>
+      </when>
+    </packagedElement>`, `
+  <sysml:Block xmi:id="_hostBlock" base_Class="_host"/>`)
+	wantLine(t, r.Notation, "action wait {")
+	wantLine(t, r.Notation, "action wait accept after ditSetup [SI::s];")
+	wantNoLine(t, r.Notation, "in ref context : Host[1];")
+	wantClean(t, "t.sysml", r)
+}
+
+func TestDurationConstraintReadsOwnerFeature(t *testing.T) {
+	r := migrateDocument(t, `
+    <packagedElement xmi:type="uml:Class" xmi:id="_host" name="Host">
+      <ownedAttribute xmi:type="uml:Property" xmi:id="_ditSetup" name="ditSetup">`+realHref+`</ownedAttribute>
+      <ownedBehavior xmi:type="uml:Activity" xmi:id="_wait" name="Wait">
+        <node xmi:type="uml:InitialNode" xmi:id="_start"/>
+        <node xmi:type="uml:ValueSpecificationAction" xmi:id="_value" name="value">
+          <value xmi:type="uml:LiteralInteger" xmi:id="_one" value="1"/>
+          <result xmi:type="uml:OutputPin" xmi:id="_result" name="result"/>
+        </node>
+        <node xmi:type="uml:ActivityFinalNode" xmi:id="_finish"/>
+        <edge xmi:type="uml:ControlFlow" xmi:id="_startFlow" source="_start" target="_value"/>
+        <edge xmi:type="uml:ControlFlow" xmi:id="_finishFlow" source="_value" target="_finish"/>
+        <ownedRule xmi:type="uml:DurationConstraint" xmi:id="_delay">
+          <constrainedElement xmi:idref="_value"/>
+          <specification xmi:type="uml:DurationInterval" xmi:id="_interval" min="_min" max="_max"/>
+        </ownedRule>
+      </ownedBehavior>
+    </packagedElement>
+    <packagedElement xmi:type="uml:Duration" xmi:id="_min">
+      <expr xmi:type="uml:LiteralString" xmi:id="_minExpr" value="ditSetup s"/>
+    </packagedElement>
+    <packagedElement xmi:type="uml:Duration" xmi:id="_max">
+      <expr xmi:type="uml:LiteralString" xmi:id="_maxExpr" value="ditSetup s"/>
+    </packagedElement>`, `
+  <sysml:Block xmi:id="_hostBlock" base_Class="_host"/>`)
+	wantLine(t, r.Notation, "action wait accept after ditSetup [SI::s];")
+	wantClean(t, "t.sysml", r)
+}
+
 func TestViewpointActivityContextSpecializesUsage(t *testing.T) {
 	r := migrateFixtureFile(t, "viewpoint_context")
 	wantLine(t, r.Notation, "in ref context :> 'Review Viewpoint'[1];")
@@ -438,6 +494,74 @@ func TestOwnedActivityBorrowsTheContextItsCallsNeed(t *testing.T) {
 	meta(t, s, "%advance 0")
 	if out := meta(t, s, "%eval in #1.r : sum"); !strings.Contains(out, "= 4") {
 		t.Errorf("the borrowed context did not carry the ping to the receiver: %s", out)
+	}
+}
+
+func TestNestedBehaviorDefinitionsRetainAndPassTheirEnclosingContext(t *testing.T) {
+	r := migrateFixtureFile(t, "nested_context")
+	for _, line := range []string{
+		"in ref context : Host[1];",
+		"action def Write {",
+		"action def Set {",
+		"assign context.'aO Sequencer'.k := value;",
+		"action direct {",
+		"assign 'aO Sequencer'.k := 2;",
+		"first 'decide' if 'aO Sequencer'.k >= 2 then final;",
+		"perform action direct ::> Host::direct;",
+		"action set : Set { in ref :>> context = Write::context; }",
+	} {
+		wantLine(t, r.Notation, line)
+	}
+	if diags := errors(t, "nested_context.sysml", r.Notation); len(diags) > 0 {
+		t.Errorf("%v", diags)
+	}
+
+	s := session(t, r)
+	meta(t, s, "%instantiate Rig")
+	meta(t, s, "%action Host::run #1.h")
+	meta(t, s, "%continue")
+	if out := meta(t, s, "%eval in #1.h : 'aO Sequencer'.k"); !strings.Contains(out, "= 2") {
+		t.Errorf("the nested action did not update the owning part's exhibited state: %s", out)
+	}
+}
+
+func TestContextBoundCallUsesItsLexicalContext(t *testing.T) {
+	r := migrateFixtureFile(t, "context_bound_call")
+	for _, line := range []string{
+		"in ref context : Host[1];",
+		"action make : Make { out integer[1]; in ref :>> context = Run::context; }",
+		"flow make.integer to consume.value;",
+		"send new Ping() via context.tx;",
+	} {
+		wantLine(t, r.Notation, line)
+	}
+	if strings.Contains(string(r.Notation), "out '';") {
+		t.Errorf("the unnamed output parameter has an empty redeclaration:\n%s", r.Notation)
+	}
+	if diags := errors(t, "context_bound_call.sysml", r.Notation); len(diags) > 0 {
+		t.Errorf("%v", diags)
+	}
+}
+
+func TestRecursiveContextCallSettlesContextBeforeFollowingCalls(t *testing.T) {
+	r := migrateFixtureFile(t, "recursive_context_call")
+	wantLine(t, r.Notation, "action 'recursive call' : View { in ref :>> context = View::context; }")
+}
+
+func TestMutuallyRecursiveActivitiesSettleTheirOwnerContext(t *testing.T) {
+	for _, name := range []string{"recursive_context_cycle_ab", "recursive_context_cycle_ba"} {
+		t.Run(name, func(t *testing.T) {
+			r := migrateFixtureFile(t, name)
+			for _, declaration := range []string{
+				"action def A {\n        in ref context : Host[1];",
+				"action def B {\n        in ref context : Host[1];",
+			} {
+				if !strings.Contains(string(r.Notation), declaration) {
+					t.Fatalf("notation lacks %q:\n%s", declaration, r.Notation)
+				}
+			}
+			wantLine(t, r.Notation, "action b : B { in ref :>> context = A::context; }")
+		})
 	}
 }
 

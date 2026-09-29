@@ -257,6 +257,178 @@ calc def Runs :> Query {
 	}
 }
 
+func TestExecuteColumnPathReadsSinglePropertyLikeProject(t *testing.T) {
+	fixture := memberPathFixture(t, `
+calc def Names :> Query {
+	in root : Element;
+	Project(
+		source = Descendants(source = root, maxDepth = 1),
+		properties = ("name"),
+		columns = (Column(name = "label", path = "name"))
+	)
+}`)
+	result := memberPathRows(t, fixture, "Names")
+	for i, row := range result.Rows() {
+		projected, _ := row.Cells()[0].Values()[0].String()
+		path, _ := row.Cells()[1].Values()[0].String()
+		if path != projected {
+			t.Errorf("row %d path = %q, Project property = %q", i, path, projected)
+		}
+	}
+}
+
+func TestExecuteColumnPathKeepsProjectLiteralFeaturePrecedence(t *testing.T) {
+	fixture := loadExecutionFixture(t, `
+attribute def Nested {
+	attribute y : Integer;
+}
+package Results {
+	individual part def A {
+		attribute 'x.y' : Integer = 4;
+		attribute x : Nested {
+			attribute redefines y = 9;
+		}
+	}
+}
+calc def PathPrecedence :> Query {
+	in root : Element;
+	Project(
+		source = Descendants(source = root, maxDepth = 1),
+		properties = ("x.y"),
+		columns = (Column(name = "path", path = "x.y"))
+	)
+}
+`)
+	result, err := fixture.execute(t, "PathPrecedence", Bindings{
+		"root": {ElementValue(fixture.symbol(t, "Results"))},
+	}, Options{})
+	if err != nil {
+		t.Fatalf("PathPrecedence: %v", err)
+	}
+	projected := cellNumbers(t, result, "x.y")
+	path := cellNumbers(t, result, "path")
+	if !slices.EqualFunc(projected, [][]float64{{4}}, slices.Equal) {
+		t.Fatalf("Project x.y = %v, want {4}", projected)
+	}
+	if !slices.EqualFunc(path, projected, slices.Equal) {
+		t.Fatalf("path x.y = %v, Project x.y = %v", path, projected)
+	}
+}
+
+func TestExecuteColumnPathReadsQuotedSingleSegmentFeature(t *testing.T) {
+	fixture := loadExecutionFixture(t, `
+attribute def Nested {
+	attribute y : Integer;
+}
+package Results {
+	individual part def Literal {
+		attribute 'x.y' : Integer = 4;
+		attribute x : Nested {
+			attribute redefines y = 9;
+		}
+	}
+}
+calc def QuotedPath :> Query {
+	in root : Element;
+	Project(
+		source = Descendants(source = root, maxDepth = 1),
+		columns = (Column(name = "v", path = "'x.y'"))
+	)
+}
+`)
+	result, err := fixture.execute(t, "QuotedPath", Bindings{
+		"root": {ElementValue(fixture.symbol(t, "Results"))},
+	}, Options{})
+	if err != nil {
+		t.Fatalf("QuotedPath: %v", err)
+	}
+	if got := cellNumbers(t, result, "v"); !slices.EqualFunc(got, [][]float64{{4}}, slices.Equal) {
+		t.Fatalf("quoted path cells = %v, want {4}", got)
+	}
+}
+
+func TestExecuteColumnPathKeepsQuotedSingleSegmentAbsent(t *testing.T) {
+	fixture := loadExecutionFixture(t, `
+attribute def Nested {
+	attribute y : Integer;
+}
+package Results {
+	individual part def Literal {
+		attribute 'x.y' : Integer = 4;
+		attribute x : Nested {
+			attribute redefines y = 9;
+		}
+	}
+	individual part def NestedOnly {
+		attribute x : Nested {
+			attribute redefines y = 9;
+		}
+	}
+}
+calc def QuotedPath :> Query {
+	in root : Element;
+	Project(
+		source = Descendants(source = root, maxDepth = 1),
+		columns = (Column(name = "v", path = "'x.y'"))
+	)
+}
+`)
+	result, err := fixture.execute(t, "QuotedPath", Bindings{
+		"root": {ElementValue(fixture.symbol(t, "Results"))},
+	}, Options{})
+	if err != nil {
+		t.Fatalf("QuotedPath: %v", err)
+	}
+	if got := cellNumbers(t, result, "v"); !slices.EqualFunc(got, [][]float64{{4}, nil}, slices.Equal) {
+		t.Fatalf("quoted path cells = %v, want {4}, empty", got)
+	}
+}
+
+func TestExecuteTypedCellMemberPathGatesOnRowType(t *testing.T) {
+	fixture := memberPathFixture(t, `
+package NestedRows {
+	part def Nested {
+		attribute weight : Integer;
+	}
+	part def Container {
+		part nested : Nested {
+			attribute redefines weight = 7;
+		}
+	}
+	part def Unrelated {
+		part nested : Nested {
+			attribute redefines weight = 9;
+		}
+	}
+}
+calc def Weights :> Query {
+	in root : Element;
+	Project(
+		source = Descendants(source = root, maxDepth = 1),
+		properties = ("name"),
+		columns = (Column(name = "weight", cell = { in row : NestedRows::Container; row.nested.weight ?? 0 }))
+	)
+}`)
+	result, err := fixture.execute(t, "Weights", Bindings{
+		"root": {ElementValue(fixture.symbol(t, "NestedRows"))},
+	}, Options{})
+	if err != nil {
+		t.Fatalf("execute Weights: %v", err)
+	}
+	got := make(map[string]int64)
+	for _, row := range result.Rows() {
+		name, _ := row.Cells()[0].Values()[0].String()
+		value, ok := row.Cells()[1].Values()[0].Integer()
+		if !ok {
+			t.Fatalf("%s weight = %+v, want integer", name, row.Cells()[1].Values())
+		}
+		got[name] = value
+	}
+	if got["Container"] != 7 || got["Unrelated"] != 0 {
+		t.Fatalf("weights = %v, want Container=7 and Unrelated=0", got)
+	}
+}
+
 // A member path orders rows by the nested value; the projected column name
 // orders them the same way after a projection.
 func TestExecuteOrderByMemberPath(t *testing.T) {

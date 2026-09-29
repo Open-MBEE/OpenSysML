@@ -554,7 +554,7 @@ func TestConvertLayoutAugment(t *testing.T) {
 		t.Fatalf("migrating with -layout failed: %s%s", out.stdout, out.stderr)
 	}
 	for _, want := range []string{
-		"metadata DiagramLayout::Layout about engine { x = 20; y = 10; width = 100; height = 40; }",
+		"metadata DiagramLayout::Layout about engine { x = 20; y = 10; width = 100; :>> DiagramLayout::Layout::height = 40; }",
 		"metadata DiagramLayout::Route about drive { points = (120, 30, 200, 30); }",
 		`@DiagramLayout::Canvas { unit = "px";`,
 	} {
