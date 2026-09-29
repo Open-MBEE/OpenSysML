@@ -940,6 +940,10 @@ expr:Shadows__Governor___405_succession_pend1_prs
 elmt:Shadows__Governor___405___40trigger
     a sysml:AcceptActionUsage ;
     sysml:qualifiedName "Shadows::Governor::@5::@trigger" ;
+    sysx:sourceLine "16"^^xsd:integer ;
+    sysx:sourceColumn "35"^^xsd:integer ;
+    sysx:sourceEndLine "16"^^xsd:integer ;
+    sysx:sourceEndColumn "51"^^xsd:integer ;
     sysml:elementId "Shadows__Governor___405___40trigger" ;
     sysml:owningNamespace elmt:Shadows__Governor___405 ;
     sysml:owner elmt:Shadows__Governor___405 ;

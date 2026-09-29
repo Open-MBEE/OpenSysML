@@ -132,3 +132,21 @@ func TestSourceRangeIncludesBodyAfterNote(t *testing.T) {
 		}
 	}
 }
+
+// The accept action a transition's trigger declares is placed where the
+// trigger is written, as every other declared element is.
+func TestTransitionTriggerCarriesItsSourceRange(t *testing.T) {
+	const src = `package T {
+    attribute def Sig;
+    state def S {
+        state a;
+        state b;
+        transition t first a accept s : Sig then b;
+    }
+}
+`
+	got := sourceRanges(t, src)
+	if trigger, want := got["T::S::t::@trigger"], [4]float64{6, 30, 6, 44}; trigger != want {
+		t.Errorf("the trigger's accept action: range %v, want %v", trigger, want)
+	}
+}

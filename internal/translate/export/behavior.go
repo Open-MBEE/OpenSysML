@@ -524,6 +524,8 @@ func (e *encoder) encodeTrigger(n *ast.TransitionMember, subject rdf.Term, fqn s
 	}
 	e.graph.Add(accepter, rdf.IRI(rdf.RDFType), e.sysml(mAcceptAction))
 	e.graph.Add(accepter, e.sysml(pQualifiedName), rdf.String(accepterFQN))
+	// The accept a trigger declares is placed where the trigger is written.
+	e.sourceRange(accepter, n.TriggerSpan)
 	e.graph.Add(accepter, e.sysml(pElementID), rdf.String(rdf.LocalName(accepter.Value)))
 	e.graph.Add(accepter, e.sysml(pOwningNamespace), subject)
 	e.owningMembership(stub, accepter, subject, accepterFQN, false, false, false, mTransitionFeatureMembership, func(membership rdf.Term) {
