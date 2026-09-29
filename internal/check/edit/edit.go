@@ -44,6 +44,9 @@ const (
 	OpAddRequirementConstraint
 	// OpAddTransition inserts a transition usage into a state body.
 	OpAddTransition
+	// OpAddImport inserts an import declaration into a namespace body or the
+	// document root.
+	OpAddImport
 	// OpAddDocumentation adds a `doc` to an existing declaration, or rewrites
 	// the one it owns.
 	OpAddDocumentation
@@ -112,6 +115,13 @@ type Operation struct {
 	DocName    string
 	DocLocale  string
 	ReplaceDoc bool
+	// ImportVisibility, ImportTarget, ImportRecursive, ImportAll and
+	// ImportFilters describe an OpAddImport.
+	ImportVisibility string
+	ImportTarget     string
+	ImportRecursive  bool
+	ImportAll        bool
+	ImportFilters    []string
 	// NewOwner is the namespace an OpMove moves Target into; empty means the root.
 	NewOwner string
 	// Annotation is the DiagramLayout metadata an OpSetLayout writes, by FQN
@@ -177,6 +187,18 @@ func AddTransition(owner, name, from, to, trigger, guard, effect string, initial
 		Kind: OpAddTransition, Owner: owner, TransitionName: name,
 		TransitionSource: from, TransitionTarget: to, Trigger: trigger,
 		Guard: guard, Effect: effect, Initial: initial,
+	}
+}
+
+// AddImport inserts an import declaration of target into owner: a membership
+// import for a qualified name, a namespace import for one suffixed `::*`,
+// recursive or importing non-public members when recursive or all are set, and
+// filtered by the filter expressions, each written `[<expression>]`.
+func AddImport(owner, visibility, target string, recursive, all bool, filters []string) Operation {
+	return Operation{
+		Kind: OpAddImport, Owner: owner, ImportVisibility: visibility,
+		ImportTarget: target, ImportRecursive: recursive, ImportAll: all,
+		ImportFilters: filters,
 	}
 }
 
@@ -619,6 +641,13 @@ func (m Model) splicesFor(i int, op Operation) ([]splice, error) {
 	}
 	if op.Kind == OpAddTransition {
 		sp, err := m.addTransitionSplice(i, op)
+		if err != nil {
+			return nil, err
+		}
+		return []splice{sp}, nil
+	}
+	if op.Kind == OpAddImport {
+		sp, err := m.addImportSplice(i, op)
 		if err != nil {
 			return nil, err
 		}

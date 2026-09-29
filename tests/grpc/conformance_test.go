@@ -129,6 +129,10 @@ type conformanceEditOperation struct {
 	Guard             string   `json:"guard,omitempty"`
 	Effect            string   `json:"effect,omitempty"`
 	Initial           bool     `json:"initial,omitempty"`
+	Visibility        string   `json:"visibility,omitempty"`
+	Recursive         bool     `json:"is_recursive,omitempty"`
+	ImportAll         bool     `json:"is_import_all,omitempty"`
+	Filters           []string `json:"filters,omitempty"`
 	Asserted          bool     `json:"is_asserted,omitempty"`
 	Negated           bool     `json:"is_negated,omitempty"`
 	Expression        string   `json:"expression,omitempty"`
@@ -279,6 +283,14 @@ func runApplyEditsCase(t *testing.T, srv *grpc.Service, ctx context.Context, mod
 					Owner: op.Owner, Name: op.Name, Source: op.TransitionSource,
 					Target: op.Target, Trigger: op.Trigger, Guard: op.Guard,
 					Effect: op.Effect, Initial: op.Initial,
+				}},
+			})
+		case "add_import":
+			operations = append(operations, &pb.EditOperation{
+				Operation: &pb.EditOperation_AddImport{AddImport: &pb.AddImportEdit{
+					Owner: op.Owner, Visibility: op.Visibility, Target: op.Target,
+					IsRecursive: op.Recursive, IsImportAll: op.ImportAll,
+					Filters: op.Filters,
 				}},
 			})
 		case "delete":

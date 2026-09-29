@@ -382,6 +382,50 @@ public sealed interface Edit {
   }
 
   /**
+   * Inserts an import declaration into a namespace body or the document root.
+   *
+   * @param target the imported qualified name, optionally {@code $::}-rooted,
+   *     suffixed {@code ::*} for a namespace import
+   */
+  record AddImport(
+      String owner,
+      String visibility,
+      String target,
+      boolean recursive,
+      boolean all,
+      List<String> filters)
+      implements Edit {
+
+    public AddImport {
+      Objects.requireNonNull(owner, "owner");
+      Objects.requireNonNull(visibility, "visibility");
+      Objects.requireNonNull(target, "target");
+      Objects.requireNonNull(filters, "filters");
+      filters = List.copyOf(filters);
+    }
+
+    public static AddImport of(String owner, String target) {
+      return new AddImport(owner, "", target, false, false, List.of());
+    }
+
+    public AddImport withVisibility(String visibility) {
+      return new AddImport(owner, visibility, target, recursive, all, filters);
+    }
+
+    public AddImport withRecursive() {
+      return new AddImport(owner, visibility, target, true, all, filters);
+    }
+
+    public AddImport withAll() {
+      return new AddImport(owner, visibility, target, recursive, true, filters);
+    }
+
+    public AddImport withFilters(List<String> filters) {
+      return new AddImport(owner, visibility, target, recursive, all, filters);
+    }
+  }
+
+  /**
    * Inserts a connection-like usage between two feature references.
    *
    * @param owner FQN of the namespace to receive the usage; empty for the document root

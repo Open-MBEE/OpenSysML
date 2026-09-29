@@ -396,10 +396,12 @@ and `SuiteTest.aCorruptedAnswerIsCaught` asserts each corruption is caught:
 
 `Edit.AddMember` exposes `withAbstract`, `withRedefines`, `withDefault` and
 `withDirection`; `Edit.AddSatisfy`, `Edit.AddRequirementConstraint` and
-`Edit.AddTransition` expose requirement and state-transition authoring.
-`Edit.AddTransition.entry` constructs an entry transition. The client checks
-`member_modifiers`, `satisfy_authoring`, `requirement_constraint_authoring` or
-`transition_authoring` before sending those additions. `Edit.AddMember.withDoc` and
+`Edit.AddTransition` expose requirement and state-transition authoring, and
+`Edit.AddImport` authors import declarations. `Edit.AddTransition.entry`
+constructs an entry transition. The client checks
+`member_modifiers`, `satisfy_authoring`, `requirement_constraint_authoring`,
+`transition_authoring` or `import_authoring` before sending those additions.
+`Edit.AddMember.withDoc` and
 `Edit.AddDocumentation.of(target, body)` (with `withName`, `withLocale` and `withReplace`)
 write documentation on a new or existing declaration, after checking
 `documentation_authoring`.

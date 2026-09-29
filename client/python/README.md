@@ -58,6 +58,8 @@ an existing declaration, refusing one that already has documentation unless
 dedicated `member_modifiers`, `satisfy_authoring`,
 `requirement_constraint_authoring`, `transition_authoring` or
 `documentation_authoring` capability as applicable.
+`add_import` authors import declarations and preflights the `import_authoring`
+capability.
 `add_calc_def` and `add_calc` accept input pairs, `return_type` and
 `return_expression`; a return expression requires a return type and is bound to
 the result parameter rather than written as `return <expr>;`. `add_action_def`
@@ -219,6 +221,15 @@ releases published before it; asking for a newer one needs a newer opensysml (or
 the explicit opt-in above), and leaves an already-downloaded binary serving
 rather than refusing to start — only a digest that *contradicts* a pin is
 treated as tampering and refuses to fall back.
+
+## The FMI runner (optional)
+
+`pip install opensysml[fmi]` adds FMPy and the `opensysml-fmi-runner` executable:
+the reference runner the `tool:fmi` engine speaks the fmi/1 protocol to — one JSON
+request on standard input, one reply on standard output — simulating
+co-simulation and model-exchange FMUs. Point `OPENSYSML_FMI_RUNNER` at it and a
+`calc def` imported from an FMU (`sysml -convert sysml model.fmu`) evaluates
+through it; see docs/reference/fmi.md.
 
 ## Version
 

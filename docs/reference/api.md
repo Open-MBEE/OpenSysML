@@ -113,19 +113,26 @@ and `type` fields:
 | `add_requirement_constraint` | `owner`, `kind`, `expression`, `name?` | A `require constraint` or `assume constraint` in a requirement-like body. The expression must parse and analyze; other kinds and placements are refused. |
 | `add_documentation` | `target`, `body`, `name?`, `locale?`, `replace` | A `doc [name] [locale "..."] /* body */` as the first member of the declaration `target` names, turning a declaration that ends in `;` into one with a body and leaving every other byte as it was. A target that already owns documentation is refused as a taken member name unless `replace` is set, which rewrites the one it owns (and is refused when it owns several). The body is plain text: empty text, text containing `*/`, and a line with leading or trailing white space (which the comment would not read back) are refused. |
 | `add_transition` | `owner`, `source`, `target`, `name?`, `trigger?`, `guard?`, `effect?`, `initial` | A state transition in a state definition or usage, including an exhibited or bodiless nested state. Each free-text clause must form exactly one grammar-admissible transition. With `initial`, an entry transition (`entry; then <target>;`) in a state body that has no existing entry action. |
+| `add_import` | `owner`, `target`, `visibility?`, `is_recursive`, `is_import_all`, `filters` | An import declaration in a namespace body or the document root (`owner` empty). `target` is a qualified name, optionally `$::`-rooted, for a membership import or one suffixed `::*` for a namespace import; `is_recursive` writes `::**`, `is_import_all` writes `import all`, and each entry of `filters` is written `[<expression>]`. Imports land after the owner's existing imports, or before its first member. |
 
 `type` is accepted only for connection kinds that permit a typing target.
 `add_connection` requires both the `authoring` and `connection_authoring` capabilities.
 `add_satisfy` requires `authoring` and `satisfy_authoring`; `add_requirement_constraint` requires
 `authoring` and `requirement_constraint_authoring`; transition edits require `authoring` and
-`transition_authoring`; `add_documentation` and an `add_member` with a `doc` require `authoring`
-and `documentation_authoring`. An `add_member` edit with any new modifier or
+`transition_authoring`; import edits require `authoring` and `import_authoring`.
+`add_documentation` and an `add_member` with a `doc` require `authoring` and
+`documentation_authoring`. An `add_member` edit with any new modifier or
 the `ref`/`return` kind also requires `member_modifiers`. Clients preflight these capabilities
 before sending the operation.
 
 Regular transitions always write `first <source>` and may add at most one `accept <trigger>`, one
 `if <guard>` and one `do <effect>` clause, in that order. An entry transition has no name, source or
 clauses, and is refused when the state already has an entry action.
+
+Imports always write an explicit visibility indicator — `private` when `visibility` is empty —
+because the grammar requires one; `private` is legal in every body including the document root.
+A duplicate import (same visibility, kind, recursion, name and filters) is refused, and a target
+nothing resolves is refused by the re-analysis of the edited notation.
 
 ```go
 result, err := client.ApplyEdits(ctx, model, opensysml.Rename{Target: "Lib::Engine", NewName: "Motor"})
@@ -162,12 +169,13 @@ by hand decodes the answers by [the wire contract](wire-contract.md).
 ## Python authoring
 
 `Editor.add_member(owner, kind, name, type=None, multiplicity=None, value=None,
-specializes=None, abstract=False, redefines=None, default=False, direction=None,
-doc=None)` and its typed `add_*` helpers create declarations while preserving untouched
+specializes=None, abstract=False, redefines=None, default=False, direction=None, doc=None)`
+and its typed `add_*` helpers create declarations while preserving untouched
 source bytes; every helper passes `doc` through. The editor also exposes `add_satisfy`,
 `add_requirement_constraint`, `add_require_constraint`, `add_assume_constraint`,
-`add_transition`, `add_entry_transition` and
-`add_documentation(target, body, name=None, locale=None, replace=False)`. The calculation helpers accept `inputs`, `return_type`
+`add_transition`, `add_entry_transition`, `add_import` and
+`add_documentation(target, body, name=None, locale=None, replace=False)`. The calculation helpers
+accept `inputs`, `return_type`
 and `return_expression`; a return expression requires a return type and is
 bound to the result parameter, not written as a `return <expr>;` statement.
 Action helpers accept `inputs` and `outputs`, each a list of `(name, type)` string pairs.

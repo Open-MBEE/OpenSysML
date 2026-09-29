@@ -21,6 +21,7 @@ func weightedMachine(body string) string {
 	return `package test {
 	private import ScalarValues::*;
 	private import Stochastic::*;
+	item def go;
 	state def Machine {
 		entry; then a;
 		state a;

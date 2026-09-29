@@ -250,6 +250,24 @@ func AddEntryTransition(owner, target string) AddTransition {
 	return AddTransition{Owner: owner, Target: target, Initial: true}
 }
 
+// AddImport inserts an import declaration into a namespace body or the
+// document root.
+type AddImport struct {
+	// Owner is the namespace receiving the import; empty is the document root.
+	Owner string
+	// Visibility is "private", "public" or "protected"; empty writes "private".
+	Visibility string
+	// Target is the imported qualified name, optionally rooted "$::", suffixed
+	// "::*" for a namespace import.
+	Target string
+	// Recursive writes "::**" to import recursively.
+	Recursive bool
+	// All writes "import all" to import non-public members too.
+	All bool
+	// Filters are filter conditions, each written as "[<expression>]".
+	Filters []string
+}
+
 // AddDocumentation adds `doc /* ... */` as the first body member of an
 // existing declaration, opening a body for one ended by `;`.
 type AddDocumentation struct {
@@ -307,6 +325,7 @@ func (AddRequirementConstraint) isEdit() {
 	/* marker: closed Edit set */
 }
 func (AddTransition) isEdit() { /* marker: closed Edit set */ }
+func (AddImport) isEdit()     { /* marker: closed Edit set */ }
 func (AddConnection) isEdit() { /* marker: closed Edit set */ }
 func (Delete) isEdit()        { /* marker: closed Edit set */ }
 func (Move) isEdit()          { /* marker: closed Edit set */ }
@@ -478,6 +497,9 @@ func (c *client) ApplyDocumentEdits(ctx context.Context, model *Model, document 
 		case AddTransition:
 			required[CapabilityAuthoring] = true
 			required[CapabilityTransitionAuthoring] = true
+		case AddImport:
+			required[CapabilityAuthoring] = true
+			required[CapabilityImportAuthoring] = true
 		case AddDocumentation:
 			required[CapabilityAuthoring] = true
 			required[CapabilityDocumentationAuthoring] = true
@@ -491,6 +513,7 @@ func (c *client) ApplyDocumentEdits(ctx context.Context, model *Model, document 
 			CapabilityAuthoring, CapabilityConnectionAuthoring,
 			CapabilitySatisfyAuthoring, CapabilityRequirementConstraintAuthoring,
 			CapabilityMemberModifiers, CapabilityTransitionAuthoring,
+			CapabilityImportAuthoring,
 			CapabilityDocumentationAuthoring,
 		} {
 			if required[capability] {
@@ -600,6 +623,14 @@ func editToProto(edit Edit) (*pb.EditOperation, error) {
 				Owner: operation.Owner, Name: operation.Name, Source: operation.Source,
 				Target: operation.Target, Trigger: operation.Trigger, Guard: operation.Guard,
 				Effect: operation.Effect, Initial: operation.Initial,
+			},
+		}}, nil
+	case AddImport:
+		return &pb.EditOperation{Operation: &pb.EditOperation_AddImport{
+			AddImport: &pb.AddImportEdit{
+				Owner: operation.Owner, Visibility: operation.Visibility,
+				Target: operation.Target, IsRecursive: operation.Recursive,
+				IsImportAll: operation.All, Filters: operation.Filters,
 			},
 		}}, nil
 	case AddDocumentation:

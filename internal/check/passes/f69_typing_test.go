@@ -121,3 +121,33 @@ func TestF69MalformedTypingNoPanic(t *testing.T) {
 		typeDiags(t, src)
 	}
 }
+
+// A connection may be typed by any connection definition: an allocation or an
+// interface definition is one (AllocationDefinition and InterfaceDefinition
+// specialize ConnectionDefinition in the metamodel).
+func TestF69ConnectionTypedByConnectionDefKinds(t *testing.T) {
+	for _, src := range []string{
+		"part def A; connection def C { end a : A; end b : A; } abstract connection cs : C[*];",
+		"part def A; allocation def H { end host : A; end guest : A; } abstract connection hs : H[*];",
+		"part def A; allocation def H { end host : A; end guest : A; } part x : A; part y : A; connection h : H connect x to y;",
+		"port def Pt; interface def I { end p : Pt; end q : ~Pt; } abstract connection is : I[*];",
+	} {
+		if diags := typeDiags(t, src); len(diags) != 0 {
+			t.Errorf("%s: expected no type diagnostics, got %v", src, diags)
+		}
+	}
+}
+
+// A connection typed by a definition that is no connection definition is still
+// rejected: a part definition, or an action definition.
+func TestF69ConnectionTypedByOtherDefKindsRejected(t *testing.T) {
+	for _, src := range []string{
+		"part def P; abstract connection c : P[*];",
+		"action def Act; abstract connection c : Act[*];",
+	} {
+		diags := typeDiags(t, src)
+		if len(diags) != 1 || diags[0].Message != "A connection must be typed by connection definitions." {
+			t.Errorf("%s: expected the connection typing diagnostic, got %v", src, diags)
+		}
+	}
+}

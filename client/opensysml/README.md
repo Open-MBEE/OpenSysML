@@ -235,7 +235,8 @@ elements, err := client.Query(ctx, model, opensysml.Query{
 ```
 
 Edits are typed the same way — `SetValue`, `Rename`, `AddMember`, `AddConnection`,
-`AddSatisfy`, `AddRequirementConstraint`, `AddTransition`, `AddDocumentation`, `Delete`, `Move` — and either all apply, answering the edited source, or none do and the
+`AddSatisfy`, `AddRequirementConstraint`, `AddTransition`, `AddImport`,
+`AddDocumentation`, `Delete`, `Move` — and either all apply, answering the edited source, or none do and the
 refusal arrives as an `*EditError` naming its kind:
 
 ```go
@@ -267,7 +268,8 @@ The new member modifiers and `ref`/`return` kinds require `member_modifiers`;
 `AddSatisfy` and `AddRequirementConstraint` require `satisfy_authoring` and
 `requirement_constraint_authoring`, respectively, alongside `authoring`.
 `AddTransition` also requires `authoring` and `transition_authoring`; use
-`AddEntryTransition` to construct its entry-transition form. `AddMember.Doc` and
+`AddEntryTransition` to construct its entry-transition form. `AddImport`
+requires `authoring` and `import_authoring`. `AddMember.Doc` and
 `AddDocumentation{Target, Body, Name, Locale, Replace}` write `doc /* ... */` on a new or an
 existing declaration and require `authoring` and `documentation_authoring`.
 
