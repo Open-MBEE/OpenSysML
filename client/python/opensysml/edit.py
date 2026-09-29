@@ -297,7 +297,8 @@ class Editor:
         """Add one declaration, using strings for all SysML/KerML notation.
 
         ``expression`` writes a body expression for kinds whose bodies admit
-        one: a constraint condition, or a calculation/case result expression.
+        one: a constraint condition or a calc, case, analysis, verification, or
+        use-case result expression.
         ``doc`` is plain documentation text, written as the new declaration's
         first body member ``doc /* ... */``; it reads back unchanged as
         ``Documentation.body``, and may not contain ``*/`` or a carriage return.

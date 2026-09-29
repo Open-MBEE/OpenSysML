@@ -60,22 +60,18 @@ negates an asserted constraint body. `add_assert(owner, ref, negated=False)`
 adds an anonymous reference assertion (`assert <ref>;` or `assert not <ref>;`);
 `ref` names the constraint target, not the assertion. `add_exhibit_state` and
 `add_exhibit` author state exhibits; `add_state_action` accepts `entry`, `do` or
-`exit`. Reference assertions and body expressions preflight
-`constraint_body_authoring`; state-behavior edits preflight
-`state_action_authoring`, alongside `authoring`.
-These operations also preflight their dedicated `member_modifiers`,
-`satisfy_authoring`, `requirement_constraint_authoring` or `transition_authoring`
-capability as applicable.
+`exit`.
 `add_member` and every typed helper accept `doc="..."`, written as the new
 member's `doc /* ... */`, and
 `add_documentation(target, body, name=None, locale=None, replace=False)` documents
 an existing declaration, refusing one that already has documentation unless
 `replace=True`. `add_comment(owner, body, name=None, about=None, locale=None)` writes a
 `comment` element and `add_note(target, text)` a `// text` line note above a declaration.
-`add_import` authors import declarations. The editor preflights the dedicated
+`add_import` authors import declarations. The editor preflights
 `member_modifiers`, `satisfy_authoring`, `requirement_constraint_authoring`,
-`transition_authoring`, `import_authoring`, `documentation_authoring`,
-`comment_authoring` and the constraint/state authoring capabilities as applicable.
+`transition_authoring`, `constraint_body_authoring`, `state_action_authoring`,
+`import_authoring`, `documentation_authoring` and `comment_authoring` as
+applicable, alongside `authoring`.
 `add_calc_def` and `add_calc` accept input pairs, `return_type` and
 `return_expression`; `expression=` instead writes the body's result expression.
 A `return_expression` requires a return type, is bound to the result parameter

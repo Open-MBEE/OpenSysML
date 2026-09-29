@@ -399,9 +399,8 @@ and `SuiteTest.aCorruptedAnswerIsCaught` asserts each corruption is caught:
 `Edit.AddTransition` expose requirement and state-transition authoring.
 `Edit.AddTransition.entry` constructs an entry transition. The client checks
 `member_modifiers`, `satisfy_authoring`, `requirement_constraint_authoring`,
-`transition_authoring`, `constraint_body_authoring`, `state_action_authoring`
-and `import_authoring` before sending those additions. Documentation and comment
-operations also check `documentation_authoring` and `comment_authoring`.
+`transition_authoring` and `import_authoring` as applicable. Documentation and
+comment operations also check `documentation_authoring` and `comment_authoring`.
 `Edit.AddMember.withBodyExpression` writes a body expression in `{ ... }`,
 distinct from `withValue`, which writes a feature value with `= ...`; calc/case/
 analysis/verification/use-case expressions are result expressions. Reference-form
