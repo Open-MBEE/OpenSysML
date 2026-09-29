@@ -4283,8 +4283,9 @@ type AddMemberEdit struct {
 	IsDefault bool `protobuf:"varint,10,opt,name=is_default,json=isDefault,proto3" json:"is_default,omitempty"`
 	// Optional usage direction: "in", "out" or "inout".
 	Direction string `protobuf:"bytes,11,opt,name=direction,proto3" json:"direction,omitempty"`
-	// Optional condition stated in a constraint-kind member's body, as in
-	// "constraint c { <expr> }"; distinct from value, which writes "= <expr>".
+	// Optional result expression in a CalculationBody or CaseBody, as in
+	// "calc c { <expr> }"; used by constraint, calc, case, analysis,
+	// verification and use case kinds, distinct from value, which writes "= <expr>".
 	BodyExpression string `protobuf:"bytes,13,opt,name=body_expression,json=bodyExpression,proto3" json:"body_expression,omitempty"`
 	unknownFields  protoimpl.UnknownFields
 	sizeCache      protoimpl.SizeCache

@@ -400,11 +400,13 @@ and `SuiteTest.aCorruptedAnswerIsCaught` asserts each corruption is caught:
 `Edit.AddTransition.entry` constructs an entry transition. The client checks
 `member_modifiers`, `satisfy_authoring`, `requirement_constraint_authoring` or
 `transition_authoring` before sending those additions.
-`Edit.AddMember.withBodyExpression` writes a constraint condition in `{ ... }`,
-distinct from `withValue`, which writes a feature value with `= ...`.
-Constraint-body and asserted-constraint additions require
-`constraint_body_authoring`; exhibit and state subaction kinds require
-`state_action_authoring`, alongside `authoring`.
+`Edit.AddMember.withBodyExpression` writes a body expression in `{ ... }`,
+distinct from `withValue`, which writes a feature value with `= ...`; calc/case/
+analysis/verification/use-case expressions are result expressions. Reference-form
+`assert` and `assert not` members are anonymous, and post-edit analysis checks
+that their feature reference denotes a constraint. Constraint-body and assertion
+additions require `constraint_body_authoring`; exhibit and state subaction kinds
+require `state_action_authoring`, alongside `authoring`.
 
 ## Running the tests
 

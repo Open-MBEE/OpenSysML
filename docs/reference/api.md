@@ -86,8 +86,13 @@ capability before reading `Documents`, `Referrers` or an applied edit's `Documen
 
 `add_member` accepts the existing `specializes`, type, multiplicity and value fields, plus
 `body_expression`, `is_abstract`, `redefines`, `is_default` and `direction`. `body_expression`
-writes a constraint condition in `{ ... }`, distinct from `value`, which writes a feature value
-with `= ...`; when both are present they are emitted in that order. Abstract and directional notation is
+writes a body expression in `{ ... }`, distinct from `value`, which writes a feature value
+with `= ...`; when both are present they are emitted in that order. Constraint definitions and usages,
+asserted-constraint kinds, and `calc`, `case`, `analysis`, `verification` and `use case` definition and
+usage kinds accept it. For the latter kinds it is the result expression at the end of a calculation or
+case body. Requirement, concern, viewpoint and other requirement-body kinds have no result expression;
+for example, `requirement` refuses with `kind "requirement" cannot state a body expression: a
+requirement body has no result expression; add a require constraint instead`. Abstract and directional notation is
 limited to grammar-admitted member kinds; `redefines` is only for usages and takes lexical feature
 references, while `is_default` requires a value. The `ref` and `return` kinds are also available
 for SysML members, as are the perform-action usages (SysML v2 §7.17.6): `perform action` writes
@@ -96,7 +101,11 @@ is the feature reference to the performed action usage (`t.heat`, `Pkg::x.run`) 
 named by the action it references, so the name is checked as a feature reference, resolved from
 the owner's scope, and the last segment is what the member-name-taken check refuses a duplicate
 of. `perform` takes the reference alone: a type, multiplicity, value, specializes, redefines,
-direction or abstract flag is refused. Constraint definitions and usages accept `body_expression`;
+direction or abstract flag is refused. Reference-form `assert` and `assert not` write
+`assert <ref>;` and `assert not <ref>;`; the reference is validated as a feature reference and
+must resolve to a constraint during post-edit analysis. These assertion members are anonymous:
+the reference is not their member name and may be repeated or coexist with a declaration of the
+same name. Constraint definitions and usages accept `body_expression`;
 `assert constraint` and `assert not constraint` also accept it, and may omit the name when a type or
 body is supplied. `exhibit state` adds a typed state usage, while `exhibit` names an existing state
 usage by reference. `entry action`, `do action` and `exit action` add state subactions, with at most
@@ -114,7 +123,7 @@ and `type` fields:
 | `add_requirement_constraint` | `owner`, `kind`, `expression`, `name?` | A `require constraint` or `assume constraint` in a requirement-like body. The expression must parse and analyze; other kinds and placements are refused. |
 | `add_transition` | `owner`, `source`, `target`, `name?`, `trigger?`, `guard?`, `effect?`, `initial` | A state transition in a state definition or usage, including an exhibited or bodiless nested state. Each free-text clause must form exactly one grammar-admissible transition. With `initial`, an entry transition (`entry; then <target>;`) in a state body that has no existing entry action. |
 
-An `add_member` with `body_expression` or an asserted-constraint kind requires `authoring` and
+An `add_member` with `body_expression`, an asserted-constraint kind, or a reference-form assertion requires `authoring` and
 `constraint_body_authoring`. `exhibit state`, `exhibit`, and state subaction kinds require
 `authoring` and `state_action_authoring`.
 `type` is accepted only for connection kinds that permit a typing target.

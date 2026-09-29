@@ -735,7 +735,16 @@ class PublicTypesTest {
         Edit.AddMember.of("Demo", "assert constraint", "bounded"),
         Capabilities.CONSTRAINT_BODY_AUTHORING);
     assertEditCapability(
+        Edit.AddMember.of("Demo", "assert", "bounded"),
+        Capabilities.CONSTRAINT_BODY_AUTHORING);
+    assertEditCapability(
+        Edit.AddMember.of("Demo", "assert not", "bounded"),
+        Capabilities.CONSTRAINT_BODY_AUTHORING);
+    assertEditCapability(
         Edit.AddMember.of("Demo", "constraint", "bounded").withBodyExpression("x > 1"),
+        Capabilities.CONSTRAINT_BODY_AUTHORING);
+    assertEditCapability(
+        Edit.AddMember.of("Demo", "calc def", "Double").withBodyExpression("x * 2"),
         Capabilities.CONSTRAINT_BODY_AUTHORING);
     assertEditCapability(
         Edit.AddMember.of("Demo::S", "do action", "run"),

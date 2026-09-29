@@ -268,10 +268,13 @@ The new member modifiers and `ref`/`return` kinds require `member_modifiers`;
 `requirement_constraint_authoring`, respectively, alongside `authoring`.
 `AddTransition` also requires `authoring` and `transition_authoring`; use
 `AddEntryTransition` to construct its entry-transition form.
-`AddMember.BodyExpression` writes a constraint condition in `{ ... }`, distinct
-from `Value`, which writes a feature value with `= ...`. Constraint-body and
-assertion additions require `constraint_body_authoring`; exhibit and state
-subaction kinds require `state_action_authoring`, both alongside `authoring`.
+`AddMember.BodyExpression` writes a body expression in `{ ... }`, distinct
+from `Value`, which writes a feature value with `= ...`; calc/case/analysis/
+verification/use-case body expressions are result expressions. Reference-form
+`assert` and `assert not` members are anonymous, and post-edit analysis checks
+that their feature reference denotes a constraint. Constraint-body and assertion
+additions require `constraint_body_authoring`; exhibit and state subaction kinds
+require `state_action_authoring`, both alongside `authoring`.
 
 The edited source is `result.Documents`, one `EditedDocument` per document the
 batch reached, under the name the model was parsed with; `result.Content` is the

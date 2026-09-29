@@ -444,6 +444,7 @@ func (c *client) ApplyDocumentEdits(ctx context.Context, model *Model, document 
 				required[CapabilityMemberModifiers] = true
 			}
 			if operation.BodyExpression != "" ||
+				operation.Kind == "assert" || operation.Kind == "assert not" ||
 				operation.Kind == "assert constraint" || operation.Kind == "assert not constraint" {
 				required[CapabilityConstraintBodyAuthoring] = true
 			}

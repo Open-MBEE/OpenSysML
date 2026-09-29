@@ -294,7 +294,11 @@ class Editor:
     def add_member(self, owner, kind, name, type=None, multiplicity=None,
                    value=None, specializes=None, abstract=False, redefines=None,
                    default=False, direction=None, expression=None):
-        """Add one declaration, using strings for all SysML/KerML notation."""
+        """Add one declaration, using strings for all SysML/KerML notation.
+
+        ``expression`` writes a body expression for kinds whose bodies admit
+        one: a constraint condition, or a calculation/case result expression.
+        """
         if not isinstance(kind, str):
             raise TypeError(f"kind must be notation text, not {kind.__class__.__name__}")
         for label, text in (("kind", kind), ("type", type),
@@ -569,20 +573,25 @@ class Editor:
         return self.add_member(owner, "metaclass", name, **kwargs)
 
     def add_calc_def(
-        self, owner, name, inputs=None, return_type=None, return_expression=None, **kwargs
+        self, owner, name, inputs=None, return_type=None, return_expression=None,
+        expression=None, **kwargs
     ):
         """Add a ``calc def`` with input parameters and an optional result.
 
         ``return_expression`` requires ``return_type`` and is bound to that
         result parameter; it does not write a ``return <expr>;`` statement.
+        ``expression`` writes the calculation body's result expression.
         """
         inputs = _parameter_pairs(inputs, "inputs")
         _optional_text(return_type, "return_type")
         _optional_text(return_expression, "return_expression")
+        _optional_text(expression, "expression")
+        if expression is not None and return_expression is not None:
+            raise ValueError("expression and return_expression both bind the result; give one")
         if return_expression is not None and not return_type:
             raise ValueError("return_expression requires return_type")
         owner = _owner_id(owner)
-        self.add_member(owner, "calc def", name, **kwargs)
+        self.add_member(owner, "calc def", name, expression=expression, **kwargs)
         qualified_name = name if owner == "" else owner + "::" + name
         for parameter_name, parameter_type in inputs:
             self.add_parameter(
@@ -595,20 +604,25 @@ class Editor:
         return self
 
     def add_calc(
-        self, owner, name, inputs=None, return_type=None, return_expression=None, **kwargs
+        self, owner, name, inputs=None, return_type=None, return_expression=None,
+        expression=None, **kwargs
     ):
         """Add a ``calc`` with input parameters and an optional result.
 
         ``return_expression`` requires ``return_type`` and is bound to that
         result parameter; it does not write a ``return <expr>;`` statement.
+        ``expression`` writes the calculation body's result expression.
         """
         inputs = _parameter_pairs(inputs, "inputs")
         _optional_text(return_type, "return_type")
         _optional_text(return_expression, "return_expression")
+        _optional_text(expression, "expression")
+        if expression is not None and return_expression is not None:
+            raise ValueError("expression and return_expression both bind the result; give one")
         if return_expression is not None and not return_type:
             raise ValueError("return_expression requires return_type")
         owner = _owner_id(owner)
-        self.add_member(owner, "calc", name, **kwargs)
+        self.add_member(owner, "calc", name, expression=expression, **kwargs)
         qualified_name = name if owner == "" else owner + "::" + name
         for parameter_name, parameter_type in inputs:
             self.add_parameter(
@@ -726,6 +740,14 @@ class Editor:
             type=type,
             expression=expression,
         )
+
+    def add_assert(self, owner, ref, negated=False):
+        """Add an anonymous ``assert`` usage; the assertion is not named by ref."""
+        if not isinstance(ref, str):
+            raise TypeError(f"ref must be notation text, not {type(ref).__name__}")
+        if not isinstance(negated, bool):
+            raise TypeError("negated must be bool")
+        return self.add_member(owner, "assert not" if negated else "assert", ref)
 
     def add_requirement_def(self, owner, name, **kwargs):
         """Add a ``requirement def`` declaration."""

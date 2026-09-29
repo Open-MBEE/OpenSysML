@@ -1039,7 +1039,9 @@ class Connection:
                         or member_kind in ("ref", "return")
                     )
                 add.body_expression = body_expression
-                if body_expression or member_kind in ("assert constraint", "assert not constraint"):
+                if body_expression or member_kind in (
+                    "assert", "assert not", "assert constraint", "assert not constraint"
+                ):
                     require(
                         info,
                         CAPABILITY_CONSTRAINT_BODY_AUTHORING,

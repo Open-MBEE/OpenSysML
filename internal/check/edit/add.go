@@ -48,12 +48,14 @@ var memberKinds = map[string]memberKind{
 	"rendering":             {languages: sysmlOnly, typed: true},
 	"concern def":           {languages: sysmlOnly, definition: true},
 	"concern":               {languages: sysmlOnly, typed: true},
-	"calc def":              {languages: sysmlOnly, definition: true},
-	"calc":                  {languages: sysmlOnly, typed: true},
+	"calc def":              {languages: sysmlOnly, definition: true, body: true},
+	"calc":                  {languages: sysmlOnly, typed: true, body: true},
 	"action def":            {languages: sysmlOnly, definition: true},
 	"action":                {languages: sysmlOnly, typed: true},
 	"perform action":        {languages: sysmlOnly, typed: true},
 	"perform":               {languages: sysmlOnly},
+	"assert":                {languages: sysmlOnly},
+	"assert not":            {languages: sysmlOnly},
 	"assert constraint":     {languages: sysmlOnly, typed: true, body: true},
 	"assert not constraint": {languages: sysmlOnly, typed: true, body: true},
 	"exhibit state":         {languages: sysmlOnly, typed: true},
@@ -71,14 +73,14 @@ var memberKinds = map[string]memberKind{
 	"constraint":            {languages: sysmlOnly, typed: true, body: true},
 	"requirement def":       {languages: sysmlOnly, definition: true},
 	"requirement":           {languages: sysmlOnly, typed: true},
-	"case def":              {languages: sysmlOnly, definition: true},
-	"case":                  {languages: sysmlOnly, typed: true},
-	"analysis def":          {languages: sysmlOnly, definition: true},
-	"analysis":              {languages: sysmlOnly, typed: true},
-	"verification def":      {languages: sysmlOnly, definition: true},
-	"verification":          {languages: sysmlOnly, typed: true},
-	"use case def":          {languages: sysmlOnly, definition: true},
-	"use case":              {languages: sysmlOnly, typed: true},
+	"case def":              {languages: sysmlOnly, definition: true, body: true},
+	"case":                  {languages: sysmlOnly, typed: true, body: true},
+	"analysis def":          {languages: sysmlOnly, definition: true, body: true},
+	"analysis":              {languages: sysmlOnly, typed: true, body: true},
+	"verification def":      {languages: sysmlOnly, definition: true, body: true},
+	"verification":          {languages: sysmlOnly, typed: true, body: true},
+	"use case def":          {languages: sysmlOnly, definition: true, body: true},
+	"use case":              {languages: sysmlOnly, typed: true, body: true},
 	"subject":               {languages: sysmlOnly, typed: true},
 	"actor":                 {languages: sysmlOnly, typed: true},
 	"stakeholder":           {languages: sysmlOnly, typed: true},
@@ -154,7 +156,18 @@ func (m Model) addMemberSplice(i int, op Operation) (splice, error) {
 		}
 	}
 	referenceName := ""
-	if op.MemberName == "" {
+	assertReference := op.MemberKind == "assert" || op.MemberKind == "assert not"
+	if assertReference {
+		if _, err := checkFeatureReference(i, "asserted constraint", op.MemberName); err != nil {
+			return splice{}, err
+		}
+		if op.Value != "" {
+			return splice{}, &Error{
+				Failure: FailureIllegalKind, OperationIndex: i,
+				Message: fmt.Sprintf("kind %q cannot carry a value", op.MemberKind),
+			}
+		}
+	} else if op.MemberName == "" {
 		switch {
 		case op.MemberKind == "return" && op.Type == "" && op.Multiplicity == "":
 			return splice{}, &Error{
@@ -200,9 +213,13 @@ func (m Model) addMemberSplice(i int, op Operation) (splice, error) {
 	}
 	if op.BodyExpression != "" {
 		if !kind.body {
+			message := fmt.Sprintf("kind %q cannot state a body expression", op.MemberKind)
+			if refusal, ok := noResultBodyKinds[op.MemberKind]; ok {
+				message = fmt.Sprintf("kind %q cannot state a body expression: %s", op.MemberKind, refusal)
+			}
 			return splice{}, &Error{
 				Failure: FailureIllegalKind, OperationIndex: i,
-				Message: fmt.Sprintf("kind %q cannot state a body expression", op.MemberKind),
+				Message: message,
 			}
 		}
 		target := op.MemberName
@@ -279,7 +296,8 @@ func (m Model) addMemberSplice(i int, op Operation) (splice, error) {
 		}
 	}
 	if len(op.Redefines) > 0 &&
-		(op.MemberKind == "metadata" || op.MemberKind == "perform" || op.MemberKind == "exhibit") {
+		(op.MemberKind == "metadata" || op.MemberKind == "perform" || op.MemberKind == "exhibit" ||
+			op.MemberKind == "assert" || op.MemberKind == "assert not") {
 		return splice{}, &Error{
 			Failure: FailureIllegalKind, OperationIndex: i,
 			Message: fmt.Sprintf("kind %q cannot carry redefines targets", op.MemberKind),
@@ -317,7 +335,7 @@ func (m Model) addMemberSplice(i int, op Operation) (splice, error) {
 		}
 	}
 	switch op.MemberKind {
-	case "assert constraint", "assert not constraint", "exhibit state", "exhibit":
+	case "assert", "assert not", "assert constraint", "assert not constraint", "exhibit state", "exhibit":
 		if !parser.BodyAdmitsBehaviorUsage(owner) {
 			return splice{}, &Error{
 				Failure: FailureIllegalKind, OperationIndex: i,
@@ -354,7 +372,9 @@ func (m Model) addMemberSplice(i int, op Operation) (splice, error) {
 		}
 	}
 	takenName := op.MemberName
-	if referenceName != "" {
+	if assertReference {
+		takenName = ""
+	} else if referenceName != "" {
 		takenName = referenceName
 	}
 	if takenName != "" && ownerScope != nil && len(ownerScope.LookupLocalAll(symbolName(takenName))) > 0 {
@@ -374,12 +394,22 @@ func memberPrefixExcluded(kind string) bool {
 	switch kind {
 	case "package", "subject", "actor", "stakeholder", "objective",
 		"fork", "join", "merge", "decide", "metadata", "return",
-		"perform", "perform action", "assert constraint", "assert not constraint",
+		"perform", "perform action", "assert", "assert not", "assert constraint", "assert not constraint",
 		"exhibit state", "exhibit", "entry action", "do action", "exit action":
 		return true
 	default:
 		return false
 	}
+}
+
+var noResultBodyKinds = map[string]string{
+	"requirement def": "a requirement body has no result expression; add a require constraint instead",
+	"requirement":     "a requirement body has no result expression; add a require constraint instead",
+	"concern def":     "a requirement body has no result expression; add a require constraint instead",
+	"concern":         "a requirement body has no result expression; add a require constraint instead",
+	"viewpoint def":   "a requirement body has no result expression; add a require constraint instead",
+	"viewpoint":       "a requirement body has no result expression; add a require constraint instead",
+	"objective":       "a requirement body has no result expression; add a require constraint instead",
 }
 
 func (m Model) addOwner(fqn string) (ast.Node, *symbols.Scope, error) {

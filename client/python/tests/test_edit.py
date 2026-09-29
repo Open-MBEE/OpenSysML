@@ -428,6 +428,10 @@ def test_constraint_body_and_state_action_helpers_are_exact(fake_service):
             )
             .add_assert_constraint("Demo::SC", type="C")
             .add_assert_constraint("Demo::SC", expression="x > 0")
+            .add_assert("Demo::SC", "positive")
+            .add_assert("Demo::SC", "negative", negated=True)
+            .add_calc_def("Demo::SC", "D", expression="x * 2")
+            .add_calc("Demo::SC", "c", expression="x * 3")
             .add_exhibit_state("Demo::SC", "shown", type="S")
             .add_exhibit("Demo::SC", "part.state")
             .add_state_action("Demo::SC", "entry", "start", type="A")
@@ -452,6 +456,10 @@ def test_constraint_body_and_state_action_helpers_are_exact(fake_service):
         ("assert not constraint", "negative", "", "x < 0"),
         ("assert constraint", "", "C", ""),
         ("assert constraint", "", "", "x > 0"),
+        ("assert", "positive", "", ""),
+        ("assert not", "negative", "", ""),
+        ("calc def", "D", "", "x * 2"),
+        ("calc", "c", "", "x * 3"),
         ("exhibit state", "shown", "S", ""),
         ("exhibit", "part.state", "", ""),
         ("entry action", "start", "A", ""),
@@ -469,6 +477,14 @@ def test_constraint_body_and_state_action_helpers_are_exact(fake_service):
         ),
         (
             lambda editor: editor.add_assert_constraint("Demo::SC", "bounded"),
+            CAPABILITY_CONSTRAINT_BODY_AUTHORING,
+        ),
+        (
+            lambda editor: editor.add_assert("Demo::SC", "bounded"),
+            CAPABILITY_CONSTRAINT_BODY_AUTHORING,
+        ),
+        (
+            lambda editor: editor.add_calc_def("Demo", "Double", expression="x * 2"),
             CAPABILITY_CONSTRAINT_BODY_AUTHORING,
         ),
         (
@@ -505,6 +521,21 @@ def test_new_add_member_expression_and_helper_arguments_are_checked():
         editor.add_member("Demo", "constraint", "c", expression=1)
     with pytest.raises(TypeError, match="negated must be bool"):
         editor.add_assert_constraint("Demo", "c", negated=1)
+    with pytest.raises(TypeError, match="negated must be bool"):
+        editor.add_assert("Demo", "c", negated=1)
+    with pytest.raises(TypeError, match="ref must be notation text, not int"):
+        editor.add_assert("Demo", 1)
+    editor.add_calc_def("Demo", "D", return_type="Real", expression="x * 2")
+    editor.add_calc("Demo", "c", return_type="Real", expression="x * 2")
+    for method in ("add_calc", "add_calc_def"):
+        with pytest.raises(
+            ValueError,
+            match="^expression and return_expression both bind the result; give one$",
+        ):
+            getattr(editor, method)(
+                "Demo", "C", return_type="Real", return_expression="x",
+                expression="x * 2",
+            )
     with pytest.raises(TypeError, match="kind must be notation text, not int"):
         editor.add_state_action("Demo::S", 1, "a")
     with pytest.raises(ValueError, match="kind must be 'entry', 'do' or 'exit'"):
@@ -1393,6 +1424,35 @@ class TestEditRoundTripAgainstRealService:
             )
             again = conn.load_from_content(edited)
             assert again.ok, [str(d) for d in again.errors]
+
+    def test_reference_assertions_and_calculation_result_expression(self, real_service):
+        source = """package P {
+    private import ScalarValues::*;
+    constraint c;
+}
+"""
+        with Connection(port=real_service, auto_start=False) as conn:
+            model = conn.load_from_content(source)
+            result = (
+                model.edit()
+                .add_assert("P", "c")
+                .add_assert("P", "c", negated=True)
+                .add_calc_def(
+                    "P", "D", inputs=[("x", "ScalarValues::Real")],
+                    expression="x * 2",
+                )
+                .apply()
+            )
+            edited = str(result)
+            assert "assert c;" in edited
+            assert "assert not c;" in edited
+            assert (
+                "calc def D { in ref x : ScalarValues::Real; x * 2 }"
+                in edited
+            )
+            again = conn.load_from_content(edited)
+            assert again.ok, [str(d) for d in again.errors]
+            assert again.calc("P::D", arguments=[3]).value == 6
 
     def test_add_parameter_to_action_definition(self, real_service):
         with Connection(port=real_service, auto_start=False) as conn:

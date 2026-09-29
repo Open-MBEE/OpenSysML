@@ -240,6 +240,7 @@ func requestsConstraintBodyAuthoring(operations []*pb.EditOperation) bool {
 	for _, operation := range operations {
 		add := operation.GetAddMember()
 		if add != nil && (add.GetBodyExpression() != "" ||
+			add.GetKind() == "assert" || add.GetKind() == "assert not" ||
 			add.GetKind() == "assert constraint" || add.GetKind() == "assert not constraint") {
 			return true
 		}

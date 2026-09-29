@@ -2380,8 +2380,9 @@ export type AddMemberEdit = Message<"sysml.AddMemberEdit"> & {
   direction: string;
 
   /**
-   * Optional condition stated in a constraint-kind member's body, as in
-   * "constraint c { <expr> }"; distinct from value, which writes "= <expr>".
+   * Optional result expression in a CalculationBody or CaseBody, as in
+   * "calc c { <expr> }"; used by constraint, calc, case, analysis,
+   * verification and use case kinds, distinct from value, which writes "= <expr>".
    *
    * @generated from field: string body_expression = 13;
    */

@@ -344,6 +344,25 @@ func TestApplyEditsNewAuthoringOperationsRequireDedicatedCapabilities(t *testing
 			operation:  addMemberOp("Demo", "assert constraint", "c"),
 		},
 		{
+			name:       "reference assertion",
+			capability: CapabilityConstraintBodyAuthoring,
+			operation:  addMemberOp("Demo", "assert", "c"),
+		},
+		{
+			name:       "negated reference assertion",
+			capability: CapabilityConstraintBodyAuthoring,
+			operation:  addMemberOp("Demo", "assert not", "c"),
+		},
+		{
+			name:       "calculation result expression",
+			capability: CapabilityConstraintBodyAuthoring,
+			operation: &pb.EditOperation{Operation: &pb.EditOperation_AddMember{
+				AddMember: &pb.AddMemberEdit{
+					Owner: "Demo", Kind: "calc def", Name: "D", BodyExpression: "x * 2",
+				},
+			}},
+		},
+		{
 			name:       "state behavior kind",
 			capability: CapabilityStateActionAuthoring,
 			operation:  addMemberOp("Demo", "exhibit state", "shown"),
@@ -401,6 +420,48 @@ func TestApplyEditsNewOperationsRoundTrip(t *testing.T) {
 		if !strings.Contains(added.Content, want) {
 			t.Errorf("content missing %q:\n%s", want, added.Content)
 		}
+	}
+}
+
+func TestApplyEditsReferenceAssertionsAndResultBodiesRoundTrip(t *testing.T) {
+	srv := mustNewService(t, 10)
+	hash := mustParsedModel(t, srv, `package Demo {
+    constraint c;
+}
+`)
+	ops := []*pb.EditOperation{
+		addMemberOp("Demo", "assert", "c"),
+		addMemberOp("Demo", "assert not", "c"),
+		addMemberOp("Demo", "assert", "c"),
+		{Operation: &pb.EditOperation_AddMember{AddMember: &pb.AddMemberEdit{
+			Owner: "Demo", Kind: "calc def", Name: "Double", BodyExpression: "3 * 2",
+		}}},
+		{Operation: &pb.EditOperation_AddMember{AddMember: &pb.AddMemberEdit{
+			Owner: "Demo", Kind: "case def", Name: "Example", BodyExpression: "1",
+		}}},
+	}
+	added, err := srv.ApplyEdits(context.Background(), &pb.ApplyEditsRequest{
+		ModelHash: hash, Operations: ops,
+	})
+	if err != nil {
+		t.Fatalf("ApplyEdits: %v", err)
+	}
+	if added.Error != "" {
+		t.Fatalf("edit refused: %s\n%s", added.Error, added.Content)
+	}
+	for _, want := range []string{
+		"assert c;", "assert not c;", "calc def Double { 3 * 2 }",
+		"case def Example { 1 }",
+	} {
+		if !strings.Contains(added.Content, want) {
+			t.Errorf("edited content missing %q:\n%s", want, added.Content)
+		}
+	}
+	if got := strings.Count(added.Content, "assert c;"); got != 2 {
+		t.Errorf("assert c count = %d, want 2:\n%s", got, added.Content)
+	}
+	if reparsed := mustParsedModel(t, srv, added.Content); reparsed == "" {
+		t.Fatal("edited notation did not parse")
 	}
 }
 

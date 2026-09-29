@@ -281,6 +281,7 @@ var memberKindTypes = map[string]string{
 var memberKindOwners = map[string]string{
 	"subject": "P::R", "actor": "P::R", "stakeholder": "P::R", "objective": "P::U",
 	"assert constraint": "P::Host", "assert not constraint": "P::Host",
+	"assert": "P::Host", "assert not": "P::Host",
 	"exhibit state": "P::Host", "exhibit": "P::Vehicle",
 	"entry action": "P::State", "do action": "P::State", "exit action": "P::State",
 }
@@ -296,7 +297,7 @@ func TestEveryMemberKindWrites(t *testing.T) {
 		}
 		for _, kind := range kinds {
 			t.Run(name+"/"+kind, func(t *testing.T) {
-				src := "package P {\n    action def A {\n        action a0;\n    }\n    constraint def Assertion;\n    state def State { state child; }\n    part def Base { state s : State; }\n    part def Vehicle :> Base;\n    part def Host;\n    calc def C {}\n    requirement def R;\n    use case def U;\n}\n"
+				src := "package P {\n    action def A {\n        action a0;\n    }\n    constraint def Assertion;\n    state def State { state child; }\n    part def Base { state s : State; }\n    part def Vehicle :> Base;\n    part def Host { constraint addedTarget; }\n    calc def C {}\n    requirement def R;\n    use case def U;\n}\n"
 				if lang == source.KindKerML {
 					src = "package P {\n    behavior A {\n        step s0;\n    }\n}\n"
 				}
@@ -329,6 +330,10 @@ func TestEveryMemberKindWrites(t *testing.T) {
 				if kind == "exhibit" {
 					op.Owner = "P::Vehicle"
 					op.MemberName = "s"
+				}
+				if kind == "assert" || kind == "assert not" {
+					op.Owner = "P::Host"
+					op.MemberName = "addedTarget"
 				}
 				m := loadContent(t, name, src)
 				requireClean(t, m)

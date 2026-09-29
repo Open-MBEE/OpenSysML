@@ -908,6 +908,8 @@ public final class Model {
         requestsConstraintBodyAuthoring =
             requestsConstraintBodyAuthoring
                 || addMember.bodyExpression().filter(e -> !e.isEmpty()).isPresent()
+                || addMember.kind().equals("assert")
+                || addMember.kind().equals("assert not")
                 || addMember.kind().equals("assert constraint")
                 || addMember.kind().equals("assert not constraint");
         requestsStateActionAuthoring =

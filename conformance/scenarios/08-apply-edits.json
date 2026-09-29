@@ -716,6 +716,70 @@
       }
     },
     {
+      "id": "apply_edits/adds_reference_assertions_and_calc_case_result_bodies",
+      "description": "Reference-form assertions remain anonymous, while calculation and case bodies end with result expressions.",
+      "rpc": "ApplyEdits",
+      "requires_capabilities": [
+        "apply_edits",
+        "authoring",
+        "constraint_body_authoring"
+      ],
+      "model": {
+        "fixture": "apply_edits_assert_result_expression.sysml"
+      },
+      "request": {
+        "model_hash": "${model_hash}",
+        "operations": [
+          {
+            "add_member": {
+              "owner": "Demo",
+              "kind": "assert",
+              "name": "c"
+            }
+          },
+          {
+            "add_member": {
+              "owner": "Demo",
+              "kind": "assert not",
+              "name": "c"
+            }
+          },
+          {
+            "add_member": {
+              "owner": "Demo",
+              "kind": "calc def",
+              "name": "Double",
+              "body_expression": "3 * 2"
+            }
+          },
+          {
+            "add_member": {
+              "owner": "Demo",
+              "kind": "case def",
+              "name": "Example",
+              "body_expression": "1"
+            }
+          }
+        ]
+      },
+      "expect": {
+        "contains_all": {
+          "content": [
+            "assert c;",
+            "assert not c;",
+            "calc def Double { 3 * 2 }",
+            "case def Example { 1 }"
+          ]
+        },
+        "counts": {
+          "applied": 4
+        },
+        "absent": [
+          "error"
+        ]
+      }
+    },
+    {
       "id": "apply_edits/no_operations_is_refused_rather_than_echoing_the_source",
       "rpc": "ApplyEdits",
       "requires_capabilities": [

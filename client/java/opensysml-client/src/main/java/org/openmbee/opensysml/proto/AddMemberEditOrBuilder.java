@@ -254,8 +254,9 @@ public interface AddMemberEditOrBuilder extends
 
   /**
    * <pre>
-   * Optional condition stated in a constraint-kind member's body, as in
-   * "constraint c { &lt;expr&gt; }"; distinct from value, which writes "= &lt;expr&gt;".
+   * Optional result expression in a CalculationBody or CaseBody, as in
+   * "calc c { &lt;expr&gt; }"; used by constraint, calc, case, analysis,
+   * verification and use case kinds, distinct from value, which writes "= &lt;expr&gt;".
    * </pre>
    *
    * <code>string body_expression = 13 [json_name = "bodyExpression"];</code>
@@ -264,8 +265,9 @@ public interface AddMemberEditOrBuilder extends
   java.lang.String getBodyExpression();
   /**
    * <pre>
-   * Optional condition stated in a constraint-kind member's body, as in
-   * "constraint c { &lt;expr&gt; }"; distinct from value, which writes "= &lt;expr&gt;".
+   * Optional result expression in a CalculationBody or CaseBody, as in
+   * "calc c { &lt;expr&gt; }"; used by constraint, calc, case, analysis,
+   * verification and use case kinds, distinct from value, which writes "= &lt;expr&gt;".
    * </pre>
    *
    * <code>string body_expression = 13 [json_name = "bodyExpression"];</code>

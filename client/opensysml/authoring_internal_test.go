@@ -135,6 +135,26 @@ func TestNewAuthoringOperationsAreNotSentWithoutTheirCapabilities(t *testing.T) 
 			missing:      CapabilityConstraintBodyAuthoring,
 		},
 		{
+			name:         "reference assertion",
+			operation:    AddMember{Owner: "Demo", Kind: "assert", Name: "c"},
+			capabilities: []string{CapabilityApplyEdits, CapabilityAuthoring},
+			missing:      CapabilityConstraintBodyAuthoring,
+		},
+		{
+			name:         "negated reference assertion",
+			operation:    AddMember{Owner: "Demo", Kind: "assert not", Name: "c"},
+			capabilities: []string{CapabilityApplyEdits, CapabilityAuthoring},
+			missing:      CapabilityConstraintBodyAuthoring,
+		},
+		{
+			name: "calculation result expression",
+			operation: AddMember{
+				Owner: "Demo", Kind: "calc def", Name: "D", BodyExpression: "x * 2",
+			},
+			capabilities: []string{CapabilityApplyEdits, CapabilityAuthoring},
+			missing:      CapabilityConstraintBodyAuthoring,
+		},
+		{
 			name:         "state behavior kind",
 			operation:    AddMember{Owner: "Demo::S", Kind: "do action", Name: "run"},
 			capabilities: []string{CapabilityApplyEdits, CapabilityAuthoring},

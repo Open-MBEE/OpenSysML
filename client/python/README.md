@@ -48,21 +48,29 @@ model.edit().add_allocation("Demo::System", "a", "b", name="alloc1").apply()
 connection-like usages; `add_allocation` and `add_flow` are typed helpers.
 `Editor.add_member` also accepts `abstract`, `redefines`, `default` and `direction`
 options, and supports the SysML `ref` and `return` kinds where they are admitted.
+Its `expression=` argument writes a body expression for supported kinds: a
+constraint condition, or a calculation/case result expression. Requirement-body
+kinds do not admit result expressions.
 Use `add_satisfy`, `add_requirement_constraint`, `add_require_constraint`,
 `add_assume_constraint`, `add_transition` or `add_entry_transition` to author
 requirement statements and state transitions. `add_constraint_def` and
 `add_constraint` accept `expression=` for a constraint body (`{ ... }`), while
 `value=` writes a feature value (`= ...`). `add_assert_constraint` optionally
-negates the assertion; `add_exhibit_state` and `add_exhibit` author state
-exhibits; `add_state_action` accepts `entry`, `do` or `exit`. Constraint-body
-and state-behavior edits preflight `constraint_body_authoring` and
-`state_action_authoring`, respectively, alongside `authoring`.
+negates an asserted constraint body. `add_assert(owner, ref, negated=False)`
+adds an anonymous reference assertion (`assert <ref>;` or `assert not <ref>;`);
+`ref` names the constraint target, not the assertion. `add_exhibit_state` and
+`add_exhibit` author state exhibits; `add_state_action` accepts `entry`, `do` or
+`exit`. Reference assertions and body expressions preflight
+`constraint_body_authoring`; state-behavior edits preflight
+`state_action_authoring`, alongside `authoring`.
 These operations also preflight their dedicated `member_modifiers`,
 `satisfy_authoring`, `requirement_constraint_authoring` or `transition_authoring`
 capability as applicable.
 `add_calc_def` and `add_calc` accept input pairs, `return_type` and
-`return_expression`; a return expression requires a return type and is bound to
-the result parameter rather than written as `return <expr>;`. `add_action_def`
+`return_expression`; `expression=` instead writes the body's result expression.
+A `return_expression` requires a return type, is bound to the result parameter
+rather than written as `return <expr>;`, and cannot be combined with
+`expression=`. `expression=` may be used with `return_type`. `add_action_def`
 and `add_action` accept input and output pairs. `add_perform_action` writes
 `perform action name : Type`, and `add_perform(owner, action)` writes
 `perform <action>;` — a perform usage named by the action usage it references,
