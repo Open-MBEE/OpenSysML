@@ -326,4 +326,7 @@ func TestUndeclaredSignalLintLiteralSend(t *testing.T) {
 	if n := count(`package S { part def Sender { action a { send "go" to self; send 1 to self; send 2.5 to self; send true to self; } } }`); n != 0 {
 		t.Fatalf("literal sends left %d finding(s), want none", n)
 	}
+	if n := count(`package S { private import ScalarValues::*; part def Sender { attribute r : Real = 1.5; action a { send 1 + 2 to self; send r * 2.0 to self; send not true to self; send "a" + "b" to self; } } }`); n != 0 {
+		t.Fatalf("computed scalar sends left %d finding(s), want none", n)
+	}
 }

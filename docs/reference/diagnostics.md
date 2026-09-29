@@ -48,6 +48,10 @@ The lint reports the name when all of the following hold:
   calculation's value, as the runtime does, so it counts the result's type, not `Ping`.
   A literal payload counts its scalar type, as the runtime names it: `send "go" to self;`
   sends `String`, and integer, real and boolean literals send `Integer`, `Real` and `Boolean`.
+  A computed payload counts the scalar type its value is known to have (`send 1 + 2 to self;`
+  sends `Integer`, `send "a" + "b" to self;` `String`, `send not ready to self;` `Boolean`);
+  a number whose kind is not known statically (`send r * 2.0 to self;`) counts both
+  `Integer` and `Real`, the two names the runtime gives a number it sends.
   A document held as its interface record counts too: the record keeps the names its body
   sends.
 
