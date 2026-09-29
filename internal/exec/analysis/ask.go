@@ -247,6 +247,20 @@ func (r *Registry) Sweep(ctx context.Context, req Request, plan runtime.SweepPla
 	})
 }
 
+// Prove puts an element's violation queries to the registry as a Holds question:
+// an unsat proves the claim holds for every assignment of the free features — a
+// proved one when the evaluator rounds the conditions — and a sat witnesses a
+// violation. The plan's result holds the answers in order, and the error is an
+// absent solver.
+func (r *Registry) Prove(ctx context.Context, req Request, queries []*solve.Query) (Plan, error) {
+	return refusedOr(r.AnswerWith(ctx, req.Model, Question{
+		Kind:    Holds,
+		Subject: req.Subject,
+		Free:    FreeInputs,
+		Solve:   &SolveAsk{Queries: queries, Ask: (*solve.Solver).Solve},
+	}, req.Budget, req.Selection))
+}
+
 // Solve puts an element's condition sets to the registry under the request's selection,
 // ask being the operation made of each; the request's model is what an engine outside the
 // process is sent, nil when there is none. The plan's result holds the answers in order, and

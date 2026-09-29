@@ -395,8 +395,8 @@ func TestExprTransitionGuardComparisonOK(t *testing.T) {
 }
 
 const calcAdd = `calc def add {
-	in a : ScalarValues::Integer;
-	in b : ScalarValues::Integer;
+	in a : ScalarValues::Integer[1];
+	in b : ScalarValues::Integer[1];
 	a + b
 }
 `
@@ -472,7 +472,7 @@ func TestExprInvocationDeeplyNestedCallsTypeOnce(t *testing.T) {
 func TestExprInvocationOptionalParameterMayBeOmitted(t *testing.T) {
 	const model = `package P {
 		calc def scale {
-			in x : ScalarValues::Integer;
+			in x : ScalarValues::Integer[1];
 			in by : ScalarValues::Integer[0..1];
 			x
 		}
@@ -489,7 +489,7 @@ func TestExprInvocationRedefinedParameterKeepsInheritedOptionality(t *testing.T)
 	// A redefinition stating no multiplicity or default keeps the inherited ones.
 	const model = `package P {
 		calc def Scale {
-			in x : ScalarValues::Integer;
+			in x : ScalarValues::Integer[1];
 			in by : ScalarValues::Integer[0..1];
 			in times : ScalarValues::Integer = 1;
 			x
@@ -520,7 +520,7 @@ func TestExprInvocationOptionalBeforeRequiredParameter(t *testing.T) {
 		calc def Scale {
 			in by : ScalarValues::Integer[0..1];
 			in offset : ScalarValues::Integer = 0;
-			in x : ScalarValues::Integer;
+			in x : ScalarValues::Integer[1];
 			x
 		}
 		calc def Scaled :> Scale {
@@ -601,7 +601,7 @@ func TestExprInvocationReceiverWithNamedArguments(t *testing.T) {
 
 // calcHolder owns a calc feature reached through a feature chain, `holder.scale`.
 const calcHolder = `part def Holder {
-	calc scale { in x : ScalarValues::Real; in k : ScalarValues::Real = 2.0; return : ScalarValues::Real = x * k; }
+	calc scale { in x : ScalarValues::Real[1]; in k : ScalarValues::Real = 2.0; return : ScalarValues::Real = x * k; }
 }
 part holder : Holder;
 `
@@ -655,7 +655,7 @@ func TestExprInvocationNamedArgumentsChecked(t *testing.T) {
 		calc def Scale {
 			in factor : ScalarValues::Integer[0..1];
 			in offset : ScalarValues::Integer = 0;
-			in x : ScalarValues::Integer;
+			in x : ScalarValues::Integer[1];
 			x
 		}
 		calc c { %s }
@@ -670,7 +670,7 @@ func TestExprInvocationNamedArgumentsChecked(t *testing.T) {
 // body binds a value to is not asked of the call, wherever the node is written.
 func TestExprNodeBodyParameterSuppliesArgument(t *testing.T) {
 	const model = `package P {
-		action def Scale { in a : ScalarValues::Integer; in b : ScalarValues::Integer; }
+		action def Scale { in a : ScalarValues::Integer[1]; in b : ScalarValues::Integer[1]; }
 		action outer {
 			attribute seven : ScalarValues::Integer = 7;
 			%s
@@ -682,7 +682,7 @@ func TestExprNodeBodyParameterSuppliesArgument(t *testing.T) {
 	wantNoDiags(t, fmt.Sprintf(model, `action scaled = Scale(a = seven) { in x = 1; in y redefines b = 10; }`))
 	wantNoDiags(t, fmt.Sprintf(model, `action inner { action scaled = Scale(a = seven) { in a; in b = 10; } }`))
 	wantNoDiags(t, `package P {
-		action def Scale { in a : ScalarValues::Integer; in b : ScalarValues::Integer; }
+		action def Scale { in a : ScalarValues::Integer[1]; in b : ScalarValues::Integer[1]; }
 		state def M {
 			attribute seven : ScalarValues::Integer = 7;
 			state s { entry action { action scaled = Scale(a = seven) { in a; in b = 10; } } }

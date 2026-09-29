@@ -83,7 +83,7 @@ func intOutput(t *testing.T, outputs map[string]Value, name string) int64 {
 
 const doublerModel = `package test {
     action def Doubler {
-        in v : Integer;
+        in v : Integer[1];
         out doubled : Integer;
 
         first start;
@@ -254,7 +254,7 @@ package caller {
 		t.Fatalf("ExecuteAction with a required input unbound: err = %v, want ErrUnboundParameter for v", err)
 	}
 
-	defaulted := strings.Replace(doublerModel, "in v : Integer;", "in v : Integer = 3;", 1)
+	defaulted := strings.Replace(doublerModel, "in v : Integer[1];", "in v : Integer[1] = 3;", 1)
 	ctx, outer = loadAction(t, defaulted+caller, "Outer")
 	outputs, err := ctx.ExecuteAction(outer)
 	if err != nil {

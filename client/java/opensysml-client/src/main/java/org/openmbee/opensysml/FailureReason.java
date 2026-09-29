@@ -13,6 +13,8 @@ public enum FailureReason {
   WRONG_KIND,
   /** Several objects carry the element: name one as the subject. */
   AMBIGUOUS_SUBJECT,
+  /** An engine was asked but decided nothing. */
+  UNDECIDED,
   /** A reason this release of the client does not know. */
   UNKNOWN
 }

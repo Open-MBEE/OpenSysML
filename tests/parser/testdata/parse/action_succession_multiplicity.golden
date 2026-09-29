@@ -1,0 +1,18 @@
+(RootNamespace
+  (Membership visibility="default"
+    (Definition kind="action" abstract=false variation=false name="A"
+      (Usage kind="action" name="a" ref=false direction="none" composite=false derived=false ordered=false nonunique=false)
+      (Usage kind="action" name="b" ref=false direction="none" composite=false derived=false ordered=false nonunique=false)
+      (SuccessionEdge source="a" target="b"
+        (Multiplicity range=false
+          (LiteralInteger value="1")))
+      (SuccessionEdge source="b" target="c"
+        (Multiplicity range=true
+          (LiteralInteger value="0")
+          (LiteralInteger value="1")))
+      (Usage kind="action" name="c" ref=false direction="none" composite=false derived=false ordered=false nonunique=false)
+      (SuccessionEdge source="c" target="d"
+        (Multiplicity range=false
+          (LiteralInteger value="2"))
+        (Usage kind="action" name="nested" ref=false direction="none" composite=false derived=false ordered=false nonunique=false))
+      (Usage kind="action" name="d" ref=false direction="none" composite=false derived=false ordered=false nonunique=false))))

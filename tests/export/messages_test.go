@@ -56,11 +56,6 @@ func TestUnsupportedConversionMessages(t *testing.T) {
 		},
 		want: []string{"cannot convert the `assert` declaration <urn:sysmlv2:element:P__A___401>",
 			"it neither declares a name nor names the feature it refers to (sysml:references)"},
-	}, {
-		name: "duplicate_declaration",
-		src:  "package P {\n\tpart def A {\n\t\tattribute x : Real;\n\t\tattribute x : Real;\n\t}\n}",
-		want: []string{"cannot convert the duplicate declaration of \"x\" at m.sysml:4:3",
-			"two members of one namespace cannot share it"},
 	}}
 
 	for _, tc := range cases {

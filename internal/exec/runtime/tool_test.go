@@ -285,7 +285,7 @@ const scaleModel = `package test {
 
 	action def Scale {
 		metadata ToolExecution { toolName = "MC"; uri = "u"; }
-		in k : Real          { @ToolVariable { name = "k"; } }
+		in k : Real[1]       { @ToolVariable { name = "k"; } }
 		in bias : Real [0..1] { @ToolVariable { name = "bias"; } }
 		out y : Real         { @ToolVariable { name = "y"; } }
 	}
@@ -567,13 +567,13 @@ const specializedModel = `package test {
 
 	action def Run : Base {
 		metadata ToolExecution { toolName = "MC"; uri = "u"; }
-		in x : Real  { @ToolVariable { name = "x"; } }
+		in x : Real[1] { @ToolVariable { name = "x"; } }
 		out y : Real { @ToolVariable { name = "y"; } }
 	}
 	action def RunSized : Sized {
 		metadata ToolExecution { toolName = "MC"; uri = "u"; }
 		in n :>> n;
-		in x : Real  { @ToolVariable { name = "x"; } }
+		in x : Real[1] { @ToolVariable { name = "x"; } }
 		out y : Real { @ToolVariable { name = "y"; } }
 	}
 	action def Driving {
