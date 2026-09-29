@@ -6,7 +6,7 @@ import (
 )
 
 func identitySegment(name string) string {
-	if positionalSegment(name) || strings.Contains(name, "::") {
+	if positionalSegment(name) || strings.Contains(name, "::") || strings.HasPrefix(name, "'") {
 		var segment strings.Builder
 		segment.Grow(len(name) + 2)
 		segment.WriteByte('\'')
@@ -88,6 +88,22 @@ func identityName(segment string) string {
 		}
 	}
 	return segment
+}
+
+func parserQualifiedName(qname string) string {
+	global := strings.HasPrefix(qname, "$::")
+	if global {
+		qname = strings.TrimPrefix(qname, "$::")
+	}
+	segments := identitySegments(qname)
+	for i, segment := range segments {
+		segments[i] = identitySegment(escapeName(identityName(segment)))
+	}
+	out := strings.Join(segments, "::")
+	if global {
+		return "$::" + out
+	}
+	return out
 }
 
 func positionalSegment(segment string) bool {

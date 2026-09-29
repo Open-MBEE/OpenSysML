@@ -16,11 +16,14 @@ func TestIdentityNameSegments(t *testing.T) {
 		{"a'::b"},
 		{`a::b\`},
 		{`a\::b`},
+		{`'@2'`},
+		{`'x'`},
 		{"x'"},
 		{"'"},
 		{`x\`},
 		{`it\'s`},
 		{`'A::B'::X`},
+		{`'a'::b`},
 	}
 	for _, test := range tests {
 		segment := identitySegment(test.name)
@@ -34,6 +37,18 @@ func TestIdentityNameSegments(t *testing.T) {
 	}
 	if got := identitySegment("Vehicle"); got != "Vehicle" {
 		t.Errorf("identitySegment(Vehicle) = %q, want it unquoted", got)
+	}
+	names := []string{"@2", "x", "a"}
+	for _, test := range tests {
+		names = append(names, test.name)
+	}
+	identities := map[string]string{}
+	for _, name := range names {
+		identity := identitySegment(name)
+		if previous, ok := identities[identity]; ok && previous != name {
+			t.Errorf("identitySegment(%q) and identitySegment(%q) both equal %q", name, previous, identity)
+		}
+		identities[identity] = name
 	}
 	for _, test := range []struct {
 		segment string

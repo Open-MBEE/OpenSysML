@@ -97,6 +97,7 @@ func chooseNames(name, library string, text []byte, want *wanted, previous *name
 	for node, fqn := range e.fqn {
 		declared[fqn] = node
 	}
+	memberAliases, targetAliases := parserAliases(want.references)
 	written := writtenKeys(want.references)
 	occurrences := map[nameKey][]resolve.Reference{}
 	var chains, misread []resolve.Reference
@@ -108,7 +109,14 @@ func chooseNames(name, library string, text []byte, want *wanted, previous *name
 			chains = append(chains, ref)
 			continue
 		}
-		key := nameKey{member: e.memberOf(ref), target: e.writtenTarget(ref)}
+		member, target := e.memberOf(ref), e.writtenTarget(ref)
+		if alias, ok := memberAliases[member]; ok {
+			member = alias
+		}
+		if alias, ok := targetAliases[target]; ok {
+			target = alias
+		}
+		key := nameKey{member: member, target: target}
 		if _, ok := want.references[key]; ok {
 			occurrences[key] = append(occurrences[key], ref)
 			continue
@@ -187,6 +195,24 @@ func chooseNames(name, library string, text []byte, want *wanted, previous *name
 		}
 	}
 	return names, changed, nil
+}
+
+func parserAliases(references map[nameKey]wantedReference) (map[string]string, map[string]string) {
+	members := map[string]string{}
+	targets := map[string]string{}
+	for key := range references {
+		addParserAlias(members, parserQualifiedName(key.member), key.member)
+		addParserAlias(targets, parserQualifiedName(key.target), key.target)
+	}
+	return members, targets
+}
+
+func addParserAlias(aliases map[string]string, parsed, identity string) {
+	if previous, ok := aliases[parsed]; ok && previous != identity {
+		aliases[parsed] = ""
+		return
+	}
+	aliases[parsed] = identity
 }
 
 // memberOf is the qualified name of the member a reference is written in: the

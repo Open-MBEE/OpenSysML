@@ -415,6 +415,86 @@ func TestToolkitRootIdentityNamesQuoteSegments(t *testing.T) {
 	}
 }
 
+func TestToolkitIdentityNameBeginningWithQuoteIsDistinct(t *testing.T) {
+	doc := `[
+		{"@type": "Package", "@id": "P", "declaredName": "P", "isImpliedIncluded": false,
+		 "ownedMembership": [{"@id": "membershipQuoted"}, {"@id": "membershipPosition"}, {"@id": "membershipY"}]},
+		{"@type": "OwningMembership", "@id": "membershipQuoted", "isImpliedIncluded": false,
+		 "memberElement": {"@id": "quoted"}, "membershipOwningNamespace": {"@id": "P"}},
+		{"@type": "PartDefinition", "@id": "quoted", "declaredName": "'@2'", "isImpliedIncluded": false},
+		{"@type": "OwningMembership", "@id": "membershipPosition", "isImpliedIncluded": false,
+		 "memberElement": {"@id": "position"}, "membershipOwningNamespace": {"@id": "P"}},
+		{"@type": "PartDefinition", "@id": "position", "declaredName": "@2", "isImpliedIncluded": false},
+		{"@type": "OwningMembership", "@id": "membershipY", "isImpliedIncluded": false,
+		 "memberElement": {"@id": "Y"}, "membershipOwningNamespace": {"@id": "P"}},
+		{"@type": "PartDefinition", "@id": "Y", "declaredName": "Y", "isImpliedIncluded": false,
+		 "ownedSpecialization": [{"@id": "specializationQuoted"}, {"@id": "specializationPosition"}]},
+		{"@type": "Subclassification", "@id": "specializationQuoted", "isImpliedIncluded": false,
+		 "general": {"@id": "quoted"}, "specific": {"@id": "Y"}, "owningRelatedElement": {"@id": "Y"}},
+		{"@type": "Subclassification", "@id": "specializationPosition", "isImpliedIncluded": false,
+		 "general": {"@id": "position"}, "specific": {"@id": "Y"}, "owningRelatedElement": {"@id": "Y"}}
+	]`
+	graph, err := ReadAPIJSON([]byte(doc))
+	if err != nil {
+		t.Fatalf("ReadAPIJSON: %v", err)
+	}
+	metaclasses, err := checkTypes(graph)
+	if err != nil {
+		t.Fatalf("checkTypes: %v", err)
+	}
+	normative, err := deriveNormativeGraph(graph, metaclasses)
+	if err != nil {
+		t.Fatalf("deriveNormativeGraph: %v", err)
+	}
+	quotedName := `P::'\'@2\''`
+	positionName := `P::'@2'`
+	qualified := elementSubjectsByQualifiedName(normative)
+	quoted, position := qualified[quotedName], qualified[positionName]
+	if quoted == "" || position == "" {
+		t.Fatalf("missing distinct qualified names %q and %q: %v", quotedName, positionName, qualified)
+	}
+	if quoted == position {
+		t.Fatalf("qualified names %q and %q share subject %q", quotedName, positionName, quoted)
+	}
+
+	notation := decodeAPIJSON(t, []byte(doc))
+	for _, declaration := range []string{`part def '\'@2\''`, `part def '@2'`} {
+		if !strings.Contains(string(notation), declaration) {
+			t.Errorf("read-back notation lacks declaration %q:\n%s", declaration, notation)
+		}
+	}
+	reconverted := duplicateGraph(t, string(notation), IDQualifiedName)
+	parserQuotedName := `P::\'@2\'`
+	parserPositionName := `P::'@2'`
+	reconvertedNames := elementSubjectsByQualifiedName(reconverted)
+	for _, name := range []string{parserQuotedName, parserPositionName} {
+		if reconvertedNames[name] == "" {
+			t.Errorf("reconverted notation has no element named %q: %v\n%s", name, reconvertedNames, notation)
+		}
+	}
+	if reconvertedNames[parserQuotedName] == reconvertedNames[parserPositionName] {
+		t.Errorf("reconverted names %q and %q share a subject", parserQuotedName, parserPositionName)
+	}
+	y := rdf.ElementIRI("P::Y")
+	targets := reconverted.Objects(y, rdf.SysML+"specializes")
+	wantedTargets := map[string]bool{
+		rdf.ElementIRI(parserQuotedName).Value:   true,
+		rdf.ElementIRI(parserPositionName).Value: true,
+	}
+	for _, target := range targets {
+		if !target.IsIRI() || !wantedTargets[target.Value] {
+			t.Errorf("Y specializes unexpected target %v:\n%s", target, notation)
+		}
+		delete(wantedTargets, target.Value)
+	}
+	if len(targets) != 2 || len(wantedTargets) != 0 {
+		t.Errorf("Y's specialization targets are %v, want %v:\n%s", targets, []string{
+			rdf.ElementIRI(parserQuotedName).Value,
+			rdf.ElementIRI(parserPositionName).Value,
+		}, notation)
+	}
+}
+
 // TestDuplicateMemberNamesPositionalCollision keeps a named positional-looking
 // member distinct from a later duplicate identified by its position.
 func TestDuplicateMemberNamesPositionalCollision(t *testing.T) {
