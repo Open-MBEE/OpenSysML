@@ -3621,7 +3621,7 @@ func relativeName(qname, scope string) string {
 	qnameParts := identitySegments(qname)
 	scopeParts := identitySegments(scope)
 	for n := len(scopeParts); n > 0; n-- {
-		if len(qnameParts) >= n && slices.Equal(qnameParts[:n], scopeParts[:n]) {
+		if len(qnameParts) > n && slices.Equal(qnameParts[:n], scopeParts[:n]) {
 			return strings.Join(qnameParts[n:], "::")
 		}
 	}
