@@ -143,6 +143,17 @@ func TestGoldenLayoutExposedMetadataAttribute(t *testing.T) {
 	}
 }
 
+func TestGoldenStreamPictureQualifiesShadowedLayoutField(t *testing.T) {
+	r := migrateStreamLaidOut(t, "stream_layout_shadow", false)
+	if !strings.Contains(string(r.Notation), ":>> DiagramLayout::Picture::height = 40") {
+		t.Errorf("stream picture does not qualify its shadowed height field:\n%s", r.Notation)
+	}
+	checkGolden(t, "testdata/xmi/stream_layout_shadow.layout.golden.sysml", r.Notation)
+	for _, d := range errors(t, "stream_layout_shadow.sysml", r.Notation) {
+		t.Errorf("%v", d)
+	}
+}
+
 func TestGoldenLayoutWildcardExposedMetadataAttribute(t *testing.T) {
 	r := migrateLaidOut(t, "layout_wildcard_exposed_shadow")
 	if l := r.Report.Layout; l == nil || l.DiagramsJoined != 1 || l.PlacementsWritten != 2 {
