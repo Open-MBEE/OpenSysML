@@ -138,3 +138,79 @@ calc def Keys :> Query {
 		}
 	}
 }
+
+func TestExecuteQuotedMetadataFeaturePathReadsLikeProjectProperty(t *testing.T) {
+	fixture := loadExecutionSource(t, `
+metadata def Meta {
+	attribute 'tag with space' : String;
+	attribute tag : String;
+}
+requirement def Tagged {
+	@Meta { 'tag with space' = "ready"; tag = "plain"; }
+}
+package Observatory {
+	private import DocumentQueries::*;
+	private import KerML::Root::Element;
+	private import ScalarValues::*;
+	calc def Paths :> Query {
+		Project(
+			source = Named(qualifiedName = "Tagged"),
+			properties = ("Meta::'tag with space'", "Meta::tag"),
+			columns = (
+				Column(name = "quotedTag", path = "Meta::'tag with space'"),
+				Column(name = "tag", path = "Meta::tag")
+			)
+		)
+	}
+}
+`)
+	result, err := fixture.execute(t, "Paths", nil, Options{})
+	if err != nil {
+		t.Fatalf("Paths: %v", err)
+	}
+	rows := result.Rows()
+	if len(rows) != 1 {
+		t.Fatalf("Paths returned %d rows, want 1", len(rows))
+	}
+	cells := rows[0].Cells()
+	if len(cells) != 4 {
+		t.Fatalf("Paths returned %d cells, want 4", len(cells))
+	}
+	got := []string{
+		cellText(cells[0]), cellText(cells[1]), cellText(cells[2]), cellText(cells[3]),
+	}
+	want := []string{"ready", "plain", "ready", "plain"}
+	if strings.Join(got, " | ") != strings.Join(want, " | ") {
+		t.Fatalf("metadata path cells = %v, want %v", got, want)
+	}
+}
+
+func TestExecuteQuotedMetadataDefinitionProjectProperty(t *testing.T) {
+	fixture := loadExecutionSource(t, `
+metadata def 'My Meta' {
+	attribute tag : String;
+}
+requirement def Tagged {
+	@'My Meta' { tag = "quoted"; }
+}
+package Observatory {
+	private import DocumentQueries::*;
+	private import KerML::Root::Element;
+	private import ScalarValues::*;
+	calc def Paths :> Query {
+		Project(
+			source = Named(qualifiedName = "Tagged"),
+			properties = ("'My Meta'::tag")
+		)
+	}
+}
+`)
+	result, err := fixture.execute(t, "Paths", nil, Options{})
+	if err != nil {
+		t.Fatalf("Paths: %v", err)
+	}
+	rows := result.Rows()
+	if len(rows) != 1 || cellText(rows[0].Cells()[0]) != "quoted" {
+		t.Fatalf("quoted metadata property rows = %v, want one row with quoted", rows)
+	}
+}

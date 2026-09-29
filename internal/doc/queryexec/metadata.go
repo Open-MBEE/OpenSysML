@@ -5,17 +5,26 @@ import (
 
 	"github.com/Open-MBEE/OpenSysML/internal/ir/queryplan"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/symbols"
+	"github.com/Open-MBEE/OpenSysML/internal/syntax/source"
 )
 
 // metadataType is the metadata definition the qualified name names; nil when
 // it names none, or something other than a metadata def.
 func (e *executor) metadataType(name string) *symbols.Symbol {
-	for _, sym := range e.context.Index.LookupQualified(name) {
+	for _, sym := range e.context.Index.LookupQualified(metadataLookupName(name)) {
 		if sym.Kind == symbols.SymbolMetadataDef {
 			return sym
 		}
 	}
 	return nil
+}
+
+func metadataLookupName(name string) string {
+	segments, ok := source.QualifiedNameSegments(name)
+	if !ok || len(segments) == 0 {
+		return name
+	}
+	return strings.Join(segments, "::")
 }
 
 // annotationFeatureValues reads what the metadata annotating sym binds feature
@@ -51,6 +60,8 @@ func (e *executor) annotationFeatureValues(sym *symbols.Symbol, declaring, featu
 // metadataConforms reports whether the metadata type named actual is the one
 // named declaring, or specializes it.
 func (e *executor) metadataConforms(actual, declaring string) bool {
+	actual = metadataLookupName(actual)
+	declaring = metadataLookupName(declaring)
 	if actual == declaring {
 		return true
 	}
@@ -70,9 +81,17 @@ func (e *executor) metadataPathValues(sym *symbols.Symbol, property string) ([]V
 	if i < 0 {
 		return nil, false, nil
 	}
-	declaring, feature := property[:i], property[i+2:]
-	if feature == "" || e.metadataType(declaring) == nil {
+	metadataSegments, ok := source.QualifiedNameSegments(property[:i])
+	if !ok || len(metadataSegments) == 0 {
 		return nil, false, nil
 	}
-	return e.annotationFeatureValues(sym, declaring, feature)
+	featureSegments, ok := source.MemberPathSegments(property[i+2:])
+	if !ok || len(featureSegments) != 1 {
+		return nil, false, nil
+	}
+	declaring := source.QualifiedNameOf(metadataSegments)
+	if e.metadataType(declaring) == nil {
+		return nil, false, nil
+	}
+	return e.annotationFeatureValues(sym, declaring, featureSegments[0])
 }
