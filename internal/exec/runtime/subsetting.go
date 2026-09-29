@@ -170,6 +170,10 @@ func (ctx *Context) relatedFeatureNames(sym, owner *symbols.Symbol, kind ast.Rel
 // feature value (the most specific valued declaration's); two valued names of it is an error.
 // A value carried under one of the names is kept, refined by that declaration.
 func (ctx *Context) aliasRedefinedFeatureValuesOf(inst *Instance, typ *symbols.Symbol, carried map[string]bool, features []EffectiveFeature) error {
+	groups := ctx.redefinitionGroups(typ)
+	if len(groups) == 0 {
+		return nil
+	}
 	byName := make(map[string]*EffectiveFeature, len(features))
 	for i := range features {
 		byName[features[i].Name] = &features[i]
@@ -191,7 +195,7 @@ func (ctx *Context) aliasRedefinedFeatureValuesOf(inst *Instance, typ *symbols.S
 		}
 	}
 
-	for _, names := range ctx.redefinitionGroups(typ) {
+	for _, names := range groups {
 		chosen, err := ctx.sharedRedefinitionName(inst, byName, canonicalByName, names, overridden)
 		if err != nil {
 			return err
