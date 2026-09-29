@@ -239,7 +239,7 @@ func TestAddGuardedAndDefaultSuccessions(t *testing.T) {
 			op := AddThenMember("A", "action", "next", "")
 			op.Multiplicity = "[1]"
 			return op
-		}(), "then [1] action next [1];"},
+		}(), "then [1] action next;"},
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
@@ -252,6 +252,63 @@ func TestAddGuardedAndDefaultSuccessions(t *testing.T) {
 			requireClean(t, loadContent(t, "action-succession.sysml", string(result.Content)))
 		})
 	}
+}
+
+func TestActionBodySourceMultiplicityNotation(t *testing.T) {
+	withMultiplicity := func(op Operation) Operation {
+		op.Multiplicity = "[0..1]"
+		return op
+	}
+	tests := []struct {
+		name string
+		op   Operation
+	}{
+		{
+			name: "top-level member",
+			op:   withMultiplicity(AddThenMember("A", "action", "b", "")),
+		},
+		{
+			name: "nested member",
+			op: AddIf("A", "true", []Operation{
+				{Kind: OpAddSequence, MemberKind: "action", MemberName: "seed"},
+				withMultiplicity(AddThenMember("", "action", "b", "")),
+			}, nil),
+		},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			model := loadContent(t, "action-body-multiplicity.sysml",
+				"action def A {\n    action a;\n}\n")
+			requireClean(t, model)
+			result := applyOne(t, model, test.op)
+			found := false
+			for _, line := range strings.Split(string(result.Content), "\n") {
+				if strings.TrimSpace(line) == "then [0..1] action b;" {
+					found = true
+					break
+				}
+			}
+			if !found {
+				t.Fatalf("expected exact declaration %q:\n%s", "then [0..1] action b;", result.Content)
+			}
+			requireClean(t, loadContent(t, "action-body-multiplicity.sysml", string(result.Content)))
+		})
+	}
+}
+
+func TestNestedFirstCountsAsSequenceSource(t *testing.T) {
+	model := loadContent(t, "action-body-first-source.sysml",
+		"action def A {\n    action a;\n}\n")
+	requireClean(t, model)
+	result := applyOne(t, model, AddIf("A", "true", []Operation{
+		AddFirst("", "start"),
+		AddThenMember("", "action", "x", ""),
+	}, nil))
+	content := string(result.Content)
+	if !strings.Contains(content, "first start;\n        then action x;") {
+		t.Fatalf("nested first and then declarations are missing:\n%s", content)
+	}
+	requireClean(t, loadContent(t, "action-body-first-source.sysml", content))
 }
 
 func TestAddSequenceAfter(t *testing.T) {

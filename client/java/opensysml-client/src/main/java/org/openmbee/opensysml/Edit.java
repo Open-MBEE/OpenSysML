@@ -398,7 +398,7 @@ public sealed interface Edit {
     }
 
     public AddSequence withType(String type) {
-      if (ref.isPresent() || hasActionBodyFields()) {
+      if (ref.isPresent()) {
         throw new IllegalStateException("a then reference takes no member kind, name or type");
       }
       return copy(ref, memberKind, memberName, Optional.of(type), after);

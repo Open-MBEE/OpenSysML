@@ -682,6 +682,28 @@ def test_add_then_multiplicity_serializes(fake_service):
     )
 
 
+def test_add_then_member_multiplicity_serializes(fake_service):
+    port, service = fake_service(
+        capabilities=(
+            CAPABILITY_APPLY_EDITS,
+            CAPABILITY_AUTHORING,
+            CAPABILITY_SEQUENCE_AUTHORING,
+            CAPABILITY_ACTION_BODY_STATEMENT_AUTHORING,
+        )
+    )
+    with Connection(port=port, auto_start=False) as conn:
+        conn.load_from_content(MODEL).edit().add_then(
+            "Demo::A", action="b", multiplicity="[0..1]"
+        ).apply()
+    operation = service.requests[0].operations[0].add_sequence
+    assert (
+        operation.keyword,
+        operation.member_kind,
+        operation.member_name,
+        operation.multiplicity,
+    ) == ("then", "action", "b", "[0..1]")
+
+
 def test_empty_else_body_is_omitted_and_body_is_retained(fake_service):
     port, service = fake_service(
         capabilities=(

@@ -161,6 +161,57 @@ class EditProtosTest {
   }
 
   @Test
+  void anAcceptTypeCanBeSetBeforeOrAfterItsParameter() {
+    var afterParameter =
+        Protos.proto(
+            Edit.AddSequence.thenMember("Demo::A", "accept", "")
+                .withParameter("payload")
+                .withType("Signal"));
+    var beforeParameter =
+        Protos.proto(
+            Edit.AddSequence.thenMember("Demo::A", "accept", "")
+                .withType("Signal")
+                .withParameter("payload"));
+
+    for (var operation : List.of(afterParameter, beforeParameter)) {
+      assertEquals("accept", operation.getAddSequence().getMemberKind());
+      assertEquals("Signal", operation.getAddSequence().getType());
+      assertEquals("payload", operation.getAddSequence().getParameter());
+    }
+  }
+
+  @Test
+  void aForTypeCanBeSetBeforeOrAfterItsParameterAndBody() {
+    var body =
+        List.of(
+            Edit.AddSequence.thenMember("", "assign", "result")
+                .withTarget("result")
+                .withValue("i"));
+    var afterFields =
+        Protos.proto(
+            Edit.AddSequence.thenMember("Demo::A", "for", "")
+                .withParameter("i")
+                .withValue("items")
+                .withBody(body)
+                .withType("Integer"));
+    var beforeFields =
+        Protos.proto(
+            Edit.AddSequence.thenMember("Demo::A", "for", "")
+                .withType("Integer")
+                .withParameter("i")
+                .withValue("items")
+                .withBody(body));
+
+    for (var operation : List.of(afterFields, beforeFields)) {
+      assertEquals("for", operation.getAddSequence().getMemberKind());
+      assertEquals("Integer", operation.getAddSequence().getType());
+      assertEquals("i", operation.getAddSequence().getParameter());
+      assertEquals("items", operation.getAddSequence().getValue());
+      assertEquals(1, operation.getAddSequence().getBodyCount());
+    }
+  }
+
+  @Test
   void anAddSequenceEditCarriesRecursiveActionBodyFields() {
     var nested =
         new Edit.AddSequence(

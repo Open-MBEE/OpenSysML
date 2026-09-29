@@ -238,7 +238,9 @@ func (m Model) formatSequenceDeclaration(i int, owner string, scope *symbols.Sco
 	} else if op.SequenceKeyword != "" {
 		return "", sequenceError(i, fmt.Sprintf("member declaration cannot use keyword %q", op.SequenceKeyword))
 	}
-	return prefix + writeMember(op, memberKinds[op.MemberKind]), nil
+	member := op
+	member.Multiplicity = ""
+	return prefix + writeMember(member, memberKinds[op.MemberKind]), nil
 }
 
 func (m Model) formatActionStatement(i int, owner string, scope *symbols.Scope, op Operation, depth int, memberIndent, unit string) (string, error) {
@@ -453,7 +455,10 @@ func (m Model) formatNestedBody(i int, owner string, scope *symbols.Scope, body 
 }
 
 func sequenceItemIsSource(op Operation) bool {
-	if op.SequenceKeyword == "first" || op.SequenceRef != "" {
+	if op.SequenceKeyword == "first" {
+		return true
+	}
+	if op.SequenceRef != "" {
 		return false
 	}
 	return op.MemberKind != ""
