@@ -1,0 +1,1 @@
+- `sysml -satisfy` without a name finds the satisfaction assertions of a file loaded from the record cache, rather than reporting none on runs after the first.

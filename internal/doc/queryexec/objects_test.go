@@ -77,6 +77,13 @@ calc def Engines :> Query {
 	in root : Element;
 	Project(source = root, properties = ("qualifiedName", "engine", "doors"))
 }
+calc def DoorPaths :> Query {
+	Project(
+		source = Objects(type = "Car"),
+		properties = ("qualifiedName", "doors"),
+		columns = (Column(name = "path", path = "doors"))
+	)
+}
 calc def EveryWheel :> Query {
 	Project(source = Objects(type = "Wheel"), properties = ("qualifiedName", "pressure"))
 }
@@ -291,6 +298,23 @@ func TestExecuteReadsCurrentObjectValues(t *testing.T) {
 	}
 	if got := integerTexts(t, engines, 2); got[0] != 4 {
 		t.Fatalf("doors = %v, want 4", got)
+	}
+}
+
+func TestExecuteColumnPathReadsObjectRowProperty(t *testing.T) {
+	fixture := loadObjectFixture(t)
+	result := fixture.rows(t, "DoorPaths", Bindings{})
+	rows := result.Rows()
+	if len(rows) != 1 {
+		t.Fatalf("rows = %d, want 1", len(rows))
+	}
+	projected, ok := rows[0].Cells()[1].Values()[0].Integer()
+	if !ok {
+		t.Fatalf("Project property = %+v, want integer", rows[0].Cells()[1].Values())
+	}
+	path, ok := rows[0].Cells()[2].Values()[0].Integer()
+	if !ok || path != projected {
+		t.Fatalf("path property = %+v, Project property = %d", rows[0].Cells()[2].Values(), projected)
 	}
 }
 

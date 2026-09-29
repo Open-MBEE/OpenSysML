@@ -5,6 +5,7 @@ import (
 
 	"github.com/Open-MBEE/OpenSysML/internal/ir/queryplan"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/symbols"
+	"github.com/Open-MBEE/OpenSysML/internal/syntax/source"
 )
 
 // metadataType is the metadata definition the qualified name names; nil when
@@ -66,12 +67,17 @@ func (e *executor) metadataConforms(actual, declaring string) bool {
 // qualified name of a feature of a metadata def: what the annotations of that
 // def on the row bind the feature to. Not such a spelling: present is false.
 func (e *executor) metadataPathValues(sym *symbols.Symbol, property string) ([]Value, bool, error) {
-	i := strings.LastIndex(property, "::")
-	if i < 0 {
+	metadataSegments, feature, ok := source.MetadataPathSegments(property)
+	if !ok {
 		return nil, false, nil
 	}
-	declaring, feature := property[:i], property[i+2:]
-	if feature == "" || e.metadataType(declaring) == nil {
+	declaring := strings.Join(metadataSegments, "::")
+	metadata := e.metadataType(declaring)
+	if metadata == nil {
+		return nil, false, nil
+	}
+	member, ok := e.context.Model.LookupMember(metadata, feature)
+	if !ok || member == nil || !member.IsFeature() {
 		return nil, false, nil
 	}
 	return e.annotationFeatureValues(sym, declaring, feature)

@@ -160,6 +160,9 @@ func TestStateBehaviorsTakeTheSignalTheirTransitionsAccept(t *testing.T) {
 	} {
 		wantLine(t, r.Notation, line)
 	}
+	if diags := errors(t, "heater.sysml", r.Notation); len(diags) > 0 {
+		t.Errorf("%v", diags)
+	}
 	if !strings.Contains(string(r.Notation), "then warm;") {
 		t.Errorf("no succession reaches the call whose inputs the signal values:\n%s", r.Notation)
 	}
@@ -347,6 +350,7 @@ func TestReferencedStateBehaviorsTakeTheSignalTheirTransitionsAccept(t *testing.
 		"item warning : Warning;",
 		"state Ready {",
 		"entry action : Handle { in level[1] = warning.level; in ref :>> context = Watch::context; }",
+		"exhibit state watch : Watch { in ref :>> context = this; }",
 		"/* do action Monitor::Handle is not run: its parameter level must hold a value that nothing supplies: a state performs its do action with no arguments; the signal the transitions into the state accept would value them, but the transition from the initial pseudostate (_minit) enters the state with no signal of its own */",
 	} {
 		wantLine(t, r.Notation, line)
@@ -360,8 +364,12 @@ func TestReferencedStateBehaviorsTakeTheSignalTheirTransitionsAccept(t *testing.
 	}
 
 	s := session(t, r)
-	meta(t, s, "%instantiate Monitor")
-	meta(t, s, "%state Monitor::Watch")
+	if out := meta(t, s, "%instantiate Monitor"); strings.Contains(out, "error:") {
+		t.Fatalf("%%instantiate Monitor: %s", out)
+	}
+	if out := meta(t, s, "%state Monitor::Watch"); strings.Contains(out, "error:") {
+		t.Fatalf("%%state Monitor::Watch: %s", out)
+	}
 	if out := meta(t, s, "%send Warning(level=2.5)"); !strings.Contains(out, "transition Idle -> Ready fires on it") {
 		t.Errorf("%%send Warning: %s", out)
 	}
