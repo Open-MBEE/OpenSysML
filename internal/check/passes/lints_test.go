@@ -245,6 +245,7 @@ const portDefs = `
 	part def Sink { port fuel : FuelIn; port powerIn : PowerIn; }
 	interface def Link { end a : PowerOut; end b : PowerIn; }
 	interface def HalfLink { end a : PowerOut; end b; }
+	connection def Pipe { end a : PowerOut; end b : FuelIn; }
 	interface def SubMount :> Mount { end x; }
 `
 
@@ -259,6 +260,7 @@ func TestPortTypeMismatchLint(t *testing.T) {
 		{"interface", `interface i connect a.power to b.fuel;`, []string{"interface i connects port power : PowerOut to port fuel : FuelIn"}},
 		{"flow", `flow from a.power to b.fuel;`, []string{"flow connects port power : PowerOut to port fuel : FuelIn"}},
 		{"features by other names", `connect a.other to b.powerIn;`, []string{"port other : Other to port powerIn : PowerIn"}},
+		{"connection typed by a port-typed connection definition", `connection : Pipe connect a.power to b.fuel;`, []string{"port power : PowerOut to port fuel : FuelIn"}},
 		{"interface with one port-typed end", `interface : HalfLink connect a.power to b.fuel;`, []string{"port power : PowerOut to port fuel : FuelIn"}},
 	}
 	for _, tc := range cases {

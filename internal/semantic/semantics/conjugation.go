@@ -514,8 +514,8 @@ func (m *Model) DeclaredTypes(sym *symbols.Symbol) []*symbols.Symbol {
 // the other, they specialize no common definition of the model's own, and
 // neither port's directed features all match the other's with conjugate
 // directions and conforming types (§7.12.2). An end not typed by a port
-// definition is not reported, nor is a connector typed by a definition whose
-// own ends are all typed by ports: that definition decides what they pair.
+// definition is not reported, nor is a connector typed by an interface whose
+// two ends are typed by ports: that interface decides what they pair.
 func (m *Model) ConnectedPortsMismatch(connector, a, b *symbols.Symbol) (portA, portB *symbols.Symbol, mismatch bool) {
 	portA, featuresA, ok := m.endPortFeatures(a)
 	if !ok {
@@ -537,12 +537,16 @@ func (m *Model) ConnectedPortsMismatch(connector, a, b *symbols.Symbol) (portA, 
 	return portA, portB, true
 }
 
-// typedByPortEnds reports whether a type of connector types two or more ends,
-// every one of them, by a port definition.
+// typedByPortEnds reports whether connector is typed by an interface whose two
+// ends are both typed by port definitions: InterfaceEndPortMismatch judges that
+// pairing, so the interface decides what its usages' ends pair.
 func (m *Model) typedByPortEnds(connector *symbols.Symbol) bool {
 	for _, typ := range m.DeclaredTypes(connector) {
+		if !interfaceLike(typ) {
+			continue
+		}
 		ends := m.endsOf(typ)
-		if len(ends) >= 2 && slices.IndexFunc(ends, func(end *symbols.Symbol) bool { return !m.typedByPort(end) }) < 0 {
+		if len(ends) == 2 && m.typedByPort(ends[0]) && m.typedByPort(ends[1]) {
 			return true
 		}
 	}

@@ -71,10 +71,11 @@ holds:
 - one port's directed features each have a feature of the other with the same name, the
   conjugate direction (`in` against `out`; `inout` against `inout`) and a conforming type —
   a conjugated port (`port p : ~P`) reverses its definition's directions first;
-- the connector is typed by an interface or connection definition with two or more ends,
-  every one typed by a port definition, directly or through a model end it redefines: that
-  definition decides what the ends pair, and its own ends are judged by `port-conjugation`. A definition leaving an end untyped decides
-  nothing, so the concrete ends are judged.
+- the connector is typed by an interface definition with two ends, both typed by a port
+  definition, directly or through a model end it redefines: that interface decides what the
+  ends pair, and its own ends are judged by `port-conjugation`. An interface leaving an end
+  untyped decides nothing, and nothing judges a connection definition's or a many-ended
+  interface's ends, so their usages' concrete ends are judged.
 
 Otherwise the lint reports the connector at its first end:
 
