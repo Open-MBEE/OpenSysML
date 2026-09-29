@@ -116,7 +116,8 @@ private static final long serialVersionUID = 0L;
   /**
    * <pre>
    * Sequence keyword: "first", "then", "if", "else", or empty for a plain member.
-   * These action-body forms follow SysML.xtext:1368, 1442–1641; formal/2026-03-02.
+   * These action-body forms follow SysML.xtext:1607 ActionBodyParameter, 1442 AcceptNode,
+   * 1499 SendNode, 1535 AssignmentNode, 1596 IfNode, 1615 WhileLoopNode, 1624 ForLoopNode, 1641 TerminateNode; formal/2026-03-02.
    * </pre>
    *
    * <code>string keyword = 2 [json_name = "keyword"];</code>
@@ -138,7 +139,8 @@ private static final long serialVersionUID = 0L;
   /**
    * <pre>
    * Sequence keyword: "first", "then", "if", "else", or empty for a plain member.
-   * These action-body forms follow SysML.xtext:1368, 1442–1641; formal/2026-03-02.
+   * These action-body forms follow SysML.xtext:1607 ActionBodyParameter, 1442 AcceptNode,
+   * 1499 SendNode, 1535 AssignmentNode, 1596 IfNode, 1615 WhileLoopNode, 1624 ForLoopNode, 1641 TerminateNode; formal/2026-03-02.
    * </pre>
    *
    * <code>string keyword = 2 [json_name = "keyword"];</code>
@@ -766,7 +768,7 @@ private static final long serialVersionUID = 0L;
   /**
    * <pre>
    * Source-end multiplicity, written as bracketed notation, only with "then".
-   * SysML.xtext:878, 887, 1703, 1708, 1714; formal/2026-03-02.
+   * SysML.xtext:878, 887, 1703 TargetSuccession, 1708 GuardedTargetSuccession, 1714 DefaultTargetSuccession; formal/2026-03-02.
    * </pre>
    *
    * <code>string multiplicity = 15 [json_name = "multiplicity"];</code>
@@ -788,7 +790,7 @@ private static final long serialVersionUID = 0L;
   /**
    * <pre>
    * Source-end multiplicity, written as bracketed notation, only with "then".
-   * SysML.xtext:878, 887, 1703, 1708, 1714; formal/2026-03-02.
+   * SysML.xtext:878, 887, 1703 TargetSuccession, 1708 GuardedTargetSuccession, 1714 DefaultTargetSuccession; formal/2026-03-02.
    * </pre>
    *
    * <code>string multiplicity = 15 [json_name = "multiplicity"];</code>
@@ -1702,7 +1704,8 @@ private static final long serialVersionUID = 0L;
     /**
      * <pre>
      * Sequence keyword: "first", "then", "if", "else", or empty for a plain member.
-     * These action-body forms follow SysML.xtext:1368, 1442–1641; formal/2026-03-02.
+     * These action-body forms follow SysML.xtext:1607 ActionBodyParameter, 1442 AcceptNode,
+     * 1499 SendNode, 1535 AssignmentNode, 1596 IfNode, 1615 WhileLoopNode, 1624 ForLoopNode, 1641 TerminateNode; formal/2026-03-02.
      * </pre>
      *
      * <code>string keyword = 2 [json_name = "keyword"];</code>
@@ -1723,7 +1726,8 @@ private static final long serialVersionUID = 0L;
     /**
      * <pre>
      * Sequence keyword: "first", "then", "if", "else", or empty for a plain member.
-     * These action-body forms follow SysML.xtext:1368, 1442–1641; formal/2026-03-02.
+     * These action-body forms follow SysML.xtext:1607 ActionBodyParameter, 1442 AcceptNode,
+     * 1499 SendNode, 1535 AssignmentNode, 1596 IfNode, 1615 WhileLoopNode, 1624 ForLoopNode, 1641 TerminateNode; formal/2026-03-02.
      * </pre>
      *
      * <code>string keyword = 2 [json_name = "keyword"];</code>
@@ -1745,7 +1749,8 @@ private static final long serialVersionUID = 0L;
     /**
      * <pre>
      * Sequence keyword: "first", "then", "if", "else", or empty for a plain member.
-     * These action-body forms follow SysML.xtext:1368, 1442–1641; formal/2026-03-02.
+     * These action-body forms follow SysML.xtext:1607 ActionBodyParameter, 1442 AcceptNode,
+     * 1499 SendNode, 1535 AssignmentNode, 1596 IfNode, 1615 WhileLoopNode, 1624 ForLoopNode, 1641 TerminateNode; formal/2026-03-02.
      * </pre>
      *
      * <code>string keyword = 2 [json_name = "keyword"];</code>
@@ -1763,7 +1768,8 @@ private static final long serialVersionUID = 0L;
     /**
      * <pre>
      * Sequence keyword: "first", "then", "if", "else", or empty for a plain member.
-     * These action-body forms follow SysML.xtext:1368, 1442–1641; formal/2026-03-02.
+     * These action-body forms follow SysML.xtext:1607 ActionBodyParameter, 1442 AcceptNode,
+     * 1499 SendNode, 1535 AssignmentNode, 1596 IfNode, 1615 WhileLoopNode, 1624 ForLoopNode, 1641 TerminateNode; formal/2026-03-02.
      * </pre>
      *
      * <code>string keyword = 2 [json_name = "keyword"];</code>
@@ -1778,7 +1784,8 @@ private static final long serialVersionUID = 0L;
     /**
      * <pre>
      * Sequence keyword: "first", "then", "if", "else", or empty for a plain member.
-     * These action-body forms follow SysML.xtext:1368, 1442–1641; formal/2026-03-02.
+     * These action-body forms follow SysML.xtext:1607 ActionBodyParameter, 1442 AcceptNode,
+     * 1499 SendNode, 1535 AssignmentNode, 1596 IfNode, 1615 WhileLoopNode, 1624 ForLoopNode, 1641 TerminateNode; formal/2026-03-02.
      * </pre>
      *
      * <code>string keyword = 2 [json_name = "keyword"];</code>
@@ -3371,7 +3378,7 @@ private static final long serialVersionUID = 0L;
     /**
      * <pre>
      * Source-end multiplicity, written as bracketed notation, only with "then".
-     * SysML.xtext:878, 887, 1703, 1708, 1714; formal/2026-03-02.
+     * SysML.xtext:878, 887, 1703 TargetSuccession, 1708 GuardedTargetSuccession, 1714 DefaultTargetSuccession; formal/2026-03-02.
      * </pre>
      *
      * <code>string multiplicity = 15 [json_name = "multiplicity"];</code>
@@ -3392,7 +3399,7 @@ private static final long serialVersionUID = 0L;
     /**
      * <pre>
      * Source-end multiplicity, written as bracketed notation, only with "then".
-     * SysML.xtext:878, 887, 1703, 1708, 1714; formal/2026-03-02.
+     * SysML.xtext:878, 887, 1703 TargetSuccession, 1708 GuardedTargetSuccession, 1714 DefaultTargetSuccession; formal/2026-03-02.
      * </pre>
      *
      * <code>string multiplicity = 15 [json_name = "multiplicity"];</code>
@@ -3414,7 +3421,7 @@ private static final long serialVersionUID = 0L;
     /**
      * <pre>
      * Source-end multiplicity, written as bracketed notation, only with "then".
-     * SysML.xtext:878, 887, 1703, 1708, 1714; formal/2026-03-02.
+     * SysML.xtext:878, 887, 1703 TargetSuccession, 1708 GuardedTargetSuccession, 1714 DefaultTargetSuccession; formal/2026-03-02.
      * </pre>
      *
      * <code>string multiplicity = 15 [json_name = "multiplicity"];</code>
@@ -3432,7 +3439,7 @@ private static final long serialVersionUID = 0L;
     /**
      * <pre>
      * Source-end multiplicity, written as bracketed notation, only with "then".
-     * SysML.xtext:878, 887, 1703, 1708, 1714; formal/2026-03-02.
+     * SysML.xtext:878, 887, 1703 TargetSuccession, 1708 GuardedTargetSuccession, 1714 DefaultTargetSuccession; formal/2026-03-02.
      * </pre>
      *
      * <code>string multiplicity = 15 [json_name = "multiplicity"];</code>
@@ -3447,7 +3454,7 @@ private static final long serialVersionUID = 0L;
     /**
      * <pre>
      * Source-end multiplicity, written as bracketed notation, only with "then".
-     * SysML.xtext:878, 887, 1703, 1708, 1714; formal/2026-03-02.
+     * SysML.xtext:878, 887, 1703 TargetSuccession, 1708 GuardedTargetSuccession, 1714 DefaultTargetSuccession; formal/2026-03-02.
      * </pre>
      *
      * <code>string multiplicity = 15 [json_name = "multiplicity"];</code>

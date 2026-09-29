@@ -115,9 +115,10 @@ and `type` fields:
 `authoring` and `requirement_constraint_authoring`; transition edits require `authoring` and
 `transition_authoring`; existing sequence edits require `authoring` and `sequence_authoring`, and
 action-body items or source-end multiplicities additionally require
-`action_body_statement_authoring`. Action-body statements follow SysML.xtext:1368, 1442–1641;
-succession ends follow 878, 887, 1703, 1708 and 1714; the settled semantics are in
-formal/2026-03-02. An `add_member` edit with any new modifier or
+`action_body_statement_authoring`. Action-body statements follow SysML.xtext:1607 ActionBodyParameter,
+1442 AcceptNode, 1499 SendNode, 1535 AssignmentNode, 1596 IfNode, 1615 WhileLoopNode, 1624 ForLoopNode,
+and 1641 TerminateNode; succession ends follow 878, 887, 1703 TargetSuccession, 1708 GuardedTargetSuccession
+and 1714 DefaultTargetSuccession; the settled semantics are in formal/2026-03-02. An `add_member` edit with any new modifier or
 the `ref`/`return` kind also requires `member_modifiers`. An `add_member` edit with an empty `kind` writes a
 directed usage with no kind keyword (`in x : T;`) — direction is required and `abstract` is refused — and
 requires `authoring` and `implicit_parameters`. Clients preflight these capabilities

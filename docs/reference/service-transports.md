@@ -86,7 +86,9 @@ components are refused when read.
 For `ApplyEdits`, ordinary sequence items require `authoring` and `sequence_authoring`. Recursive
 action-body statements and source-end multiplicities also require
 `action_body_statement_authoring`; nested statements remain `AddSequenceEdit` items. The forms
-follow SysML.xtext:878, 887, 1368, 1442–1641, 1703, 1708, 1714 and formal/2026-03-02.
+follow SysML.xtext:878, 887, 1607 ActionBodyParameter, 1442 AcceptNode, 1499 SendNode,
+1535 AssignmentNode, 1596 IfNode, 1615 WhileLoopNode, 1624 ForLoopNode, 1641 TerminateNode,
+1703 TargetSuccession, 1708 GuardedTargetSuccession, 1714 DefaultTargetSuccession and formal/2026-03-02.
 
 So a client cannot treat "the call succeeded" as "the field was computed", and cannot treat
 "no refusal" as "the capability is there". Every client this repository ships checks the list

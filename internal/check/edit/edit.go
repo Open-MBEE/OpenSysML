@@ -185,77 +185,78 @@ func AddTransition(owner, name, from, to, trigger, guard, effect string, initial
 	}
 }
 
-// AddFirst inserts `first <ref>;` into an action body (SysML.xtext:1703; formal/2026-03-02).
+// AddFirst inserts `first <ref>;` into an action body (SysML.xtext:1384 InitialNodeMember; formal/2026-03-02).
 func AddFirst(owner, ref string) Operation {
 	return Operation{Kind: OpAddSequence, Owner: owner, SequenceKeyword: "first", SequenceRef: ref}
 }
 
-// AddThen inserts `then <ref>;` into an action body (SysML.xtext:1703, 1708, 1714; formal/2026-03-02).
+// AddThen inserts `then <ref>;` into an action body (SysML.xtext:1703 TargetSuccession; formal/2026-03-02).
 func AddThen(owner, ref string) Operation {
 	return Operation{Kind: OpAddSequence, Owner: owner, SequenceKeyword: "then", SequenceRef: ref}
 }
 
-// AddAccept inserts an accept node, optionally typed and associated with a port (SysML.xtext:1442–1641; formal/2026-03-02).
+// AddAccept inserts an accept node, optionally typed and associated with a port (SysML.xtext:1442 AcceptNode; formal/2026-03-02).
 func AddAccept(owner, payload, typ, via string) Operation {
 	return Operation{Kind: OpAddSequence, Owner: owner, SequenceKeyword: "then", MemberKind: "accept",
 		SequenceParameter: payload, Type: typ, SequenceVia: via}
 }
 
-// AddSend inserts a send node with a payload and optional receiver and port (SysML.xtext:1442–1641; formal/2026-03-02).
+// AddSend inserts a send node with a payload and optional receiver and port (SysML.xtext:1499 SendNode; formal/2026-03-02).
 func AddSend(owner, payload, to, via string) Operation {
 	return Operation{Kind: OpAddSequence, Owner: owner, SequenceKeyword: "then", MemberKind: "send",
 		SequenceValue: payload, SequenceTarget: to, SequenceVia: via}
 }
 
-// AddAssign inserts an assignment action (SysML.xtext:1442–1641; formal/2026-03-02).
+// AddAssign inserts an assignment action (SysML.xtext:1535 AssignmentNode; formal/2026-03-02).
 func AddAssign(owner, target, value string) Operation {
 	return Operation{Kind: OpAddSequence, Owner: owner, SequenceKeyword: "then", MemberKind: "assign",
 		SequenceTarget: target, SequenceValue: value}
 }
 
-// AddIf inserts a conditional action with optional else-body items (SysML.xtext:1442–1641; formal/2026-03-02).
+// AddIf inserts a conditional action with optional else-body items (SysML.xtext:1596 IfNode, 1607 ActionBodyParameter; formal/2026-03-02).
 func AddIf(owner, condition string, body, elseBody []Operation) Operation {
 	return Operation{Kind: OpAddSequence, Owner: owner, SequenceKeyword: "then", MemberKind: "if",
 		SequenceCondition: condition, SequenceBody: body, SequenceElse: elseBody}
 }
 
-// AddWhile inserts a while loop with an optional until condition (SysML.xtext:1442–1641; formal/2026-03-02).
+// AddWhile inserts a while loop with an optional until condition (SysML.xtext:1615 WhileLoopNode, 1607 ActionBodyParameter; formal/2026-03-02).
 func AddWhile(owner, condition string, body []Operation, until string) Operation {
 	return Operation{Kind: OpAddSequence, Owner: owner, SequenceKeyword: "then", MemberKind: "while",
 		SequenceCondition: condition, SequenceBody: body, SequenceUntil: until}
 }
 
-// AddLoop inserts a loop with an optional until condition (SysML.xtext:1442–1641; formal/2026-03-02).
+// AddLoop inserts a loop with an optional until condition (SysML.xtext:1615 WhileLoopNode, 1607 ActionBodyParameter; formal/2026-03-02).
 func AddLoop(owner string, body []Operation, until string) Operation {
 	return Operation{Kind: OpAddSequence, Owner: owner, SequenceKeyword: "then", MemberKind: "loop",
 		SequenceBody: body, SequenceUntil: until}
 }
 
-// AddFor inserts an iteration over a collection with an optional type (SysML.xtext:1442–1641; formal/2026-03-02).
+// AddFor inserts an iteration over a collection with an optional type (SysML.xtext:1624 ForLoopNode, 1607 ActionBodyParameter; formal/2026-03-02).
 func AddFor(owner, variable, typ, collection string, body []Operation) Operation {
 	return Operation{Kind: OpAddSequence, Owner: owner, SequenceKeyword: "then", MemberKind: "for",
 		SequenceParameter: variable, Type: typ, SequenceValue: collection, SequenceBody: body}
 }
 
-// AddTerminate inserts a terminate action with an optional occurrence (SysML.xtext:1442–1641; formal/2026-03-02).
+// AddTerminate inserts a terminate action with an optional occurrence (SysML.xtext:1641 TerminateNode; formal/2026-03-02).
 func AddTerminate(owner, occurrence string) Operation {
 	return Operation{Kind: OpAddSequence, Owner: owner, SequenceKeyword: "then", MemberKind: "terminate",
 		SequenceValue: occurrence}
 }
 
-// AddGuardedThen inserts a guarded target succession (SysML.xtext:1703, 1708; formal/2026-03-02).
+// AddGuardedThen inserts a guarded target succession (SysML.xtext:1708 GuardedTargetSuccession; formal/2026-03-02).
 func AddGuardedThen(owner, guard, ref string) Operation {
 	return Operation{Kind: OpAddSequence, Owner: owner, SequenceKeyword: "if",
 		SequenceCondition: guard, SequenceRef: ref}
 }
 
-// AddElse inserts a default target succession (SysML.xtext:1703, 1714; formal/2026-03-02).
+// AddElse inserts a default target succession (SysML.xtext:1714 DefaultTargetSuccession; formal/2026-03-02).
 func AddElse(owner, ref string) Operation {
 	return Operation{Kind: OpAddSequence, Owner: owner, SequenceKeyword: "else",
 		SequenceRef: ref}
 }
 
-// AddThenMember inserts `then <kind> <name> : <type>;` (SysML.xtext:1368, 1703; formal/2026-03-02), declaring the member
+// AddThenMember inserts `then <kind> <name> : <type>;` (SysML.xtext:1368 ActionNodeMember, 1703 TargetSuccession; formal/2026-03-02),
+// declaring the member
 // the `then` sequences to; kind is action, perform action, state, merge,
 // decide, join or fork, and the control nodes take no type.
 func AddThenMember(owner, kind, name, typ string) Operation {

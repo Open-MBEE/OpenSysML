@@ -1124,7 +1124,8 @@ pub struct AddSequenceEdit {
     #[prost(string, tag="1")]
     pub owner: ::prost::alloc::string::String,
     /// Sequence keyword: "first", "then", "if", "else", or empty for a plain member.
-    /// These action-body forms follow SysML.xtext:1368, 1442–1641; formal/2026-03-02.
+    /// These action-body forms follow SysML.xtext:1607 ActionBodyParameter, 1442 AcceptNode,
+    /// 1499 SendNode, 1535 AssignmentNode, 1596 IfNode, 1615 WhileLoopNode, 1624 ForLoopNode, 1641 TerminateNode; formal/2026-03-02.
     #[prost(string, tag="2")]
     pub keyword: ::prost::alloc::string::String,
     /// Node a bare `first <ref>;`/`then <ref>;` names; empty when the `then`
@@ -1167,7 +1168,7 @@ pub struct AddSequenceEdit {
     #[prost(message, repeated, tag="14")]
     pub else_body: ::prost::alloc::vec::Vec<AddSequenceEdit>,
     /// Source-end multiplicity, written as bracketed notation, only with "then".
-    /// SysML.xtext:878, 887, 1703, 1708, 1714; formal/2026-03-02.
+    /// SysML.xtext:878, 887, 1703 TargetSuccession, 1708 GuardedTargetSuccession, 1714 DefaultTargetSuccession; formal/2026-03-02.
     #[prost(string, tag="15")]
     pub multiplicity: ::prost::alloc::string::String,
     /// Payload name for accept or loop variable for for.

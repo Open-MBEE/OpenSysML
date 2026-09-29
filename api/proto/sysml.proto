@@ -926,7 +926,8 @@ message AddSequenceEdit {
   // Action body receiving the member.
   string owner = 1;
   // Sequence keyword: "first", "then", "if", "else", or empty for a plain member.
-  // These action-body forms follow SysML.xtext:1368, 1442–1641; formal/2026-03-02.
+  // These action-body forms follow SysML.xtext:1607 ActionBodyParameter, 1442 AcceptNode,
+  // 1499 SendNode, 1535 AssignmentNode, 1596 IfNode, 1615 WhileLoopNode, 1624 ForLoopNode, 1641 TerminateNode; formal/2026-03-02.
   string keyword = 2;
   // Node a bare `first <ref>;`/`then <ref>;` names; empty when the `then`
   // declares a member instead.
@@ -956,7 +957,7 @@ message AddSequenceEdit {
   // An explicit empty `else { }` is not authorable; it performs nothing and is equivalent to omitting it.
   repeated AddSequenceEdit else_body = 14;
   // Source-end multiplicity, written as bracketed notation, only with "then".
-  // SysML.xtext:878, 887, 1703, 1708, 1714; formal/2026-03-02.
+  // SysML.xtext:878, 887, 1703 TargetSuccession, 1708 GuardedTargetSuccession, 1714 DefaultTargetSuccession; formal/2026-03-02.
   string multiplicity = 15;
   // Payload name for accept or loop variable for for.
   string parameter = 16;

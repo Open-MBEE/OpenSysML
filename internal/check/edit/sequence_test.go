@@ -169,9 +169,6 @@ func TestAddActionBodyStatementRefusals(t *testing.T) {
 		{"unknown guarded succession target", base, AddGuardedThen("A", "true", "missing"), FailureUnknownTarget},
 		{"missing default succession target", base, AddElse("A", ""), FailureIllegalKind},
 		{"unknown default succession target", base, AddElse("A", "missing"), FailureUnknownTarget},
-		{"invalid source multiplicity", base, set(AddAssign("A", "x", "1"), func(op *Operation) {
-			op.Multiplicity = "1"
-		}), FailureInvalidValue},
 		{"source multiplicity without then", base, set(plainSequenceStatement(AddAssign("A", "x", "1")), func(op *Operation) {
 			op.Multiplicity = "[1]"
 		}), FailureIllegalKind},
@@ -194,6 +191,28 @@ func TestAddActionBodyStatementRefusals(t *testing.T) {
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
 			addFailure(t, test.m, test.op, test.want)
+		})
+	}
+}
+
+func TestSourceMultiplicityRefusals(t *testing.T) {
+	base := loadContent(t, "action-body-multiplicity-refusals.sysml",
+		"action def A { action a; }\n")
+	for _, test := range []struct {
+		name, value string
+	}{
+		{"missing close after opener", "["},
+		{"missing close after bound", "[1"},
+		{"trailing text", "[1] x"},
+		{"not bracketed", "1"},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			op := AddThen("A", "done")
+			op.Multiplicity = test.value
+			err := addFailure(t, base, op, FailureInvalidValue)
+			if len(err.Diagnostics) == 0 {
+				t.Fatal("parse refusal has no diagnostics")
+			}
 		})
 	}
 }

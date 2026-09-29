@@ -7,11 +7,13 @@ import (
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/resolve"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/symbols"
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/ast"
+	"github.com/Open-MBEE/OpenSysML/internal/syntax/diag"
+	"github.com/Open-MBEE/OpenSysML/internal/syntax/parser"
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/source"
 )
 
 // sequenceMemberKinds are the usage kinds a `then` declares in an action body
-// (SysML.xtext ActionNodeMember, plus a target usage member): the named usages
+// (SysML.xtext:1368 ActionNodeMember, plus a target usage member): the named usages
 // state a type, the control nodes take their name alone.
 var sequenceMemberKinds = map[string]bool{ // value: whether a type is admitted
 	"action":         true,
@@ -499,12 +501,49 @@ func validateSourceMultiplicity(i int, keyword, multiplicity string) error {
 	if keyword != "then" {
 		return sequenceError(i, "source multiplicity is only legal with keyword then")
 	}
-	if len(multiplicity) < 3 || multiplicity[0] != '[' ||
-		multiplicity[len(multiplicity)-1] != ']' {
+	text := strings.TrimSpace(multiplicity)
+	sf := source.New("<multiplicity>", []byte(text))
+	refuse := func(reason string, diags []diag.Diagnostic) error {
 		return &Error{
-			Failure: FailureInvalidValue, OperationIndex: i,
-			Message: "source multiplicity must be bracketed, for example [0..1]",
+			Failure:        FailureInvalidValue,
+			OperationIndex: i,
+			Diagnostics:    diags,
+			Diagnosed:      sf,
+			Message:        fmt.Sprintf("source multiplicity %q %s", multiplicity, reason),
 		}
+	}
+	if text == "" {
+		return refuse("is empty", []diag.Diagnostic{{
+			Severity: diag.SeverityError,
+			Span:     source.Span{},
+			Message:  "expected a multiplicity beginning with '['",
+			Code:     "syntax",
+			Source:   "syntax",
+		}})
+	}
+	p := parser.New(sf)
+	mult := p.ParseMultiplicity()
+	if len(p.Diagnostics) > 0 {
+		return refuse("does not parse as a multiplicity", parseDiagnostics(p.Diagnostics))
+	}
+	if mult == nil {
+		return refuse("does not parse as a multiplicity", []diag.Diagnostic{{
+			Severity: diag.SeverityError,
+			Span:     source.Span{Offset: 0, Len: len(text)},
+			Message:  "expected a multiplicity beginning with '['",
+			Code:     "syntax",
+			Source:   "syntax",
+		}})
+	}
+	if end := mult.Span().End(); end != len(text) {
+		return refuse(fmt.Sprintf("is not one multiplicity: %q is left over", text[end:]),
+			[]diag.Diagnostic{{
+				Severity: diag.SeverityError,
+				Span:     source.Span{Offset: end, Len: len(text) - end},
+				Message:  "unexpected text after multiplicity",
+				Code:     "syntax",
+				Source:   "syntax",
+			}})
 	}
 	return nil
 }

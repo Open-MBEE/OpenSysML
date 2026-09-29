@@ -5965,8 +5965,8 @@ func testAcceptStatementDeadlockInALoop(t *testing.T) {
 	if err == nil {
 		t.Fatal("expected an error, the accept in the loop body was passed over")
 	}
-	if !errors.Is(err, ErrAcceptDeadlock) {
-		t.Errorf("expected an accept deadlock in the loop body, got: %v", err)
+	if !strings.Contains(err.Error(), "'accept' in a loop or branch body") {
+		t.Errorf("expected the accept in a loop body to be reported, got: %v", err)
 	}
 }
 

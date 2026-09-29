@@ -1227,8 +1227,10 @@ These action-body forms also apply recursively inside their own bodies; a
 nested statement uses the same RDF mapping as a top-level body item. A
 succession source multiplicity is carried on the source connector end, including
 whether `[m]` preceded `then`; `sysx:sourceMultiplicityBeforeThen` preserves that
-spelling when `sysx:sourceText` is absent. These forms follow SysML.xtext:878,
-887, 1368, 1442–1641, 1703, 1708, 1714 and formal/2026-03-02. Both spellings round-trip in
+spelling when `sysx:sourceText` is absent. These forms follow SysML.xtext:878, 887,
+1607 ActionBodyParameter, 1442 AcceptNode, 1499 SendNode, 1535 AssignmentNode, 1596 IfNode,
+1615 WhileLoopNode, 1624 ForLoopNode, 1641 TerminateNode, 1703 TargetSuccession,
+1708 GuardedTargetSuccession, 1714 DefaultTargetSuccession and formal/2026-03-02. Both spellings round-trip in
 `export_test.go:TestActionSuccessionSourceMultiplicityRoundTripsWithoutSourceText`.
 
 A state's members are held in the AST in one bucket per kind (entry, do, exit,

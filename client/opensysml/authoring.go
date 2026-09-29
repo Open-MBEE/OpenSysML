@@ -248,7 +248,7 @@ func AddEntryTransition(owner, target string) AddTransition {
 }
 
 // AddSequence inserts a succession or action-body statement into an action body
-// (SysML.xtext:1368, 1442–1641, 1703, 1708, 1714; formal/2026-03-02).
+// (SysML.xtext:1607 ActionBodyParameter, 1442 AcceptNode, 1499 SendNode, 1535 AssignmentNode, 1596 IfNode, 1615 WhileLoopNode, 1624 ForLoopNode, 1641 TerminateNode, 1703 TargetSuccession, 1708 GuardedTargetSuccession, 1714 DefaultTargetSuccession; formal/2026-03-02).
 type AddSequence struct {
 	// Owner is the action definition or usage receiving the member.
 	Owner string

@@ -4680,7 +4680,8 @@ type AddSequenceEdit struct {
 	// Action body receiving the member.
 	Owner string `protobuf:"bytes,1,opt,name=owner,proto3" json:"owner,omitempty"`
 	// Sequence keyword: "first", "then", "if", "else", or empty for a plain member.
-	// These action-body forms follow SysML.xtext:1368, 1442–1641; formal/2026-03-02.
+	// These action-body forms follow SysML.xtext:1607 ActionBodyParameter, 1442 AcceptNode,
+	// 1499 SendNode, 1535 AssignmentNode, 1596 IfNode, 1615 WhileLoopNode, 1624 ForLoopNode, 1641 TerminateNode; formal/2026-03-02.
 	Keyword string `protobuf:"bytes,2,opt,name=keyword,proto3" json:"keyword,omitempty"`
 	// Node a bare `first <ref>;`/`then <ref>;` names; empty when the `then`
 	// declares a member instead.
@@ -4710,7 +4711,7 @@ type AddSequenceEdit struct {
 	// An explicit empty `else { }` is not authorable; it performs nothing and is equivalent to omitting it.
 	ElseBody []*AddSequenceEdit `protobuf:"bytes,14,rep,name=else_body,json=elseBody,proto3" json:"else_body,omitempty"`
 	// Source-end multiplicity, written as bracketed notation, only with "then".
-	// SysML.xtext:878, 887, 1703, 1708, 1714; formal/2026-03-02.
+	// SysML.xtext:878, 887, 1703 TargetSuccession, 1708 GuardedTargetSuccession, 1714 DefaultTargetSuccession; formal/2026-03-02.
 	Multiplicity string `protobuf:"bytes,15,opt,name=multiplicity,proto3" json:"multiplicity,omitempty"`
 	// Payload name for accept or loop variable for for.
 	Parameter     string `protobuf:"bytes,16,opt,name=parameter,proto3" json:"parameter,omitempty"`

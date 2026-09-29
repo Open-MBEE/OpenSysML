@@ -207,15 +207,47 @@ def _sequence_tuple(owner, keyword, ref="", member_kind="", member_name="",
     return operation + (fields,) if fields else operation
 
 
+def _sequence_options(after=None, multiplicity=None):
+    _sequence_text("multiplicity", multiplicity, optional=True)
+    _sequence_text("after", after, optional=True)
+    return after or "", multiplicity
+
+
+def _sequence_keyword_options(keyword, options):
+    if options[1] is not None and keyword != "then":
+        raise ValueError("multiplicity requires then=True")
+
+
+def _sequence_statement(owner, keyword, member_kind="", *, ref="", member_name="",
+                        type_name="", options=None, after=None, multiplicity=None,
+                        **fields):
+    if options is None:
+        options = _sequence_options(after, multiplicity)
+    after, multiplicity = options
+    if multiplicity is not None:
+        fields["multiplicity"] = multiplicity
+    return _sequence_tuple(
+        owner, keyword, ref, member_kind, member_name, type_name or "",
+        after, **fields,
+    )
+
+
 class Body:
     """Chainable action-body items for nested ``if`` and loop statements.
 
     The first ordinary statement is written without ``then`` by default, and
-    later ordinary statements use it. An empty body emits ``{ }``. An empty
-    else branch performs nothing, so an empty ``else_body`` is equivalent to
-    omitting ``else``.
+    later ordinary statements use it. Empty then/loop bodies emit ``{ }``.
+    An empty else branch performs nothing, so an empty ``else_body`` is
+    equivalent to omitting ``else``.
 
-    The statement forms follow SysML.xtext:1368, 1442–1641 and formal/2026-03-02.
+    The statement forms follow SysML.xtext:1368 ActionNodeMember, 1607 ActionBodyParameter,
+    1442 AcceptNode, 1499 SendNode, 1535 AssignmentNode, 1596 IfNode,
+    1615 WhileLoopNode, 1624 ForLoopNode, 1641 TerminateNode and formal/2026-03-02.
+
+    Example:
+        >>> editor.add_while(
+        ...     "Demo::A", "count < 2", Body().add_assign("count", "count + 1")
+        ... )
     """
 
     def __init__(self):
@@ -234,171 +266,305 @@ class Body:
         return "then" if then else ""
 
     def _add_statement(self, kind, *, then=None, type_name="", **fields):
-        keyword = self._keyword(then)
-        self._operations.append(
-            _sequence_tuple("", keyword, member_kind=kind, type_name=type_name, **fields)
+        options = _sequence_options(
+            fields.pop("after", None), fields.pop("multiplicity", None)
         )
+        keyword = self._keyword(then)
+        _sequence_keyword_options(keyword, options)
+        self._operations.append(_sequence_statement(
+            "", keyword, kind, type_name=type_name, options=options, **fields
+        ))
         return self
 
     def add_first(self, ref):
+        """Emit ``first <ref>;`` (SysML.xtext:1384 InitialNodeMember; formal/2026-03-02).
+
+        Args:
+            ref: The node the body starts at.
+
+        Raises:
+            TypeError: If ``ref`` is not notation text.
+        """
         _sequence_text("ref", ref)
-        self._operations.append(_sequence_tuple("", "first", ref))
+        self._operations.append(_sequence_statement("", "first", ref=ref))
         return self
 
     def add_then(self, ref=None, action=None, type=None, kind="action",
                  multiplicity=None):
+        """Emit ``then [m] <ref>;`` or ``then [m] <kind> <action> : <type>;`` (SysML.xtext:878, 887, 1703 TargetSuccession; formal/2026-03-02).
+
+        Args:
+            ref: The target reference, mutually exclusive with ``action``.
+            action: The member name, mutually exclusive with ``ref``.
+            type: Optional type of the declared action member.
+            kind: Declared member kind, defaulting to ``"action"``.
+            multiplicity: Optional bracketed source-end multiplicity ``[m]``.
+
+        Raises:
+            TypeError: If a notation argument is not a string.
+            ValueError: If the arguments do not describe exactly one form.
+        """
         for label, text in (("ref", ref), ("action", action), ("type", type),
                             ("kind", kind), ("multiplicity", multiplicity)):
             _sequence_text(label, text, optional=True)
+        options = ("", multiplicity)
         if (ref is None) == (action is None):
             raise ValueError("exactly one of ref and action is required")
-        fields = {}
-        if multiplicity is not None:
-            fields["multiplicity"] = multiplicity
         if ref is not None:
             if type is not None or (kind is not None and kind != "action"):
                 raise ValueError("a then reference takes no type or kind")
-            self._operations.append(_sequence_tuple("", "then", ref, **fields))
+            self._operations.append(_sequence_statement(
+                "", "then", ref=ref, options=options
+            ))
         else:
-            self._operations.append(_sequence_tuple(
-                "", "then", member_kind=kind or "action", member_name=action,
-                type_name=type or "", **fields,
+            self._operations.append(_sequence_statement(
+                "", "then", kind or "action", member_name=action,
+                type_name=type or "", options=options,
             ))
         return self
 
     def add_action(self, name=None, type=None, kind="action"):
+        """Emit ``<kind> <name> : <type>;`` (SysML.xtext:1368 ActionNodeMember; formal/2026-03-02).
+
+        Args:
+            name: Optional declared action name.
+            type: Optional action type.
+            kind: Body item kind, defaulting to ``"action"``.
+
+        Raises:
+            TypeError: If a notation argument is not a string.
+        """
         for label, text in (("name", name), ("type", type), ("kind", kind)):
             _sequence_text(label, text, optional=True)
-        self._operations.append(_sequence_tuple(
-            "", "", member_kind=kind or "action", member_name=name or "",
+        self._operations.append(_sequence_statement(
+            "", "", kind or "action", member_name=name or "",
             type_name=type or "",
         ))
         return self
 
     def add_accept(self, payload, type=None, via=None, *, then=None, multiplicity=None):
+        """Emit ``accept <payload> [: <type>] [via <via>];`` or ``then [m] accept ...;`` (SysML.xtext:1442 AcceptNode; formal/2026-03-02).
+
+        Args:
+            payload: Payload parameter or trigger notation.
+            type: Optional accepted payload type.
+            via: Optional port expression.
+            then: Whether to prefix the item with ``then``; ``None`` chooses
+                plain for the first item and ``then`` thereafter.
+            multiplicity: Optional source-end multiplicity, emitted with ``then``.
+
+        Raises:
+            TypeError: If a notation argument is not a string.
+            ValueError: If ``multiplicity`` is used without ``then``.
+        """
         _sequence_text("payload", payload)
         _sequence_text("type", type, optional=True)
         _sequence_text("via", via, optional=True)
-        _sequence_text("multiplicity", multiplicity, optional=True)
-        keyword = self._keyword(then)
-        if multiplicity is not None and keyword != "then":
-            raise ValueError("multiplicity requires then=True")
         return self._add_statement(
-            "accept", then=keyword == "then", type_name=type or "",
+            "accept", then=then, type_name=type or "",
             parameter=payload, via=via or "",
-            **({"multiplicity": multiplicity} if multiplicity is not None else {}),
+            multiplicity=multiplicity,
         )
 
     def add_send(self, payload, to=None, via=None, *, then=None, multiplicity=None):
+        """Emit ``send <payload> [via <via>] [to <to>];`` or ``then [m] send ...;`` (SysML.xtext:1499 SendNode; formal/2026-03-02).
+
+        Args:
+            payload: Payload expression.
+            to: Optional receiver expression.
+            via: Optional port expression.
+            then: Whether to prefix the item with ``then``; ``None`` chooses
+                plain for the first item and ``then`` thereafter.
+            multiplicity: Optional source-end multiplicity, emitted with ``then``.
+
+        Raises:
+            TypeError: If a notation argument is not a string.
+            ValueError: If ``multiplicity`` is used without ``then``.
+        """
         _sequence_text("payload", payload)
         _sequence_text("to", to, optional=True)
         _sequence_text("via", via, optional=True)
-        _sequence_text("multiplicity", multiplicity, optional=True)
-        keyword = self._keyword(then)
-        if multiplicity is not None and keyword != "then":
-            raise ValueError("multiplicity requires then=True")
         return self._add_statement(
-            "send", then=keyword == "then", value=payload, target=to or "",
+            "send", then=then, value=payload, target=to or "",
             via=via or "",
-            **({"multiplicity": multiplicity} if multiplicity is not None else {}),
+            multiplicity=multiplicity,
         )
 
     def add_assign(self, target, value, *, then=None, multiplicity=None):
+        """Emit ``assign <target> := <value>;`` or ``then [m] assign ...;`` (SysML.xtext:1535 AssignmentNode; formal/2026-03-02).
+
+        Args:
+            target: Feature reference to assign.
+            value: Assigned expression.
+            then: Whether to prefix the item with ``then``; ``None`` chooses
+                plain for the first item and ``then`` thereafter.
+            multiplicity: Optional source-end multiplicity, emitted with ``then``.
+
+        Raises:
+            TypeError: If a notation argument is not a string.
+            ValueError: If ``multiplicity`` is used without ``then``.
+        """
         _sequence_text("target", target)
         _sequence_text("value", value)
-        _sequence_text("multiplicity", multiplicity, optional=True)
-        keyword = self._keyword(then)
-        if multiplicity is not None and keyword != "then":
-            raise ValueError("multiplicity requires then=True")
         return self._add_statement(
-            "assign", then=keyword == "then", target=target, value=value,
-            **({"multiplicity": multiplicity} if multiplicity is not None else {}),
+            "assign", then=then, target=target, value=value,
+            multiplicity=multiplicity,
         )
 
     def add_if(self, condition, body, else_body=None, *, then=None, multiplicity=None):
+        """Emit ``if <condition> { <body> } [else { <else_body> }]`` or ``then [m] if ...`` (SysML.xtext:1596 IfNode; formal/2026-03-02).
+
+        Args:
+            condition: Boolean condition expression.
+            body: Then-branch :class:`Body`.
+            else_body: Optional else-branch :class:`Body`; an empty body means
+                no else branch.
+            then: Whether to prefix the item with ``then``; ``None`` chooses
+                plain for the first item and ``then`` thereafter.
+            multiplicity: Optional source-end multiplicity, emitted with ``then``.
+
+        Raises:
+            TypeError: If a notation argument is not a string or body is not a
+                :class:`Body`.
+            ValueError: If ``multiplicity`` is used without ``then``.
+        """
         _sequence_text("condition", condition)
         if not isinstance(body, Body):
             raise TypeError(f"body must be Body, not {body.__class__.__name__}")
         if else_body is not None and not isinstance(else_body, Body):
             raise TypeError(f"else_body must be Body or None, not {type(else_body).__name__}")
-        _sequence_text("multiplicity", multiplicity, optional=True)
-        keyword = self._keyword(then)
-        if multiplicity is not None and keyword != "then":
-            raise ValueError("multiplicity requires then=True")
         return self._add_statement(
-            "if", then=keyword == "then", condition=condition,
+            "if", then=then, condition=condition,
             body=body.operations,
             else_body=else_body.operations if else_body and else_body.operations else [],
-            **({"multiplicity": multiplicity} if multiplicity is not None else {}),
+            multiplicity=multiplicity,
         )
 
     def add_while(self, condition, body, until=None, *, then=None, multiplicity=None):
+        """Emit ``while <condition> { <body> } [until <until>];`` or ``then [m] while ...`` (SysML.xtext:1615 WhileLoopNode; formal/2026-03-02).
+
+        Args:
+            condition: Loop condition expression.
+            body: Loop-body :class:`Body`.
+            until: Optional post-condition expression.
+            then: Whether to prefix the item with ``then``; ``None`` chooses
+                plain for the first item and ``then`` thereafter.
+            multiplicity: Optional source-end multiplicity, emitted with ``then``.
+
+        Raises:
+            TypeError: If a notation argument is not a string or ``body`` is not
+                a :class:`Body`.
+            ValueError: If ``multiplicity`` is used without ``then``.
+        """
         _sequence_text("condition", condition)
         _sequence_text("until", until, optional=True)
         if not isinstance(body, Body):
             raise TypeError(f"body must be Body, not {body.__class__.__name__}")
-        _sequence_text("multiplicity", multiplicity, optional=True)
-        keyword = self._keyword(then)
-        if multiplicity is not None and keyword != "then":
-            raise ValueError("multiplicity requires then=True")
         return self._add_statement(
-            "while", then=keyword == "then", condition=condition,
+            "while", then=then, condition=condition,
             until=until or "", body=body.operations,
-            **({"multiplicity": multiplicity} if multiplicity is not None else {}),
+            multiplicity=multiplicity,
         )
 
     def add_loop(self, body, until=None, *, then=None, multiplicity=None):
+        """Emit ``loop { <body> } [until <until>];`` or ``then [m] loop ...`` (SysML.xtext:1615 WhileLoopNode; formal/2026-03-02).
+
+        Args:
+            body: Loop-body :class:`Body`.
+            until: Optional post-condition expression.
+            then: Whether to prefix the item with ``then``; ``None`` chooses
+                plain for the first item and ``then`` thereafter.
+            multiplicity: Optional source-end multiplicity, emitted with ``then``.
+
+        Raises:
+            TypeError: If a notation argument is not a string or ``body`` is not
+                a :class:`Body`.
+            ValueError: If ``multiplicity`` is used without ``then``.
+        """
         _sequence_text("until", until, optional=True)
         if not isinstance(body, Body):
             raise TypeError(f"body must be Body, not {body.__class__.__name__}")
-        _sequence_text("multiplicity", multiplicity, optional=True)
-        keyword = self._keyword(then)
-        if multiplicity is not None and keyword != "then":
-            raise ValueError("multiplicity requires then=True")
         return self._add_statement(
-            "loop", then=keyword == "then", until=until or "",
+            "loop", then=then, until=until or "",
             body=body.operations,
-            **({"multiplicity": multiplicity} if multiplicity is not None else {}),
+            multiplicity=multiplicity,
         )
 
     def add_for(self, variable, collection, body, type=None, *, then=None, multiplicity=None):
+        """Emit ``for <variable> [: <type>] in <collection> { <body> }`` or ``then [m] for ...`` (SysML.xtext:1624 ForLoopNode; formal/2026-03-02).
+
+        Args:
+            variable: Loop variable name.
+            collection: Collection expression.
+            body: Loop-body :class:`Body`.
+            type: Optional loop-variable type.
+            then: Whether to prefix the item with ``then``; ``None`` chooses
+                plain for the first item and ``then`` thereafter.
+            multiplicity: Optional source-end multiplicity, emitted with ``then``.
+
+        Raises:
+            TypeError: If a notation argument is not a string or ``body`` is not
+                a :class:`Body`.
+            ValueError: If ``multiplicity`` is used without ``then``.
+        """
         _sequence_text("variable", variable)
         _sequence_text("collection", collection)
         _sequence_text("type", type, optional=True)
         if not isinstance(body, Body):
             raise TypeError(f"body must be Body, not {body.__class__.__name__}")
-        _sequence_text("multiplicity", multiplicity, optional=True)
-        keyword = self._keyword(then)
-        if multiplicity is not None and keyword != "then":
-            raise ValueError("multiplicity requires then=True")
         return self._add_statement(
-            "for", then=keyword == "then", parameter=variable,
+            "for", then=then, parameter=variable,
             value=collection, type_name=type or "", body=body.operations,
-            **({"multiplicity": multiplicity} if multiplicity is not None else {}),
+            multiplicity=multiplicity,
         )
 
     def add_terminate(self, occurrence=None, *, then=None, multiplicity=None):
+        """Emit ``terminate [<occurrence>];`` or ``then [m] terminate ...;`` (SysML.xtext:1641 TerminateNode; formal/2026-03-02).
+
+        Args:
+            occurrence: Optional occurrence to terminate.
+            then: Whether to prefix the item with ``then``; ``None`` chooses
+                plain for the first item and ``then`` thereafter.
+            multiplicity: Optional source-end multiplicity, emitted with ``then``.
+
+        Raises:
+            TypeError: If a notation argument is not a string.
+            ValueError: If ``multiplicity`` is used without ``then``.
+        """
         _sequence_text("occurrence", occurrence, optional=True)
-        _sequence_text("multiplicity", multiplicity, optional=True)
-        keyword = self._keyword(then)
-        if multiplicity is not None and keyword != "then":
-            raise ValueError("multiplicity requires then=True")
         return self._add_statement(
-            "terminate", then=keyword == "then", value=occurrence or "",
-            **({"multiplicity": multiplicity} if multiplicity is not None else {}),
+            "terminate", then=then, value=occurrence or "",
+            multiplicity=multiplicity,
         )
 
     def add_guarded_then(self, guard, ref):
+        """Emit ``if <guard> then <ref>;`` (SysML.xtext:1708 GuardedTargetSuccession; formal/2026-03-02).
+
+        Args:
+            guard: Guard expression.
+            ref: Target reference.
+
+        Raises:
+            TypeError: If ``guard`` or ``ref`` is not notation text.
+        """
         _sequence_text("guard", guard)
         _sequence_text("ref", ref)
-        self._operations.append(_sequence_tuple(
-            "", "if", ref, condition=guard,
+        self._operations.append(_sequence_statement(
+            "", "if", ref=ref, condition=guard,
         ))
         return self
 
     def add_else(self, ref):
+        """Emit ``else <ref>;`` (SysML.xtext:1714 DefaultTargetSuccession; formal/2026-03-02).
+
+        Args:
+            ref: Target reference.
+
+        Raises:
+            TypeError: If ``ref`` is not notation text.
+        """
         _sequence_text("ref", ref)
-        self._operations.append(_sequence_tuple("", "else", ref))
+        self._operations.append(_sequence_statement("", "else", ref=ref))
         return self
 
 
@@ -588,7 +754,7 @@ class Editor:
         return self
 
     def add_first(self, owner, ref, after=None):
-        """Add ``first <ref>;`` to an action body.
+        """Emit ``first <ref>;`` (SysML.xtext:1384 InitialNodeMember; formal/2026-03-02).
 
         Args:
             owner: The action body, by qualified name or Symbol.
@@ -596,19 +762,25 @@ class Editor:
                 as ``start`` or the name of a member the body declares.
             after: Optional name of the body member the `first` follows;
                 by default it is appended at the end of the body.
+
+        Raises:
+            TypeError: If ``ref`` is not notation text or ``after`` is not a
+                member name.
         """
         if not isinstance(ref, str):
             raise TypeError(f"ref must be notation text, not {ref.__class__.__name__}")
         if after is not None and not isinstance(after, str):
             raise TypeError(f"after must be a member name, not {after.__class__.__name__}")
+        options = (after or "", None)
         owner = owner if isinstance(owner, str) else _target_id(owner)
-        self._add(("add_sequence", owner, "first", ref, "", "", "", after or ""))
+        self._add(_sequence_statement(owner, "first", ref=ref, options=options))
         return self
 
     def add_then(self, owner, ref=None, action=None, type=None, after=None,
                  kind="action", multiplicity=None):
-        """Add ``then <ref>;`` or ``then <kind> <name> : <type>;`` to an action
-        body, sequencing the member after it with the member before it.
+        """Emit ``then [m] <ref>;`` or ``then [m] <kind> <name> : <type>;`` (SysML.xtext:878, 887, 1703 TargetSuccession; formal/2026-03-02).
+
+        The member is sequenced after the member before it.
 
         Args:
             owner: The action body, by qualified name or Symbol.
@@ -624,211 +796,355 @@ class Editor:
             kind: The usage kind the `then` declares: ``"action"``,
                 ``"perform action"``, ``"state"``, ``"merge"``, ``"decide"``,
                 ``"join"`` or ``"fork"``.
+            multiplicity: Optional bracketed source-end multiplicity ``[m]``.
 
         Raises:
             TypeError: If a text argument is not a string.
             ValueError: If both or neither of `ref` and `action` is given, or
-                `ref` comes with declaration fields — a `type` or a `kind`
-                other than the default ``"action"``.
+                `ref` comes with declaration fields, or the multiplicity is
+                not valid for the requested form.
         """
         for label, text in (("ref", ref), ("action", action), ("type", type),
                             ("after", after), ("kind", kind),
                             ("multiplicity", multiplicity)):
             if text is not None and not isinstance(text, str):
                 raise TypeError(f"{label} must be notation text, not {text.__class__.__name__}")
+        options = (after or "", multiplicity)
         if (ref is None) == (action is None):
             raise ValueError("exactly one of ref and action is required")
         if ref is not None and (type is not None or
                                 (kind is not None and kind != "action")):
             raise ValueError("a then reference takes no type or kind")
         owner = owner if isinstance(owner, str) else _target_id(owner)
-        fields = {"multiplicity": multiplicity} if multiplicity is not None else {}
         if ref is not None:
-            self._add(_sequence_tuple(
-                owner, "then", ref, after=after or "", **fields,
+            self._add(_sequence_statement(
+                owner, "then", ref=ref, options=options,
             ))
         else:
-            self._add(_sequence_tuple(
-                owner, "then", member_kind=kind if kind is not None else "action",
-                member_name=action, type_name=type or "", after=after or "",
-                **fields,
+            self._add(_sequence_statement(
+                owner, "then", kind if kind is not None else "action",
+                member_name=action, type_name=type or "", options=options,
             ))
         return self
 
     def add_accept(self, owner, payload, type=None, via=None, *, then=True,
                    multiplicity=None, after=None):
+        """Emit ``then [m] accept <payload> [: <type>] [via <via>];`` (SysML.xtext:1442 AcceptNode; formal/2026-03-02).
+
+        Without ``then`` this emits the same notation without that prefix.
+
+        Args:
+            owner: The action body, by qualified name or Symbol.
+            payload: Payload parameter or trigger notation.
+            type: Optional accepted payload type.
+            via: Optional port expression.
+            then: Whether to prefix the statement with ``then``.
+            multiplicity: Optional source-end multiplicity, emitted with ``then``.
+            after: Optional body member to insert after.
+
+        Raises:
+            TypeError: If a notation argument is not a string or ``then`` is not
+                a bool.
+            ValueError: If ``multiplicity`` is used without ``then``.
+        """
         _sequence_text("payload", payload)
         _sequence_text("type", type, optional=True)
         _sequence_text("via", via, optional=True)
-        _sequence_text("multiplicity", multiplicity, optional=True)
-        _sequence_text("after", after, optional=True)
+        options = _sequence_options(after, multiplicity)
         if not isinstance(then, bool):
             raise TypeError(f"then must be bool, not {then.__class__.__name__}")
-        if multiplicity is not None and not then:
-            raise ValueError("multiplicity requires then=True")
+        _sequence_keyword_options("then" if then else "", options)
         owner = owner if isinstance(owner, str) else _target_id(owner)
-        self._add(_sequence_tuple(
-            owner, "then" if then else "", member_kind="accept",
-            type_name=type or "", after=after or "", parameter=payload,
-            via=via or "",
-            **({"multiplicity": multiplicity} if multiplicity is not None else {}),
+        self._add(_sequence_statement(
+            owner, "then" if then else "", "accept",
+            type_name=type or "", options=options,
+            parameter=payload, via=via or "",
         ))
         return self
 
     def add_send(self, owner, payload, to=None, via=None, *, then=True,
                  multiplicity=None, after=None):
+        """Emit ``then [m] send <payload> [via <via>] [to <to>];`` (SysML.xtext:1499 SendNode; formal/2026-03-02).
+
+        Without ``then`` this emits the same notation without that prefix.
+
+        Args:
+            owner: The action body, by qualified name or Symbol.
+            payload: Payload expression.
+            to: Optional receiver expression.
+            via: Optional port expression.
+            then: Whether to prefix the statement with ``then``.
+            multiplicity: Optional source-end multiplicity, emitted with ``then``.
+            after: Optional body member to insert after.
+
+        Raises:
+            TypeError: If a notation argument is not a string or ``then`` is not
+                a bool.
+            ValueError: If ``multiplicity`` is used without ``then``.
+        """
         _sequence_text("payload", payload)
         _sequence_text("to", to, optional=True)
         _sequence_text("via", via, optional=True)
-        _sequence_text("multiplicity", multiplicity, optional=True)
-        _sequence_text("after", after, optional=True)
+        options = _sequence_options(after, multiplicity)
         if not isinstance(then, bool):
             raise TypeError(f"then must be bool, not {then.__class__.__name__}")
-        if multiplicity is not None and not then:
-            raise ValueError("multiplicity requires then=True")
+        _sequence_keyword_options("then" if then else "", options)
         owner = owner if isinstance(owner, str) else _target_id(owner)
-        self._add(_sequence_tuple(
-            owner, "then" if then else "", member_kind="send",
-            after=after or "", value=payload, target=to or "", via=via or "",
-            **({"multiplicity": multiplicity} if multiplicity is not None else {}),
+        self._add(_sequence_statement(
+            owner, "then" if then else "", "send",
+            options=options,
+            value=payload, target=to or "", via=via or "",
         ))
         return self
 
     def add_assign(self, owner, target, value, *, then=True, multiplicity=None,
                    after=None):
+        """Emit ``then [m] assign <target> := <value>;`` (SysML.xtext:1535 AssignmentNode; formal/2026-03-02).
+
+        Without ``then`` this emits the same notation without that prefix.
+
+        Args:
+            owner: The action body, by qualified name or Symbol.
+            target: Feature reference to assign.
+            value: Assigned expression.
+            then: Whether to prefix the statement with ``then``.
+            multiplicity: Optional source-end multiplicity, emitted with ``then``.
+            after: Optional body member to insert after.
+
+        Raises:
+            TypeError: If a notation argument is not a string or ``then`` is not
+                a bool.
+            ValueError: If ``multiplicity`` is used without ``then``.
+        """
         _sequence_text("target", target)
         _sequence_text("value", value)
-        _sequence_text("multiplicity", multiplicity, optional=True)
-        _sequence_text("after", after, optional=True)
+        options = _sequence_options(after, multiplicity)
         if not isinstance(then, bool):
             raise TypeError(f"then must be bool, not {then.__class__.__name__}")
-        if multiplicity is not None and not then:
-            raise ValueError("multiplicity requires then=True")
+        _sequence_keyword_options("then" if then else "", options)
         owner = owner if isinstance(owner, str) else _target_id(owner)
-        self._add(_sequence_tuple(
-            owner, "then" if then else "", member_kind="assign",
-            after=after or "", target=target, value=value,
-            **({"multiplicity": multiplicity} if multiplicity is not None else {}),
+        self._add(_sequence_statement(
+            owner, "then" if then else "", "assign",
+            options=options,
+            target=target, value=value,
         ))
         return self
 
     def add_if(self, owner, condition, body, else_body=None, *, then=True,
                multiplicity=None, after=None):
-        """Add an if statement; an empty else branch does nothing, like no else."""
+        """Emit ``then [m] if <condition> { <body> } [else { <else_body> }]`` (SysML.xtext:1596 IfNode; formal/2026-03-02).
+
+        Without ``then`` this emits the same notation without that prefix. An
+        empty else body is equivalent to omitting ``else``.
+
+        Args:
+            owner: The action body, by qualified name or Symbol.
+            condition: Boolean condition expression.
+            body: Then-branch :class:`Body`.
+            else_body: Optional else-branch :class:`Body`.
+            then: Whether to prefix the statement with ``then``.
+            multiplicity: Optional source-end multiplicity, emitted with ``then``.
+            after: Optional body member to insert after.
+
+        Raises:
+            TypeError: If a notation argument is not a string, ``then`` is not a
+                bool, or a branch is not a :class:`Body`.
+            ValueError: If ``multiplicity`` is used without ``then``.
+        """
         _sequence_text("condition", condition)
         if not isinstance(body, Body):
             raise TypeError(f"body must be Body, not {body.__class__.__name__}")
         if else_body is not None and not isinstance(else_body, Body):
             raise TypeError(f"else_body must be Body or None, not {else_body.__class__.__name__}")
-        _sequence_text("multiplicity", multiplicity, optional=True)
-        _sequence_text("after", after, optional=True)
+        options = _sequence_options(after, multiplicity)
         if not isinstance(then, bool):
             raise TypeError(f"then must be bool, not {then.__class__.__name__}")
-        if multiplicity is not None and not then:
-            raise ValueError("multiplicity requires then=True")
+        _sequence_keyword_options("then" if then else "", options)
         owner = owner if isinstance(owner, str) else _target_id(owner)
-        self._add(_sequence_tuple(
-            owner, "then" if then else "", member_kind="if",
-            after=after or "", condition=condition, body=body.operations,
+        self._add(_sequence_statement(
+            owner, "then" if then else "", "if",
+            options=options,
+            condition=condition, body=body.operations,
             else_body=else_body.operations if else_body and else_body.operations else [],
-            **({"multiplicity": multiplicity} if multiplicity is not None else {}),
         ))
         return self
 
     def add_while(self, owner, condition, body, until=None, *, then=True,
                   multiplicity=None, after=None):
+        """Emit ``then [m] while <condition> { <body> } [until <until>];`` (SysML.xtext:1615 WhileLoopNode; formal/2026-03-02).
+
+        Without ``then`` this emits the same notation without that prefix.
+
+        Args:
+            owner: The action body, by qualified name or Symbol.
+            condition: Loop condition expression.
+            body: Loop-body :class:`Body`.
+            until: Optional post-condition expression.
+            then: Whether to prefix the statement with ``then``.
+            multiplicity: Optional source-end multiplicity, emitted with ``then``.
+            after: Optional body member to insert after.
+
+        Raises:
+            TypeError: If a notation argument is not a string, ``then`` is not a
+                bool, or ``body`` is not a :class:`Body`.
+            ValueError: If ``multiplicity`` is used without ``then``.
+        """
         _sequence_text("condition", condition)
         _sequence_text("until", until, optional=True)
         if not isinstance(body, Body):
             raise TypeError(f"body must be Body, not {body.__class__.__name__}")
-        _sequence_text("multiplicity", multiplicity, optional=True)
-        _sequence_text("after", after, optional=True)
+        options = _sequence_options(after, multiplicity)
         if not isinstance(then, bool):
             raise TypeError(f"then must be bool, not {then.__class__.__name__}")
-        if multiplicity is not None and not then:
-            raise ValueError("multiplicity requires then=True")
+        _sequence_keyword_options("then" if then else "", options)
         owner = owner if isinstance(owner, str) else _target_id(owner)
-        self._add(_sequence_tuple(
-            owner, "then" if then else "", member_kind="while",
-            after=after or "", condition=condition, until=until or "",
+        self._add(_sequence_statement(
+            owner, "then" if then else "", "while",
+            options=options,
+            condition=condition, until=until or "",
             body=body.operations,
-            **({"multiplicity": multiplicity} if multiplicity is not None else {}),
         ))
         return self
 
     def add_loop(self, owner, body, until=None, *, then=True,
                  multiplicity=None, after=None):
+        """Emit ``then [m] loop { <body> } [until <until>];`` (SysML.xtext:1615 WhileLoopNode; formal/2026-03-02).
+
+        Without ``then`` this emits the same notation without that prefix.
+
+        Args:
+            owner: The action body, by qualified name or Symbol.
+            body: Loop-body :class:`Body`.
+            until: Optional post-condition expression.
+            then: Whether to prefix the statement with ``then``.
+            multiplicity: Optional source-end multiplicity, emitted with ``then``.
+            after: Optional body member to insert after.
+
+        Raises:
+            TypeError: If a notation argument is not a string, ``then`` is not a
+                bool, or ``body`` is not a :class:`Body`.
+            ValueError: If ``multiplicity`` is used without ``then``.
+        """
         _sequence_text("until", until, optional=True)
         if not isinstance(body, Body):
             raise TypeError(f"body must be Body, not {body.__class__.__name__}")
-        _sequence_text("multiplicity", multiplicity, optional=True)
-        _sequence_text("after", after, optional=True)
+        options = _sequence_options(after, multiplicity)
         if not isinstance(then, bool):
             raise TypeError(f"then must be bool, not {then.__class__.__name__}")
-        if multiplicity is not None and not then:
-            raise ValueError("multiplicity requires then=True")
+        _sequence_keyword_options("then" if then else "", options)
         owner = owner if isinstance(owner, str) else _target_id(owner)
-        self._add(_sequence_tuple(
-            owner, "then" if then else "", member_kind="loop",
-            after=after or "", until=until or "", body=body.operations,
-            **({"multiplicity": multiplicity} if multiplicity is not None else {}),
+        self._add(_sequence_statement(
+            owner, "then" if then else "", "loop",
+            options=options,
+            until=until or "", body=body.operations,
         ))
         return self
 
     def add_for(self, owner, variable, collection, body, type=None, *, then=True,
                 multiplicity=None, after=None):
+        """Emit ``then [m] for <variable> [: <type>] in <collection> { <body> }`` (SysML.xtext:1624 ForLoopNode; formal/2026-03-02).
+
+        Without ``then`` this emits the same notation without that prefix.
+
+        Args:
+            owner: The action body, by qualified name or Symbol.
+            variable: Loop variable name.
+            collection: Collection expression.
+            body: Loop-body :class:`Body`.
+            type: Optional loop-variable type.
+            then: Whether to prefix the statement with ``then``.
+            multiplicity: Optional source-end multiplicity, emitted with ``then``.
+            after: Optional body member to insert after.
+
+        Raises:
+            TypeError: If a notation argument is not a string, ``then`` is not a
+                bool, or ``body`` is not a :class:`Body`.
+            ValueError: If ``multiplicity`` is used without ``then``.
+        """
         _sequence_text("variable", variable)
         _sequence_text("collection", collection)
         _sequence_text("type", type, optional=True)
         if not isinstance(body, Body):
             raise TypeError(f"body must be Body, not {body.__class__.__name__}")
-        _sequence_text("multiplicity", multiplicity, optional=True)
-        _sequence_text("after", after, optional=True)
+        options = _sequence_options(after, multiplicity)
         if not isinstance(then, bool):
             raise TypeError(f"then must be bool, not {then.__class__.__name__}")
-        if multiplicity is not None and not then:
-            raise ValueError("multiplicity requires then=True")
+        _sequence_keyword_options("then" if then else "", options)
         owner = owner if isinstance(owner, str) else _target_id(owner)
-        self._add(_sequence_tuple(
-            owner, "then" if then else "", member_kind="for",
-            type_name=type or "", after=after or "", parameter=variable,
-            value=collection, body=body.operations,
-            **({"multiplicity": multiplicity} if multiplicity is not None else {}),
+        self._add(_sequence_statement(
+            owner, "then" if then else "", "for",
+            type_name=type or "", options=options,
+            parameter=variable, value=collection, body=body.operations,
         ))
         return self
 
     def add_terminate(self, owner, occurrence=None, *, then=True,
                       multiplicity=None, after=None):
+        """Emit ``then [m] terminate [<occurrence>];`` (SysML.xtext:1641 TerminateNode; formal/2026-03-02).
+
+        Without ``then`` this emits the same notation without that prefix.
+
+        Args:
+            owner: The action body, by qualified name or Symbol.
+            occurrence: Optional occurrence to terminate.
+            then: Whether to prefix the statement with ``then``.
+            multiplicity: Optional source-end multiplicity, emitted with ``then``.
+            after: Optional body member to insert after.
+
+        Raises:
+            TypeError: If a notation argument is not a string or ``then`` is not
+                a bool.
+            ValueError: If ``multiplicity`` is used without ``then``.
+        """
         _sequence_text("occurrence", occurrence, optional=True)
-        _sequence_text("multiplicity", multiplicity, optional=True)
-        _sequence_text("after", after, optional=True)
+        options = _sequence_options(after, multiplicity)
         if not isinstance(then, bool):
             raise TypeError(f"then must be bool, not {then.__class__.__name__}")
-        if multiplicity is not None and not then:
-            raise ValueError("multiplicity requires then=True")
+        _sequence_keyword_options("then" if then else "", options)
         owner = owner if isinstance(owner, str) else _target_id(owner)
-        self._add(_sequence_tuple(
-            owner, "then" if then else "", member_kind="terminate",
-            after=after or "", value=occurrence or "",
-            **({"multiplicity": multiplicity} if multiplicity is not None else {}),
+        self._add(_sequence_statement(
+            owner, "then" if then else "", "terminate",
+            options=options,
+            value=occurrence or "",
         ))
         return self
 
     def add_guarded_then(self, owner, guard, ref, *, after=None):
+        """Emit ``if <guard> then <ref>;`` (SysML.xtext:1708 GuardedTargetSuccession; formal/2026-03-02).
+
+        Args:
+            owner: The action body, by qualified name or Symbol.
+            guard: Guard expression.
+            ref: Target reference.
+            after: Optional body member to insert after.
+
+        Raises:
+            TypeError: If a notation argument is not a string.
+        """
         _sequence_text("guard", guard)
         _sequence_text("ref", ref)
-        _sequence_text("after", after, optional=True)
+        options = _sequence_options(after)
         owner = owner if isinstance(owner, str) else _target_id(owner)
-        self._add(_sequence_tuple(
-            owner, "if", ref, after=after or "", condition=guard,
+        self._add(_sequence_statement(
+            owner, "if", ref=ref, options=options, condition=guard,
         ))
         return self
 
     def add_else(self, owner, ref, *, after=None):
+        """Emit ``else <ref>;`` (SysML.xtext:1714 DefaultTargetSuccession; formal/2026-03-02).
+
+        Args:
+            owner: The action body, by qualified name or Symbol.
+            ref: Target reference.
+            after: Optional body member to insert after.
+
+        Raises:
+            TypeError: If a notation argument is not a string.
+        """
         _sequence_text("ref", ref)
-        _sequence_text("after", after, optional=True)
+        options = _sequence_options(after)
         owner = owner if isinstance(owner, str) else _target_id(owner)
-        self._add(_sequence_tuple(owner, "else", ref, after=after or ""))
+        self._add(_sequence_statement(owner, "else", ref=ref, options=options))
         return self
 
     def add_require_constraint(self, owner, expression, name=None):

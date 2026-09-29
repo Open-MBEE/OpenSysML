@@ -119,8 +119,10 @@ The Python client can add sequence items and recursively nested action statement
 the contents of `if`, `while`, `loop` and `for`; its first ordinary item is plain and later items
 use `then`. `Editor` methods default to `then=True`. An empty `else_body` is the same as no else,
 because an empty else branch performs nothing; empty action bodies are written as `{ }`.
-These forms follow SysML.xtext:1368, 1442–1641 and formal/2026-03-02. Source-end multiplicities
-follow SysML.xtext:878, 887, 1703, 1708, 1714 and formal/2026-03-02.
+These forms follow SysML.xtext:1607 ActionBodyParameter, 1442 AcceptNode, 1499 SendNode,
+1535 AssignmentNode, 1596 IfNode, 1615 WhileLoopNode, 1624 ForLoopNode, and 1641 TerminateNode;
+formal/2026-03-02. Source-end multiplicities follow SysML.xtext:878, 887, 1703 TargetSuccession,
+1708 GuardedTargetSuccession, 1714 DefaultTargetSuccession and formal/2026-03-02.
 
 ```python
 from opensysml import Body
