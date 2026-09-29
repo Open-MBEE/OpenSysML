@@ -8,10 +8,12 @@ import (
 func TestAddReferenceAssertions(t *testing.T) {
 	source := "package P {\n" +
 		"    constraint def C;\n" +
+		"    constraint c;\n" +
 		"    part def Holder {\n" +
 		"        constraint c : C;\n" +
 		"    }\n" +
 		"    part host : Holder;\n" +
+		"    part h : Holder;\n" +
 		"    part def Host {\n" +
 		"        constraint c : C;\n" +
 		"    }\n" +
@@ -22,6 +24,9 @@ func TestAddReferenceAssertions(t *testing.T) {
 		{"assert", "assert", "c", "assert c;"},
 		{"assert not", "assert not", "c", "assert not c;"},
 		{"dotted reference", "assert", "host.c", "assert host.c;"},
+		{"rooted assert", "assert", "$::P::c", "assert $::P::c;"},
+		{"rooted assert not", "assert not", "$::P::c", "assert not $::P::c;"},
+		{"rooted dotted reference", "assert", "$::P::h.c", "assert $::P::h.c;"},
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
@@ -97,6 +102,7 @@ func TestReferenceAssertionsRequireConstraintReferencesAfterAnalysis(t *testing.
 		name, reference string
 	}{
 		{"attribute", "a"},
+		{"rooted attribute", "$::P::Host::a"},
 		{"unresolved", "missing"},
 	} {
 		t.Run(test.name, func(t *testing.T) {
