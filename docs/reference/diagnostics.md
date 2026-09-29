@@ -41,9 +41,13 @@ The lint reports the name when all of the following hold:
 
 - no declaration of that name is visible where the trigger is written, by the ordinary
   scoping rules (KerML §7.2.5, §8.2.3.5);
-- no `send` anywhere in the workspace sends a signal by that name — neither the name of a
-  payload's type (`send new Ping() to self;`) nor the name of a payload feature
-  (`send ping to self;`) — the final segment being compared, as the runtime compares it.
+- no `send` anywhere in the workspace sends a signal by that name, the name the runtime
+  gives its message and compares the trigger's final segment with: the definition a
+  payload names or constructs (`send Ping to self;`, `send new Ping() to self;`), through
+  any alias to the definition it reaches, and the type of a payload feature's value
+  (`send reading to self;` with `attribute reading : Real = 1.0;` sends `Real`, not
+  `reading`). A written message is the one sent; the body's `payload` parameter is read
+  only where the send writes none. A name that resolves to nothing counts as written.
   A send invoking a calculation (`send Ping() to self;` with `calc def Ping`) sends the
   calculation's value, as the runtime does, so it counts the result's type, not `Ping`.
   A literal payload counts its scalar type, as the runtime names it: `send "go" to self;`

@@ -1,6 +1,7 @@
 package passes
 
 import (
+	"slices"
 	"strings"
 	"testing"
 
@@ -121,7 +122,7 @@ package Q { attribute def Kick; }`,
 		transition first waiting when sigA then pathA;
 		transition first waiting when sigB then pathB;
 	}
-	part def Sender { attribute sigA; attribute sigB; action a { send sigA to self; send sigB to self; } }
+	part def Sender { attribute def sigA; attribute def sigB; action a { send sigA to self; send sigB to self; } }
 }`,
 		"sent payload typed": `package P {
 	private import Q::*;
@@ -159,7 +160,7 @@ func TestUndeclaredSignalLintReadsOtherDocuments(t *testing.T) {
 		transition first idle when Remote then busy;
 	}
 }`
-	sender := `package S { attribute Remote; part def Sender { action a { send Remote to self; } } }`
+	sender := `package S { attribute def Remote; part def Sender { action a { send Remote to self; } } }`
 	idx := newTestIndex()
 	mroot := parser.New(source.New("m.sysml", []byte(machine))).ParseFile()
 	sroot := parser.New(source.New("s.sysml", []byte(sender))).ParseFile()
@@ -328,5 +329,49 @@ func TestUndeclaredSignalLintLiteralSend(t *testing.T) {
 	}
 	if n := count(`package S { private import ScalarValues::*; part def Sender { attribute r : Real = 1.5; action a { send 1 + 2 to self; send r * 2.0 to self; send not true to self; send "a" + "b" to self; } } }`); n != 0 {
 		t.Fatalf("computed scalar sends left %d finding(s), want none", n)
+	}
+}
+
+// A send counts the signal type the runtime names its message by: the message
+// when one is written, else the payload parameter; a feature's value, not the
+// feature's name; and the definition an alias reaches, not the alias.
+func TestUndeclaredSignalLintRuntimeSignalType(t *testing.T) {
+	machine := `package M {
+	state def Machine {
+		entry; then idle;
+		state idle; state busy;
+		transition first idle when Ping then busy;
+		transition first busy when Pong then idle;
+		transition first busy when sigA then idle;
+		transition first busy when Real then idle;
+		transition first busy when Png then idle;
+	}
+}`
+	warned := func(sender string) []string {
+		idx := newTestIndex()
+		mroot := parser.New(source.New("m.sysml", []byte(machine))).ParseFile()
+		sroot := parser.New(source.New("s.sysml", []byte(sender))).ParseFile()
+		idx.AddDocument("m.sysml", mroot)
+		idx.AddDocument("s.sysml", sroot)
+		var names []string
+		for _, d := range Analyze("m.sysml", mroot, nil, idx) {
+			if d.Code == CodeUndeclaredSignal {
+				names = append(names, strings.SplitN(strings.TrimPrefix(d.Message, "`when "), "`", 2)[0])
+			}
+		}
+		slices.Sort(names)
+		return names
+	}
+	for _, tc := range []struct{ sender, want string }{
+		{`package S { attribute def Ping; attribute def Pong; part def Sender { action a { send new Ping() to self { in :>> payload : Pong; } } } }`,
+			"Png Pong Real sigA"},
+		{`package S { private import ScalarValues::*; part def Sender { attribute sigA : Real = 1.0; action a { send sigA to self; } } }`,
+			"Ping Png Pong sigA"},
+		{`package S { attribute def Ping; alias Png for Ping; part def Sender { action a { send new Png() to self; send Png to self; send Png() to self; } } }`,
+			"Png Pong Real sigA"},
+	} {
+		if got := strings.Join(warned(tc.sender), " "); got != tc.want {
+			t.Errorf("%s: warned %q, want %q", tc.sender, got, tc.want)
+		}
 	}
 }

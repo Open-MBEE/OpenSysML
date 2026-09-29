@@ -72,7 +72,7 @@ func TestWorkspaceSignalLintFollowsOtherDocuments(t *testing.T) {
 	if lintCount(ws.Diagnostics("a.sysml"), passes.CodeUndeclaredSignal) != 1 {
 		t.Fatal("want the lint before anything sends Strat")
 	}
-	ws.Open("b.sysml", []byte(`package S { attribute Strat; part def Sender { action a { send Strat to self; } } }`), 1)
+	ws.Open("b.sysml", []byte(`package S { attribute def Strat; part def Sender { action a { send Strat to self; } } }`), 1)
 	if n := lintCount(ws.Diagnostics("a.sysml"), passes.CodeUndeclaredSignal); n != 0 {
 		t.Fatalf("a sent signal kept %d finding(s)", n)
 	}
@@ -85,7 +85,7 @@ func TestWorkspaceSignalLintFollowsOtherDocuments(t *testing.T) {
 // A sender held as its interface record still silences the lint: the record
 // keeps the names its body sends.
 func TestWorkspaceSignalLintReadsRecordedSenders(t *testing.T) {
-	sender := []byte(`package S { attribute Strat; part def Sender { action a { send Strat to self; } } }`)
+	sender := []byte(`package S { attribute def Strat; part def Sender { action a { send Strat to self; } } }`)
 	loaded := NewWorkspace()
 	loaded.OpenAll([]Input{{Name: "b.sysml", Content: sender, Version: 1}})
 	loaded.DiagnosticsAll([]string{"b.sysml"})
