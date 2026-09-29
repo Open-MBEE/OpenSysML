@@ -97,9 +97,9 @@ func TestAddMetadataPrefixWritesInTheUsagePrefixSlot(t *testing.T) {
 		},
 		{
 			name:   "snapshot",
-			source: "metadata def M;\noccurrence def T;\noccurrence car : T { snapshot part x : T; }\n",
+			source: "metadata def M;\npart def T;\noccurrence def O;\noccurrence car : O { snapshot part x : T; }\n",
 			target: "car::x",
-			want:   "metadata def M;\noccurrence def T;\noccurrence car : T { snapshot #M part x : T; }\n",
+			want:   "metadata def M;\npart def T;\noccurrence def O;\noccurrence car : O { snapshot #M part x : T; }\n",
 		},
 		{
 			name:   "variant",
