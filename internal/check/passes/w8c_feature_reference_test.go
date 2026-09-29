@@ -578,3 +578,124 @@ func TestW8CFeatureReferenceViaBoundaries(t *testing.T) {
 		})
 	}
 }
+
+// Stochastic::Probability::p is read when its succession's decision is reached,
+// so its value names what the succession's own guards may: the features in reach
+// of the action holding the succession, in both spellings, named or not. Any
+// other metadata value stays judged from the metadata type's feature.
+func TestW8CFeatureReferenceProbabilityReadsFromTheSuccession(t *testing.T) {
+	const want = msgSubsettingFeaturingTypes
+	clean := map[string]string{
+		"own attribute": `package P {
+	private import ScalarValues::*;
+	action def Route {
+		attribute w : Real default = 0.5;
+		first start;
+		then decide d;
+		succession fast first d then done { @Stochastic::Probability { p = w; } }
+		succession slow first d then other { metadata Stochastic::Probability { p = 1.0 - w; } }
+		action done; action other;
+	}
+}`,
+		"context parameter's attribute": `package P {
+	private import ScalarValues::*;
+	part def Mission { attribute pr : Real default = 0.25; }
+	action def Route {
+		in ref context : Mission;
+		first start;
+		then decide d;
+		succession fast first d then done { @Stochastic::Probability { p = context.pr; } }
+		first d then other { @Stochastic::Probability { p = 1.0 - context.pr; } }
+		action done; action other;
+	}
+}`,
+		"nested definition's context": `package P {
+	private import ScalarValues::*;
+	part def Mission {
+		attribute pr : Real default = 0.25;
+		part def Sub :> Mission {
+			perform action run {
+				action def Inner {
+					in ref context : Sub;
+					first start;
+					then decide d;
+					succession fast first d then done { @Stochastic::Probability { p = context.pr; } }
+					action done;
+				}
+				action call : Inner { in ref :>> context = this; }
+			}
+		}
+	}
+}`,
+		"usage body": `package P {
+	private import ScalarValues::*;
+	part def Analysis {
+		attribute pFast : Real default = 0.5;
+		action route {
+			first start;
+			then decide d;
+			succession fast first d then done { @Stochastic::Probability { p = pFast; } }
+			action done;
+		}
+	}
+}`,
+	}
+	for name, src := range clean {
+		if errs := w8cLibraryErrorsIn(t, name+".sysml", src); len(errs) != 0 {
+			t.Errorf("%s: want a clean analysis, got %v", name, errs)
+		}
+	}
+	reject := map[string]string{
+		"named succession": `package P {
+	private import ScalarValues::*;
+	part def Other { attribute q : Real default = 0.5; }
+	action def Route {
+		first start;
+		then decide d;
+		succession fast first d then done { @Stochastic::Probability { p = P::Other::q; } }
+		action done;
+	}
+}`,
+		"anonymous succession": `package P {
+	private import ScalarValues::*;
+	part def Other { attribute q : Real default = 0.5; }
+	action def Route {
+		first start;
+		then decide d;
+		first d then done { @Stochastic::Probability { p = P::Other::q; } }
+		action done;
+	}
+}`,
+		"metadata usage spelling": `package P {
+	private import ScalarValues::*;
+	part def Other { attribute q : Real default = 0.5; }
+	action def Route {
+		first start;
+		then decide d;
+		succession fast first d then done { metadata Stochastic::Probability { p = P::Other::q; } }
+		action done;
+	}
+}`,
+		"unqualified nested definition's read": `package P {
+	private import ScalarValues::*;
+	part def Mission {
+		attribute pr : Real default = 0.25;
+		part def Sub :> Mission {
+			action def Inner {
+				in ref context : Sub;
+				first start;
+				then decide d;
+				succession fast first d then done { @Stochastic::Probability { p = pr; } }
+				action done;
+			}
+		}
+	}
+}`,
+	}
+	for name, src := range reject {
+		msgs := w8cLibraryMessagesIn(t, name+".sysml", src)
+		if w8cCount(msgs, want) != 1 {
+			t.Errorf("%s: want one %q, got %v", name, want, msgs)
+		}
+	}
+}

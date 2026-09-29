@@ -87,6 +87,10 @@ func (c *featureReferenceChecker) accessibleFrom(site refSite, target *symbols.S
 }
 
 func (c *featureReferenceChecker) checkSymbol(sym *symbols.Symbol) {
+	if usage, ok := sym.Decl.(*ast.Usage); ok && c.runDecidedValue(sym.OwnerScope, usage) {
+		// Visited from the member the annotation is written in.
+		return
+	}
 	scope := sym.OwnerScope
 	if sym.Scope != nil {
 		scope = sym.Scope
@@ -108,6 +112,70 @@ func (c *featureReferenceChecker) checkSymbol(sym *symbols.Symbol) {
 		c.walkMembers(refSite{sym: sym, inBody: true}, scope, d.Members)
 	case *ast.Definition:
 		c.walkMembers(refSite{sym: sym, inBody: true}, scope, d.Members)
+	}
+}
+
+// annotationType is the metadata type whose features the body scope of an
+// annotation written as a member restates: `first d then t { @M { p = x; } }`
+// or `{ metadata M { p = x; } }`. Nil for any other scope, an annotation
+// prefixed to a declaration or written about other elements included.
+func (c *featureReferenceChecker) annotationType(body *symbols.Scope) *symbols.Symbol {
+	if body == nil || body.Owner() == nil || body.Annotated() != nil {
+		return nil
+	}
+	switch n := body.Node().(type) {
+	case *ast.PrefixMetadata:
+		if len(n.About) > 0 {
+			return nil
+		}
+		// Resolution links the body to the metadata type it names.
+		return body.Owner()
+	case *ast.Usage:
+		if n.Kind != ast.UsageMetadata || symbols.UsageAnnotatesOthers(n) || body.Owner().OwnerScope == nil {
+			return nil
+		}
+		for _, rel := range n.Relationships {
+			if rel == nil || rel.Kind != ast.RelTyping {
+				continue
+			}
+			qn, ok := rel.Target.(*ast.QualifiedName)
+			if !ok {
+				return nil
+			}
+			typ, ok := c.cc.resolver.ResolveQualified(body.Owner().OwnerScope, qn)
+			if !ok || typ == nil {
+				return nil
+			}
+			if target, aliasOK := c.cc.resolver.ResolveAliasTarget(typ); aliasOK {
+				return target
+			}
+			return typ
+		}
+	}
+	return nil
+}
+
+// runDecidedValue reports whether usage, in the annotation body scope body, binds
+// a feature the run reads where the annotated member's guards are (Probability's
+// p): such a value is visited from that member, not from the metadata type's feature.
+func (c *featureReferenceChecker) runDecidedValue(body *symbols.Scope, usage *ast.Usage) bool {
+	if c.cc.model == nil || c.cc.resolver == nil || usage.Kind == ast.UsageMetadata {
+		return false
+	}
+	def := c.annotationType(body)
+	return def != nil && semantics.RunDecidedMetadataFeature(def, c.cc.model.MetadataBodyTargetOf(def, body, usage))
+}
+
+// walkRunDecidedValues visits, from the site of the member annotated, the values
+// the annotation body members bind to run-decided features, in the body's scope.
+func (c *featureReferenceChecker) walkRunDecidedValues(site refSite, body *symbols.Scope, members []ast.Node) {
+	for _, m := range members {
+		if mem, ok := m.(*ast.Membership); ok {
+			m = mem.Member
+		}
+		if usage, ok := m.(*ast.Usage); ok && c.runDecidedValue(body, usage) {
+			c.walkExpr(site, body, usage.Value)
+		}
 	}
 }
 
@@ -208,6 +276,12 @@ func (c *featureReferenceChecker) walkMember(site refSite, scope *symbols.Scope,
 		c.walkMembers(site, childScopeOr(scope, n), n.Members)
 	case *ast.SuccessionEdge:
 		c.walkMembers(site, childScopeOr(scope, n), n.Members)
+	case *ast.PrefixMetadata:
+		c.walkRunDecidedValues(site, childScopeOr(scope, n), n.Body)
+	case *ast.Usage:
+		if n.Kind == ast.UsageMetadata {
+			c.walkRunDecidedValues(site, childScopeOr(scope, n), n.Members)
+		}
 	case *ast.ForkNode, *ast.JoinNode, *ast.MergeNode, *ast.DecisionNode:
 		c.walkMembers(site, childScopeOr(scope, m), ast.NodeBodyMembers(m))
 	case *ast.SendStatement:
