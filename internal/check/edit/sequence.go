@@ -8,6 +8,7 @@ import (
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/symbols"
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/ast"
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/diag"
+	"github.com/Open-MBEE/OpenSysML/internal/syntax/lexer"
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/parser"
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/source"
 )
@@ -170,7 +171,7 @@ func (m Model) formatSequenceReference(i int, owner string, scope *symbols.Scope
 	if _, err := checkFeatureReference(i, "sequence node", op.SequenceRef); err != nil {
 		return "", err
 	}
-	if !sequenceNodeVisible(scope, op.SequenceRef) {
+	if !m.sequenceNodeVisible(scope, op.SequenceRef) {
 		return "", &Error{
 			Failure: FailureUnknownTarget, OperationIndex: i,
 			Message: fmt.Sprintf("sequence node %q resolves to nothing visible from %s",
@@ -565,7 +566,21 @@ func actionBodyOwner(owner ast.Node) bool {
 // sequenceNodeVisible reports whether ref names a node the owner's body can
 // sequence to: a member it declares or inherits, a feature reachable from it,
 // or one of the implicit start/done markers the grammar reserves.
-func sequenceNodeVisible(scope *symbols.Scope, ref string) bool {
+func (m Model) sequenceNodeVisible(scope *symbols.Scope, ref string) bool {
+	if strings.HasPrefix(ref, "$::") {
+		// A `$::`-rooted name resolves the way the resolver resolves one: from
+		// the document root, falling back to the global index — other
+		// documents and the loaded libraries — not the edited document alone.
+		segments, ok := source.QualifiedNameSegments(strings.TrimPrefix(ref, "$::"))
+		if !ok || len(segments) == 0 {
+			return false
+		}
+		qn := ast.QualifiedNameOf(segments...)
+		qn.Global = true
+		r, _ := m.resolver()
+		_, ok = r.ResolveQualified(scope, qn)
+		return ok
+	}
 	segments, ok := source.QualifiedNameSegments(ref)
 	if !ok || len(segments) == 0 {
 		return false
@@ -639,33 +654,53 @@ func identificationName(id ast.Identification) string {
 // member's, the member's `;` or `}` and any comment on its line staying with it.
 func (m Model) memberInsertionAfter(member ast.Node, text string) insertion {
 	content := m.Source.Bytes()
-	// A member's span runs on over the trivia after it; its own text ends at
-	// its last token, which is the line the new member follows.
+	// A member's span runs on over the whitespace and comments after it, so
+	// the new member follows its last code token.
 	end := member.Span().End()
-	for end > 0 && (content[end-1] == ' ' || content[end-1] == '\t' || content[end-1] == '\n' || content[end-1] == '\r') {
-		end--
-	}
-	// The rest of the member's line decides the placement: a member or the
-	// body's `}` sharing it takes the new member inline right after this one
-	// (`a; then b; c;`); an empty rest, or a rest holding a comment alone,
-	// puts it on the next line at this member's indent.
-	next := end
-	for next < len(content) && (content[next] == ' ' || content[next] == '\t') {
-		next++
+	lx := lexer.New(m.Source)
+	for tok := lx.Next(); tok.Kind != lexer.EOF && tok.Span.Offset < member.Span().End(); tok = lx.Next() {
+		if !tok.IsTrivia() && tok.Kind != lexer.RegularComment {
+			end = tok.Span.End()
+		}
 	}
 	indent := lineIndent(content, member.Span().Offset)
-	if next < len(content) && content[next] != '\n' &&
-		!(content[next] == '/' && next+1 < len(content) &&
-			(content[next+1] == '/' || content[next+1] == '*')) {
+	lineEnd := end
+	for lineEnd < len(content) && content[lineEnd] != '\n' {
+		lineEnd++
+	}
+	// What the rest of the anchor's line holds decides the placement. An
+	// empty rest, `//` notes, or block comments that close on the line with
+	// nothing but whitespace and notes after them put the new member on the
+	// next line at the anchor's indent; anything else — a member, the body's
+	// `}`, a block comment that does not close on the line, or code after a
+	// block comment — takes it inline right after the anchor's last token.
+	// The new member is never written inside a comment.
+	nextLine := true
+	lx = lexer.New(m.Source)
+	for tok := lx.Next(); tok.Kind != lexer.EOF && tok.Span.Offset < lineEnd; tok = lx.Next() {
+		if tok.Span.End() <= end || tok.Kind == lexer.Whitespace || tok.Kind == lexer.SLNote {
+			continue
+		}
+		switch tok.Kind {
+		case lexer.MLNote, lexer.RegularComment:
+			nextLine = tok.Span.End() <= lineEnd
+		default:
+			nextLine = false
+		}
+		if !nextLine {
+			break
+		}
+	}
+	if !nextLine {
+		next := end
+		for next < len(content) && (content[next] == ' ' || content[next] == '\t') {
+			next++
+		}
 		return insertion{
 			span: source.Span{Offset: end, Len: next - end},
 			text: " " + text + " ",
 			at:   1,
 		}
-	}
-	lineEnd := end
-	for lineEnd < len(content) && content[lineEnd] != '\n' {
-		lineEnd++
 	}
 	if lineEnd == len(content) {
 		return insertion{

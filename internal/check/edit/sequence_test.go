@@ -318,6 +318,83 @@ func TestAddSequenceAfter(t *testing.T) {
 		}
 		requireClean(t, loadContent(t, "sequence-comment.sysml", string(result.Content)))
 	})
+	t.Run("before the next member's comment", func(t *testing.T) {
+		model := loadContent(t, "sequence-comment-before.sysml",
+			"action def A {\n    action a;\n    // explain b\n    action b;\n}\n")
+		requireClean(t, model)
+		op := AddThenMember("A", "action", "x", "")
+		op.After = "a"
+		result := applyOne(t, model, op)
+		const want = "action def A {\n    action a;\n    then action x;\n    // explain b\n    action b;\n}\n"
+		if string(result.Content) != want {
+			t.Fatalf("content = %q, want %q", result.Content, want)
+		}
+		requireClean(t, loadContent(t, "sequence-comment-before.sysml", string(result.Content)))
+	})
+	t.Run("block comment that does not close on the line", func(t *testing.T) {
+		model := loadContent(t, "sequence-block-open.sysml",
+			"action def A {\n    action a; /* explanation\n continued */\n    action b;\n}\n")
+		requireClean(t, model)
+		op := AddThenMember("A", "action", "x", "")
+		op.After = "a"
+		result := applyOne(t, model, op)
+		const want = "action def A {\n    action a; then action x; /* explanation\n continued */\n    action b;\n}\n"
+		if string(result.Content) != want {
+			t.Fatalf("content = %q, want %q", result.Content, want)
+		}
+		parsed := loadContent(t, "sequence-block-open.sysml", string(result.Content))
+		requireClean(t, parsed)
+		if syms := parsed.Index.LookupQualified("A::x"); len(syms) != 1 {
+			t.Fatalf("A::x = %d symbols, want the then member to parse", len(syms))
+		}
+	})
+	t.Run("block comment followed by code on the line", func(t *testing.T) {
+		model := loadContent(t, "sequence-block-code.sysml",
+			"action def A { action a; /* note */ action b; }\n")
+		requireClean(t, model)
+		op := AddThenMember("A", "action", "x", "")
+		op.After = "a"
+		result := applyOne(t, model, op)
+		const want = "action def A { action a; then action x; /* note */ action b; }\n"
+		if string(result.Content) != want {
+			t.Fatalf("content = %q, want %q", result.Content, want)
+		}
+		parsed := loadContent(t, "sequence-block-code.sysml", string(result.Content))
+		requireClean(t, parsed)
+		if syms := parsed.Index.LookupQualified("A::x"); len(syms) != 1 {
+			t.Fatalf("A::x = %d symbols, want the then member to parse", len(syms))
+		}
+	})
+	t.Run("block comment closing on the anchor's line", func(t *testing.T) {
+		model := loadContent(t, "sequence-block-close.sysml",
+			"action def A {\n    action a; /* note */\n    action b;\n}\n")
+		requireClean(t, model)
+		op := AddThenMember("A", "action", "x", "")
+		op.After = "a"
+		result := applyOne(t, model, op)
+		const want = "action def A {\n    action a; /* note */\n    then action x;\n    action b;\n}\n"
+		if string(result.Content) != want {
+			t.Fatalf("content = %q, want %q", result.Content, want)
+		}
+		parsed := loadContent(t, "sequence-block-close.sysml", string(result.Content))
+		requireClean(t, parsed)
+		if syms := parsed.Index.LookupQualified("A::x"); len(syms) != 1 {
+			t.Fatalf("A::x = %d symbols, want the then member to parse", len(syms))
+		}
+	})
+	t.Run("before a blank line", func(t *testing.T) {
+		model := loadContent(t, "sequence-blank.sysml",
+			"action def A {\n    action a;\n\n    action b;\n}\n")
+		requireClean(t, model)
+		op := AddThen("A", "done")
+		op.After = "a"
+		result := applyOne(t, model, op)
+		const want = "action def A {\n    action a;\n    then done;\n\n    action b;\n}\n"
+		if string(result.Content) != want {
+			t.Fatalf("content = %q, want %q", result.Content, want)
+		}
+		requireClean(t, loadContent(t, "sequence-blank.sysml", string(result.Content)))
+	})
 	t.Run("chain insertion", func(t *testing.T) {
 		model := loadContent(t, "sequence-chain.sysml",
 			"action def A {\n    action a;\n    action b;\n    then c;\n    action c;\n}\n")
@@ -331,6 +408,40 @@ func TestAddSequenceAfter(t *testing.T) {
 		}
 		requireClean(t, loadContent(t, "sequence-chain.sysml", string(result.Content)))
 	})
+}
+
+func TestAddSequenceGlobalReference(t *testing.T) {
+	model := loadContent(t, "sequence-global.sysml",
+		"package P {\n    action def A {\n        action a;\n    }\n}\n")
+	requireClean(t, model)
+	// `first $::x;` is not grammatical — the grammar admits a plain node name
+	// after `first` — so only `then` shares this path.
+	result := applyOne(t, model, AddThen("P::A", "$::P::A::a"))
+	const want = "        then $::P::A::a;\n"
+	if !strings.Contains(string(result.Content), want) {
+		t.Fatalf("%q not written:\n%s", want, result.Content)
+	}
+	requireClean(t, loadContent(t, "sequence-global.sysml", string(result.Content)))
+}
+
+func TestAddSequenceGlobalReferenceAcrossDocuments(t *testing.T) {
+	model := loadWorkspace(t, "a.sysml",
+		"package P {\n    action def A {\n        action a;\n    }\n}\n",
+		map[string]string{"q.sysml": "package Q {\n    action def B {\n        action q;\n    }\n}\n"})
+	requireClean(t, model)
+	scope := model.Index.LookupQualified("P::A")[0].Scope
+	// A `$::` name resolves through the index, not the edited document alone:
+	// a sibling document's member and a library member resolve, an unknown
+	// name does not.
+	if !model.sequenceNodeVisible(scope, "$::Q::B::q") {
+		t.Fatal("$::Q::B::q did not resolve through the index")
+	}
+	if !model.sequenceNodeVisible(scope, "$::Actions::Action::done") {
+		t.Fatal("$::Actions::Action::done did not resolve through the library")
+	}
+	if model.sequenceNodeVisible(scope, "$::Q::B::nope") {
+		t.Fatal("$::Q::B::nope resolved; want it unresolvable")
+	}
 }
 
 func TestAddSequenceRefusals(t *testing.T) {
@@ -411,6 +522,12 @@ func TestAddSequenceRefusals(t *testing.T) {
 			m:    loadContent(t, "sequence-kw.sysml", sequenceTestModel),
 			op:   Operation{Kind: OpAddSequence, Owner: "P::A", SequenceKeyword: "then"},
 			want: FailureIllegalKind,
+		},
+		{
+			name: "ref resolves to nothing",
+			m:    loadContent(t, "sequence-ref.sysml", sequenceTestModel),
+			op:   AddThen("P::A", "$::P::A::nope"),
+			want: FailureUnknownTarget,
 		},
 		{
 			name: "ref not a feature reference",
