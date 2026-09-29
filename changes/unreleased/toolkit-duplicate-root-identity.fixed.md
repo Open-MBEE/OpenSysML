@@ -1,1 +1,1 @@
-- **Toolkit JSON roots that share a name keep distinct identities.** A later root with an earlier root's name is identified by its position among the roots, matching notation export, instead of receiving the same qualified name.
+- **Toolkit JSON roots keep the order and identities of the root namespace.** A later same-named root is identified by its position in that order, and an unowned root relationship occupies a position just like any other root.

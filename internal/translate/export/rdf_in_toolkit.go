@@ -2,6 +2,7 @@ package export
 
 import (
 	"fmt"
+	"sort"
 	"strings"
 
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/identity"
@@ -785,8 +786,8 @@ func deriveNormativeGraph(graph *rdf.Graph, metaclasses map[rdf.Term]string) (*r
 	}
 
 	// Qualified names: the compact form carries none, and every name the
-	// decoder writes is read from one. Members use their owner's name and
-	// position among its members; roots use the same positioning rule.
+	// decoder writes is read from one. Members use their owner's position among
+	// its members; roots use their position among the roots the same way.
 	qname := map[string]string{}
 	visiting := map[string]bool{}
 	roots := []rdf.Term{}
@@ -799,13 +800,16 @@ func deriveNormativeGraph(graph *rdf.Graph, metaclasses map[rdf.Term]string) (*r
 		if m == "" || expressionMetaclasses[m] && !(m == mMembership && owned) {
 			continue
 		}
-		if !owned && relationshipLike(m) {
+		if !owned && relationshipLike(m) && hasOwner(graph, subject) {
 			continue
 		}
 		if !owned {
 			roots = append(roots, subject)
 		}
 	}
+	sort.SliceStable(roots, func(i, j int) bool {
+		return intOf(graph, roots[i], rdf.OpenSysML+xMemberIndex) < intOf(graph, roots[j], rdf.OpenSysML+xMemberIndex)
+	})
 	var nameOf func(subject rdf.Term) string
 	nameOf = func(subject rdf.Term) string {
 		if q, ok := qname[subject.Value]; ok {
@@ -882,8 +886,8 @@ func deriveNormativeGraph(graph *rdf.Graph, metaclasses map[rdf.Term]string) (*r
 		if m == "" || expressionMetaclasses[m] && !(m == mMembership && owned) {
 			continue
 		}
-		if !owned && relationshipLike(m) {
-			// An implied relationship is no member and takes no name.
+		if !owned && relationshipLike(m) && hasOwner(graph, subject) {
+			// A relationship with an owner is implied by that owner.
 			continue
 		}
 		if !owned {
