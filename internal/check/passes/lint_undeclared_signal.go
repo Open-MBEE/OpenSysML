@@ -131,13 +131,11 @@ func gatherSentSignals(ctx *Context, root *symbols.Scope, sent map[string]bool) 
 		if !ok {
 			return
 		}
-		body := kit.BodyScope(scope, send)
-		for _, payload := range []struct {
-			expr  ast.Node
-			scope *symbols.Scope
-		}{{send.Message, scope}, {lower.SendPayload(send), body}} {
-			noteSentSignal(ctx, payload.scope, payload.expr, sent)
+		if send.Message != nil {
+			noteSentSignal(ctx, scope, send.Message, sent)
+			return
 		}
+		noteSentSignal(ctx, kit.BodyScope(scope, send), lower.SendPayload(send), sent)
 		if param := lower.SendPayloadParameter(send); param != nil {
 			for _, rel := range param.Relationships {
 				if rel != nil && rel.Kind == ast.RelTyping {
@@ -154,7 +152,7 @@ func noteSentSignal(ctx *Context, scope *symbols.Scope, expr ast.Node, sent map[
 	case nil:
 		return
 	case *ast.ConstructorExpr:
-		noteSentName(e.Type, sent)
+		noteSentDefinition(ctx, scope, e.Type, sent)
 	case *ast.InvocationExpr:
 		if e.Operand != nil || e.Type == nil {
 			return
@@ -162,7 +160,7 @@ func noteSentSignal(ctx *Context, scope *symbols.Scope, expr ast.Node, sent map[
 		model := ctx.Model()
 		sel := model.SelectCall(scope, e, semantics.PerformsBehavior)
 		if !model.CallsCalc(sel) {
-			noteSentName(e.Type, sent)
+			noteSentDefinition(ctx, scope, e.Type, sent)
 			return
 		}
 		// The calculation's value is sent, typed by its result.
@@ -174,13 +172,21 @@ func noteSentSignal(ctx *Context, scope *symbols.Scope, expr ast.Node, sent map[
 			}
 		}
 	case *ast.QualifiedName, *ast.FeatureReference, *ast.FeatureChainExpr:
-		noteSentName(e, sent)
 		sym, ok := ctx.Resolver().ResolveTarget(scope, e)
 		if !ok || sym == nil {
+			noteSentName(e, sent)
 			return
 		}
-		if sym.Name != "" {
+		if sym = ctx.Resolver().AliasedElement(sym); isDefinition(sym) {
 			sent[sym.Name] = true
+			return
+		}
+		// A feature sends its value: a scalar by its scalar type, else by its type.
+		if scalars := ctx.Model().SentScalarTypes(scope, e); len(scalars) > 0 {
+			for _, name := range scalars {
+				sent[name] = true
+			}
+			return
 		}
 		for _, typ := range ctx.Model().DeclaredTypes(sym) {
 			if typ != nil && typ.Name != "" {
@@ -192,6 +198,30 @@ func noteSentSignal(ctx *Context, scope *symbols.Scope, expr ast.Node, sent map[
 			sent[name] = true
 		}
 	}
+}
+
+// noteSentDefinition records the definition a constructed or invoked message
+// names, through any alias, or the name as written where it names none.
+func noteSentDefinition(ctx *Context, scope *symbols.Scope, name *ast.QualifiedName, sent map[string]bool) {
+	if name == nil {
+		return
+	}
+	if sym, ok := ctx.Resolver().ResolveTarget(scope, name); ok && sym != nil {
+		if sym = ctx.Resolver().AliasedElement(sym); isDefinition(sym) {
+			sent[sym.Name] = true
+			return
+		}
+	}
+	noteSentName(name, sent)
+}
+
+// isDefinition reports whether sym is a named definition, which a message is typed by.
+func isDefinition(sym *symbols.Symbol) bool {
+	if sym == nil || sym.Name == "" {
+		return false
+	}
+	_, ok := sym.DefinitionKind()
+	return ok
 }
 
 // noteSentName records the last segment of a name written in a send.
