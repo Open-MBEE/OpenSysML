@@ -2,8 +2,8 @@
 
 A *lint* is a warning about a model the specification accepts: nothing in SysML v2 or KerML
 makes the written model wrong, but it is almost always a slip. Each lint has a stable code,
-printed with the finding and carried as the diagnostic's `code` in the editor and over the
-wire, and each can be switched off by that code. A lint is a warning in every mode:
+carried as the diagnostic's `code` under `-json`, in the editor and over the wire, and each
+can be switched off by that code. A lint is a warning in every mode:
 [`-strict`](../guide/03-command-line.md#strict-conformance) promotes notation no SysML v2
 production admits, and a lint is not about notation, so it stays a warning and never changes
 the exit status or blocks a check.
@@ -51,7 +51,7 @@ The finding offers the resolver's nearest names in scope as `did you mean …?`:
 m.sysml:3:73: warning: `when Pnig` names no declaration visible here and no signal the model sends, so only a signal injected by that name triggers it — did you mean Ping?
 ```
 
-A signal the model only ever receives from outside (`%signal` at the prompt, an injected
+A signal the model only ever receives from outside (`%send` at the prompt, an injected
 event over the wire) is reported, since nothing in the model says it exists; declare it
 (`attribute def Ping;`) to say so, or switch the lint off. The trigger's resolution and
 behavior are unchanged either way.
