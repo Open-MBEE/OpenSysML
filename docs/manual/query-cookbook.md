@@ -739,10 +739,12 @@ own feature follows what it read.
 
 ## Computed columns
 
-A projection may also derive columns: each `Column(name, expression)` entry
-appends a named column whose expression is evaluated once per row over the
-row element's declared features. Arithmetic (`+`, `-`, `*`, `/`), string
-concatenation with `+` and `??` defaults for absent values are supported:
+A projection may also derive columns: each `Column` entry supplies exactly one
+of `expression`, `cell`, or `path`. An expression is evaluated once per row
+over the row element's declared features; a cell receives the row as a typed
+parameter; a path reads a dotted member path from the row. Arithmetic (`+`,
+`-`, `*`, `/`), string concatenation with `+` and `??` defaults for absent
+values are supported:
 
 ```sysml
 calc def MassBudget :> Query {
@@ -751,7 +753,7 @@ calc def MassBudget :> Query {
 		source = PartsByMass(root = root),
 		properties = ("name", "mass"),
 		columns = (
-			Column(name = "massLbs", expression = (Subsystem::mass ?? 0.0) * 2.2),
+			Column(name = "massLbs", cell = { in row : Subsystem; (row.mass ?? 0.0) * 2.2 }),
 			Column(name = "label", expression = "part: " + Element::name)
 		)
 	)
@@ -823,7 +825,7 @@ calc def RunCounts :> Query {
 	Project(
 		source = Descendants(source = root, maxDepth = 1),
 		properties = ("name"),
-		columns = (Column(name = "runs", expression = 'Monte Carlo'.runs ?? 0))
+		columns = (Column(name = "runs", path = "'Monte Carlo'.runs"))
 	)
 }
 ```

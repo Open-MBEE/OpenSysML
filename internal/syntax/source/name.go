@@ -54,6 +54,27 @@ func QualifiedNameSegments(text string) ([]string, bool) {
 	}
 }
 
+// MetadataPathSegments splits a metadata path into the metadata definition's
+// segments and the feature name.
+func MetadataPathSegments(path string) (definition []string, feature string, ok bool) {
+	if segments, ok := QualifiedNameSegments(path); ok && len(segments) >= 2 {
+		return segments[:len(segments)-1], segments[len(segments)-1], true
+	}
+	separator := strings.LastIndex(path, "::")
+	if separator <= 0 || separator+2 >= len(path) {
+		return nil, "", false
+	}
+	definition, ok = QualifiedNameSegments(path[:separator])
+	if !ok || len(definition) == 0 {
+		return nil, "", false
+	}
+	feature = path[separator+2:]
+	if segments, ok := MemberPathSegments(feature); ok && len(segments) == 1 {
+		feature = segments[0]
+	}
+	return definition, feature, true
+}
+
 // MemberPathOf writes the segments of a member path, outermost first, joined
 // by '.', each quoted on its own like a qualified name segment.
 func MemberPathOf(names []string) string {

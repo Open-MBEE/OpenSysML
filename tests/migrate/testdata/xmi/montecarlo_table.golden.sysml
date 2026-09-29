@@ -49,10 +49,10 @@ package Results {
                 multiple = "first"),
             properties = ("name"),
             columns = (
-                DocumentQueries::Column(name = "N", expression = 'Monte Carlo'.runs),
-                DocumentQueries::Column(name = "Mean", expression = 'Monte Carlo'.mean),
-                DocumentQueries::Column(name = "Deviation", expression = 'Monte Carlo'.deviation),
-                DocumentQueries::Column(name = "OutOfSpec", expression = 'Monte Carlo'.outOfSpec)))
+                DocumentQueries::Column(name = "N", path = "'Monte Carlo'.runs"),
+                DocumentQueries::Column(name = "Mean", path = "'Monte Carlo'.mean"),
+                DocumentQueries::Column(name = "Deviation", path = "'Monte Carlo'.deviation"),
+                DocumentQueries::Column(name = "OutOfSpec", path = "'Monte Carlo'.outOfSpec")))
     }
     part def 'Sweep Statistics Document' :> DocumentQueries::Document {
         attribute redefines title = "Sweep Statistics";

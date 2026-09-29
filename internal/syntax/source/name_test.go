@@ -29,6 +29,38 @@ func TestQualifiedNameSegments(t *testing.T) {
 	}
 }
 
+func TestMetadataPathSegments(t *testing.T) {
+	for _, tc := range []struct {
+		text       string
+		definition []string
+		feature    string
+		ok         bool
+	}{
+		{"Meta::tag", []string{"Meta"}, "tag", true},
+		{"Meta::'tag with space'", []string{"Meta"}, "tag with space", true},
+		{"'My Meta'::tag", []string{"My Meta"}, "tag", true},
+		{"Meta::x.y", []string{"Meta"}, "x.y", true},
+		{"Meta::'x.y'", []string{"Meta"}, "x.y", true},
+		{"Meta::'x::y'", []string{"Meta"}, "x::y", true},
+		{"'A::B'::tag", []string{"A::B"}, "tag", true},
+		{"Meta::", nil, "", false},
+		{"::tag", nil, "", false},
+		{"tag", nil, "", false},
+	} {
+		gotDefinition, gotFeature, ok := MetadataPathSegments(tc.text)
+		if ok != tc.ok {
+			t.Errorf("MetadataPathSegments(%q) succeeded = %v, want %v", tc.text, ok, tc.ok)
+			continue
+		}
+		if !reflect.DeepEqual(gotDefinition, tc.definition) || gotFeature != tc.feature {
+			t.Errorf(
+				"MetadataPathSegments(%q) = %v, %q, want %v, %q",
+				tc.text, gotDefinition, gotFeature, tc.definition, tc.feature,
+			)
+		}
+	}
+}
+
 // A typing's references each end in the name a diagram heads the type by; a
 // conjugation is kept, and text that is not a reference list stands as it is.
 func TestReferenceEndNames(t *testing.T) {
