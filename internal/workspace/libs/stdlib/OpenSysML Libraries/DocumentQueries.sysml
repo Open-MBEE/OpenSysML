@@ -206,10 +206,10 @@ library package DocumentQueries {
 	 * own members before inherited ones; a row lacking a segment is
 	 * absent on that row, a member declaring no value is an empty
 	 * cell, and a member holding more values than its multiplicity
-	 * admits fails the column as a direct feature column does. A
-	 * cell over a metadata row reads its direct features only.
-	 * property string of Project's properties or OrderBy's property
-	 * may hold the same path ("stat.runs").
+	 * admits fails the column as a direct feature column does. A cell
+	 * over a metadata row reads its direct features only. A property
+	 * string of Project's properties or OrderBy's property may hold
+	 * the same path ("stat.runs").
 	 * A row not conforming to the feature's declaring type reads it as
 	 * absent; a failing expression, an absent result not defaulted
 	 * with ??, or a multi-valued result fails the query with a typed
