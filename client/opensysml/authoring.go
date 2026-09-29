@@ -458,6 +458,9 @@ func (c *client) ApplyDocumentEdits(ctx context.Context, model *Model, document 
 		switch operation := operation.(type) {
 		case AddMember:
 			required[CapabilityAuthoring] = true
+			if operation.Kind == "" {
+				required[CapabilityImplicitParameters] = true
+			}
 			if operation.IsAbstract || len(operation.Redefines) > 0 ||
 				operation.IsDefault || operation.Direction != "" ||
 				operation.Kind == "ref" || operation.Kind == "return" {
@@ -488,7 +491,7 @@ func (c *client) ApplyDocumentEdits(ctx context.Context, model *Model, document 
 			CapabilityAuthoring, CapabilityConnectionAuthoring,
 			CapabilitySatisfyAuthoring, CapabilityRequirementConstraintAuthoring,
 			CapabilityMemberModifiers, CapabilityTransitionAuthoring,
-			CapabilitySequenceAuthoring,
+			CapabilitySequenceAuthoring, CapabilityImplicitParameters,
 		} {
 			if required[capability] {
 				names = append(names, capability)

@@ -69,11 +69,11 @@ func TestSequenceAuthoredActionsExecuteLikeWrittenOnes(t *testing.T) {
 	result, err := edit.Apply(model, []edit.Operation{
 		edit.AddFirst("ToasterDemo::ApplyHeat", "start"),
 		edit.AddThenMember("ToasterDemo::ApplyHeat", "action", "generateHeat", "GenerateHeat"),
-		{Kind: edit.OpAddMember, Owner: "ToasterDemo::ApplyHeat::generateHeat", MemberKind: "ref", MemberName: "energyIn", Value: "ApplyHeat::energy", Direction: "in"},
+		{Kind: edit.OpAddMember, Owner: "ToasterDemo::ApplyHeat::generateHeat", MemberKind: "", MemberName: "energyIn", Value: "ApplyHeat::energy", Direction: "in"},
 		edit.AddThen("ToasterDemo::ApplyHeat", "done"),
 		edit.AddFirst("ToasterDemo::ToastBread", "start"),
 		edit.AddThenMember("ToasterDemo::ToastBread", "action", "applyHeat", "ApplyHeat"),
-		{Kind: edit.OpAddMember, Owner: "ToasterDemo::ToastBread::applyHeat", MemberKind: "ref", MemberName: "bread", Value: "ToastBread::bread", Direction: "in"},
+		{Kind: edit.OpAddMember, Owner: "ToasterDemo::ToastBread::applyHeat", MemberKind: "", MemberName: "bread", Value: "ToastBread::bread", Direction: "in"},
 		edit.AddThen("ToasterDemo::ToastBread", "done"),
 	})
 	if err != nil {

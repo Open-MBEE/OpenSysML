@@ -65,6 +65,11 @@ func (s *Service) ApplyEdits(ctx context.Context, req *pb.ApplyEditsRequest) (*p
 			return nil, err
 		}
 	}
+	if requestsImplicitParameters(req.Operations) {
+		if err := s.requireCapability(CapabilityImplicitParameters); err != nil {
+			return nil, err
+		}
+	}
 	documents := s.capabilities.has(CapabilityEditDocuments)
 	if req.Document != "" && !documents {
 		return nil, s.requireCapability(CapabilityEditDocuments)
@@ -225,6 +230,18 @@ func requestsMemberModifiers(operations []*pb.EditOperation) bool {
 		if add != nil && (add.GetIsAbstract() || len(add.GetRedefines()) > 0 ||
 			add.GetIsDefault() || add.GetDirection() != "" ||
 			add.GetKind() == "ref" || add.GetKind() == "return") {
+			return true
+		}
+	}
+	return false
+}
+
+// requestsImplicitParameters reports whether any add-member operation names
+// no kind: an implicit directed usage (`in x : T;`).
+func requestsImplicitParameters(operations []*pb.EditOperation) bool {
+	for _, operation := range operations {
+		add := operation.GetAddMember()
+		if add != nil && add.GetKind() == "" {
 			return true
 		}
 	}

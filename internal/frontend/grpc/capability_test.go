@@ -123,6 +123,16 @@ func TestCapabilityGatedRequestsAreRefused(t *testing.T) {
 			})
 			return err
 		}},
+		{"implicit parameters", CapabilityImplicitParameters, func(s *Service) error {
+			_, err := s.ApplyEdits(ctx, &pb.ApplyEditsRequest{
+				Operations: []*pb.EditOperation{{
+					Operation: &pb.EditOperation_AddMember{AddMember: &pb.AddMemberEdit{
+						Owner: "P", Kind: "", Name: "x", Direction: "in",
+					}},
+				}},
+			})
+			return err
+		}},
 		{"member modifiers", CapabilityMemberModifiers, func(s *Service) error {
 			_, err := s.ApplyEdits(ctx, &pb.ApplyEditsRequest{
 				Operations: []*pb.EditOperation{{

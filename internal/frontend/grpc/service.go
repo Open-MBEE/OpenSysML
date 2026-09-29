@@ -98,6 +98,10 @@ const CapabilityMemberModifiers = "member_modifiers"
 // CapabilityTransitionAuthoring names the ApplyEdits add_transition operation.
 const CapabilityTransitionAuthoring = "transition_authoring"
 
+// CapabilityImplicitParameters names the ApplyEdits add_member operation with
+// no kind: an implicit directed usage (`in x : T;`).
+const CapabilityImplicitParameters = "implicit_parameters"
+
 // CapabilitySequenceAuthoring names the ApplyEdits add_sequence operation.
 const CapabilitySequenceAuthoring = "sequence_authoring"
 
@@ -220,6 +224,7 @@ var capabilities = []string{
 	CapabilityMemberModifiers,
 	CapabilityTransitionAuthoring,
 	CapabilitySequenceAuthoring,
+	CapabilityImplicitParameters,
 }
 
 type capabilityAvailability struct {

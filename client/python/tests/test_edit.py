@@ -20,6 +20,7 @@ from opensysml.capabilities import (
     CAPABILITY_APPLY_EDITS,
     CAPABILITY_AUTHORING,
     CAPABILITY_CONNECTION_AUTHORING,
+    CAPABILITY_IMPLICIT_PARAMETERS,
     CAPABILITY_MEMBER_MODIFIERS,
     CAPABILITY_REQUIREMENT_CONSTRAINT_AUTHORING,
     CAPABILITY_SATISFY_AUTHORING,
@@ -505,6 +506,10 @@ def test_add_member_rejects_invalid_direction_with_type_message(fake_service):
          CAPABILITY_SEQUENCE_AUTHORING),
         (lambda editor: editor.add_then("Demo::A", action="b", type="B"),
          CAPABILITY_SEQUENCE_AUTHORING),
+        (lambda editor: editor.add_member("Demo::SC", "", "x", direction="in"),
+         CAPABILITY_IMPLICIT_PARAMETERS),
+        (lambda editor: editor.add_parameter("Demo::SC", "in", "x"),
+         CAPABILITY_IMPLICIT_PARAMETERS),
     ],
 )
 def test_new_authoring_capabilities_are_preflighted(fake_service, operation, missing):
@@ -1174,6 +1179,18 @@ class TestEditRoundTripAgainstRealService:
             )
             assert _elements_by_qname(edited.to_api_json()) == \
                 _elements_by_qname(written.to_api_json())
+
+    def test_add_parameter_explicit_ref_kind_writes_ref(self, real_service):
+        source = "calc def C { x * 2 }\n"
+        with Connection(port=real_service, auto_start=False) as conn:
+            model = conn.load_from_content(source)
+            result = model.edit().add_parameter(
+                "C", "in", "power", type="ScalarValues::Real", kind="ref"
+            ).apply()
+            edited = str(result)
+            assert "in ref power : ScalarValues::Real;" in edited
+            again = conn.load_from_content(edited)
+            assert again.ok, [str(d) for d in again.errors]
 
     def test_state_transitions_round_trip(self, real_service):
         source = (

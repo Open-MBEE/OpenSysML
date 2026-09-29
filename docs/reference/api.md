@@ -113,7 +113,9 @@ and `type` fields:
 `add_satisfy` requires `authoring` and `satisfy_authoring`; `add_requirement_constraint` requires
 `authoring` and `requirement_constraint_authoring`; transition edits require `authoring` and
 `transition_authoring`; sequence edits require `authoring` and `sequence_authoring`. An `add_member` edit with any new modifier or
-the `ref`/`return` kind also requires `member_modifiers`. Clients preflight these capabilities
+the `ref`/`return` kind also requires `member_modifiers`. An `add_member` edit with an empty `kind` writes a
+directed usage with no kind keyword (`in x : T;`) — direction is required and `abstract` is refused — and
+requires `authoring` and `implicit_parameters`. Clients preflight these capabilities
 before sending the operation.
 
 Regular transitions always write `first <source>` and may add at most one `accept <trigger>`, one

@@ -673,10 +673,16 @@ class Editor:
             )
         return self
 
-    def add_parameter(self, owner, direction, name, type=None, kind="ref", **kwargs):
-        """Add a directional parameter usage."""
+    def add_parameter(self, owner, direction, name, type=None, kind=None, **kwargs):
+        """Add a directional parameter usage.
+
+        By default the usage spells without a kind keyword — ``in x : T;``, an
+        implicit directed usage. An explicit `kind` is passed through as today:
+        ``kind="ref"`` writes ``in ref x : T;``, which this runtime reads as a
+        performer-bound reference parameter.
+        """
         return self.add_member(
-            owner, kind, name, type=type, direction=direction, **kwargs
+            owner, kind or "", name, type=type, direction=direction, **kwargs
         )
 
     def add_return(self, owner, name="", **kwargs):

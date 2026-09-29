@@ -402,6 +402,8 @@ an entry transition; `Edit.AddSequence.first`, `.then` and `.thenMember` write
 `first`/`then` members. The client checks
 `member_modifiers`, `satisfy_authoring`, `requirement_constraint_authoring`,
 `transition_authoring` or `sequence_authoring` before sending those additions.
+An `Edit.AddMember` with an empty `kind` writes a directed usage with no kind
+keyword (`in x : T;`) and requires `implicit_parameters`.
 
 ## Running the tests
 

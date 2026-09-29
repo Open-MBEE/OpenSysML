@@ -881,6 +881,7 @@ public final class Model {
     boolean requestsRequirementConstraintAuthoring = false;
     boolean requestsTransitionAuthoring = false;
     boolean requestsSequenceAuthoring = false;
+    boolean requestsImplicitParameters = false;
     for (Edit edit : edits) {
       if (edit instanceof Edit.AddMember
           || edit instanceof Edit.AddConnection
@@ -903,6 +904,9 @@ public final class Model {
               || addMember.kind().equals("ref")
               || addMember.kind().equals("return"))) {
         requestsMemberModifiers = true;
+      }
+      if (edit instanceof Edit.AddMember addMember && addMember.kind().isEmpty()) {
+        requestsImplicitParameters = true;
       }
       if (edit instanceof Edit.AddSatisfy) {
         requestsSatisfyAuthoring = true;
@@ -937,6 +941,9 @@ public final class Model {
     }
     if (requestsSequenceAuthoring) {
       connection.capabilities().require(Capabilities.SEQUENCE_AUTHORING);
+    }
+    if (requestsImplicitParameters) {
+      connection.capabilities().require(Capabilities.IMPLICIT_PARAMETERS);
     }
     options.document().ifPresent(document -> connection.capabilities().require(Capabilities.EDIT_DOCUMENTS));
     ApplyEditsRequest.Builder request =

@@ -137,12 +137,31 @@ func mapKeys[V any](m map[string]V) []string {
 
 func (m Model) addMemberSplice(i int, op Operation) (splice, error) {
 	kind, ok := memberKinds[op.MemberKind]
+	if op.MemberKind == "" {
+		// An empty kind writes a directed usage with no kind keyword (`in x : T;`);
+		// it is a typed usage like `ref`, and SysML alone writes it.
+		kind, ok = memberKinds["ref"], true
+	}
 	if !ok || !kind.languages[m.Source.Kind()] {
 		return splice{}, &Error{
 			Failure:        FailureIllegalKind,
 			OperationIndex: i,
 			Message: fmt.Sprintf("kind %q is not legal in %s source %q",
 				op.MemberKind, m.Source.Kind(), m.Source.Name()),
+		}
+	}
+	if op.MemberKind == "" && op.Direction == "" {
+		return splice{}, &Error{
+			Failure:        FailureIllegalKind,
+			OperationIndex: i,
+			Message:        "an empty member kind needs a direction (in, out or inout)",
+		}
+	}
+	if op.MemberKind == "" && op.IsAbstract {
+		return splice{}, &Error{
+			Failure:        FailureIllegalKind,
+			OperationIndex: i,
+			Message:        "an implicit directed usage cannot be abstract: `in abstract x` does not parse",
 		}
 	}
 	performName := ""
@@ -272,12 +291,18 @@ func (m Model) addMemberSplice(i int, op Operation) (splice, error) {
 		e.OperationIndex = i
 		return splice{}, e
 	}
-	if !parser.BodyAdmitsMember(owner, op.MemberKind) {
+	// An empty kind is admitted wherever an explicit directed usage is: the
+	// direction it writes is the member notation a plain `ref` spells anyway.
+	admitKind := op.MemberKind
+	if admitKind == "" {
+		admitKind = "ref"
+	}
+	if !parser.BodyAdmitsMember(owner, admitKind) {
 		return splice{}, &Error{
 			Failure:        FailureIllegalKind,
 			OperationIndex: i,
 			Message: fmt.Sprintf("kind %q is only declared in a %s body, which %s does not open",
-				op.MemberKind, parser.MemberOwner(op.MemberKind), ownerName(op.Owner)),
+				admitKind, parser.MemberOwner(admitKind), ownerName(op.Owner)),
 		}
 	}
 	if op.MemberKind == "return" && !parser.BodyIsCalculation(owner) {
@@ -374,15 +399,13 @@ func writeMember(op Operation, kind memberKind) string {
 		prefix = append(prefix, "abstract")
 	}
 	switch op.MemberKind {
+	case "":
+		// An empty kind writes no keyword: the direction itself spells the
+		// usage (`in x : T;`).
 	case "return":
 		prefix = append(prefix, "return")
 	case "ref":
-		// A direction already marks the usage's parameter nature, so a
-		// directed ref spells without the keyword (`in x : T;`). Abstract
-		// directed refs keep it: the parser reads `in abstract x` as a usage.
-		if op.Direction == "" || op.IsAbstract {
-			prefix = append(prefix, "ref")
-		}
+		prefix = append(prefix, "ref")
 	default:
 		prefix = append(prefix, op.MemberKind)
 	}

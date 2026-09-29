@@ -30,6 +30,7 @@ from opensysml.capabilities import (
     CAPABILITY_EVALUATE_SUBJECT,
     CAPABILITY_FEATURE_VALUES,
     CAPABILITY_FUNCTION_VALUES,
+    CAPABILITY_IMPLICIT_PARAMETERS,
     CAPABILITY_INFINITY_VALUE,
     CAPABILITY_MEASUREMENT_REFS,
     CAPABILITY_METAOBJECT_VALUES,
@@ -978,6 +979,7 @@ class Connection:
         requests_authoring = False
         requests_connection_authoring = False
         requests_member_modifiers = False
+        requests_implicit_parameters = False
         requests_satisfy_authoring = False
         requests_requirement_constraint_authoring = False
         requests_transition_authoring = False
@@ -1004,6 +1006,9 @@ class Connection:
                 ) = operation_data
                 require(info, CAPABILITY_AUTHORING, upgrade_remedy(CAPABILITY_AUTHORING))
                 requests_authoring = True
+                requests_implicit_parameters = (
+                    requests_implicit_parameters or member_kind == ""
+                )
                 add = operation.add_member
                 add.owner, add.kind, add.name = owner, member_kind, name
                 add.type, add.multiplicity, add.value = type_name, multiplicity, value
@@ -1174,6 +1179,12 @@ class Connection:
                 upgrade_remedy(CAPABILITY_MEMBER_MODIFIERS),
             )
             requested_capabilities.append(CAPABILITY_MEMBER_MODIFIERS)
+        if requests_implicit_parameters:
+            require(
+                info, CAPABILITY_IMPLICIT_PARAMETERS,
+                upgrade_remedy(CAPABILITY_IMPLICIT_PARAMETERS),
+            )
+            requested_capabilities.append(CAPABILITY_IMPLICIT_PARAMETERS)
         with translate_rpc_errors(
             unimplemented=self._capability_refusal(requested_capabilities)
         ):

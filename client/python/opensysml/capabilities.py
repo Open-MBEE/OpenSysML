@@ -92,6 +92,9 @@ CAPABILITY_TRANSITION_AUTHORING = "transition_authoring"
 CAPABILITY_SEQUENCE_AUTHORING = "sequence_authoring"
 #: The additional ``AddMemberEdit`` modifiers and ``ref``/``return`` kinds.
 CAPABILITY_MEMBER_MODIFIERS = "member_modifiers"
+
+#: ``ApplyEdits`` adds a directed usage with no kind keyword (``in x : T;``).
+CAPABILITY_IMPLICIT_PARAMETERS = "implicit_parameters"
 #: ``ApplyEdits`` edits a model of several documents as one batch and answers
 #: each edited document by name in ``EditResult.documents``, with each applied
 #: edit's document and each referrer's. Without it the service edits a model of

@@ -1250,6 +1250,9 @@ require `member_modifiers`; satisfy edits require `satisfy_authoring`, and
 requirement-constraint edits require `requirement_constraint_authoring`.
 Transition edits require `transition_authoring` alongside `authoring`.
 Sequence edits require `sequence_authoring` alongside `authoring`.
+An `add_member` edit with an empty kind — `add_parameter` writes one by default —
+spells a directed usage with no keyword (`in x : T;`) and requires
+`implicit_parameters`; an explicit `ref` kind still writes `in ref x : T;`.
 
 ### Querying a model using the standard query model
 

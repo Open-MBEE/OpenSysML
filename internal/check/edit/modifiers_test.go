@@ -70,7 +70,7 @@ func TestAddMemberModifiers(t *testing.T) {
 		if err != nil {
 			t.Fatalf("Apply: %v", err)
 		}
-		const want = "calc def C { in x : ScalarValues::Real; in y : ScalarValues::Real; x * 2 }\n"
+		const want = "calc def C { in x : ScalarValues::Real; in ref y : ScalarValues::Real; x * 2 }\n"
 		if got := string(res.Content); got != want {
 			t.Fatalf("content = %q, want %q", got, want)
 		}
@@ -84,7 +84,7 @@ func TestAddMemberModifiers(t *testing.T) {
 			abstract  bool
 			want      string
 		}{
-			{name: "directional", direction: "in", want: "in x : T;"},
+			{name: "directional", direction: "in", want: "in ref x : T;"},
 			{name: "undirected", want: "ref x : T;"},
 			{name: "directional abstract", direction: "in", abstract: true, want: "in abstract ref x : T;"},
 		} {
@@ -108,15 +108,91 @@ func TestAddMemberModifiers(t *testing.T) {
 				if !ok {
 					t.Fatalf("P::x declaration = %#v, want a usage", matches[0].Decl)
 				}
-				if tc.direction != "" && !tc.abstract {
-					if usage.Direction != ast.DirIn {
-						t.Fatalf("P::x direction = %v, want in", usage.Direction)
-					}
-				} else if !usage.IsReference {
+				if !usage.IsReference {
 					t.Fatalf("P::x declaration = %#v, want a reference usage", matches[0].Decl)
+				}
+				if tc.direction != "" && usage.Direction != ast.DirIn {
+					t.Fatalf("P::x direction = %v, want in", usage.Direction)
 				}
 				requireClean(t, parsed)
 			})
+		}
+	})
+
+	t.Run("implicit directed usages", func(t *testing.T) {
+		for _, tc := range []struct {
+			name string
+			op   func() Operation
+			want string
+			fail Failure
+		}{
+			{name: "in with type", want: "in x : T;", op: func() Operation {
+				o := AddMember("P", "", "x")
+				o.Type, o.Direction = "T", "in"
+				return o
+			}},
+			{name: "out with multiplicity", want: "out y : T [0..*];", op: func() Operation {
+				o := AddMember("P", "", "y")
+				o.Type, o.Multiplicity, o.Direction = "T", "[0..*]", "out"
+				return o
+			}},
+			{name: "inout with value", want: "inout z = 1;", op: func() Operation {
+				o := AddMember("P", "", "z")
+				o.Value, o.Direction = "1", "inout"
+				return o
+			}},
+			{name: "no direction", fail: FailureIllegalKind, op: func() Operation {
+				return AddMember("P", "", "x")
+			}},
+			{name: "abstract", fail: FailureIllegalKind, op: func() Operation {
+				o := AddMember("P", "", "x")
+				o.Direction, o.IsAbstract = "in", true
+				return o
+			}},
+		} {
+			t.Run(tc.name, func(t *testing.T) {
+				m := loadContent(t, "implicit.sysml", "part def T;\npackage P;\n")
+				res, err := Apply(m, []Operation{tc.op()})
+				if tc.want == "" {
+					e, ok := err.(*Error)
+					if !ok || e.Failure != tc.fail {
+						t.Fatalf("Apply error = %v, want %s", err, tc.fail)
+					}
+					return
+				}
+				if err != nil {
+					t.Fatalf("Apply: %v", err)
+				}
+				if got := string(res.Content); !strings.Contains(got, tc.want) {
+					t.Fatalf("member not written as %q:\n%s", tc.want, got)
+				}
+				requireClean(t, loadContent(t, "implicit.sysml", string(res.Content)))
+			})
+		}
+	})
+
+	t.Run("implicit usage parses without a reference kind", func(t *testing.T) {
+		m := loadContent(t, "implicit-ast.sysml", "part def T;\npackage P;\n")
+		op := AddMember("P", "", "x")
+		op.Type, op.Direction = "T", "in"
+		res, err := Apply(m, []Operation{op})
+		if err != nil {
+			t.Fatalf("Apply: %v", err)
+		}
+		parsed := loadContent(t, "implicit-ast.sysml", string(res.Content))
+		matches := parsed.Index.LookupQualified("P::x")
+		if len(matches) != 1 {
+			t.Fatalf("lookup P::x = %d symbols, want 1", len(matches))
+		}
+		usage, ok := matches[0].Decl.(*ast.Usage)
+		if !ok {
+			t.Fatalf("P::x declaration = %#v, want a usage", matches[0].Decl)
+		}
+		if usage.IsReference {
+			t.Fatalf("P::x declaration = %#v, want a plain usage (no ref)", matches[0].Decl)
+		}
+		if usage.Direction != ast.DirIn {
+			t.Fatalf("P::x direction = %v, want in", usage.Direction)
 		}
 	})
 
@@ -131,7 +207,7 @@ func TestAddMemberModifiers(t *testing.T) {
 				if err != nil {
 					t.Fatalf("Apply: %v", err)
 				}
-				want := src + "  in y : ScalarValues::Real;\n" + comment + "\n  x * 2\n}\n"
+				want := src + "  in ref y : ScalarValues::Real;\n" + comment + "\n  x * 2\n}\n"
 				if got := string(res.Content); got != want {
 					t.Fatalf("content = %q, want %q", got, want)
 				}
@@ -150,7 +226,7 @@ func TestAddMemberModifiers(t *testing.T) {
 			t.Fatalf("Apply: %v", err)
 		}
 		const want = "calc def C {\n  in x : ScalarValues::Real; // input\n" +
-			"  in y : ScalarValues::Real;\n  x * 2\n}\n"
+			"  in ref y : ScalarValues::Real;\n  x * 2\n}\n"
 		if got := string(res.Content); got != want {
 			t.Fatalf("content = %q, want %q", got, want)
 		}
@@ -166,7 +242,7 @@ func TestAddMemberModifiers(t *testing.T) {
 		if err != nil {
 			t.Fatalf("Apply: %v", err)
 		}
-		const want = "constraint def K { in x : ScalarValues::Real; in y : ScalarValues::Real; x > 0 }\n"
+		const want = "constraint def K { in x : ScalarValues::Real; in ref y : ScalarValues::Real; x > 0 }\n"
 		if got := string(res.Content); got != want {
 			t.Fatalf("content = %q, want %q", got, want)
 		}

@@ -361,6 +361,27 @@ func TestApplyEditsAddTransitionRequiresTransitionAuthoring(t *testing.T) {
 	}
 }
 
+// AddMemberEdit with an empty kind writes a directed usage with no keyword
+// (`in x : T;`) and asks for the implicit_parameters capability.
+func TestApplyEditsImplicitParameter(t *testing.T) {
+	srv := mustNewService(t, 10)
+	hash := mustParsedModel(t, srv, "package Demo { part def T; }\n")
+	resp, err := srv.ApplyEdits(context.Background(), &pb.ApplyEditsRequest{
+		ModelHash: hash,
+		Operations: []*pb.EditOperation{{
+			Operation: &pb.EditOperation_AddMember{AddMember: &pb.AddMemberEdit{
+				Owner: "Demo", Kind: "", Name: "x", Type: "Demo::T", Direction: "in",
+			}},
+		}},
+	})
+	if err != nil {
+		t.Fatalf("ApplyEdits: %v", err)
+	}
+	if !strings.Contains(resp.Content, "in x : Demo::T;") {
+		t.Fatalf("implicit directed usage not written:\n%s", resp.Content)
+	}
+}
+
 func TestApplyEditsNewAuthoringOperationsRequireDedicatedCapabilities(t *testing.T) {
 	tests := []struct {
 		name       string
@@ -400,6 +421,13 @@ func TestApplyEditsNewAuthoringOperationsRequireDedicatedCapabilities(t *testing
 			name:       "sequence",
 			capability: CapabilitySequenceAuthoring,
 			operation:  addSequenceOp("Demo::S", "then", "idle", "", "", "", ""),
+		},
+		{
+			name:       "implicit parameter",
+			capability: CapabilityImplicitParameters,
+			operation: &pb.EditOperation{Operation: &pb.EditOperation_AddMember{
+				AddMember: &pb.AddMemberEdit{Owner: "Demo", Kind: "", Name: "x", Direction: "in"},
+			}},
 		},
 	}
 	for _, tc := range tests {
