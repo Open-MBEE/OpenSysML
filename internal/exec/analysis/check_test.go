@@ -355,10 +355,13 @@ func TestCheckPutsUnboundInputsFree(t *testing.T) {
 		if plan.Question.Free.Has(FreeInputs) != tc.free {
 			t.Errorf("%s: question free %v, want inputs free %v", tc.action, plan.Question.Free, tc.free)
 		}
-		if len(plan.Steps) != 1 || plan.Steps[0].Engine != CheckEngineName {
-			t.Fatalf("%s: steps %+v, want check alone", tc.action, plan.Steps)
+		if len(plan.Steps) != 2 || plan.Steps[0].Engine != SolveEngineName || plan.Steps[1].Engine != CheckEngineName {
+			t.Fatalf("%s: steps %+v, want solve's freedom refusal then check", tc.action, plan.Steps)
 		}
-		step := plan.Steps[0]
+		if !errors.Is(plan.Steps[0].Refusal, ErrFreedom) {
+			t.Errorf("%s: solve's step %+v does not refuse the free schedule", tc.action, plan.Steps[0])
+		}
+		step := plan.Steps[1]
 		if tc.free {
 			if !errors.Is(step.Refusal, ErrFreedom) || plan.Result.Strength != NotCovered {
 				t.Errorf("%s: step %+v result %+v, want check refusing the free inputs", tc.action, step, plan.Result)

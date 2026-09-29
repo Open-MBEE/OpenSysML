@@ -442,7 +442,7 @@ func assertSingleStringCollection(t *testing.T, name string, value Value, want s
 const invokeFixture = `
 	part def Tank {
 		attribute level: Integer = 2;
-		action fillBy { in n; out filled; first apply; action apply { assign level := level + n; assign filled := level; } }
+		action fillBy { in n[1]; out filled; first apply; action apply { assign level := level + n; assign filled := level; } }
 		exhibit state modes { entry; then holding; state holding; }
 		calc capacity { in bonus : Integer; return total : Integer = level + bonus; }
 		calc rawCapacity { return : Integer = level + 1; }
@@ -524,12 +524,12 @@ const positionalInvokeFixture = `
 		private import ScalarValues::*;
 		part def Tank {
 			attribute level : Integer = 2;
-			action fillBy { in n : Integer; in times : Integer = 1; out filled : Integer;
+			action fillBy { in n : Integer[1]; in times : Integer = 1; out filled : Integer;
 				first apply; action apply { assign level := level + n * times; assign filled := level; } }
 			action drainInto { in n : Integer; inout sink : Integer; out drained : Integer;
 				first apply; action apply { assign level := level - n; assign sink := sink + n; assign drained := n; } }
 			calc scaled { in factor : Integer; return : Integer = level * factor; }
-			calc scaled { in factor : Integer; in offset : Integer; return : Integer = level * factor + offset; }
+			calc scaled { in factor : Integer; in offset : Integer[1]; return : Integer = level * factor + offset; }
 			attribute label : String = "";
 			action run { in x : String; first apply; action apply { assign label := x; } }
 			calc run { in x : Integer; return : Integer = level + x; }

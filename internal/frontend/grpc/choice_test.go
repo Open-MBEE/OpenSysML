@@ -211,6 +211,7 @@ func TestExecuteState_ChoicePointDiagnostics(t *testing.T) {
 
 	content := `
 package Test {
+  item def Go;
   state Dispatcher {
     attribute level : Integer = 8;
     entry; then idle;

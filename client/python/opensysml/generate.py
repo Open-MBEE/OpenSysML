@@ -49,6 +49,7 @@ UNSTAMPED = "unstamped"
 FEATURE_KINDS = frozenset(
     {
         "attributeusage",
+        "referenceusage",
         "partusage",
         "itemusage",
         "occurrenceusage",

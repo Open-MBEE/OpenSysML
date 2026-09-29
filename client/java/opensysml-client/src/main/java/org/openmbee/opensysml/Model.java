@@ -492,7 +492,7 @@ public final class Model {
    * @throws CapabilityException if the service does not advertise {@code verification}
    */
   public Verification verifyConstraint(String symbolId) {
-    return verifyConstraint(symbolId, Optional.empty());
+    return verifyConstraint(symbolId, Optional.empty(), VerifyOptions.defaults());
   }
 
   /**
@@ -508,16 +508,57 @@ public final class Model {
    */
   public Verification verifyConstraint(String symbolId, String subjectSymbolId) {
     Objects.requireNonNull(subjectSymbolId, NAME_SUBJECT_SYMBOL_ID);
-    return verifyConstraint(symbolId, Optional.of(subjectSymbolId));
+    return verifyConstraint(symbolId, Optional.of(subjectSymbolId), VerifyOptions.defaults());
   }
 
-  private Verification verifyConstraint(String symbolId, Optional<String> subjectSymbolId) {
+  /**
+   * Answers a question about a constraint against the model's declared values.
+   *
+   * @param symbolId qualified name of the constraint definition or usage
+   * @param options the question to ask: an evaluation (the default), {@code holds} or
+   *     {@code satisfiable}, as {@link VerifyOptions} spells them
+   * @return its verdict, its status the answer the question got
+   * @throws ModelException if the service could not answer at all
+   * @throws ServiceException if the service does not hold this model
+   * @throws CapabilityException if the service does not advertise {@code verification}, or the
+   *     question is not an evaluation and the service does not advertise
+   *     {@code verification_questions}
+   */
+  public Verification verifyConstraint(String symbolId, VerifyOptions options) {
+    Objects.requireNonNull(options, "options");
+    return verifyConstraint(symbolId, Optional.empty(), options);
+  }
+
+  /**
+   * Answers a question about a constraint against an object's values.
+   *
+   * @param symbolId qualified name of the constraint definition or usage
+   * @param subjectSymbolId qualified name of the part definition or usage to instantiate and verify
+   *     the constraint on
+   * @param options the question to ask, as {@link VerifyOptions} spells it
+   * @return its verdict, about that object
+   * @throws ModelException if the service could not answer at all
+   * @throws ServiceException if the service does not hold this model
+   * @throws CapabilityException if the service does not advertise {@code verification} or, for a
+   *     question that is not an evaluation, {@code verification_questions}
+   */
+  public Verification verifyConstraint(
+      String symbolId, String subjectSymbolId, VerifyOptions options) {
+    Objects.requireNonNull(subjectSymbolId, NAME_SUBJECT_SYMBOL_ID);
+    Objects.requireNonNull(options, "options");
+    return verifyConstraint(symbolId, Optional.of(subjectSymbolId), options);
+  }
+
+  private Verification verifyConstraint(
+      String symbolId, Optional<String> subjectSymbolId, VerifyOptions options) {
     Objects.requireNonNull(symbolId, NAME_SYMBOL_ID);
     connection.capabilities().require(Capabilities.VERIFICATION);
+    requireQuestion(options);
     VerifyConstraintRequest.Builder request =
         VerifyConstraintRequest.newBuilder().setModelHash(hash).setSymbolId(symbolId);
     subjectSymbolId.ifPresent(request::setSubjectSymbolId);
     engine.ifPresent(request::setEngine);
+    questionField(options).ifPresent(request::setQuestion);
     VerifyConstraintResponse response =
         connection.call(
             "VerifyConstraint", request.build(), VerifyConstraintResponse.getDefaultInstance());
@@ -535,7 +576,7 @@ public final class Model {
    * @throws CapabilityException if the service does not advertise {@code verification}
    */
   public Verification verifyRequirement(String symbolId) {
-    return verifyRequirement(symbolId, Optional.empty());
+    return verifyRequirement(symbolId, Optional.empty(), VerifyOptions.defaults());
   }
 
   /**
@@ -551,16 +592,55 @@ public final class Model {
    */
   public Verification verifyRequirement(String symbolId, String subjectSymbolId) {
     Objects.requireNonNull(subjectSymbolId, NAME_SUBJECT_SYMBOL_ID);
-    return verifyRequirement(symbolId, Optional.of(subjectSymbolId));
+    return verifyRequirement(symbolId, Optional.of(subjectSymbolId), VerifyOptions.defaults());
   }
 
-  private Verification verifyRequirement(String symbolId, Optional<String> subjectSymbolId) {
+  /**
+   * Answers a question about a requirement's constraints against the model's declared values.
+   *
+   * @param symbolId qualified name of the requirement definition or usage
+   * @param options the question to ask, as {@link VerifyOptions} spells it
+   * @return its verdict, with what the verification cases verifying it answered
+   * @throws ModelException if the service could not answer at all
+   * @throws ServiceException if the service does not hold this model
+   * @throws CapabilityException if the service does not advertise {@code verification} or, for a
+   *     question that is not an evaluation, {@code verification_questions}
+   */
+  public Verification verifyRequirement(String symbolId, VerifyOptions options) {
+    Objects.requireNonNull(options, "options");
+    return verifyRequirement(symbolId, Optional.empty(), options);
+  }
+
+  /**
+   * Answers a question about a requirement's constraints against an object's values.
+   *
+   * @param symbolId qualified name of the requirement definition or usage
+   * @param subjectSymbolId qualified name of the part definition or usage to instantiate and verify
+   *     the requirement on
+   * @param options the question to ask, as {@link VerifyOptions} spells it
+   * @return its verdict, about that object
+   * @throws ModelException if the service could not answer at all
+   * @throws ServiceException if the service does not hold this model
+   * @throws CapabilityException if the service does not advertise {@code verification} or, for a
+   *     question that is not an evaluation, {@code verification_questions}
+   */
+  public Verification verifyRequirement(
+      String symbolId, String subjectSymbolId, VerifyOptions options) {
+    Objects.requireNonNull(subjectSymbolId, NAME_SUBJECT_SYMBOL_ID);
+    Objects.requireNonNull(options, "options");
+    return verifyRequirement(symbolId, Optional.of(subjectSymbolId), options);
+  }
+
+  private Verification verifyRequirement(
+      String symbolId, Optional<String> subjectSymbolId, VerifyOptions options) {
     Objects.requireNonNull(symbolId, NAME_SYMBOL_ID);
     connection.capabilities().require(Capabilities.VERIFICATION);
+    requireQuestion(options);
     VerifyRequirementRequest.Builder request =
         VerifyRequirementRequest.newBuilder().setModelHash(hash).setSymbolId(symbolId);
     subjectSymbolId.ifPresent(request::setSubjectSymbolId);
     engine.ifPresent(request::setEngine);
+    questionField(options).ifPresent(request::setQuestion);
     VerifyRequirementResponse response =
         connection.call(
             "VerifyRequirement", request.build(), VerifyRequirementResponse.getDefaultInstance());
@@ -577,7 +657,22 @@ public final class Model {
    * @throws CapabilityException if the service does not advertise {@code verification}
    */
   public Satisfaction verifySatisfaction() {
-    return verifySatisfaction(Optional.empty());
+    return verifySatisfaction(Optional.empty(), VerifyOptions.defaults());
+  }
+
+  /**
+   * Answers a question about every {@code satisfy} assertion in the model.
+   *
+   * @param options the question to ask, as {@link VerifyOptions} spells it
+   * @return one verdict per assertion, in declaration order
+   * @throws ModelException if the service could not answer at all
+   * @throws ServiceException if the service does not hold this model
+   * @throws CapabilityException if the service does not advertise {@code verification} or, for a
+   *     question that is not an evaluation, {@code verification_questions}
+   */
+  public Satisfaction verifySatisfaction(VerifyOptions options) {
+    Objects.requireNonNull(options, "options");
+    return verifySatisfaction(Optional.empty(), options);
   }
 
   /**
@@ -592,15 +687,35 @@ public final class Model {
    */
   public Satisfaction verifySatisfaction(String scopeSymbolId) {
     Objects.requireNonNull(scopeSymbolId, "scopeSymbolId");
-    return verifySatisfaction(Optional.of(scopeSymbolId));
+    return verifySatisfaction(Optional.of(scopeSymbolId), VerifyOptions.defaults());
   }
 
-  private Satisfaction verifySatisfaction(Optional<String> scopeSymbolId) {
+  /**
+   * Answers a question about the {@code satisfy} assertions within one element.
+   *
+   * @param scopeSymbolId qualified name of the package, definition or usage whose assertions are
+   *     asked about
+   * @param options the question to ask, as {@link VerifyOptions} spells it
+   * @return one verdict per assertion, in declaration order
+   * @throws ModelException if the service could not answer at all
+   * @throws ServiceException if the service does not hold this model
+   * @throws CapabilityException if the service does not advertise {@code verification} or, for a
+   *     question that is not an evaluation, {@code verification_questions}
+   */
+  public Satisfaction verifySatisfaction(String scopeSymbolId, VerifyOptions options) {
+    Objects.requireNonNull(scopeSymbolId, "scopeSymbolId");
+    Objects.requireNonNull(options, "options");
+    return verifySatisfaction(Optional.of(scopeSymbolId), options);
+  }
+
+  private Satisfaction verifySatisfaction(Optional<String> scopeSymbolId, VerifyOptions options) {
     connection.capabilities().require(Capabilities.VERIFICATION);
+    requireQuestion(options);
     VerifySatisfactionRequest.Builder request =
         VerifySatisfactionRequest.newBuilder().setModelHash(hash);
     scopeSymbolId.ifPresent(request::setSymbolId);
     engine.ifPresent(request::setEngine);
+    questionField(options).ifPresent(request::setQuestion);
     VerifySatisfactionResponse response =
         connection.call(
             "VerifySatisfaction", request.build(), VerifySatisfactionResponse.getDefaultInstance());
@@ -848,7 +963,9 @@ public final class Model {
    *     also requires {@code connection_authoring}; a modifier or a {@code ref}/{@code return}
    *     member requires {@code member_modifiers}, {@link Edit.AddSatisfy} requires
    *     {@code satisfy_authoring}, and {@link Edit.AddRequirementConstraint} requires
-   *     {@code requirement_constraint_authoring}
+   *     {@code requirement_constraint_authoring}; an {@link Edit.AddSequence} carrying an
+   *     action-body statement or source multiplicity requires
+   *     {@code action_body_statement_authoring}
    */
   public EditResult applyEdits(List<Edit> edits) {
     return applyEdits(edits, EditOptions.defaults());
@@ -868,7 +985,8 @@ public final class Model {
    * @throws CapabilityException if the service does not advertise {@code apply_edits}, an edit
    *     writes a declaration and it does not advertise {@code authoring}, or a document is named
    *     and it does not advertise {@code edit_documents}; {@link Edit.AddConnection} also requires
-   *     {@code connection_authoring}
+   *     {@code connection_authoring}; an {@link Edit.AddSequence} carrying an action-body
+   *     statement or source multiplicity requires {@code action_body_statement_authoring}
    */
   public EditResult applyEdits(List<Edit> edits, EditOptions options) {
     Objects.requireNonNull(edits, "edits");
@@ -880,12 +998,31 @@ public final class Model {
     boolean requestsSatisfyAuthoring = false;
     boolean requestsRequirementConstraintAuthoring = false;
     boolean requestsTransitionAuthoring = false;
+    boolean requestsVerificationObjectiveAuthoring = false;
+    boolean requestsMetadataAuthoring = false;
+    boolean requestsMetadataPrefixAuthoring = false;
+    boolean requestsSequenceAuthoring = false;
+    boolean requestsActionBodyStatementAuthoring = false;
+    boolean requestsImplicitParameters = false;
+    boolean requestsConstraintBodyAuthoring = false;
+    boolean requestsStateActionAuthoring = false;
+    boolean requestsImportAuthoring = false;
+    boolean requestsDocumentationAuthoring = false;
+    boolean requestsCommentAuthoring = false;
     for (Edit edit : edits) {
       if (edit instanceof Edit.AddMember
           || edit instanceof Edit.AddConnection
           || edit instanceof Edit.AddSatisfy
           || edit instanceof Edit.AddRequirementConstraint
           || edit instanceof Edit.AddTransition
+          || edit instanceof Edit.AddVerify
+          || edit instanceof Edit.AddMetadata
+          || edit instanceof Edit.AddMetadataPrefix
+          || edit instanceof Edit.AddSequence
+          || edit instanceof Edit.AddImport
+          || edit instanceof Edit.AddDocumentation
+          || edit instanceof Edit.AddComment
+          || edit instanceof Edit.AddNote
           || edit instanceof Edit.Delete
           || edit instanceof Edit.Move) {
         requestsAuthoring = true;
@@ -902,6 +1039,22 @@ public final class Model {
               || addMember.kind().equals("return"))) {
         requestsMemberModifiers = true;
       }
+      if (edit instanceof Edit.AddMember addMember && addMember.kind().isEmpty()) {
+        requestsImplicitParameters = true;
+      }
+      if (edit instanceof Edit.AddMember addMember) {
+        requestsConstraintBodyAuthoring =
+            requestsConstraintBodyAuthoring
+                || addMember.bodyExpression().filter(e -> !e.isEmpty()).isPresent()
+                || addMember.kind().equals("assert")
+                || addMember.kind().equals("assert not")
+                || addMember.kind().equals("assert constraint")
+                || addMember.kind().equals("assert not constraint");
+        requestsStateActionAuthoring =
+            requestsStateActionAuthoring
+                || List.of("exhibit state", "exhibit", "entry action", "do action", "exit action")
+                    .contains(addMember.kind());
+      }
       if (edit instanceof Edit.AddSatisfy) {
         requestsSatisfyAuthoring = true;
       }
@@ -910,6 +1063,35 @@ public final class Model {
       }
       if (edit instanceof Edit.AddTransition) {
         requestsTransitionAuthoring = true;
+      }
+      if (edit instanceof Edit.AddVerify
+          || edit instanceof Edit.AddMember addMember
+              && addMember.kind().equals("objective")
+              && addMember.name().isEmpty()) {
+        requestsVerificationObjectiveAuthoring = true;
+      }
+      if (edit instanceof Edit.AddMetadata
+          || edit instanceof Edit.AddMember addMember
+              && !addMember.metadataPrefixes().isEmpty()) {
+        requestsMetadataAuthoring = true;
+      }
+      if (edit instanceof Edit.AddMetadataPrefix) {
+        requestsMetadataPrefixAuthoring = true;
+      }
+      if (edit instanceof Edit.AddSequence addSequence) {
+        requestsSequenceAuthoring = true;
+        requestsActionBodyStatementAuthoring |=
+            addSequence.requiresActionBodyStatementAuthoring();
+      }
+      if (edit instanceof Edit.AddImport) {
+        requestsImportAuthoring = true;
+      }
+      if (edit instanceof Edit.AddDocumentation
+          || edit instanceof Edit.AddMember addMember && !addMember.doc().isEmpty()) {
+        requestsDocumentationAuthoring = true;
+      }
+      if (edit instanceof Edit.AddComment || edit instanceof Edit.AddNote) {
+        requestsCommentAuthoring = true;
       }
     }
     if (requestsAuthoring) {
@@ -929,6 +1111,39 @@ public final class Model {
     }
     if (requestsTransitionAuthoring) {
       connection.capabilities().require(Capabilities.TRANSITION_AUTHORING);
+    }
+    if (requestsVerificationObjectiveAuthoring) {
+      connection.capabilities().require(Capabilities.VERIFICATION_OBJECTIVE_AUTHORING);
+    }
+    if (requestsMetadataAuthoring) {
+      connection.capabilities().require(Capabilities.METADATA_AUTHORING);
+    }
+    if (requestsMetadataPrefixAuthoring) {
+      connection.capabilities().require(Capabilities.METADATA_PREFIX_AUTHORING);
+    }
+    if (requestsSequenceAuthoring) {
+      connection.capabilities().require(Capabilities.SEQUENCE_AUTHORING);
+    }
+    if (requestsActionBodyStatementAuthoring) {
+      connection.capabilities().require(Capabilities.ACTION_BODY_STATEMENT_AUTHORING);
+    }
+    if (requestsImplicitParameters) {
+      connection.capabilities().require(Capabilities.IMPLICIT_PARAMETERS);
+    }
+    if (requestsConstraintBodyAuthoring) {
+      connection.capabilities().require(Capabilities.CONSTRAINT_BODY_AUTHORING);
+    }
+    if (requestsStateActionAuthoring) {
+      connection.capabilities().require(Capabilities.STATE_ACTION_AUTHORING);
+    }
+    if (requestsImportAuthoring) {
+      connection.capabilities().require(Capabilities.IMPORT_AUTHORING);
+    }
+    if (requestsDocumentationAuthoring) {
+      connection.capabilities().require(Capabilities.DOCUMENTATION_AUTHORING);
+    }
+    if (requestsCommentAuthoring) {
+      connection.capabilities().require(Capabilities.COMMENT_AUTHORING);
     }
     options.document().ifPresent(document -> connection.capabilities().require(Capabilities.EDIT_DOCUMENTS));
     ApplyEditsRequest.Builder request =
@@ -1113,6 +1328,21 @@ public final class Model {
     if (!error.isEmpty()) {
       throw new ModelException(error, reason, Protos.diagnostics(diagnostics));
     }
+  }
+
+  // The question as sent: absent for an evaluation, which every service reads as such.
+  private static Optional<String> questionField(VerifyOptions options) {
+    if (options.question().isEmpty()
+        || options.question().equals(VerifyOptions.QUESTION_EVALUATE)) {
+      return Optional.empty();
+    }
+    return Optional.of(options.question());
+  }
+
+  // Refuse to send a question a service without verification_questions would evaluate instead.
+  private void requireQuestion(VerifyOptions options) {
+    questionField(options)
+        .ifPresent(question -> connection.capabilities().require(Capabilities.VERIFICATION_QUESTIONS));
   }
 
   private SymbolResponse symbolResponse(String symbolId) {

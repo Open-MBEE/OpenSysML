@@ -105,11 +105,94 @@ func TestAddMemberModifiers(t *testing.T) {
 					t.Fatalf("lookup P::x = %d symbols, want 1", len(matches))
 				}
 				usage, ok := matches[0].Decl.(*ast.Usage)
-				if !ok || !usage.IsReference {
+				if !ok {
+					t.Fatalf("P::x declaration = %#v, want a usage", matches[0].Decl)
+				}
+				if !usage.IsReference {
 					t.Fatalf("P::x declaration = %#v, want a reference usage", matches[0].Decl)
+				}
+				if tc.direction != "" && usage.Direction != ast.DirIn {
+					t.Fatalf("P::x direction = %v, want in", usage.Direction)
 				}
 				requireClean(t, parsed)
 			})
+		}
+	})
+
+	t.Run("implicit directed usages", func(t *testing.T) {
+		for _, tc := range []struct {
+			name string
+			op   func() Operation
+			want string
+			fail Failure
+		}{
+			{name: "in with type", want: "in x : T;", op: func() Operation {
+				o := AddMember("P", "", "x")
+				o.Type, o.Direction = "T", "in"
+				return o
+			}},
+			{name: "out with multiplicity", want: "out y : T [0..*];", op: func() Operation {
+				o := AddMember("P", "", "y")
+				o.Type, o.Multiplicity, o.Direction = "T", "[0..*]", "out"
+				return o
+			}},
+			{name: "inout with value", want: "inout z = 1;", op: func() Operation {
+				o := AddMember("P", "", "z")
+				o.Value, o.Direction = "1", "inout"
+				return o
+			}},
+			{name: "no direction", fail: FailureIllegalKind, op: func() Operation {
+				return AddMember("P", "", "x")
+			}},
+			{name: "abstract", fail: FailureIllegalKind, op: func() Operation {
+				o := AddMember("P", "", "x")
+				o.Direction, o.IsAbstract = "in", true
+				return o
+			}},
+		} {
+			t.Run(tc.name, func(t *testing.T) {
+				m := loadContent(t, "implicit.sysml", "part def T;\npackage P;\n")
+				res, err := Apply(m, []Operation{tc.op()})
+				if tc.want == "" {
+					e, ok := err.(*Error)
+					if !ok || e.Failure != tc.fail {
+						t.Fatalf("Apply error = %v, want %s", err, tc.fail)
+					}
+					return
+				}
+				if err != nil {
+					t.Fatalf("Apply: %v", err)
+				}
+				if got := string(res.Content); !strings.Contains(got, tc.want) {
+					t.Fatalf("member not written as %q:\n%s", tc.want, got)
+				}
+				requireClean(t, loadContent(t, "implicit.sysml", string(res.Content)))
+			})
+		}
+	})
+
+	t.Run("implicit usage parses without a reference kind", func(t *testing.T) {
+		m := loadContent(t, "implicit-ast.sysml", "part def T;\npackage P;\n")
+		op := AddMember("P", "", "x")
+		op.Type, op.Direction = "T", "in"
+		res, err := Apply(m, []Operation{op})
+		if err != nil {
+			t.Fatalf("Apply: %v", err)
+		}
+		parsed := loadContent(t, "implicit-ast.sysml", string(res.Content))
+		matches := parsed.Index.LookupQualified("P::x")
+		if len(matches) != 1 {
+			t.Fatalf("lookup P::x = %d symbols, want 1", len(matches))
+		}
+		usage, ok := matches[0].Decl.(*ast.Usage)
+		if !ok {
+			t.Fatalf("P::x declaration = %#v, want a usage", matches[0].Decl)
+		}
+		if usage.IsReference {
+			t.Fatalf("P::x declaration = %#v, want a plain usage (no ref)", matches[0].Decl)
+		}
+		if usage.Direction != ast.DirIn {
+			t.Fatalf("P::x direction = %v, want in", usage.Direction)
 		}
 	})
 

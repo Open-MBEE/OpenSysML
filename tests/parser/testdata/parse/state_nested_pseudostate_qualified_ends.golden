@@ -32,9 +32,18 @@
           (TransitionMember source="start" target="Run")
           (TransitionMember source="spread" target="Run::a::a1")
           (TransitionMember source="spread" target="Run::b::b1")
-          (TransitionMember source="Prep" target="leave" trigger="Next")))
-      (TransitionMember source="Idle" target="Work::start" trigger="Go")
-      (TransitionMember source="Idle" target="Work::spread" trigger="Split")
+          (TransitionMember source="Prep" target="leave"
+            (Usage kind="attribute" name="" ref=true direction="out" composite=false derived=false ordered=false nonunique=false
+              (Relationship kind="typing" target=Next
+                (*ast.QualifiedName))))))
+      (TransitionMember source="Idle" target="Work::start"
+        (Usage kind="attribute" name="" ref=true direction="out" composite=false derived=false ordered=false nonunique=false
+          (Relationship kind="typing" target=Go
+            (*ast.QualifiedName))))
+      (TransitionMember source="Idle" target="Work::spread"
+        (Usage kind="attribute" name="" ref=true direction="out" composite=false derived=false ordered=false nonunique=false
+          (Relationship kind="typing" target=Split
+            (*ast.QualifiedName))))
       (TransitionMember source="Work::leave" target="Idle"
         (Membership visibility="default"
           (Usage kind="action" name="effect" ref=false direction="none" composite=false derived=false ordered=false nonunique=false)))

@@ -78,6 +78,33 @@ func TestCrossFeatureIsAFeatureTheEndOwns(t *testing.T) {
 	wantLexical(t, g, rdf.ExpressionIRI(rdf.ExpressionIRI(iri(c), "end1"), "upperBound").Value, rdf.OpenSysML+"sourceText", "*")
 }
 
+func TestCrossFeatureNameTakenByBodyMemberRoundTrips(t *testing.T) {
+	const src = `package P {
+	part def A;
+	connection def C {
+		end x1 [1] feature x : A {
+			feature x1;
+		}
+		end y : A;
+	}
+}`
+	turtle := idTurtle(t, src)
+	bodyMember := rdf.ElementIRI("P::C::x::x1")
+	crossFeature := rdf.ElementIRI("P::C::x::@1")
+	if bodyMember.Value == crossFeature.Value {
+		t.Fatal("the body member and cross feature share an IRI")
+	}
+	for _, qname := range []string{"P::C::x::x1", "P::C::x::@1"} {
+		if !strings.Contains(string(turtle), `sysml:qualifiedName "`+qname+`"`) {
+			t.Errorf("Turtle lacks qualified name %q:\n%s", qname, turtle)
+		}
+	}
+	back := structuralRoundTrip(t, "cross-feature-name-collision.sysml", turtle)
+	if !strings.Contains(string(back), "feature x1;") {
+		t.Errorf("the body member did not come back from the graph:\n%s", back)
+	}
+}
+
 // Without the source text, the structural triples alone write every cross
 // feature back where it was declared, in both notations.
 func TestCrossFeaturesComeBackFromTheGraphAlone(t *testing.T) {
