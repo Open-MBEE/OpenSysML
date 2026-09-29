@@ -679,15 +679,14 @@ func TestRootMemberIndexesKeepTheDocumentsOrder(t *testing.T) {
 	want := []string{"package A", "package B", "package C"}
 	order := func(t *testing.T, notation []byte) {
 		t.Helper()
-		var at, last int
+		last := 0
 		for _, name := range want {
 			next := strings.Index(string(notation), name)
 			if next < last {
 				t.Fatalf("the round trip wrote %v out of order:\n%s", want, notation)
 			}
-			last, at = next, next
+			last = next
 		}
-		_ = at
 	}
 
 	turtle, err := convert.ConvertDocuments(sources, convert.FormatTurtle, convert.Options{})
