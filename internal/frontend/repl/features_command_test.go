@@ -104,7 +104,7 @@ state def LampModes {
 part def Lamp {
     attribute watts : Real = 60.0;
     exhibit state modes : LampModes;
-    action blink { in n : Real; }
+    action blink { in n : Real[1]; }
     perform action tick { first bump; action bump { assign watts := watts + 2.0; } }
     state standalone;
 }
@@ -177,8 +177,8 @@ state def Counting {
 part def Counter {
     attribute count : Integer = 10;
     exhibit state modes : Counting;
-    perform action tick { out total : Integer = 7; action step; }
-    action idle { in n : Real; }
+    perform action tick { out total : Integer[1] = 7; action step; }
+    action idle { in n : Real[1]; }
 }
 part counter : Counter;`).Diagnostics); len(errs) > 0 {
 		t.Fatalf("model has errors: %v", errs)

@@ -60,8 +60,8 @@ func testBindingEndPinReadsWhatItMasks(t *testing.T) {
 	package test {
 		private import ScalarValues::*;
 		action def Noting {
-			inout n : Integer;
-			out twice : Integer;
+			inout n : Integer[1];
+			out twice : Integer[1];
 			first start;
 			action doubling { assign twice := 2 * n; }
 			done;

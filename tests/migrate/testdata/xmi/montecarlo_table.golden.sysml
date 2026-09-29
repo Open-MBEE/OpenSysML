@@ -5,7 +5,7 @@ analysis def 'Sweep Analysis Monte Carlo' :> Simulation::MonteCarlo {
     subject analysed : 'Sweep Analysis';
     /* one run performs no behavior: neither Sweep Analysis nor any general of it has a classifier behavior */
     attribute :>> observed : ScalarValues::Real = analysed.t;
-    return Mean : ScalarValues::Real = mean;
+    return Mean : ScalarValues::Real[1] = mean;
 }
 package Results {
     individual part def 'analysis of 6 runs' :> 'Sweep Analysis' {

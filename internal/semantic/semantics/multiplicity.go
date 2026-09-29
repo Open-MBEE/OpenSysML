@@ -260,53 +260,63 @@ func featureOwnedByType(sym *symbols.Symbol) bool {
 }
 
 // EffectiveParameterRange is the multiplicity a parameter is held to
-// (SysML v2 §7.6.3): the nearest its redefinition chain or a feature it
-// subsets declares, the implicit [1..1] where it qualifies, else [0..*].
+// (SysML v2 §7.6.3): what its redefinition chain and the features it
+// subsets declare, the implicit [1..1] where it qualifies, else [0..*].
 func (m *Model) EffectiveParameterRange(sym *symbols.Symbol) Range {
 	return m.EffectiveParameterRangeAlong(m.ParameterRedefinitionChain(sym))
 }
 
 // EffectiveParameterRangeAlong is EffectiveParameterRange over an explicit
-// redefinition chain — the same walk, for a caller that holds its own chain.
+// redefinition chain; the ranges of all subsetted and redefined features
+// intersect (KerML 1.0 §7.3.4.4, §7.3.4.5).
 func (m *Model) EffectiveParameterRangeAlong(chain []*symbols.Symbol) Range {
-	var subsetted []*symbols.Symbol
-	for _, p := range chain {
-		if r, ok := m.MultiplicityOf(p); ok {
-			return r
-		}
-		if m.ImplicitMultiplicityApplies(p) {
-			return AssumedRange()
-		}
-		for _, rel := range RelationshipsOf(p) {
-			if rel != nil && rel.Kind == ast.RelSubsets && rel.Target != nil {
-				if target := m.RelationshipTarget(p, rel); target != nil {
-					subsetted = append(subsetted, target)
-				}
-			}
-		}
+	if len(chain) == 0 {
+		return UnboundedRange()
 	}
-	visited := make(map[*symbols.Symbol]bool)
-	for len(subsetted) > 0 {
-		p := subsetted[0]
-		subsetted = subsetted[1:]
+	next := make(map[*symbols.Symbol]*symbols.Symbol, len(chain))
+	for i := 0; i+1 < len(chain); i++ {
+		next[chain[i]] = chain[i+1]
+	}
+	visited := map[*symbols.Symbol]bool{}
+	var rangeOf func(p *symbols.Symbol) (Range, bool)
+	rangeOf = func(p *symbols.Symbol) (Range, bool) {
 		if visited[p] {
-			continue
+			return Range{}, false
 		}
 		visited[p] = true
 		if r, ok := m.MultiplicityOf(p); ok {
-			return r
+			return r, true
 		}
 		if m.ImplicitMultiplicityApplies(p) {
-			return AssumedRange()
+			return AssumedRange(), true
 		}
+		var targets []*symbols.Symbol
 		for _, rel := range RelationshipsOf(p) {
 			if rel == nil || rel.Target == nil || (rel.Kind != ast.RelSubsets && rel.Kind != ast.RelRedefines) {
 				continue
 			}
 			if target := m.RelationshipTarget(p, rel); target != nil {
-				subsetted = append(subsetted, target)
+				targets = append(targets, target)
 			}
 		}
+		if n, ok := next[p]; ok {
+			targets = append(targets, n)
+		}
+		var acc Range
+		found := false
+		for _, t := range targets {
+			if r, ok := rangeOf(t); ok {
+				if found {
+					acc = acc.Intersect(r)
+				} else {
+					acc, found = r, true
+				}
+			}
+		}
+		return acc, found
+	}
+	if r, ok := rangeOf(chain[0]); ok {
+		return r
 	}
 	return UnboundedRange()
 }

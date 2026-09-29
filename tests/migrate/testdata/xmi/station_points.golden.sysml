@@ -13,7 +13,7 @@ item def Bump;
 part def Station {
     attribute trace : ScalarValues::Integer default = 0;
     state def Cycle {
-        in ref context : Station;
+        in ref context : Station[1];
         entry; then Idle;
         state Idle;
         state Work {

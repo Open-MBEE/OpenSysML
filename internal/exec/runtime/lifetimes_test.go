@@ -43,13 +43,13 @@ const lifetimeModel = `
 			exhibit state modes { entry; then idle; state idle; }
 		}
 		calc def Destroy { in b : Bench[0..1]; return : Bench[0..1] = destroy(b); }
-		calc def DestroyRover { in r : Rover; return : Rover = destroy(r); }
-		calc def During { in o : Bench; return : Boolean = isDuring(o); }
-		calc def WidgetDuring { in w : Widget; return : Boolean = isDuring(w); }
-		calc def Create { in b : Bench; return : Bench = create(b); }
-		calc def CreateSpare { in b : Bench; return : Widget = create(b.spare); }
-		calc def AddAt { in g : Widget[0..*] ordered nonunique; in w : Widget; in i : Positive; return : Widget[0..*] = addNewAt(g, w, i); }
-		calc def AddSpare { in b : Bench; in g : Widget[0..*] ordered nonunique; return : Widget[0..*] = addNew(g, b.spare); }
+		calc def DestroyRover { in r : Rover[1]; return : Rover = destroy(r); }
+		calc def During { in o : Bench[1]; return : Boolean = isDuring(o); }
+		calc def WidgetDuring { in w : Widget[1]; return : Boolean = isDuring(w); }
+		calc def Create { in b : Bench[1]; return : Bench = create(b); }
+		calc def CreateSpare { in b : Bench[1]; return : Widget = create(b.spare); }
+		calc def AddAt { in g : Widget[0..*] ordered nonunique; in w : Widget[1]; in i : Positive[1]; return : Widget[0..*] = addNewAt(g, w, i); }
+		calc def AddSpare { in b : Bench[1]; in g : Widget[0..*] ordered nonunique; return : Widget[0..*] = addNew(g, b.spare); }
 	}
 `
 
@@ -94,7 +94,7 @@ func TestBindingRefusesADestroyedEnd(t *testing.T) {
 				attribute knob : Integer = 9;
 				bind w.m = knob;
 			}
-			calc def DestroyWidget { in w : Widget; return : Widget = destroy(w); }
+			calc def DestroyWidget { in w : Widget[1]; return : Widget = destroy(w); }
 		}
 	`)
 	rig := instantiate("Rig")
@@ -137,7 +137,7 @@ func TestDestroyedObjectPerformsNothing(t *testing.T) {
 				constraint def Sure { true }
 				state def Blink { entry; then on; state on; }
 			}
-			calc def DestroyBeacon { in b : Beacon; return : Beacon = destroy(b); }
+			calc def DestroyBeacon { in b : Beacon[1]; return : Beacon = destroy(b); }
 		}
 	`)
 	beacon := instantiate("Beacon")
@@ -300,8 +300,8 @@ const noFlowModel = `
 		private import OccurrenceFunctions::*;
 		action def Report;
 		part def Camera { perform action report : Report; }
-		calc def ReportDuring { in c : Camera; return : Boolean = isDuring(c.report); }
-		calc def DestroyCamera { in c : Camera; return : Camera = destroy(c); }
+		calc def ReportDuring { in c : Camera[1]; return : Boolean = isDuring(c.report); }
+		calc def DestroyCamera { in c : Camera[1]; return : Camera = destroy(c); }
 	}
 `
 
@@ -335,9 +335,9 @@ func TestPerformedActionWithoutAFlowCompletes(t *testing.T) {
 const noFlowInputModel = `
 	package test {
 		private import ScalarValues::*;
-		action def Report { in n : Integer; attribute twice : Integer = n * 2; }
+		action def Report { in n : Integer[1]; attribute twice : Integer = n * 2; }
 		part def Camera { attribute level : Integer = 21; perform action report : Report { in n = level; } }
-		calc def Twice { in c : Camera; return : Integer = c.report.twice; }
+		calc def Twice { in c : Camera[1]; return : Integer = c.report.twice; }
 	}
 `
 
@@ -426,7 +426,7 @@ const aliasedPartModel = `
 		part def Widget { attribute n : Integer = 1; }
 		part def Base { part p : Widget; }
 		part def Derived :> Base { part q :>> p; }
-		calc def DestroyDerived { in d : Derived; return : Derived = destroy(d); }
+		calc def DestroyDerived { in d : Derived[1]; return : Derived = destroy(d); }
 	}
 `
 

@@ -657,7 +657,7 @@ class Model:
             state_machine_symbol_id, self._hash, events=events, schedule=schedule, performer=performer
         )
 
-    def verify_constraint(self, symbol_id, subject=None, engine=None):
+    def verify_constraint(self, symbol_id, subject=None, engine=None, question=None):
         """Ask whether one of this model's constraints holds.
 
         Args:
@@ -667,6 +667,10 @@ class Model:
             engine (str, optional): The engine to ask: ``"auto"`` (the
                 default), ``"all"``, or one by name, as
                 :meth:`~opensysml.Connection.verify_constraint` takes it
+            question (str, optional): The question to ask: ``"evaluate"`` (the
+                default), ``"holds"`` whether the claim holds for every
+                assignment the free features can take, or ``"satisfiable"``
+                whether any assignment satisfies it
 
         Returns:
             Verdict: The answer; false is the model's answer, not an exception
@@ -677,10 +681,11 @@ class Model:
             ExecutionError: If the request could not be answered at all
         """
         return self._client.verify_constraint(
-            symbol_id, self._hash, subject_symbol_id=subject, engine=engine
+            symbol_id, self._hash, subject_symbol_id=subject, engine=engine,
+            question=question,
         )
 
-    def verify_requirement(self, symbol_id, subject=None, engine=None):
+    def verify_requirement(self, symbol_id, subject=None, engine=None, question=None):
         """Ask whether one of this model's requirements is satisfied.
 
         Args:
@@ -688,6 +693,8 @@ class Model:
             subject (str, optional): FQN of a part/usage to instantiate and
                 evaluate against
             engine (str, optional): The engine to ask, as for
+                :meth:`verify_constraint`
+            question (str, optional): The question to ask, as for
                 :meth:`verify_constraint`
 
         Returns:
@@ -699,10 +706,11 @@ class Model:
             ExecutionError: If the request could not be answered at all
         """
         return self._client.verify_requirement(
-            symbol_id, self._hash, subject_symbol_id=subject, engine=engine
+            symbol_id, self._hash, subject_symbol_id=subject, engine=engine,
+            question=question,
         )
 
-    def verify_satisfaction(self, symbol_id=None, engine=None):
+    def verify_satisfaction(self, symbol_id=None, engine=None, question=None):
         """Ask whether this model's satisfaction assertions hold.
 
         This is the scriptable form of "does this model satisfy its
@@ -715,6 +723,8 @@ class Model:
                 a named satisfaction assertion
             engine (str, optional): The engine to ask, as for
                 :meth:`verify_constraint`
+            question (str, optional): The question to ask, as for
+                :meth:`verify_constraint`
 
         Returns:
             list[Verdict]: One verdict per assertion, in declaration order. An
@@ -725,7 +735,9 @@ class Model:
                 satisfaction assertion
             ExecutionError: If the request could not be answered at all
         """
-        return self._client.verify_satisfaction(self._hash, symbol_id=symbol_id, engine=engine)
+        return self._client.verify_satisfaction(
+            self._hash, symbol_id=symbol_id, engine=engine, question=question,
+        )
 
     def satisfied(self, symbol_id=None):
         """Whether every satisfaction assertion evaluated holds.

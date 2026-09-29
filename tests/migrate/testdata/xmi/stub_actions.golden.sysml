@@ -22,14 +22,14 @@ part def Rig {
         out sample : ScalarValues::Real[0..1];
         first start then gain;
         action gain {
-            out result = 2.5;
+            out result[1] = 2.5;
         }
         first gain then 'fork';
         fork 'fork';
         first 'fork' then stamp;
         first 'fork' then 'join';
         action stamp {
-            out result = 7;
+            out result[1] = 7;
         }
         first stamp then fork2;
         fork fork2;
@@ -38,7 +38,7 @@ part def Rig {
         join 'join';
         first 'join' then measure;
         action measure {
-            in gain : ScalarValues::Real;
+            in gain : ScalarValues::Real[1];
             out reading : ScalarValues::Real[0..1];
         }
         first measure then join2;

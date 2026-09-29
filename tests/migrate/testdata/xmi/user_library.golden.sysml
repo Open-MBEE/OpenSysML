@@ -3,7 +3,7 @@ package fUML_Library {
         package ListFunctions {
             action def ListSize {
                 in list : ScalarValues::String[0..*];
-                out result : ScalarValues::Integer;
+                out result : ScalarValues::Integer[1];
                 /* body not migrated (the body is empty) */
             }
         }
@@ -16,7 +16,7 @@ part def Recorder {
         first size then get;
         action get {
             in list : ScalarValues::String[0..*] ordered nonunique = "n=3";
-            in index : ScalarValues::Integer = 1;
+            in index : ScalarValues::Integer[1] = 1;
             out result : ScalarValues::String[0..1];
             /* not migrated: CallBehaviorAction 'get' — the behavior fUML_Library::PrimitiveBehaviors::ListFunctions::ListGet it calls has no v2 declaration */
         }

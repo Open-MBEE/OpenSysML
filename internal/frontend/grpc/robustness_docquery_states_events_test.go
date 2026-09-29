@@ -28,7 +28,7 @@ const stateQueryModel = `package Lamps {
 	part rock : Rock;
 
 	calc def CurrentStates :> Query {
-		in root : Element;
+		in root : Element[1];
 		Project(source = States(source = root), properties = ("machine", "statePath"))
 	}
 	calc def Off :> Query {
@@ -38,13 +38,13 @@ const stateQueryModel = `package Lamps {
 		InState(name = "orbit")
 	}
 	calc def Steps :> Query {
-		in root : Element;
+		in root : Element[1];
 		Events(source = root)
 	}
 	calc def Window :> Query {
-		in root : Element;
-		in s : Real;
-		in b : Real;
+		in root : Element[1];
+		in s : Real[1];
+		in b : Real[1];
 		Events(source = root, since = s, before = b)
 	}
 }`

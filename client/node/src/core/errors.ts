@@ -128,4 +128,9 @@ export class EvaluationError extends OpenSysMLError {
 }
 
 /** The service's classification of a failure it reported in a successful answer. */
-export type FailureCause = "unspecified" | "evaluation" | "wrong_kind" | "ambiguous_subject";
+export type FailureCause =
+  | "unspecified"
+  | "evaluation"
+  | "wrong_kind"
+  | "ambiguous_subject"
+  | "undecided";
