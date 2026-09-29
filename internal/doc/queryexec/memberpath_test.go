@@ -315,6 +315,75 @@ calc def PathPrecedence :> Query {
 	}
 }
 
+func TestExecuteColumnPathReadsQuotedSingleSegmentFeature(t *testing.T) {
+	fixture := loadExecutionFixture(t, `
+attribute def Nested {
+	attribute y : Integer;
+}
+package Results {
+	individual part def Literal {
+		attribute 'x.y' : Integer = 4;
+		attribute x : Nested {
+			attribute redefines y = 9;
+		}
+	}
+}
+calc def QuotedPath :> Query {
+	in root : Element;
+	Project(
+		source = Descendants(source = root, maxDepth = 1),
+		columns = (Column(name = "v", path = "'x.y'"))
+	)
+}
+`)
+	result, err := fixture.execute(t, "QuotedPath", Bindings{
+		"root": {ElementValue(fixture.symbol(t, "Results"))},
+	}, Options{})
+	if err != nil {
+		t.Fatalf("QuotedPath: %v", err)
+	}
+	if got := cellNumbers(t, result, "v"); !slices.EqualFunc(got, [][]float64{{4}}, slices.Equal) {
+		t.Fatalf("quoted path cells = %v, want {4}", got)
+	}
+}
+
+func TestExecuteColumnPathKeepsQuotedSingleSegmentAbsent(t *testing.T) {
+	fixture := loadExecutionFixture(t, `
+attribute def Nested {
+	attribute y : Integer;
+}
+package Results {
+	individual part def Literal {
+		attribute 'x.y' : Integer = 4;
+		attribute x : Nested {
+			attribute redefines y = 9;
+		}
+	}
+	individual part def NestedOnly {
+		attribute x : Nested {
+			attribute redefines y = 9;
+		}
+	}
+}
+calc def QuotedPath :> Query {
+	in root : Element;
+	Project(
+		source = Descendants(source = root, maxDepth = 1),
+		columns = (Column(name = "v", path = "'x.y'"))
+	)
+}
+`)
+	result, err := fixture.execute(t, "QuotedPath", Bindings{
+		"root": {ElementValue(fixture.symbol(t, "Results"))},
+	}, Options{})
+	if err != nil {
+		t.Fatalf("QuotedPath: %v", err)
+	}
+	if got := cellNumbers(t, result, "v"); !slices.EqualFunc(got, [][]float64{{4}, nil}, slices.Equal) {
+		t.Fatalf("quoted path cells = %v, want {4}, empty", got)
+	}
+}
+
 func TestExecuteTypedCellMemberPathGatesOnRowType(t *testing.T) {
 	fixture := memberPathFixture(t, `
 package NestedRows {

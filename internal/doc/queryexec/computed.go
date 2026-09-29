@@ -10,6 +10,7 @@ import (
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/semantics"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/symbols"
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/ast"
+	"github.com/Open-MBEE/OpenSysML/internal/syntax/source"
 )
 
 // computedColumn is one planned columns entry of a projection: a
@@ -268,7 +269,11 @@ func (e *executor) rowMemberValues(
 			return nil, nil
 		}
 	} else {
-		values, present, err := e.propertyValuesBeforeMemberPath(row, path)
+		key := path
+		if segments, ok := source.MemberPathSegments(path); ok && len(segments) == 1 {
+			key = segments[0]
+		}
+		values, present, err := e.propertyValuesBeforeMemberPath(row, key)
 		if err != nil {
 			return nil, e.unevaluable(expression, path, row, err)
 		}
