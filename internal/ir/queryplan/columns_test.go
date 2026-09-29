@@ -196,6 +196,52 @@ calc def BadPath :> Query {
 	}
 }
 
+func TestCompileMalformedMetadataColumnPathIsUnsupported(t *testing.T) {
+	fixture := loadQueryFixture(t, `
+metadata def Meta {
+	attribute tag : String;
+}
+calc def BadMetadataPath :> Query {
+	in root : Element;
+	Project(
+		source = Descendants(source = root, maxDepth = 1),
+		columns = (Column(name = "broken", path = "Fixture::Meta::tag..typo"))
+	)
+}
+`)
+	_, err := Compile(fixture.index, fixture.model, fixture.resolver, fixture.symbol(t, "BadMetadataPath"))
+	planning := planningError(t, err, ErrorUnsupportedExpression)
+	if planning.Parameter != "path" {
+		t.Fatalf("unsupported path parameter = %q, want path", planning.Parameter)
+	}
+	if planning.Target != "broken" {
+		t.Fatalf("unsupported path target = %q, want broken", planning.Target)
+	}
+	if !planning.Origin.Located() {
+		t.Fatal("unsupported path error must carry the path origin")
+	}
+}
+
+func TestCompileUndeclaredDottedMetadataColumnPathIsUnsupported(t *testing.T) {
+	fixture := loadQueryFixture(t, `
+metadata def Meta {
+	attribute tag : String;
+}
+calc def BadMetadataPath :> Query {
+	in root : Element;
+	Project(
+		source = Descendants(source = root, maxDepth = 1),
+		columns = (Column(name = "broken", path = "Fixture::Meta::nosuch.thing"))
+	)
+}
+`)
+	_, err := Compile(fixture.index, fixture.model, fixture.resolver, fixture.symbol(t, "BadMetadataPath"))
+	planning := planningError(t, err, ErrorUnsupportedExpression)
+	if planning.Parameter != "path" || planning.Target != "broken" || !planning.Origin.Located() {
+		t.Fatalf("unsupported metadata path error = %+v", planning)
+	}
+}
+
 func TestCompileMetadataCellColumnRetainsDeclaringType(t *testing.T) {
 	fixture := loadQueryFixture(t, `
 metadata def TagMetadata {

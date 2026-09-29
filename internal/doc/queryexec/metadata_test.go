@@ -289,3 +289,30 @@ package Observatory {
 		}
 	}
 }
+
+func TestMetadataPathValuesRejectsUndeclaredDottedFeature(t *testing.T) {
+	fixture := loadExecutionSource(t, `
+metadata def Meta {
+	attribute 'x.y' : String;
+}
+requirement def Tagged {
+	@Meta { 'x.y' = "ready"; }
+}
+`)
+	matches := fixture.index.LookupQualified("Tagged")
+	if len(matches) != 1 {
+		t.Fatalf("Tagged lookup returned %d symbols, want 1", len(matches))
+	}
+	e := executor{context: Context{
+		Index:    fixture.index,
+		Resolver: fixture.resolver,
+		Model:    fixture.model,
+	}}
+	_, present, err := e.metadataPathValues(matches[0], "Meta::nosuch.thing")
+	if err != nil {
+		t.Fatalf("metadataPathValues: %v", err)
+	}
+	if present {
+		t.Fatal("undeclared literal metadata feature is present")
+	}
+}

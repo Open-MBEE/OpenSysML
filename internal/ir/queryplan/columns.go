@@ -173,11 +173,19 @@ func (c *compiler) validColumnPath(path string) bool {
 	if !ok || len(metadataSegments) == 0 {
 		return false
 	}
-	if path[separator+2:] == "" {
+	feature := path[separator+2:]
+	if feature == "" {
 		return false
 	}
+	if featureSegments, ok := source.MemberPathSegments(feature); ok && len(featureSegments) == 1 {
+		feature = featureSegments[0]
+	}
 	for _, metadata := range c.index.LookupQualified(strings.Join(metadataSegments, "::")) {
-		if metadata.Kind == symbols.SymbolMetadataDef {
+		if metadata.Kind != symbols.SymbolMetadataDef {
+			continue
+		}
+		member, ok := c.model.LookupMember(metadata, feature)
+		if ok && member != nil && member.IsFeature() {
 			return true
 		}
 	}

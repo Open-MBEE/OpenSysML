@@ -1,2 +1,3 @@
 - Migrated «InstanceTable»/TableStructure columns and sorts over MonteCarloAnalysis statistics are written as member-path columns and render their stored values instead of being omitted when an instance the table lists records them; otherwise the column is omitted with the note saying so.
 - Document query columns and `Project`/`OrderBy` properties read quoted metadata feature names, such as `Meta::'tag with space'`, from the row's annotation.
+- Metadata column paths reject malformed or undeclared feature names instead of reading an empty cell.

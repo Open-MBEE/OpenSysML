@@ -84,7 +84,12 @@ func (e *executor) metadataPathValues(sym *symbols.Symbol, property string) ([]V
 		feature = featureSegments[0]
 	}
 	declaring := strings.Join(metadataSegments, "::")
-	if e.metadataType(declaring) == nil {
+	metadata := e.metadataType(declaring)
+	if metadata == nil {
+		return nil, false, nil
+	}
+	member, ok := e.context.Model.LookupMember(metadata, feature)
+	if !ok || member == nil || !member.IsFeature() {
 		return nil, false, nil
 	}
 	return e.annotationFeatureValues(sym, declaring, feature)
