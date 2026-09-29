@@ -420,112 +420,133 @@ func buildFeatures(req *Request) ([]feature, error) {
 		}
 	}
 	// First pass: settle each member's shape over every run that supplies it.
-	var names []string
-	shapes := map[string]shape{}
-	// A repeated element anywhere in a member's runs marks its feature, even
-	// when a merge settles the shape over values that did not repeat.
-	repeated := map[string]bool{}
+	s := &shapeSettler{req: req, companionOf: companionOf, shapes: map[string]shape{}, repeated: map[string]bool{}}
 	for i := range req.Runs {
 		for _, m := range members(req.Runs[i]) {
-			if m.inOf == "" {
-				if owner, ok := companionOf[m.name]; ok {
-					return nil, fmt.Errorf("case %s: member %q collides with the in companion of inout %q", req.Case, m.name, owner)
-				}
-			}
-			if reservedFeatures[m.name] {
-				return nil, fmt.Errorf("case %s: parameter %q shares a name with a feature of AnalysisRecords::AnalysisRun", req.Case, m.name)
-			}
-			sh := classify(m.value, &req.Runs[i])
-			if sh.repeated {
-				repeated[m.name] = true
-			}
-			cur, seen := shapes[m.name]
-			if !seen {
-				names = append(names, m.name)
-				shapes[m.name] = sh
-				continue
-			}
-			if sh.kind == kindUnset && !sh.multi {
-				continue
-			}
-			if cur.kind == kindUnset && cur.multi && !sh.multi {
-				// An empty sequence claimed the member multi-valued; a single
-				// value cannot settle it.
-				f := feature{name: m.name}
-				applyShape(&f, cur)
-				if err := compatible(&f, sh); err != nil {
-					return nil, fmt.Errorf("case %s: member %q: %w", req.Case, m.name, err)
-				}
-			}
-			if cur.kind == kindUnset {
-				// An unset member takes the settling value's shape; a run's empty
-				// sequence keeps the member multi-valued whichever settles it.
-				sh.multi = sh.multi || cur.multi
-				shapes[m.name] = sh
-				continue
-			}
-			if cur.multi != sh.multi {
-				f := feature{name: m.name}
-				applyShape(&f, cur)
-				if err := compatible(&f, sh); err != nil {
-					return nil, fmt.Errorf("case %s: member %q: %w", req.Case, m.name, err)
-				}
-			}
-			// A quantity member takes a plain-number row either order: the
-			// row keeps its literal and takes no unit.
-			if sh.kind == kindQuantity && (cur.kind == kindInteger || cur.kind == kindReal) {
-				shapes[m.name] = sh
-				continue
-			}
-			if cur.kind == kindQuantity && (sh.kind == kindInteger || sh.kind == kindReal) {
-				continue
-			}
-			// Integer and Real are one numeric family for the record
-			// definition: either way the member settles to Real, an Integer
-			// literal remaining valid under it.
-			if numericPair(cur.typ, sh.typ) {
-				cur = shape{kind: kindReal, typ: scalarValuesReal, multi: cur.multi}
-				shapes[m.name] = cur
-				continue
-			}
-			f := feature{name: m.name}
-			applyShape(&f, cur)
-			if err := compatible(&f, sh); err != nil {
-				return nil, fmt.Errorf("case %s: member %q: %w", req.Case, m.name, err)
+			if err := s.settle(m, &req.Runs[i]); err != nil {
+				return nil, err
 			}
 		}
 	}
 	// The two sides of an inout settle to one shape: a quantity side wins over
 	// a plain number, Integer and Real settle to Real, anything else must match.
 	for companion, owner := range companionOf {
-		o, c := shapes[owner], shapes[companion]
-		if o.multi == c.multi && settleInout(shapes, owner, companion) {
+		o, c := s.shapes[owner], s.shapes[companion]
+		if o.multi == c.multi && settleInout(s.shapes, owner, companion) {
 			continue
 		}
-		f := feature{name: owner}
-		applyShape(&f, o)
-		if err := compatible(&f, c); err != nil {
+		if err := shapeCompatible(owner, o, c); err != nil {
 			return nil, fmt.Errorf("case %s: inout %q: %w", req.Case, owner, err)
 		}
 	}
-	// Emit the features, each quantity's unit companion after it; a member
-	// named for one is a collision whatever order they met in.
+	return s.features()
+}
+
+// shapeSettler settles each member's shape over the runs that supply it, in
+// first-encounter order.
+type shapeSettler struct {
+	req         *Request
+	companionOf map[string]string
+	names       []string
+	shapes      map[string]shape
+	// A repeated element anywhere in a member's runs marks its feature, even
+	// when a merge settles the shape over values that did not repeat.
+	repeated map[string]bool
+}
+
+// shapeCompatible reports whether a value of shape sh fits a feature of shape cur.
+func shapeCompatible(name string, cur, sh shape) error {
+	f := feature{name: name}
+	applyShape(&f, cur)
+	return compatible(&f, sh)
+}
+
+func (s *shapeSettler) settle(m member, run *Run) error {
+	if m.inOf == "" {
+		if owner, ok := s.companionOf[m.name]; ok {
+			return fmt.Errorf("case %s: member %q collides with the in companion of inout %q", s.req.Case, m.name, owner)
+		}
+	}
+	if reservedFeatures[m.name] {
+		return fmt.Errorf("case %s: parameter %q shares a name with a feature of AnalysisRecords::AnalysisRun", s.req.Case, m.name)
+	}
+	sh := classify(m.value, run)
+	if sh.repeated {
+		s.repeated[m.name] = true
+	}
+	cur, seen := s.shapes[m.name]
+	if !seen {
+		s.names = append(s.names, m.name)
+		s.shapes[m.name] = sh
+		return nil
+	}
+	if sh.kind == kindUnset && !sh.multi {
+		return nil
+	}
+	if err := s.merge(m.name, cur, sh); err != nil {
+		return fmt.Errorf("case %s: member %q: %w", s.req.Case, m.name, err)
+	}
+	return nil
+}
+
+// merge settles a member's shape cur with a further run's value of shape sh.
+func (s *shapeSettler) merge(name string, cur, sh shape) error {
+	if cur.kind == kindUnset && cur.multi && !sh.multi {
+		// An empty sequence claimed the member multi-valued; a single
+		// value cannot settle it.
+		if err := shapeCompatible(name, cur, sh); err != nil {
+			return err
+		}
+	}
+	if cur.kind == kindUnset {
+		// An unset member takes the settling value's shape; a run's empty
+		// sequence keeps the member multi-valued whichever settles it.
+		sh.multi = sh.multi || cur.multi
+		s.shapes[name] = sh
+		return nil
+	}
+	if cur.multi != sh.multi {
+		if err := shapeCompatible(name, cur, sh); err != nil {
+			return err
+		}
+	}
+	// A quantity member takes a plain-number row either order: the
+	// row keeps its literal and takes no unit.
+	switch {
+	case sh.kind == kindQuantity && (cur.kind == kindInteger || cur.kind == kindReal):
+		s.shapes[name] = sh
+		return nil
+	case cur.kind == kindQuantity && (sh.kind == kindInteger || sh.kind == kindReal):
+		return nil
+	case numericPair(cur.typ, sh.typ):
+		// Integer and Real are one numeric family for the record
+		// definition: either way the member settles to Real, an Integer
+		// literal remaining valid under it.
+		s.shapes[name] = shape{kind: kindReal, typ: scalarValuesReal, multi: cur.multi}
+		return nil
+	}
+	return shapeCompatible(name, cur, sh)
+}
+
+// features emits the features, each quantity's unit companion after it; a
+// member named for one is a collision whatever order they met in.
+func (s *shapeSettler) features() ([]feature, error) {
 	units := map[string]string{}
-	for _, name := range names {
-		if shapes[name].kind == kindQuantity {
+	for _, name := range s.names {
+		if s.shapes[name].kind == kindQuantity {
 			units[name+"Unit"] = name
 		}
 	}
 	var feats []feature
-	for _, name := range names {
+	for _, name := range s.names {
 		if q, ok := units[name]; ok {
-			return nil, fmt.Errorf("case %s: member %q collides with the unit companion of quantity %q", req.Case, name, q)
+			return nil, fmt.Errorf("case %s: member %q collides with the unit companion of quantity %q", s.req.Case, name, q)
 		}
 		f := feature{name: name}
-		applyShape(&f, shapes[name])
-		f.repeated = repeated[name]
+		applyShape(&f, s.shapes[name])
+		f.repeated = s.repeated[name]
 		feats = append(feats, f)
-		if shapes[name].kind == kindQuantity {
+		if s.shapes[name].kind == kindQuantity {
 			feats = append(feats, feature{name: name + "Unit", typ: scalarValuesString, unitOf: name})
 		}
 	}
