@@ -124,6 +124,37 @@ package Wire {
 """
 
 
+ROAD_MODEL = """
+package Road {
+    private import ScalarValues::*;
+    part def Vehicle {
+        attribute speed : Integer default 0;
+        attribute seen : Integer default -1;
+    }
+    state def Mode {
+        in ref vehicle : Vehicle;
+        entry; then idle;
+        state idle;
+        transition first idle if vehicle.speed > 5 then fast;
+        transition first idle if vehicle.speed <= 5 then slow;
+        state fast { entry assign vehicle.seen := vehicle.speed * 10; }
+        state slow { entry assign vehicle.seen := vehicle.speed; }
+    }
+    part def Car :> Vehicle {
+        exhibit state gear {
+            entry; then idle;
+            state idle;
+            transition first idle if speed > 5 then fast;
+            transition first idle if speed <= 5 then slow;
+            state fast { entry assign seen := speed * 10; }
+            state slow { entry assign seen := speed; }
+        }
+    }
+    part slowCar : Car { attribute :>> speed = 2; }
+    part fastCar : Car { attribute :>> speed = 9; }
+}
+"""
+
 @pytest.mark.integration
 class TestPerformerAgainstTheService:
     """What a caller actually gets back from the real service for a nested performer."""
@@ -173,3 +204,20 @@ class TestPerformerAgainstTheService:
     def test_a_path_to_no_feature_is_refused(self):
         with pytest.raises(ExecutionError, match='Wire::pair has no feature "tug"'):
             self.model.execute_state("Wire::Craft::modes", performer="Wire::pair.tug")
+
+    def test_a_machine_takes_its_guards_against_the_performers_features(self):
+        road = self.conn.load_from_content(ROAD_MODEL)
+        for machine in ("Road::Car::gear", "Road::Mode"):
+            slow = road.execute_state(machine, performer="Road::slowCar")
+            fast = road.execute_state(machine, performer="Road::fastCar")
+            assert slow["states_visited"][-1] == "slow"
+            assert fast["states_visited"][-1] == "fast"
+            assert slow["final_context"]["this.seen"] == 2
+            assert fast["final_context"]["this.seen"] == 90
+
+    def test_an_explored_outcome_reports_the_performer_as_the_run_does(self):
+        road = self.conn.load_from_content(ROAD_MODEL)
+        run = road.execute_state("Road::Car::gear", performer="Road::fastCar")
+        (outcome,) = road.explore_state("Road::Car::gear", performer="Road::fastCar")
+        assert outcome.final_state == "fast"
+        assert outcome.outputs == run["final_context"]

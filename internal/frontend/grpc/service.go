@@ -1134,11 +1134,11 @@ func (s *Service) ExecuteState(ctx context.Context, req *pb.ExecuteStateRequest)
 		return &pb.ExecuteStateResponse{Error: err.Error()}, nil
 	}
 
-	// Execute state machine, injecting the requested events and capturing the
-	// real ordered state-visit trace.
+	// The final context is the outcome an exploration compares: the machine's own
+	// data and, under `this.`, the performer's attributes.
 	ran, _, err := performOn(ctx, s, runtimeCtx, analysis.Auto(), req.StateMachineSymbolId, func(rt *runtime.Context) (stateRun, error) {
-		final, visited, err := rt.ExecuteStatePerformedBy(stateMachine, self, req.Events)
-		return stateRun{final: final, visited: visited}, err
+		outcome, err := rt.StateOutcomePerformedBy(stateMachine, self, req.Events)
+		return stateRun{final: outcome.Outputs, visited: outcome.StateVisits}, err
 	}, func(ran stateRun, err error) analysis.Answer { return heldAnswer(ran.final, err) })
 	if gone := callerGone(ctx, err); gone != nil {
 		return nil, gone

@@ -1199,8 +1199,15 @@ so the object's own transitions, the messages its ports receive over the assembl
 connectors and the features it assigns are the run's; an object exhibiting the machine under
 two usages is refused as ambiguous, since the call cannot tell which it means. An object not
 exhibiting the machine performs a fresh one, as an empty performer does outside any object.
+Either way the machine's guards, effects and state behaviors read and write the object's feature
+values — by name in a machine the object's definition exhibits, through the `in ref` parameter
+the object binds in a state definition run on it — and `finalContext` carries, besides the
+machine's own data, every attribute the object holds when the run ends under `this.`
+(`this.speed`, `this.seen`), so two objects of one definition differing in a feature value that
+a guard reads rest in different states and report different contexts.
 Under `"explore"` every run creates the object graph anew, so the machine is explored inside
-its assembly and each outcome's `outputs` are the object's features as that run left them.
+its assembly and each outcome's `outputs` are the object's features as that run left them,
+spelled as the executed `finalContext` spells them.
 
 ### `EvaluateCalc`
 
