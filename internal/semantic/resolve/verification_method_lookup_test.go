@@ -258,3 +258,34 @@ func TestTwoImportableCandidatesNameNoImport(t *testing.T) {
 		t.Fatalf("message = %q, want no import sentence with two candidates", r.Diagnostics[0].Message)
 	}
 }
+
+// An annotation's body resolves even when its type does not: the unimported
+// `@VerificationMethod { kind = …; }` reports the body value as the `metadata`
+// form does, qualified-first-segment message and both fixes.
+func TestUnimportedPrefixBodyNamesTheValue(t *testing.T) {
+	src := "package Demo { verification def T { @VerificationMethod { kind = VerificationMethodKind::test; } } }"
+	r := resolveStdlib(t, "d.sysml", src)
+	if len(r.Diagnostics) != 2 {
+		t.Fatalf("diagnostics = %v, want the two unresolved references", r.Diagnostics)
+	}
+	wantFirst := "unresolved reference: VerificationMethod — did you mean VerificationCases::VerificationMethod? To use the bare name, import its package: private import VerificationCases::*;"
+	if r.Diagnostics[0].Message != wantFirst {
+		t.Fatalf("first diagnostic = %q, want %q", r.Diagnostics[0].Message, wantFirst)
+	}
+	wantValue := "unresolved reference: VerificationMethodKind::test — \"VerificationMethodKind\" is not visible here; did you mean VerificationCases::VerificationMethodKind::test? To use the bare name, import its package: private import VerificationCases::*;"
+	if r.Diagnostics[1].Message != wantValue {
+		t.Fatalf("second diagnostic = %q, want %q", r.Diagnostics[1].Message, wantValue)
+	}
+	var change, imported bool
+	for _, fix := range r.Diagnostics[1].Fixes {
+		switch fix.Title {
+		case "Change 'VerificationMethodKind' to 'VerificationCases::VerificationMethodKind'":
+			change = true
+		case "Import 'VerificationCases::*'":
+			imported = true
+		}
+	}
+	if !change || !imported {
+		t.Errorf("fixes = %+v, want the change and import fixes", r.Diagnostics[1].Fixes)
+	}
+}
