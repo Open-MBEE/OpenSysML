@@ -131,6 +131,7 @@ package gen {
 		attribute j : Integer;
 		attribute p : Boolean;
 		attribute q : Boolean;
+		attribute u : Real;
 		attribute label : String;
 		attribute c : Color;
 		attribute shape : Shape;
@@ -154,6 +155,7 @@ package gen {
 		fmt.Fprintf(&b, "\t\tattribute :>> j = %s;\n", g.integer())
 		fmt.Fprintf(&b, "\t\tattribute :>> p = %s;\n", g.boolean())
 		fmt.Fprintf(&b, "\t\tattribute :>> q = %s;\n", g.boolean())
+		fmt.Fprintf(&b, "\t\tattribute :>> u = %s;\n", g.unreadable())
 		fmt.Fprintf(&b, "\t\tattribute :>> label = %s;\n", g.text())
 		fmt.Fprintf(&b, "\t\tattribute :>> c = Color::%s;\n", g.color())
 		fmt.Fprintf(&b, "\t\tattribute :>> shape = shape::%s;\n", g.variant())
@@ -192,6 +194,16 @@ func (g *generator) integer() string {
 }
 
 func (g *generator) boolean() string { return g.pick("true", "false") }
+
+// unreadable draws the value of u: as often as not a default that does not
+// evaluate, so that a condition reading u is answered only where the evaluator
+// never reaches the read.
+func (g *generator) unreadable() string {
+	if g.chance(2) {
+		return "1.0 / 0.0"
+	}
+	return g.real()
+}
 func (g *generator) text() string    { return g.pick(`""`, `"x"`, `"abc"`, `"ABC"`) }
 func (g *generator) color() string   { return g.pick("red", "green", "blue") }
 func (g *generator) variant() string { return g.pick("round", "square") }
@@ -220,7 +232,7 @@ func (g *generator) boolExpr(depth int) string {
 		return "not (" + g.boolExpr(depth-1) + ")"
 	case 1, 2:
 		return "(" + g.boolExpr(depth-1) + ") " +
-			g.pick("and", "or", "xor", "implies", "==", "!=") + " (" + g.boolExpr(depth-1) + ")"
+			g.pick("and", "&", "or", "|", "xor", "implies", "==", "!=") + " (" + g.boolExpr(depth-1) + ")"
 	case 3:
 		return "(if " + g.atom() + " ? " + g.boolExpr(depth-1) + " else " + g.boolExpr(depth-1) + ")"
 	default:
@@ -230,11 +242,14 @@ func (g *generator) boolExpr(depth int) string {
 
 // atom draws a boolean expression over the generated features: a numeric
 // comparison, a quantity comparison across units, an enumeration or variant
-// equality, a string equality, or a boolean feature.
+// equality, a string equality, a boolean feature or literal, or a comparison
+// reading u, whose value may not evaluate.
 func (g *generator) atom() string {
-	switch g.rng.Intn(7) {
+	switch g.rng.Intn(9) {
 	case 0:
-		return g.pick("p", "q", "not p", "not q")
+		return g.pick("p", "q", "not p", "not q", "true", "false")
+	case 7, 8:
+		return "u " + g.comparison() + " " + g.pick("a", "b", g.real())
 	case 1:
 		return g.realExpr(2) + " " + g.comparison() + " " + g.realExpr(1)
 	case 2:

@@ -847,3 +847,83 @@ func TestVerifyQuestionsSatisfactionChainsReadTheSubject(t *testing.T) {
 		}
 	}
 }
+
+// shortCircuitModelSource declares a default that does not evaluate and
+// constraints reaching it under the evaluator's short-circuit order: never, on
+// every assignment, or only under some assignments of a free feature.
+const shortCircuitModelSource = `package P {
+	private import ScalarValues::*;
+	attribute bad : Real = 1.0 / 0.0;
+	attribute free : Real;
+	assert constraint ok { true or bad > 0.0 }
+	assert constraint left { bad > 0.0 or true }
+	assert constraint mixed { free > 0.0 or bad > 0.0 }
+	assert constraint both { free > 0.0 and bad > 0.0 }
+	assert constraint implied { free > 0.0 implies bad > 0.0 }
+	assert constraint branch { if free > 0.0 ? true else bad > 0.0 }
+	assert constraint xored { true xor bad > 0.0 }
+}
+`
+
+// TestVerifyQuestionsFollowTheEvaluatorsShortCircuitOrder: holds and satisfiable
+// answer as evaluate does for a default that does not evaluate — decided where
+// the evaluator never reaches it or a witness avoids it, undecided where it is
+// reached on every assignment or where a proof would need the assignments that
+// reach it — never a verdict the evaluator contradicts.
+func TestVerifyQuestionsFollowTheEvaluatorsShortCircuitOrder(t *testing.T) {
+	requireSolver(t)
+	srv := mustNewService(t, 10)
+	hash := mustVerifyModel(t, srv, shortCircuitModelSource, "verify-short-circuit")
+	const (
+		everyPath = "reads bad, whose value could not be read: division by zero"
+		somePath  = "reads bad under some assignment of its free features, whose value could not be read: division by zero"
+	)
+	cases := []struct {
+		symbol, question, status string
+		holds                    bool
+		err                      string
+		// witness is the value of P::free a witness or counterexample assigns,
+		// "" where the verdict carries none.
+		witness string
+	}{
+		{"P::ok", questionEvaluate, statusHolds, true, "", ""},
+		{"P::ok", questionHolds, statusHolds, true, "", ""},
+		{"P::ok", questionSatisfiable, statusSatisfiable, true, "", ""},
+
+		{"P::left", questionEvaluate, statusUndecided, false, "constraint left: assertion evaluation failed: division by zero", ""},
+		{"P::left", questionHolds, statusUndecided, false, "constraint left " + everyPath, ""},
+		{"P::left", questionSatisfiable, statusUndecided, false, "constraint left " + everyPath, ""},
+
+		{"P::mixed", questionHolds, statusUndecided, false, "constraint mixed " + somePath, ""},
+		{"P::mixed", questionSatisfiable, statusSatisfiable, true, "", "0.5"},
+
+		{"P::both", questionHolds, statusViolated, false, "", "0.0"},
+		{"P::both", questionSatisfiable, statusUndecided, false, "constraint both " + somePath, ""},
+
+		{"P::implied", questionHolds, statusUndecided, false, "constraint implied " + somePath, ""},
+		{"P::implied", questionSatisfiable, statusSatisfiable, true, "", "0.0"},
+
+		{"P::branch", questionHolds, statusUndecided, false, "constraint branch " + somePath, ""},
+		{"P::branch", questionSatisfiable, statusSatisfiable, true, "", "0.5"},
+
+		{"P::xored", questionHolds, statusUndecided, false, "constraint xored " + everyPath, ""},
+		{"P::xored", questionSatisfiable, statusUndecided, false, "constraint xored " + everyPath, ""},
+	}
+	for _, tc := range cases {
+		v := verifyQuestion(t, srv, hash, tc.symbol, tc.question, "", "").Verdict
+		if v.Status != tc.status || v.Holds != tc.holds || v.Error != tc.err {
+			t.Errorf("%s %s: status=%q holds=%v error=%q, want %q %v %q",
+				tc.symbol, tc.question, v.Status, v.Holds, v.Error, tc.status, tc.holds, tc.err)
+		}
+		if tc.witness == "" {
+			if len(v.Witness) != 0 {
+				t.Errorf("%s %s: witness %+v, want none", tc.symbol, tc.question, v.Witness)
+			}
+			continue
+		}
+		if len(v.Witness) != 1 || v.Witness[0].Feature != "P::free" || v.Witness[0].Exact != tc.witness {
+			t.Errorf("%s %s: witness %+v, want P::free = %s and the unreadable bad absent",
+				tc.symbol, tc.question, v.Witness, tc.witness)
+		}
+	}
+}
