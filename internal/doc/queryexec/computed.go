@@ -267,6 +267,19 @@ func (e *executor) rowMemberValues(
 		if !e.rowConformsTo(sym, declaring) {
 			return nil, nil
 		}
+	} else {
+		values, present, err := e.propertyValuesBeforeMemberPath(row, path)
+		if err != nil {
+			return nil, e.unevaluable(expression, path, row, err)
+		}
+		if present {
+			tracker.record(path, true)
+			return values, nil
+		}
+		if !isElement {
+			tracker.record(path, false)
+			return nil, nil
+		}
 	}
 	if isElement {
 		segments, ok := parseMemberPath(path)
@@ -295,12 +308,8 @@ func (e *executor) rowMemberValues(
 			}
 		}
 	}
-	values, present, err := e.propertyValues(row, path)
-	if err != nil {
-		return nil, e.unevaluable(expression, path, row, err)
-	}
-	tracker.record(path, present)
-	return values, nil
+	tracker.record(path, false)
+	return nil, nil
 }
 
 // objectRowValues reads a declared or metaclass feature of an object row.

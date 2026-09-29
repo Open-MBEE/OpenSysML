@@ -277,6 +277,44 @@ calc def Names :> Query {
 	}
 }
 
+func TestExecuteColumnPathKeepsProjectLiteralFeaturePrecedence(t *testing.T) {
+	fixture := loadExecutionFixture(t, `
+attribute def Nested {
+	attribute y : Integer;
+}
+package Results {
+	individual part def A {
+		attribute 'x.y' : Integer = 4;
+		attribute x : Nested {
+			attribute redefines y = 9;
+		}
+	}
+}
+calc def PathPrecedence :> Query {
+	in root : Element;
+	Project(
+		source = Descendants(source = root, maxDepth = 1),
+		properties = ("x.y"),
+		columns = (Column(name = "path", path = "x.y"))
+	)
+}
+`)
+	result, err := fixture.execute(t, "PathPrecedence", Bindings{
+		"root": {ElementValue(fixture.symbol(t, "Results"))},
+	}, Options{})
+	if err != nil {
+		t.Fatalf("PathPrecedence: %v", err)
+	}
+	projected := cellNumbers(t, result, "x.y")
+	path := cellNumbers(t, result, "path")
+	if !slices.EqualFunc(projected, [][]float64{{4}}, slices.Equal) {
+		t.Fatalf("Project x.y = %v, want {4}", projected)
+	}
+	if !slices.EqualFunc(path, projected, slices.Equal) {
+		t.Fatalf("path x.y = %v, Project x.y = %v", path, projected)
+	}
+}
+
 func TestExecuteTypedCellMemberPathGatesOnRowType(t *testing.T) {
 	fixture := memberPathFixture(t, `
 package NestedRows {
