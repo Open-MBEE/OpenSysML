@@ -11,6 +11,7 @@ from collections import deque
 from typing import Deque, Dict, Optional
 from opensysml.proto import sysml_pb2, sysml_pb2_grpc
 from opensysml.model import Model
+from opensysml.action_run import ActionOutputs
 from opensysml.binary import ensure_binary, resolve_latest_version
 from opensysml.capabilities import (
     CAPABILITY_APPLY_EDITS,
@@ -53,6 +54,7 @@ from opensysml.capabilities import (
     CAPABILITY_STRUCTURED_VALUES,
     CAPABILITY_TENSOR_VALUES,
     CAPABILITY_VERIFICATION,
+    CAPABILITY_VERIFICATION_QUESTIONS,
     MissingCapabilityError,
     ServerInfo,
     mismatch_reason,
@@ -161,6 +163,7 @@ from opensysml.engines import ENGINE_AUTO, EngineInfo, Standing
 from opensysml.verdict import (
     AnalysisResult, CalcResult, CaseEvaluation, SweepRow, SweepTable, Validation,
     Verdict, VerificationVerdict,
+    QUESTION_EVALUATE,
 )
 
 
@@ -318,6 +321,13 @@ def _engine_field(engine):
     if not engine or engine == ENGINE_AUTO:
         return ""
     return engine
+
+
+def _question_field(question):
+    """The question as sent: empty for evaluate, which every service reads as such."""
+    if not question or question == QUESTION_EVALUATE:
+        return ""
+    return question
 
 
 def _refuse_exploring(schedule, method):
@@ -1778,9 +1788,13 @@ class Connection:
                 reaches it. Without one the action runs outside any object
             
         Returns:
-            dict: Output parameter name → value; an output the wire format cannot
-                represent is reported as an UnsupportedValueError in its place,
-                so one such output does not discard the rest
+            ActionOutputs: Output parameter name → value, a ``dict``; an output
+                the wire format cannot represent is reported as an
+                UnsupportedValueError in its place, so one such output does not
+                discard the rest. Its ``performer`` holds the performer's
+                attributes as the run left them under ``this.``
+                (``'this.level'``), as an explored outcome's outputs spell them;
+                empty without a performer
             
         Raises:
             ValueError: If the schedule explores
@@ -1808,7 +1822,10 @@ class Connection:
             wrapped_diags = [Diagnostic(d) for d in response.diagnostics]
             raise ExecutionError(response.error, diagnostics=wrapped_diags)
         
-        return self._values_to_python(response.outputs)
+        return ActionOutputs(
+            self._values_to_python(response.outputs),
+            self._values_to_python(response.performer_attributes),
+        )
 
     def explore_action(self, action_symbol_id, model_hash, inputs=None,
                        schedule="explore", performer=None):
@@ -2001,7 +2018,8 @@ class Connection:
             response = self._stub.ListEngines(sysml_pb2.ListEnginesRequest())
         return [EngineInfo.of(pb) for pb in response.engines]
 
-    def verify_constraint(self, symbol_id, model_hash, subject_symbol_id=None, engine=None):
+    def verify_constraint(self, symbol_id, model_hash, subject_symbol_id=None, engine=None,
+                          question=None):
         """Ask whether a constraint holds, as the REPL's ``%constraint`` does.
 
         Args:
@@ -2014,6 +2032,13 @@ class Connection:
                 spells it: ``"auto"`` (the default) for the strongest covering
                 engine, ``"all"`` for every covering one composed, or one by
                 name, whose refusal is then the answer
+            question (str, optional): The question to ask: ``"evaluate"`` (the
+                default), ``"holds"`` whether the claim holds for every
+                assignment the free features can take, or ``"satisfiable"``
+                whether any assignment satisfies it. The verdict's ``status``
+                says which answer was proved; ``witness`` carries the free
+                features' values when the answer is violated or satisfiable,
+                and ``error`` says why nothing was decided otherwise
 
         Returns:
             Verdict: The answer. A condition that evaluated to false is that
@@ -2025,28 +2050,34 @@ class Connection:
                 constraint, which is a wrong request rather than a verdict
             ExecutionError: If the request could not be answered at all — an
                 unknown symbol, a subject that could not be instantiated
-            MissingCapabilityError: If the service cannot verify, or an engine
-                is given and the service predates ``engines``; nothing is sent
+            MissingCapabilityError: If the service cannot verify, an engine is
+                given and the service predates ``engines``, or a question other
+                than ``"evaluate"`` is given and the service predates
+                ``verification_questions``; nothing is sent
             InvalidRequestError: If the engine names none the service registers
             ModelNotFoundError: If the service no longer holds the model
         """
         self._require_verification()
         self._require_engine(engine)
+        self._require_question(question)
         request = sysml_pb2.VerifyConstraintRequest(
             model_hash=model_hash,
             symbol_id=symbol_id,
             subject_symbol_id=subject_symbol_id or "",
             engine=_engine_field(engine),
+            question=_question_field(question),
         )
         with translate_rpc_errors(
             unimplemented=self._capability_refusal(
                 (CAPABILITY_VERIFICATION,) + self._engine_capabilities(engine)
+                + self._question_capabilities(question)
             )
         ):
             response = self._stub.VerifyConstraint(request)
         return self._verdict_of(response)
 
-    def verify_requirement(self, symbol_id, model_hash, subject_symbol_id=None, engine=None):
+    def verify_requirement(self, symbol_id, model_hash, subject_symbol_id=None, engine=None,
+                           question=None):
         """Ask whether a requirement is satisfied, as ``%requirement`` does.
 
         Args:
@@ -2056,6 +2087,8 @@ class Connection:
                 instantiate and evaluate against
             engine (str, optional): The engine to ask, as for
                 :meth:`verify_constraint`
+            question (str, optional): The question to ask, as for
+                :meth:`verify_constraint`
 
         Returns:
             Verdict: The answer
@@ -2064,28 +2097,33 @@ class Connection:
             WrongKindError: If symbol_id names an element that is not a
                 requirement
             ExecutionError: If the request could not be answered at all
-            MissingCapabilityError: If the service cannot verify, or an engine
-                is given and the service predates ``engines``; nothing is sent
+            MissingCapabilityError: If the service cannot verify, an engine is
+                given and the service predates ``engines``, or a question other
+                than ``"evaluate"`` is given and the service predates
+                ``verification_questions``; nothing is sent
             InvalidRequestError: If the engine names none the service registers
             ModelNotFoundError: If the service no longer holds the model
         """
         self._require_verification()
         self._require_engine(engine)
+        self._require_question(question)
         request = sysml_pb2.VerifyRequirementRequest(
             model_hash=model_hash,
             symbol_id=symbol_id,
             subject_symbol_id=subject_symbol_id or "",
             engine=_engine_field(engine),
+            question=_question_field(question),
         )
         with translate_rpc_errors(
             unimplemented=self._capability_refusal(
                 (CAPABILITY_VERIFICATION,) + self._engine_capabilities(engine)
+                + self._question_capabilities(question)
             )
         ):
             response = self._stub.VerifyRequirement(request)
         return self._verdict_of(response)
 
-    def verify_satisfaction(self, model_hash, symbol_id=None, engine=None):
+    def verify_satisfaction(self, model_hash, symbol_id=None, engine=None, question=None):
         """Ask whether the model's satisfaction assertions hold, as ``%satisfy`` does.
 
         Each assertion is evaluated against an object of its subject, built for
@@ -2099,6 +2137,8 @@ class Connection:
                 assertion the model states.
             engine (str, optional): The engine to ask, as for
                 :meth:`verify_constraint`
+            question (str, optional): The question to ask, as for
+                :meth:`verify_constraint`
 
         Returns:
             list[Verdict]: One verdict per assertion, in declaration order. A
@@ -2110,21 +2150,26 @@ class Connection:
             WrongKindError: If symbol_id names an element that can state no
                 satisfaction assertion
             ExecutionError: If the request could not be answered at all
-            MissingCapabilityError: If the service cannot verify, or an engine
-                is given and the service predates ``engines``; nothing is sent
+            MissingCapabilityError: If the service cannot verify, an engine is
+                given and the service predates ``engines``, or a question other
+                than ``"evaluate"`` is given and the service predates
+                ``verification_questions``; nothing is sent
             InvalidRequestError: If the engine names none the service registers
             ModelNotFoundError: If the service no longer holds the model
         """
         self._require_verification()
         self._require_engine(engine)
+        self._require_question(question)
         request = sysml_pb2.VerifySatisfactionRequest(
             model_hash=model_hash,
             symbol_id=symbol_id or "",
             engine=_engine_field(engine),
+            question=_question_field(question),
         )
         with translate_rpc_errors(
             unimplemented=self._capability_refusal(
                 (CAPABILITY_VERIFICATION,) + self._engine_capabilities(engine)
+                + self._question_capabilities(question)
             )
         ):
             response = self._stub.VerifySatisfaction(request)
@@ -2614,6 +2659,18 @@ class Connection:
         if _explore_engine(engine):
             needed.append(CAPABILITY_SCHEDULE_EXPLORE)
         return tuple(needed)
+
+    def _require_question(self, question):
+        """Refuse to send a question a service without ``verification_questions`` would evaluate."""
+        for capability in self._question_capabilities(question):
+            require(self.server_info(), capability, upgrade_remedy(capability))
+
+    @staticmethod
+    def _question_capabilities(question):
+        """The capabilities a question needs of the service: none for evaluate."""
+        if _question_field(question):
+            return (CAPABILITY_VERIFICATION_QUESTIONS,)
+        return ()
 
     def _capability_refusal(self, capabilities):
         """Translate a capability-gated UNIMPLEMENTED into the preflight error."""

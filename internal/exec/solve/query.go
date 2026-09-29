@@ -4,6 +4,7 @@ import (
 	"sort"
 
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/symbols"
+	"github.com/Open-MBEE/OpenSysML/internal/syntax/ast"
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/source"
 )
 
@@ -36,6 +37,9 @@ const (
 	// RoleTransition is one step of a behavior's execution as the interpreter
 	// takes it, asserted by a model-checking query over a run.
 	RoleTransition
+	// RoleViolated is the denial of an element's claim, asserted by a violation
+	// query: its models are the assignments violating the element.
+	RoleViolated
 )
 
 var roleNames = map[Role]string{
@@ -47,6 +51,7 @@ var roleNames = map[Role]string{
 	RolePinned:     "fixed value",
 	RoleExcluded:   "excluded assignment",
 	RoleTransition: "transition",
+	RoleViolated:   "violated conditions",
 }
 
 // String names the role as an assertion's comment reads it.
@@ -70,6 +75,21 @@ type Var struct {
 
 	// Symbol is the feature declaration it stands for.
 	Symbol *symbols.Symbol
+
+	// Root is the first value-holding feature the reference read through, where
+	// the name is a chain — the object the chain's further steps index into.
+	// A subject member's root stands for the object the query is about; another
+	// usage's root stands for one of its member objects.
+	Root *symbols.Symbol
+
+	// Steps are the value-holding features the reference read through, where
+	// the name is a chain — [root, …, feature] for a name of two or more steps.
+	Steps []*symbols.Symbol
+
+	// Ref and Scope are the reference node and the scope it was written in, so
+	// the variable's value can be read the way the evaluator reads it.
+	Ref   ast.Node
+	Scope *symbols.Scope
 
 	// Dimension is the quantity dimension its magnitude is expressed in, over
 	// base units, empty for a value that has none.
@@ -191,6 +211,11 @@ type Query struct {
 	// Negated is set for an element asserting that its conditions do not all
 	// hold (`assert not …`), which the query asserts as one denial.
 	Negated bool
+
+	// Violation is set for a query whose models are the assignments violating
+	// the element's claim: unsatisfiable means the claim holds for every
+	// assignment of the free features.
+	Violation bool
 
 	// Sorts are the datatype sorts the query declares, ordered by name.
 	Sorts []Sort

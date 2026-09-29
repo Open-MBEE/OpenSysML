@@ -40,6 +40,11 @@ const CapabilityConvert = "convert"
 // answer.
 const CapabilityVerification = "verification"
 
+// CapabilityVerificationQuestions names the `question` field of the
+// verification requests — the solver questions "holds" and "satisfiable" —
+// and the `question`, `status` and `witness` fields of every Verdict.
+const CapabilityVerificationQuestions = "verification_questions"
+
 // CapabilityQuery names the capability of the Query RPC, which evaluates a
 // SysML v2 API & Services Query over a parsed model.
 const CapabilityQuery = "query"
@@ -254,6 +259,7 @@ var capabilities = []string{
 	CapabilityRequirementConstraintAuthoring,
 	CapabilityMemberModifiers,
 	CapabilityTransitionAuthoring,
+	CapabilityVerificationQuestions,
 	CapabilityVerificationObjectiveAuthoring,
 	CapabilityMetadataAuthoring,
 	CapabilityMetadataPrefixAuthoring,
@@ -1096,9 +1102,10 @@ func (s *Service) ExecuteAction(ctx context.Context, req *pb.ExecuteActionReques
 	}
 
 	// Execute action with the supplied inputs
-	outputs, _, err := performOn(ctx, s, runtimeCtx, analysis.Auto(), req.ActionSymbolId, func(rt *runtime.Context) (map[string]runtime.Value, error) {
-		return rt.ExecuteActionPerformedBy(action, self, inputs)
-	}, heldAnswer)
+	ran, _, err := performOn(ctx, s, runtimeCtx, analysis.Auto(), req.ActionSymbolId, func(rt *runtime.Context) (actionRun, error) {
+		outputs, performer, err := rt.ExecuteActionReportingPerformer(action, self, inputs)
+		return actionRun{outputs: outputs, performer: performer}, err
+	}, func(ran actionRun, err error) analysis.Answer { return heldAnswer(ran.outputs, err) })
 	if gone := callerGone(ctx, err); gone != nil {
 		return nil, gone
 	}
@@ -1113,16 +1120,11 @@ func (s *Service) ExecuteAction(ctx context.Context, req *pb.ExecuteActionReques
 		}, nil
 	}
 
-	// Convert outputs to protobuf
-	pbOutputs := make(map[string]*pb.Value)
-	for name, val := range outputs {
-		pbOutputs[name] = s.valueToProto(runtimeCtx, val, cached.Index)
-	}
-
 	return &pb.ExecuteActionResponse{
-		Outputs:     pbOutputs,
-		Diagnostics: diags,
-		FinalTime:   s.finalTime(runtimeCtx),
+		Outputs:             s.valuesToProto(runtimeCtx, ran.outputs, cached.Index),
+		Diagnostics:         diags,
+		FinalTime:           s.finalTime(runtimeCtx),
+		PerformerAttributes: s.valuesToProto(runtimeCtx, ran.performer, cached.Index),
 	}, nil
 }
 
@@ -1192,11 +1194,11 @@ func (s *Service) ExecuteState(ctx context.Context, req *pb.ExecuteStateRequest)
 		return &pb.ExecuteStateResponse{Error: err.Error()}, nil
 	}
 
-	// Execute state machine, injecting the requested events and capturing the
-	// real ordered state-visit trace.
+	// The final context is the outcome an exploration compares: the machine's own
+	// data and, under `this.`, the performer's attributes.
 	ran, _, err := performOn(ctx, s, runtimeCtx, analysis.Auto(), req.StateMachineSymbolId, func(rt *runtime.Context) (stateRun, error) {
-		final, visited, err := rt.ExecuteStatePerformedBy(stateMachine, self, req.Events)
-		return stateRun{final: final, visited: visited}, err
+		outcome, err := rt.StateOutcomePerformedBy(stateMachine, self, req.Events)
+		return stateRun{final: outcome.Outputs, visited: outcome.StateVisits}, err
 	}, func(ran stateRun, err error) analysis.Answer { return heldAnswer(ran.final, err) })
 	if gone := callerGone(ctx, err); gone != nil {
 		return nil, gone

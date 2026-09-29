@@ -39,6 +39,7 @@ import org.openmbee.opensysml.TransportException;
 import org.openmbee.opensysml.Validation;
 import org.openmbee.opensysml.Value;
 import org.openmbee.opensysml.Verification;
+import org.openmbee.opensysml.VerifyOptions;
 import org.openmbee.opensysml.internal.Protos;
 import org.openmbee.opensysml.proto.ApplyEditsRequest;
 import org.openmbee.opensysml.proto.ApplyEditsResponse;
@@ -395,7 +396,8 @@ final class Api {
       ExecuteActionResponse.Builder response =
           ExecuteActionResponse.newBuilder()
               .putAllOutputs(Rendering.values(run.outputs()))
-              .addAllDiagnostics(Rendering.diagnostics(run.diagnostics()));
+              .addAllDiagnostics(Rendering.diagnostics(run.diagnostics()))
+              .putAllPerformerAttributes(Rendering.values(run.performer()));
       run.finalTime().ifPresent(response::setFinalTime);
       return response.build();
     } catch (ModelException e) {
@@ -441,8 +443,12 @@ final class Api {
     try {
       Verification verification =
           request.getSubjectSymbolId().isEmpty()
-              ? model.verifyConstraint(request.getSymbolId())
-              : model.verifyConstraint(request.getSymbolId(), request.getSubjectSymbolId());
+              ? model.verifyConstraint(
+                  request.getSymbolId(), VerifyOptions.asking(request.getQuestion()))
+              : model.verifyConstraint(
+                  request.getSymbolId(),
+                  request.getSubjectSymbolId(),
+                  VerifyOptions.asking(request.getQuestion()));
       return VerifyConstraintResponse.newBuilder()
           .setVerdict(Rendering.verdict(verification.verdict()))
           .addAllInstances(Rendering.instances(verification.instances()))
@@ -461,8 +467,12 @@ final class Api {
     try {
       Verification verification =
           request.getSubjectSymbolId().isEmpty()
-              ? model.verifyRequirement(request.getSymbolId())
-              : model.verifyRequirement(request.getSymbolId(), request.getSubjectSymbolId());
+              ? model.verifyRequirement(
+                  request.getSymbolId(), VerifyOptions.asking(request.getQuestion()))
+              : model.verifyRequirement(
+                  request.getSymbolId(),
+                  request.getSubjectSymbolId(),
+                  VerifyOptions.asking(request.getQuestion()));
       return VerifyRequirementResponse.newBuilder()
           .setVerdict(Rendering.verdict(verification.verdict()))
           .addAllInstances(Rendering.instances(verification.instances()))
@@ -483,8 +493,9 @@ final class Api {
     try {
       Satisfaction satisfaction =
           request.getSymbolId().isEmpty()
-              ? model.verifySatisfaction()
-              : model.verifySatisfaction(request.getSymbolId());
+              ? model.verifySatisfaction(VerifyOptions.asking(request.getQuestion()))
+              : model.verifySatisfaction(
+                  request.getSymbolId(), VerifyOptions.asking(request.getQuestion()));
       return VerifySatisfactionResponse.newBuilder()
           .addAllVerdicts(Rendering.verdicts(satisfaction.verdicts()))
           .addAllInstances(Rendering.instances(satisfaction.instances()))

@@ -1013,6 +1013,7 @@ var defSymbolKinds = map[symbols.SymbolKind]bool{
 var usageSymbolKinds = map[symbols.SymbolKind]bool{
 	symbols.SymbolPartUsage:               true,
 	symbols.SymbolAttributeUsage:          true,
+	symbols.SymbolReferenceUsage:          true,
 	symbols.SymbolItemUsage:               true,
 	symbols.SymbolOccurrenceUsage:         true,
 	symbols.SymbolIndividualUsage:         true,

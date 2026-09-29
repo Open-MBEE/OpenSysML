@@ -12,7 +12,7 @@ package Demo {
 
 	calc add {
 		in x;
-		in y;
+		in y[1];
 		x + y
 	}
 

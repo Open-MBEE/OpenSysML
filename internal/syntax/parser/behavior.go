@@ -119,27 +119,8 @@ func (p *Parser) parseActionBodyMixed() []ast.Node {
 		p.memberStart()
 		before := p.peek().Span.Offset
 
-		if p.at(lexer.LBracket) {
-			next := p.afterMultiplicity(0)
-			if next >= 0 && p.peekN(next).Kind == lexer.Keyword && p.peekN(next).KeywordID == "then" {
-				multiplicity := p.parseMultiplicity()
-				body.add(p.parseSuccessionEdgeWithMultiplicity(p.advance(), true, multiplicity))
-				continue
-			}
-			start := p.peek().Span.Offset
-			multiplicity := p.parseMultiplicity()
-			span := multiplicity.Span()
-			p.error(span, "a multiplicity in an action body must precede `then`")
-			for !p.at(lexer.Semicolon) && !p.at(lexer.RBrace) && !p.atEOF() {
-				p.advance()
-			}
-			if p.at(lexer.Semicolon) {
-				p.advance()
-			}
-			body.add(&ast.ErrorNode{
-				NodeBase: ast.NodeBase{NodeSpan: p.spanFrom(start)},
-				Message:  "a multiplicity in an action body must precede `then`",
-			})
+		if member, ok := p.parseSourceMultiplicitySuccession(); ok {
+			body.add(member)
 			continue
 		}
 
@@ -232,6 +213,31 @@ func (p *Parser) parseActionBodyMixed() []ast.Node {
 
 	p.expect(lexer.RBrace, "expected '}' after action body")
 	return body.finish()
+}
+
+func (p *Parser) parseSourceMultiplicitySuccession() (ast.Node, bool) {
+	if !p.at(lexer.LBracket) {
+		return nil, false
+	}
+	next := p.afterMultiplicity(0)
+	if next >= 0 && p.peekN(next).Kind == lexer.Keyword && p.peekN(next).KeywordID == "then" {
+		multiplicity := p.parseMultiplicity()
+		return p.parseSuccessionEdgeWithMultiplicity(p.advance(), true, multiplicity), true
+	}
+	start := p.peek().Span.Offset
+	multiplicity := p.parseMultiplicity()
+	span := multiplicity.Span()
+	p.error(span, "a multiplicity in an action body must precede `then`")
+	for !p.at(lexer.Semicolon) && !p.at(lexer.RBrace) && !p.atEOF() {
+		p.advance()
+	}
+	if p.at(lexer.Semicolon) {
+		p.advance()
+	}
+	return &ast.ErrorNode{
+		NodeBase: ast.NodeBase{NodeSpan: p.spanFrom(start)},
+		Message:  "a multiplicity in an action body must precede `then`",
+	}, true
 }
 
 // parseNodeBody reads the body an action or state node production ends in
@@ -433,9 +439,11 @@ func (p *Parser) parseDirectionParameter() ast.Node {
 	// (SysML.xtext DefaultReferenceUsage, SysML v2 §7.6).
 	kind, _ := modifierImpliedKind(mods)
 	// Any other keyword is left as the parameter's name (kind stays default).
+	var kindKeyword string
 	if p.at(lexer.Keyword) {
 		if k, ok := parameterKindKeywords[p.peek().KeywordID]; ok {
 			kind = k
+			kindKeyword = p.peek().KeywordID
 			p.advance() // consume kind keyword
 		}
 	}
@@ -451,6 +459,7 @@ func (p *Parser) parseDirectionParameter() ast.Node {
 	// Create Usage node with direction
 	usage := &ast.Usage{
 		Kind:         kind,
+		Keyword:      kindKeyword,
 		Ident:        ident,
 		IsReference:  isRef,
 		Direction:    direction,
@@ -1173,6 +1182,10 @@ func (p *Parser) parseWhileLoopAction(tok lexer.Token) ast.Node {
 		leave := p.pushBodyContext(bodyAction)
 		for !p.at(lexer.RBrace) && !p.atEOF() {
 			p.memberStart()
+			if member, ok := p.parseSourceMultiplicitySuccession(); ok {
+				parsed.add(member)
+				continue
+			}
 			if parsed.atSuccession() {
 				parsed.takeSuccession()
 				continue
@@ -1226,6 +1239,10 @@ func (p *Parser) parseLoopAction(tok lexer.Token) ast.Node {
 	for !p.atKeyword("until") && !p.at(lexer.RBrace) && !p.atEOF() {
 		p.memberStart()
 		before := p.peek().Span.Offset
+		if member, ok := p.parseSourceMultiplicitySuccession(); ok {
+			parsed.add(member)
+			continue
+		}
 		if parsed.atSuccession() {
 			parsed.takeSuccession()
 			continue
@@ -1349,6 +1366,10 @@ func (p *Parser) parseForAction(tok lexer.Token) ast.Node {
 	for !p.at(lexer.RBrace) && !p.atEOF() {
 		p.memberStart()
 		before := p.peek().Span.Offset
+		if member, ok := p.parseSourceMultiplicitySuccession(); ok {
+			parsed.add(member)
+			continue
+		}
 		if parsed.atSuccession() {
 			parsed.takeSuccession()
 			continue
@@ -1497,6 +1518,10 @@ func (p *Parser) parseIfBranch(kind ast.IfBranchKind, start int, closeMsg string
 	for !p.at(lexer.RBrace) && !p.atEOF() {
 		p.memberStart()
 		before := p.peek().Span.Offset
+		if member, ok := p.parseSourceMultiplicitySuccession(); ok {
+			parsed.add(member)
+			continue
+		}
 		if parsed.atSuccession() {
 			parsed.takeSuccession()
 			continue

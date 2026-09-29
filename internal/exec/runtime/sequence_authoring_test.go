@@ -116,8 +116,15 @@ func TestSequenceAuthoredActionsExecuteLikeWrittenOnes(t *testing.T) {
 		ctx, idx, scope := sequenceContext(t, content)
 		trace := NewTraceRecorder()
 		ctx.SetTrace(trace)
+		breadSym := namedOrFoundSymbol(t, idx, "ToasterDemo::Bread", scope, ast.DefItem, ast.UsageItem)
+		bread, err := ctx.Instantiate(breadSym)
+		if err != nil {
+			t.Fatalf("Instantiate(Bread): %v", err)
+		}
 		actionSym := namedOrFoundSymbol(t, idx, "ToasterDemo::ToastBread", scope, ast.DefAction, ast.UsageAction)
-		outputs, err := ctx.ExecuteAction(actionSym)
+		outputs, err := ctx.ExecuteActionWithInputs(actionSym, map[string]Value{
+			"bread": {Kind: ValInstance, Instance: bread.ID},
+		})
 		if err != nil {
 			t.Fatalf("ExecuteAction: %v", err)
 		}

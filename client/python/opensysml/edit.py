@@ -671,7 +671,8 @@ class Editor:
 
     def add_member(self, owner, kind, name, type=None, multiplicity=None,
                    value=None, specializes=None, abstract=False, redefines=None,
-                   default=False, direction=None, metadata=None, expression=None, doc=None):
+                   default=False, direction=None, expression=None, doc=None,
+                   metadata=None):
         """Add one declaration, using strings for all SysML/KerML notation.
 
         ``expression`` writes a body expression for kinds whose bodies admit
@@ -955,6 +956,7 @@ class Editor:
         """Emit ``then [m] <ref>;`` or ``then [m] <kind> <name> : <type>;`` (SysML.xtext:878, 887, 1703 TargetSuccession; formal/2026-03-02).
 
         The member is sequenced after the member before it.
+        A `then` item can only follow a member that is a succession source.
 
         Args:
             owner: The action body, by qualified name or Symbol.

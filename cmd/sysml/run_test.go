@@ -24,7 +24,7 @@ const uncleanModel = `package Rover {
 const behaviorModel = `package Mission {
     calc def Fall {
         in t;
-        in g;
+        in g[1];
         g * t * t
     }
 

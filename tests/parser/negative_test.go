@@ -142,6 +142,7 @@ func TestNegative(t *testing.T) {
 		// `to`/`then` delimiter, not the delimiter misread as the end's name.
 		{"connection_first_end_missing", "part def C { connection c : I connect to ; }"},
 		{"then_no_target", "action a { then; }"},
+		{"nested_source_multiplicity_then_no_target", "action def A { if true { action a; [1] then ; } }"},
 		{"satisfy_dangling_by", "requirement r { assert satisfy x by; }"},
 		{"allocate_missing_target", "package q { allocate a to ; }"},
 		// `allocate` is one keyword with one role, and it must be followed by a
