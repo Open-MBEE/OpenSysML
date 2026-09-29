@@ -493,13 +493,11 @@ func TestSameNamedRootsAcrossThreeDocumentsDoNotMerge(t *testing.T) {
 }
 
 // sameStructure reports the triples two graphs differ on. The read-back is
-// one document: provenance cannot survive it, and a memberIndex is the
-// position in the one notation text it is written into.
+// one document, whose provenance cannot survive it.
 func sameStructure(t *testing.T, first, second map[rdf.Triple]bool) {
 	t.Helper()
 	noise := map[rdf.Term]bool{
 		rdf.OpenSysMLTerm("sourceDocument"): true,
-		rdf.OpenSysMLTerm("memberIndex"):    true,
 	}
 	for triple := range first {
 		if noise[triple.Predicate] {
@@ -668,4 +666,54 @@ func TestATypeThroughAnImportChainLinksAcrossDocuments(t *testing.T) {
 			t.Errorf("the API JSON of %q does not type e as EngineLib__Engine: %v", form, refs)
 		}
 	}
+}
+
+// The reader writes every root into one notation text in memberIndex order, so
+// a root's index is its position in the whole model, not in its document:
+// A and B of one document stay before C of the next on the round trip.
+func TestRootMemberIndexesKeepTheDocumentsOrder(t *testing.T) {
+	sources := []convert.Source{
+		{Name: "ab.sysml", Data: []byte("package A {\n\tpart a;\n}\npackage B {\n\tpart b;\n}\n")},
+		{Name: "cc.sysml", Data: []byte("package C {\n\tpart c;\n}\n")},
+	}
+	want := []string{"package A", "package B", "package C"}
+	order := func(t *testing.T, notation []byte) {
+		t.Helper()
+		var at, last int
+		for _, name := range want {
+			next := strings.Index(string(notation), name)
+			if next < last {
+				t.Fatalf("the round trip wrote %v out of order:\n%s", want, notation)
+			}
+			last, at = next, next
+		}
+		_ = at
+	}
+
+	turtle, err := convert.ConvertDocuments(sources, convert.FormatTurtle, convert.Options{})
+	if err != nil {
+		t.Fatalf("ConvertDocuments: %v", err)
+	}
+	verbatim, err := convert.Convert("m.ttl", turtle, convert.FormatTurtle, convert.FormatSysML)
+	if err != nil {
+		t.Fatalf("verbatim back to notation: %v", err)
+	}
+	order(t, verbatim)
+
+	stripped := withoutTriples(t, withoutTriples(t, turtle, "sysx:sourceText"), "sysx:sourceTail")
+	back, err := convert.Convert("m.ttl", stripped, convert.FormatTurtle, convert.FormatSysML)
+	if err != nil {
+		t.Fatalf("stripped back to notation: %v", err)
+	}
+	order(t, back)
+
+	apiJSON, err := convert.ConvertDocuments(sources, convert.FormatAPIJSON, convert.Options{})
+	if err != nil {
+		t.Fatalf("ConvertDocuments to API JSON: %v", err)
+	}
+	backAPI, err := convert.Convert("m.json", apiJSON, convert.FormatAPIJSON, convert.FormatSysML)
+	if err != nil {
+		t.Fatalf("API JSON back to notation: %v", err)
+	}
+	order(t, backAPI)
 }

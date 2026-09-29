@@ -892,7 +892,14 @@ func (e *encoder) encodeMembers(kept []ast.Node, regions []region, inline bool, 
 			}
 		}
 		if encodes {
-			h := memberHead{node: node, visibility: visibility, owner: ownerTerm, index: i,
+			// A root's memberIndex is its position in the whole model, the one
+			// the qualified-name collect mints it by and the order the reader
+			// writes all the roots in.
+			index := i
+			if owner == "" && ownerTerm.Value == "" {
+				index += e.rootOffset
+			}
+			h := memberHead{node: node, visibility: visibility, owner: ownerTerm, index: index,
 				lines: regions[i], inline: inline, typeFeature: isTypeFeatureMember(member), last: i == len(kept)-1}
 			if err := e.encodeMember(h, owner); err != nil {
 				return err
