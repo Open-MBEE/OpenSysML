@@ -105,3 +105,23 @@ func TestUnrepresentableCommentBodyIsRefused(t *testing.T) {
 		}
 	}
 }
+
+// TestCommentLineTerminatorsReadAsLineBreaks reads a comment written with
+// `\r\n` or lone `\r` line terminators (KerML 1.1 §8.2.2.1) as the same body
+// its `\n` spelling states, in the API JSON and in the structural Turtle.
+func TestCommentLineTerminatorsReadAsLineBreaks(t *testing.T) {
+	const body = "a\n  indented\nb"
+	src := commentModel(t, body)
+	want := []string{body, body}
+	structural := withoutTriples(t, withoutTriples(t, idTurtle(t, src), "sysx:sourceText"), "sysx:sourceTail")
+	for _, terminator := range []string{"\r\n", "\r"} {
+		spelled := strings.ReplaceAll(src, "\n", terminator)
+		if got := apiJSONBodies(t, spelled); !slices.Equal(got, want) {
+			t.Errorf("api-json bodies with %q line terminators = %q, want %q", terminator, got, want)
+		}
+		got := withoutTriples(t, withoutTriples(t, idTurtle(t, spelled), "sysx:sourceText"), "sysx:sourceTail")
+		if string(got) != string(structural) {
+			t.Errorf("turtle with %q line terminators:\n--- want ---\n%s--- got ---\n%s", terminator, structural, got)
+		}
+	}
+}
