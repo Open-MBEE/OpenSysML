@@ -1280,6 +1280,14 @@ func compatibleTyping(useKind ast.UsageKind, direction ast.FeatureDirection, def
 		return defKindSpecializes(defKind, symbols.SymbolActionDef)
 	}
 
+	// A connection is typed by connection definitions (SysML v2 §8.3.14.5
+	// ConnectionUsage::connectionDefinition): an allocation or an interface
+	// definition is one, as the metamodel's AllocationDefinition and
+	// InterfaceDefinition specialize ConnectionDefinition.
+	if useKind == ast.UsageConnection {
+		return defKindSpecializes(defKind, symbols.SymbolConnectionDef)
+	}
+
 	// A case may be typed by a case definition of any kind (SysML v2 §8.3.24.4
 	// validateCaseUsageType); analysis and verification keep their exact kinds.
 	if useKind == ast.UsageCase {

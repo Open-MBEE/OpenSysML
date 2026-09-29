@@ -728,7 +728,7 @@ class ApplyEditsRequest(_message.Message):
     def __init__(self, model_hash: _Optional[str] = ..., operations: _Optional[_Iterable[_Union[EditOperation, _Mapping]]] = ..., document: _Optional[str] = ..., accept_documents: _Optional[bool] = ...) -> None: ...
 
 class EditOperation(_message.Message):
-    __slots__ = ("set_value", "rename", "add_member", "delete", "move", "add_connection", "add_satisfy", "add_requirement_constraint", "add_transition")
+    __slots__ = ("set_value", "rename", "add_member", "delete", "move", "add_connection", "add_satisfy", "add_requirement_constraint", "add_transition", "add_import", "add_documentation", "add_verify", "add_metadata", "add_sequence", "add_metadata_prefix", "add_comment", "add_note")
     SET_VALUE_FIELD_NUMBER: _ClassVar[int]
     RENAME_FIELD_NUMBER: _ClassVar[int]
     ADD_MEMBER_FIELD_NUMBER: _ClassVar[int]
@@ -738,6 +738,14 @@ class EditOperation(_message.Message):
     ADD_SATISFY_FIELD_NUMBER: _ClassVar[int]
     ADD_REQUIREMENT_CONSTRAINT_FIELD_NUMBER: _ClassVar[int]
     ADD_TRANSITION_FIELD_NUMBER: _ClassVar[int]
+    ADD_IMPORT_FIELD_NUMBER: _ClassVar[int]
+    ADD_DOCUMENTATION_FIELD_NUMBER: _ClassVar[int]
+    ADD_VERIFY_FIELD_NUMBER: _ClassVar[int]
+    ADD_METADATA_FIELD_NUMBER: _ClassVar[int]
+    ADD_SEQUENCE_FIELD_NUMBER: _ClassVar[int]
+    ADD_METADATA_PREFIX_FIELD_NUMBER: _ClassVar[int]
+    ADD_COMMENT_FIELD_NUMBER: _ClassVar[int]
+    ADD_NOTE_FIELD_NUMBER: _ClassVar[int]
     set_value: SetValueEdit
     rename: RenameEdit
     add_member: AddMemberEdit
@@ -747,10 +755,18 @@ class EditOperation(_message.Message):
     add_satisfy: AddSatisfyEdit
     add_requirement_constraint: AddRequirementConstraintEdit
     add_transition: AddTransitionEdit
-    def __init__(self, set_value: _Optional[_Union[SetValueEdit, _Mapping]] = ..., rename: _Optional[_Union[RenameEdit, _Mapping]] = ..., add_member: _Optional[_Union[AddMemberEdit, _Mapping]] = ..., delete: _Optional[_Union[DeleteEdit, _Mapping]] = ..., move: _Optional[_Union[MoveEdit, _Mapping]] = ..., add_connection: _Optional[_Union[AddConnectionEdit, _Mapping]] = ..., add_satisfy: _Optional[_Union[AddSatisfyEdit, _Mapping]] = ..., add_requirement_constraint: _Optional[_Union[AddRequirementConstraintEdit, _Mapping]] = ..., add_transition: _Optional[_Union[AddTransitionEdit, _Mapping]] = ...) -> None: ...
+    add_import: AddImportEdit
+    add_documentation: AddDocumentationEdit
+    add_verify: AddVerifyEdit
+    add_metadata: AddMetadataEdit
+    add_sequence: AddSequenceEdit
+    add_metadata_prefix: AddMetadataPrefixEdit
+    add_comment: AddCommentEdit
+    add_note: AddNoteEdit
+    def __init__(self, set_value: _Optional[_Union[SetValueEdit, _Mapping]] = ..., rename: _Optional[_Union[RenameEdit, _Mapping]] = ..., add_member: _Optional[_Union[AddMemberEdit, _Mapping]] = ..., delete: _Optional[_Union[DeleteEdit, _Mapping]] = ..., move: _Optional[_Union[MoveEdit, _Mapping]] = ..., add_connection: _Optional[_Union[AddConnectionEdit, _Mapping]] = ..., add_satisfy: _Optional[_Union[AddSatisfyEdit, _Mapping]] = ..., add_requirement_constraint: _Optional[_Union[AddRequirementConstraintEdit, _Mapping]] = ..., add_transition: _Optional[_Union[AddTransitionEdit, _Mapping]] = ..., add_import: _Optional[_Union[AddImportEdit, _Mapping]] = ..., add_documentation: _Optional[_Union[AddDocumentationEdit, _Mapping]] = ..., add_verify: _Optional[_Union[AddVerifyEdit, _Mapping]] = ..., add_metadata: _Optional[_Union[AddMetadataEdit, _Mapping]] = ..., add_sequence: _Optional[_Union[AddSequenceEdit, _Mapping]] = ..., add_metadata_prefix: _Optional[_Union[AddMetadataPrefixEdit, _Mapping]] = ..., add_comment: _Optional[_Union[AddCommentEdit, _Mapping]] = ..., add_note: _Optional[_Union[AddNoteEdit, _Mapping]] = ...) -> None: ...
 
 class AddMemberEdit(_message.Message):
-    __slots__ = ("owner", "kind", "name", "type", "multiplicity", "value", "specializes", "is_abstract", "redefines", "is_default", "direction")
+    __slots__ = ("owner", "kind", "name", "type", "multiplicity", "value", "specializes", "is_abstract", "redefines", "is_default", "direction", "metadata_prefixes", "doc", "body_expression")
     OWNER_FIELD_NUMBER: _ClassVar[int]
     KIND_FIELD_NUMBER: _ClassVar[int]
     NAME_FIELD_NUMBER: _ClassVar[int]
@@ -762,6 +778,9 @@ class AddMemberEdit(_message.Message):
     REDEFINES_FIELD_NUMBER: _ClassVar[int]
     IS_DEFAULT_FIELD_NUMBER: _ClassVar[int]
     DIRECTION_FIELD_NUMBER: _ClassVar[int]
+    METADATA_PREFIXES_FIELD_NUMBER: _ClassVar[int]
+    DOC_FIELD_NUMBER: _ClassVar[int]
+    BODY_EXPRESSION_FIELD_NUMBER: _ClassVar[int]
     owner: str
     kind: str
     name: str
@@ -773,7 +792,10 @@ class AddMemberEdit(_message.Message):
     redefines: _containers.RepeatedScalarFieldContainer[str]
     is_default: bool
     direction: str
-    def __init__(self, owner: _Optional[str] = ..., kind: _Optional[str] = ..., name: _Optional[str] = ..., type: _Optional[str] = ..., multiplicity: _Optional[str] = ..., value: _Optional[str] = ..., specializes: _Optional[_Iterable[str]] = ..., is_abstract: _Optional[bool] = ..., redefines: _Optional[_Iterable[str]] = ..., is_default: _Optional[bool] = ..., direction: _Optional[str] = ...) -> None: ...
+    metadata_prefixes: _containers.RepeatedScalarFieldContainer[str]
+    doc: str
+    body_expression: str
+    def __init__(self, owner: _Optional[str] = ..., kind: _Optional[str] = ..., name: _Optional[str] = ..., type: _Optional[str] = ..., multiplicity: _Optional[str] = ..., value: _Optional[str] = ..., specializes: _Optional[_Iterable[str]] = ..., is_abstract: _Optional[bool] = ..., redefines: _Optional[_Iterable[str]] = ..., is_default: _Optional[bool] = ..., direction: _Optional[str] = ..., metadata_prefixes: _Optional[_Iterable[str]] = ..., doc: _Optional[str] = ..., body_expression: _Optional[str] = ...) -> None: ...
 
 class AddSatisfyEdit(_message.Message):
     __slots__ = ("owner", "requirement", "satisfying_feature", "is_asserted", "is_negated")
@@ -820,6 +842,134 @@ class AddTransitionEdit(_message.Message):
     effect: str
     initial: bool
     def __init__(self, owner: _Optional[str] = ..., name: _Optional[str] = ..., source: _Optional[str] = ..., target: _Optional[str] = ..., trigger: _Optional[str] = ..., guard: _Optional[str] = ..., effect: _Optional[str] = ..., initial: _Optional[bool] = ...) -> None: ...
+
+class AddVerifyEdit(_message.Message):
+    __slots__ = ("owner", "requirement")
+    OWNER_FIELD_NUMBER: _ClassVar[int]
+    REQUIREMENT_FIELD_NUMBER: _ClassVar[int]
+    owner: str
+    requirement: str
+    def __init__(self, owner: _Optional[str] = ..., requirement: _Optional[str] = ...) -> None: ...
+
+class MetadataFeatureValue(_message.Message):
+    __slots__ = ("feature", "value")
+    FEATURE_FIELD_NUMBER: _ClassVar[int]
+    VALUE_FIELD_NUMBER: _ClassVar[int]
+    feature: str
+    value: str
+    def __init__(self, feature: _Optional[str] = ..., value: _Optional[str] = ...) -> None: ...
+
+class AddMetadataEdit(_message.Message):
+    __slots__ = ("owner", "metadata_type", "name", "about", "values", "shorthand")
+    OWNER_FIELD_NUMBER: _ClassVar[int]
+    METADATA_TYPE_FIELD_NUMBER: _ClassVar[int]
+    NAME_FIELD_NUMBER: _ClassVar[int]
+    ABOUT_FIELD_NUMBER: _ClassVar[int]
+    VALUES_FIELD_NUMBER: _ClassVar[int]
+    SHORTHAND_FIELD_NUMBER: _ClassVar[int]
+    owner: str
+    metadata_type: str
+    name: str
+    about: _containers.RepeatedScalarFieldContainer[str]
+    values: _containers.RepeatedCompositeFieldContainer[MetadataFeatureValue]
+    shorthand: bool
+    def __init__(self, owner: _Optional[str] = ..., metadata_type: _Optional[str] = ..., name: _Optional[str] = ..., about: _Optional[_Iterable[str]] = ..., values: _Optional[_Iterable[_Union[MetadataFeatureValue, _Mapping]]] = ..., shorthand: _Optional[bool] = ...) -> None: ...
+
+class AddMetadataPrefixEdit(_message.Message):
+    __slots__ = ("target", "metadata_type")
+    TARGET_FIELD_NUMBER: _ClassVar[int]
+    METADATA_TYPE_FIELD_NUMBER: _ClassVar[int]
+    target: str
+    metadata_type: str
+    def __init__(self, target: _Optional[str] = ..., metadata_type: _Optional[str] = ...) -> None: ...
+
+class AddImportEdit(_message.Message):
+    __slots__ = ("owner", "visibility", "target", "is_recursive", "is_import_all", "filters")
+    OWNER_FIELD_NUMBER: _ClassVar[int]
+    VISIBILITY_FIELD_NUMBER: _ClassVar[int]
+    TARGET_FIELD_NUMBER: _ClassVar[int]
+    IS_RECURSIVE_FIELD_NUMBER: _ClassVar[int]
+    IS_IMPORT_ALL_FIELD_NUMBER: _ClassVar[int]
+    FILTERS_FIELD_NUMBER: _ClassVar[int]
+    owner: str
+    visibility: str
+    target: str
+    is_recursive: bool
+    is_import_all: bool
+    filters: _containers.RepeatedScalarFieldContainer[str]
+    def __init__(self, owner: _Optional[str] = ..., visibility: _Optional[str] = ..., target: _Optional[str] = ..., is_recursive: _Optional[bool] = ..., is_import_all: _Optional[bool] = ..., filters: _Optional[_Iterable[str]] = ...) -> None: ...
+
+class AddDocumentationEdit(_message.Message):
+    __slots__ = ("target", "body", "name", "locale", "replace")
+    TARGET_FIELD_NUMBER: _ClassVar[int]
+    BODY_FIELD_NUMBER: _ClassVar[int]
+    NAME_FIELD_NUMBER: _ClassVar[int]
+    LOCALE_FIELD_NUMBER: _ClassVar[int]
+    REPLACE_FIELD_NUMBER: _ClassVar[int]
+    target: str
+    body: str
+    name: str
+    locale: str
+    replace: bool
+    def __init__(self, target: _Optional[str] = ..., body: _Optional[str] = ..., name: _Optional[str] = ..., locale: _Optional[str] = ..., replace: _Optional[bool] = ...) -> None: ...
+
+class AddCommentEdit(_message.Message):
+    __slots__ = ("owner", "body", "name", "about", "locale")
+    OWNER_FIELD_NUMBER: _ClassVar[int]
+    BODY_FIELD_NUMBER: _ClassVar[int]
+    NAME_FIELD_NUMBER: _ClassVar[int]
+    ABOUT_FIELD_NUMBER: _ClassVar[int]
+    LOCALE_FIELD_NUMBER: _ClassVar[int]
+    owner: str
+    body: str
+    name: str
+    about: _containers.RepeatedScalarFieldContainer[str]
+    locale: str
+    def __init__(self, owner: _Optional[str] = ..., body: _Optional[str] = ..., name: _Optional[str] = ..., about: _Optional[_Iterable[str]] = ..., locale: _Optional[str] = ...) -> None: ...
+
+class AddNoteEdit(_message.Message):
+    __slots__ = ("target", "text")
+    TARGET_FIELD_NUMBER: _ClassVar[int]
+    TEXT_FIELD_NUMBER: _ClassVar[int]
+    target: str
+    text: str
+    def __init__(self, target: _Optional[str] = ..., text: _Optional[str] = ...) -> None: ...
+
+class AddSequenceEdit(_message.Message):
+    __slots__ = ("owner", "keyword", "ref", "member_kind", "member_name", "type", "after", "condition", "value", "target", "via", "until", "body", "else_body", "multiplicity", "parameter")
+    OWNER_FIELD_NUMBER: _ClassVar[int]
+    KEYWORD_FIELD_NUMBER: _ClassVar[int]
+    REF_FIELD_NUMBER: _ClassVar[int]
+    MEMBER_KIND_FIELD_NUMBER: _ClassVar[int]
+    MEMBER_NAME_FIELD_NUMBER: _ClassVar[int]
+    TYPE_FIELD_NUMBER: _ClassVar[int]
+    AFTER_FIELD_NUMBER: _ClassVar[int]
+    CONDITION_FIELD_NUMBER: _ClassVar[int]
+    VALUE_FIELD_NUMBER: _ClassVar[int]
+    TARGET_FIELD_NUMBER: _ClassVar[int]
+    VIA_FIELD_NUMBER: _ClassVar[int]
+    UNTIL_FIELD_NUMBER: _ClassVar[int]
+    BODY_FIELD_NUMBER: _ClassVar[int]
+    ELSE_BODY_FIELD_NUMBER: _ClassVar[int]
+    MULTIPLICITY_FIELD_NUMBER: _ClassVar[int]
+    PARAMETER_FIELD_NUMBER: _ClassVar[int]
+    owner: str
+    keyword: str
+    ref: str
+    member_kind: str
+    member_name: str
+    type: str
+    after: str
+    condition: str
+    value: str
+    target: str
+    via: str
+    until: str
+    body: _containers.RepeatedCompositeFieldContainer[AddSequenceEdit]
+    else_body: _containers.RepeatedCompositeFieldContainer[AddSequenceEdit]
+    multiplicity: str
+    parameter: str
+    def __init__(self, owner: _Optional[str] = ..., keyword: _Optional[str] = ..., ref: _Optional[str] = ..., member_kind: _Optional[str] = ..., member_name: _Optional[str] = ..., type: _Optional[str] = ..., after: _Optional[str] = ..., condition: _Optional[str] = ..., value: _Optional[str] = ..., target: _Optional[str] = ..., via: _Optional[str] = ..., until: _Optional[str] = ..., body: _Optional[_Iterable[_Union[AddSequenceEdit, _Mapping]]] = ..., else_body: _Optional[_Iterable[_Union[AddSequenceEdit, _Mapping]]] = ..., multiplicity: _Optional[str] = ..., parameter: _Optional[str] = ...) -> None: ...
 
 class AddConnectionEdit(_message.Message):
     __slots__ = ("owner", "kind", "from_end", "to_end", "name", "type")

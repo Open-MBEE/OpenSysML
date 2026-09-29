@@ -27,15 +27,15 @@
         "name": "negative-corpus",
         "dir": "tools/referee/reject/testdata/negative",
         "origin": "ours",
-        "files": 307,
-        "digest": "sha256:4c3312f06e030b3747aced47f88d7ae529f6881db9974ffb01b3d13fb2844cd6"
+        "files": 309,
+        "digest": "sha256:18bb92d236faa76478c2ed1a0f657f72dfda56b24525f7e93cb555c55d94f84e"
       }
     ],
-    "recorded": "2026-09-28"
+    "recorded": "2026-09-29"
   },
   "totals": {
-    "cases": 307,
-    "bothReject": 298,
+    "cases": 309,
+    "bothReject": 300,
     "pilotOnlyRejects": 0,
     "oursOnlyRejects": 9,
     "bothAccept": 0
@@ -57,8 +57,8 @@
     },
     {
       "source": "grammar",
-      "cases": 106,
-      "bothReject": 106,
+      "cases": 108,
+      "bothReject": 108,
       "pilotOnlyRejects": 0,
       "oursOnlyRejects": 0,
       "bothAccept": 0
@@ -886,6 +886,24 @@
       "bucket": "both-reject",
       "oursErrors": 1,
       "pilotErrors": 4
+    },
+    {
+      "path": "grammar/g80-action-parameter-ref-prefix-order.sysml",
+      "source": "grammar",
+      "rule": "RefPrefix modifiers precede the optional 'ref' (SysML.xtext:556-566 RefPrefix, :563 BasicUsagePrefix).",
+      "mode": "default",
+      "bucket": "both-reject",
+      "oursErrors": 1,
+      "pilotErrors": 3
+    },
+    {
+      "path": "grammar/g81-action-parameter-modifier-order.sysml",
+      "source": "grammar",
+      "rule": "RefPrefix modifiers follow their grammar order (SysML.xtext:556-566 RefPrefix, :563 BasicUsagePrefix).",
+      "mode": "default",
+      "bucket": "both-reject",
+      "oursErrors": 1,
+      "pilotErrors": 3
     },
     {
       "path": "grammar/k01-specializes-without-target.kerml",
@@ -2990,8 +3008,8 @@
       }
     ],
     "totals": {
-      "cases": 307,
-      "bothReject": 298,
+      "cases": 309,
+      "bothReject": 300,
       "pilotOnlyRejects": 0,
       "oursOnlyRejects": 9,
       "bothAccept": 0

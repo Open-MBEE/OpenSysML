@@ -45,15 +45,15 @@ mandatory header — `// Invalid: <rule> (<citation>).` — naming the one rule 
 where that rule comes from; the harness refuses a corpus file without it. Cases were derived
 systematically from four sources, one subdirectory each:
 
-1. **`grammar/` — grammar mutation** (106 cases: 20 original, 45 added along the *unreached* axis
+1. **`grammar/` — grammar mutation** (108 cases: 20 original, 45 added along the *unreached* axis
    described below, 13 from a second sweep, 7 body-position cases
    `g61`–`g67` from the constraint census described under `semantic/`, the two second-result-expression
-   bodies `g69`/`k20`, the two name-before-keyword members `g70`/`k21`, and the fifteen prefix and
-   body-context cases `g71`–`g79`, `k22`–`k27`: exclusive prefix alternatives written together
+   bodies `g69`/`k20`, the two name-before-keyword members `g70`/`k21`, and the seventeen prefix and
+   body-context cases `g71`–`g81`, `k22`–`k27`: exclusive prefix alternatives written together
    (`abstract variation`, `composite portion`) or repeated (`composite composite`), a repeated direction (on an ordinary and on a
    cross feature), `ref`, `constant` and `const` on a definition, `variation` in KerML, an
    invalid string escape, a signed multiplicity bound, a `transition` in a part def body and the
-   SysML `constant` spelling in KerML). For productions our corpus exercises in the
+   SysML `constant` spelling in KerML, and out-of-order action-body parameter modifiers). For productions our corpus exercises in the
    pinned Xtext grammars (`build/pilot-grammars/`, see the `testing-grammar-coverage` skill), the
    minimal violation: a required keyword removed (`g03` alias without `for`), a mandatory element
    omitted (`g04`, `g05`, `k01`, `k03`), a clause in a position the production forbids (`g06`
@@ -116,7 +116,7 @@ systematically from four sources, one subdirectory each:
    pilot's grammar rejects before its validator would), and a constructed payload whose `new`
    names a package rather than a type (`send-constructor-non-type`).
 
-What this corpus cannot see: it tests the invalid models we thought to write. **We authored all 307
+What this corpus cannot see: it tests the invalid models we thought to write. **We authored all 309
 cases ourselves**, so the denominator measures our coverage of the rejection surface, not our
 conformance: it is a **sample, not a proof** — a clean bucket here does not mean OpenSysML rejects
 everything the reference rejects, and no official conformance suite exists to make that claim
@@ -164,14 +164,14 @@ measured at their own round and are not the current baseline.
 Under the default `-conformance auto`:
 
 ```
-307 case(s): 298 both reject, 0 only the pilot rejects, 9 only we reject, 0 both accept
+309 case(s): 300 both reject, 0 only the pilot rejects, 9 only we reject, 0 both accept
   of which 4 agree only because we were asked strictly (the default mode accepts them, by design)
 ```
 
 | Source | Cases | Both reject | Pilot only | Ours only | Both accept |
 | --- | --- | --- | --- | --- | --- |
 | extensions | 9 | 9 | 0 | 0 | 0 |
-| grammar | 106 | 106 | 0 | 0 | 0 |
+| grammar | 108 | 108 | 0 | 0 | 0 |
 | semantic | 157 | 148 | 0 | 9 | 0 |
 | xpect | 35 | 35 | 0 | 0 | 0 |
 
@@ -228,6 +228,7 @@ redefinition's target from the owning type's generals and then the enclosing nam
 owning type's own scope, so the pilot fails to link `Couldn't resolve reference to Feature '…'` and
 so do we), and to 307 with `s99` (a transition's bare accept name is its payload type; inherited
 `Action::start` is a usage, not a definition, so both validators reject it under `validateUsageType`).
+The action-body parameter prefix-order cases `g80`–`g81` then raised the corpus to 309.
 The KerML constraints in that
 source reopened 14 gaps — all of them semantic rules the pilot enforces and we did not; the
 named-argument validation that landed alongside closed one of them (`k33`), the constructor
@@ -271,7 +272,7 @@ when it was first written, six were closed by the validation work itself — `p0
 Read those four as agreement *when asked strictly*, not as gaps that disappeared. An opt-in
 check is weaker evidence than a default one: it says the strict question has an answer we agree on,
 not that the pipeline a user gets by default rejects the notation — by design it does not. And
-because we authored all 307 cases ourselves, a small gap count means we ran out of questions we
+because we authored all 309 cases ourselves, a small gap count means we ran out of questions we
 thought to ask, not that we stopped being permissive: the denominator measures our coverage of the
 rejection surface, not our conformance.
 

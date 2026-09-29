@@ -395,11 +395,47 @@ and `SuiteTest.aCorruptedAnswerIsCaught` asserts each corruption is caught:
 | `rewrite-strings` | replaces each string            |                  70 |
 
 `Edit.AddMember` exposes `withAbstract`, `withRedefines`, `withDefault` and
-`withDirection`; `Edit.AddSatisfy`, `Edit.AddRequirementConstraint` and
-`Edit.AddTransition` expose requirement and state-transition authoring.
-`Edit.AddTransition.entry` constructs an entry transition. The client checks
-`member_modifiers`, `satisfy_authoring`, `requirement_constraint_authoring` or
-`transition_authoring` before sending those additions.
+`Edit.addMetadataPrefix(target, metadataType)` adds a prefix to an existing declaration and
+requires `metadata_prefix_authoring` alongside `authoring`.
+`withDirection` and `withMetadataPrefixes`; `Edit.AddSatisfy`,
+`Edit.AddRequirementConstraint`, `Edit.AddTransition`, `Edit.AddVerify` and
+`Edit.AddMetadata` expose requirement, state-transition, verification and
+metadata authoring. `Edit.AddTransition.entry` constructs an entry transition.
+`AddMetadata` supports ordered feature values, `about` references and `@`
+shorthand. The client checks `member_modifiers`, `satisfy_authoring`,
+`requirement_constraint_authoring`, `transition_authoring`,
+`verification_objective_authoring` or `metadata_authoring` before sending
+those additions.
+`Edit.AddSequence` authors action-body sequencing. Its `.first`, `.then` and
+`.thenMember` methods write `first`/`then` members. The client checks
+`sequence_authoring` and `implicit_parameters` as applicable. `Edit.AddSequence`
+also exposes `withCondition`, `withValue`,
+`withTarget`, `withVia`, `withUntil`, `withBody`, `withElseBody`,
+`withMultiplicity` and `withParameter` for recursive action-body items. An
+empty else body means no else; an explicit empty `else { }` is not authorable.
+These items and source-end multiplicities require
+`action_body_statement_authoring`; generated `AddSequenceEdit` fields carry
+recursive bodies without another edit-operation case. The forms follow
+SysML.xtext:1607 ActionBodyParameter, 1442 AcceptNode, 1499 SendNode,
+1535 AssignmentNode, 1596 IfNode, 1615 WhileLoopNode, 1624 ForLoopNode and
+1641 TerminateNode; formal/2026-03-02.
+An `Edit.AddMember` with an empty `kind` writes a directed usage with no kind
+keyword (`in x : T;`) and requires `implicit_parameters`.
+`Edit.AddMember.withBodyExpression` writes a body expression in `{ ... }`,
+distinct from `withValue`, which writes a feature value with `= ...`; calc/case/
+analysis/verification/use-case expressions are result expressions. Reference-form
+`assert` and `assert not` members are anonymous, and post-edit analysis checks
+that their feature reference denotes a constraint. Constraint-body and assertion
+additions require `constraint_body_authoring`; exhibit and state subaction kinds
+require `state_action_authoring`, alongside `authoring`.
+`Edit.AddImport` authors import declarations. `Edit.AddMember.withDoc` and
+`Edit.AddDocumentation.of(target, body)` (with `withName`, `withLocale` and `withReplace`)
+write documentation on a new or existing declaration, after checking
+`documentation_authoring`. `Edit.AddComment.of(owner, body)` (with `withName`, `withAbout` and
+`withLocale`) writes a `comment`, and `new Edit.AddNote(target, text)` a `// text` line note above
+a declaration, after checking `comment_authoring`.
+`Edit.addMetadataPrefix(target, metadataType)` adds a prefix to an existing declaration and
+requires `metadata_prefix_authoring` alongside `authoring`.
 
 ## Running the tests
 

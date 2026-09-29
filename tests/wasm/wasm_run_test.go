@@ -124,7 +124,9 @@ func newRunner(t *testing.T, target wasmTarget) runner {
 		}
 		return runner{
 			target: target,
-			prefix: []string{node, "--stack-size=8192", script},
+			// Avoid a Node process.exit deadlock: a background Sparkplug compile can wait on GC the
+			// exiting main thread never runs.
+			prefix: []string{node, "--stack-size=8192", "--no-concurrent-sparkplug", script},
 			// childEnv is deliberately small: wasm_exec.js writes argv and the
 			// environment into linear memory at a fixed offset and stops at
 			// wasmMinDataAddr, leaving about 8 KiB for the two together, so a full CI

@@ -3,6 +3,7 @@ package opensysml
 import (
 	"context"
 	"errors"
+	"slices"
 	"strings"
 	"testing"
 
@@ -115,9 +116,165 @@ func TestNewAuthoringOperationsAreNotSentWithoutTheirCapabilities(t *testing.T) 
 			missing:      CapabilityTransitionAuthoring,
 		},
 		{
+			name:         "documentation operation",
+			operation:    AddDocumentation{Target: "Demo::r", Body: "A requirement."},
+			capabilities: []string{CapabilityApplyEdits, CapabilityAuthoring},
+			missing:      CapabilityDocumentationAuthoring,
+		},
+		{
+			name:         "member documentation",
+			operation:    AddMember{Owner: "Demo", Kind: "part def", Name: "X", Doc: "A definition."},
+			capabilities: []string{CapabilityApplyEdits, CapabilityAuthoring},
+			missing:      CapabilityDocumentationAuthoring,
+		},
+		{
+			name:         "comment operation",
+			operation:    AddComment{Owner: "Demo", Body: "A note."},
+			capabilities: []string{CapabilityApplyEdits, CapabilityAuthoring},
+			missing:      CapabilityCommentAuthoring,
+		},
+		{
+			name:         "note operation",
+			operation:    AddNote{Target: "Demo::r", Text: "A note."},
+			capabilities: []string{CapabilityApplyEdits, CapabilityAuthoring},
+			missing:      CapabilityCommentAuthoring,
+		},
+		{
 			name:         "transition requires authoring",
 			operation:    AddTransition{Owner: "Demo::S", Source: "idle", Target: "toasting"},
 			capabilities: []string{CapabilityApplyEdits, CapabilityTransitionAuthoring},
+			missing:      CapabilityAuthoring,
+		},
+		{
+			name:         "verify operation",
+			operation:    AddVerify{Owner: "Demo::Case", Requirement: "Demo::r"},
+			capabilities: []string{CapabilityApplyEdits, CapabilityAuthoring},
+			missing:      CapabilityVerificationObjectiveAuthoring,
+		},
+		{
+			name: "anonymous objective",
+			operation: AddMember{
+				Owner: "Demo::Case", Kind: "objective",
+			},
+			capabilities: []string{CapabilityApplyEdits, CapabilityAuthoring},
+			missing:      CapabilityVerificationObjectiveAuthoring,
+		},
+		{
+			name:         "metadata operation",
+			operation:    AddMetadata{Owner: "Demo", MetadataType: "Demo::M"},
+			capabilities: []string{CapabilityApplyEdits, CapabilityAuthoring},
+			missing:      CapabilityMetadataAuthoring,
+		},
+		{
+			name:         "existing metadata prefix",
+			operation:    AddMetadataPrefix{Target: "Demo::P", MetadataType: "Demo::M"},
+			capabilities: []string{CapabilityApplyEdits, CapabilityAuthoring},
+			missing:      CapabilityMetadataPrefixAuthoring,
+		},
+		{
+			name:         "existing metadata prefix requires authoring",
+			operation:    AddMetadataPrefix{Target: "Demo::P", MetadataType: "Demo::M"},
+			capabilities: []string{CapabilityApplyEdits, CapabilityMetadataPrefixAuthoring},
+			missing:      CapabilityAuthoring,
+		},
+		{
+			name: "metadata prefix",
+			operation: AddMember{
+				Owner: "Demo", Kind: "part def", Name: "P",
+				MetadataPrefixes: []string{"Demo::M"},
+			},
+			capabilities: []string{CapabilityApplyEdits, CapabilityAuthoring},
+			missing:      CapabilityMetadataAuthoring,
+		},
+		{
+			name:         "verify requires authoring",
+			operation:    AddVerify{Owner: "Demo::Case", Requirement: "Demo::r"},
+			capabilities: []string{CapabilityApplyEdits, CapabilityVerificationObjectiveAuthoring},
+			missing:      CapabilityAuthoring,
+		},
+		{
+			name:         "sequence operation",
+			operation:    AddSequence{Owner: "Demo::A", Keyword: "then", Ref: "done"},
+			capabilities: []string{CapabilityApplyEdits, CapabilityAuthoring},
+			missing:      CapabilitySequenceAuthoring,
+		},
+		{
+			name: "action-body statement operation",
+			operation: AddSequence{
+				Owner: "Demo::A", Keyword: "then", MemberKind: "assign",
+				Target: "x", Value: "1",
+			},
+			capabilities: []string{
+				CapabilityApplyEdits, CapabilityAuthoring, CapabilitySequenceAuthoring,
+			},
+			missing: CapabilityActionBodyStatementAuthoring,
+		},
+		{
+			name: "source-end multiplicity",
+			operation: AddSequence{
+				Owner: "Demo::A", Keyword: "then", Ref: "done", Multiplicity: "[1]",
+			},
+			capabilities: []string{
+				CapabilityApplyEdits, CapabilityAuthoring, CapabilitySequenceAuthoring,
+			},
+			missing: CapabilityActionBodyStatementAuthoring,
+		},
+		{
+			name:         "sequence requires authoring",
+			operation:    AddSequence{Owner: "Demo::A", Keyword: "first", Ref: "start"},
+			capabilities: []string{CapabilityApplyEdits, CapabilitySequenceAuthoring},
+			missing:      CapabilityAuthoring,
+		},
+		{
+			name: "constraint body",
+			operation: AddMember{
+				Owner: "Demo", Kind: "constraint", Name: "c", BodyExpression: "true",
+			},
+			capabilities: []string{CapabilityApplyEdits, CapabilityAuthoring},
+			missing:      CapabilityConstraintBodyAuthoring,
+		},
+		{
+			name:         "assert constraint",
+			operation:    AddMember{Owner: "Demo", Kind: "assert constraint", Name: "c"},
+			capabilities: []string{CapabilityApplyEdits, CapabilityAuthoring},
+			missing:      CapabilityConstraintBodyAuthoring,
+		},
+		{
+			name:         "reference assertion",
+			operation:    AddMember{Owner: "Demo", Kind: "assert", Name: "c"},
+			capabilities: []string{CapabilityApplyEdits, CapabilityAuthoring},
+			missing:      CapabilityConstraintBodyAuthoring,
+		},
+		{
+			name:         "negated reference assertion",
+			operation:    AddMember{Owner: "Demo", Kind: "assert not", Name: "c"},
+			capabilities: []string{CapabilityApplyEdits, CapabilityAuthoring},
+			missing:      CapabilityConstraintBodyAuthoring,
+		},
+		{
+			name: "calculation result expression",
+			operation: AddMember{
+				Owner: "Demo", Kind: "calc def", Name: "D", BodyExpression: "x * 2",
+			},
+			capabilities: []string{CapabilityApplyEdits, CapabilityAuthoring},
+			missing:      CapabilityConstraintBodyAuthoring,
+		},
+		{
+			name:         "state behavior kind",
+			operation:    AddMember{Owner: "Demo::S", Kind: "do action", Name: "run"},
+			capabilities: []string{CapabilityApplyEdits, CapabilityAuthoring},
+			missing:      CapabilityStateActionAuthoring,
+		},
+		{
+			name:         "import operation",
+			operation:    AddImport{Owner: "Demo", Target: "ScalarValues::*"},
+			capabilities: []string{CapabilityApplyEdits, CapabilityAuthoring},
+			missing:      CapabilityImportAuthoring,
+		},
+		{
+			name:         "import requires authoring",
+			operation:    AddImport{Owner: "Demo", Target: "ScalarValues::*"},
+			capabilities: []string{CapabilityApplyEdits, CapabilityImportAuthoring},
 			missing:      CapabilityAuthoring,
 		},
 	}
@@ -139,6 +296,8 @@ func TestNewAuthoringOperationsMapToProto(t *testing.T) {
 	memberOperation, err := editToProto(AddMember{
 		Owner: "Demo", Kind: "attribute", Name: "x", IsAbstract: true,
 		Redefines: []string{"Demo::old"}, IsDefault: true, Direction: "in",
+		MetadataPrefixes: []string{"Demo::Safety"},
+		BodyExpression:   "x > 1", Doc: "Checks the bound.",
 	})
 	if err != nil {
 		t.Fatal(err)
@@ -146,7 +305,11 @@ func TestNewAuthoringOperationsMapToProto(t *testing.T) {
 	member := memberOperation.GetAddMember()
 	if member == nil || !member.GetIsAbstract() || !member.GetIsDefault() ||
 		member.GetDirection() != "in" || len(member.GetRedefines()) != 1 ||
-		member.GetRedefines()[0] != "Demo::old" {
+		member.GetRedefines()[0] != "Demo::old" ||
+		len(member.GetMetadataPrefixes()) != 1 ||
+		member.GetMetadataPrefixes()[0] != "Demo::Safety" ||
+		member.GetBodyExpression() != "x > 1" ||
+		member.GetDoc() != "Checks the bound." {
 		t.Fatalf("AddMember mapping = %+v", member)
 	}
 
@@ -189,6 +352,43 @@ func TestNewAuthoringOperationsMapToProto(t *testing.T) {
 		got.GetEffect() != "action cool" || got.GetInitial() {
 		t.Fatalf("AddTransition mapping = %+v", got)
 	}
+	documentedMember, err := editToProto(AddMember{Owner: "Demo", Kind: "part def", Name: "X", Doc: "Text."})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got := documentedMember.GetAddMember(); got == nil || got.GetDoc() != "Text." {
+		t.Fatalf("AddMember doc mapping = %+v", got)
+	}
+	documentationOperation, err := editToProto(AddDocumentation{
+		Target: "Demo::X", Body: "Text.", Name: "Summary", Locale: "en", Replace: true,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got := documentationOperation.GetAddDocumentation(); got == nil ||
+		got.GetTarget() != "Demo::X" || got.GetBody() != "Text." || got.GetName() != "Summary" ||
+		got.GetLocale() != "en" || !got.GetReplace() {
+		t.Fatalf("AddDocumentation mapping = %+v", got)
+	}
+	commentOperation, err := editToProto(AddComment{
+		Owner: "Demo", Body: " Two\nlines ", Name: "Why", About: []string{"Demo::X", "Demo"}, Locale: "en",
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got := commentOperation.GetAddComment(); got == nil ||
+		got.GetOwner() != "Demo" || got.GetBody() != " Two\nlines " || got.GetName() != "Why" ||
+		!slices.Equal(got.GetAbout(), []string{"Demo::X", "Demo"}) || got.GetLocale() != "en" {
+		t.Fatalf("AddComment mapping = %+v", got)
+	}
+	noteOperation, err := editToProto(AddNote{Target: "Demo::X", Text: "DimensionOneValue"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got := noteOperation.GetAddNote(); got == nil ||
+		got.GetTarget() != "Demo::X" || got.GetText() != "DimensionOneValue" {
+		t.Fatalf("AddNote mapping = %+v", got)
+	}
 	entryOperation, err := editToProto(AddEntryTransition("Demo::S", "idle"))
 	if err != nil {
 		t.Fatal(err)
@@ -196,5 +396,105 @@ func TestNewAuthoringOperationsMapToProto(t *testing.T) {
 	if got := entryOperation.GetAddTransition(); got == nil ||
 		got.GetOwner() != "Demo::S" || got.GetTarget() != "idle" || !got.GetInitial() {
 		t.Fatalf("AddEntryTransition mapping = %+v", got)
+	}
+	verifyOperation, err := editToProto(AddVerify{
+		Owner: "Demo::Case", Requirement: "Demo::r",
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got := verifyOperation.GetAddVerify(); got == nil ||
+		got.GetOwner() != "Demo::Case" || got.GetRequirement() != "Demo::r" {
+		t.Fatalf("AddVerify mapping = %+v", got)
+	}
+
+	metadataOperation, err := editToProto(AddMetadata{
+		Owner: "Demo::Case", MetadataType: "Demo::M", Name: "m",
+		About:     []string{"Demo::x", "Demo::y"},
+		Values:    []MetadataValue{{Feature: "kind", Value: "Kind::test"}},
+		Shorthand: true,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got := metadataOperation.GetAddMetadata(); got == nil ||
+		got.GetOwner() != "Demo::Case" || got.GetMetadataType() != "Demo::M" ||
+		got.GetName() != "m" || len(got.GetAbout()) != 2 ||
+		got.GetAbout()[0] != "Demo::x" || !got.GetShorthand() ||
+		len(got.GetValues()) != 1 || got.GetValues()[0].GetFeature() != "kind" ||
+		got.GetValues()[0].GetValue() != "Kind::test" {
+		t.Fatalf("AddMetadata mapping = %+v", got)
+	}
+	prefixOperation, err := editToProto(AddMetadataPrefix{
+		Target: "Demo::P", MetadataType: "Demo::M",
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got := prefixOperation.GetAddMetadataPrefix(); got == nil ||
+		got.GetTarget() != "Demo::P" || got.GetMetadataType() != "Demo::M" {
+		t.Fatalf("AddMetadataPrefix mapping = %+v", got)
+	}
+	sequenceOperation, err := editToProto(AddSequence{
+		Owner: "Demo::A", Keyword: "then", MemberKind: "action",
+		MemberName: "b", Type: "B", After: "a",
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got := sequenceOperation.GetAddSequence(); got == nil ||
+		got.GetOwner() != "Demo::A" || got.GetKeyword() != "then" ||
+		got.GetMemberKind() != "action" || got.GetMemberName() != "b" ||
+		got.GetType() != "B" || got.GetAfter() != "a" || got.GetRef() != "" {
+		t.Fatalf("AddSequence mapping = %+v", got)
+	}
+	refSequenceOperation, err := editToProto(AddSequence{
+		Owner: "Demo::A", Keyword: "first", Ref: "start",
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got := refSequenceOperation.GetAddSequence(); got == nil ||
+		got.GetKeyword() != "first" || got.GetRef() != "start" {
+		t.Fatalf("AddSequence ref mapping = %+v", got)
+	}
+	nestedOperation, err := editToProto(AddSequence{
+		Owner: "Demo::A", Keyword: "then", MemberKind: "if",
+		Condition: "ready", Multiplicity: "[0..1]",
+		Body: []AddSequence{{
+			MemberKind: "if", Condition: "nested",
+			Body: []AddSequence{{
+				MemberKind: "send", Value: "payload", Target: "receiver",
+			}},
+		}},
+		Else: []AddSequence{{Keyword: "else", Ref: "done"}},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got := nestedOperation.GetAddSequence(); got == nil ||
+		got.GetCondition() != "ready" || got.GetMultiplicity() != "[0..1]" ||
+		len(got.GetBody()) != 1 || got.GetBody()[0].GetMemberKind() != "if" ||
+		got.GetBody()[0].GetCondition() != "nested" ||
+		len(got.GetBody()[0].GetBody()) != 1 ||
+		got.GetBody()[0].GetBody()[0].GetMemberKind() != "send" ||
+		got.GetBody()[0].GetBody()[0].GetValue() != "payload" ||
+		got.GetBody()[0].GetBody()[0].GetTarget() != "receiver" ||
+		len(got.GetElseBody()) != 1 || got.GetElseBody()[0].GetKeyword() != "else" {
+		t.Fatalf("nested AddSequence mapping = %+v", got)
+	}
+	importOperation, err := editToProto(AddImport{
+		Owner: "Demo", Visibility: "public", Target: "ScalarValues::*",
+		Recursive: true, All: true, Filters: []string{"@Safety", "@Approved"},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got := importOperation.GetAddImport(); got == nil ||
+		got.GetOwner() != "Demo" || got.GetVisibility() != "public" ||
+		got.GetTarget() != "ScalarValues::*" || !got.GetIsRecursive() ||
+		!got.GetIsImportAll() || len(got.GetFilters()) != 2 ||
+		got.GetFilters()[0] != "@Safety" || got.GetFilters()[1] != "@Approved" {
+		t.Fatalf("AddImport mapping = %+v", got)
 	}
 }

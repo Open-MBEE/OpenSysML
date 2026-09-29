@@ -151,6 +151,31 @@ func TestApplyModelEditAddsMemberAsWorkspaceEdit(t *testing.T) {
 	}
 }
 
+func TestModelEditAddMemberMapsBodyExpression(t *testing.T) {
+	var request applyModelEditParams
+	if err := json.Unmarshal([]byte(`{
+        "operations": [{
+            "kind": "addMember",
+            "owner": "P",
+            "memberKind": "constraint",
+            "name": "positive",
+            "bodyExpression": "x > 0"
+        }]
+    }`), &request); err != nil {
+		t.Fatalf("decode request: %v", err)
+	}
+	if len(request.Operations) != 1 {
+		t.Fatalf("operations = %d, want one", len(request.Operations))
+	}
+	operation, err := request.Operations[0].operation(nil)
+	if err != nil {
+		t.Fatalf("convert request operation: %v", err)
+	}
+	if operation.BodyExpression != "x > 0" {
+		t.Errorf("body expression = %q, want %q", operation.BodyExpression, "x > 0")
+	}
+}
+
 func TestApplyModelEditAddsConnection(t *testing.T) {
 	s, docURI := renderServer(t, "vehicle.sysml", editModel)
 	op := modelEditOperation{Kind: EditAddConnection, Owner: "Vehicle::Car", MemberKind: "connection",
@@ -165,6 +190,91 @@ func TestApplyModelEditAddsConnection(t *testing.T) {
 	}
 	if !strings.Contains(got, "\t\tconnection fuelLine connect tank.fuelOut to engine.fuelIn;\n") {
 		t.Errorf("connection not written:\n%s", got)
+	}
+}
+
+func TestApplyModelEditAddsNestedActionBody(t *testing.T) {
+	const src = `package Demo {
+    private import ScalarValues::*;
+    action def A {
+        attribute x : Integer = 0;
+        first start;
+    }
+}
+`
+	s, docURI := renderServer(t, "action.sysml", src)
+	op := modelEditOperation{
+		Kind: EditAddSequence, Owner: "Demo::A", Keyword: "then",
+		MemberKind: "if", Condition: "x == 0",
+		Body: []modelEditOperation{{
+			Kind: EditAddSequence, MemberKind: "assign", Target: "x", Value: "1",
+		}},
+		ElseBody: []modelEditOperation{{
+			Kind: EditAddSequence, MemberKind: "assign", Target: "x", Value: "2",
+		}},
+	}
+	out := applyModelEdit(t, s, docURI, 1, op)
+	if out.Edit == nil {
+		t.Fatalf("result = %+v, want an edit", out)
+	}
+	got := applyWorkspaceEdit(t, src, out.Edit, docURI)
+	want := golden(t, s, docURI.Filename(), op)
+	if got != want {
+		t.Errorf("applied edit:\n%s\nwant:\n%s", got, want)
+	}
+	if !strings.Contains(got, "then if x == 0 {\n            assign x := 1;\n        } else {\n            assign x := 2;\n        }") {
+		t.Errorf("nested action body not written:\n%s", got)
+	}
+}
+
+func TestModelEditMapsRecursiveActionBodyFields(t *testing.T) {
+	request := modelEditOperation{
+		Kind: EditAddSequence, Owner: "Demo::A", Keyword: "then",
+		MemberKind: "if", Condition: "ready", Multiplicity: "[1]",
+		Body: []modelEditOperation{{
+			Kind: EditAddSequence, MemberKind: "for", Parameter: "i",
+			Type: "Integer", Value: "(1, 2)",
+			Body: []modelEditOperation{{
+				Kind: EditAddSequence, MemberKind: "while",
+				Condition: "i < 2", Until: "i == 2",
+				Body: []modelEditOperation{{
+					Kind: EditAddSequence, MemberKind: "assign", Target: "x", Value: "i",
+				}},
+			}},
+		}},
+		ElseBody: []modelEditOperation{{
+			Kind: EditAddSequence, MemberKind: "send",
+			Value: "message", Target: "self", Via: "outPort",
+		}},
+	}
+	got, err := request.operation(nil)
+	if err != nil {
+		t.Fatalf("map recursive action-body edit: %v", err)
+	}
+	if got.Multiplicity != "[1]" || got.SequenceCondition != "ready" ||
+		len(got.SequenceBody) != 1 || len(got.SequenceElse) != 1 {
+		t.Fatalf("mapped root = %+v", got)
+	}
+	iteration := got.SequenceBody[0]
+	if iteration.MemberKind != "for" || iteration.SequenceParameter != "i" ||
+		iteration.Type != "Integer" || iteration.SequenceValue != "(1, 2)" ||
+		len(iteration.SequenceBody) != 1 {
+		t.Fatalf("mapped iteration = %+v", iteration)
+	}
+	loop := iteration.SequenceBody[0]
+	if loop.MemberKind != "while" || loop.SequenceCondition != "i < 2" ||
+		loop.SequenceUntil != "i == 2" || len(loop.SequenceBody) != 1 {
+		t.Fatalf("mapped loop = %+v", loop)
+	}
+	assignment := loop.SequenceBody[0]
+	if assignment.MemberKind != "assign" || assignment.SequenceTarget != "x" ||
+		assignment.SequenceValue != "i" {
+		t.Fatalf("mapped assignment = %+v", assignment)
+	}
+	sending := got.SequenceElse[0]
+	if sending.MemberKind != "send" || sending.SequenceValue != "message" ||
+		sending.SequenceTarget != "self" || sending.SequenceVia != "outPort" {
+		t.Fatalf("mapped else item = %+v", sending)
 	}
 }
 

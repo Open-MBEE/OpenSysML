@@ -283,7 +283,7 @@ func TestLayoutBatchFollowsDeclarationsAnEarlierOperationMoved(t *testing.T) {
 	route := &semantics.Route{Points: []semantics.Waypoint{{X: 1, Y: 2}}}
 	want := strings.Replace(unnamedModel,
 		"        part : Pump { part a; part b; connection line connect a to b; }\n",
-		"        part : Pump { part a; part b; connection line connect a to b {\n            @DiagramLayout::Route { points = (1, 2); }\n        } \n            @DiagramLayout::Layout { x = 7; y = 8; }\n        }\n", 1)
+		"        part : Pump { part a; part b; connection line connect a to b {\n            @DiagramLayout::Route { points = (1, 2); }\n        }\n            @DiagramLayout::Layout { x = 7; y = 8; }\n        }\n", 1)
 
 	got := applyOps(t, unnamedModel, SetLayoutAt(part, "", at(7, 8)), SetRouteAt(line, "", route))
 	if got != want {

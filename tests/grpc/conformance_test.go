@@ -1,6 +1,7 @@
 package grpc_test
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
@@ -100,35 +101,83 @@ type conformanceCase struct {
 	ExpectedError string `json:"expected_error,omitempty"`
 }
 
+type conformanceEditBody struct {
+	text       string
+	operations []conformanceEditOperation
+}
+
+func (body *conformanceEditBody) UnmarshalJSON(data []byte) error {
+	data = bytes.TrimSpace(data)
+	if len(data) == 0 || string(data) == "null" {
+		return nil
+	}
+	switch data[0] {
+	case '"':
+		return json.Unmarshal(data, &body.text)
+	case '[':
+		return json.Unmarshal(data, &body.operations)
+	default:
+		return fmt.Errorf("edit body must be a string or operation array")
+	}
+}
+
 type conformanceEditOperation struct {
-	Kind              string   `json:"kind"`
-	Target            string   `json:"target,omitempty"`
-	Value             string   `json:"value,omitempty"`
-	NewName           string   `json:"new_name,omitempty"`
-	Owner             string   `json:"owner,omitempty"`
-	MemberKind        string   `json:"member_kind,omitempty"`
-	MemberName        string   `json:"member_name,omitempty"`
-	Name              string   `json:"name,omitempty"`
-	FromEnd           string   `json:"from_end,omitempty"`
-	ToEnd             string   `json:"to_end,omitempty"`
-	Type              string   `json:"type,omitempty"`
-	Multiplicity      string   `json:"multiplicity,omitempty"`
-	Specializes       []string `json:"specializes,omitempty"`
-	IsAbstract        bool     `json:"is_abstract,omitempty"`
-	Redefines         []string `json:"redefines,omitempty"`
-	IsDefault         bool     `json:"is_default,omitempty"`
-	Direction         string   `json:"direction,omitempty"`
-	Requirement       string   `json:"requirement,omitempty"`
-	SatisfyingFeature string   `json:"satisfying_feature,omitempty"`
-	TransitionSource  string   `json:"source,omitempty"`
-	Trigger           string   `json:"trigger,omitempty"`
-	Guard             string   `json:"guard,omitempty"`
-	Effect            string   `json:"effect,omitempty"`
-	Initial           bool     `json:"initial,omitempty"`
-	Asserted          bool     `json:"is_asserted,omitempty"`
-	Negated           bool     `json:"is_negated,omitempty"`
-	Expression        string   `json:"expression,omitempty"`
-	Cascade           bool     `json:"cascade,omitempty"`
+	Kind              string                     `json:"kind"`
+	Target            string                     `json:"target,omitempty"`
+	Value             string                     `json:"value,omitempty"`
+	NewName           string                     `json:"new_name,omitempty"`
+	Owner             string                     `json:"owner,omitempty"`
+	MemberKind        string                     `json:"member_kind,omitempty"`
+	MemberName        string                     `json:"member_name,omitempty"`
+	Name              string                     `json:"name,omitempty"`
+	FromEnd           string                     `json:"from_end,omitempty"`
+	ToEnd             string                     `json:"to_end,omitempty"`
+	Type              string                     `json:"type,omitempty"`
+	Multiplicity      string                     `json:"multiplicity,omitempty"`
+	Specializes       []string                   `json:"specializes,omitempty"`
+	IsAbstract        bool                       `json:"is_abstract,omitempty"`
+	Redefines         []string                   `json:"redefines,omitempty"`
+	MetadataPrefixes  []string                   `json:"metadata_prefixes,omitempty"`
+	IsDefault         bool                       `json:"is_default,omitempty"`
+	Direction         string                     `json:"direction,omitempty"`
+	BodyExpression    string                     `json:"body_expression,omitempty"`
+	Doc               string                     `json:"doc,omitempty"`
+	Body              conformanceEditBody        `json:"body,omitempty"`
+	Locale            string                     `json:"locale,omitempty"`
+	Replace           bool                       `json:"replace,omitempty"`
+	About             []string                   `json:"about,omitempty"`
+	Text              string                     `json:"text,omitempty"`
+	Requirement       string                     `json:"requirement,omitempty"`
+	SatisfyingFeature string                     `json:"satisfying_feature,omitempty"`
+	TransitionSource  string                     `json:"source,omitempty"`
+	Trigger           string                     `json:"trigger,omitempty"`
+	Guard             string                     `json:"guard,omitempty"`
+	Effect            string                     `json:"effect,omitempty"`
+	Initial           bool                       `json:"initial,omitempty"`
+	Keyword           string                     `json:"keyword,omitempty"`
+	Ref               string                     `json:"ref,omitempty"`
+	After             string                     `json:"after,omitempty"`
+	Condition         string                     `json:"condition,omitempty"`
+	Via               string                     `json:"via,omitempty"`
+	Until             string                     `json:"until,omitempty"`
+	Parameter         string                     `json:"parameter,omitempty"`
+	ElseBody          []conformanceEditOperation `json:"else_body,omitempty"`
+	Visibility        string                     `json:"visibility,omitempty"`
+	Recursive         bool                       `json:"is_recursive,omitempty"`
+	ImportAll         bool                       `json:"is_import_all,omitempty"`
+	Filters           []string                   `json:"filters,omitempty"`
+	Asserted          bool                       `json:"is_asserted,omitempty"`
+	Negated           bool                       `json:"is_negated,omitempty"`
+	Expression        string                     `json:"expression,omitempty"`
+	MetadataType      string                     `json:"metadata_type,omitempty"`
+	MetadataValues    []conformanceMetadataValue `json:"metadata_values,omitempty"`
+	Shorthand         bool                       `json:"shorthand,omitempty"`
+	Cascade           bool                       `json:"cascade,omitempty"`
+}
+
+type conformanceMetadataValue struct {
+	Feature string `json:"feature"`
+	Value   string `json:"value"`
 }
 
 // TestGRPCConformance is the AGENTS.md §5.2 Layer 2 contract for the gRPC
@@ -236,7 +285,27 @@ func runApplyEditsCase(t *testing.T, srv *grpc.Service, ctx context.Context, mod
 					Value: op.Value, Specializes: op.Specializes,
 					IsAbstract: op.IsAbstract, Redefines: op.Redefines,
 					IsDefault: op.IsDefault, Direction: op.Direction,
+					MetadataPrefixes: op.MetadataPrefixes,
+					BodyExpression:   op.BodyExpression,
+					Doc:              op.Doc,
 				}},
+			})
+		case "add_documentation":
+			operations = append(operations, &pb.EditOperation{
+				Operation: &pb.EditOperation_AddDocumentation{AddDocumentation: &pb.AddDocumentationEdit{
+					Target: op.Target, Body: op.Body.text, Name: op.Name,
+					Locale: op.Locale, Replace: op.Replace,
+				}},
+			})
+		case "add_comment":
+			operations = append(operations, &pb.EditOperation{
+				Operation: &pb.EditOperation_AddComment{AddComment: &pb.AddCommentEdit{
+					Owner: op.Owner, Body: op.Body.text, Name: op.Name, About: op.About, Locale: op.Locale,
+				}},
+			})
+		case "add_note":
+			operations = append(operations, &pb.EditOperation{
+				Operation: &pb.EditOperation_AddNote{AddNote: &pb.AddNoteEdit{Target: op.Target, Text: op.Text}},
 			})
 		case "add_connection":
 			operations = append(operations, &pb.EditOperation{
@@ -268,6 +337,47 @@ func runApplyEditsCase(t *testing.T, srv *grpc.Service, ctx context.Context, mod
 					Owner: op.Owner, Name: op.Name, Source: op.TransitionSource,
 					Target: op.Target, Trigger: op.Trigger, Guard: op.Guard,
 					Effect: op.Effect, Initial: op.Initial,
+				}},
+			})
+		case "add_verify":
+			operations = append(operations, &pb.EditOperation{
+				Operation: &pb.EditOperation_AddVerify{AddVerify: &pb.AddVerifyEdit{
+					Owner: op.Owner, Requirement: op.Requirement,
+				}},
+			})
+		case "add_metadata":
+			values := make([]*pb.MetadataFeatureValue, 0, len(op.MetadataValues))
+			for _, value := range op.MetadataValues {
+				values = append(values, &pb.MetadataFeatureValue{
+					Feature: value.Feature, Value: value.Value,
+				})
+			}
+			operations = append(operations, &pb.EditOperation{
+				Operation: &pb.EditOperation_AddMetadata{AddMetadata: &pb.AddMetadataEdit{
+					Owner: op.Owner, MetadataType: op.MetadataType, Name: op.Name,
+					About: op.About, Values: values, Shorthand: op.Shorthand,
+				}},
+			})
+		case "add_metadata_prefix":
+			operations = append(operations, &pb.EditOperation{
+				Operation: &pb.EditOperation_AddMetadataPrefix{
+					AddMetadataPrefix: &pb.AddMetadataPrefixEdit{
+						Target: op.Target, MetadataType: op.MetadataType,
+					},
+				},
+			})
+		case "add_sequence":
+			operations = append(operations, &pb.EditOperation{
+				Operation: &pb.EditOperation_AddSequence{
+					AddSequence: conformanceSequenceEdit(op),
+				},
+			})
+		case "add_import":
+			operations = append(operations, &pb.EditOperation{
+				Operation: &pb.EditOperation_AddImport{AddImport: &pb.AddImportEdit{
+					Owner: op.Owner, Visibility: op.Visibility, Target: op.Target,
+					IsRecursive: op.Recursive, IsImportAll: op.ImportAll,
+					Filters: op.Filters,
 				}},
 			})
 		case "delete":
@@ -305,6 +415,23 @@ func runApplyEditsCase(t *testing.T, srv *grpc.Service, ctx context.Context, mod
 	if resp.Content != tc.ExpectedContent {
 		t.Errorf("content =\n%s\nwant\n%s", resp.Content, tc.ExpectedContent)
 	}
+}
+
+func conformanceSequenceEdit(op conformanceEditOperation) *pb.AddSequenceEdit {
+	sequence := &pb.AddSequenceEdit{
+		Owner: op.Owner, Keyword: op.Keyword, Ref: op.Ref,
+		MemberKind: op.MemberKind, MemberName: op.MemberName, Type: op.Type,
+		After: op.After, Condition: op.Condition, Value: op.Value, Target: op.Target,
+		Via: op.Via, Until: op.Until, Multiplicity: op.Multiplicity,
+		Parameter: op.Parameter,
+	}
+	for _, child := range op.Body.operations {
+		sequence.Body = append(sequence.Body, conformanceSequenceEdit(child))
+	}
+	for _, child := range op.ElseBody {
+		sequence.ElseBody = append(sequence.ElseBody, conformanceSequenceEdit(child))
+	}
+	return sequence
 }
 
 func runEvaluateCase(t *testing.T, srv *grpc.Service, ctx context.Context, modelHash string, tc conformanceCase) {

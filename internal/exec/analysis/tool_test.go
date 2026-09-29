@@ -228,7 +228,7 @@ func TestToolEngineCoversItsOwnComputationsOnly(t *testing.T) {
 func TestToolTimeoutFromEnv(t *testing.T) {
 	for text, want := range map[string]time.Duration{"": DefaultToolTimeout, "soon": DefaultToolTimeout, "-1s": DefaultToolTimeout, "0": DefaultToolTimeout, "250ms": 250 * time.Millisecond, " 2m ": 2 * time.Minute} {
 		t.Setenv(ToolTimeoutEnv, text)
-		if got := toolTimeoutFromEnv(); got != want {
+		if got := ToolTimeoutFromEnv(); got != want {
 			t.Errorf("%s=%q: %v, want %v", ToolTimeoutEnv, text, got, want)
 		}
 	}
@@ -320,5 +320,18 @@ func TestToolReplyIsOneObjectOfOutputsOrAnError(t *testing.T) {
 				t.Errorf("error %q does not carry %q", err, tc.detail)
 			}
 		})
+	}
+}
+
+// A sequence input has no wire form: the request refuses it as an unsent
+// input rather than write the empty string it used to.
+func TestToolRequestRefusesASequence(t *testing.T) {
+	call := &runtime.ToolCall{ToolName: "t", URI: "u",
+		Inputs: []runtime.ToolInput{{Variable: "xs", Parameter: "xs",
+			Value: runtime.ToolValue{Items: []runtime.ToolValue{{Value: semantics.Value{Kind: semantics.ValReal, Real: 1.0}}}}}}}
+	_, err := ToolRequestOf(call)
+	var fault *runtime.ToolError
+	if !errors.As(err, &fault) || fault.Kind != runtime.ToolUnsentInput {
+		t.Fatalf("ToolRequestOf = %v, want a ToolError of kind unsent input", err)
 	}
 }

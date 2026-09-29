@@ -46,17 +46,60 @@ model.edit().add_allocation("Demo::System", "a", "b", name="alloc1").apply()
 
 `Editor.add_connection(owner, kind, from_, to, name=None, type=None)` writes
 connection-like usages; `add_allocation` and `add_flow` are typed helpers.
-`Editor.add_member` also accepts `abstract`, `redefines`, `default` and `direction`
-options, and supports the SysML `ref` and `return` kinds where they are admitted.
+`Editor.add_member` also accepts `abstract`, `redefines`, `default`, `direction`,
+`metadata`, `expression=` and `doc=` options, and supports the SysML `ref` and
+`return` kinds where they are admitted. `metadata` writes `#M` prefixes on the
+new member. `expression=` writes a body expression for supported kinds: a
+constraint condition, or a calculation/case result expression. Requirement-body
+kinds do not admit result expressions. `doc=` writes plain documentation text
+as the new declaration's first body member.
 Use `add_satisfy`, `add_requirement_constraint`, `add_require_constraint`,
 `add_assume_constraint`, `add_transition` or `add_entry_transition` to author
-requirement statements and state transitions. These operations preflight their
-dedicated `member_modifiers`, `satisfy_authoring`,
-`requirement_constraint_authoring` or `transition_authoring` capability as
-applicable.
+requirement statements and state transitions; `add_first` and `add_then` write
+`first`/`then` action-body sequencing, with recursive action-body items and
+source-end multiplicities available through the extended sequence fields.
+These operations preflight `member_modifiers`, `satisfy_authoring`,
+`requirement_constraint_authoring`, `transition_authoring`, `sequence_authoring`,
+`implicit_parameters`, `action_body_statement_authoring`, `constraint_body_authoring`,
+`state_action_authoring`, `import_authoring`, `documentation_authoring` and
+`comment_authoring` as applicable.
+`add_objective(owner, name=None, type=None)` adds a named or anonymous objective,
+and `add_verify(owner, requirement)` writes `verify <requirement>;` in a
+verification case objective. `add_metadata(owner, metadata_type, values=None,
+name=None, about=None, shorthand=False)` writes metadata usages with optional
+ordered feature values and `about` references; `shorthand=True` uses `@M`.
+`add_metadata_prefix(target, metadata_type)` adds a metadata prefix to an existing declaration.
+Verification authoring requires `authoring` and `verification_objective_authoring`; metadata
+usages and new-member prefixes require `authoring` and `metadata_authoring`; existing-declaration
+prefixes require `authoring` and `metadata_prefix_authoring`.
+`add_parameter` writes an implicit
+directed usage — `in x : T;` — unless an explicit `kind` is given
+(`kind="ref"` writes `in ref x : T;`).
+`add_constraint_def` and
+`add_constraint` accept `expression=` for a constraint body (`{ ... }`), while
+`value=` writes a feature value (`= ...`). `add_assert_constraint` optionally
+negates an asserted constraint body. `add_assert(owner, ref, negated=False)`
+adds an anonymous reference assertion (`assert <ref>;` or `assert not <ref>;`);
+`ref` names the constraint target, not the assertion. `add_exhibit_state` and
+`add_exhibit` author state exhibits; `add_state_action` accepts `entry`, `do` or
+`exit`.
+`add_member` and every typed helper accept `doc="..."`, written as the new
+member's `doc /* ... */`, and
+`add_documentation(target, body, name=None, locale=None, replace=False)` documents
+an existing declaration, refusing one that already has documentation unless
+`replace=True`. `add_comment(owner, body, name=None, about=None, locale=None)` writes a
+`comment` element and `add_note(target, text)` a `// text` line note above a declaration.
+`add_import` authors import declarations. The editor preflights
+`member_modifiers`, `satisfy_authoring`, `requirement_constraint_authoring`,
+`transition_authoring`, `sequence_authoring`, `implicit_parameters`,
+`action_body_statement_authoring`, `constraint_body_authoring`, `state_action_authoring`,
+`import_authoring`, `documentation_authoring` and `comment_authoring` as
+applicable, alongside `authoring`.
 `add_calc_def` and `add_calc` accept input pairs, `return_type` and
-`return_expression`; a return expression requires a return type and is bound to
-the result parameter rather than written as `return <expr>;`. `add_action_def`
+`return_expression`; `expression=` instead writes the body's result expression.
+A `return_expression` requires a return type, is bound to the result parameter
+rather than written as `return <expr>;`, and cannot be combined with
+`expression=`. `expression=` may be used with `return_type`. `add_action_def`
 and `add_action` accept input and output pairs. `add_perform_action` writes
 `perform action name : Type`, and `add_perform(owner, action)` writes
 `perform <action>;` — a perform usage named by the action usage it references,
@@ -215,6 +258,15 @@ releases published before it; asking for a newer one needs a newer opensysml (or
 the explicit opt-in above), and leaves an already-downloaded binary serving
 rather than refusing to start — only a digest that *contradicts* a pin is
 treated as tampering and refuses to fall back.
+
+## The FMI runner (optional)
+
+`pip install opensysml[fmi]` adds FMPy and the `opensysml-fmi-runner` executable:
+the reference runner the `tool:fmi` engine speaks the fmi/1 protocol to — one JSON
+request on standard input, one reply on standard output — simulating
+co-simulation and model-exchange FMUs. Point `OPENSYSML_FMI_RUNNER` at it and a
+`calc def` imported from an FMU (`sysml -convert sysml model.fmu`) evaluates
+through it; see docs/reference/fmi.md.
 
 ## Version
 
