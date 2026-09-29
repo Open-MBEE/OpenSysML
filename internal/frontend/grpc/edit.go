@@ -222,7 +222,7 @@ func requestsAuthoring(operations []*pb.EditOperation) bool {
 		case *pb.EditOperation_AddMember, *pb.EditOperation_AddConnection,
 			*pb.EditOperation_AddSatisfy, *pb.EditOperation_AddRequirementConstraint,
 			*pb.EditOperation_AddTransition, *pb.EditOperation_AddVerify,
-			*pb.EditOperation_AddMetadata,
+			*pb.EditOperation_AddMetadata, *pb.EditOperation_AddMetadataPrefix,
 			*pb.EditOperation_Delete, *pb.EditOperation_Move:
 			return true
 		}

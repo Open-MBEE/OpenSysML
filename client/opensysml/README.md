@@ -271,12 +271,12 @@ The new member modifiers and `ref`/`return` kinds require `member_modifiers`;
 `AddTransition` also requires `authoring` and `transition_authoring`; use
 `AddEntryTransition` to construct its entry-transition form.
 `AddVerify` writes `verify <requirement>;` in a verification case objective and
-requires `verification_objective_authoring`. `AddMetadata` writes a metadata usage
+requires `authoring` and `verification_objective_authoring`. `AddMetadata` writes a metadata usage
 with optional `About`, `Values` (`MetadataValue{Feature, Value}`) and shorthand
-`@` notation; it requires `metadata_authoring`. `AddMember.MetadataPrefixes`
-adds `#M` metadata to the new declaration and requires the same capability.
+`@` notation; it requires `authoring` and `metadata_authoring`. `AddMember.MetadataPrefixes`
+adds `#M` metadata to the new declaration and requires the same capabilities.
 `AddMetadataPrefix` adds a prefix to an existing SysML declaration and requires
-`metadata_prefix_authoring`; the metadata definition resolves in that declaration's scope.
+`authoring` and `metadata_prefix_authoring`; the metadata definition resolves in that declaration's scope.
 
 The edited source is `result.Documents`, one `EditedDocument` per document the
 batch reached, under the name the model was parsed with; `result.Content` is the

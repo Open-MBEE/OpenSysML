@@ -1192,11 +1192,13 @@ class Connection:
                     raise ValueError(
                         "malformed add_metadata_prefix operation: fields must be notation text"
                     )
+                require(info, CAPABILITY_AUTHORING, upgrade_remedy(CAPABILITY_AUTHORING))
                 require(
                     info,
                     CAPABILITY_METADATA_PREFIX_AUTHORING,
                     upgrade_remedy(CAPABILITY_METADATA_PREFIX_AUTHORING),
                 )
+                requests_authoring = True
                 requests_metadata_prefix_authoring = True
                 operation.add_metadata_prefix.target = target
                 operation.add_metadata_prefix.metadata_type = metadata_type

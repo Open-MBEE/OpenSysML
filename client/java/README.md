@@ -399,8 +399,9 @@ and `SuiteTest.aCorruptedAnswerIsCaught` asserts each corruption is caught:
 `Edit.AddTransition`, `Edit.AddVerify`, `Edit.AddMetadata` and
 `Edit.AddMetadataPrefix` expose requirement, verification and metadata authoring.
 `Edit.AddTransition.entry` constructs an entry transition. The client checks
-`member_modifiers`, `satisfy_authoring`, `requirement_constraint_authoring` or
-`transition_authoring`, `verification_objective_authoring`, `metadata_authoring` or
+`authoring` together with `member_modifiers`, `satisfy_authoring`,
+`requirement_constraint_authoring`, `transition_authoring`,
+`verification_objective_authoring`, `metadata_authoring` or
 `metadata_prefix_authoring`
 before sending those additions. `AddMetadata` supports ordered feature values,
 `about` references and `@` shorthand; `AddMember.withMetadataPrefixes` writes

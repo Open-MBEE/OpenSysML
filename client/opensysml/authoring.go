@@ -513,6 +513,7 @@ func (c *client) ApplyDocumentEdits(ctx context.Context, model *Model, document 
 			required[CapabilityAuthoring] = true
 			required[CapabilityMetadataAuthoring] = true
 		case AddMetadataPrefix:
+			required[CapabilityAuthoring] = true
 			required[CapabilityMetadataPrefixAuthoring] = true
 		case Delete, Move:
 			required[CapabilityAuthoring] = true

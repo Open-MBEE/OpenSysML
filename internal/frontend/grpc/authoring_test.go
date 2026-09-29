@@ -265,6 +265,23 @@ func TestApplyEditsAddConnectionRequiresAuthoring(t *testing.T) {
 	}
 }
 
+func TestApplyEditsAddMetadataPrefixRequiresAuthoring(t *testing.T) {
+	srv := mustNewServiceWithout(t, CapabilityAuthoring)
+	if err := srv.requireCapability(CapabilityMetadataPrefixAuthoring); err != nil {
+		t.Fatalf("metadata prefix capability unexpectedly unavailable: %v", err)
+	}
+	ctx := context.Background()
+	hash := mustParsedModel(t, srv, "package Demo { metadata def Safety; part t; }\n")
+	_, err := srv.ApplyEdits(ctx, &pb.ApplyEditsRequest{
+		ModelHash: hash, Operations: []*pb.EditOperation{addMetadataPrefixOp("Demo::t", "Demo::Safety")},
+	})
+	if connect.CodeOf(err) != connect.CodeUnimplemented ||
+		!strings.Contains(err.Error(), CapabilityAuthoring) {
+		t.Fatalf("ApplyEdits status = %s, want UNIMPLEMENTED naming %q: %v",
+			connect.CodeOf(err), CapabilityAuthoring, err)
+	}
+}
+
 func TestApplyEditsAddConnectionRequiresConnectionAuthoring(t *testing.T) {
 	srv := mustNewServiceWithout(t, CapabilityConnectionAuthoring)
 	ctx := context.Background()

@@ -69,6 +69,13 @@ func (m Model) addMetadataPrefixSplice(i int, op Operation) (splice, error) {
 			Message: fmt.Sprintf("metadata type %q does not resolve from %s", op.MetadataType, notationName(sym)),
 		}
 	}
+	metadataType, resolved = r.ResolveAliasTarget(metadataType)
+	if !resolved || metadataType == nil {
+		return splice{}, &Error{
+			Failure: FailureInvalidValue, OperationIndex: i,
+			Message: fmt.Sprintf("metadata type %q does not resolve from %s", op.MetadataType, notationName(sym)),
+		}
+	}
 	if metadataType.Kind != symbols.SymbolMetadataDef {
 		return splice{}, &Error{
 			Failure: FailureInvalidValue, OperationIndex: i,
@@ -80,7 +87,10 @@ func (m Model) addMetadataPrefixSplice(i int, op Operation) (splice, error) {
 			continue
 		}
 		existingType, found := r.ResolveQualified(scope, prefix.Type)
-		if found && existingType == metadataType {
+		if found && existingType != nil {
+			existingType, found = r.ResolveAliasTarget(existingType)
+		}
+		if found && existingType != nil && existingType == metadataType {
 			return splice{}, &Error{
 				Failure: FailureInvalidValue, OperationIndex: i,
 				Message: fmt.Sprintf("%q already carries #%s", op.Target, op.MetadataType),

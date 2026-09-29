@@ -121,9 +121,10 @@ and `type` fields:
 `add_connection` requires both the `authoring` and `connection_authoring` capabilities.
 `add_satisfy` requires `authoring` and `satisfy_authoring`; `add_requirement_constraint` requires
 `authoring` and `requirement_constraint_authoring`; transition edits require `authoring` and
-`transition_authoring`. `add_verify` and an unnamed `objective` member require
+`transition_authoring`. `add_verify` and an unnamed `objective` member require `authoring` and
 `verification_objective_authoring`; `add_metadata` and an `add_member` with `metadata_prefixes`
-require `metadata_authoring`; `add_metadata_prefix` requires `metadata_prefix_authoring`. An
+require `authoring` and `metadata_authoring`; `add_metadata_prefix` requires `authoring` and
+`metadata_prefix_authoring`. An
 `add_member` edit with any new modifier or the `ref`/`return`
 kind also requires `member_modifiers`. Clients preflight these capabilities before sending the
 operation.

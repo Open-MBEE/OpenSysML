@@ -238,6 +238,21 @@ func TestAddMetadataPrefixWritesInTheUsagePrefixSlot(t *testing.T) {
 	}
 }
 
+func TestAddMetadataPrefixPreservesMetadataAlias(t *testing.T) {
+	const source = "metadata def Safety;\nalias Safe for Safety;\npart def Vehicle;\n"
+	model := loadContent(t, "metadata-prefix.sysml", source)
+	requireClean(t, model)
+	result, err := Apply(model, []Operation{AddMetadataPrefix("Vehicle", "Safe")})
+	if err != nil {
+		t.Fatalf("Apply: %v", err)
+	}
+	const want = "metadata def Safety;\nalias Safe for Safety;\n#Safe part def Vehicle;\n"
+	if got := string(result.Content); got != want {
+		t.Fatalf("content = %q, want %q", got, want)
+	}
+	requireClean(t, loadContent(t, "metadata-prefix.sysml", string(result.Content)))
+}
+
 func TestAddMetadataPrefixWritesActionBodyParameterModifierSlots(t *testing.T) {
 	tests := []struct {
 		name, source, want string
@@ -332,6 +347,21 @@ func TestAddMetadataPrefixRefusals(t *testing.T) {
 			target: "P::A", metadataType: "M", want: FailureInvalidValue,
 		},
 		{
+			name: "duplicate through metadata alias", file: "metadata-prefix.sysml",
+			source: "metadata def Safety;\nalias Safe for Safety;\n#Safety part def Vehicle;\n",
+			target: "Vehicle", metadataType: "Safe", want: FailureInvalidValue,
+		},
+		{
+			name: "duplicate against metadata alias", file: "metadata-prefix.sysml",
+			source: "metadata def Safety;\nalias Safe for Safety;\n#Safe part def Vehicle;\n",
+			target: "Vehicle", metadataType: "Safety", want: FailureInvalidValue,
+		},
+		{
+			name: "alias to non-metadata definition", file: "metadata-prefix.sysml",
+			source: "part def P;\nalias Q for P;\npart def Vehicle;\n",
+			target: "Vehicle", metadataType: "Q", want: FailureInvalidValue,
+		},
+		{
 			name: "entry action", file: "metadata-prefix.sysml",
 			source: "state def S { entry action boot; }\n",
 			target: "S::boot", metadataType: "M", want: FailureIllegalKind,
@@ -372,6 +402,11 @@ func TestAddMetadataPrefixRefusals(t *testing.T) {
 			if tt.name == "metadata type outside target scope" &&
 				!strings.Contains(err.Message, `metadata type "M" does not resolve from P::A`) {
 				t.Fatalf("message = %q, want target-scope resolution failure", err.Message)
+			}
+			if tt.name == "alias to non-metadata definition" &&
+				(!strings.Contains(err.Message, `"Q" is a `) ||
+					!strings.Contains(err.Message, "not a metadata definition")) {
+				t.Fatalf("message = %q, want resolved alias target kind refusal", err.Message)
 			}
 		})
 	}

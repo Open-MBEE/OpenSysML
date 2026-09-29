@@ -61,9 +61,9 @@ verification case objective. `add_metadata(owner, metadata_type, values=None,
 name=None, about=None, shorthand=False)` writes metadata usages with optional
 ordered feature values and `about` references; `shorthand=True` uses `@M`.
 `add_metadata_prefix(target, metadata_type)` adds a metadata prefix to an existing declaration.
-Verification authoring requires `verification_objective_authoring`; metadata
-usages and new-member prefixes require `metadata_authoring`; existing-declaration prefixes require
-`metadata_prefix_authoring`.
+Verification authoring requires `authoring` and `verification_objective_authoring`; metadata
+usages and new-member prefixes require `authoring` and `metadata_authoring`; existing-declaration
+prefixes require `authoring` and `metadata_prefix_authoring`.
 `add_calc_def` and `add_calc` accept input pairs, `return_type` and
 `return_expression`; a return expression requires a return type and is bound to
 the result parameter rather than written as `return <expr>;`. `add_action_def`

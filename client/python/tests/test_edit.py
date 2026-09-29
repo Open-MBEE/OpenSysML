@@ -531,6 +531,19 @@ def test_verification_and_metadata_authoring_capabilities_are_preflighted(
     assert service.requests == []
 
 
+def test_metadata_prefix_authoring_requires_authoring(fake_service):
+    port, service = fake_service(
+        capabilities=(CAPABILITY_APPLY_EDITS, CAPABILITY_METADATA_PREFIX_AUTHORING)
+    )
+    with Connection(port=port, auto_start=False) as conn:
+        edit = conn.load_from_content(MODEL).edit()
+        edit.add_metadata_prefix("Demo::Part", "M")
+        with pytest.raises(MissingCapabilityError) as error:
+            edit.apply()
+    assert error.value.capability == CAPABILITY_AUTHORING
+    assert service.requests == []
+
+
 def test_member_modifier_capability_accumulates_across_operations(fake_service):
     port, service = fake_service(
         capabilities=(CAPABILITY_APPLY_EDITS, CAPABILITY_AUTHORING)

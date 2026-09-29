@@ -147,6 +147,12 @@ func TestNewAuthoringOperationsAreNotSentWithoutTheirCapabilities(t *testing.T) 
 			missing:      CapabilityMetadataPrefixAuthoring,
 		},
 		{
+			name:         "existing metadata prefix requires authoring",
+			operation:    AddMetadataPrefix{Target: "Demo::P", MetadataType: "Demo::M"},
+			capabilities: []string{CapabilityApplyEdits, CapabilityMetadataPrefixAuthoring},
+			missing:      CapabilityAuthoring,
+		},
+		{
 			name: "metadata prefix",
 			operation: AddMember{
 				Owner: "Demo", Kind: "part def", Name: "P",
