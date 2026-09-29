@@ -109,3 +109,65 @@ func TestWorkspaceSignalLintReadsRecordedSenders(t *testing.T) {
 		t.Fatal("b.sysml was hydrated: the fixture does not exercise a recorded sender")
 	}
 }
+
+const portLintDefs = `package D {
+	item def Power; item def Fuel;
+	port def PowerOut { out item p : Power; }
+	port def FuelIn { in item f : Fuel; }
+	part def Source { port power : PowerOut; }
+	part def Sink { port fuel : FuelIn; }
+	part def Return { port back : ~PowerOut; }
+	part def Frame { port src : PowerOut; }
+	interface def Mount { end a : PowerOut; end b : ~PowerOut; }
+}`
+
+// portLintCount is the port-type-mismatch findings on a user of portLintDefs,
+// the definitions held parsed, or as their interface record when recorded.
+func portLintCount(t *testing.T, user string, recorded bool) int {
+	t.Helper()
+	defs := []byte(portLintDefs)
+	ws := NewWorkspace()
+	if recorded {
+		loaded := NewWorkspace()
+		loaded.OpenAll([]Input{{Name: "d.sysml", Content: defs, Version: 1}})
+		loaded.DiagnosticsAll([]string{"d.sysml"})
+		rec, err := loaded.InterfaceRecord("d.sysml")
+		if err != nil {
+			t.Fatal(err)
+		}
+		if err := ws.OpenRecorded(rec, defs); err != nil {
+			t.Fatal(err)
+		}
+	} else {
+		ws.Open("d.sysml", defs, 1)
+	}
+	ws.Open("u.sysml", []byte(user), 1)
+	n := lintCount(ws.Diagnostics("u.sysml"), passes.CodePortTypeMismatch)
+	if recorded && !ws.Recorded("d.sysml") {
+		t.Fatal("d.sysml was hydrated: the fixture does not exercise recorded definitions")
+	}
+	return n
+}
+
+// The port lint judges a connection the same whether the definitions it
+// reaches are parsed or held as their interface record.
+func TestWorkspacePortLintReadsRecordedDefinitions(t *testing.T) {
+	cases := []struct {
+		name, body string
+		want       int
+	}{
+		{"unrelated ports", `connect s.power to k.fuel;`, 1},
+		{"typed by an interface with port ends", `interface : Mount connect s.power to k.fuel;`, 0},
+		{"a conjugated port", `part r : Return; connect s.power to r.back;`, 0},
+		{"a redefinition inheriting an unrelated type", `part d : Frame { port :>> src; port q : FuelIn; connect src to q; }`, 1},
+		{"a redefinition inheriting a conjugate type", `part d : Frame { port :>> src; port q : ~PowerOut; connect src to q; }`, 0},
+	}
+	for _, tc := range cases {
+		user := "package U { private import D::*; part sys { part s : Source; part k : Sink; " + tc.body + " } }"
+		for _, recorded := range []bool{false, true} {
+			if n := portLintCount(t, user, recorded); n != tc.want {
+				t.Errorf("%s (recorded %v): %d finding(s), want %d", tc.name, recorded, n, tc.want)
+			}
+		}
+	}
+}

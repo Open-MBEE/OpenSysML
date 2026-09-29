@@ -46,6 +46,8 @@ The lint reports the name when all of the following hold:
   (`send ping to self;`) — the final segment being compared, as the runtime compares it.
   A send invoking a calculation (`send Ping() to self;` with `calc def Ping`) sends the
   calculation's value, as the runtime does, so it counts the result's type, not `Ping`.
+  A literal payload counts its scalar type, as the runtime names it: `send "go" to self;`
+  sends `String`, and integer, real and boolean literals send `Integer`, `Real` and `Boolean`.
   A document held as its interface record counts too: the record keeps the names its body
   sends.
 
@@ -76,6 +78,9 @@ holds:
   ends pair, and its own ends are judged by `port-conjugation`. An interface leaving an end
   untyped decides nothing, and nothing judges a connection definition's or a many-ended
   interface's ends, so their usages' concrete ends are judged.
+
+A port connected is typed by its own declaration, or else by the nearest model port it
+redefines (`port :>> p;` keeps the type and conjugation of the `p` it redefines).
 
 Otherwise the lint reports the connector at its first end:
 
