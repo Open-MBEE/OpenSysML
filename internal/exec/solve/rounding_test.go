@@ -213,6 +213,92 @@ func TestRoundingSoundLemmaIsProved(t *testing.T) {
 	}
 }
 
+// TestRoundingSoundOverflowYieldsNoVerdict: an assignment whose evaluation
+// overflows is no counterexample — the evaluator refuses the non-finite result,
+// so neither does it confirm the solver's witness — and no false proof either:
+// the same lemma still proves, and pinning the overflow values leaves it proved
+// since the exact claim is true where the evaluator only errors.
+func TestRoundingSoundOverflowYieldsNoVerdict(t *testing.T) {
+	solver := requireSolver(t)
+	ctx, idx := fixture(t, "<test>", `
+		package P {
+			private import ScalarValues::*;
+			part hg { attribute efficiency : Real; attribute power : Real; }
+			attribute d : Real;
+			assert constraint lemma {
+				(hg.efficiency >= 0.0 and hg.efficiency <= 1.0 and hg.power >= 0.0 and d >= 0.0)
+				implies (hg.power * d * hg.efficiency) <= hg.power * d
+			}
+		}
+	`)
+	q, err := ConstraintViolation(ctx, symbolNamed(t, idx, "P::lemma"), nil, nil)
+	if err != nil {
+		t.Fatalf("translate lemma: %v", err)
+	}
+	varNamed := func(tail string) string {
+		for _, v := range q.Vars {
+			if v.Name == tail || strings.HasSuffix(v.Name, "."+tail) || strings.HasSuffix(v.Name, "::"+tail) {
+				return v.Name
+			}
+		}
+		t.Fatalf("no variable names %s: %+v", tail, q.Vars)
+		return ""
+	}
+	overflow := ModelValue{Kind: SortReal, Number: new(big.Rat).SetFloat64(1e200)}
+	ok, why := q.Confirm(map[string]ModelValue{
+		varNamed("power"):      overflow,
+		varNamed("d"):          overflow,
+		varNamed("efficiency"): {Kind: SortReal, Number: new(big.Rat)},
+	})
+	if ok {
+		t.Fatal("the evaluator confirmed a witness whose arithmetic overflows")
+	}
+	if !strings.Contains(why, "not a finite Real") {
+		t.Errorf("the witness was refused for %q, want the non-finite result named", why)
+	}
+	result, err := solver.Solve(context.Background(), q)
+	if err != nil {
+		t.Fatalf("solve lemma: %v", err)
+	}
+	if result.Status != StatusUnsat || !result.RoundingProved {
+		t.Fatalf("lemma's violation is %s proved=%v, want unsat proved", result.Status, result.RoundingProved)
+	}
+
+	ctx, idx = fixture(t, "<test>", `
+		package P {
+			private import ScalarValues::*;
+			part def Big {
+				attribute power : Real = 1.0e200;
+				attribute d : Real = 1.0e200;
+				attribute efficiency : Real = 0.0;
+				assert constraint lemma {
+					(efficiency >= 0.0 and efficiency <= 1.0 and power >= 0.0 and d >= 0.0)
+					implies (power * d * efficiency) <= power * d
+				}
+			}
+			part big : Big;
+		}
+	`)
+	big := symbolNamed(t, idx, "P::Big")
+	lemma := symbolNamed(t, idx, "P::Big::lemma")
+	inst, err := ctx.Instantiate(big)
+	if err != nil {
+		t.Fatalf("instantiate P::big: %v", err)
+	}
+	pins, _ := FixedFor(ctx, Fixing{Element: lemma, Owner: big, Object: inst, ObjectType: big})
+	pinned, err := ConstraintViolation(ctx, lemma, lemma.OwnerScope, pins)
+	if err != nil {
+		t.Fatalf("translate pinned lemma: %v", err)
+	}
+	result, err = solver.Solve(context.Background(), pinned)
+	if err != nil {
+		t.Fatalf("solve pinned lemma: %v", err)
+	}
+	if result.Status != StatusUnsat || !result.RoundingProved {
+		t.Fatalf("the pinned lemma's violation is %s proved=%v, want unsat proved — the exact claim is true where the evaluator only errors", result.Status, result.RoundingProved)
+	}
+}
+
 // TestRoundingSoundKeepsACounterexample: `x + 1.0 > x` holds over exact reals
 // but not over float64, so its violation's unsat must not be proved.
 func TestRoundingSoundKeepsACounterexample(t *testing.T) {

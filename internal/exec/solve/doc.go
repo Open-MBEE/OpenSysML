@@ -115,7 +115,11 @@
 // asks it as a recheck after an unsat over a rounded query. A second unsat sets
 // Result.RoundingProved: the evaluator's arithmetic satisfies the conditions
 // nowhere either. Over-approximating evaluation is the sound direction; the
-// recheck's own witness is never replayed.
+// recheck's own witness is never replayed. The argument needs no case for a
+// non-finite site: the evaluator refuses a non-finite Real result, so an
+// assignment whose evaluation overflows yields no verdict — neither a
+// counterexample nor a confirmation — and every evaluation yielding a verdict
+// computes only finite sites.
 //
 // # Differential agreement gate
 //

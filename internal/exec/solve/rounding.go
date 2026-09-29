@@ -34,6 +34,12 @@ import (
 // refutes float64 arithmetic as surely as exact arithmetic. Relative-error
 // bounds are deliberately omitted: fewer axioms is still sound, since
 // over-approximating evaluation is the sound direction.
+//
+// No case is needed for a non-finite site: the evaluator refuses one
+// (constArithmetic via RealResult/MagnitudeArith; replayArithmetic mirrors it),
+// so an overflowing assignment yields no verdict and every verdict computes
+// finite sites. NaN cannot arise, and underflow to 0 is covered because 0 is a
+// bound.
 func (q *Query) RoundingSound() *Query {
 	rw := &roundingRewrite{sites: map[string]*roundingSite{}}
 	assertions := make([]Assertion, 0, len(q.Assertions))

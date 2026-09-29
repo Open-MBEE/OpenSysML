@@ -488,3 +488,41 @@ func TestVerifyQuestionsCapabilityReported(t *testing.T) {
 		t.Errorf("capabilities = %v, want %q", info.Capabilities, CapabilityVerificationQuestions)
 	}
 }
+
+// TestVerifyQuestionsOverflowIsNoVerdict: an assignment whose evaluation
+// overflows yields no verdict — the evaluator refuses the non-finite result, so
+// `evaluate` is undecided rather than violated — and a `holds` question still
+// proves the lemma, since an evaluation error is no counterexample.
+func TestVerifyQuestionsOverflowIsNoVerdict(t *testing.T) {
+	srv := mustNewService(t, 10)
+	source := `package P {
+	private import ScalarValues::*;
+	part hg { attribute efficiency : Real = 0.0; attribute power : Real = 1.0e200; }
+	attribute d : Real = 1.0e200;
+	assert constraint lemma {
+		(hg.efficiency >= 0.0 and hg.efficiency <= 1.0 and hg.power >= 0.0 and d >= 0.0)
+		implies (hg.power * d * hg.efficiency) <= hg.power * d
+	}
+}
+`
+	hash := mustVerifyModel(t, srv, source, "verify-overflow")
+	for _, question := range []string{"evaluate", ""} {
+		resp := verifyQuestion(t, srv, hash, "P::lemma", question, "", "")
+		v := resp.Verdict
+		if v.Status != statusUndecided || v.Holds {
+			t.Errorf("evaluate(%q) is status=%q holds=%v, want undecided — an overflow is no violation", question, v.Status, v.Holds)
+		}
+		if !strings.Contains(v.Error, "not a finite Real") {
+			t.Errorf("evaluate(%q) error %q does not name the non-finite result", question, v.Error)
+		}
+		if v.FailureReason != pb.FailureReason_FAILURE_REASON_EVALUATION {
+			t.Errorf("evaluate(%q) reason %v, want EVALUATION", question, v.FailureReason)
+		}
+	}
+
+	requireSolver(t)
+	held := verifyQuestion(t, srv, hash, "P::lemma", "holds", "", "")
+	if held.Verdict.Status != statusHolds || !held.Verdict.Holds {
+		t.Errorf("holds is status=%q holds=%v error=%q, want proved — an evaluation error is no counterexample", held.Verdict.Status, held.Verdict.Holds, held.Verdict.Error)
+	}
+}
