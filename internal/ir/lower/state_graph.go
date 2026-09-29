@@ -1742,11 +1742,12 @@ func AcceptedNames(trigger ast.Node) []string {
 // - *ast.ChangeEvent → keep as-is
 // - *ast.AcceptEvent → keep as-is
 // - *ast.CallEvent → keep as-is
-// - QualifiedName (bare name) → AcceptEvent{SignalType: qname} (signal trigger)
+// - Payload Usage → AcceptEvent{SignalType: typingTarget(payload), Payload: payload}
+// - QualifiedName (from `when <name>` or `defer <name>`) → injected signal
 // - Expression with operators → ChangeEvent{Condition: expr} (guard-like condition)
 //
-// This is a syntactic heuristic - full signal vs feature disambiguation
-// requires type system integration. Adequate for current SysML v2 syntax.
+// Payload typing and resolution come from the AST and resolver; the `when`
+// spelling retains its injected-signal interpretation.
 func classifyTrigger(trigger ast.Node) ast.Node {
 	if trigger == nil {
 		return nil

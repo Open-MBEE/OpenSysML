@@ -1,6 +1,8 @@
 package export_test
 
 import (
+	"bytes"
+	"encoding/json"
 	"errors"
 	"path/filepath"
 	"strings"
@@ -93,6 +95,116 @@ func TestDerivedIDRoundTrips(t *testing.T) {
 	}
 	if strings.Contains(text, "declaredId") {
 		t.Errorf("an unannotated element must not be marked declared:\n%s", text)
+	}
+}
+
+func TestQuotedIdentityNameEscapesRoundTrip(t *testing.T) {
+	const src = `package P {
+	part def 'a\'::b' {
+		part x;
+	}
+	part def a;
+}`
+	turtle, err := convert.Convert("m.sysml", []byte(src), convert.FormatSysML, convert.FormatTurtle)
+	if err != nil {
+		t.Fatalf("to turtle: %v", err)
+	}
+	graph, err := rdf.ParseTurtle(turtle)
+	if err != nil {
+		t.Fatalf("parse turtle: %v", err)
+	}
+	quotedDefinitionName := `P::'a\\\'::b'`
+	childName := quotedDefinitionName + "::x"
+	wanted := map[string]bool{
+		quotedDefinitionName: true,
+		childName:            true,
+		"P::a":               true,
+	}
+	subjects := map[string]rdf.Term{}
+	for _, subject := range graph.Subjects() {
+		name, ok := graph.Lexical(subject, rdf.SysML+"qualifiedName")
+		if !ok || !wanted[name] {
+			continue
+		}
+		if _, duplicate := subjects[name]; duplicate {
+			t.Errorf("qualified name %q identifies more than one subject", name)
+		}
+		subjects[name] = subject
+	}
+	if len(subjects) != len(wanted) {
+		t.Fatalf("got qualified-name subjects %v, want %v:\n%s", subjects, wanted, turtle)
+	}
+	seenIRIs := map[string]bool{}
+	for name, subject := range subjects {
+		if seenIRIs[subject.Value] {
+			t.Errorf("%q shares IRI %q with another element", name, subject.Value)
+		}
+		seenIRIs[subject.Value] = true
+	}
+
+	definition := subjects[quotedDefinitionName]
+	child := subjects[childName]
+	if owner, ok := graph.Object(child, rdf.SysML+"owner"); !ok || owner != definition {
+		t.Errorf("x's owner is %v, want quoted definition %v", owner, definition)
+	}
+	membership, ok := graph.Object(child, rdf.SysML+"owningMembership")
+	if !ok {
+		t.Fatal("x has no owning membership")
+	}
+	if owner, ok := graph.Object(membership, rdf.SysML+"membershipOwningNamespace"); !ok || owner != definition {
+		t.Errorf("x's membership owning namespace is %v, want quoted definition %v", owner, definition)
+	}
+
+	apiJSON, err := convert.Convert("m.sysml", []byte(src), convert.FormatSysML, convert.FormatAPIJSON)
+	if err != nil {
+		t.Fatalf("to API JSON: %v", err)
+	}
+	var elements []struct {
+		ID            string `json:"@id"`
+		QualifiedName string `json:"qualifiedName"`
+	}
+	if err := json.Unmarshal(apiJSON, &elements); err != nil {
+		t.Fatalf("decode API JSON: %v\n%s", err, apiJSON)
+	}
+	apiIDs := map[string]string{}
+	for _, element := range elements {
+		if !wanted[element.QualifiedName] {
+			continue
+		}
+		if _, duplicate := apiIDs[element.QualifiedName]; duplicate {
+			t.Errorf("API JSON repeats qualified name %q", element.QualifiedName)
+		}
+		apiIDs[element.QualifiedName] = element.ID
+	}
+	if len(apiIDs) != len(wanted) {
+		t.Fatalf("API JSON has qualified names %v, want %v:\n%s", apiIDs, wanted, apiJSON)
+	}
+	seenIDs := map[string]bool{}
+	for name, id := range apiIDs {
+		if seenIDs[id] {
+			t.Errorf("%q shares API @id %q with another element", name, id)
+		}
+		seenIDs[id] = true
+	}
+
+	stripped := withoutSourceText(t, turtle)
+	back, err := convert.Convert("m.ttl", stripped, convert.FormatTurtle, convert.FormatSysML)
+	if err != nil {
+		t.Fatalf("read stripped turtle: %v\n%s", err, stripped)
+	}
+	backText := string(back)
+	quotedDefinition := strings.Index(backText, `part def 'a\'::b'`)
+	childFeature := strings.Index(backText, "part x;")
+	plainDefinition := strings.Index(backText, "part def a;")
+	if quotedDefinition < 0 || childFeature < quotedDefinition || plainDefinition < 0 || childFeature > plainDefinition {
+		t.Fatalf("stripped read-back did not keep the escaped definition, its child, and sibling:\n%s", backText)
+	}
+	second, err := convert.Convert("m.sysml", back, convert.FormatSysML, convert.FormatTurtle)
+	if err != nil {
+		t.Fatalf("second hop to turtle: %v", err)
+	}
+	if got := withoutSourceText(t, second); !bytes.Equal(got, stripped) {
+		t.Errorf("second stripped hop changed the graph:\n--- first ---\n%s--- second ---\n%s", stripped, got)
 	}
 }
 

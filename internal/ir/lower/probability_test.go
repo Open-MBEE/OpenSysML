@@ -7,6 +7,7 @@ import (
 	"testing"
 
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/resolve"
+	"github.com/Open-MBEE/OpenSysML/internal/semantic/symbols"
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/ast"
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/parser"
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/source"
@@ -436,5 +437,56 @@ func TestTriggerKeyResolvesSignalDefinitions(t *testing.T) {
 	}`)
 	if err == nil || !errors.Is(err, ErrProbability) {
 		t.Fatalf("Go and A::Go resolve to one def — one group, mixed weights refused; got %v", err)
+	}
+}
+
+func TestBareAcceptPayloadLowersResolvedSignal(t *testing.T) {
+	src := `package P {
+	item def Start;
+	state m {
+		entry; then idle;
+		state idle;
+		state heating;
+		transition first idle accept Start then heating;
+	}
+}`
+	p := parser.New(source.New("p.sysml", []byte(src)))
+	root := p.ParseFile()
+	if len(p.Diagnostics) > 0 {
+		t.Fatalf("parse errors: %v", p.Diagnostics)
+	}
+	idx := libs.NewModelIndex()
+	idx.AddDocument("p.sysml", root)
+	idx.ExpandWildcardImports()
+	pkg, ok := idx.DocumentRoot("p.sysml").LookupLocal("P")
+	if !ok {
+		t.Fatal("package P not indexed")
+	}
+	machine, ok := pkg.Scope.LookupLocal("m")
+	if !ok {
+		t.Fatal("state m not indexed")
+	}
+	resolver := resolve.New(idx)
+	graph, err := ToStateGraphWithEndpoints(machine.Decl, machine.Scope, NewLibraryStateTypes(resolver))
+	if err != nil {
+		t.Fatalf("ToStateGraphWithEndpoints failed: %v", err)
+	}
+	transitions := graph.Transitions[stateNamed(graph, "idle")]
+	if len(transitions) != 1 {
+		t.Fatalf("got %d transitions from idle, want 1", len(transitions))
+	}
+	event, ok := transitions[0].Trigger.(*ast.AcceptEvent)
+	if !ok {
+		t.Fatalf("trigger = %T, want *ast.AcceptEvent", transitions[0].Trigger)
+	}
+	sym, ok := resolver.ResolveQualified(transitions[0].Scope, event.SignalType)
+	if !ok || sym == nil {
+		t.Fatalf("signal type did not resolve: %v", resolver.Diagnostics)
+	}
+	if got := symbols.FQNOf(sym); got != "P::Start" {
+		t.Errorf("resolved signal type = %q, want P::Start", got)
+	}
+	if got := TriggerKey(transitions[0]); got != "accept sym:P::Start" {
+		t.Errorf("TriggerKey = %q, want accept sym:P::Start", got)
 	}
 }

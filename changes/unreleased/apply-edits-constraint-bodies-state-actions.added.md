@@ -1,0 +1,1 @@
+- **ApplyEdits can author constraint bodies, asserted constraints, state exhibits and state subactions.** Constraint body expressions use `{ ... }` independently of feature values written with `= ...`; clients expose helpers for asserted and negated constraints, exhibits, and `entry`, `do` and `exit` actions.

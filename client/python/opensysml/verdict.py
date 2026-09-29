@@ -10,6 +10,7 @@ units, an exhausted step budget) is not an answer, and is reported as
 
 from opensysml.engines import Standing
 from opensysml.errors import ExecutionError
+from opensysml.values import value_to_python
 
 #: Verdict kinds, as the service reports them.
 KIND_CONSTRAINT = "constraint"
@@ -26,6 +27,20 @@ VERDICT_PASS = "pass"
 VERDICT_FAIL = "fail"
 VERDICT_INCONCLUSIVE = "inconclusive"
 VERDICT_ERROR = "error"
+
+#: The questions a verification answers: an evaluation of the declared or held
+#: values (the default), whether the claim holds for every assignment the free
+#: features can take, or whether any assignment satisfies it.
+QUESTION_EVALUATE = "evaluate"
+QUESTION_HOLDS = "holds"
+QUESTION_SATISFIABLE = "satisfiable"
+
+#: The statuses a verdict reports, as the service spells them.
+STATUS_HOLDS = "holds"
+STATUS_VIOLATED = "violated"
+STATUS_UNDECIDED = "undecided"
+STATUS_SATISFIABLE = "satisfiable"
+STATUS_UNSATISFIABLE = "unsatisfiable"
 
 # Properties reading the standing of the engine that answered a request.
 _STRENGTH = property(lambda self: self.standing.strength, doc="Strength of the evidence.")
@@ -110,6 +125,35 @@ class VerificationVerdict:
         )
 
 
+class WitnessAssignment:
+    """One feature's value in the assignment witnessing a verdict.
+
+    Reported for a violated ``holds`` question and a satisfiable
+    ``satisfiable`` question: the free features' values as the evaluator
+    replayed them.
+
+    Attributes:
+        feature (str): The qualified feature name, chain steps appended
+            with '.'
+        value: The value the evaluator replayed for the feature
+        unit (str): The base units the magnitude is expressed in; empty for a
+            value that has none
+        exact (str): The solver's exact value as text
+    """
+
+    def __init__(self, pb_assignment):
+        self.feature = pb_assignment.feature
+        self.value = value_to_python(pb_assignment.value)
+        self.unit = pb_assignment.unit
+        self.exact = pb_assignment.exact
+
+    def __repr__(self):
+        return (
+            f"WitnessAssignment(feature={self.feature!r}, value={self.value!r}, "
+            f"unit={self.unit!r}, exact={self.exact!r})"
+        )
+
+
 class Verdict:
     """One verification's answer.
 
@@ -150,6 +194,14 @@ class Verdict:
             answered, beside this verdict rather than instead of it. Empty when
             the model states none, when the requirement is named by no FQN, or
             when the service predates ``verification_verdicts``
+        question (str): The question the verdict answers: 'evaluate' for an
+            evaluation; reported by a service advertising
+            ``verification_questions``, empty from one predating it
+        status (str): The answer's status: holds | violated | undecided |
+            satisfiable | unsatisfiable, as the service spells it
+        witness (list[WitnessAssignment]): The assignment witnessing the
+            answer: the free features' values for a violated 'holds' question
+            or a satisfiable 'satisfiable' question
         standing (Standing): The engine that answered, the strength of its
             evidence and the bounds it ran under; unreported when the service
             predates ``engines``
@@ -221,6 +273,21 @@ class Verdict:
     def instance_path(self):
         """Path from the validated object to the one this verdict is about."""
         return getattr(self._pb, "instance_path", "")
+
+    @property
+    def question(self):
+        """The question the verdict answers; empty when unreported."""
+        return getattr(self._pb, "question", "")
+
+    @property
+    def status(self):
+        """The answer's status, as the service spells it; empty when unreported."""
+        return getattr(self._pb, "status", "")
+
+    @property
+    def witness(self):
+        """The assignment witnessing the answer, when the status carries one."""
+        return [WitnessAssignment(a) for a in getattr(self._pb, "witness", ())]
 
     @property
     def error(self):

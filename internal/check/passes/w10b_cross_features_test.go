@@ -5,6 +5,8 @@ import (
 	"testing"
 
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/diag"
+	"github.com/Open-MBEE/OpenSysML/internal/syntax/parser"
+	"github.com/Open-MBEE/OpenSysML/internal/syntax/source"
 )
 
 const w10bCrossSrc = `package AssociationTest {
@@ -420,6 +422,31 @@ func TestW10BCrossFeatureSpecializationInlineCrossFeature(t *testing.T) {
 	for _, code := range []string{codeCrossSubsettingOwner, codeCrossSubsettingAtMostOne, codeCrossSubsettingChain, codeCrossFeatureType} {
 		if got := only(diags, code); len(got) != 0 {
 			t.Errorf("%s fired on well-formed ends: %v", code, got)
+		}
+	}
+}
+
+func TestW10BCrossFeatureNameTakenByBodyMemberIsAccepted(t *testing.T) {
+	const src = `package P {
+		part def A;
+		connection def C {
+			end x1 [1] feature x : A {
+				feature x1;
+			}
+			end y : A;
+		}
+	}`
+	file := source.New("<t>", []byte(src))
+	p := parser.New(file)
+	root := p.ParseFile()
+	if len(p.Diagnostics) != 0 {
+		t.Fatalf("parse diagnostics = %v", p.Diagnostics)
+	}
+	index := newTestIndex()
+	index.AddDocument(file.Name(), root)
+	for _, diagnostic := range Analyze(file.Name(), root, nil, index) {
+		if diagnostic.Severity == diag.SeverityError {
+			t.Errorf("checked model reports an error: %v", diagnostic)
 		}
 	}
 }

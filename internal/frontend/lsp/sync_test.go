@@ -3,6 +3,7 @@ package lsp
 import (
 	"context"
 	"encoding/json"
+	"path/filepath"
 	"testing"
 
 	"go.lsp.dev/jsonrpc2"
@@ -139,7 +140,7 @@ func TestDidChangeIncrementalAstral(t *testing.T) {
 
 func TestDidCloseRemovesOpenState(t *testing.T) {
 	s := NewServer(model.NewWorkspace())
-	u := uri.File("/tmp/a.sysml")
+	u := uri.File(filepath.Join(t.TempDir(), "a.sysml"))
 	openDoc(t, s, u, "package P;\n")
 	if err := s.DidClose(context.Background(), &protocol.DidCloseTextDocumentParams{
 		TextDocument: protocol.TextDocumentIdentifier{URI: u},

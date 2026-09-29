@@ -570,8 +570,8 @@ func TestSelfModelQuestionFlowFollowsDispatcher(t *testing.T) {
 	if declaring[analysis.Outcomes] != 2 {
 		t.Errorf("%d default engines declare outcomes, the model states two (explore over check)", declaring[analysis.Outcomes])
 	}
-	if declaring[analysis.Holds] != 2 {
-		t.Errorf("%d default engines declare holds, the model states two (smt over check)", declaring[analysis.Holds])
+	if declaring[analysis.Holds] != 3 {
+		t.Errorf("%d default engines declare holds, the model states three (smt over solve over check)", declaring[analysis.Holds])
 	}
 	if declaring[analysis.Sensitive] != 2 {
 		t.Errorf("%d default engines declare sensitive, the model states two (smt over check)", declaring[analysis.Sensitive])
@@ -1367,7 +1367,7 @@ func TestSelfModelDocumentRenders(t *testing.T) {
 		"[snapshotCurrent]",
 		"OpenSysMLViews::budgetExhaustion",
 		"| explore | outcomes | runs, depth | proved | true | false | runtime.ExploreWith |",
-		"| solve | satisfiable | runs, solver | proved | true | true | internal/exec/solve |",
+		"| solve | satisfiable, holds | runs, solver | proved | true | true | internal/exec/solve |",
 		"OpenSysMLViews::analysisFramework",
 		"OpenSysMLViews::questionFlow",
 		"OpenSysMLViews::exploreFlow",

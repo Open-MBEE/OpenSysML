@@ -254,12 +254,12 @@ func calcMultiplicityContext(t *testing.T) (*Context, *symbols.Index, *symbols.S
 			private import ScalarValues::*;
 			private import SequenceFunctions::*;
 
-			calc def One { in x : Integer; return : Integer = x; }
+			calc def One { in x : Integer[1]; return : Integer = x; }
 			calc def Untyped { in x; return : Integer = x; }
 			calc def Opt { in x : Integer[0..1] = null; return : Integer = x ?? 0; }
 			calc def Many { in xs : Integer[*]; return : Integer = xs->size(); }
 			calc def UpTo2 { in xs : Integer[1..2]; return : Integer = xs->size(); }
-			calc def BadDefault { in x : Integer = (1, 2); return : Integer = x; }
+			calc def BadDefault { in x : Integer[1] = (1, 2); return : Integer = x; }
 			calc def DerivedMany :> Many;
 			calc def RedefOne :> Many { in :>> xs : Integer[1]; }
 			calc def RedeclMany :> Many { in :>> xs; }

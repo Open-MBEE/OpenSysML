@@ -235,11 +235,11 @@ nor double-counted as two independent disagreements.
 | `examples/sysml-v2-training` | 100 | 100 | 0 | 0 | 0 | 0 | 0 | 0 |
 | `examples/pilot-corpora/sysml-examples` | 99 | 92 | 11 | 0 | 0 | 0 | 11 | 0 |
 | `examples/pilot-corpora/sysml-validation` | 56 | 56 | 0 | 0 | 0 | 0 | 0 | 0 |
-| `examples/pilot-corpora/kerml-examples` | 58 | 55 | 10 | 0 | 0 | 0 | 10 | 0 |
+| `examples/pilot-corpora/kerml-examples` | 58 | 56 | 9 | 0 | 0 | 0 | 9 | 0 |
 | `tests/testdata` | 18 | 10 | 43 | 55 | 34 | 1 | 8 | 20 |
-| `examples` | 45 | 30 | 11 | 1601 | 4 | 1 | 6 | 1596 |
+| `examples` | 45 | 29 | 11 | 1601 | 4 | 1 | 6 | 1596 |
 | `tools/referee/diff/testdata` (probes) | 4 | 1 | 6 | 0 | 0 | 0 | 6 | 0 |
-| **Total** | **380** | **344** | **81** | **1656** | **38** | **2** | **41** | **1616** |
+| **Total** | **380** | **344** | **80** | **1656** | **38** | **2** | **40** | **1616** |
 
 **Read the `only ours` total by root, never as one number.** Step 2 removes nine resolver false
 positives from the reference's **own** corpora: `pilot-examples` 16 → **7** and
@@ -936,8 +936,7 @@ populated and unchanged: 122 diagnostics total, 66 pilot-only. Step 3's two sema
 Xpect assertions not present in these seven differential roots.
 
 Per category, the only-ours totals are: `pilot-examples` 4 `unmapped`, 2
-`units`, 5 `kind-mismatch`; `kerml-examples` 9 `unmapped`, 1 `multiplicity` (the
-[unbound-parameter advisory](#the-unbound-parameter-advisory)); `examples` 4 `unmapped`,
+`units`, 5 `kind-mismatch`; `kerml-examples` 9 `unmapped`; `examples` 4 `unmapped`,
 2 `multiplicity` (the five warnings the MOSA demo draws on purpose, below, and the unbound-parameter
 advisory of the [runtime showcase round](#runtime-showcase-round)); `testdata` 7
 `unmapped`, 1 `multiplicity`; `probes` 6 `unmapped`.
@@ -1033,12 +1032,12 @@ page's history.
 
 | Count | Now |
 |---|---:|
-| overall: fully agreeing / only ours / our diagnostics | **344 / 41 / 81** |
+| overall: fully agreeing / only ours / our diagnostics | **344 / 40 / 80** |
 | only pilot | **1616** |
 | pilot diagnostics | **1656** |
 | severity-only | **2** |
 | unmapped, our side | **34** |
-| kerml-examples: only ours | **10** |
+| kerml-examples: only ours | **9** |
 | pilot-examples: only ours | **11** |
 | examples: only pilot | **1596** |
 

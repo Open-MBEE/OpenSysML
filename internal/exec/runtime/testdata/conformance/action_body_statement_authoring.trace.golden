@@ -1,0 +1,64 @@
+step 1: token 1@*ast.IfActionNode
+stmt if
+    eval feature count -> 0
+    eval literal 0 -> 0
+  eval operator == -> true
+  stmt assign count
+    eval literal 1 -> 1
+step 2: token 1@*ast.WhileLoopActionNode
+stmt while
+  iteration 1
+      eval feature count -> 1
+      eval literal 3 -> 3
+    eval operator < -> true
+    stmt assign count
+        eval feature count -> 1
+        eval literal 1 -> 1
+      eval operator + -> 2
+      eval feature count -> 2
+      eval literal 3 -> 3
+    eval operator == -> false
+  iteration 2
+      eval feature count -> 2
+      eval literal 3 -> 3
+    eval operator < -> true
+    stmt assign count
+        eval feature count -> 2
+        eval literal 1 -> 1
+      eval operator + -> 3
+      eval feature count -> 3
+      eval literal 3 -> 3
+    eval operator == -> true
+step 3: token 1@*ast.WhileLoopActionNode
+stmt loop until
+  iteration 1
+    stmt assign count
+        eval feature count -> 3
+        eval literal 1 -> 1
+      eval operator + -> 4
+      eval feature count -> 4
+      eval literal 4 -> 4
+    eval operator == -> true
+step 4: token 1@*ast.WhileLoopActionNode
+stmt for i
+    eval literal 1 -> 1
+    eval literal 2 -> 2
+    eval literal 3 -> 3
+  eval sequence of 3 -> (1, 2, 3)
+  iteration 1
+    stmt assign total
+        eval feature total -> 0
+        eval feature i -> 1
+      eval operator + -> 1
+  iteration 2
+    stmt assign total
+        eval feature total -> 1
+        eval feature i -> 2
+      eval operator + -> 3
+  iteration 3
+    stmt assign total
+        eval feature total -> 3
+        eval feature i -> 3
+      eval operator + -> 6
+step 5: token 1@done
+step 6: no active tokens

@@ -61,7 +61,7 @@
         "dir": "examples",
         "origin": "ours",
         "files": 45,
-        "digest": "sha256:d87809f65516f74ee3ba3e27f0d95456dc3f3ca77fcd2b7a3451dc4c461d2393"
+        "digest": "sha256:d85f2c2e9349abead9c3649b2273876c18687bc0d23a4ad8ba3218820ef532a3"
       },
       {
         "name": "probes",
@@ -78,9 +78,9 @@
     "filesFullyAgreeing": 344,
     "agreement": 38,
     "severityMismatch": 2,
-    "openSysMLOnly": 41,
+    "openSysMLOnly": 40,
     "pilotOnly": 1616,
-    "openSysMLDiagnostics": 81,
+    "openSysMLDiagnostics": 80,
     "pilotDiagnostics": 1656
   },
   "roots": [
@@ -267,29 +267,15 @@
       "dir": "examples/pilot-corpora/kerml-examples",
       "totals": {
         "files": 58,
-        "filesFullyAgreeing": 55,
+        "filesFullyAgreeing": 56,
         "agreement": 0,
         "severityMismatch": 0,
-        "openSysMLOnly": 10,
+        "openSysMLOnly": 9,
         "pilotOnly": 0,
-        "openSysMLDiagnostics": 10,
+        "openSysMLDiagnostics": 9,
         "pilotDiagnostics": 0
       },
       "files": [
-        {
-          "path": "Simple Tests/Behaviors.kerml",
-          "agreement": [],
-          "severityMismatch": [],
-          "openSysMLOnly": [
-            {
-              "line": 14,
-              "severity": "warning",
-              "category": "multiplicity",
-              "count": 1
-            }
-          ],
-          "pilotOnly": []
-        },
         {
           "path": "Simple Tests/Circular.kerml",
           "agreement": [],
@@ -795,7 +781,7 @@
       "dir": "examples",
       "totals": {
         "files": 45,
-        "filesFullyAgreeing": 30,
+        "filesFullyAgreeing": 29,
         "agreement": 4,
         "severityMismatch": 1,
         "openSysMLOnly": 6,
@@ -5617,6 +5603,20 @@
           ]
         },
         {
+          "path": "parser_features_demo_connectors.sysml",
+          "agreement": [],
+          "severityMismatch": [],
+          "openSysMLOnly": [
+            {
+              "line": 108,
+              "severity": "warning",
+              "category": "multiplicity",
+              "count": 1
+            }
+          ],
+          "pilotOnly": []
+        },
+        {
           "path": "pseudostates-demo.sysml",
           "agreement": [],
           "severityMismatch": [],
@@ -5658,14 +5658,7 @@
           "path": "runtime-showcase/delta-v-budget.sysml",
           "agreement": [],
           "severityMismatch": [],
-          "openSysMLOnly": [
-            {
-              "line": 93,
-              "severity": "warning",
-              "category": "multiplicity",
-              "count": 1
-            }
-          ],
+          "openSysMLOnly": [],
           "pilotOnly": [
             {
               "line": 7,
@@ -8378,9 +8371,9 @@
       "filesFullyAgreeing": 345,
       "agreement": 38,
       "severityMismatch": 2,
-      "openSysMLOnly": 40,
+      "openSysMLOnly": 39,
       "pilotOnly": 1616,
-      "openSysMLDiagnostics": 80,
+      "openSysMLDiagnostics": 79,
       "pilotDiagnostics": 1656
     },
     "findings": [
