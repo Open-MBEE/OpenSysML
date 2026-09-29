@@ -449,9 +449,8 @@ func TestSupersededThenDoneMembershipReadsBack(t *testing.T) {
 	if err != nil {
 		t.Fatalf("the superseded shape should still convert: %v", err)
 	}
-	if !strings.Contains(string(back), "then done;") {
-		t.Errorf("the superseded shape did not read back as `then done;`:\n%s", back)
-	}
+	// The fixture's bodies carry the earlier exporter's surrounding spaces, which KerML keeps, so its notation differs from the canonical golden only in those bodies.
+	checkGolden(t, filepath.Join("testdata", "superseded", "then_done_membership.golden.sysml"), back)
 }
 
 func TestTransitionEndpointRepresentationsAgreeWhenEqual(t *testing.T) {
