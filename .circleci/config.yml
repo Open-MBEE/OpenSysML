@@ -611,16 +611,19 @@ jobs:
       # The WebAssembly gate: both wasm targets compiled and vetted, the commands
       # linked and then run. Node is on the executor, so the require variable makes
       # an absent runtime a failure and the check below makes a skip one too.
+      # Compiling both targets takes this executor about ten minutes, so the gate
+      # needs more than go test's default ten-minute budget.
       - run:
           name: Run the WebAssembly gate
           command: |
             set -o pipefail
             node --version
-            go test -count=1 -v ./tests/wasm | tee wasm-gate.log
+            go test -count=1 -v -timeout 30m ./tests/wasm | tee wasm-gate.log
             if grep -qE '^\s*--- SKIP' wasm-gate.log; then
               echo "error: the WebAssembly gate skipped" >&2
               exit 1
             fi
+          no_output_timeout: 30m
           environment:
             OPENSYSML_REQUIRE_WASM: "1"
 
