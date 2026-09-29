@@ -260,20 +260,15 @@ func featureOwnedByType(sym *symbols.Symbol) bool {
 }
 
 // EffectiveParameterRange is the multiplicity a parameter is held to
-// (SysML v2 §7.6.3): the nearest its redefinition chain or a feature it
-// subsets declares, the implicit [1..1] where it qualifies, else [0..*].
+// (SysML v2 §7.6.3): what its redefinition chain and the features it
+// subsets declare, the implicit [1..1] where it qualifies, else [0..*].
 func (m *Model) EffectiveParameterRange(sym *symbols.Symbol) Range {
 	return m.EffectiveParameterRangeAlong(m.ParameterRedefinitionChain(sym))
 }
 
 // EffectiveParameterRangeAlong is EffectiveParameterRange over an explicit
-// redefinition chain — the same walk, for a caller that holds its own chain.
-// The features a parameter subsets bound it together: a subsetting feature by
-// default shares the subsetted feature's properties and may only restrict its
-// multiplicity (KerML 1.0 §7.3.4.4), so several subsetted features bound it to
-// what satisfies all of them — the intersection of their ranges — and a
-// redefinition must stay consistent with the redefined feature likewise
-// (§7.3.4.5), chain links intersecting the same way.
+// redefinition chain; the ranges of all subsetted and redefined features
+// intersect (KerML 1.0 §7.3.4.4, §7.3.4.5).
 func (m *Model) EffectiveParameterRangeAlong(chain []*symbols.Symbol) Range {
 	if len(chain) == 0 {
 		return UnboundedRange()
@@ -318,8 +313,6 @@ func (m *Model) EffectiveParameterRangeAlong(chain []*symbols.Symbol) Range {
 				}
 			}
 		}
-		// A target stating nothing, with no implicit default and no bound of
-		// its own, contributes no bound; only then does [0..*] govern p.
 		return acc, found
 	}
 	if r, ok := rangeOf(chain[0]); ok {
