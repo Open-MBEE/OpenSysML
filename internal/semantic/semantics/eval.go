@@ -112,6 +112,36 @@ func ScalarTypeName(kind ValueKind) string {
 	return ""
 }
 
+// SentScalarTypes names the scalar types a send of node's value may send, as
+// the runtime names them: one when node's scalar type is known, Integer and Real
+// for a number of unknown kind, and none when node's value is not a scalar.
+func (m *Model) SentScalarTypes(scope *symbols.Scope, node ast.Node) []string {
+	if _, ok := node.(*ast.LiteralString); ok {
+		return []string{StringTypeName}
+	}
+	if value, ok := m.Eval(node); ok {
+		if name := ScalarTypeName(value.Kind); name != "" {
+			return []string{name}
+		}
+		return nil
+	}
+	integer, real := ScalarTypeName(ValInt), ScalarTypeName(ValReal)
+	for _, scalar := range []struct{ fqn, name string }{
+		{fqnString, StringTypeName},
+		{FQNBoolean, ScalarTypeName(ValBool)},
+		{fqnInteger, integer},
+		{fqnReal, real},
+	} {
+		if c := m.ExprConformsToLibrary(scope, node, scalar.fqn); c.Known && c.Holds {
+			return []string{scalar.name}
+		}
+	}
+	if c := m.ExprConformsToLibrary(scope, node, fqnNumericalValue); c.Known && c.Holds {
+		return []string{integer, real}
+	}
+	return nil
+}
+
 // Value is a model-level-evaluated constant. Only the field selected by Kind is
 // meaningful. This is a deliberately small subset: the constraint checks that
 // need evaluation (multiplicity bounds, some guards) operate over integers,
