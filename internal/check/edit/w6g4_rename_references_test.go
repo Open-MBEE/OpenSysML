@@ -374,7 +374,7 @@ func TestRenameRewritesConstructorLabels(t *testing.T) {
 // A transition's guard and effect see the parameter its accept declares, so
 // renaming a same-named feature of the machine leaves them alone.
 func TestRenameLeavesTriggerParameterReferencesAlone(t *testing.T) {
-	const src = "package App {\n\titem def Request;\n\tstate def Server {\n" +
+	const src = "package App {\n\tpart def Request;\n\tstate def Server {\n" +
 		"\t\tpart origin : Request;\n\t\tstate idle;\n\t\tstate busy;\n" +
 		"\t\ttransition first idle accept origin : Request if origin != null" +
 		" do send new Request() to origin then busy;\n\t}\n}\n"

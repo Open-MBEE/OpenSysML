@@ -1,0 +1,56 @@
+(RootNamespace
+  (Membership visibility="default"
+    (Package name="P" library=false standard=false
+      (Membership visibility="default"
+        (Definition kind="item" abstract=false variation=false name="Start"))
+      (Membership visibility="default"
+        (Usage kind="item" name="sig" ref=false direction="none" composite=false derived=false ordered=false nonunique=false
+          (Relationship kind="typing" target=Start
+            (*ast.QualifiedName))))
+      (Membership visibility="default"
+        (Usage kind="port" name="p" ref=false direction="none" composite=false derived=false ordered=false nonunique=false))
+      (Membership visibility="default"
+        (Usage kind="attribute" name="d" ref=false direction="none" composite=false derived=false ordered=false nonunique=false))
+      (Membership visibility="default"
+        (Usage kind="attribute" name="t" ref=false direction="none" composite=false derived=false ordered=false nonunique=false))
+      (Membership visibility="default"
+        (Usage kind="attribute" name="cond" ref=false direction="none" composite=false derived=false ordered=false nonunique=false))
+      (Membership visibility="default"
+        (Package name="Outer" library=false standard=false
+          (Membership visibility="default"
+            (Definition kind="item" abstract=false variation=false name="Start"))))
+      (Membership visibility="default"
+        (Definition kind="state" abstract=false variation=false name="S"
+          (SubstateMember name="a")
+          (SubstateMember name="b")
+          (TransitionMember source="a" target="b"
+            (Usage kind="attribute" name="" ref=true direction="out" composite=false derived=false ordered=false nonunique=false
+              (Relationship kind="typing" target=Start
+                (*ast.QualifiedName))))
+          (TransitionMember source="a" target="b"
+            (Usage kind="attribute" name="" ref=true direction="out" composite=false derived=false ordered=false nonunique=false
+              (Relationship kind="typing" target=Outer::Start
+                (*ast.QualifiedName))))
+          (TransitionMember source="a" target="b"
+            (Usage kind="attribute" name="s" ref=true direction="out" composite=false derived=false ordered=false nonunique=false
+              (Relationship kind="typing" target=Start
+                (*ast.QualifiedName))))
+          (TransitionMember source="a" target="b"
+            (Usage kind="attribute" name="s" ref=true direction="out" composite=false derived=false ordered=false nonunique=false
+              (Relationship kind="subsets" target=sig
+                (*ast.QualifiedName))))
+          (TransitionMember source="a" target="b" via="p"
+            (Usage kind="attribute" name="" ref=true direction="out" composite=false derived=false ordered=false nonunique=false
+              (Relationship kind="typing" target=Start
+                (*ast.QualifiedName))))
+          (TransitionMember source="a" target="b"
+            (TimeEvent absolute=false
+              (FeatureReference name="d")))
+          (TransitionMember source="a" target="b"
+            (TimeEvent absolute=true
+              (FeatureReference name="t")))
+          (TransitionMember source="a" target="b"
+            (ChangeEvent
+              (FeatureReference name="cond")))
+          (TransitionMember source="a" target="b"
+            (CallEvent operation="op" parameters=[x])))))))

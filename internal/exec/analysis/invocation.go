@@ -23,9 +23,9 @@ const ToolEnvPassthroughEnv = "OPENSYSML_TOOL_ENV_PASSTHROUGH" // #nosec G101 --
 // it once the reply is read.
 const ToolKeepEnv = "OPENSYSML_TOOL_KEEP"
 
-// baseToolEnv are the variables of this process every tool with an invocation block is
+// BaseToolEnv are the variables of this process every tool with an invocation block is
 // started with; the rest of the environment is not inherited.
-var baseToolEnv = []string{"PATH", "HOME", "TMPDIR", "LANG"}
+var BaseToolEnv = []string{"PATH", "HOME", "TMPDIR", "LANG"}
 
 // Invocation is a tool entry's `invocation` block: how the process is composed from one
 // call's values. Absent, the executable starts as before: no arguments, the JSON request.
@@ -539,19 +539,27 @@ func (inv *Invocation) renderArgs(sc scope) ([]string, error) {
 	return args, nil
 }
 
-// passthroughNames are the names of this process's variables the tool's environment may
+// ToolEnvNames are the names of this process's variables a tool's environment may
 // carry: the base ones and each ToolEnvPassthroughEnv lists. An entry holding `=` or a
 // NUL byte is not an environment variable name and is refused.
-func (inv *Invocation) passthroughNames(sc scope) ([]string, error) {
-	names := append([]string(nil), baseToolEnv...)
+func ToolEnvNames() ([]string, error) {
+	names := append([]string(nil), BaseToolEnv...)
 	for _, name := range strings.Split(os.Getenv(ToolEnvPassthroughEnv), ",") {
 		if name = strings.TrimSpace(name); name != "" {
 			if strings.ContainsAny(name, "=\x00") {
-				return nil, &runtime.ToolError{Tool: sc.tool, Kind: runtime.ToolProcessFailed,
-					Detail: fmt.Sprintf("%s lists %q, which is not an environment variable name", ToolEnvPassthroughEnv, name)}
+				return nil, fmt.Errorf("%s lists %q, which is not an environment variable name", ToolEnvPassthroughEnv, name)
 			}
 			names = append(names, name)
 		}
+	}
+	return names, nil
+}
+
+// passthroughNames is ToolEnvNames for one invocation, a bad entry failing the process.
+func (inv *Invocation) passthroughNames(sc scope) ([]string, error) {
+	names, err := ToolEnvNames()
+	if err != nil {
+		return nil, &runtime.ToolError{Tool: sc.tool, Kind: runtime.ToolProcessFailed, Detail: err.Error()}
 	}
 	return names, nil
 }

@@ -129,7 +129,7 @@ func (m *migration) reachesUsage(e, owner *sysmlv1.Element) bool {
 	} else if selfType != nil && host.Parent != selfType {
 		return false
 	}
-	obj, _ := m.objectOf(owner, selfType, self)
+	obj, _, _ := m.objectOf(owner, selfType, self)
 	return obj != ""
 }
 
@@ -207,8 +207,10 @@ func (m *migration) readsOwner(b *sysmlv1.Element) bool {
 	m.walkActions(body, func(e *sysmlv1.Element) {
 		switch e.Type {
 		case "ControlFlow":
-			if p := m.probabilityProperty(body, e); p != nil && m.hasFeature(owner, p) {
-				reads = true
+			if p := m.probabilityProperty(body, e); p != nil {
+				if holder, _ := m.propertyHolder(p, owner, "this"); holder != "" {
+					reads = true
+				}
 			}
 		case "CallOperationAction":
 			if op := m.model.Ref(e, "operation"); op != nil && m.asUsage[op] && m.hasFeature(owner, op) {
@@ -248,6 +250,36 @@ func (m *migration) probabilityProperty(body, e *sysmlv1.Element) *sysmlv1.Eleme
 		return nil
 	}
 	return p
+}
+
+// propertyHolder spells the one object holding the property p in reach of a
+// body acting on self, an object of selfType: self itself when p is its
+// feature, else its one part that holds one, is exactly one object and is a
+// feature the object inherits. It is "" when no object in reach holds p, why
+// then saying so once the part that does is private to a general, which v2
+// does not inherit, or may hold several objects or none, or a number of them
+// that cannot be told, since a read through such a part is not one value.
+func (m *migration) propertyHolder(p, selfType *sysmlv1.Element, self string) (expr, why string) {
+	if p.Parent == nil || selfType == nil {
+		return "", ""
+	}
+	expr, part, _ := m.objectOf(p.Parent, selfType, self)
+	if part == nil {
+		return expr, ""
+	}
+	through := "the action acts on a " + qualifiedName(selfType) + ", whose one part that holds " + qualifiedName(p) + ", " + qualifiedName(part) + ", "
+	if part.Parent != selfType && m.hiddenFromHeirs(part) {
+		return "", through + "is a private feature of " + qualifiedName(part.Parent) + ", which v2 does not inherit, so it cannot be named on the object"
+	}
+	switch lower, upper, ok := bounds(part); {
+	case !ok:
+		return "", through + "has a multiplicity not written in numbers, so whether it holds one object cannot be told"
+	case upper != 1:
+		return "", through + "holds " + boundsText(lower, upper) + " objects, so a read through it is a collection, not one number"
+	case lower != 1:
+		return "", through + "holds " + boundsText(lower, upper) + " objects, so a read through it may find no number"
+	}
+	return expr, ""
 }
 
 // lifelinesOn reports whether a lifeline of the interaction b stands for a part

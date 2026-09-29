@@ -29,6 +29,7 @@ type bodyScope struct {
 	clash   string // why no lane applies, when partitions of different dimensions hold the scope
 	viaLane bool   // a name resolved against the lane's object
 	clock   string // the clock variable the body reads and who names it; "" when it does not
+	probe   bool   // an analysis asks what the names resolve to: nothing is spelled or recorded
 }
 
 // bodyScope makes the scope an opaque body read at scope is translated in.
@@ -103,7 +104,7 @@ func (s *bodyScope) feature(path []string, write bool) (opaqueRef, *refusal) {
 	if r != nil {
 		return opaqueRef{}, r
 	}
-	if path[0] == "this" && len(path) > 1 && m.selfContext(s.scope) == nil {
+	if path[0] == "this" && len(path) > 1 && !s.probe && m.selfContext(s.scope) == nil {
 		// In a usage the object has no name: `this.f` spells bare — or through
 		// the owning def where a nearer declaration shadows the name.
 		expr = m.respellThis("this."+expr, s.scope)
@@ -118,7 +119,7 @@ func (s *bodyScope) feature(path []string, write bool) (opaqueRef, *refusal) {
 		return opaqueRef{}, &refusal{kind: refusedConstruct, token: full,
 			why: carrier + " is a collection, so the assignment would write through several objects"}
 	}
-	if s.lane != nil && s.viaLane {
+	if s.lane != nil && s.viaLane && !s.probe {
 		m.useLane(s.scope, s.lane)
 	}
 	return opaqueRef{
@@ -165,10 +166,16 @@ func (s *bodyScope) thisAnchor(path []string, write bool) featureAnchor {
 	var a featureAnchor
 	switch {
 	case s.lane != nil && s.lane.expr != "" && s.lane.typ != nil:
-		a.expr, a.f, a.plural, a.carrier = m.anchorExpr(s.lane.expr, s.scope), s.lane.typ, s.lane.plural, s.lane.expr
+		a.f, a.plural, a.carrier = s.lane.typ, s.lane.plural, s.lane.expr
+		if !s.probe {
+			a.expr = m.anchorExpr(s.lane.expr, s.scope)
+		}
 		s.viaLane = true
 	case m.contextClassifier(s.scope) != nil:
-		a.expr, a.f = m.thisName(s.scope), m.contextClassifier(s.scope)
+		a.f = m.contextClassifier(s.scope)
+		if !s.probe {
+			a.expr = m.thisName(s.scope)
+		}
 		if c := m.selfContext(s.scope); c != nil {
 			// `this` inside the def is the object its context parameter holds.
 			a.f = c.classifier
@@ -194,14 +201,17 @@ func (s *bodyScope) thisAnchor(path []string, write bool) featureAnchor {
 func (s *bodyScope) scopeAnchor(path []string, write bool) featureAnchor {
 	m := s.m
 	name := path[0]
-	if lf := m.laneFeature(s.lane, name); lf != nil {
+	f, viaLane, hidden := s.lookup(name)
+	if viaLane {
 		s.viaLane = true
-		return featureAnchor{expr: joinDot(m.anchorExpr(s.lane.expr, s.scope), writeName(m.nameOf(lf))), f: lf, plural: s.lane.plural, carrier: s.lane.expr}
+		a := featureAnchor{f: f, plural: s.lane.plural, carrier: s.lane.expr}
+		if !s.probe {
+			a.expr = joinDot(m.anchorExpr(s.lane.expr, s.scope), writeName(m.nameOf(f)))
+		}
+		return a
 	}
-	visible, hidden := m.visibleFrom(s.scope)
-	f := visible[name]
 	// The clock variable is the tool's global; any feature of that name shadows it.
-	if by, clock := m.clockNames()[name]; clock && f == nil && hidden[name] == nil && len(path) == 1 {
+	if by, clock := m.clockNames()[name]; clock && f == nil && hidden == nil && len(path) == 1 {
 		if write {
 			return featureAnchor{refusal: &refusal{kind: refusedConstruct, token: name, why: "the simulation clock is read, never assigned"}}
 		}
@@ -209,9 +219,9 @@ func (s *bodyScope) scopeAnchor(path []string, write bool) featureAnchor {
 		return featureAnchor{res: &opaqueRef{expr: clockRead, scalar: "Real"}}
 	}
 	switch {
-	case f == nil && hidden[name] != nil:
+	case f == nil && hidden != nil:
 		return featureAnchor{refusal: &refusal{kind: refusedName, token: name,
-			why: "it is private to " + qualifiedName(hidden[name].Parent)}}
+			why: "it is private to " + qualifiedName(hidden.Parent)}}
 	case f == nil:
 		return featureAnchor{refusal: &refusal{kind: refusedName, token: name,
 			why: joinNotes("nothing visible from "+qualifiedName(s.scope)+" is called "+name, s.clash)}}
@@ -220,6 +230,9 @@ func (s *bodyScope) scopeAnchor(path []string, write bool) featureAnchor {
 			why: "it is " + kindOf(f) + " " + qualifiedName(f) + ", not a feature a body reads"}}
 	}
 	expr := writeName(m.nameOf(f))
+	if s.probe {
+		return featureAnchor{expr: expr, f: f}
+	}
 	if m.ownedByClassifier(f, s.scope) {
 		expr = m.ownerPrefix(s.scope) + expr
 	} else if c := m.selfContext(s.scope); c != nil {
@@ -229,6 +242,92 @@ func (s *bodyScope) scopeAnchor(path []string, write bool) featureAnchor {
 		}
 	}
 	return featureAnchor{expr: expr, f: f}
+}
+
+// lookup resolves a bare name at the scope to what a body reads by it: a
+// feature of the lane's object when the lane has one so named, else the
+// member the scope sees; hidden is the private member of the name that it
+// does not see.
+func (s *bodyScope) lookup(name string) (f *sysmlv1.Element, viaLane bool, hidden *sysmlv1.Element) {
+	if lf := s.m.laneFeature(s.lane, name); lf != nil {
+		return lf, true, nil
+	}
+	visible, hid := s.m.visibleFrom(s.scope)
+	return visible[name], false, hid[name]
+}
+
+// readsFeatureOf reports whether a bare name at the scope reads the object of
+// classifier c or a feature of it, resolved as a body's names are: `this` is
+// the object of the classifier the scope is in; a pin of the scope's node bears
+// the name first; a name the lane resolves reads the lane's object, which is
+// that object or one of its parts; else the name reads the member the scope
+// sees, when that is a feature of c.
+func (s *bodyScope) readsFeatureOf(name string, c *sysmlv1.Element) bool {
+	if name == "this" {
+		return s.m.contextClassifier(s.scope) == c
+	}
+	if s.m.pinCalled(s.scope, name) != nil {
+		return false
+	}
+	f, viaLane, _ := s.lookup(name)
+	if f == nil || (f.Type != "Property" && f.Type != "Port") {
+		return false
+	}
+	if viaLane {
+		return s.m.contextClassifier(s.scope) == c
+	}
+	return s.m.hasFeature(c, f)
+}
+
+// namesRead lists the first step of every name the translator resolves reading
+// body as the writer does — as the statements of an action, else as one
+// expression — a local the body declares being none. ok is false when the
+// translator does not read the body through: final then tells whether it
+// refused the body for good, the writer keeping it as a comment, or the writer
+// reads the body as v2 syntax instead, the language being none it translates.
+func (s *bodyScope) namesRead(body, lang string, statements bool) (names []string, ok, final bool) {
+	d := dialectOf(lang)
+	if d == dialectNone || statements && !d.script() {
+		return nil, false, false
+	}
+	r := &nameReads{s: s}
+	var err *refusal
+	if statements {
+		_, _, err = translateStatements(body, lang, r)
+	} else {
+		_, err = translateExpr(body, lang, r, wanted{})
+	}
+	if err != nil {
+		return nil, false, err.final(lang)
+	}
+	return r.names, true, false
+}
+
+// nameReads answers a body's names as the scope does, listing the first step
+// of each; a pin of the scope's node, declared only when the node is written,
+// answers as a value of no known type.
+type nameReads struct {
+	s     *bodyScope
+	names []string
+}
+
+func (r *nameReads) feature(path []string, write bool) (opaqueRef, *refusal) {
+	if r.s.m.pinCalled(r.s.scope, path[0]) != nil {
+		return opaqueRef{expr: strings.Join(path, ".")}, nil
+	}
+	r.names = append(r.names, path[0])
+	return r.s.feature(path, write)
+}
+
+func (r *nameReads) shadows(name string) bool { return r.s.shadows(name) }
+
+// shadows reports whether a declaration of name in the body would shadow a
+// feature the scope reads by it, spelling nothing.
+func (s *bodyScope) shadows(name string) bool {
+	probe := *s
+	probe.probe = true
+	_, err := probe.feature([]string{name}, false)
+	return err == nil
 }
 
 // featureSteps resolves each further step of path as a feature of the last object,
@@ -384,11 +483,15 @@ func (m *migration) notedAs(scope *sysmlv1.Element, v Verdict, note string) {
 
 // translatedExpr translates an opaque body as one expression read at scope
 // yielding what want asks for; the note is for the report and the refusal is
-// returned when the body has no v2 form, with the v2 text checked to parse.
+// returned when the body has no v2 form, with the v2 text checked to parse. A
+// body the translator refuses is kept as a comment, so the context parameters
+// spelling it marked used are unmarked again.
 func (m *migration) translatedExpr(body, lang string, scope *sysmlv1.Element, want wanted) (expr, note string, err *refusal) {
 	s := m.bodyScope(scope)
+	marked := len(m.marked)
 	expr, err = m.translateIn(body, lang, s, want)
 	if err != nil {
+		m.unmark(marked)
 		return "", "", err
 	}
 	return expr, s.note(lang), nil
@@ -411,16 +514,22 @@ func (m *migration) translateIn(body, lang string, sc featureResolver, want want
 // translatedStatements translates an opaque body as the statements of an action
 // body read at scope, each checked to parse; otherwise notes the assignments made
 // only when a value read admitting none holds one and the console prints left out.
+// As translatedExpr does, it unmarks what a refused body spelled.
 func (m *migration) translatedStatements(body, lang string, scope *sysmlv1.Element) (lines []string, note, otherwise string, err *refusal) {
 	s := m.bodyScope(scope)
+	marked := len(m.marked)
 	lines, notes, err := translateStatements(body, lang, s)
-	if err != nil {
-		return nil, "", "", err
-	}
-	for _, line := range lines {
-		if !parseStatement(line) {
-			return nil, "", "", &refusal{kind: refusedSyntax, token: body, why: "its translation " + strconv.Quote(line) + " is not v2 syntax"}
+	if err == nil {
+		for _, line := range lines {
+			if !parseStatement(line) {
+				err = &refusal{kind: refusedSyntax, token: body, why: "its translation " + strconv.Quote(line) + " is not v2 syntax"}
+				break
+			}
 		}
+	}
+	if err != nil {
+		m.unmark(marked)
+		return nil, "", "", err
 	}
 	if note = s.note(lang); note == "" {
 		note = "the body is translated to v2"

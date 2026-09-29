@@ -82,12 +82,12 @@ reads pipes properly for anything that speaks a protocol over its standard input
 `js` binaries run through the toolchain's `wasm_exec`, under Node or in a browser:
 
 ```bash
-node --stack-size=8192 "$(go env GOROOT)/lib/wasm/wasm_exec_node.js" bin/wasm/js/sysml.wasm -version
+node --stack-size=8192 --no-concurrent-sparkplug "$(go env GOROOT)/lib/wasm/wasm_exec_node.js" bin/wasm/js/sysml.wasm -version
 # the same, with the stack size the runner itself sets:
 "$(go env GOROOT)/lib/wasm/go_js_wasm_exec" bin/wasm/js/sysml.wasm -version
 ```
 
-Two constraints come from `wasm_exec.js` itself:
+Three constraints apply to `js` builds:
 
 - **argv and the environment share about 8 KiB.** It writes both into linear memory at a fixed
   offset and refuses past `wasmMinDataAddr`; a large environment fails before `main` runs with
@@ -95,6 +95,9 @@ Two constraints come from `wasm_exec.js` itself:
   environment — `PATH`, `HOME`, `TMPDIR` are enough for these commands.
 - **The stack needs raising.** Node's default JavaScript stack is too small for deep model
   traversal; `--stack-size=8192` is what Go's own runner passes.
+- **Node can hang at exit.** A command that exits right after starting (`-version`, say)
+  occasionally prints its output and then never exits: Node deadlocks while shutting down if its
+  background compiler is still running. `--no-concurrent-sparkplug` avoids it.
 
 In a browser, nothing wires a page's input to the module's standard input: an embedder provides
 that itself. The commands take their input from arguments and files, so the parts that need no
