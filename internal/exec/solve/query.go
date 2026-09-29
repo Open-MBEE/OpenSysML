@@ -3,6 +3,7 @@ package solve
 import (
 	"sort"
 
+	"github.com/Open-MBEE/OpenSysML/internal/semantic/semantics"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/symbols"
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/ast"
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/source"
@@ -248,6 +249,9 @@ type Query struct {
 	// declares them, which is the order they are optimized in; nil for a query
 	// that only asks about satisfiability.
 	Objectives []Objective
+
+	// model looks up redefined features when matching what a variable reads.
+	model *semantics.Model
 }
 
 // Optimizes reports whether the query asks for an optimum rather than only for

@@ -353,6 +353,7 @@ func (t *translator) query() *Query {
 	q.Assertions = append(q.Assertions, t.asserts...)
 	q.Pinned = t.pinned
 	q.Unread = t.unread
+	q.model = t.model
 	for _, obj := range t.objectives {
 		if obj.Unit == "" {
 			obj.Unit = t.baseUnits[obj.Dimension]

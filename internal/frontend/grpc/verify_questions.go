@@ -2,6 +2,7 @@ package grpc
 
 import (
 	"context"
+	"fmt"
 	"math"
 	"math/big"
 
@@ -150,7 +151,7 @@ func (v *verifyContext) symbolicElement(ctx context.Context, question, kind stri
 	if resolved != nil {
 		objectType = resolved.Type
 	}
-	pins, _ := solve.FixedFor(v.runtime, solve.Fixing{
+	pins, unfixed := solve.FixedFor(v.runtime, solve.Fixing{
 		Element:    sym,
 		Owner:      owningElement(sym),
 		Object:     resolved,
@@ -162,7 +163,7 @@ func (v *verifyContext) symbolicElement(ctx context.Context, question, kind stri
 		verdict.FailureReason = failureReason(err)
 		return verdict, resolved, nil
 	}
-	q, terr := v.translatedQuestion(translate, pins, resolved, read)
+	q, terr := v.translatedQuestion(translate, pins, unfixed, resolved, read)
 	var queries []*solve.Query
 	if terr == nil {
 		queries = []*solve.Query{q}
@@ -174,8 +175,9 @@ func (v *verifyContext) symbolicElement(ctx context.Context, question, kind stri
 // translatedQuestion translates the query once, reads the values the query's
 // chain variables name where the conditions would read them, then translates
 // again with those values pinned — a chain's value left free would answer
-// about assignments the model does not hold.
-func (v *verifyContext) translatedQuestion(translate func(*runtime.Context, []solve.Pin) (*solve.Query, error), pins []solve.Pin, resolved *runtime.Instance, read func(ast.Node, *symbols.Scope) (runtime.Value, error)) (*solve.Query, error) {
+// about assignments the model does not hold. A feature whose value read failed
+// and a variable of the query reads fails the question the way its read did.
+func (v *verifyContext) translatedQuestion(translate func(*runtime.Context, []solve.Pin) (*solve.Query, error), pins []solve.Pin, unfixed []solve.Unfixed, resolved *runtime.Instance, read func(ast.Node, *symbols.Scope) (runtime.Value, error)) (*solve.Query, error) {
 	q, err := translate(v.runtime, pins)
 	if err != nil {
 		return nil, err
@@ -187,6 +189,11 @@ func (v *verifyContext) translatedQuestion(translate func(*runtime.Context, []so
 	if len(chainPins) != 0 {
 		if q, err = translate(v.runtime, append(pins, chainPins...)); err != nil {
 			return nil, err
+		}
+	}
+	for _, u := range unfixed {
+		if q.Reads(u) {
+			return nil, fmt.Errorf("%s: %s", u.Name, u.Reason)
 		}
 	}
 	return q, nil
@@ -254,7 +261,7 @@ func (v *verifyContext) symbolicSatisfy(ctx context.Context, question string, a 
 	if resolved != nil {
 		objectType = resolved.Type
 	}
-	pins, _ := solve.FixedFor(v.runtime, solve.Fixing{
+	pins, unfixed := solve.FixedFor(v.runtime, solve.Fixing{
 		Element:    a.Symbol,
 		Owner:      owningElement(a.Symbol),
 		Object:     resolved,
@@ -272,7 +279,7 @@ func (v *verifyContext) symbolicSatisfy(ctx context.Context, question string, a 
 			return solve.SatisfactionViolation(rt, a, pins)
 		}
 		return solve.SatisfactionWith(rt, a, pins)
-	}, pins, resolved, read)
+	}, pins, unfixed, resolved, read)
 	var queries []*solve.Query
 	if terr == nil {
 		queries = []*solve.Query{q}

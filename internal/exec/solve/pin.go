@@ -669,3 +669,34 @@ func ChainPins(ctx *runtime.Context, q *Query, self *runtime.Instance, read func
 	}
 	return out, nil
 }
+
+// Reads reports whether a variable of the query reads the feature whose value
+// could not be read — under its own name or a redefinition's, or a two-step
+// chain rooted at the subject or the owning usage, the match pinnedVar applies
+// to a pin. An unfixed feature no variable reads leaves the query untouched.
+func (q *Query) Reads(u Unfixed) bool {
+	if u.Feature == nil || q.model == nil {
+		return false
+	}
+	features := append([]*symbols.Symbol{u.Feature}, q.model.AllRedefinedFeatures(u.Feature)...)
+	for _, v := range q.Vars {
+		for _, sym := range features {
+			if v.Symbol != sym {
+				continue
+			}
+			if len(v.Steps) < 2 {
+				return true
+			}
+			if v.Root == nil || v.Root == v.Symbol {
+				continue
+			}
+			if _, subject := v.Root.Decl.(*ast.SubjectMember); subject {
+				return true
+			}
+			if u.Feature.OwnerScope != nil && u.Feature.OwnerScope.Owner() == v.Root {
+				return true
+			}
+		}
+	}
+	return false
+}

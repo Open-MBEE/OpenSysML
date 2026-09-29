@@ -701,3 +701,37 @@ func TestVerifyQuestionsReadsChainsThroughTheBoundSubject(t *testing.T) {
 		t.Fatalf("holds r on craft: status=%q error=%q, want violated — vehicle is unbound", req.Verdict.Status, req.Verdict.Error)
 	}
 }
+
+// failingReadModelSource declares a default the evaluator cannot read, beside
+// one it can, so a question about the failing feature is undecided while one
+// about another answers.
+const failingReadModelSource = `package P {
+	private import ScalarValues::*;
+	part hg {
+		attribute level : Real = 1.0 / 0.0;
+		attribute good : Real = 5.0;
+		assert constraint c { level >= 0.0 }
+		assert constraint fine { good > 0.0 }
+	}
+}
+`
+
+// TestVerifyQuestionsUnfixedReadIsUndecided: a fixed value whose read fails —
+// a zero divisor in the declared default — makes a question about it undecided
+// with that error, while a feature the query does not read fails nothing.
+func TestVerifyQuestionsUnfixedReadIsUndecided(t *testing.T) {
+	requireSolver(t)
+	srv := mustNewService(t, 10)
+	hash := mustVerifyModel(t, srv, failingReadModelSource, "verify-unfixed-read")
+
+	for _, question := range []string{"holds", "satisfiable", "evaluate"} {
+		resp := verifyQuestion(t, srv, hash, "P::hg::c", question, "", "")
+		if resp.Verdict.Status != statusUndecided || resp.Verdict.Error == "" {
+			t.Fatalf("c %s: status=%q error=%q, want undecided with the read error", question, resp.Verdict.Status, resp.Verdict.Error)
+		}
+	}
+	resp := verifyQuestion(t, srv, hash, "P::hg::fine", "holds", "", "")
+	if resp.Verdict.Status != statusHolds || !resp.Verdict.Holds {
+		t.Fatalf("fine: status=%q holds=%v error=%q, want proved holds — level is not read", resp.Verdict.Status, resp.Verdict.Holds, resp.Verdict.Error)
+	}
+}
