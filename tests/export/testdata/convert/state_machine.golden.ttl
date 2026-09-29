@@ -655,6 +655,10 @@ elmt:StateMachine__VehicleStates__active___401___40trigger_om
 elmt:StateMachine__VehicleStates__active___401___40trigger__sig
     a sysml:ReferenceUsage ;
     sysml:qualifiedName "StateMachine::VehicleStates::active::@1::@trigger::sig" ;
+    sysx:sourceLine "17"^^xsd:integer ;
+    sysx:sourceColumn "20"^^xsd:integer ;
+    sysx:sourceEndLine "17"^^xsd:integer ;
+    sysx:sourceEndColumn "32"^^xsd:integer ;
     sysml:elementId "StateMachine__VehicleStates__active___401___40trigger__sig" ;
     sysx:memberIndex "0"^^xsd:integer ;
     sysml:owningNamespace elmt:StateMachine__VehicleStates__active___401___40trigger ;
@@ -846,6 +850,10 @@ elmt:StateMachine__VehicleStates__off_5fto_5fstart___40trigger_om
 elmt:StateMachine__VehicleStates__off_5fto_5fstart___40trigger__sig
     a sysml:ReferenceUsage ;
     sysml:qualifiedName "StateMachine::VehicleStates::off_to_start::@trigger::sig" ;
+    sysx:sourceLine "19"^^xsd:integer ;
+    sysx:sourceColumn "50"^^xsd:integer ;
+    sysx:sourceEndLine "19"^^xsd:integer ;
+    sysx:sourceEndColumn "62"^^xsd:integer ;
     sysml:elementId "StateMachine__VehicleStates__off_5fto_5fstart___40trigger__sig" ;
     sysx:memberIndex "0"^^xsd:integer ;
     sysml:owningNamespace elmt:StateMachine__VehicleStates__off_5fto_5fstart___40trigger ;
@@ -1221,6 +1229,10 @@ elmt:StateMachine__VehicleStates__active_5fto_5foff___40trigger_om
 elmt:StateMachine__VehicleStates__active_5fto_5foff___40trigger__sig
     a sysml:ReferenceUsage ;
     sysml:qualifiedName "StateMachine::VehicleStates::active_to_off::@trigger::sig" ;
+    sysx:sourceLine "21"^^xsd:integer ;
+    sysx:sourceColumn "54"^^xsd:integer ;
+    sysx:sourceEndLine "21"^^xsd:integer ;
+    sysx:sourceEndColumn "66"^^xsd:integer ;
     sysml:elementId "StateMachine__VehicleStates__active_5fto_5foff___40trigger__sig" ;
     sysx:memberIndex "0"^^xsd:integer ;
     sysml:owningNamespace elmt:StateMachine__VehicleStates__active_5fto_5foff___40trigger ;
@@ -1254,6 +1266,10 @@ elmt:StateMachine__VehicleStates__active_5fto_5foff___40trigger__sig_om
 elmt:StateMachine__VehicleStates__active_5fto_5foff___40trigger___401
     a sysml:ReferenceUsage ;
     sysml:qualifiedName "StateMachine::VehicleStates::active_to_off::@trigger::@1" ;
+    sysx:sourceLine "21"^^xsd:integer ;
+    sysx:sourceColumn "71"^^xsd:integer ;
+    sysx:sourceEndLine "21"^^xsd:integer ;
+    sysx:sourceEndColumn "75"^^xsd:integer ;
     sysml:elementId "StateMachine__VehicleStates__active_5fto_5foff___40trigger___401" ;
     sysx:memberIndex "1"^^xsd:integer ;
     sysml:owningNamespace elmt:StateMachine__VehicleStates__active_5fto_5foff___40trigger ;
