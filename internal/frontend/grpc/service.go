@@ -716,9 +716,18 @@ func (s *Service) parseModel(inputs []sourceInput, mode diag.ConformanceMode) (s
 	idx.ExpandWildcardImports()
 
 	if parsedClean {
+		// One batch over the model, as a workspace analyzes one: the index is
+		// linked once and the workspace-wide audits gather once, where a context
+		// of its own per document gathered them over every document again.
+		names := make([]string, len(inputs))
+		for i, input := range inputs {
+			names[i] = input.name
+		}
+		batch := &passes.Batch{Documents: names, Gathers: passes.NewGathers()}
+		passes.PrepareBatch(idx, batch)
 		for i, doc := range documents {
-			doc.PassesDiags = passes.AnalyzeWithOptions(inputs[i].name, inputs[i].kind, doc.Root,
-				make([]diag.Diagnostic, 0), idx, passes.Options{Conformance: mode})
+			doc.PassesDiags, _ = passes.AnalyzeInBatch(inputs[i].name, inputs[i].kind, doc.Root,
+				make([]diag.Diagnostic, 0), idx, passes.Options{Conformance: mode}, batch)
 		}
 	}
 
