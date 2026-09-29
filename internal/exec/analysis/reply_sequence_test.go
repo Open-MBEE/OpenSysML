@@ -146,8 +146,8 @@ func TestRenderReplySequence(t *testing.T) {
 		}},
 		"note": {Text: "ok"},
 	}
-	if got, want := renderReply(reply), `note="ok" speeds=(36.0, 72) [km/h]`; got != want {
-		t.Errorf("renderReply = %q, want %q", got, want)
+	if got, want := RenderReply(reply), `note="ok" speeds=(36.0, 72) [km/h]`; got != want {
+		t.Errorf("RenderReply = %q, want %q", got, want)
 	}
 }
 
