@@ -52,6 +52,15 @@ func addTransitionOp(owner, name, source, target, trigger, guard, effect string,
 	}}
 }
 
+func addImportOp(owner, visibility, target string, recursive, all bool, filters []string) *pb.EditOperation {
+	return &pb.EditOperation{Operation: &pb.EditOperation_AddImport{
+		AddImport: &pb.AddImportEdit{
+			Owner: owner, Visibility: visibility, Target: target,
+			IsRecursive: recursive, IsImportAll: all, Filters: filters,
+		},
+	}}
+}
+
 func addDocumentationOp(target, body string, replace bool) *pb.EditOperation {
 	return &pb.EditOperation{Operation: &pb.EditOperation_AddDocumentation{
 		AddDocumentation: &pb.AddDocumentationEdit{Target: target, Body: body, Replace: replace},
@@ -312,6 +321,63 @@ func TestApplyEditsAddTransitionRequiresTransitionAuthoring(t *testing.T) {
 	}
 }
 
+func TestApplyEditsAddImportRequiresImportAuthoring(t *testing.T) {
+	srv := mustNewServiceWithout(t, CapabilityImportAuthoring)
+	ctx := context.Background()
+	hash := mustParsedModel(t, srv, "package P {\n}\n")
+	_, err := srv.ApplyEdits(ctx, &pb.ApplyEditsRequest{
+		ModelHash: hash,
+		Operations: []*pb.EditOperation{
+			addImportOp("P", "", "ScalarValues::*", false, false, nil),
+		},
+	})
+	if connect.CodeOf(err) != connect.CodeUnimplemented ||
+		!strings.Contains(err.Error(), CapabilityImportAuthoring) {
+		t.Fatalf("ApplyEdits refusal = %v, want UNIMPLEMENTED naming %q", err, CapabilityImportAuthoring)
+	}
+
+	added, err := srv.ApplyEdits(ctx, &pb.ApplyEditsRequest{
+		ModelHash: hash, Operations: []*pb.EditOperation{addMemberOp("P", "part", "a")},
+	})
+	if err != nil {
+		t.Fatalf("ApplyEdits add_member: %v", err)
+	}
+	if added.Error != "" || !strings.Contains(added.Content, "part a") {
+		t.Fatalf("add_member response = %+v, want the new part", added)
+	}
+}
+
+func TestApplyEditsAddImportWritesAndRefuses(t *testing.T) {
+	srv := mustNewService(t, 10)
+	ctx := context.Background()
+	hash := mustParsedModel(t, srv, "package P {\n}\n")
+	added, err := srv.ApplyEdits(ctx, &pb.ApplyEditsRequest{
+		ModelHash: hash,
+		Operations: []*pb.EditOperation{
+			addImportOp("P", "", "ScalarValues::*", false, false, nil),
+		},
+	})
+	if err != nil {
+		t.Fatalf("ApplyEdits: %v", err)
+	}
+	if added.Error != "" || !strings.Contains(added.Content, "private import ScalarValues::*;") {
+		t.Fatalf("add_import response = %+v, want the import written", added)
+	}
+
+	refused, err := srv.ApplyEdits(ctx, &pb.ApplyEditsRequest{
+		ModelHash: hash,
+		Operations: []*pb.EditOperation{
+			addImportOp("P", "", "Nope::*", false, false, nil),
+		},
+	})
+	if err != nil {
+		t.Fatalf("ApplyEdits refusal: %v", err)
+	}
+	if refused.Error == "" || refused.Content != "" {
+		t.Fatalf("unresolved import response = %+v, want an in-band refusal", refused)
+	}
+}
+
 func TestApplyEditsNewAuthoringOperationsRequireDedicatedCapabilities(t *testing.T) {
 	tests := []struct {
 		name       string
@@ -346,6 +412,11 @@ func TestApplyEditsNewAuthoringOperationsRequireDedicatedCapabilities(t *testing
 			name:       "transition",
 			capability: CapabilityTransitionAuthoring,
 			operation:  addTransitionOp("Demo::S", "", "idle", "idle", "", "", "", false),
+		},
+		{
+			name:       "import",
+			capability: CapabilityImportAuthoring,
+			operation:  addImportOp("Demo", "", "ScalarValues::*", false, false, nil),
 		},
 		{
 			name:       "documentation",
@@ -563,7 +634,8 @@ func TestGetServerInfoAuthoringCapabilities(t *testing.T) {
 		CapabilityAuthoring, CapabilityConnectionAuthoring,
 		CapabilitySatisfyAuthoring, CapabilityRequirementConstraintAuthoring,
 		CapabilityMemberModifiers, CapabilityTransitionAuthoring, CapabilityInlineLanguage,
-		CapabilityDocumentationAuthoring, CapabilityCommentAuthoring,
+		CapabilityImportAuthoring, CapabilityDocumentationAuthoring,
+		CapabilityCommentAuthoring,
 	} {
 		if !slices.Contains(info.Capabilities, capability) {
 			t.Errorf("capabilities = %v, want %q", info.Capabilities, capability)

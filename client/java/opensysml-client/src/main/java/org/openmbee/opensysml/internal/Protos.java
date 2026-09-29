@@ -1059,6 +1059,16 @@ public final class Protos {
       addTransition.guard().ifPresent(add::setGuard);
       addTransition.effect().ifPresent(add::setEffect);
       builder.setAddTransition(add);
+    } else if (edit instanceof Edit.AddImport addImport) {
+      org.openmbee.opensysml.proto.AddImportEdit.Builder add =
+          org.openmbee.opensysml.proto.AddImportEdit.newBuilder()
+              .setOwner(addImport.owner())
+              .setVisibility(addImport.visibility())
+              .setTarget(addImport.target())
+              .setIsRecursive(addImport.recursive())
+              .setIsImportAll(addImport.all())
+              .addAllFilters(addImport.filters());
+      builder.setAddImport(add);
     } else if (edit instanceof Edit.AddDocumentation addDocumentation) {
       org.openmbee.opensysml.proto.AddDocumentationEdit.Builder add =
           org.openmbee.opensysml.proto.AddDocumentationEdit.newBuilder()

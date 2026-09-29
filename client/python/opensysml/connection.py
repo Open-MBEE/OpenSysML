@@ -20,6 +20,7 @@ from opensysml.capabilities import (
     CAPABILITY_REQUIREMENT_CONSTRAINT_AUTHORING,
     CAPABILITY_SATISFY_AUTHORING,
     CAPABILITY_TRANSITION_AUTHORING,
+    CAPABILITY_IMPORT_AUTHORING,
     CAPABILITY_DOCUMENTATION_AUTHORING,
     CAPABILITY_COMMENT_AUTHORING,
     CAPABILITY_INLINE_LANGUAGE,
@@ -960,10 +961,10 @@ class Connection:
                 ``('rename', target, new_name)`` tuples, as
                 :class:`~opensysml.edit.Editor` collects them, along with
                 ``('add_connection', owner, kind, from_end, to_end, name, type)``
-                ``('add_documentation', target, body, name, locale, replace)``,
+                and ``('add_import', owner, visibility, target, recursive, import_all, filters)``
+                and ``('add_documentation', target, body, name, locale, replace)``,
                 ``('add_comment', owner, body, name, about, locale)`` (``about`` a list
-                or tuple of names) and
-                ``('add_note', target, text)``
+                or tuple of names) and ``('add_note', target, text)``
 
         Returns:
             EditResult: The edited notation and what each operation changed
@@ -985,6 +986,7 @@ class Connection:
         requests_satisfy_authoring = False
         requests_requirement_constraint_authoring = False
         requests_transition_authoring = False
+        requests_import_authoring = False
         requests_documentation_authoring = False
         requests_comment_authoring = False
         for operation_data in operations:
@@ -1121,6 +1123,31 @@ class Connection:
                 add.owner, add.name, add.source, add.target = owner, name, source, target
                 add.trigger, add.guard, add.effect = trigger, guard, effect
                 add.initial = initial
+            elif kind == 'add_import':
+                if len(operation_data) != 7:
+                    raise ValueError("malformed add_import operation: expected 7 fields")
+                (
+                    _, owner, visibility, target, recursive, import_all, filters
+                ) = operation_data
+                if not all(isinstance(text, str) for text in (
+                    owner, visibility, target
+                )) or not isinstance(recursive, bool) or \
+                        not isinstance(import_all, bool) or \
+                        not isinstance(filters, tuple) or \
+                        not all(isinstance(text, str) for text in filters):
+                    raise ValueError("malformed add_import operation: text fields, recursive, import_all and filters must be valid")
+                require(info, CAPABILITY_AUTHORING, upgrade_remedy(CAPABILITY_AUTHORING))
+                require(
+                    info,
+                    CAPABILITY_IMPORT_AUTHORING,
+                    upgrade_remedy(CAPABILITY_IMPORT_AUTHORING),
+                )
+                requests_authoring = True
+                requests_import_authoring = True
+                add = operation.add_import
+                add.owner, add.visibility, add.target = owner, visibility, target
+                add.is_recursive, add.is_import_all = recursive, import_all
+                add.filters.extend(filters)
             elif kind == 'add_documentation':
                 if len(operation_data) != 6:
                     raise ValueError("malformed add_documentation operation: expected 6 fields")
@@ -1202,8 +1229,8 @@ class Connection:
                 raise ValueError(
                     f"unknown edit operation {kind!r}: expected set_value, rename, "
                     f"add_member, add_connection, add_satisfy, "
-                    f"add_requirement_constraint, add_transition, add_documentation, "
-                    f"add_comment, add_note, delete or move"
+                    f"add_requirement_constraint, add_transition, add_import, "
+                    f"add_documentation, add_comment, add_note, delete or move"
                 )
 
         requested_capabilities = [CAPABILITY_APPLY_EDITS]
@@ -1217,6 +1244,8 @@ class Connection:
             requested_capabilities.append(CAPABILITY_REQUIREMENT_CONSTRAINT_AUTHORING)
         if requests_transition_authoring:
             requested_capabilities.append(CAPABILITY_TRANSITION_AUTHORING)
+        if requests_import_authoring:
+            requested_capabilities.append(CAPABILITY_IMPORT_AUTHORING)
         if requests_documentation_authoring:
             requested_capabilities.append(CAPABILITY_DOCUMENTATION_AUTHORING)
         if requests_comment_authoring:

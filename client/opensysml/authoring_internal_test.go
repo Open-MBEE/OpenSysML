@@ -145,6 +145,18 @@ func TestNewAuthoringOperationsAreNotSentWithoutTheirCapabilities(t *testing.T) 
 			capabilities: []string{CapabilityApplyEdits, CapabilityTransitionAuthoring},
 			missing:      CapabilityAuthoring,
 		},
+		{
+			name:         "import operation",
+			operation:    AddImport{Owner: "Demo", Target: "ScalarValues::*"},
+			capabilities: []string{CapabilityApplyEdits, CapabilityAuthoring},
+			missing:      CapabilityImportAuthoring,
+		},
+		{
+			name:         "import requires authoring",
+			operation:    AddImport{Owner: "Demo", Target: "ScalarValues::*"},
+			capabilities: []string{CapabilityApplyEdits, CapabilityImportAuthoring},
+			missing:      CapabilityAuthoring,
+		},
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
@@ -258,5 +270,20 @@ func TestNewAuthoringOperationsMapToProto(t *testing.T) {
 	if got := entryOperation.GetAddTransition(); got == nil ||
 		got.GetOwner() != "Demo::S" || got.GetTarget() != "idle" || !got.GetInitial() {
 		t.Fatalf("AddEntryTransition mapping = %+v", got)
+	}
+
+	importOperation, err := editToProto(AddImport{
+		Owner: "Demo", Visibility: "public", Target: "ScalarValues::*",
+		Recursive: true, All: true, Filters: []string{"@Safety", "@Approved"},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got := importOperation.GetAddImport(); got == nil ||
+		got.GetOwner() != "Demo" || got.GetVisibility() != "public" ||
+		got.GetTarget() != "ScalarValues::*" || !got.GetIsRecursive() ||
+		!got.GetIsImportAll() || len(got.GetFilters()) != 2 ||
+		got.GetFilters()[0] != "@Safety" || got.GetFilters()[1] != "@Approved" {
+		t.Fatalf("AddImport mapping = %+v", got)
 	}
 }

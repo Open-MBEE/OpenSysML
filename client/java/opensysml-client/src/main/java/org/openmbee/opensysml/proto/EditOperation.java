@@ -62,6 +62,7 @@ private static final long serialVersionUID = 0L;
     ADD_SATISFY(7),
     ADD_REQUIREMENT_CONSTRAINT(8),
     ADD_TRANSITION(9),
+    ADD_IMPORT(10),
     ADD_DOCUMENTATION(11),
     ADD_COMMENT(16),
     ADD_NOTE(18),
@@ -91,6 +92,7 @@ private static final long serialVersionUID = 0L;
         case 7: return ADD_SATISFY;
         case 8: return ADD_REQUIREMENT_CONSTRAINT;
         case 9: return ADD_TRANSITION;
+        case 10: return ADD_IMPORT;
         case 11: return ADD_DOCUMENTATION;
         case 16: return ADD_COMMENT;
         case 18: return ADD_NOTE;
@@ -388,6 +390,37 @@ private static final long serialVersionUID = 0L;
     return org.openmbee.opensysml.proto.AddTransitionEdit.getDefaultInstance();
   }
 
+  public static final int ADD_IMPORT_FIELD_NUMBER = 10;
+  /**
+   * <code>.sysml.AddImportEdit add_import = 10 [json_name = "addImport"];</code>
+   * @return Whether the addImport field is set.
+   */
+  @java.lang.Override
+  public boolean hasAddImport() {
+    return operationCase_ == 10;
+  }
+  /**
+   * <code>.sysml.AddImportEdit add_import = 10 [json_name = "addImport"];</code>
+   * @return The addImport.
+   */
+  @java.lang.Override
+  public org.openmbee.opensysml.proto.AddImportEdit getAddImport() {
+    if (operationCase_ == 10) {
+       return (org.openmbee.opensysml.proto.AddImportEdit) operation_;
+    }
+    return org.openmbee.opensysml.proto.AddImportEdit.getDefaultInstance();
+  }
+  /**
+   * <code>.sysml.AddImportEdit add_import = 10 [json_name = "addImport"];</code>
+   */
+  @java.lang.Override
+  public org.openmbee.opensysml.proto.AddImportEditOrBuilder getAddImportOrBuilder() {
+    if (operationCase_ == 10) {
+       return (org.openmbee.opensysml.proto.AddImportEdit) operation_;
+    }
+    return org.openmbee.opensysml.proto.AddImportEdit.getDefaultInstance();
+  }
+
   public static final int ADD_DOCUMENTATION_FIELD_NUMBER = 11;
   /**
    * <code>.sysml.AddDocumentationEdit add_documentation = 11 [json_name = "addDocumentation"];</code>
@@ -522,6 +555,9 @@ private static final long serialVersionUID = 0L;
     if (operationCase_ == 9) {
       output.writeMessage(9, (org.openmbee.opensysml.proto.AddTransitionEdit) operation_);
     }
+    if (operationCase_ == 10) {
+      output.writeMessage(10, (org.openmbee.opensysml.proto.AddImportEdit) operation_);
+    }
     if (operationCase_ == 11) {
       output.writeMessage(11, (org.openmbee.opensysml.proto.AddDocumentationEdit) operation_);
     }
@@ -575,6 +611,10 @@ private static final long serialVersionUID = 0L;
     if (operationCase_ == 9) {
       size += com.google.protobuf.CodedOutputStream
         .computeMessageSize(9, (org.openmbee.opensysml.proto.AddTransitionEdit) operation_);
+    }
+    if (operationCase_ == 10) {
+      size += com.google.protobuf.CodedOutputStream
+        .computeMessageSize(10, (org.openmbee.opensysml.proto.AddImportEdit) operation_);
     }
     if (operationCase_ == 11) {
       size += com.google.protobuf.CodedOutputStream
@@ -641,6 +681,10 @@ private static final long serialVersionUID = 0L;
         if (!getAddTransition()
             .equals(other.getAddTransition())) return false;
         break;
+      case 10:
+        if (!getAddImport()
+            .equals(other.getAddImport())) return false;
+        break;
       case 11:
         if (!getAddDocumentation()
             .equals(other.getAddDocumentation())) return false;
@@ -703,6 +747,10 @@ private static final long serialVersionUID = 0L;
       case 9:
         hash = (37 * hash) + ADD_TRANSITION_FIELD_NUMBER;
         hash = (53 * hash) + getAddTransition().hashCode();
+        break;
+      case 10:
+        hash = (37 * hash) + ADD_IMPORT_FIELD_NUMBER;
+        hash = (53 * hash) + getAddImport().hashCode();
         break;
       case 11:
         hash = (37 * hash) + ADD_DOCUMENTATION_FIELD_NUMBER;
@@ -881,6 +929,9 @@ private static final long serialVersionUID = 0L;
       if (addTransitionBuilder_ != null) {
         addTransitionBuilder_.clear();
       }
+      if (addImportBuilder_ != null) {
+        addImportBuilder_.clear();
+      }
       if (addDocumentationBuilder_ != null) {
         addDocumentationBuilder_.clear();
       }
@@ -967,6 +1018,10 @@ private static final long serialVersionUID = 0L;
           addTransitionBuilder_ != null) {
         result.operation_ = addTransitionBuilder_.build();
       }
+      if (operationCase_ == 10 &&
+          addImportBuilder_ != null) {
+        result.operation_ = addImportBuilder_.build();
+      }
       if (operationCase_ == 11 &&
           addDocumentationBuilder_ != null) {
         result.operation_ = addDocumentationBuilder_.build();
@@ -1028,6 +1083,10 @@ private static final long serialVersionUID = 0L;
         }
         case ADD_TRANSITION: {
           mergeAddTransition(other.getAddTransition());
+          break;
+        }
+        case ADD_IMPORT: {
+          mergeAddImport(other.getAddImport());
           break;
         }
         case ADD_DOCUMENTATION: {
@@ -1135,6 +1194,13 @@ private static final long serialVersionUID = 0L;
               operationCase_ = 9;
               break;
             } // case 74
+            case 82: {
+              input.readMessage(
+                  internalGetAddImportFieldBuilder().getBuilder(),
+                  extensionRegistry);
+              operationCase_ = 10;
+              break;
+            } // case 82
             case 90: {
               input.readMessage(
                   internalGetAddDocumentationFieldBuilder().getBuilder(),
@@ -2464,6 +2530,148 @@ private static final long serialVersionUID = 0L;
       operationCase_ = 9;
       onChanged();
       return addTransitionBuilder_;
+    }
+
+    private com.google.protobuf.SingleFieldBuilder<
+        org.openmbee.opensysml.proto.AddImportEdit, org.openmbee.opensysml.proto.AddImportEdit.Builder, org.openmbee.opensysml.proto.AddImportEditOrBuilder> addImportBuilder_;
+    /**
+     * <code>.sysml.AddImportEdit add_import = 10 [json_name = "addImport"];</code>
+     * @return Whether the addImport field is set.
+     */
+    @java.lang.Override
+    public boolean hasAddImport() {
+      return operationCase_ == 10;
+    }
+    /**
+     * <code>.sysml.AddImportEdit add_import = 10 [json_name = "addImport"];</code>
+     * @return The addImport.
+     */
+    @java.lang.Override
+    public org.openmbee.opensysml.proto.AddImportEdit getAddImport() {
+      if (addImportBuilder_ == null) {
+        if (operationCase_ == 10) {
+          return (org.openmbee.opensysml.proto.AddImportEdit) operation_;
+        }
+        return org.openmbee.opensysml.proto.AddImportEdit.getDefaultInstance();
+      } else {
+        if (operationCase_ == 10) {
+          return addImportBuilder_.getMessage();
+        }
+        return org.openmbee.opensysml.proto.AddImportEdit.getDefaultInstance();
+      }
+    }
+    /**
+     * <code>.sysml.AddImportEdit add_import = 10 [json_name = "addImport"];</code>
+     */
+    public Builder setAddImport(org.openmbee.opensysml.proto.AddImportEdit value) {
+      if (addImportBuilder_ == null) {
+        if (value == null) {
+          throw new NullPointerException();
+        }
+        operation_ = value;
+        onChanged();
+      } else {
+        addImportBuilder_.setMessage(value);
+      }
+      operationCase_ = 10;
+      return this;
+    }
+    /**
+     * <code>.sysml.AddImportEdit add_import = 10 [json_name = "addImport"];</code>
+     */
+    public Builder setAddImport(
+        org.openmbee.opensysml.proto.AddImportEdit.Builder builderForValue) {
+      if (addImportBuilder_ == null) {
+        operation_ = builderForValue.build();
+        onChanged();
+      } else {
+        addImportBuilder_.setMessage(builderForValue.build());
+      }
+      operationCase_ = 10;
+      return this;
+    }
+    /**
+     * <code>.sysml.AddImportEdit add_import = 10 [json_name = "addImport"];</code>
+     */
+    public Builder mergeAddImport(org.openmbee.opensysml.proto.AddImportEdit value) {
+      if (addImportBuilder_ == null) {
+        if (operationCase_ == 10 &&
+            operation_ != org.openmbee.opensysml.proto.AddImportEdit.getDefaultInstance()) {
+          operation_ = org.openmbee.opensysml.proto.AddImportEdit.newBuilder((org.openmbee.opensysml.proto.AddImportEdit) operation_)
+              .mergeFrom(value).buildPartial();
+        } else {
+          operation_ = value;
+        }
+        onChanged();
+      } else {
+        if (operationCase_ == 10) {
+          addImportBuilder_.mergeFrom(value);
+        } else {
+          addImportBuilder_.setMessage(value);
+        }
+      }
+      operationCase_ = 10;
+      return this;
+    }
+    /**
+     * <code>.sysml.AddImportEdit add_import = 10 [json_name = "addImport"];</code>
+     */
+    public Builder clearAddImport() {
+      if (addImportBuilder_ == null) {
+        if (operationCase_ == 10) {
+          operationCase_ = 0;
+          operation_ = null;
+          onChanged();
+        }
+      } else {
+        if (operationCase_ == 10) {
+          operationCase_ = 0;
+          operation_ = null;
+        }
+        addImportBuilder_.clear();
+      }
+      return this;
+    }
+    /**
+     * <code>.sysml.AddImportEdit add_import = 10 [json_name = "addImport"];</code>
+     */
+    public org.openmbee.opensysml.proto.AddImportEdit.Builder getAddImportBuilder() {
+      return internalGetAddImportFieldBuilder().getBuilder();
+    }
+    /**
+     * <code>.sysml.AddImportEdit add_import = 10 [json_name = "addImport"];</code>
+     */
+    @java.lang.Override
+    public org.openmbee.opensysml.proto.AddImportEditOrBuilder getAddImportOrBuilder() {
+      if ((operationCase_ == 10) && (addImportBuilder_ != null)) {
+        return addImportBuilder_.getMessageOrBuilder();
+      } else {
+        if (operationCase_ == 10) {
+          return (org.openmbee.opensysml.proto.AddImportEdit) operation_;
+        }
+        return org.openmbee.opensysml.proto.AddImportEdit.getDefaultInstance();
+      }
+    }
+    /**
+     * <code>.sysml.AddImportEdit add_import = 10 [json_name = "addImport"];</code>
+     */
+    private com.google.protobuf.SingleFieldBuilder<
+        org.openmbee.opensysml.proto.AddImportEdit, org.openmbee.opensysml.proto.AddImportEdit.Builder, org.openmbee.opensysml.proto.AddImportEditOrBuilder> 
+        internalGetAddImportFieldBuilder() {
+      if (addImportBuilder_ == null) {
+        if (!(operationCase_ == 10)) {
+          operation_ = org.openmbee.opensysml.proto.AddImportEdit.getDefaultInstance();
+        }
+        addImportBuilder_ = new com.google.protobuf.SingleFieldBuilder<
+            org.openmbee.opensysml.proto.AddImportEdit, org.openmbee.opensysml.proto.AddImportEdit.Builder, org.openmbee.opensysml.proto.AddImportEditOrBuilder>(
+                (org.openmbee.opensysml.proto.AddImportEdit) operation_,
+                getParentForChildren(),
+                isClean());
+        operation_ = null;
+      }
+      operationCase_ = 10;
+      onChanged();
+      return addImportBuilder_;
     }
 
     private com.google.protobuf.SingleFieldBuilder<

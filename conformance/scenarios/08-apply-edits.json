@@ -323,6 +323,87 @@
       }
     },
     {
+      "id": "apply_edits/import_declarations_are_written",
+      "rpc": "ApplyEdits",
+      "requires_capabilities": [
+        "apply_edits",
+        "authoring",
+        "import_authoring"
+      ],
+      "model": {
+        "fixture": "apply_edits_import.sysml"
+      },
+      "request": {
+        "model_hash": "${model_hash}",
+        "operations": [
+          {
+            "add_import": {
+              "owner": "ToasterDemo",
+              "target": "ScalarValues::*"
+            }
+          },
+          {
+            "add_import": {
+              "owner": "ToasterDemo",
+              "target": "ISQ::*",
+              "is_import_all": true
+            }
+          }
+        ]
+      },
+      "expect": {
+        "contains_all": {
+          "content": [
+            "    private import ScalarValues::*;\n",
+            "    private import all ISQ::*;\n"
+          ]
+        },
+        "absent": [
+          "error"
+        ],
+        "counts": {
+          "applied": 2
+        }
+      }
+    },
+    {
+      "id": "apply_edits/an_unresolved_import_target_is_refused_by_kind",
+      "description": "A client acts on failure, not on the message text, so the kind is part of the contract.",
+      "rpc": "ApplyEdits",
+      "requires_capabilities": [
+        "apply_edits",
+        "authoring",
+        "import_authoring"
+      ],
+      "model": {
+        "fixture": "apply_edits_import.sysml"
+      },
+      "request": {
+        "model_hash": "${model_hash}",
+        "operations": [
+          {
+            "add_import": {
+              "owner": "ToasterDemo",
+              "target": "Nope::*"
+            }
+          }
+        ]
+      },
+      "expect": {
+        "response": {
+          "failure": "EDIT_FAILURE_RESULT_INVALID"
+        },
+        "non_empty": [
+          "error"
+        ],
+        "absent": [
+          "applied",
+          "content",
+          "documents"
+        ]
+      }
+    },
+    {
       "id": "apply_edits/a_requirement_constraint_is_written",
       "rpc": "ApplyEdits",
       "requires_capabilities": [

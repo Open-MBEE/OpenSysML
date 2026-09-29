@@ -184,6 +184,23 @@ class EditProtosTest {
   }
 
   @Test
+  void anAddImportEditCarriesItsFlagsAndFilters() {
+    var operation =
+        Protos.proto(
+            Edit.AddImport.of("Demo", "ScalarValues::*")
+                .withVisibility("public")
+                .withRecursive()
+                .withAll()
+                .withFilters(List.of("@Safety", "@Approved")));
+    assertEquals("Demo", operation.getAddImport().getOwner());
+    assertEquals("public", operation.getAddImport().getVisibility());
+    assertEquals("ScalarValues::*", operation.getAddImport().getTarget());
+    assertTrue(operation.getAddImport().getIsRecursive());
+    assertTrue(operation.getAddImport().getIsImportAll());
+    assertEquals(List.of("@Safety", "@Approved"), operation.getAddImport().getFiltersList());
+  }
+
+  @Test
   void anAddConnectionEditCarriesItsEndsAndOptionalFields() {
     var minimal = Protos.proto(Edit.AddConnection.of("Demo::System", "flow", "a.out", "b.in"));
     assertEquals("Demo::System", minimal.getAddConnection().getOwner());

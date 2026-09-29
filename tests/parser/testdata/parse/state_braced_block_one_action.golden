@@ -59,14 +59,20 @@
           (SubstateMember name="done")
           (EntryMember)
           (SuccessionEdge source="@entry" target="a")
-          (TransitionMember source="a" target="b" trigger="x"
+          (TransitionMember source="a" target="b"
+            (Usage kind="attribute" name="" ref=true direction="out" composite=false derived=false ordered=false nonunique=false
+              (Relationship kind="typing" target=x
+                (*ast.QualifiedName)))
             (Membership visibility="default"
               (Usage kind="action" name="" ref=false direction="none" composite=false derived=false ordered=false nonunique=false
                 (*ast.AssignmentActionNode)
                 (SendStatement via=false
                   (FeatureReference name="x")
                   (FeatureReference name="operator")))))
-          (TransitionMember source="b" target="a" trigger="x"
+          (TransitionMember source="b" target="a"
+            (Usage kind="attribute" name="" ref=true direction="out" composite=false derived=false ordered=false nonunique=false
+              (Relationship kind="typing" target=x
+                (*ast.QualifiedName)))
             (Membership visibility="default"
               (Usage kind="action" name="" ref=false direction="none" composite=false derived=false ordered=false nonunique=false
                 (*ast.AssignmentActionNode)

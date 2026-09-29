@@ -382,7 +382,8 @@ func (d *decoder) verifyConjugated(el, parent *element) error {
 	name, _ := d.stringOf(el, rdf.SysML+pDeclaredName)
 	original, ok := d.stringOf(parent, rdf.SysML+pDeclaredName)
 	if !ok {
-		original = parent.qname[strings.LastIndex(parent.qname, "::")+2:]
+		segments := identitySegments(parent.qname)
+		original = identityName(segments[len(segments)-1])
 	}
 	expected := "~" + original
 	if name != expected {
@@ -798,12 +799,15 @@ func (d *decoder) transitionImplied(el, parent *element) (bool, error) {
 		if kind != "trigger" {
 			return false, nil
 		}
-		derived, ok := acceptTriggerText(d.graph, d.metaclass, subject)
+		// The structure states the trigger; a sysx:trigger stated beside it
+		// must say the same.
 		trigger, hasTrigger := d.stringOf(parent, rdf.OpenSysML+xTrigger)
-		if !ok || !hasTrigger {
-			return false, nil
+		if !hasTrigger {
+			return true, nil
 		}
-		if derived != trigger {
+		// A trigger this summary cannot spell is compared where the head is written.
+		derived, ok := acceptTriggerText(d.graph, d.metaclass, subject)
+		if ok && derived != trigger {
 			return false, &UnsupportedError{
 				What: what,
 				Note: fmt.Sprintf("its head states the trigger %q while its owned AcceptActionUsage accepts %q, and writing one would drop the other", trigger, derived),

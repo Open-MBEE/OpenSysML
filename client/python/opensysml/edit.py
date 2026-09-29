@@ -471,6 +471,46 @@ class Editor:
         self._add(("add_transition", owner, "", "", target, "", "", "", True))
         return self
 
+    def add_import(self, owner, target, visibility=None, recursive=False,
+                   all=False, filter=None):
+        """Add an import declaration to a namespace body or the document root.
+
+        ``target`` is the imported qualified name, optionally ``$::``-rooted:
+        ``A::B`` for a membership import, ``A::*`` for a namespace import.
+        ``visibility`` is ``private``,
+        ``public`` or ``protected``; ``None`` writes ``private``, the indicator
+        the grammar requires and the one legal in every body including the
+        document root. ``recursive`` writes ``::**``, ``all`` writes
+        ``import all``, and ``filter`` is one expression string or a list or
+        tuple of them, each written ``[<expression>]``.
+        """
+        if not isinstance(target, str):
+            raise TypeError(f"target must be notation text, not {target.__class__.__name__}")
+        if visibility is not None and not isinstance(visibility, str):
+            raise TypeError(
+                f"visibility must be notation text or None, not {visibility.__class__.__name__}")
+        if not isinstance(recursive, bool):
+            raise TypeError(f"recursive must be a bool, not {recursive.__class__.__name__}")
+        if not isinstance(all, bool):
+            raise TypeError(f"all must be a bool, not {all.__class__.__name__}")
+        if filter is None:
+            filters = ()
+        elif isinstance(filter, str):
+            filters = (filter,)
+        elif isinstance(filter, (list, tuple)):
+            filters = tuple(filter)
+        else:
+            raise TypeError(
+                f"filter must be notation text or a list of it, not {filter.__class__.__name__}")
+        for index, expression in enumerate(filters):
+            if not isinstance(expression, str):
+                raise TypeError(f"filter[{index}] must be notation text")
+        owner = owner if isinstance(owner, str) else _target_id(owner)
+        self._add((
+            "add_import", owner, visibility or "", target, recursive, all, filters,
+        ))
+        return self
+
     def add_require_constraint(self, owner, expression, name=None):
         """Add a ``require constraint`` to a requirement-like body."""
         return self.add_requirement_constraint(owner, "require", expression, name)

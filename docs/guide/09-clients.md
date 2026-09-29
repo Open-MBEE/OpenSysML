@@ -1151,6 +1151,12 @@ through. Typed `add_*` helpers cover the common SysML and KerML kinds, including
 `add_documentation(target, body, name=None, locale=None, replace=False)` gives an existing
 declaration its documentation, as the first member of its body; a declaration ending in `;`
 gains a body, and one already documented is refused unless `replace=True`.
+`add_import(owner, target, visibility=None, recursive=False, all=False, filter=None)` writes an
+import declaration in a namespace body or the document root (`""`): `target` is `A::B` for a
+membership import or `A::*` for a namespace import, `recursive` writes `::**`, `all` writes
+`import all`, and `filter` takes one expression string or a list of them, each written
+`[<expression>]`. `visibility` defaults to `private`, the indicator the grammar requires and the
+one legal everywhere including the root.
 `add_comment(owner, body, name=None, about=None, locale=None)` writes a
 `comment [name] [about a, b] [locale "..."] /* ... */` in `owner`'s body, or at the top
 level when `owner` is `""`, and `add_note(target, text)` writes the line note `// text`
@@ -1254,9 +1260,9 @@ call is made. An `add_connection` edit also requires both `authoring` and
 `connection_authoring`. The new AddMember modifiers and `ref`/`return` kinds
 require `member_modifiers`; satisfy edits require `satisfy_authoring`, and
 requirement-constraint edits require `requirement_constraint_authoring`.
-Transition edits require `transition_authoring` alongside `authoring`, and documentation
-edits — `add_documentation` or an `add_member` with `doc` — require `documentation_authoring`;
-comment and note edits require `comment_authoring`.
+Transition edits require `transition_authoring` alongside `authoring`; import edits require
+`import_authoring`. Documentation edits — `add_documentation` or an `add_member` with `doc` —
+require `documentation_authoring`; comment and note edits require `comment_authoring`.
 
 ### Querying a model using the standard query model
 

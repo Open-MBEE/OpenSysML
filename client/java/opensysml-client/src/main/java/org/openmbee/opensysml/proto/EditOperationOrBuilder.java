@@ -146,6 +146,21 @@ public interface EditOperationOrBuilder extends
   org.openmbee.opensysml.proto.AddTransitionEditOrBuilder getAddTransitionOrBuilder();
 
   /**
+   * <code>.sysml.AddImportEdit add_import = 10 [json_name = "addImport"];</code>
+   * @return Whether the addImport field is set.
+   */
+  boolean hasAddImport();
+  /**
+   * <code>.sysml.AddImportEdit add_import = 10 [json_name = "addImport"];</code>
+   * @return The addImport.
+   */
+  org.openmbee.opensysml.proto.AddImportEdit getAddImport();
+  /**
+   * <code>.sysml.AddImportEdit add_import = 10 [json_name = "addImport"];</code>
+   */
+  org.openmbee.opensysml.proto.AddImportEditOrBuilder getAddImportOrBuilder();
+
+  /**
    * <code>.sysml.AddDocumentationEdit add_documentation = 11 [json_name = "addDocumentation"];</code>
    * @return Whether the addDocumentation field is set.
    */

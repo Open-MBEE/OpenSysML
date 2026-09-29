@@ -845,6 +845,7 @@ message EditOperation {
     AddSatisfyEdit add_satisfy = 7;
     AddRequirementConstraintEdit add_requirement_constraint = 8;
     AddTransitionEdit add_transition = 9;
+    AddImportEdit add_import = 10;
     AddDocumentationEdit add_documentation = 11;
     AddCommentEdit add_comment = 16;
     AddNoteEdit add_note = 18;
@@ -924,6 +925,22 @@ message AddTransitionEdit {
   string effect = 7;
   // Write `entry; then <target>;` instead of a regular transition.
   bool initial = 8;
+}
+
+// AddImportEdit inserts an import declaration into a namespace body or the document root.
+message AddImportEdit {
+  // Namespace FQN receiving the import; empty means the document root.
+  string owner = 1;
+  // "private", "public" or "protected"; empty writes "private".
+  string visibility = 2;
+  // Imported qualified name, optionally rooted "$::", suffixed "::*" for a namespace import.
+  string target = 3;
+  // Write "::**" to import recursively.
+  bool is_recursive = 4;
+  // Write "import all" to import non-public members too.
+  bool is_import_all = 5;
+  // Filter conditions, each written as "[<expression>]".
+  repeated string filters = 6;
 }
 
 // AddDocumentationEdit adds a `doc /* ... */` as the first body member of an

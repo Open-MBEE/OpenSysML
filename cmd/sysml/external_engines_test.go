@@ -91,7 +91,7 @@ func TestEnginesSpawnsNothingAndProbeSpawnsEachEntryOnce(t *testing.T) {
 		t.Fatalf("-engines spawned %v", got)
 	}
 	for _, want := range []string{
-		"alpha    engine    stdio/1   bounded    holds", "beta     engine    stdio/1   bounded    holds",
+		"alpha     engine    stdio/1   bounded    holds", "beta      engine    stdio/1   bounded    holds",
 		"ready (alpha 1.0.0 at " + filepath.Join(dir, "alpha.sh") + ")",
 		"alpha 1.0.0: engine from " + filepath.Join(dir, "alpha.json") + ", runs " + filepath.Join(dir, "alpha.sh") + ", not admitted",
 	} {

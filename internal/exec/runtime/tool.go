@@ -498,6 +498,8 @@ func toolInput(tool string, param *symbols.Symbol, held Value) (ToolValue, error
 }
 
 // ToolValueOf is a value as the tool protocol carries it; false for one it does not carry.
+// A sequence carries its elements in Items; a unit every element shares is hoisted
+// to the sequence's Unit.
 func ToolValueOf(held Value) (ToolValue, bool) {
 	switch held.Kind {
 	case ValConst:
@@ -510,6 +512,28 @@ func ToolValueOf(held Value) (ToolValue, bool) {
 	case ValQuantity:
 		q := held.Quantity()
 		return ToolValue{Value: q.Num, Unit: q.Unit.Product.ShortSpelling().String()}, true
+	case ValSequence:
+		elements := held.Sequence().Elements()
+		items := make([]ToolValue, 0, len(elements))
+		shared, sharedSet := "", false
+		for _, element := range elements {
+			item, ok := ToolValueOf(element)
+			if !ok {
+				return ToolValue{}, false
+			}
+			if !sharedSet {
+				shared, sharedSet = item.Unit, true
+			} else if item.Unit != shared {
+				shared = ""
+			}
+			items = append(items, item)
+		}
+		if shared != "" {
+			for i := range items {
+				items[i].Unit = ""
+			}
+		}
+		return ToolValue{Unit: shared, Items: items}, true
 	}
 	return ToolValue{}, false
 }
@@ -547,6 +571,35 @@ func (c *ToolCall) Bind(outputs map[string]ToolValue) (map[string]Value, error) 
 		bound[out.Parameter] = value
 	}
 	return bound, nil
+}
+
+// ConvertInput expresses an input's number in the unit spelled: from is the unit
+// the value was sent in, to the unit the tool answers in. The units must share a
+// dimension, and the call must run under a context to read unit expressions.
+func (c *ToolCall) ConvertInput(in ToolInput, unit string) (semantics.Value, error) {
+	fault := func(err error) error {
+		return &ToolError{Tool: c.ToolName, Kind: ToolUnsentInput,
+			Detail: fmt.Sprintf("%s (%s): %v", in.Variable, in.Parameter, err)}
+	}
+	if c.ctx == nil {
+		return semantics.Value{}, fault(errors.New("the call has no context to read units in"))
+	}
+	if !in.Value.Value.IsNumeric() {
+		return semantics.Value{}, fault(fmt.Errorf("%s is not a number", describeValue(Value{Kind: ValConst, Const: in.Value.Value})))
+	}
+	from, err := c.ctx.UnitOf(c.scope, in.Value.Unit)
+	if err != nil {
+		return semantics.Value{}, fault(err)
+	}
+	to, err := c.ctx.UnitOf(c.scope, unit)
+	if err != nil {
+		return semantics.Value{}, fault(err)
+	}
+	converted, err := semantics.ConvertQuantity(Quantity{Num: in.Value.Value, Unit: from}, to)
+	if err != nil {
+		return semantics.Value{}, fault(fmt.Errorf("%s does not measure %s: %v", in.Value.Unit, unit, err))
+	}
+	return converted.Num, nil
 }
 
 // toolOutput reads one answered value as the parameter's, the unit spellings read in

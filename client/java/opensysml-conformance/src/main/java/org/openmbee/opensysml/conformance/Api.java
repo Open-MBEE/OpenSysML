@@ -826,6 +826,23 @@ final class Api {
         }
         yield transition;
       }
+      case ADD_IMPORT -> {
+        org.openmbee.opensysml.proto.AddImportEdit add = operation.getAddImport();
+        Edit.AddImport in = Edit.AddImport.of(add.getOwner(), add.getTarget());
+        if (!add.getVisibility().isEmpty()) {
+          in = in.withVisibility(add.getVisibility());
+        }
+        if (add.getIsRecursive()) {
+          in = in.withRecursive();
+        }
+        if (add.getIsImportAll()) {
+          in = in.withAll();
+        }
+        if (!add.getFiltersList().isEmpty()) {
+          in = in.withFilters(add.getFiltersList());
+        }
+        yield in;
+      }
       case DELETE ->
           new Edit.Delete(operation.getDelete().getTarget(), operation.getDelete().getCascade());
       case MOVE ->

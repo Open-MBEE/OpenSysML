@@ -493,6 +493,11 @@ A `calc` the model declares under a library function's name is what a call resol
 the library is also imported. `%builtins` lists every function the build evaluates, each with the
 package an `import` must name for its bare name to resolve.
 
+A `calc def` may also delegate its evaluation to an external tool rather than a body: imported
+from an FMI model (`-convert sysml model.fmu`), its evaluation runs the FMU through the
+`tool:fmi` engine and the runner `OPENSYSML_FMI_RUNNER` names — see
+[FMI models (FMUs)](../reference/fmi.md).
+
 **Calculations as values:**
 
 A `calc def`, a `calc` usage or an `in calc` parameter named where a value is expected is a

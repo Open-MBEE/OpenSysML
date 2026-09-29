@@ -26,6 +26,7 @@ from opensysml.capabilities import (
     CAPABILITY_REQUIREMENT_CONSTRAINT_AUTHORING,
     CAPABILITY_SATISFY_AUTHORING,
     CAPABILITY_TRANSITION_AUTHORING,
+    CAPABILITY_IMPORT_AUTHORING,
     CAPABILITY_EDIT_DOCUMENTS,
     CAPABILITY_INLINE_LANGUAGE,
     MissingCapabilityError,
@@ -347,6 +348,7 @@ def test_new_authoring_operations_and_member_modifiers_are_exact(fake_service):
             CAPABILITY_SATISFY_AUTHORING,
             CAPABILITY_REQUIREMENT_CONSTRAINT_AUTHORING,
             CAPABILITY_TRANSITION_AUTHORING,
+            CAPABILITY_IMPORT_AUTHORING,
         )
     )
     with Connection(port=port, auto_start=False) as conn:
@@ -365,9 +367,15 @@ def test_new_authoring_operations_and_member_modifiers_are_exact(fake_service):
                 guard="ready", effect="action cool",
             )
             .add_entry_transition("Demo::SC", "a")
+            .add_import(
+                "Demo::SC", "ScalarValues::*", visibility="public",
+                recursive=True, all=True, filter=["@Safety", "@Approved"],
+            )
             .apply()
         )
-    member, satisfy, require, assume, transition, entry = service.requests[0].operations
+    (
+        member, satisfy, require, assume, transition, entry, declared_import
+    ) = service.requests[0].operations
     assert member.WhichOneof("operation") == "add_member"
     assert (
         member.add_member.is_abstract,
@@ -404,6 +412,38 @@ def test_new_authoring_operations_and_member_modifiers_are_exact(fake_service):
     assert entry.add_transition.owner == "Demo::SC"
     assert entry.add_transition.target == "a"
     assert entry.add_transition.initial
+    assert declared_import.WhichOneof("operation") == "add_import"
+    assert (
+        declared_import.add_import.owner,
+        declared_import.add_import.visibility,
+        declared_import.add_import.target,
+        declared_import.add_import.is_recursive,
+        declared_import.add_import.is_import_all,
+        list(declared_import.add_import.filters),
+    ) == ("Demo::SC", "public", "ScalarValues::*", True, True, ["@Safety", "@Approved"])
+
+
+def test_add_import_accepts_a_single_filter_expression():
+    editor = Editor("hash", None)
+    editor.add_import("Demo", "A::*", filter="@Safety")
+    assert len(editor) == 1
+
+
+@pytest.mark.parametrize(
+    "argument,value",
+    [
+        ("target", 3),
+        ("visibility", 3),
+        ("recursive", "yes"),
+        ("all", "yes"),
+        ("filter", 3),
+    ],
+)
+def test_add_import_rejects_invalid_arguments(argument, value):
+    editor = Editor("hash", None)
+    with pytest.raises(TypeError, match=argument):
+        editor.add_import("Demo", "A::*", **{argument: value})
+    assert len(editor) == 0
 
 
 def test_member_modifier_capability_accumulates_across_operations(fake_service):
@@ -426,6 +466,19 @@ def test_transition_requires_authoring_alongside_transition_capability(fake_serv
     with Connection(port=port, auto_start=False) as conn:
         edit = conn.load_from_content(MODEL).edit()
         edit.add_transition("Demo::S", "idle", "toasting")
+        with pytest.raises(MissingCapabilityError) as error:
+            edit.apply()
+    assert error.value.capability == CAPABILITY_AUTHORING
+    assert service.requests == []
+
+
+def test_import_requires_authoring_alongside_import_capability(fake_service):
+    port, service = fake_service(
+        capabilities=(CAPABILITY_APPLY_EDITS, CAPABILITY_IMPORT_AUTHORING)
+    )
+    with Connection(port=port, auto_start=False) as conn:
+        edit = conn.load_from_content(MODEL).edit()
+        edit.add_import("Demo", "ScalarValues::*")
         with pytest.raises(MissingCapabilityError) as error:
             edit.apply()
     assert error.value.capability == CAPABILITY_AUTHORING
@@ -480,6 +533,8 @@ def test_add_member_rejects_invalid_direction_with_type_message(fake_service):
          CAPABILITY_TRANSITION_AUTHORING),
         (lambda editor: editor.add_part_def("Demo", "Wheel", doc="A wheel."),
          CAPABILITY_DOCUMENTATION_AUTHORING),
+        (lambda editor: editor.add_import("Demo::SC", "A::*"),
+         CAPABILITY_IMPORT_AUTHORING),
         (lambda editor: editor.add_documentation("Demo::SC", "A spacecraft."),
          CAPABILITY_DOCUMENTATION_AUTHORING),
         (lambda editor: editor.add_comment("Demo", "A note."), CAPABILITY_COMMENT_AUTHORING),
@@ -1285,6 +1340,107 @@ class TestEditRoundTripAgainstRealService:
             )
             again = conn.load_from_content(edited)
             assert again.ok, [str(d) for d in again.errors]
+
+    def test_import_declarations_round_trip_every_form(self, real_service):
+        source = (
+            "package Q {\n"
+            "    metadata def Safety;\n"
+            "    metadata def Approved;\n"
+            "}\n"
+            "package P {\n"
+            "    part x;\n"
+            "}\n"
+        )
+        with Connection(port=real_service, auto_start=False) as conn:
+            model = conn.load_from_content(source)
+            result = (
+                model.edit()
+                .add_import("P", "ScalarValues::*")
+                .add_import("P", "ISQ::MassValue", visibility="public")
+                .add_import("P", "ISQ::MassValue", visibility="protected")
+                .add_import("P", "ISQ::*", recursive=True)
+                .add_import("P", "Q::*", all=True)
+                .add_import("P", "Q::*", filter=["@Q::Safety", "@Q::Approved"])
+                .add_import("P", "$::Q::*")
+                .apply()
+            )
+            edited = str(result)
+            for line in (
+                "private import ScalarValues::*;",
+                "public import ISQ::MassValue;",
+                "protected import ISQ::MassValue;",
+                "private import ISQ::*::**;",
+                "private import all Q::*;",
+                "private import Q::*[@Q::Safety][@Q::Approved];",
+                "private import $::Q::*;",
+            ):
+                assert "    " + line in edited
+            again = conn.load_from_content(edited)
+            assert again.ok, [str(d) for d in again.errors]
+
+    def test_an_import_at_the_document_root_is_private(self, real_service):
+        with Connection(port=real_service, auto_start=False) as conn:
+            model = conn.load_from_content("package P {\n    part x;\n}\n")
+            result = model.edit().add_import("", "ScalarValues::*").apply()
+            assert str(result).startswith("private import ScalarValues::*;\n")
+
+    def test_import_refusals_map_to_typed_errors(self, real_service):
+        source = "package P {\n    private import ScalarValues::*;\n    part x;\n}\n"
+        with Connection(port=real_service, auto_start=False) as conn:
+            model = conn.load_from_content(source)
+            with pytest.raises(OwnerNotFoundError):
+                model.edit().add_import("P::nope", "ScalarValues::*").apply()
+            with pytest.raises(EditResultError):
+                model.edit().add_import("P", "Nope::*").apply()
+            with pytest.raises(MemberNameTakenError):
+                model.edit().add_import("P", "ScalarValues::*").apply()
+
+    def test_imports_author_typed_members_that_resolve_downstream(self, real_service):
+        source = "package ToasterDemo { }\n"
+        target = (
+            "package ToasterDemo {\n"
+            "    private import ScalarValues::*;\n"
+            "    private import SI::*;\n"
+            "    private import ISQ::*;\n"
+            "    private import MeasurementReferences::*;\n"
+            "    attribute efficiency : DimensionOneValue;\n"
+            "}\n"
+        )
+        with Connection(port=real_service, auto_start=False) as conn:
+            result = (
+                conn.load_from_content(source)
+                .edit()
+                .add_import("ToasterDemo", "ScalarValues::*")
+                .add_import("ToasterDemo", "SI::*")
+                .add_import("ToasterDemo", "ISQ::*")
+                .add_import("ToasterDemo", "MeasurementReferences::*")
+                .add_member(
+                    "ToasterDemo", "attribute", "efficiency",
+                    type="DimensionOneValue",
+                )
+                .apply()
+            )
+            edited = str(result)
+            assert edited == target
+            model = conn.load_from_content(edited)
+            assert model.ok, [str(d) for d in model.errors]
+            efficiency = model.get("ToasterDemo::efficiency")
+            assert (
+                efficiency.type_facts.resolved_id
+                == "MeasurementReferences::DimensionOneValue"
+            )
+
+            def element_pairs(conversion):
+                return sorted(
+                    (element.get("@type"), element.get("qualifiedName"))
+                    for element in json.loads(str(conversion))
+                )
+
+            expected = conn.load_from_content(target)
+            assert expected.ok, [str(d) for d in expected.errors]
+            assert element_pairs(model.to_api_json()) == element_pairs(
+                expected.to_api_json()
+            )
 
     def test_calc_helper_adds_inputs_and_bound_result(self, real_service):
         source = "package P {\n    private import ScalarValues::*;\n}\n"

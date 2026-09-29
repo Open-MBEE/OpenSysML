@@ -82,7 +82,8 @@ func TestStateMachineMetaclasses(t *testing.T) {
 	for _, want := range []string{
 		"sysml:StateUsage", "sysml:StateSubactionMembership", "sysml:TransitionUsage",
 		"sysx:Pseudostate", "sysx:DeferMember",
-		"sysx:subactionKind", "sysx:trigger", "sysx:guard",
+		"sysx:subactionKind", "sysml:triggerAction", "sysml:AcceptActionUsage",
+		"sysml:payloadParameter", `sysml:kind "trigger"`, "sysx:guard",
 		"sysml:source", "sysml:target",
 	} {
 		if !strings.Contains(turtle, want) {
