@@ -40,8 +40,12 @@ func withRootNamespace(graph *rdf.Graph) (*rdf.Graph, error) {
 		}
 	}
 	groups := documentGroups(graph, roots)
+	// One minter hands out every group's ids: a namespace one group mints is
+	// not in the graph yet when the next group mints, so the taken set is what
+	// keeps two groups from picking one id.
+	mint := &subjectMinter{graph: graph, taken: map[string]bool{}}
 	for i, group := range groups {
-		namespace, memberships := rootNamespaceIDs(graph, group.roots)
+		namespace, memberships := rootNamespaceIDs(graph, mint, group.roots)
 		groups[i].namespace, groups[i].memberships = namespace, memberships
 	}
 	// The wrapped graph is the source's triples with the wrapper's inserted, so
@@ -227,10 +231,9 @@ func unownedElements(graph *rdf.Graph) []rdf.Term {
 // under the first root's namespace when the ids are uuids (see IDUUID).
 // A suffix repeats until it names a subject the graph does not already hold,
 // since a top-level name may itself end in `_ns` or `_om`.
-func rootNamespaceIDs(graph *rdf.Graph, roots []rdf.Term) (rdf.Term, []rdf.Term) {
+func rootNamespaceIDs(graph *rdf.Graph, mint *subjectMinter, roots []rdf.Term) (rdf.Term, []rdf.Term) {
 	memberships := make([]rdf.Term, len(roots))
 	first := roots[0]
-	mint := &subjectMinter{graph: graph, taken: map[string]bool{}}
 	if !uuidForm(graph, first) {
 		namespace := mint.free(func(suffix string) rdf.Term { return rdf.IRI(first.Value + suffix) }, RootNamespaceSuffix)
 		for i, root := range roots {

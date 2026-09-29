@@ -268,3 +268,62 @@ func TestAnEmptyDocumentAddsNoRootNamespace(t *testing.T) {
 		t.Errorf("expected exactly the one root Namespace the declaring document wraps under, found %d:\n%s", namespaces, out)
 	}
 }
+
+// Every document group's root Namespace and membership ids draw from one
+// minted-id set: a namespace one group mints is not in the graph when the next
+// group mints, and a root whose own id ends in `_ns` or `_om` must not land
+// its wrapper's id on the one another group already picked. Element ids escape
+// underscores, so the colliding names can only arrive written out in a graph.
+func TestRootNamespacesOfSeveralDocumentsDoNotCollide(t *testing.T) {
+	turtle := []byte(`@prefix elmt: <urn:sysmlv2:element:> .
+@prefix sysml: <https://www.omg.org/spec/SysML#> .
+@prefix sysx: <urn:opensysml:sysml:> .
+
+elmt:B
+    a sysml:Package ;
+    sysml:qualifiedName "B" ;
+    sysx:sourceDocument "b.sysml" ;
+    sysml:declaredName "B" .
+
+elmt:B_ns
+    a sysml:Package ;
+    sysml:qualifiedName "B_ns" ;
+    sysx:sourceDocument "c.sysml" ;
+    sysml:declaredName "B_ns" .
+
+elmt:B_om
+    a sysml:Package ;
+    sysml:qualifiedName "B_om" ;
+    sysx:sourceDocument "d.sysml" ;
+    sysml:declaredName "B_om" .
+`)
+	out, err := convert.Convert("collide.ttl", turtle, convert.FormatTurtle, convert.FormatAPIJSON)
+	if err != nil {
+		t.Fatalf("to api-json: %v", err)
+	}
+	namespaces := map[string][]string{}
+	for _, el := range rootElements(t, out) {
+		if rootString(t, el["@type"]) == "Namespace" {
+			for _, member := range refsOf(t, el["ownedMember"]) {
+				namespaces[rootString(t, el["@id"])] = append(namespaces[rootString(t, el["@id"])], member)
+			}
+		}
+	}
+	if len(namespaces) != 3 {
+		t.Fatalf("expected one root Namespace per document, found %d: %v", len(namespaces), namespaces)
+	}
+	for _, root := range []string{"B", "B_ns", "B_om"} {
+		var owners int
+		for ns, members := range namespaces {
+			for _, member := range members {
+				if member == root {
+					owners++
+					_ = ns
+				}
+			}
+		}
+		if owners != 1 {
+			t.Errorf("expected exactly one root Namespace owning %s, found %d: %v", root, owners, namespaces)
+		}
+	}
+}
