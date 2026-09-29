@@ -3,6 +3,7 @@ package runtime
 import (
 	"errors"
 	"fmt"
+	"maps"
 	"math"
 	"slices"
 	"strconv"
@@ -274,12 +275,21 @@ func (inv *Invocation) Outcome() Outcome {
 	default:
 		outcome = ctx.JointOutcome(inv.names(), outcomes)
 	}
+	maps.Copy(outcome.Outputs, inv.PerformerAttributes())
+	return outcome
+}
+
+// PerformerAttributes are the attributes the behaviors' performers hold, as an
+// outcome reports them: under `this.` for one performer, under its name for several.
+func (inv *Invocation) PerformerAttributes() map[string]Value {
+	ctx := inv.Context()
+	held := make(map[string]Value)
 	for _, p := range inv.performerPrefixes() {
 		for name, value := range ctx.attributesHeld(p.self) {
-			outcome.Outputs[p.name+name] = value
+			held[p.name+name] = value
 		}
 	}
-	return outcome
+	return held
 }
 
 // attributesHeld is the value each attribute of the object holds, a default derived

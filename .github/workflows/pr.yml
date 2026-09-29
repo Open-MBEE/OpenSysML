@@ -1123,6 +1123,14 @@ jobs:
           cp bin/sysml-grpc ~/.opensysml/bin/
           chmod +x ~/.opensysml/bin/sysml-grpc
 
+      # The verification-questions tests ask the service solver-backed questions;
+      # the solver is an external process the service finds on PATH.
+      - name: Install Z3
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y z3
+          z3 --version
+
       - name: Install Python client
         run: |
           make python-install

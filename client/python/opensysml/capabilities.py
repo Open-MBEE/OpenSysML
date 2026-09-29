@@ -33,6 +33,13 @@ CAPABILITY_CONVERT = "convert"
 #: Without it the service refuses those calls with ``UNIMPLEMENTED``.
 CAPABILITY_VERIFICATION = "verification"
 
+#: The ``question`` field of the verification RPCs, asking a constraint,
+#: requirement or satisfaction assertion a ``holds`` or ``satisfiable``
+#: question rather than an evaluation, and reporting the verdict's ``status``
+#: and ``witness``. Without it the service refuses such a question with
+#: ``UNIMPLEMENTED``.
+CAPABILITY_VERIFICATION_QUESTIONS = "verification_questions"
+
 #: The ``Query`` RPC, which evaluates a SysML v2 API & Services ``Query`` over a
 #: loaded model. Without it the service refuses queries with ``UNIMPLEMENTED``.
 CAPABILITY_QUERY = "query"

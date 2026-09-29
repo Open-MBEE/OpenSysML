@@ -1884,6 +1884,37 @@ class TestEditRoundTripAgainstRealService:
             assert vehicle is not None
             assert any(part.name == "engine" for part in vehicle.parts())
 
+    def test_add_member_preserves_positional_expression_and_doc(self, real_service):
+        source = """package P {
+    private import ScalarValues::*;
+    attribute x : Real = 1.0;
+}
+"""
+        with Connection(port=real_service, auto_start=False) as conn:
+            model = conn.load_from_content(source)
+            edited = str(
+                model.edit()
+                .add_member(
+                    "P", "constraint", "positional", None, None, None, None,
+                    False, None, False, None, "x > 0",
+                )
+                .add_member(
+                    "P", "constraint", "documented", None, None, None, None,
+                    False, None, False, None, "x > 0", "Checks x.",
+                )
+                .add_member("P", "constraint", "keyword", expression="x > 0")
+                .apply()
+            )
+            assert "constraint positional { x > 0 }" in edited
+            assert "constraint keyword { x > 0 }" in edited
+            assert (
+                "constraint documented {\n"
+                "        doc /* Checks x.*/\n"
+                "        x > 0\n"
+                "    }"
+            ) in edited
+            assert "#" not in edited
+
     def test_constraint_assert_exhibit_and_state_action_forms(self, real_service):
         source = """package P {
     private import ScalarValues::*;

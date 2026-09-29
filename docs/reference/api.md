@@ -60,6 +60,15 @@ to the service; a name the service does not register is `CodeInvalidArgument`, a
 needs the `engines` capability. `Verdict`, `Calculation` and `Analysis` each carry a `Standing`:
 the `Engine` that answered, the `Strength` of its evidence and the `Bounds` it ran under.
 
+`VerifyConstraint`, `VerifyRequirement` and `VerifySatisfaction` also take `Asking(question)` —
+`QuestionEvaluate` (the default), `QuestionHolds` or `QuestionSatisfiable` — to ask the service's
+solvers rather than evaluate a point: `holds` proves the claim for every assignment the free
+features can take, `satisfiable` finds one. A `Verdict` answers it through `Question` and `Status`
+(`holds` | `violated` | `undecided` | `satisfiable` | `unsatisfiable`), and a violated or
+satisfiable answer carries `Witness`, the free features' replayed values with their units and exact
+spellings; undecided names the reason and reports `ReasonUndecided`. A question other than evaluate
+needs the `verification_questions` capability, checked before anything is sent.
+
 ```go
 exploration, err := client.ExploreAction(ctx, model, "Demo::race", nil)
 for _, outcome := range exploration.Outcomes {
@@ -142,7 +151,7 @@ and `type` fields:
 | `add_verify` | `owner`, `requirement` | A `verify <requirement>;` membership in a verification case's objective. When the case has no owned objective and no inherited user objective, the edit creates one; ambiguous or inherited-only objectives are refused. |
 | `add_metadata` | `owner`, `metadata_type`, `name?`, `about[]`, `values[]`, `shorthand` | A metadata usage in SysML or KerML, with optional `about` references and feature-value bindings. `shorthand` writes `@M` rather than `metadata M`; semantic type and value correctness is checked by re-analysis. |
 | `add_metadata_prefix` | `target`, `metadata_type` | Adds `#M` to an existing SysML declaration, resolving `metadata_type` in the declaration's own scope; duplicate metadata types and targets without a prefix slot are refused. |
-| `add_sequence` | `owner`, `keyword`, `ref?`, `member_kind?`, `member_name?`, `type?`, `after?` | A `first <ref>;`, `then <ref>;` or `then <member_kind> <member_name> : <type>;` member in an action body's sequencing notation. Exactly one of `ref` and `member_kind` is set for `then`; `first` takes `ref` alone. With `after` naming a member of the body, the member is written right after it: it sequences from that member, and a `then` that previously followed it now sequences from the new member. |
+| `add_sequence` | `owner`, `keyword`, `ref?`, `member_kind?`, `member_name?`, `type?`, `after?` | A `first <ref>;`, `then <ref>;` or `then <member_kind> <member_name> : <type>;` member in an action body's sequencing notation. Exactly one of `ref` and `member_kind` is set for `then`; `first` takes `ref` alone. With `after` naming a member of the body, the member is written right after it: it sequences from that member, and a `then` that previously followed it now sequences from the new member. A source-taking item can only be placed after a member that is a succession source. |
 | `add_sequence` action-body items | `condition?`, `value?`, `target?`, `via?`, `until?`, `body[]`, `else_body[]`, `multiplicity?`, `parameter?` | Recursive `accept`, `send`, `assign`, `if`, `while`, `loop`, `for` and `terminate` items, plus guarded `if <guard> then <ref>;` and `else <ref>;`. Nested items use the same message with no `owner` or `after`. An empty else body means no `else`; an explicit empty `else { }` is not authorable. Empty action bodies, including an `if` then-branch, write `{ }`. |
 
 An `add_member` with `body_expression`, an asserted-constraint kind, or a reference-form assertion requires `authoring` and

@@ -13,6 +13,7 @@ class FailureReason(int, metaclass=_enum_type_wrapper.EnumTypeWrapper):
     FAILURE_REASON_EVALUATION: _ClassVar[FailureReason]
     FAILURE_REASON_WRONG_KIND: _ClassVar[FailureReason]
     FAILURE_REASON_AMBIGUOUS_SUBJECT: _ClassVar[FailureReason]
+    FAILURE_REASON_UNDECIDED: _ClassVar[FailureReason]
 
 class EditFailure(int, metaclass=_enum_type_wrapper.EnumTypeWrapper):
     __slots__ = ()
@@ -52,6 +53,7 @@ FAILURE_REASON_UNSPECIFIED: FailureReason
 FAILURE_REASON_EVALUATION: FailureReason
 FAILURE_REASON_WRONG_KIND: FailureReason
 FAILURE_REASON_AMBIGUOUS_SUBJECT: FailureReason
+FAILURE_REASON_UNDECIDED: FailureReason
 EDIT_FAILURE_UNSPECIFIED: EditFailure
 EDIT_FAILURE_NO_OPERATIONS: EditFailure
 EDIT_FAILURE_UNKNOWN_TARGET: EditFailure
@@ -80,7 +82,7 @@ COMPOSITE_OPERATOR_AND: CompositeOperator
 COMPOSITE_OPERATOR_OR: CompositeOperator
 
 class Verdict(_message.Message):
-    __slots__ = ("kind", "element_id", "element", "holds", "condition", "instance_id", "instance_type_id", "error", "failure_reason", "requirement_id", "engine", "strength", "bounds", "instance_path")
+    __slots__ = ("kind", "element_id", "element", "holds", "condition", "instance_id", "instance_type_id", "error", "failure_reason", "requirement_id", "engine", "strength", "bounds", "instance_path", "question", "status", "witness")
     KIND_FIELD_NUMBER: _ClassVar[int]
     ELEMENT_ID_FIELD_NUMBER: _ClassVar[int]
     ELEMENT_FIELD_NUMBER: _ClassVar[int]
@@ -95,6 +97,9 @@ class Verdict(_message.Message):
     STRENGTH_FIELD_NUMBER: _ClassVar[int]
     BOUNDS_FIELD_NUMBER: _ClassVar[int]
     INSTANCE_PATH_FIELD_NUMBER: _ClassVar[int]
+    QUESTION_FIELD_NUMBER: _ClassVar[int]
+    STATUS_FIELD_NUMBER: _ClassVar[int]
+    WITNESS_FIELD_NUMBER: _ClassVar[int]
     kind: str
     element_id: str
     element: str
@@ -109,7 +114,22 @@ class Verdict(_message.Message):
     strength: str
     bounds: _containers.RepeatedCompositeFieldContainer[Bound]
     instance_path: str
-    def __init__(self, kind: _Optional[str] = ..., element_id: _Optional[str] = ..., element: _Optional[str] = ..., holds: _Optional[bool] = ..., condition: _Optional[str] = ..., instance_id: _Optional[int] = ..., instance_type_id: _Optional[str] = ..., error: _Optional[str] = ..., failure_reason: _Optional[_Union[FailureReason, str]] = ..., requirement_id: _Optional[str] = ..., engine: _Optional[str] = ..., strength: _Optional[str] = ..., bounds: _Optional[_Iterable[_Union[Bound, _Mapping]]] = ..., instance_path: _Optional[str] = ...) -> None: ...
+    question: str
+    status: str
+    witness: _containers.RepeatedCompositeFieldContainer[WitnessAssignment]
+    def __init__(self, kind: _Optional[str] = ..., element_id: _Optional[str] = ..., element: _Optional[str] = ..., holds: _Optional[bool] = ..., condition: _Optional[str] = ..., instance_id: _Optional[int] = ..., instance_type_id: _Optional[str] = ..., error: _Optional[str] = ..., failure_reason: _Optional[_Union[FailureReason, str]] = ..., requirement_id: _Optional[str] = ..., engine: _Optional[str] = ..., strength: _Optional[str] = ..., bounds: _Optional[_Iterable[_Union[Bound, _Mapping]]] = ..., instance_path: _Optional[str] = ..., question: _Optional[str] = ..., status: _Optional[str] = ..., witness: _Optional[_Iterable[_Union[WitnessAssignment, _Mapping]]] = ...) -> None: ...
+
+class WitnessAssignment(_message.Message):
+    __slots__ = ("feature", "value", "unit", "exact")
+    FEATURE_FIELD_NUMBER: _ClassVar[int]
+    VALUE_FIELD_NUMBER: _ClassVar[int]
+    UNIT_FIELD_NUMBER: _ClassVar[int]
+    EXACT_FIELD_NUMBER: _ClassVar[int]
+    feature: str
+    value: Value
+    unit: str
+    exact: str
+    def __init__(self, feature: _Optional[str] = ..., value: _Optional[_Union[Value, _Mapping]] = ..., unit: _Optional[str] = ..., exact: _Optional[str] = ...) -> None: ...
 
 class Bound(_message.Message):
     __slots__ = ("name", "limit", "reached")
@@ -122,16 +142,18 @@ class Bound(_message.Message):
     def __init__(self, name: _Optional[str] = ..., limit: _Optional[int] = ..., reached: _Optional[bool] = ...) -> None: ...
 
 class VerifyConstraintRequest(_message.Message):
-    __slots__ = ("model_hash", "symbol_id", "subject_symbol_id", "engine")
+    __slots__ = ("model_hash", "symbol_id", "subject_symbol_id", "engine", "question")
     MODEL_HASH_FIELD_NUMBER: _ClassVar[int]
     SYMBOL_ID_FIELD_NUMBER: _ClassVar[int]
     SUBJECT_SYMBOL_ID_FIELD_NUMBER: _ClassVar[int]
     ENGINE_FIELD_NUMBER: _ClassVar[int]
+    QUESTION_FIELD_NUMBER: _ClassVar[int]
     model_hash: str
     symbol_id: str
     subject_symbol_id: str
     engine: str
-    def __init__(self, model_hash: _Optional[str] = ..., symbol_id: _Optional[str] = ..., subject_symbol_id: _Optional[str] = ..., engine: _Optional[str] = ...) -> None: ...
+    question: str
+    def __init__(self, model_hash: _Optional[str] = ..., symbol_id: _Optional[str] = ..., subject_symbol_id: _Optional[str] = ..., engine: _Optional[str] = ..., question: _Optional[str] = ...) -> None: ...
 
 class VerifyConstraintResponse(_message.Message):
     __slots__ = ("verdict", "instances", "error", "diagnostics")
@@ -146,16 +168,18 @@ class VerifyConstraintResponse(_message.Message):
     def __init__(self, verdict: _Optional[_Union[Verdict, _Mapping]] = ..., instances: _Optional[_Iterable[_Union[Instance, _Mapping]]] = ..., error: _Optional[str] = ..., diagnostics: _Optional[_Iterable[_Union[Diagnostic, _Mapping]]] = ...) -> None: ...
 
 class VerifyRequirementRequest(_message.Message):
-    __slots__ = ("model_hash", "symbol_id", "subject_symbol_id", "engine")
+    __slots__ = ("model_hash", "symbol_id", "subject_symbol_id", "engine", "question")
     MODEL_HASH_FIELD_NUMBER: _ClassVar[int]
     SYMBOL_ID_FIELD_NUMBER: _ClassVar[int]
     SUBJECT_SYMBOL_ID_FIELD_NUMBER: _ClassVar[int]
     ENGINE_FIELD_NUMBER: _ClassVar[int]
+    QUESTION_FIELD_NUMBER: _ClassVar[int]
     model_hash: str
     symbol_id: str
     subject_symbol_id: str
     engine: str
-    def __init__(self, model_hash: _Optional[str] = ..., symbol_id: _Optional[str] = ..., subject_symbol_id: _Optional[str] = ..., engine: _Optional[str] = ...) -> None: ...
+    question: str
+    def __init__(self, model_hash: _Optional[str] = ..., symbol_id: _Optional[str] = ..., subject_symbol_id: _Optional[str] = ..., engine: _Optional[str] = ..., question: _Optional[str] = ...) -> None: ...
 
 class VerificationVerdict(_message.Message):
     __slots__ = ("case_id", "kind", "detail", "subcase", "requirement_id")
@@ -186,14 +210,16 @@ class VerifyRequirementResponse(_message.Message):
     def __init__(self, verdict: _Optional[_Union[Verdict, _Mapping]] = ..., instances: _Optional[_Iterable[_Union[Instance, _Mapping]]] = ..., error: _Optional[str] = ..., diagnostics: _Optional[_Iterable[_Union[Diagnostic, _Mapping]]] = ..., verification_verdicts: _Optional[_Iterable[_Union[VerificationVerdict, _Mapping]]] = ...) -> None: ...
 
 class VerifySatisfactionRequest(_message.Message):
-    __slots__ = ("model_hash", "symbol_id", "engine")
+    __slots__ = ("model_hash", "symbol_id", "engine", "question")
     MODEL_HASH_FIELD_NUMBER: _ClassVar[int]
     SYMBOL_ID_FIELD_NUMBER: _ClassVar[int]
     ENGINE_FIELD_NUMBER: _ClassVar[int]
+    QUESTION_FIELD_NUMBER: _ClassVar[int]
     model_hash: str
     symbol_id: str
     engine: str
-    def __init__(self, model_hash: _Optional[str] = ..., symbol_id: _Optional[str] = ..., engine: _Optional[str] = ...) -> None: ...
+    question: str
+    def __init__(self, model_hash: _Optional[str] = ..., symbol_id: _Optional[str] = ..., engine: _Optional[str] = ..., question: _Optional[str] = ...) -> None: ...
 
 class VerifySatisfactionResponse(_message.Message):
     __slots__ = ("verdicts", "instances", "error", "diagnostics", "failure_reason", "verification_verdicts")
@@ -620,8 +646,15 @@ class ExecuteActionRequest(_message.Message):
     def __init__(self, model_hash: _Optional[str] = ..., action_symbol_id: _Optional[str] = ..., inputs: _Optional[_Mapping[str, Value]] = ..., schedule: _Optional[str] = ..., performer_symbol_id: _Optional[str] = ...) -> None: ...
 
 class ExecuteActionResponse(_message.Message):
-    __slots__ = ("outputs", "error", "diagnostics", "outcomes", "exploration", "final_time")
+    __slots__ = ("outputs", "error", "diagnostics", "outcomes", "exploration", "final_time", "performer_attributes")
     class OutputsEntry(_message.Message):
+        __slots__ = ("key", "value")
+        KEY_FIELD_NUMBER: _ClassVar[int]
+        VALUE_FIELD_NUMBER: _ClassVar[int]
+        key: str
+        value: Value
+        def __init__(self, key: _Optional[str] = ..., value: _Optional[_Union[Value, _Mapping]] = ...) -> None: ...
+    class PerformerAttributesEntry(_message.Message):
         __slots__ = ("key", "value")
         KEY_FIELD_NUMBER: _ClassVar[int]
         VALUE_FIELD_NUMBER: _ClassVar[int]
@@ -634,13 +667,15 @@ class ExecuteActionResponse(_message.Message):
     OUTCOMES_FIELD_NUMBER: _ClassVar[int]
     EXPLORATION_FIELD_NUMBER: _ClassVar[int]
     FINAL_TIME_FIELD_NUMBER: _ClassVar[int]
+    PERFORMER_ATTRIBUTES_FIELD_NUMBER: _ClassVar[int]
     outputs: _containers.MessageMap[str, Value]
     error: str
     diagnostics: _containers.RepeatedCompositeFieldContainer[Diagnostic]
     outcomes: _containers.RepeatedCompositeFieldContainer[Outcome]
     exploration: ExplorationStatus
     final_time: float
-    def __init__(self, outputs: _Optional[_Mapping[str, Value]] = ..., error: _Optional[str] = ..., diagnostics: _Optional[_Iterable[_Union[Diagnostic, _Mapping]]] = ..., outcomes: _Optional[_Iterable[_Union[Outcome, _Mapping]]] = ..., exploration: _Optional[_Union[ExplorationStatus, _Mapping]] = ..., final_time: _Optional[float] = ...) -> None: ...
+    performer_attributes: _containers.MessageMap[str, Value]
+    def __init__(self, outputs: _Optional[_Mapping[str, Value]] = ..., error: _Optional[str] = ..., diagnostics: _Optional[_Iterable[_Union[Diagnostic, _Mapping]]] = ..., outcomes: _Optional[_Iterable[_Union[Outcome, _Mapping]]] = ..., exploration: _Optional[_Union[ExplorationStatus, _Mapping]] = ..., final_time: _Optional[float] = ..., performer_attributes: _Optional[_Mapping[str, Value]] = ...) -> None: ...
 
 class ExecuteStateRequest(_message.Message):
     __slots__ = ("model_hash", "state_machine_symbol_id", "events", "schedule", "performer_symbol_id")

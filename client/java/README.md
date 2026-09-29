@@ -30,7 +30,7 @@ try (Connection connection = Connection.open()) {      // starts a private sysml
   Symbol vehicle = model.symbol("Demo::Vehicle");      // findSymbol returns Optional
   Instantiation built = model.instantiate("Demo::Vehicle");
 
-  ActionRun run = model.executeAction("Test::addFive");           // outputs, final time, diagnostics
+  ActionRun run = model.executeAction("Test::addFive");           // outputs, final time, diagnostics, performer
   Verification v = model.verifyConstraint("Demo::Vehicle::massLight");
   boolean holds = v.holds();                                        // false is an answer, not a failure
   Analysis study = model.runAnalysis("Trade::lightest");            // outputs, verdicts, case evaluations
