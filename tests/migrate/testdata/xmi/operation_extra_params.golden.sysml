@@ -17,7 +17,7 @@ part def Boiler {
     action def Drive {
         in ref context : Boiler[1];
         /* not migrated: ControlFlow (_drE) — the edge leads to 'adjust', which never fires: no value reaches its input pin 'target' */
-        action adjust : Adjust { in ref :>> context = Drive::context; in x[1]; in y[1]; }
+        action adjust : Adjust { in ref :>> context = Drive::context; in x[0..1]; in y[0..1]; }
     }
 }
 action def Reach {

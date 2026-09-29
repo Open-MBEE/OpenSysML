@@ -1555,12 +1555,7 @@ func (a *activity) declarePins(n *sysmlv1.Element, ins, outs []*sysmlv1.Element,
 		}
 		mult, mnote := a.m.multiplicity(pin)
 		note = joinNotes(note, mnote)
-		if mult == "" && dir != "" {
-			// A v1 parameter writing no multiplicity means a single value;
-			// §7.6.3 gives a bare v2 parameter [0..*], so state the one it meant.
-			mult = "[1]"
-		}
-		decl += mult + collection(pin)
+		decl += shaped(mult, pin, dir != "")
 		if v := firstOwned(pin, "value"); v != nil && pin.Type == "ValuePin" {
 			expr, ok, vnote := a.m.typedBehaviorValue(v, pin, n)
 			if ok {

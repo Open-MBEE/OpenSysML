@@ -17,7 +17,7 @@ part def Plant {
     action def Drive {
         in ref context : Plant[1];
         first start then adjust;
-        action adjust : Adjust { in ref :>> context = Drive::context; in x[1]; out result[1]; }
+        action adjust : Adjust { in ref :>> context = Drive::context; in x[0..1]; out result[1]; }
         first adjust then final;
         action final terminate;
         metadata MigrationMetadata::SynthesizedName about final;

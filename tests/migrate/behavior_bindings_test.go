@@ -506,7 +506,7 @@ func TestCallsBindTheMethodsExtraParameters(t *testing.T) {
 		"flow seven.result to full.amount;",
 		"flow seven.result to full.extra;",
 		"/* not migrated: Interaction 'Brief' — the message 'tilt' binds no argument to the parameter extra of Tilt, which must hold a value */",
-		"perform action tilt ::> tilter.tilt { in amount[1] = 90.0; in extra[1] = 7.0; }",
+		"perform action tilt ::> tilter.tilt { in amount[1] = 90.0; in extra[0..1] = 7.0; }",
 	} {
 		wantLine(t, r.Notation, line)
 	}

@@ -290,11 +290,8 @@ func (m *migration) parameter(p, scope *sysmlv1.Element, declared map[string]boo
 	tm := m.typeModifier(p)
 	if shape := tm.shape(); shape != "" {
 		mult, mnote = shape, ""
-	}
-	if mult == "" && dir != "" {
-		// A v1 parameter writing no multiplicity means a single value; §7.6.3
-		// gives a bare v2 parameter [0..*], so state the one it meant.
-		mult = "[1]"
+	} else {
+		mult = shaped(mult, p, dir != "")
 	}
 	b.WriteString(mult)
 	note = joinNotes(joinNotes(note, mnote), tm.note())
@@ -1213,7 +1210,7 @@ func (m *migration) receptionArguments(method, sig *sysmlv1.Element, payload str
 // usage of its behavior, keeping p's direction so an inout value is written back.
 func (m *migration) parameterBinding(p *sysmlv1.Element, name, expr string) string {
 	dir, _ := parameterDirection(p)
-	return dir + " " + writeName(name) + "[1] = " + expr
+	return dir + " " + writeName(name) + m.parameterShape(p) + " = " + expr
 }
 
 // bindingMismatch says why feature a cannot be bound to parameter p: its type does not conform
