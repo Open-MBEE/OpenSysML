@@ -635,8 +635,7 @@ func sequenceSourceBefore(members []ast.Node) bool {
 	return false
 }
 
-// declaredMemberName returns the name a member declares, the name a `then X`
-// placed after it would sequence from, or "" when it declares none.
+// declaredMemberName returns the name a member declares, or "" when it declares none.
 func declaredMemberName(member ast.Node) string {
 	switch n := unwrapMembership(member).(type) {
 	case *ast.Usage:
@@ -652,8 +651,6 @@ func declaredMemberName(member ast.Node) string {
 		return identificationName(n.Ident)
 	case *ast.ActionExecutionNode:
 		return n.Name
-	case *ast.InitialNode:
-		return n.Name()
 	case *ast.ForkNode:
 		return n.Name
 	case *ast.JoinNode:

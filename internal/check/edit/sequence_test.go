@@ -725,6 +725,34 @@ func TestAddSequenceAfterSourcesFromItsAnchor(t *testing.T) {
 	}
 }
 
+func TestAddSequenceAfterInitialReferenceUsesDeclaration(t *testing.T) {
+	model := loadContent(t, "sequence-after-initial-reference.sysml",
+		"action def A {\n    first a;\n    action a;\n    action c;\n}\n")
+	requireClean(t, model)
+	op := AddThenMember("A", "action", "b", "")
+	op.After = "a"
+	result := applyOne(t, model, op)
+	const want = "action def A {\n" +
+		"    first a;\n" +
+		"    action a;\n" +
+		"    then action b;\n" +
+		"    action c;\n" +
+		"}\n"
+	if got := string(result.Content); got != want {
+		t.Fatalf("content = %q, want %q", got, want)
+	}
+	requireClean(t, loadContent(t, "sequence-after-initial-reference.sysml", string(result.Content)))
+}
+
+func TestAddSequenceAfterDoesNotUseInitialReferenceAsAnchor(t *testing.T) {
+	model := loadContent(t, "sequence-after-initial-reference-only.sysml",
+		"action def A {\n    first a;\n    action c;\n}\n")
+	requireClean(t, model)
+	op := AddThenMember("A", "action", "b", "")
+	op.After = "a"
+	addFailure(t, model, op, FailureUnknownTarget)
+}
+
 func TestAddSequenceGlobalReference(t *testing.T) {
 	model := loadContent(t, "sequence-global.sysml",
 		"package P {\n    action def A {\n        action a;\n    }\n}\n")
