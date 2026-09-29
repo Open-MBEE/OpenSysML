@@ -4,6 +4,7 @@ import (
 	"sort"
 
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/symbols"
+	"github.com/Open-MBEE/OpenSysML/internal/syntax/ast"
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/source"
 )
 
@@ -80,6 +81,15 @@ type Var struct {
 	// A subject member's root stands for the object the query is about; another
 	// usage's root stands for one of its member objects.
 	Root *symbols.Symbol
+
+	// Steps are the value-holding features the reference read through, where
+	// the name is a chain — [root, …, feature] for a name of two or more steps.
+	Steps []*symbols.Symbol
+
+	// Ref and Scope are the reference node and the scope it was written in, so
+	// the variable's value can be read the way the evaluator reads it.
+	Ref   ast.Node
+	Scope *symbols.Scope
 
 	// Dimension is the quantity dimension its magnitude is expressed in, over
 	// base units, empty for a value that has none.

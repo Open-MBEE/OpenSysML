@@ -343,33 +343,20 @@ func TestVerifyQuestionsPinsNoSubObjectFeature(t *testing.T) {
 
 // TestVerifyQuestionsPinsNoChainVarOnAnotherObject: the subject's redefinition
 // pins the def-scope feature, never a chain var naming the same feature on
-// another object — c is violated with a witness where other.power < 5, only
-// power pinned, whichever order the query's variables iterate in.
+// another object. `other` binds no object, so reading `other.power` fails the
+// way evaluating c fails — the answer is undecided, never a false holds,
+// whichever order the query's variables iterate in.
 func TestVerifyQuestionsPinsNoChainVarOnAnotherObject(t *testing.T) {
 	requireSolver(t)
 	srv := mustNewService(t, 10)
 	hash := mustSymbolicModel(t, srv)
 	for range 20 {
 		resp := verifyQuestion(t, srv, hash, "P::Engine::c", "holds", "P::eng", "")
-		if resp.Verdict.Status != statusViolated {
-			t.Fatalf("status=%q, want violated: %q", resp.Verdict.Status, resp.Verdict.Error)
+		if resp.Verdict.Status == statusHolds {
+			t.Fatalf("holds — a false proof pins other.power")
 		}
-		var other, pinned bool
-		for _, w := range resp.Verdict.Witness {
-			if strings.HasSuffix(w.Feature, "other.power") {
-				other = true
-				if w.Value.GetRealValue() >= 5.0 {
-					t.Fatalf("witness other.power=%v, want < 5", w.Value.GetRealValue())
-				}
-			} else if strings.HasSuffix(w.Feature, "power") {
-				pinned = true
-			}
-		}
-		if !other {
-			t.Fatalf("witness %+v names no other.power", resp.Verdict.Witness)
-		}
-		if pinned {
-			t.Fatalf("witness %+v carries power, which the subject pins", resp.Verdict.Witness)
+		if resp.Verdict.Status != statusUndecided || !strings.Contains(resp.Verdict.Error, "other") {
+			t.Fatalf("status=%q error=%q, want undecided naming other, which binds no object", resp.Verdict.Status, resp.Verdict.Error)
 		}
 	}
 }
@@ -586,5 +573,56 @@ func TestVerifyQuestionsAsksTheObjectThatCarries(t *testing.T) {
 	}
 	if amb.Verdict.Error != eval.Verdict.Error {
 		t.Fatalf("holds error %q differs from the evaluate error %q", amb.Verdict.Error, eval.Verdict.Error)
+	}
+}
+
+// chainValuesModelSource fixes feature values at any depth the evaluator reads
+// them: a usage default, a def default, and a three-step chain.
+const chainValuesModelSource = `package P {
+	private import ScalarValues::*;
+	part hg { attribute power : Real = 5.0; }
+	part def HG { attribute power : Real = 5.0; }
+	part hg2 : HG;
+	part def Inner { attribute c : Real = 7.0; }
+	part def Mid { part b : Inner; }
+	part a : Mid;
+	assert constraint positive { hg.power > 0.0 }
+	assert constraint negative { hg.power < 0.0 }
+	assert constraint defPositive { hg2.power > 0.0 }
+	assert constraint deep { a.b.c > 0.0 }
+}
+`
+
+// TestVerifyQuestionsPinsTheValuesChainsRead: a value the model fixes at any
+// depth is pinned rather than left free — hg.power = 5.0 proves positive,
+// violates negative (which hg.power, being pinned, never witnesses), and
+// satisfies satisfiable; the def-default and the deep chain pin the same way.
+func TestVerifyQuestionsPinsTheValuesChainsRead(t *testing.T) {
+	requireSolver(t)
+	srv := mustNewService(t, 10)
+	hash := mustVerifyModel(t, srv, chainValuesModelSource, "verify-chain-values")
+
+	resp := verifyQuestion(t, srv, hash, "P::positive", "holds", "", "")
+	if resp.Verdict.Status != statusHolds || !resp.Verdict.Holds {
+		t.Fatalf("positive: status=%q holds=%v, want proved holds: %q", resp.Verdict.Status, resp.Verdict.Holds, resp.Verdict.Error)
+	}
+	resp = verifyQuestion(t, srv, hash, "P::negative", "holds", "", "")
+	if resp.Verdict.Status != statusViolated {
+		t.Fatalf("negative: status=%q, want violated — hg.power = 5.0 fails < 0.0: %q", resp.Verdict.Status, resp.Verdict.Error)
+	}
+	for _, w := range resp.Verdict.Witness {
+		if strings.HasSuffix(w.Feature, "hg.power") {
+			t.Fatalf("hg.power in witness %+v, want it pinned", w)
+		}
+	}
+	resp = verifyQuestion(t, srv, hash, "P::positive", "satisfiable", "", "")
+	if resp.Verdict.Status != statusSatisfiable {
+		t.Fatalf("positive satisfiable: status=%q: %q", resp.Verdict.Status, resp.Verdict.Error)
+	}
+	for _, element := range []string{"P::defPositive", "P::deep"} {
+		resp = verifyQuestion(t, srv, hash, element, "holds", "", "")
+		if resp.Verdict.Status != statusHolds || !resp.Verdict.Holds {
+			t.Fatalf("%s: status=%q holds=%v, want proved holds: %q", element, resp.Verdict.Status, resp.Verdict.Holds, resp.Verdict.Error)
+		}
 	}
 }

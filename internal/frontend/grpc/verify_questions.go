@@ -155,13 +155,29 @@ func (v *verifyContext) symbolicElement(ctx context.Context, question, kind stri
 		Object:     resolved,
 		ObjectType: objectType,
 	})
-	q, terr := translate(v.runtime, pins)
+	q, terr := v.translatedQuestion(translate, pins, resolved)
 	var queries []*solve.Query
 	if terr == nil {
 		queries = []*solve.Query{q}
 	}
 	verdict, verr := v.symbolicVerdict(ctx, question, kind, sym, "", resolved, queries, terr)
 	return verdict, resolved, verr
+}
+
+// translatedQuestion translates the query once, reads the values the query's
+// chain variables name where the conditions would read them, then translates
+// again with those values pinned — a chain's value left free would answer
+// about assignments the model does not hold.
+func (v *verifyContext) translatedQuestion(translate func(*runtime.Context, []solve.Pin) (*solve.Query, error), pins []solve.Pin, resolved *runtime.Instance) (*solve.Query, error) {
+	q, err := translate(v.runtime, pins)
+	if err != nil {
+		return nil, err
+	}
+	chainPins, err := solve.ChainPins(v.runtime, q, resolved)
+	if err != nil || len(chainPins) == 0 {
+		return q, err
+	}
+	return translate(v.runtime, append(pins, chainPins...))
 }
 
 // proveConstraint answers a holds or satisfiable question about a constraint.
@@ -232,13 +248,12 @@ func (v *verifyContext) symbolicSatisfy(ctx context.Context, question string, a 
 		Object:     resolved,
 		ObjectType: objectType,
 	})
-	var q *solve.Query
-	var terr error
-	if question == questionHolds {
-		q, terr = solve.SatisfactionViolation(v.runtime, a, pins)
-	} else {
-		q, terr = solve.SatisfactionWith(v.runtime, a, pins)
-	}
+	q, terr := v.translatedQuestion(func(rt *runtime.Context, pins []solve.Pin) (*solve.Query, error) {
+		if question == questionHolds {
+			return solve.SatisfactionViolation(rt, a, pins)
+		}
+		return solve.SatisfactionWith(rt, a, pins)
+	}, pins, resolved)
 	var queries []*solve.Query
 	if terr == nil {
 		queries = []*solve.Query{q}

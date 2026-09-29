@@ -66,6 +66,9 @@ type Pin struct {
 	// Name is the feature as the element naming it writes it.
 	Name string
 
+	// Var is the exact query variable the pin fixes, where it names one.
+	Var string
+
 	// Value is the value it is fixed to, read where the evaluator reads it.
 	Value runtime.Value
 
@@ -343,6 +346,9 @@ func (t *translator) fix(pins []Pin) error {
 // pinnedVar is the variable a fixed value fixes: the one standing for that very
 // feature, read directly rather than through a chain from another object.
 func (t *translator) pinnedVar(p Pin) *Var {
+	if p.Var != "" {
+		return t.vars[p.Var]
+	}
 	if p.Feature == nil {
 		return nil
 	}
@@ -627,4 +633,39 @@ func ratOfFloat(f float64) (*big.Rat, bool) {
 		return nil, false
 	}
 	return new(big.Rat).SetString(strconv.FormatFloat(f, 'g', -1, 64))
+}
+
+// ChainPins reads the value each unpinned chain variable of a translated query
+// names — a feature a chain of two or more steps reaches, which no fixed value
+// names directly — by the same evaluation the conditions run: the variable is
+// free when the evaluator reports it has no value, and any other read failure
+// is returned, since the evaluator errors there too.
+func ChainPins(ctx *runtime.Context, q *Query, self *runtime.Instance) ([]Pin, error) {
+	pinned := make(map[string]bool, len(q.Pinned))
+	for _, p := range q.Pinned {
+		pinned[p.Var.Name] = true
+	}
+	var out []Pin
+	for _, v := range q.Vars {
+		if len(v.Steps) < 2 || v.Ref == nil || v.Scope == nil || pinned[v.Name] {
+			continue
+		}
+		value, err := runtime.NewEvalContextIn(ctx, v.Scope, self).Eval(v.Ref)
+		if err != nil {
+			if errors.Is(err, runtime.ErrNoValue) {
+				continue
+			}
+			return nil, err
+		}
+		if value.Kind == runtime.ValInvalid || value.Kind == runtime.ValUndetermined || ctx.HoldsNoValue(value) {
+			continue
+		}
+		source := PinDeclared
+		var object int64
+		if self != nil {
+			source, object = PinHeld, self.ID
+		}
+		out = append(out, Pin{Feature: v.Symbol, Name: v.Name, Var: v.Name, Value: value, Source: source, Object: object})
+	}
+	return out, nil
 }
