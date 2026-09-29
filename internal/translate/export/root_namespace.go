@@ -111,6 +111,7 @@ func withRootNamespace(graph *rdf.Graph) (*rdf.Graph, error) {
 // read from the element form matches one the encoder builds from notation.
 func withoutRootNamespace(graph *rdf.Graph) *rdf.Graph {
 	dropped := map[string]bool{}
+	droppedMemberIndexes := map[string]bool{}
 	type rootIndex struct {
 		member rdf.Term
 		index  int
@@ -122,15 +123,20 @@ func withoutRootNamespace(graph *rdf.Graph) *rdf.Graph {
 		}
 		dropped[subject.Value] = true
 		members := rootNamespaceMembers(graph, subject)
-		indexed := false
+		indexed := 0
 		listed := make(map[string]bool, len(members))
 		for _, member := range members {
 			listed[member.Value] = true
 			if graph.HasProperty(member, rdf.OpenSysML+xMemberIndex) {
-				indexed = true
+				indexed++
 			}
 		}
-		if !indexed {
+		if indexed > 0 && indexed < len(members) {
+			for i, member := range members {
+				indexes = append(indexes, rootIndex{member: member, index: i})
+				droppedMemberIndexes[member.Value] = true
+			}
+		} else if indexed == 0 {
 			var subjectOrder []rdf.Term
 			for _, candidate := range graph.Subjects() {
 				if listed[candidate.Value] {
@@ -163,7 +169,9 @@ func withoutRootNamespace(graph *rdf.Graph) *rdf.Graph {
 		out.Prefixes[prefix] = iri
 	}
 	for _, triple := range graph.Triples() {
-		if dropped[triple.Subject.Value] || dropped[triple.Object.Value] && triple.Object.IsIRI() {
+		if dropped[triple.Subject.Value] ||
+			dropped[triple.Object.Value] && triple.Object.IsIRI() ||
+			droppedMemberIndexes[triple.Subject.Value] && triple.Predicate.Value == rdf.OpenSysML+xMemberIndex {
 			continue
 		}
 		out.AddTriple(triple)

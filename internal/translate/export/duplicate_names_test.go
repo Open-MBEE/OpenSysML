@@ -581,6 +581,87 @@ func TestDuplicateRootNamesToolkitWrapperOrder(t *testing.T) {
 	}
 }
 
+// TestDuplicateRootNamesToolkitPartialMemberIndex preserves wrapper order
+// when only one root already has a member index.
+func TestDuplicateRootNamesToolkitPartialMemberIndex(t *testing.T) {
+	membershipRefs := toolkitIDs("m_p1", "m_q", "m_p2")
+	elements := []map[string]any{
+		toolkitElement("Namespace", "wrapper", map[string]any{
+			"ownedRelationship": membershipRefs,
+			"ownedMembership":   membershipRefs,
+			"ownedMember":       toolkitIDs("p1", "q", "p2"),
+		}),
+		toolkitElement("Package", "p2", map[string]any{
+			"declaredName":       "P",
+			"owner":              toolkitID("wrapper"),
+			"owningNamespace":    toolkitID("wrapper"),
+			"owningRelationship": toolkitID("m_p2"),
+			"owningMembership":   toolkitID("m_p2"),
+			"ownedRelationship":  toolkitIDs("m_x2"),
+			"ownedMembership":    toolkitIDs("m_x2"),
+			"ownedMember":        toolkitIDs("x2"),
+		}),
+		toolkitElement("Package", "q", map[string]any{
+			"declaredName":       "Q",
+			"owner":              toolkitID("wrapper"),
+			"owningNamespace":    toolkitID("wrapper"),
+			"owningRelationship": toolkitID("m_q"),
+			"owningMembership":   toolkitID("m_q"),
+		}),
+		toolkitElement("Package", "p1", map[string]any{
+			"declaredName":       "P",
+			"sysx:memberIndex":   0,
+			"owner":              toolkitID("wrapper"),
+			"owningNamespace":    toolkitID("wrapper"),
+			"owningRelationship": toolkitID("m_p1"),
+			"owningMembership":   toolkitID("m_p1"),
+			"ownedRelationship":  toolkitIDs("m_x1"),
+			"ownedMembership":    toolkitIDs("m_x1"),
+			"ownedMember":        toolkitIDs("x1"),
+		}),
+		toolkitRootMembership("m_p1", "p1", "wrapper"),
+		toolkitRootMembership("m_q", "q", "wrapper"),
+		toolkitRootMembership("m_p2", "p2", "wrapper"),
+		toolkitRootMembership("m_x1", "x1", "p1"),
+		toolkitRootMembership("m_x2", "x2", "p2"),
+		toolkitElement("PartDefinition", "x2", map[string]any{"declaredName": "X"}),
+		toolkitElement("PartDefinition", "x1", map[string]any{"declaredName": "X"}),
+	}
+	doc, err := json.Marshal(elements)
+	if err != nil {
+		t.Fatalf("marshal toolkit JSON: %v", err)
+	}
+	graph, err := ReadAPIJSON(doc)
+	if err != nil {
+		t.Fatalf("ReadAPIJSON: %v", err)
+	}
+	p1 := rdf.IRI(rdf.Element + "p1")
+	if indexes := graph.Objects(p1, rdf.OpenSysML+xMemberIndex); len(indexes) != 1 {
+		t.Fatalf("p1 has %d member indexes, want exactly 1: %v", len(indexes), indexes)
+	}
+	metaclasses, err := checkTypes(graph)
+	if err != nil {
+		t.Fatalf("checkTypes: %v", err)
+	}
+	normative, err := deriveNormativeGraph(graph, metaclasses)
+	if err != nil {
+		t.Fatalf("deriveNormativeGraph: %v", err)
+	}
+	for id, want := range map[string]string{
+		"p1": "P",
+		"x1": "P::X",
+		"q":  "Q",
+		"p2": "@2",
+		"x2": "@2::X",
+	} {
+		subject := rdf.IRI(rdf.Element + id)
+		got, ok := normative.Lexical(subject, rdf.SysML+pQualifiedName)
+		if !ok || got != want {
+			t.Errorf("%s has qualified name %q, want %q", id, got, want)
+		}
+	}
+}
+
 // TestDuplicateRootNamesToolkitRelationshipPosition checks an unowned
 // relationship occupies a root position even though it has no qualified name.
 func TestDuplicateRootNamesToolkitRelationshipPosition(t *testing.T) {
