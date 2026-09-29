@@ -3,6 +3,8 @@ package edit
 import (
 	"strings"
 	"testing"
+
+	"github.com/Open-MBEE/OpenSysML/internal/syntax/ast"
 )
 
 const sequenceTestModel = "package P {\n" +
@@ -649,6 +651,78 @@ func TestAddSequenceAfter(t *testing.T) {
 		}
 		requireClean(t, loadContent(t, "sequence-chain.sysml", string(result.Content)))
 	})
+}
+
+func TestAddSequenceAfterRejectsNonSourceAnchors(t *testing.T) {
+	tests := []struct {
+		name    string
+		content string
+		after   string
+	}{
+		{
+			name:    "action definition",
+			content: "action def A { action a; action def Inner; action b; }\n",
+			after:   "Inner",
+		},
+		{
+			name:    "directed parameter",
+			content: "action def A { action a; in x : ScalarValues::Real; }\n",
+			after:   "x",
+		},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			model := loadContent(t, "sequence-after-non-source.sysml", test.content)
+			requireClean(t, model)
+			before := string(model.Source.Bytes())
+			op := AddThenMember("A", "action", "newAction", "")
+			op.After = test.after
+			addFailure(t, model, op, FailureIllegalKind)
+			if got := string(model.Source.Bytes()); got != before {
+				t.Fatalf("model changed on refusal:\n%s", got)
+			}
+		})
+	}
+}
+
+func TestAddSequenceAfterSourcesFromItsAnchor(t *testing.T) {
+	model := loadContent(t, "sequence-after-source.sysml",
+		"action def A { action a; action def Inner; action b; }\n")
+	requireClean(t, model)
+	op := AddThenMember("A", "action", "x", "")
+	op.After = "a"
+	result := applyOne(t, model, op)
+	parsed := loadContent(t, "sequence-after-source.sysml", string(result.Content))
+	requireClean(t, parsed)
+
+	var owner *ast.Definition
+	for _, member := range parsed.Root.Members {
+		if membership, ok := member.(*ast.Membership); ok {
+			if definition, ok := membership.Member.(*ast.Definition); ok {
+				owner = definition
+				break
+			}
+		}
+	}
+	if owner == nil {
+		t.Fatal("parsed action definition A not found")
+	}
+	var edge *ast.SuccessionEdge
+	for _, member := range owner.Members {
+		if candidate, ok := member.(*ast.SuccessionEdge); ok {
+			edge = candidate
+			break
+		}
+	}
+	if edge == nil {
+		t.Fatal("parsed succession edge not found")
+	}
+	if edge.Source == nil || len(edge.Source.Parts) != 1 || edge.Source.Parts[0].Text != "a" {
+		t.Fatalf("succession source = %#v, want a", edge.Source)
+	}
+	if edge.Target == nil || len(edge.Target.Parts) != 1 || edge.Target.Parts[0].Text != "x" {
+		t.Fatalf("succession target = %#v, want x", edge.Target)
+	}
 }
 
 func TestAddSequenceGlobalReference(t *testing.T) {

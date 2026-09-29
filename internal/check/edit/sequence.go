@@ -82,10 +82,19 @@ func (m Model) addSequenceSplice(i int, op Operation) (splice, error) {
 	if anchor >= 0 {
 		before = members[:anchor+1]
 	}
-	if requiresSequenceSource(op.SequenceKeyword) && !sequenceSourceBefore(before) {
-		return splice{}, &Error{
-			Failure: FailureIllegalKind, OperationIndex: i,
-			Message: fmt.Sprintf("%q has no source member before it to sequence from", op.SequenceKeyword),
+	if requiresSequenceSource(op.SequenceKeyword) {
+		if anchor >= 0 && !ast.IsSuccessionSource(members[anchor]) {
+			return splice{}, &Error{
+				Failure: FailureIllegalKind, OperationIndex: i,
+				Message: fmt.Sprintf("%q cannot be placed after %q: the member before a %q is its source, and %q is not a node a succession can leave",
+					op.SequenceKeyword, op.After, op.SequenceKeyword, op.After),
+			}
+		}
+		if anchor < 0 && !sequenceSourceBefore(before) {
+			return splice{}, &Error{
+				Failure: FailureIllegalKind, OperationIndex: i,
+				Message: fmt.Sprintf("%q has no source member before it to sequence from", op.SequenceKeyword),
+			}
 		}
 	}
 	var ins insertion
