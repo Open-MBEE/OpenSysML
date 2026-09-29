@@ -311,6 +311,68 @@ func TestNestedFirstCountsAsSequenceSource(t *testing.T) {
 	requireClean(t, loadContent(t, "action-body-first-source.sysml", content))
 }
 
+func TestNestedActionBodySourceMultiplicityReferences(t *testing.T) {
+	body := func() []Operation {
+		then := AddThen("", "done")
+		then.Multiplicity = "[1]"
+		return []Operation{
+			plainSequenceStatement(AddThenMember("", "action", "a", "")),
+			then,
+		}
+	}
+	tests := []struct {
+		name string
+		op   Operation
+		want string
+	}{
+		{
+			name: "if",
+			op:   AddIf("A", "true", body(), nil),
+			want: "then if true {\n" +
+				"        action a;\n" +
+				"        [1] then done;\n" +
+				"    }",
+		},
+		{
+			name: "while",
+			op:   AddWhile("A", "true", body(), ""),
+			want: "then while true {\n" +
+				"        action a;\n" +
+				"        [1] then done;\n" +
+				"    }",
+		},
+		{
+			name: "loop",
+			op:   AddLoop("A", body(), ""),
+			want: "then loop {\n" +
+				"        action a;\n" +
+				"        [1] then done;\n" +
+				"    }",
+		},
+		{
+			name: "for",
+			op:   AddFor("A", "i", "", "1..2", body()),
+			want: "then for i in 1..2 {\n" +
+				"        action a;\n" +
+				"        [1] then done;\n" +
+				"    }",
+		},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			model := loadContent(t, "nested-action-body-source-multiplicity.sysml",
+				"action def A {\n    action seed;\n}\n")
+			requireClean(t, model)
+			result := applyOne(t, model, test.op)
+			content := string(result.Content)
+			if !strings.Contains(content, test.want) {
+				t.Fatalf("expected exact nested notation %q:\n%s", test.want, content)
+			}
+			requireClean(t, loadContent(t, "nested-action-body-source-multiplicity.sysml", content))
+		})
+	}
+}
+
 func TestAddSequenceAfter(t *testing.T) {
 	t.Run("after a plain member", func(t *testing.T) {
 		model := loadContent(t, "sequence-after.sysml", sequenceTestModel)
