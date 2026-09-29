@@ -99,5 +99,5 @@ func (v *verifyContext) summaryVerdict(symbolID string, root *runtime.Instance, 
 		out.Error = analysis.ValidationReason(report)
 		out.FailureReason = pb.FailureReason_FAILURE_REASON_EVALUATION
 	}
-	return out
+	return stampEvaluation(out)
 }

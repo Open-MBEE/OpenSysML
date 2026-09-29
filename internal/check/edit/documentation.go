@@ -54,7 +54,8 @@ func (m Model) addDocumentationSplice(i int, op Operation) (splice, error) {
 	}
 	if len(docs) == 1 {
 		doc := docs[0].Decl.(*ast.Documentation)
-		span := source.Span{Offset: doc.Span().Offset, Len: doc.BodySpan.End() - doc.Span().Offset}
+		start := m.docKeyword(doc)
+		span := source.Span{Offset: start, Len: doc.BodySpan.End() - start}
 		text, err := documentationText(i, op.DocName, op.DocLocale, op.Doc, lineIndent(m.Source.Bytes(), span.Offset))
 		if err != nil {
 			return splice{}, err
@@ -68,6 +69,18 @@ func (m Model) addDocumentationSplice(i int, op Operation) (splice, error) {
 	}
 	ins := m.firstMemberInsertion(owner, text)
 	return splice{span: ins.span, text: ins.text, opIndex: i, target: op.Target}, nil
+}
+
+// docKeyword is the offset of the `doc` keyword opening doc, past any
+// visibility its membership is written with.
+func (m Model) docKeyword(doc *ast.Documentation) int {
+	lx := lexer.New(m.Source)
+	for tok := lx.Next(); tok.Kind != lexer.EOF && tok.Span.Offset < doc.BodySpan.Offset; tok = lx.Next() {
+		if tok.Span.Offset >= doc.Span().Offset && tok.Kind == lexer.Keyword && tok.KeywordID == "doc" {
+			return tok.Span.Offset
+		}
+	}
+	return doc.Span().Offset
 }
 
 // admitsBody reports whether a declaration is written with a body, or with a

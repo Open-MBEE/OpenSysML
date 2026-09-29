@@ -22,6 +22,8 @@ func TestCommentBody(t *testing.T) {
 		{"tab_after_margin_kept", "/* a\n *\tb */", "a\n\tb "},
 		{"second_star_kept", "/* a\n **b */", "a\n*b "},
 		{"crlf", "/*x\r\n * y*/", "x\ny"},
+		{"bare_cr", "/* a\r * b*/", "a\nb"},
+		{"mixed_terminators", "/* a\r\n * b\r * c\n * d*/", "a\nb\nc\nd"},
 		{"leading_tab_dropped", "/*\tx\t*/", "x\t"},
 		{"whitespace_first_line", "/*  \n  x  \n  */", "x  \n"},
 		{"blank_first_lines", "/*\n\n * a\n*/", "\na\n"},
@@ -94,4 +96,12 @@ func FuzzCommentText(f *testing.F) {
 			t.Errorf("CommentBody(%q) = %q, want %q", text, got, body)
 		}
 	})
+}
+
+func TestCommentProseLineTerminators(t *testing.T) {
+	for _, raw := range []string{"/* a\n * b */", "/* a\r\n * b */", "/* a\r * b */"} {
+		if got := CommentProse(raw); got != "a\nb" {
+			t.Errorf("CommentProse(%q) = %q, want %q", raw, got, "a\nb")
+		}
+	}
 }

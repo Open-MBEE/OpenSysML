@@ -1,6 +1,7 @@
 package export
 
 import (
+	"sort"
 	"strings"
 
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/identity"
@@ -20,6 +21,9 @@ const mNamespace = "Namespace"
 // already carries such a root is returned as it is.
 func withRootNamespace(graph *rdf.Graph) (*rdf.Graph, error) {
 	roots := unownedElements(graph)
+	sort.SliceStable(roots, func(i, j int) bool {
+		return intOf(graph, roots[i], rdf.OpenSysML+xMemberIndex) < intOf(graph, roots[j], rdf.OpenSysML+xMemberIndex)
+	})
 	if len(roots) == 0 {
 		return graph, nil
 	}
@@ -111,11 +115,50 @@ func withRootNamespace(graph *rdf.Graph) (*rdf.Graph, error) {
 // read from the element form matches one the encoder builds from notation.
 func withoutRootNamespace(graph *rdf.Graph) *rdf.Graph {
 	dropped := map[string]bool{}
+	droppedMemberIndexes := map[string]bool{}
+	type rootIndex struct {
+		member rdf.Term
+		index  int
+	}
+	var indexes []rootIndex
 	for _, subject := range graph.Subjects() {
 		if !transparentRootSubject(graph, subject) {
 			continue
 		}
 		dropped[subject.Value] = true
+		members := rootNamespaceMembers(graph, subject)
+		indexed := 0
+		listed := make(map[string]bool, len(members))
+		for _, member := range members {
+			listed[member.Value] = true
+			if graph.HasProperty(member, rdf.OpenSysML+xMemberIndex) {
+				indexed++
+			}
+		}
+		if indexed > 0 && indexed < len(members) {
+			for i, member := range members {
+				indexes = append(indexes, rootIndex{member: member, index: i})
+				droppedMemberIndexes[member.Value] = true
+			}
+		} else if indexed == 0 {
+			var subjectOrder []rdf.Term
+			for _, candidate := range graph.Subjects() {
+				if listed[candidate.Value] {
+					subjectOrder = append(subjectOrder, candidate)
+				}
+			}
+			same := len(subjectOrder) == len(members)
+			for i := range subjectOrder {
+				if same && subjectOrder[i] != members[i] {
+					same = false
+				}
+			}
+			if !same {
+				for i, member := range members {
+					indexes = append(indexes, rootIndex{member: member, index: i})
+				}
+			}
+		}
 		for _, membership := range graph.Objects(subject, rdf.SysML+pOwnedRelationship) {
 			if graph.Type(membership) == rdf.SysML+mOwningMembership {
 				dropped[membership.Value] = true
@@ -130,12 +173,39 @@ func withoutRootNamespace(graph *rdf.Graph) *rdf.Graph {
 		out.Prefixes[prefix] = iri
 	}
 	for _, triple := range graph.Triples() {
-		if dropped[triple.Subject.Value] || dropped[triple.Object.Value] && triple.Object.IsIRI() {
+		if dropped[triple.Subject.Value] ||
+			dropped[triple.Object.Value] && triple.Object.IsIRI() ||
+			droppedMemberIndexes[triple.Subject.Value] && triple.Predicate.Value == rdf.OpenSysML+xMemberIndex {
 			continue
 		}
 		out.AddTriple(triple)
 	}
+	for _, index := range indexes {
+		out.Add(index.member, rdf.OpenSysMLTerm(xMemberIndex), rdf.Int(index.index))
+	}
 	return out
+}
+
+func rootNamespaceMembers(graph *rdf.Graph, namespace rdf.Term) []rdf.Term {
+	var members []rdf.Term
+	seen := map[string]bool{}
+	appendMember := func(related rdf.Term) {
+		member := related
+		if graph.Type(related) == rdf.SysML+mOwningMembership {
+			member = firstIRI(graph, related, pMemberElement, pOwnedMemberElement)
+		}
+		if !member.IsIRI() || member.Value == "" || seen[member.Value] {
+			return
+		}
+		seen[member.Value] = true
+		members = append(members, member)
+	}
+	for _, property := range []string{pOwnedRelationship, pOwnedMembership, pOwnedMember} {
+		for _, related := range graph.Objects(namespace, rdf.SysML+property) {
+			appendMember(related)
+		}
+	}
+	return members
 }
 
 // transparentRootSubject reports whether subject is a document wrapper no
@@ -159,14 +229,18 @@ func unownedElements(graph *rdf.Graph) []rdf.Term {
 		if !strings.HasPrefix(subject.Value, rdf.Element) || !strings.HasPrefix(graph.Type(subject), rdf.SysML) {
 			continue
 		}
-		if graph.HasProperty(subject, rdf.SysML+pOwner) ||
-			graph.HasProperty(subject, rdf.SysML+pOwningRelationship) ||
-			graph.HasProperty(subject, rdf.SysML+pOwningRelatedElement) {
+		if hasOwner(graph, subject) {
 			continue
 		}
 		roots = append(roots, subject)
 	}
 	return roots
+}
+
+func hasOwner(graph *rdf.Graph, subject rdf.Term) bool {
+	return graph.HasProperty(subject, rdf.SysML+pOwner) ||
+		graph.HasProperty(subject, rdf.SysML+pOwningRelationship) ||
+		graph.HasProperty(subject, rdf.SysML+pOwningRelatedElement)
 }
 
 // rootNamespaceIDs mints the root Namespace and its memberships the way the

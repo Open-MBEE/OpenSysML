@@ -411,6 +411,8 @@ func TestNegative(t *testing.T) {
 		{"variant_use_case_no_type", "use case def U { variant use case uc : ; }"},
 		{"assert_not_no_condition", "part def T { assert not ; }"},
 		{"assert_not_no_body_end", "part def T { assert not c { }"},
+		{"assert_global_name_missing", "package P { assert $; }"},
+		{"assert_global_scope_missing_name", "package P { assert $::; }"},
 
 		// `frame` and `render` are SysML keywords, so a framing or rendering
 		// with no reference is reported rather than read as a name.

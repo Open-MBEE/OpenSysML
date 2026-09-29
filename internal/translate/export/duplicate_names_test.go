@@ -294,6 +294,614 @@ func TestDuplicateMemberNamesToolkit(t *testing.T) {
 	}
 }
 
+// TestDuplicateRootNamesToolkit checks duplicate root names receive distinct
+// positional identities, matching the notation export's root ordering.
+func TestDuplicateRootNamesToolkit(t *testing.T) {
+	doc := `[
+		{"@type": "Package", "@id": "p1", "declaredName": "P", "isImpliedIncluded": false,
+		 "ownedMembership": [{"@id": "m1"}]},
+		{"@type": "Package", "@id": "q", "declaredName": "Q", "isImpliedIncluded": false},
+		{"@type": "Package", "@id": "p2", "declaredName": "P", "isImpliedIncluded": false,
+		 "ownedMembership": [{"@id": "m2"}]},
+		{"@type": "OwningMembership", "@id": "m1", "isImpliedIncluded": false,
+		 "memberElement": {"@id": "x1"}, "membershipOwningNamespace": {"@id": "p1"}},
+		{"@type": "OwningMembership", "@id": "m2", "isImpliedIncluded": false,
+		 "memberElement": {"@id": "x2"}, "membershipOwningNamespace": {"@id": "p2"}},
+		{"@type": "PartDefinition", "@id": "x1", "declaredName": "X", "isImpliedIncluded": false},
+		{"@type": "PartDefinition", "@id": "x2", "declaredName": "X", "isImpliedIncluded": false}
+	]`
+	graph, err := ReadAPIJSON([]byte(doc))
+	if err != nil {
+		t.Fatalf("ReadAPIJSON: %v", err)
+	}
+	metaclasses, err := checkTypes(graph)
+	if err != nil {
+		t.Fatalf("checkTypes: %v", err)
+	}
+	normative, err := deriveNormativeGraph(graph, metaclasses)
+	if err != nil {
+		t.Fatalf("deriveNormativeGraph: %v", err)
+	}
+	for id, want := range map[string]string{
+		"p1": "P",
+		"x1": "P::X",
+		"q":  "Q",
+		"p2": "@2",
+		"x2": "@2::X",
+	} {
+		subject := rdf.IRI(rdf.Element + id)
+		got, ok := normative.Lexical(subject, rdf.SysML+pQualifiedName)
+		if !ok || got != want {
+			t.Errorf("%s has qualified name %q, want %q", id, got, want)
+		}
+	}
+
+	file := source.New("duplicate-root.sysml", []byte(
+		"package P { part def X; }\npackage Q;\npackage P { part def X; }\n",
+	))
+	p := parser.New(file)
+	root := p.ParseFile()
+	if len(p.Diagnostics) != 0 {
+		t.Fatalf("the notation fixture does not parse: %v", p.Diagnostics)
+	}
+	notation, err := ToRDF(file, root)
+	if err != nil {
+		t.Fatalf("ToRDF: %v", err)
+	}
+	wantNames := []string{"P", "P::X", "Q", "@2", "@2::X"}
+	for _, tc := range []struct {
+		name  string
+		graph *rdf.Graph
+	}{
+		{name: "toolkit", graph: normative},
+		{name: "notation", graph: notation},
+	} {
+		got := elementSubjectsByQualifiedName(tc.graph)
+		if len(got) != len(wantNames) {
+			t.Errorf("%s graph has qualified names %v, want %v", tc.name, got, wantNames)
+		}
+		for _, want := range wantNames {
+			if _, ok := got[want]; !ok {
+				t.Errorf("%s graph is missing qualified name %q", tc.name, want)
+			}
+		}
+	}
+
+	decoded := decodeAPIJSON(t, []byte(doc))
+	if n := strings.Count(string(decoded), "package P"); n != 2 {
+		t.Errorf("decoded notation has %d `package P` declarations, want 2:\n%s", n, decoded)
+	}
+	if n := strings.Count(string(decoded), "part def X"); n != 2 {
+		t.Errorf("decoded notation has %d `part def X` declarations, want 2:\n%s", n, decoded)
+	}
+}
+
+func toolkitElement(metaclass, id string, properties map[string]any) map[string]any {
+	element := map[string]any{
+		"@type":             metaclass,
+		"@id":               id,
+		"isImpliedIncluded": false,
+	}
+	for property, value := range properties {
+		element[property] = value
+	}
+	return element
+}
+
+func toolkitID(id string) map[string]any {
+	return map[string]any{"@id": id}
+}
+
+func toolkitIDs(ids ...string) []any {
+	refs := make([]any, len(ids))
+	for i, id := range ids {
+		refs[i] = toolkitID(id)
+	}
+	return refs
+}
+
+func toolkitRootMembership(id, member, owner string) map[string]any {
+	return toolkitElement("OwningMembership", id, map[string]any{
+		"memberElement":             toolkitID(member),
+		"ownedMemberElement":        toolkitID(member),
+		"ownedRelatedElement":       toolkitID(member),
+		"owner":                     toolkitID(owner),
+		"owningRelatedElement":      toolkitID(owner),
+		"membershipOwningNamespace": toolkitID(owner),
+	})
+}
+
+func deriveToolkitGraph(t *testing.T, document []byte) *rdf.Graph {
+	t.Helper()
+	graph, err := ReadAPIJSON(document)
+	if err != nil {
+		t.Fatalf("ReadAPIJSON: %v", err)
+	}
+	metaclasses, err := checkTypes(graph)
+	if err != nil {
+		t.Fatalf("checkTypes: %v", err)
+	}
+	normative, err := deriveNormativeGraph(graph, metaclasses)
+	if err != nil {
+		t.Fatalf("deriveNormativeGraph: %v", err)
+	}
+	return normative
+}
+
+func toolkitRootRelationshipDocument(wrapped bool) []byte {
+	var elements []map[string]any
+	if wrapped {
+		elements = append(elements, toolkitElement("Namespace", "wrapper", map[string]any{
+			"ownedRelationship": toolkitIDs("m_p1", "dep", "m_q", "m_p2"),
+			"ownedMembership":   toolkitIDs("m_p1", "m_q", "m_p2"),
+			"ownedMember":       toolkitIDs("p1", "dep", "q", "p2"),
+		}))
+	}
+	rootProperties := func(membership string) map[string]any {
+		properties := map[string]any{
+			"ownedRelationship": toolkitIDs("m_x1"),
+			"ownedMembership":   toolkitIDs("m_x1"),
+			"ownedMember":       toolkitIDs("x1"),
+		}
+		if membership == "m_p2" {
+			properties["ownedRelationship"] = toolkitIDs("m_x2")
+			properties["ownedMembership"] = toolkitIDs("m_x2")
+			properties["ownedMember"] = toolkitIDs("x2")
+		}
+		if wrapped {
+			for property, value := range map[string]any{
+				"owner":              toolkitID("wrapper"),
+				"owningNamespace":    toolkitID("wrapper"),
+				"owningRelationship": toolkitID(membership),
+				"owningMembership":   toolkitID(membership),
+			} {
+				properties[property] = value
+			}
+		}
+		return properties
+	}
+	elements = append(elements,
+		toolkitElement("Package", "p1", mergeToolkitProperties(map[string]any{"declaredName": "P"}, rootProperties("m_p1"))),
+		toolkitElement("Dependency", "dep", func() map[string]any {
+			properties := map[string]any{
+				"client":   toolkitIDs("p1"),
+				"supplier": toolkitIDs("q"),
+			}
+			if wrapped {
+				properties["owner"] = toolkitID("wrapper")
+				properties["owningNamespace"] = toolkitID("wrapper")
+				properties["owningRelatedElement"] = toolkitID("wrapper")
+			}
+			return properties
+		}()),
+		toolkitElement("Package", "q", map[string]any{"declaredName": "Q"}),
+		toolkitElement("Package", "p2", mergeToolkitProperties(map[string]any{"declaredName": "P"}, rootProperties("m_p2"))),
+	)
+	if wrapped {
+		elements = append(elements,
+			toolkitRootMembership("m_p1", "p1", "wrapper"),
+			toolkitRootMembership("m_q", "q", "wrapper"),
+			toolkitRootMembership("m_p2", "p2", "wrapper"),
+		)
+	}
+	elements = append(elements,
+		toolkitRootMembership("m_x1", "x1", "p1"),
+		toolkitRootMembership("m_x2", "x2", "p2"),
+		toolkitElement("PartDefinition", "x1", map[string]any{"declaredName": "X"}),
+		toolkitElement("PartDefinition", "x2", map[string]any{"declaredName": "X"}),
+	)
+	document, _ := json.Marshal(elements)
+	return document
+}
+
+func mergeToolkitProperties(first, second map[string]any) map[string]any {
+	merged := make(map[string]any, len(first)+len(second))
+	for property, value := range first {
+		merged[property] = value
+	}
+	for property, value := range second {
+		merged[property] = value
+	}
+	return merged
+}
+
+// TestDuplicateRootNamesToolkitWrapperOrder checks a transparent root
+// Namespace's membership order takes precedence over the JSON element order.
+func TestDuplicateRootNamesToolkitWrapperOrder(t *testing.T) {
+	membershipRefs := toolkitIDs("m_p1", "m_q", "m_p2")
+	elements := []map[string]any{
+		toolkitElement("Namespace", "wrapper", map[string]any{
+			"ownedRelationship": membershipRefs,
+			"ownedMembership":   membershipRefs,
+			"ownedMember":       toolkitIDs("p1", "q", "p2"),
+		}),
+		toolkitElement("Package", "p2", map[string]any{
+			"declaredName":       "P",
+			"owner":              toolkitID("wrapper"),
+			"owningNamespace":    toolkitID("wrapper"),
+			"owningRelationship": toolkitID("m_p2"),
+			"owningMembership":   toolkitID("m_p2"),
+			"ownedRelationship":  toolkitIDs("m_x2", "m_y2"),
+			"ownedMembership":    toolkitIDs("m_x2", "m_y2"),
+			"ownedMember":        toolkitIDs("x2", "y2"),
+		}),
+		toolkitElement("Package", "q", map[string]any{
+			"declaredName":       "Q",
+			"owner":              toolkitID("wrapper"),
+			"owningNamespace":    toolkitID("wrapper"),
+			"owningRelationship": toolkitID("m_q"),
+			"owningMembership":   toolkitID("m_q"),
+		}),
+		toolkitElement("Package", "p1", map[string]any{
+			"declaredName":       "P",
+			"owner":              toolkitID("wrapper"),
+			"owningNamespace":    toolkitID("wrapper"),
+			"owningRelationship": toolkitID("m_p1"),
+			"owningMembership":   toolkitID("m_p1"),
+			"ownedRelationship":  toolkitIDs("m_x1"),
+			"ownedMembership":    toolkitIDs("m_x1"),
+			"ownedMember":        toolkitIDs("x1"),
+		}),
+		toolkitRootMembership("m_p1", "p1", "wrapper"),
+		toolkitRootMembership("m_q", "q", "wrapper"),
+		toolkitRootMembership("m_p2", "p2", "wrapper"),
+		toolkitRootMembership("m_x1", "x1", "p1"),
+		toolkitRootMembership("m_x2", "x2", "p2"),
+		toolkitRootMembership("m_y2", "y2", "p2"),
+		toolkitElement("PartDefinition", "x2", map[string]any{"declaredName": "X"}),
+		toolkitElement("PartDefinition", "y2", map[string]any{"declaredName": "Y"}),
+		toolkitElement("PartDefinition", "x1", map[string]any{"declaredName": "X"}),
+	}
+	doc, err := json.Marshal(elements)
+	if err != nil {
+		t.Fatalf("marshal toolkit JSON: %v", err)
+	}
+	normative := deriveToolkitGraph(t, doc)
+	for id, want := range map[string]string{
+		"p1": "P",
+		"x1": "P::X",
+		"q":  "Q",
+		"p2": "@2",
+		"x2": "@2::X",
+	} {
+		subject := rdf.IRI(rdf.Element + id)
+		got, ok := normative.Lexical(subject, rdf.SysML+pQualifiedName)
+		if !ok || got != want {
+			t.Errorf("%s has qualified name %q, want %q", id, got, want)
+		}
+	}
+	decoded := decodeAPIJSON(t, doc)
+	p1 := strings.Index(string(decoded), "package P")
+	x1 := strings.Index(string(decoded), "part def X")
+	q := strings.Index(string(decoded), "package Q")
+	p2 := strings.LastIndex(string(decoded), "package P")
+	y2 := strings.Index(string(decoded), "part def Y")
+	if !(p1 >= 0 && p1 < x1 && x1 < q && q < p2 && p2 < y2) {
+		t.Fatalf("decoded packages do not follow the wrapper membership order:\n%s", decoded)
+	}
+}
+
+// TestDuplicateRootNamesToolkitPartialMemberIndex preserves wrapper order
+// when only one root already has a member index.
+func TestDuplicateRootNamesToolkitPartialMemberIndex(t *testing.T) {
+	membershipRefs := toolkitIDs("m_p1", "m_q", "m_p2")
+	elements := []map[string]any{
+		toolkitElement("Namespace", "wrapper", map[string]any{
+			"ownedRelationship": membershipRefs,
+			"ownedMembership":   membershipRefs,
+			"ownedMember":       toolkitIDs("p1", "q", "p2"),
+		}),
+		toolkitElement("Package", "p2", map[string]any{
+			"declaredName":       "P",
+			"owner":              toolkitID("wrapper"),
+			"owningNamespace":    toolkitID("wrapper"),
+			"owningRelationship": toolkitID("m_p2"),
+			"owningMembership":   toolkitID("m_p2"),
+			"ownedRelationship":  toolkitIDs("m_x2"),
+			"ownedMembership":    toolkitIDs("m_x2"),
+			"ownedMember":        toolkitIDs("x2"),
+		}),
+		toolkitElement("Package", "q", map[string]any{
+			"declaredName":       "Q",
+			"owner":              toolkitID("wrapper"),
+			"owningNamespace":    toolkitID("wrapper"),
+			"owningRelationship": toolkitID("m_q"),
+			"owningMembership":   toolkitID("m_q"),
+		}),
+		toolkitElement("Package", "p1", map[string]any{
+			"declaredName":       "P",
+			"sysx:memberIndex":   0,
+			"owner":              toolkitID("wrapper"),
+			"owningNamespace":    toolkitID("wrapper"),
+			"owningRelationship": toolkitID("m_p1"),
+			"owningMembership":   toolkitID("m_p1"),
+			"ownedRelationship":  toolkitIDs("m_x1"),
+			"ownedMembership":    toolkitIDs("m_x1"),
+			"ownedMember":        toolkitIDs("x1"),
+		}),
+		toolkitRootMembership("m_p1", "p1", "wrapper"),
+		toolkitRootMembership("m_q", "q", "wrapper"),
+		toolkitRootMembership("m_p2", "p2", "wrapper"),
+		toolkitRootMembership("m_x1", "x1", "p1"),
+		toolkitRootMembership("m_x2", "x2", "p2"),
+		toolkitElement("PartDefinition", "x2", map[string]any{"declaredName": "X"}),
+		toolkitElement("PartDefinition", "x1", map[string]any{"declaredName": "X"}),
+	}
+	doc, err := json.Marshal(elements)
+	if err != nil {
+		t.Fatalf("marshal toolkit JSON: %v", err)
+	}
+	graph, err := ReadAPIJSON(doc)
+	if err != nil {
+		t.Fatalf("ReadAPIJSON: %v", err)
+	}
+	p1 := rdf.IRI(rdf.Element + "p1")
+	if indexes := graph.Objects(p1, rdf.OpenSysML+xMemberIndex); len(indexes) != 1 {
+		t.Fatalf("p1 has %d member indexes, want exactly 1: %v", len(indexes), indexes)
+	}
+	metaclasses, err := checkTypes(graph)
+	if err != nil {
+		t.Fatalf("checkTypes: %v", err)
+	}
+	normative, err := deriveNormativeGraph(graph, metaclasses)
+	if err != nil {
+		t.Fatalf("deriveNormativeGraph: %v", err)
+	}
+	for id, want := range map[string]string{
+		"p1": "P",
+		"x1": "P::X",
+		"q":  "Q",
+		"p2": "@2",
+		"x2": "@2::X",
+	} {
+		subject := rdf.IRI(rdf.Element + id)
+		got, ok := normative.Lexical(subject, rdf.SysML+pQualifiedName)
+		if !ok || got != want {
+			t.Errorf("%s has qualified name %q, want %q", id, got, want)
+		}
+	}
+}
+
+// TestDuplicateRootNamesToolkitRelationshipPosition checks an unowned
+// relationship occupies a root position even though it has no qualified name.
+func TestDuplicateRootNamesToolkitRelationshipPosition(t *testing.T) {
+	file := source.New("root-relationship.sysml", []byte(
+		"package P { part def X; }\ndependency from P to Q;\npackage Q;\npackage P { part def X; }\n",
+	))
+	p := parser.New(file)
+	root := p.ParseFile()
+	if len(p.Diagnostics) != 0 {
+		t.Fatalf("the notation fixture does not parse: %v", p.Diagnostics)
+	}
+	notation, err := ToRDF(file, root)
+	if err != nil {
+		t.Fatalf("ToRDF: %v", err)
+	}
+	var dependency rdf.Term
+	for _, subject := range notation.Subjects() {
+		if rdf.LocalName(notation.Type(subject)) == "Dependency" {
+			dependency = subject
+			break
+		}
+	}
+	if got, ok := notation.Lexical(dependency, rdf.SysML+pQualifiedName); !ok || got != "@1" {
+		t.Errorf("notation dependency has qualified name %q, want @1", got)
+	}
+	notationNames := rootPackageAndPartNames(notation)
+	for _, name := range []string{"P", "P::X", "Q", "@3", "@3::X"} {
+		if !notationNames[name] {
+			t.Errorf("notation graph is missing qualified name %q: %v", name, notationNames)
+		}
+	}
+	document, err := WriteAPIJSON(notation)
+	if err != nil {
+		t.Fatalf("WriteAPIJSON: %v", err)
+	}
+	encoded := apiElements(t, document)
+	for _, element := range encoded {
+		delete(element, "qualifiedName")
+		element["isImpliedIncluded"] = false
+	}
+	for i, j := 0, len(encoded)-1; i < j; i, j = i+1, j-1 {
+		encoded[i], encoded[j] = encoded[j], encoded[i]
+	}
+	reversed, err := json.Marshal(encoded)
+	if err != nil {
+		t.Fatalf("marshal reversed toolkit JSON: %v", err)
+	}
+	if got := rootPackageAndPartNames(deriveToolkitGraph(t, reversed)); !sameNameSet(got, notationNames) {
+		t.Errorf("reversed notation API JSON names %v differ from notation names %v", got, notationNames)
+	}
+	for _, wrapped := range []bool{true, false} {
+		name := "bare roots"
+		if wrapped {
+			name = "wrapped roots"
+		}
+		t.Run(name, func(t *testing.T) {
+			normative := deriveToolkitGraph(t, toolkitRootRelationshipDocument(wrapped))
+			for id, want := range map[string]string{
+				"p1": "P",
+				"x1": "P::X",
+				"q":  "Q",
+				"p2": "@3",
+				"x2": "@3::X",
+			} {
+				subject := rdf.IRI(rdf.Element + id)
+				got, ok := normative.Lexical(subject, rdf.SysML+pQualifiedName)
+				if !ok || got != want {
+					t.Errorf("%s has qualified name %q, want %q", id, got, want)
+				}
+			}
+			if normative.HasProperty(rdf.IRI(rdf.Element+"dep"), rdf.SysML+pQualifiedName) {
+				t.Error("the unnamed root dependency has a qualified name")
+			}
+			if got := rootPackageAndPartNames(normative); !sameNameSet(got, notationNames) {
+				t.Errorf("toolkit names %v differ from notation names %v", got, notationNames)
+			}
+		})
+	}
+}
+
+// TestToolkitRootMemberIndexesOrderRoots checks explicit root member indices
+// take precedence over the order the toolkit JSON lists its elements in.
+func TestToolkitRootMemberIndexesOrderRoots(t *testing.T) {
+	doc := `[
+		{"@type":"Package","@id":"p2","declaredName":"P","sysx:memberIndex":3,"isImpliedIncluded":false,
+		 "ownedMembership":[{"@id":"m_x2"}]},
+		{"@type":"Package","@id":"q","declaredName":"Q","sysx:memberIndex":2,"isImpliedIncluded":false},
+		{"@type":"Dependency","@id":"dep","sysx:memberIndex":1,"isImpliedIncluded":false,
+		 "client":[{"@id":"p1"}],"supplier":[{"@id":"q"}]},
+		{"@type":"Package","@id":"p1","declaredName":"P","sysx:memberIndex":0,"isImpliedIncluded":false,
+		 "ownedMembership":[{"@id":"m_x1"}]},
+		{"@type":"OwningMembership","@id":"m_x2","isImpliedIncluded":false,
+		 "memberElement":{"@id":"x2"},"membershipOwningNamespace":{"@id":"p2"}},
+		{"@type":"OwningMembership","@id":"m_x1","isImpliedIncluded":false,
+		 "memberElement":{"@id":"x1"},"membershipOwningNamespace":{"@id":"p1"}},
+		{"@type":"PartDefinition","@id":"x2","declaredName":"X","isImpliedIncluded":false},
+		{"@type":"PartDefinition","@id":"x1","declaredName":"X","isImpliedIncluded":false}
+	]`
+	normative := deriveToolkitGraph(t, []byte(doc))
+	for id, want := range map[string]string{
+		"p1": "P",
+		"x1": "P::X",
+		"q":  "Q",
+		"p2": "@3",
+		"x2": "@3::X",
+	} {
+		subject := rdf.IRI(rdf.Element + id)
+		got, ok := normative.Lexical(subject, rdf.SysML+pQualifiedName)
+		if !ok || got != want {
+			t.Errorf("%s has qualified name %q, want %q", id, got, want)
+		}
+	}
+}
+
+// TestAPIJSONRoundTripPartialRootIndexes keeps the decoder's root order when
+// wrapping and reading a graph whose roots have only some explicit indexes.
+func TestAPIJSONRoundTripPartialRootIndexes(t *testing.T) {
+	file := source.New("partial-root-indexes.sysml", []byte(
+		"package P { part def X; }\npackage Q;\npackage P { part def X; part def Y; }\n",
+	))
+	p := parser.New(file)
+	root := p.ParseFile()
+	if len(p.Diagnostics) != 0 {
+		t.Fatalf("the notation fixture does not parse: %v", p.Diagnostics)
+	}
+	notation, err := ToRDF(file, root)
+	if err != nil {
+		t.Fatalf("ToRDF: %v", err)
+	}
+	byName := elementSubjectsByQualifiedName(notation)
+	p1 := rdf.IRI(byName["P"])
+	q := rdf.IRI(byName["Q"])
+	p2 := rdf.IRI(byName["@2"])
+	roots := []rdf.Term{p2, q, p1}
+	rootSubjects := map[string]bool{p1.Value: true, q.Value: true, p2.Value: true}
+	var triples []rdf.Triple
+	for _, subject := range roots {
+		for _, triple := range notation.Triples() {
+			if triple.Subject == subject && triple.Predicate.Value != rdf.OpenSysML+xMemberIndex {
+				triples = append(triples, triple)
+			}
+		}
+	}
+	for _, triple := range notation.Triples() {
+		if !rootSubjects[triple.Subject.Value] {
+			triples = append(triples, triple)
+		}
+	}
+	graph := rdf.NewGraphOf(triples, notation.Prefixes)
+	graph.Add(p2, rdf.OpenSysMLTerm(xMemberIndex), rdf.Int(2))
+	graph.Add(p1, rdf.OpenSysMLTerm(xMemberIndex), rdf.Int(0))
+
+	decode := func(graph *rdf.Graph) []byte {
+		t.Helper()
+		notation, err := ToSysML(withoutIdentitySourceText(graph))
+		if err != nil {
+			t.Fatalf("ToSysML: %v", err)
+		}
+		return notation
+	}
+	assertRootOrder := func(label string, notation []byte) {
+		t.Helper()
+		text := string(notation)
+		q := strings.Index(text, "package Q")
+		firstP := strings.Index(text, "package P")
+		secondP := strings.LastIndex(text, "package P")
+		y := strings.Index(text, "part def Y")
+		if !(q >= 0 && q < firstP && firstP < secondP && secondP < y) {
+			t.Errorf("%s did not order q, p1, p2 (p2 owns Y):\n%s", label, text)
+		}
+	}
+	assertRootOrder("original graph", decode(graph))
+
+	written, err := WriteAPIJSON(graph)
+	if err != nil {
+		t.Fatalf("WriteAPIJSON: %v", err)
+	}
+	roundTrip, err := ReadAPIJSON(written)
+	if err != nil {
+		t.Fatalf("ReadAPIJSON round trip: %v", err)
+	}
+	assertRootOrder("round trip", decode(roundTrip))
+
+	toolkitElements := apiElements(t, written)
+	idsByName := make(map[string]string)
+	for _, element := range toolkitElements {
+		if name, ok := element["qualifiedName"].(string); ok {
+			idsByName[name], _ = element["@id"].(string)
+		}
+		delete(element, "qualifiedName")
+		element["isImpliedIncluded"] = false
+	}
+	toolkitDocument, err := json.Marshal(toolkitElements)
+	if err != nil {
+		t.Fatalf("marshal toolkit API JSON: %v", err)
+	}
+	normative := deriveToolkitGraph(t, toolkitDocument)
+	for name, want := range map[string]string{
+		"P":     "P",
+		"P::X":  "P::X",
+		"@2":    "@2",
+		"@2::X": "@2::X",
+	} {
+		id := idsByName[name]
+		if id == "" {
+			t.Fatalf("written API JSON has no element with qualified name %q", name)
+		}
+		subject := rdf.ReferenceIRI(rdf.Term{}, id)
+		got, ok := normative.Lexical(subject, rdf.SysML+pQualifiedName)
+		if !ok || got != want {
+			t.Errorf("%s has qualified name %q, want %q", name, got, want)
+		}
+	}
+}
+
+func rootPackageAndPartNames(graph *rdf.Graph) map[string]bool {
+	names := map[string]bool{}
+	for _, subject := range graph.Subjects() {
+		if !graph.HasProperty(subject, rdf.SysML+pDeclaredName) {
+			continue
+		}
+		if name, ok := graph.Lexical(subject, rdf.SysML+pQualifiedName); ok {
+			names[name] = true
+		}
+	}
+	return names
+}
+
+func sameNameSet(a, b map[string]bool) bool {
+	if len(a) != len(b) {
+		return false
+	}
+	for name := range a {
+		if !b[name] {
+			return false
+		}
+	}
+	return true
+}
+
 func TestToolkitQuotedIdentityNamesEscape(t *testing.T) {
 	for _, test := range []struct {
 		name         string
