@@ -31,14 +31,20 @@ package OpenSysMLSurfaces {
         attribute adoptsInstancesOnReanalysis : Boolean = true;
     }
 
-    // Every capability the server announces in its initialize result; the
-    // rendering requests are the experimental extension the VS Code client uses.
+    // Every capability the server announces in its initialize result. The
+    // standard ones are the protocol's; the experimental ones are the extension
+    // the VS Code client speaks: rendering a view or a document, applying a
+    // model edit, reading a bundled library file, debugging a run, laying a
+    // diagram out across documents, and the palette, forms and styles it draws with.
     #Surface part def LanguageServer :> Interface {
         attribute :>> goPackage = "internal/frontend/lsp";
         attribute :>> entrypoint = "cmd/sysml-lsp";
         attribute :>> protocol = "lsp-stdio";
         attribute incrementalSync : Boolean = true;
+        attribute saveNotifications : Boolean = true;
+        attribute workspaceFolders : Boolean = true;
         attribute publishesQuickFixes : Boolean = true;
+        attribute identityCodeActions : Boolean = true;
         attribute hover : Boolean = true;
         attribute definition : Boolean = true;
         attribute findReferences : Boolean = true;
@@ -46,9 +52,19 @@ package OpenSysMLSurfaces {
         attribute workspaceSymbols : Boolean = true;
         attribute completion : Boolean = true;
         attribute formatting : Boolean = true;
+        attribute rangeFormatting : Boolean = true;
         attribute rename : Boolean = true;
+        attribute prepareRename : Boolean = true;
         attribute semanticTokens : Boolean = true;
         attribute experimentalRendering : Boolean = true;
+        attribute experimentalDocuments : Boolean = true;
+        attribute experimentalModelEdits : Boolean = true;
+        attribute experimentalStdlibContent : Boolean = true;
+        attribute experimentalDebug : Boolean = true;
+        attribute experimentalCrossDocumentLayout : Boolean = true;
+        attribute experimentalRenderPalette : Boolean = true;
+        attribute experimentalRenderForms : Boolean = true;
+        attribute experimentalRenderStyles : Boolean = true;
         in item findings : Diagnostic;
         out item tokens : SemanticToken;
         out item fixes : QuickFix;
@@ -103,11 +119,14 @@ package OpenSysMLSurfaces {
     }
 
     // A client library: hand-written idiomatic code over stubs generated from
-    // the schema, the stubs checked in at generatedStubs.
+    // the schema, the stubs checked in at generatedStubs — or, where no
+    // protobuf toolchain is at hand, JSON over HTTP against the Connect-JSON
+    // surface, decoded by the rules of docs/reference/wire-contract.md.
     abstract part def Client :> CodeUnit {
         attribute implementationLanguage : String;
         attribute generatedFrom : String = "api/proto";
         attribute generatedStubs : String;
+        attribute generatedCode : Boolean default = true;
         port service : RequestPort;
     }
 
@@ -135,19 +154,53 @@ package OpenSysMLSurfaces {
         attribute :>> generatedStubs = "client/java/opensysml-client/src/main/java/org/openmbee/opensysml/proto";
     }
 
+    part def JuliaClient :> Client {
+        attribute :>> goPackage = "client/julia";
+        attribute :>> implementationLanguage = "julia";
+        attribute :>> generatedStubs = "docs/reference/wire-contract.md";
+        attribute :>> generatedCode = false;
+    }
+
+    // Runs in MATLAB and in GNU Octave.
+    part def MatlabClient :> Client {
+        attribute :>> goPackage = "client/matlab";
+        attribute :>> implementationLanguage = "matlab";
+        attribute :>> generatedStubs = "docs/reference/wire-contract.md";
+        attribute :>> generatedCode = false;
+    }
+
     // In the same process by default, over the wire on request: the Go client
-    // wraps the generated Go stubs rather than being generated itself.
+    // wraps the generated Go stubs rather than being generated itself, and the
+    // three commands build for WebAssembly as well as natively.
     part def GoClient :> Client {
         attribute :>> goPackage = "client/opensysml";
         attribute :>> implementationLanguage = "go";
         attribute :>> generatedStubs = "api/proto";
         attribute inProcess : Boolean = true;
+        attribute buildsForWasm : Boolean = true;
     }
 
     part def VsCodeExtension :> CodeUnit {
         attribute :>> goPackage = "editors/vscode";
         attribute speaksTo : String = "sysml-lsp";
         port languageClient : RequestPort;
+    }
+
+    // A modelling tool reaching the service through the Java client: Cameo as
+    // a plugin, SysON as a backend over its Spring and GraphQL APIs with the
+    // explorer action, operation dialog and mapped run results in its frontend.
+    abstract part def ToolIntegration :> CodeUnit {
+        attribute speaksTo : String = "sysml-grpc";
+        attribute overClient : String = "client/java";
+        port serviceClient : RequestPort;
+    }
+
+    part def CameoPlugin :> ToolIntegration {
+        attribute :>> goPackage = "editors/cameo";
+    }
+
+    part def SysonIntegration :> ToolIntegration {
+        attribute :>> goPackage = "editors/syson";
     }
 
     // --- What an editor reaches ------------------------------------------
@@ -180,7 +233,7 @@ package OpenSysMLSurfaces {
     // re-analysed, and an edit that would leave the model unreadable is refused.
     part def SourceEditor :> CodeUnit {
         attribute :>> goPackage = "internal/check/edit";
-        attribute operations : String = "set value, rename, add member, delete";
+        attribute operations : String = "set value, rename, add member, delete, add connection, move, set layout, add satisfy, add requirement constraint, add transition, add verify, add metadata, add metadata prefix, add sequence, add import, add documentation, add comment, add note";
         attribute preservesUntouchedText : Boolean = true;
         attribute reanalysesResult : Boolean = true;
         in item text : SourceText;
@@ -270,7 +323,8 @@ package OpenSysMLSurfaces {
         attribute libraryFile : String =
             "internal/workspace/libs/stdlib/OpenSysML Libraries/DocumentQueries.sysml";
         attribute immutablePlans : Boolean = true;
-        attribute contentKinds : String = "section, paragraph, table, list, diagram";
+        attribute contentKinds : String = "section, paragraph, table, list, definitions, formula, diagram, image";
+        attribute runKinds : String = "span, link, ref";
         in item rows : QueryRows;
         out item plan : DocumentPlan;
     }
@@ -294,6 +348,16 @@ package OpenSysMLSurfaces {
         in item tree : DocumentTree;
     }
 
+    // One self-contained page with the stylesheet in it; its diagrams are
+    // Mermaid sources a script the page loads draws, so nothing runs here.
+    part def HtmlBackend :> CodeUnit {
+        attribute :>> goPackage = "internal/doc/docrender";
+        attribute form : String = "html";
+        attribute needsExternalTool : Boolean = false;
+        attribute diagramsDrawnByPage : Boolean = true;
+        in item tree : DocumentTree;
+    }
+
     // The only stage that leaves the process: the tree becomes prepared
     // Markdown, its diagrams become images, and a converter makes the PDF.
     part def PdfBackend :> CodeUnit {
@@ -304,6 +368,32 @@ package OpenSysMLSurfaces {
         attribute needsExternalTool : Boolean = true;
         attribute reportsMissingTool : Boolean = true;
         in item tree : DocumentTree;
+    }
+
+    // A SysML v1 model read from XMI — as Eclipse UML2 writes it or in a mdzip
+    // archive — and written as SysML v2 notation, with what each v1 element
+    // became reported; an MTIP export lays the migrated views out, and a
+    // results sidecar lets a migrated run configuration be compared with the
+    // runs its tool stored.
+    part def Migrator :> CodeUnit {
+        attribute :>> goPackage = "internal/translate/migrate";
+        attribute reader : String = "internal/translate/xmi/sysmlv1";
+        attribute layoutSource : String = "internal/translate/mtip";
+        attribute resultsSchema : String = "internal/translate/simresults";
+        attribute reportFlag : String = "-migration-report";
+        attribute resultsFlag : String = "-migration-results";
+        attribute layoutFlag : String = "-layout";
+        attribute comparisonFlag : String = "-compare-results";
+        attribute reportsEveryElement : Boolean = true;
+    }
+
+    // A calc def compiled to a native source file rather than interpreted;
+    // notation outside the compiled subset is named, never silently interpreted.
+    part def CodeGenerator :> CodeUnit {
+        attribute :>> goPackage = "internal/translate/codegen";
+        attribute targets : String = "c, go";
+        attribute flag : String = "-compile";
+        attribute namesUnsupportedNotation : Boolean = true;
     }
 
     // Textual notation both ways, the experimental RDF and API element form,
@@ -326,8 +416,8 @@ package OpenSysMLSurfaces {
     }
 
     // The document path, from a query in the model to a rendered artifact.
-    // One plan, one tree, two backends: the form is chosen at the end, so
-    // Markdown and PDF cannot disagree about the document's content.
+    // One plan, one tree, three backends: the form is chosen at the end, so
+    // Markdown, HTML and PDF cannot disagree about the document's content.
     part def DocumentPipeline {
         part provenance : Provenance;
         part views : ViewEngine;
@@ -336,6 +426,7 @@ package OpenSysMLSurfaces {
         part plans : DocumentPlanner;
         part ir : DocumentIR;
         part markdown : MarkdownBackend;
+        part html : HtmlBackend;
         part pdf : PdfBackend;
 
         port modelIn : ArtifactPort;
@@ -346,6 +437,7 @@ package OpenSysMLSurfaces {
         flow of QueryRows from rows.rows to plans.rows;
         flow of DocumentPlan from plans.plan to ir.plan;
         flow of DocumentTree from ir.tree to markdown.tree;
+        flow of DocumentTree from ir.tree to html.tree;
         flow of DocumentTree from ir.tree to pdf.tree;
         flow of DocumentTree from views.diagram to pdf.tree;
     }
@@ -364,6 +456,7 @@ package OpenSysMLSurfaces {
         action compilePlan;
         action evaluatePlan;
         action writeMarkdown;
+        action writeHtml;
         action renderDiagrams;
         action convertPdf;
         action reportMissingTool;
@@ -375,6 +468,7 @@ package OpenSysMLSurfaces {
 
         decide formGate;
         if form == "markdown" then writeMarkdown;
+        if form == "html" then writeHtml;
         else renderDiagrams;
 
         // A missing converter is reported, never a half-written document.
@@ -430,6 +524,29 @@ package OpenSysMLSurfaces {
         attribute :>> baseline = "docs/project/pilot-execution-referee.md";
     }
 
+    // The two behavior referees: OMG's PSSM test suite for state machines and
+    // ModelDriven's fUML reference implementation for actions, each translated
+    // by rule into the notation and run here, the suite's own outputs the oracle.
+    #Oracle part def PssmReferee :> ConformanceOracle {
+        attribute :>> goPackage = "tools/referee/pssm";
+        attribute :>> reference = "OMG PSSM test suite";
+        attribute :>> baseline = "docs/project/pssm-referee-baseline.json";
+    }
+
+    #Oracle part def FumlReferee :> ConformanceOracle {
+        attribute :>> goPackage = "tools/referee/fuml";
+        attribute :>> reference = "fUML reference implementation";
+        attribute :>> baseline = "docs/project/fuml-referee-baseline.json";
+    }
+
+    // The pilot validator's constraint names, re-extracted from the pinned jar
+    // and held against the census document, its probes and the negative corpus.
+    #Oracle part def ValidationCensus :> ConformanceOracle {
+        attribute :>> goPackage = "tools/census/validation";
+        attribute :>> reference = "pilot validator";
+        attribute :>> baseline = "docs/project/validation-constraints-baseline.json";
+    }
+
     #Oracle part def GrammarCoverage :> ConformanceOracle {
         attribute :>> goPackage = "tools/census/grammar";
         attribute :>> reference = "OMG Xtext grammars";
@@ -456,6 +573,17 @@ package OpenSysMLSurfaces {
         attribute :>> reference = "the bundled library files";
         attribute :>> baseline = "internal/workspace/libs/stdlib.snapshot";
         attribute :>> gating = true;
+    }
+
+    // The language-independent contract between the service and its clients:
+    // scenarios that are data, run by a reference runner that builds and starts
+    // the service itself, and ported by every client in another language.
+    #Oracle part def ConformanceSuite :> ConformanceOracle {
+        attribute :>> goPackage = "tools/cmd/conformance";
+        attribute :>> reference = "the running service";
+        attribute :>> baseline = "conformance";
+        attribute :>> gating = true;
+        attribute protocols : String = "grpc, connect, connect-json";
     }
 
     // What the oracles lean on: a pinned reference, an errata overlay for the
@@ -501,19 +629,29 @@ package OpenSysMLSurfaces {
         part node : NodeClient;
         part rust : RustClient;
         part java : JavaClient;
+        part julia : JuliaClient;
+        part matlab : MatlabClient;
         part vscode : VsCodeExtension;
+        part cameo : CameoPlugin;
+        part syson : SysonIntegration;
 
         part exporter : Exporter;
+        part migrator : Migrator;
+        part codegen : CodeGenerator;
         part oslc : OslcQuery;
 
         part rejection : RejectionOracle;
         part differential : DifferentialOracle;
         part xpect : XpectOracle;
         part execution : ExecutionReferee;
+        part pssm : PssmReferee;
+        part fuml : FumlReferee;
+        part validation : ValidationCensus;
         part grammar : GrammarCoverage;
         part counts : DocCounts;
         part stdlib : StdlibConformanceGate;
         part snapshotGate : StdlibSnapshotGate;
+        part suite : ConformanceSuite;
         part conformance : ConformanceInfrastructure;
 
         connection replDrives : ArtifactChannel connect repl.pipeline to pipeline.textIn;
@@ -530,7 +668,11 @@ package OpenSysMLSurfaces {
         connection nodeCalls : ArtifactChannel connect node.service to service.pipeline;
         connection rustCalls : ArtifactChannel connect rust.service to service.pipeline;
         connection javaCalls : ArtifactChannel connect java.service to service.pipeline;
+        connection juliaCalls : ArtifactChannel connect julia.service to service.pipeline;
+        connection matlabCalls : ArtifactChannel connect matlab.service to service.pipeline;
         connection editorSpeaksLsp : ArtifactChannel connect vscode.languageClient to lsp.pipeline;
+        connection cameoUsesJava : ArtifactChannel connect cameo.serviceClient to java.service;
+        connection sysonUsesJava : ArtifactChannel connect syson.serviceClient to java.service;
 
         connection documentsRead : ArtifactChannel connect pipeline.textIn to documents.modelIn;
         connection findingsToEditors : DiagnosticChannel connect pipeline.diagnosticsOut to editing.findingsIn;
