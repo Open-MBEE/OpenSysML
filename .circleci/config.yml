@@ -2088,6 +2088,7 @@ jobs:
       # java-test ran the suite on this revision in this workflow, so tests are
       # skipped; -am brings the parent pom the client's pom names, which Central
       # must hold too; opensysml-conformance is not published.
+      # Never run this step with -X/debug output; the settings interpolation would print the token.
       - run:
           name: Sign, upload and publish
           command: |
