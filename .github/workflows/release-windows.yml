@@ -28,7 +28,7 @@ on:
   workflow_dispatch:
     inputs:
       tag:
-        description: Existing release tag (vX.Y.Z) to build and publish the Windows assets for; leaves `version` unused
+        description: Existing release tag (vX.Y.Z) to build and publish the Windows assets for, signing as a tag push would; leaves `version` and `submit` unused
         required: false
         default: ''
       version:
@@ -146,6 +146,7 @@ jobs:
           PROJECT_SLUG: ${{ vars.SIGNPATH_PROJECT_SLUG }}
           POLICY_SLUG: ${{ vars.SIGNPATH_SIGNING_POLICY_SLUG }}
           EVENT_NAME: ${{ github.event_name }}
+          INPUT_TAG: ${{ inputs.tag }}
           SUBMIT_INPUT: ${{ inputs.submit }}
         run: |
           sign=true
@@ -157,7 +158,8 @@ jobs:
               echo "SIGNPATH_${v/POLICY_SLUG/SIGNING_POLICY_SLUG} variable is not set: skipping signing."; sign=false
             fi
           done
-          if [ "$EVENT_NAME" = "workflow_dispatch" ] && [ "$SUBMIT_INPUT" != "true" ]; then
+          # A dispatch against an existing tag publishes, so it signs exactly as a tag push does.
+          if [ "$EVENT_NAME" = "workflow_dispatch" ] && [ -z "$INPUT_TAG" ] && [ "$SUBMIT_INPUT" != "true" ]; then
             echo "Dry run without 'submit': skipping signing."; sign=false
           fi
           echo "sign=$sign" >> "$GITHUB_OUTPUT"
