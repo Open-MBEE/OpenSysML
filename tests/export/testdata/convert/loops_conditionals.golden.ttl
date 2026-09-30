@@ -9,6 +9,10 @@
 elmt:LoopsAndConditionals
     a sysml:Package ;
     sysml:qualifiedName "LoopsAndConditionals" ;
+    sysx:sourceLine "1"^^xsd:integer ;
+    sysx:sourceColumn "1"^^xsd:integer ;
+    sysx:sourceEndLine "33"^^xsd:integer ;
+    sysx:sourceEndColumn "2"^^xsd:integer ;
     sysml:elementId "LoopsAndConditionals" ;
     sysx:memberIndex "0"^^xsd:integer ;
     sysx:sourceLanguage "sysml" ;
@@ -26,6 +30,10 @@ elmt:LoopsAndConditionals
 elmt:LoopsAndConditionals__Tick
     a sysml:ActionDefinition ;
     sysml:qualifiedName "LoopsAndConditionals::Tick" ;
+    sysx:sourceLine "2"^^xsd:integer ;
+    sysx:sourceColumn "5"^^xsd:integer ;
+    sysx:sourceEndLine "2"^^xsd:integer ;
+    sysx:sourceEndColumn "21"^^xsd:integer ;
     sysml:elementId "LoopsAndConditionals__Tick" ;
     sysx:memberIndex "0"^^xsd:integer ;
     sysml:owningNamespace elmt:LoopsAndConditionals ;
@@ -49,6 +57,10 @@ elmt:LoopsAndConditionals__Tick_om
 elmt:LoopsAndConditionals__Control
     a sysml:ActionDefinition ;
     sysml:qualifiedName "LoopsAndConditionals::Control" ;
+    sysx:sourceLine "3"^^xsd:integer ;
+    sysx:sourceColumn "5"^^xsd:integer ;
+    sysx:sourceEndLine "32"^^xsd:integer ;
+    sysx:sourceEndColumn "6"^^xsd:integer ;
     sysml:elementId "LoopsAndConditionals__Control" ;
     sysx:memberIndex "1"^^xsd:integer ;
     sysml:owningNamespace elmt:LoopsAndConditionals ;
@@ -83,6 +95,10 @@ elmt:LoopsAndConditionals__Control_om
 elmt:LoopsAndConditionals__Control__count
     a sysml:AttributeUsage ;
     sysml:qualifiedName "LoopsAndConditionals::Control::count" ;
+    sysx:sourceLine "4"^^xsd:integer ;
+    sysx:sourceColumn "9"^^xsd:integer ;
+    sysx:sourceEndLine "4"^^xsd:integer ;
+    sysx:sourceEndColumn "28"^^xsd:integer ;
     sysml:elementId "LoopsAndConditionals__Control__count" ;
     sysx:memberIndex "0"^^xsd:integer ;
     sysml:owningNamespace elmt:LoopsAndConditionals__Control ;
@@ -109,6 +125,10 @@ elmt:LoopsAndConditionals__Control__count_om
 elmt:LoopsAndConditionals__Control__total
     a sysml:AttributeUsage ;
     sysml:qualifiedName "LoopsAndConditionals::Control::total" ;
+    sysx:sourceLine "5"^^xsd:integer ;
+    sysx:sourceColumn "9"^^xsd:integer ;
+    sysx:sourceEndLine "5"^^xsd:integer ;
+    sysx:sourceEndColumn "25"^^xsd:integer ;
     sysml:elementId "LoopsAndConditionals__Control__total" ;
     sysx:memberIndex "1"^^xsd:integer ;
     sysml:owningNamespace elmt:LoopsAndConditionals__Control ;
@@ -134,6 +154,10 @@ elmt:LoopsAndConditionals__Control__total_om
 elmt:LoopsAndConditionals__Control__tick
     a sysml:ActionUsage ;
     sysml:qualifiedName "LoopsAndConditionals::Control::tick" ;
+    sysx:sourceLine "6"^^xsd:integer ;
+    sysx:sourceColumn "9"^^xsd:integer ;
+    sysx:sourceEndLine "6"^^xsd:integer ;
+    sysx:sourceEndColumn "28"^^xsd:integer ;
     sysml:elementId "LoopsAndConditionals__Control__tick" ;
     sysx:memberIndex "2"^^xsd:integer ;
     sysml:owningNamespace elmt:LoopsAndConditionals__Control ;
@@ -163,6 +187,10 @@ elmt:LoopsAndConditionals__Control__tick_om
 elmt:LoopsAndConditionals__Control___403
     a sysml:WhileLoopActionUsage ;
     sysml:qualifiedName "LoopsAndConditionals::Control::@3" ;
+    sysx:sourceLine "7"^^xsd:integer ;
+    sysx:sourceColumn "9"^^xsd:integer ;
+    sysx:sourceEndLine "9"^^xsd:integer ;
+    sysx:sourceEndColumn "10"^^xsd:integer ;
     sysml:elementId "LoopsAndConditionals__Control___403" ;
     sysx:memberIndex "3"^^xsd:integer ;
     sysml:owningNamespace elmt:LoopsAndConditionals__Control ;
@@ -363,6 +391,10 @@ expr:LoopsAndConditionals__Control___403_pwhileCondition_om
 elmt:LoopsAndConditionals__Control___403___400
     a sysml:PerformActionUsage ;
     sysml:qualifiedName "LoopsAndConditionals::Control::@3::@0" ;
+    sysx:sourceLine "8"^^xsd:integer ;
+    sysx:sourceColumn "13"^^xsd:integer ;
+    sysx:sourceEndLine "8"^^xsd:integer ;
+    sysx:sourceEndColumn "26"^^xsd:integer ;
     sysml:elementId "LoopsAndConditionals__Control___403___400" ;
     sysx:memberIndex "0"^^xsd:integer ;
     sysml:owningNamespace elmt:LoopsAndConditionals__Control___403 ;
@@ -393,6 +425,10 @@ elmt:LoopsAndConditionals__Control___403___400_om
 elmt:LoopsAndConditionals__Control___404
     a sysml:WhileLoopActionUsage ;
     sysml:qualifiedName "LoopsAndConditionals::Control::@4" ;
+    sysx:sourceLine "10"^^xsd:integer ;
+    sysx:sourceColumn "9"^^xsd:integer ;
+    sysx:sourceEndLine "12"^^xsd:integer ;
+    sysx:sourceEndColumn "10"^^xsd:integer ;
     sysml:elementId "LoopsAndConditionals__Control___404" ;
     sysx:memberIndex "4"^^xsd:integer ;
     sysml:owningNamespace elmt:LoopsAndConditionals__Control ;
@@ -423,6 +459,10 @@ elmt:LoopsAndConditionals__Control___404_om
 elmt:LoopsAndConditionals__Control___404___400
     a sysml:AssignmentActionUsage ;
     sysml:qualifiedName "LoopsAndConditionals::Control::@4::@0" ;
+    sysx:sourceLine "11"^^xsd:integer ;
+    sysx:sourceColumn "13"^^xsd:integer ;
+    sysx:sourceEndLine "11"^^xsd:integer ;
+    sysx:sourceEndColumn "39"^^xsd:integer ;
     sysml:elementId "LoopsAndConditionals__Control___404___400" ;
     sysx:memberIndex "0"^^xsd:integer ;
     sysml:owningNamespace elmt:LoopsAndConditionals__Control___404 ;
@@ -668,6 +708,10 @@ expr:LoopsAndConditionals__Control___404___400_pvalue_om
 elmt:LoopsAndConditionals__Control___405
     a sysml:WhileLoopActionUsage ;
     sysml:qualifiedName "LoopsAndConditionals::Control::@5" ;
+    sysx:sourceLine "13"^^xsd:integer ;
+    sysx:sourceColumn "9"^^xsd:integer ;
+    sysx:sourceEndLine "15"^^xsd:integer ;
+    sysx:sourceEndColumn "29"^^xsd:integer ;
     sysml:elementId "LoopsAndConditionals__Control___405" ;
     sysx:memberIndex "5"^^xsd:integer ;
     sysml:owningNamespace elmt:LoopsAndConditionals__Control ;
@@ -868,6 +912,10 @@ expr:LoopsAndConditionals__Control___405_puntilCondition_om
 elmt:LoopsAndConditionals__Control___405___400
     a sysml:PerformActionUsage ;
     sysml:qualifiedName "LoopsAndConditionals::Control::@5::@0" ;
+    sysx:sourceLine "14"^^xsd:integer ;
+    sysx:sourceColumn "13"^^xsd:integer ;
+    sysx:sourceEndLine "14"^^xsd:integer ;
+    sysx:sourceEndColumn "26"^^xsd:integer ;
     sysml:elementId "LoopsAndConditionals__Control___405___400" ;
     sysx:memberIndex "0"^^xsd:integer ;
     sysml:owningNamespace elmt:LoopsAndConditionals__Control___405 ;
@@ -898,6 +946,10 @@ elmt:LoopsAndConditionals__Control___405___400_om
 elmt:LoopsAndConditionals__Control___406
     a sysml:ForLoopActionUsage ;
     sysml:qualifiedName "LoopsAndConditionals::Control::@6" ;
+    sysx:sourceLine "16"^^xsd:integer ;
+    sysx:sourceColumn "9"^^xsd:integer ;
+    sysx:sourceEndLine "18"^^xsd:integer ;
+    sysx:sourceEndColumn "10"^^xsd:integer ;
     sysml:elementId "LoopsAndConditionals__Control___406" ;
     sysx:memberIndex "6"^^xsd:integer ;
     sysml:owningNamespace elmt:LoopsAndConditionals__Control ;
@@ -1072,6 +1124,10 @@ expr:LoopsAndConditionals__Control___406_pcollection_om
 elmt:LoopsAndConditionals__Control___406___400
     a sysml:AssignmentActionUsage ;
     sysml:qualifiedName "LoopsAndConditionals::Control::@6::@0" ;
+    sysx:sourceLine "17"^^xsd:integer ;
+    sysx:sourceColumn "13"^^xsd:integer ;
+    sysx:sourceEndLine "17"^^xsd:integer ;
+    sysx:sourceEndColumn "41"^^xsd:integer ;
     sysml:elementId "LoopsAndConditionals__Control___406___400" ;
     sysx:memberIndex "0"^^xsd:integer ;
     sysml:owningNamespace elmt:LoopsAndConditionals__Control___406 ;
@@ -1344,6 +1400,10 @@ expr:LoopsAndConditionals__Control___406___400_pvalue_om
 elmt:LoopsAndConditionals__Control___407
     a sysml:IfActionUsage ;
     sysml:qualifiedName "LoopsAndConditionals::Control::@7" ;
+    sysx:sourceLine "19"^^xsd:integer ;
+    sysx:sourceColumn "9"^^xsd:integer ;
+    sysx:sourceEndLine "21"^^xsd:integer ;
+    sysx:sourceEndColumn "10"^^xsd:integer ;
     sysml:elementId "LoopsAndConditionals__Control___407" ;
     sysx:memberIndex "7"^^xsd:integer ;
     sysml:owningNamespace elmt:LoopsAndConditionals__Control ;
@@ -1544,6 +1604,10 @@ expr:LoopsAndConditionals__Control___407_pcondition_om
 elmt:LoopsAndConditionals__Control___407___400
     a sysml:ActionUsage ;
     sysml:qualifiedName "LoopsAndConditionals::Control::@7::@0" ;
+    sysx:sourceLine "19"^^xsd:integer ;
+    sysx:sourceColumn "22"^^xsd:integer ;
+    sysx:sourceEndLine "21"^^xsd:integer ;
+    sysx:sourceEndColumn "10"^^xsd:integer ;
     sysml:elementId "LoopsAndConditionals__Control___407___400" ;
     sysx:memberIndex "0"^^xsd:integer ;
     sysml:owningNamespace elmt:LoopsAndConditionals__Control___407 ;
@@ -1574,6 +1638,10 @@ elmt:LoopsAndConditionals__Control___407___400_om
 elmt:LoopsAndConditionals__Control___407___400___400
     a sysml:PerformActionUsage ;
     sysml:qualifiedName "LoopsAndConditionals::Control::@7::@0::@0" ;
+    sysx:sourceLine "20"^^xsd:integer ;
+    sysx:sourceColumn "13"^^xsd:integer ;
+    sysx:sourceEndLine "20"^^xsd:integer ;
+    sysx:sourceEndColumn "26"^^xsd:integer ;
     sysml:elementId "LoopsAndConditionals__Control___407___400___400" ;
     sysx:memberIndex "0"^^xsd:integer ;
     sysml:owningNamespace elmt:LoopsAndConditionals__Control___407___400 ;
@@ -1604,6 +1672,10 @@ elmt:LoopsAndConditionals__Control___407___400___400_om
 elmt:LoopsAndConditionals__Control___408
     a sysml:IfActionUsage ;
     sysml:qualifiedName "LoopsAndConditionals::Control::@8" ;
+    sysx:sourceLine "22"^^xsd:integer ;
+    sysx:sourceColumn "9"^^xsd:integer ;
+    sysx:sourceEndLine "26"^^xsd:integer ;
+    sysx:sourceEndColumn "10"^^xsd:integer ;
     sysml:elementId "LoopsAndConditionals__Control___408" ;
     sysx:memberIndex "8"^^xsd:integer ;
     sysml:owningNamespace elmt:LoopsAndConditionals__Control ;
@@ -1806,6 +1878,10 @@ expr:LoopsAndConditionals__Control___408_pcondition_om
 elmt:LoopsAndConditionals__Control___408___400
     a sysml:ActionUsage ;
     sysml:qualifiedName "LoopsAndConditionals::Control::@8::@0" ;
+    sysx:sourceLine "22"^^xsd:integer ;
+    sysx:sourceColumn "22"^^xsd:integer ;
+    sysx:sourceEndLine "24"^^xsd:integer ;
+    sysx:sourceEndColumn "10"^^xsd:integer ;
     sysml:elementId "LoopsAndConditionals__Control___408___400" ;
     sysx:memberIndex "0"^^xsd:integer ;
     sysml:owningNamespace elmt:LoopsAndConditionals__Control___408 ;
@@ -1836,6 +1912,10 @@ elmt:LoopsAndConditionals__Control___408___400_om
 elmt:LoopsAndConditionals__Control___408___400___400
     a sysml:PerformActionUsage ;
     sysml:qualifiedName "LoopsAndConditionals::Control::@8::@0::@0" ;
+    sysx:sourceLine "23"^^xsd:integer ;
+    sysx:sourceColumn "13"^^xsd:integer ;
+    sysx:sourceEndLine "23"^^xsd:integer ;
+    sysx:sourceEndColumn "26"^^xsd:integer ;
     sysml:elementId "LoopsAndConditionals__Control___408___400___400" ;
     sysx:memberIndex "0"^^xsd:integer ;
     sysml:owningNamespace elmt:LoopsAndConditionals__Control___408___400 ;
@@ -1866,6 +1946,10 @@ elmt:LoopsAndConditionals__Control___408___400___400_om
 elmt:LoopsAndConditionals__Control___408___401
     a sysml:ActionUsage ;
     sysml:qualifiedName "LoopsAndConditionals::Control::@8::@1" ;
+    sysx:sourceLine "24"^^xsd:integer ;
+    sysx:sourceColumn "11"^^xsd:integer ;
+    sysx:sourceEndLine "26"^^xsd:integer ;
+    sysx:sourceEndColumn "10"^^xsd:integer ;
     sysml:elementId "LoopsAndConditionals__Control___408___401" ;
     sysx:memberIndex "1"^^xsd:integer ;
     sysml:owningNamespace elmt:LoopsAndConditionals__Control___408 ;
@@ -1896,6 +1980,10 @@ elmt:LoopsAndConditionals__Control___408___401_om
 elmt:LoopsAndConditionals__Control___408___401___400
     a sysml:AssignmentActionUsage ;
     sysml:qualifiedName "LoopsAndConditionals::Control::@8::@1::@0" ;
+    sysx:sourceLine "25"^^xsd:integer ;
+    sysx:sourceColumn "13"^^xsd:integer ;
+    sysx:sourceEndLine "25"^^xsd:integer ;
+    sysx:sourceEndColumn "31"^^xsd:integer ;
     sysml:elementId "LoopsAndConditionals__Control___408___401___400" ;
     sysx:memberIndex "0"^^xsd:integer ;
     sysml:owningNamespace elmt:LoopsAndConditionals__Control___408___401 ;
@@ -1993,6 +2081,10 @@ expr:LoopsAndConditionals__Control___408___401___400_pvalue_om
 elmt:LoopsAndConditionals__Control___409
     a sysml:IfActionUsage ;
     sysml:qualifiedName "LoopsAndConditionals::Control::@9" ;
+    sysx:sourceLine "27"^^xsd:integer ;
+    sysx:sourceColumn "9"^^xsd:integer ;
+    sysx:sourceEndLine "31"^^xsd:integer ;
+    sysx:sourceEndColumn "10"^^xsd:integer ;
     sysml:elementId "LoopsAndConditionals__Control___409" ;
     sysx:memberIndex "9"^^xsd:integer ;
     sysml:owningNamespace elmt:LoopsAndConditionals__Control ;
@@ -2195,6 +2287,10 @@ expr:LoopsAndConditionals__Control___409_pcondition_om
 elmt:LoopsAndConditionals__Control___409___400
     a sysml:ActionUsage ;
     sysml:qualifiedName "LoopsAndConditionals::Control::@9::@0" ;
+    sysx:sourceLine "27"^^xsd:integer ;
+    sysx:sourceColumn "22"^^xsd:integer ;
+    sysx:sourceEndLine "29"^^xsd:integer ;
+    sysx:sourceEndColumn "10"^^xsd:integer ;
     sysml:elementId "LoopsAndConditionals__Control___409___400" ;
     sysx:memberIndex "0"^^xsd:integer ;
     sysml:owningNamespace elmt:LoopsAndConditionals__Control___409 ;
@@ -2225,6 +2321,10 @@ elmt:LoopsAndConditionals__Control___409___400_om
 elmt:LoopsAndConditionals__Control___409___400___400
     a sysml:PerformActionUsage ;
     sysml:qualifiedName "LoopsAndConditionals::Control::@9::@0::@0" ;
+    sysx:sourceLine "28"^^xsd:integer ;
+    sysx:sourceColumn "13"^^xsd:integer ;
+    sysx:sourceEndLine "28"^^xsd:integer ;
+    sysx:sourceEndColumn "26"^^xsd:integer ;
     sysml:elementId "LoopsAndConditionals__Control___409___400___400" ;
     sysx:memberIndex "0"^^xsd:integer ;
     sysml:owningNamespace elmt:LoopsAndConditionals__Control___409___400 ;
@@ -2255,6 +2355,10 @@ elmt:LoopsAndConditionals__Control___409___400___400_om
 elmt:LoopsAndConditionals__Control___409___401
     a sysml:ActionUsage ;
     sysml:qualifiedName "LoopsAndConditionals::Control::@9::@1" ;
+    sysx:sourceLine "29"^^xsd:integer ;
+    sysx:sourceColumn "11"^^xsd:integer ;
+    sysx:sourceEndLine "31"^^xsd:integer ;
+    sysx:sourceEndColumn "10"^^xsd:integer ;
     sysml:elementId "LoopsAndConditionals__Control___409___401" ;
     sysx:memberIndex "1"^^xsd:integer ;
     sysml:owningNamespace elmt:LoopsAndConditionals__Control___409 ;
@@ -2285,6 +2389,10 @@ elmt:LoopsAndConditionals__Control___409___401_om
 elmt:LoopsAndConditionals__Control___409___401___400
     a sysml:IfActionUsage ;
     sysml:qualifiedName "LoopsAndConditionals::Control::@9::@1::@0" ;
+    sysx:sourceLine "29"^^xsd:integer ;
+    sysx:sourceColumn "16"^^xsd:integer ;
+    sysx:sourceEndLine "31"^^xsd:integer ;
+    sysx:sourceEndColumn "10"^^xsd:integer ;
     sysml:elementId "LoopsAndConditionals__Control___409___401___400" ;
     sysx:memberIndex "0"^^xsd:integer ;
     sysml:owningNamespace elmt:LoopsAndConditionals__Control___409___401 ;
@@ -2484,6 +2592,10 @@ expr:LoopsAndConditionals__Control___409___401___400_pcondition_om
 elmt:LoopsAndConditionals__Control___409___401___400___400
     a sysml:ActionUsage ;
     sysml:qualifiedName "LoopsAndConditionals::Control::@9::@1::@0::@0" ;
+    sysx:sourceLine "29"^^xsd:integer ;
+    sysx:sourceColumn "29"^^xsd:integer ;
+    sysx:sourceEndLine "31"^^xsd:integer ;
+    sysx:sourceEndColumn "10"^^xsd:integer ;
     sysml:elementId "LoopsAndConditionals__Control___409___401___400___400" ;
     sysx:memberIndex "0"^^xsd:integer ;
     sysml:owningNamespace elmt:LoopsAndConditionals__Control___409___401___400 ;
@@ -2514,6 +2626,10 @@ elmt:LoopsAndConditionals__Control___409___401___400___400_om
 elmt:LoopsAndConditionals__Control___409___401___400___400___400
     a sysml:AssignmentActionUsage ;
     sysml:qualifiedName "LoopsAndConditionals::Control::@9::@1::@0::@0::@0" ;
+    sysx:sourceLine "30"^^xsd:integer ;
+    sysx:sourceColumn "13"^^xsd:integer ;
+    sysx:sourceEndLine "30"^^xsd:integer ;
+    sysx:sourceEndColumn "31"^^xsd:integer ;
     sysml:elementId "LoopsAndConditionals__Control___409___401___400___400___400" ;
     sysx:memberIndex "0"^^xsd:integer ;
     sysml:owningNamespace elmt:LoopsAndConditionals__Control___409___401___400___400 ;

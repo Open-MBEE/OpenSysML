@@ -9,6 +9,10 @@
 elmt:FlowsAndViews
     a sysml:Package ;
     sysml:qualifiedName "FlowsAndViews" ;
+    sysx:sourceLine "1"^^xsd:integer ;
+    sysx:sourceColumn "1"^^xsd:integer ;
+    sysx:sourceEndLine "30"^^xsd:integer ;
+    sysx:sourceEndColumn "2"^^xsd:integer ;
     sysml:elementId "FlowsAndViews" ;
     sysx:memberIndex "0"^^xsd:integer ;
     sysx:sourceLanguage "sysml" ;
@@ -26,6 +30,10 @@ elmt:FlowsAndViews
 elmt:FlowsAndViews__FuelPort
     a sysml:PortDefinition ;
     sysml:qualifiedName "FlowsAndViews::FuelPort" ;
+    sysx:sourceLine "2"^^xsd:integer ;
+    sysx:sourceColumn "5"^^xsd:integer ;
+    sysx:sourceEndLine "4"^^xsd:integer ;
+    sysx:sourceEndColumn "6"^^xsd:integer ;
     sysml:elementId "FlowsAndViews__FuelPort" ;
     sysx:memberIndex "0"^^xsd:integer ;
     sysml:owningNamespace elmt:FlowsAndViews ;
@@ -93,6 +101,10 @@ elmt:FlowsAndViews__FuelPort_conjugated_pc
 elmt:FlowsAndViews__FuelPort__fuelSupply
     a sysml:ItemUsage ;
     sysml:qualifiedName "FlowsAndViews::FuelPort::fuelSupply" ;
+    sysx:sourceLine "3"^^xsd:integer ;
+    sysx:sourceColumn "9"^^xsd:integer ;
+    sysx:sourceEndLine "3"^^xsd:integer ;
+    sysx:sourceEndColumn "29"^^xsd:integer ;
     sysml:elementId "FlowsAndViews__FuelPort__fuelSupply" ;
     sysx:memberIndex "0"^^xsd:integer ;
     sysml:owningNamespace elmt:FlowsAndViews__FuelPort ;
@@ -119,6 +131,10 @@ elmt:FlowsAndViews__FuelPort__fuelSupply_om
 elmt:FlowsAndViews__Tank
     a sysml:PartDefinition ;
     sysml:qualifiedName "FlowsAndViews::Tank" ;
+    sysx:sourceLine "5"^^xsd:integer ;
+    sysx:sourceColumn "5"^^xsd:integer ;
+    sysx:sourceEndLine "5"^^xsd:integer ;
+    sysx:sourceEndColumn "19"^^xsd:integer ;
     sysml:elementId "FlowsAndViews__Tank" ;
     sysx:memberIndex "1"^^xsd:integer ;
     sysml:owningNamespace elmt:FlowsAndViews ;
@@ -142,6 +158,10 @@ elmt:FlowsAndViews__Tank_om
 elmt:FlowsAndViews__Engine
     a sysml:PartDefinition ;
     sysml:qualifiedName "FlowsAndViews::Engine" ;
+    sysx:sourceLine "6"^^xsd:integer ;
+    sysx:sourceColumn "5"^^xsd:integer ;
+    sysx:sourceEndLine "6"^^xsd:integer ;
+    sysx:sourceEndColumn "21"^^xsd:integer ;
     sysml:elementId "FlowsAndViews__Engine" ;
     sysx:memberIndex "2"^^xsd:integer ;
     sysml:owningNamespace elmt:FlowsAndViews ;
@@ -165,6 +185,10 @@ elmt:FlowsAndViews__Engine_om
 elmt:FlowsAndViews__FuelInterface
     a sysml:InterfaceDefinition ;
     sysml:qualifiedName "FlowsAndViews::FuelInterface" ;
+    sysx:sourceLine "7"^^xsd:integer ;
+    sysx:sourceColumn "5"^^xsd:integer ;
+    sysx:sourceEndLine "11"^^xsd:integer ;
+    sysx:sourceEndColumn "6"^^xsd:integer ;
     sysml:elementId "FlowsAndViews__FuelInterface" ;
     sysx:memberIndex "3"^^xsd:integer ;
     sysml:owningNamespace elmt:FlowsAndViews ;
@@ -199,6 +223,10 @@ elmt:FlowsAndViews__FuelInterface_om
 elmt:FlowsAndViews__FuelInterface__supplierPort
     a sysml:PortUsage ;
     sysml:qualifiedName "FlowsAndViews::FuelInterface::supplierPort" ;
+    sysx:sourceLine "8"^^xsd:integer ;
+    sysx:sourceColumn "9"^^xsd:integer ;
+    sysx:sourceEndLine "8"^^xsd:integer ;
+    sysx:sourceEndColumn "42"^^xsd:integer ;
     sysml:elementId "FlowsAndViews__FuelInterface__supplierPort" ;
     sysx:memberIndex "0"^^xsd:integer ;
     sysml:owningNamespace elmt:FlowsAndViews__FuelInterface ;
@@ -229,6 +257,10 @@ elmt:FlowsAndViews__FuelInterface__supplierPort_om
 elmt:FlowsAndViews__FuelInterface__consumerPort
     a sysml:PortUsage ;
     sysml:qualifiedName "FlowsAndViews::FuelInterface::consumerPort" ;
+    sysx:sourceLine "9"^^xsd:integer ;
+    sysx:sourceColumn "9"^^xsd:integer ;
+    sysx:sourceEndLine "9"^^xsd:integer ;
+    sysx:sourceEndColumn "42"^^xsd:integer ;
     sysml:elementId "FlowsAndViews__FuelInterface__consumerPort" ;
     sysx:memberIndex "1"^^xsd:integer ;
     sysml:owningNamespace elmt:FlowsAndViews__FuelInterface ;
@@ -259,6 +291,10 @@ elmt:FlowsAndViews__FuelInterface__consumerPort_om
 elmt:FlowsAndViews__FuelInterface___402
     a sysml:FlowUsage ;
     sysml:qualifiedName "FlowsAndViews::FuelInterface::@2" ;
+    sysx:sourceLine "10"^^xsd:integer ;
+    sysx:sourceColumn "9"^^xsd:integer ;
+    sysx:sourceEndLine "10"^^xsd:integer ;
+    sysx:sourceEndColumn "65"^^xsd:integer ;
     sysml:elementId "FlowsAndViews__FuelInterface___402" ;
     sysx:memberIndex "2"^^xsd:integer ;
     sysml:owningNamespace elmt:FlowsAndViews__FuelInterface ;
@@ -428,6 +464,10 @@ expr:FlowsAndViews__FuelInterface___402_pend1_pff_om
 elmt:FlowsAndViews__tanks
     a sysml:PartUsage ;
     sysml:qualifiedName "FlowsAndViews::tanks" ;
+    sysx:sourceLine "12"^^xsd:integer ;
+    sysx:sourceColumn "5"^^xsd:integer ;
+    sysx:sourceEndLine "12"^^xsd:integer ;
+    sysx:sourceEndColumn "36"^^xsd:integer ;
     sysml:elementId "FlowsAndViews__tanks" ;
     sysx:memberIndex "4"^^xsd:integer ;
     sysml:owningNamespace elmt:FlowsAndViews ;
@@ -498,6 +538,10 @@ expr:FlowsAndViews__tanks_pupperBound_om
 elmt:FlowsAndViews__vehicle
     a sysml:PartUsage ;
     sysml:qualifiedName "FlowsAndViews::vehicle" ;
+    sysx:sourceLine "13"^^xsd:integer ;
+    sysx:sourceColumn "5"^^xsd:integer ;
+    sysx:sourceEndLine "19"^^xsd:integer ;
+    sysx:sourceEndColumn "6"^^xsd:integer ;
     sysml:elementId "FlowsAndViews__vehicle" ;
     sysx:memberIndex "5"^^xsd:integer ;
     sysml:owningNamespace elmt:FlowsAndViews ;
@@ -532,6 +576,10 @@ elmt:FlowsAndViews__vehicle_om
 elmt:FlowsAndViews__vehicle__tank
     a sysml:PartUsage ;
     sysml:qualifiedName "FlowsAndViews::vehicle::tank" ;
+    sysx:sourceLine "14"^^xsd:integer ;
+    sysx:sourceColumn "9"^^xsd:integer ;
+    sysx:sourceEndLine "14"^^xsd:integer ;
+    sysx:sourceEndColumn "26"^^xsd:integer ;
     sysml:elementId "FlowsAndViews__vehicle__tank" ;
     sysx:memberIndex "0"^^xsd:integer ;
     sysml:owningNamespace elmt:FlowsAndViews__vehicle ;
@@ -561,6 +609,10 @@ elmt:FlowsAndViews__vehicle__tank_om
 elmt:FlowsAndViews__vehicle__spares
     a sysml:PartUsage ;
     sysml:qualifiedName "FlowsAndViews::vehicle::spares" ;
+    sysx:sourceLine "15"^^xsd:integer ;
+    sysx:sourceColumn "9"^^xsd:integer ;
+    sysx:sourceEndLine "15"^^xsd:integer ;
+    sysx:sourceEndColumn "53"^^xsd:integer ;
     sysml:elementId "FlowsAndViews__vehicle__spares" ;
     sysx:memberIndex "1"^^xsd:integer ;
     sysml:owningNamespace elmt:FlowsAndViews__vehicle ;
@@ -660,6 +712,10 @@ expr:FlowsAndViews__vehicle__spares_pupperBound_om
 elmt:FlowsAndViews__vehicle__firstSpare
     a sysml:PartUsage ;
     sysml:qualifiedName "FlowsAndViews::vehicle::firstSpare" ;
+    sysx:sourceLine "16"^^xsd:integer ;
+    sysx:sourceColumn "9"^^xsd:integer ;
+    sysx:sourceEndLine "16"^^xsd:integer ;
+    sysx:sourceEndColumn "39"^^xsd:integer ;
     sysml:elementId "FlowsAndViews__vehicle__firstSpare" ;
     sysx:memberIndex "2"^^xsd:integer ;
     sysml:owningNamespace elmt:FlowsAndViews__vehicle ;
@@ -689,6 +745,10 @@ elmt:FlowsAndViews__vehicle__firstSpare_om
 elmt:FlowsAndViews__vehicle__engine
     a sysml:PartUsage ;
     sysml:qualifiedName "FlowsAndViews::vehicle::engine" ;
+    sysx:sourceLine "17"^^xsd:integer ;
+    sysx:sourceColumn "9"^^xsd:integer ;
+    sysx:sourceEndLine "17"^^xsd:integer ;
+    sysx:sourceEndColumn "30"^^xsd:integer ;
     sysml:elementId "FlowsAndViews__vehicle__engine" ;
     sysx:memberIndex "3"^^xsd:integer ;
     sysml:owningNamespace elmt:FlowsAndViews__vehicle ;
@@ -718,6 +778,10 @@ elmt:FlowsAndViews__vehicle__engine_om
 elmt:FlowsAndViews__vehicle___404
     a sysml:AllocationUsage ;
     sysml:qualifiedName "FlowsAndViews::vehicle::@4" ;
+    sysx:sourceLine "18"^^xsd:integer ;
+    sysx:sourceColumn "9"^^xsd:integer ;
+    sysx:sourceEndLine "18"^^xsd:integer ;
+    sysx:sourceEndColumn "33"^^xsd:integer ;
     sysml:elementId "FlowsAndViews__vehicle___404" ;
     sysx:memberIndex "4"^^xsd:integer ;
     sysml:owningNamespace elmt:FlowsAndViews__vehicle ;
@@ -842,6 +906,10 @@ expr:FlowsAndViews__vehicle___404_pend1_prs
 elmt:FlowsAndViews__Measure
     a sysml:ActionDefinition ;
     sysml:qualifiedName "FlowsAndViews::Measure" ;
+    sysx:sourceLine "20"^^xsd:integer ;
+    sysx:sourceColumn "5"^^xsd:integer ;
+    sysx:sourceEndLine "23"^^xsd:integer ;
+    sysx:sourceEndColumn "6"^^xsd:integer ;
     sysml:elementId "FlowsAndViews__Measure" ;
     sysx:memberIndex "6"^^xsd:integer ;
     sysml:owningNamespace elmt:FlowsAndViews ;
@@ -876,6 +944,10 @@ elmt:FlowsAndViews__Measure_om
 elmt:FlowsAndViews__Measure__measured
     a sysml:PartUsage ;
     sysml:qualifiedName "FlowsAndViews::Measure::measured" ;
+    sysx:sourceLine "21"^^xsd:integer ;
+    sysx:sourceColumn "9"^^xsd:integer ;
+    sysx:sourceEndLine "21"^^xsd:integer ;
+    sysx:sourceEndColumn "39"^^xsd:integer ;
     sysml:elementId "FlowsAndViews__Measure__measured" ;
     sysx:memberIndex "0"^^xsd:integer ;
     sysml:owningNamespace elmt:FlowsAndViews__Measure ;
@@ -906,6 +978,10 @@ elmt:FlowsAndViews__Measure__measured_om
 elmt:FlowsAndViews__Measure__mass
     a sysml:ReferenceUsage ;
     sysml:qualifiedName "FlowsAndViews::Measure::mass" ;
+    sysx:sourceLine "22"^^xsd:integer ;
+    sysx:sourceColumn "9"^^xsd:integer ;
+    sysx:sourceEndLine "22"^^xsd:integer ;
+    sysx:sourceEndColumn "25"^^xsd:integer ;
     sysml:elementId "FlowsAndViews__Measure__mass" ;
     sysx:memberIndex "1"^^xsd:integer ;
     sysml:owningNamespace elmt:FlowsAndViews__Measure ;
@@ -937,6 +1013,10 @@ elmt:FlowsAndViews__Measure__mass_om
 elmt:FlowsAndViews__StructureView
     a sysml:ViewDefinition ;
     sysml:qualifiedName "FlowsAndViews::StructureView" ;
+    sysx:sourceLine "24"^^xsd:integer ;
+    sysx:sourceColumn "5"^^xsd:integer ;
+    sysx:sourceEndLine "26"^^xsd:integer ;
+    sysx:sourceEndColumn "6"^^xsd:integer ;
     sysml:elementId "FlowsAndViews__StructureView" ;
     sysx:memberIndex "7"^^xsd:integer ;
     sysml:owningNamespace elmt:FlowsAndViews ;
@@ -963,6 +1043,10 @@ elmt:FlowsAndViews__StructureView_om
 elmt:FlowsAndViews__StructureView___400
     a sysml:ElementFilterMembership ;
     sysml:qualifiedName "FlowsAndViews::StructureView::@0" ;
+    sysx:sourceLine "25"^^xsd:integer ;
+    sysx:sourceColumn "9"^^xsd:integer ;
+    sysx:sourceEndLine "25"^^xsd:integer ;
+    sysx:sourceEndColumn "34"^^xsd:integer ;
     sysml:elementId "FlowsAndViews__StructureView___400" ;
     sysx:memberIndex "0"^^xsd:integer ;
     sysml:owningNamespace elmt:FlowsAndViews__StructureView ;
@@ -1058,6 +1142,10 @@ expr:FlowsAndViews__StructureView___400_pfilter_pout_om
 elmt:FlowsAndViews__vehicleView
     a sysml:ViewUsage ;
     sysml:qualifiedName "FlowsAndViews::vehicleView" ;
+    sysx:sourceLine "27"^^xsd:integer ;
+    sysx:sourceColumn "5"^^xsd:integer ;
+    sysx:sourceEndLine "29"^^xsd:integer ;
+    sysx:sourceEndColumn "6"^^xsd:integer ;
     sysml:elementId "FlowsAndViews__vehicleView" ;
     sysx:memberIndex "8"^^xsd:integer ;
     sysml:owningNamespace elmt:FlowsAndViews ;
@@ -1087,6 +1175,10 @@ elmt:FlowsAndViews__vehicleView_om
 elmt:FlowsAndViews__vehicleView___400
     a sysml:MembershipExpose ;
     sysml:qualifiedName "FlowsAndViews::vehicleView::@0" ;
+    sysx:sourceLine "28"^^xsd:integer ;
+    sysx:sourceColumn "9"^^xsd:integer ;
+    sysx:sourceEndLine "28"^^xsd:integer ;
+    sysx:sourceEndColumn "27"^^xsd:integer ;
     sysml:elementId "FlowsAndViews__vehicleView___400" ;
     sysx:memberIndex "0"^^xsd:integer ;
     sysml:owningNamespace elmt:FlowsAndViews__vehicleView ;

@@ -109,7 +109,13 @@ const (
 	// xSourceDocument names the document a root element was written in, when
 	// several documents are converted as one model.
 	xSourceDocument = "sourceDocument"
-	xFilter         = "filter"
+	// The declaration's range in its document, 1-based lines and columns as a
+	// diagnostic's span gives them; layout, which reading the graph ignores.
+	xSourceLine      = "sourceLine"
+	xSourceColumn    = "sourceColumn"
+	xSourceEndLine   = "sourceEndLine"
+	xSourceEndColumn = "sourceEndColumn"
+	xFilter          = "filter"
 	// xIsConstructor is only read: an older graph flags `new` on an InvocationExpression.
 	xIsConstructor = "isConstructor"
 	// xExpose is only read: an older graph flags an expose on an abstract sysml:Import.
@@ -383,7 +389,7 @@ func encodeDocument(file *source.SourceFile, root *ast.RootNamespace, library st
 
 // encodeDocument writes the graph of the document the encoder was made for.
 func (e *encoder) encodeDocument(root *ast.RootNamespace) error {
-	e.src = newAuthoredSource(e.file)
+	e.src = newAuthoredSource(e.file, root)
 	if err := e.encode(root.Members, "", rdf.Term{}); err != nil {
 		return err
 	}
@@ -948,6 +954,26 @@ type memberHead struct {
 	local rdf.Term
 }
 
+// sourceRange states where subject's declaration is written: its first and
+// last position, 1-based, as a diagnostic's span locates what it reports.
+func (e *encoder) sourceRange(subject rdf.Term, span source.Span) {
+	if span.Len <= 0 {
+		return
+	}
+	// A declaration's span runs to the next token; its range ends where its
+	// last token does, before any whitespace, note or comment that follows.
+	last := e.src.declarationEnd(span)
+	if last <= span.Offset {
+		return
+	}
+	lines := e.file.Lines()
+	start, end := lines.PosAt(span.Offset), lines.PosAt(last)
+	e.graph.Add(subject, e.sysx(xSourceLine), rdf.Int(start.Line))
+	e.graph.Add(subject, e.sysx(xSourceColumn), rdf.Int(start.Col))
+	e.graph.Add(subject, e.sysx(xSourceEndLine), rdf.Int(end.Line))
+	e.graph.Add(subject, e.sysx(xSourceEndColumn), rdf.Int(end.Col))
+}
+
 func (e *encoder) head(subject rdf.Term, h memberHead) {
 	node, visibility, fqn, ownerTerm, index, metaclass, lines, inline :=
 		h.node, h.visibility, h.fqn, h.owner, h.index, h.metaclass, h.lines, h.inline
@@ -955,6 +981,7 @@ func (e *encoder) head(subject rdf.Term, h memberHead) {
 	if h.local.Value == "" {
 		e.graph.Add(subject, e.sysml(pQualifiedName), rdf.String(fqn))
 		e.offsets[subject.Value] = node.Span().Offset
+		e.sourceRange(subject, node.Span())
 	}
 	// The id an API reader addresses the element by, which is the id its own
 	// IRI ends in, so the two cannot disagree.

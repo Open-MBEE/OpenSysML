@@ -45,13 +45,13 @@ stable	pilot-corpora/kerml-examples/Behavior Examples/TakePicture.kerml
 stable	pilot-corpora/kerml-examples/Individuals Examples/JohnIndividualExample.kerml
 stable	pilot-corpora/kerml-examples/KerML Spec Annex A Examples/A-2-Atoms.kerml
 stable	pilot-corpora/kerml-examples/KerML Spec Annex A Examples/A-2-ModelingInstances.kerml
-stable	pilot-corpora/kerml-examples/KerML Spec Annex A Examples/A-3-2-WithoutConnectors.kerml
-stable	pilot-corpora/kerml-examples/KerML Spec Annex A Examples/A-3-3-OneToOneConnectors.kerml
-stable	pilot-corpora/kerml-examples/KerML Spec Annex A Examples/A-3-4-OneToUnrestrictedConnectors.kerml
-stable	pilot-corpora/kerml-examples/KerML Spec Annex A Examples/A-3-5-TimingForStructures.kerml
-stable	pilot-corpora/kerml-examples/KerML Spec Annex A Examples/A-3-6-Sequences.kerml
-stable	pilot-corpora/kerml-examples/KerML Spec Annex A Examples/A-3-7-DecisionsAndMerges.kerml
-stable	pilot-corpora/kerml-examples/KerML Spec Annex A Examples/A-3-8-ChangingFeatureValues.kerml
+whitespace-only	pilot-corpora/kerml-examples/KerML Spec Annex A Examples/A-3-2-WithoutConnectors.kerml
+whitespace-only	pilot-corpora/kerml-examples/KerML Spec Annex A Examples/A-3-3-OneToOneConnectors.kerml
+whitespace-only	pilot-corpora/kerml-examples/KerML Spec Annex A Examples/A-3-4-OneToUnrestrictedConnectors.kerml
+whitespace-only	pilot-corpora/kerml-examples/KerML Spec Annex A Examples/A-3-5-TimingForStructures.kerml
+whitespace-only	pilot-corpora/kerml-examples/KerML Spec Annex A Examples/A-3-6-Sequences.kerml
+whitespace-only	pilot-corpora/kerml-examples/KerML Spec Annex A Examples/A-3-7-DecisionsAndMerges.kerml
+whitespace-only	pilot-corpora/kerml-examples/KerML Spec Annex A Examples/A-3-8-ChangingFeatureValues.kerml
 stable	pilot-corpora/kerml-examples/Mass Roll-up Example/MassRollup_1.kerml
 stable	pilot-corpora/kerml-examples/Mass Roll-up Example/MassRollup_2.kerml
 stable	pilot-corpora/kerml-examples/Mass Roll-up Example/Vehicles_1.kerml
