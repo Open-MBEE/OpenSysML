@@ -34,23 +34,38 @@ path and the as-found figure stands.
   reference. **Fixed**: bytes per element are +4%, `LoadFiles` is within
   noise at 32 satellites and +13% at 128, and the remainder is the two new
   lints and the interface records (priced below).
-- **Satisfying requirements** is 46–56% slower per assertion and allocates
-  64% more, at every size. This is the shared-default and shared-verdict
-  tracing that two 0.9.1 fixes require — refusing a verdict along a
-  destroyed object and re-deriving clock-dependent checks per occurrence —
-  and the only reshaping tried bought nothing. **Priced** at 48 µs per
-  assertion; a follow-up is named.
+- **Satisfying requirements** was 44–51% slower per assertion and
+  allocated 64% more, at every size. This is the shared-default and
+  shared-verdict tracing that two 0.9.1 fixes require — refusing a verdict
+  along a destroyed object and re-deriving clock-dependent checks per
+  occurrence. Profiled, most of the allocation and a third of the time was
+  recomputation around the tracing, not the tracing: the trace copied every
+  path of a nested shared record per read, deduplicated reads through a key
+  string built per read, spelled a dotted path per ancestor to ask whether a
+  binding governs it, and every journal mark cloned the clock's waiter list.
+  **Fixed**: the geomean is +11% time and +12% allocations for +46% / +64%
+  as found, and bytes are 46% below 0.9.0. The rest — the per-read
+  recording and the per-ancestor binding lookups — is the tracing's own
+  bookkeeping, **priced** at +31% on the 32-satellite row and within noise
+  at 128 and 512.
 - **Whole binary.** The candidate validates the generated models in
   0.4–0.5× the wall time of 0.9.0 and the Apollo 11 model in 0.6×, with a
   smaller resident set at 6 000 elements and above, because the workspace
   analyses documents in parallel since `98f533591`. Example-scale commands
   are level. The binary is 2.7 MiB larger and an empty session maps 6 MiB
   more.
-- **Elsewhere**: the gRPC cold parse is 8–9% slower and `VerifyConstraint`
-  29%, the migration writer 21%; these are measured, consistent with the
-  load-path costs above, and not profiled here. The REPL's `EvalExpr` is
-  94% faster, action chains 44–77%, an LSP workspace update 22%, and a
-  loaded model holds half the live heap it did.
+- **Elsewhere**: the gRPC cold parse is 8–9% slower. `VerifyConstraint`
+  was 20–29% slower: `7bd51ece6` (implicit nested-usage subsetting) makes
+  the instance graph carry every nested usage's subsetted collection, which
+  the response serializes; the recomputation around it is **fixed** (bytes
+  +12% for +19%) and the rest is the rule's output. The migration writer
+  was 15–21% slower for a larger per-block buffer and is now **2× faster
+  than 0.9.0** with a quarter of the allocations. The single-threaded
+  analysis of a resolved document was +31%: the undeclared-signal lint
+  walked the document twice by reflection — **fixed** to once, +14%
+  remains for the lints themselves. The REPL's `EvalExpr` is 94% faster,
+  action chains 44–77%, an LSP workspace update 22%, and a loaded model
+  holds half the live heap it did.
 
 Nothing here blocks the release; the residual costs are each a rule's
 price, named with the commit that introduced it.
@@ -136,8 +151,8 @@ with four runs).
 | `Load/satellites=32` | 357 ms / 20.4 KiB per element | 409 ms (+15%) / 25.9 KiB (+27%) | 370 ms (~) / 21.2 KiB (+4%) |
 | `Load/satellites=128` | 1.46 s / 19.8 KiB per element | 1.58 s (+8%) / 25.4 KiB (+28%) | 1.53 s (~) / 20.6 KiB (+4%) |
 | `Load` live heap per element | 5.1 KiB / 4.6 KiB | 2.7 KiB / 2.3 KiB (−47% / −49%) | same |
-| `Satisfy/satellites=32` (96 assertions) | 3.06 ms / 1.74 MiB / 25.9 k allocs | 4.63 ms (+51%) / 3.12 MiB (+80%) / 42.4 k (+64%) | 4.68 ms (+53%) / same |
-| `Satisfy/satellites=128` (384 assertions) | 14.4 ms / 10.7 MiB / 103 k allocs | 22.5 ms (+56%) / 16.2 MiB (+52%) / 169 k (+64%) | 21.1 ms (+46%) / same |
+| `Satisfy/satellites=32` (96 assertions) | 3.06 ms / 1.74 MiB / 25.9 k allocs | 4.63 ms (+51%) / 3.12 MiB (+80%) / 42.4 k (+64%) | 4.20 ms (+31%) / 1.66 MiB (−4%) / 28.9 k (+12%), finding 5 |
+| `Satisfy/satellites=128` (384 assertions) | 14.4 ms / 10.7 MiB / 103 k allocs | 22.5 ms (+56%) / 16.2 MiB (+52%) / 169 k (+64%) | 17.8 ms (~) / 6.65 MiB (−38%) / 115 k (+12%), finding 5 |
 | `LoadFiles/satellites=32` | 379 ms / 124 MiB | 476 ms (+25%) / 165 MiB (+33%) | 437 ms (~) / 136 MiB (+10%) |
 | `LoadFiles/satellites=128` | 1.43 s / 404 MiB | 1.82 s (+28%) / 555 MiB (+37%) | 1.62 s (+13%) / 442 MiB (+9%) |
 | `EditImported/satellites=32` | 484 ms / 108 MiB | 519 ms (+7%) / 134 MiB (+25%) | 491 ms (~) / 105 MiB (−2%) |
@@ -315,62 +330,238 @@ tree (`ast.inspectValue` in the profile) — and the interface records
 allocators in the profile and are what the LSP and gRPC surfaces now
 read. Both are the features' cost; neither was reshaped here.
 
-### 5. Satisfaction traces every shared default and verdict — priced
+### 5. Satisfaction traces every shared default and verdict — attributed, recomputation fixed, tracing priced
 
-`Satisfy` +46–56% time and +64% allocations at 32, 128 and 512
-satellites, unchanged by the fixes. `758c9c260` (*refuse shared defaults
-and verdicts along a destroyed object*, 2026-09-25) and `afbdb615d`
-(*derive clock-dependent defaults and checks per occurrence*, 2026-09-25)
-make a requirement's verdict record the reads it depended on so it can be
-refused or re-derived when an object on the path is destroyed or a clock
-moves. The CPU profile of the 32-satellite row is 16% in
-`Context.sharedPaths` (with `bindingDeclaredFor` under it) and the largest
-new allocator is `Context.observeRead`, which is that recording. Delaying
-the path construction in `bindingDeclaredFor` was tried and bought
-nothing measurable, so it is not in this change. The absolute cost is 48
-µs per assertion (4.6 ms for 96), it is linear in the number of
-assertions at every size measured, and it is the price of the two fixes'
-semantics. A follow-up that would recover most of it: key the observed
-reads by `(instance, feature path)` and intern the path once per
-requirement instead of per evaluation.
+`Satisfy` +44–51% time and +64% allocations at 32, 128 and 512
+satellites as found. `758c9c260` (*refuse shared defaults and verdicts
+along a destroyed object*, 2026-09-25) and `afbdb615d` (*derive
+clock-dependent defaults and checks per occurrence*, 2026-09-25) make a
+requirement's verdict record the reads it depended on so it can be refused
+or re-derived when an object on the path is destroyed or a clock moves.
+Profiled on the 32-satellite row (`-cpuprofile`, `-memprofile`, `go tool
+pprof -top -cum`), the tree before this change spends 11.9% of its CPU under
+`Context.sharedPaths` and 6.7% under `Context.bindingDeclaredFor`, and its
+three largest allocators are `Context.observeRead` (316 MB of the run's
+heap), `Context.sharedPaths` (188 MB cumulative, in `strings.Builder`)
+and `slices.Clone[clockWaiter]` under `Context.markJournal` (289 MB). Of
+that, four things were recomputation, not the record the fixes need:
 
-### 6. Whole-binary validation is twice as fast, single-threaded analysis is dearer — explained
+- `observeRead` copied every path of a nested shared record into the
+  trace on each read of it. It now records the record once
+  (`sharedRead.shared`) and `sharedPaths` expands it only when a verdict
+  is being shared.
+- `sharedPaths` deduplicated reads through a length-prefixed key string
+  built per read (`pathKey`) and assembled the root-relative path twice.
+  It now compares the paths as slices (`hasPath`) and assembles each
+  once; the dotted-name property `pathKey` guarded is the same test on
+  `hasPath`.
+- `bindingDeclaredFor` spelled a dotted path at every ancestor of every
+  read and looked each up in `bindingsForFeature`, whose per-type,
+  per-path memo grows with the paths asked. A binding that involves a
+  path has an end spelled exactly as that path, so its first segment is
+  a feature the binding starts at: `Model.bindingRoots` memoizes that
+  set per type (usually empty), and the path is spelled and looked up
+  only where a binding starts at that feature.
+- Every journal mark — one per bound transaction, so one per check —
+  cloned the clock's waiter list, and every rollback cloned it back
+  (the same in 0.9.0). The clock now replaces the list instead of editing
+  it in place (`attach`, `detach`, `forgetFinished`), so a mark keeps
+  the slice it saw. This is also why the fixed tree allocates 38–74%
+  fewer bytes than 0.9.0 at 128 and 512 satellites: the clone was
+  proportional to waiters × transactions.
+
+Interleaved six-run comparison (`go test ./tests/stressmodel -run '^$'
+-bench '^BenchmarkSatisfy/satellites=(32|128|512)/' -benchmem -count 1`
+per round, six rounds, `benchstat`):
+
+```
+                                         │     v0.9.0      │           before this change         │               fixed                 │
+                                         │     sec/op      │    sec/op      vs base               │    sec/op     vs base               │
+Satisfy/satellites=32/assertions=96-8         3.203m ±  5%    4.822m ± 38%  +50.57% (p=0.002 n=6)   4.197m ±  7%  +31.05% (p=0.002 n=6)
+Satisfy/satellites=128/assertions=384-8       15.32m ± 25%    22.16m ± 28%  +44.64% (p=0.002 n=6)   17.76m ±  4%        ~ (p=0.065 n=6)
+Satisfy/satellites=512/assertions=1536-8     102.20m ±  8%   146.58m ± 11%  +43.43% (p=0.002 n=6)   91.96m ± 62%        ~ (p=0.093 n=6)
+geomean                                       17.11m          25.02m        +46.18%                 19.00m        +10.99%
+
+                                         │      B/op       │     B/op       vs base               │     B/op      vs base               │
+Satisfy/satellites=32/assertions=96-8         1.735Mi ± 0%    3.118Mi ± 0%  +79.66% (p=0.002 n=6)   1.664Mi ± 0%   -4.14% (p=0.002 n=6)
+Satisfy/satellites=128/assertions=384-8      10.653Mi ± 0%   16.206Mi ± 0%  +52.12% (p=0.002 n=6)   6.648Mi ± 0%  -37.59% (p=0.002 n=6)
+Satisfy/satellites=512/assertions=1536-8     102.12Mi ± 0%   124.90Mi ± 0%  +22.31% (p=0.002 n=6)   26.60Mi ± 0%  -73.95% (p=0.002 n=6)
+geomean                                       12.36Mi         18.48Mi       +49.52%                 6.651Mi       -46.19%
+
+                                         │    allocs/op    │  allocs/op   vs base               │  allocs/op   vs base               │
+Satisfy/satellites=32/assertions=96-8          25.91k ± 0%   42.37k ± 0%  +63.53% (p=0.002 n=6)   28.90k ± 0%  +11.54% (p=0.002 n=6)
+Satisfy/satellites=128/assertions=384-8        102.9k ± 0%   168.8k ± 0%  +63.96% (p=0.002 n=6)   114.9k ± 0%  +11.58% (p=0.002 n=6)
+Satisfy/satellites=512/assertions=1536-8       411.1k ± 0%   675.0k ± 0%  +64.21% (p=0.002 n=6)   458.8k ± 0%  +11.61% (p=0.002 n=6)
+geomean                                        103.1k        169.0k       +63.90%                 115.1k       +11.58%
+```
+
+What remains is the tracing. On the fixed tree's 32-satellite profile
+`Context.sharedPath` is 9.5% cumulative and `Context.bindingDeclaredFor`
+6.1%, of which 0.86 s of 0.89 s is `bindingRootedAt`: one map lookup per
+ancestor level per distinct read, for the object's type and each
+classifier it was classified by. `observeRead` is 0.9% of CPU and 134 MB
+(3%) of the heap, one 80-byte record per read. That is what the two fixes
+ask for: every check records the paths it read so a later destruction or
+clock move can find it, and on this benchmark no verdict is ever reused
+(each satellite's checks run once per shape and input set), so the
+recording buys nothing back. A per-`(instance, path)` memo of
+`bindingDeclaredFor` would remove most of the remaining 0.3 ms per 96
+assertions but is not safe as written — an object's classifiers change
+under `classify`, and the memo would have to be invalidated with them — so
+it is left named. The delayed-path-construction attempt recorded in the
+previous version of this finding is superseded by the root prefilter
+above, which does the same skipping with a measurement behind it.
+
+### 6. Whole-binary validation is twice as fast, single-threaded analysis is dearer — the undeclared-signal lint fixed, the rest priced
 
 Every whole-binary validation is 0.4–0.6× its 0.9.0 wall time while the
-per-document analysis benchmarks are 8–12% slower (`AnalyseResolved`,
-`ExpandModelImports`, `GRPCParseFileUncached`, the gRPC cold parse) and
-allocate 9–18% more (`Analyze/synthetic`, `DecodeSnapshot`,
-`WorkspaceEdit`). The two are the same interval seen from two sides: the
-workspace now runs its analyses over `ParallelFor`, so a CLI run uses the
-machine, while each analysis carries the new lints and the interface
-records. The single-threaded cost is what a one-CPU host and the gRPC
-service's per-request path will see. It was not profiled beyond finding
-4 and is left named; the live heap a loaded model retains is half what it
-was (`LoadModel` live bytes −48%, `Load` live bytes per element −47%),
-which is the same interface-record work paying back on the resident set.
+per-document analysis benchmarks are slower single-threaded
+(`AnalyseResolved` +31% before this change, `ExpandModelImports`,
+`GRPCParseFileUncached`, the gRPC cold parse +8–12%) and allocate 5–18%
+more (`Analyze/synthetic`, `DecodeSnapshot`, `WorkspaceEdit`). The two
+are the same interval seen from two sides: the workspace now runs its
+analyses over `ParallelFor`, so a CLI run uses the machine, while each
+analysis carries the new lints and the interface records. The
+single-threaded cost is what a one-CPU host and the gRPC service's
+per-request path will see.
 
-### 7. Rows measured and not attributed
+Profiled (`go test ./internal/workspace/model -run '^$' -bench
+AnalyseResolved -cpuprofile`), the tree before this change spends 19.8% of
+`AnalyseResolved` under `UndeclaredSignalPass.Run`, all of it in
+`kit.WalkScoped` → `ast.Inspect`, the reflective document walk: the lint
+walked the document once to gather the signals it sends and once more to
+check the triggers, and no other pass shares the walk. The pass now reads
+`kit.ScopedNodes`, the walk's result kept on the pass context for the
+document it analyzes (looked up untracked, so a gather does not come to
+depend on the document), and both passes over it iterate the list. The
+semantic queries the lint makes per trigger — `DirectSupertypes`,
+`implicitBases`, the signal-union walk — were already memoized and
+journaled on `semantics.Model`; none does per-symbol work a further
+journaled cache would remove, so no new cache is added there.
 
-`GRPCVerifyConstraint` +29% time and +19% bytes; `WriterSiblingBlocks`
-(migrate) +21%; `RunStateMachine/elements=4000` +18% against −12% at
-1 000 (noise across the two sizes); `WorkspaceEditSmallDocBesideLarge`
-+31% bytes. Each is significant across six runs and none was profiled in
-this record. `VerifyConstraint` runs the constraint through the same
-runtime path as finding 5 and most likely shares its cause; it was not
-re-run after the fixes. They are noted for the 0.9.2 record.
+```
+                    │     v0.9.0     │          before this change         │               fixed                 │
+                    │     sec/op     │    sec/op     vs base               │    sec/op     vs base               │
+AnalyseUnresolved-8      19.45m ± 7%   19.66m ± 11%        ~ (p=0.589 n=6)   19.52m ±  2%        ~ (p=0.937 n=6)
+AnalyseResolved-8        1.037m ± 5%   1.359m ±  6%  +30.97% (p=0.002 n=6)   1.178m ± 15%  +13.56% (p=0.002 n=6)
+geomean                  4.492m        5.168m        +15.06%                 4.795m         +6.75%
+
+                    │      B/op      │     B/op      vs base              │     B/op      vs base               │
+AnalyseUnresolved-8     13.55Mi ± 0%   13.69Mi ± 0%  +1.05% (p=0.002 n=6)   13.69Mi ± 0%   +1.08% (p=0.002 n=6)
+AnalyseResolved-8       486.0Ki ± 0%   533.6Ki ± 0%  +9.80% (p=0.002 n=6)   537.7Ki ± 0%  +10.63% (p=0.002 n=6)
+```
+
+The +14% and +11% bytes that remain on `AnalyseResolved` are the lints
+running once each and the interface records; the live heap a loaded model
+retains is half what it was (`LoadModel` live bytes −48%, `Load` live
+bytes per element −47%), which is the same interface-record work paying
+back on the resident set.
+
+### 7. `GRPCVerifyConstraint` — attributed to implicit nested-usage subsetting, recomputation fixed, output priced
+
+`GRPCVerifyConstraint` +29% time and +19% bytes as found (+23% and +19%
+re-measured before this change). Bisected by running the benchmark
+across the interval, one commit accounts for it: `7bd51ece6`
+(*feat(semantics): implicit nested-usage subsetting and nested\*/owned\*
+reflection*, 2026-09-27), against its parent over four runs each:
+
+```
+                       │   7bd51ece6^   │            7bd51ece6             │
+GRPCVerifyConstraint-8   711.4µ ± ∞ ¹   856.6µ ± ∞ ¹  +20.41% (p=0.029 n=4)
+                        472.1Ki ± ∞ ¹   550.6Ki ± ∞ ¹  +16.64% (p=0.029 n=4)
+                         8.632k ± ∞ ¹    9.509k ± ∞ ¹  +10.16% (p=0.029 n=4)
+```
+
+The benchmark's timed loop is `Service.VerifyConstraint`, 89% of which is
+`instanceGraphToProto` materializing every feature value of the subject
+for the response. With the commit, every nested usage of the subject
+subsets the corresponding usage of its owner's type, so materializing an
+instance also materializes those collections: in the CPU profiles
+`Context.materializeSubsettedCollections` goes from 4.0% of samples
+(0.9.0) to 6.5% (before this change) and `Context.eachSubsetterOf` from 4.4% to
+6.9%. The response carries the result — the fixed tree and the one before
+it serialize byte-identical graphs, and both differ from 0.9.0 in exactly
+the nested usages that now hold `values { instance_id }` — so the growth
+in what is materialized is the rule's output, not recomputation.
+
+Around it, three allocations per materialized collection were: the
+declared-subsetting names recomputed per read (`declaredSubsettedNames`,
+now memoized on `Model.declaredSubsetted` like `subsetted`), a
+deduplication set made before knowing whether any instance is
+contributed (`appendUniqueInstances`, now made on the first), and a
+by-name map and a visited set made per reachability question
+(`reachesSubsetted`, `reachesNames`, now a lookup over the owner's values
+and a set made on the first edge). Interleaved six-run comparison:
+
+```
+                       │    v0.9.0     │      before this change       │            fixed              │
+                       │    sec/op     │    sec/op     vs base         │    sec/op     vs base         │
+GRPCVerifyConstraint-8    667.7µ ± 67%   868.9µ ± 10%  ~ (p=0.065 n=6)   807.1µ ± 11%  ~ (p=0.240 n=6)
+
+                       │     B/op      │     B/op      vs base               │     B/op      vs base               │
+GRPCVerifyConstraint-8    455.8Ki ± 0%   541.7Ki ± 0%  +18.83% (p=0.002 n=6)   510.6Ki ± 0%  +12.01% (p=0.002 n=6)
+
+                       │   allocs/op   │  allocs/op   vs base               │  allocs/op   vs base              │
+GRPCVerifyConstraint-8     8.534k ± 0%   9.486k ± 0%  +11.16% (p=0.002 n=6)   9.188k ± 0%  +7.66% (p=0.002 n=6)
+```
+
+(The 0.9.0 timing in this run has a 67% spread from one slow round; the
+four-run pairs above and the previous record's six runs put it at
+668–711 µs.) The remaining +12% bytes and +8% allocations are the
+subsetted collections the response now holds, priced to `7bd51ece6`.
+
+### 8. `WriterSiblingBlocks` — attributed, fixed
+
+The migration writer's `WriterSiblingBlocks` was +21% time as found
+(+15% re-measured here) and +5.7% bytes at the same 80 k allocations.
+`writer.go` changed in one commit of the interval, `101f3b7cd` (*fix(view):
+mark migration stand-ins, place shared and strip-drawn pins*,
+2026-09-27), which adds a `standIns` list to the `buffer` each block
+opens and a second marker check as it closes; against its parent over
+four runs it is +4.7% time and +5.7% bytes for the larger buffer. No
+other commit touched the writer or its benchmark, so the rest of the
+delta has no commit to name and is superseded by the fix.
+
+The profile puts 73% of the benchmark under `writer.trailed` →
+`writer.aside` → `writer.line`, and all of its 5.4–5.7 MiB per operation
+in `strings.Builder.WriteString` growing a fresh `buffer` per block
+(80 k allocations, the same on both revisions). The writer now keeps the
+buffers it closes and reuses them for the next block it opens, indents
+from a table instead of `strings.Repeat` per line, and grows a line's
+builder once for the indent, text and newline:
+
+```
+                      │    v0.9.0     │         before this change         │               fixed                │
+                      │    sec/op     │   sec/op     vs base               │   sec/op     vs base               │
+WriterSiblingBlocks-8    3.648m ± 7%   4.192m ± 6%  +14.91% (p=0.002 n=6)   1.771m ± 4%  -51.46% (p=0.002 n=6)
+
+                      │     B/op      │     B/op      vs base              │     B/op      vs base               │
+WriterSiblingBlocks-8   5.381Mi ± 0%   5.687Mi ± 0%  +5.67% (p=0.002 n=6)   1.906Mi ± 0%  -64.58% (p=0.002 n=6)
+
+                      │   allocs/op   │  allocs/op   vs base           │  allocs/op   vs base               │
+WriterSiblingBlocks-8    80.03k ± 0%   80.03k ± 0%  ~ (p=1.000 n=6) ¹   20.02k ± 0%  -74.99% (p=0.002 n=6)
+```
+
+The output is unchanged (the migration goldens and writer tests pass as
+they are). Also left from the previous version of this finding, still
+measured and not profiled: `RunStateMachine/elements=4000` +18% against
+−12% at 1 000 (noise across the two sizes) and
+`WorkspaceEditSmallDocBesideLarge` +31% bytes.
 
 ## Verification
 
-On the fixed tree: `gofmt -l .` is empty, `go vet ./...` and `make lint`
-(staticcheck, gosec) pass, `make build` succeeds, and `go test -race ./...`
-passes. The corpus gates pass with both require variables set
+On the fixed tree, and again on the tree with findings 5–8's fixes:
+`gofmt -l .` is empty, `go vet ./...` and `make lint` (staticcheck, gosec)
+pass, `make build` succeeds, and `go test -race ./...` passes. The corpus gates pass with both require variables set
 (`OPENSYSML_REQUIRE_TRAINING_CORPUS=1 OPENSYSML_REQUIRE_PILOT_CORPORA=1
 go test -count=1 ./tests/corpus -run 'TestTrainingExamples|TestPilotCorpora'`:
 100/100 training files clean; the pilot ratchets at 56/58, 92/99 and
 56/56, unchanged), as do the SMT-backed tests against `z3`
 (`OPENSYSML_REQUIRE_SMT=1 OPENSYSML_SMT=/usr/bin/z3 go test -count=1
 ./internal/exec/solve ./internal/frontend/repl ./cmd/sysml`). No test or
-expectation file was changed; the one gate a fix tripped
+expectation file was changed, other than the unit test of the removed
+`pathKey` now asserting the same dotted-name property of `hasPath`; the
+one gate a fix tripped
 (`TestSelfModelInstanceLayerMatchesImplementation`, which counts
 `runtime.EffectiveFeature`'s fields) was answered by moving the cache off
 the struct (`16b3e69a8`), not by changing the model's count.
@@ -389,14 +580,16 @@ case the cost was recomputation, not the rule.
 With the fixes in this change the runtime package is +4% against +32% as
 found, loop steps, instantiation and interpreted calcs are at parity, and
 the load path is +4% bytes per element with `LoadFiles` within noise at
-32 satellites and +13% at 128. Against that, satisfaction checking keeps
-46–56% per assertion for the shared-verdict tracing two 0.9.1 fixes
-require, a derived write keeps 28% for the chain check, single-threaded
-analysis is 8–12% dearer for the new lints and interface records, and the
-gRPC `VerifyConstraint` and the migration writer carry unattributed 21–29%
-regressions. Every whole-binary validation is 0.4–0.6× its 0.9.0 wall
-time and the resident set is smaller from 6 000 elements up. Nothing is
-release-blocking.
+32 satellites and +13% at 128. Satisfaction checking is +11% time and
++12% allocations geomean against +46% / +64% as found, in half the bytes
+of 0.9.0, and keeps +31% on the 32-satellite row for the shared-verdict
+tracing two 0.9.1 fixes require; a derived write keeps 28% for the chain
+check; single-threaded analysis of a resolved document is +14% against
++31% for the lints and interface records; the gRPC `VerifyConstraint`
+keeps +12% bytes for the nested-usage subsetting its response now carries;
+and the migration writer is 2× faster than 0.9.0. Every whole-binary
+validation is 0.4–0.6× its 0.9.0 wall time and the resident set is
+smaller from 6 000 elements up. Nothing is release-blocking.
 
 ## Reproducing
 
@@ -419,6 +612,22 @@ benchstat old.internal/exec/runtime.txt new.internal/exec/runtime.txt fix.runtim
 # profiles behind findings 1–5
 go test ./internal/exec/runtime -run '^$' -bench 'AssignmentLoopStep|DerivedReadWriteRead' -cpuprofile cpu.out -memprofile mem.out
 go test ./tests/stressmodel -run '^$' -bench 'Satisfy/satellites=32|LoadFiles/satellites=32' -cpuprofile cpu.out -memprofile mem.out
+# findings 5–8: v0.9.0, the tree before this change (git worktree add ../opensysml-before 17f8a80b5) and the fixed tree, one round per iteration
+for i in 1 2 3 4 5 6; do for tree in ../opensysml-v0.9.0 ../opensysml-before .; do (cd $tree
+  go test ./tests/stressmodel -run '^$' -bench '^BenchmarkSatisfy/satellites=(32|128|512)/' -benchmem -count 1 >> $OLDPWD/stress.$tree.txt
+  go test ./tests/perf -run '^$' -bench '^BenchmarkGRPCVerifyConstraint$' -benchmem -count 1 >> $OLDPWD/grpc.$tree.txt
+  go test ./internal/translate/migrate -run '^$' -bench '^BenchmarkWriterSiblingBlocks$' -benchmem -count 1 >> $OLDPWD/migrate.$tree.txt
+  go test ./internal/workspace/model -run '^$' -bench '^BenchmarkAnalyse' -benchmem -count 1 >> $OLDPWD/model.$tree.txt
+); done; done
+benchstat stress.*.txt   # and grpc, migrate, model
+# finding 7: the commit, against its parent
+git worktree add ../opensysml-bisect 7bd51ece6^ && (cd ../opensysml-bisect && go test ./tests/perf -run '^$' -bench '^BenchmarkGRPCVerifyConstraint$' -benchmem -count 4)
+# profiles behind findings 5–8
+go test ./tests/stressmodel -run '^$' -bench '^BenchmarkSatisfy/satellites=32/' -cpuprofile cpu.out -memprofile mem.out
+go test ./tests/perf -run '^$' -bench '^BenchmarkGRPCVerifyConstraint$' -cpuprofile cpu.out
+go test ./internal/translate/migrate -run '^$' -bench '^BenchmarkWriterSiblingBlocks$' -cpuprofile cpu.out -memprofile mem.out
+go test ./internal/workspace/model -run '^$' -bench '^BenchmarkAnalyseResolved$' -cpuprofile cpu.out
+go tool pprof -top -cum <pkg>.test cpu.out
 # whole binary: three interleaved runs of each command per binary
 for i in 1 2 3; do for bin in ../opensysml-v0.9.0/bin/sysml bin/sysml; do
   /usr/bin/time -f '%e %M' $bin -validate gen12000.sysml

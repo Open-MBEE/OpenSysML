@@ -39,13 +39,13 @@ func (UndeclaredSignalPass) Run(ctx *Context, name string, root *ast.RootNamespa
 		c.local = map[string]bool{}
 		gatherSentSignals(ctx, rootScope, c.local)
 	}
-	kit.WalkScoped(rootScope, func(scope *symbols.Scope, node ast.Node) {
-		if n, ok := node.(*ast.TransitionMember); ok {
+	for _, at := range kit.ScopedNodes(ctx, rootScope) {
+		if n, ok := at.Node.(*ast.TransitionMember); ok {
 			if ref, ok := n.Trigger.(*ast.FeatureReference); ok && ref.Name != nil {
-				c.check(scope, "when", ref.Name)
+				c.check(at.Scope, "when", ref.Name)
 			}
 		}
-	})
+	}
 	return c.diags
 }
 
@@ -119,16 +119,16 @@ func qnText(qn *ast.QualifiedName) string {
 // chain — and the types of the feature such a name reaches, which is what the
 // runtime tells the sent message's signal by.
 func gatherSentSignals(ctx *Context, root *symbols.Scope, sent map[string]bool) {
-	kit.WalkScoped(root, func(scope *symbols.Scope, node ast.Node) {
-		send, ok := node.(*ast.SendStatement)
+	for _, at := range kit.ScopedNodes(ctx, root) {
+		send, ok := at.Node.(*ast.SendStatement)
 		if !ok {
-			return
+			continue
 		}
 		if send.Message != nil {
-			noteSentSignal(ctx, scope, send.Message, sent)
-			return
+			noteSentSignal(ctx, at.Scope, send.Message, sent)
+			continue
 		}
-		noteSentSignal(ctx, kit.BodyScope(scope, send), lower.SendPayload(send), sent)
+		noteSentSignal(ctx, kit.BodyScope(at.Scope, send), lower.SendPayload(send), sent)
 		if param := lower.SendPayloadParameter(send); param != nil {
 			for _, rel := range param.Relationships {
 				if rel != nil && rel.Kind == ast.RelTyping {
@@ -136,7 +136,7 @@ func gatherSentSignals(ctx *Context, root *symbols.Scope, sent map[string]bool) 
 				}
 			}
 		}
-	})
+	}
 }
 
 // noteSentSignal records the signal names a send payload expression sends.

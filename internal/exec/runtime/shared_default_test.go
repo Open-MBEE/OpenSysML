@@ -367,13 +367,13 @@ func TestSharedDefaultSurvivesHeldImage(t *testing.T) {
 	expect(t, ctx, fleet, "sats[2]", "total", "4")
 }
 
-func TestPathKeyDistinguishesDottedNames(t *testing.T) {
-	quoted, nested := pathKey([]string{"a.b"}), pathKey([]string{"a", "b"})
-	if quoted == nested {
-		t.Fatalf("pathKey conflates a quoted 'a.b' with the nested path a.b: %q", quoted)
+func TestHasPathDistinguishesDottedNames(t *testing.T) {
+	nested := [][]string{{"a", "b"}}
+	if hasPath(nested, []string{"a.b"}) {
+		t.Fatal("hasPath conflates a quoted 'a.b' with the nested path a.b")
 	}
-	if pathKey([]string{"a", "b"}) != nested {
-		t.Fatal("pathKey is not stable over equal paths")
+	if !hasPath(nested, []string{"a", "b"}) {
+		t.Fatal("hasPath misses an equal path")
 	}
 }
 

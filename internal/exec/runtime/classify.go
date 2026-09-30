@@ -118,13 +118,13 @@ func (ctx *Context) impliedClassifier(inst *Instance, feature *symbols.Symbol) b
 // reachesSubsetted reports whether the feature of owner named from subsets the one
 // named to, transitively along the edges of gives.
 func (ctx *Context) reachesSubsetted(owner *Instance, from, to string, gives func(*Instance, *symbols.Symbol) []string) bool {
-	byName := make(map[string]*symbols.Symbol, len(owner.FeatureValues))
-	for name, fv := range owner.FeatureValues {
-		if fv.Feature.Symbol != nil {
-			byName[name] = fv.Feature.Symbol
+	lookup := func(name string) *symbols.Symbol {
+		if fv, ok := owner.FeatureValues[name]; ok {
+			return fv.Feature.Symbol
 		}
+		return nil
 	}
-	return reachesNames(byName, from, to, func(sym *symbols.Symbol) []string {
+	return reachesNames(lookup, from, to, func(sym *symbols.Symbol) []string {
 		return gives(owner, sym)
 	})
 }
@@ -138,34 +138,36 @@ func (ctx *Context) reachesSubsettedType(typ *symbols.Symbol, from, to string, g
 			byName[feat.Name] = feat.Symbol
 		}
 	}
-	return reachesNames(byName, from, to, func(sym *symbols.Symbol) []string {
+	return reachesNames(func(name string) *symbols.Symbol { return byName[name] }, from, to, func(sym *symbols.Symbol) []string {
 		return gives(sym, typ)
 	})
 }
 
 // reachesNames walks the feature names of an owner from `from`, returning true
-// when `to` is reached transitively along the edges of gives.
-func reachesNames(byName map[string]*symbols.Symbol, from, to string, gives func(*symbols.Symbol) []string) bool {
-	seen := map[string]bool{from: true}
-	queue := []string{from}
-	for len(queue) > 0 {
-		name := queue[0]
-		queue = queue[1:]
-		sym := byName[name]
-		if sym == nil {
-			continue
+// when `to` is reached transitively along the edges of gives; lookup names the
+// symbol of each feature, nil for none.
+func reachesNames(lookup func(string) *symbols.Symbol, from, to string, gives func(*symbols.Symbol) []string) bool {
+	var seen map[string]bool
+	var queue []string
+	for name := from; ; name, queue = queue[0], queue[1:] {
+		if sym := lookup(name); sym != nil {
+			for _, next := range gives(sym) {
+				if next == to {
+					return true
+				}
+				if seen == nil {
+					seen = map[string]bool{from: true}
+				}
+				if !seen[next] {
+					seen[next] = true
+					queue = append(queue, next)
+				}
+			}
 		}
-		for _, next := range gives(sym) {
-			if next == to {
-				return true
-			}
-			if !seen[next] {
-				seen[next] = true
-				queue = append(queue, next)
-			}
+		if len(queue) == 0 {
+			return false
 		}
 	}
-	return false
 }
 
 // ImpliedCollection reports whether the feature of inst named name is reached
