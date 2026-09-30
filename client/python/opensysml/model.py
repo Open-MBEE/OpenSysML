@@ -1006,10 +1006,12 @@ class Model:
         warnings = sum(1 for d in self.diagnostics if d.severity == 'warning')
         
         # Build HTML
-        html = ['<div style="font-family: monospace; padding: 10px; border: 1px solid #ccc;">']
-        html.append(f'<h3>Model: {escape(self.root.name)}</h3>')
-        html.append(f'<p><strong>Hash:</strong> <code>{escape(self.hash[:12])}...</code></p>')
-        html.append(f'<p><strong>Root Kind:</strong> {escape(self.root.kind)}</p>')
+        html = [
+            '<div style="font-family: monospace; padding: 10px; border: 1px solid #ccc;">',
+            f'<h3>Model: {escape(self.root.name)}</h3>',
+            f'<p><strong>Hash:</strong> <code>{escape(self.hash[:12])}...</code></p>',
+            f'<p><strong>Root Kind:</strong> {escape(self.root.kind)}</p>',
+        ]
         
         # Diagnostic summary
         if self.diagnostics:
