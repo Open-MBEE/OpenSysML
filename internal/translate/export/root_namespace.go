@@ -270,8 +270,7 @@ func unownedElements(graph *rdf.Graph) []rdf.Term {
 // (or its owning membership) the graph references rather than declares: marked
 // sysml:isLibraryElement, with no owner in the graph.
 func LibraryReference(graph *rdf.Graph, subject rdf.Term) bool {
-	lexical, ok := graph.Lexical(subject, rdf.SysML+pIsLibraryElement)
-	return ok && lexical == "true" && !hasOwner(graph, subject) &&
+	return graph.BoolValue(subject, rdf.SysML+pIsLibraryElement) && !hasOwner(graph, subject) &&
 		!graph.HasProperty(subject, rdf.SysML+pMembershipOwningNamespace)
 }
 

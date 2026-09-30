@@ -138,3 +138,50 @@ func TestLibraryNameThatDisagreesIsRefused(t *testing.T) {
 		t.Errorf("refused for another reason: %v", err)
 	}
 }
+
+// A library membership owns the element the library says its id owns: one
+// whose memberElement is another library element is refused, not read as an
+// import of either.
+func TestLibraryMembershipOwningAnotherElementIsRefused(t *testing.T) {
+	turtle, err := convert.Convert("l.sysml", []byte(libraryNamesModel), convert.FormatSysML, convert.FormatTurtle)
+	if err != nil {
+		t.Fatal(err)
+	}
+	real := "sysml:memberElement <urn:sysmlv2:element:14c0aa22-5489-59b5-b438-ded26e83ba31> ;\n    sysml:isLibraryElement"
+	if !strings.Contains(string(turtle), real) {
+		t.Fatalf("the graph no longer states the library membership of Real")
+	}
+	integer := strings.Index(string(turtle), `sysml:qualifiedName "ScalarValues::Integer"`)
+	if integer < 0 {
+		t.Fatal("the graph no longer names ScalarValues::Integer")
+	}
+	start := strings.LastIndex(string(turtle[:integer]), "\n\n") + 2
+	subject := strings.SplitN(string(turtle[start:]), "\n", 2)[0]
+	swapped := strings.Replace(string(turtle), real, "sysml:memberElement "+subject+" ;\n    sysml:isLibraryElement", 1)
+	if back, err := convert.Convert("l.ttl", []byte(swapped), convert.FormatTurtle, convert.FormatSysML); err == nil {
+		t.Errorf("a library membership owning another element was converted:\n%s", back)
+	} else if !strings.Contains(err.Error(), "library membership") {
+		t.Errorf("refused for another reason: %v", err)
+	}
+}
+
+// isLibraryElement is an xsd:boolean, so "1" marks a library element as
+// "true" does: the element is still a reference, not a declaration.
+func TestLibraryMarkerReadsEitherBooleanSpelling(t *testing.T) {
+	turtle, err := convert.Convert("l.sysml", []byte(libraryNamesModel), convert.FormatSysML, convert.FormatTurtle)
+	if err != nil {
+		t.Fatal(err)
+	}
+	marked := `sysml:isLibraryElement "true"^^xsd:boolean`
+	if !strings.Contains(string(turtle), marked) {
+		t.Fatalf("the graph no longer marks library elements")
+	}
+	ones := strings.ReplaceAll(string(turtle), marked, `sysml:isLibraryElement "1"^^xsd:boolean`)
+	back, err := convert.Convert("l.ttl", []byte(ones), convert.FormatTurtle, convert.FormatSysML)
+	if err != nil {
+		t.Fatalf("a graph marking library elements with 1 was refused: %v", err)
+	}
+	if strings.Contains(string(back), "datatype") || strings.Contains(string(back), "library package") {
+		t.Errorf("a library element marked with 1 was written back as a declaration:\n%s", back)
+	}
+}

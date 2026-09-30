@@ -1258,11 +1258,26 @@ func (d *decoder) libraryStubs() (map[string]bool, error) {
 		if stated, ok := d.graph.Lexical(subject, rdf.SysML+pElementID); ok {
 			id = stated
 		}
-		if member, ok := d.graph.Object(subject, rdf.SysML+pMemberElement); ok {
-			if lexical, ok := d.graph.Lexical(member, rdf.SysML+pIsLibraryElement); !ok || lexical != "true" {
+		if members := d.graph.Objects(subject, rdf.SysML+pMemberElement); len(members) > 0 {
+			// A library membership is the owning membership the library gives
+			// its id, and owns the element the library says it owns.
+			catalog := identity.LibraryCatalog(libs.NewModelIndex())
+			owned, ok := catalog.OwningMembership(id)
+			if !ok {
 				return nil, &UnsupportedError{
 					What: fmt.Sprintf("the library membership <%s>", subject.Value),
-					Note: "its memberElement is no library element, and a library membership owns one",
+					Note: fmt.Sprintf("it is marked sysml:isLibraryElement, but the bundled standard library has no owning membership with id %q", id),
+				}
+			}
+			member := members[0]
+			memberID := rdf.LocalName(member.Value)
+			if stated, ok := d.graph.Lexical(member, rdf.SysML+pElementID); ok {
+				memberID = stated
+			}
+			if len(members) != 1 || !member.IsIRI() || !d.graph.BoolValue(member, rdf.SysML+pIsLibraryElement) || memberID != owned.ID {
+				return nil, &UnsupportedError{
+					What: fmt.Sprintf("the library membership <%s>", subject.Value),
+					Note: fmt.Sprintf("the bundled standard library gives id %q to the owning membership of %s (id %q), and its memberElement is not that library element", id, owned.FQN, owned.ID),
 				}
 			}
 			stubs[subject.Value] = true
