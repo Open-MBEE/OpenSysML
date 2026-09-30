@@ -1179,8 +1179,8 @@ tagged and is no longer used. **Nothing has been published yet.**
 
 ### What a maintainer must obtain first
 
-None of these can be provisioned from a checkout. The first three land in the
-restricted CircleCI context `maven-central` (lower-case — a context reference
+None of these can be provisioned from a checkout. The key and the token land in
+the restricted CircleCI context `maven-central` (lower-case — a context reference
 is matched exactly — restricted to a security group), which holds four
 variables: `CENTRAL_TOKEN_USERNAME`, `CENTRAL_TOKEN_PASSWORD`,
 `GPG_PRIVATE_KEY` and `GPG_PASSPHRASE`.

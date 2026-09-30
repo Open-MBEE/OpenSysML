@@ -2,6 +2,7 @@
 
 import importlib.util
 import pathlib
+import xml.etree.ElementTree as ET
 
 import pytest
 from packaging.version import Version
@@ -256,8 +257,6 @@ def test_java_declared_version_rejects_a_pom_without_own_version(tmp_path):
 
 def test_every_in_repo_reference_names_the_poms_version():
     """The parent pom's version is the one the checkout's consumers must name."""
-    import xml.etree.ElementTree as ET
-
     ns = "{http://maven.apache.org/POM/4.0.0}"
     version = check_version.java_declared_version()
     repo = pathlib.Path(check_version.REPO_ROOT)
