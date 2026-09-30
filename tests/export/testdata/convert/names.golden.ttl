@@ -8,6 +8,10 @@
 elmt:Named
     a sysml:Package ;
     sysml:qualifiedName "Named" ;
+    sysx:sourceLine "1"^^xsd:integer ;
+    sysx:sourceColumn "1"^^xsd:integer ;
+    sysx:sourceEndLine "5"^^xsd:integer ;
+    sysx:sourceEndColumn "2"^^xsd:integer ;
     sysml:elementId "Named" ;
     sysx:memberIndex "0"^^xsd:integer ;
     sysx:sourceLanguage "sysml" ;
@@ -25,6 +29,10 @@ elmt:Named
 elmt:Named__Vehicle
     a sysml:PartDefinition ;
     sysml:qualifiedName "Named::Vehicle" ;
+    sysx:sourceLine "2"^^xsd:integer ;
+    sysx:sourceColumn "5"^^xsd:integer ;
+    sysx:sourceEndLine "2"^^xsd:integer ;
+    sysx:sourceEndColumn "27"^^xsd:integer ;
     sysml:elementId "Named__Vehicle" ;
     sysx:memberIndex "0"^^xsd:integer ;
     sysml:owningNamespace elmt:Named ;
@@ -49,6 +57,10 @@ elmt:Named__Vehicle_om
 elmt:Named__Car
     a sysml:Membership ;
     sysml:qualifiedName "Named::Car" ;
+    sysx:sourceLine "3"^^xsd:integer ;
+    sysx:sourceColumn "5"^^xsd:integer ;
+    sysx:sourceEndLine "3"^^xsd:integer ;
+    sysx:sourceEndColumn "27"^^xsd:integer ;
     sysml:elementId "Named__Car" ;
     sysx:memberIndex "1"^^xsd:integer ;
     sysml:owningNamespace elmt:Named ;
@@ -64,6 +76,10 @@ elmt:Named__Car
 elmt:Named__Mass
     a sysml:AttributeDefinition ;
     sysml:qualifiedName "Named::Mass" ;
+    sysx:sourceLine "4"^^xsd:integer ;
+    sysx:sourceColumn "5"^^xsd:integer ;
+    sysx:sourceEndLine "4"^^xsd:integer ;
+    sysx:sourceEndColumn "28"^^xsd:integer ;
     sysml:elementId "Named__Mass" ;
     sysx:memberIndex "2"^^xsd:integer ;
     sysml:owningNamespace elmt:Named ;

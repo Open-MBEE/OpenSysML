@@ -85,6 +85,10 @@ const (
 	pLanguage                  = "language"
 	pLocale                    = "locale"
 	pAnnotatedElement          = "annotatedElement"
+	pAnnotatingElement         = "annotatingElement"
+	pOwnedAnnotation           = "ownedAnnotation"
+	mAnnotation                = "Annotation"
+	mDependency                = "Dependency"
 	pIsImportAll               = "isImportAll"
 	pSourceFeature             = "sourceFeature"
 	pTargetFeature             = "targetFeature"
@@ -105,7 +109,13 @@ const (
 	// xSourceDocument names the document a root element was written in, when
 	// several documents are converted as one model.
 	xSourceDocument = "sourceDocument"
-	xFilter         = "filter"
+	// The declaration's range in its document, 1-based lines and columns as a
+	// diagnostic's span gives them; layout, which reading the graph ignores.
+	xSourceLine      = "sourceLine"
+	xSourceColumn    = "sourceColumn"
+	xSourceEndLine   = "sourceEndLine"
+	xSourceEndColumn = "sourceEndColumn"
+	xFilter          = "filter"
 	// xIsConstructor is only read: an older graph flags `new` on an InvocationExpression.
 	xIsConstructor = "isConstructor"
 	// xExpose is only read: an older graph flags an expose on an abstract sysml:Import.
@@ -379,7 +389,7 @@ func encodeDocument(file *source.SourceFile, root *ast.RootNamespace, library st
 
 // encodeDocument writes the graph of the document the encoder was made for.
 func (e *encoder) encodeDocument(root *ast.RootNamespace) error {
-	e.src = newAuthoredSource(e.file)
+	e.src = newAuthoredSource(e.file, root)
 	if err := e.encode(root.Members, "", rdf.Term{}); err != nil {
 		return err
 	}
@@ -1020,6 +1030,26 @@ type memberHead struct {
 	local rdf.Term
 }
 
+// sourceRange states where subject's declaration is written: its first and
+// last position, 1-based, as a diagnostic's span locates what it reports.
+func (e *encoder) sourceRange(subject rdf.Term, span source.Span) {
+	if span.Len <= 0 {
+		return
+	}
+	// A declaration's span runs to the next token; its range ends where its
+	// last token does, before any whitespace, note or comment that follows.
+	last := e.src.declarationEnd(span)
+	if last <= span.Offset {
+		return
+	}
+	lines := e.file.Lines()
+	start, end := lines.PosAt(span.Offset), lines.PosAt(last)
+	e.graph.Add(subject, e.sysx(xSourceLine), rdf.Int(start.Line))
+	e.graph.Add(subject, e.sysx(xSourceColumn), rdf.Int(start.Col))
+	e.graph.Add(subject, e.sysx(xSourceEndLine), rdf.Int(end.Line))
+	e.graph.Add(subject, e.sysx(xSourceEndColumn), rdf.Int(end.Col))
+}
+
 func (e *encoder) head(subject rdf.Term, h memberHead) {
 	node, visibility, fqn, ownerTerm, index, metaclass, lines, inline :=
 		h.node, h.visibility, h.fqn, h.owner, h.index, h.metaclass, h.lines, h.inline
@@ -1027,6 +1057,7 @@ func (e *encoder) head(subject rdf.Term, h memberHead) {
 	if h.local.Value == "" {
 		e.graph.Add(subject, e.sysml(pQualifiedName), rdf.String(fqn))
 		e.offsets[subject.Value] = node.Span().Offset
+		e.sourceRange(subject, node.Span())
 	}
 	// The id an API reader addresses the element by, which is the id its own
 	// IRI ends in, so the two cannot disagree.
@@ -1705,6 +1736,13 @@ func (e *encoder) owningMembership(node ast.Node, member, owner rdf.Term, member
 	// the API's payloads carry for it; anything else, a metadata usage included,
 	// through an OwningMembership.
 	feature := ontology.IsAncestorOrSelf(memberClass, mFeature) && isType(ownerClass) && !metadata
+	// A dependency's prefix metadata is the annotating element of an Annotation
+	// the dependency owns, not a member of it (SysML-textual-bnf Dependency,
+	// PrefixMetadataAnnotation).
+	if metadata && ownerClass == mDependency {
+		annotation := e.ids.minted(rdf.RelationshipIRI(member, AnnotationSuffix), member, AnnotationSuffix)
+		return e.prefixAnnotation(annotation, member, owner, memberFQN)
+	}
 	membership := e.ids.owningMembershipOf(node, member)
 	// The membership shares the element namespace, so its IRI is reserved too.
 	if prior, taken := e.claim(membership.Value, memberFQN+"'s owning membership"); taken && e.idErr == nil {
@@ -1757,6 +1795,33 @@ func (e *encoder) owningMembership(node ast.Node, member, owner rdf.Term, member
 		}
 	}
 	return membership
+}
+
+// AnnotationSuffix names the Annotation by which a dependency owns a prefix
+// metadata usage, after the usage it owns, as `_om` names a membership.
+const AnnotationSuffix = "_an"
+
+// prefixAnnotation writes the Annotation by which owner, a relationship, owns
+// the metadata usage member that annotates it.
+func (e *encoder) prefixAnnotation(annotation, member, owner rdf.Term, memberFQN string) rdf.Term {
+	if prior, taken := e.claim(annotation.Value, memberFQN+"'s annotation"); taken && e.idErr == nil {
+		e.idErr = &UnsupportedError{
+			What: fmt.Sprintf("the annotation of %s", memberFQN),
+			Note: fmt.Sprintf("its id lands on the same IRI as %s, and merging two elements into one subject would be a different model", prior),
+		}
+	}
+	e.graph.Add(annotation, rdf.IRI(rdf.RDFType), e.sysml(mAnnotation))
+	e.graph.Add(annotation, e.sysml(pElementID), rdf.String(rdf.LocalName(annotation.Value)))
+	e.graph.Add(annotation, e.sysml(pOwner), owner)
+	e.graph.Add(annotation, e.sysml(pOwningRelatedElement), owner)
+	e.graph.Add(annotation, e.sysml(pOwnedRelatedElement), member)
+	e.graph.Add(annotation, e.sysml(pAnnotatingElement), member)
+	e.graph.Add(annotation, e.sysml(pAnnotatedElement), owner)
+	e.graph.Add(owner, e.sysml(pOwnedRelationship), annotation)
+	e.graph.Add(owner, e.sysml(pOwnedAnnotation), annotation)
+	e.graph.Add(member, e.sysml(pOwner), owner)
+	e.graph.Add(member, e.sysml(pOwningRelationship), annotation)
+	return annotation
 }
 
 // emitMembershipCore writes the shared ownership triples for a membership.

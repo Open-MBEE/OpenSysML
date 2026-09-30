@@ -91,6 +91,20 @@ type Var struct {
 	Ref   ast.Node
 	Scope *symbols.Scope
 
+	// Reached is the condition under which the evaluator reads the variable:
+	// the disjunction, over the references reading it, of the operands a
+	// connective decided before reaching each, the branches conditionals
+	// selected, and the required conditions evaluated before the one it is in.
+	// Nil where some reference reads it on every path.
+	Reached *Term
+
+	// Preceding are the definedness guards the query asserted for operations
+	// the evaluator performs before it first reaches the variable under
+	// Reached — a divisor it has checked non-zero by then. An assignment
+	// reaching the variable satisfies them; the guards asserted after come from
+	// operations an evaluation failing at the read never performs.
+	Preceding []*Term
+
 	// Dimension is the quantity dimension its magnitude is expressed in, over
 	// base units, empty for a value that has none.
 	Dimension string
@@ -244,6 +258,10 @@ type Query struct {
 	// query reads, reported rather than dropped.
 	Unread []Unread
 
+	// Unreadable are the features the query reads whose value could not be read,
+	// each guarded so that no model reaches the read; nil when it reads none.
+	Unreadable []UnreadableRead
+
 	// Objectives are the objectives to optimize, in the order the analysis case
 	// declares them, which is the order they are optimized in; nil for a query
 	// that only asks about satisfiability.
@@ -261,9 +279,12 @@ func (q *Query) Fixes() bool { return len(q.Pinned) > 0 }
 // Free are the variables the query leaves for the solver to choose, in the order
 // they are declared.
 func (q *Query) Free() []*Var {
-	fixed := make(map[*Var]bool, len(q.Pinned))
+	fixed := make(map[*Var]bool, len(q.Pinned)+len(q.Unreadable))
 	for _, p := range q.Pinned {
 		fixed[p.Var] = true
+	}
+	for _, u := range q.Unreadable {
+		fixed[u.Var] = true
 	}
 	out := make([]*Var, 0, len(q.Vars))
 	for _, v := range q.Vars {

@@ -104,7 +104,12 @@
 // at the first failing required condition, so a guard hoisted from a later one
 // could exclude real counterexamples and yield a false proof. A computed
 // divisor therefore refuses translation in violation mode, as it does under a
-// branch or a negation.
+// branch or a negation. The evaluation path the translator tracks (see Reads
+// the evaluator never reaches) could guard such a divisor under the condition
+// the evaluator divides on; that is deliberately not done: a proof over the
+// assignments where the division is defined would still be a `holds` about
+// assignments the evaluator answers nothing about, and the conservative
+// refusal is kept until that contract is settled.
 //
 // The evaluator computes real arithmetic in float64 while the encoding is
 // exact: an exact-real unsat does not by itself decide the evaluator's
@@ -175,6 +180,76 @@
 // A variable stands for the value a feature may take, constrained only by its
 // sort: declared values are not asserted, so a query asks what the conditions
 // permit rather than what one object holds.
+//
+// # Reads the evaluator never reaches
+//
+// The evaluator evaluates left to right and stops early: `and`, `&` and
+// `implies` read their right operand only where the left one holds, `or` and
+// `|` only where it fails (runtime.shortCircuit decides `&` and `|` exactly as
+// `and` and `or`); `xor`, `not`, `==` and `!=` read every operand; a conditional
+// `if c ? a else b` reads the branch c selects; the conditions of an element are
+// evaluated in order and a failing required condition stops the rest, an
+// assumption stopping nothing. The translator mirrors this as one mechanism:
+// every reference is translated under the path condition the evaluator reaches
+// it on, and Var.Reached records, per variable, the disjunction of those
+// conditions — nil where some reference reads it on every path. The encoding of
+// the connectives is unchanged (they are total), so Reached is the only thing
+// the path adds; it is the same path condition rounding.go guards its sites by.
+//
+// Reached is what makes a declared value that does not evaluate — a default
+// dividing by zero, or one reading a feature with no value — answerable. Such a
+// feature is an Unfixed with a non-nil Err, and it is never left free: an
+// assignment reaching the read has no value for the feature, so a model choosing
+// one would be a verdict the evaluator never gives. UnfixedRead applies the
+// order instead:
+//
+//   - read on every path (Reached nil), the query is refused with the read
+//     failure: `bad > 0.0 or true` and `true xor bad > 0.0` are undecided, as the
+//     evaluator fails on them;
+//   - read under a condition, the query asserts that condition false as a
+//     RoleDefined guard ahead of its conditions and records the read in
+//     Query.Unreadable, so its models are the assignments the evaluator answers
+//     about without reading the feature; Query.Free leaves the variable out.
+//
+// What a verdict then means: a model of the guarded query is an assignment the
+// evaluator confirms (satisfiable) or refutes (a violation query's
+// counterexample) — `free > 0.0 or bad > 0.0` is satisfied at free = 0.5, and
+// `free > 0.0 and bad > 0.0` is violated at free = 0.0 — since the guard is
+// exactly the condition under which the evaluator never reaches the read. An
+// unsat, however, only speaks for the guarded assignments; Query.Reached is the
+// query whose models are the assignments reaching some unreadable feature — the
+// same domains, pins and assumptions, requiring the disjunction of the reads'
+// conditions, each with the definedness guards of the operations the evaluator
+// performs before reaching it (Var.Preceding). A guard hoisted from an operation
+// after the read — a later required condition's divisor — constrains no
+// assignment reaching it: the evaluator fails at the read and never performs
+// the operation, so imposing the guard could hide the assignment and certify a
+// false proof. Reached unsat proves no assignment reaches the read,
+// and the unsat is the evaluator's answer on every assignment: `true or bad >
+// 0.0` holds. Reached sat witnesses an assignment on which the evaluator reaches
+// no verdict, and the question stays undecided with Query.ReachedError naming
+// the feature: `free > 0.0 or bad > 0.0` is not proved to hold, and `free > 0.0
+// and bad > 0.0` is not proved unsatisfiable, since at free <= 0.0 and free >
+// 0.0 respectively the evaluator reads bad. A verdict is thus never one the
+// evaluator would contradict: decided assignments are decided as it decides
+// them, and a universal claim is made only where it reaches every assignment.
+//
+// A feature a chain reaches (`inner.dependent`) is read the same way. ChainPins
+// reads it where the evaluator reads it, through the object the chain walks:
+// the value it holds is a Pin; a feature holding nothing stays free, as a direct
+// one does; a declared value that does not evaluate — which the runtime marks
+// ErrFeatureValueMaterialization, whatever its cause, a missing value of its
+// own dependency included — is an Unfixed naming the chain variable, for
+// UnfixedRead to refuse or guard by the same Reached. So `false or
+// inner.dependent > 0.0` is undecided, not satisfied by a value the solver
+// chose for inner.dependent, and `true or inner.dependent > 0.0` holds.
+//
+// The differential gate checks this per assignment: a read on every path must
+// leave the evaluator without a verdict, an assignment the guard excludes must be
+// one on which the evaluator fails reading the feature, and the guarded query
+// must agree with the evaluator on every admitted assignment. Its randomized
+// generator declares such a default as often as not, on the case itself and on
+// a nested part its conditions read through a chain.
 //
 // # Value synthesis
 //

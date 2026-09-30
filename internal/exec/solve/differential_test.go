@@ -43,6 +43,9 @@ const (
 	// diffAssumptionUnmet: the assignment falsifies an assumption, which the
 	// query asserts and the evaluator trusts.
 	diffAssumptionUnmet
+	// diffUnreadable: the evaluator read a feature whose value could not be
+	// read and reached no verdict, and the query admits no such assignment.
+	diffUnreadable
 )
 
 var diffOutcomeNames = map[diffOutcome]string{
@@ -53,6 +56,7 @@ var diffOutcomeNames = map[diffOutcome]string{
 	diffNotTranslated:   "skipped-by-refusal",
 	diffNoValues:        "skipped-without-values",
 	diffAssumptionUnmet: "assumption-unmet",
+	diffUnreadable:      "unreadable-read",
 }
 
 func (o diffOutcome) String() string {
@@ -100,11 +104,12 @@ func (s *diffSummary) translated() int {
 func (s *diffSummary) report(t *testing.T) {
 	t.Helper()
 	t.Logf("differential gate %s: %d files, %d elements: %d translated, %d %s, "+
-		"%d agreed, %d disagreed, %d unknown, %d evaluator-refused, %d assumption-unmet, %d without values",
+		"%d agreed, %d disagreed, %d unknown, %d evaluator-refused, %d assumption-unmet, "+
+		"%d unreadable-read, %d without values",
 		s.label, s.files, s.elements, s.translated(),
 		s.counts[diffNotTranslated], diffNotTranslated,
 		s.counts[diffAgreed], s.counts[diffDisagreed], s.counts[diffUnknown],
-		s.counts[diffEvalRefused], s.counts[diffAssumptionUnmet], s.counts[diffNoValues])
+		s.counts[diffEvalRefused], s.counts[diffAssumptionUnmet], s.counts[diffUnreadable], s.counts[diffNoValues])
 	for _, reason := range topReasons(s.refusals) {
 		t.Logf("  refused %3d× %s", s.refusals[reason], reason)
 	}
@@ -386,7 +391,8 @@ func (d *declaredValues) held(name string) (runtime.Value, error) {
 	return val, nil
 }
 
-// step reads a feature of the object a chain's previous step named.
+// step reads a feature of the object a chain's previous step named. A declared
+// value of it that does not evaluate is reported as one, as root reports it.
 func (d *declaredValues) step(val runtime.Value, name string) (runtime.Value, error) {
 	id, ok := val.Object()
 	if !ok {
@@ -397,6 +403,9 @@ func (d *declaredValues) step(val runtime.Value, name string) (runtime.Value, er
 		return runtime.Value{}, fmt.Errorf("%w: object %d is not materialized", errNoConcreteValue, id)
 	}
 	fv, err := inst.GetFeatureValue(d.ctx, name)
+	if errors.Is(err, runtime.ErrFeatureValueMaterialization) {
+		return runtime.Value{}, declaredValueError(name, err)
+	}
 	if err != nil || fv == nil {
 		return runtime.Value{}, fmt.Errorf("%w: object %d holds none for %s (%v)", errNoConcreteValue, id, name, err)
 	}
@@ -503,8 +512,15 @@ type pin struct {
 // whole element when one is missing: a query with a free variable answers a
 // question the evaluator was not asked.
 func pinsOf(q *Query, from values) ([]pin, error) {
+	unreadable := make(map[*Var]bool, len(q.Unreadable))
+	for _, u := range q.Unreadable {
+		unreadable[u.Var] = true
+	}
 	out := make([]pin, 0, len(q.Vars))
 	for _, v := range q.Vars {
+		if unreadable[v] {
+			continue
+		}
 		val, err := from.valueOf(v)
 		if err != nil {
 			return nil, err
@@ -734,7 +750,18 @@ func (g *diffGate) check(t *testing.T, ctx *runtime.Context, el diffElement) dif
 	}
 
 	answer := el.evaluate(ctx)
-	pins, err := pinsOf(q, newNodeValues(ctx, el, answer.subject))
+	values := newNodeValues(ctx, el, answer.subject)
+	// A declared value that does not evaluate is what UnfixedRead guards: the
+	// query then admits no assignment reaching the read, and a read on every
+	// path is one the evaluator must fail too.
+	if err := UnfixedRead(ctx, q, unreadableOf(q, values)); err != nil {
+		if answer.refused() {
+			return g.record(t, el, q, answer, nil, diffUnreadable, err.Error())
+		}
+		return g.record(t, el, q, answer, nil, diffDisagreed,
+			"the conditions read a feature whose value could not be read on every path, but the evaluator reached a verdict: "+err.Error())
+	}
+	pins, err := pinsOf(q, values)
 	if err != nil {
 		if errors.Is(err, errNoConcreteValue) {
 			if g.verbose {
@@ -748,6 +775,49 @@ func (g *diffGate) check(t *testing.T, ctx *runtime.Context, el diffElement) dif
 		return diffDisagreed
 	}
 	return g.compare(t, el, q, answer, pins)
+}
+
+// unreadableOf names the features whose declared value does not evaluate, as
+// FixedFor reports them: variables whose value read fails other than for want of
+// a concrete value, which pinsOf reports on its own.
+func unreadableOf(q *Query, from values) []Unfixed {
+	var out []Unfixed
+	for _, v := range q.Vars {
+		if v.Symbol == nil {
+			continue
+		}
+		_, err := from.valueOf(v)
+		if err == nil || errors.Is(err, errNoConcreteValue) {
+			continue
+		}
+		out = append(out, Unfixed{Feature: v.Symbol, Name: v.Name, Var: v.Name, Reason: err.Error(), Err: err})
+	}
+	return out
+}
+
+// unreadableReached reports whether the evaluator's error is the read failure
+// of a feature the query guards the reads of, by its root cause.
+func unreadableReached(q *Query, err error) bool {
+	if err == nil {
+		return false
+	}
+	for _, u := range q.Unreadable {
+		if errors.Is(err, rootCause(u.Err)) {
+			return true
+		}
+	}
+	return false
+}
+
+// rootCause is the innermost error a chain of wrapped errors unwraps to.
+func rootCause(err error) error {
+	for {
+		next := errors.Unwrap(err)
+		if next == nil {
+			return err
+		}
+		err = next
+	}
 }
 
 // valueHost is the element whose effective features a variable's value is read
@@ -775,6 +845,10 @@ func (g *diffGate) compare(t *testing.T, el diffElement, q *Query, answer verdic
 		if errors.Is(answer.err, runtime.ErrDivisionByZero) {
 			return g.record(t, el, q, answer, pins, diffAgreed, "")
 		}
+		if unreadableReached(q, answer.err) {
+			return g.record(t, el, q, answer, pins, diffUnreadable,
+				"the evaluator reached a read the guards keep the query from")
+		}
 		if answer.refused() {
 			return g.record(t, el, q, answer, pins, diffEvalRefused,
 				"the guards rule the assignment out and the evaluator reached no verdict")
@@ -785,6 +859,10 @@ func (g *diffGate) compare(t *testing.T, el diffElement, q *Query, answer verdic
 	if errors.Is(answer.err, runtime.ErrDivisionByZero) {
 		return g.record(t, el, q, answer, pins, diffDisagreed,
 			"the evaluator reports division by zero, but the guarded query admits the assignment")
+	}
+	if unreadableReached(q, answer.err) {
+		return g.record(t, el, q, answer, pins, diffDisagreed,
+			"the evaluator read a feature whose value could not be read, but the guarded query admits the assignment")
 	}
 
 	// An assignment falsifying an assumption is outside what the query is about:

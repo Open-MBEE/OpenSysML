@@ -9,6 +9,10 @@
 elmt:Quoted_20Names
     a sysml:Package ;
     sysml:qualifiedName "Quoted Names" ;
+    sysx:sourceLine "1"^^xsd:integer ;
+    sysx:sourceColumn "1"^^xsd:integer ;
+    sysx:sourceEndLine "15"^^xsd:integer ;
+    sysx:sourceEndColumn "2"^^xsd:integer ;
     sysml:elementId "Quoted_20Names" ;
     sysx:memberIndex "0"^^xsd:integer ;
     sysx:sourceLanguage "sysml" ;
@@ -26,6 +30,10 @@ elmt:Quoted_20Names
 elmt:Quoted_20Names__Mass_20_28kg_29
     a sysml:AttributeDefinition ;
     sysml:qualifiedName "Quoted Names::Mass (kg)" ;
+    sysx:sourceLine "2"^^xsd:integer ;
+    sysx:sourceColumn "5"^^xsd:integer ;
+    sysx:sourceEndLine "2"^^xsd:integer ;
+    sysx:sourceEndColumn "31"^^xsd:integer ;
     sysml:elementId "Quoted_20Names__Mass_20_28kg_29" ;
     sysx:memberIndex "0"^^xsd:integer ;
     sysml:owningNamespace elmt:Quoted_20Names ;
@@ -49,6 +57,10 @@ elmt:Quoted_20Names__Mass_20_28kg_29_om
 elmt:Quoted_20Names__Rover_20Model
     a sysml:PartDefinition ;
     sysml:qualifiedName "Quoted Names::Rover Model" ;
+    sysx:sourceLine "3"^^xsd:integer ;
+    sysx:sourceColumn "5"^^xsd:integer ;
+    sysx:sourceEndLine "9"^^xsd:integer ;
+    sysx:sourceEndColumn "6"^^xsd:integer ;
     sysml:elementId "Quoted_20Names__Rover_20Model" ;
     sysx:memberIndex "1"^^xsd:integer ;
     sysml:owningNamespace elmt:Quoted_20Names ;
@@ -84,6 +96,10 @@ elmt:Quoted_20Names__Rover_20Model_om
 elmt:Quoted_20Names__Rover_20Model__dry_20mass
     a sysml:AttributeUsage ;
     sysml:qualifiedName "Quoted Names::Rover Model::dry mass" ;
+    sysx:sourceLine "4"^^xsd:integer ;
+    sysx:sourceColumn "9"^^xsd:integer ;
+    sysx:sourceEndLine "4"^^xsd:integer ;
+    sysx:sourceEndColumn "44"^^xsd:integer ;
     sysml:elementId "Quoted_20Names__Rover_20Model__dry_20mass" ;
     sysx:memberIndex "0"^^xsd:integer ;
     sysml:owningNamespace elmt:Quoted_20Names__Rover_20Model ;
@@ -113,6 +129,10 @@ elmt:Quoted_20Names__Rover_20Model__dry_20mass_om
 elmt:Quoted_20Names__Rover_20Model__mass_20limit
     a sysml:ConstraintUsage ;
     sysml:qualifiedName "Quoted Names::Rover Model::mass limit" ;
+    sysx:sourceLine "5"^^xsd:integer ;
+    sysx:sourceColumn "9"^^xsd:integer ;
+    sysx:sourceEndLine "7"^^xsd:integer ;
+    sysx:sourceEndColumn "10"^^xsd:integer ;
     sysml:elementId "Quoted_20Names__Rover_20Model__mass_20limit" ;
     sysx:memberIndex "1"^^xsd:integer ;
     sysml:owningNamespace elmt:Quoted_20Names__Rover_20Model ;
@@ -144,6 +164,10 @@ elmt:Quoted_20Names__Rover_20Model__mass_20limit_om
 elmt:Quoted_20Names__Rover_20Model__mass_20limit___400
     a sysml:OperatorExpression ;
     sysml:qualifiedName "Quoted Names::Rover Model::mass limit::@0" ;
+    sysx:sourceLine "6"^^xsd:integer ;
+    sysx:sourceColumn "13"^^xsd:integer ;
+    sysx:sourceEndLine "6"^^xsd:integer ;
+    sysx:sourceEndColumn "27"^^xsd:integer ;
     sysml:elementId "Quoted_20Names__Rover_20Model__mass_20limit___400" ;
     sysx:memberIndex "0"^^xsd:integer ;
     sysml:owningNamespace elmt:Quoted_20Names__Rover_20Model__mass_20limit ;
@@ -317,6 +341,10 @@ expr:Quoted_20Names__Rover_20Model__mass_20limit___400_pout_om
 elmt:Quoted_20Names__Rover_20Model__is_20light
     a sysml:AssertConstraintUsage ;
     sysml:qualifiedName "Quoted Names::Rover Model::is light" ;
+    sysx:sourceLine "8"^^xsd:integer ;
+    sysx:sourceColumn "9"^^xsd:integer ;
+    sysx:sourceEndLine "8"^^xsd:integer ;
+    sysx:sourceEndColumn "53"^^xsd:integer ;
     sysml:elementId "Quoted_20Names__Rover_20Model__is_20light" ;
     sysx:memberIndex "2"^^xsd:integer ;
     sysml:owningNamespace elmt:Quoted_20Names__Rover_20Model ;
@@ -346,6 +374,10 @@ elmt:Quoted_20Names__Rover_20Model__is_20light_om
 elmt:Quoted_20Names__the_20rover
     a sysml:Membership ;
     sysml:qualifiedName "Quoted Names::the rover" ;
+    sysx:sourceLine "10"^^xsd:integer ;
+    sysx:sourceColumn "5"^^xsd:integer ;
+    sysx:sourceEndLine "10"^^xsd:integer ;
+    sysx:sourceEndColumn "41"^^xsd:integer ;
     sysml:elementId "Quoted_20Names__the_20rover" ;
     sysx:memberIndex "2"^^xsd:integer ;
     sysml:owningNamespace elmt:Quoted_20Names ;
@@ -361,6 +393,10 @@ elmt:Quoted_20Names__the_20rover
 elmt:Quoted_20Names__my_20rover
     a sysml:PartUsage ;
     sysml:qualifiedName "Quoted Names::my rover" ;
+    sysx:sourceLine "11"^^xsd:integer ;
+    sysx:sourceColumn "5"^^xsd:integer ;
+    sysx:sourceEndLine "11"^^xsd:integer ;
+    sysx:sourceEndColumn "54"^^xsd:integer ;
     sysml:elementId "Quoted_20Names__my_20rover" ;
     sysx:memberIndex "3"^^xsd:integer ;
     sysml:owningNamespace elmt:Quoted_20Names ;
@@ -392,6 +428,10 @@ elmt:Quoted_20Names__my_20rover_om
 elmt:Quoted_20Names__off_20model
     a sysml:PartUsage ;
     sysml:qualifiedName "Quoted Names::off model" ;
+    sysx:sourceLine "12"^^xsd:integer ;
+    sysx:sourceColumn "5"^^xsd:integer ;
+    sysx:sourceEndLine "12"^^xsd:integer ;
+    sysx:sourceEndColumn "44"^^xsd:integer ;
     sysml:elementId "Quoted_20Names__off_20model" ;
     sysx:memberIndex "4"^^xsd:integer ;
     sysml:owningNamespace elmt:Quoted_20Names ;
@@ -419,6 +459,10 @@ elmt:Quoted_20Names__off_20model_om
 elmt:Quoted_20Names__state
     a sysml:PartDefinition ;
     sysml:qualifiedName "Quoted Names::state" ;
+    sysx:sourceLine "13"^^xsd:integer ;
+    sysx:sourceColumn "5"^^xsd:integer ;
+    sysx:sourceEndLine "13"^^xsd:integer ;
+    sysx:sourceEndColumn "22"^^xsd:integer ;
     sysml:elementId "Quoted_20Names__state" ;
     sysx:memberIndex "5"^^xsd:integer ;
     sysml:owningNamespace elmt:Quoted_20Names ;
@@ -442,6 +486,10 @@ elmt:Quoted_20Names__state_om
 elmt:Quoted_20Names__a_20state
     a sysml:PartUsage ;
     sysml:qualifiedName "Quoted Names::a state" ;
+    sysx:sourceLine "14"^^xsd:integer ;
+    sysx:sourceColumn "5"^^xsd:integer ;
+    sysx:sourceEndLine "14"^^xsd:integer ;
+    sysx:sourceEndColumn "30"^^xsd:integer ;
     sysml:elementId "Quoted_20Names__a_20state" ;
     sysx:memberIndex "6"^^xsd:integer ;
     sysml:owningNamespace elmt:Quoted_20Names ;
@@ -469,6 +517,10 @@ elmt:Quoted_20Names__a_20state_om
 elmt:Consumer
     a sysml:Package ;
     sysml:qualifiedName "Consumer" ;
+    sysx:sourceLine "16"^^xsd:integer ;
+    sysx:sourceColumn "1"^^xsd:integer ;
+    sysx:sourceEndLine "20"^^xsd:integer ;
+    sysx:sourceEndColumn "2"^^xsd:integer ;
     sysml:elementId "Consumer" ;
     sysx:memberIndex "1"^^xsd:integer ;
     sysx:sourceLanguage "sysml" ;
@@ -487,6 +539,10 @@ elmt:Consumer
 elmt:Consumer___400
     a sysml:NamespaceImport ;
     sysml:qualifiedName "Consumer::@0" ;
+    sysx:sourceLine "17"^^xsd:integer ;
+    sysx:sourceColumn "5"^^xsd:integer ;
+    sysx:sourceEndLine "17"^^xsd:integer ;
+    sysx:sourceEndColumn "38"^^xsd:integer ;
     sysml:elementId "Consumer___400" ;
     sysx:memberIndex "0"^^xsd:integer ;
     sysml:owningNamespace elmt:Consumer ;
@@ -501,6 +557,10 @@ elmt:Consumer___400
 elmt:Consumer__r
     a sysml:PartUsage ;
     sysml:qualifiedName "Consumer::r" ;
+    sysx:sourceLine "18"^^xsd:integer ;
+    sysx:sourceColumn "5"^^xsd:integer ;
+    sysx:sourceEndLine "18"^^xsd:integer ;
+    sysx:sourceEndColumn "44"^^xsd:integer ;
     sysml:elementId "Consumer__r" ;
     sysx:memberIndex "1"^^xsd:integer ;
     sysml:owningNamespace elmt:Consumer ;
@@ -528,6 +588,10 @@ elmt:Consumer__r_om
 elmt:Consumer___402
     a sysml:Dependency ;
     sysml:qualifiedName "Consumer::@2" ;
+    sysx:sourceLine "19"^^xsd:integer ;
+    sysx:sourceColumn "5"^^xsd:integer ;
+    sysx:sourceEndLine "19"^^xsd:integer ;
+    sysx:sourceEndColumn "56"^^xsd:integer ;
     sysml:elementId "Consumer___402" ;
     sysx:memberIndex "2"^^xsd:integer ;
     sysml:owningNamespace elmt:Consumer ;
