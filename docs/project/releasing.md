@@ -120,8 +120,8 @@ curl -X POST "https://circleci.com/api/v2/project/<project-slug>/pipeline/run" \
 The project slug and the pipeline definition id are under *Project Settings →
 Project Setup*. Whoever triggers it must be authorized for all four contexts
 (`PyPI`, `npm`, `Maven Central`, `crates.io`), because the same jobs run with
-the same contexts. The built binaries stay CircleCI artifacts; nothing leaves
-the organization.
+the same contexts. The built binaries are kept only as the pipeline's CircleCI
+artifacts; nothing reaches a registry or a GitHub release.
 
 A green rehearsal proves the tag will not fail on builds, tests, version
 lockstep, registry availability, credential presence, npm/Central/GitHub
