@@ -453,8 +453,9 @@ func TestSelfModelAnalysisFrameworkMatchesImplementation(t *testing.T) {
 	if declared := budget.str("jobsEnvVar"); declared != analysis.JobsEnvVar {
 		t.Errorf("pipeline.sysml says jobsEnvVar = %q, analysis reads %q", declared, analysis.JobsEnvVar)
 	}
-	if declared, actual := budget.boolean("defaultJobsIsCpuCount"), analysis.DefaultJobs() == goruntime.NumCPU(); declared != actual {
-		t.Errorf("pipeline.sysml says defaultJobsIsCpuCount = %v, DefaultJobs is the CPU count: %v", declared, actual)
+	jobs := analysis.DefaultJobs()
+	if declared, actual := budget.boolean("defaultJobsAtMostCpuCount"), jobs >= 1 && jobs <= goruntime.NumCPU(); declared != actual {
+		t.Errorf("pipeline.sysml says defaultJobsAtMostCpuCount = %v, DefaultJobs is %d of %d CPUs: %v", declared, jobs, goruntime.NumCPU(), actual)
 	}
 	rejects := true
 	for _, text := range []string{"0", "-1", "two", ""} {
@@ -569,8 +570,8 @@ func TestSelfModelQuestionFlowFollowsDispatcher(t *testing.T) {
 	if declaring[analysis.Outcomes] != 2 {
 		t.Errorf("%d default engines declare outcomes, the model states two (explore over check)", declaring[analysis.Outcomes])
 	}
-	if declaring[analysis.Holds] != 2 {
-		t.Errorf("%d default engines declare holds, the model states two (smt over check)", declaring[analysis.Holds])
+	if declaring[analysis.Holds] != 3 {
+		t.Errorf("%d default engines declare holds, the model states three (smt over solve over check)", declaring[analysis.Holds])
 	}
 	if declaring[analysis.Sensitive] != 2 {
 		t.Errorf("%d default engines declare sensitive, the model states two (smt over check)", declaring[analysis.Sensitive])
@@ -1178,19 +1179,42 @@ func TestSelfModelLanguageServerMatchesImplementation(t *testing.T) {
 	}
 	experimental, _ := caps.Experimental.(map[string]any)
 
+	identityActions := false
+	if codeActions != nil {
+		for _, kind := range codeActions.CodeActionKinds {
+			identityActions = identityActions || kind == protocol.RefactorRewrite
+		}
+	}
+	forms, _ := experimental[lsp.RenderFormsCapability].([]string)
+	styles, _ := experimental[lsp.RenderStylesCapability].([]string)
+	folders := caps.Workspace != nil && caps.Workspace.WorkspaceFolders != nil && caps.Workspace.WorkspaceFolders.Supported
+
 	advertised := map[string]bool{
-		"incrementalSync":       sync != nil && sync.Change == protocol.TextDocumentSyncKindIncremental,
-		"publishesQuickFixes":   quickFixes,
-		"hover":                 caps.HoverProvider == true,
-		"definition":            caps.DefinitionProvider == true,
-		"findReferences":        caps.ReferencesProvider == true,
-		"documentSymbols":       caps.DocumentSymbolProvider == true,
-		"workspaceSymbols":      caps.WorkspaceSymbolProvider == true,
-		"completion":            caps.CompletionProvider != nil,
-		"formatting":            caps.DocumentFormattingProvider == true,
-		"rename":                rename != nil,
-		"semanticTokens":        tokens,
-		"experimentalRendering": experimental["openSysmlRender"] == true,
+		"incrementalSync":                 sync != nil && sync.Change == protocol.TextDocumentSyncKindIncremental,
+		"saveNotifications":               sync != nil && sync.Save != nil,
+		"workspaceFolders":                folders,
+		"publishesQuickFixes":             quickFixes,
+		"identityCodeActions":             identityActions,
+		"hover":                           caps.HoverProvider == true,
+		"definition":                      caps.DefinitionProvider == true,
+		"findReferences":                  caps.ReferencesProvider == true,
+		"documentSymbols":                 caps.DocumentSymbolProvider == true,
+		"workspaceSymbols":                caps.WorkspaceSymbolProvider == true,
+		"completion":                      caps.CompletionProvider != nil,
+		"formatting":                      caps.DocumentFormattingProvider == true,
+		"rangeFormatting":                 caps.DocumentRangeFormattingProvider == true,
+		"rename":                          rename != nil,
+		"prepareRename":                   rename != nil && rename.PrepareProvider,
+		"semanticTokens":                  tokens,
+		"experimentalRendering":           experimental["openSysmlRender"] == true,
+		"experimentalDocuments":           experimental["openSysmlRenderDocument"] == true,
+		"experimentalModelEdits":          experimental["openSysmlApplyModelEdit"] == true,
+		"experimentalStdlibContent":       experimental["openSysmlStdlibContent"] == true,
+		"experimentalDebug":               experimental["openSysmlDebug"] == true,
+		"experimentalCrossDocumentLayout": experimental[lsp.CrossDocumentCapability] == true,
+		"experimentalRenderPalette":       experimental[lsp.RenderPaletteCapability] == true,
+		"experimentalRenderForms":         len(forms) > 0,
+		"experimentalRenderStyles":        len(styles) > 0,
 	}
 	for attribute, actual := range advertised {
 		if declared := server.boolean(attribute); declared != actual {
@@ -1212,7 +1236,7 @@ func TestSelfModelEditorPipelineMatchesImplementation(t *testing.T) {
 
 	editor := instantiateSelfModel(t, idx, ctx, "surfaces.sysml", "OpenSysMLSurfaces", "SourceEditor")
 	operations := strings.Split(editor.str("operations"), ", ")
-	if declared, actual := len(operations), int(edit.OpDelete)+1; declared != actual {
+	if declared, actual := len(operations), int(edit.OpAddNote)+1; declared != actual {
 		t.Errorf("surfaces.sysml lists %d edit operations, the edit package has %d", declared, actual)
 	}
 
@@ -1366,7 +1390,7 @@ func TestSelfModelDocumentRenders(t *testing.T) {
 		"[snapshotCurrent]",
 		"OpenSysMLViews::budgetExhaustion",
 		"| explore | outcomes | runs, depth | proved | true | false | runtime.ExploreWith |",
-		"| solve | satisfiable | runs, solver | proved | true | true | internal/exec/solve |",
+		"| solve | satisfiable, holds | runs, solver | proved | true | true | internal/exec/solve |",
 		"OpenSysMLViews::analysisFramework",
 		"OpenSysMLViews::questionFlow",
 		"OpenSysMLViews::exploreFlow",

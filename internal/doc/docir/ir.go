@@ -5,6 +5,7 @@ package docir
 import (
 	"github.com/Open-MBEE/OpenSysML/internal/doc/queryexec"
 	"github.com/Open-MBEE/OpenSysML/internal/ir/view"
+	"github.com/Open-MBEE/OpenSysML/internal/semantic/semantics"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/symbols"
 )
 
@@ -19,6 +20,7 @@ const (
 	ContentDefinitions ContentKind = "definitions"
 	ContentFormula     ContentKind = "formula"
 	ContentDiagram     ContentKind = "diagram"
+	ContentImage       ContentKind = "image"
 )
 
 // ListStyle is the rendering style of an evaluated list.
@@ -137,13 +139,15 @@ func (d Definition) Element() queryexec.Value { return d.element }
 func (d Definition) Origin() symbols.Origin { return d.origin }
 
 // Content is one evaluated content node: a section, paragraph, table, list,
-// definitions block, formula, or diagram.
+// definitions block, formula, diagram, or image.
 type Content struct {
 	kind        ContentKind
 	name        string
 	title       string
 	source      string
 	caption     string
+	alt         string
+	file        string
 	style       ListStyle
 	anchor      string
 	groupBy     string
@@ -172,10 +176,21 @@ func (c Content) Name() string { return c.name }
 func (c Content) Title() string { return c.title }
 
 // Source returns the LaTeX source of a formula, typeset as display
-// mathematics.
+// mathematics, or the location an image block shows: a path relative to the
+// document's source file, or a URL.
 func (c Content) Source() string { return c.source }
 
-// Caption returns the caption of a table, formula or diagram.
+// Location returns the path or URL an image shows.
+func (c Content) Location() string { return c.source }
+
+// Alt returns the text alternative an image states, empty for none.
+func (c Content) Alt() string { return c.alt }
+
+// File returns the file on disk an image block was declared in, which its
+// relative location is stated against; "" when it was declared in none.
+func (c Content) File() string { return c.file }
+
+// Caption returns the caption of a table, formula, diagram or image.
 func (c Content) Caption() string { return c.caption }
 
 // Style returns the style of a list.
@@ -264,6 +279,8 @@ func cloneContent(content []Content) []Content {
 			title:       child.title,
 			source:      child.source,
 			caption:     child.caption,
+			alt:         child.alt,
+			file:        child.file,
 			style:       child.style,
 			anchor:      child.anchor,
 			groupBy:     child.groupBy,
@@ -291,6 +308,26 @@ type Document struct {
 	title   string
 	content []Content
 	origin  symbols.Origin
+	model   *semantics.Model
+}
+
+// ElementName is the name an element value of the document is displayed by:
+// its effective name in the model the document was evaluated in, else its
+// qualified name.
+func (d *Document) ElementName(sym *symbols.Symbol) string { return elementName(d.model, sym) }
+
+// elementName is the name an element is displayed by: its effective name in
+// model — the declared name, or the one an unnamed feature takes from the
+// feature it redefines or references — else its qualified name.
+func elementName(model *semantics.Model, sym *symbols.Symbol) string {
+	if model != nil {
+		if name := model.EffectiveNameOf(sym); name != "" {
+			return name
+		}
+	} else if sym.Name != "" {
+		return sym.Name
+	}
+	return symbols.FQNOf(sym)
 }
 
 // Name returns the fully-qualified name of the document definition.

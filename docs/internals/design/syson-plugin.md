@@ -479,7 +479,8 @@ editors/syson/
   distribution/                  (not in this phase)
 ```
 
-The backend module depends on `org.openmbee:opensysml-client:0.1.0-SNAPSHOT` (the Java client,
+The backend module depends on `org.openmbee:opensysml` at the version
+`client/java/pom.xml` declares (the Java client,
 §2.1 for why it is JDK-compatible), `org.eclipse.sirius:sirius-web-starter`,
 `org.eclipse.syson:syson-sysml-metamodel` and `syson-sysml-metamodel-services`, all `2026.9.0`,
 the last three `provided` because the SysON application already ships them. It carries no

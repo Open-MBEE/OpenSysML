@@ -21,6 +21,7 @@
             <transition xmi:type="uml:Transition" xmi:id="_t_init" source="_sm_init" target="_st_idle"/>
             <transition xmi:type="uml:Transition" xmi:id="_t_start" source="_st_idle" target="_st_running">
               <trigger xmi:type="uml:Trigger" xmi:id="_tr_start" event="_ev_start"/>
+              <ownedComment xmi:type="uml:Comment" xmi:id="_cmt_start" annotatedElement="_t_start" body="On demand."/>
             </transition>
           </region>
         </ownedBehavior>
@@ -92,6 +93,7 @@
       <packagedElement xmi:type="uml:Dependency" xmi:id="_expose_pictures_unlisted" client="_view_pictures" supplier="_diag_unlisted"/>
       <packagedElement xmi:type="uml:Dependency" xmi:id="_expose_pictures_silent" client="_view_pictures" supplier="_diag_silent"/>
       <packagedElement xmi:type="uml:Dependency" xmi:id="_expose_pictures_stale" client="_view_pictures" supplier="_diag_stale"/>
+      <packagedElement xmi:type="uml:Dependency" xmi:id="_expose_pictures_roster" client="_view_pictures" supplier="_diag_roster"/>
       <packagedElement xmi:type="uml:Class" xmi:id="_view_shown" name="Shown">
         <generalization xmi:type="uml:Generalization" xmi:id="_gen_shown" general="_vp_shown"/>
       </packagedElement>
@@ -109,6 +111,7 @@
                   <usedElements>_st_idle</usedElements>
                   <usedElements>_st_running</usedElements>
                   <usedElements>_t_start</usedElements>
+                  <binaryObject xsi:type="binary:StreamIdentityBinaryObject" streamContentID="BINARY-modes"/>
                 </diagramContents>
               </diagram:DiagramRepresentationObject>
             </diagramRepresentation>
@@ -184,6 +187,19 @@
             </diagramRepresentation>
           </xmi:Extension>
         </ownedDiagram>
+        <!-- Roster is a table with a picture pasted beside its rows, which a table draws nowhere. -->
+        <ownedDiagram xmi:type="uml:Diagram" xmi:id="_diag_roster" name="Roster" ownerOfDiagram="_pkg_plant">
+          <xmi:Extension extender="Example UML Tool 1.0">
+            <diagramRepresentation>
+              <diagram:DiagramRepresentationObject type="Generic Table" umlType="Class Diagram">
+                <diagramContents>
+                  <usedElements>_blk_tank</usedElements>
+                  <binaryObject xsi:type="binary:StreamIdentityBinaryObject" streamContentID="BINARY-roster"/>
+                </diagramContents>
+              </diagram:DiagramRepresentationObject>
+            </diagramRepresentation>
+          </xmi:Extension>
+        </ownedDiagram>
         <!-- Partial lists one used element and names a stream showing another. -->
         <ownedDiagram xmi:type="uml:Diagram" xmi:id="_diag_partial" name="Partial" ownerOfDiagram="_pkg_plant">
           <xmi:Extension extender="Example UML Tool 1.0">
@@ -220,6 +236,7 @@
   <sysml:Expose xmi:id="_st_expose_pictures_unlisted" base_Dependency="_expose_pictures_unlisted"/>
   <sysml:Expose xmi:id="_st_expose_pictures_silent" base_Dependency="_expose_pictures_silent"/>
   <sysml:Expose xmi:id="_st_expose_pictures_stale" base_Dependency="_expose_pictures_stale"/>
+  <sysml:Expose xmi:id="_st_expose_pictures_roster" base_Dependency="_expose_pictures_roster"/>
   <sysml:Expose xmi:id="_st_expose_shown_partial" base_Dependency="_expose_shown_partial"/>
   <sysml:Expose xmi:id="_st_expose_shown_unlisted" base_Dependency="_expose_shown_unlisted"/>
 

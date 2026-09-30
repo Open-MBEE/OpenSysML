@@ -13,7 +13,7 @@ import (
 
 // flowModel exercises the translation rules found by hand: Pick decides on an
 // input, joins two branches before a third value, and collects three values
-// in order; Caller calls Pick twice.
+// in order[1]; Caller calls Pick twice.
 const flowModel = `<?xml version="1.0" encoding="UTF-8"?>
 <uml:Model xmi:version="20131001" xmlns:xmi="http://www.omg.org/spec/XMI/20131001" xmlns:uml="http://www.eclipse.org/uml2/5.0.0/UML" xmi:id="m" name="Flows">
   <packagedElement xmi:type="uml:Activity" xmi:id="pick" name="Pick">
@@ -126,9 +126,9 @@ func wantLines(t *testing.T, em *Emitted, wants ...string) {
 // empty so that an unfed one is absent rather than unbound.
 func TestEmitParameters(t *testing.T) {
 	s := fixtureSuite(t, flowModel)
-	wantLines(t, emitted(t, s, "Pick"), "in x : Integer;", "out low : Integer[0..1] = ();", "out picked : Integer[0..*] ordered nonunique = ();")
+	wantLines(t, emitted(t, s, "Pick"), "in x : Integer[1];", "out low : Integer[0..1] = ();", "out picked : Integer[0..*] ordered nonunique = ();")
 	wantLines(t, emitted(t, s, "Caller"), "out 'all' : Integer[0..*] nonunique = ();")
-	wantLines(t, emitted(t, fixtureSuite(t, fixtureModel), "Sum"), "out result : Integer;")
+	wantLines(t, emitted(t, fixtureSuite(t, fixtureModel), "Sum"), "out result : Integer[1];")
 }
 
 // An object flow whose target has no control predecessor gets an enabling
@@ -376,12 +376,12 @@ func TestEmitSpellsSharedParameterNamesApart(t *testing.T) {
 	s := fixtureSuite(t, sharedNameModel)
 	em := emitted(t, s, "Outer")
 	wantLines(t, em,
-		"action def Inner {", "in input : Integer;", "out Inner_output : Integer;",
+		"action def Inner {", "in input : Integer[1];", "out Inner_output : Integer[1];",
 		"assign Inner_output := v;",
 		"action def Outer {", "out output : Integer[0..*] nonunique = ();",
 		"flow 'Value(7)'.result to 'Call(Inner)'.input;",
 		"flow 'Call(Inner)'.Inner_output to 'Parameter(output)'.v;")
-	if strings.Contains(em.Text, "out output : Integer;") {
+	if strings.Contains(em.Text, "out output : Integer[1];") {
 		t.Errorf("Inner keeps the shared name:\n%s", em.Text)
 	}
 	outer := fixtureActivity(t, s, "Outer")
@@ -393,7 +393,7 @@ func TestEmitSpellsSharedParameterNamesApart(t *testing.T) {
 	if !ex.Passed() || strings.Join(ex.Reached, "|") != "output = 7" {
 		t.Errorf("shared name: %+v", ex)
 	}
-	wantLines(t, emitted(t, s, "Inner"), "out output : Integer;", "assign output := v;")
+	wantLines(t, emitted(t, s, "Inner"), "out output : Integer[1];", "assign output := v;")
 }
 
 // A budget that samples the schedules passes when the sample agrees, the status
@@ -679,7 +679,7 @@ func TestEmitClasses(t *testing.T) {
 	wantLines(t, em,
 		"\tpart def Base {\n\t\tattribute n : Integer;\n\t}\n",
 		"\tpart def Item :> Base {\n\t\tattribute xs : Integer [0..*] ordered nonunique;\n\t\tattribute set : Integer [0..3];\n\t\tattribute opt : String [0..1];\n\t}\n",
-		"out made : Item;")
+		"out made : Item[1];")
 	if n := strings.Count(em.Text, "part def "); n != 2 {
 		t.Errorf("%d part defs, want Base and Item once each:\n%s", n, em.Text)
 	}
@@ -698,12 +698,12 @@ func TestEmitObjectCreationAndFeatureWrites(t *testing.T) {
 	s := fixtureSuite(t, objectModel)
 	em := emitted(t, s, "Assemble")
 	wantLines(t, em,
-		"action 'Create(Item)' { out result : Item = new Item(); }",
-		"action 'Write(n)' { in object : Item; in value : Integer; out result : Item = object; assign object.n := value; }",
-		"action 'Add(xs)-1' { in object : Item; in value : Integer; out result : Item = object; assign object.xs := (value, object.xs); }",
-		"action 'Insert(xs)' { in object : Item; in value : Integer; in insertAt : Integer; out result : Item = object; assign object.xs := if insertAt < 0 ? including(object.xs, value) else includingAt(object.xs, value, insertAt); }",
-		"action 'RemoveAt(xs)' { in object : Item; in value : Integer; in removeAt : Integer; out result : Item = object; assign object.xs := if removeAt >= 1 and removeAt <= size(object.xs) ? excludingAt(object.xs, removeAt) else object.xs; }",
-		"action 'Add(set)-1' { in object : Item; in value : Integer; out result : Item = object; assign object.set := (value, excluding(object.set, value)); }",
+		"action 'Create(Item)' { out result : Item[1] = new Item(); }",
+		"action 'Write(n)' { in object : Item[1]; in value : Integer[1]; out result : Item[1] = object; assign object.n := value; }",
+		"action 'Add(xs)-1' { in object : Item[1]; in value : Integer[1]; out result : Item[1] = object; assign object.xs := (value, object.xs); }",
+		"action 'Insert(xs)' { in object : Item[1]; in value : Integer[1]; in insertAt : Integer[1]; out result : Item[1] = object; assign object.xs := if insertAt < 0 ? including(object.xs, value) else includingAt(object.xs, value, insertAt); }",
+		"action 'RemoveAt(xs)' { in object : Item[1]; in value : Integer[1]; in removeAt : Integer[1]; out result : Item[1] = object; assign object.xs := if removeAt >= 1 and removeAt <= size(object.xs) ? excludingAt(object.xs, removeAt) else object.xs; }",
+		"action 'Add(set)-1' { in object : Item[1]; in value : Integer[1]; out result : Item[1] = object; assign object.set := (value, excluding(object.set, value)); }",
 		"flow 'Create(Item)'.result to 'Write(n)'.object;",
 		"flow 'Write(n)'.result to 'Add(xs)-1'.object;",
 		"flow 'Value(2)'.result to 'Insert(xs)'.insertAt;",
@@ -720,11 +720,11 @@ func TestEmitFeatureReads(t *testing.T) {
 	s := fixtureSuite(t, objectModel)
 	em := emitted(t, s, "Reader")
 	wantLines(t, em,
-		"in given : Item;",
-		"action 'Parameter(given)' { out v : Item = given; }",
-		"action 'Read(n)' { in object : Item; out result : Integer[0..1] = object.n; }",
-		"action 'Clear(xs)' { in object : Item; out result : Item = object; assign object.xs := (); }",
-		"action 'Read(xs)' { in object : Item; out result : Integer[0..*] ordered nonunique = object.xs; }",
+		"in given : Item[1];",
+		"action 'Parameter(given)' { out v : Item[1] = given; }",
+		"action 'Read(n)' { in object : Item[1]; out result : Integer[0..1] = object.n; }",
+		"action 'Clear(xs)' { in object : Item[1]; out result : Item[1] = object; assign object.xs := (); }",
+		"action 'Read(xs)' { in object : Item[1]; out result : Integer[0..*] ordered nonunique = object.xs; }",
 		"flow 'Parameter(given)'.v to 'Read(n)'.object;",
 		"flow 'Parameter(given)'.v to 'Clear(xs)'.object;",
 		"succession first Fork then 'Read(n)';",
@@ -749,10 +749,10 @@ func TestEmitReadSelf(t *testing.T) {
 	}
 	em := emitted(t, s, "Awakener")
 	wantLines(t, em,
-		"\tpart def Holder {\n\t\tattribute n : Integer;\n\t\taction def Reflect {\n\t\t\tout me : Holder;\n\t\t\taction ReadSelf { out result : Holder = this; }\n",
-		"\t\t}\n\t\taction classifierBehavior : Reflect;\n\t}\n",
-		"action 'Create(Holder)' { out result : Holder = new Holder(); }",
-		"action 'Start(Holder)' { in object : Holder; perform object.classifierBehavior.start; }",
+		"\tpart def Holder {\n\t\tattribute n : Integer;\n\t\taction def Reflect {\n\t\t\tout me : Holder[1];\n\t\t\tin ref context : Holder[1];\n\t\t\taction ReadSelf { out result : Holder[1] = context; }\n",
+		"\t\t}\n\t\taction classifierBehavior : Reflect { out me[1]; in ref :>> context = this; }\n\t}\n",
+		"action 'Create(Holder)' { out result : Holder[1] = new Holder(); }",
+		"action 'Start(Holder)' { in object : Holder[1]; perform object.classifierBehavior.start; }",
 		"flow 'Create(Holder)'.result to 'Start(Holder)'.object;")
 	if strings.Contains(em.Text, "\n\taction def Reflect") {
 		t.Errorf("Reflect declared in the package as well:\n%s", em.Text)
@@ -766,10 +766,10 @@ func TestEmitActivityAsObject(t *testing.T) {
 	s := fixtureSuite(t, objectModel)
 	em := emitted(t, s, "Instantiator")
 	wantLines(t, em,
-		"\tpart def Reader {\n\t\taction def 'behavior' {\n\t\t\tin given : Item;\n",
-		"\t\t\taction 'Read(n)' { in object : Item; out result : Integer[0..1] = object.n; }\n",
-		"\t\t}\n\t\taction classifierBehavior : 'behavior';\n\t}\n",
-		"action 'Create(Reader)' { out result : Reader = new Reader(); }")
+		"\tpart def Reader {\n\t\taction def 'behavior' {\n\t\t\tin given : Item[1];\n\t\t\tout n : Integer[1];\n\t\t\tout xs : Integer[0..*] ordered nonunique = ();\n\t\t\tin ref context : Reader[1];\n",
+		"\t\t\taction 'Read(n)' { in object : Item[1]; out result : Integer[0..1] = object.n; }\n",
+		"\t\t}\n\t\taction classifierBehavior : 'behavior' { in given[1]; out n[1]; out xs[0..*] ordered nonunique; in ref :>> context = this; }\n\t}\n",
+		"action 'Create(Reader)' { out result : Reader[1] = new Reader(); }")
 	if strings.Contains(em.Text, "\n\taction def Reader") {
 		t.Errorf("Reader declared as an action def as well:\n%s", em.Text)
 	}
@@ -1004,7 +1004,7 @@ func TestEmitSignals(t *testing.T) {
 		"\tattribute def Ping {\n\t\tattribute level : Integer;\n\t}\n",
 		"\tattribute def Pong :> Ping;\n",
 		"\tpart def Target {\n\t}\n",
-		"in 'to' : Target;")
+		"in 'to' : Target[1];")
 	if strings.Index(em.Text, "attribute def Ping") > strings.Index(em.Text, "attribute def Pong") ||
 		strings.Index(em.Text, "attribute def Pong") > strings.Index(em.Text, "part def Target") {
 		t.Errorf("signals are not declared generals first, before the classes:\n%s", em.Text)
@@ -1105,7 +1105,7 @@ func TestEmitRedefinedProperties(t *testing.T) {
 	em := emitted(t, s, "Shouter")
 	wantLines(t, em,
 		"\tattribute def Loud :> Ping {\n\t\tattribute :>> level : Integer;\n\t}\n",
-		"action 'Send(Loud)' { in target : Target; in level : Integer; send new Loud(level = level) to target; }")
+		"action 'Send(Loud)' { in target : Target[1]; in level : Integer[1]; send new Loud(level = level) to target; }")
 	x := executed(fixtureActivity(t, s, "Shouter"), []ExpectedOutput{integers("sent", 8)})
 	ex, err := Execute(context.Background(), em, &x, DefaultBudget, 1)
 	if err != nil {
@@ -1117,7 +1117,7 @@ func TestEmitRedefinedProperties(t *testing.T) {
 	em = emitted(t, s, "Marker")
 	wantLines(t, em,
 		"\tpart def Special :> Base {\n\t\tattribute :>> n : Integer;\n\t}\n",
-		"action 'Write(n)' { in object : Special; in value : Integer; out result : Special = object; assign object.n := value; }")
+		"action 'Write(n)' { in object : Special[1]; in value : Integer[1]; out result : Special[1] = object; assign object.n := value; }")
 	x = executed(fixtureActivity(t, s, "Marker"), []ExpectedOutput{{Parameter: "made", Values: []ExpectedValue{object("sp", "Special", feature("n", 3))}}})
 	if ex, err = Execute(context.Background(), em, &x, DefaultBudget, 1); err != nil {
 		t.Fatal(err)
@@ -1257,10 +1257,10 @@ func TestEmitPrimitiveNamesakeAndPositionedScalarRemove(t *testing.T) {
 	wantLines(t, em,
 		"\tpart def Integer {\n\t\tattribute n : ScalarValues::Integer;\n\t}\n",
 		"\tpart def Holder {\n\t\tref part value : Integer [0..1];\n\t\tattribute opt : ScalarValues::Integer [0..1];\n\t}\n",
-		"action 'Value(7)' { out result : ScalarValues::Integer = 7; }",
-		"action 'Create(Integer)' { out result : Integer = new Integer(); }",
-		"action 'RemoveAt(opt)' { in object : Holder; in value : ScalarValues::Integer; in removeAt : ScalarValues::Integer; out result : Holder = object; assign object.opt := if removeAt == 1 ? () else object.opt; }",
-		"action 'Write(value)' { in object : Holder; in value : Integer; out result : Holder = object; assign object.value := value; }")
+		"action 'Value(7)' { out result : ScalarValues::Integer[1] = 7; }",
+		"action 'Create(Integer)' { out result : Integer[1] = new Integer(); }",
+		"action 'RemoveAt(opt)' { in object : Holder[1]; in value : ScalarValues::Integer[1]; in removeAt : ScalarValues::Integer[1]; out result : Holder[1] = object; assign object.opt := if removeAt == 1 ? () else object.opt; }",
+		"action 'Write(value)' { in object : Holder[1]; in value : Integer[1]; out result : Holder[1] = object; assign object.value := value; }")
 	boxing := fixtureActivity(t, s, "Boxing")
 	boxed := object("h", "Holder", ExpectedFeature{Feature: "value", Values: []ExpectedValue{{Kind: "Reference", Referent: &ExpectedValue{Kind: "Object", ID: "i", Types: []string{"Integer"}, Features: []ExpectedFeature{{Feature: "n"}}}}}})
 	boxed.Features = append(boxed.Features, ExpectedFeature{Feature: "opt"})
@@ -1351,10 +1351,10 @@ func TestEmitExternalTypesNeverLocalClassifiers(t *testing.T) {
 	}
 	em := emitted(t, s, "Sum")
 	wantLines(t, em,
-		"in a : Integer;",
-		"out total : Integer;",
-		"out label : String;",
-		"action 'Value(2)' { out result : Integer = 2; }")
+		"in a : Integer[1];",
+		"out total : Integer[1];",
+		"out label : String[1];",
+		"action 'Value(2)' { out result : Integer[1] = 2; }")
 	if strings.Contains(em.Text, "part def") || strings.Contains(em.Text, "Counter") {
 		t.Errorf("Sum declares a class it never touches:\n%s", em.Text)
 	}
@@ -1369,8 +1369,8 @@ func TestEmitExternalTypesNeverLocalClassifiers(t *testing.T) {
 	}
 	wantLines(t, emitted(t, s, "Wrap"),
 		"\tpart def Counter {\n\t\tattribute n : Integer;\n\t}\n",
-		"out made : Counter;",
-		"action 'Create(Counter)' { out result : Counter = new Counter(); }")
+		"out made : Counter[1];",
+		"action 'Create(Counter)' { out result : Counter[1] = new Counter(); }")
 }
 
 // activityNamesakeModel declares an activity named Integer, an object classifier
@@ -1420,13 +1420,13 @@ func TestEmitActivityNamesakeOfPrimitive(t *testing.T) {
 	}
 	em := emitted(t, s, "Minting")
 	wantLines(t, em,
-		"\tpart def Integer {\n\t\tattribute tally : ScalarValues::Integer;\n\t\taction def 'behavior' {\n\t\t\tout n : ScalarValues::Integer;\n",
-		"\t\t\taction 'Value(4)' { out result : ScalarValues::Integer = 4; }\n",
-		"\t\t}\n\t\taction classifierBehavior : 'behavior';\n\t}\n",
-		"out made : Integer;",
-		"out count : ScalarValues::Integer;",
-		"action 'Create(Integer)' { out result : Integer = new Integer(); }",
-		"action 'Value(3)' { out result : ScalarValues::Integer = 3; }")
+		"\tpart def Integer {\n\t\tattribute tally : ScalarValues::Integer;\n\t\taction def 'behavior' {\n\t\t\tout n : ScalarValues::Integer[1];\n\t\t\tin ref context : Integer[1];\n",
+		"\t\t\taction 'Value(4)' { out result : ScalarValues::Integer[1] = 4; }\n",
+		"\t\t}\n\t\taction classifierBehavior : 'behavior' { out n[1]; in ref :>> context = this; }\n\t}\n",
+		"out made : Integer[1];",
+		"out count : ScalarValues::Integer[1];",
+		"action 'Create(Integer)' { out result : Integer[1] = new Integer(); }",
+		"action 'Value(3)' { out result : ScalarValues::Integer[1] = 3; }")
 	if strings.Contains(em.Text, "\n\taction def Integer") {
 		t.Errorf("Integer declared as an action def as well:\n%s", em.Text)
 	}
@@ -1644,7 +1644,7 @@ func TestEmitSendSignal(t *testing.T) {
 	s := fixtureSuite(t, signalModel)
 	em := emitted(t, s, "Notifier")
 	wantLines(t, em,
-		"action 'Send(Pong)' { in target : Target; in level : Integer; send new Pong(level = level) to target; }",
+		"action 'Send(Pong)' { in target : Target[1]; in level : Integer[1]; send new Pong(level = level) to target; }",
 		"flow 'Parameter(to)'.v to 'Send(Pong)'.target;",
 		"flow 'Value(4)'.result to 'Send(Pong)'.level;",
 		"succession first Fork then 'Send(Pong)';")

@@ -2,11 +2,14 @@ package repl
 
 import (
 	"fmt"
+	"sync"
 
 	corequery "github.com/Open-MBEE/OpenSysML/internal/semantic/query"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/resolve"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/semantics"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/symbols"
+	"github.com/Open-MBEE/OpenSysML/internal/syntax/source"
+	"github.com/Open-MBEE/OpenSysML/internal/translate/export"
 )
 
 // Query evaluates OSLC element-identification query text and renders one
@@ -31,11 +34,12 @@ func (s *Session) query(text string) ([]string, error) {
 	resolver := resolve.New(idx)
 	model := semantics.NewModel(resolver)
 	model.SetSourceText(s.sessionSourceText())
+	model.SetSourceFile(s.sessionSourceFile)
 	adapter := &replQueryModel{
 		session: s,
 		index:   idx,
-		reader:  corequery.NewPropertyReader(idx, resolver, model),
 	}
+	adapter.reader = corequery.NewPropertyReader(idx, resolver, model).WithIdentity(adapter.Identity)
 	elements, err := corequery.Evaluate(adapter, q)
 	if err != nil {
 		return nil, err
@@ -57,14 +61,21 @@ type replQueryModel struct {
 	session *Session
 	index   *symbols.Index
 	reader  *corequery.PropertyReader
+
+	positionalOnce sync.Once
+	positional     map[*symbols.Symbol]string
+	byPositional   map[string]*symbols.Symbol
 }
 
 func (m *replQueryModel) Candidates(scope []string) ([]*symbols.Symbol, error) {
 	if len(scope) == 0 {
 		var out []*symbols.Symbol
 		seen := map[*symbols.Symbol]bool{}
-		for _, root := range m.session.docScopes() {
-			collectQueryScope(root, &out, seen)
+		walked := map[*symbols.Scope]bool{}
+		for _, doc := range m.session.sessionDocs() {
+			if root := m.index.DocumentRoot(doc.Name); root != nil {
+				m.collectQueryScope(root, &out, seen, walked)
+			}
 		}
 		return out, nil
 	}
@@ -73,44 +84,47 @@ func (m *replQueryModel) Candidates(scope []string) ([]*symbols.Symbol, error) {
 	for _, name := range scope {
 		roots := m.index.LookupQualified(name)
 		if len(roots) == 0 {
+			m.positionalNames()
+			if sym := m.byPositional[name]; sym != nil {
+				roots = []*symbols.Symbol{sym}
+			}
+		}
+		if len(roots) == 0 {
 			return nil, fmt.Errorf("query scope names an element the model does not have: %q", name)
 		}
 		for _, root := range roots {
-			collectQuerySymbol(root, &out, seen, m.index)
+			m.collectQuerySymbol(root, &out, seen, map[*symbols.Scope]bool{})
 		}
 	}
 	return out, nil
 }
 
-func collectQueryScope(scope *symbols.Scope, out *[]*symbols.Symbol, seen map[*symbols.Symbol]bool) {
-	if scope == nil {
+func (m *replQueryModel) collectQueryScope(scope *symbols.Scope, out *[]*symbols.Symbol, seen map[*symbols.Symbol]bool, walked map[*symbols.Scope]bool) {
+	if scope == nil || walked[scope] {
 		return
 	}
-	for _, sym := range append(scope.Members(), scope.AnonymousMembers()...) {
-		collectQuerySymbol(sym, out, seen, nil)
+	walked[scope] = true
+	for _, sym := range scope.AllMembers() {
+		m.collectQuerySymbol(sym, out, seen, walked)
 	}
 	for _, child := range scope.Children() {
-		collectQueryScope(child, out, seen)
+		m.collectQueryScope(child, out, seen, walked)
 	}
 }
 
-func collectQuerySymbol(sym *symbols.Symbol, out *[]*symbols.Symbol, seen map[*symbols.Symbol]bool, index *symbols.Index) {
+func (m *replQueryModel) collectQuerySymbol(sym *symbols.Symbol, out *[]*symbols.Symbol, seen map[*symbols.Symbol]bool, walked map[*symbols.Scope]bool) {
 	if sym == nil || seen[sym] {
 		return
 	}
 	seen[sym] = true
-	fqn := ""
-	if index != nil {
-		fqn = index.GetFQN(sym)
-	}
-	if fqn != "" || sym.Name != "" {
+	if m.Identity(sym) != "" {
 		*out = append(*out, sym)
 	}
 	if sym.Scope != nil {
-		collectQueryScope(sym.Scope, out, seen)
-	} else if index != nil {
-		for _, child := range index.LookupDirectChildren(index.GetFQN(sym)) {
-			collectQuerySymbol(child, out, seen, index)
+		m.collectQueryScope(sym.Scope, out, seen, walked)
+	} else if fqn := m.index.GetFQN(sym); fqn != "" {
+		for _, child := range m.index.LookupDirectChildren(fqn) {
+			m.collectQuerySymbol(child, out, seen, walked)
 		}
 	}
 }
@@ -119,7 +133,41 @@ func (m *replQueryModel) Value(sym *symbols.Symbol, property string) ([]string, 
 	return m.reader.Values(sym, property)
 }
 
-func (m *replQueryModel) Identity(sym *symbols.Symbol) string { return m.index.GetFQN(sym) }
+func (m *replQueryModel) Identity(sym *symbols.Symbol) string {
+	if identity := corequery.QualifiedIdentity(m.index, sym); identity != "" {
+		return identity
+	}
+	m.positionalNames()
+	return m.positional[sym]
+}
+
+func (m *replQueryModel) positionalNames() {
+	m.positionalOnce.Do(func() {
+		if m.index == nil {
+			m.positional, m.byPositional = export.PositionalIdentities(nil, nil, nil)
+			return
+		}
+		docs := make([]export.PositionalDocument, 0)
+		for _, doc := range m.session.sessionDocs() {
+			root := m.index.DocumentRoot(doc.Name)
+			if root == nil {
+				continue
+			}
+			docs = append(docs, export.PositionalDocument{
+				File: source.New(doc.Name, doc.Content),
+				Root: root,
+			})
+		}
+		m.positional, m.byPositional = export.PositionalIdentities(
+			m.index,
+			docs,
+			func(sym *symbols.Symbol) bool {
+				return corequery.QualifiedIdentity(m.index, sym) != ""
+			},
+		)
+	})
+}
+
 func (m *replQueryModel) Type(sym *symbols.Symbol) string {
 	return corequery.MetamodelTypeNameOf(sym)
 }

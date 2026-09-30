@@ -44,6 +44,7 @@ func (ctx *Context) subjectParameter(
 	sym := memberSymbol(DeclScope(link), member)
 	param := calcParameter{
 		Name: subject.Name, Default: subject.Value, Owner: link, IsSubject: true,
+		Sym:  sym,
 		Decl: ctx.calcMemberDeclOf(link, sym, subject.Name),
 	}
 	at := -1
@@ -265,7 +266,10 @@ type AnalysisResult struct {
 func (ctx *Context) RunAnalysis(sym *symbols.Symbol, args AnalysisArgs, scope *symbols.Scope, self *Instance) (AnalysisResult, error) {
 	defer ctx.beginRun()()
 
-	_, result, err := ctx.runCase(sym, args, scope, self)
+	run, result, err := ctx.runCase(sym, args, scope, self)
+	// The run's occurrence lives until its last reader is done, and nothing
+	// downstream of RunAnalysis reads the run, so its end is here.
+	defer run.endOccurrence(ctx)
 	return result, err
 }
 
@@ -315,6 +319,7 @@ func (ctx *Context) runCase(sym *symbols.Symbol, args AnalysisArgs, scope *symbo
 	outputs, err := run.outputValues(ctx)
 	result.Outputs = outputs
 	if err != nil {
+		run.endOccurrence(ctx)
 		err = ctx.monteCarloUnconcluded(sym, err)
 		result.Verdicts = ctx.undecidedVerdicts(sym, scope, err)
 		result.Evaluations = log.evaluations(Value{}, false)
@@ -693,7 +698,9 @@ func (ctx *Context) analysisVerdict(kind, name string, check conditionCheck, con
 // bindingsFrame is the run's bindings as a frame the case owns, so a condition reads
 // its features by qualified name (`MassCase::result`) and its steps' pins (`step.out`).
 func (run *calcRun) bindingsFrame(ctx *Context) frame {
-	return frame{vars: run.bindings(ctx), perf: run.perf, owner: run.shape, run: run.env.run}
+	f := frame{vars: run.bindings(ctx), perf: run.perf, owner: run.shape, run: run.env.run}
+	f.write = calcFeatureWriter(ctx, run.shape, run.occurrence)
+	return f
 }
 
 // bindings are the values a run bound, by name: its parameters and locals, and

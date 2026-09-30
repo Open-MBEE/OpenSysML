@@ -1,0 +1,15 @@
+{
+  "type": "instance",
+  "libraries": true,
+  "instantiate": "test::fleet",
+  "materialization": {},
+  "validation": {
+    "verdicts": [
+      {"kind": "constraint", "assertion": "assert constraint fits", "object": "sats[1]", "status": "violated", "error": "evaluated to false"},
+      {"kind": "constraint", "assertion": "assert constraint fits", "object": "sats[2]", "status": "holds"},
+      {"kind": "constraint", "assertion": "assert constraint fits", "object": "sats[3]", "status": "holds"},
+      {"kind": "constraint", "assertion": "assert constraint fits", "object": "sats[4]", "status": "holds"}
+    ],
+    "valid": false
+  }
+}

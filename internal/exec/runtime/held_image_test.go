@@ -1098,7 +1098,7 @@ func TestHeldImageRefusesAUsageDenotingAnotherObjectOfTheDestination(t *testing.
 // destinationState is every part of a context a materialization writes, as one value to compare.
 type destinationState struct {
 	instances, created, lives, behaviors, messages, occurrences, metadata, variants, selected int
-	onClock                                                                                   int
+	onClock, shared                                                                           int
 	nextID, tookHigh, activations, runs                                                       int64
 	clock                                                                                     float64
 	clockRun                                                                                  *runState
@@ -1109,8 +1109,8 @@ func destinationStateOf(ctx *Context) destinationState {
 		instances: len(ctx.instances), created: len(ctx.created), lives: len(ctx.lives), behaviors: len(ctx.objectBehaviors),
 		messages: len(ctx.messages), occurrences: len(ctx.occurrences), metadata: len(ctx.metadataObjects),
 		variants: len(ctx.variantObjects), selected: len(ctx.selectedVariants),
-		onClock: len(ctx.clock.waiters),
-		nextID:  ctx.ids.next, tookHigh: ctx.took.high, activations: ctx.activations, runs: ctx.runs,
+		onClock: len(ctx.clock.waiters), shared: len(ctx.sharedDefaults),
+		nextID: ctx.ids.next, tookHigh: ctx.took.high, activations: ctx.activations, runs: ctx.runs,
 		clock: ctx.clock.now, clockRun: ctx.clockRun.state,
 	}
 }
@@ -1389,5 +1389,95 @@ func TestHeldImageServesConcurrentSweeps(t *testing.T) {
 	}
 	if after := heldDigest(src, everyObject); after != before {
 		t.Errorf("the sweeps changed the source:\n%s\nwas\n%s", after, before)
+	}
+}
+
+// A nested redefinition carried below a member not yet materialized survives
+// the image: the copy applies it when the member materializes after the restore.
+func TestHeldImageCarriesANestedRedefinition(t *testing.T) {
+	ctx := contextOver(t, `package test {
+		private import ScalarValues::Real;
+		part def Leaf { attribute value : Real default = 1.0; }
+		part def Mid { part leaf : Leaf; }
+		part def Top { part mid : Mid; }
+		part top : Top { attribute :>> mid.leaf.value = 99.0; }
+	}`)
+	obj, err := ctx.Instantiate(lookupOne(t, ctx.model.resolver.Index(), "test::top"))
+	if err != nil {
+		t.Fatalf("Instantiate: %v", err)
+	}
+	mid := readInstance(t, ctx, obj, "mid")
+	if len(mid.nested) == 0 {
+		t.Fatal("mid carries no nested redefinition for the image to hold")
+	}
+	dst := imageInto(t, ctx, obj)
+	restored, ok := dst.Instance(obj.ID)
+	if !ok {
+		t.Fatalf("the materialized image holds no object under #%d", obj.ID)
+	}
+	leaf := readInstance(t, dst, readInstance(t, dst, restored, "mid"), "leaf")
+	fv, err := leaf.GetFeatureValue(dst, "value")
+	if err != nil {
+		t.Fatalf("GetFeatureValue(value): %v", err)
+	}
+	if got := realValue(t, fv.HeldValue()); got != 99.0 {
+		t.Fatalf("mid.leaf.value after the image = %v, want 99.0", got)
+	}
+}
+
+// A feature a governing chain adjusted keeps its marking through the image:
+// the restore materializes a fresh object under the chain's reading rather
+// than reviving the bound one the canonical feature still names.
+func TestHeldImageCarriesAGovernedBoundFeature(t *testing.T) {
+	model := `package test {
+		private import ScalarValues::Real;
+		part def Leaf { attribute value : Real default = 1.0; }
+		part def Mid { part leaf : Leaf; }
+		part existing : Mid;
+		part def Top { part mid : Mid = existing; }
+		part def Sport :> Top { attribute :>> mid.leaf.value = 99.0; }
+		part top : Top;
+	}`
+	for _, readFirst := range []bool{false, true} {
+		name := "imaged_before_reading_mid"
+		if readFirst {
+			name = "imaged_after_reading_mid"
+		}
+		t.Run(name, func(t *testing.T) {
+			ctx := contextOver(t, model)
+			obj, err := ctx.Instantiate(lookupOne(t, ctx.model.resolver.Index(), "test::top"))
+			if err != nil {
+				t.Fatalf("Instantiate: %v", err)
+			}
+			if err := ctx.classify(obj, lookupOne(t, ctx.model.resolver.Index(), "test::Sport")); err != nil {
+				t.Fatalf("classify(top, Sport): %v", err)
+			}
+			if readFirst {
+				readInstance(t, ctx, readInstance(t, ctx, obj, "mid"), "leaf")
+			}
+			dst := imageInto(t, ctx, obj)
+			restored, ok := dst.Instance(obj.ID)
+			if !ok {
+				t.Fatalf("the materialized image holds no object under #%d", obj.ID)
+			}
+			for _, pair := range [][2]any{{ctx, obj}, {dst, restored}} {
+				c, o := pair[0].(*Context), pair[1].(*Instance)
+				leaf := readInstance(t, c, readInstance(t, c, o, "mid"), "leaf")
+				fv, err := leaf.GetFeatureValue(c, "value")
+				if err != nil {
+					t.Fatalf("GetFeatureValue(value): %v", err)
+				}
+				if got := realValue(t, fv.HeldValue()); got != 99.0 {
+					t.Fatalf("mid.leaf.value after the image = %v, want the chain's 99.0", got)
+				}
+			}
+			existing, err := ctx.Instantiate(lookupOne(t, ctx.model.resolver.Index(), "test::existing"))
+			if err != nil {
+				t.Fatalf("Instantiate(existing): %v", err)
+			}
+			if readInstance(t, ctx, obj, "mid") == existing {
+				t.Fatalf("top.mid adopted the bound object, want a fresh one")
+			}
+		})
 	}
 }

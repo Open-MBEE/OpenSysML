@@ -1,12 +1,14 @@
 package migrate_test
 
 import (
+	"archive/zip"
 	"bytes"
 	"os"
 	"reflect"
 	"strings"
 	"testing"
 
+	"github.com/Open-MBEE/OpenSysML/internal/syntax/diag"
 	"github.com/Open-MBEE/OpenSysML/internal/translate/migrate"
 	"github.com/Open-MBEE/OpenSysML/internal/translate/mtip"
 )
@@ -21,6 +23,10 @@ func migrateLayoutFixture(t *testing.T) *migrate.Result {
 // migrateLaidOut migrates testdata/xmi/<name>.xmi augmented by the MTIP export
 // <name>.layout.xml beside it.
 func migrateLaidOut(t *testing.T, name string) *migrate.Result {
+	return migrateLaidOutOptions(t, name, migrate.Options{})
+}
+
+func migrateLaidOutOptions(t *testing.T, name string, opts migrate.Options) *migrate.Result {
 	t.Helper()
 	data, err := os.ReadFile("testdata/xmi/" + name + ".xmi")
 	if err != nil {
@@ -34,7 +40,56 @@ func migrateLaidOut(t *testing.T, name string) *migrate.Result {
 	if err != nil {
 		t.Fatalf("mtip.Parse: %v", err)
 	}
-	r, err := migrate.MigrateOptions(name+".xmi", data, migrate.Options{Layout: layout, LayoutSource: name + ".layout.xml"})
+	opts.Layout = layout
+	opts.LayoutSource = name + ".layout.xml"
+	r, err := migrate.MigrateOptions(name+".xmi", data, opts)
+	if err != nil {
+		t.Fatalf("MigrateOptions: %v", err)
+	}
+	return r
+}
+
+func migrateStreamLaidOut(t *testing.T, name string, strict bool) *migrate.Result {
+	t.Helper()
+	data, err := os.ReadFile("testdata/xmi/" + name + ".xmi")
+	if err != nil {
+		t.Fatal(err)
+	}
+	stream, err := os.ReadFile("testdata/xmi/" + name + ".stream.xml")
+	if err != nil {
+		t.Fatal(err)
+	}
+	var archive bytes.Buffer
+	zw := zip.NewWriter(&archive)
+	for _, entry := range []struct {
+		name string
+		data []byte
+	}{
+		{name: name + ".xmi", data: data},
+		{name: "BINARY-" + name, data: stream},
+	} {
+		w, err := zw.Create(entry.name)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if _, err := w.Write(entry.data); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if err := zw.Close(); err != nil {
+		t.Fatal(err)
+	}
+	layoutData, err := os.ReadFile("testdata/xmi/" + name + ".layout.xml")
+	if err != nil {
+		t.Fatal(err)
+	}
+	layout, err := mtip.Parse(layoutData)
+	if err != nil {
+		t.Fatalf("mtip.Parse: %v", err)
+	}
+	r, err := migrate.MigrateOptions(name+".xmi", archive.Bytes(), migrate.Options{
+		Layout: layout, LayoutSource: name + ".layout.xml", Strict: strict,
+	})
 	if err != nil {
 		t.Fatalf("MigrateOptions: %v", err)
 	}
@@ -45,6 +100,8 @@ func migrateLaidOut(t *testing.T, name string) *migrate.Result {
 // notation analyses clean — the DiagramLayout annotations must type-check.
 func TestGoldenLayout(t *testing.T) {
 	r := migrateLayoutFixture(t)
+	wantLine(t, r.Notation, ":>> DiagramLayout::Layout::height = 80;")
+	wantLine(t, r.Notation, "metadata DiagramLayout::Layout about engine { x = 20; y = 10; width = 100; :>> DiagramLayout::Layout::height = 40; }")
 	checkGolden(t, "testdata/xmi/layout.layout.golden.sysml", r.Notation)
 	var report bytes.Buffer
 	if err := r.Report.WriteText(&report); err != nil {
@@ -53,6 +110,68 @@ func TestGoldenLayout(t *testing.T) {
 	checkGolden(t, "testdata/xmi/layout.layout.golden.report.txt", report.Bytes())
 	for _, d := range errors(t, "layout.sysml", r.Notation) {
 		t.Errorf("%v", d)
+	}
+	strict := migrateLaidOutOptions(t, "layout", migrate.Options{Strict: true})
+	for _, d := range errorsMode(t, "layout.sysml", strict.Notation, diag.ConformanceStrict) {
+		t.Errorf("%v", d)
+	}
+}
+
+func TestGoldenLayoutExposedMetadataAttribute(t *testing.T) {
+	r := migrateStreamLaidOut(t, "layout_exposed_shadow", false)
+	if l := r.Report.Layout; l == nil || l.DiagramsJoined != 1 || l.PlacementsWritten != 2 || l.RoutesWritten != 1 {
+		t.Fatalf("layout summary: %+v", l)
+	}
+	checkGolden(t, "testdata/xmi/layout_exposed_shadow.layout.golden.sysml", r.Notation)
+	for _, d := range errors(t, "layout_exposed_shadow.sysml", r.Notation) {
+		t.Errorf("%v", d)
+	}
+	notation := string(r.Notation)
+	for _, want := range []string{
+		"expose Structure::Scale::height;",
+		"expose Structure::Scale::text;",
+		"expose Structure::Scale::width;",
+		":>> DiagramLayout::Layout::height = 40",
+		":>> DiagramLayout::Route::points = (",
+		":>> DiagramLayout::Canvas::height = 100",
+		":>> DiagramLayout::Style::text = ",
+		":>> DiagramLayout::Picture::width = ",
+	} {
+		if !strings.Contains(notation, want) {
+			t.Errorf("layout output does not contain %q:\n%s", want, notation)
+		}
+	}
+}
+
+func TestGoldenStreamPictureQualifiesShadowedLayoutField(t *testing.T) {
+	r := migrateStreamLaidOut(t, "stream_layout_shadow", false)
+	if !strings.Contains(string(r.Notation), ":>> DiagramLayout::Picture::height = 40") {
+		t.Errorf("stream picture does not qualify its shadowed height field:\n%s", r.Notation)
+	}
+	checkGolden(t, "testdata/xmi/stream_layout_shadow.layout.golden.sysml", r.Notation)
+	for _, d := range errors(t, "stream_layout_shadow.sysml", r.Notation) {
+		t.Errorf("%v", d)
+	}
+}
+
+func TestGoldenLayoutWildcardExposedMetadataAttribute(t *testing.T) {
+	r := migrateLaidOut(t, "layout_wildcard_exposed_shadow")
+	if l := r.Report.Layout; l == nil || l.DiagramsJoined != 1 || l.PlacementsWritten != 2 {
+		t.Fatalf("layout summary: %+v", l)
+	}
+	checkGolden(t, "testdata/xmi/layout_wildcard_exposed_shadow.layout.golden.sysml", r.Notation)
+	for _, d := range errors(t, "layout_wildcard_exposed_shadow.sysml", r.Notation) {
+		t.Errorf("%v", d)
+	}
+	notation := string(r.Notation)
+	for _, want := range []string{
+		"expose Structure::**;",
+		":>> DiagramLayout::Layout::height = ",
+		"x = 10;",
+	} {
+		if !strings.Contains(notation, want) {
+			t.Errorf("layout output does not contain %q:\n%s", want, notation)
+		}
 	}
 }
 
@@ -143,6 +262,57 @@ func TestGoldenEdgeLayout(t *testing.T) {
 	}
 }
 
+func TestGoldenRefusedVertexLayout(t *testing.T) {
+	r := migrateStreamLaidOut(t, "refused_vertex_layout", false)
+	checkGolden(t, "testdata/xmi/refused_vertex_layout.layout.golden.sysml", r.Notation)
+	var report bytes.Buffer
+	if err := r.Report.WriteText(&report); err != nil {
+		t.Fatal(err)
+	}
+	checkGolden(t, "testdata/xmi/refused_vertex_layout.layout.golden.report.txt", report.Bytes())
+	for _, d := range errors(t, "refused_vertex_layout.sysml", r.Notation) {
+		t.Errorf("%v", d)
+	}
+	for _, kind := range []string{"Style", "Note"} {
+		found := false
+		for _, line := range strings.Split(string(r.Notation), "\n") {
+			if strings.Contains(line, "DiagramLayout::"+kind+" about ") && strings.Contains(line, "::junction") {
+				found = true
+			}
+		}
+		if !found {
+			t.Errorf("non-strict output has no %s about the junction:\n%s", kind, r.Notation)
+		}
+	}
+}
+
+func TestStrictRefusedVertexLayoutHasNoPseudostateReferences(t *testing.T) {
+	const name = "refused_vertex_layout"
+	r := migrateStreamLaidOut(t, name, true)
+	for _, d := range errorsMode(t, name+".sysml", r.Notation, diag.ConformanceStrict) {
+		t.Errorf("%v", d)
+	}
+	notation := string(r.Notation)
+	for _, line := range strings.Split(notation, "\n") {
+		if !strings.Contains(line, "DiagramLayout::") {
+			continue
+		}
+		target, ok := strings.CutPrefix(line, "metadata ")
+		if !ok {
+			continue
+		}
+		_, target, ok = strings.Cut(target, " about ")
+		if !ok {
+			continue
+		}
+		target, _, _ = strings.Cut(target, " {")
+		if strings.HasSuffix(strings.TrimSpace(target), "::junction") ||
+			strings.HasSuffix(strings.TrimSpace(target), "::choice") {
+			t.Errorf("strict output has DiagramLayout metadata about a refused pseudostate:\n%s", line)
+		}
+	}
+}
+
 // A control node the migrator declares as a member is placed; the initial and flow final nodes,
 // written as start and done, are the placements no Layout can name, positioned from their routes.
 func TestGoldenControlNodeLayout(t *testing.T) {
@@ -194,8 +364,8 @@ func TestGoldenControlNodeLayout(t *testing.T) {
 		`"n8" [shape=doublecircle, fillcolor=black, label="", pos="50,10!", pin=true, width=0.2777777777777778, height=0.2777777777777778, fixedsize=true];`,
 		`"n9" [shape=circle, fillcolor=black, label="", pos="100,257.2!", pin=true, width=0.2, height=0.2];`,
 		`"n10" [shape=doublecircle, fillcolor=black, label="", pos="150,12.8`,
-		`"n9" -> "n1" [pos="100,250 100,250 100,220 100,220"];`,
-		`"n7" -> "n10" [label="[false]", pos="110,70 110,70 150,70 150,70 150,70 150,20 150,20"];`,
+		`"n9" -> "n1" [pos="e,100,220 100,250 100,250 100,230 100,230"];`,
+		`"n7" -> "n10" [label="[false]", pos="e,150,20 110,70 110,70 150,70 150,70 150,70 150,30 150,30", lp="118.5,45"];`,
 	} {
 		if !strings.Contains(dot, want) {
 			t.Errorf("DOT of the activity view lacks %q:\n%s", want, dot)
@@ -205,27 +375,30 @@ func TestGoldenControlNodeLayout(t *testing.T) {
 
 // The routes a migrated view carries reach the DOT form as pinned edge splines for each
 // edge kind, labelled by name only where the edge has no text of its own and the name is
-// the source's: one the migration made up, and marked, labels nothing.
+// the source's: one the migration made up, and marked, labels nothing. An object flow
+// runs pin to pin, the pins named beside the action; a label sits inside the canvas.
 func TestMigratedRoutesRenderPinned(t *testing.T) {
 	r := migrateLaidOut(t, "diagram_edges")
 	s := session(t, r)
 	for view, wants := range map[string][]string{
 		"Structure::Vehicle::Drive::Driving": {
-			`"n5" -> "n1" [pos="60,180 60,180 60,210 60,210"];`,
-			`"n3" -> "n4" [label="finish", pos="60,20 60,20 60,60 60,60"];`,
-			`[label="result to value", style=dashed, pos="110,80 110,80 140,80 140,80 140,80 140,160 140,160 140,160 110,160 110,160"];`,
+			`"n5" -> "n1" [pos="e,60,210 60,180 60,180 60,200 60,200"];`,
+			`"n3" -> "n4" [label="finish", pos="e,60,60 60,20 60,20 60,50 60,50", lp="32.5,40"];`,
+			`"n1.0" [shape=box, label="", xlabel="result", fontsize=8, width=0.16666666666666666, height=0.16666666666666666, fixedsize=true, pos="110,134!", pin=true];`,
+			`"n3.0" [shape=box, label="", xlabel="value", fontsize=8, width=0.16666666666666666, height=0.16666666666666666, fixedsize=true, pos="110,106!", pin=true];`,
+			`"n1.0" -> "n3.0" [style=dashed, pos="e,113.5,112 113.5,128 113.5,128 140,80 140,80 140,80 140,160 140,160 140,160 118.5,121 118.5,121"];`,
 		},
 		"Behavior::Modes::Modes": {
-			`"n1" -> "n2" [label="accept Go", pos="200,110 200,110 110,110 110,110"];`,
-			`"n2" -> "n3" [label="accept Stop", pos="250,40 250,40 250,90 250,90"];`,
-			`"n3" -> "n2" [label="accept Go", pos="280,90 280,90 320,90 320,90 320,90 320,40 320,40 320,40 280,40 280,40"];`,
-			`"n3" -> "n2" [label="accept Resume", pos="280,90 280,90 320,90 320,90 320,90 320,40 320,40 320,40 280,40 280,40"];`,
+			`"n1" -> "n2" [label="accept Go", pos="e,110,110 200,110 200,110 120,110 120,110", lp="155,98"];`,
+			`"n2" -> "n3" [label="accept Stop", pos="e,250,90 250,40 250,40 250,80 250,80", lp="203,65"];`,
+			`"n3" -> "n2" [label="accept Go", pos="e,280,40 280,90 280,90 320,90 320,90 320,90 320,40 320,40 320,40 290,40 290,40", lp="281,65"];`,
+			`"n3" -> "n2" [label="accept Resume", pos="e,280,40 280,90 280,90 320,90 320,90 320,90 320,40 320,40 320,40 290,40 290,40", lp="265.5,65"];`,
 		},
 		"Structure::Vehicle::'Vehicle Internals'": {
-			`[label="connection", arrowhead=none, penwidth=3, pos="200,100 200,100 120,100 120,100"];`,
-			`[label="connection", arrowhead=none, penwidth=3, pos="200,80 200,80 160,60 160,60 160,60 120,80 120,80"];`,
-			`[label="drive", arrowhead=none, penwidth=3, pos="200,90 200,90 120,90 120,90"];`,
-			`[label="binding", arrowhead=none, pos="200,10 200,10 120,10 120,10"];`,
+			`[label="connection", arrowhead=none, penwidth=3, pos="200,100 200,100 120,100 120,100", lp="160,88"];`,
+			`[label="connection", arrowhead=none, penwidth=3, pos="200,80 200,80 160,60 160,60 160,60 120,80 120,80", lp="192.5,44.5"];`,
+			`[label="drive", arrowhead=none, penwidth=3, pos="200,90 200,90 120,90 120,90", lp="160,78"];`,
+			`[label="binding", arrowhead=none, pos="200,10 200,10 120,10 120,10", lp="160,22"];`,
 		},
 	} {
 		rendering, err := s.ViewRendering(view)
@@ -475,5 +648,5 @@ func TestLayoutOfTableDiagram(t *testing.T) {
 	}
 	s := session(t, r)
 	wantInOrder(t, "laid-out Pump Table rows", rows(t, s, "Plant::Inventory::'Pump Table Rows'"),
-		"returned 5 rows", "Plant::Inventory::r1", "Plant::Inventory::p1", "Plant::Inventory::p2", "Plant::Spares::s1", "Plant::Spares::s2")
+		"returned 4 rows", "Plant::Inventory::r1", "Plant::Inventory::p1", "Plant::Spares::s1", "Plant::Spares::s2")
 }

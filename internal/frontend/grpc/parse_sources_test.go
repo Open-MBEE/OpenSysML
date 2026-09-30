@@ -132,9 +132,11 @@ func TestOneDocumentOperationsRefuseAModelOfSeveral(t *testing.T) {
 		t.Fatalf("ParseSources: %v", err)
 	}
 
+	// Notation is written for one document; the model converts whole to a
+	// graph form instead (TestConvertModelOfSeveralDocuments).
 	_, convertErr := srv.Convert(context.Background(), &pb.ConvertRequest{
 		Source:   &pb.ConvertRequest_ModelHash{ModelHash: resp.ModelHash},
-		ToFormat: "turtle",
+		ToFormat: "sysml",
 	})
 	if connect.CodeOf(convertErr) != connect.CodeFailedPrecondition ||
 		!strings.Contains(convertErr.Error(), "one document") {

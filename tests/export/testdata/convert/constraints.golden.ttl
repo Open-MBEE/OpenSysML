@@ -9,6 +9,10 @@
 elmt:Constraints
     a sysml:Package ;
     sysml:qualifiedName "Constraints" ;
+    sysx:sourceLine "1"^^xsd:integer ;
+    sysx:sourceColumn "1"^^xsd:integer ;
+    sysx:sourceEndLine "52"^^xsd:integer ;
+    sysx:sourceEndColumn "2"^^xsd:integer ;
     sysml:elementId "Constraints" ;
     sysx:memberIndex "0"^^xsd:integer ;
     sysx:sourceLanguage "sysml" ;
@@ -26,6 +30,10 @@ elmt:Constraints
 elmt:Constraints__Mass
     a sysml:AttributeDefinition ;
     sysml:qualifiedName "Constraints::Mass" ;
+    sysx:sourceLine "2"^^xsd:integer ;
+    sysx:sourceColumn "5"^^xsd:integer ;
+    sysx:sourceEndLine "2"^^xsd:integer ;
+    sysx:sourceEndColumn "24"^^xsd:integer ;
     sysml:elementId "Constraints__Mass" ;
     sysx:memberIndex "0"^^xsd:integer ;
     sysml:owningNamespace elmt:Constraints ;
@@ -49,6 +57,10 @@ elmt:Constraints__Mass_om
 elmt:Constraints__MassLimit
     a sysml:ConstraintDefinition ;
     sysml:qualifiedName "Constraints::MassLimit" ;
+    sysx:sourceLine "3"^^xsd:integer ;
+    sysx:sourceColumn "5"^^xsd:integer ;
+    sysx:sourceEndLine "7"^^xsd:integer ;
+    sysx:sourceEndColumn "6"^^xsd:integer ;
     sysml:elementId "Constraints__MassLimit" ;
     sysx:memberIndex "1"^^xsd:integer ;
     sysml:owningNamespace elmt:Constraints ;
@@ -83,6 +95,10 @@ elmt:Constraints__MassLimit_om
 elmt:Constraints__MassLimit__m
     a sysml:ReferenceUsage ;
     sysml:qualifiedName "Constraints::MassLimit::m" ;
+    sysx:sourceLine "4"^^xsd:integer ;
+    sysx:sourceColumn "9"^^xsd:integer ;
+    sysx:sourceEndLine "4"^^xsd:integer ;
+    sysx:sourceEndColumn "21"^^xsd:integer ;
     sysml:elementId "Constraints__MassLimit__m" ;
     sysx:memberIndex "0"^^xsd:integer ;
     sysml:owningNamespace elmt:Constraints__MassLimit ;
@@ -114,6 +130,10 @@ elmt:Constraints__MassLimit__m_om
 elmt:Constraints__MassLimit__limit
     a sysml:ReferenceUsage ;
     sysml:qualifiedName "Constraints::MassLimit::limit" ;
+    sysx:sourceLine "5"^^xsd:integer ;
+    sysx:sourceColumn "9"^^xsd:integer ;
+    sysx:sourceEndLine "5"^^xsd:integer ;
+    sysx:sourceEndColumn "25"^^xsd:integer ;
     sysml:elementId "Constraints__MassLimit__limit" ;
     sysx:memberIndex "1"^^xsd:integer ;
     sysml:owningNamespace elmt:Constraints__MassLimit ;
@@ -145,6 +165,10 @@ elmt:Constraints__MassLimit__limit_om
 elmt:Constraints__MassLimit___402
     a sysml:OperatorExpression ;
     sysml:qualifiedName "Constraints::MassLimit::@2" ;
+    sysx:sourceLine "6"^^xsd:integer ;
+    sysx:sourceColumn "9"^^xsd:integer ;
+    sysx:sourceEndLine "6"^^xsd:integer ;
+    sysx:sourceEndColumn "18"^^xsd:integer ;
     sysml:elementId "Constraints__MassLimit___402" ;
     sysx:memberIndex "2"^^xsd:integer ;
     sysml:owningNamespace elmt:Constraints__MassLimit ;
@@ -345,6 +369,10 @@ expr:Constraints__MassLimit___402_pout_om
 elmt:Constraints__Margin
     a sysml:CalculationDefinition ;
     sysml:qualifiedName "Constraints::Margin" ;
+    sysx:sourceLine "8"^^xsd:integer ;
+    sysx:sourceColumn "5"^^xsd:integer ;
+    sysx:sourceEndLine "11"^^xsd:integer ;
+    sysx:sourceEndColumn "6"^^xsd:integer ;
     sysml:elementId "Constraints__Margin" ;
     sysx:memberIndex "2"^^xsd:integer ;
     sysml:owningNamespace elmt:Constraints ;
@@ -379,6 +407,10 @@ elmt:Constraints__Margin_om
 elmt:Constraints__Margin__m
     a sysml:ReferenceUsage ;
     sysml:qualifiedName "Constraints::Margin::m" ;
+    sysx:sourceLine "9"^^xsd:integer ;
+    sysx:sourceColumn "9"^^xsd:integer ;
+    sysx:sourceEndLine "9"^^xsd:integer ;
+    sysx:sourceEndColumn "21"^^xsd:integer ;
     sysml:elementId "Constraints__Margin__m" ;
     sysx:memberIndex "0"^^xsd:integer ;
     sysml:owningNamespace elmt:Constraints__Margin ;
@@ -410,6 +442,10 @@ elmt:Constraints__Margin__m_om
 elmt:Constraints__Margin___401
     a sysml:ReferenceUsage ;
     sysml:qualifiedName "Constraints::Margin::@1" ;
+    sysx:sourceLine "10"^^xsd:integer ;
+    sysx:sourceColumn "9"^^xsd:integer ;
+    sysx:sourceEndLine "10"^^xsd:integer ;
+    sysx:sourceEndColumn "33"^^xsd:integer ;
     sysml:elementId "Constraints__Margin___401" ;
     sysx:memberIndex "1"^^xsd:integer ;
     sysml:owningNamespace elmt:Constraints__Margin ;
@@ -614,6 +650,10 @@ expr:Constraints__Margin___401_pvalue_om
 elmt:Constraints__Rover
     a sysml:PartDefinition ;
     sysml:qualifiedName "Constraints::Rover" ;
+    sysx:sourceLine "12"^^xsd:integer ;
+    sysx:sourceColumn "5"^^xsd:integer ;
+    sysx:sourceEndLine "51"^^xsd:integer ;
+    sysx:sourceEndColumn "6"^^xsd:integer ;
     sysml:elementId "Constraints__Rover" ;
     sysx:memberIndex "3"^^xsd:integer ;
     sysml:owningNamespace elmt:Constraints ;
@@ -648,6 +688,10 @@ elmt:Constraints__Rover_om
 elmt:Constraints__Rover__mass
     a sysml:AttributeUsage ;
     sysml:qualifiedName "Constraints::Rover::mass" ;
+    sysx:sourceLine "13"^^xsd:integer ;
+    sysx:sourceColumn "9"^^xsd:integer ;
+    sysx:sourceEndLine "13"^^xsd:integer ;
+    sysx:sourceEndColumn "36"^^xsd:integer ;
     sysml:elementId "Constraints__Rover__mass" ;
     sysx:memberIndex "0"^^xsd:integer ;
     sysml:owningNamespace elmt:Constraints__Rover ;
@@ -701,6 +745,10 @@ expr:Constraints__Rover__mass_pvalue_om
 elmt:Constraints__Rover__limit
     a sysml:ConstraintUsage ;
     sysml:qualifiedName "Constraints::Rover::limit" ;
+    sysx:sourceLine "14"^^xsd:integer ;
+    sysx:sourceColumn "9"^^xsd:integer ;
+    sysx:sourceEndLine "17"^^xsd:integer ;
+    sysx:sourceEndColumn "10"^^xsd:integer ;
     sysml:elementId "Constraints__Rover__limit" ;
     sysx:memberIndex "1"^^xsd:integer ;
     sysml:owningNamespace elmt:Constraints__Rover ;
@@ -740,6 +788,10 @@ elmt:Constraints__Rover__limit_om
 elmt:Constraints__Rover__limit__m
     a sysml:ReferenceUsage ;
     sysml:qualifiedName "Constraints::Rover::limit::m" ;
+    sysx:sourceLine "15"^^xsd:integer ;
+    sysx:sourceColumn "13"^^xsd:integer ;
+    sysx:sourceEndLine "15"^^xsd:integer ;
+    sysx:sourceEndColumn "25"^^xsd:integer ;
     sysml:elementId "Constraints__Rover__limit__m" ;
     sysx:memberIndex "0"^^xsd:integer ;
     sysml:owningNamespace elmt:Constraints__Rover__limit ;
@@ -818,6 +870,10 @@ expr:Constraints__Rover__limit__m_pvalue_om
 elmt:Constraints__Rover__limit__limit
     a sysml:ReferenceUsage ;
     sysml:qualifiedName "Constraints::Rover::limit::limit" ;
+    sysx:sourceLine "16"^^xsd:integer ;
+    sysx:sourceColumn "13"^^xsd:integer ;
+    sysx:sourceEndLine "16"^^xsd:integer ;
+    sysx:sourceEndColumn "28"^^xsd:integer ;
     sysml:elementId "Constraints__Rover__limit__limit" ;
     sysx:memberIndex "1"^^xsd:integer ;
     sysml:owningNamespace elmt:Constraints__Rover__limit ;
@@ -869,6 +925,10 @@ expr:Constraints__Rover__limit__limit_pvalue_om
 elmt:Constraints__Rover__massOK
     a sysml:AssertConstraintUsage ;
     sysml:qualifiedName "Constraints::Rover::massOK" ;
+    sysx:sourceLine "18"^^xsd:integer ;
+    sysx:sourceColumn "9"^^xsd:integer ;
+    sysx:sourceEndLine "18"^^xsd:integer ;
+    sysx:sourceEndColumn "46"^^xsd:integer ;
     sysml:elementId "Constraints__Rover__massOK" ;
     sysx:memberIndex "2"^^xsd:integer ;
     sysml:owningNamespace elmt:Constraints__Rover ;
@@ -898,6 +958,10 @@ elmt:Constraints__Rover__massOK_om
 elmt:Constraints__Rover__massBad
     a sysml:AssertConstraintUsage ;
     sysml:qualifiedName "Constraints::Rover::massBad" ;
+    sysx:sourceLine "19"^^xsd:integer ;
+    sysx:sourceColumn "9"^^xsd:integer ;
+    sysx:sourceEndLine "19"^^xsd:integer ;
+    sysx:sourceEndColumn "51"^^xsd:integer ;
     sysml:elementId "Constraints__Rover__massBad" ;
     sysx:memberIndex "3"^^xsd:integer ;
     sysml:owningNamespace elmt:Constraints__Rover ;
@@ -928,6 +992,10 @@ elmt:Constraints__Rover__massBad_om
 elmt:Constraints__Rover___404
     a sysml:AssertConstraintUsage ;
     sysml:qualifiedName "Constraints::Rover::@4" ;
+    sysx:sourceLine "20"^^xsd:integer ;
+    sysx:sourceColumn "9"^^xsd:integer ;
+    sysx:sourceEndLine "22"^^xsd:integer ;
+    sysx:sourceEndColumn "10"^^xsd:integer ;
     sysml:elementId "Constraints__Rover___404" ;
     sysx:memberIndex "4"^^xsd:integer ;
     sysml:owningNamespace elmt:Constraints__Rover ;
@@ -958,6 +1026,10 @@ elmt:Constraints__Rover___404_om
 elmt:Constraints__Rover___404___400
     a sysml:OperatorExpression ;
     sysml:qualifiedName "Constraints::Rover::@4::@0" ;
+    sysx:sourceLine "21"^^xsd:integer ;
+    sysx:sourceColumn "13"^^xsd:integer ;
+    sysx:sourceEndLine "21"^^xsd:integer ;
+    sysx:sourceEndColumn "21"^^xsd:integer ;
     sysml:elementId "Constraints__Rover___404___400" ;
     sysx:memberIndex "0"^^xsd:integer ;
     sysml:owningNamespace elmt:Constraints__Rover___404 ;
@@ -1131,6 +1203,10 @@ expr:Constraints__Rover___404___400_pout_om
 elmt:Constraints__Rover__bounds
     a sysml:ConstraintUsage ;
     sysml:qualifiedName "Constraints::Rover::bounds" ;
+    sysx:sourceLine "23"^^xsd:integer ;
+    sysx:sourceColumn "9"^^xsd:integer ;
+    sysx:sourceEndLine "30"^^xsd:integer ;
+    sysx:sourceEndColumn "10"^^xsd:integer ;
     sysml:elementId "Constraints__Rover__bounds" ;
     sysx:memberIndex "5"^^xsd:integer ;
     sysml:owningNamespace elmt:Constraints__Rover ;
@@ -1167,6 +1243,10 @@ elmt:Constraints__Rover__bounds_om
 elmt:Constraints__Rover__bounds___400
     a sysml:OperatorExpression ;
     sysml:qualifiedName "Constraints::Rover::bounds::@0" ;
+    sysx:sourceLine "24"^^xsd:integer ;
+    sysx:sourceColumn "13"^^xsd:integer ;
+    sysx:sourceEndLine "24"^^xsd:integer ;
+    sysx:sourceEndColumn "21"^^xsd:integer ;
     sysml:elementId "Constraints__Rover__bounds___400" ;
     sysx:memberIndex "0"^^xsd:integer ;
     sysml:owningNamespace elmt:Constraints__Rover__bounds ;
@@ -1339,6 +1419,10 @@ expr:Constraints__Rover__bounds___400_pout_om
 elmt:Constraints__Rover__bounds___401
     a sysml:OperatorExpression ;
     sysml:qualifiedName "Constraints::Rover::bounds::@1" ;
+    sysx:sourceLine "25"^^xsd:integer ;
+    sysx:sourceColumn "13"^^xsd:integer ;
+    sysx:sourceEndLine "25"^^xsd:integer ;
+    sysx:sourceEndColumn "22"^^xsd:integer ;
     sysml:elementId "Constraints__Rover__bounds___401" ;
     sysx:memberIndex "1"^^xsd:integer ;
     sysml:owningNamespace elmt:Constraints__Rover__bounds ;
@@ -1511,6 +1595,10 @@ expr:Constraints__Rover__bounds___401_pout_om
 elmt:Constraints__Rover__bounds___402
     a sysml:OperatorExpression ;
     sysml:qualifiedName "Constraints::Rover::bounds::@2" ;
+    sysx:sourceLine "26"^^xsd:integer ;
+    sysx:sourceColumn "13"^^xsd:integer ;
+    sysx:sourceEndLine "26"^^xsd:integer ;
+    sysx:sourceEndColumn "30"^^xsd:integer ;
     sysml:elementId "Constraints__Rover__bounds___402" ;
     sysx:memberIndex "2"^^xsd:integer ;
     sysml:owningNamespace elmt:Constraints__Rover__bounds ;
@@ -1759,6 +1847,10 @@ expr:Constraints__Rover__bounds___402_pout_om
 elmt:Constraints__Rover__bounds__inner
     a sysml:AssertConstraintUsage ;
     sysml:qualifiedName "Constraints::Rover::bounds::inner" ;
+    sysx:sourceLine "27"^^xsd:integer ;
+    sysx:sourceColumn "13"^^xsd:integer ;
+    sysx:sourceEndLine "29"^^xsd:integer ;
+    sysx:sourceEndColumn "14"^^xsd:integer ;
     sysml:elementId "Constraints__Rover__bounds__inner" ;
     sysx:memberIndex "3"^^xsd:integer ;
     sysml:owningNamespace elmt:Constraints__Rover__bounds ;
@@ -1790,6 +1882,10 @@ elmt:Constraints__Rover__bounds__inner_om
 elmt:Constraints__Rover__bounds__inner___400
     a sysml:OperatorExpression ;
     sysml:qualifiedName "Constraints::Rover::bounds::inner::@0" ;
+    sysx:sourceLine "28"^^xsd:integer ;
+    sysx:sourceColumn "17"^^xsd:integer ;
+    sysx:sourceEndLine "28"^^xsd:integer ;
+    sysx:sourceEndColumn "28"^^xsd:integer ;
     sysml:elementId "Constraints__Rover__bounds__inner___400" ;
     sysx:memberIndex "0"^^xsd:integer ;
     sysml:owningNamespace elmt:Constraints__Rover__bounds__inner ;
@@ -1963,6 +2059,10 @@ expr:Constraints__Rover__bounds__inner___400_pout_om
 elmt:Constraints__Rover__lightEnough
     a sysml:RequirementUsage ;
     sysml:qualifiedName "Constraints::Rover::lightEnough" ;
+    sysx:sourceLine "31"^^xsd:integer ;
+    sysx:sourceColumn "9"^^xsd:integer ;
+    sysx:sourceEndLine "47"^^xsd:integer ;
+    sysx:sourceEndColumn "10"^^xsd:integer ;
     sysml:elementId "Constraints__Rover__lightEnough" ;
     sysx:memberIndex "6"^^xsd:integer ;
     sysml:owningNamespace elmt:Constraints__Rover ;
@@ -1999,6 +2099,10 @@ elmt:Constraints__Rover__lightEnough_om
 elmt:Constraints__Rover__lightEnough__r
     a sysml:ReferenceUsage ;
     sysml:qualifiedName "Constraints::Rover::lightEnough::r" ;
+    sysx:sourceLine "32"^^xsd:integer ;
+    sysx:sourceColumn "13"^^xsd:integer ;
+    sysx:sourceEndLine "32"^^xsd:integer ;
+    sysx:sourceEndColumn "31"^^xsd:integer ;
     sysml:elementId "Constraints__Rover__lightEnough__r" ;
     sysx:memberIndex "0"^^xsd:integer ;
     sysml:owningNamespace elmt:Constraints__Rover__lightEnough ;
@@ -2031,6 +2135,10 @@ elmt:Constraints__Rover__lightEnough__r_om
 elmt:Constraints__Rover__lightEnough___401
     a sysml:ConstraintUsage ;
     sysml:qualifiedName "Constraints::Rover::lightEnough::@1" ;
+    sysx:sourceLine "33"^^xsd:integer ;
+    sysx:sourceColumn "13"^^xsd:integer ;
+    sysx:sourceEndLine "35"^^xsd:integer ;
+    sysx:sourceEndColumn "14"^^xsd:integer ;
     sysml:elementId "Constraints__Rover__lightEnough___401" ;
     sysx:memberIndex "1"^^xsd:integer ;
     sysml:owningNamespace elmt:Constraints__Rover__lightEnough ;
@@ -2064,6 +2172,10 @@ elmt:Constraints__Rover__lightEnough___401_om
 elmt:Constraints__Rover__lightEnough___401___400
     a sysml:OperatorExpression ;
     sysml:qualifiedName "Constraints::Rover::lightEnough::@1::@0" ;
+    sysx:sourceLine "34"^^xsd:integer ;
+    sysx:sourceColumn "17"^^xsd:integer ;
+    sysx:sourceEndLine "34"^^xsd:integer ;
+    sysx:sourceEndColumn "27"^^xsd:integer ;
     sysml:elementId "Constraints__Rover__lightEnough___401___400" ;
     sysx:memberIndex "0"^^xsd:integer ;
     sysml:owningNamespace elmt:Constraints__Rover__lightEnough___401 ;
@@ -2313,6 +2425,10 @@ expr:Constraints__Rover__lightEnough___401___400_pout_om
 elmt:Constraints__Rover__lightEnough___402
     a sysml:ConstraintUsage ;
     sysml:qualifiedName "Constraints::Rover::lightEnough::@2" ;
+    sysx:sourceLine "36"^^xsd:integer ;
+    sysx:sourceColumn "13"^^xsd:integer ;
+    sysx:sourceEndLine "38"^^xsd:integer ;
+    sysx:sourceEndColumn "14"^^xsd:integer ;
     sysml:elementId "Constraints__Rover__lightEnough___402" ;
     sysx:memberIndex "2"^^xsd:integer ;
     sysml:owningNamespace elmt:Constraints__Rover__lightEnough ;
@@ -2346,6 +2462,10 @@ elmt:Constraints__Rover__lightEnough___402_om
 elmt:Constraints__Rover__lightEnough___402___400
     a sysml:OperatorExpression ;
     sysml:qualifiedName "Constraints::Rover::lightEnough::@2::@0" ;
+    sysx:sourceLine "37"^^xsd:integer ;
+    sysx:sourceColumn "17"^^xsd:integer ;
+    sysx:sourceEndLine "37"^^xsd:integer ;
+    sysx:sourceEndColumn "29"^^xsd:integer ;
     sysml:elementId "Constraints__Rover__lightEnough___402___400" ;
     sysx:memberIndex "0"^^xsd:integer ;
     sysml:owningNamespace elmt:Constraints__Rover__lightEnough___402 ;
@@ -2595,6 +2715,10 @@ expr:Constraints__Rover__lightEnough___402___400_pout_om
 elmt:Constraints__Rover__lightEnough___403
     a sysml:ConstraintUsage ;
     sysml:qualifiedName "Constraints::Rover::lightEnough::@3" ;
+    sysx:sourceLine "39"^^xsd:integer ;
+    sysx:sourceColumn "13"^^xsd:integer ;
+    sysx:sourceEndLine "41"^^xsd:integer ;
+    sysx:sourceEndColumn "14"^^xsd:integer ;
     sysml:elementId "Constraints__Rover__lightEnough___403" ;
     sysx:memberIndex "3"^^xsd:integer ;
     sysml:owningNamespace elmt:Constraints__Rover__lightEnough ;
@@ -2628,6 +2752,10 @@ elmt:Constraints__Rover__lightEnough___403_om
 elmt:Constraints__Rover__lightEnough___403___400
     a sysml:OperatorExpression ;
     sysml:qualifiedName "Constraints::Rover::lightEnough::@3::@0" ;
+    sysx:sourceLine "40"^^xsd:integer ;
+    sysx:sourceColumn "17"^^xsd:integer ;
+    sysx:sourceEndLine "40"^^xsd:integer ;
+    sysx:sourceEndColumn "29"^^xsd:integer ;
     sysml:elementId "Constraints__Rover__lightEnough___403___400" ;
     sysx:memberIndex "0"^^xsd:integer ;
     sysml:owningNamespace elmt:Constraints__Rover__lightEnough___403 ;
@@ -2877,6 +3005,10 @@ expr:Constraints__Rover__lightEnough___403___400_pout_om
 elmt:Constraints__Rover__lightEnough___404
     a sysml:ConstraintUsage ;
     sysml:qualifiedName "Constraints::Rover::lightEnough::@4" ;
+    sysx:sourceLine "42"^^xsd:integer ;
+    sysx:sourceColumn "13"^^xsd:integer ;
+    sysx:sourceEndLine "42"^^xsd:integer ;
+    sysx:sourceEndColumn "31"^^xsd:integer ;
     sysml:elementId "Constraints__Rover__lightEnough___404" ;
     sysx:memberIndex "4"^^xsd:integer ;
     sysml:owningNamespace elmt:Constraints__Rover__lightEnough ;
@@ -2951,6 +3083,10 @@ expr:Constraints__Rover__lightEnough___404_pcondition_om
 elmt:Constraints__Rover__lightEnough___405
     a sysml:ConstraintUsage ;
     sysml:qualifiedName "Constraints::Rover::lightEnough::@5" ;
+    sysx:sourceLine "43"^^xsd:integer ;
+    sysx:sourceColumn "13"^^xsd:integer ;
+    sysx:sourceEndLine "46"^^xsd:integer ;
+    sysx:sourceEndColumn "14"^^xsd:integer ;
     sysml:elementId "Constraints__Rover__lightEnough___405" ;
     sysx:memberIndex "5"^^xsd:integer ;
     sysml:owningNamespace elmt:Constraints__Rover__lightEnough ;
@@ -2992,6 +3128,10 @@ elmt:Constraints__Rover__lightEnough___405_om
 elmt:Constraints__Rover__lightEnough___405__m
     a sysml:ReferenceUsage ;
     sysml:qualifiedName "Constraints::Rover::lightEnough::@5::m" ;
+    sysx:sourceLine "44"^^xsd:integer ;
+    sysx:sourceColumn "17"^^xsd:integer ;
+    sysx:sourceEndLine "44"^^xsd:integer ;
+    sysx:sourceEndColumn "31"^^xsd:integer ;
     sysml:elementId "Constraints__Rover__lightEnough___405__m" ;
     sysx:memberIndex "0"^^xsd:integer ;
     sysml:owningNamespace elmt:Constraints__Rover__lightEnough___405 ;
@@ -3146,6 +3286,10 @@ expr:Constraints__Rover__lightEnough___405__m_pvalue_om
 elmt:Constraints__Rover__lightEnough___405__limit
     a sysml:ReferenceUsage ;
     sysml:qualifiedName "Constraints::Rover::lightEnough::@5::limit" ;
+    sysx:sourceLine "45"^^xsd:integer ;
+    sysx:sourceColumn "17"^^xsd:integer ;
+    sysx:sourceEndLine "45"^^xsd:integer ;
+    sysx:sourceEndColumn "32"^^xsd:integer ;
     sysml:elementId "Constraints__Rover__lightEnough___405__limit" ;
     sysx:memberIndex "1"^^xsd:integer ;
     sysml:owningNamespace elmt:Constraints__Rover__lightEnough___405 ;
@@ -3197,6 +3341,10 @@ expr:Constraints__Rover__lightEnough___405__limit_pvalue_om
 elmt:Constraints__Rover__refined
     a sysml:RequirementUsage ;
     sysml:qualifiedName "Constraints::Rover::refined" ;
+    sysx:sourceLine "48"^^xsd:integer ;
+    sysx:sourceColumn "9"^^xsd:integer ;
+    sysx:sourceEndLine "50"^^xsd:integer ;
+    sysx:sourceEndColumn "10"^^xsd:integer ;
     sysml:elementId "Constraints__Rover__refined" ;
     sysx:memberIndex "7"^^xsd:integer ;
     sysml:owningNamespace elmt:Constraints__Rover ;
@@ -3232,6 +3380,10 @@ elmt:Constraints__Rover__refined_om
 elmt:Constraints__Rover__refined__r
     a sysml:ReferenceUsage ;
     sysml:qualifiedName "Constraints::Rover::refined::r" ;
+    sysx:sourceLine "49"^^xsd:integer ;
+    sysx:sourceColumn "13"^^xsd:integer ;
+    sysx:sourceEndLine "49"^^xsd:integer ;
+    sysx:sourceEndColumn "56"^^xsd:integer ;
     sysml:elementId "Constraints__Rover__refined__r" ;
     sysx:memberIndex "0"^^xsd:integer ;
     sysml:owningNamespace elmt:Constraints__Rover__refined ;

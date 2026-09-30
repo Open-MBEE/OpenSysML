@@ -26,6 +26,8 @@ const (
 // sum from 1.0 and still be taken as summing to it.
 const ProbabilityTolerance = 1e-6
 
+const acceptPrefix = "accept "
+
 // Probability is the weight a succession's `@Probability { p = ...; }` states for
 // its branch: the expression bound to p, read where the succession's guard is.
 type Probability struct {
@@ -307,7 +309,7 @@ func TriggerName(trigger ast.Node) string {
 	case nil:
 		return ""
 	case *ast.AcceptEvent:
-		return "accept " + orAnyName(ast.SimpleName(t.SignalType))
+		return acceptPrefix + orAnyName(ast.SimpleName(t.SignalType))
 	case *ast.CallEvent:
 		return "call " + orAnyName(ast.SimpleName(t.Operation))
 	case *ast.TimeEvent:
@@ -369,7 +371,7 @@ func triggerKey(trans *Transition, resolver *resolve.Resolver) string {
 		if t.Subsets != nil {
 			key = "accept :> " + operand(t.Subsets)
 		} else {
-			key = "accept " + operand(t.SignalType)
+			key = acceptPrefix + operand(t.SignalType)
 		}
 	case *ast.CallEvent:
 		key = "call " + operand(t.Operation)
@@ -378,7 +380,7 @@ func triggerKey(trans *Transition, resolver *resolve.Resolver) string {
 		if t.Absolute {
 			keyword = "at"
 		}
-		key = "accept " + keyword + " " + exprKeyOrUnique(t.Duration)
+		key = acceptPrefix + keyword + " " + exprKeyOrUnique(t.Duration)
 	case *ast.ChangeEvent:
 		key = "accept when " + exprKeyOrUnique(t.Condition)
 	}
@@ -408,7 +410,7 @@ func triggerSpelling(trans *Transition) string {
 		if t.Absolute {
 			keyword = "at"
 		}
-		key = "accept " + keyword + " " + writtenValue(t.Duration)
+		key = acceptPrefix + keyword + " " + writtenValue(t.Duration)
 	case *ast.ChangeEvent:
 		key = "accept when " + writtenValue(t.Condition)
 	}

@@ -5,7 +5,7 @@ say about where the remaining cost is. Figures below were taken on an
 `Intel Xeon Platinum 8559C`, Go 1.25, `GOMAXPROCS=8`; treat them as
 ratios rather than absolutes. Each release is measured against the one before it
 in a record under `docs/project/`; the latest is
-[release 0.8.0 against release 0.7.0](../project/performance-release-0.8-vs-0.7.0.md).
+[release 0.9.1 against release 0.9.0](../project/performance-release-0.9.1-vs-0.9.0.md).
 How far one realistic model scales — a satellite constellation with every
 spacecraft modeled to its components, from 2 to 12 800 satellites — and where
 validation, satisfaction checking and editing each stop being practical is in
@@ -106,9 +106,9 @@ sysml -validate -memstats $(find apollo-11-sysml-v2 -name '*.sysml')
 | what | wall | allocated |
 | ---- | ---- | --------- |
 | parse all 28 files | **8.2 ms** | 4.9 MiB in 31 000 allocations |
-| `sysml -validate`: load the standard library, resolve, validate, report | **0.43 s** | 196 MiB in 1.39 million allocations, about 157 MiB taken from the OS |
+| `sysml -validate`: load the standard library, resolve, validate, report | **0.27 s** | 175 MiB in 1.11 million allocations, about 132 MiB taken from the OS |
 
-Parsing is about 2% of the whole run — 880 lines a millisecond, 42 MB/s —
+Parsing is about 3% of the whole run — 880 lines a millisecond, 42 MB/s —
 so the cost of loading a model is name resolution and validation, and that is
 where the work described in the rest of this page goes. The largest single share
 of the remainder is the lookups made through the model's wildcard imports of the
@@ -117,18 +117,26 @@ answered by name (below).
 
 ### What it reports
 
-The run reports **4 warnings and no error**, and every one of them is a finding
-about the model. Three of the warnings are calculation invocations that leave an
-input the calculation declares unbound, so the call cannot be evaluated — well-formed
-SysML v2 the reference validator also accepts, hence advisories rather than errors — all
-in `Analysis/CalculationsPackage.sysml`:
+The run reports **2 warnings and no error**, and both are findings about the
+model, in `Analysis/CalculationsPackage.sysml`. The first is a calculation
+invocation that leaves an input the calculation declares `[1]` unbound, so the
+call cannot be evaluated — well-formed SysML v2 the reference validator also
+accepts, hence an advisory rather than an error:
 
 | Line | Expression as published | Finding |
 |---|---|---|
 | 111 | `return deltaV :> ISQ::speed = isp * g0 * ln(m0 / mf);` | `ln` is the alias of `CoSMAQuantitiesAndUnitsPackage::naturalLogarithm`, declared `calc <ln> naturalLogarithm { in x: DataValue[1]; in y: DataValue[1]; return : DataValue[1]; }` — two inputs, one argument. A natural logarithm takes one argument; the second `in` is the slip |
-| 124 and 135 | `return deltaV :> ISQ::speed = calculateDeltaV(isp, initialMass, finalMass);` | `calculateDeltaV` declares `in isp`, `in g0`, `in m0`, `in mf` — four inputs, three arguments, so `g0` (standard gravity) is never supplied; bound by position, it is the last input, `mf`, that the warning names |
 
-The fourth is dimensional: `calculateLoiDeltaV` declares the Moon's gravitational parameter
+The model's `calculateDeltaV(isp, initialMass, finalMass)` at lines 124 and
+135 passes three arguments to a calculation with four inputs (`in isp`, `in g0`,
+`in m0`, `in mf`), so `g0` (standard gravity) is never supplied — but those
+inputs are written without a multiplicity, and a parameter with none takes its
+§7.6.3 effective multiplicity of `[0..*]`, which admits no value. Nothing is
+left unbound that the declaration requires, so the check has nothing to say
+there; running the calculation is what surfaces the omission (the
+[runtime showcase](../../examples/runtime-showcase/README.md#apollo-11) does).
+
+The second is dimensional: `calculateLoiDeltaV` declares the Moon's gravitational parameter
 `in mu_Moon :> ISQ::force`, so `v_inf^2 + 2*mu_Moon/r_periapsis` adds a
 velocity squared (L²·T⁻²) to a force over a length (M·T⁻²). A gravitational
 parameter is L³·T⁻².
@@ -175,6 +183,50 @@ which report nothing:
 
 Both time and memory grow linearly with the model. Loading was quadratic once —
 doubling the model roughly quadrupled the time — for the reasons below.
+
+Because the cost is per declared element, the largest lever a model has is to
+declare less: one definition with a multiplicity rather than a definition per
+unit. The satellite-network generator writes its constellation both ways
+(`tools/cmd/stress-model -fleet`), and on the machine named above — 8 CPUs, 31 GiB,
+no swap — `sysml -validate -memstats` of the 12 800-satellite constellation
+costs:
+
+| form | elements | source | wall | allocated | peak RSS |
+| ---- | -------- | ------ | ---- | --------- | -------- |
+| one `part def` per satellite, 32 planes of 400 | 2 354 827 | 145 MB | 331 s | 49.8 GiB | 20.3 GB |
+| four blocks, `part sats : Block[400]` in 32 planes | 12 467 | 771 KB | 0.70 s | 289 MiB | 184 MB |
+
+The runtime then pays for the occurrences when something asks for them. Each
+occurrence is an object with a value slot per effective feature, but a `=`
+default derived from nothing but declared values is derived once per shape
+— type, classifiers and holding feature — and taken from a `Context` side
+table by every other pristine occurrence of the shape, without materializing
+the subtree the derivation walked; within one report, a check over
+occurrences of one shape is evaluated once per distinct set of inputs and
+its verdict fanned out (`internal/exec/runtime/shared_default.go`,
+`shared_verdict.go`; `OPENSYSML_SHARED_DEFAULTS=0` turns it off, and a
+context recording a trace shares nothing, so the trace lists every
+evaluation). Measured on
+the same machine, before and after that sharing, one run each with
+`-memstats` and `/usr/bin/time`:
+
+| satellites | operation | before wall | allocated | peak RSS | after wall | allocated | peak RSS |
+| ---------- | --------- | ----------- | --------- | -------- | ---------- | --------- | -------- |
+| 1 600 | `-instantiate` the network | 0.44 s | 238.4 MiB | 195 MB | 0.45 s | 238.5 MiB | 195 MB |
+| 1 600 | `-satisfy`, 324 assertions | 0.71 s | 666.0 MiB | 306 MB | 0.60 s | 381.6 MiB | 272 MB |
+| 1 600 | read `dryMass` over every occurrence | 1.85 s | 2.9 GiB | 737 MB | 0.58 s | 306.3 MiB | 252 MB |
+| 12 800 | `-instantiate` the network | 2.06 s | 1.1 GiB | 801 MB | 1.97 s | 1.1 GiB | 763 MB |
+| 12 800 | `-satisfy`, 2 412 assertions | 8.84 s | 23.4 GiB | 1.49 GB | 4.59 s | 7.2 GiB | 1.32 GB |
+| 12 800 | read `dryMass` over every occurrence | 42.7 s | 141.3 GiB | 5.2 GB | 3.85 s | 2.7 GiB | 1.24 GB |
+
+The reports and values are identical before and after. What remains of the
+checking cost is per diverging unit — every assertion of this workload names
+one, which states its own as-built masses — whose subsystems are
+materialized and whose behaviors then run to the end of the report. Both
+forms, their element counts and what the runtime does with 12 800
+occurrences are in the
+[stress-test record](../project/satellite-network-stress-test.md) and the
+guide chapter on [modeling fleets](../guide/modeling-fleets.md).
 
 ### What made it quadratic
 
@@ -310,6 +362,109 @@ so the win is collector pressure rather than bytes:
 
 Diagnostics and exit status were verified byte-identical against the previous
 binary over the same models.
+
+### What a batch of files costs
+
+`sysml -validate a.sysml b.sysml …`, `-satisfy` and `%load` open the files as
+one batch of workspace documents (`model.(*Workspace).OpenAll`): the files are
+parsed and their scope trees built on a pool of workers, installed in the
+shared index one after another, wildcard imports are expanded once for the
+batch, and the documents are analyzed on the pool
+(`model.(*Workspace).DiagnosticsAll`), each in a `passes.Context` of its own
+with a private resolver and semantic model, over an index nothing writes while
+the pool runs. What resolving a document would otherwise link into the scope
+tree on first use — the owner of a metadata body — is linked for every document
+of the batch before the pool starts (`passes.PrepareBatch`), so the workers
+only read it. The batch carries a `passes.Gathers` of its own
+(`passes.Batch.Gathers`): the first context that runs a workspace-wide audit
+gathers every document's facts into it, under its lock, and every context reads
+the same union afterwards, so the audits gather each document once per batch
+rather than once per analysis. A private resolver records no dependencies, so
+the diagnostics a batch computes are cached with none — dropped on any change
+to the workspace (`Workspace.batched`) rather than per dependency — and what
+its contexts gather never enters the workspace's own `passes.Gathers`, whose
+entries are invalidated per document as the editor path's resolver reports.
+The batch does settle the regathers an edit left pending before it consults
+the diagnostics cache, so a verdict the editor path cached is not served once a
+change to another document has undone it. Diagnostics come back in the order the
+files were given and are the same at any job count; `-jobs` and
+`OPENSYSML_JOBS`, the setting that bounds how many runs of one check go
+concurrently, set the pool, default one worker per CPU. The earlier cost of
+indexing files one at a time — re-expanding wildcard imports over every
+document loaded so far, quadratic in the file count — is gone with it.
+
+Measured on the satellite constellation split one file per orbital plane
+(`stress-model -split-planes`; `Intel Xeon Platinum 8559C`, 8 CPUs, 31 GiB,
+Go 1.25.0, one run each, `/usr/bin/time -v`):
+
+| model | files | jobs | wall | CPU | peak RSS |
+| ----- | ----- | ---- | ---- | --- | -------- |
+| 1 600 satellites, one file | 1 | — | 20.3 s | 133% | 2.38 GB |
+| 1 600 satellites, split | 34 | 1 | 22.0 s | 129% | 2.27 GB |
+| | | 2 | 14.3 s | 213% | 2.12 GB |
+| | | 4 | 10.7 s | 288% | 2.23 GB |
+| | | 8 | 9.24 s | 365% | 2.63 GB |
+| 200 satellites, split | 10 | 1 | 2.63 s | 129% | 358 MB |
+| | | 8 | 1.19 s | 341% | 507 MB |
+
+The split costs a little over the single file's time on one job and 2.2× less
+on eight, within a tenth of the single file's peak RSS. What bounds the pool
+is the gather: in the eight-job CPU profile (9.57 s wall, 34.2 s of samples)
+the three audits' gather is 4.5 s — the OOSEM union 3.6 s, identity 0.52 s,
+MOSA 0.37 s — run by one context over all 34 documents while the other
+workers wait at the lock; the scan of the files for the root namespaces they
+import from their siblings (`project.Dependencies`, 0.87 s) and installing the
+scope trees and expanding wildcard imports before the pool (`commitBatch`,
+1.0 s) are serial too; the rest — name resolution 9.0 s, the inherited-name
+conflict pass 4.0 s, type checking 1.2 s, the collector 5.6 s — is spread over
+the workers. Gathering on the pool as well, each worker gathering its own
+document's facts into the union before analysis starts, is the step left to
+the ~5 s the scaling design sets for this run
+([scaling to very large models](../project/large-model-scaling-design.md)).
+Before the audits gathered once per batch, each of the 34 analyses gathered
+all 34 documents afresh in its own model: 129 s on one job, 30.9 s on eight
+at 7.24 GB peak RSS, 118 s of a 128 s serial analysis in the three passes.
+`BenchmarkAnalyzeSplitPerDocument` in `tests/stressmodel` measures the
+pool's own speedup with the three audits left out, over the split's six files
+at 512 satellites: 3.91 s → 1.09 s, one job against eight, the largest file
+bounding it. The whole load of the same split, audits included, is
+`BenchmarkValidateSplit`: 6.30 s → 2.14 s.
+
+Parallelism does not reduce what a load allocates — the 34-file run allocates
+7.6 GiB and 108 million objects at any job count, against the single file's
+6.1 GiB and 97 million — and the collector marking eight workers' garbage at
+once is where the pool loses efficiency beyond the gather
+(`runtime.gcBgMarkWorker` 16.2% and `runtime.scanobject` 17.0% of the
+eight-job samples; user time 27.6 s → 32.4 s). The allocation sites the
+pool does not help, from the heap profile of an earlier build's single-file 1 600-satellite
+run (62 million sampled objects and 4.3 GiB, of a run that counts 85.5 million
+allocations and 5.4 GiB), by objects allocated:
+
+| share of objects | site | what allocates |
+| ---------------- | ---- | -------------- |
+| 12.8% | `passes.(*w9cConflictChecker).specializes` | a slice per conformance question of the inherited-name conflict pass |
+| 12.6% | `passes.contributionsOf` | the per-base member list the same pass compares |
+| 9.8% | `symbols.FQNOf` (via `strings.Builder`) | a fully-qualified name built as a string, 78% of it from `symbols.(*Index).GetFQN`, 18% from the conflict pass |
+| 7.3% | `resolve.(*Resolver).specializationChain` | a slice per walk of a type's generalizations |
+| 3.5% | `semantics.(*Model).AllSupertypes` | a slice per supertype closure |
+| 2.6% | `parser.(*Parser).parseQualifiedNameRelaxed` | a qualified-name node per reference |
+| 1.9% | `parser.(*Parser).parseBase` | a node per specialization clause |
+
+By bytes the parser leads — `parseUsage` and what it calls are 25% of the 5.4
+GiB, `parseQualifiedNameRelaxed` alone 5% — with `contributionsOf` (6.6%),
+`specializes` (4.9%) and `FQNOf` (4.4%) behind it. Each of these is one
+allocation per token, per name or per lookup where one per file, or none, would
+serve — the snapshot decoder's node table, allocated as one block, is the
+model — and each is to be measured on its own before it is changed.
+
+One parse per load is spent twice: the REPL parses each file to accept it (the
+names it declares, whether it closes its own text) and the workspace parses the
+same bytes again as the document. The 34 files of the split (17 MB) parse in
+1.8 s serially (`repl.preparse` in the one-job profile), so the second parse
+is ~1.8 s of the one-job 22.0 s and ~0.3 s of the eight-job wall, where it runs
+on the pool. Carrying the accepted tree into the workspace
+batch would recover it; it is a change to what `model.Input` owns and is left
+to be measured on its own.
 
 ## What a process pays before the model
 
@@ -456,12 +611,148 @@ constellation, one file, three runs each:
 
 At 1 600 satellites: 17.7 s and 5.5 GiB allocated became 20.5 s and 5.8 GiB.
 The cost falls on whatever analyzes through the workspace's own context: the
-LSP server, a REPL session, and `sysml -validate`, which loads through a REPL
-session. A batch that analyzes each document in a private `passes.Context` —
-its own resolver and model over the read-only index, as a pool of workers
-must — has no frames to record into and pays none of it; the workspace's
-gathered facts are what such a batch should hand its workers, so that they do
-not gather per worker what the workspace gathered once.
+LSP server, and a REPL session's typed submissions. `sysml -validate` and
+`%load` analyze each file in a private `passes.Context` — its own resolver and
+model over the read-only index, as a pool of workers must — with the audits'
+facts gathered once for the batch ("What a batch of files costs"), and pay
+none of it.
+
+## What a closed document holds as its interface record
+
+A document nobody is editing can be held as its **interface record** — the
+scopes and symbols other documents can reach through the language with the
+facts their readers need attached, and its diagnostics, with no syntax tree,
+no resolver frame and no analysis memo (`docs/internals/interface-records.md`).
+`BenchmarkPlaneResidency` in `tests/stressmodel` holds the satellite
+constellation split one file per orbital plane twice: every file loaded, and
+the plane files installed from their records with the library and the
+constellation file (which connects every satellite to the ground stations)
+loaded and analyzed against them. It collects and reads `runtime.MemStats`
+after each state. Machine: Intel Xeon Platinum 8559C, 8 cores, 31 GiB,
+go1.25.0 linux/amd64; three runs each, the figures did not move between runs.
+
+```bash
+go test ./tests/stressmodel -run '^$' -bench PlaneResidency -benchtime 1x -count 3
+```
+
+| satellites | planes | all loaded | planes recorded | of which the records | loaded / satellite | record / satellite | record on disk / plane |
+| ---------- | ------ | ---------- | --------------- | -------------------- | ------------------ | ------------------ | ---------------------- |
+| 32 | 4 | 26.5 MiB | 22.9 MiB | 10.1 MiB | 848 KiB | 323 KiB | 409 KiB |
+| 128 | 4 | 64.6 MiB | 49.5 MiB | 17.7 MiB | 517 KiB | 142 KiB | 1 631 KiB |
+| 512 | 4 | 215 MiB | 154 MiB | 39.8 MiB | 430 KiB | 80 KiB | 6 524 KiB |
+| 1 600 | 32 | 697 MiB | 508 MiB | 164 MiB | 446 KiB | 105 KiB | 2 551 KiB |
+
+"Of which the records" is what installing the plane records added to a
+workspace holding the library and the constellation file; the remainder of
+"planes recorded" is the constellation document itself, loaded and analyzed
+— it states a connection per satellite, so it is the largest document of the
+split and grows with the constellation. At 1 600 satellites a satellite held
+as part of a record costs **about 105 KiB** against about 446 KiB loaded,
+4x less; the design's prior of 10–50x is not reached. What the record still
+holds per satellite is its members: a satellite is some forty features, each
+a recorded symbol with its facts, and the record keeps every one because a
+qualified name from another document can name any of them and the diagnostic
+it gets ("not visible" against "does not exist") depends on which it finds.
+About 10 KiB of the 105 is the plane file's text, which a recorded document
+keeps so that its stored diagnostics locate in it.
+The per-satellite record cost falls with the constellation because the four
+records of the small networks carry a fixed cost of about 8 MiB between them
+that 32 satellites do not amortize.
+
+Measured from outside with `/usr/bin/time -v`, one process per state
+(`TestPlaneResidencyProcess`, `OPENSYSML_RESIDENCY=write|loaded|recorded`;
+the recorded process reads the plane records from the cache the write left
+and never parses a plane), 1 600 satellites:
+
+| process | live heap after GC | peak RSS | wall |
+| ------- | ------------------ | -------- | ---- |
+| planes loaded | 733 MiB | 2 608 MiB | 11.1 s |
+| planes recorded, from the cache | 545 MiB | 1 371 MiB | 6.0 s |
+
+The 32 plane records on disk total 80 MiB, 51 KiB per satellite, as gob in
+the library cache's directory; every reference in them names its declaring
+document, and gob repeats that name where the decoded record shares it. What
+the constellation document's own analysis holds is later work.
+
+### Opening from records, and hydrating one
+
+`sysml -validate` writes the record of every file it analyzes to the cache
+under the user's cache directory, and a later run over the same files takes
+the records whose provenance still holds and parses the rest
+(`docs/internals/interface-records.md`, "Hydration and demotion");
+`-no-record-cache` is the command as it was, reading and writing none. The
+constellation of the stress model split one file per orbital plane, at 10 000
+satellites (`stress-model -planes 400 -satellites 25 -split-planes`, 402
+files: the planes, the library and the constellation file) and at 1 600
+satellites (34 files), measured with `/usr/bin/time -v`, one run per row, the
+cache emptied before each cold run; same machine as above (Intel Xeon
+Platinum 8559C, 8 cores, 31 GiB, go1.25.0 linux/amd64):
+
+| model | jobs | record cache | wall | user | peak RSS |
+| ----- | ---- | ------------ | ---- | ---- | -------- |
+| 10 000 satellites, 402 files | 8 | none (`-no-record-cache`) | 86.6 s | 351 s | 17.5 GB |
+| | 8 | cold, writing 402 records | 147.6 s | 450 s | 17.9 GB |
+| | 8 | warm | 36.7 s | 63 s | 10.2 GB |
+| | 8 | warm, again | 33.4 s | 58 s | 10.2 GB |
+| 1 600 satellites, 34 files | 1 | none | 23.4 s | 29.8 s | 2.24 GB |
+| | 1 | cold, writing 34 records | 37.4 s | 47.5 s | 2.42 GB |
+| | 1 | warm | 6.3 s | 7.5 s | 1.63 GB |
+| | 8 | none | 9.8 s | 36.3 s | 2.80 GB |
+| | 8 | cold, writing 34 records | 19.2 s | 51.8 s | 3.10 GB |
+| | 8 | warm | 4.1 s | 7.8 s | 1.55 GB |
+
+The cache holds 588 MiB for the 10 000-satellite model and 94 MiB for the
+1 600-satellite one. Without a cache the command costs what it did before
+records were written: the same binary's base, which analyzes but never
+records, validates the 1 600-satellite split in 23.6 s on one job and 9.9 s
+on eight against 23.4 s and 9.8 s here, because a batch records what each
+analysis read only when it has a cache to write to. Writing the records costs
+a validation about as much again as the analysis on eight jobs (9.8 s to
+19.2 s; 86.6 s to 147.6 s at 10 000 satellites): the writer walks every
+recorded symbol's facts, attributes each analysis's reads to the documents
+that answered them and encodes the record. A warm run parses nothing and
+re-analyzes nothing, and a validation from records is 2.4x faster than one
+without at eight jobs and 3.7x on one — but it is not yet the time to read
+the records: 33 s at 10 000 satellites, 4.1 s at 1 600, and mostly serial
+(6.3 s on one job against 4.1 s on eight). A CPU profile of the warm open of
+the 512-satellite split (`BenchmarkOpenSplit`, below) puts about two thirds
+of it in checking the records' provenance, nearly all of that in the OOSEM,
+MOSA and identity audits' gathers, which the check runs over the recorded
+workspace to confirm that the same documents contribute to the shared audit
+state the analyses read; the rest is installing the recorded scope trees and
+expanding wildcard imports. Peak RSS of the warm run is 58% of the cold
+one's at 10 000 satellites, where every plane is held as its record and only
+the constellation file, which the records' provenance does not cover for the
+connections it states, is parsed and analyzed.
+
+`BenchmarkOpenSplit` in `tests/stressmodel` opens the split network as a
+workspace and asks for every file's diagnostics, cold — no record cache, every
+file parsed and analyzed — and warm, from a cache holding every file's record;
+`BenchmarkHydratePlane`, beside `BenchmarkEditBeside`, holds the split network
+as records and measures hydrating one plane file — parsing it, replacing its
+record symbols with tree-backed ones and invalidating what read it — and
+answering the constellation file's diagnostics again over the hydrated plane.
+Medians of three runs, `-benchtime 1x -count 3`, same machine:
+
+```bash
+go test ./tests/stressmodel -run '^$' -bench 'OpenSplit|HydratePlane|EditBeside' -benchtime 1x -count 3
+```
+
+| satellites | files | open, cold | allocated | open, warm | allocated | hydrate one plane | allocated | edit a small file beside |
+| ---------- | ----- | ---------- | --------- | ---------- | --------- | ----------------- | --------- | ------------------------ |
+| 32 | 6 | 195 ms | 150 MiB | 106 ms | 65 MiB | 136 ms | 26 MiB | 1.2 ms |
+| 128 | 6 | 524 ms | 467 MiB | 197 ms | 166 MiB | 255 ms | 76 MiB | 3.7 ms |
+| 512 | 6 | 2.08 s | 1.70 GiB | 762 ms | 610 MiB | 1.03 s | 286 MiB | 13.5 ms |
+
+Opening warm costs 37% of opening cold at 512 satellites and allocates 35% as
+much. Hydrating one of the four planes costs half a cold open of all six files
+at 512 satellites: the plane is parsed and indexed, and the constellation
+file, which states a connection to every satellite and so read every plane,
+is analyzed again; the small file beside the constellation in
+`BenchmarkEditBeside` is what an edit costs when what it invalidates is
+small. The hydration itself — the tree-backed scopes replacing the recorded
+ones and the dependents' entries dropped through `Index.TakeChanges` and
+`Resolver.Invalidate` — is the same path an edit of the plane takes.
 
 ## Notes for further work
 
@@ -470,17 +761,6 @@ not gather per worker what the workspace gathered once.
   immutable once its index is built, so whether it declares any `about` usages
   — and which — is computable once at library-index build time; a session
   would then walk only workspace documents.
-- Validating many files in one `sysml -validate` invocation is quadratic in
-  the file count: the CLI submits files one at a time and every submission
-  reindexes the workspace, re-running wildcard-import expansion over every
-  document loaded so far. The 100-file OMG training corpus costs 6.7 s as one
-  batch where its two halves cost 0.6 s and 3.4 s separately, and a CPU
-  profile of the batch spends 52% under `model.(*Workspace).setOpenBuffer` →
-  `reindexLocked` with `symbols.(*Index).ExpandWildcardImports` the largest
-  component. Submitting a batch as one indexing unit, or expanding wildcard
-  imports incrementally for documents a new submission cannot affect, would
-  make a batch cost what its parts cost.
-
 - Runs over a large model spend their time in collection, not in the executor
   (above). Reducing what a load leaves behind is the lever, since the live model
   is what each cycle scans.

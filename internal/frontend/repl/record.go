@@ -123,6 +123,9 @@ func (s *Session) recordAnalysisInv(inv analysisInvocation, into, command string
 		Verifications: run.verdicts,
 		Spell:         s.recordSpelling(contexts),
 	}
+	if run.plan != nil {
+		rec.Tools = run.plan.ToolTexts()
+	}
 	res, rerr := s.recordRuns(fqn, kind, into, command, []record.Run{rec})
 	return s.recorded(verdict, res, rerr, 0, nil)
 }
@@ -173,7 +176,7 @@ func (s *Session) recordSweepInv(inv analysisInvocation, specs []sweepSpec, into
 		// Each row's values spell in its own context: instance ids restart per
 		// row, so a value means nothing read through another row's.
 		own := map[*runtime.Context]bool{row.Context: true}
-		runs = append(runs, record.Run{
+		rec := record.Run{
 			Iteration:   i + 1,
 			Subject:     s.recordSubject(row.Subject, inv.object, own),
 			Inputs:      row.Inputs,
@@ -181,7 +184,11 @@ func (s *Session) recordSweepInv(inv analysisInvocation, specs []sweepSpec, into
 			Verdicts:    row.Verdicts,
 			Evaluations: row.Evaluations,
 			Spell:       s.recordSpelling(own),
-		})
+		}
+		if plan != nil {
+			rec.Tools = plan.ToolTextsIn(row.Context)
+		}
+		runs = append(runs, rec)
 	}
 	if len(runs) == 0 {
 		return s.recorded(verdict, record.Result{}, nil, skipped, []string{"nothing recorded: every row failed"})
@@ -227,14 +234,20 @@ func (s *Session) recordMonteCarloInv(inv analysisInvocation, count int64, seed 
 			continue
 		}
 		own := map[*runtime.Context]bool{run.Context(): true}
-		runs = append(runs, record.Run{
+		rec := record.Run{
 			Iteration: int(run.Number),
 			Subject:   s.recordSubject(run.Subject, inv.object, own),
 			Inputs:    run.Inputs,
 			Outputs:   run.Outputs,
 			Verdicts:  run.Verdicts,
 			Spell:     s.recordSpelling(own),
-		})
+		}
+		if answered != nil {
+			// The conclusion's calls ran in the last row's context: toolMark bounds
+			// each row's own.
+			rec.Tools = answered.ToolTextsInBefore(run.Context(), sample.toolMark)
+		}
+		runs = append(runs, rec)
 	}
 	// The sample's own record carries what the run rows cannot: the statistics,
 	// the result and the sample's checks of the case's conclusion.
@@ -244,7 +257,7 @@ func (s *Session) recordMonteCarloInv(inv analysisInvocation, count int64, seed 
 	case len(sample.completed) > 0:
 		last := sample.last()
 		own := map[*runtime.Context]bool{last.Context(): true}
-		runs = append(runs, record.Run{
+		rec := record.Run{
 			Kind:        record.KindSample,
 			Subject:     s.recordSubject(last.Subject, inv.object, own),
 			Inputs:      last.Inputs,
@@ -252,7 +265,11 @@ func (s *Session) recordMonteCarloInv(inv analysisInvocation, count int64, seed 
 			Verdicts:    concluded.Verdicts,
 			Evaluations: concluded.Evaluations,
 			Spell:       s.recordSpelling(own),
-		})
+		}
+		if answered != nil {
+			rec.Tools = answered.ToolTexts()
+		}
+		runs = append(runs, rec)
 	}
 	skipped += len(sample.table.Rows) - len(sample.completed)
 	if len(runs) == 0 {
@@ -395,26 +412,48 @@ func (s *Session) recordExisting(caseSym *symbols.Symbol, fqn, pkg string) (reco
 	if caseSym != nil {
 		short = caseSym.Name
 	}
-	// Candidate stems: the case's name, then each owner up the chain prefixed.
-	stems := []string{short}
-	if caseSym != nil {
-		var owners []string
-		for cur := caseSym.Owner(); cur != nil && cur.Name != ""; cur = cur.Owner() {
-			owners = append([]string{cur.Name}, owners...)
-			stems = append(stems, strings.Join(append(append([]string{}, owners...), short), "_"))
-		}
+	stems := recordStems(caseSym, short)
+	if err := s.recordDefinition(idx, &existing, stems, fqn, pkg); err != nil {
+		return existing, err
 	}
+	stem := existing.Stem
+	if stem == "" {
+		stem = short
+	}
+	existing.Taken = takenRecordNumbers(idx, pkg, stem)
+	return existing, nil
+}
+
+// recordStems lists the stems a case's records may be named from: the case's
+// name, then each owner up the chain prefixed.
+func recordStems(caseSym *symbols.Symbol, short string) []string {
+	stems := []string{short}
+	if caseSym == nil {
+		return stems
+	}
+	var owners []string
+	for cur := caseSym.Owner(); cur != nil && cur.Name != ""; cur = cur.Owner() {
+		owners = append([]string{cur.Name}, owners...)
+		stems = append(stems, strings.Join(append(append([]string{}, owners...), short), "_"))
+	}
+	return stems
+}
+
+// recordDefinition settles which stem the records take: the first whose
+// definition the package lacks, or whose definition is unowned or this case's
+// own, which is reused. A definition of another case's blocks the last stem.
+func (s *Session) recordDefinition(idx *symbols.Index, existing *record.Existing, stems []string, fqn, pkg string) error {
 	var sem *semantics.Model
 	for _, stem := range stems {
 		def := pkg + "::" + upperFirst(stem) + "Run"
 		defSyms := idx.LookupQualified(def)
 		if len(defSyms) == 0 {
 			existing.Stem = stem
-			break
+			return nil
 		}
 		runSyms := idx.LookupQualified("AnalysisRecords::AnalysisRun")
 		if len(runSyms) == 0 {
-			return existing, fmt.Errorf("the AnalysisRecords library is not loaded")
+			return fmt.Errorf("the AnalysisRecords library is not loaded")
 		}
 		if sem == nil {
 			resolver := resolve.New(idx)
@@ -422,45 +461,42 @@ func (s *Session) recordExisting(caseSym *symbols.Symbol, fqn, pkg string) (reco
 			resolver.SetModel(sem)
 		}
 		if !specializesOne(sem, defSyms[0], runSyms[0]) {
-			return existing, fmt.Errorf("%s is not an analysis record definition", def)
+			return fmt.Errorf("%s is not an analysis record definition", def)
 		}
 		owner := recordDefOwner(defSyms[0])
-		switch {
-		case owner == "" || owner == fqn:
-			// Unowned or this case's own: reused.
+		if owner == "" || owner == fqn {
 			existing.Definition = true
 			existing.Attributes = recordAttributes(idx, sem, defSyms[0])
 			existing.Stem = stem
-		default:
-			if stem == stems[len(stems)-1] {
-				return existing, fmt.Errorf("record definition %s belongs to %s; record into another package with `into`", def, owner)
-			}
+			return nil
 		}
-		if existing.Stem != "" {
-			break
+		if stem == stems[len(stems)-1] {
+			return fmt.Errorf("record definition %s belongs to %s; record into another package with `into`", def, owner)
 		}
 	}
-	stem := existing.Stem
-	if stem == "" {
-		stem = short
-	}
-	existing.Taken = map[int]bool{}
+	return nil
+}
+
+// takenRecordNumbers lists the numbers of the records named from stem the
+// package already holds.
+func takenRecordNumbers(idx *symbols.Index, pkg, stem string) map[int]bool {
+	taken := map[int]bool{}
+	prefix := stem + "_run"
 	for _, sym := range idx.LookupQualified(pkg) {
 		if sym.Scope == nil {
 			continue
 		}
-		prefix := stem + "_run"
 		for _, m := range sym.Scope.Members() {
 			tail, ok := strings.CutPrefix(m.Name, prefix)
 			if !ok {
 				continue
 			}
 			if n, err := strconv.Atoi(tail); err == nil {
-				existing.Taken[n] = true
+				taken[n] = true
 			}
 		}
 	}
-	return existing, nil
+	return taken
 }
 
 // recordDefOwner is the case a record definition's caseName marks it for,
@@ -512,6 +548,8 @@ func recordAttributes(idx *symbols.Index, sem *semantics.Model, def *symbols.Sym
 		if types := sem.DeclaredFeatureTypes(m); len(types) > 0 {
 			f.TypeFQN = idx.GetFQN(types[0])
 		}
+		f.Multi = !sem.GoverningMultiplicityOf(m).AtMostOne()
+		f.Unique = sem.IsUnique(m)
 		attrs[m.Name] = f
 	}
 	return attrs

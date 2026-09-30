@@ -21,6 +21,8 @@ type Data struct {
 	Rows    []RowData
 	// Canvas is the drawing surface the view states, nil for none.
 	Canvas *Canvas
+	// Notes are the note boxes drawn on the canvas, anchored to a node ID or free.
+	Notes []Note
 	// Notices are what the rendering could not represent.
 	Notices []string
 }
@@ -34,22 +36,39 @@ type NodeData struct {
 	NameSynthesized bool
 	Type            string
 	Detail          string
+	// Text heads a node whose name is not shown, in place of its kind: a value
+	// specification's literal, an accept's event, a send's message.
+	Text string
+	// StandIn marks a node a migration made up that stands for no element of its
+	// source, which a positioned drawing may elide.
+	StandIn bool
+	// Ports are the pins drawn on the node's border, which an edge may end at.
+	Ports []Port
 	// Parent is the ID of the node this one is nested in, "" for a root.
 	Parent string
 	Origin Origin
 	// Geometry is where the node is drawn, nil when no Layout positions it.
 	Geometry *Geometry
+	// Style is how the node is drawn, nil when no Style colours it.
+	Style *Style
 }
 
 // EdgeData is one edge of a rendering, joining two node IDs.
 type EdgeData struct {
-	From   string
-	To     string
-	Label  string
+	From string
+	To   string
+	// FromPort and ToPort are the ports the edge ends at, "" for the node itself.
+	FromPort string
+	ToPort   string
+	Label    string
+	// Name is the edge's own name, "" for one anonymous or named by a migration.
+	Name   string
 	Kind   EdgeKind
 	Origin Origin
 	// Route is the waypoints the edge follows, empty when no Route gives any.
 	Route []Point
+	// Style is how the edge is drawn, nil when no Style colours it.
+	Style *Style
 }
 
 // RowData is one row of a tabular rendering: its cells, one per column, and
@@ -67,13 +86,15 @@ func (r *Rendering) Data() Data {
 		Stated:  r.Stated,
 		Columns: r.Columns,
 		Canvas:  r.Canvas,
+		Notes:   r.Notes,
 		Notices: r.Notices,
 	}
 	for _, root := range r.Roots {
 		out.Nodes = appendNodeData(out.Nodes, root, "")
 	}
 	for _, edge := range r.Edges {
-		out.Edges = append(out.Edges, EdgeData(edge))
+		out.Edges = append(out.Edges, EdgeData{From: edge.From, To: edge.To, FromPort: edge.FromPort, ToPort: edge.ToPort,
+			Label: edge.Label, Name: edge.Name, Kind: edge.Kind, Origin: edge.Origin, Route: edge.Route, Style: edge.Style})
 	}
 	for i, cells := range r.Rows {
 		var origin Origin
@@ -92,7 +113,7 @@ func appendNodeData(out []NodeData, node *Node, parent string) []NodeData {
 	}
 	out = append(out, NodeData{
 		ID: node.ID, Kind: node.Kind, Name: node.Name, NameSynthesized: node.NameSynthesized, Type: node.Type, Detail: node.Detail,
-		Parent: parent, Origin: node.Origin, Geometry: node.Geometry,
+		Text: node.Text, StandIn: node.StandIn, Ports: node.Ports, Parent: parent, Origin: node.Origin, Geometry: node.Geometry, Style: node.Style,
 	})
 	for _, child := range node.Children {
 		out = appendNodeData(out, child, node.ID)

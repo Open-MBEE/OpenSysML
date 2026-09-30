@@ -544,7 +544,7 @@ func TestLookupDirectChildrenFromSharesVisibilityCache(t *testing.T) {
 
 	idx.LookupDirectChildrenFrom("Mid", "Other")
 	idx.LookupDirectChildrenFrom("Mid", "Another")
-	if got := len(idx.directChildrenCache); got != 1 {
+	if got := len(idx.members.children); got != 1 {
 		t.Fatalf("direct-children cache has %d entries for equivalent visibility lookups, want 1", got)
 	}
 }
@@ -638,8 +638,8 @@ func TestLookupDirectChildrenCachesIdenticalLookup(t *testing.T) {
 
 	first := idx.LookupDirectChildren("P")
 	second := idx.LookupDirectChildren("P")
-	if len(idx.directChildrenCache) != 1 {
-		t.Fatalf("direct-children cache has %d entries, want 1", len(idx.directChildrenCache))
+	if len(idx.members.children) != 1 {
+		t.Fatalf("direct-children cache has %d entries, want 1", len(idx.members.children))
 	}
 	if len(first) == 0 || &first[0] != &second[0] {
 		t.Fatal("identical direct-children lookup did not return the cached slice")

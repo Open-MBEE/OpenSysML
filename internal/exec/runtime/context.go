@@ -90,6 +90,9 @@ type Context struct {
 	metadataObjects map[metadataAnnotation]int64
 	// tools runs the external tool a ToolExecution names; nil refuses every such action.
 	tools ToolRunner
+	// forwardNotes echoes each note to the context this one was seeded from
+	// (see DeclaredReader); nil keeps notes here alone.
+	forwardNotes func(RunNote)
 
 	// variantObjects holds the object a variant stands for per owner that
 	// selected it, so repeated reads of one selection read the same object.
@@ -113,6 +116,12 @@ type Context struct {
 	// by the outermost materialization so a start reached from inside a running
 	// behavior does not run it recursively.
 	pendingBehaviors []*ObjectBehavior
+
+	// attachingBehaviors are the members whose behaviors are attaching — bound,
+	// materialized and initializing — but not yet recorded on the object: an
+	// initialization that classifies the object (a bound feature typing it)
+	// re-scans its types and must not attach the same member again.
+	attachingBehaviors map[*Instance]map[*symbols.Symbol]bool
 
 	// behaviorRunDepth is the number of classifier-behavior starts under way.
 	behaviorRunDepth int
@@ -196,6 +205,21 @@ type Context struct {
 	// deriving are the `=` values being derived, innermost last; every feature
 	// value read while one is records it as a dependent (see dependents.go).
 	deriving []derivation
+	// tracing observes the derivations under way, innermost last, for the reads
+	// that decide whether each is one every occurrence of its shape shares.
+	tracing []derivationTrace
+	// shareDefaults turns on the sharing of derived defaults between occurrences of
+	// one shape; sharedDefaults holds them, shapes interns the shapes they are
+	// keyed by, and sharedTaken counts the values taken from it (shared_default.go).
+	shareDefaults  bool
+	sharedDefaults map[sharedKey]*sharedDefault
+	shapes         map[shapeNode]*shapeNode
+	sharedTaken    int64
+	// verdicts is the span sharing verdicts between objects of one shape; nil outside one.
+	verdicts *verdictMemo
+	// behaviorsAttached counts the object behaviors attached so far, so a
+	// derivation knows whether one was attached under it.
+	behaviorsAttached int64
 	// runBoundaries mark, innermost last, where in objectBehaviors and in
 	// pendingBehaviors the behaviors a change still to be kept or undone attached
 	// begin: the only ones a drain under it may run (see nextRunnableBehavior).
@@ -333,6 +357,10 @@ func NewContext(model *Model, maxSteps int64) *Context {
 		bindingOwners:           make(map[featureValueRef]*ast.Usage),
 		collectingSubsets:       make(map[featureValueRef]bool),
 		readingSubsetted:        make(map[featureValueRef]bool),
+
+		shareDefaults:  SharedDefaultsFromEnv(),
+		sharedDefaults: make(map[sharedKey]*sharedDefault),
+		shapes:         make(map[shapeNode]*shapeNode),
 	}
 	ctx.took = &idMark{high: 1}
 	ctx.ids = newIDSequence(ctx.took)
@@ -1123,11 +1151,13 @@ func (ctx *Context) CheckConstraintOn(sym *symbols.Symbol, scope *symbols.Scope,
 	if err := RequireConstraint(sym); err != nil {
 		return CheckResult{Subject: self}, err
 	}
-	subject, err := ctx.checkSubject("constraint", sym.Name, sym, self)
-	if err != nil {
-		return CheckResult{}, err
-	}
+	return ctx.checkOn(sym, "constraint", sym.Name, sym, self, func(subject carrier) (CheckResult, error) {
+		return ctx.checkConstraintOn(sym, scope, subject)
+	})
+}
 
+// checkConstraintOn is CheckConstraintOn evaluated on the object it resolved to.
+func (ctx *Context) checkConstraintOn(sym *symbols.Symbol, scope *symbols.Scope, subject carrier) (CheckResult, error) {
 	// Evaluate every condition the constraint states, inherited ones included.
 	conds := ctx.conditionsOf(sym, ctx.chainMembers(sym, scope))
 	holds, err := ctx.evaluateConditions(conditionCheck{
@@ -1427,11 +1457,13 @@ func (ctx *Context) CheckRequirementOn(sym *symbols.Symbol, scope *symbols.Scope
 	if err := RequireRequirement(sym); err != nil {
 		return CheckResult{Subject: self}, err
 	}
-	subject, err := ctx.checkSubject("requirement", sym.Name, sym, self)
-	if err != nil {
-		return CheckResult{}, err
-	}
+	return ctx.checkOn(sym, "requirement", sym.Name, sym, self, func(subject carrier) (CheckResult, error) {
+		return ctx.checkRequirementOn(sym, scope, subject)
+	})
+}
 
+// checkRequirementOn is CheckRequirementOn evaluated on the object it resolved to.
+func (ctx *Context) checkRequirementOn(sym *symbols.Symbol, scope *symbols.Scope, subject carrier) (CheckResult, error) {
 	// Requirement-local bindings are shared by every member, whichever scope it
 	// was declared in.
 	members := ctx.chainMembers(sym, scope)
@@ -1530,11 +1562,21 @@ func (ctx *Context) ActionOutcomePerformedBy(action *symbols.Symbol, self *Insta
 	return (&Invocation{Actions: []*ActionExecutor{exec}}).Outcome(), nil
 }
 
+// ExecuteActionReportingPerformer runs an action as ExecuteActionPerformedBy does and
+// also reports its performer's attributes, keyed as ActionOutcomePerformedBy keys them.
+func (ctx *Context) ExecuteActionReportingPerformer(action *symbols.Symbol, self *Instance, inputs map[string]Value) (outputs, performer map[string]Value, err error) {
+	exec, err := ctx.performAction(action, self, inputs)
+	if err != nil {
+		return nil, nil, err
+	}
+	return exec.Results(), (&Invocation{Actions: []*ActionExecutor{exec}}).PerformerAttributes(), nil
+}
+
 // performAction runs action to completion, performed by self, and returns the
 // executor that ran it, whose root performance holds what it produced. An object
 // performing the action runs the performance it already runs rather than a second.
 func (ctx *Context) performAction(action *symbols.Symbol, self *Instance, inputs map[string]Value) (*ActionExecutor, error) {
-	exec, err := performanceOf(action, self, inputs)
+	exec, err := ctx.performanceOf(action, self, inputs)
 	if err != nil {
 		return nil, err
 	}
@@ -1732,8 +1774,12 @@ var ErrAmbiguousAction = errors.New("ambiguous action")
 var ErrPerformedInputs = errors.New("inputs for a performed action")
 
 // performanceOf is the performance self runs of action's declaration, to run in
-// place of a second; nil when self performs none.
-func performanceOf(action *symbols.Symbol, self *Instance, inputs map[string]Value) (*ActionExecutor, error) {
+// place of a second; nil when self performs none. The `in ref` parameters a
+// usage binds by redefinition (`in ref :>> context = …`) are the declaration's
+// own bindings, not arguments a call supplies, so they do not count against it:
+// an input counts only where it is not a reference equal to the binding the
+// running performance stored for it — self itself where none was stored.
+func (ctx *Context) performanceOf(action *symbols.Symbol, self *Instance, inputs map[string]Value) (*ActionExecutor, error) {
 	if self == nil {
 		return nil, nil
 	}
@@ -1741,7 +1787,26 @@ func performanceOf(action *symbols.Symbol, self *Instance, inputs map[string]Val
 	case 0:
 		return nil, nil
 	case 1:
-		if len(inputs) > 0 {
+		conflicts := 0
+		for name, value := range inputs {
+			implicit := false
+			for _, param := range ctx.actionParametersOf(action) {
+				if param.Name != name || !param.IsReference {
+					continue
+				}
+				root := performed[0].Action.root
+				if bound, held := root.data[root.key(name)]; held {
+					implicit = ctx.valueEqual(bound, value)
+				} else {
+					implicit = value.Kind == ValInstance && value.Instance == self.ID
+				}
+				break
+			}
+			if !implicit {
+				conflicts++
+			}
+		}
+		if conflicts > 0 {
 			return nil, fmt.Errorf("%w: the object performs %s already, with the arguments its declaration binds", ErrPerformedInputs, symbolText(action))
 		}
 		return performed[0].Action, nil

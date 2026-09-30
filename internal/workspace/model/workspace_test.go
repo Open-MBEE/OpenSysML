@@ -193,3 +193,28 @@ func codesOf(diags []diag.Diagnostic) map[string]int {
 	}
 	return out
 }
+
+// An annotation body resolves its values against the metadata definition it
+// names; when the definition's document changes, an unchanged annotating
+// document reports over the definition now indexed, as a fresh workspace does.
+func TestWorkspaceReloadedMetadataDefinitionReownsAnnotationBodies(t *testing.T) {
+	use := []byte("package Use { private import Meta::*; part def C { @M { a = b; } } }")
+	ws := NewWorkspace()
+	ws.Open("meta.sysml", []byte("package Meta { metadata def M { attribute a; attribute b; } }"), 1)
+	ws.Open("use.sysml", use, 1)
+	if diags := ws.Diagnostics("use.sysml"); len(diags) != 0 {
+		t.Fatalf("before the edit: %v", diags)
+	}
+	edited := []byte("package Meta { metadata def M { attribute a; attribute c; } }")
+	ws.Update("meta.sysml", edited, 2)
+	fresh := NewWorkspace()
+	fresh.Open("meta.sysml", edited, 1)
+	fresh.Open("use.sysml", use, 1)
+	want := fresh.Diagnostics("use.sysml")
+	if len(want) == 0 {
+		t.Fatal("a fresh workspace should report b, which M no longer declares")
+	}
+	if got := ws.Diagnostics("use.sysml"); !reflect.DeepEqual(got, want) {
+		t.Errorf("after editing M: %v\nwant, as a fresh workspace reports: %v", got, want)
+	}
+}

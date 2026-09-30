@@ -97,6 +97,37 @@ func nameresDiags(t *testing.T, src string) []diag.Diagnostic {
 	return NameResolutionPass{}.Run(ctx, "a.sysml", root)
 }
 
+// Two owned members of one name are each a name-conflict warning — in the
+// default mode and under strict conformance alike: strict judges the notation
+// the model is written in, and this model's notation is standard (KerML
+// 7.2.2, SysML 7.6.1).
+func TestDuplicateOwnedMemberNamesWarnInEveryConformanceMode(t *testing.T) {
+	const src = `package P {
+		private import ScalarValues::*;
+		part def A { attribute x : Real; }
+		part def A { attribute y : Real; }
+	}`
+	sf := source.New("a.sysml", []byte(src))
+	p := parser.New(sf)
+	root := p.ParseFile()
+	if len(p.Diagnostics) != 0 {
+		t.Fatalf("unexpected parse diagnostics: %+v", p.Diagnostics)
+	}
+	for name, mode := range map[string]diag.ConformanceMode{"default": diag.ConformanceDefault, "strict": diag.ConformanceStrict} {
+		idx := newTestIndexFromDoc("a.sysml", root)
+		ctx := NewContextWithOptions("a.sysml", source.KindSysML, idx, nil, Options{Conformance: mode})
+		got := NameResolutionPass{}.Run(ctx, "a.sysml", root)
+		if len(got) != 2 {
+			t.Fatalf("%s mode: got %+v, want two diagnostics", name, got)
+		}
+		for _, d := range got {
+			if d.Code != "name-conflict" || d.Severity != diag.SeverityWarning || d.Message != "Duplicate of other owned member name" {
+				t.Fatalf("%s mode: got %+v, want name-conflict warnings only", name, got)
+			}
+		}
+	}
+}
+
 // An unnamed parameter takes the effective name of the parameter it implicitly
 // redefines, and that name resolves in the owning scope (KerML 7.3.4.5,
 // SysML 7.6.5).

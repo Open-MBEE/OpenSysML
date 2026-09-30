@@ -8,14 +8,14 @@ How the mission requirements flow down to the subsystems, what refines them, and
 
 | shortName | name | derivedFrom | derives | descendants | refinedBy | satisfiedBy |
 | --- | --- | --- | --- | --- | --- | --- |
-| M-1 | range |  | RangeDerivation::specification::system::dailyRange, RangeDerivation::specification::system::energyBudget | 4 |  |  |
-| M-2 | lifetime |  | RangeDerivation::specification::system::nightSurvival | 2 |  |  |
-| S-1 | dailyRange | RangeDerivation::specification::mission::range |  | 0 |  |  |
-| S-2 | energyBudget | RangeDerivation::specification::mission::range | RangeDerivation::specification::subsystem::batteryCapacity, RangeDerivation::specification::subsystem::driveEfficiency | 2 | RangeDerivation::EnergyBudgetAnalysis |  |
-| S-3 | nightSurvival | RangeDerivation::specification::mission::lifetime | RangeDerivation::specification::subsystem::batteryHeater | 1 |  |  |
-| B-1 | batteryCapacity | RangeDerivation::specification::system::energyBudget |  | 0 |  | RangeDerivation::rover::battery |
-| B-2 | batteryHeater | RangeDerivation::specification::system::nightSurvival |  | 0 | RangeDerivation::HeaterLoop |  |
-| D-1 | driveEfficiency | RangeDerivation::specification::system::energyBudget |  | 0 |  | RangeDerivation::rover::drive |
+| M-1 | range |  | dailyRange, energyBudget | 4 |  |  |
+| M-2 | lifetime |  | nightSurvival | 2 |  |  |
+| S-1 | dailyRange | range |  | 0 |  |  |
+| S-2 | energyBudget | range | batteryCapacity, driveEfficiency | 2 | EnergyBudgetAnalysis |  |
+| S-3 | nightSurvival | lifetime | batteryHeater | 1 |  |  |
+| B-1 | batteryCapacity | energyBudget |  | 0 |  | battery |
+| B-2 | batteryHeater | nightSurvival |  | 0 | HeaterLoop |  |
+| D-1 | driveEfficiency | energyBudget |  | 0 |  | drive |
 
 ## Following a chain
 

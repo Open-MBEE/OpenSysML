@@ -45,8 +45,18 @@ func jsonValues(v any) []any {
 // assertEnds checks a materialized relationship element: its class, its
 // identity, its owner, and that the listed end properties reach the owner and
 // the collapsed target.
-func assertEnds(t *testing.T, graph *rdf.Graph, rel rdf.Term, metaclass string, owner, target rdf.Term, sourceEnds, targetEnds []string) {
+// relationshipEnds are the elements a relationship's end properties reach:
+// the owner through the source-side properties, the target through the
+// target-side ones.
+type relationshipEnds struct {
+	owner, target          rdf.Term
+	sourceEnds, targetEnds []string
+}
+
+func assertEnds(t *testing.T, graph *rdf.Graph, rel rdf.Term, metaclass string, ends relationshipEnds) {
 	t.Helper()
+	owner, target := ends.owner, ends.target
+	sourceEnds, targetEnds := ends.sourceEnds, ends.targetEnds
 	if got := meta(graph, rel); got != metaclass {
 		t.Fatalf("%s: want %s, got %s", rel.Value, metaclass, got)
 	}
@@ -102,8 +112,10 @@ func TestNormativeRelationshipElementsAreMaterialized(t *testing.T) {
 		t.Fatalf("car ownedTyping %v", typings)
 	}
 	target := objects(graph, car.Value, "type")[0]
-	assertEnds(t, graph, typings[0], "FeatureTyping", car, target,
-		[]string{"typedFeature", "owningFeature"}, []string{"type"})
+	assertEnds(t, graph, typings[0], "FeatureTyping", relationshipEnds{
+		owner: car, target: target,
+		sourceEnds: []string{"typedFeature", "owningFeature"}, targetEnds: []string{"type"},
+	})
 	for _, want := range []struct{ owner, prop, metaclass, collapsed string }{
 		{"N__Car", "ownedSubclassification", "Subclassification", "specializes"},
 		{"N__car__wheels", "ownedRedefinition", "Redefinition", "redefines"},
@@ -515,4 +527,36 @@ func TestReferentMembershipIDCollisionIsRefused(t *testing.T) {
 	if !errors.As(e.idErr, &uerr) {
 		t.Fatalf("want an UnsupportedError, got %v", e.idErr)
 	}
+}
+
+// A metadata body's bare `a = …` owns the Redefinition of the metadata
+// definition's feature it names, flagged implicit rather than declared.
+func TestNormativeImplicitMetadataBodyRedefinition(t *testing.T) {
+	graph := normativeGraph(t, `package P {
+		metadata def M { attribute a; }
+		part def C {
+			metadata M { a = 1; }
+		}
+	}`)
+	member := elmt("P__C___400__a")
+	target := elmt("P__M__a")
+	if name := graph.Objects(member, rdf.SysML+pDeclaredName); len(name) != 0 {
+		t.Fatalf("the body member declares %v", name)
+	}
+	stated := objects(graph, member.Value, "redefines")
+	if len(stated) != 1 || stated[0].Value != target.Value {
+		t.Fatalf("redefines = %v, want %s", stated, target.Value)
+	}
+	if flag := graph.Objects(member, rdf.OpenSysML+xImplicitRedefinition); len(flag) != 1 || flag[0] != rdf.Bool(true) {
+		t.Fatalf("no sysx:%s on %s", xImplicitRedefinition, member.Value)
+	}
+	rels := objects(graph, member.Value, "ownedRedefinition")
+	if len(rels) != 1 {
+		t.Fatalf("ownedRedefinition %v", rels)
+	}
+	assertEnds(t, graph, rels[0], "Redefinition", relationshipEnds{
+		owner: member, target: target,
+		sourceEnds: []string{"redefiningFeature", "subsettingFeature", "owningFeature"},
+		targetEnds: []string{"redefinedFeature", "subsettedFeature", "general"},
+	})
 }

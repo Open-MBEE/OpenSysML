@@ -120,6 +120,15 @@ func (m *Model) governingMultiplicity(sym *symbols.Symbol) (Range, bool) {
 	return Range{}, false
 }
 
+// GoverningMultiplicityOf returns the multiplicity governing a feature: the one
+// it declares or inherits by redefinition, or the assumed 1..1 where it has none.
+func (m *Model) GoverningMultiplicityOf(sym *symbols.Symbol) Range {
+	if r, ok := m.governingMultiplicity(sym); ok {
+		return r
+	}
+	return AssumedRange()
+}
+
 func knownRange(r Range, ok bool) (Range, bool) {
 	return r, ok && r.Lower.Known && r.Upper.Known
 }

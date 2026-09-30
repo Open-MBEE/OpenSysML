@@ -2,6 +2,7 @@ package runtime
 
 import (
 	"fmt"
+	"slices"
 
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/semantics"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/symbols"
@@ -38,14 +39,14 @@ func (ctx *Context) relatedFeatures(sym, owner *symbols.Symbol, kind ast.Relatio
 			if !ctx.inheritsDeclaration(owner, resolved) {
 				continue
 			}
-			if own, declared := ctx.ownDeclarationNamed(owner, sym, qn.Parts[len(qn.Parts)-1].Text, resolved.Name, resolved.ShortName); declared && !ctx.redefinesTransitively(own, sym) {
+			if own, declared := ctx.ownDeclarationNamed(owner, sym, relationshipTargetLastName(rel.Target), resolved.Name, resolved.ShortName); declared && !ctx.redefinesTransitively(own, sym) {
 				features = append(features, own)
 			} else {
 				features = append(features, resolved)
 			}
 			continue
 		}
-		if len(qn.Parts) != 1 {
+		if qn == nil || len(qn.Parts) != 1 {
 			continue
 		}
 		if member, found := ctx.model.semantics.LookupMember(owner, qn.Parts[0].Text); found && member != nil && member != sym {
@@ -107,9 +108,38 @@ func relationshipsOfKind(sym *symbols.Symbol, kind ast.RelationshipKind) []*ast.
 		}
 		if qn := ast.AsQualifiedName(rel.Target); qn != nil && len(qn.Parts) > 0 {
 			rels = append(rels, rel)
+			continue
+		}
+		// A feature-chain target names a feature too: its last segment, which
+		// RelationshipTarget resolves — the semantics layer decides whether it does.
+		if _, ok := rel.Target.(*ast.FeatureChainExpr); ok {
+			rels = append(rels, rel)
 		}
 	}
 	return rels
+}
+
+// relationshipTargetLastName returns the final feature name a relationship
+// target spells: a qualified name's last part, or a feature chain's member's.
+func relationshipTargetLastName(target ast.Node) string {
+	if fr, ok := target.(*ast.FeatureReference); ok {
+		target = fr.Name
+	}
+	for {
+		switch node := target.(type) {
+		case *ast.FeatureReference:
+			target = node.Name
+		case *ast.FeatureChainExpr:
+			target = node.Member
+		case *ast.QualifiedName:
+			if len(node.Parts) == 0 {
+				return ""
+			}
+			return node.Parts[len(node.Parts)-1].Text
+		default:
+			return ""
+		}
+	}
 }
 
 // isFeatureOf reports whether owner carries feature under its name, as its own
@@ -139,15 +169,34 @@ func (ctx *Context) relatedFeatureNames(sym, owner *symbols.Symbol, kind ast.Rel
 // aliasRedefinedFeatureValuesOf makes every name a redefinition chain gives one feature read one
 // feature value (the most specific valued declaration's); two valued names of it is an error.
 // A value carried under one of the names is kept, refined by that declaration.
-func (ctx *Context) aliasRedefinedFeatureValuesOf(inst *Instance, typ *symbols.Symbol, carried map[string]bool) error {
-	features := ctx.FeaturesOf(typ)
+func (ctx *Context) aliasRedefinedFeatureValuesOf(inst *Instance, typ *symbols.Symbol, carried map[string]bool, features []EffectiveFeature) error {
+	groups := ctx.redefinitionGroups(typ)
+	if len(groups) == 0 {
+		return nil
+	}
 	byName := make(map[string]*EffectiveFeature, len(features))
 	for i := range features {
 		byName[features[i].Name] = &features[i]
 	}
 
-	for _, names := range ctx.redefinitionGroups(typ) {
-		chosen, err := ctx.sharedRedefinitionName(inst, byName, names)
+	// A name whose effective feature a nested chain replaced leads its group:
+	// the chain's declaration is the most specific statement of the feature.
+	var overridden map[string]bool
+	canonical := ctx.FeaturesOf(typ)
+	canonicalByName := make(map[string]*EffectiveFeature, len(canonical))
+	for i := range canonical {
+		canonicalByName[canonical[i].Name] = &canonical[i]
+		feat, ok := byName[canonical[i].Name]
+		if ok && feat.Symbol != nil && feat.Symbol != canonical[i].Symbol {
+			if overridden == nil {
+				overridden = make(map[string]bool)
+			}
+			overridden[canonical[i].Name] = true
+		}
+	}
+
+	for _, names := range groups {
+		chosen, err := ctx.sharedRedefinitionName(inst, byName, canonicalByName, names, overridden)
 		if err != nil {
 			return err
 		}
@@ -249,27 +298,64 @@ func (ctx *Context) redefinitionAliases(typ *symbols.Symbol, name string) map[st
 // whose own declaration values it — by a value, or by a body valuing the features
 // of the value it inherits — and otherwise the most specific name.
 // Two names valued by one declaration are ErrConflictingRedefinition.
-func (ctx *Context) sharedRedefinitionName(inst *Instance, byName map[string]*EffectiveFeature, names []string) (string, error) {
+func (ctx *Context) sharedRedefinitionName(inst *Instance, byName, canonicalByName map[string]*EffectiveFeature, names []string, overridden map[string]bool) (string, error) {
 	valued := ""
 	var valuedBy *symbols.Scope
-	for _, name := range names {
+	for _, name := range overriddenFirst(names, overridden) {
 		feat, ok := byName[name]
-		if !ok || feat.Symbol == nil || !ctx.declarationValues(feat) {
+		if !ok || feat.Symbol == nil {
 			continue
 		}
-		if valued == "" {
-			valued, valuedBy = name, feat.Symbol.OwnerScope
-			continue
-		}
-		if feat.Symbol.OwnerScope == valuedBy {
-			return "", fmt.Errorf("%w: %s values %s and %s, which redefinition makes one feature",
-				ErrConflictingRedefinition, inst.Type.Name, valued, name)
+		for _, cand := range valueCandidates(name, feat, canonicalByName, overridden) {
+			if !ctx.declarationValues(cand) {
+				continue
+			}
+			if valued == "" {
+				valued, valuedBy = name, cand.Symbol.OwnerScope
+				continue
+			}
+			if cand.Symbol.OwnerScope == valuedBy {
+				return "", fmt.Errorf("%w: %s values %s and %s, which redefinition makes one feature",
+					ErrConflictingRedefinition, inst.Type.Name, valued, name)
+			}
 		}
 	}
 	if valued != "" {
 		return valued, nil
 	}
 	return names[0], nil
+}
+
+// overriddenFirst orders the names with the overridden ones first, each part
+// in the given order.
+func overriddenFirst(names []string, overridden map[string]bool) []string {
+	if len(overridden) == 0 {
+		return names
+	}
+	ordered := make([]string, 0, 2*len(names))
+	for _, name := range names {
+		if overridden[name] {
+			ordered = append(ordered, name)
+		}
+	}
+	for _, name := range names {
+		if !overridden[name] {
+			ordered = append(ordered, name)
+		}
+	}
+	return ordered
+}
+
+// valueCandidates lists the declarations whose value counts for a name: the
+// declaration a chain replaced still counts its value, so two names one body
+// values conflict however specifically each reads.
+func valueCandidates(name string, feat *EffectiveFeature, canonicalByName map[string]*EffectiveFeature, overridden map[string]bool) []*EffectiveFeature {
+	if overridden[name] {
+		if canon := canonicalByName[name]; canon != nil && canon.Symbol != feat.Symbol {
+			return []*EffectiveFeature{canon, feat}
+		}
+	}
+	return []*EffectiveFeature{feat}
 }
 
 // declarationValues reports whether a feature's own declaration values it: it
@@ -339,8 +425,66 @@ func (ctx *Context) subsettedNames(sym, owner *symbols.Symbol) []string {
 	for _, redefined := range ctx.redefinedFeatures(sym, owner) {
 		names = append(names, ctx.relatedFeatureNames(redefined, owner, ast.RelSubsets)...)
 	}
+	// A nested usage also subsets the feature of its owner its kind nests under
+	// (SysML v2 §8.3): a part in an item one of its `subparts`.
+	names = append(names, ctx.implicitSubsettingNames(sym, owner)...)
 	ctx.model.subsetted[key] = names
 	return names
+}
+
+// implicitSubsettingNames returns the names of the owner features sym and the
+// features it redefines implicitly subset by nesting (SysML v2 §8.3); only
+// model-declared usages contribute theirs.
+func (ctx *Context) implicitSubsettingNames(sym, owner *symbols.Symbol) []string {
+	var names []string
+	if ctx.libraryTier(sym) == symbols.TierNone {
+		for _, sub := range ctx.model.semantics.ImplicitSubsettings(sym) {
+			names = append(names, sub.Name)
+		}
+	}
+	for _, redefined := range ctx.redefinedFeatures(sym, owner) {
+		if ctx.libraryTier(redefined) != symbols.TierNone {
+			continue
+		}
+		for _, sub := range ctx.model.semantics.ImplicitSubsettings(redefined) {
+			names = append(names, sub.Name)
+		}
+	}
+	return names
+}
+
+// declaredSubsettedNames is subsettedNames without the implicit owner-context
+// subsettings, for readers that follow only declared edges.
+func (ctx *Context) declaredSubsettedNames(sym, owner *symbols.Symbol) []string {
+	key := featureOfType{feature: sym, owner: owner}
+	if names, ok := ctx.model.declaredSubsetted[key]; ok {
+		return names
+	}
+	names := ctx.collectDeclaredSubsettedNames(sym, owner)
+	ctx.model.declaredSubsetted[key] = names
+	return names
+}
+
+func (ctx *Context) collectDeclaredSubsettedNames(sym, owner *symbols.Symbol) []string {
+	names := ctx.subsettedNames(sym, owner)
+	implicit := ctx.implicitSubsettingNames(sym, owner)
+	if len(implicit) == 0 {
+		return names
+	}
+	skip := make(map[string]int, len(implicit))
+	for _, name := range implicit {
+		skip[name]++
+	}
+	// names is the memoized slice subsettedNames shares; copy, never write it.
+	out := make([]string, 0, len(names)-len(implicit))
+	for _, name := range names {
+		if skip[name] > 0 {
+			skip[name]--
+			continue
+		}
+		out = append(out, name)
+	}
+	return out
 }
 
 // SubsettingFeatures returns the features of typ subsetting the named feature under any
@@ -395,12 +539,13 @@ func (ctx *Context) subsettersOf(typ *symbols.Symbol, name string) []EffectiveFe
 // ErrCyclicFeatureValue rather than recursing until the step budget runs out.
 func (ctx *Context) subsettingContributions(inst *Instance, name string) ([]Value, error) {
 	var values []Value
+	var seen map[int64]bool
 	err := ctx.eachSubsetterOf(inst, name, func(feat *EffectiveFeature) error {
 		sub, err := inst.GetFeatureValue(ctx, feat.Name)
 		if err != nil {
 			return err
 		}
-		values = append(values, elementsOf(sub.HeldValue())...)
+		values, seen = appendUniqueInstances(values, elementsOf(sub.HeldValue()), seen)
 		return nil
 	})
 	if err != nil {
@@ -415,13 +560,14 @@ func (ctx *Context) subsettingContributions(inst *Instance, name string) ([]Valu
 // openSubsettingContributions is subsettingContributions for a model-level read: an open
 // subsetter is not made up, contributing what it certainly holds and its fewest as atLeast.
 func (ctx *Context) openSubsettingContributions(inst *Instance, name string) (values []Value, atLeast int64, err error) {
+	var seen map[int64]bool
 	err = ctx.eachSubsetterOf(inst, name, func(feat *EffectiveFeature) error {
 		sub, open, err := inst.openFeatureValue(ctx, feat.Name)
 		if err != nil {
 			return err
 		}
 		if !open.Stopped {
-			values = append(values, elementsOf(sub.HeldValue())...)
+			values, seen = appendUniqueInstances(values, elementsOf(sub.HeldValue()), seen)
 			return nil
 		}
 		values = append(values, open.Contributed...)
@@ -435,6 +581,25 @@ func (ctx *Context) openSubsettingContributions(inst *Instance, name string) (va
 		return nil, 0, err
 	}
 	return values, atLeast, nil
+}
+
+// appendUniqueInstances appends els to out, dropping an object already seen:
+// a subsetted set holds each instance once, however many subsetting paths reach it.
+// The seen set is made on the first object and returned.
+func appendUniqueInstances(out, els []Value, seen map[int64]bool) ([]Value, map[int64]bool) {
+	for _, v := range els {
+		if v.Kind == ValInstance {
+			if seen[v.Instance] {
+				continue
+			}
+			if seen == nil {
+				seen = make(map[int64]bool)
+			}
+			seen[v.Instance] = true
+		}
+		out = append(out, v)
+	}
+	return out, seen
 }
 
 // eachSubsetterOf reads each feature subsetting the named feature of inst through
@@ -453,6 +618,18 @@ func (ctx *Context) eachSubsetterOf(inst *Instance, name string, read func(feat 
 		}
 	}
 	return nil
+}
+
+// hasImpliedSubsetter reports whether a feature subsets the named feature of inst
+// only through subsetting implied by nesting: reading the collection would
+// materialize objects an eager fill has no business creating.
+func (ctx *Context) hasImpliedSubsetter(inst *Instance, name string) bool {
+	for _, feat := range ctx.subsettingFeaturesOf(inst, name) {
+		if !slices.Contains(ctx.declaredSubsettedNamesOf(inst, feat.Symbol), name) {
+			return true
+		}
+	}
+	return false
 }
 
 // fewestOf is the fewest values a feature of multiplicity mult holds.
@@ -483,11 +660,12 @@ func (ctx *Context) materializeSubsettedCollections(inst *Instance, fv *FeatureV
 	}
 	ctx.readingSubsetted[key] = true
 	defer delete(ctx.readingSubsetted, key)
-	for _, name := range ctx.subsettedNamesOf(inst, fv.Feature.Symbol) {
+	for _, name := range ctx.declaredSubsettedNamesOf(inst, fv.Feature.Symbol) {
 		sub, ok := inst.FeatureValues[name]
 		if !ok || sub.Materialized || sub.Feature.Scalar() ||
 			ctx.collectingSubsets[featureValueRef{instance: inst.ID, feature: name}] ||
-			ctx.readingSubsetted[featureValueRef{instance: inst.ID, feature: name}] {
+			ctx.readingSubsetted[featureValueRef{instance: inst.ID, feature: name}] ||
+			ctx.hasImpliedSubsetter(inst, name) {
 			continue
 		}
 		if _, err := inst.GetFeatureValue(ctx, name); err != nil {
@@ -549,7 +727,7 @@ func (ctx *Context) fillOptionalSubsetters(inst *Instance, name string, n int) (
 		} else {
 			fill.fv.Values = ctx.collectionOf(fill.fv.Feature, fill.held)
 		}
-		fill.fv.Materialized = true
+		fill.fv.Materialized, fill.fv.intrinsic = true, false
 		ctx.invalidateDependents(fill.fv)
 	}
 	return made, undo, nil

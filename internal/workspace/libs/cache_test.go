@@ -3,18 +3,20 @@ package libs
 import (
 	"os"
 	"path/filepath"
-	"slices"
+	"reflect"
 	"strings"
 	"sync"
 	"testing"
 	"time"
+
+	"github.com/Open-MBEE/OpenSysML/internal/semantic/symbols"
 )
 
 func sampleRecord(name string) *IndexRecord {
 	return &IndexRecord{
 		Name: name,
 		Facts: []factRecord{
-			{FQN: "P::N", Supers: []string{"P::M"}},
+			{FQN: "P::N", Supers: []symbols.ElementRef{{FQN: "P::M"}}},
 			{FQN: "P::M", Unit: &unitFacts{ScaleNum: 1, ScaleDen: 1}},
 		},
 	}
@@ -36,7 +38,7 @@ func TestCacheStoreLoadRoundTrip(t *testing.T) {
 		t.Fatalf("round-trip mismatch: got %+v want %+v", got, rec)
 	}
 	a, b := got.Facts[0], rec.Facts[0]
-	if a.FQN != b.FQN || !slices.Equal(a.Supers, b.Supers) {
+	if a.FQN != b.FQN || !reflect.DeepEqual(a.Supers, b.Supers) {
 		t.Fatalf("fact round-trip mismatch: got %+v want %+v", a, b)
 	}
 	if unit := got.Facts[1].Unit; unit == nil || unit.ScaleNum != rec.Facts[1].Unit.ScaleNum ||

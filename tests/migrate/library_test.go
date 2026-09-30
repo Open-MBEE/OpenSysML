@@ -38,14 +38,14 @@ func wantValues(t *testing.T, got, want map[string]string) {
 func TestLibraryCallsComputeThroughTheV2Library(t *testing.T) {
 	r := migrateFixtureFile(t, "library_calls")
 	for _, line := range []string{
-		"out result : ScalarValues::String = IntegerFunctions::ToString(x);",
-		"out result : ScalarValues::String = StringFunctions::'+'(x, y);",
+		"out result : ScalarValues::String[1] = IntegerFunctions::ToString(x);",
+		"out result : ScalarValues::String[1] = StringFunctions::'+'(x, y);",
 		"out result : ScalarValues::String[0..*] ordered nonunique = SequenceFunctions::including(seq, element);",
-		"out result : ScalarValues::Integer = SequenceFunctions::size(seq);",
-		"out result : ScalarValues::String = BooleanFunctions::ToString(x);",
+		"out result : ScalarValues::Integer[1] = SequenceFunctions::size(seq);",
+		"out result : ScalarValues::String[1] = BooleanFunctions::ToString(x);",
 		"/* not migrated: CallBehaviorAction 'position' — the behavior Alf SequenceFunctions::IndexOf it calls has no v2 library function: the v2 library has no function giving the position of an element in a sequence; the behavior is known by its OMG href http://www.omg.org/spec/ALF/20170201/Alf-Library.xmi#Alf-Library-PrimitiveBehaviors-SequenceFunctions-IndexOf */",
 		"/* not migrated: CallBehaviorAction 'print' — the behavior fUML BasicInputOutput::WriteLine it calls has no v2 library function: writes a line to the standard output channel, which the v2 library has no function for; the behavior is known by its OMG href http://www.omg.org/spec/FUML/20180501/fUML_Library.xmi#BasicInputOutput-WriteLine */",
-		"/* flow position.result to 'after'.x not written: 'position' is not migrated and produces no value */",
+		"flow position.result to 'after'.x;",
 	} {
 		wantLine(t, r.Notation, line)
 	}
@@ -218,7 +218,7 @@ func TestConcatWithoutAnArgument(t *testing.T) {
           </argument>`), "concat"), recorderBlock)
 		wantClean(t, "t.sysml", r)
 		wantNote(t, r, "_concat", migrate.Mapped, "calls fUML StringFunctions::Concat, which the v2 library computes")
-		wantLine(t, r.Notation, "in y : ScalarValues::String = x;")
+		wantLine(t, r.Notation, "in y : ScalarValues::String[1] = x;")
 		s := session(t, r)
 		meta(t, s, "%instantiate Recorder")
 		wantValues(t, runValues(t, s, "Recorder::Label", "Recorder"), map[string]string{"concat.result": `"n=n="`})
@@ -269,7 +269,7 @@ func TestLibraryCallsAreKeyedOnTheHref(t *testing.T) {
 		r := migrateDocument(t, labeler(concatCall(`<behavior xmi:type="uml:FunctionBehavior" href="https://www.omg.org/spec/FUML/1.5/fUML_Library.xmi#PrimitiveBehaviors-StringFunctions-Concat"/>`, literalY), "concat"), recorderBlock)
 		wantClean(t, "t.sysml", r)
 		wantNote(t, r, "_concat", migrate.Mapped, "calls fUML StringFunctions::Concat, which the v2 library computes")
-		wantLine(t, r.Notation, "out result : ScalarValues::String = StringFunctions::'+'(x, y);")
+		wantLine(t, r.Notation, "out result : ScalarValues::String[1] = StringFunctions::'+'(x, y);")
 	})
 	t.Run("a bundled copy of the library", func(t *testing.T) {
 		r := migrateDocument(t, labeler(concatCall(`<behavior xmi:type="uml:FunctionBehavior" href="`+concatHref+`"/>`, literalY), "concat")+`
@@ -282,7 +282,7 @@ func TestLibraryCallsAreKeyedOnTheHref(t *testing.T) {
     </packagedElement>`, recorderBlock)
 		wantClean(t, "t.sysml", r)
 		wantNote(t, r, "_concat", migrate.Mapped, "calls fUML StringFunctions::Concat, which the v2 library computes")
-		wantLine(t, r.Notation, "out result : ScalarValues::String = StringFunctions::'+'(x, y);")
+		wantLine(t, r.Notation, "out result : ScalarValues::String[1] = StringFunctions::'+'(x, y);")
 		s := session(t, r)
 		meta(t, s, "%instantiate Recorder")
 		wantValues(t, runValues(t, s, "Recorder::Label", "Recorder"), map[string]string{"concat.result": `"n=1"`})
@@ -317,10 +317,10 @@ func TestLibraryCallsAreKeyedOnTheHref(t *testing.T) {
 func TestBundledLibraryCallsAreKnownByIdentity(t *testing.T) {
 	r := migrateFixtureFile(t, "bundled_library")
 	for _, line := range []string{
-		"out result : ScalarValues::String = IntegerFunctions::ToString(x);",
-		"out result : ScalarValues::String = StringFunctions::'+'(x, y);",
-		"out result : ScalarValues::Integer = SequenceFunctions::size(list);",
-		"out result : ScalarValues::String = SequenceFunctions::'#'(list, index);",
+		"out result : ScalarValues::String[1] = IntegerFunctions::ToString(x);",
+		"out result : ScalarValues::String[1] = StringFunctions::'+'(x, y);",
+		"out result : ScalarValues::Integer[1] = SequenceFunctions::size(list);",
+		"out result : ScalarValues::String[1] = SequenceFunctions::'#'(list, index);",
 		"/* not migrated: CallBehaviorAction 'print' — the behavior fUML BasicInputOutput::WriteLine it calls has no v2 library function: writes a line to the standard output channel, which the v2 library has no function for; the behavior is known by the referentPath fUML_Library::BasicInputOutput::WriteLine recorded beside its href into the library module fUML-Library.mdzip */",
 	} {
 		wantLine(t, r.Notation, line)
@@ -382,7 +382,7 @@ func TestLibraryCallWithExtraPins(t *testing.T) {
 	wantNote(t, r, "_size", migrate.Mapped, "calls Alf SequenceFunctions::Size, which the v2 library computes")
 	wantNote(t, r, "_sizeExtra", migrate.Unmapped, "Alf SequenceFunctions::Size takes 1 argument(s); the pin passes nothing")
 	wantNote(t, r, "_sizeMore", migrate.Unmapped, "Alf SequenceFunctions::Size gives 1 result(s); the pin takes nothing")
-	wantLine(t, r.Notation, "out result : ScalarValues::Integer = SequenceFunctions::size(seq);")
+	wantLine(t, r.Notation, "out result : ScalarValues::Integer[1] = SequenceFunctions::size(seq);")
 	s := session(t, r)
 	meta(t, s, "%instantiate Recorder")
 	wantValues(t, runValues(t, s, "Recorder::Label", "Recorder"), map[string]string{"size.result": "1", "size.more": ""})

@@ -3,6 +3,7 @@
 // so the advertised list is the only reliable answer.
 
 import { OpenSysMLError } from "./errors.js";
+import { PLATFORM_PACKAGE_PREFIX } from "./package.js";
 
 /** Static type facts on a symbol: `typeInfo`, `multiplicity`, `specializations`. */
 export const CAPABILITY_TYPE_FACTS = "type_facts";
@@ -52,6 +53,10 @@ export const CAPABILITY_CASE_EVALUATIONS = "case_evaluations";
 export const CAPABILITY_QUERY = "query";
 /** The `ApplyEdits` RPC. Not used by this version; see the README. */
 export const CAPABILITY_APPLY_EDITS = "apply_edits";
+/** `ApplyEdits` can add `first`/`then` action sequencing members. */
+export const CAPABILITY_SEQUENCE_AUTHORING = "sequence_authoring";
+/** `ApplyEdits` can add action-body statements and succession source multiplicities. */
+export const CAPABILITY_ACTION_BODY_STATEMENT_AUTHORING = "action_body_statement_authoring";
 /** `ApplyEdits` edits a model of several documents as one batch and answers each edited document by name in `documents`. Not used by this version; see the README. */
 export const CAPABILITY_EDIT_DOCUMENTS = "edit_documents";
 /** The `schedule` field of the execution requests, naming the scheduling policy. Not used by this version; see the README. */
@@ -144,7 +149,7 @@ export function requireCapability(
 export function upgradeRemedy(capability: string): string {
   return (
     `run a sysml-grpc whose GetServerInfo reports ${JSON.stringify(capability)}: install a ` +
-    `newer @opensysml/sysml-grpc-<platform> package, point $OPENSYSML_BINARY at a build that ` +
+    `newer ${PLATFORM_PACKAGE_PREFIX}<platform> package, point $OPENSYSML_BINARY at a build that ` +
     `has it, or start one yourself and connect to its address`
   );
 }

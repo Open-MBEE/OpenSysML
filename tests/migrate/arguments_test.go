@@ -91,11 +91,11 @@ func TestCallsWithoutRequiredArgumentsAdmitNone(t *testing.T) {
 		"in image : ScalarValues::Integer[0..1];",
 		"action def Tune {",
 		"in gain : ScalarValues::Integer[0..1];",
-		"in image : ScalarValues::Integer default = 3;",
+		"in image : ScalarValues::Integer[1] default = 3;",
 		"action find : Needs;",
 		"action refind : Needs;",
 		"action peek : Admits;",
-		"action settle : Defaults;",
+		"perform action settle ::> defaults;",
 		"action tune : Tune;",
 		"/* flow find.found to refind.image not written: nothing in the called Ctl::Needs gives its parameter found a value */",
 		"first find then refind;",
@@ -124,7 +124,7 @@ func TestCallsWithoutRequiredArgumentsAdmitNone(t *testing.T) {
 
 	s := session(t, r)
 	meta(t, s, "%instantiate Ctl")
-	meta(t, s, "%action Ctl::Run #1")
+	meta(t, s, "%action Ctl::run #1")
 	if out := meta(t, s, "%continue"); !strings.Contains(out, "completed") {
 		t.Errorf("the run did not complete:\n%s", out)
 	}
@@ -168,20 +168,21 @@ const allocatedApplications = `
 // the action to a part places it on the structure, but names nothing to perform.
 // An action with pins is written as an action declaring them as its parameters,
 // approximated as computing nothing, so its result is declared admitting no value
-// and none is made up for it; the allocation is then written to it. One without
-// pins is a bare step.
+// and none is made up for it; the allocation is then written to it, as a plain
+// dependency, since an action of an action def is a feature no allocate of the
+// part reaches. One without pins is a bare step.
 func TestAllocatedCallsWithoutBehaviorDeclareTheirPins(t *testing.T) {
 	r := migrateDocument(t, allocatedCalls, allocatedApplications)
 	wantNote(t, r, "_measure", migrate.Approximated, "a step with no behavior and no duration, which passes the token on; its pins are declared as its parameters, but the action computes nothing, so its output 'reading' holds no value; its «Allocate» to Ctl::eye says where it runs, not what it does")
 	wantNote(t, r, "_measureOut", migrate.Approximated, "it is declared admitting no value: the action calls no behavior, so nothing computes it")
 	wantNote(t, r, "_settle", migrate.Approximated, "a step with no behavior and no duration; it passes the token on")
-	wantNote(t, r, "_alloc", migrate.Mapped, "")
+	wantNote(t, r, "_alloc", migrate.Approximated, mixedEndsNote)
 	for _, line := range []string{
 		"action measure {",
 		"out reading : ScalarValues::Real[0..1];",
 		"first measure then settle;",
 		"action settle;",
-		"allocate Ctl::Run::measure to Ctl::eye;",
+		"dependency Ctl::Run::measure to Ctl::eye;",
 	} {
 		wantLine(t, r.Notation, line)
 	}
@@ -265,9 +266,9 @@ func TestResultsTheCalleeNeverProducesAreNotFlowedOn(t *testing.T) {
 		"in image : ScalarValues::Integer[0..1];",
 		"in value[0..1];",
 		"if value->SequenceFunctions::notEmpty() {",
-		"assign this.seen := value;",
+		"assign seen := value;",
 		"bind 'set seen'.value = image;",
-		"action apply : Use;",
+		"perform action apply ::> 'use';",
 		"/* flow fetch.image to apply.image not written: nothing in the called Cache::Fetch gives its parameter image a value */",
 		"first fetch then apply;",
 		"first apply then notify;",
@@ -291,7 +292,7 @@ func TestResultsTheCalleeNeverProducesAreNotFlowedOn(t *testing.T) {
 
 	s := session(t, r)
 	meta(t, s, "%instantiate Cache")
-	meta(t, s, "%action Cache::Run #1")
+	meta(t, s, "%action Cache::run #1")
 	if out := meta(t, s, "%continue"); !strings.Contains(out, "Completed") {
 		t.Errorf("the run did not complete:\n%s", out)
 	}
@@ -365,7 +366,7 @@ func TestResultPinsBeyondTheCalleesParametersCarryNoValue(t *testing.T) {
 	for _, line := range []string{
 		"action fetch : Fetch;",
 		"in image : ScalarValues::Integer[0..1];",
-		"action apply : Use;",
+		"perform action apply ::> 'use';",
 		"/* flow 'extra' to apply.image not written: the pin 'extra' of 'fetch' stands for no out parameter of the called Cache::Fetch, so it carries no value */",
 		"first fetch then apply;",
 		"first apply then notify;",
@@ -388,7 +389,7 @@ func TestResultPinsBeyondTheCalleesParametersCarryNoValue(t *testing.T) {
 
 	s := session(t, r)
 	meta(t, s, "%instantiate Cache")
-	meta(t, s, "%action Cache::Run #1")
+	meta(t, s, "%action Cache::run #1")
 	if out := meta(t, s, "%continue"); !strings.Contains(out, "Completed") {
 		t.Errorf("the run did not complete:\n%s", out)
 	}
@@ -491,8 +492,8 @@ func TestSendsOmittingRequiredSignalAttributesAreReported(t *testing.T) {
 		"/* not migrated: SendSignalAction 'warn' — the send passes no argument for the attribute level of Alert, which must hold a value; v1 sends the signal without it, which v2 does not admit, so the action carries the token and performs nothing */",
 		"send new Alert(code, level);",
 		"/* not migrated: Interaction 'Short' — the message 'warn' binds no argument to the attribute level of Alert, which must hold a value */",
-		"action alarm send new Alert(level = 2, code = 1) to this.s;",
-		"action mixed send new Alert(tag = 7, code = 4, level = 5) to this.s;",
+		"action alarm send new Alert(level = 2, code = 1) to s;",
+		"action mixed send new Alert(tag = 7, code = 4, level = 5) to s;",
 	} {
 		wantLine(t, r.Notation, line)
 	}
@@ -500,8 +501,8 @@ func TestSendsOmittingRequiredSignalAttributesAreReported(t *testing.T) {
 	wantNoLine(t, r.Notation, "level = 4")
 	wantNote(t, r, "_sendShort", migrate.Approximated, "the send passes no argument for the attribute level of Alert, which must hold a value; v1 sends the signal without it, which v2 does not admit, so the action carries the token and performs nothing")
 	wantNote(t, r, "_short", migrate.Unmapped, "the message 'warn' binds no argument to the attribute level of Alert, which must hold a value")
-	wantNote(t, r, "_mFull", migrate.Mapped, "written as a send to this.s")
-	wantNote(t, r, "_mMixed", migrate.Mapped, "written as a send to this.s")
+	wantNote(t, r, "_mFull", migrate.Mapped, "written as a send to s")
+	wantNote(t, r, "_mMixed", migrate.Mapped, "written as a send to s")
 	if diags := errors(t, "t.sysml", r.Notation); len(diags) > 0 {
 		t.Errorf("%v", diags)
 	}
@@ -651,15 +652,15 @@ func TestUnwrittenValuesAreNotPassedToCalls(t *testing.T) {
 		"action zero {",
 		"/* not migrated: ValueSpecificationAction 'zero' — the value 0 is not written: the literal \"0\" is not a value of Coords, which has no scalar base */",
 		"in target : Coords[0..1];",
-		"action aim : Aim;",
-		"/* flow zero.result to aim.target not written: 'zero' is not migrated and produces no value */",
+		"perform action aim ::> Sky::aim;",
+		"flow zero.result to aim.target;",
 		"first zero then aim;",
 		"first aim then final;",
 	} {
 		wantLine(t, r.Notation, line)
 	}
 	wantNoLine(t, r.Notation, "not migrated: CallBehaviorAction 'aim'")
-	wantNoLine(t, r.Notation, "flow zero.result to aim.target;")
+	wantNote(t, r, "_of", migrate.Approximated, "the flow is written, but its source 'zero' is not migrated and produces no value")
 	wantNote(t, r, "_zero", migrate.Approximated, "the value 0 is not written: the literal \"0\" is not a value of Coords, which has no scalar base")
 	wantNote(t, r, "_callAim", migrate.Approximated, "the pin 'target' it passes for the parameter target of Sky::Aim receives none: 'zero', which feeds it, produces no value; v1 runs the callee without the value, so the parameter is declared admitting none")
 	wantNote(t, r, "_aimIn", migrate.Approximated, "it is declared admitting no value: the pin 'target' the call 'aim' in Sky::Run passes for it receives none: 'zero', which feeds it, produces no value, and v1 runs the callee without one")
@@ -669,7 +670,7 @@ func TestUnwrittenValuesAreNotPassedToCalls(t *testing.T) {
 
 	s := session(t, r)
 	meta(t, s, "%instantiate Sky")
-	meta(t, s, "%action Sky::Run #1")
+	meta(t, s, "%action Sky::run #1")
 	if out := meta(t, s, "%continue"); !strings.Contains(out, "Completed") {
 		t.Errorf("the run did not complete:\n%s", out)
 	}

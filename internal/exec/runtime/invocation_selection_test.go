@@ -235,7 +235,7 @@ const receiverActionsSrc = `
 	}
 	package B {
 		private import ScalarValues::*;
-		action def tag { in x : Integer; in y : Integer; out code : Integer; first start; action set { assign code := x * 100 + y; } done; succession first start then set; succession first set then done; }
+		action def tag { in x : Integer; in y : Integer[1]; out code : Integer; first start; action set { assign code := x * 100 + y; } done; succession first start then set; succession first set then done; }
 	}
 	package test {
 		private import ScalarValues::*;
@@ -439,7 +439,7 @@ func testActionCallOmitsOptionalInputs(t *testing.T) {
 		package B {
 			private import ScalarValues::*;
 			action def base { in x : Integer = 3; out code : Integer; }
-			action def tag :> base { in x : Integer :>> x; in y : Integer; first start; action set { assign code := x + y; } done; succession first start then set; succession first set then done; }
+			action def tag :> base { in x : Integer :>> x; in y : Integer[1]; first start; action set { assign code := x + y; } done; succession first start then set; succession first set then done; }
 		}`)
 	if !errors.Is(err, ErrUnboundParameter) || !strings.Contains(err.Error(), "input parameter y") {
 		t.Fatalf("tag() with a required y: err = %v, want ErrUnboundParameter for y", err)
@@ -567,11 +567,11 @@ func testActionCallAmbiguousBetweenTwoImports(t *testing.T) {
 const undeterminedActionsSrc = `
 	package A {
 		private import ScalarValues::*;
-		action def tag { in x : Integer; in y : Real; out code : Integer; first start; action set { assign code := 1; } done; succession first start then set; succession first set then done; }
+		action def tag { in x : Integer; in y : Real[1]; out code : Integer; first start; action set { assign code := 1; } done; succession first start then set; succession first set then done; }
 	}
 	package B {
 		private import ScalarValues::*;
-		action def tag { in x : Real; in y : Integer; out code : Integer; first start; action set { assign code := 2; } done; succession first start then set; succession first set then done; }
+		action def tag { in x : Real; in y : Integer[1]; out code : Integer; first start; action set { assign code := 2; } done; succession first start then set; succession first set then done; }
 	}
 	package test {
 		private import ScalarValues::*;
@@ -806,7 +806,7 @@ func testCalcCallSelectsByArgumentType(t *testing.T) {
 func testCalcCallOmittingAnInputRunsTheFittingCandidate(t *testing.T) {
 	src := `
 		package A { private import ScalarValues::*; calc def pick { in x : Integer; return : Integer = 1; } }
-		package B { private import ScalarValues::*; calc def pick { in s : String; in y : Real; return : Integer = 2; } }
+		package B { private import ScalarValues::*; calc def pick { in s : String; in y : Real[1]; return : Integer = 2; } }
 		package test {
 			private import ScalarValues::*;
 			private import A::*;
@@ -1282,8 +1282,8 @@ func testBareCallReachesPrivateRootDeclarationsOfOtherDocuments(t *testing.T) {
 // arguments it fits, whichever import lists first.
 func testCalcCallTypedParameterBeatsUntyped(t *testing.T) {
 	src := `
-		package A { private import ScalarValues::*; calc def pick { in x : Real; in y; return : Integer = 1; } }
-		package B { private import ScalarValues::*; calc def pick { in x : Real; in y : Integer; return : Integer = 2; } }
+		package A { private import ScalarValues::*; calc def pick { in x : Real; in y[1]; return : Integer = 1; } }
+		package B { private import ScalarValues::*; calc def pick { in x : Real; in y : Integer[1]; return : Integer = 2; } }
 		package test {
 			private import ScalarValues::*;
 			private import A::*;
@@ -1392,8 +1392,8 @@ func testCalcCallUndeterminedStaticallyIsSettledByTheValues(t *testing.T) {
 	src := `
 		package A { private import ScalarValues::*; calc def pick { in x : Integer; return : Integer = 1; } }
 		package B { private import ScalarValues::*; calc def pick { in x : String; return : Integer = 2; } }
-		package C { private import ScalarValues::*; calc def pick { in x : Integer; in y : Real; return : Integer = 3; } }
-		package D { private import ScalarValues::*; calc def pick { in x : Real; in y : Integer; return : Integer = 4; } }
+		package C { private import ScalarValues::*; calc def pick { in x : Integer; in y : Real[1]; return : Integer = 3; } }
+		package D { private import ScalarValues::*; calc def pick { in x : Real; in y : Integer[1]; return : Integer = 4; } }
 		package test {
 			private import A::*;
 			private import B::*;

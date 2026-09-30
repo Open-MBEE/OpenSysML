@@ -23,10 +23,12 @@
     --sysml-caption-font-size: 0.9em;
     --sysml-border-width: 1px;
     --sysml-table-width: 100%;
+    --sysml-row-indent: 1.25em;
     --sysml-title-page-height: 60vh;
     --sysml-group-heading-weight: 600;
     --sysml-term-weight: 600;
     --sysml-formula-align: center;
+    --sysml-image-max-width: 100%;
 
     box-sizing: border-box;
     max-width: var(--sysml-measure);
@@ -92,6 +94,24 @@
     background: var(--sysml-surface);
   }
 
+  /* A sized table lays its columns out at the shares its <col> widths state,
+     breaking a token wider than its cell rather than overflowing it. */
+  .sysml-document .sysml-table-sized {
+    table-layout: fixed;
+  }
+
+  .sysml-document .sysml-table-sized th,
+  .sysml-document .sysml-table-sized td {
+    overflow-wrap: break-word;
+  }
+
+  /* A nested row's first cell is indented one --sysml-row-indent per level of
+     the --sysml-depth the row states. */
+  .sysml-document .sysml-indent {
+    display: inline-block;
+    width: calc(var(--sysml-depth, 0) * var(--sysml-row-indent));
+  }
+
   .sysml-document .sysml-group-heading th {
     background: var(--sysml-surface);
     color: var(--sysml-muted);
@@ -127,6 +147,14 @@
 
   .sysml-document .sysml-diagram {
     margin: var(--sysml-space) 0;
+  }
+
+  .sysml-document .sysml-image {
+    margin: var(--sysml-space) 0;
+  }
+
+  .sysml-document .sysml-image img {
+    max-width: var(--sysml-image-max-width);
   }
 
   .sysml-document .sysml-formula {

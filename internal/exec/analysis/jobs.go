@@ -12,8 +12,9 @@ import (
 // JobsEnvVar names the variable setting how many runs of one plan go concurrently.
 const JobsEnvVar = "OPENSYSML_JOBS"
 
-// DefaultJobs is the jobs a plan has when nothing sets them: one per CPU.
-func DefaultJobs() int { return goruntime.NumCPU() }
+// DefaultJobs is the jobs a plan has when nothing sets them: one per CPU, fewer where the
+// memory available leaves less than JobMemoryBudget per worker; never fewer than one.
+func DefaultJobs() int { return jobsForMemory(availableMemory(), goruntime.NumCPU()) }
 
 // ErrJobs is the typed error for a jobs setting that is not a positive integer.
 var ErrJobs = errors.New("jobs must be a positive integer")
@@ -27,7 +28,7 @@ type JobsError struct {
 
 // Error names the source and the value, and what a usable one is.
 func (e *JobsError) Error() string {
-	return fmt.Sprintf("%s=%q is not a positive integer: set it to how many runs may go concurrently (default %d, one per CPU)", e.Source, e.Value, DefaultJobs())
+	return fmt.Sprintf("%s=%q is not a positive integer: set it to how many runs may go concurrently (default %d: one per CPU the memory available allows)", e.Source, e.Value, DefaultJobs())
 }
 
 // Is matches ErrJobs.

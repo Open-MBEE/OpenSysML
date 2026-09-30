@@ -28,9 +28,9 @@ package test {
 
 		perform action selfDestruct {
 			action step {
-				assign this.seen := 1;
+				assign seen := 1;
 				terminate this;
-				assign this.seen := 2;
+				assign seen := 2;
 			}
 			first step;
 		}

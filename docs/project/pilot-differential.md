@@ -87,6 +87,25 @@ It was the first of the two bridges, and since F6 the SysML side works the same 
 resource set per root, diagnostics printed relative to the corpus root, no ordering to emulate
 and no basename batching.
 
+The SysML bridge also reads `.kerml` files — named on the command line or found by walking a
+directory — into the same resource set, and validates each file with its own language's
+validator, looked up from the resource's URI: a `.kerml` file gets the pilot's
+`KerMLResourceValidator`, exactly as `validate-kerml` gives it (over `kerml-examples` the two
+bridges print identical diagnostics). That is what a model checked together with the OpenSysML
+libraries needs: two of them, `RandomFunctions.kerml` and `OpenSysMLMathFunctions.kerml`, are
+KerML, and a model that calls `RandomFunctions::uniform` would otherwise report every such call
+as `Couldn't resolve reference to Element 'RandomFunctions::uniform'` plus `Must invoke a
+behavior or a behavioral feature`. Pass the whole library directory:
+
+```bash
+build/pilot-sysml-validator/validate-sysml-batch model.sysml \
+    "internal/workspace/libs/stdlib/OpenSysML Libraries"
+```
+
+This harness still hands each language to its own bridge (a `.kerml` file of a root goes to
+`validate-kerml`), so the committed baseline's verdicts are unchanged by this; only the bridge's
+source digest in its provenance moved.
+
 EMF renders object references with an identity hash code and an absolute `file:` URI, which
 would differ between runs and machines; the bridge rewrites those to the display path, so
 repeated runs are byte-identical.
@@ -209,18 +228,18 @@ nor double-counted as two independent disagreements.
 
 ---
 
-## Results (pilot `2026-08`, 379 files)
+## Results (pilot `2026-08`, 380 files)
 
 | Root | Files | Fully agreeing | Ours | Pilot | Agreed | Severity-only | Only ours | Only pilot |
 |---|---:|---:|---:|---:|---:|---:|---:|---:|
 | `examples/sysml-v2-training` | 100 | 100 | 0 | 0 | 0 | 0 | 0 | 0 |
-| `examples/pilot-corpora/sysml-examples` | 99 | 95 | 7 | 0 | 0 | 0 | 7 | 0 |
+| `examples/pilot-corpora/sysml-examples` | 99 | 92 | 11 | 0 | 0 | 0 | 11 | 0 |
 | `examples/pilot-corpora/sysml-validation` | 56 | 56 | 0 | 0 | 0 | 0 | 0 | 0 |
-| `examples/pilot-corpora/kerml-examples` | 58 | 55 | 10 | 0 | 0 | 0 | 10 | 0 |
+| `examples/pilot-corpora/kerml-examples` | 58 | 56 | 9 | 0 | 0 | 0 | 9 | 0 |
 | `tests/testdata` | 18 | 10 | 43 | 55 | 34 | 1 | 8 | 20 |
-| `examples` | 44 | 30 | 13 | 1568 | 4 | 2 | 7 | 1562 |
+| `examples` | 45 | 30 | 13 | 1600 | 4 | 2 | 7 | 1594 |
 | `tools/referee/diff/testdata` (probes) | 4 | 1 | 6 | 0 | 0 | 0 | 6 | 0 |
-| **Total** | **379** | **347** | **79** | **1623** | **38** | **3** | **38** | **1582** |
+| **Total** | **380** | **345** | **82** | **1655** | **38** | **3** | **41** | **1614** |
 
 **Read the `only ours` total by root, never as one number.** Step 2 removes nine resolver false
 positives from the reference's **own** corpora: `pilot-examples` 16 → **7** and
@@ -620,23 +639,25 @@ what it reports.
 One invocation-argument policy now applies at a bare call and at an invocation heading a feature
 chain alike: an argument past the last input parameter is an error both implementations report
 (`Must correspond to one input parameter of the invoked type` on the pilot's side), and a
-default-less input left unbound is the advisory `unbound-parameter` — a warning in every
-conformance mode — that the pilot does not report at all. Before this round the omission was an
-error at a bare call and unreported at a chain head, so `A()` and `A().y` against
-`behavior A { in x; … }` were judged differently. KerML 1.0 §8.3.4.8.8 lists no
+default-less input whose effective parameter range requires a value, when left unbound, is the
+advisory `unbound-parameter` — a warning in every conformance mode — that the pilot does not report
+at all. A bare parameter has effective range `[0..*]` and may be omitted without that warning.
+Before this round the omission was an error at a bare call and unreported at a chain head; the
+current advisory applies to required inputs at either form. KerML 1.0 §8.3.4.8.8 lists no
 `InvocationExpression` constraint on the count of arguments, the pinned validators are silent on
 every omission form (positional, named, `[1]`, `[1..*]`, calc, behavior, constructor, chain head)
 and the pinned evaluator forms and evaluates the call; the transcript is in
 [omg-issues.md](omg-issues.md#an-invocation-leaving-an-input-parameter-unbound-validates-clean-pilot-2026-07).
 
-The advisory reaches one file of the reference corpora, `kerml-examples/Simple Tests/Behaviors.kerml`,
-line 14: `var z = A().y;` — formerly exempt as a chain head — leaves `A`'s `in x` unbound,
-which the pilot's `validate-kerml` accepts and its `ParsingTests_Behaviors.kerml.xt` declares
-error-free. It is **ours, one-sided by design**: an advisory that the call cannot be evaluated,
-which the runtime confirms with `ErrUnboundParameter`, on a file that is nonetheless well formed.
-It is recorded in the pilot-corpora ratchet (`Behaviors.kerml` 0 → 1) and here, and it moves no
-Xpect row: the suite carries no `// ERROR` for the line and we report a warning, so the Xpect
-harness is 1268 agree / 57 disagree before and after, the 57 being the pre-existing rows.
+At the previous baseline, the advisory reached `kerml-examples/Simple Tests/Behaviors.kerml`, line
+14: `var z = A().y;` left `A`'s bare `in x` unbound, which the pilot's `validate-kerml` accepts and
+its `ParsingTests_Behaviors.kerml.xt` declares error-free. With the effective parameter range
+applied, that bare input is optional, so the line no longer draws the advisory and is absent from
+the current differential baseline. An omitted explicitly required input still draws the warning:
+the runtime-showcase `RocketEquation` inputs now declare `[1]`, so its documented warning remains.
+The historical warning moved no Xpect row: the suite carried no `// ERROR` for the line and the
+warning was advisory, so the Xpect harness remained 1268 agree / 57 disagree, the 57 being
+pre-existing rows.
 
 | Count | Before | Now |
 |---|---:|---:|
@@ -791,8 +812,8 @@ cascades through the rest of the file. The movement is entirely one file,
 
 | Count | Before the initializer rewrite | Now |
 |---|---:|---:|
-| only pilot | 82 | **1582** |
-| pilot diagnostics | 123 | **1623** |
+| only pilot | 82 | **1614** |
+| pilot diagnostics | 123 | **1655** |
 | severity-only | 9 | **3** |
 
 The rewrite itself took only-pilot to 61 and pilot diagnostics to 101; the `Now` column states
@@ -919,13 +940,12 @@ populated and unchanged: 122 diagnostics total, 66 pilot-only. Step 3's two sema
 Xpect assertions not present in these seven differential roots.
 
 Per category, the only-ours totals are: `pilot-examples` 4 `unmapped`, 2
-`units`, 1 `kind-mismatch`; `kerml-examples` 9 `unmapped`, 1 `multiplicity` (the
-[unbound-parameter advisory](#the-unbound-parameter-advisory)); `examples` 1 syntax, 4 `unmapped`,
+`units`, 5 `kind-mismatch`; `kerml-examples` 9 `unmapped`; `examples` 1 syntax, 4 `unmapped`,
 2 `multiplicity` (the five warnings the MOSA demo draws on purpose, below, and the unbound-parameter
 advisory of the [runtime showcase round](#runtime-showcase-round)); `testdata` 7
 `unmapped`, 1 `multiplicity`; `probes` 6 `unmapped`.
 Only-pilot: `testdata` 12 `kind-mismatch`, 3 `unmapped`, 3 syntax, 2 `unresolved-reference`;
-`examples` 10 syntax, 29 `unmapped`, 661 `kind-mismatch`, 862 `unresolved-reference` — of which
+`examples` 10 syntax, 29 `unmapped`, 669 `kind-mismatch`, 886 `unresolved-reference` — of which
 `relay-probe-demo/mission.sysml` carries none: it carried a `kind-mismatch` on its send of a
 `Telemetry` invocation until the send-argument round above, and the demo now writes the
 constructor, `send new Telemetry(…) via antenna`, which both implementations accept, so the row
@@ -1016,21 +1036,20 @@ page's history.
 
 | Count | Now |
 |---|---:|
-| overall: fully agreeing / only ours / our diagnostics | **347 / 38 / 79** |
-| only pilot | **1582** |
-| pilot diagnostics | **1623** |
+| overall: fully agreeing / only ours / our diagnostics | **345 / 41 / 82** |
+| only pilot | **1614** |
+| pilot diagnostics | **1655** |
 | severity-only | **3** |
 | unmapped, our side | **34** |
-| kerml-examples: only ours | **10** |
-| pilot-examples: only ours | **7** |
-| examples: only pilot | **1562** |
+| kerml-examples: only ours | **9** |
+| pilot-examples: only ours | **11** |
+| examples: only pilot | **1594** |
 
-The KerML root is now the *cleanest* of the three OMG roots in proportion: **10** only-ours against 6
-only-pilot, with 49 of 58 files fully
-agreeing (439 / 6 and 10 / 58 when the root was added, and 72 / 39, 15 / 47 and 8 / 48 at earlier rounds). None of the 10 is a syntax or `kind-mismatch` diagnostic — the notation
+The KerML root is now the *cleanest* of the three OMG roots in proportion: **9** only-ours against 6
+only-pilot, with 56 of 58 files fully agreeing (439 / 6 and 10 / 58 when the root was added, and
+72 / 39, 15 / 47 and 8 / 48 at earlier rounds). None of the 9 is a syntax or `kind-mismatch` diagnostic — the notation
 the reference accepts, we parse, and the checks we applied to KerML typings that it does not apply
-are gone. What is left is K5's three specialization cycles, the one deliberate
-[unbound-parameter advisory](#the-unbound-parameter-advisory), the two operator errors of the
+are gone. What is left is K5's three specialization cycles, the two operator errors of the
 [collection-body element typing round](#collection-body-element-typing-round) and the four
 operator diagnostics of the [bare feature-reference typing round](#bare-feature-reference-typing-round),
 all adjudicated. The class tables below
@@ -2922,6 +2941,18 @@ unchanged at 366 files, 338 fully agreeing, 43 agreed, 20 only ours, 302 only th
 the Xpect baseline is left alone; a sweep of `examples/`, `testdata/` and the bundled library
 with both binaries produces identical diagnostics. The 8 only-ours rejection cases are the
 control-node successions the pilot leaves as `TODO`s; the three new cases are both-reject.
+
+### Nested-redefinition chain evaluation
+
+A chain redefinition written as a member of a type or usage — `attribute :>> mid.leaf.value = 99.0;`
+— is spec semantics, not an extension: the chain parses to a feature hosting the chain
+(`semantics/nested_redefinition.go` `NestedRedefinitionsOf`,
+`runtime/nested_redefinition.go`), and the host is redefinable, so the redefinition applies
+below every composite feature the chain walks, exactly as the nested-body form does. The pinned
+pilot accepts the notation but reads the original value — a pilot-evaluator gap, not a
+divergence to report — so the pass reports nothing for a plain chain, and only a chain crossing
+a `ref`, port or subject is an error (`redefinition-through-reference`). The differential
+baseline did not move.
 
 ## Current branch movement and adjudications
 

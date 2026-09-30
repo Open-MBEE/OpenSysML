@@ -3,13 +3,13 @@ package runtime
 import (
 	"errors"
 	"fmt"
+	"maps"
 	"math"
 	"slices"
 	"strconv"
 	"strings"
 
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/semantics"
-	"github.com/Open-MBEE/OpenSysML/internal/semantic/symbols"
 )
 
 // Invocation is what one check searches: the behaviors started on one clock, in
@@ -275,12 +275,21 @@ func (inv *Invocation) Outcome() Outcome {
 	default:
 		outcome = ctx.JointOutcome(inv.names(), outcomes)
 	}
+	maps.Copy(outcome.Outputs, inv.PerformerAttributes())
+	return outcome
+}
+
+// PerformerAttributes are the attributes the behaviors' performers hold, as an
+// outcome reports them: under `this.` for one performer, under its name for several.
+func (inv *Invocation) PerformerAttributes() map[string]Value {
+	ctx := inv.Context()
+	held := make(map[string]Value)
 	for _, p := range inv.performerPrefixes() {
 		for name, value := range ctx.attributesHeld(p.self) {
-			outcome.Outputs[p.name+name] = value
+			held[p.name+name] = value
 		}
 	}
-	return outcome
+	return held
 }
 
 // attributesHeld is the value each attribute of the object holds, a default derived
@@ -288,7 +297,7 @@ func (inv *Invocation) Outcome() Outcome {
 func (ctx *Context) attributesHeld(self *Instance) map[string]Value {
 	held := make(map[string]Value)
 	for name, fv := range self.FeatureValues {
-		if of := fv.Feature; of == nil || of.Symbol == nil || of.Symbol.Kind != symbols.SymbolAttributeUsage {
+		if of := fv.Feature; of == nil || of.Symbol == nil || !of.Symbol.Kind.IsAttributeLike() {
 			continue
 		}
 		fv, err := self.GetFeatureValue(ctx, name)
@@ -315,6 +324,9 @@ func (inv *Invocation) executors() []checkedExecutor {
 		execs = append(execs, exec)
 	}
 	for _, behavior := range ctx.objectBehaviors {
+		if behavior.Err != nil {
+			continue
+		}
 		switch {
 		case behavior.State != nil && !slices.Contains(inv.States, behavior.State):
 			execs = append(execs, behavior.State)

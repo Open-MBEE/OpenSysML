@@ -1,0 +1,21 @@
+# SysML v1 to v2 migration report: montecarlo_table.xmi
+# migrated 15 element(s): 12 mapped, 3 approximated, 0 unmapped (0 skipped as profile, library or notation-only content, 0 as model elements nothing refers to)
+
+## approximated (3)
+«InstanceTable» Diagram	Results::Sweep Statistics	_tbl_stats	-> part def Results::'Sweep Statistics Document'	(the «InstanceTable» is written as a Document holding a Table over the query 'Sweep Statistics Rows'; rows of subtypes of the row types are listed too: a type filter admits conforming elements)
+«Block» Class	Sweep Analysis	_analysis	-> 'Sweep Analysis'	(generalization of the simulation tool's MonteCarloAnalysis is written as the analysis def 'Sweep Analysis Monte Carlo' :> Simulation::MonteCarlo beside the part def, which is its subject)
+«BindingConnector» Connector	Sweep Analysis::<Connector>	_bind	-> 'Sweep Analysis Monte Carlo'::observed	(the binding to the simulation tool's MonteCarloAnalysis::Mean is written in the analysis def 'Sweep Analysis Monte Carlo' as the observed value, of which Mean is returned)
+
+## mapped (12)
+Model	Model	_m	(the root model's members are written at the top level)
+Package	Results	_results	-> Results
+Diagram	Results::Sweep Statistics	_diag_stats	-> Results::'Sweep Statistics'	(a SysML Instance Table written as a view rendered asElementTable)
+InstanceSpecification	Results::analysis of 12 runs	_tight	-> Results::'analysis of 12 runs'
+Slot	Results::analysis of 12 runs::<Slot>	_tightN	-> Results::'analysis of 12 runs'::'Monte Carlo'::runs
+Slot	Results::analysis of 12 runs::<Slot>	_tightMean	-> Results::'analysis of 12 runs'::'Monte Carlo'::mean
+InstanceSpecification	Results::analysis of 6 runs	_wide	-> Results::'analysis of 6 runs'
+Slot	Results::analysis of 6 runs::<Slot>	_wideN	-> Results::'analysis of 6 runs'::'Monte Carlo'::runs
+Slot	Results::analysis of 6 runs::<Slot>	_wideMean	-> Results::'analysis of 6 runs'::'Monte Carlo'::mean
+Slot	Results::analysis of 6 runs::<Slot>	_wideDev	-> Results::'analysis of 6 runs'::'Monte Carlo'::deviation
+Slot	Results::analysis of 6 runs::<Slot>	_wideOut	-> Results::'analysis of 6 runs'::'Monte Carlo'::outOfSpec
+Property	Sweep Analysis::t	_t	-> 'Sweep Analysis'::t

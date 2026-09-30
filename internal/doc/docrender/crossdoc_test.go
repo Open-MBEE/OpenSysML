@@ -79,11 +79,18 @@ func fixtureDocumentSet(t *testing.T, path string, names []string) []*docir.Docu
 		}
 		plans = append(plans, plan)
 	}
-	documents, err := docir.EvaluateSet(plans,
+	outcomes, err := docir.EvaluateSet(plans,
 		queryexec.Context{Index: fixture.index, Resolver: fixture.resolver, Model: fixture.model},
 		queryexec.Options{}, nil)
 	if err != nil {
 		t.Fatalf("evaluate document set: %v", err)
+	}
+	documents := make([]*docir.Document, 0, len(outcomes))
+	for _, outcome := range outcomes {
+		if outcome.Err != nil {
+			t.Fatalf("evaluate document %s: %v", outcome.Name, outcome.Err)
+		}
+		documents = append(documents, outcome.Document)
 	}
 	return documents
 }

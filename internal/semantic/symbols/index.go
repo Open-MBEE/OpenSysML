@@ -41,22 +41,19 @@ type Index struct {
 	// base is the frozen index this one reads through to, and frozen bars this
 	// one from being written: a shared base must not change under the indexes
 	// built over it.
-	base                     *Index
-	frozen                   bool
-	generation               *indexGeneration
-	directChildrenMu         sync.Mutex
-	directChildrenGeneration uint64
-	directChildrenCache      map[directChildrenKey][]*Symbol
-	directChildrenByName     map[directChildrenKey]map[string][]*Symbol
-	// shortNamedCache memoizes ShortNamed per segment, reset with the
-	// direct-children caches.
-	shortNamedCache map[string]bool
+	base       *Index
+	frozen     bool
+	generation *indexGeneration
+	// members memoizes direct-children and ShortNamed answers; a pointer, so
+	// the views Recording makes share one cache under one lock.
+	members *memberCache
 
 	docRoots      *layer[string, *Scope]      // document name -> root scope
 	docOfRoot     *layer[*Scope, string]      // root scope -> document name
 	docKinds      *layer[string, source.Kind] // document name -> explicit language
-	fqn           *layer[string, []*Symbol]   // fully-qualified name -> symbols
-	contributions *layer[string, []fqnEntry]  // document name -> entries it added
+	gathered      *layer[string, *GatheredRelationships]
+	fqn           *layer[string, []*Symbol]  // fully-qualified name -> symbols
+	contributions *layer[string, []fqnEntry] // document name -> entries it added
 
 	// wildcardMeta holds the wildcard imports of a namespace per document that
 	// declares it, so removing a document stops its imports from being expanded
@@ -96,8 +93,12 @@ type Index struct {
 
 	// bySegment maps a last name segment to the sorted qualified names ending in
 	// it, so suggesting a candidate for an unresolved reference costs its matches
-	// rather than a scan of every name the library declares.
-	bySegment *layer[string, []string]
+	// rather than a scan of every name the library declares. Names registered
+	// since the last settleSegments wait in pendingSegments and are merged in
+	// one pass per segment, so a document's registrations cost the segment's
+	// size once rather than once per name.
+	bySegment       *layer[string, []string]
+	pendingSegments map[string][]string
 
 	// dirtyNS records how each namespace's direct members changed since the last
 	// expansion, and lastTargets what each importer's imports resolved to when it
@@ -193,28 +194,27 @@ type WildcardImport struct {
 func NewIndex() *Index {
 	gen := &indexGeneration{}
 	return &Index{
-		generation:           gen,
-		directChildrenCache:  make(map[directChildrenKey][]*Symbol),
-		directChildrenByName: make(map[directChildrenKey]map[string][]*Symbol),
-		shortNamedCache:      make(map[string]bool),
-		docRoots:             newLayer[string, *Scope](gen),
-		docOfRoot:            newLayer[*Scope, string](gen),
-		docKinds:             newLayer[string, source.Kind](gen),
-		fqn:                  newLayer[string, []*Symbol](gen),
-		contributions:        newLayer[string, []fqnEntry](gen),
-		wildcardMeta:         newLayer[string, map[string][]WildcardImport](gen),
-		reexported:           newLayer[string, symbolSet](gen),
-		hidden:               newLayer[string, symbolSet](gen),
-		reexportDocs:         newLayer[reexportKey, map[string]*reexportClaim](gen),
-		docReexports:         newLayer[string, map[reexportKey]bool](gen),
-		declaredAt:           newLayer[*Symbol, string](gen),
-		children:             newLayer[string, []string](gen),
-		bySegment:            newLayer[string, []string](gen),
-		dirtyNS:              make(map[string]nsChange),
-		lastTargets:          newLayer[string, []resolvedImport](gen),
-		libraryDocs:          newLayer[string, LibraryDocument](gen),
-		librarySyms:          newLayer[*Symbol, LibraryTier](gen),
-		nsFilters:            newLayer[string, map[string][]ElementFilter](gen),
+		generation:    gen,
+		members:       newMemberCache(),
+		docRoots:      newLayer[string, *Scope](gen),
+		docOfRoot:     newLayer[*Scope, string](gen),
+		docKinds:      newLayer[string, source.Kind](gen),
+		gathered:      newLayer[string, *GatheredRelationships](gen),
+		fqn:           newLayer[string, []*Symbol](gen),
+		contributions: newLayer[string, []fqnEntry](gen),
+		wildcardMeta:  newLayer[string, map[string][]WildcardImport](gen),
+		reexported:    newLayer[string, symbolSet](gen),
+		hidden:        newLayer[string, symbolSet](gen),
+		reexportDocs:  newLayer[reexportKey, map[string]*reexportClaim](gen),
+		docReexports:  newLayer[string, map[reexportKey]bool](gen),
+		declaredAt:    newLayer[*Symbol, string](gen),
+		children:      newLayer[string, []string](gen),
+		bySegment:     newLayer[string, []string](gen),
+		dirtyNS:       make(map[string]nsChange),
+		lastTargets:   newLayer[string, []resolvedImport](gen),
+		libraryDocs:   newLayer[string, LibraryDocument](gen),
+		librarySyms:   newLayer[*Symbol, LibraryTier](gen),
+		nsFilters:     newLayer[string, map[string][]ElementFilter](gen),
 	}
 }
 
@@ -315,29 +315,28 @@ func NewOverlay(base *Index) *Index {
 	}
 	gen := &indexGeneration{}
 	return &Index{
-		base:                 base,
-		generation:           gen,
-		directChildrenCache:  make(map[directChildrenKey][]*Symbol),
-		directChildrenByName: make(map[directChildrenKey]map[string][]*Symbol),
-		shortNamedCache:      make(map[string]bool),
-		docRoots:             overLayer(base.docRoots, gen),
-		docOfRoot:            overLayer(base.docOfRoot, gen),
-		docKinds:             overLayer(base.docKinds, gen),
-		fqn:                  overLayer(base.fqn, gen),
-		contributions:        overLayer(base.contributions, gen),
-		wildcardMeta:         overLayer(base.wildcardMeta, gen),
-		reexported:           overLayer(base.reexported, gen),
-		hidden:               overLayer(base.hidden, gen),
-		reexportDocs:         overLayer(base.reexportDocs, gen),
-		docReexports:         overLayer(base.docReexports, gen),
-		declaredAt:           overLayer(base.declaredAt, gen),
-		children:             overLayer(base.children, gen),
-		bySegment:            overLayer(base.bySegment, gen),
-		dirtyNS:              make(map[string]nsChange),
-		lastTargets:          overLayer(base.lastTargets, gen),
-		libraryDocs:          overLayer(base.libraryDocs, gen),
-		librarySyms:          overLayer(base.librarySyms, gen),
-		nsFilters:            overLayer(base.nsFilters, gen),
+		base:          base,
+		generation:    gen,
+		members:       newMemberCache(),
+		docRoots:      overLayer(base.docRoots, gen),
+		docOfRoot:     overLayer(base.docOfRoot, gen),
+		docKinds:      overLayer(base.docKinds, gen),
+		gathered:      overLayer(base.gathered, gen),
+		fqn:           overLayer(base.fqn, gen),
+		contributions: overLayer(base.contributions, gen),
+		wildcardMeta:  overLayer(base.wildcardMeta, gen),
+		reexported:    overLayer(base.reexported, gen),
+		hidden:        overLayer(base.hidden, gen),
+		reexportDocs:  overLayer(base.reexportDocs, gen),
+		docReexports:  overLayer(base.docReexports, gen),
+		declaredAt:    overLayer(base.declaredAt, gen),
+		children:      overLayer(base.children, gen),
+		bySegment:     overLayer(base.bySegment, gen),
+		dirtyNS:       make(map[string]nsChange),
+		lastTargets:   overLayer(base.lastTargets, gen),
+		libraryDocs:   overLayer(base.libraryDocs, gen),
+		librarySyms:   overLayer(base.librarySyms, gen),
+		nsFilters:     overLayer(base.nsFilters, gen),
 	}
 }
 
@@ -375,7 +374,8 @@ func (idx *Index) AddDocumentWithKind(name string, root *ast.RootNamespace, kind
 
 func (idx *Index) addDocument(name string, root *ast.RootNamespace, rs *Scope, kind source.Kind, explicitKind bool) {
 	idx.mustBeWritable("AddDocument")
-	idx.RemoveDocument(name)
+	// The caller expands once the documents are in; nothing is read in between.
+	idx.removeDocument(name, false)
 	idx.changedDoc(name)
 	if rs == nil {
 		rs = Build(root)
@@ -390,10 +390,21 @@ func (idx *Index) addDocument(name string, root *ast.RootNamespace, rs *Scope, k
 
 	// Extract wildcard imports and filters from the root namespace itself
 	// (root is not a symbol, so indexScope won't process its members)
-	if wildcards := extractWildcardImports(root, rs); len(wildcards) > 0 {
+	if wildcards := wildcardImportsIn(rs); len(wildcards) > 0 {
 		idx.setWildcardImports("", name, wildcards)
 	}
-	idx.SetNamespaceFilters("", name, extractNamespaceFilters(root, rs))
+	idx.SetNamespaceFilters("", name, NamespaceFiltersIn(rs))
+}
+
+// AddRecordedDocument installs a document from its interface record: the
+// tree-less scope tree BuildRecorded made, indexed as a parsed one is, and the
+// relationships its record gathered from its body. The caller expands wildcard
+// imports afterwards, as after AddDocument.
+func (idx *Index) AddRecordedDocument(name string, kind source.Kind, rs *Scope, gathered *GatheredRelationships) {
+	idx.addDocument(name, nil, rs, kind, true)
+	if !gathered.Empty() {
+		idx.gathered.set(name, gathered)
+	}
 }
 
 // setWildcardImports records the wildcard imports doc states through the
@@ -432,6 +443,7 @@ func (idx *Index) setWildcardImports(pkgFQN, doc string, imports []WildcardImpor
 // is a change the importers of *that* namespace see on the next pass.
 func (idx *Index) ExpandWildcardImports() {
 	idx.mustBeWritable("ExpandWildcardImports")
+	defer idx.settleSegments()
 	for round := 0; round < expansionRounds; round++ {
 		if !idx.expandRound(false) {
 			return
@@ -710,8 +722,36 @@ func (idx *Index) link(fqn string, sym *Symbol) {
 	parent, last := splitFQN(fqn)
 	insertSorted(idx.children, parent, fqn)
 	if parent != "" {
-		insertSorted(idx.bySegment, last, fqn)
+		if idx.pendingSegments == nil {
+			idx.pendingSegments = map[string][]string{}
+		}
+		idx.pendingSegments[last] = append(idx.pendingSegments[last], fqn)
 	}
+}
+
+// settleSegments merges the names registered since the last call into
+// bySegment, each segment's in one pass over its sorted names: at the end of
+// an expansion, so a batch of documents costs each segment once, and before
+// any read or removal of a segment's names. A settled index is left untouched,
+// so concurrent readers of one share it without writing.
+func (idx *Index) settleSegments() {
+	if idx.pendingSegments == nil {
+		return
+	}
+	for last, names := range idx.pendingSegments {
+		have := idx.bySegment.at(last)
+		if merged := mergeSorted(have, names); len(merged) != len(have) {
+			idx.bySegment.set(last, merged)
+		}
+	}
+	idx.pendingSegments = nil
+}
+
+// segmentNames is the sorted qualified names ending in the segment name, with
+// every registration so far merged in.
+func (idx *Index) segmentNames(name string) []string {
+	idx.settleSegments()
+	return idx.bySegment.at(name)
 }
 
 // unregister drops fqn once no symbol is registered under it.
@@ -732,6 +772,7 @@ func (idx *Index) unregisterSegment(fqn string) {
 	if parent == "" {
 		return
 	}
+	idx.settleSegments()
 	if _, ok := idx.bySegment.get(last); !ok {
 		return
 	}
@@ -826,6 +867,12 @@ func (idx *Index) hasFQN(fqn string, sym *Symbol) bool {
 // the removal is recorded in the overlay, which stops answering for what the
 // document contributed while the base keeps it for every other index over it.
 func (idx *Index) RemoveDocument(name string) {
+	idx.removeDocument(name, true)
+}
+
+// removeDocument is RemoveDocument, re-expanding only when asked: a replacement
+// takes the old document out and expands once the new one is in.
+func (idx *Index) removeDocument(name string, expand bool) {
 	idx.mustBeWritable("RemoveDocument")
 	if !idx.knows(name) {
 		return
@@ -844,6 +891,7 @@ func (idx *Index) RemoveDocument(name string) {
 	}
 	idx.libraryDocs.del(name)
 	idx.docKinds.del(name)
+	idx.gathered.del(name)
 	idx.contributions.del(name)
 	if root, ok := idx.docRoots.get(name); ok {
 		idx.docOfRoot.del(root)
@@ -869,7 +917,9 @@ func (idx *Index) RemoveDocument(name string) {
 	idx.docReexports.del(name)
 	idx.dropNamespaceFilters(name)
 
-	idx.ExpandWildcardImports()
+	if expand {
+		idx.ExpandWildcardImports()
+	}
 }
 
 // MarkLibrary records that the named document holds bundled library content,
@@ -1413,10 +1463,10 @@ func (idx *Index) indexScope(doc string, scope *Scope, prefix string) {
 
 		// Extract wildcard imports and filters from packages/namespaces
 		if sym.Kind == SymbolPackage || sym.Kind == SymbolNamespace {
-			if wildcards := extractWildcardImports(sym.Decl, sym.Scope); len(wildcards) > 0 {
+			if wildcards := wildcardImportsIn(sym.Scope); len(wildcards) > 0 {
 				idx.setWildcardImports(fqn, doc, wildcards)
 			}
-			idx.SetNamespaceFilters(fqn, doc, extractNamespaceFilters(sym.Decl, sym.Scope))
+			idx.SetNamespaceFilters(fqn, doc, NamespaceFiltersIn(sym.Scope))
 		}
 
 		if sym.Scope != nil {
@@ -1438,14 +1488,13 @@ func joinFQN(prefix, name string) string {
 	return prefix + "::" + name
 }
 
-// extractWildcardImports extracts the wildcard imports of a Package, Namespace,
-// or RootNamespace AST node: the raw qualified name text (e.g. "ISQBase") and
-// declared visibility of each `import <name>::*` statement.
-func extractWildcardImports(decl ast.Node, scope *Scope) []WildcardImport {
+// wildcardImportsIn extracts the wildcard imports the namespace owning scope
+// states: the raw qualified name text (e.g. "ISQBase") and declared visibility
+// of each `import <name>::*` statement.
+func wildcardImportsIn(scope *Scope) []WildcardImport {
 	var out []WildcardImport
-	for _, m := range namespaceMembers(decl) {
-		imp, ok := m.(*ast.Import)
-		if !ok || imp.Kind != ast.ImportNamespace || imp.Imported == nil {
+	for _, imp := range scope.Imports() {
+		if imp.Kind != ast.ImportNamespace || imp.Imported == nil {
 			continue
 		}
 		wi := WildcardImport{
@@ -1600,19 +1649,18 @@ func (idx *Index) ShortNamed(name string) bool {
 	}
 	idx.readSegment(name)
 	generation := idx.generation.get()
-	idx.directChildrenMu.Lock()
-	idx.resetDirectChildrenCachesLocked(generation)
-	if v, ok := idx.shortNamedCache[name]; ok {
-		idx.directChildrenMu.Unlock()
+	if v, ok := cachedAt(idx, generation, func() (bool, bool) {
+		v, ok := idx.members.shortNamed[name]
+		return v, ok
+	}); ok {
 		return v
 	}
-	idx.directChildrenMu.Unlock()
 	v := idx.shortNamedScan(name)
-	idx.directChildrenMu.Lock()
+	idx.members.mu.Lock()
 	if idx.generation.get() == generation {
-		idx.shortNamedCache[name] = v
+		idx.members.shortNamed[name] = v
 	}
-	idx.directChildrenMu.Unlock()
+	idx.members.mu.Unlock()
 	return v
 }
 
@@ -1625,7 +1673,7 @@ func (idx *Index) shortNamedScan(name string) bool {
 		}
 		return false
 	}
-	for _, fqn := range idx.bySegment.at(name) {
+	for _, fqn := range idx.segmentNames(name) {
 		if shortRegistered(fqn) {
 			return true
 		}
@@ -1643,7 +1691,7 @@ func (idx *Index) FQNsEndingIn(name string, limit int) []string {
 	if name == "" || limit <= 0 {
 		return nil
 	}
-	out := idx.bySegment.at(name)
+	out := idx.segmentNames(name)
 	if len(out) > limit {
 		out = out[:limit]
 	}
@@ -1704,13 +1752,12 @@ func (idx *Index) LookupDirectChildren(prefix string) []*Symbol {
 func (idx *Index) lookupDirectChildren(key directChildrenKey) []*Symbol {
 	idx.readNamespace(key.prefix)
 	generation := idx.generation.get()
-	idx.directChildrenMu.Lock()
-	idx.resetDirectChildrenCachesLocked(generation)
-	if out, ok := idx.directChildrenCache[key]; ok {
-		idx.directChildrenMu.Unlock()
+	if out, ok := cachedAt(idx, generation, func() ([]*Symbol, bool) {
+		out, ok := idx.members.children[key]
+		return out, ok
+	}); ok {
 		return out
 	}
-	idx.directChildrenMu.Unlock()
 
 	var out []*Symbol
 	keys := idx.childKeys(key.prefix)
@@ -1725,22 +1772,58 @@ func (idx *Index) lookupDirectChildren(key directChildrenKey) []*Symbol {
 			out = append(out, sym)
 		}
 	}
-	idx.directChildrenMu.Lock()
+	idx.members.mu.Lock()
 	if idx.generation.get() == generation {
-		idx.directChildrenCache[key] = out
+		idx.members.children[key] = out
 	}
-	idx.directChildrenMu.Unlock()
+	idx.members.mu.Unlock()
 	return out
 }
 
-// resetDirectChildrenCachesLocked drops both direct-children caches when the
-// index has changed since they were filled. Callers hold directChildrenMu.
-func (idx *Index) resetDirectChildrenCachesLocked(generation uint64) {
-	if idx.directChildrenGeneration != generation {
-		idx.directChildrenCache = make(map[directChildrenKey][]*Symbol)
-		idx.directChildrenByName = make(map[directChildrenKey]map[string][]*Symbol)
-		idx.shortNamedCache = make(map[string]bool)
-		idx.directChildrenGeneration = generation
+// cachedAt reads a direct-children cache through get under the read lock while
+// current for generation; a stale or empty cache takes the write lock and resets.
+func cachedAt[V any](idx *Index, generation uint64, get func() (V, bool)) (V, bool) {
+	m := idx.members
+	m.mu.RLock()
+	current := m.generation == generation
+	v, ok := get()
+	m.mu.RUnlock()
+	if current && ok {
+		return v, true
+	}
+	m.mu.Lock()
+	m.resetLocked(generation)
+	v, ok = get()
+	m.mu.Unlock()
+	return v, ok
+}
+
+// memberCache memoizes an index's direct-children and ShortNamed answers as of
+// one index generation; views made by Recording share their index's.
+type memberCache struct {
+	mu         sync.RWMutex
+	generation uint64
+	children   map[directChildrenKey][]*Symbol
+	byName     map[directChildrenKey]map[string][]*Symbol
+	shortNamed map[string]bool
+}
+
+func newMemberCache() *memberCache {
+	return &memberCache{
+		children:   make(map[directChildrenKey][]*Symbol),
+		byName:     make(map[directChildrenKey]map[string][]*Symbol),
+		shortNamed: make(map[string]bool),
+	}
+}
+
+// resetLocked drops every memoized answer when the index has changed since
+// they were filled. Callers hold mu.
+func (m *memberCache) resetLocked(generation uint64) {
+	if m.generation != generation {
+		m.children = make(map[directChildrenKey][]*Symbol)
+		m.byName = make(map[directChildrenKey]map[string][]*Symbol)
+		m.shortNamed = make(map[string]bool)
+		m.generation = generation
 	}
 }
 
@@ -1771,10 +1854,10 @@ func (idx *Index) LookupDirectChildrenNamedFrom(prefix, fromFQN, name string) []
 func (idx *Index) lookupDirectChildrenNamed(key directChildrenKey, name string) []*Symbol {
 	idx.readNamespace(key.prefix)
 	generation := idx.generation.get()
-	idx.directChildrenMu.Lock()
-	idx.resetDirectChildrenCachesLocked(generation)
-	byName, ok := idx.directChildrenByName[key]
-	idx.directChildrenMu.Unlock()
+	byName, ok := cachedAt(idx, generation, func() (map[string][]*Symbol, bool) {
+		byName, ok := idx.members.byName[key]
+		return byName, ok
+	})
 	if ok {
 		return byName[name]
 	}
@@ -1788,11 +1871,11 @@ func (idx *Index) lookupDirectChildrenNamed(key directChildrenKey, name string) 
 			byName[sym.ShortName] = append(byName[sym.ShortName], sym)
 		}
 	}
-	idx.directChildrenMu.Lock()
-	if idx.generation.get() == generation && idx.directChildrenGeneration == generation {
-		idx.directChildrenByName[key] = byName
+	idx.members.mu.Lock()
+	if idx.generation.get() == generation && idx.members.generation == generation {
+		idx.members.byName[key] = byName
 	}
-	idx.directChildrenMu.Unlock()
+	idx.members.mu.Unlock()
 	return byName[name]
 }
 

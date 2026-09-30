@@ -8,6 +8,7 @@ import { mkdirSync, mkdtempSync, readFileSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { test } from "node:test";
+import { PLATFORM_PACKAGE_PREFIX } from "../src/core/package.js";
 import { packageRoot } from "./support/service.js";
 
 const SCRIPT = join(packageRoot, "scripts", "build-platform-packages.mjs");
@@ -36,7 +37,7 @@ test("every platform package is built, described and digest-checked", () => {
     (JSON.parse(readFileSync(join(packageRoot, "package.json"), "utf8")) as {
       optionalDependencies: Record<string, string>;
     }).optionalDependencies,
-  ).filter((name) => name.startsWith("@opensysml/sysml-grpc-"));
+  ).filter((name) => name.startsWith(PLATFORM_PACKAGE_PREFIX));
   assert.deepEqual(
     manifest.packages.map((entry) => entry.name).sort(),
     optional.sort(),

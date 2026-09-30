@@ -1,13 +1,13 @@
-package Views {
+package ViewsModel {
     part def Pump {
         attribute rate : ScalarValues::Real;
         ref part outlet : Valve;
         view Bare {
-            render $::Views::asTextualNotation;
+            render Views::asTextualNotation;
         }
         view diagram {
             expose rate;
-            render $::Views::asInterconnectionDiagram;
+            render Views::asInterconnectionDiagram;
         }
     }
     part def Valve;
@@ -15,10 +15,10 @@ package Views {
         end source : Pump;
         end sink : Valve;
         view Supplies {
-            expose Views::Supplies;
+            expose ViewsModel::Supplies;
             expose source;
-            expose Views::Pump::outlet;
-            render $::Views::asTreeDiagram;
+            expose ViewsModel::Pump::outlet;
+            render Views::asTreeDiagram;
         }
     }
     enum def Mode {
@@ -26,39 +26,40 @@ package Views {
         off;
     }
     view Dangling {
-        render $::Views::asElementTable;
+        render Views::asElementTable;
     }
     view Empty {
-        render $::Views::asTreeDiagram;
+        render Views::asTreeDiagram;
     }
     view Feeds {
-        render $::Views::asTreeDiagram;
+        render Views::asTreeDiagram;
     }
     view Modes {
-        expose Views::Mode::on;
-        expose Views::Mode::off;
-        render $::Views::asElementTable;
+        expose ViewsModel::Mode::on;
+        expose ViewsModel::Mode::off;
+        render Views::asElementTable;
     }
     view Untyped {
         expose Valve;
-        render $::Views::asTextualNotation;
+        render Views::asTextualNotation;
     }
 }
 package Spares {
     part def Seal;
 }
+metadata MigrationMetadata::LibraryNameAvoided about ViewsModel { sourceName = "Views"; }
 view Ownerless {
-    expose Views::Pump;
-    expose Views::Pump::rate;
-    render $::Views::asTreeDiagram;
+    expose ViewsModel::Pump;
+    expose ViewsModel::Pump::rate;
+    render Views::asTreeDiagram;
 }
 view 'Lost Owner' {
-    expose Views::Valve;
-    render $::Views::asInterconnectionDiagram;
+    expose ViewsModel::Valve;
+    render Views::asInterconnectionDiagram;
 }
 view Inventory {
     expose Spares;
     expose Spares::Seal;
-    expose Views::Pump;
-    render $::Views::asTreeDiagram;
+    expose ViewsModel::Pump;
+    render Views::asTreeDiagram;
 }

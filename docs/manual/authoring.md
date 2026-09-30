@@ -142,11 +142,13 @@ with the block's stable anchor — a destination like
 a root target links to the file alone. The file name is deterministic: the
 target document's fully qualified name with `::` replaced by `-` and any
 byte outside ASCII letters, digits and `_` escaped as `.XX` (uppercase hex),
-plus `.md`. Render the whole set with `-render-documents <dir>` so the links
-resolve on disk. Rendering a single document that references another still
-succeeds — the link points at the expected file name of the unrendered
-target, and it dangles until that document is rendered into the same
-directory. An unknown target is a typed planning error, and a target usage
+plus `.md`; where two names would meet in one file (see
+[Multi-document sets](outputs.md#multi-document-sets)) the link carries the
+tagged name the set writes. Render the whole set with `-render-documents
+<dir>` so the links resolve on disk. Rendering a single document that
+references another still succeeds — the link points at the file name the set
+gives the unrendered target, and it dangles until that document is rendered
+into the same directory. An unknown target is a typed planning error, and a target usage
 typed by more than one document definition is an ambiguous-target error;
 both carry the reference's source location.
 
@@ -195,7 +197,7 @@ query, column and row, since an empty formula has nothing to typeset.
 `targetColumn` naming a projected column that supplies each row's one
 non-empty link destination.
 
-Computed columns (`Column(name, expression)`) feed column runs like any
+Computed columns (`Column` with `expression`, `cell`, or `path`) feed column runs like any
 projected property, so a query can compute both the text and the style or
 target it renders with — the `styleColumn`/`targetColumn` example above uses
 computed `style` and `url` columns. A `RelatedColumn(...)` cell is
@@ -240,7 +242,9 @@ name. An empty result still renders the header and delimiter rows, so the
 document shows *that* the table is empty rather than omitting it. Cell values
 render faithfully: strings unquoted, integers in base 10, reals in shortest
 notation, booleans as `true`/`false`, unbounded multiplicity as `*`, elements
-by qualified name, and quantities as the magnitude followed by the unit the
+— a `general`, an enumeration literal — by effective name, the one the `name`
+property reads (HTML links each and carries its qualified name in
+`data-element`), and quantities as the magnitude followed by the unit the
 model spelt in brackets — `2290000 [kg]`, escaped in Markdown as
 `2290000 \[kg\]` so the brackets read as text. An attribute whose value is
 not a constant (`mass = dryMass + propellantMass`) is a typed error naming
@@ -283,6 +287,47 @@ part zones : Table {
 The group column must be one the query statically projects — an unknown name
 is a typed error at planning time, not an empty rendering. Row order within
 each group is the query's order.
+
+### Column widths
+
+A `columnWidths` attribute states the relative widths of the projected columns,
+in order, in whatever units the source used — a migrated Cameo table keeps its
+pixel widths — with `0` for a column sized automatically; an entry for every
+column is not required, the rest are automatic. Renderers honour them
+proportionally: HTML writes one `<col>` per column with its share of the table
+width, PDF sizes the columns by them, and Markdown, which has no column widths,
+ignores them ([Wide tables](outputs.md#wide-tables)).
+
+```sysml
+part masses : Table {
+	attribute redefines caption = "Masses";
+	attribute redefines columnWidths = (200, 0, 80);
+	calc rows : MassTable {
+		in root = telescope;
+	}
+}
+```
+
+### Column labels
+
+A `columnLabels` attribute states the headings of the projected columns, in
+order, where they differ from the column names: a column's name is the unique
+key the query, `groupBy` and the HTML `data-column` attribute know it by, while
+its label is what the reader sees over it, so two columns may be headed alike
+(`Key` and `Key`) though named apart (`Key` and `Key 2`). `""` heads a column
+by its name, and an entry for every column is not required. A migrated Cameo
+table is headed as the tool headed it — `Id`, `Text`, `classifier`, the tag's
+name over a stereotype-tag column — over the query properties it reads
+(`shortName`, `documentation`, `general`). Every backend prints the label;
+HTML keeps the name on the cell and heading as `data-column`.
+
+```sysml
+part key : Table {
+	attribute redefines caption = "Key Requirements";
+	attribute redefines columnLabels = ("Id", "", "Text");
+	calc rows : KeyRequirements;
+}
+```
 
 ## Lists
 
@@ -573,6 +618,38 @@ The `table` kind is the exception — it renders as a pipe table of the
 element's structure (Element / Kind / Type / Declared in) rather than a
 Mermaid, DOT or PlantUML block, whichever diagram form the document is rendered
 with.
+
+## Images
+
+An `Image` shows an image file under an optional caption:
+
+```sysml
+part plate : Image {
+	attribute redefines location = "images/mark.png";
+	attribute redefines caption = "Plate 1: the survey mark";
+	attribute redefines alt = "a brass survey mark";
+}
+```
+
+`location` is required and cannot be blank: it is a path relative to the
+document's source file — resolved the same way a relative link or stylesheet
+is, against the output file's directory — or an `http(s)` or `file` URL. The
+block above renders as:
+
+```markdown
+*Plate 1: the survey mark*
+
+![a brass survey mark](images/mark.png)
+```
+
+Markdown writes the CommonMark image of the location under its caption; HTML a
+`<figure class="sysml-image">` whose `<img>` carries the location verbatim,
+with `alt` the declared text alternative (the caption when none is declared)
+and the caption its `<figcaption>`; a PDF draws the file — a missing local
+location is a typed `missing-image` error naming the block, while an
+`http(s)` location is left for the engine to fetch. An `Image` is a content
+block like a `Table` or `Formula`: it takes no query, nests nothing, and a
+named one is a `Ref` target.
 
 ## Binding queries to blocks
 

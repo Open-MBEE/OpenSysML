@@ -1,6 +1,7 @@
 package docpdf
 
 import (
+	"encoding/base64"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -61,7 +62,7 @@ func fakeJar(t *testing.T, dir string) string {
 // telescopeDiagrams lists the telescope report's two diagrams written in form.
 func telescopeDiagrams(t *testing.T, form view.Form) []docrender.Diagram {
 	t.Helper()
-	diagrams, err := docrender.Diagrams(telescopeDocument(t), form, "")
+	diagrams, err := docrender.Diagrams(telescopeDocument(t), docrender.DiagramOptions{Form: form})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -111,7 +112,7 @@ func TestRenderDOTWithFakeGraphviz(t *testing.T) {
 		}
 	}
 	args, _ := os.ReadFile(log)
-	for _, want := range []string{"args:-Kdot -Tsvg -o diagram-1.svg diagram-1.dot\n", "args:-Kdot -Tsvg -o diagram-2.svg diagram-2.dot\n"} {
+	for _, want := range []string{"args:-Kdot " + imagePathArg(t) + " -Tsvg -o diagram-1.svg diagram-1.dot\n", "args:-Kdot " + imagePathArg(t) + " -Tsvg -o diagram-2.svg diagram-2.dot\n"} {
 		if !strings.Contains(string(args), want) {
 			t.Fatalf("dot arguments lack %q: %s", want, args)
 		}
@@ -125,7 +126,7 @@ func TestDrawDOTWritesTheDiagramSource(t *testing.T) {
 	withoutDiagramTools(t)
 	fakeSVGTool(t, dir, "dot", DotEnv)
 	diagrams := telescopeDiagrams(t, view.FormDot)
-	images, err := drawDiagrams(dir, diagrams, view.FormDot)
+	images, err := drawDiagrams(dir, diagrams)
 	if err != nil {
 		t.Fatalf("drawDiagrams: %v", err)
 	}
@@ -168,13 +169,72 @@ func TestDrawDOTRunsTheHeaderEngine(t *testing.T) {
 	dir := t.TempDir()
 	withoutDiagramTools(t)
 	log := fakeSVGTool(t, dir, "dot", DotEnv)
-	positioned := docrender.Diagram{Name: "placed", Source: "// kind: interconnection\n// layout: neato -n\ngraph G {\n  a [pos=\"0,0\"];\n}"}
-	if _, err := drawDiagrams(dir, []docrender.Diagram{positioned}, view.FormDot); err != nil {
+	positioned := docrender.Diagram{Name: "placed", Form: view.FormDot, Source: "// kind: interconnection\n// layout: neato -n\ngraph G {\n  a [pos=\"0,0\"];\n}"}
+	if _, err := drawDiagrams(dir, []docrender.Diagram{positioned}); err != nil {
 		t.Fatalf("drawDiagrams: %v", err)
 	}
 	args, _ := os.ReadFile(log)
-	if !strings.Contains(string(args), "args:-Kneato -n -Tsvg -o diagram-1.svg diagram-1.dot") {
+	if !strings.Contains(string(args), "args:-Kneato -n "+imagePathArg(t)+" -Tsvg -o diagram-1.svg diagram-1.dot") {
 		t.Fatalf("dot arguments: %s", args)
+	}
+}
+
+// imagePathArg is the picture search path dot is run with: the current
+// directory, the one a view's picture paths are relative to.
+func imagePathArg(t *testing.T) string {
+	t.Helper()
+	cwd, err := os.Getwd()
+	if err != nil {
+		t.Fatal(err)
+	}
+	return "-Gimagepath=" + cwd
+}
+
+// File references become data URIs, relative to the given directory; URLs, data URIs,
+// missing files and files that are no image (never copied into the document) stay as written.
+func TestEmbedImagesInlinesThePicturesAnSVGRefers(t *testing.T) {
+	base := t.TempDir()
+	png := []byte("\x89PNG\r\n\x1a\n\x00\x00\x00\rIHDR")
+	if err := os.MkdirAll(filepath.Join(base, "images"), 0o750); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(base, "images", "a&b.png"), png, 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(base, "notes.txt"), []byte("secret=1\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	abs := filepath.Join(base, "images", "a&b.png")
+	svg := `<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink">` +
+		`<image xlink:href="images/a&amp;b.png" width="1px" height="1px"/>` +
+		`<image width="1px" href="` + abs + `"/>` +
+		`<image xlink:href="images/missing.png"/>` +
+		`<image xlink:href="notes.txt"/>` +
+		`<image xlink:href="https://example.org/a.png"/>` +
+		`<image xlink:href="data:image/png;base64,AAAA"/>` +
+		`</svg>`
+	path := filepath.Join(t.TempDir(), "diagram-1.svg")
+	if err := os.WriteFile(path, []byte(svg), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if err := embedImages(path, base); err != nil {
+		t.Fatalf("embedImages: %v", err)
+	}
+	out, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	uri := "data:image/png;base64," + base64.StdEncoding.EncodeToString(png)
+	want := `<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink">` +
+		`<image xlink:href="` + uri + `" width="1px" height="1px"/>` +
+		`<image width="1px" href="` + uri + `"/>` +
+		`<image xlink:href="images/missing.png"/>` +
+		`<image xlink:href="notes.txt"/>` +
+		`<image xlink:href="https://example.org/a.png"/>` +
+		`<image xlink:href="data:image/png;base64,AAAA"/>` +
+		`</svg>`
+	if string(out) != want {
+		t.Errorf("embedded SVG:\n%s\nwant:\n%s", out, want)
 	}
 }
 
@@ -214,7 +274,7 @@ func TestDrawPlantUMLKeepsStdoutAsTheImage(t *testing.T) {
 	withoutDiagramTools(t)
 	fakeJar(t, dir)
 	fakeSVGTool(t, dir, "java", JavaEnv)
-	images, err := drawDiagrams(dir, telescopeDiagrams(t, view.FormPlantUML), view.FormPlantUML)
+	images, err := drawDiagrams(dir, telescopeDiagrams(t, view.FormPlantUML))
 	if err != nil {
 		t.Fatalf("drawDiagrams: %v", err)
 	}
@@ -322,7 +382,7 @@ func TestDrawDiagramToolWroteNoSVG(t *testing.T) {
 			dir := t.TempDir()
 			withoutDiagramTools(t)
 			fakeTool(t, dir, "dot", DotEnv, outputArg+script+"\n")
-			_, err := drawDiagrams(dir, telescopeDiagrams(t, view.FormDot), view.FormDot)
+			_, err := drawDiagrams(dir, telescopeDiagrams(t, view.FormDot))
 			var docErr *Error
 			if !errors.As(err, &docErr) || docErr.Kind != ErrorToolFailed || docErr.Tool != "dot" || !strings.Contains(docErr.Detail, "wrote no SVG") || !strings.Contains(docErr.Detail, "diagram 1") {
 				t.Fatalf("got %v, want ErrorToolFailed from dot naming diagram 1", err)
@@ -337,7 +397,7 @@ func TestDrawDiagramToolWroteAPrefacedSVG(t *testing.T) {
 	dir := t.TempDir()
 	withoutDiagramTools(t)
 	fakeTool(t, dir, "dot", DotEnv, outputArg+`printf '<?xml version="1.0" encoding="UTF-8" standalone="no"?>\n<!DOCTYPE svg PUBLIC "-//W3C//DTD SVG 1.1//EN" "http://www.w3.org/Graphics/SVG/1.1/DTD/svg11.dtd">\n<!-- Generated by graphviz -->\n<svg width="8pt" height="8pt" xmlns="http://www.w3.org/2000/svg"><g/></svg>\n' > "$out"`+"\n")
-	images, err := drawDiagrams(dir, telescopeDiagrams(t, view.FormDot)[:1], view.FormDot)
+	images, err := drawDiagrams(dir, telescopeDiagrams(t, view.FormDot)[:1])
 	if err != nil {
 		t.Fatalf("drawDiagrams: %v", err)
 	}
@@ -351,7 +411,7 @@ func TestDrawDiagramToolWroteAPrefacedSVG(t *testing.T) {
 func TestDrawDiagramsWithoutDiagrams(t *testing.T) {
 	withoutDiagramTools(t)
 	for _, form := range []view.Form{"", view.FormMermaid, view.FormDot, view.FormPlantUML} {
-		images, err := drawDiagrams(t.TempDir(), nil, form)
+		images, err := drawDiagrams(t.TempDir(), nil)
 		if err != nil || len(images) != 0 {
 			t.Fatalf("%q: got %q, %v", form, images, err)
 		}
@@ -364,7 +424,7 @@ func TestMermaidStaysRequiredBesideOptionalTools(t *testing.T) {
 	dir := t.TempDir()
 	withoutDiagramTools(t)
 	fakeSVGTool(t, dir, "dot", DotEnv)
-	_, err := drawDiagrams(dir, telescopeDiagrams(t, view.FormMermaid), view.FormMermaid)
+	_, err := drawDiagrams(dir, telescopeDiagrams(t, view.FormMermaid))
 	var docErr *Error
 	if !errors.As(err, &docErr) || docErr.Kind != ErrorToolMissing || docErr.EnvVar != MermaidEnv {
 		t.Fatalf("got %v, want ErrorToolMissing for mmdc", err)
@@ -383,9 +443,9 @@ func TestMermaidConfigFitsTheChart(t *testing.T) {
 	for i := 0; i < 600; i++ {
 		fmt.Fprintf(&b, "  n%d[\"%s\"]\n  n0 --- n%d\n", i, strings.Repeat("x", 80), i)
 	}
-	large := docrender.Diagram{Name: "Large", Source: b.String()}
-	small := docrender.Diagram{Name: "Small", Source: "flowchart TD\n  a --- b\n"}
-	if _, err := drawDiagrams(dir, []docrender.Diagram{large, small}, view.FormMermaid); err != nil {
+	large := docrender.Diagram{Name: "Large", Form: view.FormMermaid, Source: b.String()}
+	small := docrender.Diagram{Name: "Small", Form: view.FormMermaid, Source: "flowchart TD\n  a --- b\n"}
+	if _, err := drawDiagrams(dir, []docrender.Diagram{large, small}); err != nil {
 		t.Fatalf("drawDiagrams: %v", err)
 	}
 	args, err := os.ReadFile(log)
@@ -439,10 +499,46 @@ func TestRenderForPandocDrawsDOTAndPlantUML(t *testing.T) {
 			t.Fatal(err)
 		}
 		images := fileRefs(captureDir(t, capture), []string{"diagram-1.svg", "diagram-2.svg"})
-		for _, want := range []string{`local form = "` + string(form) + `"`, `local images = {"` + images[0] + `", "` + images[1] + `"}`} {
+		for _, want := range []string{`local forms = {mermaid = true, dot = true, plantuml = true}`, `local images = {"` + images[0] + `", "` + images[1] + `"}`} {
 			if !strings.Contains(string(filter), want) {
 				t.Fatalf("%s filter lacks %q:\n%s", form, want, filter)
 			}
 		}
+	}
+}
+
+// TestRenderDOTStyleReachesGraphviz checks the drawing style reaches the DOT
+// figures a PDF draws: the page states it on each figure and dot is run with
+// the Cameo source under `cameo`, with the Pilot look by default; a style
+// there is none of is refused before any tool runs.
+func TestRenderDOTStyleReachesGraphviz(t *testing.T) {
+	dir := t.TempDir()
+	withoutDiagramTools(t)
+	fakeSVGTool(t, dir, "dot", DotEnv)
+	capture := captureWeasyPrint(t, dir)
+	for _, style := range []view.DrawingStyle{"", view.StyleCameo} {
+		if _, err := Render(telescopeDocument(t), "weasyprint", Options{DiagramForm: view.FormDot, Style: style}); err != nil {
+			t.Fatalf("Render(%q): %v", style, err)
+		}
+		page, _ := readCapture(t, capture)
+		if strings.Contains(page, `data-style="cameo"`) != (style == view.StyleCameo) || strings.Contains(page, `<pre class="dot">`) {
+			t.Fatalf("style %q page:\n%s", style, page)
+		}
+	}
+	diagrams, err := docrender.Diagrams(telescopeDocument(t), docrender.DiagramOptions{Form: view.FormDot, Style: view.StyleCameo})
+	if err != nil {
+		t.Fatal(err)
+	}
+	images, err := drawDiagrams(dir, diagrams)
+	if err != nil {
+		t.Fatalf("drawDiagrams: %v", err)
+	}
+	source, err := os.ReadFile(filepath.Join(dir, strings.TrimSuffix(images[0], ".svg")+".dot"))
+	if err != nil || !strings.Contains(string(source), `subgraph "cluster_frame"`) || !strings.Contains(string(source), `fontname="Arial"`) {
+		t.Fatalf("dot input under cameo: %v\n%s", err, source)
+	}
+	_, err = Render(telescopeDocument(t), "weasyprint", Options{DiagramForm: view.FormDot, Style: "magicdraw"})
+	if err == nil || !strings.Contains(err.Error(), `unknown drawing style "magicdraw"`) {
+		t.Fatalf("an unknown drawing style: %v", err)
 	}
 }

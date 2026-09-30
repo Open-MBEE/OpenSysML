@@ -54,14 +54,14 @@ part fleet {
 
 const derivedMassesQuery = `
 calc def Masses :> Query {
-	in root : Element;
+	in root : Element[1];
 	Project(
 		source = WhereType(source = Descendants(source = root, maxDepth = 1), type = "PartUsage"),
 		properties = ("name", "dryMass", "mass", "nozzles", "class")
 	)
 }
 calc def Vehicles :> Query {
-	in root : Element;
+	in root : Element[1];
 	Project(
 		source = WhereType(source = Descendants(source = root, maxDepth = 1), type = "PartUsage"),
 		properties = ("name", "liftoffMass", "engineCount", "topMass")
@@ -203,7 +203,7 @@ func TestExecuteAgreesWithTheRuntimeOnDerivedValues(t *testing.T) {
 func TestExecuteFiltersAndOrdersDerivedQuantities(t *testing.T) {
 	fixture := derivedFixture(t, `
 calc def Heavy :> Query {
-	in root : Element;
+	in root : Element[1];
 	Project(
 		source = WhereFeature(
 			source = WhereType(source = Descendants(source = root, maxDepth = 1), type = "PartUsage"),
@@ -215,7 +215,7 @@ calc def Heavy :> Query {
 	)
 }
 calc def Ordered :> Query {
-	in root : Element;
+	in root : Element[1];
 	OrderBy(
 		source = Project(
 			source = WhereType(source = Descendants(source = root, maxDepth = 1), type = "PartUsage"),
@@ -228,7 +228,7 @@ calc def Ordered :> Query {
 	)
 }
 calc def OrderedGrams :> Query {
-	in root : Element;
+	in root : Element[1];
 	OrderBy(
 		source = WhereType(source = Descendants(source = root, maxDepth = 1), type = "PartUsage"),
 		property = "mass",
@@ -285,7 +285,7 @@ part broken {
 func TestExecuteComputesColumnsOverDerivedValues(t *testing.T) {
 	fixture := derivedFixture(t, `
 calc def Derived :> Query {
-	in root : Element;
+	in root : Element[1];
 	Project(
 		source = WhereType(source = Descendants(source = root, maxDepth = 1), type = "PartUsage"),
 		properties = ("name"),
@@ -351,7 +351,7 @@ private import ControlFunctions::collect;
 part def Crate { attribute mass :> ISQ::mass; }
 part def Pallet {
 	part crates : Crate [*];
-	attribute itemMasses :> ISQ::mass [*] = crates->collect { in c : Crate; c.mass };
+	attribute itemMasses :> ISQ::mass [*] = crates->collect { in c : Crate[1]; c.mass };
 	attribute total :> ISQ::mass = sum(itemMasses);
 	attribute items : Natural = size(itemMasses);
 	attribute last :> ISQ::mass = itemMasses#(3);
@@ -369,14 +369,14 @@ part yard {
 	}
 }
 calc def Pallets :> Query {
-	in root : Element;
+	in root : Element[1];
 	Project(
 		source = WhereType(source = Descendants(source = root, maxDepth = 1), type = "PartUsage"),
 		properties = ("name", "total", "items", "last", "alias", "massUnit", "itemMasses")
 	)
 }
 calc def Hearts :> Query {
-	in root : Element;
+	in root : Element[1];
 	Project(
 		source = WhereType(source = Descendants(source = root, maxDepth = 1), type = "PartUsage"),
 		properties = ("name", "heart")
@@ -438,7 +438,7 @@ part def Thing {
 }
 part yard { part thing : Thing; }
 calc def Things :> Query {
-	in root : Element;
+	in root : Element[1];
 	Project(
 		source = WhereType(source = Descendants(source = root, maxDepth = 1), type = "PartUsage"),
 		properties = ("name", "engines", "m", "doubled", "heart", "color", "unit", "level", "cast")
@@ -449,11 +449,80 @@ calc def Things :> Query {
 	if got := integerTexts(t, result, 1); !slices.Equal(got, []int64{2}) {
 		t.Errorf("engines = %v, want 2", got)
 	}
-	// A literal of a scalar-valued enumeration is the literal in a cell, as a plain one is.
+	// A literal of a scalar-valued enumeration is the literal element in a cell, as a plain one is.
 	for column, want := range map[int]string{2: "5 [kg]", 3: "10 [kg]", 4: "Observatory::Thing::engine", 5: "Observatory::Color::red", 6: "SI::kilogram",
 		7: "Observatory::Level::high", 8: "Observatory::Level::high"} {
 		if got := cellTexts(t, result, column); !slices.Equal(got, []string{want}) {
 			t.Errorf("%s = %v, want %q", result.Columns()[column].Name(), got, want)
+		}
+		values := result.Rows()[0].Cells()[column].Values()
+		if _, ok := values[0].Element(); column >= 4 && !ok {
+			t.Errorf("%s is a %v, want the element itself", result.Columns()[column].Name(), values[0].Kind())
+		}
+	}
+}
+
+// TestExecuteRedefinedReferenceValueIsTheElement: a redefinition binding a
+// feature to an element written by qualified name — an individual's slot holding
+// an enumeration literal — puts that element in the cell, not the name as written.
+func TestExecuteRedefinedReferenceValueIsTheElement(t *testing.T) {
+	fixture := derivedFixture(t, `
+package Bench {
+	enum def Beam { '650mm'; '700mm'; }
+	part def Entry { attribute beam : Beam; }
+	individual part def entry001 :> Entry { attribute :>> beam = Bench::Beam::'650mm'; }
+}
+calc def Entries :> Query {
+	in root : Element[1];
+	Project(
+		source = WhereName(source = Descendants(source = root), operator = "startsWith", value = "entry"),
+		properties = ("name", "beam")
+	)
+}
+`)
+	result := quantityRows(t, fixture, "Entries", "Bench")
+	if got := cellTexts(t, result, 1); !slices.Equal(got, []string{"Observatory::Bench::Beam::650mm"}) {
+		t.Fatalf("beam = %v", got)
+	}
+	values := result.Rows()[0].Cells()[1].Values()
+	if element, ok := values[0].Element(); !ok || element.Name != "650mm" {
+		t.Errorf("beam is a %v, want the literal 650mm", values[0].Kind())
+	}
+}
+
+// TestExecuteWhereFeatureMatchesElementValuesByName: an element-valued
+// attribute compares as the name its cell prints, and as its qualified name
+// against a qualified value.
+func TestExecuteWhereFeatureMatchesElementValuesByName(t *testing.T) {
+	for _, tc := range []struct {
+		operator, value string
+		want            []string
+	}{
+		{"=", "650mm", []string{"entry001"}},
+		{"=", "700mm", []string{"entry002"}},
+		{"endsWith", "Beam::650mm", []string{"entry001"}},
+		{"=", "Bench::Beam::650mm", nil},
+		{"!=", "650mm", []string{"entry002"}},
+	} {
+		fixture := derivedFixture(t, `
+package Bench {
+	enum def Beam { '650mm'; '700mm'; }
+	part def Entry { attribute beam : Beam; }
+	individual part def entry001 :> Entry { attribute :>> beam = Bench::Beam::'650mm'; }
+	individual part def entry002 :> Entry { attribute :>> beam = Bench::Beam::'700mm'; }
+}
+calc def Entries :> Query {
+	in root : Element[1];
+	Project(
+		source = WhereFeature(
+			source = WhereName(source = Descendants(source = root), operator = "startsWith", value = "entry"),
+			feature = "beam", operator = "`+tc.operator+`", value = "`+tc.value+`"),
+		properties = ("name", "beam")
+	)
+}
+`)
+		if got := cellTexts(t, quantityRows(t, fixture, "Entries", "Bench"), 0); !slices.Equal(got, tc.want) {
+			t.Errorf("beam %s %q keeps %v, want %v", tc.operator, tc.value, got, tc.want)
 		}
 	}
 }
@@ -471,7 +540,7 @@ part def MassedComponent {
 	part subcomponents : MassedComponent [*];
 	attribute mass :> ISQ::mass;
 	attribute totalMass :> ISQ::mass default = mass + sum(subcomponents.totalMass);
-	attribute childMasses :> ISQ::mass [*] nonunique = subcomponents->collect { in c : MassedComponent; c.mass };
+	attribute childMasses :> ISQ::mass [*] nonunique = subcomponents->collect { in c : MassedComponent[1]; c.mass };
 	attribute children : Natural = size(subcomponents);
 }
 part def Bolt :> MassedComponent {
@@ -490,7 +559,7 @@ part def Stack :> MassedComponent {
 }
 part depot { part stack : Stack; }
 calc def Totals :> Query {
-	in root : Element;
+	in root : Element[1];
 	Project(
 		source = WhereType(source = Descendants(source = root, maxDepth = 1), type = "PartUsage"),
 		properties = ("name", "totalMass", "childMasses", "children")
@@ -555,7 +624,7 @@ part hangar {
 	part stack : Stack;
 }
 calc def Totals :> Query {
-	in root : Element;
+	in root : Element[1];
 	Project(
 		source = WhereType(source = Descendants(source = root, maxDepth = 1), type = "PartUsage"),
 		properties = ("name", "totalMass", "childMasses")
@@ -597,7 +666,7 @@ func TestExecuteNamesTheSubexpressionOfAnUnevaluableDerivedValue(t *testing.T) {
 private import RealFunctions::sum;
 
 part def Sensor :> Stage {
-	action measure { in reading : Real; }
+	action measure { in reading : Real[1]; }
 	attribute :>> dryMass = 1 [kg];
 	attribute :>> propellantMass = measure.reading [kg];
 }

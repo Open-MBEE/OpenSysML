@@ -1,12 +1,16 @@
 package 'Fleet Profile' {
-    metadata def Safety;
+    metadata def Safety {
+        attribute level : ScalarValues::String;
+    }
 }
 package Fleet {
     package Structure {
         part def Truck {
             doc /* Hauls one trailer. */
             attribute payload : ScalarValues::Real;
-            part axles : Axle[2];
+            part axles : Axle[2] {
+                attribute mass : ScalarValues::Real;
+            }
             satisfy requirement : Fleet::Requirements::'Load Limit';
             view 'Truck Internals' {
                 expose axles;
@@ -34,11 +38,15 @@ package Fleet {
         requirement def <'R-2'> 'Brake Distance' {
             doc /* A loaded truck stops within the legal distance. */
             comment /* A loaded truck stops within the legal distance. */
-            @'Fleet Profile'::Safety;
+            @'Fleet Profile'::Safety {
+                level = "brakes";
+            }
         }
         requirement def <'R-3'> 'Axle Count' {
             doc /* A truck has two axles. */
-            @'Fleet Profile'::Safety;
+            @'Fleet Profile'::Safety {
+                level = "many";
+            }
         }
     }
 }
@@ -72,7 +80,9 @@ package 'Fleet Viewpoints' {
                 action 'Owner Name';
                 first 'Owner Name' then Alias;
                 action Alias;
-                first Alias then done;
+                first Alias then 'Axle Mass';
+                action 'Axle Mass';
+                first 'Axle Mass' then done;
             }
             first 'Fleet Parts' then final;
             action final terminate;
@@ -120,7 +130,9 @@ package 'Fleet Viewpoints' {
                 action Name;
                 first Name then Text;
                 action Text;
-                first Text then Owner;
+                first Text then Level;
+                action Level;
+                first Level then Owner;
                 action Owner;
             }
             first 'Safety Requirements' then final;
@@ -251,8 +263,8 @@ package 'Fleet Viewpoints' {
             action 'Per Truck Again' : 'Per Truck';
             first 'Per Truck Again' then final;
             action final terminate;
-            /* applied stereotype «Dynamic_View»: loop = true; title = Per Truck */
             metadata MigrationMetadata::SynthesizedName about final;
+            /* applied stereotype «Dynamic_View»: loop = true; title = Per Truck */
         }
         perform action 'oddities Method' : 'Oddities Method';
     }
@@ -299,9 +311,11 @@ package 'Fleet Documents' {
         view others :> 'Fleet Views'::'Other Figures';
         view owners :> 'Fleet Views'::'Figure Owners';
         view noFigures :> 'Fleet Views'::'No Figures';
+        view safety :> Safety;
         /* applied stereotype «Document» */
     }
     view Introduction {
+        doc /* The fleet, in brief. */
         satisfy 'Fleet Viewpoints'::'Parts Viewpoint';
         expose Fleet::Structure::**;
     }
@@ -312,6 +326,7 @@ package 'Fleet Documents' {
         expose Fleet::Requirements::**;
     }
     view Safety {
+        doc /* Safety comes first. */
         satisfy 'Fleet Viewpoints'::'Safety Viewpoint';
         public import Fleet::*;
         /* applied stereotype «view» */
@@ -360,8 +375,9 @@ package 'Fleet Documents' {
                 multiple = "first"),
             properties = ("name", "qualifiedName", "documentation"),
             columns = (
-                DocumentQueries::Column(name = "Payload", expression = Fleet::Structure::Truck::payload ?? ""),
-                DocumentQueries::Column(name = "name 2", expression = Fleet::Structure::Truck::payload ?? "")))
+                DocumentQueries::Column(name = "Payload", cell = { in row : Fleet::Structure::Truck; row.payload ?? "" }),
+                DocumentQueries::Column(name = "name 2", cell = { in row : Fleet::Structure::Truck; row.payload ?? "" }),
+                DocumentQueries::Column(name = "Axle Mass", expression = Fleet::Structure::Truck::axles.mass ?? "")))
     }
     calc def 'Fleet Handbook Requirement List Rows' :> DocumentQueries::Query {
         DocumentQueries::Project(
@@ -399,7 +415,9 @@ package 'Fleet Documents' {
                         'metadata' = ("Fleet Profile::Safety")),
                     operator = "matches",
                     value = "^(?:.*Count)$")),
-            properties = ("name", "documentation"))
+            properties = ("name", "documentation"),
+            columns = (
+                DocumentQueries::Column(name = "Level", cell = { in row : 'Fleet Profile'::Safety; row.level ?? "" })))
     }
     calc def 'Fleet Handbook Related Elements Rows' :> DocumentQueries::Query {
         DocumentQueries::Project(
@@ -423,11 +441,15 @@ package 'Fleet Documents' {
         attribute redefines title = "Fleet Handbook";
         part Introduction : DocumentQueries::Section {
             attribute redefines title = "Introduction";
+            part paragraph : DocumentQueries::Paragraph {
+                attribute redefines text = "The fleet, in brief.";
+            }
+            /* not migrated: «Paragraph» Comment '<Comment>' — property "META:QPROP:Element:name" is not the comment body */
             part table : DocumentQueries::Table {
                 attribute redefines caption = "Fleet Parts";
                 calc rows : 'Fleet Handbook Fleet Parts Rows';
             }
-            part paragraph : DocumentQueries::Paragraph {
+            part 'paragraph 2' : DocumentQueries::Paragraph {
                 attribute redefines text = "The parts of the fleet, by name.";
             }
         }
@@ -445,6 +467,9 @@ package 'Fleet Documents' {
             }
             part Safety : DocumentQueries::Section {
                 attribute redefines title = "Safety";
+                part paragraph : DocumentQueries::Paragraph {
+                    attribute redefines text = "Safety comes first.";
+                }
                 part table : DocumentQueries::Table {
                     attribute redefines caption = "Safety Requirements";
                     calc rows : 'Fleet Handbook Safety Requirements Rows';
@@ -497,6 +522,7 @@ package 'Fleet Documents' {
         }
         part Notes : DocumentQueries::Section {
             attribute redefines title = "Notes";
+            /* not migrated: the view Fleet Documents::Notes's conformance is not migrated: Conform general "_vp_gone" names no element */
             part paragraph : DocumentQueries::Paragraph {
                 attribute redefines text = "First note.";
             }
@@ -506,7 +532,7 @@ package 'Fleet Documents' {
             part 'paragraph 3' : DocumentQueries::Paragraph {
                 attribute redefines text = "Figure: the fleet at the depot";
             }
-            /* not migrated: «Image Paragraph» Comment '<Comment>' — the attached image "depot.png" has no caption, and a Diagram shows a view, not an image file */
+            /* not migrated: «Image Paragraph» Comment '<Comment>' — the attached image "depot.png" is not in the archive */
             /* not migrated: «Paragraph» Comment '<Comment>' — property "META:QPROP:Element:name" is not the comment body */
             /* not migrated: «Paragraph» Comment '<Comment>' — the paragraph's comment has no body */
         }
@@ -520,6 +546,24 @@ package 'Fleet Documents' {
                 missing = "last",
                 multiple = "first"),
             properties = ("name"))
+    }
+    calc def 'Fleet Brief Safety Requirements Rows' :> DocumentQueries::Query {
+        DocumentQueries::Project(
+            source = DocumentQueries::Except(
+                source = DocumentQueries::WhereMetadata(
+                    source = DocumentQueries::Descendants(
+                        source = DocumentQueries::Named(qualifiedName = ("Fleet"))),
+                    'metadata' = ("Fleet Profile::Safety")),
+                exclude = DocumentQueries::WhereName(
+                    source = DocumentQueries::WhereMetadata(
+                        source = DocumentQueries::Descendants(
+                            source = DocumentQueries::Named(qualifiedName = ("Fleet"))),
+                        'metadata' = ("Fleet Profile::Safety")),
+                    operator = "matches",
+                    value = "^(?:.*Count)$")),
+            properties = ("name", "documentation"),
+            columns = (
+                DocumentQueries::Column(name = "Level", cell = { in row : 'Fleet Profile'::Safety; row.level ?? "" })))
     }
     part def 'Fleet Brief Document' :> DocumentQueries::Document {
         attribute redefines title = "Fleet Brief";
@@ -591,6 +635,16 @@ package 'Fleet Documents' {
         }
         part 'No Figures' : DocumentQueries::Section {
             attribute redefines title = "No Figures";
+        }
+        part Safety : DocumentQueries::Section {
+            attribute redefines title = "Safety";
+            part paragraph : DocumentQueries::Paragraph {
+                attribute redefines text = "Safety comes first.";
+            }
+            part table : DocumentQueries::Table {
+                attribute redefines caption = "Safety Requirements";
+                calc rows : 'Fleet Brief Safety Requirements Rows';
+            }
         }
     }
 }

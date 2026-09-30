@@ -1,6 +1,7 @@
 package migrate_test
 
 import (
+	"regexp"
 	"strings"
 	"testing"
 
@@ -287,7 +288,7 @@ func TestWeightedDecisionReadsOnlyTheSysMLProfilesProbability(t *testing.T) {
 	wantNote(t, r, "_eReject", migrate.Approximated, "the edge carries no «Probability»: it is weighted 1.0 - (bias + 0.3)")
 	s := session(t, r)
 	meta(t, s, "%seed 1")
-	wantVerdict(t, s.RunAction("Sorter::Route"))
+	wantVerdict(t, s.RunAction("Sorter::route"))
 }
 
 // weightedChooser is a block whose value properties hold the probabilities the
@@ -352,7 +353,7 @@ func TestPropertyBackedProbabilitiesAreReferences(t *testing.T) {
 		}
 		s := session(t, r)
 		meta(t, s, "%seed 1")
-		wantVerdict(t, s.RunAction("Chooser::Choose"))
+		wantVerdict(t, s.RunAction("Chooser::choose"))
 	})
 	t.Run("the object performing the action supplies the weight", func(t *testing.T) {
 		r := migrateDocument(t, weightedChooser, `
@@ -364,14 +365,14 @@ func TestPropertyBackedProbabilitiesAreReferences(t *testing.T) {
 		s := session(t, r)
 		meta(t, s, "%seed 1")
 		// Chooser's own pA is 0.25: the branches sum to 0.25, which a run refuses.
-		v := s.RunAction("Chooser::Choose")
+		v := s.RunAction("Chooser::choose")
 		if v.Holds() || !strings.Contains(strings.Join(v.Lines, "\n"), "sum to 0.25") {
-			t.Errorf("a run of Chooser::Choose with pA = 0.25 and 0.0 = %s:\n%s", v.Status, strings.Join(v.Lines, "\n"))
+			t.Errorf("a run of Chooser::choose with pA = 0.25 and 0.0 = %s:\n%s", v.Status, strings.Join(v.Lines, "\n"))
 		}
 		// The object sure fixes pA at 1.0, so its run holds and always takes a.
 		meta(t, s, "%instantiate sure")
-		wantVerdict(t, s.RunAction("Chooser::Choose", "sure"))
-		runs := s.RunRuns("Chooser::Choose", []string{"sure"}, 5, seedOf(1), nil)
+		wantVerdict(t, s.RunAction("Chooser::choose", "sure"))
+		runs := s.RunRuns("Chooser::choose", []string{"sure"}, 5, seedOf(1), nil)
 		if lines := strings.Join(runs.Lines, "\n"); !runs.Holds() || !strings.Contains(lines, "5 run(s)") {
 			t.Errorf("Monte Carlo runs on the object sure = %s:\n%s", runs.Status, lines)
 		}
@@ -386,7 +387,7 @@ func TestPropertyBackedProbabilitiesAreReferences(t *testing.T) {
 		wantNote(t, r, "_eb", migrate.Mapped, "the probability reads the property pB")
 		s := session(t, r)
 		meta(t, s, "%seed 1")
-		v := s.RunAction("Chooser::Choose")
+		v := s.RunAction("Chooser::choose")
 		if v.Holds() || !strings.Contains(strings.Join(v.Lines, "\n"), "invalid branch weights") {
 			t.Errorf("a run with pB unset = %s:\n%s", v.Status, strings.Join(v.Lines, "\n"))
 		}
@@ -400,7 +401,7 @@ func TestPropertyBackedProbabilitiesAreReferences(t *testing.T) {
 		wantNote(t, r, "_eb", migrate.Approximated, "read when the decision is reached")
 		s := session(t, r)
 		meta(t, s, "%seed 1")
-		wantVerdict(t, s.RunAction("Chooser::Choose"))
+		wantVerdict(t, s.RunAction("Chooser::choose"))
 	})
 	t.Run("not a number, not visible", func(t *testing.T) {
 		r := migrateDocument(t, weightedChooser, `
@@ -439,7 +440,7 @@ func TestPropertyBackedProbabilitiesAreReferences(t *testing.T) {
 		}
 		s := session(t, r)
 		meta(t, s, "%seed 1")
-		wantVerdict(t, s.RunAction("Chooser::Choose"))
+		wantVerdict(t, s.RunAction("Chooser::choose"))
 		// A value the type admits but no probability is: refused at the decision.
 		r = migrateDocument(t, strings.Replace(widerChooser, `value="0.0"`, `value="2.0"`, 1), `
   <sysml:Block xmi:id="_s1" base_Class="_chooser"/>
@@ -447,11 +448,75 @@ func TestPropertyBackedProbabilitiesAreReferences(t *testing.T) {
   <sysml:Probability xmi:id="_p2" base_ActivityEdge="_eb" probability="count"/>`)
 		s = session(t, r)
 		meta(t, s, "%seed 1")
-		v := s.RunAction("Chooser::Choose")
+		v := s.RunAction("Chooser::choose")
 		if v.Holds() || !strings.Contains(strings.Join(v.Lines, "\n"), "not a probability in [0, 1]") {
 			t.Errorf("a run with count = 2.0 = %s:\n%s", v.Status, strings.Join(v.Lines, "\n"))
 		}
 	})
+}
+
+func TestStrictPropertyProbabilityUsesOnlyLiteralDefaults(t *testing.T) {
+	r := migrateFixtureFileOptions(t, "decision_property_probability", migrate.Options{Strict: true})
+	for _, line := range []string{
+		"first 'with default' then defaulted { @Stochastic::Probability { p = 0.25; } }",
+		"first 'with default' then remainder { @Stochastic::Probability { p = 0.75; } }",
+	} {
+		wantLine(t, r.Notation, line)
+	}
+	if strings.Contains(string(r.Notation), "p = pDefault") || strings.Contains(string(r.Notation), "p = pMissing") {
+		t.Errorf("strict output retains a dynamic probability property:\n%s", r.Notation)
+	}
+	wantNote(t, r, "_eDefault", migrate.Approximated, "the default of property Chooser::pDefault")
+	wantNote(t, r, "_eMissing", migrate.Approximated, "has no finite numeric literal default")
+	if errs := errorsMode(t, "decision_property_probability.sysml", r.Notation, diag.ConformanceStrict); len(errs) > 0 {
+		t.Errorf("strict probability migration has errors: %v\n%s", errs, r.Notation)
+	}
+}
+
+func TestStrictRejectedProbabilityDecisionDoesNotReportUnusedDefault(t *testing.T) {
+	r := migrateFixtureFileOptions(t, "decision_rejected_probability_default", migrate.Options{Strict: true})
+	wantNoLine(t, r.Notation, "@Stochastic::Probability")
+	entries := entriesFor(r, "_eDefault")
+	if len(entries) != 1 ||
+		!strings.Contains(entries[0].Note, "no «Probability» is written on the decision's branches") ||
+		strings.Contains(entries[0].Note, "under strict the probability is written as") {
+		t.Errorf("defaulted branch report = %+v, want only the decision rejection note", entries)
+	}
+	if errs := errorsMode(t, "decision_rejected_probability_default.sysml", r.Notation, diag.ConformanceStrict); len(errs) > 0 {
+		t.Errorf("strict probability migration has errors: %v\n%s", errs, r.Notation)
+	}
+}
+
+func TestExposeUsesPlannedActionUsageName(t *testing.T) {
+	r := migrateFixtureFileOptions(t, "exposed_action_usage", migrate.Options{Strict: true})
+	wantLine(t, r.Notation, "perform action route")
+	wantLine(t, r.Notation, "expose route;")
+	wantNoLine(t, r.Notation, "expose Route;")
+	if errs := errorsMode(t, "exposed_action_usage.sysml", r.Notation, diag.ConformanceStrict); len(errs) > 0 {
+		t.Errorf("strict exposed action migration has errors: %v\n%s", errs, r.Notation)
+	}
+}
+
+func TestAcceptPayloadNameDoesNotShadowSignalType(t *testing.T) {
+	r := migrateFixtureFile(t, "accept_payload_name")
+	wantLine(t, r.Notation, "accept s3 : AccProbe::s3")
+	wantLine(t, r.Notation, "accept AccProbe::start")
+}
+
+func TestAcceptPayloadNameAnchorsShadowedSignalPath(t *testing.T) {
+	r := migrateFixtureFileOptions(t, "accept_payload_package_shadow", migrate.Options{Strict: true})
+	wantLine(t, r.Notation, "accept Alarm : $::Alarm::Alarm;")
+	if errs := errorsMode(t, "accept_payload_package_shadow.sysml", r.Notation, diag.ConformanceStrict); len(errs) > 0 {
+		t.Errorf("strict accept signal migration has errors: %v\n%s", errs, r.Notation)
+	}
+}
+
+func TestAcceptPayloadDoesNotShadowSignalPackagePath(t *testing.T) {
+	r := migrateFixtureFileOptions(t, "accept_payload_package_segment_shadow", migrate.Options{Strict: true})
+	wantLine(t, r.Notation, "accept Alarm : $::Alarm::Beep;")
+	if errs := errorsMode(t, "accept_payload_package_segment_shadow.sysml", r.Notation, diag.ConformanceStrict); len(errs) > 0 {
+		t.Errorf("strict accept signal migration has errors: %v\n%s", errs, r.Notation)
+	}
 }
 
 // widerChooser is a block whose decision weights are properties typed by the
@@ -522,14 +587,17 @@ func TestParallelControlFlowsAreEachWritten(t *testing.T) {
 	r := migrateDocument(t, parallelEdges, `
   <sysml:Block xmi:id="_s1" base_Class="_retrier"/>`)
 	for _, line := range []string{
-		"first 'decide' if this.attempts < 3 then Retry;",
-		"first 'decide' if this.manualOverride then Retry;",
+		"first 'decide' if attempts < 3 then Retry;",
+		"first 'decide' if manualOverride then Retry;",
 		"else 'merge';",
 		"first Retry then 'fork';",
 		"fork 'fork';",
 		"first Log then 'merge';",
 	} {
 		wantLine(t, r.Notation, line)
+	}
+	if !regexp.MustCompile(`decide 'decide';\n\s*else 'merge';\n`).Match(r.Notation) {
+		t.Errorf("the else branch does not directly follow the decide it is a target succession of:\n%s", r.Notation)
 	}
 	if n := strings.Count(string(r.Notation), "first 'fork' then Log;"); n != 2 {
 		t.Errorf("the two flows from Retry to Log are written %d times, want 2:\n%s", n, r.Notation)
@@ -543,7 +611,7 @@ func TestParallelControlFlowsAreEachWritten(t *testing.T) {
 	wantNote(t, r, "_retry", migrate.Approximated, "several edges leave the node, which a fork fork carries")
 	s := session(t, r)
 	meta(t, s, "%instantiate Retrier")
-	meta(t, s, "%action Retrier::Recover #1")
+	meta(t, s, "%action Retrier::recover #1")
 	if out := meta(t, s, "%continue"); !strings.Contains(out, "Completed") {
 		t.Errorf("the action with parallel flows did not run to completion:\n%s", out)
 	}
@@ -631,17 +699,20 @@ func TestStateMachineMigratesToAnExecutableStateDef(t *testing.T) {
 		"state Busy {",
 		"entry; then Warm;",
 		"transition first Warm accept after 2.0 [SI::s] then Hot;",
-		"state Cool : Cooling;",
+		"state Cool : Cooling { in ref :>> context = Control::context; }",
 		"transition start2 first Idle accept Go",
-		"assign this.count := this.count + 1;",
+		"assign context.count := context.count + 1;",
 		"then Busy;",
 		"transition first Busy accept after 2.0 [SI::s] then Cool;",
 		"transition first Cool accept Go then done;",
 		"state def Cooling {",
 		"state 'in';",
-		"exhibit state control : Control;",
+		"exhibit state control : Control { in ref :>> context = this; }",
 	} {
 		wantLine(t, r.Notation, line)
+	}
+	if diags := errors(t, "controller.sysml", r.Notation); len(diags) > 0 {
+		t.Errorf("%v", diags)
 	}
 	wantNote(t, r, "_sm", migrate.Approximated, "the classifier behavior is run by every object of Controller as its usage control")
 	wantNote(t, r, "_cool", migrate.Mapped, "")
@@ -782,10 +853,10 @@ const stationApplications = `
 func TestActivityWithSendAcceptAndOperationCalls(t *testing.T) {
 	r := migrateDocument(t, stationActivity, stationApplications)
 	for _, line := range []string{
-		"action def Point {",
-		"in az : ScalarValues::Real;",
+		"action point {",
+		"in az : ScalarValues::Real[1];",
 		"action 'set azimuth' {",
-		"assign this.azimuth := value;",
+		"assign azimuth := value;",
 		"bind 'set azimuth'.value = az;",
 		"abstract action def Park;",
 		"action def Go {",
@@ -794,11 +865,10 @@ func TestActivityWithSendAcceptAndOperationCalls(t *testing.T) {
 		"perform action go : Go;",
 		"calc def Twice {",
 		"x * 2.0",
-		"out result = this.tel;",
-		"send new Go() to this.tel;",
+		"out result[1] = tel;",
+		"send new Go() to tel;",
 		"action 'wait Ack' accept Ack;",
-		"out result = 90.0;",
-		"action point : Point;",
+		"out result[1] = 90.0;",
 		"action park : Park;",
 		"perform action point ::> tel.point;",
 		"* var t = java.lang.System.currentTimeMillis();",
@@ -821,13 +891,13 @@ func TestActivityWithSendAcceptAndOperationCalls(t *testing.T) {
 	wantNote(t, r, "_rcv", migrate.Approximated, "the reception has no method, so it only accepts the signal")
 	wantNote(t, r, "_js", migrate.Approximated, "the body is kept as a comment")
 	wantNote(t, r, "_log", migrate.Approximated, "the pin 't' it passes for the parameter t of Station::Logging receives none: 'compute', which feeds it, produces no value; v1 runs the callee without the value, so the parameter is declared admitting none")
-	wantNote(t, r, "_point", migrate.Mapped, "its owner's usage point performs it")
+	wantNote(t, r, "_point", migrate.Mapped, "written as an action usage of Telescope, which a call on an object performs, so its body runs on the object and reaches its features")
 	wantNote(t, r, "_callTgt", migrate.Mapped, "the call performs the usage point of the target this.tel")
 	wantNote(t, r, "_call", migrate.Approximated, "several edges lead to the node, which waits for all of them through the join 'join'")
 
 	s := session(t, r)
 	meta(t, s, "%instantiate Station")
-	meta(t, s, "%action Station::Observe #1")
+	meta(t, s, "%action Station::observe #1")
 	if out := meta(t, s, "%continue"); !strings.Contains(out, "waiting since step 4 for a message of type Ack") {
 		t.Errorf("the action did not wait at the accept:\n%s", out)
 	}
@@ -847,4 +917,104 @@ func TestActivityWithSendAcceptAndOperationCalls(t *testing.T) {
 	if out := meta(t, s, "%features #1.tel"); !strings.Contains(out, "azimuth = 90.0") {
 		t.Errorf("the call did not point the telescope:\n%s", out)
 	}
+}
+
+// A «Probability» naming a property of an enclosing block, on an edge of a def
+// nested in a behavior of a block nested in it: the def takes its owner as its
+// context like any def acting on its owner, and reads the property through it
+// when the object holds the property, by inheritance or in one part; an object
+// holding it nowhere is weighted by the property's default, as under -strict.
+func TestNestedDefProbabilityReadsThroughContext(t *testing.T) {
+	run := func(t *testing.T, r *migrate.Result) {
+		t.Helper()
+		if errs := errors(t, "t.sysml", r.Notation); len(errs) > 0 {
+			t.Errorf("%v\n%s", errs, r.Notation)
+		}
+		s := session(t, r)
+		meta(t, s, "%seed 1")
+		meta(t, s, "%instantiate Mission::Sub")
+		meta(t, s, "%action Mission::Sub::run #1")
+		if out := meta(t, s, "%continue"); !strings.Contains(out, "Completed") {
+			t.Errorf("the nested def did not run to completion:\n%s", out)
+		}
+	}
+	t.Run("inherited by the object", func(t *testing.T) {
+		r := migrateFixtureFile(t, "probability_nested_def_context")
+		wantLine(t, r.Notation, "in ref context : Sub[1];")
+		wantLine(t, r.Notation, "first 'decide' then a { @Stochastic::Probability { p = context.pr; } }")
+		wantLine(t, r.Notation, "first 'decide' then b { @Stochastic::Probability { p = 1.0 - context.pr; } }")
+		wantLine(t, r.Notation, "action call : Inner { in ref :>> context = Run::context; }")
+		wantLine(t, r.Notation, "perform action run : Run { in ref :>> context = this; }")
+		wantNote(t, r, "_inner", migrate.Mapped, "acts on its owner Mission::Sub, which it takes as its parameter context")
+		wantNote(t, r, "_ea", migrate.Mapped, "the probability reads the property pr of the object performing the action")
+		wantNote(t, r, "_eb", migrate.Approximated, "it is weighted 1.0 - context.pr, its share of what the marked branches leave of 1, read when the decision is reached")
+		run(t, r)
+	})
+	t.Run("held by one part of the object", func(t *testing.T) {
+		r := migrateFixtureFile(t, "probability_nested_def_part")
+		wantLine(t, r.Notation, "part mission : Mission;")
+		wantLine(t, r.Notation, "first 'decide' then a { @Stochastic::Probability { p = context.mission.pr; } }")
+		wantLine(t, r.Notation, "first 'decide' then b { @Stochastic::Probability { p = 1.0 - context.mission.pr; } }")
+		wantNote(t, r, "_ea", migrate.Mapped, "the probability reads the property pr of the object performing the action")
+		run(t, r)
+	})
+	t.Run("held by a part that is several objects", func(t *testing.T) {
+		r := migrateFixtureFile(t, "probability_nested_def_part_plural")
+		wantLine(t, r.Notation, "part mission : Mission[2];")
+		wantLine(t, r.Notation, "first 'decide' then a { @Stochastic::Probability { p = 0.25; } }")
+		wantLine(t, r.Notation, "first 'decide' then b { @Stochastic::Probability { p = 0.75; } }")
+		wantNoLine(t, r.Notation, "context.mission.pr")
+		wantNote(t, r, "_ea", migrate.Approximated, "the probability is written as 0.25, the default of property Mission::pr, since the action acts on a Mission::Sub, whose one part that holds Mission::pr, Mission::Sub::mission, holds 2 objects, so a read through it is a collection, not one number; a run no longer reads the property, so an object whose value differs is still weighted by the default")
+		run(t, r)
+	})
+	t.Run("held by one part of the object, the def uncalled", func(t *testing.T) {
+		r := migrateFixtureFile(t, "probability_nested_def_part_uncalled")
+		wantLine(t, r.Notation, "in ref context : Sub[1];")
+		wantLine(t, r.Notation, "first 'decide' then a { @Stochastic::Probability { p = context.mission.pr; } }")
+		wantLine(t, r.Notation, "first 'decide' then b { @Stochastic::Probability { p = 1.0 - context.mission.pr; } }")
+		if errs := errors(t, "t.sysml", r.Notation); len(errs) > 0 {
+			t.Errorf("%v\n%s", errs, r.Notation)
+		}
+	})
+	t.Run("held by a part that may be no object", func(t *testing.T) {
+		r := migrateFixtureFile(t, "probability_nested_def_part_optional")
+		wantLine(t, r.Notation, "part mission : Mission[0..1];")
+		wantLine(t, r.Notation, "first 'decide' then a { @Stochastic::Probability { p = 0.25; } }")
+		wantLine(t, r.Notation, "first 'decide' then b { @Stochastic::Probability { p = 0.75; } }")
+		wantNoLine(t, r.Notation, "context.mission.pr")
+		wantNote(t, r, "_ea", migrate.Approximated, "whose one part that holds Mission::pr, Mission::Sub::mission, holds 0..1 objects, so a read through it may find no number; a run no longer reads the property")
+		run(t, r)
+	})
+	t.Run("held by a private part of a general", func(t *testing.T) {
+		r := migrateFixtureFile(t, "probability_part_private")
+		wantLine(t, r.Notation, "private part mission : Mission;")
+		wantLine(t, r.Notation, "part def Sub :> Base {")
+		wantLine(t, r.Notation, "first 'decide' then a { @Stochastic::Probability { p = 0.25; } }")
+		wantLine(t, r.Notation, "first 'decide' then b { @Stochastic::Probability { p = 0.75; } }")
+		wantNoLine(t, r.Notation, "context.mission.pr")
+		wantNote(t, r, "_ea", migrate.Approximated, "the probability is written as 0.25, the default of property Mission::pr, since the action acts on a Mission::Sub, whose one part that holds Mission::pr, Mission::Base::mission, is a private feature of Mission::Base, which v2 does not inherit, so it cannot be named on the object; a run no longer reads the property, so an object whose value differs is still weighted by the default")
+		if errs := errors(t, "t.sysml", r.Notation); len(errs) > 0 {
+			t.Errorf("%v\n%s", errs, r.Notation)
+		}
+		run(t, r)
+	})
+	t.Run("held by a part a node of the body is named like", func(t *testing.T) {
+		r := migrateFixtureFile(t, "probability_part_shadowed")
+		wantLine(t, r.Notation, "part mission : Mission;")
+		wantLine(t, r.Notation, "action mission {")
+		wantLine(t, r.Notation, "first 'decide' then a { @Stochastic::Probability { p = Sub::mission.pr; } }")
+		wantLine(t, r.Notation, "first 'decide' then b { @Stochastic::Probability { p = 1.0 - Sub::mission.pr; } }")
+		wantNote(t, r, "_ea", migrate.Mapped, "the probability reads the property pr of the object performing the action")
+		run(t, r)
+	})
+	t.Run("out of the object's reach", func(t *testing.T) {
+		r := migrateFixtureFile(t, "probability_nested_def_default")
+		wantLine(t, r.Notation, "first 'decide' then a { @Stochastic::Probability { p = 0.25; } }")
+		wantLine(t, r.Notation, "first 'decide' then b { @Stochastic::Probability { p = 0.75; } }")
+		wantNoLine(t, r.Notation, "p = pr;")
+		wantNoLine(t, r.Notation, "context.pr")
+		wantNote(t, r, "_ea", migrate.Approximated, "the probability is written as 0.25, the default of property Mission::pr, since the action acts on a Mission::Sub, which neither holds Mission::pr nor has one part that does; a run no longer reads the property, so an object whose value differs is still weighted by the default")
+		wantNote(t, r, "_eb", migrate.Approximated, "it is weighted 0.75, its share of what the marked branches leave of 1")
+		run(t, r)
+	})
 }

@@ -9,6 +9,10 @@
 elmt:Lib
     a sysml:Package ;
     sysml:qualifiedName "Lib" ;
+    sysx:sourceLine "1"^^xsd:integer ;
+    sysx:sourceColumn "1"^^xsd:integer ;
+    sysx:sourceEndLine "4"^^xsd:integer ;
+    sysx:sourceEndColumn "2"^^xsd:integer ;
     sysml:elementId "Lib" ;
     sysx:memberIndex "0"^^xsd:integer ;
     sysx:sourceLanguage "sysml" ;
@@ -26,6 +30,10 @@ elmt:Lib
 elmt:Lib__Gauge
     a sysml:AttributeDefinition ;
     sysml:qualifiedName "Lib::Gauge" ;
+    sysx:sourceLine "2"^^xsd:integer ;
+    sysx:sourceColumn "5"^^xsd:integer ;
+    sysx:sourceEndLine "2"^^xsd:integer ;
+    sysx:sourceEndColumn "25"^^xsd:integer ;
     sysml:elementId "Lib__Gauge" ;
     sysx:memberIndex "0"^^xsd:integer ;
     sysml:owningNamespace elmt:Lib ;
@@ -49,6 +57,10 @@ elmt:Lib__Gauge_om
 elmt:Lib__limit
     a sysml:AttributeUsage ;
     sysml:qualifiedName "Lib::limit" ;
+    sysx:sourceLine "3"^^xsd:integer ;
+    sysx:sourceColumn "5"^^xsd:integer ;
+    sysx:sourceEndLine "3"^^xsd:integer ;
+    sysx:sourceEndColumn "29"^^xsd:integer ;
     sysml:elementId "Lib__limit" ;
     sysx:memberIndex "1"^^xsd:integer ;
     sysml:owningNamespace elmt:Lib ;
@@ -76,6 +88,10 @@ elmt:Lib__limit_om
 elmt:Scopes
     a sysml:Package ;
     sysml:qualifiedName "Scopes" ;
+    sysx:sourceLine "5"^^xsd:integer ;
+    sysx:sourceColumn "1"^^xsd:integer ;
+    sysx:sourceEndLine "14"^^xsd:integer ;
+    sysx:sourceEndColumn "2"^^xsd:integer ;
     sysml:elementId "Scopes" ;
     sysx:memberIndex "1"^^xsd:integer ;
     sysx:sourceLanguage "sysml" ;
@@ -92,6 +108,10 @@ elmt:Scopes
 elmt:Scopes___400
     a sysml:NamespaceImport ;
     sysml:qualifiedName "Scopes::@0" ;
+    sysx:sourceLine "6"^^xsd:integer ;
+    sysx:sourceColumn "5"^^xsd:integer ;
+    sysx:sourceEndLine "6"^^xsd:integer ;
+    sysx:sourceEndColumn "26"^^xsd:integer ;
     sysml:elementId "Scopes___400" ;
     sysx:memberIndex "0"^^xsd:integer ;
     sysml:owningNamespace elmt:Scopes ;
@@ -106,6 +126,10 @@ elmt:Scopes___400
 elmt:Scopes__D
     a sysml:PartDefinition ;
     sysml:qualifiedName "Scopes::D" ;
+    sysx:sourceLine "7"^^xsd:integer ;
+    sysx:sourceColumn "5"^^xsd:integer ;
+    sysx:sourceEndLine "13"^^xsd:integer ;
+    sysx:sourceEndColumn "6"^^xsd:integer ;
     sysml:elementId "Scopes__D" ;
     sysx:memberIndex "1"^^xsd:integer ;
     sysml:owningNamespace elmt:Scopes ;
@@ -140,6 +164,10 @@ elmt:Scopes__D_om
 elmt:Scopes__D__xs
     a sysml:AttributeUsage ;
     sysml:qualifiedName "Scopes::D::xs" ;
+    sysx:sourceLine "8"^^xsd:integer ;
+    sysx:sourceColumn "9"^^xsd:integer ;
+    sysx:sourceEndLine "8"^^xsd:integer ;
+    sysx:sourceEndColumn "22"^^xsd:integer ;
     sysml:elementId "Scopes__D__xs" ;
     sysx:memberIndex "0"^^xsd:integer ;
     sysml:owningNamespace elmt:Scopes__D ;
@@ -165,6 +193,10 @@ elmt:Scopes__D__xs_om
 elmt:Scopes__D__one
     a sysml:AttributeUsage ;
     sysml:qualifiedName "Scopes::D::one" ;
+    sysx:sourceLine "9"^^xsd:integer ;
+    sysx:sourceColumn "9"^^xsd:integer ;
+    sysx:sourceEndLine "9"^^xsd:integer ;
+    sysx:sourceEndColumn "55"^^xsd:integer ;
     sysml:elementId "Scopes__D__one" ;
     sysx:memberIndex "1"^^xsd:integer ;
     sysml:owningNamespace elmt:Scopes__D ;
@@ -495,6 +527,10 @@ expr:Scopes__D__one_pvalue_om
 elmt:Scopes__D__two
     a sysml:AttributeUsage ;
     sysml:qualifiedName "Scopes::D::two" ;
+    sysx:sourceLine "10"^^xsd:integer ;
+    sysx:sourceColumn "9"^^xsd:integer ;
+    sysx:sourceEndLine "10"^^xsd:integer ;
+    sysx:sourceEndColumn "54"^^xsd:integer ;
     sysml:elementId "Scopes__D__two" ;
     sysx:memberIndex "2"^^xsd:integer ;
     sysml:owningNamespace elmt:Scopes__D ;
@@ -825,6 +861,10 @@ expr:Scopes__D__two_pvalue_om
 elmt:Scopes__D__outside
     a sysml:AttributeUsage ;
     sysml:qualifiedName "Scopes::D::outside" ;
+    sysx:sourceLine "11"^^xsd:integer ;
+    sysx:sourceColumn "9"^^xsd:integer ;
+    sysx:sourceEndLine "11"^^xsd:integer ;
+    sysx:sourceEndColumn "35"^^xsd:integer ;
     sysml:elementId "Scopes__D__outside" ;
     sysx:memberIndex "3"^^xsd:integer ;
     sysml:owningNamespace elmt:Scopes__D ;
@@ -901,6 +941,10 @@ expr:Scopes__D__outside_pvalue_om
 elmt:Scopes__D__g
     a sysml:AttributeUsage ;
     sysml:qualifiedName "Scopes::D::g" ;
+    sysx:sourceLine "12"^^xsd:integer ;
+    sysx:sourceColumn "9"^^xsd:integer ;
+    sysx:sourceEndLine "12"^^xsd:integer ;
+    sysx:sourceEndColumn "29"^^xsd:integer ;
     sysml:elementId "Scopes__D__g" ;
     sysx:memberIndex "4"^^xsd:integer ;
     sysml:owningNamespace elmt:Scopes__D ;

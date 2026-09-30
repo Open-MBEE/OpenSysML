@@ -9,6 +9,10 @@
 elmt:Bounds
     a sysml:Package ;
     sysml:qualifiedName "Bounds" ;
+    sysx:sourceLine "1"^^xsd:integer ;
+    sysx:sourceColumn "1"^^xsd:integer ;
+    sysx:sourceEndLine "12"^^xsd:integer ;
+    sysx:sourceEndColumn "2"^^xsd:integer ;
     sysml:elementId "Bounds" ;
     sysx:memberIndex "0"^^xsd:integer ;
     sysx:sourceLanguage "sysml" ;
@@ -26,6 +30,10 @@ elmt:Bounds
 elmt:Bounds__Vehicle
     a sysml:PartDefinition ;
     sysml:qualifiedName "Bounds::Vehicle" ;
+    sysx:sourceLine "2"^^xsd:integer ;
+    sysx:sourceColumn "5"^^xsd:integer ;
+    sysx:sourceEndLine "2"^^xsd:integer ;
+    sysx:sourceEndColumn "22"^^xsd:integer ;
     sysml:elementId "Bounds__Vehicle" ;
     sysx:memberIndex "0"^^xsd:integer ;
     sysml:owningNamespace elmt:Bounds ;
@@ -49,6 +57,10 @@ elmt:Bounds__Vehicle_om
 elmt:Bounds__Fleet
     a sysml:PartDefinition ;
     sysml:qualifiedName "Bounds::Fleet" ;
+    sysx:sourceLine "3"^^xsd:integer ;
+    sysx:sourceColumn "5"^^xsd:integer ;
+    sysx:sourceEndLine "11"^^xsd:integer ;
+    sysx:sourceEndColumn "6"^^xsd:integer ;
     sysml:elementId "Bounds__Fleet" ;
     sysx:memberIndex "1"^^xsd:integer ;
     sysml:owningNamespace elmt:Bounds ;
@@ -83,6 +95,10 @@ elmt:Bounds__Fleet_om
 elmt:Bounds__Fleet__exact
     a sysml:PartUsage ;
     sysml:qualifiedName "Bounds::Fleet::exact" ;
+    sysx:sourceLine "4"^^xsd:integer ;
+    sysx:sourceColumn "9"^^xsd:integer ;
+    sysx:sourceEndLine "4"^^xsd:integer ;
+    sysx:sourceEndColumn "33"^^xsd:integer ;
     sysml:elementId "Bounds__Fleet__exact" ;
     sysx:memberIndex "0"^^xsd:integer ;
     sysml:owningNamespace elmt:Bounds__Fleet ;
@@ -155,6 +171,10 @@ expr:Bounds__Fleet__exact_pupperBound_om
 elmt:Bounds__Fleet__range
     a sysml:PartUsage ;
     sysml:qualifiedName "Bounds::Fleet::range" ;
+    sysx:sourceLine "5"^^xsd:integer ;
+    sysx:sourceColumn "9"^^xsd:integer ;
+    sysx:sourceEndLine "5"^^xsd:integer ;
+    sysx:sourceEndColumn "36"^^xsd:integer ;
     sysml:elementId "Bounds__Fleet__range" ;
     sysx:memberIndex "1"^^xsd:integer ;
     sysml:owningNamespace elmt:Bounds__Fleet ;
@@ -250,6 +270,10 @@ expr:Bounds__Fleet__range_pupperBound_om
 elmt:Bounds__Fleet__many
     a sysml:PartUsage ;
     sysml:qualifiedName "Bounds::Fleet::many" ;
+    sysx:sourceLine "6"^^xsd:integer ;
+    sysx:sourceColumn "9"^^xsd:integer ;
+    sysx:sourceEndLine "6"^^xsd:integer ;
+    sysx:sourceEndColumn "35"^^xsd:integer ;
     sysml:elementId "Bounds__Fleet__many" ;
     sysx:memberIndex "2"^^xsd:integer ;
     sysml:owningNamespace elmt:Bounds__Fleet ;
@@ -344,6 +368,10 @@ expr:Bounds__Fleet__many_pupperBound_om
 elmt:Bounds__Fleet__loose
     a sysml:PartUsage ;
     sysml:qualifiedName "Bounds::Fleet::loose" ;
+    sysx:sourceLine "7"^^xsd:integer ;
+    sysx:sourceColumn "9"^^xsd:integer ;
+    sysx:sourceEndLine "7"^^xsd:integer ;
+    sysx:sourceEndColumn "51"^^xsd:integer ;
     sysml:elementId "Bounds__Fleet__loose" ;
     sysx:memberIndex "3"^^xsd:integer ;
     sysml:owningNamespace elmt:Bounds__Fleet ;
@@ -417,6 +445,10 @@ expr:Bounds__Fleet__loose_pupperBound_om
 elmt:Bounds__Fleet__shared
     a sysml:PartUsage ;
     sysml:qualifiedName "Bounds::Fleet::shared" ;
+    sysx:sourceLine "8"^^xsd:integer ;
+    sysx:sourceColumn "9"^^xsd:integer ;
+    sysx:sourceEndLine "8"^^xsd:integer ;
+    sysx:sourceEndColumn "35"^^xsd:integer ;
     sysml:elementId "Bounds__Fleet__shared" ;
     sysx:memberIndex "4"^^xsd:integer ;
     sysml:owningNamespace elmt:Bounds__Fleet ;
@@ -447,6 +479,10 @@ elmt:Bounds__Fleet__shared_om
 elmt:Bounds__Fleet__owned
     a sysml:PartUsage ;
     sysml:qualifiedName "Bounds::Fleet::owned" ;
+    sysx:sourceLine "9"^^xsd:integer ;
+    sysx:sourceColumn "9"^^xsd:integer ;
+    sysx:sourceEndLine "9"^^xsd:integer ;
+    sysx:sourceEndColumn "40"^^xsd:integer ;
     sysml:elementId "Bounds__Fleet__owned" ;
     sysx:memberIndex "5"^^xsd:integer ;
     sysml:owningNamespace elmt:Bounds__Fleet ;
@@ -477,6 +513,10 @@ elmt:Bounds__Fleet__owned_om
 elmt:Bounds__Fleet__count
     a sysml:AttributeUsage ;
     sysml:qualifiedName "Bounds::Fleet::count" ;
+    sysx:sourceLine "10"^^xsd:integer ;
+    sysx:sourceColumn "9"^^xsd:integer ;
+    sysx:sourceEndLine "10"^^xsd:integer ;
+    sysx:sourceEndColumn "43"^^xsd:integer ;
     sysml:elementId "Bounds__Fleet__count" ;
     sysx:memberIndex "6"^^xsd:integer ;
     sysml:owningNamespace elmt:Bounds__Fleet ;

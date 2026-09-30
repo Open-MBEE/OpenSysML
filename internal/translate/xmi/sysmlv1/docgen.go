@@ -3,6 +3,7 @@ package sysmlv1
 import (
 	"fmt"
 	"strconv"
+	"strings"
 )
 
 // DocGenDocument is one MDK DocGen document: a class carrying the Document
@@ -23,6 +24,9 @@ type DocGenView struct {
 	Class *Element
 	// Viewpoint is the viewpoint the view conforms to; nil when none.
 	Viewpoint *Element
+	// ConformMalformed is why the view's Conform names no viewpoint, "" when
+	// it does or the view has no Conform.
+	ConformMalformed string
 	// Method is the viewpoint's method activity, the behavior of its
 	// operation named View or its method tag; nil when the viewpoint has none.
 	Method *Element
@@ -41,8 +45,8 @@ type DocGenView struct {
 }
 
 // DocGenParagraph is one collaborator paragraph: a comment the collaborator
-// profile places in a view (its ownerId) of a document (its viewId), after
-// the paragraph its siblingId names.
+// profile places in a view (ownerId, or sectionId in the 2022x schema) of a
+// document, after the paragraph its siblingId or parentId names.
 type DocGenParagraph struct {
 	// Application is the CollaboratorParagraph or CollaboratorImageParagraph application.
 	Application *Stereotype
@@ -52,9 +56,44 @@ type DocGenParagraph struct {
 	Comment *Element
 	// Malformed is why the paragraph cannot be shown, "" when it can.
 	Malformed string
-	// Placed reports whether siblingId named a paragraph of the same view,
-	// which this one then follows; false also when siblingId is empty.
+	// Predecessor is the siblingId or parentId tag as written, "" when the
+	// paragraph names nothing it follows.
+	Predecessor string
+	// Anchor is the generated item Predecessor names, nil when it names a
+	// paragraph (see Placed) or nothing readable.
+	Anchor *DocGenAnchor
+	// Placed reports whether the predecessor tag named a paragraph of the
+	// same view, which this one then follows.
 	Placed bool
+}
+
+// DocGenAnchor is an item of the published document a collaborator paragraph
+// follows that is no paragraph; the publisher writes it `<view>_<Kind>__<Target>`,
+// as `Containment_DiagramMainImage__<id>` for the main image of a diagram.
+type DocGenAnchor struct {
+	// Kind is the item's kind, DiagramMainImage for the figure of a diagram.
+	Kind string
+	// Target is the id the publisher gave the item.
+	Target string
+}
+
+// DiagramMainImage is the anchor kind naming the figure a section draws of a diagram.
+const DiagramMainImage = "DiagramMainImage"
+
+// parseAnchor reads a predecessor tag of the generated-item form; nil when the
+// tag has no `<Kind>__<Target>` shape and so can only name a paragraph.
+func parseAnchor(predecessor string) *DocGenAnchor {
+	head, target, ok := strings.Cut(predecessor, "__")
+	if !ok || head == "" || target == "" || head[0] == '_' {
+		return nil
+	}
+	if i := strings.LastIndexByte(head, '_'); i >= 0 {
+		head = head[i+1:]
+	}
+	if head == "" {
+		return nil
+	}
+	return &DocGenAnchor{Kind: head, Target: target}
 }
 
 // DocGenStep is one node of a DocGen activity chain: a collect, filter or
@@ -134,8 +173,7 @@ func (m *Model) readDocuments() {
 	r := &docGenReader{m: m, comments: map[string][]*Stereotype{}, placed: map[*Stereotype]bool{}}
 	for _, s := range m.Stereotypes {
 		if isCollaboratorParagraph(s) {
-			owner := s.Tag("ownerId")
-			r.comments[owner] = append(r.comments[owner], s)
+			r.comments[ownerTag(s)] = append(r.comments[ownerTag(s)], s)
 		}
 	}
 	seen := map[*Element]bool{}
@@ -148,6 +186,7 @@ func (m *Model) readDocuments() {
 		}
 		seen[s.Base] = true
 		r.doc = s.Base
+		r.docViews = m.viewTree(s.Base)
 		doc := &DocGenDocument{Class: s.Base, Application: s}
 		doc.Root = r.view(s.Base, nil, map[*Element]bool{}, true)
 		m.Documents = append(m.Documents, doc)
@@ -157,10 +196,10 @@ func (m *Model) readDocuments() {
 			continue
 		}
 		p := &DocGenParagraph{Application: s, Comment: s.Base, Image: s.Name == "CollaboratorImageParagraph"}
-		if id := s.Tag("viewId"); id != "" && !seen[m.Lookup(id)] {
+		if id := s.Tag("viewId"); id != "" && !seen[m.Lookup(id)] && (m.Lookup(id) == nil || !isDocGenView(m.Lookup(id))) {
 			p.Malformed = fmt.Sprintf("viewId %q names no document", id)
 		} else {
-			p.Malformed = fmt.Sprintf("ownerId %q names no view of the document", s.Tag("ownerId"))
+			p.Malformed = fmt.Sprintf("%s %q names no view of the document", ownerTagName(s), ownerTag(s))
 		}
 		m.StrayParagraphs = append(m.StrayParagraphs, p)
 	}
@@ -171,13 +210,41 @@ func isCollaboratorParagraph(s *Stereotype) bool {
 	return s.Namespace == DocGenCollaboratorNS && (s.Name == "CollaboratorParagraph" || s.Name == "CollaboratorImageParagraph")
 }
 
+// ownerTag is the view a paragraph application places its comment in:
+// ownerId, or the 2022x schema's sectionId.
+func ownerTag(s *Stereotype) string {
+	if id := s.Tag("ownerId"); id != "" {
+		return id
+	}
+	return s.Tag("sectionId")
+}
+
+// ownerTagName names the tag ownerTag read, for a stray paragraph's reason.
+func ownerTagName(s *Stereotype) string {
+	if s.Tag("ownerId") != "" {
+		return "ownerId"
+	}
+	return "sectionId"
+}
+
+// predecessor is the paragraph before this one in its section: siblingId, or
+// the 2022x schema's parentId.
+func predecessor(s *Stereotype) string {
+	if id := s.Tag("siblingId"); id != "" {
+		return id
+	}
+	return s.Tag("parentId")
+}
+
 type docGenReader struct {
 	m        *Model
 	comments map[string][]*Stereotype
-	// doc is the document class whose views are being read; placed are the
-	// paragraph applications some view of some document has shown.
-	doc    *Element
-	placed map[*Stereotype]bool
+	// doc is the document class whose views are being read and docViews the ids
+	// of its view tree's classes; placed are the paragraph applications some
+	// view of some document has shown.
+	doc      *Element
+	docViews map[string]bool
+	placed   map[*Stereotype]bool
 }
 
 // isDocGenView reports whether e is a view class: the SysML View stereotype
@@ -199,6 +266,30 @@ func IsDocGenProfile(ns string) bool {
 	return ns == DocGenNS || ns == DocGenCollaboratorNS
 }
 
+// viewTree returns the ids of the classes the document's view tree shows:
+// every ownedAttribute whose type isDocGenView accepts, entered deeper under
+// the aggregation rule view follows.
+func (m *Model) viewTree(root *Element) map[string]bool {
+	tree := map[string]bool{}
+	entered := map[*Element]bool{root: true}
+	var walk func(class *Element)
+	walk = func(class *Element) {
+		for _, p := range class.Owned("ownedAttribute") {
+			t := m.Ref(p, "type")
+			if p.Type != "Property" || t == nil || !isDocGenView(t) {
+				continue
+			}
+			tree[t.ID] = true
+			if aggregation := p.Attrs["aggregation"]; aggregation != "" && aggregation != "none" && !entered[t] {
+				entered[t] = true
+				walk(t)
+			}
+		}
+	}
+	walk(root)
+	return tree
+}
+
 // view reads one view placed by property p of its parent (nil at the root)
 // and, when recurse, its children; a view already on the path is not
 // entered twice.
@@ -207,6 +298,7 @@ func (r *docGenReader) view(class, p *Element, path map[*Element]bool, recurse b
 	v := &DocGenView{Class: class, Paragraphs: r.paragraphs(class)}
 	path[class] = true
 	defer delete(path, class)
+	var broken []string
 	for _, g := range class.Owned("generalization") {
 		if !isSysMLStereotyped(g, "Conform") {
 			continue
@@ -214,11 +306,15 @@ func (r *docGenReader) view(class, p *Element, path map[*Element]bool, recurse b
 		if general := m.Ref(g, "general"); general != nil {
 			v.Viewpoint = general
 		} else {
-			v.Malformed = append(v.Malformed, fmt.Sprintf("Conform general %q names no element", g.Attrs["general"]))
+			broken = append(broken, fmt.Sprintf("Conform general %q names no element", g.Attrs["general"]))
 		}
 	}
-	if v.Viewpoint != nil {
+	switch {
+	case v.Viewpoint != nil:
+		v.Malformed = append(v.Malformed, broken...)
 		v.Method, v.MethodMalformed = m.viewpointMethod(v.Viewpoint)
+	case len(broken) > 0:
+		v.ConformMalformed = strings.Join(broken, "; ")
 	}
 	v.Exposed = m.exposed(class)
 	if p != nil && composite(p) {
@@ -243,13 +339,14 @@ func (r *docGenReader) view(class, p *Element, path map[*Element]bool, recurse b
 }
 
 // paragraphs reads the collaborator paragraphs placed in a view of the
-// current document (viewId, when set, names the document class): in
-// application order, each moved behind the paragraph its siblingId names.
+// current document (a viewId must name the document class, or a view of its
+// tree in a 2022x export), each moved behind the paragraph its predecessor
+// names.
 func (r *docGenReader) paragraphs(class *Element) []*DocGenParagraph {
 	byComment := map[string]*DocGenParagraph{}
 	var out []*DocGenParagraph
 	for _, s := range r.comments[class.ID] {
-		if id := s.Tag("viewId"); id != "" && id != r.doc.ID {
+		if id := s.Tag("viewId"); id != "" && id != r.doc.ID && !r.docViews[id] {
 			continue
 		}
 		r.placed[s] = true
@@ -270,8 +367,10 @@ func (r *docGenReader) paragraphs(class *Element) []*DocGenParagraph {
 	followers := map[*DocGenParagraph][]*DocGenParagraph{}
 	var heads []*DocGenParagraph
 	for _, p := range out {
-		after := byComment[p.Application.Tag("siblingId")]
+		p.Predecessor = predecessor(p.Application)
+		after := byComment[p.Predecessor]
 		if after == nil || after == p {
+			p.Anchor = parseAnchor(p.Predecessor)
 			heads = append(heads, p)
 			continue
 		}
@@ -470,7 +569,7 @@ func (m *Model) flows(a *Element, from, to string) map[*Element][]*Element {
 
 // walk follows single control flows from cur until the chain ends or stop
 // is reached; it returns the steps and why the chain ended, "" when cleanly.
-func (w *chainWalker) walk(cur *Element, stop *Element) ([]*DocGenStep, string) {
+func (w *chainWalker) walk(cur, stop *Element) ([]*DocGenStep, string) {
 	if w.seen == nil {
 		w.seen = map[*Element]bool{}
 	}

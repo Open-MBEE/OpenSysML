@@ -10,16 +10,16 @@ Every requirement of the program in one matrix, grouped by the team that owns it
 
 | team | shortName | name | priority | derivedFrom | descendants | refinedBy | satisfiedBy | verifications | satisfied |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
-| Comms | COM-1 | linkMargin | critical | ProgramRequirements::specification::system::downlink | 0 |  | CommsDesign::commsSubsystem::transmitter | 1 | true |
-| Comms | COM-2 | dataRate | critical | ProgramRequirements::specification::system::downlink | 0 |  | CommsDesign::commsSubsystem::transmitter | 1 | true |
+| Comms | COM-1 | linkMargin | critical | downlink | 0 |  | transmitter | 1 | true |
+| Comms | COM-2 | dataRate | critical | downlink | 0 |  | transmitter | 1 | true |
 
 **team: Power**
 
 | team | shortName | name | priority | derivedFrom | descendants | refinedBy | satisfiedBy | verifications | satisfied |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
-| Power | PWR-1 | arrayOutput | critical | ProgramRequirements::specification::system::power | 1 |  | PowerDesign::powerSubsystem::array | 1 | true |
-| Power | PWR-2 | batteryDepth | high | ProgramRequirements::specification::system::power | 0 |  | PowerDesign::powerSubsystem::battery | 2 | true |
-| Power | PWR-3 | cellDegradation | high | ProgramRequirements::specification::subsystem::arrayOutput | 0 | PowerDesign::ArrayDegradationAnalysis | PowerDesign::powerSubsystem::array | 0 | true |
+| Power | PWR-1 | arrayOutput | critical | power | 1 |  | array | 1 | true |
+| Power | PWR-2 | batteryDepth | high | power | 0 |  | battery | 2 | true |
+| Power | PWR-3 | cellDegradation | high | arrayOutput | 0 | ArrayDegradationAnalysis | array | 0 | true |
 
 **team: Program**
 
@@ -32,16 +32,16 @@ Every requirement of the program in one matrix, grouped by the team that owns it
 
 | team | shortName | name | priority | derivedFrom | descendants | refinedBy | satisfiedBy | verifications | satisfied |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
-| Systems | SYS-1 | downlink | critical | ProgramRequirements::specification::needs::science | 2 |  | CommsDesign::commsSubsystem::transmitter | 0 | true |
-| Systems | SYS-2 | power | critical | ProgramRequirements::specification::needs::science | 3 |  |  | 0 | false |
-| Systems | SYS-3 | survival | high | ProgramRequirements::specification::needs::longevity | 1 | ThermalDesign::EclipseThermalAnalysis |  | 0 | false |
+| Systems | SYS-1 | downlink | critical | science | 2 |  | transmitter | 0 | true |
+| Systems | SYS-2 | power | critical | science | 3 |  |  | 0 | false |
+| Systems | SYS-3 | survival | high | longevity | 1 | EclipseThermalAnalysis |  | 0 | false |
 | Systems | SYS-4 | telemetry | low |  | 0 |  |  | 0 | false |
 
 **team: Thermal**
 
 | team | shortName | name | priority | derivedFrom | descendants | refinedBy | satisfiedBy | verifications | satisfied |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
-| Thermal | THM-1 | heaterPower | critical | ProgramRequirements::specification::system::survival | 0 | OrbiterVocabulary::HeaterBank |  | 0 | false |
+| Thermal | THM-1 | heaterPower | critical | survival | 0 | HeaterBank |  | 0 | false |
 
 ## Coverage gaps
 

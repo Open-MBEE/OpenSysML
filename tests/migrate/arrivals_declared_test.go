@@ -61,9 +61,10 @@ const declaredBench = `
 part def Driver {
     port tx;
     action def Poke {
+        in ref context : Driver[1];
         first start then poke;
         action poke {
-            send new Go() via this.tx;
+            send new Go() via context.tx;
         }
         first poke then final;
         action final terminate;
@@ -81,8 +82,8 @@ func TestTriggersAcceptViaThePortsDeclaredToCarryTheSignal(t *testing.T) {
 	r := migrateDocument(t, declaredRig, declaredRigApplications)
 	for _, line := range []string{
 		"transition first idle accept Go then got;",
-		"transition first idle accept Go via rx then got;",
-		"transition first idle accept Go via rx2 then got;",
+		"transition first idle accept Go via context.rx then got;",
+		"transition first idle accept Go via context.rx2 then got;",
 	} {
 		wantLine(t, r.Notation, line)
 	}
@@ -155,7 +156,7 @@ const conveyedRigApplications = `
 func TestTriggersAcceptViaThePortsItemFlowsConveyTheSignalTo(t *testing.T) {
 	r := migrateDocument(t, conveyedRig, conveyedRigApplications)
 	wantLine(t, r.Notation, "transition first idle accept Go then got;")
-	wantLine(t, r.Notation, "transition first idle accept Go via in1 then got;")
+	wantLine(t, r.Notation, "transition first idle accept Go via context.in1 then got;")
 	if strings.Contains(string(r.Notation), "via in2") {
 		t.Errorf("a transition accepts via a port the signal does not arrive at:\n%s", r.Notation)
 	}

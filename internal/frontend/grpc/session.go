@@ -1,6 +1,7 @@
 package grpc
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"math"
@@ -157,7 +158,8 @@ func (s *Service) OpenSession(modelHash string) (*Session, error) {
 		return nil, statusErrorf(connect.CodeNotFound, msgModelNotFound, modelHash)
 	}
 	w, release := cached.worker()
-	rt := s.newRuntimeOver(w)
+	// A session runtime outlives any one call; plans rebind the runner on the worker.
+	rt := s.newRuntimeOver(context.Background(), w)
 	rt.SetMaxInstances(s.maxHeldObjects)
 	return &Session{svc: s, cached: cached, worker: w, release: release, rt: rt}, nil
 }

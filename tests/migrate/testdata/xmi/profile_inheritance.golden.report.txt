@@ -17,7 +17,7 @@ Package	System	_sys	-> System
 «Checked By» Abstraction	System::<Abstraction>	_verify	-> System::'Torque Test'::run
 «Detailed By» Abstraction	System::<Abstraction>	_refine
 «Derived From» Abstraction	System::<Abstraction>	_derive	-> System::'Derive Speed Requirement'
-«Assigned To» Abstraction	System::<Abstraction>	_alloc
+«Assigned To» Abstraction	System::<Abstraction>	_alloc	-> System::'Spin to Shaft'
 «Diamond» Class	System::Gear	_gear	-> System::Gear
 «Right» Class	System::Shaft	_shaft	-> System::Shaft
 «Requirement» Class	System::Speed Requirement	_req_speed	-> System::'Speed Requirement'

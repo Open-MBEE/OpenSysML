@@ -53,8 +53,8 @@ func TestSnapshotIndexMatchesFreshLoad(t *testing.T) {
 	// The whole object graph, less the lookup caches an index fills lazily and
 	// the inline storage a multi-part name leaves behind (see symbols' tests).
 	if err := graphcmp.Equal(fresh, decoded, graphcmp.SkipFields(
-		"Index.directChildrenGeneration", "libraryIdentityMemo.gen", "Index.directChildrenCache",
-		"Index.directChildrenByName", "Index.shortNamedCache", "QualifiedName.part0",
+		"memberCache.generation", "libraryIdentityMemo.gen", "memberCache.children",
+		"memberCache.byName", "memberCache.shortNamed", "QualifiedName.part0",
 	)); err != nil {
 		t.Errorf("decoded index differs from a fresh load: %v", err)
 	}
@@ -79,7 +79,7 @@ func TestSnapshotIndexMatchesFreshLoad(t *testing.T) {
 
 // snapshotKindDigest pins the SymbolKind and PseudostateKind numbering the snapshot
 // stream persists under snapshotFormatVersion; a kind added or moved renumbers the ones after it.
-const snapshotKindDigest = "ed11b7ec256dac79"
+const snapshotKindDigest = "a005a8f89b4d1796"
 
 func TestSnapshotFormatVersionPinsSymbolKinds(t *testing.T) {
 	var b strings.Builder

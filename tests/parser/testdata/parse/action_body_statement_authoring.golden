@@ -1,0 +1,79 @@
+(RootNamespace
+  (Membership visibility="default"
+    (Package name="Demo" library=false standard=false
+      (Import visibility="private" all=false kind=namespace recursive=false imported="ScalarValues" filtered=false)
+      (Membership visibility="default"
+        (Definition kind="attribute" abstract=false variation=false name="Signal"
+          (Membership visibility="default"
+            (Usage kind="attribute" name="value" ref=false direction="none" composite=false derived=false ordered=false nonunique=false
+              (Relationship kind="typing" target=Integer
+                (*ast.QualifiedName))))))
+      (Membership visibility="default"
+        (Definition kind="action" abstract=false variation=false name="A"
+          (Membership visibility="default"
+            (Usage kind="attribute" name="result" ref=false direction="out" composite=false derived=false ordered=false nonunique=false
+              (Relationship kind="typing" target=Integer
+                (*ast.QualifiedName))
+              (LiteralInteger value="0")))
+          (InitialNode name="start" successor="")
+          (SendStatement via=false
+            (ConstructorExpr type="Signal"
+              (NamedArg name="value"
+                (LiteralInteger value="7")))
+            (FeatureReference name="self"))
+          (SuccessionEdge source="start" target="@send")
+          (Membership visibility="default"
+            (Usage kind="action" name="" ref=false direction="none" composite=false derived=false ordered=false nonunique=false
+              (Membership visibility="default"
+                (Usage kind="attribute" name="msg" ref=true direction="out" composite=false derived=false ordered=false nonunique=false
+                  (Relationship kind="typing" target=Signal
+                    (*ast.QualifiedName))))))
+          (SuccessionEdge source="@send" target="@action")
+          (*ast.AssignmentActionNode)
+          (SuccessionEdge source="@action" target="@assign")
+          (IfActionNode
+            (OperatorExpr operator="=="
+              (FeatureReference name="result")
+              (LiteralInteger value="0"))
+            (IfBranchNode kind="then"
+              (IfActionNode
+                (OperatorExpr operator="=="
+                  (FeatureReference name="result")
+                  (LiteralInteger value="0"))
+                (IfBranchNode kind="then"
+                  (*ast.AssignmentActionNode))
+                (IfBranchNode kind="else"
+                  (*ast.AssignmentActionNode))))
+            (IfBranchNode kind="else"
+              (*ast.AssignmentActionNode)))
+          (SuccessionEdge source="@assign" target="@if")
+          (WhileLoopActionNode kind="while" variable=""
+            (OperatorExpr operator="<"
+              (FeatureReference name="result")
+              (LiteralInteger value="4"))
+            (OperatorExpr operator="=="
+              (FeatureReference name="result")
+              (LiteralInteger value="4"))
+            (*ast.AssignmentActionNode))
+          (SuccessionEdge source="@if" target="@while")
+          (WhileLoopActionNode kind="loop" variable=""
+            (OperatorExpr operator="=="
+              (FeatureReference name="result")
+              (LiteralInteger value="5"))
+            (*ast.AssignmentActionNode))
+          (SuccessionEdge source="@while" target="@loop")
+          (WhileLoopActionNode kind="for" variable="i"
+            (SequenceExpr
+              (LiteralInteger value="1")
+              (LiteralInteger value="2")
+              (LiteralInteger value="3"))
+            (*ast.AssignmentActionNode))
+          (SuccessionEdge source="@loop" target="@for")
+          (TerminateStatement
+            (FeatureReference name="message"))
+          (SuccessionEdge source="@for" target="@terminate")
+          (ControlFlowEdge source="@terminate" target="done" else=false
+            (OperatorExpr operator="=="
+              (FeatureReference name="result")
+              (LiteralInteger value="0")))
+          (ControlFlowEdge source="@terminate" target="done" else=true))))))

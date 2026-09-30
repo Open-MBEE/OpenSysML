@@ -1,0 +1,31 @@
+// view: VehicleViews::vehicleView
+// kind: tree
+// layout: dot
+digraph "VehicleViews::vehicleView" {
+  graph [fontname="Arial", fontcolor="#424242"];
+  node [shape=box, style=filled, fillcolor="#FFCC99:#FFFAD4", gradientangle=0, color="#99795C", fontname="Arial", fontsize=11, fontcolor="#424242", penwidth=1];
+  edge [color="#424242", fontname="Arial", fontsize=9, fontcolor="#424242", penwidth=1, arrowhead=open];
+  subgraph "cluster_frame" {
+    label=<<b>bdd</b> [Block] Vehicle [ vehicleView ]>;
+    labeljust=l;
+    labelloc=t;
+    fontsize=11;
+    color="#5B5B59";
+    penwidth=1;
+    margin=8;
+    "n0" [label=<<font point-size="9">«part def»</font><br/><b>Vehicle</b>>];
+    "n1" [label=<<font point-size="9">«part»</font><br/><b>engine : Engine</b>>];
+  "n0" -> "n1" [arrowhead=none, dir=back, arrowtail=diamond];
+    "n2" [label=<<font point-size="9">«part»</font><br/><b>wheels : Wheel</b>>];
+  "n0" -> "n2" [arrowhead=none, dir=back, arrowtail=diamond];
+    "n3" [label=<<b>connect</b>>];
+  "n0" -> "n3" [arrowhead=none, dir=back, arrowtail=diamond];
+    "n4" [label=<<font point-size="9">«view»</font><br/><b>engineSubview</b>>];
+    "n5" [label=<<font point-size="9">«part def»</font><br/><b>Engine</b>>];
+    "n6" [label=<<font point-size="9">«attribute»</font><br/><b>power</b>>];
+  "n5" -> "n6" [arrowhead=none, dir=back, arrowtail=diamond];
+    "n7" [label=<<font point-size="9">«part»</font><br/><b>cylinder : Cylinder</b>>];
+  "n5" -> "n7" [arrowhead=none, dir=back, arrowtail=diamond];
+  "n4" -> "n5" [arrowhead=none, dir=back, arrowtail=diamond];
+  }
+}

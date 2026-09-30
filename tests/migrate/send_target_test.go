@@ -74,11 +74,11 @@ const pingNetworkApplications = `
 func TestSendTargetFedByParameterReachesTheObjectItHolds(t *testing.T) {
 	r := migrateDocument(t, pingNetwork, pingNetworkApplications)
 	for _, line := range []string{
-		"in recipient : Node;",
-		"in target;",
+		"in recipient : Node[1];",
+		"in target[1];",
 		"send new Ping() to target;",
 		"bind ping.target = recipient;",
-		"out result = this.b;",
+		"out result[1] = b;",
 		"flow 'read b'.result to notify.recipient;",
 	} {
 		wantLine(t, r.Notation, line)
@@ -86,13 +86,14 @@ func TestSendTargetFedByParameterReachesTheObjectItHolds(t *testing.T) {
 	if strings.Contains(string(r.Notation), "to this.target") {
 		t.Errorf("the target pin was written as a feature of the sender:\n%s", r.Notation)
 	}
-	for _, id := range []string{"_send", "_of1", "_kof1", "_call", "_readB"} {
+	for _, id := range []string{"_send", "_of1", "_kof1", "_readB"} {
 		wantNote(t, r, id, migrate.Mapped, "")
 	}
+	wantNote(t, r, "_call", migrate.Mapped, "")
 
 	s := session(t, r)
 	meta(t, s, "%instantiate Net")
-	meta(t, s, "%action Net::Kick #1")
+	meta(t, s, "%action Net::kick #1")
 	meta(t, s, "%continue")
 	meta(t, s, "%advance 0")
 	if out := meta(t, s, "%eval in #1 : b.hits"); !strings.Contains(out, "= 1") {

@@ -1,0 +1,14 @@
+{
+	"type": "instance",
+	"libraries": true,
+	"instantiate": "test::car",
+	"objects": [
+		{
+			"finalState": "marking",
+			"stateVisits": ["marking"],
+			"slots": {
+				"seen": {"type": "Integer", "value": 1}
+			}
+		}
+	]
+}

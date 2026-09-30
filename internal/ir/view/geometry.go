@@ -2,12 +2,14 @@ package view
 
 import (
 	"fmt"
+	"path/filepath"
 	"slices"
 	"strconv"
 
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/semantics"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/symbols"
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/ast"
+	"github.com/Open-MBEE/OpenSysML/internal/syntax/source"
 )
 
 // Point is one position on a rendering's canvas, in pixels from the top-left
@@ -33,6 +35,152 @@ type Canvas struct {
 	HasSize       bool
 }
 
+// Style is how a node or edge is drawn, from the DiagramLayout::Style annotating
+// it: colours as "#RRGGBB" and a font face, size in points and weight. Each
+// field is optional; the empty value leaves it to the drawing style.
+type Style struct {
+	Fill, Line, Text string
+	Font             string
+	FontSize         float64
+	Bold, Italic     bool
+}
+
+// Note is a note box drawn on the canvas, from a DiagramLayout::Note: its text,
+// the node it is anchored to (or the edge, by its end nodes; neither for one
+// free on the surface), the top-left corner of its box and its size when HasSize.
+// Origin is where the Note annotation is stated: one annotation `about` several
+// elements yields a Note per element, all of one Origin, drawn as one box.
+type Note struct {
+	Text          string
+	Anchor        string
+	EdgeFrom      string
+	EdgeTo        string
+	X, Y          float64
+	Width, Height float64
+	HasSize       bool
+	Origin        Origin
+}
+
+// Picture is a DiagramLayout::Picture drawn on the canvas: its file as the view
+// states it, the view's directory ("" in no file), its box, alt text, and z-order.
+type Picture struct {
+	Location      string
+	Dir           string
+	X, Y          float64
+	Width, Height float64
+	Alt           string
+	Above         bool
+}
+
+// Path is the picture's file as a path from the working directory: Location
+// under Dir, or Location itself when it is absolute or Dir is unknown.
+func (p Picture) Path() string {
+	if p.Dir == "" || filepath.IsAbs(p.Location) {
+		return p.Location
+	}
+	return filepath.Join(p.Dir, filepath.FromSlash(p.Location))
+}
+
+// picturesOf adds to out the Pictures drawn on view in declaration order, each located
+// from the file stating it; one that does not read is noticed.
+func (r *Renderer) picturesOf(view *symbols.Symbol, out *Rendering) {
+	out.Pictures = append(out.Pictures, r.statedPictures(view, out)...)
+}
+
+// undrawnPicturesOf notices the Pictures view states when out is of a kind
+// that draws none, a table or a sequence, so they are not silently dropped.
+func (r *Renderer) undrawnPicturesOf(view *symbols.Symbol, out *Rendering) {
+	if pictures := r.statedPictures(view, out); len(pictures) > 0 {
+		out.Notices = append(out.Notices, pictureNotice(pictures, fmt.Sprintf("%s %s rendering draws no picture", out.Kind.article(), out.Kind)))
+	}
+}
+
+// statedPictures reads the Pictures view states, in order, each located from
+// the file stating it; one that does not read is noticed on out.
+func (r *Renderer) statedPictures(view *symbols.Symbol, out *Rendering) []Picture {
+	var pictures []Picture
+	for _, site := range r.model.PicturesOf(view) {
+		r.noteLayoutProblems(site, view, out)
+		if site.Picture == nil {
+			continue
+		}
+		p := site.Picture
+		dir := source.Dir(r.model.SourceFileOf(site.Origin()))
+		pictures = append(pictures, Picture{Location: p.Location, Dir: dir, X: p.X, Y: p.Y, Width: p.Width, Height: p.Height, Alt: p.Alt, Above: p.Above})
+	}
+	return pictures
+}
+
+// styleOf is the Style colouring elem in view (nil view: inline Style only),
+// nil when none does; a Style that does not read as one is noticed.
+func (r *Renderer) styleOf(view, elem *symbols.Symbol, out *Rendering) *Style {
+	site, ok := r.model.StyleOf(view, elem)
+	if !ok {
+		return nil
+	}
+	r.noteLayoutProblems(site, elem, out)
+	if site.Style == nil {
+		return nil
+	}
+	s := site.Style
+	return &Style{Fill: s.Fill, Line: s.Line, Text: s.Text, Font: s.Font, FontSize: s.FontSize, Bold: s.Bold, Italic: s.Italic}
+}
+
+// notesOf adds to out the Notes annotating elem in view, anchored to the node
+// with ID anchor (empty: free on the canvas); one that does not read is noticed.
+func (r *Renderer) notesOf(view, elem *symbols.Symbol, anchor string, out *Rendering) {
+	for _, site := range r.model.NotesOf(view, elem) {
+		r.noteLayoutProblems(site, elem, out)
+		if site.Note == nil {
+			continue
+		}
+		n := site.Note
+		out.Notes = append(out.Notes, Note{Text: n.Text, Anchor: anchor, X: n.X, Y: n.Y, Width: n.Width, Height: n.Height, HasSize: n.HasSize, Origin: site.Origin()})
+	}
+}
+
+// edgeNotesOf adds to out the Notes annotating elem in view, anchored to the
+// edge from one node to another.
+func (r *Renderer) edgeNotesOf(view, elem *symbols.Symbol, from, to string, out *Rendering) {
+	before := len(out.Notes)
+	r.notesOf(view, elem, "", out)
+	for i := before; i < len(out.Notes); i++ {
+		out.Notes[i].EdgeFrom, out.Notes[i].EdgeTo = from, to
+	}
+}
+
+// edgeDress is the Style of the edge elem from one node to another in view,
+// adding the Notes anchored to it.
+func (r *Renderer) edgeDress(view, elem *symbols.Symbol, from, to string, out *Rendering) *Style {
+	r.edgeNotesOf(view, elem, from, to, out)
+	return r.styleOf(view, elem, out)
+}
+
+// declaredEdgeDress is edgeDress for the edge lowered from decl, declared under elem.
+func (r *Renderer) declaredEdgeDress(view, elem *symbols.Symbol, decl ast.Node, from, to string, out *Rendering) *Style {
+	sym, ok := r.model.SymbolDeclaring(documentScope(elem), decl)
+	if !ok {
+		return nil
+	}
+	return r.edgeDress(view, sym, from, to, out)
+}
+
+// dress gives node the Style of elem in view and adds the Notes anchored to it.
+func (r *Renderer) dress(view, elem *symbols.Symbol, node *Node, out *Rendering) *Node {
+	node.Style = r.styleOf(view, elem, out)
+	r.notesOf(view, elem, node.ID, out)
+	return node
+}
+
+// declaredDress is dress for the node lowered from decl, declared under elem.
+func (r *Renderer) declaredDress(view, elem *symbols.Symbol, decl ast.Node, node *Node, out *Rendering) *Node {
+	sym, ok := r.model.SymbolDeclaring(documentScope(elem), decl)
+	if !ok {
+		return node
+	}
+	return r.dress(view, sym, node, out)
+}
+
 // geometryOf is the Geometry positioning elem in view (nil view: inline Layout
 // only), nil when none does; a Layout that does not read as geometry is noticed.
 func (r *Renderer) geometryOf(view, elem *symbols.Symbol, out *Rendering) *Geometry {
@@ -42,6 +190,28 @@ func (r *Renderer) geometryOf(view, elem *symbols.Symbol, out *Rendering) *Geome
 		return nil
 	}
 	r.noteLayoutProblems(site, elem, out)
+	if site.Layout == nil {
+		return nil
+	}
+	l := site.Layout
+	return &Geometry{X: l.X, Y: l.Y, Width: l.Width, Height: l.Height, HasSize: l.HasSize, Collapsed: l.Collapsed}
+}
+
+// memberGeometryOf is the Geometry positioning, in view, the member owner has
+// under name — the `start` or `done` a body inherits rather than declares —
+// through a Layout naming it as owner's (`about Acquire::start`).
+func (r *Renderer) memberGeometryOf(view, owner *symbols.Symbol, name string, out *Rendering) *Geometry {
+	if owner == nil {
+		return nil
+	}
+	if member, ok := r.model.LookupMember(owner, name); ok {
+		out.drawn.noteMember(owner, member)
+	}
+	site, ok := r.model.MemberLayoutOf(view, owner, name)
+	if !ok {
+		return nil
+	}
+	r.noteLayoutProblems(site, owner, out)
 	if site.Layout == nil {
 		return nil
 	}
@@ -85,6 +255,22 @@ func (r *Renderer) declaredNameSynthesized(elem *symbols.Symbol, decl ast.Node) 
 	return ok && r.model.NameSynthesized(sym)
 }
 
+// declaredStandIn reports whether a migration made up the element decl
+// declares under elem for no element of its source.
+func (r *Renderer) declaredStandIn(elem *symbols.Symbol, decl ast.Node) bool {
+	sym, ok := r.model.SymbolDeclaring(documentScope(elem), decl)
+	return ok && r.model.StandIn(sym)
+}
+
+// declaredSymbol is the element decl declares under elem, nil when it declares none.
+func (r *Renderer) declaredSymbol(elem *symbols.Symbol, decl ast.Node) *symbols.Symbol {
+	sym, ok := r.model.SymbolDeclaring(documentScope(elem), decl)
+	if !ok {
+		return nil
+	}
+	return sym
+}
+
 // declaredGeometryOf is the Geometry of the node lowered from decl, a state,
 // region or action node declared under elem; nil when decl declares no element.
 func (r *Renderer) declaredGeometryOf(view, elem *symbols.Symbol, decl ast.Node, out *Rendering) *Geometry {
@@ -93,6 +279,20 @@ func (r *Renderer) declaredGeometryOf(view, elem *symbols.Symbol, decl ast.Node,
 		return nil
 	}
 	return r.geometryOf(view, node, out)
+}
+
+// nodeGeometryOf is declaredGeometryOf for a graph node drawn as a member of
+// owner under name: one declaration inherited by several bodies is drawn once
+// per body, each positioned by the Layout naming it as that body's. A node owner
+// has under no such name — anonymous, or shadowed — is positioned by its
+// declaration alone.
+func (r *Renderer) nodeGeometryOf(view, elem, owner *symbols.Symbol, decl ast.Node, name string, out *Rendering) *Geometry {
+	if owner != nil && name != "" {
+		if member, ok := r.model.LookupMember(owner, name); ok && member.Decl == decl {
+			return r.memberGeometryOf(view, owner, name, out)
+		}
+	}
+	return r.declaredGeometryOf(view, elem, decl, out)
 }
 
 // canvasOf is the Canvas view states, nil for a view stating none and for a

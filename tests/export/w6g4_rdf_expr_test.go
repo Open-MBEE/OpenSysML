@@ -504,8 +504,13 @@ func TestBindingEndsAreStatedAsStructure(t *testing.T) {
 		if _, ok := g.Lexical(iri(subject), rdf.OpenSysML+"sourceText"); !ok {
 			t.Errorf("<%s> states no source text", subject)
 		}
-		wantType(t, g, related[0], "ReferenceUsage")
-		wantType(t, g, related[1], "ReferenceUsage")
+		// A flow's ends are FlowEnds (SysML.xtext FlowEnd), a connector's ReferenceUsages.
+		endType := "ReferenceUsage"
+		if g.Type(iri(subject)) == rdf.SysML+"FlowUsage" {
+			endType = "FlowEnd"
+		}
+		wantType(t, g, related[0], endType)
+		wantType(t, g, related[1], endType)
 		if !g.BoolValue(iri(related[0]), rdf.SysML+"isEnd") || !g.BoolValue(iri(related[1]), rdf.SysML+"isEnd") {
 			t.Errorf("<%s> does not mark both ends with sysml:isEnd", subject)
 		}
@@ -531,7 +536,18 @@ func TestBindingEndsAreStatedAsStructure(t *testing.T) {
 			continue
 		}
 		for _, end := range flowEnds {
-			wantType(t, g, end.Value, "ReferenceUsage")
+			wantType(t, g, end.Value, "FlowEnd")
+			// It reaches through the end it subsets to the feature its
+			// FlowFeature redefines.
+			features := g.Objects(end, rdf.SysML+"ownedFeature")
+			if len(features) != 1 {
+				t.Errorf("flow end <%s> owns %d features, want its FlowFeature", end.Value, len(features))
+				continue
+			}
+			wantType(t, g, features[0].Value, "ReferenceUsage")
+			if len(g.Objects(features[0], rdf.SysML+"redefines")) != 1 {
+				t.Errorf("the FlowFeature of <%s> redefines no feature", end.Value)
+			}
 		}
 	}
 }

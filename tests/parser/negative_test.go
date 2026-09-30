@@ -1,6 +1,7 @@
 package parser_test
 
 import (
+	"strings"
 	"testing"
 
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/parser"
@@ -30,6 +31,8 @@ func TestNegative(t *testing.T) {
 		{"incomplete_connection", "connector c connect a"},
 		{"unterminated_string", `part p { doc /* comment `},
 		{"double_colon_only", "attribute ::x;"},
+		// A classifier declaration admits one specialization list.
+		{"def_two_specialization_lists", "part def X :> A :> B;"},
 
 		// Behavioral negatives (Phase B1.2)
 		{"state_entry_no_keyword", "state s { entry }"},
@@ -83,6 +86,9 @@ func TestNegative(t *testing.T) {
 		{"assume_prefix_metadata_before_keyword", "requirement r { #goal assume constraint a : C; }"},
 		{"require_prefix_metadata_before_keyword", "requirement r { #goal require constraint r : C; }"},
 		{"require_prefix_metadata_before_keyword_bare", "requirement r { #goal require ; }"},
+		{"verify_prefix_metadata_before_keyword", "verification def V { #goal verify requirement r; }"},
+		{"frame_prefix_metadata_before_keyword", "requirement def R { #goal frame concern c; }"},
+		{"render_prefix_metadata_before_keyword", "view def V { #goal render rendering r; }"},
 		// An assertion's prefix metadata comes ahead of `assert`, not after it or
 		// its `not` (SysML.xtext AssertConstraintUsage `OccurrenceUsagePrefix 'assert'`).
 		{"assert_prefix_metadata_after_keyword", "package P { part def D { assert #B constraint c; } }"},
@@ -136,6 +142,7 @@ func TestNegative(t *testing.T) {
 		// `to`/`then` delimiter, not the delimiter misread as the end's name.
 		{"connection_first_end_missing", "part def C { connection c : I connect to ; }"},
 		{"then_no_target", "action a { then; }"},
+		{"nested_source_multiplicity_then_no_target", "action def A { if true { action a; [1] then ; } }"},
 		{"satisfy_dangling_by", "requirement r { assert satisfy x by; }"},
 		{"allocate_missing_target", "package q { allocate a to ; }"},
 		// `allocate` is one keyword with one role, and it must be followed by a
@@ -302,6 +309,11 @@ func TestNegative(t *testing.T) {
 		{"loop_until_no_condition", "action def A { loop action { } until; }"},
 		{"loop_until_no_semicolon", "action def A { action b; then loop action { } until x }"},
 		{"then_done_no_semicolon", "action def A { action b; then done }"},
+		// A control-node keyword followed by a name declares a node, whatever the
+		// body declares, so a final node given a name and a node given two are
+		// diagnosed as declarations rather than read as edges to the member.
+		{"then_done_named_beside_declared_done", "action def A { action done; action b; then done D; }"},
+		{"then_fork_two_names_beside_declared_fork", "action def A { action fork; action b; then fork F G; }"},
 		{"send_via_no_port", "action def A { send Data() via; }"},
 		{"send_no_target", "action def A { send Data() to; }"},
 		{"decision_else_no_target", "action def A { action m; first m; then decide; else; }"},
@@ -404,6 +416,8 @@ func TestNegative(t *testing.T) {
 		{"variant_use_case_no_type", "use case def U { variant use case uc : ; }"},
 		{"assert_not_no_condition", "part def T { assert not ; }"},
 		{"assert_not_no_body_end", "part def T { assert not c { }"},
+		{"assert_global_name_missing", "package P { assert $; }"},
+		{"assert_global_scope_missing_name", "package P { assert $::; }"},
 
 		// `frame` and `render` are SysML keywords, so a framing or rendering
 		// with no reference is reported rather than read as a name.
@@ -435,6 +449,93 @@ func TestNegative(t *testing.T) {
 
 			if len(p.Diagnostics) == 0 {
 				t.Errorf("Expected parse errors for malformed input, got none.\nInput: %s", tt.input)
+			}
+		})
+	}
+}
+
+func TestActionParameterPrefixModifierOrder(t *testing.T) {
+	contexts := []struct {
+		name, action string
+	}{
+		{"action-def", "action def A { PARAM }"},
+		{"nested-action", "action def A { action n { PARAM } }"},
+		{"loop", "action def A { loop { PARAM } until true; }"},
+		{"for", "action def A { for i in (1, 2) { PARAM } }"},
+		{"if-then", "action def A { if true { PARAM } }"},
+		{"if-else", "action def A { if true { } else { PARAM } }"},
+	}
+	modifiers := []string{"derived", "abstract", "variation", "constant"}
+	orderMessage := func(keyword, earlier string) string {
+		return "`" + keyword + "` must come before `" + earlier +
+			"`: a usage prefix is written direction, `derived`, `abstract` or `variation`, `constant`, then `ref` (SysML.xtext RefPrefix, BasicUsagePrefix)"
+	}
+	assertOrderingDiagnostic := func(t *testing.T, name, action, parameter, keyword, earlier string) {
+		t.Helper()
+		input := "package P { attribute def T; " +
+			strings.Replace(action, "PARAM", parameter, 1) + " }"
+		p := parser.New(source.New(name+".sysml", []byte(input)))
+		_ = p.ParseFile()
+		want := orderMessage(keyword, earlier)
+		var matches int
+		for _, diagnostic := range p.Diagnostics {
+			if strings.Contains(diagnostic.Message, "must come before") {
+				if diagnostic.Message != want {
+					t.Fatalf("ordering diagnostic = %q, want %q", diagnostic.Message, want)
+				}
+				matches++
+			}
+		}
+		if matches != 1 {
+			t.Fatalf("got %d ordering diagnostics, want one %q; all diagnostics: %v", matches, want, p.Diagnostics)
+		}
+	}
+	for _, context := range contexts {
+		for _, modifier := range modifiers {
+			t.Run(context.name+"/ref-first/"+modifier, func(t *testing.T) {
+				assertOrderingDiagnostic(t, context.name+"-"+modifier,
+					context.action, "in ref "+modifier+" p : T;", modifier, "ref")
+			})
+		}
+	}
+	misordered := []struct {
+		name, parameter, keyword, earlier string
+	}{
+		{"constant-derived", "in constant derived p : T;", "derived", "constant"},
+		{"abstract-derived", "in abstract derived p : T;", "derived", "abstract"},
+		{"constant-abstract", "in constant abstract p : T;", "abstract", "constant"},
+		{"constant-variation", "in constant variation p : T;", "variation", "constant"},
+	}
+	for _, context := range contexts {
+		for _, form := range misordered {
+			t.Run(context.name+"/misordered/"+form.name, func(t *testing.T) {
+				assertOrderingDiagnostic(t, context.name+"-"+form.name,
+					context.action, form.parameter, form.keyword, form.earlier)
+			})
+		}
+	}
+	for _, occurrence := range []string{"individual", "snapshot", "timeslice", "event"} {
+		t.Run("occurrence-before-derived/"+occurrence, func(t *testing.T) {
+			assertOrderingDiagnostic(t, "occurrence-"+occurrence,
+				contexts[0].action, "in "+occurrence+" derived p : T;", "derived", occurrence)
+		})
+	}
+	for _, parameter := range []string{
+		"in abstract variation p : T;",
+		"in derived derived p : T;",
+	} {
+		t.Run("equal-rank/"+strings.ReplaceAll(parameter, " ", "-"), func(t *testing.T) {
+			input := "package P { attribute def T; " +
+				strings.Replace(contexts[0].action, "PARAM", parameter, 1) + " }"
+			p := parser.New(source.New("equal-rank.sysml", []byte(input)))
+			_ = p.ParseFile()
+			if len(p.Diagnostics) == 0 {
+				t.Fatal("equal-rank prefixes were accepted without the existing prefix diagnostic")
+			}
+			for _, diagnostic := range p.Diagnostics {
+				if strings.Contains(diagnostic.Message, "must come before") {
+					t.Fatalf("equal-rank prefixes got an ordering diagnostic: %q", diagnostic.Message)
+				}
 			}
 		})
 	}

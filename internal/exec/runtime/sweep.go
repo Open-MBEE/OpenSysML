@@ -129,6 +129,9 @@ type SweepRunResult struct {
 	// Evaluations are the applications the run made of a calc held as a value,
 	// in the order made.
 	Evaluations []AnalysisEvaluation
+	// ReleaseContext marks a run whose outputs read without the context that made
+	// them: the row keeps the trace and lets the context, and the run's objects, go.
+	ReleaseContext bool
 }
 
 // SweepRun makes one run of a sweep in ctx, the row's own context, with the
@@ -150,7 +153,11 @@ type SweepRow struct {
 	Err         error
 	// Context is the context the run was made in, which its outputs, subject and
 	// evaluations are read through: no other context knows the objects they name.
+	// It is nil for a run that released it (SweepRunResult.ReleaseContext).
 	Context *Context
+	// Trace is what the run recorded, nil when nothing was; a row keeps it
+	// whether or not it keeps its context.
+	Trace *TraceRecorder
 }
 
 // SweepTable is every run of one sweep, in the order they were made: a swept
@@ -216,6 +223,10 @@ func runSweepRow(ctx *Context, bindings []SweepBinding, run SweepRun) SweepRow {
 	row.Outputs, row.Verdicts = result.Outputs, result.Verdicts
 	row.Subject, row.Evaluations = result.Subject, result.Evaluations
 	row.Inputs = result.Inputs
+	row.Trace = ctx.Trace()
+	if result.ReleaseContext {
+		row.Context = nil
+	}
 	return row
 }
 

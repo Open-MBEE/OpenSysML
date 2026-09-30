@@ -6,7 +6,13 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/Open-MBEE/OpenSysML/internal/check/passes"
+	"github.com/Open-MBEE/OpenSysML/internal/check/passes/identity"
 	"github.com/Open-MBEE/OpenSysML/internal/frontend/repl"
+	"github.com/Open-MBEE/OpenSysML/internal/syntax/ast"
+	"github.com/Open-MBEE/OpenSysML/internal/syntax/parser"
+	"github.com/Open-MBEE/OpenSysML/internal/syntax/source"
+	"github.com/Open-MBEE/OpenSysML/internal/workspace/libs"
 	"github.com/Open-MBEE/OpenSysML/internal/workspace/model"
 )
 
@@ -70,10 +76,79 @@ func BenchmarkLoad(b *testing.B) {
 func BenchmarkSatisfy(b *testing.B) {
 	for _, n := range networkSizes {
 		src, stats := network(n).Source()
-		b.Run(fmt.Sprintf("satellites=%d/assertions=%d", stats.Satellites, stats.Requirements), func(b *testing.B) {
+		b.Run(fmt.Sprintf("satellites=%d/assertions=%d", stats.Satellites, stats.Assertions), func(b *testing.B) {
 			sess := loadNetwork(b, src)
 			check := func() {
 				for _, v := range sess.CheckSatisfy("") {
+					if !v.Holds() {
+						b.Fatalf("%s: %v", v.Subject, v.Lines)
+					}
+				}
+			}
+			check()
+			b.ReportAllocs()
+			b.ResetTimer()
+			for i := 0; i < b.N; i++ {
+				check()
+			}
+		})
+	}
+}
+
+func fleet(satellitesPerPlane int) SatelliteNetwork {
+	n := network(satellitesPerPlane)
+	n.Fleet = true
+	return n
+}
+
+const fleetNetwork = "SatelliteNetwork::Constellation::network"
+
+// BenchmarkFleetInstantiate measures creating the fleet-form network and reading
+// the dry mass of every occurrence in every plane: what it costs to materialize
+// N spacecraft declared as `Spacecraft[N]` and evaluate a summed attribute over
+// each one's component tree.
+func BenchmarkFleetInstantiate(b *testing.B) {
+	for _, n := range networkSizes {
+		src, stats := fleet(n).Source()
+		b.Run(fmt.Sprintf("satellites=%d/elements=%d", stats.Satellites, stats.Elements), func(b *testing.B) {
+			sess := loadNetwork(b, src)
+			read := func() {
+				if _, err := sess.InstantiateNamed(fleetNetwork); err != nil {
+					b.Fatal(err)
+				}
+				for p := 0; p < 4; p++ {
+					if _, err := sess.EvalExpr(fmt.Sprintf("%s.plane%d.sats.dryMass", fleetNetwork, p)); err != nil {
+						b.Fatal(err)
+					}
+				}
+			}
+			read()
+			b.ReportAllocs()
+			b.ResetTimer()
+			for i := 0; i < b.N; i++ {
+				read()
+			}
+			b.StopTimer()
+			b.ReportMetric(float64(b.Elapsed().Nanoseconds())/float64(b.N)/float64(stats.Satellites), "ns/satellite")
+		})
+	}
+}
+
+// BenchmarkFleetSatisfy measures the warm re-check of every satisfy assertion of
+// a fleet-form network: three per block and three per unit stating values of its
+// own, each unit checked as one occurrence of its plane's fleet.
+func BenchmarkFleetSatisfy(b *testing.B) {
+	for _, n := range networkSizes {
+		src, stats := fleet(n).Source()
+		assertions := stats.Assertions
+		b.Run(fmt.Sprintf("satellites=%d/assertions=%d", stats.Satellites, assertions), func(b *testing.B) {
+			sess := loadNetwork(b, src)
+			check := func() {
+				verdicts := sess.CheckSatisfy("")
+				if len(verdicts) != assertions {
+					b.Fatalf("got %d verdicts, want %d", len(verdicts), assertions)
+				}
+				for _, v := range verdicts {
 					if !v.Holds() {
 						b.Fatalf("%s: %v", v.Subject, v.Lines)
 					}
@@ -112,6 +187,90 @@ func BenchmarkEditBeside(b *testing.B) {
 				_ = ws.Diagnostics("ops.sysml")
 			}
 		})
+	}
+}
+
+// BenchmarkValidateSplit loads a network split one file per plane as the command
+// line does, on one worker and on one per CPU.
+func BenchmarkValidateSplit(b *testing.B) {
+	for _, n := range networkSizes {
+		files, stats := splitFiles(network(n))
+		for _, jobs := range []int{1, runtime.GOMAXPROCS(0)} {
+			b.Run(fmt.Sprintf("satellites=%d/files=%d/jobs=%d", stats.Satellites, len(files), jobs), func(b *testing.B) {
+				load := func() {
+					sess := repl.NewSession()
+					if err := sess.SetJobs(jobs); err != nil {
+						b.Fatal(err)
+					}
+					sess.SubmitFiles(files)
+					if sess.HasErrors() {
+						b.Fatalf("the split network did not analyse cleanly:\n%s", strings.Join(sess.DiagnosticLines(), "\n"))
+					}
+				}
+				load()
+				b.ReportAllocs()
+				b.ResetTimer()
+				for i := 0; i < b.N; i++ {
+					load()
+				}
+			})
+		}
+	}
+}
+
+// perDocumentRegistry is the default registry without the workspace-wide audits.
+func perDocumentRegistry() *passes.Registry {
+	reg := passes.NewRegistry()
+	for _, p := range passes.DefaultRegistry().Passes() {
+		switch p.(type) {
+		case passes.OOSEMMethodPass, identity.MetadataPass, passes.MOSAPass:
+			continue
+		}
+		reg.Register(p)
+	}
+	return reg
+}
+
+// BenchmarkAnalyzeSplitPerDocument analyzes the split network's files over one
+// index without the workspace-wide audits: the pool's own speedup.
+func BenchmarkAnalyzeSplitPerDocument(b *testing.B) {
+	for _, n := range networkSizes {
+		files, stats := splitFiles(network(n))
+		idx, _ := model.NewIndexWithStdlib()
+		roots := make([]*ast.RootNamespace, len(files))
+		names := make([]string, len(files))
+		for i, f := range files {
+			p := parser.New(source.New(f.Name, []byte(f.Text)))
+			roots[i] = p.ParseFile()
+			if len(p.Diagnostics) > 0 {
+				b.Fatalf("%s: %s", f.Name, p.Diagnostics[0].Message)
+			}
+			names[i] = f.Name
+			idx.AddDocument(f.Name, roots[i])
+		}
+		idx.ExpandWildcardImports()
+		batch := &passes.Batch{Documents: names}
+		passes.PrepareBatch(idx, batch)
+		reg := perDocumentRegistry()
+		for _, jobs := range []int{1, runtime.GOMAXPROCS(0)} {
+			b.Run(fmt.Sprintf("satellites=%d/files=%d/jobs=%d", stats.Satellites, len(files), jobs), func(b *testing.B) {
+				analyze := func() {
+					model.ParallelFor(jobs, len(files), func(i int) {
+						ctx := passes.NewContext(names[i], idx, nil)
+						ctx.Batch = batch
+						if diags := reg.Run(ctx, names[i], roots[i]); len(diags) > 0 {
+							b.Errorf("%s: %s", names[i], diags[0].Message)
+						}
+					})
+				}
+				analyze()
+				b.ReportAllocs()
+				b.ResetTimer()
+				for i := 0; i < b.N; i++ {
+					analyze()
+				}
+			})
+		}
 	}
 }
 
@@ -199,4 +358,110 @@ func TestEditsHoldNoStaleState(t *testing.T) {
 		t.Fatalf("live heap grew from %d to %d bytes over 1000 edits", warm, after)
 	}
 	t.Logf("live heap after 1 edit %d bytes, after 1000 edits %d bytes", warm, after)
+}
+
+// splitInputs is the split network as a batch opens it.
+func splitInputs(files []repl.SourceFile) []model.Input {
+	inputs := make([]model.Input, len(files))
+	for i, f := range files {
+		inputs[i] = model.Input{Name: f.Name, Content: []byte(f.Text), Version: 1}
+	}
+	return inputs
+}
+
+// splitNames are the split network's document names.
+func splitNames(files []repl.SourceFile) []string {
+	names := make([]string, len(files))
+	for i, f := range files {
+		names[i] = f.Name
+	}
+	return names
+}
+
+// recordedCache is a record cache holding the records of every file of the
+// split network, as a run over it leaves.
+func recordedCache(tb testing.TB, files []repl.SourceFile) *libs.Cache {
+	tb.Helper()
+	cache, err := libs.NewCacheIn(tb.TempDir())
+	if err != nil {
+		tb.Fatal(err)
+	}
+	ws := model.NewWorkspace(model.WithRecordCache(cache))
+	ws.OpenAll(splitInputs(files))
+	for _, diags := range ws.DiagnosticsAll(splitNames(files)) {
+		for _, d := range diags {
+			tb.Fatalf("the split network did not analyse cleanly: %s", d.Message)
+		}
+	}
+	return cache
+}
+
+// BenchmarkOpenSplit opens the split network as a workspace and asks for every
+// file's diagnostics: cold, with no record cache, so every file is parsed and
+// analyzed; and warm, from a cache holding every file's record.
+func BenchmarkOpenSplit(b *testing.B) {
+	for _, n := range networkSizes {
+		files, stats := splitFiles(network(n))
+		cache := recordedCache(b, files)
+		for _, warm := range []bool{false, true} {
+			state := "cold"
+			if warm {
+				state = "warm"
+			}
+			b.Run(fmt.Sprintf("satellites=%d/files=%d/%s", stats.Satellites, len(files), state), func(b *testing.B) {
+				open := func() {
+					var opts []model.Option
+					if warm {
+						opts = append(opts, model.WithRecordCache(cache))
+					}
+					ws := model.NewWorkspace(opts...)
+					ws.OpenAll(splitInputs(files))
+					for _, diags := range ws.DiagnosticsAll(splitNames(files)) {
+						if len(diags) > 0 {
+							b.Fatal(diags[0].Message)
+						}
+					}
+					if warm && !ws.Recorded(files[len(files)-1].Name) {
+						b.Fatal("a warm cache did not hold the network as records")
+					}
+				}
+				open()
+				b.ReportAllocs()
+				b.ResetTimer()
+				for i := 0; i < b.N; i++ {
+					open()
+				}
+			})
+		}
+	}
+}
+
+// BenchmarkHydratePlane measures what a workspace holding the split network as
+// records pays to hydrate one plane file — parse it, replace its record symbols
+// with tree-backed ones and invalidate what read it — and to answer the
+// constellation file's diagnostics again over the hydrated plane.
+func BenchmarkHydratePlane(b *testing.B) {
+	for _, n := range networkSizes {
+		files, stats := splitFiles(network(n))
+		cache := recordedCache(b, files)
+		plane, constellation := files[1].Name, files[len(files)-1].Name
+		b.Run(fmt.Sprintf("satellites=%d/files=%d", stats.Satellites, len(files)), func(b *testing.B) {
+			b.ReportAllocs()
+			for i := 0; i < b.N; i++ {
+				b.StopTimer()
+				ws := model.NewWorkspace(model.WithRecordCache(cache))
+				ws.OpenAll(splitInputs(files))
+				if !ws.Recorded(plane) || !ws.Recorded(constellation) {
+					b.Fatal("a warm cache did not hold the network as records")
+				}
+				b.StartTimer()
+				if err := ws.Hydrate(plane); err != nil {
+					b.Fatal(err)
+				}
+				if diags := ws.Diagnostics(constellation); len(diags) > 0 {
+					b.Fatal(diags[0].Message)
+				}
+			}
+		})
+	}
 }

@@ -4,6 +4,7 @@ import (
 	"sort"
 
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/symbols"
+	"github.com/Open-MBEE/OpenSysML/internal/syntax/ast"
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/source"
 )
 
@@ -36,6 +37,9 @@ const (
 	// RoleTransition is one step of a behavior's execution as the interpreter
 	// takes it, asserted by a model-checking query over a run.
 	RoleTransition
+	// RoleViolated is the denial of an element's claim, asserted by a violation
+	// query: its models are the assignments violating the element.
+	RoleViolated
 )
 
 var roleNames = map[Role]string{
@@ -47,6 +51,7 @@ var roleNames = map[Role]string{
 	RolePinned:     "fixed value",
 	RoleExcluded:   "excluded assignment",
 	RoleTransition: "transition",
+	RoleViolated:   "violated conditions",
 }
 
 // String names the role as an assertion's comment reads it.
@@ -70,6 +75,35 @@ type Var struct {
 
 	// Symbol is the feature declaration it stands for.
 	Symbol *symbols.Symbol
+
+	// Root is the first value-holding feature the reference read through, where
+	// the name is a chain — the object the chain's further steps index into.
+	// A subject member's root stands for the object the query is about; another
+	// usage's root stands for one of its member objects.
+	Root *symbols.Symbol
+
+	// Steps are the value-holding features the reference read through, where
+	// the name is a chain — [root, …, feature] for a name of two or more steps.
+	Steps []*symbols.Symbol
+
+	// Ref and Scope are the reference node and the scope it was written in, so
+	// the variable's value can be read the way the evaluator reads it.
+	Ref   ast.Node
+	Scope *symbols.Scope
+
+	// Reached is the condition under which the evaluator reads the variable:
+	// the disjunction, over the references reading it, of the operands a
+	// connective decided before reaching each, the branches conditionals
+	// selected, and the required conditions evaluated before the one it is in.
+	// Nil where some reference reads it on every path.
+	Reached *Term
+
+	// Preceding are the definedness guards the query asserted for operations
+	// the evaluator performs before it first reaches the variable under
+	// Reached — a divisor it has checked non-zero by then. An assignment
+	// reaching the variable satisfies them; the guards asserted after come from
+	// operations an evaluation failing at the read never performs.
+	Preceding []*Term
 
 	// Dimension is the quantity dimension its magnitude is expressed in, over
 	// base units, empty for a value that has none.
@@ -192,6 +226,11 @@ type Query struct {
 	// hold (`assert not …`), which the query asserts as one denial.
 	Negated bool
 
+	// Violation is set for a query whose models are the assignments violating
+	// the element's claim: unsatisfiable means the claim holds for every
+	// assignment of the free features.
+	Violation bool
+
 	// Sorts are the datatype sorts the query declares, ordered by name.
 	Sorts []Sort
 
@@ -219,6 +258,10 @@ type Query struct {
 	// query reads, reported rather than dropped.
 	Unread []Unread
 
+	// Unreadable are the features the query reads whose value could not be read,
+	// each guarded so that no model reaches the read; nil when it reads none.
+	Unreadable []UnreadableRead
+
 	// Objectives are the objectives to optimize, in the order the analysis case
 	// declares them, which is the order they are optimized in; nil for a query
 	// that only asks about satisfiability.
@@ -236,9 +279,12 @@ func (q *Query) Fixes() bool { return len(q.Pinned) > 0 }
 // Free are the variables the query leaves for the solver to choose, in the order
 // they are declared.
 func (q *Query) Free() []*Var {
-	fixed := make(map[*Var]bool, len(q.Pinned))
+	fixed := make(map[*Var]bool, len(q.Pinned)+len(q.Unreadable))
 	for _, p := range q.Pinned {
 		fixed[p.Var] = true
+	}
+	for _, u := range q.Unreadable {
+		fixed[u.Var] = true
 	}
 	out := make([]*Var, 0, len(q.Vars))
 	for _, v := range q.Vars {

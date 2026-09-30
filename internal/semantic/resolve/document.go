@@ -316,7 +316,8 @@ func (r *Resolver) resolveBehaviorDecl(scope *symbols.Scope, decl ast.Node) bool
 		return true
 	case *ast.DeferMember:
 		// A deferred event is a trigger like a transition's, so it resolves the
-		// same way: bare signal names are left to lowering.
+		// same way: typed payloads resolve, while bare signal names are left to
+		// lowering.
 		for _, trigger := range d.Triggers {
 			r.resolveTrigger(scope, trigger)
 		}
@@ -354,7 +355,7 @@ func (r *Resolver) resolveBehaviorDecl(scope *symbols.Scope, decl ast.Node) bool
 		r.ResolveEndpoint(scope, d.Target)
 		r.resolveTrigger(scope, d.Trigger)
 		if d.Via != nil {
-			r.ResolveQualified(scope, d.Via)
+			r.resolveVia(scope, d.Via)
 		}
 		body := symbols.TriggerScope(scope, d)
 		r.resolveExpr(body, d.Guard)
@@ -363,7 +364,15 @@ func (r *Resolver) resolveBehaviorDecl(scope *symbols.Scope, decl ast.Node) bool
 		return true
 	case *ast.SendStatement:
 		r.resolveExpr(scope, d.Message)
-		r.resolveExpr(scope, d.Target)
+		if d.IsVia {
+			if qn, ok := d.Target.(*ast.QualifiedName); ok {
+				r.resolveVia(scope, qn)
+			} else {
+				r.resolveExpr(scope, d.Target)
+			}
+		} else {
+			r.resolveExpr(scope, d.Target)
+		}
 		r.resolveExpr(scope, d.Receiver)
 		r.walkMembers(r.bodyScope(scope, d), d.Members)
 		return true
@@ -454,10 +463,9 @@ func isImplicitCalcResult(scope *symbols.Scope, node ast.Node) bool {
 
 // resolveTrigger resolves the references a transition trigger carries.
 //
-// A bare name after `when` is classified by lowering as a signal, and signals
-// are injected by the event source rather than declared in the model, so bare
-// names are left unresolved here; resolving them would report every signal-
-// triggered transition as an unresolved reference.
+// Bare names in the OpenSysML transition spelling `when` and in `defer` are
+// injected signals, so they remain unresolved here.
+// A bare name after `accept` is a typed payload usage and resolves normally.
 func (r *Resolver) resolveTrigger(scope *symbols.Scope, trigger ast.Node) {
 	switch t := trigger.(type) {
 	case nil:
@@ -481,8 +489,8 @@ func (r *Resolver) resolveTrigger(scope *symbols.Scope, trigger ast.Node) {
 			r.resolveDecl(scope, t.Payload)
 		}
 	case *ast.Usage:
-		// A named payload (`accept m : Warning`) declares a parameter, so its
-		// typing resolves like any other declaration's.
+		// Typed and named payload usages resolve their typing like any other
+		// declaration's; a bare `when` name is handled separately below.
 		r.resolveDecl(scope, t)
 	case *ast.QualifiedName, *ast.FeatureReference, *ast.CallEvent:
 		// Signal and call triggers name events, not model elements.
@@ -497,6 +505,9 @@ func (r *Resolver) resolveTrigger(scope *symbols.Scope, trigger ast.Node) {
 // is not modelled and not distinguishable from an ordinary feature here, so the
 // conflict rule skips such a body entirely.
 func ParameterizedByName(sym *symbols.Symbol) bool {
+	if sym.Recorded() {
+		return sym.Facts.Modifiers.Has(symbols.ModParameterizedByName)
+	}
 	switch decl := sym.Decl.(type) {
 	case *ast.Usage:
 		switch decl.Kind {
@@ -530,6 +541,11 @@ func (r *Resolver) bodyScope(scope *symbols.Scope, node ast.Node) *symbols.Scope
 	return scope
 }
 
+// PrefixScope returns the scope in which prefix metadata on decl resolves.
+func (r *Resolver) PrefixScope(scope *symbols.Scope, decl ast.Node) *symbols.Scope {
+	return r.bodyScope(scope, decl)
+}
+
 // resolvePrefixes resolves the prefix annotations of decl, a member of scope.
 // The annotated element owns them (KerML 8.2.4.2 PrefixMetadataMember), so
 // their names resolve in its own scope.
@@ -549,22 +565,57 @@ func (r *Resolver) resolveMetadataPrefix(names, parent *symbols.Scope, prefix *a
 	for _, a := range prefix.About {
 		r.ResolveQualified(names, a)
 	}
-	owner, ok := r.ResolveQualified(names, prefix.Type)
-	if !ok || owner == nil || len(prefix.Body) == 0 {
-		return
-	}
-	if target, aliasOK := r.ResolveAliasTarget(owner); aliasOK {
-		owner = target
-	}
+	owner := r.metadataBodyOwner(names, prefix)
 	body := parent.ChildFor(prefix)
 	if body == nil {
 		return
 	}
 	// Body values resolve against the metadata definition, not the annotated element.
-	if body.Owner() == nil {
+	linkMetadataBody(body, owner)
+	r.resolveMetadataBody(body, prefix.Body)
+}
+
+// metadataBodyOwner is the metadata definition the body of prefix resolves against,
+// its type read in names; nil when it does not resolve or there is no body.
+func (r *Resolver) metadataBodyOwner(names *symbols.Scope, prefix *ast.PrefixMetadata) *symbols.Symbol {
+	owner, ok := r.ResolveQualified(names, prefix.Type)
+	if !ok || owner == nil || len(prefix.Body) == 0 {
+		return nil
+	}
+	if target, aliasOK := r.ResolveAliasTarget(owner); aliasOK {
+		return target
+	}
+	return owner
+}
+
+// linkMetadataBody makes owner, the metadata definition the body resolves against
+// now, the body scope's owner; a definition it kept from an earlier build goes.
+func linkMetadataBody(body *symbols.Scope, owner *symbols.Symbol) {
+	if body.Owner() != owner {
 		body.SetOwner(owner)
 	}
-	r.resolveMetadataBody(body, prefix.Body)
+}
+
+// LinkMetadataBodies sets every annotation body scope's owner as resolving the
+// document would, so resolving it afterwards writes nothing to the scope tree.
+func (r *Resolver) LinkMetadataBodies(name string) {
+	rootScope := r.idx.DocumentRoot(name)
+	if rootScope == nil {
+		return
+	}
+	saved := r.document
+	r.document = name
+	defer func() { r.document = saved }()
+	r.linkMetadataBodies(rootScope)
+}
+
+func (r *Resolver) linkMetadataBodies(scope *symbols.Scope) {
+	for _, child := range scope.Children() {
+		if prefix, ok := child.Node().(*ast.PrefixMetadata); ok {
+			linkMetadataBody(child, r.metadataBodyOwner(r.bodyScope(scope, child.Annotated()), prefix))
+		}
+		r.linkMetadataBodies(child)
+	}
 }
 
 func (r *Resolver) resolveMetadataBody(scope *symbols.Scope, members []ast.Node) {
@@ -639,7 +690,11 @@ func (r *Resolver) resolveRelationships(scope *symbols.Scope, decl ast.Node, rel
 
 			// Standard resolution in current scope
 			if qn, ok := target.(*ast.QualifiedName); ok {
-				r.ResolveQualified(scope, qn)
+				if rel.Kind == ast.RelVia {
+					r.resolveVia(scope, qn)
+				} else {
+					r.ResolveQualified(scope, qn)
+				}
 			} else if fc, ok := target.(*ast.FeatureChainExpr); ok {
 				r.resolveFeatureChain(scope, fc)
 			}
@@ -696,6 +751,11 @@ func (r *Resolver) relationshipScope(parent, header *symbols.Scope, rel *ast.Rel
 	return parent
 }
 
+// RelationshipScope returns the scope a head relationship target resolves in.
+func (r *Resolver) RelationshipScope(parent, header *symbols.Scope, rel *ast.Relationship) *symbols.Scope {
+	return r.relationshipScope(parent, header, rel)
+}
+
 // resolvesInHeader reports whether a head relationship's target, opening with name,
 // resolves in the declaring element's own scope; a plain `: T`, `:> T`, `:>> T` never does.
 func (r *Resolver) resolvesInHeader(header *symbols.Scope, name *ast.QualifiedName, chain bool, kind ast.RelationshipKind) bool {
@@ -718,7 +778,7 @@ func (r *Resolver) headerHasName(scope *symbols.Scope, name string, kind ast.Rel
 	if _, ok := scope.LookupLocal(name); ok {
 		return true
 	}
-	for _, imp := range r.importsOf(scope.Node()) {
+	for _, imp := range r.scopeImports(scope) {
 		if !r.importPrefixAvailable(scope, imp, name) {
 			continue
 		}
@@ -900,7 +960,7 @@ func (r *Resolver) searchFeatureOf(sym *symbols.Symbol, name string, walk featur
 // importedFeatureOf finds name among the memberships sym imports publicly or
 // protectedly, which its specializations inherit like its own (KerML 8.2.3.5).
 func (r *Resolver) importedFeatureOf(sym *symbols.Symbol, name string) (*symbols.Symbol, bool) {
-	for _, imp := range r.importsOf(sym.Scope.Node()) {
+	for _, imp := range r.scopeImports(sym.Scope) {
 		if !inheritedThroughSpecialization(imp) || !r.importPrefixAvailable(sym.Scope, imp, name) {
 			continue
 		}
@@ -1464,23 +1524,14 @@ func (r *Resolver) resolveExpr(scope *symbols.Scope, e ast.Node) {
 			r.ResolveQualified(scope, v.TypeRef)
 		}
 	case *ast.FeatureChainExpr:
-		r.resolveFeatureChain(scope, v)
+		if r.columnChains == 0 || r.columnChainHeadResolves(scope, v) {
+			r.resolveFeatureChain(scope, v)
+		}
 	case *ast.IndexExpr:
 		r.resolveExpr(scope, v.Operand)
 		r.resolveExpr(scope, v.Index)
 	case *ast.InvocationExpr:
-		r.resolveExpr(scope, v.Operand)
-		if v.Type != nil {
-			r.ResolveInvocationName(scope, v.Type)
-		}
-		for _, a := range v.Args {
-			r.resolveExpr(scope, a)
-		}
-		for _, na := range v.NamedArgs {
-			// Named argument names are parameter identifiers, not references
-			// Don't resolve na.Name - it's looked up in callee's parameter list
-			r.resolveExpr(scope, na.Value)
-		}
+		r.resolveInvocation(scope, v)
 	case *ast.CollectExpr:
 		r.resolveExpr(scope, v.Operand)
 		r.resolveExpr(scope, v.Body)
@@ -1488,40 +1539,9 @@ func (r *Resolver) resolveExpr(scope *symbols.Scope, e ast.Node) {
 		r.resolveExpr(scope, v.Operand)
 		r.resolveExpr(scope, v.Body)
 	case *ast.ConstructorExpr:
-		var typ *symbols.Symbol
-		if v.Type != nil {
-			typ, _ = r.ResolveQualified(scope, v.Type)
-		}
-		for _, a := range v.Args {
-			r.resolveExpr(scope, a)
-		}
-		for _, na := range v.NamedArgs {
-			// A simple label is a feature of the instantiated type; a qualified
-			// one is resolved in scope.
-			switch {
-			case na.Name == nil:
-			case len(na.Name.Parts) > 1:
-				r.ResolveQualified(scope, na.Name)
-			case typ != nil:
-				r.resolveMemberChain(typ, na.Name, nil)
-			}
-			r.resolveExpr(scope, na.Value)
-		}
+		r.resolveConstructor(scope, v)
 	case *ast.BodyExpr:
-		for i := range v.Params {
-			p := &v.Params[i]
-			if p.Type != nil {
-				r.ResolveQualified(scope, p.Type)
-			}
-			r.resolveRelationships(scope, v, p.Relationships)
-			r.resolveMultiplicity(scope, p.Multiplicity)
-			r.resolveExpr(scope, p.Value)
-		}
-		// A body expression's parameters and declarations live in a scope of its
-		// own, and its declarations are members of it (F64).
-		inner := symbols.BodyExprScope(scope, v)
-		r.walkMembers(inner, v.Members)
-		r.resolveExpr(inner, v.Result)
+		r.resolveBodyExpr(scope, v)
 	case *ast.SequenceExpr:
 		for _, el := range v.Elements {
 			r.resolveExpr(scope, el)
@@ -1539,6 +1559,109 @@ func (r *Resolver) resolveExpr(scope *symbols.Scope, e ast.Node) {
 		r.ResolveQualified(scope, v)
 	}
 	// Literals (LiteralBool/String/Integer/Real/Infinity, NullExpr) have no refs.
+}
+
+// resolveInvocation resolves an invocation's callee and arguments. A Column's
+// expression argument evaluates per row, so a chain in it may name members of
+// the row element, not a visible reference. Named argument names are parameter
+// identifiers looked up in the callee's parameter list, not references.
+func (r *Resolver) resolveInvocation(scope *symbols.Scope, v *ast.InvocationExpr) {
+	r.resolveExpr(scope, v.Operand)
+	var called *symbols.Symbol
+	if v.Type != nil {
+		called, _ = r.ResolveInvocationName(scope, v.Type)
+	}
+	column := called != nil && symbols.FQNOf(called) == documentColumnCalcFQN
+	for i, a := range v.Args {
+		if column && i == 1 {
+			r.resolveColumnExpression(scope, a)
+		} else {
+			r.resolveExpr(scope, a)
+		}
+	}
+	for _, na := range v.NamedArgs {
+		if column && na.Name != nil && na.Name.Text() == "expression" {
+			r.resolveColumnExpression(scope, na.Value)
+		} else {
+			r.resolveExpr(scope, na.Value)
+		}
+	}
+}
+
+// resolveConstructor resolves a constructor's type and arguments. A simple
+// label is a feature of the instantiated type; a qualified one is resolved in scope.
+func (r *Resolver) resolveConstructor(scope *symbols.Scope, v *ast.ConstructorExpr) {
+	var typ *symbols.Symbol
+	if v.Type != nil {
+		typ, _ = r.ResolveQualified(scope, v.Type)
+	}
+	for _, a := range v.Args {
+		r.resolveExpr(scope, a)
+	}
+	for _, na := range v.NamedArgs {
+		switch {
+		case na.Name == nil:
+		case len(na.Name.Parts) > 1:
+			r.ResolveQualified(scope, na.Name)
+		case typ != nil:
+			r.resolveMemberChain(typ, na.Name, nil)
+		}
+		r.resolveExpr(scope, na.Value)
+	}
+}
+
+// resolveBodyExpr resolves a body expression's parameters, then its members
+// and result in the scope of its own they live in (F64).
+func (r *Resolver) resolveBodyExpr(scope *symbols.Scope, v *ast.BodyExpr) {
+	for i := range v.Params {
+		p := &v.Params[i]
+		if p.Type != nil {
+			r.ResolveQualified(scope, p.Type)
+		}
+		r.resolveRelationships(scope, v, p.Relationships)
+		r.resolveMultiplicity(scope, p.Multiplicity)
+		r.resolveExpr(scope, p.Value)
+	}
+	inner := symbols.BodyExprScope(scope, v)
+	r.walkMembers(inner, v.Members)
+	r.resolveExpr(inner, v.Result)
+}
+
+// resolveColumnExpression resolves a Column's expression argument: a chain
+// whose head resolves is a reference, a row-relative one records nothing.
+func (r *Resolver) resolveColumnExpression(scope *symbols.Scope, node ast.Node) {
+	r.columnChains++
+	defer func() { r.columnChains-- }()
+	r.resolveExpr(scope, node)
+}
+
+// columnChainHeadResolves reports whether the name a chain's operands bottom
+// out at resolves in scope; an unresolved head makes the chain row-relative.
+func (r *Resolver) columnChainHeadResolves(scope *symbols.Scope, fc *ast.FeatureChainExpr) bool {
+	operand := fc.Operand
+	for {
+		chain, ok := operand.(*ast.FeatureChainExpr)
+		if !ok {
+			break
+		}
+		operand = chain.Operand
+	}
+	head := ast.AsQualifiedName(operand)
+	if head == nil || len(head.Parts) == 0 {
+		return true
+	}
+	return r.probe(head, func() bool {
+		sym, ok := r.ResolveQualified(scope, head)
+		if !ok || sym == nil {
+			return false
+		}
+		// A head naming a parameter is row-relative too: a parameter cannot
+		// be read through, so no reference resolves here.
+		if usage, isUsage := sym.Decl.(*ast.Usage); isUsage && (usage.Direction != ast.DirNone || usage.IsResult) {
+			return false
+		}
+		return true
+	})
 }
 
 // resolveFeatureChain resolves a FeatureChainExpr and returns its final symbol.
@@ -1767,6 +1890,10 @@ func (r *Resolver) getOperandSymbol(scope *symbols.Scope, e ast.Node) *symbols.S
 // baseThatFQN is the implicit `that` feature every usage takes from the base
 // usage Base::things ([KerML, 8.4.2]).
 const baseThatFQN = "Base::things::that"
+
+// documentColumnCalcFQN is the document-query library's column constructor,
+// whose expression argument evaluates on each projected row.
+const documentColumnCalcFQN = "DocumentQueries::Column"
 
 // featuringOf returns what a member chain from `that` reads its members from:
 // the usage enclosing the expression, whose value features the value being

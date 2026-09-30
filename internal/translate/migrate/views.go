@@ -71,7 +71,7 @@ func (m *migration) viewpointNote(vp, view *sysmlv1.Element) string {
 	case vp == nil:
 		return "the viewpoint is not in the document"
 	case vp.IsProxy():
-		return "the viewpoint " + qualifiedName(vp) + " lives outside the document and is not written"
+		return "the viewpoint " + qualifiedName(vp) + livesOutsideDocument
 	case !m.written(vp):
 		_, why := m.classify(vp)
 		return joinNotes("the viewpoint "+qualifiedName(vp)+" is not migrated", why)
@@ -120,6 +120,18 @@ func (m *migration) featuringDef(u *sysmlv1.Element) *sysmlv1.Element {
 	return nil
 }
 
+// usageChain spells the feature path from definition d to its nested usage u.
+func (m *migration) usageChain(u, d *sysmlv1.Element) string {
+	var path []string
+	for cur := u; cur != nil && cur != d; cur = cur.Parent {
+		path = append(path, writeName(m.nameFor(cur)))
+	}
+	for i, j := 0, len(path)-1; i < j; i, j = i+1, j-1 {
+		path[i], path[j] = path[j], path[i]
+	}
+	return strings.Join(path, ".")
+}
+
 // taggedViewpoints satisfies the viewpoints the «View» stereotype's viewpoint
 // tag names, in either spelling the profile has used, when a Conform does not.
 func (m *migration) taggedViewpoints(e *sysmlv1.Element) {
@@ -131,7 +143,7 @@ func (m *migration) taggedViewpoints(e *sysmlv1.Element) {
 		for _, id := range v.IDs(tag) {
 			vp := m.model.Lookup(id)
 			if vp == nil {
-				m.downgrade(e, "the "+tag+" tag names "+id+", which is not in the document")
+				m.downgrade(e, "the "+tag+" tag names "+id+notInDocument)
 				continue
 			}
 			if note := m.viewpointNote(vp, e); note != "" {
@@ -142,6 +154,13 @@ func (m *migration) taggedViewpoints(e *sysmlv1.Element) {
 		}
 	}
 }
+
+const (
+	livesOutsideDocument = " lives outside the document and is not written"
+	notInDocument        = ", which is not in the document"
+	exposedSubject       = "the exposed "
+	stakeholderSubject   = "the stakeholder "
+)
 
 // viewpointTags are the «View» tags naming the viewpoint a view conforms to.
 var viewpointTags = []string{"viewpoint", "viewPoint"}
@@ -226,12 +245,20 @@ func (m *migration) placeExpose(d *sysmlv1.Element) {
 			}
 			pl.write(m.v2Name(c))
 			view, exposed := c, s
-			m.extras[view] = append(m.extras[view], func() { m.w.line("expose " + m.exposeRef(view, exposed) + ";") })
+			m.extras[view] = append(m.extras[view], func() {
+				ref := m.exposeRef(view, exposed)
+				m.recordViewExposure(view, exposed, ref)
+				m.w.line("expose " + ref + ";")
+			})
 		}
 		for _, d := range diagrams {
 			pl.write(m.v2Name(c))
 			view, shown := c, d
-			m.extras[view] = append(m.extras[view], func() { m.w.line("expose " + m.viewRef(m.viewOf[shown], view) + ";") })
+			m.extras[view] = append(m.extras[view], func() {
+				ref := m.viewRef(m.viewOf[shown], view)
+				m.recordViewExposure(view, nil, ref)
+				m.w.line("expose " + ref + ";")
+			})
 		}
 	}
 	pl.failed = total - len(pl.targets)
@@ -242,10 +269,10 @@ func (m *migration) placeExpose(d *sysmlv1.Element) {
 func (m *migration) exposeNote(s *sysmlv1.Element) string {
 	switch {
 	case s.IsProxy():
-		return "the exposed " + qualifiedName(s) + " lives outside the document and is not written"
+		return exposedSubject + qualifiedName(s) + livesOutsideDocument
 	case !m.written(s):
 		_, why := m.classify(s)
-		return joinNotes("the exposed "+kindOf(s)+" "+describe(s)+" is not migrated and is not written", why)
+		return joinNotes(exposedSubject+kindOf(s)+" "+describe(s)+" is not migrated and is not written", why)
 	}
 	return ""
 }
@@ -261,6 +288,51 @@ func (m *migration) exposeRef(view, s *sysmlv1.Element) string {
 	return ref
 }
 
+// recordViewExposure records the names introduced into a view by an exposure.
+func (m *migration) recordViewExposure(view, exposed *sysmlv1.Element, ref string) {
+	switch {
+	case strings.HasSuffix(ref, "::*"):
+		m.recordWildcardViewExposure(view, exposed, false)
+	case strings.HasSuffix(ref, "::**"):
+		m.recordWildcardViewExposure(view, exposed, true)
+	default:
+		m.recordExposedViewName(view, exposureName(ref))
+	}
+}
+
+// recordWildcardViewExposure records names imported by a wildcard exposure.
+func (m *migration) recordWildcardViewExposure(view, exposed *sysmlv1.Element, recursive bool) {
+	if exposed == nil {
+		return
+	}
+	var record func(*sysmlv1.Element)
+	record = func(member *sysmlv1.Element) {
+		if !m.written(member) {
+			return
+		}
+		m.recordExposedViewName(view, m.nameOf(member))
+		if recursive {
+			for _, child := range member.Children {
+				record(child)
+			}
+		}
+	}
+	for _, member := range exposed.Children {
+		record(member)
+	}
+}
+
+// recordExposedViewName records an exposed name in the view's namespace.
+func (m *migration) recordExposedViewName(view *sysmlv1.Element, name string) {
+	if name == "" {
+		return
+	}
+	if m.viewNames[view] == nil {
+		m.viewNames[view] = map[string]bool{}
+	}
+	m.viewNames[view][name] = true
+}
+
 // absentNote says what an unresolved reference to id was: notation the tool
 // keeps outside the model, or nothing in the document.
 func (m *migration) absentNote(id string) string {
@@ -273,7 +345,7 @@ func (m *migration) absentNote(id string) string {
 			if name == "" {
 				name = id
 			}
-			return "the exposed " + strings.TrimPrefix(el.Type, "uml:") + " '" + name + "' is notation the tool keeps outside the model, which v2 does not carry"
+			return exposedSubject + strings.TrimPrefix(el.Type, "uml:") + " '" + name + "' is notation the tool keeps outside the model, which v2 does not carry"
 		}
 	}
 	return "the exposed element " + id + " is not in the document"
@@ -357,7 +429,7 @@ func (m *migration) framedComments(e *sysmlv1.Element) []*sysmlv1.Element {
 	for _, id := range vp.IDs("concernList") {
 		c := m.model.Lookup(id)
 		if c == nil {
-			m.downgrade(e, "the concernList tag names "+id+", which is not in the document")
+			m.downgrade(e, "the concernList tag names "+id+notInDocument)
 			continue
 		}
 		if c.Type != "Comment" {
@@ -392,17 +464,17 @@ func (m *migration) stakeholder(vp *sysmlv1.Element, id string) {
 	s := m.model.Lookup(id)
 	switch {
 	case s == nil:
-		m.downgrade(vp, "the stakeholder tag names "+id+", which is not in the document")
+		m.downgrade(vp, "the stakeholder tag names "+id+notInDocument)
 		return
 	case s.IsProxy():
-		m.downgrade(vp, "the stakeholder "+qualifiedName(s)+" lives outside the document and is not written")
+		m.downgrade(vp, stakeholderSubject+qualifiedName(s)+livesOutsideDocument)
 		return
 	case !m.written(s):
-		m.downgrade(vp, "the stakeholder "+qualifiedName(s)+" is not migrated and is not written")
+		m.downgrade(vp, stakeholderSubject+qualifiedName(s)+" is not migrated and is not written")
 		return
 	}
 	if cat, _ := m.classify(s); cat != catPartDef {
-		m.downgrade(vp, "the stakeholder "+qualifiedName(s)+" becomes a "+cat.keyword()+", which cannot type a stakeholder")
+		m.downgrade(vp, stakeholderSubject+qualifiedName(s)+" becomes a "+cat.keyword()+", which cannot type a stakeholder")
 		return
 	}
 	name := m.freshName(vp, lowerFirst(m.nameFor(s)))

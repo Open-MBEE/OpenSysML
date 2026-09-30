@@ -13,6 +13,8 @@ type File struct {
 // Split generates the network Generate writes as one document per orbital plane
 // beside the shared library and the constellation joining the planes. Each plane
 // imports the library by qualified name, so a file resolves against the others.
+// The fleet form declares its planes inside the network, so it splits into the
+// library and the constellation alone.
 func (n SatelliteNetwork) Split() ([]File, Stats) {
 	var b strings.Builder
 	g := &generator{b: &b}
@@ -27,6 +29,15 @@ func (n SatelliteNetwork) Split() ([]File, Stats) {
 	g.library()
 	g.line(0, "}")
 	files = append(files, take("library.sysml"))
+
+	if n.Fleet {
+		g.decl(0, "package Constellation {")
+		g.planeImports()
+		g.line(0, "")
+		g.fleetBody(n)
+		g.line(0, "}")
+		return append(files, take("constellation.sysml")), g.stats
+	}
 
 	id := 0
 	for p := 0; p < n.Planes; p++ {

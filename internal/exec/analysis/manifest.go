@@ -13,6 +13,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/Open-MBEE/OpenSysML/internal/exec/hostcap"
 	"github.com/Open-MBEE/OpenSysML/internal/exec/solve"
 )
 
@@ -66,6 +67,12 @@ type ToolEntry struct {
 	Executable string `json:"executable"`
 	// Variables are the ToolVariable names the tool accepts.
 	Variables []string `json:"variables"`
+	// Invocation composes the process from the call; nil runs the executable bare with the
+	// JSON request on standard input.
+	Invocation *Invocation `json:"invocation,omitempty"`
+	// Reply says how the process's reply is read; nil reads the protocol's one JSON object
+	// from standard output.
+	Reply *Reply `json:"reply,omitempty"`
 }
 
 // Accepts reports whether the tool accepts the tool variable named.
@@ -276,7 +283,13 @@ func readToolEntry(path, env string, data []byte) (ToolEntry, error) {
 	}
 	var entry ToolEntry
 	if err := decodeOne(data, &entry); err != nil {
-		return fault("not one JSON object of kind, toolName, version, executable and variables", err)
+		return fault("not one JSON object of kind, toolName, version, executable, variables, invocation and reply", err)
+	}
+	if path, twice := repeatedKey(data); twice {
+		return fault("the entry names "+path+" twice", nil)
+	}
+	if path, isNull := nullMember(data); isNull {
+		return fault("the entry sets "+path+" to null", nil)
 	}
 	entry.File = path
 	entry.Kind = KindTool
@@ -309,6 +322,14 @@ func readToolEntry(path, env string, data []byte) (ToolEntry, error) {
 			return fault("executable "+err.Error(), nil)
 		}
 		entry.Executable = resolved
+	}
+	if entry.Invocation != nil {
+		if err := checkInvocation(&entry, filepath.Dir(path)); err != nil {
+			return fault(err.Error(), nil)
+		}
+	}
+	if err := checkReply(&entry); err != nil {
+		return fault(err.Error(), nil)
 	}
 	return entry, nil
 }
@@ -384,6 +405,12 @@ func manifestFromEnv(env string, workspaces []string) (*Manifest, error) {
 
 // lookExecutable finds an entry's executable: a path as given, a bare name on PATH.
 func lookExecutable(entry ToolEntry) (string, error) {
+	// The tool is an external process: on a host that starts none, that is why it
+	// will not run, whatever PATH holds, and the lookup's own advice to install it
+	// is advice no such host could act on.
+	if err := hostcap.CheckSpawn(entry.Executable); err != nil {
+		return "", err
+	}
 	path, err := exec.LookPath(entry.Executable)
 	if err != nil {
 		return "", &ToolAbsentError{Tool: entry.ToolName, Executable: entry.Executable, Err: err}
@@ -391,9 +418,9 @@ func lookExecutable(entry ToolEntry) (string, error) {
 	return path, nil
 }
 
-// toolTimeoutFromEnv reads the tool timeout, falling back to DefaultToolTimeout for an
+// ToolTimeoutFromEnv reads the tool timeout, falling back to DefaultToolTimeout for an
 // unset, unparsable or non-positive value.
-func toolTimeoutFromEnv() time.Duration {
+func ToolTimeoutFromEnv() time.Duration {
 	text := strings.TrimSpace(os.Getenv(ToolTimeoutEnv))
 	if text == "" {
 		return DefaultToolTimeout

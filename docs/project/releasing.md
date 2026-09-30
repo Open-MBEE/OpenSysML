@@ -13,14 +13,19 @@ unless `client/python/opensysml/_version.py` declares that version — see
 version therefore gets the package and the `sysml-grpc` binary that were tested
 together.
 
+The same `v*` tag also publishes the Node client to npm as `@openmbee/opensysml`
+at the same version — see
+[Releasing @openmbee/opensysml to npm](#releasing-openmbeeopensysml-to-npm) — and
+the Java client to Maven Central as `org.openmbee:opensysml` — see
+[Releasing the Java client to Maven Central](#releasing-the-java-client-to-maven-central) —
+and the Rust client to crates.io as `opensysml`, all at the same version — see
+[Releasing the Rust client to crates.io](#releasing-the-rust-client-to-cratesio).
+No client keeps a tag of its own any more.
+
 A second tag, `pysysml-v*`, publishes the one-off final release of the client's
 pre-rename PyPI name — see [The final `pysysml` release](#the-final-pysysml-release).
 
-The other clients are released on tags of their own, and none of them has been
-published yet: [the Node client](#releasing-opensysmlclient-to-npm) on
-`client-node-v*`, [the Java client](#releasing-the-java-client-to-maven-central)
-on `opensysml-java-v*`, and [the Rust client](#releasing-the-rust-client-to-cratesio)
-on `opensysml-rust-v*`. The public Go API in `client/opensysml` has no release of its
+The public Go API in `client/opensysml` has no release of its
 own: it is part of this module, so the core's `v*` tag is what a Go program pins.
 
 Between releases, `.github/workflows/nightly.yml` builds the newest green `develop`
@@ -85,6 +90,47 @@ Then check the release-facing text:
   to it, per CONTRIBUTING.md), and no compliance row claims more than the implementation does. Count first-level subtests:
   a case that registers sub-subtests, like `variant_connection_per_owner`, otherwise counts twice.
 
+### Rehearsing the release
+
+The `release` workflow also runs on a branch — `release/X.Y.Z` — when the
+boolean pipeline parameter `release_rehearsal` is true. Every job runs with
+every pre-upload check live: the suite, the version lockstep, the registry
+availability checks, the credential checks, the npm `whoami`, the GitHub and
+Central token probes, the GPG key import and test-sign, the npm packs,
+`cargo package` and the Maven build-and-sign. Only the irreversible commands
+are skipped: cosign keyless signing and attestation (which write to the public
+Rekor log), `ghr` (the GitHub release), `twine upload`, `npm publish`,
+`mvn deploy` and `cargo publish`. A rehearsal exports a stand-in `CIRCLE_TAG`
+from `_version.py` before any step reads it, so the version bumps must already
+be on the branch.
+
+Trigger it from the CircleCI UI with *Trigger pipeline*: choose the release
+branch for both the config and the checkout source, then add the boolean
+parameter `release_rehearsal` = true. Or by API:
+
+```bash
+curl -X POST "https://circleci.com/api/v2/project/<project-slug>/pipeline/run" \
+  -H "Circle-Token: $CCI_TOKEN" -H 'Content-Type: application/json' \
+  -d '{"definition_id": "<pipeline definition id>",
+       "config": {"branch": "release/X.Y.Z"},
+       "checkout": {"branch": "release/X.Y.Z"},
+       "parameters": {"release_rehearsal": true}}'
+```
+
+The project slug and the pipeline definition id are under *Project Settings →
+Project Setup*. Whoever triggers it must be authorized for all four contexts
+(`PyPI`, `npm`, `Maven Central`, `crates.io`), because the same jobs run with
+the same contexts. The built binaries are kept only as the pipeline's CircleCI
+artifacts; nothing reaches a registry or a GitHub release.
+
+A green rehearsal proves the tag will not fail on builds, tests, version
+lockstep, registry availability, credential presence, npm/Central/GitHub
+token auth, the GPG key and passphrase with real Maven signing, npm packing,
+or `cargo package`. It cannot prove the PyPI and crates.io token validity (no
+read-only check exists for either), cosign keyless signing (skipped because it
+writes to Rekor), the uploads themselves, Central publish permission beyond
+token auth, or a version someone publishes between the rehearsal and the tag.
+
 ## The release branch
 
 Day-to-day work merges into `develop`; `main` carries releases only (see
@@ -103,7 +149,28 @@ branch that moves the integration state onto `main`:
    deleted fragments. Set `VERSION` in `client/python/opensysml/_version.py` to `x.y.z` as
    well: the tag publishes `opensysml` at the core version, and the release workflow fails
    before building anything when the two disagree (see
-   [Releasing opensysml to PyPI](#releasing-opensysml-to-pypi)). Anything else the release
+   [Releasing opensysml to PyPI](#releasing-opensysml-to-pypi)). Also set `"version"` in
+   `client/node/package.json` — and the five platform packages in
+   `optionalDependencies` — to the SemVer spelling of the same version (`0.9.1`;
+   `0.9.0-rc.1` for `0.9.0rc1`), and run `npm install --package-lock-only` in
+   `client/node` so the lockfile agrees; the release workflow fails before
+   building anything when package.json disagrees. `client/java/pom.xml` follows
+   the same version too: set the parent pom's `<version>`, both modules'
+   `<parent><version>`, and the client version in `editors/cameo/pom.xml`
+   (`opensysml.client.version`) and `editors/syson/backend/pom.xml` to the same
+   spelling as package.json. `client/rust/opensysml/Cargo.toml` follows too:
+   set `[package] version` to the same spelling and run
+   `cargo update -p opensysml` in `client/rust` so the lockfile
+   agrees. The editors carry the same spelling too, though nothing publishes them:
+   `"version"` in `editors/vscode/package.json` and
+   `editors/syson/frontend/package.json`, each lock regenerated with
+   `npm install --package-lock-only` in that directory; `<version>` in
+   `editors/cameo/pom.xml` and `editors/syson/pom.xml`; and `<parent><version>`
+   in their child poms (`editors/cameo/plugin`, `editors/cameo/tools`,
+   `editors/cameo/openapi-stubs`, `editors/cameo/dist`, `editors/syson/backend`
+   and `editors/syson/syson-api-stubs`). `check_version.py --editors` in
+   `build-python-package` fails the release early when any of them disagrees.
+   Anything else the release
    needs (a doc that names the version) lands here too; a feature does not. Check the wire compatibility
    against the released schema, not the branch's own source:
    `make proto-breaking BUF_BREAKING_REF=origin/main` (the default baseline is
@@ -132,7 +199,8 @@ tag, merge back into `develop`.
 ## Tagging
 
 The tag is the version: CircleCI passes `CIRCLE_TAG` to the build as
-`VERSION`, so `sysml --version` reports it.
+`VERSION`, so `sysml --version` reports it. Rehearse first — see
+[Rehearsing the release](#rehearsing-the-release).
 
 ```bash
 git checkout main && git pull
@@ -148,7 +216,9 @@ to a fork builds a release nobody consumes.
 
 Tags are matched by `/^v.*/` in `.circleci/config.yml`. A tag on a commit that
 fails the suite fails the release workflow before anything is published, and so
-does a tag whose version `client/python/opensysml/_version.py` does not declare.
+does a tag whose version `client/python/opensysml/_version.py`,
+`client/node/package.json`, `client/java/pom.xml` or
+`client/rust/opensysml/Cargo.toml` or an editor manifest does not declare.
 
 ## What CircleCI publishes
 
@@ -167,7 +237,12 @@ does a tag whose version `client/python/opensysml/_version.py` does not declare.
 - the Python client's distribution, `opensysml-<x.y.z>-py3-none-any.whl` and
   `opensysml-<x.y.z>.tar.gz`, built by `build-python-package` and the same files
   `publish-pypi` uploads (see [Releasing opensysml to PyPI](#releasing-opensysml-to-pypi));
-- `SHA256SUMS.txt` over every archive, the wheel and every `sysml-grpc` binary.
+- `SHA256SUMS.txt` over every archive, the wheel and every `sysml-grpc` binary,
+  with its cosign signature `SHA256SUMS.txt.bundle` (see
+  [The signed checksum manifest](#the-signed-checksum-manifest));
+- `provenance.intoto.json`, the SLSA provenance statement naming every artifact
+  the manifest lists, and `provenance.intoto.json.bundle`, its cosign
+  attestation (see [The release provenance](#the-release-provenance)).
 
 Platforms: linux/amd64, linux/arm64, darwin/amd64, darwin/arm64,
 windows/amd64.
@@ -196,6 +271,24 @@ re-run of a published tag it fails by design while the GitHub assets are replace
 (see [What the jobs do, in order](#what-the-jobs-do-in-order)). Running it after
 the GitHub release means the package version never exists without the release
 it names; if the GitHub upload fails, nothing irreversible has happened yet.
+
+`publish-npm` runs beside it, also after the GitHub release and also not
+repeatable: npm never accepts a version twice. It publishes the five
+`@openmbee/opensysml-sysml-grpc-<os>-<cpu>` platform packages built from
+`build-release`'s `dist/grpc` binaries — the same bytes the release ships — and
+then the `@openmbee/opensysml` client (see
+[Releasing @openmbee/opensysml to npm](#releasing-openmbeeopensysml-to-npm)).
+
+`publish-maven` runs beside them, in the same position and with the same
+one-way property: a Central version can never be replaced. It signs, uploads
+and publishes `org.openmbee:opensysml` and its `opensysml-parent` pom,
+waiting until Central reports the deployment published (see
+[Releasing the Java client to Maven Central](#releasing-the-java-client-to-maven-central)).
+
+`publish-crates` runs beside them, in the same position and with the same
+one-way property: a crates.io version cannot be replaced, only yanked. It
+packages and publishes `opensysml` (see
+[Releasing the Rust client to crates.io](#releasing-the-rust-client-to-cratesio)).
 
 Do not go back to `-delete`. It is an alias of `-recreate`: it deletes the
 existing release *and its tag* and creates an empty one, which wipes
@@ -241,6 +334,17 @@ one alongside it).
    A missing bundle means `build-release` did not sign — re-run the tag's
    workflow rather than pinning around it.
 
+   The provenance is checked the same way, against the downloaded archive
+   rather than the manifest:
+
+   ```bash
+   curl -fLO https://github.com/Open-MBEE/OpenSysML/releases/download/v0.0.5/provenance.intoto.json.bundle
+   cosign verify-blob-attestation opensysml-linux-amd64.tar.gz \
+     --bundle provenance.intoto.json.bundle --type slsaprovenance1 \
+     --certificate-oidc-issuer https://oidc.circleci.com/org/1169df8b-0b59-400f-82d2-c9d8e98bdb62 \
+     --certificate-identity-regexp '^https://circleci\.com/api/v2/projects/eeb0dddd-237f-4f02-9e51-8e24caef589d/pipeline-definitions/[0-9a-f-]+$'
+   ```
+
    Then install the Python client the release published, from the index rather
    than the source tree, and run it against the release's own `sysml-grpc` — the
    pairing a user who pins one version gets (see
@@ -253,7 +357,55 @@ one alongside it).
      "import opensysml; print(opensysml.__version__, opensysml.load('examples/state-machine-demo.sysml').diagnostics)"
    ```
 
-2. **Let the Homebrew tap pick the release up.** The tap repository
+2. **Verify the npm upload.** Check the registry sees all six packages at the
+   version and the right dist-tag:
+
+   ```bash
+   npm view @openmbee/opensysml@0.0.5 version dist-tags
+   ```
+
+   Then install it in a temp dir and load a model with `OPENSYSML_BINARY` unset,
+   so the per-platform package is what supplies the binary:
+
+   ```bash
+   mkdir /tmp/npm-verify && cd /tmp/npm-verify && npm init -y
+   npm install @openmbee/opensysml@0.0.5
+   node --input-type=module -e "
+     import { loads } from '@openmbee/opensysml';
+     const model = await loads('package V { part def P; }');
+     console.log(model.diagnostics);
+     await model.close();"
+   ```
+
+3. **Verify the Maven Central upload.** Central can take up to ~30 minutes to
+   answer (search indexing later), so check the pom's URL:
+
+   ```bash
+   curl -sI https://repo1.maven.org/maven2/org/openmbee/opensysml/0.0.5/opensysml-0.0.5.pom
+   ```
+
+   Then a consumption check resolves it the way a consumer does:
+
+   ```bash
+   mvn dependency:get -Dartifact=org.openmbee:opensysml:0.0.5
+   ```
+
+4. **Verify the crates.io upload.** Check the API sees the version:
+
+   ```bash
+   curl -s -H 'User-Agent: OpenSysML release (https://github.com/Open-MBEE/OpenSysML)' \
+     https://crates.io/api/v1/crates/opensysml/0.0.5
+   ```
+
+   Then a consumption check resolves it the way a consumer does, in a throwaway
+   crate:
+
+   ```bash
+   cargo new /tmp/crates-verify && cd /tmp/crates-verify
+   cargo add opensysml@=0.0.5 && cargo fetch
+   ```
+
+5. **Let the Homebrew tap pick the release up.** The tap repository
    `Open-MBEE/homebrew-tap` updates itself: a scheduled workflow there resolves
    the latest `Open-MBEE/OpenSysML` release, renders `Formula/opensysml.rb` from
    this repository's `scripts/render-homebrew-formula.sh` and formula template at
@@ -272,7 +424,7 @@ one alongside it).
 
    See [packaging/homebrew/README.md](../../packaging/homebrew/README.md).
 
-3. **Say what is not signed.** macOS binaries are not Developer ID signed or
+6. **Say what is not signed.** macOS binaries are not Developer ID signed or
    notarized, so a browser download trips Gatekeeper. Point release notes at
    [MACOS_DISTRIBUTION.md](macos-distribution.md), which gives the workarounds
    and what signing would take. Windows binaries are Authenticode signed through
@@ -280,13 +432,13 @@ one alongside it).
    for a release whose signing request nobody approved, only the unsigned
    Windows assets exist and SmartScreen warns — say so in the notes.
 
-4. **Approve the Windows signing request.** When SignPath is configured, the
+7. **Approve the Windows signing request.** When SignPath is configured, the
    tag also runs [`release-windows.yml`](../../.github/workflows/release-windows.yml),
    which parks a signing request in SignPath until an Approver approves it
    (see [Windows Authenticode signing](#windows-authenticode-signing)). No
    approval, no `*-signed*` assets on the release.
 
-5. **Check the Windows installer landed.** The same workflow builds the MSI
+8. **Check the Windows installer landed.** The same workflow builds the MSI
    (see [The Windows installer](#the-windows-installer)) once CircleCI has
    published the release: `opensysml-<x.y.z>-windows-amd64.msi` with
    `SHA256SUMS-windows-msi.txt` when SignPath is not configured, or
@@ -295,7 +447,7 @@ one alongside it).
    workflow failed (WiX, the Z3 download, ICE validation or the signing
    request); re-run it after fixing the cause.
 
-6. **Render the Windows package-manager manifests** when a maintainer wants
+9. **Render the Windows package-manager manifests** when a maintainer wants
    to (re)submit them externally. Nothing here submits anything:
 
    ```bash
@@ -344,6 +496,57 @@ manifest changed after signing, an expired certificate, or `sigstore` not
 installed. The `.sha256` served beside a binary is still never a reason to trust
 it — same origin as the binary — and remains behind
 `$OPENSYSML_ALLOW_UNPINNED_DOWNLOAD`.
+
+### The release provenance
+
+`build-release` also writes a [SLSA provenance](https://slsa.dev/spec/v1.0/provenance)
+statement over the same artifacts and signs it under the same identity.
+`scripts/release-provenance.py` reads `dist/SHA256SUMS.txt` and writes
+`dist/provenance.intoto.json`: an in-toto Statement v1 whose subjects are every
+artifact the manifest lists, with the manifest's digest, and whose predicate
+(`https://slsa.dev/provenance/v1`) records what built them — the repository
+and tag (`externalParameters`), the commit the tag resolved to
+(`resolvedDependencies`), the CircleCI organization, project and workflow
+(`internalParameters`), the project as the builder (`runDetails.builder.id`)
+and the job's URL as the invocation. The build type,
+`https://github.com/Open-MBEE/OpenSysML/.circleci/build-release/v1`, names this
+repository's own job; its version moves when what the job does changes. The
+script refuses to write a statement from an empty or malformed manifest, or
+without every one of the CircleCI variables it describes the build from, so a
+vaguer statement is never published in place of the intended one.
+
+`cosign attest-blob --statement` then signs that statement as it stands — every
+subject kept, nothing re-derived — into a DSSE envelope in a sigstore bundle,
+`provenance.intoto.json.bundle`, keylessly under the job's CircleCI OIDC
+identity, exactly as the manifest is signed. The job verifies its own
+attestation against three published artifacts (a bundle archive, a `sysml-grpc`
+binary and the wheel) under the identity the clients pin, and checks that the
+subjects are the manifest's lines, no more and no fewer, before anything is
+stored; `publish-github-release` uploads the statement and the bundle beside
+`SHA256SUMS.txt`.
+
+What this is, and is not. The statement is produced by the build that produced
+the artifacts, on CircleCI's hosted runners, and signed with an identity only
+that pipeline can hold, so a verifier learns which repository, tag and commit a
+downloaded file was built from and which job built it — SLSA Build L2. It is not
+Build L3: CircleCI does not itself issue provenance, so the statement is
+generated by the job it describes rather than by the platform outside it, and
+nothing stops a change to `.circleci/config.yml` from changing what is written.
+That is why the buildType is versioned and why the trust anchor stays the
+certificate identity: a statement signed by anything but this project's
+pipeline verifies as nothing. A provenance workflow that hashes downloaded
+assets on another platform would attest that platform's download, not this
+build, and is not what this is.
+
+The unsigned `provenance.intoto.json` is a convenience for reading; the
+authoritative statement is the bundle's payload:
+
+```bash
+jq -r '.dsseEnvelope.payload' provenance.intoto.json.bundle | base64 -d | jq .
+```
+
+The Python and Node clients keep reading the signed manifest, not the
+provenance; nothing in them changes.
 
 ### Windows Authenticode signing
 
@@ -881,32 +1084,33 @@ without breaking a pin that already names it), and cut the next core release —
 the package's version is the core's, so the fix is a patch tag, not a new
 `VERSION` alone. Deleting a release frees nothing: the version number stays used.
 
-## Releasing @opensysml/client to npm
+## Releasing @openmbee/opensysml to npm
 
-The Node client in `client/node/` is published to npm as `@opensysml/client` by
-the `release-node` workflow, which runs on a tag matching `/^client-node-v.*/` —
-for example `client-node-v0.1.0`. Nothing is published from a laptop, and a `v*`
-core release tag publishes no package. **Nothing has been published yet**: the
-first release needs the `@opensysml` scope to exist on npm, an automation token
-for it, and the `npm` context below.
+The Node client in `client/node/` is published to npm as `@openmbee/opensysml`
+by the `release` workflow's `publish-npm` job, from the same core `v<version>`
+tag that publishes the binaries and `opensysml` — at that version. No other tag
+publishes it; the `client-node-v*` path never ran and is no longer matched.
+**Nothing has been published yet** — the next core release is the first
+publish, and the `npm` context it needs is already in place (see
+[What the job needs](#what-the-job-needs-1)).
 
 ### Six packages, one tag
 
-`@opensysml/client` carries no binary. The service binary comes from one of five
+`@openmbee/opensysml` carries no binary. The service binary comes from one of five
 per-platform packages it names in `optionalDependencies`, which npm installs by
 matching their `os`/`cpu` metadata:
 
 | package | os | cpu |
 | --- | --- | --- |
-| `@opensysml/sysml-grpc-linux-x64` | linux | x64 |
-| `@opensysml/sysml-grpc-linux-arm64` | linux | arm64 |
-| `@opensysml/sysml-grpc-darwin-x64` | darwin | x64 |
-| `@opensysml/sysml-grpc-darwin-arm64` | darwin | arm64 |
-| `@opensysml/sysml-grpc-win32-x64` | win32 | x64 |
+| `@openmbee/opensysml-sysml-grpc-linux-x64` | linux | x64 |
+| `@openmbee/opensysml-sysml-grpc-linux-arm64` | linux | arm64 |
+| `@openmbee/opensysml-sysml-grpc-darwin-x64` | darwin | x64 |
+| `@openmbee/opensysml-sysml-grpc-darwin-arm64` | darwin | arm64 |
+| `@openmbee/opensysml-sysml-grpc-win32-x64` | win32 | x64 |
 
 All six share the version in `client/node/package.json`, because the
 `optionalDependencies` name that exact version. The platform packages are
-published first, so `@opensysml/client` is never on the registry naming a
+published first, so `@openmbee/opensysml` is never on the registry naming a
 version of them that is not. Where no package matches — a platform with no
 release build — the client falls back to `$OPENSYSML_BINARY`, a binary in
 `~/.opensysml/bin/`, a release download into that cache, `sysml-grpc` on
@@ -915,56 +1119,93 @@ the same shared cache and metadata, the same pinned digests, and the same
 signed-manifest verification, refusing a release it can neither pin nor verify.
 See `client/node/README.md`.
 
-`build-node-binaries` cross-compiles the five binaries from the tagged revision
-and writes a `.sha256` sidecar beside each; `npm run platform-packages` refuses
-to package a binary whose bytes disagree with its sidecar, or that has none. The
-bytes therefore never leave the pipeline that publishes them, which is the job
-the Python client's pinned digests do for a download. npm's `--provenance` is not
+### Where the binaries come from
+
+The five binaries are `build-release`'s `dist/grpc` output — the same bytes as
+the GitHub release and the signed `SHA256SUMS.txt`, persisted to the workspace
+the npm job attaches. `npm run platform-packages` refuses to package a binary
+whose bytes disagree with its `.sha256` sidecar, or that has none, so the
+packages can only carry what the release built. npm's `--provenance` is not
 used: the CLI mints attestations only on GitHub Actions and GitLab CI/CD.
 
-### Why its own tag
+### Why the core's tag
 
-The package resolves a service binary at run time rather than being lockstep
-with a core release, so a client-only fix should not wait for a core release,
-and a core release should not force an immutable npm version. An npm version can
-be deprecated or (within 72 hours, and only under conditions) unpublished, but
-never replaced — keeping that off the re-runnable `v*` path is deliberate. The
-Python client made the other choice (see [Why the same tag](#why-the-same-tag));
-nothing has been published from this path yet, so it can still follow.
+The client follows the Python client's choice (see
+[Why the same tag](#why-the-same-tag)): every npm version then has a core
+release of the same version tested with it in the same pipeline, and a caller
+pins one number — `npm install @openmbee/opensysml@0.9.1` gets the release's own
+binary via the platform package. The cost: a client-only fix is a core patch
+release. And since an npm publish is irreversible, the job runs last and refuses
+a version already on the registry, just like `publish-pypi`.
+
+### The version
+
+`client/node/package.json` follows `client/python/opensysml/_version.py` — the
+same version, spelled the SemVer way (`0.9.0-rc.1` for `0.9.0rc1`).
+`check_version.py --node` in `build-python-package` fails the release before
+anything is built when they disagree, and the pytest gate in
+`test_check_version.py` runs on every PR that touches either file. The tag must
+spell the SemVer version exactly, `v` aside.
+
+### Pre-releases
+
+A pre-release tag — the same one that sends `opensysml` to TestPyPI — publishes
+all six packages to the `next` dist-tag; `latest` is untouched. Install a
+pre-release with `@next` or the exact version.
 
 ### What the job needs
 
-1. The `@opensysml` **scope** on npm, with the publishing account a member of it.
-2. An **automation** access token for that account (npm → *Access Tokens* →
-   *Generate new token* → *Automation*, which bypasses 2FA for CI as a granular
-   token restricted to the `@opensysml` scope).
-3. A CircleCI **restricted context** named `npm` (Organization Settings →
-   Contexts) holding it as `NPM_TOKEN`, restricted to a security group so only
-   that group can run a job that reads it. A context reference is matched
-   exactly, so the name is lower-case in both places.
+Everything below is already in place; it is recorded so it can be re-created.
 
-### Releasing
+1. The **`@openmbee` scope** on npm, with the publishing account a member of the
+   org with publish rights on its packages. A new package under the scope is
+   created by its first `npm publish --access public`.
+2. A **granular access token** stored as `NPM_TOKEN` in the CircleCI restricted
+   context `npm` (lower-case, matched exactly, restricted to a security group).
+   The token was created on npmjs.com → *Access Tokens* → *Generate New Token*
+   → *Granular Access Token*, Packages and scopes: Read and write, restricted
+   to the `@openmbee` scope, **Bypass 2FA** enabled for non-interactive
+   publishing, no IP allowlist. (npm classic/automation tokens were revoked in
+   December 2025, and npm has no trusted publishing for CircleCI.)
+3. **Rotation is a standing task**: granular write tokens expire after at most
+   90 days, so before each release check its expiry and, if it has lapsed or
+   will soon, create a replacement the same way and update `NPM_TOKEN` in the
+   `npm` context. `publish-npm`'s `npm whoami` step fails before anything is
+   published when the token has expired.
 
-```bash
-# 1. Bump "version" in client/node/package.json, land it.
-# 2. Tag the version it declares.
-git tag client-node-v0.1.0
-git push origin client-node-v0.1.0
-```
+### What the job does, in order
 
-The job fails before publishing anything if the tag and
-`client/node/package.json` disagree, if any of the six versions is already on
-the registry, if the Go suite or the client's own gate (`node-test`: build,
-typecheck, lint, tests, conformance, and the mutation check that proves the
-conformance runner is not vacuous) fails, or if a binary's digest does not match
-its sidecar.
+`publish-npm` runs after `publish-github-release`, beside `publish-pypi`:
+
+1. Resolves the version: fails if the tag is not `v<version>` matching
+   `client/node/package.json`, picks the `latest`/`next` dist-tag from the
+   version, and lists the workspace binaries it will package.
+2. Requires `NPM_TOKEN` from the `npm` context.
+3. Refuses to run if any of the six packages is already on the registry at this
+   version (a publish cannot be repeated).
+4. Builds and tests the client against the release's linux binary (`npm ci`,
+   build, typecheck, lint, tests).
+5. Builds the five platform packages from `dist/grpc`, checking each binary
+   against its `.sha256` sidecar.
+6. Authenticates to npm and runs `npm whoami`, so an expired token fails before
+   the first publish.
+7. Publishes the five platform packages, then the client, on the resolved
+   dist-tag.
 
 ### If a publish goes wrong
 
-An npm version cannot be replaced. `npm deprecate '@opensysml/client@0.1.0' '...'`
-marks it, `npm unpublish` is possible only within 72 hours and only if nothing
-depends on it, and either way the version number stays used: bump
-`client/node/package.json` and tag again.
+`publish-npm` runs after `publish-github-release` and beside `publish-pypi`, so
+a failure there leaves the GitHub release and PyPI in place. Before the first
+`npm publish` — a version/tag mismatch, a missing or expired token, an `npm
+whoami`, build, test or digest failure — nothing is on npm: fix the cause (for
+example rotate the token in the context) and re-run only that job — *Rerun
+workflow from failed* — without repeating the rest of the workflow.
+
+After the first publish the version is used: the registry refusal makes a
+re-run fail by design, and a half-published set — some platform packages up,
+the client not — is not repaired by re-running. `npm deprecate` what went up
+(and `npm unpublish` within 72 hours only if nothing depends on it) and cut the
+next core patch release. Never remove the refusal to force a re-run through.
 
 ## The final `pysysml` release
 
@@ -1004,15 +1245,26 @@ under the old name; a client fix goes to `opensysml`.
 
 ## Releasing the Java client to Maven Central
 
-**Nothing has been published, and nothing in CI publishes it.** The Java client
-in `client/java/` builds a complete, signable artifact today, and the steps
-below are what a maintainer does once the accounts exist. Until then
-`mvn -f client/java/pom.xml install` is the way to consume it, and the version
-is `0.1.0-SNAPSHOT`, which Central refuses by design.
+The Java client in `client/java/` is published to Maven Central as
+`org.openmbee:opensysml` — with its parent, `org.openmbee:opensysml-parent`
+— by the `release` workflow's `publish-maven` job, from the same core
+`v<version>` tag that publishes the binaries, `opensysml` and
+`@openmbee/opensysml`, at that version. The `opensysml-java-v*` path was never
+tagged and is no longer used. **Nothing has been published yet.**
 
 ### What a maintainer must obtain first
 
-None of these can be provisioned from a checkout:
+None of these can be provisioned from a checkout. The key and the token live
+in the restricted context **`Maven Central`** (Organization Settings →
+Contexts — a context reference is matched exactly, so the case has to match),
+which holds `CENTRAL_TOKEN_USERNAME`, `CENTRAL_TOKEN_PASSWORD`,
+`GPG_PRIVATE_KEY` and `GPG_PASSPHRASE`, set up like the PyPI and npm contexts
+(see [what the job needs](#what-the-job-needs)). Contexts restricted to a
+security group admit only their members, so whoever pushes the tag must be
+allowed to use all of them — `PyPI`, `npm`, `Maven Central` and `crates.io` —
+or the job fails as unauthorized before anything runs. The signing key in
+place is a freshly generated one with a two-year expiry, so the rotation note
+below applies within two years.
 
 1. **A verified namespace.** Register `org.openmbee` at
    [central.sonatype.com](https://central.sonatype.com/) → *Namespaces* → *Add
@@ -1028,43 +1280,56 @@ None of these can be provisioned from a checkout:
    gpg --keyserver keys.openpgp.org --send-keys <KEY_ID>
    ```
 
-   The private key and its passphrase belong in a **restricted CircleCI
-   context**, as `GPG_PRIVATE_KEY` (ASCII-armoured, `gpg --export-secret-keys
-   --armor`) and `GPG_PASSPHRASE`, restricted to a security group the way the
-   `PyPI` context is (see [what the job needs](#what-the-job-needs)). A key with
-   an expiry needs rotating before it expires; signatures already published stay
-   verifiable.
+   The private key and its passphrase are the context's
+   `GPG_PRIVATE_KEY` and `GPG_PASSPHRASE`. Store the key base64-encoded on one
+   line — `gpg --armor --export-secret-keys <KEY_ID> | base64 | tr -d '\n'` —
+   since the CircleCI UI drops newlines; the job also accepts the raw armored
+   block.
+   The job test-signs before anything uploads, so an expired key or a wrong
+   passphrase fails before anything reaches Central. A key approaching its
+   expiry needs extending (`gpg --quick-set-expire`) and the public key
+   re-published, or replacing outright — update `GPG_PRIVATE_KEY` and
+   `GPG_PASSPHRASE` to match. Signatures already published stay verifiable.
 3. **Portal tokens.** Central portal → *View Account* → *Generate User Token*
-   gives a username/password pair for a `<server>` with `<id>central`. In CI they
-   are `CENTRAL_TOKEN_USERNAME`/`CENTRAL_TOKEN_PASSWORD` in the same context,
-   written into `~/.m2/settings.xml` by the job.
+   gives a username/password pair for a `<server>` with `<id>central`, the
+   context's `CENTRAL_TOKEN_USERNAME`/`CENTRAL_TOKEN_PASSWORD`, written
+   into `~/.m2/settings.xml` by the job. A token can be revoked and regenerated
+   in the portal and then replaced in the context.
 
-### The version, and the tag
+### The version
 
-`client/java/pom.xml` declares the version once, and both modules inherit it
-from the parent. A release drops `-SNAPSHOT`, lands, and is tagged
-`opensysml-java-v<version>` — its own tag, for the reason the Node client has
-one: the client does not ship the service, so its version says nothing about
-which core release it runs against, and a Maven Central version can never be
-replaced, so it must not hang off a `v*` core tag that `ghr -replace` re-runs.
+`client/java/pom.xml` follows `client/python/opensysml/_version.py` — the same
+version, spelled the Maven way, which is the SemVer spelling (`0.9.0-rc1` for
+`0.9.0rc1`): the parent pom's `<version>`, both modules' `<parent><version>`,
+and the client version the editors name (`opensysml.client.version` in
+`editors/cameo/pom.xml`, the `opensysml` dependency in
+`editors/syson/backend/pom.xml`). `check_version.py --java` in
+`build-python-package` fails the release before anything is built when they
+disagree, and the pytest gate in `test_check_version.py` — including the test
+that every in-repo reference names the pom's version — runs on every PR that
+touches either file. The tag must spell the version exactly, `v` aside.
 
-Like the Python client, it downloads a `sysml-grpc` binary at runtime for
-whatever release the caller names (`ConnectionOptions.downloadVersion()`,
-`$OPENSYSML_GRPC_VERSION`, or `latest`) and verifies it against the digest its
-own copy of `client/release-digests.json` — shipped in the jar as
-`release-digests.json` — pins for that release, or, for a release it pins
-nothing for, against the digest in the release's signed `SHA256SUMS.txt` (see
-[the signed checksum manifest](#the-signed-checksum-manifest)). A core release
-published after a client release therefore needs no new client release. The
-`dev.sigstore:sigstore-java` dependency is what verifies that bundle, so a
-consumer that excludes it can install only pinned releases. See
-`client/java/README.md`.
+The editors' own versions are in the same lockstep: every manifest
+`check_version.py --editors` reads — the VS Code and SysON frontend
+package.json files and their locks, the Cameo and SysON parent poms and their
+children's `<parent><version>` — carries the SemVer spelling, and the release
+fails early when one disagrees.
+
+### Why the core's tag
+
+The client follows the Python and Node clients' choice (see
+[Why the same tag](#why-the-same-tag)): every published version has a core
+release of the same version tested with it in the same pipeline, and a consumer
+pins one number. The old reason for a separate tag — Central is immutable and
+`ghr -replace` re-runs the `v*` tag — is answered by the job running last and
+refusing a version already on Central, like `publish-pypi` and `publish-npm`.
+The cost stays the same too: a client-only fix is a core patch release.
 
 ### What the build already produces
 
 `mvn -f client/java/pom.xml install` attaches everything Central validates:
 
-- `opensysml-client-<version>.jar`, `-sources.jar` and `-javadoc.jar` (the
+- `opensysml-<version>.jar`, `-sources.jar` and `-javadoc.jar` (the
   `maven-source-plugin` and `maven-javadoc-plugin` executions are in the default
   build, not the release profile, so a missing one fails long before a release);
 - POM metadata Central requires: `name`, `description`, `url`, `licenses`,
@@ -1073,85 +1338,156 @@ consumer that excludes it can install only pinned releases. See
   not a published artifact.
 
 The `release` profile adds what only a release needs: `maven-gpg-plugin` signing
-at `verify`, and `central-publishing-maven-plugin` with **`autoPublish=false`**,
-so `mvn deploy` uploads a deployment that then sits in the portal until a human
-releases it. That is the equivalent of the staging repository the old OSSRH
-workflow had, and it is deliberate: the publication is the irreversible step.
+at `verify` (the passphrase comes from `MAVEN_GPG_PASSPHRASE`, never from a
+pom property or the settings), and `central-publishing-maven-plugin` with
+`autoPublish=true` and `waitUntil=published` — the job publishes the validated
+deployment itself and waits until it is published, so a green job means the
+version is on Central. The irreversible step is guarded by running last, on a
+revision proven green, and by the refusal of a version already published.
 
-### The procedure
+The same checks run locally before a release, without uploading:
 
 ```bash
-# 1. Drop -SNAPSHOT in client/java/pom.xml, land it, then from that commit:
 make build                                            # the service the tests start
 mvn -f client/java/pom.xml clean verify              # tests, javadoc, sources
 mvn -f client/java/pom.xml -Prelease verify          # + signatures, no upload
 gpg --verify client/java/opensysml-client/target/*.jar.asc   # check one by hand
-
-# 2. Upload a deployment (still not published):
-mvn -f client/java/pom.xml -Prelease deploy -pl opensysml-client
-
-# 3. central.sonatype.com → Deployments → review the validation report →
-#    "Publish". Availability on Maven Central follows within ~30 minutes,
-#    search indexing later.
-
-# 4. Tag what was published, and bump to the next -SNAPSHOT.
-git tag opensysml-java-v0.1.0 && git push origin opensysml-java-v0.1.0
 ```
 
-A deployment that fails validation can be dropped from the portal and re-uploaded
-under the same version; one that has been **published** cannot be replaced or
-deleted, so a mistake needs a new version.
+### Pre-releases
 
-### A CI job, when there is something to publish
+Central has no test registry. A pre-release tag — the same one that sends
+`opensysml` to TestPyPI and the npm client to `next` — publishes an ordinary,
+permanent version that Maven orders before the release: `0.9.0-rc1` resolves
+before `0.9.0`. Consumers get it only by naming it.
 
-There is no `publish-maven` job yet, and adding one before the namespace exists
-would be a job that can only fail. When it is added it should mirror
-`publish-pypi`: triggered by `/^opensysml-java-v.*/` only, running on a restricted
-context, refusing to run when a variable it needs is absent rather than letting
-Central answer with a 401, checking the tag names the declared version, and
-stopping at an unpublished deployment. `java-test` already runs the client's
-tests and the conformance suite on every commit.
+### What the job does, in order
+
+`publish-maven` runs after `publish-github-release`, beside `publish-pypi` and
+`publish-npm`:
+
+1. Resolves the version: fails if the tag is not `v<version>` matching
+   `client/java/pom.xml`, or the version is a `-SNAPSHOT`.
+2. Requires all four credential environment variables, naming only the missing
+   one.
+3. Refuses to run if `org.openmbee:opensysml-parent` or `opensysml` is
+   already on Central at this version (a publish cannot be repeated).
+4. Imports `GPG_PRIVATE_KEY` and test-signs with `GPG_PASSPHRASE`, so an expired
+   key or wrong passphrase fails before the upload.
+5. Writes `~/.m2/settings.xml` naming the `central` server, reading the portal
+   token from the environment so it never lands on disk.
+6. Runs `mvn -Prelease deploy -pl :opensysml -am -DskipTests` — `java-test`
+   ran the suite on this revision; `-am` carries the parent pom the client's
+   pom names. The plugin uploads, Central validates, `autoPublish` releases the
+   deployment, and the build waits until it is published.
+
+### If a publish goes wrong
+
+`publish-maven` runs after `publish-github-release` and beside `publish-pypi`
+and `publish-npm`, so its failure leaves the GitHub release, PyPI and npm in
+place. Before the upload — a tag/version mismatch, a missing variable, a
+Central availability-check error, an expired key or wrong passphrase, a build
+or javadoc failure — nothing is on Central: fix the cause and *Rerun workflow
+from failed*, without repeating the rest of the workflow.
+
+A deployment that fails Central validation is not published — `autoPublish`
+only publishes a valid one: drop it in the portal if it remains, fix the cause,
+and re-run. If the job timed out waiting while Central was still publishing,
+check the portal before anything else; the next run's availability check
+answers whether the version landed.
+
+Once published the version is immutable — it cannot be replaced or deleted,
+and the refusal makes a re-run fail by design. A published mistake needs the
+next core patch release.
 
 ## Releasing the Rust client to crates.io
 
-Nothing has been published, and the first publish is a decision rather than a
-step: `opensysml` is a common enough name that its availability on crates.io must
-be checked before the crate is promised anywhere, and a name taken means renaming
-the crate rather than the client. `client/rust/README.md` documents the path and Git
-dependency forms that work today.
+The `opensysml` crate is published by the `release` workflow's `publish-crates`
+job from the core `v<version>` tag, at the version `Cargo.toml` declares, after
+the suite and the GitHub release. `opensysml-rust-v*` was never tagged and is no
+longer used; nothing has been published yet — the name `opensysml` is free on
+crates.io. The maintainer-run `cargo publish` and the bump-then-tag procedure
+it followed are gone.
 
-What the crate is ready for, and what it is not:
+### What a maintainer must obtain first
 
-- `cargo package -p opensysml` must succeed cleanly before any publish — it is
-  what proves the manifest carries the metadata crates.io requires and that the
-  packaged file list builds on its own, outside this workspace.
-- The manifest declares `license`, `description`, `repository`, `homepage`,
-  `documentation`, `keywords`, `categories` and `rust-version = "1.83"`, so a
-  published crate documents its own minimum supported Rust version.
-- `opensysml-conformance` is a workspace member and a runner, not a library, and
-  is **not** published: it reads `conformance/scenarios` from this repository.
-- The client downloads a `sysml-grpc` release binary when `$OPENSYSML_GRPC_VERSION`
-  asks for one, and verifies it against `client/rust/opensysml/release-digests.json`,
-  which the crate embeds with `include_str!` and its `include` list ships — so a
-  release whose digests are not in the published crate is refused rather than
-  installed. Unlike the Python client it does not verify the signed
-  `SHA256SUMS.txt` manifest, so publishing a release also means shipping a crate
-  version that pins it if Rust callers are to install it; see
-  `client/rust/README.md`.
+A crates.io API token with the publish-new/publish-update scopes — scoped to
+the `opensysml` crate alone once it exists — stored as `CARGO_REGISTRY_TOKEN`
+in the restricted context **`crates.io`** (Organization Settings → Contexts —
+the name is matched exactly, lower-case included), set up like the PyPI, npm
+and `Maven Central` contexts (see [what the job needs](#what-the-job-needs)).
+Whoever pushes the tag must be allowed to use all of them, as the Java section
+above notes. A token can be given an expiry at creation; rotate it before one
+lapses — crates.io refuses an expired token at the publish step, and nothing
+is published.
 
-The procedure, once the name is settled:
+### The version
 
-```bash
-# 1. Bump "version" in client/rust/opensysml/Cargo.toml, land it, then from that commit:
-cargo package -p opensysml --manifest-path client/rust/Cargo.toml   # must be clean
-cargo publish -p opensysml --manifest-path client/rust/Cargo.toml   # maintainer, with a crates.io token
+`client/rust/opensysml/Cargo.toml`'s `[package] version` follows
+`client/python/opensysml/_version.py`, at the SemVer spelling of it — the same
+spelling package.json and the pom use (`0.9.1`; `0.9.0-rc.1` for `0.9.0rc1`).
+`check_version.py --rust` in `build-python-package` enforces the lockstep, and
+a pytest gate holds it on every commit — including `client/rust/Cargo.lock`,
+whose `opensysml` entry must name the same version (the checklist's
+`cargo update -p opensysml` keeps it in step). crates.io publishes
+the version Cargo.toml declares, so the tag must spell it exactly.
 
-# 2. Tag what was published.
-git tag opensysml-rust-v0.1.0 && git push origin opensysml-rust-v0.1.0
-```
+### Why the core's tag
 
-**`cargo publish` is a maintainer action and CI never runs it.** A crates.io
-version cannot be replaced or deleted, only yanked (`cargo yank --version 0.1.0`,
-which stops new resolutions and leaves existing lockfiles working), so a mistake
-needs a new version. `rust-test` already runs the client's tests, lints and the
-conformance suite on every commit that touches it.
+The same reasons as npm and Maven — see
+[Why the same tag](#why-the-same-tag): the crate is the same client's surface
+in another language, so the tag that proves the suite is the tag that
+publishes it. crates.io versions are immutable, which is why the job runs last
+and refuses a version the registry already holds, like PyPI, npm and Central.
+
+### What the crate already carries
+
+`cargo package -p opensysml` must succeed cleanly before any publish — it is
+what proves the manifest carries the metadata crates.io requires and that the
+packaged file list builds on its own, outside this workspace. The manifest
+declares `license`, `description`, `repository`, `homepage`, `documentation`,
+`keywords`, `categories` and `rust-version = "1.83"`, so a published crate
+documents its own minimum supported Rust version. `opensysml-conformance` is a
+workspace member and a runner, not a library, and is **not** published: it
+reads `conformance/scenarios` from this repository.
+
+One limitation stands, and this publish does not change it: a download of the
+`sysml-grpc` release binary — which `$OPENSYSML_GRPC_VERSION` asks for —
+verifies only against the digests pinned in the crate's embedded
+`release-digests.json`, which currently runs through v0.3.0. A published crate
+therefore cannot download the binary of its own release; it is used against a
+running service or a binary it is pointed at (`$OPENSYSML_GRPC_BINARY`, then
+`sysml-grpc` on `$PATH`). See `client/rust/README.md` for the resolution order.
+
+### Pre-releases
+
+crates.io has no test registry, so a pre-release tag (`v0.9.1-rc.1`…) publishes
+an ordinary version. Cargo never selects a pre-release for a `0.9` requirement,
+so consumers get it only by naming it exactly.
+
+### What the job does, in order
+
+1. Fails on an empty `CIRCLE_TAG`; resolves the crate version with
+   `cargo pkgid` and requires the tag to be `v<version>` — nothing was
+   published when they disagree.
+2. Requires `CARGO_REGISTRY_TOKEN`, naming it only when missing.
+3. Refuses the version when crates.io already holds it (a published version
+   cannot be replaced, only yanked), and refuses rather than guesses when the
+   API cannot be asked.
+4. `cargo package -p opensysml --locked` — the dry run that builds and verifies
+   the packaged file list.
+5. `cargo publish -p opensysml --locked --no-verify`; cargo reads the token
+   from the environment, so nothing is written to disk.
+
+### If a publish goes wrong
+
+`publish-crates` runs after `publish-github-release` and beside
+`publish-pypi`, `publish-npm` and `publish-maven`, so its failure leaves those
+in place. Before the upload — a tag/version mismatch, a missing token, a
+crates.io availability-check error, a package dry-run failure — nothing is on
+crates.io: fix the cause and *Rerun workflow from failed*.
+
+Once published the version is immutable — it cannot be replaced or deleted,
+and the availability check makes a re-run fail by design. A mistake is yanked
+(`cargo yank --version <version>`, which stops new resolutions while existing
+lockfiles keep working) and fixed in the next core patch release.

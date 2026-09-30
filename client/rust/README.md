@@ -1,12 +1,25 @@
 # OpenSysML Rust client
 
 `opensysml` is a blocking Rust client for the local `sysml-grpc` service. It
-is not published to crates.io yet. The crate name still needs to be checked
-for availability, and publishing is a maintainer decision.
+is published to crates.io with each core release, at the core's version.
 
 ## Installation
 
-For now, use a path dependency while developing against a checkout:
+From crates.io:
+
+```toml
+[dependencies]
+opensysml = "0.9"
+```
+
+A published crate cannot download the `sysml-grpc` binary of its own release —
+its embedded `release-digests.json` pins only the digests known when it was
+built — so it targets a running service or a binary it is pointed at
+(`$OPENSYSML_GRPC_BINARY`, then `sysml-grpc` on `$PATH`; see below). See
+[docs/project/releasing.md](../../docs/project/releasing.md#releasing-the-rust-client-to-cratesio)
+for how the crate is published.
+
+For developing against a checkout, a path dependency still works:
 
 ```toml
 [dependencies]

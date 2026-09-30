@@ -71,6 +71,8 @@ const (
 	ErrorTraceTruncated ErrorKind = "trace-truncated"
 	// ErrorUndeclaredRow: a RelatedColumn was to traverse from a row no element declares.
 	ErrorUndeclaredRow ErrorKind = "undeclared-row"
+	// ErrorProjectedAncestors: Tree was given ancestors for rows already projected.
+	ErrorProjectedAncestors ErrorKind = "projected-ancestors"
 )
 
 // Error is a typed query-execution failure with plan provenance.
@@ -123,6 +125,8 @@ func (e *Error) Error() string {
 		return fmt.Sprintf("query %s operation %s is not executable in this engine version", e.Query, e.Operation)
 	case ErrorInvalidArgument:
 		return fmt.Sprintf("query %s operation %s%s has invalid argument %s", e.Query, e.Operation, e.column(), e.Parameter)
+	case ErrorProjectedAncestors:
+		return fmt.Sprintf("query %s operation Tree takes ancestors over unprojected rows, and its source is projected: nest before Project", e.Query)
 	case ErrorInvalidOperator:
 		return fmt.Sprintf("query %s operation %s%s does not support %q", e.Query, e.Operation, e.column(), e.Actual)
 	case ErrorInvalidOrder:
@@ -206,11 +210,12 @@ func (e *Error) columnMessage() (string, bool) {
 		), true
 	case ErrorColumnCardinality:
 		return fmt.Sprintf(
-			"query %s column %s produced %s values, expected one for %s",
+			"query %s column %s produced %s values for %s, outside its declared multiplicity %s",
 			e.Query,
 			e.Property,
 			e.Actual,
 			e.Target,
+			e.Expected,
 		), true
 	case ErrorColumnDivisionByZero:
 		return fmt.Sprintf("query %s column %s divides by zero for %s", e.Query, e.Property, e.Target), true

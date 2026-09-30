@@ -9,6 +9,7 @@ import (
 	"testing"
 
 	"github.com/Open-MBEE/OpenSysML/internal/ir/view"
+	"github.com/Open-MBEE/OpenSysML/internal/translate/filename"
 	"github.com/Open-MBEE/OpenSysML/internal/workspace/model"
 )
 
@@ -674,16 +675,16 @@ func TestRenderFilenameEncodesWhatAFilesystemRefuses(t *testing.T) {
 func TestRenderFilenameFitsAPathComponent(t *testing.T) {
 	long := "TMT::" + strings.Repeat("'Acquire Telescope Pointing w/NSEN'::", 8)
 	got := renderFilename(long+"first", view.FormDot, false)
-	if len(got) != maxFilenameBytes || !strings.HasSuffix(got, ".dot") {
-		t.Errorf("renderFilename(long) = %q (%d bytes), want %d ending in .dot", got, len(got), maxFilenameBytes)
+	if len(got) != filename.Max || !strings.HasSuffix(got, ".dot") {
+		t.Errorf("renderFilename(long) = %q (%d bytes), want %d ending in .dot", got, len(got), filename.Max)
 	}
-	if i := strings.LastIndexByte(got, '~'); i < 0 || len(got)-i != 1+2*filenameTagBytes+len(".dot") {
-		t.Errorf("renderFilename(long) = %q lacks a %d-byte hash tag before the extension", got, 2*filenameTagBytes)
+	if i := strings.LastIndexByte(got, '~'); i < 0 || len(got)-i != 1+2*filename.TagBytes+len(".dot") {
+		t.Errorf("renderFilename(long) = %q lacks a %d-byte hash tag before the extension", got, 2*filename.TagBytes)
 	}
 	if got != renderFilename(long+"first", view.FormDot, false) {
 		t.Errorf("renderFilename(long) is not deterministic")
 	}
-	if other := renderFilename(long+"second", view.FormDot, false); other == got {
+	if renderFilename(long+"second", view.FormDot, false) == got {
 		t.Errorf("two long names that differ only past the cut share %q", got)
 	}
 	a := strings.Repeat("a", 230)
@@ -696,7 +697,7 @@ func TestRenderFilenameFitsAPathComponent(t *testing.T) {
 		{a + "aaö" + a, a + "aaö"},
 	} {
 		got := renderFilename(tc.name, view.FormDot, false)
-		if len(got) > maxFilenameBytes || !strings.HasPrefix(got, tc.stem+"~") {
+		if len(got) > filename.Max || !strings.HasPrefix(got, tc.stem+"~") {
 			t.Errorf("renderFilename(%q) = %q (%d bytes), want the stem %q", tc.name, got, len(got), tc.stem)
 		}
 	}
@@ -758,11 +759,11 @@ func TestRenderFilenamesMeetOnlyOnce(t *testing.T) {
 		t.Errorf("view %s named like the tag is written to %q, want a tagged name other than %s", tagName, got[tagName], tagged)
 	}
 	folded := map[string]string{}
-	for name, filename := range got {
-		if other, met := folded[caseFolded(filename)]; met {
-			t.Errorf("views %s and %s are both written to %s", other, name, filename)
+	for name, file := range got {
+		if other, met := folded[filename.CaseFolded(file)]; met {
+			t.Errorf("views %s and %s are both written to %s", other, name, file)
 		}
-		folded[caseFolded(filename)] = name
+		folded[filename.CaseFolded(file)] = name
 	}
 
 	sequence := model.ViewInfo{Name: "Demo::report", Kind: view.KindSequence, Supported: true}
@@ -824,32 +825,9 @@ func TestRenderAllTagsPathsMeetingUnderCaseFolding(t *testing.T) {
 		for _, name := range []string{tc.first, tc.second} {
 			stem := "Demo." + strings.Trim(name, "'") + "~"
 			i := slices.IndexFunc(names, func(f string) bool { return strings.HasPrefix(f, stem) && strings.HasSuffix(f, ".dot") })
-			if i < 0 || len(names[i]) != len(stem)+2*filenameTagBytes+len(".dot") {
+			if i < 0 || len(names[i]) != len(stem)+2*filename.TagBytes+len(".dot") {
 				t.Errorf("files = %v, want one hash-tagged %s*.dot", names, stem)
 			}
-		}
-	}
-}
-
-// Case folding is Unicode's simple folding, which strings.EqualFold decides:
-// a final sigma folds with a sigma, a Kelvin sign with a k, and a name that
-// differs in more than case folds apart.
-func TestCaseFoldedAgreesWithEqualFold(t *testing.T) {
-	for _, tc := range []struct {
-		a, b string
-		want bool
-	}{
-		{"Report.dot", "report.dot", true},
-		{"σ", "ς", true},
-		{"Σ", "ς", true},
-		{"k", "\u212a", true},
-		{"ß", "ẞ", true},
-		{"ſ", "S", true},
-		{"i", "İ", false},
-		{"Report.dot", "Reports.dot", false},
-	} {
-		if got := caseFolded(tc.a) == caseFolded(tc.b); got != tc.want || got != strings.EqualFold(tc.a, tc.b) {
-			t.Errorf("caseFolded(%q) == caseFolded(%q) is %v, want %v, as EqualFold says %v", tc.a, tc.b, got, tc.want, strings.EqualFold(tc.a, tc.b))
 		}
 	}
 }

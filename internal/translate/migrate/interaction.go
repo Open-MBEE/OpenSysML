@@ -286,8 +286,17 @@ func (s *scenario) lifeline(line *sysmlv1.Element) (lifelineRef, string) {
 		default:
 			return lifelineRef{}, standsFor + describe(rep) + ", which " + qualifiedName(s.context) + " reaches as both " + paths[0] + " and " + paths[1]
 		}
-		ref = lifelineRef{line: line, path: s.self + "." + paths[0], chain: paths[0], typ: s.m.model.Ref(rep, "type")}
-		if s.self != "this" {
+		self := s.self
+		if self == "this" {
+			// Inside the def the object is its context parameter, not this.
+			self = s.m.thisName(s.e)
+			if self == "this" {
+				// Inside a usage the object has no name: its parts spell bare.
+				self = ""
+			}
+		}
+		ref = lifelineRef{line: line, path: joinDot(self, paths[0]), chain: paths[0], typ: s.m.model.Ref(rep, "type")}
+		if self != "this" {
 			ref.chain = ref.path
 		}
 	default:
@@ -414,7 +423,7 @@ func (s *scenario) send(step *scenarioStep) (*scenarioStep, string) {
 	if why != "" {
 		return nil, why
 	}
-	step.base, step.name = s.stepName(step.msg, "send"+s.m.nameFor(sig))
+	step.base, step.name = s.stepName(step.msg, "send"+upperFirst(s.m.nameFor(sig)))
 	return step, ""
 }
 
@@ -454,7 +463,7 @@ func (s *scenario) call(step *scenarioStep, sort string) (*scenarioStep, string)
 	if sort == "asynchCall" {
 		step.note = joinNotes(step.note, "the asynchronous call is performed to completion before the next step: an action performs what it calls")
 	}
-	step.base, step.name = s.stepName(step.msg, "call"+s.m.nameFor(op))
+	step.base, step.name = s.stepName(step.msg, "call"+upperFirst(s.m.nameFor(op)))
 	s.calls = append(s.calls, step)
 	return step, ""
 }
@@ -514,7 +523,7 @@ func (s *scenario) reply(step *scenarioStep) (*scenarioStep, string) {
 		step.assigns = append(step.assigns, "assign "+step.receiver.path+"."+writeName(s.m.nameOf(attr))+" := "+call.name+"."+writeName(s.m.nameOf(p))+";")
 	}
 	if len(step.assigns) > 0 {
-		step.base, step.name = s.stepName(step.msg, "reply"+s.m.nameFor(op))
+		step.base, step.name = s.stepName(step.msg, "reply"+upperFirst(s.m.nameFor(op)))
 	}
 	return step, ""
 }
@@ -634,7 +643,7 @@ func (s *scenario) bindArguments(msg *sysmlv1.Element, targets []*sysmlv1.Elemen
 		}
 		bound[t] = true
 		if kind == "parameter" {
-			args = append(args, s.m.parameterBinding(t, s.m.nameOf(t), expr))
+			args = append(args, s.m.parameterBinding(t, s.m.nameOf(t), s.m.callBodyExpr(expr, s.e)))
 		} else {
 			args = append(args, writeName(s.m.nameOf(t))+" = "+expr)
 		}
@@ -998,7 +1007,11 @@ func (s *scenario) step(step *scenarioStep, prev string) string {
 		m.w.line(actionKw + step.name + " send new " + m.ref(step.signal, s.e) + "(" + strings.Join(step.args, ", ") + ") to " + step.receiver.path + ";")
 		s.messageDone(step, "written as a send to "+step.receiver.path)
 	case stepCall:
-		decl := "perform action " + step.name + " : " + m.ref(step.op, s.e) + " ::> " + step.receiver.chain + "." + writeName(m.operationUsage(step.op))
+		decl := "perform action " + step.name
+		if !m.asUsage[step.op] {
+			decl += " : " + m.ref(step.op, s.e)
+		}
+		decl += " ::> " + step.receiver.chain + "." + writeName(m.operationUsage(step.op))
 		if len(step.args) == 0 {
 			m.w.line(decl + ";")
 		} else {

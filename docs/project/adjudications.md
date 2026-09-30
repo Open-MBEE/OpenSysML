@@ -235,6 +235,17 @@ it, three ends typed by `BinaryInterface` do.
 
 **Pilot limitation** for the fixture that declares the rule universally.
 
+### Two lints report models the specification accepts
+
+`undeclared-signal` reports a `when <name>` or `defer <name>` — both OpenSysML spellings — whose
+name no visible declaration and no `send` in the workspace accounts for, and `port-type-mismatch`
+reports a `connect`, interface usage or `flow` joining ports whose definitions are unrelated and
+whose directed features are not conjugate (SysML v2 §7.12.2). Neither is a rule of the
+specification, and the pilot reports neither, so both are **warnings in every mode**: `-strict`
+promotes notation, and neither lint is about notation. Each has a code a surface can switch off
+([diagnostics reference](../reference/diagnostics.md)), and neither fires on a model of the four OMG
+corpora, the gate every new warning passes.
+
 ---
 
 ## Metadata and model-level evaluability

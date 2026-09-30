@@ -30,7 +30,7 @@ in [reference/environment.md](../reference/environment.md).
 - Otherwise the solver could not decide the arithmetic, and the reason it reports says so
 
 **A run fails with "tool 'ModelCenter' is not registered; set OPENSYSML_TOOLS":**
-- The action performed carries `AnalysisTooling::ToolExecution`, and an annotated action is only ever performed by the tool it names — never by evaluating its body. Point `OPENSYSML_TOOLS` at a directory holding one JSON file per tool (`toolName`, `version`, `executable`, `variables`), as [reference/environment.md](../reference/environment.md#external-tools) describes; `sysml -engines` then lists the tool as `tool:ModelCenter` with whether its executable was found
+- The action performed — or the `calc def` or calc usage invoked — carries `AnalysisTooling::ToolExecution`, and an annotated action or calc is only ever run by the tool it names — never by evaluating its body. Point `OPENSYSML_TOOLS` at a directory holding one JSON file per tool (`toolName`, `version`, `executable`, `variables`), as [reference/environment.md](../reference/environment.md#external-tools) describes; `sysml -engines` then lists the tool as `tool:ModelCenter` with whether its executable was found
 - A tool that exits non-zero, answers something other than one JSON object of `outputs`, omits an output, names one no parameter receives, writes more than `OPENSYSML_TOOL_MAX_OUTPUT` (default 64 MiB), or takes longer than `OPENSYSML_TOOL_TIMEOUT` (default `10s`) fails the performance with that reason; no value is invented in its place
 
 **`sysml -engines` does not list the engine in `OPENSYSML_ENGINES`, or lists it `unavailable`:**

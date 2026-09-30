@@ -1,6 +1,6 @@
 # The Java client API
 
-This page covers what `org.openmbee:opensysml-client` exposes, what it deliberately keeps
+This page covers what `org.openmbee:opensysml` exposes, what it deliberately keeps
 out of its public surface, and where it stops. To choose between the clients, see
 [client libraries](clients.md); for a task-oriented walkthrough, see
 [guide chapter 9](../guide/09-clients.md#from-java). The client's own notes on its
@@ -10,12 +10,14 @@ dependency footprint, service ownership and release verification are in
 ```xml
 <dependency>
   <groupId>org.openmbee</groupId>
-  <artifactId>opensysml-client</artifactId>
-  <version>0.1.0-SNAPSHOT</version>
+  <artifactId>opensysml</artifactId>
+  <version>0.9.0</version>
 </dependency>
 ```
 
-Nothing is published yet, so a checkout installs it: `make build` for the service
+The version is the core release's — a `v*` tag publishes
+`org.openmbee:opensysml` to Maven Central at that version — once the
+first release is out. Until then a checkout installs it: `make build` for the service
 binary the tests start, then `mvn -f client/java/pom.xml install`. The compiler
 release is **17**, the lowest baseline a realistic host — Eclipse 2023-03,
 IntelliJ 2023.2, Spring Boot 3 — can offer. The only compile-scope dependency is
@@ -406,7 +408,7 @@ not a compatibility promise.
 
 `opensysml-conformance` runs the language-neutral scenarios **through the public
 API** and writes the report shape `tools/cmd/conformance` writes; `mvn -f
-client/java/pom.xml test` is what CI runs. Of 134 scenarios, 129 run and pass over
+client/java/pom.xml test` is what CI runs. Of 138 scenarios, 133 run and pass over
 both `connect` and `connect-json`, and 5 are skipped — the requests the public API
 cannot express: a
 `ParseFile` naming no source, a `Query` with both a structured and an OSLC query or

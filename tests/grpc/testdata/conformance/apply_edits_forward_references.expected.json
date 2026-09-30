@@ -1,0 +1,43 @@
+{
+  "rpc": "ApplyEdits",
+  "operations": [
+    {
+      "kind": "add_sequence",
+      "owner": "P::A",
+      "keyword": "then",
+      "member_kind": "action",
+      "member_name": "g",
+      "type": "GenerateHeat"
+    },
+    {
+      "kind": "add_sequence",
+      "owner": "P::A",
+      "keyword": "then",
+      "ref": "h"
+    },
+    {
+      "kind": "add_member",
+      "owner": "P::A",
+      "member_kind": "action",
+      "member_name": "h"
+    },
+    {
+      "kind": "add_metadata_prefix",
+      "target": "P::Vehicle",
+      "metadata_type": "Marker"
+    },
+    {
+      "kind": "add_member",
+      "owner": "P",
+      "member_kind": "action def",
+      "member_name": "GenerateHeat"
+    },
+    {
+      "kind": "add_member",
+      "owner": "P",
+      "member_kind": "metadata def",
+      "member_name": "Marker"
+    }
+  ],
+  "expected_content": "package P {\n    action def A {\n        first start;\n        action a;\n        then action g : GenerateHeat;\n        then h;\n        action h;\n    }\n    #Marker part def Vehicle;\n    action def GenerateHeat;\n    metadata def Marker;\n}\n"
+}

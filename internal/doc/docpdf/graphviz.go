@@ -25,13 +25,22 @@ func (g *graphvizRasterizer) prepare(string) error {
 	return nil
 }
 
+// draw runs Graphviz in dir, the temporary directory the SVG lands in, with
+// the pictures' search path kept at the current directory their paths are relative to.
 func (g *graphvizRasterizer) draw(dir, source, output string) error {
 	input := strings.TrimSuffix(output, ".svg") + ".dot"
 	if err := os.WriteFile(filepath.Join(dir, input), []byte(source+"\n"), 0o600); err != nil {
 		return err
 	}
-	args := append(layoutArgs(source), "-Tsvg", "-o", output, input)
-	return runTool(dir, g.dot, args...)
+	cwd, err := os.Getwd()
+	if err != nil {
+		return err
+	}
+	args := append(layoutArgs(source), "-Gimagepath="+cwd, "-Tsvg", "-o", output, input)
+	if err := runTool(dir, g.dot, args...); err != nil {
+		return err
+	}
+	return embedImages(filepath.Join(dir, output), cwd)
 }
 
 // graphvizEngines are the layout engines a `// layout:` header may name.

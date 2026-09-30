@@ -2,29 +2,28 @@ part def Timer {
     attribute t : ScalarValues::Real;
     attribute u : ScalarValues::Real;
     attribute p : ScalarValues::Real default = 0.5;
-    action def Tick {
+    perform action tick {
         first start then three;
         action three {
-            out result = 3.0;
+            out result[1] = 3.0;
         }
         first three then 'set t';
         action 'set t' {
-            in value;
-            assign this.t := value;
+            in value[1];
+            assign t := value;
         }
         first 'set t' then final;
         action final terminate;
         flow three.result to 'set t'.value;
         metadata MigrationMetadata::SynthesizedName about final;
     }
-    perform action tick : Tick;
 }
 part def 'Timer Analysis' :> Timer;
 analysis def 'Timer Analysis Monte Carlo' :> Simulation::MonteCarlo {
     subject analysed : 'Timer Analysis';
     perform action run ::> analysed.tick;
     attribute :>> observed : ScalarValues::Real = analysed.t;
-    return Mean : ScalarValues::Real = mean;
+    return Mean : ScalarValues::Real[1] = mean;
 }
 individual part def 'timer analysis' :> 'Timer Analysis';
 part def 'Unbound Analysis' :> Timer;
@@ -155,17 +154,27 @@ package Results {
     }
     calc def 'Statistics Table Rows' :> DocumentQueries::Query {
         DocumentQueries::Project(
-            source = DocumentQueries::WhereFeature(
-                source = DocumentQueries::WhereType(
-                    source = DocumentQueries::Descendants(
-                        source = DocumentQueries::Named(qualifiedName = ("Results"))),
-                    type = ("Timer Analysis")),
-                'feature' = "isIndividual",
-                operator = "=",
-                value = "true"),
+            source = DocumentQueries::OrderBy(
+                source = DocumentQueries::WhereFeature(
+                    source = DocumentQueries::WhereType(
+                        source = DocumentQueries::WhereType(
+                            source = DocumentQueries::Descendants(
+                                source = DocumentQueries::Named(qualifiedName = ("Results"))),
+                            type = ("Timer Analysis")),
+                        type = ("Definition")),
+                    'feature' = "isIndividual",
+                    operator = "=",
+                    value = "true"),
+                property = "'Monte Carlo'.runs",
+                direction = "descending",
+                missing = "last",
+                multiple = "first"),
             properties = ("name"),
             columns = (
-                DocumentQueries::Column(name = "t", expression = Timer::t ?? "")))
+                DocumentQueries::Column(name = "t", cell = { in row : Timer; row.t ?? "" }),
+                DocumentQueries::Column(name = "N", path = "'Monte Carlo'.runs"),
+                DocumentQueries::Column(name = "Mean", path = "'Monte Carlo'.mean"),
+                DocumentQueries::Column(name = "Deviation", path = "'Monte Carlo'.deviation")))
     }
     part def 'Statistics Table Document' :> DocumentQueries::Document {
         attribute redefines title = "Statistics Table";

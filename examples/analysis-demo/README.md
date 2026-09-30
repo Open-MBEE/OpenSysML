@@ -231,6 +231,7 @@ burnTime | fuelUsed | wetMass | fuelLeft | verdict                    | time
 40.0     | 120.0    | 730.0   | 130.0    | reserveHeld: satisfied     | 0.082ms
 60.0     | 180.0    | 670.0   | 70.0     | reserveHeld: satisfied     | 0.075ms
 80.0     | 240.0    | 610.0   | 10.0     | reserveHeld: not satisfied | 0.073ms
+  standing: table (observed: 4 rows)
 ```
 
 **Sample instead of enumerating.** `-samples <n>` draws `n` values uniformly
@@ -251,6 +252,7 @@ burnTime          | fuelUsed           | wetMass           | fuelLeft           
 78.07478446864098 | 234.22435340592295 | 615.775646594077  | 15.775646594077045 | reserveHeld: not satisfied | 0.073ms
 42.7187552135554  | 128.1562656406662  | 721.8437343593338 | 121.84373435933381 | reserveHeld: satisfied     | 0.069ms
 51.35890304495193 | 154.07670913485578 | 695.9232908651443 | 95.92329086514422  | reserveHeld: satisfied     | 0.067ms
+  standing: table (observed: 4 rows)
 ```
 
 Sweeps take several `-sweep` ranges (one row per combination), work over
@@ -317,6 +319,7 @@ fuelCost | selectedAlternative         | verdict                        | evalua
 0.0      | Landers::hauler (object #3) | tradeStudyObjective: satisfied | …scout…) = 40.0; …hauler…) = 300.0 [selected]; …relay…) = 25.0   | 5.592ms
 0.25     | Landers::hauler (object #3) | tradeStudyObjective: satisfied | …scout…) = -22.5; …hauler…) = 75.0 [selected]; …relay…) = -20.0 | 0.261ms
 0.5      | Landers::relay (object #5)  | tradeStudyObjective: satisfied | …scout…) = -85.0; …hauler…) = -150.0; …relay…) = -65.0 [selected] | 0.254ms
+  standing: table (observed: 3 rows)
 ```
 
 (The `evaluations` column is abridged here; the tool prints each
@@ -391,16 +394,20 @@ run reaching that outcome made:
 
 ```
 ✓ explored Timing::groundWatch: 2 outcomes
-outcome                          | linearizations | witness
----------------------------------+----------------+----------------------------------------------------------------------------------------------------------------
-armed = true; sawBraking = false | 1              | t=5.0: action GroundWatch first of action GroundWatch, state machine flightMode of object #1
-armed = true; sawBraking = true  | 1              | t=5.0: state machine flightMode of object #1 first of action GroundWatch, state machine flightMode of object #1
+outcome                          | linearizations | probability | witness
+---------------------------------+----------------+-------------+----------------------------------------------------------------------------------------------------------------
+armed = true; sawBraking = false | 1              | 0.5         | t=5.0: action GroundWatch first of state machine flightMode of object #1, action GroundWatch
+armed = true; sawBraking = true  | 1              | 0.5         | t=5.0: state machine flightMode of object #1 first of state machine flightMode of object #1, action GroundWatch
 complete (2 runs)
+  standing: outcomes (proved over schedules: 2 linearizations, inputs as written)
 ```
 
 `complete (2 runs)` says every order within the run and depth budgets was
-tried, so an outcome not listed cannot be reached by reordering alone. A
-one-line answer to "does the order matter?" is one outcome or two.
+tried, so an outcome not listed cannot be reached by reordering alone, and the
+`standing` line records that the outcomes were proved over every schedule. The
+`probability` column is each outcome's share of the runs when every choice is
+equally likely — here one order of two, so `0.5` each. A one-line answer to
+"does the order matter?" is one outcome or two.
 
 **The same thing inside an analysis.** `watchDescent` performs `GroundWatch`
 as a step. The subject binding materializes the scout, whose state machine then
@@ -415,12 +422,14 @@ its body waits on time — no `-advance` is needed:
 ```
 ✓ Timing::watchDescent
   sawBraking = false
+  standing: value (observed: 1 run under reverse)
 ✓ explored Timing::watchDescent: 2 outcomes
-outcome            | linearizations | witness
--------------------+----------------+----------------------------------------------------------------------------------------------------------------
-sawBraking = false | 1              | t=5.0: action GroundWatch first of state machine flightMode of object #1, action GroundWatch
-sawBraking = true  | 1              | t=5.0: state machine flightMode of object #1 first of state machine flightMode of object #1, action GroundWatch
+outcome            | linearizations | probability | witness
+-------------------+----------------+-------------+----------------------------------------------------------------------------------------------------------------
+sawBraking = false | 1              | 0.5         | t=5.0: action GroundWatch first of state machine flightMode of object #1, action GroundWatch
+sawBraking = true  | 1              | 0.5         | t=5.0: state machine flightMode of object #1 first of state machine flightMode of object #1, action GroundWatch
 complete (2 runs)
+  standing: outcomes (proved over schedules: 2 linearizations, inputs as written)
 ```
 
 This is the form to reach for when a case's answer depends on how concurrent

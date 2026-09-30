@@ -275,6 +275,9 @@ func (ctx *Context) noteFrom(n RunNote, self *Instance, behavior *symbols.Symbol
 		return
 	}
 	ctx.run.notes = append(ctx.run.notes, n)
+	if ctx.forwardNotes != nil {
+		ctx.forwardNotes(n)
+	}
 	if c, ok := n.(ChoicePoint); ok {
 		ctx.choices = append(ctx.choices, c.Choice())
 	}

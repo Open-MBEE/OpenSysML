@@ -25,7 +25,7 @@ func names(r *analysis.Registry) string {
 // stays open to more.
 func TestDefaultHoldsTheFrameworksEnginesAndSMT(t *testing.T) {
 	r := Default()
-	want := strings.Join([]string{analysis.CheckEngineName, analysis.ExploreEngineName, analysis.RunEngineName, analysis.SMTEngineName, analysis.SolveEngineName, analysis.SweepEngineName}, ", ")
+	want := strings.Join([]string{analysis.CheckEngineName, analysis.ExploreEngineName, analysis.RunEngineName, analysis.SMTEngineName, analysis.SolveEngineName, analysis.SweepEngineName, analysis.ToolEngineName("fmi")}, ", ")
 	if got := names(r); got != want {
 		t.Fatalf("engines %s, want %s", got, want)
 	}
@@ -64,20 +64,24 @@ func TestSMTStatusIsTheSolvers(t *testing.T) {
 	}
 }
 
-// A holds question under auto reaches smt first, at proved, then check at bounded;
-// under all both land in the plan.
+// A holds question under auto reaches the proved engines first — smt, then
+// solve — before check at bounded; under all they land in the plan.
 func TestHoldsRanksSMTOverCheck(t *testing.T) {
 	q := analysis.Question{Kind: analysis.Holds, Free: analysis.FreeSchedule, Holds: &analysis.HoldsAsk{}}
 	plan, err := Default().Answer(context.Background(), &analysis.Model{}, q, analysis.Budget{})
 	if err != nil {
 		t.Fatalf("holds under auto: %v", err)
 	}
-	if len(plan.Steps) != 2 || plan.Steps[0].Engine != analysis.SMTEngineName || plan.Steps[1].Engine != analysis.CheckEngineName {
-		t.Fatalf("steps %+v, want smt refusing the malformed question, then check", plan.Steps)
+	if len(plan.Steps) != 3 || plan.Steps[0].Engine != analysis.SMTEngineName || plan.Steps[1].Engine != analysis.SolveEngineName || plan.Steps[2].Engine != analysis.CheckEngineName {
+		t.Fatalf("steps %+v, want smt and solve refusing the malformed question, then check", plan.Steps)
 	}
-	for _, step := range plan.Steps {
-		if !errors.Is(step.Refusal, analysis.ErrMalformedQuestion) {
-			t.Errorf("%s refused with %v, want the question malformed", step.Engine, step.Refusal)
+	for i, step := range plan.Steps {
+		want := analysis.ErrMalformedQuestion
+		if step.Engine == analysis.SolveEngineName {
+			want = analysis.ErrFreedom
+		}
+		if !errors.Is(step.Refusal, want) {
+			t.Errorf("step %d %s refused with %v, want %v", i, step.Engine, step.Refusal, want)
 		}
 	}
 	if plan.Result.Strength != analysis.NotCovered {
@@ -101,11 +105,35 @@ func TestDefaultFromEnvAddsTheManifestsTools(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if got := names(r); got != names(Default())+", tool:Zed" {
+	want := names(Default())
+	if analysis.ToolEngineName("Zed") < analysis.ToolEngineName("fmi") {
+		want = strings.Replace(want, analysis.ToolEngineName("fmi"), analysis.ToolEngineName("Zed")+", "+analysis.ToolEngineName("fmi"), 1)
+	} else {
+		want += ", " + analysis.ToolEngineName("Zed")
+	}
+	if got := names(r); got != want {
 		t.Fatalf("engines %s, want the build's and tool:Zed", got)
 	}
 	t.Setenv(analysis.ToolsEnv, filepath.Join(dir, "none"))
 	if _, err := DefaultFromEnv(); !errors.Is(err, analysis.ErrManifest) {
 		t.Fatalf("DefaultFromEnv over a missing manifest: %v, want the manifest's fault", err)
+	}
+}
+
+// A manifest tool named fmi, or an engine named smt, clashes with a built-in:
+// the registration is refused as a DuplicateEngineError, not panicked over.
+func TestDefaultFromEnvRefusesAManifestNamedLikeTheBuild(t *testing.T) {
+	dir := t.TempDir()
+	entry := analysis.ToolEntry{ToolName: "fmi", Version: "9", Executable: filepath.Join(dir, "fmi"), Variables: []string{"x"}}
+	data, err := json.Marshal(entry)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(dir, "fmi"+analysis.ManifestExt), data, 0o644); err != nil {
+		t.Fatal(err)
+	}
+	t.Setenv(analysis.ToolsEnv, dir)
+	if _, err := DefaultFromEnv(); !errors.Is(err, analysis.ErrDuplicateEngine) {
+		t.Fatalf("DefaultFromEnv with a manifest tool named fmi: %v, want DuplicateEngineError", err)
 	}
 }

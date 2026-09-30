@@ -29,6 +29,9 @@ fn parse_eval_and_navigation() {
     let Some(connection) = service_or_skip() else {
         return;
     };
+    assert!(connection
+        .capabilities()
+        .has(opensysml::CAPABILITY_ACTION_BODY_STATEMENT_AUTHORING));
     let model = connection
         .parse_content("package Demo {}", &Default::default())
         .unwrap_or_else(|error| panic!("parse failed: {error}"));
@@ -55,6 +58,42 @@ fn missing_capability_is_legible() {
     };
     assert!(error.to_string().contains("strict_conformance"));
     assert!(error.to_string().contains("upgrade"));
+}
+
+#[test]
+fn recursive_add_sequence_fields_round_trip() {
+    use prost::Message;
+
+    let edit = opensysml::wire::AddSequenceEdit {
+        owner: "Demo::A".to_owned(),
+        keyword: "then".to_owned(),
+        r#ref: String::new(),
+        member_kind: "if".to_owned(),
+        member_name: String::new(),
+        r#type: String::new(),
+        after: String::new(),
+        condition: "ready".to_owned(),
+        value: String::new(),
+        target: String::new(),
+        via: "port".to_owned(),
+        until: "finished".to_owned(),
+        body: vec![opensysml::wire::AddSequenceEdit {
+            member_kind: "assign".to_owned(),
+            target: "x".to_owned(),
+            value: "x + 1".to_owned(),
+            ..Default::default()
+        }],
+        else_body: vec![opensysml::wire::AddSequenceEdit {
+            keyword: "else".to_owned(),
+            r#ref: "done".to_owned(),
+            ..Default::default()
+        }],
+        multiplicity: "[1]".to_owned(),
+        parameter: "message".to_owned(),
+    };
+    let decoded = opensysml::wire::AddSequenceEdit::decode(edit.encode_to_vec().as_slice())
+        .expect("recursive sequence edit decodes");
+    assert_eq!(decoded, edit);
 }
 
 #[test]

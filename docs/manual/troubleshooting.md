@@ -2,12 +2,16 @@
 
 ## How errors surface
 
-Document generation fails loudly and early, never partially. Every mistake is
+Document generation fails loudly, never silently. Every mistake is
 a **typed error**. Planning problems (structure, query references, bindings)
 surface when the document is compiled, as `document-plan-*` diagnostics in
 the editor and as source-located errors from the CLI. Execution
 problems (a query that cannot run) stop the render with the query error's
-message. A document that cannot be rendered exits `2`, and nothing is written.
+message. A single document that cannot be rendered exits `2`, and nothing is
+written. In a `-render-documents` set each document stands on its own: the
+ones that render are written, a page stating the error stands in for each
+that does not, every failure is listed on stderr with the document's qualified
+name, and the run exits `3`.
 
 ```console
 $ sysml report.sysml -render-document E::R
@@ -118,8 +122,8 @@ position; they are tracked in the project's compliance record.
   a content block or the root of another document (see the authoring
   chapter's cross-document pattern), and `-render-documents` writes the
   linked set together. Rendering one document alone still succeeds, but its
-  cross-document links point at the target's expected file name and dangle
-  until that document is rendered into the same directory.
+  cross-document links point at the file name the set gives the target and
+  dangle until that document is rendered into the same directory.
 - **Captions are emphasis in Markdown, elements in HTML and PDF.** The
   Markdown dialect writes a caption as an emphasized paragraph ahead of its
   table, diagram or formula, with no marker distinguishing it from an

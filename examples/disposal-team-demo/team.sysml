@@ -38,13 +38,13 @@ package Team {
         in robots : Robot[*];
         in floor : LengthValue;
 
-        return attribute usable : LengthValue[*] =
+        return attribute usable : LengthValue[*] nonunique =
             robots->select { in r : Robot; r.reach >= floor }
                   ->collect { in r : Robot; r.reach };
     }
 
     calc def Endurance {
-        in charges : Real[*];
+        in charges : Real[*] nonunique;
         in draw : Real;
 
         return attribute minutes : Real =
@@ -245,7 +245,8 @@ package TeamCases {
             verify payloadHolds;
         }
 
-        return attribute verdict : VerdictKind;
+        return attribute verdict : VerdictKind =
+            VerificationCases::PassIf(truck.payload <= truck.payloadLimit);
     }
 
     verification checkPayload : CheckPayload {

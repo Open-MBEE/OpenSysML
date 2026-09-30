@@ -1,6 +1,6 @@
 part def Sorter {
     attribute bias : ScalarValues::Real default = 0.6;
-    action def Route {
+    perform action route {
         first start then 'decide';
         decide 'decide';
         first 'decide' then left { @Stochastic::Probability { p = bias; } }
@@ -22,6 +22,6 @@ part def Sorter {
         first 'merge' then final;
         action final terminate;
         metadata MigrationMetadata::SynthesizedName about 'decide', 'merge', final;
+        metadata MigrationMetadata::StandIn about 'merge';
     }
-    perform action route : Route;
 }

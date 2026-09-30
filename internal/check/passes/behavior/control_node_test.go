@@ -87,6 +87,21 @@ func TestControlNodeWellFormedGraphIsSilent(t *testing.T) {
 }`)
 }
 
+func TestControlNodeChecksSuccessionSourceMultiplicity(t *testing.T) {
+	const src = `action def A {
+		merge m;
+		action a;
+		[2] then m;
+	}`
+	got := controlNodeDiags(t, src)
+	if len(got) != 1 || got[0].Code != behavior.CodeMergeIncomingMultiplicity {
+		t.Fatalf("diagnostics = %+v, want one %s error", got, behavior.CodeMergeIncomingMultiplicity)
+	}
+	if !strings.Contains(got[0].Message, "source") || !strings.Contains(got[0].Message, "[2]") {
+		t.Errorf("diagnostic = %q, want the source-end multiplicity", got[0].Message)
+	}
+}
+
 // The specification's merge and decision examples (SysML v2 8.4.13.4) carry the
 // required multiplicities on every succession end, written as the notation
 // places them: before the end they constrain.

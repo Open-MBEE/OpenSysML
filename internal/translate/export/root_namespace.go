@@ -1,6 +1,7 @@
 package export
 
 import (
+	"sort"
 	"strings"
 
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/identity"
@@ -20,6 +21,9 @@ const mNamespace = "Namespace"
 // already carries such a root is returned as it is.
 func withRootNamespace(graph *rdf.Graph) (*rdf.Graph, error) {
 	roots := unownedElements(graph)
+	sort.SliceStable(roots, func(i, j int) bool {
+		return intOf(graph, roots[i], rdf.OpenSysML+xMemberIndex) < intOf(graph, roots[j], rdf.OpenSysML+xMemberIndex)
+	})
 	if len(roots) == 0 {
 		return graph, nil
 	}
@@ -29,45 +33,67 @@ func withRootNamespace(graph *rdf.Graph) (*rdf.Graph, error) {
 		}
 	}
 	namespace, memberships := rootNamespaceIDs(graph, roots)
-	out := rdf.NewGraph()
-	for prefix, iri := range graph.Prefixes {
-		out.Prefixes[prefix] = iri
+	// The wrapped graph is the source's triples with the wrapper's inserted, so
+	// it is assembled as a list and never rebuilds a set of the source's triples.
+	// Each triple keeps the place it first takes, as adding them one by one to a
+	// graph would: an inserted triple the source states later is skipped there,
+	// and one the source stated earlier is not inserted again. Every inserted
+	// triple is about the namespace, a membership or a root, so only the source
+	// triples about those are remembered.
+	triples := make([]rdf.Triple, 0, graph.Len()+8*len(roots)+8)
+	placed := map[rdf.Triple]bool{}
+	wrapperSubjects := map[rdf.Term]bool{namespace: true}
+	for i, root := range roots {
+		wrapperSubjects[root] = true
+		wrapperSubjects[memberships[i]] = true
+	}
+	add := func(subject, predicate, object rdf.Term) {
+		t := rdf.Triple{Subject: subject, Predicate: predicate, Object: object}
+		if placed[t] {
+			return
+		}
+		placed[t] = true
+		triples = append(triples, t)
 	}
 	sysml := rdf.SysMLTerm
-	out.Add(namespace, rdf.IRI(rdf.RDFType), sysml(mNamespace))
-	out.Add(namespace, sysml(pElementID), rdf.String(rdf.LocalName(namespace.Value)))
+	add(namespace, rdf.IRI(rdf.RDFType), sysml(mNamespace))
+	add(namespace, sysml(pElementID), rdf.String(rdf.LocalName(namespace.Value)))
 	for i, root := range roots {
 		membership := memberships[i]
-		out.Add(namespace, sysml(pOwnedRelationship), membership)
-		out.Add(namespace, sysml(pOwnedMembership), membership)
-		out.Add(namespace, sysml(pOwnedMember), root)
+		add(namespace, sysml(pOwnedRelationship), membership)
+		add(namespace, sysml(pOwnedMembership), membership)
+		add(namespace, sysml(pOwnedMember), root)
 	}
 	for i, root := range roots {
 		membership := memberships[i]
-		out.Add(membership, rdf.IRI(rdf.RDFType), sysml(mOwningMembership))
-		out.Add(membership, sysml(pElementID), rdf.String(rdf.LocalName(membership.Value)))
-		out.Add(membership, sysml(pOwner), namespace)
-		out.Add(membership, sysml(pMemberElement), root)
-		out.Add(membership, sysml(pOwnedMemberElement), root)
-		out.Add(membership, sysml(pOwnedRelatedElement), root)
-		out.Add(membership, sysml(pOwningRelatedElement), namespace)
-		out.Add(membership, sysml(pMembershipOwningNamespace), namespace)
+		add(membership, rdf.IRI(rdf.RDFType), sysml(mOwningMembership))
+		add(membership, sysml(pElementID), rdf.String(rdf.LocalName(membership.Value)))
+		add(membership, sysml(pOwner), namespace)
+		add(membership, sysml(pMemberElement), root)
+		add(membership, sysml(pOwnedMemberElement), root)
+		add(membership, sysml(pOwnedRelatedElement), root)
+		add(membership, sysml(pOwningRelatedElement), namespace)
+		add(membership, sysml(pMembershipOwningNamespace), namespace)
 	}
 	owned := map[string]int{}
 	for i, root := range roots {
 		owned[root.Value] = i
 	}
 	for _, triple := range graph.Triples() {
+		if wrapperSubjects[triple.Subject] {
+			if placed[triple] {
+				continue
+			}
+			placed[triple] = true
+		}
+		triples = append(triples, triple)
 		if i, ok := owned[triple.Subject.Value]; ok {
 			delete(owned, triple.Subject.Value)
-			out.AddTriple(triple)
-			out.Add(triple.Subject, sysml(pOwner), namespace)
-			out.Add(triple.Subject, sysml(pOwningNamespace), namespace)
-			out.Add(triple.Subject, sysml(pOwningRelationship), memberships[i])
-			out.Add(triple.Subject, sysml(pOwningMembership), memberships[i])
-			continue
+			add(triple.Subject, sysml(pOwner), namespace)
+			add(triple.Subject, sysml(pOwningNamespace), namespace)
+			add(triple.Subject, sysml(pOwningRelationship), memberships[i])
+			add(triple.Subject, sysml(pOwningMembership), memberships[i])
 		}
-		out.AddTriple(triple)
 	}
 	if len(roots) > 1 {
 		for _, c := range []struct {
@@ -78,9 +104,10 @@ func withRootNamespace(graph *rdf.Graph) (*rdf.Graph, error) {
 			if err != nil {
 				return nil, err
 			}
-			out.Add(namespace, rdf.AnnotationJSONTerm(c.key), rdf.String(text))
+			add(namespace, rdf.AnnotationJSONTerm(c.key), rdf.String(text))
 		}
 	}
+	out := rdf.NewGraphOf(triples, graph.Prefixes)
 	return out, nil
 }
 
@@ -88,11 +115,20 @@ func withRootNamespace(graph *rdf.Graph) (*rdf.Graph, error) {
 // read from the element form matches one the encoder builds from notation.
 func withoutRootNamespace(graph *rdf.Graph) *rdf.Graph {
 	dropped := map[string]bool{}
+	droppedMemberIndexes := map[string]bool{}
+	var indexes []rootIndex
 	for _, subject := range graph.Subjects() {
 		if !transparentRootSubject(graph, subject) {
 			continue
 		}
 		dropped[subject.Value] = true
+		restated, dropIndexes := rootMemberIndexes(graph, rootNamespaceMembers(graph, subject))
+		indexes = append(indexes, restated...)
+		if dropIndexes {
+			for _, index := range restated {
+				droppedMemberIndexes[index.member.Value] = true
+			}
+		}
 		for _, membership := range graph.Objects(subject, rdf.SysML+pOwnedRelationship) {
 			if graph.Type(membership) == rdf.SysML+mOwningMembership {
 				dropped[membership.Value] = true
@@ -107,12 +143,96 @@ func withoutRootNamespace(graph *rdf.Graph) *rdf.Graph {
 		out.Prefixes[prefix] = iri
 	}
 	for _, triple := range graph.Triples() {
-		if dropped[triple.Subject.Value] || dropped[triple.Object.Value] && triple.Object.IsIRI() {
+		if dropped[triple.Subject.Value] ||
+			dropped[triple.Object.Value] && triple.Object.IsIRI() ||
+			droppedMemberIndexes[triple.Subject.Value] && triple.Predicate.Value == rdf.OpenSysML+xMemberIndex {
 			continue
 		}
 		out.AddTriple(triple)
 	}
+	for _, index := range indexes {
+		out.Add(index.member, rdf.OpenSysMLTerm(xMemberIndex), rdf.Int(index.index))
+	}
 	return out
+}
+
+type rootIndex struct {
+	member rdf.Term
+	index  int
+}
+
+// rootMemberIndexes is the member index each root member takes once the
+// wrapper's order is dropped, and whether the indexes the members state are
+// replaced: none when the members all state one, or state none and appear in
+// the wrapper's order already.
+func rootMemberIndexes(graph *rdf.Graph, members []rdf.Term) ([]rootIndex, bool) {
+	indexed := 0
+	listed := make(map[string]bool, len(members))
+	for _, member := range members {
+		listed[member.Value] = true
+		if graph.HasProperty(member, rdf.OpenSysML+xMemberIndex) {
+			indexed++
+		}
+	}
+	switch {
+	case indexed == len(members):
+		return nil, false
+	case indexed > 0:
+		return rootIndexesOf(members), true
+	case inSubjectOrder(graph, members, listed):
+		return nil, false
+	}
+	return rootIndexesOf(members), false
+}
+
+func rootIndexesOf(members []rdf.Term) []rootIndex {
+	indexes := make([]rootIndex, 0, len(members))
+	for i, member := range members {
+		indexes = append(indexes, rootIndex{member: member, index: i})
+	}
+	return indexes
+}
+
+// inSubjectOrder reports whether the graph lists the members as subjects in
+// the given order.
+func inSubjectOrder(graph *rdf.Graph, members []rdf.Term, listed map[string]bool) bool {
+	var subjectOrder []rdf.Term
+	for _, candidate := range graph.Subjects() {
+		if listed[candidate.Value] {
+			subjectOrder = append(subjectOrder, candidate)
+		}
+	}
+	if len(subjectOrder) != len(members) {
+		return false
+	}
+	for i := range subjectOrder {
+		if subjectOrder[i] != members[i] {
+			return false
+		}
+	}
+	return true
+}
+
+func rootNamespaceMembers(graph *rdf.Graph, namespace rdf.Term) []rdf.Term {
+	var members []rdf.Term
+	seen := map[string]bool{}
+	appendMember := func(related rdf.Term) {
+		member := related
+		if graph.Type(related) == rdf.SysML+mOwningMembership {
+			member = firstIRI(graph, related, pMemberElement, pOwnedMemberElement)
+		}
+		if !member.IsIRI() || member.Value == "" || seen[member.Value] {
+			return
+		}
+		seen[member.Value] = true
+		members = append(members, member)
+	}
+	for _, property := range []string{pOwnedRelationship, pOwnedMembership, pOwnedMember} {
+		for _, related := range graph.Objects(namespace, rdf.SysML+property) {
+			appendMember(related)
+		}
+	}
+	return members
 }
 
 // transparentRootSubject reports whether subject is a document wrapper no
@@ -136,14 +256,18 @@ func unownedElements(graph *rdf.Graph) []rdf.Term {
 		if !strings.HasPrefix(subject.Value, rdf.Element) || !strings.HasPrefix(graph.Type(subject), rdf.SysML) {
 			continue
 		}
-		if graph.HasProperty(subject, rdf.SysML+pOwner) ||
-			graph.HasProperty(subject, rdf.SysML+pOwningRelationship) ||
-			graph.HasProperty(subject, rdf.SysML+pOwningRelatedElement) {
+		if hasOwner(graph, subject) {
 			continue
 		}
 		roots = append(roots, subject)
 	}
 	return roots
+}
+
+func hasOwner(graph *rdf.Graph, subject rdf.Term) bool {
+	return graph.HasProperty(subject, rdf.SysML+pOwner) ||
+		graph.HasProperty(subject, rdf.SysML+pOwningRelationship) ||
+		graph.HasProperty(subject, rdf.SysML+pOwningRelatedElement)
 }
 
 // rootNamespaceIDs mints the root Namespace and its memberships the way the

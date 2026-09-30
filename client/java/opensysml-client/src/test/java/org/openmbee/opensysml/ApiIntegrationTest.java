@@ -60,6 +60,13 @@ class ApiIntegrationTest {
     assertFalse(capabilities.serviceVersion().isBlank());
     assertTrue(capabilities.has(Capabilities.EVALUATE_SUBJECT));
     assertTrue(capabilities.has(Capabilities.TYPE_FACTS));
+    assertTrue(capabilities.has(Capabilities.CONNECTION_AUTHORING));
+    assertTrue(capabilities.has(Capabilities.TRANSITION_AUTHORING));
+    assertTrue(capabilities.has(Capabilities.SEQUENCE_AUTHORING));
+    assertTrue(capabilities.has(Capabilities.ACTION_BODY_STATEMENT_AUTHORING));
+    assertTrue(capabilities.has(Capabilities.IMPORT_AUTHORING));
+    assertTrue(capabilities.has(Capabilities.DOCUMENTATION_AUTHORING));
+    assertTrue(capabilities.has(Capabilities.COMMENT_AUTHORING));
   }
 
   @Test

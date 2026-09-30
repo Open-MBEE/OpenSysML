@@ -64,7 +64,7 @@ func TestBehaviorMembersUnwritten(t *testing.T) {
 			   </ownedBehavior>
 			 </packagedElement>`,
 			[]string{"_p"}, nil, 0,
-			[]string{"action def Spin {\n        view Rules {\n            expose Spin;\n            render Views::asTextualNotation;\n        }\n        /* not migrated: Property 'p' — owned by a Interaction, whose v2 body is its parameters and scenario steps, not a place for a Property */\n        action go send new Go() to this.ctrl;"}},
+			[]string{"action spin {\n        view Rules {\n            expose spin;\n            render Views::asTextualNotation;\n        }\n        /* not migrated: Property 'p' — owned by a Interaction, whose v2 body is its parameters and scenario steps, not a place for a Property */\n        action go send new Go() to ctrl;"}},
 		{"an activity writes its constraint and attribute, and has no place for a port",
 			`<packagedElement xmi:type="uml:Activity" xmi:id="_b" name="Run">` + rule("_r", "keep") + `
 			   <ownedAttribute xmi:type="uml:Property" xmi:id="_p" name="p"/>

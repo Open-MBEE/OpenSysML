@@ -33,7 +33,9 @@ type NonstandardNotationPass struct{}
 // Level reports the syntax level: the written notation is all it reads.
 func (NonstandardNotationPass) Level() PassLevel { return LevelSyntax }
 
-// Run walks the document for extension and language-specific notation.
+// Run walks the document for extension and language-specific notation, and
+// under strict conformance escalates the parser's nonstandard-notation
+// warnings — a /* */ comment where no member may start — to errors.
 func (NonstandardNotationPass) Run(ctx *Context, name string, root *ast.RootNamespace) []diag.Diagnostic {
 	if root == nil {
 		return nil
@@ -48,6 +50,16 @@ func (NonstandardNotationPass) Run(ctx *Context, name string, root *ast.RootName
 		keywordName: keywordNameSpans(ctx.ParseDiagnostics),
 	}
 	w.walk(root.Members)
+	// A comment where no member may start is the parser's own warning, which
+	// strict conformance escalates; the escalated finding replaces the warning.
+	if ctx.Options.Conformance.IsStrict() {
+		for _, d := range ctx.ParseDiagnostics {
+			if d.Severity == diag.SeverityWarning && d.Code == CodeNonstandardNotation {
+				d.Severity = diag.SeverityError
+				w.diags = append(w.diags, d)
+			}
+		}
+	}
 	// Notation errors describe the writing, not the recovered model's meaning.
 	for i := range w.diags {
 		w.diags[i].Notation = true
@@ -109,8 +121,14 @@ func hasParseError(diags []diag.Diagnostic) bool {
 // walk reports the extension notation in a member list and descends into the
 // bodies its members carry.
 func (w *notationWalker) walk(members []ast.Node) {
+	var previous ast.Node
 	for _, member := range members {
-		switch n := kit.UnwrapMembership(member).(type) {
+		unwrapped := kit.UnwrapMembership(member)
+		w.targetSuccession(unwrapped, previous)
+		if !isMemberAttachedSuccession(unwrapped) {
+			previous = unwrapped
+		}
+		switch n := unwrapped.(type) {
 		case *ast.Namespace:
 			w.kermlNamespace(n)
 			w.keywordAsName(n.Ident)
@@ -272,6 +290,93 @@ func (w *notationWalker) initialNode(n *ast.InitialNode) {
 	}
 }
 
+// targetSuccession reports a one-name `then <target>;`, `if <guard> then
+// <target>;` or `else <target>;` whose preceding member the grammar admits no
+// target succession after. ActionBodyItem (SysML.xtext:1367) hangs
+// TargetSuccessionMember off an ActionNodeMember, a BehaviorUsageMember or an
+// InitialNodeMember alone, so after a `succession`, a comment or a structural
+// usage the pilot has no production for it and its source is unstated.
+func (w *notationWalker) targetSuccession(n, previous ast.Node) {
+	keyword := targetSuccessionKeyword(n)
+	if keyword == "" || !w.sysml || previous == nil || admitsTargetSuccession(previous) {
+		return
+	}
+	notation := "`" + keyword + " <target>;`"
+	if keyword == "if" {
+		notation = "`if <guard> then <target>;`"
+	}
+	w.extension(keywordSpan(n, keyword), notation+" after a member that is not an action node",
+		"a target succession sequences from the member written right before it, so only an action node, "+
+			"a behavior usage, a one-ended `first <node>;` or another target succession may precede it")
+}
+
+// isMemberAttachedSuccession reports the edge a member-attached `then` (`then
+// action a;`) desugars to, which is no member the author wrote between the two
+// it sequences.
+func isMemberAttachedSuccession(n ast.Node) bool {
+	edge, ok := n.(*ast.SuccessionEdge)
+	return ok && edge.SourceImplied && edge.TargetImplied
+}
+
+// targetSuccessionKeyword is the keyword that opens a one-name target succession,
+// "" for any other member: an edge naming both ends, or the edge a
+// member-attached `then` desugars to, states its own source.
+func targetSuccessionKeyword(n ast.Node) string {
+	switch edge := n.(type) {
+	case *ast.SuccessionEdge:
+		if edge.TargetImplied || !(edge.SourceImplied || edge.SourceMember != nil) {
+			return ""
+		}
+		return "then"
+	case *ast.ControlFlowEdge:
+		if edge.TargetImplied || !(edge.SourceImplied || edge.SourceMember != nil) {
+			return ""
+		}
+		if edge.IsElse {
+			return "else"
+		}
+		return "if"
+	}
+	return ""
+}
+
+// admitsTargetSuccession reports whether the grammar admits a target succession
+// right after the member: an action node, a behavior usage, a one-ended
+// `first <node>;` or a target succession continuing the same chain.
+func admitsTargetSuccession(previous ast.Node) bool {
+	switch n := previous.(type) {
+	case *ast.InitialNode:
+		return n.Successor == nil
+	case *ast.SuccessionEdge, *ast.ControlFlowEdge:
+		return targetSuccessionKeyword(n) != ""
+	case *ast.TransitionMember:
+		// A sourceless transition is a TargetTransitionUsage or an entry
+		// transition, which chains like a target succession.
+		return n.Source == nil
+	case *ast.Usage:
+		return isBehaviorUsage(n.Kind)
+	case *ast.ForkNode, *ast.JoinNode, *ast.MergeNode, *ast.DecisionNode, *ast.ActionExecutionNode,
+		*ast.AssignmentActionNode, *ast.PerformActionNode, *ast.WhileLoopActionNode, *ast.IfActionNode,
+		*ast.SendStatement, *ast.TerminateStatement, *ast.AcceptActionUsage,
+		*ast.StateNode, *ast.SubstateMember, *ast.EntryMember, *ast.DoMember, *ast.ExitMember, *ast.PseudostateNode:
+		return true
+	}
+	return false
+}
+
+// isBehaviorUsage reports whether a usage of the kind is a BehaviorUsageElement
+// (SysML.xtext:679), the usages an action body sequences by position.
+func isBehaviorUsage(kind ast.UsageKind) bool {
+	switch kind {
+	case ast.UsageAction, ast.UsageCalc, ast.UsageState, ast.UsageConstraint, ast.UsageRequirement,
+		ast.UsageConcern, ast.UsageFramedConcern, ast.UsageViewpoint, ast.UsageSatisfy, ast.UsageObjective,
+		ast.UsageCase, ast.UsageAnalysisCase, ast.UsageVerificationCase, ast.UsageUseCase,
+		ast.UsageStep, ast.UsageExpr, ast.UsageBehavior, ast.UsagePredicate, ast.UsageBool:
+		return true
+	}
+	return false
+}
+
 // requirementConstraint reports an `assume`/`require` member outside a requirement
 // body, where RequirementConstraintMember alone admits it (SysML.xtext:2039).
 func (w *notationWalker) requirementConstraint(n *ast.Usage) {
@@ -355,18 +460,46 @@ func (w *notationWalker) kermlRelationships(rels []*ast.Relationship) {
 		return
 	}
 	for _, rel := range rels {
-		if rel == nil || rel.Kind != ast.RelFeaturedBy {
+		if rel == nil {
 			continue
 		}
-		w.diags = append(w.diags, diag.Diagnostic{
-			Severity: w.severity,
-			Span:     rel.Span(),
-			Message: "`featured by` is KerML notation: the SysML v2 grammar has no featuring clause, " +
-				"so move the declaration to a .kerml file",
-			Code:   CodeKerMLNotation,
-			Source: "syntax",
-		})
+		if rel.Kind == ast.RelFeaturedBy {
+			w.diags = append(w.diags, diag.Diagnostic{
+				Severity: w.severity,
+				Span:     rel.Span(),
+				Message: "`featured by` is KerML notation: the SysML v2 grammar has no featuring clause, " +
+					"so move the declaration to a .kerml file",
+				Code:   CodeKerMLNotation,
+				Source: "syntax",
+			})
+			continue
+		}
+		if clause, ok := kermlRelationshipClauses[rel.Kind]; ok {
+			w.diags = append(w.diags, diag.Diagnostic{
+				Severity: w.severity,
+				Span:     rel.Span(),
+				Message: fmt.Sprintf("`%s` is KerML notation: the SysML v2 grammar has no %s clause, "+
+					"so move the declaration to a .kerml file", clause.spelling, clause.name),
+				Code:   CodeKerMLNotation,
+				Source: "syntax",
+			})
+		}
 	}
+}
+
+// kermlRelationshipClauses names the FeatureRelationshipPart and
+// TypeRelationshipPart clauses KerML.xtext admits and SysML.xtext does not, so
+// a SysML file carrying one is KerML notation.
+var kermlRelationshipClauses = map[ast.RelationshipKind]struct {
+	spelling string
+	name     string
+}{
+	ast.RelDisjoint:    {"disjoint from", "disjoining"},
+	ast.RelUnions:      {"unions", "unioning"},
+	ast.RelIntersects:  {"intersects", "intersecting"},
+	ast.RelDifferences: {"differences", "differencing"},
+	ast.RelChains:      {"chains", "chaining"},
+	ast.RelInverseOf:   {"inverse of", "inverting"},
 }
 
 // kermlDeclarationKeywords are the definition and usage keywords the pinned

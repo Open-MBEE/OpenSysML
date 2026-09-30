@@ -58,7 +58,7 @@ func TestSimulationConfigBecomesARunnableActionDef(t *testing.T) {
 		t.Errorf("the consumed «SimulationConfig» is also kept as a comment:\n%s", r.Notation)
 	}
 	wantNote(t, r, "_g0", migrate.Mapped, "")
-	wantNote(t, r, "_act", migrate.Approximated, "run by every object of Chooser as its usage choose")
+	wantNote(t, r, "_act", migrate.Mapped, "written as an action usage every object of Chooser performs from creation, so its body runs on the object and reaches its features")
 	if errs := errors(t, "t.sysml", r.Notation); len(errs) > 0 {
 		t.Errorf("the migrated configuration does not analyse clean: %v\n%s", errs, r.Notation)
 	}

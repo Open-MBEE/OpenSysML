@@ -71,10 +71,9 @@ func TestW6CTransitionEndpointNameIsResolved(t *testing.T) {
 	}
 }
 
-// Row ~950, a stated gap. The pinned validator resolves a trigger name as a
-// type reference and reports `Couldn't resolve reference to Type 'sigX'`; we
-// treat a bare trigger as an injected event and stay silent.
-func TestW6CSignalTriggerNameIsNotResolved(t *testing.T) {
+// Row ~950, the pinned validator resolves an accept name as a type and reports
+// `Couldn't resolve reference to Type 'sigX'`; the resolver does too.
+func TestW6CSignalTriggerNameIsResolved(t *testing.T) {
 	got := w6cDiags(t, "w6c_trigger.sysml", `package P {
 	state def S {
 		state a;
@@ -82,8 +81,23 @@ func TestW6CSignalTriggerNameIsNotResolved(t *testing.T) {
 		transition first a accept sigX then b;
 	}
 }`)
-	if len(got) != 0 {
-		t.Fatalf("got %+v, want the documented silence", got)
+	if len(got) != 1 || got[0].Code != "unresolved" || !strings.Contains(got[0].Message, "sigX") {
+		t.Fatalf("got %+v, want one unresolved reference to sigX", got)
+	}
+}
+
+// The OpenSysML `when <name>` spelling remains an injected signal, unlike the
+// grammar's `accept <name>` payload typing: only the advisory lint reports it.
+func TestW6CWhenSignalNameIsNotResolved(t *testing.T) {
+	got := w6cDiags(t, "w6c_when_trigger.sysml", `package P {
+	state def S {
+		state a;
+		state b;
+		transition first a when sigX then b;
+	}
+}`)
+	if len(got) != 1 || got[0].Code != CodeUndeclaredSignal || got[0].Severity != diag.SeverityWarning {
+		t.Fatalf("got %+v, want only the %s warning", got, CodeUndeclaredSignal)
 	}
 }
 

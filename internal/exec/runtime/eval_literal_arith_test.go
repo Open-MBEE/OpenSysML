@@ -6,6 +6,7 @@ import (
 	"testing"
 
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/semantics"
+	"github.com/Open-MBEE/OpenSysML/internal/syntax/ast"
 )
 
 // TestStringLiteralEscapes evaluates the escapes KerML §8.2.2 defines: a literal
@@ -73,6 +74,44 @@ func TestRealArithmeticOverflowIsReported(t *testing.T) {
 	}
 	if !errors.Is(err, semantics.ErrArithmeticOverflow) {
 		t.Fatalf("eval: %v, want an overflow error", err)
+	}
+}
+
+// TestFeatureArithmeticOverflowIsNoFalseVerdict pins what a holds proof means:
+// an overflowed intermediate — 1e200*1e200 read through feature values, which no
+// constant folding can absorb — is an evaluation error, not a false comparison.
+func TestFeatureArithmeticOverflowIsNoFalseVerdict(t *testing.T) {
+	src := `
+package test {
+	private import ScalarValues::*;
+	attribute power : Real = 1.0e200;
+	attribute d : Real = 1.0e200;
+	attribute efficiency : Real = 0.0;
+	attribute result = power * d * efficiency <= power * d;
+}`
+	model, resolver, root := parseAndBuildLibraryModel(t, src)
+	pkg, ok := root.LookupLocal("test")
+	if !ok || pkg == nil || pkg.Scope == nil {
+		t.Fatal("package test has no scope")
+	}
+	sym, ok := pkg.Scope.LookupLocal("result")
+	if !ok || sym == nil {
+		t.Fatal("attribute result not found")
+	}
+	decl, ok := sym.Decl.(*ast.Usage)
+	if !ok {
+		t.Fatalf("result declares %T, want a usage", sym.Decl)
+	}
+	ec := NewEvalContext(NewContext(typedModel(model, resolver), 10000), pkg.Scope)
+	got, err := ec.Eval(decl.Value)
+	if err == nil {
+		t.Fatalf("eval = %v, want an overflow error", got)
+	}
+	if !errors.Is(err, semantics.ErrArithmeticOverflow) {
+		t.Fatalf("eval: %v, want an overflow error", err)
+	}
+	if got.Kind == ValConst && got.Const.Kind == semantics.ValBool && !got.Const.Bool {
+		t.Error("eval answered false — an overflowing evaluation is no verdict, never a violation")
 	}
 }
 

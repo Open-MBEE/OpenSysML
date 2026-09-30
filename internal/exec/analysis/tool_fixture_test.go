@@ -11,6 +11,7 @@ import (
 	"strings"
 	"sync"
 	"testing"
+	"time"
 
 	"github.com/Open-MBEE/OpenSysML/internal/check/passes"
 	"github.com/Open-MBEE/OpenSysML/internal/exec/runtime"
@@ -42,9 +43,9 @@ const pilotDriver = `package Drive {
 	private import ISQ::*;
 
 	action def Once {
-		out a : AccelerationValue;
-		out v : SpeedValue;
-		out x : LengthValue;
+		out a : AccelerationValue[1];
+		out v : SpeedValue[1];
+		out x : LengthValue[1];
 		action step : ComputeDynamics {
 			in dt = 1 [SI::s];
 			in whlpwr = 2 [SI::kW];
@@ -53,6 +54,9 @@ const pilotDriver = `package Drive {
 			in tm = 1500 [SI::kg];
 			in v_in = 36 [SI::km / SI::h];
 			in x_in = 100 [SI::m];
+			out a_out :>> a_out : AccelerationValue[1];
+			out v_out :>> v_out : SpeedValue[1];
+			out x_out :>> x_out : LengthValue[1];
 		}
 		bind a = step.a_out;
 		bind v = step.v_out;
@@ -60,16 +64,22 @@ const pilotDriver = `package Drive {
 	}
 
 	action def Twice {
-		out a1 : AccelerationValue;
-		out a2 : AccelerationValue;
+		out a1 : AccelerationValue[1];
+		out a2 : AccelerationValue[1];
 		first start;
 		then action stepA : ComputeDynamics {
 			in dt = 1 [SI::s]; in whlpwr = 2 [SI::kW]; in Cd = 0.3; in Cf = 0.01;
 			in tm = 1500 [SI::kg]; in v_in = 36 [SI::km / SI::h]; in x_in = 100 [SI::m];
+			out a_out :>> a_out : AccelerationValue[1];
+			out v_out :>> v_out : SpeedValue[1];
+			out x_out :>> x_out : LengthValue[1];
 		}
 		then action stepB : ComputeDynamics {
 			in dt = 1 [SI::s]; in whlpwr = 2 [SI::kW]; in Cd = 0.3; in Cf = 0.01;
 			in tm = 1500 [SI::kg]; in v_in = 36 [SI::km / SI::h]; in x_in = 100 [SI::m];
+			out a_out :>> a_out : AccelerationValue[1];
+			out v_out :>> v_out : SpeedValue[1];
+			out x_out :>> x_out : LengthValue[1];
 		}
 		bind a1 = stepA.a_out;
 		bind a2 = stepB.a_out;
@@ -80,25 +90,28 @@ const pilotDriver = `package Drive {
 			toolName = "ModelCenter";
 			uri = "aserv://localhost/Vehicle/Equation1";
 		}
-		in deltaT : TimeValue         { @ToolVariable { name = "deltaT"; } }
-		in power : PowerValue         { @ToolVariable { name = "power"; } }
-		in dragC : Real               { @ToolVariable { name = "C_D"; } }
-		in frictionC : Real           { @ToolVariable { name = "C_F"; } }
-		in mass : MassValue           { @ToolVariable { name = "mass"; } }
-		in speed0 : SpeedValue        { @ToolVariable { name = "v0"; } }
-		in position0 : LengthValue    { @ToolVariable { name = "x0"; } }
-		out acceleration : AccelerationValue { @ToolVariable { name = "a"; } }
-		out speed : SpeedValue        { @ToolVariable { name = "v"; } }
-		out position : LengthValue    { @ToolVariable { name = "x"; } }
+		in deltaT : TimeValue[1]         { @ToolVariable { name = "deltaT"; } }
+		in power : PowerValue[1]         { @ToolVariable { name = "power"; } }
+		in dragC : Real[1]               { @ToolVariable { name = "C_D"; } }
+		in frictionC : Real[1]           { @ToolVariable { name = "C_F"; } }
+		in mass : MassValue[1]           { @ToolVariable { name = "mass"; } }
+		in speed0 : SpeedValue[1]        { @ToolVariable { name = "v0"; } }
+		in position0 : LengthValue[1]    { @ToolVariable { name = "x0"; } }
+		out acceleration : AccelerationValue[1] { @ToolVariable { name = "a"; } }
+		out speed : SpeedValue[1]        { @ToolVariable { name = "v"; } }
+		out position : LengthValue[1]    { @ToolVariable { name = "x"; } }
 	}
 
 	action def Alike {
-		out a1 : AccelerationValue;
-		out a2 : AccelerationValue;
+		out a1 : AccelerationValue[1];
+		out a2 : AccelerationValue[1];
 		first start;
 		then action stepA : ComputeDynamics {
 			in dt = 1 [SI::s]; in whlpwr = 2 [SI::kW]; in Cd = 0.3; in Cf = 0.01;
 			in tm = 1500 [SI::kg]; in v_in = 36 [SI::km / SI::h]; in x_in = 100 [SI::m];
+			out a_out :>> a_out : AccelerationValue[1];
+			out v_out :>> v_out : SpeedValue[1];
+			out x_out :>> x_out : LengthValue[1];
 		}
 		then action stepB : SameDynamics {
 			in deltaT = 1 [SI::s]; in power = 2 [SI::kW]; in dragC = 0.3; in frictionC = 0.01;
@@ -113,22 +126,22 @@ const pilotDriver = `package Drive {
 			toolName = "ModelCenter";
 			uri = "aserv://localhost/Vehicle/Equation1";
 		}
-		in deltaT : TimeValue         { @ToolVariable { name = "deltaT"; } }
-		in power : PowerValue         { @ToolVariable { name = "power"; } }
-		in dragC : Real               { @ToolVariable { name = "C_D"; } }
-		in frictionC : Real           { @ToolVariable { name = "C_F"; } }
-		in mass : MassValue           { @ToolVariable { name = "mass"; } }
-		in speed0 : SpeedValue        { @ToolVariable { name = "v0"; } }
-		in position0 : LengthValue    { @ToolVariable { name = "x0"; } }
-		out acceleration : AccelerationValue { @ToolVariable { name = "a"; } }
-		out speed : SpeedValue        { @ToolVariable { name = "v"; } }
-		out position : LengthValue    { @ToolVariable { name = "x"; } }
+		in deltaT : TimeValue[1]         { @ToolVariable { name = "deltaT"; } }
+		in power : PowerValue[1]         { @ToolVariable { name = "power"; } }
+		in dragC : Real[1]               { @ToolVariable { name = "C_D"; } }
+		in frictionC : Real[1]           { @ToolVariable { name = "C_F"; } }
+		in mass : MassValue[1]           { @ToolVariable { name = "mass"; } }
+		in speed0 : SpeedValue[1]        { @ToolVariable { name = "v0"; } }
+		in position0 : LengthValue[1]    { @ToolVariable { name = "x0"; } }
+		out acceleration : AccelerationValue[1] { @ToolVariable { name = "a"; } }
+		out speed : SpeedValue[1]        { @ToolVariable { name = "v"; } }
+		out position : LengthValue[1]    { @ToolVariable { name = "x"; } }
 		assign speed := speed0;
 	}
 
 	action def Embodied {
-		out a : AccelerationValue;
-		out v : SpeedValue;
+		out a : AccelerationValue[1];
+		out v : SpeedValue[1];
 		action step : Bodied {
 			in deltaT = 1 [SI::s]; in power = 2 [SI::kW]; in dragC = 0.3; in frictionC = 0.01;
 			in mass = 1500 [SI::kg]; in speed0 = 36 [SI::km / SI::h]; in position0 = 100 [SI::m];
@@ -138,12 +151,15 @@ const pilotDriver = `package Drive {
 	}
 
 	analysis def Swept {
-		in drag : Real;
+		in drag : Real[1];
 		action step : ComputeDynamics {
 			in dt = 1 [SI::s]; in whlpwr = 2 [SI::kW]; in Cd = drag; in Cf = 0.01;
 			in tm = 1500 [SI::kg]; in v_in = 36 [SI::km / SI::h]; in x_in = 100 [SI::m];
+			out a_out :>> a_out : AccelerationValue[1];
+			out v_out :>> v_out : SpeedValue[1];
+			out x_out :>> x_out : LengthValue[1];
 		}
-		out a : AccelerationValue = step.a_out;
+		out a : AccelerationValue[1] = step.a_out;
 	}
 }`
 
@@ -699,4 +715,153 @@ func TestToolEngineDispatchKeepsTheSelection(t *testing.T) {
 		t.Fatalf("run alone refused %v; want the run to answer with the refusal as its fault", got)
 	}
 	wantFaulted(t, plan, err)
+}
+
+// Each sweep row's tool call is attributed to the context its run made it in:
+// ToolTextsIn reports the row's own calls, ToolTexts all of the plan's.
+func TestToolCallsAreAttributedToTheContextThatMadeThem(t *testing.T) {
+	p := parsePilot(t)
+	record := filepath.Join(t.TempDir(), "requests.jsonl")
+	t.Setenv(standinRecord, record)
+	swept := p.action(t, "Swept")
+	plan, err := p.context().ResolveSweepPlan(swept, runtime.SweepPlan{Ranges: []runtime.SweepRange{{Param: "drag", From: intOf(1), To: intOf(2)}}}, 0, nil)
+	if err != nil {
+		t.Fatalf("resolve the plan: %v", err)
+	}
+	row := func(rctx *runtime.Context, bindings []runtime.SweepBinding) (runtime.SweepRunResult, error) {
+		inputs := make(map[string]runtime.Value, len(bindings))
+		for _, b := range bindings {
+			inputs[b.Param] = b.Value
+		}
+		result, err := rctx.RunAnalysis(swept, runtime.AnalysisArgs{Named: inputs}, p.pkg, nil)
+		return runtime.SweepRunResult{Outputs: result.Outputs}, err
+	}
+	r := toolRegistry(t, manifestDir(t, pilotEntry(standin(t))))
+	answered, err := r.Sweep(context.Background(), Request{Model: p.building(), Subject: "Drive::Swept", Schedule: runtime.DefaultSchedulePolicy, Budget: Budget{Jobs: 2}, Selection: Auto()}, plan, row)
+	if err != nil {
+		t.Fatalf("sweep: %v", err)
+	}
+	table := answered.Result.Table()
+	if len(table.Rows) != 2 {
+		t.Fatalf("result %+v, want a table of 2 rows", answered.Result)
+	}
+	for i, row := range table.Rows {
+		if row.Err != nil {
+			t.Fatalf("row %d: %v", i, row.Err)
+		}
+		texts := answered.ToolTextsIn(row.Context)
+		if len(texts) != 1 {
+			t.Fatalf("row %d is attributed %d calls, want its own one", i, len(texts))
+		}
+		if want := fmt.Sprintf(`"C_D":{"value":%d`, i+1); !strings.Contains(texts[0], want) {
+			t.Errorf("row %d's call %q does not carry its own drag value %q", i, texts[0], want)
+		}
+	}
+	if got := answered.ToolTexts(); len(got) != 2 {
+		t.Errorf("ToolTexts = %v, want both rows' calls", got)
+	}
+	if texts := answered.ToolTextsIn(nil); texts != nil {
+		t.Errorf("a nil context selects %v, want none", texts)
+	}
+}
+
+// A tool call that fails is provenance too: the plan's uses name what ran, marked
+// with the failure, and the typed error still reaches the caller.
+func TestAFailedToolCallJoinsTheProvenance(t *testing.T) {
+	p := parsePilot(t)
+	t.Setenv(standinMode, "malformed")
+	r := toolRegistry(t, manifestDir(t, pilotEntry(standin(t))))
+	ctx := p.context()
+	_, plan, err := p.perform(t, r, ctx, "Once")
+	var fault *runtime.ToolError
+	if !errors.As(err, &fault) || fault.Kind != runtime.ToolMalformed {
+		t.Fatalf("perform = %v, want a malformed-output ToolError", err)
+	}
+	if len(plan.Tools) != 1 {
+		t.Fatalf("plan.Tools = %v, want the failed call recorded", plan.Tools)
+	}
+	use := plan.Tools[0]
+	if use.Failed == "" || !strings.Contains(use.Failed, fault.Error()) {
+		t.Errorf("use.Failed = %q, want the failure %q", use.Failed, fault)
+	}
+	if use.in != ctx {
+		t.Error("the failed call is not attributed to the context that made it")
+	}
+	if got := use.String(); !strings.Contains(got, " failed: "+use.Failed) {
+		t.Errorf("String() = %q, want the failure spelled", got)
+	}
+}
+
+// Under all the composed answer carries no Tool of its own: the use the answering
+// engine's result carried joins the provenance from the plan's steps.
+func TestTheAllSelectionKeepsTheToolsProvenance(t *testing.T) {
+	p := parsePilot(t)
+	t.Setenv(standinRecord, filepath.Join(t.TempDir(), "requests.jsonl"))
+	r := toolRegistry(t, manifestDir(t, pilotEntry(standin(t))))
+	once := p.action(t, "Once")
+	call := func(rctx *runtime.Context) (map[string]runtime.Value, error) { return rctx.ExecuteAction(once) }
+	answer := func(out map[string]runtime.Value, err error) Answer {
+		if err != nil {
+			return Answer{Err: err}
+		}
+		return Answer{Claim: ClaimValue, Values: ValuesOf(out)}
+	}
+	_, plan, err := Perform(context.Background(), r, selected(p.context(), All()), call, answer)
+	if err != nil {
+		t.Fatalf("all: %v, plan %+v", err, plan.Steps)
+	}
+	if texts := plan.ToolTexts(); len(texts) != 1 || !strings.Contains(texts[0], "ModelCenter") {
+		t.Fatalf("plan tools %v, want the one ModelCenter call", texts)
+	}
+}
+
+// used reports the calls made, in the order they were made rather than the order
+// their results arrived.
+func TestUsedReportsTheCallsInCallOrder(t *testing.T) {
+	r := &toolRunner{uses: []ToolUse{{Tool: "second", seq: 2}, {Tool: "first", seq: 1}}}
+	uses := r.used()
+	if len(uses) != 2 || uses[0].Tool != "first" || uses[1].Tool != "second" {
+		t.Fatalf("used %v, want first before second", uses)
+	}
+}
+
+// Under all the plan stops at the first fault in name order, but a tool an engine behind
+// that fault ran is provenance still: its use is kept though its step is dropped.
+func TestAToolRunBehindAFaultJoinsTheProvenance(t *testing.T) {
+	p := parsePilot(t)
+	record := filepath.Join(t.TempDir(), "requests.jsonl")
+	t.Setenv(standinRecord, record)
+	r := toolRegistry(t, manifestDir(t, pilotEntry(standin(t))))
+	fault := errors.New("the earlier engine faulted")
+	if err := r.Register(fakeEngine{name: "a-faulter", kinds: []Kind{Compute}, run: func(ctx context.Context) (Result, error) {
+		for {
+			if _, err := os.Stat(record); err == nil {
+				return Result{}, fault
+			}
+			select {
+			case <-ctx.Done():
+				return Result{}, ctx.Err()
+			case <-time.After(5 * time.Millisecond):
+			}
+		}
+	}}); err != nil {
+		t.Fatalf("register: %v", err)
+	}
+	once := p.action(t, "Once")
+	call := func(rctx *runtime.Context) (map[string]runtime.Value, error) { return rctx.ExecuteAction(once) }
+	answer := func(out map[string]runtime.Value, err error) Answer {
+		if err != nil {
+			return Answer{Err: err}
+		}
+		return Answer{Claim: ClaimValue, Values: ValuesOf(out)}
+	}
+	req := selected(p.context(), All())
+	req.Budget.Jobs = 2
+	_, plan, err := Perform(context.Background(), r, req, call, answer)
+	if !errors.Is(err, fault) {
+		t.Fatalf("all = %v, want the earlier engine's fault", err)
+	}
+	if texts := plan.ToolTexts(); len(texts) != 1 || !strings.Contains(texts[0], "ModelCenter") {
+		t.Fatalf("plan tools %v, want the ModelCenter call the dropped step ran", texts)
+	}
 }

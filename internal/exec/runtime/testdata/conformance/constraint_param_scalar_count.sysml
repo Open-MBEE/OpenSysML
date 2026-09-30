@@ -7,7 +7,7 @@ package test {
 	attribute vals : Integer[*] = (1, 2);
 
 	constraint def Scalar {
-		in x : Integer;
+		in x : Integer[1];
 		SequenceFunctions::size(x) == 2
 	}
 

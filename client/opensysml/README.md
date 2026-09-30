@@ -234,19 +234,73 @@ elements, err := client.Query(ctx, model, opensysml.Query{
 })
 ```
 
-Edits are typed the same way — `SetValue`, `Rename`, `AddMember`, `Delete`,
-`Move` — and either all apply, answering the edited source, or none do and the
-refusal arrives as an `*EditError` naming its kind:
+Edits are typed the same way — `SetValue`, `Rename`, `AddMember`, `AddConnection`,
+`AddSatisfy`, `AddRequirementConstraint`, `AddTransition`, `AddVerify`, `AddMetadata`,
+`AddMetadataPrefix`, `AddSequence`, `AddImport`, `AddDocumentation`, `AddComment`,
+`AddNote`, `Delete`, `Move` — and either all apply, answering the edited source, or none do;
+the refusal arrives as an `*EditError` naming its kind:
 
 ```go
 result, err := client.ApplyEdits(ctx, model,
 	opensysml.SetValue{Target: "Demo::sedan::mass", Value: "1200.0[SI::kg]"})
+
+result, err = client.ApplyEdits(ctx, model, opensysml.AddConnection{
+	Owner: "Demo::System", Kind: "allocation", From: "a", To: "b", Name: "alloc1",
+})
+
+result, err = client.ApplyEdits(ctx, model,
+	opensysml.AddMember{
+		Owner: "Demo::System", Kind: "attribute", Name: "active",
+		Type: "Boolean", IsDefault: true, Value: "true",
+	},
+	opensysml.AddSatisfy{
+		Owner: "Demo::System::safety", Requirement: "Demo::Safe", By: "Demo::System",
+		Asserted: true,
+	},
+)
 
 var refused *opensysml.EditError
 if errors.As(err, &refused) && refused.Failure == opensysml.EditFailureDeleteReferenced {
 	// refused.Referrers names what still refers to it, each with its document
 }
 ```
+
+The new member modifiers and `ref`/`return` kinds require `member_modifiers`;
+`AddSatisfy` and `AddRequirementConstraint` require `satisfy_authoring` and
+`requirement_constraint_authoring`, respectively, alongside `authoring`.
+`AddTransition` also requires `authoring` and `transition_authoring`; use
+`AddEntryTransition` to construct its entry-transition form.
+`AddVerify` writes `verify <requirement>;` in a verification case objective and
+requires `authoring` and `verification_objective_authoring`. `AddMetadata` writes a metadata usage
+with optional `About`, `Values` (`MetadataValue{Feature, Value}`) and shorthand
+`@` notation; it requires `authoring` and `metadata_authoring`.
+`AddMember.MetadataPrefixes`
+adds `#M` metadata to the new declaration and requires the same capabilities.
+`AddMetadataPrefix` adds a prefix to an existing SysML declaration and requires
+`authoring` and `metadata_prefix_authoring`; the metadata definition resolves in that declaration's scope.
+`AddSequence` requires `authoring` and `sequence_authoring`, and writes
+`first <ref>;`, `then <ref>;` or `then <kind> <name> : <type>;` members in an
+action body; `After` names the member it follows.
+Action-body statements and source-end multiplicities also require
+`action_body_statement_authoring`; they use the same recursive `AddSequence`
+operation, with nested body items omitting `Owner` and `After`.
+An `AddMember` with an empty `Kind` writes a directed usage with no kind
+keyword (`in x : T;`) and requires `implicit_parameters`.
+`AddMember.BodyExpression` writes a constraint condition in `{ ... }`, distinct
+from `Value`, which writes a feature value with `= ...`. For calc, case, analysis,
+verification and use-case kinds, it writes the body's result expression.
+Reference-form `assert` and `assert not` members are anonymous, and post-edit
+analysis checks that their feature reference denotes a constraint.
+Constraint-body and assertion additions require `constraint_body_authoring`;
+exhibit and state subaction kinds require `state_action_authoring`, both
+alongside `authoring`.
+`AddImport` requires `authoring` and `import_authoring`. `AddMember.Doc` and
+`AddDocumentation{Target, Body, Name, Locale, Replace}` write `doc /* ... */` on
+a new or an existing declaration and require `authoring` and
+`documentation_authoring`.
+`AddComment{Owner, Body, Name, About, Locale}` writes a `comment` element and
+`AddNote{Target, Text}` a `// text` line note above a declaration; both require
+`authoring` and `comment_authoring`.
 
 The edited source is `result.Documents`, one `EditedDocument` per document the
 batch reached, under the name the model was parsed with; `result.Content` is the

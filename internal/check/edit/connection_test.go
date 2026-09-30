@@ -218,6 +218,26 @@ func TestAddConnectionRefusals(t *testing.T) {
 	}
 }
 
+// A connection end may be rooted at the global namespace with `$::`; it
+// resolves from the root exactly as a relative end resolves from the owner.
+func TestAddConnectionRootedEnd(t *testing.T) {
+	m := loadContent(t, "assembly.sysml", interconnectionFixture)
+	requireClean(t, m)
+	res, err := Apply(m, []Operation{
+		AddConnection("Vehicle::Assembly", "connection",
+			"$::Vehicle::Assembly::tank.fuelOut", "engine.fuelIn", ""),
+	})
+	if err != nil {
+		t.Fatalf("Apply: %v", err)
+	}
+	got := string(res.Content)
+	if !strings.Contains(got,
+		"connection connect $::Vehicle::Assembly::tank.fuelOut to engine.fuelIn;") {
+		t.Fatalf("content lacks the rooted-end connection:\n%s", got)
+	}
+	requireClean(t, loadContent(t, "assembly.sysml", got))
+}
+
 func TestAddConnectionDuplicateNamesInOneRequestRefuse(t *testing.T) {
 	m := loadContent(t, "assembly.sysml", interconnectionFixture)
 	_, err := Apply(m, []Operation{
@@ -240,6 +260,13 @@ func TestAddConnectionDuplicateNamesInOneRequestRefuse(t *testing.T) {
 	}
 }
 
+func TestAddConnectionRejectsQuotedDuplicateName(t *testing.T) {
+	m := loadContent(t, "assembly-quoted-duplicate.sysml", interconnectionFixture)
+	addFailure(t, m, AddConnection(
+		"Vehicle::Assembly", "connection", "tank.fuelOut", "engine.fuelIn", "'tank'",
+	), FailureMemberNameTaken)
+}
+
 func TestKindListings(t *testing.T) {
 	sysml := strings.Join(ConnectionKinds(source.KindSysML), " ")
 	if sysml != "allocation binding connection flow interface succession transition" {
@@ -250,7 +277,7 @@ func TestKindListings(t *testing.T) {
 		t.Fatalf("KerML connection kinds = %q", kerml)
 	}
 	members := MemberKinds(source.KindSysML)
-	for _, want := range []string{"part def", "port", "state", "action", "fork"} {
+	for _, want := range []string{"part def", "port", "state", "action", "fork", "assert", "assert not"} {
 		if !contains(members, want) {
 			t.Fatalf("SysML member kinds %v lack %q", members, want)
 		}

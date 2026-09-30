@@ -54,6 +54,58 @@ func QualifiedNameSegments(text string) ([]string, bool) {
 	}
 }
 
+// MetadataPathSegments splits a metadata path into the metadata definition's
+// segments and the feature name.
+func MetadataPathSegments(path string) (definition []string, feature string, ok bool) {
+	if segments, ok := QualifiedNameSegments(path); ok && len(segments) >= 2 {
+		return segments[:len(segments)-1], segments[len(segments)-1], true
+	}
+	separator := strings.LastIndex(path, "::")
+	if separator <= 0 || separator+2 >= len(path) {
+		return nil, "", false
+	}
+	definition, ok = QualifiedNameSegments(path[:separator])
+	if !ok || len(definition) == 0 {
+		return nil, "", false
+	}
+	feature = path[separator+2:]
+	if segments, ok := MemberPathSegments(feature); ok && len(segments) == 1 {
+		feature = segments[0]
+	}
+	return definition, feature, true
+}
+
+// MemberPathOf writes the segments of a member path, outermost first, joined
+// by '.', each quoted on its own like a qualified name segment.
+func MemberPathOf(names []string) string {
+	segments := make([]string, len(names))
+	for i, name := range names {
+		segments[i] = NameText(name)
+	}
+	return strings.Join(segments, ".")
+}
+
+// MemberPathSegments reads a member path — `.`-joined names, each a basic or
+// a 'quoted name' — back into its names, quotes dropped and escapes kept;
+// false for malformed text. A bare name is a one-segment path.
+func MemberPathSegments(text string) ([]string, bool) {
+	var names []string
+	for {
+		name, rest, ok := readBasicOrQuotedName(text)
+		if !ok {
+			return nil, false
+		}
+		names = append(names, name)
+		if rest == "" {
+			return names, true
+		}
+		if !strings.HasPrefix(rest, ".") || rest == "." {
+			return nil, false
+		}
+		text = rest[1:]
+	}
+}
+
 // ReferenceEndNames rewrites a typing's references — `, ` apart, each a
 // qualified name or feature chain, `$::` led or `~` conjugated — by the name
 // each ends in, `~` kept; text that does not read as such is returned as it is.

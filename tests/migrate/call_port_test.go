@@ -33,7 +33,7 @@ func TestCallOperationOverPortsReachesTheConnectedPart(t *testing.T) {
 
 	s := session(t, r)
 	meta(t, s, "%instantiate Drive")
-	meta(t, s, "%action Drive::Run #1")
+	meta(t, s, "%action Drive::run #1")
 	if out := meta(t, s, "%continue"); !strings.Contains(out, "completed") {
 		t.Errorf("the run did not complete:\n%s", out)
 	}

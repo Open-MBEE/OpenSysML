@@ -10,8 +10,9 @@ import {
   formPickItems,
   FormPickItem,
   serverForms,
+  serverStyles,
 } from "./export";
-import { RENDER_FORMS_CAPABILITY, RenderParams, RenderResult } from "./protocol";
+import { RENDER_FORMS_CAPABILITY, RENDER_STYLES_CAPABILITY, RenderParams, RenderResult } from "./protocol";
 
 const rendering = (form: string, artifact: string): RenderResult =>
   ({ view: "Kit::widgetTree", kind: "tree", stated: "", form, artifact, nodes: [], edges: [], version: 1 }) as unknown as RenderResult;
@@ -62,6 +63,22 @@ class FakeHost implements ExportHost {
 }
 
 const echoForm = (params: RenderParams) => rendering(params.form ?? "mermaid", `artifact in ${params.form}`);
+
+test("serverStyles takes the drawing styles the server advertises, none from a server predating them", () => {
+  assert.deepEqual(serverStyles({ [RENDER_STYLES_CAPABILITY]: ["pilot", "cameo", "cameo"] }), ["pilot", "cameo"]);
+  assert.deepEqual(serverStyles(undefined), []);
+  assert.deepEqual(serverStyles({ openSysmlRender: true }), []);
+  assert.deepEqual(serverStyles({ [RENDER_STYLES_CAPABILITY]: ["cameo", 3] }), []);
+});
+
+test("an export asks the server for the drawing style the panel draws in, and for none under the other looks", async () => {
+  const styled = new FakeHost("dot", echoForm);
+  await exportRendering(styled, { uri: "file:///ws/kit.sysml", documentName: "kit.sysml", view: "", forms: ["dot"], style: "cameo" });
+  assert.equal(styled.requests[0].style, "cameo");
+  const plain = new FakeHost("dot", echoForm);
+  await exportRendering(plain, { uri: "file:///ws/kit.sysml", documentName: "kit.sysml", view: "", forms: ["dot"] });
+  assert.equal(plain.requests[0].style, undefined);
+});
 
 test("serverForms takes the forms the server advertises, else the documented five", () => {
   assert.deepEqual(serverForms({ [RENDER_FORMS_CAPABILITY]: ["text", "mermaid", "markdown", "dot", "plantuml"] }), [

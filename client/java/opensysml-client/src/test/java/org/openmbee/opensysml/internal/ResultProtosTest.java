@@ -277,6 +277,12 @@ class ResultProtosTest {
     assertEquals(OptionalDouble.of(2.5), reported.finalTime());
     assertEquals(1, reported.diagnostics().size());
     assertEquals(OptionalDouble.empty(), Protos.actionRun(action, false).finalTime());
+    assertEquals(Map.of(), reported.performer());
+    ActionRun performed =
+        Protos.actionRun(
+            action.toBuilder().putPerformerAttributes("this.level", integer(3)).build(), true);
+    assertEquals(Map.of("result", new Value.IntegerValue(5)), performed.outputs());
+    assertEquals(Map.of("this.level", new Value.IntegerValue(3)), performed.performer());
 
     ExecuteStateResponse state =
         ExecuteStateResponse.newBuilder()

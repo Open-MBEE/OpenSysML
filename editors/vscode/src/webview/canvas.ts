@@ -103,9 +103,16 @@ export function cssEscape(value: string): string {
 }
 
 // markers are the arrowheads edges end in: a filled head for a transition or a
-// succession, an open one for a flow. A connection ends in none.
+// succession, an open one for a flow. A connection ends in none. The defs also
+// hold Cameo's pale-yellow gradient, which the cameo look fills shapes from.
 function markers(): SVGDefsElement {
   const defs = element("defs", {});
+  const gradient = element("linearGradient", { id: "cameo-fill", x1: "0", y1: "0", x2: "0", y2: "1" });
+  gradient.append(
+    element("stop", { offset: "0", "stop-color": "#FFFFCC" }),
+    element("stop", { offset: "1", "stop-color": "#FFFFF2" }),
+  );
+  defs.append(gradient);
   const filled = element("marker", {
     id: "arrow", viewBox: "0 0 10 10", refX: "9", refY: "5",
     markerWidth: "9", markerHeight: "9", orient: "auto-start-reverse",

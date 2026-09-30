@@ -6,8 +6,14 @@ task-oriented walkthrough, see [guide chapter 9](../guide/09-clients.md#from-rus
 binary provisioning and its trust model are in
 [client/rust/README.md](../../client/rust/README.md).
 
-Nothing is published to crates.io yet, so a consumer takes it from a path or from
-git:
+The crate is published to crates.io as `opensysml` with each core release:
+
+```toml
+[dependencies]
+opensysml = "0.9"
+```
+
+A consumer developing against a checkout takes it from a path or from git:
 
 ```toml
 [dependencies]

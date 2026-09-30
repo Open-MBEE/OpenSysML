@@ -14,15 +14,17 @@ import (
 // The lowered graph is kept as is: lowered IR is derived from the shared, frozen
 // declarations and never written once lowered, so every context reads one copy.
 type imagedBehavior struct {
-	object   int64
-	attached int // position among the behaviors of the context imaged
-	member   *symbols.Symbol
-	binding  int
-	name     string
-	kind     lower.ClassifierBehaviorKind
-	onClock  bool
-	action   *imagedAction
-	state    *imagedState
+	object    int64
+	attached  int // position among the behaviors of the context imaged
+	member    *symbols.Symbol
+	binding   int
+	name      string
+	kind      lower.ClassifierBehaviorKind
+	onClock   bool
+	err       error
+	typeBound bool
+	action    *imagedAction
+	state     *imagedState
 }
 
 // imagedAction is an action executor's state by value, its frames by position.
@@ -128,6 +130,7 @@ func (t *imaging) behavior(b *ObjectBehavior) error {
 	img := imagedBehavior{
 		object: b.Object.ID, attached: slices.Index(t.ctx.objectBehaviors, b),
 		member: b.member, binding: b.binding, name: b.Name, kind: b.Kind,
+		err: b.Err, typeBound: b.typeBound,
 	}
 	t.declared[b.Symbol] = true
 	for _, bound := range b.bindings {
@@ -457,6 +460,8 @@ func (m *materializing) behavior(b imagedBehavior) error {
 		return err
 	}
 	behavior.binding = b.binding
+	behavior.Err = b.err
+	behavior.typeBound = b.typeBound
 	switch {
 	case b.state != nil:
 		exec := newStateExecutorOn(dst, behavior.Symbol, inst, occurrence, b.state.graph)
@@ -483,6 +488,7 @@ func (m *materializing) behavior(b imagedBehavior) error {
 		behavior.Action = exec
 	}
 	inst.behaviors = append(inst.behaviors, behavior)
+	dst.behaviorsAttached++
 	dst.objectBehaviors = append(dst.objectBehaviors, behavior)
 	dst.workChanged()
 	return nil
@@ -513,7 +519,7 @@ func (m *materializing) runOf(at int) *runState {
 func (m *materializing) actionExecutor(e *ActionExecutor, img *imagedAction) error {
 	frames := make([]*actionFrame, len(img.frames))
 	for i := range frames {
-		frames[i] = &actionFrame{}
+		frames[i] = &actionFrame{perfs: &e.performances}
 	}
 	frameAt := func(at int) *actionFrame {
 		if at < 0 {

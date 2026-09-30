@@ -1,4 +1,4 @@
-package Constraints {
+package ConstraintChecks {
 	part def A specializes B;
 	part def B specializes A;
 	part def C {

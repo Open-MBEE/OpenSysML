@@ -10,11 +10,11 @@ package Payloads {
     part def Ctx {
         part x : A;
         part y : B;
-        flow of fuel from x.i to y.j {
+        flow of fuel : Fuel from x.i to y.j {
             attribute w : Prio;
         }
-        flow m of cmd from x.i to y.j;
-        flow of cmd from x.i to y.j {
+        message m of cmd : Prio from x.i to y.j;
+        message of cmd : Prio = m.cmd from x.i to y.j {
             attribute w : Prio;
         }
     }

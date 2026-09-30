@@ -1,0 +1,9 @@
+{
+	"rpc": "EvaluateCalc",
+	"symbol_id": "thermoCase::Thermal",
+	"arguments": [
+		{"kind": "real_value", "value": 2},
+		{"kind": "real_value", "value": 10}
+	],
+	"expected_error": "is not registered"
+}

@@ -38,3 +38,27 @@ func TestWorkspacePendingGathersSettleOnRead(t *testing.T) {
 		t.Errorf("sat.sysml: incremental %v, fresh %v", gotSat, want)
 	}
 }
+
+// TestBatchSettlesPendingGathersBeforeServingTheCache: a batch consulted after
+// an edit settles the regathers the edit queued before it serves a cached
+// verdict, so the entry the settle would drop is not the answer.
+func TestBatchSettlesPendingGathersBeforeServingTheCache(t *testing.T) {
+	ws := NewWorkspace()
+	ws.Open("hub.sysml", []byte("package M { private import OOSEM::*; #stakeholderNeed requirement need; }"), 1)
+	ws.Open("sat.sysml", []byte("package S { private import OOSEM::*; #systemRequirement requirement sys; }"), 1)
+	if got := codesOf(ws.Diagnostics("sat.sysml")); len(got) != 0 {
+		t.Fatalf("sat.sysml under a stakeholder need: %v, want clean", got)
+	}
+
+	// The hub's need becomes a mission requirement with no read in between; the
+	// satellite's cached verdict stands until the pending regather runs.
+	ws.Update("hub.sysml", []byte("package M { private import OOSEM::*; #missionRequirement requirement mission; }"), 2)
+	got := codesOf(ws.DiagnosticsAll([]string{"sat.sysml"})[0])
+
+	fresh := NewWorkspace()
+	fresh.Open("hub.sysml", ws.Document("hub.sysml").Content, 1)
+	fresh.Open("sat.sysml", ws.Document("sat.sysml").Content, 1)
+	if want := codesOf(fresh.Diagnostics("sat.sysml")); !reflect.DeepEqual(got, want) {
+		t.Errorf("sat.sysml: batch after the edit %v, fresh %v", got, want)
+	}
+}

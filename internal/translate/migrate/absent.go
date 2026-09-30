@@ -85,6 +85,11 @@ func (a *activity) admitAbsentNode(n *sysmlv1.Element) (changed bool) {
 		}
 	}
 	if a.dead[n] {
+		for _, pin := range outputPins(n) {
+			if a.m.admitNone(pin, "it belongs to "+describe(n)+", which is not migrated and produces no value") {
+				changed = true
+			}
+		}
 		return changed
 	}
 	if n.Type == "CallBehaviorAction" && a.m.model.Ref(n, "behavior") == nil && a.stubStep(n) {

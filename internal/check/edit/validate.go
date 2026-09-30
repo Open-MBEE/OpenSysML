@@ -16,7 +16,11 @@ import (
 // checkValue refuses a new value that is not one expression. Whether it names
 // anything is answered by analyzing the edited model, where it has a scope.
 func (m Model) checkValue(i int, op Operation) error {
-	text := strings.TrimSpace(op.Value)
+	return m.checkExpression(i, "value", op.Target, op.Value)
+}
+
+func (m Model) checkExpression(i int, label, target, value string) error {
+	text := strings.TrimSpace(value)
 	sf := source.New("<value>", []byte(text))
 	refuse := func(reason string, diags []diag.Diagnostic) error {
 		return &Error{
@@ -24,7 +28,7 @@ func (m Model) checkValue(i int, op Operation) error {
 			OperationIndex: i,
 			Diagnostics:    diags,
 			Diagnosed:      sf,
-			Message:        fmt.Sprintf("value %q for %s %s", op.Value, op.Target, reason),
+			Message:        fmt.Sprintf("%s %q for %s %s", label, value, target, reason),
 		}
 	}
 	if text == "" {
@@ -38,7 +42,7 @@ func (m Model) checkValue(i int, op Operation) error {
 	if expr == nil {
 		return refuse("does not parse as an expression", nil)
 	}
-	if end := expr.Span().End(); end != len(text) {
+	if end := p.Offset(); end != len(text) {
 		return refuse(fmt.Sprintf("is not one expression: %q is left over", text[end:]), nil)
 	}
 	return nil
@@ -72,6 +76,14 @@ func checkName(i int, name string) error {
 	return nil
 }
 
+func symbolName(name string) string {
+	segments, ok := source.QualifiedNameSegments(name)
+	if ok && len(segments) == 1 {
+		return segments[0]
+	}
+	return name
+}
+
 // validate re-reads every rewritten document the way the original was read and
 // refuses the edit if any carries errors its original did not: an edit never
 // hands back a model that cannot be read again. The documents are judged
@@ -97,6 +109,11 @@ func (m Model) validate(edited rewrites) error {
 		}
 		rr.before = errorsOnly(originalParse)
 		rereads = append(rereads, rr)
+	}
+	if m.deferred != nil && len(m.deferred.pending)+len(m.deferred.anchored) > 0 {
+		if err := m.deferred.settle(reparseModel(m, edited)); err != nil {
+			return err
+		}
 	}
 	if m.NewIndex == nil {
 		return nil

@@ -105,6 +105,11 @@ const (
 	// SymbolMultiplicity classifies a named multiplicity member, `multiplicity
 	// exactlyOne [1..1]` or `multiplicity single subsets exactlyOne`.
 	SymbolMultiplicity
+	// SymbolReferenceUsage classifies a usage declared without a kind keyword:
+	// a ReferenceUsage (SysML v2 §7.6.4), which a directed usage always is
+	// (§7.6.3). It is an attribute usage for every purpose but the metaclass it
+	// names.
+	SymbolReferenceUsage
 )
 
 var symbolKindNames = map[SymbolKind]string{
@@ -175,6 +180,7 @@ var symbolKindNames = map[SymbolKind]string{
 	SymbolConnectorEnd:            "connectorEnd",
 	SymbolCrossFeature:            "crossFeature",
 	SymbolKerMLType:               "kermlType",
+	SymbolReferenceUsage:          "referenceUsage",
 }
 
 // String returns the display name of the kind.
@@ -204,10 +210,17 @@ func (k SymbolKind) IsFeature() bool {
 		SymbolAllocationUsage, SymbolActionUsage, SymbolStateUsage, SymbolCalcUsage,
 		SymbolConstraintUsage, SymbolRequirementUsage, SymbolSatisfyRequirementUsage,
 		SymbolCaseUsage, SymbolAnalysisCaseUsage, SymbolVerificationCaseUsage, SymbolUseCaseUsage,
-		SymbolConnectorEnd, SymbolCrossFeature, SymbolMultiplicity:
+		SymbolConnectorEnd, SymbolCrossFeature, SymbolMultiplicity, SymbolReferenceUsage:
 		return true
 	}
 	return false
+}
+
+// IsAttributeLike reports whether k classifies a usage carrying attribute
+// features: an attribute usage, or a kindless reference usage, which is an
+// attribute for every purpose but the metaclass it names.
+func (k SymbolKind) IsAttributeLike() bool {
+	return k == SymbolAttributeUsage || k == SymbolReferenceUsage
 }
 
 // IsFeature reports whether s declares a KerML Feature: by its kind, or by its
@@ -225,8 +238,7 @@ func (s *Symbol) IsFeature() bool {
 	if s.Kind != SymbolUnknown {
 		return s.Kind.IsFeature()
 	}
-	_, ok := s.Decl.(*ast.Usage)
-	return ok
+	return s.DeclaresUsage()
 }
 
 // IsDefinition reports whether k classifies a definition — a SysML `def` or a
@@ -248,6 +260,9 @@ func (k SymbolKind) IsDefinition() bool {
 // Notation names a symbol the way the notation declares it — "part def",
 // "state", "render" — rather than by its internal classification.
 func (s *Symbol) Notation() string {
+	if s.Recorded() && s.Facts.Notation != "" {
+		return s.Facts.Notation
+	}
 	if n := ast.Notation(s.Decl); n != "" {
 		return n
 	}
@@ -368,18 +383,25 @@ func (s *Symbol) EffectiveName() bool {
 }
 
 // AnnotationFacts is one metadata annotation reduced to names and constants: the
-// fully-qualified name of the metadata type annotating it, and the values the
-// annotation body binds its features to, as written.
+// fully-qualified name of the metadata type annotating it, the reference that
+// restores that type (zero when none reaches it), and the values the annotation
+// body binds its features to, as written.
 type AnnotationFacts struct {
 	TypeFQN string
-	Values  []AnnotationValueFacts
+	Type    ElementRef
+	// Span locates the node stating the annotation in its document.
+	Span   source.Span
+	Values []AnnotationValueFacts
 }
 
 // AnnotationValueFacts is one feature binding inside an annotation body
 // (`@Safety{isMandatory = true;}`), holding the value already evaluated, so that
 // a filter condition reading it decides the same way where the declaration it
-// came from is gone.
+// came from is gone. Values lists every value a sequence expression binds
+// (`tags = ("a", "b");`); Value is the one constant when there is exactly one,
+// and unknown otherwise.
 type AnnotationValueFacts struct {
 	Feature string
 	Value   FilterValue
+	Values  []FilterValue
 }

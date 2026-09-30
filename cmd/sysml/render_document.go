@@ -58,7 +58,7 @@ func runRenderDocument(files []string) error {
 		}
 		return writePDFArtifact(pdf)
 	}
-	markdown, err := sess.RenderDocumentMarkdown(renderDoc, markdownOptions())
+	markdown, err := sess.RenderDocumentMarkdown(renderDoc, markdownOptions(artifactDir()))
 	if err != nil {
 		return err
 	}
@@ -77,29 +77,55 @@ func pdfOptions() (docpdf.Options, error) {
 		TitlePage:           pdfTitlePage,
 		TOC:                 pdfTOC,
 		NumberSections:      pdfNumbering,
+		NumberFigures:       docNumberFigures,
 		Theme:               page.Theme,
 		NoDefaultStylesheet: page.NoDefaultStylesheet,
 		Stylesheets:         page.Stylesheets,
 		BaseDir:             filepath.Dir(outputPath),
 		DiagramForm:         page.DiagramForm,
 		Unplaced:            page.Unplaced,
+		Style:               page.Style,
 	}, nil
 }
 
-// runRenderDocuments renders every document definition of the model named on
-// the command line as linked files in the directory -render-documents names,
-// so cross-document references resolve on disk.
-func runRenderDocuments(files []string) error {
+// runRenderDocuments renders every document of the model named on the command
+// line into -render-documents as a linked set, writing the pages of the
+// documents that render and, for each that does not, a page stating why; it
+// returns the status of the run and, when nothing was written, what stopped it.
+func runRenderDocuments(files []string) (int, error) {
+	documents, form, err := renderDocumentSet(files)
+	if err != nil {
+		return exitUnevaluable, err
+	}
+	if err := os.MkdirAll(renderDocsDir, 0o750); err != nil {
+		return exitUnevaluable, fmt.Errorf("create rendering directory %s: %w", renderDocsDir, err)
+	}
+	if err := commitDocumentSet(documents, form); err != nil {
+		return exitUnevaluable, err
+	}
+	status := exitHolds
+	for _, document := range documents {
+		if document.Err != nil {
+			fmt.Fprintf(os.Stderr, "%sdocument %s could not be rendered: %v\n", commandPrefix, source.QualifiedNameText(document.Name), document.Err)
+			status = exitPartial
+		}
+	}
+	return status, nil
+}
+
+// renderDocumentSet renders the model's documents in the form -doc-form names,
+// the stylesheets of an HTML set among them, without writing anything.
+func renderDocumentSet(files []string) ([]repl.RenderedDocument, string, error) {
 	form, err := documentSetForm()
 	if err != nil {
-		return err
+		return nil, "", err
 	}
 	if len(files) == 0 {
-		return errors.New("no model to render; name the files the documents are declared in, as `sysml model.sysml -render-documents rendered`")
+		return nil, "", errors.New("no model to render; name the files the documents are declared in, as `sysml model.sysml -render-documents rendered`")
 	}
 	sess, err := loadRenderingModel(files)
 	if err != nil {
-		return err
+		return nil, "", err
 	}
 	// A set links its stylesheets as files beside the pages, so a reader
 	// downloads each once and edits it in one place.
@@ -108,36 +134,33 @@ func runRenderDocuments(files []string) error {
 	if form == docFormHTML {
 		links, assets, err := setStylesheets()
 		if err != nil {
-			return err
+			return nil, "", err
 		}
 		sheets = assets
-		opts := documentOptions()
+		opts := documentOptions(renderDocsDir)
 		opts.Stylesheets = links
 		// The set links its sheets rather than inlining them in each page.
 		opts.NoDefaultStylesheet = true
 		documents, err = sess.RenderDocumentSetHTML(opts)
 		if err != nil {
-			return err
+			return nil, "", err
 		}
 	} else {
-		documents, err = sess.RenderDocumentSetMarkdown(markdownOptions())
+		documents, err = sess.RenderDocumentSetMarkdown(markdownOptions(renderDocsDir))
 		if err != nil {
-			return err
+			return nil, "", err
 		}
 	}
 	if len(documents) == 0 {
-		return errors.New("the model declares no documents; nothing was rendered")
+		return nil, "", errors.New("the model declares no documents; nothing was rendered")
 	}
-	documents = append(documents, sheets...)
-	if err := os.MkdirAll(renderDocsDir, 0o750); err != nil {
-		return fmt.Errorf("create rendering directory %s: %w", renderDocsDir, err)
-	}
-	return commitDocumentSet(documents, form)
+	return append(documents, sheets...), form, nil
 }
 
 // documentOptions carries the flags shaping the document itself, leaving its
-// stylesheets to the caller.
-func documentOptions() docrender.HTMLOptions {
+// stylesheets to the caller; outputDir is where the page is written, "" for
+// standard output.
+func documentOptions(outputDir string) docrender.HTMLOptions {
 	return docrender.HTMLOptions{
 		Fragment:            htmlFragment,
 		NoDefaultStylesheet: htmlNoCSS,
@@ -145,22 +168,43 @@ func documentOptions() docrender.HTMLOptions {
 		TitlePage:           pdfTitlePage,
 		TOC:                 pdfTOC,
 		NumberSections:      pdfNumbering,
+		NumberFigures:       docNumberFigures,
 		MermaidScript:       mermaidScriptURL(),
 		MathScript:          mathScriptURL(),
 		DiagramForm:         view.Form(diagramForm),
 		Unplaced:            view.Unplaced(renderUnplaced),
+		Style:               view.DrawingStyle(renderStyle),
+		Drawer:              docpdf.Graphviz{},
+		OutputDir:           outputDir,
 	}
 }
 
-// markdownOptions carries the flags shaping a Markdown document.
-func markdownOptions() docrender.MarkdownOptions {
-	return docrender.MarkdownOptions{DiagramForm: view.Form(diagramForm), Unplaced: view.Unplaced(renderUnplaced)}
+// markdownOptions carries the flags shaping a Markdown document written into
+// outputDir, "" for standard output.
+func markdownOptions(outputDir string) docrender.MarkdownOptions {
+	return docrender.MarkdownOptions{
+		DiagramForm: view.Form(diagramForm), Unplaced: view.Unplaced(renderUnplaced), Style: view.DrawingStyle(renderStyle), Drawer: docpdf.Graphviz{},
+		OutputDir: outputDir, NumberFigures: docNumberFigures,
+	}
 }
 
-// checkDiagramForm rejects a -diagram-form value naming no diagram form, and
-// a -render-unplaced value naming no placement.
+// artifactDir is the directory the -o artifact is written into, "" when it
+// goes to standard output.
+func artifactDir() string {
+	if outputPath == "" {
+		return ""
+	}
+	return filepath.Dir(outputPath)
+}
+
+// checkDiagramForm rejects a -diagram-form value naming no diagram form, a
+// -render-unplaced value naming no placement and a -render-style value naming
+// no drawing style.
 func checkDiagramForm() error {
 	if _, err := unplacedOption(); err != nil {
+		return err
+	}
+	if _, err := styleOption(); err != nil {
 		return err
 	}
 	if diagramForm == "" || slices.Contains(view.DiagramForms(), view.Form(diagramForm)) {
@@ -287,7 +331,7 @@ func shortenStylesheetName(name string) string {
 // htmlOptions resolves the HTML flags, reading each -html-css file and
 // linking each -html-css URL.
 func htmlOptions() (docrender.HTMLOptions, error) {
-	opts := documentOptions()
+	opts := documentOptions(artifactDir())
 	for _, css := range htmlCSS {
 		if isWebURL(css) {
 			opts.Stylesheets = append(opts.Stylesheets, docrender.LinkedStylesheet(css))
@@ -468,8 +512,11 @@ func commitDocumentSet(documents []repl.RenderedDocument, form string) error {
 		}
 		path := filepath.Join(renderDocsDir, document.FileName)
 		what := ""
+		if document.Err != nil {
+			what = ", a page stating why the document could not be rendered"
+		}
 		if replaced[i] {
-			what = ", replaced the existing file"
+			what += ", replaced the existing file"
 		}
 		fmt.Fprintf(os.Stderr, "wrote %s (%s, %d bytes%s)\n", path, setForm(document, form), len(documentBytes(document)), what)
 	}

@@ -21,7 +21,7 @@ const (
 func TestDiagramsListGraphShapedViews(t *testing.T) {
 	document := fixtureDocument(t, filepath.Join("testdata", telescopeFixture), "Observatory::MassReport")
 	for _, form := range []view.Form{"", view.FormMermaid, view.FormDot} {
-		diagrams, err := Diagrams(document, form, "")
+		diagrams, err := Diagrams(document, DiagramOptions{Form: form})
 		if err != nil {
 			t.Fatalf("Diagrams(%q): %v", form, err)
 		}
@@ -42,11 +42,11 @@ func TestDiagramsListGraphShapedViews(t *testing.T) {
 
 func TestDiagramsErrors(t *testing.T) {
 	var typed *Error
-	if _, err := Diagrams(nil, "", ""); !errors.As(err, &typed) || typed.Kind != ErrorNilDocument {
+	if _, err := Diagrams(nil, DiagramOptions{}); !errors.As(err, &typed) || typed.Kind != ErrorNilDocument {
 		t.Errorf("nil document: %v", err)
 	}
 	document := fixtureDocument(t, filepath.Join("testdata", telescopeFixture), "Observatory::MassReport")
-	if _, err := Diagrams(document, "svg", ""); !errors.As(err, &typed) || typed.Kind != ErrorUnknownForm {
+	if _, err := Diagrams(document, DiagramOptions{Form: "svg"}); !errors.As(err, &typed) || typed.Kind != ErrorUnknownForm {
 		t.Errorf("unknown form: %v", err)
 	}
 }
@@ -108,7 +108,7 @@ func TestCaptionsFollowDocumentOrder(t *testing.T) {
 		"Observatory states, left to right",
 		"Type of telescope",
 	}
-	if got := Captions(document); !reflect.DeepEqual(got, want) {
+	if got := Captions(document, false); !reflect.DeepEqual(got, want) {
 		t.Errorf("Captions = %q, want %q", got, want)
 	}
 	markdown, err := Markdown(document, MarkdownOptions{})
@@ -126,10 +126,10 @@ func TestCaptionsFollowDocumentOrder(t *testing.T) {
 	}
 
 	document = fixtureDocument(t, filepath.Join("testdata", mathFixture), "Optics::OpticsReport")
-	if got := Captions(document); !reflect.DeepEqual(got, []string{"Collecting area of a circular mirror"}) {
+	if got := Captions(document, false); !reflect.DeepEqual(got, []string{"Collecting area of a circular mirror"}) {
 		t.Errorf("formula captions = %q", got)
 	}
-	if Captions(nil) != nil {
+	if Captions(nil, false) != nil {
 		t.Error("nil document has captions")
 	}
 }
@@ -147,8 +147,8 @@ func TestHTMLDiagramImages(t *testing.T) {
 	if strings.Contains(got, "flowchart LR") || strings.Count(got, `<pre class="mermaid">`) != 1 || !strings.Contains(got, "stateDiagram-v2") {
 		t.Errorf("the second diagram must keep its source and the first lose it:\n%s", got)
 	}
-	w := &htmlWriter{form: view.FormMermaid, opts: HTMLOptions{DiagramImages: []string{"masses.svg"}}}
-	if err := w.writeFigure("", "d", "Masses", &view.Rendering{Kind: view.KindTable, Columns: []string{"name"}, Rows: [][]string{{"optics"}}}, view.Options{}); err != nil {
+	w := &htmlWriter{forms: DiagramOptions{Form: view.FormMermaid}, opts: HTMLOptions{DiagramImages: []string{"masses.svg"}}}
+	if err := w.writeFigure("", "d", captionOf("Masses"), &view.Rendering{Kind: view.KindTable, Columns: []string{"name"}, Rows: [][]string{{"optics"}}}, view.Options{}); err != nil {
 		t.Fatal(err)
 	}
 	if table := w.b.String(); strings.Contains(table, "<img") || !strings.Contains(table, `<table class="sysml-table"`) || w.diagrams != 0 {

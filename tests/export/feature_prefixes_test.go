@@ -141,6 +141,12 @@ func TestFeaturePrefixesSurviveTheMappingAlone(t *testing.T) {
 	}
 }
 
+func TestLibraryPackageMetadataPrefixSurvivesTheMappingAlone(t *testing.T) {
+	src := []byte("metadata def M;\nlibrary #M package Q;\n")
+	back := mappingAloneRoundTrip(t, "library_metadata_prefix.sysml", src)
+	checkSpelling(t, back, []string{"library #M package Q;"}, nil)
+}
+
 // TestPortionFlagIsCarriedOrRefused corrupts the portion facts: the decoder refuses a
 // graph whose isPortion the root's grammar cannot spell rather than respelling it.
 func TestPortionFlagIsCarriedOrRefused(t *testing.T) {

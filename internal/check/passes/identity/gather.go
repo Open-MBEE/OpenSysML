@@ -247,6 +247,34 @@ func (u *Union) Regather(ctx *kit.Context, g *kit.Gathers, doc string, changed m
 	}
 }
 
+// Contributors implements kit.ContributorNamer: a document's identity judgment
+// depends on the document and on every document contributing an identity, and
+// the judgments as a whole on the contributors alone.
+func (u *Union) Contributors(name string) ([]string, bool) {
+	doc, ok := strings.CutPrefix(name, identityJudgment(""))
+	if !ok {
+		return nil, false
+	}
+	var out []string
+	if name != identityJudgments {
+		out = append(out, doc)
+	}
+	for other, c := range u.perDoc {
+		if other != doc && len(c.infos) > 0 {
+			out = append(out, other)
+		}
+	}
+	return out, true
+}
+
+// Contributors is the union's Contributors, the union built on first use.
+func Contributors(ctx *kit.Context, name string) ([]string, bool) {
+	if !strings.HasPrefix(name, identityJudgment("")) {
+		return nil, false
+	}
+	return unionOf(ctx).Contributors(name)
+}
+
 // regatherAbout replaces the contribution of the `about`-annotated elements no
 // workspace document declares.
 func (u *Union) RegatherAbout(ctx *kit.Context, g *kit.Gathers, changed map[string]bool) {

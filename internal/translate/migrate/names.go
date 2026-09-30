@@ -65,14 +65,30 @@ func (m *migration) madeUp(e *sysmlv1.Element, written string) {
 // synthesizedNameFQN names the library metadata marking a made-up name.
 const synthesizedNameFQN = "MigrationMetadata::SynthesizedName"
 
+// standInFQN names the library metadata marking a member that stands for no
+// source element.
+const standInFQN = "MigrationMetadata::StandIn"
+
 // synthesizedNames is the metadata usage marking the members of the current
 // scope written under made-up names, each as the notation wrote it.
 func (m *migration) synthesizedNames(written []string) string {
+	return m.migrationMarker(synthesizedNameFQN, written)
+}
+
+// standInNames is the metadata usage marking the members of the current scope
+// that stand for no source element, each as the notation wrote it.
+func (m *migration) standInNames(written []string) string {
+	return m.migrationMarker(standInFQN, written)
+}
+
+// migrationMarker is the metadata usage of the MigrationMetadata definition
+// fqn about the written names, qualified past a member shadowing the library.
+func (m *migration) migrationMarker(fqn string, written []string) string {
 	prefix := ""
 	if m.shadowsLibrary("MigrationMetadata", m.scope) {
 		prefix = "$::"
 	}
-	return "metadata " + prefix + synthesizedNameFQN + " about " + strings.Join(written, ", ") + ";"
+	return "metadata " + prefix + fqn + " about " + strings.Join(written, ", ") + ";"
 }
 
 // writtenName returns the name e's v2 declaration bears, as a query reads it back:
@@ -137,12 +153,43 @@ func (m *migration) take(owner *sysmlv1.Element, name string) {
 	m.taken[owner][name] = true
 }
 
+// identifierSuffix turns a name into the tail of a compound identifier: its
+// letters, digits and underscores, each run after a dropped rune capitalized.
+func identifierSuffix(name string) string {
+	var b strings.Builder
+	upper := true
+	for _, r := range name {
+		switch {
+		case unicode.IsLetter(r) || r == '_' || (unicode.IsDigit(r) && b.Len() > 0):
+			if upper {
+				r = unicode.ToUpper(r)
+			}
+			b.WriteRune(r)
+			upper = false
+		default:
+			upper = true
+		}
+	}
+	if b.Len() == 0 {
+		return "Signal"
+	}
+	return b.String()
+}
+
 func lowerFirst(s string) string {
 	r, n := utf8.DecodeRuneInString(s)
 	if n == 0 {
 		return s
 	}
 	return string(unicode.ToLower(r)) + s[n:]
+}
+
+func upperFirst(s string) string {
+	r, n := utf8.DecodeRuneInString(s)
+	if n == 0 {
+		return s
+	}
+	return string(unicode.ToUpper(r)) + s[n:]
 }
 
 // segments returns the v2 qualified-name segments of an element: the names
@@ -193,16 +240,66 @@ func (m *migration) path(e *sysmlv1.Element) []segment {
 			cur = op
 		}
 		segs = append([]segment{{name: m.nameFor(cur), feature: m.isUsage(cur), elem: cur}}, segs...)
+		if within, ok := m.nestedIn[cur]; ok {
+			segs = append([]segment{{name: within, feature: true}}, segs...)
+		}
 	}
 	return segs
 }
 
+// acceptSignalRef qualifies a signal reference when its name matches the payload.
+func (m *migration) acceptSignalRef(sig, scope *sysmlv1.Element, payload string) string {
+	if payload == "" {
+		return m.ref(sig, scope)
+	}
+	path := m.path(sig)
+	if payload != writeName(m.nameFor(sig)) {
+		ref := m.ref(sig, scope)
+		if strings.HasPrefix(ref, "$::") {
+			return ref
+		}
+		if leadingSegment(ref) != payload {
+			return ref
+		}
+		return "$::" + strings.TrimPrefix(m.qualifiedFrom(path, nil, false), "$::")
+	}
+	if len(path) == 1 {
+		return "$::" + writeName(path[0].name)
+	}
+	ref := m.qualifiedFrom(path, scopeChain(scope), false)
+	if writeName(path[0].name) == payload && !strings.HasPrefix(ref, "$::") {
+		return "$::" + ref
+	}
+	return ref
+}
+
+// leadingSegment is the first segment of a written reference, up to its first
+// `::` or `.` outside a quoted name.
+func leadingSegment(ref string) string {
+	quoted := false
+	for i := 0; i < len(ref); i++ {
+		switch {
+		case quoted && ref[i] == '\\':
+			i++
+		case ref[i] == '\'':
+			quoted = !quoted
+		case !quoted && (ref[i] == '.' || strings.HasPrefix(ref[i:], "::")):
+			return ref[:i]
+		}
+	}
+	return ref
+}
+
 // isUsage says whether e is written as a usage whose members are features of
-// it: a view or viewpoint, or a property. A feature owned by one is reached by
-// a feature chain, not a qualified name.
+// it: a view or viewpoint, a property, or a behavior written as its block's
+// action usage. A feature owned by one is reached by a feature chain, not a
+// qualified name.
 func (m *migration) isUsage(e *sysmlv1.Element) bool {
 	switch e.Type {
 	case "Property", "Port":
+		return true
+	}
+	if m.asUsage[e] {
 		return true
 	}
 	cat, _ := m.classify(e)
@@ -245,7 +342,13 @@ func (m *migration) hidden(name string) bool {
 // siblingRef writes a reference to a synthesized declaration named name that
 // is written beside host's members, from inside whatever is being written.
 func (m *migration) siblingRef(host *sysmlv1.Element, name string) string {
-	return m.refMember(host, name, append(m.path(host), segment{name: name}), host, false)
+	return m.synthesizedRef(host, name, host)
+}
+
+// synthesizedRef writes a reference from inside scope's body to a synthesized
+// declaration named name that is written beside host's members.
+func (m *migration) synthesizedRef(host *sysmlv1.Element, name string, scope *sysmlv1.Element) string {
+	return m.refMember(host, name, append(m.path(host), segment{name: name}), scope, false)
 }
 
 // ref writes a reference to target from inside scope's body (nil for the top

@@ -30,6 +30,9 @@ export const CROSS_DOCUMENT_CAPABILITY = "openSysmlCrossDocumentLayout";
 /** The capability the server advertises when a render request's `palette` colours each node with `fill` and `border`. */
 export const RENDER_PALETTE_CAPABILITY = "openSysmlRenderPalette";
 
+/** The capability whose value lists the drawing styles a render request's `style` draws the DOT form in, the first the default. */
+export const RENDER_STYLES_CAPABILITY = "openSysmlRenderStyles";
+
 /** The URI scheme the server locates standard-library declarations in. */
 export const STDLIB_SCHEME = "sysml-stdlib";
 
@@ -100,6 +103,19 @@ export interface RenderNode {
   /** The colours the requested palette gives the node, `#RRGGBB`, the same its DOT and PlantUML forms take; each absent where the palette leaves it black and white (a sequence participant's border), both under no palette. */
   fill?: string;
   border?: string;
+  /** The node's own Style annotation, which wins over the palette and the drawing style; `fill` and `border` already carry its colours. */
+  style?: RenderStyle;
+}
+
+/** How a Style annotation draws a node or edge: `#RRGGBB` colours and the face, size in points and weight of its text, each absent when unstated. */
+export interface RenderStyle {
+  fill?: string;
+  line?: string;
+  text?: string;
+  font?: string;
+  fontSize?: number;
+  bold?: boolean;
+  italic?: boolean;
 }
 
 /** One waypoint or corner, in the canvas's pixels, y down. */
@@ -126,6 +142,8 @@ export interface RenderEdge {
   to: string;
   label: string;
   kind: string;
+  /** The edge's own Style annotation. */
+  style?: RenderStyle;
   /** The qualified name a model edit targets the declaring connection by, in whichever workspace document declares it; absent for one with none. */
   fqn?: string;
   /** The range of the connection's declaration, in the document `origin` names, when no qualified name reaches it, as on a node. */
@@ -147,11 +165,15 @@ export interface RenderParams {
   form?: string;
   /** The palette the nodes are coloured from, by keyword family; absent draws in black and white. */
   palette?: string;
+  /** The drawing style the DOT form is drawn in, one the server lists under `openSysmlRenderStyles`; absent is its default, `pilot`. */
+  style?: string;
 }
 
 export interface RenderResult {
   view: string;
   kind: string;
+  /** The drawing style the artifact was drawn in; absent from a server predating drawing styles. */
+  style?: string;
   stated: string;
   form: string;
   artifact: string;

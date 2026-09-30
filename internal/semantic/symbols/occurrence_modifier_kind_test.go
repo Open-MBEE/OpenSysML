@@ -31,7 +31,7 @@ func TestOccurrenceModifierDecidesSymbolKind(t *testing.T) {
 		"s":  SymbolOccurrenceUsage,
 		"ts": SymbolOccurrenceUsage,
 		"ip": SymbolPartUsage,
-		"r":  SymbolAttributeUsage,
+		"r":  SymbolReferenceUsage,
 		"a":  SymbolAttributeUsage,
 	}
 	for name, kind := range want {

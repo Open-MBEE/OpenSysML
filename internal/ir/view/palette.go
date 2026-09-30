@@ -146,10 +146,19 @@ func (f *familyFills) collect(node *Node) {
 	}
 }
 
-// color is the palette colour of a node's keyword family: a qualitative
+// color is a filled node's border: its own Style's line colour, else its
+// family colour.
+func (f *familyFills) color(node *Node) string {
+	if node.Style != nil && node.Style.Line != "" {
+		return node.Style.Line
+	}
+	return f.familyColor(node)
+}
+
+// familyColor is the palette colour of a node's keyword family: a qualitative
 // palette's colour at the family's fixed rank, a sequential palette's at the
 // family's place among those present.
-func (f *familyFills) color(node *Node) string {
+func (f *familyFills) familyColor(node *Node) string {
 	family := paletteFamily(node.Kind)
 	if f.palette.Sequential() {
 		return f.palette.Color(slices.Index(f.families, family), len(f.families))
@@ -157,9 +166,13 @@ func (f *familyFills) color(node *Node) string {
 	return f.palette.Color(familyRank(family), len(paletteFamilies)+1)
 }
 
-// fill is the fill a filled node takes: its family colour, tinted for a usage.
+// fill is the fill a filled node takes: its own Style's, else its family
+// colour, tinted for a usage.
 func (f *familyFills) fill(node *Node) string {
-	return paletteFill(f.color(node), !isDefinitionKind(node.Kind))
+	if node.Style != nil && node.Style.Fill != "" {
+		return node.Style.Fill
+	}
+	return paletteFill(f.familyColor(node), !isDefinitionKind(node.Kind))
 }
 
 // Fill is the colours a palette gives one node, `#RRGGBB`: the fill of its box,

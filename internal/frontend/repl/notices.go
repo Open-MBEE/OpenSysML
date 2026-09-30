@@ -8,6 +8,7 @@ import (
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/ast"
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/parser"
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/source"
+	"github.com/Open-MBEE/OpenSysML/internal/workspace/libs"
 )
 
 // dropReport records what one submission did to a declaration already in the
@@ -77,7 +78,7 @@ func replacedReport(sn snippet, redeclared map[string]bool, newTop map[string]as
 		if name == "" {
 			continue
 		}
-		desc := renderMember(m)
+		desc := renderMember(libs.TopMemberOf(m))
 		if desc == "" {
 			desc = name
 		}
@@ -119,7 +120,7 @@ func lostMembers(om, nm ast.Node) []string {
 		}
 		_, kept := findNamed(newMembers, name)
 		if kept == nil {
-			desc := renderMember(m)
+			desc := renderMember(libs.TopMemberOf(m))
 			if desc == "" {
 				desc = name
 			}

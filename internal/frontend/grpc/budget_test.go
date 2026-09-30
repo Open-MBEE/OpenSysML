@@ -1,6 +1,7 @@
 package grpc
 
 import (
+	"context"
 	"strings"
 	"testing"
 
@@ -44,7 +45,7 @@ func TestNewServiceResolvesBudgets(t *testing.T) {
 		if err != nil {
 			t.Fatalf("NewService: %v", err)
 		}
-		ctx, _ := svc.newRuntime(&CachedModel{Index: symbols.NewIndex()})
+		ctx, _ := svc.newRuntime(context.Background(), &CachedModel{Index: symbols.NewIndex()})
 		if got := ctx.Budgets(); got != svc.budgets {
 			t.Errorf("context bounds = %+v, want the service's %+v", got, svc.budgets)
 		}

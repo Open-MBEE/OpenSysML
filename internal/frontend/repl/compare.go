@@ -49,20 +49,31 @@ type ObservablePair struct {
 // the tool's distribution of every observable beside the runs', one verdict
 // per configuration. Numbers are read as they are; nothing is scaled or tuned.
 func (s *Session) CompareResults(results *simresults.Results, opts CompareOptions) []Verdict {
+	var verdicts []Verdict
+	s.CompareResultsEach(results, opts, func(v Verdict) { verdicts = append(verdicts, v) })
+	return verdicts
+}
+
+// CompareResultsEach is CompareResults reporting each verdict to report as it is
+// decided, in the order CompareResults lists them, so a caller prints a
+// configuration's comparison while the next one runs.
+func (s *Session) CompareResultsEach(results *simresults.Results, opts CompareOptions, report func(Verdict)) {
 	defer s.enter()()
 	if results == nil || len(results.Configurations) == 0 {
-		return []Verdict{unresolvedVerdict("compare", "the results index no run configuration")}
+		report(unresolvedVerdict("compare", "the results index no run configuration"))
+		return
 	}
-	var verdicts []Verdict
 	selected, refused := opts.selection(results.Configurations)
 	for i := range results.Configurations {
 		cfg := &results.Configurations[i]
 		if len(opts.Only) > 0 && !selected[i] {
 			continue
 		}
-		verdicts = append(verdicts, s.withTrace(s.compareVerdict(cfg, results.Repeats(i), opts)))
+		report(s.withTrace(s.compareVerdict(cfg, results.Repeats(i), opts)))
 	}
-	return append(verdicts, refused...)
+	for _, v := range refused {
+		report(v)
+	}
 }
 
 // selection resolves each name of Only to the one configuration it names — by
@@ -157,7 +168,7 @@ func (s *Session) compareVerdict(cfg *simresults.ConfigurationResults, repeats [
 		v.Subject = label
 		return v
 	}
-	answered, table, err := s.runsTable(inv, count, opts.Seed, nil, policy, step)
+	answered, table, err := s.runsTable(inv, count, opts.Seed, nil, policy, step, true)
 	if err != nil {
 		return standing(unresolvedVerdict(label, "the configuration "+cfg.Name+" could not be run: "+err.Error()), answered)
 	}

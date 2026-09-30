@@ -36,12 +36,14 @@ var builtins = map[string]builtin{
 	"DocumentQueries::WhereType":       {OperationWhereType},
 	"DocumentQueries::WhereMetadata":   {OperationWhereMetadata},
 	"DocumentQueries::WhereName":       {OperationWhereName},
+	"DocumentQueries::WhereText":       {OperationWhereText},
 	"DocumentQueries::WhereFeature":    {OperationWhereFeature},
 	"DocumentQueries::OrderBy":         {OperationOrderBy},
 	"DocumentQueries::Project":         {OperationProject},
 	"DocumentQueries::WhereRelated":    {OperationWhereRelated},
 	"DocumentQueries::Except":          {OperationExcept},
 	"DocumentQueries::Union":           {OperationUnion},
+	"DocumentQueries::Tree":            {OperationTree},
 }
 
 // typedExpression pairs a compiled expression with what planning knows of its
@@ -317,8 +319,8 @@ func (c *compiler) validateDefault(
 			Kind:      ErrorDefaultMultiplicity,
 			Query:     symbols.FQNOf(query),
 			Parameter: param.Name,
-			Expected:  multiplicityString(param.Multiplicity),
-			Actual:    multiplicityString(value.multiplicity),
+			Expected:  param.Multiplicity.String(),
+			Actual:    value.multiplicity.String(),
 			Origin:    origin,
 		}
 	}
@@ -406,6 +408,15 @@ func (c *compiler) parameterMultiplicity(sym *symbols.Symbol) Multiplicity {
 			break
 		}
 	}
+	return multiplicityOf(rng)
+}
+
+// featureMultiplicity is the multiplicity governing a feature a column reads.
+func (c *compiler) featureMultiplicity(sym *symbols.Symbol) Multiplicity {
+	return multiplicityOf(c.model.GoverningMultiplicityOf(sym))
+}
+
+func multiplicityOf(rng semantics.Range) Multiplicity {
 	return Multiplicity{
 		Lower:         rng.Lower.Value,
 		Upper:         rng.Upper.Value,
@@ -1080,8 +1091,8 @@ func (c *compiler) validateArgument(
 			Query:     symbols.FQNOf(query),
 			Target:    target,
 			Parameter: param.Name,
-			Expected:  multiplicityString(param.Multiplicity),
-			Actual:    multiplicityString(value.multiplicity),
+			Expected:  param.Multiplicity.String(),
+			Actual:    value.multiplicity.String(),
 			Origin:    origin,
 		}
 	}
@@ -1204,17 +1215,6 @@ func multiplicityConforms(actual, expected Multiplicity) bool {
 		return true
 	}
 	return !actual.UpperInfinite && actual.Upper <= expected.Upper
-}
-
-func multiplicityString(multiplicity Multiplicity) string {
-	if !multiplicity.Known {
-		return "unknown"
-	}
-	upper := strconv.FormatInt(multiplicity.Upper, 10)
-	if multiplicity.UpperInfinite {
-		upper = "*"
-	}
-	return "[" + strconv.FormatInt(multiplicity.Lower, 10) + ".." + upper + "]"
 }
 
 func qualifiedNames(syms []*symbols.Symbol) []string {

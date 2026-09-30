@@ -9,6 +9,10 @@
 elmt:Results
     a sysml:Package ;
     sysml:qualifiedName "Results" ;
+    sysx:sourceLine "1"^^xsd:integer ;
+    sysx:sourceColumn "1"^^xsd:integer ;
+    sysx:sourceEndLine "95"^^xsd:integer ;
+    sysx:sourceEndColumn "2"^^xsd:integer ;
     sysml:elementId "Results" ;
     sysx:memberIndex "0"^^xsd:integer ;
     sysx:sourceLanguage "sysml" ;
@@ -26,6 +30,10 @@ elmt:Results
 elmt:Results__Real
     a sysml:AttributeDefinition ;
     sysml:qualifiedName "Results::Real" ;
+    sysx:sourceLine "2"^^xsd:integer ;
+    sysx:sourceColumn "5"^^xsd:integer ;
+    sysx:sourceEndLine "2"^^xsd:integer ;
+    sysx:sourceEndColumn "24"^^xsd:integer ;
     sysml:elementId "Results__Real" ;
     sysx:memberIndex "0"^^xsd:integer ;
     sysml:owningNamespace elmt:Results ;
@@ -49,6 +57,10 @@ elmt:Results__Real_om
 elmt:Results__Boolean
     a sysml:AttributeDefinition ;
     sysml:qualifiedName "Results::Boolean" ;
+    sysx:sourceLine "3"^^xsd:integer ;
+    sysx:sourceColumn "5"^^xsd:integer ;
+    sysx:sourceEndLine "3"^^xsd:integer ;
+    sysx:sourceEndColumn "27"^^xsd:integer ;
     sysml:elementId "Results__Boolean" ;
     sysx:memberIndex "1"^^xsd:integer ;
     sysml:owningNamespace elmt:Results ;
@@ -72,6 +84,10 @@ elmt:Results__Boolean_om
 elmt:Results__Double
     a sysml:CalculationDefinition ;
     sysml:qualifiedName "Results::Double" ;
+    sysx:sourceLine "4"^^xsd:integer ;
+    sysx:sourceColumn "5"^^xsd:integer ;
+    sysx:sourceEndLine "7"^^xsd:integer ;
+    sysx:sourceEndColumn "6"^^xsd:integer ;
     sysml:elementId "Results__Double" ;
     sysx:memberIndex "2"^^xsd:integer ;
     sysml:owningNamespace elmt:Results ;
@@ -106,6 +122,10 @@ elmt:Results__Double_om
 elmt:Results__Double__x
     a sysml:ReferenceUsage ;
     sysml:qualifiedName "Results::Double::x" ;
+    sysx:sourceLine "5"^^xsd:integer ;
+    sysx:sourceColumn "9"^^xsd:integer ;
+    sysx:sourceEndLine "5"^^xsd:integer ;
+    sysx:sourceEndColumn "21"^^xsd:integer ;
     sysml:elementId "Results__Double__x" ;
     sysx:memberIndex "0"^^xsd:integer ;
     sysml:owningNamespace elmt:Results__Double ;
@@ -137,6 +157,10 @@ elmt:Results__Double__x_om
 elmt:Results__Double___401
     a sysml:OperatorExpression ;
     sysml:qualifiedName "Results::Double::@1" ;
+    sysx:sourceLine "6"^^xsd:integer ;
+    sysx:sourceColumn "9"^^xsd:integer ;
+    sysx:sourceEndLine "6"^^xsd:integer ;
+    sysx:sourceEndColumn "14"^^xsd:integer ;
     sysml:elementId "Results__Double___401" ;
     sysx:memberIndex "1"^^xsd:integer ;
     sysml:owningNamespace elmt:Results__Double ;
@@ -310,6 +334,10 @@ expr:Results__Double___401_pout_om
 elmt:Results__Only
     a sysml:CalculationDefinition ;
     sysml:qualifiedName "Results::Only" ;
+    sysx:sourceLine "8"^^xsd:integer ;
+    sysx:sourceColumn "5"^^xsd:integer ;
+    sysx:sourceEndLine "10"^^xsd:integer ;
+    sysx:sourceEndColumn "6"^^xsd:integer ;
     sysml:elementId "Results__Only" ;
     sysx:memberIndex "3"^^xsd:integer ;
     sysml:owningNamespace elmt:Results ;
@@ -339,6 +367,10 @@ elmt:Results__Only_om
 elmt:Results__Only___400
     a sysml:LiteralInteger ;
     sysml:qualifiedName "Results::Only::@0" ;
+    sysx:sourceLine "9"^^xsd:integer ;
+    sysx:sourceColumn "9"^^xsd:integer ;
+    sysx:sourceEndLine "9"^^xsd:integer ;
+    sysx:sourceEndColumn "11"^^xsd:integer ;
     sysml:elementId "Results__Only___400" ;
     sysx:memberIndex "0"^^xsd:integer ;
     sysml:owningNamespace elmt:Results__Only ;
@@ -364,6 +396,10 @@ elmt:Results__Only___400_om
 elmt:Results__AfterMembers
     a sysml:CalculationDefinition ;
     sysml:qualifiedName "Results::AfterMembers" ;
+    sysx:sourceLine "11"^^xsd:integer ;
+    sysx:sourceColumn "5"^^xsd:integer ;
+    sysx:sourceEndLine "16"^^xsd:integer ;
+    sysx:sourceEndColumn "6"^^xsd:integer ;
     sysml:elementId "Results__AfterMembers" ;
     sysx:memberIndex "4"^^xsd:integer ;
     sysml:owningNamespace elmt:Results ;
@@ -398,6 +434,10 @@ elmt:Results__AfterMembers_om
 elmt:Results__AfterMembers__x
     a sysml:ReferenceUsage ;
     sysml:qualifiedName "Results::AfterMembers::x" ;
+    sysx:sourceLine "12"^^xsd:integer ;
+    sysx:sourceColumn "9"^^xsd:integer ;
+    sysx:sourceEndLine "12"^^xsd:integer ;
+    sysx:sourceEndColumn "21"^^xsd:integer ;
     sysml:elementId "Results__AfterMembers__x" ;
     sysx:memberIndex "0"^^xsd:integer ;
     sysml:owningNamespace elmt:Results__AfterMembers ;
@@ -429,13 +469,17 @@ elmt:Results__AfterMembers__x_om
 elmt:Results__AfterMembers___401
     a sysml:Documentation ;
     sysml:qualifiedName "Results::AfterMembers::@1" ;
+    sysx:sourceLine "13"^^xsd:integer ;
+    sysx:sourceColumn "9"^^xsd:integer ;
+    sysx:sourceEndLine "13"^^xsd:integer ;
+    sysx:sourceEndColumn "29"^^xsd:integer ;
     sysml:elementId "Results__AfterMembers___401" ;
     sysx:memberIndex "1"^^xsd:integer ;
     sysml:owningNamespace elmt:Results__AfterMembers ;
     sysml:owner elmt:Results__AfterMembers ;
     sysml:owningRelationship elmt:Results__AfterMembers___401_om ;
     sysml:owningMembership elmt:Results__AfterMembers___401_om ;
-    sysml:body " the answer " ;
+    sysml:body "the answer " ;
     sysx:sourceText "        doc /* the answer */\n" .
 
 elmt:Results__AfterMembers___401_om
@@ -451,6 +495,10 @@ elmt:Results__AfterMembers___401_om
 elmt:Results__AfterMembers__y
     a sysml:AttributeUsage ;
     sysml:qualifiedName "Results::AfterMembers::y" ;
+    sysx:sourceLine "14"^^xsd:integer ;
+    sysx:sourceColumn "9"^^xsd:integer ;
+    sysx:sourceEndLine "14"^^xsd:integer ;
+    sysx:sourceEndColumn "36"^^xsd:integer ;
     sysml:elementId "Results__AfterMembers__y" ;
     sysx:memberIndex "2"^^xsd:integer ;
     sysml:owningNamespace elmt:Results__AfterMembers ;
@@ -652,6 +700,10 @@ expr:Results__AfterMembers__y_pvalue_om
 elmt:Results__AfterMembers___403
     a sysml:OperatorExpression ;
     sysml:qualifiedName "Results::AfterMembers::@3" ;
+    sysx:sourceLine "15"^^xsd:integer ;
+    sysx:sourceColumn "9"^^xsd:integer ;
+    sysx:sourceEndLine "15"^^xsd:integer ;
+    sysx:sourceEndColumn "14"^^xsd:integer ;
     sysml:elementId "Results__AfterMembers___403" ;
     sysx:memberIndex "3"^^xsd:integer ;
     sysml:owningNamespace elmt:Results__AfterMembers ;
@@ -852,6 +904,10 @@ expr:Results__AfterMembers___403_pout_om
 elmt:Results__Body
     a sysml:CalculationDefinition ;
     sysml:qualifiedName "Results::Body" ;
+    sysx:sourceLine "17"^^xsd:integer ;
+    sysx:sourceColumn "5"^^xsd:integer ;
+    sysx:sourceEndLine "20"^^xsd:integer ;
+    sysx:sourceEndColumn "6"^^xsd:integer ;
     sysml:elementId "Results__Body" ;
     sysx:memberIndex "5"^^xsd:integer ;
     sysml:owningNamespace elmt:Results ;
@@ -886,6 +942,10 @@ elmt:Results__Body_om
 elmt:Results__Body__x
     a sysml:ReferenceUsage ;
     sysml:qualifiedName "Results::Body::x" ;
+    sysx:sourceLine "18"^^xsd:integer ;
+    sysx:sourceColumn "9"^^xsd:integer ;
+    sysx:sourceEndLine "18"^^xsd:integer ;
+    sysx:sourceEndColumn "21"^^xsd:integer ;
     sysml:elementId "Results__Body__x" ;
     sysx:memberIndex "0"^^xsd:integer ;
     sysml:owningNamespace elmt:Results__Body ;
@@ -917,6 +977,10 @@ elmt:Results__Body__x_om
 elmt:Results__Body___401
     a sysml:FeatureReferenceExpression ;
     sysml:qualifiedName "Results::Body::@1" ;
+    sysx:sourceLine "19"^^xsd:integer ;
+    sysx:sourceColumn "9"^^xsd:integer ;
+    sysx:sourceEndLine "19"^^xsd:integer ;
+    sysx:sourceEndColumn "31"^^xsd:integer ;
     sysml:elementId "Results__Body___401" ;
     sysx:memberIndex "1"^^xsd:integer ;
     sysml:owningNamespace elmt:Results__Body ;
@@ -1219,6 +1283,10 @@ expr:Results__Body___401_pout_om
 elmt:Results__Quoted
     a sysml:CalculationDefinition ;
     sysml:qualifiedName "Results::Quoted" ;
+    sysx:sourceLine "21"^^xsd:integer ;
+    sysx:sourceColumn "5"^^xsd:integer ;
+    sysx:sourceEndLine "24"^^xsd:integer ;
+    sysx:sourceEndColumn "6"^^xsd:integer ;
     sysml:elementId "Results__Quoted" ;
     sysx:memberIndex "6"^^xsd:integer ;
     sysml:owningNamespace elmt:Results ;
@@ -1253,6 +1321,10 @@ elmt:Results__Quoted_om
 elmt:Results__Quoted__x
     a sysml:ReferenceUsage ;
     sysml:qualifiedName "Results::Quoted::x" ;
+    sysx:sourceLine "22"^^xsd:integer ;
+    sysx:sourceColumn "9"^^xsd:integer ;
+    sysx:sourceEndLine "22"^^xsd:integer ;
+    sysx:sourceEndColumn "21"^^xsd:integer ;
     sysml:elementId "Results__Quoted__x" ;
     sysx:memberIndex "0"^^xsd:integer ;
     sysml:owningNamespace elmt:Results__Quoted ;
@@ -1284,6 +1356,10 @@ elmt:Results__Quoted__x_om
 elmt:Results__Quoted___401
     a sysml:FeatureReferenceExpression ;
     sysml:qualifiedName "Results::Quoted::@1" ;
+    sysx:sourceLine "23"^^xsd:integer ;
+    sysx:sourceColumn "9"^^xsd:integer ;
+    sysx:sourceEndLine "23"^^xsd:integer ;
+    sysx:sourceEndColumn "51"^^xsd:integer ;
     sysml:elementId "Results__Quoted___401" ;
     sysx:memberIndex "1"^^xsd:integer ;
     sysml:owningNamespace elmt:Results__Quoted ;
@@ -1586,6 +1662,10 @@ expr:Results__Quoted___401_pout_om
 elmt:Results__Nested
     a sysml:CalculationDefinition ;
     sysml:qualifiedName "Results::Nested" ;
+    sysx:sourceLine "25"^^xsd:integer ;
+    sysx:sourceColumn "5"^^xsd:integer ;
+    sysx:sourceEndLine "28"^^xsd:integer ;
+    sysx:sourceEndColumn "6"^^xsd:integer ;
     sysml:elementId "Results__Nested" ;
     sysx:memberIndex "7"^^xsd:integer ;
     sysml:owningNamespace elmt:Results ;
@@ -1620,6 +1700,10 @@ elmt:Results__Nested_om
 elmt:Results__Nested__x
     a sysml:ReferenceUsage ;
     sysml:qualifiedName "Results::Nested::x" ;
+    sysx:sourceLine "26"^^xsd:integer ;
+    sysx:sourceColumn "9"^^xsd:integer ;
+    sysx:sourceEndLine "26"^^xsd:integer ;
+    sysx:sourceEndColumn "21"^^xsd:integer ;
     sysml:elementId "Results__Nested__x" ;
     sysx:memberIndex "0"^^xsd:integer ;
     sysml:owningNamespace elmt:Results__Nested ;
@@ -1651,6 +1735,10 @@ elmt:Results__Nested__x_om
 elmt:Results__Nested___401
     a sysml:FeatureReferenceExpression ;
     sysml:qualifiedName "Results::Nested::@1" ;
+    sysx:sourceLine "27"^^xsd:integer ;
+    sysx:sourceColumn "9"^^xsd:integer ;
+    sysx:sourceEndLine "27"^^xsd:integer ;
+    sysx:sourceEndColumn "60"^^xsd:integer ;
     sysml:elementId "Results__Nested___401" ;
     sysx:memberIndex "1"^^xsd:integer ;
     sysml:owningNamespace elmt:Results__Nested ;
@@ -2139,6 +2227,10 @@ expr:Results__Nested___401_pout_om
 elmt:Results__Documented
     a sysml:CalculationDefinition ;
     sysml:qualifiedName "Results::Documented" ;
+    sysx:sourceLine "29"^^xsd:integer ;
+    sysx:sourceColumn "5"^^xsd:integer ;
+    sysx:sourceEndLine "32"^^xsd:integer ;
+    sysx:sourceEndColumn "6"^^xsd:integer ;
     sysml:elementId "Results__Documented" ;
     sysx:memberIndex "8"^^xsd:integer ;
     sysml:owningNamespace elmt:Results ;
@@ -2173,6 +2265,10 @@ elmt:Results__Documented_om
 elmt:Results__Documented__x
     a sysml:ReferenceUsage ;
     sysml:qualifiedName "Results::Documented::x" ;
+    sysx:sourceLine "30"^^xsd:integer ;
+    sysx:sourceColumn "9"^^xsd:integer ;
+    sysx:sourceEndLine "30"^^xsd:integer ;
+    sysx:sourceEndColumn "21"^^xsd:integer ;
     sysml:elementId "Results__Documented__x" ;
     sysx:memberIndex "0"^^xsd:integer ;
     sysml:owningNamespace elmt:Results__Documented ;
@@ -2204,6 +2300,10 @@ elmt:Results__Documented__x_om
 elmt:Results__Documented___401
     a sysml:FeatureReferenceExpression ;
     sysml:qualifiedName "Results::Documented::@1" ;
+    sysx:sourceLine "31"^^xsd:integer ;
+    sysx:sourceColumn "9"^^xsd:integer ;
+    sysx:sourceEndLine "31"^^xsd:integer ;
+    sysx:sourceEndColumn "62"^^xsd:integer ;
     sysml:elementId "Results__Documented___401" ;
     sysx:memberIndex "1"^^xsd:integer ;
     sysml:owningNamespace elmt:Results__Documented ;
@@ -2268,7 +2368,7 @@ expr:Results__Documented___401_pm0
     a sysml:Documentation ;
     sysml:elementId "Results__Documented___401_pm0" ;
     sysx:memberIndex "0"^^xsd:integer ;
-    sysml:body " the parameter, unchanged " ;
+    sysml:body "the parameter, unchanged " ;
     sysml:owner expr:Results__Documented___401_pbody ;
     sysml:owningRelationship expr:Results__Documented___401_pm0_om ;
     sysml:owningMembership expr:Results__Documented___401_pm0_om .
@@ -2378,6 +2478,10 @@ expr:Results__Documented___401_pout_om
 elmt:Results__Passes
     a sysml:CalculationDefinition ;
     sysml:qualifiedName "Results::Passes" ;
+    sysx:sourceLine "33"^^xsd:integer ;
+    sysx:sourceColumn "5"^^xsd:integer ;
+    sysx:sourceEndLine "36"^^xsd:integer ;
+    sysx:sourceEndColumn "6"^^xsd:integer ;
     sysml:elementId "Results__Passes" ;
     sysx:memberIndex "9"^^xsd:integer ;
     sysml:owningNamespace elmt:Results ;
@@ -2412,6 +2516,10 @@ elmt:Results__Passes_om
 elmt:Results__Passes__ok
     a sysml:ReferenceUsage ;
     sysml:qualifiedName "Results::Passes::ok" ;
+    sysx:sourceLine "34"^^xsd:integer ;
+    sysx:sourceColumn "9"^^xsd:integer ;
+    sysx:sourceEndLine "34"^^xsd:integer ;
+    sysx:sourceEndColumn "25"^^xsd:integer ;
     sysml:elementId "Results__Passes__ok" ;
     sysx:memberIndex "0"^^xsd:integer ;
     sysml:owningNamespace elmt:Results__Passes ;
@@ -2443,6 +2551,10 @@ elmt:Results__Passes__ok_om
 elmt:Results__Passes___401
     a sysml:FeatureReferenceExpression ;
     sysml:qualifiedName "Results::Passes::@1" ;
+    sysx:sourceLine "35"^^xsd:integer ;
+    sysx:sourceColumn "9"^^xsd:integer ;
+    sysx:sourceEndLine "35"^^xsd:integer ;
+    sysx:sourceEndColumn "11"^^xsd:integer ;
     sysml:elementId "Results__Passes___401" ;
     sysx:memberIndex "1"^^xsd:integer ;
     sysml:owningNamespace elmt:Results__Passes ;
@@ -2495,6 +2607,10 @@ expr:Results__Passes___401_pout_om
 elmt:Results__Says
     a sysml:CalculationDefinition ;
     sysml:qualifiedName "Results::Says" ;
+    sysx:sourceLine "37"^^xsd:integer ;
+    sysx:sourceColumn "5"^^xsd:integer ;
+    sysx:sourceEndLine "39"^^xsd:integer ;
+    sysx:sourceEndColumn "6"^^xsd:integer ;
     sysml:elementId "Results__Says" ;
     sysx:memberIndex "10"^^xsd:integer ;
     sysml:owningNamespace elmt:Results ;
@@ -2524,6 +2640,10 @@ elmt:Results__Says_om
 elmt:Results__Says___400
     a sysml:LiteralString ;
     sysml:qualifiedName "Results::Says::@0" ;
+    sysx:sourceLine "38"^^xsd:integer ;
+    sysx:sourceColumn "9"^^xsd:integer ;
+    sysx:sourceEndLine "38"^^xsd:integer ;
+    sysx:sourceEndColumn "33"^^xsd:integer ;
     sysml:elementId "Results__Says___400" ;
     sysx:memberIndex "0"^^xsd:integer ;
     sysml:owningNamespace elmt:Results__Says ;
@@ -2549,6 +2669,10 @@ elmt:Results__Says___400_om
 elmt:Results__Empty
     a sysml:CalculationDefinition ;
     sysml:qualifiedName "Results::Empty" ;
+    sysx:sourceLine "40"^^xsd:integer ;
+    sysx:sourceColumn "5"^^xsd:integer ;
+    sysx:sourceEndLine "43"^^xsd:integer ;
+    sysx:sourceEndColumn "6"^^xsd:integer ;
     sysml:elementId "Results__Empty" ;
     sysx:memberIndex "11"^^xsd:integer ;
     sysml:owningNamespace elmt:Results ;
@@ -2583,6 +2707,10 @@ elmt:Results__Empty_om
 elmt:Results__Empty__x
     a sysml:ReferenceUsage ;
     sysml:qualifiedName "Results::Empty::x" ;
+    sysx:sourceLine "41"^^xsd:integer ;
+    sysx:sourceColumn "9"^^xsd:integer ;
+    sysx:sourceEndLine "41"^^xsd:integer ;
+    sysx:sourceEndColumn "21"^^xsd:integer ;
     sysml:elementId "Results__Empty__x" ;
     sysx:memberIndex "0"^^xsd:integer ;
     sysml:owningNamespace elmt:Results__Empty ;
@@ -2614,6 +2742,10 @@ elmt:Results__Empty__x_om
 elmt:Results__Empty___401
     a sysml:FeatureReferenceExpression ;
     sysml:qualifiedName "Results::Empty::@1" ;
+    sysx:sourceLine "42"^^xsd:integer ;
+    sysx:sourceColumn "9"^^xsd:integer ;
+    sysx:sourceEndLine "42"^^xsd:integer ;
+    sysx:sourceEndColumn "11"^^xsd:integer ;
     sysml:elementId "Results__Empty___401" ;
     sysx:memberIndex "1"^^xsd:integer ;
     sysml:owningNamespace elmt:Results__Empty ;
@@ -2688,6 +2820,10 @@ expr:Results__Empty___401_pout_om
 elmt:Results__Named
     a sysml:CalculationDefinition ;
     sysml:qualifiedName "Results::Named" ;
+    sysx:sourceLine "44"^^xsd:integer ;
+    sysx:sourceColumn "5"^^xsd:integer ;
+    sysx:sourceEndLine "47"^^xsd:integer ;
+    sysx:sourceEndColumn "6"^^xsd:integer ;
     sysml:elementId "Results__Named" ;
     sysx:memberIndex "12"^^xsd:integer ;
     sysml:owningNamespace elmt:Results ;
@@ -2722,6 +2858,10 @@ elmt:Results__Named_om
 elmt:Results__Named__x
     a sysml:ReferenceUsage ;
     sysml:qualifiedName "Results::Named::x" ;
+    sysx:sourceLine "45"^^xsd:integer ;
+    sysx:sourceColumn "9"^^xsd:integer ;
+    sysx:sourceEndLine "45"^^xsd:integer ;
+    sysx:sourceEndColumn "21"^^xsd:integer ;
     sysml:elementId "Results__Named__x" ;
     sysx:memberIndex "0"^^xsd:integer ;
     sysml:owningNamespace elmt:Results__Named ;
@@ -2753,6 +2893,10 @@ elmt:Results__Named__x_om
 elmt:Results__Named___401
     a sysml:InvocationExpression ;
     sysml:qualifiedName "Results::Named::@1" ;
+    sysx:sourceLine "46"^^xsd:integer ;
+    sysx:sourceColumn "9"^^xsd:integer ;
+    sysx:sourceEndLine "46"^^xsd:integer ;
+    sysx:sourceEndColumn "32"^^xsd:integer ;
     sysml:elementId "Results__Named___401" ;
     sysx:memberIndex "1"^^xsd:integer ;
     sysml:owningNamespace elmt:Results__Named ;
@@ -2889,6 +3033,10 @@ expr:Results__Named___401_pout_om
 elmt:Results__Scaled
     a sysml:CalculationDefinition ;
     sysml:qualifiedName "Results::Scaled" ;
+    sysx:sourceLine "48"^^xsd:integer ;
+    sysx:sourceColumn "5"^^xsd:integer ;
+    sysx:sourceEndLine "51"^^xsd:integer ;
+    sysx:sourceEndColumn "6"^^xsd:integer ;
     sysml:elementId "Results__Scaled" ;
     sysx:memberIndex "13"^^xsd:integer ;
     sysml:owningNamespace elmt:Results ;
@@ -2923,6 +3071,10 @@ elmt:Results__Scaled_om
 elmt:Results__Scaled__x
     a sysml:ReferenceUsage ;
     sysml:qualifiedName "Results::Scaled::x" ;
+    sysx:sourceLine "49"^^xsd:integer ;
+    sysx:sourceColumn "9"^^xsd:integer ;
+    sysx:sourceEndLine "49"^^xsd:integer ;
+    sysx:sourceEndColumn "21"^^xsd:integer ;
     sysml:elementId "Results__Scaled__x" ;
     sysx:memberIndex "0"^^xsd:integer ;
     sysml:owningNamespace elmt:Results__Scaled ;
@@ -2954,6 +3106,10 @@ elmt:Results__Scaled__x_om
 elmt:Results__Scaled___401
     a sysml:OperatorExpression ;
     sysml:qualifiedName "Results::Scaled::@1" ;
+    sysx:sourceLine "50"^^xsd:integer ;
+    sysx:sourceColumn "9"^^xsd:integer ;
+    sysx:sourceEndLine "50"^^xsd:integer ;
+    sysx:sourceEndColumn "18"^^xsd:integer ;
     sysml:elementId "Results__Scaled___401" ;
     sysx:memberIndex "1"^^xsd:integer ;
     sysml:owningNamespace elmt:Results__Scaled ;
@@ -3127,6 +3283,10 @@ expr:Results__Scaled___401_pout_om
 elmt:Results__Predicate
     a sysml:CalculationDefinition ;
     sysml:qualifiedName "Results::Predicate" ;
+    sysx:sourceLine "52"^^xsd:integer ;
+    sysx:sourceColumn "5"^^xsd:integer ;
+    sysx:sourceEndLine "57"^^xsd:integer ;
+    sysx:sourceEndColumn "6"^^xsd:integer ;
     sysml:elementId "Results__Predicate" ;
     sysx:memberIndex "14"^^xsd:integer ;
     sysml:owningNamespace elmt:Results ;
@@ -3161,6 +3321,10 @@ elmt:Results__Predicate_om
 elmt:Results__Predicate__x
     a sysml:ReferenceUsage ;
     sysml:qualifiedName "Results::Predicate::x" ;
+    sysx:sourceLine "53"^^xsd:integer ;
+    sysx:sourceColumn "9"^^xsd:integer ;
+    sysx:sourceEndLine "53"^^xsd:integer ;
+    sysx:sourceEndColumn "21"^^xsd:integer ;
     sysml:elementId "Results__Predicate__x" ;
     sysx:memberIndex "0"^^xsd:integer ;
     sysml:owningNamespace elmt:Results__Predicate ;
@@ -3192,6 +3356,10 @@ elmt:Results__Predicate__x_om
 elmt:Results__Predicate__keep
     a sysml:Expression ;
     sysml:qualifiedName "Results::Predicate::keep" ;
+    sysx:sourceLine "54"^^xsd:integer ;
+    sysx:sourceColumn "9"^^xsd:integer ;
+    sysx:sourceEndLine "54"^^xsd:integer ;
+    sysx:sourceEndColumn "54"^^xsd:integer ;
     sysml:elementId "Results__Predicate__keep" ;
     sysx:memberIndex "1"^^xsd:integer ;
     sysml:owningNamespace elmt:Results__Predicate ;
@@ -3231,6 +3399,10 @@ elmt:Results__Predicate__keep_om
 elmt:Results__Predicate__keep__v
     a sysml:ReferenceUsage ;
     sysml:qualifiedName "Results::Predicate::keep::v" ;
+    sysx:sourceLine "54"^^xsd:integer ;
+    sysx:sourceColumn "34"^^xsd:integer ;
+    sysx:sourceEndLine "54"^^xsd:integer ;
+    sysx:sourceEndColumn "46"^^xsd:integer ;
     sysml:elementId "Results__Predicate__keep__v" ;
     sysx:memberIndex "0"^^xsd:integer ;
     sysml:owningNamespace elmt:Results__Predicate__keep ;
@@ -3261,6 +3433,10 @@ elmt:Results__Predicate__keep__v_om
 elmt:Results__Predicate__keep___401
     a sysml:OperatorExpression ;
     sysml:qualifiedName "Results::Predicate::keep::@1" ;
+    sysx:sourceLine "54"^^xsd:integer ;
+    sysx:sourceColumn "47"^^xsd:integer ;
+    sysx:sourceEndLine "54"^^xsd:integer ;
+    sysx:sourceEndColumn "52"^^xsd:integer ;
     sysml:elementId "Results__Predicate__keep___401" ;
     sysx:memberIndex "1"^^xsd:integer ;
     sysml:owningNamespace elmt:Results__Predicate__keep ;
@@ -3460,6 +3636,10 @@ expr:Results__Predicate__keep___401_pout_om
 elmt:Results__Predicate__always
     a sysml:Expression ;
     sysml:qualifiedName "Results::Predicate::always" ;
+    sysx:sourceLine "55"^^xsd:integer ;
+    sysx:sourceColumn "9"^^xsd:integer ;
+    sysx:sourceEndLine "55"^^xsd:integer ;
+    sysx:sourceEndColumn "32"^^xsd:integer ;
     sysml:elementId "Results__Predicate__always" ;
     sysx:memberIndex "2"^^xsd:integer ;
     sysml:owningNamespace elmt:Results__Predicate ;
@@ -3491,6 +3671,10 @@ elmt:Results__Predicate__always_om
 elmt:Results__Predicate__always___400
     a sysml:LiteralBoolean ;
     sysml:qualifiedName "Results::Predicate::always::@0" ;
+    sysx:sourceLine "55"^^xsd:integer ;
+    sysx:sourceColumn "26"^^xsd:integer ;
+    sysx:sourceEndLine "55"^^xsd:integer ;
+    sysx:sourceEndColumn "30"^^xsd:integer ;
     sysml:elementId "Results__Predicate__always___400" ;
     sysx:memberIndex "0"^^xsd:integer ;
     sysml:owningNamespace elmt:Results__Predicate__always ;
@@ -3515,6 +3699,10 @@ elmt:Results__Predicate__always___400_om
 elmt:Results__Predicate___403
     a sysml:InvocationExpression ;
     sysml:qualifiedName "Results::Predicate::@3" ;
+    sysx:sourceLine "56"^^xsd:integer ;
+    sysx:sourceColumn "9"^^xsd:integer ;
+    sysx:sourceEndLine "56"^^xsd:integer ;
+    sysx:sourceEndColumn "16"^^xsd:integer ;
     sysml:elementId "Results__Predicate___403" ;
     sysx:memberIndex "3"^^xsd:integer ;
     sysml:owningNamespace elmt:Results__Predicate ;
@@ -3650,6 +3838,10 @@ expr:Results__Predicate___403_pout_om
 elmt:Results__Chained
     a sysml:CalculationDefinition ;
     sysml:qualifiedName "Results::Chained" ;
+    sysx:sourceLine "58"^^xsd:integer ;
+    sysx:sourceColumn "5"^^xsd:integer ;
+    sysx:sourceEndLine "61"^^xsd:integer ;
+    sysx:sourceEndColumn "6"^^xsd:integer ;
     sysml:elementId "Results__Chained" ;
     sysx:memberIndex "15"^^xsd:integer ;
     sysml:owningNamespace elmt:Results ;
@@ -3684,6 +3876,10 @@ elmt:Results__Chained_om
 elmt:Results__Chained__x
     a sysml:ReferenceUsage ;
     sysml:qualifiedName "Results::Chained::x" ;
+    sysx:sourceLine "59"^^xsd:integer ;
+    sysx:sourceColumn "9"^^xsd:integer ;
+    sysx:sourceEndLine "59"^^xsd:integer ;
+    sysx:sourceEndColumn "21"^^xsd:integer ;
     sysml:elementId "Results__Chained__x" ;
     sysx:memberIndex "0"^^xsd:integer ;
     sysml:owningNamespace elmt:Results__Chained ;
@@ -3715,6 +3911,10 @@ elmt:Results__Chained__x_om
 elmt:Results__Chained___401
     a sysml:FeatureChainExpression ;
     sysml:qualifiedName "Results::Chained::@1" ;
+    sysx:sourceLine "60"^^xsd:integer ;
+    sysx:sourceColumn "9"^^xsd:integer ;
+    sysx:sourceEndLine "60"^^xsd:integer ;
+    sysx:sourceEndColumn "37"^^xsd:integer ;
     sysml:elementId "Results__Chained___401" ;
     sysx:memberIndex "1"^^xsd:integer ;
     sysml:owningNamespace elmt:Results__Chained ;
@@ -4010,6 +4210,10 @@ expr:Results__Chained___401_pout_om
 elmt:Results__Conditional
     a sysml:CalculationDefinition ;
     sysml:qualifiedName "Results::Conditional" ;
+    sysx:sourceLine "62"^^xsd:integer ;
+    sysx:sourceColumn "5"^^xsd:integer ;
+    sysx:sourceEndLine "65"^^xsd:integer ;
+    sysx:sourceEndColumn "6"^^xsd:integer ;
     sysml:elementId "Results__Conditional" ;
     sysx:memberIndex "16"^^xsd:integer ;
     sysml:owningNamespace elmt:Results ;
@@ -4044,6 +4248,10 @@ elmt:Results__Conditional_om
 elmt:Results__Conditional__x
     a sysml:ReferenceUsage ;
     sysml:qualifiedName "Results::Conditional::x" ;
+    sysx:sourceLine "63"^^xsd:integer ;
+    sysx:sourceColumn "9"^^xsd:integer ;
+    sysx:sourceEndLine "63"^^xsd:integer ;
+    sysx:sourceEndColumn "21"^^xsd:integer ;
     sysml:elementId "Results__Conditional__x" ;
     sysx:memberIndex "0"^^xsd:integer ;
     sysml:owningNamespace elmt:Results__Conditional ;
@@ -4075,6 +4283,10 @@ elmt:Results__Conditional__x_om
 elmt:Results__Conditional___401
     a sysml:OperatorExpression ;
     sysml:qualifiedName "Results::Conditional::@1" ;
+    sysx:sourceLine "64"^^xsd:integer ;
+    sysx:sourceColumn "9"^^xsd:integer ;
+    sysx:sourceEndLine "64"^^xsd:integer ;
+    sysx:sourceEndColumn "29"^^xsd:integer ;
     sysml:elementId "Results__Conditional___401" ;
     sysx:memberIndex "1"^^xsd:integer ;
     sysml:owningNamespace elmt:Results__Conditional ;
@@ -4542,6 +4754,10 @@ expr:Results__Conditional___401_pout_om
 elmt:Results__Widened
     a sysml:CalculationDefinition ;
     sysml:qualifiedName "Results::Widened" ;
+    sysx:sourceLine "66"^^xsd:integer ;
+    sysx:sourceColumn "5"^^xsd:integer ;
+    sysx:sourceEndLine "69"^^xsd:integer ;
+    sysx:sourceEndColumn "6"^^xsd:integer ;
     sysml:elementId "Results__Widened" ;
     sysx:memberIndex "17"^^xsd:integer ;
     sysml:owningNamespace elmt:Results ;
@@ -4576,6 +4792,10 @@ elmt:Results__Widened_om
 elmt:Results__Widened__x
     a sysml:ReferenceUsage ;
     sysml:qualifiedName "Results::Widened::x" ;
+    sysx:sourceLine "67"^^xsd:integer ;
+    sysx:sourceColumn "9"^^xsd:integer ;
+    sysx:sourceEndLine "67"^^xsd:integer ;
+    sysx:sourceEndColumn "21"^^xsd:integer ;
     sysml:elementId "Results__Widened__x" ;
     sysx:memberIndex "0"^^xsd:integer ;
     sysml:owningNamespace elmt:Results__Widened ;
@@ -4607,6 +4827,10 @@ elmt:Results__Widened__x_om
 elmt:Results__Widened___401
     a sysml:OperatorExpression ;
     sysml:qualifiedName "Results::Widened::@1" ;
+    sysx:sourceLine "68"^^xsd:integer ;
+    sysx:sourceColumn "9"^^xsd:integer ;
+    sysx:sourceEndLine "68"^^xsd:integer ;
+    sysx:sourceEndColumn "21"^^xsd:integer ;
     sysml:elementId "Results__Widened___401" ;
     sysx:memberIndex "1"^^xsd:integer ;
     sysml:owningNamespace elmt:Results__Widened ;
@@ -4744,6 +4968,10 @@ expr:Results__Widened___401_pout_om
 elmt:Results__Ranged
     a sysml:CalculationDefinition ;
     sysml:qualifiedName "Results::Ranged" ;
+    sysx:sourceLine "70"^^xsd:integer ;
+    sysx:sourceColumn "5"^^xsd:integer ;
+    sysx:sourceEndLine "73"^^xsd:integer ;
+    sysx:sourceEndColumn "6"^^xsd:integer ;
     sysml:elementId "Results__Ranged" ;
     sysx:memberIndex "18"^^xsd:integer ;
     sysml:owningNamespace elmt:Results ;
@@ -4778,6 +5006,10 @@ elmt:Results__Ranged_om
 elmt:Results__Ranged__x
     a sysml:ReferenceUsage ;
     sysml:qualifiedName "Results::Ranged::x" ;
+    sysx:sourceLine "71"^^xsd:integer ;
+    sysx:sourceColumn "9"^^xsd:integer ;
+    sysx:sourceEndLine "71"^^xsd:integer ;
+    sysx:sourceEndColumn "21"^^xsd:integer ;
     sysml:elementId "Results__Ranged__x" ;
     sysx:memberIndex "0"^^xsd:integer ;
     sysml:owningNamespace elmt:Results__Ranged ;
@@ -4809,6 +5041,10 @@ elmt:Results__Ranged__x_om
 elmt:Results__Ranged___401
     a sysml:OperatorExpression ;
     sysml:qualifiedName "Results::Ranged::@1" ;
+    sysx:sourceLine "72"^^xsd:integer ;
+    sysx:sourceColumn "9"^^xsd:integer ;
+    sysx:sourceEndLine "72"^^xsd:integer ;
+    sysx:sourceEndColumn "24"^^xsd:integer ;
     sysml:elementId "Results__Ranged___401" ;
     sysx:memberIndex "1"^^xsd:integer ;
     sysml:owningNamespace elmt:Results__Ranged ;
@@ -4968,6 +5204,10 @@ expr:Results__Ranged___401_pout_om
 elmt:Results__Vehicle
     a sysml:PartDefinition ;
     sysml:qualifiedName "Results::Vehicle" ;
+    sysx:sourceLine "74"^^xsd:integer ;
+    sysx:sourceColumn "5"^^xsd:integer ;
+    sysx:sourceEndLine "76"^^xsd:integer ;
+    sysx:sourceEndColumn "6"^^xsd:integer ;
     sysml:elementId "Results__Vehicle" ;
     sysx:memberIndex "19"^^xsd:integer ;
     sysml:owningNamespace elmt:Results ;
@@ -4997,6 +5237,10 @@ elmt:Results__Vehicle_om
 elmt:Results__Vehicle__mass
     a sysml:AttributeUsage ;
     sysml:qualifiedName "Results::Vehicle::mass" ;
+    sysx:sourceLine "75"^^xsd:integer ;
+    sysx:sourceColumn "9"^^xsd:integer ;
+    sysx:sourceEndLine "75"^^xsd:integer ;
+    sysx:sourceEndColumn "31"^^xsd:integer ;
     sysml:elementId "Results__Vehicle__mass" ;
     sysx:memberIndex "0"^^xsd:integer ;
     sysml:owningNamespace elmt:Results__Vehicle ;
@@ -5026,6 +5270,10 @@ elmt:Results__Vehicle__mass_om
 elmt:Results__MassAnalysis
     a sysml:AnalysisCaseDefinition ;
     sysml:qualifiedName "Results::MassAnalysis" ;
+    sysx:sourceLine "77"^^xsd:integer ;
+    sysx:sourceColumn "5"^^xsd:integer ;
+    sysx:sourceEndLine "80"^^xsd:integer ;
+    sysx:sourceEndColumn "6"^^xsd:integer ;
     sysml:elementId "Results__MassAnalysis" ;
     sysx:memberIndex "20"^^xsd:integer ;
     sysml:owningNamespace elmt:Results ;
@@ -5060,6 +5308,10 @@ elmt:Results__MassAnalysis_om
 elmt:Results__MassAnalysis__v
     a sysml:ReferenceUsage ;
     sysml:qualifiedName "Results::MassAnalysis::v" ;
+    sysx:sourceLine "78"^^xsd:integer ;
+    sysx:sourceColumn "9"^^xsd:integer ;
+    sysx:sourceEndLine "78"^^xsd:integer ;
+    sysx:sourceEndColumn "29"^^xsd:integer ;
     sysml:elementId "Results__MassAnalysis__v" ;
     sysx:memberIndex "0"^^xsd:integer ;
     sysml:owningNamespace elmt:Results__MassAnalysis ;
@@ -5092,6 +5344,10 @@ elmt:Results__MassAnalysis__v_om
 elmt:Results__MassAnalysis___401
     a sysml:FeatureChainExpression ;
     sysml:qualifiedName "Results::MassAnalysis::@1" ;
+    sysx:sourceLine "79"^^xsd:integer ;
+    sysx:sourceColumn "9"^^xsd:integer ;
+    sysx:sourceEndLine "79"^^xsd:integer ;
+    sysx:sourceEndColumn "15"^^xsd:integer ;
     sysml:elementId "Results__MassAnalysis___401" ;
     sysx:memberIndex "1"^^xsd:integer ;
     sysml:owningNamespace elmt:Results__MassAnalysis ;
@@ -5220,6 +5476,10 @@ expr:Results__MassAnalysis___401_pout_om
 elmt:Results__MassCheck
     a sysml:VerificationCaseDefinition ;
     sysml:qualifiedName "Results::MassCheck" ;
+    sysx:sourceLine "81"^^xsd:integer ;
+    sysx:sourceColumn "5"^^xsd:integer ;
+    sysx:sourceEndLine "84"^^xsd:integer ;
+    sysx:sourceEndColumn "6"^^xsd:integer ;
     sysml:elementId "Results__MassCheck" ;
     sysx:memberIndex "21"^^xsd:integer ;
     sysml:owningNamespace elmt:Results ;
@@ -5254,6 +5514,10 @@ elmt:Results__MassCheck_om
 elmt:Results__MassCheck__v
     a sysml:ReferenceUsage ;
     sysml:qualifiedName "Results::MassCheck::v" ;
+    sysx:sourceLine "82"^^xsd:integer ;
+    sysx:sourceColumn "9"^^xsd:integer ;
+    sysx:sourceEndLine "82"^^xsd:integer ;
+    sysx:sourceEndColumn "29"^^xsd:integer ;
     sysml:elementId "Results__MassCheck__v" ;
     sysx:memberIndex "0"^^xsd:integer ;
     sysml:owningNamespace elmt:Results__MassCheck ;
@@ -5286,6 +5550,10 @@ elmt:Results__MassCheck__v_om
 elmt:Results__MassCheck___401
     a sysml:InvocationExpression ;
     sysml:qualifiedName "Results::MassCheck::@1" ;
+    sysx:sourceLine "83"^^xsd:integer ;
+    sysx:sourceColumn "9"^^xsd:integer ;
+    sysx:sourceEndLine "83"^^xsd:integer ;
+    sysx:sourceEndColumn "27"^^xsd:integer ;
     sysml:elementId "Results__MassCheck___401" ;
     sysx:memberIndex "1"^^xsd:integer ;
     sysml:owningNamespace elmt:Results__MassCheck ;
@@ -5618,6 +5886,10 @@ expr:Results__MassCheck___401_pout_om
 elmt:Results__MassCase
     a sysml:CaseDefinition ;
     sysml:qualifiedName "Results::MassCase" ;
+    sysx:sourceLine "85"^^xsd:integer ;
+    sysx:sourceColumn "5"^^xsd:integer ;
+    sysx:sourceEndLine "88"^^xsd:integer ;
+    sysx:sourceEndColumn "6"^^xsd:integer ;
     sysml:elementId "Results__MassCase" ;
     sysx:memberIndex "22"^^xsd:integer ;
     sysml:owningNamespace elmt:Results ;
@@ -5652,6 +5924,10 @@ elmt:Results__MassCase_om
 elmt:Results__MassCase__v
     a sysml:ReferenceUsage ;
     sysml:qualifiedName "Results::MassCase::v" ;
+    sysx:sourceLine "86"^^xsd:integer ;
+    sysx:sourceColumn "9"^^xsd:integer ;
+    sysx:sourceEndLine "86"^^xsd:integer ;
+    sysx:sourceEndColumn "29"^^xsd:integer ;
     sysml:elementId "Results__MassCase__v" ;
     sysx:memberIndex "0"^^xsd:integer ;
     sysml:owningNamespace elmt:Results__MassCase ;
@@ -5684,6 +5960,10 @@ elmt:Results__MassCase__v_om
 elmt:Results__MassCase___401
     a sysml:OperatorExpression ;
     sysml:qualifiedName "Results::MassCase::@1" ;
+    sysx:sourceLine "87"^^xsd:integer ;
+    sysx:sourceColumn "9"^^xsd:integer ;
+    sysx:sourceEndLine "87"^^xsd:integer ;
+    sysx:sourceEndColumn "19"^^xsd:integer ;
     sysml:elementId "Results__MassCase___401" ;
     sysx:memberIndex "1"^^xsd:integer ;
     sysml:owningNamespace elmt:Results__MassCase ;
@@ -5933,6 +6213,10 @@ expr:Results__MassCase___401_pout_om
 elmt:Results__rover
     a sysml:PartUsage ;
     sysml:qualifiedName "Results::rover" ;
+    sysx:sourceLine "89"^^xsd:integer ;
+    sysx:sourceColumn "5"^^xsd:integer ;
+    sysx:sourceEndLine "94"^^xsd:integer ;
+    sysx:sourceEndColumn "6"^^xsd:integer ;
     sysml:elementId "Results__rover" ;
     sysx:memberIndex "23"^^xsd:integer ;
     sysml:owningNamespace elmt:Results ;
@@ -5966,6 +6250,10 @@ elmt:Results__rover_om
 elmt:Results__rover__twice
     a sysml:CalculationUsage ;
     sysml:qualifiedName "Results::rover::twice" ;
+    sysx:sourceLine "90"^^xsd:integer ;
+    sysx:sourceColumn "9"^^xsd:integer ;
+    sysx:sourceEndLine "93"^^xsd:integer ;
+    sysx:sourceEndColumn "10"^^xsd:integer ;
     sysml:elementId "Results__rover__twice" ;
     sysx:memberIndex "0"^^xsd:integer ;
     sysml:owningNamespace elmt:Results__rover ;
@@ -6002,6 +6290,10 @@ elmt:Results__rover__twice_om
 elmt:Results__rover__twice__x
     a sysml:ReferenceUsage ;
     sysml:qualifiedName "Results::rover::twice::x" ;
+    sysx:sourceLine "91"^^xsd:integer ;
+    sysx:sourceColumn "13"^^xsd:integer ;
+    sysx:sourceEndLine "91"^^xsd:integer ;
+    sysx:sourceEndColumn "25"^^xsd:integer ;
     sysml:elementId "Results__rover__twice__x" ;
     sysx:memberIndex "0"^^xsd:integer ;
     sysml:owningNamespace elmt:Results__rover__twice ;
@@ -6080,6 +6372,10 @@ expr:Results__rover__twice__x_pvalue_om
 elmt:Results__rover__twice___401
     a sysml:OperatorExpression ;
     sysml:qualifiedName "Results::rover::twice::@1" ;
+    sysx:sourceLine "92"^^xsd:integer ;
+    sysx:sourceColumn "13"^^xsd:integer ;
+    sysx:sourceEndLine "92"^^xsd:integer ;
+    sysx:sourceEndColumn "18"^^xsd:integer ;
     sysml:elementId "Results__rover__twice___401" ;
     sysx:memberIndex "1"^^xsd:integer ;
     sysml:owningNamespace elmt:Results__rover__twice ;

@@ -113,7 +113,7 @@ func TestScalarValuedEnumLiteralRoundTrip(t *testing.T) {
 	if !ok {
 		t.Fatal("model not cached")
 	}
-	rt, _ := srv.newRuntime(cached)
+	rt, _ := srv.newRuntime(context.Background(), cached)
 	idx := cached.Index
 	sem := rt.Semantics()
 

@@ -802,7 +802,7 @@ HTTP/1.1 400 Bad Request
 
 $ … /Query -d '{"modelHash":"2af5…dea2","query":{"where":{"primitive":{"property":"colour","operator":"PRIMITIVE_OPERATOR_EQUAL","value":["red"]}}}}'
 HTTP/1.1 400 Bad Request
-{"code":"invalid_argument","message":"unknown query property \"colour\"; queryable properties are @id, @type, declaredName, declaredShortName, documentation, isAbstract, isIndividual, multiplicityLower, multiplicityUpper, name, owner, qualifiedName, shortName, type"}
+{"code":"invalid_argument","message":"unknown query property \"colour\"; queryable properties are @id, @type, declaredName, declaredShortName, documentation, isAbstract, isIndividual, multiplicityLower, multiplicityUpper, name, owner, qualifiedName, satisfiedRequirement, satisfyingFeature, shortName, type"}
 
 $ … /ApplyEdits -d '{"modelHash":"997e…6134","acceptDocuments":true,"document":"nope.sysml","operations":[{"rename":{"target":"EngineUser::Car","newName":"Automobile"}}]}'
 HTTP/1.1 400 Bad Request
@@ -1091,7 +1091,10 @@ object at the end of the path, so the action's `this` is a part *inside* its ass
 assembly's connectors reach it. Each explored run creates the declaration anew, and each
 outcome's `outputs` carry the object's attributes as the run left them under `this.`
 (`this.pinged`), beside the action's own, so runs that differ only in what they left the
-object holding are distinct outcomes. A path that reaches no object is the call's `error` —
+object holding are distinct outcomes. An executed run reports the same entries, spelled and
+selected as an outcome's are, in `performerAttributes` (`this.pinged`), and keeps `outputs` the
+action's output parameters alone; `performerAttributes` is empty without a performer and under
+`"explore"`, whose outcomes carry them. A path that reaches no object is the call's `error` —
 the feature the root has none of
 (`Mission::mission has no feature "pilot"`), a multi-valued part named without an index
 (`escorts of Fleet::convoy holds 2 objects: pick one by index`), an
@@ -1199,8 +1202,15 @@ so the object's own transitions, the messages its ports receive over the assembl
 connectors and the features it assigns are the run's; an object exhibiting the machine under
 two usages is refused as ambiguous, since the call cannot tell which it means. An object not
 exhibiting the machine performs a fresh one, as an empty performer does outside any object.
+Either way the machine's guards, effects and state behaviors read and write the object's feature
+values — by name in a machine the object's definition exhibits, through the `in ref` parameter
+the object binds in a state definition run on it — and `finalContext` carries, besides the
+machine's own data, every attribute the object holds when the run ends under `this.`
+(`this.speed`, `this.seen`), so two objects of one definition differing in a feature value that
+a guard reads rest in different states and report different contexts.
 Under `"explore"` every run creates the object graph anew, so the machine is explored inside
-its assembly and each outcome's `outputs` are the object's features as that run left them.
+its assembly and each outcome's `outputs` are the object's features as that run left them,
+spelled as the executed `finalContext` spells them.
 
 ### `EvaluateCalc`
 
@@ -1785,6 +1795,16 @@ file, or a `.mdzip` archive — which is read and **migrated** to v2 on the way 
 inline `content`, which has no extension. Inline content is a proto `string`, so it carries XMI or
 `.uml` text; a `.mdzip` archive is binary and is named by `filePath`.
 
+A `modelHash` from `ParseSources` of several documents converts the whole model to `ttl` or
+`api-json` as one graph: a reference from one document to an element another declares links that
+element, as a reference within one document does, and each document's root elements carry
+`sysx:sourceDocument`, the name the request gave it. Notation is written for one document, so a
+`sysml`/`kerml` target for such a model is `failed_precondition`. A document with syntax errors is
+reported in `error` and `diagnostics`, as a single document is, and so is an element two documents
+both declare (`package P` in each), which one graph would merge into one. Ids are scope-qualified
+when the documents together declare more than one identity scope. The command line does the same
+for several files, to a file or standard output: `sysml a.sysml b.sysml -convert api-json`.
+
 ```console
 $ … /Convert -d '{"filePath":"Vehicle.xmi","toFormat":"sysml"}'
 {
@@ -2181,8 +2201,12 @@ taking an empty `documents` for a batch that rewrote nothing.
 
 The four snippets below are **illustrations, not shipped code**. They are not in `client/`, not
 tested, and not run by CI; they exist to show how short a correct decoder is in each language
-and where its pitfalls lie. A real client for any of these languages is one that passes the
-scenarios in `conformance/scenarios/*.json` through its own public API, as every shipped client
+and where its pitfalls lie. The Julia and MATLAB illustrations have since grown into the shipped
+[`client/julia`](../../client/julia/OpenSysML/README.md) and
+[`client/matlab`](../../client/matlab/README.md) packages, which run the conformance suite
+through their own APIs; the R and C snippets remain illustrations only. A real client for any of
+these languages is one that passes the scenarios in `conformance/scenarios/*.json` through its
+own public API, as every shipped client
 does ([Every client runs the same conformance suite](clients.md#every-client-runs-the-same-conformance-suite)).
 Each snippet is a POST helper that classifies Connect errors, plus the `Value` decoder from
 [The decoding rule](#the-decoding-rule); everything else (the `Instance` table, verdicts,

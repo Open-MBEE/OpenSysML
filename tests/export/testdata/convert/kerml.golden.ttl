@@ -8,6 +8,10 @@
 elmt:Structural
     a sysml:Package ;
     sysml:qualifiedName "Structural" ;
+    sysx:sourceLine "1"^^xsd:integer ;
+    sysx:sourceColumn "1"^^xsd:integer ;
+    sysx:sourceEndLine "6"^^xsd:integer ;
+    sysx:sourceEndColumn "2"^^xsd:integer ;
     sysml:elementId "Structural" ;
     sysx:memberIndex "0"^^xsd:integer ;
     sysx:sourceLanguage "sysml" ;
@@ -25,6 +29,10 @@ elmt:Structural
 elmt:Structural__Frame
     a sysml:Structure ;
     sysml:qualifiedName "Structural::Frame" ;
+    sysx:sourceLine "2"^^xsd:integer ;
+    sysx:sourceColumn "5"^^xsd:integer ;
+    sysx:sourceEndLine "2"^^xsd:integer ;
+    sysx:sourceEndColumn "22"^^xsd:integer ;
     sysml:elementId "Structural__Frame" ;
     sysx:memberIndex "0"^^xsd:integer ;
     sysml:owningNamespace elmt:Structural ;
@@ -48,6 +56,10 @@ elmt:Structural__Frame_om
 elmt:Structural__Move
     a sysml:Behavior ;
     sysml:qualifiedName "Structural::Move" ;
+    sysx:sourceLine "3"^^xsd:integer ;
+    sysx:sourceColumn "5"^^xsd:integer ;
+    sysx:sourceEndLine "3"^^xsd:integer ;
+    sysx:sourceEndColumn "23"^^xsd:integer ;
     sysml:elementId "Structural__Move" ;
     sysx:memberIndex "1"^^xsd:integer ;
     sysml:owningNamespace elmt:Structural ;
@@ -71,6 +83,10 @@ elmt:Structural__Move_om
 elmt:Structural__Thing
     a sysml:Class ;
     sysml:qualifiedName "Structural::Thing" ;
+    sysx:sourceLine "4"^^xsd:integer ;
+    sysx:sourceColumn "5"^^xsd:integer ;
+    sysx:sourceEndLine "4"^^xsd:integer ;
+    sysx:sourceEndColumn "21"^^xsd:integer ;
     sysml:elementId "Structural__Thing" ;
     sysx:memberIndex "2"^^xsd:integer ;
     sysml:owningNamespace elmt:Structural ;
@@ -94,6 +110,10 @@ elmt:Structural__Thing_om
 elmt:Structural__Link
     a sysml:Association ;
     sysml:qualifiedName "Structural::Link" ;
+    sysx:sourceLine "5"^^xsd:integer ;
+    sysx:sourceColumn "5"^^xsd:integer ;
+    sysx:sourceEndLine "5"^^xsd:integer ;
+    sysx:sourceEndColumn "20"^^xsd:integer ;
     sysml:elementId "Structural__Link" ;
     sysx:memberIndex "3"^^xsd:integer ;
     sysml:owningNamespace elmt:Structural ;

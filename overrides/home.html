@@ -447,6 +447,64 @@
       color: var(--md-default-fg-color--light);
     }
 
+    /* The sponsor button floats over the bottom-right corner of the landing page only,
+       clear of the theme's back-to-top button, which appears at the top centre. */
+    .osml-sponsor {
+      position: fixed;
+      right: 1.2rem;
+      bottom: 1.2rem;
+      z-index: 3;
+      display: inline-flex;
+      align-items: center;
+      gap: .45rem;
+      padding: .6rem 1.05rem .6rem .85rem;
+      border-radius: 2rem;
+      background: linear-gradient(120deg, #c2185b, #e91e63);
+      color: #fff;
+      font-size: .72rem;
+      font-weight: 700;
+      letter-spacing: .02em;
+      box-shadow: 0 .35rem 1.1rem rgba(194, 24, 91, .45), 0 .1rem .3rem rgba(0, 0, 0, .2);
+      transition: transform .2s, box-shadow .2s;
+      animation: osml-sponsor-in .5s .6s both;
+    }
+    .osml-sponsor:hover,
+    .osml-sponsor:focus-visible {
+      color: #fff;
+      transform: translateY(-.15rem);
+      box-shadow: 0 .55rem 1.5rem rgba(194, 24, 91, .55), 0 .15rem .4rem rgba(0, 0, 0, .25);
+    }
+    .osml-sponsor:focus-visible {
+      outline: 2px solid #fff;
+      outline-offset: 2px;
+    }
+    .osml-sponsor__icon { display: inline-flex; }
+    .osml-sponsor svg {
+      width: 1rem;
+      height: 1rem;
+      fill: currentColor;
+      animation: osml-heartbeat 2.4s 1.4s ease-in-out infinite;
+    }
+    .osml-sponsor:hover svg {
+      animation-duration: 1.2s;
+    }
+    @keyframes osml-sponsor-in {
+      from { opacity: 0; transform: translateY(1rem); }
+    }
+    @keyframes osml-heartbeat {
+      0%, 40%, 100% { transform: scale(1); }
+      10%, 30%      { transform: scale(1.22); }
+      20%           { transform: scale(1.05); }
+    }
+    @media (prefers-reduced-motion: reduce) {
+      .osml-sponsor,
+      .osml-sponsor svg { animation: none; }
+      .osml-sponsor { transition: none; }
+    }
+    @media print {
+      .osml-sponsor { display: none; }
+    }
+
     @media screen and (max-width: 76.1875em) {
       .osml-referee__grid { grid-template-columns: repeat(2, 1fr); }
     }
@@ -456,11 +514,25 @@
     }
     @media screen and (max-width: 29.9375em) {
       .osml-referee__grid { grid-template-columns: 1fr; }
+      .osml-sponsor { right: .8rem; bottom: .8rem; padding: .7rem; }
+      .osml-sponsor__label {
+        position: absolute;
+        width: 1px;
+        height: 1px;
+        overflow: hidden;
+        clip: rect(0 0 0 0);
+        white-space: nowrap;
+      }
     }
   </style>
 {% endblock %}
 
 {% block hero %}
+<a class="osml-sponsor" href="https://numfocus.org/donate-to-openmbee" target="_blank" rel="noopener"
+   title="Sponsor OpenMBEE through NumFOCUS">
+  <span class="osml-sponsor__icon" aria-hidden="true">{% include ".icons/octicons/heart-fill-24.svg" %}</span>
+  <span class="osml-sponsor__label">Sponsor</span>
+</a>
 <section class="osml-hero">
   <div class="osml-hero__inner">
     <div class="osml-hero__copy">

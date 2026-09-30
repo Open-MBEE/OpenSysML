@@ -11,7 +11,7 @@ package Q {
 	attribute def Reset;
 
 	action def Main {
-		out total : Integer = 0;
+		out total : Integer[1] = 0;
 		first start;
 		then action w1 accept g : Go;
 		then action a1 assign total := total + g.n;
@@ -19,7 +19,7 @@ package Q {
 	}
 
 	action def Outer {
-		out heard : Integer = 0;
+		out heard : Integer[1] = 0;
 		first start;
 		then action inner {
 			first start;
@@ -31,7 +31,7 @@ package Q {
 	}
 
 	action def Split {
-		out taken : Integer = 0;
+		out taken : Integer[1] = 0;
 		first start;
 		then fork split;
 			then left;

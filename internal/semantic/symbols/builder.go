@@ -54,7 +54,7 @@ func unwrapMember(m ast.Node) (ast.Node, ast.Visibility) {
 // wrapper before unwrap.
 func buildDecl(scope *Scope, decl ast.Node, vis ast.Visibility, trivia []ast.Trivia) {
 	if prefixes := prefixMetadataOf(decl); len(prefixes) > 0 {
-		buildMetadataBodyScopes(scope, prefixes)
+		buildMetadataBodyScopes(scope, decl, prefixes)
 	}
 	switch {
 	case buildNamespaceDecl(scope, decl, vis, trivia):
@@ -177,17 +177,15 @@ func buildBehaviorDecl(scope *Scope, decl ast.Node, vis ast.Visibility, trivia [
 		// error nodes have no declaration. Nothing to register here.
 		return true
 	case *ast.PrefixMetadata:
-		child := buildMetadataBodyScope(scope, d)
-		// An identification names the usage as a member of its namespace, exactly
-		// as the `metadata` spelling of the same declaration does.
-		if d.Ident.Name != "" || d.Ident.ShortName != "" {
-			if child == nil {
-				child = NewScope(scope, d)
-				scope.AddChild(child)
-			}
-			sym := newSymbol(d.Ident, SymbolMetadataUsage, d, vis, child, scope, trivia)
-			defineIdent(scope, d.Ident, sym)
+		// The usage is a member of its namespace, named or anonymous, exactly as
+		// the `metadata` spelling of the same declaration is.
+		child := buildMetadataBodyScope(scope, nil, d)
+		if child == nil {
+			child = NewScope(scope, d)
+			scope.AddChild(child)
 		}
+		sym := newSymbol(d.Ident, SymbolMetadataUsage, d, vis, child, scope, trivia)
+		defineIdent(scope, d.Ident, sym)
 		return true
 	case *ast.InitialNode:
 		// A start marker is registered by name so transitions can reference it; a
@@ -311,7 +309,7 @@ func buildBehaviorDecl(scope *Scope, decl ast.Node, vis ast.Visibility, trivia [
 			// through NameSpan and jumps to DeclSpan.
 			child.Define(d.Variable.Name, &Symbol{
 				Name:       d.Variable.Name,
-				Kind:       SymbolAttributeUsage,
+				Kind:       SymbolReferenceUsage,
 				Decl:       d,
 				DeclSpan:   d.Variable.NameSpan,
 				NameSpan:   d.Variable.NameSpan,
@@ -360,21 +358,25 @@ func prefixMetadataOf(decl ast.Node) []*ast.PrefixMetadata {
 	return prefixes
 }
 
-func buildMetadataBodyScopes(scope *Scope, prefixes []*ast.PrefixMetadata) {
+// buildMetadataBodyScopes builds the body scopes of the annotations written on
+// decl, a member of scope.
+func buildMetadataBodyScopes(scope *Scope, decl ast.Node, prefixes []*ast.PrefixMetadata) {
 	for _, prefix := range prefixes {
 		if prefix != nil && len(prefix.Body) > 0 {
-			buildMetadataBodyScope(scope, prefix)
+			buildMetadataBodyScope(scope, decl, prefix)
 		}
 	}
 }
 
 // buildMetadataBodyScope builds the scope of a metadata usage's body and
-// returns it, or nil when the usage has no body.
-func buildMetadataBodyScope(parent *Scope, prefix *ast.PrefixMetadata) *Scope {
+// returns it, or nil when the usage has no body. annotated is the declaration
+// the usage is a prefix of, nil for a usage that is a member of its own.
+func buildMetadataBodyScope(parent *Scope, annotated ast.Node, prefix *ast.PrefixMetadata) *Scope {
 	if parent == nil || prefix == nil || len(prefix.Body) == 0 {
 		return nil
 	}
 	child := NewScope(parent, prefix)
+	child.annotated = annotated
 	child.markBodyLocal()
 	parent.AddChild(child)
 	buildMembers(child, prefix.Body)
@@ -835,6 +837,12 @@ func classifyUsage(u *ast.Usage) SymbolKind {
 	// NOT: datatype MyReal :>> Real; (this has subsets, stays as usage)
 	if hasSpecializes && !hasTyping && !hasSubsetsOrRedefines {
 		return SymbolAttributeDef
+	}
+
+	// A usage declared without a kind keyword is a ReferenceUsage (SysML v2
+	// §7.6.4); a directed one is referential whatever it declares (§7.6.3).
+	if u.Keyword == "" {
+		return SymbolReferenceUsage
 	}
 
 	// Default: treat as usage

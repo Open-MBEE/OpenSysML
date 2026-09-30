@@ -1,6 +1,8 @@
 package repl
 
 import (
+	"github.com/Open-MBEE/OpenSysML/internal/workspace/libs"
+
 	"strings"
 	"testing"
 )
@@ -24,7 +26,7 @@ func TestKindLabel(t *testing.T) {
 	root := parseRoot("package P {} namespace N; alias A for X; import Y::Z;")
 	labels := []string{}
 	for _, m := range root.Members {
-		labels = append(labels, renderMember(m))
+		labels = append(labels, renderMember(libs.TopMemberOf(m)))
 	}
 	want := []string{"package P", "namespace N", "alias A", "import Y::Z"}
 	for i, w := range want {
@@ -40,7 +42,7 @@ func TestDefinitionsAndUsagesAreSummarized(t *testing.T) {
 	root := parseRoot("part def Wheel { } attribute wheelCount = 4; calc def area { } action step;")
 	got := []string{}
 	for _, m := range root.Members {
-		got = append(got, renderMember(m))
+		got = append(got, renderMember(libs.TopMemberOf(m)))
 	}
 	// `step` is a keyword, so the name it declares is echoed quoted.
 	want := []string{"part def Wheel", "attribute wheelCount", "calc def area", "action 'step'"}
@@ -74,7 +76,7 @@ func TestImportSummaryKeepsWildcards(t *testing.T) {
 	root := parseRoot("import A::B; import A::B::*; import A::B::**; import A::B::*::**;")
 	want := []string{"import A::B", "import A::B::*", "import A::B::**", "import A::B::*::**"}
 	for i, w := range want {
-		if got := renderMember(root.Members[i]); got != w {
+		if got := renderMember(libs.TopMemberOf(root.Members[i])); got != w {
 			t.Errorf("member %d = %q, want %q", i, got, w)
 		}
 	}
@@ -101,7 +103,7 @@ func TestSummariesEchoTheWrittenNotation(t *testing.T) {
 	root := parseRoot("metaclass M; datatype T; feature f; behavior def BD; part 'my wheel'; perform action a;")
 	got := []string{}
 	for _, m := range root.Members {
-		got = append(got, renderMember(m))
+		got = append(got, renderMember(libs.TopMemberOf(m)))
 	}
 	want := []string{"metaclass M", "datatype T", "feature f", "behavior def BD", "part 'my wheel'", "perform action a"}
 	for i, w := range want {
@@ -114,7 +116,7 @@ func TestSummariesEchoTheWrittenNotation(t *testing.T) {
 // A short name is echoed as it must be written too, quotes and all.
 func TestSummariesQuoteUnrestrictedShortNames(t *testing.T) {
 	root := parseRoot("part def <'1'>;")
-	if got := renderMember(root.Members[0]); got != "part def <'1'>" {
+	if got := renderMember(libs.TopMemberOf(root.Members[0])); got != "part def <'1'>" {
 		t.Errorf("member = %q, want %q", got, "part def <'1'>")
 	}
 }

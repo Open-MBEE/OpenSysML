@@ -2,6 +2,7 @@ package model
 
 import (
 	"bytes"
+	"maps"
 	"path/filepath"
 	"slices"
 	"sync"
@@ -21,11 +22,14 @@ import (
 // document set plus the global symbol index. Mutations are serialized under a
 // write lock; reads take a read lock.
 type Workspace struct {
-	mu     sync.RWMutex
-	docs   map[string]*Document
-	onDisk map[string][]byte // last-known on-disk bytes, used when a doc is not open
-	open   map[string]bool   // names with an authoritative open buffer
-	index  *symbols.Index
+	mu   sync.RWMutex
+	docs map[string]*Document
+	// changes counts the times each name's document was installed or removed,
+	// so a batch can tell a name changed under it even when it is absent again.
+	changes map[string]uint64
+	onDisk  map[string][]byte // last-known on-disk bytes, used when a doc is not open
+	open    map[string]bool   // names with an authoritative open buffer
+	index   *symbols.Index
 	// library is every library file the index held at construction, so a displaced
 	// one can come back; libraryRoots names their top-level packages.
 	library      map[string]libraryFile
@@ -56,6 +60,9 @@ type Workspace struct {
 	// analysis is the options every document of this workspace is analyzed under,
 	// so one session asks one question of all its files.
 	analysis passes.Options
+	// disabledLints holds the codes of the lints this workspace's diagnostics
+	// leave out; they are computed and recorded whatever it holds.
+	disabledLints map[string]bool
 	// libSource yields the text of the library files the index was built from,
 	// nil when the index came without one; libDocs caches them parsed.
 	libSource libs.Source
@@ -66,6 +73,17 @@ type Workspace struct {
 	// displaced, by standing in for it or by taking its name, for when it comes back.
 	standIns  map[string]string
 	displaced map[string]symbols.LibraryDocument
+
+	// workers is how many documents OpenAll and DiagnosticsAll work on at once.
+	workers int
+	// batched names the diagCache entries a batch computed: in contexts of their
+	// own, so any change drops them all, with what each analysis read of the
+	// index for the record written from it — nil where the batch recorded none.
+	batched map[string]*resolve.Reads
+	// records is the cache the workspace reads closed documents' interface
+	// records from and writes the ones it analyzes to; nil holds every document
+	// loaded.
+	records *libs.Cache
 }
 
 // libraryFile is a library file as indexed: its parsed root, language and mark.
@@ -83,11 +101,36 @@ func WithConformanceMode(mode diag.ConformanceMode) Option {
 	return func(w *Workspace) { w.analysis.Conformance = mode }
 }
 
+// WithDisabledLints leaves the lints with these codes (see passes.LintCodes)
+// out of this workspace's diagnostics.
+func WithDisabledLints(codes ...string) Option {
+	return func(w *Workspace) { w.disabledLints = lintSet(codes) }
+}
+
 // WithLibrarySource names the source the index's library documents were read
 // from, so LibraryDocument can serve their text. It must serve the bytes the
 // index was built from, or the index's spans address the wrong text.
 func WithLibrarySource(src libs.Source) Option {
 	return func(w *Workspace) { w.libSource = src }
+}
+
+// WithRecordCache has the workspace hold closed documents as the interface
+// records cache holds for their content, and write the records of the documents
+// it analyzes to it. Records are filed under the identity of the library the
+// index holds (Index.LibraryIdentity); without a cache, or over an index whose
+// library identity is unknown, every document is held loaded.
+func WithRecordCache(cache *libs.Cache) Option {
+	return func(w *Workspace) { w.records = cache }
+}
+
+// SetRecordCache has the workspace hold closed documents as the interface
+// records cache holds for their content from here on, and write the records of
+// the documents it analyzes to it; nil holds every document loaded. The
+// documents held are as they are: a recorded one stays recorded.
+func (w *Workspace) SetRecordCache(cache *libs.Cache) {
+	w.mu.Lock()
+	defer w.mu.Unlock()
+	w.records = cache
 }
 
 // NewWorkspace returns a workspace with stdlib pre-loaded into the global index.
@@ -107,6 +150,7 @@ func NewWorkspace(opts ...Option) *Workspace {
 func NewWorkspaceWithIndex(idx *symbols.Index, opts ...Option) *Workspace {
 	w := &Workspace{
 		docs:         map[string]*Document{},
+		changes:      map[string]uint64{},
 		onDisk:       map[string][]byte{},
 		open:         map[string]bool{},
 		index:        idx,
@@ -117,6 +161,8 @@ func NewWorkspaceWithIndex(idx *symbols.Index, opts ...Option) *Workspace {
 		libDocs:      map[string]*Document{},
 		standIns:     map[string]string{},
 		displaced:    map[string]symbols.LibraryDocument{},
+		workers:      DefaultWorkers(),
+		batched:      map[string]*resolve.Reads{},
 	}
 	for _, name := range idx.Documents() {
 		record := idx.LibraryDocumentOf(name)
@@ -213,15 +259,58 @@ func (w *Workspace) ConformanceMode() diag.ConformanceMode {
 
 // SetConformanceMode switches the mode for a live session — an LSP client
 // changing its setting, a REPL user asking the strict question — and drops the
-// cached diagnostics, which answered the other question.
-func (w *Workspace) SetConformanceMode(mode diag.ConformanceMode) {
+// cached diagnostics, which answered the other question. A document held as
+// its interface record stores the diagnostics of the mode it was recorded
+// under and cannot answer another without its tree: while the workspace holds
+// one, the mode stays and a symbols.NeedsHydration naming it is returned.
+func (w *Workspace) SetConformanceMode(mode diag.ConformanceMode) error {
 	w.mu.Lock()
 	defer w.mu.Unlock()
 	if w.analysis.Conformance == mode {
-		return
+		return nil
+	}
+	for _, name := range slices.Sorted(maps.Keys(w.docs)) {
+		if w.docs[name].Recorded() {
+			return &symbols.NeedsHydration{Doc: name, Question: "diagnostics under conformance mode " + mode.String()}
+		}
 	}
 	w.analysis.Conformance = mode
 	w.invalidateAllLocked()
+	return nil
+}
+
+// DisabledLints reports the codes of the lints this workspace leaves out of its
+// diagnostics, sorted.
+func (w *Workspace) DisabledLints() []string {
+	w.mu.RLock()
+	defer w.mu.RUnlock()
+	return slices.Sorted(maps.Keys(w.disabledLints))
+}
+
+// SetDisabledLints replaces the lints this workspace leaves out of its
+// diagnostics with codes; none enables every lint. A code that names no lint is
+// an error, and leaves the setting as it was. Nothing is re-analyzed: a lint is
+// filtered from what analysis found, so a record answers either setting.
+func (w *Workspace) SetDisabledLints(codes []string) error {
+	if err := passes.CheckLintCodes(codes); err != nil {
+		return err
+	}
+	w.mu.Lock()
+	defer w.mu.Unlock()
+	w.disabledLints = lintSet(codes)
+	return nil
+}
+
+// lintSet is codes as a set, nil for none.
+func lintSet(codes []string) map[string]bool {
+	if len(codes) == 0 {
+		return nil
+	}
+	set := make(map[string]bool, len(codes))
+	for _, code := range codes {
+		set[code] = true
+	}
+	return set
 }
 
 // NewIndexWithStdlib returns an index carrying the standard library for a
@@ -261,7 +350,7 @@ func (w *Workspace) SetOnDisk(name string, content []byte) {
 	defer w.mu.Unlock()
 	w.onDisk[name] = content
 	if !w.open[name] {
-		w.reindexLocked(name, content, 0)
+		w.holdOnDiskLocked(name, content)
 	}
 }
 
@@ -295,16 +384,22 @@ func (w *Workspace) OpenNames() []string {
 }
 
 // Close drops the open buffer for name; the document reverts to on-disk content
-// if any, otherwise it is removed.
+// if any, otherwise it is removed. A document whose buffer holds what the file
+// does is demoted to its interface record where one is to be had (see
+// demoteLocked), releasing its tree.
 func (w *Workspace) Close(name string) {
 	w.mu.Lock()
 	defer w.mu.Unlock()
 	delete(w.open, name)
-	if disk, ok := w.onDisk[name]; ok {
-		w.reindexLocked(name, disk, 0)
+	disk, ok := w.onDisk[name]
+	if !ok {
+		w.removeLocked(name)
 		return
 	}
-	w.removeLocked(name)
+	if doc := w.docs[name]; doc != nil && bytes.Equal(doc.Content, disk) && w.demoteLocked(name, doc) {
+		return
+	}
+	w.holdOnDiskLocked(name, disk)
 }
 
 // Remove deletes the document entirely (open buffer, on-disk cache, and index).
@@ -321,39 +416,55 @@ func (w *Workspace) Remove(name string) {
 func (w *Workspace) reindexLocked(name string, content []byte, version int) {
 	doc := newDocument(name, content, version)
 	w.docs[name] = doc
-	w.displaceLocked(name)
-	w.index.AddDocumentScope(name, doc.AST, doc.Scope) // removes stale entries first
-	w.standInLocked(name, doc)
-	w.index.ExpandWildcardImports() // Expand new document's wildcard imports
+	w.changes[name]++
+	w.installLocked(doc)
+	w.index.ExpandWildcardImports()
 	w.invalidateLocked(name)
+}
+
+// installLocked indexes doc over its built scope, displacing the bundled library
+// file of its name and standing in for the one it is a version of; the caller
+// expands wildcard imports once its documents are in. Caller holds the write lock.
+func (w *Workspace) installLocked(doc *Document) {
+	w.displaceLocked(doc.Name)
+	w.index.AddDocumentScope(doc.Name, doc.AST, doc.Scope) // removes stale entries first
+	w.standInLocked(doc.Name, doc)
 }
 
 // removeLocked drops name from the document set and index. Caller holds the lock.
 func (w *Workspace) removeLocked(name string) {
 	delete(w.docs, name)
+	w.changes[name]++
 	w.index.RemoveDocument(name)
 	w.releaseStandInLocked(name)
 	w.restoreLocked(name)
 	w.invalidateLocked(name)
 }
 
-// invalidateLocked drops what the replacement of name made stale: the resolver
-// and model entries name and its dependents own, transitively, with their
-// diagnostics and reverse references. Caller holds the write lock.
-func (w *Workspace) invalidateLocked(name string) {
+// invalidateLocked drops what the replacement of names made stale: the resolver
+// and model entries they and their dependents own, transitively, with their
+// diagnostics and reverse references, and every batch-computed diagnostic.
+// Caller holds the write lock.
+func (w *Workspace) invalidateLocked(names ...string) {
 	if w.resolver == nil {
 		w.invalidateAllLocked()
 		return
 	}
+	w.dropBatchedLocked()
 	w.generation++
 	ch := w.index.TakeChanges()
 	if ch.Docs == nil {
 		ch.Docs = map[string]bool{}
 	}
-	ch.Docs[name] = true
+	if ch.Names == nil {
+		ch.Names = map[string]bool{}
+	}
+	for _, name := range names {
+		ch.Docs[name] = true
+		delete(w.diagCache, name)
+		w.refs.drop(name)
+	}
 	dropped := w.resolver.Invalidate(ch)
-	delete(w.diagCache, name)
-	w.refs.drop(name)
 	// The gathers the drop took are replayed by the next read that needs them
 	// (settleGathersLocked), not inside the edit.
 	if w.regatherPending == nil {
@@ -369,6 +480,7 @@ func (w *Workspace) invalidateLocked(name string) {
 			w.regatherPending[gathered] = true
 		}
 	}
+	w.hydrateStaleLocked(ch)
 }
 
 // settleGathersLocked runs the regather cascade the invalidations queued: what
@@ -391,7 +503,8 @@ func (w *Workspace) settleGathersLocked() {
 		for _, n := range changed {
 			names[n] = true
 		}
-		dropped := w.resolver.Invalidate(symbols.Changes{Names: names})
+		ch := symbols.Changes{Names: names}
+		dropped := w.resolver.Invalidate(ch)
 		regather = map[string]bool{}
 		for _, doc := range dropped {
 			delete(w.diagCache, doc)
@@ -400,7 +513,20 @@ func (w *Workspace) settleGathersLocked() {
 				regather[gathered] = true
 			}
 		}
+		w.hydrateStaleLocked(ch)
+		for doc := range w.regatherPending {
+			regather[doc] = true
+		}
+		w.regatherPending = nil
 	}
+}
+
+// dropBatchedLocked forgets the diagnostics batches computed. Caller holds the write lock.
+func (w *Workspace) dropBatchedLocked() {
+	for name := range w.batched {
+		delete(w.diagCache, name)
+	}
+	w.batched = map[string]*resolve.Reads{}
 }
 
 // contextLocked is a pass context over the workspace's shared semantic state,
@@ -411,10 +537,21 @@ func (w *Workspace) contextLocked() *passes.Context {
 	return ctx
 }
 
+// batchContextLocked is contextLocked sharing the gathers of batch's workers
+// instead of the workspace's, for reading back what its analyses read. Caller
+// holds the write lock.
+func (w *Workspace) batchContextLocked(batch *passes.Batch) *passes.Context {
+	ctx := passes.NewContextWithOptions("", source.KindSysML, w.index, nil, w.analysis)
+	resolver, sem := w.semanticsLocked()
+	passes.Shared{Resolver: resolver, Model: sem, Gathers: batch.Gathers}.Share(ctx)
+	return ctx
+}
+
 // invalidateAllLocked drops every cached answer, for a change that moves them
 // all: the conformance mode. Caller holds the write lock.
 func (w *Workspace) invalidateAllLocked() {
 	w.diagCache = map[string][]diag.Diagnostic{}
+	w.batched = map[string]*resolve.Reads{}
 	w.refs = nil
 	w.regatherPending = nil
 	w.generation++
@@ -434,7 +571,7 @@ func (w *Workspace) Diagnostics(name string) []diag.Diagnostic {
 	if doc == nil {
 		return nil
 	}
-	return w.diagnosticsLocked(name, doc)
+	return passes.WithoutLints(w.diagnosticsLocked(name, doc), w.disabledLints)
 }
 
 // AnalyzedContent returns a document's diagnostics together with the content
@@ -447,15 +584,28 @@ func (w *Workspace) AnalyzedContent(name string) ([]byte, []diag.Diagnostic, boo
 	if doc == nil {
 		return nil, nil, false
 	}
-	return doc.Content, w.diagnosticsLocked(name, doc), true
+	return doc.Content, passes.WithoutLints(w.diagnosticsLocked(name, doc), w.disabledLints), true
 }
 
 // diagnosticsLocked analyzes doc, caching the result. Caller holds the lock.
 func (w *Workspace) diagnosticsLocked(name string, doc *Document) []diag.Diagnostic {
+	if doc.Recorded() {
+		return doc.recorded.diagnostics
+	}
 	w.settleGathersLocked()
 	if cached, ok := w.diagCache[name]; ok {
 		return cached
 	}
+	diags, _ := w.analyze(name, doc, nil)
+	w.diagCache[name] = diags
+	return diags
+}
+
+// analyze runs the passes over doc: in the workspace's shared context without a
+// batch, else in a context of its own, reading the index, the analysis options
+// and the batch only, so documents can be analyzed at once; the reads returned
+// are that context's (the shared one's are the resolver's, see ReadsOf).
+func (w *Workspace) analyze(name string, doc *Document, batch *passes.Batch) ([]diag.Diagnostic, *resolve.Reads) {
 	parseDiags := make([]diag.Diagnostic, 0, len(doc.ParseDiagnostics)+len(doc.ParseWarnings))
 	for _, pd := range doc.ParseDiagnostics {
 		parseDiags = append(parseDiags, diag.Diagnostic{
@@ -477,9 +627,10 @@ func (w *Workspace) diagnosticsLocked(name string, doc *Document) []diag.Diagnos
 			Fixes:    pw.Fixes,
 		})
 	}
-	diags := passes.AnalyzeShared(name, source.KindOf(name), doc.AST, parseDiags, w.analysis, w.sharedLocked())
-	w.diagCache[name] = diags
-	return diags
+	if batch != nil {
+		return passes.AnalyzeInBatch(name, source.KindOf(name), doc.AST, parseDiags, w.index, w.analysis, batch)
+	}
+	return passes.AnalyzeShared(name, source.KindOf(name), doc.AST, parseDiags, w.analysis, w.sharedLocked()), nil
 }
 
 // LookupQualified resolves a fully-qualified name against the global index under

@@ -5,6 +5,8 @@ config:
       bottom: 24
 ---
 %% PlantViews::placedView — interconnection rendering (render asInterconnectionDiagram)
+%% not represented: 1 styled node(s) and 1 styled edge(s); a node's font and an edge's Style are not drawn; the dot form draws every Style
+%% not represented: 4 note(s); the dot form draws notes
 %% canvas: unit=px w=1200 h=800
 %% layout: n1 x=300 y=40 collapsed
 %% layout: n2 x=500 y=40 w=120 h=60
@@ -16,3 +18,4 @@ flowchart LR
     n2["tank : Tank<br>«part»"]
   end
   n1 ---|"supply"| n2
+  style n1 fill:#FFE8BD,stroke:#333333

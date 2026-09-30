@@ -1,6 +1,7 @@
 package runtime
 
 import (
+	"errors"
 	"fmt"
 	"slices"
 
@@ -42,6 +43,12 @@ type ObjectBehavior struct {
 	State *StateExecutor
 	// Action is the action the object performs, nil for an exhibited machine.
 	Action *ActionExecutor
+	// Err is the error a performed action bound by the object's type failed with,
+	// recorded rather than failing the object's creation.
+	Err error
+	// typeBound marks the behavior bound by the object's type at materialization
+	// or restart, rather than started by an explicit `perform obj.beh.start`.
+	typeBound bool
 }
 
 // Describe names the behavior and the object running it, for diagnostics.
@@ -120,6 +127,9 @@ func (ctx *Context) BehaviorNamed(inst *Instance, name string) (*ObjectBehavior,
 // under that member or one redefinition makes the same feature: a start reached twice, or
 // a classifier renaming a running behavior, attaches nothing.
 func (ctx *Context) runsBound(inst *Instance, member, typ *symbols.Symbol) bool {
+	if inFlight, ok := ctx.attachingBehaviors[inst]; ok && inFlight[member] {
+		return true
+	}
 	for _, b := range inst.behaviors {
 		if b.member == member {
 			return true
@@ -133,6 +143,23 @@ func (ctx *Context) runsBound(inst *Instance, member, typ *symbols.Symbol) bool 
 		}
 	}
 	return false
+}
+
+// attachBehavior marks member's behavior on inst as under way, so an
+// initialization re-scanning the object's types does not attach it again;
+// behaviorAttached clears the mark when the attach ends, kept or failed.
+func (ctx *Context) attachBehavior(inst *Instance, member *symbols.Symbol) {
+	if ctx.attachingBehaviors == nil {
+		ctx.attachingBehaviors = make(map[*Instance]map[*symbols.Symbol]bool)
+	}
+	if ctx.attachingBehaviors[inst] == nil {
+		ctx.attachingBehaviors[inst] = make(map[*symbols.Symbol]bool)
+	}
+	ctx.attachingBehaviors[inst][member] = true
+}
+
+func (ctx *Context) behaviorAttached(inst *Instance, member *symbols.Symbol) {
+	delete(ctx.attachingBehaviors[inst], member)
 }
 
 // ExhibitedState returns the machine the object exhibits, and false when it
@@ -371,7 +398,7 @@ func (ctx *Context) forgetValuesNaming(abandoned map[int64]bool) {
 				continue
 			}
 			fv.Value, fv.Values = Value{}, Value{}
-			fv.Materialized, fv.Written = false, false
+			fv.Materialized, fv.Written, fv.intrinsic = false, false, false
 			ctx.invalidateDependents(fv)
 		}
 	}
@@ -654,12 +681,22 @@ func (ctx *Context) startBehaviorsOf(inst *Instance) error {
 			if ctx.trace != nil {
 				ctx.trace.RecordBehaviorStart(decl.behavior.Kind.String(), decl.behavior.Name, inst.ID)
 			}
+			ctx.attachBehavior(inst, decl.member)
 			behavior, err := ctx.attachClassifierBehavior(inst, decl)
+			ctx.behaviorAttached(inst, decl.member)
 			if err != nil {
-				return err
+				if behavior == nil || !errors.Is(err, ErrUnboundParameter) {
+					if behavior != nil {
+						behavior.leaveClock()
+					}
+					return err
+				}
+				ctx.endFailedPerformance(behavior, fmt.Errorf("%s: %w", behavior.Describe(), err))
 			}
+			behavior.typeBound = true
 			behavior.binding = i
 			inst.behaviors = append(inst.behaviors, behavior)
+			ctx.behaviorsAttached++
 			ctx.pendingBehaviors = append(ctx.pendingBehaviors, behavior)
 			ctx.objectBehaviors = append(ctx.objectBehaviors, behavior)
 			ctx.workChanged()
@@ -821,6 +858,34 @@ func (ctx *Context) forgetBehaviors(behaviors []*ObjectBehavior) {
 	ctx.workChanged()
 }
 
+// recordsFailure reports whether an error of a behavior is recorded on the
+// performance rather than failing what ran it: an unbound input of a performed
+// action the object's type bound.
+func recordsFailure(b *ObjectBehavior, err error) bool {
+	return b != nil && b.typeBound && b.Kind == lower.PerformedAction && errors.Is(err, ErrUnboundParameter)
+}
+
+// failBehavior records a failure that ends the behavior for good, through the
+// journal, so a snapshot restore or a rolled-back creation undoes the record.
+func (ctx *Context) failBehavior(b *ObjectBehavior, err error) {
+	prior := b.Err
+	ctx.noteProbeUndo(func() { b.Err = prior })
+	b.Err = err
+}
+
+// endFailedPerformance records a failure recordsFailure admits, ending the life
+// the performance's occurrence began — unless it failed before beginning — and
+// the work it left paused, all through the journal so a restore undoes them.
+func (ctx *Context) endFailedPerformance(b *ObjectBehavior, err error) {
+	ctx.failBehavior(b, err)
+	if b.Action != nil && b.Action.occurrence != nil {
+		if life := ctx.lives[b.Action.occurrence.ID]; life.began != 0 {
+			ctx.endPerformanceLife(b.Action.occurrence)
+		}
+	}
+	b.leaveClock()
+}
+
 // leaveClock releases the behavior's execution, ending the work it left paused
 // and withdrawing it from the clock, so a behavior dropped from its object is never driven again.
 func (b *ObjectBehavior) leaveClock() {
@@ -862,7 +927,12 @@ func (ctx *Context) drainObjectBehaviors() error {
 			ctx.trace.RecordBehaviorRun(behavior.Kind.String(), behavior.Name, behavior.Object.ID)
 		}
 		if err := behavior.run(); err != nil {
-			return fmt.Errorf("%s: %w", behavior.Describe(), err)
+			wrapped := fmt.Errorf("%s: %w", behavior.Describe(), err)
+			if recordsFailure(behavior, err) {
+				ctx.endFailedPerformance(behavior, wrapped)
+				continue
+			}
+			return wrapped
 		}
 	}
 }
@@ -925,6 +995,9 @@ func (ctx *Context) nextRunnableBehavior() (*ObjectBehavior, bool) {
 // is not work materialization waits for, and an execution that reached its end
 // takes no step whatever is left addressed to it.
 func (b *ObjectBehavior) hasPendingWork() bool {
+	if b.Err != nil {
+		return false
+	}
 	switch {
 	case b.State != nil:
 		return !b.State.State().Ended() && (b.State.HasDueEvent() || b.State.HasPendingSignal())
@@ -979,8 +1052,10 @@ func (ctx *Context) attachClassifierBehavior(inst *Instance, decl classifierBeha
 			begin = (*ActionExecutor).initialize
 		}
 		if err := ctx.startAction(exec, begin); err != nil {
-			exec.Release()
-			return nil, fmt.Errorf("performed action %s of %s: %w", decl.behavior.Name, symbolText(inst.Type), err)
+			// A performed action that fails to start is returned with the error
+			// for a type-bound start to record; an explicit start fails it.
+			behavior.Action = exec
+			return behavior, fmt.Errorf("performed action %s of %s: %w", decl.behavior.Name, symbolText(inst.Type), err)
 		}
 		behavior.Action = exec
 	default:

@@ -122,7 +122,7 @@ func (m *migration) metadataFeature(p *sysmlv1.Element) (kw, typ, note string) {
 		}
 		return "attribute", "", ""
 	}
-	if sv := m.scalarValue(t); sv != "" {
+	if m.scalarValue(t) != "" {
 		typ, note = m.typeRef(t, m.scope)
 		return "attribute", typ, note
 	}
@@ -229,7 +229,8 @@ func (m *migration) tagValue(p *sysmlv1.Element, raw []string) (string, string) 
 }
 
 // tagReference writes a reference-valued tag's value: the written element it
-// names, by the shortest name resolving in the current scope.
+// names, by the shortest name resolving in the current scope. A definition is
+// not a value, so one is referred to as an element, cast to its metaclass.
 func (m *migration) tagReference(id string) (string, string) {
 	target := m.model.Lookup(id)
 	switch {
@@ -238,7 +239,34 @@ func (m *migration) tagReference(id string) (string, string) {
 	case !m.written(target):
 		return "", "refers to " + qualifiedName(target) + ", which is not written"
 	}
-	return m.ref(target, m.scope), ""
+	ref := m.ref(target, m.scope)
+	if mc := m.metaclassOf(target); mc != "" {
+		return ref + " meta " + mc, ""
+	}
+	return ref, ""
+}
+
+// metaclassOf is the SysML metaclass e is written as — a definition's, or the
+// action usage's of a block behavior written so — and "" for
+// an element written as something other than a definition. An individual's is
+// the metaclass of the kind its classifier gives it (`individual part def` is
+// a PartDefinition; a bare `individual def`, an OccurrenceDefinition).
+func (m *migration) metaclassOf(e *sysmlv1.Element) string {
+	if m.asUsage[e] {
+		if m.performed(e) {
+			return "SysML::PerformActionUsage"
+		}
+		return "SysML::ActionUsage"
+	}
+	cat, _ := m.classify(e)
+	if cat == catIndividualDef {
+		kind, _, _ := m.individualClassifiers(e)
+		if kind == catNone {
+			return "SysML::OccurrenceDefinition"
+		}
+		return kind.metaclass()
+	}
+	return cat.metaclass()
 }
 
 // tagLiteral writes one value of a tag typed by t: a string, number or boolean
@@ -251,10 +279,10 @@ func (m *migration) tagLiteral(t *sysmlv1.Element, v string) (string, string) {
 				return m.ref(lit, m.scope), ""
 			}
 		}
-		return "", "the value " + v + " is not a literal of " + qualifiedName(t)
+		return "", theValue + v + " is not a literal of " + qualifiedName(t)
 	}
 	if m.structuredValueType(t) {
-		return "", "the value " + v + " has no literal form: " + qualifiedName(t) + " is a structured value type"
+		return "", theValue + v + " has no literal form: " + qualifiedName(t) + " is a structured value type"
 	}
 	sv := m.scalarBase(t)
 	text := strings.TrimSpace(v)
@@ -266,19 +294,19 @@ func (m *migration) tagLiteral(t *sysmlv1.Element, v string) (string, string) {
 		case "true", "false":
 			return text, ""
 		}
-		return "", "the value " + v + " is not a boolean"
+		return "", theValue + v + " is not a boolean"
 	case "Integer", "Natural":
 		n, ok := new(big.Int).SetString(text, 10)
 		if !ok || (sv == "Natural" && n.Sign() < 0) {
-			return "", "the value " + v + " is not an integer"
+			return "", theValue + v + " is not an integer"
 		}
 		return n.String(), ""
 	}
 	if !decimal(text) {
-		return "", "the value " + v + " is not a number"
+		return "", theValue + v + " is not a number"
 	}
 	if _, ok := new(big.Rat).SetString(text); !ok {
-		return "", "the value " + v + " is not a number"
+		return "", theValue + v + " is not a number"
 	}
 	if !strings.ContainsAny(text, ".eE") {
 		text += ".0"

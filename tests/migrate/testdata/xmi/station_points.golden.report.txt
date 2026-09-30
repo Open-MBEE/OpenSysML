@@ -9,7 +9,7 @@ Transition	Station::Cycle::main::Work::steps::<Transition>	_tThrough	(the source
 
 ## approximated (26)
 Class	Station	_station	-> Station	(a plain UML class without «Block» is written as a part def)
-StateMachine	Station::Cycle	_cycle	-> Station::Cycle	(the classifier behavior is run by every object of Station as its usage cycle)
+StateMachine	Station::Cycle	_cycle	-> Station::Cycle	(acts on its owner Station, which it takes as its parameter context, since its this is the def's own occurrence; the classifier behavior is run by every object of Station as its usage cycle)
 OpaqueBehavior	Station::Cycle::main::<Transition>::<OpaqueBehavior>	_goEff	-> Station::Cycle::unnamed::unnamed	(the JavaScript body is translated to v2; the JavaScript body is written as v2 assignments)
 OpaqueBehavior	Station::Cycle::main::<Transition>::<OpaqueBehavior>	_diveEff	-> Station::Cycle::unnamed2::unnamed	(the JavaScript body is translated to v2; the JavaScript body is written as v2 assignments)
 OpaqueBehavior	Station::Cycle::main::<Transition>::<OpaqueBehavior>	_leaveEff	-> Station::Cycle::unnamed3::unnamed	(the JavaScript body is translated to v2; the JavaScript body is written as v2 assignments)
@@ -62,16 +62,16 @@ Signal	Split	_split	-> Split
 Region	Station::Cycle::main	_main	(the one region is written as the body of its owner)
 Pseudostate	Station::Cycle::main::<Pseudostate>	_init0	(written as the entry of the region)
 Transition	Station::Cycle::main::<Transition>	_t0
-Transition	Station::Cycle::main::<Transition>	_tGo	(the target 'Start' lies in another region and is named by its path Work::Start)
+Transition	Station::Cycle::main::<Transition>	_tGo	(the target 'Start' lies in another region and is named by its path Work.Start)
 Transition	Station::Cycle::main::<Transition>	_tNever
 Transition	Station::Cycle::main::<Transition>	_tEnter	(written to Work: no transition leaves the entry point 'Plain', so entering through it enters the state by its default entry)
-Transition	Station::Cycle::main::<Transition>	_tDive	(the target 'Deep' lies in another region and is named by its path Work::Run::Deep)
-Transition	Station::Cycle::main::<Transition>	_tResume	(the target 'H' lies in another region and is named by its path Work::H)
-Transition	Station::Cycle::main::<Transition>	_tLeave	(the source 'Leave' lies in another region and is named by its path Work::Leave)
+Transition	Station::Cycle::main::<Transition>	_tDive	(the target 'Deep' lies in another region and is named by its path Work.Run.Deep)
+Transition	Station::Cycle::main::<Transition>	_tResume	(the target 'H' lies in another region and is named by its path Work.H)
+Transition	Station::Cycle::main::<Transition>	_tLeave	(the source 'Leave' lies in another region and is named by its path Work.Leave)
 Transition	Station::Cycle::main::<Transition>	_tStop
 Transition	Station::Cycle::main::<Transition>	_tPair
-Transition	Station::Cycle::main::<Transition>	_tSplit	(the target 'Both' lies in another region and is named by its path Sync::Both)
-Transition	Station::Cycle::main::<Transition>	_tGather	(the source 'Gather' lies in another region and is named by its path Sync::Gather)
+Transition	Station::Cycle::main::<Transition>	_tSplit	(the target 'Both' lies in another region and is named by its path Sync.Both)
+Transition	Station::Cycle::main::<Transition>	_tGather	(the source 'Gather' lies in another region and is named by its path Sync.Gather)
 Trigger	Station::Cycle::main::<Transition>::<Trigger>	_trGo
 Trigger	Station::Cycle::main::<Transition>::<Trigger>	_trNever
 Trigger	Station::Cycle::main::<Transition>::<Trigger>	_trEnter
@@ -88,9 +88,9 @@ Pseudostate	Station::Cycle::main::Sync::Gather	_gather	-> Gather	(written as a j
 Region	Station::Cycle::main::Sync::a	_ra	-> a	(the one region is written as the body of its owner; an orthogonal region is written as a sub-state of the parallel state regions)
 Pseudostate	Station::Cycle::main::Sync::a::<Pseudostate>	_initA	(written as the entry of the region)
 Transition	Station::Cycle::main::Sync::a::<Transition>	_tAi
-Transition	Station::Cycle::main::Sync::a::<Transition>	_tBothA	(the source 'Both' lies in another region and is named by its path Sync::Both)
 Transition	Station::Cycle::main::Sync::a::<Transition>	_tA
-Transition	Station::Cycle::main::Sync::a::<Transition>	_tAg	(the target 'Gather' lies in another region and is named by its path Sync::Gather)
+Transition	Station::Cycle::main::Sync::a::<Transition>	_tBothA	(the source 'Both' lies in another region and is named by its path Both)
+Transition	Station::Cycle::main::Sync::a::<Transition>	_tAg	(the target 'Gather' lies in another region and is named by its path Gather)
 Constraint	Station::Cycle::main::Sync::a::<Transition>::<Constraint>	_bothAGuard	(a true guard is not written)
 Trigger	Station::Cycle::main::Sync::a::<Transition>::<Trigger>	_trA
 State	Station::Cycle::main::Sync::a::A0	_a0	-> A0
@@ -98,9 +98,9 @@ State	Station::Cycle::main::Sync::a::A1	_a1	-> A1
 Region	Station::Cycle::main::Sync::b	_rb	-> b	(the one region is written as the body of its owner; an orthogonal region is written as a sub-state of the parallel state regions)
 Pseudostate	Station::Cycle::main::Sync::b::<Pseudostate>	_initB	(written as the entry of the region)
 Transition	Station::Cycle::main::Sync::b::<Transition>	_tBi
-Transition	Station::Cycle::main::Sync::b::<Transition>	_tBothB	(the source 'Both' lies in another region and is named by its path Sync::Both)
 Transition	Station::Cycle::main::Sync::b::<Transition>	_tB
-Transition	Station::Cycle::main::Sync::b::<Transition>	_tBg	(the target 'Gather' lies in another region and is named by its path Sync::Gather)
+Transition	Station::Cycle::main::Sync::b::<Transition>	_tBothB	(the source 'Both' lies in another region and is named by its path Both; the target 'B1' lies in another region and is named by its path regions.b.B1)
+Transition	Station::Cycle::main::Sync::b::<Transition>	_tBg	(the source 'B1' lies in another region and is named by its path regions.b.B1; the target 'Gather' lies in another region and is named by its path Gather)
 Trigger	Station::Cycle::main::Sync::b::<Transition>::<Trigger>	_trB
 State	Station::Cycle::main::Sync::b::B0	_b0	-> B0
 State	Station::Cycle::main::Sync::b::B1	_b1	-> B1
@@ -112,9 +112,9 @@ Region	Station::Cycle::main::Work::steps	_steps	(the one region is written as th
 Pseudostate	Station::Cycle::main::Work::steps::<Pseudostate>	_initW	(written as the entry of the region)
 Transition	Station::Cycle::main::Work::steps::<Transition>	_tWi
 Transition	Station::Cycle::main::Work::steps::<Transition>	_tNext
-Transition	Station::Cycle::main::Work::steps::<Transition>	_tStart	(the source 'Start' lies in another region and is named by its path Work::Start)
-Transition	Station::Cycle::main::Work::steps::<Transition>	_tFinish	(the target 'Leave' lies in another region and is named by its path Work::Leave)
-Transition	Station::Cycle::main::Work::steps::<Transition>	_tOut	(the source 'Out' lies in another region and is named by its path Work::Run::Out)
+Transition	Station::Cycle::main::Work::steps::<Transition>	_tStart	(the source 'Start' lies in another region and is named by its path Start)
+Transition	Station::Cycle::main::Work::steps::<Transition>	_tFinish	(the target 'Leave' lies in another region and is named by its path Leave)
+Transition	Station::Cycle::main::Work::steps::<Transition>	_tOut	(the source 'Out' lies in another region and is named by its path Run.Out)
 Trigger	Station::Cycle::main::Work::steps::<Transition>::<Trigger>	_trNext
 Trigger	Station::Cycle::main::Work::steps::<Transition>::<Trigger>	_trFinish
 Pseudostate	Station::Cycle::main::Work::steps::H	_hist	-> H	(written as a shallow history, which re-enters the substate active when its state was last left)
@@ -125,8 +125,8 @@ Pseudostate	Station::Cycle::main::Work::steps::Run::Out	_out	-> Out	(written as 
 Region	Station::Cycle::main::Work::steps::Run::pace	_pace	(the one region is written as the body of its owner)
 Pseudostate	Station::Cycle::main::Work::steps::Run::pace::<Pseudostate>	_initR	(written as the entry of the region)
 Transition	Station::Cycle::main::Work::steps::Run::pace::<Transition>	_tRi
-Transition	Station::Cycle::main::Work::steps::Run::pace::<Transition>	_tDeep	(the source 'Deep' lies in another region and is named by its path Work::Run::Deep)
-Transition	Station::Cycle::main::Work::steps::Run::pace::<Transition>	_tBack	(the target 'Out' lies in another region and is named by its path Work::Run::Out)
+Transition	Station::Cycle::main::Work::steps::Run::pace::<Transition>	_tDeep	(the source 'Deep' lies in another region and is named by its path Deep)
+Transition	Station::Cycle::main::Work::steps::Run::pace::<Transition>	_tBack	(the target 'Out' lies in another region and is named by its path Out)
 Trigger	Station::Cycle::main::Work::steps::Run::pace::<Transition>::<Trigger>	_trBack
 State	Station::Cycle::main::Work::steps::Run::pace::Fast	_fast	-> Fast
 State	Station::Cycle::main::Work::steps::Run::pace::Slow	_slow	-> Slow

@@ -1,0 +1,14 @@
+{
+  "rpc": "ApplyEdits",
+  "operations": [
+    {
+      "kind": "add_connection",
+      "owner": "Demo::System",
+      "member_kind": "allocation",
+      "from_end": "a",
+      "to_end": "b",
+      "name": "alloc1"
+    }
+  ],
+  "expected_content": "package Demo {\n    part def System {\n        part a;\n        part b;\n        allocation alloc1 allocate a to b;\n    }\n}\n"
+}

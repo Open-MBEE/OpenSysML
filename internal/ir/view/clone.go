@@ -12,7 +12,10 @@ func (r *Rendering) Clone() *Rendering {
 	out.Edges = append([]Edge(nil), r.Edges...)
 	for i := range out.Edges {
 		out.Edges[i].Route = append([]Point(nil), r.Edges[i].Route...)
+		out.Edges[i].Style = cloneStyle(r.Edges[i].Style)
 	}
+	out.Notes = append([]Note(nil), r.Notes...)
+	out.Pictures = append([]Picture(nil), r.Pictures...)
 	if r.Canvas != nil {
 		canvas := *r.Canvas
 		out.Canvas = &canvas
@@ -35,11 +38,21 @@ func cloneNodes(nodes []*Node) []*Node {
 	for i, node := range nodes {
 		copied := *node
 		copied.Children = cloneNodes(node.Children)
+		copied.Ports = append([]Port(nil), node.Ports...)
 		if node.Geometry != nil {
 			geometry := *node.Geometry
 			copied.Geometry = &geometry
 		}
+		copied.Style = cloneStyle(node.Style)
 		out[i] = &copied
 	}
 	return out
+}
+
+func cloneStyle(s *Style) *Style {
+	if s == nil {
+		return nil
+	}
+	copied := *s
+	return &copied
 }

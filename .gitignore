@@ -12,11 +12,17 @@
 # Rendered documentation site (make docs)
 /site/
 
+# Julia package environments resolve locally; the pinned deps are in Project.toml.
+client/julia/**/Manifest.toml
+
 # Downloaded training examples (run scripts/download-training-examples.sh)
 /examples/sysml-v2-training/
 
 # Downloaded OMG corpora (run scripts/download-pilot-corpora.sh)
 /examples/pilot-corpora/
+
+# Downloaded Modelica Reference-FMUs (run scripts/download-reference-fmus.sh)
+/examples/reference-fmus/
 
 # Python
 /src/  # Legacy Python layout shadow directory (superseded by client/python/)

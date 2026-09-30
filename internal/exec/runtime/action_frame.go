@@ -22,9 +22,15 @@ type performances struct {
 	self  *Instance
 	root  *actionFrame
 	owner performanceOwner
+	// occurrence is the performance instance the root frame runs as, when the
+	// performed usage materialized one: `this` inside a behavior def denotes it.
+	occurrence *Instance
 	// behavior is the action or state machine the trace names as making what
 	// these performances send and draw; nil for a body no behavior owns.
 	behavior *symbols.Symbol
+	// thisOccurrence materializes the performance occurrence `this` denotes the
+	// first time a directly run definition denotes it; nil where none can be.
+	thisOccurrence func() (*Instance, error)
 	// flow is the executor holding the tokens these performances run under, which a
 	// terminate drops when it ends one of them.
 	flow *ActionExecutor
@@ -67,6 +73,9 @@ type actionFrame struct {
 	// outer are the frames around a root performance its bodies read but no performance
 	// holds, outermost first: a state machine's data and its states' attributes.
 	outer []frame
+	// perfs runs the performances this performance belongs to, so a write
+	// through its frame lands on the run's own path (setFrameFeature).
+	perfs *performances
 	// live counts the tokens still running in this performance's flow, which a
 	// fork inside it raises and a join or a retiring token lowers.
 	live int
@@ -196,6 +205,7 @@ func (e *ActionExecutor) newRootFrame() *actionFrame {
 		data:        make(map[string]Value),
 		features:    make(map[string]ast.FeatureDirection),
 		subactions:  make(map[ast.Node]*actionFrame),
+		perfs:       &e.performances,
 		run:         e.ctx.newRun(),
 	}
 	e.declareRootFeatures(root)
@@ -298,6 +308,7 @@ func (e *performances) beginPerformance(
 		connections: parent.connections,
 		data:        make(map[string]Value),
 		features:    make(map[string]ast.FeatureDirection),
+		perfs:       e,
 		run:         e.ctx.newRun(),
 	}
 	if perf.scope == nil {
@@ -1023,6 +1034,8 @@ func lookupEnclosing(perf *actionFrame, name string) (Value, bool) {
 // every frame around it in reach, innermost last.
 func (e *performances) evalContextFor(perf *actionFrame, scope *symbols.Scope) *EvalContext {
 	ec := NewEvalContextIn(e.ctx, scope, e.self)
+	ec.occurrence = e.occurrence
+	ec.thisOccurrence = e.thisOccurrence
 	for _, f := range perf.lexicalFrames() {
 		ec.pushFrame(f)
 	}
@@ -1035,6 +1048,8 @@ func (e *performances) evalContextFor(perf *actionFrame, scope *symbols.Scope) *
 // only by names resolving to them.
 func (e *performances) evalContextAround(perf *actionFrame, scope *symbols.Scope) *EvalContext {
 	ec := NewEvalContextIn(e.ctx, scope, e.self)
+	ec.occurrence = e.occurrence
+	ec.thisOccurrence = e.thisOccurrence
 	ec.inBehaviorBody = true
 	if perf.parent != nil {
 		for _, f := range perf.parent.lexicalFrames() {
@@ -1207,59 +1222,109 @@ func (e *performances) bindOutputPins(perf *actionFrame) error {
 		if err != nil {
 			return err
 		}
-		value, ok := perf.data[perf.key(end.Pin)]
-		switch dir {
-		case ast.DirOut, ast.DirInOut:
-			if !ok {
-				if !perf.admitsNoValueAt(end.Pin) {
-					return fmt.Errorf("%w: %s produced no value at %s to bind %s to",
-						ErrBindingEnd, perf.describe(), end.Pin, bindingEndText(end.Other))
-				}
-				value = sequenceOf(nil) // the binding holds the other end to the same absence
-			}
-		case ast.DirNone:
-			if !ok {
-				continue
-			}
-			if other, held := e.otherEndHeld(perf, end); held && e.ctx.equalValues(other, value) {
-				continue
-			}
-		default:
-			continue
-		}
-		if end.OtherNode != nil {
-			if holder, node, _ := otherEnd(perf, end); node != nil && holder == perf {
-				continue // a node of perf's own flow carried its value here as it ended
-			}
-			if err := e.writeOtherEnd(perf, end, value); err != nil {
-				return err
-			}
-			continue
-		}
-		if end.OtherChain != nil {
-			ec := e.bindingEndContext(end)
-			if err := writeThroughChain(ec, end.OtherChain, end.OtherFeature, value); err != nil {
-				return fmt.Errorf("%w: %s is bound to %s: %w",
-					ErrBindingEnd, end.pinText(), bindingEndText(end.Other), err)
-			}
-			continue
-		}
-		name := simpleEndName(end.Other)
-		if name == "" {
-			if end.FromValue {
-				continue // a qualified value (`Mode::idle`) initialized the pin, and holds nothing
-			}
-			return fmt.Errorf("%w: %s is bound to %s, which names no feature to hold its value",
-				ErrBindingEnd, end.pinText(), bindingEndText(end.Other))
-		}
-		written, err := e.assignEnclosing(end.at, name, value)
+		value, carried, err := e.outputPinValue(perf, end, dir)
 		if err != nil {
 			return err
 		}
-		if !written && !end.FromValue {
-			return fmt.Errorf("%w: %s is bound to %s, which no enclosing action holds",
-				ErrBindingEnd, end.pinText(), name)
+		if !carried {
+			continue
 		}
+		switch {
+		case end.OtherNode != nil:
+			if holder, node, _ := otherEnd(perf, end); node != nil && holder == perf {
+				continue // a node of perf's own flow carried its value here as it ended
+			}
+			err = e.writeOtherEnd(perf, end, value)
+		case end.OtherChain != nil:
+			ec := e.bindingEndContext(end)
+			err = boundEndError(end, writeThroughChain(ec, end.OtherChain, end.OtherFeature, value))
+		case end.OtherFeature != "":
+			err = e.writeQualifiedEnd(end, value)
+		default:
+			err = e.writeNamedEnd(end, value)
+		}
+		if err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+// boundEndError wraps a failure to write the other end of a binding, nil for none.
+func boundEndError(end boundEnd, err error) error {
+	if err == nil {
+		return nil
+	}
+	return fmt.Errorf("%w: %s is bound to %s: %w", ErrBindingEnd, end.pinText(), bindingEndText(end.Other), err)
+}
+
+// outputPinValue is the value a pin of direction dir carries to the other end of
+// its binding, carried false when the pin holds nothing the binding moves.
+func (e *performances) outputPinValue(perf *actionFrame, end boundEnd, dir ast.FeatureDirection) (Value, bool, error) {
+	value, ok := perf.data[perf.key(end.Pin)]
+	switch dir {
+	case ast.DirOut, ast.DirInOut:
+		if !ok {
+			if !perf.admitsNoValueAt(end.Pin) {
+				return Value{}, false, fmt.Errorf("%w: %s produced no value at %s to bind %s to",
+					ErrBindingEnd, perf.describe(), end.Pin, bindingEndText(end.Other))
+			}
+			value = sequenceOf(nil) // the binding holds the other end to the same absence
+		}
+		return value, true, nil
+	case ast.DirNone:
+		if !ok {
+			return Value{}, false, nil
+		}
+		if other, held := e.otherEndHeld(perf, end); held && e.ctx.equalValues(other, value) {
+			return Value{}, false, nil
+		}
+		return value, true, nil
+	}
+	return Value{}, false, nil
+}
+
+// writeQualifiedEnd writes value to the feature a qualified path (`Bench::level`,
+// `Probe::count`) names on the object its qualifier denotes: the performance
+// running that def, else the object the binding joins.
+func (e *performances) writeQualifiedEnd(end boundEnd, value Value) error {
+	ec := e.bindingEndContext(end)
+	written, err := ec.writeFrameFeature(end.OtherOwner, end.OtherFeatureSym, value)
+	if err != nil || written {
+		return boundEndError(end, err)
+	}
+	target := ec.self
+	switch {
+	case target != nil && ec.ctx.isOrSpecializes(target.Type, end.OtherOwner) && target.FeatureValues[end.OtherFeature] != nil:
+		if err := target.SetFeatureValue(e.ctx, end.OtherFeature, value); err != nil {
+			return boundEndError(end, err)
+		}
+		e.ctx.noteObjectWrite(target, end.OtherFeature, value)
+		return nil
+	case end.FromValue:
+		return nil
+	}
+	return boundEndError(end, fmt.Errorf("names no object typed by %s to write on", end.OtherOwner.Name))
+}
+
+// writeNamedEnd writes value to the feature the simple name at the other end
+// denotes on an enclosing action.
+func (e *performances) writeNamedEnd(end boundEnd, value Value) error {
+	name := simpleEndName(end.Other)
+	if name == "" {
+		if end.FromValue {
+			return nil // a qualified value (`Mode::idle`) initialized the pin, and holds nothing
+		}
+		return fmt.Errorf("%w: %s is bound to %s, which names no feature to hold its value",
+			ErrBindingEnd, end.pinText(), bindingEndText(end.Other))
+	}
+	written, err := e.assignEnclosing(end.at, name, value)
+	if err != nil {
+		return err
+	}
+	if !written && !end.FromValue {
+		return fmt.Errorf("%w: %s is bound to %s, which no enclosing action holds",
+			ErrBindingEnd, end.pinText(), name)
 	}
 	return nil
 }
@@ -1511,19 +1576,6 @@ func (e *performances) beginInvocation(perf *actionFrame, inv actionInvocation) 
 			inputs[name] = value
 		}
 	}
-	if inv.expr == nil {
-		for _, name := range in {
-			if _, bound := inputs[name]; bound {
-				continue
-			}
-			if value, ok := lookupEnclosing(perf, name); ok {
-				inputs[name] = value
-			}
-		}
-	}
-	if err := checkInputsBound(inv, params, inputs); err != nil {
-		return nil, err
-	}
 	performer := e.self
 	if inv.chain != nil {
 		ec := e.evalContextAround(perf, nodeScope(perf.flow, perf.node))
@@ -1531,6 +1583,10 @@ func (e *performances) beginInvocation(perf *actionFrame, inv actionInvocation) 
 		if performer, err = e.ctx.performerOf(ec, inv, e.self); err != nil {
 			return nil, err
 		}
+	}
+	e.bindPerformerInputs(perf, inv, params, in, inputs, performer)
+	if err := checkInputsBound(inv, params, inputs); err != nil {
+		return nil, err
 	}
 
 	sort.Strings(out)
@@ -1541,6 +1597,42 @@ func (e *performances) beginInvocation(perf *actionFrame, inv actionInvocation) 
 	}
 	callee.name, callee.out, callee.performer = inv.name(), out, perf
 	return callee, nil
+}
+
+// bindPerformerInputs binds the inputs the node's pins left unbound. A `::>`
+// performance binds its `ref` inputs to the object it is performed on or to a
+// default resolved on it, which bindContextDefault resolves once it runs on
+// that object; a like-named feature of the caller is the argument only for a
+// `ref` input the performer cannot supply.
+func (e *performances) bindPerformerInputs(perf *actionFrame, inv actionInvocation, params []actionParameter, in []string, inputs map[string]Value, performer *Instance) {
+	if inv.expr == nil {
+		refInputs := make(map[string]bool)
+		if inv.chain != nil {
+			for _, param := range params {
+				if param.IsReference && e.ctx.performerSuppliesRef(param, performer) {
+					refInputs[param.Name] = true
+				}
+			}
+		}
+		for _, name := range in {
+			if _, bound := inputs[name]; bound || refInputs[name] {
+				continue
+			}
+			if value, ok := lookupEnclosing(perf, name); ok {
+				inputs[name] = value
+			}
+		}
+	}
+	if inv.chain == nil {
+		return
+	}
+	for _, param := range params {
+		if param.IsReference {
+			if _, bound := inputs[param.Name]; !bound && e.ctx.performerSeedsRef(param, performer) {
+				inputs[param.Name] = Value{Kind: ValInstance, Instance: performer.ID}
+			}
+		}
+	}
 }
 
 // streamCalleeOutput is what the action a node performs writes its outputs through
@@ -1595,7 +1687,15 @@ func checkInputsBound(inv actionInvocation, params []actionParameter, inputs map
 // performanceFrame is the frame an evaluation reads a performance's values
 // through, which also answers for the nodes of its flow.
 func performanceFrame(f *actionFrame) frame {
-	return frame{vars: f.data, aliases: f.aliases, perf: f, run: f.run}
+	fr := frame{vars: f.data, aliases: f.aliases, perf: f, run: f.run}
+	if f.perfs != nil {
+		// A qualified write lands on the run's own path: the declaration check,
+		// the performance occurrence, and the flows streaming the written pin.
+		fr.write = func(_ frame, name string, value Value) error {
+			return f.perfs.setFrameFeature(f, name, value)
+		}
+	}
+	return fr
 }
 
 // cloneUnreceived copies the unreceived streams of a frame, queues included.

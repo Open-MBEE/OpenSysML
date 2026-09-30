@@ -74,7 +74,10 @@ package System {
         end #RequirementDerivation::derive derivedRequirement : 'Speed Requirement';
         @Tailoring::'Derived From';
     }
-    allocate Spin to Shaft {
+    allocation def 'Spin to Shaft' {
+        end spin : Spin;
+        end shaft : Shaft;
         @Tailoring::'Assigned To';
     }
+    metadata MigrationMetadata::SynthesizedName about 'Spin to Shaft';
 }

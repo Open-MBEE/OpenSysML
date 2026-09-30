@@ -40,8 +40,11 @@ type CachedModel struct {
 	// notation is judged at the same strictness.
 	Mode diag.ConformanceMode
 
-	symCtxOnce sync.Once
-	symCtx     *SymbolContext
+	symCtxOnce     sync.Once
+	symCtx         *SymbolContext
+	positionalOnce sync.Once
+	positional     map[*symbols.Symbol]string
+	byPositional   map[string]*symbols.Symbol
 
 	// idle are the workers requests have given back, warm with what they resolved.
 	idleMu sync.Mutex

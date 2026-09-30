@@ -10,7 +10,9 @@ interpreter did not check: a witness is replayed and the claim evaluated where t
 says, and a universal claim without executions to replay is *not covered* with the claim kept
 in the reason. The design is
 [bring your own engine](../internals/design/bring-your-own-engines.md); this page is the
-contract an engine author and a site operator hold each other to.
+contract an engine author and a site operator hold each other to. One engine is built in for a
+tool with a protocol of its own: `tool:fmi` evaluates a `calc def` imported from an FMI model
+through the runner `OPENSYSML_FMI_RUNNER` names — see [FMI models (FMUs)](fmi.md).
 
 ## The manifest entry
 
@@ -64,10 +66,13 @@ directory, as a bad run bound is reported.
 
 ## Listing, probing, selecting
 
-`-engines` and `%engines` read the manifests and print each entry with its kind, protocol
-(`<transport>/<protocol>`), authority, question kinds and status, then one source line per
+`-engines` and `%engines` read the manifests and print each entry with its kind, protocol,
+authority, question kinds and status, then one source line per
 manifest entry — the file, the resolved command, and `not admitted` for an engine — spawning no
-process. The status is what the file can tell: `ready (spin-bridge 1.4.0 at /opt/…)` when the
+process. The protocol is `<transport>/<protocol>` for an engine entry; a tool's is `object` for
+the one-JSON-object exchange or `argv+<stdin>` when the entry has an `invocation` block, with a
+`/<reply format>` suffix such as `argv+none/csv` when the `reply` block reads another format —
+see [External tools](environment.md#external-tools). The status is what the file can tell: `ready (spin-bridge 1.4.0 at /opt/…)` when the
 command resolves to an executable regular file, `unavailable: <why>` when it does not or the
 entry is not served.
 
