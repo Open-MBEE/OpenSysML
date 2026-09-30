@@ -776,7 +776,6 @@ func convertModel(files []string, to convert.Format) (int, error) {
 			return 0, fmt.Errorf("-o %s: a model of several files is written to a file; a repository branch is pushed from one file", outputPath)
 		}
 	}
-	inputs := make([]convert.Input, 0, len(files))
 	for _, file := range files {
 		if _, isURL, err := flexo.ParseBranchURL(file); err != nil || isURL {
 			return 0, fmt.Errorf("%s: a model of several files converts files, not a repository branch", file)
@@ -791,6 +790,9 @@ func convertModel(files []string, to convert.Format) (int, error) {
 		if outputPath != "" && samePath(outputPath, file) {
 			return 0, fmt.Errorf("-o names one of the model's files, %s; the %s would replace it", file, to)
 		}
+	}
+	inputs := make([]convert.Input, 0, len(files))
+	for _, file := range files {
 		name, data, err := project.ReadFile(file)
 		if err != nil {
 			return 0, err
