@@ -7,10 +7,10 @@
   <parent>
     <groupId>org.openmbee</groupId>
     <artifactId>opensysml-parent</artifactId>
-    <version>0.9.0</version>
+    <version>0.9.1</version>
   </parent>
 
-  <artifactId>opensysml-client</artifactId>
+  <artifactId>opensysml</artifactId>
   <packaging>jar</packaging>
 
   <name>OpenSysML Java client</name>

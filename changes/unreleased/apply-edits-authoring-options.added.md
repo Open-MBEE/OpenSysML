@@ -1,1 +1,0 @@
-- **Extend source-preserving authoring with member modifiers, satisfy usages and requirement constraints.** ApplyEdits now supports grammar-checked modifiers and requirement statements, with dedicated service capabilities and client preflight.

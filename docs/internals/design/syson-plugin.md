@@ -479,7 +479,7 @@ editors/syson/
   distribution/                  (not in this phase)
 ```
 
-The backend module depends on `org.openmbee:opensysml-client` at the version
+The backend module depends on `org.openmbee:opensysml` at the version
 `client/java/pom.xml` declares (the Java client,
 §2.1 for why it is JDK-compatible), `org.eclipse.sirius:sirius-web-starter`,
 `org.eclipse.syson:syson-sysml-metamodel` and `syson-sysml-metamodel-services`, all `2026.9.0`,

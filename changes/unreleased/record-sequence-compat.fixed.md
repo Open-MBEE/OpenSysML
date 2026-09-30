@@ -1,2 +1,0 @@
-- **A sequence mixing a quantity with a plain number records as text.** It has no single unit to record under, so it no longer settles to a bare Real that drops the measured element's unit.
-- **A repeated sequence value is refused by an existing unique record member.** Recording into a definition that declares the member `[0..*]` without `nonunique` names the `into` remedy instead of generating a record that fails validation; generated definitions, declared `ordered nonunique`, keep admitting repeats.

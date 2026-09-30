@@ -1,1 +1,0 @@
-- **Misspelled type names after `accept` in transitions now report unresolved references.** Bare, qualified, named-payload, and subsetting type references resolve normally; unqualified misspellings receive did-you-mean suggestions where applicable. The OpenSysML `when <name>` injected-signal spelling is unchanged.

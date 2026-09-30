@@ -1,1 +1,0 @@
-- **The pilot batch validator loads `.kerml` files.** `validate-sysml-batch` accepted only `.sysml`, so a model checked together with OpenSysML's bundled KerML libraries (`RandomFunctions`, `OpenSysMLMathFunctions`) reported every reference into them as unresolved; it now reads both languages into one resource set and validates each file with its own language's pilot validator.

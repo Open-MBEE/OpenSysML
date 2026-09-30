@@ -1,6 +1,6 @@
 # The Java client API
 
-This page covers what `org.openmbee:opensysml-client` exposes, what it deliberately keeps
+This page covers what `org.openmbee:opensysml` exposes, what it deliberately keeps
 out of its public surface, and where it stops. To choose between the clients, see
 [client libraries](clients.md); for a task-oriented walkthrough, see
 [guide chapter 9](../guide/09-clients.md#from-java). The client's own notes on its
@@ -10,13 +10,13 @@ dependency footprint, service ownership and release verification are in
 ```xml
 <dependency>
   <groupId>org.openmbee</groupId>
-  <artifactId>opensysml-client</artifactId>
+  <artifactId>opensysml</artifactId>
   <version>0.9.0</version>
 </dependency>
 ```
 
 The version is the core release's — a `v*` tag publishes
-`org.openmbee:opensysml-client` to Maven Central at that version — once the
+`org.openmbee:opensysml` to Maven Central at that version — once the
 first release is out. Until then a checkout installs it: `make build` for the service
 binary the tests start, then `mvn -f client/java/pom.xml install`. The compiler
 release is **17**, the lowest baseline a realistic host — Eclipse 2023-03,

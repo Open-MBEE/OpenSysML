@@ -6,13 +6,13 @@
 
   <groupId>org.openmbee</groupId>
   <artifactId>opensysml-parent</artifactId>
-  <version>0.9.0</version>
+  <version>0.9.1</version>
   <packaging>pom</packaging>
 
   <name>OpenSysML Java clients</name>
   <description>Java client for the OpenSysML sysml-grpc service, and the conformance runner that
     exercises it against the language-independent suite.</description>
-  <url>https://github.com/Open-MBEE/OpenSysML</url>
+  <url child.project.url.inherit.append.path="false">https://github.com/Open-MBEE/OpenSysML</url>
   <inceptionYear>2025</inceptionYear>
 
   <licenses>
@@ -36,7 +36,9 @@
     </developer>
   </developers>
 
-  <scm>
+  <scm child.scm.connection.inherit.append.path="false"
+       child.scm.developerConnection.inherit.append.path="false"
+       child.scm.url.inherit.append.path="false">
     <connection>scm:git:https://github.com/Open-MBEE/OpenSysML.git</connection>
     <developerConnection>scm:git:ssh://git@github.com/Open-MBEE/OpenSysML.git</developerConnection>
     <url>https://github.com/Open-MBEE/OpenSysML</url>

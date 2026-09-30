@@ -916,7 +916,7 @@ jobs:
         run: chmod +x bin/sysml-grpc
 
       - name: Install the Java client the plugin builds against
-        run: mvn -B -q -f client/java/pom.xml -pl opensysml-client -am install -DskipTests
+        run: mvn -B -q -f client/java/pom.xml -pl :opensysml -am install -DskipTests
 
       # Compiles against the compile-only OpenAPI stubs and runs the unit tests plus
       # the pipeline test against the freshly built service.

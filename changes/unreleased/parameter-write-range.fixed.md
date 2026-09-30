@@ -1,1 +1,0 @@
-- **Use effective parameter multiplicities when checking action-node declarations.** Bare input parameters can hold no values, while explicit bounds remain enforced.

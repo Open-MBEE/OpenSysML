@@ -4,14 +4,14 @@
   <parent>
     <groupId>org.openmbee</groupId>
     <artifactId>opensysml-cameo-parent</artifactId>
-    <version>0.9.0</version>
+    <version>0.9.1</version>
   </parent>
   <artifactId>opensysml-cameo-tools</artifactId>
   <name>OpenSysML Cameo build tools</name>
   <dependencies>
     <dependency>
       <groupId>org.openmbee</groupId>
-      <artifactId>opensysml-client</artifactId>
+      <artifactId>opensysml</artifactId>
       <version>${opensysml.client.version}</version>
     </dependency>
     <dependency>

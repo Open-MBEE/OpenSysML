@@ -1,1 +1,0 @@
-- A parameter subsetting several features now takes the intersection of their ranges as its effective multiplicity — `[0..1]` and `[1..*]` bound it to `[1..1]` — instead of the first subsetted bound found, so the written order of the subsets no longer changes whether the parameter is required.

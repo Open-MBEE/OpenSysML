@@ -2068,7 +2068,7 @@ jobs:
       - rehearsal-skip:
           what: "npm publish"
 
-  # Publishes org.openmbee:opensysml-client and its parent pom to Maven Central
+  # Publishes org.openmbee:opensysml and its parent pom to Maven Central
   # from the core `v<version>` tag. Central has no trusted publishing, so a
   # portal token and the release signing key come from the
   # restricted 'Maven Central' context. Everything that can fail runs before the upload:
@@ -2112,7 +2112,7 @@ jobs:
                 exit 1 ;;
             esac
             echo "export JAVA_VERSION=${version}" >> "$BASH_ENV"
-            echo "Publishing org.openmbee:opensysml-client:${version}"
+            echo "Publishing org.openmbee:opensysml:${version}"
 
       - run:
           name: Require the publishing credentials
@@ -2129,7 +2129,7 @@ jobs:
       - run:
           name: Refuse a version already on Central
           command: |
-            for artifact in opensysml-parent opensysml-client; do
+            for artifact in opensysml-parent opensysml; do
               code=$(curl -s -o /dev/null -w '%{http_code}' \
                 "https://repo1.maven.org/maven2/org/openmbee/${artifact}/${JAVA_VERSION}/")
               case "$code" in
@@ -2150,7 +2150,14 @@ jobs:
             if ! command -v gpg > /dev/null; then
               sudo apt-get update && sudo apt-get install -y gnupg
             fi
-            printf '%s\n' "$GPG_PRIVATE_KEY" | gpg --batch --import
+            # The context may hold the key ASCII-armoured or base64-encoded (the
+            # CircleCI UI does not keep newlines), so accept both.
+            case "$GPG_PRIVATE_KEY" in
+              *"-----BEGIN PGP PRIVATE KEY BLOCK-----"*)
+                printf '%s\n' "$GPG_PRIVATE_KEY" | gpg --batch --import ;;
+              *)
+                printf '%s' "$GPG_PRIVATE_KEY" | tr -d ' \n' | base64 -d | gpg --batch --import ;;
+            esac
             # Prove key and passphrase work before anything uploads: a clearsign
             # with an expired key or a wrong passphrase fails here.
             exec 3\<<<"$GPG_PASSPHRASE"
@@ -2186,7 +2193,7 @@ jobs:
                 name: Sign, upload and publish
                 command: |
                   MAVEN_GPG_PASSPHRASE="$GPG_PASSPHRASE" mvn -B -f client/java/pom.xml \
-                    -Prelease deploy -pl opensysml-client -am -DskipTests
+                    -Prelease deploy -pl :opensysml -am -DskipTests
       - when:
           condition: << pipeline.parameters.release_rehearsal >>
           steps:
@@ -2196,7 +2203,7 @@ jobs:
                   auth=$(printf '%s:%s' "$CENTRAL_TOKEN_USERNAME" "$CENTRAL_TOKEN_PASSWORD" | base64 -w0)
                   code=$(curl -s -o /tmp/central.json -w '%{http_code}' \
                     -H "Authorization: Bearer ${auth}" \
-                    "https://central.sonatype.com/api/v1/publisher/published?namespace=org.openmbee&name=opensysml-client&version=${JAVA_VERSION}")
+                    "https://central.sonatype.com/api/v1/publisher/published?namespace=org.openmbee&name=opensysml&version=${JAVA_VERSION}")
                   case "$code" in
                     200) echo "ok: the portal token authenticates" ;;
                     401|403)
@@ -2211,7 +2218,7 @@ jobs:
                 command: |
                   # Never run this step with -X/debug output; the settings interpolation would print the token.
                   MAVEN_GPG_PASSPHRASE="$GPG_PASSPHRASE" mvn -B -f client/java/pom.xml \
-                    -Prelease verify -pl opensysml-client -am -DskipTests
+                    -Prelease verify -pl :opensysml -am -DskipTests
                   ls client/java/opensysml-client/target/*.jar.asc > /dev/null
                   ls client/java/*/target/*.pom.asc > /dev/null
       - rehearsal-skip:
@@ -2569,7 +2576,7 @@ workflows:
           filters: *release-tags
 
       - publish-maven:
-          name: Publish opensysml-client to Maven Central
+          name: Publish opensysml to Maven Central
           # Last of all, with publish-pypi and publish-npm: Central versions are
           # immutable, so it waits for the GitHub release. It is independent of
           # them so neither registry refusing a re-run blocks the other.

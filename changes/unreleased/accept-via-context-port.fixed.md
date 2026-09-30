@@ -1,3 +1,0 @@
-- Route port-qualified accepts in nested definitions through the definition context during migration and validation, while preserving direct port references in behavior usages.
-- Declare and bind reception contexts for port routes emitted by non-block owners.
-- Resolve send-with-body `via` targets as route members for diagnostics and editor navigation.

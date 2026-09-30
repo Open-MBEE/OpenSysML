@@ -30,11 +30,11 @@ directory here with its own build.
 
 ## Versions
 
-The editors carry the core version — `0.9.0` now — the same lockstep the clients
+The editors carry the core version — `0.9.1` now — the same lockstep the clients
 follow, even though nothing publishes them. `check_version.py --editors` checks
 every manifest (the two package.json files and their locks, the Cameo and SysON
 poms and their children's `<parent><version>`), and a release fails early when
 one disagrees. The client references the editors build against —
-`opensysml.client.version` in the Cameo pom and the `opensysml-client`
+`opensysml.client.version` in the Cameo pom and the `opensysml`
 dependency in the SysON backend pom — are pinned to `client/java/pom.xml` the
 same way.

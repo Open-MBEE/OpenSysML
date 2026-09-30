@@ -1,1 +1,0 @@
-- Refuse anchored sequence edits after members that cannot be succession sources.
