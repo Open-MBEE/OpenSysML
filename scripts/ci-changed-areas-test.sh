@@ -51,6 +51,8 @@ case_ node-only node client/node/src/node/binary.ts
 case_ node-manifest node,python client/node/package.json
 case_ python-only python client/python/opensysml/connection.py
 case_ rust-only rust client/rust/opensysml/src/connection.rs
+case_ rust-manifest python,rust client/rust/opensysml/Cargo.toml
+case_ rust-lock python,rust client/rust/Cargo.lock
 case_ julia-only julia client/julia/OpenSysML/src/connection.jl
 case_ matlab-only matlab client/matlab/+opensysml/call.m
 case_ vscode-only vscode editors/vscode/package.json
