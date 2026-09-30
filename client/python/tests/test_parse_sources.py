@@ -12,6 +12,7 @@ from concurrent import futures
 from pathlib import Path
 
 import grpc
+
 import pytest
 
 import opensysml
@@ -122,6 +123,33 @@ class TestSourceDocument:
             source_documents(["a.sysml", 3])
         with pytest.raises(ValueError, match="document 0 is tuple"):
             source_documents([("a.sysml", "package A;", "extra")])
+        with pytest.raises(ValueError, match="document 0 is tuple"):
+            source_documents([("a.sysml", b"package A;")])
+
+    @pytest.mark.parametrize(
+        "document",
+        ["lib.sysml", Path("lib.sysml"), ("lib.sysml", LIBRARY),
+         SourceDocument.inline("lib.sysml", LIBRARY)],
+        ids=["str", "path", "pair", "SourceDocument"],
+    )
+    def test_one_document_outside_a_sequence_is_refused(self, document):
+        """A bare string is not read as its characters, each a document."""
+        with pytest.raises(ValueError, match="sequence of documents"):
+            source_documents(document)
+
+    @pytest.mark.parametrize(
+        "kwargs, complaint",
+        [
+            ({"path": b"a.sysml"}, "path must be str, not bytes"),
+            ({"path": 3}, "path must be str, not int"),
+            ({"content": b"package A;", "name": "a"}, "content must be str, not bytes"),
+            ({"content": "package A;", "name": 7}, "name must be str, not int"),
+            ({"content": "package A;", "name": "a", "language": 1}, "language must be str, not int"),
+        ],
+    )
+    def test_a_field_of_another_type_is_refused(self, kwargs, complaint):
+        with pytest.raises(TypeError, match=complaint):
+            SourceDocument(**kwargs)
 
 
 class FakeService(sysml_pb2_grpc.SysMLServiceServicer):

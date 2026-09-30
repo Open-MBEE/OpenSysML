@@ -48,6 +48,13 @@ class SourceDocument:
     language: Optional[str] = None
 
     def __post_init__(self) -> None:
+        if not isinstance(self.name, str):
+            raise TypeError(f"name must be str, not {type(self.name).__name__}")
+        for field, value in (
+            ("path", self.path), ("content", self.content), ("language", self.language)
+        ):
+            if value is not None and not isinstance(value, str):
+                raise TypeError(f"{field} must be str, not {type(value).__name__}")
         if (self.path is None) == (self.content is None):
             raise ValueError(
                 "a SourceDocument is either a file path or inline content, not both"
@@ -126,9 +133,17 @@ def source_documents(documents: Iterable[Source]) -> List[SourceDocument]:
         list[SourceDocument]: One per document, in order
 
     Raises:
-        ValueError: If there are no documents, two share a name, or one is of
-            none of the accepted forms
+        ValueError: If there are no documents, two share a name, one is of none
+            of the accepted forms, or ``documents`` is itself one document
+            rather than a sequence of them
     """
+    if isinstance(documents, (str, bytes, os.PathLike, SourceDocument)) or (
+        _is_named_content(documents)
+    ):
+        raise ValueError(
+            "parse_sources takes a sequence of documents; write one document as "
+            "[document]"
+        )
     result: List[SourceDocument] = []
     for position, document in enumerate(documents):
         if isinstance(document, SourceDocument):
