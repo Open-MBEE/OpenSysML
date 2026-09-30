@@ -407,7 +407,8 @@ class TestRoundTripAgainstRealService:
         with Connection(port=real_service, auto_start=False) as conn:
             model = conn.load_from_content(source)
             with pytest.warns(ExperimentalFeatureWarning):
-                elements = json.loads(str(model.to_api_json()))
+                api_json = model.to_api_json()
+            elements = json.loads(str(api_json))
             defs = [
                 el for el in elements
                 if el.get("@type") == "PartDefinition"

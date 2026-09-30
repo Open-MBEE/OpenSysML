@@ -336,6 +336,16 @@ type htmlWriter struct {
 	names    namer
 }
 
+const figureEnd = "</figure>\n"
+
+func figcaption(inner string) string {
+	return "<figcaption class=\"sysml-caption\">" + inner + "</figcaption>\n"
+}
+
+func numberSpan(class, inner string) string {
+	return "<span class=\"" + class + "\">" + inner + "</span>"
+}
+
 // captionMarkup is a caption's inner HTML: its number, when it has one, in a
 // span ahead of its text.
 func captionMarkup(c caption) string {
@@ -343,9 +353,9 @@ func captionMarkup(c caption) string {
 	case c.label == "":
 		return htmlText(c.text)
 	case c.text == "":
-		return "<span class=\"sysml-caption-number\">" + htmlText(c.label) + "</span>"
+		return numberSpan("sysml-caption-number", htmlText(c.label))
 	}
-	return "<span class=\"sysml-caption-number\">" + htmlText(c.label+".") + "</span> " + htmlText(c.text)
+	return numberSpan("sysml-caption-number", htmlText(c.label+".")) + " " + htmlText(c.text)
 }
 
 func (w *htmlWriter) writeDocument(document *docir.Document) error {
@@ -483,7 +493,7 @@ func (w *htmlWriter) writeTOCList(entries []outlineEntry) {
 		w.b.WriteString("<li>")
 		w.b.WriteString("<a" + attr("href", "#"+entry.id) + ">")
 		if w.opts.NumberSections {
-			w.b.WriteString("<span class=\"sysml-section-number\">" + htmlText(entry.number) + "</span> ")
+			w.b.WriteString(numberSpan("sysml-section-number", htmlText(entry.number)) + " ")
 		}
 		w.b.WriteString(htmlText(entry.title) + "</a>")
 		if len(entry.children) > 0 {
@@ -539,7 +549,7 @@ func (w *htmlWriter) writeSection(node docir.Content, path []step, id string, le
 	tag := "h" + strconv.Itoa(min(level, 6))
 	w.b.WriteString("<" + tag + ">")
 	if w.opts.NumberSections {
-		w.b.WriteString("<span class=\"sysml-section-number\">" + htmlText(w.numbers[pathKey(path)]) + "</span> ")
+		w.b.WriteString(numberSpan("sysml-section-number", htmlText(w.numbers[pathKey(path)])) + " ")
 	}
 	w.b.WriteString(htmlText(node.Title()) + "</" + tag + ">\n")
 	for i, child := range node.Children() {
@@ -1059,9 +1069,9 @@ func (w *htmlWriter) writeFormula(node docir.Content, id string) {
 	}
 	w.b.WriteString("<div class=\"sysml-math\">" + math + "</div>\n")
 	if node.Caption() != "" {
-		w.b.WriteString("<figcaption class=\"sysml-caption\">" + htmlText(node.Caption()) + "</figcaption>\n")
+		w.b.WriteString(figcaption(htmlText(node.Caption())))
 	}
-	w.b.WriteString("</figure>\n")
+	w.b.WriteString(figureEnd)
 }
 
 // writeImage writes one image as a figure: its location as the page refers
@@ -1075,9 +1085,9 @@ func (w *htmlWriter) writeImage(node docir.Content, id string) {
 		attr(attrName, node.Name()) + ">\n")
 	w.b.WriteString("<img" + attr("src", imageOf(node).Source(w.opts.OutputDir)) + attr("alt", alt) + ">\n")
 	if c := w.captions.caption(node); c.String() != "" {
-		w.b.WriteString("<figcaption class=\"sysml-caption\">" + captionMarkup(c) + "</figcaption>\n")
+		w.b.WriteString(figcaption(captionMarkup(c)))
 	}
-	w.b.WriteString("</figure>\n")
+	w.b.WriteString(figureEnd)
 }
 
 // Delimiters a math script recognizes inline and display LaTeX by.
@@ -1153,9 +1163,9 @@ func (w *htmlWriter) writeFigure(id, name string, caption caption, rendering *vi
 		}
 	}
 	if caption.String() != "" {
-		w.b.WriteString("<figcaption class=\"sysml-caption\">" + captionMarkup(caption) + "</figcaption>\n")
+		w.b.WriteString(figcaption(captionMarkup(caption)))
 	}
-	w.b.WriteString("</figure>\n")
+	w.b.WriteString(figureEnd)
 	return nil
 }
 

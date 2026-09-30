@@ -260,23 +260,7 @@ func (c *featureReferenceChecker) walkMember(site refSite, scope *symbols.Scope,
 		c.walkExpr(site, body, n.Until)
 		c.walkMembers(site, body, n.Body)
 	case *ast.TransitionMember:
-		c.checkVia(site, scope, n.Via)
-		c.checkTransitionEndpoint(site, scope, n.Source)
-		c.checkTransitionEndpoint(site, scope, n.Target)
-		if change, ok := n.Trigger.(*ast.ChangeEvent); ok {
-			c.walkExpr(site, scope, change.Condition)
-		}
-		// The guard, effect and body are the transition's own, so they reach
-		// its features, the payload parameter its trigger declares included.
-		body := symbols.TriggerScope(scope, n)
-		if body != scope {
-			if owner := body.Owner(); owner != nil {
-				site = refSite{sym: owner, inBody: true}
-			}
-		}
-		c.walkExpr(site, body, n.Guard)
-		c.walkMembers(site, body, n.Effect)
-		c.walkMembers(site, body, n.Members)
+		c.walkTransition(site, scope, n)
 	case *ast.StateNode:
 		body := childScopeOr(scope, n)
 		bodySite := siteForBody(site, scope, body)
@@ -293,15 +277,7 @@ func (c *featureReferenceChecker) walkMember(site refSite, scope *symbols.Scope,
 	case *ast.InitialNode:
 		c.walkMembers(site, childScopeOr(scope, n), n.Members)
 	case *ast.SuccessionEdge:
-		if site.sym != nil && (site.sym.Kind == symbols.SymbolStateDef || site.sym.Kind == symbols.SymbolStateUsage) {
-			if !n.SourceImplied {
-				c.checkTransitionEndpoint(site, scope, n.Source)
-			}
-			if !n.TargetImplied {
-				c.checkTransitionEndpoint(site, scope, n.Target)
-			}
-		}
-		c.walkMembers(site, childScopeOr(scope, n), n.Members)
+		c.walkSuccession(site, scope, n)
 	case *ast.PrefixMetadata:
 		c.walkRunDecidedValues(site, childScopeOr(scope, n), n.Body)
 	case *ast.Usage:
@@ -311,18 +287,7 @@ func (c *featureReferenceChecker) walkMember(site refSite, scope *symbols.Scope,
 	case *ast.ForkNode, *ast.JoinNode, *ast.MergeNode, *ast.DecisionNode:
 		c.walkMembers(site, childScopeOr(scope, m), ast.NodeBodyMembers(m))
 	case *ast.SendStatement:
-		c.walkExpr(site, scope, n.Message)
-		if n.IsVia {
-			if target, ok := n.Target.(*ast.QualifiedName); ok {
-				c.checkVia(site, scope, target)
-			} else {
-				c.walkExpr(site, scope, n.Target)
-			}
-		} else {
-			c.walkExpr(site, scope, n.Target)
-		}
-		c.walkExpr(site, scope, n.Receiver)
-		c.walkMembers(site, childScopeOr(scope, n), n.Members)
+		c.walkSend(site, scope, n)
 	case *ast.EntryMember:
 		c.walkMembers(site, scope, n.Actions)
 	case *ast.DoMember:
@@ -334,6 +299,52 @@ func (c *featureReferenceChecker) walkMember(site refSite, scope *symbols.Scope,
 		// body whose result is its last expression.
 		c.walkExpr(site, scope, m)
 	}
+}
+
+// walkTransition checks a transition's ends and via port, then its guard,
+// effect and body, which are the transition's own and reach its features, the
+// payload parameter its trigger declares included.
+func (c *featureReferenceChecker) walkTransition(site refSite, scope *symbols.Scope, n *ast.TransitionMember) {
+	c.checkVia(site, scope, n.Via)
+	c.checkTransitionEndpoint(site, scope, n.Source)
+	c.checkTransitionEndpoint(site, scope, n.Target)
+	if change, ok := n.Trigger.(*ast.ChangeEvent); ok {
+		c.walkExpr(site, scope, change.Condition)
+	}
+	body := symbols.TriggerScope(scope, n)
+	if body != scope {
+		if owner := body.Owner(); owner != nil {
+			site = refSite{sym: owner, inBody: true}
+		}
+	}
+	c.walkExpr(site, body, n.Guard)
+	c.walkMembers(site, body, n.Effect)
+	c.walkMembers(site, body, n.Members)
+}
+
+// walkSuccession checks the stated ends of a succession in a state body.
+func (c *featureReferenceChecker) walkSuccession(site refSite, scope *symbols.Scope, n *ast.SuccessionEdge) {
+	if site.sym != nil && (site.sym.Kind == symbols.SymbolStateDef || site.sym.Kind == symbols.SymbolStateUsage) {
+		if !n.SourceImplied {
+			c.checkTransitionEndpoint(site, scope, n.Source)
+		}
+		if !n.TargetImplied {
+			c.checkTransitionEndpoint(site, scope, n.Target)
+		}
+	}
+	c.walkMembers(site, childScopeOr(scope, n), n.Members)
+}
+
+// walkSend checks a send's message, target (a via port by name), receiver and body.
+func (c *featureReferenceChecker) walkSend(site refSite, scope *symbols.Scope, n *ast.SendStatement) {
+	c.walkExpr(site, scope, n.Message)
+	if target, ok := n.Target.(*ast.QualifiedName); ok && n.IsVia {
+		c.checkVia(site, scope, target)
+	} else {
+		c.walkExpr(site, scope, n.Target)
+	}
+	c.walkExpr(site, scope, n.Receiver)
+	c.walkMembers(site, childScopeOr(scope, n), n.Members)
 }
 
 // checkVia checks only the head of a via path. Chained segments are features

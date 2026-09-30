@@ -375,78 +375,19 @@ func (c *compiler) compileColumnChain(
 	expression *ast.FeatureChainExpr,
 	row *columnRow,
 ) (Expression, semantics.PrimType, error) {
-	unsupported := func() error {
-		return &Error{
+	head, members, ok := columnChainParts(expression)
+	if !ok {
+		return Expression{}, semantics.PrimUnknown, &Error{
 			Kind:   ErrorUnsupportedExpression,
 			Query:  symbols.FQNOf(query),
 			Target: column,
 			Origin: symbols.NodeOrigin(owner.DocName, expression),
 		}
 	}
-	head, members, ok := columnChainParts(expression)
-	if !ok {
-		return Expression{}, semantics.PrimUnknown, unsupported()
-	}
 	if row != nil && !head.Global && len(head.Parts) == 1 && head.Parts[0].Text == row.name {
-		if len(members) == 0 {
-			return Expression{}, semantics.PrimUnknown, unsupported()
-		}
-		if len(members) == 1 && len(members[0].Parts) == 1 {
-			if target, ok := c.model.LookupMember(row.typeSymbol, members[0].Parts[0].Text); ok {
-				return Expression{
-					operation:    OperationRowProperty,
-					target:       target.Name,
-					value:        declaringTypeFQN(target),
-					multiplicity: c.featureMultiplicity(target),
-					origin:       symbols.NodeOrigin(owner.DocName, expression),
-				}, c.staticPrimType(target), nil
-			}
-			return Expression{}, semantics.PrimUnknown, &Error{
-				Kind:      ErrorUnknownColumnProperty,
-				Query:     symbols.FQNOf(query),
-				Target:    column,
-				Parameter: members[0].Text(),
-				Origin:    symbols.NodeOrigin(owner.DocName, expression),
-			}
-		}
-		var segments []string
-		for _, member := range members {
-			for _, part := range member.Parts {
-				segments = append(segments, part.Text)
-			}
-		}
-		if len(segments) > 1 && row.typeSymbol.Kind == symbols.SymbolMetadataDef {
-			return Expression{}, semantics.PrimUnknown, unsupported()
-		}
-		return Expression{
-			operation: OperationRowMember,
-			target:    source.MemberPathOf(segments),
-			value:     symbols.FQNOf(row.typeSymbol),
-			origin:    symbols.NodeOrigin(owner.DocName, expression),
-		}, semantics.PrimUnknown, nil
+		return c.compileRowChain(query, owner, column, expression, row, members)
 	}
-	var segments []string
-	declaring := ""
-	resolved := false
-	if target, ok := c.resolver.ResolveQualified(owner.Scope, head); ok && target != nil {
-		parameter := false
-		for _, param := range c.model.BehaviorParametersOf(query) {
-			if !param.IsResult && c.parameterIncludes(param.Symbol, target) {
-				parameter = true
-				break
-			}
-		}
-		if !parameter {
-			resolved = true
-			segments = append(segments, target.Name)
-			declaring = declaringTypeFQN(target)
-		}
-	}
-	if !resolved {
-		for _, part := range head.Parts {
-			segments = append(segments, part.Text)
-		}
-	}
+	segments, declaring := c.chainHeadSegments(query, owner, head)
 	for _, member := range members {
 		for _, part := range member.Parts {
 			segments = append(segments, part.Text)
@@ -459,6 +400,75 @@ func (c *compiler) compileColumnChain(
 		multiplicity: Multiplicity{},
 		origin:       symbols.NodeOrigin(owner.DocName, expression),
 	}, semantics.PrimUnknown, nil
+}
+
+// compileRowChain compiles a chain headed by the row parameter: one member is
+// the row's property, more walk a member path from the row's type.
+func (c *compiler) compileRowChain(query, owner *symbols.Symbol, column string, expression *ast.FeatureChainExpr, row *columnRow, members []*ast.QualifiedName) (Expression, semantics.PrimType, error) {
+	unsupported := &Error{
+		Kind:   ErrorUnsupportedExpression,
+		Query:  symbols.FQNOf(query),
+		Target: column,
+		Origin: symbols.NodeOrigin(owner.DocName, expression),
+	}
+	if len(members) == 0 {
+		return Expression{}, semantics.PrimUnknown, unsupported
+	}
+	if len(members) == 1 && len(members[0].Parts) == 1 {
+		if target, ok := c.model.LookupMember(row.typeSymbol, members[0].Parts[0].Text); ok {
+			return Expression{
+				operation:    OperationRowProperty,
+				target:       target.Name,
+				value:        declaringTypeFQN(target),
+				multiplicity: c.featureMultiplicity(target),
+				origin:       symbols.NodeOrigin(owner.DocName, expression),
+			}, c.staticPrimType(target), nil
+		}
+		return Expression{}, semantics.PrimUnknown, &Error{
+			Kind:      ErrorUnknownColumnProperty,
+			Query:     symbols.FQNOf(query),
+			Target:    column,
+			Parameter: members[0].Text(),
+			Origin:    symbols.NodeOrigin(owner.DocName, expression),
+		}
+	}
+	var segments []string
+	for _, member := range members {
+		for _, part := range member.Parts {
+			segments = append(segments, part.Text)
+		}
+	}
+	if len(segments) > 1 && row.typeSymbol.Kind == symbols.SymbolMetadataDef {
+		return Expression{}, semantics.PrimUnknown, unsupported
+	}
+	return Expression{
+		operation: OperationRowMember,
+		target:    source.MemberPathOf(segments),
+		value:     symbols.FQNOf(row.typeSymbol),
+		origin:    symbols.NodeOrigin(owner.DocName, expression),
+	}, semantics.PrimUnknown, nil
+}
+
+// chainHeadSegments starts a member path at the chain's head: a head resolving
+// in scope to a feature that is no parameter of the query contributes its name
+// and declaring type; a parameter or unresolved head its written parts.
+func (c *compiler) chainHeadSegments(query, owner *symbols.Symbol, head *ast.QualifiedName) (segments []string, declaring string) {
+	if target, ok := c.resolver.ResolveQualified(owner.Scope, head); ok && target != nil {
+		parameter := false
+		for _, param := range c.model.BehaviorParametersOf(query) {
+			if !param.IsResult && c.parameterIncludes(param.Symbol, target) {
+				parameter = true
+				break
+			}
+		}
+		if !parameter {
+			return []string{target.Name}, declaringTypeFQN(target)
+		}
+	}
+	for _, part := range head.Parts {
+		segments = append(segments, part.Text)
+	}
+	return segments, ""
 }
 
 // columnChainParts flattens a feature chain into its head name and the

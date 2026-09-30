@@ -581,28 +581,7 @@ func addOwner(owners []*sysmlv1.Element, c *sysmlv1.Element) []*sysmlv1.Element 
 // the behaviors it calls name; the note why none is written is kept for the report.
 func (m *migration) decideContext(b *sysmlv1.Element, owners []*sysmlv1.Element) *behaviorContext {
 	how := "its actions go through ports of "
-	eligible := make([]*sysmlv1.Element, 0, len(owners))
-	notes := make([]string, 0, len(owners))
-	for _, owner := range owners {
-		declared, _, why := m.contextDeclaration(owner)
-		if declared != nil {
-			eligible = append(eligible, owner)
-		} else if why != "" {
-			notes = append(notes, why)
-		}
-	}
-	if len(owners) > 0 && len(eligible) == 0 {
-		names := make([]string, len(owners))
-		for i, owner := range owners {
-			names[i] = qualifiedName(owner)
-		}
-		m.contextNotes[b] = how + strings.Join(names, " and ") +
-			", none of which is written as a definition that can type a context parameter or a usage it can specialize"
-		if len(notes) > 0 {
-			m.contextNotes[b] += ": " + strings.Join(notes, "; ")
-		}
-	}
-	owners = eligible
+	owners = m.eligibleContexts(b, owners, how)
 	switch owner := classifierOf(b); {
 	case owner != nil && b.Parent != owner && !defScope(b):
 		// A state's or transition's behavior runs on the machine's object.
@@ -625,23 +604,7 @@ func (m *migration) decideContext(b *sysmlv1.Element, owners []*sysmlv1.Element)
 	}
 	c := m.mostSpecific(owners)
 	if c == nil {
-		if len(owners) > 1 {
-			types := make([]*sysmlv1.Element, 0, len(owners))
-			for _, owner := range owners {
-				declared, _, _ := m.contextDeclaration(owner)
-				types = addOwner(types, declared)
-			}
-			if d := m.mostSpecific(types); d != nil {
-				return &behaviorContext{name: m.freshName(b, "context"), classifier: d, holder: b}
-			}
-			names := make([]string, len(owners))
-			for i, o := range owners {
-				names[i] = qualifiedName(o)
-			}
-			m.contextNotes[b] = how + strings.Join(names, " and ") +
-				", none of which is a special of the others, so no one object is written for them to act on"
-		}
-		return nil
+		return m.contextAmong(b, owners, how)
 	}
 	declared, chain, _ := m.contextDeclaration(c)
 	ctx := &behaviorContext{name: m.freshName(b, "context"), classifier: c, holder: b}
@@ -650,6 +613,56 @@ func (m *migration) decideContext(b *sysmlv1.Element, owners []*sysmlv1.Element)
 		ctx.chain = chain
 	}
 	return ctx
+}
+
+// eligibleContexts keeps the owners written as a declaration that can type
+// or be specialized by a context, noting for the report when none is.
+func (m *migration) eligibleContexts(b *sysmlv1.Element, owners []*sysmlv1.Element, how string) []*sysmlv1.Element {
+	eligible := make([]*sysmlv1.Element, 0, len(owners))
+	notes := make([]string, 0, len(owners))
+	for _, owner := range owners {
+		declared, _, why := m.contextDeclaration(owner)
+		if declared != nil {
+			eligible = append(eligible, owner)
+		} else if why != "" {
+			notes = append(notes, why)
+		}
+	}
+	if len(owners) > 0 && len(eligible) == 0 {
+		m.contextNotes[b] = how + strings.Join(ownerNames(owners), " and ") +
+			", none of which is written as a definition that can type a context parameter or a usage it can specialize"
+		if len(notes) > 0 {
+			m.contextNotes[b] += ": " + strings.Join(notes, "; ")
+		}
+	}
+	return eligible
+}
+
+// contextAmong is the context taken from owners none of which is a special of
+// the others: the most specific of their declarations, else none, noted.
+func (m *migration) contextAmong(b *sysmlv1.Element, owners []*sysmlv1.Element, how string) *behaviorContext {
+	if len(owners) <= 1 {
+		return nil
+	}
+	types := make([]*sysmlv1.Element, 0, len(owners))
+	for _, owner := range owners {
+		declared, _, _ := m.contextDeclaration(owner)
+		types = addOwner(types, declared)
+	}
+	if d := m.mostSpecific(types); d != nil {
+		return &behaviorContext{name: m.freshName(b, "context"), classifier: d, holder: b}
+	}
+	m.contextNotes[b] = how + strings.Join(ownerNames(owners), " and ") +
+		", none of which is a special of the others, so no one object is written for them to act on"
+	return nil
+}
+
+func ownerNames(owners []*sysmlv1.Element) []string {
+	names := make([]string, len(owners))
+	for i, owner := range owners {
+		names[i] = qualifiedName(owner)
+	}
+	return names
 }
 
 // providesAny reports whether an object of owner is, or holds one part that is,
@@ -668,69 +681,80 @@ func (m *migration) providesAny(owner *sysmlv1.Element, cs []*sysmlv1.Element) b
 func (m *migration) usesFeaturesOf(b, c *sysmlv1.Element) bool {
 	uses := false
 	m.walkActions(b, func(e *sysmlv1.Element) {
-		switch e.Type {
-		case "ReadSelfAction":
+		if m.actionReads(e, c) {
 			uses = true
-		case "ReadStructuralFeatureAction", "AddStructuralFeatureValueAction", "RemoveStructuralFeatureValueAction", "ClearStructuralFeatureAction":
-			if f := m.model.Ref(e, "structuralFeature"); f != nil && m.hasFeature(c, f) {
-				uses = true
-			}
-		case "OpaqueAction":
-			// A body written in its own language reads a feature by its name.
-			if body, lang := opaqueBody(e); m.bodyReads(body, lang, e, c, true) {
-				uses = true
-			}
-		case "OpaqueExpression":
-			// So does a guard, a value, or any other expression the body carries.
-			if body, lang := opaqueBody(e); m.bodyReads(body, lang, opaqueScope(e), c, false) {
-				uses = true
-			}
-		case "DurationConstraint":
-			if spec := firstOwned(e, "specification"); spec != nil {
-				for _, scope := range m.model.Refs(e, "constrainedElement") {
-					for _, endpoint := range []string{"min", "max"} {
-						if m.durationReads(m.model.Ref(spec, endpoint), scope, c) {
-							uses = true
-						}
-					}
-				}
-			}
-		case "AcceptEventAction":
-			for _, trigger := range e.Owned("trigger") {
-				ev := m.model.Ref(trigger, "event")
-				if ev == nil {
-					continue
-				}
-				switch ev.Type {
-				case "TimeEvent":
-					if ev.Attrs["isRelative"] != "true" {
-						continue
-					}
-					if m.durationReads(firstOwned(ev, "when"), e, c) {
-						uses = true
-					}
-				case "ChangeEvent":
-					v := firstOwned(ev, "changeExpression")
-					if v == nil {
-						continue
-					}
-					var body, lang string
-					switch v.Type {
-					case "LiteralString":
-						body = v.Attrs["value"]
-					case "OpaqueExpression":
-						body, lang = opaqueBody(v)
-					default:
-						continue
-					}
-					if m.bodyReads(body, lang, e, c, false) {
-						uses = true
-					}
-				}
-			}
 		}
 	})
 	return uses
+}
+
+// actionReads reports whether one action or expression of a behavior reads
+// itself or a structural feature of c.
+func (m *migration) actionReads(e, c *sysmlv1.Element) bool {
+	switch e.Type {
+	case "ReadSelfAction":
+		return true
+	case "ReadStructuralFeatureAction", "AddStructuralFeatureValueAction", "RemoveStructuralFeatureValueAction", "ClearStructuralFeatureAction":
+		f := m.model.Ref(e, "structuralFeature")
+		return f != nil && m.hasFeature(c, f)
+	case "OpaqueAction":
+		// A body written in its own language reads a feature by its name.
+		body, lang := opaqueBody(e)
+		return m.bodyReads(body, lang, e, c, true)
+	case "OpaqueExpression":
+		// So does a guard, a value, or any other expression the body carries.
+		body, lang := opaqueBody(e)
+		return m.bodyReads(body, lang, opaqueScope(e), c, false)
+	case "DurationConstraint":
+		return m.durationConstraintReads(e, c)
+	case "AcceptEventAction":
+		for _, trigger := range e.Owned("trigger") {
+			if ev := m.model.Ref(trigger, "event"); ev != nil && m.eventReads(ev, e, c) {
+				return true
+			}
+		}
+	}
+	return false
+}
+
+func (m *migration) durationConstraintReads(e, c *sysmlv1.Element) bool {
+	spec := firstOwned(e, "specification")
+	if spec == nil {
+		return false
+	}
+	for _, scope := range m.model.Refs(e, "constrainedElement") {
+		for _, endpoint := range []string{"min", "max"} {
+			if m.durationReads(m.model.Ref(spec, endpoint), scope, c) {
+				return true
+			}
+		}
+	}
+	return false
+}
+
+// eventReads reports whether the event an accept waits for — a relative time
+// event's duration or a change event's expression — reads a feature of c.
+func (m *migration) eventReads(ev, e, c *sysmlv1.Element) bool {
+	switch ev.Type {
+	case "TimeEvent":
+		return ev.Attrs["isRelative"] == "true" && m.durationReads(firstOwned(ev, "when"), e, c)
+	case "ChangeEvent":
+		v := firstOwned(ev, "changeExpression")
+		if v == nil {
+			return false
+		}
+		var body, lang string
+		switch v.Type {
+		case "LiteralString":
+			body = v.Attrs["value"]
+		case "OpaqueExpression":
+			body, lang = opaqueBody(v)
+		default:
+			return false
+		}
+		return m.bodyReads(body, lang, e, c, false)
+	}
+	return false
 }
 
 func (m *migration) durationReads(v, scope, c *sysmlv1.Element) bool {

@@ -105,84 +105,100 @@ func (m Model) layoutDocument(i int, op Operation, sym, viewSym *symbols.Symbol)
 func (m Model) layoutBindings(i int, op Operation) ([]MetadataValue, error) {
 	switch op.Annotation {
 	case semantics.LayoutFQN:
-		if op.Layout == nil {
-			return nil, nil
-		}
-		out := []MetadataValue{{"x", realLiteral(op.Layout.X)}, {"y", realLiteral(op.Layout.Y)}}
-		if op.Layout.HasSize {
-			out = append(out, MetadataValue{"width", realLiteral(op.Layout.Width)}, MetadataValue{"height", realLiteral(op.Layout.Height)})
-		}
-		if op.Layout.Collapsed {
-			out = append(out, MetadataValue{"collapsed", "true"})
-		}
-		return out, nil
+		return layoutValues(op.Layout), nil
 	case semantics.RouteFQN:
-		if op.Route == nil {
-			return nil, nil
-		}
-		if len(op.Route.Points) == 0 {
-			return nil, &Error{Failure: FailureInvalidValue, OperationIndex: i,
-				Message: fmt.Sprintf("a Route of %s needs at least one waypoint; clear the Route to route it straight", m.label(op))}
-		}
-		values := make([]string, 0, 2*len(op.Route.Points))
-		for _, p := range op.Route.Points {
-			values = append(values, realLiteral(p.X), realLiteral(p.Y))
-		}
-		return []MetadataValue{{"points", "(" + strings.Join(values, ", ") + ")"}}, nil
+		return m.routeValues(i, op)
 	case semantics.CanvasFQN:
-		if op.Canvas == nil {
-			return nil, nil
-		}
-		var out []MetadataValue
-		if op.Canvas.Unit != "" {
-			out = append(out, MetadataValue{"unit", stringLiteral(op.Canvas.Unit)})
-		}
-		if op.Canvas.HasSize {
-			out = append(out, MetadataValue{"width", realLiteral(op.Canvas.Width)}, MetadataValue{"height", realLiteral(op.Canvas.Height)})
-		}
-		if len(out) == 0 {
-			return nil, &Error{Failure: FailureInvalidValue, OperationIndex: i,
-				Message: fmt.Sprintf("a Canvas of %s binds neither a unit nor a size; clear the Canvas to drop it", op.Target)}
-		}
-		return out, nil
+		return canvasValues(i, op)
 	case semantics.StyleFQN:
-		if op.Style == nil {
-			return nil, nil
-		}
-		var out []MetadataValue
-		for _, c := range []struct{ feature, color string }{{"fill", op.Style.Fill}, {"line", op.Style.Line}, {"text", op.Style.Text}} {
-			if c.color == "" {
-				continue
-			}
-			if !semantics.IsHexColor(c.color) {
-				return nil, &Error{Failure: FailureInvalidValue, OperationIndex: i,
-					Message: fmt.Sprintf("the %s of a Style of %s is %q, not a colour written #RRGGBB", c.feature, m.label(op), c.color)}
-			}
-			out = append(out, MetadataValue{c.feature, stringLiteral(strings.ToUpper(c.color))})
-		}
-		if op.Style.Font != "" {
-			out = append(out, MetadataValue{"font", stringLiteral(op.Style.Font)})
-		}
-		if op.Style.FontSize < 0 {
-			return nil, &Error{Failure: FailureInvalidValue, OperationIndex: i,
-				Message: fmt.Sprintf("the fontSize of a Style of %s is negative", m.label(op))}
-		}
-		if op.Style.FontSize > 0 {
-			out = append(out, MetadataValue{"fontSize", realLiteral(op.Style.FontSize)})
-		}
-		if op.Style.Bold {
-			out = append(out, MetadataValue{"bold", "true"})
-		}
-		if op.Style.Italic {
-			out = append(out, MetadataValue{"italic", "true"})
-		}
-		if len(out) == 0 {
-			return nil, &Error{Failure: FailureInvalidValue, OperationIndex: i,
-				Message: fmt.Sprintf("a Style of %s states nothing; clear the Style to drop it", m.label(op))}
-		}
-		return out, nil
+		return m.styleValues(i, op)
 	}
 	return nil, nil
+}
+
+func layoutValues(l *semantics.Layout) []MetadataValue {
+	if l == nil {
+		return nil
+	}
+	out := []MetadataValue{{"x", realLiteral(l.X)}, {"y", realLiteral(l.Y)}}
+	if l.HasSize {
+		out = append(out, MetadataValue{"width", realLiteral(l.Width)}, MetadataValue{"height", realLiteral(l.Height)})
+	}
+	if l.Collapsed {
+		out = append(out, MetadataValue{"collapsed", "true"})
+	}
+	return out
+}
+
+func (m Model) routeValues(i int, op Operation) ([]MetadataValue, error) {
+	if op.Route == nil {
+		return nil, nil
+	}
+	if len(op.Route.Points) == 0 {
+		return nil, &Error{Failure: FailureInvalidValue, OperationIndex: i,
+			Message: fmt.Sprintf("a Route of %s needs at least one waypoint; clear the Route to route it straight", m.label(op))}
+	}
+	values := make([]string, 0, 2*len(op.Route.Points))
+	for _, p := range op.Route.Points {
+		values = append(values, realLiteral(p.X), realLiteral(p.Y))
+	}
+	return []MetadataValue{{"points", "(" + strings.Join(values, ", ") + ")"}}, nil
+}
+
+func canvasValues(i int, op Operation) ([]MetadataValue, error) {
+	if op.Canvas == nil {
+		return nil, nil
+	}
+	var out []MetadataValue
+	if op.Canvas.Unit != "" {
+		out = append(out, MetadataValue{"unit", stringLiteral(op.Canvas.Unit)})
+	}
+	if op.Canvas.HasSize {
+		out = append(out, MetadataValue{"width", realLiteral(op.Canvas.Width)}, MetadataValue{"height", realLiteral(op.Canvas.Height)})
+	}
+	if len(out) == 0 {
+		return nil, &Error{Failure: FailureInvalidValue, OperationIndex: i,
+			Message: fmt.Sprintf("a Canvas of %s binds neither a unit nor a size; clear the Canvas to drop it", op.Target)}
+	}
+	return out, nil
+}
+
+func (m Model) styleValues(i int, op Operation) ([]MetadataValue, error) {
+	if op.Style == nil {
+		return nil, nil
+	}
+	var out []MetadataValue
+	for _, c := range []struct{ feature, color string }{{"fill", op.Style.Fill}, {"line", op.Style.Line}, {"text", op.Style.Text}} {
+		if c.color == "" {
+			continue
+		}
+		if !semantics.IsHexColor(c.color) {
+			return nil, &Error{Failure: FailureInvalidValue, OperationIndex: i,
+				Message: fmt.Sprintf("the %s of a Style of %s is %q, not a colour written #RRGGBB", c.feature, m.label(op), c.color)}
+		}
+		out = append(out, MetadataValue{c.feature, stringLiteral(strings.ToUpper(c.color))})
+	}
+	if op.Style.Font != "" {
+		out = append(out, MetadataValue{"font", stringLiteral(op.Style.Font)})
+	}
+	if op.Style.FontSize < 0 {
+		return nil, &Error{Failure: FailureInvalidValue, OperationIndex: i,
+			Message: fmt.Sprintf("the fontSize of a Style of %s is negative", m.label(op))}
+	}
+	if op.Style.FontSize > 0 {
+		out = append(out, MetadataValue{"fontSize", realLiteral(op.Style.FontSize)})
+	}
+	if op.Style.Bold {
+		out = append(out, MetadataValue{"bold", "true"})
+	}
+	if op.Style.Italic {
+		out = append(out, MetadataValue{"italic", "true"})
+	}
+	if len(out) == 0 {
+		return nil, &Error{Failure: FailureInvalidValue, OperationIndex: i,
+			Message: fmt.Sprintf("a Style of %s states nothing; clear the Style to drop it", m.label(op))}
+	}
+	return out, nil
 }
 
 // realLiteral spells a coordinate as the notation's Real literal.

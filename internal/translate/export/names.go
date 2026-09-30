@@ -122,6 +122,15 @@ func chooseNames(name, library string, text []byte, want *wanted, previous *name
 			target = alias
 		}
 		key := nameKey{member: member, target: target}
+		if _, ok := want.references[key]; !ok && ref.Within == nil {
+			// A graph written before the payload was a feature states `of T`
+			// from the flow itself.
+			if flow := (nameKey{member: e.fqn[ref.Member], target: key.target}); flow != key {
+				if _, ok := want.references[flow]; ok {
+					key = flow
+				}
+			}
+		}
 		if _, ok := want.references[key]; ok {
 			occurrences[key] = append(occurrences[key], ref)
 			continue
@@ -240,6 +249,14 @@ func addParserAlias(aliases map[string]string, parsed, identity string) {
 func (e *encoder) memberOf(ref resolve.Reference) string {
 	if ref.Within != nil {
 		return e.fqn[ref.Within]
+	}
+	// The type of `flow of T` is the typing of the payload feature the flow
+	// owns, which the graph states it from.
+	if u, ok := ref.Member.(*ast.Usage); ok && u.FlowEnds != nil && u.FlowEnds.PayloadDecl == nil &&
+		ref.QN != nil && ast.Node(ref.QN) == u.FlowEnds.Payload {
+		if payload := e.payloadOf(u); payload != nil {
+			return e.fqn[payload]
+		}
 	}
 	return e.fqn[ref.Member]
 }

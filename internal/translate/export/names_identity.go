@@ -27,41 +27,43 @@ func identitySegments(qname string) []string {
 		return []string{""}
 	}
 	var segments []string
-	for start := 0; start <= len(qname); {
+	for start := 0; ; {
 		if start == len(qname) {
-			segments = append(segments, "")
-			return segments
+			return append(segments, "")
 		}
-		if qname[start] == '\'' {
-			for i := start + 1; i < len(qname); i++ {
-				if qname[i] == '\\' {
-					i++
-					continue
-				}
-				if qname[i] == '\'' {
-					end := i + 1
-					if end == len(qname) || strings.HasPrefix(qname[end:], "::") {
-						segments = append(segments, qname[start:end])
-						if end == len(qname) {
-							return segments
-						}
-						start = end + 2
-						goto next
-					}
-					break
-				}
+		if end, ok := quotedSegmentEnd(qname, start); ok {
+			segments = append(segments, qname[start:end])
+			if end == len(qname) {
+				return segments
 			}
+			start = end + 2
+			continue
 		}
-		if separator := strings.Index(qname[start:], "::"); separator >= 0 {
-			segments = append(segments, qname[start:start+separator])
-			start += separator + 2
-		} else {
-			segments = append(segments, qname[start:])
-			return segments
+		separator := strings.Index(qname[start:], "::")
+		if separator < 0 {
+			return append(segments, qname[start:])
 		}
-	next:
+		segments = append(segments, qname[start:start+separator])
+		start += separator + 2
 	}
-	return segments
+}
+
+// quotedSegmentEnd is where the quoted segment opening at start closes, when
+// its closing quote ends the segment there.
+func quotedSegmentEnd(qname string, start int) (int, bool) {
+	if qname[start] != '\'' {
+		return 0, false
+	}
+	for i := start + 1; i < len(qname); i++ {
+		switch qname[i] {
+		case '\\':
+			i++
+		case '\'':
+			end := i + 1
+			return end, end == len(qname) || strings.HasPrefix(qname[end:], "::")
+		}
+	}
+	return 0, false
 }
 
 func identityName(segment string) string {

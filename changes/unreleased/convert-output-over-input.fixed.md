@@ -1,0 +1,1 @@
+- **`-convert` of several files refuses to write over one of them.** `sysml a.sysml b.sysml -convert ttl -o b.sysml` replaced `b.sysml` with the graph; `-o` naming one of the model's files, or a link to one, is now refused as the single-file path already refuses it.

@@ -64,16 +64,24 @@ that satisfies it (needs `z3` or `cvc5` — see
 ```
 > %requirement OpenSysMLInvariants::treeIsImmutable
 ✓ Requirement OpenSysMLInvariants::treeIsImmutable satisfied
+  standing: holds (observed: 1 run under reverse)
 
 > %requirement OpenSysMLInvariants::tiersAreGated
 ✓ Requirement OpenSysMLInvariants::tiersAreGated satisfied
+  standing: holds (observed: 1 run under reverse)
 
 > %check OpenSysMLInvariants::executionIsBounded
-✓ Requirement executionIsBounded is satisfiable (z3, 7ms)
+✓ Requirement executionIsBounded is satisfiable (z3, 8ms)
+  OpenSysMLInvariants::executionIsBounded::'runtime.actionSteps.defaultBound' = 1
+  OpenSysMLInvariants::executionIsBounded::'runtime.budgetCount' = 7
+  …
   OpenSysMLInvariants::executionIsBounded::'runtime.stepBudgeted' = true
+  OpenSysMLInvariants::executionIsBounded::'runtime.sweepRuns.defaultBound' = 1
+  standing: satisfiable (witnessed: 1 query by solve)
 ```
 
-The solver timing is whatever your machine reports. The fourteen in `OpenSysMLInvariants` are
+The solver timing is whatever your machine reports; `%check` lists every
+feature of the assignment it found, one per budget. The fourteen in `OpenSysMLInvariants` are
 `treeIsImmutable`, `parserRecovers`, `resolutionIsLazy`, `tiersAreGated`,
 `loweringIsLossless`, `executionIsBounded`, `libraryIsClean`, `snapshotIsDerived`,
 `evaluatorIsReference`, `exportRoundTrips`, and four over the analysis framework —

@@ -67,11 +67,11 @@ func cellNumbers(t *testing.T, result *RowSet, column string) [][]float64 {
 				nums = append(nums, float64(integer))
 				continue
 			}
-			real, ok := value.Real()
+			number, ok := value.Real()
 			if !ok {
 				t.Fatalf("%s cell = %+v, want numbers", column, row.Cells()[position].Values())
 			}
-			nums = append(nums, real)
+			nums = append(nums, number)
 		}
 		out = append(out, nums)
 	}

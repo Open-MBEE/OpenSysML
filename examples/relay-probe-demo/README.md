@@ -41,29 +41,37 @@ sysml> %load examples/relay-probe-demo/mission.sysml
 ✓ package RelayMission
 sysml> %instantiate scout
 ✓ Created instance of RelayMission::scout
+  ID: 1
+  Use %features scout to inspect
 sysml> %features scout
 Instance: RelayMission::scout (ID: 1)
 Features:
   mass = 120.0
-  separation = <unknown>
-  closestApproach = <unknown>
-  postSeparation = Instance(ID: 2)
+  separation = Instance(ID: 2)
+    (no features)
+  closestApproach = Instance(ID: 3)
+    (no features)
+  postSeparation = Instance(ID: 4)
     mass = 118.0
-  postFlyby = Instance(ID: 3)
+  postFlyby = Instance(ID: 5)
     mass = 96.0
-  cruise = Instance(ID: 4)
+  cruise = Instance(ID: 6)
     spinRate = 2.0
-  burns = [Instance(ID: 5), Instance(ID: 6)]
+  burns = [Instance(ID: 7), Instance(ID: 8)]
     dv = 1.5
     dv = 1.5
-  dsnPasses = <unknown>
+  dsnPasses = []
+  ownedPorts = []
+  …
 ```
 
-The event occurrences read `<unknown>`: a moment carries no configuration of
-its own, so there is nothing to hold. The `first separation then
-closestApproach;` and `first postSeparation then postFlyby;` lines are
-successions over the portions — they order them in time without shadowing
-either end.
+The event occurrences have `(no features)`: a moment carries no configuration
+of its own, so there is nothing to hold. `dsnPasses` is an empty collection
+until a pass happens, and the features that follow it — `ownedPorts`,
+`subparts` and the rest — are the ones every part inherits from the
+library. The `first separation then closestApproach;` and `first
+postSeparation then postFlyby;` lines are successions over the portions —
+they order them in time without shadowing either end.
 
 **Read across the portions.** Both snapshots are the same individual at
 different times; the calculation's defaults read one feature at two of them.
@@ -76,6 +84,7 @@ sysml> %eval scout.postFlyby.mass
 sysml> %calc massSpent
 ✓ massSpent()
   = 22.0
+  standing: value (observed: 1 run under reverse)
 ```
 
 **Check the requirement against a snapshot.** `flybyMassBudget` binds the
@@ -84,7 +93,9 @@ after the flyby, not the mass it was built with.
 
 ```
 sysml> %check flybyMassBudget
-✓ Requirement flybyMassBudget is satisfiable (z3, 6ms)
+✓ Requirement flybyMassBudget is satisfiable (z3, 10ms)
+  RelayMission::flybyMassBudget::'probeThen.mass' = 90.0
+  standing: satisfiable (witnessed: 1 query by solve)
 ```
 
 **Fly the mission.** Materializing `mission` starts the exhibited machines: the
@@ -96,14 +107,17 @@ it.
 ```
 sysml> %instantiate mission
 ✓ Created instance of RelayMission::mission
+  ID: 9
+  Use %features mission to inspect
 sysml> %features mission
-Instance: RelayMission::mission (ID: 12)
+Instance: RelayMission::mission (ID: 9)
 Features:
-  relay = Instance(ID: 14)
+  relay = Instance(ID: 10)
     ...
-  goldstone = Instance(ID: 16)
+  goldstone = Instance(ID: 13)
     ...
     frames = 3.0
+    ...
 ```
 
 `goldstone.frames = 3.0` is the whole story in one number: a send written

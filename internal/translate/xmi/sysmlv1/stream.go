@@ -171,38 +171,7 @@ var attachmentTags = map[string]bool{
 func readSymbols(data []byte, diagramID string) (*symbols, error) {
 	dec := xml.NewDecoder(bytes.NewReader(data))
 	dec.Strict = false
-	syms := &symbols{free: map[string]int{}}
-	type frame struct {
-		tag    string
-		sym    *Symbol   // the symbol this mdElement is, nil for anything else
-		prop   *property // the property this mdElement is, nil for anything else
-		listed *listing  // the element this mdElement names, nil when it names none
-		hidden bool      // marked not visible, kept for a listing its elementID has yet to open
-		text   strings.Builder
-		valued bool // whether a value child appeared
-	}
-	var stack []*frame
-	rooted := false
-	var symbolPath []*Symbol
-	// enclosing is the nearest open symbol, the one a tag belongs to.
-	enclosing := func() *Symbol {
-		if len(symbolPath) == 0 {
-			return nil
-		}
-		return symbolPath[len(symbolPath)-1]
-	}
-	// openProperty is the nearest open property, nil when none is.
-	openProperty := func() *property {
-		for i := len(stack) - 1; i >= 0; i-- {
-			if stack[i].prop != nil {
-				return stack[i].prop
-			}
-			if stack[i].sym != nil {
-				return nil
-			}
-		}
-		return nil
-	}
+	r := &symbolReader{syms: &symbols{free: map[string]int{}}, diagramID: diagramID}
 	for {
 		tok, err := dec.RawToken()
 		if err == io.EOF {
@@ -213,101 +182,171 @@ func readSymbols(data []byte, diagramID string) (*symbols, error) {
 		}
 		switch t := tok.(type) {
 		case xml.StartElement:
-			if !rooted {
-				if t.Name.Local != "mdOwnedViews" {
-					return nil, errNotSymbols
-				}
-				rooted = true
+			if err := r.start(t); err != nil {
+				return nil, err
 			}
-			f := &frame{tag: t.Name.Local}
-			parentTag := ""
-			if len(stack) > 0 {
-				parentTag = stack[len(stack)-1].tag
-			}
-			switch {
-			case t.Name.Local == "mdElement" && parentTag == "mdOwnedViews":
-				f.sym = &Symbol{ID: attr(t, "id"), Class: attr(t, "elementClass"), Parent: enclosing()}
-				syms.list = append(syms.list, f.sym)
-				symbolPath = append(symbolPath, f.sym)
-			case t.Name.Local == "mdElement" && enclosing() != nil:
-				f.prop = &property{class: attr(t, "elementClass")}
-			case t.Name.Local == "visible" && parentTag == "mdElement" && attr(t, "value") == "false":
-				owner := stack[len(stack)-1]
-				owner.hidden = true
-				if owner.sym != nil {
-					owner.sym.Hidden = true
-				} else if owner.listed != nil {
-					owner.listed.hidden = true
-				}
-			case t.Name.Local == "elementID" && parentTag == "mdElement":
-				owner := stack[len(stack)-1]
-				if id := refOf(t); id != "" {
-					if owner.sym != nil {
-						owner.sym.ElementID = id
-					}
-					if id != diagramID {
-						owner.listed = &listing{id: id, sym: enclosing(), hidden: owner.hidden}
-						syms.listed = append(syms.listed, owner.listed)
-					}
-				}
-			case (t.Name.Local == "linkFirstEndID" || t.Name.Local == "linkSecondEndID") && parentTag == "mdElement":
-				if sym := enclosing(); sym != nil {
-					i := 0
-					if t.Name.Local == "linkSecondEndID" {
-						i = 1
-					}
-					sym.Ends[i] = refOf(t)
-				}
-			case t.Name.Local == "value" && parentTag == "mdElement":
-				if p := openProperty(); p != nil {
-					p.value = attr(t, "value")
-					stack[len(stack)-1].valued = true
-				}
-			case (t.Name.Local == "size" || t.Name.Local == "style") && parentTag == "mdElement":
-				if p := openProperty(); p != nil {
-					p.set(t.Name.Local, attr(t, "value"))
-				}
-			}
-			stack = append(stack, f)
 		case xml.CharData:
-			if len(stack) > 0 {
-				stack[len(stack)-1].text.Write(t)
+			if len(r.stack) > 0 {
+				r.stack[len(r.stack)-1].text.Write(t)
 			}
 		case xml.EndElement:
-			if len(stack) == 0 || stack[len(stack)-1].tag != t.Name.Local {
-				return nil, errTornSymbols
-			}
-			f := stack[len(stack)-1]
-			stack = stack[:len(stack)-1]
-			text := strings.TrimSpace(f.text.String())
-			switch {
-			case f.sym != nil:
-				symbolPath = symbolPath[:len(symbolPath)-1]
-			case f.prop != nil:
-				if sym := enclosing(); sym != nil {
-					f.prop.apply(sym)
-				}
-			case len(stack) > 0 && stack[len(stack)-1].sym != nil:
-				readSymbolField(stack[len(stack)-1].sym, f.tag, text, diagramID)
-			case len(stack) > 0 && stack[len(stack)-1].prop != nil:
-				p := stack[len(stack)-1].prop
-				switch {
-				case f.tag == "value" && !f.valued && p.value == "":
-					p.value = text
-				case text != "":
-					p.set(f.tag, text)
-				}
+			if err := r.end(t); err != nil {
+				return nil, err
 			}
 		}
 	}
-	if !rooted {
+	if !r.rooted {
 		return nil, errNotSymbols
 	}
-	if len(stack) > 0 {
+	if len(r.stack) > 0 {
 		return nil, errTornSymbols
 	}
-	syms.settle(diagramID)
-	return syms, nil
+	r.syms.settle(diagramID)
+	return r.syms, nil
+}
+
+// symbolFrame is one open element of a symbol stream.
+type symbolFrame struct {
+	tag    string
+	sym    *Symbol   // the symbol this mdElement is, nil for anything else
+	prop   *property // the property this mdElement is, nil for anything else
+	listed *listing  // the element this mdElement names, nil when it names none
+	hidden bool      // marked not visible, kept for a listing its elementID has yet to open
+	text   strings.Builder
+	valued bool // whether a value child appeared
+}
+
+// symbolReader reads a symbol stream's elements as they open and close.
+type symbolReader struct {
+	syms       *symbols
+	diagramID  string
+	stack      []*symbolFrame
+	rooted     bool
+	symbolPath []*Symbol
+}
+
+// enclosing is the nearest open symbol, the one a tag belongs to.
+func (r *symbolReader) enclosing() *Symbol {
+	if len(r.symbolPath) == 0 {
+		return nil
+	}
+	return r.symbolPath[len(r.symbolPath)-1]
+}
+
+// openProperty is the nearest open property, nil when none is.
+func (r *symbolReader) openProperty() *property {
+	for i := len(r.stack) - 1; i >= 0; i-- {
+		if r.stack[i].prop != nil {
+			return r.stack[i].prop
+		}
+		if r.stack[i].sym != nil {
+			return nil
+		}
+	}
+	return nil
+}
+
+func (r *symbolReader) start(t xml.StartElement) error {
+	if !r.rooted {
+		if t.Name.Local != "mdOwnedViews" {
+			return errNotSymbols
+		}
+		r.rooted = true
+	}
+	f := &symbolFrame{tag: t.Name.Local}
+	parentTag := ""
+	if len(r.stack) > 0 {
+		parentTag = r.stack[len(r.stack)-1].tag
+	}
+	switch {
+	case t.Name.Local == "mdElement" && parentTag == "mdOwnedViews":
+		f.sym = &Symbol{ID: attr(t, "id"), Class: attr(t, "elementClass"), Parent: r.enclosing()}
+		r.syms.list = append(r.syms.list, f.sym)
+		r.symbolPath = append(r.symbolPath, f.sym)
+	case t.Name.Local == "mdElement" && r.enclosing() != nil:
+		f.prop = &property{class: attr(t, "elementClass")}
+	case parentTag == "mdElement":
+		r.startField(t)
+	}
+	r.stack = append(r.stack, f)
+	return nil
+}
+
+// startField reads a field of the open mdElement from the element opening it.
+func (r *symbolReader) startField(t xml.StartElement) {
+	owner := r.stack[len(r.stack)-1]
+	switch t.Name.Local {
+	case "visible":
+		if attr(t, "value") != "false" {
+			return
+		}
+		owner.hidden = true
+		if owner.sym != nil {
+			owner.sym.Hidden = true
+		} else if owner.listed != nil {
+			owner.listed.hidden = true
+		}
+	case "elementID":
+		id := refOf(t)
+		if id == "" {
+			return
+		}
+		if owner.sym != nil {
+			owner.sym.ElementID = id
+		}
+		if id != r.diagramID {
+			owner.listed = &listing{id: id, sym: r.enclosing(), hidden: owner.hidden}
+			r.syms.listed = append(r.syms.listed, owner.listed)
+		}
+	case "linkFirstEndID", "linkSecondEndID":
+		if sym := r.enclosing(); sym != nil {
+			i := 0
+			if t.Name.Local == "linkSecondEndID" {
+				i = 1
+			}
+			sym.Ends[i] = refOf(t)
+		}
+	case "value":
+		if p := r.openProperty(); p != nil {
+			p.value = attr(t, "value")
+			owner.valued = true
+		}
+	case "size", "style":
+		if p := r.openProperty(); p != nil {
+			p.set(t.Name.Local, attr(t, "value"))
+		}
+	}
+}
+
+func (r *symbolReader) end(t xml.EndElement) error {
+	if len(r.stack) == 0 || r.stack[len(r.stack)-1].tag != t.Name.Local {
+		return errTornSymbols
+	}
+	f := r.stack[len(r.stack)-1]
+	r.stack = r.stack[:len(r.stack)-1]
+	text := strings.TrimSpace(f.text.String())
+	var parent *symbolFrame
+	if len(r.stack) > 0 {
+		parent = r.stack[len(r.stack)-1]
+	}
+	switch {
+	case f.sym != nil:
+		r.symbolPath = r.symbolPath[:len(r.symbolPath)-1]
+	case f.prop != nil:
+		if sym := r.enclosing(); sym != nil {
+			f.prop.apply(sym)
+		}
+	case parent != nil && parent.sym != nil:
+		readSymbolField(parent.sym, f.tag, text, r.diagramID)
+	case parent != nil && parent.prop != nil:
+		switch {
+		case f.tag == "value" && !f.valued && parent.prop.value == "":
+			parent.prop.value = text
+		case text != "":
+			parent.prop.set(f.tag, text)
+		}
+	}
+	return nil
 }
 
 // settle draws the conclusions a whole stream allows: a symbol inside a hidden one
@@ -568,54 +607,60 @@ func (m *Model) readStreams(entries map[string]*zip.File) {
 		d.Free = syms.free
 		d.Symbols = syms.list
 		d.Frame = syms.frame
-		stood := map[*Element]bool{}
-		for _, id := range syms.shown {
-			if e := m.shown(id); e != nil {
-				stood[e] = true
-			}
-		}
-		// A listed element the stream hides is off the diagram, whatever its owner shows.
-		hidden, hiddenIDs := map[*Element]bool{}, map[string]bool{}
-		for _, id := range syms.hidden {
-			if e := m.shown(id); e != nil {
-				hidden[e] = true
-			} else {
-				hiddenIDs[id] = true
-			}
-		}
-		// Two spellings name one element when they resolve to it; ones resolving
-		// to none are the same only when spelled alike.
-		elements := map[*Element]bool{}
-		dangling := map[string]bool{}
-		var shown []ElementRef
-		add := func(id string) {
-			if e := m.shown(id); e != nil {
-				if elements[e] {
-					return
-				}
-				elements[e] = true
-			} else {
-				if dangling[id] {
-					return
-				}
-				dangling[id] = true
-			}
-			shown = append(shown, ElementRef{ID: id})
-		}
-		for _, ref := range d.Shown {
-			e := m.shown(ref.ID)
-			if hidden[e] || (e == nil && hiddenIDs[ref.ID]) {
-				continue
-			}
-			if displayed(e, stood) {
-				add(ref.ID)
-			}
-		}
-		for _, id := range syms.shown {
-			add(id)
-		}
-		d.Shown = shown
+		d.Shown = m.shownRefs(d, syms)
 	}
+}
+
+// shownRefs lists the elements a drawn diagram shows: those of its list a
+// visible symbol stands for or displays, then those the symbols stand for.
+// A listed element the stream hides is off the diagram, whatever its owner shows.
+func (m *Model) shownRefs(d *Diagram, syms *symbols) []ElementRef {
+	stood := map[*Element]bool{}
+	for _, id := range syms.shown {
+		if e := m.shown(id); e != nil {
+			stood[e] = true
+		}
+	}
+	hidden, hiddenIDs := map[*Element]bool{}, map[string]bool{}
+	for _, id := range syms.hidden {
+		if e := m.shown(id); e != nil {
+			hidden[e] = true
+		} else {
+			hiddenIDs[id] = true
+		}
+	}
+	// Two spellings name one element when they resolve to it; ones resolving
+	// to none are the same only when spelled alike.
+	elements := map[*Element]bool{}
+	dangling := map[string]bool{}
+	var shown []ElementRef
+	add := func(id string) {
+		if e := m.shown(id); e != nil {
+			if elements[e] {
+				return
+			}
+			elements[e] = true
+		} else {
+			if dangling[id] {
+				return
+			}
+			dangling[id] = true
+		}
+		shown = append(shown, ElementRef{ID: id})
+	}
+	for _, ref := range d.Shown {
+		e := m.shown(ref.ID)
+		if hidden[e] || (e == nil && hiddenIDs[ref.ID]) {
+			continue
+		}
+		if displayed(e, stood) {
+			add(ref.ID)
+		}
+	}
+	for _, id := range syms.shown {
+		add(id)
+	}
+	return shown
 }
 
 // displayed reports whether a symbol stands for e or an ancestor of it, which

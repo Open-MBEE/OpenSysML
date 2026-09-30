@@ -32,10 +32,10 @@ below is the shortest version.
 
 It is fast. The public [Apollo 11 SysML v2 model](https://github.com/airbus/apollo-11-sysml-v2)
 — 28 files, 7,200 lines — parses in **8 ms** (42 MB/s on one core) and loads, resolves and
-validates against the full standard library in **0.43 s**. The measurement and how to repeat
+validates against the full standard library in **0.27 s**. The measurement and how to repeat
 it are in [performance](docs/internals/performance.md#a-real-model-apollo-11). The same model
 is where the runtime earns its keep: the pinned OMG pilot validator passes all 28 files without
-a finding, and OpenSysML's validation reports 4 warnings and no error, yet asked to *run* the
+a finding, and OpenSysML's validation reports 2 warnings and no error, yet asked to *run* the
 model's delta-v, reliability and injection calculations, or to instantiate the mission
 individual that performs the top-level `PerformLunarMission` action, the runtime stops each one
 at a defect only execution reaches — an `e` that resolves to a valueless ISO 80000 quantity, a

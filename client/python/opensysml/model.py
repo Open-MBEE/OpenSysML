@@ -9,7 +9,8 @@ from opensysml.conversion import (
 )
 from opensysml.diagnostic import Diagnostic
 from opensysml.edit import Editor
-from opensysml.errors import ModelError, SymbolNotFoundError
+from opensysml.errors import ModelError, ServiceError, SymbolNotFoundError
+from opensysml.proto import sysml_pb2
 from opensysml.query import TYPE_PRIMITIVE_CONSTRAINT
 
 #: Severity the service reports for a diagnostic that makes a model unusable.
@@ -27,23 +28,41 @@ class Model:
     
     Attributes:
         hash (str): Model content hash (for cache lookups)
-        root (Symbol): Root symbol of the model
+        root (Symbol): Root symbol of the model; of a model parsed from
+            several documents, the first document's
+        roots (tuple[Symbol]): Root symbol of each document, in document order
+        documents (tuple[str]): Name of each document as diagnostics report it
         diagnostics (list[Diagnostic]): Parse diagnostics (errors/warnings)
     """
     
-    def __init__(self, pb_response, client, source_path=None):
-        """Initialize Model from protobuf ParseFileResponse.
+    def __init__(self, pb_response, client, source_path=None, documents=None):
+        """Initialize Model from a parse response.
         
         Args:
-            pb_response: sysml_pb2.ParseFileResponse protobuf message
+            pb_response: sysml_pb2.ParseFileResponse for a model of one
+                document, or sysml_pb2.ParseSourcesResponse for one of several
             client: Client instance for symbol navigation
             source_path (str, optional): Path the model was loaded from
+            documents (Sequence[str], optional): Names of the documents a model
+                of several was parsed from, in document order, as diagnostics
+                report them; a model of one document is named by source_path
         """
         self._pb = pb_response
         self._client = client
         self._source_path = source_path
         self._hash = pb_response.model_hash
-        self._root = Symbol(pb_response.root, client, self._hash)
+        if isinstance(pb_response, sysml_pb2.ParseSourcesResponse):
+            pb_roots = list(pb_response.roots)
+        else:
+            pb_roots = [pb_response.root]
+        if not pb_roots:
+            raise ServiceError("the service answered the parse with no root symbol")
+        self._roots = tuple(Symbol(pb_root, client, self._hash) for pb_root in pb_roots)
+        self._root = self._roots[0]
+        if documents is not None:
+            self._documents = tuple(documents)
+        else:
+            self._documents = (source_path,) if source_path else ()
         self._diagnostics = [
             Diagnostic(pb_diag) for pb_diag in pb_response.diagnostics
         ]
@@ -60,8 +79,31 @@ class Model:
     
     @property
     def root(self):
-        """Get root symbol."""
+        """Get root symbol.
+
+        A model parsed from several documents has one root per document; this
+        is the first document's. :attr:`roots` has them all.
+        """
         return self._root
+
+    @property
+    def roots(self):
+        """Root symbol of each document, in document order.
+
+        A model loaded from one file or one string has one; a model of several
+        documents (:meth:`Connection.parse_sources`) has one per document.
+        """
+        return self._roots
+
+    @property
+    def documents(self):
+        """Name of each document, in document order, as diagnostics report it.
+
+        A model of several documents names each by the path or name it was
+        given; a model loaded from a file names that path; a model loaded from
+        inline content has no name and this is empty.
+        """
+        return self._documents
     
     @property
     def diagnostics(self):
@@ -358,8 +400,9 @@ class Model:
             ``model[name]`` where a missing symbol is a failure, so it is
             reported as one instead of as an AttributeError on None.
         """
-        if self.root.name == name or self.root.id == name:
-            return self.root
+        for root in self.roots:
+            if root.name == name or root.id == name:
+                return root
         if "::" in name:
             return self._symbol_by_id(name) or self._symbol_named(name)
         return self._symbol_named(name) or self._symbol_by_id(name)
@@ -373,8 +416,9 @@ class Model:
         Returns:
             Symbol or None: Matching symbol, or None if not found
         """
-        if self.root.id == fqn:
-            return self.root
+        for root in self.roots:
+            if root.id == fqn:
+                return root
         return self._symbol_by_id(fqn)
 
     def _symbol_by_id(self, fqn):
@@ -437,7 +481,7 @@ class Model:
         that ends short of the root, as under a file's unnamed root every chain
         does, ends one level below it.
         """
-        owner = {self.root.id: ""}
+        owner = {root.id: "" for root in self.roots}
         owner.update((element.id, element.get(_PROPERTY_OWNER, "")) for element in elements)
         unknown = {fqn for fqn in owner.values() if fqn and fqn not in owner}
         while unknown:
@@ -447,12 +491,14 @@ class Model:
                 owner.setdefault(fqn, "")
             unknown = {fqn for fqn in owner.values() if fqn and fqn not in owner}
 
+        root_ids = {root.id for root in self.roots}
+
         def depth(fqn):
             hops = 0
             while owner.get(fqn):
                 fqn = owner[fqn]
                 hops += 1
-            return hops if fqn == self.root.id else hops + 1
+            return hops if fqn in root_ids else hops + 1
 
         return {element.id: depth(element.id) for element in elements}
 
@@ -468,7 +514,7 @@ class Model:
 
         ``depth`` bounds the walk to the symbols that many levels below the root.
         """
-        queue = [(self.root, 0)]
+        queue = [(root, 0) for root in self.roots]
         while queue:
             current, level = queue.pop(0)
             if depth is not None and level >= depth:

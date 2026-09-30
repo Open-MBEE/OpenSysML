@@ -80,74 +80,99 @@ var apiJSONInteger = regexp.MustCompile(`^-?[0-9]+$`)
 // order, and returns the ids classified into the expression namespace, since
 // references resolve against the whole document.
 func parseAPIJSON(data []byte) ([]apiJSONElementData, map[string]bool, error) {
+	objects, err := apiJSONObjectsOf(data)
+	if err != nil {
+		return nil, nil, err
+	}
+	index, err := newAPIJSONIndex(objects)
+	if err != nil {
+		return nil, nil, err
+	}
+	index.classifyExpressions(objects)
+	return objects, index.expressionIDs, nil
+}
+
+// apiJSONObjectsOf decodes the document's element objects: an array of them
+// or a single object, and nothing after it.
+func apiJSONObjectsOf(data []byte) ([]apiJSONElementData, error) {
 	dec := json.NewDecoder(bytes.NewReader(data))
 	dec.UseNumber()
 	start, err := dec.Token()
 	if err != nil {
-		return nil, nil, fmt.Errorf("cannot read the API element document: %w", err)
+		return nil, fmt.Errorf("cannot read the API element document: %w", err)
 	}
 	var objects []apiJSONElementData
 	switch start {
 	case json.Delim('['):
 		for dec.More() {
 			if token, err := dec.Token(); err != nil || token != json.Delim('{') {
-				return nil, nil, fmt.Errorf("an API element array holds element objects, not %v", token)
+				return nil, fmt.Errorf("an API element array holds element objects, not %v", token)
 			}
 			object, err := apiJSONObjectOf(dec)
 			if err != nil {
-				return nil, nil, err
+				return nil, err
 			}
 			objects = append(objects, object)
 		}
 		if _, err := dec.Token(); err != nil {
-			return nil, nil, fmt.Errorf("cannot read the API element array: %w", err)
+			return nil, fmt.Errorf("cannot read the API element array: %w", err)
 		}
 	case json.Delim('{'):
 		object, err := apiJSONObjectOf(dec)
 		if err != nil {
-			return nil, nil, err
+			return nil, err
 		}
 		objects = append(objects, object)
 	default:
-		return nil, nil, fmt.Errorf("an API element document is an array of element objects or a single object, not %v", start)
+		return nil, fmt.Errorf("an API element document is an array of element objects or a single object, not %v", start)
 	}
 	if _, err := dec.Token(); err != io.EOF {
-		return nil, nil, fmt.Errorf("the API element document holds more than one JSON value")
+		return nil, fmt.Errorf("the API element document holds more than one JSON value")
 	}
-	ids := map[string]bool{}
-	types := map[string]string{}
+	return objects, nil
+}
+
+// apiJSONIndex is what classifying the expression namespace reads across the
+// document: every id and its metaclass, the owner and membership metaclass of
+// each node a membership states as its member, the owner of each
+// relationship, and the ids classified so far.
+type apiJSONIndex struct {
+	ids               map[string]bool
+	types             map[string]string
+	nodeOwner         map[string]string
+	nodeOwnerMeta     map[string]string
+	relationshipOwner map[string]string
+	expressionIDs     map[string]bool
+}
+
+func newAPIJSONIndex(objects []apiJSONElementData) (*apiJSONIndex, error) {
+	index := &apiJSONIndex{
+		ids:               map[string]bool{},
+		types:             map[string]string{},
+		nodeOwner:         map[string]string{},
+		nodeOwnerMeta:     map[string]string{},
+		relationshipOwner: map[string]string{},
+		expressionIDs:     map[string]bool{},
+	}
 	subjects := map[string]string{}
 	for _, object := range objects {
-		if object.id == "" {
-			return nil, nil, fmt.Errorf("an element object needs a non-empty string \"@id\"")
+		if err := apiJSONIdentity(object); err != nil {
+			return nil, err
 		}
-		if strings.HasPrefix(object.id, ":") {
-			return nil, nil, fmt.Errorf("the id %q has an empty scope qualifier; an element's own id names its scope or none", object.id)
+		if index.ids[object.id] {
+			return nil, fmt.Errorf("the id %q names two element objects", object.id)
 		}
-		if object.typ == "" {
-			return nil, nil, fmt.Errorf("element %q needs a string \"@type\"", object.id)
-		}
-		if ids[object.id] {
-			return nil, nil, fmt.Errorf("the id %q names two element objects", object.id)
-		}
-		ids[object.id] = true
-		types[object.id] = object.typ
+		index.ids[object.id] = true
+		index.types[object.id] = object.typ
 		resolved := rdf.ReferenceIRI(rdf.Term{}, object.id).Value
 		if earlier, seen := subjects[resolved]; seen {
-			return nil, nil, fmt.Errorf("the ids %q and %q name the same element", earlier, object.id)
+			return nil, fmt.Errorf("the ids %q and %q name the same element", earlier, object.id)
 		}
 		subjects[resolved] = object.id
 	}
-	// Classify the expression namespace to a fixpoint: a node is an expression
-	// when its metaclass is one the encoder mints directly under a declaration,
-	// or when its parent is an expr: node or an expression-class element — a
-	// child may be listed before its parent. Opaque ids such as UUIDs carry no
-	// parent, so the membership that states the node as its member stands in.
-	nodeOwner := map[string]string{}
-	nodeOwnerMeta := map[string]string{}
-	relationshipOwner := map[string]string{}
-	for i := range objects {
-		object := &objects[i]
+	// Opaque ids such as UUIDs carry no parent, so the membership that states
+	// the node as its member stands in.
+	for _, object := range objects {
 		member, owner := "", ""
 		for _, m := range object.members {
 			id, isRef := memberReference(m.value)
@@ -160,47 +185,74 @@ func parseAPIJSON(data []byte) ([]apiJSONElementData, map[string]bool, error) {
 			}
 		}
 		if owner != "" && isRelationship(object.typ) {
-			relationshipOwner[object.id] = owner
+			index.relationshipOwner[object.id] = owner
 		}
 		if member != "" && owner != "" && nodeMembershipMetaclass(object.typ) {
-			nodeOwner[member] = owner
-			nodeOwnerMeta[member] = object.typ
+			index.nodeOwner[member] = owner
+			index.nodeOwnerMeta[member] = object.typ
 		}
 	}
-	expressionIDs := map[string]bool{}
+	return index, nil
+}
+
+// apiJSONIdentity checks an element object's "@id" and "@type".
+func apiJSONIdentity(object apiJSONElementData) error {
+	switch {
+	case object.id == "":
+		return fmt.Errorf("an element object needs a non-empty string \"@id\"")
+	case strings.HasPrefix(object.id, ":"):
+		return fmt.Errorf("the id %q has an empty scope qualifier; an element's own id names its scope or none", object.id)
+	case object.typ == "":
+		return fmt.Errorf("element %q needs a string \"@type\"", object.id)
+	}
+	return nil
+}
+
+// classifyExpressions classifies the expression namespace to a fixpoint: a
+// node is an expression when its metaclass is one the encoder mints directly
+// under a declaration, or when its parent is an expr: node or an
+// expression-class element — a child may be listed before its parent.
+func (index *apiJSONIndex) classifyExpressions(objects []apiJSONElementData) {
 	for changed := true; changed; {
 		changed = false
 		for i := range objects {
 			object := &objects[i]
-			if object.expression || object.qualifiedName {
+			if object.expression || object.qualifiedName || !index.expression(object) {
 				continue
 			}
-			expression := false
-			if base, isMembership := strings.CutSuffix(object.id, rdf.OwningMembershipSuffix); isMembership {
-				expression = ids[base] && expressionIDs[base]
-			} else if owner, ok := rdf.ExpressionNodeOwner(object.id, func(prefix string) bool { return ids[prefix] }); ok {
-				expression = expressionIDs[owner] || isExpressionRoot(object.typ) || expressionMetaclasses[types[owner]] ||
-					messageParameterEnd(types[nodeOwner[object.id]], nodeOwnerMeta[object.id], object.typ)
-			} else if object.typ != mMembership && expressionMetaclasses[object.typ] {
-				// A Membership carries a referent element, not an owned node;
-				// only an owning membership marks one a node.
-				expression = true
-			} else if owner := nodeOwner[object.id]; owner != "" {
-				expression = expressionIDs[owner] || expressionMetaclasses[types[owner]] ||
-					messageParameterEnd(types[owner], nodeOwnerMeta[object.id], object.typ)
-			} else if owner := relationshipOwner[object.id]; owner != "" && expressionIDs[owner] {
-				// A referent Membership is a node; other owned relationships are
-				// nodes only while their id derives from the node's (qualified form).
-				expression = object.typ == mMembership || strings.HasPrefix(object.id, owner+"_")
-			}
-			if expression {
-				object.expression = true
-				expressionIDs[object.id] = true
-				changed = true
-			}
+			object.expression = true
+			index.expressionIDs[object.id] = true
+			changed = true
 		}
 	}
-	return objects, expressionIDs, nil
+}
+
+// expression reports whether the object is classified an expression node by
+// what is classified so far.
+func (index *apiJSONIndex) expression(object *apiJSONElementData) bool {
+	ids, types, expressionIDs := index.ids, index.types, index.expressionIDs
+	if base, isMembership := strings.CutSuffix(object.id, rdf.OwningMembershipSuffix); isMembership {
+		return ids[base] && expressionIDs[base]
+	}
+	if owner, ok := rdf.ExpressionNodeOwner(object.id, func(prefix string) bool { return ids[prefix] }); ok {
+		return expressionIDs[owner] || isExpressionRoot(object.typ) || expressionMetaclasses[types[owner]] ||
+			messageParameterEnd(types[index.nodeOwner[object.id]], index.nodeOwnerMeta[object.id], object.typ)
+	}
+	if object.typ != mMembership && expressionMetaclasses[object.typ] {
+		// A Membership carries a referent element, not an owned node;
+		// only an owning membership marks one a node.
+		return true
+	}
+	if owner := index.nodeOwner[object.id]; owner != "" {
+		return expressionIDs[owner] || expressionMetaclasses[types[owner]] ||
+			messageParameterEnd(types[owner], index.nodeOwnerMeta[object.id], object.typ)
+	}
+	if owner := index.relationshipOwner[object.id]; owner != "" && expressionIDs[owner] {
+		// A referent Membership is a node; other owned relationships are
+		// nodes only while their id derives from the node's (qualified form).
+		return object.typ == mMembership || strings.HasPrefix(object.id, owner+"_")
+	}
+	return false
 }
 
 // messageParameterEnd reports whether an element is a `message` end: an

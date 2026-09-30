@@ -661,6 +661,32 @@ Also note the parser rejects `require constraint <name> { … }` (a *named* nest
 `require`/`assume`): `expected '{' after 'require constraint'`. Only the anonymous form and the
 `require R { … }` reference form parse, so an export test cannot cover the named variant.
 
+## Python multi-document parsing (`Connection.parse_sources`)
+
+- Drive the public `opensysml.Connection.parse_sources` against a real service
+  with a library document and a second document that imports it. Assert more
+  than the absence of diagnostics: the dependent symbol's `specializations`
+  entry with `kind == "typing"` must have `target_id` naming the library's
+  definition (`Symbol` has no `.type` property), and `model.documents` must
+  keep document order, `model.roots` one root per document.
+- Use `opensysml.loads` on the dependent document alone as the negative
+  control: its import must fail. A diagnostic's `.file` is the document's
+  name as given, including inline names that look like relative paths.
+- To prove validation happens before any RPC, attach a delegating
+  `grpc.UnaryUnaryClientInterceptor` to the connection's channel and stub,
+  count both GetServerInfo and ParseSources, and follow the invalid input with
+  a valid call so the instrumentation cannot yield a vacuous pass.
+- A conformance fixture containing `choice c;` also needs an outgoing
+  transition, or it fails on an unrelated semantic error. For an isolated
+  extension warning use
+  `package P { state def S { choice c; state a; transition first c then a; } }`;
+  check the diagnostic goes from warning to error with
+  `strict_conformance=True`, then that `strict=True` raises `ModelError`.
+- The module-level `opensysml.parse_sources` opens the default connection,
+  which starts a private service unless a port is named; close it afterwards
+  (`opensysml._default_connection.close()`), or a later test that asserts no
+  private service is running fails.
+
 ## Argument order and the `--` marker
 
 `cmd/sysml/args.go` permutes arguments before `flag.Parse`, so flags may be written **after** the

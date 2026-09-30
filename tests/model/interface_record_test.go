@@ -214,7 +214,7 @@ func TestInterfaceRecordWorkspaceAudits(t *testing.T) {
 		}
 		alone := model.NewWorkspace()
 		alone.Open("reqs.sysml", docs["reqs.sysml"], 1)
-		if n := oosemFindings(alone.Diagnostics("reqs.sysml")); n == 0 {
+		if oosemFindings(alone.Diagnostics("reqs.sysml")) == 0 {
 			t.Fatal("reqs.sysml reports no OOSEM finding alone (the fixture is vacuous otherwise)")
 		}
 		both := model.NewWorkspace()
