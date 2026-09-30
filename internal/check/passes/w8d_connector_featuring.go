@@ -79,9 +79,10 @@ func (W8DConnectorFeaturingPass) Run(ctx *Context, name string, root *ast.RootNa
 				})
 				continue
 			}
-			// A package-level feature and an enumeration literal have no
-			// featuring type, so every connector reaches them.
-			if len(cc.featuringContexts(target)) == 0 || w8dEnumLiteral(target) {
+			// A package-level feature has no featuring type, so every connector
+			// reaches it; a variant, an enumeration literal included, is held by a
+			// variant membership and has none either.
+			if len(cc.featuringContexts(target)) == 0 || semantics.IsVariant(target) {
 				continue
 			}
 			if w8dEndAccessible(cc, contexts, target) {
@@ -99,24 +100,14 @@ func (W8DConnectorFeaturingPass) Run(ctx *Context, name string, root *ast.RootNa
 	return diags
 }
 
-// w8dEnumLiteral reports whether sym is a literal of an enumeration definition.
-func w8dEnumLiteral(sym *symbols.Symbol) bool {
-	if sym.OwnerScope == nil {
-		return false
-	}
-	owner := sym.OwnerScope.Owner()
-	if owner == nil {
-		return false
-	}
-	def, ok := owner.Decl.(*ast.Definition)
-	return ok && def.Kind == ast.DefEnumeration
-}
-
-// w8dEndAccessible reports whether an end target is featured within every
-// featuring type of the connector, which is what the rule demands.
+// w8dEndAccessible reports whether a featured end target is featured within
+// every featuring type of the connector, which is what the rule demands. A
+// connector with no featuring type (one owned by a package) reaches only
+// features that have none (FeatureUtil.canAccess: isFeaturedWithin(null)), so
+// a featured target is out of its reach however it is spelled.
 func w8dEndAccessible(cc *constraintChecker, contexts []*symbols.Symbol, target *symbols.Symbol) bool {
 	if len(contexts) == 0 {
-		return true
+		return false
 	}
 	for _, t := range contexts {
 		if !cc.featuredWithin(target, t) {

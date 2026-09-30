@@ -461,7 +461,7 @@ func (s *Session) acceptParsed(origin, src string, pre parsed) (declared []strin
 			key:    key,
 			gen:    s.version,
 			open:   true,
-			diags:  parseDiagnostics(p),
+			diags:  parser.AsDiagnostics(p.Diagnostics, p.Warnings),
 		})
 		return declared, drops
 	}
@@ -720,33 +720,6 @@ func (s *Session) text() string {
 		parts[i] = sn.src
 	}
 	return strings.Join(parts, "\n")
-}
-
-// parseDiagnostics maps a parse of one submission the way the workspace maps a
-// document's: its errors carry the syntax code, its warnings their own.
-func parseDiagnostics(p *parser.Parser) []diag.Diagnostic {
-	out := make([]diag.Diagnostic, 0, len(p.Diagnostics)+len(p.Warnings))
-	for _, d := range p.Diagnostics {
-		out = append(out, diag.Diagnostic{
-			Severity: diag.SeverityError,
-			Span:     d.Span,
-			Message:  d.Message,
-			Code:     d.ErrorCode(),
-			Source:   "syntax",
-			Fixes:    d.Fixes,
-		})
-	}
-	for _, w := range p.Warnings {
-		out = append(out, diag.Diagnostic{
-			Severity: diag.SeverityWarning,
-			Span:     w.Span,
-			Message:  w.Message,
-			Code:     w.Code,
-			Source:   "syntax",
-			Fixes:    w.Fixes,
-		})
-	}
-	return out
 }
 
 // maskedSpans locates the masked submissions in the buffer, so a finding of

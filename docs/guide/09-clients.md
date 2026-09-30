@@ -497,6 +497,11 @@ model.raise_for_errors()       # raises ModelError, or returns the model
 model = opensysml.load("model.sysml", strict=True)   # raises instead of returning
 ```
 
+The diagnostics are the ones `sysml -validate` reports for the same document: syntax errors,
+the parser's notation warnings and what the analysis makes of them — a reserved keyword written
+as a name (`part filter : X;`, code `reserved-keyword-name`) is an error over gRPC as it is on the
+command line — and the resolution and validation findings.
+
 A `Diagnostic` carries `severity`, `message`, `code` and its location. Branch on `code`, not on
 the message text: `"syntax"` for a syntax error, a validation code such as `"unresolved"` or
 `"feature-value-overriding"` for a finding, `"choice-point"` and `"guard-unevaluable"` for a

@@ -62,7 +62,7 @@ func (m Model) addMetadataPrefixSplice(i int, op Operation) (splice, error) {
 	}
 
 	declSpan := sym.Decl.Span()
-	for _, diagnostic := range parseDiagnostics(m.ParseDiags) {
+	for _, diagnostic := range parser.AsDiagnostics(m.ParseDiags, nil) {
 		if diagnostic.Span.Offset >= declSpan.Offset && diagnostic.Span.Offset < declSpan.End() {
 			return splice{}, &Error{
 				Failure: FailureResultInvalid, OperationIndex: i,

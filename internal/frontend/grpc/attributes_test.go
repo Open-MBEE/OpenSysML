@@ -19,7 +19,7 @@ package Demo {
     part def Car :> Base {
         attribute :>> mass = 1600.0 [SI::kg];
         attribute wheels : ScalarValues::Integer = 4;
-        attribute derived : ScalarValues::Real = wheels * 2;
+        attribute 'derived' : ScalarValues::Real = wheels * 2;
         part engine;
     }
 }

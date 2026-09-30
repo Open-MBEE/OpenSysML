@@ -492,15 +492,15 @@ package Fail {
     action zero { assign d := 0; }
     action one { assign d := 1; }
     join sync;
-    action use { assign q := 10 / d; }
+    action 'use' { assign q := 10 / d; }
     done;
     succession first start then split;
     succession first split then zero;
     succession first split then one;
     succession first zero then sync;
     succession first one then sync;
-    succession first sync then use;
-    succession first use then done;
+    succession first sync then 'use';
+    succession first 'use' then done;
   }
 }
 `, "explore-error")
