@@ -120,7 +120,9 @@ branch that moves the integration state onto `main`:
    spelling as package.json. `client/rust/opensysml/Cargo.toml` follows too:
    set `[package] version` to the same spelling and run
    `cargo update -p opensysml` in `client/rust` so the lockfile
-   agrees. Anything else the release
+   agrees. The editors' own versions (`editors/vscode/package.json`, the Cameo and
+   SysON poms' `<version>`) are independent and are not bumped here; see
+   [Versions](../../editors/README.md#versions). Anything else the release
    needs (a doc that names the version) lands here too; a feature does not. Check the wire compatibility
    against the released schema, not the branch's own source:
    `make proto-breaking BUF_BREAKING_REF=origin/main` (the default baseline is

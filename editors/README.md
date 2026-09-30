@@ -27,3 +27,15 @@ directory here with its own build.
   synchronization are designed only; the discovery against release `v2026.9.0`, module layout,
   call sequence and phased plan are in
   [`docs/internals/design/syson-plugin.md`](../docs/internals/design/syson-plugin.md).
+
+## Versions
+
+Each editor keeps its own version: `version` in `vscode/package.json` and
+`syson/frontend/package.json`, `<version>` in `cameo/pom.xml` and `syson/pom.xml`. A core
+release does not bump them. The OpenSysML client an editor builds against is not its own
+version, though: `opensysml.client.version` in `cameo/pom.xml` and the `opensysml-client`
+dependency in `syson/backend/pom.xml` name the version of `client/java/pom.xml`, which follows
+the core version and is bumped with it on the release branch. The pytest
+`test_every_in_repo_reference_names_the_poms_version` in
+`client/python/tests/test_check_version.py` fails when either reference disagrees with the
+client pom, and the pull-request workflow runs it whenever either editor pom changes.
