@@ -50,6 +50,7 @@ type CachedModel struct {
 	// elementId, which a query reports (queryEval.elementID).
 	elementIDsOnce sync.Once
 	elementIDs     *export.ElementIDs
+	elementIDsErr  error
 
 	// idle are the workers requests have given back, warm with what they resolved.
 	idleMu sync.Mutex

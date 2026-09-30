@@ -3,7 +3,11 @@ package grpc
 import (
 	"context"
 	"encoding/json"
+	"os"
+	"path/filepath"
 	"testing"
+
+	"connectrpc.com/connect"
 
 	pb "github.com/Open-MBEE/OpenSysML/api/proto"
 )
@@ -116,5 +120,127 @@ func TestQueryElementIDOfALibraryElementIsItsNormativeID(t *testing.T) {
 	// uuid5(uuid5(NAMESPACE_URL, "https://www.omg.org/spec/KerML/ScalarValues"), "ScalarValues::Real")
 	if got := queried.Elements[0].Properties["elementId"]; got != "14c0aa22-5489-59b5-b438-ded26e83ba31" {
 		t.Errorf("ScalarValues::Real: elementId %q, want its normative id", got)
+	}
+}
+
+// A copy of a bundled library file parsed as a model is the library, as a
+// conversion analyses it: its elements' elementIds are their normative ids.
+func TestQueryElementIDOfALibraryCopyIsNormative(t *testing.T) {
+	library, err := os.ReadFile(filepath.Join("..", "..", "workspace", "libs", "stdlib",
+		"Kernel Libraries", "Kernel Data Type Library", "ScalarValues.kerml"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	srv := mustNewService(t, 10)
+	defer srv.Close()
+	parsed, err := srv.ParseSources(context.Background(), &pb.ParseSourcesRequest{
+		Documents: inlineDocuments("ScalarValues.kerml", string(library)),
+	})
+	if err != nil {
+		t.Fatalf("ParseSources: %v", err)
+	}
+	queried, err := srv.Query(context.Background(), &pb.QueryRequest{
+		ModelHash: parsed.ModelHash,
+		Query:     &pb.Query{Scope: []string{"ScalarValues::Real"}, Select: []string{"elementId"}},
+	})
+	if err != nil {
+		t.Fatalf("Query: %v", err)
+	}
+	if len(queried.Elements) == 0 {
+		t.Fatal("the query selected nothing")
+	}
+	if got := queried.Elements[0].Properties["elementId"]; got != "14c0aa22-5489-59b5-b438-ded26e83ba31" {
+		t.Errorf("ScalarValues::Real in a library copy: elementId %q, want its normative id", got)
+	}
+}
+
+// A model a conversion refuses has no elementIds: a query reading elementId
+// fails with the refusal, and one that does not is answered as before.
+func TestQueryElementIDOfAModelConvertRefuses(t *testing.T) {
+	srv := mustNewService(t, 10)
+	defer srv.Close()
+	parsed, err := srv.ParseSources(context.Background(), &pb.ParseSourcesRequest{
+		Documents: inlineDocuments(
+			"a.sysml", "package P { part def A; }\n",
+			"b.sysml", "package P { part def B; }\n"),
+	})
+	if err != nil {
+		t.Fatalf("ParseSources: %v", err)
+	}
+	converted, err := srv.Convert(context.Background(), &pb.ConvertRequest{
+		Source: &pb.ConvertRequest_ModelHash{ModelHash: parsed.ModelHash}, ToFormat: "api-json",
+	})
+	if err != nil || converted.Error == "" {
+		t.Fatalf("the model converted, so the case tests nothing: %v %q", err, converted.GetError())
+	}
+	_, err = srv.Query(context.Background(), &pb.QueryRequest{
+		ModelHash: parsed.ModelHash,
+		Query:     &pb.Query{Select: []string{"@id", "elementId"}},
+	})
+	if connect.CodeOf(err) != connect.CodeFailedPrecondition {
+		t.Errorf("selecting elementId of a model Convert refuses: err = %v, want FAILED_PRECONDITION", err)
+	}
+	if _, err := srv.Query(context.Background(), &pb.QueryRequest{
+		ModelHash: parsed.ModelHash,
+		Query:     &pb.Query{Select: []string{"@id"}},
+	}); err != nil {
+		t.Errorf("a query not reading elementId failed: %v", err)
+	}
+	// An empty select reports every property but elementId, which only a query
+	// naming it converts the model for.
+	all, err := srv.Query(context.Background(), &pb.QueryRequest{ModelHash: parsed.ModelHash, Query: &pb.Query{}})
+	if err != nil {
+		t.Fatalf("an empty select failed: %v", err)
+	}
+	for _, e := range all.Elements {
+		if _, ok := e.Properties["elementId"]; ok {
+			t.Errorf("%s: an empty select reported elementId", e.Id)
+		}
+	}
+}
+
+// A library element a model annotates with an id of its own is referenced by
+// name in a conversion (no id is written for it), so it has no elementId.
+func TestQueryElementIDOfAnAnnotatedLibraryElementIsAbsent(t *testing.T) {
+	srv := mustNewService(t, 10)
+	defer srv.Close()
+	model := "package P {\n" +
+		"    @IdentityMetadata::ProjectRef { projectId = \"p\"; branch = \"main\"; }\n" +
+		"    metadata sid : IdentityMetadata::ElementId about ScalarValues::Boolean { id = \"custom-boolean\"; }\n" +
+		"    attribute b : ScalarValues::Boolean;\n" +
+		"}\n"
+	parsed, err := srv.ParseSources(context.Background(), &pb.ParseSourcesRequest{Documents: inlineDocuments("p.sysml", model)})
+	if err != nil {
+		t.Fatalf("ParseSources: %v", err)
+	}
+	converted, err := srv.Convert(context.Background(), &pb.ConvertRequest{
+		Source: &pb.ConvertRequest_ModelHash{ModelHash: parsed.ModelHash}, ToFormat: "api-json",
+	})
+	if err != nil || converted.Error != "" {
+		t.Fatalf("Convert: %v %s", err, converted.GetError())
+	}
+	var elements []map[string]any
+	if err := json.Unmarshal([]byte(converted.Content), &elements); err != nil {
+		t.Fatal(err)
+	}
+	for _, e := range elements {
+		if e["@type"] == "FeatureTyping" {
+			if ref, _ := e["type"].(map[string]any); ref["@ref"] != "ScalarValues::Boolean" {
+				t.Fatalf("the conversion no longer references Boolean by name (%v); revisit this case", e["type"])
+			}
+		}
+	}
+	queried, err := srv.Query(context.Background(), &pb.QueryRequest{
+		ModelHash: parsed.ModelHash,
+		Query:     &pb.Query{Scope: []string{"ScalarValues::Boolean"}, Select: []string{"elementId"}},
+	})
+	if err != nil {
+		t.Fatalf("Query: %v", err)
+	}
+	if len(queried.Elements) == 0 {
+		t.Fatal("the query selected nothing")
+	}
+	if got, ok := queried.Elements[0].Properties["elementId"]; ok {
+		t.Errorf("ScalarValues::Boolean: elementId %q, but the conversion writes no id for it", got)
 	}
 }

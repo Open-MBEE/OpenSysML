@@ -72,6 +72,19 @@ func PropertyNames() []string {
 	return out
 }
 
+// DefaultProjection is what a query that selects nothing reports: every
+// property but elementId, which is read from a conversion of the whole model
+// and so is reported only when a query names it.
+func DefaultProjection() []string {
+	out := make([]string, 0, len(propertyNames))
+	for _, name := range PropertyNames() {
+		if name != PropertyElementID {
+			out = append(out, name)
+		}
+	}
+	return out
+}
+
 // IsOrdered reports whether a property supports numeric ordered comparisons.
 func IsOrdered(name string) bool {
 	return name == PropertyMultiplicityLower || name == PropertyMultiplicityUpper
@@ -200,7 +213,7 @@ func Evaluate(model Model, q Query) ([]Element, error) {
 	requestedSelect := q.Select
 	selected := append([]string(nil), requestedSelect...)
 	if len(selected) == 0 {
-		selected = PropertyNames()
+		selected = DefaultProjection()
 	} else {
 		for _, term := range q.OrderBy {
 			found := false
