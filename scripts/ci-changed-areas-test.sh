@@ -55,8 +55,14 @@ case_ rust-manifest python,rust client/rust/opensysml/Cargo.toml
 case_ rust-lock python,rust client/rust/Cargo.lock
 case_ julia-only julia client/julia/OpenSysML/src/connection.jl
 case_ matlab-only matlab client/matlab/+opensysml/call.m
-case_ vscode-only vscode editors/vscode/package.json
+case_ vscode-manifest python,vscode editors/vscode/package.json
+case_ vscode-lock python,vscode editors/vscode/package-lock.json
+case_ syson-frontend-manifest python,syson editors/syson/frontend/package.json
+case_ syson-frontend-lock python,syson editors/syson/frontend/package-lock.json
+case_ syson-manifest python,syson editors/syson/pom.xml
 case_ cameo-manifest cameo,python editors/cameo/pom.xml
+case_ cameo-child-manifest cameo,python editors/cameo/plugin/pom.xml
+case_ syson-api-stubs-manifest python,syson editors/syson/syson-api-stubs/pom.xml
 case_ syson-backend-manifest python,syson editors/syson/backend/pom.xml
 case_ syson-readme docs,syson editors/syson/README.md
 # The grammar generator and its committed output are held together by a Go test.

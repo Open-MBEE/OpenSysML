@@ -373,3 +373,119 @@ def test_main_prints_the_crates_version_the_tag_names(capsys):
 def test_main_refuses_rust_and_java_together():
     with pytest.raises(SystemExit):
         check_version.main(["--tag", "v0.9.0", "--rust", "--java"])
+
+
+_EDITOR_PARENTS = (
+    "editors/cameo/plugin/pom.xml",
+    "editors/cameo/tools/pom.xml",
+    "editors/cameo/openapi-stubs/pom.xml",
+    "editors/cameo/dist/pom.xml",
+    "editors/syson/backend/pom.xml",
+    "editors/syson/syson-api-stubs/pom.xml",
+)
+
+
+def _editor_tree(root, version):
+    """The minimal editor manifest tree editors_version reads, at one version."""
+    ns = 'xmlns="http://maven.apache.org/POM/4.0.0"'
+    for pkg in ("editors/vscode", "editors/syson/frontend"):
+        (root / pkg).mkdir(parents=True, exist_ok=True)
+        (root / pkg / "package.json").write_text(
+            f'{{"version": "{version}"}}', encoding="utf-8"
+        )
+        (root / pkg / "package-lock.json").write_text(
+            f'{{"version": "{version}", '
+            f'"packages": {{"": {{"version": "{version}"}}}}}}',
+            encoding="utf-8",
+        )
+    for relpath in ("editors/cameo/pom.xml", "editors/syson/pom.xml"):
+        (root / relpath).parent.mkdir(parents=True, exist_ok=True)
+        (root / relpath).write_text(
+            f'<project {ns}><version>{version}</version></project>',
+            encoding="utf-8",
+        )
+    for relpath in _EDITOR_PARENTS:
+        (root / relpath).parent.mkdir(parents=True, exist_ok=True)
+        (root / relpath).write_text(
+            f'<project {ns}><parent><version>{version}</version></parent></project>',
+            encoding="utf-8",
+        )
+
+
+def test_editors_version_agrees_with_the_real_tree():
+    """Every editor manifest must carry _version.py's SemVer spelling on every commit."""
+    declared = check_version.declared_version()
+    version = check_version.editors_version()
+    assert check_version.pep440_from_semver(version, "v") == declared
+
+
+def test_main_prints_the_editors_version_the_tag_names(capsys):
+    version = check_version.editors_version()
+    assert check_version.main(["--tag", f"v{version}", "--editors"]) == 0
+    assert capsys.readouterr().out.strip() == version
+
+
+def test_editors_version_accepts_an_agreeing_tree(tmp_path):
+    _editor_tree(tmp_path, "0.9.0")
+    assert (
+        check_version.editors_version(
+            declared="0.9.0", tag="v0.9.0", root=str(tmp_path)
+        )
+        == "0.9.0"
+    )
+
+
+def test_editors_version_rejects_one_disagreeing_json(tmp_path):
+    _editor_tree(tmp_path, "0.9.0")
+    (tmp_path / "editors/vscode/package.json").write_text(
+        '{"version": "0.9.1"}', encoding="utf-8"
+    )
+    with pytest.raises(
+        check_version.VersionError, match="editors/vscode/package.json declares"
+    ):
+        check_version.editors_version(declared="0.9.0", root=str(tmp_path))
+
+
+def test_lock_declared_version_rejects_mismatched_copies(tmp_path):
+    lock = tmp_path / "package-lock.json"
+    lock.write_text(
+        '{"version": "0.9.0", "packages": {"": {"version": "0.9.1"}}}',
+        encoding="utf-8",
+    )
+    with pytest.raises(check_version.VersionError, match="must agree"):
+        check_version.lock_declared_version(str(lock))
+
+
+def test_pom_parent_version_rejects_a_pom_without_parent_version(tmp_path):
+    pom = tmp_path / "pom.xml"
+    pom.write_text(
+        '<project xmlns="http://maven.apache.org/POM/4.0.0"><parent/></project>',
+        encoding="utf-8",
+    )
+    with pytest.raises(
+        check_version.VersionError, match="declares no <parent><version>"
+    ):
+        check_version.pom_parent_version(str(pom))
+
+
+def test_editors_version_accepts_a_matching_pre_release(tmp_path):
+    _editor_tree(tmp_path, "0.9.1-rc.1")
+    assert (
+        check_version.editors_version(
+            declared="0.9.1rc1", tag="v0.9.1-rc.1", root=str(tmp_path)
+        )
+        == "0.9.1-rc.1"
+    )
+
+
+def test_editors_version_rejects_a_tag_that_misspells_the_version(tmp_path):
+    _editor_tree(tmp_path, "0.9.0")
+    with pytest.raises(check_version.VersionError, match="must spell it exactly"):
+        check_version.editors_version(
+            declared="0.9.0", tag="v0.9.1", root=str(tmp_path)
+        )
+
+
+def test_main_refuses_editors_and_node_together():
+    with pytest.raises(SystemExit):
+        check_version.main(["--tag", "v0.9.0", "--editors", "--node"])

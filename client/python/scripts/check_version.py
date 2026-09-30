@@ -14,7 +14,10 @@ Prints the version the tag names on success. With `--pre-release` it prints
 With `--node`, `--java` or `--rust` the version client/node/package.json,
 client/java/pom.xml or client/rust/opensysml/Cargo.toml declares is checked
 the same way and printed instead — all three clients are published from the
-same tag, at the SemVer spelling of the same version.
+same tag, at the SemVer spelling of the same version. `--editors` runs the
+same check over every manifest an editor takes its version from: nothing
+publishes the editors, but their versions follow the core's, so a release
+still fails early when one disagrees.
 
 The core tags are SemVer and the package version is PEP 440, so the tag is
 translated before the comparison: `v0.9.0-rc1` names `0.9.0rc1`. Only the SemVer
@@ -54,6 +57,24 @@ REPO_ROOT = os.path.dirname(
 NODE_PACKAGE = os.path.join(REPO_ROOT, "client", "node", "package.json")
 JAVA_POM = os.path.join(REPO_ROOT, "client", "java", "pom.xml")
 RUST_CARGO = os.path.join(REPO_ROOT, "client", "rust", "opensysml", "Cargo.toml")
+
+# Every manifest an editor takes its version from, as (repo-relative path,
+# reader kind). The editors carry the core version even though nothing
+# publishes them.
+EDITOR_MANIFESTS = (
+    ("editors/vscode/package.json", "json"),
+    ("editors/vscode/package-lock.json", "lock"),
+    ("editors/syson/frontend/package.json", "json"),
+    ("editors/syson/frontend/package-lock.json", "lock"),
+    ("editors/cameo/pom.xml", "pom"),
+    ("editors/syson/pom.xml", "pom"),
+    ("editors/cameo/plugin/pom.xml", "parent"),
+    ("editors/cameo/tools/pom.xml", "parent"),
+    ("editors/cameo/openapi-stubs/pom.xml", "parent"),
+    ("editors/cameo/dist/pom.xml", "parent"),
+    ("editors/syson/backend/pom.xml", "parent"),
+    ("editors/syson/syson-api-stubs/pom.xml", "parent"),
+)
 
 
 class VersionError(Exception):
@@ -332,6 +353,106 @@ def rust_version(declared=None, rust=None, tag=None):
     )
 
 
+def lock_declared_version(lock_path):
+    """The version a package-lock.json's root package declares.
+
+    The lock repeats the package.json version twice — the top-level `version`
+    and `packages[""]["version"]` — and the two must agree.
+
+    Args:
+        lock_path (str): Path to the package-lock.json
+
+    Returns:
+        str: The declared version
+
+    Raises:
+        VersionError: If either copy is missing or they disagree
+    """
+    with open(lock_path, encoding="utf-8") as f:
+        lock = json.load(f)
+    top = lock.get("version")
+    root = lock.get("packages", {}).get("", {}).get("version")
+    if not isinstance(top, str) or not isinstance(root, str):
+        raise VersionError(
+            f"{lock_path} declares no version: expected both the top-level "
+            "'version' and packages[\"\"][\"version\"]"
+        )
+    if top != root:
+        raise VersionError(
+            f"{lock_path} declares {top!r} at the top level but "
+            f"packages[\"\"] declares {root!r}; the two must agree. Run "
+            "`npm install --package-lock-only` in the package's directory."
+        )
+    return top
+
+
+def pom_parent_version(pom):
+    """The version a child pom's <parent> element names.
+
+    Args:
+        pom (str): Path to the child pom.xml
+
+    Returns:
+        str: The parent version
+
+    Raises:
+        VersionError: If the pom has no <parent><version>
+    """
+    project = ET.parse(pom).getroot()
+    version = project.findtext(
+        "{http://maven.apache.org/POM/4.0.0}parent/"
+        "{http://maven.apache.org/POM/4.0.0}version"
+    )
+    if version is None:
+        raise VersionError(f"{pom} declares no <parent><version>")
+    return version
+
+
+_EDITOR_READERS = {
+    "json": node_declared_version,
+    "lock": lock_declared_version,
+    "pom": java_declared_version,
+    "parent": pom_parent_version,
+}
+
+
+def editors_version(declared=None, tag=None, manifests=EDITOR_MANIFESTS, root=REPO_ROOT):
+    """The editors' version, checked over every manifest against _version.py and the tag.
+
+    Args:
+        declared (str, optional): Version opensysml/_version.py declares; read
+            when omitted
+        tag (str, optional): Core release tag the release runs from
+        manifests (tuple): (repo-relative path, reader kind) pairs; defaults to
+            EDITOR_MANIFESTS
+        root (str): Repo root the relative paths resolve against
+
+    Returns:
+        str: The version every editor manifest declares
+
+    Raises:
+        VersionError: If any manifest disagrees with _version.py, or the tag
+            does not spell the version a manifest declares
+    """
+    declared = declared_version() if declared is None else declared
+    version = None
+    for relpath, kind in manifests:
+        version = _client_version(
+            relpath,
+            relpath,
+            "the editors' release",
+            "The editors",
+            _EDITOR_READERS[kind](os.path.join(root, relpath)),
+            declared,
+            tag,
+            "set every editor manifest docs/project/releasing.md lists to the "
+            "SemVer spelling of that version and run `npm install "
+            "--package-lock-only` in editors/vscode and "
+            "editors/syson/frontend.",
+        )
+    return version
+
+
 def _client_version(what, file, registry, client_name, client, declared, tag, remedy):
     """The lockstep check the published client manifests share.
 
@@ -427,6 +548,11 @@ def main(argv=None):
         action="store_true",
         help="check and print client/rust/opensysml/Cargo.toml's version instead",
     )
+    clients.add_argument(
+        "--editors",
+        action="store_true",
+        help="check every editor manifest's version and print it instead",
+    )
     parser.add_argument(
         "--pre-release",
         action="store_true",
@@ -442,6 +568,8 @@ def main(argv=None):
             version = java_version(declared=version, tag=args.tag)
         elif args.rust:
             version = rust_version(declared=version, tag=args.tag)
+        elif args.editors:
+            version = editors_version(declared=version, tag=args.tag)
         pre_release = is_pre_release(version)
     except VersionError as e:
         print(f"error: {e}", file=sys.stderr)
