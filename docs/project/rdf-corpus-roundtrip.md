@@ -43,7 +43,7 @@ Each file gets exactly one of:
 | Verdict | Meaning |
 |---|---|
 | `stable` | Hop 2 is byte-identical to hop 1. |
-| `whitespace-only` | The two Turtle documents differ as bytes, but their triple sets are equal once the whitespace inside every `sysx:sourceText` literal is collapsed to single spaces. This is the shape of the mapping's known instability: the writer re-indents a body, and the text the encoder records for it changes with the indentation. |
+| `whitespace-only` | The two Turtle documents differ as bytes, but their triple sets are equal once the whitespace inside every `sysx:sourceText` literal is collapsed to single spaces and the source positions (`sysx:sourceLine`, `sysx:sourceColumn`, `sysx:sourceEndLine`, `sysx:sourceEndColumn`) are set aside. This is the shape of the mapping's known instability: the writer re-indents a body, and the text the encoder records for it changes with the indentation; a file whose rendering drops a leading blank line moves every position by a line. |
 | `graph-diff` | The triple sets differ beyond `sysx:sourceText` whitespace: hop 2 gained, lost or changed a triple. |
 | `unwritable` | Hop 1 succeeded but Turtle → notation was refused. |
 | `unparseable` | The notation written back was refused on its way to Turtle again. |

@@ -9,6 +9,10 @@
 elmt:ReferenceSubsets
     a sysml:Package ;
     sysml:qualifiedName "ReferenceSubsets" ;
+    sysx:sourceLine "1"^^xsd:integer ;
+    sysx:sourceColumn "1"^^xsd:integer ;
+    sysx:sourceEndLine "12"^^xsd:integer ;
+    sysx:sourceEndColumn "2"^^xsd:integer ;
     sysml:elementId "ReferenceSubsets" ;
     sysx:memberIndex "0"^^xsd:integer ;
     sysx:sourceLanguage "sysml" ;
@@ -26,6 +30,10 @@ elmt:ReferenceSubsets
 elmt:ReferenceSubsets__Vehicle
     a sysml:PartDefinition ;
     sysml:qualifiedName "ReferenceSubsets::Vehicle" ;
+    sysx:sourceLine "2"^^xsd:integer ;
+    sysx:sourceColumn "5"^^xsd:integer ;
+    sysx:sourceEndLine "2"^^xsd:integer ;
+    sysx:sourceEndColumn "22"^^xsd:integer ;
     sysml:elementId "ReferenceSubsets__Vehicle" ;
     sysx:memberIndex "0"^^xsd:integer ;
     sysml:owningNamespace elmt:ReferenceSubsets ;
@@ -49,6 +57,10 @@ elmt:ReferenceSubsets__Vehicle_om
 elmt:ReferenceSubsets__vehicle_5fc1
     a sysml:PartUsage ;
     sysml:qualifiedName "ReferenceSubsets::vehicle_c1" ;
+    sysx:sourceLine "3"^^xsd:integer ;
+    sysx:sourceColumn "5"^^xsd:integer ;
+    sysx:sourceEndLine "3"^^xsd:integer ;
+    sysx:sourceEndColumn "31"^^xsd:integer ;
     sysml:elementId "ReferenceSubsets__vehicle_5fc1" ;
     sysx:memberIndex "1"^^xsd:integer ;
     sysml:owningNamespace elmt:ReferenceSubsets ;
@@ -76,6 +88,10 @@ elmt:ReferenceSubsets__vehicle_5fc1_om
 elmt:ReferenceSubsets__Person
     a sysml:PartDefinition ;
     sysml:qualifiedName "ReferenceSubsets::Person" ;
+    sysx:sourceLine "4"^^xsd:integer ;
+    sysx:sourceColumn "5"^^xsd:integer ;
+    sysx:sourceEndLine "4"^^xsd:integer ;
+    sysx:sourceEndColumn "21"^^xsd:integer ;
     sysml:elementId "ReferenceSubsets__Person" ;
     sysx:memberIndex "2"^^xsd:integer ;
     sysml:owningNamespace elmt:ReferenceSubsets ;
@@ -99,6 +115,10 @@ elmt:ReferenceSubsets__Person_om
 elmt:ReferenceSubsets__design
     a sysml:PartUsage ;
     sysml:qualifiedName "ReferenceSubsets::design" ;
+    sysx:sourceLine "5"^^xsd:integer ;
+    sysx:sourceColumn "5"^^xsd:integer ;
+    sysx:sourceEndLine "11"^^xsd:integer ;
+    sysx:sourceEndColumn "6"^^xsd:integer ;
     sysml:elementId "ReferenceSubsets__design" ;
     sysx:memberIndex "3"^^xsd:integer ;
     sysml:owningNamespace elmt:ReferenceSubsets ;
@@ -133,6 +153,10 @@ elmt:ReferenceSubsets__design_om
 elmt:ReferenceSubsets__design__vehicle_5fdesign
     a sysml:ReferenceUsage ;
     sysml:qualifiedName "ReferenceSubsets::design::vehicle_design" ;
+    sysx:sourceLine "6"^^xsd:integer ;
+    sysx:sourceColumn "9"^^xsd:integer ;
+    sysx:sourceEndLine "6"^^xsd:integer ;
+    sysx:sourceEndColumn "42"^^xsd:integer ;
     sysml:elementId "ReferenceSubsets__design__vehicle_5fdesign" ;
     sysx:memberIndex "0"^^xsd:integer ;
     sysml:owningNamespace elmt:ReferenceSubsets__design ;
@@ -164,6 +188,10 @@ elmt:ReferenceSubsets__design__vehicle_5fdesign_om
 elmt:ReferenceSubsets__design__spare
     a sysml:ReferenceUsage ;
     sysml:qualifiedName "ReferenceSubsets::design::spare" ;
+    sysx:sourceLine "7"^^xsd:integer ;
+    sysx:sourceColumn "9"^^xsd:integer ;
+    sysx:sourceEndLine "7"^^xsd:integer ;
+    sysx:sourceEndColumn "38"^^xsd:integer ;
     sysml:elementId "ReferenceSubsets__design__spare" ;
     sysx:memberIndex "1"^^xsd:integer ;
     sysml:owningNamespace elmt:ReferenceSubsets__design ;
@@ -195,6 +223,10 @@ elmt:ReferenceSubsets__design__spare_om
 elmt:ReferenceSubsets__design__spare_20wheel
     a sysml:ReferenceUsage ;
     sysml:qualifiedName "ReferenceSubsets::design::spare wheel" ;
+    sysx:sourceLine "8"^^xsd:integer ;
+    sysx:sourceColumn "9"^^xsd:integer ;
+    sysx:sourceEndLine "8"^^xsd:integer ;
+    sysx:sourceEndColumn "46"^^xsd:integer ;
     sysml:elementId "ReferenceSubsets__design__spare_20wheel" ;
     sysx:memberIndex "2"^^xsd:integer ;
     sysml:owningNamespace elmt:ReferenceSubsets__design ;
@@ -226,6 +258,10 @@ elmt:ReferenceSubsets__design__spare_20wheel_om
 elmt:ReferenceSubsets__design__fleet
     a sysml:ReferenceUsage ;
     sysml:qualifiedName "ReferenceSubsets::design::fleet" ;
+    sysx:sourceLine "9"^^xsd:integer ;
+    sysx:sourceColumn "9"^^xsd:integer ;
+    sysx:sourceEndLine "9"^^xsd:integer ;
+    sysx:sourceEndColumn "39"^^xsd:integer ;
     sysml:elementId "ReferenceSubsets__design__fleet" ;
     sysx:memberIndex "3"^^xsd:integer ;
     sysml:owningNamespace elmt:ReferenceSubsets__design ;
@@ -322,6 +358,10 @@ expr:ReferenceSubsets__design__fleet_pupperBound_om
 elmt:ReferenceSubsets__design__presidentOfCountry
     a sysml:ReferenceUsage ;
     sysml:qualifiedName "ReferenceSubsets::design::presidentOfCountry" ;
+    sysx:sourceLine "10"^^xsd:integer ;
+    sysx:sourceColumn "9"^^xsd:integer ;
+    sysx:sourceEndLine "10"^^xsd:integer ;
+    sysx:sourceEndColumn "61"^^xsd:integer ;
     sysml:elementId "ReferenceSubsets__design__presidentOfCountry" ;
     sysx:memberIndex "4"^^xsd:integer ;
     sysml:owningNamespace elmt:ReferenceSubsets__design ;

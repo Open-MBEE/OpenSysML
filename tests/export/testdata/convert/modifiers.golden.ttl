@@ -8,6 +8,10 @@
 elmt:Modifiers
     a sysml:Package ;
     sysml:qualifiedName "Modifiers" ;
+    sysx:sourceLine "1"^^xsd:integer ;
+    sysx:sourceColumn "1"^^xsd:integer ;
+    sysx:sourceEndLine "7"^^xsd:integer ;
+    sysx:sourceEndColumn "2"^^xsd:integer ;
     sysml:elementId "Modifiers" ;
     sysx:memberIndex "0"^^xsd:integer ;
     sysx:sourceLanguage "sysml" ;
@@ -25,6 +29,10 @@ elmt:Modifiers
 elmt:Modifiers__Hidden
     a sysml:PartDefinition ;
     sysml:qualifiedName "Modifiers::Hidden" ;
+    sysx:sourceLine "2"^^xsd:integer ;
+    sysx:sourceColumn "5"^^xsd:integer ;
+    sysx:sourceEndLine "2"^^xsd:integer ;
+    sysx:sourceEndColumn "29"^^xsd:integer ;
     sysml:elementId "Modifiers__Hidden" ;
     sysx:memberIndex "0"^^xsd:integer ;
     sysml:owningNamespace elmt:Modifiers ;
@@ -49,6 +57,10 @@ elmt:Modifiers__Hidden_om
 elmt:Modifiers__Shown
     a sysml:PartDefinition ;
     sysml:qualifiedName "Modifiers::Shown" ;
+    sysx:sourceLine "3"^^xsd:integer ;
+    sysx:sourceColumn "5"^^xsd:integer ;
+    sysx:sourceEndLine "3"^^xsd:integer ;
+    sysx:sourceEndColumn "27"^^xsd:integer ;
     sysml:elementId "Modifiers__Shown" ;
     sysx:memberIndex "1"^^xsd:integer ;
     sysml:owningNamespace elmt:Modifiers ;
@@ -73,6 +85,10 @@ elmt:Modifiers__Shown_om
 elmt:Modifiers__Base
     a sysml:PartDefinition ;
     sysml:qualifiedName "Modifiers::Base" ;
+    sysx:sourceLine "4"^^xsd:integer ;
+    sysx:sourceColumn "5"^^xsd:integer ;
+    sysx:sourceEndLine "4"^^xsd:integer ;
+    sysx:sourceEndColumn "28"^^xsd:integer ;
     sysml:elementId "Modifiers__Base" ;
     sysx:memberIndex "2"^^xsd:integer ;
     sysml:owningNamespace elmt:Modifiers ;
@@ -97,6 +113,10 @@ elmt:Modifiers__Base_om
 elmt:Modifiers__Derived
     a sysml:PartDefinition ;
     sysml:qualifiedName "Modifiers::Derived" ;
+    sysx:sourceLine "5"^^xsd:integer ;
+    sysx:sourceColumn "5"^^xsd:integer ;
+    sysx:sourceEndLine "5"^^xsd:integer ;
+    sysx:sourceEndColumn "30"^^xsd:integer ;
     sysml:elementId "Modifiers__Derived" ;
     sysx:memberIndex "3"^^xsd:integer ;
     sysml:owningNamespace elmt:Modifiers ;
@@ -124,6 +144,10 @@ elmt:Modifiers__Derived_om
 elmt:Modifiers__Choice
     a sysml:PartDefinition ;
     sysml:qualifiedName "Modifiers::Choice" ;
+    sysx:sourceLine "6"^^xsd:integer ;
+    sysx:sourceColumn "5"^^xsd:integer ;
+    sysx:sourceEndLine "6"^^xsd:integer ;
+    sysx:sourceEndColumn "31"^^xsd:integer ;
     sysml:elementId "Modifiers__Choice" ;
     sysx:memberIndex "4"^^xsd:integer ;
     sysml:owningNamespace elmt:Modifiers ;

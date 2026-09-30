@@ -72,6 +72,9 @@ var derivedSatelliteMetaclasses = map[string]bool{
 	mConjugatedPortDefinition: true,
 	mMultiplicityRange:        true,
 	mMembership:               true,
+	// The Annotation a dependency owns its prefix metadata through, derived
+	// from that metadata usage's id plus AnnotationSuffix.
+	mAnnotation: true,
 }
 
 // relationshipSourceEnds are the properties of a materialized relationship

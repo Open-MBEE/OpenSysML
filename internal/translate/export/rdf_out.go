@@ -8,6 +8,7 @@ import (
 
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/identity"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/resolve"
+	"github.com/Open-MBEE/OpenSysML/internal/semantic/semantics"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/symbols"
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/ast"
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/lexer"
@@ -84,6 +85,10 @@ const (
 	pLanguage                  = "language"
 	pLocale                    = "locale"
 	pAnnotatedElement          = "annotatedElement"
+	pAnnotatingElement         = "annotatingElement"
+	pOwnedAnnotation           = "ownedAnnotation"
+	mAnnotation                = "Annotation"
+	mDependency                = "Dependency"
 	pIsImportAll               = "isImportAll"
 	pSourceFeature             = "sourceFeature"
 	pTargetFeature             = "targetFeature"
@@ -101,7 +106,16 @@ const (
 	xSourceText     = "sourceText"
 	xSourceTail     = "sourceTail"
 	xSourceLanguage = "sourceLanguage"
-	xFilter         = "filter"
+	// xSourceDocument names the document a root element was written in, when
+	// several documents are converted as one model.
+	xSourceDocument = "sourceDocument"
+	// The declaration's range in its document, 1-based lines and columns as a
+	// diagnostic's span gives them; layout, which reading the graph ignores.
+	xSourceLine      = "sourceLine"
+	xSourceColumn    = "sourceColumn"
+	xSourceEndLine   = "sourceEndLine"
+	xSourceEndColumn = "sourceEndColumn"
+	xFilter          = "filter"
 	// xIsConstructor is only read: an older graph flags `new` on an InvocationExpression.
 	xIsConstructor = "isConstructor"
 	// xExpose is only read: an older graph flags an expose on an abstract sysml:Import.
@@ -248,6 +262,115 @@ func ToRDFWith(file *source.SourceFile, root *ast.RootNamespace, form IDForm) (*
 	return e.graph, nil
 }
 
+// mintedSubject is a subject an encoder minted for a declaration, and where.
+type mintedSubject struct{ iri, fqn, at string }
+
+// ModelDocument is one parsed document of a model converted as a whole.
+type ModelDocument struct {
+	File *source.SourceFile
+	Root *ast.RootNamespace
+}
+
+// modelEncoders are the encoders of one model's documents, over one analysis.
+type modelEncoders struct {
+	// declaring is the encoder of the document that declares each node.
+	declaring map[ast.Node]*encoder
+}
+
+// declares reports whether node is declared by one of the model's documents.
+func (m *modelEncoders) declares(node ast.Node) bool {
+	return m != nil && m.declaring[node] != nil
+}
+
+// siblingElement is the qualified name of an element another document of the
+// model declares, as that document's encoder names it, whose identity this
+// document then links it by: the same subject that document writes.
+func (e *encoder) siblingElement(sym *symbols.Symbol) (string, bool) {
+	owner := e.model.declaringEncoder(sym.Decl)
+	if owner == nil || owner == e {
+		return "", false
+	}
+	fqn := owner.fqn[sym.Decl]
+	if name, _ := declaredNameAndMembers(sym.Decl); name == "" && !sym.EffectiveName() {
+		return "", false
+	}
+	if el, ok := owner.ids.byNode[sym.Decl]; ok {
+		e.ids.byNode[sym.Decl] = el
+	}
+	return fqn, true
+}
+
+func (m *modelEncoders) declaringEncoder(node ast.Node) *encoder {
+	if m == nil {
+		return nil
+	}
+	return m.declaring[node]
+}
+
+// ModelToRDFWith converts the documents of one model to a single graph. They are
+// analyzed together, as a workspace analyzes them, and a reference from one
+// document to an element another declares links the subject that document
+// writes for it, as a reference within one document does. Each document's
+// root elements name it (sysx:sourceDocument), since one graph no longer keeps
+// the documents apart.
+func ModelToRDFWith(documents []ModelDocument, form IDForm) (*rdf.Graph, error) {
+	res, model := analyzeModel(documents)
+	shared := &modelEncoders{declaring: map[ast.Node]*encoder{}}
+	encoders := make([]*encoder, len(documents))
+	scopes := map[string]bool{}
+	for i, doc := range documents {
+		e, err := newEncoderOver(doc.File, doc.Root, form, res, model)
+		if err != nil {
+			return nil, fmt.Errorf("%s: %w", doc.File.Name(), err)
+		}
+		e.model = shared
+		for node := range e.fqn {
+			shared.declaring[node] = e
+		}
+		for key := range e.ids.scopes {
+			scopes[key] = true
+		}
+		encoders[i] = e
+	}
+	// Ids repeated across identity scopes stay apart when the model, not only
+	// one of its documents, declares more than one scope.
+	if len(scopes) > 1 {
+		for _, e := range encoders {
+			e.ids.qualified = true
+		}
+	}
+	out := rdf.NewGraph()
+	// declaredIn is the document and declaration each subject was minted for:
+	// two documents declaring one subject would merge two elements into one.
+	declaredIn := map[string]mintedSubject{}
+	for i, e := range encoders {
+		if err := e.encodeDocument(documents[i].Root); err != nil {
+			return nil, fmt.Errorf("%s: %w", documents[i].File.Name(), err)
+		}
+		for _, minted := range e.minted {
+			if prior, taken := declaredIn[minted.iri]; taken {
+				return nil, &UnsupportedError{
+					What: fmt.Sprintf("the declaration of %s at %s", minted.fqn, minted.at),
+					Note: fmt.Sprintf("its id lands on the same IRI as %s at %s, which another document declares, and merging two elements into one subject would be a different model", prior.fqn, prior.at),
+				}
+			}
+		}
+		for _, minted := range e.minted {
+			declaredIn[minted.iri] = minted
+		}
+		for prefix, ns := range e.graph.Prefixes {
+			out.Prefixes[prefix] = ns
+		}
+		for _, triple := range e.graph.Triples() {
+			out.AddTriple(triple)
+			if triple.Predicate.Value == rdf.OpenSysML+xSourceLanguage {
+				out.Add(triple.Subject, rdf.OpenSysMLTerm(xSourceDocument), rdf.String(documents[i].File.Name()))
+			}
+		}
+	}
+	return out, nil
+}
+
 // encodeDocument converts a parsed document, returning the encoder that holds
 // the graph and where in file each element was written; library is as for analyzeDocument.
 func encodeDocument(file *source.SourceFile, root *ast.RootNamespace, library string, form IDForm) (*encoder, error) {
@@ -258,20 +381,28 @@ func encodeDocument(file *source.SourceFile, root *ast.RootNamespace, library st
 	if err != nil {
 		return nil, err
 	}
-	e.src = newAuthoredSource(file)
-	if err := e.encode(root.Members, "", rdf.Term{}); err != nil {
+	if err := e.encodeDocument(root); err != nil {
 		return nil, err
+	}
+	return e, nil
+}
+
+// encodeDocument writes the graph of the document the encoder was made for.
+func (e *encoder) encodeDocument(root *ast.RootNamespace) error {
+	e.src = newAuthoredSource(e.file, root)
+	if err := e.encode(root.Members, "", rdf.Term{}); err != nil {
+		return err
 	}
 	e.importedMemberships()
 	e.materializeNormative()
 	if e.idErr != nil {
-		return nil, e.idErr
+		return e.idErr
 	}
 	e.sourceText()
 	if err := rdf.AnnotateCollections(e.graph); err != nil {
-		return nil, err
+		return err
 	}
-	return e, nil
+	return nil
 }
 
 // languageName is the name a document's grammar is recorded under on its roots,
@@ -310,6 +441,12 @@ func (e *encoder) sourceText() {
 // records each member's qualified name, so references can be told from names.
 func newEncoder(file *source.SourceFile, root *ast.RootNamespace, library string, form IDForm) (*encoder, error) {
 	res, model := analyzeDocument(file, root, library)
+	return newEncoderOver(file, root, form, res, model)
+}
+
+// newEncoderOver is newEncoder over an analysis already made: one document's,
+// or a whole model's (analyzeModel).
+func newEncoderOver(file *source.SourceFile, root *ast.RootNamespace, form IDForm, res *resolve.Resolver, model *semantics.Model) (*encoder, error) {
 	ids, err := documentIdentity(file.Name(), res, model, form)
 	if err != nil {
 		return nil, err
@@ -346,7 +483,13 @@ func newEncoder(file *source.SourceFile, root *ast.RootNamespace, library string
 }
 
 type encoder struct {
-	file *source.SourceFile
+	// minted lists the subjects minted for this document's declarations, which a
+	// model of several documents checks no other document declares too.
+	minted []mintedSubject
+	// model, when the document is converted as one of a model's documents,
+	// holds the encoder of every document, for the elements the others declare.
+	model *modelEncoders
+	file  *source.SourceFile
 	// src is the text of file as written, which is what sysx:sourceText carries.
 	src   *authoredSource
 	graph *rdf.Graph
@@ -494,7 +637,9 @@ func (e *encoder) importedMembership(name *ast.QualifiedName) rdf.Term {
 			return e.ids.subjectForNode(decl, fqn)
 		}
 		membership := e.ids.owningMembershipOf(decl, e.ids.subjectForNode(decl, fqn))
-		if _, minted := e.subjects[membership.Value]; minted || e.ids.normativeMembership(decl) {
+		// A membership minted here, a library element's normative one, or one
+		// another document of the model mints for what it declares.
+		if _, minted := e.subjects[membership.Value]; minted || e.ids.normativeMembership(decl) || e.model.declares(decl) {
 			return membership
 		}
 	}
@@ -689,17 +834,23 @@ func (e *encoder) encode(members []ast.Node, owner string, ownerTerm rdf.Term) e
 		}
 		e.bodies[ownerTerm] = body
 	}
-	return e.encodeMembers(kept, regions, inline, owner, ownerTerm)
+	return e.encodeMembers(kept, regions, inline, owner, ownerTerm, 0)
 }
 
 // encodeInline walks members whose lines interleave with their owner's own
 // notation, so the owner is written whole or rebuilt whole.
 func (e *encoder) encodeInline(members []ast.Node, owner string, ownerTerm rdf.Term) error {
-	kept := e.kept(members)
-	return e.encodeMembers(kept, make([]region, len(kept)), true, owner, ownerTerm)
+	return e.encodeInlineAt(members, 0, owner, ownerTerm)
 }
 
-func (e *encoder) encodeMembers(kept []ast.Node, regions []region, inline bool, owner string, ownerTerm rdf.Term) error {
+// encodeInlineAt is encodeInline with the member indexes continuing an earlier
+// member group's: a transition's body members index after its effect's.
+func (e *encoder) encodeInlineAt(members []ast.Node, indexOffset int, owner string, ownerTerm rdf.Term) error {
+	kept := e.kept(members)
+	return e.encodeMembers(kept, make([]region, len(kept)), true, owner, ownerTerm, indexOffset)
+}
+
+func (e *encoder) encodeMembers(kept []ast.Node, regions []region, inline bool, owner string, ownerTerm rdf.Term, indexOffset int) error {
 	// last and beforeLast are the latest members a `then` sequences from; a
 	// member-attached `then` follows its target prev, so its source is the
 	// latest of them before prev.
@@ -733,7 +884,7 @@ func (e *encoder) encodeMembers(kept []ast.Node, regions []region, inline bool, 
 			}
 		}
 		if encodes {
-			h := memberHead{node: node, visibility: visibility, owner: ownerTerm, index: i,
+			h := memberHead{node: node, visibility: visibility, owner: ownerTerm, index: i + indexOffset,
 				lines: regions[i], inline: inline, typeFeature: isTypeFeatureMember(member), last: i == len(kept)-1}
 			if err := e.encodeMember(h, owner); err != nil {
 				return err
@@ -769,6 +920,7 @@ func (e *encoder) mint(node ast.Node, fqn string) (rdf.Term, error) {
 			Note: fmt.Sprintf("its id lands on the same IRI as %s, and merging two elements into one subject would be a different model", prior),
 		}
 	}
+	e.minted = append(e.minted, mintedSubject{iri: subject.Value, fqn: fqn, at: e.where(node)})
 	return subject, nil
 }
 
@@ -802,6 +954,26 @@ type memberHead struct {
 	local rdf.Term
 }
 
+// sourceRange states where subject's declaration is written: its first and
+// last position, 1-based, as a diagnostic's span locates what it reports.
+func (e *encoder) sourceRange(subject rdf.Term, span source.Span) {
+	if span.Len <= 0 {
+		return
+	}
+	// A declaration's span runs to the next token; its range ends where its
+	// last token does, before any whitespace, note or comment that follows.
+	last := e.src.declarationEnd(span)
+	if last <= span.Offset {
+		return
+	}
+	lines := e.file.Lines()
+	start, end := lines.PosAt(span.Offset), lines.PosAt(last)
+	e.graph.Add(subject, e.sysx(xSourceLine), rdf.Int(start.Line))
+	e.graph.Add(subject, e.sysx(xSourceColumn), rdf.Int(start.Col))
+	e.graph.Add(subject, e.sysx(xSourceEndLine), rdf.Int(end.Line))
+	e.graph.Add(subject, e.sysx(xSourceEndColumn), rdf.Int(end.Col))
+}
+
 func (e *encoder) head(subject rdf.Term, h memberHead) {
 	node, visibility, fqn, ownerTerm, index, metaclass, lines, inline :=
 		h.node, h.visibility, h.fqn, h.owner, h.index, h.metaclass, h.lines, h.inline
@@ -809,6 +981,7 @@ func (e *encoder) head(subject rdf.Term, h memberHead) {
 	if h.local.Value == "" {
 		e.graph.Add(subject, e.sysml(pQualifiedName), rdf.String(fqn))
 		e.offsets[subject.Value] = node.Span().Offset
+		e.sourceRange(subject, node.Span())
 	}
 	// The id an API reader addresses the element by, which is the id its own
 	// IRI ends in, so the two cannot disagree.
@@ -1466,6 +1639,13 @@ func (e *encoder) owningMembership(node ast.Node, member, owner rdf.Term, member
 	// the API's payloads carry for it; anything else, a metadata usage included,
 	// through an OwningMembership.
 	feature := ontology.IsAncestorOrSelf(memberClass, mFeature) && isType(ownerClass) && !metadata
+	// A dependency's prefix metadata is the annotating element of an Annotation
+	// the dependency owns, not a member of it (SysML-textual-bnf Dependency,
+	// PrefixMetadataAnnotation).
+	if metadata && ownerClass == mDependency {
+		annotation := e.ids.minted(rdf.RelationshipIRI(member, AnnotationSuffix), member, AnnotationSuffix)
+		return e.prefixAnnotation(annotation, member, owner, memberFQN)
+	}
 	membership := e.ids.owningMembershipOf(node, member)
 	// The membership shares the element namespace, so its IRI is reserved too.
 	if prior, taken := e.claim(membership.Value, memberFQN+"'s owning membership"); taken && e.idErr == nil {
@@ -1518,6 +1698,33 @@ func (e *encoder) owningMembership(node ast.Node, member, owner rdf.Term, member
 		}
 	}
 	return membership
+}
+
+// AnnotationSuffix names the Annotation by which a dependency owns a prefix
+// metadata usage, after the usage it owns, as `_om` names a membership.
+const AnnotationSuffix = "_an"
+
+// prefixAnnotation writes the Annotation by which owner, a relationship, owns
+// the metadata usage member that annotates it.
+func (e *encoder) prefixAnnotation(annotation, member, owner rdf.Term, memberFQN string) rdf.Term {
+	if prior, taken := e.claim(annotation.Value, memberFQN+"'s annotation"); taken && e.idErr == nil {
+		e.idErr = &UnsupportedError{
+			What: fmt.Sprintf("the annotation of %s", memberFQN),
+			Note: fmt.Sprintf("its id lands on the same IRI as %s, and merging two elements into one subject would be a different model", prior),
+		}
+	}
+	e.graph.Add(annotation, rdf.IRI(rdf.RDFType), e.sysml(mAnnotation))
+	e.graph.Add(annotation, e.sysml(pElementID), rdf.String(rdf.LocalName(annotation.Value)))
+	e.graph.Add(annotation, e.sysml(pOwner), owner)
+	e.graph.Add(annotation, e.sysml(pOwningRelatedElement), owner)
+	e.graph.Add(annotation, e.sysml(pOwnedRelatedElement), member)
+	e.graph.Add(annotation, e.sysml(pAnnotatingElement), member)
+	e.graph.Add(annotation, e.sysml(pAnnotatedElement), owner)
+	e.graph.Add(owner, e.sysml(pOwnedRelationship), annotation)
+	e.graph.Add(owner, e.sysml(pOwnedAnnotation), annotation)
+	e.graph.Add(member, e.sysml(pOwner), owner)
+	e.graph.Add(member, e.sysml(pOwningRelationship), annotation)
+	return annotation
 }
 
 // emitMembershipCore writes the shared ownership triples for a membership.
@@ -1725,8 +1932,18 @@ func (e *encoder) bindingEnds(subject rdf.Term, owner string, n *ast.Usage) erro
 	if n.FlowEnds == nil {
 		return nil
 	}
+	// A `message` is a FlowUsage whose ends are the events it relates
+	// (SysML.xtext MessageDeclaration): an EventOccurrenceUsage held through a
+	// ParameterMembership, not the connector-end features a `flow` owns.
+	message := n.Kind == ast.UsageFlow && n.Keyword == "message"
 	for i, target := range []ast.Node{n.FlowEnds.From, n.FlowEnds.To} {
 		if target == nil {
+			continue
+		}
+		if message {
+			if err := e.messageEnd(subject, i, target); err != nil {
+				return err
+			}
 			continue
 		}
 		if err := e.connectorEnd(subject, connectorEndSpec{owner: owner, slot: fmt.Sprintf("end%d", i), index: i, ends: 2, target: target, flow: true}); err != nil {
@@ -1739,6 +1956,38 @@ func (e *encoder) bindingEnds(subject rdf.Term, owner string, n *ast.Usage) erro
 		}
 	}
 	return nil
+}
+
+// messageEnd emits one end of a `message`: an EventOccurrenceUsage the flow
+// owns through a ParameterMembership (SysML.xtext MessageEventMember, whose
+// MessageEvent owns a ReferenceSubsetting to the end's target). The collapsed
+// related/source/target features the flow states are the same a connector
+// end's are, and a chained target is written the way a connector end's is.
+func (e *encoder) messageEnd(subject rdf.Term, index int, target ast.Node) error {
+	slot := fmt.Sprintf("end%d", index)
+	feature := e.ids.mintedNode(rdf.ExpressionIRI(subject, slot), subject, slot)
+	membership := e.ids.minted(rdf.OwningMembershipIRIOf(feature), feature, rdf.OwningMembershipSuffix)
+	e.graph.Prefixes[rdf.ExpressionPrefix] = rdf.Expression
+	e.typed(feature, mEventOccurrenceUsage)
+	e.graph.Add(feature, e.sysml(pElementID), rdf.String(rdf.LocalName(feature.Value)))
+	e.graph.Add(subject, e.sysml(pOwnedRelationship), membership)
+	e.graph.Add(subject, e.sysml(pOwnedMembership), membership)
+	e.graph.Add(subject, e.sysml(pOwnedFeatureMembership), membership)
+	e.graph.Add(subject, e.sysml(pOwnedFeature), feature)
+	e.graph.Add(subject, e.sysml(pParameter), feature)
+	if reference, ok := e.endReferenceIRI(target); ok {
+		e.graph.Add(subject, e.sysml(pRelatedFeature), reference)
+		if index == 0 {
+			e.graph.Add(subject, e.sysml(pSourceFeature), reference)
+		} else {
+			e.graph.Add(subject, e.sysml(pTargetFeature), reference)
+		}
+	}
+	e.emitMembershipCore(membership, feature, subject, mParameterMembership, true)
+	e.graph.Add(membership, e.sysml(pOwnedMemberFeature), feature)
+	e.graph.Add(membership, e.sysml(pOwnedMemberParameter), feature)
+	e.graph.Add(feature, e.sysx(xSourceText), rdf.String(e.text(target)))
+	return e.endReferences(feature, target)
 }
 
 // connectorEndSpec is one connector end to emit: which end it is, its target,
@@ -2481,6 +2730,9 @@ func (e *encoder) linked(sym *symbols.Symbol, ok bool) (ast.Node, string, bool) 
 	}
 	fqn, declared := e.fqn[sym.Decl]
 	if !declared {
+		if fqn, ok := e.siblingElement(sym); ok {
+			return sym.Decl, fqn, true
+		}
 		if fqn, declared = e.ids.libraryElement(sym); !declared {
 			return nil, "", false
 		}

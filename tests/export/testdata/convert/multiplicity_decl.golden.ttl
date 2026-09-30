@@ -8,6 +8,10 @@
 elmt:Mult
     a sysml:Package ;
     sysml:qualifiedName "Mult" ;
+    sysx:sourceLine "1"^^xsd:integer ;
+    sysx:sourceColumn "1"^^xsd:integer ;
+    sysx:sourceEndLine "5"^^xsd:integer ;
+    sysx:sourceEndColumn "2"^^xsd:integer ;
     sysml:elementId "Mult" ;
     sysx:memberIndex "0"^^xsd:integer ;
     sysx:sourceLanguage "sysml" ;
@@ -25,6 +29,10 @@ elmt:Mult
 elmt:Mult__exactlyOne
     a sysml:MultiplicityRange ;
     sysml:qualifiedName "Mult::exactlyOne" ;
+    sysx:sourceLine "2"^^xsd:integer ;
+    sysx:sourceColumn "5"^^xsd:integer ;
+    sysx:sourceEndLine "2"^^xsd:integer ;
+    sysx:sourceEndColumn "36"^^xsd:integer ;
     sysml:elementId "Mult__exactlyOne" ;
     sysx:memberIndex "0"^^xsd:integer ;
     sysml:owningNamespace elmt:Mult ;
@@ -93,6 +101,10 @@ elmt:Mult__exactlyOne_om
 elmt:Mult__optional
     a sysml:MultiplicityRange ;
     sysml:qualifiedName "Mult::optional" ;
+    sysx:sourceLine "3"^^xsd:integer ;
+    sysx:sourceColumn "5"^^xsd:integer ;
+    sysx:sourceEndLine "3"^^xsd:integer ;
+    sysx:sourceEndColumn "34"^^xsd:integer ;
     sysml:elementId "Mult__optional" ;
     sysx:memberIndex "1"^^xsd:integer ;
     sysml:owningNamespace elmt:Mult ;
@@ -161,6 +173,10 @@ elmt:Mult__optional_om
 elmt:Mult__single
     a sysml:Multiplicity ;
     sysml:qualifiedName "Mult::single" ;
+    sysx:sourceLine "4"^^xsd:integer ;
+    sysx:sourceColumn "5"^^xsd:integer ;
+    sysx:sourceEndLine "4"^^xsd:integer ;
+    sysx:sourceEndColumn "44"^^xsd:integer ;
     sysml:elementId "Mult__single" ;
     sysx:memberIndex "2"^^xsd:integer ;
     sysml:owningNamespace elmt:Mult ;

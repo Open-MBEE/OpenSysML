@@ -45,6 +45,10 @@ type identityFacts struct {
 	// qualified reports a multi-scope document, whose scoped elements get
 	// IRIs qualified by their scope so ids repeated across scopes stay apart.
 	qualified bool
+	// scopes are the keys of the identity scopes the document declares; a
+	// model of several documents qualifies its IRIs when they number more
+	// than one across all of them.
+	scopes map[string]bool
 	// model and res read the identity of a library element the document
 	// refers to, which the table over its own root does not hold.
 	model *semantics.Model
@@ -59,6 +63,41 @@ type identityFacts struct {
 	pkg     map[string]string
 	pkgOf   map[string]string
 	localOf map[string]string
+}
+
+// analyzeModel indexes the documents of one model together over the standard
+// library and resolves each, as a workspace does: a reference from one to an
+// element another declares resolves to it. A library file among them takes the
+// bundled one's place, as it does for analyzeDocument.
+func analyzeModel(documents []ModelDocument) (*resolve.Resolver, *semantics.Model) {
+	idx := libs.NewModelIndex()
+	for _, doc := range documents {
+		name, digest := doc.File.Name(), symbols.TextDigest(doc.File.Bytes())
+		library := ""
+		if lib, _, ok := idx.LibraryDocumentByDigest(digest); ok && idx.DocumentKind(lib) == doc.File.Kind() {
+			library = lib
+		}
+		if library == "" {
+			library = documentLibrary(doc.File, doc.Root)
+		}
+		tier := idx.DocumentLibraryTier(library)
+		if tier.Library() {
+			idx.RemoveDocument(library)
+		}
+		idx.AddDocumentWithKind(name, doc.Root, doc.File.Kind())
+		if tier.Library() {
+			idx.MarkLibraryDocument(name, symbols.LibraryDocument{Tier: tier, Digest: digest})
+		}
+	}
+	// What a wildcard import re-exports is registered once every document is in.
+	idx.ExpandWildcardImports()
+	res := resolve.New(idx)
+	model := semantics.NewModel(res)
+	res.SetModel(model)
+	for _, doc := range documents {
+		res.ResolveDocument(doc.File.Name(), doc.Root)
+	}
+	return res, model
 }
 
 // analyzeDocument indexes one parsed document over the standard library and resolves every
@@ -157,6 +196,7 @@ func documentIdentity(name string, res *resolve.Resolver, model *semantics.Model
 		}
 	}
 	facts.qualified = len(scopeKeys) > 1
+	facts.scopes = scopeKeys
 	return facts, nil
 }
 

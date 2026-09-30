@@ -9,6 +9,10 @@
 elmt:Ordered
     a sysml:Package ;
     sysml:qualifiedName "Ordered" ;
+    sysx:sourceLine "1"^^xsd:integer ;
+    sysx:sourceColumn "1"^^xsd:integer ;
+    sysx:sourceEndLine "10"^^xsd:integer ;
+    sysx:sourceEndColumn "2"^^xsd:integer ;
     sysml:elementId "Ordered" ;
     sysx:memberIndex "0"^^xsd:integer ;
     sysx:sourceLanguage "sysml" ;
@@ -26,6 +30,10 @@ elmt:Ordered
 elmt:Ordered__Real
     a sysml:AttributeDefinition ;
     sysml:qualifiedName "Ordered::Real" ;
+    sysx:sourceLine "2"^^xsd:integer ;
+    sysx:sourceColumn "5"^^xsd:integer ;
+    sysx:sourceEndLine "2"^^xsd:integer ;
+    sysx:sourceEndColumn "24"^^xsd:integer ;
     sysml:elementId "Ordered__Real" ;
     sysx:memberIndex "0"^^xsd:integer ;
     sysml:owningNamespace elmt:Ordered ;
@@ -49,6 +57,10 @@ elmt:Ordered__Real_om
 elmt:Ordered__Mixed
     a sysml:CalculationDefinition ;
     sysml:qualifiedName "Ordered::Mixed" ;
+    sysx:sourceLine "3"^^xsd:integer ;
+    sysx:sourceColumn "5"^^xsd:integer ;
+    sysx:sourceEndLine "6"^^xsd:integer ;
+    sysx:sourceEndColumn "6"^^xsd:integer ;
     sysml:elementId "Ordered__Mixed" ;
     sysx:memberIndex "1"^^xsd:integer ;
     sysml:owningNamespace elmt:Ordered ;
@@ -83,6 +95,10 @@ elmt:Ordered__Mixed_om
 elmt:Ordered__Mixed__x
     a sysml:ReferenceUsage ;
     sysml:qualifiedName "Ordered::Mixed::x" ;
+    sysx:sourceLine "4"^^xsd:integer ;
+    sysx:sourceColumn "9"^^xsd:integer ;
+    sysx:sourceEndLine "4"^^xsd:integer ;
+    sysx:sourceEndColumn "21"^^xsd:integer ;
     sysml:elementId "Ordered__Mixed__x" ;
     sysx:memberIndex "0"^^xsd:integer ;
     sysml:owningNamespace elmt:Ordered__Mixed ;
@@ -114,6 +130,10 @@ elmt:Ordered__Mixed__x_om
 elmt:Ordered__Mixed___401
     a sysml:FeatureReferenceExpression ;
     sysml:qualifiedName "Ordered::Mixed::@1" ;
+    sysx:sourceLine "5"^^xsd:integer ;
+    sysx:sourceColumn "9"^^xsd:integer ;
+    sysx:sourceEndLine "5"^^xsd:integer ;
+    sysx:sourceEndColumn "84"^^xsd:integer ;
     sysml:elementId "Ordered__Mixed___401" ;
     sysx:memberIndex "1"^^xsd:integer ;
     sysml:owningNamespace elmt:Ordered__Mixed ;
@@ -773,6 +793,10 @@ expr:Ordered__Mixed___401_pout_om
 elmt:Ordered__Declares
     a sysml:CalculationDefinition ;
     sysml:qualifiedName "Ordered::Declares" ;
+    sysx:sourceLine "7"^^xsd:integer ;
+    sysx:sourceColumn "5"^^xsd:integer ;
+    sysx:sourceEndLine "9"^^xsd:integer ;
+    sysx:sourceEndColumn "6"^^xsd:integer ;
     sysml:elementId "Ordered__Declares" ;
     sysx:memberIndex "2"^^xsd:integer ;
     sysml:owningNamespace elmt:Ordered ;
@@ -802,6 +826,10 @@ elmt:Ordered__Declares_om
 elmt:Ordered__Declares___400
     a sysml:FeatureReferenceExpression ;
     sysml:qualifiedName "Ordered::Declares::@0" ;
+    sysx:sourceLine "8"^^xsd:integer ;
+    sysx:sourceColumn "9"^^xsd:integer ;
+    sysx:sourceEndLine "8"^^xsd:integer ;
+    sysx:sourceEndColumn "44"^^xsd:integer ;
     sysml:elementId "Ordered__Declares___400" ;
     sysx:memberIndex "0"^^xsd:integer ;
     sysml:owningNamespace elmt:Ordered__Declares ;
