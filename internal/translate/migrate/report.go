@@ -230,53 +230,8 @@ func (r *Report) WriteText(w io.Writer) error {
 		fmt.Fprintf(&b, "# exported by %s\n", r.Exporter)
 	}
 	fmt.Fprintf(&b, "# %s\n", r.Summary())
-	if l := r.Layout; l != nil {
-		b.WriteString("\n## layout\n")
-		version := l.MTIPVersion
-		if l.CameoVersion != "" {
-			version += ", cameo " + l.CameoVersion
-		}
-		if l.ExportTime != "" {
-			version += ", exported " + l.ExportTime
-		}
-		if version != "" {
-			fmt.Fprintf(&b, "# source: %s (%s)\n", l.Source, version)
-		} else {
-			fmt.Fprintf(&b, "# source: %s\n", l.Source)
-		}
-		if l.Source != streamsSource {
-			fmt.Fprintf(&b, "# %d diagram records: %d joined, %d matching no diagram; ", l.Diagrams, l.DiagramsJoined, l.DiagramsUnmatched)
-		} else {
-			b.WriteString("# ")
-		}
-		fmt.Fprintf(&b, "%d views laid out from their own symbol stream, %d without layout\n", l.StreamDiagrams, l.ViewsWithoutLayout)
-		if l.StreamSupplemented > 0 {
-			fmt.Fprintf(&b, "# %d joined views supplemented from their own symbol stream where the record placed or routed nothing\n", l.StreamSupplemented)
-		}
-		fmt.Fprintf(&b, "# placements: %d of %d written (%d not exposed, %d resolving to no element); routes: %d of %d written (%d not pinned, %d resolving to no element); malformed: %d\n",
-			l.PlacementsWritten, l.Placements, l.PlacementsUnexposed, l.PlacementsDangling,
-			l.RoutesWritten, l.Routes, l.RoutesUnexposed, l.RoutesDangling, l.Malformed)
-		fmt.Fprintf(&b, "# styles: %d of %d written; notes: %d written (%d anchored, %d freed of an anchor the view does not lay out)\n",
-			l.StylesWritten, l.Styles, l.Notes, l.NotesAnchored, l.NotesFreed)
-		if l.Pictures > 0 {
-			fmt.Fprintf(&b, "# pasted images: %d of %d written as files and drawn by the view", l.PicturesWritten, l.Pictures)
-			if l.PicturesUnderlaid > 0 {
-				fmt.Fprintf(&b, " (%d under symbols they lay over)", l.PicturesUnderlaid)
-			}
-			if l.PicturesUndrawn > 0 {
-				fmt.Fprintf(&b, ", %d written on a view whose table rendering does not draw them", l.PicturesUndrawn)
-			}
-			b.WriteString("\n")
-		}
-		for _, k := range l.RoutesByKind {
-			fmt.Fprintf(&b, "# routes of %s: %d %s\n", k.Kind, k.Count, k.Reason)
-		}
-		if len(l.Dropped) > 0 {
-			fmt.Fprintf(&b, "# free symbols dropped: %s\n", countsByKey(l.Dropped))
-		}
-		if len(l.Unsupported) > 0 {
-			fmt.Fprintf(&b, "# unsupported presentation properties, dropped: %s\n", countsByKey(l.Unsupported))
-		}
+	if r.Layout != nil {
+		r.Layout.writeText(&b)
 	}
 	for _, v := range []Verdict{Unmapped, Approximated, Mapped, Skipped} {
 		var entries []Entry
@@ -291,18 +246,81 @@ func (r *Report) WriteText(w io.Writer) error {
 		sort.SliceStable(entries, func(i, j int) bool { return entries[i].Name < entries[j].Name })
 		fmt.Fprintf(&b, "\n## %s (%d)\n", v, len(entries))
 		for _, e := range entries {
-			fmt.Fprintf(&b, "%s\t%s\t%s", field(e.Kind), field(e.Name), field(e.ID))
-			if e.Target != "" {
-				fmt.Fprintf(&b, "\t-> %s", field(e.Target))
-			}
-			if e.Note != "" {
-				fmt.Fprintf(&b, "\t(%s)", field(e.Note))
-			}
-			b.WriteByte('\n')
+			e.writeText(&b)
 		}
 	}
 	_, err := io.WriteString(w, b.String())
 	return err
+}
+
+func (e Entry) writeText(b *strings.Builder) {
+	fmt.Fprintf(b, "%s\t%s\t%s", field(e.Kind), field(e.Name), field(e.ID))
+	if e.Target != "" {
+		fmt.Fprintf(b, "\t-> %s", field(e.Target))
+	}
+	if e.Note != "" {
+		fmt.Fprintf(b, "\t(%s)", field(e.Note))
+	}
+	b.WriteByte('\n')
+}
+
+// writeText writes the layout account of the report.
+func (l *LayoutSummary) writeText(b *strings.Builder) {
+	b.WriteString("\n## layout\n")
+	if version := l.versionText(); version != "" {
+		fmt.Fprintf(b, "# source: %s (%s)\n", l.Source, version)
+	} else {
+		fmt.Fprintf(b, "# source: %s\n", l.Source)
+	}
+	if l.Source != streamsSource {
+		fmt.Fprintf(b, "# %d diagram records: %d joined, %d matching no diagram; ", l.Diagrams, l.DiagramsJoined, l.DiagramsUnmatched)
+	} else {
+		b.WriteString("# ")
+	}
+	fmt.Fprintf(b, "%d views laid out from their own symbol stream, %d without layout\n", l.StreamDiagrams, l.ViewsWithoutLayout)
+	if l.StreamSupplemented > 0 {
+		fmt.Fprintf(b, "# %d joined views supplemented from their own symbol stream where the record placed or routed nothing\n", l.StreamSupplemented)
+	}
+	fmt.Fprintf(b, "# placements: %d of %d written (%d not exposed, %d resolving to no element); routes: %d of %d written (%d not pinned, %d resolving to no element); malformed: %d\n",
+		l.PlacementsWritten, l.Placements, l.PlacementsUnexposed, l.PlacementsDangling,
+		l.RoutesWritten, l.Routes, l.RoutesUnexposed, l.RoutesDangling, l.Malformed)
+	fmt.Fprintf(b, "# styles: %d of %d written; notes: %d written (%d anchored, %d freed of an anchor the view does not lay out)\n",
+		l.StylesWritten, l.Styles, l.Notes, l.NotesAnchored, l.NotesFreed)
+	if l.Pictures > 0 {
+		l.writePicturesText(b)
+	}
+	for _, k := range l.RoutesByKind {
+		fmt.Fprintf(b, "# routes of %s: %d %s\n", k.Kind, k.Count, k.Reason)
+	}
+	if len(l.Dropped) > 0 {
+		fmt.Fprintf(b, "# free symbols dropped: %s\n", countsByKey(l.Dropped))
+	}
+	if len(l.Unsupported) > 0 {
+		fmt.Fprintf(b, "# unsupported presentation properties, dropped: %s\n", countsByKey(l.Unsupported))
+	}
+}
+
+// versionText names the exporter versions and time the layout source records.
+func (l *LayoutSummary) versionText() string {
+	version := l.MTIPVersion
+	if l.CameoVersion != "" {
+		version += ", cameo " + l.CameoVersion
+	}
+	if l.ExportTime != "" {
+		version += ", exported " + l.ExportTime
+	}
+	return version
+}
+
+func (l *LayoutSummary) writePicturesText(b *strings.Builder) {
+	fmt.Fprintf(b, "# pasted images: %d of %d written as files and drawn by the view", l.PicturesWritten, l.Pictures)
+	if l.PicturesUnderlaid > 0 {
+		fmt.Fprintf(b, " (%d under symbols they lay over)", l.PicturesUnderlaid)
+	}
+	if l.PicturesUndrawn > 0 {
+		fmt.Fprintf(b, ", %d written on a view whose table rendering does not draw them", l.PicturesUndrawn)
+	}
+	b.WriteString("\n")
 }
 
 // fieldEscaper escapes the whitespace that would break the one-line-per-entry table.

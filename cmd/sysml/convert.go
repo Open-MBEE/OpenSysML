@@ -110,68 +110,82 @@ func runConvert(files []string) (int, error) {
 	for _, notice := range convert.Notices(from, to) {
 		fmt.Fprintf(os.Stderr, "note: %s\n", notice)
 	}
-	if migrationReport != "" && from != convert.FormatXMI {
-		return 0, fmt.Errorf("-migration-report describes a SysML v1 migration, and %s input is not migrated; pass it with -from xmi or a .xmi/.uml/.mdzip file", from)
-	}
-	if migrationReport != "" && outputPath != "" && samePath(migrationReport, outputPath) {
-		return 0, fmt.Errorf("-migration-report and -o both name %s; the report would be replaced by the model", outputPath)
-	}
-	if migrationReport != "" && input != "-" && samePath(migrationReport, input) {
-		return 0, fmt.Errorf("-migration-report names the model being migrated, %s; the report would replace it", input)
-	}
-	if err := migrationResultsMisuse(from, input); err != nil {
+	if err := convertFlagsMisuse(from, input); err != nil {
 		return 0, err
-	}
-	if err := imageBaseURLMisuse(from); err != nil {
-		return 0, err
-	}
-	if err := layoutMisuse(from, input); err != nil {
-		return 0, err
-	}
-	// A v2 model may be rewritten in place; a v1 model would be lost.
-	if from == convert.FormatXMI && outputPath != "" && input != "-" && samePath(outputPath, input) {
-		return 0, fmt.Errorf("-o names the model being migrated, %s; the v1 model would be replaced by its migration", input)
-	}
-	// So would an FMU's archive, being read in place.
-	if from == convert.FormatFMU && outputPath != "" && input != "-" && samePath(outputPath, input) {
-		return 0, fmt.Errorf("-o names the FMU being imported, %s; the archive would be replaced by its import", input)
 	}
 	out, imageFiles, err := convertInput(name, data, from, to)
 	if err != nil {
 		return 0, err
 	}
+	if err := writeConverted(input, to, out, imageFiles); err != nil {
+		return 0, err
+	}
+	return exitHolds, nil
+}
+
+// convertFlagsMisuse refuses the flag combinations that would lose a model or
+// a report: a migration report of no migration or named as the model, a
+// converted v1 model or FMU archive written over itself.
+func convertFlagsMisuse(from convert.Format, input string) error {
+	if migrationReport != "" && from != convert.FormatXMI {
+		return fmt.Errorf("-migration-report describes a SysML v1 migration, and %s input is not migrated; pass it with -from xmi or a .xmi/.uml/.mdzip file", from)
+	}
+	if migrationReport != "" && outputPath != "" && samePath(migrationReport, outputPath) {
+		return fmt.Errorf("-migration-report and -o both name %s; the report would be replaced by the model", outputPath)
+	}
+	if migrationReport != "" && input != "-" && samePath(migrationReport, input) {
+		return fmt.Errorf("-migration-report names the model being migrated, %s; the report would replace it", input)
+	}
+	if err := migrationResultsMisuse(from, input); err != nil {
+		return err
+	}
+	if err := imageBaseURLMisuse(from); err != nil {
+		return err
+	}
+	if err := layoutMisuse(from, input); err != nil {
+		return err
+	}
+	inPlace := outputPath != "" && input != "-" && samePath(outputPath, input)
+	// A v2 model may be rewritten in place; a v1 model or an FMU's archive,
+	// read in place, would be lost.
+	if inPlace && from == convert.FormatXMI {
+		return fmt.Errorf("-o names the model being migrated, %s; the v1 model would be replaced by its migration", input)
+	}
+	if inPlace && from == convert.FormatFMU {
+		return fmt.Errorf("-o names the FMU being imported, %s; the archive would be replaced by its import", input)
+	}
+	return nil
+}
+
+// writeConverted writes the converted model to stdout or -o, the images a
+// migration wrote beside the file, none allowed to replace an input.
+func writeConverted(input string, to convert.Format, out []byte, imageFiles map[string][]byte) error {
 	if outputPath == "" {
 		if len(imageFiles) > 0 {
-			return 0, fmt.Errorf("the migration wrote %d image file(s); -o a local file path is required to write them", len(imageFiles))
+			return fmt.Errorf("the migration wrote %d image file(s); -o a local file path is required to write them", len(imageFiles))
 		}
 		_, err := os.Stdout.Write(out)
-		return exitHolds, err
+		return err
 	}
 	target, info, err := export.Destination(outputPath)
 	if err != nil {
-		return 0, err
+		return err
 	}
-	if len(imageFiles) > 0 && info != nil && !info.Mode().IsRegular() {
-		return 0, fmt.Errorf("-o names %s, which is not a file; the migration writes a model file and the images beside it", outputPath)
+	if len(imageFiles) == 0 {
+		return writeConversion(outputPath, out, to)
+	}
+	if info != nil && !info.Mode().IsRegular() {
+		return fmt.Errorf("-o names %s, which is not a file; the migration writes a model file and the images beside it", outputPath)
 	}
 	for _, name := range slices.Sorted(maps.Keys(imageFiles)) {
 		dest := filepath.Join(filepath.Dir(target), filepath.FromSlash(name))
 		for _, protected := range []string{target, input, migrationReport, migrationResults} {
 			if protected != "" && protected != "-" && samePath(dest, protected) {
-				return 0, fmt.Errorf("the migration's image %s would replace %s", dest, protected)
+				return fmt.Errorf("the migration's image %s would replace %s", dest, protected)
 			}
 		}
 	}
-	if len(imageFiles) == 0 {
-		if err := writeConversion(outputPath, out, to); err != nil {
-			return 0, err
-		}
-		return exitHolds, nil
-	}
-	if err := writeMigrationFiles(outputPath, out, to, info != nil, filepath.Dir(target), imageFiles); err != nil {
-		return 0, err
-	}
-	return exitHolds, nil
+	return writeMigrationFiles(outputPath, out, to, info != nil, filepath.Dir(target), imageFiles)
 }
 
 // convertInput runs the conversion the input format asks for: a SysML v1 model

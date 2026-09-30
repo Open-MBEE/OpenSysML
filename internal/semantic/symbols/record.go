@@ -221,99 +221,136 @@ func BuildRecorded(rec *DocumentRecord, name string) (*Scope, error) {
 	if len(rec.Scopes) == 0 {
 		return nil, fmt.Errorf("%w: record without a root scope", pack.ErrCorrupt)
 	}
-	var dec *astcodec.Decoder
-	if len(rec.Nodes) > 0 {
-		r, err := pack.NewReader(rec.Nodes)
-		if err != nil {
+	nodes, err := newRecordedNodes(rec.Nodes)
+	if err != nil {
+		return nil, err
+	}
+	b := &recordedBuilder{scopes: make([]*Scope, len(rec.Scopes)), in: interner{}, nodes: nodes}
+	for i := range b.scopes {
+		b.scopes[i] = &Scope{recorded: true, docName: name}
+	}
+	if err := b.buildSymbols(rec.Symbols, name); err != nil {
+		return nil, err
+	}
+	for i, sr := range rec.Scopes {
+		if err := b.linkScope(b.scopes[i], sr); err != nil {
 			return nil, err
 		}
-		dec = astcodec.NewDecoder(r)
-		dec.Decode()
-		if err := dec.Err(); err != nil {
-			return nil, err
-		}
 	}
-	node := func(id uint64) (ast.Node, error) {
-		if dec == nil {
-			return nil, fmt.Errorf("%w: record refers to a node table it has none of", pack.ErrCorrupt)
-		}
-		n, ok := dec.Node(id)
-		if !ok || n == nil {
-			return nil, fmt.Errorf("%w: record node index %d", pack.ErrCorrupt, id)
-		}
-		return n, nil
+	return b.scopes[0], nil
+}
+
+// recordedNodes reads the nodes a record's imports and filters refer to.
+type recordedNodes struct {
+	dec *astcodec.Decoder
+}
+
+func newRecordedNodes(packed []byte) (recordedNodes, error) {
+	if len(packed) == 0 {
+		return recordedNodes{}, nil
 	}
-	scopes := make([]*Scope, len(rec.Scopes))
-	for i := range scopes {
-		scopes[i] = &Scope{recorded: true, docName: name}
+	r, err := pack.NewReader(packed)
+	if err != nil {
+		return recordedNodes{}, err
 	}
-	syms := make([]*Symbol, len(rec.Symbols))
-	in := interner{}
-	for i, sr := range rec.Symbols {
+	dec := astcodec.NewDecoder(r)
+	dec.Decode()
+	if err := dec.Err(); err != nil {
+		return recordedNodes{}, err
+	}
+	return recordedNodes{dec: dec}, nil
+}
+
+func (n recordedNodes) node(id uint64) (ast.Node, error) {
+	if n.dec == nil {
+		return nil, fmt.Errorf("%w: record refers to a node table it has none of", pack.ErrCorrupt)
+	}
+	node, ok := n.dec.Node(id)
+	if !ok || node == nil {
+		return nil, fmt.Errorf("%w: record node index %d", pack.ErrCorrupt, id)
+	}
+	return node, nil
+}
+
+// recordedBuilder rebuilds a record's scopes and symbols, checking every index
+// the record states.
+type recordedBuilder struct {
+	scopes []*Scope
+	syms   []*Symbol
+	in     interner
+	nodes  recordedNodes
+}
+
+func (b *recordedBuilder) buildSymbols(records []SymbolRecord, name string) error {
+	b.syms = make([]*Symbol, len(records))
+	for i, sr := range records {
 		facts := sr.Facts.Clone()
 		facts.Recorded = true
-		in.facts(&facts)
+		b.in.facts(&facts)
 		sym := &Symbol{
-			Name:       in.str(sr.Name),
+			Name:       b.in.str(sr.Name),
 			Kind:       sr.Kind,
 			Visibility: sr.Visibility,
 			DeclSpan:   sr.DeclSpan,
 			NameSpan:   sr.NameSpan,
-			ShortName:  in.str(sr.ShortName),
+			ShortName:  b.in.str(sr.ShortName),
 			Naming:     sr.Naming,
 			DocName:    name,
 			Facts:      &facts,
 		}
 		if sr.Scope >= 0 {
-			if int(sr.Scope) >= len(scopes) {
-				return nil, fmt.Errorf("%w: record scope index %d", pack.ErrCorrupt, sr.Scope)
+			if int(sr.Scope) >= len(b.scopes) {
+				return fmt.Errorf("%w: record scope index %d", pack.ErrCorrupt, sr.Scope)
 			}
-			sym.Scope = scopes[sr.Scope]
+			sym.Scope = b.scopes[sr.Scope]
 			sym.Scope.owner = sym
 		}
-		syms[i] = sym
+		b.syms[i] = sym
 	}
-	for i, sr := range rec.Scopes {
-		s := scopes[i]
-		for _, m := range sr.Members {
-			if int(m.Symbol) < 0 || int(m.Symbol) >= len(syms) {
-				return nil, fmt.Errorf("%w: record symbol index %d", pack.ErrCorrupt, m.Symbol)
-			}
-			sym := syms[m.Symbol]
-			sym.OwnerScope = s
-			if m.Name == "" {
-				s.DefineAnonymous(sym)
-			} else {
-				s.Define(in.str(m.Name), sym)
-			}
+	return nil
+}
+
+// linkScope defines a scope's members and children and restores its imports
+// and filters.
+func (b *recordedBuilder) linkScope(s *Scope, sr ScopeRecord) error {
+	for _, m := range sr.Members {
+		if int(m.Symbol) < 0 || int(m.Symbol) >= len(b.syms) {
+			return fmt.Errorf("%w: record symbol index %d", pack.ErrCorrupt, m.Symbol)
 		}
-		for _, c := range sr.Children {
-			if int(c) <= 0 || int(c) >= len(scopes) {
-				return nil, fmt.Errorf("%w: record child index %d", pack.ErrCorrupt, c)
-			}
-			scopes[c].parent = s
-			s.AddChild(scopes[c])
-		}
-		for _, id := range sr.Imports {
-			n, err := node(id)
-			if err != nil {
-				return nil, err
-			}
-			imp, ok := n.(*ast.Import)
-			if !ok {
-				return nil, fmt.Errorf("%w: record import is a %T", pack.ErrCorrupt, n)
-			}
-			s.imports = append(s.imports, imp)
-		}
-		for _, id := range sr.Filters {
-			n, err := node(id)
-			if err != nil {
-				return nil, err
-			}
-			s.filters = append(s.filters, ElementFilter{Expr: n, Scope: s, Span: n.Span()})
+		sym := b.syms[m.Symbol]
+		sym.OwnerScope = s
+		if m.Name == "" {
+			s.DefineAnonymous(sym)
+		} else {
+			s.Define(b.in.str(m.Name), sym)
 		}
 	}
-	return scopes[0], nil
+	for _, c := range sr.Children {
+		if int(c) <= 0 || int(c) >= len(b.scopes) {
+			return fmt.Errorf("%w: record child index %d", pack.ErrCorrupt, c)
+		}
+		b.scopes[c].parent = s
+		s.AddChild(b.scopes[c])
+	}
+	for _, id := range sr.Imports {
+		n, err := b.nodes.node(id)
+		if err != nil {
+			return err
+		}
+		imp, ok := n.(*ast.Import)
+		if !ok {
+			return fmt.Errorf("%w: record import is a %T", pack.ErrCorrupt, n)
+		}
+		s.imports = append(s.imports, imp)
+	}
+	for _, id := range sr.Filters {
+		n, err := b.nodes.node(id)
+		if err != nil {
+			return err
+		}
+		s.filters = append(s.filters, ElementFilter{Expr: n, Scope: s, Span: n.Span()})
+	}
+	return nil
 }
 
 // interner shares one copy of each distinct string a decoded record repeats —

@@ -1208,45 +1208,7 @@ const deferredEventFQN = "MigrationMetadata::DeferredEvent"
 func (s *stateRegion) deferrals(v, do, exit *sysmlv1.Element) *deferrals {
 	out := &deferrals{}
 	for _, d := range v.Owned("deferrableTrigger") {
-		ev := s.m.model.Ref(d, "event")
-		if ev == nil {
-			s.m.add(d, Unmapped, "", joinNotes(s.m.dangling(d, "event"), "the deferred trigger names no event"))
-			continue
-		}
-		if ev.Type != "SignalEvent" {
-			note := "only a signal event can be deferred, not a " + ev.Type
-			s.m.add(d, Unmapped, "", note)
-			continue
-		}
-		sig := s.m.model.Ref(ev, "signal")
-		if note, ok := s.m.signalOf(ev); !ok {
-			s.m.add(d, Unmapped, "", note)
-			s.m.add(ev, Unmapped, "", note)
-			continue
-		}
-		k := &deferral{trigger: d, event: ev, sig: sig}
-		out.declared = append(out.declared, sig)
-		s.routeDeferral(k)
-		always, contested := s.acceptsOutOf(v, sig)
-		if t, taken := s.takeRoutes(k, always); len(k.loops) == 0 {
-			note := theTransition(t) + " out of the state accepts the signal, which in v1 takes precedence over deferring it, so the state does not keep it; its @" + deferredEventFQN + " annotation records the deferral"
-			s.m.add(d, Approximated, "", note)
-			s.m.add(ev, Approximated, "", deferredBy(v)+", which the state's @"+deferredEventFQN+" annotation records; the state does not keep the signal, the transition "+describe(t)+" accepting it")
-			continue
-		} else if taken != "" {
-			k.info = joinNotes(k.info, taken)
-		}
-		k.contested = contested
-		alwaysDone, guardedDone := s.completionOutOf(v)
-		if alwaysDone != nil {
-			note := "the completion transition " + describe(alwaysDone) + " leaves the state once its do action ends, which the accept loop that would keep " + qualifiedName(sig) + " never lets it, so the deferral is dropped"
-			out.lines = append(out.lines, commentLines("not migrated: deferrableTrigger "+describe(d)+" on "+qualifiedName(sig)+" — "+note)...)
-			s.m.add(d, Unmapped, "", note)
-			s.m.add(ev, Unmapped, "", note)
-			continue
-		}
-		k.completion = guardedDone
-		out.kept = append(out.kept, k)
+		s.readDeferral(v, d, out)
 	}
 	s.foldDeferrals(v, out)
 	if len(out.kept) == 0 {
@@ -1254,37 +1216,91 @@ func (s *stateRegion) deferrals(v, do, exit *sysmlv1.Element) *deferrals {
 	}
 	s.nameDeferrals(v, do, exit, out)
 	for _, k := range out.kept {
-		note := "kept in the item " + k.buffer + " by the accept loop of the do action " + out.buffer + " while the state is active, and sent to self by the exit action " + out.flush + ": the standard SysML v2 encoding of a deferred signal, which the state's @" + deferredEventFQN + " annotation records"
-		note = joinNotes(joinNotes(note, k.info), k.note)
-		if len(out.kept) > 1 {
-			note = joinNotes(note, "the state's deferred signals are flushed one signal at a time, each in arrival order, so the order between occurrences of different signals is not kept; UML leaves the order of the event pool open, so that is a permitted approximation")
-		}
-		if t := k.contested; t != nil {
-			if !s.m.acceptsGeneralOf(t, k.sig) {
-				note = joinNotes(note, theTransition(t)+" out of the state accepts a specialization of the signal, which in v1 takes precedence over deferring those occurrences; the standard leaves open which of the transition and the accept loop takes them, which the runtime settles for the transition when it can fire and the loop otherwise")
-			} else if s.m.model.Ref(t, "source") != v {
-				note = joinNotes(note, theTransition(t)+" out of a substate accepts the signal too, which in v1 takes precedence over deferring it only while that substate is active; the standard leaves open which of the transition and the accept loop takes the signal, which the runtime settles for the transition when it can fire and the loop otherwise")
-			} else {
-				note = joinNotes(note, theTransition(t)+" out of the state accepts the signal too, which in v1 takes precedence over deferring it only while its guard holds; the standard leaves open which of the transition and the accept loop takes the signal, which the runtime settles for the transition when its guard holds and the loop otherwise")
-			}
-		}
-		if t, enclosing := s.outrankedBy(v, k.sig); t != nil {
-			if enclosing {
-				note = joinNotes(note, theTransition(t)+" out of the enclosing state "+describe(s.m.model.Ref(t, "source"))+" accepts the signal too, which in v1 the deferral takes precedence over while the state is active; the standard encoding cannot hold a signal back from a transition of an enclosing state, so that transition takes each occurrence it can fire on and the accept loop keeps the rest")
-			} else {
-				note = joinNotes(note, theTransition(t)+" out of "+describe(s.m.model.Ref(t, "source"))+", in a region beside the state's, accepts the signal too, which in v1 the deferral takes precedence over while the state is active; the standard encoding cannot hold a signal back from a transition of another region, so that transition fires on each occurrence it can, which the accept loop keeps as well")
-			}
-		}
-		if t := k.completion; t != nil {
-			note = joinNotes(note, "the guarded completion transition "+describe(t)+" leaves the state once its do action ends, which the accept loop never lets it: the state keeps the signal, and leaves only by a transition a trigger fires")
-		}
-		if t := s.internalOutOf(v); t != nil {
-			note = joinNotes(note, "the internal transition "+describe(t)+" is written as a self transition, which exits and re-enters the state where v1 stayed in it: the exit action sends the kept occurrences to self, and the accept loop, started again, keeps them again unless a transition then accepts them")
-		}
-		s.m.add(k.trigger, Approximated, "", note)
+		s.m.add(k.trigger, Approximated, "", s.deferralNote(v, k, out))
 		s.m.add(k.event, Approximated, "", deferredBy(v)+" through the standard SysML v2 encoding, an accept loop keeping the signal while the state is active and an exit action sending it to self")
 	}
 	return out
+}
+
+// readDeferral reads one deferrable trigger, keeping the deferral of a signal
+// no transition out of the state takes and no completion transition preempts.
+func (s *stateRegion) readDeferral(v, d *sysmlv1.Element, out *deferrals) {
+	ev := s.m.model.Ref(d, "event")
+	if ev == nil {
+		s.m.add(d, Unmapped, "", joinNotes(s.m.dangling(d, "event"), "the deferred trigger names no event"))
+		return
+	}
+	if ev.Type != "SignalEvent" {
+		s.m.add(d, Unmapped, "", "only a signal event can be deferred, not a "+ev.Type)
+		return
+	}
+	sig := s.m.model.Ref(ev, "signal")
+	if note, ok := s.m.signalOf(ev); !ok {
+		s.m.add(d, Unmapped, "", note)
+		s.m.add(ev, Unmapped, "", note)
+		return
+	}
+	k := &deferral{trigger: d, event: ev, sig: sig}
+	out.declared = append(out.declared, sig)
+	s.routeDeferral(k)
+	always, contested := s.acceptsOutOf(v, sig)
+	if t, taken := s.takeRoutes(k, always); len(k.loops) == 0 {
+		note := theTransition(t) + " out of the state accepts the signal, which in v1 takes precedence over deferring it, so the state does not keep it; its @" + deferredEventFQN + " annotation records the deferral"
+		s.m.add(d, Approximated, "", note)
+		s.m.add(ev, Approximated, "", deferredBy(v)+", which the state's @"+deferredEventFQN+" annotation records; the state does not keep the signal, the transition "+describe(t)+" accepting it")
+		return
+	} else if taken != "" {
+		k.info = joinNotes(k.info, taken)
+	}
+	k.contested = contested
+	alwaysDone, guardedDone := s.completionOutOf(v)
+	if alwaysDone != nil {
+		note := "the completion transition " + describe(alwaysDone) + " leaves the state once its do action ends, which the accept loop that would keep " + qualifiedName(sig) + " never lets it, so the deferral is dropped"
+		out.lines = append(out.lines, commentLines("not migrated: deferrableTrigger "+describe(d)+" on "+qualifiedName(sig)+" — "+note)...)
+		s.m.add(d, Unmapped, "", note)
+		s.m.add(ev, Unmapped, "", note)
+		return
+	}
+	k.completion = guardedDone
+	out.kept = append(out.kept, k)
+}
+
+// deferralNote explains how a kept deferral is encoded and where the encoding
+// departs from v1's precedence.
+func (s *stateRegion) deferralNote(v *sysmlv1.Element, k *deferral, out *deferrals) string {
+	note := "kept in the item " + k.buffer + " by the accept loop of the do action " + out.buffer + " while the state is active, and sent to self by the exit action " + out.flush + ": the standard SysML v2 encoding of a deferred signal, which the state's @" + deferredEventFQN + " annotation records"
+	note = joinNotes(joinNotes(note, k.info), k.note)
+	if len(out.kept) > 1 {
+		note = joinNotes(note, "the state's deferred signals are flushed one signal at a time, each in arrival order, so the order between occurrences of different signals is not kept; UML leaves the order of the event pool open, so that is a permitted approximation")
+	}
+	if t := k.contested; t != nil {
+		note = joinNotes(note, s.contestedNote(v, t, k.sig))
+	}
+	if t, enclosing := s.outrankedBy(v, k.sig); t != nil {
+		if enclosing {
+			note = joinNotes(note, theTransition(t)+" out of the enclosing state "+describe(s.m.model.Ref(t, "source"))+" accepts the signal too, which in v1 the deferral takes precedence over while the state is active; the standard encoding cannot hold a signal back from a transition of an enclosing state, so that transition takes each occurrence it can fire on and the accept loop keeps the rest")
+		} else {
+			note = joinNotes(note, theTransition(t)+" out of "+describe(s.m.model.Ref(t, "source"))+", in a region beside the state's, accepts the signal too, which in v1 the deferral takes precedence over while the state is active; the standard encoding cannot hold a signal back from a transition of another region, so that transition fires on each occurrence it can, which the accept loop keeps as well")
+		}
+	}
+	if t := k.completion; t != nil {
+		note = joinNotes(note, "the guarded completion transition "+describe(t)+" leaves the state once its do action ends, which the accept loop never lets it: the state keeps the signal, and leaves only by a transition a trigger fires")
+	}
+	if t := s.internalOutOf(v); t != nil {
+		note = joinNotes(note, "the internal transition "+describe(t)+" is written as a self transition, which exits and re-enters the state where v1 stayed in it: the exit action sends the kept occurrences to self, and the accept loop, started again, keeps them again unless a transition then accepts them")
+	}
+	return note
+}
+
+// contestedNote explains a transition that contests the deferral of sig.
+func (s *stateRegion) contestedNote(v, t, sig *sysmlv1.Element) string {
+	switch {
+	case !s.m.acceptsGeneralOf(t, sig):
+		return theTransition(t) + " out of the state accepts a specialization of the signal, which in v1 takes precedence over deferring those occurrences; the standard leaves open which of the transition and the accept loop takes them, which the runtime settles for the transition when it can fire and the loop otherwise"
+	case s.m.model.Ref(t, "source") != v:
+		return theTransition(t) + " out of a substate accepts the signal too, which in v1 takes precedence over deferring it only while that substate is active; the standard leaves open which of the transition and the accept loop takes the signal, which the runtime settles for the transition when it can fire and the loop otherwise"
+	}
+	return theTransition(t) + " out of the state accepts the signal too, which in v1 takes precedence over deferring it only while its guard holds; the standard leaves open which of the transition and the accept loop takes the signal, which the runtime settles for the transition when its guard holds and the loop otherwise"
 }
 
 // foldDeferrals drops from a deferral every loop another deferral of the
@@ -1557,34 +1573,6 @@ func (s *stateRegion) acceptsOutOf(v, sig *sysmlv1.Element) (always []*sysmlv1.E
 // takes precedence over either while v is active; the standard encoding holds
 // the signal back from neither. nil when none.
 func (s *stateRegion) outrankedBy(v, sig *sysmlv1.Element) (t *sysmlv1.Element, enclosing bool) {
-	m := s.m
-	accepts := func(t *sysmlv1.Element) bool {
-		if !s.transitionWritten(t) {
-			return false
-		}
-		for _, tr := range t.Owned("trigger") {
-			if ev := m.model.Ref(tr, "event"); ev != nil && ev.Type == "SignalEvent" && m.signalsMeet(sig, m.model.Ref(ev, "signal")) {
-				return true
-			}
-		}
-		return false
-	}
-	var within func(e *sysmlv1.Element) *sysmlv1.Element
-	within = func(e *sysmlv1.Element) *sysmlv1.Element {
-		for _, t := range m.outgoing[e] {
-			if accepts(t) {
-				return t
-			}
-		}
-		for _, r := range e.Owned("region") {
-			for _, sub := range r.Owned("subvertex") {
-				if t := within(sub); t != nil {
-					return t
-				}
-			}
-		}
-		return nil
-	}
 	for cur := v; cur.Parent != nil && cur.Parent.Type == "Region"; cur = cur.Parent.Parent {
 		region := cur.Parent
 		owner := region.Parent
@@ -1592,10 +1580,8 @@ func (s *stateRegion) outrankedBy(v, sig *sysmlv1.Element) (t *sysmlv1.Element, 
 			break
 		}
 		if owner.Type == "State" {
-			for _, t := range m.outgoing[owner] {
-				if accepts(t) {
-					return t, true
-				}
+			if t := s.firesOutOf(owner, sig); t != nil {
+				return t, true
 			}
 		}
 		for _, r := range owner.Owned("region") {
@@ -1603,7 +1589,7 @@ func (s *stateRegion) outrankedBy(v, sig *sysmlv1.Element) (t *sysmlv1.Element, 
 				continue
 			}
 			for _, sub := range r.Owned("subvertex") {
-				if t := within(sub); t != nil {
+				if t := s.firesWithin(sub, sig); t != nil {
 					return t, false
 				}
 			}
@@ -1613,6 +1599,45 @@ func (s *stateRegion) outrankedBy(v, sig *sysmlv1.Element) (t *sysmlv1.Element, 
 		}
 	}
 	return nil, false
+}
+
+// firesOutOf is a written transition out of e that a trigger referring to sig fires.
+func (s *stateRegion) firesOutOf(e, sig *sysmlv1.Element) *sysmlv1.Element {
+	for _, t := range s.m.outgoing[e] {
+		if s.acceptsSignal(t, sig) {
+			return t
+		}
+	}
+	return nil
+}
+
+// firesWithin is a transition sig fires out of e or any vertex nested in it.
+func (s *stateRegion) firesWithin(e, sig *sysmlv1.Element) *sysmlv1.Element {
+	if t := s.firesOutOf(e, sig); t != nil {
+		return t
+	}
+	for _, r := range e.Owned("region") {
+		for _, sub := range r.Owned("subvertex") {
+			if t := s.firesWithin(sub, sig); t != nil {
+				return t
+			}
+		}
+	}
+	return nil
+}
+
+// acceptsSignal reports whether a written transition has a trigger referring to sig.
+func (s *stateRegion) acceptsSignal(t, sig *sysmlv1.Element) bool {
+	if !s.transitionWritten(t) {
+		return false
+	}
+	m := s.m
+	for _, tr := range t.Owned("trigger") {
+		if ev := m.model.Ref(tr, "event"); ev != nil && ev.Type == "SignalEvent" && m.signalsMeet(sig, m.model.Ref(ev, "signal")) {
+			return true
+		}
+	}
+	return false
 }
 
 // transitionWritten reports whether transition t is one the output writes, so

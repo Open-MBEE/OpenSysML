@@ -1399,13 +1399,7 @@ func (w *featureValueWalk) rows(inst *runtime.Instance, indent string, depth int
 		// unread one shows as an unexpanded collection, as any feature the walk
 		// does not descend into does.
 		if w.ctx.ImpliedCollection(inst, of.Name) {
-			if fv := inst.FeatureValues[of.Name]; fv != nil && fv.Materialized {
-				lines = w.emit(lines, fmt.Sprintf("%s%s = %s", indent, of.Name, formatFeatureValue(w.ctx, fv)))
-			} else if held, elided := w.elided(feat, depth); elided {
-				lines = w.emit(lines, fmt.Sprintf("%s%s : %s (not expanded: %s)", indent, of.Name, held, w.elisionReason(depth)))
-			} else {
-				lines = w.emit(lines, fmt.Sprintf("%s%s = []", indent, of.Name))
-			}
+			lines = w.emit(lines, w.impliedCollectionLine(inst, of, indent, depth))
 			continue
 		}
 		// A state or action holds no value either; what it has is a run, or none,
@@ -1433,30 +1427,46 @@ func (w *featureValueWalk) rows(inst *runtime.Instance, indent string, depth int
 			continue
 		}
 		lines = w.emit(lines, fmt.Sprintf("%s%s = %s", indent, of.Name, formatFeatureValue(w.ctx, fv)))
-		// The object's remaining features keep a line each; a nested expansion
-		// spends only what is left beyond them.
-		reserved := len(features) - i - 1
-		for _, nested := range nestedInstances(w.ctx, fv) {
-			if w.listing[nested.ID] {
-				continue
-			}
-			if w.budget <= reserved {
-				lines = w.truncate(lines, indent+"  ")
-				break
-			}
-			w.budget -= reserved
-			w.onPath[nested.Type] = true
-			w.listing[nested.ID] = true
-			lines = append(lines, w.lines(nested, indent+"  ", depth+1)...)
-			delete(w.listing, nested.ID)
-			delete(w.onPath, nested.Type)
-			w.budget += reserved
-		}
+		lines = w.expandNested(lines, fv, indent, depth, len(features)-i-1)
 	}
 	if w.budget <= 0 && len(behaviors) > 0 {
 		return truncated(lines, "")
 	}
 	return append(append(lines, w.behaviorLines(inst, behaviors, indent, depth)...), connectors...)
+}
+
+// impliedCollectionLine is the row of a collection populated only through
+// subsetting implied by nesting: its value when read, else unexpanded or empty.
+func (w *featureValueWalk) impliedCollectionLine(inst *runtime.Instance, of runtime.ObjectFeature, indent string, depth int) string {
+	if fv := inst.FeatureValues[of.Name]; fv != nil && fv.Materialized {
+		return fmt.Sprintf("%s%s = %s", indent, of.Name, formatFeatureValue(w.ctx, fv))
+	}
+	if held, elided := w.elided(of.Feature, depth); elided {
+		return fmt.Sprintf("%s%s : %s (not expanded: %s)", indent, of.Name, held, w.elisionReason(depth))
+	}
+	return fmt.Sprintf("%s%s = []", indent, of.Name)
+}
+
+// expandNested lists the objects a feature value holds beneath its row. The
+// object's reserved remaining features keep a line each; a nested expansion
+// spends only what is left beyond them.
+func (w *featureValueWalk) expandNested(lines []string, fv *runtime.FeatureValue, indent string, depth, reserved int) []string {
+	for _, nested := range nestedInstances(w.ctx, fv) {
+		if w.listing[nested.ID] {
+			continue
+		}
+		if w.budget <= reserved {
+			return w.truncate(lines, indent+"  ")
+		}
+		w.budget -= reserved
+		w.onPath[nested.Type] = true
+		w.listing[nested.ID] = true
+		lines = append(lines, w.lines(nested, indent+"  ", depth+1)...)
+		delete(w.listing, nested.ID)
+		delete(w.onPath, nested.Type)
+		w.budget += reserved
+	}
+	return lines
 }
 
 // isBehaviorFeature reports whether a feature is a state or action usage — a

@@ -69,54 +69,9 @@ func (r *Rendering) DOTWith(options Options) (string, error) {
 		r = withoutStandIns(r)
 	}
 	w := newDOTWriter(r, options)
-	for _, note := range w.notes {
-		if note.Anchor != "" && w.draws(note.Anchor) && w.clipped(note.Anchor, "") {
-			w.compound = true
-		}
-	}
-	edges := w.edges
-	switch {
-	case w.placement.partial():
-		edges = w.settleUnplaced(r.Roots, edges, options.Unplaced)
-	case w.placement.picturedOnly():
-		w.stripUnplaced(r.Roots, edges)
-		w.notices = append(w.notices, fmt.Sprintf("%d node(s) without a position, drawn in a strip below the picture(s)", w.placement.unplaced()))
-	}
-	edges = w.drawnEdges(edges)
-	for _, edge := range edges {
-		if w.clipped(edge.From, edge.To) || w.clipped(edge.To, edge.From) {
-			w.compound = true
-		}
-		if len(edge.Route) > 1 {
-			w.routed++
-		}
-		if len(edge.Route) == 1 {
-			p := edge.Route[0]
-			w.notices = append(w.notices, fmt.Sprintf("route of %s->%s is one waypoint, (%s, %s); a line needs two", edge.From, edge.To, formatCoord(p.X), formatCoord(p.Y)))
-		}
-	}
+	edges := w.settleEdges(r, options.Unplaced)
 	b := &w.b
-	if r.View != "" {
-		fmt.Fprintf(b, "// view: %s\n", r.View)
-	}
-	fmt.Fprintf(b, "// kind: %s\n", r.Kind)
-	if r.Stated != "" {
-		fmt.Fprintf(b, "// stated: %s\n", r.Stated)
-	}
-	for _, notice := range slices.Concat(r.Notices, w.notices) {
-		fmt.Fprintf(b, "// not represented: %s\n", notice)
-	}
-	if c := r.Canvas; c != nil {
-		b.WriteString("// canvas:")
-		if c.Unit != "" {
-			b.WriteString(" unit=" + c.Unit)
-		}
-		if c.HasSize {
-			fmt.Fprintf(b, " w=%s h=%s", formatCoord(c.Width), formatCoord(c.Height))
-		}
-		b.WriteString("\n")
-	}
-	fmt.Fprintf(b, "// layout: %s\n", w.engine())
+	w.writeHeader(r)
 	if r.View == "" {
 		b.WriteString("digraph {\n")
 	} else {
@@ -153,6 +108,65 @@ func (r *Rendering) DOTWith(options Options) (string, error) {
 	w.writeAnchors(w.notes, edges)
 	b.WriteString("}\n")
 	return b.String(), nil
+}
+
+// settleEdges places what the drawing leaves unplaced and settles which edges
+// are drawn, noting the clipped and routed ones and the routes too short to draw.
+func (w *dotWriter) settleEdges(r *Rendering, unplaced Unplaced) []Edge {
+	for _, note := range w.notes {
+		if note.Anchor != "" && w.draws(note.Anchor) && w.clipped(note.Anchor, "") {
+			w.compound = true
+		}
+	}
+	edges := w.edges
+	switch {
+	case w.placement.partial():
+		edges = w.settleUnplaced(r.Roots, edges, unplaced)
+	case w.placement.picturedOnly():
+		w.stripUnplaced(r.Roots, edges)
+		w.notices = append(w.notices, fmt.Sprintf("%d node(s) without a position, drawn in a strip below the picture(s)", w.placement.unplaced()))
+	}
+	edges = w.drawnEdges(edges)
+	for _, edge := range edges {
+		if w.clipped(edge.From, edge.To) || w.clipped(edge.To, edge.From) {
+			w.compound = true
+		}
+		if len(edge.Route) > 1 {
+			w.routed++
+		}
+		if len(edge.Route) == 1 {
+			p := edge.Route[0]
+			w.notices = append(w.notices, fmt.Sprintf("route of %s->%s is one waypoint, (%s, %s); a line needs two", edge.From, edge.To, formatCoord(p.X), formatCoord(p.Y)))
+		}
+	}
+	return edges
+}
+
+// writeHeader writes the comment lines ahead of the graph: view, kind, stated
+// source, what is not represented, canvas and layout engine.
+func (w *dotWriter) writeHeader(r *Rendering) {
+	b := &w.b
+	if r.View != "" {
+		fmt.Fprintf(b, "// view: %s\n", r.View)
+	}
+	fmt.Fprintf(b, "// kind: %s\n", r.Kind)
+	if r.Stated != "" {
+		fmt.Fprintf(b, "// stated: %s\n", r.Stated)
+	}
+	for _, notice := range slices.Concat(r.Notices, w.notices) {
+		fmt.Fprintf(b, "// not represented: %s\n", notice)
+	}
+	if c := r.Canvas; c != nil {
+		b.WriteString("// canvas:")
+		if c.Unit != "" {
+			b.WriteString(" unit=" + c.Unit)
+		}
+		if c.HasSize {
+			fmt.Fprintf(b, " w=%s h=%s", formatCoord(c.Width), formatCoord(c.Height))
+		}
+		b.WriteString("\n")
+	}
+	fmt.Fprintf(b, "// layout: %s\n", w.engine())
 }
 
 // openFrame opens the Cameo diagram frame: a cluster round the whole drawing,

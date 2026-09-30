@@ -951,62 +951,16 @@ func jsonScalar(o *ReplyOutput, v any) (runtime.ToolValue, string, error) {
 // the output is omitted; a record-level fault aborts the read.
 func (r *Reply) readCSV(entry ToolEntry, source []byte) (map[string]runtime.ToolValue, map[string]error, error) {
 	tool := entry.ToolName
-	source = bytes.TrimPrefix(source, []byte("\xef\xbb\xbf"))
-	reader := csv.NewReader(bytes.NewReader(source))
-	reader.Comma = r.compiled.delimiter
-	reader.FieldsPerRecord = -1
-	records, err := reader.ReadAll()
+	t, err := r.parseCSV(tool, source)
 	if err != nil {
-		return nil, nil, toolFault(tool, runtime.ToolMalformed, "the reply is not CSV: %v", err)
+		return nil, nil, err
 	}
-	if len(records) > 0 {
-		width := len(records[0])
-		for i, record := range records[1:] {
-			if len(record) != width {
-				return nil, nil, toolFault(tool, runtime.ToolMalformed, "record %d has %d fields, not %d", i+2, len(record), width)
-			}
-		}
-	}
-	var data [][]string
-	headerByName := make(map[string]int)
-	if r.compiled.header {
-		if len(records) == 0 {
-			return nil, nil, toolFault(tool, runtime.ToolMalformed, "wrote no header record")
-		}
-		for i, name := range records[0] {
-			if _, dup := headerByName[name]; dup {
-				return nil, nil, toolFault(tool, runtime.ToolMalformed, "the header names %s twice", name)
-			}
-			headerByName[name] = i
-		}
-		data = records[1:]
-	} else {
-		data = records
-	}
-	width := 0
-	if len(records) > 0 {
-		width = len(records[0])
-	}
-	indexOf := func(c *Column) (int, error) {
-		if c.ByIndex {
-			// With no records there are no fields to be past.
-			if c.Index < 0 || (len(records) > 0 && c.Index >= width) {
-				return 0, fmt.Errorf("column %d is past the %d fields of a record", c.Index, width)
-			}
-			return c.Index, nil
-		}
-		i, ok := headerByName[c.Name]
-		if !ok {
-			return 0, fmt.Errorf("column %s is not in the header", c.Name)
-		}
-		return i, nil
-	}
-	if r.ErrorColumn != nil && len(data) > 0 {
-		col, err := indexOf(r.ErrorColumn)
+	if r.ErrorColumn != nil && len(t.data) > 0 {
+		col, err := t.indexOf(r.ErrorColumn)
 		if err != nil {
 			return nil, nil, toolFault(tool, runtime.ToolMalformed, "%v", err)
 		}
-		for _, record := range data {
+		for _, record := range t.data {
 			if message := strings.TrimSpace(record[col]); message != "" {
 				return nil, nil, toolFault(tool, runtime.ToolRefused, "%s", message)
 			}
@@ -1016,86 +970,149 @@ func (r *Reply) readCSV(entry ToolEntry, source []byte) (map[string]runtime.Tool
 	faults := make(map[string]error, len(r.Outputs))
 	for _, variable := range r.outputsOrdered(entry.Variables) {
 		o := r.Outputs[variable]
-		col, err := indexOf(o.Column)
+		col, err := t.indexOf(o.Column)
 		if err != nil {
 			faults[variable] = toolFault(tool, runtime.ToolMalformed, "%s in column %s: %v", variable, o.Column, err)
 			continue
 		}
 		ucol := -1
 		if o.UnitColumn != nil {
-			if ucol, err = indexOf(o.UnitColumn); err != nil {
+			if ucol, err = t.indexOf(o.UnitColumn); err != nil {
 				faults[variable] = toolFault(tool, runtime.ToolMalformed, "unit %v", err)
 				continue
 			}
 		}
+		var value runtime.ToolValue
 		if o.Row.Kind == RowAll {
-			// Every data record in order is one item; its unit column reads per row and
-			// all rows must agree on it.
-			items := make([]runtime.ToolValue, 0, len(data))
-			unit := o.Unit
-			var fault error
-			for i := range data {
-				value, missing, err := csvCell(o, data[i][col])
-				if err != nil {
-					fault = toolFault(tool, runtime.ToolMalformed, "%s in column %s, row %d: %v", variable, o.Column, i, err)
-					break
-				}
-				if missing {
-					fault = toolFault(tool, runtime.ToolMissingOutput, "%s in column %s, row %d: an empty cell", variable, o.Column, i)
-					break
-				}
-				if ucol >= 0 {
-					u := strings.TrimSpace(data[i][ucol])
-					if u == "" {
-						fault = toolFault(tool, runtime.ToolMalformed, "unit cell in column %s, row %d is empty", o.UnitColumn, i)
-						break
-					}
-					if i == 0 {
-						unit = u
-					} else if u != unit {
-						fault = toolFault(tool, runtime.ToolMalformed, "%s: unit column %s is %s in row %d but %s in row %d", variable, o.UnitColumn, unit, 0, u, i)
-						break
-					}
-				}
-				items = append(items, value)
-			}
-			if fault != nil {
-				faults[variable] = fault
-				continue
-			}
-			outputs[variable] = runtime.ToolValue{Unit: unit, Items: items}
-			continue
+			value, err = t.readColumn(tool, variable, o, col, ucol)
+		} else {
+			value, err = t.readCell(tool, variable, o, col, ucol)
 		}
-		row, err := csvRow(o.Row, len(data))
 		if err != nil {
-			faults[variable] = toolFault(tool, runtime.ToolMissingOutput, "%s in column %s, row %s: %v", variable, o.Column, o.Row, err)
+			faults[variable] = err
 			continue
-		}
-		if row < 0 || row >= len(data) {
-			faults[variable] = toolFault(tool, runtime.ToolMalformed, "%s in column %s, row %s: only %d rows", variable, o.Column, o.Row, len(data))
-			continue
-		}
-		value, missing, err := csvCell(o, data[row][col])
-		if err != nil {
-			faults[variable] = toolFault(tool, runtime.ToolMalformed, "%s in column %s, row %s: %v", variable, o.Column, o.Row, err)
-			continue
-		}
-		if missing {
-			faults[variable] = toolFault(tool, runtime.ToolMissingOutput, "%s in column %s, row %s: an empty cell", variable, o.Column, o.Row)
-			continue
-		}
-		value.Unit = o.Unit
-		if ucol >= 0 {
-			unit := strings.TrimSpace(data[row][ucol])
-			if unit == "" {
-				faults[variable] = toolFault(tool, runtime.ToolMalformed, "unit cell in column %s, row %s is empty", o.UnitColumn, o.Row)
-				continue
-			}
-			value.Unit = unit
 		}
 		outputs[variable] = value
 	}
 	return outputs, faults, nil
+}
+
+// csvTable is a parsed CSV reply: its data records, and the header's columns by name.
+type csvTable struct {
+	records      [][]string
+	data         [][]string
+	headerByName map[string]int
+}
+
+// parseCSV parses the reply, requiring every record the width of the first and,
+// under a header, distinct column names.
+func (r *Reply) parseCSV(tool string, source []byte) (*csvTable, error) {
+	source = bytes.TrimPrefix(source, []byte("\xef\xbb\xbf"))
+	reader := csv.NewReader(bytes.NewReader(source))
+	reader.Comma = r.compiled.delimiter
+	reader.FieldsPerRecord = -1
+	records, err := reader.ReadAll()
+	if err != nil {
+		return nil, toolFault(tool, runtime.ToolMalformed, "the reply is not CSV: %v", err)
+	}
+	if len(records) > 0 {
+		width := len(records[0])
+		for i, record := range records[1:] {
+			if len(record) != width {
+				return nil, toolFault(tool, runtime.ToolMalformed, "record %d has %d fields, not %d", i+2, len(record), width)
+			}
+		}
+	}
+	t := &csvTable{records: records, data: records, headerByName: make(map[string]int)}
+	if r.compiled.header {
+		if len(records) == 0 {
+			return nil, toolFault(tool, runtime.ToolMalformed, "wrote no header record")
+		}
+		for i, name := range records[0] {
+			if _, dup := t.headerByName[name]; dup {
+				return nil, toolFault(tool, runtime.ToolMalformed, "the header names %s twice", name)
+			}
+			t.headerByName[name] = i
+		}
+		t.data = records[1:]
+	}
+	return t, nil
+}
+
+// indexOf is the field index a column selector names.
+func (t *csvTable) indexOf(c *Column) (int, error) {
+	width := 0
+	if len(t.records) > 0 {
+		width = len(t.records[0])
+	}
+	if c.ByIndex {
+		// With no records there are no fields to be past.
+		if c.Index < 0 || (len(t.records) > 0 && c.Index >= width) {
+			return 0, fmt.Errorf("column %d is past the %d fields of a record", c.Index, width)
+		}
+		return c.Index, nil
+	}
+	i, ok := t.headerByName[c.Name]
+	if !ok {
+		return 0, fmt.Errorf("column %s is not in the header", c.Name)
+	}
+	return i, nil
+}
+
+// readColumn reads every data record in order as one item; its unit column
+// reads per row and all rows must agree on it.
+func (t *csvTable) readColumn(tool, variable string, o *ReplyOutput, col, ucol int) (runtime.ToolValue, error) {
+	items := make([]runtime.ToolValue, 0, len(t.data))
+	unit := o.Unit
+	for i := range t.data {
+		value, missing, err := csvCell(o, t.data[i][col])
+		if err != nil {
+			return runtime.ToolValue{}, toolFault(tool, runtime.ToolMalformed, "%s in column %s, row %d: %v", variable, o.Column, i, err)
+		}
+		if missing {
+			return runtime.ToolValue{}, toolFault(tool, runtime.ToolMissingOutput, "%s in column %s, row %d: an empty cell", variable, o.Column, i)
+		}
+		if ucol >= 0 {
+			u := strings.TrimSpace(t.data[i][ucol])
+			if u == "" {
+				return runtime.ToolValue{}, toolFault(tool, runtime.ToolMalformed, "unit cell in column %s, row %d is empty", o.UnitColumn, i)
+			}
+			if i == 0 {
+				unit = u
+			} else if u != unit {
+				return runtime.ToolValue{}, toolFault(tool, runtime.ToolMalformed, "%s: unit column %s is %s in row %d but %s in row %d", variable, o.UnitColumn, unit, 0, u, i)
+			}
+		}
+		items = append(items, value)
+	}
+	return runtime.ToolValue{Unit: unit, Items: items}, nil
+}
+
+// readCell reads the cell the output's row selector picks, and its unit cell.
+func (t *csvTable) readCell(tool, variable string, o *ReplyOutput, col, ucol int) (runtime.ToolValue, error) {
+	row, err := csvRow(o.Row, len(t.data))
+	if err != nil {
+		return runtime.ToolValue{}, toolFault(tool, runtime.ToolMissingOutput, "%s in column %s, row %s: %v", variable, o.Column, o.Row, err)
+	}
+	if row < 0 || row >= len(t.data) {
+		return runtime.ToolValue{}, toolFault(tool, runtime.ToolMalformed, "%s in column %s, row %s: only %d rows", variable, o.Column, o.Row, len(t.data))
+	}
+	value, missing, err := csvCell(o, t.data[row][col])
+	if err != nil {
+		return runtime.ToolValue{}, toolFault(tool, runtime.ToolMalformed, "%s in column %s, row %s: %v", variable, o.Column, o.Row, err)
+	}
+	if missing {
+		return runtime.ToolValue{}, toolFault(tool, runtime.ToolMissingOutput, "%s in column %s, row %s: an empty cell", variable, o.Column, o.Row)
+	}
+	value.Unit = o.Unit
+	if ucol >= 0 {
+		unit := strings.TrimSpace(t.data[row][ucol])
+		if unit == "" {
+			return runtime.ToolValue{}, toolFault(tool, runtime.ToolMalformed, "unit cell in column %s, row %s is empty", o.UnitColumn, o.Row)
+		}
+		value.Unit = unit
+	}
+	return value, nil
 }
 
 // csvCell reads one data cell as the output's declared type; missing marks an empty cell,
@@ -1193,41 +1210,12 @@ func (r *Reply) readLinesRegex(entry ToolEntry, lines []string) (map[string]runt
 	faults := make(map[string]error, len(r.Outputs))
 	for _, variable := range r.outputsOrdered(entry.Variables) {
 		o := r.Outputs[variable]
-		group := re.SubexpIndex(variable)
-		var text string
-		matched, at := 0, 0
-		double := false
-		for i, line := range lines {
-			seen := 0
-			for n := 2; ; n *= 2 {
-				ms := re.FindAllStringSubmatchIndex(line, n)
-				for ; seen < len(ms); seen++ {
-					m := ms[seen]
-					if m[2*group] < 0 {
-						continue
-					}
-					if matched == 0 {
-						text, at = line[m[2*group]:m[2*group+1]], i+1
-					}
-					matched++
-					if matched == 2 {
-						faults[variable] = toolFault(tool, runtime.ToolMalformed, "%s from group %s, lines %d and %d", variable, variable, at, i+1)
-						double = true
-						break
-					}
-				}
-				if double || len(ms) < n {
-					break
-				}
-			}
-			if double {
-				break
-			}
-		}
-		if double {
+		text, at, second := groupMatch(re, re.SubexpIndex(variable), lines)
+		switch {
+		case second > 0:
+			faults[variable] = toolFault(tool, runtime.ToolMalformed, "%s from group %s, lines %d and %d", variable, variable, at, second)
 			continue
-		}
-		if matched == 0 {
+		case at == 0:
 			faults[variable] = toolFault(tool, runtime.ToolMissingOutput, "%s from group %s: no line", variable, variable)
 			continue
 		}
@@ -1240,4 +1228,30 @@ func (r *Reply) readLinesRegex(entry ToolEntry, lines []string) (map[string]runt
 		outputs[variable] = value
 	}
 	return outputs, faults, nil
+}
+
+// groupMatch finds the group's first match over the lines: its text and
+// 1-based line, and the line of a second match, or 0 when it matched once.
+// Matches are paged in growing batches so a dense line stays bounded.
+func groupMatch(re *regexp.Regexp, group int, lines []string) (text string, at, second int) {
+	for i, line := range lines {
+		seen := 0
+		for n := 2; ; n *= 2 {
+			ms := re.FindAllStringSubmatchIndex(line, n)
+			for ; seen < len(ms); seen++ {
+				m := ms[seen]
+				if m[2*group] < 0 {
+					continue
+				}
+				if at > 0 {
+					return text, at, i + 1
+				}
+				text, at = line[m[2*group]:m[2*group+1]], i+1
+			}
+			if len(ms) < n {
+				break
+			}
+		}
+	}
+	return text, at, 0
 }

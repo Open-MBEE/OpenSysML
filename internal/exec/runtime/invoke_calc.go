@@ -701,26 +701,7 @@ func (ctx *Context) invokeCalcShapeIn(shape *calcShape, args calcArgs, callerSco
 	}
 
 	if isBehaviorDefKind(shape.Sym.Kind) {
-		occurrence.materialize = func() (*Instance, error) {
-			if occurrence.inst != nil {
-				return occurrence.inst, nil
-			}
-			inst, err := ctx.materialize(shape.Sym, 0, nil, "")
-			if err != nil {
-				return nil, err
-			}
-			for _, name := range shape.ParamNames {
-				if value, held := locals.lookup(name); held {
-					if err := inst.SetFeatureValue(ctx, name, value); err != nil {
-						return nil, fmt.Errorf("%w: seed %s of object #%d: %w",
-							ErrActionPerformanceOccurrence, name, inst.ID, err)
-					}
-				}
-			}
-			ctx.beginPerformanceLife(inst, activation)
-			occurrence.inst = inst
-			return inst, nil
-		}
+		occurrence.materialize = ctx.calcOccurrenceMaterializer(shape, locals, activation, occurrence)
 		defer func() {
 			if occurrence.inst != nil {
 				ctx.endPerformanceLife(occurrence.inst)
@@ -743,12 +724,7 @@ func (ctx *Context) invokeCalcShapeIn(shape *calcShape, args calcArgs, callerSco
 	var result Value
 	var err error
 	if shape.Tool != nil {
-		var returned bool
-		var outputs map[string]Value
-		result, returned, outputs, err = ctx.computeCalcByTool(shape, ec.scope, locals.lookup)
-		if err == nil && !returned {
-			result, err = shape.toolCalcResult(outputs)
-		}
+		result, err = ctx.computeCalcResultByTool(shape, ec.scope, locals.lookup)
 	} else {
 		result, err = ctx.runCalcBody(shape, frame, callerScope, self, activation, enclosing, occurrence)
 	}
@@ -763,6 +739,41 @@ func (ctx *Context) invokeCalcShapeIn(shape *calcShape, args calcArgs, callerSco
 		return Value{}, calcFrame(shape.Kind, shape.Name, err)
 	}
 	return result, nil
+}
+
+// computeCalcResultByTool is the result of a tool-annotated calc: the result
+// parameter's value, else the one its outputs settle.
+func (ctx *Context) computeCalcResultByTool(shape *calcShape, scope *symbols.Scope, held func(string) (Value, bool)) (Value, error) {
+	result, returned, outputs, err := ctx.computeCalcByTool(shape, scope, held)
+	if err != nil || returned {
+		return result, err
+	}
+	return shape.toolCalcResult(outputs)
+}
+
+// calcOccurrenceMaterializer materializes the occurrence a definition's `this`
+// denotes once, seeded with the parameters bound so far.
+func (ctx *Context) calcOccurrenceMaterializer(shape *calcShape, locals frame, activation int64, occurrence *calcOccurrence) func() (*Instance, error) {
+	return func() (*Instance, error) {
+		if occurrence.inst != nil {
+			return occurrence.inst, nil
+		}
+		inst, err := ctx.materialize(shape.Sym, 0, nil, "")
+		if err != nil {
+			return nil, err
+		}
+		for _, name := range shape.ParamNames {
+			if value, held := locals.lookup(name); held {
+				if err := inst.SetFeatureValue(ctx, name, value); err != nil {
+					return nil, fmt.Errorf("%w: seed %s of object #%d: %w",
+						ErrActionPerformanceOccurrence, name, inst.ID, err)
+				}
+			}
+		}
+		ctx.beginPerformanceLife(inst, activation)
+		occurrence.inst = inst
+		return inst, nil
+	}
 }
 
 // enterCalc spends one of the run's calc depth budget, so a recursion evaluates

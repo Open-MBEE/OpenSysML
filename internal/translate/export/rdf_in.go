@@ -727,10 +727,6 @@ type writing struct {
 // first: they are what tells an owned Expression from an expression node, and
 // what owns an element whose graph states ownership from the membership alone.
 func (d *decoder) build() ([]*element, error) {
-	var (
-		order []*element
-		roots []*element
-	)
 	for _, subject := range d.graph.Subjects() {
 		if d.isMembership(subject) {
 			if err := d.readMembership(subject); err != nil {
@@ -738,67 +734,25 @@ func (d *decoder) build() ([]*element, error) {
 			}
 		}
 	}
+	var order []*element
 	for _, subject := range d.graph.Subjects() {
 		if d.isMembership(subject) || d.isExpressionNode(subject) || d.isFilterPackageNode(subject) {
 			// A node of an expression graph belongs to the declaration that holds
 			// the expression, not to an element of its own; so does a filter package.
 			continue
 		}
-		metaclass := d.metaclass(subject)
-		if metaclass == "" {
-			return nil, &UnsupportedError{
-				What: fmt.Sprintf("the subject <%s>", subject.Value),
-				Note: "it has no rdf:type, so there is no way to tell what to write",
-			}
-		}
-		el := &element{
-			iri:         subject.Value,
-			metaclass:   metaclass,
-			memberIndex: intOf(d.graph, subject, rdf.OpenSysML+xMemberIndex),
-		}
-		el.trailing = !d.graph.HasProperty(subject, rdf.OpenSysML+xMemberIndex) && d.isResultExpression(el)
-		el.qname, _ = d.stringOf(el, rdf.SysML+pQualifiedName)
-		// The identity key. An old graph without sysml:elementId is keyed on
-		// the encoding of its name, which is what its IRIs carry.
-		if id, ok := d.stringOf(el, rdf.SysML+pElementID); ok {
-			el.elementID = id
-		} else {
-			el.elementID = rdf.EncodeElementID(el.qname)
-		}
-		el.declaredID = d.boolOf(el, rdf.OpenSysML+xDeclaredID)
-		el.projectID, _ = d.stringOf(el, rdf.OpenSysML+xProjectID)
-		el.branch, _ = d.stringOf(el, rdf.OpenSysML+xBranch)
-		el.org, _ = d.stringOf(el, rdf.OpenSysML+xOrg)
-		d.byIRI[el.iri] = el
-		if prior, seen := d.byID[el.elementID]; seen && prior != el {
-			d.dupID[el.elementID] = true
-		} else {
-			d.byID[el.elementID] = el
+		el, err := d.readElement(subject)
+		if err != nil {
+			return nil, err
 		}
 		order = append(order, el)
 	}
 	if err := d.checkMembershipEnds(); err != nil {
 		return nil, err
 	}
-	for _, el := range order {
-		parent, err := d.ownerOf(el)
-		if err != nil {
-			return nil, err
-		}
-		if parent != nil && d.transparentRoot(parent) {
-			parent = nil
-		}
-		if parent == nil {
-			roots = append(roots, el)
-			continue
-		}
-		el.owner = parent
-		parent.children = append(parent.children, el)
-		implied, err := d.normativeImplied(el, parent)
-		if err != nil {
-			return nil, err
-		}
-		el.implied = implied
+	roots, err := d.linkOwners(order)
+	if err != nil {
+		return nil, err
 	}
 	for _, el := range order {
 		if el.metaclass == mMembership || el.metaclass == mSuccession {
@@ -831,6 +785,68 @@ func (d *decoder) build() ([]*element, error) {
 		}
 	}
 	return kept, nil
+}
+
+// readElement reads a subject's identity into an element and indexes it.
+func (d *decoder) readElement(subject rdf.Term) (*element, error) {
+	metaclass := d.metaclass(subject)
+	if metaclass == "" {
+		return nil, &UnsupportedError{
+			What: fmt.Sprintf("the subject <%s>", subject.Value),
+			Note: "it has no rdf:type, so there is no way to tell what to write",
+		}
+	}
+	el := &element{
+		iri:         subject.Value,
+		metaclass:   metaclass,
+		memberIndex: intOf(d.graph, subject, rdf.OpenSysML+xMemberIndex),
+	}
+	el.trailing = !d.graph.HasProperty(subject, rdf.OpenSysML+xMemberIndex) && d.isResultExpression(el)
+	el.qname, _ = d.stringOf(el, rdf.SysML+pQualifiedName)
+	// The identity key. An old graph without sysml:elementId is keyed on
+	// the encoding of its name, which is what its IRIs carry.
+	if id, ok := d.stringOf(el, rdf.SysML+pElementID); ok {
+		el.elementID = id
+	} else {
+		el.elementID = rdf.EncodeElementID(el.qname)
+	}
+	el.declaredID = d.boolOf(el, rdf.OpenSysML+xDeclaredID)
+	el.projectID, _ = d.stringOf(el, rdf.OpenSysML+xProjectID)
+	el.branch, _ = d.stringOf(el, rdf.OpenSysML+xBranch)
+	el.org, _ = d.stringOf(el, rdf.OpenSysML+xOrg)
+	d.byIRI[el.iri] = el
+	if prior, seen := d.byID[el.elementID]; seen && prior != el {
+		d.dupID[el.elementID] = true
+	} else {
+		d.byID[el.elementID] = el
+	}
+	return el, nil
+}
+
+// linkOwners links each element to its owner, returning those with none.
+func (d *decoder) linkOwners(order []*element) ([]*element, error) {
+	var roots []*element
+	for _, el := range order {
+		parent, err := d.ownerOf(el)
+		if err != nil {
+			return nil, err
+		}
+		if parent != nil && d.transparentRoot(parent) {
+			parent = nil
+		}
+		if parent == nil {
+			roots = append(roots, el)
+			continue
+		}
+		el.owner = parent
+		parent.children = append(parent.children, el)
+		implied, err := d.normativeImplied(el, parent)
+		if err != nil {
+			return nil, err
+		}
+		el.implied = implied
+	}
+	return roots, nil
 }
 
 // transparentRoot reports whether el is a document wrapper no notation

@@ -1297,7 +1297,30 @@ func (c *chain) collectShown(s *sysmlv1.DocGenStep) {
 	}
 	// One diagram whose symbols are unread leaves the whole collection unknown,
 	// listed or not: a Named query over the rest would pass for complete.
-	var unread, listed []string
+	unread, listed := unreadDiagrams(diagrams)
+	if len(unread) > 0 {
+		c.abort(s, "it collects "+strings.Join(unread, " and "))
+		return
+	}
+	for _, n := range listed {
+		c.note(n)
+	}
+	var names []string
+	for _, d := range diagrams {
+		names = c.collectDiagramShown(d, names)
+	}
+	if len(names) > 0 {
+		c.ctx = qcall("Named", qstrs("qualifiedName", names...))
+	}
+	if c.empty() && len(c.diagrams) == 0 && c.vague == "" {
+		c.none = "«" + c.kind(s) + "» " + qualifiedName(s.Node) + " collects nothing: " + c.shownNothing(diagrams, holders)
+		c.dropped = c.none
+	}
+}
+
+// unreadDiagrams sorts the diagrams whose symbols are not drawn into those
+// whose contents cannot be read at all and those the tool lists elements for.
+func unreadDiagrams(diagrams []*sysmlv1.Diagram) (unread, listed []string) {
 	for _, d := range diagrams {
 		what := "what the " + diagramKind(d) + " '" + d.Name + "' shows"
 		switch {
@@ -1310,54 +1333,44 @@ func (c *chain) collectShown(s *sysmlv1.DocGenStep) {
 			listed = append(listed, "reads the "+plural(len(d.Shown), "element")+" the tool lists as used on the "+diagramKind(d)+" '"+d.Name+"', whose symbols are not serialized; the list need not be all it shows")
 		}
 	}
-	if len(unread) > 0 {
-		c.abort(s, "it collects "+strings.Join(unread, " and "))
-		return
-	}
-	for _, n := range listed {
-		c.note(n)
-	}
-	var names []string
-	for _, d := range diagrams {
-		unknown, unwritten, folded := 0, 0, 0
-		for _, ref := range d.Shown {
-			if sd := c.m.model.Diagram(ref.ID); sd != nil {
-				c.diagrams = appendDiagram(c.diagrams, sd)
-				continue
-			}
-			switch name, why := c.m.namedRoot(ref, "element"); {
-			case ref.Element == nil:
-				unknown++
-			case why != "" && c.m.foldedInto(ref.Element):
-				folded++
-			case why != "":
-				c.holders = appendElement(c.holders, ref.Element)
-				unwritten++
-			default:
-				c.holders = appendElement(c.holders, ref.Element)
-				if !contains(names, name) {
-					names = append(names, name)
-				}
+	return unread, listed
+}
+
+// collectDiagramShown collects what one diagram shows: nested diagrams to
+// read, the holders of the elements, and the names of those written.
+func (c *chain) collectDiagramShown(d *sysmlv1.Diagram, names []string) []string {
+	unknown, unwritten, folded := 0, 0, 0
+	for _, ref := range d.Shown {
+		if sd := c.m.model.Diagram(ref.ID); sd != nil {
+			c.diagrams = appendDiagram(c.diagrams, sd)
+			continue
+		}
+		switch name, why := c.m.namedRoot(ref, "element"); {
+		case ref.Element == nil:
+			unknown++
+		case why != "" && c.m.foldedInto(ref.Element):
+			folded++
+		case why != "":
+			c.holders = appendElement(c.holders, ref.Element)
+			unwritten++
+		default:
+			c.holders = appendElement(c.holders, ref.Element)
+			if !contains(names, name) {
+				names = append(names, name)
 			}
 		}
-		shown := " shown on the " + diagramKind(d) + " '" + d.Name + "' "
-		if unknown > 0 {
-			c.note(leavesOut + plural(unknown, "element") + shown + "that the archive does not describe")
-		}
-		if unwritten > 0 {
-			c.note(leavesOut + plural(unwritten, "element") + shown + "that the migration does not write")
-		}
-		if folded > 0 {
-			c.note(leavesOut + plural(folded, "element") + shown + "written within the elements owning them, with no v2 element of their own")
-		}
 	}
-	if len(names) > 0 {
-		c.ctx = qcall("Named", qstrs("qualifiedName", names...))
+	shown := " shown on the " + diagramKind(d) + " '" + d.Name + "' "
+	if unknown > 0 {
+		c.note(leavesOut + plural(unknown, "element") + shown + "that the archive does not describe")
 	}
-	if c.empty() && len(c.diagrams) == 0 && c.vague == "" {
-		c.none = "«" + c.kind(s) + "» " + qualifiedName(s.Node) + " collects nothing: " + c.shownNothing(diagrams, holders)
-		c.dropped = c.none
+	if unwritten > 0 {
+		c.note(leavesOut + plural(unwritten, "element") + shown + "that the migration does not write")
 	}
+	if folded > 0 {
+		c.note(leavesOut + plural(folded, "element") + shown + "written within the elements owning them, with no v2 element of their own")
+	}
+	return names
 }
 
 // shownNothing says why no element is shown on the current diagrams: there is

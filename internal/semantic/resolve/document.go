@@ -1531,30 +1531,7 @@ func (r *Resolver) resolveExpr(scope *symbols.Scope, e ast.Node) {
 		r.resolveExpr(scope, v.Operand)
 		r.resolveExpr(scope, v.Index)
 	case *ast.InvocationExpr:
-		r.resolveExpr(scope, v.Operand)
-		var called *symbols.Symbol
-		if v.Type != nil {
-			called, _ = r.ResolveInvocationName(scope, v.Type)
-		}
-		// A Column's expression argument evaluates per row, so a chain in it
-		// may name members of the row element, not a visible reference.
-		column := called != nil && symbols.FQNOf(called) == documentColumnCalcFQN
-		for i, a := range v.Args {
-			if column && i == 1 {
-				r.resolveColumnExpression(scope, a)
-			} else {
-				r.resolveExpr(scope, a)
-			}
-		}
-		for _, na := range v.NamedArgs {
-			// Named argument names are parameter identifiers, not references
-			// Don't resolve na.Name - it's looked up in callee's parameter list
-			if column && na.Name != nil && na.Name.Text() == "expression" {
-				r.resolveColumnExpression(scope, na.Value)
-			} else {
-				r.resolveExpr(scope, na.Value)
-			}
-		}
+		r.resolveInvocation(scope, v)
 	case *ast.CollectExpr:
 		r.resolveExpr(scope, v.Operand)
 		r.resolveExpr(scope, v.Body)
@@ -1562,40 +1539,9 @@ func (r *Resolver) resolveExpr(scope *symbols.Scope, e ast.Node) {
 		r.resolveExpr(scope, v.Operand)
 		r.resolveExpr(scope, v.Body)
 	case *ast.ConstructorExpr:
-		var typ *symbols.Symbol
-		if v.Type != nil {
-			typ, _ = r.ResolveQualified(scope, v.Type)
-		}
-		for _, a := range v.Args {
-			r.resolveExpr(scope, a)
-		}
-		for _, na := range v.NamedArgs {
-			// A simple label is a feature of the instantiated type; a qualified
-			// one is resolved in scope.
-			switch {
-			case na.Name == nil:
-			case len(na.Name.Parts) > 1:
-				r.ResolveQualified(scope, na.Name)
-			case typ != nil:
-				r.resolveMemberChain(typ, na.Name, nil)
-			}
-			r.resolveExpr(scope, na.Value)
-		}
+		r.resolveConstructor(scope, v)
 	case *ast.BodyExpr:
-		for i := range v.Params {
-			p := &v.Params[i]
-			if p.Type != nil {
-				r.ResolveQualified(scope, p.Type)
-			}
-			r.resolveRelationships(scope, v, p.Relationships)
-			r.resolveMultiplicity(scope, p.Multiplicity)
-			r.resolveExpr(scope, p.Value)
-		}
-		// A body expression's parameters and declarations live in a scope of its
-		// own, and its declarations are members of it (F64).
-		inner := symbols.BodyExprScope(scope, v)
-		r.walkMembers(inner, v.Members)
-		r.resolveExpr(inner, v.Result)
+		r.resolveBodyExpr(scope, v)
 	case *ast.SequenceExpr:
 		for _, el := range v.Elements {
 			r.resolveExpr(scope, el)
@@ -1613,6 +1559,72 @@ func (r *Resolver) resolveExpr(scope *symbols.Scope, e ast.Node) {
 		r.ResolveQualified(scope, v)
 	}
 	// Literals (LiteralBool/String/Integer/Real/Infinity, NullExpr) have no refs.
+}
+
+// resolveInvocation resolves an invocation's callee and arguments. A Column's
+// expression argument evaluates per row, so a chain in it may name members of
+// the row element, not a visible reference. Named argument names are parameter
+// identifiers looked up in the callee's parameter list, not references.
+func (r *Resolver) resolveInvocation(scope *symbols.Scope, v *ast.InvocationExpr) {
+	r.resolveExpr(scope, v.Operand)
+	var called *symbols.Symbol
+	if v.Type != nil {
+		called, _ = r.ResolveInvocationName(scope, v.Type)
+	}
+	column := called != nil && symbols.FQNOf(called) == documentColumnCalcFQN
+	for i, a := range v.Args {
+		if column && i == 1 {
+			r.resolveColumnExpression(scope, a)
+		} else {
+			r.resolveExpr(scope, a)
+		}
+	}
+	for _, na := range v.NamedArgs {
+		if column && na.Name != nil && na.Name.Text() == "expression" {
+			r.resolveColumnExpression(scope, na.Value)
+		} else {
+			r.resolveExpr(scope, na.Value)
+		}
+	}
+}
+
+// resolveConstructor resolves a constructor's type and arguments. A simple
+// label is a feature of the instantiated type; a qualified one is resolved in scope.
+func (r *Resolver) resolveConstructor(scope *symbols.Scope, v *ast.ConstructorExpr) {
+	var typ *symbols.Symbol
+	if v.Type != nil {
+		typ, _ = r.ResolveQualified(scope, v.Type)
+	}
+	for _, a := range v.Args {
+		r.resolveExpr(scope, a)
+	}
+	for _, na := range v.NamedArgs {
+		switch {
+		case na.Name == nil:
+		case len(na.Name.Parts) > 1:
+			r.ResolveQualified(scope, na.Name)
+		case typ != nil:
+			r.resolveMemberChain(typ, na.Name, nil)
+		}
+		r.resolveExpr(scope, na.Value)
+	}
+}
+
+// resolveBodyExpr resolves a body expression's parameters, then its members
+// and result in the scope of its own they live in (F64).
+func (r *Resolver) resolveBodyExpr(scope *symbols.Scope, v *ast.BodyExpr) {
+	for i := range v.Params {
+		p := &v.Params[i]
+		if p.Type != nil {
+			r.ResolveQualified(scope, p.Type)
+		}
+		r.resolveRelationships(scope, v, p.Relationships)
+		r.resolveMultiplicity(scope, p.Multiplicity)
+		r.resolveExpr(scope, p.Value)
+	}
+	inner := symbols.BodyExprScope(scope, v)
+	r.walkMembers(inner, v.Members)
+	r.resolveExpr(inner, v.Result)
 }
 
 // resolveColumnExpression resolves a Column's expression argument: a chain

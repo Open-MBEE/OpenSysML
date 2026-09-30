@@ -1922,59 +1922,77 @@ func (a *activity) callBehavior(n *sysmlv1.Element, name string) {
 		b = op
 	}
 	if cat, _ := a.m.classify(b); cat == catActionDef {
-		c := a.m.contextOf(b)
-		note := ""
-		if l, _, why := a.m.lanePerformer(n); l != nil {
-			usage := joinDot(a.m.anchorExpr(l.expr, a.def), writeName(a.m.behaviorUsage(b)))
-			a.m.w.line("perform action " + name + " ::> " + usage + ";")
-			a.m.add(n, Mapped, name, "performed by "+l.expr+", the object its swimlane represents, as its usage "+usage)
-			note = joinNotes(why, note)
-		} else if a.m.asUsage[b] {
-			note = joinNotes(why, a.performUsage(name, b))
-		} else {
-			ins := ""
-			var bindExpr string
-			if c != nil {
-				expr, cnote := a.callContext(n, c)
-				switch {
-				case expr == "":
-					note = joinNotes(note, cnote)
-				case c.owner && c.evaluated && !c.used && !c.bound:
-					// The def is already written and declared no parameter.
-				case strings.Contains(expr, "::"):
-					// A bind's ends must be features of the connector's scope; a
-					// qualified member of a def is not one, so the usage redefines.
-					c.bound = true
-					ins = "in ref :>> " + writeName(c.name) + " = " + expr
-					note = joinNotes(note, cnote)
-				default:
-					c.bound = true
-					bindExpr = expr
-					// Bound to the caller's own object, `this` needs no note.
-					if expr != "this" {
-						note = joinNotes(note, cnote)
-					}
-				}
-			}
-			line := actionKw + name + " : " + a.m.ref(b, a.def)
-			if ins != "" {
-				a.m.w.line(line + " { " + strings.Join(a.m.contextBody(b, ins), "; ") + "; }")
-			} else {
-				a.m.w.line(line + ";")
-			}
-			if bindExpr != "" {
-				a.m.w.line("bind " + name + "." + writeName(c.name) + " = " + bindExpr + ";")
-			}
-			if owner, here := classifierOf(b), a.selfType(); owner != nil && owner != here && (here == nil || !a.m.inherits(here, owner)) {
-				note = joinNotes(note, "the behavior belongs to "+qualifiedName(owner)+" and runs here in the caller's context")
-			}
-			note = joinNotes(why, note)
-		}
-		a.pins(n, b)
-		note = joinNotes(note, a.absentArguments(inputPins(n), b))
-		a.m.add(n, verdictFor(note), name, note)
+		a.callActionDef(n, name, b)
 		return
 	}
+	a.callCalc(n, name, b)
+}
+
+// callActionDef writes a call of an action def as an action usage typed by it,
+// or performing the usage its swimlane's object or the def's own usage stands for.
+func (a *activity) callActionDef(n *sysmlv1.Element, name string, b *sysmlv1.Element) {
+	var note string
+	if l, _, why := a.m.lanePerformer(n); l != nil {
+		usage := joinDot(a.m.anchorExpr(l.expr, a.def), writeName(a.m.behaviorUsage(b)))
+		a.m.w.line("perform action " + name + " ::> " + usage + ";")
+		a.m.add(n, Mapped, name, "performed by "+l.expr+", the object its swimlane represents, as its usage "+usage)
+		note = why
+	} else if a.m.asUsage[b] {
+		note = joinNotes(why, a.performUsage(name, b))
+	} else {
+		note = joinNotes(why, a.callTyped(n, name, b))
+	}
+	a.pins(n, b)
+	note = joinNotes(note, a.absentArguments(inputPins(n), b))
+	a.m.add(n, verdictFor(note), name, note)
+}
+
+// callTyped writes an action usage typed by the def b, binding the def's
+// context parameter to the caller's object where it takes one.
+func (a *activity) callTyped(n *sysmlv1.Element, name string, b *sysmlv1.Element) string {
+	note := ""
+	ins := ""
+	var bindExpr string
+	c := a.m.contextOf(b)
+	if c != nil {
+		expr, cnote := a.callContext(n, c)
+		switch {
+		case expr == "":
+			note = joinNotes(note, cnote)
+		case c.owner && c.evaluated && !c.used && !c.bound:
+			// The def is already written and declared no parameter.
+		case strings.Contains(expr, "::"):
+			// A bind's ends must be features of the connector's scope; a
+			// qualified member of a def is not one, so the usage redefines.
+			c.bound = true
+			ins = "in ref :>> " + writeName(c.name) + " = " + expr
+			note = joinNotes(note, cnote)
+		default:
+			c.bound = true
+			bindExpr = expr
+			// Bound to the caller's own object, `this` needs no note.
+			if expr != "this" {
+				note = joinNotes(note, cnote)
+			}
+		}
+	}
+	line := actionKw + name + " : " + a.m.ref(b, a.def)
+	if ins != "" {
+		a.m.w.line(line + " { " + strings.Join(a.m.contextBody(b, ins), "; ") + "; }")
+	} else {
+		a.m.w.line(line + ";")
+	}
+	if bindExpr != "" {
+		a.m.w.line("bind " + name + "." + writeName(c.name) + " = " + bindExpr + ";")
+	}
+	if owner, here := classifierOf(b), a.selfType(); owner != nil && owner != here && (here == nil || !a.m.inherits(here, owner)) {
+		note = joinNotes(note, "the behavior belongs to "+qualifiedName(owner)+" and runs here in the caller's context")
+	}
+	return note
+}
+
+// callCalc writes a call of a calc def as an action evaluating it over its pins.
+func (a *activity) callCalc(n *sysmlv1.Element, name string, b *sysmlv1.Element) {
 	cnote := ""
 	var ctxArg string
 	if c := a.m.contextOf(b); c != nil && !(c.owner && c.evaluated && !c.used && !c.bound) {

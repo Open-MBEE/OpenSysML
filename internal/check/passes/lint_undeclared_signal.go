@@ -154,48 +154,58 @@ func noteSentSignal(ctx *Context, scope *symbols.Scope, expr ast.Node, sent map[
 	case *ast.ConstructorExpr:
 		noteSentDefinition(ctx, scope, e.Type, sent)
 	case *ast.InvocationExpr:
-		if e.Operand != nil || e.Type == nil {
-			return
-		}
-		model := ctx.Model()
-		sel := model.SelectCall(scope, e, semantics.PerformsBehavior)
-		if !model.CallsCalc(sel) {
-			noteSentDefinition(ctx, scope, e.Type, sent)
-			return
-		}
-		// The calculation's value is sent, typed by its result.
-		for _, called := range selectedCalcs(sel) {
-			for _, typ := range model.DeclaredTypes(model.ResultParameterOf(called)) {
-				if typ != nil && typ.Name != "" {
-					sent[typ.Name] = true
-				}
-			}
-		}
+		noteSentInvocation(ctx, scope, e, sent)
 	case *ast.QualifiedName, *ast.FeatureReference, *ast.FeatureChainExpr:
-		sym, ok := ctx.Resolver().ResolveTarget(scope, e)
-		if !ok || sym == nil {
-			noteSentName(e, sent)
-			return
-		}
-		if sym = ctx.Resolver().AliasedElement(sym); isDefinition(sym) {
-			sent[sym.Name] = true
-			return
-		}
-		// A feature sends its value: a scalar by its scalar type, else by its type.
-		if scalars := ctx.Model().SentScalarTypes(scope, e); len(scalars) > 0 {
-			for _, name := range scalars {
-				sent[name] = true
-			}
-			return
-		}
-		for _, typ := range ctx.Model().DeclaredTypes(sym) {
-			if typ != nil && typ.Name != "" {
-				sent[typ.Name] = true
-			}
-		}
+		noteSentReference(ctx, scope, e, sent)
 	default:
 		for _, name := range ctx.Model().SentScalarTypes(scope, e) {
 			sent[name] = true
+		}
+	}
+}
+
+// noteSentInvocation records what an invoked message sends: the definition
+// invoked, or a calculation's value typed by its result.
+func noteSentInvocation(ctx *Context, scope *symbols.Scope, e *ast.InvocationExpr, sent map[string]bool) {
+	if e.Operand != nil || e.Type == nil {
+		return
+	}
+	model := ctx.Model()
+	sel := model.SelectCall(scope, e, semantics.PerformsBehavior)
+	if !model.CallsCalc(sel) {
+		noteSentDefinition(ctx, scope, e.Type, sent)
+		return
+	}
+	for _, called := range selectedCalcs(sel) {
+		noteTypeNames(model.DeclaredTypes(model.ResultParameterOf(called)), sent)
+	}
+}
+
+// noteSentReference records what a referenced element sends: a definition by
+// name, a feature by its value's scalar type, else by its type.
+func noteSentReference(ctx *Context, scope *symbols.Scope, e ast.Node, sent map[string]bool) {
+	sym, ok := ctx.Resolver().ResolveTarget(scope, e)
+	if !ok || sym == nil {
+		noteSentName(e, sent)
+		return
+	}
+	if sym = ctx.Resolver().AliasedElement(sym); isDefinition(sym) {
+		sent[sym.Name] = true
+		return
+	}
+	if scalars := ctx.Model().SentScalarTypes(scope, e); len(scalars) > 0 {
+		for _, name := range scalars {
+			sent[name] = true
+		}
+		return
+	}
+	noteTypeNames(ctx.Model().DeclaredTypes(sym), sent)
+}
+
+func noteTypeNames(types []*symbols.Symbol, sent map[string]bool) {
+	for _, typ := range types {
+		if typ != nil && typ.Name != "" {
+			sent[typ.Name] = true
 		}
 	}
 }
