@@ -186,7 +186,7 @@ func (m *Model) judgeCoherentUnits(candidates []*symbols.Symbol, rank int, out m
 		if err != nil || term.Dimensionless() {
 			continue
 		}
-		if slices.ContainsFunc(m.definitionPowers(sym), func(p UnitPower) bool { return p.DimensionOne }) {
+		if slices.ContainsFunc(m.definitionPowers(sym), func(p UnitPower) bool { return p.DimensionOne && !p.Identity }) {
 			continue
 		}
 		if declared, ok := m.dimensionOf(sym); ok {
@@ -206,7 +206,7 @@ func (m *Model) definedOverBaseUnits(sym *symbols.Symbol) bool {
 		return false
 	}
 	bases := slices.Collect(maps.Values(m.systemBaseUnits()))
-	return !slices.ContainsFunc(powers, func(p UnitPower) bool { return p.Unit == nil || !slices.Contains(bases, p.Unit) })
+	return !slices.ContainsFunc(powers, func(p UnitPower) bool { return !p.Identity && (p.Unit == nil || !slices.Contains(bases, p.Unit)) })
 }
 
 // definitionPowers lists the unit powers a derived unit's definition names, from

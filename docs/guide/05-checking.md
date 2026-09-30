@@ -350,6 +350,16 @@ over a dimension-one unit such as `rad` keeps that unit, since the reduction wou
 unit written as one name (`3 [km]`, `400 [cm]`) is kept as written. The magnitude changes only
 by the exact scale factor of the reduction — never by the choice of spelling.
 
+`MeasurementReferences::one`, the library's dimensionless unit, is the identity of the unit
+product: a factor written in it leaves the product (`0.7 [one] * 800 [W]` is `560.0 [W]`,
+`800 [W] / 0.5 [one]` is `1600.0 [W]`), a product of nothing but `one` is `one`
+(`2 [one] * 3 [one]` is `6 [one]`), and the rest folds as if the factor were not there — an
+efficiency declared `attribute :>> efficiency = 0.7 [one];` reads `67200.0 [SI::J]` in
+`power * duration * efficiency` bound to an `EnergyValue`, the same as `0.7` with no unit. The
+identity is recognised by the unit's structure — a plain `DimensionOneUnit` at scale one — not
+by its name, so a dimension-one unit of another kind (`rad`, `sr`) or one that scales `one` by
+a `unitConversion` (a percent) is kept in the product like `rad` is.
+
 Writing a quantity to a feature typed by a quantity kind checks its reduced dimension, not its
 spelling: `10 [N] / 2 [kg]` is admitted to an `AccelerationValue`, and an `L·T^-1` value written
 to one is refused as a `type mismatch` naming both dimensions. See

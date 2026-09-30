@@ -189,3 +189,91 @@ func TestUnitTermAlgebra(t *testing.T) {
 		t.Errorf("(m/s)^-1 = %v, want s/m", inv)
 	}
 }
+
+// TestIsIdentityUnit: `MeasurementReferences::one` is the identity of unit
+// products by its structure — a plain DimensionOneUnit at scale one, as is any
+// unit declared so — while an angular unit, a unit scaling `one` by convention
+// and a unit of a base dimension are not.
+func TestIsIdentityUnit(t *testing.T) {
+	m, root := buildModelWithStdlib(t, `
+		package test {
+			private import ISQ::*;
+			private import SI::*;
+			private import MeasurementReferences::*;
+			attribute unity : DimensionOneUnit = one;
+			attribute another : DimensionOneUnit = new DimensionOneUnit();
+			attribute <'%'> percent : DimensionOneUnit { :>> unitConversion : ConversionByConvention { :>> referenceUnit = one; :>> conversionFactor = 0.01; } }
+			attribute halfTurn : AngularMeasureUnit = rad;
+			attribute halfMetre : LengthUnit { :>> unitConversion : ConversionByConvention { :>> referenceUnit = m; :>> conversionFactor = 0.5; } }
+		}
+	`)
+	lib := func(fqn string) *symbols.Symbol {
+		matches := m.resolver.Index().LookupQualified(fqn)
+		if len(matches) != 1 {
+			t.Fatalf("%s: %d matches", fqn, len(matches))
+		}
+		return matches[0]
+	}
+	cases := []struct {
+		sym  *symbols.Symbol
+		want bool
+	}{
+		{lib("MeasurementReferences::one"), true},
+		{nestedSym(t, root, "test::unity"), true},
+		{nestedSym(t, root, "test::another"), true},
+		{nestedSym(t, root, "test::percent"), false},
+		{nestedSym(t, root, "test::halfTurn"), false},
+		{nestedSym(t, root, "test::halfMetre"), false},
+		{lib("SI::rad"), false},
+		{lib("SI::sr"), false},
+		{lib("SI::m"), false},
+		{lib("SI::J"), false},
+	}
+	for _, tc := range cases {
+		if got := m.IsIdentityUnit(tc.sym); got != tc.want {
+			t.Errorf("IsIdentityUnit(%s) = %v, want %v", tc.sym.Name, got, tc.want)
+		}
+	}
+	if m.IsIdentityUnit(nil) {
+		t.Error("IsIdentityUnit(nil) = true")
+	}
+}
+
+// TestUnitProductAbsorbsIdentity: the identity power leaves any product it shares
+// with another unit, from either side of a product or quotient; alone it stays,
+// to the first power, whatever power it is raised to, with every root itself.
+func TestUnitProductAbsorbsIdentity(t *testing.T) {
+	one := NamedUnitProduct(nil, "one", true)
+	one.Powers[0].Identity = true
+	m := NamedUnitProduct(nil, "m", false)
+	rad := NamedUnitProduct(nil, "rad", true)
+	cases := []struct {
+		got  UnitProduct
+		want string
+	}{
+		{one.Times(m), "m"},
+		{m.Times(one), "m"},
+		{m.DividedBy(one), "m"},
+		{one.DividedBy(m), "1/m"},
+		{one.Times(one), "one"},
+		{one.DividedBy(one), "1"},
+		{one.Pow(3), "one"},
+		{one.Pow(-2), "one"},
+		{one.Pow(0), "1"},
+		{one.Times(rad), "rad"},
+		{rad.Times(one).Times(m), "m*rad"},
+		{one.Times(m).Times(one).DividedBy(one), "m"},
+	}
+	for _, tc := range cases {
+		if s := tc.got.String(); s != tc.want {
+			t.Errorf("got %s, want %s", s, tc.want)
+		}
+	}
+	root, ok := one.Root(2)
+	if !ok || root.String() != "one" {
+		t.Errorf("one.Root(2) = %s, %v; want one, true", root, ok)
+	}
+	if _, ok := rad.Root(2); ok {
+		t.Error("rad.Root(2) succeeded; rad has no square root")
+	}
+}
