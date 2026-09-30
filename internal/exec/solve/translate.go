@@ -702,7 +702,9 @@ func conjunction(terms []*Term) *Term {
 
 // read records that the condition being translated reads v where the evaluator
 // reaches the reference: under the disjunction of the paths that reach one, or
-// unconditionally once any reference reads it on every path.
+// unconditionally once any reference reads it on every path. The guards hoisted
+// so far are the ones the evaluator has checked by the first conditional
+// reference, in its left-to-right, condition-by-condition order.
 func (t *translator) read(v *Var) {
 	if t.always[v] {
 		return
@@ -717,6 +719,10 @@ func (t *translator) read(v *Var) {
 	}
 	if v.Reached == nil {
 		v.Reached = t.path
+		v.Preceding = make([]*Term, 0, len(t.guards))
+		for _, g := range t.guards {
+			v.Preceding = append(v.Preceding, g.Term)
+		}
 		return
 	}
 	v.Reached = Or(v.Reached, t.path)

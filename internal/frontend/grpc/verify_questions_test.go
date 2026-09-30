@@ -1031,3 +1031,44 @@ func TestVerifyQuestionsGuardNestedReads(t *testing.T) {
 		}
 	}
 }
+
+// laterGuardModelSource declares a requirement whose failed default is reached
+// where its first condition's left operand fails, and whose second condition
+// divides by a value pinned to zero — an operation the evaluator performs only
+// after that read.
+const laterGuardModelSource = `package P {
+	private import ScalarValues::*;
+	requirement def Later {
+		attribute bad : Real = 1.0 / 0.0;
+		attribute free : Real;
+		attribute divisor : Real = 0.0;
+		attribute a : Real;
+		require constraint { free > 0.0 or bad > 0.0 }
+		require constraint { a / divisor > 0.0 }
+	}
+	requirement later : Later;
+}
+`
+
+// TestVerifyQuestionsAGuardAfterTheReadCertifiesNoProof: the zero divisor makes
+// the satisfiability query unsat through its definedness guard, but free <= 0.0
+// reaches bad before the evaluator divides, so the question stays undecided
+// naming that read rather than claiming unsatisfiable.
+func TestVerifyQuestionsAGuardAfterTheReadCertifiesNoProof(t *testing.T) {
+	requireSolver(t)
+	srv := mustNewService(t, 10)
+	hash := mustVerifyModel(t, srv, laterGuardModelSource, "verify-later-guard")
+	for _, symbol := range []string{"P::Later", "P::later"} {
+		resp, err := srv.VerifyRequirement(context.Background(), &pb.VerifyRequirementRequest{
+			ModelHash: hash, SymbolId: symbol, Question: questionSatisfiable,
+		})
+		if err != nil {
+			t.Fatalf("VerifyRequirement %s: %v", symbol, err)
+		}
+		v := resp.Verdict
+		want := "requirement " + strings.TrimPrefix(symbol, "P::") + " reads bad under some assignment of its free features, whose value could not be read: division by zero"
+		if v.Status != statusUndecided || v.Holds || v.Error != want || len(v.Witness) != 0 {
+			t.Errorf("%s satisfiable: status=%q holds=%v error=%q witness=%+v, want undecided %q", symbol, v.Status, v.Holds, v.Error, v.Witness, want)
+		}
+	}
+}

@@ -365,3 +365,105 @@ func TestRequirementReachesALaterConditionAfterTheEarlierOnes(t *testing.T) {
 	}
 	solved(t, solver, violation.Reached(), StatusSat)
 }
+
+// laterGuardSource declares requirements whose failed default is reached under
+// a condition, and a computed divisor the evaluator checks after that read
+// (Pinned, Selected) or before it (Preceded).
+const laterGuardSource = `package test {
+	private import ScalarValues::*;
+	requirement def Pinned {
+		attribute bad : Real = 1.0 / 0.0;
+		attribute free : Real;
+		attribute divisor : Real = 0.0;
+		attribute a : Real;
+		require constraint { free > 0.0 or bad > 0.0 }
+		require constraint { a / divisor > 0.0 }
+	}
+	requirement def Selected {
+		attribute bad : Real = 1.0 / 0.0;
+		attribute free : Real;
+		require constraint { free > 0.0 or bad > 0.0 }
+		require constraint { 1.0 / (if free > 0.0 ? 1.0 else 0.0) > 2.0 }
+	}
+	requirement def Preceded {
+		attribute bad : Real = 1.0 / 0.0;
+		attribute free : Real;
+		require constraint { 1.0 / (if free > 0.0 ? 1.0 else 0.0) > 0.5 }
+		require constraint { free > 0.0 or bad > 0.0 }
+	}
+}`
+
+// TestReachedKeepsOnlyTheGuardsCheckedBeforeTheRead: a definedness guard
+// hoisted from an operation the evaluator performs only after reaching a failed
+// default — a later required condition's divisor — does not constrain Reached:
+// an assignment failing at the read never performs the operation, so the guard
+// would hide the assignment and certify a false proof where the question is
+// unsat for its own reasons. A guard the evaluator checks before the read does
+// constrain it: an assignment failing that check never reaches the read.
+func TestReachedKeepsOnlyTheGuardsCheckedBeforeTheRead(t *testing.T) {
+	solver := requireSolver(t)
+	ctx, idx := fixture(t, "later_guard.sysml", laterGuardSource)
+	guarded := func(name string) *Query {
+		t.Helper()
+		sym := symbolNamed(t, idx, "test::"+name)
+		pins, unfixed := FixedFor(ctx, Fixing{Element: sym, Owner: sym})
+		q, err := RequirementWith(ctx, sym, sym.OwnerScope, pins)
+		if err != nil {
+			t.Fatalf("translate %s: %v", name, err)
+		}
+		if err := UnfixedRead(ctx, q, unfixed); err != nil {
+			t.Fatalf("UnfixedRead %s = %v, want the read under free <= 0.0 guarded", name, err)
+		}
+		if len(q.Unreadable) != 1 || q.Unreadable[0].Name != "bad" {
+			t.Fatalf("%s Unreadable = %+v, want bad", name, q.Unreadable)
+		}
+		return q
+	}
+	definedness := func(q *Query) []string {
+		var out []string
+		for _, a := range q.Assertions {
+			if a.From.Role == RoleDefined {
+				out = append(out, writeTerm(a.Term))
+			}
+		}
+		return out
+	}
+
+	// The divisor pinned to 0.0 makes the question unsat through its hoisted
+	// guard; free <= 0.0 still reaches bad first, so no proof is certified.
+	pinned := guarded("Pinned")
+	if got := definedness(pinned); len(got) != 2 || got[0] != "(distinct |test::Pinned::divisor| 0.0)" {
+		t.Errorf("Pinned definedness guards = %q, want the divisor's and the read's", got)
+	}
+	if got := pinned.Unreadable[0].Preceding; len(got) != 0 {
+		t.Errorf("Pinned: guards preceding the read = %v, want none: the division comes after", got)
+	}
+	solved(t, solver, pinned, StatusUnsat)
+	reached := pinned.Reached()
+	if got := definedness(reached); len(got) != 0 {
+		t.Errorf("Pinned Reached() asserts definedness guards %q, want none", got)
+	}
+	values := modelValues(t, solved(t, solver, reached, StatusSat))
+	if free, ok := values["test::Pinned::free"]; !ok || !(strings.HasPrefix(free, "-") || free == "0.0") {
+		t.Errorf("Pinned Reached() model = %v, want free <= 0.0 reaching bad", values)
+	}
+
+	// A divisor selected by free itself: its guard is free > 0.0, which the
+	// read's condition contradicts, yet the evaluator checks it only after.
+	selected := guarded("Selected")
+	solved(t, solver, selected, StatusUnsat)
+	solved(t, solver, selected.Reached(), StatusSat)
+
+	// Checked before the read, the same guard says which assignments reach it:
+	// none with free <= 0.0, as the evaluator fails dividing there first.
+	preceded := guarded("Preceded")
+	if got := preceded.Unreadable[0].Preceding; len(got) != 1 ||
+		writeTerm(got[0]) != "(distinct (ite (> |test::Preceded::free| 0.0) 1.0 0.0) 0.0)" {
+		t.Errorf("Preceded: guards preceding the read = %v, want the divisor's", got)
+	}
+	values = modelValues(t, solved(t, solver, preceded, StatusSat))
+	if free, ok := values["test::Preceded::free"]; !ok || strings.HasPrefix(free, "-") || free == "0.0" {
+		t.Errorf("Preceded witness = %v, want free > 0.0", values)
+	}
+	solved(t, solver, preceded.Reached(), StatusUnsat)
+}

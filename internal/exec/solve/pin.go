@@ -152,6 +152,11 @@ type UnreadableRead struct {
 	// Guard is the term the query asserts to keep its models from reaching the
 	// read: the negation of Reached.
 	Guard *Term
+
+	// Preceding are the definedness guards of the operations the evaluator
+	// performs before reaching the read (Var.Preceding), which an assignment
+	// reaching it satisfies.
+	Preceding []*Term
 }
 
 // PinError says which value could not be fixed, why, and where the feature was
@@ -751,7 +756,7 @@ func UnfixedRead(ctx *runtime.Context, q *Query, unfixed []Unfixed) error {
 		}
 		guarded[v] = true
 		guard := Not(v.Reached)
-		q.Unreadable = append(q.Unreadable, UnreadableRead{Var: v, Name: u.Name, Err: u.Err, Reached: v.Reached, Guard: guard})
+		q.Unreadable = append(q.Unreadable, UnreadableRead{Var: v, Name: u.Name, Err: u.Err, Reached: v.Reached, Guard: guard, Preceding: v.Preceding})
 		guards = append(guards, Assertion{Term: guard, From: Provenance{
 			Kind:      q.Kind,
 			Element:   q.Element,
@@ -792,12 +797,17 @@ func contextRole(role Role) bool {
 
 // Reached is the query whose models are the assignments of the free features
 // under which the evaluator reads a feature whose value could not be read: q's
-// domains, fixed values, assumptions and other definedness guards, with the
-// disjunction of the unreadable reads' conditions required. Nil for a query
-// reading no such feature. Unsat proves that every assignment the question is
-// about evaluates without the read, so q's verdict is the evaluator's; sat
-// witnesses an assignment on which the evaluator reaches no verdict, which
-// leaves a proof or a refutation of q undecided (ReachedError).
+// domains, fixed values and assumptions, with the disjunction of the unreadable
+// reads required — each read's condition together with the definedness guards
+// of the operations the evaluator performs before reaching it. A guard hoisted
+// from an operation after the read — a later required condition's divisor —
+// constrains no assignment reaching it: the evaluator fails at the read and
+// never performs the operation, so imposing the guard could hide the
+// assignment and certify a false proof. Nil for a query reading no such
+// feature. Unsat proves that every assignment the question is about evaluates
+// without the read, so q's verdict is the evaluator's; sat witnesses an
+// assignment on which the evaluator reaches no verdict, which leaves a proof or
+// a refutation of q undecided (ReachedError).
 func (q *Query) Reached() *Query {
 	if len(q.Unreadable) == 0 {
 		return nil
@@ -811,16 +821,14 @@ func (q *Query) Reached() *Query {
 		IntegerDivision: q.IntegerDivision,
 		Pinned:          q.Pinned,
 	}
-	guards := make(map[*Term]bool, len(q.Unreadable))
 	reads := make([]*Term, 0, len(q.Unreadable))
 	names := make([]string, 0, len(q.Unreadable))
 	for _, u := range q.Unreadable {
-		guards[u.Guard] = true
-		reads = append(reads, u.Reached)
+		reads = append(reads, and(conjunction(u.Preceding), u.Reached))
 		names = append(names, u.Name)
 	}
 	for _, a := range q.Assertions {
-		if guards[a.Term] {
+		if a.From.Role == RoleDefined {
 			continue
 		}
 		if contextRole(a.From.Role) || a.From.Role == RoleAssumed {

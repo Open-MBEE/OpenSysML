@@ -218,8 +218,13 @@
 // exactly the condition under which the evaluator never reaches the read. An
 // unsat, however, only speaks for the guarded assignments; Query.Reached is the
 // query whose models are the assignments reaching some unreadable feature — the
-// same domains, pins, assumptions and other guards, requiring the disjunction of
-// the reads' conditions. Reached unsat proves no assignment reaches the read,
+// same domains, pins and assumptions, requiring the disjunction of the reads'
+// conditions, each with the definedness guards of the operations the evaluator
+// performs before reaching it (Var.Preceding). A guard hoisted from an operation
+// after the read — a later required condition's divisor — constrains no
+// assignment reaching it: the evaluator fails at the read and never performs
+// the operation, so imposing the guard could hide the assignment and certify a
+// false proof. Reached unsat proves no assignment reaches the read,
 // and the unsat is the evaluator's answer on every assignment: `true or bad >
 // 0.0` holds. Reached sat witnesses an assignment on which the evaluator reaches
 // no verdict, and the question stays undecided with Query.ReachedError naming

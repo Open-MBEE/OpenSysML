@@ -98,6 +98,13 @@ type Var struct {
 	// Nil where some reference reads it on every path.
 	Reached *Term
 
+	// Preceding are the definedness guards the query asserted for operations
+	// the evaluator performs before it first reaches the variable under
+	// Reached — a divisor it has checked non-zero by then. An assignment
+	// reaching the variable satisfies them; the guards asserted after come from
+	// operations an evaluation failing at the read never performs.
+	Preceding []*Term
+
 	// Dimension is the quantity dimension its magnitude is expressed in, over
 	// base units, empty for a value that has none.
 	Dimension string
