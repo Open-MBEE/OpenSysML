@@ -116,7 +116,7 @@ systematically from four sources, one subdirectory each:
    pilot's grammar rejects before its validator would), and a constructed payload whose `new`
    names a package rather than a type (`send-constructor-non-type`).
 
-What this corpus cannot see: it tests the invalid models we thought to write. **We authored all 310
+What this corpus cannot see: it tests the invalid models we thought to write. **We authored all 311
 cases ourselves**, so the denominator measures our coverage of the rejection surface, not our
 conformance: it is a **sample, not a proof** — a clean bucket here does not mean OpenSysML rejects
 everything the reference rejects, and no official conformance suite exists to make that claim
@@ -164,7 +164,7 @@ measured at their own round and are not the current baseline.
 Under the default `-conformance auto`:
 
 ```
-310 case(s): 301 both reject, 0 only the pilot rejects, 9 only we reject, 0 both accept
+311 case(s): 302 both reject, 0 only the pilot rejects, 9 only we reject, 0 both accept
   of which 4 agree only because we were asked strictly (the default mode accepts them, by design)
 ```
 
@@ -172,7 +172,7 @@ Under the default `-conformance auto`:
 | --- | --- | --- | --- | --- | --- |
 | extensions | 9 | 9 | 0 | 0 | 0 |
 | grammar | 108 | 108 | 0 | 0 | 0 |
-| semantic | 158 | 149 | 0 | 9 | 0 |
+| semantic | 159 | 150 | 0 | 9 | 0 |
 | xpect | 35 | 35 | 0 | 0 | 0 |
 
 Eight of the nine ours-only cases are the control-node succession rules (`cn01`–`cn04`, `cn06`–`cn09`)
@@ -231,7 +231,11 @@ so do we), and to 307 with `s99` (a transition's bare accept name is its payload
 and to 308 with `s100` (library members are not implicitly visible — `VerificationMethod` and
 `VerificationMethodKind::test` need an import or qualification, so both validators report an
 unresolvable reference to each).
-The action-body parameter prefix-order cases `g80`–`g81` then raised the corpus to 310.
+The action-body parameter prefix-order cases `g80`–`g81` then raised the corpus to 310, and `s101`
+(a package-level allocation whose ends name a definition's owned features by qualified name,
+`allocate ToastBread::applyHeat to Toaster::heating`; a connector with no featuring type reaches
+only features that have none, so both validators reject each end under
+`validateConnectorTypeFeaturing`) to 311.
 The KerML constraints in that
 source reopened 14 gaps — all of them semantic rules the pilot enforces and we did not; the
 named-argument validation that landed alongside closed one of them (`k33`), the constructor
@@ -275,7 +279,7 @@ when it was first written, six were closed by the validation work itself — `p0
 Read those four as agreement *when asked strictly*, not as gaps that disappeared. An opt-in
 check is weaker evidence than a default one: it says the strict question has an answer we agree on,
 not that the pipeline a user gets by default rejects the notation — by design it does not. And
-because we authored all 310 cases ourselves, a small gap count means we ran out of questions we
+because we authored all 311 cases ourselves, a small gap count means we ran out of questions we
 thought to ask, not that we stopped being permissive: the denominator measures our coverage of the
 rejection surface, not our conformance.
 
