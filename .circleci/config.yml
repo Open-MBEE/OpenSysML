@@ -1981,8 +1981,8 @@ jobs:
 
   # Publishes org.openmbee:opensysml-client and its parent pom to Maven Central
   # from the core `v<version>` tag. Central has no trusted publishing, so a
-  # portal token and the release signing key come from the restricted
-  # `maven-central` context. Everything that can fail runs before the upload:
+  # portal token and the release signing key come from the
+  # project environment variables. Everything that can fail runs before the upload:
   # the tag/version check, the Central availability check, the credentials, and
   # a proof the signing key and passphrase work. The deploy auto-publishes the
   # validated deployment and waits until it is published.
@@ -2027,11 +2027,11 @@ jobs:
       - run:
           name: Require the publishing credentials
           command: |
-            # Names only, never values; the 'maven-central' context supplies them.
+            # Names only, never values; they are project environment variables.
             for name in CENTRAL_TOKEN_USERNAME CENTRAL_TOKEN_PASSWORD \
                         GPG_PRIVATE_KEY GPG_PASSPHRASE; do
               if [ -z "${!name:-}" ]; then
-                echo "Error: ${name} is not set; the restricted 'maven-central' context supplies it."
+                echo "Error: ${name} is not set; add it under Project Settings → Environment Variables."
                 exit 1
               fi
             done
@@ -2316,10 +2316,8 @@ workflows:
           # Last of all, with publish-pypi and publish-npm: Central versions are
           # immutable, so it waits for the GitHub release. It is independent of
           # them so neither registry refusing a re-run blocks the other.
-          # The organization context is named 'maven-central'; a context
-          # reference is matched exactly, so the case here has to match it.
-          context:
-            - maven-central
+          # The credentials are project environment variables; moving them
+          # into a restricted context later is a `context:` line here.
           requires:
             - Publish GitHub release
             - Java client tests
