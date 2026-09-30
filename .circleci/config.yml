@@ -2195,7 +2195,7 @@ jobs:
                     -H "Authorization: Bearer ${auth}" \
                     "https://central.sonatype.com/api/v1/publisher/published?namespace=org.openmbee&name=opensysml-client&version=${JAVA_VERSION}")
                   case "$code" in
-                    200) echo "ok: the portal token authenticates ($(cat /tmp/central.json))" ;;
+                    200) echo "ok: the portal token authenticates" ;;
                     401|403)
                       echo "Error: Central rejected the portal token (HTTP $code)."
                       exit 1 ;;
