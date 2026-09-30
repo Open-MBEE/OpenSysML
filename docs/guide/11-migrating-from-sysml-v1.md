@@ -304,11 +304,13 @@ migrated.
 
 ## Portable output with `-strict`
 
-By default a migration may write OpenSysML's own pseudostate extensions — `choice`, `junction`
-and `history` — which the runtime executes but no SysML v2 production admits, so another tool
-would not read them. Pass `-strict` (see
-[Strict conformance](03-command-line.md#strict-conformance)) and the migration writes
-conforming SysML v2 only, each pseudostate extension refused as **unmapped** instead:
+Pseudostates are written through the `StateMachines` library's metadata
+spellings — `#StateMachines::junction state x;` — with `private import
+StateMachines::*;` added to each package that holds one, so a migrated model
+reads as conforming SysML v2 either way. Pass `-strict` (see
+[Strict conformance](03-command-line.md#strict-conformance)) and the migration
+still writes only notation a pinned grammar admits — the pseudostates keep
+their `StateMachines` metadata spellings in both modes:
 
 ```console
 $ sysml Project.xmi -strict -convert sysml -o Project.sysml
@@ -325,10 +327,9 @@ action sends the kept occurrences back to the object once the state is left, so 
 entered next takes them as if they had just arrived. The state is annotated
 `@MigrationMetadata::DeferredEvent { ref :>> signal : Sig; }` as well, so a reader sees what
 was deferred without reading the encoding; the encoding and its rules are described under
-[Deferred signals](../reference/sysml-v1-migration.md#deferred-signals). The one difference
-between the modes is which transitions take the signal: a transition out of the deferring
-state into a `choice` accepts it in the default migration, which writes both, while `-strict`
-refuses them and the state keeps the signal.
+[Deferred signals](../reference/sysml-v1-migration.md#deferred-signals). A transition out of
+the deferring state into a `choice` accepts the signal in both modes, since the pseudostate
+metadata spelling is written either way.
 
 ## Publishing a migrated document with Cameo-style diagrams
 

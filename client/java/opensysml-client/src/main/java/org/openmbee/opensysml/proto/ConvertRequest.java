@@ -36,6 +36,7 @@ private static final long serialVersionUID = 0L;
   private ConvertRequest() {
     fromFormat_ = "";
     toFormat_ = "";
+    idForm_ = "";
   }
 
   public static final com.google.protobuf.Descriptors.Descriptor
@@ -373,6 +374,63 @@ private static final long serialVersionUID = 0L;
     return tolerateSyntaxErrors_;
   }
 
+  public static final int ID_FORM_FIELD_NUMBER = 7;
+  @SuppressWarnings("serial")
+  private volatile java.lang.Object idForm_ = "";
+  /**
+   * <pre>
+   * How derived element ids are spelled when notation is written as a graph
+   * ("ttl" or "api-json"), as `sysml -id` does: "qualified" (the default, each
+   * derived from its qualified name) or "uuid" (name-based uuids under each root
+   * package, the library convention). Declared and normative ids are unchanged.
+   * Empty is "qualified"; any other value, or one given for another direction,
+   * is INVALID_ARGUMENT.
+   * </pre>
+   *
+   * <code>string id_form = 7 [json_name = "idForm"];</code>
+   * @return The idForm.
+   */
+  @java.lang.Override
+  public java.lang.String getIdForm() {
+    java.lang.Object ref = idForm_;
+    if (ref instanceof java.lang.String) {
+      return (java.lang.String) ref;
+    } else {
+      com.google.protobuf.ByteString bs = 
+          (com.google.protobuf.ByteString) ref;
+      java.lang.String s = bs.toStringUtf8();
+      idForm_ = s;
+      return s;
+    }
+  }
+  /**
+   * <pre>
+   * How derived element ids are spelled when notation is written as a graph
+   * ("ttl" or "api-json"), as `sysml -id` does: "qualified" (the default, each
+   * derived from its qualified name) or "uuid" (name-based uuids under each root
+   * package, the library convention). Declared and normative ids are unchanged.
+   * Empty is "qualified"; any other value, or one given for another direction,
+   * is INVALID_ARGUMENT.
+   * </pre>
+   *
+   * <code>string id_form = 7 [json_name = "idForm"];</code>
+   * @return The bytes for idForm.
+   */
+  @java.lang.Override
+  public com.google.protobuf.ByteString
+      getIdFormBytes() {
+    java.lang.Object ref = idForm_;
+    if (ref instanceof java.lang.String) {
+      com.google.protobuf.ByteString b = 
+          com.google.protobuf.ByteString.copyFromUtf8(
+              (java.lang.String) ref);
+      idForm_ = b;
+      return b;
+    } else {
+      return (com.google.protobuf.ByteString) ref;
+    }
+  }
+
   private byte memoizedIsInitialized = -1;
   @java.lang.Override
   public final boolean isInitialized() {
@@ -405,6 +463,9 @@ private static final long serialVersionUID = 0L;
     if (sourceCase_ == 6) {
       com.google.protobuf.GeneratedMessage.writeString(output, 6, source_);
     }
+    if (!com.google.protobuf.GeneratedMessage.isStringEmpty(idForm_)) {
+      com.google.protobuf.GeneratedMessage.writeString(output, 7, idForm_);
+    }
     getUnknownFields().writeTo(output);
   }
 
@@ -433,6 +494,9 @@ private static final long serialVersionUID = 0L;
     if (sourceCase_ == 6) {
       size += com.google.protobuf.GeneratedMessage.computeStringSize(6, source_);
     }
+    if (!com.google.protobuf.GeneratedMessage.isStringEmpty(idForm_)) {
+      size += com.google.protobuf.GeneratedMessage.computeStringSize(7, idForm_);
+    }
     size += getUnknownFields().getSerializedSize();
     memoizedSize = size;
     return size;
@@ -454,6 +518,8 @@ private static final long serialVersionUID = 0L;
         .equals(other.getToFormat())) return false;
     if (getTolerateSyntaxErrors()
         != other.getTolerateSyntaxErrors()) return false;
+    if (!getIdForm()
+        .equals(other.getIdForm())) return false;
     if (!getSourceCase().equals(other.getSourceCase())) return false;
     switch (sourceCase_) {
       case 1:
@@ -489,6 +555,8 @@ private static final long serialVersionUID = 0L;
     hash = (37 * hash) + TOLERATE_SYNTAX_ERRORS_FIELD_NUMBER;
     hash = (53 * hash) + com.google.protobuf.Internal.hashBoolean(
         getTolerateSyntaxErrors());
+    hash = (37 * hash) + ID_FORM_FIELD_NUMBER;
+    hash = (53 * hash) + getIdForm().hashCode();
     switch (sourceCase_) {
       case 1:
         hash = (37 * hash) + FILE_PATH_FIELD_NUMBER;
@@ -645,6 +713,7 @@ private static final long serialVersionUID = 0L;
       fromFormat_ = "";
       toFormat_ = "";
       tolerateSyntaxErrors_ = false;
+      idForm_ = "";
       sourceCase_ = 0;
       source_ = null;
       return this;
@@ -690,6 +759,9 @@ private static final long serialVersionUID = 0L;
       if (((from_bitField0_ & 0x00000020) != 0)) {
         result.tolerateSyntaxErrors_ = tolerateSyntaxErrors_;
       }
+      if (((from_bitField0_ & 0x00000040) != 0)) {
+        result.idForm_ = idForm_;
+      }
     }
 
     private void buildPartialOneofs(org.openmbee.opensysml.proto.ConvertRequest result) {
@@ -721,6 +793,11 @@ private static final long serialVersionUID = 0L;
       }
       if (other.getTolerateSyntaxErrors() != false) {
         setTolerateSyntaxErrors(other.getTolerateSyntaxErrors());
+      }
+      if (!other.getIdForm().isEmpty()) {
+        idForm_ = other.idForm_;
+        bitField0_ |= 0x00000040;
+        onChanged();
       }
       switch (other.getSourceCase()) {
         case FILE_PATH: {
@@ -804,6 +881,11 @@ private static final long serialVersionUID = 0L;
               source_ = s;
               break;
             } // case 50
+            case 58: {
+              idForm_ = input.readStringRequireUtf8();
+              bitField0_ |= 0x00000040;
+              break;
+            } // case 58
             default: {
               if (!super.parseUnknownField(input, extensionRegistry, tag)) {
                 done = true; // was an endgroup tag
@@ -1373,6 +1455,123 @@ private static final long serialVersionUID = 0L;
     public Builder clearTolerateSyntaxErrors() {
       bitField0_ = (bitField0_ & ~0x00000020);
       tolerateSyntaxErrors_ = false;
+      onChanged();
+      return this;
+    }
+
+    private java.lang.Object idForm_ = "";
+    /**
+     * <pre>
+     * How derived element ids are spelled when notation is written as a graph
+     * ("ttl" or "api-json"), as `sysml -id` does: "qualified" (the default, each
+     * derived from its qualified name) or "uuid" (name-based uuids under each root
+     * package, the library convention). Declared and normative ids are unchanged.
+     * Empty is "qualified"; any other value, or one given for another direction,
+     * is INVALID_ARGUMENT.
+     * </pre>
+     *
+     * <code>string id_form = 7 [json_name = "idForm"];</code>
+     * @return The idForm.
+     */
+    public java.lang.String getIdForm() {
+      java.lang.Object ref = idForm_;
+      if (!(ref instanceof java.lang.String)) {
+        com.google.protobuf.ByteString bs =
+            (com.google.protobuf.ByteString) ref;
+        java.lang.String s = bs.toStringUtf8();
+        idForm_ = s;
+        return s;
+      } else {
+        return (java.lang.String) ref;
+      }
+    }
+    /**
+     * <pre>
+     * How derived element ids are spelled when notation is written as a graph
+     * ("ttl" or "api-json"), as `sysml -id` does: "qualified" (the default, each
+     * derived from its qualified name) or "uuid" (name-based uuids under each root
+     * package, the library convention). Declared and normative ids are unchanged.
+     * Empty is "qualified"; any other value, or one given for another direction,
+     * is INVALID_ARGUMENT.
+     * </pre>
+     *
+     * <code>string id_form = 7 [json_name = "idForm"];</code>
+     * @return The bytes for idForm.
+     */
+    public com.google.protobuf.ByteString
+        getIdFormBytes() {
+      java.lang.Object ref = idForm_;
+      if (ref instanceof String) {
+        com.google.protobuf.ByteString b = 
+            com.google.protobuf.ByteString.copyFromUtf8(
+                (java.lang.String) ref);
+        idForm_ = b;
+        return b;
+      } else {
+        return (com.google.protobuf.ByteString) ref;
+      }
+    }
+    /**
+     * <pre>
+     * How derived element ids are spelled when notation is written as a graph
+     * ("ttl" or "api-json"), as `sysml -id` does: "qualified" (the default, each
+     * derived from its qualified name) or "uuid" (name-based uuids under each root
+     * package, the library convention). Declared and normative ids are unchanged.
+     * Empty is "qualified"; any other value, or one given for another direction,
+     * is INVALID_ARGUMENT.
+     * </pre>
+     *
+     * <code>string id_form = 7 [json_name = "idForm"];</code>
+     * @param value The idForm to set.
+     * @return This builder for chaining.
+     */
+    public Builder setIdForm(
+        java.lang.String value) {
+      if (value == null) { throw new NullPointerException(); }
+      idForm_ = value;
+      bitField0_ |= 0x00000040;
+      onChanged();
+      return this;
+    }
+    /**
+     * <pre>
+     * How derived element ids are spelled when notation is written as a graph
+     * ("ttl" or "api-json"), as `sysml -id` does: "qualified" (the default, each
+     * derived from its qualified name) or "uuid" (name-based uuids under each root
+     * package, the library convention). Declared and normative ids are unchanged.
+     * Empty is "qualified"; any other value, or one given for another direction,
+     * is INVALID_ARGUMENT.
+     * </pre>
+     *
+     * <code>string id_form = 7 [json_name = "idForm"];</code>
+     * @return This builder for chaining.
+     */
+    public Builder clearIdForm() {
+      idForm_ = getDefaultInstance().getIdForm();
+      bitField0_ = (bitField0_ & ~0x00000040);
+      onChanged();
+      return this;
+    }
+    /**
+     * <pre>
+     * How derived element ids are spelled when notation is written as a graph
+     * ("ttl" or "api-json"), as `sysml -id` does: "qualified" (the default, each
+     * derived from its qualified name) or "uuid" (name-based uuids under each root
+     * package, the library convention). Declared and normative ids are unchanged.
+     * Empty is "qualified"; any other value, or one given for another direction,
+     * is INVALID_ARGUMENT.
+     * </pre>
+     *
+     * <code>string id_form = 7 [json_name = "idForm"];</code>
+     * @param value The bytes for idForm to set.
+     * @return This builder for chaining.
+     */
+    public Builder setIdFormBytes(
+        com.google.protobuf.ByteString value) {
+      if (value == null) { throw new NullPointerException(); }
+      checkByteStringIsUtf8(value);
+      idForm_ = value;
+      bitField0_ |= 0x00000040;
       onChanged();
       return this;
     }

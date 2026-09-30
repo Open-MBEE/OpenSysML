@@ -1,0 +1,12 @@
+exit: lstart
+enter: lidle
+transition: lstart -> lidle
+exit: rstart
+enter: rwatch
+transition: rstart -> rwatch
+exit: lidle
+  eval feature mode -> 2
+  eval literal 2 -> 2
+eval operator == -> true
+enter: lfast
+transition: lidle -> lfast

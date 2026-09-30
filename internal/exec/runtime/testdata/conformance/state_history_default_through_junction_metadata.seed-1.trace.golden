@@ -1,0 +1,7 @@
+exit: idle
+enter: work
+choice junction split: transitions 1->w1, 2->w2 (unordered; took 2->w2)
+stmt assign route
+  eval literal 2 -> 2
+enter: w2
+transition: idle -> w2 (event: accept Go)

@@ -1,1 +1,0 @@
-- **The Node client is published to npm as `@openmbee/opensysml` with each core release.** The core `v*` tag publishes it and its five `@openmbee/opensysml-sysml-grpc-<os>-<cpu>` packages at the core version, carrying the release's own `sysml-grpc` binaries; a pre-release goes to the `next` dist-tag. The unreleased `@opensysml/client` name and the `client-node-v*` tag are gone.

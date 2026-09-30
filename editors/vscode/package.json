@@ -2,7 +2,7 @@
   "name": "opensysml-sysml",
   "displayName": "SysML v2 (OpenSysML)",
   "description": "SysML v2 and KerML syntax highlighting and language support backed by the OpenSysML language server.",
-  "version": "0.1.0",
+  "version": "0.9.1",
   "publisher": "open-mbee",
   "license": "Apache-2.0",
   "repository": {

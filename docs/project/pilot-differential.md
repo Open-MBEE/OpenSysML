@@ -237,9 +237,9 @@ nor double-counted as two independent disagreements.
 | `examples/pilot-corpora/sysml-validation` | 56 | 56 | 0 | 0 | 0 | 0 | 0 | 0 |
 | `examples/pilot-corpora/kerml-examples` | 58 | 56 | 9 | 0 | 0 | 0 | 9 | 0 |
 | `tests/testdata` | 18 | 10 | 43 | 55 | 34 | 1 | 8 | 20 |
-| `examples` | 45 | 30 | 13 | 1600 | 4 | 2 | 7 | 1594 |
+| `examples` | 45 | 30 | 11 | 1601 | 4 | 1 | 6 | 1596 |
 | `tools/referee/diff/testdata` (probes) | 4 | 1 | 6 | 0 | 0 | 0 | 6 | 0 |
-| **Total** | **380** | **345** | **82** | **1655** | **38** | **3** | **41** | **1614** |
+| **Total** | **380** | **345** | **80** | **1656** | **38** | **2** | **40** | **1616** |
 
 **Read the `only ours` total by root, never as one number.** Step 2 removes nine resolver false
 positives from the reference's **own** corpora: `pilot-examples` 16 → **7** and
@@ -812,9 +812,9 @@ cascades through the rest of the file. The movement is entirely one file,
 
 | Count | Before the initializer rewrite | Now |
 |---|---:|---:|
-| only pilot | 82 | **1614** |
-| pilot diagnostics | 123 | **1655** |
-| severity-only | 9 | **3** |
+| only pilot | 82 | **1616** |
+| pilot diagnostics | 123 | **1656** |
+| severity-only | 9 | **2** |
 
 The rewrite itself took only-pilot to 61 and pilot diagnostics to 101; the `Now` column states
 those counts as the later rounds leave them.
@@ -940,12 +940,12 @@ populated and unchanged: 122 diagnostics total, 66 pilot-only. Step 3's two sema
 Xpect assertions not present in these seven differential roots.
 
 Per category, the only-ours totals are: `pilot-examples` 4 `unmapped`, 2
-`units`, 5 `kind-mismatch`; `kerml-examples` 9 `unmapped`; `examples` 1 syntax, 4 `unmapped`,
+`units`, 5 `kind-mismatch`; `kerml-examples` 9 `unmapped`; `examples` 4 `unmapped`,
 2 `multiplicity` (the five warnings the MOSA demo draws on purpose, below, and the unbound-parameter
 advisory of the [runtime showcase round](#runtime-showcase-round)); `testdata` 7
 `unmapped`, 1 `multiplicity`; `probes` 6 `unmapped`.
 Only-pilot: `testdata` 12 `kind-mismatch`, 3 `unmapped`, 3 syntax, 2 `unresolved-reference`;
-`examples` 10 syntax, 29 `unmapped`, 669 `kind-mismatch`, 886 `unresolved-reference` — of which
+`examples` 6 syntax, 29 `unmapped`, 673 `kind-mismatch`, 888 `unresolved-reference` — of which
 `relay-probe-demo/mission.sysml` carries none: it carried a `kind-mismatch` on its send of a
 `Telemetry` invocation until the send-argument round above, and the demo now writes the
 constructor, `send new Telemetry(…) via antenna`, which both implementations accept, so the row
@@ -1036,14 +1036,14 @@ page's history.
 
 | Count | Now |
 |---|---:|
-| overall: fully agreeing / only ours / our diagnostics | **345 / 41 / 82** |
-| only pilot | **1614** |
-| pilot diagnostics | **1655** |
-| severity-only | **3** |
+| overall: fully agreeing / only ours / our diagnostics | **345 / 40 / 80** |
+| only pilot | **1616** |
+| pilot diagnostics | **1656** |
+| severity-only | **2** |
 | unmapped, our side | **34** |
 | kerml-examples: only ours | **9** |
 | pilot-examples: only ours | **11** |
-| examples: only pilot | **1594** |
+| examples: only pilot | **1596** |
 
 The KerML root is now the *cleanest* of the three OMG roots in proportion: **9** only-ours against 6
 only-pilot, with 56 of 58 files fully agreeing (439 / 6 and 10 / 58 when the root was added, and

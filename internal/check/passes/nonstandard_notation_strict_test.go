@@ -15,10 +15,8 @@ var extensionInventory = []string{
 	"state def S { history h; }",
 	"state def S { shallow history h; }",
 	"state def S { deep history h; }",
-	"part def P { part a; first a; }",
 	"package P { view def V { expose P::*; } }",
 	"action def A { action x; action y; transition first x then y; }",
-	"part def P { require constraint { true } }",
 	"action def A { action a; decide d; succession s first d if true then a; else a; }",
 	"action def A { action a; merge m; succession first m then a; then a; }",
 	"action def A { action a; comment /* c */ if true then a; }",
@@ -101,32 +99,6 @@ func TestNotationSeverity(t *testing.T) {
 	}
 	if got := notationSeverity(diag.ConformanceDefault); got != diag.SeverityWarning {
 		t.Errorf("default severity = %v, want warning", got)
-	}
-}
-
-func TestExtensionFindingsFollowTheMode(t *testing.T) {
-	for _, tc := range []struct {
-		name, file, src, code string
-	}{
-		{"one_ended_first", "a.sysml", "part def P { part a; first a; }", CodeNonstandardNotation},
-		{"requirement_constraint", "a.sysml", "analysis def An { attribute size; require constraint { size >= 1 } }", CodeNonstandardNotation},
-	} {
-		t.Run(tc.name, func(t *testing.T) {
-			def := notationDiags(t, tc.file, tc.src, diag.ConformanceDefault)
-			strict := notationDiags(t, tc.file, tc.src, diag.ConformanceStrict)
-			if len(def) != 1 || len(strict) != 1 {
-				t.Fatalf("got %d default and %d strict findings, want 1 each: %+v / %+v", len(def), len(strict), def, strict)
-			}
-			if def[0].Code != tc.code || strict[0].Code != tc.code {
-				t.Errorf("codes = %q / %q, want %q", def[0].Code, strict[0].Code, tc.code)
-			}
-			if def[0].Severity != diag.SeverityWarning || strict[0].Severity != diag.SeverityError {
-				t.Errorf("severities = %v / %v, want warning then error", def[0].Severity, strict[0].Severity)
-			}
-			if def[0].Message != strict[0].Message || def[0].Span != strict[0].Span {
-				t.Errorf("strict mode must move only the severity: %+v vs %+v", def[0], strict[0])
-			}
-		})
 	}
 }
 

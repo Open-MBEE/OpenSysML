@@ -204,8 +204,10 @@ a declaration in another resolves correctly.
 ## Strict conformance
 
 OpenSysML accepts several notations of its own that no SysML v2 production admits: the
-`choice`, `junction` and `history` pseudostates. These are reported as
-warnings, so a model that uses them still analyses cleanly. `-strict` promotes those warnings
+`choice`, `junction` and `history` pseudostates. These are deprecated spellings of
+what the `StateMachines` library states as metadata — `#choice state pick;` and
+friends — reported as warnings that name the replacement, so a model that uses them
+still analyses cleanly. `-strict` promotes those warnings
 to errors, which turns the run into a test of whether the file is conforming SysML v2. The flag
 applies to `-convert` from XMI too: a strict SysML v1 migration writes no extension notation
 at all — see [Portable output with `-strict`](../reference/sysml-v1-migration.md#portable-output-with--strict).
@@ -229,7 +231,7 @@ package M {
 
 ```bash
 $ sysml -validate monitor.sysml; echo "exit=$?"
-monitor.sysml:7:9: warning: `choice <name>;` is an OpenSysML extension with no SysML v2 production: the grammars define no pseudostate notation
+monitor.sysml:7:9: warning: `choice pick;` is an OpenSysML extension; write `#choice state pick;` (with `private import StateMachines::*;`)
         choice pick;
         ^~~~~~
 ✓ package M
@@ -237,15 +239,16 @@ monitor.sysml:7:9: warning: `choice <name>;` is an OpenSysML extension with no S
 exit=0
 
 $ sysml -strict -validate monitor.sysml; echo "exit=$?"
-monitor.sysml:7:9: error: `choice <name>;` is an OpenSysML extension with no SysML v2 production: the grammars define no pseudostate notation
+monitor.sysml:7:9: error: `choice pick;` is an OpenSysML extension; write `#choice state pick;` (with `private import StateMachines::*;`)
         choice pick;
         ^~~~~~
 sysml: monitor.sysml did not analyse cleanly; no check was made
 exit=2
 ```
 
-There is no standard notation for a choice pseudostate, so a portable model puts the guards on
-the transitions out of `off` itself and leaves out the `choice`. `-strict` does not
+A portable model writes the metadata spelling the finding names instead —
+`#choice state pick;` for the `choice` above, once `private import StateMachines::*;`
+is added. `-strict` does not
 change what parses: the same file produces the same tree and the same findings in the same
 places. Only their severity changes, and with it the exit status and the tier gate. It is a
 portability check, so turn it on when another SysML v2 tool has to read the model and leave

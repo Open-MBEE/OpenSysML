@@ -1478,7 +1478,10 @@ func (p *Parser) parseDefUsage(start int) ast.Node {
 
 		// A subject, actor, stakeholder, objective or rendering the body does
 		// not own is parsed as itself and then replaced by an ErrorNode.
-		if !p.bodyAdmitsMember(kw) {
+		// `assume`/`require` are exempt here: they spell a constraint usage
+		// (`require x { }`) as well as prefixing one (`require constraint { }`),
+		// and only the prefix form is body-owned — atKindPrefix reports it.
+		if !p.bodyAdmitsMember(kw) && kw != "assume" && kw != "require" {
 			en := p.misplacedMember(t)
 			applyPrefixes = func(ast.Node) ast.Node {
 				en.NodeSpan = p.spanFrom(start)
@@ -1999,10 +2002,14 @@ var ownedMembers = map[string]ownedMember{
 	"actor":       {"an actor of a requirement or case", "requirement or case", []bodyContext{bodyRequirement, bodyCase}},
 	"stakeholder": {"a stakeholder of a requirement", "requirement", []bodyContext{bodyRequirement}},
 	"objective":   {"the objective of a case", "case", []bodyContext{bodyCase}},
-	"entry":       {"the entry action of a state", "state", []bodyContext{bodyState}},
-	"do":          {"the do action of a state", "state", []bodyContext{bodyState}},
-	"exit":        {"the exit action of a state", "state", []bodyContext{bodyState}},
-	"render":      {"the rendering of a view", "view", []bodyContext{bodyViewDef, bodyView}},
+	// RequirementConstraintMember (SysML.xtext:2039) is a requirement or case
+	// body's production alone, so the `assume`/`require` prefix is body-owned.
+	"assume":  {"a constraint assumption", "requirement or case", []bodyContext{bodyRequirement, bodyCase}},
+	"require": {"a required constraint", "requirement or case", []bodyContext{bodyRequirement, bodyCase}},
+	"entry":   {"the entry action of a state", "state", []bodyContext{bodyState}},
+	"do":      {"the do action of a state", "state", []bodyContext{bodyState}},
+	"exit":    {"the exit action of a state", "state", []bodyContext{bodyState}},
+	"render":  {"the rendering of a view", "view", []bodyContext{bodyViewDef, bodyView}},
 	// TransitionUsageMember is a StateBodyItem only (SysML.xtext); a transition between
 	// action nodes is an extension the notation pass reports, so those bodies read it too.
 	"transition": {"a transition between states", "state", []bodyContext{bodyState, bodyAction, bodyCalc, bodyCase}},
@@ -3328,6 +3335,12 @@ func (p *Parser) parseBodyMember() ast.Node {
 	// parsed below, which reads the name instead of dropping it.
 	if p.atKindPrefix() {
 		prefix := p.kindPrefixWord()
+		// `assume`/`require` prefix a kind keyword the same bodies own that
+		// offer the member itself (SysML.xtext:2039).
+		var misplaced *ast.ErrorNode
+		if !p.bodyAdmitsMember(prefix) {
+			misplaced = p.misplacedMember(p.peek())
+		}
 		p.advance() // consume the prefix keyword
 		inner := p.parseDeclaration(start)
 		if inner == nil {
@@ -3342,6 +3355,11 @@ func (p *Parser) parseBodyMember() ast.Node {
 		}
 		if u, ok := inner.(*ast.Usage); ok && prefix == varPrefixWord {
 			u.IsVariable = true
+		}
+		if misplaced != nil {
+			misplaced.NodeSpan = p.spanFrom(start)
+			misplaced.SetLeadingTrivia(trivia)
+			return misplaced
 		}
 		mem := &ast.Membership{Visibility: vis, Member: inner}
 		mem.NodeSpan = p.spanFrom(start)

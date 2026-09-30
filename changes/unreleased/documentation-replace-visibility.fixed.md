@@ -1,1 +1,0 @@
-- **Replacing documentation keeps its visibility.** `add_documentation` with `replace` rewrites only the `doc` declaration, so an explicit `public`, `private` or `protected` in front of the replaced `doc` is kept rather than dropped.

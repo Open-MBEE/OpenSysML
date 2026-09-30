@@ -8,6 +8,7 @@ import (
 	"sync"
 
 	"github.com/Open-MBEE/OpenSysML/internal/check/passes"
+	"github.com/Open-MBEE/OpenSysML/internal/ir/lower"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/identity"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/resolve"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/semantics"
@@ -649,6 +650,24 @@ func (w *Workspace) LookupQualified(fqn string) []*symbols.Symbol {
 	return out
 }
 
+// StateGraph lowers the state machine sym declares through the workspace's
+// shared resolver, so library-typed members the lowering reads — StateMachines
+// metadata among them — resolve as the runtime's lowering resolves them.
+func (w *Workspace) StateGraph(sym *symbols.Symbol) (*lower.StateGraph, error) {
+	w.mu.Lock()
+	defer w.mu.Unlock()
+	scope := sym.Scope
+	if scope == nil {
+		scope = sym.OwnerScope
+	}
+	var graph *lower.StateGraph
+	var err error
+	w.queryLocked("", func(resolver *resolve.Resolver, _ *semantics.Model) {
+		graph, err = lower.ToStateGraphWithEndpoints(sym.Decl, scope, lower.NewLibraryStateTypes(resolver))
+	})
+	return graph, err
+}
+
 // TopLevelSymbols returns the symbols declared at the root of the index as seen
 // from the document named doc: the standard library's top-level packages and
 // every document's top-level declarations. This is the read path for completion,
@@ -727,7 +746,7 @@ func (w *Workspace) semanticsLocked() (*resolve.Resolver, *semantics.Model) {
 // Caller holds the lock.
 func (w *Workspace) sharedLocked() passes.Shared {
 	resolver, sem := w.semanticsLocked()
-	return passes.Shared{Resolver: resolver, Model: sem, Gathers: w.gathers}
+	return passes.Shared{Resolver: resolver, Model: sem, Gathers: w.gathers, Source: w.sourceText()}
 }
 
 // resolverOver is a fresh resolver over idx with a semantic model attached: for

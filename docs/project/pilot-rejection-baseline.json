@@ -31,7 +31,7 @@
         "digest": "sha256:528e67f330eef984630ac095be8883482239ee308c1296936728910b04ffb71f"
       }
     ],
-    "recorded": "2026-09-29"
+    "recorded": "2026-09-30"
   },
   "totals": {
     "cases": 310,
@@ -42,7 +42,6 @@
   },
   "strictOnlyAgreements": [
     "extensions/x06-history-member.sysml",
-    "extensions/x08-require-outside-requirement-body.sysml",
     "extensions/x09-expose-in-view-def-body.sysml"
   ],
   "sources": [
@@ -164,7 +163,8 @@
       "bucket": "both-reject",
       "oursErrors": 1,
       "pilotErrors": 2,
-      "defaultBucket": "pilot-only-rejects"
+      "defaultBucket": "both-reject",
+      "defaultErrors": 1
     },
     {
       "path": "extensions/x09-expose-in-view-def-body.sysml",

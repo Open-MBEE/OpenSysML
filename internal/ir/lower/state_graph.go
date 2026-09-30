@@ -826,6 +826,16 @@ func collectVertices(graph *StateGraph, members []ast.Node, scope *symbols.Scope
 	}
 	for _, member := range members {
 		actual := unwrapMembership(member)
+		// A `#choice state`/history/junction usage is a pseudostate declared as
+		// metadata, never a region of a parallel body.
+		if usage, ok := actual.(*ast.Usage); ok {
+			if kind, annotated := graph.pseudostateKindOf(usage, scope); annotated {
+				ps := pseudostateFromUsage(usage, kind)
+				graph.copyInherited(ps, usage, scope)
+				graph.addPseudostate(ps, scope)
+				continue
+			}
+		}
 		if parallel && isParallelRegionMember(actual) {
 			continue
 		}
@@ -954,14 +964,23 @@ func collectStateContents(graph *StateGraph, state *ast.StateNode, scope *symbol
 }
 
 // stateless reports whether region is stood for by a state declaring no substates
-// (behaviors, transitions and deferred events are not states): such a region
+// (behaviors and transitions are not states): such a region
 // starts in, and stays in, that state, so it needs no initial.
 func (g *StateGraph) stateless(region *ast.StateRegion) bool {
 	if g.RegionState[region] == nil {
 		return false
 	}
+	scope := g.declaredIn[region]
 	for _, member := range region.States {
-		if isParallelRegionMember(unwrapMembership(member)) {
+		actual := unwrapMembership(member)
+		// A metadata pseudostate is no substate, however the usage carrying
+		// it is spelled.
+		if usage, ok := actual.(*ast.Usage); ok {
+			if _, annotated := g.pseudostateKindOf(usage, scope); annotated {
+				continue
+			}
+		}
+		if isParallelRegionMember(actual) {
 			return false
 		}
 	}
@@ -1014,6 +1033,15 @@ func collectRegionStates(graph *StateGraph, region *ast.StateRegion, parent *ast
 			state.NodeSpan = n.NodeSpan
 			graph.declOf[state] = n
 		case *ast.Usage:
+			if kind, annotated := graph.pseudostateKindOf(n, scope); annotated {
+				ps := pseudostateFromUsage(n, kind)
+				graph.copyInherited(ps, n, scope)
+				graph.addPseudostate(ps, scope)
+				if parent != nil {
+					graph.PseudostateOwner[ps] = parent
+				}
+				continue
+			}
 			if IsTerminateUsage(n) {
 				graph.addTerminate(n, scope, parent)
 			}
@@ -1098,6 +1126,13 @@ func (g *StateGraph) parallelRegions(members []inheritedMember, parent *ast.Stat
 	regions := make([]*ast.StateRegion, 0)
 	for _, member := range members {
 		actual := unwrapMembership(member.node)
+		// A metadata pseudostate is owned by the parallel state itself; it is
+		// no region however the usage is spelled.
+		if usage, ok := actual.(*ast.Usage); ok {
+			if _, annotated := g.pseudostateKindOf(usage, member.scope); annotated {
+				continue
+			}
+		}
 		// Only state substates become regions; the members a parallel state may own
 		// itself are collected with the rest of its body.
 		if !isParallelRegionMember(actual) {
@@ -1186,8 +1221,7 @@ func parallelMachineState(decl ast.Node, members []ast.Node) *ast.StateNode {
 }
 
 // parallelRegionState creates the graph state for a direct substate that owns
-// a synthesized region, preserving its behaviors, its deferred triggers and the
-// content it inherits from the definition typing it.
+// a synthesized region, preserving its behaviors and the content it inherits from the definition typing it.
 func parallelRegionState(graph *StateGraph, member ast.Node, scope *symbols.Scope) (*ast.StateNode, error) {
 	switch n := member.(type) {
 	case *ast.Usage:
@@ -1518,7 +1552,7 @@ func lowerTransitionMember(graph *StateGraph, member *ast.TransitionMember, body
 			return nil, err
 		}
 		vertex, ok := graph.findVertex(decl)
-		if !ok || !IsStateSource(decl) {
+		if !ok || !IsStateSource(vertex) {
 			state := graph.findStateDecl(decl)
 			return nil, &TransitionSourceError{Source: decl, Region: state != nil && graph.HiddenRegionOf[state] != nil}
 		}
@@ -1885,7 +1919,6 @@ func collectSuccessionEdge(graph *StateGraph, n *ast.SuccessionEdge, body transi
 		return nil
 	}
 
-	// `succession first start then off;` out of a named entry action says the same.
 	if sourceVertex == nil {
 		starts, err := graph.startsAt(n, nil, body, n.Source, n.Target)
 		if err != nil || starts {

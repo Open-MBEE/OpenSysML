@@ -1,1 +1,0 @@
-- **The Python client's documentation says how a model of several files is loaded.** `load` and `loads` parse one document as a model of its own, so an import of a package another file declares does not resolve; the service's `ParseSources` RPC parses several documents as one model, and the documentation points to the wrapper each client has for it.

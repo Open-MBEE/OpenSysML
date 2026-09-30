@@ -1,0 +1,21 @@
+{
+	"type": "state",
+	"libraries": true,
+	"finalState": "done",
+	"stateVisits": [
+		"start",
+		"outer",
+		"first",
+		"second",
+		"away",
+		"outer",
+		"second",
+		"done"
+	],
+	"outputs": {
+		"departures": {
+			"type": "Integer",
+			"value": 1
+		}
+	}
+}

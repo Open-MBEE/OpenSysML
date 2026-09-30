@@ -3291,6 +3291,11 @@ func TestFixtureElementIDsRoundTrip(t *testing.T) {
 			t.Fatalf("%s: %v", path, err)
 		}
 		for _, subject := range graph.Subjects() {
+			// A library element the graph names keeps the normative id the
+			// references to it carry; its name is checked against the library.
+			if export.LibraryReference(graph, subject) {
+				continue
+			}
 			if strings.HasPrefix(subject.Value, rdf.Expression) && strings.HasSuffix(subject.Value, "_om") {
 				if _, ok := graph.Object(subject, rdf.SysML+"memberElement"); !ok {
 					t.Errorf("%s: expression membership %s has no member", path, subject.Value)

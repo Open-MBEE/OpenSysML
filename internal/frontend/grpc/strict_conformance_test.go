@@ -89,10 +89,10 @@ func TestParseFileCachesTheModesSeparately(t *testing.T) {
 	}
 }
 
-// requireOutsideRequirement is a model an edit can make nonstandard: moving the
-// `require` constraint into the part def is notation of ours, a warning by
+// extensionEditable is a model an edit can make nonstandard: moving the
+// `transition` into the action def makes it notation of ours, a warning by
 // default and an error when the model was parsed strictly.
-const requireOutsideRequirement = "package P {\n    requirement def R {\n        require constraint c { 1 > 0 }\n    }\n    part def V;\n}\n"
+const extensionEditable = "package P {\n    state def M {\n        transition t first start then done;\n    }\n    action def V;\n}\n"
 
 // An edit's notation is judged at the strictness the model was parsed at: the
 // same move is applied to the default model and refused for the strict one.
@@ -107,7 +107,7 @@ func TestApplyEditsJudgesTheEditAtTheParsedStrictness(t *testing.T) {
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			parsed, err := srv.ParseFile(context.Background(), &pb.ParseFileRequest{
-				Source:            &pb.ParseFileRequest_Content{Content: requireOutsideRequirement},
+				Source:            &pb.ParseFileRequest_Content{Content: extensionEditable},
 				StrictConformance: tc.strict,
 			})
 			if err != nil {
@@ -117,7 +117,7 @@ func TestApplyEditsJudgesTheEditAtTheParsedStrictness(t *testing.T) {
 				t.Fatalf("fixture has diagnostics: %v", parsed.Diagnostics)
 			}
 			resp, err := srv.ApplyEdits(context.Background(), &pb.ApplyEditsRequest{
-				ModelHash: parsed.ModelHash, Operations: []*pb.EditOperation{moveOp("P::R::c", "P::V")},
+				ModelHash: parsed.ModelHash, Operations: []*pb.EditOperation{moveOp("P::M::t", "P::V")},
 			})
 			if err != nil {
 				t.Fatal(err)
@@ -140,7 +140,7 @@ func TestApplyEditsJudgesEachDocumentAtTheParsedStrictness(t *testing.T) {
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			parsed, err := srv.ParseSources(context.Background(), &pb.ParseSourcesRequest{
-				Documents:         inlineDocuments("lib.sysml", "package Lib {\n    part def Base;\n}\n", "req.sysml", requireOutsideRequirement),
+				Documents:         inlineDocuments("lib.sysml", "package Lib {\n    part def Base;\n}\n", "req.sysml", extensionEditable),
 				StrictConformance: tc.strict,
 			})
 			if err != nil {
@@ -151,7 +151,7 @@ func TestApplyEditsJudgesEachDocumentAtTheParsedStrictness(t *testing.T) {
 			}
 			resp, err := srv.ApplyEdits(context.Background(), &pb.ApplyEditsRequest{
 				ModelHash: parsed.ModelHash, AcceptDocuments: true, Document: "req.sysml",
-				Operations: []*pb.EditOperation{moveOp("P::R::c", "P::V")},
+				Operations: []*pb.EditOperation{moveOp("P::M::t", "P::V")},
 			})
 			if err != nil {
 				t.Fatal(err)
@@ -161,16 +161,16 @@ func TestApplyEditsJudgesEachDocumentAtTheParsedStrictness(t *testing.T) {
 	}
 }
 
-// assertStrictnessVerdict checks the move of the `require` constraint was
-// applied in the default mode and refused as nonstandard in the strict one.
+// assertStrictnessVerdict checks the move of the `transition` was applied in
+// the default mode and refused as nonstandard in the strict one.
 func assertStrictnessVerdict(t *testing.T, resp *pb.ApplyEditsResponse, strict bool) {
 	t.Helper()
 	if !strict {
 		if resp.Failure != pb.EditFailure_EDIT_FAILURE_UNSPECIFIED || resp.Error != "" {
 			t.Fatalf("default-mode edit refused (%s): %s", resp.Failure, resp.Error)
 		}
-		if len(resp.Documents) != 1 || !strings.Contains(resp.Documents[0].Content, "part def V {\n        require constraint c") {
-			t.Fatalf("documents = %v, want the constraint moved into V", resp.Documents)
+		if len(resp.Documents) != 1 || !strings.Contains(resp.Documents[0].Content, "transition t") {
+			t.Fatalf("documents = %v, want the transition moved into V", resp.Documents)
 		}
 		return
 	}

@@ -4,6 +4,8 @@ import (
 	"fmt"
 
 	"github.com/Open-MBEE/OpenSysML/internal/check/passes/kit"
+	"github.com/Open-MBEE/OpenSysML/internal/semantic/resolve"
+	"github.com/Open-MBEE/OpenSysML/internal/semantic/symbols"
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/ast"
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/diag"
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/source"
@@ -46,10 +48,18 @@ func (NonstandardNotationPass) Run(ctx *Context, name string, root *ast.RootName
 	w := &notationWalker{
 		sysml:       ctx.Kind != source.KindKerML,
 		severity:    notationSeverity(ctx.Options.Conformance),
-		parsedClean: !hasParseError(ctx.ParseDiagnostics),
 		keywordName: keywordNameSpans(ctx.ParseDiagnostics),
+		doc:         name,
+		lookup:      ctx.Source,
+		root:        ctx.Index.DocumentRoot(name),
+		resolver:    ctx.Resolver(),
 	}
+	if w.lookup == nil && ctx.Batch != nil {
+		w.lookup = ctx.Batch.Source
+	}
+	w.bodies = append(w.bodies, bodyFrame{members: root.Members, namespaceish: true})
 	w.walk(root.Members)
+	w.bodies = w.bodies[:0]
 	// A comment where no member may start is the parser's own warning, which
 	// strict conformance escalates; the escalated finding replaces the warning.
 	if ctx.Options.Conformance.IsStrict() {
@@ -79,21 +89,35 @@ func notationSeverity(mode diag.ConformanceMode) diag.Severity {
 type notationWalker struct {
 	sysml bool
 	// severity applies to mode-sensitive extension findings.
-	severity          diag.Severity
-	diags             []diag.Diagnostic
-	inRequirementBody bool
+	severity diag.Severity
+	diags    []diag.Diagnostic
 	// inActionBody records that the body being walked admits ActionBodyItem
 	// members (SysML.xtext:1367).
 	inActionBody bool
 	// inViewDefBody records that the body being walked is a ViewDefinitionBody
 	// (SysML.xtext ViewDefinitionBodyItem), which admits no Expose.
 	inViewDefBody bool
-	// parsedClean records that the document parsed without an error, which a
-	// finding needs when recovery can shape the tree it reads (see initialNode).
-	parsedClean bool
 	// keywordName holds the offsets where the parser recovered a keyword written as
 	// a name, the only spans keywordAsName escalates.
 	keywordName map[int]bool
+	// doc names the document being walked; lookup reads its text when the run
+	// carries a source lookup, which an indent-preserving fix needs.
+	doc    string
+	lookup source.Lookup
+	// bodies stacks the member lists enclosing the member being walked, so a
+	// fix can see the imports already written and where a new one belongs.
+	bodies []bodyFrame
+	// root and resolver read whether the name `StateMachines` still reaches the
+	// library package, nil where the run carries no index.
+	root     *symbols.Scope
+	resolver *resolve.Resolver
+}
+
+// bodyFrame is one enclosing member list: the members it declares and whether
+// it is the body of a namespace or package, where a fix places an import.
+type bodyFrame struct {
+	members      []ast.Node
+	namespaceish bool
 }
 
 // keywordNameSpans collects where the parser recovered a keyword written as a name,
@@ -132,10 +156,10 @@ func (w *notationWalker) walk(members []ast.Node) {
 		case *ast.Namespace:
 			w.kermlNamespace(n)
 			w.keywordAsName(n.Ident)
-			w.walk(n.Members)
+			w.walkPackageMembers(n.Members)
 		case *ast.Package:
 			w.keywordAsName(n.Ident)
-			w.walk(n.Members)
+			w.walkPackageMembers(n.Members)
 		case *ast.Definition:
 			w.kermlRelationships(n.Relationships)
 			w.sysmlDeclaration(n, n.Keyword)
@@ -148,7 +172,6 @@ func (w *notationWalker) walk(members []ast.Node) {
 			}
 			w.sysmlDeclaration(n, n.Keyword)
 			w.keywordAsName(n.Ident)
-			w.requirementConstraint(n)
 			w.walkDeclaration(n.Members, n)
 		case *ast.Import:
 			w.expose(n)
@@ -172,7 +195,6 @@ func (w *notationWalker) walk(members []ast.Node) {
 		case *ast.PseudostateNode:
 			w.pseudostate(n)
 		case *ast.InitialNode:
-			w.initialNode(n)
 			// `first a then b { … }` ends in the succession's UsageBody (SysML.xtext:1698).
 			w.walkDeclaration(n.Members, n)
 		case *ast.DecisionNode:
@@ -205,12 +227,21 @@ func (w *notationWalker) walk(members []ast.Node) {
 // walkDeclaration walks the body of a declaration under the body kind that
 // declaration opens.
 func (w *notationWalker) walkDeclaration(members []ast.Node, declaration ast.Node) {
-	requirement, action, viewDef := w.inRequirementBody, w.inActionBody, w.inViewDefBody
-	w.inRequirementBody = isRequirementBodyDeclaration(declaration)
+	action, viewDef := w.inActionBody, w.inViewDefBody
 	w.inActionBody = admitsActionBodyItems(declaration)
 	w.inViewDefBody = isViewDefinition(declaration)
+	w.bodies = append(w.bodies, bodyFrame{members: members})
 	w.walk(members)
-	w.inRequirementBody, w.inActionBody, w.inViewDefBody = requirement, action, viewDef
+	w.bodies = w.bodies[:len(w.bodies)-1]
+	w.inActionBody, w.inViewDefBody = action, viewDef
+}
+
+// walkPackageMembers walks a namespace or package body, the member lists a fix
+// may add an import to.
+func (w *notationWalker) walkPackageMembers(members []ast.Node) {
+	w.bodies = append(w.bodies, bodyFrame{members: members, namespaceish: true})
+	w.walk(members)
+	w.bodies = w.bodies[:len(w.bodies)-1]
 }
 
 // walkActionBody walks the body of an action node, which is an ActionBody
@@ -228,26 +259,6 @@ func (w *notationWalker) walkActionBody(members []ast.Node) {
 func isViewDefinition(node ast.Node) bool {
 	def, ok := node.(*ast.Definition)
 	return ok && def.Kind == ast.DefView
-}
-
-func isRequirementBodyDeclaration(node ast.Node) bool {
-	switch n := node.(type) {
-	case *ast.Definition:
-		switch n.Kind {
-		case ast.DefRequirement:
-			return true
-		case ast.DefConcern, ast.DefViewpoint:
-			return true
-		}
-	case *ast.Usage:
-		switch n.Kind {
-		case ast.UsageRequirement, ast.UsageSatisfy:
-			return true
-		case ast.UsageConcern, ast.UsageViewpoint, ast.UsageFramedConcern, ast.UsageObjective:
-			return true
-		}
-	}
-	return false
 }
 
 // admitsActionBodyItems reports whether the body a declaration opens is an
@@ -273,18 +284,6 @@ func admitsActionBodyItems(node ast.Node) bool {
 		}
 	}
 	return false
-}
-
-// initialNode reports a one-ended `first <node>;` outside an action body:
-// InitialNodeMember is reachable from ActionBodyItem alone (SysML.xtext:1376),
-// never from DefinitionBodyItem (:516).
-func (w *notationWalker) initialNode(n *ast.InitialNode) {
-	// A recovered `first <source> then <target>` reads as a one-ended node, so
-	// only a document that parsed cleanly is judged here.
-	if !w.inActionBody && n.Successor == nil && w.parsedClean {
-		w.extension(keywordSpan(n, "first"), "a one-ended `first <node>;` outside an action body",
-			"only an action body admits it; elsewhere a succession names both ends, `first <source> then <target>`")
-	}
 }
 
 // targetSuccession reports a one-name `then <target>;`, `if <guard> then
@@ -374,23 +373,6 @@ func isBehaviorUsage(kind ast.UsageKind) bool {
 	return false
 }
 
-// requirementConstraint reports an `assume`/`require` member outside a requirement
-// body, where RequirementConstraintMember alone admits it (SysML.xtext:2039).
-func (w *notationWalker) requirementConstraint(n *ast.Usage) {
-	if w.inRequirementBody || n.Kind != ast.UsageConstraint {
-		return
-	}
-	keyword := n.PrefixKeyword
-	if keyword != "assume" && keyword != "require" {
-		keyword = n.Keyword
-	}
-	if keyword != "assume" && keyword != "require" {
-		return
-	}
-	w.extension(keywordSpan(n, keyword), fmt.Sprintf("`%s` outside a requirement body", keyword),
-		"only a requirement, concern, viewpoint or objective body admits it")
-}
-
 // expose reports an `expose` in a view def body: Expose is a ViewBodyItem alone
 // (SysML.xtext), and every other body rejects it in the parser.
 func (w *notationWalker) expose(n *ast.Import) {
@@ -429,8 +411,172 @@ func (w *notationWalker) pseudostate(n *ast.PseudostateNode) {
 	case ast.PseudostateFork, ast.PseudostateJoin:
 		return
 	}
-	w.extension(keywordSpan(n, n.Keyword), fmt.Sprintf("`%s <name>;`", n.Keyword),
-		"the grammars define no pseudostate notation")
+	annotation, ok := pseudostateAnnotations[n.Kind]
+	if !ok {
+		return
+	}
+	name := source.NameText(n.Name)
+	written := fmt.Sprintf("`%s %s;`", n.Keyword, name)
+	replacement := fmt.Sprintf("#%s state %s;", annotation, name)
+	needsImport := true
+	switch {
+	case w.shadowsStateMachines():
+		// A `StateMachines` member hides the library package, so the
+		// metadata is spelled from the root and no import is needed.
+		replacement = fmt.Sprintf("#$::StateMachines::%s state %s;", annotation, name)
+		needsImport = false
+	case n.Name == annotation || w.shadowsAnnotation(annotation):
+		// A member named like the annotation would shadow it, so the
+		// metadata is spelled qualified and no import is needed.
+		replacement = fmt.Sprintf("#StateMachines::%s state %s;", annotation, name)
+		needsImport = false
+	}
+	importNote := ""
+	if needsImport {
+		importNote = " (with `private import StateMachines::*;`)"
+	}
+	w.extensionFix(keywordSpan(n, n.Keyword), fmt.Sprintf(
+		"%s is an OpenSysML extension; write `%s`%s",
+		written, replacement, importNote), annotation+"Metadata", needsImport,
+		diag.Replace(n.Span(), replacement))
+}
+
+// pseudostateAnnotations names the StateMachines metadata definition a
+// keyword-spelled pseudostate rewrites as.
+var pseudostateAnnotations = map[ast.PseudostateKind]string{
+	ast.PseudostateChoice:         "choice",
+	ast.PseudostateJunction:       "junction",
+	ast.PseudostateShallowHistory: "shallowHistory",
+	ast.PseudostateDeepHistory:    "deepHistory",
+}
+
+// shadowsAnnotation reports whether a member of an enclosing body declares
+// keyword as its name, which the written annotation would resolve to first.
+func (w *notationWalker) shadowsAnnotation(keyword string) bool {
+	for _, body := range w.bodies {
+		for _, member := range body.members {
+			if memberDeclaredName(kit.UnwrapMembership(member)) == keyword {
+				return true
+			}
+		}
+	}
+	return false
+}
+
+// shadowsStateMachines reports whether a `StateMachines` member hides the
+// library package the annotation spellings name: one declared in an enclosing
+// body, or one the name resolves to that is not it.
+func (w *notationWalker) shadowsStateMachines() bool {
+	if w.shadowsAnnotation("StateMachines") {
+		return true
+	}
+	if w.root == nil || w.resolver == nil {
+		return false
+	}
+	sym, ok := w.resolver.ReadQualified(w.root, ast.QualifiedNameOf("StateMachines")).Symbol()
+	return ok && sym != nil && symbols.FQNOf(sym) != "StateMachines"
+}
+
+// memberDeclaredName is the name a member declares, "" when it declares none.
+func memberDeclaredName(member ast.Node) string {
+	switch n := member.(type) {
+	case *ast.Namespace:
+		return n.Ident.Name
+	case *ast.Package:
+		return n.Ident.Name
+	case *ast.Alias:
+		return n.Ident.Name
+	case *ast.PrefixMetadata:
+		return n.Ident.Name
+	case *ast.MultiplicityDecl:
+		return n.Ident.Name
+	case *ast.SubjectMember:
+		return n.Ident.Name
+	case *ast.CrossFeatureMember:
+		return n.Ident.Name
+	case *ast.AssumeMember:
+		return n.Ident.Name
+	case *ast.RequireMember:
+		return n.Ident.Name
+	case *ast.Definition:
+		return n.Ident.Name
+	case *ast.Usage:
+		name, _ := ast.EffectiveName(n)
+		return name
+	case *ast.PseudostateNode:
+		return n.Name
+	case *ast.InitialNode:
+		return n.Name()
+	case *ast.SubstateMember:
+		return n.Name
+	case *ast.TransitionMember:
+		return n.Name
+	}
+	return ""
+}
+
+// qualifiedNameText spells a qualified name as `A::B::c`, quoting each
+// segment that cannot be written as a basic name.
+func qualifiedNameText(qn *ast.QualifiedName) string {
+	if qn == nil {
+		return ""
+	}
+	parts := make([]string, 0, len(qn.Parts))
+	for _, p := range qn.Parts {
+		parts = append(parts, p.Text)
+	}
+	return source.QualifiedNameOf(parts)
+}
+
+// extensionFix reports one construct as an OpenSysML extension and attaches the
+// fix rewriting it: the member's own replacement plus the library import when
+// needsImport and no enclosing body already makes the metadata visible.
+func (w *notationWalker) extensionFix(span source.Span, message, metadata string, needsImport bool, edits ...diag.Edit) {
+	if needsImport {
+		if edit, ok := w.stateMachinesImport(metadata); ok {
+			edits = append(edits, edit)
+		}
+	}
+	w.diags = append(w.diags, diag.Diagnostic{
+		Severity: w.severity,
+		Span:     span,
+		Message:  message,
+		Code:     CodeNonstandardNotation,
+		Source:   "syntax",
+		Fixes: []diag.Fix{{
+			Title:     "Rewrite as standard `StateMachines` metadata notation",
+			Edits:     edits,
+			Preferred: true,
+		}},
+	})
+}
+
+// stateMachinesImport is the edit that inserts `private import StateMachines::*;`
+// as the first member of the innermost enclosing namespace body, nil when an
+// import already in scope covers the needed metadata definition.
+func (w *notationWalker) stateMachinesImport(metadata string) (diag.Edit, bool) {
+	for _, body := range w.bodies {
+		for _, member := range body.members {
+			imp, ok := kit.UnwrapMembership(member).(*ast.Import)
+			if !ok || imp.IsExpose {
+				continue
+			}
+			target := qualifiedNameText(imp.Imported)
+			if target == "StateMachines" && (imp.Kind == ast.ImportNamespace || imp.IsRecursive) ||
+				target == "StateMachines::"+metadata {
+				return diag.Edit{}, false
+			}
+		}
+	}
+	for i := len(w.bodies) - 1; i >= 0; i-- {
+		body := w.bodies[i]
+		if !body.namespaceish || len(body.members) == 0 {
+			continue
+		}
+		return diag.InsertLine(body.members[0].Span().Offset,
+			"private import StateMachines::*;"), true
+	}
+	return diag.Edit{}, false
 }
 
 // kermlNamespace reports a `namespace` declaration in a SysML file, whose root

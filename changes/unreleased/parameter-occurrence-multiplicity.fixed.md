@@ -1,1 +1,0 @@
-- A performance occurrence now holds each of its parameters at the parameter's §7.6.3 effective multiplicity: a bare `in x : T;` materializes and stores its binding as `[0..*]` rather than the assumed `[1..1]`, so an earlier parameter default reading `this` no longer strands a later bare parameter's empty binding into a multiplicity violation.

@@ -63,7 +63,7 @@ systematically from four sources, one subdirectory each:
 2. **`extensions/` — the notation we invented** (9 cases). Every state-machine construct our
    `examples/` tree uses that no pinned production admits: `initial`, `choice`, `junction`,
    `history`, `region`, the since-removed `defer` member, and the `transition <src> to <tgt>` shorthand, plus `require`
-   outside a requirement body (`x08`) and `expose` in a view def body (`x09`), which our grammar admits as extensions. The pinned grammar
+   outside a requirement body (`x08`, since made a parse error) and `expose` in a view def body (`x09`), which our grammar admits as an extension. The pinned grammar
    spells entry as `entry; then <state>`, concurrency as `state ... parallel`, and transitions as
    `first <src> then <tgt>`, and has no pseudostates or deferral at all. Adjudication: these are
    **intended OpenSysML extensions**, not accidents — each has dedicated parser tests
@@ -259,19 +259,19 @@ rules closed eleven `xpect/` gaps (`p08`, `p17`, `p20`,
 `p21`, `p22`, `p25`, `p26`, `p27`, `p28`, `p32`, `p33`). No case in the corpus is
 accepted by both implementations.
 
-The three strict-only agreements are `x06`, `x08` and `x09`: OpenSysML notation
+The two strict-only agreements are `x06` and `x09`: OpenSysML notation
 extensions that the default mode reports as `nonstandard-notation` warnings on purpose and strict
 mode reports as errors. `x01` (the
-initial state marker), `x04` (`region r { … }`), `x05` (the `defer <event>;` state member) and
-`x07` (`transition <src> to <tgt>`) left that
+initial state marker), `x04` (`region r { … }`), `x05` (the `defer <event>;` state member),
+`x07` (`transition <src> to <tgt>`) and `x08` (`require` outside a requirement body) left that
 list when that notation was removed: each is now a parse error in either mode, so both
 implementations reject it by default. Judged in
-the default mode the same corpus gives 298 agreements and 3 gaps, which is what `-conformance
+the default mode the same corpus gives 299 agreements and 2 gaps, which is what `-conformance
 default` prints. `-conformance strict` gives 301 and 0. Reserved keywords recovered as declared
 names and SysML declaration keywords recovered in KerML are now errors in either mode; the parser
 still preserves their trees for editors and later analysis. Of the 14 gaps this document carried
 when it was first written, six were closed by the validation work itself — `p01`, `p02`, `p03`,
-`p04`, `p05` and `p06` — and only the three `extensions/` cases belong to strict mode.
+`p04`, `p05` and `p06` — and only the two `extensions/` cases belong to strict mode.
 
 Read those three as agreement *when asked strictly*, not as gaps that disappeared. An opt-in
 check is weaker evidence than a default one: it says the strict question has an answer we agree on,
@@ -524,14 +524,14 @@ the rule.
 
 Per the specification, **yes**. `region` and `history` appear in no production of the
 pinned grammars — `StateBodyItem` has no history member and concurrency is spelled
-`state ... parallel`. The same held for `initial`, `transition <src> to <tgt>` and the `defer
-<event>;` member, which is why they were removed; all three are now errors in either mode (the
-`defer` member with its own `defer-notation-removed` diagnostic, since it was a documented
-extension with a standard encoding to point at). The SysML v2 textual notation is defined by that grammar, so a model using them
+`state ... parallel`. The same held for `initial`, `transition <src> to <tgt>`, the `defer
+<event>;` member and `require` outside a requirement body, which is why they were removed; all
+four are now errors in either mode (the `defer` member with its own `defer-notation-removed`
+diagnostic, since it was a documented extension with a standard encoding to point at). The SysML v2 textual notation is defined by that grammar, so a model using them
 is not a conforming SysML v2 model, and a tool asked whether it conforms must say no. Accepting
 them by default is therefore not "conformance we argued" but a **superset we chose**: OpenSysML's
 default mode implements a dialect, and the honest statement of `-conformance auto` agreement on
-`x06`, `x08` and `x09` is that the strict question has an answer we agree on while the
+`x06` and `x09` is that the strict question has an answer we agree on while the
 default pipeline a user gets accepts notation the reference rejects as a syntax error. What makes
 the choice defensible is not the extensions' usefulness but that the conforming question remains
 askable: [strict mode](../guide/03-command-line.md#strict-conformance) reports every one of them as

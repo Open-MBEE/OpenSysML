@@ -250,6 +250,29 @@ still wins over the normative id when a library element carries one; an
 annotation restating the norm's own id declares nothing, so the id stays
 normative and `sysx:declaredId` is not written.
 
+**A converted model names the library elements it references.** A normative
+id is a hash of a name, and cannot be turned back into one. So for each standard
+library element the output references, the writer states the element under its
+normative id, marked `sysml:isLibraryElement true` (KerML
+`Element::isLibraryElement`, `Element_isLibraryElement` in the ontology), with:
+- its `rdf:type` (`LibraryPackage` for a library package);
+- `sysml:elementId`, `sysml:qualifiedName` and `sysml:declaredName`.
+
+Nothing else is written about it: its owner, members and relationships stay in
+the library, and the library itself is not exported. A library membership the
+output references (the `importedMembership` of `import ScalarValues::Real;`) is
+stated as a `sysml:OwningMembership` with its `sysml:memberElement`, marked the
+same way.
+
+So every `@id` an API JSON output references is an element of it. Such an
+element has no owner in the graph, and the document's root namespace does not
+take it (`LibraryReference`).
+
+Reading a graph back, such an element is a reference into the bundled library,
+not a declaration, and it is not written. A qualified name other than the one
+the library gives its id is refused rather than trusted, and so is an id the
+library does not have. Repository sync never creates, changes or deletes one.
+
 **What is a version of a library file.** A document is a version of a bundled
 library file when every one of its roots is a top-level package that file
 declares, under the same qualified name, and all of one file. On the graph side

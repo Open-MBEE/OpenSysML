@@ -1,0 +1,11 @@
+{
+  "type": "state",
+  "libraries": true,
+  "events": [
+    {"signal": "Go"}
+  ],
+  "finalState": "a1+b1",
+  "outputs": {
+    "log": {"type": "String", "value": ""}
+  }
+}

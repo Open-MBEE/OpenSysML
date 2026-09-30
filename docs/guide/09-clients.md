@@ -11,7 +11,7 @@ starts and stops on its own.
 | Go | `github.com/Open-MBEE/OpenSysML/client/opensysml` | in process, or Connect to a service | [Go packages](../reference/api.md) |
 | Python | `opensysml` | gRPC, to a private child service or a named one | [Python API](../reference/python-api.md) |
 | Node/TypeScript | `@openmbee/opensysml` | Connect, from Node or from a browser page | [Node API](../reference/node-api.md) |
-| Java | `org.openmbee:opensysml-client` | Connect, over the JDK's own HTTP client | [Java API](../reference/java-api.md) |
+| Java | `org.openmbee:opensysml` | Connect, over the JDK's own HTTP client | [Java API](../reference/java-api.md) |
 | Rust | `opensysml` | Connect, blocking, with no async runtime | [Rust API](../reference/rust-api.md) |
 
 They do not all cover the same ground. Go and Java expose every RPC the service offers —
@@ -71,7 +71,7 @@ package Demo {
     ```xml
     <dependency>
       <groupId>org.openmbee</groupId>
-      <artifactId>opensysml-client</artifactId>
+      <artifactId>opensysml</artifactId>
       <version>0.9.0</version>
     </dependency>
     ```
@@ -1520,7 +1520,7 @@ The client is meant to live inside a JVM host application it does not own (an Ec
 a Cameo plugin, a web service), so it is built for JDK 17 and its only compile-scope dependency is
 `protobuf-java`. The transport is `java.net.http.HttpClient` speaking Connect, which keeps gRPC's
 Netty out of a host that has its own. It publishes to Maven Central with each core
-release — `org.openmbee:opensysml-client` at the core's version — once the first
+release — `org.openmbee:opensysml` at the core's version — once the first
 release is out; until then, `make build` followed by `mvn -f client/java/pom.xml install`
 puts it in your local repository.
 

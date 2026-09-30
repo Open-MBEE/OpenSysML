@@ -79,6 +79,9 @@ within these records and means nothing outside this repository.
 - **[MOSA library](mosa-library.md)** — the Modular Open Systems Approach as a bundled OpenSysML
   library: the statute's vocabulary, openness as metadata over the standard model, the
   interface control document and the warning-only checks
+- **[StateMachines library](statemachines-library.md)** — pseudostates as bundled
+  `SemanticMetadata`, so a state machine's `choice`, `junction` and history pseudostates
+  spell standard, conforming SysML v2
 - **[Performance: 0.9.1 against 0.9.0](performance-release-0.9.1-vs-0.9.0.md)** — the release-gate
   measurement of the 0.9.1 line against the previous release: every benchmark on both revisions,
   whole-binary scaling, and each regression fixed or priced; the

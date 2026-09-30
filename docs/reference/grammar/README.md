@@ -31,19 +31,28 @@ library or the Systems Library, and where they do, that library is the governing
 For the rest we cite UML 2.5.1 §14.2.3.4 (Pseudostates), but UML's notation for them is
 diagrammatic, so there is no textual syntax to borrow.
 
-OpenSysML therefore defines its own keywords for them, valid only inside a state body.
-They are a documented extension, not OMG notation, and using one produces a
-`nonstandard-notation` warning:
+OpenSysML covers the pseudostates with metadata definitions in its bundled
+`StateMachines` library package: a pseudostate is an ordinary state usage
+carrying a metadata annotation. Writing `private import StateMachines::*;` brings the annotation
+names into scope. These are standard SysML v2 spellings — a metadata usage is
+ordinary notation — and produce no diagnostic:
 
 | Form | Meaning | Semantic reference |
 |------|---------|-------------|
-| `choice <name>;` | dynamic conditional branch | KerML `ControlPerformances::DecisionPerformance` — selects one of the successions leaving it, `outgoingHBLink: HappensBefore[1]` (notation is an OpenSysML invention) |
-| `junction <name>;` | static branch/merge | KerML `DecisionPerformance::outgoingHBLink[1]` / `MergePerformance::incomingHBLink[1]` (notation is an OpenSysML invention) |
+| `#choice state <name>;` | dynamic conditional branch | KerML `ControlPerformances::DecisionPerformance` — selects one of the successions leaving it, `outgoingHBLink: HappensBefore[1]` |
+| `#junction state <name>;` | static branch/merge | KerML `DecisionPerformance::outgoingHBLink[1]` / `MergePerformance::incomingHBLink[1]` |
 | `fork <name>;` | parallel split | UML `fork` pseudostate (a state-body fork has no SysML v2 or KerML counterpart; the action-level one is `Actions::ForkAction`) |
 | `join <name>;` | parallel synchronization | UML `join` pseudostate (a state-body join has no SysML v2 or KerML counterpart; the action-level one is `Actions::JoinAction`) |
-| `history <name>;` | shallow history (UML `H`) | UML `shallowHistory` pseudostate |
-| `shallow history <name>;` | shallow history, spelled out | UML `shallowHistory` pseudostate |
-| `deep history <name>;` | deep history (UML `H*`) | UML `deepHistory` pseudostate |
+| `#shallowHistory state <name>;` | shallow history (UML `H`) | UML `shallowHistory` pseudostate |
+| `#deepHistory state <name>;` | deep history (UML `H*`) | UML `deepHistory` pseudostate |
+
+The earlier OpenSysML-only keyword spellings — `choice <name>;`,
+`junction <name>;`, `history <name>;` / `shallow history <name>;` and
+`deep history <name>;` — still parse, each lowering to exactly what the
+metadata spelling lowers to, but they are deprecated: every one is a
+`nonstandard-notation` warning whose message names the metadata replacement,
+with a quick-fix that rewrites the member and adds the import. Under
+`-strict` the warnings are errors.
 
 **Removed:** `defer <event> [, <event>]*;`, a state member that named the events the state
 retained while active, was an OpenSysML extension and is no longer notation. `defer` is an

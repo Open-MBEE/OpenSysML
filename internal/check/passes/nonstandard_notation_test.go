@@ -106,11 +106,11 @@ func TestKerMLRelationshipClausesInKerMLAreSilent(t *testing.T) {
 // construct.
 func TestStateExtensionsAreReported(t *testing.T) {
 	for _, tc := range []struct{ src, want string }{
-		{"state def S { choice c; }", "`choice <name>;`"},
-		{"state def S { junction j; }", "`junction <name>;`"},
-		{"state def S { history h; }", "history"},
-		{"state def S { shallow history h; }", "history"},
-		{"state def S { deep history h; }", "history"},
+		{"state def S { choice c; }", "write `#choice state c;`"},
+		{"state def S { junction j; }", "write `#junction state j;`"},
+		{"state def S { history h; }", "write `#shallowHistory state h;`"},
+		{"state def S { shallow history h; }", "write `#shallowHistory state h;`"},
+		{"state def S { deep history h; }", "write `#deepHistory state h;`"},
 	} {
 		wantNotation(t, "a.sysml", tc.src, CodeNonstandardNotation, tc.want)
 	}
@@ -225,10 +225,9 @@ func TestFeatureValuedBindingIsSilent(t *testing.T) {
 }
 
 // An InitialNodeMember is reachable from ActionBodyItem alone, so a
-// one-ended `first` is standard in an action body and ours in a part body.
-func TestOneEndedFirstOutsideAnActionBodyIsAnExtension(t *testing.T) {
-	wantNotation(t, "a.sysml", "part def P { part a; first a; }",
-		CodeNonstandardNotation, "one-ended `first <node>;` outside an action body")
+// one-ended `first` is standard in an action body and a parse error anywhere
+// else (see the negative parser tests).
+func TestOneEndedFirstInsideAnActionBodyIsSilent(t *testing.T) {
 	wantSilent(t, "a.sysml", "action def A { action a; first a; }")
 	wantSilent(t, "a.sysml", "action def A { action outer { action a; first a; } }")
 	wantSilent(t, "a.sysml", "part def P { action a { action b; first b; } }")
@@ -267,13 +266,9 @@ func TestTargetSuccessionAfterANonActionMemberIsAnExtension(t *testing.T) {
 	wantSilent(t, "a.kerml", "behavior A { step a; then a; }")
 }
 
-// F107: RequirementConstraintMember belongs to a RequirementBody, which an
-// analysis case body is not.
-func TestRequirementConstraintOutsideARequirementBodyIsAnExtension(t *testing.T) {
-	wantNotation(t, "a.sysml", "analysis def An { attribute size; require constraint { size >= 1 } }",
-		CodeNonstandardNotation, "`require` outside a requirement body")
-	wantNotation(t, "a.sysml", "part def P { attribute size; assume constraint { size >= 1 } }",
-		CodeNonstandardNotation, "`assume` outside a requirement body")
+// RequirementConstraintMember belongs to a RequirementBody; anywhere else the
+// parser rejects `assume`/`require` outright (see the negative parser tests).
+func TestRequirementConstraintInsideARequirementBodyIsSilent(t *testing.T) {
 	wantSilent(t, "a.sysml", "requirement def R { attribute size; require constraint { size >= 1 } }")
 	wantSilent(t, "a.sysml", "analysis def An { attribute size; assert constraint { size >= 1 } }")
 }

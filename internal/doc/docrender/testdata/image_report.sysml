@@ -23,7 +23,7 @@ package Pictures {
 			}
 
 			part tricky : Image {
-				attribute redefines location = "images/a) <b>.png";
+				attribute redefines location = "images/a) (b).png";
 				attribute redefines alt = "odd name";
 			}
 		}

@@ -1,1 +1,0 @@
-- **Packages that publicly import one another in a cycle now analyse in polynomial time.** Looking a name up through imports searched every path through the cycle, so six mutually importing packages never finished validating (#633); each import is now searched once per lookup, as the spec's visible-membership rule intends.

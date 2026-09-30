@@ -351,8 +351,17 @@ func viewOf(g *rdf.Graph, rep Carrier) (map[string]*subjectView, []UncarriedProp
 	}
 	views := map[string]*subjectView{}
 	uncarried := map[string]int{}
+	// A library element the graph names (isLibraryElement) is a reference into
+	// the standard library, not an element of the model: it is never created,
+	// changed or deleted in a repository.
+	library := map[string]bool{}
+	for _, subject := range g.Subjects() {
+		if export.LibraryReference(g, subject) {
+			library[subject.Value] = true
+		}
+	}
 	for _, triple := range g.Triples() {
-		if !triple.Subject.IsIRI() {
+		if !triple.Subject.IsIRI() || library[triple.Subject.Value] {
 			continue
 		}
 		id := rdf.LocalName(triple.Subject.Value)

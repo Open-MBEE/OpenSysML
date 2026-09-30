@@ -1,0 +1,34 @@
+{
+	"type": "state",
+	"libraries": true,
+	"events": [
+		{
+			"signal": "Next",
+			"args": null
+		},
+		{
+			"signal": "Leave",
+			"args": null
+		},
+		{
+			"signal": "Back",
+			"args": null
+		},
+		{
+			"signal": "Finish",
+			"args": null
+		}
+	],
+	"finalState": "done",
+	"stateVisits": [
+		"start",
+		"outer",
+		"first",
+		"second",
+		"away",
+		"outer",
+		"second",
+		"done"
+	],
+	"outputs": {}
+}

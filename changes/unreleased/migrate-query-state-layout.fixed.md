@@ -1,3 +1,0 @@
-- **Make SysML v1 migration output conform for document columns, nested behavior contexts, state transitions, and diagram metadata.** Feature-backed columns use typed cells, Monte Carlo statistics use member paths, nested behaviors retain definition-typed contexts, transition endpoints use dotted state paths, and shadowed diagram metadata fields are explicitly redefined.
-- Invocation argument values, chained assignment targets, and state-transition endpoints are now checked for accessibility from the context where they are written.
-- A v1 initial transition into an orthogonal region is reported as unmapped because it has no well-formed v2 form.

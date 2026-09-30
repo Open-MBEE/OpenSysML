@@ -1,0 +1,37 @@
+{
+	"type": "state",
+	"libraries": true,
+	"events": [
+		{
+			"signal": "Level",
+			"value": {
+				"type": "Integer",
+				"value": 8
+			}
+		}
+	],
+	"finalState": "done",
+	"stateVisits": [
+		"idle",
+		"high",
+		"done"
+	],
+	"outputs": {
+		"left": {
+			"type": "Integer",
+			"value": 8
+		},
+		"chosen": {
+			"type": "Integer",
+			"value": 8
+		},
+		"joined": {
+			"type": "Integer",
+			"value": 8
+		},
+		"entered": {
+			"type": "Integer",
+			"value": 8
+		}
+	}
+}

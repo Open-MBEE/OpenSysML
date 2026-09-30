@@ -1,1 +1,0 @@
-- **Toolkit JSON roots keep the order and identities of the root namespace.** A later same-named root is identified by its position in that order, and an unowned root relationship occupies a position just like any other root.
