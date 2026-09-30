@@ -69,6 +69,7 @@ type Model struct {
 
 	superEdgeCache map[*symbols.Symbol][]superEdge      // generalization edges with conjugation
 	conjSupers     map[*symbols.Symbol][]conjugatedType // supertypes with conjugation parity
+	portFeatures   map[*symbols.Symbol][]PortFeature    // PortFeatures by port type
 
 	unitTerms    map[*symbols.Symbol]UnitTerm // measurement units reduced to base units
 	reducingUnit map[*symbols.Symbol]bool     // units being reduced, to detect a cycle
@@ -172,6 +173,7 @@ func NewModel(resolver *resolve.Resolver) *Model {
 
 		superEdgeCache: make(map[*symbols.Symbol][]superEdge),
 		conjSupers:     make(map[*symbols.Symbol][]conjugatedType),
+		portFeatures:   make(map[*symbols.Symbol][]PortFeature),
 		unitTerms:      make(map[*symbols.Symbol]UnitTerm),
 		reducingUnit:   make(map[*symbols.Symbol]bool),
 
