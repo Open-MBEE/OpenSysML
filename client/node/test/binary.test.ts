@@ -117,10 +117,13 @@ test("a binary on $PATH is used, and with nothing anywhere the error says so", a
   writeFileSync(executable, "#!/bin/sh\n");
   chmodSync(executable, 0o755);
   process.env["PATH"] = dir;
-  assert.equal((await resolveBinary({ cacheDir: empty })).path, executable);
+  // platformPackage: false — the optional package may be installed here; $PATH must
+  // still answer when it is not.
+  const hidden = { cacheDir: empty, platformPackage: false } as const;
+  assert.equal((await resolveBinary(hidden)).path, executable);
 
   process.env["PATH"] = empty;
-  const error = await rejection(resolveBinary({ cacheDir: empty }));
+  const error = await rejection(resolveBinary(hidden));
   assert.ok(error instanceof BinaryNotFoundError);
   // The message must name every place looked, and how to ask for a download.
   assert.match(error.message, /OPENSYSML_BINARY/);
@@ -461,6 +464,9 @@ function unpinned(release: { url: string; apiUrl: string }): DownloadOptions {
     apiBaseUrl: release.apiUrl,
     cacheDir: mkdtempSync(join(tmpdir(), "binary-cache-")),
     pinnedDigests: {},
+    // The optional platform package may be installed here; every cache and
+    // download test must still reach it.
+    platformPackage: false,
   };
 }
 

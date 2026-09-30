@@ -84,6 +84,8 @@ export interface DownloadOptions {
   cacheDir?: string;
   /** Platform the release asset is chosen for; this process's by default. */
   platform?: string;
+  /** Platform package the bundled binary is resolved from; `false` skips it. */
+  platformPackage?: string | false;
   /** Architecture the release asset is chosen for; this process's by default. */
   arch?: string;
   /** Identity the release manifest's signature must carry; the pinned one when omitted. */
@@ -531,11 +533,13 @@ export async function resolveBinary(options: DownloadOptions = {}): Promise<Bina
   }
   looked.push(`$${BINARY_ENV}`);
 
-  const packaged = fromPlatformPackage();
+  const packageName = options.platformPackage || platformPackage();
+  const packaged =
+    options.platformPackage === false ? undefined : fromPlatformPackage(packageName);
   if (packaged !== undefined) {
     return packaged;
   }
-  looked.push(`the ${platformPackage()} package`);
+  looked.push(`the ${packageName} package`);
 
   const installed = await fromRelease(options);
   if (installed !== undefined) {
@@ -613,8 +617,7 @@ async function fromRelease(options: DownloadOptions): Promise<Binary | undefined
   }
 }
 
-function fromPlatformPackage(): Binary | undefined {
-  const name = platformPackage();
+function fromPlatformPackage(name: string = platformPackage()): Binary | undefined {
   const require_ = createRequire(import.meta.url);
   let manifest: string;
   try {
