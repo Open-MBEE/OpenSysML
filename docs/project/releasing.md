@@ -691,10 +691,13 @@ the MSI cannot come out of the `cimg/go` release job. It is built by
 including at `git checkout`, since the Windows runners cannot check out a
 tracked path Windows forbids — fix the cause on a `hotfix/` branch to `main`,
 then re-run it against the tag with `gh workflow run release-windows.yml
---ref main -f tag=v0.9.1`. The dispatch checks out and builds the tagged
-commit, the release gate still requires the tag to resolve to that commit, and
-`overwrite_files` touches only the MSI assets, so the CircleCI-published
-release and its assets are never rewritten.
+--ref main -f tag=v0.9.1`. The dispatch builds the tagged commit on the Linux
+job, and the Windows MSI jobs check nothing out — they consume `packaging/msi`,
+`scripts/build-msi.sh` and `LICENSE`, uploaded by that job as a workflow
+artifact — so even a tag whose tree Windows cannot check out gets its
+installer. The release gate still requires the tag to resolve to the built
+commit, and `overwrite_files` touches only the MSI assets, so the
+CircleCI-published release and its assets are never rewritten.
 
 The trade-off is the one the `-signed` assets already make: the MSI is not in
 `SHA256SUMS.txt` or the cosign bundle, because those are produced by CircleCI

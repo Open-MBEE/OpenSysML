@@ -52,6 +52,7 @@ env:
   SIGNED_EXE_ARTIFACT: windows-amd64-signed-exe
   UNSIGNED_MSI_ARTIFACT: windows-amd64-msi-unsigned
   PRESIGN_MSI_ARTIFACT: windows-amd64-msi-presign
+  MSI_INPUTS_ARTIFACT: windows-msi-inputs
   WIX_VERSION: 5.0.2
 
 jobs:
@@ -136,6 +137,17 @@ jobs:
           if-no-files-found: error
           retention-days: 14
 
+      - name: Upload the MSI packaging inputs
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: ${{ env.MSI_INPUTS_ARTIFACT }}
+          path: |
+            packaging/msi/
+            scripts/build-msi.sh
+            LICENSE
+          if-no-files-found: error
+          retention-days: 14
+
       - name: Decide whether SignPath is configured
         id: gate
         env:
@@ -173,14 +185,12 @@ jobs:
       run:
         shell: bash
     steps:
-      - name: Check out repository
-        uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
+      # No checkout: the tagged tree holds paths Windows cannot check out; the build job ships what the MSI needs.
+      - name: Download the MSI packaging inputs
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
         with:
-          ref: ${{ inputs.tag || github.ref }}
-          # Testdata trees hold names Windows cannot check out; the MSI build only needs these.
-          sparse-checkout: |
-            packaging/msi
-            scripts
+          name: ${{ env.MSI_INPUTS_ARTIFACT }}
+          path: .
 
       - name: Download the unsigned binaries
         uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
@@ -197,7 +207,7 @@ jobs:
         env:
           VERSION: ${{ needs.build.outputs.version }}
         run: |
-          scripts/build-msi.sh "$VERSION" dist/unsigned/sysml-windows-amd64.exe dist/unsigned/sysml-lsp-windows-amd64.exe dist/unsigned/sysml-grpc-windows-amd64.exe
+          bash scripts/build-msi.sh "$VERSION" dist/unsigned/sysml-windows-amd64.exe dist/unsigned/sysml-lsp-windows-amd64.exe dist/unsigned/sysml-grpc-windows-amd64.exe
           msi=$(ls dist/opensysml-*-windows-amd64.msi)
           wix msi validate "$msi"
           mkdir -p dist/release
@@ -328,14 +338,12 @@ jobs:
     outputs:
       artifact-id: ${{ steps.upload.outputs.artifact-id }}
     steps:
-      - name: Check out repository
-        uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
+      # No checkout: the tagged tree holds paths Windows cannot check out; the build job ships what the MSI needs.
+      - name: Download the MSI packaging inputs
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
         with:
-          ref: ${{ inputs.tag || github.ref }}
-          # Testdata trees hold names Windows cannot check out; the MSI build only needs these.
-          sparse-checkout: |
-            packaging/msi
-            scripts
+          name: ${{ env.MSI_INPUTS_ARTIFACT }}
+          path: .
 
       - name: Check the MSI artifact configuration is configured
         env:
@@ -361,7 +369,7 @@ jobs:
         env:
           VERSION: ${{ needs.build.outputs.version }}
         run: |
-          scripts/build-msi.sh "$VERSION" dist/signed/sysml-windows-amd64.exe dist/signed/sysml-lsp-windows-amd64.exe dist/signed/sysml-grpc-windows-amd64.exe
+          bash scripts/build-msi.sh "$VERSION" dist/signed/sysml-windows-amd64.exe dist/signed/sysml-lsp-windows-amd64.exe dist/signed/sysml-grpc-windows-amd64.exe
           msi=$(ls dist/opensysml-*-windows-amd64.msi)
           wix msi validate "$msi"
           mkdir -p dist/presign
