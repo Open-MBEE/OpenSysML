@@ -124,14 +124,26 @@ func (m Model) addSequenceSplice(i int, op Operation) (splice, error) {
 // validation.
 func (m Model) checkSuccessionEnd(i int, owner string, offset int) error {
 	qn, scope := m.successionEndAt(offset)
-	if qn == nil || m.sequenceNodeVisible(scope, qn.Text()) {
+	if qn == nil {
+		return nil
+	}
+	ref := successionEndText(qn)
+	if m.sequenceNodeVisible(scope, ref) {
 		return nil
 	}
 	return &Error{
 		Failure: FailureUnknownTarget, OperationIndex: i,
 		Message: fmt.Sprintf("sequence node %q resolves to nothing visible from %s",
-			qn.Text(), ownerName(owner)),
+			ref, ownerName(owner)),
 	}
+}
+
+// successionEndText is the end as written, its `$::` root included.
+func successionEndText(qn *ast.QualifiedName) string {
+	if qn.Global {
+		return "$::" + qn.Text()
+	}
+	return qn.Text()
 }
 
 func (m Model) formatSequenceItem(i int, owner string, scope *symbols.Scope, localNames map[string]bool, op Operation, depth int, memberIndent, unit string) (string, error) {
