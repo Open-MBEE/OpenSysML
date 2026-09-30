@@ -2401,7 +2401,7 @@ workflows:
           # The organization context is named 'Maven Central'; a context
           # reference is matched exactly, so the case here has to match it.
           context:
-            - Maven Central
+            - "Maven Central"
           requires:
             - Publish GitHub release
             - Java client tests
