@@ -128,7 +128,7 @@ func (ctx *Context) shapeOf(inst *Instance) *shapeNode {
 		return nil
 	}
 	for _, fv := range inst.FeatureValues {
-		if fv.Feature != nil && (fv.Feature.GovernedByChain || fv.Feature.hostsChain()) {
+		if fv.Feature != nil && (fv.Feature.GovernedByChain || ctx.hostsChain(fv.Feature.Symbol)) {
 			return nil
 		}
 	}

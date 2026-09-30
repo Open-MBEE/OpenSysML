@@ -330,6 +330,19 @@ func isChainHost(member *symbols.Symbol) bool {
 	return false
 }
 
+// hostsChain reports isChainHost(member), memoized by symbol.
+func (ctx *Context) hostsChain(member *symbols.Symbol) bool {
+	if member == nil {
+		return false
+	}
+	if hosts, ok := ctx.model.chainHosts[member]; ok {
+		return hosts
+	}
+	hosts := isChainHost(member)
+	ctx.model.chainHosts[member] = hosts
+	return hosts
+}
+
 // chainOutranks reports whether the chain next was declared by a context
 // strictly specializing the chain prior's: the newer chain then replaces it,
 // as a nested redefining body in the subtype does.
