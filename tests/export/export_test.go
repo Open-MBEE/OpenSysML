@@ -2179,6 +2179,38 @@ func TestActionSuccessionSourceMultiplicityRoundTripsWithoutSourceText(t *testin
 	)
 }
 
+// `then [m] b;` writes the target end's crossing multiplicity, the same end
+// `succession first a then [m] b;` states: the graph carries it on the target
+// connector end, beside a source multiplicity when both are written, and writes
+// the form back from the ends alone.
+func TestActionSuccessionTargetMultiplicityRoundTripsWithoutSourceText(t *testing.T) {
+	const src = `package P {
+    action def A {
+        action a;
+        action b;
+        action c;
+        action d;
+        then [0..1] b;
+        then [1] c { action nested; }
+        [1] then [0..1] d;
+        then [0..1] done;
+    }
+    action def B {
+        action a;
+        [1] then [2] done;
+    }
+}
+`
+	back := notationFromTheGraphAlone(t, "target_multiplicity.sysml", src)
+	wantFragments(t, back,
+		"then [0..1] b;",
+		"then [1] c {",
+		"[1] then [0..1] d;",
+		"then [0..1] done;",
+		"[1] then [2] done;",
+	)
+}
+
 // A succession is its two ends, so a graph from elsewhere that names only one of
 // them declares no order: that is reported rather than written back as notation
 // (`succession;`) that says nothing.

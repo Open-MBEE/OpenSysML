@@ -315,14 +315,15 @@ func (e *encoder) encodeSuccessionEdge(n *ast.SuccessionEdge, head func(rdf.Term
 		e.graph.Add(subject, e.sysx(xSourceMultiplicityBeforeThen), rdf.Bool(true))
 	}
 	positionalSource := n.Source == nil && n.SourceMember != nil
-	if implied || positionalSource && n.SourceMultiplicity != nil {
+	if implied || positionalSource && (n.SourceMultiplicity != nil || n.TargetMultiplicity != nil) {
 		// A `then` source reached by position needs a structural end to carry its
-		// multiplicity, even when the preceding member has no referenceable name.
+		// multiplicity, even when the preceding member has no referenceable name;
+		// the target end carries the crossing multiplicity `then [m] b;` writes.
 		e.graph.Add(subject, e.sysx(xEndForm), rdf.String(formThen))
 		if err := e.connectorEnd(subject, connectorEndSpec{owner: owner, slot: "end0", index: 0, ends: 2, empty: true, mult: n.SourceMultiplicity, noCollapse: true}); err != nil {
 			return err
 		}
-		target := connectorEndSpec{owner: owner, slot: "end1", index: 1, ends: 2, noCollapse: true}
+		target := connectorEndSpec{owner: owner, slot: "end1", index: 1, ends: 2, mult: n.TargetMultiplicity, noCollapse: true}
 		if n.Target != nil {
 			target.target = n.Target
 		} else if _, done := n.TargetMember.(*ast.FinalNode); done {
@@ -1219,16 +1220,26 @@ func (d *decoder) successionHead(el *element) (string, error) {
 	return strings.Join(words, " "), nil
 }
 
+// thenSuccessionText writes `then <target>;` with the multiplicities its ends
+// carry: the source end's before or after `then`, the target end's crossing
+// multiplicity ahead of the target (`then [m] b;`).
 func (d *decoder) thenSuccessionText(target string, el *element) (string, error) {
 	prefix, err := d.positionalSuccessionPrefix(el)
 	if err != nil {
 		return "", err
 	}
+	multiplicity, err := d.positionalEndMultiplicity(el, true)
+	if err != nil {
+		return "", err
+	}
+	if multiplicity != "" {
+		target = multiplicity + " " + target
+	}
 	return prefix + target, nil
 }
 
 func (d *decoder) positionalSuccessionPrefix(el *element) (string, error) {
-	multiplicity, err := d.positionalSourceMultiplicity(el)
+	multiplicity, err := d.positionalEndMultiplicity(el, false)
 	if err != nil {
 		return "", err
 	}
@@ -1241,7 +1252,10 @@ func (d *decoder) positionalSuccessionPrefix(el *element) (string, error) {
 	return "then " + multiplicity + " ", nil
 }
 
-func (d *decoder) positionalSourceMultiplicity(el *element) (string, error) {
+// positionalEndMultiplicity is the multiplicity one end of a `then` succession
+// carries: the end that names its target when target is set, else the empty
+// source end.
+func (d *decoder) positionalEndMultiplicity(el *element, target bool) (string, error) {
 	ends := d.graph.Objects(rdf.IRI(el.iri), rdf.SysML+pConnectorEnd)
 	if len(ends) == 0 {
 		var err error
@@ -1254,7 +1268,7 @@ func (d *decoder) positionalSourceMultiplicity(el *element) (string, error) {
 		if err != nil {
 			return "", err
 		}
-		if hasTarget {
+		if hasTarget != target {
 			continue
 		}
 		return d.endMultiplicity(end, el)
