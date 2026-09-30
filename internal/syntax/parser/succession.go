@@ -136,6 +136,7 @@ type bodyBuilder struct {
 	sourceSpan         source.Span
 	sourceNode         ast.Node
 	sourceMultiplicity *ast.Multiplicity
+	targetMultiplicity *ast.Multiplicity
 }
 
 func (p *Parser) newBodyBuilder() *bodyBuilder {
@@ -173,7 +174,7 @@ func (b *bodyBuilder) atSuccession() bool {
 	} else {
 		return false
 	}
-	if b.namesEdgeEnd(kw) {
+	if b.namesEdgeEnd(kw, nextAt) {
 		// `then done;`: a keyword this body declares a member with names an edge
 		// end, not the kind of a member being declared.
 		return false
@@ -282,19 +283,20 @@ var actionNodeKeywords = map[string]bool{
 	"done":      true,
 }
 
-// namesEdgeEnd reports whether a keyword after `then` names an edge end rather
-// than the kind of a member being declared: `then <kw>;` and `then <kw> <name>;`
-// are ambiguous, and only a name this body already declares can be an end.
-func (b *bodyBuilder) namesEdgeEnd(kw string) bool {
+// namesEdgeEnd reports whether the keyword at token offset at, after `then` and
+// any multiplicity or prefix metadata, names an edge end rather than the kind of
+// a member being declared: `then <kw>;` and `then <kw> <name>;` are ambiguous,
+// and only a name this body already declares can be an end.
+func (b *bodyBuilder) namesEdgeEnd(kw string, at int) bool {
 	if !b.declares(kw) {
 		return false
 	}
 	p := b.p
-	switch p.peekN(2).Kind {
+	switch p.peekN(at + 1).Kind {
 	case lexer.Semicolon:
 		return true
 	case lexer.Identifier, lexer.Keyword, lexer.UnrestrictedName:
-		return p.peekN(3).Kind == lexer.Semicolon
+		return p.peekN(at+2).Kind == lexer.Semicolon
 	}
 	return false
 }
@@ -318,10 +320,15 @@ func (b *bodyBuilder) takeSuccession() {
 	if p.at(lexer.LBracket) {
 		multiplicity = p.parseMultiplicity()
 	}
+	// Before the member a `then` declares, `[m]` is the source end's
+	// multiplicity (SysML.xtext:887 EmptySuccession); before a reference it is
+	// the target end's crossing multiplicity (SysML.xtext:1705 TargetSuccession).
+	sourceMultiplicity, targetMultiplicity := multiplicity, (*ast.Multiplicity)(nil)
 	if w, ok := p.actionNodeWordAt(0); ok && w == "done" {
 		// `then done;` is a target succession to the done node, which the
 		// keyword opens rather than a member: neither offset is a member start.
 		p.attachedStarts = append(p.attachedStarts, tok.Span.Offset, p.peek().Span.Offset)
+		sourceMultiplicity, targetMultiplicity = nil, multiplicity
 	}
 	if b.pending {
 		p.error(tok.Span, "`then` cannot follow another `then`: a succession sequences two members, so each keyword needs a member between it and the next")
@@ -329,7 +336,7 @@ func (b *bodyBuilder) takeSuccession() {
 	}
 	b.pending, b.pendingAt, b.valid = true, tok.Span, true
 	b.source, b.sourceSpan, b.sourceNode = b.last, b.lastSpan, b.lastNode
-	b.sourceMultiplicity = multiplicity
+	b.sourceMultiplicity, b.targetMultiplicity = sourceMultiplicity, targetMultiplicity
 
 	// One diagnostic per keyword: the first thing wrong with it is enough to
 	// say why no succession was built.
@@ -405,9 +412,9 @@ func (b *bodyBuilder) add(m ast.Node) {
 	// it: record it before its source is bound, which clears the mark it is read by.
 	b.p.markAttached(m)
 	pending, at, valid := b.pending, b.pendingAt, b.valid
-	multiplicity := b.sourceMultiplicity
+	sourceMultiplicity, targetMultiplicity := b.sourceMultiplicity, b.targetMultiplicity
 	b.pending = false
-	b.sourceMultiplicity = nil
+	b.sourceMultiplicity, b.targetMultiplicity = nil, nil
 
 	// `then <target>;` leaves its source to the member before it, the same member
 	// a member-attached `then` sequences from, rather than to a consumer's guess.
@@ -436,7 +443,7 @@ func (b *bodyBuilder) add(m ast.Node) {
 		return
 	}
 	edge := synthesizeSuccession(b.source, b.sourceSpan, target, m.Span(), at)
-	edge.SourceMultiplicity = multiplicity
+	edge.SourceMultiplicity, edge.TargetMultiplicity = sourceMultiplicity, targetMultiplicity
 	if b.source == "" {
 		edge.Source, edge.SourceMember = nil, b.sourceNode
 	}

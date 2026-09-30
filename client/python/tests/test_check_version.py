@@ -154,3 +154,57 @@ def test_main_reads_the_tag_from_circle_tag(monkeypatch, capsys):
     monkeypatch.setenv("CIRCLE_TAG", _core_tag(declared))
     assert check_version.main([]) == 0
     assert capsys.readouterr().out.strip() == declared
+
+
+def test_node_version_agrees_with_the_real_tree():
+    """package.json and _version.py must stay in lockstep on every commit."""
+    assert check_version.node_version() == check_version.node_declared_version()
+
+
+def test_node_version_accepts_a_matching_release():
+    assert (
+        check_version.node_version(declared="0.9.0", node="0.9.0", tag="v0.9.0") == "0.9.0"
+    )
+
+
+def test_node_version_accepts_a_matching_pre_release():
+    assert (
+        check_version.node_version(declared="0.9.0rc1", node="0.9.0-rc.1", tag="v0.9.0-rc.1")
+        == "0.9.0-rc.1"
+    )
+
+
+def test_node_version_rejects_a_disagreeing_package_json():
+    with pytest.raises(
+        check_version.VersionError, match="client/node/package.json declares"
+    ):
+        check_version.node_version(declared="0.9.1", node="0.9.0")
+
+
+def test_node_version_rejects_a_tag_that_misspells_the_npm_version():
+    with pytest.raises(check_version.VersionError, match="must spell it exactly"):
+        check_version.node_version(declared="0.9.0rc1", node="0.9.0-rc.1", tag="v0.9.0-rc1")
+
+
+def test_node_version_rejects_a_suffix_without_one_pep_440_meaning():
+    with pytest.raises(check_version.VersionError, match="is not of the form"):
+        check_version.node_version(declared="0.9.0", node="0.9.0-1")
+
+
+def test_node_declared_version_rejects_a_file_without_a_version(tmp_path):
+    package_json = tmp_path / "package.json"
+    package_json.write_text('{"name": "x"}\n', encoding="utf-8")
+    with pytest.raises(check_version.VersionError, match="declares no version"):
+        check_version.node_declared_version(str(package_json))
+
+
+def test_main_prints_the_npm_version_the_tag_names(capsys):
+    declared = check_version.node_declared_version()
+    assert check_version.main(["--tag", f"v{declared}", "--node"]) == 0
+    assert capsys.readouterr().out.strip() == declared
+
+
+def test_main_prints_no_for_a_stable_npm_version(capsys):
+    declared = check_version.node_declared_version()
+    assert check_version.main(["--tag", f"v{declared}", "--node", "--pre-release"]) == 0
+    assert capsys.readouterr().out.strip() == "no"

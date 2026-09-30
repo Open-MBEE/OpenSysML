@@ -1228,7 +1228,7 @@ the node, that name is used; the rest are `sysx:` terms, marked below.
 | `first x;` in an action body | `sysml:Membership` with `sysx:declaredKeyword "first"` | `sysml:memberElement` and `sysml:sourceFeature` (the member the flow starts at — a reference, not a name it declares), `sysx:hasBody` and the members of its body. Read, a `sysx:InitialNode` from an older graph is the same member |
 | `first x then y { … }` in an action body (the succession x → y, which marks no start) | `sysml:SuccessionAsUsage` with `sysx:declaredKeyword "first"` | `sysml:sourceFeature` (x, a reference), `sysml:targetFeature` (y), `sysx:guard`, `sysx:hasBody` and the members of its body |
 | `done;` written on its own | `sysml:Membership` with `sysx:declaredKeyword "done"` | `sysml:memberElement`, the library's `Actions::Action::done`. Read, a `sysx:FinalNode` from an older graph is the same member |
-| `then done;`, `then [m] done;`, `[m] then done;` | `sysml:SuccessionAsUsage` with `sysx:endForm "then"` | its target end's `ReferenceSubsetting` reaches the library's `Actions::Action::done` — `sysml:targetFeature` states the same — and no member is declared for the node. The source-end multiplicity is carried on the empty source connector end, including whether it preceded `then` in source text. Read, an older graph's `done` Membership targeted through `sysx:targetMember` writes back as `then done;` |
+| `then done;`, `[m] then done;`, `then [m] done;` | `sysml:SuccessionAsUsage` with `sysx:endForm "then"` | its target end's `ReferenceSubsetting` reaches the library's `Actions::Action::done` — `sysml:targetFeature` states the same — and no member is declared for the node. A source-end multiplicity (`[m] then`) is carried on the empty source connector end; a target-end crossing multiplicity (`then [m] done`) on the target connector end, as `succession first a then [m] done;` carries it. Read, an older graph's `done` Membership targeted through `sysx:targetMember` writes back as `then done;` |
 | `action a;`, `action a { x + 1 }` | `sysx:ActionExecutionNode` | `sysml:references` or `sysx:expression` |
 | `perform a;` | `sysml:PerformActionUsage` | `sysx:expression` (the action performed) |
 | `assign x := 1;` | `sysml:AssignmentActionUsage` | `sysx:target`, `sysml:value`, `sysx:assignmentOperator` when it is not `:=` |
@@ -1252,11 +1252,15 @@ These action-body forms also apply recursively inside their own bodies; a
 nested statement uses the same RDF mapping as a top-level body item. A
 succession source multiplicity is carried on the source connector end, including
 whether `[m]` preceded `then`; `sysx:sourceMultiplicityBeforeThen` preserves that
-spelling when `sysx:sourceText` is absent. These forms follow SysML.xtext:878, 887,
+spelling when `sysx:sourceText` is absent. The crossing multiplicity a `then`
+writes ahead of the target it references (`then [m] b;`, `then [m] b { … }`,
+`[m] then [n] b;`) is carried on the target connector end, the same end
+`succession first a then [m] b;` states. These forms follow SysML.xtext:878, 887,
 1607 ActionBodyParameter, 1442 AcceptNode, 1499 SendNode, 1535 AssignmentNode, 1596 IfNode,
 1615 WhileLoopNode, 1624 ForLoopNode, 1641 TerminateNode, 1703 TargetSuccession,
-1708 GuardedTargetSuccession, 1714 DefaultTargetSuccession and formal/2026-03-02. Both spellings round-trip in
-`export_test.go:TestActionSuccessionSourceMultiplicityRoundTripsWithoutSourceText`.
+1708 GuardedTargetSuccession, 1714 DefaultTargetSuccession and formal/2026-03-02. Every spelling round-trips in
+`export_test.go:TestActionSuccessionSourceMultiplicityRoundTripsWithoutSourceText` and
+`TestActionSuccessionTargetMultiplicityRoundTripsWithoutSourceText`.
 
 A state's members are held in the AST in one bucket per kind (entry, do, exit,
 defer, substates); they are written back in the order they were

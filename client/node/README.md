@@ -1,4 +1,4 @@
-# @opensysml/client
+# @openmbee/opensysml
 
 Node and browser client for OpenSysML: parse, inspect and instantiate SysML v2
 models over the `sysml-grpc` service, using the [Connect
@@ -6,11 +6,11 @@ protocol](https://connectrpc.com/docs/protocol) with protobuf bodies. No native
 addon, so an install is a plain registry fetch.
 
 ```bash
-npm install @opensysml/client        # from npm, once the first release is published
+npm install @openmbee/opensysml        # from npm, once the first release is published
 ```
 
 ```ts
-import { loads, connect } from "@opensysml/client";
+import { loads, connect } from "@openmbee/opensysml";
 
 await using model = await loads(`package Demo {
   part def Wheel { attribute radius : ScalarValues::Real = 0.3; }
@@ -144,7 +144,7 @@ service left listening by another process, no pidfile and no port probing.
 ## The browser
 
 ```ts
-import { connect } from "@opensysml/client/browser";
+import { connect } from "@openmbee/opensysml/browser";
 
 await using connection = await connect({ address: "https://sysml.example.com" });
 ```
@@ -185,7 +185,7 @@ Clients negotiate on the capability names `GetServerInfo` reports, not on
 versions:
 
 ```ts
-import { CAPABILITY_EVALUATE_SUBJECT } from "@opensysml/client";
+import { CAPABILITY_EVALUATE_SUBJECT } from "@openmbee/opensysml";
 
 if (connection.info.has(CAPABILITY_EVALUATE_SUBJECT)) {
   await model.eval("mass", { subject: "Demo::sedan" });
@@ -259,11 +259,11 @@ from its `os`/`cpu` metadata:
 
 | package | platform |
 | --- | --- |
-| `@opensysml/sysml-grpc-linux-x64` | Linux x86-64 |
-| `@opensysml/sysml-grpc-linux-arm64` | Linux arm64 |
-| `@opensysml/sysml-grpc-darwin-x64` | macOS Intel |
-| `@opensysml/sysml-grpc-darwin-arm64` | macOS Apple silicon |
-| `@opensysml/sysml-grpc-win32-x64` | Windows x86-64 |
+| `@openmbee/opensysml-sysml-grpc-linux-x64` | Linux x86-64 |
+| `@openmbee/opensysml-sysml-grpc-linux-arm64` | Linux arm64 |
+| `@openmbee/opensysml-sysml-grpc-darwin-x64` | macOS Intel |
+| `@openmbee/opensysml-sysml-grpc-darwin-arm64` | macOS Apple silicon |
+| `@openmbee/opensysml-sysml-grpc-win32-x64` | Windows x86-64 |
 
 That is a normal registry install: npm verifies the tarball against the
 registry's integrity hash, and **there is no postinstall script**, so a platform
@@ -357,7 +357,7 @@ package's devDependency, pinned in `package-lock.json` at the same version as th
 from `node_modules` with no hand steps and no network fetch at generation time.
 
 **The stubs are committed**, for the same reason the Python ones are: `npm
-install @opensysml/client` must not need `buf`, Go or a network fetch of a
+install @openmbee/opensysml` must not need `buf`, Go or a network fetch of a
 plugin, and a published tarball has to contain the compiled output. CI runs
 `make proto-ts` and fails on any diff, so committed and generated cannot drift.
 
@@ -453,9 +453,10 @@ commands, plus the mutation checks and a stub-drift check, in both
 ## Release
 
 Nothing here is published yet; the procedure is in
-[docs/project/releasing.md](../../docs/project/releasing.md) under "The Node
-client". In short: the `release-node` workflow runs on a `client-node-v*` tag,
-cross-compiles the binaries, builds the per-platform packages from them, and
-publishes those packages and then the client from the `npm` context. It needs
-the `@opensysml` npm organization and an automation token, which a maintainer
-supplies.
+[docs/project/releasing.md](../../docs/project/releasing.md) under "Releasing
+@openmbee/opensysml to npm". In short: the core `v*` tag's `release` workflow
+publishes this package and its five per-platform packages at the version
+`client/python/opensysml/_version.py` declares, carrying the release's own
+`sysml-grpc` binaries. The granular npm token it needs already lives in the
+`npm` context; granular tokens expire after at most 90 days, so rotation before
+a release is a standing task.

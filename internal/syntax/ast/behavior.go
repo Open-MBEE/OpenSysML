@@ -321,8 +321,15 @@ type SuccessionEdge struct {
 	Source *QualifiedName // source action node
 	Target *QualifiedName // target action node
 	// SourceMultiplicity is the source-end multiplicity of an action succession
-	// (SysML.xtext:878, 887, 1703; formal/2026-03-02).
+	// (SysML.xtext:878, 887, 1703; formal/2026-03-02): the `[m]` written before
+	// `then` (`[m] then b;`), or after it ahead of the member a member-attached
+	// `then` declares (`then [m] action b;`).
 	SourceMultiplicity *Multiplicity
+	// TargetMultiplicity is the crossing multiplicity written ahead of the
+	// target a `then` references (`then [m] b;`, SysML.xtext:1705
+	// TargetSuccession, whose ConnectorEnd takes one): the same end
+	// `succession first a then [m] b;` states.
+	TargetMultiplicity *Multiplicity
 	// SourceMember and TargetMember are the members a member-attached `then`
 	// (SysML.xtext EmptySuccessionMember) sequences when the member declares no
 	// name a reference could use — `then send fullyCharged() to self;`, `then
