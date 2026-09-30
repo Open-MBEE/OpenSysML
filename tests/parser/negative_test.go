@@ -309,6 +309,11 @@ func TestNegative(t *testing.T) {
 		{"loop_until_no_condition", "action def A { loop action { } until; }"},
 		{"loop_until_no_semicolon", "action def A { action b; then loop action { } until x }"},
 		{"then_done_no_semicolon", "action def A { action b; then done }"},
+		// A control-node keyword followed by a name declares a node, whatever the
+		// body declares, so a final node given a name and a node given two are
+		// diagnosed as declarations rather than read as edges to the member.
+		{"then_done_named_beside_declared_done", "action def A { action done; action b; then done D; }"},
+		{"then_fork_two_names_beside_declared_fork", "action def A { action fork; action b; then fork F G; }"},
 		{"send_via_no_port", "action def A { send Data() via; }"},
 		{"send_no_target", "action def A { send Data() to; }"},
 		{"decision_else_no_target", "action def A { action m; first m; then decide; else; }"},
