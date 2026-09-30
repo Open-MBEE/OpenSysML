@@ -326,13 +326,13 @@ proof.
 ## R2 — the Node, Java and Rust clients are unpublished
 
 Each has a publish path and a worked example the tests run, and none has ever been
-published: the Node client now ships from the core `v*` tag's `release` workflow
-(`publish-npm`, with a granular npm token already in the `npm` context), the Java
-client goes to Maven Central on `opensysml-java-v*`, and the Rust client to
-crates.io on `opensysml-rust-v*`. The Java package name already moved to
-`org.openmbee.opensysml`, the DNS-verified namespace, so nothing blocks Maven Central but the
-account: the Sonatype account and a signing key. These are account gates
-like R4, not engineering.
+published: the Node and Java clients now ship from the core `v*` tag's `release`
+workflow (`publish-npm`, with a granular npm token already in the `npm` context;
+`publish-maven`, which needs the `maven-central` context), and the Rust client
+goes to crates.io on `opensysml-rust-v*`. The Java package name already moved to
+`org.openmbee.opensysml`, the DNS-verified namespace, so nothing blocks Maven
+Central but the account gates: the namespace verification, a signing key and a
+portal token in the context. These are account gates like R4, not engineering.
 
 ## R3 — Homebrew: install it on a real Mac
 

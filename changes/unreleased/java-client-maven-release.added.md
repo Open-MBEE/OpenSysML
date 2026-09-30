@@ -1,0 +1,1 @@
+- **The Java client is published to Maven Central as `org.openmbee:opensysml-client` with each core release.** The core `v*` tag signs, uploads and publishes it at the core version once the suite passes; a pre-release tag publishes a pre-release version, since Central has no test registry. The `opensysml-java-v*` tag is gone.
