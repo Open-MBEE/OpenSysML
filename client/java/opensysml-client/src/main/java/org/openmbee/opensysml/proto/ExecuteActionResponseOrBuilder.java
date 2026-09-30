@@ -185,4 +185,73 @@ org.openmbee.opensysml.proto.Value defaultValue);
    * @return The finalTime.
    */
   double getFinalTime();
+
+  /**
+   * <pre>
+   * The attributes the object named by performer_symbol_id holds when the run
+   * ends, keyed as an explored outcome's `outputs` key them (`this.level`);
+   * `outputs` stays the output parameters alone. Empty without a performer and
+   * under an explore schedule, whose outcomes carry them.
+   * </pre>
+   *
+   * <code>map&lt;string, .sysml.Value&gt; performer_attributes = 7 [json_name = "performerAttributes"];</code>
+   */
+  int getPerformerAttributesCount();
+  /**
+   * <pre>
+   * The attributes the object named by performer_symbol_id holds when the run
+   * ends, keyed as an explored outcome's `outputs` key them (`this.level`);
+   * `outputs` stays the output parameters alone. Empty without a performer and
+   * under an explore schedule, whose outcomes carry them.
+   * </pre>
+   *
+   * <code>map&lt;string, .sysml.Value&gt; performer_attributes = 7 [json_name = "performerAttributes"];</code>
+   */
+  boolean containsPerformerAttributes(
+      java.lang.String key);
+  /**
+   * Use {@link #getPerformerAttributesMap()} instead.
+   */
+  @java.lang.Deprecated
+  java.util.Map<java.lang.String, org.openmbee.opensysml.proto.Value>
+  getPerformerAttributes();
+  /**
+   * <pre>
+   * The attributes the object named by performer_symbol_id holds when the run
+   * ends, keyed as an explored outcome's `outputs` key them (`this.level`);
+   * `outputs` stays the output parameters alone. Empty without a performer and
+   * under an explore schedule, whose outcomes carry them.
+   * </pre>
+   *
+   * <code>map&lt;string, .sysml.Value&gt; performer_attributes = 7 [json_name = "performerAttributes"];</code>
+   */
+  java.util.Map<java.lang.String, org.openmbee.opensysml.proto.Value>
+  getPerformerAttributesMap();
+  /**
+   * <pre>
+   * The attributes the object named by performer_symbol_id holds when the run
+   * ends, keyed as an explored outcome's `outputs` key them (`this.level`);
+   * `outputs` stays the output parameters alone. Empty without a performer and
+   * under an explore schedule, whose outcomes carry them.
+   * </pre>
+   *
+   * <code>map&lt;string, .sysml.Value&gt; performer_attributes = 7 [json_name = "performerAttributes"];</code>
+   */
+  /* nullable */
+org.openmbee.opensysml.proto.Value getPerformerAttributesOrDefault(
+      java.lang.String key,
+      /* nullable */
+org.openmbee.opensysml.proto.Value defaultValue);
+  /**
+   * <pre>
+   * The attributes the object named by performer_symbol_id holds when the run
+   * ends, keyed as an explored outcome's `outputs` key them (`this.level`);
+   * `outputs` stays the output parameters alone. Empty without a performer and
+   * under an explore schedule, whose outcomes carry them.
+   * </pre>
+   *
+   * <code>map&lt;string, .sysml.Value&gt; performer_attributes = 7 [json_name = "performerAttributes"];</code>
+   */
+  org.openmbee.opensysml.proto.Value getPerformerAttributesOrThrow(
+      java.lang.String key);
 }

@@ -42,7 +42,7 @@ func (m Model) checkExpression(i int, label, target, value string) error {
 	if expr == nil {
 		return refuse("does not parse as an expression", nil)
 	}
-	if end := expr.Span().End(); end != len(text) {
+	if end := p.Offset(); end != len(text) {
 		return refuse(fmt.Sprintf("is not one expression: %q is left over", text[end:]), nil)
 	}
 	return nil
@@ -109,6 +109,11 @@ func (m Model) validate(edited rewrites) error {
 		}
 		rr.before = errorsOnly(originalParse)
 		rereads = append(rereads, rr)
+	}
+	if m.deferred != nil && len(m.deferred.pending)+len(m.deferred.anchored) > 0 {
+		if err := m.deferred.settle(reparseModel(m, edited)); err != nil {
+			return err
+		}
 	}
 	if m.NewIndex == nil {
 		return nil

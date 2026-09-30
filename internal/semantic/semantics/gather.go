@@ -71,7 +71,7 @@ func collectUnitCandidates(scope *symbols.Scope, g *docGather) {
 			if sym.Scope != nil {
 				collectUnitCandidates(sym.Scope, g)
 			}
-		case symbols.SymbolAttributeUsage:
+		case symbols.SymbolAttributeUsage, symbols.SymbolReferenceUsage:
 			g.units = append(g.units, sym)
 		}
 	}
@@ -143,6 +143,34 @@ func (m *Model) Regather(docs map[string]bool) []string {
 	}
 	sort.Strings(out)
 	return out
+}
+
+// Contributors names the workspace documents a reader of the shared state
+// called name depends on — those whose gather it is built from — and false
+// when name is no shared state of the model's. The scalar and base-unit tables
+// are the library's alone and depend on no workspace document.
+func (m *Model) Contributors(name string) ([]string, bool) {
+	var keep func(*docGather) bool
+	switch name {
+	case sharedDocs:
+		keep = func(*docGather) bool { return true }
+	case sharedAbout:
+		keep = func(g *docGather) bool { return len(g.aboutOf()) > 0 }
+	case sharedUnits:
+		keep = func(g *docGather) bool { return len(g.unitsOf()) > 0 }
+	case sharedScalars, sharedBaseUnits:
+		return nil, true
+	default:
+		return nil, false
+	}
+	var out []string
+	for doc, g := range m.gathers() {
+		if !g.library && keep(g) {
+			out = append(out, doc)
+		}
+	}
+	sort.Strings(out)
+	return out, true
 }
 
 func (g *docGather) aboutOf() []*symbols.Symbol {

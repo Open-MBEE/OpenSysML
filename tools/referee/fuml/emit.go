@@ -135,7 +135,7 @@ type closure struct {
 // objectDef is a classifier objects are created of, spelled as a part
 // definition: a class, or an activity instantiated as an object, which runs
 // itself when started. A behavior it owns is spelled inside it, so that the
-// behavior's `this` is the object performing it.
+// behavior's `context` parameter is the object performing it.
 type objectDef struct {
 	name       string
 	generals   []TypeRef
@@ -237,7 +237,7 @@ const (
 func closureOf(a *Activity) (*closure, error) {
 	if a.Owner != nil {
 		return nil, &TranslateError{a.Name, "activity", "an owned behavior of " + a.Owner.Name +
-			" performs only as the behavior of an object of it; on its own it has no object to be this"}
+			" performs only as the behavior of an object of it; on its own it has no object to be its context"}
 	}
 	cl := &closure{root: a, m: a.Model, instantiated: map[*Activity]bool{}, owner: map[*Activity]*objectDef{}}
 	if err := cl.behaviors(); err != nil {
@@ -258,74 +258,8 @@ func (cl *closure) nested(d *Activity) bool {
 // it calls, the classifier behaviors of the objects it starts, and every
 // activity named as a type, whose body is spelled as its part definition's behavior.
 func (cl *closure) behaviors() error {
-	seen := map[*Activity]bool{}
-	seenClassifiers := map[string]bool{}
-	var visit func(d *Activity) error
-	var visitType func(t TypeRef) error
-	visitType = func(t TypeRef) error {
-		var attrs []*Property
-		switch c, sg, act := cl.m.ClassOf(t), cl.m.SignalOf(t), cl.m.ActivityOf(t); {
-		case c != nil:
-			if seenClassifiers[c.ID] {
-				return nil
-			}
-			seenClassifiers[c.ID] = true
-			attrs = c.AllAttributes()
-		case sg != nil:
-			if seenClassifiers[sg.ID] {
-				return nil
-			}
-			seenClassifiers[sg.ID] = true
-			attrs = sg.AllAttributes()
-		case act != nil:
-			if act != cl.root {
-				cl.instantiated[act] = true
-			}
-			return visit(act)
-		}
-		for _, p := range attrs {
-			if err := visitType(p.Type); err != nil {
-				return err
-			}
-		}
-		return nil
-	}
-	visit = func(d *Activity) error {
-		if seen[d] {
-			return nil
-		}
-		seen[d] = true
-		cl.defs = append(cl.defs, d)
-		for _, n := range d.AllNodes() {
-			switch n.Kind {
-			case CallBehaviorAction:
-				if n.Behavior == nil || n.Behavior.Activity == nil {
-					continue
-				}
-				if n.Behavior.Activity.Owner != nil {
-					return &TranslateError{cl.root.Name, n.Label(), untranslated("a call of a class's owned behavior")}
-				}
-				if err := visit(n.Behavior.Activity); err != nil {
-					return err
-				}
-			case StartObjectBehaviorAction:
-				for _, p := range n.Inputs() {
-					if b := startedBehavior(cl.m, p); p.Role == "object" && b != nil {
-						if err := visit(b); err != nil {
-							return err
-						}
-					}
-				}
-			}
-		}
-		for _, t := range typeRefs(d) {
-			if err := visitType(t); err != nil {
-				return err
-			}
-		}
-		return nil
-	}
-	if err := visit(cl.root); err != nil {
+	w := &behaviorWalk{cl: cl, seen: map[*Activity]bool{}, seenClassifiers: map[string]bool{}}
+	if err := w.visit(cl.root); err != nil {
 		return err
 	}
 	for _, d := range cl.defs {
@@ -375,82 +309,189 @@ func startedBehavior(m *Model, object *Node) *Activity {
 	return classifierBehavior(m, orType(object.Type, flowedType(object, map[*Node]bool{})))
 }
 
+// behaviorWalk visits the activities a closure's root reaches.
+type behaviorWalk struct {
+	cl              *closure
+	seen            map[*Activity]bool
+	seenClassifiers map[string]bool
+}
+
+// visitType visits the activity a type names, or the types of the attributes
+// of the class or signal it names.
+func (w *behaviorWalk) visitType(t TypeRef) error {
+	cl := w.cl
+	var attrs []*Property
+	switch c, sg, act := cl.m.ClassOf(t), cl.m.SignalOf(t), cl.m.ActivityOf(t); {
+	case c != nil:
+		if w.seenClassifiers[c.ID] {
+			return nil
+		}
+		w.seenClassifiers[c.ID] = true
+		attrs = c.AllAttributes()
+	case sg != nil:
+		if w.seenClassifiers[sg.ID] {
+			return nil
+		}
+		w.seenClassifiers[sg.ID] = true
+		attrs = sg.AllAttributes()
+	case act != nil:
+		if act != cl.root {
+			cl.instantiated[act] = true
+		}
+		return w.visit(act)
+	}
+	for _, p := range attrs {
+		if err := w.visitType(p.Type); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+// visit files an activity as a def and visits the activities its nodes call
+// or start and the types it names.
+func (w *behaviorWalk) visit(d *Activity) error {
+	if w.seen[d] {
+		return nil
+	}
+	w.seen[d] = true
+	w.cl.defs = append(w.cl.defs, d)
+	for _, n := range d.AllNodes() {
+		if err := w.visitNode(n); err != nil {
+			return err
+		}
+	}
+	for _, t := range typeRefs(d) {
+		if err := w.visitType(t); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func (w *behaviorWalk) visitNode(n *Node) error {
+	switch n.Kind {
+	case CallBehaviorAction:
+		if n.Behavior == nil || n.Behavior.Activity == nil {
+			return nil
+		}
+		if n.Behavior.Activity.Owner != nil {
+			return &TranslateError{w.cl.root.Name, n.Label(), untranslated("a call of a class's owned behavior")}
+		}
+		return w.visit(n.Behavior.Activity)
+	case StartObjectBehaviorAction:
+		for _, p := range n.Inputs() {
+			if b := startedBehavior(w.cl.m, p); p.Role == "object" && b != nil {
+				if err := w.visit(b); err != nil {
+					return err
+				}
+			}
+		}
+	}
+	return nil
+}
+
 // classifiers collects objects: every class the definitions name — as a type,
 // as the classifier created, or as the owner of a feature touched — with the
 // classes those generalize, generals before their specializers, and every
 // instantiated activity, each owning its own body.
 func (cl *closure) classifiers() error {
-	root, m := cl.root, cl.m
-	seen := map[*Class]bool{}
-	seenSignals := map[*Signal]bool{}
-	seenActivities := map[*Activity]bool{}
-	var visit func(t TypeRef) error
-	visit = func(t TypeRef) error {
-		if sg := m.SignalOf(t); sg != nil && !seenSignals[sg] {
-			seenSignals[sg] = true
-			for _, g := range sg.Generals {
-				if err := visit(g); err != nil {
-					return err
-				}
-			}
-			for _, p := range sg.Attributes {
-				if err := visit(p.Type); err != nil {
-					return err
-				}
-			}
-			return nil
-		}
-		if act := m.ActivityOf(t); act != nil {
-			if !cl.instantiated[act] || seenActivities[act] {
-				return nil
-			}
-			seenActivities[act] = true
-			for _, p := range act.Attributes {
-				if err := visit(p.Type); err != nil {
-					return err
-				}
-			}
-			return cl.addObject(&objectDef{name: act.Name, attributes: act.Attributes, behaviors: []*Activity{act}, classifier: act, activity: act})
-		}
-		c := m.ClassOf(t)
-		if c == nil || seen[c] {
-			return nil
-		}
-		seen[c] = true
-		for _, g := range c.Generals {
-			if m.ClassOf(g) == nil {
-				return &TranslateError{root.Name, classKeyword + c.Name, "generalizes " + g.String() + noClassOfModel}
-			}
-			if err := visit(g); err != nil {
-				return err
-			}
-		}
-		for _, p := range c.Attributes {
-			if err := visit(p.Type); err != nil {
-				return err
-			}
-		}
-		o := &objectDef{name: c.Name, generals: c.Generals, attributes: c.Attributes, class: c}
-		for _, b := range c.Behaviors {
-			if cl.spells(b) {
-				o.behaviors = append(o.behaviors, b)
-			}
-		}
-		if cl.spells(c.ClassifierBehavior) {
-			o.classifier = c.ClassifierBehavior
-		}
-		return cl.addObject(o)
-	}
+	w := &classifierWalk{cl: cl, seen: map[*Class]bool{}, seenSignals: map[*Signal]bool{}, seenActivities: map[*Activity]bool{}}
 	for _, d := range cl.defs {
 		if d.Owner != nil {
-			if err := visit(TypeRef{ID: d.Owner.ID, Name: d.Owner.Name}); err != nil {
+			if err := w.visit(TypeRef{ID: d.Owner.ID, Name: d.Owner.Name}); err != nil {
 				return err
 			}
 		}
 		for _, t := range typeRefs(d) {
-			if err := visit(t); err != nil {
+			if err := w.visit(t); err != nil {
 				return err
 			}
+		}
+	}
+	return nil
+}
+
+// classifierWalk visits the classifiers a closure's definitions name, filing
+// the objects they become generals first.
+type classifierWalk struct {
+	cl             *closure
+	seen           map[*Class]bool
+	seenSignals    map[*Signal]bool
+	seenActivities map[*Activity]bool
+}
+
+func (w *classifierWalk) visit(t TypeRef) error {
+	m := w.cl.m
+	if sg := m.SignalOf(t); sg != nil {
+		return w.visitSignal(sg)
+	}
+	if act := m.ActivityOf(t); act != nil {
+		return w.visitActivity(act)
+	}
+	if c := m.ClassOf(t); c != nil {
+		return w.visitClass(c)
+	}
+	return nil
+}
+
+func (w *classifierWalk) visitSignal(sg *Signal) error {
+	if w.seenSignals[sg] {
+		return nil
+	}
+	w.seenSignals[sg] = true
+	for _, g := range sg.Generals {
+		if err := w.visit(g); err != nil {
+			return err
+		}
+	}
+	return w.visitAttributes(sg.Attributes)
+}
+
+// visitActivity files an instantiated activity as an object owning its own body.
+func (w *classifierWalk) visitActivity(act *Activity) error {
+	if !w.cl.instantiated[act] || w.seenActivities[act] {
+		return nil
+	}
+	w.seenActivities[act] = true
+	if err := w.visitAttributes(act.Attributes); err != nil {
+		return err
+	}
+	return w.cl.addObject(&objectDef{name: act.Name, attributes: act.Attributes, behaviors: []*Activity{act}, classifier: act, activity: act})
+}
+
+func (w *classifierWalk) visitClass(c *Class) error {
+	if w.seen[c] {
+		return nil
+	}
+	w.seen[c] = true
+	for _, g := range c.Generals {
+		if w.cl.m.ClassOf(g) == nil {
+			return &TranslateError{w.cl.root.Name, classKeyword + c.Name, "generalizes " + g.String() + noClassOfModel}
+		}
+		if err := w.visit(g); err != nil {
+			return err
+		}
+	}
+	if err := w.visitAttributes(c.Attributes); err != nil {
+		return err
+	}
+	o := &objectDef{name: c.Name, generals: c.Generals, attributes: c.Attributes, class: c}
+	for _, b := range c.Behaviors {
+		if w.cl.spells(b) {
+			o.behaviors = append(o.behaviors, b)
+		}
+	}
+	if w.cl.spells(c.ClassifierBehavior) {
+		o.classifier = c.ClassifierBehavior
+	}
+	return w.cl.addObject(o)
+}
+
+func (w *classifierWalk) visitAttributes(attrs []*Property) error {
+	for _, p := range attrs {
+		if err := w.visit(p.Type); err != nil {
+			return err
 		}
 	}
 	return nil
@@ -597,9 +638,9 @@ func (cl *closure) emitSignal(sg *Signal) (string, error) {
 // emitObject spells a classifier as a part definition: an object of it is an
 // occurrence with structural features, created and then written to. Its generals
 // are its supertypes, its attributes keep their multiplicity exactly. A behavior
-// it owns is an action definition nested in it, so `this` in the behavior is the
-// object performing it; the classifier behavior is bound by a usage of that
-// definition, which a start performs and creation leaves alone.
+// it owns is an action definition nested in it, whose `context` parameter the
+// object performing it binds; the classifier behavior is bound by a usage of
+// that definition, which a start performs and creation leaves alone.
 func (cl *closure) emitObject(o *objectDef, names map[string]bool, spelled map[*Parameter]string) (string, error) {
 	var b strings.Builder
 	fmt.Fprintf(&b, "\tpart def %s", quote(o.name))
@@ -626,7 +667,18 @@ func (cl *closure) emitObject(o *objectDef, names map[string]bool, spelled map[*
 		b.WriteString(text)
 	}
 	if o.classifier != nil {
-		fmt.Fprintf(&b, "\t\taction %s : %s;\n", startMember, quote(o.behaviorName(o.classifier)))
+		// The usage body's members redeclare the behavior's parameters
+		// positionally, so the context redefinition goes last.
+		var members []string
+		for _, p := range o.classifier.Parameters {
+			dir := string(p.Direction)
+			if p.Direction == Return {
+				dir = "out"
+			}
+			members = append(members, dir+" "+quote(spelled[p])+multiplicity(p.Multiplicity))
+		}
+		members = append(members, "in ref :>> context = this")
+		fmt.Fprintf(&b, "\t\taction %s : %s { %s; }\n", startMember, quote(o.behaviorName(o.classifier)), strings.Join(members, "; "))
 	}
 	b.WriteString("\t}\n")
 	return b.String(), nil
@@ -918,6 +970,11 @@ func (cl *closure) emitActivity(a *Activity, owner *objectDef, indent string, na
 			}
 			decls = append(decls, decl)
 		}
+	} else {
+		// A definition nested in a part definition is its own occurrence: `this`
+		// is the performance, not the object, so the object performing the
+		// behavior arrives as a parameter, bound by the usage that starts it.
+		decls = append(decls, "in ref context : "+quote(owner.name)+"[1];")
 	}
 	name := a.Name
 	if owner != nil {
@@ -966,7 +1023,8 @@ func (s *scope) produces() map[string][]string {
 func multiplicity(m Multiplicity) string {
 	switch {
 	case m.Lower == 1 && m.Upper == 1:
-		return ""
+		// An unstated parameter multiplicity is [0..*], so one is spelled.
+		return "[1]"
 	case m.Upper == 1:
 		return fmt.Sprintf("[%d..1]", m.Lower)
 	case m.Ordered:
@@ -1333,12 +1391,12 @@ func (s *scope) createNode(n *Node) error {
 	name := s.names.name(nodeName(n))
 	s.pins[outs[0]] = "result"
 	s.add(&snode{name: name, kind: kindAction, node: n,
-		decl: fmt.Sprintf("action %s { out result : %s = new %s(); }", quote(name), quote(o.name), quote(o.name))})
+		decl: fmt.Sprintf("action %s { out result : %s[1] = new %s(); }", quote(name), quote(o.name), quote(o.name))})
 	return nil
 }
 
-// selfNode spells a read self action as `this`, the object whose behavior the
-// activity is spelled inside; performed on its own, self is no object.
+// selfNode spells a read self action as `context`, the object whose behavior
+// the activity is spelled inside; performed on its own, self is no object.
 func (s *scope) selfNode(n *Node) error {
 	e := s.e
 	outs := n.Outputs()
@@ -1352,7 +1410,7 @@ func (s *scope) selfNode(n *Node) error {
 	name := s.names.name(nodeName(n))
 	s.pins[outs[0]] = "result"
 	s.add(&snode{name: name, kind: kindAction, node: n,
-		decl: fmt.Sprintf("action %s { out result : %s = this; }", quote(name), quote(o.name))})
+		decl: fmt.Sprintf("action %s { out result : %s[1] = context; }", quote(name), quote(o.name))})
 	return nil
 }
 
@@ -1394,7 +1452,7 @@ func (s *scope) startNode(n *Node) error {
 	s.pins[object] = "object"
 	name := s.names.name(nodeName(n))
 	s.add(&snode{name: name, kind: kindAction, node: n, pending: unfed(n),
-		decl: fmt.Sprintf("action %s { in object : %s; perform object.%s.start; }", quote(name), quote(o.name), startMember)})
+		decl: fmt.Sprintf("action %s { in object : %s[1]; perform object.%s.start; }", quote(name), quote(o.name), startMember)})
 	return nil
 }
 
@@ -1429,7 +1487,7 @@ func (s *scope) featureNode(n *Node) error {
 		return err
 	}
 	s.pins[object] = "object"
-	features := []string{fmt.Sprintf("in object : %s;", objectType)}
+	features := []string{fmt.Sprintf("in object : %s[1];", objectType)}
 	value := pins["value"]
 	writes := n.Kind == AddStructuralFeatureValueAction || n.Kind == RemoveStructuralFeatureValueAction
 	switch {
@@ -1443,7 +1501,7 @@ func (s *scope) featureNode(n *Node) error {
 			return err
 		}
 		s.pins[value] = "value"
-		features = append(features, fmt.Sprintf("in value : %s;", t))
+		features = append(features, fmt.Sprintf("in value : %s[1];", t))
 	}
 	position := pins["insertAt"]
 	if n.Kind == RemoveStructuralFeatureValueAction {
@@ -1451,7 +1509,7 @@ func (s *scope) featureNode(n *Node) error {
 	}
 	if position != nil {
 		s.pins[position] = position.Role
-		features = append(features, fmt.Sprintf("in %s : %s;", position.Role, e.a.Model.scalar("Integer")))
+		features = append(features, fmt.Sprintf("in %s : %s[1];", position.Role, e.a.Model.scalar("Integer")))
 	}
 	result := pins["result"]
 	if n.Kind == ReadStructuralFeatureAction {
@@ -1471,7 +1529,7 @@ func (s *scope) featureNode(n *Node) error {
 	} else {
 		if result != nil {
 			s.pins[result] = "result"
-			features = append(features, fmt.Sprintf("out result : %s = object;", objectType))
+			features = append(features, fmt.Sprintf("out result : %s[1] = object;", objectType))
 		}
 		features = append(features, fmt.Sprintf("assign object.%s := %s;", quote(f.Name), featureUpdate(n, f, position != nil)))
 	}
@@ -1521,7 +1579,7 @@ func (s *scope) sendNode(n *Node) error {
 	}
 	pins := newNamer("target")
 	s.pins[target] = "target"
-	features := []string{fmt.Sprintf("in target : %s;", targetType)}
+	features := []string{fmt.Sprintf("in target : %s[1];", targetType)}
 	var values []string
 	for i, p := range args {
 		t, err := e.pinType(p)

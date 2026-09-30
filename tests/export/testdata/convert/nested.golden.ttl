@@ -8,6 +8,10 @@
 elmt:Outer
     a sysml:Package ;
     sysml:qualifiedName "Outer" ;
+    sysx:sourceLine "1"^^xsd:integer ;
+    sysx:sourceColumn "1"^^xsd:integer ;
+    sysx:sourceEndLine "8"^^xsd:integer ;
+    sysx:sourceEndColumn "2"^^xsd:integer ;
     sysml:elementId "Outer" ;
     sysx:memberIndex "0"^^xsd:integer ;
     sysx:sourceLanguage "sysml" ;
@@ -22,6 +26,10 @@ elmt:Outer
 elmt:Outer__Inner
     a sysml:Package ;
     sysml:qualifiedName "Outer::Inner" ;
+    sysx:sourceLine "2"^^xsd:integer ;
+    sysx:sourceColumn "5"^^xsd:integer ;
+    sysx:sourceEndLine "7"^^xsd:integer ;
+    sysx:sourceEndColumn "6"^^xsd:integer ;
     sysml:elementId "Outer__Inner" ;
     sysx:memberIndex "0"^^xsd:integer ;
     sysml:owningNamespace elmt:Outer ;
@@ -52,6 +60,10 @@ elmt:Outer__Inner_om
 elmt:Outer__Inner__Widget
     a sysml:PartDefinition ;
     sysml:qualifiedName "Outer::Inner::Widget" ;
+    sysx:sourceLine "3"^^xsd:integer ;
+    sysx:sourceColumn "9"^^xsd:integer ;
+    sysx:sourceEndLine "3"^^xsd:integer ;
+    sysx:sourceEndColumn "25"^^xsd:integer ;
     sysml:elementId "Outer__Inner__Widget" ;
     sysx:memberIndex "0"^^xsd:integer ;
     sysml:owningNamespace elmt:Outer__Inner ;
@@ -75,6 +87,10 @@ elmt:Outer__Inner__Widget_om
 elmt:Outer__Inner__Sub
     a sysml:Namespace ;
     sysml:qualifiedName "Outer::Inner::Sub" ;
+    sysx:sourceLine "4"^^xsd:integer ;
+    sysx:sourceColumn "9"^^xsd:integer ;
+    sysx:sourceEndLine "6"^^xsd:integer ;
+    sysx:sourceEndColumn "10"^^xsd:integer ;
     sysml:elementId "Outer__Inner__Sub" ;
     sysx:memberIndex "1"^^xsd:integer ;
     sysml:owningNamespace elmt:Outer__Inner ;
@@ -102,6 +118,10 @@ elmt:Outer__Inner__Sub_om
 elmt:Outer__Inner__Sub__Gear
     a sysml:PartDefinition ;
     sysml:qualifiedName "Outer::Inner::Sub::Gear" ;
+    sysx:sourceLine "5"^^xsd:integer ;
+    sysx:sourceColumn "13"^^xsd:integer ;
+    sysx:sourceEndLine "5"^^xsd:integer ;
+    sysx:sourceEndColumn "27"^^xsd:integer ;
     sysml:elementId "Outer__Inner__Sub__Gear" ;
     sysx:memberIndex "0"^^xsd:integer ;
     sysml:owningNamespace elmt:Outer__Inner__Sub ;

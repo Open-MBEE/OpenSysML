@@ -186,6 +186,57 @@ func TestW8CFeatureReferenceBodyInaccessible(t *testing.T) {
 
 // The traps the reverted attempt fell into: a body reaches its own type's
 // features, inherited ones included, and a dot path reaches a nested one.
+func TestW8CFeatureReferenceBodyExprInaccessible(t *testing.T) {
+	src := `package P {
+	private import DocumentQueries::*;
+	private import KerML::Root::Element;
+	private import ScalarValues::*;
+	part def Pump { attribute mass : Integer; }
+	calc def UsesQualifiedFeature :> Query {
+		in root : Element;
+		Project(
+			source = Descendants(source = root, maxDepth = 1),
+			columns = (
+				Column(name = "v", cell = { in row : Pump; Pump::mass })
+			)
+		)
+	}
+}`
+	var errors []diag.Diagnostic
+	for _, diagnostic := range w8cLibraryDiagnostics(t, "<t>.sysml", src) {
+		if diagnostic.Severity == diag.SeverityError {
+			errors = append(errors, diagnostic)
+		}
+	}
+	if len(errors) != 1 || errors[0].Message != msgSubsettingFeaturingTypes {
+		t.Fatalf("errors = %v, want one %q", errors, msgSubsettingFeaturingTypes)
+	}
+	if got := strings.TrimSpace(src[errors[0].Span.Offset:errors[0].Span.End()]); got != "Pump::mass" {
+		t.Errorf("diagnostic span = %q, want Pump::mass", got)
+	}
+}
+
+func TestW8CFeatureReferenceBodyExprAccessible(t *testing.T) {
+	src := `package P {
+	private import DocumentQueries::*;
+	private import KerML::Root::Element;
+	private import ScalarValues::*;
+	part def Pump { attribute mass : Integer; }
+	calc def UsesRowFeature :> Query {
+		in root : Element;
+		Project(
+			source = Descendants(source = root, maxDepth = 1),
+			columns = (
+				Column(name = "v", cell = { in row : Pump; row.mass })
+			)
+		)
+	}
+}`
+	if errors := w8cLibraryErrorsIn(t, "<t>.sysml", src); len(errors) != 0 {
+		t.Fatalf("unexpected errors: %v", errors)
+	}
+}
+
 func TestW8CFeatureReferenceBodyAccessible(t *testing.T) {
 	cases := map[string]string{
 		"own feature": `package P {
@@ -310,30 +361,6 @@ func TestW8CFeatureReferenceBodyAccessible(t *testing.T) {
 	}
 }
 
-// A value an annotation body binds is a feature reference like any usage's
-// value, so a definition bound there is not a valid feature; the definition
-// cast to its metaclass is an element, which the body may bind.
-func TestW8CFeatureReferenceAnnotationBody(t *testing.T) {
-	const invalid = `package P {
-	part def Acme;
-	metadata def Org { ref owner; }
-	part def X { @Org { owner = Acme; } }
-}`
-	msgs := w8cLibraryMessagesIn(t, "<t>.sysml", invalid)
-	if w8cCount(msgs, msgReferentIsFeature) != 1 {
-		t.Errorf("want one %q, got %v", msgReferentIsFeature, msgs)
-	}
-	const clean = `package P {
-	part def Acme;
-	part acme : Acme;
-	metadata def Org { ref owner; ref kind; }
-	part def X { @Org { owner = acme; kind = Acme meta SysML::PartDefinition; } }
-}`
-	if errs := w8cLibraryErrorsIn(t, "<t>.sysml", clean); len(errs) != 0 {
-		t.Errorf("want a clean analysis, got %v", errs)
-	}
-}
-
 func TestW8CFeatureReferenceFilterConditions(t *testing.T) {
 	t.Run("user feature path is inaccessible", func(t *testing.T) {
 		src := `package R1 {
@@ -380,7 +407,293 @@ package Q { filter @Safety; }`,
 	}
 }
 
-// An unnamed annotation written at the document root, outside any symbol, has
+// A behavior definition is the occurrence its `this` denotes: `this.<feature>`
+// inside a def reads the def's own features, so an enclosing object's feature
+// does not resolve through it — while a usage's bare feature read still reaches
+// the object lexically.
+func TestW8CFeatureReferenceThisInsideBehaviorDef(t *testing.T) {
+	src := `package P {
+	private import ScalarValues::*;
+	part def H {
+		attribute level : Integer = 0;
+		action def Nudge {
+			action step { assign this.level := 1; }
+		}
+	}
+}`
+	msgs := w8cLibraryErrorsIn(t, "<t>.sysml", src)
+	found := false
+	for _, m := range msgs {
+		if strings.Contains(m, "level") {
+			found = true
+		}
+	}
+	if !found || len(msgs) == 0 {
+		t.Errorf("this.level inside action def Nudge should not resolve to H's level, got %v", msgs)
+	}
+}
+
+// `context.<feature>` inside a def and a bare feature read inside a usage both
+// analyse clean: the def reads its context parameter, the usage sees the object.
+func TestW8CFeatureReferenceContextParameterAndUsageReads(t *testing.T) {
+	src := `package P {
+	private import ScalarValues::*;
+	part def H {
+		attribute level : Integer = 0;
+		action def Nudge {
+			in ref context : H;
+			action step { assign context.level := 1; }
+		}
+		action nudge : Nudge { in ref :>> context = this; }
+		state s {
+			entry; then on;
+			state on { entry action e { assign level := level + 1; } }
+		}
+	}
+}`
+	if msgs := w8cLibraryErrorsIn(t, "<t>.sysml", src); len(msgs) != 0 {
+		t.Errorf("context reads and usage-level bare reads must be clean, got %v", msgs)
+	}
+}
+
+func TestW8CInvocationArgumentValuesAreAccessible(t *testing.T) {
+	const inaccessible = `package M {
+	private import ScalarValues::*;
+	part def T { attribute X : String; }
+	calc def F { in e : ScalarValue[0..1]; return r : Boolean; }
+	calc def Q { F(e = T::X ?? "") }
+	calc def Q2 { F(e = T::X) }
+	}`
+	var got []string
+	var gotOffsets []int
+	for _, d := range w8cLibraryDiagnostics(t, "<t>.sysml", inaccessible) {
+		if d.Code == "feature-reference-featuring-types" {
+			got = append(got, strings.TrimSpace(inaccessible[d.Span.Offset:d.Span.End()]))
+			gotOffsets = append(gotOffsets, d.Span.Offset)
+		}
+	}
+	if len(got) != 2 || got[0] != "T::X" || got[1] != "T::X" {
+		t.Errorf("want both invocation argument references to be checked, got %v", got)
+	}
+	wantOffsets := []int{strings.Index(inaccessible, "T::X ??"), strings.LastIndex(inaccessible, "T::X")}
+	if len(gotOffsets) != len(wantOffsets) {
+		t.Fatalf("want invocation argument spans at %v, got %v", wantOffsets, gotOffsets)
+	}
+	for i := range wantOffsets {
+		if gotOffsets[i] != wantOffsets[i] {
+			t.Errorf("invocation argument span %d = %d, want %d", i, gotOffsets[i], wantOffsets[i])
+		}
+	}
+
+	const accessible = `package M {
+	private import ScalarValues::*;
+	part def T { attribute X : String; }
+	part t : T;
+	calc def F { in e : ScalarValue[0..1]; return r : Boolean; }
+	calc def Q { F(e = t.X ?? "") }
+}`
+	if errs := w8cLibraryErrorsIn(t, "<t>.sysml", accessible); len(errs) != 0 {
+		t.Errorf("accessible invocation argument should be clean, got %v", errs)
+	}
+}
+
+func TestW8CInvocationFunctionValuesAndColumnExpressions(t *testing.T) {
+	const src = `package M {
+	private import ScalarValues::*;
+	private import DocumentQueries::*;
+	private import KerML::Root::Element;
+	package Meta {
+		private import ScalarValues::*;
+		metadata def Tagged { attribute tags : String[0..*] ordered = ("alpha", "beta"); }
+	}
+	calc def Sq { in a : Real; return : Real = a * a; }
+	calc def Apply {
+		in calc f { in v : Real; return : Real; }
+		in a : Real;
+		return : Real = f(a);
+	}
+	calc def UseFunction { in a : Real; return : Real = Apply(Sq, a); }
+	calc def BodyClosure {
+		in k : Real;
+		calc scale { in v : Real; return : Real = v * k; }
+	}
+	calc def OuterClosure { in a : Real; return : Real = Apply(BodyClosure::scale, a); }
+	part def Scaler {
+		attribute k : Real;
+		calc scale { in v : Real; return : Real = v * k; }
+	}
+	calc def ObjectCalc { in a : Real; return : Real = Apply(Scaler::scale, a); }
+	calc def Tags :> Query {
+		in root : Element;
+		Project(
+			source = WhereType(source = Descendants(source = root), type = "PartDefinition"),
+			properties = ("name"),
+			columns = (Column(name = "Tags", expression = Meta::Tagged::tags ?? "")))
+	}
+}`
+	if errs := w8cLibraryErrorsIn(t, "<t>.sysml", src); len(errs) != 0 {
+		t.Errorf("function-valued arguments and query-scope column expressions should be clean, got %v", errs)
+	}
+}
+
+func TestW8CAssignmentTargetChecksOnlyAnInaccessibleChainHead(t *testing.T) {
+	const src = `package M {
+	private import ScalarValues::*;
+	part def P {
+		attribute k : Integer;
+		exhibit state s { attribute j : Integer; }
+		action u {
+			action def D {
+				action a { assign k := k + 1; }
+				action b { assign s.j := 2; }
+				action c { assign k := s.j; }
+			}
+		}
+	}
+	}`
+	var got []string
+	var gotOffsets []int
+	for _, d := range w8cLibraryDiagnostics(t, "<t>.sysml", src) {
+		if d.Code == "feature-reference-featuring-types" {
+			got = append(got, strings.TrimSpace(src[d.Span.Offset:d.Span.End()]))
+			gotOffsets = append(gotOffsets, d.Span.Offset)
+		}
+	}
+	if len(got) != 3 || got[0] != "k" || got[1] != "s" || got[2] != "s" {
+		t.Errorf("want one RHS k and the two inaccessible s chain heads, got %v", got)
+	}
+	wantOffsets := []int{
+		strings.Index(src, "assign k := k + 1;") + strings.LastIndex("assign k := k + 1;", "k +"),
+		strings.Index(src, "assign s.j := 2;") + len("assign "),
+		strings.Index(src, "assign k := s.j;") + len("assign k := "),
+	}
+	if len(gotOffsets) != len(wantOffsets) {
+		t.Fatalf("want assignment references at %v, got %v", wantOffsets, gotOffsets)
+	}
+	for i := range wantOffsets {
+		if gotOffsets[i] != wantOffsets[i] {
+			t.Errorf("assignment reference span %d = %d, want %d", i, gotOffsets[i], wantOffsets[i])
+		}
+	}
+
+	const accessible = `package M {
+	private import ScalarValues::*;
+	part def P {
+		var attribute k : Integer;
+		action u { assign k := 1; }
+	}
+}`
+	if errs := w8cLibraryErrorsIn(t, "<t>.sysml", accessible); len(errs) != 0 {
+		t.Errorf("bare assignment target should remain clean, got %v", errs)
+	}
+}
+
+func TestW8CNestedTransitionEndpointsUseTheirStateBody(t *testing.T) {
+	const src = `package P {
+	attribute def Sig;
+	part def Q {
+		state def S {
+			entry; then A;
+			state A;
+			state B {
+				entry; then C;
+				state C;
+				transition t1 first C then A;
+				transition t2 first C accept Sig then A;
+				transition t3 first C accept Sig do action e { } then A;
+			}
+			transition t4 first B.C then A;
+			transition t5 first B.C accept Sig then A;
+			transition t6 first B accept Sig then A;
+			state D {
+				entry; then B::C;
+			}
+		}
+		state def R {
+			state W;
+			state X { state Y; }
+			transition t7 first X.Y then W;
+			transition t8 first W then X::Y;
+			transition t9 first W then X.Y;
+		}
+	}
+	}`
+	var got []string
+	var gotOffsets []int
+	for _, d := range w8cLibraryDiagnostics(t, "<t>.sysml", src) {
+		if d.Code == "feature-reference-featuring-types" {
+			got = append(got, strings.TrimSpace(src[d.Span.Offset:d.Span.End()]))
+			gotOffsets = append(gotOffsets, d.Span.Offset)
+		}
+	}
+	want := []string{"A", "A", "A", "B::C", "X::Y"}
+	if len(got) != len(want) {
+		t.Fatalf("want transition endpoint references %v, got %v", want, got)
+	}
+	for i := range want {
+		if got[i] != want[i] {
+			t.Errorf("transition endpoint %d = %q, want %q", i, got[i], want[i])
+		}
+	}
+	wantOffsets := []int{
+		strings.Index(src, "transition t1 first C then A;") + strings.LastIndex("transition t1 first C then A;", "then A") + len("then "),
+		strings.Index(src, "transition t2 first C accept Sig then A;") + strings.LastIndex("transition t2 first C accept Sig then A;", "then A") + len("then "),
+		strings.Index(src, "transition t3 first C accept Sig do action e { } then A;") + strings.LastIndex("transition t3 first C accept Sig do action e { } then A;", "then A") + len("then "),
+		strings.Index(src, "entry; then B::C;") + strings.Index("entry; then B::C;", "then ") + len("then "),
+		strings.Index(src, "transition t8 first W then X::Y;") + strings.Index("transition t8 first W then X::Y;", "X::Y"),
+	}
+	if len(gotOffsets) != len(wantOffsets) {
+		t.Fatalf("want transition endpoints at %v, got %v", wantOffsets, gotOffsets)
+	}
+	for i := range wantOffsets {
+		if gotOffsets[i] != wantOffsets[i] {
+			t.Errorf("transition endpoint span %d = %d, want %d", i, gotOffsets[i], wantOffsets[i])
+		}
+	}
+
+	const accepted = `package N {
+	state def Modes { state off; }
+	state def Behavior {
+		state modes : Modes;
+		transition reset first modes.off then Modes::off;
+		transition rootReset first modes.off then $::N::Modes::off;
+	}
+	state def S {
+		state A1;
+		state B1 { state C1; }
+		transition first B1.C1 then A1;
+	}
+}`
+	if errs := w8cLibraryErrorsIn(t, "<t>.sysml", accepted); len(errs) != 0 {
+		t.Errorf("a dotted endpoint path written at the common state should be clean, got %v", errs)
+	}
+
+	const nestedEntry = `package N {
+	state def S {
+		state A1;
+		state B1 {
+			state C1;
+			accept after 1 [SI::s] then A1;
+		}
+	}
+	}`
+	var nested []string
+	var nestedOffsets []int
+	for _, d := range w8cLibraryDiagnostics(t, "<t>.sysml", nestedEntry) {
+		if d.Code == "feature-reference-featuring-types" {
+			nested = append(nested, strings.TrimSpace(nestedEntry[d.Span.Offset:d.Span.End()]))
+			nestedOffsets = append(nestedOffsets, d.Span.Offset)
+		}
+	}
+	if len(nested) != 1 || nested[0] != "A1" {
+		t.Errorf("want the nested entry transition's enclosing-state target to be rejected, got %v", nested)
+	}
+	wantNestedOffset := strings.LastIndex(nestedEntry, "then A1;") + len("then ")
+	if len(nestedOffsets) != 1 || nestedOffsets[0] != wantNestedOffset {
+		t.Errorf("nested entry target span = %v, want %d", nestedOffsets, wantNestedOffset)
+	}
+}
+
 // its body values judged like one written in a definition's body.
 func TestW8CFeatureReferenceRootAnnotationBody(t *testing.T) {
 	const invalid = `part def Acme;
@@ -396,5 +709,281 @@ func TestW8CFeatureReferenceRootAnnotationBody(t *testing.T) {
 	@Org { owner = acme; kind = Acme meta SysML::PartDefinition; }`
 	if errs := w8cLibraryErrorsIn(t, "<t>.sysml", clean); len(errs) != 0 {
 		t.Errorf("want a clean analysis, got %v", errs)
+	}
+}
+func TestW8CFeatureReferenceViaBoundaries(t *testing.T) {
+	const want = msgSubsettingFeaturingTypes
+	reject := map[string]string{
+		"nested transition": `package P {
+			item def E;
+			part def Owner {
+				port pin;
+				state def S {
+					state a;
+					state b;
+					transition first a accept E via pin then b;
+				}
+			}
+		}`,
+		"nested action definition": `package P {
+			item def E;
+			part def Owner {
+				port pin;
+				action def A {
+					action r accept e : E via pin;
+				}
+			}
+		}`,
+		"nested deferred buffer": `package P {
+			item def E;
+			part def Owner {
+				port pin;
+				state def S {
+					state s {
+						do action buffer {
+							action r accept e : E via pin;
+						}
+					}
+				}
+			}
+		}`,
+		"send via in nested definition": `package P {
+			item def E;
+			part def Owner {
+				port pin;
+				action def A {
+					send new E() via pin;
+				}
+			}
+		}`,
+		"send via with body in nested definition": `package P {
+			item def E;
+			part def Owner {
+				port pin;
+				action def A {
+					send new E() via pin { }
+				}
+			}
+		}`,
+	}
+	for name, src := range reject {
+		t.Run("reject "+name, func(t *testing.T) {
+			errs := w8cLibraryErrorsIn(t, "<t>.sysml", src)
+			if len(errs) != 1 || errs[0] != want {
+				t.Fatalf("want exactly one %q, got %v", want, errs)
+			}
+		})
+	}
+
+	accept := map[string]string{
+		"transition through context": `package P {
+			item def E;
+			part def Owner {
+				port pin;
+				state def S {
+					in ref context : Owner;
+					state a;
+					state b;
+					transition first a accept E via context.pin then b;
+				}
+			}
+		}`,
+		"action through context": `package P {
+			item def E;
+			part def Owner {
+				port pin;
+				action def A {
+					in ref context : Owner;
+					action r accept e : E via context.pin;
+				}
+			}
+		}`,
+		"buffer through context": `package P {
+			item def E;
+			part def Owner {
+				port pin;
+				state def S {
+					in ref context : Owner;
+					state s {
+						do action buffer {
+							action r accept e : E via context.pin;
+						}
+					}
+				}
+			}
+		}`,
+		"own parameter": `package P {
+			item def E;
+			port def Port;
+			action def A {
+				in ref q : Port;
+				action r accept e : E via q;
+			}
+		}`,
+		"usage-owned parameter": `package P {
+			item def E;
+			port def Port;
+			part def Owner {
+				action def A {
+					action r accept e : E via q {
+						in ref q : Port;
+					}
+				}
+			}
+		}`,
+		"this context chain": `package P {
+			item def E;
+			part def Owner {
+				port x;
+				action def A {
+					in ref context : Owner;
+					action r accept e : E via this.context.x;
+				}
+			}
+		}`,
+		"bare via in a usage body": `package P {
+			item def E;
+			part def Owner {
+				port pin;
+				state def S;
+				action def A;
+			}
+			part owner : Owner {
+				exhibit state s : S {
+					action r accept e : E via pin;
+				}
+				perform action a : A {
+					action r2 accept e2 : E via pin;
+				}
+			}
+		}`,
+	}
+	for name, src := range accept {
+		t.Run("accept "+name, func(t *testing.T) {
+			if errs := w8cLibraryErrorsIn(t, "<t>.sysml", src); len(errs) != 0 {
+				t.Fatalf("want a clean fixture, got %v", errs)
+			}
+		})
+	}
+}
+
+// Stochastic::Probability::p is read when its succession's decision is reached,
+// so its value names what the succession's own guards may: the features in reach
+// of the action holding the succession, in both spellings, named or not. Any
+// other metadata value stays judged from the metadata type's feature.
+func TestW8CFeatureReferenceProbabilityReadsFromTheSuccession(t *testing.T) {
+	const want = msgSubsettingFeaturingTypes
+	clean := map[string]string{
+		"own attribute": `package P {
+	private import ScalarValues::*;
+	action def Route {
+		attribute w : Real default = 0.5;
+		first start;
+		then decide d;
+		succession fast first d then done { @Stochastic::Probability { p = w; } }
+		succession slow first d then other { metadata Stochastic::Probability { p = 1.0 - w; } }
+		action done; action other;
+	}
+}`,
+		"context parameter's attribute": `package P {
+	private import ScalarValues::*;
+	part def Mission { attribute pr : Real default = 0.25; }
+	action def Route {
+		in ref context : Mission;
+		first start;
+		then decide d;
+		succession fast first d then done { @Stochastic::Probability { p = context.pr; } }
+		first d then other { @Stochastic::Probability { p = 1.0 - context.pr; } }
+		action done; action other;
+	}
+}`,
+		"nested definition's context": `package P {
+	private import ScalarValues::*;
+	part def Mission {
+		attribute pr : Real default = 0.25;
+		part def Sub :> Mission {
+			perform action run {
+				action def Inner {
+					in ref context : Sub;
+					first start;
+					then decide d;
+					succession fast first d then done { @Stochastic::Probability { p = context.pr; } }
+					action done;
+				}
+				action call : Inner { in ref :>> context = this; }
+			}
+		}
+	}
+}`,
+		"usage body": `package P {
+	private import ScalarValues::*;
+	part def Analysis {
+		attribute pFast : Real default = 0.5;
+		action route {
+			first start;
+			then decide d;
+			succession fast first d then done { @Stochastic::Probability { p = pFast; } }
+			action done;
+		}
+	}
+}`,
+	}
+	for name, src := range clean {
+		if errs := w8cLibraryErrorsIn(t, name+".sysml", src); len(errs) != 0 {
+			t.Errorf("%s: want a clean analysis, got %v", name, errs)
+		}
+	}
+	reject := map[string]string{
+		"named succession": `package P {
+	private import ScalarValues::*;
+	part def Other { attribute q : Real default = 0.5; }
+	action def Route {
+		first start;
+		then decide d;
+		succession fast first d then done { @Stochastic::Probability { p = P::Other::q; } }
+		action done;
+	}
+}`,
+		"anonymous succession": `package P {
+	private import ScalarValues::*;
+	part def Other { attribute q : Real default = 0.5; }
+	action def Route {
+		first start;
+		then decide d;
+		first d then done { @Stochastic::Probability { p = P::Other::q; } }
+		action done;
+	}
+}`,
+		"metadata usage spelling": `package P {
+	private import ScalarValues::*;
+	part def Other { attribute q : Real default = 0.5; }
+	action def Route {
+		first start;
+		then decide d;
+		succession fast first d then done { metadata Stochastic::Probability { p = P::Other::q; } }
+		action done;
+	}
+}`,
+		"unqualified nested definition's read": `package P {
+	private import ScalarValues::*;
+	part def Mission {
+		attribute pr : Real default = 0.25;
+		part def Sub :> Mission {
+			action def Inner {
+				in ref context : Sub;
+				first start;
+				then decide d;
+				succession fast first d then done { @Stochastic::Probability { p = pr; } }
+				action done;
+			}
+		}
+	}
+}`,
+	}
+	for name, src := range reject {
+		msgs := w8cLibraryMessagesIn(t, name+".sysml", src)
+		if w8cCount(msgs, want) != 1 {
+			t.Errorf("%s: want one %q, got %v", name, want, msgs)
+		}
 	}
 }

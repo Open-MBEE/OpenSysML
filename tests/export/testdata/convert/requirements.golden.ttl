@@ -8,6 +8,10 @@
 elmt:Reqs
     a sysml:Package ;
     sysml:qualifiedName "Reqs" ;
+    sysx:sourceLine "1"^^xsd:integer ;
+    sysx:sourceColumn "1"^^xsd:integer ;
+    sysx:sourceEndLine "11"^^xsd:integer ;
+    sysx:sourceEndColumn "2"^^xsd:integer ;
     sysml:elementId "Reqs" ;
     sysx:memberIndex "0"^^xsd:integer ;
     sysx:sourceLanguage "sysml" ;
@@ -25,6 +29,10 @@ elmt:Reqs
 elmt:Reqs__Safe
     a sysml:RequirementDefinition ;
     sysml:qualifiedName "Reqs::Safe" ;
+    sysx:sourceLine "2"^^xsd:integer ;
+    sysx:sourceColumn "5"^^xsd:integer ;
+    sysx:sourceEndLine "4"^^xsd:integer ;
+    sysx:sourceEndColumn "6"^^xsd:integer ;
     sysml:elementId "Reqs__Safe" ;
     sysx:memberIndex "0"^^xsd:integer ;
     sysml:owningNamespace elmt:Reqs ;
@@ -54,6 +62,10 @@ elmt:Reqs__Safe_om
 elmt:Reqs__Safe__margin
     a sysml:AttributeUsage ;
     sysml:qualifiedName "Reqs::Safe::margin" ;
+    sysx:sourceLine "3"^^xsd:integer ;
+    sysx:sourceColumn "9"^^xsd:integer ;
+    sysx:sourceEndLine "3"^^xsd:integer ;
+    sysx:sourceEndColumn "33"^^xsd:integer ;
     sysml:elementId "Reqs__Safe__margin" ;
     sysx:memberIndex "0"^^xsd:integer ;
     sysml:owningNamespace elmt:Reqs__Safe ;
@@ -83,6 +95,10 @@ elmt:Reqs__Safe__margin_om
 elmt:Reqs__Positive
     a sysml:ConstraintDefinition ;
     sysml:qualifiedName "Reqs::Positive" ;
+    sysx:sourceLine "5"^^xsd:integer ;
+    sysx:sourceColumn "5"^^xsd:integer ;
+    sysx:sourceEndLine "7"^^xsd:integer ;
+    sysx:sourceEndColumn "6"^^xsd:integer ;
     sysml:elementId "Reqs__Positive" ;
     sysx:memberIndex "1"^^xsd:integer ;
     sysml:owningNamespace elmt:Reqs ;
@@ -112,6 +128,10 @@ elmt:Reqs__Positive_om
 elmt:Reqs__Positive__value
     a sysml:AttributeUsage ;
     sysml:qualifiedName "Reqs::Positive::value" ;
+    sysx:sourceLine "6"^^xsd:integer ;
+    sysx:sourceColumn "9"^^xsd:integer ;
+    sysx:sourceEndLine "6"^^xsd:integer ;
+    sysx:sourceEndColumn "32"^^xsd:integer ;
     sysml:elementId "Reqs__Positive__value" ;
     sysx:memberIndex "0"^^xsd:integer ;
     sysml:owningNamespace elmt:Reqs__Positive ;
@@ -141,6 +161,10 @@ elmt:Reqs__Positive__value_om
 elmt:Reqs__System
     a sysml:PartDefinition ;
     sysml:qualifiedName "Reqs::System" ;
+    sysx:sourceLine "8"^^xsd:integer ;
+    sysx:sourceColumn "5"^^xsd:integer ;
+    sysx:sourceEndLine "10"^^xsd:integer ;
+    sysx:sourceEndColumn "6"^^xsd:integer ;
     sysml:elementId "Reqs__System" ;
     sysx:memberIndex "2"^^xsd:integer ;
     sysml:owningNamespace elmt:Reqs ;
@@ -170,6 +194,10 @@ elmt:Reqs__System_om
 elmt:Reqs__System__safety
     a sysml:RequirementUsage ;
     sysml:qualifiedName "Reqs::System::safety" ;
+    sysx:sourceLine "9"^^xsd:integer ;
+    sysx:sourceColumn "9"^^xsd:integer ;
+    sysx:sourceEndLine "9"^^xsd:integer ;
+    sysx:sourceEndColumn "35"^^xsd:integer ;
     sysml:elementId "Reqs__System__safety" ;
     sysx:memberIndex "0"^^xsd:integer ;
     sysml:owningNamespace elmt:Reqs__System ;

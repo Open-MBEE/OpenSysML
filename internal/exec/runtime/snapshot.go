@@ -312,7 +312,7 @@ func (ctx *Context) markJournal() journalMark {
 		created: len(ctx.created), attached: len(ctx.objectBehaviors),
 		messages:     slices.Clone(ctx.messages),
 		clockNow:     ctx.clock.now,
-		clockWaiters: slices.Clone(ctx.clock.waiters),
+		clockWaiters: ctx.clock.waiters,
 		trace:        ctx.trace,
 		traced:       captureTrace(ctx.trace),
 	}
@@ -335,7 +335,7 @@ func (ctx *Context) rollbackJournal(mark journalMark) {
 	ctx.writes++
 	ctx.workChanged()
 	ctx.abandonCreationSince(mark.created, mark.attached)
-	ctx.clock.now, ctx.clock.waiters = mark.clockNow, slices.Clone(mark.clockWaiters)
+	ctx.clock.now, ctx.clock.waiters = mark.clockNow, mark.clockWaiters
 	mark.traced.restore(mark.trace)
 }
 

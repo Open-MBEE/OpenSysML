@@ -9,6 +9,10 @@
 elmt:Vehicles
     a sysml:Package ;
     sysml:qualifiedName "Vehicles" ;
+    sysx:sourceLine "1"^^xsd:integer ;
+    sysx:sourceColumn "1"^^xsd:integer ;
+    sysx:sourceEndLine "7"^^xsd:integer ;
+    sysx:sourceEndColumn "2"^^xsd:integer ;
     sysml:elementId "Vehicles" ;
     sysx:memberIndex "0"^^xsd:integer ;
     sysx:sourceLanguage "sysml" ;
@@ -26,6 +30,10 @@ elmt:Vehicles
 elmt:Vehicles__Vehicle
     a sysml:PartDefinition ;
     sysml:qualifiedName "Vehicles::Vehicle" ;
+    sysx:sourceLine "2"^^xsd:integer ;
+    sysx:sourceColumn "5"^^xsd:integer ;
+    sysx:sourceEndLine "5"^^xsd:integer ;
+    sysx:sourceEndColumn "6"^^xsd:integer ;
     sysml:elementId "Vehicles__Vehicle" ;
     sysx:memberIndex "0"^^xsd:integer ;
     sysml:owningNamespace elmt:Vehicles ;
@@ -60,6 +68,10 @@ elmt:Vehicles__Vehicle_om
 elmt:Vehicles__Vehicle__mass
     a sysml:AttributeUsage ;
     sysml:qualifiedName "Vehicles::Vehicle::mass" ;
+    sysx:sourceLine "3"^^xsd:integer ;
+    sysx:sourceColumn "9"^^xsd:integer ;
+    sysx:sourceEndLine "3"^^xsd:integer ;
+    sysx:sourceEndColumn "41"^^xsd:integer ;
     sysml:elementId "Vehicles__Vehicle__mass" ;
     sysx:memberIndex "0"^^xsd:integer ;
     sysml:owningNamespace elmt:Vehicles__Vehicle ;
@@ -89,6 +101,10 @@ elmt:Vehicles__Vehicle__mass_om
 elmt:Vehicles__Vehicle__engine
     a sysml:PartUsage ;
     sysml:qualifiedName "Vehicles::Vehicle::engine" ;
+    sysx:sourceLine "4"^^xsd:integer ;
+    sysx:sourceColumn "9"^^xsd:integer ;
+    sysx:sourceEndLine "4"^^xsd:integer ;
+    sysx:sourceEndColumn "33"^^xsd:integer ;
     sysml:elementId "Vehicles__Vehicle__engine" ;
     sysx:memberIndex "1"^^xsd:integer ;
     sysml:owningNamespace elmt:Vehicles__Vehicle ;
@@ -161,6 +177,10 @@ expr:Vehicles__Vehicle__engine_pupperBound_om
 elmt:Vehicles__Engine
     a sysml:PartDefinition ;
     sysml:qualifiedName "Vehicles::Engine" ;
+    sysx:sourceLine "6"^^xsd:integer ;
+    sysx:sourceColumn "5"^^xsd:integer ;
+    sysx:sourceEndLine "6"^^xsd:integer ;
+    sysx:sourceEndColumn "21"^^xsd:integer ;
     sysml:elementId "Vehicles__Engine" ;
     sysx:memberIndex "1"^^xsd:integer ;
     sysml:owningNamespace elmt:Vehicles ;

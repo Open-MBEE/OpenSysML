@@ -18,6 +18,10 @@ type EffectiveFeature struct {
 	DefaultDecl  *symbols.Symbol // feature the DefaultValue was written on (nil if none)
 	HoldsSet     bool            // values form a set: a Collection's unordered unique elements
 	Unique       bool            // holds no two equal values (KerML isUnique, the default)
+	// GovernedByChain marks a feature a valued nested chain from a more specific
+	// body reaches below, so its bound value does not govern, as with a
+	// redefining body.
+	GovernedByChain bool
 }
 
 // Scalar reports whether the feature holds at most one value.
@@ -208,9 +212,13 @@ func (ctx *Context) extractDefaultValue(featureSym *symbols.Symbol) ast.Node {
 	return nil
 }
 
-// featureMultiplicity is the multiplicity a feature has on owner: as stated, else
-// as inherited from what it redefines or subsets, else the assumed 1..1.
+// featureMultiplicity is the multiplicity a feature has on owner: a parameter's
+// effective range (§7.6.3), else as stated, else as inherited from what it
+// redefines or subsets, else the assumed 1..1.
 func (ctx *Context) featureMultiplicity(sym, owner *symbols.Symbol) semantics.Range {
+	if semantics.IsParameter(sym) {
+		return ctx.model.semantics.EffectiveParameterRange(sym)
+	}
 	mult, stated := ctx.extractMultiplicity(sym)
 	if stated {
 		return mult
@@ -234,7 +242,7 @@ func (ctx *Context) statedMultiplicity(sym *symbols.Symbol) (semantics.Range, bo
 		mult, _, stated = ctx.inheritedMultiplicity(sym, owner, map[*symbols.Symbol]bool{sym: true})
 	}
 	if !stated && semantics.IsParameter(sym) {
-		return semantics.AssumedRange(), true
+		return ctx.model.semantics.EffectiveParameterRange(sym), true
 	}
 	return mult, stated
 }

@@ -11,6 +11,8 @@ import (
 type writer struct {
 	bufs   []*buffer
 	indent int
+	// free holds the buffers of closed blocks, for the blocks opened next.
+	free []*buffer
 	// holes are the gaps left for text written once the rest of the document is.
 	holes []hole
 	// marker writes the line closing a body whose members it lists were declared
@@ -51,7 +53,7 @@ func (w *writer) hole(fill func()) {
 func (w *writer) fill() {
 	for i := range w.holes {
 		h := &w.holes[i]
-		w.bufs = append(w.bufs, &buffer{})
+		w.open()
 		indent := w.indent
 		w.indent = h.indent
 		h.fill()
@@ -118,24 +120,61 @@ func (w *writer) markMadeUp() {
 	}
 }
 
+// open pushes a block over the current one, reusing the buffer of a closed block.
+func (w *writer) open() {
+	var b *buffer
+	if n := len(w.free); n > 0 {
+		b, w.free = w.free[n-1], w.free[:n-1]
+	} else {
+		b = &buffer{}
+	}
+	w.bufs = append(w.bufs, b)
+}
+
 // close pops the innermost block, marking the names it made up that no body
 // marked, and returns its text.
 func (w *writer) close() string {
 	w.markMadeUp()
 	b := w.bufs[len(w.bufs)-1]
 	w.bufs = w.bufs[:len(w.bufs)-1]
-	return b.String()
+	text := b.String()
+	*b = buffer{}
+	w.free = append(w.free, b)
+	return text
 }
 
 func (w *writer) line(s string) {
-	b := &w.buf().Builder
 	if s == "" {
-		b.WriteByte('\n')
+		_ = w.buf().WriteByte('\n')
 		return
 	}
-	b.WriteString(strings.Repeat("    ", w.indent))
-	b.WriteString(s)
+	w.lineOf(s, "")
+}
+
+// lineOf writes a line of two parts at the current indent.
+func (w *writer) lineOf(head, tail string) {
+	b := &w.buf().Builder
+	indent := indentOf(w.indent)
+	b.Grow(len(indent) + len(head) + len(tail) + 1)
+	b.WriteString(indent)
+	b.WriteString(head)
+	b.WriteString(tail)
 	b.WriteByte('\n')
+}
+
+// indents are the indentations of the first levels, spelled once.
+var indents = func() (out [16]string) {
+	for i := range out {
+		out[i] = strings.Repeat("    ", i)
+	}
+	return out
+}()
+
+func indentOf(level int) string {
+	if level < len(indents) {
+		return indents[level]
+	}
+	return strings.Repeat("    ", level)
 }
 
 func (w *writer) lines(ls []string) {
@@ -167,10 +206,10 @@ func (w *writer) enclose(header, empty string, body func()) {
 func (w *writer) trailed(header, empty, lead string, body func()) {
 	inner := w.capture(body)
 	if inner == "" {
-		w.line(header + empty)
+		w.lineOf(header, empty)
 		return
 	}
-	w.line(header + " {")
+	w.lineOf(header, " {")
 	if lead != "" {
 		w.indented(func() { w.line(lead) })
 	}
@@ -186,12 +225,18 @@ func (w *writer) capture(body func()) string {
 	return inner
 }
 
-// aside renders what body writes, at the current level, without writing it.
-func (w *writer) aside(body func()) string {
+// captureAt renders what body writes at the current indent, without writing
+// it: for a body continued on lines already inside the braces.
+func (w *writer) captureAt(body func()) string {
 	w.buf()
-	w.bufs = append(w.bufs, &buffer{})
+	w.open()
 	body()
 	return w.close()
+}
+
+// aside renders what body writes, at the current level, without writing it.
+func (w *writer) aside(body func()) string {
+	return w.captureAt(body)
 }
 
 // indented writes body one level deeper, for a clause continued on the next lines.

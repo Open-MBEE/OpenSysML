@@ -827,6 +827,8 @@ func (m *materializing) object(obj imagedObject) error {
 
 // feature is dst's declaration of an imaged feature: the one of the object's types
 // declaring the same symbol, so dst's own shape tables answer for it, else a copy.
+// A feature the source adjusted — a chain governing its bound value marks it
+// and clears the declared one — is not the canonical's, and restores as imaged.
 func (m *materializing) feature(inst *Instance, f EffectiveFeature) *EffectiveFeature {
 	if f.Symbol == nil && f.Name == "" {
 		return nil
@@ -834,7 +836,11 @@ func (m *materializing) feature(inst *Instance, f EffectiveFeature) *EffectiveFe
 	for _, typ := range inst.types() {
 		features := m.dst.FeaturesOf(typ)
 		for i := range features {
-			if features[i].Symbol == f.Symbol && features[i].Name == f.Name && features[i].OwnerType == f.OwnerType {
+			if features[i].Symbol != f.Symbol || features[i].Name != f.Name || features[i].OwnerType != f.OwnerType {
+				continue
+			}
+			if features[i].GovernedByChain == f.GovernedByChain &&
+				(features[i].DefaultValue == nil) == (f.DefaultValue == nil) {
 				return &features[i]
 			}
 		}

@@ -316,13 +316,14 @@ func (m *migration) placeParagraphs(sec *sectionPlan, groups [][]*sysmlv1.DocGen
 // paragraph follows the content instead, and why.
 func (m *migration) anchorPlace(sec *sectionPlan, p *sysmlv1.DocGenParagraph, unresolved int) (in *sectionPlan, at int, note string) {
 	tag := strconv.Quote(p.Predecessor)
+	anchor := "its anchor " + tag
 	follows := ", so the paragraph follows the section's generated content"
 	a := p.Anchor
 	switch {
 	case a == nil:
 		return nil, 0, "its predecessor tag " + tag + " names neither another paragraph of the view nor a figure" + follows
 	case a.Kind != sysmlv1.DiagramMainImage:
-		return nil, 0, "its anchor " + tag + " names an item of the kind " + a.Kind + ", which the migration does not place" + follows
+		return nil, 0, anchor + " names an item of the kind " + a.Kind + ", which the migration does not place" + follows
 	}
 	if in, f := m.findFigure(sec, a.Target); in != nil {
 		return in, f.at, ""
@@ -333,14 +334,14 @@ func (m *migration) anchorPlace(sec *sectionPlan, p *sysmlv1.DocGenParagraph, un
 	figures := m.figures(sec)
 	switch {
 	case len(figures) == 0:
-		return nil, 0, "its anchor " + tag + " names no diagram of the model, and the section draws no figure" + follows
+		return nil, 0, anchor + " names no diagram of the model, and the section draws no figure" + follows
 	case len(figures) > 1:
-		return nil, 0, "its anchor " + tag + " names no diagram of the model, and the section draws " + strconv.Itoa(len(figures)) + " figures" + follows
+		return nil, 0, anchor + " names no diagram of the model, and the section draws " + strconv.Itoa(len(figures)) + " figures" + follows
 	case unresolved > 1:
-		return nil, 0, "its anchor " + tag + " names no diagram of the model, as do " + strconv.Itoa(unresolved-1) + " other anchors in the section" + follows
+		return nil, 0, anchor + " names no diagram of the model, as do " + strconv.Itoa(unresolved-1) + " other anchors in the section" + follows
 	}
 	in, f := figures[0].in, figures[0].mark
-	return in, f.at, "its anchor " + tag + " names no diagram of the model; the paragraph is placed after the section's only figure, of the " + diagramKind(f.d) + " '" + f.d.Name + "'"
+	return in, f.at, anchor + " names no diagram of the model; the paragraph is placed after the section's only figure, of the " + diagramKind(f.d) + " '" + f.d.Name + "'"
 }
 
 // placedFigure is a figure mark with the section it is in.
@@ -393,7 +394,7 @@ func (m *migration) planMethod(dp *docPlan, sec *sectionPlan) {
 			sec.refused = "the viewpoint " + qualifiedName(v.Viewpoint) + "'s method is not migrated: " + v.MethodMalformed
 			m.report.Entries = append(m.report.Entries, *m.nodeEntry(v.Viewpoint, v.Viewpoint.Stereotype("Viewpoint"), Unmapped, sec.refused))
 		case v.ConformMalformed != "":
-			sec.refused = "the view " + qualifiedName(v.Class) + "'s conformance is not migrated: " + v.ConformMalformed
+			sec.refused = theView(v) + "'s conformance is not migrated: " + v.ConformMalformed
 			m.report.Entries = append(m.report.Entries, *m.nodeEntry(v.Class, viewApplication(v.Class), Unmapped, sec.refused))
 		case v.Viewpoint == nil:
 			m.defaultView(dp, sec)
@@ -411,6 +412,14 @@ func (m *migration) planMethod(dp *docPlan, sec *sectionPlan) {
 	c.run(steps)
 }
 
+// theView names a DocGen view in a note.
+func theView(v *sysmlv1.DocGenView) string { return "the view " + qualifiedName(v.Class) }
+
+// servedByViewEditor is the note for an image the migration cannot fetch.
+func servedByViewEditor(src string) string {
+	return strconv.Quote(src) + " is served by the View Editor; pass -image-base-url to show it"
+}
+
 // defaultView applies what DocGen does for a view with no Conform (MDK's
 // DocumentGenerator.parseView reads that relationship alone, not the «View»
 // stereotype's viewpoint tag): a view that is itself a diagram shows
@@ -419,7 +428,7 @@ func (m *migration) planMethod(dp *docPlan, sec *sectionPlan) {
 // nothing for an exposed element that is not a diagram.
 func (m *migration) defaultView(dp *docPlan, sec *sectionPlan) {
 	v := sec.v
-	origin := "the view " + qualifiedName(v.Class) + " conforms to no viewpoint, so DocGen's default behavior applies"
+	origin := theView(v) + " conforms to no viewpoint, so DocGen's default behavior applies"
 	f := figureOf{node: v.Class, app: viewApplication(v.Class), label: "«View» " + v.Class.Type, origin: origin}
 	if d := m.model.Diagram(v.Class.ID); d != nil {
 		f.title = strings.TrimSpace(d.Name)
@@ -498,11 +507,11 @@ func (m *migration) viewDocumentation(sec *sectionPlan) {
 // the view exposes, or the view itself when it exposes nothing.
 func (c *chain) start(v *sysmlv1.DocGenView) {
 	if len(v.Exposed) > 0 {
-		c.roots(v.Exposed, "the view "+qualifiedName(v.Class)+" exposes")
+		c.roots(v.Exposed, theView(v)+" exposes")
 		return
 	}
 	c.roots([]sysmlv1.ElementRef{{ID: v.Class.ID, Element: v.Class}}, "the view")
-	c.self = "the view " + qualifiedName(v.Class) + " exposes nothing, so its method works on the view itself"
+	c.self = theView(v) + " exposes nothing, so its method works on the view itself"
 }
 
 // collaboratorParagraph plans a paragraph the View Editor attached to a view:
@@ -561,7 +570,7 @@ func (m *migration) planImage(sec *sectionPlan, cp *contentPlan, p *sysmlv1.DocG
 	}
 	if location == "" {
 		if serverImagePath(src) && m.imageBase == nil {
-			reason = "the image " + strconv.Quote(src) + " is served by the View Editor; pass -image-base-url to show it"
+			reason = "the image " + servedByViewEditor(src)
 		} else if reason == "" {
 			reason = "the image paragraph's comment names no attached file"
 		}
@@ -704,7 +713,7 @@ func (m *migration) imageInBody(sec *sectionPlan, cp *contentPlan, node *sysmlv1
 	}
 	if !ok {
 		if serverImagePath(src) && m.imageBase == nil {
-			cp.notes = append(cp.notes, "the image "+strconv.Quote(src)+" is served by the View Editor; pass -image-base-url to show it")
+			cp.notes = append(cp.notes, "the image "+servedByViewEditor(src))
 		}
 		return false
 	}
@@ -1288,7 +1297,30 @@ func (c *chain) collectShown(s *sysmlv1.DocGenStep) {
 	}
 	// One diagram whose symbols are unread leaves the whole collection unknown,
 	// listed or not: a Named query over the rest would pass for complete.
-	var unread, listed []string
+	unread, listed := unreadDiagrams(diagrams)
+	if len(unread) > 0 {
+		c.abort(s, "it collects "+strings.Join(unread, " and "))
+		return
+	}
+	for _, n := range listed {
+		c.note(n)
+	}
+	var names []string
+	for _, d := range diagrams {
+		names = c.collectDiagramShown(d, names)
+	}
+	if len(names) > 0 {
+		c.ctx = qcall("Named", qstrs("qualifiedName", names...))
+	}
+	if c.empty() && len(c.diagrams) == 0 && c.vague == "" {
+		c.none = "«" + c.kind(s) + "» " + qualifiedName(s.Node) + " collects nothing: " + c.shownNothing(diagrams, holders)
+		c.dropped = c.none
+	}
+}
+
+// unreadDiagrams sorts the diagrams whose symbols are not drawn into those
+// whose contents cannot be read at all and those the tool lists elements for.
+func unreadDiagrams(diagrams []*sysmlv1.Diagram) (unread, listed []string) {
 	for _, d := range diagrams {
 		what := "what the " + diagramKind(d) + " '" + d.Name + "' shows"
 		switch {
@@ -1301,54 +1333,44 @@ func (c *chain) collectShown(s *sysmlv1.DocGenStep) {
 			listed = append(listed, "reads the "+plural(len(d.Shown), "element")+" the tool lists as used on the "+diagramKind(d)+" '"+d.Name+"', whose symbols are not serialized; the list need not be all it shows")
 		}
 	}
-	if len(unread) > 0 {
-		c.abort(s, "it collects "+strings.Join(unread, " and "))
-		return
-	}
-	for _, n := range listed {
-		c.note(n)
-	}
-	var names []string
-	for _, d := range diagrams {
-		unknown, unwritten, folded := 0, 0, 0
-		for _, ref := range d.Shown {
-			if sd := c.m.model.Diagram(ref.ID); sd != nil {
-				c.diagrams = appendDiagram(c.diagrams, sd)
-				continue
-			}
-			switch name, why := c.m.namedRoot(ref, "element"); {
-			case ref.Element == nil:
-				unknown++
-			case why != "" && c.m.foldedInto(ref.Element):
-				folded++
-			case why != "":
-				c.holders = appendElement(c.holders, ref.Element)
-				unwritten++
-			default:
-				c.holders = appendElement(c.holders, ref.Element)
-				if !contains(names, name) {
-					names = append(names, name)
-				}
+	return unread, listed
+}
+
+// collectDiagramShown collects what one diagram shows: nested diagrams to
+// read, the holders of the elements, and the names of those written.
+func (c *chain) collectDiagramShown(d *sysmlv1.Diagram, names []string) []string {
+	unknown, unwritten, folded := 0, 0, 0
+	for _, ref := range d.Shown {
+		if sd := c.m.model.Diagram(ref.ID); sd != nil {
+			c.diagrams = appendDiagram(c.diagrams, sd)
+			continue
+		}
+		switch name, why := c.m.namedRoot(ref, "element"); {
+		case ref.Element == nil:
+			unknown++
+		case why != "" && c.m.foldedInto(ref.Element):
+			folded++
+		case why != "":
+			c.holders = appendElement(c.holders, ref.Element)
+			unwritten++
+		default:
+			c.holders = appendElement(c.holders, ref.Element)
+			if !contains(names, name) {
+				names = append(names, name)
 			}
 		}
-		shown := " shown on the " + diagramKind(d) + " '" + d.Name + "' "
-		if unknown > 0 {
-			c.note(leavesOut + plural(unknown, "element") + shown + "that the archive does not describe")
-		}
-		if unwritten > 0 {
-			c.note(leavesOut + plural(unwritten, "element") + shown + "that the migration does not write")
-		}
-		if folded > 0 {
-			c.note(leavesOut + plural(folded, "element") + shown + "written within the elements owning them, with no v2 element of their own")
-		}
 	}
-	if len(names) > 0 {
-		c.ctx = qcall("Named", qstrs("qualifiedName", names...))
+	shown := " shown on the " + diagramKind(d) + " '" + d.Name + "' "
+	if unknown > 0 {
+		c.note(leavesOut + plural(unknown, "element") + shown + "that the archive does not describe")
 	}
-	if c.empty() && len(c.diagrams) == 0 && c.vague == "" {
-		c.none = "«" + c.kind(s) + "» " + qualifiedName(s.Node) + " collects nothing: " + c.shownNothing(diagrams, holders)
-		c.dropped = c.none
+	if unwritten > 0 {
+		c.note(leavesOut + plural(unwritten, "element") + shown + "that the migration does not write")
 	}
+	if folded > 0 {
+		c.note(leavesOut + plural(folded, "element") + shown + "written within the elements owning them, with no v2 element of their own")
+	}
+	return names
 }
 
 // shownNothing says why no element is shown on the current diagrams: there is
@@ -1875,12 +1897,13 @@ func (m *migration) sortKey(e *sysmlv1.Element, property string) string {
 	return ""
 }
 
-// docKey is the body a query reads back from the doc comment written for text.
+// docKey is the documentation a query reads back from the doc comment written
+// for text, as DocumentationOf presents it.
 func docKey(text string) string {
 	if text == "" {
 		return ""
 	}
-	return source.CommentBody(strings.Join(commentLines(text), "\n"))
+	return source.CommentProse(strings.Join(commentLines(text), "\n"))
 }
 
 // attribute reads a desiredAttribute tag as the query property it names.
@@ -2100,7 +2123,11 @@ func (c *chain) table(s *sysmlv1.DocGenStep) {
 		case prop != "":
 			p.property(prop, c.caption(col, ""), 0)
 		default:
-			p.column(expr.name, "", qlit(expr.expression), 0)
+			value := qlit(expr.expression)
+			if expr.argument == "path" {
+				value = qstr(expr.expression)
+			}
+			p.computedColumn(expr.name, "", expr.argument, value, 0)
 		}
 	}
 	if s.Application.Tag("includeDoc") == "true" {
@@ -2128,7 +2155,7 @@ func (c *chain) table(s *sysmlv1.DocGenStep) {
 
 // columnExpr is a Column over a feature of the row's type.
 type columnExpr struct {
-	name, expression string
+	name, argument, expression string
 }
 
 // column lowers one column node: a query property, or a Column reading a
@@ -2166,11 +2193,15 @@ func (c *chain) column(col *sysmlv1.DocGenStep) (prop string, expr columnExpr, w
 			return "", expr, s.why
 		}
 		if s.path {
-			return "", columnExpr{name: c.caption(col, s.caption), expression: s.key}, ""
+			return "", columnExpr{name: c.caption(col, s.caption), argument: "path", expression: s.key}, ""
 		}
 		c.m.expose(s.feature, "a column of a document table reads it")
 		name := c.caption(col, s.key)
-		return "", columnExpr{name: name, expression: c.m.ref(s.feature, c.dp.host) + " ?? \"\""}, ""
+		if s.cell {
+			cell := "{ in row : " + c.m.ref(s.feature.Parent, c.dp.host) + "; row." + writeName(c.m.nameOf(s.feature)) + " ?? \"\" }"
+			return "", columnExpr{name: name, argument: "cell", expression: cell}, ""
+		}
+		return "", columnExpr{name: name, argument: "expression", expression: c.m.ref(s.feature, c.dp.host) + " ?? \"\""}, ""
 	case "TableExpressionColumn":
 		e := strings.TrimSpace(col.Application.Tag("expression"))
 		if p, ok := queryProperties[e]; ok {
@@ -2335,7 +2366,7 @@ func (m *migration) figure(dp *docPlan, sec *sectionPlan, f figureOf, d *sysmlv1
 			verdict = Mapped
 		}
 		if src, _, _ := firstImg(d.Documentation); src != "" && serverImagePath(src) && m.imageBase == nil {
-			note += "; the note's image " + strconv.Quote(src) + " is served by the View Editor; pass -image-base-url to show it"
+			note += "; the note's image " + servedByViewEditor(src)
 		}
 		if f.text != "" {
 			note += "; its caption stands alone"

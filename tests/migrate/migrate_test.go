@@ -103,7 +103,12 @@ func TestMigratedNotationRoundTripsThroughTurtle(t *testing.T) {
 		t.Fatal(err)
 	}
 	sourceText := func(tr rdf.Triple) bool {
-		return tr.Predicate == rdf.OpenSysMLTerm("sourceText") || tr.Predicate == rdf.OpenSysMLTerm("sourceTail")
+		switch tr.Predicate {
+		case rdf.OpenSysMLTerm("sourceText"), rdf.OpenSysMLTerm("sourceTail"), rdf.OpenSysMLTerm("sourceLine"),
+			rdf.OpenSysMLTerm("sourceColumn"), rdf.OpenSysMLTerm("sourceEndLine"), rdf.OpenSysMLTerm("sourceEndColumn"):
+			return true
+		}
+		return false
 	}
 	structural := rdf.NewGraph()
 	for _, tr := range g1.Triples() {
@@ -149,7 +154,7 @@ func TestNotationCoversTheFixture(t *testing.T) {
 		"attribute def Mass :> ScalarValues::Real {",
 		"enum def Color {",
 		"port def FuelInterface {",
-		"in item fuel : Fuel;",
+		"in item fuel : Fuel[1];",
 		"part def Vehicle :> System {",
 		"attribute mass : 'Vehicle Design'::'Value Types'::Mass default = 1200.0;",
 		"part engine : Engine[1..2];",
@@ -308,9 +313,19 @@ func TestRejectsNonXMI(t *testing.T) {
 // one family of behavioral or profile constructs; their notation and report are golden.
 var constructFixtures = []string{
 	"plant_states",
+	"transition_relocation",
 	"station_points",
+	"submachine_params",
+	"operation_extra_params",
+	"swimlane_context_calls",
+	"nested_context",
+	"context_bound_call",
+	"recursive_context_call",
+	"recursive_context_cycle_ab",
+	"recursive_context_cycle_ba",
 	"rig_interactions",
 	"heater_receptions",
+	"accept_via_context_port",
 	"ported_calls",
 	"empty_behaviors",
 	"library_calls",
@@ -325,6 +340,16 @@ var constructFixtures = []string{
 	"montecarlo_table_subclass",
 	"montecarlo_docgen_scoped",
 	"weighted_decision",
+	"decision_property_probability",
+	"decision_rejected_probability_default",
+	"probability_nested_def_context",
+	"probability_nested_def_default",
+	"probability_nested_def_part",
+	"probability_nested_def_part_optional",
+	"probability_nested_def_part_plural",
+	"probability_nested_def_part_uncalled",
+	"probability_part_private",
+	"probability_part_shadowed",
 	"tree_constraints",
 	"realized_interfaces",
 	"parking_usecases",
@@ -336,6 +361,13 @@ var constructFixtures = []string{
 	"diagrams",
 	"diagram_edges",
 	"control_nodes",
+	"refused_vertex_layout",
+	"operation_context_out",
+	"viewpoint_context",
+	"accept_payload_name",
+	"accept_payload_package_shadow",
+	"accept_payload_package_segment_shadow",
+	"exposed_action_usage",
 	"exposed",
 	"layout",
 	"malformed_diagrams",
@@ -350,6 +382,8 @@ var constructFixtures = []string{
 	"table_homonyms",
 	"relation_subtypes",
 	"decision_else",
+	"calc_context",
+	"interaction_context",
 }
 
 // migrateFixtureFile migrates testdata/xmi/<name>.xmi.

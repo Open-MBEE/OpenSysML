@@ -3,7 +3,44 @@ package migrate
 import (
 	"strings"
 	"testing"
+
+	"github.com/Open-MBEE/OpenSysML/internal/translate/xmi/sysmlv1"
 )
+
+func TestDiagramLayoutAttributesQualifyExposedNames(t *testing.T) {
+	x := exposures{names: map[string]bool{"height": true, "points": true, "text": true, "width": true}}
+	for _, tc := range []struct {
+		prefix, definition, name, value, want string
+	}{
+		{"DiagramLayout::", "Layout", "height", "40", ":>> DiagramLayout::Layout::height = 40"},
+		{"DiagramLayout::", "Route", "points", "(1, 2)", ":>> DiagramLayout::Route::points = (1, 2)"},
+		{"DiagramLayout::", "Canvas", "height", "80", ":>> DiagramLayout::Canvas::height = 80"},
+		{"DiagramLayout::", "Note", "height", "20", ":>> DiagramLayout::Note::height = 20"},
+		{"DiagramLayout::", "Style", "text", `"red"`, `:>> DiagramLayout::Style::text = "red"`},
+		{"DiagramLayout::", "Picture", "width", "60", ":>> DiagramLayout::Picture::width = 60"},
+		{"$::DiagramLayout::", "Layout", "scale", "60", "scale = 60"},
+	} {
+		if got := diagramLayoutAttribute(tc.prefix, tc.definition, tc.name, tc.value, x); got != tc.want {
+			t.Errorf("diagramLayoutAttribute(%q, %q, %q) = %q, want %q", tc.definition, tc.name, tc.value, got, tc.want)
+		}
+	}
+}
+
+func TestExposureNameUsesFinalUnquotedSegment(t *testing.T) {
+	for _, tc := range []struct {
+		ref, want string
+	}{
+		{"Scale::height", "height"},
+		{"Scale::'Height::Sample'", "Height::Sample"},
+		{"Scale::'John''s Height'", "John's Height"},
+		{"Scale::*", ""},
+		{"Scale::**", ""},
+	} {
+		if got := exposureName(tc.ref); got != tc.want {
+			t.Errorf("exposureName(%q) = %q, want %q", tc.ref, got, tc.want)
+		}
+	}
+}
 
 // diagramModel wraps members beside package Sys (_sys) holding block Pump
 // (_pump) with attribute rate (_rate), a tool extension holding diagrams, and
@@ -274,6 +311,49 @@ func TestDiagramViews(t *testing.T) {
 			}
 			if found != 1 {
 				t.Errorf("_d is reported %d times, want once", found)
+			}
+		})
+	}
+}
+
+func TestDiagramNotesDoNotNameOmittedVertices(t *testing.T) {
+	members := `<packagedElement xmi:type="uml:StateMachine" xmi:id="_sm" name="Modes">
+      <region xmi:type="uml:Region" xmi:id="_region">
+        <subvertex xmi:type="uml:Pseudostate" xmi:id="_pick" name="Pick" kind="choice"/>
+        <subvertex xmi:type="uml:State" xmi:id="_idle" name="Idle"/>
+      </region>
+    </packagedElement>`
+	for _, tc := range []struct {
+		name     string
+		strict   bool
+		anchored bool
+	}{
+		{name: "strict", strict: true},
+		{name: "non-strict", anchored: true},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			model, err := sysmlv1.Parse([]byte(diagramModel(
+				members,
+				diagram("_d", "Modes", "_sm", "SysML State Machine Diagram", "_pick"),
+			)))
+			if err != nil {
+				t.Fatal(err)
+			}
+			d := &model.Diagrams[0]
+			d.Drawn = true
+			d.Symbols = []*sysmlv1.Symbol{
+				{ID: "note", Class: "Note", Bounds: &sysmlv1.Bounds{X: 1, Y: 2, Width: 30, Height: 10}, Text: "Review"},
+				{ID: "anchor", Class: "NoteAnchor", Ends: [2]string{"note", "pick"}},
+				{ID: "pick", Class: "State", ElementID: "_pick"},
+			}
+			r := FromModelOptions("diagrams.xmi", model, Options{Strict: tc.strict})
+			got := string(r.Notation)
+			anchored := strings.Contains(got, "metadata DiagramLayout::Note about")
+			if anchored != tc.anchored {
+				t.Errorf("note anchored = %t, want %t:\n%s", anchored, tc.anchored, got)
+			}
+			if tc.strict && !strings.Contains(got, "@DiagramLayout::Note {") {
+				t.Errorf("note is not retained free of the omitted vertex:\n%s", got)
 			}
 		})
 	}

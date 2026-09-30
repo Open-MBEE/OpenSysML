@@ -9,22 +9,22 @@ import "fmt"
 // node meets each edge out of it: the pair is redrawn as one edge between the
 // nodes the stand-in was written between, along whichever route the two had,
 // and a pair with no route is left undrawn, as the migration's own wiring
-// rather than the diagram's. It is r itself when there is nothing to elide,
-// else a copy; r is not changed.
+// rather than the diagram's. Where one alone has a route, the joined edge's
+// route stops short of the other's end, for the drawing to lead on to it once
+// it has boxed that end. It is r itself when there is nothing to elide, else a
+// copy; r is not changed.
 func withoutStandIns(r *Rendering) *Rendering {
 	if !positionedRendering(r) || findStandIn(r.Roots) == nil {
 		return r
 	}
 	out := r.Clone()
-	geometry := map[string]*Geometry{}
-	collectGeometry(out.Roots, geometry)
 	elided, dropped := 0, 0
 	for {
 		standIn := findStandIn(out.Roots)
 		if standIn == nil {
 			break
 		}
-		dropped += elideNode(out, standIn.ID, geometry)
+		dropped += elideNode(out, standIn.ID)
 		elided++
 	}
 	notice := fmt.Sprintf("%d control node(s) a migration made up, which no diagram positions, elided", elided)
@@ -33,14 +33,6 @@ func withoutStandIns(r *Rendering) *Rendering {
 	}
 	out.Notices = append(out.Notices, notice)
 	return out
-}
-
-// collectGeometry maps every node under nodes, by ID, to its stated geometry.
-func collectGeometry(nodes []*Node, into map[string]*Geometry) {
-	for _, node := range nodes {
-		into[node.ID] = node.Geometry
-		collectGeometry(node.Children, into)
-	}
 }
 
 // positionedRendering reports whether any node of r has stated geometry or any
@@ -86,7 +78,7 @@ func standInKind(kind string) bool {
 
 // elideNode removes node id from out, joining its edges pairwise; it returns
 // how many pairs had no route to be drawn along.
-func elideNode(out *Rendering, id string, geometry map[string]*Geometry) int {
+func elideNode(out *Rendering, id string) int {
 	var into, from, kept []Edge
 	for _, edge := range out.Edges {
 		switch {
@@ -103,7 +95,7 @@ func elideNode(out *Rendering, id string, geometry map[string]*Geometry) int {
 	var joins [][2]string
 	for _, in := range into {
 		for _, o := range from {
-			joined, ok := joinEdges(in, o, geometry)
+			joined, ok := joinEdges(in, o)
 			if !ok {
 				dropped++
 				continue
@@ -152,10 +144,12 @@ func rejoinNotes(notes []Note, id string, joins [][2]string) []Note {
 
 // joinEdges is the edge in and out draw as one, along in's route continued by
 // out's, less the point where they meet; false when neither has a route. Where
-// one alone has a route, it ends at the elided node, so the way on to the
-// other's end is added: straight to the border of that node's box, when its
-// geometry gives one.
-func joinEdges(in, out Edge, geometry map[string]*Geometry) (Edge, bool) {
+// one alone has a route, it stops at the elided node, short of the other's
+// end, which the joined edge is marked open at.
+func joinEdges(in, out Edge) (Edge, bool) {
+	joined := out
+	joined.From, joined.FromPort = in.From, in.FromPort
+	joined.openFrom, joined.openTo = in.openFrom, out.openTo
 	route := append([]Point(nil), in.Route...)
 	switch {
 	case len(route) > 1 && len(out.Route) > 1:
@@ -165,14 +159,12 @@ func joinEdges(in, out Edge, geometry map[string]*Geometry) (Edge, bool) {
 			route = append(route, out.Route...)
 		}
 	case len(out.Route) > 1:
-		route = reachFrom(geometry[in.From], out.Route)
+		route, joined.openFrom = append(route, out.Route...), true
 	case len(route) < 2:
 		return Edge{}, false
 	default:
-		route = reversed(reachFrom(geometry[out.To], reversed(route)))
+		joined.openTo = true
 	}
-	joined := out
-	joined.From, joined.FromPort = in.From, in.FromPort
 	joined.Label = joinNonEmpty(in.Label, out.Label)
 	joined.Name = joinNonEmpty(in.Name, out.Name)
 	joined.Route = route
@@ -180,19 +172,6 @@ func joinEdges(in, out Edge, geometry map[string]*Geometry) (Edge, bool) {
 		joined.Style = in.Style
 	}
 	return joined, true
-}
-
-// reachFrom is route led out of the box g states, when it states one and the
-// route starts off it: from the point of the border facing the route's start.
-func reachFrom(g *Geometry, route []Point) []Point {
-	if g == nil || !g.HasSize {
-		return route
-	}
-	box := nodeBox{low: Point{X: g.X, Y: g.Y}, high: Point{X: g.X + g.Width, Y: g.Y + g.Height}}
-	if box.holds(route[0]) {
-		return route
-	}
-	return append([]Point{box.faces(route[0], route[0])}, route...)
 }
 
 // removeNode is nodes without the node id, wherever it is nested.

@@ -1,0 +1,53 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<xmi:XMI xmi:version="2.5.1" xmlns:xmi="http://www.omg.org/spec/XMI/20131001"
+         xmlns:uml="http://www.omg.org/spec/UML/20161101"
+         xmlns:sysml="http://www.omg.org/spec/SysML/20181001/SysML">
+  <uml:Model xmi:type="uml:Model" xmi:id="_m" name="Model">
+    <packagedElement xmi:type="uml:Class" xmi:id="_host" name="Host">
+      <ownedAttribute xmi:type="uml:Property" xmi:id="_k" name="k">
+        <type xmi:type="uml:PrimitiveType" href="http://www.omg.org/spec/UML/20131001/PrimitiveTypes.xmi#Integer"/>
+        <defaultValue xmi:type="uml:LiteralInteger" xmi:id="_k0" value="0"/>
+      </ownedAttribute>
+      <ownedBehavior xmi:type="uml:Activity" xmi:id="_runner" name="Runner">
+        <node xmi:type="uml:InitialNode" xmi:id="_runnerStart"/>
+        <node xmi:type="uml:CallBehaviorAction" xmi:id="_runB" name="run" behavior="_b"/>
+        <node xmi:type="uml:ActivityFinalNode" xmi:id="_runnerEnd"/>
+        <edge xmi:type="uml:ControlFlow" xmi:id="_runnerFlow1" source="_runnerStart" target="_runB"/>
+        <edge xmi:type="uml:ControlFlow" xmi:id="_runnerFlow2" source="_runB" target="_runnerEnd"/>
+      </ownedBehavior>
+      <ownedBehavior xmi:type="uml:Activity" xmi:id="_b" name="B">
+        <node xmi:type="uml:InitialNode" xmi:id="_bi"/>
+        <node xmi:type="uml:CallBehaviorAction" xmi:id="_callA" name="a" behavior="_a"/>
+        <node xmi:type="uml:ValueSpecificationAction" xmi:id="_one" name="one">
+          <value xmi:type="uml:LiteralInteger" xmi:id="_oneValue" value="1"/>
+          <result xmi:type="uml:OutputPin" xmi:id="_oneOut" name="result"/>
+        </node>
+        <node xmi:type="uml:AddStructuralFeatureValueAction" xmi:id="_setK" name="set k" structuralFeature="_k" isReplaceAll="true">
+          <value xmi:type="uml:InputPin" xmi:id="_setValue" name="value"/>
+        </node>
+        <node xmi:type="uml:ActivityFinalNode" xmi:id="_bf"/>
+        <edge xmi:type="uml:ControlFlow" xmi:id="_be1" source="_bi" target="_callA"/>
+        <edge xmi:type="uml:ControlFlow" xmi:id="_be2" source="_callA" target="_one"/>
+        <edge xmi:type="uml:ObjectFlow" xmi:id="_bof" source="_oneOut" target="_setValue"/>
+        <edge xmi:type="uml:ControlFlow" xmi:id="_be3" source="_setK" target="_bf"/>
+      </ownedBehavior>
+      <ownedBehavior xmi:type="uml:Activity" xmi:id="_a" name="A">
+        <node xmi:type="uml:InitialNode" xmi:id="_ai"/>
+        <node xmi:type="uml:CallBehaviorAction" xmi:id="_callB" name="b" behavior="_b"/>
+        <node xmi:type="uml:ActivityFinalNode" xmi:id="_af"/>
+        <edge xmi:type="uml:ControlFlow" xmi:id="_ae1" source="_ai" target="_callB"/>
+        <edge xmi:type="uml:ControlFlow" xmi:id="_ae2" source="_callB" target="_af"/>
+      </ownedBehavior>
+      <ownedBehavior xmi:type="uml:StateMachine" xmi:id="_sm" name="Machine">
+        <region xmi:type="uml:Region" xmi:id="_r">
+          <subvertex xmi:type="uml:Pseudostate" xmi:id="_i"/>
+          <subvertex xmi:type="uml:State" xmi:id="_stateA" name="A" doActivity="_a"/>
+          <subvertex xmi:type="uml:State" xmi:id="_stateB" name="B" doActivity="_b"/>
+          <transition xmi:type="uml:Transition" xmi:id="_t1" source="_i" target="_stateA"/>
+          <transition xmi:type="uml:Transition" xmi:id="_t2" source="_stateA" target="_stateB"/>
+        </region>
+      </ownedBehavior>
+    </packagedElement>
+  </uml:Model>
+  <sysml:Block xmi:id="_hostBlock" base_Class="_host"/>
+</xmi:XMI>

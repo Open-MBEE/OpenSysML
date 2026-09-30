@@ -74,6 +74,37 @@ mode's verdict. A client that cannot send settings can start the server with
 [the guide](../guide/03-command-line.md#strict-conformance) explains what the mode
 changes.
 
+## Disabled lints (setting)
+
+The [lints](diagnostics.md) the server leaves out of what it publishes are named by a
+list setting, `disabledLints`, read from the same payloads and in the same three shapes as
+`strictConformance`:
+
+```json
+{ "disabledLints": ["undeclared-signal"] }
+{ "sysml": { "disabledLints": ["undeclared-signal", "port-type-mismatch"] } }
+{ "sysml.disabledLints": [] }
+```
+
+The list replaces the previous one, so `[]` switches every lint back on. A value that is not
+a list of strings is ignored, and a code naming no lint is shown to the client as an error
+and changes nothing. Changing it republishes the diagnostics of every open document. It
+corresponds to the CLI's `-disable-lint` and the REPL's `%lint`. Strict conformance leaves a
+lint a warning.
+
+## Interface records
+
+A document the server holds but no editor has open — one it read from the disk
+for another's diagnostics, or one closed clean — is held as its interface record
+when the record cache has one for its bytes: its scopes and symbols without its
+tree, and the diagnostics its analysis found, which is what the workspace reports
+for it. Opening it, renaming into it, asking for references or a debugger over
+it hydrates it — parses it and invalidates what read it, as an edit does —
+saving a document writes its record, and closing it unchanged demotes it again.
+`sysml-lsp -no-record-cache`, or
+`OPENSYSML_RECORD_CACHE=0`, holds every document loaded and writes no record; see
+[Interface records](../internals/interface-records.md).
+
 ## `opensysml/render` (request)
 
 Renders one view of a document.

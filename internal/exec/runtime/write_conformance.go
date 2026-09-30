@@ -13,13 +13,12 @@ import (
 // feature written was declared with, and the multiplicity governing how many
 // values it holds.
 type writeTarget struct {
-	name     string
-	typ      *symbols.Symbol
-	mult     semantics.Range
-	unique   bool // holds no two equal values (KerML isUnique, the default)
-	holdsSet bool // values form a set, which drops repeats itself
-	// multStated: mult is declared rather than the assumed 1..1.
-	multStated bool
+	name        string
+	typ         *symbols.Symbol
+	mult        semantics.Range
+	unique      bool // holds no two equal values (KerML isUnique, the default)
+	holdsSet    bool // values form a set, which drops repeats itself
+	countJudged bool // Count is judged against mult (a parameter's effective range or a stated multiplicity), never an unstated non-parameter range.
 }
 
 // admission is how an object written to a feature answers to the feature's type: a declared value
@@ -51,12 +50,20 @@ func (ctx *Context) writeTargetIn(scope *symbols.Scope, name string) (*writeTarg
 	}
 	var target *writeTarget
 	if sym, ok := ctx.lookupName(scope, name); ok && sym != nil && semantics.IsShapeFeature(sym) {
-		mult, stated := ctx.statedMultiplicity(sym)
-		if !stated {
-			mult = semantics.AssumedRange()
+		var mult semantics.Range
+		countJudged := true
+		if semantics.IsParameter(sym) {
+			mult = ctx.model.semantics.EffectiveParameterRange(sym)
+		} else {
+			var stated bool
+			mult, stated = ctx.statedMultiplicity(sym)
+			countJudged = stated
+			if !stated {
+				mult = semantics.AssumedRange()
+			}
 		}
 		target = ctx.newWriteTarget(sym, name, mult)
-		target.multStated = stated
+		target.countJudged = countJudged
 	}
 	if ctx.model.writeTargets == nil {
 		ctx.model.writeTargets = make(map[writeTargetKey]*writeTarget)
@@ -153,7 +160,7 @@ func (ctx *Context) checkBodyDeclaration(scope *symbols.Scope, where, name strin
 	declared := *target
 	declared.unique = target.unique && multiValued(target.mult)
 	what := func() string { return fmt.Sprintf("%s: declaration of %s", where, name) }
-	return ctx.checkTargetAs(scope, what, &declared, value, admitDeclared, target.multStated)
+	return ctx.checkTargetAs(scope, what, &declared, value, admitDeclared, target.countJudged)
 }
 
 // storeBodyValue writes a value into the behavior's own data once it conforms

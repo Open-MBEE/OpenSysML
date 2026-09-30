@@ -55,8 +55,13 @@ type Model struct {
 	ends       map[*symbols.Symbol][]connectorEnd
 	// subtracting memoizes whether a type reaches a difference (see cast.go).
 	subtracting map[*symbols.Symbol]bool
+	// referential memoizes a parameter's referentiality (see shape.go).
+	referential map[*symbols.Symbol]bool
 	// implicitBase memoizes each declaration's kind bases once settled (see implicit.go).
 	implicitBase map[*symbols.Symbol][]*symbols.Symbol
+	// implicitSubsettings memoizes the owner feature each nested usage implicitly
+	// subsets (see nested.go).
+	implicitSubsettings map[*symbols.Symbol][]*symbols.Symbol
 	// computingUsageBase breaks implicitUsageBaseFeature ->
 	// declaredGeneralizationReaches -> relationshipTarget/resolver lookup ->
 	// collectContributors -> implicitUsageBaseFeature recursion.
@@ -64,6 +69,7 @@ type Model struct {
 
 	superEdgeCache map[*symbols.Symbol][]superEdge      // generalization edges with conjugation
 	conjSupers     map[*symbols.Symbol][]conjugatedType // supertypes with conjugation parity
+	portFeatures   map[*symbols.Symbol][]PortFeature    // PortFeatures by port type
 
 	unitTerms    map[*symbols.Symbol]UnitTerm // measurement units reduced to base units
 	reducingUnit map[*symbols.Symbol]bool     // units being reduced, to detect a cycle
@@ -117,6 +123,8 @@ type Model struct {
 	computingRedefinedFeatures int
 	// unique memoizes each feature's effective uniqueness (see uniqueness.go).
 	unique map[*symbols.Symbol]bool
+	// paramRanges memoizes EffectiveParameterRange (see multiplicity.go).
+	paramRanges map[*symbols.Symbol]Range
 	// ctorSlots memoizes each type's constructible features (see shape.go).
 	ctorSlots map[*symbols.Symbol]constructorSlots
 	// members and shapes memoize MembersOf and ShapeFeatures once the member
@@ -142,27 +150,30 @@ func NewModel(resolver *resolve.Resolver) *Model {
 		directSupers: make(map[*symbols.Symbol][]*symbols.Symbol),
 		allSupers:    make(map[*symbols.Symbol][]*symbols.Symbol),
 
-		provisionalSupers:  make(map[*symbols.Symbol]bool),
-		computingSupers:    make(map[*symbols.Symbol]int),
-		valuing:            make(map[*symbols.Symbol]bool),
-		referenced:         make(map[*symbols.Symbol]*symbols.Symbol),
-		resolvingRef:       make(map[*symbols.Symbol]bool),
-		memberSources:      make(map[*symbols.Symbol][]*symbols.Symbol),
-		lookupOrder:        make(map[*symbols.Symbol][]lookupSource),
-		contributed:        make(map[*symbols.Symbol][]*symbols.Symbol),
-		nestedRedefs:       make(map[*symbols.Symbol][]NestedRedefinition),
-		primTypes:          make(map[*symbols.Symbol]PrimType),
-		params:             make(map[*symbols.Symbol]behaviorParameters),
-		invocations:        make(map[invocationKey]*InvocationSelection),
-		typingArgs:         make(map[*ast.InvocationExpr]bool),
-		composed:           make(map[composedKey][]*symbols.Symbol),
-		ends:               make(map[*symbols.Symbol][]connectorEnd),
-		subtracting:        make(map[*symbols.Symbol]bool),
-		implicitBase:       make(map[*symbols.Symbol][]*symbols.Symbol),
-		computingUsageBase: make(map[*symbols.Symbol]bool),
+		provisionalSupers:   make(map[*symbols.Symbol]bool),
+		computingSupers:     make(map[*symbols.Symbol]int),
+		valuing:             make(map[*symbols.Symbol]bool),
+		referenced:          make(map[*symbols.Symbol]*symbols.Symbol),
+		resolvingRef:        make(map[*symbols.Symbol]bool),
+		memberSources:       make(map[*symbols.Symbol][]*symbols.Symbol),
+		lookupOrder:         make(map[*symbols.Symbol][]lookupSource),
+		contributed:         make(map[*symbols.Symbol][]*symbols.Symbol),
+		nestedRedefs:        make(map[*symbols.Symbol][]NestedRedefinition),
+		primTypes:           make(map[*symbols.Symbol]PrimType),
+		params:              make(map[*symbols.Symbol]behaviorParameters),
+		invocations:         make(map[invocationKey]*InvocationSelection),
+		typingArgs:          make(map[*ast.InvocationExpr]bool),
+		composed:            make(map[composedKey][]*symbols.Symbol),
+		ends:                make(map[*symbols.Symbol][]connectorEnd),
+		subtracting:         make(map[*symbols.Symbol]bool),
+		referential:         make(map[*symbols.Symbol]bool),
+		implicitBase:        make(map[*symbols.Symbol][]*symbols.Symbol),
+		implicitSubsettings: make(map[*symbols.Symbol][]*symbols.Symbol),
+		computingUsageBase:  make(map[*symbols.Symbol]bool),
 
 		superEdgeCache: make(map[*symbols.Symbol][]superEdge),
 		conjSupers:     make(map[*symbols.Symbol][]conjugatedType),
+		portFeatures:   make(map[*symbols.Symbol][]PortFeature),
 		unitTerms:      make(map[*symbols.Symbol]UnitTerm),
 		reducingUnit:   make(map[*symbols.Symbol]bool),
 
@@ -186,6 +197,7 @@ func NewModel(resolver *resolve.Resolver) *Model {
 		redefClosure:          make(map[*symbols.Symbol]map[*symbols.Symbol]bool),
 		computingRedefClosure: make(map[*symbols.Symbol]bool),
 		unique:                make(map[*symbols.Symbol]bool),
+		paramRanges:           make(map[*symbols.Symbol]Range),
 		ctorSlots:             make(map[*symbols.Symbol]constructorSlots),
 		members:               make(map[memberKey][]*symbols.Symbol),
 		shapes:                make(map[*symbols.Symbol][]ShapeFeature),

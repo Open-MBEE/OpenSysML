@@ -276,7 +276,7 @@ package OpenSysMLIdentity {
 
     verification def IdentityGate {
         doc /* go test -run 'TestAnnotatedIDRoundTrips|TestExplicitIDEqualToDerivedIDSurvives'
-             * ./internal/translate/export */
+             * ./tests/export */
         subject writer : RdfWriter;
         objective {
             verify identityRoundTrips;

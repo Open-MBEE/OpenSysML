@@ -79,19 +79,15 @@ func (x *refIndex) add(doc *Document, ref resolve.Reference, part int, element, 
 // document, in document then position order, building the table of each
 // document a change has dropped. The references a document held as its
 // interface record writes are in its body, which the record does not carry:
-// the answer is a symbols.NeedsHydration for the first such document. Caller
-// holds the write lock.
+// the documents held as records are hydrated first, dependents invalidated as
+// by an edit. Caller holds the write lock.
 func (w *Workspace) referencesLocked(key symbols.ElementKey) ([]refEntry, error) {
+	w.hydrateAllLocked()
 	names := make([]string, 0, len(w.docs))
 	for name := range w.docs {
 		names = append(names, name)
 	}
 	sort.Strings(names)
-	for _, name := range names {
-		if w.docs[name].Recorded() {
-			return nil, &symbols.NeedsHydration{Doc: name, Question: "the references written in " + name}
-		}
-	}
 	w.settleGathersLocked()
 	if w.refs == nil {
 		w.refs = newRefIndex()
@@ -132,9 +128,8 @@ func (w *Workspace) indexReferencesLocked(doc *Document) {
 
 // ReferencesTo returns every segment in the workspace's documents that reaches
 // target or writes its name (an alias use counts for both), in document then
-// position order. A workspace holding a document as its interface record
-// answers with a symbols.NeedsHydration, since the references that document
-// writes are not in its record.
+// position order. A document held as its interface record is hydrated first,
+// since the references it writes are in its body, not its record.
 func (w *Workspace) ReferencesTo(target *symbols.Symbol) ([]ReferenceLocation, error) {
 	return w.referenceLocations(target, func(refEntry) bool { return true })
 }
@@ -143,7 +138,7 @@ func (w *Workspace) ReferencesTo(target *symbols.Symbol) ([]ReferenceLocation, e
 // name as target's own name — what renaming that name edits. A segment spelling
 // target's other name (short for long, or the reverse) still resolves after the
 // rename and is left alone; an alias use is edited via the alias. A recorded
-// document makes the answer a symbols.NeedsHydration, as for ReferencesTo.
+// document is hydrated first, as for ReferencesTo.
 func (w *Workspace) NameReferencesTo(target *symbols.Symbol, name string) ([]ReferenceLocation, error) {
 	return w.referenceLocations(target, func(e refEntry) bool { return e.named && e.text == name })
 }
@@ -172,7 +167,7 @@ func (w *Workspace) referenceLocations(target *symbols.Symbol, keep func(refEntr
 // RenameConflict reports why renaming target's name (long or short, as written)
 // to newName is refused: the name already taken where target is declared, or a
 // reference in any workspace document that would read another element afterwards.
-// A recorded document makes the answer a symbols.NeedsHydration, as for ReferencesTo.
+// A recorded document is hydrated first, as for ReferencesTo.
 func (w *Workspace) RenameConflict(target *symbols.Symbol, name, newName string) (*edit.RenameConflict, error) {
 	if target == nil {
 		return nil, nil

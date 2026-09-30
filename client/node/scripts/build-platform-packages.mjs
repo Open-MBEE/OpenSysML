@@ -45,7 +45,8 @@ function parseArgs(argv) {
   if (args.binaries === undefined) {
     fail("--binaries <dir> is required: the directory holding the release binaries");
   }
-  args.version ??= JSON.parse(readFileSync(join(clientRoot, "package.json"), "utf8")).version;
+  args.pkg = JSON.parse(readFileSync(join(clientRoot, "package.json"), "utf8"));
+  args.version ??= args.pkg.version;
   return args;
 }
 
@@ -79,7 +80,7 @@ function main() {
       fail(`${source} is missing; run the release build first`);
     }
     const digest = verify(source);
-    const name = `@opensysml/sysml-grpc-${platform.os}-${platform.cpu}`;
+    const name = `${args.pkg.name}-sysml-grpc-${platform.os}-${platform.cpu}`;
     const directory = join(args.out, `sysml-grpc-${platform.os}-${platform.cpu}`);
     mkdirSync(join(directory, "bin"), { recursive: true });
     const destination = join(directory, "bin", platform.binary);
@@ -111,7 +112,7 @@ function main() {
       join(directory, "README.md"),
       `# ${name}\n\n` +
         `The \`sysml-grpc\` service binary for ${platform.os}-${platform.cpu}. Installed as an\n` +
-        "optional dependency of [`@opensysml/client`](https://www.npmjs.com/package/@opensysml/client);\n" +
+        `optional dependency of [\`${args.pkg.name}\`](https://www.npmjs.com/package/${args.pkg.name});\n` +
         "there is nothing to import here.\n\n" +
         `SHA-256 of \`bin/${platform.binary}\`: \`${digest}\`\n`,
     );

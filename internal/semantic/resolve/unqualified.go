@@ -336,6 +336,18 @@ func (r *Resolver) lookupImports(scope *symbols.Scope, name string) (*symbols.Sy
 // lookupImportedMember resolves a segment surfaced by the namespace being
 // traversed, including a public membership import.
 func (r *Resolver) lookupImportedMember(target *symbols.Symbol, targetScope, from *symbols.Scope, name string) (*symbols.Symbol, bool) {
+	visit := importVisit{target: targetScope, from: from, name: name}
+	if r.importVisits[visit] {
+		return nil, false
+	}
+	r.importVisits[visit] = true
+	r.importDepth++
+	defer func() {
+		r.importDepth--
+		if r.importDepth == 0 {
+			clear(r.importVisits)
+		}
+	}()
 	for _, imp := range r.scopeImports(targetScope) {
 		if r.importStack[imp] {
 			continue
@@ -483,13 +495,25 @@ func (r *Resolver) eachImportMatch(into, scope *symbols.Scope, imp *ast.Import, 
 	if r.resolvingImports[imp] {
 		return
 	}
-	r.resolvingImports[imp] = true
 	// Resolved aside: a miss here may only mean sibling imports were suspended
 	// for cycle safety, so it must not be memoized or reported as unresolved.
+	// A hit is memoized (importTargets), except while a filter condition's own
+	// names resolve: that lookup is unfiltered, and its answers reach nothing
+	// else (InCondition).
 	var target *symbols.Symbol
 	var ok bool
-	r.aside(func() { target, ok = r.resolveImportTarget(scope, imp) })
-	delete(r.resolvingImports, imp)
+	remember := r.inCondition == 0
+	if res, done := r.importTargets[imp]; done && remember {
+		target, ok = res.sym, res.ok
+	} else {
+		r.resolvingImports[imp] = true
+		r.aside(func() { target, ok = r.resolveImportTarget(scope, imp) })
+		delete(r.resolvingImports, imp)
+		if ok && remember {
+			journalNew(r, r.importTargets, imp, imp)
+			r.importTargets[imp] = resolution{sym: target, ok: true}
+		}
+	}
 	if !ok {
 		return
 	}

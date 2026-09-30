@@ -75,21 +75,21 @@ func TestDurationWithNoUnitIsInMilliseconds(t *testing.T) {
 	for _, line := range []string{
 		"action wait accept after 0.2 [SI::s];",
 		"action wait2 accept after 1.5 [SI::s];",
-		"action wait3 accept after (this.settle * 0.001) [SI::s];",
-		"action wait4 accept after this.settle [SI::s];",
+		"action wait3 accept after (settle * 0.001) [SI::s];",
+		"action wait4 accept after settle [SI::s];",
 	} {
 		wantLine(t, r.Notation, line)
 	}
 	wantClean(t, "t.sysml", r)
 	wantNote(t, r, "_dNum", migrate.Approximated, "the duration 200 carries no unit and is read in milliseconds, the simulation toolkit's default")
 	wantNote(t, r, "_dStr", migrate.Approximated, `the duration "t = 1500" carries no unit and is read in milliseconds, the simulation toolkit's default`)
-	wantNote(t, r, "_dExpr", migrate.Approximated, `the duration "settle" is read as the expression this.settle * 0.001, in seconds; the expression carries no unit and is read in milliseconds, the simulation toolkit's default`)
-	wantNote(t, r, "_dUnit", migrate.Approximated, `the duration "settle s" is read as the expression this.settle, in seconds`)
+	wantNote(t, r, "_dExpr", migrate.Approximated, `the duration "settle" is read as the expression settle * 0.001, in seconds; the expression carries no unit and is read in milliseconds, the simulation toolkit's default; the duration "settle" is read as the expression settle * 0.001, in seconds; the expression carries no unit and is read in milliseconds, the simulation toolkit's default; written as a fixed wait of settle * 0.001 s before 'settling'`)
+	wantNote(t, r, "_dUnit", migrate.Approximated, `the duration "settle s" is read as the expression settle, in seconds; the duration "settle s" is read as the expression settle, in seconds; written as a fixed wait of settle s before 'holding'`)
 
 	s := session(t, r)
 	meta(t, s, "%instantiate Lens")
-	wantVerdict(t, s.RunAction("Lens::Focusing", "Lens"))
-	runs := strings.Join(s.RunRuns("Lens::Focusing", []string{"Lens"}, 2, seedOf(1), []string{"Time_Focus"}).Lines, "\n")
+	wantVerdict(t, s.RunAction("Lens::focusing", "Lens"))
+	runs := strings.Join(s.RunRuns("Lens::focusing", []string{"Lens"}, 2, seedOf(1), []string{"Time_Focus"}).Lines, "\n")
 	if want := "Time_Focus: 2 run(s), min 251.95, mean 251.95, max 251.95"; !strings.Contains(runs, want) || strings.Contains(runs, "error") {
 		t.Errorf("runs lack %q:\n%s", want, runs)
 	}

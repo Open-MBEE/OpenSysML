@@ -228,6 +228,13 @@ func (Send) statement() { /* marker: closed Statement set */ }
 // feature.
 type Assign struct {
 	Target string
+	// Qualified marks a namespace-qualified target (`Scope::azimuth`): it names
+	// the feature on the object its qualifier names, no host binding applies.
+	Qualified bool
+	// Owner is the qualifier's symbol (`Probe` in `Probe::count`) and Feature the
+	// feature it names; both are set only when Qualified is.
+	Owner   *symbols.Symbol
+	Feature *symbols.Symbol
 	// Chain is the chained target the assignment writes through (`s.reading`),
 	// nil when the target was a plain name the body's host binds.
 	Chain *AssignTarget
@@ -658,8 +665,12 @@ type PinBinding struct {
 	// OtherFeature it names (`holder.inner.mark`); nil for a node's pin or a plain name.
 	OtherChain   *AssignTarget
 	OtherFeature string
-	Scope        *symbols.Scope // the scope the binding was written in
-	Decl         *ast.Usage
+	// OtherOwner is the qualifier's symbol when the other end was qualified
+	// (`Bench::level`), and OtherFeatureSym the feature it names.
+	OtherOwner      *symbols.Symbol
+	OtherFeatureSym *symbols.Symbol
+	Scope           *symbols.Scope // the scope the binding was written in
+	Decl            *ast.Usage
 	// FromValue marks the binding a pin's own value states (`inout n = ticks;`): the
 	// value is the pin's initial value alone when no feature around the node holds it.
 	FromValue bool
@@ -1254,8 +1265,41 @@ func inoutValueBinding(node, pin *ast.Usage, name string, scope *symbols.Scope) 
 	binding := PinBinding{Node: node, Pin: name, Other: pin.Value, Scope: scope, Decl: pin, FromValue: true}
 	if chain, feature, ok := assignTarget(pin.Value); ok {
 		binding.OtherChain, binding.OtherFeature = chain, feature
+		return binding, true
+	}
+	if feature, owner, sym, ok := qualifiedEndFeature(pin.Value, scope); ok {
+		binding.OtherFeature, binding.OtherOwner, binding.OtherFeatureSym = feature, owner, sym
 	}
 	return binding, true
+}
+
+// qualifiedEndFeature names the feature a qualified path ends in (`Bench::level`
+// ends in `level`), when the path resolves to one where it was written: it binds
+// the pin to that feature on the object the qualifier names, so the pin writes
+// back. A qualified name of another kind (`Mode::idle`) holds a value, not a
+// feature. The owner and feature symbols are the qualifier and what it names.
+func qualifiedEndFeature(node ast.Node, scope *symbols.Scope) (string, *symbols.Symbol, *symbols.Symbol, bool) {
+	if ref, ok := node.(*ast.FeatureReference); ok {
+		node = ref.Name
+	}
+	qn, ok := node.(*ast.QualifiedName)
+	if !ok || len(qn.Parts) < 2 {
+		return "", nil, nil, false
+	}
+	segments := make([]string, 0, len(qn.Parts))
+	for _, part := range qn.Parts {
+		if part.Text == "" {
+			return "", nil, nil, false
+		}
+		segments = append(segments, part.Text)
+	}
+	if sym, ok := resolve.FeatureSymbolInScope(scope, segments); ok && sym != nil {
+		owner, named := resolve.FeatureSymbolInScope(scope, segments[:len(segments)-1])
+		if named && owner != nil && owner.Kind != symbols.SymbolPackage && owner.Kind != symbols.SymbolNamespace {
+			return segments[len(segments)-1], owner, sym, true
+		}
+	}
+	return "", nil, nil, false
 }
 
 // DeclaresNodeFeature reports whether an action member is a parameter or attribute.
@@ -1317,73 +1361,9 @@ func BodyStatementMembers(members []ast.Node) []ast.Node {
 func lowerStatement(member ast.Node, scope *symbols.Scope) Statement {
 	switch m := member.(type) {
 	case *ast.SendStatement:
-		// A target is either a chain through features (`alpha.inPort`) or a name in
-		// a namespace (`P::Driver`), which resolve differently. A `via` target names
-		// a port of the sender, rendered as connector ends are so the two match.
-		target, isPath := SendTarget(m.Target)
-		var targetSym *symbols.Symbol
-		var viaSelf bool
-		if m.IsVia {
-			target, viaSelf = ViaPortPath(m.Target)
-			isPath = true
-			targetSym, _ = resolve.FeatureSymbolInScope(scope, strings.Split(FeaturePath(m.Target), "."))
-		}
-		message := m.Message
-		if message == nil {
-			message = SendPayload(m)
-		}
-		if message == nil {
-			return Unsupported{
-				Description: "a send declaring no message",
-				Node:        m,
-				Scope:       scope,
-			}
-		}
-		// `self` names the sending object, which is where a send addressing no one
-		// goes, so the two forms lower alike.
-		selfTarget := !isPath && target == "self"
-		if selfTarget {
-			target = ""
-		}
-		var targetExpr ast.Node
-		if !m.IsVia && !selfTarget {
-			targetExpr = m.Target
-		}
-		receiver, receiverPath := SendTarget(m.Receiver)
-		return Send{
-			Message:      message,
-			Target:       target,
-			TargetSym:    targetSym,
-			TargetPath:   isPath,
-			TargetExpr:   targetExpr,
-			IsVia:        m.IsVia,
-			ViaSelf:      viaSelf,
-			Receiver:     receiver,
-			ReceiverPath: receiverPath,
-			ReceiverExpr: m.Receiver,
-			Scope:        scope,
-		}
+		return lowerSend(m, scope)
 	case *ast.AssignmentActionNode:
-		// A chained target writes a feature of the object its chain reaches, so the
-		// whole walk is carried rather than truncated to the last segment.
-		if chain, feature, ok := assignTarget(m.Target); ok {
-			return Assign{Target: feature, Chain: chain, Value: m.Value, Node: m, Scope: scope}
-		}
-		// A namespace-qualified target names no object to write on: an assignment
-		// writes a feature of its target occurrence (Actions::AssignmentAction).
-		if qname := ast.AsQualifiedName(m.Target); qname != nil && len(qname.Parts) > 1 {
-			return Unsupported{
-				Description: "assignment to a qualified target",
-				Node:        m,
-				Scope:       scope,
-			}
-		}
-		return Assign{
-			Target: ast.SimpleName(m.Target),
-			Value:  m.Value,
-			Node:   m,
-			Scope:  scope,
-		}
+		return lowerAssignment(m, scope)
 	case *ast.WhileLoopActionNode:
 		return Loop{
 			Kind:       m.Kind,
@@ -1411,27 +1391,108 @@ func lowerStatement(member ast.Node, scope *symbols.Scope) Statement {
 		target, terminates := terminateTarget(m, scope)
 		return Effect{Kind: EffectTerminate, Node: m, Scope: scope, Terminates: terminates, Target: target, TargetExpr: m.Target}
 	case *ast.Usage:
-		if m.IsTerminate {
-			return Effect{Kind: EffectTerminate, Node: m, Scope: scope, Terminates: TerminateEnclosing}
-		}
-		if stmt, ok := usageStatement(m, scope); ok {
-			return stmt
-		}
-		// The ActionBodyParameter a loop or branch body is written as is the block
-		// itself, so its members are the statements: a name it declares only scopes
-		// them (`loop action charging { … } until charging.done`).
-		if m.Kind == ast.UsageAction && m.IsBodyParameter {
-			return lowerBlock(m, m.Members, childScope(scope, m))
-		}
-		// An action usage naming the action it performs is a performed action, which
-		// the host executes or rejects as its own purity demands.
-		if m.Kind == ast.UsageAction && performsAction(m) {
-			return performEffect(m, scope)
-		}
-		return Unsupported{Description: usageDescription(m), Node: m, Scope: scope}
+		return lowerUsageStatement(m, scope)
 	default:
 		return Unsupported{Description: fmt.Sprintf("%T", member), Node: member, Scope: scope}
 	}
+}
+
+// lowerSend lowers a send. A target is either a chain through features
+// (`alpha.inPort`) or a name in a namespace (`P::Driver`), which resolve
+// differently. A `via` target names a port of the sender, rendered as connector
+// ends are so the two match.
+func lowerSend(m *ast.SendStatement, scope *symbols.Scope) Statement {
+	target, isPath := SendTarget(m.Target)
+	var targetSym *symbols.Symbol
+	var viaSelf bool
+	if m.IsVia {
+		target, viaSelf = ViaPortPath(m.Target)
+		isPath = true
+		targetSym, _ = resolve.FeatureSymbolInScope(scope, strings.Split(FeaturePath(m.Target), "."))
+	}
+	message := m.Message
+	if message == nil {
+		message = SendPayload(m)
+	}
+	if message == nil {
+		return Unsupported{
+			Description: "a send declaring no message",
+			Node:        m,
+			Scope:       scope,
+		}
+	}
+	// `self` names the sending object, which is where a send addressing no one
+	// goes, so the two forms lower alike.
+	selfTarget := !isPath && target == "self"
+	if selfTarget {
+		target = ""
+	}
+	var targetExpr ast.Node
+	if !m.IsVia && !selfTarget {
+		targetExpr = m.Target
+	}
+	receiver, receiverPath := SendTarget(m.Receiver)
+	return Send{
+		Message:      message,
+		Target:       target,
+		TargetSym:    targetSym,
+		TargetPath:   isPath,
+		TargetExpr:   targetExpr,
+		IsVia:        m.IsVia,
+		ViaSelf:      viaSelf,
+		Receiver:     receiver,
+		ReceiverPath: receiverPath,
+		ReceiverExpr: m.Receiver,
+		Scope:        scope,
+	}
+}
+
+// lowerAssignment lowers an assignment. A chained target writes a feature of
+// the object its chain reaches, so the whole walk is carried rather than
+// truncated to the last segment; a namespace-qualified target names a feature
+// of the object performing the body: `Scope::azimuth` writes feature azimuth on it.
+func lowerAssignment(m *ast.AssignmentActionNode, scope *symbols.Scope) Statement {
+	if chain, feature, ok := assignTarget(m.Target); ok {
+		return Assign{Target: feature, Chain: chain, Value: m.Value, Node: m, Scope: scope}
+	}
+	if qname := ast.AsQualifiedName(m.Target); qname != nil && len(qname.Parts) > 1 {
+		if feature, owner, sym, ok := qualifiedEndFeature(m.Target, scope); ok {
+			return Assign{Target: feature, Qualified: true, Owner: owner, Feature: sym, Value: m.Value, Node: m, Scope: scope}
+		}
+		return Unsupported{
+			Description: "assignment to a qualified target",
+			Node:        m,
+			Scope:       scope,
+		}
+	}
+	return Assign{
+		Target: ast.SimpleName(m.Target),
+		Value:  m.Value,
+		Node:   m,
+		Scope:  scope,
+	}
+}
+
+// lowerUsageStatement lowers a usage in statement position. The
+// ActionBodyParameter a loop or branch body is written as is the block itself,
+// so its members are the statements: a name it declares only scopes them
+// (`loop action charging { … } until charging.done`). An action usage naming
+// the action it performs is a performed action, which the host executes or
+// rejects as its own purity demands.
+func lowerUsageStatement(m *ast.Usage, scope *symbols.Scope) Statement {
+	if m.IsTerminate {
+		return Effect{Kind: EffectTerminate, Node: m, Scope: scope, Terminates: TerminateEnclosing}
+	}
+	if stmt, ok := usageStatement(m, scope); ok {
+		return stmt
+	}
+	if m.Kind == ast.UsageAction && m.IsBodyParameter {
+		return lowerBlock(m, m.Members, childScope(scope, m))
+	}
+	if m.Kind == ast.UsageAction && performsAction(m) {
+		return performEffect(m, scope)
+	}
+	return Unsupported{Description: usageDescription(m), Node: m, Scope: scope}
 }
 
 // SendPayload returns the message a send with no argument carries: the value

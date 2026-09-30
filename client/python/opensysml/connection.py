@@ -11,16 +11,28 @@ from collections import deque
 from typing import Deque, Dict, Optional
 from opensysml.proto import sysml_pb2, sysml_pb2_grpc
 from opensysml.model import Model
+from opensysml.action_run import ActionOutputs
 from opensysml.binary import ensure_binary, resolve_latest_version
 from opensysml.capabilities import (
     CAPABILITY_APPLY_EDITS,
     CAPABILITY_AUTHORING,
     CAPABILITY_CONNECTION_AUTHORING,
     CAPABILITY_MEMBER_MODIFIERS,
+    CAPABILITY_CONSTRAINT_BODY_AUTHORING,
+    CAPABILITY_STATE_ACTION_AUTHORING,
     CAPABILITY_REQUIREMENT_CONSTRAINT_AUTHORING,
     CAPABILITY_SATISFY_AUTHORING,
     CAPABILITY_TRANSITION_AUTHORING,
+    CAPABILITY_VERIFICATION_OBJECTIVE_AUTHORING,
+    CAPABILITY_METADATA_AUTHORING,
+    CAPABILITY_METADATA_PREFIX_AUTHORING,
+    CAPABILITY_SEQUENCE_AUTHORING,
+    CAPABILITY_ACTION_BODY_STATEMENT_AUTHORING,
+    CAPABILITY_IMPORT_AUTHORING,
+    CAPABILITY_DOCUMENTATION_AUTHORING,
+    CAPABILITY_COMMENT_AUTHORING,
     CAPABILITY_INLINE_LANGUAGE,
+    CAPABILITY_PARSE_SOURCES,
     CAPABILITY_STRICT_CONFORMANCE,
     CAPABILITY_COMPLEX_VALUES,
     CAPABILITY_CONVERT,
@@ -29,6 +41,7 @@ from opensysml.capabilities import (
     CAPABILITY_EVALUATE_SUBJECT,
     CAPABILITY_FEATURE_VALUES,
     CAPABILITY_FUNCTION_VALUES,
+    CAPABILITY_IMPLICIT_PARAMETERS,
     CAPABILITY_INFINITY_VALUE,
     CAPABILITY_MEASUREMENT_REFS,
     CAPABILITY_METAOBJECT_VALUES,
@@ -42,6 +55,7 @@ from opensysml.capabilities import (
     CAPABILITY_STRUCTURED_VALUES,
     CAPABILITY_TENSOR_VALUES,
     CAPABILITY_VERIFICATION,
+    CAPABILITY_VERIFICATION_QUESTIONS,
     MissingCapabilityError,
     ServerInfo,
     mismatch_reason,
@@ -64,6 +78,7 @@ from opensysml.errors import (
     ConnectionError,
     ConversionError,
     ExecutionError,
+    ModelError,
     ModelFileNotFoundError,
     ModelNotFoundError,
     StaleServiceError,
@@ -74,6 +89,7 @@ from opensysml.errors import (
     translate_rpc_errors,
 )
 from opensysml.query import build_query, elements_of
+from opensysml.sources import source_documents
 from opensysml.values import (
     Array,
     Function,
@@ -88,10 +104,69 @@ from opensysml.values import (
     _Infinity,
     value_to_python,
 )
+
+
+_SEQUENCE_DETAIL_FIELDS = {
+    "condition", "value", "target", "via", "until", "body", "else_body",
+    "multiplicity", "parameter",
+}
+_ACTION_BODY_MEMBER_KINDS = {
+    "accept", "send", "assign", "if", "while", "loop", "for", "terminate",
+}
+
+
+def _add_sequence_message(add, operation_data, depth=0):
+    if depth > 128:
+        raise ValueError("nested action-body items exceed the maximum depth")
+    if not isinstance(operation_data, (tuple, list)) or len(operation_data) not in (8, 9):
+        raise ValueError("malformed add_sequence operation: expected 8 or 9 fields")
+    (
+        _, owner, keyword, ref, member_kind, member_name, type_name, after,
+    ) = operation_data[:8]
+    if not all(isinstance(text, str) for text in (
+        owner, keyword, ref, member_kind, member_name, type_name, after
+    )):
+        raise ValueError("malformed add_sequence operation: fields must be text")
+    fields = operation_data[8] if len(operation_data) == 9 else {}
+    if not isinstance(fields, dict):
+        raise ValueError("malformed add_sequence operation: ninth field must be a dictionary")
+    unknown = set(fields) - _SEQUENCE_DETAIL_FIELDS
+    if unknown:
+        raise ValueError(
+            "malformed add_sequence operation: unknown fields " +
+            ", ".join(sorted(unknown))
+        )
+    for key, value in fields.items():
+        if key in ("body", "else_body"):
+            if not isinstance(value, (tuple, list)):
+                raise ValueError(f"malformed add_sequence operation: {key} must be a list")
+        elif not isinstance(value, str):
+            raise ValueError(f"malformed add_sequence operation: {key} must be text")
+
+    add.owner, add.keyword, add.ref = owner, keyword, ref
+    add.member_kind, add.member_name, add.type = member_kind, member_name, type_name
+    add.after = after
+    for key in ("condition", "value", "target", "via", "until",
+                "multiplicity", "parameter"):
+        if key in fields:
+            setattr(add, key, fields[key])
+
+    extended = (
+        keyword in ("if", "else")
+        or (keyword == "" and bool(member_kind))
+        or member_kind in _ACTION_BODY_MEMBER_KINDS
+    )
+    extended = extended or any(key in fields for key in _SEQUENCE_DETAIL_FIELDS)
+    for child in fields.get("body", ()):
+        extended = _add_sequence_message(add.body.add(), child, depth + 1) or extended
+    for child in fields.get("else_body", ()):
+        extended = _add_sequence_message(add.else_body.add(), child, depth + 1) or extended
+    return extended
 from opensysml.engines import ENGINE_AUTO, EngineInfo, Standing
 from opensysml.verdict import (
     AnalysisResult, CalcResult, CaseEvaluation, SweepRow, SweepTable, Validation,
     Verdict, VerificationVerdict,
+    QUESTION_EVALUATE,
 )
 
 
@@ -249,6 +324,13 @@ def _engine_field(engine):
     if not engine or engine == ENGINE_AUTO:
         return ""
     return engine
+
+
+def _question_field(question):
+    """The question as sent: empty for evaluate, which every service reads as such."""
+    if not question or question == QUESTION_EVALUATE:
+        return ""
+    return question
 
 
 def _refuse_exploring(schedule, method):
@@ -547,6 +629,377 @@ if hasattr(os, 'register_at_fork'):
     )
 
 
+# The order capabilities are reported in when the service refuses an edit request.
+_EDIT_CAPABILITY_ORDER = (
+    CAPABILITY_APPLY_EDITS,
+    CAPABILITY_AUTHORING,
+    CAPABILITY_CONNECTION_AUTHORING,
+    CAPABILITY_SATISFY_AUTHORING,
+    CAPABILITY_REQUIREMENT_CONSTRAINT_AUTHORING,
+    CAPABILITY_TRANSITION_AUTHORING,
+    CAPABILITY_VERIFICATION_OBJECTIVE_AUTHORING,
+    CAPABILITY_METADATA_AUTHORING,
+    CAPABILITY_METADATA_PREFIX_AUTHORING,
+    CAPABILITY_SEQUENCE_AUTHORING,
+    CAPABILITY_ACTION_BODY_STATEMENT_AUTHORING,
+    CAPABILITY_IMPORT_AUTHORING,
+    CAPABILITY_DOCUMENTATION_AUTHORING,
+    CAPABILITY_COMMENT_AUTHORING,
+    CAPABILITY_MEMBER_MODIFIERS,
+    CAPABILITY_IMPLICIT_PARAMETERS,
+    CAPABILITY_CONSTRAINT_BODY_AUTHORING,
+    CAPABILITY_STATE_ACTION_AUTHORING,
+)
+
+# Capabilities an edit request needs as a whole, checked once every operation is read.
+_EDIT_CAPABILITIES_CHECKED_LAST = (
+    CAPABILITY_ACTION_BODY_STATEMENT_AUTHORING,
+    CAPABILITY_MEMBER_MODIFIERS,
+    CAPABILITY_IMPLICIT_PARAMETERS,
+)
+
+_ASSERTED_CONSTRAINT_KINDS = ("assert", "assert not", "assert constraint", "assert not constraint")
+_STATE_ACTION_KINDS = ("exhibit state", "exhibit", "entry action", "do action", "exit action")
+
+
+def _all_text(values):
+    return all(isinstance(value, str) for value in values)
+
+
+class _EditRequestBuilder:
+    """Translates the edit tuples :class:`~opensysml.edit.Editor` collects into an
+    ``ApplyEditsRequest``, requiring of the service each capability an operation needs
+    as it is read and remembering which were requested."""
+
+    def __init__(self, info, request):
+        self._info = info
+        self._request = request
+        self._requested = {CAPABILITY_APPLY_EDITS}
+
+    def add(self, operation_data):
+        operation = self._request.operations.add()
+        kind = operation_data[0]
+        handler = self._HANDLERS.get(kind)
+        if handler is None:
+            raise ValueError(
+                f"unknown edit operation {kind!r}: expected set_value, rename, "
+                f"add_member, add_connection, add_satisfy, "
+                f"add_requirement_constraint, add_transition, add_verify, add_metadata, "
+                f"add_metadata_prefix, add_sequence, add_import, "
+                f"add_documentation, add_comment, add_note, delete or move"
+            )
+        handler(self, operation, operation_data)
+
+    def finish(self):
+        """Checks the capabilities judged over the whole request and lists every one requested."""
+        for capability in _EDIT_CAPABILITIES_CHECKED_LAST:
+            if capability in self._requested:
+                self._require(capability)
+        return [c for c in _EDIT_CAPABILITY_ORDER if c in self._requested]
+
+    def _require(self, *capabilities):
+        for capability in capabilities:
+            require(self._info, capability, upgrade_remedy(capability))
+            self._requested.add(capability)
+
+    def _note(self, capability, needed=True):
+        if needed:
+            self._requested.add(capability)
+
+    def _set_value(self, operation, operation_data):
+        _, target, text = operation_data
+        operation.set_value.target = target
+        operation.set_value.value = text
+
+    def _rename(self, operation, operation_data):
+        _, target, text = operation_data
+        operation.rename.target = target
+        operation.rename.new_name = text
+
+    def _add_member(self, operation, operation_data):
+        if len(operation_data) not in (8, 12, 13, 14, 15):
+            raise ValueError(
+                "malformed add_member operation: expected 8, 12, 13, 14 or 15 fields"
+            )
+        _, owner, member_kind, name, type_name, multiplicity, value, specializes = operation_data[:8]
+        modifiers = operation_data[8:12] if len(operation_data) >= 12 else ()
+        metadata, body_expression, doc = _member_extras(operation_data[12:])
+        self._require(CAPABILITY_AUTHORING)
+        self._note(CAPABILITY_IMPLICIT_PARAMETERS, member_kind == "")
+        if member_kind == "objective" and not name:
+            self._require(CAPABILITY_VERIFICATION_OBJECTIVE_AUTHORING)
+        add = operation.add_member
+        add.owner, add.kind, add.name = owner, member_kind, name
+        add.type, add.multiplicity, add.value = type_name, multiplicity, value
+        add.specializes.extend(specializes)
+        if doc:
+            self._require(CAPABILITY_DOCUMENTATION_AUTHORING)
+            add.doc = doc
+        if modifiers:
+            self._member_modifiers(add, member_kind, modifiers)
+        if not isinstance(metadata, (list, tuple)) or not _all_text(metadata):
+            raise ValueError(
+                "malformed add_member metadata: expected a sequence of notation strings"
+            )
+        add.metadata_prefixes.extend(metadata)
+        if metadata:
+            self._require(CAPABILITY_METADATA_AUTHORING)
+        add.body_expression = body_expression
+        if body_expression or member_kind in _ASSERTED_CONSTRAINT_KINDS:
+            self._require(CAPABILITY_CONSTRAINT_BODY_AUTHORING)
+        if member_kind in _STATE_ACTION_KINDS:
+            self._require(CAPABILITY_STATE_ACTION_AUTHORING)
+
+    def _member_modifiers(self, add, member_kind, modifiers):
+        abstract, redefines, default, direction = modifiers[:4]
+        if not isinstance(abstract, bool) or not isinstance(default, bool):
+            raise ValueError(
+                "malformed add_member modifiers: abstract and default must be bool"
+            )
+        if isinstance(redefines, str) or not _all_text(redefines):
+            raise ValueError(
+                "malformed add_member modifiers: redefines must be a sequence"
+            )
+        if not isinstance(direction, str):
+            raise ValueError(
+                "malformed add_member modifiers: direction must be notation text"
+            )
+        add.is_abstract = abstract
+        add.redefines.extend(redefines)
+        add.is_default = default
+        add.direction = direction
+        self._note(
+            CAPABILITY_MEMBER_MODIFIERS,
+            abstract or bool(redefines) or default or bool(direction)
+            or member_kind in ("ref", "return"),
+        )
+
+    def _add_connection(self, operation, operation_data):
+        if len(operation_data) != 7:
+            raise ValueError(
+                "malformed add_connection operation: expected 7 fields"
+            )
+        _, owner, connection_kind, from_end, to_end, name, type_name = operation_data
+        self._require(CAPABILITY_AUTHORING, CAPABILITY_CONNECTION_AUTHORING)
+        add = operation.add_connection
+        add.owner, add.kind = owner, connection_kind
+        add.from_end, add.to_end = from_end, to_end
+        add.name, add.type = name, type_name
+
+    def _add_satisfy(self, operation, operation_data):
+        if len(operation_data) != 6:
+            raise ValueError("malformed add_satisfy operation: expected 6 fields")
+        _, owner, requirement, satisfying_feature, asserted, negated = operation_data
+        if not isinstance(asserted, bool) or not isinstance(negated, bool):
+            raise ValueError("malformed add_satisfy operation: asserted and negated must be bool")
+        self._require(CAPABILITY_AUTHORING, CAPABILITY_SATISFY_AUTHORING)
+        add = operation.add_satisfy
+        add.owner, add.requirement = owner, requirement
+        add.satisfying_feature = satisfying_feature
+        add.is_asserted, add.is_negated = asserted, negated
+
+    def _add_requirement_constraint(self, operation, operation_data):
+        if len(operation_data) != 5:
+            raise ValueError(
+                "malformed add_requirement_constraint operation: expected 5 fields"
+            )
+        _, owner, constraint_kind, expression, name = operation_data
+        self._require(CAPABILITY_AUTHORING, CAPABILITY_REQUIREMENT_CONSTRAINT_AUTHORING)
+        add = operation.add_requirement_constraint
+        add.owner, add.kind = owner, constraint_kind
+        add.expression, add.name = expression, name
+
+    def _add_transition(self, operation, operation_data):
+        if len(operation_data) != 9:
+            raise ValueError("malformed add_transition operation: expected 9 fields")
+        (
+            _, owner, name, source, target, trigger, guard, effect, initial
+        ) = operation_data
+        if not _all_text((owner, name, source, target, trigger, guard, effect)) \
+                or not isinstance(initial, bool):
+            raise ValueError("malformed add_transition operation: text fields and initial must be valid")
+        self._require(CAPABILITY_AUTHORING, CAPABILITY_TRANSITION_AUTHORING)
+        add = operation.add_transition
+        add.owner, add.name, add.source, add.target = owner, name, source, target
+        add.trigger, add.guard, add.effect = trigger, guard, effect
+        add.initial = initial
+
+    def _add_verify(self, operation, operation_data):
+        if len(operation_data) != 3:
+            raise ValueError("malformed add_verify operation: expected 3 fields")
+        _, owner, requirement = operation_data
+        if not isinstance(owner, str) or not isinstance(requirement, str):
+            raise ValueError("malformed add_verify operation: fields must be notation text")
+        self._require(CAPABILITY_AUTHORING, CAPABILITY_VERIFICATION_OBJECTIVE_AUTHORING)
+        operation.add_verify.owner = owner
+        operation.add_verify.requirement = requirement
+
+    def _add_metadata(self, operation, operation_data):
+        if len(operation_data) != 7:
+            raise ValueError("malformed add_metadata operation: expected 7 fields")
+        _, owner, metadata_type, name, about, values, shorthand = operation_data
+        if not _all_text((owner, metadata_type, name)):
+            raise ValueError("malformed add_metadata operation: text fields must be strings")
+        if not isinstance(shorthand, bool):
+            raise ValueError("malformed add_metadata operation: shorthand must be bool")
+        if not isinstance(about, (list, tuple)) or not _all_text(about):
+            raise ValueError("malformed add_metadata operation: about must be notation strings")
+        if isinstance(values, str) or not isinstance(values, (list, tuple)):
+            raise ValueError("malformed add_metadata operation: values must be feature-value pairs")
+        self._require(CAPABILITY_AUTHORING, CAPABILITY_METADATA_AUTHORING)
+        add = operation.add_metadata
+        add.owner, add.metadata_type, add.name = owner, metadata_type, name
+        add.about.extend(about)
+        add.shorthand = shorthand
+        for index, pair in enumerate(values):
+            if not isinstance(pair, (tuple, list)) or len(pair) != 2 or not _all_text(pair):
+                raise ValueError(
+                    f"malformed add_metadata operation: values[{index}] must be a pair of strings"
+                )
+            binding = add.values.add()
+            binding.feature, binding.value = pair
+
+    def _add_metadata_prefix(self, operation, operation_data):
+        if len(operation_data) != 3:
+            raise ValueError(
+                "malformed add_metadata_prefix operation: expected 3 fields"
+            )
+        _, target, metadata_type = operation_data
+        if not isinstance(target, str) or not isinstance(metadata_type, str):
+            raise ValueError(
+                "malformed add_metadata_prefix operation: fields must be notation text"
+            )
+        self._require(CAPABILITY_AUTHORING, CAPABILITY_METADATA_PREFIX_AUTHORING)
+        operation.add_metadata_prefix.target = target
+        operation.add_metadata_prefix.metadata_type = metadata_type
+
+    def _add_sequence(self, operation, operation_data):
+        if not isinstance(operation_data, (tuple, list)) or len(operation_data) not in (8, 9):
+            raise ValueError(
+                "malformed add_sequence operation: expected 8 or 9 fields"
+            )
+        self._require(CAPABILITY_AUTHORING, CAPABILITY_SEQUENCE_AUTHORING)
+        self._note(
+            CAPABILITY_ACTION_BODY_STATEMENT_AUTHORING,
+            _add_sequence_message(operation.add_sequence, operation_data),
+        )
+
+    def _add_import(self, operation, operation_data):
+        if len(operation_data) != 7:
+            raise ValueError("malformed add_import operation: expected 7 fields")
+        (
+            _, owner, visibility, target, recursive, import_all, filters
+        ) = operation_data
+        if not _all_text((owner, visibility, target)) or not isinstance(recursive, bool) or \
+                not isinstance(import_all, bool) or \
+                not isinstance(filters, tuple) or \
+                not _all_text(filters):
+            raise ValueError("malformed add_import operation: text fields, recursive, import_all and filters must be valid")
+        self._require(CAPABILITY_AUTHORING, CAPABILITY_IMPORT_AUTHORING)
+        add = operation.add_import
+        add.owner, add.visibility, add.target = owner, visibility, target
+        add.is_recursive, add.is_import_all = recursive, import_all
+        add.filters.extend(filters)
+
+    def _add_documentation(self, operation, operation_data):
+        if len(operation_data) != 6:
+            raise ValueError("malformed add_documentation operation: expected 6 fields")
+        _, target, body, name, locale, replace = operation_data
+        if not _all_text((target, body, name, locale)) or not isinstance(replace, bool):
+            raise ValueError(
+                "malformed add_documentation operation: text fields and replace must be valid"
+            )
+        self._require(CAPABILITY_AUTHORING, CAPABILITY_DOCUMENTATION_AUTHORING)
+        add = operation.add_documentation
+        add.target, add.body, add.name, add.locale = target, body, name, locale
+        add.replace = replace
+
+    def _add_comment(self, operation, operation_data):
+        if len(operation_data) != 6:
+            raise ValueError("malformed add_comment operation: expected 6 fields")
+        _, owner, body, name, about, locale = operation_data
+        about = list(about) if isinstance(about, (list, tuple)) else None
+        if not _all_text((owner, body, name, locale)) or about is None or not _all_text(about):
+            raise ValueError(
+                "malformed add_comment operation: text fields and about must be valid"
+            )
+        self._require(CAPABILITY_AUTHORING, CAPABILITY_COMMENT_AUTHORING)
+        add = operation.add_comment
+        add.owner, add.body, add.name, add.locale = owner, body, name, locale
+        add.about.extend(about)
+
+    def _add_note(self, operation, operation_data):
+        if len(operation_data) != 3 or not _all_text(operation_data[1:]):
+            raise ValueError("malformed add_note operation: expected target and text")
+        _, target, text = operation_data
+        self._require(CAPABILITY_AUTHORING, CAPABILITY_COMMENT_AUTHORING)
+        operation.add_note.target, operation.add_note.text = target, text
+
+    def _delete(self, operation, operation_data):
+        if len(operation_data) != 3 or not isinstance(operation_data[2], bool):
+            raise ValueError(
+                "malformed delete operation: expected target and bool cascade"
+            )
+        _, target, cascade = operation_data
+        self._require(CAPABILITY_AUTHORING)
+        operation.delete.target, operation.delete.cascade = target, cascade
+
+    def _move(self, operation, operation_data):
+        if len(operation_data) != 3:
+            raise ValueError(
+                "malformed move operation: expected target and owner"
+            )
+        _, target, owner = operation_data
+        self._require(CAPABILITY_AUTHORING)
+        operation.move.target, operation.move.owner = target, owner
+
+    _HANDLERS = {
+        'set_value': _set_value,
+        'rename': _rename,
+        'add_member': _add_member,
+        'add_connection': _add_connection,
+        'add_satisfy': _add_satisfy,
+        'add_requirement_constraint': _add_requirement_constraint,
+        'add_transition': _add_transition,
+        'add_verify': _add_verify,
+        'add_metadata': _add_metadata,
+        'add_metadata_prefix': _add_metadata_prefix,
+        'add_sequence': _add_sequence,
+        'add_import': _add_import,
+        'add_documentation': _add_documentation,
+        'add_comment': _add_comment,
+        'add_note': _add_note,
+        'delete': _delete,
+        'move': _move,
+    }
+
+
+def _member_extras(extra):
+    """Reads the fields past an add-member tuple's modifiers: metadata prefixes,
+    a constraint body expression and documentation, the first two optional."""
+    metadata = ()
+    body_expression = ""
+    doc = ""
+    if extra:
+        if isinstance(extra[0], str):
+            body_expression = extra[0]
+            if len(extra) == 2:
+                doc = extra[1]
+        else:
+            metadata = extra[0]
+            if len(extra) > 1:
+                body_expression = extra[1]
+            if len(extra) > 2:
+                doc = extra[2]
+    if not isinstance(body_expression, str):
+        raise ValueError(
+            "malformed add_member operation: expression must be notation text"
+        )
+    if not isinstance(doc, str):
+        raise ValueError("malformed add_member operation: doc must be text")
+    return metadata, body_expression, doc
+
+
 class Connection:
     """Manages connection to sysml-grpc service.
 
@@ -832,6 +1285,97 @@ class Connection:
         if strict:
             model.raise_for_errors()
         return model
+
+    def parse_sources(self, documents, strict=False, strict_conformance=False):
+        """Parse several documents together as one model.
+
+        An import from one document into another resolves, and each
+        diagnostic names the document it came from, so a model written as
+        several files (chapters importing earlier chapters) is loaded as it
+        stands rather than concatenated into one string. Files are read on the
+        machine the service runs on, as :meth:`load` reads them.
+
+        Args:
+            documents (Sequence): The documents, in order. Each is a path
+                (``str`` or ``os.PathLike``) to a .sysml or .kerml file, a
+                ``(name, content)`` pair of inline source reported under that
+                name, or a :class:`~opensysml.sources.SourceDocument`, which is
+                also how inline content is declared to be KerML. Two documents
+                may not share a name.
+            strict (bool): Refuse a model the service reported errors for,
+                instead of returning one whose lookups fail later. The
+                :class:`~opensysml.errors.ModelError` raised carries the model,
+                so its diagnostics stay inspectable.
+            strict_conformance (bool): Ask whether the documents are conforming
+                SysML v2: notation only OpenSysML accepts is reported as an
+                error rather than a warning.
+
+        Returns:
+            Model: The model of all the documents, with one root per document
+            in :attr:`Model.roots` (the first as :attr:`Model.root`) and their
+            names in :attr:`Model.documents`
+
+        Raises:
+            ValueError: If there are no documents, two share a name, or one is
+                of none of the accepted forms
+            MissingCapabilityError: If the service predates ``parse_sources``,
+                or ``strict_conformance``/``inline_language`` when asked for
+            ModelFileNotFoundError: If the service cannot read a file
+            InvalidRequestError: If the service refuses the documents
+            ModelError: If the service could not parse the documents as a
+                model, or if strict and the model has error diagnostics
+            ServiceError: If the service fails the call for any other reason
+
+        Example:
+            >>> model = conn.parse_sources([
+            ...     ("lib.sysml", "package Lib { part def Engine; }"),
+            ...     ("top.sysml", "package Top { import Lib::*; part def Car { part e : Engine; } }"),
+            ... ])
+            >>> model.ok
+            True
+            >>> model["Lib::Engine"].name
+            'Engine'
+            >>> model.documents
+            ('lib.sysml', 'top.sysml')
+        """
+        sources = source_documents(documents)
+        info = self.server_info()
+        require(
+            info, CAPABILITY_PARSE_SOURCES, upgrade_remedy(CAPABILITY_PARSE_SOURCES)
+        )
+        capabilities = [CAPABILITY_PARSE_SOURCES]
+        if any(source.language is not None for source in sources):
+            require(
+                info,
+                CAPABILITY_INLINE_LANGUAGE,
+                upgrade_remedy(CAPABILITY_INLINE_LANGUAGE),
+            )
+            capabilities.append(CAPABILITY_INLINE_LANGUAGE)
+        self._require_strict_conformance(strict_conformance)
+        if strict_conformance:
+            capabilities.append(CAPABILITY_STRICT_CONFORMANCE)
+        request = sysml_pb2.ParseSourcesRequest(
+            documents=[source.to_pb() for source in sources],
+            strict_conformance=strict_conformance,
+        )
+        with translate_rpc_errors(
+            not_found=ModelFileNotFoundError,
+            unimplemented=self._capability_refusal(capabilities),
+        ):
+            response = self._stub.ParseSources(request)
+        if response.error:
+            raise ModelError(
+                response.error,
+                diagnostics=[Diagnostic(d) for d in response.diagnostics],
+            )
+        model = Model(
+            response,
+            self,
+            documents=[source.document_name for source in sources],
+        )
+        if strict:
+            model.raise_for_errors()
+        return model
     
     def convert(self, to_format, file_path=None, content=None, model_hash=None,
                 from_format='', tolerate_syntax_errors=False):
@@ -957,7 +1501,15 @@ class Connection:
             operations (list[tuple]): ``('set_value', target, value)`` and
                 ``('rename', target, new_name)`` tuples, as
                 :class:`~opensysml.edit.Editor` collects them, along with
-                ``('add_connection', owner, kind, from_end, to_end, name, type)``
+                ``('add_connection', owner, kind, from_end, to_end, name, type)`` and
+                ``('add_sequence', owner, keyword, ref, member_kind, member_name, type, after)``,
+                add-member tuples of 8, 12, 13, 14 or 15 fields; extended tuples
+                carry modifiers, metadata prefixes, a constraint
+                ``body_expression`` and optional documentation text. It also accepts
+                ``('add_import', owner, visibility, target, recursive, import_all, filters)``
+                and ``('add_documentation', target, body, name, locale, replace)``,
+                ``('add_comment', owner, body, name, about, locale)`` (``about`` a list
+                or tuple of names) and ``('add_note', target, text)``
 
         Returns:
             EditResult: The edited notation and what each operation changed
@@ -973,177 +1525,10 @@ class Connection:
         require(info, CAPABILITY_APPLY_EDITS, upgrade_remedy(CAPABILITY_APPLY_EDITS))
         # This client reads ``documents``, so a model of several may be edited.
         request = sysml_pb2.ApplyEditsRequest(model_hash=model_hash, accept_documents=True)
-        requests_authoring = False
-        requests_connection_authoring = False
-        requests_member_modifiers = False
-        requests_satisfy_authoring = False
-        requests_requirement_constraint_authoring = False
-        requests_transition_authoring = False
+        builder = _EditRequestBuilder(info, request)
         for operation_data in operations:
-            operation = request.operations.add()
-            kind = operation_data[0]
-            if kind == 'set_value':
-                _, target, text = operation_data
-                operation.set_value.target = target
-                operation.set_value.value = text
-            elif kind == 'rename':
-                _, target, text = operation_data
-                operation.rename.target = target
-                operation.rename.new_name = text
-            elif kind == 'add_member':
-                if len(operation_data) not in (8, 12):
-                    raise ValueError(
-                        "malformed add_member operation: expected 8 or 12 fields"
-                    )
-                (
-                    _, owner, member_kind, name, type_name, multiplicity, value,
-                    specializes, *modifiers
-                ) = operation_data
-                require(info, CAPABILITY_AUTHORING, upgrade_remedy(CAPABILITY_AUTHORING))
-                requests_authoring = True
-                add = operation.add_member
-                add.owner, add.kind, add.name = owner, member_kind, name
-                add.type, add.multiplicity, add.value = type_name, multiplicity, value
-                add.specializes.extend(specializes)
-                if modifiers:
-                    abstract, redefines, default, direction = modifiers
-                    if not isinstance(abstract, bool) or not isinstance(default, bool):
-                        raise ValueError(
-                            "malformed add_member modifiers: abstract and default must be bool"
-                        )
-                    if isinstance(redefines, str) or not all(isinstance(x, str) for x in redefines):
-                        raise ValueError(
-                            "malformed add_member modifiers: redefines must be a sequence"
-                        )
-                    if not isinstance(direction, str):
-                        raise ValueError(
-                            "malformed add_member modifiers: direction must be notation text"
-                        )
-                    add.is_abstract = abstract
-                    add.redefines.extend(redefines)
-                    add.is_default = default
-                    add.direction = direction
-                    requests_member_modifiers = requests_member_modifiers or (
-                        abstract or bool(redefines) or default or bool(direction)
-                        or member_kind in ("ref", "return")
-                    )
-            elif kind == 'add_connection':
-                if len(operation_data) != 7:
-                    raise ValueError(
-                        "malformed add_connection operation: expected 7 fields"
-                    )
-                _, owner, connection_kind, from_end, to_end, name, type_name = operation_data
-                require(info, CAPABILITY_AUTHORING, upgrade_remedy(CAPABILITY_AUTHORING))
-                require(
-                    info,
-                    CAPABILITY_CONNECTION_AUTHORING,
-                    upgrade_remedy(CAPABILITY_CONNECTION_AUTHORING),
-                )
-                requests_authoring = True
-                requests_connection_authoring = True
-                add = operation.add_connection
-                add.owner, add.kind = owner, connection_kind
-                add.from_end, add.to_end = from_end, to_end
-                add.name, add.type = name, type_name
-            elif kind == 'add_satisfy':
-                if len(operation_data) != 6:
-                    raise ValueError("malformed add_satisfy operation: expected 6 fields")
-                _, owner, requirement, satisfying_feature, asserted, negated = operation_data
-                if not isinstance(asserted, bool) or not isinstance(negated, bool):
-                    raise ValueError("malformed add_satisfy operation: asserted and negated must be bool")
-                require(info, CAPABILITY_AUTHORING, upgrade_remedy(CAPABILITY_AUTHORING))
-                require(
-                    info,
-                    CAPABILITY_SATISFY_AUTHORING,
-                    upgrade_remedy(CAPABILITY_SATISFY_AUTHORING),
-                )
-                requests_authoring = True
-                requests_satisfy_authoring = True
-                add = operation.add_satisfy
-                add.owner, add.requirement = owner, requirement
-                add.satisfying_feature = satisfying_feature
-                add.is_asserted, add.is_negated = asserted, negated
-            elif kind == 'add_requirement_constraint':
-                if len(operation_data) != 5:
-                    raise ValueError(
-                        "malformed add_requirement_constraint operation: expected 5 fields"
-                    )
-                _, owner, constraint_kind, expression, name = operation_data
-                require(info, CAPABILITY_AUTHORING, upgrade_remedy(CAPABILITY_AUTHORING))
-                require(
-                    info,
-                    CAPABILITY_REQUIREMENT_CONSTRAINT_AUTHORING,
-                    upgrade_remedy(CAPABILITY_REQUIREMENT_CONSTRAINT_AUTHORING),
-                )
-                requests_authoring = True
-                requests_requirement_constraint_authoring = True
-                add = operation.add_requirement_constraint
-                add.owner, add.kind = owner, constraint_kind
-                add.expression, add.name = expression, name
-            elif kind == 'add_transition':
-                if len(operation_data) != 9:
-                    raise ValueError("malformed add_transition operation: expected 9 fields")
-                (
-                    _, owner, name, source, target, trigger, guard, effect, initial
-                ) = operation_data
-                if not all(isinstance(text, str) for text in (
-                    owner, name, source, target, trigger, guard, effect
-                )) or not isinstance(initial, bool):
-                    raise ValueError("malformed add_transition operation: text fields and initial must be valid")
-                require(info, CAPABILITY_AUTHORING, upgrade_remedy(CAPABILITY_AUTHORING))
-                require(
-                    info,
-                    CAPABILITY_TRANSITION_AUTHORING,
-                    upgrade_remedy(CAPABILITY_TRANSITION_AUTHORING),
-                )
-                requests_authoring = True
-                requests_transition_authoring = True
-                add = operation.add_transition
-                add.owner, add.name, add.source, add.target = owner, name, source, target
-                add.trigger, add.guard, add.effect = trigger, guard, effect
-                add.initial = initial
-            elif kind == 'delete':
-                if len(operation_data) != 3 or not isinstance(operation_data[2], bool):
-                    raise ValueError(
-                        "malformed delete operation: expected target and bool cascade"
-                    )
-                _, target, cascade = operation_data
-                require(info, CAPABILITY_AUTHORING, upgrade_remedy(CAPABILITY_AUTHORING))
-                requests_authoring = True
-                operation.delete.target, operation.delete.cascade = target, cascade
-            elif kind == 'move':
-                if len(operation_data) != 3:
-                    raise ValueError(
-                        "malformed move operation: expected target and owner"
-                    )
-                _, target, owner = operation_data
-                require(info, CAPABILITY_AUTHORING, upgrade_remedy(CAPABILITY_AUTHORING))
-                requests_authoring = True
-                operation.move.target, operation.move.owner = target, owner
-            else:
-                raise ValueError(
-                    f"unknown edit operation {kind!r}: expected set_value, rename, "
-                    f"add_member, add_connection, add_satisfy, "
-                    f"add_requirement_constraint, add_transition, delete or move"
-                )
-
-        requested_capabilities = [CAPABILITY_APPLY_EDITS]
-        if requests_authoring:
-            requested_capabilities.append(CAPABILITY_AUTHORING)
-        if requests_connection_authoring:
-            requested_capabilities.append(CAPABILITY_CONNECTION_AUTHORING)
-        if requests_satisfy_authoring:
-            requested_capabilities.append(CAPABILITY_SATISFY_AUTHORING)
-        if requests_requirement_constraint_authoring:
-            requested_capabilities.append(CAPABILITY_REQUIREMENT_CONSTRAINT_AUTHORING)
-        if requests_transition_authoring:
-            requested_capabilities.append(CAPABILITY_TRANSITION_AUTHORING)
-        if requests_member_modifiers:
-            require(
-                info, CAPABILITY_MEMBER_MODIFIERS,
-                upgrade_remedy(CAPABILITY_MEMBER_MODIFIERS),
-            )
-            requested_capabilities.append(CAPABILITY_MEMBER_MODIFIERS)
+            builder.add(operation_data)
+        requested_capabilities = builder.finish()
         with translate_rpc_errors(
             unimplemented=self._capability_refusal(requested_capabilities)
         ):
@@ -1415,9 +1800,13 @@ class Connection:
                 reaches it. Without one the action runs outside any object
             
         Returns:
-            dict: Output parameter name → value; an output the wire format cannot
-                represent is reported as an UnsupportedValueError in its place,
-                so one such output does not discard the rest
+            ActionOutputs: Output parameter name → value, a ``dict``; an output
+                the wire format cannot represent is reported as an
+                UnsupportedValueError in its place, so one such output does not
+                discard the rest. Its ``performer`` holds the performer's
+                attributes as the run left them under ``this.``
+                (``'this.level'``), as an explored outcome's outputs spell them;
+                empty without a performer
             
         Raises:
             ValueError: If the schedule explores
@@ -1445,7 +1834,10 @@ class Connection:
             wrapped_diags = [Diagnostic(d) for d in response.diagnostics]
             raise ExecutionError(response.error, diagnostics=wrapped_diags)
         
-        return self._values_to_python(response.outputs)
+        return ActionOutputs(
+            self._values_to_python(response.outputs),
+            self._values_to_python(response.performer_attributes),
+        )
 
     def explore_action(self, action_symbol_id, model_hash, inputs=None,
                        schedule="explore", performer=None):
@@ -1638,7 +2030,8 @@ class Connection:
             response = self._stub.ListEngines(sysml_pb2.ListEnginesRequest())
         return [EngineInfo.of(pb) for pb in response.engines]
 
-    def verify_constraint(self, symbol_id, model_hash, subject_symbol_id=None, engine=None):
+    def verify_constraint(self, symbol_id, model_hash, subject_symbol_id=None, engine=None,
+                          question=None):
         """Ask whether a constraint holds, as the REPL's ``%constraint`` does.
 
         Args:
@@ -1651,6 +2044,13 @@ class Connection:
                 spells it: ``"auto"`` (the default) for the strongest covering
                 engine, ``"all"`` for every covering one composed, or one by
                 name, whose refusal is then the answer
+            question (str, optional): The question to ask: ``"evaluate"`` (the
+                default), ``"holds"`` whether the claim holds for every
+                assignment the free features can take, or ``"satisfiable"``
+                whether any assignment satisfies it. The verdict's ``status``
+                says which answer was proved; ``witness`` carries the free
+                features' values when the answer is violated or satisfiable,
+                and ``error`` says why nothing was decided otherwise
 
         Returns:
             Verdict: The answer. A condition that evaluated to false is that
@@ -1662,28 +2062,34 @@ class Connection:
                 constraint, which is a wrong request rather than a verdict
             ExecutionError: If the request could not be answered at all — an
                 unknown symbol, a subject that could not be instantiated
-            MissingCapabilityError: If the service cannot verify, or an engine
-                is given and the service predates ``engines``; nothing is sent
+            MissingCapabilityError: If the service cannot verify, an engine is
+                given and the service predates ``engines``, or a question other
+                than ``"evaluate"`` is given and the service predates
+                ``verification_questions``; nothing is sent
             InvalidRequestError: If the engine names none the service registers
             ModelNotFoundError: If the service no longer holds the model
         """
         self._require_verification()
         self._require_engine(engine)
+        self._require_question(question)
         request = sysml_pb2.VerifyConstraintRequest(
             model_hash=model_hash,
             symbol_id=symbol_id,
             subject_symbol_id=subject_symbol_id or "",
             engine=_engine_field(engine),
+            question=_question_field(question),
         )
         with translate_rpc_errors(
             unimplemented=self._capability_refusal(
                 (CAPABILITY_VERIFICATION,) + self._engine_capabilities(engine)
+                + self._question_capabilities(question)
             )
         ):
             response = self._stub.VerifyConstraint(request)
         return self._verdict_of(response)
 
-    def verify_requirement(self, symbol_id, model_hash, subject_symbol_id=None, engine=None):
+    def verify_requirement(self, symbol_id, model_hash, subject_symbol_id=None, engine=None,
+                           question=None):
         """Ask whether a requirement is satisfied, as ``%requirement`` does.
 
         Args:
@@ -1693,6 +2099,8 @@ class Connection:
                 instantiate and evaluate against
             engine (str, optional): The engine to ask, as for
                 :meth:`verify_constraint`
+            question (str, optional): The question to ask, as for
+                :meth:`verify_constraint`
 
         Returns:
             Verdict: The answer
@@ -1701,28 +2109,33 @@ class Connection:
             WrongKindError: If symbol_id names an element that is not a
                 requirement
             ExecutionError: If the request could not be answered at all
-            MissingCapabilityError: If the service cannot verify, or an engine
-                is given and the service predates ``engines``; nothing is sent
+            MissingCapabilityError: If the service cannot verify, an engine is
+                given and the service predates ``engines``, or a question other
+                than ``"evaluate"`` is given and the service predates
+                ``verification_questions``; nothing is sent
             InvalidRequestError: If the engine names none the service registers
             ModelNotFoundError: If the service no longer holds the model
         """
         self._require_verification()
         self._require_engine(engine)
+        self._require_question(question)
         request = sysml_pb2.VerifyRequirementRequest(
             model_hash=model_hash,
             symbol_id=symbol_id,
             subject_symbol_id=subject_symbol_id or "",
             engine=_engine_field(engine),
+            question=_question_field(question),
         )
         with translate_rpc_errors(
             unimplemented=self._capability_refusal(
                 (CAPABILITY_VERIFICATION,) + self._engine_capabilities(engine)
+                + self._question_capabilities(question)
             )
         ):
             response = self._stub.VerifyRequirement(request)
         return self._verdict_of(response)
 
-    def verify_satisfaction(self, model_hash, symbol_id=None, engine=None):
+    def verify_satisfaction(self, model_hash, symbol_id=None, engine=None, question=None):
         """Ask whether the model's satisfaction assertions hold, as ``%satisfy`` does.
 
         Each assertion is evaluated against an object of its subject, built for
@@ -1736,6 +2149,8 @@ class Connection:
                 assertion the model states.
             engine (str, optional): The engine to ask, as for
                 :meth:`verify_constraint`
+            question (str, optional): The question to ask, as for
+                :meth:`verify_constraint`
 
         Returns:
             list[Verdict]: One verdict per assertion, in declaration order. A
@@ -1747,21 +2162,26 @@ class Connection:
             WrongKindError: If symbol_id names an element that can state no
                 satisfaction assertion
             ExecutionError: If the request could not be answered at all
-            MissingCapabilityError: If the service cannot verify, or an engine
-                is given and the service predates ``engines``; nothing is sent
+            MissingCapabilityError: If the service cannot verify, an engine is
+                given and the service predates ``engines``, or a question other
+                than ``"evaluate"`` is given and the service predates
+                ``verification_questions``; nothing is sent
             InvalidRequestError: If the engine names none the service registers
             ModelNotFoundError: If the service no longer holds the model
         """
         self._require_verification()
         self._require_engine(engine)
+        self._require_question(question)
         request = sysml_pb2.VerifySatisfactionRequest(
             model_hash=model_hash,
             symbol_id=symbol_id or "",
             engine=_engine_field(engine),
+            question=_question_field(question),
         )
         with translate_rpc_errors(
             unimplemented=self._capability_refusal(
                 (CAPABILITY_VERIFICATION,) + self._engine_capabilities(engine)
+                + self._question_capabilities(question)
             )
         ):
             response = self._stub.VerifySatisfaction(request)
@@ -2250,6 +2670,19 @@ class Connection:
             needed.append(CAPABILITY_ENGINES)
         if _explore_engine(engine):
             needed.append(CAPABILITY_SCHEDULE_EXPLORE)
+        return tuple(needed)
+
+    def _require_question(self, question):
+        """Refuse to send a question a service without ``verification_questions`` would evaluate."""
+        for capability in self._question_capabilities(question):
+            require(self.server_info(), capability, upgrade_remedy(capability))
+
+    @staticmethod
+    def _question_capabilities(question):
+        """The capabilities a question needs of the service: none for evaluate."""
+        needed = []
+        if _question_field(question):
+            needed.append(CAPABILITY_VERIFICATION_QUESTIONS)
         return tuple(needed)
 
     def _capability_refusal(self, capabilities):

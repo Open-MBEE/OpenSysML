@@ -149,6 +149,12 @@ func heldAnswer(held map[string]runtime.Value, err error) analysis.Answer {
 	return analysis.ValuesAnswer(analysis.ValuesOf(held), err)
 }
 
+// actionRun is what one action run left: its outputs and its performer's attributes.
+type actionRun struct {
+	outputs   map[string]runtime.Value
+	performer map[string]runtime.Value
+}
+
 // stateRun is what one state machine run left: its final data and the states it visited.
 type stateRun struct {
 	final   map[string]runtime.Value

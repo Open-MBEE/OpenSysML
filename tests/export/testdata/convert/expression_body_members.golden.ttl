@@ -9,6 +9,10 @@
 elmt:Bodies
     a sysml:Package ;
     sysml:qualifiedName "Bodies" ;
+    sysx:sourceLine "1"^^xsd:integer ;
+    sysx:sourceColumn "1"^^xsd:integer ;
+    sysx:sourceEndLine "7"^^xsd:integer ;
+    sysx:sourceEndColumn "2"^^xsd:integer ;
     sysml:elementId "Bodies" ;
     sysx:memberIndex "0"^^xsd:integer ;
     sysx:sourceLanguage "sysml" ;
@@ -26,6 +30,10 @@ elmt:Bodies
 elmt:Bodies__Real
     a sysml:AttributeDefinition ;
     sysml:qualifiedName "Bodies::Real" ;
+    sysx:sourceLine "2"^^xsd:integer ;
+    sysx:sourceColumn "5"^^xsd:integer ;
+    sysx:sourceEndLine "2"^^xsd:integer ;
+    sysx:sourceEndColumn "24"^^xsd:integer ;
     sysml:elementId "Bodies__Real" ;
     sysx:memberIndex "0"^^xsd:integer ;
     sysml:owningNamespace elmt:Bodies ;
@@ -49,6 +57,10 @@ elmt:Bodies__Real_om
 elmt:Bodies__Scaled
     a sysml:CalculationDefinition ;
     sysml:qualifiedName "Bodies::Scaled" ;
+    sysx:sourceLine "3"^^xsd:integer ;
+    sysx:sourceColumn "5"^^xsd:integer ;
+    sysx:sourceEndLine "6"^^xsd:integer ;
+    sysx:sourceEndColumn "6"^^xsd:integer ;
     sysml:elementId "Bodies__Scaled" ;
     sysx:memberIndex "1"^^xsd:integer ;
     sysml:owningNamespace elmt:Bodies ;
@@ -83,6 +95,10 @@ elmt:Bodies__Scaled_om
 elmt:Bodies__Scaled__x
     a sysml:ReferenceUsage ;
     sysml:qualifiedName "Bodies::Scaled::x" ;
+    sysx:sourceLine "4"^^xsd:integer ;
+    sysx:sourceColumn "9"^^xsd:integer ;
+    sysx:sourceEndLine "4"^^xsd:integer ;
+    sysx:sourceEndColumn "21"^^xsd:integer ;
     sysml:elementId "Bodies__Scaled__x" ;
     sysx:memberIndex "0"^^xsd:integer ;
     sysml:owningNamespace elmt:Bodies__Scaled ;
@@ -114,6 +130,10 @@ elmt:Bodies__Scaled__x_om
 elmt:Bodies__Scaled___401
     a sysml:FeatureReferenceExpression ;
     sysml:qualifiedName "Bodies::Scaled::@1" ;
+    sysx:sourceLine "5"^^xsd:integer ;
+    sysx:sourceColumn "9"^^xsd:integer ;
+    sysx:sourceEndLine "5"^^xsd:integer ;
+    sysx:sourceEndColumn "67"^^xsd:integer ;
     sysml:elementId "Bodies__Scaled___401" ;
     sysx:memberIndex "1"^^xsd:integer ;
     sysml:owningNamespace elmt:Bodies__Scaled ;

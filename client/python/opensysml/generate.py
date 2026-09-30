@@ -49,6 +49,7 @@ UNSTAMPED = "unstamped"
 FEATURE_KINDS = frozenset(
     {
         "attributeusage",
+        "referenceusage",
         "partusage",
         "itemusage",
         "occurrenceusage",
@@ -145,13 +146,18 @@ class PythonType:
     comment: str = ""
 
 
-def collect_definitions(root) -> List[Definition]:
-    """Collect the definitions in a :class:`~opensysml.symbol.Symbol` tree, sorted by
-    FQN, each feature taking the type and multiplicity it inherits.
+def collect_definitions(*roots) -> List[Definition]:
+    """Collect the definitions in one or more :class:`~opensysml.symbol.Symbol`
+    trees, sorted by FQN, each feature taking the type and multiplicity it
+    inherits.
+
+    A model of several documents has one tree per document; passing them all
+    resolves a redefinition or type that crosses documents.
     """
     definitions: List[Definition] = []
     facts_by_id: Dict[str, SymbolFacts] = {}
-    _collect(root, definitions, facts_by_id)
+    for root in roots:
+        _collect(root, definitions, facts_by_id)
     definitions = [_with_inherited_facts(definition, facts_by_id) for definition in definitions]
     definitions.sort(key=lambda definition: definition.id)
     return definitions
@@ -577,9 +583,11 @@ def generate_source(model, source_text: str) -> str:
     """Render the typed module for a loaded :class:`~opensysml.model.Model`.
 
     ``source_text`` is the model source the module is stamped with; it is
-    required so a module cannot silently claim the hash of nothing.
+    required so a module cannot silently claim the hash of nothing. A model of
+    several documents (:meth:`Connection.parse_sources`) is generated whole,
+    from every document's root.
     """
-    return render_module(collect_definitions(model.root), model_stamp(source_text))
+    return render_module(collect_definitions(*model.roots), model_stamp(source_text))
 
 
 # Named in the failure message below: which binary is at fault, and what to do.

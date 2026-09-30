@@ -459,6 +459,20 @@ func nestedObjects(ctx *runtime.Context, of carrier, read func(string) (*runtime
 			h.segment, h.indexed = segment, false
 		}
 	}
+	// An unread implied collection is not a path of its own; a materialized one
+	// is read last, so only objects no declared feature carries are labelled by it.
+	var declared, implied []string
+	for _, name := range fvs {
+		fv := of.inst.FeatureValues[name]
+		if ctx.ImpliedCollection(of.inst, name) {
+			if fv != nil && fv.Materialized {
+				implied = append(implied, name)
+			}
+			continue
+		}
+		declared = append(declared, name)
+	}
+	fvs = append(declared, implied...)
 	for _, name := range fvs {
 		fv, ok := read(name)
 		if !ok {
@@ -928,11 +942,11 @@ func (t *nameTable) sorted() []string {
 	return out
 }
 
-// docScopes returns the scope trees of the session's open documents, in
-// buffer order, so a lookup reads both languages.
+// docScopes returns syntax-tree-backed scopes for the session's documents,
+// hydrating any file held as its record.
 func (s *Session) docScopes() []*symbols.Scope {
 	var out []*symbols.Scope
-	for _, doc := range s.sessionDocs() {
+	for _, doc := range s.hydratedDocs() {
 		if doc.Scope != nil {
 			out = append(out, doc.Scope)
 		}

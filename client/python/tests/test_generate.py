@@ -9,6 +9,7 @@ from opensysml.generate import (
     collect_definitions,
     element_type,
     feature_type,
+    generate_source,
     is_definition_kind,
     is_feature_kind,
     render_module,
@@ -538,6 +539,77 @@ def test_collect_definitions_takes_type_and_multiplicity_from_a_redefinition():
     assert redefining.facts.multiplicity == Multiplicity("0", "*")
 
     source = render_module(list(definitions.values()))
+    assert '_t.list_feature_value(self, "engine", _t.as_typed(Engine))' in source
+
+
+class FakeModel:
+    """A Model-shaped holder of root symbols, one per document."""
+
+    def __init__(self, *roots):
+        self.roots = roots
+        self.root = roots[0]
+
+
+def test_generate_source_covers_every_document_of_a_model():
+    """A model of several documents is generated whole: later documents' definitions
+    appear, and a type or redefinition that crosses documents resolves."""
+    lib = FakeSymbol(
+        SymbolFacts(id="Lib", name="Lib", kind="package"),
+        [
+            FakeSymbol(SymbolFacts(id="Lib::Engine", name="Engine", kind="partDef")),
+            FakeSymbol(
+                SymbolFacts(id="Lib::Base", name="Base", kind="partDef"),
+                [
+                    FakeSymbol(
+                        SymbolFacts(
+                            id="Lib::Base::engine",
+                            name="engine",
+                            kind="partUsage",
+                            type=TypeFacts(declared="Engine", resolved_id="Lib::Engine"),
+                            multiplicity=Multiplicity("0", "*"),
+                        )
+                    )
+                ],
+            ),
+        ],
+    )
+    top = FakeSymbol(
+        SymbolFacts(id="Top", name="Top", kind="package"),
+        [
+            FakeSymbol(
+                SymbolFacts(
+                    id="Top::Car",
+                    name="Car",
+                    kind="partDef",
+                    specializations=(
+                        Specialization(kind="specializes", declared="Base", target_id="Lib::Base"),
+                    ),
+                ),
+                [
+                    FakeSymbol(
+                        SymbolFacts(
+                            id="Top::Car::engine",
+                            name="engine",
+                            kind="partUsage",
+                            specializations=(
+                                Specialization(
+                                    kind="redefines", declared="engine", target_id="Lib::Base::engine"
+                                ),
+                            ),
+                        )
+                    )
+                ],
+            ),
+        ],
+    )
+
+    definitions = {d.id: d for d in collect_definitions(lib, top)}
+    assert list(definitions) == ["Lib::Base", "Lib::Engine", "Top::Car"]
+    assert definitions["Top::Car"].features[0].facts.type.resolved_id == "Lib::Engine"
+
+    source = generate_source(FakeModel(lib, top), "package Lib; package Top;")
+    assert "class Engine(" in source
+    assert "class Car(Base):" in source
     assert '_t.list_feature_value(self, "engine", _t.as_typed(Engine))' in source
 
 

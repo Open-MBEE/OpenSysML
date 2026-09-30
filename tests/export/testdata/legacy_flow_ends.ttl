@@ -1,0 +1,431 @@
+@prefix elmt: <urn:sysmlv2:element:> .
+@prefix expr: <urn:opensysml:expr:> .
+@prefix json: <urn:sysmlv2:annotation:json:> .
+@prefix rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#> .
+@prefix sysml: <https://www.omg.org/spec/SysML#> .
+@prefix sysx: <urn:opensysml:sysml:> .
+@prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
+
+elmt:LegacyFlow
+    a sysml:Package ;
+    sysml:qualifiedName "LegacyFlow" ;
+    sysml:elementId "LegacyFlow" ;
+    sysx:memberIndex "0"^^xsd:integer ;
+    sysx:sourceLanguage "sysml" ;
+    sysml:declaredName "LegacyFlow" ;
+    sysx:hasBody "true"^^xsd:boolean ;
+    sysml:ownedMember elmt:LegacyFlow__Fuel, elmt:LegacyFlow__A, elmt:LegacyFlow__B, elmt:LegacyFlow__Ctx ;
+    sysml:ownedMembership elmt:LegacyFlow__Fuel_om, elmt:LegacyFlow__A_om, elmt:LegacyFlow__B_om, elmt:LegacyFlow__Ctx_om ;
+    sysml:ownedRelationship elmt:LegacyFlow__Fuel_om, elmt:LegacyFlow__A_om, elmt:LegacyFlow__B_om, elmt:LegacyFlow__Ctx_om ;
+    sysx:sourceText "package LegacyFlow {\n" ;
+    sysx:sourceTail "}\n" ;
+    json:ownedMember "[{\"@id\":\"LegacyFlow__Fuel\"},{\"@id\":\"LegacyFlow__A\"},{\"@id\":\"LegacyFlow__B\"},{\"@id\":\"LegacyFlow__Ctx\"}]" ;
+    json:ownedMembership "[{\"@id\":\"LegacyFlow__Fuel_om\"},{\"@id\":\"LegacyFlow__A_om\"},{\"@id\":\"LegacyFlow__B_om\"},{\"@id\":\"LegacyFlow__Ctx_om\"}]" ;
+    json:ownedRelationship "[{\"@id\":\"LegacyFlow__Fuel_om\"},{\"@id\":\"LegacyFlow__A_om\"},{\"@id\":\"LegacyFlow__B_om\"},{\"@id\":\"LegacyFlow__Ctx_om\"}]" .
+
+elmt:LegacyFlow__Fuel
+    a sysml:ItemDefinition ;
+    sysml:qualifiedName "LegacyFlow::Fuel" ;
+    sysml:elementId "LegacyFlow__Fuel" ;
+    sysx:memberIndex "0"^^xsd:integer ;
+    sysml:owningNamespace elmt:LegacyFlow ;
+    sysml:owner elmt:LegacyFlow ;
+    sysml:owningRelationship elmt:LegacyFlow__Fuel_om ;
+    sysml:owningMembership elmt:LegacyFlow__Fuel_om ;
+    sysml:declaredName "Fuel" ;
+    sysx:hasBody "false"^^xsd:boolean ;
+    sysx:sourceText "    item def Fuel;\n" .
+
+elmt:LegacyFlow__Fuel_om
+    a sysml:OwningMembership ;
+    sysml:elementId "LegacyFlow__Fuel_om" ;
+    sysml:owner elmt:LegacyFlow ;
+    sysml:memberElement elmt:LegacyFlow__Fuel ;
+    sysml:ownedMemberElement elmt:LegacyFlow__Fuel ;
+    sysml:ownedRelatedElement elmt:LegacyFlow__Fuel ;
+    sysml:owningRelatedElement elmt:LegacyFlow ;
+    sysml:membershipOwningNamespace elmt:LegacyFlow .
+
+elmt:LegacyFlow__A
+    a sysml:PartDefinition ;
+    sysml:qualifiedName "LegacyFlow::A" ;
+    sysml:elementId "LegacyFlow__A" ;
+    sysx:memberIndex "1"^^xsd:integer ;
+    sysml:owningNamespace elmt:LegacyFlow ;
+    sysml:owner elmt:LegacyFlow ;
+    sysml:owningRelationship elmt:LegacyFlow__A_om ;
+    sysml:owningMembership elmt:LegacyFlow__A_om ;
+    sysml:declaredName "A" ;
+    sysx:hasBody "true"^^xsd:boolean ;
+    sysml:ownedMember elmt:LegacyFlow__A__i ;
+    sysml:ownedMembership elmt:LegacyFlow__A__i_om ;
+    sysml:ownedRelationship elmt:LegacyFlow__A__i_om ;
+    sysml:ownedFeature elmt:LegacyFlow__A__i ;
+    sysml:ownedFeatureMembership elmt:LegacyFlow__A__i_om ;
+    sysx:sourceText "    part def A { out item i : Fuel; }\n" .
+
+elmt:LegacyFlow__A_om
+    a sysml:OwningMembership ;
+    sysml:elementId "LegacyFlow__A_om" ;
+    sysml:owner elmt:LegacyFlow ;
+    sysml:memberElement elmt:LegacyFlow__A ;
+    sysml:ownedMemberElement elmt:LegacyFlow__A ;
+    sysml:ownedRelatedElement elmt:LegacyFlow__A ;
+    sysml:owningRelatedElement elmt:LegacyFlow ;
+    sysml:membershipOwningNamespace elmt:LegacyFlow .
+
+elmt:LegacyFlow__A__i
+    a sysml:ItemUsage ;
+    sysml:qualifiedName "LegacyFlow::A::i" ;
+    sysml:elementId "LegacyFlow__A__i" ;
+    sysx:memberIndex "0"^^xsd:integer ;
+    sysml:owningNamespace elmt:LegacyFlow__A ;
+    sysml:owner elmt:LegacyFlow__A ;
+    sysml:owningRelationship elmt:LegacyFlow__A__i_om ;
+    sysml:owningMembership elmt:LegacyFlow__A__i_om ;
+    sysml:declaredName "i" ;
+    sysml:direction "out" ;
+    sysml:type elmt:LegacyFlow__Fuel ;
+    sysx:hasBody "false"^^xsd:boolean .
+
+elmt:LegacyFlow__A__i_om
+    a sysml:FeatureMembership ;
+    sysml:elementId "LegacyFlow__A__i_om" ;
+    sysml:owner elmt:LegacyFlow__A ;
+    sysml:memberElement elmt:LegacyFlow__A__i ;
+    sysml:ownedMemberElement elmt:LegacyFlow__A__i ;
+    sysml:ownedRelatedElement elmt:LegacyFlow__A__i ;
+    sysml:owningRelatedElement elmt:LegacyFlow__A ;
+    sysml:membershipOwningNamespace elmt:LegacyFlow__A ;
+    sysml:ownedMemberFeature elmt:LegacyFlow__A__i ;
+    sysml:owningType elmt:LegacyFlow__A .
+
+elmt:LegacyFlow__B
+    a sysml:PartDefinition ;
+    sysml:qualifiedName "LegacyFlow::B" ;
+    sysml:elementId "LegacyFlow__B" ;
+    sysx:memberIndex "2"^^xsd:integer ;
+    sysml:owningNamespace elmt:LegacyFlow ;
+    sysml:owner elmt:LegacyFlow ;
+    sysml:owningRelationship elmt:LegacyFlow__B_om ;
+    sysml:owningMembership elmt:LegacyFlow__B_om ;
+    sysml:declaredName "B" ;
+    sysx:hasBody "true"^^xsd:boolean ;
+    sysml:ownedMember elmt:LegacyFlow__B__j ;
+    sysml:ownedMembership elmt:LegacyFlow__B__j_om ;
+    sysml:ownedRelationship elmt:LegacyFlow__B__j_om ;
+    sysml:ownedFeature elmt:LegacyFlow__B__j ;
+    sysml:ownedFeatureMembership elmt:LegacyFlow__B__j_om ;
+    sysx:sourceText "    part def B { in item j : Fuel; }\n" .
+
+elmt:LegacyFlow__B_om
+    a sysml:OwningMembership ;
+    sysml:elementId "LegacyFlow__B_om" ;
+    sysml:owner elmt:LegacyFlow ;
+    sysml:memberElement elmt:LegacyFlow__B ;
+    sysml:ownedMemberElement elmt:LegacyFlow__B ;
+    sysml:ownedRelatedElement elmt:LegacyFlow__B ;
+    sysml:owningRelatedElement elmt:LegacyFlow ;
+    sysml:membershipOwningNamespace elmt:LegacyFlow .
+
+elmt:LegacyFlow__B__j
+    a sysml:ItemUsage ;
+    sysml:qualifiedName "LegacyFlow::B::j" ;
+    sysml:elementId "LegacyFlow__B__j" ;
+    sysx:memberIndex "0"^^xsd:integer ;
+    sysml:owningNamespace elmt:LegacyFlow__B ;
+    sysml:owner elmt:LegacyFlow__B ;
+    sysml:owningRelationship elmt:LegacyFlow__B__j_om ;
+    sysml:owningMembership elmt:LegacyFlow__B__j_om ;
+    sysml:declaredName "j" ;
+    sysml:direction "in" ;
+    sysml:type elmt:LegacyFlow__Fuel ;
+    sysx:hasBody "false"^^xsd:boolean .
+
+elmt:LegacyFlow__B__j_om
+    a sysml:FeatureMembership ;
+    sysml:elementId "LegacyFlow__B__j_om" ;
+    sysml:owner elmt:LegacyFlow__B ;
+    sysml:memberElement elmt:LegacyFlow__B__j ;
+    sysml:ownedMemberElement elmt:LegacyFlow__B__j ;
+    sysml:ownedRelatedElement elmt:LegacyFlow__B__j ;
+    sysml:owningRelatedElement elmt:LegacyFlow__B ;
+    sysml:membershipOwningNamespace elmt:LegacyFlow__B ;
+    sysml:ownedMemberFeature elmt:LegacyFlow__B__j ;
+    sysml:owningType elmt:LegacyFlow__B .
+
+elmt:LegacyFlow__Ctx
+    a sysml:PartDefinition ;
+    sysml:qualifiedName "LegacyFlow::Ctx" ;
+    sysml:elementId "LegacyFlow__Ctx" ;
+    sysx:memberIndex "3"^^xsd:integer ;
+    sysml:owningNamespace elmt:LegacyFlow ;
+    sysml:owner elmt:LegacyFlow ;
+    sysml:owningRelationship elmt:LegacyFlow__Ctx_om ;
+    sysml:owningMembership elmt:LegacyFlow__Ctx_om ;
+    sysml:declaredName "Ctx" ;
+    sysx:hasBody "true"^^xsd:boolean ;
+    sysml:ownedMember elmt:LegacyFlow__Ctx__x, elmt:LegacyFlow__Ctx__y, elmt:LegacyFlow__Ctx___402 ;
+    sysml:ownedMembership elmt:LegacyFlow__Ctx__x_om, elmt:LegacyFlow__Ctx__y_om, elmt:LegacyFlow__Ctx___402_om ;
+    sysml:ownedRelationship elmt:LegacyFlow__Ctx__x_om, elmt:LegacyFlow__Ctx__y_om, elmt:LegacyFlow__Ctx___402_om ;
+    sysml:ownedFeature elmt:LegacyFlow__Ctx__x, elmt:LegacyFlow__Ctx__y ;
+    sysml:ownedFeatureMembership elmt:LegacyFlow__Ctx__x_om, elmt:LegacyFlow__Ctx__y_om ;
+    sysx:sourceText "    part def Ctx {\n" ;
+    sysx:sourceTail "    }\n" ;
+    json:ownedMember "[{\"@id\":\"LegacyFlow__Ctx__x\"},{\"@id\":\"LegacyFlow__Ctx__y\"},{\"@id\":\"LegacyFlow__Ctx___402\"}]" ;
+    json:ownedMembership "[{\"@id\":\"LegacyFlow__Ctx__x_om\"},{\"@id\":\"LegacyFlow__Ctx__y_om\"},{\"@id\":\"LegacyFlow__Ctx___402_om\"}]" ;
+    json:ownedRelationship "[{\"@id\":\"LegacyFlow__Ctx__x_om\"},{\"@id\":\"LegacyFlow__Ctx__y_om\"},{\"@id\":\"LegacyFlow__Ctx___402_om\"}]" ;
+    json:ownedFeature "[{\"@id\":\"LegacyFlow__Ctx__x\"},{\"@id\":\"LegacyFlow__Ctx__y\"}]" ;
+    json:ownedFeatureMembership "[{\"@id\":\"LegacyFlow__Ctx__x_om\"},{\"@id\":\"LegacyFlow__Ctx__y_om\"}]" .
+
+elmt:LegacyFlow__Ctx_om
+    a sysml:OwningMembership ;
+    sysml:elementId "LegacyFlow__Ctx_om" ;
+    sysml:owner elmt:LegacyFlow ;
+    sysml:memberElement elmt:LegacyFlow__Ctx ;
+    sysml:ownedMemberElement elmt:LegacyFlow__Ctx ;
+    sysml:ownedRelatedElement elmt:LegacyFlow__Ctx ;
+    sysml:owningRelatedElement elmt:LegacyFlow ;
+    sysml:membershipOwningNamespace elmt:LegacyFlow .
+
+elmt:LegacyFlow__Ctx__x
+    a sysml:PartUsage ;
+    sysml:qualifiedName "LegacyFlow::Ctx::x" ;
+    sysml:elementId "LegacyFlow__Ctx__x" ;
+    sysx:memberIndex "0"^^xsd:integer ;
+    sysml:owningNamespace elmt:LegacyFlow__Ctx ;
+    sysml:owner elmt:LegacyFlow__Ctx ;
+    sysml:owningRelationship elmt:LegacyFlow__Ctx__x_om ;
+    sysml:owningMembership elmt:LegacyFlow__Ctx__x_om ;
+    sysml:declaredName "x" ;
+    sysml:type elmt:LegacyFlow__A ;
+    sysx:hasBody "false"^^xsd:boolean ;
+    sysx:sourceText "        part x : A;\n" .
+
+elmt:LegacyFlow__Ctx__x_om
+    a sysml:FeatureMembership ;
+    sysml:elementId "LegacyFlow__Ctx__x_om" ;
+    sysml:owner elmt:LegacyFlow__Ctx ;
+    sysml:memberElement elmt:LegacyFlow__Ctx__x ;
+    sysml:ownedMemberElement elmt:LegacyFlow__Ctx__x ;
+    sysml:ownedRelatedElement elmt:LegacyFlow__Ctx__x ;
+    sysml:owningRelatedElement elmt:LegacyFlow__Ctx ;
+    sysml:membershipOwningNamespace elmt:LegacyFlow__Ctx ;
+    sysml:ownedMemberFeature elmt:LegacyFlow__Ctx__x ;
+    sysml:owningType elmt:LegacyFlow__Ctx .
+
+elmt:LegacyFlow__Ctx__y
+    a sysml:PartUsage ;
+    sysml:qualifiedName "LegacyFlow::Ctx::y" ;
+    sysml:elementId "LegacyFlow__Ctx__y" ;
+    sysx:memberIndex "1"^^xsd:integer ;
+    sysml:owningNamespace elmt:LegacyFlow__Ctx ;
+    sysml:owner elmt:LegacyFlow__Ctx ;
+    sysml:owningRelationship elmt:LegacyFlow__Ctx__y_om ;
+    sysml:owningMembership elmt:LegacyFlow__Ctx__y_om ;
+    sysml:declaredName "y" ;
+    sysml:type elmt:LegacyFlow__B ;
+    sysx:hasBody "false"^^xsd:boolean ;
+    sysx:sourceText "        part y : B;\n" .
+
+elmt:LegacyFlow__Ctx__y_om
+    a sysml:FeatureMembership ;
+    sysml:elementId "LegacyFlow__Ctx__y_om" ;
+    sysml:owner elmt:LegacyFlow__Ctx ;
+    sysml:memberElement elmt:LegacyFlow__Ctx__y ;
+    sysml:ownedMemberElement elmt:LegacyFlow__Ctx__y ;
+    sysml:ownedRelatedElement elmt:LegacyFlow__Ctx__y ;
+    sysml:owningRelatedElement elmt:LegacyFlow__Ctx ;
+    sysml:membershipOwningNamespace elmt:LegacyFlow__Ctx ;
+    sysml:ownedMemberFeature elmt:LegacyFlow__Ctx__y ;
+    sysml:owningType elmt:LegacyFlow__Ctx .
+
+elmt:LegacyFlow__Ctx___402
+    a sysml:FlowUsage ;
+    sysml:qualifiedName "LegacyFlow::Ctx::@2" ;
+    sysml:elementId "LegacyFlow__Ctx___402" ;
+    sysx:memberIndex "2"^^xsd:integer ;
+    sysml:owningNamespace elmt:LegacyFlow__Ctx ;
+    sysml:owner elmt:LegacyFlow__Ctx ;
+    sysml:owningRelationship elmt:LegacyFlow__Ctx___402_om ;
+    sysml:owningMembership elmt:LegacyFlow__Ctx___402_om ;
+    sysx:relatedFeature expr:LegacyFlow__Ctx___402_pflowSource, expr:LegacyFlow__Ctx___402_pflowTarget, expr:LegacyFlow__Ctx___402_pflowPayload ;
+    sysml:ownedRelationship expr:LegacyFlow__Ctx___402_pflowSource_om, expr:LegacyFlow__Ctx___402_pflowTarget_om, expr:LegacyFlow__Ctx___402_pflowPayload_om ;
+    sysml:ownedMembership expr:LegacyFlow__Ctx___402_pflowSource_om, expr:LegacyFlow__Ctx___402_pflowTarget_om, expr:LegacyFlow__Ctx___402_pflowPayload_om ;
+    sysx:endForm "fromTo" ;
+    sysx:hasBody "false"^^xsd:boolean ;
+    sysx:sourceText "        flow of Fuel from x.i to y.j;\n" ;
+    json:ownedRelationship "[{\"@id\":\"LegacyFlow__Ctx___402_pflowSource_om\"},{\"@id\":\"LegacyFlow__Ctx___402_pflowTarget_om\"},{\"@id\":\"LegacyFlow__Ctx___402_pflowPayload_om\"}]" ;
+    json:ownedMembership "[{\"@id\":\"LegacyFlow__Ctx___402_pflowSource_om\"},{\"@id\":\"LegacyFlow__Ctx___402_pflowTarget_om\"},{\"@id\":\"LegacyFlow__Ctx___402_pflowPayload_om\"}]" .
+
+elmt:LegacyFlow__Ctx___402_om
+    a sysml:OwningMembership ;
+    sysml:elementId "LegacyFlow__Ctx___402_om" ;
+    sysml:owner elmt:LegacyFlow__Ctx ;
+    sysml:memberElement elmt:LegacyFlow__Ctx___402 ;
+    sysml:ownedMemberElement elmt:LegacyFlow__Ctx___402 ;
+    sysml:ownedRelatedElement elmt:LegacyFlow__Ctx___402 ;
+    sysml:owningRelatedElement elmt:LegacyFlow__Ctx ;
+    sysml:membershipOwningNamespace elmt:LegacyFlow__Ctx .
+
+expr:LegacyFlow__Ctx___402_pflowSource
+    a sysml:FeatureChainExpression ;
+    sysx:sourceText "x.i" ;
+    sysml:elementId "LegacyFlow__Ctx___402_pflowSource" ;
+    sysml:argument expr:LegacyFlow__Ctx___402_pflowSource_pa0 ;
+    sysml:ownedRelationship expr:LegacyFlow__Ctx___402_pflowSource_pin0_om ;
+    sysml:ownedMembership expr:LegacyFlow__Ctx___402_pflowSource_pin0_om ;
+    sysml:ownedFeatureMembership expr:LegacyFlow__Ctx___402_pflowSource_pin0_om ;
+    sysml:ownedFeature expr:LegacyFlow__Ctx___402_pflowSource_pin0 ;
+    sysml:parameter expr:LegacyFlow__Ctx___402_pflowSource_pin0 ;
+    sysml:input expr:LegacyFlow__Ctx___402_pflowSource_pin0 ;
+    sysml:targetFeature elmt:LegacyFlow__A__i ;
+    sysml:owner elmt:LegacyFlow__Ctx___402 ;
+    sysml:owningRelationship expr:LegacyFlow__Ctx___402_pflowSource_om ;
+    sysml:owningMembership expr:LegacyFlow__Ctx___402_pflowSource_om ;
+    sysx:endIndex "0"^^xsd:integer ;
+    sysx:endRole "source" .
+
+expr:LegacyFlow__Ctx___402_pflowSource_pa0
+    a sysml:FeatureReferenceExpression ;
+    sysx:sourceText "x" ;
+    sysml:elementId "LegacyFlow__Ctx___402_pflowSource_pa0" ;
+    sysml:referent elmt:LegacyFlow__Ctx__x ;
+    sysml:owner expr:LegacyFlow__Ctx___402_pflowSource_pin0 ;
+    sysml:owningRelationship expr:LegacyFlow__Ctx___402_pflowSource_pa0_om ;
+    sysml:owningMembership expr:LegacyFlow__Ctx___402_pflowSource_pa0_om .
+
+expr:LegacyFlow__Ctx___402_pflowSource_pin0
+    a sysml:Feature ;
+    sysml:elementId "LegacyFlow__Ctx___402_pflowSource_pin0" ;
+    sysml:direction "in" ;
+    sysml:owner expr:LegacyFlow__Ctx___402_pflowSource ;
+    sysml:owningRelationship expr:LegacyFlow__Ctx___402_pflowSource_pin0_om ;
+    sysml:owningMembership expr:LegacyFlow__Ctx___402_pflowSource_pin0_om ;
+    sysml:ownedRelationship expr:LegacyFlow__Ctx___402_pflowSource_pa0_om ;
+    sysml:ownedMembership expr:LegacyFlow__Ctx___402_pflowSource_pa0_om .
+
+expr:LegacyFlow__Ctx___402_pflowSource_pin0_om
+    a sysml:ParameterMembership ;
+    sysml:elementId "LegacyFlow__Ctx___402_pflowSource_pin0_om" ;
+    sysml:owner expr:LegacyFlow__Ctx___402_pflowSource ;
+    sysml:memberElement expr:LegacyFlow__Ctx___402_pflowSource_pin0 ;
+    sysml:ownedMemberElement expr:LegacyFlow__Ctx___402_pflowSource_pin0 ;
+    sysml:ownedRelatedElement expr:LegacyFlow__Ctx___402_pflowSource_pin0 ;
+    sysml:owningRelatedElement expr:LegacyFlow__Ctx___402_pflowSource ;
+    sysml:membershipOwningNamespace expr:LegacyFlow__Ctx___402_pflowSource ;
+    sysml:ownedMemberFeature expr:LegacyFlow__Ctx___402_pflowSource_pin0 ;
+    sysml:ownedMemberParameter expr:LegacyFlow__Ctx___402_pflowSource_pin0 .
+
+expr:LegacyFlow__Ctx___402_pflowSource_pa0_om
+    a sysml:FeatureValue ;
+    sysml:elementId "LegacyFlow__Ctx___402_pflowSource_pa0_om" ;
+    sysml:owner expr:LegacyFlow__Ctx___402_pflowSource_pin0 ;
+    sysml:memberElement expr:LegacyFlow__Ctx___402_pflowSource_pa0 ;
+    sysml:ownedMemberElement expr:LegacyFlow__Ctx___402_pflowSource_pa0 ;
+    sysml:ownedRelatedElement expr:LegacyFlow__Ctx___402_pflowSource_pa0 ;
+    sysml:owningRelatedElement expr:LegacyFlow__Ctx___402_pflowSource_pin0 ;
+    sysml:membershipOwningNamespace expr:LegacyFlow__Ctx___402_pflowSource_pin0 ;
+    sysml:featureWithValue expr:LegacyFlow__Ctx___402_pflowSource_pin0 ;
+    sysml:value expr:LegacyFlow__Ctx___402_pflowSource_pa0 .
+
+expr:LegacyFlow__Ctx___402_pflowSource_om
+    a sysml:OwningMembership ;
+    sysml:elementId "LegacyFlow__Ctx___402_pflowSource_om" ;
+    sysml:owner elmt:LegacyFlow__Ctx___402 ;
+    sysml:memberElement expr:LegacyFlow__Ctx___402_pflowSource ;
+    sysml:ownedMemberElement expr:LegacyFlow__Ctx___402_pflowSource ;
+    sysml:ownedRelatedElement expr:LegacyFlow__Ctx___402_pflowSource ;
+    sysml:owningRelatedElement elmt:LegacyFlow__Ctx___402 ;
+    sysml:membershipOwningNamespace elmt:LegacyFlow__Ctx___402 .
+
+expr:LegacyFlow__Ctx___402_pflowTarget
+    a sysml:FeatureChainExpression ;
+    sysx:sourceText "y.j" ;
+    sysml:elementId "LegacyFlow__Ctx___402_pflowTarget" ;
+    sysml:argument expr:LegacyFlow__Ctx___402_pflowTarget_pa0 ;
+    sysml:ownedRelationship expr:LegacyFlow__Ctx___402_pflowTarget_pin0_om ;
+    sysml:ownedMembership expr:LegacyFlow__Ctx___402_pflowTarget_pin0_om ;
+    sysml:ownedFeatureMembership expr:LegacyFlow__Ctx___402_pflowTarget_pin0_om ;
+    sysml:ownedFeature expr:LegacyFlow__Ctx___402_pflowTarget_pin0 ;
+    sysml:parameter expr:LegacyFlow__Ctx___402_pflowTarget_pin0 ;
+    sysml:input expr:LegacyFlow__Ctx___402_pflowTarget_pin0 ;
+    sysml:targetFeature elmt:LegacyFlow__B__j ;
+    sysml:owner elmt:LegacyFlow__Ctx___402 ;
+    sysml:owningRelationship expr:LegacyFlow__Ctx___402_pflowTarget_om ;
+    sysml:owningMembership expr:LegacyFlow__Ctx___402_pflowTarget_om ;
+    sysx:endIndex "1"^^xsd:integer ;
+    sysx:endRole "target" .
+
+expr:LegacyFlow__Ctx___402_pflowTarget_pa0
+    a sysml:FeatureReferenceExpression ;
+    sysx:sourceText "y" ;
+    sysml:elementId "LegacyFlow__Ctx___402_pflowTarget_pa0" ;
+    sysml:referent elmt:LegacyFlow__Ctx__y ;
+    sysml:owner expr:LegacyFlow__Ctx___402_pflowTarget_pin0 ;
+    sysml:owningRelationship expr:LegacyFlow__Ctx___402_pflowTarget_pa0_om ;
+    sysml:owningMembership expr:LegacyFlow__Ctx___402_pflowTarget_pa0_om .
+
+expr:LegacyFlow__Ctx___402_pflowTarget_pin0
+    a sysml:Feature ;
+    sysml:elementId "LegacyFlow__Ctx___402_pflowTarget_pin0" ;
+    sysml:direction "in" ;
+    sysml:owner expr:LegacyFlow__Ctx___402_pflowTarget ;
+    sysml:owningRelationship expr:LegacyFlow__Ctx___402_pflowTarget_pin0_om ;
+    sysml:owningMembership expr:LegacyFlow__Ctx___402_pflowTarget_pin0_om ;
+    sysml:ownedRelationship expr:LegacyFlow__Ctx___402_pflowTarget_pa0_om ;
+    sysml:ownedMembership expr:LegacyFlow__Ctx___402_pflowTarget_pa0_om .
+
+expr:LegacyFlow__Ctx___402_pflowTarget_pin0_om
+    a sysml:ParameterMembership ;
+    sysml:elementId "LegacyFlow__Ctx___402_pflowTarget_pin0_om" ;
+    sysml:owner expr:LegacyFlow__Ctx___402_pflowTarget ;
+    sysml:memberElement expr:LegacyFlow__Ctx___402_pflowTarget_pin0 ;
+    sysml:ownedMemberElement expr:LegacyFlow__Ctx___402_pflowTarget_pin0 ;
+    sysml:ownedRelatedElement expr:LegacyFlow__Ctx___402_pflowTarget_pin0 ;
+    sysml:owningRelatedElement expr:LegacyFlow__Ctx___402_pflowTarget ;
+    sysml:membershipOwningNamespace expr:LegacyFlow__Ctx___402_pflowTarget ;
+    sysml:ownedMemberFeature expr:LegacyFlow__Ctx___402_pflowTarget_pin0 ;
+    sysml:ownedMemberParameter expr:LegacyFlow__Ctx___402_pflowTarget_pin0 .
+
+expr:LegacyFlow__Ctx___402_pflowTarget_pa0_om
+    a sysml:FeatureValue ;
+    sysml:elementId "LegacyFlow__Ctx___402_pflowTarget_pa0_om" ;
+    sysml:owner expr:LegacyFlow__Ctx___402_pflowTarget_pin0 ;
+    sysml:memberElement expr:LegacyFlow__Ctx___402_pflowTarget_pa0 ;
+    sysml:ownedMemberElement expr:LegacyFlow__Ctx___402_pflowTarget_pa0 ;
+    sysml:ownedRelatedElement expr:LegacyFlow__Ctx___402_pflowTarget_pa0 ;
+    sysml:owningRelatedElement expr:LegacyFlow__Ctx___402_pflowTarget_pin0 ;
+    sysml:membershipOwningNamespace expr:LegacyFlow__Ctx___402_pflowTarget_pin0 ;
+    sysml:featureWithValue expr:LegacyFlow__Ctx___402_pflowTarget_pin0 ;
+    sysml:value expr:LegacyFlow__Ctx___402_pflowTarget_pa0 .
+
+expr:LegacyFlow__Ctx___402_pflowTarget_om
+    a sysml:OwningMembership ;
+    sysml:elementId "LegacyFlow__Ctx___402_pflowTarget_om" ;
+    sysml:owner elmt:LegacyFlow__Ctx___402 ;
+    sysml:memberElement expr:LegacyFlow__Ctx___402_pflowTarget ;
+    sysml:ownedMemberElement expr:LegacyFlow__Ctx___402_pflowTarget ;
+    sysml:ownedRelatedElement expr:LegacyFlow__Ctx___402_pflowTarget ;
+    sysml:owningRelatedElement elmt:LegacyFlow__Ctx___402 ;
+    sysml:membershipOwningNamespace elmt:LegacyFlow__Ctx___402 .
+
+expr:LegacyFlow__Ctx___402_pflowPayload
+    a sysml:FeatureReferenceExpression ;
+    sysx:sourceText "Fuel" ;
+    sysml:elementId "LegacyFlow__Ctx___402_pflowPayload" ;
+    sysml:referent elmt:LegacyFlow__Fuel ;
+    sysml:owner elmt:LegacyFlow__Ctx___402 ;
+    sysml:owningRelationship expr:LegacyFlow__Ctx___402_pflowPayload_om ;
+    sysml:owningMembership expr:LegacyFlow__Ctx___402_pflowPayload_om ;
+    sysx:endRole "payload" .
+
+expr:LegacyFlow__Ctx___402_pflowPayload_om
+    a sysml:OwningMembership ;
+    sysml:elementId "LegacyFlow__Ctx___402_pflowPayload_om" ;
+    sysml:owner elmt:LegacyFlow__Ctx___402 ;
+    sysml:memberElement expr:LegacyFlow__Ctx___402_pflowPayload ;
+    sysml:ownedMemberElement expr:LegacyFlow__Ctx___402_pflowPayload ;
+    sysml:ownedRelatedElement expr:LegacyFlow__Ctx___402_pflowPayload ;
+    sysml:owningRelatedElement elmt:LegacyFlow__Ctx___402 ;
+    sysml:membershipOwningNamespace elmt:LegacyFlow__Ctx___402 .

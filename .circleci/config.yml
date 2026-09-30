@@ -3,10 +3,19 @@ version: 2.1
 orbs:
   go: circleci/go@1.10.0
 
+parameters:
+  release_rehearsal:
+    type: boolean
+    default: false
+    description: Run the release workflow on a branch without publishing anything (docs/project/releasing.md).
+
 executors:
   go-executor:
     docker:
-      - image: cimg/go:1.25
+      # The -node variant of the same image: the WebAssembly gate runs the wasm
+      # binaries under Node, and an absent runtime would make it skip.
+      # It carries Node LTS, 24 or later, which the gate needs.
+      - image: cimg/go:1.25-node
     resource_class: medium
   
   python-executor:
@@ -46,6 +55,47 @@ executors:
     resource_class: medium
 
 commands:
+  # In a rehearsal (the release_rehearsal pipeline parameter) CIRCLE_TAG is
+  # unset; this stands in for the tag the release steps read, before any of
+  # them runs. sed rather than python: the go and cibuilds images may lack it.
+  rehearsal-tag:
+    steps:
+      - when:
+          condition: << pipeline.parameters.release_rehearsal >>
+          steps:
+            - run:
+                name: "REHEARSAL: stand in for the release tag"
+                command: |
+                  version=$(sed -n 's/^VERSION *= *"\(.*\)" *$/\1/p' \
+                    client/python/opensysml/_version.py)
+                  # _version.py is PEP 440; the tag spells SemVer.
+                  case "$version" in
+                    *a[0-9]*) semver="${version%%a*}-alpha.${version##*a}" ;;
+                    *b[0-9]*) semver="${version%%b*}-beta.${version##*b}" ;;
+                    *rc[0-9]*) semver="${version%%rc*}-rc.${version##*rc}" ;;
+                    *) semver="$version" ;;
+                  esac
+                  if ! echo "$semver" | grep -Eq '^[0-9]+\.[0-9]+\.[0-9]+(-(alpha|beta|rc)\.[0-9]+)?$'; then
+                    echo "Error: VERSION '$version' is not a release or an a/b/rc"
+                    echo "pre-release; there is no SemVer tag spelling for it."
+                    exit 1
+                  fi
+                  echo "export CIRCLE_TAG=v${semver}" >> "$BASH_ENV"
+                  echo "REHEARSAL: standing in for tag v${semver} (no tag exists; nothing will be published)"
+
+  # Names the irreversible step a rehearsal leaves out.
+  rehearsal-skip:
+    parameters:
+      what:
+        type: string
+    steps:
+      - when:
+          condition: << pipeline.parameters.release_rehearsal >>
+          steps:
+            - run:
+                name: "REHEARSAL: skip << parameters.what >>"
+                command: 'echo "REHEARSAL: skipping << parameters.what >>"'
+
   # The solver is an external process: without one on PATH the
   # solver-dependent tests would skip rather than run.
   install-solvers:
@@ -69,6 +119,19 @@ commands:
             unzip -p /tmp/cvc5.zip '*/bin/cvc5' > /tmp/cvc5-bin
             sudo install -m 0755 /tmp/cvc5-bin /usr/local/bin/cvc5
             cvc5 --version | head -1
+
+  # The FMI gate runs `python3` over FMPy; the executor's python3 has no pip and is
+  # externally managed, so FMPy goes in a venv that later steps put first on PATH.
+  install-fmpy:
+    steps:
+      - run:
+          name: Install fmpy
+          command: |
+            sudo apt-get update
+            sudo apt-get install -y --no-install-recommends python3-venv
+            python3 -m venv "$HOME/fmpy-venv"
+            "$HOME/fmpy-venv/bin/pip" install --only-binary ":all:" fmpy==0.3.32
+            echo 'export PATH="$HOME/fmpy-venv/bin:$PATH"' >> "$BASH_ENV"
 
   # The corpora are not vendored and the gates skip while they are absent, so a
   # release tag could be cut over a corpus regression without them.
@@ -150,6 +213,21 @@ commands:
           key: pilot-library-xmi-v1-{{ checksum "scripts/download-pilot-library-xmi.sh" }}-{{ checksum "scripts/pilot-pin.sh" }}
           paths:
             - build/pilot-library-xmi
+
+      # The Modelica Reference-FMUs, gated by tests/fmi and the Python runner's
+      # real test; pinned by tag and checksum like the corpora above.
+      - restore_cache:
+          keys:
+            - reference-fmus-v1-{{ checksum "scripts/download-reference-fmus.sh" }}-{{ checksum "scripts/reference-fmus-pin.sh" }}
+
+      - run:
+          name: Download the Reference-FMUs
+          command: ./scripts/download-reference-fmus.sh
+
+      - save_cache:
+          key: reference-fmus-v1-{{ checksum "scripts/download-reference-fmus.sh" }}-{{ checksum "scripts/reference-fmus-pin.sh" }}
+          paths:
+            - examples/reference-fmus
 
       - run:
           name: Verify the OMG pilot corpora
@@ -298,7 +376,7 @@ jobs:
               client/java/opensysml-client/src/main/java/org/openmbee/opensysml/proto
 
   # The race-enabled suite. It is the longest single step in the pipeline, so
-  # it gets the larger class and four executors, one package shard each.
+  # it gets the larger class and four executors, one named package shard each.
   go-race-test:
     executor: go-executor
     resource_class: large
@@ -311,15 +389,25 @@ jobs:
       - install-solvers
       - download-corpora
 
-      # Sharded by package: the suite's slowest packages run near the 30m
-      # per-package timeout when they share one executor.
+      - install-fmpy
+
+      # One scripts/race-shard.sh shard per node: internal/exec/runtime alone peaks near
+      # 6.5 GB under -race, so it shares its 8 GB node only sequentially (tests/wasm, tools).
       - run:
           name: Run Go race tests
           command: |
             set -o pipefail
-            pkgs=$(go list ./... | circleci tests split --split-by=name)
+            shards=(runtime model export rest)
+            if [ "$CIRCLE_NODE_TOTAL" != "${#shards[@]}" ]; then
+              echo "error: parallelism is $CIRCLE_NODE_TOTAL, but scripts/race-shard.sh has ${#shards[@]} shards" >&2
+              exit 1
+            fi
+            shard=${shards[$CIRCLE_NODE_INDEX]}
+            pkgs=$(scripts/race-shard.sh "$shard")
+            echo "shard $shard:"; echo "$pkgs"
             go test -v -race -pgo=off -timeout 30m $pkgs
-            if [ "$CIRCLE_NODE_INDEX" = "0" ]; then
+            if [ "$shard" = runtime ]; then
+              go test -v -race -pgo=off -timeout 30m ./tests/wasm
               go test -C tools -v -race -pgo=off -timeout 30m ./...
             fi
           no_output_timeout: 30m
@@ -333,6 +421,12 @@ jobs:
             OPENSYSML_REQUIRE_PILOT_LIBRARY_XMI: "1"
             # Same for the solver installed above: absent means failure, not skip.
             OPENSYSML_REQUIRE_SMT: "1"
+            # Same for Node, which the executor carries: the WebAssembly gate runs
+            # the wasm binaries rather than skipping without a runtime (tests/wasm).
+            OPENSYSML_REQUIRE_WASM: "1"
+            # Same for the Reference-FMUs and fmpy, fetched and installed above:
+            # the FMI gate runs rather than skips (tests/fmi).
+            OPENSYSML_REQUIRE_REFERENCE_FMUS: "1"
 
   # A second, race-free pass, because the profile the scan reads is written
   # with -coverpkg, which is too slow to instrument under -race.
@@ -348,6 +442,8 @@ jobs:
       - install-solvers
       - download-corpora
 
+      - install-fmpy
+
       - run:
           name: Write the coverage profile the scan reads
           command: make coverage
@@ -359,6 +455,11 @@ jobs:
             OPENSYSML_REQUIRE_FUML_SUITE: "1"
             OPENSYSML_REQUIRE_PILOT_LIBRARY_XMI: "1"
             OPENSYSML_REQUIRE_SMT: "1"
+            # Node is on the executor, so the WebAssembly gate runs rather than
+            # skips without a runtime (tests/wasm).
+            OPENSYSML_REQUIRE_WASM: "1"
+            # Same for the Reference-FMUs and fmpy (tests/fmi).
+            OPENSYSML_REQUIRE_REFERENCE_FMUS: "1"
 
       - persist_to_workspace:
           root: .
@@ -553,6 +654,25 @@ jobs:
                 exit 1
               }
             done
+
+      # The WebAssembly gate: both wasm targets compiled and vetted, the commands
+      # linked and then run. Node is on the executor, so the require variable makes
+      # an absent runtime a failure and the check below makes a skip one too.
+      # Compiling both targets takes this executor about ten minutes, so the gate
+      # needs more than go test's default ten-minute budget.
+      - run:
+          name: Run the WebAssembly gate
+          command: |
+            set -o pipefail
+            node --version
+            go test -count=1 -v -timeout 30m ./tests/wasm | tee wasm-gate.log
+            if grep -qE '^\s*--- SKIP' wasm-gate.log; then
+              echo "error: the WebAssembly gate skipped" >&2
+              exit 1
+            fi
+          no_output_timeout: 30m
+          environment:
+            OPENSYSML_REQUIRE_WASM: "1"
 
       # The conformance suite: the runner builds and starts sysml-grpc itself, so
       # this gate proves the whole path a client takes, not a pre-started service.
@@ -822,6 +942,10 @@ jobs:
           command: |
             go version
 
+      # The FMI runner test reads the Reference-FMUs under examples/, downloaded
+      # by the same command the Go jobs run.
+      - download-corpora
+
       - run:
           name: Install sysml-grpc
           command: |
@@ -834,7 +958,7 @@ jobs:
           command: |
             make python-install
             # Pinned and wheel-only, as in .github/workflows/pr.yml.
-            pip install --only-binary :all: pytest==9.0.3 pytest-mock==3.15.1 psutil==7.2.2 pytest-cov==7.0.0
+            pip install --only-binary :all: pytest==9.0.3 pytest-mock==3.15.1 psutil==7.2.2 pytest-cov==7.0.0 fmpy==0.3.32
       
       # The integration tests connect to a service on the standard port with
       # auto_start=False, which is the explicit opt-in to one the client does not
@@ -868,7 +992,7 @@ jobs:
       # service is provided here, so its absence is the bug, not a pass.
       - run:
           name: Run Python client tests
-          command: OPENSYSML_REQUIRE_SERVICE=1 make python-coverage
+          command: OPENSYSML_REQUIRE_SERVICE=1 OPENSYSML_REQUIRE_REFERENCE_FMUS=1 make python-coverage
 
       # The repository scripts the Go static checks run are Python too; running
       # them and their tests under coverage here credits what those checks execute.
@@ -986,6 +1110,15 @@ jobs:
     executor: julia-executor
     steps:
       - checkout
+
+      # The julia image carries no make, which the build and conformance steps
+      # run; it runs as root, so apt needs no sudo.
+      - run:
+          name: Install make
+          command: |
+            apt-get update
+            apt-get install -y --no-install-recommends make
+            make --version | head -1
 
       - go/install:
           version: "1.25.0"
@@ -1249,6 +1382,7 @@ jobs:
     executor: python-executor
     steps:
       - checkout
+      - rehearsal-tag
 
       - run:
           name: Install build tooling
@@ -1261,8 +1395,21 @@ jobs:
             # package would publish, before anything is built.
             VERSION="$(python client/python/scripts/check_version.py)"
             PRE_RELEASE="$(python client/python/scripts/check_version.py --pre-release)"
+            # The Node client is published at the same version, so a
+            # client/node/package.json that disagrees fails the release here,
+            # before anything is built; the Java client's pom and the Rust
+            # crate's Cargo.toml the same.
+            NPM_VERSION="$(python client/python/scripts/check_version.py --node)"
+            JAVA_VERSION="$(python client/python/scripts/check_version.py --java)"
+            RUST_VERSION="$(python client/python/scripts/check_version.py --rust)"
+            # Nothing publishes the editors, but their manifests carry the same
+            # version, so a tag fails here when one disagrees; no export needed.
+            python client/python/scripts/check_version.py --editors > /dev/null
             echo "export OPENSYSML_VERSION=${VERSION}" >> "$BASH_ENV"
-            echo "Building opensysml ${VERSION} (pre-release: ${PRE_RELEASE})"
+            echo "export NPM_VERSION=${NPM_VERSION}" >> "$BASH_ENV"
+            echo "export JAVA_VERSION=${JAVA_VERSION}" >> "$BASH_ENV"
+            echo "export RUST_VERSION=${RUST_VERSION}" >> "$BASH_ENV"
+            echo "Building opensysml ${VERSION} (pre-release: ${PRE_RELEASE}, npm ${NPM_VERSION}, maven ${JAVA_VERSION}, crates ${RUST_VERSION})"
 
       - run:
           name: Build the wheel and the sdist
@@ -1313,6 +1460,7 @@ jobs:
     executor: python-executor
     steps:
       - checkout
+      - rehearsal-tag
       - attach_workspace:
           at: .
 
@@ -1383,23 +1531,35 @@ jobs:
           name: Check the metadata (twine check --strict)
           command: python -m twine check --strict client/python/dist/*
 
-      - run:
-          name: Upload to the index
-          command: |
-            # The token is read straight into twine's environment: nothing here
-            # echoes it, and nothing in this job prints the environment.
-            export TWINE_USERNAME=__token__
-            if [ "$OPENSYSML_PRE_RELEASE" = "yes" ]; then
-              export TWINE_REPOSITORY_URL=https://test.pypi.org/legacy/
-              export TWINE_PASSWORD="$TEST_PYPI_API_TOKEN"
-              echo "Uploading opensysml ${OPENSYSML_VERSION} to TestPyPI"
-            else
-              export TWINE_PASSWORD="$PYPI_API_TOKEN"
-              echo "Uploading opensysml ${OPENSYSML_VERSION} to PyPI"
-            fi
-            # No --skip-existing: a version that appeared since the check above
-            # must fail the job rather than pass silently.
-            python -m twine upload client/python/dist/*
+      - unless:
+          condition: << pipeline.parameters.release_rehearsal >>
+          steps:
+            - run:
+                name: Upload to the index
+                command: |
+                  # The token is read straight into twine's environment: nothing here
+                  # echoes it, and nothing in this job prints the environment.
+                  export TWINE_USERNAME=__token__
+                  if [ "$OPENSYSML_PRE_RELEASE" = "yes" ]; then
+                    export TWINE_REPOSITORY_URL=https://test.pypi.org/legacy/
+                    export TWINE_PASSWORD="$TEST_PYPI_API_TOKEN"
+                    echo "Uploading opensysml ${OPENSYSML_VERSION} to TestPyPI"
+                  else
+                    export TWINE_PASSWORD="$PYPI_API_TOKEN"
+                    echo "Uploading opensysml ${OPENSYSML_VERSION} to PyPI"
+                  fi
+                  # No --skip-existing: a version that appeared since the check above
+                  # must fail the job rather than pass silently.
+                  python -m twine upload client/python/dist/*
+      - when:
+          condition: << pipeline.parameters.release_rehearsal >>
+          steps:
+            - run:
+                name: "REHEARSAL: no twine upload"
+                command: |
+                  echo "REHEARSAL: PyPI has no read-only token check; the token's presence was checked above."
+      - rehearsal-skip:
+          what: "twine upload"
 
   # Publishes packaging/pypi-pysysml on a `pysysml-v<version>` tag: the final
   # release of the pre-rename name, which raises on import to point at
@@ -1496,6 +1656,7 @@ jobs:
     executor: go-executor
     steps:
       - checkout
+      - rehearsal-tag
       - attach_workspace:
           at: .
       - go/load-cache
@@ -1618,83 +1779,88 @@ jobs:
               dist/sysml-lsp-linux-amd64 dist/sysml-lsp-linux-arm64 \
               dist/grpc/sysml-grpc-linux-amd64 dist/grpc/sysml-grpc-linux-arm64
 
-      # Signs the manifest keylessly: the certificate identity comes from this
-      # job's CircleCI OIDC token, so there is no signing key to store.
-      - run:
-          name: Sign the checksum manifest with cosign keyless
-          command: |
-            go install github.com/sigstore/cosign/v3/cmd/cosign@v3.0.3
-            export PATH="$(go env GOPATH)/bin:$PATH"
+      - unless:
+          condition: << pipeline.parameters.release_rehearsal >>
+          steps:
+            # Signs the manifest keylessly: the certificate identity comes from this
+            # job's CircleCI OIDC token, so there is no signing key to store.
+            - run:
+                name: Sign the checksum manifest with cosign keyless
+                command: |
+                  go install github.com/sigstore/cosign/v3/cmd/cosign@v3.0.3
+                  export PATH="$(go env GOPATH)/bin:$PATH"
 
-            # Fulcio requires the 'sigstore' audience, which the ambient
-            # $CIRCLE_OIDC_TOKEN_V2 does not carry.
-            SIGSTORE_ID_TOKEN="$(circleci run oidc get --claims '{"aud": "sigstore"}')"
-            export SIGSTORE_ID_TOKEN
+                  # Fulcio requires the 'sigstore' audience, which the ambient
+                  # $CIRCLE_OIDC_TOKEN_V2 does not carry.
+                  SIGSTORE_ID_TOKEN="$(circleci run oidc get --claims '{"aud": "sigstore"}')"
+                  export SIGSTORE_ID_TOKEN
 
-            cd dist
-            cosign sign-blob SHA256SUMS.txt \
-              --oidc-issuer "https://oidc.circleci.com/org/${CIRCLE_ORGANIZATION_ID}" \
-              --bundle SHA256SUMS.txt.bundle \
-              --use-signing-config=false \
-              --yes
+                  cd dist
+                  cosign sign-blob SHA256SUMS.txt \
+                    --oidc-issuer "https://oidc.circleci.com/org/${CIRCLE_ORGANIZATION_ID}" \
+                    --bundle SHA256SUMS.txt.bundle \
+                    --use-signing-config=false \
+                    --yes
 
-      # Fails the release rather than publish a signature the client's pinned
-      # identity would reject, and prints the identity that signed.
-      - run:
-          name: Verify the signature against the identity clients pin
-          command: |
-            export PATH="$(go env GOPATH)/bin:$PATH"
-            cd dist
-            cosign verify-blob SHA256SUMS.txt \
-              --bundle SHA256SUMS.txt.bundle \
-              --certificate-oidc-issuer "https://oidc.circleci.com/org/${CIRCLE_ORGANIZATION_ID}" \
-              --certificate-identity-regexp "^https://circleci\\.com/api/v2/projects/${CIRCLE_PROJECT_ID}/pipeline-definitions/[0-9a-f]{8}(-[0-9a-f]{4}){3}-[0-9a-f]{12}$"
-            echo "Signed by:"
-            jq -r '.verificationMaterial.certificate.rawBytes' SHA256SUMS.txt.bundle \
-              | base64 -d | openssl x509 -inform DER -noout -text \
-              | grep -A1 -E '1\.3\.6\.1\.4\.1\.57264\.1\.8:|URI:' || true
+            # Fails the release rather than publish a signature the client's pinned
+            # identity would reject, and prints the identity that signed.
+            - run:
+                name: Verify the signature against the identity clients pin
+                command: |
+                  export PATH="$(go env GOPATH)/bin:$PATH"
+                  cd dist
+                  cosign verify-blob SHA256SUMS.txt \
+                    --bundle SHA256SUMS.txt.bundle \
+                    --certificate-oidc-issuer "https://oidc.circleci.com/org/${CIRCLE_ORGANIZATION_ID}" \
+                    --certificate-identity-regexp "^https://circleci\\.com/api/v2/projects/${CIRCLE_PROJECT_ID}/pipeline-definitions/[0-9a-f]{8}(-[0-9a-f]{4}){3}-[0-9a-f]{12}$"
+                  echo "Signed by:"
+                  jq -r '.verificationMaterial.certificate.rawBytes' SHA256SUMS.txt.bundle \
+                    | base64 -d | openssl x509 -inform DER -noout -text \
+                    | grep -A1 -E '1\.3\.6\.1\.4\.1\.57264\.1\.8:|URI:' || true
 
-      # SLSA provenance over every artifact the manifest lists, signed under the
-      # same CircleCI identity as the manifest; the bundle carries the statement.
-      - run:
-          name: Attest the release's SLSA provenance with cosign keyless
-          command: |
-            export PATH="$(go env GOPATH)/bin:$PATH"
-            python3 scripts/release-provenance.py \
-              --manifest dist/SHA256SUMS.txt --out dist/provenance.intoto.json
-            SIGSTORE_ID_TOKEN="$(circleci run oidc get --claims '{"aud": "sigstore"}')"
-            export SIGSTORE_ID_TOKEN
+            # SLSA provenance over every artifact the manifest lists, signed under the
+            # same CircleCI identity as the manifest; the bundle carries the statement.
+            - run:
+                name: Attest the release's SLSA provenance with cosign keyless
+                command: |
+                  export PATH="$(go env GOPATH)/bin:$PATH"
+                  python3 scripts/release-provenance.py \
+                    --manifest dist/SHA256SUMS.txt --out dist/provenance.intoto.json
+                  SIGSTORE_ID_TOKEN="$(circleci run oidc get --claims '{"aud": "sigstore"}')"
+                  export SIGSTORE_ID_TOKEN
 
-            cd dist
-            cosign attest-blob SHA256SUMS.txt \
-              --statement provenance.intoto.json \
-              --type slsaprovenance1 \
-              --oidc-issuer "https://oidc.circleci.com/org/${CIRCLE_ORGANIZATION_ID}" \
-              --bundle provenance.intoto.json.bundle \
-              --use-signing-config=false \
-              --yes
+                  cd dist
+                  cosign attest-blob SHA256SUMS.txt \
+                    --statement provenance.intoto.json \
+                    --type slsaprovenance1 \
+                    --oidc-issuer "https://oidc.circleci.com/org/${CIRCLE_ORGANIZATION_ID}" \
+                    --bundle provenance.intoto.json.bundle \
+                    --use-signing-config=false \
+                    --yes
 
-      # Verifies the attestation against a published artifact, so a statement
-      # whose subjects do not name the release's bytes fails the release here.
-      - run:
-          name: Verify the provenance names the artifacts under the identity clients pin
-          command: |
-            export PATH="$(go env GOPATH)/bin:$PATH"
-            cd dist
-            for artifact in opensysml-linux-amd64.tar.gz grpc/sysml-grpc-linux-amd64 opensysml-*-py3-none-any.whl; do
-              cosign verify-blob-attestation "$artifact" \
-                --bundle provenance.intoto.json.bundle \
-                --type slsaprovenance1 \
-                --certificate-oidc-issuer "https://oidc.circleci.com/org/${CIRCLE_ORGANIZATION_ID}" \
-                --certificate-identity-regexp "^https://circleci\\.com/api/v2/projects/${CIRCLE_PROJECT_ID}/pipeline-definitions/[0-9a-f]{8}(-[0-9a-f]{4}){3}-[0-9a-f]{12}$"
-              echo "ok: provenance names $artifact"
-            done
-            # Every manifest line must be a subject, and nothing else may be.
-            diff <(sed 's/^\([0-9a-f]*\)  \(.*\)$/\2 \1/' SHA256SUMS.txt | sort) \
-                 <(jq -r '.dsseEnvelope.payload' provenance.intoto.json.bundle | base64 -d \
-                   | jq -r '.subject[] | "\(.name) \(.digest.sha256)"' | sort)
+            # Verifies the attestation against a published artifact, so a statement
+            # whose subjects do not name the release's bytes fails the release here.
+            - run:
+                name: Verify the provenance names the artifacts under the identity clients pin
+                command: |
+                  export PATH="$(go env GOPATH)/bin:$PATH"
+                  cd dist
+                  for artifact in opensysml-linux-amd64.tar.gz grpc/sysml-grpc-linux-amd64 opensysml-*-py3-none-any.whl; do
+                    cosign verify-blob-attestation "$artifact" \
+                      --bundle provenance.intoto.json.bundle \
+                      --type slsaprovenance1 \
+                      --certificate-oidc-issuer "https://oidc.circleci.com/org/${CIRCLE_ORGANIZATION_ID}" \
+                      --certificate-identity-regexp "^https://circleci\\.com/api/v2/projects/${CIRCLE_PROJECT_ID}/pipeline-definitions/[0-9a-f]{8}(-[0-9a-f]{4}){3}-[0-9a-f]{12}$"
+                    echo "ok: provenance names $artifact"
+                  done
+                  # Every manifest line must be a subject, and nothing else may be.
+                  diff <(sed 's/^\([0-9a-f]*\)  \(.*\)$/\2 \1/' SHA256SUMS.txt | sort) \
+                       <(jq -r '.dsseEnvelope.payload' provenance.intoto.json.bundle | base64 -d \
+                         | jq -r '.subject[] | "\(.name) \(.digest.sha256)"' | sort)
 
       
+      - rehearsal-skip:
+          what: "cosign keyless signing and attestation (they write to the public Rekor log)"
       # An artifact whose version disagrees with its tag looks identical on the
       # release page. The host-platform builds are asked what they report; the
       # cross-compiled ones cannot run here, so they are checked for the version
@@ -1758,83 +1924,89 @@ jobs:
           paths:
             - dist
 
-  # The five sysml-grpc binaries the per-platform npm packages carry, built from
-  # the tagged revision in this pipeline so the published bytes never travel.
-  build-node-binaries:
-    executor: go-executor
-    steps:
-      - checkout
-      - go/load-cache
-      - go/mod-download
-
-      - run:
-          name: Cross-compile sysml-grpc and write its checksum sidecars
-          command: |
-            VERSION=${CIRCLE_TAG}
-            COMMIT=${CIRCLE_SHA1}
-            BUILD_TIME=$(date -u '+%Y-%m-%d_%H:%M:%S')
-            GO_VERSION=$(go version | awk '{print $3}')
-            mkdir -p dist/grpc
-            build() {
-              GOOS=$1 GOARCH=$2 make build-grpc VERSION="$VERSION" COMMIT="$COMMIT" \
-                BUILD_TIME="$BUILD_TIME" GO_VERSION="$GO_VERSION"
-              mv bin/sysml-grpc "dist/grpc/sysml-grpc-$1-$2$3"
-            }
-            build linux amd64 ""
-            build linux arm64 ""
-            build darwin amd64 ""
-            build darwin arm64 ""
-            build windows amd64 ".exe"
-            cd dist/grpc
-            for asset in sysml-grpc-*; do sha256sum "$asset" > "$asset.sha256"; done
-            cat ./*.sha256
-
-      - run:
-          name: Verify the Linux binaries are statically linked
-          command: scripts/check-static-binaries.sh dist/grpc/sysml-grpc-linux-*
-
-      - persist_to_workspace:
-          root: .
-          paths:
-            - dist/grpc
-
-  # Publishes @opensysml/client and its five per-platform packages on a
-  # `client-node-v<version>` tag. npm has no trusted publishing for CircleCI, so
-  # this authenticates with an automation token from the restricted `npm`
-  # context. Everything that can fail runs before the first publish: the
-  # tag/version check, the client's own gate, the digest check on every binary,
-  # and a refusal when the version is already published. The platform
-  # packages go first, because @opensysml/client's optionalDependencies name them
-  # at this exact version.
+  # Publishes @openmbee/opensysml and its five per-platform packages from the
+  # core `v<version>` tag, carrying the sysml-grpc binaries build-release
+  # published — the same bytes as the GitHub release. npm has no trusted
+  # publishing for CircleCI, so this authenticates with a granular token from
+  # the restricted `npm` context. Everything that can fail runs before the
+  # first publish: the tag/version check, the registry check, the token, the
+  # client's own gate, and the digest check on every binary. The platform
+  # packages go first, because the client's optionalDependencies name them at
+  # this exact version.
   publish-npm:
     executor: node-executor
     steps:
       - checkout
+      - rehearsal-tag
 
       - attach_workspace:
           at: .
 
       - run:
-          name: Check the tag matches the package version
+          name: Resolve the version from the tag
           command: |
+            if [ -z "${CIRCLE_TAG}" ]; then
+              echo "Error: CIRCLE_TAG is empty; this job only runs on a core v* tag."
+              exit 1
+            fi
             version=$(node -p "require('./client/node/package.json').version")
-            expected="client-node-v${version}"
-            if [ "${CIRCLE_TAG}" != "$expected" ]; then
+            # npm publishes the version package.json declares, so the tag must
+            # spell it exactly; build-python-package has already checked
+            # package.json against _version.py.
+            if [ "${CIRCLE_TAG}" != "v${version}" ]; then
               echo "Error: tag ${CIRCLE_TAG} does not match client/node/package.json"
-              echo "version ${version}; the tag for it is ${expected}. Nothing was published."
+              echo "version ${version}; the tag for it is v${version}. Nothing was published."
+              exit 1
+            fi
+            # check_version.py admits only alpha/beta/rc suffixes, so a SemVer
+            # pre-release here is exactly a PEP 440 pre-release — the ones
+            # publish-pypi routes to TestPyPI. npm has no test registry, so a
+            # pre-release goes to the `next` dist-tag and `latest` is untouched.
+            case "$version" in
+              *-*) dist_tag=next ;;
+              *) dist_tag=latest ;;
+            esac
+            echo "export NPM_VERSION=${version}" >> "$BASH_ENV"
+            echo "export NPM_DIST_TAG=${dist_tag}" >> "$BASH_ENV"
+            echo "Publishing ${version} to the '${dist_tag}' dist-tag"
+            # Proves the workspace carries the release binaries and sidecars.
+            ls -l dist/grpc/sysml-grpc-*
+
+      - run:
+          name: Require the publishing token
+          command: |
+            # Checked early so a missing token fails before anything else;
+            # never echoed. The 'npm' context supplies it — see
+            # docs/project/releasing.md.
+            if [ -z "${NPM_TOKEN}" ]; then
+              echo "Error: NPM_TOKEN is not set; the restricted 'npm' context supplies it."
+              echo "See docs/project/releasing.md for how to provision it."
               exit 1
             fi
 
       - run:
           name: Refuse a version already on the registry
           command: |
-            version=$(node -p "require('./client/node/package.json').version")
-            for name in @opensysml/client @opensysml/sysml-grpc-linux-x64 \
-                        @opensysml/sysml-grpc-linux-arm64 @opensysml/sysml-grpc-darwin-x64 \
-                        @opensysml/sysml-grpc-darwin-arm64 @opensysml/sysml-grpc-win32-x64; do
-              if npm view "${name}@${version}" version > /dev/null 2>&1; then
-                echo "Error: ${name}@${version} is already published; a version cannot be"
-                echo "replaced. Bump client/node/package.json and tag again."
+            # The package names come from package.json, not a literal list:
+            # the client itself plus the optionalDependencies that carry the
+            # platform binaries. Anything but six means the manifest drifted.
+            names=$(node -e "
+              const pkg = require('./client/node/package.json');
+              const platforms = Object.keys(pkg.optionalDependencies || {})
+                .filter(n => n.startsWith(pkg.name + '-sysml-grpc-'));
+              console.log([pkg.name, ...platforms].join('\n'));
+            ")
+            count=$(echo "$names" | wc -l)
+            if [ "$count" -ne 6 ]; then
+              echo "Error: expected 6 packages to publish (client + 5 platform),"
+              echo "package.json yields $count:"
+              echo "$names"
+              exit 1
+            fi
+            for name in $names; do
+              if npm view "${name}@${NPM_VERSION}" version > /dev/null 2>&1; then
+                echo "Error: ${name}@${NPM_VERSION} is already published; a version cannot be"
+                echo "replaced. Bump client/node/package.json and cut the next core release."
                 exit 1
               fi
             done
@@ -1854,85 +2026,372 @@ jobs:
       - run:
           name: Build the per-platform packages
           command: |
+            # These are build-release's bytes; the generator checks each one
+            # against its .sha256 sidecar before packaging it.
             cd client/node
             npm run platform-packages -- --binaries ../../dist/grpc
 
       - run:
           name: Authenticate to npm
           command: |
-            if [ -z "${NPM_TOKEN}" ]; then
-              echo "Error: NPM_TOKEN is not set; the 'npm' context supplies it."
+            echo "//registry.npmjs.org/:_authToken=${NPM_TOKEN}" > ~/.npmrc
+            # A bad or expired token fails here, before the first publish.
+            npm whoami
+
+      - unless:
+          condition: << pipeline.parameters.release_rehearsal >>
+          steps:
+            # No --provenance: the npm CLI only mints attestations on GitHub Actions and
+            # GitLab CI/CD, and it fails rather than publish unattested when asked here.
+            - run:
+                name: Publish the per-platform packages
+                command: |
+                  for directory in client/node/packages/sysml-grpc-*; do
+                    npm publish "$directory" --access public --tag "$NPM_DIST_TAG"
+                  done
+
+            - run:
+                name: Publish @openmbee/opensysml
+                command: |
+                  cd client/node
+                  npm publish --access public --tag "$NPM_DIST_TAG"
+      - when:
+          condition: << pipeline.parameters.release_rehearsal >>
+          steps:
+            - run:
+                name: "REHEARSAL: pack every package"
+                command: |
+                  for directory in client/node/packages/sysml-grpc-*; do
+                    npm pack "$directory" --dry-run
+                  done
+                  (cd client/node && npm pack --dry-run)
+      - rehearsal-skip:
+          what: "npm publish"
+
+  # Publishes org.openmbee:opensysml-client and its parent pom to Maven Central
+  # from the core `v<version>` tag. Central has no trusted publishing, so a
+  # portal token and the release signing key come from the
+  # restricted 'Maven Central' context. Everything that can fail runs before the upload:
+  # the tag/version check, the Central availability check, the credentials, and
+  # a proof the signing key and passphrase work. The deploy auto-publishes the
+  # validated deployment and waits until it is published.
+  publish-maven:
+    executor: java-executor
+    steps:
+      - checkout
+      - rehearsal-tag
+
+      - restore_cache:
+          keys:
+            - maven-v1-{{ checksum "client/java/pom.xml" }}-{{ checksum "client/java/opensysml-client/pom.xml" }}-{{ checksum "client/java/opensysml-conformance/pom.xml" }}
+            - maven-v1-
+
+      - run:
+          name: Resolve the version from the tag
+          command: |
+            if [ -z "${CIRCLE_TAG}" ]; then
+              echo "Error: CIRCLE_TAG is empty; this job only runs on a core v* tag."
               exit 1
             fi
-            echo "//registry.npmjs.org/:_authToken=${NPM_TOKEN}" > ~/.npmrc
+            version=$(mvn -B -q -f client/java/pom.xml help:evaluate \
+              -Dexpression=project.version -DforceStdout)
+            # Central publishes the version the pom declares, so the tag must
+            # spell it exactly; build-python-package has already checked the pom
+            # against _version.py.
+            if [ "${CIRCLE_TAG}" != "v${version}" ]; then
+              echo "Error: tag ${CIRCLE_TAG} does not match client/java/pom.xml"
+              echo "version ${version}; the tag for it is v${version}. Nothing was published."
+              exit 1
+            fi
+            # Central has no test registry, so a pre-release (-rc1, -alpha.1…)
+            # is published as an ordinary, permanent version that Maven orders
+            # before the release; a snapshot is refused outright.
+            case "$version" in
+              *-SNAPSHOT)
+                echo "Error: ${version} is a snapshot; Central releases are immutable."
+                exit 1 ;;
+            esac
+            echo "export JAVA_VERSION=${version}" >> "$BASH_ENV"
+            echo "Publishing org.openmbee:opensysml-client:${version}"
 
-      # No --provenance: the npm CLI only mints attestations on GitHub Actions and
-      # GitLab CI/CD, and it fails rather than publish unattested when asked here.
       - run:
-          name: Publish the per-platform packages
+          name: Require the publishing credentials
           command: |
-            for directory in client/node/packages/sysml-grpc-*; do
-              npm publish "$directory" --access public
+            # Names only, never values; the 'Maven Central' context supplies them.
+            for name in CENTRAL_TOKEN_USERNAME CENTRAL_TOKEN_PASSWORD \
+                        GPG_PRIVATE_KEY GPG_PASSPHRASE; do
+              if [ -z "${!name:-}" ]; then
+                echo "Error: ${name} is not set; add it to the 'Maven Central' context (Organization Settings → Contexts)."
+                exit 1
+              fi
             done
 
       - run:
-          name: Publish @opensysml/client
+          name: Refuse a version already on Central
           command: |
-            cd client/node
-            npm publish --access public
+            for artifact in opensysml-parent opensysml-client; do
+              code=$(curl -s -o /dev/null -w '%{http_code}' \
+                "https://repo1.maven.org/maven2/org/openmbee/${artifact}/${JAVA_VERSION}/")
+              case "$code" in
+                200)
+                  echo "Error: org.openmbee:${artifact}:${JAVA_VERSION} is already on Central;"
+                  echo "a published version cannot be replaced. Cut the next core release."
+                  exit 1 ;;
+                404) ;;
+                *)
+                  echo "Error: could not ask Central (HTTP $code); refusing rather than guessing."
+                  exit 1 ;;
+              esac
+            done
+
+      - run:
+          name: Import the signing key
+          command: |
+            if ! command -v gpg > /dev/null; then
+              sudo apt-get update && sudo apt-get install -y gnupg
+            fi
+            printf '%s\n' "$GPG_PRIVATE_KEY" | gpg --batch --import
+            # Prove key and passphrase work before anything uploads: a clearsign
+            # with an expired key or a wrong passphrase fails here.
+            exec 3\<<<"$GPG_PASSPHRASE"
+            echo check | gpg --batch --pinentry-mode loopback \
+              --passphrase-fd 3 --clearsign > /dev/null
+            exec 3<&-
+
+      - run:
+          name: Write the Maven settings
+          command: |
+            mkdir -p ~/.m2
+            # Env interpolation keeps the portal token off disk.
+            printf '%s\n' \
+              '<settings>' \
+              '  <servers>' \
+              '    <server>' \
+              '      <id>central</id>' \
+              '      <username>${env.CENTRAL_TOKEN_USERNAME}</username>' \
+              '      <password>${env.CENTRAL_TOKEN_PASSWORD}</password>' \
+              '    </server>' \
+              '  </servers>' \
+              '</settings>' > ~/.m2/settings.xml
+            chmod 600 ~/.m2/settings.xml
+
+      - unless:
+          condition: << pipeline.parameters.release_rehearsal >>
+          steps:
+            # java-test ran the suite on this revision in this workflow, so tests are
+            # skipped; -am brings the parent pom the client's pom names, which Central
+            # must hold too; opensysml-conformance is not published.
+            # Never run this step with -X/debug output; the settings interpolation would print the token.
+            - run:
+                name: Sign, upload and publish
+                command: |
+                  MAVEN_GPG_PASSPHRASE="$GPG_PASSPHRASE" mvn -B -f client/java/pom.xml \
+                    -Prelease deploy -pl opensysml-client -am -DskipTests
+      - when:
+          condition: << pipeline.parameters.release_rehearsal >>
+          steps:
+            - run:
+                name: "REHEARSAL: check the Central token"
+                command: |
+                  auth=$(printf '%s:%s' "$CENTRAL_TOKEN_USERNAME" "$CENTRAL_TOKEN_PASSWORD" | base64 -w0)
+                  code=$(curl -s -o /tmp/central.json -w '%{http_code}' \
+                    -H "Authorization: Bearer ${auth}" \
+                    "https://central.sonatype.com/api/v1/publisher/published?namespace=org.openmbee&name=opensysml-client&version=${JAVA_VERSION}")
+                  case "$code" in
+                    200) echo "ok: the portal token authenticates" ;;
+                    401|403)
+                      echo "Error: Central rejected the portal token (HTTP $code)."
+                      exit 1 ;;
+                    *)
+                      echo "Error: could not ask Central (HTTP $code); refusing rather than guessing."
+                      exit 1 ;;
+                  esac
+            - run:
+                name: "REHEARSAL: build and sign without deploying"
+                command: |
+                  # Never run this step with -X/debug output; the settings interpolation would print the token.
+                  MAVEN_GPG_PASSPHRASE="$GPG_PASSPHRASE" mvn -B -f client/java/pom.xml \
+                    -Prelease verify -pl opensysml-client -am -DskipTests
+                  ls client/java/opensysml-client/target/*.jar.asc > /dev/null
+                  ls client/java/*/target/*.pom.asc > /dev/null
+      - rehearsal-skip:
+          what: "mvn deploy (upload and publish to Central)"
+
+  # Publishes the opensysml crate to crates.io from the core `v<version>` tag.
+  # The token comes from the restricted 'crates.io' context. Everything that can fail runs
+  # before the upload: the tag/version check, the crates.io availability check,
+  # the credential, and the package dry run.
+  publish-crates:
+    executor: rust-executor
+    steps:
+      - checkout
+      - rehearsal-tag
+
+      - run:
+          name: Resolve the version from the tag
+          command: |
+            if [ -z "${CIRCLE_TAG}" ]; then
+              echo "Error: CIRCLE_TAG is empty; this job only runs on a core v* tag."
+              exit 1
+            fi
+            pkgid=$(cargo pkgid -p opensysml --manifest-path client/rust/Cargo.toml)
+            version=${pkgid##*[#@]}
+            # crates.io publishes the version Cargo.toml declares, so the tag
+            # must spell it exactly; build-python-package has already checked
+            # it against _version.py.
+            if [ "${CIRCLE_TAG}" != "v${version}" ]; then
+              echo "Error: tag ${CIRCLE_TAG} does not match client/rust/opensysml/Cargo.toml"
+              echo "version ${version}; the tag for it is v${version}. Nothing was published."
+              exit 1
+            fi
+            # crates.io has no test registry, so a pre-release (0.9.1-rc.1…)
+            # is published as an ordinary version, which Cargo resolves only
+            # when asked for explicitly.
+            echo "export RUST_VERSION=${version}" >> "$BASH_ENV"
+            echo "Publishing opensysml ${version} to crates.io"
+
+      - run:
+          name: Require the publishing credential
+          command: |
+            # Name only, never the value; the 'crates.io' context supplies it.
+            if [ -z "${CARGO_REGISTRY_TOKEN:-}" ]; then
+              echo "Error: CARGO_REGISTRY_TOKEN is not set; add it to the 'crates.io' context (Organization Settings → Contexts)."
+              exit 1
+            fi
+
+      - run:
+          name: Refuse a version already on crates.io
+          command: |
+            code=$(curl -s -o /dev/null -w '%{http_code}' \
+              -H 'User-Agent: OpenSysML release (https://github.com/Open-MBEE/OpenSysML)' \
+              "https://crates.io/api/v1/crates/opensysml/${RUST_VERSION}")
+            case "$code" in
+              200)
+                echo "Error: opensysml ${RUST_VERSION} is already on crates.io;"
+                echo "a published version cannot be replaced, only yanked."
+                echo "Cut the next core release."
+                exit 1 ;;
+              404) ;;
+              *)
+                echo "Error: could not ask crates.io (HTTP $code); refusing rather than guessing."
+                exit 1 ;;
+            esac
+
+      - run:
+          name: Package the crate
+          command: |
+            cargo package -p opensysml --manifest-path client/rust/Cargo.toml --locked
+
+      - unless:
+          condition: << pipeline.parameters.release_rehearsal >>
+          steps:
+            # The package step above already built and verified the crate; cargo
+            # reads CARGO_REGISTRY_TOKEN from the environment, so nothing is on disk.
+            - run:
+                name: Publish opensysml to crates.io
+                command: |
+                  cargo publish -p opensysml --manifest-path client/rust/Cargo.toml \
+                    --locked --no-verify
+      - when:
+          condition: << pipeline.parameters.release_rehearsal >>
+          steps:
+            - run:
+                name: "REHEARSAL: no cargo publish"
+                command: |
+                  echo "REHEARSAL: crates.io has no read-only token check (GET /api/v1/me accepts only a browser session); the token's presence was checked above."
+      - rehearsal-skip:
+          what: "cargo publish"
 
   publish-github-release:
     docker:
       - image: cibuilds/github:0.13
     steps:
+      # A rehearsal needs a checkout for _version.py; the tag path does not.
+      - when:
+          condition: << pipeline.parameters.release_rehearsal >>
+          steps:
+            - checkout
+            - rehearsal-tag
       - attach_workspace:
           at: .
       
-      - run:
-          name: Publish Release on GitHub
-          command: |
-            VERSION="${CIRCLE_TAG}"
-            if [ -z "$VERSION" ]; then
-              echo "Error: CIRCLE_TAG is empty"
-              exit 1
-            fi
-            echo "Publishing release $VERSION"
-            ls -la dist/
+      - unless:
+          condition: << pipeline.parameters.release_rehearsal >>
+          steps:
+            - run:
+                name: Publish Release on GitHub
+                command: |
+                  VERSION="${CIRCLE_TAG}"
+                  if [ -z "$VERSION" ]; then
+                    echo "Error: CIRCLE_TAG is empty"
+                    exit 1
+                  fi
+                  echo "Publishing release $VERSION"
+                  ls -la dist/
             
-            # Move only tarballs to a release directory
-            mkdir -p dist/release
-            mv dist/*.tar.gz dist/*.zip dist/release/ 2>/dev/null || true
-            # The opensysml wheel, the same bytes publish-pypi uploads.
-            mv dist/*.whl dist/release/
-            mv dist/grpc/* dist/release/
-            mv dist/SHA256SUMS.txt dist/release/
-            # The signature over that manifest, which the Python client verifies
-            # before it trusts a digest from it.
-            mv dist/SHA256SUMS.txt.bundle dist/release/
-            # The SLSA provenance statement over those assets and its signature.
-            mv dist/provenance.intoto.json dist/provenance.intoto.json.bundle dist/release/
-            echo "Release artifacts:"
-            ls -la dist/release/
+                  # Move only tarballs to a release directory
+                  mkdir -p dist/release
+                  mv dist/*.tar.gz dist/*.zip dist/release/ 2>/dev/null || true
+                  # The opensysml wheel, the same bytes publish-pypi uploads.
+                  mv dist/*.whl dist/release/
+                  mv dist/grpc/* dist/release/
+                  mv dist/SHA256SUMS.txt dist/release/
+                  # The signature over that manifest, which the Python client verifies
+                  # before it trusts a digest from it.
+                  mv dist/SHA256SUMS.txt.bundle dist/release/
+                  # The SLSA provenance statement over those assets and its signature.
+                  mv dist/provenance.intoto.json dist/provenance.intoto.json.bundle dist/release/
+                  echo "Release artifacts:"
+                  ls -la dist/release/
             
-            # Try different token variable names
-            TOKEN="${GITHUB_TOKEN:-${GH_TOKEN:-${CIRCLE_TOKEN}}}"
-            if [ -z "$TOKEN" ]; then
-              echo "Error: No GitHub token found. Tried GITHUB_TOKEN, GH_TOKEN, CIRCLE_TOKEN"
-              exit 1
-            fi
+                  # Try different token variable names
+                  TOKEN="${GITHUB_TOKEN:-${GH_TOKEN:-${CIRCLE_TOKEN}}}"
+                  if [ -z "$TOKEN" ]; then
+                    echo "Error: No GitHub token found. Tried GITHUB_TOKEN, GH_TOKEN, CIRCLE_TOKEN"
+                    exit 1
+                  fi
             
-            # '-replace' reuses an existing release and only re-uploads assets of
-            # the same name, so hand-written notes, title and prerelease/latest
-            # flags survive a re-run. Never '-delete': that is an alias of
-            # '-recreate', which deletes the release *and its tag* and creates an
-            # empty one. A tag with no release yet still gets one created here.
-            ghr -t "${TOKEN}" \
-                -u "${CIRCLE_PROJECT_USERNAME}" \
-                -r "${CIRCLE_PROJECT_REPONAME}" \
-                -c "${CIRCLE_SHA1}" \
-                -replace \
-                "${VERSION}" \
-                dist/release/
+                  # '-replace' reuses an existing release and only re-uploads assets of
+                  # the same name, so hand-written notes, title and prerelease/latest
+                  # flags survive a re-run. Never '-delete': that is an alias of
+                  # '-recreate', which deletes the release *and its tag* and creates an
+                  # empty one. A tag with no release yet still gets one created here.
+                  ghr -t "${TOKEN}" \
+                      -u "${CIRCLE_PROJECT_USERNAME}" \
+                      -r "${CIRCLE_PROJECT_REPONAME}" \
+                      -c "${CIRCLE_SHA1}" \
+                      -replace \
+                      "${VERSION}" \
+                      dist/release/
+      - when:
+          condition: << pipeline.parameters.release_rehearsal >>
+          steps:
+            - run:
+                name: "REHEARSAL: check the release assets and the GitHub token"
+                command: |
+                  ls dist/SHA256SUMS.txt > /dev/null
+                  set -- dist/opensysml-*-py3-none-any.whl
+                  if [ ! -f "$1" ] || [ $# -ne 1 ]; then
+                    echo "Error: expected exactly one dist/opensysml-*-py3-none-any.whl"
+                    exit 1
+                  fi
+                  ls dist/grpc/sysml-grpc-* > /dev/null
+                  ls -la dist dist/grpc
+                  TOKEN="${GITHUB_TOKEN:-${GH_TOKEN:-${CIRCLE_TOKEN}}}"
+                  if [ -z "$TOKEN" ]; then
+                    echo "Error: No GitHub token found. Tried GITHUB_TOKEN, GH_TOKEN, CIRCLE_TOKEN"
+                    exit 1
+                  fi
+                  code=$(curl -s -o /tmp/repo.json -w '%{http_code}' \
+                    -H "Authorization: Bearer ${TOKEN}" \
+                    "https://api.github.com/repos/${CIRCLE_PROJECT_USERNAME}/${CIRCLE_PROJECT_REPONAME}")
+                  if [ "$code" != "200" ] || ! grep -Eq '"push": *true' /tmp/repo.json; then
+                    echo "Error: the GitHub token cannot push releases (HTTP $code)."
+                    exit 1
+                  fi
+                  echo "ok: the release assets are present and the token can push releases"
+      - rehearsal-skip:
+          what: "ghr (the GitHub release)"
 
 workflows:
   version: 2
@@ -2004,14 +2463,19 @@ workflows:
 
   # Build and release on tags. The suite runs here too: a tag can point at any
   # commit, so a release is only published from a revision proven green. One tag
-  # publishes the binaries and the opensysml package, at the same version.
+  # publishes the binaries and every published client, at the same version.
+  # Branch pushes are kept out by the `when` below, not by job filters, so a
+  # release_rehearsal run can run the same jobs on a branch; the jobs still
+  # need a tag filter, because CircleCI runs no job on a tag without one.
   release:
+    when:
+      or:
+        - << pipeline.parameters.release_rehearsal >>
+        - matches: {pattern: "^v.*", value: << pipeline.git.tag >>}
     jobs:
       - go-static:
           name: Go static checks
           filters: &release-tags
-            branches:
-              ignore: /.*/
             tags:
               only: /^v.*/
       - go-race-test:
@@ -2031,6 +2495,21 @@ workflows:
             - Go race tests
             - Go coverage profile
             - Go gates and binaries
+          filters: *release-tags
+
+      - node-test:
+          name: Node client tests
+          requires: *go-suite
+          filters: *release-tags
+
+      - java-test:
+          name: Java client tests
+          requires: *go-suite
+          filters: *release-tags
+
+      - rust-test:
+          name: Rust client tests
+          requires: *go-suite
           filters: *release-tags
 
       # Fails the release before anything is built when the tag does not name
@@ -2055,6 +2534,9 @@ workflows:
           requires:
             - Build release artifacts
             - Python client tests
+            - Node client tests
+            - Java client tests
+            - Rust client tests
           filters: *release-tags
 
       - publish-pypi:
@@ -2071,54 +2553,49 @@ workflows:
             - Python client tests
           filters: *release-tags
 
-  # Publish the npm client on its own tag: the package resolves a service binary
-  # at run time, so a client fix should not need a core release and a core
-  # release should not need an npm publish. The binaries the platform packages
-  # carry are built here rather than downloaded from a release.
-  release-node:
-    jobs:
-      - go-static:
-          name: Go static checks
-          filters: &node-tags
-            branches:
-              ignore: /.*/
-            tags:
-              only: /^client-node-v.*/
-      - go-race-test:
-          name: Go race tests
-          filters: *node-tags
-      - go-coverage:
-          name: Go coverage profile
-          filters: *node-tags
-      - go-gates:
-          name: Go gates and binaries
-          filters: *node-tags
-
-      - node-test:
-          name: Node client tests
-          requires: *go-suite
-          filters: *node-tags
-
-      - build-node-binaries:
-          name: Build Node platform binaries
-          requires: *go-suite
-          filters: *node-tags
-
       - publish-npm:
-          name: Publish npm client
+          name: Publish opensysml to npm
+          # Last of all, with publish-pypi: the npm publish cannot be undone,
+          # so it waits for the GitHub release the version promises to exist.
+          # It is independent of publish-pypi so neither registry refusing a
+          # re-run blocks the other.
           # The organization context is named 'npm'; a context reference is
-          # matched exactly, so the case here has to match it. A publish cannot
-          # be taken back, so it runs last and only on a revision proven green.
+          # matched exactly, so the case here has to match it.
           context:
             - npm
           requires:
-            - Go static checks
-            - Go race tests
-            - Go coverage profile
-            - Go gates and binaries
+            - Publish GitHub release
             - Node client tests
-            - Build Node platform binaries
-          filters: *node-tags
+          filters: *release-tags
+
+      - publish-maven:
+          name: Publish opensysml-client to Maven Central
+          # Last of all, with publish-pypi and publish-npm: Central versions are
+          # immutable, so it waits for the GitHub release. It is independent of
+          # them so neither registry refusing a re-run blocks the other.
+          # The organization context is named 'Maven Central'; a context
+          # reference is matched exactly, so the case here has to match it.
+          context:
+            - "Maven Central"
+          requires:
+            - Publish GitHub release
+            - Java client tests
+          filters: *release-tags
+
+      - publish-crates:
+          name: Publish opensysml to crates.io
+          # Last of all, with publish-pypi, publish-npm and publish-maven:
+          # a crates.io version cannot be replaced, so it waits for the
+          # GitHub release. It is independent of them so neither registry
+          # refusing a re-run blocks the other. The organization context is
+          # named 'crates.io'; a context reference is matched exactly, so the
+          # case here has to match it.
+          context:
+            - crates.io
+          requires:
+            - Publish GitHub release
+            - Rust client tests
+          filters: *release-tags
 
   # Publishes the final release of the pre-rename PyPI name on a `pysysml-v*`
   # tag. It is its own workflow because the artifact shares no code with the

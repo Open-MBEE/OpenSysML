@@ -10,6 +10,7 @@ import (
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/semantics"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/symbols"
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/ast"
+	"github.com/Open-MBEE/OpenSysML/internal/syntax/source"
 )
 
 // computedColumn is one planned columns entry of a projection: a
@@ -248,8 +249,8 @@ func (e *executor) rowPropertyValues(
 	return declared, nil
 }
 
-// rowMemberValues evaluates a member path on the row element; only element
-// rows carry members, so other rows and nonconforming ones read it as absent.
+// rowMemberValues reads a Project property path from a row, preserving typed
+// member-path checks while supporting other row kinds and single properties.
 func (e *executor) rowMemberValues(
 	expression queryplan.Expression,
 	column string,
@@ -259,22 +260,60 @@ func (e *executor) rowMemberValues(
 	path := expression.Target()
 	_, declaring := expression.Literal()
 	sym, isElement := row.Element()
-	if !isElement {
-		tracker.record(path, false)
-		return nil, nil
+	if declaring != "" {
+		if !isElement {
+			tracker.record(path, false)
+			return nil, nil
+		}
+		if !e.rowConformsTo(sym, declaring) {
+			return nil, nil
+		}
+	} else {
+		key := path
+		if segments, ok := source.MemberPathSegments(path); ok && len(segments) == 1 {
+			key = segments[0]
+		}
+		values, present, err := e.propertyValuesBeforeMemberPath(row, key)
+		if err != nil {
+			return nil, e.unevaluable(expression, path, row, err)
+		}
+		if present {
+			tracker.record(path, true)
+			return values, nil
+		}
+		if !isElement {
+			tracker.record(path, false)
+			return nil, nil
+		}
 	}
-	if declaring != "" && !e.rowConformsTo(sym, declaring) {
-		return nil, nil
+	if isElement {
+		values, present, err := e.memberPathRowValues(expression, column, sym, row, path)
+		if err != nil {
+			return nil, err
+		}
+		if present {
+			tracker.record(path, true)
+			return values, nil
+		}
 	}
+	tracker.record(path, false)
+	return nil, nil
+}
+
+// memberPathRowValues walks a member path of two or more segments from an
+// element row, refusing more values than the member's multiplicity admits.
+func (e *executor) memberPathRowValues(expression queryplan.Expression, column string, sym *symbols.Symbol, row Value, path string) ([]Value, bool, error) {
 	segments, ok := parseMemberPath(path)
-	if !ok {
-		return nil, e.unevaluable(expression, path, row, nil)
+	if !ok || len(segments) <= 1 {
+		return nil, false, nil
 	}
 	values, present, member, err := e.memberPathValues(sym, segments)
 	if err != nil {
-		return nil, e.unevaluable(expression, path, row, err)
+		return nil, false, e.unevaluable(expression, path, row, err)
 	}
-	tracker.record(path, present)
+	if !present {
+		return nil, false, nil
+	}
 	if member != nil {
 		rng := e.context.Model.GoverningMultiplicityOf(member)
 		if rng.Upper.Known && !rng.Upper.Infinite && int64(len(values)) > rng.Upper.Value {
@@ -286,10 +325,10 @@ func (e *executor) rowMemberValues(
 				UpperInfinite: rng.Upper.Infinite,
 				Known:         rng.Lower.Known && rng.Upper.Known,
 			})
-			return nil, failure
+			return nil, false, failure
 		}
 	}
-	return values, nil
+	return values, true, nil
 }
 
 // objectRowValues reads a declared or metaclass feature of an object row.

@@ -2,7 +2,9 @@ package grpc
 
 import (
 	"context"
+	"math"
 	"os"
+	"strconv"
 	"testing"
 
 	pb "github.com/Open-MBEE/OpenSysML/api/proto"
@@ -15,6 +17,8 @@ func BenchmarkInstantiateWarmModel(b *testing.B) {
 	if err != nil {
 		b.Skipf("vehicle example absent: %v", err)
 	}
+	// The run holds every object it makes; the bound guards a service, not this.
+	b.Setenv(HeldObjectsEnvVar, strconv.Itoa(math.MaxInt32))
 	svc, err := NewService(4, "bench")
 	if err != nil {
 		b.Fatalf("NewService: %v", err)

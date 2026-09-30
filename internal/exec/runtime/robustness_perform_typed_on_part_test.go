@@ -23,22 +23,24 @@ func testPerformTypedOnPartPerformer(t *testing.T) {
 		part def Telescope {
 			attribute azimuth : Real default = 0.0;
 			action def Point {
+				in ref context : Telescope;
 				first start then turn;
-				action turn { assign this.azimuth := 45.0; }
+				action turn { assign context.azimuth := 45.0; }
 				first turn then done;
 			}
-			action point : Point;
+			action point : Point { in ref :>> context = this; }
 		}
 		part def Station {
 			part tel : Telescope;
 			action def Observe {
+				in ref context : Station;
 				first start then pt;
-				perform action pt : Telescope::Point ::> tel.point;
+				perform action pt : Telescope::Point ::> context.tel.point;
 				first pt then done;
 			}
 			exhibit state run {
 				entry; then observing;
-				state observing { entry action observe : Observe; }
+				state observing { entry action observe : Observe { in ref :>> context = this; } }
 				state pointed;
 				transition first observing if tel.azimuth == 45.0 then pointed;
 			}
@@ -54,7 +56,7 @@ func testPerformTypedOnPartPerformer(t *testing.T) {
 func testPerformTypedOnPartHoldingNoObject(t *testing.T) {
 	_, _, err := instantiateWithLibraries(t, stationPerforming(
 		"part tel : Telescope[0..1];",
-		performing("perform action pt : Telescope::Point ::> tel.point;"),
+		performing("perform action pt : Telescope::Point ::> context.tel.point;"),
 	), "test::Station")
 	if !errors.Is(err, ErrPerformerNotObject) || !strings.Contains(err.Error(), "tel.point is performed by [], which is no one object") {
 		t.Fatalf("error = %v, want ErrPerformerNotObject over an empty tel", err)
@@ -66,7 +68,7 @@ func testPerformTypedOnPartHoldingNoObject(t *testing.T) {
 func testPerformTypedOnPartChainEndsInNoAction(t *testing.T) {
 	_, _, err := instantiateWithLibraries(t, stationPerforming(
 		"part tel : Telescope;",
-		performing("perform action pt : Telescope::Point ::> tel.azimuth;"),
+		performing("perform action pt : Telescope::Point ::> context.tel.azimuth;"),
 	), "test::Station")
 	if err == nil || !strings.Contains(err.Error(), "azimuth is not an action (attributeUsage)") {
 		t.Fatalf("error = %v, want the chain's last member reported as no action", err)

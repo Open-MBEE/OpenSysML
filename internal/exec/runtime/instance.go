@@ -304,7 +304,7 @@ func (ctx *Context) unfoldSubsettedDefaults(inst *Instance, typ *symbols.Symbol,
 		if features[i].Symbol == nil {
 			continue
 		}
-		for _, name := range ctx.subsettedNames(features[i].Symbol, typ) {
+		for _, name := range ctx.declaredSubsettedNames(features[i].Symbol, typ) {
 			fv, ok := inst.FeatureValues[name]
 			if !ok || !fv.Materialized || fv.Written || !ctx.valueBinds(fv.Feature) || !fv.Feature.DefaultIsFallback() {
 				continue
@@ -345,6 +345,16 @@ func (ctx *Context) materialize(sym *symbols.Symbol, id int64, owner *Instance, 
 	// feature below it: what applies on this object overrides its shape now, and
 	// what applies below carries on it (see nested_redefinition.go).
 	pending := ctx.pendingNestedRedefinitions(owner, feature)
+	// The chains the object's own type and what it specializes declare reach
+	// its members the same way, so a valued one governs an inherited bound
+	// value (GovernedByChain) before the member materializes.
+	for _, src := range append([]*symbols.Symbol{sym}, ctx.model.semantics.MemberSources(sym)...) {
+		for _, nr := range ctx.model.semantics.NestedRedefinitionsOf(src) {
+			if len(nr.Path) > 1 {
+				pending = append(pending, pendingRedefinition{rest: nr.Path, sym: nr.Feature})
+			}
+		}
+	}
 
 	// Create instance
 	inst := &Instance{
@@ -368,7 +378,7 @@ func (ctx *Context) materialize(sym *symbols.Symbol, id int64, owner *Instance, 
 
 	// A redefining feature declares the feature it redefines again, so the two
 	// names read one feature value.
-	if err := ctx.aliasRedefinedFeatureValuesOf(inst, sym, nil); err != nil {
+	if err := ctx.aliasRedefinedFeatureValuesOf(inst, sym, nil, features); err != nil {
 		return nil, err
 	}
 
@@ -833,6 +843,9 @@ func (inst *Instance) materializeIntrinsic(ctx *Context, fv *FeatureValue, name 
 	if restated := ctx.restatedInValuedBody(fv.Feature); restated != "" {
 		return nil, fmt.Errorf("feature value %s.%s: %w: %s", inst.Type.Name, name, ErrValuedFeatureRestated, restated)
 	}
+	if restated := ctx.restatedByNestedChain(inst, name, fv.Feature); restated != "" {
+		return nil, fmt.Errorf("feature value %s.%s: %w: %s", inst.Type.Name, name, ErrValuedFeatureRestated, restated)
+	}
 
 	// A `default` applies only where nothing else populates the feature: the
 	// members subsetting it do (KerML 1.0 §7.3.4.5).
@@ -1212,6 +1225,9 @@ func (ctx *Context) valueBinds(feat *EffectiveFeature) bool {
 // bodyGovernsInheritedValue reports whether a feature's own body values what the value
 // it inherits from the declaration it redefines would supply, superseding that value.
 func (ctx *Context) bodyGovernsInheritedValue(feat *EffectiveFeature) bool {
+	if feat.GovernedByChain {
+		return true
+	}
 	if feat.Symbol == nil || feat.DefaultDecl == nil || feat.DefaultDecl == feat.Symbol {
 		return false
 	}
@@ -1230,6 +1246,26 @@ func (ctx *Context) restatedInValuedBody(feat *EffectiveFeature) string {
 		return ""
 	}
 	return ctx.restatedValueInBody(feat.Symbol, feat.Type)
+}
+
+// restatedByNestedChain returns the next segment of a nested redefinition a
+// type of inst applies below the value-bound feature name — a bound value
+// supplies the feature's own features, so a chain redefining one below it
+// states two values as a restating body would — or "" when none does.
+func (ctx *Context) restatedByNestedChain(inst *Instance, name string, feat *EffectiveFeature) string {
+	if feat.Symbol == nil {
+		return ""
+	}
+	decl, ok := feat.Symbol.Decl.(*ast.Usage)
+	if !ok || decl.Value == nil {
+		return ""
+	}
+	for _, p := range ctx.pendingNestedRedefinitions(inst, name) {
+		if len(p.rest) > 0 && valuedChain(p) && !ctx.chainGovernsValue(p.sym, feat.Symbol) {
+			return p.rest[0]
+		}
+	}
+	return ""
 }
 
 // restatedValueInBody returns the name of a feature the body of sym values
@@ -1353,6 +1389,11 @@ func (ctx *Context) evalFeatureValueDefault(inst *Instance, fv *FeatureValue, na
 		scope = inst.Type.OwnerScope
 	}
 	ec := NewEvalContextIn(ctx, scope, inst)
+	if object := ctx.model.resolver.ThisContext(scope); object != nil && isBehaviorDefKind(object.Kind) {
+		// A feature default written in a behavior def sees `this` as the
+		// def's own occurrence, which the instance being evaluated is.
+		ec.occurrence = inst
+	}
 	defer ec.beginStep()()
 	val, err := ec.Eval(fv.Feature.DefaultValue)
 	if err != nil {

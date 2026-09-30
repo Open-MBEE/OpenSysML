@@ -204,18 +204,23 @@ func (c *Clock) NextDue() (float64, bool) {
 }
 
 // attach makes the clock drive an executor, after those created before it.
+// The waiter list is never edited in place, so a journal mark keeps it as is.
 func (c *Clock) attach(w clockWaiter) {
-	c.waiters = append(c.waiters, w)
+	c.waiters = append(c.waiters[:len(c.waiters):len(c.waiters)], w)
 }
 
 // detach ends the clock's driving of an executor whose run its caller is done with.
 func (c *Clock) detach(w clockWaiter) {
-	c.waiters = slices.DeleteFunc(c.waiters, func(x clockWaiter) bool { return x == w })
+	if i := slices.Index(c.waiters, w); i >= 0 {
+		c.waiters = slices.Concat(c.waiters[:i], c.waiters[i+1:])
+	}
 }
 
 // forgetFinished drops the executors the clock has nothing left to drive.
 func (c *Clock) forgetFinished() {
-	c.waiters = slices.DeleteFunc(c.waiters, clockWaiter.finished)
+	if slices.ContainsFunc(c.waiters, clockWaiter.finished) {
+		c.waiters = slices.DeleteFunc(slices.Clone(c.waiters), clockWaiter.finished)
+	}
 }
 
 // Clock returns the simulation clock every executor of this context shares.

@@ -61,6 +61,7 @@ func (c *triggerArgumentChecker) walk(scope *symbols.Scope, members []ast.Node) 
 				c.check(scope, n)
 			}
 		case *ast.TransitionMember:
+			c.checkTransitionAccept(scope, n.Trigger)
 			c.check(scope, n.Trigger)
 		case *ast.DeferMember:
 			for _, trigger := range n.Triggers {
@@ -69,6 +70,41 @@ func (c *triggerArgumentChecker) walk(scope *symbols.Scope, members []ast.Node) 
 		}
 		w.Decl(scope, node)
 	}
+}
+
+// SysML 7.6 and 8.3.17 treat a transition's bare accept name as its payload type;
+// the pilot's validateUsageType rejects it when ordinary lookup finds a usage.
+func (c *triggerArgumentChecker) checkTransitionAccept(scope *symbols.Scope, trigger ast.Node) {
+	var qn *ast.QualifiedName
+	switch t := trigger.(type) {
+	case *ast.QualifiedName:
+		qn = t
+	case *ast.Usage:
+		if !t.IsAccept {
+			return
+		}
+		for _, rel := range t.Relationships {
+			if rel != nil && rel.Kind == ast.RelTyping {
+				qn, _ = rel.Target.(*ast.QualifiedName)
+				break
+			}
+		}
+	default:
+		return
+	}
+	if qn == nil {
+		return
+	}
+	resolver := c.ctx.Resolver()
+	sym, ok := resolver.ResolveQualified(scope, qn)
+	if !ok || sym == nil {
+		return
+	}
+	target, ok := resolver.ResolveAliasTarget(sym)
+	if !ok || target == nil || !target.IsFeature() {
+		return
+	}
+	c.expr.errorCode("usage-typing", qn.Span(), "%s", msgUsageTyping)
 }
 
 // check types one trigger unless its argument rests on a lower-tier fault.

@@ -31,12 +31,12 @@ func TestReceptionsAcceptAndPerformTheirMethod(t *testing.T) {
 		"first spread then receive;",
 		"action receive accept setLevel : Signals::SetLevel;",
 		"first receive then run;",
-		"perform action run ::> 'apply Level' { in value = receive.setLevel.value; }",
+		"perform action run ::> 'apply Level' { in value[1] = receive.setLevel.value; }",
 		"first run then receive;",
 		"first spread then 'receive via rx';",
 		"action 'receive via rx' accept 'setLevel via rx' : Signals::SetLevel via rx;",
 		"first 'receive via rx' then 'run via rx';",
-		"perform action 'run via rx' ::> 'apply Level' { in value = 'receive via rx'.'setLevel via rx'.value; }",
+		"perform action 'run via rx' ::> 'apply Level' { in value[1] = 'receive via rx'.'setLevel via rx'.value; }",
 		"first 'run via rx' then 'receive via rx';",
 		"perform action stop {",
 		"action receive accept stop : Signals::Stop;",
@@ -57,14 +57,14 @@ func TestReceptionsAcceptAndPerformTheirMethod(t *testing.T) {
 		"in slack : ScalarValues::Real[0..1];",
 		"perform action onNudge {",
 		"action receive accept nudge2 : Signals::Nudge;",
-		"perform action run ::> nudge { in delta = receive.nudge2.delta; }",
+		"perform action run ::> nudge { in delta[1] = receive.nudge2.delta; }",
 		"action nudge {",
-		"in delta : ScalarValues::Real;",
+		"in delta : ScalarValues::Real[1];",
 		"comment /* reception 'Away' */",
 	} {
 		wantLine(t, r.Notation, line)
 	}
-	for _, bound := range []string{"in gain =", "in slack =", ": Boosting", ": Naming", ": Leveling", ": Nudging", "then done;", "via aux"} {
+	for _, bound := range []string{"in gain[1] =", "in slack[1] =", ": Boosting", ": Naming", ": Leveling", ": Nudging", "then done;", "via aux"} {
 		if strings.Contains(string(r.Notation), bound) {
 			t.Errorf("%q was written, though nothing in the fixture calls for it:\n%s", bound, r.Notation)
 		}

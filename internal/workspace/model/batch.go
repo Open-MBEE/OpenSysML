@@ -9,15 +9,20 @@ import (
 	"sync/atomic"
 
 	"github.com/Open-MBEE/OpenSysML/internal/check/passes"
+	"github.com/Open-MBEE/OpenSysML/internal/semantic/resolve"
+	"github.com/Open-MBEE/OpenSysML/internal/semantic/symbols"
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/diag"
+	"github.com/Open-MBEE/OpenSysML/internal/workspace/libs"
 )
 
 // Input is one document a batch opens: the name it is indexed under, its text
-// and its version.
+// and its version. A Transient input is a buffer no file holds, the REPL's
+// transcript: it is never read from or written to the record cache.
 type Input struct {
-	Name    string
-	Content []byte
-	Version int
+	Name      string
+	Content   []byte
+	Version   int
+	Transient bool
 }
 
 // DefaultWorkers is the worker count a workspace starts with: one per CPU the
@@ -49,14 +54,68 @@ func (w *Workspace) SetWorkers(n int) error {
 // OpenAll opens the inputs as one batch: parsed on the workers, added to the index
 // in order, wildcard imports expanded once. Same result as opening them one by one
 // as the batch starts: a document changed by another caller meanwhile keeps that change.
+//
+// Over a record cache, an input whose content the cache holds a record for is
+// held as that record, a closed file, where the record's provenance holds among
+// the documents opened (see libs.Provenance); the others, and the records that
+// do not hold, are parsed.
 func (w *Workspace) OpenAll(inputs []Input) {
 	was := w.reserveBatch(inputs)
-	docs := make([]*Document, len(inputs))
+	recs := w.cachedRecords(inputs)
+	docs := make([]batchDoc, len(inputs))
 	ParallelFor(w.Workers(), len(inputs), func(i int) {
 		in := inputs[i]
-		docs[i] = newDocument(in.Name, bytes.Clone(in.Content), in.Version)
+		if rec := recs[i]; rec != nil {
+			if scope, err := symbols.BuildRecorded(rec.Scope, rec.Name); err == nil {
+				docs[i] = batchDoc{rec: rec, scope: scope, content: bytes.Clone(in.Content), version: in.Version}
+				return
+			}
+		}
+		docs[i] = batchDoc{doc: newDocument(in.Name, bytes.Clone(in.Content), in.Version)}
 	})
 	w.commitBatch(was, docs)
+}
+
+// batchDoc is one document a batch installs: parsed, or built from its record.
+type batchDoc struct {
+	doc     *Document
+	rec     *libs.InterfaceRecord
+	scope   *symbols.Scope
+	content []byte
+	version int
+}
+
+func (d batchDoc) name() string {
+	if d.doc != nil {
+		return d.doc.Name
+	}
+	return d.rec.Name
+}
+
+// cachedRecords is the record cache's record of each input's content, nil where
+// there is none, no cache, or the record answers another question.
+func (w *Workspace) cachedRecords(inputs []Input) []*libs.InterfaceRecord {
+	recs := make([]*libs.InterfaceRecord, len(inputs))
+	w.mu.Lock()
+	defer w.mu.Unlock()
+	if w.records == nil {
+		return recs
+	}
+	keys := make([]string, len(inputs))
+	for i, in := range inputs {
+		if !in.Transient {
+			keys[i], _ = w.recordKeyLocked(in.Name, in.Content)
+		}
+	}
+	ParallelFor(w.workers, len(inputs), func(i int) {
+		if keys[i] == "" {
+			return
+		}
+		if rec, ok := w.records.LoadInterface(keys[i]); ok && w.recordAcceptedLocked(rec) == nil {
+			recs[i] = rec
+		}
+	})
+	return recs
 }
 
 // reserveBatch is each input's name's change count as the batch starts, which is
@@ -72,27 +131,64 @@ func (w *Workspace) reserveBatch(inputs []Input) map[string]uint64 {
 	return was
 }
 
-// commitBatch installs the parsed documents whose name is as the batch reserved
-// it; a name changed since keeps its newer state.
-func (w *Workspace) commitBatch(was map[string]uint64, docs []*Document) {
+// commitBatch installs the parsed and recorded documents whose name is as the
+// batch reserved it; a name changed since keeps its newer state. A record whose
+// provenance does not hold among the documents installed is parsed in its place.
+func (w *Workspace) commitBatch(was map[string]uint64, docs []batchDoc) {
 	w.mu.Lock()
 	defer w.mu.Unlock()
-	var installed []string
-	for _, doc := range docs {
-		if w.changes[doc.Name] != was[doc.Name] {
+	var installed, recorded []string
+	for _, d := range docs {
+		name := d.name()
+		if w.changes[name] != was[name] {
 			continue
 		}
-		w.open[doc.Name] = true
-		w.docs[doc.Name] = doc
-		w.changes[doc.Name]++
-		was[doc.Name] = w.changes[doc.Name]
-		w.installLocked(doc)
-		installed = append(installed, doc.Name)
+		if d.doc != nil {
+			w.open[name] = true
+			w.docs[name] = d.doc
+			w.changes[name]++
+			w.installLocked(d.doc)
+		} else {
+			w.installRecordedLocked(d.rec, d.scope, d.content, d.version)
+			recorded = append(recorded, name)
+		}
+		was[name] = w.changes[name]
+		installed = append(installed, name)
 	}
-	if len(installed) > 0 {
-		w.index.ExpandWildcardImports()
-		w.invalidateLocked(installed...)
+	if len(installed) == 0 {
+		return
 	}
+	w.index.ExpandWildcardImports()
+	w.invalidateLocked(installed...)
+	if len(recorded) == 0 {
+		return
+	}
+	src := w.sourcesLocked()
+	byName := make(map[string]batchDoc, len(docs))
+	for _, d := range docs {
+		byName[d.name()] = d
+	}
+	var stale []string
+	for _, name := range recorded {
+		if doc := w.docs[name]; doc.Recorded() && !byName[name].rec.Provenance.Valid(src) {
+			stale = append(stale, name)
+		}
+	}
+	if len(stale) == 0 {
+		return
+	}
+	parsed := make([]*Document, len(stale))
+	ParallelFor(w.workers, len(stale), func(i int) {
+		held := w.docs[stale[i]]
+		parsed[i] = newDocument(held.Name, held.Content, held.Version)
+	})
+	for i, name := range stale {
+		w.docs[name] = parsed[i]
+		w.changes[name]++
+		w.installLocked(parsed[i])
+	}
+	w.index.ExpandWildcardImports()
+	w.invalidateLocked(stale...)
 }
 
 // DiagnosticsAll returns the named documents' diagnostics in the order named (nil
@@ -120,20 +216,23 @@ func (w *Workspace) DiagnosticsAll(names []string) [][]diag.Diagnostic {
 			pending = append(pending, name)
 		}
 	}
-	batch := &passes.Batch{Documents: pending, Gathers: passes.NewGathers(), Source: w.sourceText()}
+	batch := &passes.Batch{Documents: pending, Gathers: passes.NewGathers(), Source: w.sourceText(), Record: w.records != nil}
 	passes.PrepareBatch(w.index, batch)
 	analyzed := make([][]diag.Diagnostic, len(pending))
+	reads := make([]*resolve.Reads, len(pending))
 	ParallelFor(w.workers, len(pending), func(i int) {
-		analyzed[i] = w.analyze(pending[i], w.docs[pending[i]], batch)
+		analyzed[i], reads[i] = w.analyze(pending[i], w.docs[pending[i]], batch)
 	})
 	for i, name := range pending {
 		w.diagCache[name] = analyzed[i]
-		w.batched[name] = true
+		w.batched[name] = reads[i]
 	}
+	w.writeRecordsLocked(pending, batch)
 	for i, name := range names {
 		if doc := w.docs[name]; out[i] == nil && doc != nil && !doc.Recorded() {
 			out[i] = w.diagCache[name]
 		}
+		out[i] = passes.WithoutLints(out[i], w.disabledLints)
 	}
 	return out
 }

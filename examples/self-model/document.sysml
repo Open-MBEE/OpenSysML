@@ -210,7 +210,7 @@ package OpenSysMLDocument {
             }
 
             part exhaustion : Diagram {
-                attribute redefines caption = "Six budgets, six ways a run ends early";
+                attribute redefines caption = "Seven budgets, seven ways a run ends early";
                 attribute redefines direction = "TB";
                 ref redefines source = OpenSysMLViews::budgetExhaustion;
             }
@@ -320,7 +320,7 @@ package OpenSysMLDocument {
             attribute redefines title = "Surfaces over one pipeline";
 
             part intro : Paragraph {
-                attribute redefines text = "The REPL, the language server, the gRPC service and the command line are four surfaces over one analysis pipeline. The service speaks gRPC and Connect from one protobuf schema, and the Go, Python, Node, Rust and Java clients are hand-written over stubs generated from that schema, so a rule fixed in the engine is fixed everywhere at once.";
+                attribute redefines text = "The REPL, the language server, the gRPC service, the stdio service and the command line are five surfaces over one analysis pipeline. The service speaks gRPC and Connect from one protobuf schema; the Go, Python, Node, Rust and Java clients are hand-written over stubs generated from that schema, the Julia and MATLAB clients speak Connect-JSON over HTTP by the published wire contract, and the Cameo plugin and SysON integration reach the service through the Java client — so a rule fixed in the engine is fixed everywhere at once.";
             }
 
             part toolchain : Diagram {
@@ -354,7 +354,7 @@ package OpenSysMLDocument {
             }
 
             part branches : Diagram {
-                attribute redefines caption = "The two branches in rendering a document";
+                attribute redefines caption = "The three forms a rendered document branches to";
                 attribute redefines direction = "TB";
                 ref redefines source = OpenSysMLViews::documentFlow;
             }

@@ -99,6 +99,10 @@ func TestDOTFitHead(t *testing.T) {
 		{"Reconfiguration", 60, 60, 14, []string{"Reconfi", "guratio", "n"}, true},
 		{"abcdefghijklmnopqrstuvwxyz", 40, 14, 8, []string{"abcdef…"}, false},
 		{"abcdefghijklmnopqrstuvwxyz", 40, 30, 8, []string{"abcdefg", "hijklmno", "pqrstu…"}, false},
+		// A lone glyph wrapping cannot narrow is shrunk to the size it fits across at.
+		{"日", 12, 25, 11, []string{"日"}, true},
+		{"W", 9, 25, 8, []string{"…"}, false},
+		{"W W", 9, 25, 8, []string{"…", "…"}, false},
 	}
 	for _, tc := range cases {
 		size, lines, fits := dotFitText([]string{tc.head}, true, tc.width, tc.height, dotFontSize)
@@ -531,6 +535,66 @@ func TestDOTFittedLabelStartsFromTheStyledSize(t *testing.T) {
 	}
 	if stderr.Len() != 0 {
 		t.Errorf("dot warned: %s\n%s", stderr.String(), source)
+	}
+}
+
+// A glyph the metric tables lack is measured by its width class: an East Asian
+// wide or fullwidth glyph an em, a combining mark nothing, so a stated box of
+// such text is fitted at the width Graphviz sets it, not the Latin average. The
+// Graphviz check needs a font holding the glyphs: without one Pango draws hex
+// boxes of a size that is no glyph's, so it is skipped where fontconfig has none.
+func TestDOTMeasuresWideGlyphsAnEm(t *testing.T) {
+	if got, want := dotTextWidth("日本語", 14, false), dotTextWidth("mmm", 14, false); got < want {
+		t.Errorf("three wide glyphs measure %gpt, narrower than three m's %gpt", got, want)
+	}
+	if got, want := dotTextWidth("ＡＢＣ", 14, true), 3*14.0; got < want {
+		t.Errorf("three fullwidth glyphs measure %gpt, want at least %gpt", got, want)
+	}
+	if got, want := dotTextWidth("e\u0301", 14, false), dotTextWidth("e", 14, false); got != want {
+		t.Errorf("a combining mark widens e from %gpt to %gpt", want, got)
+	}
+	render := func(node *Node) string {
+		source, err := (&Rendering{View: "V", Kind: KindAction, Roots: []*Node{node}}).DOTWith(Options{Style: StyleCameo})
+		if err != nil {
+			t.Fatalf("DOT: %v", err)
+		}
+		checkDOTSyntax(t, source)
+		return source
+	}
+	// Seven wide glyphs take 78pt at the skin's 11pt: a 70pt box holds them only shrunk or wrapped.
+	seven := render(stated(&Node{ID: "n", Kind: "action", Name: "日本語テキスト"}, 70, 60))
+	if strings.Contains(seven, `label=<<b>日本語テキスト</b>>`) {
+		t.Errorf("seven wide glyphs are written on one 11pt line of a 70pt box:\n%s", seven)
+	}
+	// One wide glyph takes 12pt at the skin's 11pt: a 12pt box holds it whole.
+	one := render(stated(&Node{ID: "n", Kind: "action", Name: "日"}, 12, 25))
+	if want := `label=<<b>日</b>>, margin=0`; !strings.Contains(one, want) {
+		t.Errorf("one wide glyph's DOT lacks %q:\n%s", want, one)
+	}
+	// A bold W is 10pt across even at the floor: a 9pt box gets the ellipsis.
+	narrow := render(stated(&Node{ID: "n", Kind: "action", Name: "W"}, 9, 25))
+	if want := `label=<<font point-size="8"><b>…</b></font>>, margin=0`; !strings.Contains(narrow, want) {
+		t.Errorf("narrow box's DOT lacks %q:\n%s", want, narrow)
+	}
+	dot := os.Getenv("OPENSYSML_DOT")
+	if dot == "" {
+		t.Skip("OPENSYSML_DOT not set")
+	}
+	sources := []string{narrow}
+	if fonts, err := exec.Command("fc-list", ":charset=65e5", "family").Output(); err == nil && len(bytes.TrimSpace(fonts)) != 0 {
+		sources = append(sources, seven, one)
+	}
+	for _, source := range sources {
+		cmd := exec.Command(dot, "-Kneato", "-n2", "-Tplain")
+		cmd.Stdin = strings.NewReader(source)
+		var stderr bytes.Buffer
+		cmd.Stderr = &stderr
+		if _, err := cmd.Output(); err != nil {
+			t.Fatalf("dot: %v\n%s", err, stderr.String())
+		}
+		if stderr.Len() != 0 {
+			t.Errorf("dot warned: %s\n%s", stderr.String(), source)
+		}
 	}
 }
 

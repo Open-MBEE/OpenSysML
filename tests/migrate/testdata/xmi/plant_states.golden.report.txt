@@ -7,8 +7,8 @@ Trigger	Plant::Line::main::<Transition>::<Trigger>	_trNever	(the time event's ti
 TimeEvent	never	_never	(the time event's time is not written: the instant "next Tuesday" is neither a number with a time unit nor an expression: not v2 expression syntax)
 
 ## approximated (6)
-StateMachine	Plant::Line	_line	-> Plant::Line	(the classifier behavior is run by every object of Plant as its usage line)
-Transition	Plant::Line::main::<Transition>	_tBump	(the target 'Prep' lies in another region and is named by its path Work::Prep; a local transition is written external: the composite state Work exits and re-enters where v1 stayed in it, running its exit and entry behaviors)
+StateMachine	Plant::Line	_line	-> Plant::Line	(acts on its owner Plant, which it takes as its parameter context, since its this is the def's own occurrence; the classifier behavior is run by every object of Plant as its usage line)
+Transition	Plant::Line::main::<Transition>	_tBump	(the target 'Prep' lies in another region and is named by its path Work.Prep; a local transition is written external: the composite state Work exits and re-enters where v1 stayed in it, running its exit and entry behaviors)
 Trigger	Plant::Line::main::<Transition>::<Trigger>	_trDawn	(the absolute time is an instant on the simulation clock, which starts at 0.0 [SI::s])
 OpaqueBehavior	Plant::Line::main::<Transition>::log	_resumeLog	-> Plant::Line::unnamed::log	(the JavaScript body is translated to v2; the console print println(…) is left out, as it writes to the tool's console and changes nothing of the model; the JavaScript body is written as v2 assignments)
 OpaqueBehavior	Plant::Line::main::Work::tally	_workExit	-> Plant::Line::Work::tally	(the JavaScript body is translated to v2; the JavaScript body is written as v2 assignments)
@@ -35,7 +35,7 @@ Model	Model	_m	(the root model's members are written at the top level)
 Signal	Next	_next	-> Next
 Signal	Ping	_ping	-> Ping
 «Block» Class	Plant	_plant	-> Plant
-StateMachine	Plant::CellMachine	_cell	-> Plant::CellMachine
+StateMachine	Plant::CellMachine	_cell	-> Plant::CellMachine	(acts on its owner Plant, which it takes as its parameter context, since its this is the def's own occurrence)
 Region	Plant::CellMachine::cell	_rc	(the one region is written as the body of its owner)
 Pseudostate	Plant::CellMachine::cell::<Pseudostate>	_initC	(written as the entry of the region)
 Transition	Plant::CellMachine::cell::<Transition>	_tCi
@@ -53,20 +53,20 @@ FinalState	Plant::Line::main::<FinalState>	_fin	-> done
 Pseudostate	Plant::Line::main::<Pseudostate>	_init0	(written as the entry of the region)
 Transition	Plant::Line::main::<Transition>	_t0
 Transition	Plant::Line::main::<Transition>	_tGo
-Transition	Plant::Line::main::<Transition>	_tStop	(the source 'Run' lies in another region and is named by its path Work::Run)
-Transition	Plant::Line::main::<Transition>	_tDirect	(the target 'Run' lies in another region and is named by its path Work::Run)
+Transition	Plant::Line::main::<Transition>	_tStop	(the source 'Run' lies in another region and is named by its path Work.Run)
+Transition	Plant::Line::main::<Transition>	_tDirect	(the target 'Run' lies in another region and is named by its path Work.Run)
 Transition	Plant::Line::main::<Transition>	_tHold
-Transition	Plant::Line::main::<Transition>	_tResume	(the target 'last' lies in another region and is named by its path Work::last)
+Transition	Plant::Line::main::<Transition>	_tResume	(the target 'last' lies in another region and is named by its path Work.last)
 Transition	Plant::Line::main::<Transition>	_tEnter
 Transition	Plant::Line::main::<Transition>	_tLeave
 Transition	Plant::Line::main::<Transition>	_tRoute
 Transition	Plant::Line::main::<Transition>	_tBusy
 Transition	Plant::Line::main::<Transition>	_tSpent
 Transition	Plant::Line::main::<Transition>	_tSplit
-Transition	Plant::Line::main::<Transition>	_tFa	(the target 'A1' lies in another region and is named by its path Both::regions::a::A1)
-Transition	Plant::Line::main::<Transition>	_tFb	(the target 'B1' lies in another region and is named by its path Both::regions::b::B1)
-Transition	Plant::Line::main::<Transition>	_tJa	(the source 'A2' lies in another region and is named by its path Both::regions::a::A2)
-Transition	Plant::Line::main::<Transition>	_tJb	(the source 'B2' lies in another region and is named by its path Both::regions::b::B2)
+Transition	Plant::Line::main::<Transition>	_tFa	(the target 'A1' lies in another region and is named by its path Both.regions.a.A1)
+Transition	Plant::Line::main::<Transition>	_tFb	(the target 'B1' lies in another region and is named by its path Both.regions.b.B1)
+Transition	Plant::Line::main::<Transition>	_tJa	(the source 'A2' lies in another region and is named by its path Both.regions.a.A2)
+Transition	Plant::Line::main::<Transition>	_tJb	(the source 'B2' lies in another region and is named by its path Both.regions.b.B2)
 Transition	Plant::Line::main::<Transition>	_tJoined
 Transition	Plant::Line::main::<Transition>	_tPing	(an internal transition is written as a self transition; Idle has no entry, exit or do behavior and no substates, so re-entering it is not observable)
 Transition	Plant::Line::main::<Transition>	_tDawn
@@ -94,8 +94,8 @@ Trigger	Plant::Line::main::Both::b::<Transition>::<Trigger>	_trB
 State	Plant::Line::main::Both::b::B1	_b1	-> B1
 State	Plant::Line::main::Both::b::B2	_b2	-> B2
 State	Plant::Line::main::Cell	_cellSt	-> Cell
-ConnectionPointReference	Plant::Line::main::Cell::<ConnectionPointReference>	_cprIn	-> Cell::warmStart	(written as the entry point's state in the submachine state, Cell::warmStart)
-ConnectionPointReference	Plant::Line::main::Cell::<ConnectionPointReference>	_cprOut	-> Cell::spent	(written as the exit point's state in the submachine state, Cell::spent)
+ConnectionPointReference	Plant::Line::main::Cell::<ConnectionPointReference>	_cprIn	-> Cell.warmStart	(written as the entry point's state in the submachine state, Cell.warmStart)
+ConnectionPointReference	Plant::Line::main::Cell::<ConnectionPointReference>	_cprOut	-> Cell.spent	(written as the exit point's state in the submachine state, Cell.spent)
 State	Plant::Line::main::Idle	_idle	-> Idle
 State	Plant::Line::main::Pause	_pause	-> Pause
 State	Plant::Line::main::Work	_work	-> Work

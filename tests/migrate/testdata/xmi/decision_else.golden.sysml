@@ -1,12 +1,12 @@
 package Recovery {
     part def Retrier {
         attribute attempts : ScalarValues::Integer default = 0;
-        action def Recover {
+        perform action recover {
             first start then 'decide';
             decide 'decide';
             else 'merge';
             comment /* Retries until the budget is spent. */
-            first 'decide' if this.attempts < 3 then retry;
+            first 'decide' if attempts < 3 then retry;
             action retry {
                 /* body not migrated (the body is empty) */
             }
@@ -16,6 +16,5 @@ package Recovery {
             action final terminate;
             metadata MigrationMetadata::SynthesizedName about final;
         }
-        perform action recover : Recover;
     }
 }

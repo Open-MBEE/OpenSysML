@@ -83,6 +83,8 @@ test("the handshake reports the version and the capabilities to negotiate on", a
   assert.ok(connection.info.answered);
   assert.notEqual(connection.info.version, "");
   assert.ok(connection.info.capabilities.size > 0);
+  assert.ok(connection.info.has("sequence_authoring"));
+  assert.ok(connection.info.has("action_body_statement_authoring"));
   assert.ok(connection.info.has(CAPABILITY_QUERY));
   // A capability the service does not advertise is refused by the client, since
   // the service answers such a call rather than returning UNIMPLEMENTED.

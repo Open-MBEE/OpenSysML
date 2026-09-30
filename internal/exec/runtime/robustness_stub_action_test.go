@@ -81,7 +81,7 @@ func testStubActionOptionalOutputFlowsNoValue(t *testing.T) {
 // An output declared holding a value that the stub never writes is a flow source
 // with nothing to carry, which the run reports rather than passing silently.
 func testStubActionRequiredOutputNeverWritten(t *testing.T) {
-	_, err := executeChain(t, stubChain("", "[0..1]",
+	_, err := executeChain(t, stubChain("[1]", "[0..1]",
 		"assign seen := value->size();"))
 	if !errors.Is(err, ErrFlowSource) || !strings.Contains(err.Error(), "node stub produced no value at reading") {
 		t.Fatalf("error = %v, want ErrFlowSource from an output never written", err)
@@ -91,7 +91,7 @@ func testStubActionRequiredOutputNeverWritten(t *testing.T) {
 // A consumer input declared holding a value gets none when the stub's optional
 // output is empty, which reading it reports as no value rather than as empty.
 func testStubActionRequiredTargetGetsNoValue(t *testing.T) {
-	_, err := executeChain(t, stubChain("[0..1]", "",
+	_, err := executeChain(t, stubChain("[0..1]", "[1]",
 		"assign seen := value;"))
 	var noValue *NoValueError
 	if !errors.As(err, &noValue) || noValue.Feature != "value" {
@@ -131,7 +131,7 @@ func testStubActionRequiredResultReadAsValue(t *testing.T) {
 		private import SequenceFunctions::*;
 		action chain {
 			attribute seen : Integer = -1;
-			action stub { out result : Integer; }
+			action stub { out result : Integer[1]; }
 			action consumer { assign seen := stub->size(); }
 			succession first start then stub;
 			succession first stub then consumer;

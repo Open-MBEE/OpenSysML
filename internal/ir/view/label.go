@@ -308,35 +308,69 @@ func (l labeller) lines(node *Node) []string {
 	if l.keyworded(node) {
 		lines = append(lines, "«"+node.Kind+"»")
 	}
-	detail := node.Detail
-	if l.skin.cameo {
-		detail = bareNames(detail)
-	}
 	switch {
-	case detail == "":
+	case node.Detail == "":
 	case l.skin.cameo && node.Kind == "state":
-		lines = append(lines, cameoStateDetails(detail)...)
+		lines = append(lines, cameoStateDetails(node.Detail)...)
+	case l.skin.cameo:
+		lines = append(lines, bareNames(node.Detail))
 	default:
-		lines = append(lines, detail)
+		lines = append(lines, node.Detail)
 	}
 	return lines
 }
 
 // cameoStateDetails splits a state's detail into Cameo's compartment lines, one
-// per behaviour, and drops the `initial` marker the initial dot already draws
-// and the `defers` marker, as Cameo's state box shows no deferrable triggers.
+// per behaviour and one per deferred trigger, `Ping / defer` as UML writes it,
+// and drops the `initial` marker the initial dot already draws. The detail is
+// split as notation, so a name quoting a comma stays one; the names are bare.
 func cameoStateDetails(detail string) []string {
 	var lines []string
-	for _, part := range strings.Split(detail, ", ") {
+	deferring := false
+	for _, part := range splitNotation(detail, ", ") {
+		part = bareNames(part)
+		keyword := stateDetailKeyword(part)
+		if keyword {
+			deferring = false
+		}
 		switch {
-		case part == "initial", part == "defers":
-		case len(lines) > 0 && !stateDetailKeyword(part):
+		case part == "initial":
+		case strings.HasPrefix(part, "defers "):
+			deferring = true
+			lines = append(lines, strings.TrimPrefix(part, "defers ")+" / defer")
+		case deferring:
+			lines = append(lines, part+" / defer")
+		case len(lines) > 0 && !keyword:
 			lines[len(lines)-1] += ", " + part
 		default:
 			lines = append(lines, part)
 		}
 	}
 	return lines
+}
+
+// splitNotation splits notation text at every sep outside its quoted names and
+// string literals, escapes within them stepped over.
+func splitNotation(text, sep string) []string {
+	var parts []string
+	var quote byte
+	start := 0
+	for i := 0; i < len(text); i++ {
+		switch c := text[i]; {
+		case quote != 0 && c == '\\':
+			i++
+		case quote != 0 && c == quote:
+			quote = 0
+		case quote != 0:
+		case c == '\'' || c == '"':
+			quote = c
+		case strings.HasPrefix(text[i:], sep):
+			parts = append(parts, text[start:i])
+			i += len(sep) - 1
+			start = i + 1
+		}
+	}
+	return append(parts, text[start:])
 }
 
 // stateDetailKeyword reports whether a detail part opens a behaviour line.

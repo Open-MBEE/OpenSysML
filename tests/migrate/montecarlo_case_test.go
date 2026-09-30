@@ -32,12 +32,12 @@ func TestMonteCarloAnalysisIsAnAnalysisCase(t *testing.T) {
 	wantLine(t, r.Notation, "subject analysed : 'Settling Analysis';")
 	wantLine(t, r.Notation, "perform action run ::> analysed.settle;")
 	wantLine(t, r.Notation, "attribute :>> observed : ScalarValues::Real = analysed.settleTime;")
-	wantLine(t, r.Notation, "return Mean : ScalarValues::Real = mean;")
+	wantLine(t, r.Notation, "return Mean : ScalarValues::Real[1] = mean;")
 	wantLine(t, r.Notation, "out Deviation : ScalarValues::Real[0..1] = deviation;")
-	wantLine(t, r.Notation, "out OutOfSpec : ScalarValues::Integer = outOfSpec;")
-	wantBlock(t, r.Notation, "return Mean : ScalarValues::Real = mean;",
+	wantLine(t, r.Notation, "out OutOfSpec : ScalarValues::Integer[1] = outOfSpec;")
+	wantBlock(t, r.Notation, "return Mean : ScalarValues::Real[1] = mean;",
 		"out Deviation : ScalarValues::Real[0..1] = deviation;",
-		"out OutOfSpec : ScalarValues::Integer = outOfSpec;",
+		"out OutOfSpec : ScalarValues::Integer[1] = outOfSpec;",
 		"}")
 	wantNoLine(t, r.Notation, "Median :")
 	wantNoLine(t, r.Notation, "= median")
@@ -48,9 +48,9 @@ func TestMonteCarloAnalysisIsAnAnalysisCase(t *testing.T) {
 		"subject analysed : 'Retried Settling';",
 		"perform action run ::> analysed.settle;",
 		"attribute :>> observed : ScalarValues::Real = analysed.settleTime;",
-		"return Mean : ScalarValues::Real = mean;",
-		"out N : ScalarValues::Integer = runs;",
-		"out OutOfSpec : ScalarValues::Integer = outOfSpec;",
+		"return Mean : ScalarValues::Real[1] = mean;",
+		"out N : ScalarValues::Integer[1] = runs;",
+		"out OutOfSpec : ScalarValues::Integer[1] = outOfSpec;",
 		"out Deviation : ScalarValues::Real[0..1] = deviation;",
 		"}")
 
@@ -235,11 +235,11 @@ func TestMonteCarloSpecialRebindsTheMean(t *testing.T) {
     <packagedElement xmi:type="uml:Class" xmi:id="_retry" name="Timer Retry">
       <generalization xmi:type="uml:Generalization" xmi:id="_g3" general="_analysis"/>`+binding("_bind2", "_u", monteCarloRole("Mean"))+`
     </packagedElement>`, applications+`<sysml:Block xmi:id="_s7" base_Class="_retry"/>`)
-	wantBlock(t, r.Notation, "attribute :>> observed : ScalarValues::Real = analysed.t;", "return Mean : ScalarValues::Real = mean;", "}",
+	wantBlock(t, r.Notation, "attribute :>> observed : ScalarValues::Real = analysed.t;", "return Mean : ScalarValues::Real[1] = mean;", "}",
 		"part def 'Timer Retry' :> 'Timer Analysis';",
 		"analysis def 'Timer Retry Monte Carlo' :> Simulation::MonteCarlo {",
 		"subject analysed : 'Timer Retry';")
-	wantBlock(t, r.Notation, "attribute :>> observed : ScalarValues::Real = analysed.u;", "return Mean : ScalarValues::Real = mean;", "}")
+	wantBlock(t, r.Notation, "attribute :>> observed : ScalarValues::Real = analysed.u;", "return Mean : ScalarValues::Real[1] = mean;", "}")
 	wantNote(t, r, "_bind", migrate.Approximated, "written in the analysis def 'Timer Analysis Monte Carlo' as the observed value, of which Mean is returned")
 	wantNote(t, r, "_bind2", migrate.Approximated, "written in the analysis def 'Timer Retry Monte Carlo' as the observed value, of which Mean is returned")
 	wantClean(t, "rebound.sysml", r)

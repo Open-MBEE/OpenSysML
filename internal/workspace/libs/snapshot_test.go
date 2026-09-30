@@ -53,8 +53,8 @@ func TestSnapshotIndexMatchesFreshLoad(t *testing.T) {
 	// The whole object graph, less the lookup caches an index fills lazily and
 	// the inline storage a multi-part name leaves behind (see symbols' tests).
 	if err := graphcmp.Equal(fresh, decoded, graphcmp.SkipFields(
-		"Index.directChildrenGeneration", "libraryIdentityMemo.gen", "Index.directChildrenCache",
-		"Index.directChildrenByName", "Index.shortNamedCache", "QualifiedName.part0",
+		"memberCache.generation", "libraryIdentityMemo.gen", "memberCache.children",
+		"memberCache.byName", "memberCache.shortNamed", "QualifiedName.part0",
 	)); err != nil {
 		t.Errorf("decoded index differs from a fresh load: %v", err)
 	}

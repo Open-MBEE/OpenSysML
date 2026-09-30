@@ -1013,6 +1013,7 @@ var defSymbolKinds = map[symbols.SymbolKind]bool{
 var usageSymbolKinds = map[symbols.SymbolKind]bool{
 	symbols.SymbolPartUsage:               true,
 	symbols.SymbolAttributeUsage:          true,
+	symbols.SymbolReferenceUsage:          true,
 	symbols.SymbolItemUsage:               true,
 	symbols.SymbolOccurrenceUsage:         true,
 	symbols.SymbolIndividualUsage:         true,
@@ -1123,17 +1124,19 @@ func isOccurrenceDefKind(k symbols.SymbolKind) bool {
 // defKindParents is the definition metaclass taxonomy (SysML v2 §8.3): each kind
 // maps to the kinds it specializes.
 var defKindParents = map[symbols.SymbolKind][]symbols.SymbolKind{
-	symbols.SymbolItemDef:             {symbols.SymbolOccurrenceDef},
-	symbols.SymbolIndividualDef:       {symbols.SymbolOccurrenceDef},
-	symbols.SymbolPartDef:             {symbols.SymbolItemDef},
-	symbols.SymbolMetadataDef:         {symbols.SymbolItemDef},
-	symbols.SymbolConnectionDef:       {symbols.SymbolPartDef},
-	symbols.SymbolInterfaceDef:        {symbols.SymbolConnectionDef},
-	symbols.SymbolAllocationDef:       {symbols.SymbolConnectionDef},
-	symbols.SymbolViewDef:             {symbols.SymbolPartDef},
-	symbols.SymbolRenderingDef:        {symbols.SymbolPartDef},
-	symbols.SymbolActionDef:           {symbols.SymbolOccurrenceDef},
-	symbols.SymbolFlowDef:             {symbols.SymbolActionDef, symbols.SymbolConnectionDef},
+	symbols.SymbolItemDef:       {symbols.SymbolOccurrenceDef},
+	symbols.SymbolIndividualDef: {symbols.SymbolOccurrenceDef},
+	symbols.SymbolPartDef:       {symbols.SymbolItemDef},
+	symbols.SymbolMetadataDef:   {symbols.SymbolItemDef},
+	symbols.SymbolConnectionDef: {symbols.SymbolPartDef},
+	symbols.SymbolInterfaceDef:  {symbols.SymbolConnectionDef},
+	symbols.SymbolAllocationDef: {symbols.SymbolConnectionDef},
+	symbols.SymbolViewDef:       {symbols.SymbolPartDef},
+	symbols.SymbolRenderingDef:  {symbols.SymbolPartDef},
+	symbols.SymbolActionDef:     {symbols.SymbolOccurrenceDef},
+	// FlowDefinition specializes Interaction and ActionDefinition; Interaction
+	// has no definition SymbolKind, so the action parent carries the row.
+	symbols.SymbolFlowDef:             {symbols.SymbolActionDef},
 	symbols.SymbolStateDef:            {symbols.SymbolActionDef},
 	symbols.SymbolCalcDef:             {symbols.SymbolActionDef},
 	symbols.SymbolCaseDef:             {symbols.SymbolCalcDef},
@@ -1275,6 +1278,14 @@ func compatibleTyping(useKind ast.UsageKind, direction ast.FeatureDirection, def
 	// §8.3.16.6 validateActionUsageType), so any behavior-family def works.
 	if useKind == ast.UsageAction {
 		return defKindSpecializes(defKind, symbols.SymbolActionDef)
+	}
+
+	// A connection is typed by connection definitions (SysML v2 §8.3.14.5
+	// ConnectionUsage::connectionDefinition): an allocation or an interface
+	// definition is one, as the metamodel's AllocationDefinition and
+	// InterfaceDefinition specialize ConnectionDefinition.
+	if useKind == ast.UsageConnection {
+		return defKindSpecializes(defKind, symbols.SymbolConnectionDef)
 	}
 
 	// A case may be typed by a case definition of any kind (SysML v2 §8.3.24.4

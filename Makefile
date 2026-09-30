@@ -1,4 +1,4 @@
-.PHONY: all build build-sysml build-lsp build-grpc static-check windows-versioninfo-check man man-check install-tree pgo-profile conformance conformance-pkg conformance-rust conformance-julia conformance-matlab test coverage lint clean install help fuml-expected python-test python-coverage scripts-coverage node-coverage python-install proto proto-buf python-proto proto-ts proto-rust proto-lint proto-breaking vscode-grammar vscode-build vscode-package docs docs-install docs-serve docs-counts docs-check changelog-check changelog-render self-model
+.PHONY: all build build-sysml build-lsp build-grpc build-wasm build-wasm-wasip1 build-wasm-js wasm-check static-check windows-versioninfo-check man man-check install-tree pgo-profile conformance conformance-pkg conformance-rust conformance-julia conformance-matlab test test-shard coverage lint clean install help fuml-expected python-test python-coverage scripts-coverage node-coverage python-install proto proto-buf python-proto proto-ts proto-rust proto-lint proto-breaking vscode-grammar vscode-build vscode-package docs docs-install docs-serve docs-counts docs-check changelog-check changelog-render self-model
 
 # Version information
 # Only release tags describe a build; the moving `nightly` tag is not a version.
@@ -45,6 +45,8 @@ endef
 
 # Build output directory
 BIN_DIR := bin
+# WebAssembly output, one directory per Go wasm target.
+WASM_DIR := $(BIN_DIR)/wasm
 PYTHON_DIR := client/python
 NODE_DIR := client/node
 # The TypeScript protobuf plugin, installed by `npm ci` from the client's lockfile.
@@ -105,6 +107,32 @@ build-grpc: ## Build sysml-grpc binary
 	$(call winres,sysml-grpc)
 	$(GO_BUILD) -o $(BIN_DIR)/sysml-grpc ./cmd/sysml-grpc
 	@echo "✓ Built $(BIN_DIR)/sysml-grpc ($(VERSION))"
+
+# WebAssembly: GOOS=wasip1 runs under a WASI preview 1 runtime (wasmtime, a Node WASI
+# host), GOOS=js under Node or a browser through the toolchain's wasm_exec.js. The
+# version stamps are the -X flags every other build passes; there is no Windows
+# resource to embed and no libc to link. `build` stays native: these are opt-in.
+build-wasm: build-wasm-wasip1 build-wasm-js ## Build all three commands for both WebAssembly targets
+
+build-wasm-wasip1: ## Build bin/wasm/wasip1/*.wasm, runnable under a WASI preview 1 runtime
+	@echo "Building WebAssembly (wasip1)..."
+	@mkdir -p $(WASM_DIR)/wasip1
+	@for cmd in $(COMMANDS); do \
+		GOOS=wasip1 GOARCH=wasm $(GO_BUILD) -o $(WASM_DIR)/wasip1/$$cmd.wasm ./cmd/$$cmd || exit 1; \
+	done
+	@echo "✓ Built $(WASM_DIR)/wasip1 ($(VERSION))"
+
+build-wasm-js: ## Build bin/wasm/js/*.wasm plus the wasm_exec.js that runs them
+	@echo "Building WebAssembly (js)..."
+	@mkdir -p $(WASM_DIR)/js
+	@for cmd in $(COMMANDS); do \
+		GOOS=js GOARCH=wasm $(GO_BUILD) -o $(WASM_DIR)/js/$$cmd.wasm ./cmd/$$cmd || exit 1; \
+	done
+	@cp "$(shell go env GOROOT)/lib/wasm/wasm_exec.js" $(WASM_DIR)/js/wasm_exec.js
+	@echo "✓ Built $(WASM_DIR)/js ($(VERSION))"
+
+wasm-check: ## Run the WebAssembly build-and-run gate (needs Node; fails rather than skipping)
+	OPENSYSML_REQUIRE_WASM=1 go test -count=1 -v ./tests/wasm
 
 static-check: ## Check the built Linux binaries are statically linked (BINARIES=path...)
 	scripts/check-static-binaries.sh $(or $(BINARIES),$(addprefix $(BIN_DIR)/,$(COMMANDS)))
@@ -180,10 +208,19 @@ conformance-pkg: ## Run the conformance suite through the public Go API (client/
 
 test: ## Run Go tests with race detection and coverage
 	@echo "Running Go race tests..."
-	@# Per-package timeout: under -race, passes and model run within 1% of go's 10m default.
+	@# Per-package timeout: under -race the runtime package runs 22-29 minutes on CI runners.
 	@# -pgo=off: coverage plus cmd/*/default.pgo trips golang/go#80891 (link: fingerprint mismatch).
-	go test -v -race -pgo=off -timeout 30m -coverprofile=coverage.txt -covermode=atomic ./...
-	go test -C $(TOOLS_DIR) -v -race -pgo=off -timeout 30m ./...
+	go test -v -race -pgo=off -timeout 45m -coverprofile=coverage.txt -covermode=atomic ./...
+	go test -C $(TOOLS_DIR) -v -race -pgo=off -timeout 45m ./...
+
+# Run race-free by their own gate steps in the PR workflow's static-and-integrity job.
+RACE_SHARD_SKIP := ^(TestTrainingExamplesSemanticErrors|TestCorpusGatesCacheStateIndependent|TestPilotCorporaDiagnostics|TestPilotLibraryXMI|TestPSSMSuiteMigration|TestDifferentialRandomizedAssignments|TestDifferentialConformanceCorpus|TestDifferentialStandardLibrary|TestDifferentialTrainingCorpus|TestPortability|TestPortabilityGateIsRequired)$$
+RACE_SHARD_TOOLS_SKIP := ^(TestSuiteRead|TestSuiteClassification|TestEmitSuite|TestSuiteClassificationReasons|TestSuiteLibraryCallsAreClassified|TestSuiteReadsControlAndObjectFlow|TestSuiteReadsClassifiers|TestSuiteReadsExceptionHandlers)$$
+
+test-shard: ## Run one CI shard of the race suite (SHARD=runtime|model|export|rest)
+	@echo "Running Go race tests, shard $(SHARD)..."
+	pkgs=$$(scripts/race-shard.sh $(SHARD)) && go test -skip '$(RACE_SHARD_SKIP)' -v -race -pgo=off -timeout 45m -coverprofile=coverage.txt -covermode=atomic $$pkgs
+	if [ "$(SHARD)" = rest ]; then go test -C $(TOOLS_DIR) -skip '$(RACE_SHARD_TOOLS_SKIP)' -v -race -pgo=off -timeout 45m ./...; fi
 
 coverage: ## Write the coverage profile the SonarCloud scan reads
 	@echo "Writing coverage.txt..."
@@ -420,4 +457,4 @@ docs-serve: ## Serve the documentation site with live reload
 
 help: ## Show this help message
 	@echo "Available targets:"
-	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | awk 'BEGIN {FS = ":.*?## "}; {printf "  \033[36m%-15s\033[0m %s\n", $$1, $$2}'
+	@grep -E '^[a-zA-Z0-9_-]+:.*?## .*$$' $(MAKEFILE_LIST) | awk 'BEGIN {FS = ":.*?## "}; {printf "  \033[36m%-15s\033[0m %s\n", $$1, $$2}'

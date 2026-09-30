@@ -9,6 +9,10 @@
 elmt:ThenAfterMembers
     a sysml:Package ;
     sysml:qualifiedName "ThenAfterMembers" ;
+    sysx:sourceLine "1"^^xsd:integer ;
+    sysx:sourceColumn "1"^^xsd:integer ;
+    sysx:sourceEndLine "168"^^xsd:integer ;
+    sysx:sourceEndColumn "2"^^xsd:integer ;
     sysml:elementId "ThenAfterMembers" ;
     sysx:memberIndex "0"^^xsd:integer ;
     sysx:sourceLanguage "sysml" ;
@@ -26,6 +30,10 @@ elmt:ThenAfterMembers
 elmt:ThenAfterMembers__Signal
     a sysml:ItemDefinition ;
     sysml:qualifiedName "ThenAfterMembers::Signal" ;
+    sysx:sourceLine "2"^^xsd:integer ;
+    sysx:sourceColumn "5"^^xsd:integer ;
+    sysx:sourceEndLine "2"^^xsd:integer ;
+    sysx:sourceEndColumn "21"^^xsd:integer ;
     sysml:elementId "ThenAfterMembers__Signal" ;
     sysx:memberIndex "0"^^xsd:integer ;
     sysml:owningNamespace elmt:ThenAfterMembers ;
@@ -49,6 +57,10 @@ elmt:ThenAfterMembers__Signal_om
 elmt:ThenAfterMembers__Step
     a sysml:ActionDefinition ;
     sysml:qualifiedName "ThenAfterMembers::Step" ;
+    sysx:sourceLine "3"^^xsd:integer ;
+    sysx:sourceColumn "5"^^xsd:integer ;
+    sysx:sourceEndLine "6"^^xsd:integer ;
+    sysx:sourceEndColumn "6"^^xsd:integer ;
     sysml:elementId "ThenAfterMembers__Step" ;
     sysx:memberIndex "1"^^xsd:integer ;
     sysml:owningNamespace elmt:ThenAfterMembers ;
@@ -83,6 +95,10 @@ elmt:ThenAfterMembers__Step_om
 elmt:ThenAfterMembers__Step__x
     a sysml:ItemUsage ;
     sysml:qualifiedName "ThenAfterMembers::Step::x" ;
+    sysx:sourceLine "4"^^xsd:integer ;
+    sysx:sourceColumn "9"^^xsd:integer ;
+    sysx:sourceEndLine "4"^^xsd:integer ;
+    sysx:sourceEndColumn "28"^^xsd:integer ;
     sysml:elementId "ThenAfterMembers__Step__x" ;
     sysx:memberIndex "0"^^xsd:integer ;
     sysml:owningNamespace elmt:ThenAfterMembers__Step ;
@@ -113,6 +129,10 @@ elmt:ThenAfterMembers__Step__x_om
 elmt:ThenAfterMembers__Step__y
     a sysml:ItemUsage ;
     sysml:qualifiedName "ThenAfterMembers::Step::y" ;
+    sysx:sourceLine "5"^^xsd:integer ;
+    sysx:sourceColumn "9"^^xsd:integer ;
+    sysx:sourceEndLine "5"^^xsd:integer ;
+    sysx:sourceEndColumn "29"^^xsd:integer ;
     sysml:elementId "ThenAfterMembers__Step__y" ;
     sysx:memberIndex "1"^^xsd:integer ;
     sysml:owningNamespace elmt:ThenAfterMembers__Step ;
@@ -143,6 +163,10 @@ elmt:ThenAfterMembers__Step__y_om
 elmt:ThenAfterMembers__AfterFlow
     a sysml:ActionDefinition ;
     sysml:qualifiedName "ThenAfterMembers::AfterFlow" ;
+    sysx:sourceLine "7"^^xsd:integer ;
+    sysx:sourceColumn "5"^^xsd:integer ;
+    sysx:sourceEndLine "11"^^xsd:integer ;
+    sysx:sourceEndColumn "6"^^xsd:integer ;
     sysml:elementId "ThenAfterMembers__AfterFlow" ;
     sysx:memberIndex "2"^^xsd:integer ;
     sysml:owningNamespace elmt:ThenAfterMembers ;
@@ -177,6 +201,10 @@ elmt:ThenAfterMembers__AfterFlow_om
 elmt:ThenAfterMembers__AfterFlow__a
     a sysml:ActionUsage ;
     sysml:qualifiedName "ThenAfterMembers::AfterFlow::a" ;
+    sysx:sourceLine "8"^^xsd:integer ;
+    sysx:sourceColumn "9"^^xsd:integer ;
+    sysx:sourceEndLine "8"^^xsd:integer ;
+    sysx:sourceEndColumn "25"^^xsd:integer ;
     sysml:elementId "ThenAfterMembers__AfterFlow__a" ;
     sysx:memberIndex "0"^^xsd:integer ;
     sysml:owningNamespace elmt:ThenAfterMembers__AfterFlow ;
@@ -206,6 +234,10 @@ elmt:ThenAfterMembers__AfterFlow__a_om
 elmt:ThenAfterMembers__AfterFlow___401
     a sysml:FlowUsage ;
     sysml:qualifiedName "ThenAfterMembers::AfterFlow::@1" ;
+    sysx:sourceLine "9"^^xsd:integer ;
+    sysx:sourceColumn "9"^^xsd:integer ;
+    sysx:sourceEndLine "9"^^xsd:integer ;
+    sysx:sourceEndColumn "30"^^xsd:integer ;
     sysml:elementId "ThenAfterMembers__AfterFlow___401" ;
     sysx:memberIndex "1"^^xsd:integer ;
     sysml:owningNamespace elmt:ThenAfterMembers__AfterFlow ;
@@ -239,7 +271,7 @@ elmt:ThenAfterMembers__AfterFlow___401_om
     sysml:membershipOwningNamespace elmt:ThenAfterMembers__AfterFlow .
 
 expr:ThenAfterMembers__AfterFlow___401_pend0
-    a sysml:ReferenceUsage ;
+    a sysml:FlowEnd ;
     sysml:elementId "ThenAfterMembers__AfterFlow___401_pend0" ;
     sysml:isEnd "true"^^xsd:boolean ;
     sysml:owner elmt:ThenAfterMembers__AfterFlow___401 ;
@@ -249,7 +281,11 @@ expr:ThenAfterMembers__AfterFlow___401_pend0
     sysml:ownedReferenceSubsetting expr:ThenAfterMembers__AfterFlow___401_pend0_prs ;
     sysml:ownedSubsetting expr:ThenAfterMembers__AfterFlow___401_pend0_prs ;
     sysml:ownedSpecialization expr:ThenAfterMembers__AfterFlow___401_pend0_prs ;
-    sysml:ownedRelationship expr:ThenAfterMembers__AfterFlow___401_pend0_prs .
+    sysml:ownedRelationship expr:ThenAfterMembers__AfterFlow___401_pend0_prs, expr:ThenAfterMembers__AfterFlow___401_pend0_pff_om ;
+    sysml:ownedMembership expr:ThenAfterMembers__AfterFlow___401_pend0_pff_om ;
+    sysml:ownedFeatureMembership expr:ThenAfterMembers__AfterFlow___401_pend0_pff_om ;
+    sysml:ownedFeature expr:ThenAfterMembers__AfterFlow___401_pend0_pff ;
+    json:ownedRelationship "[{\"@id\":\"ThenAfterMembers__AfterFlow___401_pend0_prs\"},{\"@id\":\"ThenAfterMembers__AfterFlow___401_pend0_pff_om\"}]" .
 
 expr:ThenAfterMembers__AfterFlow___401_pend0_om
     a sysml:EndFeatureMembership ;
@@ -261,42 +297,6 @@ expr:ThenAfterMembers__AfterFlow___401_pend0_om
     sysml:owningRelatedElement elmt:ThenAfterMembers__AfterFlow___401 ;
     sysml:membershipOwningNamespace elmt:ThenAfterMembers__AfterFlow___401 .
 
-expr:ThenAfterMembers__AfterFlow___401_pend0_pchain
-    a sysml:Feature ;
-    sysml:elementId "ThenAfterMembers__AfterFlow___401_pend0_pchain" ;
-    sysml:ownedFeatureChaining expr:ThenAfterMembers__AfterFlow___401_pend0_pchain_pfc0, expr:ThenAfterMembers__AfterFlow___401_pend0_pchain_pfc1 ;
-    sysml:ownedRelationship expr:ThenAfterMembers__AfterFlow___401_pend0_pchain_pfc0, expr:ThenAfterMembers__AfterFlow___401_pend0_pchain_pfc1 ;
-    sysml:chainingFeature elmt:ThenAfterMembers__AfterFlow__a, elmt:ThenAfterMembers__Step__y ;
-    sysml:owningRelationship expr:ThenAfterMembers__AfterFlow___401_pend0_prs ;
-    sysml:owner expr:ThenAfterMembers__AfterFlow___401_pend0 ;
-    json:ownedFeatureChaining "[{\"@id\":\"ThenAfterMembers__AfterFlow___401_pend0_pchain_pfc0\"},{\"@id\":\"ThenAfterMembers__AfterFlow___401_pend0_pchain_pfc1\"}]" ;
-    json:ownedRelationship "[{\"@id\":\"ThenAfterMembers__AfterFlow___401_pend0_pchain_pfc0\"},{\"@id\":\"ThenAfterMembers__AfterFlow___401_pend0_pchain_pfc1\"}]" ;
-    json:chainingFeature "[{\"@id\":\"ThenAfterMembers__AfterFlow__a\"},{\"@id\":\"ThenAfterMembers__Step__y\"}]" .
-
-expr:ThenAfterMembers__AfterFlow___401_pend0_pchain_pfc0
-    a sysml:FeatureChaining ;
-    sysml:elementId "ThenAfterMembers__AfterFlow___401_pend0_pchain_pfc0" ;
-    sysml:featureChained expr:ThenAfterMembers__AfterFlow___401_pend0_pchain ;
-    sysml:source expr:ThenAfterMembers__AfterFlow___401_pend0_pchain ;
-    sysml:owningRelatedElement expr:ThenAfterMembers__AfterFlow___401_pend0_pchain ;
-    sysml:chainingFeature elmt:ThenAfterMembers__AfterFlow__a ;
-    sysml:target elmt:ThenAfterMembers__AfterFlow__a ;
-    sysml:owner expr:ThenAfterMembers__AfterFlow___401_pend0_pchain ;
-    sysml:relatedElement expr:ThenAfterMembers__AfterFlow___401_pend0_pchain, elmt:ThenAfterMembers__AfterFlow__a ;
-    json:relatedElement "[{\"@id\":\"ThenAfterMembers__AfterFlow___401_pend0_pchain\"},{\"@id\":\"ThenAfterMembers__AfterFlow__a\"}]" .
-
-expr:ThenAfterMembers__AfterFlow___401_pend0_pchain_pfc1
-    a sysml:FeatureChaining ;
-    sysml:elementId "ThenAfterMembers__AfterFlow___401_pend0_pchain_pfc1" ;
-    sysml:featureChained expr:ThenAfterMembers__AfterFlow___401_pend0_pchain ;
-    sysml:source expr:ThenAfterMembers__AfterFlow___401_pend0_pchain ;
-    sysml:owningRelatedElement expr:ThenAfterMembers__AfterFlow___401_pend0_pchain ;
-    sysml:chainingFeature elmt:ThenAfterMembers__Step__y ;
-    sysml:target elmt:ThenAfterMembers__Step__y ;
-    sysml:owner expr:ThenAfterMembers__AfterFlow___401_pend0_pchain ;
-    sysml:relatedElement expr:ThenAfterMembers__AfterFlow___401_pend0_pchain, elmt:ThenAfterMembers__Step__y ;
-    json:relatedElement "[{\"@id\":\"ThenAfterMembers__AfterFlow___401_pend0_pchain\"},{\"@id\":\"ThenAfterMembers__Step__y\"}]" .
-
 expr:ThenAfterMembers__AfterFlow___401_pend0_prs
     a sysml:ReferenceSubsetting ;
     sysml:elementId "ThenAfterMembers__AfterFlow___401_pend0_prs" ;
@@ -306,18 +306,39 @@ expr:ThenAfterMembers__AfterFlow___401_pend0_prs
     sysml:source expr:ThenAfterMembers__AfterFlow___401_pend0 ;
     sysml:owningFeature expr:ThenAfterMembers__AfterFlow___401_pend0 ;
     sysml:owningType expr:ThenAfterMembers__AfterFlow___401_pend0 ;
-    sysml:referencedFeature expr:ThenAfterMembers__AfterFlow___401_pend0_pchain ;
-    sysml:subsettedFeature expr:ThenAfterMembers__AfterFlow___401_pend0_pchain ;
-    sysml:general expr:ThenAfterMembers__AfterFlow___401_pend0_pchain ;
-    sysml:target expr:ThenAfterMembers__AfterFlow___401_pend0_pchain ;
-    sysml:relatedElement expr:ThenAfterMembers__AfterFlow___401_pend0, expr:ThenAfterMembers__AfterFlow___401_pend0_pchain ;
+    sysml:referencedFeature elmt:ThenAfterMembers__AfterFlow__a ;
+    sysml:subsettedFeature elmt:ThenAfterMembers__AfterFlow__a ;
+    sysml:general elmt:ThenAfterMembers__AfterFlow__a ;
+    sysml:target elmt:ThenAfterMembers__AfterFlow__a ;
+    sysml:relatedElement expr:ThenAfterMembers__AfterFlow___401_pend0, elmt:ThenAfterMembers__AfterFlow__a ;
     sysml:owner expr:ThenAfterMembers__AfterFlow___401_pend0 ;
     sysml:owningRelatedElement expr:ThenAfterMembers__AfterFlow___401_pend0 ;
-    sysml:ownedRelatedElement expr:ThenAfterMembers__AfterFlow___401_pend0_pchain ;
-    json:relatedElement "[{\"@id\":\"ThenAfterMembers__AfterFlow___401_pend0\"},{\"@id\":\"ThenAfterMembers__AfterFlow___401_pend0_pchain\"}]" .
+    json:relatedElement "[{\"@id\":\"ThenAfterMembers__AfterFlow___401_pend0\"},{\"@id\":\"ThenAfterMembers__AfterFlow__a\"}]" .
+
+expr:ThenAfterMembers__AfterFlow___401_pend0_pff
+    a sysml:ReferenceUsage ;
+    sysml:elementId "ThenAfterMembers__AfterFlow___401_pend0_pff" ;
+    sysml:owner expr:ThenAfterMembers__AfterFlow___401_pend0 ;
+    sysml:owningRelationship expr:ThenAfterMembers__AfterFlow___401_pend0_pff_om ;
+    sysml:owningMembership expr:ThenAfterMembers__AfterFlow___401_pend0_pff_om ;
+    sysml:redefines elmt:ThenAfterMembers__Step__y ;
+    sysml:ownedRedefinition expr:ThenAfterMembers__AfterFlow___401_pend0_pff_rd0 ;
+    sysml:ownedSubsetting expr:ThenAfterMembers__AfterFlow___401_pend0_pff_rd0 ;
+    sysml:ownedSpecialization expr:ThenAfterMembers__AfterFlow___401_pend0_pff_rd0 ;
+    sysml:ownedRelationship expr:ThenAfterMembers__AfterFlow___401_pend0_pff_rd0 .
+
+expr:ThenAfterMembers__AfterFlow___401_pend0_pff_om
+    a sysml:FeatureMembership ;
+    sysml:elementId "ThenAfterMembers__AfterFlow___401_pend0_pff_om" ;
+    sysml:owner expr:ThenAfterMembers__AfterFlow___401_pend0 ;
+    sysml:memberElement expr:ThenAfterMembers__AfterFlow___401_pend0_pff ;
+    sysml:ownedMemberElement expr:ThenAfterMembers__AfterFlow___401_pend0_pff ;
+    sysml:ownedRelatedElement expr:ThenAfterMembers__AfterFlow___401_pend0_pff ;
+    sysml:owningRelatedElement expr:ThenAfterMembers__AfterFlow___401_pend0 ;
+    sysml:membershipOwningNamespace expr:ThenAfterMembers__AfterFlow___401_pend0 .
 
 expr:ThenAfterMembers__AfterFlow___401_pend1
-    a sysml:ReferenceUsage ;
+    a sysml:FlowEnd ;
     sysml:elementId "ThenAfterMembers__AfterFlow___401_pend1" ;
     sysml:isEnd "true"^^xsd:boolean ;
     sysml:owner elmt:ThenAfterMembers__AfterFlow___401 ;
@@ -327,7 +348,11 @@ expr:ThenAfterMembers__AfterFlow___401_pend1
     sysml:ownedReferenceSubsetting expr:ThenAfterMembers__AfterFlow___401_pend1_prs ;
     sysml:ownedSubsetting expr:ThenAfterMembers__AfterFlow___401_pend1_prs ;
     sysml:ownedSpecialization expr:ThenAfterMembers__AfterFlow___401_pend1_prs ;
-    sysml:ownedRelationship expr:ThenAfterMembers__AfterFlow___401_pend1_prs .
+    sysml:ownedRelationship expr:ThenAfterMembers__AfterFlow___401_pend1_prs, expr:ThenAfterMembers__AfterFlow___401_pend1_pff_om ;
+    sysml:ownedMembership expr:ThenAfterMembers__AfterFlow___401_pend1_pff_om ;
+    sysml:ownedFeatureMembership expr:ThenAfterMembers__AfterFlow___401_pend1_pff_om ;
+    sysml:ownedFeature expr:ThenAfterMembers__AfterFlow___401_pend1_pff ;
+    json:ownedRelationship "[{\"@id\":\"ThenAfterMembers__AfterFlow___401_pend1_prs\"},{\"@id\":\"ThenAfterMembers__AfterFlow___401_pend1_pff_om\"}]" .
 
 expr:ThenAfterMembers__AfterFlow___401_pend1_om
     a sysml:EndFeatureMembership ;
@@ -339,42 +364,6 @@ expr:ThenAfterMembers__AfterFlow___401_pend1_om
     sysml:owningRelatedElement elmt:ThenAfterMembers__AfterFlow___401 ;
     sysml:membershipOwningNamespace elmt:ThenAfterMembers__AfterFlow___401 .
 
-expr:ThenAfterMembers__AfterFlow___401_pend1_pchain
-    a sysml:Feature ;
-    sysml:elementId "ThenAfterMembers__AfterFlow___401_pend1_pchain" ;
-    sysml:ownedFeatureChaining expr:ThenAfterMembers__AfterFlow___401_pend1_pchain_pfc0, expr:ThenAfterMembers__AfterFlow___401_pend1_pchain_pfc1 ;
-    sysml:ownedRelationship expr:ThenAfterMembers__AfterFlow___401_pend1_pchain_pfc0, expr:ThenAfterMembers__AfterFlow___401_pend1_pchain_pfc1 ;
-    sysml:chainingFeature elmt:ThenAfterMembers__AfterFlow__b, elmt:ThenAfterMembers__Step__x ;
-    sysml:owningRelationship expr:ThenAfterMembers__AfterFlow___401_pend1_prs ;
-    sysml:owner expr:ThenAfterMembers__AfterFlow___401_pend1 ;
-    json:ownedFeatureChaining "[{\"@id\":\"ThenAfterMembers__AfterFlow___401_pend1_pchain_pfc0\"},{\"@id\":\"ThenAfterMembers__AfterFlow___401_pend1_pchain_pfc1\"}]" ;
-    json:ownedRelationship "[{\"@id\":\"ThenAfterMembers__AfterFlow___401_pend1_pchain_pfc0\"},{\"@id\":\"ThenAfterMembers__AfterFlow___401_pend1_pchain_pfc1\"}]" ;
-    json:chainingFeature "[{\"@id\":\"ThenAfterMembers__AfterFlow__b\"},{\"@id\":\"ThenAfterMembers__Step__x\"}]" .
-
-expr:ThenAfterMembers__AfterFlow___401_pend1_pchain_pfc0
-    a sysml:FeatureChaining ;
-    sysml:elementId "ThenAfterMembers__AfterFlow___401_pend1_pchain_pfc0" ;
-    sysml:featureChained expr:ThenAfterMembers__AfterFlow___401_pend1_pchain ;
-    sysml:source expr:ThenAfterMembers__AfterFlow___401_pend1_pchain ;
-    sysml:owningRelatedElement expr:ThenAfterMembers__AfterFlow___401_pend1_pchain ;
-    sysml:chainingFeature elmt:ThenAfterMembers__AfterFlow__b ;
-    sysml:target elmt:ThenAfterMembers__AfterFlow__b ;
-    sysml:owner expr:ThenAfterMembers__AfterFlow___401_pend1_pchain ;
-    sysml:relatedElement expr:ThenAfterMembers__AfterFlow___401_pend1_pchain, elmt:ThenAfterMembers__AfterFlow__b ;
-    json:relatedElement "[{\"@id\":\"ThenAfterMembers__AfterFlow___401_pend1_pchain\"},{\"@id\":\"ThenAfterMembers__AfterFlow__b\"}]" .
-
-expr:ThenAfterMembers__AfterFlow___401_pend1_pchain_pfc1
-    a sysml:FeatureChaining ;
-    sysml:elementId "ThenAfterMembers__AfterFlow___401_pend1_pchain_pfc1" ;
-    sysml:featureChained expr:ThenAfterMembers__AfterFlow___401_pend1_pchain ;
-    sysml:source expr:ThenAfterMembers__AfterFlow___401_pend1_pchain ;
-    sysml:owningRelatedElement expr:ThenAfterMembers__AfterFlow___401_pend1_pchain ;
-    sysml:chainingFeature elmt:ThenAfterMembers__Step__x ;
-    sysml:target elmt:ThenAfterMembers__Step__x ;
-    sysml:owner expr:ThenAfterMembers__AfterFlow___401_pend1_pchain ;
-    sysml:relatedElement expr:ThenAfterMembers__AfterFlow___401_pend1_pchain, elmt:ThenAfterMembers__Step__x ;
-    json:relatedElement "[{\"@id\":\"ThenAfterMembers__AfterFlow___401_pend1_pchain\"},{\"@id\":\"ThenAfterMembers__Step__x\"}]" .
-
 expr:ThenAfterMembers__AfterFlow___401_pend1_prs
     a sysml:ReferenceSubsetting ;
     sysml:elementId "ThenAfterMembers__AfterFlow___401_pend1_prs" ;
@@ -384,19 +373,44 @@ expr:ThenAfterMembers__AfterFlow___401_pend1_prs
     sysml:source expr:ThenAfterMembers__AfterFlow___401_pend1 ;
     sysml:owningFeature expr:ThenAfterMembers__AfterFlow___401_pend1 ;
     sysml:owningType expr:ThenAfterMembers__AfterFlow___401_pend1 ;
-    sysml:referencedFeature expr:ThenAfterMembers__AfterFlow___401_pend1_pchain ;
-    sysml:subsettedFeature expr:ThenAfterMembers__AfterFlow___401_pend1_pchain ;
-    sysml:general expr:ThenAfterMembers__AfterFlow___401_pend1_pchain ;
-    sysml:target expr:ThenAfterMembers__AfterFlow___401_pend1_pchain ;
-    sysml:relatedElement expr:ThenAfterMembers__AfterFlow___401_pend1, expr:ThenAfterMembers__AfterFlow___401_pend1_pchain ;
+    sysml:referencedFeature elmt:ThenAfterMembers__AfterFlow__b ;
+    sysml:subsettedFeature elmt:ThenAfterMembers__AfterFlow__b ;
+    sysml:general elmt:ThenAfterMembers__AfterFlow__b ;
+    sysml:target elmt:ThenAfterMembers__AfterFlow__b ;
+    sysml:relatedElement expr:ThenAfterMembers__AfterFlow___401_pend1, elmt:ThenAfterMembers__AfterFlow__b ;
     sysml:owner expr:ThenAfterMembers__AfterFlow___401_pend1 ;
     sysml:owningRelatedElement expr:ThenAfterMembers__AfterFlow___401_pend1 ;
-    sysml:ownedRelatedElement expr:ThenAfterMembers__AfterFlow___401_pend1_pchain ;
-    json:relatedElement "[{\"@id\":\"ThenAfterMembers__AfterFlow___401_pend1\"},{\"@id\":\"ThenAfterMembers__AfterFlow___401_pend1_pchain\"}]" .
+    json:relatedElement "[{\"@id\":\"ThenAfterMembers__AfterFlow___401_pend1\"},{\"@id\":\"ThenAfterMembers__AfterFlow__b\"}]" .
+
+expr:ThenAfterMembers__AfterFlow___401_pend1_pff
+    a sysml:ReferenceUsage ;
+    sysml:elementId "ThenAfterMembers__AfterFlow___401_pend1_pff" ;
+    sysml:owner expr:ThenAfterMembers__AfterFlow___401_pend1 ;
+    sysml:owningRelationship expr:ThenAfterMembers__AfterFlow___401_pend1_pff_om ;
+    sysml:owningMembership expr:ThenAfterMembers__AfterFlow___401_pend1_pff_om ;
+    sysml:redefines elmt:ThenAfterMembers__Step__x ;
+    sysml:ownedRedefinition expr:ThenAfterMembers__AfterFlow___401_pend1_pff_rd0 ;
+    sysml:ownedSubsetting expr:ThenAfterMembers__AfterFlow___401_pend1_pff_rd0 ;
+    sysml:ownedSpecialization expr:ThenAfterMembers__AfterFlow___401_pend1_pff_rd0 ;
+    sysml:ownedRelationship expr:ThenAfterMembers__AfterFlow___401_pend1_pff_rd0 .
+
+expr:ThenAfterMembers__AfterFlow___401_pend1_pff_om
+    a sysml:FeatureMembership ;
+    sysml:elementId "ThenAfterMembers__AfterFlow___401_pend1_pff_om" ;
+    sysml:owner expr:ThenAfterMembers__AfterFlow___401_pend1 ;
+    sysml:memberElement expr:ThenAfterMembers__AfterFlow___401_pend1_pff ;
+    sysml:ownedMemberElement expr:ThenAfterMembers__AfterFlow___401_pend1_pff ;
+    sysml:ownedRelatedElement expr:ThenAfterMembers__AfterFlow___401_pend1_pff ;
+    sysml:owningRelatedElement expr:ThenAfterMembers__AfterFlow___401_pend1 ;
+    sysml:membershipOwningNamespace expr:ThenAfterMembers__AfterFlow___401_pend1 .
 
 elmt:ThenAfterMembers__AfterFlow__b
     a sysml:ActionUsage ;
     sysml:qualifiedName "ThenAfterMembers::AfterFlow::b" ;
+    sysx:sourceLine "10"^^xsd:integer ;
+    sysx:sourceColumn "14"^^xsd:integer ;
+    sysx:sourceEndLine "10"^^xsd:integer ;
+    sysx:sourceEndColumn "30"^^xsd:integer ;
     sysml:elementId "ThenAfterMembers__AfterFlow__b" ;
     sysx:memberIndex "2"^^xsd:integer ;
     sysml:owningNamespace elmt:ThenAfterMembers__AfterFlow ;
@@ -426,6 +440,10 @@ elmt:ThenAfterMembers__AfterFlow__b_om
 elmt:ThenAfterMembers__AfterFlow___403
     a sysml:SuccessionAsUsage ;
     sysml:qualifiedName "ThenAfterMembers::AfterFlow::@3" ;
+    sysx:sourceLine "10"^^xsd:integer ;
+    sysx:sourceColumn "9"^^xsd:integer ;
+    sysx:sourceEndLine "10"^^xsd:integer ;
+    sysx:sourceEndColumn "13"^^xsd:integer ;
     sysml:elementId "ThenAfterMembers__AfterFlow___403" ;
     sysx:memberIndex "3"^^xsd:integer ;
     sysml:owningNamespace elmt:ThenAfterMembers__AfterFlow ;
@@ -523,6 +541,10 @@ expr:ThenAfterMembers__AfterFlow___403_pend1_prs
 elmt:ThenAfterMembers__AfterBind
     a sysml:ActionDefinition ;
     sysml:qualifiedName "ThenAfterMembers::AfterBind" ;
+    sysx:sourceLine "12"^^xsd:integer ;
+    sysx:sourceColumn "5"^^xsd:integer ;
+    sysx:sourceEndLine "18"^^xsd:integer ;
+    sysx:sourceEndColumn "6"^^xsd:integer ;
     sysml:elementId "ThenAfterMembers__AfterBind" ;
     sysx:memberIndex "3"^^xsd:integer ;
     sysml:owningNamespace elmt:ThenAfterMembers ;
@@ -557,6 +579,10 @@ elmt:ThenAfterMembers__AfterBind_om
 elmt:ThenAfterMembers__AfterBind__k
     a sysml:AttributeUsage ;
     sysml:qualifiedName "ThenAfterMembers::AfterBind::k" ;
+    sysx:sourceLine "13"^^xsd:integer ;
+    sysx:sourceColumn "9"^^xsd:integer ;
+    sysx:sourceEndLine "13"^^xsd:integer ;
+    sysx:sourceEndColumn "45"^^xsd:integer ;
     sysml:elementId "ThenAfterMembers__AfterBind__k" ;
     sysx:memberIndex "0"^^xsd:integer ;
     sysml:owningNamespace elmt:ThenAfterMembers__AfterBind ;
@@ -586,6 +612,10 @@ elmt:ThenAfterMembers__AfterBind__k_om
 elmt:ThenAfterMembers__AfterBind__m
     a sysml:AttributeUsage ;
     sysml:qualifiedName "ThenAfterMembers::AfterBind::m" ;
+    sysx:sourceLine "14"^^xsd:integer ;
+    sysx:sourceColumn "9"^^xsd:integer ;
+    sysx:sourceEndLine "14"^^xsd:integer ;
+    sysx:sourceEndColumn "45"^^xsd:integer ;
     sysml:elementId "ThenAfterMembers__AfterBind__m" ;
     sysx:memberIndex "1"^^xsd:integer ;
     sysml:owningNamespace elmt:ThenAfterMembers__AfterBind ;
@@ -615,6 +645,10 @@ elmt:ThenAfterMembers__AfterBind__m_om
 elmt:ThenAfterMembers__AfterBind__a
     a sysml:ActionUsage ;
     sysml:qualifiedName "ThenAfterMembers::AfterBind::a" ;
+    sysx:sourceLine "15"^^xsd:integer ;
+    sysx:sourceColumn "9"^^xsd:integer ;
+    sysx:sourceEndLine "15"^^xsd:integer ;
+    sysx:sourceEndColumn "25"^^xsd:integer ;
     sysml:elementId "ThenAfterMembers__AfterBind__a" ;
     sysx:memberIndex "2"^^xsd:integer ;
     sysml:owningNamespace elmt:ThenAfterMembers__AfterBind ;
@@ -644,6 +678,10 @@ elmt:ThenAfterMembers__AfterBind__a_om
 elmt:ThenAfterMembers__AfterBind___403
     a sysml:BindingConnectorAsUsage ;
     sysml:qualifiedName "ThenAfterMembers::AfterBind::@3" ;
+    sysx:sourceLine "16"^^xsd:integer ;
+    sysx:sourceColumn "9"^^xsd:integer ;
+    sysx:sourceEndLine "16"^^xsd:integer ;
+    sysx:sourceEndColumn "20"^^xsd:integer ;
     sysml:elementId "ThenAfterMembers__AfterBind___403" ;
     sysx:memberIndex "3"^^xsd:integer ;
     sysml:owningNamespace elmt:ThenAfterMembers__AfterBind ;
@@ -768,6 +806,10 @@ expr:ThenAfterMembers__AfterBind___403_pend1_prs
 elmt:ThenAfterMembers__AfterBind__b
     a sysml:ActionUsage ;
     sysml:qualifiedName "ThenAfterMembers::AfterBind::b" ;
+    sysx:sourceLine "17"^^xsd:integer ;
+    sysx:sourceColumn "14"^^xsd:integer ;
+    sysx:sourceEndLine "17"^^xsd:integer ;
+    sysx:sourceEndColumn "30"^^xsd:integer ;
     sysml:elementId "ThenAfterMembers__AfterBind__b" ;
     sysx:memberIndex "4"^^xsd:integer ;
     sysml:owningNamespace elmt:ThenAfterMembers__AfterBind ;
@@ -797,6 +839,10 @@ elmt:ThenAfterMembers__AfterBind__b_om
 elmt:ThenAfterMembers__AfterBind___405
     a sysml:SuccessionAsUsage ;
     sysml:qualifiedName "ThenAfterMembers::AfterBind::@5" ;
+    sysx:sourceLine "17"^^xsd:integer ;
+    sysx:sourceColumn "9"^^xsd:integer ;
+    sysx:sourceEndLine "17"^^xsd:integer ;
+    sysx:sourceEndColumn "13"^^xsd:integer ;
     sysml:elementId "ThenAfterMembers__AfterBind___405" ;
     sysx:memberIndex "5"^^xsd:integer ;
     sysml:owningNamespace elmt:ThenAfterMembers__AfterBind ;
@@ -894,6 +940,10 @@ expr:ThenAfterMembers__AfterBind___405_pend1_prs
 elmt:ThenAfterMembers__Widget
     a sysml:PartDefinition ;
     sysml:qualifiedName "ThenAfterMembers::Widget" ;
+    sysx:sourceLine "19"^^xsd:integer ;
+    sysx:sourceColumn "5"^^xsd:integer ;
+    sysx:sourceEndLine "19"^^xsd:integer ;
+    sysx:sourceEndColumn "21"^^xsd:integer ;
     sysml:elementId "ThenAfterMembers__Widget" ;
     sysx:memberIndex "4"^^xsd:integer ;
     sysml:owningNamespace elmt:ThenAfterMembers ;
@@ -917,6 +967,10 @@ elmt:ThenAfterMembers__Widget_om
 elmt:ThenAfterMembers__Plug
     a sysml:PortDefinition ;
     sysml:qualifiedName "ThenAfterMembers::Plug" ;
+    sysx:sourceLine "20"^^xsd:integer ;
+    sysx:sourceColumn "5"^^xsd:integer ;
+    sysx:sourceEndLine "20"^^xsd:integer ;
+    sysx:sourceEndColumn "19"^^xsd:integer ;
     sysml:elementId "ThenAfterMembers__Plug" ;
     sysx:memberIndex "5"^^xsd:integer ;
     sysml:owningNamespace elmt:ThenAfterMembers ;
@@ -978,6 +1032,10 @@ elmt:ThenAfterMembers__Plug_conjugated_pc
 elmt:ThenAfterMembers__AfterConnect
     a sysml:ActionDefinition ;
     sysml:qualifiedName "ThenAfterMembers::AfterConnect" ;
+    sysx:sourceLine "21"^^xsd:integer ;
+    sysx:sourceColumn "5"^^xsd:integer ;
+    sysx:sourceEndLine "27"^^xsd:integer ;
+    sysx:sourceEndColumn "6"^^xsd:integer ;
     sysml:elementId "ThenAfterMembers__AfterConnect" ;
     sysx:memberIndex "6"^^xsd:integer ;
     sysml:owningNamespace elmt:ThenAfterMembers ;
@@ -1012,6 +1070,10 @@ elmt:ThenAfterMembers__AfterConnect_om
 elmt:ThenAfterMembers__AfterConnect__a
     a sysml:ActionUsage ;
     sysml:qualifiedName "ThenAfterMembers::AfterConnect::a" ;
+    sysx:sourceLine "22"^^xsd:integer ;
+    sysx:sourceColumn "9"^^xsd:integer ;
+    sysx:sourceEndLine "22"^^xsd:integer ;
+    sysx:sourceEndColumn "25"^^xsd:integer ;
     sysml:elementId "ThenAfterMembers__AfterConnect__a" ;
     sysx:memberIndex "0"^^xsd:integer ;
     sysml:owningNamespace elmt:ThenAfterMembers__AfterConnect ;
@@ -1041,6 +1103,10 @@ elmt:ThenAfterMembers__AfterConnect__a_om
 elmt:ThenAfterMembers__AfterConnect__p
     a sysml:PartUsage ;
     sysml:qualifiedName "ThenAfterMembers::AfterConnect::p" ;
+    sysx:sourceLine "23"^^xsd:integer ;
+    sysx:sourceColumn "9"^^xsd:integer ;
+    sysx:sourceEndLine "23"^^xsd:integer ;
+    sysx:sourceEndColumn "25"^^xsd:integer ;
     sysml:elementId "ThenAfterMembers__AfterConnect__p" ;
     sysx:memberIndex "1"^^xsd:integer ;
     sysml:owningNamespace elmt:ThenAfterMembers__AfterConnect ;
@@ -1070,6 +1136,10 @@ elmt:ThenAfterMembers__AfterConnect__p_om
 elmt:ThenAfterMembers__AfterConnect__q
     a sysml:PartUsage ;
     sysml:qualifiedName "ThenAfterMembers::AfterConnect::q" ;
+    sysx:sourceLine "24"^^xsd:integer ;
+    sysx:sourceColumn "9"^^xsd:integer ;
+    sysx:sourceEndLine "24"^^xsd:integer ;
+    sysx:sourceEndColumn "25"^^xsd:integer ;
     sysml:elementId "ThenAfterMembers__AfterConnect__q" ;
     sysx:memberIndex "2"^^xsd:integer ;
     sysml:owningNamespace elmt:ThenAfterMembers__AfterConnect ;
@@ -1099,6 +1169,10 @@ elmt:ThenAfterMembers__AfterConnect__q_om
 elmt:ThenAfterMembers__AfterConnect___403
     a sysml:ConnectionUsage ;
     sysml:qualifiedName "ThenAfterMembers::AfterConnect::@3" ;
+    sysx:sourceLine "25"^^xsd:integer ;
+    sysx:sourceColumn "9"^^xsd:integer ;
+    sysx:sourceEndLine "25"^^xsd:integer ;
+    sysx:sourceEndColumn "24"^^xsd:integer ;
     sysml:elementId "ThenAfterMembers__AfterConnect___403" ;
     sysx:memberIndex "3"^^xsd:integer ;
     sysml:owningNamespace elmt:ThenAfterMembers__AfterConnect ;
@@ -1223,6 +1297,10 @@ expr:ThenAfterMembers__AfterConnect___403_pend1_prs
 elmt:ThenAfterMembers__AfterConnect__b
     a sysml:ActionUsage ;
     sysml:qualifiedName "ThenAfterMembers::AfterConnect::b" ;
+    sysx:sourceLine "26"^^xsd:integer ;
+    sysx:sourceColumn "14"^^xsd:integer ;
+    sysx:sourceEndLine "26"^^xsd:integer ;
+    sysx:sourceEndColumn "30"^^xsd:integer ;
     sysml:elementId "ThenAfterMembers__AfterConnect__b" ;
     sysx:memberIndex "4"^^xsd:integer ;
     sysml:owningNamespace elmt:ThenAfterMembers__AfterConnect ;
@@ -1252,6 +1330,10 @@ elmt:ThenAfterMembers__AfterConnect__b_om
 elmt:ThenAfterMembers__AfterConnect___405
     a sysml:SuccessionAsUsage ;
     sysml:qualifiedName "ThenAfterMembers::AfterConnect::@5" ;
+    sysx:sourceLine "26"^^xsd:integer ;
+    sysx:sourceColumn "9"^^xsd:integer ;
+    sysx:sourceEndLine "26"^^xsd:integer ;
+    sysx:sourceEndColumn "13"^^xsd:integer ;
     sysml:elementId "ThenAfterMembers__AfterConnect___405" ;
     sysx:memberIndex "5"^^xsd:integer ;
     sysml:owningNamespace elmt:ThenAfterMembers__AfterConnect ;
@@ -1349,6 +1431,10 @@ expr:ThenAfterMembers__AfterConnect___405_pend1_prs
 elmt:ThenAfterMembers__AfterConnection
     a sysml:ActionDefinition ;
     sysml:qualifiedName "ThenAfterMembers::AfterConnection" ;
+    sysx:sourceLine "28"^^xsd:integer ;
+    sysx:sourceColumn "5"^^xsd:integer ;
+    sysx:sourceEndLine "34"^^xsd:integer ;
+    sysx:sourceEndColumn "6"^^xsd:integer ;
     sysml:elementId "ThenAfterMembers__AfterConnection" ;
     sysx:memberIndex "7"^^xsd:integer ;
     sysml:owningNamespace elmt:ThenAfterMembers ;
@@ -1383,6 +1469,10 @@ elmt:ThenAfterMembers__AfterConnection_om
 elmt:ThenAfterMembers__AfterConnection__a
     a sysml:ActionUsage ;
     sysml:qualifiedName "ThenAfterMembers::AfterConnection::a" ;
+    sysx:sourceLine "29"^^xsd:integer ;
+    sysx:sourceColumn "9"^^xsd:integer ;
+    sysx:sourceEndLine "29"^^xsd:integer ;
+    sysx:sourceEndColumn "25"^^xsd:integer ;
     sysml:elementId "ThenAfterMembers__AfterConnection__a" ;
     sysx:memberIndex "0"^^xsd:integer ;
     sysml:owningNamespace elmt:ThenAfterMembers__AfterConnection ;
@@ -1412,6 +1502,10 @@ elmt:ThenAfterMembers__AfterConnection__a_om
 elmt:ThenAfterMembers__AfterConnection__p
     a sysml:PartUsage ;
     sysml:qualifiedName "ThenAfterMembers::AfterConnection::p" ;
+    sysx:sourceLine "30"^^xsd:integer ;
+    sysx:sourceColumn "9"^^xsd:integer ;
+    sysx:sourceEndLine "30"^^xsd:integer ;
+    sysx:sourceEndColumn "25"^^xsd:integer ;
     sysml:elementId "ThenAfterMembers__AfterConnection__p" ;
     sysx:memberIndex "1"^^xsd:integer ;
     sysml:owningNamespace elmt:ThenAfterMembers__AfterConnection ;
@@ -1441,6 +1535,10 @@ elmt:ThenAfterMembers__AfterConnection__p_om
 elmt:ThenAfterMembers__AfterConnection__q
     a sysml:PartUsage ;
     sysml:qualifiedName "ThenAfterMembers::AfterConnection::q" ;
+    sysx:sourceLine "31"^^xsd:integer ;
+    sysx:sourceColumn "9"^^xsd:integer ;
+    sysx:sourceEndLine "31"^^xsd:integer ;
+    sysx:sourceEndColumn "25"^^xsd:integer ;
     sysml:elementId "ThenAfterMembers__AfterConnection__q" ;
     sysx:memberIndex "2"^^xsd:integer ;
     sysml:owningNamespace elmt:ThenAfterMembers__AfterConnection ;
@@ -1470,6 +1568,10 @@ elmt:ThenAfterMembers__AfterConnection__q_om
 elmt:ThenAfterMembers__AfterConnection__c
     a sysml:ConnectionUsage ;
     sysml:qualifiedName "ThenAfterMembers::AfterConnection::c" ;
+    sysx:sourceLine "32"^^xsd:integer ;
+    sysx:sourceColumn "9"^^xsd:integer ;
+    sysx:sourceEndLine "32"^^xsd:integer ;
+    sysx:sourceEndColumn "37"^^xsd:integer ;
     sysml:elementId "ThenAfterMembers__AfterConnection__c" ;
     sysx:memberIndex "3"^^xsd:integer ;
     sysml:owningNamespace elmt:ThenAfterMembers__AfterConnection ;
@@ -1595,6 +1697,10 @@ expr:ThenAfterMembers__AfterConnection__c_pend1_prs
 elmt:ThenAfterMembers__AfterConnection__b
     a sysml:ActionUsage ;
     sysml:qualifiedName "ThenAfterMembers::AfterConnection::b" ;
+    sysx:sourceLine "33"^^xsd:integer ;
+    sysx:sourceColumn "14"^^xsd:integer ;
+    sysx:sourceEndLine "33"^^xsd:integer ;
+    sysx:sourceEndColumn "30"^^xsd:integer ;
     sysml:elementId "ThenAfterMembers__AfterConnection__b" ;
     sysx:memberIndex "4"^^xsd:integer ;
     sysml:owningNamespace elmt:ThenAfterMembers__AfterConnection ;
@@ -1624,6 +1730,10 @@ elmt:ThenAfterMembers__AfterConnection__b_om
 elmt:ThenAfterMembers__AfterConnection___405
     a sysml:SuccessionAsUsage ;
     sysml:qualifiedName "ThenAfterMembers::AfterConnection::@5" ;
+    sysx:sourceLine "33"^^xsd:integer ;
+    sysx:sourceColumn "9"^^xsd:integer ;
+    sysx:sourceEndLine "33"^^xsd:integer ;
+    sysx:sourceEndColumn "13"^^xsd:integer ;
     sysml:elementId "ThenAfterMembers__AfterConnection___405" ;
     sysx:memberIndex "5"^^xsd:integer ;
     sysml:owningNamespace elmt:ThenAfterMembers__AfterConnection ;
@@ -1721,6 +1831,10 @@ expr:ThenAfterMembers__AfterConnection___405_pend1_prs
 elmt:ThenAfterMembers__AfterInterface
     a sysml:ActionDefinition ;
     sysml:qualifiedName "ThenAfterMembers::AfterInterface" ;
+    sysx:sourceLine "35"^^xsd:integer ;
+    sysx:sourceColumn "5"^^xsd:integer ;
+    sysx:sourceEndLine "41"^^xsd:integer ;
+    sysx:sourceEndColumn "6"^^xsd:integer ;
     sysml:elementId "ThenAfterMembers__AfterInterface" ;
     sysx:memberIndex "8"^^xsd:integer ;
     sysml:owningNamespace elmt:ThenAfterMembers ;
@@ -1755,6 +1869,10 @@ elmt:ThenAfterMembers__AfterInterface_om
 elmt:ThenAfterMembers__AfterInterface__a
     a sysml:ActionUsage ;
     sysml:qualifiedName "ThenAfterMembers::AfterInterface::a" ;
+    sysx:sourceLine "36"^^xsd:integer ;
+    sysx:sourceColumn "9"^^xsd:integer ;
+    sysx:sourceEndLine "36"^^xsd:integer ;
+    sysx:sourceEndColumn "25"^^xsd:integer ;
     sysml:elementId "ThenAfterMembers__AfterInterface__a" ;
     sysx:memberIndex "0"^^xsd:integer ;
     sysml:owningNamespace elmt:ThenAfterMembers__AfterInterface ;
@@ -1784,6 +1902,10 @@ elmt:ThenAfterMembers__AfterInterface__a_om
 elmt:ThenAfterMembers__AfterInterface__p1
     a sysml:PortUsage ;
     sysml:qualifiedName "ThenAfterMembers::AfterInterface::p1" ;
+    sysx:sourceLine "37"^^xsd:integer ;
+    sysx:sourceColumn "9"^^xsd:integer ;
+    sysx:sourceEndLine "37"^^xsd:integer ;
+    sysx:sourceEndColumn "24"^^xsd:integer ;
     sysml:elementId "ThenAfterMembers__AfterInterface__p1" ;
     sysx:memberIndex "1"^^xsd:integer ;
     sysml:owningNamespace elmt:ThenAfterMembers__AfterInterface ;
@@ -1813,6 +1935,10 @@ elmt:ThenAfterMembers__AfterInterface__p1_om
 elmt:ThenAfterMembers__AfterInterface__p2
     a sysml:PortUsage ;
     sysml:qualifiedName "ThenAfterMembers::AfterInterface::p2" ;
+    sysx:sourceLine "38"^^xsd:integer ;
+    sysx:sourceColumn "9"^^xsd:integer ;
+    sysx:sourceEndLine "38"^^xsd:integer ;
+    sysx:sourceEndColumn "25"^^xsd:integer ;
     sysml:elementId "ThenAfterMembers__AfterInterface__p2" ;
     sysx:memberIndex "2"^^xsd:integer ;
     sysml:owningNamespace elmt:ThenAfterMembers__AfterInterface ;
@@ -1843,6 +1969,10 @@ elmt:ThenAfterMembers__AfterInterface__p2_om
 elmt:ThenAfterMembers__AfterInterface__i
     a sysml:InterfaceUsage ;
     sysml:qualifiedName "ThenAfterMembers::AfterInterface::i" ;
+    sysx:sourceLine "39"^^xsd:integer ;
+    sysx:sourceColumn "9"^^xsd:integer ;
+    sysx:sourceEndLine "39"^^xsd:integer ;
+    sysx:sourceEndColumn "38"^^xsd:integer ;
     sysml:elementId "ThenAfterMembers__AfterInterface__i" ;
     sysx:memberIndex "3"^^xsd:integer ;
     sysml:owningNamespace elmt:ThenAfterMembers__AfterInterface ;
@@ -1968,6 +2098,10 @@ expr:ThenAfterMembers__AfterInterface__i_pend1_prs
 elmt:ThenAfterMembers__AfterInterface__b
     a sysml:ActionUsage ;
     sysml:qualifiedName "ThenAfterMembers::AfterInterface::b" ;
+    sysx:sourceLine "40"^^xsd:integer ;
+    sysx:sourceColumn "14"^^xsd:integer ;
+    sysx:sourceEndLine "40"^^xsd:integer ;
+    sysx:sourceEndColumn "30"^^xsd:integer ;
     sysml:elementId "ThenAfterMembers__AfterInterface__b" ;
     sysx:memberIndex "4"^^xsd:integer ;
     sysml:owningNamespace elmt:ThenAfterMembers__AfterInterface ;
@@ -1997,6 +2131,10 @@ elmt:ThenAfterMembers__AfterInterface__b_om
 elmt:ThenAfterMembers__AfterInterface___405
     a sysml:SuccessionAsUsage ;
     sysml:qualifiedName "ThenAfterMembers::AfterInterface::@5" ;
+    sysx:sourceLine "40"^^xsd:integer ;
+    sysx:sourceColumn "9"^^xsd:integer ;
+    sysx:sourceEndLine "40"^^xsd:integer ;
+    sysx:sourceEndColumn "13"^^xsd:integer ;
     sysml:elementId "ThenAfterMembers__AfterInterface___405" ;
     sysx:memberIndex "5"^^xsd:integer ;
     sysml:owningNamespace elmt:ThenAfterMembers__AfterInterface ;
@@ -2094,6 +2232,10 @@ expr:ThenAfterMembers__AfterInterface___405_pend1_prs
 elmt:ThenAfterMembers__AfterAllocate
     a sysml:ActionDefinition ;
     sysml:qualifiedName "ThenAfterMembers::AfterAllocate" ;
+    sysx:sourceLine "42"^^xsd:integer ;
+    sysx:sourceColumn "5"^^xsd:integer ;
+    sysx:sourceEndLine "48"^^xsd:integer ;
+    sysx:sourceEndColumn "6"^^xsd:integer ;
     sysml:elementId "ThenAfterMembers__AfterAllocate" ;
     sysx:memberIndex "9"^^xsd:integer ;
     sysml:owningNamespace elmt:ThenAfterMembers ;
@@ -2128,6 +2270,10 @@ elmt:ThenAfterMembers__AfterAllocate_om
 elmt:ThenAfterMembers__AfterAllocate__a
     a sysml:ActionUsage ;
     sysml:qualifiedName "ThenAfterMembers::AfterAllocate::a" ;
+    sysx:sourceLine "43"^^xsd:integer ;
+    sysx:sourceColumn "9"^^xsd:integer ;
+    sysx:sourceEndLine "43"^^xsd:integer ;
+    sysx:sourceEndColumn "25"^^xsd:integer ;
     sysml:elementId "ThenAfterMembers__AfterAllocate__a" ;
     sysx:memberIndex "0"^^xsd:integer ;
     sysml:owningNamespace elmt:ThenAfterMembers__AfterAllocate ;
@@ -2157,6 +2303,10 @@ elmt:ThenAfterMembers__AfterAllocate__a_om
 elmt:ThenAfterMembers__AfterAllocate__p
     a sysml:PartUsage ;
     sysml:qualifiedName "ThenAfterMembers::AfterAllocate::p" ;
+    sysx:sourceLine "44"^^xsd:integer ;
+    sysx:sourceColumn "9"^^xsd:integer ;
+    sysx:sourceEndLine "44"^^xsd:integer ;
+    sysx:sourceEndColumn "25"^^xsd:integer ;
     sysml:elementId "ThenAfterMembers__AfterAllocate__p" ;
     sysx:memberIndex "1"^^xsd:integer ;
     sysml:owningNamespace elmt:ThenAfterMembers__AfterAllocate ;
@@ -2186,6 +2336,10 @@ elmt:ThenAfterMembers__AfterAllocate__p_om
 elmt:ThenAfterMembers__AfterAllocate__q
     a sysml:PartUsage ;
     sysml:qualifiedName "ThenAfterMembers::AfterAllocate::q" ;
+    sysx:sourceLine "45"^^xsd:integer ;
+    sysx:sourceColumn "9"^^xsd:integer ;
+    sysx:sourceEndLine "45"^^xsd:integer ;
+    sysx:sourceEndColumn "25"^^xsd:integer ;
     sysml:elementId "ThenAfterMembers__AfterAllocate__q" ;
     sysx:memberIndex "2"^^xsd:integer ;
     sysml:owningNamespace elmt:ThenAfterMembers__AfterAllocate ;
@@ -2215,6 +2369,10 @@ elmt:ThenAfterMembers__AfterAllocate__q_om
 elmt:ThenAfterMembers__AfterAllocate___403
     a sysml:AllocationUsage ;
     sysml:qualifiedName "ThenAfterMembers::AfterAllocate::@3" ;
+    sysx:sourceLine "46"^^xsd:integer ;
+    sysx:sourceColumn "9"^^xsd:integer ;
+    sysx:sourceEndLine "46"^^xsd:integer ;
+    sysx:sourceEndColumn "25"^^xsd:integer ;
     sysml:elementId "ThenAfterMembers__AfterAllocate___403" ;
     sysx:memberIndex "3"^^xsd:integer ;
     sysml:owningNamespace elmt:ThenAfterMembers__AfterAllocate ;
@@ -2339,6 +2497,10 @@ expr:ThenAfterMembers__AfterAllocate___403_pend1_prs
 elmt:ThenAfterMembers__AfterAllocate__b
     a sysml:ActionUsage ;
     sysml:qualifiedName "ThenAfterMembers::AfterAllocate::b" ;
+    sysx:sourceLine "47"^^xsd:integer ;
+    sysx:sourceColumn "14"^^xsd:integer ;
+    sysx:sourceEndLine "47"^^xsd:integer ;
+    sysx:sourceEndColumn "30"^^xsd:integer ;
     sysml:elementId "ThenAfterMembers__AfterAllocate__b" ;
     sysx:memberIndex "4"^^xsd:integer ;
     sysml:owningNamespace elmt:ThenAfterMembers__AfterAllocate ;
@@ -2368,6 +2530,10 @@ elmt:ThenAfterMembers__AfterAllocate__b_om
 elmt:ThenAfterMembers__AfterAllocate___405
     a sysml:SuccessionAsUsage ;
     sysml:qualifiedName "ThenAfterMembers::AfterAllocate::@5" ;
+    sysx:sourceLine "47"^^xsd:integer ;
+    sysx:sourceColumn "9"^^xsd:integer ;
+    sysx:sourceEndLine "47"^^xsd:integer ;
+    sysx:sourceEndColumn "13"^^xsd:integer ;
     sysml:elementId "ThenAfterMembers__AfterAllocate___405" ;
     sysx:memberIndex "5"^^xsd:integer ;
     sysml:owningNamespace elmt:ThenAfterMembers__AfterAllocate ;
@@ -2465,6 +2631,10 @@ expr:ThenAfterMembers__AfterAllocate___405_pend1_prs
 elmt:ThenAfterMembers__AfterAllocation
     a sysml:ActionDefinition ;
     sysml:qualifiedName "ThenAfterMembers::AfterAllocation" ;
+    sysx:sourceLine "49"^^xsd:integer ;
+    sysx:sourceColumn "5"^^xsd:integer ;
+    sysx:sourceEndLine "55"^^xsd:integer ;
+    sysx:sourceEndColumn "6"^^xsd:integer ;
     sysml:elementId "ThenAfterMembers__AfterAllocation" ;
     sysx:memberIndex "10"^^xsd:integer ;
     sysml:owningNamespace elmt:ThenAfterMembers ;
@@ -2499,6 +2669,10 @@ elmt:ThenAfterMembers__AfterAllocation_om
 elmt:ThenAfterMembers__AfterAllocation__a
     a sysml:ActionUsage ;
     sysml:qualifiedName "ThenAfterMembers::AfterAllocation::a" ;
+    sysx:sourceLine "50"^^xsd:integer ;
+    sysx:sourceColumn "9"^^xsd:integer ;
+    sysx:sourceEndLine "50"^^xsd:integer ;
+    sysx:sourceEndColumn "25"^^xsd:integer ;
     sysml:elementId "ThenAfterMembers__AfterAllocation__a" ;
     sysx:memberIndex "0"^^xsd:integer ;
     sysml:owningNamespace elmt:ThenAfterMembers__AfterAllocation ;
@@ -2528,6 +2702,10 @@ elmt:ThenAfterMembers__AfterAllocation__a_om
 elmt:ThenAfterMembers__AfterAllocation__p
     a sysml:PartUsage ;
     sysml:qualifiedName "ThenAfterMembers::AfterAllocation::p" ;
+    sysx:sourceLine "51"^^xsd:integer ;
+    sysx:sourceColumn "9"^^xsd:integer ;
+    sysx:sourceEndLine "51"^^xsd:integer ;
+    sysx:sourceEndColumn "25"^^xsd:integer ;
     sysml:elementId "ThenAfterMembers__AfterAllocation__p" ;
     sysx:memberIndex "1"^^xsd:integer ;
     sysml:owningNamespace elmt:ThenAfterMembers__AfterAllocation ;
@@ -2557,6 +2735,10 @@ elmt:ThenAfterMembers__AfterAllocation__p_om
 elmt:ThenAfterMembers__AfterAllocation__q
     a sysml:PartUsage ;
     sysml:qualifiedName "ThenAfterMembers::AfterAllocation::q" ;
+    sysx:sourceLine "52"^^xsd:integer ;
+    sysx:sourceColumn "9"^^xsd:integer ;
+    sysx:sourceEndLine "52"^^xsd:integer ;
+    sysx:sourceEndColumn "25"^^xsd:integer ;
     sysml:elementId "ThenAfterMembers__AfterAllocation__q" ;
     sysx:memberIndex "2"^^xsd:integer ;
     sysml:owningNamespace elmt:ThenAfterMembers__AfterAllocation ;
@@ -2586,6 +2768,10 @@ elmt:ThenAfterMembers__AfterAllocation__q_om
 elmt:ThenAfterMembers__AfterAllocation__al
     a sysml:AllocationUsage ;
     sysml:qualifiedName "ThenAfterMembers::AfterAllocation::al" ;
+    sysx:sourceLine "53"^^xsd:integer ;
+    sysx:sourceColumn "9"^^xsd:integer ;
+    sysx:sourceEndLine "53"^^xsd:integer ;
+    sysx:sourceEndColumn "39"^^xsd:integer ;
     sysml:elementId "ThenAfterMembers__AfterAllocation__al" ;
     sysx:memberIndex "3"^^xsd:integer ;
     sysml:owningNamespace elmt:ThenAfterMembers__AfterAllocation ;
@@ -2711,6 +2897,10 @@ expr:ThenAfterMembers__AfterAllocation__al_pend1_prs
 elmt:ThenAfterMembers__AfterAllocation__b
     a sysml:ActionUsage ;
     sysml:qualifiedName "ThenAfterMembers::AfterAllocation::b" ;
+    sysx:sourceLine "54"^^xsd:integer ;
+    sysx:sourceColumn "14"^^xsd:integer ;
+    sysx:sourceEndLine "54"^^xsd:integer ;
+    sysx:sourceEndColumn "30"^^xsd:integer ;
     sysml:elementId "ThenAfterMembers__AfterAllocation__b" ;
     sysx:memberIndex "4"^^xsd:integer ;
     sysml:owningNamespace elmt:ThenAfterMembers__AfterAllocation ;
@@ -2740,6 +2930,10 @@ elmt:ThenAfterMembers__AfterAllocation__b_om
 elmt:ThenAfterMembers__AfterAllocation___405
     a sysml:SuccessionAsUsage ;
     sysml:qualifiedName "ThenAfterMembers::AfterAllocation::@5" ;
+    sysx:sourceLine "54"^^xsd:integer ;
+    sysx:sourceColumn "9"^^xsd:integer ;
+    sysx:sourceEndLine "54"^^xsd:integer ;
+    sysx:sourceEndColumn "13"^^xsd:integer ;
     sysml:elementId "ThenAfterMembers__AfterAllocation___405" ;
     sysx:memberIndex "5"^^xsd:integer ;
     sysml:owningNamespace elmt:ThenAfterMembers__AfterAllocation ;
@@ -2837,6 +3031,10 @@ expr:ThenAfterMembers__AfterAllocation___405_pend1_prs
 elmt:ThenAfterMembers__AfterConnectors
     a sysml:PartDefinition ;
     sysml:qualifiedName "ThenAfterMembers::AfterConnectors" ;
+    sysx:sourceLine "56"^^xsd:integer ;
+    sysx:sourceColumn "5"^^xsd:integer ;
+    sysx:sourceEndLine "63"^^xsd:integer ;
+    sysx:sourceEndColumn "6"^^xsd:integer ;
     sysml:elementId "ThenAfterMembers__AfterConnectors" ;
     sysx:memberIndex "11"^^xsd:integer ;
     sysml:owningNamespace elmt:ThenAfterMembers ;
@@ -2871,6 +3069,10 @@ elmt:ThenAfterMembers__AfterConnectors_om
 elmt:ThenAfterMembers__AfterConnectors__a
     a sysml:PartUsage ;
     sysml:qualifiedName "ThenAfterMembers::AfterConnectors::a" ;
+    sysx:sourceLine "57"^^xsd:integer ;
+    sysx:sourceColumn "9"^^xsd:integer ;
+    sysx:sourceEndLine "57"^^xsd:integer ;
+    sysx:sourceEndColumn "25"^^xsd:integer ;
     sysml:elementId "ThenAfterMembers__AfterConnectors__a" ;
     sysx:memberIndex "0"^^xsd:integer ;
     sysml:owningNamespace elmt:ThenAfterMembers__AfterConnectors ;
@@ -2900,6 +3102,10 @@ elmt:ThenAfterMembers__AfterConnectors__a_om
 elmt:ThenAfterMembers__AfterConnectors__p
     a sysml:PartUsage ;
     sysml:qualifiedName "ThenAfterMembers::AfterConnectors::p" ;
+    sysx:sourceLine "58"^^xsd:integer ;
+    sysx:sourceColumn "9"^^xsd:integer ;
+    sysx:sourceEndLine "58"^^xsd:integer ;
+    sysx:sourceEndColumn "25"^^xsd:integer ;
     sysml:elementId "ThenAfterMembers__AfterConnectors__p" ;
     sysx:memberIndex "1"^^xsd:integer ;
     sysml:owningNamespace elmt:ThenAfterMembers__AfterConnectors ;
@@ -2929,6 +3135,10 @@ elmt:ThenAfterMembers__AfterConnectors__p_om
 elmt:ThenAfterMembers__AfterConnectors__q
     a sysml:PartUsage ;
     sysml:qualifiedName "ThenAfterMembers::AfterConnectors::q" ;
+    sysx:sourceLine "59"^^xsd:integer ;
+    sysx:sourceColumn "9"^^xsd:integer ;
+    sysx:sourceEndLine "59"^^xsd:integer ;
+    sysx:sourceEndColumn "25"^^xsd:integer ;
     sysml:elementId "ThenAfterMembers__AfterConnectors__q" ;
     sysx:memberIndex "2"^^xsd:integer ;
     sysml:owningNamespace elmt:ThenAfterMembers__AfterConnectors ;
@@ -2958,6 +3168,10 @@ elmt:ThenAfterMembers__AfterConnectors__q_om
 elmt:ThenAfterMembers__AfterConnectors___403
     a sysml:ConnectionUsage ;
     sysml:qualifiedName "ThenAfterMembers::AfterConnectors::@3" ;
+    sysx:sourceLine "60"^^xsd:integer ;
+    sysx:sourceColumn "9"^^xsd:integer ;
+    sysx:sourceEndLine "60"^^xsd:integer ;
+    sysx:sourceEndColumn "24"^^xsd:integer ;
     sysml:elementId "ThenAfterMembers__AfterConnectors___403" ;
     sysx:memberIndex "3"^^xsd:integer ;
     sysml:owningNamespace elmt:ThenAfterMembers__AfterConnectors ;
@@ -3082,6 +3296,10 @@ expr:ThenAfterMembers__AfterConnectors___403_pend1_prs
 elmt:ThenAfterMembers__AfterConnectors___404
     a sysml:AllocationUsage ;
     sysml:qualifiedName "ThenAfterMembers::AfterConnectors::@4" ;
+    sysx:sourceLine "61"^^xsd:integer ;
+    sysx:sourceColumn "9"^^xsd:integer ;
+    sysx:sourceEndLine "61"^^xsd:integer ;
+    sysx:sourceEndColumn "25"^^xsd:integer ;
     sysml:elementId "ThenAfterMembers__AfterConnectors___404" ;
     sysx:memberIndex "4"^^xsd:integer ;
     sysml:owningNamespace elmt:ThenAfterMembers__AfterConnectors ;
@@ -3206,6 +3424,10 @@ expr:ThenAfterMembers__AfterConnectors___404_pend1_prs
 elmt:ThenAfterMembers__AfterConnectors__b
     a sysml:PartUsage ;
     sysml:qualifiedName "ThenAfterMembers::AfterConnectors::b" ;
+    sysx:sourceLine "62"^^xsd:integer ;
+    sysx:sourceColumn "14"^^xsd:integer ;
+    sysx:sourceEndLine "62"^^xsd:integer ;
+    sysx:sourceEndColumn "30"^^xsd:integer ;
     sysml:elementId "ThenAfterMembers__AfterConnectors__b" ;
     sysx:memberIndex "5"^^xsd:integer ;
     sysml:owningNamespace elmt:ThenAfterMembers__AfterConnectors ;
@@ -3235,6 +3457,10 @@ elmt:ThenAfterMembers__AfterConnectors__b_om
 elmt:ThenAfterMembers__AfterConnectors___406
     a sysml:SuccessionAsUsage ;
     sysml:qualifiedName "ThenAfterMembers::AfterConnectors::@6" ;
+    sysx:sourceLine "62"^^xsd:integer ;
+    sysx:sourceColumn "9"^^xsd:integer ;
+    sysx:sourceEndLine "62"^^xsd:integer ;
+    sysx:sourceEndColumn "13"^^xsd:integer ;
     sysml:elementId "ThenAfterMembers__AfterConnectors___406" ;
     sysx:memberIndex "6"^^xsd:integer ;
     sysml:owningNamespace elmt:ThenAfterMembers__AfterConnectors ;
@@ -3332,6 +3558,10 @@ expr:ThenAfterMembers__AfterConnectors___406_pend1_prs
 elmt:ThenAfterMembers__AfterAttribute
     a sysml:ActionDefinition ;
     sysml:qualifiedName "ThenAfterMembers::AfterAttribute" ;
+    sysx:sourceLine "64"^^xsd:integer ;
+    sysx:sourceColumn "5"^^xsd:integer ;
+    sysx:sourceEndLine "68"^^xsd:integer ;
+    sysx:sourceEndColumn "6"^^xsd:integer ;
     sysml:elementId "ThenAfterMembers__AfterAttribute" ;
     sysx:memberIndex "12"^^xsd:integer ;
     sysml:owningNamespace elmt:ThenAfterMembers ;
@@ -3366,6 +3596,10 @@ elmt:ThenAfterMembers__AfterAttribute_om
 elmt:ThenAfterMembers__AfterAttribute__a
     a sysml:ActionUsage ;
     sysml:qualifiedName "ThenAfterMembers::AfterAttribute::a" ;
+    sysx:sourceLine "65"^^xsd:integer ;
+    sysx:sourceColumn "9"^^xsd:integer ;
+    sysx:sourceEndLine "65"^^xsd:integer ;
+    sysx:sourceEndColumn "25"^^xsd:integer ;
     sysml:elementId "ThenAfterMembers__AfterAttribute__a" ;
     sysx:memberIndex "0"^^xsd:integer ;
     sysml:owningNamespace elmt:ThenAfterMembers__AfterAttribute ;
@@ -3395,6 +3629,10 @@ elmt:ThenAfterMembers__AfterAttribute__a_om
 elmt:ThenAfterMembers__AfterAttribute__k
     a sysml:AttributeUsage ;
     sysml:qualifiedName "ThenAfterMembers::AfterAttribute::k" ;
+    sysx:sourceLine "66"^^xsd:integer ;
+    sysx:sourceColumn "9"^^xsd:integer ;
+    sysx:sourceEndLine "66"^^xsd:integer ;
+    sysx:sourceEndColumn "45"^^xsd:integer ;
     sysml:elementId "ThenAfterMembers__AfterAttribute__k" ;
     sysx:memberIndex "1"^^xsd:integer ;
     sysml:owningNamespace elmt:ThenAfterMembers__AfterAttribute ;
@@ -3424,6 +3662,10 @@ elmt:ThenAfterMembers__AfterAttribute__k_om
 elmt:ThenAfterMembers__AfterAttribute__b
     a sysml:ActionUsage ;
     sysml:qualifiedName "ThenAfterMembers::AfterAttribute::b" ;
+    sysx:sourceLine "67"^^xsd:integer ;
+    sysx:sourceColumn "14"^^xsd:integer ;
+    sysx:sourceEndLine "67"^^xsd:integer ;
+    sysx:sourceEndColumn "30"^^xsd:integer ;
     sysml:elementId "ThenAfterMembers__AfterAttribute__b" ;
     sysx:memberIndex "2"^^xsd:integer ;
     sysml:owningNamespace elmt:ThenAfterMembers__AfterAttribute ;
@@ -3453,6 +3695,10 @@ elmt:ThenAfterMembers__AfterAttribute__b_om
 elmt:ThenAfterMembers__AfterAttribute___403
     a sysml:SuccessionAsUsage ;
     sysml:qualifiedName "ThenAfterMembers::AfterAttribute::@3" ;
+    sysx:sourceLine "67"^^xsd:integer ;
+    sysx:sourceColumn "9"^^xsd:integer ;
+    sysx:sourceEndLine "67"^^xsd:integer ;
+    sysx:sourceEndColumn "13"^^xsd:integer ;
     sysml:elementId "ThenAfterMembers__AfterAttribute___403" ;
     sysx:memberIndex "3"^^xsd:integer ;
     sysml:owningNamespace elmt:ThenAfterMembers__AfterAttribute ;
@@ -3550,6 +3796,10 @@ expr:ThenAfterMembers__AfterAttribute___403_pend1_prs
 elmt:ThenAfterMembers__AfterDoc
     a sysml:ActionDefinition ;
     sysml:qualifiedName "ThenAfterMembers::AfterDoc" ;
+    sysx:sourceLine "69"^^xsd:integer ;
+    sysx:sourceColumn "5"^^xsd:integer ;
+    sysx:sourceEndLine "73"^^xsd:integer ;
+    sysx:sourceEndColumn "6"^^xsd:integer ;
     sysml:elementId "ThenAfterMembers__AfterDoc" ;
     sysx:memberIndex "13"^^xsd:integer ;
     sysml:owningNamespace elmt:ThenAfterMembers ;
@@ -3584,6 +3834,10 @@ elmt:ThenAfterMembers__AfterDoc_om
 elmt:ThenAfterMembers__AfterDoc__a
     a sysml:ActionUsage ;
     sysml:qualifiedName "ThenAfterMembers::AfterDoc::a" ;
+    sysx:sourceLine "70"^^xsd:integer ;
+    sysx:sourceColumn "9"^^xsd:integer ;
+    sysx:sourceEndLine "70"^^xsd:integer ;
+    sysx:sourceEndColumn "25"^^xsd:integer ;
     sysml:elementId "ThenAfterMembers__AfterDoc__a" ;
     sysx:memberIndex "0"^^xsd:integer ;
     sysml:owningNamespace elmt:ThenAfterMembers__AfterDoc ;
@@ -3613,13 +3867,17 @@ elmt:ThenAfterMembers__AfterDoc__a_om
 elmt:ThenAfterMembers__AfterDoc___401
     a sysml:Documentation ;
     sysml:qualifiedName "ThenAfterMembers::AfterDoc::@1" ;
+    sysx:sourceLine "71"^^xsd:integer ;
+    sysx:sourceColumn "9"^^xsd:integer ;
+    sysx:sourceEndLine "71"^^xsd:integer ;
+    sysx:sourceEndColumn "37"^^xsd:integer ;
     sysml:elementId "ThenAfterMembers__AfterDoc___401" ;
     sysx:memberIndex "1"^^xsd:integer ;
     sysml:owningNamespace elmt:ThenAfterMembers__AfterDoc ;
     sysml:owner elmt:ThenAfterMembers__AfterDoc ;
     sysml:owningRelationship elmt:ThenAfterMembers__AfterDoc___401_om ;
     sysml:owningMembership elmt:ThenAfterMembers__AfterDoc___401_om ;
-    sysml:body " a is followed by b " ;
+    sysml:body "a is followed by b " ;
     sysx:sourceText "        doc /* a is followed by b */\n" .
 
 elmt:ThenAfterMembers__AfterDoc___401_om
@@ -3635,6 +3893,10 @@ elmt:ThenAfterMembers__AfterDoc___401_om
 elmt:ThenAfterMembers__AfterDoc__b
     a sysml:ActionUsage ;
     sysml:qualifiedName "ThenAfterMembers::AfterDoc::b" ;
+    sysx:sourceLine "72"^^xsd:integer ;
+    sysx:sourceColumn "14"^^xsd:integer ;
+    sysx:sourceEndLine "72"^^xsd:integer ;
+    sysx:sourceEndColumn "30"^^xsd:integer ;
     sysml:elementId "ThenAfterMembers__AfterDoc__b" ;
     sysx:memberIndex "2"^^xsd:integer ;
     sysml:owningNamespace elmt:ThenAfterMembers__AfterDoc ;
@@ -3664,6 +3926,10 @@ elmt:ThenAfterMembers__AfterDoc__b_om
 elmt:ThenAfterMembers__AfterDoc___403
     a sysml:SuccessionAsUsage ;
     sysml:qualifiedName "ThenAfterMembers::AfterDoc::@3" ;
+    sysx:sourceLine "72"^^xsd:integer ;
+    sysx:sourceColumn "9"^^xsd:integer ;
+    sysx:sourceEndLine "72"^^xsd:integer ;
+    sysx:sourceEndColumn "13"^^xsd:integer ;
     sysml:elementId "ThenAfterMembers__AfterDoc___403" ;
     sysx:memberIndex "3"^^xsd:integer ;
     sysml:owningNamespace elmt:ThenAfterMembers__AfterDoc ;
@@ -3761,6 +4027,10 @@ expr:ThenAfterMembers__AfterDoc___403_pend1_prs
 elmt:ThenAfterMembers__AfterComment
     a sysml:ActionDefinition ;
     sysml:qualifiedName "ThenAfterMembers::AfterComment" ;
+    sysx:sourceLine "74"^^xsd:integer ;
+    sysx:sourceColumn "5"^^xsd:integer ;
+    sysx:sourceEndLine "78"^^xsd:integer ;
+    sysx:sourceEndColumn "6"^^xsd:integer ;
     sysml:elementId "ThenAfterMembers__AfterComment" ;
     sysx:memberIndex "14"^^xsd:integer ;
     sysml:owningNamespace elmt:ThenAfterMembers ;
@@ -3795,6 +4065,10 @@ elmt:ThenAfterMembers__AfterComment_om
 elmt:ThenAfterMembers__AfterComment__a
     a sysml:ActionUsage ;
     sysml:qualifiedName "ThenAfterMembers::AfterComment::a" ;
+    sysx:sourceLine "75"^^xsd:integer ;
+    sysx:sourceColumn "9"^^xsd:integer ;
+    sysx:sourceEndLine "75"^^xsd:integer ;
+    sysx:sourceEndColumn "25"^^xsd:integer ;
     sysml:elementId "ThenAfterMembers__AfterComment__a" ;
     sysx:memberIndex "0"^^xsd:integer ;
     sysml:owningNamespace elmt:ThenAfterMembers__AfterComment ;
@@ -3824,6 +4098,10 @@ elmt:ThenAfterMembers__AfterComment__a_om
 elmt:ThenAfterMembers__AfterComment___401
     a sysml:Comment ;
     sysml:qualifiedName "ThenAfterMembers::AfterComment::@1" ;
+    sysx:sourceLine "76"^^xsd:integer ;
+    sysx:sourceColumn "9"^^xsd:integer ;
+    sysx:sourceEndLine "76"^^xsd:integer ;
+    sysx:sourceEndColumn "45"^^xsd:integer ;
     sysml:elementId "ThenAfterMembers__AfterComment___401" ;
     sysx:memberIndex "1"^^xsd:integer ;
     sysml:owningNamespace elmt:ThenAfterMembers__AfterComment ;
@@ -3831,7 +4109,7 @@ elmt:ThenAfterMembers__AfterComment___401
     sysml:owningRelationship elmt:ThenAfterMembers__AfterComment___401_om ;
     sysml:owningMembership elmt:ThenAfterMembers__AfterComment___401_om ;
     sysml:annotatedElement elmt:ThenAfterMembers__AfterComment__a ;
-    sysml:body " the first step " ;
+    sysml:body "the first step " ;
     sysx:sourceText "        comment about a /* the first step */\n" .
 
 elmt:ThenAfterMembers__AfterComment___401_om
@@ -3847,6 +4125,10 @@ elmt:ThenAfterMembers__AfterComment___401_om
 elmt:ThenAfterMembers__AfterComment__b
     a sysml:ActionUsage ;
     sysml:qualifiedName "ThenAfterMembers::AfterComment::b" ;
+    sysx:sourceLine "77"^^xsd:integer ;
+    sysx:sourceColumn "14"^^xsd:integer ;
+    sysx:sourceEndLine "77"^^xsd:integer ;
+    sysx:sourceEndColumn "30"^^xsd:integer ;
     sysml:elementId "ThenAfterMembers__AfterComment__b" ;
     sysx:memberIndex "2"^^xsd:integer ;
     sysml:owningNamespace elmt:ThenAfterMembers__AfterComment ;
@@ -3876,6 +4158,10 @@ elmt:ThenAfterMembers__AfterComment__b_om
 elmt:ThenAfterMembers__AfterComment___403
     a sysml:SuccessionAsUsage ;
     sysml:qualifiedName "ThenAfterMembers::AfterComment::@3" ;
+    sysx:sourceLine "77"^^xsd:integer ;
+    sysx:sourceColumn "9"^^xsd:integer ;
+    sysx:sourceEndLine "77"^^xsd:integer ;
+    sysx:sourceEndColumn "13"^^xsd:integer ;
     sysml:elementId "ThenAfterMembers__AfterComment___403" ;
     sysx:memberIndex "3"^^xsd:integer ;
     sysml:owningNamespace elmt:ThenAfterMembers__AfterComment ;
@@ -3973,6 +4259,10 @@ expr:ThenAfterMembers__AfterComment___403_pend1_prs
 elmt:ThenAfterMembers__Library
     a sysml:Package ;
     sysml:qualifiedName "ThenAfterMembers::Library" ;
+    sysx:sourceLine "79"^^xsd:integer ;
+    sysx:sourceColumn "5"^^xsd:integer ;
+    sysx:sourceEndLine "81"^^xsd:integer ;
+    sysx:sourceEndColumn "6"^^xsd:integer ;
     sysml:elementId "ThenAfterMembers__Library" ;
     sysx:memberIndex "15"^^xsd:integer ;
     sysml:owningNamespace elmt:ThenAfterMembers ;
@@ -4000,6 +4290,10 @@ elmt:ThenAfterMembers__Library_om
 elmt:ThenAfterMembers__Library__Marker
     a sysml:AttributeDefinition ;
     sysml:qualifiedName "ThenAfterMembers::Library::Marker" ;
+    sysx:sourceLine "80"^^xsd:integer ;
+    sysx:sourceColumn "9"^^xsd:integer ;
+    sysx:sourceEndLine "80"^^xsd:integer ;
+    sysx:sourceEndColumn "30"^^xsd:integer ;
     sysml:elementId "ThenAfterMembers__Library__Marker" ;
     sysx:memberIndex "0"^^xsd:integer ;
     sysml:owningNamespace elmt:ThenAfterMembers__Library ;
@@ -4023,6 +4317,10 @@ elmt:ThenAfterMembers__Library__Marker_om
 elmt:ThenAfterMembers__AfterImport
     a sysml:ActionDefinition ;
     sysml:qualifiedName "ThenAfterMembers::AfterImport" ;
+    sysx:sourceLine "82"^^xsd:integer ;
+    sysx:sourceColumn "5"^^xsd:integer ;
+    sysx:sourceEndLine "86"^^xsd:integer ;
+    sysx:sourceEndColumn "6"^^xsd:integer ;
     sysml:elementId "ThenAfterMembers__AfterImport" ;
     sysx:memberIndex "16"^^xsd:integer ;
     sysml:owningNamespace elmt:ThenAfterMembers ;
@@ -4058,6 +4356,10 @@ elmt:ThenAfterMembers__AfterImport_om
 elmt:ThenAfterMembers__AfterImport__a
     a sysml:ActionUsage ;
     sysml:qualifiedName "ThenAfterMembers::AfterImport::a" ;
+    sysx:sourceLine "83"^^xsd:integer ;
+    sysx:sourceColumn "9"^^xsd:integer ;
+    sysx:sourceEndLine "83"^^xsd:integer ;
+    sysx:sourceEndColumn "25"^^xsd:integer ;
     sysml:elementId "ThenAfterMembers__AfterImport__a" ;
     sysx:memberIndex "0"^^xsd:integer ;
     sysml:owningNamespace elmt:ThenAfterMembers__AfterImport ;
@@ -4087,6 +4389,10 @@ elmt:ThenAfterMembers__AfterImport__a_om
 elmt:ThenAfterMembers__AfterImport___401
     a sysml:NamespaceImport ;
     sysml:qualifiedName "ThenAfterMembers::AfterImport::@1" ;
+    sysx:sourceLine "84"^^xsd:integer ;
+    sysx:sourceColumn "9"^^xsd:integer ;
+    sysx:sourceEndLine "84"^^xsd:integer ;
+    sysx:sourceEndColumn "35"^^xsd:integer ;
     sysml:elementId "ThenAfterMembers__AfterImport___401" ;
     sysx:memberIndex "1"^^xsd:integer ;
     sysml:owningNamespace elmt:ThenAfterMembers__AfterImport ;
@@ -4101,6 +4407,10 @@ elmt:ThenAfterMembers__AfterImport___401
 elmt:ThenAfterMembers__AfterImport__b
     a sysml:ActionUsage ;
     sysml:qualifiedName "ThenAfterMembers::AfterImport::b" ;
+    sysx:sourceLine "85"^^xsd:integer ;
+    sysx:sourceColumn "14"^^xsd:integer ;
+    sysx:sourceEndLine "85"^^xsd:integer ;
+    sysx:sourceEndColumn "30"^^xsd:integer ;
     sysml:elementId "ThenAfterMembers__AfterImport__b" ;
     sysx:memberIndex "2"^^xsd:integer ;
     sysml:owningNamespace elmt:ThenAfterMembers__AfterImport ;
@@ -4130,6 +4440,10 @@ elmt:ThenAfterMembers__AfterImport__b_om
 elmt:ThenAfterMembers__AfterImport___403
     a sysml:SuccessionAsUsage ;
     sysml:qualifiedName "ThenAfterMembers::AfterImport::@3" ;
+    sysx:sourceLine "85"^^xsd:integer ;
+    sysx:sourceColumn "9"^^xsd:integer ;
+    sysx:sourceEndLine "85"^^xsd:integer ;
+    sysx:sourceEndColumn "13"^^xsd:integer ;
     sysml:elementId "ThenAfterMembers__AfterImport___403" ;
     sysx:memberIndex "3"^^xsd:integer ;
     sysml:owningNamespace elmt:ThenAfterMembers__AfterImport ;
@@ -4227,6 +4541,10 @@ expr:ThenAfterMembers__AfterImport___403_pend1_prs
 elmt:ThenAfterMembers__AfterAlias
     a sysml:ActionDefinition ;
     sysml:qualifiedName "ThenAfterMembers::AfterAlias" ;
+    sysx:sourceLine "87"^^xsd:integer ;
+    sysx:sourceColumn "5"^^xsd:integer ;
+    sysx:sourceEndLine "91"^^xsd:integer ;
+    sysx:sourceEndColumn "6"^^xsd:integer ;
     sysml:elementId "ThenAfterMembers__AfterAlias" ;
     sysx:memberIndex "17"^^xsd:integer ;
     sysml:owningNamespace elmt:ThenAfterMembers ;
@@ -4261,6 +4579,10 @@ elmt:ThenAfterMembers__AfterAlias_om
 elmt:ThenAfterMembers__AfterAlias__a
     a sysml:ActionUsage ;
     sysml:qualifiedName "ThenAfterMembers::AfterAlias::a" ;
+    sysx:sourceLine "88"^^xsd:integer ;
+    sysx:sourceColumn "9"^^xsd:integer ;
+    sysx:sourceEndLine "88"^^xsd:integer ;
+    sysx:sourceEndColumn "25"^^xsd:integer ;
     sysml:elementId "ThenAfterMembers__AfterAlias__a" ;
     sysx:memberIndex "0"^^xsd:integer ;
     sysml:owningNamespace elmt:ThenAfterMembers__AfterAlias ;
@@ -4290,6 +4612,10 @@ elmt:ThenAfterMembers__AfterAlias__a_om
 elmt:ThenAfterMembers__AfterAlias__Bump
     a sysml:Membership ;
     sysml:qualifiedName "ThenAfterMembers::AfterAlias::Bump" ;
+    sysx:sourceLine "89"^^xsd:integer ;
+    sysx:sourceColumn "9"^^xsd:integer ;
+    sysx:sourceEndLine "89"^^xsd:integer ;
+    sysx:sourceEndColumn "29"^^xsd:integer ;
     sysml:elementId "ThenAfterMembers__AfterAlias__Bump" ;
     sysx:memberIndex "1"^^xsd:integer ;
     sysml:owningNamespace elmt:ThenAfterMembers__AfterAlias ;
@@ -4305,6 +4631,10 @@ elmt:ThenAfterMembers__AfterAlias__Bump
 elmt:ThenAfterMembers__AfterAlias__b
     a sysml:ActionUsage ;
     sysml:qualifiedName "ThenAfterMembers::AfterAlias::b" ;
+    sysx:sourceLine "90"^^xsd:integer ;
+    sysx:sourceColumn "14"^^xsd:integer ;
+    sysx:sourceEndLine "90"^^xsd:integer ;
+    sysx:sourceEndColumn "30"^^xsd:integer ;
     sysml:elementId "ThenAfterMembers__AfterAlias__b" ;
     sysx:memberIndex "2"^^xsd:integer ;
     sysml:owningNamespace elmt:ThenAfterMembers__AfterAlias ;
@@ -4334,6 +4664,10 @@ elmt:ThenAfterMembers__AfterAlias__b_om
 elmt:ThenAfterMembers__AfterAlias___403
     a sysml:SuccessionAsUsage ;
     sysml:qualifiedName "ThenAfterMembers::AfterAlias::@3" ;
+    sysx:sourceLine "90"^^xsd:integer ;
+    sysx:sourceColumn "9"^^xsd:integer ;
+    sysx:sourceEndLine "90"^^xsd:integer ;
+    sysx:sourceEndColumn "13"^^xsd:integer ;
     sysml:elementId "ThenAfterMembers__AfterAlias___403" ;
     sysx:memberIndex "3"^^xsd:integer ;
     sysml:owningNamespace elmt:ThenAfterMembers__AfterAlias ;
@@ -4431,6 +4765,10 @@ expr:ThenAfterMembers__AfterAlias___403_pend1_prs
 elmt:ThenAfterMembers__AfterNestedDefinition
     a sysml:ActionDefinition ;
     sysml:qualifiedName "ThenAfterMembers::AfterNestedDefinition" ;
+    sysx:sourceLine "92"^^xsd:integer ;
+    sysx:sourceColumn "5"^^xsd:integer ;
+    sysx:sourceEndLine "96"^^xsd:integer ;
+    sysx:sourceEndColumn "6"^^xsd:integer ;
     sysml:elementId "ThenAfterMembers__AfterNestedDefinition" ;
     sysx:memberIndex "18"^^xsd:integer ;
     sysml:owningNamespace elmt:ThenAfterMembers ;
@@ -4465,6 +4803,10 @@ elmt:ThenAfterMembers__AfterNestedDefinition_om
 elmt:ThenAfterMembers__AfterNestedDefinition__a
     a sysml:ActionUsage ;
     sysml:qualifiedName "ThenAfterMembers::AfterNestedDefinition::a" ;
+    sysx:sourceLine "93"^^xsd:integer ;
+    sysx:sourceColumn "9"^^xsd:integer ;
+    sysx:sourceEndLine "93"^^xsd:integer ;
+    sysx:sourceEndColumn "25"^^xsd:integer ;
     sysml:elementId "ThenAfterMembers__AfterNestedDefinition__a" ;
     sysx:memberIndex "0"^^xsd:integer ;
     sysml:owningNamespace elmt:ThenAfterMembers__AfterNestedDefinition ;
@@ -4494,6 +4836,10 @@ elmt:ThenAfterMembers__AfterNestedDefinition__a_om
 elmt:ThenAfterMembers__AfterNestedDefinition__Inner
     a sysml:PartDefinition ;
     sysml:qualifiedName "ThenAfterMembers::AfterNestedDefinition::Inner" ;
+    sysx:sourceLine "94"^^xsd:integer ;
+    sysx:sourceColumn "9"^^xsd:integer ;
+    sysx:sourceEndLine "94"^^xsd:integer ;
+    sysx:sourceEndColumn "24"^^xsd:integer ;
     sysml:elementId "ThenAfterMembers__AfterNestedDefinition__Inner" ;
     sysx:memberIndex "1"^^xsd:integer ;
     sysml:owningNamespace elmt:ThenAfterMembers__AfterNestedDefinition ;
@@ -4517,6 +4863,10 @@ elmt:ThenAfterMembers__AfterNestedDefinition__Inner_om
 elmt:ThenAfterMembers__AfterNestedDefinition__b
     a sysml:ActionUsage ;
     sysml:qualifiedName "ThenAfterMembers::AfterNestedDefinition::b" ;
+    sysx:sourceLine "95"^^xsd:integer ;
+    sysx:sourceColumn "14"^^xsd:integer ;
+    sysx:sourceEndLine "95"^^xsd:integer ;
+    sysx:sourceEndColumn "30"^^xsd:integer ;
     sysml:elementId "ThenAfterMembers__AfterNestedDefinition__b" ;
     sysx:memberIndex "2"^^xsd:integer ;
     sysml:owningNamespace elmt:ThenAfterMembers__AfterNestedDefinition ;
@@ -4546,6 +4896,10 @@ elmt:ThenAfterMembers__AfterNestedDefinition__b_om
 elmt:ThenAfterMembers__AfterNestedDefinition___403
     a sysml:SuccessionAsUsage ;
     sysml:qualifiedName "ThenAfterMembers::AfterNestedDefinition::@3" ;
+    sysx:sourceLine "95"^^xsd:integer ;
+    sysx:sourceColumn "9"^^xsd:integer ;
+    sysx:sourceEndLine "95"^^xsd:integer ;
+    sysx:sourceEndColumn "13"^^xsd:integer ;
     sysml:elementId "ThenAfterMembers__AfterNestedDefinition___403" ;
     sysx:memberIndex "3"^^xsd:integer ;
     sysml:owningNamespace elmt:ThenAfterMembers__AfterNestedDefinition ;
@@ -4643,6 +4997,10 @@ expr:ThenAfterMembers__AfterNestedDefinition___403_pend1_prs
 elmt:ThenAfterMembers__AfterNestedPackage
     a sysml:ActionDefinition ;
     sysml:qualifiedName "ThenAfterMembers::AfterNestedPackage" ;
+    sysx:sourceLine "97"^^xsd:integer ;
+    sysx:sourceColumn "5"^^xsd:integer ;
+    sysx:sourceEndLine "101"^^xsd:integer ;
+    sysx:sourceEndColumn "6"^^xsd:integer ;
     sysml:elementId "ThenAfterMembers__AfterNestedPackage" ;
     sysx:memberIndex "19"^^xsd:integer ;
     sysml:owningNamespace elmt:ThenAfterMembers ;
@@ -4677,6 +5035,10 @@ elmt:ThenAfterMembers__AfterNestedPackage_om
 elmt:ThenAfterMembers__AfterNestedPackage__a
     a sysml:ActionUsage ;
     sysml:qualifiedName "ThenAfterMembers::AfterNestedPackage::a" ;
+    sysx:sourceLine "98"^^xsd:integer ;
+    sysx:sourceColumn "9"^^xsd:integer ;
+    sysx:sourceEndLine "98"^^xsd:integer ;
+    sysx:sourceEndColumn "25"^^xsd:integer ;
     sysml:elementId "ThenAfterMembers__AfterNestedPackage__a" ;
     sysx:memberIndex "0"^^xsd:integer ;
     sysml:owningNamespace elmt:ThenAfterMembers__AfterNestedPackage ;
@@ -4706,6 +5068,10 @@ elmt:ThenAfterMembers__AfterNestedPackage__a_om
 elmt:ThenAfterMembers__AfterNestedPackage__Inner
     a sysml:Package ;
     sysml:qualifiedName "ThenAfterMembers::AfterNestedPackage::Inner" ;
+    sysx:sourceLine "99"^^xsd:integer ;
+    sysx:sourceColumn "9"^^xsd:integer ;
+    sysx:sourceEndLine "99"^^xsd:integer ;
+    sysx:sourceEndColumn "23"^^xsd:integer ;
     sysml:elementId "ThenAfterMembers__AfterNestedPackage__Inner" ;
     sysx:memberIndex "1"^^xsd:integer ;
     sysml:owningNamespace elmt:ThenAfterMembers__AfterNestedPackage ;
@@ -4729,6 +5095,10 @@ elmt:ThenAfterMembers__AfterNestedPackage__Inner_om
 elmt:ThenAfterMembers__AfterNestedPackage__b
     a sysml:ActionUsage ;
     sysml:qualifiedName "ThenAfterMembers::AfterNestedPackage::b" ;
+    sysx:sourceLine "100"^^xsd:integer ;
+    sysx:sourceColumn "14"^^xsd:integer ;
+    sysx:sourceEndLine "100"^^xsd:integer ;
+    sysx:sourceEndColumn "30"^^xsd:integer ;
     sysml:elementId "ThenAfterMembers__AfterNestedPackage__b" ;
     sysx:memberIndex "2"^^xsd:integer ;
     sysml:owningNamespace elmt:ThenAfterMembers__AfterNestedPackage ;
@@ -4758,6 +5128,10 @@ elmt:ThenAfterMembers__AfterNestedPackage__b_om
 elmt:ThenAfterMembers__AfterNestedPackage___403
     a sysml:SuccessionAsUsage ;
     sysml:qualifiedName "ThenAfterMembers::AfterNestedPackage::@3" ;
+    sysx:sourceLine "100"^^xsd:integer ;
+    sysx:sourceColumn "9"^^xsd:integer ;
+    sysx:sourceEndLine "100"^^xsd:integer ;
+    sysx:sourceEndColumn "13"^^xsd:integer ;
     sysml:elementId "ThenAfterMembers__AfterNestedPackage___403" ;
     sysx:memberIndex "3"^^xsd:integer ;
     sysml:owningNamespace elmt:ThenAfterMembers__AfterNestedPackage ;
@@ -4855,6 +5229,10 @@ expr:ThenAfterMembers__AfterNestedPackage___403_pend1_prs
 elmt:ThenAfterMembers__AfterMultiplicity
     a sysml:ActionDefinition ;
     sysml:qualifiedName "ThenAfterMembers::AfterMultiplicity" ;
+    sysx:sourceLine "102"^^xsd:integer ;
+    sysx:sourceColumn "5"^^xsd:integer ;
+    sysx:sourceEndLine "106"^^xsd:integer ;
+    sysx:sourceEndColumn "6"^^xsd:integer ;
     sysml:elementId "ThenAfterMembers__AfterMultiplicity" ;
     sysx:memberIndex "20"^^xsd:integer ;
     sysml:owningNamespace elmt:ThenAfterMembers ;
@@ -4889,6 +5267,10 @@ elmt:ThenAfterMembers__AfterMultiplicity_om
 elmt:ThenAfterMembers__AfterMultiplicity__a
     a sysml:ActionUsage ;
     sysml:qualifiedName "ThenAfterMembers::AfterMultiplicity::a" ;
+    sysx:sourceLine "103"^^xsd:integer ;
+    sysx:sourceColumn "9"^^xsd:integer ;
+    sysx:sourceEndLine "103"^^xsd:integer ;
+    sysx:sourceEndColumn "25"^^xsd:integer ;
     sysml:elementId "ThenAfterMembers__AfterMultiplicity__a" ;
     sysx:memberIndex "0"^^xsd:integer ;
     sysml:owningNamespace elmt:ThenAfterMembers__AfterMultiplicity ;
@@ -4918,6 +5300,10 @@ elmt:ThenAfterMembers__AfterMultiplicity__a_om
 elmt:ThenAfterMembers__AfterMultiplicity__m
     a sysml:MultiplicityRange ;
     sysml:qualifiedName "ThenAfterMembers::AfterMultiplicity::m" ;
+    sysx:sourceLine "104"^^xsd:integer ;
+    sysx:sourceColumn "9"^^xsd:integer ;
+    sysx:sourceEndLine "104"^^xsd:integer ;
+    sysx:sourceEndColumn "28"^^xsd:integer ;
     sysml:elementId "ThenAfterMembers__AfterMultiplicity__m" ;
     sysx:memberIndex "1"^^xsd:integer ;
     sysml:owningNamespace elmt:ThenAfterMembers__AfterMultiplicity ;
@@ -4966,6 +5352,10 @@ expr:ThenAfterMembers__AfterMultiplicity__m_pupperBound_om
 elmt:ThenAfterMembers__AfterMultiplicity__b
     a sysml:ActionUsage ;
     sysml:qualifiedName "ThenAfterMembers::AfterMultiplicity::b" ;
+    sysx:sourceLine "105"^^xsd:integer ;
+    sysx:sourceColumn "14"^^xsd:integer ;
+    sysx:sourceEndLine "105"^^xsd:integer ;
+    sysx:sourceEndColumn "30"^^xsd:integer ;
     sysml:elementId "ThenAfterMembers__AfterMultiplicity__b" ;
     sysx:memberIndex "2"^^xsd:integer ;
     sysml:owningNamespace elmt:ThenAfterMembers__AfterMultiplicity ;
@@ -4995,6 +5385,10 @@ elmt:ThenAfterMembers__AfterMultiplicity__b_om
 elmt:ThenAfterMembers__AfterMultiplicity___403
     a sysml:SuccessionAsUsage ;
     sysml:qualifiedName "ThenAfterMembers::AfterMultiplicity::@3" ;
+    sysx:sourceLine "105"^^xsd:integer ;
+    sysx:sourceColumn "9"^^xsd:integer ;
+    sysx:sourceEndLine "105"^^xsd:integer ;
+    sysx:sourceEndColumn "13"^^xsd:integer ;
     sysml:elementId "ThenAfterMembers__AfterMultiplicity___403" ;
     sysx:memberIndex "3"^^xsd:integer ;
     sysml:owningNamespace elmt:ThenAfterMembers__AfterMultiplicity ;
@@ -5092,6 +5486,10 @@ expr:ThenAfterMembers__AfterMultiplicity___403_pend1_prs
 elmt:ThenAfterMembers__AfterSeveralNonFeatures
     a sysml:ActionDefinition ;
     sysml:qualifiedName "ThenAfterMembers::AfterSeveralNonFeatures" ;
+    sysx:sourceLine "107"^^xsd:integer ;
+    sysx:sourceColumn "5"^^xsd:integer ;
+    sysx:sourceEndLine "114"^^xsd:integer ;
+    sysx:sourceEndColumn "6"^^xsd:integer ;
     sysml:elementId "ThenAfterMembers__AfterSeveralNonFeatures" ;
     sysx:memberIndex "21"^^xsd:integer ;
     sysml:owningNamespace elmt:ThenAfterMembers ;
@@ -5127,6 +5525,10 @@ elmt:ThenAfterMembers__AfterSeveralNonFeatures_om
 elmt:ThenAfterMembers__AfterSeveralNonFeatures__a
     a sysml:ActionUsage ;
     sysml:qualifiedName "ThenAfterMembers::AfterSeveralNonFeatures::a" ;
+    sysx:sourceLine "108"^^xsd:integer ;
+    sysx:sourceColumn "9"^^xsd:integer ;
+    sysx:sourceEndLine "108"^^xsd:integer ;
+    sysx:sourceEndColumn "25"^^xsd:integer ;
     sysml:elementId "ThenAfterMembers__AfterSeveralNonFeatures__a" ;
     sysx:memberIndex "0"^^xsd:integer ;
     sysml:owningNamespace elmt:ThenAfterMembers__AfterSeveralNonFeatures ;
@@ -5156,13 +5558,17 @@ elmt:ThenAfterMembers__AfterSeveralNonFeatures__a_om
 elmt:ThenAfterMembers__AfterSeveralNonFeatures___401
     a sysml:Documentation ;
     sysml:qualifiedName "ThenAfterMembers::AfterSeveralNonFeatures::@1" ;
+    sysx:sourceLine "109"^^xsd:integer ;
+    sysx:sourceColumn "9"^^xsd:integer ;
+    sysx:sourceEndLine "109"^^xsd:integer ;
+    sysx:sourceEndColumn "37"^^xsd:integer ;
     sysml:elementId "ThenAfterMembers__AfterSeveralNonFeatures___401" ;
     sysx:memberIndex "1"^^xsd:integer ;
     sysml:owningNamespace elmt:ThenAfterMembers__AfterSeveralNonFeatures ;
     sysml:owner elmt:ThenAfterMembers__AfterSeveralNonFeatures ;
     sysml:owningRelationship elmt:ThenAfterMembers__AfterSeveralNonFeatures___401_om ;
     sysml:owningMembership elmt:ThenAfterMembers__AfterSeveralNonFeatures___401_om ;
-    sysml:body " a is followed by b " ;
+    sysml:body "a is followed by b " ;
     sysx:sourceText "        doc /* a is followed by b */\n" .
 
 elmt:ThenAfterMembers__AfterSeveralNonFeatures___401_om
@@ -5178,6 +5584,10 @@ elmt:ThenAfterMembers__AfterSeveralNonFeatures___401_om
 elmt:ThenAfterMembers__AfterSeveralNonFeatures__Inner
     a sysml:ActionDefinition ;
     sysml:qualifiedName "ThenAfterMembers::AfterSeveralNonFeatures::Inner" ;
+    sysx:sourceLine "110"^^xsd:integer ;
+    sysx:sourceColumn "9"^^xsd:integer ;
+    sysx:sourceEndLine "110"^^xsd:integer ;
+    sysx:sourceEndColumn "26"^^xsd:integer ;
     sysml:elementId "ThenAfterMembers__AfterSeveralNonFeatures__Inner" ;
     sysx:memberIndex "2"^^xsd:integer ;
     sysml:owningNamespace elmt:ThenAfterMembers__AfterSeveralNonFeatures ;
@@ -5201,6 +5611,10 @@ elmt:ThenAfterMembers__AfterSeveralNonFeatures__Inner_om
 elmt:ThenAfterMembers__AfterSeveralNonFeatures___403
     a sysml:NamespaceImport ;
     sysml:qualifiedName "ThenAfterMembers::AfterSeveralNonFeatures::@3" ;
+    sysx:sourceLine "111"^^xsd:integer ;
+    sysx:sourceColumn "9"^^xsd:integer ;
+    sysx:sourceEndLine "111"^^xsd:integer ;
+    sysx:sourceEndColumn "35"^^xsd:integer ;
     sysml:elementId "ThenAfterMembers__AfterSeveralNonFeatures___403" ;
     sysx:memberIndex "3"^^xsd:integer ;
     sysml:owningNamespace elmt:ThenAfterMembers__AfterSeveralNonFeatures ;
@@ -5215,6 +5629,10 @@ elmt:ThenAfterMembers__AfterSeveralNonFeatures___403
 elmt:ThenAfterMembers__AfterSeveralNonFeatures___404
     a sysml:Comment ;
     sysml:qualifiedName "ThenAfterMembers::AfterSeveralNonFeatures::@4" ;
+    sysx:sourceLine "112"^^xsd:integer ;
+    sysx:sourceColumn "9"^^xsd:integer ;
+    sysx:sourceEndLine "112"^^xsd:integer ;
+    sysx:sourceEndColumn "45"^^xsd:integer ;
     sysml:elementId "ThenAfterMembers__AfterSeveralNonFeatures___404" ;
     sysx:memberIndex "4"^^xsd:integer ;
     sysml:owningNamespace elmt:ThenAfterMembers__AfterSeveralNonFeatures ;
@@ -5222,7 +5640,7 @@ elmt:ThenAfterMembers__AfterSeveralNonFeatures___404
     sysml:owningRelationship elmt:ThenAfterMembers__AfterSeveralNonFeatures___404_om ;
     sysml:owningMembership elmt:ThenAfterMembers__AfterSeveralNonFeatures___404_om ;
     sysml:annotatedElement elmt:ThenAfterMembers__AfterSeveralNonFeatures__a ;
-    sysml:body " the first step " ;
+    sysml:body "the first step " ;
     sysx:sourceText "        comment about a /* the first step */\n" .
 
 elmt:ThenAfterMembers__AfterSeveralNonFeatures___404_om
@@ -5238,6 +5656,10 @@ elmt:ThenAfterMembers__AfterSeveralNonFeatures___404_om
 elmt:ThenAfterMembers__AfterSeveralNonFeatures__b
     a sysml:ActionUsage ;
     sysml:qualifiedName "ThenAfterMembers::AfterSeveralNonFeatures::b" ;
+    sysx:sourceLine "113"^^xsd:integer ;
+    sysx:sourceColumn "14"^^xsd:integer ;
+    sysx:sourceEndLine "113"^^xsd:integer ;
+    sysx:sourceEndColumn "30"^^xsd:integer ;
     sysml:elementId "ThenAfterMembers__AfterSeveralNonFeatures__b" ;
     sysx:memberIndex "5"^^xsd:integer ;
     sysml:owningNamespace elmt:ThenAfterMembers__AfterSeveralNonFeatures ;
@@ -5267,6 +5689,10 @@ elmt:ThenAfterMembers__AfterSeveralNonFeatures__b_om
 elmt:ThenAfterMembers__AfterSeveralNonFeatures___406
     a sysml:SuccessionAsUsage ;
     sysml:qualifiedName "ThenAfterMembers::AfterSeveralNonFeatures::@6" ;
+    sysx:sourceLine "113"^^xsd:integer ;
+    sysx:sourceColumn "9"^^xsd:integer ;
+    sysx:sourceEndLine "113"^^xsd:integer ;
+    sysx:sourceEndColumn "13"^^xsd:integer ;
     sysml:elementId "ThenAfterMembers__AfterSeveralNonFeatures___406" ;
     sysx:memberIndex "6"^^xsd:integer ;
     sysml:owningNamespace elmt:ThenAfterMembers__AfterSeveralNonFeatures ;
@@ -5364,6 +5790,10 @@ expr:ThenAfterMembers__AfterSeveralNonFeatures___406_pend1_prs
 elmt:ThenAfterMembers__AfterNonFeatures
     a sysml:PartDefinition ;
     sysml:qualifiedName "ThenAfterMembers::AfterNonFeatures" ;
+    sysx:sourceLine "115"^^xsd:integer ;
+    sysx:sourceColumn "5"^^xsd:integer ;
+    sysx:sourceEndLine "120"^^xsd:integer ;
+    sysx:sourceEndColumn "6"^^xsd:integer ;
     sysml:elementId "ThenAfterMembers__AfterNonFeatures" ;
     sysx:memberIndex "22"^^xsd:integer ;
     sysml:owningNamespace elmt:ThenAfterMembers ;
@@ -5398,6 +5828,10 @@ elmt:ThenAfterMembers__AfterNonFeatures_om
 elmt:ThenAfterMembers__AfterNonFeatures__a
     a sysml:PartUsage ;
     sysml:qualifiedName "ThenAfterMembers::AfterNonFeatures::a" ;
+    sysx:sourceLine "116"^^xsd:integer ;
+    sysx:sourceColumn "9"^^xsd:integer ;
+    sysx:sourceEndLine "116"^^xsd:integer ;
+    sysx:sourceEndColumn "25"^^xsd:integer ;
     sysml:elementId "ThenAfterMembers__AfterNonFeatures__a" ;
     sysx:memberIndex "0"^^xsd:integer ;
     sysml:owningNamespace elmt:ThenAfterMembers__AfterNonFeatures ;
@@ -5427,13 +5861,17 @@ elmt:ThenAfterMembers__AfterNonFeatures__a_om
 elmt:ThenAfterMembers__AfterNonFeatures___401
     a sysml:Documentation ;
     sysml:qualifiedName "ThenAfterMembers::AfterNonFeatures::@1" ;
+    sysx:sourceLine "117"^^xsd:integer ;
+    sysx:sourceColumn "9"^^xsd:integer ;
+    sysx:sourceEndLine "117"^^xsd:integer ;
+    sysx:sourceEndColumn "31"^^xsd:integer ;
     sysml:elementId "ThenAfterMembers__AfterNonFeatures___401" ;
     sysx:memberIndex "1"^^xsd:integer ;
     sysml:owningNamespace elmt:ThenAfterMembers__AfterNonFeatures ;
     sysml:owner elmt:ThenAfterMembers__AfterNonFeatures ;
     sysml:owningRelationship elmt:ThenAfterMembers__AfterNonFeatures___401_om ;
     sysml:owningMembership elmt:ThenAfterMembers__AfterNonFeatures___401_om ;
-    sysml:body " a precedes b " ;
+    sysml:body "a precedes b " ;
     sysx:sourceText "        doc /* a precedes b */\n" .
 
 elmt:ThenAfterMembers__AfterNonFeatures___401_om
@@ -5449,6 +5887,10 @@ elmt:ThenAfterMembers__AfterNonFeatures___401_om
 elmt:ThenAfterMembers__AfterNonFeatures__Inner
     a sysml:PartDefinition ;
     sysml:qualifiedName "ThenAfterMembers::AfterNonFeatures::Inner" ;
+    sysx:sourceLine "118"^^xsd:integer ;
+    sysx:sourceColumn "9"^^xsd:integer ;
+    sysx:sourceEndLine "118"^^xsd:integer ;
+    sysx:sourceEndColumn "24"^^xsd:integer ;
     sysml:elementId "ThenAfterMembers__AfterNonFeatures__Inner" ;
     sysx:memberIndex "2"^^xsd:integer ;
     sysml:owningNamespace elmt:ThenAfterMembers__AfterNonFeatures ;
@@ -5472,6 +5914,10 @@ elmt:ThenAfterMembers__AfterNonFeatures__Inner_om
 elmt:ThenAfterMembers__AfterNonFeatures__b
     a sysml:PartUsage ;
     sysml:qualifiedName "ThenAfterMembers::AfterNonFeatures::b" ;
+    sysx:sourceLine "119"^^xsd:integer ;
+    sysx:sourceColumn "14"^^xsd:integer ;
+    sysx:sourceEndLine "119"^^xsd:integer ;
+    sysx:sourceEndColumn "30"^^xsd:integer ;
     sysml:elementId "ThenAfterMembers__AfterNonFeatures__b" ;
     sysx:memberIndex "3"^^xsd:integer ;
     sysml:owningNamespace elmt:ThenAfterMembers__AfterNonFeatures ;
@@ -5501,6 +5947,10 @@ elmt:ThenAfterMembers__AfterNonFeatures__b_om
 elmt:ThenAfterMembers__AfterNonFeatures___404
     a sysml:SuccessionAsUsage ;
     sysml:qualifiedName "ThenAfterMembers::AfterNonFeatures::@4" ;
+    sysx:sourceLine "119"^^xsd:integer ;
+    sysx:sourceColumn "9"^^xsd:integer ;
+    sysx:sourceEndLine "119"^^xsd:integer ;
+    sysx:sourceEndColumn "13"^^xsd:integer ;
     sysml:elementId "ThenAfterMembers__AfterNonFeatures___404" ;
     sysx:memberIndex "4"^^xsd:integer ;
     sysml:owningNamespace elmt:ThenAfterMembers__AfterNonFeatures ;
@@ -5598,6 +6048,10 @@ expr:ThenAfterMembers__AfterNonFeatures___404_pend1_prs
 elmt:ThenAfterMembers__AfterSuccession
     a sysml:ActionDefinition ;
     sysml:qualifiedName "ThenAfterMembers::AfterSuccession" ;
+    sysx:sourceLine "121"^^xsd:integer ;
+    sysx:sourceColumn "5"^^xsd:integer ;
+    sysx:sourceEndLine "126"^^xsd:integer ;
+    sysx:sourceEndColumn "6"^^xsd:integer ;
     sysml:elementId "ThenAfterMembers__AfterSuccession" ;
     sysx:memberIndex "23"^^xsd:integer ;
     sysml:owningNamespace elmt:ThenAfterMembers ;
@@ -5632,6 +6086,10 @@ elmt:ThenAfterMembers__AfterSuccession_om
 elmt:ThenAfterMembers__AfterSuccession__a
     a sysml:ActionUsage ;
     sysml:qualifiedName "ThenAfterMembers::AfterSuccession::a" ;
+    sysx:sourceLine "122"^^xsd:integer ;
+    sysx:sourceColumn "9"^^xsd:integer ;
+    sysx:sourceEndLine "122"^^xsd:integer ;
+    sysx:sourceEndColumn "25"^^xsd:integer ;
     sysml:elementId "ThenAfterMembers__AfterSuccession__a" ;
     sysx:memberIndex "0"^^xsd:integer ;
     sysml:owningNamespace elmt:ThenAfterMembers__AfterSuccession ;
@@ -5661,6 +6119,10 @@ elmt:ThenAfterMembers__AfterSuccession__a_om
 elmt:ThenAfterMembers__AfterSuccession__c
     a sysml:ActionUsage ;
     sysml:qualifiedName "ThenAfterMembers::AfterSuccession::c" ;
+    sysx:sourceLine "123"^^xsd:integer ;
+    sysx:sourceColumn "9"^^xsd:integer ;
+    sysx:sourceEndLine "123"^^xsd:integer ;
+    sysx:sourceEndColumn "25"^^xsd:integer ;
     sysml:elementId "ThenAfterMembers__AfterSuccession__c" ;
     sysx:memberIndex "1"^^xsd:integer ;
     sysml:owningNamespace elmt:ThenAfterMembers__AfterSuccession ;
@@ -5690,6 +6152,10 @@ elmt:ThenAfterMembers__AfterSuccession__c_om
 elmt:ThenAfterMembers__AfterSuccession___402
     a sysml:SuccessionAsUsage ;
     sysml:qualifiedName "ThenAfterMembers::AfterSuccession::@2" ;
+    sysx:sourceLine "124"^^xsd:integer ;
+    sysx:sourceColumn "9"^^xsd:integer ;
+    sysx:sourceEndLine "124"^^xsd:integer ;
+    sysx:sourceEndColumn "35"^^xsd:integer ;
     sysml:elementId "ThenAfterMembers__AfterSuccession___402" ;
     sysx:memberIndex "2"^^xsd:integer ;
     sysml:owningNamespace elmt:ThenAfterMembers__AfterSuccession ;
@@ -5814,6 +6280,10 @@ expr:ThenAfterMembers__AfterSuccession___402_pend1_prs
 elmt:ThenAfterMembers__AfterSuccession__b
     a sysml:ActionUsage ;
     sysml:qualifiedName "ThenAfterMembers::AfterSuccession::b" ;
+    sysx:sourceLine "125"^^xsd:integer ;
+    sysx:sourceColumn "14"^^xsd:integer ;
+    sysx:sourceEndLine "125"^^xsd:integer ;
+    sysx:sourceEndColumn "30"^^xsd:integer ;
     sysml:elementId "ThenAfterMembers__AfterSuccession__b" ;
     sysx:memberIndex "3"^^xsd:integer ;
     sysml:owningNamespace elmt:ThenAfterMembers__AfterSuccession ;
@@ -5843,6 +6313,10 @@ elmt:ThenAfterMembers__AfterSuccession__b_om
 elmt:ThenAfterMembers__AfterSuccession___404
     a sysml:SuccessionAsUsage ;
     sysml:qualifiedName "ThenAfterMembers::AfterSuccession::@4" ;
+    sysx:sourceLine "125"^^xsd:integer ;
+    sysx:sourceColumn "9"^^xsd:integer ;
+    sysx:sourceEndLine "125"^^xsd:integer ;
+    sysx:sourceEndColumn "13"^^xsd:integer ;
     sysml:elementId "ThenAfterMembers__AfterSuccession___404" ;
     sysx:memberIndex "4"^^xsd:integer ;
     sysml:owningNamespace elmt:ThenAfterMembers__AfterSuccession ;
@@ -5940,6 +6414,10 @@ expr:ThenAfterMembers__AfterSuccession___404_pend1_prs
 elmt:ThenAfterMembers__AfterFirstThen
     a sysml:ActionDefinition ;
     sysml:qualifiedName "ThenAfterMembers::AfterFirstThen" ;
+    sysx:sourceLine "127"^^xsd:integer ;
+    sysx:sourceColumn "5"^^xsd:integer ;
+    sysx:sourceEndLine "132"^^xsd:integer ;
+    sysx:sourceEndColumn "6"^^xsd:integer ;
     sysml:elementId "ThenAfterMembers__AfterFirstThen" ;
     sysx:memberIndex "24"^^xsd:integer ;
     sysml:owningNamespace elmt:ThenAfterMembers ;
@@ -5974,6 +6452,10 @@ elmt:ThenAfterMembers__AfterFirstThen_om
 elmt:ThenAfterMembers__AfterFirstThen__a
     a sysml:ActionUsage ;
     sysml:qualifiedName "ThenAfterMembers::AfterFirstThen::a" ;
+    sysx:sourceLine "128"^^xsd:integer ;
+    sysx:sourceColumn "9"^^xsd:integer ;
+    sysx:sourceEndLine "128"^^xsd:integer ;
+    sysx:sourceEndColumn "25"^^xsd:integer ;
     sysml:elementId "ThenAfterMembers__AfterFirstThen__a" ;
     sysx:memberIndex "0"^^xsd:integer ;
     sysml:owningNamespace elmt:ThenAfterMembers__AfterFirstThen ;
@@ -6003,6 +6485,10 @@ elmt:ThenAfterMembers__AfterFirstThen__a_om
 elmt:ThenAfterMembers__AfterFirstThen___401
     a sysml:SuccessionAsUsage ;
     sysml:qualifiedName "ThenAfterMembers::AfterFirstThen::@1" ;
+    sysx:sourceLine "129"^^xsd:integer ;
+    sysx:sourceColumn "9"^^xsd:integer ;
+    sysx:sourceEndLine "129"^^xsd:integer ;
+    sysx:sourceEndColumn "24"^^xsd:integer ;
     sysml:elementId "ThenAfterMembers__AfterFirstThen___401" ;
     sysx:memberIndex "1"^^xsd:integer ;
     sysml:owningNamespace elmt:ThenAfterMembers__AfterFirstThen ;
@@ -6029,6 +6515,10 @@ elmt:ThenAfterMembers__AfterFirstThen___401_om
 elmt:ThenAfterMembers__AfterFirstThen__b
     a sysml:ActionUsage ;
     sysml:qualifiedName "ThenAfterMembers::AfterFirstThen::b" ;
+    sysx:sourceLine "130"^^xsd:integer ;
+    sysx:sourceColumn "14"^^xsd:integer ;
+    sysx:sourceEndLine "130"^^xsd:integer ;
+    sysx:sourceEndColumn "30"^^xsd:integer ;
     sysml:elementId "ThenAfterMembers__AfterFirstThen__b" ;
     sysx:memberIndex "2"^^xsd:integer ;
     sysml:owningNamespace elmt:ThenAfterMembers__AfterFirstThen ;
@@ -6058,6 +6548,10 @@ elmt:ThenAfterMembers__AfterFirstThen__b_om
 elmt:ThenAfterMembers__AfterFirstThen___403
     a sysml:SuccessionAsUsage ;
     sysml:qualifiedName "ThenAfterMembers::AfterFirstThen::@3" ;
+    sysx:sourceLine "130"^^xsd:integer ;
+    sysx:sourceColumn "9"^^xsd:integer ;
+    sysx:sourceEndLine "130"^^xsd:integer ;
+    sysx:sourceEndColumn "13"^^xsd:integer ;
     sysml:elementId "ThenAfterMembers__AfterFirstThen___403" ;
     sysx:memberIndex "3"^^xsd:integer ;
     sysml:owningNamespace elmt:ThenAfterMembers__AfterFirstThen ;
@@ -6155,6 +6649,10 @@ expr:ThenAfterMembers__AfterFirstThen___403_pend1_prs
 elmt:ThenAfterMembers__AfterFirstThen__c
     a sysml:ActionUsage ;
     sysml:qualifiedName "ThenAfterMembers::AfterFirstThen::c" ;
+    sysx:sourceLine "131"^^xsd:integer ;
+    sysx:sourceColumn "9"^^xsd:integer ;
+    sysx:sourceEndLine "131"^^xsd:integer ;
+    sysx:sourceEndColumn "25"^^xsd:integer ;
     sysml:elementId "ThenAfterMembers__AfterFirstThen__c" ;
     sysx:memberIndex "4"^^xsd:integer ;
     sysml:owningNamespace elmt:ThenAfterMembers__AfterFirstThen ;
@@ -6184,6 +6682,10 @@ elmt:ThenAfterMembers__AfterFirstThen__c_om
 elmt:ThenAfterMembers__AfterFirstStart
     a sysml:ActionDefinition ;
     sysml:qualifiedName "ThenAfterMembers::AfterFirstStart" ;
+    sysx:sourceLine "133"^^xsd:integer ;
+    sysx:sourceColumn "5"^^xsd:integer ;
+    sysx:sourceEndLine "137"^^xsd:integer ;
+    sysx:sourceEndColumn "6"^^xsd:integer ;
     sysml:elementId "ThenAfterMembers__AfterFirstStart" ;
     sysx:memberIndex "25"^^xsd:integer ;
     sysml:owningNamespace elmt:ThenAfterMembers ;
@@ -6192,15 +6694,15 @@ elmt:ThenAfterMembers__AfterFirstStart
     sysml:owningMembership elmt:ThenAfterMembers__AfterFirstStart_om ;
     sysml:declaredName "AfterFirstStart" ;
     sysx:hasBody "true"^^xsd:boolean ;
-    sysml:ownedRelationship elmt:ThenAfterMembers__AfterFirstStart___400, elmt:ThenAfterMembers__AfterFirstStart__a_om, elmt:ThenAfterMembers__AfterFirstStart___402_om, elmt:ThenAfterMembers__AfterFirstStart___403, elmt:ThenAfterMembers__AfterFirstStart___404_om ;
-    sysml:ownedMembership elmt:ThenAfterMembers__AfterFirstStart___400, elmt:ThenAfterMembers__AfterFirstStart__a_om, elmt:ThenAfterMembers__AfterFirstStart___402_om, elmt:ThenAfterMembers__AfterFirstStart___403, elmt:ThenAfterMembers__AfterFirstStart___404_om ;
+    sysml:ownedRelationship elmt:ThenAfterMembers__AfterFirstStart___400, elmt:ThenAfterMembers__AfterFirstStart__a_om, elmt:ThenAfterMembers__AfterFirstStart___402_om, elmt:ThenAfterMembers__AfterFirstStart___404_om ;
+    sysml:ownedMembership elmt:ThenAfterMembers__AfterFirstStart___400, elmt:ThenAfterMembers__AfterFirstStart__a_om, elmt:ThenAfterMembers__AfterFirstStart___402_om, elmt:ThenAfterMembers__AfterFirstStart___404_om ;
     sysml:ownedMember elmt:ThenAfterMembers__AfterFirstStart__a, elmt:ThenAfterMembers__AfterFirstStart___402, elmt:ThenAfterMembers__AfterFirstStart___404 ;
     sysml:ownedFeature elmt:ThenAfterMembers__AfterFirstStart__a, elmt:ThenAfterMembers__AfterFirstStart___402, elmt:ThenAfterMembers__AfterFirstStart___404 ;
     sysml:ownedFeatureMembership elmt:ThenAfterMembers__AfterFirstStart__a_om, elmt:ThenAfterMembers__AfterFirstStart___402_om, elmt:ThenAfterMembers__AfterFirstStart___404_om ;
     sysx:sourceText "    action def AfterFirstStart {\n" ;
     sysx:sourceTail "    }\n" ;
-    json:ownedRelationship "[{\"@id\":\"ThenAfterMembers__AfterFirstStart___400\"},{\"@id\":\"ThenAfterMembers__AfterFirstStart__a_om\"},{\"@id\":\"ThenAfterMembers__AfterFirstStart___402_om\"},{\"@id\":\"ThenAfterMembers__AfterFirstStart___403\"},{\"@id\":\"ThenAfterMembers__AfterFirstStart___404_om\"}]" ;
-    json:ownedMembership "[{\"@id\":\"ThenAfterMembers__AfterFirstStart___400\"},{\"@id\":\"ThenAfterMembers__AfterFirstStart__a_om\"},{\"@id\":\"ThenAfterMembers__AfterFirstStart___402_om\"},{\"@id\":\"ThenAfterMembers__AfterFirstStart___403\"},{\"@id\":\"ThenAfterMembers__AfterFirstStart___404_om\"}]" ;
+    json:ownedRelationship "[{\"@id\":\"ThenAfterMembers__AfterFirstStart___400\"},{\"@id\":\"ThenAfterMembers__AfterFirstStart__a_om\"},{\"@id\":\"ThenAfterMembers__AfterFirstStart___402_om\"},{\"@id\":\"ThenAfterMembers__AfterFirstStart___404_om\"}]" ;
+    json:ownedMembership "[{\"@id\":\"ThenAfterMembers__AfterFirstStart___400\"},{\"@id\":\"ThenAfterMembers__AfterFirstStart__a_om\"},{\"@id\":\"ThenAfterMembers__AfterFirstStart___402_om\"},{\"@id\":\"ThenAfterMembers__AfterFirstStart___404_om\"}]" ;
     json:ownedMember "[{\"@id\":\"ThenAfterMembers__AfterFirstStart__a\"},{\"@id\":\"ThenAfterMembers__AfterFirstStart___402\"},{\"@id\":\"ThenAfterMembers__AfterFirstStart___404\"}]" ;
     json:ownedFeature "[{\"@id\":\"ThenAfterMembers__AfterFirstStart__a\"},{\"@id\":\"ThenAfterMembers__AfterFirstStart___402\"},{\"@id\":\"ThenAfterMembers__AfterFirstStart___404\"}]" ;
     json:ownedFeatureMembership "[{\"@id\":\"ThenAfterMembers__AfterFirstStart__a_om\"},{\"@id\":\"ThenAfterMembers__AfterFirstStart___402_om\"},{\"@id\":\"ThenAfterMembers__AfterFirstStart___404_om\"}]" .
@@ -6218,6 +6720,10 @@ elmt:ThenAfterMembers__AfterFirstStart_om
 elmt:ThenAfterMembers__AfterFirstStart___400
     a sysml:Membership ;
     sysml:qualifiedName "ThenAfterMembers::AfterFirstStart::@0" ;
+    sysx:sourceLine "134"^^xsd:integer ;
+    sysx:sourceColumn "9"^^xsd:integer ;
+    sysx:sourceEndLine "134"^^xsd:integer ;
+    sysx:sourceEndColumn "21"^^xsd:integer ;
     sysml:elementId "ThenAfterMembers__AfterFirstStart___400" ;
     sysx:memberIndex "0"^^xsd:integer ;
     sysml:owningNamespace elmt:ThenAfterMembers__AfterFirstStart ;
@@ -6231,6 +6737,10 @@ elmt:ThenAfterMembers__AfterFirstStart___400
 elmt:ThenAfterMembers__AfterFirstStart__a
     a sysml:ActionUsage ;
     sysml:qualifiedName "ThenAfterMembers::AfterFirstStart::a" ;
+    sysx:sourceLine "135"^^xsd:integer ;
+    sysx:sourceColumn "14"^^xsd:integer ;
+    sysx:sourceEndLine "135"^^xsd:integer ;
+    sysx:sourceEndColumn "30"^^xsd:integer ;
     sysml:elementId "ThenAfterMembers__AfterFirstStart__a" ;
     sysx:memberIndex "1"^^xsd:integer ;
     sysml:owningNamespace elmt:ThenAfterMembers__AfterFirstStart ;
@@ -6260,6 +6770,10 @@ elmt:ThenAfterMembers__AfterFirstStart__a_om
 elmt:ThenAfterMembers__AfterFirstStart___402
     a sysml:SuccessionAsUsage ;
     sysml:qualifiedName "ThenAfterMembers::AfterFirstStart::@2" ;
+    sysx:sourceLine "135"^^xsd:integer ;
+    sysx:sourceColumn "9"^^xsd:integer ;
+    sysx:sourceEndLine "135"^^xsd:integer ;
+    sysx:sourceEndColumn "13"^^xsd:integer ;
     sysml:elementId "ThenAfterMembers__AfterFirstStart___402" ;
     sysx:memberIndex "2"^^xsd:integer ;
     sysml:owningNamespace elmt:ThenAfterMembers__AfterFirstStart ;
@@ -6354,22 +6868,13 @@ expr:ThenAfterMembers__AfterFirstStart___402_pend1_prs
     sysml:owningRelatedElement expr:ThenAfterMembers__AfterFirstStart___402_pend1 ;
     json:relatedElement "[{\"@id\":\"ThenAfterMembers__AfterFirstStart___402_pend1\"},{\"@id\":\"ThenAfterMembers__AfterFirstStart__a\"}]" .
 
-elmt:ThenAfterMembers__AfterFirstStart___403
-    a sysml:Membership ;
-    sysml:qualifiedName "ThenAfterMembers::AfterFirstStart::@3" ;
-    sysml:elementId "ThenAfterMembers__AfterFirstStart___403" ;
-    sysx:memberIndex "3"^^xsd:integer ;
-    sysml:owningNamespace elmt:ThenAfterMembers__AfterFirstStart ;
-    sysml:owner elmt:ThenAfterMembers__AfterFirstStart ;
-    sysml:owningRelatedElement elmt:ThenAfterMembers__AfterFirstStart ;
-    sysml:membershipOwningNamespace elmt:ThenAfterMembers__AfterFirstStart ;
-    sysx:declaredKeyword "done" ;
-    sysml:memberElement <urn:sysmlv2:element:0cdc3cd3-b06c-5c32-beda-0cf4ba164a64> ;
-    sysx:sourceText "        then done;\n" .
-
 elmt:ThenAfterMembers__AfterFirstStart___404
     a sysml:SuccessionAsUsage ;
     sysml:qualifiedName "ThenAfterMembers::AfterFirstStart::@4" ;
+    sysx:sourceLine "136"^^xsd:integer ;
+    sysx:sourceColumn "9"^^xsd:integer ;
+    sysx:sourceEndLine "136"^^xsd:integer ;
+    sysx:sourceEndColumn "13"^^xsd:integer ;
     sysml:elementId "ThenAfterMembers__AfterFirstStart___404" ;
     sysx:memberIndex "4"^^xsd:integer ;
     sysml:owningNamespace elmt:ThenAfterMembers__AfterFirstStart ;
@@ -6384,8 +6889,8 @@ elmt:ThenAfterMembers__AfterFirstStart___404
     sysml:ownedFeature expr:ThenAfterMembers__AfterFirstStart___404_pend0, expr:ThenAfterMembers__AfterFirstStart___404_pend1 ;
     sysml:ownedEndFeature expr:ThenAfterMembers__AfterFirstStart___404_pend0, expr:ThenAfterMembers__AfterFirstStart___404_pend1 ;
     sysml:sourceFeature elmt:ThenAfterMembers__AfterFirstStart__a ;
-    sysx:targetMember elmt:ThenAfterMembers__AfterFirstStart___403 ;
-    sysx:sourceText "" ;
+    sysml:targetFeature <urn:sysmlv2:element:0cdc3cd3-b06c-5c32-beda-0cf4ba164a64> ;
+    sysx:sourceText "        then done;\n" ;
     json:connectorEnd "[{\"@id\":\"ThenAfterMembers__AfterFirstStart___404_pend0\"},{\"@id\":\"ThenAfterMembers__AfterFirstStart___404_pend1\"}]" ;
     json:ownedRelationship "[{\"@id\":\"ThenAfterMembers__AfterFirstStart___404_pend0_om\"},{\"@id\":\"ThenAfterMembers__AfterFirstStart___404_pend1_om\"}]" ;
     json:ownedMembership "[{\"@id\":\"ThenAfterMembers__AfterFirstStart___404_pend0_om\"},{\"@id\":\"ThenAfterMembers__AfterFirstStart___404_pend1_om\"}]" ;
@@ -6454,18 +6959,22 @@ expr:ThenAfterMembers__AfterFirstStart___404_pend1_prs
     sysml:source expr:ThenAfterMembers__AfterFirstStart___404_pend1 ;
     sysml:owningFeature expr:ThenAfterMembers__AfterFirstStart___404_pend1 ;
     sysml:owningType expr:ThenAfterMembers__AfterFirstStart___404_pend1 ;
-    sysml:referencedFeature elmt:ThenAfterMembers__AfterFirstStart___403 ;
-    sysml:subsettedFeature elmt:ThenAfterMembers__AfterFirstStart___403 ;
-    sysml:general elmt:ThenAfterMembers__AfterFirstStart___403 ;
-    sysml:target elmt:ThenAfterMembers__AfterFirstStart___403 ;
-    sysml:relatedElement expr:ThenAfterMembers__AfterFirstStart___404_pend1, elmt:ThenAfterMembers__AfterFirstStart___403 ;
+    sysml:referencedFeature <urn:sysmlv2:element:0cdc3cd3-b06c-5c32-beda-0cf4ba164a64> ;
+    sysml:subsettedFeature <urn:sysmlv2:element:0cdc3cd3-b06c-5c32-beda-0cf4ba164a64> ;
+    sysml:general <urn:sysmlv2:element:0cdc3cd3-b06c-5c32-beda-0cf4ba164a64> ;
+    sysml:target <urn:sysmlv2:element:0cdc3cd3-b06c-5c32-beda-0cf4ba164a64> ;
+    sysml:relatedElement expr:ThenAfterMembers__AfterFirstStart___404_pend1, <urn:sysmlv2:element:0cdc3cd3-b06c-5c32-beda-0cf4ba164a64> ;
     sysml:owner expr:ThenAfterMembers__AfterFirstStart___404_pend1 ;
     sysml:owningRelatedElement expr:ThenAfterMembers__AfterFirstStart___404_pend1 ;
-    json:relatedElement "[{\"@id\":\"ThenAfterMembers__AfterFirstStart___404_pend1\"},{\"@id\":\"ThenAfterMembers__AfterFirstStart___403\"}]" .
+    json:relatedElement "[{\"@id\":\"ThenAfterMembers__AfterFirstStart___404_pend1\"},{\"@id\":\"0cdc3cd3-b06c-5c32-beda-0cf4ba164a64\"}]" .
 
 elmt:ThenAfterMembers__stride
     a sysml:ActionUsage ;
     sysml:qualifiedName "ThenAfterMembers::stride" ;
+    sysx:sourceLine "138"^^xsd:integer ;
+    sysx:sourceColumn "5"^^xsd:integer ;
+    sysx:sourceEndLine "138"^^xsd:integer ;
+    sysx:sourceEndColumn "26"^^xsd:integer ;
     sysml:elementId "ThenAfterMembers__stride" ;
     sysx:memberIndex "26"^^xsd:integer ;
     sysml:owningNamespace elmt:ThenAfterMembers ;
@@ -6493,6 +7002,10 @@ elmt:ThenAfterMembers__stride_om
 elmt:ThenAfterMembers__AfterPerform
     a sysml:ActionDefinition ;
     sysml:qualifiedName "ThenAfterMembers::AfterPerform" ;
+    sysx:sourceLine "139"^^xsd:integer ;
+    sysx:sourceColumn "5"^^xsd:integer ;
+    sysx:sourceEndLine "143"^^xsd:integer ;
+    sysx:sourceEndColumn "6"^^xsd:integer ;
     sysml:elementId "ThenAfterMembers__AfterPerform" ;
     sysx:memberIndex "27"^^xsd:integer ;
     sysml:owningNamespace elmt:ThenAfterMembers ;
@@ -6527,6 +7040,10 @@ elmt:ThenAfterMembers__AfterPerform_om
 elmt:ThenAfterMembers__AfterPerform___400
     a sysml:PerformActionUsage ;
     sysml:qualifiedName "ThenAfterMembers::AfterPerform::@0" ;
+    sysx:sourceLine "140"^^xsd:integer ;
+    sysx:sourceColumn "9"^^xsd:integer ;
+    sysx:sourceEndLine "140"^^xsd:integer ;
+    sysx:sourceEndColumn "24"^^xsd:integer ;
     sysml:elementId "ThenAfterMembers__AfterPerform___400" ;
     sysx:memberIndex "0"^^xsd:integer ;
     sysml:owningNamespace elmt:ThenAfterMembers__AfterPerform ;
@@ -6557,6 +7074,10 @@ elmt:ThenAfterMembers__AfterPerform___400_om
 elmt:ThenAfterMembers__AfterPerform___401
     a sysml:FlowUsage ;
     sysml:qualifiedName "ThenAfterMembers::AfterPerform::@1" ;
+    sysx:sourceLine "141"^^xsd:integer ;
+    sysx:sourceColumn "9"^^xsd:integer ;
+    sysx:sourceEndLine "141"^^xsd:integer ;
+    sysx:sourceEndColumn "35"^^xsd:integer ;
     sysml:elementId "ThenAfterMembers__AfterPerform___401" ;
     sysx:memberIndex "1"^^xsd:integer ;
     sysml:owningNamespace elmt:ThenAfterMembers__AfterPerform ;
@@ -6590,7 +7111,7 @@ elmt:ThenAfterMembers__AfterPerform___401_om
     sysml:membershipOwningNamespace elmt:ThenAfterMembers__AfterPerform .
 
 expr:ThenAfterMembers__AfterPerform___401_pend0
-    a sysml:ReferenceUsage ;
+    a sysml:FlowEnd ;
     sysml:elementId "ThenAfterMembers__AfterPerform___401_pend0" ;
     sysml:isEnd "true"^^xsd:boolean ;
     sysml:owner elmt:ThenAfterMembers__AfterPerform___401 ;
@@ -6600,7 +7121,11 @@ expr:ThenAfterMembers__AfterPerform___401_pend0
     sysml:ownedReferenceSubsetting expr:ThenAfterMembers__AfterPerform___401_pend0_prs ;
     sysml:ownedSubsetting expr:ThenAfterMembers__AfterPerform___401_pend0_prs ;
     sysml:ownedSpecialization expr:ThenAfterMembers__AfterPerform___401_pend0_prs ;
-    sysml:ownedRelationship expr:ThenAfterMembers__AfterPerform___401_pend0_prs .
+    sysml:ownedRelationship expr:ThenAfterMembers__AfterPerform___401_pend0_prs, expr:ThenAfterMembers__AfterPerform___401_pend0_pff_om ;
+    sysml:ownedMembership expr:ThenAfterMembers__AfterPerform___401_pend0_pff_om ;
+    sysml:ownedFeatureMembership expr:ThenAfterMembers__AfterPerform___401_pend0_pff_om ;
+    sysml:ownedFeature expr:ThenAfterMembers__AfterPerform___401_pend0_pff ;
+    json:ownedRelationship "[{\"@id\":\"ThenAfterMembers__AfterPerform___401_pend0_prs\"},{\"@id\":\"ThenAfterMembers__AfterPerform___401_pend0_pff_om\"}]" .
 
 expr:ThenAfterMembers__AfterPerform___401_pend0_om
     a sysml:EndFeatureMembership ;
@@ -6612,42 +7137,6 @@ expr:ThenAfterMembers__AfterPerform___401_pend0_om
     sysml:owningRelatedElement elmt:ThenAfterMembers__AfterPerform___401 ;
     sysml:membershipOwningNamespace elmt:ThenAfterMembers__AfterPerform___401 .
 
-expr:ThenAfterMembers__AfterPerform___401_pend0_pchain
-    a sysml:Feature ;
-    sysml:elementId "ThenAfterMembers__AfterPerform___401_pend0_pchain" ;
-    sysml:ownedFeatureChaining expr:ThenAfterMembers__AfterPerform___401_pend0_pchain_pfc0, expr:ThenAfterMembers__AfterPerform___401_pend0_pchain_pfc1 ;
-    sysml:ownedRelationship expr:ThenAfterMembers__AfterPerform___401_pend0_pchain_pfc0, expr:ThenAfterMembers__AfterPerform___401_pend0_pchain_pfc1 ;
-    sysml:chainingFeature elmt:ThenAfterMembers__AfterPerform___400, elmt:ThenAfterMembers__Step__y ;
-    sysml:owningRelationship expr:ThenAfterMembers__AfterPerform___401_pend0_prs ;
-    sysml:owner expr:ThenAfterMembers__AfterPerform___401_pend0 ;
-    json:ownedFeatureChaining "[{\"@id\":\"ThenAfterMembers__AfterPerform___401_pend0_pchain_pfc0\"},{\"@id\":\"ThenAfterMembers__AfterPerform___401_pend0_pchain_pfc1\"}]" ;
-    json:ownedRelationship "[{\"@id\":\"ThenAfterMembers__AfterPerform___401_pend0_pchain_pfc0\"},{\"@id\":\"ThenAfterMembers__AfterPerform___401_pend0_pchain_pfc1\"}]" ;
-    json:chainingFeature "[{\"@id\":\"ThenAfterMembers__AfterPerform___400\"},{\"@id\":\"ThenAfterMembers__Step__y\"}]" .
-
-expr:ThenAfterMembers__AfterPerform___401_pend0_pchain_pfc0
-    a sysml:FeatureChaining ;
-    sysml:elementId "ThenAfterMembers__AfterPerform___401_pend0_pchain_pfc0" ;
-    sysml:featureChained expr:ThenAfterMembers__AfterPerform___401_pend0_pchain ;
-    sysml:source expr:ThenAfterMembers__AfterPerform___401_pend0_pchain ;
-    sysml:owningRelatedElement expr:ThenAfterMembers__AfterPerform___401_pend0_pchain ;
-    sysml:chainingFeature elmt:ThenAfterMembers__AfterPerform___400 ;
-    sysml:target elmt:ThenAfterMembers__AfterPerform___400 ;
-    sysml:owner expr:ThenAfterMembers__AfterPerform___401_pend0_pchain ;
-    sysml:relatedElement expr:ThenAfterMembers__AfterPerform___401_pend0_pchain, elmt:ThenAfterMembers__AfterPerform___400 ;
-    json:relatedElement "[{\"@id\":\"ThenAfterMembers__AfterPerform___401_pend0_pchain\"},{\"@id\":\"ThenAfterMembers__AfterPerform___400\"}]" .
-
-expr:ThenAfterMembers__AfterPerform___401_pend0_pchain_pfc1
-    a sysml:FeatureChaining ;
-    sysml:elementId "ThenAfterMembers__AfterPerform___401_pend0_pchain_pfc1" ;
-    sysml:featureChained expr:ThenAfterMembers__AfterPerform___401_pend0_pchain ;
-    sysml:source expr:ThenAfterMembers__AfterPerform___401_pend0_pchain ;
-    sysml:owningRelatedElement expr:ThenAfterMembers__AfterPerform___401_pend0_pchain ;
-    sysml:chainingFeature elmt:ThenAfterMembers__Step__y ;
-    sysml:target elmt:ThenAfterMembers__Step__y ;
-    sysml:owner expr:ThenAfterMembers__AfterPerform___401_pend0_pchain ;
-    sysml:relatedElement expr:ThenAfterMembers__AfterPerform___401_pend0_pchain, elmt:ThenAfterMembers__Step__y ;
-    json:relatedElement "[{\"@id\":\"ThenAfterMembers__AfterPerform___401_pend0_pchain\"},{\"@id\":\"ThenAfterMembers__Step__y\"}]" .
-
 expr:ThenAfterMembers__AfterPerform___401_pend0_prs
     a sysml:ReferenceSubsetting ;
     sysml:elementId "ThenAfterMembers__AfterPerform___401_pend0_prs" ;
@@ -6657,18 +7146,39 @@ expr:ThenAfterMembers__AfterPerform___401_pend0_prs
     sysml:source expr:ThenAfterMembers__AfterPerform___401_pend0 ;
     sysml:owningFeature expr:ThenAfterMembers__AfterPerform___401_pend0 ;
     sysml:owningType expr:ThenAfterMembers__AfterPerform___401_pend0 ;
-    sysml:referencedFeature expr:ThenAfterMembers__AfterPerform___401_pend0_pchain ;
-    sysml:subsettedFeature expr:ThenAfterMembers__AfterPerform___401_pend0_pchain ;
-    sysml:general expr:ThenAfterMembers__AfterPerform___401_pend0_pchain ;
-    sysml:target expr:ThenAfterMembers__AfterPerform___401_pend0_pchain ;
-    sysml:relatedElement expr:ThenAfterMembers__AfterPerform___401_pend0, expr:ThenAfterMembers__AfterPerform___401_pend0_pchain ;
+    sysml:referencedFeature elmt:ThenAfterMembers__AfterPerform___400 ;
+    sysml:subsettedFeature elmt:ThenAfterMembers__AfterPerform___400 ;
+    sysml:general elmt:ThenAfterMembers__AfterPerform___400 ;
+    sysml:target elmt:ThenAfterMembers__AfterPerform___400 ;
+    sysml:relatedElement expr:ThenAfterMembers__AfterPerform___401_pend0, elmt:ThenAfterMembers__AfterPerform___400 ;
     sysml:owner expr:ThenAfterMembers__AfterPerform___401_pend0 ;
     sysml:owningRelatedElement expr:ThenAfterMembers__AfterPerform___401_pend0 ;
-    sysml:ownedRelatedElement expr:ThenAfterMembers__AfterPerform___401_pend0_pchain ;
-    json:relatedElement "[{\"@id\":\"ThenAfterMembers__AfterPerform___401_pend0\"},{\"@id\":\"ThenAfterMembers__AfterPerform___401_pend0_pchain\"}]" .
+    json:relatedElement "[{\"@id\":\"ThenAfterMembers__AfterPerform___401_pend0\"},{\"@id\":\"ThenAfterMembers__AfterPerform___400\"}]" .
+
+expr:ThenAfterMembers__AfterPerform___401_pend0_pff
+    a sysml:ReferenceUsage ;
+    sysml:elementId "ThenAfterMembers__AfterPerform___401_pend0_pff" ;
+    sysml:owner expr:ThenAfterMembers__AfterPerform___401_pend0 ;
+    sysml:owningRelationship expr:ThenAfterMembers__AfterPerform___401_pend0_pff_om ;
+    sysml:owningMembership expr:ThenAfterMembers__AfterPerform___401_pend0_pff_om ;
+    sysml:redefines elmt:ThenAfterMembers__Step__y ;
+    sysml:ownedRedefinition expr:ThenAfterMembers__AfterPerform___401_pend0_pff_rd0 ;
+    sysml:ownedSubsetting expr:ThenAfterMembers__AfterPerform___401_pend0_pff_rd0 ;
+    sysml:ownedSpecialization expr:ThenAfterMembers__AfterPerform___401_pend0_pff_rd0 ;
+    sysml:ownedRelationship expr:ThenAfterMembers__AfterPerform___401_pend0_pff_rd0 .
+
+expr:ThenAfterMembers__AfterPerform___401_pend0_pff_om
+    a sysml:FeatureMembership ;
+    sysml:elementId "ThenAfterMembers__AfterPerform___401_pend0_pff_om" ;
+    sysml:owner expr:ThenAfterMembers__AfterPerform___401_pend0 ;
+    sysml:memberElement expr:ThenAfterMembers__AfterPerform___401_pend0_pff ;
+    sysml:ownedMemberElement expr:ThenAfterMembers__AfterPerform___401_pend0_pff ;
+    sysml:ownedRelatedElement expr:ThenAfterMembers__AfterPerform___401_pend0_pff ;
+    sysml:owningRelatedElement expr:ThenAfterMembers__AfterPerform___401_pend0 ;
+    sysml:membershipOwningNamespace expr:ThenAfterMembers__AfterPerform___401_pend0 .
 
 expr:ThenAfterMembers__AfterPerform___401_pend1
-    a sysml:ReferenceUsage ;
+    a sysml:FlowEnd ;
     sysml:elementId "ThenAfterMembers__AfterPerform___401_pend1" ;
     sysml:isEnd "true"^^xsd:boolean ;
     sysml:owner elmt:ThenAfterMembers__AfterPerform___401 ;
@@ -6678,7 +7188,11 @@ expr:ThenAfterMembers__AfterPerform___401_pend1
     sysml:ownedReferenceSubsetting expr:ThenAfterMembers__AfterPerform___401_pend1_prs ;
     sysml:ownedSubsetting expr:ThenAfterMembers__AfterPerform___401_pend1_prs ;
     sysml:ownedSpecialization expr:ThenAfterMembers__AfterPerform___401_pend1_prs ;
-    sysml:ownedRelationship expr:ThenAfterMembers__AfterPerform___401_pend1_prs .
+    sysml:ownedRelationship expr:ThenAfterMembers__AfterPerform___401_pend1_prs, expr:ThenAfterMembers__AfterPerform___401_pend1_pff_om ;
+    sysml:ownedMembership expr:ThenAfterMembers__AfterPerform___401_pend1_pff_om ;
+    sysml:ownedFeatureMembership expr:ThenAfterMembers__AfterPerform___401_pend1_pff_om ;
+    sysml:ownedFeature expr:ThenAfterMembers__AfterPerform___401_pend1_pff ;
+    json:ownedRelationship "[{\"@id\":\"ThenAfterMembers__AfterPerform___401_pend1_prs\"},{\"@id\":\"ThenAfterMembers__AfterPerform___401_pend1_pff_om\"}]" .
 
 expr:ThenAfterMembers__AfterPerform___401_pend1_om
     a sysml:EndFeatureMembership ;
@@ -6690,42 +7204,6 @@ expr:ThenAfterMembers__AfterPerform___401_pend1_om
     sysml:owningRelatedElement elmt:ThenAfterMembers__AfterPerform___401 ;
     sysml:membershipOwningNamespace elmt:ThenAfterMembers__AfterPerform___401 .
 
-expr:ThenAfterMembers__AfterPerform___401_pend1_pchain
-    a sysml:Feature ;
-    sysml:elementId "ThenAfterMembers__AfterPerform___401_pend1_pchain" ;
-    sysml:ownedFeatureChaining expr:ThenAfterMembers__AfterPerform___401_pend1_pchain_pfc0, expr:ThenAfterMembers__AfterPerform___401_pend1_pchain_pfc1 ;
-    sysml:ownedRelationship expr:ThenAfterMembers__AfterPerform___401_pend1_pchain_pfc0, expr:ThenAfterMembers__AfterPerform___401_pend1_pchain_pfc1 ;
-    sysml:chainingFeature elmt:ThenAfterMembers__AfterPerform__b, elmt:ThenAfterMembers__Step__x ;
-    sysml:owningRelationship expr:ThenAfterMembers__AfterPerform___401_pend1_prs ;
-    sysml:owner expr:ThenAfterMembers__AfterPerform___401_pend1 ;
-    json:ownedFeatureChaining "[{\"@id\":\"ThenAfterMembers__AfterPerform___401_pend1_pchain_pfc0\"},{\"@id\":\"ThenAfterMembers__AfterPerform___401_pend1_pchain_pfc1\"}]" ;
-    json:ownedRelationship "[{\"@id\":\"ThenAfterMembers__AfterPerform___401_pend1_pchain_pfc0\"},{\"@id\":\"ThenAfterMembers__AfterPerform___401_pend1_pchain_pfc1\"}]" ;
-    json:chainingFeature "[{\"@id\":\"ThenAfterMembers__AfterPerform__b\"},{\"@id\":\"ThenAfterMembers__Step__x\"}]" .
-
-expr:ThenAfterMembers__AfterPerform___401_pend1_pchain_pfc0
-    a sysml:FeatureChaining ;
-    sysml:elementId "ThenAfterMembers__AfterPerform___401_pend1_pchain_pfc0" ;
-    sysml:featureChained expr:ThenAfterMembers__AfterPerform___401_pend1_pchain ;
-    sysml:source expr:ThenAfterMembers__AfterPerform___401_pend1_pchain ;
-    sysml:owningRelatedElement expr:ThenAfterMembers__AfterPerform___401_pend1_pchain ;
-    sysml:chainingFeature elmt:ThenAfterMembers__AfterPerform__b ;
-    sysml:target elmt:ThenAfterMembers__AfterPerform__b ;
-    sysml:owner expr:ThenAfterMembers__AfterPerform___401_pend1_pchain ;
-    sysml:relatedElement expr:ThenAfterMembers__AfterPerform___401_pend1_pchain, elmt:ThenAfterMembers__AfterPerform__b ;
-    json:relatedElement "[{\"@id\":\"ThenAfterMembers__AfterPerform___401_pend1_pchain\"},{\"@id\":\"ThenAfterMembers__AfterPerform__b\"}]" .
-
-expr:ThenAfterMembers__AfterPerform___401_pend1_pchain_pfc1
-    a sysml:FeatureChaining ;
-    sysml:elementId "ThenAfterMembers__AfterPerform___401_pend1_pchain_pfc1" ;
-    sysml:featureChained expr:ThenAfterMembers__AfterPerform___401_pend1_pchain ;
-    sysml:source expr:ThenAfterMembers__AfterPerform___401_pend1_pchain ;
-    sysml:owningRelatedElement expr:ThenAfterMembers__AfterPerform___401_pend1_pchain ;
-    sysml:chainingFeature elmt:ThenAfterMembers__Step__x ;
-    sysml:target elmt:ThenAfterMembers__Step__x ;
-    sysml:owner expr:ThenAfterMembers__AfterPerform___401_pend1_pchain ;
-    sysml:relatedElement expr:ThenAfterMembers__AfterPerform___401_pend1_pchain, elmt:ThenAfterMembers__Step__x ;
-    json:relatedElement "[{\"@id\":\"ThenAfterMembers__AfterPerform___401_pend1_pchain\"},{\"@id\":\"ThenAfterMembers__Step__x\"}]" .
-
 expr:ThenAfterMembers__AfterPerform___401_pend1_prs
     a sysml:ReferenceSubsetting ;
     sysml:elementId "ThenAfterMembers__AfterPerform___401_pend1_prs" ;
@@ -6735,19 +7213,44 @@ expr:ThenAfterMembers__AfterPerform___401_pend1_prs
     sysml:source expr:ThenAfterMembers__AfterPerform___401_pend1 ;
     sysml:owningFeature expr:ThenAfterMembers__AfterPerform___401_pend1 ;
     sysml:owningType expr:ThenAfterMembers__AfterPerform___401_pend1 ;
-    sysml:referencedFeature expr:ThenAfterMembers__AfterPerform___401_pend1_pchain ;
-    sysml:subsettedFeature expr:ThenAfterMembers__AfterPerform___401_pend1_pchain ;
-    sysml:general expr:ThenAfterMembers__AfterPerform___401_pend1_pchain ;
-    sysml:target expr:ThenAfterMembers__AfterPerform___401_pend1_pchain ;
-    sysml:relatedElement expr:ThenAfterMembers__AfterPerform___401_pend1, expr:ThenAfterMembers__AfterPerform___401_pend1_pchain ;
+    sysml:referencedFeature elmt:ThenAfterMembers__AfterPerform__b ;
+    sysml:subsettedFeature elmt:ThenAfterMembers__AfterPerform__b ;
+    sysml:general elmt:ThenAfterMembers__AfterPerform__b ;
+    sysml:target elmt:ThenAfterMembers__AfterPerform__b ;
+    sysml:relatedElement expr:ThenAfterMembers__AfterPerform___401_pend1, elmt:ThenAfterMembers__AfterPerform__b ;
     sysml:owner expr:ThenAfterMembers__AfterPerform___401_pend1 ;
     sysml:owningRelatedElement expr:ThenAfterMembers__AfterPerform___401_pend1 ;
-    sysml:ownedRelatedElement expr:ThenAfterMembers__AfterPerform___401_pend1_pchain ;
-    json:relatedElement "[{\"@id\":\"ThenAfterMembers__AfterPerform___401_pend1\"},{\"@id\":\"ThenAfterMembers__AfterPerform___401_pend1_pchain\"}]" .
+    json:relatedElement "[{\"@id\":\"ThenAfterMembers__AfterPerform___401_pend1\"},{\"@id\":\"ThenAfterMembers__AfterPerform__b\"}]" .
+
+expr:ThenAfterMembers__AfterPerform___401_pend1_pff
+    a sysml:ReferenceUsage ;
+    sysml:elementId "ThenAfterMembers__AfterPerform___401_pend1_pff" ;
+    sysml:owner expr:ThenAfterMembers__AfterPerform___401_pend1 ;
+    sysml:owningRelationship expr:ThenAfterMembers__AfterPerform___401_pend1_pff_om ;
+    sysml:owningMembership expr:ThenAfterMembers__AfterPerform___401_pend1_pff_om ;
+    sysml:redefines elmt:ThenAfterMembers__Step__x ;
+    sysml:ownedRedefinition expr:ThenAfterMembers__AfterPerform___401_pend1_pff_rd0 ;
+    sysml:ownedSubsetting expr:ThenAfterMembers__AfterPerform___401_pend1_pff_rd0 ;
+    sysml:ownedSpecialization expr:ThenAfterMembers__AfterPerform___401_pend1_pff_rd0 ;
+    sysml:ownedRelationship expr:ThenAfterMembers__AfterPerform___401_pend1_pff_rd0 .
+
+expr:ThenAfterMembers__AfterPerform___401_pend1_pff_om
+    a sysml:FeatureMembership ;
+    sysml:elementId "ThenAfterMembers__AfterPerform___401_pend1_pff_om" ;
+    sysml:owner expr:ThenAfterMembers__AfterPerform___401_pend1 ;
+    sysml:memberElement expr:ThenAfterMembers__AfterPerform___401_pend1_pff ;
+    sysml:ownedMemberElement expr:ThenAfterMembers__AfterPerform___401_pend1_pff ;
+    sysml:ownedRelatedElement expr:ThenAfterMembers__AfterPerform___401_pend1_pff ;
+    sysml:owningRelatedElement expr:ThenAfterMembers__AfterPerform___401_pend1 ;
+    sysml:membershipOwningNamespace expr:ThenAfterMembers__AfterPerform___401_pend1 .
 
 elmt:ThenAfterMembers__AfterPerform__b
     a sysml:ActionUsage ;
     sysml:qualifiedName "ThenAfterMembers::AfterPerform::b" ;
+    sysx:sourceLine "142"^^xsd:integer ;
+    sysx:sourceColumn "14"^^xsd:integer ;
+    sysx:sourceEndLine "142"^^xsd:integer ;
+    sysx:sourceEndColumn "30"^^xsd:integer ;
     sysml:elementId "ThenAfterMembers__AfterPerform__b" ;
     sysx:memberIndex "2"^^xsd:integer ;
     sysml:owningNamespace elmt:ThenAfterMembers__AfterPerform ;
@@ -6777,6 +7280,10 @@ elmt:ThenAfterMembers__AfterPerform__b_om
 elmt:ThenAfterMembers__AfterPerform___403
     a sysml:SuccessionAsUsage ;
     sysml:qualifiedName "ThenAfterMembers::AfterPerform::@3" ;
+    sysx:sourceLine "142"^^xsd:integer ;
+    sysx:sourceColumn "9"^^xsd:integer ;
+    sysx:sourceEndLine "142"^^xsd:integer ;
+    sysx:sourceEndColumn "13"^^xsd:integer ;
     sysml:elementId "ThenAfterMembers__AfterPerform___403" ;
     sysx:memberIndex "3"^^xsd:integer ;
     sysml:owningNamespace elmt:ThenAfterMembers__AfterPerform ;
@@ -6874,6 +7381,10 @@ expr:ThenAfterMembers__AfterPerform___403_pend1_prs
 elmt:ThenAfterMembers__ThenAlone
     a sysml:ActionDefinition ;
     sysml:qualifiedName "ThenAfterMembers::ThenAlone" ;
+    sysx:sourceLine "144"^^xsd:integer ;
+    sysx:sourceColumn "5"^^xsd:integer ;
+    sysx:sourceEndLine "149"^^xsd:integer ;
+    sysx:sourceEndColumn "6"^^xsd:integer ;
     sysml:elementId "ThenAfterMembers__ThenAlone" ;
     sysx:memberIndex "28"^^xsd:integer ;
     sysml:owningNamespace elmt:ThenAfterMembers ;
@@ -6908,6 +7419,10 @@ elmt:ThenAfterMembers__ThenAlone_om
 elmt:ThenAfterMembers__ThenAlone__a
     a sysml:ActionUsage ;
     sysml:qualifiedName "ThenAfterMembers::ThenAlone::a" ;
+    sysx:sourceLine "145"^^xsd:integer ;
+    sysx:sourceColumn "9"^^xsd:integer ;
+    sysx:sourceEndLine "145"^^xsd:integer ;
+    sysx:sourceEndColumn "25"^^xsd:integer ;
     sysml:elementId "ThenAfterMembers__ThenAlone__a" ;
     sysx:memberIndex "0"^^xsd:integer ;
     sysml:owningNamespace elmt:ThenAfterMembers__ThenAlone ;
@@ -6937,6 +7452,10 @@ elmt:ThenAfterMembers__ThenAlone__a_om
 elmt:ThenAfterMembers__ThenAlone___401
     a sysml:FlowUsage ;
     sysml:qualifiedName "ThenAfterMembers::ThenAlone::@1" ;
+    sysx:sourceLine "146"^^xsd:integer ;
+    sysx:sourceColumn "9"^^xsd:integer ;
+    sysx:sourceEndLine "146"^^xsd:integer ;
+    sysx:sourceEndColumn "30"^^xsd:integer ;
     sysml:elementId "ThenAfterMembers__ThenAlone___401" ;
     sysx:memberIndex "1"^^xsd:integer ;
     sysml:owningNamespace elmt:ThenAfterMembers__ThenAlone ;
@@ -6970,7 +7489,7 @@ elmt:ThenAfterMembers__ThenAlone___401_om
     sysml:membershipOwningNamespace elmt:ThenAfterMembers__ThenAlone .
 
 expr:ThenAfterMembers__ThenAlone___401_pend0
-    a sysml:ReferenceUsage ;
+    a sysml:FlowEnd ;
     sysml:elementId "ThenAfterMembers__ThenAlone___401_pend0" ;
     sysml:isEnd "true"^^xsd:boolean ;
     sysml:owner elmt:ThenAfterMembers__ThenAlone___401 ;
@@ -6980,7 +7499,11 @@ expr:ThenAfterMembers__ThenAlone___401_pend0
     sysml:ownedReferenceSubsetting expr:ThenAfterMembers__ThenAlone___401_pend0_prs ;
     sysml:ownedSubsetting expr:ThenAfterMembers__ThenAlone___401_pend0_prs ;
     sysml:ownedSpecialization expr:ThenAfterMembers__ThenAlone___401_pend0_prs ;
-    sysml:ownedRelationship expr:ThenAfterMembers__ThenAlone___401_pend0_prs .
+    sysml:ownedRelationship expr:ThenAfterMembers__ThenAlone___401_pend0_prs, expr:ThenAfterMembers__ThenAlone___401_pend0_pff_om ;
+    sysml:ownedMembership expr:ThenAfterMembers__ThenAlone___401_pend0_pff_om ;
+    sysml:ownedFeatureMembership expr:ThenAfterMembers__ThenAlone___401_pend0_pff_om ;
+    sysml:ownedFeature expr:ThenAfterMembers__ThenAlone___401_pend0_pff ;
+    json:ownedRelationship "[{\"@id\":\"ThenAfterMembers__ThenAlone___401_pend0_prs\"},{\"@id\":\"ThenAfterMembers__ThenAlone___401_pend0_pff_om\"}]" .
 
 expr:ThenAfterMembers__ThenAlone___401_pend0_om
     a sysml:EndFeatureMembership ;
@@ -6992,42 +7515,6 @@ expr:ThenAfterMembers__ThenAlone___401_pend0_om
     sysml:owningRelatedElement elmt:ThenAfterMembers__ThenAlone___401 ;
     sysml:membershipOwningNamespace elmt:ThenAfterMembers__ThenAlone___401 .
 
-expr:ThenAfterMembers__ThenAlone___401_pend0_pchain
-    a sysml:Feature ;
-    sysml:elementId "ThenAfterMembers__ThenAlone___401_pend0_pchain" ;
-    sysml:ownedFeatureChaining expr:ThenAfterMembers__ThenAlone___401_pend0_pchain_pfc0, expr:ThenAfterMembers__ThenAlone___401_pend0_pchain_pfc1 ;
-    sysml:ownedRelationship expr:ThenAfterMembers__ThenAlone___401_pend0_pchain_pfc0, expr:ThenAfterMembers__ThenAlone___401_pend0_pchain_pfc1 ;
-    sysml:chainingFeature elmt:ThenAfterMembers__ThenAlone__a, elmt:ThenAfterMembers__Step__y ;
-    sysml:owningRelationship expr:ThenAfterMembers__ThenAlone___401_pend0_prs ;
-    sysml:owner expr:ThenAfterMembers__ThenAlone___401_pend0 ;
-    json:ownedFeatureChaining "[{\"@id\":\"ThenAfterMembers__ThenAlone___401_pend0_pchain_pfc0\"},{\"@id\":\"ThenAfterMembers__ThenAlone___401_pend0_pchain_pfc1\"}]" ;
-    json:ownedRelationship "[{\"@id\":\"ThenAfterMembers__ThenAlone___401_pend0_pchain_pfc0\"},{\"@id\":\"ThenAfterMembers__ThenAlone___401_pend0_pchain_pfc1\"}]" ;
-    json:chainingFeature "[{\"@id\":\"ThenAfterMembers__ThenAlone__a\"},{\"@id\":\"ThenAfterMembers__Step__y\"}]" .
-
-expr:ThenAfterMembers__ThenAlone___401_pend0_pchain_pfc0
-    a sysml:FeatureChaining ;
-    sysml:elementId "ThenAfterMembers__ThenAlone___401_pend0_pchain_pfc0" ;
-    sysml:featureChained expr:ThenAfterMembers__ThenAlone___401_pend0_pchain ;
-    sysml:source expr:ThenAfterMembers__ThenAlone___401_pend0_pchain ;
-    sysml:owningRelatedElement expr:ThenAfterMembers__ThenAlone___401_pend0_pchain ;
-    sysml:chainingFeature elmt:ThenAfterMembers__ThenAlone__a ;
-    sysml:target elmt:ThenAfterMembers__ThenAlone__a ;
-    sysml:owner expr:ThenAfterMembers__ThenAlone___401_pend0_pchain ;
-    sysml:relatedElement expr:ThenAfterMembers__ThenAlone___401_pend0_pchain, elmt:ThenAfterMembers__ThenAlone__a ;
-    json:relatedElement "[{\"@id\":\"ThenAfterMembers__ThenAlone___401_pend0_pchain\"},{\"@id\":\"ThenAfterMembers__ThenAlone__a\"}]" .
-
-expr:ThenAfterMembers__ThenAlone___401_pend0_pchain_pfc1
-    a sysml:FeatureChaining ;
-    sysml:elementId "ThenAfterMembers__ThenAlone___401_pend0_pchain_pfc1" ;
-    sysml:featureChained expr:ThenAfterMembers__ThenAlone___401_pend0_pchain ;
-    sysml:source expr:ThenAfterMembers__ThenAlone___401_pend0_pchain ;
-    sysml:owningRelatedElement expr:ThenAfterMembers__ThenAlone___401_pend0_pchain ;
-    sysml:chainingFeature elmt:ThenAfterMembers__Step__y ;
-    sysml:target elmt:ThenAfterMembers__Step__y ;
-    sysml:owner expr:ThenAfterMembers__ThenAlone___401_pend0_pchain ;
-    sysml:relatedElement expr:ThenAfterMembers__ThenAlone___401_pend0_pchain, elmt:ThenAfterMembers__Step__y ;
-    json:relatedElement "[{\"@id\":\"ThenAfterMembers__ThenAlone___401_pend0_pchain\"},{\"@id\":\"ThenAfterMembers__Step__y\"}]" .
-
 expr:ThenAfterMembers__ThenAlone___401_pend0_prs
     a sysml:ReferenceSubsetting ;
     sysml:elementId "ThenAfterMembers__ThenAlone___401_pend0_prs" ;
@@ -7037,18 +7524,39 @@ expr:ThenAfterMembers__ThenAlone___401_pend0_prs
     sysml:source expr:ThenAfterMembers__ThenAlone___401_pend0 ;
     sysml:owningFeature expr:ThenAfterMembers__ThenAlone___401_pend0 ;
     sysml:owningType expr:ThenAfterMembers__ThenAlone___401_pend0 ;
-    sysml:referencedFeature expr:ThenAfterMembers__ThenAlone___401_pend0_pchain ;
-    sysml:subsettedFeature expr:ThenAfterMembers__ThenAlone___401_pend0_pchain ;
-    sysml:general expr:ThenAfterMembers__ThenAlone___401_pend0_pchain ;
-    sysml:target expr:ThenAfterMembers__ThenAlone___401_pend0_pchain ;
-    sysml:relatedElement expr:ThenAfterMembers__ThenAlone___401_pend0, expr:ThenAfterMembers__ThenAlone___401_pend0_pchain ;
+    sysml:referencedFeature elmt:ThenAfterMembers__ThenAlone__a ;
+    sysml:subsettedFeature elmt:ThenAfterMembers__ThenAlone__a ;
+    sysml:general elmt:ThenAfterMembers__ThenAlone__a ;
+    sysml:target elmt:ThenAfterMembers__ThenAlone__a ;
+    sysml:relatedElement expr:ThenAfterMembers__ThenAlone___401_pend0, elmt:ThenAfterMembers__ThenAlone__a ;
     sysml:owner expr:ThenAfterMembers__ThenAlone___401_pend0 ;
     sysml:owningRelatedElement expr:ThenAfterMembers__ThenAlone___401_pend0 ;
-    sysml:ownedRelatedElement expr:ThenAfterMembers__ThenAlone___401_pend0_pchain ;
-    json:relatedElement "[{\"@id\":\"ThenAfterMembers__ThenAlone___401_pend0\"},{\"@id\":\"ThenAfterMembers__ThenAlone___401_pend0_pchain\"}]" .
+    json:relatedElement "[{\"@id\":\"ThenAfterMembers__ThenAlone___401_pend0\"},{\"@id\":\"ThenAfterMembers__ThenAlone__a\"}]" .
+
+expr:ThenAfterMembers__ThenAlone___401_pend0_pff
+    a sysml:ReferenceUsage ;
+    sysml:elementId "ThenAfterMembers__ThenAlone___401_pend0_pff" ;
+    sysml:owner expr:ThenAfterMembers__ThenAlone___401_pend0 ;
+    sysml:owningRelationship expr:ThenAfterMembers__ThenAlone___401_pend0_pff_om ;
+    sysml:owningMembership expr:ThenAfterMembers__ThenAlone___401_pend0_pff_om ;
+    sysml:redefines elmt:ThenAfterMembers__Step__y ;
+    sysml:ownedRedefinition expr:ThenAfterMembers__ThenAlone___401_pend0_pff_rd0 ;
+    sysml:ownedSubsetting expr:ThenAfterMembers__ThenAlone___401_pend0_pff_rd0 ;
+    sysml:ownedSpecialization expr:ThenAfterMembers__ThenAlone___401_pend0_pff_rd0 ;
+    sysml:ownedRelationship expr:ThenAfterMembers__ThenAlone___401_pend0_pff_rd0 .
+
+expr:ThenAfterMembers__ThenAlone___401_pend0_pff_om
+    a sysml:FeatureMembership ;
+    sysml:elementId "ThenAfterMembers__ThenAlone___401_pend0_pff_om" ;
+    sysml:owner expr:ThenAfterMembers__ThenAlone___401_pend0 ;
+    sysml:memberElement expr:ThenAfterMembers__ThenAlone___401_pend0_pff ;
+    sysml:ownedMemberElement expr:ThenAfterMembers__ThenAlone___401_pend0_pff ;
+    sysml:ownedRelatedElement expr:ThenAfterMembers__ThenAlone___401_pend0_pff ;
+    sysml:owningRelatedElement expr:ThenAfterMembers__ThenAlone___401_pend0 ;
+    sysml:membershipOwningNamespace expr:ThenAfterMembers__ThenAlone___401_pend0 .
 
 expr:ThenAfterMembers__ThenAlone___401_pend1
-    a sysml:ReferenceUsage ;
+    a sysml:FlowEnd ;
     sysml:elementId "ThenAfterMembers__ThenAlone___401_pend1" ;
     sysml:isEnd "true"^^xsd:boolean ;
     sysml:owner elmt:ThenAfterMembers__ThenAlone___401 ;
@@ -7058,7 +7566,11 @@ expr:ThenAfterMembers__ThenAlone___401_pend1
     sysml:ownedReferenceSubsetting expr:ThenAfterMembers__ThenAlone___401_pend1_prs ;
     sysml:ownedSubsetting expr:ThenAfterMembers__ThenAlone___401_pend1_prs ;
     sysml:ownedSpecialization expr:ThenAfterMembers__ThenAlone___401_pend1_prs ;
-    sysml:ownedRelationship expr:ThenAfterMembers__ThenAlone___401_pend1_prs .
+    sysml:ownedRelationship expr:ThenAfterMembers__ThenAlone___401_pend1_prs, expr:ThenAfterMembers__ThenAlone___401_pend1_pff_om ;
+    sysml:ownedMembership expr:ThenAfterMembers__ThenAlone___401_pend1_pff_om ;
+    sysml:ownedFeatureMembership expr:ThenAfterMembers__ThenAlone___401_pend1_pff_om ;
+    sysml:ownedFeature expr:ThenAfterMembers__ThenAlone___401_pend1_pff ;
+    json:ownedRelationship "[{\"@id\":\"ThenAfterMembers__ThenAlone___401_pend1_prs\"},{\"@id\":\"ThenAfterMembers__ThenAlone___401_pend1_pff_om\"}]" .
 
 expr:ThenAfterMembers__ThenAlone___401_pend1_om
     a sysml:EndFeatureMembership ;
@@ -7070,42 +7582,6 @@ expr:ThenAfterMembers__ThenAlone___401_pend1_om
     sysml:owningRelatedElement elmt:ThenAfterMembers__ThenAlone___401 ;
     sysml:membershipOwningNamespace elmt:ThenAfterMembers__ThenAlone___401 .
 
-expr:ThenAfterMembers__ThenAlone___401_pend1_pchain
-    a sysml:Feature ;
-    sysml:elementId "ThenAfterMembers__ThenAlone___401_pend1_pchain" ;
-    sysml:ownedFeatureChaining expr:ThenAfterMembers__ThenAlone___401_pend1_pchain_pfc0, expr:ThenAfterMembers__ThenAlone___401_pend1_pchain_pfc1 ;
-    sysml:ownedRelationship expr:ThenAfterMembers__ThenAlone___401_pend1_pchain_pfc0, expr:ThenAfterMembers__ThenAlone___401_pend1_pchain_pfc1 ;
-    sysml:chainingFeature elmt:ThenAfterMembers__ThenAlone__b, elmt:ThenAfterMembers__Step__x ;
-    sysml:owningRelationship expr:ThenAfterMembers__ThenAlone___401_pend1_prs ;
-    sysml:owner expr:ThenAfterMembers__ThenAlone___401_pend1 ;
-    json:ownedFeatureChaining "[{\"@id\":\"ThenAfterMembers__ThenAlone___401_pend1_pchain_pfc0\"},{\"@id\":\"ThenAfterMembers__ThenAlone___401_pend1_pchain_pfc1\"}]" ;
-    json:ownedRelationship "[{\"@id\":\"ThenAfterMembers__ThenAlone___401_pend1_pchain_pfc0\"},{\"@id\":\"ThenAfterMembers__ThenAlone___401_pend1_pchain_pfc1\"}]" ;
-    json:chainingFeature "[{\"@id\":\"ThenAfterMembers__ThenAlone__b\"},{\"@id\":\"ThenAfterMembers__Step__x\"}]" .
-
-expr:ThenAfterMembers__ThenAlone___401_pend1_pchain_pfc0
-    a sysml:FeatureChaining ;
-    sysml:elementId "ThenAfterMembers__ThenAlone___401_pend1_pchain_pfc0" ;
-    sysml:featureChained expr:ThenAfterMembers__ThenAlone___401_pend1_pchain ;
-    sysml:source expr:ThenAfterMembers__ThenAlone___401_pend1_pchain ;
-    sysml:owningRelatedElement expr:ThenAfterMembers__ThenAlone___401_pend1_pchain ;
-    sysml:chainingFeature elmt:ThenAfterMembers__ThenAlone__b ;
-    sysml:target elmt:ThenAfterMembers__ThenAlone__b ;
-    sysml:owner expr:ThenAfterMembers__ThenAlone___401_pend1_pchain ;
-    sysml:relatedElement expr:ThenAfterMembers__ThenAlone___401_pend1_pchain, elmt:ThenAfterMembers__ThenAlone__b ;
-    json:relatedElement "[{\"@id\":\"ThenAfterMembers__ThenAlone___401_pend1_pchain\"},{\"@id\":\"ThenAfterMembers__ThenAlone__b\"}]" .
-
-expr:ThenAfterMembers__ThenAlone___401_pend1_pchain_pfc1
-    a sysml:FeatureChaining ;
-    sysml:elementId "ThenAfterMembers__ThenAlone___401_pend1_pchain_pfc1" ;
-    sysml:featureChained expr:ThenAfterMembers__ThenAlone___401_pend1_pchain ;
-    sysml:source expr:ThenAfterMembers__ThenAlone___401_pend1_pchain ;
-    sysml:owningRelatedElement expr:ThenAfterMembers__ThenAlone___401_pend1_pchain ;
-    sysml:chainingFeature elmt:ThenAfterMembers__Step__x ;
-    sysml:target elmt:ThenAfterMembers__Step__x ;
-    sysml:owner expr:ThenAfterMembers__ThenAlone___401_pend1_pchain ;
-    sysml:relatedElement expr:ThenAfterMembers__ThenAlone___401_pend1_pchain, elmt:ThenAfterMembers__Step__x ;
-    json:relatedElement "[{\"@id\":\"ThenAfterMembers__ThenAlone___401_pend1_pchain\"},{\"@id\":\"ThenAfterMembers__Step__x\"}]" .
-
 expr:ThenAfterMembers__ThenAlone___401_pend1_prs
     a sysml:ReferenceSubsetting ;
     sysml:elementId "ThenAfterMembers__ThenAlone___401_pend1_prs" ;
@@ -7115,19 +7591,44 @@ expr:ThenAfterMembers__ThenAlone___401_pend1_prs
     sysml:source expr:ThenAfterMembers__ThenAlone___401_pend1 ;
     sysml:owningFeature expr:ThenAfterMembers__ThenAlone___401_pend1 ;
     sysml:owningType expr:ThenAfterMembers__ThenAlone___401_pend1 ;
-    sysml:referencedFeature expr:ThenAfterMembers__ThenAlone___401_pend1_pchain ;
-    sysml:subsettedFeature expr:ThenAfterMembers__ThenAlone___401_pend1_pchain ;
-    sysml:general expr:ThenAfterMembers__ThenAlone___401_pend1_pchain ;
-    sysml:target expr:ThenAfterMembers__ThenAlone___401_pend1_pchain ;
-    sysml:relatedElement expr:ThenAfterMembers__ThenAlone___401_pend1, expr:ThenAfterMembers__ThenAlone___401_pend1_pchain ;
+    sysml:referencedFeature elmt:ThenAfterMembers__ThenAlone__b ;
+    sysml:subsettedFeature elmt:ThenAfterMembers__ThenAlone__b ;
+    sysml:general elmt:ThenAfterMembers__ThenAlone__b ;
+    sysml:target elmt:ThenAfterMembers__ThenAlone__b ;
+    sysml:relatedElement expr:ThenAfterMembers__ThenAlone___401_pend1, elmt:ThenAfterMembers__ThenAlone__b ;
     sysml:owner expr:ThenAfterMembers__ThenAlone___401_pend1 ;
     sysml:owningRelatedElement expr:ThenAfterMembers__ThenAlone___401_pend1 ;
-    sysml:ownedRelatedElement expr:ThenAfterMembers__ThenAlone___401_pend1_pchain ;
-    json:relatedElement "[{\"@id\":\"ThenAfterMembers__ThenAlone___401_pend1\"},{\"@id\":\"ThenAfterMembers__ThenAlone___401_pend1_pchain\"}]" .
+    json:relatedElement "[{\"@id\":\"ThenAfterMembers__ThenAlone___401_pend1\"},{\"@id\":\"ThenAfterMembers__ThenAlone__b\"}]" .
+
+expr:ThenAfterMembers__ThenAlone___401_pend1_pff
+    a sysml:ReferenceUsage ;
+    sysml:elementId "ThenAfterMembers__ThenAlone___401_pend1_pff" ;
+    sysml:owner expr:ThenAfterMembers__ThenAlone___401_pend1 ;
+    sysml:owningRelationship expr:ThenAfterMembers__ThenAlone___401_pend1_pff_om ;
+    sysml:owningMembership expr:ThenAfterMembers__ThenAlone___401_pend1_pff_om ;
+    sysml:redefines elmt:ThenAfterMembers__Step__x ;
+    sysml:ownedRedefinition expr:ThenAfterMembers__ThenAlone___401_pend1_pff_rd0 ;
+    sysml:ownedSubsetting expr:ThenAfterMembers__ThenAlone___401_pend1_pff_rd0 ;
+    sysml:ownedSpecialization expr:ThenAfterMembers__ThenAlone___401_pend1_pff_rd0 ;
+    sysml:ownedRelationship expr:ThenAfterMembers__ThenAlone___401_pend1_pff_rd0 .
+
+expr:ThenAfterMembers__ThenAlone___401_pend1_pff_om
+    a sysml:FeatureMembership ;
+    sysml:elementId "ThenAfterMembers__ThenAlone___401_pend1_pff_om" ;
+    sysml:owner expr:ThenAfterMembers__ThenAlone___401_pend1 ;
+    sysml:memberElement expr:ThenAfterMembers__ThenAlone___401_pend1_pff ;
+    sysml:ownedMemberElement expr:ThenAfterMembers__ThenAlone___401_pend1_pff ;
+    sysml:ownedRelatedElement expr:ThenAfterMembers__ThenAlone___401_pend1_pff ;
+    sysml:owningRelatedElement expr:ThenAfterMembers__ThenAlone___401_pend1 ;
+    sysml:membershipOwningNamespace expr:ThenAfterMembers__ThenAlone___401_pend1 .
 
 elmt:ThenAfterMembers__ThenAlone___402
     a sysml:SuccessionAsUsage ;
     sysml:qualifiedName "ThenAfterMembers::ThenAlone::@2" ;
+    sysx:sourceLine "147"^^xsd:integer ;
+    sysx:sourceColumn "9"^^xsd:integer ;
+    sysx:sourceEndLine "147"^^xsd:integer ;
+    sysx:sourceEndColumn "16"^^xsd:integer ;
     sysml:elementId "ThenAfterMembers__ThenAlone___402" ;
     sysx:memberIndex "2"^^xsd:integer ;
     sysml:owningNamespace elmt:ThenAfterMembers__ThenAlone ;
@@ -7225,6 +7726,10 @@ expr:ThenAfterMembers__ThenAlone___402_pend1_prs
 elmt:ThenAfterMembers__ThenAlone__b
     a sysml:ActionUsage ;
     sysml:qualifiedName "ThenAfterMembers::ThenAlone::b" ;
+    sysx:sourceLine "148"^^xsd:integer ;
+    sysx:sourceColumn "9"^^xsd:integer ;
+    sysx:sourceEndLine "148"^^xsd:integer ;
+    sysx:sourceEndColumn "25"^^xsd:integer ;
     sysml:elementId "ThenAfterMembers__ThenAlone__b" ;
     sysx:memberIndex "3"^^xsd:integer ;
     sysml:owningNamespace elmt:ThenAfterMembers__ThenAlone ;
@@ -7254,6 +7759,10 @@ elmt:ThenAfterMembers__ThenAlone__b_om
 elmt:ThenAfterMembers__Lamp
     a sysml:StateDefinition ;
     sysml:qualifiedName "ThenAfterMembers::Lamp" ;
+    sysx:sourceLine "150"^^xsd:integer ;
+    sysx:sourceColumn "5"^^xsd:integer ;
+    sysx:sourceEndLine "156"^^xsd:integer ;
+    sysx:sourceEndColumn "6"^^xsd:integer ;
     sysml:elementId "ThenAfterMembers__Lamp" ;
     sysx:memberIndex "29"^^xsd:integer ;
     sysml:owningNamespace elmt:ThenAfterMembers ;
@@ -7288,6 +7797,10 @@ elmt:ThenAfterMembers__Lamp_om
 elmt:ThenAfterMembers__Lamp__level
     a sysml:AttributeUsage ;
     sysml:qualifiedName "ThenAfterMembers::Lamp::level" ;
+    sysx:sourceLine "151"^^xsd:integer ;
+    sysx:sourceColumn "9"^^xsd:integer ;
+    sysx:sourceEndLine "151"^^xsd:integer ;
+    sysx:sourceEndColumn "49"^^xsd:integer ;
     sysml:elementId "ThenAfterMembers__Lamp__level" ;
     sysx:memberIndex "0"^^xsd:integer ;
     sysml:owningNamespace elmt:ThenAfterMembers__Lamp ;
@@ -7317,6 +7830,10 @@ elmt:ThenAfterMembers__Lamp__level_om
 elmt:ThenAfterMembers__Lamp__on
     a sysml:StateUsage ;
     sysml:qualifiedName "ThenAfterMembers::Lamp::on" ;
+    sysx:sourceLine "152"^^xsd:integer ;
+    sysx:sourceColumn "9"^^xsd:integer ;
+    sysx:sourceEndLine "152"^^xsd:integer ;
+    sysx:sourceEndColumn "18"^^xsd:integer ;
     sysml:elementId "ThenAfterMembers__Lamp__on" ;
     sysx:memberIndex "1"^^xsd:integer ;
     sysml:owningNamespace elmt:ThenAfterMembers__Lamp ;
@@ -7342,13 +7859,17 @@ elmt:ThenAfterMembers__Lamp__on_om
 elmt:ThenAfterMembers__Lamp___402
     a sysml:Documentation ;
     sysml:qualifiedName "ThenAfterMembers::Lamp::@2" ;
+    sysx:sourceLine "153"^^xsd:integer ;
+    sysx:sourceColumn "9"^^xsd:integer ;
+    sysx:sourceEndLine "153"^^xsd:integer ;
+    sysx:sourceEndColumn "34"^^xsd:integer ;
     sysml:elementId "ThenAfterMembers__Lamp___402" ;
     sysx:memberIndex "2"^^xsd:integer ;
     sysml:owningNamespace elmt:ThenAfterMembers__Lamp ;
     sysml:owner elmt:ThenAfterMembers__Lamp ;
     sysml:owningRelationship elmt:ThenAfterMembers__Lamp___402_om ;
     sysml:owningMembership elmt:ThenAfterMembers__Lamp___402_om ;
-    sysml:body " on precedes off " ;
+    sysml:body "on precedes off " ;
     sysx:sourceText "        doc /* on precedes off */\n" .
 
 elmt:ThenAfterMembers__Lamp___402_om
@@ -7364,6 +7885,10 @@ elmt:ThenAfterMembers__Lamp___402_om
 elmt:ThenAfterMembers__Lamp___403
     a sysml:TransitionUsage ;
     sysml:qualifiedName "ThenAfterMembers::Lamp::@3" ;
+    sysx:sourceLine "154"^^xsd:integer ;
+    sysx:sourceColumn "9"^^xsd:integer ;
+    sysx:sourceEndLine "154"^^xsd:integer ;
+    sysx:sourceEndColumn "38"^^xsd:integer ;
     sysml:elementId "ThenAfterMembers__Lamp___403" ;
     sysx:memberIndex "3"^^xsd:integer ;
     sysml:owningNamespace elmt:ThenAfterMembers__Lamp ;
@@ -7371,6 +7896,9 @@ elmt:ThenAfterMembers__Lamp___403
     sysml:owningRelationship elmt:ThenAfterMembers__Lamp___403_om ;
     sysml:owningMembership elmt:ThenAfterMembers__Lamp___403_om ;
     sysx:transitionSyntax "first" ;
+    sysml:succession elmt:ThenAfterMembers__Lamp___403_succession ;
+    sysml:ownedRelationship elmt:ThenAfterMembers__Lamp___403_succession_om ;
+    sysml:ownedMembership elmt:ThenAfterMembers__Lamp___403_succession_om ;
     sysml:source elmt:ThenAfterMembers__Lamp__on ;
     sysml:target elmt:ThenAfterMembers__Lamp__off ;
     sysx:sourceText "        transition first on then off;\n" .
@@ -7387,9 +7915,100 @@ elmt:ThenAfterMembers__Lamp___403_om
     sysml:ownedMemberFeature elmt:ThenAfterMembers__Lamp___403 ;
     sysml:owningType elmt:ThenAfterMembers__Lamp .
 
+elmt:ThenAfterMembers__Lamp___403_succession
+    a sysml:SuccessionAsUsage ;
+    sysml:elementId "ThenAfterMembers__Lamp___403_succession" ;
+    sysml:connectorEnd expr:ThenAfterMembers__Lamp___403_succession_pend0, expr:ThenAfterMembers__Lamp___403_succession_pend1 ;
+    sysml:ownedRelationship expr:ThenAfterMembers__Lamp___403_succession_pend0_om, expr:ThenAfterMembers__Lamp___403_succession_pend1_om ;
+    sysml:ownedMembership expr:ThenAfterMembers__Lamp___403_succession_pend0_om, expr:ThenAfterMembers__Lamp___403_succession_pend1_om ;
+    sysml:ownedFeatureMembership expr:ThenAfterMembers__Lamp___403_succession_pend0_om, expr:ThenAfterMembers__Lamp___403_succession_pend1_om ;
+    sysml:ownedFeature expr:ThenAfterMembers__Lamp___403_succession_pend0, expr:ThenAfterMembers__Lamp___403_succession_pend1 ;
+    sysml:ownedEndFeature expr:ThenAfterMembers__Lamp___403_succession_pend0, expr:ThenAfterMembers__Lamp___403_succession_pend1 ;
+    sysml:owner elmt:ThenAfterMembers__Lamp___403 ;
+    sysml:owningRelationship elmt:ThenAfterMembers__Lamp___403_succession_om ;
+    sysml:owningMembership elmt:ThenAfterMembers__Lamp___403_succession_om ;
+    json:connectorEnd "[{\"@id\":\"ThenAfterMembers__Lamp___403_succession_pend0\"},{\"@id\":\"ThenAfterMembers__Lamp___403_succession_pend1\"}]" ;
+    json:ownedRelationship "[{\"@id\":\"ThenAfterMembers__Lamp___403_succession_pend0_om\"},{\"@id\":\"ThenAfterMembers__Lamp___403_succession_pend1_om\"}]" ;
+    json:ownedMembership "[{\"@id\":\"ThenAfterMembers__Lamp___403_succession_pend0_om\"},{\"@id\":\"ThenAfterMembers__Lamp___403_succession_pend1_om\"}]" ;
+    json:ownedFeatureMembership "[{\"@id\":\"ThenAfterMembers__Lamp___403_succession_pend0_om\"},{\"@id\":\"ThenAfterMembers__Lamp___403_succession_pend1_om\"}]" ;
+    json:ownedFeature "[{\"@id\":\"ThenAfterMembers__Lamp___403_succession_pend0\"},{\"@id\":\"ThenAfterMembers__Lamp___403_succession_pend1\"}]" ;
+    json:ownedEndFeature "[{\"@id\":\"ThenAfterMembers__Lamp___403_succession_pend0\"},{\"@id\":\"ThenAfterMembers__Lamp___403_succession_pend1\"}]" .
+
+expr:ThenAfterMembers__Lamp___403_succession_pend0
+    a sysml:ReferenceUsage ;
+    sysml:elementId "ThenAfterMembers__Lamp___403_succession_pend0" ;
+    sysml:isEnd "true"^^xsd:boolean ;
+    sysml:owner elmt:ThenAfterMembers__Lamp___403_succession ;
+    sysml:owningRelationship expr:ThenAfterMembers__Lamp___403_succession_pend0_om ;
+    sysml:owningMembership expr:ThenAfterMembers__Lamp___403_succession_pend0_om .
+
+expr:ThenAfterMembers__Lamp___403_succession_pend0_om
+    a sysml:EndFeatureMembership ;
+    sysml:elementId "ThenAfterMembers__Lamp___403_succession_pend0_om" ;
+    sysml:owner elmt:ThenAfterMembers__Lamp___403_succession ;
+    sysml:memberElement expr:ThenAfterMembers__Lamp___403_succession_pend0 ;
+    sysml:ownedMemberElement expr:ThenAfterMembers__Lamp___403_succession_pend0 ;
+    sysml:ownedRelatedElement expr:ThenAfterMembers__Lamp___403_succession_pend0 ;
+    sysml:owningRelatedElement elmt:ThenAfterMembers__Lamp___403_succession ;
+    sysml:membershipOwningNamespace elmt:ThenAfterMembers__Lamp___403_succession .
+
+expr:ThenAfterMembers__Lamp___403_succession_pend1
+    a sysml:ReferenceUsage ;
+    sysml:elementId "ThenAfterMembers__Lamp___403_succession_pend1" ;
+    sysml:isEnd "true"^^xsd:boolean ;
+    sysml:owner elmt:ThenAfterMembers__Lamp___403_succession ;
+    sysml:owningRelationship expr:ThenAfterMembers__Lamp___403_succession_pend1_om ;
+    sysml:owningMembership expr:ThenAfterMembers__Lamp___403_succession_pend1_om ;
+    sysml:ownedReferenceSubsetting expr:ThenAfterMembers__Lamp___403_succession_pend1_prs ;
+    sysml:ownedSubsetting expr:ThenAfterMembers__Lamp___403_succession_pend1_prs ;
+    sysml:ownedSpecialization expr:ThenAfterMembers__Lamp___403_succession_pend1_prs ;
+    sysml:ownedRelationship expr:ThenAfterMembers__Lamp___403_succession_pend1_prs .
+
+expr:ThenAfterMembers__Lamp___403_succession_pend1_om
+    a sysml:EndFeatureMembership ;
+    sysml:elementId "ThenAfterMembers__Lamp___403_succession_pend1_om" ;
+    sysml:owner elmt:ThenAfterMembers__Lamp___403_succession ;
+    sysml:memberElement expr:ThenAfterMembers__Lamp___403_succession_pend1 ;
+    sysml:ownedMemberElement expr:ThenAfterMembers__Lamp___403_succession_pend1 ;
+    sysml:ownedRelatedElement expr:ThenAfterMembers__Lamp___403_succession_pend1 ;
+    sysml:owningRelatedElement elmt:ThenAfterMembers__Lamp___403_succession ;
+    sysml:membershipOwningNamespace elmt:ThenAfterMembers__Lamp___403_succession .
+
+expr:ThenAfterMembers__Lamp___403_succession_pend1_prs
+    a sysml:ReferenceSubsetting ;
+    sysml:elementId "ThenAfterMembers__Lamp___403_succession_pend1_prs" ;
+    sysml:referencingFeature expr:ThenAfterMembers__Lamp___403_succession_pend1 ;
+    sysml:subsettingFeature expr:ThenAfterMembers__Lamp___403_succession_pend1 ;
+    sysml:specific expr:ThenAfterMembers__Lamp___403_succession_pend1 ;
+    sysml:source expr:ThenAfterMembers__Lamp___403_succession_pend1 ;
+    sysml:owningFeature expr:ThenAfterMembers__Lamp___403_succession_pend1 ;
+    sysml:owningType expr:ThenAfterMembers__Lamp___403_succession_pend1 ;
+    sysml:referencedFeature elmt:ThenAfterMembers__Lamp__off ;
+    sysml:subsettedFeature elmt:ThenAfterMembers__Lamp__off ;
+    sysml:general elmt:ThenAfterMembers__Lamp__off ;
+    sysml:target elmt:ThenAfterMembers__Lamp__off ;
+    sysml:relatedElement expr:ThenAfterMembers__Lamp___403_succession_pend1, elmt:ThenAfterMembers__Lamp__off ;
+    sysml:owner expr:ThenAfterMembers__Lamp___403_succession_pend1 ;
+    sysml:owningRelatedElement expr:ThenAfterMembers__Lamp___403_succession_pend1 ;
+    json:relatedElement "[{\"@id\":\"ThenAfterMembers__Lamp___403_succession_pend1\"},{\"@id\":\"ThenAfterMembers__Lamp__off\"}]" .
+
+elmt:ThenAfterMembers__Lamp___403_succession_om
+    a sysml:OwningMembership ;
+    sysml:elementId "ThenAfterMembers__Lamp___403_succession_om" ;
+    sysml:owner elmt:ThenAfterMembers__Lamp___403 ;
+    sysml:memberElement elmt:ThenAfterMembers__Lamp___403_succession ;
+    sysml:ownedMemberElement elmt:ThenAfterMembers__Lamp___403_succession ;
+    sysml:ownedRelatedElement elmt:ThenAfterMembers__Lamp___403_succession ;
+    sysml:owningRelatedElement elmt:ThenAfterMembers__Lamp___403 ;
+    sysml:membershipOwningNamespace elmt:ThenAfterMembers__Lamp___403 .
+
 elmt:ThenAfterMembers__Lamp__off
     a sysml:StateUsage ;
     sysml:qualifiedName "ThenAfterMembers::Lamp::off" ;
+    sysx:sourceLine "155"^^xsd:integer ;
+    sysx:sourceColumn "14"^^xsd:integer ;
+    sysx:sourceEndLine "155"^^xsd:integer ;
+    sysx:sourceEndColumn "24"^^xsd:integer ;
     sysml:elementId "ThenAfterMembers__Lamp__off" ;
     sysx:memberIndex "4"^^xsd:integer ;
     sysml:owningNamespace elmt:ThenAfterMembers__Lamp ;
@@ -7415,6 +8034,10 @@ elmt:ThenAfterMembers__Lamp__off_om
 elmt:ThenAfterMembers__Lamp___405
     a sysml:SuccessionAsUsage ;
     sysml:qualifiedName "ThenAfterMembers::Lamp::@5" ;
+    sysx:sourceLine "155"^^xsd:integer ;
+    sysx:sourceColumn "9"^^xsd:integer ;
+    sysx:sourceEndLine "155"^^xsd:integer ;
+    sysx:sourceEndColumn "13"^^xsd:integer ;
     sysml:elementId "ThenAfterMembers__Lamp___405" ;
     sysx:memberIndex "5"^^xsd:integer ;
     sysml:owningNamespace elmt:ThenAfterMembers__Lamp ;
@@ -7512,6 +8135,10 @@ expr:ThenAfterMembers__Lamp___405_pend1_prs
 elmt:ThenAfterMembers__Switch
     a sysml:StateDefinition ;
     sysml:qualifiedName "ThenAfterMembers::Switch" ;
+    sysx:sourceLine "157"^^xsd:integer ;
+    sysx:sourceColumn "5"^^xsd:integer ;
+    sysx:sourceEndLine "162"^^xsd:integer ;
+    sysx:sourceEndColumn "6"^^xsd:integer ;
     sysml:elementId "ThenAfterMembers__Switch" ;
     sysx:memberIndex "30"^^xsd:integer ;
     sysml:owningNamespace elmt:ThenAfterMembers ;
@@ -7546,6 +8173,10 @@ elmt:ThenAfterMembers__Switch_om
 elmt:ThenAfterMembers__Switch___400
     a sysml:StateSubactionMembership ;
     sysml:qualifiedName "ThenAfterMembers::Switch::@0" ;
+    sysx:sourceLine "158"^^xsd:integer ;
+    sysx:sourceColumn "9"^^xsd:integer ;
+    sysx:sourceEndLine "158"^^xsd:integer ;
+    sysx:sourceEndColumn "15"^^xsd:integer ;
     sysml:elementId "ThenAfterMembers__Switch___400" ;
     sysx:memberIndex "0"^^xsd:integer ;
     sysml:owningNamespace elmt:ThenAfterMembers__Switch ;
@@ -7559,6 +8190,10 @@ elmt:ThenAfterMembers__Switch___400
 elmt:ThenAfterMembers__Switch__pressed
     a sysml:AttributeUsage ;
     sysml:qualifiedName "ThenAfterMembers::Switch::pressed" ;
+    sysx:sourceLine "159"^^xsd:integer ;
+    sysx:sourceColumn "9"^^xsd:integer ;
+    sysx:sourceEndLine "159"^^xsd:integer ;
+    sysx:sourceEndColumn "51"^^xsd:integer ;
     sysml:elementId "ThenAfterMembers__Switch__pressed" ;
     sysx:memberIndex "1"^^xsd:integer ;
     sysml:owningNamespace elmt:ThenAfterMembers__Switch ;
@@ -7588,6 +8223,10 @@ elmt:ThenAfterMembers__Switch__pressed_om
 elmt:ThenAfterMembers__Switch___402
     a sysml:SuccessionAsUsage ;
     sysml:qualifiedName "ThenAfterMembers::Switch::@2" ;
+    sysx:sourceLine "160"^^xsd:integer ;
+    sysx:sourceColumn "9"^^xsd:integer ;
+    sysx:sourceEndLine "160"^^xsd:integer ;
+    sysx:sourceEndColumn "19"^^xsd:integer ;
     sysml:elementId "ThenAfterMembers__Switch___402" ;
     sysx:memberIndex "2"^^xsd:integer ;
     sysml:owningNamespace elmt:ThenAfterMembers__Switch ;
@@ -7685,6 +8324,10 @@ expr:ThenAfterMembers__Switch___402_pend1_prs
 elmt:ThenAfterMembers__Switch__idle
     a sysml:StateUsage ;
     sysml:qualifiedName "ThenAfterMembers::Switch::idle" ;
+    sysx:sourceLine "161"^^xsd:integer ;
+    sysx:sourceColumn "9"^^xsd:integer ;
+    sysx:sourceEndLine "161"^^xsd:integer ;
+    sysx:sourceEndColumn "20"^^xsd:integer ;
     sysml:elementId "ThenAfterMembers__Switch__idle" ;
     sysx:memberIndex "3"^^xsd:integer ;
     sysml:owningNamespace elmt:ThenAfterMembers__Switch ;
@@ -7710,6 +8353,10 @@ elmt:ThenAfterMembers__Switch__idle_om
 elmt:ThenAfterMembers__AfterDefer
     a sysml:StateDefinition ;
     sysml:qualifiedName "ThenAfterMembers::AfterDefer" ;
+    sysx:sourceLine "163"^^xsd:integer ;
+    sysx:sourceColumn "5"^^xsd:integer ;
+    sysx:sourceEndLine "167"^^xsd:integer ;
+    sysx:sourceEndColumn "6"^^xsd:integer ;
     sysml:elementId "ThenAfterMembers__AfterDefer" ;
     sysx:memberIndex "31"^^xsd:integer ;
     sysml:owningNamespace elmt:ThenAfterMembers ;
@@ -7744,6 +8391,10 @@ elmt:ThenAfterMembers__AfterDefer_om
 elmt:ThenAfterMembers__AfterDefer__on
     a sysml:StateUsage ;
     sysml:qualifiedName "ThenAfterMembers::AfterDefer::on" ;
+    sysx:sourceLine "164"^^xsd:integer ;
+    sysx:sourceColumn "9"^^xsd:integer ;
+    sysx:sourceEndLine "164"^^xsd:integer ;
+    sysx:sourceEndColumn "18"^^xsd:integer ;
     sysml:elementId "ThenAfterMembers__AfterDefer__on" ;
     sysx:memberIndex "0"^^xsd:integer ;
     sysml:owningNamespace elmt:ThenAfterMembers__AfterDefer ;
@@ -7769,6 +8420,10 @@ elmt:ThenAfterMembers__AfterDefer__on_om
 elmt:ThenAfterMembers__AfterDefer___401
     a sysx:DeferMember ;
     sysml:qualifiedName "ThenAfterMembers::AfterDefer::@1" ;
+    sysx:sourceLine "165"^^xsd:integer ;
+    sysx:sourceColumn "9"^^xsd:integer ;
+    sysx:sourceEndLine "165"^^xsd:integer ;
+    sysx:sourceEndColumn "20"^^xsd:integer ;
     sysml:elementId "ThenAfterMembers__AfterDefer___401" ;
     sysx:memberIndex "1"^^xsd:integer ;
     sysml:owningNamespace elmt:ThenAfterMembers__AfterDefer ;
@@ -7791,6 +8446,10 @@ elmt:ThenAfterMembers__AfterDefer___401_om
 elmt:ThenAfterMembers__AfterDefer__off
     a sysml:StateUsage ;
     sysml:qualifiedName "ThenAfterMembers::AfterDefer::off" ;
+    sysx:sourceLine "166"^^xsd:integer ;
+    sysx:sourceColumn "14"^^xsd:integer ;
+    sysx:sourceEndLine "166"^^xsd:integer ;
+    sysx:sourceEndColumn "24"^^xsd:integer ;
     sysml:elementId "ThenAfterMembers__AfterDefer__off" ;
     sysx:memberIndex "2"^^xsd:integer ;
     sysml:owningNamespace elmt:ThenAfterMembers__AfterDefer ;
@@ -7816,6 +8475,10 @@ elmt:ThenAfterMembers__AfterDefer__off_om
 elmt:ThenAfterMembers__AfterDefer___403
     a sysml:SuccessionAsUsage ;
     sysml:qualifiedName "ThenAfterMembers::AfterDefer::@3" ;
+    sysx:sourceLine "166"^^xsd:integer ;
+    sysx:sourceColumn "9"^^xsd:integer ;
+    sysx:sourceEndLine "166"^^xsd:integer ;
+    sysx:sourceEndColumn "13"^^xsd:integer ;
     sysml:elementId "ThenAfterMembers__AfterDefer___403" ;
     sysx:memberIndex "3"^^xsd:integer ;
     sysml:owningNamespace elmt:ThenAfterMembers__AfterDefer ;
@@ -7954,6 +8617,40 @@ elmt:ThenAfterMembers__AfterFlow__a_ft0
     sysml:owner elmt:ThenAfterMembers__AfterFlow__a ;
     sysml:relatedElement elmt:ThenAfterMembers__AfterFlow__a, elmt:ThenAfterMembers__Step ;
     json:relatedElement "[{\"@id\":\"ThenAfterMembers__AfterFlow__a\"},{\"@id\":\"ThenAfterMembers__Step\"}]" .
+
+expr:ThenAfterMembers__AfterFlow___401_pend0_pff_rd0
+    a sysml:Redefinition ;
+    sysml:elementId "ThenAfterMembers__AfterFlow___401_pend0_pff_rd0" ;
+    sysml:redefiningFeature expr:ThenAfterMembers__AfterFlow___401_pend0_pff ;
+    sysml:subsettingFeature expr:ThenAfterMembers__AfterFlow___401_pend0_pff ;
+    sysml:owningFeature expr:ThenAfterMembers__AfterFlow___401_pend0_pff ;
+    sysml:specific expr:ThenAfterMembers__AfterFlow___401_pend0_pff ;
+    sysml:source expr:ThenAfterMembers__AfterFlow___401_pend0_pff ;
+    sysml:owningRelatedElement expr:ThenAfterMembers__AfterFlow___401_pend0_pff ;
+    sysml:redefinedFeature elmt:ThenAfterMembers__Step__y ;
+    sysml:subsettedFeature elmt:ThenAfterMembers__Step__y ;
+    sysml:general elmt:ThenAfterMembers__Step__y ;
+    sysml:target elmt:ThenAfterMembers__Step__y ;
+    sysml:owner expr:ThenAfterMembers__AfterFlow___401_pend0_pff ;
+    sysml:relatedElement expr:ThenAfterMembers__AfterFlow___401_pend0_pff, elmt:ThenAfterMembers__Step__y ;
+    json:relatedElement "[{\"@id\":\"ThenAfterMembers__AfterFlow___401_pend0_pff\"},{\"@id\":\"ThenAfterMembers__Step__y\"}]" .
+
+expr:ThenAfterMembers__AfterFlow___401_pend1_pff_rd0
+    a sysml:Redefinition ;
+    sysml:elementId "ThenAfterMembers__AfterFlow___401_pend1_pff_rd0" ;
+    sysml:redefiningFeature expr:ThenAfterMembers__AfterFlow___401_pend1_pff ;
+    sysml:subsettingFeature expr:ThenAfterMembers__AfterFlow___401_pend1_pff ;
+    sysml:owningFeature expr:ThenAfterMembers__AfterFlow___401_pend1_pff ;
+    sysml:specific expr:ThenAfterMembers__AfterFlow___401_pend1_pff ;
+    sysml:source expr:ThenAfterMembers__AfterFlow___401_pend1_pff ;
+    sysml:owningRelatedElement expr:ThenAfterMembers__AfterFlow___401_pend1_pff ;
+    sysml:redefinedFeature elmt:ThenAfterMembers__Step__x ;
+    sysml:subsettedFeature elmt:ThenAfterMembers__Step__x ;
+    sysml:general elmt:ThenAfterMembers__Step__x ;
+    sysml:target elmt:ThenAfterMembers__Step__x ;
+    sysml:owner expr:ThenAfterMembers__AfterFlow___401_pend1_pff ;
+    sysml:relatedElement expr:ThenAfterMembers__AfterFlow___401_pend1_pff, elmt:ThenAfterMembers__Step__x ;
+    json:relatedElement "[{\"@id\":\"ThenAfterMembers__AfterFlow___401_pend1_pff\"},{\"@id\":\"ThenAfterMembers__Step__x\"}]" .
 
 elmt:ThenAfterMembers__AfterFlow__b_ft0
     a sysml:FeatureTyping ;
@@ -8844,6 +9541,40 @@ elmt:ThenAfterMembers__AfterPerform___400_rs
     sysml:relatedElement elmt:ThenAfterMembers__AfterPerform___400, elmt:ThenAfterMembers__stride ;
     json:relatedElement "[{\"@id\":\"ThenAfterMembers__AfterPerform___400\"},{\"@id\":\"ThenAfterMembers__stride\"}]" .
 
+expr:ThenAfterMembers__AfterPerform___401_pend0_pff_rd0
+    a sysml:Redefinition ;
+    sysml:elementId "ThenAfterMembers__AfterPerform___401_pend0_pff_rd0" ;
+    sysml:redefiningFeature expr:ThenAfterMembers__AfterPerform___401_pend0_pff ;
+    sysml:subsettingFeature expr:ThenAfterMembers__AfterPerform___401_pend0_pff ;
+    sysml:owningFeature expr:ThenAfterMembers__AfterPerform___401_pend0_pff ;
+    sysml:specific expr:ThenAfterMembers__AfterPerform___401_pend0_pff ;
+    sysml:source expr:ThenAfterMembers__AfterPerform___401_pend0_pff ;
+    sysml:owningRelatedElement expr:ThenAfterMembers__AfterPerform___401_pend0_pff ;
+    sysml:redefinedFeature elmt:ThenAfterMembers__Step__y ;
+    sysml:subsettedFeature elmt:ThenAfterMembers__Step__y ;
+    sysml:general elmt:ThenAfterMembers__Step__y ;
+    sysml:target elmt:ThenAfterMembers__Step__y ;
+    sysml:owner expr:ThenAfterMembers__AfterPerform___401_pend0_pff ;
+    sysml:relatedElement expr:ThenAfterMembers__AfterPerform___401_pend0_pff, elmt:ThenAfterMembers__Step__y ;
+    json:relatedElement "[{\"@id\":\"ThenAfterMembers__AfterPerform___401_pend0_pff\"},{\"@id\":\"ThenAfterMembers__Step__y\"}]" .
+
+expr:ThenAfterMembers__AfterPerform___401_pend1_pff_rd0
+    a sysml:Redefinition ;
+    sysml:elementId "ThenAfterMembers__AfterPerform___401_pend1_pff_rd0" ;
+    sysml:redefiningFeature expr:ThenAfterMembers__AfterPerform___401_pend1_pff ;
+    sysml:subsettingFeature expr:ThenAfterMembers__AfterPerform___401_pend1_pff ;
+    sysml:owningFeature expr:ThenAfterMembers__AfterPerform___401_pend1_pff ;
+    sysml:specific expr:ThenAfterMembers__AfterPerform___401_pend1_pff ;
+    sysml:source expr:ThenAfterMembers__AfterPerform___401_pend1_pff ;
+    sysml:owningRelatedElement expr:ThenAfterMembers__AfterPerform___401_pend1_pff ;
+    sysml:redefinedFeature elmt:ThenAfterMembers__Step__x ;
+    sysml:subsettedFeature elmt:ThenAfterMembers__Step__x ;
+    sysml:general elmt:ThenAfterMembers__Step__x ;
+    sysml:target elmt:ThenAfterMembers__Step__x ;
+    sysml:owner expr:ThenAfterMembers__AfterPerform___401_pend1_pff ;
+    sysml:relatedElement expr:ThenAfterMembers__AfterPerform___401_pend1_pff, elmt:ThenAfterMembers__Step__x ;
+    json:relatedElement "[{\"@id\":\"ThenAfterMembers__AfterPerform___401_pend1_pff\"},{\"@id\":\"ThenAfterMembers__Step__x\"}]" .
+
 elmt:ThenAfterMembers__AfterPerform__b_ft0
     a sysml:FeatureTyping ;
     sysml:elementId "ThenAfterMembers__AfterPerform__b_ft0" ;
@@ -8873,6 +9604,40 @@ elmt:ThenAfterMembers__ThenAlone__a_ft0
     sysml:owner elmt:ThenAfterMembers__ThenAlone__a ;
     sysml:relatedElement elmt:ThenAfterMembers__ThenAlone__a, elmt:ThenAfterMembers__Step ;
     json:relatedElement "[{\"@id\":\"ThenAfterMembers__ThenAlone__a\"},{\"@id\":\"ThenAfterMembers__Step\"}]" .
+
+expr:ThenAfterMembers__ThenAlone___401_pend0_pff_rd0
+    a sysml:Redefinition ;
+    sysml:elementId "ThenAfterMembers__ThenAlone___401_pend0_pff_rd0" ;
+    sysml:redefiningFeature expr:ThenAfterMembers__ThenAlone___401_pend0_pff ;
+    sysml:subsettingFeature expr:ThenAfterMembers__ThenAlone___401_pend0_pff ;
+    sysml:owningFeature expr:ThenAfterMembers__ThenAlone___401_pend0_pff ;
+    sysml:specific expr:ThenAfterMembers__ThenAlone___401_pend0_pff ;
+    sysml:source expr:ThenAfterMembers__ThenAlone___401_pend0_pff ;
+    sysml:owningRelatedElement expr:ThenAfterMembers__ThenAlone___401_pend0_pff ;
+    sysml:redefinedFeature elmt:ThenAfterMembers__Step__y ;
+    sysml:subsettedFeature elmt:ThenAfterMembers__Step__y ;
+    sysml:general elmt:ThenAfterMembers__Step__y ;
+    sysml:target elmt:ThenAfterMembers__Step__y ;
+    sysml:owner expr:ThenAfterMembers__ThenAlone___401_pend0_pff ;
+    sysml:relatedElement expr:ThenAfterMembers__ThenAlone___401_pend0_pff, elmt:ThenAfterMembers__Step__y ;
+    json:relatedElement "[{\"@id\":\"ThenAfterMembers__ThenAlone___401_pend0_pff\"},{\"@id\":\"ThenAfterMembers__Step__y\"}]" .
+
+expr:ThenAfterMembers__ThenAlone___401_pend1_pff_rd0
+    a sysml:Redefinition ;
+    sysml:elementId "ThenAfterMembers__ThenAlone___401_pend1_pff_rd0" ;
+    sysml:redefiningFeature expr:ThenAfterMembers__ThenAlone___401_pend1_pff ;
+    sysml:subsettingFeature expr:ThenAfterMembers__ThenAlone___401_pend1_pff ;
+    sysml:owningFeature expr:ThenAfterMembers__ThenAlone___401_pend1_pff ;
+    sysml:specific expr:ThenAfterMembers__ThenAlone___401_pend1_pff ;
+    sysml:source expr:ThenAfterMembers__ThenAlone___401_pend1_pff ;
+    sysml:owningRelatedElement expr:ThenAfterMembers__ThenAlone___401_pend1_pff ;
+    sysml:redefinedFeature elmt:ThenAfterMembers__Step__x ;
+    sysml:subsettedFeature elmt:ThenAfterMembers__Step__x ;
+    sysml:general elmt:ThenAfterMembers__Step__x ;
+    sysml:target elmt:ThenAfterMembers__Step__x ;
+    sysml:owner expr:ThenAfterMembers__ThenAlone___401_pend1_pff ;
+    sysml:relatedElement expr:ThenAfterMembers__ThenAlone___401_pend1_pff, elmt:ThenAfterMembers__Step__x ;
+    json:relatedElement "[{\"@id\":\"ThenAfterMembers__ThenAlone___401_pend1_pff\"},{\"@id\":\"ThenAfterMembers__Step__x\"}]" .
 
 elmt:ThenAfterMembers__ThenAlone__b_ft0
     a sysml:FeatureTyping ;

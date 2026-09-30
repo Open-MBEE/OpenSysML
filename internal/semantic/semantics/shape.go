@@ -13,12 +13,13 @@ const fqnAnythingSelf = "Base::Anything::self"
 
 // frameRoots names the Kernel features whose restatements stay in the frame: the
 // object's identity, its history (time slices, snapshots, start and end) and the
-// transfers it takes part in, which the runtime tracks itself.
+// transfers it takes part in and their sorting, which the runtime tracks itself.
 var frameRoots = map[string]bool{
-	fqnAnythingSelf:                              true,
-	"Occurrences::Occurrence::timeSlices":        true,
-	"Occurrences::Occurrence::incomingTransfers": true,
-	"Occurrences::Occurrence::outgoingTransfers": true,
+	fqnAnythingSelf:                                 true,
+	"Occurrences::Occurrence::timeSlices":           true,
+	"Occurrences::Occurrence::incomingTransfers":    true,
+	"Occurrences::Occurrence::outgoingTransfers":    true,
+	"Occurrences::Occurrence::incomingTransferSort": true,
 }
 
 // ShapeFeature is one feature of an object's shape: the name it is held under
@@ -209,7 +210,7 @@ func IsShapeFeature(sym *symbols.Symbol) bool {
 		return false
 	}
 	switch sym.Kind {
-	case symbols.SymbolAttributeUsage, symbols.SymbolPartUsage, symbols.SymbolItemUsage,
+	case symbols.SymbolAttributeUsage, symbols.SymbolReferenceUsage, symbols.SymbolPartUsage, symbols.SymbolItemUsage,
 		symbols.SymbolPortUsage, symbols.SymbolConnectionUsage, symbols.SymbolActionUsage,
 		symbols.SymbolStateUsage, symbols.SymbolConstraintUsage, symbols.SymbolRequirementUsage,
 		symbols.SymbolOccurrenceUsage, symbols.SymbolIndividualUsage,
@@ -231,7 +232,7 @@ func IsValueType(sym *symbols.Symbol) bool {
 	}
 	switch sym.Kind {
 	case symbols.SymbolAttributeDef, symbols.SymbolEnumerationDef,
-		symbols.SymbolAttributeUsage, symbols.SymbolEnumerationUsage:
+		symbols.SymbolAttributeUsage, symbols.SymbolReferenceUsage, symbols.SymbolEnumerationUsage:
 		return true
 	default:
 		return false
@@ -277,7 +278,7 @@ func (m *Model) IsDescribedReference(typ *symbols.Symbol) bool {
 // DescribesReference reports whether member, a library attribute of a described
 // reference type, is kept in typ's shape although a value type declares it.
 func (m *Model) DescribesReference(typ, member *symbols.Symbol) bool {
-	if member == nil || member.Kind != symbols.SymbolAttributeUsage || IsParameter(member) {
+	if member == nil || !member.Kind.IsAttributeLike() || IsParameter(member) {
 		return false
 	}
 	// The Kernel Semantic Library (Anything::that) frames a reference as it does
@@ -294,7 +295,7 @@ func (m *Model) DescribesReference(typ, member *symbols.Symbol) bool {
 		if m.IsDescribedReference(cur) {
 			return true
 		}
-		if cur.Kind != symbols.SymbolAttributeUsage {
+		if !cur.Kind.IsAttributeLike() {
 			return false
 		}
 	}
@@ -346,7 +347,7 @@ func (m *Model) HeldByValue(sym *symbols.Symbol) bool {
 		return false
 	}
 	usage, ok := sym.Decl.(*ast.Usage)
-	if !ok || (sym.Kind != symbols.SymbolAttributeUsage && sym.Kind != symbols.SymbolEnumerationUsage) {
+	if !ok || (!sym.Kind.IsAttributeLike() && sym.Kind != symbols.SymbolEnumerationUsage) {
 		return true
 	}
 	return usage.Value == nil && m.ValueHeld(sym)
@@ -399,6 +400,37 @@ func IsParameter(sym *symbols.Symbol) bool {
 // port's directed feature (`in item cmd`) is a flow item of the port, not a parameter.
 func IsBehaviorParameter(sym *symbols.Symbol) bool {
 	return IsParameter(sym) && behaviorLike(sym.Owner())
+}
+
+// IsDataKind reports whether sym is a value-kind usage: an attribute or an
+// enumeration usage holds data, never an object of its own, regardless of typing.
+func IsDataKind(sym *symbols.Symbol) bool {
+	return sym.Kind.IsAttributeLike() || sym.Kind == symbols.SymbolEnumerationUsage
+}
+
+// ReferentialParameter reports whether a behavior parameter holds no object of
+// its own: an object flows into it, so nothing below it is owned. A data-typed
+// parameter — an attribute or enumeration usage, or one typed by a data type —
+// keeps the value bound to it and is not referential.
+func (m *Model) ReferentialParameter(sym *symbols.Symbol) bool {
+	if !IsBehaviorParameter(sym) {
+		return false
+	}
+	if cached, ok := m.referential[sym]; ok {
+		return cached
+	}
+	result := !IsDataKind(sym)
+	if result {
+		for _, typ := range m.FeatureTypes(sym) {
+			if m.IsDataType(typ) {
+				result = false
+				break
+			}
+		}
+	}
+	journal(m, m.referential, sym, sym.Decl)
+	m.referential[sym] = result
+	return result
 }
 
 // IsSelf reports whether sym is a thing's `self` feature: Base::Anything::self or a

@@ -127,6 +127,7 @@ exclude_docs: |
   project/performance-release-0.5-vs-0.4.3.md
   project/performance-release-0.6-vs-0.4.2.md
   project/performance-release-0.8-vs-0.7.0.md
+  project/performance-release-0.9.1-vs-0.9.0.md
   project/satellite-network-stress-test.md
   project/large-model-scaling-design.md
   project/native-compilation.md
@@ -202,6 +203,7 @@ nav:
       - Environment variables: reference/environment.md
       - External engines: reference/external-engines.md
       - Language server: reference/lsp.md
+      - Diagnostics (lints): reference/diagnostics.md
       - Client libraries: reference/clients.md
       - Go packages: reference/api.md
       - Python API: reference/python-api.md
@@ -214,8 +216,10 @@ nav:
       - Wire contract: reference/wire-contract.md
       - RDF mapping: reference/rdf-mapping.md
       - SysML v1 migration: reference/sysml-v1-migration.md
+      - FMI models: reference/fmi.md
       - Grammar: reference/grammar/README.md
       - Grammar conformance audit: reference/grammar/conformance-audit.md
+      - WebAssembly builds: reference/wasm.md
   - Internals:
       - internals/README.md
       - Architecture: internals/architecture.md
@@ -231,5 +235,6 @@ nav:
       - Bitwise complement: project/bitwise-complement.md
       - Exception handlers: project/exception-handlers.md
       - Pilot differential: project/pilot-differential.md
+      - Spec-vs-pilot gap register: project/spec-pilot-gap-register.md
       - Roadmap: project/roadmap.md
       - Nightly snapshots: project/nightly.md

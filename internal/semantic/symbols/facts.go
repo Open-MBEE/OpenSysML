@@ -215,8 +215,9 @@ func (a AnnotationFacts) Clone() AnnotationFacts {
 
 // RelationshipFacts is one written relationship of a declaration.
 type RelationshipFacts struct {
-	Kind   ast.RelationshipKind
-	Target ElementRef
+	Kind       ast.RelationshipKind
+	Target     ElementRef
+	Conjugated bool
 }
 
 // RelationshipDecl is the relationship a keyword-first member declares, which

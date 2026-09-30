@@ -273,6 +273,10 @@ func sameTriples(a, b *rdf.Graph) bool {
 		sourceText := rdf.OpenSysMLTerm("sourceText")
 		out := make(map[rdf.Triple]bool, len(g.Triples()))
 		for _, triple := range g.Triples() {
+			// Where a declaration is written is layout, as its text's whitespace is.
+			if export.IsSourceRangeProperty(triple.Predicate.Value) {
+				continue
+			}
 			if triple.Predicate == sourceText && triple.Object.IsLiteral() {
 				triple.Object.Value = strings.Join(strings.Fields(triple.Object.Value), " ")
 			}

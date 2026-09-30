@@ -529,9 +529,30 @@ a qualified name from another document can name any of them and the diagnostic
 it gets depends on which it finds. The remainder of the recorded workspace is
 `constellation.sysml`, which states every satellite's ground link and is
 loaded; it is the largest document of the split and grows with the
-constellation, and what its own analysis holds is later work, as are the
-write points and hydration that would let an editor open the split model
-against a warm cache.
+constellation, and what its own analysis holds is later work.
+
+### Opening the split model from records
+
+`sysml -validate` writes the record of every file it analyzes to the record
+cache, and a later run takes the records whose provenance still holds —
+the same documents, unchanged, answering what the analysis read — and parses
+the rest; an editor opening a folder does the same, hydrates a file when it
+is opened or its body is asked for, and demotes it to its record again when
+it is closed unchanged (`docs/internals/interface-records.md`). The
+constellation split by plane at 10 000 satellites (`-planes 400 -satellites
+25`, 402 files) and at 1 600 (34 files), `sysml -validate` with no cache
+(`-no-record-cache`), with a cold cache the run writes, and with the cache
+warm, at one and eight jobs; and `BenchmarkOpenSplit` and
+`BenchmarkHydratePlane`, which open the six-file networks cold and warm and
+hydrate one plane beside `BenchmarkEditBeside`, are in
+`docs/internals/performance.md`, "Opening from records, and hydrating one",
+with the machine beside them. In short, at 10 000 satellites on eight jobs:
+86.6 s with no cache, 147.6 s writing the 402 records, 33–37 s from the warm
+cache at 58% of the peak RSS; at 1 600 satellites the warm run is 4.1 s on
+eight jobs and 6.3 s on one, against 9.8 s and 23.4 s with no cache, and
+without a cache the command costs what it did before. Hydrating one of the
+four planes of the 512-satellite network and re-answering the constellation
+file's diagnostics costs 1.03 s, half of opening all six files cold.
 
 ## Where the time goes
 
@@ -626,8 +647,9 @@ items below are the ones the profiles point at directly.
   owner, so that the owner's replacement invalidates the reader. A validation
   that will never edit pays that for nothing — about a sixth of its wall time
   at 200 satellites. `sysml -validate` already analyzes each document in a
-  private context over the read-only index and records nothing; a consumer
-  validating once through `Workspace.Diagnostics` still pays it.
+  private context over the read-only index and records nothing but, with a
+  record cache, what the analysis read, for its record's provenance; a
+  consumer validating once through `Workspace.Diagnostics` still pays it.
 - **Reduce allocation per element.** Nineteen KiB allocated per element
   against 2.7 KiB held means a load produces seven times its own weight in
   garbage, and the collector's quarter of the profile is the price. The

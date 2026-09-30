@@ -13,6 +13,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/Open-MBEE/OpenSysML/internal/exec/hostcap"
 	"github.com/Open-MBEE/OpenSysML/internal/exec/solve"
 )
 
@@ -404,6 +405,12 @@ func manifestFromEnv(env string, workspaces []string) (*Manifest, error) {
 
 // lookExecutable finds an entry's executable: a path as given, a bare name on PATH.
 func lookExecutable(entry ToolEntry) (string, error) {
+	// The tool is an external process: on a host that starts none, that is why it
+	// will not run, whatever PATH holds, and the lookup's own advice to install it
+	// is advice no such host could act on.
+	if err := hostcap.CheckSpawn(entry.Executable); err != nil {
+		return "", err
+	}
 	path, err := exec.LookPath(entry.Executable)
 	if err != nil {
 		return "", &ToolAbsentError{Tool: entry.ToolName, Executable: entry.Executable, Err: err}
@@ -411,9 +418,9 @@ func lookExecutable(entry ToolEntry) (string, error) {
 	return path, nil
 }
 
-// toolTimeoutFromEnv reads the tool timeout, falling back to DefaultToolTimeout for an
+// ToolTimeoutFromEnv reads the tool timeout, falling back to DefaultToolTimeout for an
 // unset, unparsable or non-positive value.
-func toolTimeoutFromEnv() time.Duration {
+func ToolTimeoutFromEnv() time.Duration {
 	text := strings.TrimSpace(os.Getenv(ToolTimeoutEnv))
 	if text == "" {
 		return DefaultToolTimeout

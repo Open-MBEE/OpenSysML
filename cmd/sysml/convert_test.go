@@ -53,12 +53,23 @@ const sampleModel = `package Demo {
 }
 `
 
-// refusedModel declares one name twice in a namespace, which the RDF mapping
-// refuses: a name identifies an element in the graph.
+// refusedModel contains a non-constant ElementId value the RDF mapping cannot
+// carry back from the graph.
 const refusedModel = `package Demo {
-    part def Seat;
-    part seat : Seat;
-    part seat : Seat;
+    @IdentityMetadata::ProjectRef { projectId = "proj-1"; }
+    attribute origin = "el-";
+    part def A {
+        @IdentityMetadata::ElementId { id = origin; }
+    }
+}
+`
+
+// duplicateModel declares one name twice in a namespace: the mapping keeps
+// both, the later one identified by its position.
+const duplicateModel = `package P {
+ private import ScalarValues::*;
+ part def A { attribute x : Real; }
+ part def A { attribute y : Real; }
 }
 `
 
@@ -188,16 +199,17 @@ func TestConvertErrors(t *testing.T) {
 		args []string
 		want string
 	}{
-		"missing input":     {[]string{filepath.Join(dir, "absent.sysml"), "-convert", "ttl"}, "absent.sysml"},
-		"no input":          {[]string{"-convert", "ttl"}, "no model to convert"},
-		"unknown extension": {[]string{unknownExt, "-convert", "ttl"}, "cannot tell the format"},
-		"unknown format":    {[]string{model, "-convert", "xml"}, "unknown format"},
-		"file as format":    {[]string{"-convert", model}, "-convert names the format"},
-		"extra argument":    {[]string{model, filepath.Join(dir, "other.sysml"), "-convert", "ttl"}, "unexpected extra argument"},
-		"replaced -to flag": {[]string{model, "-convert", "ttl", "-to", "sysml"}, "-to has been replaced by -convert"},
-		"forgotten value":   {[]string{model, "-convert", "ttl", "-o"}, "flag needs an argument: -o"},
-		"syntax error":      {[]string{broken, "-convert", "ttl"}, "syntax error"},
-		"unsupported rdf":   {[]string{badTurtle, "-convert", "sysml"}, "blank node"},
+		"missing input":       {[]string{filepath.Join(dir, "absent.sysml"), "-convert", "ttl"}, "absent.sysml"},
+		"no input":            {[]string{"-convert", "ttl"}, "no model to convert"},
+		"unknown extension":   {[]string{unknownExt, "-convert", "ttl"}, "cannot tell the format"},
+		"unknown format":      {[]string{model, "-convert", "xml"}, "unknown format"},
+		"file as format":      {[]string{"-convert", model}, "-convert names the format"},
+		"several to notation": {[]string{model, model, "-convert", "sysml"}, "converts to ttl or api-json"},
+		"several to a branch": {[]string{model, model, "-convert", "ttl", "-o", "flexo://p/main"}, "is written to a file"},
+		"replaced -to flag":   {[]string{model, "-convert", "ttl", "-to", "sysml"}, "-to has been replaced by -convert"},
+		"forgotten value":     {[]string{model, "-convert", "ttl", "-o"}, "flag needs an argument: -o"},
+		"syntax error":        {[]string{broken, "-convert", "ttl"}, "syntax error"},
+		"unsupported rdf":     {[]string{badTurtle, "-convert", "sysml"}, "blank node"},
 	}
 	for name, tc := range cases {
 		t.Run(name, func(t *testing.T) {
@@ -244,8 +256,14 @@ func TestConvertRDFIsMarkedExperimental(t *testing.T) {
 	binary := buildCLI(t)
 	dir := t.TempDir()
 	model := filepath.Join(dir, "model.sysml")
+	positionalName := filepath.Join(dir, "positional-name.sysml")
+	positionalTurtle := filepath.Join(dir, "positional-name.ttl")
+	positionalBack := filepath.Join(dir, "positional-name-back.sysml")
 	behavior := filepath.Join(dir, "refused.sysml")
 	if err := os.WriteFile(model, []byte(sampleModel), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(positionalName, []byte("package P { part def A; part def '@2'; part def A; }"), 0o644); err != nil {
 		t.Fatal(err)
 	}
 	if err := os.WriteFile(behavior, []byte(refusedModel), 0o644); err != nil {
@@ -259,28 +277,85 @@ func TestConvertRDFIsMarkedExperimental(t *testing.T) {
 	if !strings.Contains(to.stderr, "RDF conversion — Turtle and the API's JSON element form alike — is experimental") {
 		t.Errorf("no experimental notice on stderr:\n%s", to.stderr)
 	}
+	converted := runCommand(t, exec.Command(binary, positionalName, "-convert", "ttl", "-o", positionalTurtle))
+	if converted.status != 0 {
+		t.Fatalf("converting the positional-name model failed: %s%s", converted.stdout, converted.stderr)
+	}
+	turtle, err := os.ReadFile(positionalTurtle)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(string(turtle), `sysml:qualifiedName "P::'@2'"`) {
+		t.Errorf("Turtle lacks the quoted name identity:\n%s", turtle)
+	}
+	back := runCommand(t, exec.Command(binary, positionalTurtle, "-convert", "sysml", "-o", positionalBack))
+	if back.status != 0 {
+		t.Fatalf("converting back from the positional-name graph failed: %s%s", back.stdout, back.stderr)
+	}
+	notation, err := os.ReadFile(positionalBack)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if strings.Count(string(notation), "part def A") != 2 || !strings.Contains(string(notation), "part def '@2'") {
+		t.Errorf("the positional-name model did not come back:\n%s", notation)
+	}
 	if strings.Contains(to.stdout, "experimental") {
 		t.Errorf("the notice landed in the converted model:\n%s", to.stdout)
 	}
 
-	turtle := filepath.Join(dir, "model.ttl")
-	run(t, binary, model, "-convert", "ttl", "-o", turtle)
-	from := runCommand(t, exec.Command(binary, turtle, "-convert", "sysml"))
+	positionalTurtleFile := filepath.Join(dir, "model.ttl")
+	run(t, binary, model, "-convert", "ttl", "-o", positionalTurtleFile)
+	from := runCommand(t, exec.Command(binary, positionalTurtleFile, "-convert", "sysml"))
 	if !strings.Contains(from.stderr, "RDF conversion — Turtle and the API's JSON element form alike — is experimental") {
 		t.Errorf("reading RDF is experimental too, but was not marked:\n%s", from.stderr)
 	}
 
-	notation := runCommand(t, exec.Command(binary, model, "-convert", "sysml"))
-	if strings.Contains(notation.output(), "experimental") {
-		t.Errorf("a notation conversion is stable, but was marked:\n%s", notation.output())
+	positionalNotation := runCommand(t, exec.Command(binary, model, "-convert", "sysml"))
+	if strings.Contains(positionalNotation.output(), "experimental") {
+		t.Errorf("a notation conversion is stable, but was marked:\n%s", positionalNotation.output())
 	}
 
 	refused := runCommand(t, exec.Command(binary, behavior, "-convert", "ttl"))
 	if refused.status == 0 {
-		t.Fatalf("expected the mapping to refuse the duplicate declaration:\n%s", refused.stdout)
+		t.Fatalf("expected the mapping to refuse a non-constant ElementId:\n%s", refused.stdout)
 	}
 	if !strings.Contains(refused.stderr, "RDF conversion — Turtle and the API's JSON element form alike — is experimental") {
 		t.Errorf("a refusal is the experimental behavior, but was not marked:\n%s", refused.stderr)
+	}
+}
+
+// TestConvertDuplicateMemberNames converts a model declaring one name twice
+// in a namespace: the later member is exported as its own element, identified
+// by its position.
+func TestConvertDuplicateMemberNames(t *testing.T) {
+	binary := buildCLI(t)
+	dir := t.TempDir()
+	model := filepath.Join(dir, "model.sysml")
+	if err := os.WriteFile(model, []byte(duplicateModel), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	res := runCommand(t, exec.Command(binary, model, "-convert", "json"))
+	if res.status != 0 {
+		t.Fatalf("the duplicate-name model was refused: %s%s", res.stdout, res.stderr)
+	}
+	var elements []map[string]any
+	if err := json.Unmarshal([]byte(res.stdout), &elements); err != nil {
+		t.Fatalf("the JSON conversion did not parse: %v\n%s", err, res.stdout)
+	}
+	var defs []map[string]any
+	for _, el := range elements {
+		if el["@type"] == "PartDefinition" && el["declaredName"] == "A" {
+			defs = append(defs, el)
+		}
+	}
+	if len(defs) != 2 {
+		t.Fatalf("got %d `part def A` elements, want 2:\n%s", len(defs), res.stdout)
+	}
+	if defs[0]["@id"] == defs[1]["@id"] {
+		t.Errorf("the two `part def A` share an @id %v", defs[0]["@id"])
+	}
+	if defs[0]["qualifiedName"] != "P::A" || defs[1]["qualifiedName"] != "P::@2" {
+		t.Errorf("qualified names are %v and %v, want P::A and P::@2", defs[0]["qualifiedName"], defs[1]["qualifiedName"])
 	}
 }
 
@@ -480,7 +555,7 @@ func TestConvertLayoutAugment(t *testing.T) {
 		t.Fatalf("migrating with -layout failed: %s%s", out.stdout, out.stderr)
 	}
 	for _, want := range []string{
-		"metadata DiagramLayout::Layout about engine { x = 20; y = 10; width = 100; height = 40; }",
+		"metadata DiagramLayout::Layout about engine { x = 20; y = 10; width = 100; :>> DiagramLayout::Layout::height = 40; }",
 		"metadata DiagramLayout::Route about drive { points = (120, 30, 200, 30); }",
 		`@DiagramLayout::Canvas { unit = "px";`,
 	} {
@@ -658,6 +733,51 @@ func TestConvertImageSidecarIsTheModel(t *testing.T) {
 	}
 }
 
+// TestConvertModelOutputIsAnInput a model of several files is not written
+// over one of them, whether -o names the file or a link to it.
+func TestConvertModelOutputIsAnInput(t *testing.T) {
+	binary := buildCLI(t)
+	dir := t.TempDir()
+	a := filepath.Join(dir, "a.sysml")
+	b := filepath.Join(dir, "b.sysml")
+	sources := map[string]string{a: "package A;\n", b: "package B { import A::*; }\n"}
+	write := func(t *testing.T) {
+		for path, src := range sources {
+			if err := os.WriteFile(path, []byte(src), 0o644); err != nil {
+				t.Fatal(err)
+			}
+		}
+	}
+	write(t)
+	link := filepath.Join(dir, "link.sysml")
+	if err := os.Symlink(b, link); err != nil {
+		t.Skip(err)
+	}
+	for name, out := range map[string]string{"first input": a, "second input": b, "link to an input": link} {
+		t.Run(name, func(t *testing.T) {
+			write(t)
+			res := runCommand(t, exec.Command(binary, a, b, "-convert", "ttl", "-o", out))
+			if res.status == 0 || !strings.Contains(res.stderr, "would replace") {
+				t.Errorf("-o at an input's path: status %d, stderr:\n%s", res.status, res.stderr)
+			}
+			for path, src := range sources {
+				if got, err := os.ReadFile(path); err != nil || string(got) != src {
+					t.Errorf("%s was replaced (%v):\n%s", path, err, got)
+				}
+			}
+		})
+	}
+	write(t)
+	beside := filepath.Join(dir, "model.ttl")
+	res := runCommand(t, exec.Command(binary, a, b, "-convert", "ttl", "-o", beside))
+	if res.status != 0 {
+		t.Fatalf("-o beside the inputs: status %d, stderr:\n%s", res.status, res.stderr)
+	}
+	if _, err := os.Stat(beside); err != nil {
+		t.Error(err)
+	}
+}
+
 // TestConvertModelFailureKeepsImages a migration whose model cannot be saved
 // leaves the images beside the previous model as they were: the model and its
 // images are committed only once every one of them is written.
@@ -762,5 +882,38 @@ func TestStrictConvertWritesNoExtensionNotation(t *testing.T) {
 				t.Fatalf("strict conversion wrote an extension statement %q:\n%s", trimmed, out)
 			}
 		}
+	}
+}
+
+// TestConvertFMUOverTheArchive: -o naming the FMU being imported refuses, and
+// the archive survives.
+func TestConvertFMUOverTheArchive(t *testing.T) {
+	binary := buildCLI(t)
+	dir := t.TempDir()
+	fmu := filepath.Join(dir, "model.fmu")
+	var buf bytes.Buffer
+	zw := zip.NewWriter(&buf)
+	entry, err := zw.Create("modelDescription.xml")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := entry.Write([]byte(`<fmiModelDescription fmiVersion="2.0" modelName="M" guid="{m}"><ModelVariables/></fmiModelDescription>`)); err != nil {
+		t.Fatal(err)
+	}
+	if err := zw.Close(); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(fmu, buf.Bytes(), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	out, err := exec.Command(binary, fmu, "-convert", "sysml", "-o", fmu).CombinedOutput()
+	if err == nil {
+		t.Fatalf("expected a non-zero exit, got:\n%s", out)
+	}
+	if !strings.Contains(string(out), "names the FMU being imported") {
+		t.Fatalf("output =\n%s\nwant the import's same-file refusal", out)
+	}
+	if got, err := os.ReadFile(fmu); err != nil || !bytes.Equal(got, buf.Bytes()) {
+		t.Fatalf("the FMU archive was modified (err %v)", err)
 	}
 }

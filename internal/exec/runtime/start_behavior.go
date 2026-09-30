@@ -68,9 +68,15 @@ func (ctx *Context) startBehaviorOn(inst *Instance, member *symbols.Symbol) erro
 		ctx.trace.RecordBehaviorStart(decl.behavior.Kind.String(), decl.behavior.Name, inst.ID)
 	}
 	ctx.behaviorRunDepth++
+	ctx.attachBehavior(inst, decl.member)
 	behavior, err := ctx.attachClassifierBehavior(inst, decl)
+	ctx.behaviorAttached(inst, decl.member)
 	ctx.behaviorRunDepth--
 	if err != nil {
+		// An explicit start keeps nothing the failed attachment made.
+		if behavior != nil {
+			behavior.leaveClock()
+		}
 		rollback()
 		return err
 	}

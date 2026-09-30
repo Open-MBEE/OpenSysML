@@ -177,17 +177,15 @@ func buildBehaviorDecl(scope *Scope, decl ast.Node, vis ast.Visibility, trivia [
 		// error nodes have no declaration. Nothing to register here.
 		return true
 	case *ast.PrefixMetadata:
+		// The usage is a member of its namespace, named or anonymous, exactly as
+		// the `metadata` spelling of the same declaration is.
 		child := buildMetadataBodyScope(scope, nil, d)
-		// An identification names the usage as a member of its namespace, exactly
-		// as the `metadata` spelling of the same declaration does.
-		if d.Ident.Name != "" || d.Ident.ShortName != "" {
-			if child == nil {
-				child = NewScope(scope, d)
-				scope.AddChild(child)
-			}
-			sym := newSymbol(d.Ident, SymbolMetadataUsage, d, vis, child, scope, trivia)
-			defineIdent(scope, d.Ident, sym)
+		if child == nil {
+			child = NewScope(scope, d)
+			scope.AddChild(child)
 		}
+		sym := newSymbol(d.Ident, SymbolMetadataUsage, d, vis, child, scope, trivia)
+		defineIdent(scope, d.Ident, sym)
 		return true
 	case *ast.InitialNode:
 		// A start marker is registered by name so transitions can reference it; a
@@ -311,7 +309,7 @@ func buildBehaviorDecl(scope *Scope, decl ast.Node, vis ast.Visibility, trivia [
 			// through NameSpan and jumps to DeclSpan.
 			child.Define(d.Variable.Name, &Symbol{
 				Name:       d.Variable.Name,
-				Kind:       SymbolAttributeUsage,
+				Kind:       SymbolReferenceUsage,
 				Decl:       d,
 				DeclSpan:   d.Variable.NameSpan,
 				NameSpan:   d.Variable.NameSpan,
@@ -839,6 +837,12 @@ func classifyUsage(u *ast.Usage) SymbolKind {
 	// NOT: datatype MyReal :>> Real; (this has subsets, stays as usage)
 	if hasSpecializes && !hasTyping && !hasSubsetsOrRedefines {
 		return SymbolAttributeDef
+	}
+
+	// A usage declared without a kind keyword is a ReferenceUsage (SysML v2
+	// §7.6.4); a directed one is referential whatever it declares (§7.6.3).
+	if u.Keyword == "" {
+		return SymbolReferenceUsage
 	}
 
 	// Default: treat as usage

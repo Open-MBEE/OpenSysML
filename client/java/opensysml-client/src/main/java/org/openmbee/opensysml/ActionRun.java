@@ -12,9 +12,14 @@ import java.util.OptionalDouble;
  * @param finalTime the run's simulation clock when it ended, in seconds from the 0 it started at;
  *     absent from a service without the {@code final_time} capability
  * @param diagnostics what the service reported while executing
+ * @param performer the attributes the object the action ran on holds when the run ends, keyed as
+ *     an explored {@link Outcome}'s outputs key them ({@code this.level}); empty without a performer
  */
 public record ActionRun(
-    Map<String, Value> outputs, OptionalDouble finalTime, List<Diagnostic> diagnostics) {
+    Map<String, Value> outputs,
+    OptionalDouble finalTime,
+    List<Diagnostic> diagnostics,
+    Map<String, Value> performer) {
 
   /**
    * Creates an action run, copying its collections.
@@ -22,10 +27,24 @@ public record ActionRun(
    * @param outputs the outputs by name
    * @param finalTime the final time, when reported
    * @param diagnostics the diagnostics
+   * @param performer the performer's attributes by outcome key
    */
   public ActionRun {
     outputs = Map.copyOf(outputs);
     Objects.requireNonNull(finalTime, "finalTime");
     diagnostics = List.copyOf(diagnostics);
+    performer = Map.copyOf(performer);
+  }
+
+  /**
+   * Creates an action run no object performed.
+   *
+   * @param outputs the outputs by name
+   * @param finalTime the final time, when reported
+   * @param diagnostics the diagnostics
+   */
+  public ActionRun(
+      Map<String, Value> outputs, OptionalDouble finalTime, List<Diagnostic> diagnostics) {
+    this(outputs, finalTime, diagnostics, Map.of());
   }
 }

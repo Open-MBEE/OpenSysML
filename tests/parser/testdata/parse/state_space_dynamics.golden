@@ -151,7 +151,10 @@
               (EntryMember)
               (SuccessionEdge source="@entry" target="falling")
               (SubstateMember name="falling")
-              (TransitionMember source="" target="landed" trigger="Touchdown")
+              (TransitionMember source="" target="landed"
+                (Usage kind="attribute" name="" ref=true direction="out" composite=false derived=false ordered=false nonunique=false
+                  (Relationship kind="typing" target=Touchdown
+                    (*ast.QualifiedName))))
               (SubstateMember name="landed")))))
       (Membership visibility="default"
         (Usage kind="action" name="account" ref=false direction="none" composite=false derived=false ordered=false nonunique=false

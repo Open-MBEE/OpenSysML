@@ -2,6 +2,7 @@ package lsp
 
 import (
 	"context"
+	"errors"
 	"fmt"
 
 	"go.lsp.dev/protocol"
@@ -97,7 +98,23 @@ func (s *Server) Rename(ctx context.Context, params *protocol.RenameParams) (*pr
 
 // renameTargetAt returns the name at pos and the span of that name as written
 // there (a declaration's long or short identifier, or one segment of a reference).
+// A name declared in a document held as its record is renamed from the tree:
+// the document is hydrated and the name found again among tree-backed symbols.
 func (s *Server) renameTargetAt(name string, pos protocol.Position) (renameTarget, source.Span, error) {
+	target, span, err := s.renameTargetHeld(name, pos)
+	var needs *symbols.NeedsHydration
+	if !errors.As(err, &needs) {
+		return target, span, err
+	}
+	if err := s.ws.Hydrate(needs.Doc); err != nil {
+		return renameTarget{}, source.Span{}, err
+	}
+	return s.renameTargetHeld(name, pos)
+}
+
+// renameTargetHeld is renameTargetAt over the documents as held, a
+// symbols.NeedsHydration naming a recorded declaration.
+func (s *Server) renameTargetHeld(name string, pos protocol.Position) (renameTarget, source.Span, error) {
 	doc := s.ws.Document(name)
 	if doc == nil || doc.Scope == nil {
 		return renameTarget{}, source.Span{}, fmt.Errorf("no document %q", name)

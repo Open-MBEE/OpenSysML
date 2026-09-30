@@ -28,12 +28,13 @@ type Runtime struct {
 // NewRuntime builds a runtime over the workspace's current documents, on a fresh
 // overlay of the library index (a bare index when the workspace has no base).
 func (w *Workspace) NewRuntime() (*Runtime, error) {
-	w.mu.RLock()
-	defer w.mu.RUnlock()
+	w.mu.Lock()
+	defer w.mu.Unlock()
 	return w.newRuntimeLocked()
 }
 
-// newRuntimeLocked is NewRuntime under the read lock.
+// newRuntimeLocked is NewRuntime under the write lock, which hydrating the
+// documents held as records takes.
 func (w *Workspace) newRuntimeLocked() (*Runtime, error) {
 	idx, err := w.privateIndexLocked()
 	if err != nil {
@@ -67,12 +68,12 @@ func (w *Workspace) heldTextLocked() source.Lookup {
 
 // privateIndexLocked indexes the workspace's documents on an index the workspace
 // does not write to, holding everything else the workspace's index holds; a
-// version standing in for a bundled file displaces it there as well.
+// version standing in for a bundled file displaces it there as well. A runtime
+// is lowered from trees, never evaluated against a record: the documents held
+// as records are hydrated first, dependents invalidated as by an edit.
 func (w *Workspace) privateIndexLocked() (*symbols.Index, error) {
+	w.hydrateAllLocked()
 	for _, name := range w.sortedDocNamesLocked() {
-		if w.docs[name].Recorded() {
-			return nil, &symbols.NeedsHydration{Doc: name, Question: "a runtime over the workspace"}
-		}
 		if w.docs[name].AST == nil {
 			return nil, fmt.Errorf("%s: document has no parse tree", name)
 		}

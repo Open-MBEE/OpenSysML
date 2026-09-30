@@ -291,8 +291,9 @@ func doc() usage.Doc {
 			},
 			Paragraphs: []string{
 				"The input format is taken from the file extension (.sysml, .kerml, " +
-					".ttl, .json) unless -from names it: sysml, kerml, ttl, turtle, " +
-					"rdf, api-json, or xmi, uml or mdzip for a SysML v1 model to " +
+					".ttl, .json, .fmu) unless -from names it: sysml, kerml, ttl, turtle, " +
+					"rdf, api-json, fmu for a Functional Mock-up Unit to import, or " +
+					"xmi, uml or mdzip for a SysML v1 model to " +
 					"migrate, whose " +
 					"element-by-element report -migration-report writes out; -layout " +
 					"names an MTIP export of the same project, whose diagram geometry " +
@@ -556,6 +557,8 @@ func registerFlags(fs *flag.FlagSet) {
 	fs.StringVar(&queryText, "query", "", "Evaluate this OSLC Query text against the model and exit")
 
 	fs.Var(&modelChecks.validate, "validate", "Report the model's diagnostics and exit, nonzero on an error; -validate=<object> checks instead every assertion about that object (repeatable)")
+	fs.Var(&disabledLints, "disable-lint", "Leave this lint out of the model's diagnostics: undeclared-signal or port-type-mismatch, comma-separated or repeated")
+	fs.BoolVar(&noRecordCache, "no-record-cache", false, "Parse every file loaded and hold it loaded, reading no interface record from the record cache and writing none; default off, or OPENSYSML_RECORD_CACHE=0")
 	fs.BoolVar(&strictMode, "strict", false, "Judge the model as conforming SysML v2: notation no pinned production admits is an error, not a warning; a SysML v1 migration writes none of it")
 	fs.Var(&modelChecks.constraints, "constraint", "Evaluate this constraint and exit (repeatable)")
 	fs.Var(&modelChecks.requirements, "requirement", "Evaluate this requirement, and every verification case verifying it, and exit (repeatable)")
@@ -598,7 +601,7 @@ func registerFlags(fs *flag.FlagSet) {
 	fs.Var(&modelChecks.checker.timeout, "check-timeout", "The time the check's plan may run for, as 30s or 2m, and the time each smt solver query may take in place of OPENSYSML_SMT_TIMEOUT")
 
 	fs.StringVar(&convertFormat, "convert", "", "Convert the model to this format instead of running it: sysml, kerml, ttl, turtle, rdf or api-json (RDF and the API element form are experimental). The input may be a Flexo branch URL (host[:port][/base]/projects/{p}/branches/{b} of the FLEXO_SYSMLV2_URL endpoint, or flexo://{p}/{b}), read as its RDF graph")
-	fs.StringVar(&fromFormat, "from", "", "Input format for -convert: sysml, kerml, ttl, turtle, rdf, api-json, or xmi, uml or mdzip for a SysML v1 model to migrate (experimental); default the input's extension")
+	fs.StringVar(&fromFormat, "from", "", "Input format for -convert: sysml, kerml, ttl, turtle, rdf, api-json, fmu for a Functional Mock-up Unit to import, or xmi, uml or mdzip for a SysML v1 model to migrate (experimental); default the input's extension")
 	fs.StringVar(&idForm, "id", "", "With -convert ttl or api-json, how derived element ids are spelled: qualified (default) derives each from its qualified name; uuid mints name-based uuids under each root package, as the library convention does")
 	fs.StringVar(&outputPath, "output", "", "Write what -convert, -compile, -render or -render-document produces to this file instead of stdout; with -convert ttl, a Flexo branch URL pushes the graph to the branch")
 	fs.StringVar(&outputPath, "o", "", "Write what -convert, -compile, -render or -render-document produces to this file instead of stdout; with -convert ttl, a Flexo branch URL pushes the graph to the branch")
@@ -679,6 +682,8 @@ func optionGroups() []usage.OptionGroup {
 		Options: []usage.Option{
 			usage.Opt("validate", "[=<object>]"),
 			usage.Opt("strict", ""),
+			usage.Opt("disable-lint", "<code>"),
+			usage.Opt("no-record-cache", ""),
 			usage.Opt("constraint", nameArg),
 			usage.Opt("requirement", nameArg),
 			usage.Opt("satisfy", "[=<name>]"),

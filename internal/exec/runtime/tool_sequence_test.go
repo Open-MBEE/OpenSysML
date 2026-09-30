@@ -17,7 +17,7 @@ const sequenceModel = `package test {
 
 	action def Profile {
 		metadata ToolExecution { toolName = "MC"; uri = "u"; }
-		in k : Real                  { @ToolVariable { name = "k"; } }
+		in k : Real[1]                  { @ToolVariable { name = "k"; } }
 		out speeds : SpeedValue[0..*] { @ToolVariable { name = "speeds"; } }
 	}
 	action def RunProfile {
@@ -38,10 +38,10 @@ const sequenceModel = `package test {
 
 	action def One {
 		metadata ToolExecution { toolName = "MC"; uri = "u"; }
-		out one : Real { @ToolVariable { name = "one"; } }
+		out one : Real[1] { @ToolVariable { name = "one"; } }
 	}
 	action def RunOne {
-		out one : Real;
+		out one : Real[1];
 		action s : One {}
 		bind one = s.one;
 	}
@@ -268,4 +268,47 @@ func TestToolOutputSequenceHonorsUniqueness(t *testing.T) {
 			t.Fatalf("reps = %s, want [1.0, 1.0]", got)
 		}
 	})
+}
+
+// TestToolValueOfSequenceUnits: a sequence whose items share one measured unit
+// hoists it to the ToolValue; a mixed one keeps each item's unit and hoists
+// nothing, so (1 [m], 2 [s], 3 [s]) does not read as s.
+func TestToolValueOfSequenceUnits(t *testing.T) {
+	quantity := func(n float64, name string) Value {
+		return NewQuantityValue(&Quantity{Num: semantics.Value{Kind: semantics.ValReal, Real: n},
+			Unit: Unit{Product: semantics.NamedUnitProduct(nil, name, false)}})
+	}
+	sequence := func(items ...Value) Value {
+		seq := NewSequence()
+		for _, item := range items {
+			seq.Append(item)
+		}
+		return NewSequenceValue(seq)
+	}
+
+	mixed, ok := ToolValueOf(sequence(quantity(1, "m"), quantity(2, "s"), quantity(3, "s")))
+	if !ok {
+		t.Fatal("a sequence of quantities should translate")
+	}
+	if mixed.Unit != "" {
+		t.Fatalf("mixed sequence hoisted unit %q", mixed.Unit)
+	}
+	for i, want := range []string{"m", "s", "s"} {
+		if mixed.Items[i].Unit != want {
+			t.Fatalf("item %d unit = %q, want %q", i, mixed.Items[i].Unit, want)
+		}
+	}
+
+	uniform, ok := ToolValueOf(sequence(quantity(1, "m"), quantity(2, "m")))
+	if !ok {
+		t.Fatal("a sequence of quantities should translate")
+	}
+	if uniform.Unit != "m" {
+		t.Fatalf("uniform sequence hoisted %q, want m", uniform.Unit)
+	}
+	for i, item := range uniform.Items {
+		if item.Unit != "" {
+			t.Fatalf("item %d still carries unit %q", i, item.Unit)
+		}
+	}
 }

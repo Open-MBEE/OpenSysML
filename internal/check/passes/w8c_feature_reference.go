@@ -33,7 +33,6 @@ func (FeatureReferencePass) Run(ctx *Context, name string, root *ast.RootNamespa
 	}}
 	w := &kit.Walker{Ctx: ctx}
 	w.Walk(rootScope, c.checkSymbol)
-	c.checkAnnotationBodies(rootScope, root)
 	c.walkFilters(rootScope, make(map[*symbols.Scope]bool))
 	return c.diags
 }
@@ -74,13 +73,26 @@ type featureReferenceChecker struct {
 // refSite is where a reference is written: the declaration owning it, and
 // whether it stands in that declaration's body, which the declaration features.
 type refSite struct {
-	sym             *symbols.Symbol
-	inBody          bool
-	inElementFilter bool
+	sym                      *symbols.Symbol
+	inBody                   bool
+	inElementFilter          bool
+	transitionEnd            bool
+	rejectStatePath          bool
+	allowStateDefinitionPath bool
+	invocationArgumentValue  bool
 }
 
 // accessibleFrom reports whether target is reachable from the site.
 func (c *featureReferenceChecker) accessibleFrom(site refSite, target *symbols.Symbol) bool {
+	if site.transitionEnd && site.sym != nil && target.Kind == symbols.SymbolStateUsage {
+		// A state-usage qualifier grants no access, and a state cannot reach a sibling in its region.
+		if site.rejectStatePath || site.sym.Kind == symbols.SymbolStateUsage && target.OwnerScope == site.sym.OwnerScope {
+			return false
+		}
+		if site.allowStateDefinitionPath {
+			return true
+		}
+	}
 	if site.inBody && site.sym != nil && c.cc.featuredWithin(target, site.sym) {
 		return true
 	}
@@ -88,6 +100,10 @@ func (c *featureReferenceChecker) accessibleFrom(site refSite, target *symbols.S
 }
 
 func (c *featureReferenceChecker) checkSymbol(sym *symbols.Symbol) {
+	if usage, ok := sym.Decl.(*ast.Usage); ok && c.runDecidedValue(sym.OwnerScope, usage) {
+		// Visited from the member the annotation is written in.
+		return
+	}
 	scope := sym.OwnerScope
 	if sym.Scope != nil {
 		scope = sym.Scope
@@ -96,25 +112,82 @@ func (c *featureReferenceChecker) checkSymbol(sym *symbols.Symbol) {
 	case *ast.Usage:
 		c.checkDeclaredChains(sym, d)
 		c.checkBindingEnds(sym, d)
+		for _, rel := range d.Relationships {
+			if rel == nil || rel.Kind != ast.RelVia {
+				continue
+			}
+			if target, ok := rel.Target.(*ast.QualifiedName); ok {
+				scope := c.cc.resolver.RelationshipScope(sym.OwnerScope, sym.Scope, rel)
+				c.checkVia(refSite{sym: sym}, scope, target)
+			}
+		}
 		c.walkExpr(refSite{sym: sym}, scope, d.Value)
 		c.walkMembers(refSite{sym: sym, inBody: true}, scope, d.Members)
 	case *ast.Definition:
 		c.walkMembers(refSite{sym: sym, inBody: true}, scope, d.Members)
 	}
-	c.checkAnnotationBodies(semantics.AnnotationScope(sym), sym.Decl)
 }
 
-// checkAnnotationBodies visits what an unnamed annotation written on decl
-// declares in its body, at any depth: no symbol owns such a body, so the
-// symbol walk does not reach the values it binds.
-func (c *featureReferenceChecker) checkAnnotationBodies(scope *symbols.Scope, decl ast.Node) {
-	if scope == nil {
-		return
+// annotationType is the metadata type whose features the body scope of an
+// annotation written as a member restates: `first d then t { @M { p = x; } }`
+// or `{ metadata M { p = x; } }`. Nil for any other scope, an annotation
+// prefixed to a declaration or written about other elements included.
+func (c *featureReferenceChecker) annotationType(body *symbols.Scope) *symbols.Symbol {
+	if body == nil || body.Owner() == nil || body.Annotated() != nil {
+		return nil
 	}
-	for _, a := range semantics.MetadataAnnotationsWritten(decl) {
-		if body := kit.UnnamedMetadataBody(scope, a.Node); body != nil {
-			c.checkAnnotationBodies(body, a.Node)
-			kit.ForEachBodySymbol(body, c.checkSymbol)
+	switch n := body.Node().(type) {
+	case *ast.PrefixMetadata:
+		if len(n.About) > 0 {
+			return nil
+		}
+		// Resolution links the body to the metadata type it names.
+		return body.Owner()
+	case *ast.Usage:
+		if n.Kind != ast.UsageMetadata || symbols.UsageAnnotatesOthers(n) || body.Owner().OwnerScope == nil {
+			return nil
+		}
+		for _, rel := range n.Relationships {
+			if rel == nil || rel.Kind != ast.RelTyping {
+				continue
+			}
+			qn, ok := rel.Target.(*ast.QualifiedName)
+			if !ok {
+				return nil
+			}
+			typ, ok := c.cc.resolver.ResolveQualified(body.Owner().OwnerScope, qn)
+			if !ok || typ == nil {
+				return nil
+			}
+			if target, aliasOK := c.cc.resolver.ResolveAliasTarget(typ); aliasOK {
+				return target
+			}
+			return typ
+		}
+	}
+	return nil
+}
+
+// runDecidedValue reports whether usage, in the annotation body scope body, binds
+// a feature the run reads where the annotated member's guards are (Probability's
+// p): such a value is visited from that member, not from the metadata type's feature.
+func (c *featureReferenceChecker) runDecidedValue(body *symbols.Scope, usage *ast.Usage) bool {
+	if c.cc.model == nil || c.cc.resolver == nil || usage.Kind == ast.UsageMetadata {
+		return false
+	}
+	def := c.annotationType(body)
+	return def != nil && semantics.RunDecidedMetadataFeature(def, c.cc.model.MetadataBodyTargetOf(def, body, usage))
+}
+
+// walkRunDecidedValues visits, from the site of the member annotated, the values
+// the annotation body members bind to run-decided features, in the body's scope.
+func (c *featureReferenceChecker) walkRunDecidedValues(site refSite, body *symbols.Scope, members []ast.Node) {
+	for _, m := range members {
+		if mem, ok := m.(*ast.Membership); ok {
+			m = mem.Member
+		}
+		if usage, ok := m.(*ast.Usage); ok && c.runDecidedValue(body, usage) {
+			c.walkExpr(site, body, usage.Value)
 		}
 	}
 }
@@ -169,6 +242,7 @@ func (c *featureReferenceChecker) walkMember(site refSite, scope *symbols.Scope,
 	case *ast.SubjectMember:
 		c.walkExpr(site, scope, n.BindingExpr)
 	case *ast.AssignmentActionNode:
+		c.walkAssignmentTarget(site, scope, n.Target)
 		c.walkExpr(site, scope, n.Value)
 	case *ast.ActionExecutionNode:
 		c.walkExpr(site, scope, n.Expression)
@@ -186,42 +260,34 @@ func (c *featureReferenceChecker) walkMember(site refSite, scope *symbols.Scope,
 		c.walkExpr(site, body, n.Until)
 		c.walkMembers(site, body, n.Body)
 	case *ast.TransitionMember:
-		if change, ok := n.Trigger.(*ast.ChangeEvent); ok {
-			c.walkExpr(site, scope, change.Condition)
-		}
-		// The guard, effect and body are the transition's own, so they reach
-		// its features, the payload parameter its trigger declares included.
-		body := symbols.TriggerScope(scope, n)
-		if body != scope {
-			if owner := body.Owner(); owner != nil {
-				site = refSite{sym: owner, inBody: true}
-			}
-		}
-		c.walkExpr(site, body, n.Guard)
-		c.walkMembers(site, body, n.Effect)
-		c.walkMembers(site, body, n.Members)
+		c.walkTransition(site, scope, n)
 	case *ast.StateNode:
 		body := childScopeOr(scope, n)
-		c.walkMembers(site, body, n.Entry)
-		c.walkMembers(site, body, n.Do)
-		c.walkMembers(site, body, n.Exit)
-		c.walkMembers(site, body, n.Substates)
+		bodySite := siteForBody(site, scope, body)
+		c.walkMembers(bodySite, body, n.Entry)
+		c.walkMembers(bodySite, body, n.Do)
+		c.walkMembers(bodySite, body, n.Exit)
+		c.walkMembers(bodySite, body, n.Substates)
 		for _, region := range n.Regions {
-			c.walkMember(site, body, region)
+			c.walkMember(bodySite, body, region)
 		}
 	case *ast.StateRegion:
-		c.walkMembers(site, childScopeOr(scope, n), n.States)
+		body := childScopeOr(scope, n)
+		c.walkMembers(siteForBody(site, scope, body), body, n.States)
 	case *ast.InitialNode:
 		c.walkMembers(site, childScopeOr(scope, n), n.Members)
 	case *ast.SuccessionEdge:
-		c.walkMembers(site, childScopeOr(scope, n), n.Members)
+		c.walkSuccession(site, scope, n)
+	case *ast.PrefixMetadata:
+		c.walkRunDecidedValues(site, childScopeOr(scope, n), n.Body)
+	case *ast.Usage:
+		if n.Kind == ast.UsageMetadata {
+			c.walkRunDecidedValues(site, childScopeOr(scope, n), n.Members)
+		}
 	case *ast.ForkNode, *ast.JoinNode, *ast.MergeNode, *ast.DecisionNode:
 		c.walkMembers(site, childScopeOr(scope, m), ast.NodeBodyMembers(m))
 	case *ast.SendStatement:
-		c.walkExpr(site, scope, n.Message)
-		c.walkExpr(site, scope, n.Target)
-		c.walkExpr(site, scope, n.Receiver)
-		c.walkMembers(site, childScopeOr(scope, n), n.Members)
+		c.walkSend(site, scope, n)
 	case *ast.EntryMember:
 		c.walkMembers(site, scope, n.Actions)
 	case *ast.DoMember:
@@ -233,6 +299,81 @@ func (c *featureReferenceChecker) walkMember(site refSite, scope *symbols.Scope,
 		// body whose result is its last expression.
 		c.walkExpr(site, scope, m)
 	}
+}
+
+// walkTransition checks a transition's ends and via port, then its guard,
+// effect and body, which are the transition's own and reach its features, the
+// payload parameter its trigger declares included.
+func (c *featureReferenceChecker) walkTransition(site refSite, scope *symbols.Scope, n *ast.TransitionMember) {
+	c.checkVia(site, scope, n.Via)
+	c.checkTransitionEndpoint(site, scope, n.Source)
+	c.checkTransitionEndpoint(site, scope, n.Target)
+	if change, ok := n.Trigger.(*ast.ChangeEvent); ok {
+		c.walkExpr(site, scope, change.Condition)
+	}
+	body := symbols.TriggerScope(scope, n)
+	if body != scope {
+		if owner := body.Owner(); owner != nil {
+			site = refSite{sym: owner, inBody: true}
+		}
+	}
+	c.walkExpr(site, body, n.Guard)
+	c.walkMembers(site, body, n.Effect)
+	c.walkMembers(site, body, n.Members)
+}
+
+// walkSuccession checks the stated ends of a succession in a state body.
+func (c *featureReferenceChecker) walkSuccession(site refSite, scope *symbols.Scope, n *ast.SuccessionEdge) {
+	if site.sym != nil && (site.sym.Kind == symbols.SymbolStateDef || site.sym.Kind == symbols.SymbolStateUsage) {
+		if !n.SourceImplied {
+			c.checkTransitionEndpoint(site, scope, n.Source)
+		}
+		if !n.TargetImplied {
+			c.checkTransitionEndpoint(site, scope, n.Target)
+		}
+	}
+	c.walkMembers(site, childScopeOr(scope, n), n.Members)
+}
+
+// walkSend checks a send's message, target (a via port by name), receiver and body.
+func (c *featureReferenceChecker) walkSend(site refSite, scope *symbols.Scope, n *ast.SendStatement) {
+	c.walkExpr(site, scope, n.Message)
+	if target, ok := n.Target.(*ast.QualifiedName); ok && n.IsVia {
+		c.checkVia(site, scope, target)
+	} else {
+		c.walkExpr(site, scope, n.Target)
+	}
+	c.walkExpr(site, scope, n.Receiver)
+	c.walkMembers(site, childScopeOr(scope, n), n.Members)
+}
+
+// checkVia checks only the head of a via path. Chained segments are features
+// of that head and are resolved by the routing semantics rather than this
+// accessibility rule.
+func (c *featureReferenceChecker) checkVia(site refSite, scope *symbols.Scope, qn *ast.QualifiedName) {
+	if qn == nil || len(qn.Parts) == 0 {
+		return
+	}
+	end := len(qn.Parts)
+	for i, part := range qn.Parts {
+		if part.Chained {
+			end = i
+			break
+		}
+	}
+	if end == 0 {
+		return
+	}
+	head := &ast.QualifiedName{
+		Global: qn.Global,
+		Parts:  append([]ast.NameSegment(nil), qn.Parts[:end]...),
+	}
+	head.NodeSpan = qn.Span()
+	if target, ok := c.cc.resolver.ResolveTarget(scope, head); ok &&
+		site.sym != nil && target.OwnerScope == site.sym.Scope {
+		return
+	}
+	c.checkReferent(site, scope, head, qn.Span())
 }
 
 // walkConstraintBody visits a nested constraint's body from the constraint usage
@@ -274,8 +415,23 @@ func (c *featureReferenceChecker) walkExpr(site refSite, scope *symbols.Scope, n
 		c.walkExpr(site, scope, e.Operand)
 		c.walkExpr(site, scope, e.Index)
 	case *ast.InvocationExpr:
-		// An invocation names its function, and may pass one as an argument,
-		// so neither position is a feature reference.
+		column := c.isDocumentQueryColumn(scope, e)
+		for i, arg := range e.Args {
+			if column && i == 1 {
+				continue
+			}
+			argSite := site
+			argSite.invocationArgumentValue = true
+			c.walkExpr(argSite, scope, arg)
+		}
+		for _, arg := range e.NamedArgs {
+			if column && namedArgumentIs(arg.Name, "expression") {
+				continue
+			}
+			argSite := site
+			argSite.invocationArgumentValue = true
+			c.walkExpr(argSite, scope, arg.Value)
+		}
 	case *ast.ConstructorExpr:
 		for _, a := range e.Args {
 			c.walkExpr(site, scope, a)
@@ -287,7 +443,151 @@ func (c *featureReferenceChecker) walkExpr(site refSite, scope *symbols.Scope, n
 		for _, el := range e.Elements {
 			c.walkExpr(site, scope, el)
 		}
+	case *ast.BodyExpr:
+		body := symbols.BodyExprScope(scope, e)
+		for i := range e.Params {
+			c.walkExpr(site, body, e.Params[i].Value)
+			c.walkMembers(site, body, e.Params[i].Members)
+		}
+		c.walkMembers(site, body, e.Members)
+		c.walkExpr(site, body, e.Result)
 	}
+}
+
+// walkAssignmentTarget checks the prefixes of a chained assignment target.
+func (c *featureReferenceChecker) walkAssignmentTarget(site refSite, scope *symbols.Scope, target ast.Node) {
+	switch target := target.(type) {
+	case *ast.FeatureChainExpr:
+		var current ast.Node = target
+		for {
+			switch chain := current.(type) {
+			case *ast.FeatureChainExpr:
+				current = chain.Operand
+			default:
+				c.walkExpr(site, scope, current)
+				return
+			}
+		}
+	case *ast.QualifiedName:
+		name := target
+		for i := 1; i < len(name.Parts); i++ {
+			if !name.Parts[i].Chained {
+				continue
+			}
+			head := qualifiedNamePrefix(name, i)
+			c.checkReferent(site, scope, head, head.Span())
+			return
+		}
+	}
+}
+
+// checkTransitionEndpoint checks the feature prefixes of a transition endpoint.
+func (c *featureReferenceChecker) checkTransitionEndpoint(site refSite, scope *symbols.Scope, name *ast.QualifiedName) {
+	if name == nil {
+		return
+	}
+	for i := 1; i < len(name.Parts); i++ {
+		if !name.Parts[i].Chained {
+			continue
+		}
+		head := qualifiedNamePrefix(name, i)
+		endpointSite := site
+		endpointSite.transitionEnd = true
+		endpointSite.rejectStatePath = transitionPathUsesStateQualification(c, scope, name)
+		endpointSite.allowStateDefinitionPath = transitionPathUsesStateDefinitionQualifier(c, scope, name)
+		c.checkReferent(endpointSite, scope, head, head.Span())
+		return
+	}
+	endpointSite := site
+	endpointSite.transitionEnd = true
+	endpointSite.rejectStatePath = transitionPathUsesStateQualification(c, scope, name)
+	endpointSite.allowStateDefinitionPath = transitionPathUsesStateDefinitionQualifier(c, scope, name)
+	c.checkReferent(endpointSite, scope, name, name.Span())
+}
+
+// qualifiedNamePrefix copies the first count parts of name and their source span.
+func qualifiedNamePrefix(name *ast.QualifiedName, count int) *ast.QualifiedName {
+	parts := append(name.Parts[:0:0], name.Parts[:count]...)
+	return &ast.QualifiedName{
+		NodeBase: ast.NodeBase{NodeSpan: source.Span{
+			Offset: name.Parts[0].Span.Offset,
+			Len:    name.Parts[count-1].Span.End() - name.Parts[0].Span.Offset,
+		}},
+		Global: name.Global,
+		Parts:  parts,
+	}
+}
+
+// transitionPathUsesStateQualification reports whether a path qualifies a state usage.
+func transitionPathUsesStateQualification(c *featureReferenceChecker, scope *symbols.Scope, name *ast.QualifiedName) bool {
+	for i := 1; i < len(name.Parts); i++ {
+		if name.Parts[i].Chained {
+			continue
+		}
+		prefix := qualifiedNamePrefix(name, i)
+		target, ok := c.cc.resolver.ResolveQualified(scope, prefix)
+		if ok && target != nil && target.Kind == symbols.SymbolStateUsage {
+			return true
+		}
+	}
+	return false
+}
+
+// transitionPathUsesStateDefinitionQualifier reports whether a path qualifies its state definition.
+func transitionPathUsesStateDefinitionQualifier(c *featureReferenceChecker, scope *symbols.Scope, name *ast.QualifiedName) bool {
+	if name == nil {
+		return false
+	}
+	target, ok := c.cc.resolver.ResolveTarget(scope, name)
+	if !ok || target == nil || target.Kind != symbols.SymbolStateUsage || target.OwnerScope == nil {
+		return false
+	}
+	owner := target.OwnerScope.Owner()
+	if owner == nil || owner.Kind != symbols.SymbolStateDef {
+		return false
+	}
+	for i := 1; i < len(name.Parts); i++ {
+		if name.Parts[i].Chained {
+			continue
+		}
+		prefix := qualifiedNamePrefix(name, i)
+		qualifier, ok := c.cc.resolver.ResolveQualified(scope, prefix)
+		if ok && qualifier == owner {
+			return true
+		}
+	}
+	return false
+}
+
+// isDocumentQueryColumn reports whether invocation names DocumentQueries::Column.
+func (c *featureReferenceChecker) isDocumentQueryColumn(scope *symbols.Scope, invocation *ast.InvocationExpr) bool {
+	if invocation == nil || invocation.Type == nil || len(invocation.Type.Parts) == 0 ||
+		invocation.Type.Parts[len(invocation.Type.Parts)-1].Text != "Column" {
+		return false
+	}
+	target, ok := c.cc.resolver.ResolveInvocationName(scope, invocation.Type)
+	if !ok || target == nil {
+		return false
+	}
+	if resolved, aliasOK := c.cc.resolver.ResolveAliasTarget(target); aliasOK {
+		target = resolved
+	}
+	return symbols.HasFQN(target, "DocumentQueries::Column")
+}
+
+// namedArgumentIs reports whether name consists of the single part text.
+func namedArgumentIs(name *ast.QualifiedName, text string) bool {
+	return name != nil && len(name.Parts) == 1 && name.Parts[0].Text == text
+}
+
+// siteForBody assigns body references to the symbol that owns the nested scope.
+func siteForBody(site refSite, parent, body *symbols.Scope) refSite {
+	if body != parent {
+		if owner := body.Owner(); owner != nil {
+			return refSite{sym: owner, inBody: true}
+		}
+	}
+	return site
 }
 
 // checkReferent reports a referent that is not a feature, or a feature that the
@@ -298,7 +598,13 @@ func (c *featureReferenceChecker) checkReferent(site refSite, scope *symbols.Sco
 	if !ok || target == nil || target == site.sym {
 		return
 	}
+	if site.invocationArgumentValue && target.Kind == symbols.SymbolCalcUsage {
+		return
+	}
 	if !isUsageKind(target.Kind) {
+		if site.invocationArgumentValue {
+			return
+		}
 		c.diags = append(c.diags, diag.Diagnostic{
 			Severity: diag.SeverityError,
 			Span:     span,

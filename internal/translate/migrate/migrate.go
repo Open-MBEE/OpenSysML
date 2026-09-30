@@ -131,84 +131,89 @@ func FromModel(name string, model *sysmlv1.Model) *Result {
 // model it can and reports the rest.
 func FromModelOptions(name string, model *sysmlv1.Model, opts Options) *Result {
 	m := &migration{
-		model:        model,
-		report:       &Report{Source: name, Exporter: model.Exporter},
-		results:      &simresults.Results{Source: name, Configurations: []simresults.ConfigurationResults{}},
-		w:            &writer{},
-		names:        map[*sysmlv1.Element]string{},
-		synthesized:  map[*sysmlv1.Element]bool{},
-		nodeNames:    map[*sysmlv1.Element]string{},
-		declared:     map[*sysmlv1.Element]bool{},
-		placeholders: map[*sysmlv1.Element]bool{},
-		nodeEnds:     map[*sysmlv1.Element]*placement{},
-		extras:       map[*sysmlv1.Element][]func(){},
-		flows:        map[*sysmlv1.Element][]*sysmlv1.Element{},
-		outcomes:     map[*sysmlv1.Element]*flowOutcome{},
-		unplaced:     map[*sysmlv1.Element]*placement{},
-		satisfied:    map[*sysmlv1.Element]map[*sysmlv1.Element]bool{},
-		framed:       map[*sysmlv1.Element]bool{},
-		taken:        map[*sysmlv1.Element]map[string]bool{},
-		parallel:     map[*sysmlv1.Element]string{},
-		exposed:      map[*sysmlv1.Element]string{},
-		methodOf:     map[*sysmlv1.Element]*sysmlv1.Element{},
-		endNames:     map[*sysmlv1.Element]string{},
-		realizes:     map[*sysmlv1.Element]*sysmlv1.Element{},
-		opUsage:      map[*sysmlv1.Element]string{},
-		deciding:     map[*sysmlv1.Element]bool{},
-		bounded:      map[*sysmlv1.Element][]*sysmlv1.Element{},
-		allocated:    map[*sysmlv1.Element][]*sysmlv1.Element{},
-		triggered:    map[*sysmlv1.Element]bool{},
-		snapshots:    map[*sysmlv1.Element]snapshotTyping{},
-		contexts:     map[*sysmlv1.Element]*behaviorContext{},
-		contextNotes: map[*sysmlv1.Element]string{},
-		visiting:     map[*sysmlv1.Element]*contextVisit{},
-		invokers:     map[*sysmlv1.Element][]*sysmlv1.Element{},
-		unvalued:     map[*sysmlv1.Element]bool{},
-		dryOut:       map[*sysmlv1.Element]map[*sysmlv1.Element]bool{},
-		admitsNone:   map[*sysmlv1.Element]string{},
-		rules:        map[*sysmlv1.Element]ruleForm{},
-		carrierOf:    map[*sysmlv1.Element]*carrier{},
-		carrierNotes: map[*sysmlv1.Element]string{},
-		indexed:      map[string]int{},
-		verdicts:     map[*sysmlv1.Element]Verdict{},
-		userProfiles: map[*sysmlv1.Element]bool{},
-		defsWritten:  map[*sysmlv1.Element]bool{},
-		files:        map[string][]byte{},
-		fileContents: map[string]string{},
-		pending:      map[*sysmlv1.Element]*pendingNotes{},
-		regionUsed:   map[*sysmlv1.Element]map[string]bool{},
-		stateUsed:    map[*sysmlv1.Element]map[string]bool{},
-		nestedIn:     map[*sysmlv1.Element]string{},
-		vertexNames:  map[*sysmlv1.Element]string{},
-		points:       map[*sysmlv1.Element]pointForm{},
-		incoming:     map[*sysmlv1.Element][]*sysmlv1.Element{},
-		outgoing:     map[*sysmlv1.Element][]*sysmlv1.Element{},
-		instant:      map[*sysmlv1.Element]map[*sysmlv1.Element]instantValue{},
-		self:         "this",
-		lanes:        map[*sysmlv1.Element]*lanes{},
-		routes:       map[[2]*sysmlv1.Element]partRoute{},
-		usageOf:      map[*sysmlv1.Element]string{},
-		asUsage:      map[*sysmlv1.Element]bool{},
-		pins:         map[*sysmlv1.Element]pinDecl{},
-		opaque:       map[*sysmlv1.Element]*opaqueResult{},
-		libraryClash: map[*sysmlv1.Element]string{},
-		viewOf:       map[*sysmlv1.Diagram]*view{},
-		hosted:       map[*sysmlv1.Element][]*view{},
-		tableOf:      map[*sysmlv1.Table]*tableDoc{},
-		pictureOf:    map[*sysmlv1.Diagram]*pictures{},
-		buried:       map[*sysmlv1.Element]bool{},
-		actors:       map[*sysmlv1.Element]*actorLink{},
-		monteCarlo:   map[*sysmlv1.Element]*monteCarloCase{},
-		strict:       opts.Strict,
-		layout:       opts.Layout,
-		layoutSource: opts.LayoutSource,
-		layoutByID:   map[string]*mtip.Diagram{},
-		diagramIDs:   map[string]bool{},
-		layoutJoined: map[string]bool{},
-		shownEdges:   map[*sysmlv1.Element]bool{},
-		edgeMembers:  map[*sysmlv1.Element]edgeMember{},
-		objectives:   map[*sysmlv1.Element]string{},
-		routeKinds:   routeKinds{},
+		model:         model,
+		report:        &Report{Source: name, Exporter: model.Exporter},
+		results:       &simresults.Results{Source: name, Configurations: []simresults.ConfigurationResults{}},
+		w:             &writer{},
+		names:         map[*sysmlv1.Element]string{},
+		synthesized:   map[*sysmlv1.Element]bool{},
+		nodeNames:     map[*sysmlv1.Element]string{},
+		declared:      map[*sysmlv1.Element]bool{},
+		placeholders:  map[*sysmlv1.Element]bool{},
+		nodeEnds:      map[*sysmlv1.Element]*placement{},
+		extras:        map[*sysmlv1.Element][]func(){},
+		viewNames:     map[*sysmlv1.Element]map[string]bool{},
+		flows:         map[*sysmlv1.Element][]*sysmlv1.Element{},
+		outcomes:      map[*sysmlv1.Element]*flowOutcome{},
+		unplaced:      map[*sysmlv1.Element]*placement{},
+		satisfied:     map[*sysmlv1.Element]map[*sysmlv1.Element]bool{},
+		framed:        map[*sysmlv1.Element]bool{},
+		taken:         map[*sysmlv1.Element]map[string]bool{},
+		parallel:      map[*sysmlv1.Element]string{},
+		exposed:       map[*sysmlv1.Element]string{},
+		methodOf:      map[*sysmlv1.Element]*sysmlv1.Element{},
+		endNames:      map[*sysmlv1.Element]string{},
+		realizes:      map[*sysmlv1.Element]*sysmlv1.Element{},
+		opUsage:       map[*sysmlv1.Element]string{},
+		deciding:      map[*sysmlv1.Element]bool{},
+		bounded:       map[*sysmlv1.Element][]*sysmlv1.Element{},
+		allocated:     map[*sysmlv1.Element][]*sysmlv1.Element{},
+		triggered:     map[*sysmlv1.Element]bool{},
+		snapshots:     map[*sysmlv1.Element]snapshotTyping{},
+		contexts:      map[*sysmlv1.Element]*behaviorContext{},
+		contextNotes:  map[*sysmlv1.Element]string{},
+		ownerCtx:      map[*sysmlv1.Element]*behaviorContext{},
+		visiting:      map[*sysmlv1.Element]*contextVisit{},
+		invokers:      map[*sysmlv1.Element][]*sysmlv1.Element{},
+		unvalued:      map[*sysmlv1.Element]bool{},
+		dryOut:        map[*sysmlv1.Element]map[*sysmlv1.Element]bool{},
+		admitsNone:    map[*sysmlv1.Element]string{},
+		rules:         map[*sysmlv1.Element]ruleForm{},
+		carrierOf:     map[*sysmlv1.Element]*carrier{},
+		carrierNotes:  map[*sysmlv1.Element]string{},
+		indexed:       map[string]int{},
+		verdicts:      map[*sysmlv1.Element]Verdict{},
+		userProfiles:  map[*sysmlv1.Element]bool{},
+		defsWritten:   map[*sysmlv1.Element]bool{},
+		files:         map[string][]byte{},
+		fileContents:  map[string]string{},
+		pending:       map[*sysmlv1.Element]*pendingNotes{},
+		regionUsed:    map[*sysmlv1.Element]map[string]bool{},
+		stateUsed:     map[*sysmlv1.Element]map[string]bool{},
+		nestedIn:      map[*sysmlv1.Element]string{},
+		vertexNames:   map[*sysmlv1.Element]string{},
+		points:        map[*sysmlv1.Element]pointForm{},
+		incoming:      map[*sysmlv1.Element][]*sysmlv1.Element{},
+		outgoing:      map[*sysmlv1.Element][]*sysmlv1.Element{},
+		relocated:     map[*sysmlv1.Element][]*sysmlv1.Element{},
+		relocatedTo:   map[*sysmlv1.Element]*sysmlv1.Element{},
+		instant:       map[*sysmlv1.Element]map[*sysmlv1.Element]instantValue{},
+		self:          "this",
+		lanes:         map[*sysmlv1.Element]*lanes{},
+		routes:        map[[2]*sysmlv1.Element]partRoute{},
+		usageOf:       map[*sysmlv1.Element]string{},
+		asUsage:       map[*sysmlv1.Element]bool{},
+		pins:          map[*sysmlv1.Element]pinDecl{},
+		opaque:        map[*sysmlv1.Element]*opaqueResult{},
+		libraryClash:  map[*sysmlv1.Element]string{},
+		clashBySource: map[string]*sysmlv1.Element{},
+		viewOf:        map[*sysmlv1.Diagram]*view{},
+		hosted:        map[*sysmlv1.Element][]*view{},
+		tableOf:       map[*sysmlv1.Table]*tableDoc{},
+		pictureOf:     map[*sysmlv1.Diagram]*pictures{},
+		buried:        map[*sysmlv1.Element]bool{},
+		actors:        map[*sysmlv1.Element]*actorLink{},
+		monteCarlo:    map[*sysmlv1.Element]*monteCarloCase{},
+		strict:        opts.Strict,
+		layout:        opts.Layout,
+		layoutSource:  opts.LayoutSource,
+		layoutByID:    map[string]*mtip.Diagram{},
+		diagramIDs:    map[string]bool{},
+		layoutJoined:  map[string]bool{},
+		shownEdges:    map[*sysmlv1.Element]bool{},
+		edgeMembers:   map[*sysmlv1.Element]edgeMember{},
+		objectives:    map[*sysmlv1.Element]string{},
+		routeKinds:    routeKinds{},
 	}
 	m.w.marker = m.synthesizedNames
 	m.w.standInMarker = m.standInNames
@@ -330,6 +335,8 @@ type migration struct {
 	// extras are members other elements contribute to a body: a Satisfy is
 	// written inside the block that satisfies.
 	extras map[*sysmlv1.Element][]func()
+	// viewNames records the simple names imported into each view by its exposures.
+	viewNames map[*sysmlv1.Element]map[string]bool
 	// viewOf plans each diagram's view; hosted lists the views each body opens with.
 	viewOf map[*sysmlv1.Diagram]*view
 	hosted map[*sysmlv1.Element][]*view
@@ -384,6 +391,12 @@ type migration struct {
 	// parameter; contextNotes says why an activity naming ports of several gets none.
 	contexts     map[*sysmlv1.Element]*behaviorContext
 	contextNotes map[*sysmlv1.Element]string
+	// marked holds, in order, the context parameters spelling marked
+	// used, so a refused body can unmark those it marked; see markUsed.
+	marked []*bool
+	// ownerCtx holds the context a def declares for the object its owner is,
+	// which its `this` does not reach.
+	ownerCtx map[*sysmlv1.Element]*behaviorContext
 	// visiting is the search settling contexts: each activity it has reached and
 	// not settled, and the order it reached them in.
 	visiting map[*sysmlv1.Element]*contextVisit
@@ -462,6 +475,9 @@ type migration struct {
 	// libraryClash holds the source name of a top-level declaration renamed
 	// because it collided with a standard library root package.
 	libraryClash map[*sysmlv1.Element]string
+	// clashBySource finds that declaration by its source name, so text copied
+	// verbatim can still resolve through it.
+	clashBySource map[string]*sysmlv1.Element
 	// monteCarlo memoizes the analysis def written beside each block; nil for one without.
 	monteCarlo map[*sysmlv1.Element]*monteCarloCase
 	// mcRecorded lazily lists the written individuals that record an analysis;
@@ -514,6 +530,8 @@ type migration struct {
 	// incoming and outgoing list the transitions into and out of each vertex
 	// of the machines named so far.
 	incoming, outgoing map[*sysmlv1.Element][]*sysmlv1.Element
+	relocated          map[*sysmlv1.Element][]*sysmlv1.Element // transitions written under their common state scope
+	relocatedTo        map[*sysmlv1.Element]*sysmlv1.Element   // each transition's writing scope
 	// instant names, per state machine, the TimeInstantValue attribute each
 	// absolute time event its transitions accept is written as.
 	instant map[*sysmlv1.Element]map[*sysmlv1.Element]instantValue
@@ -725,6 +743,19 @@ func (m *migration) prepare() {
 	}
 	m.admitAbsent(laned)
 	m.planUsages(behaviors)
+	for n := range m.opaque {
+		// Translated before usages were decided; a usage body spells bare.
+		if m.inUsageBody(n) {
+			delete(m.opaque, n)
+		}
+	}
+	for b := range m.contexts {
+		// Settled before usages were decided; under a usage the object's
+		// features resolve on this, so no context parameter is taken.
+		if m.inUsageBody(b) {
+			delete(m.contexts, b)
+		}
+	}
 	for _, d := range m.allocations {
 		m.placeAllocation(d)
 	}
@@ -768,6 +799,7 @@ func (m *migration) avoidLibraryRoots(r *sysmlv1.Element) {
 			fresh = fmt.Sprintf("%s %d", base, i)
 		}
 		m.names[e], m.libraryClash[e] = fresh, src
+		m.clashBySource[src] = e
 	}
 }
 
@@ -798,7 +830,7 @@ func (m *migration) libraryNameNotes() {
 	}
 	for _, r := range list {
 		m.w.line("metadata " + prefix + "MigrationMetadata::LibraryNameAvoided about " + writeName(r.fresh) +
-			" { sourceName = \"" + strings.ReplaceAll(r.src, "\"", "\\\"") + "\"; }")
+			" { sourceName = " + stringLiteral(r.src) + "; }")
 	}
 }
 
@@ -1242,6 +1274,10 @@ func (m *migration) classifierBody(e *sysmlv1.Element, cat category, header stri
 	}
 	if behaviorCategory(cat) {
 		m.w.block(header, func() { m.behaviorBody(e, cat) })
+		if c := m.contexts[e]; c != nil {
+			// Written now: a context parameter can no longer be declared.
+			c.evaluated = true
+		}
 		if e.Type == "Operation" && !m.asUsage[e] {
 			m.operationFeature(e)
 		}
@@ -1260,43 +1296,13 @@ func (m *migration) generals(e *sysmlv1.Element, cat category) (string, string) 
 	var refs []string
 	var notes []string
 	for _, g := range e.Owned("generalization") {
-		target := m.model.Ref(g, "general")
-		if target == nil {
-			notes = append(notes, "a generalization refers to nothing in the document")
-			continue
+		ref, note := m.general(e, g, cat)
+		if ref != "" {
+			refs = append(refs, ref)
 		}
-		if sv := m.scalarValue(target); sv != "" {
-			refs = append(refs, scalarValuesPrefix+sv)
-			continue
+		if note != "" {
+			notes = append(notes, note)
 		}
-		if cat == catAttributeDef && m.quantityValueType(target) {
-			refs = append(refs, "ScalarValues::Real")
-			notes = append(notes, "the quantity value type "+qualifiedName(target)+" is written as ScalarValues::Real; its unit is not kept")
-			continue
-		}
-		if isMonteCarloAnalysis(target) {
-			notes = append(notes, m.monteCarloGeneralization(e))
-			continue
-		}
-		if target.IsProxy() || m.isLibrary(target) {
-			notes = append(notes, "generalization of library type "+qualifiedName(target)+" is not written")
-			continue
-		}
-		if cat == catView && m.conforms(g) {
-			// The view's body satisfies the viewpoint instead.
-			continue
-		}
-		if tc, _ := m.classify(target); tc != cat {
-			notes = append(notes, "generalization of "+qualifiedName(target)+" is not written: it becomes a "+tc.keyword()+", not a "+cat.keyword())
-			continue
-		}
-		if m.asUsage[target] {
-			if !m.asUsage[e] {
-				notes = append(notes, "generalization of "+qualifiedName(target)+" is not written: it is written as an action usage, which no definition specializes")
-			}
-			continue
-		}
-		refs = append(refs, m.ref(target, m.scope))
 	}
 	refs = append(refs, m.realizedGenerals(e, refs)...)
 	if cat == catAttributeDef && len(refs) == 0 && quantity(e) {
@@ -1304,24 +1310,67 @@ func (m *migration) generals(e *sysmlv1.Element, cat category) (string, string) 
 		notes = append(notes, "a value type with a unit or quantity kind and no base type is written as ScalarValues::Real")
 	}
 	if cat == catIndividualDef || cat == catValue {
-		var written []*sysmlv1.Element
-		if cat == catValue {
-			_, written, _ = m.instanceClassifiers(e)
-		} else {
-			var note string
-			_, written, note = m.individualClassifiers(e)
-			if note != "" {
-				notes = append(notes, note)
-			}
-		}
-		for _, c := range written {
-			refs = append(refs, m.ref(c, m.scope))
-		}
-		if d := m.dangling(e, "classifier"); d != "" {
-			notes = append(notes, d)
-		}
+		classified, classifiedNotes := m.instanceGenerals(e, cat)
+		refs = append(refs, classified...)
+		notes = append(notes, classifiedNotes...)
 	}
 	return strings.Join(refs, ", "), strings.Join(notes, "; ")
+}
+
+// general is the specialization one generalization of e is written as, and
+// the note on why it is written as it is or not at all.
+func (m *migration) general(e, g *sysmlv1.Element, cat category) (ref, note string) {
+	target := m.model.Ref(g, "general")
+	if target == nil {
+		return "", "a generalization refers to nothing in the document"
+	}
+	if sv := m.scalarValue(target); sv != "" {
+		return scalarValuesPrefix + sv, ""
+	}
+	if cat == catAttributeDef && m.quantityValueType(target) {
+		return "ScalarValues::Real", "the quantity value type " + qualifiedName(target) + " is written as ScalarValues::Real; its unit is not kept"
+	}
+	if isMonteCarloAnalysis(target) {
+		return "", m.monteCarloGeneralization(e)
+	}
+	if target.IsProxy() || m.isLibrary(target) {
+		return "", "generalization of library type " + qualifiedName(target) + " is not written"
+	}
+	if cat == catView && m.conforms(g) {
+		// The view's body satisfies the viewpoint instead.
+		return "", ""
+	}
+	if tc, _ := m.classify(target); tc != cat {
+		return "", "generalization of " + qualifiedName(target) + " is not written: it becomes a " + tc.keyword() + ", not a " + cat.keyword()
+	}
+	if m.asUsage[target] {
+		if !m.asUsage[e] {
+			return "", "generalization of " + qualifiedName(target) + " is not written: it is written as an action usage, which no definition specializes"
+		}
+		return "", ""
+	}
+	return m.ref(target, m.scope), ""
+}
+
+// instanceGenerals is the classifiers an individual def or value specializes.
+func (m *migration) instanceGenerals(e *sysmlv1.Element, cat category) (refs, notes []string) {
+	var written []*sysmlv1.Element
+	if cat == catValue {
+		_, written, _ = m.instanceClassifiers(e)
+	} else {
+		var note string
+		_, written, note = m.individualClassifiers(e)
+		if note != "" {
+			notes = append(notes, note)
+		}
+	}
+	for _, c := range written {
+		refs = append(refs, m.ref(c, m.scope))
+	}
+	if d := m.dangling(e, "classifier"); d != "" {
+		notes = append(notes, d)
+	}
+	return refs, notes
 }
 
 // dangling notes the references of e in the given roles that resolve to
@@ -2093,7 +2142,7 @@ func (m *migration) feature(p *sysmlv1.Element) {
 	if shape := tm.shape(); shape != "" {
 		mult, mnote = shape, ""
 	} else {
-		mult += collection(p)
+		mult = shaped(mult, p, param || dir != "")
 	}
 	b.WriteString(mult)
 	note = joinNotes(joinNotes(note, mnote), tm.note())
@@ -2371,6 +2420,9 @@ func (m *migration) written(e *sysmlv1.Element) bool {
 		return em.name != "" && m.reaches(em.owner)
 	}
 	if vertexBase(e) != "" {
+		if e.Type == "Pseudostate" && m.extensionVertex(e) != "" {
+			return false
+		}
 		return m.vertexWritten(e)
 	}
 	if e.Type == "Region" && e.Role == "region" {
@@ -2386,31 +2438,8 @@ func (m *migration) written(e *sysmlv1.Element) bool {
 	if m.isBuried(e) {
 		return false
 	}
-	switch e.Type {
-	case "Property", "Port", "EnumerationLiteral":
-		return m.written(e.Parent)
-	case "Parameter":
-		p := e.Parent
-		if p == nil || (p.Type != "Operation" && !isBehavior(p)) {
-			return false
-		}
-		return m.written(p) || inlinedBehavior(p) && hasActionForm(p)
-	case "Association":
-		// An anonymous association is a connection def only when it owns every
-		// end and is not written as an actor of a use case instead.
-		return e.Name != "" || m.actors[e] == nil && ownsEveryEnd(e, m.model.Refs(e, "memberEnd"))
-	case "Connector":
-		// A connector is a member of its owner only when named and its ends
-		// resolve; an anonymous `connect a to b;` and one bound into a
-		// MonteCarlo analysis def name nothing a view can expose.
-		if m.nameOf(e) == "" {
-			return false
-		}
-		if stat, _, _ := m.monteCarloEnd(e); stat != "" {
-			return false
-		}
-		_, note := m.connectorEnds(e, e.Parent)
-		return note == ""
+	if written, decided := m.memberWritten(e); decided {
+		return written
 	}
 	if act, _ := m.nodeGraph(e); act != nil {
 		return m.reaches(act)
@@ -2423,6 +2452,43 @@ func (m *migration) written(e *sysmlv1.Element) bool {
 	}
 	cat, _ := m.classify(e)
 	return cat.keyword() != ""
+}
+
+// memberWritten decides whether a feature, parameter, association or
+// connector becomes a v2 element that can be referred to; decided is false
+// for any other element.
+func (m *migration) memberWritten(e *sysmlv1.Element) (written, decided bool) {
+	switch e.Type {
+	case "Property", "Port", "EnumerationLiteral":
+		return m.written(e.Parent), true
+	case "Parameter":
+		p := e.Parent
+		if p == nil || (p.Type != "Operation" && !isBehavior(p)) {
+			return false, true
+		}
+		return m.written(p) || inlinedBehavior(p) && hasActionForm(p), true
+	case "Association":
+		// An anonymous association is a connection def only when it owns every
+		// end and is not written as an actor of a use case instead.
+		return e.Name != "" || m.actors[e] == nil && ownsEveryEnd(e, m.model.Refs(e, "memberEnd")), true
+	case "Connector":
+		return m.connectorWritten(e), true
+	}
+	return false, false
+}
+
+// connectorWritten reports a connector that is a member of its owner: named,
+// with ends that resolve; an anonymous `connect a to b;` and one bound into a
+// MonteCarlo analysis def name nothing a view can expose.
+func (m *migration) connectorWritten(e *sysmlv1.Element) bool {
+	if m.nameOf(e) == "" {
+		return false
+	}
+	if stat, _, _ := m.monteCarloEnd(e); stat != "" {
+		return false
+	}
+	_, note := m.connectorEnds(e, e.Parent)
+	return note == ""
 }
 
 // isBuried reports whether a package or classifier above e is left out of the
@@ -2639,6 +2705,28 @@ func (m *migration) declaredMultiplicity(p *sysmlv1.Element) (string, string) {
 		return "[" + lower + "]", ""
 	}
 	return "[" + lower + ".." + upper + "]", ""
+}
+
+// shaped writes the multiplicity mult declares for p and the collection
+// modifiers after it. A v1 parameter writing no multiplicity means a single
+// value, where §7.6.3 gives a bare v2 parameter [0..*], so a parameter states
+// the one it meant before any modifier.
+func shaped(mult string, p *sysmlv1.Element, parameter bool) string {
+	if mult == "" && parameter {
+		mult = "[1]"
+	}
+	return mult + collection(p)
+}
+
+// parameterShape is the multiplicity a redeclaration of parameter p writes:
+// the one p's own declaration does, so the callee's range carries over rather
+// than a bare parameter's [0..*].
+func (m *migration) parameterShape(p *sysmlv1.Element) string {
+	if shape := m.typeModifier(p).shape(); shape != "" {
+		return shape
+	}
+	mult, _ := m.multiplicity(p)
+	return shaped(mult, p, true)
 }
 
 // collection writes the ordered and nonunique modifiers of a property; UML and

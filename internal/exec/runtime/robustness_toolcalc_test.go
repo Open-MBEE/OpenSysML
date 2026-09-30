@@ -129,21 +129,21 @@ const toolCalcRobustnessModel = `package test {
 
 	calc def Needing {
 		metadata ToolExecution { toolName = "Thermo"; uri = "u"; }
-		in m : MassValue { @ToolVariable { name = "mass"; } }
+		in m : MassValue[1] { @ToolVariable { name = "mass"; } }
 		return : TemperatureValue { @ToolVariable { name = "Tmax"; } }
 	}
 	calc tbare : Needing;
 
 	calc def Colliding {
 		metadata ToolExecution { toolName = "Thermo"; uri = "u"; }
-		in a : Real  { @ToolVariable { name = "x"; } }
-		in b : Real  { @ToolVariable { name = "x"; } }
-		out y : Real { @ToolVariable { name = "y"; } }
+		in a : Real[1]  { @ToolVariable { name = "x"; } }
+		in b : Real[1]  { @ToolVariable { name = "x"; } }
+		out y : Real[1] { @ToolVariable { name = "y"; } }
 	}
 
 	calc def Tw {
 		metadata ToolExecution { toolName = "Thermo"; uri = "u"; }
-		out warn : Boolean { @ToolVariable { name = "warn"; } }
+		out warn : Boolean[1] { @ToolVariable { name = "warn"; } }
 		return : Real { @ToolVariable { name = "r"; } }
 	}
 	calc tw : Tw;

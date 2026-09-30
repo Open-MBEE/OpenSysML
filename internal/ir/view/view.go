@@ -281,6 +281,9 @@ type Edge struct {
 	// Style is how the edge is drawn, from the Style annotation colouring it;
 	// nil leaves the look to the drawing style.
 	Style *Style
+	// openFrom and openTo mark a route that stops short of that end, at the
+	// place of a node elided from between them; the drawing leads it on.
+	openFrom, openTo bool
 }
 
 // Rendering is what a view renders to: the nodes and edges of one artifact,

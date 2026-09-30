@@ -136,24 +136,14 @@ func (d *DryRunner) RunTool(call *runtime.ToolCall) (runtime.ToolAnswer, error) 
 	for _, c := range candidates {
 		te, ok := c.(toolEngine)
 		if !ok {
-			// An external engine cannot be probed without a model and a
-			// process; the built-ins answer Covers of a question not theirs.
-			_, external := c.(externalEngine)
-			switch {
-			case d.selection.Mode == SelectNamed:
-				if !external {
-					if cov := c.Covers(nil, q); cov.Refusal != nil {
-						return runtime.ToolAnswer{}, cov.Refusal
-					}
-				}
-				return runtime.ToolAnswer{}, &NotAToolEntryError{Engine: c.Name()}
-			case d.selection.Mode == SelectAll:
-				if covering == nil && (external || c.Covers(nil, q).Refusal == nil) {
-					covering = c
-				}
-				continue
+			decided, err := d.passEngine(c, q, call)
+			if decided {
+				return runtime.ToolAnswer{}, err
 			}
-			return runtime.ToolAnswer{}, &PreviewUndecidedError{Engine: c.Name(), Tool: call.ToolName}
+			if covering == nil && d.selection.Mode == SelectAll && coversOrExternal(c, q) {
+				covering = c
+			}
+			continue
 		}
 		cov := c.Covers(nil, q)
 		if cov.Refusal != nil {
@@ -166,21 +156,7 @@ func (d *DryRunner) RunTool(call *runtime.ToolCall) (runtime.ToolAnswer, error) 
 			continue
 		}
 		if te.entry.ToolName == call.ToolName {
-			path, err := te.look(te.entry)
-			if err != nil {
-				return runtime.ToolAnswer{}, &ProcessAbsentError{Engine: te.Name(), Process: te.Describe().Process, Err: err}
-			}
-			preview, err := te.entry.Preview(call, path)
-			if err != nil {
-				return runtime.ToolAnswer{}, err
-			}
-			dry := &ToolDryRunError{Preview: preview, Action: fqn}
-			d.mu.Lock()
-			if d.first == nil {
-				d.first = dry
-			}
-			d.mu.Unlock()
-			return runtime.ToolAnswer{}, dry
+			return runtime.ToolAnswer{}, d.preview(te, call, fqn)
 		}
 	}
 	if own != nil {
@@ -190,6 +166,56 @@ func (d *DryRunner) RunTool(call *runtime.ToolCall) (runtime.ToolAnswer, error) 
 		return runtime.ToolAnswer{}, &PreviewUndecidedError{Engine: covering.Name(), Tool: call.ToolName}
 	}
 	return runtime.ToolAnswer{}, &runtime.ToolNotRegisteredError{Tool: call.ToolName}
+}
+
+// coversOrExternal reports whether an engine covers q, an external one taken
+// to since it cannot be probed.
+func coversOrExternal(c Engine, q Question) bool {
+	_, external := c.(externalEngine)
+	return external || c.Covers(nil, q).Refusal == nil
+}
+
+// passEngine decides what a candidate that is not a tool entry does to the
+// preview: decided is true when it settles the answer with err; otherwise the
+// engine is passed. An external engine cannot be probed without a model and a
+// process; the built-ins answer Covers of a question not theirs.
+func (d *DryRunner) passEngine(c Engine, q Question, call *runtime.ToolCall) (decided bool, err error) {
+	_, external := c.(externalEngine)
+	switch d.selection.Mode {
+	case SelectNamed:
+		if !external {
+			if cov := c.Covers(nil, q); cov.Refusal != nil {
+				return true, cov.Refusal
+			}
+		}
+		return true, &NotAToolEntryError{Engine: c.Name()}
+	case SelectAll:
+		return false, nil
+	}
+	if !external && c.Covers(nil, q).Refusal != nil {
+		return false, nil
+	}
+	return true, &PreviewUndecidedError{Engine: c.Name(), Tool: call.ToolName}
+}
+
+// preview composes the tool entry's preview of the call, the first kept as
+// the runner's.
+func (d *DryRunner) preview(te toolEngine, call *runtime.ToolCall, fqn string) error {
+	path, err := te.look(te.entry)
+	if err != nil {
+		return &ProcessAbsentError{Engine: te.Name(), Process: te.Describe().Process, Err: err}
+	}
+	preview, err := te.entry.Preview(call, path)
+	if err != nil {
+		return err
+	}
+	dry := &ToolDryRunError{Preview: preview, Action: fqn}
+	d.mu.Lock()
+	if d.first == nil {
+		d.first = dry
+	}
+	d.mu.Unlock()
+	return dry
 }
 
 // Preview composes the call for the entry without making a temporary directory or
@@ -255,6 +281,22 @@ func (d DryRun) Lines() []string {
 		lines = append(lines, "manifest: "+d.Manifest)
 	}
 	lines = append(lines, "executable: "+d.Executable)
+	lines = d.processLines(lines)
+	if f := d.InputFile; f != nil {
+		lines = append(lines, fmt.Sprintf("input file: <inputFile> (%s, named %s)", f.Format, f.Name))
+		lines = appendData(lines, f.Data)
+	}
+	if d.OutputDir {
+		lines = append(lines, "output dir: <outputDir>")
+	}
+	lines = d.inputLines(lines)
+	lines = d.outputLines(lines)
+	lines = append(lines, d.replyLines()...)
+	return append(lines, "the process was not started")
+}
+
+// processLines spells the argv, environment, cwd and stdin of the process.
+func (d DryRun) processLines(lines []string) []string {
 	if len(d.Args) == 0 {
 		lines = append(lines, "argv: (none)")
 	} else {
@@ -282,46 +324,44 @@ func (d DryRun) Lines() []string {
 		lines = append(lines, "stdin: "+string(d.Stdin))
 		lines = appendData(lines, d.StdinData)
 	}
-	if f := d.InputFile; f != nil {
-		lines = append(lines, fmt.Sprintf("input file: <inputFile> (%s, named %s)", f.Format, f.Name))
-		lines = appendData(lines, f.Data)
-	}
-	if d.OutputDir {
-		lines = append(lines, "output dir: <outputDir>")
-	}
+	return lines
+}
+
+func (d DryRun) inputLines(lines []string) []string {
 	if len(d.Inputs) == 0 {
-		lines = append(lines, "inputs: (none)")
-	} else {
-		lines = append(lines, "inputs:")
-		for _, in := range d.Inputs {
-			text, err := valueText(d.Tool, in.Variable, in.Value)
-			if err != nil {
-				text = "?"
-			}
-			line := "  " + in.Variable + " = " + text
-			if in.Value.Unit != "" {
-				line += " [" + in.Value.Unit + "]"
-			}
-			if in.Parameter != in.Variable {
-				line += "  (parameter " + in.Parameter + ")"
-			}
-			lines = append(lines, line)
-		}
+		return append(lines, "inputs: (none)")
 	}
+	lines = append(lines, "inputs:")
+	for _, in := range d.Inputs {
+		text, err := valueText(d.Tool, in.Variable, in.Value)
+		if err != nil {
+			text = "?"
+		}
+		line := "  " + in.Variable + " = " + text
+		if in.Value.Unit != "" {
+			line += " [" + in.Value.Unit + "]"
+		}
+		if in.Parameter != in.Variable {
+			line += "  (parameter " + in.Parameter + ")"
+		}
+		lines = append(lines, line)
+	}
+	return lines
+}
+
+func (d DryRun) outputLines(lines []string) []string {
 	if len(d.Outputs) == 0 {
-		lines = append(lines, "outputs: (none)")
-	} else {
-		lines = append(lines, "outputs:")
-		for _, out := range d.Outputs {
-			line := "  " + out.Variable
-			if out.Parameter != out.Variable {
-				line += "  (parameter " + out.Parameter + ")"
-			}
-			lines = append(lines, line)
-		}
+		return append(lines, "outputs: (none)")
 	}
-	lines = append(lines, d.replyLines()...)
-	return append(lines, "the process was not started")
+	lines = append(lines, "outputs:")
+	for _, out := range d.Outputs {
+		line := "  " + out.Variable
+		if out.Parameter != out.Variable {
+			line += "  (parameter " + out.Parameter + ")"
+		}
+		lines = append(lines, line)
+	}
+	return lines
 }
 
 // appendData appends data, one element per line it holds, indented two spaces.
@@ -386,25 +426,7 @@ func replySelector(r *Reply, variable string, o *ReplyOutput) string {
 			parts = append(parts, fmt.Sprintf("unitPath %q", o.UnitPath))
 		}
 	case ReplyCSV:
-		if o.Column != nil {
-			if o.Column.ByIndex {
-				parts = append(parts, fmt.Sprintf("column %d", o.Column.Index))
-			} else {
-				parts = append(parts, fmt.Sprintf("column %q", o.Column.Name))
-			}
-		}
-		row := "last"
-		if o.Row != nil {
-			row = o.Row.String()
-		}
-		parts = append(parts, "row "+row)
-		if o.UnitColumn != nil {
-			if o.UnitColumn.ByIndex {
-				parts = append(parts, fmt.Sprintf("unitColumn %d", o.UnitColumn.Index))
-			} else {
-				parts = append(parts, fmt.Sprintf("unitColumn %q", o.UnitColumn.Name))
-			}
-		}
+		parts = csvSelector(parts, o)
 	case ReplyLines:
 		if r.Regex != "" {
 			parts = append(parts, fmt.Sprintf("regex group %q", variable))
@@ -436,4 +458,27 @@ func replySelector(r *Reply, variable string, o *ReplyOutput) string {
 		parts = append(parts, "unit "+o.Unit)
 	}
 	return strings.Join(parts, ", ")
+}
+
+// csvSelector spells the column, row and unit column a CSV output is read from.
+func csvSelector(parts []string, o *ReplyOutput) []string {
+	if o.Column != nil {
+		parts = append(parts, columnText("column", o.Column))
+	}
+	row := "last"
+	if o.Row != nil {
+		row = o.Row.String()
+	}
+	parts = append(parts, "row "+row)
+	if o.UnitColumn != nil {
+		parts = append(parts, columnText("unitColumn", o.UnitColumn))
+	}
+	return parts
+}
+
+func columnText(what string, c *Column) string {
+	if c.ByIndex {
+		return fmt.Sprintf("%s %d", what, c.Index)
+	}
+	return fmt.Sprintf("%s %q", what, c.Name)
 }

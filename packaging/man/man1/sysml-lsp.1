@@ -25,6 +25,10 @@ Show this help and exit
 .B \-man
 Write this command's manual page, in roff, to stdout and exit
 .TP
+.B \-no\-record\-cache
+Parse every document and hold it loaded, reading no interface record from the
+record cache and writing none; default off, or OPENSYSML_RECORD_CACHE=0
+.TP
 .B \-stdio
 Serve over stdin/stdout (the only transport; accepted for clients that name
 it)

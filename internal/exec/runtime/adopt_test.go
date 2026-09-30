@@ -1633,7 +1633,7 @@ const adoptFunctionSrc = `package Demo {
 	calc def Fn { in calc f { in v : Real; return : Real; } in a : Real; return : Real = f(a); }
 	part def Scaler {
 		attribute k : Real = 2.0;
-		calc scale { in x : Real; return : Real = x * k; }
+		calc scale { in x : Real[1]; return : Real = x * k; }
 	}
 	part def Holder { attribute fn; attribute scaled; part scaler : Scaler; }
 	part holder : Holder;

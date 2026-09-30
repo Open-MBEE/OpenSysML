@@ -1,0 +1,13 @@
+{
+  "type": "instance",
+  "instantiate": "test::Report",
+  "libraries": true,
+  "slots": {
+    "nestedParts": {"type": "Integer", "value": 4},
+    "nestedUsages": {"type": "Integer", "value": 5},
+    "nestedInterfaces": {"type": "Integer", "value": 1},
+    "nestedAttributes": {"type": "Integer", "value": 1},
+    "ownedParts": {"type": "Integer", "value": 1},
+    "ownedPorts": {"type": "Integer", "value": 1}
+  }
+}

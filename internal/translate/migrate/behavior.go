@@ -25,6 +25,8 @@ const (
 	methodNote = "the method "
 )
 
+const performActionKeyword = "perform action "
+
 func (m *migration) classifyBehavior(e *sysmlv1.Element) (category, string) {
 	switch e.Type {
 	case "Activity":
@@ -110,22 +112,23 @@ func (m *migration) behaviorBody(e *sysmlv1.Element, cat category) {
 	// Views open the body: a calc def's must end in its result expression.
 	m.views(e)
 	switch {
-	case e.Type == "Operation":
-		m.operationBody(e)
+	case m.contextLeads(e, cat):
+		if e.Type == "Operation" {
+			m.bodyWithContext(e, func() { m.operationBody(e) })
+		} else {
+			m.bodyWithContext(e, func() { m.calcBody(e) })
+		}
 	case cat == catStateDef:
 		m.stateMachineBody(e)
-	case cat == catCalcDef:
-		m.calcBody(e)
 	case e.Type == "Interaction":
 		m.parameters(e, e)
-		m.interactionBody(e)
+		m.bodyWithContext(e, func() { m.interactionBody(e) })
 	case e.Type == "Activity":
 		m.parameters(e, e)
-		m.contextParameter(e)
-		m.activityBody(e, e)
+		m.bodyWithContext(e, func() { m.activityBody(e, e) })
 	default:
 		m.parameters(e, e)
-		m.opaqueBehaviorBody(e, e)
+		m.bodyWithContext(e, func() { m.opaqueBehaviorBody(e, e) })
 	}
 	m.stereotypeAnnotations(e)
 	m.w.markMadeUp()
@@ -145,11 +148,22 @@ func (m *migration) classifierBehavior(c *sysmlv1.Element) {
 	if b == nil || m.asUsage[b] {
 		return
 	}
+	ins, _ := m.contextIns(m.contextOf(b), c)
 	switch cat {
 	case catStateDef:
-		m.w.line("exhibit state " + writeName(name) + " : " + m.ref(b, c) + ";")
+		head := "exhibit state " + writeName(name) + " : " + m.ref(b, c)
+		if ins != "" {
+			m.w.line(head + " { " + strings.Join(m.contextBody(b, ins), "; ") + "; }")
+		} else {
+			m.w.line(head + ";")
+		}
 	case catActionDef:
-		m.w.line("perform action " + writeName(name) + " : " + m.ref(b, c) + ";")
+		head := performActionKeyword + writeName(name) + " : " + m.ref(b, c)
+		if ins != "" {
+			m.w.line(head + " { " + strings.Join(m.contextBody(b, ins), "; ") + "; }")
+		} else {
+			m.w.line(head + ";")
+		}
 	default:
 		return
 	}
@@ -220,6 +234,12 @@ func (m *migration) parameters(e, scope *sysmlv1.Element) {
 	}
 }
 
+// contextLeads reports whether e's definition declares `in ref context` before its own parameters.
+// Operations and calc definitions write those parameters inside bodyWithContext.
+func (m *migration) contextLeads(e *sysmlv1.Element, cat category) bool {
+	return e != nil && (e.Type == "Operation" || cat == catCalcDef)
+}
+
 // realizeParameters pairs a method's parameters with its operation's by position:
 // one agreeing in direction and type stands for the operation's and takes its name.
 func (m *migration) realizeParameters(op, method *sysmlv1.Element) {
@@ -272,6 +292,8 @@ func (m *migration) parameter(p, scope *sysmlv1.Element, declared map[string]boo
 	tm := m.typeModifier(p)
 	if shape := tm.shape(); shape != "" {
 		mult, mnote = shape, ""
+	} else {
+		mult = shaped(mult, p, dir != "")
 	}
 	b.WriteString(mult)
 	note = joinNotes(joinNotes(note, mnote), tm.note())
@@ -405,14 +427,33 @@ func literalExprAs(expr string, want wanted) (value string, ok bool, note string
 // v2Expr writes text, already v2 expression syntax, read inside scope, or
 // refuses with the reason: it is not expression syntax, or a name resolves to nothing.
 func (m *migration) v2Expr(text, lang string, scope *sysmlv1.Element) (expr string, ok bool, note string) {
-	refs, ok := exprRefs(text)
+	refs, ok, note := m.v2Refs(text, lang, scope)
 	if !ok {
-		return "", false, "not v2 expression syntax" + langNote(lang)
+		return "", false, note
+	}
+	return m.v2Spelled(text, refs, scope), true, ""
+}
+
+// v2Refs lists what text, already v2 expression syntax, reads inside scope, or
+// refuses with the reason: it is not expression syntax, or a name resolves to nothing.
+func (m *migration) v2Refs(text, lang string, scope *sysmlv1.Element) (refs []reference, ok bool, note string) {
+	refs, ok = exprRefs(text)
+	if !ok {
+		return nil, false, "not v2 expression syntax" + langNote(lang)
 	}
 	if missing := m.invisible(refs, scope); missing != "" {
-		return "", false, missing + langNote(lang)
+		return nil, false, missing + langNote(lang)
 	}
-	return m.qualifySelf(text, refs, scope), true, ""
+	return refs, true, ""
+}
+
+// v2Spelled writes text, whose names are refs, as read inside scope: its
+// library roots renamed and its owner's features qualified.
+func (m *migration) v2Spelled(text string, refs []reference, scope *sysmlv1.Element) string {
+	visible, _ := m.visibleFrom(scope)
+	text = m.renamedRoots(text, refs, visible, nil)
+	refs, _ = exprRefs(text)
+	return m.qualifySelf(text, refs, scope)
 }
 
 // qualifySelf prefixes `this.` (or the subject's name, in a test case) to each name
@@ -430,9 +471,15 @@ func (m *migration) qualifySelf(text string, refs []reference, scope *sysmlv1.El
 		}
 		starts = append(starts, r.start)
 	}
+	// Inside a def a classifier feature spells through the context parameter;
+	// inside a usage it resolves bare, so no prefix is inserted there.
+	prefix := m.self + "."
+	if m.self == "this" {
+		prefix = m.selfPrefix(scope)
+	}
 	sort.Sort(sort.Reverse(sort.IntSlice(starts)))
 	for _, s := range starts {
-		text = text[:s] + m.self + "." + text[s:]
+		text = text[:s] + prefix + text[s:]
 	}
 	return text
 }
@@ -499,6 +546,40 @@ func (m *migration) statements(body, lang string, scope *sysmlv1.Element) (lines
 // v2Statements writes an opaque body whose every statement assigns a v2
 // expression to a visible feature, else refuses with the reason.
 func (m *migration) v2Statements(body, lang string, scope *sysmlv1.Element) (lines []string, ok bool, note string) {
+	assigns, ok, note := m.v2Assignments(body, lang, scope)
+	if !ok {
+		return nil, false, note
+	}
+	for _, a := range assigns {
+		target := m.assignable(a.feature, a.name, scope)
+		switch a.op {
+		case "++", "--":
+			lines = append(lines, "assign "+target+" := "+target+" "+a.op[:1]+" 1;")
+			continue
+		}
+		expr := m.v2Spelled(a.rhs, a.refs, scope)
+		if a.op != "=" {
+			expr = target + " " + a.op[:1] + " (" + expr + ")"
+		}
+		lines = append(lines, "assign "+target+" := "+expr+";")
+	}
+	return lines, true, "the " + langName(lang) + " body is written as v2 assignments"
+}
+
+// v2Assignment is one statement of an opaque body written as v2 assignments:
+// the feature assigned by name, the operator, and the v2 expression assigned
+// with the names it reads (none for `++` and `--`).
+type v2Assignment struct {
+	feature *sysmlv1.Element
+	name    string
+	op      string
+	rhs     string
+	refs    []reference
+}
+
+// v2Assignments reads an opaque body as assignments of v2 expressions to
+// features visible from scope, else refuses with the reason.
+func (m *migration) v2Assignments(body, lang string, scope *sysmlv1.Element) (assigns []v2Assignment, ok bool, note string) {
 	if strings.ContainsAny(body, "{}") {
 		return nil, false, "the body is not a sequence of assignments" + langNote(lang)
 	}
@@ -511,51 +592,56 @@ func (m *migration) v2Statements(body, lang string, scope *sysmlv1.Element) (lin
 		if mt == nil || strings.HasPrefix(mt[3], "=") {
 			return nil, false, stmtNote + strconv.Quote(st) + " is not an assignment of a v2 expression" + langNote(lang)
 		}
-		lhs, op, rhs := strings.TrimSpace(mt[1]), mt[2], strings.TrimSpace(mt[3])
-		target, ok := m.assignable(lhs, scope)
-		if !ok {
-			return nil, false, "the statement assigns " + lhs + ", which nothing visible from " + qualifiedName(scope) + " is called" + langNote(lang)
+		a := v2Assignment{name: strings.TrimSpace(mt[1]), op: mt[2], rhs: strings.TrimSpace(mt[3])}
+		if a.feature = m.assignableFeature(a.name, scope); a.feature == nil {
+			return nil, false, "the statement assigns " + a.name + ", which nothing visible from " + qualifiedName(scope) + " is called" + langNote(lang)
 		}
-		switch op {
+		switch a.op {
 		case "++", "--":
-			if rhs != "" {
+			if a.rhs != "" {
 				return nil, false, stmtNote + strconv.Quote(st) + " is not an assignment" + langNote(lang)
 			}
-			lines = append(lines, "assign "+target+" := "+target+" "+op[:1]+" 1;")
+			assigns = append(assigns, a)
 			continue
 		}
-		expr, ok, enote := m.v2Expr(rhs, lang, scope)
+		refs, ok, enote := m.v2Refs(a.rhs, lang, scope)
 		if !ok {
 			return nil, false, stmtNote + strconv.Quote(st) + " assigns a value whose expression is not migrated: " + enote
 		}
-		if op != "=" {
-			expr = target + " " + op[:1] + " (" + expr + ")"
-		}
-		lines = append(lines, "assign "+target+" := "+expr+";")
+		a.refs = refs
+		assigns = append(assigns, a)
 	}
-	if len(lines) == 0 {
+	if len(assigns) == 0 {
 		return nil, false, "the body is empty"
 	}
-	return lines, true, "the " + langName(lang) + " body is written as v2 assignments"
+	return assigns, true, ""
 }
 
-// assignable writes the v2 target of an assignment to name read in scope: a
-// parameter or local of the behavior bare, a feature of its classifier as `this.`.
-func (m *migration) assignable(name string, scope *sysmlv1.Element) (string, bool) {
+// assignableFeature is the feature an assignment to name read in scope writes:
+// a parameter or local of the behavior, or a feature of its classifier; nil
+// when nothing visible so named is one.
+func (m *migration) assignableFeature(name string, scope *sysmlv1.Element) *sysmlv1.Element {
 	visible, _ := m.visibleFrom(scope)
 	f := visible[name]
 	if f == nil {
-		return "", false
+		return nil
 	}
 	switch f.Type {
 	case "Parameter", "Property", "Port":
-	default:
-		return "", false
+		return f
 	}
+	return nil
+}
+
+// assignable writes the v2 target of an assignment to the feature f, called
+// name in scope: a parameter or local of the behavior bare, a feature of its
+// classifier through the context parameter in a def or bare inside the
+// object's usages.
+func (m *migration) assignable(f *sysmlv1.Element, name string, scope *sysmlv1.Element) string {
 	if m.ownedByClassifier(f, scope) {
-		return "this." + writeName(name), true
+		return m.ownerPrefix(scope) + writeName(name)
 	}
-	return writeName(name), true
+	return writeName(name)
 }
 
 // durationUnits scales a v1 duration's unit to seconds, spelled as the simulation toolkit
@@ -977,11 +1063,16 @@ func (m *migration) reception(r *sysmlv1.Element) {
 	if m.blockOwner(owner) && (len(ports) > 0 || performed != nil && m.asUsage[performed]) {
 		// The loop reaches the object's ports or usages, which only a usage of the block does.
 		m.names[r], m.asUsage[r] = usage, true
-		m.w.block("perform action "+writeName(usage), body)
+		m.w.block(performActionKeyword+writeName(usage), body)
 		desc = "written as an action usage accepting " + m.nameFor(sig)
 	} else {
-		m.w.block("action def "+writeName(name), body)
-		m.w.line("perform action " + writeName(usage) + " : " + writeName(name) + ";")
+		m.w.block("action def "+writeName(name), func() { m.bodyWithContext(r, body) })
+		ins, _ := m.contextIns(m.contextOf(r), owner)
+		if ins == "" {
+			m.w.line(performActionKeyword + writeName(usage) + " : " + writeName(name) + ";")
+		} else {
+			m.w.line(performActionKeyword + writeName(usage) + " : " + writeName(name) + " { " + ins + "; }")
+		}
 	}
 	m.receptionParameters(r, sig)
 	if route.performed {
@@ -1008,12 +1099,12 @@ func (m *migration) receptionLoop(r *sysmlv1.Element, route *receptionRoute, fro
 	suffix, via := "", ""
 	if port != nil {
 		suffix = " via " + m.nameFor(port)
-		via = " via " + writeName(m.nameFor(port))
+		via = " via " + m.ownerPrefix(r) + writeName(m.nameFor(port))
 	}
 	trig := writeName(freshIn(route.used, "receive"+suffix))
 	payload := writeName(freshIn(route.used, lowerFirst(m.nameFor(route.sig))+suffix))
 	m.w.line(firstKw + from + thenKw + trig + ";")
-	m.w.line(actionKw + trig + " accept " + payload + " : " + m.ref(route.sig, route.owner) + via + ";")
+	m.w.line(actionKw + trig + " accept " + payload + " : " + m.acceptSignalRef(route.sig, route.owner, payload) + via + ";")
 	last := trig
 	method := route.method
 	switch {
@@ -1121,7 +1212,7 @@ func (m *migration) receptionArguments(method, sig *sysmlv1.Element, payload str
 // usage of its behavior, keeping p's direction so an inout value is written back.
 func (m *migration) parameterBinding(p *sysmlv1.Element, name, expr string) string {
 	dir, _ := parameterDirection(p)
-	return dir + " " + writeName(name) + " = " + expr
+	return dir + " " + writeName(name) + m.parameterShape(p) + " = " + expr
 }
 
 // bindingMismatch says why feature a cannot be bound to parameter p: its type does not conform

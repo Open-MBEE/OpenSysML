@@ -26,10 +26,10 @@ func TestEnginesListsEveryRegisteredEngine(t *testing.T) {
 	s := loadSource(t, engineCalcSource)
 	out := run(t, s, "%engines")
 	wantsInOrder(t, out, "engine", "authority", "answers", "status",
-		"check", "explore", "run", "smt", "solve", "sweep")
+		"check", "explore", "run", "smt", "solve", "sweep", "tool:fmi")
 	lines := strings.Split(strings.TrimSpace(out), "\n")
-	if len(lines) != 7 {
-		t.Fatalf("expected a header and six engines, got:\n%s", out)
+	if len(lines) != 9 {
+		t.Fatalf("expected a header, six built-in engines, tool:fmi and its origin line, got:\n%s", out)
 	}
 	wants(t, lines[1], "check", "bounded", "outcomes, holds", "ready")
 	wants(t, lines[2], "explore", "proved", "outcomes", "ready")
@@ -37,6 +37,7 @@ func TestEnginesListsEveryRegisteredEngine(t *testing.T) {
 	wants(t, lines[4], "smt", "proved", "holds")
 	wants(t, lines[5], "solve", "proved", "satisfiable")
 	wants(t, lines[6], "sweep", "observed", "sweep", "ready")
+	wants(t, lines[7], "tool:fmi", "tool", "fmi/1", "observed", "compute", "OPENSYSML_FMI_RUNNER")
 }
 
 // manifestEngine stands in for an engine registered from a manifest: it counts the probes
@@ -116,7 +117,7 @@ func TestEngineShowsAndSetsTheSelection(t *testing.T) {
 		t.Fatalf("Engine() = %v, want run", got)
 	}
 	out := run(t, s, "%engine nope")
-	wants(t, out, `error: analysis: no engine named "nope"`, "check, explore, run, smt, solve, sweep, or auto, or all")
+	wants(t, out, `error: analysis: no engine named "nope"`, "check, explore, run, smt, solve, sweep, tool:fmi, or auto, or all")
 	rejects(t, out, "engine: ")
 	wants(t, run(t, s, "%engine"), "engine: run")
 	wants(t, run(t, s, "%engine all"), "engine: all")

@@ -21,7 +21,7 @@ part def TCS {
 part def Observatory {
     part tcs : TCS;
     attribute Time_Acq_Total : ScalarValues::Real default = 0.0;
-    action def Acquire {
+    action acquire {
         attribute 'Time_Loop start' : ScalarValues::Real [0..1];
         attribute Time_Loop : ScalarValues::Real [0..1];
         attribute 'Time_Between start' : ScalarValues::Real [0..1];
@@ -44,12 +44,12 @@ part def Observatory {
         }
         first stamp9 then 'start timer';
         action 'start timer' {
-            assign this.Time_Acq_Total := localClock.currentTime;
+            assign Time_Acq_Total := localClock.currentTime;
         }
         first 'start timer' then seed;
         action seed {
-            in Retries : ScalarValues::Integer = 2;
-            assign this.tcs.GS_Found := Retries < 1;
+            in Retries : ScalarValues::Integer[1] = 2;
+            assign tcs.GS_Found := Retries < 1;
         }
         first seed then stamp;
         action stamp {
@@ -60,8 +60,8 @@ part def Observatory {
         }
         first stamp then 'first attempt';
         action 'first attempt' {
-            assign this.tcs.i := 1;
-            assign this.tcs.GS_Found := false;
+            assign tcs.i := 1;
+            assign tcs.GS_Found := false;
         }
         first 'first attempt' then stamp3;
         action stamp3 {
@@ -70,7 +70,7 @@ part def Observatory {
         first stamp3 then 'merge';
         merge 'merge';
         first 'merge' then stamp5;
-        action wait accept after this.tcs.ditSetup [SI::s];
+        action wait accept after tcs.ditSetup [SI::s];
         first wait then attempt;
         action stamp5 {
             assign 'Time_Attempt start' := localClock.currentTime;
@@ -105,8 +105,8 @@ part def Observatory {
         merge merge3;
         first merge3 then stamp12;
         decide 'decide';
-        first 'decide' if this.tcs.i >= this.tcs.Retries then stamp4;
-        first 'decide' if not this.tcs.GS_Found and not this.tcs.'Guide Star Lost' and this.tcs.i < this.tcs.Retries then 'next attempt';
+        first 'decide' if tcs.i >= tcs.Retries then stamp4;
+        first 'decide' if not tcs.GS_Found and not tcs.'Guide Star Lost' and tcs.i < tcs.Retries then 'next attempt';
         first 'decide' if false then stamp7;
         action stamp4 {
             if 'Time_Between start'->SequenceFunctions::notEmpty() {
@@ -115,7 +115,7 @@ part def Observatory {
         }
         first stamp4 then 'guide star found';
         action 'guide star found' {
-            assign this.tcs.GS_Found := true;
+            assign tcs.GS_Found := true;
         }
         first 'guide star found' then stamp2;
         action stamp2 {
@@ -128,7 +128,7 @@ part def Observatory {
         }
         first stamp2 then merge4;
         action 'next attempt' {
-            assign this.tcs.i := this.tcs.i + 1;
+            assign tcs.i := tcs.i + 1;
         }
         first 'next attempt' then 'merge';
         action stamp7 {
@@ -136,7 +136,7 @@ part def Observatory {
         }
         first stamp7 then abort;
         action abort {
-            assign this.tcs.GS_Found := false;
+            assign tcs.GS_Found := false;
         }
         first abort then stamp8;
         action stamp8 {
@@ -149,7 +149,7 @@ part def Observatory {
         first fork2 then merge3;
         first fork2 then merge2;
         action 'stop timer' {
-            assign this.Time_Acq_Total := localClock.currentTime - this.Time_Acq_Total;
+            assign Time_Acq_Total := localClock.currentTime - Time_Acq_Total;
         }
         first 'stop timer' then stamp10;
         merge merge4;

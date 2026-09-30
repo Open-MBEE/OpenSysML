@@ -168,6 +168,7 @@ var metaCommandTable = []metaCommand{
 	{name: "%verbosity", group: groupSettings, args: "[level]", desc: "show or set output level: quiet, normal or debug"},
 	{name: "%trace", group: groupSettings, args: "[on|off]", desc: "show or set execution tracing (evaluation, calc, action and state steps)"},
 	{name: "%strict", group: groupSettings, args: "[on|off]", desc: "show or set strict conformance: report notation no SysML v2 production admits as an error"},
+	{name: "%lint", group: groupSettings, args: "[<code> on|off]", desc: "list the lints — warnings about models the specification accepts — each on or off, or switch one by its code: undeclared-signal, port-type-mismatch"},
 	{name: "%schedule", group: groupSettings, args: "[<policy>]", desc: "show or set the scheduling policy runs started from here on resolve choice points under: declared, reverse or seed:<n>"},
 	{name: "%seed", group: groupSettings, args: "[<n>|off]", desc: "show or set the seed runs started from here on draw their modeled randomness from — Probability-weighted decisions, RandomFunctions — whatever the schedule; off leaves it to the schedule's seed:<n>"},
 	{name: "%draws", group: groupSettings, args: "[<policy>]", desc: "show or set how runs started from here on resolve RandomFunctions draws: random (from the seed), min, max or average of each call's distribution; min, max and average need no seed"},
@@ -327,6 +328,9 @@ func metaOut(out []string, quit bool, err error) metaResult {
 // metaSessionCommand runs a session-level command, reporting whether the
 // line named one.
 func (s *Session) metaSessionCommand(fields []string, line string) (metaResult, bool) {
+	if result, ok := s.metaCheckCommand(fields); ok {
+		return result, true
+	}
 	switch fields[0] {
 	case "%help":
 		return metaOut(helpText(), false, nil), true
@@ -371,6 +375,8 @@ func (s *Session) metaSessionCommand(fields []string, line string) (metaResult, 
 		return metaOut(s.doTrace(fields[1:]), false, nil), true
 	case "%strict":
 		return metaOut(s.doStrict(fields[1:]), false, nil), true
+	case "%lint":
+		return metaOut(s.doLint(fields[1:]), false, nil), true
 	case "%schedule":
 		return metaOut(s.doSchedule(fields[1:]), false, nil), true
 	case "%seed":
@@ -389,18 +395,6 @@ func (s *Session) metaSessionCommand(fields []string, line string) (metaResult, 
 		return metaOut(s.doEngine(fields[1:]), false, nil), true
 	case "%tool":
 		return metaOut(s.doTool(strings.TrimSpace(strings.TrimPrefix(strings.TrimSpace(line), "%tool")))), true
-	case "%check-diverge":
-		return metaOut(s.doCheckDiverge(fields[1:]), false, nil), true
-	case "%check-property":
-		return metaOut(s.doCheckProperty(fields[1:]), false, nil), true
-	case "%check-input":
-		return metaOut(s.doCheckInput(fields[1:]), false, nil), true
-	case "%check-assume":
-		return metaOut(s.doCheckAssume(fields[1:]), false, nil), true
-	case "%check-witness":
-		return metaOut(s.doCheckWitness(fields[1:]), false, nil), true
-	case "%check-bounds":
-		return metaOut(s.doCheckBounds(fields[1:]), false, nil), true
 	case "%replay":
 		return metaOut(s.doReplay(fields[1:]), false, nil), true
 	case "%search":
@@ -421,6 +415,29 @@ func (s *Session) metaSessionCommand(fields []string, line string) (metaResult, 
 		return metaOut([]string{"goodbye"}, true, nil), true
 	}
 	return metaResult{}, false
+}
+
+// metaCheckCommand answers the %check-* commands, reporting false for any
+// other line.
+func (s *Session) metaCheckCommand(fields []string) (metaResult, bool) {
+	var check func([]string) []string
+	switch fields[0] {
+	case "%check-diverge":
+		check = s.doCheckDiverge
+	case "%check-property":
+		check = s.doCheckProperty
+	case "%check-input":
+		check = s.doCheckInput
+	case "%check-assume":
+		check = s.doCheckAssume
+	case "%check-witness":
+		check = s.doCheckWitness
+	case "%check-bounds":
+		check = s.doCheckBounds
+	default:
+		return metaResult{}, false
+	}
+	return metaOut(check(fields[1:]), false, nil), true
 }
 
 // doTrace answers %trace: an argument switches tracing on or off, and the
@@ -1376,6 +1393,15 @@ func (w *featureValueWalk) rows(inst *runtime.Instance, indent string, depth int
 			return truncated(lines, "")
 		}
 		feat := of.Feature
+		// A collection populated only through subsetting implied by nesting is
+		// not a path of its own: its objects are listed under the declared
+		// features holding them, and reading it would manufacture them. An
+		// unread one shows as an unexpanded collection, as any feature the walk
+		// does not descend into does.
+		if w.ctx.ImpliedCollection(inst, of.Name) {
+			lines = w.emit(lines, w.impliedCollectionLine(inst, of, indent, depth))
+			continue
+		}
 		// A state or action holds no value either; what it has is a run, or none,
 		// which is listed under its own heading after the values.
 		if isBehaviorFeature(feat) {
@@ -1401,30 +1427,46 @@ func (w *featureValueWalk) rows(inst *runtime.Instance, indent string, depth int
 			continue
 		}
 		lines = w.emit(lines, fmt.Sprintf("%s%s = %s", indent, of.Name, formatFeatureValue(w.ctx, fv)))
-		// The object's remaining features keep a line each; a nested expansion
-		// spends only what is left beyond them.
-		reserved := len(features) - i - 1
-		for _, nested := range nestedInstances(w.ctx, fv) {
-			if w.listing[nested.ID] {
-				continue
-			}
-			if w.budget <= reserved {
-				lines = w.truncate(lines, indent+"  ")
-				break
-			}
-			w.budget -= reserved
-			w.onPath[nested.Type] = true
-			w.listing[nested.ID] = true
-			lines = append(lines, w.lines(nested, indent+"  ", depth+1)...)
-			delete(w.listing, nested.ID)
-			delete(w.onPath, nested.Type)
-			w.budget += reserved
-		}
+		lines = w.expandNested(lines, fv, indent, depth, len(features)-i-1)
 	}
 	if w.budget <= 0 && len(behaviors) > 0 {
 		return truncated(lines, "")
 	}
 	return append(append(lines, w.behaviorLines(inst, behaviors, indent, depth)...), connectors...)
+}
+
+// impliedCollectionLine is the row of a collection populated only through
+// subsetting implied by nesting: its value when read, else unexpanded or empty.
+func (w *featureValueWalk) impliedCollectionLine(inst *runtime.Instance, of runtime.ObjectFeature, indent string, depth int) string {
+	if fv := inst.FeatureValues[of.Name]; fv != nil && fv.Materialized {
+		return fmt.Sprintf("%s%s = %s", indent, of.Name, formatFeatureValue(w.ctx, fv))
+	}
+	if held, elided := w.elided(of.Feature, depth); elided {
+		return fmt.Sprintf("%s%s : %s (not expanded: %s)", indent, of.Name, held, w.elisionReason(depth))
+	}
+	return fmt.Sprintf("%s%s = []", indent, of.Name)
+}
+
+// expandNested lists the objects a feature value holds beneath its row. The
+// object's reserved remaining features keep a line each; a nested expansion
+// spends only what is left beyond them.
+func (w *featureValueWalk) expandNested(lines []string, fv *runtime.FeatureValue, indent string, depth, reserved int) []string {
+	for _, nested := range nestedInstances(w.ctx, fv) {
+		if w.listing[nested.ID] {
+			continue
+		}
+		if w.budget <= reserved {
+			return w.truncate(lines, indent+"  ")
+		}
+		w.budget -= reserved
+		w.onPath[nested.Type] = true
+		w.listing[nested.ID] = true
+		lines = append(lines, w.lines(nested, indent+"  ", depth+1)...)
+		delete(w.listing, nested.ID)
+		delete(w.onPath, nested.Type)
+		w.budget += reserved
+	}
+	return lines
 }
 
 // isBehaviorFeature reports whether a feature is a state or action usage — a
@@ -1502,6 +1544,8 @@ func behaviorStatus(ctx *runtime.Context, inst *runtime.Instance, feat *runtime.
 		return kind + ", not running"
 	}
 	switch {
+	case behavior.Err != nil:
+		return fmt.Sprintf("%s, failed: %s", behavior.Kind, behavior.Err)
 	case behavior.State != nil:
 		return fmt.Sprintf("%s, %s", behavior.Kind, machineStatus(behavior.State))
 	case behavior.Action != nil:
@@ -2178,22 +2222,13 @@ func (s *Session) promptScope() *symbols.Scope {
 		}
 	}
 	for i := len(members) - 1; i >= 0; i-- {
-		member := members[i].Node
-		if mem, ok := member.(*ast.Membership); ok {
-			member = mem.Member
-		}
-		var ident ast.Identification
-		switch n := member.(type) {
-		case *ast.Package:
-			ident = n.Ident
-		case *ast.Namespace:
-			ident = n.Ident
-		default:
+		member := members[i].Summary
+		if member.Kind != "package" && member.Kind != "namespace" {
 			continue
 		}
-		name := ident.Name
+		name := member.Name
 		if name == "" {
-			name = ident.ShortName
+			name = member.ShortName
 		}
 		if sym, ok := members[i].scope.LookupLocal(name); ok && sym != nil && sym.Scope != nil {
 			return sym.Scope

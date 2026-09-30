@@ -6,6 +6,7 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/Open-MBEE/OpenSysML/internal/translate/mtip"
 	"github.com/Open-MBEE/OpenSysML/internal/translate/xmi/sysmlv1"
 )
 
@@ -332,7 +333,8 @@ func (m *migration) shadows(scopes []*sysmlv1.Element, name string) bool {
 // exposures sorts what a diagram shows into the elements its view exposes,
 // deduplicated in shown order, and the counts of what it cannot.
 type exposures struct {
-	refs []string
+	refs  []string
+	names map[string]bool
 	// drawn counts shown members of the form's subject, drawn by its graph.
 	drawn int
 	// unwritten counts shown elements nothing written stands for.
@@ -349,6 +351,28 @@ func (x exposures) exposed(ref string) bool {
 		}
 	}
 	return false
+}
+
+// shadows reports whether a view exposure uses name.
+func (x exposures) shadows(name string) bool {
+	return x.names[name]
+}
+
+// diagramLayoutAttribute qualifies an attribute when its name is shadowed in the view.
+func diagramLayoutAttribute(prefix, definition, name, value string, x exposures) string {
+	return diagramLayoutAttributeText(prefix, definition, name, value, x.shadows(name))
+}
+
+// diagramLayoutAttributeForHost also qualifies an attribute shadowed by its containing scopes.
+func (m *migration) diagramLayoutAttributeForHost(prefix, definition, name, value string, host *sysmlv1.Element, x exposures) string {
+	return diagramLayoutAttributeText(prefix, definition, name, value, x.shadows(name) || m.shadows(scopeChain(host), name))
+}
+
+func diagramLayoutAttributeText(prefix, definition, name, value string, shadowed bool) string {
+	if shadowed {
+		return ":>> " + prefix + definition + "::" + name + " = " + value
+	}
+	return name + " = " + value
 }
 
 // inGraph reports whether el is part of the graph a view of form f draws: within
@@ -426,7 +450,7 @@ func (m *migration) emptyView(v *view, f viewForm) string {
 	case !d.Represented():
 		return "no diagram representation is serialized, so what it shows is unknown and its view exposes nothing"
 	case len(d.Shown) == 0 && pictured > 0:
-		return "it shows no model element, only " + plural(pictured, "pasted image") + " a view rendered " + f.rendering + " does not draw, and its view exposes nothing"
+		return "it shows no model element, only " + plural(pictured, pastedImage) + " a view rendered " + f.rendering + " does not draw, and its view exposes nothing"
 	case len(d.Shown) == 0:
 		return "it " + showsNothing(d, "shows no model element") + ", and its view exposes nothing"
 	}
@@ -494,10 +518,61 @@ func (m *migration) writeView(v *view) {
 	d, host := v.d, v.host
 	form := m.formOf(d)
 	x := m.exposures(d, host, form)
-	render := form.rendering
+	for _, scope := range scopeChain(host) {
+		for name := range m.viewNames[scope] {
+			x.names[name] = true
+		}
+	}
+	decl, note := m.viewDeclaration(v, form, x)
+	prefix := viewsPrefix
+	if m.shadowsLibrary("Views", host) {
+		prefix = globalViewsPrefix
+	}
+	shown := len(d.Shown)
+	untyped := d.Kind == "" && d.UMLKind == ""
+	for _, td := range v.tables {
+		m.lowerTable(td)
+		if td.written() {
+			x.names[td.doc] = true
+		}
+	}
+	geo := m.viewGeometry(v, x, form)
+	note = joinNotes(note, m.viewShownNote(d, x, geo, untyped))
+	m.w.block(decl, func() {
+		if doc := commentText(d.Documentation); doc != "" {
+			m.w.lines(prefixFirst("doc ", commentLines(doc)))
+		}
+		for _, ref := range x.refs {
+			m.w.line("expose " + ref + ";")
+		}
+		for _, td := range v.tables {
+			if td.written() {
+				m.w.line("expose " + writeName(td.doc) + ";")
+			}
+		}
+		for _, line := range geo.lines {
+			m.w.line(line)
+		}
+		m.w.line("render " + prefix + form.rendering + ";")
+	})
+	for _, td := range v.tables {
+		m.writeTable(td)
+	}
+	verdict := Mapped
+	drawsNothing := (shown == 0 || len(x.refs) == 0) && geo.pictures == 0
+	if v.note != "" || untyped || drawsNothing || x.unwritten+x.dangling > 0 || geo.underlaid+geo.undrawn+geo.lost > 0 {
+		verdict = Approximated
+	}
+	v.entry = m.diagramEntry(d, verdict, m.qualified(append(m.segments(host), v.name)), note)
+}
+
+// viewDeclaration is the view usage's declaration and the note on what it is
+// written as, of, and for.
+func (m *migration) viewDeclaration(v *view, form viewForm, x exposures) (decl, note string) {
+	d, host := v.d, v.host
 	kind := diagramKind(d)
-	note := article(strings.ToLower(kind)) + kind + " written as a view rendered " + render
-	decl := "view " + writeName(v.name)
+	note = article(strings.ToLower(kind)) + kind + " written as a view rendered " + form.rendering
+	decl = "view " + writeName(v.name)
 	if form.definition != "" {
 		note += " of " + form.definition
 		prefix := viewDefinitionsPrefix
@@ -516,28 +591,25 @@ func (m *migration) writeView(v *view) {
 		}
 		note = joinNotes(note, subject)
 	}
-	note = joinNotes(note, v.note)
-	prefix := viewsPrefix
-	if m.shadowsLibrary("Views", host) {
-		prefix = globalViewsPrefix
-	}
+	return decl, joinNotes(note, v.note)
+}
+
+// viewShownNote notes what of the diagram's shown elements the view exposes
+// and draws, and what it leaves out.
+func (m *migration) viewShownNote(d *sysmlv1.Diagram, x exposures, geo viewGeometry, untyped bool) string {
 	shown := len(d.Shown)
-	untyped := d.Kind == "" && d.UMLKind == ""
-	for _, td := range v.tables {
-		m.lowerTable(td)
-	}
-	geo := m.viewGeometry(v, x, form)
+	var note string
 	switch {
 	case !d.Represented():
-		note = joinNotes(note, "no diagram representation is serialized: what the diagram is and shows is unknown, and the view exposes nothing")
+		note = "no diagram representation is serialized: what the diagram is and shows is unknown, and the view exposes nothing"
 	case shown == 0 && geo.pictures > 0:
-		note = joinNotes(note, "the diagram shows no model element; the view draws the "+plural(geo.pictures, "pasted image")+" it carries and exposes nothing")
+		note = "the diagram shows no model element; the view draws the " + plural(geo.pictures, pastedImage) + " it carries and exposes nothing"
 	case shown == 0 && geo.undrawn > 0:
-		note = joinNotes(note, "the diagram shows no model element, only "+plural(geo.undrawn, "pasted image")+" the view carries and its rendering does not draw; the view exposes nothing")
+		note = "the diagram shows no model element, only " + plural(geo.undrawn, pastedImage) + " the view carries and its rendering does not draw; the view exposes nothing"
 	case shown == 0:
-		note = joinNotes(note, "the diagram "+showsNothing(d, "shows nothing")+"; the view exposes nothing")
+		note = "the diagram " + showsNothing(d, "shows nothing") + "; the view exposes nothing"
 	case len(x.refs) == 0:
-		note = joinNotes(note, "none of the "+strconv.Itoa(shown)+" shown elements is written; the view exposes nothing")
+		note = "none of the " + strconv.Itoa(shown) + " shown elements is written; the view exposes nothing"
 	}
 	if untyped && d.Represented() {
 		note = joinNotes(note, "the representation names no diagram type")
@@ -548,47 +620,22 @@ func (m *migration) writeView(v *view) {
 	if x.dangling > 0 {
 		note = joinNotes(note, fmt.Sprintf("%d of %d shown ids resolve to no element", x.dangling, shown))
 	}
-	if geo.note != "" {
-		note = joinNotes(note, geo.note)
-	}
-	m.w.block(decl, func() {
-		if doc := commentText(d.Documentation); doc != "" {
-			m.w.lines(prefixFirst("doc ", commentLines(doc)))
-		}
-		for _, ref := range x.refs {
-			m.w.line("expose " + ref + ";")
-		}
-		for _, td := range v.tables {
-			if td.written() {
-				m.w.line("expose " + writeName(td.doc) + ";")
-			}
-		}
-		for _, line := range geo.lines {
-			m.w.line(line)
-		}
-		m.w.line("render " + prefix + render + ";")
-	})
-	for _, td := range v.tables {
-		m.writeTable(td)
-	}
-	verdict := Mapped
-	drawsNothing := (shown == 0 || len(x.refs) == 0) && geo.pictures == 0
-	if v.note != "" || untyped || drawsNothing || x.unwritten+x.dangling > 0 || geo.underlaid+geo.undrawn+geo.lost > 0 {
-		verdict = Approximated
-	}
-	v.entry = m.diagramEntry(d, verdict, m.qualified(append(m.segments(host), v.name)), note)
+	return joinNotes(note, geo.note)
 }
 
 // exposures resolves what a diagram shows into expose references, in the
 // scope of the view's host. A view of a form drawing a graph exposes the
 // behavior whose graph it is in place of the shown nodes and edges it draws.
 func (m *migration) exposures(d *sysmlv1.Diagram, host *sysmlv1.Element, form viewForm) exposures {
-	var x exposures
+	x := exposures{names: map[string]bool{}}
 	seen := map[string]bool{}
 	add := func(ref string) {
 		if !seen[ref] {
 			seen[ref] = true
 			x.refs = append(x.refs, ref)
+			if name := exposureName(ref); name != "" {
+				x.names[name] = true
+			}
 		}
 	}
 	if form.subject != nil {
@@ -615,6 +662,31 @@ func (m *migration) exposures(d *sysmlv1.Diagram, host *sysmlv1.Element, form vi
 		}
 	}
 	return x
+}
+
+// exposureName returns the unqualified name at the end of an exposure reference.
+func exposureName(ref string) string {
+	start := 0
+	quoted := false
+	for i := 0; i < len(ref); i++ {
+		switch {
+		case ref[i] == '\'' && quoted && i+1 < len(ref) && ref[i+1] == '\'':
+			i++
+		case ref[i] == '\'':
+			quoted = !quoted
+		case !quoted && i+1 < len(ref) && ref[i:i+2] == "::":
+			start = i + 2
+			i++
+		}
+	}
+	name := ref[start:]
+	if name == "*" || name == "**" {
+		return ""
+	}
+	if len(name) >= 2 && name[0] == '\'' && name[len(name)-1] == '\'' {
+		name = strings.ReplaceAll(name[1:len(name)-1], "''", "'")
+	}
+	return name
 }
 
 // exposure names, from scope, what stands for e: the library type a primitive
@@ -776,126 +848,171 @@ func (m *migration) viewGeometry(v *view, x exposures, form viewForm) viewGeomet
 	if m.shadowsLibrary("DiagramLayout", v.host) {
 		prefix = globalDiagramLayoutPrefix
 	}
-	var placements, routes []string
-	var maxX, maxY float64
-	var size bool
-	grow := func(w, h float64) {
-		size = true
-		if w > maxX {
-			maxX = w
-		}
-		if h > maxY {
-			maxY = h
-		}
-	}
+	p := &layoutPlan{m: m, v: v, x: x, form: form, prefix: prefix, refOf: map[string]string{}}
 	if src.frame {
 		f := v.d.Frame
-		grow(f.X+f.Width, f.Y+f.Height)
+		p.grow(f.X+f.Width, f.Y+f.Height)
 	}
-	var written, unexposed, dangling int
+	placements := p.placements(rec)
+	routes := p.routes(rec)
+	for tag, n := range rec.Unsupported {
+		s.Unsupported[tag] += n
+	}
+	dress := m.viewDressing(v, form, prefix, x, func(id string) string {
+		if ref, ok := p.refOf[id]; ok {
+			return ref
+		}
+		return m.drawnRef(x, form, v.host, id)
+	})
+	for _, pic := range m.pastedPictures(v.d).drawn {
+		p.grow(pic.sym.Bounds.X+pic.sym.Bounds.Width, pic.sym.Bounds.Y+pic.sym.Bounds.Height)
+	}
+	geo := viewGeometry{pictures: dress.pictures, underlaid: dress.underlaid, undrawn: dress.undrawn, lost: dress.lost}
+	if p.size {
+		attrs := []string{
+			m.diagramLayoutAttributeForHost(prefix, "Canvas", "unit", `"px"`, v.host, x),
+			m.diagramLayoutAttributeForHost(prefix, "Canvas", "width", layoutNumber(p.maxX), v.host, x),
+			m.diagramLayoutAttributeForHost(prefix, "Canvas", "height", layoutNumber(p.maxY), v.host, x),
+		}
+		geo.lines = append(geo.lines, fmt.Sprintf("@%sCanvas { %s; }", prefix, strings.Join(attrs, "; ")))
+	}
+	geo.lines = append(geo.lines, placements...)
+	geo.lines = append(geo.lines, routes...)
+	geo.lines = append(geo.lines, dress.lines...)
+	if len(rec.Placements)+len(rec.Connectors) > 0 {
+		clauses := append([]string{layoutClause(p.written, p.unexposed, p.dangling, len(rec.Placements)), routeClause(p.reasons, len(rec.Connectors))}, dress.notes...)
+		geo.note = fmt.Sprintf("laid out from %s: %s", source, strings.Join(clauses, ", "))
+	} else if len(dress.notes) > 0 {
+		geo.note = fmt.Sprintf("dressed from %s: %s", streamSource, strings.Join(dress.notes, ", "))
+	}
+	return geo
+}
+
+// layoutPlan places and routes one view's layout record, growing the canvas
+// to hold what it writes and keeping the reference each id was written as.
+type layoutPlan struct {
+	m          *migration
+	v          *view
+	x          exposures
+	form       viewForm
+	prefix     string
+	maxX, maxY float64
+	size       bool
+	refOf      map[string]string
+	written    int
+	unexposed  int
+	dangling   int
+	reasons    map[string]int
+}
+
+func (p *layoutPlan) grow(w, h float64) {
+	p.size = true
+	if w > p.maxX {
+		p.maxX = w
+	}
+	if h > p.maxY {
+		p.maxY = h
+	}
+}
+
+// placements writes a Layout per shown element the view exposes, once per reference.
+func (p *layoutPlan) placements(rec *mtip.Diagram) []string {
+	m, v, s := p.m, p.v, p.m.layoutSummary
+	var placements []string
 	seen := map[string]bool{}
-	refOf := map[string]string{}
-	for _, p := range rec.Placements {
+	for _, pl := range rec.Placements {
 		s.Placements++
-		el := m.model.Lookup(p.ID)
+		el := m.model.Lookup(pl.ID)
 		if el == nil {
 			s.PlacementsDangling++
-			dangling++
+			p.dangling++
 			continue
 		}
-		ref := m.exposure(el, v.host)
-		if ref == "" || !m.places(x, form, el, ref) {
+		ref := ""
+		if vertexBase(el) == "" || m.vertexWritten(el) {
+			ref = m.exposure(el, v.host)
+		}
+		if ref == "" || !m.places(p.x, p.form, el, ref) {
 			s.PlacementsUnexposed++
-			unexposed++
+			p.unexposed++
 			continue
 		}
-		refOf[p.ID] = ref
+		p.refOf[pl.ID] = ref
 		if seen[ref] {
 			continue
 		}
 		seen[ref] = true
 		s.PlacementsWritten++
-		written++
-		placements = append(placements, fmt.Sprintf("metadata %sLayout about %s { x = %s; y = %s; width = %s; height = %s; }",
-			prefix, ref, layoutNumber(p.X), layoutNumber(p.Y), layoutNumber(p.Width), layoutNumber(p.Height)))
-		grow(p.X+p.Width, p.Y+p.Height)
+		p.written++
+		attrs := []string{
+			m.diagramLayoutAttributeForHost(p.prefix, "Layout", "x", layoutNumber(pl.X), v.host, p.x),
+			m.diagramLayoutAttributeForHost(p.prefix, "Layout", "y", layoutNumber(pl.Y), v.host, p.x),
+			m.diagramLayoutAttributeForHost(p.prefix, "Layout", "width", layoutNumber(pl.Width), v.host, p.x),
+			m.diagramLayoutAttributeForHost(p.prefix, "Layout", "height", layoutNumber(pl.Height), v.host, p.x),
+		}
+		placements = append(placements, fmt.Sprintf("metadata %sLayout about %s { %s; }",
+			p.prefix, ref, strings.Join(attrs, "; ")))
+		p.grow(pl.X+pl.Width, pl.Y+pl.Height)
 	}
-	reasons := map[string]int{}
+	return placements
+}
+
+// routes writes a Route per connector whose element the view draws, tallying
+// by the connector's v1 kind why each is or is not pinned.
+func (p *layoutPlan) routes(rec *mtip.Diagram) []string {
+	m, v, s := p.m, p.v, p.m.layoutSummary
+	var routes []string
+	p.reasons = map[string]int{}
 	pinned := map[string]bool{}
 	for _, c := range rec.Connectors {
 		s.Routes++
 		el := m.model.Lookup(c.ID)
 		if el == nil {
 			s.RoutesDangling++
-			reasons[routeDangling]++
+			p.reasons[routeDangling]++
 			m.routeKinds.add(routeKindName(c.Type, nil), routeDangling)
 			continue
 		}
 		kind := routeKindName(c.Type, el)
-		refs, why := m.routeTarget(el, v.host, form)
+		refs, why := m.routeTarget(el, v.host, p.form)
 		ref := strings.Join(refs, ", ")
 		switch {
 		case why != "":
-		case !m.draws(x, form, el, refs[0]):
+		case !m.draws(p.x, p.form, el, refs[0]):
 			why = routeNotExposed
 		case pinned[ref]:
-			refOf[c.ID] = ref
+			p.refOf[c.ID] = ref
 			why = routeDuplicate
 		}
 		if why != "" {
 			s.RoutesUnexposed++
-			reasons[why]++
+			p.reasons[why]++
 			m.routeKinds.add(kind, why)
 			continue
 		}
 		pinned[ref] = true
-		refOf[c.ID] = ref
+		p.refOf[c.ID] = ref
 		s.RoutesWritten++
-		reasons[routeWritten]++
+		p.reasons[routeWritten]++
 		m.routeKinds.add(kind, routeWritten)
 		var b strings.Builder
-		b.WriteString("metadata " + prefix + "Route about " + ref + " { points = (")
+		b.WriteString("metadata " + p.prefix + "Route about " + ref + " { ")
+		b.WriteString(m.diagramLayoutAttributeForHost(p.prefix, "Route", "points", "(", v.host, p.x))
 		for i, n := range c.Points {
 			if i > 0 {
 				b.WriteString(", ")
 			}
 			b.WriteString(layoutNumber(n))
 			if i%2 == 0 {
-				grow(n, maxY)
+				p.grow(n, p.maxY)
 			} else {
-				grow(maxX, n)
+				p.grow(p.maxX, n)
 			}
 		}
 		b.WriteString("); }")
 		routes = append(routes, b.String())
 	}
-	for tag, n := range rec.Unsupported {
-		s.Unsupported[tag] += n
-	}
-	dress := m.viewDressing(v, form, prefix, func(id string) string {
-		if ref, ok := refOf[id]; ok {
-			return ref
-		}
-		return m.drawnRef(x, form, v.host, id)
-	})
-	for _, p := range m.pastedPictures(v.d).drawn {
-		grow(p.sym.Bounds.X+p.sym.Bounds.Width, p.sym.Bounds.Y+p.sym.Bounds.Height)
-	}
-	geo := viewGeometry{pictures: dress.pictures, underlaid: dress.underlaid, undrawn: dress.undrawn, lost: dress.lost}
-	if size {
-		geo.lines = append(geo.lines, fmt.Sprintf("@%sCanvas { unit = \"px\"; width = %s; height = %s; }",
-			prefix, layoutNumber(maxX), layoutNumber(maxY)))
-	}
-	geo.lines = append(geo.lines, placements...)
-	geo.lines = append(geo.lines, routes...)
-	geo.lines = append(geo.lines, dress.lines...)
-	if len(rec.Placements)+len(rec.Connectors) > 0 {
-		clauses := append([]string{layoutClause(written, unexposed, dangling, len(rec.Placements)), routeClause(reasons, len(rec.Connectors))}, dress.notes...)
-		geo.note = fmt.Sprintf("laid out from %s: %s", source, strings.Join(clauses, ", "))
-	} else if len(dress.notes) > 0 {
-		geo.note = fmt.Sprintf("dressed from %s: %s", streamSource, strings.Join(dress.notes, ", "))
-	}
-	return geo
+	return routes
 }
 
 // drawnRef names the element id as the view of form f exposing x draws it, as a

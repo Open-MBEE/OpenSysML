@@ -505,6 +505,7 @@ func (e *snapshotEncoder) writeTables(idx *Index, docs []string) {
 	}
 
 	// bySegment
+	idx.settleSegments()
 	keys = slices.Sorted(maps.Keys(idx.bySegment.own))
 	e.w.Len(len(keys))
 	for _, k := range keys {

@@ -20,7 +20,7 @@ package Obj {
 		}
 
 		action bumpBy {
-			in n;
+			in n[1];
 			first apply;
 			action apply {
 				assign count := count + n;

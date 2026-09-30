@@ -1,6 +1,11 @@
 package view
 
-import "math"
+import (
+	"math"
+	"unicode"
+
+	"golang.org/x/text/width"
+)
 
 // Graphviz sets a label's text with Pango at 96 dots an inch, each glyph's
 // advance hinted to a whole pixel and a line standing the font's ascent and
@@ -33,8 +38,10 @@ func dotLineHeight(size float64) float64 {
 	return (math.Ceil(dotAscent*px) + math.Ceil(dotDescent*px)) / dotPixelsPerPoint
 }
 
-// dotAdvance is a glyph's advance in ems, plain or bold, a glyph the tables lack
-// taking the average.
+// dotAdvance is a glyph's advance in ems, plain or bold. A glyph the tables lack
+// is measured by its Unicode width class: an East Asian wide or fullwidth glyph
+// is set square, an em; a combining mark rides on the glyph before it; the rest
+// take the average.
 func dotAdvance(r rune, bold bool) float64 {
 	ascii, others, average := dotPlainASCII, dotPlainOthers, dotGlyphEm
 	if bold {
@@ -45,6 +52,12 @@ func dotAdvance(r rune, bold bool) float64 {
 	}
 	if w, ok := others[r]; ok {
 		return w
+	}
+	switch {
+	case unicode.Is(unicode.Mn, r), unicode.Is(unicode.Me, r):
+		return 0
+	case width.LookupRune(r).Kind() == width.EastAsianWide, width.LookupRune(r).Kind() == width.EastAsianFullwidth:
+		return 1
 	}
 	return average
 }

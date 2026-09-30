@@ -18,6 +18,7 @@ export type {
 } from "./model.js";
 export {
   CAPABILITY_APPLY_EDITS,
+  CAPABILITY_ACTION_BODY_STATEMENT_AUTHORING,
   CAPABILITY_CASE_EVALUATIONS,
   CAPABILITY_COMPLEX_VALUES,
   CAPABILITY_CONVERT,
@@ -37,6 +38,7 @@ export {
   CAPABILITY_QUERY,
   CAPABILITY_SCHEDULE,
   CAPABILITY_SCHEDULE_EXPLORE,
+  CAPABILITY_SEQUENCE_AUTHORING,
   CAPABILITY_SET_VALUES,
   CAPABILITY_STRICT_CONFORMANCE,
   CAPABILITY_STRUCTURED_VALUES,
@@ -103,4 +105,5 @@ export type {
   VerdictSubject,
 } from "./values.js";
 export { baseUrl } from "./transport.js";
+export { PACKAGE_NAME, PLATFORM_PACKAGE_PREFIX } from "./package.js";
 export { SysMLService } from "../generated/sysml_pb.js";

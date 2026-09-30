@@ -145,17 +145,18 @@ const (
 // is a horizontal gradient, left to right colour; each pen is the border colour
 // under the anti-aliasing. Cameo's drop shadow is not drawn: Graphviz has none.
 const (
+	cameoGrey       = "#424242"
 	cameoFontName   = "Arial"
 	cameoFontSize   = 11
 	cameoSmallPts   = 9
-	cameoTextColor  = "#424242"
+	cameoTextColor  = cameoGrey
 	cameoLineColor  = "#5B5B59"
-	cameoEdgeColor  = "#424242"
+	cameoEdgeColor  = cameoGrey
 	cameoFrameColor = "#5B5B59"
 	cameoNoteFill   = "#FFFFFF"
 	cameoStateFill  = "#FFFFCC:#FFFFF2"
 	cameoActionFill = "#E1E1C3:#F7F7EF"
-	cameoActionLine = "#424242"
+	cameoActionLine = cameoGrey
 	cameoBlockFill  = "#FFCC99:#FFFAD4"
 	cameoBlockLine  = "#99795C"
 )

@@ -9,6 +9,10 @@
 elmt:Gen
     a sysml:Package ;
     sysml:qualifiedName "Gen" ;
+    sysx:sourceLine "1"^^xsd:integer ;
+    sysx:sourceColumn "1"^^xsd:integer ;
+    sysx:sourceEndLine "9"^^xsd:integer ;
+    sysx:sourceEndColumn "2"^^xsd:integer ;
     sysml:elementId "Gen" ;
     sysx:memberIndex "0"^^xsd:integer ;
     sysx:sourceLanguage "sysml" ;
@@ -26,6 +30,10 @@ elmt:Gen
 elmt:Gen__G1
     a sysml:PartDefinition ;
     sysml:qualifiedName "Gen::G1" ;
+    sysx:sourceLine "2"^^xsd:integer ;
+    sysx:sourceColumn "5"^^xsd:integer ;
+    sysx:sourceEndLine "5"^^xsd:integer ;
+    sysx:sourceEndColumn "6"^^xsd:integer ;
     sysml:elementId "Gen__G1" ;
     sysx:memberIndex "0"^^xsd:integer ;
     sysml:owningNamespace elmt:Gen ;
@@ -60,6 +68,10 @@ elmt:Gen__G1_om
 elmt:Gen__G1__x
     a sysml:AttributeUsage ;
     sysml:qualifiedName "Gen::G1::x" ;
+    sysx:sourceLine "3"^^xsd:integer ;
+    sysx:sourceColumn "9"^^xsd:integer ;
+    sysx:sourceEndLine "3"^^xsd:integer ;
+    sysx:sourceEndColumn "21"^^xsd:integer ;
     sysml:elementId "Gen__G1__x" ;
     sysx:memberIndex "0"^^xsd:integer ;
     sysml:owningNamespace elmt:Gen__G1 ;
@@ -85,6 +97,10 @@ elmt:Gen__G1__x_om
 elmt:Gen__G1__y
     a sysml:AttributeUsage ;
     sysml:qualifiedName "Gen::G1::y" ;
+    sysx:sourceLine "4"^^xsd:integer ;
+    sysx:sourceColumn "9"^^xsd:integer ;
+    sysx:sourceEndLine "4"^^xsd:integer ;
+    sysx:sourceEndColumn "21"^^xsd:integer ;
     sysml:elementId "Gen__G1__y" ;
     sysx:memberIndex "1"^^xsd:integer ;
     sysml:owningNamespace elmt:Gen__G1 ;
@@ -110,6 +126,10 @@ elmt:Gen__G1__y_om
 elmt:Gen__G2
     a sysml:PartDefinition ;
     sysml:qualifiedName "Gen::G2" ;
+    sysx:sourceLine "6"^^xsd:integer ;
+    sysx:sourceColumn "5"^^xsd:integer ;
+    sysx:sourceEndLine "8"^^xsd:integer ;
+    sysx:sourceEndColumn "6"^^xsd:integer ;
     sysml:elementId "Gen__G2" ;
     sysx:memberIndex "1"^^xsd:integer ;
     sysml:owningNamespace elmt:Gen ;
@@ -139,6 +159,10 @@ elmt:Gen__G2_om
 elmt:Gen__G2__x
     a sysml:AttributeUsage ;
     sysml:qualifiedName "Gen::G2::x" ;
+    sysx:sourceLine "7"^^xsd:integer ;
+    sysx:sourceColumn "9"^^xsd:integer ;
+    sysx:sourceEndLine "7"^^xsd:integer ;
+    sysx:sourceEndColumn "21"^^xsd:integer ;
     sysml:elementId "Gen__G2__x" ;
     sysx:memberIndex "0"^^xsd:integer ;
     sysml:owningNamespace elmt:Gen__G2 ;
@@ -164,6 +188,10 @@ elmt:Gen__G2__x_om
 elmt:Chains
     a sysml:Package ;
     sysml:qualifiedName "Chains" ;
+    sysx:sourceLine "10"^^xsd:integer ;
+    sysx:sourceColumn "1"^^xsd:integer ;
+    sysx:sourceEndLine "26"^^xsd:integer ;
+    sysx:sourceEndColumn "2"^^xsd:integer ;
     sysml:elementId "Chains" ;
     sysx:memberIndex "1"^^xsd:integer ;
     sysx:sourceLanguage "sysml" ;
@@ -181,6 +209,10 @@ elmt:Chains
 elmt:Chains__Wheel
     a sysml:PartDefinition ;
     sysml:qualifiedName "Chains::Wheel" ;
+    sysx:sourceLine "11"^^xsd:integer ;
+    sysx:sourceColumn "5"^^xsd:integer ;
+    sysx:sourceEndLine "11"^^xsd:integer ;
+    sysx:sourceEndColumn "40"^^xsd:integer ;
     sysml:elementId "Chains__Wheel" ;
     sysx:memberIndex "0"^^xsd:integer ;
     sysml:owningNamespace elmt:Chains ;
@@ -212,6 +244,10 @@ elmt:Chains__Wheel_om
 elmt:Chains__Axle
     a sysml:PartDefinition ;
     sysml:qualifiedName "Chains::Axle" ;
+    sysx:sourceLine "12"^^xsd:integer ;
+    sysx:sourceColumn "5"^^xsd:integer ;
+    sysx:sourceEndLine "14"^^xsd:integer ;
+    sysx:sourceEndColumn "6"^^xsd:integer ;
     sysml:elementId "Chains__Axle" ;
     sysx:memberIndex "1"^^xsd:integer ;
     sysml:owningNamespace elmt:Chains ;
@@ -241,6 +277,10 @@ elmt:Chains__Axle_om
 elmt:Chains__Axle__hub
     a sysml:PartUsage ;
     sysml:qualifiedName "Chains::Axle::hub" ;
+    sysx:sourceLine "13"^^xsd:integer ;
+    sysx:sourceColumn "9"^^xsd:integer ;
+    sysx:sourceEndLine "13"^^xsd:integer ;
+    sysx:sourceEndColumn "26"^^xsd:integer ;
     sysml:elementId "Chains__Axle__hub" ;
     sysx:memberIndex "0"^^xsd:integer ;
     sysml:owningNamespace elmt:Chains__Axle ;
@@ -270,6 +310,10 @@ elmt:Chains__Axle__hub_om
 elmt:Chains__Car
     a sysml:PartDefinition ;
     sysml:qualifiedName "Chains::Car" ;
+    sysx:sourceLine "15"^^xsd:integer ;
+    sysx:sourceColumn "5"^^xsd:integer ;
+    sysx:sourceEndLine "25"^^xsd:integer ;
+    sysx:sourceEndColumn "6"^^xsd:integer ;
     sysml:elementId "Chains__Car" ;
     sysx:memberIndex "2"^^xsd:integer ;
     sysml:owningNamespace elmt:Chains ;
@@ -304,6 +348,10 @@ elmt:Chains__Car_om
 elmt:Chains__Car__w
     a sysml:PartUsage ;
     sysml:qualifiedName "Chains::Car::w" ;
+    sysx:sourceLine "16"^^xsd:integer ;
+    sysx:sourceColumn "9"^^xsd:integer ;
+    sysx:sourceEndLine "16"^^xsd:integer ;
+    sysx:sourceEndColumn "24"^^xsd:integer ;
     sysml:elementId "Chains__Car__w" ;
     sysx:memberIndex "0"^^xsd:integer ;
     sysml:owningNamespace elmt:Chains__Car ;
@@ -333,6 +381,10 @@ elmt:Chains__Car__w_om
 elmt:Chains__Car__axle
     a sysml:PartUsage ;
     sysml:qualifiedName "Chains::Car::axle" ;
+    sysx:sourceLine "17"^^xsd:integer ;
+    sysx:sourceColumn "9"^^xsd:integer ;
+    sysx:sourceEndLine "17"^^xsd:integer ;
+    sysx:sourceEndColumn "26"^^xsd:integer ;
     sysml:elementId "Chains__Car__axle" ;
     sysx:memberIndex "1"^^xsd:integer ;
     sysml:owningNamespace elmt:Chains__Car ;
@@ -362,6 +414,10 @@ elmt:Chains__Car__axle_om
 elmt:Chains__Car__a
     a sysml:AttributeUsage ;
     sysml:qualifiedName "Chains::Car::a" ;
+    sysx:sourceLine "18"^^xsd:integer ;
+    sysx:sourceColumn "9"^^xsd:integer ;
+    sysx:sourceEndLine "18"^^xsd:integer ;
+    sysx:sourceEndColumn "36"^^xsd:integer ;
     sysml:elementId "Chains__Car__a" ;
     sysx:memberIndex "2"^^xsd:integer ;
     sysml:owningNamespace elmt:Chains__Car ;
@@ -514,6 +570,10 @@ expr:Chains__Car__a_pvalue_om
 elmt:Chains__Car__b
     a sysml:AttributeUsage ;
     sysml:qualifiedName "Chains::Car::b" ;
+    sysx:sourceLine "19"^^xsd:integer ;
+    sysx:sourceColumn "9"^^xsd:integer ;
+    sysx:sourceEndLine "19"^^xsd:integer ;
+    sysx:sourceEndColumn "36"^^xsd:integer ;
     sysml:elementId "Chains__Car__b" ;
     sysx:memberIndex "3"^^xsd:integer ;
     sysml:owningNamespace elmt:Chains__Car ;
@@ -666,6 +726,10 @@ expr:Chains__Car__b_pvalue_om
 elmt:Chains__Car__c
     a sysml:AttributeUsage ;
     sysml:qualifiedName "Chains::Car::c" ;
+    sysx:sourceLine "20"^^xsd:integer ;
+    sysx:sourceColumn "9"^^xsd:integer ;
+    sysx:sourceEndLine "20"^^xsd:integer ;
+    sysx:sourceEndColumn "27"^^xsd:integer ;
     sysml:elementId "Chains__Car__c" ;
     sysx:memberIndex "4"^^xsd:integer ;
     sysml:owningNamespace elmt:Chains__Car ;
@@ -818,6 +882,10 @@ expr:Chains__Car__c_pvalue_om
 elmt:Chains__Car__d
     a sysml:AttributeUsage ;
     sysml:qualifiedName "Chains::Car::d" ;
+    sysx:sourceLine "21"^^xsd:integer ;
+    sysx:sourceColumn "9"^^xsd:integer ;
+    sysx:sourceEndLine "21"^^xsd:integer ;
+    sysx:sourceEndColumn "43"^^xsd:integer ;
     sysml:elementId "Chains__Car__d" ;
     sysx:memberIndex "5"^^xsd:integer ;
     sysml:owningNamespace elmt:Chains__Car ;
@@ -1046,6 +1114,10 @@ expr:Chains__Car__d_pvalue_om
 elmt:Chains__Car__e
     a sysml:AttributeUsage ;
     sysml:qualifiedName "Chains::Car::e" ;
+    sysx:sourceLine "22"^^xsd:integer ;
+    sysx:sourceColumn "9"^^xsd:integer ;
+    sysx:sourceEndLine "22"^^xsd:integer ;
+    sysx:sourceEndColumn "34"^^xsd:integer ;
     sysml:elementId "Chains__Car__e" ;
     sysx:memberIndex "6"^^xsd:integer ;
     sysml:owningNamespace elmt:Chains__Car ;
@@ -1274,6 +1346,10 @@ expr:Chains__Car__e_pvalue_om
 elmt:Chains__Car__spare
     a sysml:PartUsage ;
     sysml:qualifiedName "Chains::Car::spare" ;
+    sysx:sourceLine "23"^^xsd:integer ;
+    sysx:sourceColumn "9"^^xsd:integer ;
+    sysx:sourceEndLine "23"^^xsd:integer ;
+    sysx:sourceEndColumn "25"^^xsd:integer ;
     sysml:elementId "Chains__Car__spare" ;
     sysx:memberIndex "7"^^xsd:integer ;
     sysml:owningNamespace elmt:Chains__Car ;
@@ -1303,6 +1379,10 @@ elmt:Chains__Car__spare_om
 elmt:Chains__Car__f
     a sysml:AttributeUsage ;
     sysml:qualifiedName "Chains::Car::f" ;
+    sysx:sourceLine "24"^^xsd:integer ;
+    sysx:sourceColumn "9"^^xsd:integer ;
+    sysx:sourceEndLine "24"^^xsd:integer ;
+    sysx:sourceEndColumn "31"^^xsd:integer ;
     sysml:elementId "Chains__Car__f" ;
     sysx:memberIndex "8"^^xsd:integer ;
     sysml:owningNamespace elmt:Chains__Car ;

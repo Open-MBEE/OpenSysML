@@ -4,10 +4,10 @@ part def Sensor {
     attribute scale : ScalarValues::Real;
     attribute label : ScalarValues::String;
     attribute misses : ScalarValues::Integer;
-    action def Settle {
+    perform action settle {
         first start then 'start timer';
         action 'start timer' {
-            assign this.settleTime := localClock.currentTime;
+            assign settleTime := localClock.currentTime;
         }
         first 'start timer' then wait;
         action wait accept after RandomFunctions::uniform(2.0, 4.0) [SI::s];
@@ -15,14 +15,13 @@ part def Sensor {
         action settle;
         first settle then 'stop timer';
         action 'stop timer' {
-            assign this.settleTime := localClock.currentTime - this.settleTime;
+            assign settleTime := localClock.currentTime - settleTime;
         }
         first 'stop timer' then final;
         action final terminate;
         metadata MigrationMetadata::SynthesizedName about wait, final;
         metadata MigrationMetadata::StandIn about wait;
     }
-    perform action settle : Settle;
 }
 part def 'Settling Analysis' :> Sensor {
     /* not migrated: «BindingConnector» Connector (_bindMedian) — the connector binds the simulation tool's MonteCarloAnalysis::Median, a statistic Simulation::MonteCarlo has no counterpart for; applied stereotypes «BindingConnector» */
@@ -33,9 +32,9 @@ analysis def 'Settling Analysis Monte Carlo' :> Simulation::MonteCarlo {
     subject analysed : 'Settling Analysis';
     perform action run ::> analysed.settle;
     attribute :>> observed : ScalarValues::Real = analysed.settleTime;
-    return Mean : ScalarValues::Real = mean;
+    return Mean : ScalarValues::Real[1] = mean;
     out Deviation : ScalarValues::Real[0..1] = deviation;
-    out OutOfSpec : ScalarValues::Integer = outOfSpec;
+    out OutOfSpec : ScalarValues::Integer[1] = outOfSpec;
 }
 individual part def 'settling analysis' :> 'Settling Analysis';
 part def 'Retried Settling' :> 'Settling Analysis' {
@@ -45,9 +44,9 @@ analysis def 'Retried Settling Monte Carlo' :> Simulation::MonteCarlo {
     subject analysed : 'Retried Settling';
     perform action run ::> analysed.settle;
     attribute :>> observed : ScalarValues::Real = analysed.settleTime;
-    return Mean : ScalarValues::Real = mean;
-    out N : ScalarValues::Integer = runs;
-    out OutOfSpec : ScalarValues::Integer = outOfSpec;
+    return Mean : ScalarValues::Real[1] = mean;
+    out N : ScalarValues::Integer[1] = runs;
+    out OutOfSpec : ScalarValues::Integer[1] = outOfSpec;
     out Deviation : ScalarValues::Real[0..1] = deviation;
 }
 individual part def 'retried settling' :> 'Retried Settling';

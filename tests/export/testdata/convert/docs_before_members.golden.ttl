@@ -8,6 +8,10 @@
 elmt:Documented
     a sysml:Package ;
     sysml:qualifiedName "Documented" ;
+    sysx:sourceLine "1"^^xsd:integer ;
+    sysx:sourceColumn "1"^^xsd:integer ;
+    sysx:sourceEndLine "16"^^xsd:integer ;
+    sysx:sourceEndColumn "2"^^xsd:integer ;
     sysml:elementId "Documented" ;
     sysx:memberIndex "0"^^xsd:integer ;
     sysx:sourceLanguage "sysml" ;
@@ -25,6 +29,10 @@ elmt:Documented
 elmt:Documented__Wheel
     a sysml:PartDefinition ;
     sysml:qualifiedName "Documented::Wheel" ;
+    sysx:sourceLine "2"^^xsd:integer ;
+    sysx:sourceColumn "5"^^xsd:integer ;
+    sysx:sourceEndLine "7"^^xsd:integer ;
+    sysx:sourceEndColumn "6"^^xsd:integer ;
     sysml:elementId "Documented__Wheel" ;
     sysx:memberIndex "0"^^xsd:integer ;
     sysml:owningNamespace elmt:Documented ;
@@ -59,13 +67,17 @@ elmt:Documented__Wheel_om
 elmt:Documented__Wheel___400
     a sysml:Documentation ;
     sysml:qualifiedName "Documented::Wheel::@0" ;
+    sysx:sourceLine "3"^^xsd:integer ;
+    sysx:sourceColumn "9"^^xsd:integer ;
+    sysx:sourceEndLine "3"^^xsd:integer ;
+    sysx:sourceEndColumn "28"^^xsd:integer ;
     sysml:elementId "Documented__Wheel___400" ;
     sysx:memberIndex "0"^^xsd:integer ;
     sysml:owningNamespace elmt:Documented__Wheel ;
     sysml:owner elmt:Documented__Wheel ;
     sysml:owningRelationship elmt:Documented__Wheel___400_om ;
     sysml:owningMembership elmt:Documented__Wheel___400_om ;
-    sysml:body " one wheel " ;
+    sysml:body "one wheel " ;
     sysx:sourceText "        doc /* one wheel */\n" .
 
 elmt:Documented__Wheel___400_om
@@ -81,6 +93,10 @@ elmt:Documented__Wheel___400_om
 elmt:Documented__Wheel__radius
     a sysml:AttributeUsage ;
     sysml:qualifiedName "Documented::Wheel::radius" ;
+    sysx:sourceLine "4"^^xsd:integer ;
+    sysx:sourceColumn "9"^^xsd:integer ;
+    sysx:sourceEndLine "4"^^xsd:integer ;
+    sysx:sourceEndColumn "33"^^xsd:integer ;
     sysml:elementId "Documented__Wheel__radius" ;
     sysx:memberIndex "1"^^xsd:integer ;
     sysml:owningNamespace elmt:Documented__Wheel ;
@@ -110,13 +126,17 @@ elmt:Documented__Wheel__radius_om
 elmt:Documented__Wheel___402
     a sysml:Comment ;
     sysml:qualifiedName "Documented::Wheel::@2" ;
+    sysx:sourceLine "5"^^xsd:integer ;
+    sysx:sourceColumn "9"^^xsd:integer ;
+    sysx:sourceEndLine "5"^^xsd:integer ;
+    sysx:sourceEndColumn "36"^^xsd:integer ;
     sysml:elementId "Documented__Wheel___402" ;
     sysx:memberIndex "2"^^xsd:integer ;
     sysml:owningNamespace elmt:Documented__Wheel ;
     sysml:owner elmt:Documented__Wheel ;
     sysml:owningRelationship elmt:Documented__Wheel___402_om ;
     sysml:owningMembership elmt:Documented__Wheel___402_om ;
-    sysml:body " about the hub " ;
+    sysml:body "about the hub " ;
     sysx:sourceText "        comment /* about the hub */\n" .
 
 elmt:Documented__Wheel___402_om
@@ -132,6 +152,10 @@ elmt:Documented__Wheel___402_om
 elmt:Documented__Wheel__hub
     a sysml:PortUsage ;
     sysml:qualifiedName "Documented::Wheel::hub" ;
+    sysx:sourceLine "6"^^xsd:integer ;
+    sysx:sourceColumn "9"^^xsd:integer ;
+    sysx:sourceEndLine "6"^^xsd:integer ;
+    sysx:sourceEndColumn "24"^^xsd:integer ;
     sysml:elementId "Documented__Wheel__hub" ;
     sysx:memberIndex "3"^^xsd:integer ;
     sysml:owningNamespace elmt:Documented__Wheel ;
@@ -161,6 +185,10 @@ elmt:Documented__Wheel__hub_om
 elmt:Documented__Hub
     a sysml:PortDefinition ;
     sysml:qualifiedName "Documented::Hub" ;
+    sysx:sourceLine "8"^^xsd:integer ;
+    sysx:sourceColumn "5"^^xsd:integer ;
+    sysx:sourceEndLine "11"^^xsd:integer ;
+    sysx:sourceEndColumn "6"^^xsd:integer ;
     sysml:elementId "Documented__Hub" ;
     sysx:memberIndex "1"^^xsd:integer ;
     sysml:owningNamespace elmt:Documented ;
@@ -228,13 +256,17 @@ elmt:Documented__Hub_conjugated_pc
 elmt:Documented__Hub___400
     a sysml:Documentation ;
     sysml:qualifiedName "Documented::Hub::@0" ;
+    sysx:sourceLine "9"^^xsd:integer ;
+    sysx:sourceColumn "9"^^xsd:integer ;
+    sysx:sourceEndLine "9"^^xsd:integer ;
+    sysx:sourceEndColumn "31"^^xsd:integer ;
     sysml:elementId "Documented__Hub___400" ;
     sysx:memberIndex "0"^^xsd:integer ;
     sysml:owningNamespace elmt:Documented__Hub ;
     sysml:owner elmt:Documented__Hub ;
     sysml:owningRelationship elmt:Documented__Hub___400_om ;
     sysml:owningMembership elmt:Documented__Hub___400_om ;
-    sysml:body " the hub port " ;
+    sysml:body "the hub port " ;
     sysx:sourceText "        doc /* the hub port */\n" .
 
 elmt:Documented__Hub___400_om
@@ -250,6 +282,10 @@ elmt:Documented__Hub___400_om
 elmt:Documented__Hub__stuff
     a sysml:ItemUsage ;
     sysml:qualifiedName "Documented::Hub::stuff" ;
+    sysx:sourceLine "10"^^xsd:integer ;
+    sysx:sourceColumn "9"^^xsd:integer ;
+    sysx:sourceEndLine "10"^^xsd:integer ;
+    sysx:sourceEndColumn "24"^^xsd:integer ;
     sysml:elementId "Documented__Hub__stuff" ;
     sysx:memberIndex "1"^^xsd:integer ;
     sysml:owningNamespace elmt:Documented__Hub ;
@@ -276,6 +312,10 @@ elmt:Documented__Hub__stuff_om
 elmt:Documented__wheel
     a sysml:PartUsage ;
     sysml:qualifiedName "Documented::wheel" ;
+    sysx:sourceLine "12"^^xsd:integer ;
+    sysx:sourceColumn "5"^^xsd:integer ;
+    sysx:sourceEndLine "15"^^xsd:integer ;
+    sysx:sourceEndColumn "6"^^xsd:integer ;
     sysml:elementId "Documented__wheel" ;
     sysx:memberIndex "2"^^xsd:integer ;
     sysml:owningNamespace elmt:Documented ;
@@ -311,13 +351,17 @@ elmt:Documented__wheel_om
 elmt:Documented__wheel___400
     a sysml:Documentation ;
     sysml:qualifiedName "Documented::wheel::@0" ;
+    sysx:sourceLine "13"^^xsd:integer ;
+    sysx:sourceColumn "9"^^xsd:integer ;
+    sysx:sourceEndLine "13"^^xsd:integer ;
+    sysx:sourceEndColumn "26"^^xsd:integer ;
     sysml:elementId "Documented__wheel___400" ;
     sysx:memberIndex "0"^^xsd:integer ;
     sysml:owningNamespace elmt:Documented__wheel ;
     sysml:owner elmt:Documented__wheel ;
     sysml:owningRelationship elmt:Documented__wheel___400_om ;
     sysml:owningMembership elmt:Documented__wheel___400_om ;
-    sysml:body " a wheel " ;
+    sysml:body "a wheel " ;
     sysx:sourceText "        doc /* a wheel */\n" .
 
 elmt:Documented__wheel___400_om
@@ -333,6 +377,10 @@ elmt:Documented__wheel___400_om
 elmt:Documented__wheel__serial
     a sysml:AttributeUsage ;
     sysml:qualifiedName "Documented::wheel::serial" ;
+    sysx:sourceLine "14"^^xsd:integer ;
+    sysx:sourceColumn "9"^^xsd:integer ;
+    sysx:sourceEndLine "14"^^xsd:integer ;
+    sysx:sourceEndColumn "26"^^xsd:integer ;
     sysml:elementId "Documented__wheel__serial" ;
     sysx:memberIndex "1"^^xsd:integer ;
     sysml:owningNamespace elmt:Documented__wheel ;

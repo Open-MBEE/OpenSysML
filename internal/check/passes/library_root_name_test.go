@@ -34,6 +34,10 @@ func TestLibraryRootNameWarns(t *testing.T) {
 		{"short name like a library package", `package <Requirements> Reqs {}`, 1},
 		{"nested package is not a root", `package P { package Requirements {} }`, 0},
 		{"unrelated root name", `package MyReqs {}`, 0},
+		{"root alias named like a library package", `package P { part def Pump; } alias Views for P;`, 1},
+		{"root alias short name like a library package", `alias <Views> V for ScalarValues;`, 1},
+		{"nested alias is not a root", `package P { alias Views for P; }`, 0},
+		{"root alias with unrelated name", `alias V for ScalarValues;`, 0},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			if got := libraryRootNameDiags(t, tc.src); got != tc.want {

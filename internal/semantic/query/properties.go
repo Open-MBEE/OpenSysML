@@ -34,6 +34,42 @@ func (r *PropertyReader) Values(sym *symbols.Symbol, property string) ([]string,
 	if sym == nil || r == nil || r.index == nil {
 		return nil, false
 	}
+	switch property {
+	case PropertyID, PropertyQualifiedName, PropertyOwner:
+		return r.identityValues(sym, property)
+	case PropertyName, PropertyDeclaredName, PropertyShortName, PropertyDeclaredShortName:
+		return r.nameValues(sym, property)
+	case PropertyDocumentation:
+		if r.semantics == nil {
+			return nil, false
+		}
+		bodies := r.semantics.DocumentationOf(sym)
+		return bodies, len(bodies) > 0
+	case PropertyType:
+		return presentValues(MetamodelTypeNameOf(sym))
+	case PropertyElementType:
+		return r.elementType(sym)
+	case PropertyGeneral:
+		return r.generals(sym)
+	case PropertyIsAbstract:
+		if sym.DeclaresUsage() || sym.DeclaresDefinition() {
+			return []string{strconv.FormatBool(symbols.IsAbstract(sym))}, true
+		}
+	case PropertyIsIndividual:
+		if sym.DeclaresUsage() || sym.DeclaresDefinition() {
+			return []string{strconv.FormatBool(individual(sym))}, true
+		}
+	case PropertyMultiplicityLower, PropertyMultiplicityUpper:
+		return r.multiplicityValues(sym, property)
+	case PropertySatisfiedRequirement, PropertySatisfyingFeature:
+		return r.satisfyEnd(sym, property)
+	}
+	return nil, false
+}
+
+// identityValues reads the properties naming an element or its owner, through
+// the identity override when one is set.
+func (r *PropertyReader) identityValues(sym *symbols.Symbol, property string) ([]string, bool) {
 	fqn := r.index.GetFQN(sym)
 	switch property {
 	case PropertyID:
@@ -48,6 +84,25 @@ func (r *PropertyReader) Values(sym *symbols.Symbol, property string) ([]string,
 			}
 		}
 		return presentValues(fqn)
+	case PropertyOwner:
+		owner := sym.OwnerScope.OwningElement()
+		if owner == nil {
+			return presentValues(ownerName(fqn))
+		}
+		if r.identity != nil {
+			if identity := r.identity(owner); identity != "" {
+				return presentValues(identity)
+			}
+		}
+		return presentValues(r.index.GetFQN(owner))
+	}
+	return nil, false
+}
+
+// nameValues reads the name properties, effective ones through the semantics
+// when they are available.
+func (r *PropertyReader) nameValues(sym *symbols.Symbol, property string) ([]string, bool) {
+	switch property {
 	case PropertyName:
 		if r.semantics != nil {
 			return presentValues(r.semantics.EffectiveNameOf(sym))
@@ -65,53 +120,22 @@ func (r *PropertyReader) Values(sym *symbols.Symbol, property string) ([]string,
 		return presentValues(sym.ShortName)
 	case PropertyDeclaredShortName:
 		return presentValues(sym.ShortName)
-	case PropertyDocumentation:
-		if r.semantics == nil {
-			return nil, false
-		}
-		bodies := r.semantics.DocumentationOf(sym)
-		return bodies, len(bodies) > 0
-	case PropertyOwner:
-		if sym.OwnerScope != nil && sym.OwnerScope.Owner() != nil {
-			owner := sym.OwnerScope.Owner()
-			if r.identity != nil {
-				if identity := r.identity(owner); identity != "" {
-					return presentValues(identity)
-				}
-			}
-			return presentValues(r.index.GetFQN(owner))
-		}
-		return presentValues(ownerName(fqn))
-	case PropertyType:
-		return presentValues(MetamodelTypeNameOf(sym))
-	case PropertyElementType:
-		return r.elementType(sym)
-	case PropertyGeneral:
-		return r.generals(sym)
-	case PropertyIsAbstract:
-		if sym.DeclaresUsage() || sym.DeclaresDefinition() {
-			return []string{strconv.FormatBool(symbols.IsAbstract(sym))}, true
-		}
-	case PropertyIsIndividual:
-		if sym.DeclaresUsage() || sym.DeclaresDefinition() {
-			return []string{strconv.FormatBool(individual(sym))}, true
-		}
-	case PropertyMultiplicityLower, PropertyMultiplicityUpper:
-		if r.semantics == nil {
-			return nil, false
-		}
-		rng, ok := r.semantics.MultiplicityOf(sym)
-		if !ok {
-			return nil, false
-		}
-		if property == PropertyMultiplicityLower {
-			return boundValues(rng.Lower)
-		}
-		return boundValues(rng.Upper)
-	case PropertySatisfiedRequirement, PropertySatisfyingFeature:
-		return r.satisfyEnd(sym, property)
 	}
 	return nil, false
+}
+
+func (r *PropertyReader) multiplicityValues(sym *symbols.Symbol, property string) ([]string, bool) {
+	if r.semantics == nil {
+		return nil, false
+	}
+	rng, ok := r.semantics.MultiplicityOf(sym)
+	if !ok {
+		return nil, false
+	}
+	if property == PropertyMultiplicityLower {
+		return boundValues(rng.Lower)
+	}
+	return boundValues(rng.Upper)
 }
 
 func (r *PropertyReader) satisfyEnd(sym *symbols.Symbol, property string) ([]string, bool) {

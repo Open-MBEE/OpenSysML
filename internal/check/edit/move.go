@@ -46,7 +46,7 @@ func (m Model) moveSplices(i int, op Operation) ([]splice, error) {
 		}
 	}
 	sameOwner := ownerScope != nil && ownerScope == sym.OwnerScope
-	if sym.Name != "" && ownerScope != nil && !sameOwner && len(ownerScope.LookupLocalAll(sym.Name)) > 0 {
+	if sym.Name != "" && !sameOwner && nameTaken(ownerScope, sym.Name) {
 		return nil, &Error{
 			Failure:        FailureMemberNameTaken,
 			OperationIndex: i,

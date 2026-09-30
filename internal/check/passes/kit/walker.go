@@ -84,29 +84,6 @@ func collectMemberSymbols(root *symbols.Scope) []*symbols.Symbol {
 	return out
 }
 
-// unnamedMetadataBody is the scope of an unnamed annotation's body, which no
-// symbol owns and the symbol walk therefore never reaches; nil for a named one.
-func UnnamedMetadataBody(scope *symbols.Scope, prefix *ast.PrefixMetadata) *symbols.Scope {
-	if scope == nil || prefix == nil || prefix.Ident.Name != "" || prefix.Ident.ShortName != "" {
-		return nil
-	}
-	return scope.ChildFor(prefix)
-}
-
-// forEachBodySymbol visits the symbols a metadata body declares, at any depth.
-func ForEachBodySymbol(body *symbols.Scope, visit func(*symbols.Symbol)) {
-	if body == nil {
-		return
-	}
-	body.ForEachMember(func(sym *symbols.Symbol) bool {
-		if sym != nil {
-			visit(sym)
-			ForEachBodySymbol(sym.Scope, visit)
-		}
-		return true
-	})
-}
-
 // w8cScopeOf returns the scope a declaration's own references resolve in.
 func DeclarationScope(sym *symbols.Symbol) *symbols.Scope {
 	if sym == nil {
@@ -197,4 +174,75 @@ func BodyScope(scope *symbols.Scope, decl ast.Node) *symbols.Scope {
 		return child
 	}
 	return scope
+}
+
+// ScopedNode is a node of a document with the scope it is written in.
+type ScopedNode struct {
+	Scope *symbols.Scope
+	Node  ast.Node
+}
+
+// ScopedNodes lists what WalkScoped visits under root, in visiting order. The
+// list of the document ctx analyzes is kept on ctx for the passes that walk it
+// again; any other root is walked each time.
+func ScopedNodes(ctx *Context, root *symbols.Scope) []ScopedNode {
+	if root == nil {
+		return nil
+	}
+	own := ctx != nil && ctx.ownRoot() == root
+	if own {
+		if cached, ok := ctx.scopedNodes[root]; ok {
+			return cached
+		}
+	}
+	var out []ScopedNode
+	WalkScoped(root, func(scope *symbols.Scope, node ast.Node) {
+		out = append(out, ScopedNode{Scope: scope, Node: node})
+	})
+	if own {
+		if ctx.scopedNodes == nil {
+			ctx.scopedNodes = make(map[*symbols.Scope][]ScopedNode)
+		}
+		ctx.scopedNodes[root] = out
+	}
+	return out
+}
+
+// WalkScoped visits every node of the document whose scope tree root heads,
+// each with the scope it is written in: a node that declares a scope of its own
+// is visited in the enclosing one, and its descendants in its own.
+func WalkScoped(root *symbols.Scope, visit func(scope *symbols.Scope, node ast.Node)) {
+	if root == nil {
+		return
+	}
+	owned := map[ast.Node]*symbols.Scope{}
+	var index func(*symbols.Scope)
+	index = func(s *symbols.Scope) {
+		if n := s.Node(); n != nil {
+			if _, seen := owned[n]; !seen {
+				owned[n] = s
+			}
+		}
+		for _, child := range s.Children() {
+			index(child)
+		}
+	}
+	index(root)
+	var walk func(*symbols.Scope)
+	walk = func(s *symbols.Scope) {
+		if n := s.Node(); n != nil && owned[n] == s {
+			ast.Inspect(n, func(node ast.Node) bool {
+				if node == n {
+					return true
+				}
+				visit(s, node)
+				_, nested := owned[node]
+				return !nested
+			})
+		}
+		for _, child := range s.Children() {
+			walk(child)
+		}
+	}
+	walk(root)
 }

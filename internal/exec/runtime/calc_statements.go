@@ -20,6 +20,42 @@ type calcStmtHost struct {
 	flow   *ActionExecutor
 	perfs  *performances
 	env    *stmtEnv // the body's values, which a step's outputs return to
+	// occ shares the performance instance `this` denotes with the
+	// invocation's evaluation context: nil until the first read materializes it.
+	occ *calcOccurrence
+}
+
+// calcOccurrence is the performance instance a calc def invocation's `this`
+// denotes, materialized lazily and shared between the invocation's evaluation
+// context and its statement host so both answer with the one instance.
+type calcOccurrence struct {
+	inst        *Instance
+	materialize func() (*Instance, error)
+	ended       bool
+	// params is the run's parameter bindings as they are bound, which a
+	// materialization seeds from; its vars map is shared with the run's frame.
+	params frame
+	// this is materializeOccurrence bound once, which every binding env reads.
+	this func() (*Instance, error)
+}
+
+// thisOccurrence is materializeOccurrence as the hook an EvalContext holds.
+func (o *calcOccurrence) thisOccurrence() func() (*Instance, error) {
+	if o == nil {
+		return o.materializeOccurrence
+	}
+	if o.this == nil {
+		o.this = o.materializeOccurrence
+	}
+	return o.this
+}
+
+// materializeOccurrence is the invocation's occurrence, made on the first call.
+func (o *calcOccurrence) materializeOccurrence() (*Instance, error) {
+	if o == nil || o.materialize == nil {
+		return nil, nil
+	}
+	return o.materialize()
 }
 
 // attachPerformances makes the host perform the steps of a case body as
@@ -47,6 +83,7 @@ func (h *calcStmtHost) attachPerformances(engine *stmtEngine) {
 		firedBreakpoints: make(map[breakpointVisit]bool),
 	}
 	h.flow.flow = h.flow
+	root.perfs = &h.flow.performances
 	h.perfs = &h.flow.performances
 	h.env = engine.env
 	engine.env.perf = root
@@ -106,17 +143,61 @@ func (h *calcStmtHost) assignOuter(env *stmtEnv, name string, value Value, s low
 	// Written to the body's own data, so later statements read the output bound —
 	// an assignment may accumulate into it — and the read that follows the
 	// activation answers from what the body left.
-	return storeBodyValue(h.ctx, h, env, name, value, s)
+	if err := storeBodyValue(h.ctx, h, env, name, value, s); err != nil {
+		return err
+	}
+	return h.mirrorOccurrence(name, value)
 }
 
 func (h *calcStmtHost) assignData(env *stmtEnv, name string, value Value, s lower.Assign) error {
-	return storeBodyValue(h.ctx, h, env, name, value, s)
+	if err := storeBodyValue(h.ctx, h, env, name, value, s); err != nil {
+		return err
+	}
+	return h.mirrorOccurrence(name, value)
+}
+
+// mirrorOccurrence carries a write to a declared feature into the occurrence
+// `this` materialized for, as bindCalcParameters mirrors bound inputs.
+// calcFeatureWriter is a calc run's frame write path for a feature its bindings
+// hold: a qualified write lands the way the body's own assignments do — checked
+// against the declaration, bound in the frame, and mirrored into the run's
+// occurrence when `this` materialized and holds the feature.
+func calcFeatureWriter(ctx *Context, shape *calcShape, occ *calcOccurrence) func(frame, string, Value) error {
+	return func(f frame, name string, value Value) error {
+		if err := ctx.checkNamedWrite(shape.bodyScope(), calcBodyDescription, name, &value); err != nil {
+			return err
+		}
+		f.set(name, value)
+		if occ == nil || occ.inst == nil {
+			return nil
+		}
+		if _, ok := occ.inst.FeatureValues[name]; !ok {
+			return nil
+		}
+		return occ.inst.SetFeatureValue(ctx, name, value)
+	}
+}
+
+func (h *calcStmtHost) mirrorOccurrence(name string, value Value) error {
+	if h.occ != nil && h.occ.inst != nil {
+		if _, ok := h.occ.inst.FeatureValues[name]; ok {
+			return h.occ.inst.SetFeatureValue(h.ctx, name, value)
+		}
+	}
+	return nil
 }
 
 // assignChain rejects a chained target: writing a feature of another object is
 // an effect outside the calculation, as writing an undeclared name is.
 func (h *calcStmtHost) assignChain(_ *EvalContext, s lower.Assign, _ Value) error {
 	return fmt.Errorf("%w: %s writes a feature of another object", ErrCalcExternalAssignment, s.Chain.Text)
+}
+
+// assignForeign rejects a qualified write naming an object outside the calc's
+// own run for the same reason a chained target is rejected.
+func (h *calcStmtHost) assignForeign(_ *EvalContext, s lower.Assign, _ Value) error {
+	return fmt.Errorf("%w: %s::%s writes a feature of another object",
+		ErrCalcExternalAssignment, s.Owner.Name, s.Target)
 }
 
 // acceptReturn takes the value a `return` yields, which the result parameter
@@ -134,6 +215,20 @@ func (h *calcStmtHost) acceptReturn(value Value, _ lower.Return) error {
 func (h *calcStmtHost) performer() *Instance {
 	// A calculation's steps see the object in its evaluation context, or nil without one.
 	return h.self
+}
+
+// occurrence is the instance the invocation materialized for `this`, nil
+// until a first read makes one; a calc usage materializes none.
+func (h *calcStmtHost) occurrence() *Instance {
+	if h.occ == nil {
+		return nil
+	}
+	return h.occ.inst
+}
+
+// materializeOccurrence makes the occurrence the invocation's `this` denotes.
+func (h *calcStmtHost) materializeOccurrence() (*Instance, error) {
+	return h.occ.materializeOccurrence()
 }
 
 // effect performs the action a `perform` in a case body names, its outputs
@@ -227,7 +322,7 @@ func (h *calcStmtHost) assignAround(name string, value Value) (bool, error) {
 			return true, err
 		}
 		h.env.data.set(name, value)
-		return true, nil
+		return true, h.mirrorOccurrence(name, value)
 	}
 	return false, nil
 }

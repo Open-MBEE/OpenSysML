@@ -76,7 +76,7 @@ func recordDifferential(t *testing.T, docs map[string][]byte) (recorded int) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	digest := libs.SourceDigest(libs.DefaultSource())
+	digest := libraryIdentity(t)
 
 	ws := model.NewWorkspace()
 	ws.OpenAll(inputs)
@@ -214,7 +214,7 @@ func TestInterfaceRecordWorkspaceAudits(t *testing.T) {
 		}
 		alone := model.NewWorkspace()
 		alone.Open("reqs.sysml", docs["reqs.sysml"], 1)
-		if n := oosemFindings(alone.Diagnostics("reqs.sysml")); n == 0 {
+		if oosemFindings(alone.Diagnostics("reqs.sysml")) == 0 {
 			t.Fatal("reqs.sysml reports no OOSEM finding alone (the fixture is vacuous otherwise)")
 		}
 		both := model.NewWorkspace()
@@ -306,13 +306,19 @@ func TestInterfaceRecordNeedsHydration(t *testing.T) {
 	if n := len(ws.Diagnostics("b.sysml")); n != 0 {
 		t.Fatalf("b.sysml over the recorded a.sysml: %d diagnostics", n)
 	}
-	_, err = ws.NewRuntime()
-	var needs *symbols.NeedsHydration
-	if !errors.Is(err, symbols.ErrNeedsHydration) || !errors.As(err, &needs) || needs.Doc != "a.sysml" {
-		t.Fatalf("NewRuntime over a recorded document: got %v, want a NeedsHydration for a.sysml", err)
-	}
 	if _, err := ws.InterfaceRecord("a.sysml"); !errors.Is(err, model.ErrRecorded) {
 		t.Fatalf("InterfaceRecord of a recorded document: got %v, want ErrRecorded", err)
+	}
+	// A runtime is lowered from trees, never evaluated against a record: building
+	// one hydrates the recorded document first.
+	if _, err := ws.NewRuntime(); err != nil {
+		t.Fatalf("NewRuntime over a recorded document: %v", err)
+	}
+	if ws.Recorded("a.sysml") {
+		t.Fatal("a.sysml is still recorded under a runtime")
+	}
+	if syms := ws.LookupQualified("A::P"); len(syms) != 1 || syms[0].Decl == nil {
+		t.Fatalf("A::P after hydration: %d symbols, tree-less", len(syms))
 	}
 }
 
@@ -376,4 +382,16 @@ func TestInterfaceRecordDocumentQueryNeedsHydration(t *testing.T) {
 	if !errors.Is(err, symbols.ErrNeedsHydration) || !errors.As(err, &needs) || needs.Doc != "parts.sysml" {
 		t.Fatalf("rendering over a recorded value: got %v, want a NeedsHydration for parts.sysml", err)
 	}
+}
+
+// libraryIdentity is the library half of a record's key in a workspace over the
+// bundled standard library.
+func libraryIdentity(t *testing.T) string {
+	t.Helper()
+	base, _ := libs.SharedLibrary()
+	identity, ok := base.LibraryIdentity()
+	if !ok {
+		t.Fatal("the bundled library's identity is unknown")
+	}
+	return identity
 }

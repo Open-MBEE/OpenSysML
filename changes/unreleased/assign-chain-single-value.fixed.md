@@ -1,0 +1,1 @@
+- A chained write (`assign a.b := v`) whose step holds a collection of exactly one value now reaches that one object, as a chained read already did; a step holding none is reported as an uninitialized feature value and one holding several keeps the "a write reaches one object" refusal.

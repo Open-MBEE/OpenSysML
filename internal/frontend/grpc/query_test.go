@@ -940,7 +940,7 @@ func TestQueryVerifyHasNoSatisfyEndProperties(t *testing.T) {
 	}
 }
 
-func TestQueryOmitsPositionalIdentityWhenExporterRefusesCollision(t *testing.T) {
+func TestQueryKeepsIDsDistinctForPositionalNameCollision(t *testing.T) {
 	model := `package Collision {
 		metadata def M;
 		#M part def Car {
@@ -964,8 +964,8 @@ func TestQueryOmitsPositionalIdentityWhenExporterRefusesCollision(t *testing.T) 
 		}
 	}
 	for _, element := range resp.Elements {
-		if isPositionalIdentity(element.Id) && element.Id != "Collision::Car::@1" {
-			t.Errorf("element id = %q, want no positional ids after the exporter refused the collision", element.Id)
+		if element.Type == "MetadataUsage" && element.Properties[QueryPropOwner] == "Collision::Car" && element.Id != "Collision::Car::@1" {
+			t.Errorf("prefix annotation id = %q, want its positional identity", element.Id)
 		}
 	}
 }
@@ -1037,4 +1037,57 @@ func assertQueryError(t *testing.T, err error, want QueryErrorKind) {
 	if got := connect.CodeOf(err); got != connect.CodeInvalidArgument {
 		t.Errorf("status code = %s, want %s", got, connect.CodeInvalidArgument)
 	}
+}
+
+// Every spelling of a metadata usage declares a queryable element: the
+// `metadata` spelling and the `@Tag;` / `@Tag { ... }` prefix spellings alike,
+// the unnamed ones identified by position.
+func TestQueryReportsMetadataUsages(t *testing.T) {
+	model := `package Q {
+	metadata def Tag;
+	part def S { @Tag; }
+	part def T { metadata Tag { doc /* about T */ } }
+	part def U { @ m : Tag; }
+	part def V { @Tag { doc /* about V */ } }
+}`
+	t.Run("metadata usages", func(t *testing.T) {
+		_, _, resp := runQueryOnSource(t, model, &pb.Query{
+			Where: primitive(QueryPropType, opEqual, false, "MetadataUsage"),
+		})
+		want := []string{"Q::S::@0", "Q::T::@0", "Q::U::m", "Q::V::@0"}
+		if len(resp.Elements) != len(want) {
+			t.Fatalf("metadata usage elements = %d, want %d: %v", len(resp.Elements), len(want), resp.Elements)
+		}
+		for i, element := range resp.Elements {
+			if element.Id != want[i] {
+				t.Errorf("element[%d].Id = %q, want %q", i, element.Id, want[i])
+			}
+			if element.Type != "MetadataUsage" {
+				t.Errorf("element[%d].Type = %q, want MetadataUsage", i, element.Type)
+			}
+		}
+	})
+	t.Run("documentation nested in a metadata body", func(t *testing.T) {
+		_, _, resp := runQueryOnSource(t, model, &pb.Query{
+			Where:  primitive(QueryPropType, opEqual, false, "Documentation"),
+			Select: []string{QueryPropOwner},
+		})
+		want := map[string]string{"Q::T::@0::@0": "Q::T::@0", "Q::V::@0::@0": "Q::V::@0"}
+		if len(resp.Elements) != len(want) {
+			t.Fatalf("documentation elements = %d, want %d: %v", len(resp.Elements), len(want), resp.Elements)
+		}
+		for _, element := range resp.Elements {
+			wantOwner, ok := want[element.Id]
+			if !ok {
+				t.Errorf("unexpected documentation element %q", element.Id)
+				continue
+			}
+			if element.Type != "Documentation" {
+				t.Errorf("element %q Type = %q, want Documentation", element.Id, element.Type)
+			}
+			if got := element.Properties[QueryPropOwner]; got != wantOwner {
+				t.Errorf("element %q owner = %q, want %q", element.Id, got, wantOwner)
+			}
+		}
+	})
 }

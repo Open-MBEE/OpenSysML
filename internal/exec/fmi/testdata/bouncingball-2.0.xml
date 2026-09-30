@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<fmiModelDescription fmiVersion="2.0" modelName="BouncingBall" guid="{8c4e810f-3df3-4a00-8276-176fa3c9f000}" description="A bouncing ball." author="Example" version="1.0" generationTool="OpenSysML" generationDateAndTime="2026-01-01T00:00:00Z">
+  <CoSimulation modelIdentifier="BouncingBall" needsExecutionTool="true" canHandleVariableCommunicationStepSize="true"/>
+  <UnitDefinitions>
+    <Unit name="m"><BaseUnit m="1"/></Unit>
+    <Unit name="m/s"><BaseUnit m="1" s="-1"/></Unit>
+    <Unit name="m/s2"><BaseUnit m="1" s="-2"/></Unit>
+  </UnitDefinitions>
+  <TypeDefinitions>
+    <SimpleType name="Position"><Real unit="m" min="-1e30" max="1e30"/></SimpleType>
+  </TypeDefinitions>
+  <ModelVariables>
+    <ScalarVariable name="h" valueReference="1" description="Height of the ball" causality="output" variability="continuous" declaredType="Position"><Real start="1.0"/></ScalarVariable>
+    <ScalarVariable name="v" valueReference="2" description="Velocity" causality="output" variability="continuous"><Real start="0.0" unit="m/s"/></ScalarVariable>
+    <ScalarVariable name="der_v" valueReference="5" description="Acceleration" causality="local" variability="continuous"><Real unit="m/s2"/></ScalarVariable>
+    <ScalarVariable name="g" valueReference="3" causality="parameter" variability="fixed"><Real start="-9.81" unit="m/s2"/></ScalarVariable>
+    <ScalarVariable name="e" valueReference="4" causality="parameter" variability="tunable"><Real start="0.7"/></ScalarVariable>
+  </ModelVariables>
+  <DefaultExperiment startTime="0.0" stopTime="3.0" stepSize="0.01" tolerance="0.0001"/>
+</fmiModelDescription>

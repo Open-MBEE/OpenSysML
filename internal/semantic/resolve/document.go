@@ -316,7 +316,8 @@ func (r *Resolver) resolveBehaviorDecl(scope *symbols.Scope, decl ast.Node) bool
 		return true
 	case *ast.DeferMember:
 		// A deferred event is a trigger like a transition's, so it resolves the
-		// same way: bare signal names are left to lowering.
+		// same way: typed payloads resolve, while bare signal names are left to
+		// lowering.
 		for _, trigger := range d.Triggers {
 			r.resolveTrigger(scope, trigger)
 		}
@@ -354,7 +355,7 @@ func (r *Resolver) resolveBehaviorDecl(scope *symbols.Scope, decl ast.Node) bool
 		r.ResolveEndpoint(scope, d.Target)
 		r.resolveTrigger(scope, d.Trigger)
 		if d.Via != nil {
-			r.ResolveQualified(scope, d.Via)
+			r.resolveVia(scope, d.Via)
 		}
 		body := symbols.TriggerScope(scope, d)
 		r.resolveExpr(body, d.Guard)
@@ -363,7 +364,15 @@ func (r *Resolver) resolveBehaviorDecl(scope *symbols.Scope, decl ast.Node) bool
 		return true
 	case *ast.SendStatement:
 		r.resolveExpr(scope, d.Message)
-		r.resolveExpr(scope, d.Target)
+		if d.IsVia {
+			if qn, ok := d.Target.(*ast.QualifiedName); ok {
+				r.resolveVia(scope, qn)
+			} else {
+				r.resolveExpr(scope, d.Target)
+			}
+		} else {
+			r.resolveExpr(scope, d.Target)
+		}
 		r.resolveExpr(scope, d.Receiver)
 		r.walkMembers(r.bodyScope(scope, d), d.Members)
 		return true
@@ -454,10 +463,9 @@ func isImplicitCalcResult(scope *symbols.Scope, node ast.Node) bool {
 
 // resolveTrigger resolves the references a transition trigger carries.
 //
-// A bare name after `when` is classified by lowering as a signal, and signals
-// are injected by the event source rather than declared in the model, so bare
-// names are left unresolved here; resolving them would report every signal-
-// triggered transition as an unresolved reference.
+// Bare names in the OpenSysML transition spelling `when` and in `defer` are
+// injected signals, so they remain unresolved here.
+// A bare name after `accept` is a typed payload usage and resolves normally.
 func (r *Resolver) resolveTrigger(scope *symbols.Scope, trigger ast.Node) {
 	switch t := trigger.(type) {
 	case nil:
@@ -481,8 +489,8 @@ func (r *Resolver) resolveTrigger(scope *symbols.Scope, trigger ast.Node) {
 			r.resolveDecl(scope, t.Payload)
 		}
 	case *ast.Usage:
-		// A named payload (`accept m : Warning`) declares a parameter, so its
-		// typing resolves like any other declaration's.
+		// Typed and named payload usages resolve their typing like any other
+		// declaration's; a bare `when` name is handled separately below.
 		r.resolveDecl(scope, t)
 	case *ast.QualifiedName, *ast.FeatureReference, *ast.CallEvent:
 		// Signal and call triggers name events, not model elements.
@@ -533,6 +541,11 @@ func (r *Resolver) bodyScope(scope *symbols.Scope, node ast.Node) *symbols.Scope
 	return scope
 }
 
+// PrefixScope returns the scope in which prefix metadata on decl resolves.
+func (r *Resolver) PrefixScope(scope *symbols.Scope, decl ast.Node) *symbols.Scope {
+	return r.bodyScope(scope, decl)
+}
+
 // resolvePrefixes resolves the prefix annotations of decl, a member of scope.
 // The annotated element owns them (KerML 8.2.4.2 PrefixMetadataMember), so
 // their names resolve in its own scope.
@@ -559,9 +572,7 @@ func (r *Resolver) resolveMetadataPrefix(names, parent *symbols.Scope, prefix *a
 	}
 	// Body values resolve against the metadata definition, not the annotated element.
 	linkMetadataBody(body, owner)
-	if owner != nil {
-		r.resolveMetadataBody(body, prefix.Body)
-	}
+	r.resolveMetadataBody(body, prefix.Body)
 }
 
 // metadataBodyOwner is the metadata definition the body of prefix resolves against,
@@ -679,7 +690,11 @@ func (r *Resolver) resolveRelationships(scope *symbols.Scope, decl ast.Node, rel
 
 			// Standard resolution in current scope
 			if qn, ok := target.(*ast.QualifiedName); ok {
-				r.ResolveQualified(scope, qn)
+				if rel.Kind == ast.RelVia {
+					r.resolveVia(scope, qn)
+				} else {
+					r.ResolveQualified(scope, qn)
+				}
 			} else if fc, ok := target.(*ast.FeatureChainExpr); ok {
 				r.resolveFeatureChain(scope, fc)
 			}
@@ -734,6 +749,11 @@ func (r *Resolver) relationshipScope(parent, header *symbols.Scope, rel *ast.Rel
 		}
 	}
 	return parent
+}
+
+// RelationshipScope returns the scope a head relationship target resolves in.
+func (r *Resolver) RelationshipScope(parent, header *symbols.Scope, rel *ast.Relationship) *symbols.Scope {
+	return r.relationshipScope(parent, header, rel)
 }
 
 // resolvesInHeader reports whether a head relationship's target, opening with name,
@@ -1511,30 +1531,7 @@ func (r *Resolver) resolveExpr(scope *symbols.Scope, e ast.Node) {
 		r.resolveExpr(scope, v.Operand)
 		r.resolveExpr(scope, v.Index)
 	case *ast.InvocationExpr:
-		r.resolveExpr(scope, v.Operand)
-		var called *symbols.Symbol
-		if v.Type != nil {
-			called, _ = r.ResolveInvocationName(scope, v.Type)
-		}
-		// A Column's expression argument evaluates per row, so a chain in it
-		// may name members of the row element, not a visible reference.
-		column := called != nil && symbols.FQNOf(called) == documentColumnCalcFQN
-		for i, a := range v.Args {
-			if column && i == 1 {
-				r.resolveColumnExpression(scope, a)
-			} else {
-				r.resolveExpr(scope, a)
-			}
-		}
-		for _, na := range v.NamedArgs {
-			// Named argument names are parameter identifiers, not references
-			// Don't resolve na.Name - it's looked up in callee's parameter list
-			if column && na.Name != nil && na.Name.Text() == "expression" {
-				r.resolveColumnExpression(scope, na.Value)
-			} else {
-				r.resolveExpr(scope, na.Value)
-			}
-		}
+		r.resolveInvocation(scope, v)
 	case *ast.CollectExpr:
 		r.resolveExpr(scope, v.Operand)
 		r.resolveExpr(scope, v.Body)
@@ -1542,40 +1539,9 @@ func (r *Resolver) resolveExpr(scope *symbols.Scope, e ast.Node) {
 		r.resolveExpr(scope, v.Operand)
 		r.resolveExpr(scope, v.Body)
 	case *ast.ConstructorExpr:
-		var typ *symbols.Symbol
-		if v.Type != nil {
-			typ, _ = r.ResolveQualified(scope, v.Type)
-		}
-		for _, a := range v.Args {
-			r.resolveExpr(scope, a)
-		}
-		for _, na := range v.NamedArgs {
-			// A simple label is a feature of the instantiated type; a qualified
-			// one is resolved in scope.
-			switch {
-			case na.Name == nil:
-			case len(na.Name.Parts) > 1:
-				r.ResolveQualified(scope, na.Name)
-			case typ != nil:
-				r.resolveMemberChain(typ, na.Name, nil)
-			}
-			r.resolveExpr(scope, na.Value)
-		}
+		r.resolveConstructor(scope, v)
 	case *ast.BodyExpr:
-		for i := range v.Params {
-			p := &v.Params[i]
-			if p.Type != nil {
-				r.ResolveQualified(scope, p.Type)
-			}
-			r.resolveRelationships(scope, v, p.Relationships)
-			r.resolveMultiplicity(scope, p.Multiplicity)
-			r.resolveExpr(scope, p.Value)
-		}
-		// A body expression's parameters and declarations live in a scope of its
-		// own, and its declarations are members of it (F64).
-		inner := symbols.BodyExprScope(scope, v)
-		r.walkMembers(inner, v.Members)
-		r.resolveExpr(inner, v.Result)
+		r.resolveBodyExpr(scope, v)
 	case *ast.SequenceExpr:
 		for _, el := range v.Elements {
 			r.resolveExpr(scope, el)
@@ -1593,6 +1559,72 @@ func (r *Resolver) resolveExpr(scope *symbols.Scope, e ast.Node) {
 		r.ResolveQualified(scope, v)
 	}
 	// Literals (LiteralBool/String/Integer/Real/Infinity, NullExpr) have no refs.
+}
+
+// resolveInvocation resolves an invocation's callee and arguments. A Column's
+// expression argument evaluates per row, so a chain in it may name members of
+// the row element, not a visible reference. Named argument names are parameter
+// identifiers looked up in the callee's parameter list, not references.
+func (r *Resolver) resolveInvocation(scope *symbols.Scope, v *ast.InvocationExpr) {
+	r.resolveExpr(scope, v.Operand)
+	var called *symbols.Symbol
+	if v.Type != nil {
+		called, _ = r.ResolveInvocationName(scope, v.Type)
+	}
+	column := called != nil && symbols.FQNOf(called) == documentColumnCalcFQN
+	for i, a := range v.Args {
+		if column && i == 1 {
+			r.resolveColumnExpression(scope, a)
+		} else {
+			r.resolveExpr(scope, a)
+		}
+	}
+	for _, na := range v.NamedArgs {
+		if column && na.Name != nil && na.Name.Text() == "expression" {
+			r.resolveColumnExpression(scope, na.Value)
+		} else {
+			r.resolveExpr(scope, na.Value)
+		}
+	}
+}
+
+// resolveConstructor resolves a constructor's type and arguments. A simple
+// label is a feature of the instantiated type; a qualified one is resolved in scope.
+func (r *Resolver) resolveConstructor(scope *symbols.Scope, v *ast.ConstructorExpr) {
+	var typ *symbols.Symbol
+	if v.Type != nil {
+		typ, _ = r.ResolveQualified(scope, v.Type)
+	}
+	for _, a := range v.Args {
+		r.resolveExpr(scope, a)
+	}
+	for _, na := range v.NamedArgs {
+		switch {
+		case na.Name == nil:
+		case len(na.Name.Parts) > 1:
+			r.ResolveQualified(scope, na.Name)
+		case typ != nil:
+			r.resolveMemberChain(typ, na.Name, nil)
+		}
+		r.resolveExpr(scope, na.Value)
+	}
+}
+
+// resolveBodyExpr resolves a body expression's parameters, then its members
+// and result in the scope of its own they live in (F64).
+func (r *Resolver) resolveBodyExpr(scope *symbols.Scope, v *ast.BodyExpr) {
+	for i := range v.Params {
+		p := &v.Params[i]
+		if p.Type != nil {
+			r.ResolveQualified(scope, p.Type)
+		}
+		r.resolveRelationships(scope, v, p.Relationships)
+		r.resolveMultiplicity(scope, p.Multiplicity)
+		r.resolveExpr(scope, p.Value)
+	}
+	inner := symbols.BodyExprScope(scope, v)
+	r.walkMembers(inner, v.Members)
+	r.resolveExpr(inner, v.Result)
 }
 
 // resolveColumnExpression resolves a Column's expression argument: a chain

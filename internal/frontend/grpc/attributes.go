@@ -43,7 +43,7 @@ func (sc *SymbolContext) libraryDeclared(sym *symbols.Symbol) bool {
 // other kind of feature.
 func isAttributeSymbol(sym *symbols.Symbol) bool {
 	return sym != nil &&
-		(sym.Kind == symbols.SymbolAttributeDef || sym.Kind == symbols.SymbolAttributeUsage)
+		(sym.Kind == symbols.SymbolAttributeDef || sym.Kind.IsAttributeLike())
 }
 
 // attributeInfoOf derives one attribute's facts.

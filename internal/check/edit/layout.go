@@ -13,13 +13,6 @@ import (
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/source"
 )
 
-// layoutBinding is one feature a DiagramLayout annotation body binds, spelled
-// as the writer puts it.
-type layoutBinding struct {
-	feature string
-	literal string
-}
-
 // layoutFeatures are the features each DiagramLayout metadata definition
 // declares, in the order the writer binds them.
 var layoutFeatures = map[string][]string{
@@ -109,87 +102,103 @@ func (m Model) layoutDocument(i int, op Operation, sym, viewSym *symbols.Symbol)
 
 // layoutBindings spells the geometry an operation writes, feature by feature,
 // or nil when the operation clears the annotation.
-func (m Model) layoutBindings(i int, op Operation) ([]layoutBinding, error) {
+func (m Model) layoutBindings(i int, op Operation) ([]MetadataValue, error) {
 	switch op.Annotation {
 	case semantics.LayoutFQN:
-		if op.Layout == nil {
-			return nil, nil
-		}
-		out := []layoutBinding{{"x", realLiteral(op.Layout.X)}, {"y", realLiteral(op.Layout.Y)}}
-		if op.Layout.HasSize {
-			out = append(out, layoutBinding{"width", realLiteral(op.Layout.Width)}, layoutBinding{"height", realLiteral(op.Layout.Height)})
-		}
-		if op.Layout.Collapsed {
-			out = append(out, layoutBinding{"collapsed", "true"})
-		}
-		return out, nil
+		return layoutValues(op.Layout), nil
 	case semantics.RouteFQN:
-		if op.Route == nil {
-			return nil, nil
-		}
-		if len(op.Route.Points) == 0 {
-			return nil, &Error{Failure: FailureInvalidValue, OperationIndex: i,
-				Message: fmt.Sprintf("a Route of %s needs at least one waypoint; clear the Route to route it straight", m.label(op))}
-		}
-		values := make([]string, 0, 2*len(op.Route.Points))
-		for _, p := range op.Route.Points {
-			values = append(values, realLiteral(p.X), realLiteral(p.Y))
-		}
-		return []layoutBinding{{"points", "(" + strings.Join(values, ", ") + ")"}}, nil
+		return m.routeValues(i, op)
 	case semantics.CanvasFQN:
-		if op.Canvas == nil {
-			return nil, nil
-		}
-		var out []layoutBinding
-		if op.Canvas.Unit != "" {
-			out = append(out, layoutBinding{"unit", stringLiteral(op.Canvas.Unit)})
-		}
-		if op.Canvas.HasSize {
-			out = append(out, layoutBinding{"width", realLiteral(op.Canvas.Width)}, layoutBinding{"height", realLiteral(op.Canvas.Height)})
-		}
-		if len(out) == 0 {
-			return nil, &Error{Failure: FailureInvalidValue, OperationIndex: i,
-				Message: fmt.Sprintf("a Canvas of %s binds neither a unit nor a size; clear the Canvas to drop it", op.Target)}
-		}
-		return out, nil
+		return canvasValues(i, op)
 	case semantics.StyleFQN:
-		if op.Style == nil {
-			return nil, nil
-		}
-		var out []layoutBinding
-		for _, c := range []struct{ feature, color string }{{"fill", op.Style.Fill}, {"line", op.Style.Line}, {"text", op.Style.Text}} {
-			if c.color == "" {
-				continue
-			}
-			if !semantics.IsHexColor(c.color) {
-				return nil, &Error{Failure: FailureInvalidValue, OperationIndex: i,
-					Message: fmt.Sprintf("the %s of a Style of %s is %q, not a colour written #RRGGBB", c.feature, m.label(op), c.color)}
-			}
-			out = append(out, layoutBinding{c.feature, stringLiteral(strings.ToUpper(c.color))})
-		}
-		if op.Style.Font != "" {
-			out = append(out, layoutBinding{"font", stringLiteral(op.Style.Font)})
-		}
-		if op.Style.FontSize < 0 {
-			return nil, &Error{Failure: FailureInvalidValue, OperationIndex: i,
-				Message: fmt.Sprintf("the fontSize of a Style of %s is negative", m.label(op))}
-		}
-		if op.Style.FontSize > 0 {
-			out = append(out, layoutBinding{"fontSize", realLiteral(op.Style.FontSize)})
-		}
-		if op.Style.Bold {
-			out = append(out, layoutBinding{"bold", "true"})
-		}
-		if op.Style.Italic {
-			out = append(out, layoutBinding{"italic", "true"})
-		}
-		if len(out) == 0 {
-			return nil, &Error{Failure: FailureInvalidValue, OperationIndex: i,
-				Message: fmt.Sprintf("a Style of %s states nothing; clear the Style to drop it", m.label(op))}
-		}
-		return out, nil
+		return m.styleValues(i, op)
 	}
 	return nil, nil
+}
+
+func layoutValues(l *semantics.Layout) []MetadataValue {
+	if l == nil {
+		return nil
+	}
+	out := []MetadataValue{{"x", realLiteral(l.X)}, {"y", realLiteral(l.Y)}}
+	if l.HasSize {
+		out = append(out, MetadataValue{"width", realLiteral(l.Width)}, MetadataValue{"height", realLiteral(l.Height)})
+	}
+	if l.Collapsed {
+		out = append(out, MetadataValue{"collapsed", "true"})
+	}
+	return out
+}
+
+func (m Model) routeValues(i int, op Operation) ([]MetadataValue, error) {
+	if op.Route == nil {
+		return nil, nil
+	}
+	if len(op.Route.Points) == 0 {
+		return nil, &Error{Failure: FailureInvalidValue, OperationIndex: i,
+			Message: fmt.Sprintf("a Route of %s needs at least one waypoint; clear the Route to route it straight", m.label(op))}
+	}
+	values := make([]string, 0, 2*len(op.Route.Points))
+	for _, p := range op.Route.Points {
+		values = append(values, realLiteral(p.X), realLiteral(p.Y))
+	}
+	return []MetadataValue{{"points", "(" + strings.Join(values, ", ") + ")"}}, nil
+}
+
+func canvasValues(i int, op Operation) ([]MetadataValue, error) {
+	if op.Canvas == nil {
+		return nil, nil
+	}
+	var out []MetadataValue
+	if op.Canvas.Unit != "" {
+		out = append(out, MetadataValue{"unit", stringLiteral(op.Canvas.Unit)})
+	}
+	if op.Canvas.HasSize {
+		out = append(out, MetadataValue{"width", realLiteral(op.Canvas.Width)}, MetadataValue{"height", realLiteral(op.Canvas.Height)})
+	}
+	if len(out) == 0 {
+		return nil, &Error{Failure: FailureInvalidValue, OperationIndex: i,
+			Message: fmt.Sprintf("a Canvas of %s binds neither a unit nor a size; clear the Canvas to drop it", op.Target)}
+	}
+	return out, nil
+}
+
+func (m Model) styleValues(i int, op Operation) ([]MetadataValue, error) {
+	if op.Style == nil {
+		return nil, nil
+	}
+	var out []MetadataValue
+	for _, c := range []struct{ feature, color string }{{"fill", op.Style.Fill}, {"line", op.Style.Line}, {"text", op.Style.Text}} {
+		if c.color == "" {
+			continue
+		}
+		if !semantics.IsHexColor(c.color) {
+			return nil, &Error{Failure: FailureInvalidValue, OperationIndex: i,
+				Message: fmt.Sprintf("the %s of a Style of %s is %q, not a colour written #RRGGBB", c.feature, m.label(op), c.color)}
+		}
+		out = append(out, MetadataValue{c.feature, stringLiteral(strings.ToUpper(c.color))})
+	}
+	if op.Style.Font != "" {
+		out = append(out, MetadataValue{"font", stringLiteral(op.Style.Font)})
+	}
+	if op.Style.FontSize < 0 {
+		return nil, &Error{Failure: FailureInvalidValue, OperationIndex: i,
+			Message: fmt.Sprintf("the fontSize of a Style of %s is negative", m.label(op))}
+	}
+	if op.Style.FontSize > 0 {
+		out = append(out, MetadataValue{"fontSize", realLiteral(op.Style.FontSize)})
+	}
+	if op.Style.Bold {
+		out = append(out, MetadataValue{"bold", "true"})
+	}
+	if op.Style.Italic {
+		out = append(out, MetadataValue{"italic", "true"})
+	}
+	if len(out) == 0 {
+		return nil, &Error{Failure: FailureInvalidValue, OperationIndex: i,
+			Message: fmt.Sprintf("a Style of %s states nothing; clear the Style to drop it", m.label(op))}
+	}
+	return out, nil
 }
 
 // realLiteral spells a coordinate as the notation's Real literal.
@@ -347,7 +356,7 @@ func (m Model) layoutSite(sem *semantics.Model, sym, viewSym *symbols.Symbol, ty
 
 // insertAnnotation is the insertion of a new annotation of type typeFQN: inline
 // in the body of sym, or stated about it in the body of viewSym.
-func (m Model) insertAnnotation(typeFQN string, bindings []layoutBinding, sym, viewSym *symbols.Symbol) splice {
+func (m Model) insertAnnotation(typeFQN string, bindings []MetadataValue, sym, viewSym *symbols.Symbol) splice {
 	owner := sym
 	text := "@" + typeFQN
 	if viewSym != nil {
@@ -359,10 +368,10 @@ func (m Model) insertAnnotation(typeFQN string, bindings []layoutBinding, sym, v
 }
 
 // writeBindings spells an annotation body on one line.
-func writeBindings(bindings []layoutBinding) string {
+func writeBindings(bindings []MetadataValue) string {
 	parts := make([]string, len(bindings))
 	for j, b := range bindings {
-		parts[j] = b.feature + " = " + b.literal + ";"
+		parts[j] = b.Feature + " = " + b.Value + ";"
 	}
 	return "{ " + strings.Join(parts, " ") + " }"
 }
@@ -370,10 +379,10 @@ func writeBindings(bindings []layoutBinding) string {
 // updateAnnotation rewrites an annotation in place: the value of each feature
 // it already binds, a removal of each it binds and the operation drops, and an
 // insertion of each the operation adds, after the last binding kept.
-func (m Model) updateAnnotation(site *semantics.LayoutSite, bindings []layoutBinding, features []string) []splice {
+func (m Model) updateAnnotation(site *semantics.LayoutSite, bindings []MetadataValue, features []string) []splice {
 	wanted := map[string]string{}
 	for _, b := range bindings {
-		wanted[b.feature] = b.literal
+		wanted[b.Feature] = b.Value
 	}
 	known := map[string]bool{}
 	for _, f := range features {
@@ -398,9 +407,9 @@ func (m Model) updateAnnotation(site *semantics.LayoutSite, bindings []layoutBin
 		}
 		out = append(out, splice{span: m.tokenSpan(b.Value.Span()), text: literal})
 	}
-	var missing []layoutBinding
+	var missing []MetadataValue
 	for _, b := range bindings {
-		if !bound[b.feature] {
+		if !bound[b.Feature] {
 			missing = append(missing, b)
 		}
 	}
@@ -434,7 +443,7 @@ func (m Model) bindingSpan(member *ast.Usage) source.Span {
 // bindingInsertion inserts bindings into an annotation body after the last
 // binding kept, or at the body's opening brace when none is; each on the line
 // of the last binding when the body is written on one line, else on its own.
-func (m Model) bindingInsertion(node ast.Node, after *ast.Usage, bindings []layoutBinding) splice {
+func (m Model) bindingInsertion(node ast.Node, after *ast.Usage, bindings []MetadataValue) splice {
 	content := m.Source.Bytes()
 	lbrace, rbrace := m.bodyBraces(node.Span())
 	at := lbrace.End()
@@ -454,7 +463,7 @@ func (m Model) bindingInsertion(node ast.Node, after *ast.Usage, bindings []layo
 	}
 	var text strings.Builder
 	for _, b := range bindings {
-		text.WriteString(sep + b.feature + " = " + b.literal + ";")
+		text.WriteString(sep + b.Feature + " = " + b.Value + ";")
 	}
 	return splice{span: source.Span{Offset: at}, text: text.String()}
 }

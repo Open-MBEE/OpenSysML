@@ -24,13 +24,13 @@ func streamingPair(producerBody, target string) string {
 			attribute total : Integer = 0;
 			fork split;
 			action producer {
-				out value : Integer;
+				out value : Integer[1];
 				` + producerBody + `
 				succession first start then step;
 				succession first step then done;
 			}
 			action consumer {
-				in value : Integer;
+				in value : Integer[1];
 				action take { assign total := total + 1; }
 				succession first start then take;
 				succession first take then done;
@@ -67,11 +67,11 @@ func testStreamingFlowTargetCompletedFirst(t *testing.T) {
 		action stream {
 			attribute total : Integer = 0;
 			action consumer {
-				in value : Integer;
+				in value : Integer[1];
 				assign total := total + 1;
 			}
 			action producer {
-				out value : Integer;
+				out value : Integer[1];
 				assign value := 7;
 			}
 			succession first start then consumer;
@@ -105,15 +105,15 @@ func testStreamingFlowOneLateValueLeft(t *testing.T) {
 			attribute total : Integer = 0;
 			merge again;
 			action consumer {
-				in value : Integer;
+				in value : Integer[1];
 				assign total := total + 1;
 			}
 			action producer {
-				out value : Integer;
+				out value : Integer[1];
 				assign value := 1;
 			}
 			action second {
-				out value : Integer;
+				out value : Integer[1];
 				assign value := 2;
 			}
 			decide choose;

@@ -15,25 +15,25 @@ package SendDelegatedPort {
 		port toM1 : CmdPort;
 
 		action def Command {
-			in context : Peas;
+			in ref context : Peas;
 			first start;
 			then action go send new Go() via context.toM1;
 			then done;
 		}
 
 		state def Life {
+			in ref context : Peas;
 			entry; then commanding;
 			state commanding {
 				do action run {
 					first start then call;
-					action call : Command;
-					bind call.context = this;
+					action call : Command { in ref :>> context = Life::context; }
 					first call then done;
 				}
 			}
 		}
 
-		exhibit state life : Life;
+		exhibit state life : Life { in ref :>> context = this; }
 	}
 
 	part def Box {

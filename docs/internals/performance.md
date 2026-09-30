@@ -5,7 +5,7 @@ say about where the remaining cost is. Figures below were taken on an
 `Intel Xeon Platinum 8559C`, Go 1.25, `GOMAXPROCS=8`; treat them as
 ratios rather than absolutes. Each release is measured against the one before it
 in a record under `docs/project/`; the latest is
-[release 0.8.0 against release 0.7.0](../project/performance-release-0.8-vs-0.7.0.md).
+[release 0.9.1 against release 0.9.0](../project/performance-release-0.9.1-vs-0.9.0.md).
 How far one realistic model scales — a satellite constellation with every
 spacecraft modeled to its components, from 2 to 12 800 satellites — and where
 validation, satisfaction checking and editing each stop being practical is in
@@ -106,9 +106,9 @@ sysml -validate -memstats $(find apollo-11-sysml-v2 -name '*.sysml')
 | what | wall | allocated |
 | ---- | ---- | --------- |
 | parse all 28 files | **8.2 ms** | 4.9 MiB in 31 000 allocations |
-| `sysml -validate`: load the standard library, resolve, validate, report | **0.43 s** | 196 MiB in 1.39 million allocations, about 157 MiB taken from the OS |
+| `sysml -validate`: load the standard library, resolve, validate, report | **0.27 s** | 175 MiB in 1.11 million allocations, about 132 MiB taken from the OS |
 
-Parsing is about 2% of the whole run — 880 lines a millisecond, 42 MB/s —
+Parsing is about 3% of the whole run — 880 lines a millisecond, 42 MB/s —
 so the cost of loading a model is name resolution and validation, and that is
 where the work described in the rest of this page goes. The largest single share
 of the remainder is the lookups made through the model's wildcard imports of the
@@ -117,18 +117,26 @@ answered by name (below).
 
 ### What it reports
 
-The run reports **4 warnings and no error**, and every one of them is a finding
-about the model. Three of the warnings are calculation invocations that leave an
-input the calculation declares unbound, so the call cannot be evaluated — well-formed
-SysML v2 the reference validator also accepts, hence advisories rather than errors — all
-in `Analysis/CalculationsPackage.sysml`:
+The run reports **2 warnings and no error**, and both are findings about the
+model, in `Analysis/CalculationsPackage.sysml`. The first is a calculation
+invocation that leaves an input the calculation declares `[1]` unbound, so the
+call cannot be evaluated — well-formed SysML v2 the reference validator also
+accepts, hence an advisory rather than an error:
 
 | Line | Expression as published | Finding |
 |---|---|---|
 | 111 | `return deltaV :> ISQ::speed = isp * g0 * ln(m0 / mf);` | `ln` is the alias of `CoSMAQuantitiesAndUnitsPackage::naturalLogarithm`, declared `calc <ln> naturalLogarithm { in x: DataValue[1]; in y: DataValue[1]; return : DataValue[1]; }` — two inputs, one argument. A natural logarithm takes one argument; the second `in` is the slip |
-| 124 and 135 | `return deltaV :> ISQ::speed = calculateDeltaV(isp, initialMass, finalMass);` | `calculateDeltaV` declares `in isp`, `in g0`, `in m0`, `in mf` — four inputs, three arguments, so `g0` (standard gravity) is never supplied; bound by position, it is the last input, `mf`, that the warning names |
 
-The fourth is dimensional: `calculateLoiDeltaV` declares the Moon's gravitational parameter
+The model's `calculateDeltaV(isp, initialMass, finalMass)` at lines 124 and
+135 passes three arguments to a calculation with four inputs (`in isp`, `in g0`,
+`in m0`, `in mf`), so `g0` (standard gravity) is never supplied — but those
+inputs are written without a multiplicity, and a parameter with none takes its
+§7.6.3 effective multiplicity of `[0..*]`, which admits no value. Nothing is
+left unbound that the declaration requires, so the check has nothing to say
+there; running the calculation is what surfaces the omission (the
+[runtime showcase](../../examples/runtime-showcase/README.md#apollo-11) does).
+
+The second is dimensional: `calculateLoiDeltaV` declares the Moon's gravitational parameter
 `in mu_Moon :> ISQ::force`, so `v_inf^2 + 2*mu_Moon/r_periapsis` adds a
 velocity squared (L²·T⁻²) to a force over a length (M·T⁻²). A gravitational
 parameter is L³·T⁻².
@@ -663,9 +671,88 @@ and never parses a plane), 1 600 satellites:
 
 The 32 plane records on disk total 80 MiB, 51 KiB per satellite, as gob in
 the library cache's directory; every reference in them names its declaring
-document, and gob repeats that name where the decoded record shares it. Nothing writes or reads them yet outside the
-benchmark and the differential test; the write points and hydration are
-later work, as is what the constellation document's own analysis holds.
+document, and gob repeats that name where the decoded record shares it. What
+the constellation document's own analysis holds is later work.
+
+### Opening from records, and hydrating one
+
+`sysml -validate` writes the record of every file it analyzes to the cache
+under the user's cache directory, and a later run over the same files takes
+the records whose provenance still holds and parses the rest
+(`docs/internals/interface-records.md`, "Hydration and demotion");
+`-no-record-cache` is the command as it was, reading and writing none. The
+constellation of the stress model split one file per orbital plane, at 10 000
+satellites (`stress-model -planes 400 -satellites 25 -split-planes`, 402
+files: the planes, the library and the constellation file) and at 1 600
+satellites (34 files), measured with `/usr/bin/time -v`, one run per row, the
+cache emptied before each cold run; same machine as above (Intel Xeon
+Platinum 8559C, 8 cores, 31 GiB, go1.25.0 linux/amd64):
+
+| model | jobs | record cache | wall | user | peak RSS |
+| ----- | ---- | ------------ | ---- | ---- | -------- |
+| 10 000 satellites, 402 files | 8 | none (`-no-record-cache`) | 86.6 s | 351 s | 17.5 GB |
+| | 8 | cold, writing 402 records | 147.6 s | 450 s | 17.9 GB |
+| | 8 | warm | 36.7 s | 63 s | 10.2 GB |
+| | 8 | warm, again | 33.4 s | 58 s | 10.2 GB |
+| 1 600 satellites, 34 files | 1 | none | 23.4 s | 29.8 s | 2.24 GB |
+| | 1 | cold, writing 34 records | 37.4 s | 47.5 s | 2.42 GB |
+| | 1 | warm | 6.3 s | 7.5 s | 1.63 GB |
+| | 8 | none | 9.8 s | 36.3 s | 2.80 GB |
+| | 8 | cold, writing 34 records | 19.2 s | 51.8 s | 3.10 GB |
+| | 8 | warm | 4.1 s | 7.8 s | 1.55 GB |
+
+The cache holds 588 MiB for the 10 000-satellite model and 94 MiB for the
+1 600-satellite one. Without a cache the command costs what it did before
+records were written: the same binary's base, which analyzes but never
+records, validates the 1 600-satellite split in 23.6 s on one job and 9.9 s
+on eight against 23.4 s and 9.8 s here, because a batch records what each
+analysis read only when it has a cache to write to. Writing the records costs
+a validation about as much again as the analysis on eight jobs (9.8 s to
+19.2 s; 86.6 s to 147.6 s at 10 000 satellites): the writer walks every
+recorded symbol's facts, attributes each analysis's reads to the documents
+that answered them and encodes the record. A warm run parses nothing and
+re-analyzes nothing, and a validation from records is 2.4x faster than one
+without at eight jobs and 3.7x on one — but it is not yet the time to read
+the records: 33 s at 10 000 satellites, 4.1 s at 1 600, and mostly serial
+(6.3 s on one job against 4.1 s on eight). A CPU profile of the warm open of
+the 512-satellite split (`BenchmarkOpenSplit`, below) puts about two thirds
+of it in checking the records' provenance, nearly all of that in the OOSEM,
+MOSA and identity audits' gathers, which the check runs over the recorded
+workspace to confirm that the same documents contribute to the shared audit
+state the analyses read; the rest is installing the recorded scope trees and
+expanding wildcard imports. Peak RSS of the warm run is 58% of the cold
+one's at 10 000 satellites, where every plane is held as its record and only
+the constellation file, which the records' provenance does not cover for the
+connections it states, is parsed and analyzed.
+
+`BenchmarkOpenSplit` in `tests/stressmodel` opens the split network as a
+workspace and asks for every file's diagnostics, cold — no record cache, every
+file parsed and analyzed — and warm, from a cache holding every file's record;
+`BenchmarkHydratePlane`, beside `BenchmarkEditBeside`, holds the split network
+as records and measures hydrating one plane file — parsing it, replacing its
+record symbols with tree-backed ones and invalidating what read it — and
+answering the constellation file's diagnostics again over the hydrated plane.
+Medians of three runs, `-benchtime 1x -count 3`, same machine:
+
+```bash
+go test ./tests/stressmodel -run '^$' -bench 'OpenSplit|HydratePlane|EditBeside' -benchtime 1x -count 3
+```
+
+| satellites | files | open, cold | allocated | open, warm | allocated | hydrate one plane | allocated | edit a small file beside |
+| ---------- | ----- | ---------- | --------- | ---------- | --------- | ----------------- | --------- | ------------------------ |
+| 32 | 6 | 195 ms | 150 MiB | 106 ms | 65 MiB | 136 ms | 26 MiB | 1.2 ms |
+| 128 | 6 | 524 ms | 467 MiB | 197 ms | 166 MiB | 255 ms | 76 MiB | 3.7 ms |
+| 512 | 6 | 2.08 s | 1.70 GiB | 762 ms | 610 MiB | 1.03 s | 286 MiB | 13.5 ms |
+
+Opening warm costs 37% of opening cold at 512 satellites and allocates 35% as
+much. Hydrating one of the four planes costs half a cold open of all six files
+at 512 satellites: the plane is parsed and indexed, and the constellation
+file, which states a connection to every satellite and so read every plane,
+is analyzed again; the small file beside the constellation in
+`BenchmarkEditBeside` is what an edit costs when what it invalidates is
+small. The hydration itself — the tree-backed scopes replacing the recorded
+ones and the dependents' entries dropped through `Index.TakeChanges` and
+`Resolver.Invalidate` — is the same path an edit of the plane takes.
 
 ## Notes for further work
 

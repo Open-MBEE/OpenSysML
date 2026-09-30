@@ -37,7 +37,7 @@ class ResultsMapperTest {
     return new Verdict(
         Verdict.KIND_CONSTRAINT, Optional.of(element), element, holds, Optional.of("x > 0"),
         Optional.empty(), Optional.empty(), error, FailureReason.UNSPECIFIED, Optional.empty(),
-        Optional.empty(), Standing.none());
+        Optional.empty(), Optional.empty(), Optional.empty(), List.of(), Standing.none());
   }
 
   @Test

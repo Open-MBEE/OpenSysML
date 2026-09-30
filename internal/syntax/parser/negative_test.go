@@ -48,6 +48,75 @@ func TestRemovedSuccessionFormsProduceDiagnosticsAndErrorNodes(t *testing.T) {
 	}
 }
 
+func TestActionBodyMultiplicityRequiresThen(t *testing.T) {
+	tests := []struct {
+		name string
+		src  string
+	}{
+		{"before member", "action def A { action a; [1] action b; }"},
+		{"malformed bracket", "action def A { action a; [ then b; }"},
+		{"before inline statement", "action def A { [1] then assign x := 1; }"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			defer func() {
+				if r := recover(); r != nil {
+					t.Fatalf("parser panicked: %v", r)
+				}
+			}()
+			p := New(source.New(tt.name+".sysml", []byte(tt.src)))
+			root := p.ParseFile()
+			if len(p.Diagnostics) == 0 {
+				t.Fatal("expected a diagnostic")
+			}
+			if !strings.Contains(ast.Dump(root), "ErrorNode") {
+				t.Fatalf("expected an ErrorNode:\n%s", ast.Dump(root))
+			}
+		})
+	}
+}
+
+// A `then` succession takes at most one multiplicity per end, and only on the
+// forms the grammar gives an end to: `then [m] [n] b;` writes two on the target,
+// `[m] then [n] action b;` a target multiplicity where a member-attached `then`
+// has no target reference (SysML.xtext:887), and a guarded `then b if g;` has no
+// end to carry one. The pinned pilot rejects all three.
+func TestSuccessionEndMultiplicityRejectsFormsWithoutAnEnd(t *testing.T) {
+	tests := []struct {
+		name, src, message string
+	}{
+		{"two target multiplicities", "action def A { action a; action b; then [1] [2] b; }", "a multiplicity in an action body belongs to a succession end"},
+		{"target multiplicity before member", "action def A { action a; [1] then [1] action b; }", "a succession names both ends as `first <source> then <target>`"},
+		{"guarded target multiplicity", "action def A { action a; action b; then [1] b if x; }", "a target-end multiplicity cannot be written on a guarded succession"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			defer func() {
+				if r := recover(); r != nil {
+					t.Fatalf("parser panicked: %v", r)
+				}
+			}()
+			p := New(source.New(tt.name+".sysml", []byte(tt.src)))
+			root := p.ParseFile()
+			if len(p.Diagnostics) == 0 {
+				t.Fatalf("expected a diagnostic:\n%s", ast.Dump(root))
+			}
+			found := false
+			for _, d := range p.Diagnostics {
+				if strings.Contains(d.Message, tt.message) {
+					found = true
+				}
+			}
+			if !found {
+				t.Errorf("no diagnostic mentions %q: %v", tt.message, p.Diagnostics)
+			}
+			if strings.Contains(ast.Dump(root), "(TargetMultiplicity") && !strings.Contains(ast.Dump(root), "ErrorNode") {
+				t.Fatalf("a target multiplicity was recorded on an accepted edge:\n%s", ast.Dump(root))
+			}
+		})
+	}
+}
+
 // A name written ahead of a kind keyword is no declaration: the stray name is
 // reported and skipped without naming anything, and the members after it parse.
 func TestNameBeforeKeywordIsNotADeclaration(t *testing.T) {
