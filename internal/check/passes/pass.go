@@ -54,10 +54,14 @@ type Shared struct {
 	Resolver *resolve.Resolver
 	Model    *semantics.Model
 	Gathers  *Gathers
+	// Source reads the documents' notation, which a fix reconstructing text
+	// needs; nil leaves every body unreadable, as batch analysis never is.
+	Source source.Lookup
 }
 
 // Share hands ctx the workspace's resolver, model and gathers in place of the
 // fresh ones it would make.
 func (s Shared) Share(ctx *Context) {
 	ctx.Share(s.Resolver, s.Model, s.Gathers)
+	ctx.Source = s.Source
 }

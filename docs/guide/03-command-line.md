@@ -204,8 +204,10 @@ a declaration in another resolves correctly.
 ## Strict conformance
 
 OpenSysML accepts several notations of its own that no SysML v2 production admits: `defer`, and
-the `choice`, `junction` and `history` pseudostates. These are reported as
-warnings, so a model that uses them still analyses cleanly. `-strict` promotes those warnings
+the `choice`, `junction` and `history` pseudostates. These are deprecated spellings of
+what the `StateMachines` library states as metadata — `#deferred ref : Alarm;`,
+`#choice state pick;` and friends — reported as warnings that name the
+replacement, so a model that uses them still analyses cleanly. `-strict` promotes those warnings
 to errors, which turns the run into a test of whether the file is conforming SysML v2. The flag
 applies to `-convert` from XMI too: a strict SysML v1 migration writes no extension notation
 at all — see [Portable output with `-strict`](../reference/sysml-v1-migration.md#portable-output-with--strict).
@@ -229,7 +231,7 @@ package M {
 
 ```bash
 $ sysml -validate monitor.sysml; echo "exit=$?"
-monitor.sysml:6:13: warning: `defer <event>;` is an OpenSysML extension with no SysML v2 production: no notation states a deferred event
+monitor.sysml:6:13: warning: `defer Alarm;` is an OpenSysML extension; write `#deferred ref : Alarm;` (with `private import StateMachines::*;`)
             defer Alarm;
             ^~~~~
 ✓ package M
@@ -237,15 +239,16 @@ monitor.sysml:6:13: warning: `defer <event>;` is an OpenSysML extension with no 
 exit=0
 
 $ sysml -strict -validate monitor.sysml; echo "exit=$?"
-monitor.sysml:6:13: error: `defer <event>;` is an OpenSysML extension with no SysML v2 production: no notation states a deferred event
+monitor.sysml:6:13: error: `defer Alarm;` is an OpenSysML extension; write `#deferred ref : Alarm;` (with `private import StateMachines::*;`)
             defer Alarm;
             ^~~~~
 sysml: monitor.sysml did not analyse cleanly; no check was made
 exit=2
 ```
 
-There is no standard notation for a deferred event, so a portable model marks the machine's
-completion with `then done;`, as `warming` does above, and leaves out the `defer`. `-strict` does not
+A portable model writes the metadata spelling the finding names instead —
+`#deferred ref : Alarm;` for the `defer` above, once `private import StateMachines::*;`
+is added. `-strict` does not
 change what parses: the same file produces the same tree and the same findings in the same
 places. Only their severity changes, and with it the exit status and the tier gate. It is a
 portability check, so turn it on when another SysML v2 tool has to read the model and leave

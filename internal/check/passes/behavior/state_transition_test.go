@@ -48,6 +48,60 @@ func analyzeTransitions(t *testing.T, src string) []diag.Diagnostic {
 	return out
 }
 
+// A metadata pseudostate in a parallel state's body is not one of its regions,
+// so a transition ordering it is checked like the `choice` keyword spelling.
+func TestParallelStateMetadataPseudostateIsNotARegion(t *testing.T) {
+	keyword := transitionDiags(t, `package test {
+	state def M parallel {
+		state left {
+			state a;
+		}
+		choice pick;
+		transition first pick then a;
+	}
+}`)
+	metadata := transitionDiags(t, `package test {
+	private import StateMachines::*;
+	state def M parallel {
+		state left {
+			state a;
+		}
+		#choice state pick;
+		transition first pick then a;
+	}
+}`)
+	if len(keyword) != len(metadata) {
+		t.Fatalf("keyword spelling got %+v, metadata spelling got %+v", keyword, metadata)
+	}
+	for i := range keyword {
+		if keyword[i].Code != metadata[i].Code {
+			t.Fatalf("diagnostic %d: keyword %s, metadata %s", i, keyword[i].Code, metadata[i].Code)
+		}
+		if metadata[i].Code == behavior.CodeParallelStateTransition {
+			t.Fatalf("metadata spelling reported %s: %+v", behavior.CodeParallelStateTransition, metadata[i])
+		}
+	}
+}
+
+// A transition between real regions still misorders a parallel state when a
+// metadata pseudostate sits beside them.
+func TestParallelStateTransitionBetweenRegionsWithMetadataPseudostate(t *testing.T) {
+	wantOneError(t, `package test {
+	private import StateMachines::*;
+	state def M parallel {
+		state left {
+			state a;
+		}
+		state right {
+			state b;
+		}
+		#choice state pick;
+		transition first pick then a;
+		transition first left then right;
+	}
+}`, behavior.CodeParallelStateTransition, behavior.MsgParallelStateTransition)
+}
+
 // wantClean fails when the pass reports anything about a legal model, which is
 // the failure mode that breaks models a modeller wrote correctly.
 func wantClean(t *testing.T, src string) {
@@ -506,31 +560,8 @@ func TestJunctionLeftBySuccessionIsLegal(t *testing.T) {
 }`)
 }
 
-// A one-ended `first marker;` is a marker, not a vertex, and UML 2.5.1 §15.7.18
-// gives the initial pseudostate it stands for no incoming transition — so this
-// reports at check time rather than at executor construction.
-func TestTransitionToFirstMarkerIsIllegal(t *testing.T) {
-	got := transitionDiags(t, `package test {
-	state def M {
-		entry; then i;
-		state i;
-		state busy;
-		state other;
-		first marker;
-		succession first i then busy;
-		transition first busy then marker;
-	}
-}`)
-	if len(got) != 2 {
-		t.Fatalf("got %+v, want the marker and the transition to it reported", got)
-	}
-	if got[0].Code != behavior.CodeFirstNamesNoTarget || !strings.Contains(got[0].Message, "`first marker;` names no target") {
-		t.Errorf("got %+v, want the one-ended `first` reported as naming no target", got[0])
-	}
-	if got[1].Code != behavior.CodeEndpointNotOfMachine || !strings.Contains(got[1].Message, "marker") {
-		t.Errorf("got %+v, want the transition to the marker reported", got[1])
-	}
-}
+// A one-ended `first marker;` is a marker, not a vertex, and the parser now
+// rejects one outside an action body outright (see the negative parser tests).
 
 // In a state body `first X then Y;` is the succession X -> Y that `succession
 // first X then Y;` spells with its keyword, so its ends are checked as vertices
@@ -563,27 +594,8 @@ func TestStateBodyFirstIsASuccession(t *testing.T) {
 }
 
 // A one-ended `first X;` orders nothing in a state body, whose members are
-// vertices rather than a token flow, so it is reported rather than ignored.
-func TestOneEndedFirstInAStateBodyIsReported(t *testing.T) {
-	wantOneError(t, `package test {
-	state def M {
-		entry; then a;
-		state a;
-		state b;
-		first b;
-		succession first a then b;
-	}
-}`, behavior.CodeFirstNamesNoTarget, "`first b;` names no target: a state body orders two vertices, `first b then <target>`")
-	wantOneError(t, `package test {
-	state def M {
-		entry; then a;
-		state a {
-			state a1;
-			first a1;
-		}
-	}
-}`, behavior.CodeFirstNamesNoTarget, "`first a1;` names no target")
-}
+// vertices rather than a token flow, so the parser rejects it outright (see
+// the negative parser tests).
 
 // A final state is a vertex, so a transition to one is legal.
 func TestTransitionToFinalStateIsLegal(t *testing.T) {
@@ -687,4 +699,67 @@ func TestEntryActionTransitionIntoPseudostateIsNotAVertex(t *testing.T) {
 		transition j then b;
 	}
 }`, behavior.CodeEndpointNotOfMachine, "begin")
+}
+
+// TestImplicitSourcePseudostateBothSpellings: a sourceless transition hangs
+// the same diagnostic on a pseudostate whether it is spelled with the keyword
+// or with the StateMachines metadata the fixes write.
+func TestImplicitSourcePseudostateBothSpellings(t *testing.T) {
+	for _, tc := range []struct{ name, decl string }{
+		{"keyword", "join sync;"},
+		{"metadata", "#StateMachines::junction state sync;"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			src := `package test {
+	state def M {
+		entry; then init;
+		state init;
+		transition first init then sync;
+		` + tc.decl + `
+		transition then active;
+		state active;
+	}
+}`
+			var hits int
+			for _, d := range transitionDiags(t, src) {
+				if d.Code == behavior.CodeTransitionSourceNotVertex {
+					hits++
+				}
+			}
+			if hits != 1 {
+				t.Errorf("got %d %s findings, want 1", hits, behavior.CodeTransitionSourceNotVertex)
+			}
+		})
+	}
+}
+
+// TestImplicitSourceLocalAliasPseudostate: a sourceless transition reads the
+// local-alias spelling of a pseudostate the same as the direct one.
+func TestImplicitSourceLocalAliasPseudostate(t *testing.T) {
+	for _, tc := range []struct{ name, decl string }{
+		{"direct", "#StateMachines::junction state sync;"},
+		{"alias", "#localJoin state sync { alias localJoin for StateMachines::JunctionMetadata; }"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			src := `package test {
+	state def M {
+		entry; then init;
+		state init;
+		transition first init then sync;
+		` + tc.decl + `
+		transition then active;
+		state active;
+	}
+}`
+			var hits int
+			for _, d := range transitionDiags(t, src) {
+				if d.Code == behavior.CodeTransitionSourceNotVertex {
+					hits++
+				}
+			}
+			if hits != 1 {
+				t.Errorf("got %d %s findings, want 1", hits, behavior.CodeTransitionSourceNotVertex)
+			}
+		})
+	}
 }

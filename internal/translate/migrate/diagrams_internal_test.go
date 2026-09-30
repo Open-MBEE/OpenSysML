@@ -328,7 +328,7 @@ func TestDiagramNotesDoNotNameOmittedVertices(t *testing.T) {
 		strict   bool
 		anchored bool
 	}{
-		{name: "strict", strict: true},
+		{name: "strict", strict: true, anchored: true},
 		{name: "non-strict", anchored: true},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
@@ -352,7 +352,7 @@ func TestDiagramNotesDoNotNameOmittedVertices(t *testing.T) {
 			if anchored != tc.anchored {
 				t.Errorf("note anchored = %t, want %t:\n%s", anchored, tc.anchored, got)
 			}
-			if tc.strict && !strings.Contains(got, "@DiagramLayout::Note {") {
+			if !tc.anchored && !strings.Contains(got, "@DiagramLayout::Note {") {
 				t.Errorf("note is not retained free of the omitted vertex:\n%s", got)
 			}
 		})

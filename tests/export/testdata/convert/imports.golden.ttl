@@ -138,3 +138,23 @@ elmt:Importer__Deep__Item_om
     sysml:ownedRelatedElement elmt:Importer__Deep__Item ;
     sysml:owningRelatedElement elmt:Importer__Deep ;
     sysml:membershipOwningNamespace elmt:Importer__Deep .
+
+<urn:sysmlv2:element:14c0aa22-5489-59b5-b438-ded26e83ba31>
+    a sysml:DataType ;
+    sysml:elementId "14c0aa22-5489-59b5-b438-ded26e83ba31" ;
+    sysml:qualifiedName "ScalarValues::Real" ;
+    sysml:declaredName "Real" ;
+    sysml:isLibraryElement "true"^^xsd:boolean .
+
+elmt:ab72a695-5fe9-58a3-9d48-9e9a8711862d
+    a sysml:OwningMembership ;
+    sysml:elementId "ab72a695-5fe9-58a3-9d48-9e9a8711862d" ;
+    sysml:memberElement <urn:sysmlv2:element:14c0aa22-5489-59b5-b438-ded26e83ba31> ;
+    sysml:isLibraryElement "true"^^xsd:boolean .
+
+<urn:sysmlv2:element:3fcc2ef4-a31c-522b-b69d-717d74bccfa6>
+    a sysml:LibraryPackage ;
+    sysml:elementId "3fcc2ef4-a31c-522b-b69d-717d74bccfa6" ;
+    sysml:qualifiedName "ISQ" ;
+    sysml:declaredName "ISQ" ;
+    sysml:isLibraryElement "true"^^xsd:boolean .

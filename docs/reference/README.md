@@ -18,7 +18,7 @@ reading order.
 - **[Go packages](api.md)** — `client/opensysml` and the packages behind it, type by type
 - **[Python API](python-api.md)** — `opensysml`, its generated typed classes and latency
 - **[Node API](node-api.md)** — `@openmbee/opensysml`, its two entry points and its typed unions
-- **[Java API](java-api.md)** — `opensysml-client`, its immutable records and its exceptions
+- **[Java API](java-api.md)** — `opensysml`, its immutable records and its exceptions
 - **[Rust API](rust-api.md)** — the `opensysml` crate, blocking, and its one error enum
 - **[Service transports](service-transports.md)** — what `sysml-grpc` serves on one port, which
   body encoding a client should choose, and the flags for CORS, TLS and health

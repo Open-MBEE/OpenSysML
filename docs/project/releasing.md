@@ -16,7 +16,7 @@ together.
 The same `v*` tag also publishes the Node client to npm as `@openmbee/opensysml`
 at the same version — see
 [Releasing @openmbee/opensysml to npm](#releasing-openmbeeopensysml-to-npm) — and
-the Java client to Maven Central as `org.openmbee:opensysml-client` — see
+the Java client to Maven Central as `org.openmbee:opensysml` — see
 [Releasing the Java client to Maven Central](#releasing-the-java-client-to-maven-central) —
 and the Rust client to crates.io as `opensysml`, all at the same version — see
 [Releasing the Rust client to crates.io](#releasing-the-rust-client-to-cratesio).
@@ -281,7 +281,7 @@ then the `@openmbee/opensysml` client (see
 
 `publish-maven` runs beside them, in the same position and with the same
 one-way property: a Central version can never be replaced. It signs, uploads
-and publishes `org.openmbee:opensysml-client` and its `opensysml-parent` pom,
+and publishes `org.openmbee:opensysml` and its `opensysml-parent` pom,
 waiting until Central reports the deployment published (see
 [Releasing the Java client to Maven Central](#releasing-the-java-client-to-maven-central)).
 
@@ -381,13 +381,13 @@ one alongside it).
    answer (search indexing later), so check the pom's URL:
 
    ```bash
-   curl -sI https://repo1.maven.org/maven2/org/openmbee/opensysml-client/0.0.5/opensysml-client-0.0.5.pom
+   curl -sI https://repo1.maven.org/maven2/org/openmbee/opensysml/0.0.5/opensysml-0.0.5.pom
    ```
 
    Then a consumption check resolves it the way a consumer does:
 
    ```bash
-   mvn dependency:get -Dartifact=org.openmbee:opensysml-client:0.0.5
+   mvn dependency:get -Dartifact=org.openmbee:opensysml:0.0.5
    ```
 
 4. **Verify the crates.io upload.** Check the API sees the version:
@@ -445,7 +445,8 @@ one alongside it).
    `opensysml-<x.y.z>-windows-amd64-signed.msi` listed in
    `SHA256SUMS-windows-signed.txt` when it is. A release with neither means the
    workflow failed (WiX, the Z3 download, ICE validation or the signing
-   request); re-run it after fixing the cause.
+   request); re-run it after fixing the cause — see the recovery path in
+   [The Windows installer](#the-windows-installer).
 
 9. **Render the Windows package-manager manifests** when a maintainer wants
    to (re)submit them externally. Nothing here submits anything:
@@ -677,7 +678,7 @@ the MSI cannot come out of the `cimg/go` release job. It is built by
   `publish-msi` job uploads it with `SHA256SUMS-windows-msi.txt` — after the
   same CircleCI gate the signing job uses, so the MSI never lands on a release
   CircleCI did not publish. Both jobs run on every tag and on
-  `workflow_dispatch` (which never publishes).
+  `workflow_dispatch` (which publishes only when its `tag` input names one).
 - **SignPath configured:** the `msi-signed` job rebuilds the MSI from the
   SignPath-signed executables, validates it, submits the MSI itself to SignPath
   under `SIGNPATH_MSI_ARTIFACT_CONFIGURATION_SLUG`, and `publish-signed`
@@ -685,6 +686,18 @@ the MSI cannot come out of the `cimg/go` release job. It is built by
   `SHA256SUMS-windows-signed.txt` with the other `-signed` assets. The unsigned
   MSI is then kept only as a workflow artifact, so a release never carries two
   installers whose contents differ only by signature.
+
+**Re-running it for an existing tag.** When the workflow failed on a tag —
+including at `git checkout`, since the Windows runners cannot check out a
+tracked path Windows forbids — fix the cause on a `hotfix/` branch to `main`,
+then re-run it against the tag with `gh workflow run release-windows.yml
+--ref main -f tag=v0.9.1`. The dispatch builds the tagged commit on the Linux
+job, and the Windows MSI jobs check nothing out — they consume `packaging/msi`,
+`scripts/build-msi.sh` and `LICENSE`, uploaded by that job as a workflow
+artifact — so even a tag whose tree Windows cannot check out gets its
+installer. The release gate still requires the tag to resolve to the built
+commit, and `overwrite_files` touches only the MSI assets, so the
+CircleCI-published release and its assets are never rewritten.
 
 The trade-off is the one the `-signed` assets already make: the MSI is not in
 `SHA256SUMS.txt` or the cosign bundle, because those are produced by CircleCI
@@ -1246,7 +1259,7 @@ under the old name; a client fix goes to `opensysml`.
 ## Releasing the Java client to Maven Central
 
 The Java client in `client/java/` is published to Maven Central as
-`org.openmbee:opensysml-client` — with its parent, `org.openmbee:opensysml-parent`
+`org.openmbee:opensysml` — with its parent, `org.openmbee:opensysml-parent`
 — by the `release` workflow's `publish-maven` job, from the same core
 `v<version>` tag that publishes the binaries, `opensysml` and
 `@openmbee/opensysml`, at that version. The `opensysml-java-v*` path was never
@@ -1281,8 +1294,10 @@ below applies within two years.
    ```
 
    The private key and its passphrase are the context's
-   `GPG_PRIVATE_KEY` (ASCII-armoured, `gpg --export-secret-keys --armor`) and
-   `GPG_PASSPHRASE`.
+   `GPG_PRIVATE_KEY` and `GPG_PASSPHRASE`. Store the key base64-encoded on one
+   line — `gpg --armor --export-secret-keys <KEY_ID> | base64 | tr -d '\n'` —
+   since the CircleCI UI drops newlines; the job also accepts the raw armored
+   block.
    The job test-signs before anything uploads, so an expired key or a wrong
    passphrase fails before anything reaches Central. A key approaching its
    expiry needs extending (`gpg --quick-set-expire`) and the public key
@@ -1300,7 +1315,7 @@ below applies within two years.
 version, spelled the Maven way, which is the SemVer spelling (`0.9.0-rc1` for
 `0.9.0rc1`): the parent pom's `<version>`, both modules' `<parent><version>`,
 and the client version the editors name (`opensysml.client.version` in
-`editors/cameo/pom.xml`, the `opensysml-client` dependency in
+`editors/cameo/pom.xml`, the `opensysml` dependency in
 `editors/syson/backend/pom.xml`). `check_version.py --java` in
 `build-python-package` fails the release before anything is built when they
 disagree, and the pytest gate in `test_check_version.py` — including the test
@@ -1327,7 +1342,7 @@ The cost stays the same too: a client-only fix is a core patch release.
 
 `mvn -f client/java/pom.xml install` attaches everything Central validates:
 
-- `opensysml-client-<version>.jar`, `-sources.jar` and `-javadoc.jar` (the
+- `opensysml-<version>.jar`, `-sources.jar` and `-javadoc.jar` (the
   `maven-source-plugin` and `maven-javadoc-plugin` executions are in the default
   build, not the release profile, so a missing one fails long before a release);
 - POM metadata Central requires: `name`, `description`, `url`, `licenses`,
@@ -1368,13 +1383,13 @@ before `0.9.0`. Consumers get it only by naming it.
    `client/java/pom.xml`, or the version is a `-SNAPSHOT`.
 2. Requires all four credential environment variables, naming only the missing
    one.
-3. Refuses to run if `org.openmbee:opensysml-parent` or `opensysml-client` is
+3. Refuses to run if `org.openmbee:opensysml-parent` or `opensysml` is
    already on Central at this version (a publish cannot be repeated).
 4. Imports `GPG_PRIVATE_KEY` and test-signs with `GPG_PASSPHRASE`, so an expired
    key or wrong passphrase fails before the upload.
 5. Writes `~/.m2/settings.xml` naming the `central` server, reading the portal
    token from the environment so it never lands on disk.
-6. Runs `mvn -Prelease deploy -pl opensysml-client -am -DskipTests` — `java-test`
+6. Runs `mvn -Prelease deploy -pl :opensysml -am -DskipTests` — `java-test`
    ran the suite on this revision; `-am` carries the parent pom the client's
    pom names. The plugin uploads, Central validates, `autoPublish` releases the
    deployment, and the build waits until it is published.

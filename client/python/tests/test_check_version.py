@@ -272,11 +272,11 @@ def test_every_in_repo_reference_names_the_poms_version():
 
     syson = ET.parse(repo / "editors/syson/backend/pom.xml").getroot()
     for dep in syson.iter(f"{ns}dependency"):
-        if dep.findtext(f"{ns}artifactId") == "opensysml-client":
+        if dep.findtext(f"{ns}artifactId") == "opensysml":
             assert dep.findtext(f"{ns}version") == version
             break
     else:
-        pytest.fail("editors/syson/backend/pom.xml names no opensysml-client")
+        pytest.fail("editors/syson/backend/pom.xml names no opensysml")
 
 
 def test_main_prints_the_maven_version_the_tag_names(capsys):

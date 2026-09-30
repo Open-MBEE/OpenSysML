@@ -107,10 +107,10 @@ Transition	Plant::Line::main::Work::steps::<Transition>	_tHist
 Trigger	Plant::Line::main::Work::steps::<Transition>::<Trigger>	_trNext
 State	Plant::Line::main::Work::steps::Prep	_prep	-> Prep
 State	Plant::Line::main::Work::steps::Run	_run	-> Run
-Pseudostate	Plant::Line::main::Work::steps::deepest	_deep	-> deepest	(written as a deep history, which re-enters the innermost states active when its state was last left)
-Pseudostate	Plant::Line::main::Work::steps::last	_hist	-> last	(written as a shallow history, which re-enters the substate active when its state was last left)
+Pseudostate	Plant::Line::main::Work::steps::deepest	_deep	-> deepest	(written as a `#StateMachines::deepHistory state` deep history, which re-enters the innermost states active when its state was last left)
+Pseudostate	Plant::Line::main::Work::steps::last	_hist	-> last	(written as a `#StateMachines::shallowHistory state` shallow history, which re-enters the substate active when its state was last left)
 Pseudostate	Plant::Line::main::gather	_join	-> gather	(written as a join pseudostate, whose segments the runtime fires together)
-Pseudostate	Plant::Line::main::route	_junc	-> route	(written as a junction pseudostate, whose guarded transitions the runtime reads when it is reached; an unguarded one is its else branch)
+Pseudostate	Plant::Line::main::route	_junc	-> route	(written as a #StateMachines::junction state pseudostate, whose guarded transitions the runtime reads when it is reached; an unguarded one is its else branch)
 Pseudostate	Plant::Line::main::spread	_fork	-> spread	(written as a fork pseudostate, whose segments the runtime fires together)
 Property	Plant::count	_count	-> Plant::count
 Signal	Resume	_resume	-> Resume

@@ -1389,3 +1389,10 @@ elmt:FlowsAndViews__vehicleView_ft0
     sysml:owner elmt:FlowsAndViews__vehicleView ;
     sysml:relatedElement elmt:FlowsAndViews__vehicleView, elmt:FlowsAndViews__StructureView ;
     json:relatedElement "[{\"@id\":\"FlowsAndViews__vehicleView\"},{\"@id\":\"FlowsAndViews__StructureView\"}]" .
+
+<urn:sysmlv2:element:550f9923-23f8-5142-aa06-d7ff476876d7>
+    a sysml:MetadataDefinition ;
+    sysml:elementId "550f9923-23f8-5142-aa06-d7ff476876d7" ;
+    sysml:qualifiedName "SysML::Systems::PartUsage" ;
+    sysml:declaredName "PartUsage" ;
+    sysml:isLibraryElement "true"^^xsd:boolean .

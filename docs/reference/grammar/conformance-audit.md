@@ -107,18 +107,9 @@ one state substate per region, `entry; then <state>;`, a transition targeting
 
 | Construct | Why it is not standard |
 |-----------|------------------------|
-| `choice <name>;`, `junction <name>;` | no literal; no pseudostate production of any kind |
-| `history <name>;`, `shallow history <name>;`, `deep history <name>;` | same |
-| `defer <event> [, <event>]*;` | no `defer` literal; `StatePerformance::deferrable` has the semantics but no notation |
-
-Two further findings are about position rather than spelling: the construct is
-standard where a production allows it and an OpenSysML extension everywhere else, so
-the warning names the position, not the keyword.
-
-| Construct | Where it is standard | Why it is not standard elsewhere |
-|-----------|----------------------|----------------------------------|
-| `assume <constraint>;`, `require <constraint>;` | a requirement, concern, viewpoint or objective body | `RequirementConstraintMember` (`SysML.xtext:2039`) is the only production that admits it |
-| a one-ended `first <node>;` | an action body | `InitialNodeMember` is reachable from `ActionBodyItem` alone (`:1376`), never from `DefinitionBodyItem` (`:516`); elsewhere a succession names both ends, `first <source> then <target>` |
+| `choice <name>;`, `junction <name>;` | no literal; no pseudostate production of any kind. Deprecated: write `#choice state <name>;` / `#junction state <name>;`, the `StateMachines` library's `ChoiceMetadata`/`JunctionMetadata` (with `private import StateMachines::*;`) — the warning names the replacement and a quick-fix rewrites the member and adds the import |
+| `history <name>;`, `shallow history <name>;`, `deep history <name>;` | same. Deprecated: write `#shallowHistory state <name>;` / `#deepHistory state <name>;` (`ShallowHistoryMetadata`/`DeepHistoryMetadata`) |
+| `defer <event> [, <event>]*;` | no `defer` literal; `StatePerformance::deferrable` has the semantics but no notation. Deprecated: write one `#deferred ref : <event>;` per trigger (`DeferredMetadata`), the trigger named by a signal type or the operation of a call event — call arguments are not carried |
 
 ### Chain redefinitions — `redefinition-through-reference`
 
@@ -163,6 +154,13 @@ Rules of the reading, in detail:
   reported by name resolution instead.
 
 ### Removed extension notation — no longer accepted
+
+Two positional allowances that used to be findings are parse errors now. An
+`assume`/`require` member belongs to `RequirementConstraintMember`
+(`SysML.xtext:2039`), which only a requirement, concern, viewpoint or objective
+body offers, and a one-ended `first <node>;` belongs to `InitialNodeMember`,
+which `ActionBodyItem` alone admits (`:1376`) — a succession anywhere else names
+both ends, `first <source> then <target>`.
 
 An inline condition introduced by a keyword (`assert <expression>;` or
 `assume <expression>;` in a constraint body, `assume <expression>;` or

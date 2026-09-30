@@ -20,7 +20,7 @@ Transition	Controller::Modes::<Region>::<Transition>	_t_junction	-> Controller::
 Transition	Controller::Modes::<Region>::<Transition>	_t_choice	-> Controller::Modes::'junction then choice'
 Transition	Controller::Modes::<Region>::<Transition>	_t_idle	-> Controller::Modes::'choice then Idle'
 State	Controller::Modes::<Region>::Idle	_idle	-> Idle
-Pseudostate	Controller::Modes::<Region>::choice	_choice	-> choice	(written as a choice pseudostate, whose guarded transitions the runtime reads when it is reached; an unguarded one is its else branch)
-Pseudostate	Controller::Modes::<Region>::junction	_junction	-> junction	(written as a junction pseudostate, whose guarded transitions the runtime reads when it is reached; an unguarded one is its else branch)
+Pseudostate	Controller::Modes::<Region>::choice	_choice	-> choice	(written as a #StateMachines::choice state pseudostate, whose guarded transitions the runtime reads when it is reached; an unguarded one is its else branch)
+Pseudostate	Controller::Modes::<Region>::junction	_junction	-> junction	(written as a #StateMachines::junction state pseudostate, whose guarded transitions the runtime reads when it is reached; an unguarded one is its else branch)
 Diagram	Controller::Modes::Modes	_diagram_modes	-> Controller::Modes::Modes	(a SysML State Machine Diagram written as a view rendered asInterconnectionDiagram of StateTransitionView; the view exposes state def Controller::Modes, whose graph the rendering draws with the 6 shown nodes and edges of it; laid out from refused_vertex_layout.layout.xml: 3 of 3 shown elements positioned, 3 of 3 connectors routed, 1 of 1 symbols drawn in their own colours or font styled, 1 notes written, 1 anchored)
 Model	Model	_m	(the root model's members are written at the top level)

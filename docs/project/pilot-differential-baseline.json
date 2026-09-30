@@ -61,7 +61,7 @@
         "dir": "examples",
         "origin": "ours",
         "files": 45,
-        "digest": "sha256:a81cee6d77595285c96f9f55bc077ba6b9de7ade7fd33bbccee1ce6e26d53491"
+        "digest": "sha256:765acea2b8f12e426e2d9bdaf6e807879ea8bb4e620f43f5451c371da28df9aa"
       },
       {
         "name": "probes",
@@ -77,11 +77,11 @@
     "files": 380,
     "filesFullyAgreeing": 345,
     "agreement": 38,
-    "severityMismatch": 3,
-    "openSysMLOnly": 41,
-    "pilotOnly": 1614,
-    "openSysMLDiagnostics": 82,
-    "pilotDiagnostics": 1655
+    "severityMismatch": 2,
+    "openSysMLOnly": 40,
+    "pilotOnly": 1616,
+    "openSysMLDiagnostics": 80,
+    "pilotDiagnostics": 1656
   },
   "roots": [
     {
@@ -783,11 +783,11 @@
         "files": 45,
         "filesFullyAgreeing": 30,
         "agreement": 4,
-        "severityMismatch": 2,
-        "openSysMLOnly": 7,
-        "pilotOnly": 1594,
-        "openSysMLDiagnostics": 13,
-        "pilotDiagnostics": 1600
+        "severityMismatch": 1,
+        "openSysMLOnly": 6,
+        "pilotOnly": 1596,
+        "openSysMLDiagnostics": 11,
+        "pilotDiagnostics": 1601
       },
       "files": [
         {
@@ -5605,46 +5605,37 @@
         {
           "path": "pseudostates-demo.sysml",
           "agreement": [],
-          "severityMismatch": [
-            {
-              "line": 13,
-              "category": "syntax",
-              "openSysMLSeverity": "warning",
-              "pilotSeverity": "error",
-              "count": 1
-            }
-          ],
-          "openSysMLOnly": [
-            {
-              "line": 31,
-              "severity": "warning",
-              "category": "syntax",
-              "count": 1
-            }
-          ],
+          "severityMismatch": [],
+          "openSysMLOnly": [],
           "pilotOnly": [
             {
-              "line": 13,
-              "severity": "error",
-              "category": "syntax",
-              "count": 1
-            },
-            {
-              "line": 18,
+              "line": 3,
               "severity": "error",
               "category": "unresolved-reference",
               "count": 1
             },
             {
-              "line": 19,
+              "line": 16,
               "severity": "error",
-              "category": "syntax",
+              "category": "kind-mismatch",
               "count": 2
             },
             {
-              "line": 20,
+              "line": 16,
               "severity": "error",
-              "category": "syntax",
+              "category": "unresolved-reference",
+              "count": 1
+            },
+            {
+              "line": 34,
+              "severity": "error",
+              "category": "kind-mismatch",
+              "count": 2
+            },
+            {
+              "line": 34,
+              "severity": "error",
+              "category": "unresolved-reference",
               "count": 1
             }
           ]
@@ -8372,11 +8363,11 @@
       "files": 380,
       "filesFullyAgreeing": 346,
       "agreement": 38,
-      "severityMismatch": 3,
-      "openSysMLOnly": 40,
-      "pilotOnly": 1614,
-      "openSysMLDiagnostics": 81,
-      "pilotDiagnostics": 1655
+      "severityMismatch": 2,
+      "openSysMLOnly": 39,
+      "pilotOnly": 1616,
+      "openSysMLDiagnostics": 79,
+      "pilotDiagnostics": 1656
     },
     "findings": [
       {

@@ -31,20 +31,30 @@ library or the Systems Library, and where they do, that library is the governing
 For the rest we cite UML 2.5.1 §14.2.3.4 (Pseudostates), but UML's notation for them is
 diagrammatic, so there is no textual syntax to borrow.
 
-OpenSysML therefore defines its own keywords for them, valid only inside a state body.
-They are a documented extension, not OMG notation, and using one produces a
-`nonstandard-notation` warning:
+OpenSysML covers them with metadata definitions in its bundled
+`StateMachines` library package: a pseudostate is an ordinary state usage
+carrying a metadata annotation, and a deferred event a `ref` usage carrying
+`#deferred`. Writing `private import StateMachines::*;` brings the annotation
+names into scope. These are standard SysML v2 spellings — a metadata usage is
+ordinary notation — and produce no diagnostic:
 
 | Form | Meaning | Semantic reference |
 |------|---------|-------------|
-| `choice <name>;` | dynamic conditional branch | KerML `ControlPerformances::DecisionPerformance` — selects one of the successions leaving it, `outgoingHBLink: HappensBefore[1]` (notation is an OpenSysML invention) |
-| `junction <name>;` | static branch/merge | KerML `DecisionPerformance::outgoingHBLink[1]` / `MergePerformance::incomingHBLink[1]` (notation is an OpenSysML invention) |
+| `#choice state <name>;` | dynamic conditional branch | KerML `ControlPerformances::DecisionPerformance` — selects one of the successions leaving it, `outgoingHBLink: HappensBefore[1]` |
+| `#junction state <name>;` | static branch/merge | KerML `DecisionPerformance::outgoingHBLink[1]` / `MergePerformance::incomingHBLink[1]` |
 | `fork <name>;` | parallel split | UML `fork` pseudostate (a state-body fork has no SysML v2 or KerML counterpart; the action-level one is `Actions::ForkAction`) |
 | `join <name>;` | parallel synchronization | UML `join` pseudostate (a state-body join has no SysML v2 or KerML counterpart; the action-level one is `Actions::JoinAction`) |
-| `history <name>;` | shallow history (UML `H`) | UML `shallowHistory` pseudostate |
-| `shallow history <name>;` | shallow history, spelled out | UML `shallowHistory` pseudostate |
-| `deep history <name>;` | deep history (UML `H*`) | UML `deepHistory` pseudostate |
-| `defer <event> [, <event>]*;` | events the state retains while active | KerML `StatePerformances::StatePerformance::deferrable: Transfer[0..*] subsets acceptable` — "transfers … can be considered for acceptance more than once"; dispatch order is `Occurrences::Occurrence::incomingTransferSort`, defaulting to `earlierFirstIncomingTransferSort` |
+| `#shallowHistory state <name>;` | shallow history (UML `H`) | UML `shallowHistory` pseudostate |
+| `#deepHistory state <name>;` | deep history (UML `H*`) | UML `deepHistory` pseudostate |
+| `#deferred ref : <event>;` | an event the state retains while active | KerML `StatePerformances::StatePerformance::deferrable: Transfer[0..*] subsets acceptable` — "transfers … can be considered for acceptance more than once"; dispatch order is `Occurrences::Occurrence::incomingTransferSort`, defaulting to `earlierFirstIncomingTransferSort` |
+
+The earlier OpenSysML-only keyword spellings — `choice <name>;`,
+`junction <name>;`, `history <name>;` / `shallow history <name>;`,
+`deep history <name>;` and `defer <event> [, <event>]*;` — still parse, each
+lowering to exactly what the metadata spelling lowers to, but they are
+deprecated: every one is a `nonstandard-notation` warning whose message names
+the metadata replacement, with a quick-fix that rewrites the member and adds
+the import. Under `-strict` the warnings are errors.
 
 The action-level `fork` and `join` control nodes are SysML v2's `Actions::ForkAction`
 and `JoinAction`. The library gives them no behavior of their own (a
@@ -80,17 +90,20 @@ Notes:
   transition when it has one and otherwise performs the owning state's ordinary entry — its
   `entry; then <state>;` — as a first entry would; an owner with neither is a runtime error. A
   region left through `done` records no history, so a history into it is such an entry.
-- A deferred event is parsed exactly like a transition trigger, so both a signal
-  name (`defer Ping;`) and a call event (`defer setSpeed(value);`) are accepted.
-  Time and change events cannot be deferred; lowering reports them.
+- A deferred event's typing target names a signal (`#deferred ref : Ping;` for a
+  signal event) or resolves to an action (`#deferred ref : setSpeed;` for a call
+  event, carrying no argument bindings). Time and change events cannot be
+  deferred; lowering reports them. The deprecated `defer` member accepted the
+  same trigger spellings as a transition — `defer Ping;`,
+  `defer setSpeed(value);`.
 - While a state that defers an event is active, the event is held back from every transition
   except one whose source is that state or nested in it: a transition in an enclosing state or
   in a sibling orthogonal region waits until the deferring state is exited, and the event is
   then dispatched, in its arrival order, to the configuration that exit leaves. When two
   regions each hold a deferring state, the event fires only if every deferring state has such
   a nested transition; otherwise it is deferred.
-- `defer` is only meaningful inside a state. One written in the machine's own body is
-  reported by `lower.ToStateGraph`.
+- `#deferred` is only meaningful inside a state. A deferred ref written in the
+  machine's own body is reported by `lower.ToStateGraph`.
 - A transition without a source part (`accept go then s;`, `if c then s;`, `then s;`,
   `transition if c then s;`) is parsed with no source; the state declared before it in
   the same body is its source (SysML v2 §7.18.3, `TargetTransitionUsage`), derived by

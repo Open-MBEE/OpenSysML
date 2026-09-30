@@ -57,21 +57,18 @@ func TestActionEndpointInSuccessionBody(t *testing.T) {
 }
 
 // A succession body is a UsageBody, so a one-ended `first` written directly in
-// it is an extension, while one in an action definition nested there is not.
-func TestOneEndedFirstInSuccessionBodyIsAnExtension(t *testing.T) {
+// it is a parse error (see the negative parser tests), while one in an action
+// definition nested there is standard.
+func TestOneEndedFirstInSuccessionBodyIsSilent(t *testing.T) {
 	for name, form := range successionBodyForms {
 		t.Run(name, func(t *testing.T) {
-			wantNotation(t, "a.sysml", strings.Replace(form, "%s", "action orphan; first orphan;", 1),
-				CodeNonstandardNotation, "one-ended `first <node>;` outside an action body")
 			wantSilent(t, "a.sysml", strings.Replace(form, "%s", "action def Inner { action leaf; first leaf; }", 1))
 		})
 	}
 }
 
 // A one-ended `first` ends in a RelationshipBody, which admits annotations
-// only, so a one-ended `first` nested in it is an extension as well.
-func TestOneEndedFirstInAnInitialNodeBodyIsAnExtension(t *testing.T) {
-	wantNotation(t, "a.sysml", "action def A { action a; action b; first a { first b; } }",
-		CodeNonstandardNotation, "one-ended `first <node>;` outside an action body")
+// only, so a one-ended `first` nested in it is a parse error as well.
+func TestOneEndedFirstInAnInitialNodeBodyIsSilent(t *testing.T) {
 	wantSilent(t, "a.sysml", "action def A { action a; first a { doc /* starts here */ } }")
 }

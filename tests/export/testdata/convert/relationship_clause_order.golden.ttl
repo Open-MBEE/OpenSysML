@@ -425,3 +425,17 @@ elmt:ClauseOrder__Mission__groundSystemAtIngress_ss0
     sysml:owner elmt:ClauseOrder__Mission__groundSystemAtIngress ;
     sysml:relatedElement elmt:ClauseOrder__Mission__groundSystemAtIngress, elmt:ClauseOrder__Mission__context ;
     json:relatedElement "[{\"@id\":\"ClauseOrder__Mission__groundSystemAtIngress\"},{\"@id\":\"ClauseOrder__Mission__context\"}]" .
+
+<urn:sysmlv2:element:14c0aa22-5489-59b5-b438-ded26e83ba31>
+    a sysml:DataType ;
+    sysml:elementId "14c0aa22-5489-59b5-b438-ded26e83ba31" ;
+    sysml:qualifiedName "ScalarValues::Real" ;
+    sysml:declaredName "Real" ;
+    sysml:isLibraryElement "true"^^xsd:boolean .
+
+<urn:sysmlv2:element:40bb440c-5036-58e1-8675-5afccb8b8f1d>
+    a sysml:LibraryPackage ;
+    sysml:elementId "40bb440c-5036-58e1-8675-5afccb8b8f1d" ;
+    sysml:qualifiedName "ScalarValues" ;
+    sysml:declaredName "ScalarValues" ;
+    sysml:isLibraryElement "true"^^xsd:boolean .

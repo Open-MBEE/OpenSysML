@@ -1,1 +1,0 @@
-- Converting RDF back to notation no longer shortens a reference to its own enclosing element to an empty name.

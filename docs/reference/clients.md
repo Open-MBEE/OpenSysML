@@ -10,7 +10,7 @@ its own, and [guide chapter 9](../guide/09-clients.md) walks through a task with
 | **Go**, `client/opensysml` | in process; or Connect, to a service someone else runs | with the core (`v*` tags) | [Go packages](api.md) |
 | **Python**, `opensysml` | gRPC, to a private child service or a named service | PyPI, on the core `v*` tags, at the core's version | [Python API](python-api.md) |
 | **Node/TypeScript**, `@openmbee/opensysml` | Connect, to a private child service, a named service, or one a browser page addresses | not yet | [Node API](node-api.md) |
-| **Java**, `org.openmbee:opensysml-client` | Connect, over the JDK's own HTTP client | not yet | [Java API](java-api.md) |
+| **Java**, `org.openmbee:opensysml` | Connect, over the JDK's own HTTP client | not yet | [Java API](java-api.md) |
 | **Rust**, `opensysml` | Connect, blocking, no async runtime | not yet | [Rust API](rust-api.md) |
 | **Julia**, `OpenSysML` | Connect-JSON, over `HTTP.jl` | not yet | [Julia API](julia-api.md) |
 | **MATLAB**, `+opensysml` | Connect-JSON, over `matlab.net.http` or, under GNU Octave, a `curl` subprocess | not yet | [MATLAB API](matlab-api.md) |

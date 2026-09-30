@@ -631,3 +631,10 @@ expr:Loops__Charge___402_puntilCondition_pa0_preferent
     sysml:memberElement elmt:Loops__Charge___402__pace ;
     sysml:owner expr:Loops__Charge___402_puntilCondition_pa0 ;
     sysml:owningRelatedElement expr:Loops__Charge___402_puntilCondition_pa0 .
+
+<urn:sysmlv2:element:0cdc3cd3-b06c-5c32-beda-0cf4ba164a64>
+    a sysml:ActionUsage ;
+    sysml:elementId "0cdc3cd3-b06c-5c32-beda-0cf4ba164a64" ;
+    sysml:qualifiedName "Actions::Action::done" ;
+    sysml:declaredName "done" ;
+    sysml:isLibraryElement "true"^^xsd:boolean .

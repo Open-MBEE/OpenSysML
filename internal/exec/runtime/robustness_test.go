@@ -3622,9 +3622,10 @@ func testStateTransitionEndpointInAnotherMachine(t *testing.T) {
 	}
 }
 
-// testStateTransitionEndpointNamingAFirstMarker: a one-ended `first m;` marker is
-// no vertex, so an endpoint naming one is reported by the state transition check
-// and backstopped here with a typed error rather than a panic.
+// testStateTransitionEndpointNamingAFirstMarker: a member that is no vertex —
+// here an entry action — still makes an endpoint name one, which the state
+// transition check reports and is backstopped here with a typed error rather
+// than a panic.
 func testStateTransitionEndpointNamingAFirstMarker(t *testing.T) {
 	src := `package test {
 		state Machine {
@@ -3632,7 +3633,7 @@ func testStateTransitionEndpointNamingAFirstMarker(t *testing.T) {
 			state init;
 			state busy;
 			state other;
-			first marker;
+			entry marker { }
 			succession first init then busy;
 			transition first busy then marker;
 		}

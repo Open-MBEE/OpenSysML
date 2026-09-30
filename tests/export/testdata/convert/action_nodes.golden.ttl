@@ -1744,3 +1744,17 @@ expr:ActionNodes__Drive___4017_pexpression_preferent
     sysml:memberElement elmt:ActionNodes__Drive__brake ;
     sysml:owner expr:ActionNodes__Drive___4017_pexpression ;
     sysml:owningRelatedElement expr:ActionNodes__Drive___4017_pexpression .
+
+<urn:sysmlv2:element:0cdc3cd3-b06c-5c32-beda-0cf4ba164a64>
+    a sysml:ActionUsage ;
+    sysml:elementId "0cdc3cd3-b06c-5c32-beda-0cf4ba164a64" ;
+    sysml:qualifiedName "Actions::Action::done" ;
+    sysml:declaredName "done" ;
+    sysml:isLibraryElement "true"^^xsd:boolean .
+
+<urn:sysmlv2:element:9a0d2905-0f9c-5bb4-af74-9780d6db1817>
+    a sysml:ActionUsage ;
+    sysml:elementId "9a0d2905-0f9c-5bb4-af74-9780d6db1817" ;
+    sysml:qualifiedName "Actions::Action::start" ;
+    sysml:declaredName "start" ;
+    sysml:isLibraryElement "true"^^xsd:boolean .

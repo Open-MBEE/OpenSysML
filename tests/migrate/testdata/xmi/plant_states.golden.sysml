@@ -24,14 +24,14 @@ part def Plant {
             }
             state Prep;
             state Run;
-            history last;
-            deep history deepest;
+            #StateMachines::shallowHistory state last;
+            #StateMachines::deepHistory state deepest;
             transition first Prep accept Next then Run;
             transition first last then Prep;
         }
         state Pause;
         state Cell : CellMachine { in ref :>> context = Line::context; }
-        junction route;
+        #StateMachines::junction state route;
         fork spread;
         join gather;
         state Both {
@@ -89,3 +89,4 @@ part def Plant {
     }
     exhibit state line : Line { in ref :>> context = this; }
 }
+private import StateMachines::*;

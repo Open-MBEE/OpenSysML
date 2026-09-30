@@ -9683,3 +9683,31 @@ elmt:ThenAfterMembers__Switch__pressed_ft0
     sysml:owner elmt:ThenAfterMembers__Switch__pressed ;
     sysml:relatedElement elmt:ThenAfterMembers__Switch__pressed, elmt:d1e9242d-b2e3-5270-bf69-4f4fb0447193 ;
     json:relatedElement "[{\"@id\":\"ThenAfterMembers__Switch__pressed\"},{\"@id\":\"d1e9242d-b2e3-5270-bf69-4f4fb0447193\"}]" .
+
+<urn:sysmlv2:element:0cdc3cd3-b06c-5c32-beda-0cf4ba164a64>
+    a sysml:ActionUsage ;
+    sysml:elementId "0cdc3cd3-b06c-5c32-beda-0cf4ba164a64" ;
+    sysml:qualifiedName "Actions::Action::done" ;
+    sysml:declaredName "done" ;
+    sysml:isLibraryElement "true"^^xsd:boolean .
+
+<urn:sysmlv2:element:9a0d2905-0f9c-5bb4-af74-9780d6db1817>
+    a sysml:ActionUsage ;
+    sysml:elementId "9a0d2905-0f9c-5bb4-af74-9780d6db1817" ;
+    sysml:qualifiedName "Actions::Action::start" ;
+    sysml:declaredName "start" ;
+    sysml:isLibraryElement "true"^^xsd:boolean .
+
+elmt:d1e9242d-b2e3-5270-bf69-4f4fb0447193
+    a sysml:DataType ;
+    sysml:elementId "d1e9242d-b2e3-5270-bf69-4f4fb0447193" ;
+    sysml:qualifiedName "ScalarValues::Boolean" ;
+    sysml:declaredName "Boolean" ;
+    sysml:isLibraryElement "true"^^xsd:boolean .
+
+elmt:f2350199-2ab1-5258-8514-58812ef25dc6
+    a sysml:DataType ;
+    sysml:elementId "f2350199-2ab1-5258-8514-58812ef25dc6" ;
+    sysml:qualifiedName "ScalarValues::Integer" ;
+    sysml:declaredName "Integer" ;
+    sysml:isLibraryElement "true"^^xsd:boolean .

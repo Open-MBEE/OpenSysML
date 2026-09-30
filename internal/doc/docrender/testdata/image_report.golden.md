@@ -12,4 +12,4 @@
 
 ![](<images/plate 3.png>)
 
-![odd name](<images/a%29 %3Cb%3E.png>)
+![odd name](<images/a%29 %28b%29.png>)

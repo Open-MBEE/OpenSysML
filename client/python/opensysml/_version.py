@@ -6,4 +6,4 @@ neither is a second copy that can drift. `scripts/check_version.py` compares
 this value with the release tag before anything is uploaded.
 """
 
-VERSION = "0.9.0"
+VERSION = "0.9.1"
