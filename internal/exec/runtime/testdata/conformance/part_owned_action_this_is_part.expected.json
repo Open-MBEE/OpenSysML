@@ -1,0 +1,9 @@
+{
+  "type": "instance",
+  "libraries": true,
+  "instantiate": "test::p",
+  "slots": {
+    "a.ctx": {"type": "Instance", "value": "test::p"}
+  },
+  "identical": [["a", "a.ctx.a"]]
+}

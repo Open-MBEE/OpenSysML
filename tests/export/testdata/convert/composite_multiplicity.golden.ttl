@@ -9,6 +9,10 @@
 elmt:CompositeMultiplicity
     a sysml:Package ;
     sysml:qualifiedName "CompositeMultiplicity" ;
+    sysx:sourceLine "1"^^xsd:integer ;
+    sysx:sourceColumn "1"^^xsd:integer ;
+    sysx:sourceEndLine "15"^^xsd:integer ;
+    sysx:sourceEndColumn "2"^^xsd:integer ;
     sysml:elementId "CompositeMultiplicity" ;
     sysx:memberIndex "0"^^xsd:integer ;
     sysx:sourceLanguage "kerml" ;
@@ -26,6 +30,10 @@ elmt:CompositeMultiplicity
 elmt:CompositeMultiplicity__Wheel
     a sysml:ClassUsage ;
     sysml:qualifiedName "CompositeMultiplicity::Wheel" ;
+    sysx:sourceLine "2"^^xsd:integer ;
+    sysx:sourceColumn "5"^^xsd:integer ;
+    sysx:sourceEndLine "2"^^xsd:integer ;
+    sysx:sourceEndColumn "17"^^xsd:integer ;
     sysml:elementId "CompositeMultiplicity__Wheel" ;
     sysx:memberIndex "0"^^xsd:integer ;
     sysml:owningNamespace elmt:CompositeMultiplicity ;
@@ -49,6 +57,10 @@ elmt:CompositeMultiplicity__Wheel_om
 elmt:CompositeMultiplicity__Lugbolt
     a sysml:ClassUsage ;
     sysml:qualifiedName "CompositeMultiplicity::Lugbolt" ;
+    sysx:sourceLine "3"^^xsd:integer ;
+    sysx:sourceColumn "5"^^xsd:integer ;
+    sysx:sourceEndLine "3"^^xsd:integer ;
+    sysx:sourceEndColumn "19"^^xsd:integer ;
     sysml:elementId "CompositeMultiplicity__Lugbolt" ;
     sysx:memberIndex "1"^^xsd:integer ;
     sysml:owningNamespace elmt:CompositeMultiplicity ;
@@ -72,6 +84,10 @@ elmt:CompositeMultiplicity__Lugbolt_om
 elmt:CompositeMultiplicity__Vehicle
     a sysml:ClassUsage ;
     sysml:qualifiedName "CompositeMultiplicity::Vehicle" ;
+    sysx:sourceLine "4"^^xsd:integer ;
+    sysx:sourceColumn "5"^^xsd:integer ;
+    sysx:sourceEndLine "8"^^xsd:integer ;
+    sysx:sourceEndColumn "6"^^xsd:integer ;
     sysml:elementId "CompositeMultiplicity__Vehicle" ;
     sysx:memberIndex "2"^^xsd:integer ;
     sysml:owningNamespace elmt:CompositeMultiplicity ;
@@ -101,6 +117,10 @@ elmt:CompositeMultiplicity__Vehicle_om
 elmt:CompositeMultiplicity__Vehicle__w
     a sysml:AttributeUsage ;
     sysml:qualifiedName "CompositeMultiplicity::Vehicle::w" ;
+    sysx:sourceLine "5"^^xsd:integer ;
+    sysx:sourceColumn "9"^^xsd:integer ;
+    sysx:sourceEndLine "7"^^xsd:integer ;
+    sysx:sourceEndColumn "10"^^xsd:integer ;
     sysml:elementId "CompositeMultiplicity__Vehicle__w" ;
     sysx:memberIndex "0"^^xsd:integer ;
     sysml:owningNamespace elmt:CompositeMultiplicity__Vehicle ;
@@ -180,6 +200,10 @@ expr:CompositeMultiplicity__Vehicle__w_pupperBound_om
 elmt:CompositeMultiplicity__Vehicle__w__lugbolt
     a sysml:ReferenceUsage ;
     sysml:qualifiedName "CompositeMultiplicity::Vehicle::w::lugbolt" ;
+    sysx:sourceLine "6"^^xsd:integer ;
+    sysx:sourceColumn "13"^^xsd:integer ;
+    sysx:sourceEndLine "6"^^xsd:integer ;
+    sysx:sourceEndColumn "47"^^xsd:integer ;
     sysml:elementId "CompositeMultiplicity__Vehicle__w__lugbolt" ;
     sysx:memberIndex "0"^^xsd:integer ;
     sysml:owningNamespace elmt:CompositeMultiplicity__Vehicle__w ;
@@ -277,6 +301,10 @@ expr:CompositeMultiplicity__Vehicle__w__lugbolt_pupperBound_om
 elmt:CompositeMultiplicity__Car
     a sysml:ClassUsage ;
     sysml:qualifiedName "CompositeMultiplicity::Car" ;
+    sysx:sourceLine "9"^^xsd:integer ;
+    sysx:sourceColumn "5"^^xsd:integer ;
+    sysx:sourceEndLine "14"^^xsd:integer ;
+    sysx:sourceEndColumn "6"^^xsd:integer ;
     sysml:elementId "CompositeMultiplicity__Car" ;
     sysx:memberIndex "3"^^xsd:integer ;
     sysml:owningNamespace elmt:CompositeMultiplicity ;
@@ -313,6 +341,10 @@ elmt:CompositeMultiplicity__Car_om
 elmt:CompositeMultiplicity__Car__frontWheel
     a sysml:ReferenceUsage ;
     sysml:qualifiedName "CompositeMultiplicity::Car::frontWheel" ;
+    sysx:sourceLine "10"^^xsd:integer ;
+    sysx:sourceColumn "9"^^xsd:integer ;
+    sysx:sourceEndLine "12"^^xsd:integer ;
+    sysx:sourceEndColumn "10"^^xsd:integer ;
     sysml:elementId "CompositeMultiplicity__Car__frontWheel" ;
     sysx:memberIndex "0"^^xsd:integer ;
     sysml:owningNamespace elmt:CompositeMultiplicity__Car ;
@@ -393,6 +425,10 @@ expr:CompositeMultiplicity__Car__frontWheel_pupperBound_om
 elmt:CompositeMultiplicity__Car__frontWheel__lugbolt
     a sysml:ReferenceUsage ;
     sysml:qualifiedName "CompositeMultiplicity::Car::frontWheel::lugbolt" ;
+    sysx:sourceLine "11"^^xsd:integer ;
+    sysx:sourceColumn "13"^^xsd:integer ;
+    sysx:sourceEndLine "11"^^xsd:integer ;
+    sysx:sourceEndColumn "64"^^xsd:integer ;
     sysml:elementId "CompositeMultiplicity__Car__frontWheel__lugbolt" ;
     sysx:memberIndex "0"^^xsd:integer ;
     sysml:owningNamespace elmt:CompositeMultiplicity__Car__frontWheel ;
@@ -468,6 +504,10 @@ expr:CompositeMultiplicity__Car__frontWheel__lugbolt_pupperBound_om
 elmt:CompositeMultiplicity__Car__rearWheel
     a sysml:ReferenceUsage ;
     sysml:qualifiedName "CompositeMultiplicity::Car::rearWheel" ;
+    sysx:sourceLine "13"^^xsd:integer ;
+    sysx:sourceColumn "9"^^xsd:integer ;
+    sysx:sourceEndLine "13"^^xsd:integer ;
+    sysx:sourceEndColumn "46"^^xsd:integer ;
     sysml:elementId "CompositeMultiplicity__Car__rearWheel" ;
     sysx:memberIndex "1"^^xsd:integer ;
     sysml:owningNamespace elmt:CompositeMultiplicity__Car ;

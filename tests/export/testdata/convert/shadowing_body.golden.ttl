@@ -9,6 +9,10 @@
 elmt:ShadowBody
     a sysml:Package ;
     sysml:qualifiedName "ShadowBody" ;
+    sysx:sourceLine "1"^^xsd:integer ;
+    sysx:sourceColumn "1"^^xsd:integer ;
+    sysx:sourceEndLine "9"^^xsd:integer ;
+    sysx:sourceEndColumn "2"^^xsd:integer ;
     sysml:elementId "ShadowBody" ;
     sysx:memberIndex "0"^^xsd:integer ;
     sysx:sourceLanguage "sysml" ;
@@ -27,6 +31,10 @@ elmt:ShadowBody
 elmt:ShadowBody___400
     a sysml:NamespaceImport ;
     sysml:qualifiedName "ShadowBody::@0" ;
+    sysx:sourceLine "2"^^xsd:integer ;
+    sysx:sourceColumn "5"^^xsd:integer ;
+    sysx:sourceEndLine "2"^^xsd:integer ;
+    sysx:sourceEndColumn "40"^^xsd:integer ;
     sysml:elementId "ShadowBody___400" ;
     sysx:memberIndex "0"^^xsd:integer ;
     sysml:owningNamespace elmt:ShadowBody ;
@@ -41,6 +49,10 @@ elmt:ShadowBody___400
 elmt:ShadowBody__Speed
     a sysml:AttributeDefinition ;
     sysml:qualifiedName "ShadowBody::Speed" ;
+    sysx:sourceLine "3"^^xsd:integer ;
+    sysx:sourceColumn "5"^^xsd:integer ;
+    sysx:sourceEndLine "3"^^xsd:integer ;
+    sysx:sourceEndColumn "25"^^xsd:integer ;
     sysml:elementId "ShadowBody__Speed" ;
     sysx:memberIndex "1"^^xsd:integer ;
     sysml:owningNamespace elmt:ShadowBody ;
@@ -64,6 +76,10 @@ elmt:ShadowBody__Speed_om
 elmt:ShadowBody__Sensor
     a sysml:PartDefinition ;
     sysml:qualifiedName "ShadowBody::Sensor" ;
+    sysx:sourceLine "4"^^xsd:integer ;
+    sysx:sourceColumn "5"^^xsd:integer ;
+    sysx:sourceEndLine "8"^^xsd:integer ;
+    sysx:sourceEndColumn "6"^^xsd:integer ;
     sysml:elementId "ShadowBody__Sensor" ;
     sysx:memberIndex "2"^^xsd:integer ;
     sysml:owningNamespace elmt:ShadowBody ;
@@ -98,6 +114,10 @@ elmt:ShadowBody__Sensor_om
 elmt:ShadowBody__Sensor__value
     a sysml:AttributeUsage ;
     sysml:qualifiedName "ShadowBody::Sensor::value" ;
+    sysx:sourceLine "5"^^xsd:integer ;
+    sysx:sourceColumn "9"^^xsd:integer ;
+    sysx:sourceEndLine "5"^^xsd:integer ;
+    sysx:sourceEndColumn "33"^^xsd:integer ;
     sysml:elementId "ShadowBody__Sensor__value" ;
     sysx:memberIndex "0"^^xsd:integer ;
     sysml:owningNamespace elmt:ShadowBody__Sensor ;
@@ -127,6 +147,10 @@ elmt:ShadowBody__Sensor__value_om
 elmt:ShadowBody__Sensor__readings
     a sysml:AttributeUsage ;
     sysml:qualifiedName "ShadowBody::Sensor::readings" ;
+    sysx:sourceLine "6"^^xsd:integer ;
+    sysx:sourceColumn "9"^^xsd:integer ;
+    sysx:sourceEndLine "6"^^xsd:integer ;
+    sysx:sourceEndColumn "39"^^xsd:integer ;
     sysml:elementId "ShadowBody__Sensor__readings" ;
     sysx:memberIndex "1"^^xsd:integer ;
     sysml:owningNamespace elmt:ShadowBody__Sensor ;
@@ -198,6 +222,10 @@ expr:ShadowBody__Sensor__readings_pupperBound_om
 elmt:ShadowBody__Sensor__highs
     a sysml:AttributeUsage ;
     sysml:qualifiedName "ShadowBody::Sensor::highs" ;
+    sysx:sourceLine "7"^^xsd:integer ;
+    sysx:sourceColumn "9"^^xsd:integer ;
+    sysx:sourceEndLine "7"^^xsd:integer ;
+    sysx:sourceEndColumn "68"^^xsd:integer ;
     sysml:elementId "ShadowBody__Sensor__highs" ;
     sysx:memberIndex "2"^^xsd:integer ;
     sysml:owningNamespace elmt:ShadowBody__Sensor ;

@@ -469,6 +469,19 @@ func isIndexProperty(iri string) bool {
 	return false
 }
 
+// IsSourceRangeProperty reports whether iri is one of the four integers that
+// place a declaration in its document: layout, which reading ignores.
+func IsSourceRangeProperty(iri string) bool {
+	if !strings.HasPrefix(iri, rdf.OpenSysML) {
+		return false
+	}
+	switch rdf.LocalName(iri) {
+	case xSourceLine, xSourceColumn, xSourceEndLine, xSourceEndColumn:
+		return true
+	}
+	return false
+}
+
 // termText spells a term as Turtle does, for a diagnostic.
 func termText(term rdf.Term) string {
 	if term.IsIRI() {
@@ -543,7 +556,7 @@ func literalDatatypes(metaclass, predicate string) []string {
 		}
 	}
 	switch {
-	case isIndexProperty(predicate):
+	case isIndexProperty(predicate), IsSourceRangeProperty(predicate):
 		return integerLiterals
 	case strings.HasPrefix(name, "is"), name == xHasBody, name == xDeclaredID, name == xHasEffect, name == xBracedEffect, name == xConjugatedTyping, name == xSourceMultiplicityBeforeThen:
 		return booleanLiterals
@@ -644,6 +657,9 @@ type decoder struct {
 	// chainOwned indexes the FeatureChaining elements by the chain feature
 	// each names its owningRelatedElement, built on first lookup.
 	chainOwned map[string][]rdf.Term
+	// parameterOwned indexes the ParameterMembership elements by the namespace
+	// each names as its own, built on first lookup.
+	parameterOwned map[string][]rdf.Term
 	// byQName keys the elements' qualified names on their canonical form, built
 	// on first lookup.
 	byQName map[string]string
@@ -829,8 +845,23 @@ func (d *decoder) transparentRoot(el *element) bool {
 func (d *decoder) isMembership(subject rdf.Term) bool {
 	metaclass := d.metaclass(subject)
 	return metaclass != "" && (metaclass == mFeatureValue || metaclass == mParameterMembership ||
-		ontology.IsAncestorOrSelf(metaclass, mOwningMembership)) &&
+		ontology.IsAncestorOrSelf(metaclass, mOwningMembership) || d.prefixAnnotation(subject)) &&
 		!d.graph.HasProperty(subject, rdf.SysML+pQualifiedName)
+}
+
+// prefixAnnotation reports whether subject is the Annotation by which a
+// relationship owns its prefix metadata (SysML-textual-bnf PrefixMetadataAnnotation):
+// it states ownership as an OwningMembership does, through its related elements.
+func (d *decoder) prefixAnnotation(subject rdf.Term) bool {
+	if d.metaclass(subject) != mAnnotation {
+		return false
+	}
+	annotating, ok := d.graph.Object(subject, rdf.SysML+pAnnotatingElement)
+	if !ok || d.metaclass(annotating) != usageMetaclass[ast.UsageMetadata] {
+		return false
+	}
+	owned, ok := d.graph.Object(subject, rdf.SysML+pOwnedRelatedElement)
+	return ok && owned == annotating
 }
 
 // isNodeMembership identifies membership objects that own expression parts.
@@ -852,6 +883,13 @@ func (d *decoder) isNodeMembership(subject rdf.Term) bool {
 	// element of its own — `in expr keep : T` declares one — not a node.
 	if d.isExpressionIRI(member) || expressionMetaclasses[d.metaclass(member)] &&
 		!d.graph.HasProperty(member, rdf.SysML+pQualifiedName) {
+		return true
+	}
+	// A `message` owns its ends through ParameterMembership
+	// (SysML.xtext MessageEventMember): they are parts of the flow's head, not
+	// member elements of their own.
+	if metaclass == mParameterMembership && d.metaclass(owner) == usageMetaclass[ast.UsageFlow] &&
+		d.metaclass(member) == mEventOccurrenceUsage {
 		return true
 	}
 	if metaclass == mFeatureValue {
@@ -891,6 +929,18 @@ func (d *decoder) readMembership(subject rdf.Term) error {
 		return &UnsupportedError{
 			What: fmt.Sprintf("the membership <%s>", subject.Value),
 			Note: "a membership states the namespace it belongs to in sysml:membershipOwningNamespace and the element it owns in sysml:memberElement, and this one states one of them or neither",
+		}
+	}
+	if d.prefixAnnotation(subject) {
+		// A prefix annotates the relationship that owns it; one naming another
+		// element would be written as that owner's prefix and change meaning.
+		for _, annotated := range d.graph.Objects(subject, rdf.SysML+pAnnotatedElement) {
+			if annotated != owner {
+				return &UnsupportedError{
+					What: fmt.Sprintf("the annotation <%s>", subject.Value),
+					Note: fmt.Sprintf("it annotates <%s> but is owned by <%s>, and a `#` prefix annotates the element it is written on", annotated.Value, owner.Value),
+				}
+			}
 		}
 	}
 	m := membership{iri: subject.Value, owner: owner.Value, member: member.Value}
@@ -1786,6 +1836,14 @@ func (d *decoder) usageHead(el *element, kind ast.UsageKind) (string, error) {
 		words = append(words, direction)
 	}
 	keyword := d.keywordOr(el, usageKeyword(kind))
+	// A `message` is the flow whose ends are event occurrences it owns as
+	// parameters; their metaclass says `message` where the graph states none.
+	if kind == ast.UsageFlow && keyword == usageKeyword(kind) {
+		// The ends' own error surfaces where the head writes them.
+		if ends, err := d.messageEnds(el); err == nil && len(ends) > 0 {
+			keyword = "message"
+		}
+	}
 	// The RequirementUsage a RequirementVerificationMembership owns is spelled
 	// `verify`, whether or not the graph recorded the keyword.
 	if keyword == usageKeyword(ast.UsageSatisfy) && d.verifiedRequirement(el) {
