@@ -1179,15 +1179,16 @@ tagged and is no longer used. **Nothing has been published yet.**
 
 ### What a maintainer must obtain first
 
-None of these can be provisioned from a checkout. The key and the token are
-**project environment variables** of the OpenSysML project (Project Settings →
-Environment Variables): `CENTRAL_TOKEN_USERNAME`, `CENTRAL_TOKEN_PASSWORD`,
-`GPG_PRIVATE_KEY` and `GPG_PASSPHRASE`. Unlike the PyPI and npm tokens they are
-not in a restricted context, so every job of the project can read them; to
-restrict them later, move them into a context restricted to a security group
-(see [what the job needs](#what-the-job-needs)) and add a `context:` line to
-the `publish-maven` entry in the `release` workflow. The signing key in place
-is a freshly generated one with a two-year expiry, so the rotation note below
+None of these can be provisioned from a checkout. The key and the token live
+in the restricted context **`Maven Central`** (Organization Settings →
+Contexts — a context reference is matched exactly, so the case has to match),
+which holds `CENTRAL_TOKEN_USERNAME`, `CENTRAL_TOKEN_PASSWORD`,
+`GPG_PRIVATE_KEY` and `GPG_PASSPHRASE`, set up like the PyPI and npm contexts
+(see [what the job needs](#what-the-job-needs)). Contexts restricted to a
+security group admit only their members, so whoever pushes the tag must be
+allowed to use all of them — `PyPI`, `npm` and `Maven Central` — or the job
+fails as unauthorized before anything runs. The signing key in place is a
+freshly generated one with a two-year expiry, so the rotation note below
 applies within two years.
 
 1. **A verified namespace.** Register `org.openmbee` at
@@ -1204,7 +1205,7 @@ applies within two years.
    gpg --keyserver keys.openpgp.org --send-keys <KEY_ID>
    ```
 
-   The private key and its passphrase are the project variables
+   The private key and its passphrase are the context's
    `GPG_PRIVATE_KEY` (ASCII-armoured, `gpg --export-secret-keys --armor`) and
    `GPG_PASSPHRASE`.
    The job test-signs before anything uploads, so an expired key or a wrong
@@ -1214,9 +1215,9 @@ applies within two years.
    `GPG_PASSPHRASE` to match. Signatures already published stay verifiable.
 3. **Portal tokens.** Central portal → *View Account* → *Generate User Token*
    gives a username/password pair for a `<server>` with `<id>central`, the
-   project variables `CENTRAL_TOKEN_USERNAME`/`CENTRAL_TOKEN_PASSWORD`, written
+   context's `CENTRAL_TOKEN_USERNAME`/`CENTRAL_TOKEN_PASSWORD`, written
    into `~/.m2/settings.xml` by the job. A token can be revoked and regenerated
-   in the portal and then replaced in the project variables.
+   in the portal and then replaced in the context.
 
 ### The version
 
