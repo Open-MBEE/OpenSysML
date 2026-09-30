@@ -70,6 +70,7 @@ var oslcPropertyMappings = map[string]string{
 	sysmlNS + "multiplicityUpper":    PropertyMultiplicityUpper,
 	sysmlNS + "satisfiedRequirement": PropertySatisfiedRequirement,
 	sysmlNS + "satisfyingFeature":    PropertySatisfyingFeature,
+	sysmlNS + "elementId":            PropertyElementID,
 }
 
 // ParseOSLC parses a where expression. It also accepts a query-parameter

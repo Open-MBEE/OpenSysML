@@ -49,6 +49,9 @@ const (
 	PropertySatisfiedRequirement = "satisfiedRequirement"
 	// PropertySatisfyingFeature is the feature a satisfy usage is by.
 	PropertySatisfyingFeature = "satisfyingFeature"
+	// PropertyElementID is the elementId a conversion of the model writes for
+	// the element, reported only where the reader is given one (WithElementID).
+	PropertyElementID = "elementId"
 )
 
 // propertyNames is the closed set of properties supported by element queries.
@@ -59,6 +62,7 @@ var propertyNames = []string{
 	PropertyGeneral,
 	PropertyMultiplicityLower, PropertyMultiplicityUpper,
 	PropertySatisfiedRequirement, PropertySatisfyingFeature,
+	PropertyElementID,
 }
 
 // PropertyNames returns the supported property names in stable order.

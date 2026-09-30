@@ -95,7 +95,8 @@ func (s *Service) Query(ctx context.Context, req *pb.QueryRequest) (*pb.QueryRes
 	sc := cached.SymbolContext()
 	defer sc.Lock()()
 	eval := &queryEval{sc: sc, cached: cached}
-	eval.reader = corequery.NewPropertyReader(sc.Index, sc.Resolver, sc.Semantics).WithIdentity(eval.identity)
+	eval.reader = corequery.NewPropertyReader(sc.Index, sc.Resolver, sc.Semantics).
+		WithIdentity(eval.identity).WithElementID(eval.elementID)
 	if req.OslcQuery != "" {
 		parsed, err := corequery.ParseOSLC(req.OslcQuery)
 		if err != nil {
@@ -196,6 +197,27 @@ func (e *queryEval) identity(sym *symbols.Symbol) string {
 	}
 	e.positionalNames(e.cached)
 	return e.cached.positional[sym]
+}
+
+// elementID is the elementId Convert writes for sym in the qualified id form,
+// so a query result joins the converted graph: the tables are the writer's
+// own, built once per model.
+func (e *queryEval) elementID(sym *symbols.Symbol) string {
+	cached := e.cached
+	if cached == nil {
+		return ""
+	}
+	cached.elementIDsOnce.Do(func() {
+		names := make([]string, 0, len(cached.Documents))
+		for _, doc := range cached.Documents {
+			if doc != nil && doc.Source != nil {
+				names = append(names, doc.Source.Name())
+			}
+		}
+		cached.elementIDs = export.NewElementIDs(names, e.sc.Resolver, e.sc.Semantics)
+	})
+	id, _ := cached.elementIDs.Of(sym, e.identity(sym))
+	return id
 }
 
 func (e *queryEval) positionalNames(cached *CachedModel) {
