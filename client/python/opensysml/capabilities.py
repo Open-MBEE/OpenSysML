@@ -123,7 +123,12 @@ CAPABILITY_STATE_ACTION_AUTHORING = "state_action_authoring"
 #: edit's document and each referrer's. Without it the service edits a model of
 #: one document alone and answers ``content`` alone, leaving ``documents`` empty.
 CAPABILITY_EDIT_DOCUMENTS = "edit_documents"
-#: Declares the language of inline content passed to ``ParseFile``.
+#: ``ParseSources``, which parses several named documents as one model, so an
+#: import from one document into another resolves and diagnostics name the
+#: document they came from.
+CAPABILITY_PARSE_SOURCES = "parse_sources"
+#: Declares the language of inline content passed to ``ParseFile`` and
+#: ``ParseSources``.
 CAPABILITY_INLINE_LANGUAGE = "inline_language"
 #: ``ParseFileRequest.strict_conformance``, which asks whether the source is
 #: conforming SysML v2 rather than accepting the OpenSysML notation extensions.

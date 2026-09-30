@@ -25,6 +25,8 @@ const (
 	methodNote = "the method "
 )
 
+const performActionKeyword = "perform action "
+
 func (m *migration) classifyBehavior(e *sysmlv1.Element) (category, string) {
 	switch e.Type {
 	case "Activity":
@@ -156,7 +158,7 @@ func (m *migration) classifierBehavior(c *sysmlv1.Element) {
 			m.w.line(head + ";")
 		}
 	case catActionDef:
-		head := "perform action " + writeName(name) + " : " + m.ref(b, c)
+		head := performActionKeyword + writeName(name) + " : " + m.ref(b, c)
 		if ins != "" {
 			m.w.line(head + " { " + strings.Join(m.contextBody(b, ins), "; ") + "; }")
 		} else {
@@ -1061,15 +1063,15 @@ func (m *migration) reception(r *sysmlv1.Element) {
 	if m.blockOwner(owner) && (len(ports) > 0 || performed != nil && m.asUsage[performed]) {
 		// The loop reaches the object's ports or usages, which only a usage of the block does.
 		m.names[r], m.asUsage[r] = usage, true
-		m.w.block("perform action "+writeName(usage), body)
+		m.w.block(performActionKeyword+writeName(usage), body)
 		desc = "written as an action usage accepting " + m.nameFor(sig)
 	} else {
 		m.w.block("action def "+writeName(name), func() { m.bodyWithContext(r, body) })
 		ins, _ := m.contextIns(m.contextOf(r), owner)
 		if ins == "" {
-			m.w.line("perform action " + writeName(usage) + " : " + writeName(name) + ";")
+			m.w.line(performActionKeyword + writeName(usage) + " : " + writeName(name) + ";")
 		} else {
-			m.w.line("perform action " + writeName(usage) + " : " + writeName(name) + " { " + ins + "; }")
+			m.w.line(performActionKeyword + writeName(usage) + " : " + writeName(name) + " { " + ins + "; }")
 		}
 	}
 	m.receptionParameters(r, sig)

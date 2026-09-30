@@ -6,6 +6,7 @@ import (
 	"math"
 	"math/big"
 	"strconv"
+	"strings"
 
 	"github.com/Open-MBEE/OpenSysML/internal/exec/runtime"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/semantics"
@@ -120,11 +121,42 @@ type Unfixed struct {
 	// Name is the feature as the element naming it writes it.
 	Name string
 
+	// Var is the exact query variable reading the feature, where it names one:
+	// a chain variable, which the feature declaration alone does not identify.
+	Var string
+
 	// Reason says why no value was read.
 	Reason string
 
 	// Err is the error returned while reading the feature's value.
 	Err error
+}
+
+// UnreadableRead is a feature a query reads whose value could not be read, and
+// which the evaluator reaches only under some condition. The query asserts that
+// condition false, so its models never read the feature; Query.Reached asks
+// whether any assignment the question is about does.
+type UnreadableRead struct {
+	// Var is the variable standing for the feature.
+	Var *Var
+
+	// Name is the feature as the element naming it writes it.
+	Name string
+
+	// Err is the error returned while reading the feature's value.
+	Err error
+
+	// Reached is the condition under which the evaluator reads the feature.
+	Reached *Term
+
+	// Guard is the term the query asserts to keep its models from reaching the
+	// read: the negation of Reached.
+	Guard *Term
+
+	// Preceding are the definedness guards of the operations the evaluator
+	// performs before reaching the read (Var.Preceding), which an assignment
+	// reaching it satisfies.
+	Preceding []*Term
 }
 
 // PinError says which value could not be fixed, why, and where the feature was
@@ -656,23 +688,29 @@ func SatisfactionReader(ctx *runtime.Context, a *runtime.SatisfyAssertion, subje
 }
 
 // ChainPins reads the value each unpinned chain variable names through read:
-// a feature a chain of two or more steps reaches, which no fixed value names directly.
-func ChainPins(ctx *runtime.Context, q *Query, read Reader, self *runtime.Instance) ([]Pin, error) {
+// a feature a chain of two or more steps reaches, which no fixed value names
+// directly. A chain reaching a feature that holds nothing stays free. One whose
+// read fails — a declared value that does not evaluate (the runtime marks it
+// ErrFeatureValueMaterialization), or any other failure — is an Unfixed naming
+// the variable, for UnfixedRead to guard or refuse as it does a direct read.
+func ChainPins(ctx *runtime.Context, q *Query, read Reader, self *runtime.Instance) ([]Pin, []Unfixed) {
 	pinned := make(map[string]bool, len(q.Pinned))
 	for _, p := range q.Pinned {
 		pinned[p.Var.Name] = true
 	}
 	var out []Pin
+	var unfixed []Unfixed
 	for _, v := range q.Vars {
 		if len(v.Steps) < 2 || v.Ref == nil || v.Scope == nil || pinned[v.Name] {
 			continue
 		}
 		value, err := read(v.Scope, v.Ref)
 		if err != nil {
-			if errors.Is(err, runtime.ErrNoValue) {
+			if errors.Is(err, runtime.ErrNoValue) && !errors.Is(err, runtime.ErrFeatureValueMaterialization) {
 				continue
 			}
-			return nil, err
+			unfixed = append(unfixed, Unfixed{Feature: v.Symbol, Name: v.Name, Var: v.Name, Reason: err.Error(), Err: err})
+			continue
 		}
 		if value.Kind == runtime.ValInvalid || value.Kind == runtime.ValUndetermined || ctx.HoldsNoValue(value) {
 			continue
@@ -684,22 +722,146 @@ func ChainPins(ctx *runtime.Context, q *Query, read Reader, self *runtime.Instan
 		}
 		out = append(out, Pin{Feature: v.Symbol, Name: v.Name, Var: v.Name, Value: value, Source: source, Object: object})
 	}
-	return out, nil
+	return out, unfixed
 }
 
-// UnfixedRead is the read failure of an unfixed feature a variable of q reads; nil when none is read.
+// UnfixedRead is the read failure of an unfixed feature a variable of q reads on
+// every path, nil when it reads none. A feature the evaluator reaches only under
+// some condition — the right operand of a short-circuiting connective, a branch
+// of a conditional, a condition after another required one — is guarded instead:
+// q asserts that condition false in role RoleDefined and names the read in
+// Query.Unreadable, so its models are the assignments the evaluator answers about
+// without reading the feature. A failed default is never left free: an assignment
+// reaching it has no value for it, and Query.Reached asks whether one exists.
 func UnfixedRead(ctx *runtime.Context, q *Query, unfixed []Unfixed) error {
 	t := &translator{ctx: ctx, model: ctx.Semantics(), vars: make(map[string]*Var, len(q.Vars))}
 	for _, v := range q.Vars {
 		t.vars[v.Name] = v
 	}
+	guarded := make(map[*Var]bool, len(q.Unreadable))
+	for _, u := range q.Unreadable {
+		guarded[u.Var] = true
+	}
+	var guards []Assertion
 	for _, u := range unfixed {
 		if u.Err == nil {
 			continue
 		}
-		if t.pinnedVar(Pin{Feature: u.Feature, Name: u.Name}) != nil {
+		v := t.pinnedVar(Pin{Feature: u.Feature, Name: u.Name, Var: u.Var})
+		if v == nil || guarded[v] {
+			continue
+		}
+		if v.Reached == nil {
 			return fmt.Errorf("%s %s reads %s, whose value could not be read: %w", q.Kind, q.Element, u.Name, u.Err)
 		}
+		guarded[v] = true
+		guard := Not(v.Reached)
+		q.Unreadable = append(q.Unreadable, UnreadableRead{Var: v, Name: u.Name, Err: u.Err, Reached: v.Reached, Guard: guard, Preceding: v.Preceding})
+		guards = append(guards, Assertion{Term: guard, From: Provenance{
+			Kind:      q.Kind,
+			Element:   q.Element,
+			Condition: fmt.Sprintf("%s is not read, as its value could not be read: %v", u.Name, u.Err),
+			Role:      RoleDefined,
+			Declared:  v.Symbol,
+			File:      v.File,
+			Span:      v.Span,
+			Location:  v.Location,
+		}})
 	}
+	if len(guards) == 0 {
+		return nil
+	}
+	at := len(q.Assertions)
+	for i, a := range q.Assertions {
+		if !contextRole(a.From.Role) {
+			at = i
+			break
+		}
+	}
+	assertions := make([]Assertion, 0, len(q.Assertions)+len(guards))
+	assertions = append(assertions, q.Assertions[:at]...)
+	assertions = append(assertions, guards...)
+	q.Assertions = append(assertions, q.Assertions[at:]...)
 	return nil
+}
+
+// contextRole reports whether a role bounds the assignments a query is about
+// rather than stating a condition the element claims.
+func contextRole(role Role) bool {
+	switch role {
+	case RoleDomain, RolePinned, RoleDefined:
+		return true
+	}
+	return false
+}
+
+// Reached is the query whose models are the assignments of the free features
+// under which the evaluator reads a feature whose value could not be read: q's
+// domains, fixed values and assumptions, with the disjunction of the unreadable
+// reads required — each read's condition together with the definedness guards
+// of the operations the evaluator performs before reaching it. A guard hoisted
+// from an operation after the read — a later required condition's divisor —
+// constrains no assignment reaching it: the evaluator fails at the read and
+// never performs the operation, so imposing the guard could hide the
+// assignment and certify a false proof. Nil for a query reading no such
+// feature. Unsat proves that every assignment the question is about evaluates
+// without the read, so q's verdict is the evaluator's; sat witnesses an
+// assignment on which the evaluator reaches no verdict, which leaves a proof or
+// a refutation of q undecided (ReachedError).
+func (q *Query) Reached() *Query {
+	if len(q.Unreadable) == 0 {
+		return nil
+	}
+	out := &Query{
+		Kind:            q.Kind,
+		Element:         q.Element,
+		Sorts:           q.Sorts,
+		Vars:            q.Vars,
+		Nonlinear:       q.Nonlinear,
+		IntegerDivision: q.IntegerDivision,
+		Pinned:          q.Pinned,
+	}
+	reads := make([]*Term, 0, len(q.Unreadable))
+	names := make([]string, 0, len(q.Unreadable))
+	for _, u := range q.Unreadable {
+		reads = append(reads, and(conjunction(u.Preceding), u.Reached))
+		names = append(names, u.Name)
+	}
+	for _, a := range q.Assertions {
+		if a.From.Role == RoleDefined {
+			continue
+		}
+		if contextRole(a.From.Role) || a.From.Role == RoleAssumed {
+			out.Assertions = append(out.Assertions, a)
+		}
+	}
+	out.Assertions = append(out.Assertions, Assertion{Term: Or(reads...), From: Provenance{
+		Kind:      q.Kind,
+		Element:   q.Element,
+		Condition: strings.Join(names, " or ") + " is read",
+		Role:      RoleRequired,
+	}})
+	return out
+}
+
+// ReachedError is the error a question about q reports when Reached is
+// satisfiable: some assignment of the free features reads a feature whose value
+// could not be read, so the evaluator reaches no verdict there.
+func (q *Query) ReachedError() error {
+	if len(q.Unreadable) == 0 {
+		return nil
+	}
+	if len(q.Unreadable) == 1 {
+		u := q.Unreadable[0]
+		return fmt.Errorf("%s %s reads %s under some assignment of its free features, whose value could not be read: %w",
+			q.Kind, q.Element, u.Name, u.Err)
+	}
+	names := make([]string, 0, len(q.Unreadable))
+	errs := make([]error, 0, len(q.Unreadable))
+	for _, u := range q.Unreadable {
+		names = append(names, u.Name)
+		errs = append(errs, fmt.Errorf("%s: %w", u.Name, u.Err))
+	}
+	return fmt.Errorf("%s %s reads %s under some assignment of its free features, whose values could not be read: %w",
+		q.Kind, q.Element, strings.Join(names, ", "), errors.Join(errs...))
 }

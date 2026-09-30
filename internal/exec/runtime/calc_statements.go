@@ -35,6 +35,19 @@ type calcOccurrence struct {
 	// params is the run's parameter bindings as they are bound, which a
 	// materialization seeds from; its vars map is shared with the run's frame.
 	params frame
+	// this is materializeOccurrence bound once, which every binding env reads.
+	this func() (*Instance, error)
+}
+
+// thisOccurrence is materializeOccurrence as the hook an EvalContext holds.
+func (o *calcOccurrence) thisOccurrence() func() (*Instance, error) {
+	if o == nil {
+		return o.materializeOccurrence
+	}
+	if o.this == nil {
+		o.this = o.materializeOccurrence
+	}
+	return o.this
 }
 
 // materializeOccurrence is the invocation's occurrence, made on the first call.

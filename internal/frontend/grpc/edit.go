@@ -519,10 +519,10 @@ func editOperations(pbOps []*pb.EditOperation) ([]edit.Operation, error) {
 			))
 		case *pb.EditOperation_AddTransition:
 			add := op.AddTransition
-			ops = append(ops, edit.AddTransition(
-				add.GetOwner(), add.GetName(), add.GetSource(), add.GetTarget(),
-				add.GetTrigger(), add.GetGuard(), add.GetEffect(), add.GetInitial(),
-			))
+			ops = append(ops, edit.AddTransition(add.GetOwner(), edit.Transition{
+				Name: add.GetName(), From: add.GetSource(), To: add.GetTarget(),
+				Trigger: add.GetTrigger(), Guard: add.GetGuard(), Effect: add.GetEffect(), Initial: add.GetInitial(),
+			}))
 		case *pb.EditOperation_AddVerify:
 			ops = append(ops, edit.AddVerify(op.AddVerify.GetOwner(), op.AddVerify.GetRequirement()))
 		case *pb.EditOperation_AddMetadata:

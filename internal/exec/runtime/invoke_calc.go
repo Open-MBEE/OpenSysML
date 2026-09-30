@@ -630,10 +630,10 @@ func (ctx *Context) releaseInvocationFrame(frame *invocationFrame) {
 		clear(bindings)
 		slots.release()
 	}
-	frameBuf := frame.engine.frameBuf
+	frameBuf, thisOccurrence := frame.engine.frameBuf, frame.engine.thisOccurrence
 	clear(frameBuf)
 	*frame = invocationFrame{bindings: bindings, slots: slots}
-	frame.engine.frameBuf = frameBuf[:0]
+	frame.engine.frameBuf, frame.engine.thisOccurrence = frameBuf[:0], thisOccurrence
 	if len(ctx.freeInvocationFrames) < maxFreeInvocationFrames {
 		ctx.freeInvocationFrames = append(ctx.freeInvocationFrames, frame)
 	}
@@ -701,32 +701,13 @@ func (ctx *Context) invokeCalcShapeIn(shape *calcShape, args calcArgs, callerSco
 	}
 
 	if isBehaviorDefKind(shape.Sym.Kind) {
-		occurrence.materialize = func() (*Instance, error) {
-			if occurrence.inst != nil {
-				return occurrence.inst, nil
-			}
-			inst, err := ctx.materialize(shape.Sym, 0, nil, "")
-			if err != nil {
-				return nil, err
-			}
-			for _, name := range shape.ParamNames {
-				if value, held := locals.lookup(name); held {
-					if err := inst.SetFeatureValue(ctx, name, value); err != nil {
-						return nil, fmt.Errorf("%w: seed %s of object #%d: %w",
-							ErrActionPerformanceOccurrence, name, inst.ID, err)
-					}
-				}
-			}
-			ctx.beginPerformanceLife(inst, activation)
-			occurrence.inst = inst
-			return inst, nil
-		}
+		occurrence.materialize = ctx.calcOccurrenceMaterializer(shape, locals, activation, occurrence)
 		defer func() {
 			if occurrence.inst != nil {
 				ctx.endPerformanceLife(occurrence.inst)
 			}
 		}()
-		ec.thisOccurrence = occurrence.materializeOccurrence
+		ec.thisOccurrence = occurrence.thisOccurrence()
 	}
 
 	if ec.trace != nil {
@@ -743,12 +724,7 @@ func (ctx *Context) invokeCalcShapeIn(shape *calcShape, args calcArgs, callerSco
 	var result Value
 	var err error
 	if shape.Tool != nil {
-		var returned bool
-		var outputs map[string]Value
-		result, returned, outputs, err = ctx.computeCalcByTool(shape, ec.scope, locals.lookup)
-		if err == nil && !returned {
-			result, err = shape.toolCalcResult(outputs)
-		}
+		result, err = ctx.computeCalcResultByTool(shape, ec.scope, locals.lookup)
 	} else {
 		result, err = ctx.runCalcBody(shape, frame, callerScope, self, activation, enclosing, occurrence)
 	}
@@ -763,6 +739,41 @@ func (ctx *Context) invokeCalcShapeIn(shape *calcShape, args calcArgs, callerSco
 		return Value{}, calcFrame(shape.Kind, shape.Name, err)
 	}
 	return result, nil
+}
+
+// computeCalcResultByTool is the result of a tool-annotated calc: the result
+// parameter's value, else the one its outputs settle.
+func (ctx *Context) computeCalcResultByTool(shape *calcShape, scope *symbols.Scope, held func(string) (Value, bool)) (Value, error) {
+	result, returned, outputs, err := ctx.computeCalcByTool(shape, scope, held)
+	if err != nil || returned {
+		return result, err
+	}
+	return shape.toolCalcResult(outputs)
+}
+
+// calcOccurrenceMaterializer materializes the occurrence a definition's `this`
+// denotes once, seeded with the parameters bound so far.
+func (ctx *Context) calcOccurrenceMaterializer(shape *calcShape, locals frame, activation int64, occurrence *calcOccurrence) func() (*Instance, error) {
+	return func() (*Instance, error) {
+		if occurrence.inst != nil {
+			return occurrence.inst, nil
+		}
+		inst, err := ctx.materialize(shape.Sym, 0, nil, "")
+		if err != nil {
+			return nil, err
+		}
+		for _, name := range shape.ParamNames {
+			if value, held := locals.lookup(name); held {
+				if err := inst.SetFeatureValue(ctx, name, value); err != nil {
+					return nil, fmt.Errorf("%w: seed %s of object #%d: %w",
+						ErrActionPerformanceOccurrence, name, inst.ID, err)
+				}
+			}
+		}
+		ctx.beginPerformanceLife(inst, activation)
+		occurrence.inst = inst
+		return inst, nil
+	}
 }
 
 // enterCalc spends one of the run's calc depth budget, so a recursion evaluates
@@ -858,7 +869,11 @@ func (ctx *Context) bindCalcParameters(
 func (ctx *Context) runCalcBody(shape *calcShape, frame *invocationFrame, callerScope *symbols.Scope, self *Instance, activation int64, enclosing []frame, occurrence *calcOccurrence) (Value, error) {
 	frame.host = calcStmtHost{ctx: ctx, shape: shape, self: self, occ: occurrence}
 	frame.env = stmtEnv{data: frame.locals(), enclosing: shape.bodyEnclosing(enclosing)}
-	frame.engine = stmtEngine{ctx: ctx, host: &frame.host, env: &frame.env, activation: activation, frameBuf: frame.engine.frameBuf}
+	thisOccurrence := frame.engine.thisOccurrence
+	if thisOccurrence == nil {
+		thisOccurrence = frame.host.materializeOccurrence
+	}
+	frame.engine = stmtEngine{ctx: ctx, host: &frame.host, env: &frame.env, activation: activation, frameBuf: frame.engine.frameBuf, thisOccurrence: thisOccurrence}
 	frame.host.attachPerformances(&frame.engine)
 	result, returned, err := runCalcSteps(&frame.engine, &frame.host, shape.Steps)
 	if err != nil {

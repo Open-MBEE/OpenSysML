@@ -110,35 +110,8 @@ func (m *Model) superEdges(sym *symbols.Symbol) []superEdge {
 	journal(m, m.superEdgeCache, sym, sym.Decl)
 	m.superEdgeCache[sym] = nil
 
-	var out []superEdge
 	seen := make(map[*symbols.Symbol]bool)
-	for _, rel := range RelationshipsOf(sym) {
-		if rel == nil || rel.Target == nil || !GeneralizationKind(rel.Kind) {
-			continue
-		}
-		target := rel.Target
-		if fr, ok := target.(*ast.FeatureReference); ok {
-			target = fr.Name
-		}
-		qn, isQN := target.(*ast.QualifiedName)
-		if !isQN {
-			continue
-		}
-		resolved, ok := m.resolver.ResolveQualified(sym.OwnerScope, qn)
-		if !ok || resolved == nil || resolved == sym || seen[resolved] {
-			continue
-		}
-		if canonical, aliasOK := m.resolver.ResolveAliasTarget(resolved); aliasOK {
-			resolved = canonical
-		} else {
-			continue
-		}
-		if resolved == sym || seen[resolved] {
-			continue
-		}
-		seen[resolved] = true
-		out = append(out, superEdge{sym: resolved, conjugated: rel.Conjugated, typing: rel.Kind == ast.RelTyping})
-	}
+	out := m.declaredSuperEdges(sym, seen)
 	if sym.Recorded() {
 		for _, rel := range sym.Facts.Relationships {
 			if !GeneralizationKind(rel.Kind) {
@@ -160,6 +133,36 @@ func (m *Model) superEdges(sym *symbols.Symbol) []superEdge {
 		}
 	}
 	m.superEdgeCache[sym] = out
+	return out
+}
+
+// declaredSuperEdges resolves the generalizations sym's declaration states,
+// each target once, through its alias.
+func (m *Model) declaredSuperEdges(sym *symbols.Symbol, seen map[*symbols.Symbol]bool) []superEdge {
+	var out []superEdge
+	for _, rel := range RelationshipsOf(sym) {
+		if rel == nil || rel.Target == nil || !GeneralizationKind(rel.Kind) {
+			continue
+		}
+		target := rel.Target
+		if fr, ok := target.(*ast.FeatureReference); ok {
+			target = fr.Name
+		}
+		qn, isQN := target.(*ast.QualifiedName)
+		if !isQN {
+			continue
+		}
+		resolved, ok := m.resolver.ResolveQualified(sym.OwnerScope, qn)
+		if !ok || resolved == nil || resolved == sym || seen[resolved] {
+			continue
+		}
+		canonical, aliasOK := m.resolver.ResolveAliasTarget(resolved)
+		if !aliasOK || canonical == sym || seen[canonical] {
+			continue
+		}
+		seen[canonical] = true
+		out = append(out, superEdge{sym: canonical, conjugated: rel.Conjugated, typing: rel.Kind == ast.RelTyping})
+	}
 	return out
 }
 
@@ -202,6 +205,10 @@ func (m *Model) PortFeatures(sym *symbols.Symbol) []PortFeature {
 	if sym == nil {
 		return nil
 	}
+	defer m.own(sym).LeaveDoc()
+	if cached, ok := m.portFeatures[sym]; ok {
+		return cached
+	}
 	var out []PortFeature
 	seenName := make(map[string]bool)
 	for _, typ := range m.conjugatedSupertypes(sym) {
@@ -225,6 +232,8 @@ func (m *Model) PortFeatures(sym *symbols.Symbol) []PortFeature {
 			seenName[name] = true
 		}
 	}
+	journal(m, m.portFeatures, sym, sym.Decl)
+	m.portFeatures[sym] = out
 	return out
 }
 

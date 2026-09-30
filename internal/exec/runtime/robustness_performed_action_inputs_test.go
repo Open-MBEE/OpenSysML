@@ -362,17 +362,17 @@ func testHeldImageCarriesRecordedFailure(t *testing.T) {
 
 	dst := imageInto(t, ctx, inst)
 	copied, _ := dst.Instance(inst.ID)
-	copy, ok := copied.Behavior("toastBread")
+	replica, ok := copied.Behavior("toastBread")
 	if !ok {
 		t.Fatalf("the copy performs no toastBread, behaviors: %v", copied.Behaviors())
 	}
-	if !errors.Is(copy.Err, ErrUnboundParameter) {
-		t.Errorf("copy.Err = %v, want ErrUnboundParameter", copy.Err)
+	if !errors.Is(replica.Err, ErrUnboundParameter) {
+		t.Errorf("copy.Err = %v, want ErrUnboundParameter", replica.Err)
 	}
-	if !copy.typeBound {
+	if !replica.typeBound {
 		t.Error("the copy is not marked type-bound, want carried from the image")
 	}
-	if !copy.completed() || copy.hasPendingWork() {
+	if !replica.completed() || replica.hasPendingWork() {
 		t.Error("the copied performance must be ended and hold no pending work")
 	}
 }

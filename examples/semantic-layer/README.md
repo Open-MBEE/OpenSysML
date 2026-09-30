@@ -23,7 +23,7 @@ This demo showcases all semantic layer features implemented in the OpenSysML Sys
 - Nested namespace resolution
 - Inheritance-aware member lookup
 
-### Track 3: Feature Chain Resolution
+### Track 2: Feature Chain Resolution
 
 **Member access chains:**
 - Simple chains: `object.member`
@@ -35,7 +35,7 @@ This demo showcases all semantic layer features implemented in the OpenSysML Sys
 - Redefinition with chains
 - Symbol storage in AST for downstream passes
 
-### Track 4: Semantic Validation
+### Track 3: Semantic Validation
 
 **Typing conformance:**
 - Validates subsetting relationships respect type hierarchies
@@ -50,65 +50,67 @@ This demo showcases all semantic layer features implemented in the OpenSysML Sys
 
 ### Using the REPL
 
+The attributes are members of the demo's one package, `SemanticLayerDemo`,
+which the REPL loads with the file, so a bare name resolves:
+
 ```bash
-# Start the REPL and load the demo
-go run ./cmd/sysml
-%load examples/semantic-layer/demo.sysml
+# Start the REPL with the demo loaded
+./bin/sysml examples/semantic-layer/demo.sysml
 
 # Evaluate specific attributes
-%eval equalityDemo.intEquality
-%eval logicalDemo.andTrue
-%eval negationDemo.negInt
-%eval qualifiedDemo.usePi
-%eval chainDemo.simpleValue
+%eval intEquality
+%eval andTrue
+%eval negInt
+%eval usePi
+%eval simpleValue
+%eval nestedValue
 ```
 
 ### Expected Output Examples
 
-```sysml
-%eval equalityDemo.intEquality
-  = true
-
-%eval logicalDemo.andTrue
-  = true
-
-%eval negationDemo.negInt
-  = -42
-
-%eval qualifiedDemo.usePi
-  = 3.14159
-
-%eval chainDemo.simpleValue
-  = 42
-
-%eval chainDemo.nestedValue
-  = 100
 ```
+✓ intEquality
+  = true
+✓ andTrue
+  = true
+✓ negInt
+  = -42
+✓ usePi
+  = 3.14159
+✓ simpleValue
+  = 0
+✓ nestedValue
+  = 0
+```
+
+`simpleValue` and `nestedValue` read `Container::value`, which is `0` by
+declaration; the qualified `SemanticLayerDemo::intEquality` evaluates the same
+way.
 
 ## Demo Structure
 
 The demo is organized into sections mirroring the implementation tracks:
 
-1. **Runtime Operators** (lines 8-64)
+1. **Runtime Operators** (lines 8-54)
    - Equality, logical, negation, qualified names
    - Combined operator expressions
 
-2. **Feature Chain Resolution** (lines 66-130)
+2. **Feature Chain Resolution** (lines 55-81)
    - Simple and nested chains
    - Chains in relationships
    - Redefinition with chains
 
-3. **Semantic Validation** (lines 132-175)
+3. **Semantic Validation** (lines 82-100)
    - Typing conformance examples
    - Redefinition validation
    - Valid constraint scenarios
 
-4. **Integration Example** (lines 177-214)
+4. **Integration Example** (lines 101-127)
    - Realistic vehicle monitoring system
    - Combines all features in one scenario
    - Feature chains + operators + validation
 
-5. **Edge Cases** (lines 216-232)
+5. **Edge Cases** (lines 128-144)
    - Complex operator combinations
    - Negation of comparisons
    - Parenthesized expressions
@@ -182,7 +184,6 @@ All tests should pass with this demo loaded.
 
 - [Architecture](../../docs/internals/architecture.md) - the pipeline this demo exercises
 - [Spec compliance](../../docs/project/spec-compliance.md) - semantic rule to implementation to test
-- [PR #11](https://github.com/Open-MBEE/OpenSysML/pull/11) - Pull request with all changes
 
 ## Contributing
 

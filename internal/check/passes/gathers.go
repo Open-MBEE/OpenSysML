@@ -29,7 +29,7 @@ func mosaUnionOf(ctx *Context) *mosaUnion {
 
 // Contributors names the workspace documents the shared state called name is
 // built from — a table of the model's or an audit union's, built on first use
-// — and false when name is none of theirs (see kit.Contributing).
+// — and false when name is none of theirs (see kit.ContributorNamer).
 func Contributors(ctx *Context, name string) ([]string, bool) {
 	if docs, ok := ctx.Model().Contributors(name); ok {
 		return docs, true

@@ -2683,8 +2683,8 @@ func (ctx *Context) combineBooleanValues(op ast.OperatorKind, left, right Value)
 }
 
 // shortCircuit reports whether a Boolean operator is decided by its left
-// operand alone, and the result when it is: `and` by false, `or` by true and
-// `implies` by false. `xor`, `|` and `&` always read both operands.
+// operand alone, and the result when it is: `and` and `&` by false, `or` and
+// `|` by true and `implies` by false. `xor` always reads both operands.
 func shortCircuit(op ast.OperatorKind, l bool) (decided, result bool) {
 	switch op {
 	case ast.OpAnd, ast.OpConditionalAnd:

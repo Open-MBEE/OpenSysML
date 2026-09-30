@@ -103,10 +103,10 @@ func TestHTMLTableContinuation(t *testing.T) {
 	if n := strings.Count(got, `data-column="name" data-value-kind="string"><span class="sysml-value" data-value-kind="string">sample</span>`); n != 3 {
 		t.Fatalf("first column repeated %d times, want 3", n)
 	}
-	if n := strings.Count(got, "Table 3."); n != 0 {
+	if strings.Count(got, "Table 3.") != 0 {
 		t.Fatalf("continuation tables took caption numbers of their own:\n%s", got)
 	}
-	if n := strings.Count(got, `data-name="parts"`); n != 1 {
+	if strings.Count(got, `data-name="parts"`) != 1 {
 		t.Fatalf("the three-column table was split:\n%s", got)
 	}
 	if n := strings.Count(got, "sysml-table-split"); n != 3 {

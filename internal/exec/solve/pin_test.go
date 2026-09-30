@@ -408,9 +408,9 @@ func TestChainPinsReadTheValuesAChainNames(t *testing.T) {
 	if err != nil {
 		t.Fatalf("translate: %v", err)
 	}
-	pins, err := ChainPins(ctx, q, ObjectReader(ctx, nil), nil)
-	if err != nil {
-		t.Fatalf("ChainPins: %v", err)
+	pins, unfixed := ChainPins(ctx, q, ObjectReader(ctx, nil), nil)
+	if len(unfixed) != 0 {
+		t.Fatalf("ChainPins unfixed = %+v, want none", unfixed)
 	}
 	if len(pins) != 1 || !strings.HasSuffix(pins[0].Var, "hg.power") {
 		t.Fatalf("chain pins = %+v, want one pinning hg.power", pins)
@@ -420,12 +420,9 @@ func TestChainPinsReadTheValuesAChainNames(t *testing.T) {
 	if err != nil {
 		t.Fatalf("translate bounded: %v", err)
 	}
-	pins, err = ChainPins(ctx, q, ObjectReader(ctx, nil), nil)
-	if err != nil {
-		t.Fatalf("ChainPins bounded: %v", err)
-	}
-	if len(pins) != 0 {
-		t.Fatalf("bounded chain pins = %+v, want none — hg.free carries no value", pins)
+	pins, unfixed = ChainPins(ctx, q, ObjectReader(ctx, nil), nil)
+	if len(pins) != 0 || len(unfixed) != 0 {
+		t.Fatalf("bounded chain pins = %+v unfixed = %+v, want none — hg.free carries no value", pins, unfixed)
 	}
 }
 
@@ -548,9 +545,9 @@ func TestSatisfactionChainPinsReadTheSubject(t *testing.T) {
 	if err != nil {
 		t.Fatalf("translate satisfaction: %v", err)
 	}
-	pins, err := ChainPins(ctx, q, SatisfactionReader(ctx, assertion, subject), subject)
-	if err != nil {
-		t.Fatalf("ChainPins with satisfaction reader: %v", err)
+	pins, unfixed := ChainPins(ctx, q, SatisfactionReader(ctx, assertion, subject), subject)
+	if len(unfixed) != 0 {
+		t.Fatalf("ChainPins with satisfaction reader: unfixed %+v, want none", unfixed)
 	}
 	want := map[string]float64{"vehicle.sub.power": 5.0, "vehicle.sub.inner.power": 7.0}
 	for _, pin := range pins {
@@ -566,11 +563,8 @@ func TestSatisfactionChainPinsReadTheSubject(t *testing.T) {
 	if len(want) != 0 {
 		t.Errorf("satisfaction chain pins %+v do not include %v", pins, want)
 	}
-	objectPins, err := ChainPins(ctx, q, ObjectReader(ctx, nil), nil)
-	if err != nil {
-		t.Fatalf("ChainPins with object reader: %v", err)
-	}
-	if len(objectPins) != 0 {
-		t.Errorf("object-only reader pinned %+v, want neither unbound chain", objectPins)
+	objectPins, objectUnfixed := ChainPins(ctx, q, ObjectReader(ctx, nil), nil)
+	if len(objectPins) != 0 || len(objectUnfixed) != 0 {
+		t.Errorf("object-only reader pinned %+v and found unreadable %+v, want neither unbound chain", objectPins, objectUnfixed)
 	}
 }

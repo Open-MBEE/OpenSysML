@@ -53,62 +53,15 @@ func ParseBaseUnit(unit string) (BaseUnit, bool) {
 	exponents := &[8]int{}
 	divide := false
 	for i := 0; i < len(s); {
-		var name string
-		switch {
-		case strings.HasPrefix(s[i:], "mol"):
-			name, i = "mol", i+3
-		case strings.HasPrefix(s[i:], "rad"):
-			name, i = "rad", i+3
-		case strings.HasPrefix(s[i:], "kg"):
-			name, i = "kg", i+2
-		case strings.HasPrefix(s[i:], "cd"):
-			name, i = "cd", i+2
-		case s[i] == 'm', s[i] == 's', s[i] == 'A', s[i] == 'K':
-			name, i = string(s[i]), i+1
-		default:
+		name, next, ok := baseSymbol(s, i)
+		if !ok {
 			return BaseUnit{}, false
 		}
-		// The exponent is signed by its own minus: `s^-2` in a denominator reads
-		// as s raised to +2, exactly as m/(s^-2) means.
-		exponent := 1
-		if i < len(s) && s[i] == '^' {
-			i++
-			neg := i < len(s) && s[i] == '-'
-			if neg {
-				i++
-			}
-			n, ok := digits(s, &i)
-			if !ok {
-				return BaseUnit{}, false
-			}
-			if neg {
-				n = -n
-			}
-			exponent = n
-		} else {
-			if i < len(s) && s[i] >= '0' && s[i] <= '9' {
-				n, ok := digits(s, &i)
-				if !ok {
-					return BaseUnit{}, false
-				}
-				exponent = n
-			}
-			for i < len(s) {
-				r, size := utf8.DecodeRuneInString(s[i:])
-				switch r {
-				case '²':
-					exponent *= 2
-				case '³':
-					exponent *= 3
-				default:
-					r = 0
-				}
-				if r == 0 {
-					break
-				}
-				i += size
-			}
+		exponent, next, ok := baseExponent(s, next)
+		if !ok {
+			return BaseUnit{}, false
 		}
+		i = next
 		if divide {
 			exponent = -exponent
 		}
@@ -130,6 +83,66 @@ func ParseBaseUnit(unit string) (BaseUnit, bool) {
 	}
 	b.Kg, b.M, b.S, b.A, b.K, b.Mol, b.Cd, b.Rad = exponents[0], exponents[1], exponents[2], exponents[3], exponents[4], exponents[5], exponents[6], exponents[7]
 	return b, true
+}
+
+// baseSymbol reads the SI base symbol at i, returning it and the index past it.
+func baseSymbol(s string, i int) (name string, next int, ok bool) {
+	switch {
+	case strings.HasPrefix(s[i:], "mol"):
+		return "mol", i + 3, true
+	case strings.HasPrefix(s[i:], "rad"):
+		return "rad", i + 3, true
+	case strings.HasPrefix(s[i:], "kg"):
+		return "kg", i + 2, true
+	case strings.HasPrefix(s[i:], "cd"):
+		return "cd", i + 2, true
+	case s[i] == 'm', s[i] == 's', s[i] == 'A', s[i] == 'K':
+		return string(s[i]), i + 1, true
+	}
+	return "", i, false
+}
+
+// baseExponent reads the exponent following a base symbol at i: `^n`, `^-n`,
+// a trailing digit run or ²/³ superscripts, 1 when none. The exponent is
+// signed by its own minus: `s^-2` in a denominator reads as s raised to +2,
+// exactly as m/(s^-2) means.
+func baseExponent(s string, i int) (exponent, next int, ok bool) {
+	exponent = 1
+	if i < len(s) && s[i] == '^' {
+		i++
+		neg := i < len(s) && s[i] == '-'
+		if neg {
+			i++
+		}
+		n, ok := digits(s, &i)
+		if !ok {
+			return 0, i, false
+		}
+		if neg {
+			n = -n
+		}
+		return n, i, true
+	}
+	if i < len(s) && s[i] >= '0' && s[i] <= '9' {
+		n, ok := digits(s, &i)
+		if !ok {
+			return 0, i, false
+		}
+		exponent = n
+	}
+	for i < len(s) {
+		r, size := utf8.DecodeRuneInString(s[i:])
+		switch r {
+		case '²':
+			exponent *= 2
+		case '³':
+			exponent *= 3
+		default:
+			return exponent, i, true
+		}
+		i += size
+	}
+	return exponent, i, true
 }
 
 // digits reads a run of ASCII digits at i, advancing i past them.

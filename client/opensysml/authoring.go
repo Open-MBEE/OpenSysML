@@ -615,95 +615,7 @@ func (c *client) ApplyDocumentEdits(ctx context.Context, model *Model, document 
 	if err := c.requireEditDocuments(ctx, document); err != nil {
 		return nil, err
 	}
-	required := map[string]bool{}
-	for _, operation := range edits {
-		switch operation := operation.(type) {
-		case AddMember:
-			required[CapabilityAuthoring] = true
-			if operation.Kind == "" {
-				required[CapabilityImplicitParameters] = true
-			}
-			if operation.IsAbstract || len(operation.Redefines) > 0 ||
-				operation.IsDefault || operation.Direction != "" ||
-				operation.Kind == "ref" || operation.Kind == "return" {
-				required[CapabilityMemberModifiers] = true
-			}
-			if operation.Kind == "objective" && operation.Name == "" {
-				required[CapabilityVerificationObjectiveAuthoring] = true
-			}
-			if len(operation.MetadataPrefixes) > 0 {
-				required[CapabilityMetadataAuthoring] = true
-			}
-			if operation.BodyExpression != "" ||
-				operation.Kind == "assert" || operation.Kind == "assert not" ||
-				operation.Kind == "assert constraint" || operation.Kind == "assert not constraint" {
-				required[CapabilityConstraintBodyAuthoring] = true
-			}
-			switch operation.Kind {
-			case "exhibit state", "exhibit", "entry action", "do action", "exit action":
-				required[CapabilityStateActionAuthoring] = true
-			}
-			if operation.Doc != "" {
-				required[CapabilityDocumentationAuthoring] = true
-			}
-		case AddConnection:
-			required[CapabilityAuthoring] = true
-			required[CapabilityConnectionAuthoring] = true
-		case AddSatisfy:
-			required[CapabilityAuthoring] = true
-			required[CapabilitySatisfyAuthoring] = true
-		case AddRequirementConstraint:
-			required[CapabilityAuthoring] = true
-			required[CapabilityRequirementConstraintAuthoring] = true
-		case AddTransition:
-			required[CapabilityAuthoring] = true
-			required[CapabilityTransitionAuthoring] = true
-		case AddVerify:
-			required[CapabilityAuthoring] = true
-			required[CapabilityVerificationObjectiveAuthoring] = true
-		case AddMetadata:
-			required[CapabilityAuthoring] = true
-			required[CapabilityMetadataAuthoring] = true
-		case AddMetadataPrefix:
-			required[CapabilityAuthoring] = true
-			required[CapabilityMetadataPrefixAuthoring] = true
-		case AddSequence:
-			required[CapabilityAuthoring] = true
-			required[CapabilitySequenceAuthoring] = true
-			if operation.needsActionBodyStatementAuthoring() {
-				required[CapabilityActionBodyStatementAuthoring] = true
-			}
-		case AddImport:
-			required[CapabilityAuthoring] = true
-			required[CapabilityImportAuthoring] = true
-		case AddDocumentation:
-			required[CapabilityAuthoring] = true
-			required[CapabilityDocumentationAuthoring] = true
-		case AddComment, AddNote:
-			required[CapabilityAuthoring] = true
-			required[CapabilityCommentAuthoring] = true
-		case Delete, Move:
-			required[CapabilityAuthoring] = true
-		}
-	}
-	if len(required) > 0 {
-		names := make([]string, 0, len(required))
-		for _, capability := range []string{
-			CapabilityAuthoring, CapabilityConnectionAuthoring,
-			CapabilitySatisfyAuthoring, CapabilityRequirementConstraintAuthoring,
-			CapabilityMemberModifiers, CapabilityTransitionAuthoring,
-			CapabilityVerificationObjectiveAuthoring, CapabilityMetadataAuthoring,
-			CapabilityMetadataPrefixAuthoring,
-			CapabilitySequenceAuthoring, CapabilityImplicitParameters,
-			CapabilityActionBodyStatementAuthoring,
-			CapabilityConstraintBodyAuthoring, CapabilityStateActionAuthoring,
-			CapabilityImportAuthoring, CapabilityDocumentationAuthoring,
-			CapabilityCommentAuthoring,
-		} {
-			if required[capability] {
-				names = append(names, capability)
-			}
-		}
+	if names := requiredCapabilities(edits); len(names) > 0 {
 		if err := c.requireCapabilities(ctx, names...); err != nil {
 			return nil, err
 		}
@@ -746,6 +658,95 @@ func (c *client) ApplyDocumentEdits(ctx context.Context, model *Model, document 
 		})
 	}
 	return result, nil
+}
+
+// requiredCapabilities names the capabilities the edits need the service to
+// advertise, in a fixed order.
+func requiredCapabilities(edits []Edit) []string {
+	required := map[string]bool{}
+	for _, operation := range edits {
+		switch operation := operation.(type) {
+		case AddMember:
+			addMemberCapabilities(operation, required)
+		case AddConnection:
+			required[CapabilityConnectionAuthoring] = true
+		case AddSatisfy:
+			required[CapabilitySatisfyAuthoring] = true
+		case AddRequirementConstraint:
+			required[CapabilityRequirementConstraintAuthoring] = true
+		case AddTransition:
+			required[CapabilityTransitionAuthoring] = true
+		case AddVerify:
+			required[CapabilityVerificationObjectiveAuthoring] = true
+		case AddMetadata:
+			required[CapabilityMetadataAuthoring] = true
+		case AddMetadataPrefix:
+			required[CapabilityMetadataPrefixAuthoring] = true
+		case AddSequence:
+			required[CapabilitySequenceAuthoring] = true
+			if operation.needsActionBodyStatementAuthoring() {
+				required[CapabilityActionBodyStatementAuthoring] = true
+			}
+		case AddImport:
+			required[CapabilityImportAuthoring] = true
+		case AddDocumentation:
+			required[CapabilityDocumentationAuthoring] = true
+		case AddComment, AddNote:
+			required[CapabilityCommentAuthoring] = true
+		case Delete, Move:
+		default:
+			continue
+		}
+		required[CapabilityAuthoring] = true
+	}
+	var names []string
+	for _, capability := range []string{
+		CapabilityAuthoring, CapabilityConnectionAuthoring,
+		CapabilitySatisfyAuthoring, CapabilityRequirementConstraintAuthoring,
+		CapabilityMemberModifiers, CapabilityTransitionAuthoring,
+		CapabilityVerificationObjectiveAuthoring, CapabilityMetadataAuthoring,
+		CapabilityMetadataPrefixAuthoring,
+		CapabilitySequenceAuthoring, CapabilityImplicitParameters,
+		CapabilityActionBodyStatementAuthoring,
+		CapabilityConstraintBodyAuthoring, CapabilityStateActionAuthoring,
+		CapabilityImportAuthoring, CapabilityDocumentationAuthoring,
+		CapabilityCommentAuthoring,
+	} {
+		if required[capability] {
+			names = append(names, capability)
+		}
+	}
+	return names
+}
+
+// addMemberCapabilities marks the capabilities the member's kind and prefixes need.
+func addMemberCapabilities(operation AddMember, required map[string]bool) {
+	if operation.Kind == "" {
+		required[CapabilityImplicitParameters] = true
+	}
+	if operation.IsAbstract || len(operation.Redefines) > 0 ||
+		operation.IsDefault || operation.Direction != "" ||
+		operation.Kind == "ref" || operation.Kind == "return" {
+		required[CapabilityMemberModifiers] = true
+	}
+	if operation.Kind == "objective" && operation.Name == "" {
+		required[CapabilityVerificationObjectiveAuthoring] = true
+	}
+	if len(operation.MetadataPrefixes) > 0 {
+		required[CapabilityMetadataAuthoring] = true
+	}
+	if operation.BodyExpression != "" ||
+		operation.Kind == "assert" || operation.Kind == "assert not" ||
+		operation.Kind == "assert constraint" || operation.Kind == "assert not constraint" {
+		required[CapabilityConstraintBodyAuthoring] = true
+	}
+	switch operation.Kind {
+	case "exhibit state", "exhibit", "entry action", "do action", "exit action":
+		required[CapabilityStateActionAuthoring] = true
+	}
+	if operation.Doc != "" {
+		required[CapabilityDocumentationAuthoring] = true
+	}
 }
 
 func referrersFromProto(referrers []*pb.Referrer) []Referrer {

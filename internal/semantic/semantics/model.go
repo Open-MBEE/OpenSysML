@@ -69,6 +69,7 @@ type Model struct {
 
 	superEdgeCache map[*symbols.Symbol][]superEdge      // generalization edges with conjugation
 	conjSupers     map[*symbols.Symbol][]conjugatedType // supertypes with conjugation parity
+	portFeatures   map[*symbols.Symbol][]PortFeature    // PortFeatures by port type
 
 	unitTerms    map[*symbols.Symbol]UnitTerm // measurement units reduced to base units
 	reducingUnit map[*symbols.Symbol]bool     // units being reduced, to detect a cycle
@@ -122,6 +123,8 @@ type Model struct {
 	computingRedefinedFeatures int
 	// unique memoizes each feature's effective uniqueness (see uniqueness.go).
 	unique map[*symbols.Symbol]bool
+	// paramRanges memoizes EffectiveParameterRange (see multiplicity.go).
+	paramRanges map[*symbols.Symbol]Range
 	// ctorSlots memoizes each type's constructible features (see shape.go).
 	ctorSlots map[*symbols.Symbol]constructorSlots
 	// members and shapes memoize MembersOf and ShapeFeatures once the member
@@ -170,6 +173,7 @@ func NewModel(resolver *resolve.Resolver) *Model {
 
 		superEdgeCache: make(map[*symbols.Symbol][]superEdge),
 		conjSupers:     make(map[*symbols.Symbol][]conjugatedType),
+		portFeatures:   make(map[*symbols.Symbol][]PortFeature),
 		unitTerms:      make(map[*symbols.Symbol]UnitTerm),
 		reducingUnit:   make(map[*symbols.Symbol]bool),
 
@@ -193,6 +197,7 @@ func NewModel(resolver *resolve.Resolver) *Model {
 		redefClosure:          make(map[*symbols.Symbol]map[*symbols.Symbol]bool),
 		computingRedefClosure: make(map[*symbols.Symbol]bool),
 		unique:                make(map[*symbols.Symbol]bool),
+		paramRanges:           make(map[*symbols.Symbol]Range),
 		ctorSlots:             make(map[*symbols.Symbol]constructorSlots),
 		members:               make(map[memberKey][]*symbols.Symbol),
 		shapes:                make(map[*symbols.Symbol][]ShapeFeature),

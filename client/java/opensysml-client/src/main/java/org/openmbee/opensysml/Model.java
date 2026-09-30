@@ -37,10 +37,12 @@ import org.openmbee.opensysml.proto.VerifyRequirementRequest;
 import org.openmbee.opensysml.proto.VerifyRequirementResponse;
 import org.openmbee.opensysml.proto.VerifySatisfactionRequest;
 import org.openmbee.opensysml.proto.VerifySatisfactionResponse;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.Set;
 
 /**
  * A model the service has parsed, named by the hash every later call carries.
@@ -525,7 +527,7 @@ public final class Model {
    *     {@code verification_questions}
    */
   public Verification verifyConstraint(String symbolId, VerifyOptions options) {
-    Objects.requireNonNull(options, "options");
+    Objects.requireNonNull(options, NAME_OPTIONS);
     return verifyConstraint(symbolId, Optional.empty(), options);
   }
 
@@ -545,7 +547,7 @@ public final class Model {
   public Verification verifyConstraint(
       String symbolId, String subjectSymbolId, VerifyOptions options) {
     Objects.requireNonNull(subjectSymbolId, NAME_SUBJECT_SYMBOL_ID);
-    Objects.requireNonNull(options, "options");
+    Objects.requireNonNull(options, NAME_OPTIONS);
     return verifyConstraint(symbolId, Optional.of(subjectSymbolId), options);
   }
 
@@ -607,7 +609,7 @@ public final class Model {
    *     question that is not an evaluation, {@code verification_questions}
    */
   public Verification verifyRequirement(String symbolId, VerifyOptions options) {
-    Objects.requireNonNull(options, "options");
+    Objects.requireNonNull(options, NAME_OPTIONS);
     return verifyRequirement(symbolId, Optional.empty(), options);
   }
 
@@ -627,7 +629,7 @@ public final class Model {
   public Verification verifyRequirement(
       String symbolId, String subjectSymbolId, VerifyOptions options) {
     Objects.requireNonNull(subjectSymbolId, NAME_SUBJECT_SYMBOL_ID);
-    Objects.requireNonNull(options, "options");
+    Objects.requireNonNull(options, NAME_OPTIONS);
     return verifyRequirement(symbolId, Optional.of(subjectSymbolId), options);
   }
 
@@ -671,7 +673,7 @@ public final class Model {
    *     question that is not an evaluation, {@code verification_questions}
    */
   public Satisfaction verifySatisfaction(VerifyOptions options) {
-    Objects.requireNonNull(options, "options");
+    Objects.requireNonNull(options, NAME_OPTIONS);
     return verifySatisfaction(Optional.empty(), options);
   }
 
@@ -704,7 +706,7 @@ public final class Model {
    */
   public Satisfaction verifySatisfaction(String scopeSymbolId, VerifyOptions options) {
     Objects.requireNonNull(scopeSymbolId, "scopeSymbolId");
-    Objects.requireNonNull(options, "options");
+    Objects.requireNonNull(options, NAME_OPTIONS);
     return verifySatisfaction(Optional.of(scopeSymbolId), options);
   }
 
@@ -992,158 +994,14 @@ public final class Model {
     Objects.requireNonNull(edits, "edits");
     Objects.requireNonNull(options, NAME_OPTIONS);
     connection.capabilities().require(Capabilities.APPLY_EDITS);
-    boolean requestsAuthoring = false;
-    boolean requestsConnectionAuthoring = false;
-    boolean requestsMemberModifiers = false;
-    boolean requestsSatisfyAuthoring = false;
-    boolean requestsRequirementConstraintAuthoring = false;
-    boolean requestsTransitionAuthoring = false;
-    boolean requestsVerificationObjectiveAuthoring = false;
-    boolean requestsMetadataAuthoring = false;
-    boolean requestsMetadataPrefixAuthoring = false;
-    boolean requestsSequenceAuthoring = false;
-    boolean requestsActionBodyStatementAuthoring = false;
-    boolean requestsImplicitParameters = false;
-    boolean requestsConstraintBodyAuthoring = false;
-    boolean requestsStateActionAuthoring = false;
-    boolean requestsImportAuthoring = false;
-    boolean requestsDocumentationAuthoring = false;
-    boolean requestsCommentAuthoring = false;
+    Set<String> required = new HashSet<>();
     for (Edit edit : edits) {
-      if (edit instanceof Edit.AddMember
-          || edit instanceof Edit.AddConnection
-          || edit instanceof Edit.AddSatisfy
-          || edit instanceof Edit.AddRequirementConstraint
-          || edit instanceof Edit.AddTransition
-          || edit instanceof Edit.AddVerify
-          || edit instanceof Edit.AddMetadata
-          || edit instanceof Edit.AddMetadataPrefix
-          || edit instanceof Edit.AddSequence
-          || edit instanceof Edit.AddImport
-          || edit instanceof Edit.AddDocumentation
-          || edit instanceof Edit.AddComment
-          || edit instanceof Edit.AddNote
-          || edit instanceof Edit.Delete
-          || edit instanceof Edit.Move) {
-        requestsAuthoring = true;
+      editCapabilities(edit, required);
+    }
+    for (String capability : EDIT_CAPABILITY_ORDER) {
+      if (required.contains(capability)) {
+        connection.capabilities().require(capability);
       }
-      if (edit instanceof Edit.AddConnection) {
-        requestsConnectionAuthoring = true;
-      }
-      if (edit instanceof Edit.AddMember addMember
-          && (addMember.isAbstract()
-              || !addMember.redefines().isEmpty()
-              || addMember.isDefault()
-              || !addMember.direction().isEmpty()
-              || addMember.kind().equals("ref")
-              || addMember.kind().equals("return"))) {
-        requestsMemberModifiers = true;
-      }
-      if (edit instanceof Edit.AddMember addMember && addMember.kind().isEmpty()) {
-        requestsImplicitParameters = true;
-      }
-      if (edit instanceof Edit.AddMember addMember) {
-        requestsConstraintBodyAuthoring =
-            requestsConstraintBodyAuthoring
-                || addMember.bodyExpression().filter(e -> !e.isEmpty()).isPresent()
-                || addMember.kind().equals("assert")
-                || addMember.kind().equals("assert not")
-                || addMember.kind().equals("assert constraint")
-                || addMember.kind().equals("assert not constraint");
-        requestsStateActionAuthoring =
-            requestsStateActionAuthoring
-                || List.of("exhibit state", "exhibit", "entry action", "do action", "exit action")
-                    .contains(addMember.kind());
-      }
-      if (edit instanceof Edit.AddSatisfy) {
-        requestsSatisfyAuthoring = true;
-      }
-      if (edit instanceof Edit.AddRequirementConstraint) {
-        requestsRequirementConstraintAuthoring = true;
-      }
-      if (edit instanceof Edit.AddTransition) {
-        requestsTransitionAuthoring = true;
-      }
-      if (edit instanceof Edit.AddVerify
-          || edit instanceof Edit.AddMember addMember
-              && addMember.kind().equals("objective")
-              && addMember.name().isEmpty()) {
-        requestsVerificationObjectiveAuthoring = true;
-      }
-      if (edit instanceof Edit.AddMetadata
-          || edit instanceof Edit.AddMember addMember
-              && !addMember.metadataPrefixes().isEmpty()) {
-        requestsMetadataAuthoring = true;
-      }
-      if (edit instanceof Edit.AddMetadataPrefix) {
-        requestsMetadataPrefixAuthoring = true;
-      }
-      if (edit instanceof Edit.AddSequence addSequence) {
-        requestsSequenceAuthoring = true;
-        requestsActionBodyStatementAuthoring |=
-            addSequence.requiresActionBodyStatementAuthoring();
-      }
-      if (edit instanceof Edit.AddImport) {
-        requestsImportAuthoring = true;
-      }
-      if (edit instanceof Edit.AddDocumentation
-          || edit instanceof Edit.AddMember addMember && !addMember.doc().isEmpty()) {
-        requestsDocumentationAuthoring = true;
-      }
-      if (edit instanceof Edit.AddComment || edit instanceof Edit.AddNote) {
-        requestsCommentAuthoring = true;
-      }
-    }
-    if (requestsAuthoring) {
-      connection.capabilities().require(Capabilities.AUTHORING);
-    }
-    if (requestsConnectionAuthoring) {
-      connection.capabilities().require(Capabilities.CONNECTION_AUTHORING);
-    }
-    if (requestsMemberModifiers) {
-      connection.capabilities().require(Capabilities.MEMBER_MODIFIERS);
-    }
-    if (requestsSatisfyAuthoring) {
-      connection.capabilities().require(Capabilities.SATISFY_AUTHORING);
-    }
-    if (requestsRequirementConstraintAuthoring) {
-      connection.capabilities().require(Capabilities.REQUIREMENT_CONSTRAINT_AUTHORING);
-    }
-    if (requestsTransitionAuthoring) {
-      connection.capabilities().require(Capabilities.TRANSITION_AUTHORING);
-    }
-    if (requestsVerificationObjectiveAuthoring) {
-      connection.capabilities().require(Capabilities.VERIFICATION_OBJECTIVE_AUTHORING);
-    }
-    if (requestsMetadataAuthoring) {
-      connection.capabilities().require(Capabilities.METADATA_AUTHORING);
-    }
-    if (requestsMetadataPrefixAuthoring) {
-      connection.capabilities().require(Capabilities.METADATA_PREFIX_AUTHORING);
-    }
-    if (requestsSequenceAuthoring) {
-      connection.capabilities().require(Capabilities.SEQUENCE_AUTHORING);
-    }
-    if (requestsActionBodyStatementAuthoring) {
-      connection.capabilities().require(Capabilities.ACTION_BODY_STATEMENT_AUTHORING);
-    }
-    if (requestsImplicitParameters) {
-      connection.capabilities().require(Capabilities.IMPLICIT_PARAMETERS);
-    }
-    if (requestsConstraintBodyAuthoring) {
-      connection.capabilities().require(Capabilities.CONSTRAINT_BODY_AUTHORING);
-    }
-    if (requestsStateActionAuthoring) {
-      connection.capabilities().require(Capabilities.STATE_ACTION_AUTHORING);
-    }
-    if (requestsImportAuthoring) {
-      connection.capabilities().require(Capabilities.IMPORT_AUTHORING);
-    }
-    if (requestsDocumentationAuthoring) {
-      connection.capabilities().require(Capabilities.DOCUMENTATION_AUTHORING);
-    }
-    if (requestsCommentAuthoring) {
-      connection.capabilities().require(Capabilities.COMMENT_AUTHORING);
     }
     options.document().ifPresent(document -> connection.capabilities().require(Capabilities.EDIT_DOCUMENTS));
     ApplyEditsRequest.Builder request =
@@ -1164,6 +1022,99 @@ public final class Model {
           Protos.referrers(response.getReferrersList()));
     }
     return Protos.editResult(response);
+  }
+
+  /** The order the capabilities an edit request needs are checked in. */
+  private static final List<String> EDIT_CAPABILITY_ORDER =
+      List.of(
+          Capabilities.AUTHORING,
+          Capabilities.CONNECTION_AUTHORING,
+          Capabilities.MEMBER_MODIFIERS,
+          Capabilities.SATISFY_AUTHORING,
+          Capabilities.REQUIREMENT_CONSTRAINT_AUTHORING,
+          Capabilities.TRANSITION_AUTHORING,
+          Capabilities.VERIFICATION_OBJECTIVE_AUTHORING,
+          Capabilities.METADATA_AUTHORING,
+          Capabilities.METADATA_PREFIX_AUTHORING,
+          Capabilities.SEQUENCE_AUTHORING,
+          Capabilities.ACTION_BODY_STATEMENT_AUTHORING,
+          Capabilities.IMPLICIT_PARAMETERS,
+          Capabilities.CONSTRAINT_BODY_AUTHORING,
+          Capabilities.STATE_ACTION_AUTHORING,
+          Capabilities.IMPORT_AUTHORING,
+          Capabilities.DOCUMENTATION_AUTHORING,
+          Capabilities.COMMENT_AUTHORING);
+
+  private static final List<String> STATE_ACTION_KINDS =
+      List.of("exhibit state", "exhibit", "entry action", "do action", "exit action");
+
+  private static final List<String> ASSERTED_CONSTRAINT_KINDS =
+      List.of("assert", "assert not", "assert constraint", "assert not constraint");
+
+  /** Adds to {@code required} the capabilities applying {@code edit} needs the service to advertise. */
+  private static void editCapabilities(Edit edit, Set<String> required) {
+    if (edit instanceof Edit.AddMember addMember) {
+      addMemberCapabilities(addMember, required);
+    } else if (edit instanceof Edit.AddConnection) {
+      required.add(Capabilities.CONNECTION_AUTHORING);
+    } else if (edit instanceof Edit.AddSatisfy) {
+      required.add(Capabilities.SATISFY_AUTHORING);
+    } else if (edit instanceof Edit.AddRequirementConstraint) {
+      required.add(Capabilities.REQUIREMENT_CONSTRAINT_AUTHORING);
+    } else if (edit instanceof Edit.AddTransition) {
+      required.add(Capabilities.TRANSITION_AUTHORING);
+    } else if (edit instanceof Edit.AddVerify) {
+      required.add(Capabilities.VERIFICATION_OBJECTIVE_AUTHORING);
+    } else if (edit instanceof Edit.AddMetadata) {
+      required.add(Capabilities.METADATA_AUTHORING);
+    } else if (edit instanceof Edit.AddMetadataPrefix) {
+      required.add(Capabilities.METADATA_PREFIX_AUTHORING);
+    } else if (edit instanceof Edit.AddSequence addSequence) {
+      required.add(Capabilities.SEQUENCE_AUTHORING);
+      if (addSequence.requiresActionBodyStatementAuthoring()) {
+        required.add(Capabilities.ACTION_BODY_STATEMENT_AUTHORING);
+      }
+    } else if (edit instanceof Edit.AddImport) {
+      required.add(Capabilities.IMPORT_AUTHORING);
+    } else if (edit instanceof Edit.AddDocumentation) {
+      required.add(Capabilities.DOCUMENTATION_AUTHORING);
+    } else if (edit instanceof Edit.AddComment || edit instanceof Edit.AddNote) {
+      required.add(Capabilities.COMMENT_AUTHORING);
+    } else if (!(edit instanceof Edit.Delete) && !(edit instanceof Edit.Move)) {
+      return;
+    }
+    required.add(Capabilities.AUTHORING);
+  }
+
+  private static void addMemberCapabilities(Edit.AddMember addMember, Set<String> required) {
+    String kind = addMember.kind();
+    if (addMember.isAbstract()
+        || !addMember.redefines().isEmpty()
+        || addMember.isDefault()
+        || !addMember.direction().isEmpty()
+        || kind.equals("ref")
+        || kind.equals("return")) {
+      required.add(Capabilities.MEMBER_MODIFIERS);
+    }
+    if (kind.isEmpty()) {
+      required.add(Capabilities.IMPLICIT_PARAMETERS);
+    }
+    if (addMember.bodyExpression().filter(e -> !e.isEmpty()).isPresent()
+        || ASSERTED_CONSTRAINT_KINDS.contains(kind)) {
+      required.add(Capabilities.CONSTRAINT_BODY_AUTHORING);
+    }
+    if (STATE_ACTION_KINDS.contains(kind)) {
+      required.add(Capabilities.STATE_ACTION_AUTHORING);
+    }
+    if (kind.equals("objective") && addMember.name().isEmpty()) {
+      required.add(Capabilities.VERIFICATION_OBJECTIVE_AUTHORING);
+    }
+    if (!addMember.metadataPrefixes().isEmpty()) {
+      required.add(Capabilities.METADATA_AUTHORING);
+    }
+    if (!addMember.doc().isEmpty()) {
+      required.add(Capabilities.DOCUMENTATION_AUTHORING);
+    }
   }
 
   /**

@@ -225,12 +225,21 @@ func AddRequirementConstraint(owner, kind, expression, name string) Operation {
 	}
 }
 
+// Transition describes the transition an AddTransition inserts: an entry
+// transition names its target alone; any other names its source and target,
+// and optionally a name, trigger, guard and effect.
+type Transition struct {
+	Name, From, To         string
+	Trigger, Guard, Effect string
+	Initial                bool
+}
+
 // AddTransition inserts a state transition, or an entry transition when initial.
-func AddTransition(owner, name, from, to, trigger, guard, effect string, initial bool) Operation {
+func AddTransition(owner string, t Transition) Operation {
 	return Operation{
-		Kind: OpAddTransition, Owner: owner, TransitionName: name,
-		TransitionSource: from, TransitionTarget: to, Trigger: trigger,
-		Guard: guard, Effect: effect, Initial: initial,
+		Kind: OpAddTransition, Owner: owner, TransitionName: t.Name,
+		TransitionSource: t.From, TransitionTarget: t.To, Trigger: t.Trigger,
+		Guard: t.Guard, Effect: t.Effect, Initial: t.Initial,
 	}
 }
 

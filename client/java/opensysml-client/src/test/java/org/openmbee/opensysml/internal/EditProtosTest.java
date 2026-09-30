@@ -232,12 +232,10 @@ class EditProtosTest {
     assertEquals("first", first.getAddSequence().getKeyword());
     assertEquals("start", first.getAddSequence().getRef());
 
-    assertThrows(
-        IllegalStateException.class,
-        () -> Edit.AddSequence.then("Demo::A", "done").withType("B"));
-    assertThrows(
-        IllegalStateException.class,
-        () -> Edit.AddSequence.thenMember("Demo::A", "action", "b").withRef("done"));
+    Edit.AddSequence reference = Edit.AddSequence.then("Demo::A", "done");
+    assertThrows(IllegalStateException.class, () -> reference.withType("B"));
+    Edit.AddSequence member = Edit.AddSequence.thenMember("Demo::A", "action", "b");
+    assertThrows(IllegalStateException.class, () -> member.withRef("done"));
   }
 
   @Test

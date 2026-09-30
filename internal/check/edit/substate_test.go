@@ -32,7 +32,7 @@ func TestAddTransitionIntoBodilessSubstate(t *testing.T) {
 
 	result, err := Apply(model, []Operation{
 		AddMember("S::toasting", "state", "heating"),
-		AddTransition("S::toasting", "", "", "heating", "", "", "", true),
+		AddTransition("S::toasting", Transition{To: "heating", Initial: true}),
 	})
 	if err != nil {
 		t.Fatalf("Apply: %v", err)
