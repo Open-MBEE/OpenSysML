@@ -505,19 +505,8 @@ final class Rendering {
    * @return the generated answer
    */
   static org.openmbee.opensysml.proto.RunSweepResponse sweep(org.openmbee.opensysml.Sweep sweep) {
-    List<org.openmbee.opensysml.proto.SweepRow> rows = new ArrayList<>(sweep.rows().size());
-    for (org.openmbee.opensysml.SweepRow row : sweep.rows()) {
-      rows.add(
-          org.openmbee.opensysml.proto.SweepRow.newBuilder()
-              .addAllInputs(outputs(row.inputs()))
-              .addAllOutputs(outputs(row.outputs()))
-              .addAllVerdicts(verdicts(row.verdicts()))
-              .setElapsedMicros(row.elapsed().toNanos() / 1000)
-              .setError(row.error())
-              .setFailureReason(failureReason(row.failureReason()))
-              .addAllEvaluations(evaluations(row.evaluations()))
-              .build());
-    }
+    List<org.openmbee.opensysml.proto.SweepRow> rows =
+        sweep.rows().stream().map(Rendering::sweepRow).toList();
     return org.openmbee.opensysml.proto.RunSweepResponse.newBuilder()
         .addAllRows(rows)
         .addAllParameters(sweep.parameters())
@@ -528,6 +517,18 @@ final class Rendering {
         .setEngine(sweep.standing().engine())
         .setStrength(sweep.standing().strength())
         .addAllBounds(bounds(sweep.standing()))
+        .build();
+  }
+
+  private static org.openmbee.opensysml.proto.SweepRow sweepRow(org.openmbee.opensysml.SweepRow row) {
+    return org.openmbee.opensysml.proto.SweepRow.newBuilder()
+        .addAllInputs(outputs(row.inputs()))
+        .addAllOutputs(outputs(row.outputs()))
+        .addAllVerdicts(verdicts(row.verdicts()))
+        .setElapsedMicros(row.elapsed().toNanos() / 1000)
+        .setError(row.error())
+        .setFailureReason(failureReason(row.failureReason()))
+        .addAllEvaluations(evaluations(row.evaluations()))
         .build();
   }
 

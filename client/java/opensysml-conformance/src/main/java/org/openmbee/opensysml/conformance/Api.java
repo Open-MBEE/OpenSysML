@@ -610,10 +610,8 @@ final class Api {
   }
 
   private ParseSourcesResponse parseSources(ParseSourcesRequest request) {
-    List<SourceDocument> documents = new ArrayList<>(request.getDocumentsCount());
-    for (org.openmbee.opensysml.proto.SourceDocument document : request.getDocumentsList()) {
-      documents.add(sourceDocument(document));
-    }
+    List<SourceDocument> documents =
+        request.getDocumentsList().stream().map(Api::sourceDocument).toList();
     try {
       Model model =
           connection.parseSources(
@@ -1053,11 +1051,7 @@ final class Api {
   }
 
   private static List<Value> values(List<org.openmbee.opensysml.proto.Value> values) {
-    List<Value> read = new ArrayList<>(values.size());
-    for (org.openmbee.opensysml.proto.Value value : values) {
-      read.add(value(value));
-    }
-    return read;
+    return values.stream().map(Api::value).toList();
   }
 
   private static Map<String, Value> values(Map<String, org.openmbee.opensysml.proto.Value> values) {

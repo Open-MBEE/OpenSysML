@@ -273,11 +273,10 @@ class TestParseSourcesRequest:
 
     def test_a_declared_language_requires_its_capability(self, fake_service):
         port, service = fake_service(capabilities=(CAPABILITY_PARSE_SOURCES,))
+        document = SourceDocument.inline("a.kerml", "package A;", language="kerml")
         with Connection(port=port, auto_start=False) as conn:
             with pytest.raises(MissingCapabilityError) as excinfo:
-                conn.parse_sources([
-                    SourceDocument.inline("a.kerml", "package A;", language="kerml"),
-                ])
+                conn.parse_sources([document])
 
         assert excinfo.value.capability == CAPABILITY_INLINE_LANGUAGE
         assert service.requests == []
