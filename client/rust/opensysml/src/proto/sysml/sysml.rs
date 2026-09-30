@@ -964,6 +964,14 @@ pub struct ConvertRequest {
     /// go missing silently.
     #[prost(bool, tag="5")]
     pub tolerate_syntax_errors: bool,
+    /// How derived element ids are spelled when notation is written as a graph
+    /// ("ttl" or "api-json"), as `sysml -id` does: "qualified" (the default, each
+    /// derived from its qualified name) or "uuid" (name-based uuids under each root
+    /// package, the library convention). Declared and normative ids are unchanged.
+    /// Empty is "qualified"; any other value, or one given for another direction,
+    /// is INVALID_ARGUMENT.
+    #[prost(string, tag="7")]
+    pub id_form: ::prost::alloc::string::String,
     #[prost(oneof="convert_request::Source", tags="1, 2, 6")]
     pub source: ::core::option::Option<convert_request::Source>,
 }

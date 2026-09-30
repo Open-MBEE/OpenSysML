@@ -3918,8 +3918,15 @@ type ConvertRequest struct {
 	// every other direction builds a graph, where unreadable declarations would
 	// go missing silently.
 	TolerateSyntaxErrors bool `protobuf:"varint,5,opt,name=tolerate_syntax_errors,json=tolerateSyntaxErrors,proto3" json:"tolerate_syntax_errors,omitempty"`
-	unknownFields        protoimpl.UnknownFields
-	sizeCache            protoimpl.SizeCache
+	// How derived element ids are spelled when notation is written as a graph
+	// ("ttl" or "api-json"), as `sysml -id` does: "qualified" (the default, each
+	// derived from its qualified name) or "uuid" (name-based uuids under each root
+	// package, the library convention). Declared and normative ids are unchanged.
+	// Empty is "qualified"; any other value, or one given for another direction,
+	// is INVALID_ARGUMENT.
+	IdForm        string `protobuf:"bytes,7,opt,name=id_form,json=idForm,proto3" json:"id_form,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
 }
 
 func (x *ConvertRequest) Reset() {
@@ -4005,6 +4012,13 @@ func (x *ConvertRequest) GetTolerateSyntaxErrors() bool {
 		return x.TolerateSyntaxErrors
 	}
 	return false
+}
+
+func (x *ConvertRequest) GetIdForm() string {
+	if x != nil {
+		return x.IdForm
+	}
+	return ""
 }
 
 type isConvertRequest_Source interface {
@@ -10845,7 +10859,7 @@ const file_sysml_proto_rawDesc = "" +
 	"final_time\x18\a \x01(\x01R\tfinalTime\x1aM\n" +
 	"\x11FinalContextEntry\x12\x10\n" +
 	"\x03key\x18\x01 \x01(\tR\x03key\x12\"\n" +
-	"\x05value\x18\x02 \x01(\v2\f.sysml.ValueR\x05value:\x028\x01\"\xea\x01\n" +
+	"\x05value\x18\x02 \x01(\v2\f.sysml.ValueR\x05value:\x028\x01\"\x83\x02\n" +
 	"\x0eConvertRequest\x12\x1d\n" +
 	"\tfile_path\x18\x01 \x01(\tH\x00R\bfilePath\x12\x1a\n" +
 	"\acontent\x18\x02 \x01(\tH\x00R\acontent\x12\x1f\n" +
@@ -10854,7 +10868,8 @@ const file_sysml_proto_rawDesc = "" +
 	"\vfrom_format\x18\x03 \x01(\tR\n" +
 	"fromFormat\x12\x1b\n" +
 	"\tto_format\x18\x04 \x01(\tR\btoFormat\x124\n" +
-	"\x16tolerate_syntax_errors\x18\x05 \x01(\bR\x14tolerateSyntaxErrorsB\b\n" +
+	"\x16tolerate_syntax_errors\x18\x05 \x01(\bR\x14tolerateSyntaxErrors\x12\x17\n" +
+	"\aid_form\x18\a \x01(\tR\x06idFormB\b\n" +
 	"\x06source\"\x89\x02\n" +
 	"\x0fConvertResponse\x12\x18\n" +
 	"\acontent\x18\x01 \x01(\tR\acontent\x12\x1f\n" +
