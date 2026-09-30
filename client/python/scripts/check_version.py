@@ -11,10 +11,10 @@ publish must fail here rather than after the fact.
 
 Prints the version the tag names on success. With `--pre-release` it prints
 `yes`/`no` instead, which the job uses to route a pre-release tag to TestPyPI.
-With `--node` or `--java` the version client/node/package.json or
-client/java/pom.xml declares is checked the same way and printed instead — both
-clients are published from the same tag, at the SemVer spelling of the same
-version.
+With `--node`, `--java` or `--rust` the version client/node/package.json,
+client/java/pom.xml or client/rust/opensysml/Cargo.toml declares is checked
+the same way and printed instead — all three clients are published from the
+same tag, at the SemVer spelling of the same version.
 
 The core tags are SemVer and the package version is PEP 440, so the tag is
 translated before the comparison: `v0.9.0-rc1` names `0.9.0rc1`. Only the SemVer
@@ -53,6 +53,7 @@ REPO_ROOT = os.path.dirname(
 )
 NODE_PACKAGE = os.path.join(REPO_ROOT, "client", "node", "package.json")
 JAVA_POM = os.path.join(REPO_ROOT, "client", "java", "pom.xml")
+RUST_CARGO = os.path.join(REPO_ROOT, "client", "rust", "opensysml", "Cargo.toml")
 
 
 class VersionError(Exception):
@@ -265,6 +266,72 @@ def java_version(declared=None, java=None, tag=None):
     )
 
 
+def rust_declared_version(cargo_toml=RUST_CARGO):
+    """The version client/rust/opensysml/Cargo.toml's [package] table declares.
+
+    A minimal line scan rather than a TOML parse, so the check needs no
+    tomllib (Python 3.10 is still supported).
+
+    Args:
+        cargo_toml (str): Path to client/rust/opensysml/Cargo.toml
+
+    Returns:
+        str: The declared version
+
+    Raises:
+        VersionError: If the [package] table declares no version
+    """
+    with open(cargo_toml, encoding="utf-8") as f:
+        lines = f.readlines()
+    try:
+        start = next(
+            i for i, line in enumerate(lines) if line.strip() == "[package]"
+        )
+    except StopIteration:
+        raise VersionError(f"{cargo_toml} declares no [package] version")
+    for line in lines[start + 1 :]:
+        if line.startswith("["):
+            break
+        match = re.match(
+            r"""^\s*version\s*=\s*(?:"([^"]+)"|'([^']+)')\s*(#.*)?$""", line
+        )
+        if match:
+            return match[1] or match[2]
+    raise VersionError(f"{cargo_toml} declares no [package] version")
+
+
+def rust_version(declared=None, rust=None, tag=None):
+    """client/rust/opensysml/Cargo.toml's version, checked against _version.py and, when given, the tag.
+
+    Args:
+        declared (str, optional): Version opensysml/_version.py declares; read
+            when omitted
+        rust (str, optional): Version client/rust/opensysml/Cargo.toml
+            declares; read when omitted
+        tag (str, optional): Core release tag the crates.io publish runs from
+
+    Returns:
+        str: The crates.io version to publish, as Cargo.toml declares
+
+    Raises:
+        VersionError: If the Cargo.toml and _version.py disagree, or the tag
+            does not spell the version Cargo.toml declares
+    """
+    rust = rust_declared_version() if rust is None else rust
+    return _client_version(
+        "client/rust/opensysml/Cargo.toml",
+        "Cargo.toml",
+        "crates.io",
+        "The Rust client",
+        rust,
+        declared,
+        tag,
+        "set [package] version in client/rust/opensysml/Cargo.toml to the "
+        "SemVer spelling of that version and run `cargo update -p opensysml` in "
+        "client/rust.",
+    )
+
+
 def _client_version(what, file, registry, client_name, client, declared, tag, remedy):
     """The lockstep check the published client manifests share.
 
@@ -355,6 +422,11 @@ def main(argv=None):
         action="store_true",
         help="check and print client/java/pom.xml's version instead",
     )
+    clients.add_argument(
+        "--rust",
+        action="store_true",
+        help="check and print client/rust/opensysml/Cargo.toml's version instead",
+    )
     parser.add_argument(
         "--pre-release",
         action="store_true",
@@ -368,6 +440,8 @@ def main(argv=None):
             version = node_version(declared=version, tag=args.tag)
         elif args.java:
             version = java_version(declared=version, tag=args.tag)
+        elif args.rust:
+            version = rust_version(declared=version, tag=args.tag)
         pre_release = is_pre_release(version)
     except VersionError as e:
         print(f"error: {e}", file=sys.stderr)

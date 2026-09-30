@@ -326,10 +326,11 @@ proof.
 ## R2 — the Node, Java and Rust clients are unpublished
 
 Each has a publish path and a worked example the tests run, and none has ever been
-published: the Node and Java clients now ship from the core `v*` tag's `release`
+published: all three now ship from the core `v*` tag's `release`
 workflow (`publish-npm`, with a granular npm token already in the `npm` context;
-`publish-maven`, with its credentials already in the `Maven Central` context),
-and the Rust client goes to crates.io on `opensysml-rust-v*`. The
+`publish-maven`, with its credentials already in the `Maven Central` context;
+`publish-crates`, with the crates.io token in the `crates.io` context, all
+restricted to a security group). The
 Java package name already moved to `org.openmbee.opensysml`, the DNS-verified
 namespace; what remains before a first publish is the `org.openmbee` namespace
 verification and the public key on a keyserver, if not yet done. These are

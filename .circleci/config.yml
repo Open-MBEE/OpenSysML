@@ -1349,13 +1349,16 @@ jobs:
             PRE_RELEASE="$(python client/python/scripts/check_version.py --pre-release)"
             # The Node client is published at the same version, so a
             # client/node/package.json that disagrees fails the release here,
-            # before anything is built; the Java client's pom the same.
+            # before anything is built; the Java client's pom and the Rust
+            # crate's Cargo.toml the same.
             NPM_VERSION="$(python client/python/scripts/check_version.py --node)"
             JAVA_VERSION="$(python client/python/scripts/check_version.py --java)"
+            RUST_VERSION="$(python client/python/scripts/check_version.py --rust)"
             echo "export OPENSYSML_VERSION=${VERSION}" >> "$BASH_ENV"
             echo "export NPM_VERSION=${NPM_VERSION}" >> "$BASH_ENV"
             echo "export JAVA_VERSION=${JAVA_VERSION}" >> "$BASH_ENV"
-            echo "Building opensysml ${VERSION} (pre-release: ${PRE_RELEASE}, npm ${NPM_VERSION}, maven ${JAVA_VERSION})"
+            echo "export RUST_VERSION=${RUST_VERSION}" >> "$BASH_ENV"
+            echo "Building opensysml ${VERSION} (pre-release: ${PRE_RELEASE}, npm ${NPM_VERSION}, maven ${JAVA_VERSION}, crates ${RUST_VERSION})"
 
       - run:
           name: Build the wheel and the sdist
@@ -2095,6 +2098,78 @@ jobs:
             MAVEN_GPG_PASSPHRASE="$GPG_PASSPHRASE" mvn -B -f client/java/pom.xml \
               -Prelease deploy -pl opensysml-client -am -DskipTests
 
+  # Publishes the opensysml crate to crates.io from the core `v<version>` tag.
+  # The token comes from the restricted 'crates.io' context. Everything that can fail runs
+  # before the upload: the tag/version check, the crates.io availability check,
+  # the credential, and the package dry run.
+  publish-crates:
+    executor: rust-executor
+    steps:
+      - checkout
+
+      - run:
+          name: Resolve the version from the tag
+          command: |
+            if [ -z "${CIRCLE_TAG}" ]; then
+              echo "Error: CIRCLE_TAG is empty; this job only runs on a core v* tag."
+              exit 1
+            fi
+            pkgid=$(cargo pkgid -p opensysml --manifest-path client/rust/Cargo.toml)
+            version=${pkgid##*[#@]}
+            # crates.io publishes the version Cargo.toml declares, so the tag
+            # must spell it exactly; build-python-package has already checked
+            # it against _version.py.
+            if [ "${CIRCLE_TAG}" != "v${version}" ]; then
+              echo "Error: tag ${CIRCLE_TAG} does not match client/rust/opensysml/Cargo.toml"
+              echo "version ${version}; the tag for it is v${version}. Nothing was published."
+              exit 1
+            fi
+            # crates.io has no test registry, so a pre-release (0.9.1-rc.1…)
+            # is published as an ordinary version, which Cargo resolves only
+            # when asked for explicitly.
+            echo "export RUST_VERSION=${version}" >> "$BASH_ENV"
+            echo "Publishing opensysml ${version} to crates.io"
+
+      - run:
+          name: Require the publishing credential
+          command: |
+            # Name only, never the value; the 'crates.io' context supplies it.
+            if [ -z "${CARGO_REGISTRY_TOKEN:-}" ]; then
+              echo "Error: CARGO_REGISTRY_TOKEN is not set; add it to the 'crates.io' context (Organization Settings → Contexts)."
+              exit 1
+            fi
+
+      - run:
+          name: Refuse a version already on crates.io
+          command: |
+            code=$(curl -s -o /dev/null -w '%{http_code}' \
+              -H 'User-Agent: OpenSysML release (https://github.com/Open-MBEE/OpenSysML)' \
+              "https://crates.io/api/v1/crates/opensysml/${RUST_VERSION}")
+            case "$code" in
+              200)
+                echo "Error: opensysml ${RUST_VERSION} is already on crates.io;"
+                echo "a published version cannot be replaced, only yanked."
+                echo "Cut the next core release."
+                exit 1 ;;
+              404) ;;
+              *)
+                echo "Error: could not ask crates.io (HTTP $code); refusing rather than guessing."
+                exit 1 ;;
+            esac
+
+      - run:
+          name: Package the crate
+          command: |
+            cargo package -p opensysml --manifest-path client/rust/Cargo.toml --locked
+
+      # The package step above already built and verified the crate; cargo
+      # reads CARGO_REGISTRY_TOKEN from the environment, so nothing is on disk.
+      - run:
+          name: Publish opensysml to crates.io
+          command: |
+            cargo publish -p opensysml --manifest-path client/rust/Cargo.toml \
+              --locked --no-verify
+
   publish-github-release:
     docker:
       - image: cibuilds/github:0.13
@@ -2257,6 +2332,11 @@ workflows:
           requires: *go-suite
           filters: *release-tags
 
+      - rust-test:
+          name: Rust client tests
+          requires: *go-suite
+          filters: *release-tags
+
       # Fails the release before anything is built when the tag does not name
       # the version client/python/opensysml/_version.py declares.
       - build-python-package:
@@ -2281,6 +2361,7 @@ workflows:
             - Python client tests
             - Node client tests
             - Java client tests
+            - Rust client tests
           filters: *release-tags
 
       - publish-pypi:
@@ -2324,6 +2405,21 @@ workflows:
           requires:
             - Publish GitHub release
             - Java client tests
+          filters: *release-tags
+
+      - publish-crates:
+          name: Publish opensysml to crates.io
+          # Last of all, with publish-pypi, publish-npm and publish-maven:
+          # a crates.io version cannot be replaced, so it waits for the
+          # GitHub release. It is independent of them so neither registry
+          # refusing a re-run blocks the other. The organization context is
+          # named 'crates.io'; a context reference is matched exactly, so the
+          # case here has to match it.
+          context:
+            - crates.io
+          requires:
+            - Publish GitHub release
+            - Rust client tests
           filters: *release-tags
 
   # Publishes the final release of the pre-rename PyPI name on a `pysysml-v*`
