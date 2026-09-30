@@ -24,6 +24,9 @@ func (ctx *Context) pendingNestedRedefinitions(owner *Instance, feature string) 
 	if owner == nil || feature == "" {
 		return nil
 	}
+	if len(owner.nested) == 0 && !ctx.declaresChains(owner.Type) && !slices.ContainsFunc(owner.classifiers, ctx.declaresChains) {
+		return nil
+	}
 	// A redefined member shares one feature value under every name it reads
 	// as, so a chain naming any of them applies to the member materialized here.
 	names := map[string]bool{feature: true}
@@ -55,6 +58,27 @@ func (ctx *Context) pendingNestedRedefinitions(owner *Instance, feature string) 
 		}
 	}
 	return out
+}
+
+// declaresChains reports whether typ or a member source of it declares a nested
+// redefinition chain reaching below its members, memoized by type.
+func (ctx *Context) declaresChains(typ *symbols.Symbol) bool {
+	if typ == nil {
+		return false
+	}
+	if declares, ok := ctx.model.declaresChains[typ]; ok {
+		return declares
+	}
+	declares := false
+	for _, src := range append([]*symbols.Symbol{typ}, ctx.model.semantics.MemberSources(typ)...) {
+		for _, nr := range ctx.model.semantics.NestedRedefinitionsOf(src) {
+			if len(nr.Path) > 1 {
+				declares = true
+			}
+		}
+	}
+	ctx.model.declaresChains[typ] = declares
+	return declares
 }
 
 // applyNestedRedefinitions applies the pending redefinitions to the shape of
@@ -304,6 +328,19 @@ func isChainHost(member *symbols.Symbol) bool {
 		}
 	}
 	return false
+}
+
+// hostsChain reports isChainHost(member), memoized by symbol.
+func (ctx *Context) hostsChain(member *symbols.Symbol) bool {
+	if member == nil {
+		return false
+	}
+	if hosts, ok := ctx.model.chainHosts[member]; ok {
+		return hosts
+	}
+	hosts := isChainHost(member)
+	ctx.model.chainHosts[member] = hosts
+	return hosts
 }
 
 // chainOutranks reports whether the chain next was declared by a context
