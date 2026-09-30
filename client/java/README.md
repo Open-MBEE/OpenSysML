@@ -8,12 +8,12 @@ Eclipse-based tool, a Cameo plugin, a web service.
 <dependency>
   <groupId>org.openmbee</groupId>
   <artifactId>opensysml-client</artifactId>
-  <version>0.9.0</version>
+  <version>0.9.1</version>
 </dependency>
 ```
 
-The version is the core release's — `v0.9.0` publishes
-`org.openmbee:opensysml-client:0.9.0` — once the first release is published.
+The version is the core release's — `v0.9.1` publishes
+`org.openmbee:opensysml-client:0.9.1` — once the first release is published.
 Until then, build and install it into the local repository from a checkout:
 
 ```bash
