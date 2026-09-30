@@ -244,3 +244,32 @@ func TestQueryElementIDOfAnAnnotatedLibraryElementIsAbsent(t *testing.T) {
 		t.Errorf("ScalarValues::Boolean: elementId %q, but the conversion writes no id for it", got)
 	}
 }
+
+// A model of several documents one of which has syntax errors is refused by
+// Convert, so a query reading elementId of it fails too, rather than reading
+// ids from the trees the parser recovered.
+func TestQueryElementIDOfAModelWithSyntaxErrors(t *testing.T) {
+	srv := mustNewService(t, 10)
+	defer srv.Close()
+	parsed, err := srv.ParseSources(context.Background(), &pb.ParseSourcesRequest{
+		Documents: inlineDocuments(
+			"a.sysml", "package A { part def X; }\n",
+			"b.sysml", "package B { part def Y\n"),
+	})
+	if err != nil {
+		t.Fatalf("ParseSources: %v", err)
+	}
+	converted, err := srv.Convert(context.Background(), &pb.ConvertRequest{
+		Source: &pb.ConvertRequest_ModelHash{ModelHash: parsed.ModelHash}, ToFormat: "api-json",
+	})
+	if err != nil || converted.Error == "" {
+		t.Fatalf("the model converted, so the case tests nothing: %v %q", err, converted.GetError())
+	}
+	_, err = srv.Query(context.Background(), &pb.QueryRequest{
+		ModelHash: parsed.ModelHash,
+		Query:     &pb.Query{Scope: []string{"A::X"}, Select: []string{"elementId"}},
+	})
+	if connect.CodeOf(err) != connect.CodeFailedPrecondition {
+		t.Errorf("elementId of a model with a broken document: err = %v, want FAILED_PRECONDITION", err)
+	}
+}

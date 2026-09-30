@@ -11,6 +11,7 @@ import (
 	pb "github.com/Open-MBEE/OpenSysML/api/proto"
 	corequery "github.com/Open-MBEE/OpenSysML/internal/semantic/query"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/symbols"
+	"github.com/Open-MBEE/OpenSysML/internal/translate/convert"
 	"github.com/Open-MBEE/OpenSysML/internal/translate/export"
 )
 
@@ -230,6 +231,19 @@ func (e *queryEval) elementID(sym *symbols.Symbol) string {
 		for _, doc := range cached.Documents {
 			if doc != nil && doc.Source != nil && doc.Root != nil {
 				documents = append(documents, export.ModelDocument{File: doc.Source, Root: doc.Root})
+			}
+		}
+		// Convert refuses a model of several documents one of which the parser
+		// could not read whole, so no ids are read from its recovered trees.
+		if len(documents) > 1 {
+			for _, doc := range cached.Documents {
+				if doc == nil || doc.Source == nil {
+					continue
+				}
+				if syntax := convert.SyntaxErrorOf(doc.Source.Name(), doc.Source, doc.ParseDiags); syntax != nil {
+					cached.elementIDsErr = syntax
+					return
+				}
 			}
 		}
 		// The ids are the ones Convert writes for this model hash, so they are
