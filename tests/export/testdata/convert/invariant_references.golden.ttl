@@ -9,6 +9,10 @@
 elmt:InvariantReferences
     a sysml:Package ;
     sysml:qualifiedName "InvariantReferences" ;
+    sysx:sourceLine "1"^^xsd:integer ;
+    sysx:sourceColumn "1"^^xsd:integer ;
+    sysx:sourceEndLine "15"^^xsd:integer ;
+    sysx:sourceEndColumn "2"^^xsd:integer ;
     sysml:elementId "InvariantReferences" ;
     sysx:memberIndex "0"^^xsd:integer ;
     sysx:sourceLanguage "kerml" ;
@@ -25,6 +29,10 @@ elmt:InvariantReferences
 elmt:InvariantReferences___400
     a sysml:NamespaceImport ;
     sysml:qualifiedName "InvariantReferences::@0" ;
+    sysx:sourceLine "2"^^xsd:integer ;
+    sysx:sourceColumn "5"^^xsd:integer ;
+    sysx:sourceEndLine "2"^^xsd:integer ;
+    sysx:sourceEndColumn "36"^^xsd:integer ;
     sysml:elementId "InvariantReferences___400" ;
     sysx:memberIndex "0"^^xsd:integer ;
     sysml:owningNamespace elmt:InvariantReferences ;
@@ -39,6 +47,10 @@ elmt:InvariantReferences___400
 elmt:InvariantReferences__Tank
     a sysml:ClassUsage ;
     sysml:qualifiedName "InvariantReferences::Tank" ;
+    sysx:sourceLine "3"^^xsd:integer ;
+    sysx:sourceColumn "5"^^xsd:integer ;
+    sysx:sourceEndLine "14"^^xsd:integer ;
+    sysx:sourceEndColumn "6"^^xsd:integer ;
     sysml:elementId "InvariantReferences__Tank" ;
     sysx:memberIndex "1"^^xsd:integer ;
     sysml:owningNamespace elmt:InvariantReferences ;
@@ -73,6 +85,10 @@ elmt:InvariantReferences__Tank_om
 elmt:InvariantReferences__Tank__ready
     a sysml:AttributeUsage ;
     sysml:qualifiedName "InvariantReferences::Tank::ready" ;
+    sysx:sourceLine "4"^^xsd:integer ;
+    sysx:sourceColumn "9"^^xsd:integer ;
+    sysx:sourceEndLine "4"^^xsd:integer ;
+    sysx:sourceEndColumn "33"^^xsd:integer ;
     sysml:elementId "InvariantReferences__Tank__ready" ;
     sysx:memberIndex "0"^^xsd:integer ;
     sysml:owningNamespace elmt:InvariantReferences__Tank ;
@@ -103,6 +119,10 @@ elmt:InvariantReferences__Tank__ready_om
 elmt:InvariantReferences__Tank__sealed
     a sysml:AttributeUsage ;
     sysml:qualifiedName "InvariantReferences::Tank::sealed" ;
+    sysx:sourceLine "5"^^xsd:integer ;
+    sysx:sourceColumn "9"^^xsd:integer ;
+    sysx:sourceEndLine "5"^^xsd:integer ;
+    sysx:sourceEndColumn "34"^^xsd:integer ;
     sysml:elementId "InvariantReferences__Tank__sealed" ;
     sysx:memberIndex "1"^^xsd:integer ;
     sysml:owningNamespace elmt:InvariantReferences__Tank ;
@@ -133,6 +153,10 @@ elmt:InvariantReferences__Tank__sealed_om
 elmt:InvariantReferences__Tank__level
     a sysml:AttributeUsage ;
     sysml:qualifiedName "InvariantReferences::Tank::level" ;
+    sysx:sourceLine "6"^^xsd:integer ;
+    sysx:sourceColumn "9"^^xsd:integer ;
+    sysx:sourceEndLine "6"^^xsd:integer ;
+    sysx:sourceEndColumn "30"^^xsd:integer ;
     sysml:elementId "InvariantReferences__Tank__level" ;
     sysx:memberIndex "2"^^xsd:integer ;
     sysml:owningNamespace elmt:InvariantReferences__Tank ;
@@ -163,6 +187,10 @@ elmt:InvariantReferences__Tank__level_om
 elmt:InvariantReferences__Tank___403
     a sysml:ConstraintUsage ;
     sysml:qualifiedName "InvariantReferences::Tank::@3" ;
+    sysx:sourceLine "7"^^xsd:integer ;
+    sysx:sourceColumn "9"^^xsd:integer ;
+    sysx:sourceEndLine "7"^^xsd:integer ;
+    sysx:sourceEndColumn "22"^^xsd:integer ;
     sysml:elementId "InvariantReferences__Tank___403" ;
     sysx:memberIndex "3"^^xsd:integer ;
     sysml:owningNamespace elmt:InvariantReferences__Tank ;
@@ -193,6 +221,10 @@ elmt:InvariantReferences__Tank___403_om
 elmt:InvariantReferences__Tank___403___400
     a sysml:FeatureReferenceExpression ;
     sysml:qualifiedName "InvariantReferences::Tank::@3::@0" ;
+    sysx:sourceLine "7"^^xsd:integer ;
+    sysx:sourceColumn "15"^^xsd:integer ;
+    sysx:sourceEndLine "7"^^xsd:integer ;
+    sysx:sourceEndColumn "20"^^xsd:integer ;
     sysml:elementId "InvariantReferences__Tank___403___400" ;
     sysx:memberIndex "0"^^xsd:integer ;
     sysml:owningNamespace elmt:InvariantReferences__Tank___403 ;
@@ -244,6 +276,10 @@ expr:InvariantReferences__Tank___403___400_pout_om
 elmt:InvariantReferences__Tank__holds
     a sysml:ConstraintUsage ;
     sysml:qualifiedName "InvariantReferences::Tank::holds" ;
+    sysx:sourceLine "8"^^xsd:integer ;
+    sysx:sourceColumn "9"^^xsd:integer ;
+    sysx:sourceEndLine "8"^^xsd:integer ;
+    sysx:sourceEndColumn "33"^^xsd:integer ;
     sysml:elementId "InvariantReferences__Tank__holds" ;
     sysx:memberIndex "4"^^xsd:integer ;
     sysml:owningNamespace elmt:InvariantReferences__Tank ;
@@ -275,6 +311,10 @@ elmt:InvariantReferences__Tank__holds_om
 elmt:InvariantReferences__Tank__holds___400
     a sysml:OperatorExpression ;
     sysml:qualifiedName "InvariantReferences::Tank::holds::@0" ;
+    sysx:sourceLine "8"^^xsd:integer ;
+    sysx:sourceColumn "21"^^xsd:integer ;
+    sysx:sourceEndLine "8"^^xsd:integer ;
+    sysx:sourceEndColumn "31"^^xsd:integer ;
     sysml:elementId "InvariantReferences__Tank__holds___400" ;
     sysx:memberIndex "0"^^xsd:integer ;
     sysml:owningNamespace elmt:InvariantReferences__Tank__holds ;
@@ -402,6 +442,10 @@ expr:InvariantReferences__Tank__holds___400_pout_om
 elmt:InvariantReferences__Tank___405
     a sysml:ConstraintUsage ;
     sysml:qualifiedName "InvariantReferences::Tank::@5" ;
+    sysx:sourceLine "9"^^xsd:integer ;
+    sysx:sourceColumn "9"^^xsd:integer ;
+    sysx:sourceEndLine "9"^^xsd:integer ;
+    sysx:sourceEndColumn "33"^^xsd:integer ;
     sysml:elementId "InvariantReferences__Tank___405" ;
     sysx:memberIndex "5"^^xsd:integer ;
     sysml:owningNamespace elmt:InvariantReferences__Tank ;
@@ -432,6 +476,10 @@ elmt:InvariantReferences__Tank___405_om
 elmt:InvariantReferences__Tank___405___400
     a sysml:OperatorExpression ;
     sysml:qualifiedName "InvariantReferences::Tank::@5::@0" ;
+    sysx:sourceLine "9"^^xsd:integer ;
+    sysx:sourceColumn "15"^^xsd:integer ;
+    sysx:sourceEndLine "9"^^xsd:integer ;
+    sysx:sourceEndColumn "31"^^xsd:integer ;
     sysml:elementId "InvariantReferences__Tank___405___400" ;
     sysx:memberIndex "0"^^xsd:integer ;
     sysml:owningNamespace elmt:InvariantReferences__Tank___405 ;
@@ -631,6 +679,10 @@ expr:InvariantReferences__Tank___405___400_pout_om
 elmt:InvariantReferences__Tank__bounded
     a sysml:ConstraintUsage ;
     sysml:qualifiedName "InvariantReferences::Tank::bounded" ;
+    sysx:sourceLine "10"^^xsd:integer ;
+    sysx:sourceColumn "9"^^xsd:integer ;
+    sysx:sourceEndLine "13"^^xsd:integer ;
+    sysx:sourceEndColumn "10"^^xsd:integer ;
     sysml:elementId "InvariantReferences__Tank__bounded" ;
     sysx:memberIndex "6"^^xsd:integer ;
     sysml:owningNamespace elmt:InvariantReferences__Tank ;
@@ -668,6 +720,10 @@ elmt:InvariantReferences__Tank__bounded_om
 elmt:InvariantReferences__Tank__bounded___400
     a sysml:OperatorExpression ;
     sysml:qualifiedName "InvariantReferences::Tank::bounded::@0" ;
+    sysx:sourceLine "11"^^xsd:integer ;
+    sysx:sourceColumn "13"^^xsd:integer ;
+    sysx:sourceEndLine "11"^^xsd:integer ;
+    sysx:sourceEndColumn "22"^^xsd:integer ;
     sysml:elementId "InvariantReferences__Tank__bounded___400" ;
     sysx:memberIndex "0"^^xsd:integer ;
     sysml:owningNamespace elmt:InvariantReferences__Tank__bounded ;
@@ -840,6 +896,10 @@ expr:InvariantReferences__Tank__bounded___400_pout_om
 elmt:InvariantReferences__Tank__bounded___401
     a sysml:FeatureReferenceExpression ;
     sysml:qualifiedName "InvariantReferences::Tank::bounded::@1" ;
+    sysx:sourceLine "12"^^xsd:integer ;
+    sysx:sourceColumn "13"^^xsd:integer ;
+    sysx:sourceEndLine "12"^^xsd:integer ;
+    sysx:sourceEndColumn "18"^^xsd:integer ;
     sysml:elementId "InvariantReferences__Tank__bounded___401" ;
     sysx:memberIndex "1"^^xsd:integer ;
     sysml:owningNamespace elmt:InvariantReferences__Tank__bounded ;

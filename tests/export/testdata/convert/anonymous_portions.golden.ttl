@@ -9,6 +9,10 @@
 elmt:AnonymousPortions
     a sysml:Package ;
     sysml:qualifiedName "AnonymousPortions" ;
+    sysx:sourceLine "1"^^xsd:integer ;
+    sysx:sourceColumn "1"^^xsd:integer ;
+    sysx:sourceEndLine "20"^^xsd:integer ;
+    sysx:sourceEndColumn "2"^^xsd:integer ;
     sysml:elementId "AnonymousPortions" ;
     sysx:memberIndex "0"^^xsd:integer ;
     sysx:sourceLanguage "sysml" ;
@@ -26,6 +30,10 @@ elmt:AnonymousPortions
 elmt:AnonymousPortions__Fuel
     a sysml:AttributeDefinition ;
     sysml:qualifiedName "AnonymousPortions::Fuel" ;
+    sysx:sourceLine "2"^^xsd:integer ;
+    sysx:sourceColumn "2"^^xsd:integer ;
+    sysx:sourceEndLine "2"^^xsd:integer ;
+    sysx:sourceEndColumn "21"^^xsd:integer ;
     sysml:elementId "AnonymousPortions__Fuel" ;
     sysx:memberIndex "0"^^xsd:integer ;
     sysml:owningNamespace elmt:AnonymousPortions ;
@@ -49,6 +57,10 @@ elmt:AnonymousPortions__Fuel_om
 elmt:AnonymousPortions__Vehicle
     a sysml:PartDefinition ;
     sysml:qualifiedName "AnonymousPortions::Vehicle" ;
+    sysx:sourceLine "3"^^xsd:integer ;
+    sysx:sourceColumn "2"^^xsd:integer ;
+    sysx:sourceEndLine "5"^^xsd:integer ;
+    sysx:sourceEndColumn "3"^^xsd:integer ;
     sysml:elementId "AnonymousPortions__Vehicle" ;
     sysx:memberIndex "1"^^xsd:integer ;
     sysml:owningNamespace elmt:AnonymousPortions ;
@@ -78,6 +90,10 @@ elmt:AnonymousPortions__Vehicle_om
 elmt:AnonymousPortions__Vehicle__fuel
     a sysml:AttributeUsage ;
     sysml:qualifiedName "AnonymousPortions::Vehicle::fuel" ;
+    sysx:sourceLine "4"^^xsd:integer ;
+    sysx:sourceColumn "3"^^xsd:integer ;
+    sysx:sourceEndLine "4"^^xsd:integer ;
+    sysx:sourceEndColumn "25"^^xsd:integer ;
     sysml:elementId "AnonymousPortions__Vehicle__fuel" ;
     sysx:memberIndex "0"^^xsd:integer ;
     sysml:owningNamespace elmt:AnonymousPortions__Vehicle ;
@@ -107,6 +123,10 @@ elmt:AnonymousPortions__Vehicle__fuel_om
 elmt:AnonymousPortions__Car
     a sysml:IndividualDefinition ;
     sysml:qualifiedName "AnonymousPortions::Car" ;
+    sysx:sourceLine "6"^^xsd:integer ;
+    sysx:sourceColumn "2"^^xsd:integer ;
+    sysx:sourceEndLine "6"^^xsd:integer ;
+    sysx:sourceEndColumn "32"^^xsd:integer ;
     sysml:elementId "AnonymousPortions__Car" ;
     sysx:memberIndex "2"^^xsd:integer ;
     sysml:owningNamespace elmt:AnonymousPortions ;
@@ -134,6 +154,10 @@ elmt:AnonymousPortions__Car_om
 elmt:AnonymousPortions__car
     a sysml:IndividualUsage ;
     sysml:qualifiedName "AnonymousPortions::car" ;
+    sysx:sourceLine "7"^^xsd:integer ;
+    sysx:sourceColumn "2"^^xsd:integer ;
+    sysx:sourceEndLine "19"^^xsd:integer ;
+    sysx:sourceEndColumn "3"^^xsd:integer ;
     sysml:elementId "AnonymousPortions__car" ;
     sysx:memberIndex "3"^^xsd:integer ;
     sysml:owningNamespace elmt:AnonymousPortions ;
@@ -168,6 +192,10 @@ elmt:AnonymousPortions__car_om
 elmt:AnonymousPortions__car___400
     a sysml:OccurrenceUsage ;
     sysml:qualifiedName "AnonymousPortions::car::@0" ;
+    sysx:sourceLine "8"^^xsd:integer ;
+    sysx:sourceColumn "3"^^xsd:integer ;
+    sysx:sourceEndLine "10"^^xsd:integer ;
+    sysx:sourceEndColumn "4"^^xsd:integer ;
     sysml:elementId "AnonymousPortions__car___400" ;
     sysx:memberIndex "0"^^xsd:integer ;
     sysml:owningNamespace elmt:AnonymousPortions__car ;
@@ -204,6 +232,10 @@ elmt:AnonymousPortions__car___400_om
 elmt:AnonymousPortions__car___400___400
     a sysml:AttributeUsage ;
     sysml:qualifiedName "AnonymousPortions::car::@0::@0" ;
+    sysx:sourceLine "9"^^xsd:integer ;
+    sysx:sourceColumn "4"^^xsd:integer ;
+    sysx:sourceEndLine "9"^^xsd:integer ;
+    sysx:sourceEndColumn "29"^^xsd:integer ;
     sysml:elementId "AnonymousPortions__car___400___400" ;
     sysx:memberIndex "0"^^xsd:integer ;
     sysml:owningNamespace elmt:AnonymousPortions__car___400 ;
@@ -257,6 +289,10 @@ expr:AnonymousPortions__car___400___400_pvalue_om
 elmt:AnonymousPortions__car___401
     a sysml:OccurrenceUsage ;
     sysml:qualifiedName "AnonymousPortions::car::@1" ;
+    sysx:sourceLine "11"^^xsd:integer ;
+    sysx:sourceColumn "3"^^xsd:integer ;
+    sysx:sourceEndLine "13"^^xsd:integer ;
+    sysx:sourceEndColumn "4"^^xsd:integer ;
     sysml:elementId "AnonymousPortions__car___401" ;
     sysx:memberIndex "1"^^xsd:integer ;
     sysml:owningNamespace elmt:AnonymousPortions__car ;
@@ -293,6 +329,10 @@ elmt:AnonymousPortions__car___401_om
 elmt:AnonymousPortions__car___401___400
     a sysml:AttributeUsage ;
     sysml:qualifiedName "AnonymousPortions::car::@1::@0" ;
+    sysx:sourceLine "12"^^xsd:integer ;
+    sysx:sourceColumn "4"^^xsd:integer ;
+    sysx:sourceEndLine "12"^^xsd:integer ;
+    sysx:sourceEndColumn "28"^^xsd:integer ;
     sysml:elementId "AnonymousPortions__car___401___400" ;
     sysx:memberIndex "0"^^xsd:integer ;
     sysml:owningNamespace elmt:AnonymousPortions__car___401 ;
@@ -346,6 +386,10 @@ expr:AnonymousPortions__car___401___400_pvalue_om
 elmt:AnonymousPortions__car___402
     a sysml:OccurrenceUsage ;
     sysml:qualifiedName "AnonymousPortions::car::@2" ;
+    sysx:sourceLine "14"^^xsd:integer ;
+    sysx:sourceColumn "3"^^xsd:integer ;
+    sysx:sourceEndLine "16"^^xsd:integer ;
+    sysx:sourceEndColumn "4"^^xsd:integer ;
     sysml:elementId "AnonymousPortions__car___402" ;
     sysx:memberIndex "2"^^xsd:integer ;
     sysml:owningNamespace elmt:AnonymousPortions__car ;
@@ -385,6 +429,10 @@ elmt:AnonymousPortions__car___402_om
 elmt:AnonymousPortions__car___402___400
     a sysml:AttributeUsage ;
     sysml:qualifiedName "AnonymousPortions::car::@2::@0" ;
+    sysx:sourceLine "15"^^xsd:integer ;
+    sysx:sourceColumn "4"^^xsd:integer ;
+    sysx:sourceEndLine "15"^^xsd:integer ;
+    sysx:sourceEndColumn "27"^^xsd:integer ;
     sysml:elementId "AnonymousPortions__car___402___400" ;
     sysx:memberIndex "0"^^xsd:integer ;
     sysml:owningNamespace elmt:AnonymousPortions__car___402 ;
@@ -438,6 +486,10 @@ expr:AnonymousPortions__car___402___400_pvalue_om
 elmt:AnonymousPortions__car___403
     a sysml:OccurrenceUsage ;
     sysml:qualifiedName "AnonymousPortions::car::@3" ;
+    sysx:sourceLine "17"^^xsd:integer ;
+    sysx:sourceColumn "3"^^xsd:integer ;
+    sysx:sourceEndLine "17"^^xsd:integer ;
+    sysx:sourceEndColumn "12"^^xsd:integer ;
     sysml:elementId "AnonymousPortions__car___403" ;
     sysx:memberIndex "3"^^xsd:integer ;
     sysml:owningNamespace elmt:AnonymousPortions__car ;
@@ -463,6 +515,10 @@ elmt:AnonymousPortions__car___403_om
 elmt:AnonymousPortions__car___404
     a sysml:OccurrenceUsage ;
     sysml:qualifiedName "AnonymousPortions::car::@4" ;
+    sysx:sourceLine "18"^^xsd:integer ;
+    sysx:sourceColumn "3"^^xsd:integer ;
+    sysx:sourceEndLine "18"^^xsd:integer ;
+    sysx:sourceEndColumn "19"^^xsd:integer ;
     sysml:elementId "AnonymousPortions__car___404" ;
     sysx:memberIndex "4"^^xsd:integer ;
     sysml:owningNamespace elmt:AnonymousPortions__car ;

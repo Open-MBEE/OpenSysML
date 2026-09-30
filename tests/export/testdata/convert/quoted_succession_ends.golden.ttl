@@ -9,6 +9,10 @@
 elmt:QuotedSuccessionEnds
     a sysml:Package ;
     sysml:qualifiedName "QuotedSuccessionEnds" ;
+    sysx:sourceLine "1"^^xsd:integer ;
+    sysx:sourceColumn "1"^^xsd:integer ;
+    sysx:sourceEndLine "18"^^xsd:integer ;
+    sysx:sourceEndColumn "2"^^xsd:integer ;
     sysml:elementId "QuotedSuccessionEnds" ;
     sysx:memberIndex "0"^^xsd:integer ;
     sysx:sourceLanguage "sysml" ;
@@ -26,6 +30,10 @@ elmt:QuotedSuccessionEnds
 elmt:QuotedSuccessionEnds__provide_20power
     a sysml:ActionDefinition ;
     sysml:qualifiedName "QuotedSuccessionEnds::provide power" ;
+    sysx:sourceLine "2"^^xsd:integer ;
+    sysx:sourceColumn "5"^^xsd:integer ;
+    sysx:sourceEndLine "10"^^xsd:integer ;
+    sysx:sourceEndColumn "6"^^xsd:integer ;
     sysml:elementId "QuotedSuccessionEnds__provide_20power" ;
     sysx:memberIndex "0"^^xsd:integer ;
     sysml:owningNamespace elmt:QuotedSuccessionEnds ;
@@ -60,6 +68,10 @@ elmt:QuotedSuccessionEnds__provide_20power_om
 elmt:QuotedSuccessionEnds__provide_20power__engineStarted
     a sysml:ActionUsage ;
     sysml:qualifiedName "QuotedSuccessionEnds::provide power::engineStarted" ;
+    sysx:sourceLine "3"^^xsd:integer ;
+    sysx:sourceColumn "9"^^xsd:integer ;
+    sysx:sourceEndLine "3"^^xsd:integer ;
+    sysx:sourceEndColumn "30"^^xsd:integer ;
     sysml:elementId "QuotedSuccessionEnds__provide_20power__engineStarted" ;
     sysx:memberIndex "0"^^xsd:integer ;
     sysml:owningNamespace elmt:QuotedSuccessionEnds__provide_20power ;
@@ -85,6 +97,10 @@ elmt:QuotedSuccessionEnds__provide_20power__engineStarted_om
 elmt:QuotedSuccessionEnds__provide_20power__generate_20torque
     a sysml:ActionUsage ;
     sysml:qualifiedName "QuotedSuccessionEnds::provide power::generate torque" ;
+    sysx:sourceLine "4"^^xsd:integer ;
+    sysx:sourceColumn "9"^^xsd:integer ;
+    sysx:sourceEndLine "4"^^xsd:integer ;
+    sysx:sourceEndColumn "34"^^xsd:integer ;
     sysml:elementId "QuotedSuccessionEnds__provide_20power__generate_20torque" ;
     sysx:memberIndex "1"^^xsd:integer ;
     sysml:owningNamespace elmt:QuotedSuccessionEnds__provide_20power ;
@@ -110,6 +126,10 @@ elmt:QuotedSuccessionEnds__provide_20power__generate_20torque_om
 elmt:QuotedSuccessionEnds__provide_20power__amplify_20torque
     a sysml:ActionUsage ;
     sysml:qualifiedName "QuotedSuccessionEnds::provide power::amplify torque" ;
+    sysx:sourceLine "5"^^xsd:integer ;
+    sysx:sourceColumn "9"^^xsd:integer ;
+    sysx:sourceEndLine "5"^^xsd:integer ;
+    sysx:sourceEndColumn "33"^^xsd:integer ;
     sysml:elementId "QuotedSuccessionEnds__provide_20power__amplify_20torque" ;
     sysx:memberIndex "2"^^xsd:integer ;
     sysml:owningNamespace elmt:QuotedSuccessionEnds__provide_20power ;
@@ -135,6 +155,10 @@ elmt:QuotedSuccessionEnds__provide_20power__amplify_20torque_om
 elmt:QuotedSuccessionEnds__provide_20power___403
     a sysml:SuccessionAsUsage ;
     sysml:qualifiedName "QuotedSuccessionEnds::provide power::@3" ;
+    sysx:sourceLine "6"^^xsd:integer ;
+    sysx:sourceColumn "9"^^xsd:integer ;
+    sysx:sourceEndLine "6"^^xsd:integer ;
+    sysx:sourceEndColumn "40"^^xsd:integer ;
     sysml:elementId "QuotedSuccessionEnds__provide_20power___403" ;
     sysx:memberIndex "3"^^xsd:integer ;
     sysml:owningNamespace elmt:QuotedSuccessionEnds__provide_20power ;
@@ -161,6 +185,10 @@ elmt:QuotedSuccessionEnds__provide_20power___403_om
 elmt:QuotedSuccessionEnds__provide_20power___404
     a sysml:SuccessionAsUsage ;
     sysml:qualifiedName "QuotedSuccessionEnds::provide power::@4" ;
+    sysx:sourceLine "7"^^xsd:integer ;
+    sysx:sourceColumn "9"^^xsd:integer ;
+    sysx:sourceEndLine "7"^^xsd:integer ;
+    sysx:sourceEndColumn "52"^^xsd:integer ;
     sysml:elementId "QuotedSuccessionEnds__provide_20power___404" ;
     sysx:memberIndex "4"^^xsd:integer ;
     sysml:owningNamespace elmt:QuotedSuccessionEnds__provide_20power ;
@@ -187,6 +215,10 @@ elmt:QuotedSuccessionEnds__provide_20power___404_om
 elmt:QuotedSuccessionEnds__provide_20power___405
     a sysml:SuccessionAsUsage ;
     sysml:qualifiedName "QuotedSuccessionEnds::provide power::@5" ;
+    sysx:sourceLine "8"^^xsd:integer ;
+    sysx:sourceColumn "9"^^xsd:integer ;
+    sysx:sourceEndLine "8"^^xsd:integer ;
+    sysx:sourceEndColumn "55"^^xsd:integer ;
     sysml:elementId "QuotedSuccessionEnds__provide_20power___405" ;
     sysx:memberIndex "5"^^xsd:integer ;
     sysml:owningNamespace elmt:QuotedSuccessionEnds__provide_20power ;
@@ -213,6 +245,10 @@ elmt:QuotedSuccessionEnds__provide_20power___405_om
 elmt:QuotedSuccessionEnds__provide_20power__s
     a sysml:SuccessionAsUsage ;
     sysml:qualifiedName "QuotedSuccessionEnds::provide power::s" ;
+    sysx:sourceLine "9"^^xsd:integer ;
+    sysx:sourceColumn "9"^^xsd:integer ;
+    sysx:sourceEndLine "9"^^xsd:integer ;
+    sysx:sourceEndColumn "55"^^xsd:integer ;
     sysml:elementId "QuotedSuccessionEnds__provide_20power__s" ;
     sysx:memberIndex "6"^^xsd:integer ;
     sysml:owningNamespace elmt:QuotedSuccessionEnds__provide_20power ;
@@ -338,6 +374,10 @@ expr:QuotedSuccessionEnds__provide_20power__s_pend1_prs
 elmt:QuotedSuccessionEnds__drive
     a sysml:ActionDefinition ;
     sysml:qualifiedName "QuotedSuccessionEnds::drive" ;
+    sysx:sourceLine "11"^^xsd:integer ;
+    sysx:sourceColumn "5"^^xsd:integer ;
+    sysx:sourceEndLine "17"^^xsd:integer ;
+    sysx:sourceEndColumn "6"^^xsd:integer ;
     sysml:elementId "QuotedSuccessionEnds__drive" ;
     sysx:memberIndex "1"^^xsd:integer ;
     sysml:owningNamespace elmt:QuotedSuccessionEnds ;
@@ -372,6 +412,10 @@ elmt:QuotedSuccessionEnds__drive_om
 elmt:QuotedSuccessionEnds__drive__enter_20vehicle
     a sysml:ActionUsage ;
     sysml:qualifiedName "QuotedSuccessionEnds::drive::enter vehicle" ;
+    sysx:sourceLine "12"^^xsd:integer ;
+    sysx:sourceColumn "9"^^xsd:integer ;
+    sysx:sourceEndLine "12"^^xsd:integer ;
+    sysx:sourceEndColumn "32"^^xsd:integer ;
     sysml:elementId "QuotedSuccessionEnds__drive__enter_20vehicle" ;
     sysx:memberIndex "0"^^xsd:integer ;
     sysml:owningNamespace elmt:QuotedSuccessionEnds__drive ;
@@ -397,6 +441,10 @@ elmt:QuotedSuccessionEnds__drive__enter_20vehicle_om
 elmt:QuotedSuccessionEnds__drive___401
     a sysml:SuccessionAsUsage ;
     sysml:qualifiedName "QuotedSuccessionEnds::drive::@1" ;
+    sysx:sourceLine "13"^^xsd:integer ;
+    sysx:sourceColumn "9"^^xsd:integer ;
+    sysx:sourceEndLine "13"^^xsd:integer ;
+    sysx:sourceEndColumn "29"^^xsd:integer ;
     sysml:elementId "QuotedSuccessionEnds__drive___401" ;
     sysx:memberIndex "1"^^xsd:integer ;
     sysml:owningNamespace elmt:QuotedSuccessionEnds__drive ;
@@ -494,6 +542,10 @@ expr:QuotedSuccessionEnds__drive___401_pend1_prs
 elmt:QuotedSuccessionEnds__drive__start_20engine
     a sysml:ActionUsage ;
     sysml:qualifiedName "QuotedSuccessionEnds::drive::start engine" ;
+    sysx:sourceLine "14"^^xsd:integer ;
+    sysx:sourceColumn "9"^^xsd:integer ;
+    sysx:sourceEndLine "14"^^xsd:integer ;
+    sysx:sourceEndColumn "31"^^xsd:integer ;
     sysml:elementId "QuotedSuccessionEnds__drive__start_20engine" ;
     sysx:memberIndex "2"^^xsd:integer ;
     sysml:owningNamespace elmt:QuotedSuccessionEnds__drive ;
@@ -519,6 +571,10 @@ elmt:QuotedSuccessionEnds__drive__start_20engine_om
 elmt:QuotedSuccessionEnds__drive___403
     a sysml:SuccessionAsUsage ;
     sysml:qualifiedName "QuotedSuccessionEnds::drive::@3" ;
+    sysx:sourceLine "15"^^xsd:integer ;
+    sysx:sourceColumn "9"^^xsd:integer ;
+    sysx:sourceEndLine "15"^^xsd:integer ;
+    sysx:sourceEndColumn "62"^^xsd:integer ;
     sysml:elementId "QuotedSuccessionEnds__drive___403" ;
     sysx:memberIndex "3"^^xsd:integer ;
     sysml:owningNamespace elmt:QuotedSuccessionEnds__drive ;
@@ -643,6 +699,10 @@ expr:QuotedSuccessionEnds__drive___403_pend1_prs
 elmt:QuotedSuccessionEnds__drive__drive_20vehicle
     a sysml:ActionUsage ;
     sysml:qualifiedName "QuotedSuccessionEnds::drive::drive vehicle" ;
+    sysx:sourceLine "16"^^xsd:integer ;
+    sysx:sourceColumn "9"^^xsd:integer ;
+    sysx:sourceEndLine "16"^^xsd:integer ;
+    sysx:sourceEndColumn "32"^^xsd:integer ;
     sysml:elementId "QuotedSuccessionEnds__drive__drive_20vehicle" ;
     sysx:memberIndex "4"^^xsd:integer ;
     sysml:owningNamespace elmt:QuotedSuccessionEnds__drive ;

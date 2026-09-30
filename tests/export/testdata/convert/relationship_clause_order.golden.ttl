@@ -8,6 +8,10 @@
 elmt:ClauseOrder
     a sysml:Package ;
     sysml:qualifiedName "ClauseOrder" ;
+    sysx:sourceLine "1"^^xsd:integer ;
+    sysx:sourceColumn "1"^^xsd:integer ;
+    sysx:sourceEndLine "10"^^xsd:integer ;
+    sysx:sourceEndColumn "2"^^xsd:integer ;
     sysml:elementId "ClauseOrder" ;
     sysx:memberIndex "0"^^xsd:integer ;
     sysx:sourceLanguage "sysml" ;
@@ -26,6 +30,10 @@ elmt:ClauseOrder
 elmt:ClauseOrder___400
     a sysml:NamespaceImport ;
     sysml:qualifiedName "ClauseOrder::@0" ;
+    sysx:sourceLine "2"^^xsd:integer ;
+    sysx:sourceColumn "5"^^xsd:integer ;
+    sysx:sourceEndLine "2"^^xsd:integer ;
+    sysx:sourceEndColumn "36"^^xsd:integer ;
     sysml:elementId "ClauseOrder___400" ;
     sysx:memberIndex "0"^^xsd:integer ;
     sysml:owningNamespace elmt:ClauseOrder ;
@@ -40,6 +48,10 @@ elmt:ClauseOrder___400
 elmt:ClauseOrder__Quantity
     a sysml:PartDefinition ;
     sysml:qualifiedName "ClauseOrder::Quantity" ;
+    sysx:sourceLine "3"^^xsd:integer ;
+    sysx:sourceColumn "5"^^xsd:integer ;
+    sysx:sourceEndLine "3"^^xsd:integer ;
+    sysx:sourceEndColumn "62"^^xsd:integer ;
     sysml:elementId "ClauseOrder__Quantity" ;
     sysx:memberIndex "1"^^xsd:integer ;
     sysml:owningNamespace elmt:ClauseOrder ;
@@ -68,6 +80,10 @@ elmt:ClauseOrder__Quantity_om
 elmt:ClauseOrder__Quantity__num
     a sysml:AttributeUsage ;
     sysml:qualifiedName "ClauseOrder::Quantity::num" ;
+    sysx:sourceLine "3"^^xsd:integer ;
+    sysx:sourceColumn "25"^^xsd:integer ;
+    sysx:sourceEndLine "3"^^xsd:integer ;
+    sysx:sourceEndColumn "60"^^xsd:integer ;
     sysml:elementId "ClauseOrder__Quantity__num" ;
     sysx:memberIndex "0"^^xsd:integer ;
     sysml:owningNamespace elmt:ClauseOrder__Quantity ;
@@ -96,6 +112,10 @@ elmt:ClauseOrder__Quantity__num_om
 elmt:ClauseOrder__Ratio
     a sysml:PartDefinition ;
     sysml:qualifiedName "ClauseOrder::Ratio" ;
+    sysx:sourceLine "4"^^xsd:integer ;
+    sysx:sourceColumn "5"^^xsd:integer ;
+    sysx:sourceEndLine "4"^^xsd:integer ;
+    sysx:sourceEndColumn "75"^^xsd:integer ;
     sysml:elementId "ClauseOrder__Ratio" ;
     sysx:memberIndex "2"^^xsd:integer ;
     sysml:owningNamespace elmt:ClauseOrder ;
@@ -128,6 +148,10 @@ elmt:ClauseOrder__Ratio_om
 elmt:ClauseOrder__Ratio___400
     a sysml:AttributeUsage ;
     sysml:qualifiedName "ClauseOrder::Ratio::@0" ;
+    sysx:sourceLine "4"^^xsd:integer ;
+    sysx:sourceColumn "34"^^xsd:integer ;
+    sysx:sourceEndLine "4"^^xsd:integer ;
+    sysx:sourceEndColumn "73"^^xsd:integer ;
     sysml:elementId "ClauseOrder__Ratio___400" ;
     sysx:memberIndex "0"^^xsd:integer ;
     sysml:owningNamespace elmt:ClauseOrder__Ratio ;
@@ -160,6 +184,10 @@ elmt:ClauseOrder__Ratio___400_om
 elmt:ClauseOrder__Ctx
     a sysml:PartDefinition ;
     sysml:qualifiedName "ClauseOrder::Ctx" ;
+    sysx:sourceLine "5"^^xsd:integer ;
+    sysx:sourceColumn "5"^^xsd:integer ;
+    sysx:sourceEndLine "5"^^xsd:integer ;
+    sysx:sourceEndColumn "18"^^xsd:integer ;
     sysml:elementId "ClauseOrder__Ctx" ;
     sysx:memberIndex "3"^^xsd:integer ;
     sysml:owningNamespace elmt:ClauseOrder ;
@@ -183,6 +211,10 @@ elmt:ClauseOrder__Ctx_om
 elmt:ClauseOrder__Mission
     a sysml:PartDefinition ;
     sysml:qualifiedName "ClauseOrder::Mission" ;
+    sysx:sourceLine "6"^^xsd:integer ;
+    sysx:sourceColumn "5"^^xsd:integer ;
+    sysx:sourceEndLine "9"^^xsd:integer ;
+    sysx:sourceEndColumn "6"^^xsd:integer ;
     sysml:elementId "ClauseOrder__Mission" ;
     sysx:memberIndex "4"^^xsd:integer ;
     sysml:owningNamespace elmt:ClauseOrder ;
@@ -217,6 +249,10 @@ elmt:ClauseOrder__Mission_om
 elmt:ClauseOrder__Mission__context
     a sysml:PartUsage ;
     sysml:qualifiedName "ClauseOrder::Mission::context" ;
+    sysx:sourceLine "7"^^xsd:integer ;
+    sysx:sourceColumn "9"^^xsd:integer ;
+    sysx:sourceEndLine "7"^^xsd:integer ;
+    sysx:sourceEndColumn "28"^^xsd:integer ;
     sysml:elementId "ClauseOrder__Mission__context" ;
     sysx:memberIndex "0"^^xsd:integer ;
     sysml:owningNamespace elmt:ClauseOrder__Mission ;
@@ -246,6 +282,10 @@ elmt:ClauseOrder__Mission__context_om
 elmt:ClauseOrder__Mission__groundSystemAtIngress
     a sysml:OccurrenceUsage ;
     sysml:qualifiedName "ClauseOrder::Mission::groundSystemAtIngress" ;
+    sysx:sourceLine "8"^^xsd:integer ;
+    sysx:sourceColumn "9"^^xsd:integer ;
+    sysx:sourceEndLine "8"^^xsd:integer ;
+    sysx:sourceEndColumn "60"^^xsd:integer ;
     sysml:elementId "ClauseOrder__Mission__groundSystemAtIngress" ;
     sysx:memberIndex "1"^^xsd:integer ;
     sysml:owningNamespace elmt:ClauseOrder__Mission ;

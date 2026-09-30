@@ -9,6 +9,10 @@
 elmt:Shadows
     a sysml:Package ;
     sysml:qualifiedName "Shadows" ;
+    sysx:sourceLine "1"^^xsd:integer ;
+    sysx:sourceColumn "1"^^xsd:integer ;
+    sysx:sourceEndLine "18"^^xsd:integer ;
+    sysx:sourceEndColumn "2"^^xsd:integer ;
     sysml:elementId "Shadows" ;
     sysx:memberIndex "0"^^xsd:integer ;
     sysx:sourceLanguage "sysml" ;
@@ -26,6 +30,10 @@ elmt:Shadows
 elmt:Shadows__Speed
     a sysml:AttributeDefinition ;
     sysml:qualifiedName "Shadows::Speed" ;
+    sysx:sourceLine "2"^^xsd:integer ;
+    sysx:sourceColumn "5"^^xsd:integer ;
+    sysx:sourceEndLine "2"^^xsd:integer ;
+    sysx:sourceEndColumn "25"^^xsd:integer ;
     sysml:elementId "Shadows__Speed" ;
     sysx:memberIndex "0"^^xsd:integer ;
     sysml:owningNamespace elmt:Shadows ;
@@ -49,6 +57,10 @@ elmt:Shadows__Speed_om
 elmt:Shadows__Sweep
     a sysml:ActionDefinition ;
     sysml:qualifiedName "Shadows::Sweep" ;
+    sysx:sourceLine "3"^^xsd:integer ;
+    sysx:sourceColumn "5"^^xsd:integer ;
+    sysx:sourceEndLine "9"^^xsd:integer ;
+    sysx:sourceEndColumn "6"^^xsd:integer ;
     sysml:elementId "Shadows__Sweep" ;
     sysx:memberIndex "1"^^xsd:integer ;
     sysml:owningNamespace elmt:Shadows ;
@@ -83,6 +95,10 @@ elmt:Shadows__Sweep_om
 elmt:Shadows__Sweep__items
     a sysml:ReferenceUsage ;
     sysml:qualifiedName "Shadows::Sweep::items" ;
+    sysx:sourceLine "4"^^xsd:integer ;
+    sysx:sourceColumn "9"^^xsd:integer ;
+    sysx:sourceEndLine "4"^^xsd:integer ;
+    sysx:sourceEndColumn "29"^^xsd:integer ;
     sysml:elementId "Shadows__Sweep__items" ;
     sysx:memberIndex "0"^^xsd:integer ;
     sysml:owningNamespace elmt:Shadows__Sweep ;
@@ -156,6 +172,10 @@ expr:Shadows__Sweep__items_pupperBound_om
 elmt:Shadows__Sweep__value
     a sysml:AttributeUsage ;
     sysml:qualifiedName "Shadows::Sweep::value" ;
+    sysx:sourceLine "5"^^xsd:integer ;
+    sysx:sourceColumn "9"^^xsd:integer ;
+    sysx:sourceEndLine "5"^^xsd:integer ;
+    sysx:sourceEndColumn "33"^^xsd:integer ;
     sysml:elementId "Shadows__Sweep__value" ;
     sysx:memberIndex "1"^^xsd:integer ;
     sysml:owningNamespace elmt:Shadows__Sweep ;
@@ -185,6 +205,10 @@ elmt:Shadows__Sweep__value_om
 elmt:Shadows__Sweep___402
     a sysml:ForLoopActionUsage ;
     sysml:qualifiedName "Shadows::Sweep::@2" ;
+    sysx:sourceLine "6"^^xsd:integer ;
+    sysx:sourceColumn "9"^^xsd:integer ;
+    sysx:sourceEndLine "8"^^xsd:integer ;
+    sysx:sourceEndColumn "10"^^xsd:integer ;
     sysml:elementId "Shadows__Sweep___402" ;
     sysx:memberIndex "2"^^xsd:integer ;
     sysml:owningNamespace elmt:Shadows__Sweep ;
@@ -265,6 +289,10 @@ expr:Shadows__Sweep___402_pcollection_om
 elmt:Shadows__Sweep___402__cur
     a sysml:AttributeUsage ;
     sysml:qualifiedName "Shadows::Sweep::@2::cur" ;
+    sysx:sourceLine "7"^^xsd:integer ;
+    sysx:sourceColumn "13"^^xsd:integer ;
+    sysx:sourceEndLine "7"^^xsd:integer ;
+    sysx:sourceEndColumn "35"^^xsd:integer ;
     sysml:elementId "Shadows__Sweep___402__cur" ;
     sysx:memberIndex "0"^^xsd:integer ;
     sysml:owningNamespace elmt:Shadows__Sweep___402 ;
@@ -341,6 +369,10 @@ expr:Shadows__Sweep___402__cur_pvalue_om
 elmt:Shadows__Governor
     a sysml:StateDefinition ;
     sysml:qualifiedName "Shadows::Governor" ;
+    sysx:sourceLine "10"^^xsd:integer ;
+    sysx:sourceColumn "5"^^xsd:integer ;
+    sysx:sourceEndLine "17"^^xsd:integer ;
+    sysx:sourceEndColumn "6"^^xsd:integer ;
     sysml:elementId "Shadows__Governor" ;
     sysx:memberIndex "2"^^xsd:integer ;
     sysml:owningNamespace elmt:Shadows ;
@@ -375,6 +407,10 @@ elmt:Shadows__Governor_om
 elmt:Shadows__Governor__value
     a sysml:AttributeUsage ;
     sysml:qualifiedName "Shadows::Governor::value" ;
+    sysx:sourceLine "11"^^xsd:integer ;
+    sysx:sourceColumn "9"^^xsd:integer ;
+    sysx:sourceEndLine "11"^^xsd:integer ;
+    sysx:sourceEndColumn "33"^^xsd:integer ;
     sysml:elementId "Shadows__Governor__value" ;
     sysx:memberIndex "0"^^xsd:integer ;
     sysml:owningNamespace elmt:Shadows__Governor ;
@@ -404,6 +440,10 @@ elmt:Shadows__Governor__value_om
 elmt:Shadows__Governor__w
     a sysml:AttributeUsage ;
     sysml:qualifiedName "Shadows::Governor::w" ;
+    sysx:sourceLine "12"^^xsd:integer ;
+    sysx:sourceColumn "9"^^xsd:integer ;
+    sysx:sourceEndLine "12"^^xsd:integer ;
+    sysx:sourceEndColumn "29"^^xsd:integer ;
     sysml:elementId "Shadows__Governor__w" ;
     sysx:memberIndex "1"^^xsd:integer ;
     sysml:owningNamespace elmt:Shadows__Governor ;
@@ -433,6 +473,10 @@ elmt:Shadows__Governor__w_om
 elmt:Shadows__Governor__idle
     a sysml:StateUsage ;
     sysml:qualifiedName "Shadows::Governor::idle" ;
+    sysx:sourceLine "13"^^xsd:integer ;
+    sysx:sourceColumn "9"^^xsd:integer ;
+    sysx:sourceEndLine "13"^^xsd:integer ;
+    sysx:sourceEndColumn "20"^^xsd:integer ;
     sysml:elementId "Shadows__Governor__idle" ;
     sysx:memberIndex "2"^^xsd:integer ;
     sysml:owningNamespace elmt:Shadows__Governor ;
@@ -458,6 +502,10 @@ elmt:Shadows__Governor__idle_om
 elmt:Shadows__Governor__fast
     a sysml:StateUsage ;
     sysml:qualifiedName "Shadows::Governor::fast" ;
+    sysx:sourceLine "14"^^xsd:integer ;
+    sysx:sourceColumn "9"^^xsd:integer ;
+    sysx:sourceEndLine "14"^^xsd:integer ;
+    sysx:sourceEndColumn "20"^^xsd:integer ;
     sysml:elementId "Shadows__Governor__fast" ;
     sysx:memberIndex "3"^^xsd:integer ;
     sysml:owningNamespace elmt:Shadows__Governor ;
@@ -483,6 +531,10 @@ elmt:Shadows__Governor__fast_om
 elmt:Shadows__Governor___404
     a sysml:TransitionUsage ;
     sysml:qualifiedName "Shadows::Governor::@4" ;
+    sysx:sourceLine "15"^^xsd:integer ;
+    sysx:sourceColumn "9"^^xsd:integer ;
+    sysx:sourceEndLine "15"^^xsd:integer ;
+    sysx:sourceEndColumn "71"^^xsd:integer ;
     sysml:elementId "Shadows__Governor___404" ;
     sysx:memberIndex "4"^^xsd:integer ;
     sysml:owningNamespace elmt:Shadows__Governor ;
@@ -771,6 +823,10 @@ elmt:Shadows__Governor___404_succession_om
 elmt:Shadows__Governor___405
     a sysml:TransitionUsage ;
     sysml:qualifiedName "Shadows::Governor::@5" ;
+    sysx:sourceLine "16"^^xsd:integer ;
+    sysx:sourceColumn "9"^^xsd:integer ;
+    sysx:sourceEndLine "16"^^xsd:integer ;
+    sysx:sourceEndColumn "61"^^xsd:integer ;
     sysml:elementId "Shadows__Governor___405" ;
     sysx:memberIndex "5"^^xsd:integer ;
     sysml:owningNamespace elmt:Shadows__Governor ;
@@ -884,6 +940,10 @@ expr:Shadows__Governor___405_succession_pend1_prs
 elmt:Shadows__Governor___405___40trigger
     a sysml:AcceptActionUsage ;
     sysml:qualifiedName "Shadows::Governor::@5::@trigger" ;
+    sysx:sourceLine "16"^^xsd:integer ;
+    sysx:sourceColumn "35"^^xsd:integer ;
+    sysx:sourceEndLine "16"^^xsd:integer ;
+    sysx:sourceEndColumn "51"^^xsd:integer ;
     sysml:elementId "Shadows__Governor___405___40trigger" ;
     sysml:owningNamespace elmt:Shadows__Governor___405 ;
     sysml:owner elmt:Shadows__Governor___405 ;
@@ -915,6 +975,10 @@ elmt:Shadows__Governor___405___40trigger_om
 elmt:Shadows__Governor___405___40trigger__w
     a sysml:ReferenceUsage ;
     sysml:qualifiedName "Shadows::Governor::@5::@trigger::w" ;
+    sysx:sourceLine "16"^^xsd:integer ;
+    sysx:sourceColumn "42"^^xsd:integer ;
+    sysx:sourceEndLine "16"^^xsd:integer ;
+    sysx:sourceEndColumn "51"^^xsd:integer ;
     sysml:elementId "Shadows__Governor___405___40trigger__w" ;
     sysx:memberIndex "0"^^xsd:integer ;
     sysml:owningNamespace elmt:Shadows__Governor___405___40trigger ;

@@ -259,7 +259,8 @@ func TestUUIDQuotedRootDecodesImplied(t *testing.T) {
 	strip := func(g *rdf.Graph) *rdf.Graph {
 		out := rdf.NewGraph()
 		for _, tr := range g.Triples() {
-			if tr.Predicate.Value == rdf.OpenSysML+"sourceText" || tr.Predicate.Value == rdf.OpenSysML+"sourceTail" {
+			if tr.Predicate.Value == rdf.OpenSysML+"sourceText" || tr.Predicate.Value == rdf.OpenSysML+"sourceTail" ||
+				IsSourceRangeProperty(tr.Predicate.Value) {
 				continue
 			}
 			out.AddTriple(tr)

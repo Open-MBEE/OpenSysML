@@ -1179,19 +1179,42 @@ func TestSelfModelLanguageServerMatchesImplementation(t *testing.T) {
 	}
 	experimental, _ := caps.Experimental.(map[string]any)
 
+	identityActions := false
+	if codeActions != nil {
+		for _, kind := range codeActions.CodeActionKinds {
+			identityActions = identityActions || kind == protocol.RefactorRewrite
+		}
+	}
+	forms, _ := experimental[lsp.RenderFormsCapability].([]string)
+	styles, _ := experimental[lsp.RenderStylesCapability].([]string)
+	folders := caps.Workspace != nil && caps.Workspace.WorkspaceFolders != nil && caps.Workspace.WorkspaceFolders.Supported
+
 	advertised := map[string]bool{
-		"incrementalSync":       sync != nil && sync.Change == protocol.TextDocumentSyncKindIncremental,
-		"publishesQuickFixes":   quickFixes,
-		"hover":                 caps.HoverProvider == true,
-		"definition":            caps.DefinitionProvider == true,
-		"findReferences":        caps.ReferencesProvider == true,
-		"documentSymbols":       caps.DocumentSymbolProvider == true,
-		"workspaceSymbols":      caps.WorkspaceSymbolProvider == true,
-		"completion":            caps.CompletionProvider != nil,
-		"formatting":            caps.DocumentFormattingProvider == true,
-		"rename":                rename != nil,
-		"semanticTokens":        tokens,
-		"experimentalRendering": experimental["openSysmlRender"] == true,
+		"incrementalSync":                 sync != nil && sync.Change == protocol.TextDocumentSyncKindIncremental,
+		"saveNotifications":               sync != nil && sync.Save != nil,
+		"workspaceFolders":                folders,
+		"publishesQuickFixes":             quickFixes,
+		"identityCodeActions":             identityActions,
+		"hover":                           caps.HoverProvider == true,
+		"definition":                      caps.DefinitionProvider == true,
+		"findReferences":                  caps.ReferencesProvider == true,
+		"documentSymbols":                 caps.DocumentSymbolProvider == true,
+		"workspaceSymbols":                caps.WorkspaceSymbolProvider == true,
+		"completion":                      caps.CompletionProvider != nil,
+		"formatting":                      caps.DocumentFormattingProvider == true,
+		"rangeFormatting":                 caps.DocumentRangeFormattingProvider == true,
+		"rename":                          rename != nil,
+		"prepareRename":                   rename != nil && rename.PrepareProvider,
+		"semanticTokens":                  tokens,
+		"experimentalRendering":           experimental["openSysmlRender"] == true,
+		"experimentalDocuments":           experimental["openSysmlRenderDocument"] == true,
+		"experimentalModelEdits":          experimental["openSysmlApplyModelEdit"] == true,
+		"experimentalStdlibContent":       experimental["openSysmlStdlibContent"] == true,
+		"experimentalDebug":               experimental["openSysmlDebug"] == true,
+		"experimentalCrossDocumentLayout": experimental[lsp.CrossDocumentCapability] == true,
+		"experimentalRenderPalette":       experimental[lsp.RenderPaletteCapability] == true,
+		"experimentalRenderForms":         len(forms) > 0,
+		"experimentalRenderStyles":        len(styles) > 0,
 	}
 	for attribute, actual := range advertised {
 		if declared := server.boolean(attribute); declared != actual {
@@ -1213,7 +1236,7 @@ func TestSelfModelEditorPipelineMatchesImplementation(t *testing.T) {
 
 	editor := instantiateSelfModel(t, idx, ctx, "surfaces.sysml", "OpenSysMLSurfaces", "SourceEditor")
 	operations := strings.Split(editor.str("operations"), ", ")
-	if declared, actual := len(operations), int(edit.OpDelete)+1; declared != actual {
+	if declared, actual := len(operations), int(edit.OpAddNote)+1; declared != actual {
 		t.Errorf("surfaces.sysml lists %d edit operations, the edit package has %d", declared, actual)
 	}
 

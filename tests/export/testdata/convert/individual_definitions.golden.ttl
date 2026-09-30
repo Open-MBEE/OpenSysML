@@ -9,6 +9,10 @@
 elmt:IndividualDefinitions
     a sysml:Package ;
     sysml:qualifiedName "IndividualDefinitions" ;
+    sysx:sourceLine "1"^^xsd:integer ;
+    sysx:sourceColumn "1"^^xsd:integer ;
+    sysx:sourceEndLine "18"^^xsd:integer ;
+    sysx:sourceEndColumn "2"^^xsd:integer ;
     sysml:elementId "IndividualDefinitions" ;
     sysx:memberIndex "0"^^xsd:integer ;
     sysx:sourceLanguage "sysml" ;
@@ -26,6 +30,10 @@ elmt:IndividualDefinitions
 elmt:IndividualDefinitions__Astronaut
     a sysml:PartDefinition ;
     sysml:qualifiedName "IndividualDefinitions::Astronaut" ;
+    sysx:sourceLine "2"^^xsd:integer ;
+    sysx:sourceColumn "2"^^xsd:integer ;
+    sysx:sourceEndLine "2"^^xsd:integer ;
+    sysx:sourceEndColumn "21"^^xsd:integer ;
     sysml:elementId "IndividualDefinitions__Astronaut" ;
     sysx:memberIndex "0"^^xsd:integer ;
     sysml:owningNamespace elmt:IndividualDefinitions ;
@@ -49,6 +57,10 @@ elmt:IndividualDefinitions__Astronaut_om
 elmt:IndividualDefinitions__Neil_20Armstrong
     a sysml:PartDefinition ;
     sysml:qualifiedName "IndividualDefinitions::Neil Armstrong" ;
+    sysx:sourceLine "3"^^xsd:integer ;
+    sysx:sourceColumn "2"^^xsd:integer ;
+    sysx:sourceEndLine "3"^^xsd:integer ;
+    sysx:sourceEndColumn "52"^^xsd:integer ;
     sysml:elementId "IndividualDefinitions__Neil_20Armstrong" ;
     sysx:memberIndex "1"^^xsd:integer ;
     sysml:owningNamespace elmt:IndividualDefinitions ;
@@ -77,6 +89,10 @@ elmt:IndividualDefinitions__Neil_20Armstrong_om
 elmt:IndividualDefinitions__Sample
     a sysml:ItemDefinition ;
     sysml:qualifiedName "IndividualDefinitions::Sample" ;
+    sysx:sourceLine "4"^^xsd:integer ;
+    sysx:sourceColumn "2"^^xsd:integer ;
+    sysx:sourceEndLine "4"^^xsd:integer ;
+    sysx:sourceEndColumn "18"^^xsd:integer ;
     sysml:elementId "IndividualDefinitions__Sample" ;
     sysx:memberIndex "2"^^xsd:integer ;
     sysml:owningNamespace elmt:IndividualDefinitions ;
@@ -100,6 +116,10 @@ elmt:IndividualDefinitions__Sample_om
 elmt:IndividualDefinitions__Sample_2010005
     a sysml:ItemDefinition ;
     sysml:qualifiedName "IndividualDefinitions::Sample 10005" ;
+    sysx:sourceLine "5"^^xsd:integer ;
+    sysx:sourceColumn "2"^^xsd:integer ;
+    sysx:sourceEndLine "5"^^xsd:integer ;
+    sysx:sourceEndColumn "37"^^xsd:integer ;
     sysml:elementId "IndividualDefinitions__Sample_2010005" ;
     sysx:memberIndex "3"^^xsd:integer ;
     sysml:owningNamespace elmt:IndividualDefinitions ;
@@ -124,6 +144,10 @@ elmt:IndividualDefinitions__Sample_2010005_om
 elmt:IndividualDefinitions__FirstLanding
     a sysml:OccurrenceDefinition ;
     sysml:qualifiedName "IndividualDefinitions::FirstLanding" ;
+    sysx:sourceLine "6"^^xsd:integer ;
+    sysx:sourceColumn "2"^^xsd:integer ;
+    sysx:sourceEndLine "6"^^xsd:integer ;
+    sysx:sourceEndColumn "41"^^xsd:integer ;
     sysml:elementId "IndividualDefinitions__FirstLanding" ;
     sysx:memberIndex "4"^^xsd:integer ;
     sysml:owningNamespace elmt:IndividualDefinitions ;
@@ -148,6 +172,10 @@ elmt:IndividualDefinitions__FirstLanding_om
 elmt:IndividualDefinitions__PlantFlag
     a sysml:ActionDefinition ;
     sysml:qualifiedName "IndividualDefinitions::PlantFlag" ;
+    sysx:sourceLine "7"^^xsd:integer ;
+    sysx:sourceColumn "2"^^xsd:integer ;
+    sysx:sourceEndLine "7"^^xsd:integer ;
+    sysx:sourceEndColumn "34"^^xsd:integer ;
     sysml:elementId "IndividualDefinitions__PlantFlag" ;
     sysx:memberIndex "5"^^xsd:integer ;
     sysml:owningNamespace elmt:IndividualDefinitions ;
@@ -172,6 +200,10 @@ elmt:IndividualDefinitions__PlantFlag_om
 elmt:IndividualDefinitions__Spacecraft
     a sysml:PartDefinition ;
     sysml:qualifiedName "IndividualDefinitions::Spacecraft" ;
+    sysx:sourceLine "8"^^xsd:integer ;
+    sysx:sourceColumn "2"^^xsd:integer ;
+    sysx:sourceEndLine "8"^^xsd:integer ;
+    sysx:sourceEndColumn "42"^^xsd:integer ;
     sysml:elementId "IndividualDefinitions__Spacecraft" ;
     sysx:memberIndex "6"^^xsd:integer ;
     sysml:owningNamespace elmt:IndividualDefinitions ;
@@ -197,6 +229,10 @@ elmt:IndividualDefinitions__Spacecraft_om
 elmt:IndividualDefinitions__Eagle
     a sysml:IndividualDefinition ;
     sysml:qualifiedName "IndividualDefinitions::Eagle" ;
+    sysx:sourceLine "9"^^xsd:integer ;
+    sysx:sourceColumn "2"^^xsd:integer ;
+    sysx:sourceEndLine "9"^^xsd:integer ;
+    sysx:sourceEndColumn "37"^^xsd:integer ;
     sysml:elementId "IndividualDefinitions__Eagle" ;
     sysx:memberIndex "7"^^xsd:integer ;
     sysml:owningNamespace elmt:IndividualDefinitions ;
@@ -224,6 +260,10 @@ elmt:IndividualDefinitions__Eagle_om
 elmt:IndividualDefinitions__Mission
     a sysml:PartDefinition ;
     sysml:qualifiedName "IndividualDefinitions::Mission" ;
+    sysx:sourceLine "10"^^xsd:integer ;
+    sysx:sourceColumn "2"^^xsd:integer ;
+    sysx:sourceEndLine "17"^^xsd:integer ;
+    sysx:sourceEndColumn "3"^^xsd:integer ;
     sysml:elementId "IndividualDefinitions__Mission" ;
     sysx:memberIndex "8"^^xsd:integer ;
     sysml:owningNamespace elmt:IndividualDefinitions ;
@@ -258,6 +298,10 @@ elmt:IndividualDefinitions__Mission_om
 elmt:IndividualDefinitions__Mission__crew
     a sysml:PartUsage ;
     sysml:qualifiedName "IndividualDefinitions::Mission::crew" ;
+    sysx:sourceLine "11"^^xsd:integer ;
+    sysx:sourceColumn "3"^^xsd:integer ;
+    sysx:sourceEndLine "11"^^xsd:integer ;
+    sysx:sourceEndColumn "28"^^xsd:integer ;
     sysml:elementId "IndividualDefinitions__Mission__crew" ;
     sysx:memberIndex "0"^^xsd:integer ;
     sysml:owningNamespace elmt:IndividualDefinitions__Mission ;
@@ -329,6 +373,10 @@ expr:IndividualDefinitions__Mission__crew_pupperBound_om
 elmt:IndividualDefinitions__Mission__commander
     a sysml:PartUsage ;
     sysml:qualifiedName "IndividualDefinitions::Mission::commander" ;
+    sysx:sourceLine "12"^^xsd:integer ;
+    sysx:sourceColumn "3"^^xsd:integer ;
+    sysx:sourceEndLine "12"^^xsd:integer ;
+    sysx:sourceEndColumn "56"^^xsd:integer ;
     sysml:elementId "IndividualDefinitions__Mission__commander" ;
     sysx:memberIndex "1"^^xsd:integer ;
     sysml:owningNamespace elmt:IndividualDefinitions__Mission ;
@@ -363,6 +411,10 @@ elmt:IndividualDefinitions__Mission__commander_om
 elmt:IndividualDefinitions__Mission__returned
     a sysml:ItemUsage ;
     sysml:qualifiedName "IndividualDefinitions::Mission::returned" ;
+    sysx:sourceLine "13"^^xsd:integer ;
+    sysx:sourceColumn "3"^^xsd:integer ;
+    sysx:sourceEndLine "13"^^xsd:integer ;
+    sysx:sourceEndColumn "45"^^xsd:integer ;
     sysml:elementId "IndividualDefinitions__Mission__returned" ;
     sysx:memberIndex "2"^^xsd:integer ;
     sysml:owningNamespace elmt:IndividualDefinitions__Mission ;
@@ -393,6 +445,10 @@ elmt:IndividualDefinitions__Mission__returned_om
 elmt:IndividualDefinitions__Mission__landing
     a sysml:OccurrenceUsage ;
     sysml:qualifiedName "IndividualDefinitions::Mission::landing" ;
+    sysx:sourceLine "14"^^xsd:integer ;
+    sysx:sourceColumn "3"^^xsd:integer ;
+    sysx:sourceEndLine "14"^^xsd:integer ;
+    sysx:sourceEndColumn "48"^^xsd:integer ;
     sysml:elementId "IndividualDefinitions__Mission__landing" ;
     sysx:memberIndex "3"^^xsd:integer ;
     sysml:owningNamespace elmt:IndividualDefinitions__Mission ;
@@ -423,6 +479,10 @@ elmt:IndividualDefinitions__Mission__landing_om
 elmt:IndividualDefinitions__Mission__flag
     a sysml:ActionUsage ;
     sysml:qualifiedName "IndividualDefinitions::Mission::flag" ;
+    sysx:sourceLine "15"^^xsd:integer ;
+    sysx:sourceColumn "3"^^xsd:integer ;
+    sysx:sourceEndLine "15"^^xsd:integer ;
+    sysx:sourceEndColumn "38"^^xsd:integer ;
     sysml:elementId "IndividualDefinitions__Mission__flag" ;
     sysx:memberIndex "4"^^xsd:integer ;
     sysml:owningNamespace elmt:IndividualDefinitions__Mission ;
@@ -453,6 +513,10 @@ elmt:IndividualDefinitions__Mission__flag_om
 elmt:IndividualDefinitions__Mission__lander
     a sysml:PartUsage ;
     sysml:qualifiedName "IndividualDefinitions::Mission::lander" ;
+    sysx:sourceLine "16"^^xsd:integer ;
+    sysx:sourceColumn "3"^^xsd:integer ;
+    sysx:sourceEndLine "16"^^xsd:integer ;
+    sysx:sourceEndColumn "34"^^xsd:integer ;
     sysml:elementId "IndividualDefinitions__Mission__lander" ;
     sysx:memberIndex "5"^^xsd:integer ;
     sysml:owningNamespace elmt:IndividualDefinitions__Mission ;

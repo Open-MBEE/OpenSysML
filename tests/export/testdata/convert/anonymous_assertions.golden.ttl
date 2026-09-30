@@ -9,6 +9,10 @@
 elmt:AnonymousAssertions
     a sysml:Package ;
     sysml:qualifiedName "AnonymousAssertions" ;
+    sysx:sourceLine "1"^^xsd:integer ;
+    sysx:sourceColumn "1"^^xsd:integer ;
+    sysx:sourceEndLine "31"^^xsd:integer ;
+    sysx:sourceEndColumn "2"^^xsd:integer ;
     sysml:elementId "AnonymousAssertions" ;
     sysx:memberIndex "0"^^xsd:integer ;
     sysx:sourceLanguage "sysml" ;
@@ -26,6 +30,10 @@ elmt:AnonymousAssertions
 elmt:AnonymousAssertions__MassValue
     a sysml:AttributeDefinition ;
     sysml:qualifiedName "AnonymousAssertions::MassValue" ;
+    sysx:sourceLine "2"^^xsd:integer ;
+    sysx:sourceColumn "2"^^xsd:integer ;
+    sysx:sourceEndLine "2"^^xsd:integer ;
+    sysx:sourceEndColumn "26"^^xsd:integer ;
     sysml:elementId "AnonymousAssertions__MassValue" ;
     sysx:memberIndex "0"^^xsd:integer ;
     sysml:owningNamespace elmt:AnonymousAssertions ;
@@ -49,6 +57,10 @@ elmt:AnonymousAssertions__MassValue_om
 elmt:AnonymousAssertions__MassConstraint
     a sysml:ConstraintDefinition ;
     sysml:qualifiedName "AnonymousAssertions::MassConstraint" ;
+    sysx:sourceLine "3"^^xsd:integer ;
+    sysx:sourceColumn "2"^^xsd:integer ;
+    sysx:sourceEndLine "7"^^xsd:integer ;
+    sysx:sourceEndColumn "3"^^xsd:integer ;
     sysml:elementId "AnonymousAssertions__MassConstraint" ;
     sysx:memberIndex "1"^^xsd:integer ;
     sysml:owningNamespace elmt:AnonymousAssertions ;
@@ -83,6 +95,10 @@ elmt:AnonymousAssertions__MassConstraint_om
 elmt:AnonymousAssertions__MassConstraint__total
     a sysml:AttributeUsage ;
     sysml:qualifiedName "AnonymousAssertions::MassConstraint::total" ;
+    sysx:sourceLine "4"^^xsd:integer ;
+    sysx:sourceColumn "3"^^xsd:integer ;
+    sysx:sourceEndLine "4"^^xsd:integer ;
+    sysx:sourceEndColumn "34"^^xsd:integer ;
     sysml:elementId "AnonymousAssertions__MassConstraint__total" ;
     sysx:memberIndex "0"^^xsd:integer ;
     sysml:owningNamespace elmt:AnonymousAssertions__MassConstraint ;
@@ -113,6 +129,10 @@ elmt:AnonymousAssertions__MassConstraint__total_om
 elmt:AnonymousAssertions__MassConstraint__limit
     a sysml:AttributeUsage ;
     sysml:qualifiedName "AnonymousAssertions::MassConstraint::limit" ;
+    sysx:sourceLine "5"^^xsd:integer ;
+    sysx:sourceColumn "3"^^xsd:integer ;
+    sysx:sourceEndLine "5"^^xsd:integer ;
+    sysx:sourceEndColumn "34"^^xsd:integer ;
     sysml:elementId "AnonymousAssertions__MassConstraint__limit" ;
     sysx:memberIndex "1"^^xsd:integer ;
     sysml:owningNamespace elmt:AnonymousAssertions__MassConstraint ;
@@ -143,6 +163,10 @@ elmt:AnonymousAssertions__MassConstraint__limit_om
 elmt:AnonymousAssertions__MassConstraint___402
     a sysml:OperatorExpression ;
     sysml:qualifiedName "AnonymousAssertions::MassConstraint::@2" ;
+    sysx:sourceLine "6"^^xsd:integer ;
+    sysx:sourceColumn "3"^^xsd:integer ;
+    sysx:sourceEndLine "6"^^xsd:integer ;
+    sysx:sourceEndColumn "17"^^xsd:integer ;
     sysml:elementId "AnonymousAssertions__MassConstraint___402" ;
     sysx:memberIndex "2"^^xsd:integer ;
     sysml:owningNamespace elmt:AnonymousAssertions__MassConstraint ;
@@ -343,6 +367,10 @@ expr:AnonymousAssertions__MassConstraint___402_pout_om
 elmt:AnonymousAssertions__massConstraint
     a sysml:ConstraintUsage ;
     sysml:qualifiedName "AnonymousAssertions::massConstraint" ;
+    sysx:sourceLine "8"^^xsd:integer ;
+    sysx:sourceColumn "2"^^xsd:integer ;
+    sysx:sourceEndLine "12"^^xsd:integer ;
+    sysx:sourceEndColumn "3"^^xsd:integer ;
     sysml:elementId "AnonymousAssertions__massConstraint" ;
     sysx:memberIndex "2"^^xsd:integer ;
     sysml:owningNamespace elmt:AnonymousAssertions ;
@@ -380,6 +408,10 @@ elmt:AnonymousAssertions__massConstraint_om
 elmt:AnonymousAssertions__massConstraint__total
     a sysml:AttributeUsage ;
     sysml:qualifiedName "AnonymousAssertions::massConstraint::total" ;
+    sysx:sourceLine "9"^^xsd:integer ;
+    sysx:sourceColumn "3"^^xsd:integer ;
+    sysx:sourceEndLine "9"^^xsd:integer ;
+    sysx:sourceEndColumn "34"^^xsd:integer ;
     sysml:elementId "AnonymousAssertions__massConstraint__total" ;
     sysx:memberIndex "0"^^xsd:integer ;
     sysml:owningNamespace elmt:AnonymousAssertions__massConstraint ;
@@ -410,6 +442,10 @@ elmt:AnonymousAssertions__massConstraint__total_om
 elmt:AnonymousAssertions__massConstraint__limit
     a sysml:AttributeUsage ;
     sysml:qualifiedName "AnonymousAssertions::massConstraint::limit" ;
+    sysx:sourceLine "10"^^xsd:integer ;
+    sysx:sourceColumn "3"^^xsd:integer ;
+    sysx:sourceEndLine "10"^^xsd:integer ;
+    sysx:sourceEndColumn "34"^^xsd:integer ;
     sysml:elementId "AnonymousAssertions__massConstraint__limit" ;
     sysx:memberIndex "1"^^xsd:integer ;
     sysml:owningNamespace elmt:AnonymousAssertions__massConstraint ;
@@ -440,6 +476,10 @@ elmt:AnonymousAssertions__massConstraint__limit_om
 elmt:AnonymousAssertions__massConstraint___402
     a sysml:OperatorExpression ;
     sysml:qualifiedName "AnonymousAssertions::massConstraint::@2" ;
+    sysx:sourceLine "11"^^xsd:integer ;
+    sysx:sourceColumn "3"^^xsd:integer ;
+    sysx:sourceEndLine "11"^^xsd:integer ;
+    sysx:sourceEndColumn "17"^^xsd:integer ;
     sysml:elementId "AnonymousAssertions__massConstraint___402" ;
     sysx:memberIndex "2"^^xsd:integer ;
     sysml:owningNamespace elmt:AnonymousAssertions__massConstraint ;
@@ -640,6 +680,10 @@ expr:AnonymousAssertions__massConstraint___402_pout_om
 elmt:AnonymousAssertions__Vehicle
     a sysml:PartDefinition ;
     sysml:qualifiedName "AnonymousAssertions::Vehicle" ;
+    sysx:sourceLine "13"^^xsd:integer ;
+    sysx:sourceColumn "2"^^xsd:integer ;
+    sysx:sourceEndLine "30"^^xsd:integer ;
+    sysx:sourceEndColumn "3"^^xsd:integer ;
     sysml:elementId "AnonymousAssertions__Vehicle" ;
     sysx:memberIndex "3"^^xsd:integer ;
     sysml:owningNamespace elmt:AnonymousAssertions ;
@@ -674,6 +718,10 @@ elmt:AnonymousAssertions__Vehicle_om
 elmt:AnonymousAssertions__Vehicle__mass
     a sysml:AttributeUsage ;
     sysml:qualifiedName "AnonymousAssertions::Vehicle::mass" ;
+    sysx:sourceLine "14"^^xsd:integer ;
+    sysx:sourceColumn "3"^^xsd:integer ;
+    sysx:sourceEndLine "14"^^xsd:integer ;
+    sysx:sourceEndColumn "30"^^xsd:integer ;
     sysml:elementId "AnonymousAssertions__Vehicle__mass" ;
     sysx:memberIndex "0"^^xsd:integer ;
     sysml:owningNamespace elmt:AnonymousAssertions__Vehicle ;
@@ -703,6 +751,10 @@ elmt:AnonymousAssertions__Vehicle__mass_om
 elmt:AnonymousAssertions__Vehicle__maxMass
     a sysml:AttributeUsage ;
     sysml:qualifiedName "AnonymousAssertions::Vehicle::maxMass" ;
+    sysx:sourceLine "15"^^xsd:integer ;
+    sysx:sourceColumn "3"^^xsd:integer ;
+    sysx:sourceEndLine "15"^^xsd:integer ;
+    sysx:sourceEndColumn "33"^^xsd:integer ;
     sysml:elementId "AnonymousAssertions__Vehicle__maxMass" ;
     sysx:memberIndex "1"^^xsd:integer ;
     sysml:owningNamespace elmt:AnonymousAssertions__Vehicle ;
@@ -732,6 +784,10 @@ elmt:AnonymousAssertions__Vehicle__maxMass_om
 elmt:AnonymousAssertions__Vehicle___402
     a sysml:AssertConstraintUsage ;
     sysml:qualifiedName "AnonymousAssertions::Vehicle::@2" ;
+    sysx:sourceLine "16"^^xsd:integer ;
+    sysx:sourceColumn "3"^^xsd:integer ;
+    sysx:sourceEndLine "19"^^xsd:integer ;
+    sysx:sourceEndColumn "4"^^xsd:integer ;
     sysml:elementId "AnonymousAssertions__Vehicle___402" ;
     sysx:memberIndex "2"^^xsd:integer ;
     sysml:owningNamespace elmt:AnonymousAssertions__Vehicle ;
@@ -772,6 +828,10 @@ elmt:AnonymousAssertions__Vehicle___402_om
 elmt:AnonymousAssertions__Vehicle___402__total
     a sysml:ReferenceUsage ;
     sysml:qualifiedName "AnonymousAssertions::Vehicle::@2::total" ;
+    sysx:sourceLine "17"^^xsd:integer ;
+    sysx:sourceColumn "4"^^xsd:integer ;
+    sysx:sourceEndLine "17"^^xsd:integer ;
+    sysx:sourceEndColumn "20"^^xsd:integer ;
     sysml:elementId "AnonymousAssertions__Vehicle___402__total" ;
     sysx:memberIndex "0"^^xsd:integer ;
     sysml:owningNamespace elmt:AnonymousAssertions__Vehicle___402 ;
@@ -850,6 +910,10 @@ expr:AnonymousAssertions__Vehicle___402__total_pvalue_om
 elmt:AnonymousAssertions__Vehicle___402__limit
     a sysml:ReferenceUsage ;
     sysml:qualifiedName "AnonymousAssertions::Vehicle::@2::limit" ;
+    sysx:sourceLine "18"^^xsd:integer ;
+    sysx:sourceColumn "4"^^xsd:integer ;
+    sysx:sourceEndLine "18"^^xsd:integer ;
+    sysx:sourceEndColumn "23"^^xsd:integer ;
     sysml:elementId "AnonymousAssertions__Vehicle___402__limit" ;
     sysx:memberIndex "1"^^xsd:integer ;
     sysml:owningNamespace elmt:AnonymousAssertions__Vehicle___402 ;
@@ -928,6 +992,10 @@ expr:AnonymousAssertions__Vehicle___402__limit_pvalue_om
 elmt:AnonymousAssertions__Vehicle___403
     a sysml:AssertConstraintUsage ;
     sysml:qualifiedName "AnonymousAssertions::Vehicle::@3" ;
+    sysx:sourceLine "20"^^xsd:integer ;
+    sysx:sourceColumn "3"^^xsd:integer ;
+    sysx:sourceEndLine "22"^^xsd:integer ;
+    sysx:sourceEndColumn "4"^^xsd:integer ;
     sysml:elementId "AnonymousAssertions__Vehicle___403" ;
     sysx:memberIndex "3"^^xsd:integer ;
     sysml:owningNamespace elmt:AnonymousAssertions__Vehicle ;
@@ -958,6 +1026,10 @@ elmt:AnonymousAssertions__Vehicle___403_om
 elmt:AnonymousAssertions__Vehicle___403___400
     a sysml:OperatorExpression ;
     sysml:qualifiedName "AnonymousAssertions::Vehicle::@3::@0" ;
+    sysx:sourceLine "21"^^xsd:integer ;
+    sysx:sourceColumn "4"^^xsd:integer ;
+    sysx:sourceEndLine "21"^^xsd:integer ;
+    sysx:sourceEndColumn "19"^^xsd:integer ;
     sysml:elementId "AnonymousAssertions__Vehicle___403___400" ;
     sysx:memberIndex "0"^^xsd:integer ;
     sysml:owningNamespace elmt:AnonymousAssertions__Vehicle___403 ;
@@ -1158,6 +1230,10 @@ expr:AnonymousAssertions__Vehicle___403___400_pout_om
 elmt:AnonymousAssertions__Vehicle__tooHeavy
     a sysml:AssertConstraintUsage ;
     sysml:qualifiedName "AnonymousAssertions::Vehicle::tooHeavy" ;
+    sysx:sourceLine "23"^^xsd:integer ;
+    sysx:sourceColumn "3"^^xsd:integer ;
+    sysx:sourceEndLine "26"^^xsd:integer ;
+    sysx:sourceEndColumn "4"^^xsd:integer ;
     sysml:elementId "AnonymousAssertions__Vehicle__tooHeavy" ;
     sysx:memberIndex "4"^^xsd:integer ;
     sysml:owningNamespace elmt:AnonymousAssertions__Vehicle ;
@@ -1198,6 +1274,10 @@ elmt:AnonymousAssertions__Vehicle__tooHeavy_om
 elmt:AnonymousAssertions__Vehicle__tooHeavy__total
     a sysml:ReferenceUsage ;
     sysml:qualifiedName "AnonymousAssertions::Vehicle::tooHeavy::total" ;
+    sysx:sourceLine "24"^^xsd:integer ;
+    sysx:sourceColumn "4"^^xsd:integer ;
+    sysx:sourceEndLine "24"^^xsd:integer ;
+    sysx:sourceEndColumn "20"^^xsd:integer ;
     sysml:elementId "AnonymousAssertions__Vehicle__tooHeavy__total" ;
     sysx:memberIndex "0"^^xsd:integer ;
     sysml:owningNamespace elmt:AnonymousAssertions__Vehicle__tooHeavy ;
@@ -1276,6 +1356,10 @@ expr:AnonymousAssertions__Vehicle__tooHeavy__total_pvalue_om
 elmt:AnonymousAssertions__Vehicle__tooHeavy__limit
     a sysml:ReferenceUsage ;
     sysml:qualifiedName "AnonymousAssertions::Vehicle::tooHeavy::limit" ;
+    sysx:sourceLine "25"^^xsd:integer ;
+    sysx:sourceColumn "4"^^xsd:integer ;
+    sysx:sourceEndLine "25"^^xsd:integer ;
+    sysx:sourceEndColumn "23"^^xsd:integer ;
     sysml:elementId "AnonymousAssertions__Vehicle__tooHeavy__limit" ;
     sysx:memberIndex "1"^^xsd:integer ;
     sysml:owningNamespace elmt:AnonymousAssertions__Vehicle__tooHeavy ;
@@ -1354,6 +1438,10 @@ expr:AnonymousAssertions__Vehicle__tooHeavy__limit_pvalue_om
 elmt:AnonymousAssertions__Vehicle___405
     a sysml:AssertConstraintUsage ;
     sysml:qualifiedName "AnonymousAssertions::Vehicle::@5" ;
+    sysx:sourceLine "27"^^xsd:integer ;
+    sysx:sourceColumn "3"^^xsd:integer ;
+    sysx:sourceEndLine "27"^^xsd:integer ;
+    sysx:sourceEndColumn "29"^^xsd:integer ;
     sysml:elementId "AnonymousAssertions__Vehicle___405" ;
     sysx:memberIndex "5"^^xsd:integer ;
     sysml:owningNamespace elmt:AnonymousAssertions__Vehicle ;
@@ -1385,6 +1473,10 @@ elmt:AnonymousAssertions__Vehicle___405_om
 elmt:AnonymousAssertions__Vehicle___406
     a sysml:AssertConstraintUsage ;
     sysml:qualifiedName "AnonymousAssertions::Vehicle::@6" ;
+    sysx:sourceLine "28"^^xsd:integer ;
+    sysx:sourceColumn "3"^^xsd:integer ;
+    sysx:sourceEndLine "28"^^xsd:integer ;
+    sysx:sourceEndColumn "25"^^xsd:integer ;
     sysml:elementId "AnonymousAssertions__Vehicle___406" ;
     sysx:memberIndex "6"^^xsd:integer ;
     sysml:owningNamespace elmt:AnonymousAssertions__Vehicle ;
@@ -1415,6 +1507,10 @@ elmt:AnonymousAssertions__Vehicle___406_om
 elmt:AnonymousAssertions__Vehicle__c
     a sysml:AssertConstraintUsage ;
     sysml:qualifiedName "AnonymousAssertions::Vehicle::c" ;
+    sysx:sourceLine "29"^^xsd:integer ;
+    sysx:sourceColumn "3"^^xsd:integer ;
+    sysx:sourceEndLine "29"^^xsd:integer ;
+    sysx:sourceEndColumn "40"^^xsd:integer ;
     sysml:elementId "AnonymousAssertions__Vehicle__c" ;
     sysx:memberIndex "7"^^xsd:integer ;
     sysml:owningNamespace elmt:AnonymousAssertions__Vehicle ;

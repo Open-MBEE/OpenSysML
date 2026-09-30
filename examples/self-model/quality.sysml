@@ -237,7 +237,7 @@ package OpenSysMLGates {
     private import VerificationCases::VerdictKind;
 
     verification def ParserGate {
-        doc /* go test -run 'TestGolden|TestNegative' ./internal/syntax/parser */
+        doc /* go test -run 'TestGolden|TestNegative' ./tests/parser ./internal/syntax/parser */
         subject parser : Parser;
         objective {
             verify parserRecovers;
@@ -282,7 +282,7 @@ package OpenSysMLGates {
     }
 
     verification def ExportGate {
-        doc /* go test ./internal/translate/export */
+        doc /* go test ./internal/translate/export ./tests/export */
         subject exporter : Exporter;
         objective {
             verify exportRoundTrips;
@@ -383,6 +383,12 @@ package OpenSysMLCodebase {
         part editors : Directory {
             attribute :>> path = "editors";
         }
+        part schema : Directory {
+            attribute :>> path = "api";
+        }
+        part tools : Directory {
+            attribute :>> path = "tools";
+        }
     }
 
     part tree : SourceTree;
@@ -408,7 +414,34 @@ package OpenSysMLCodebase {
     allocate opensysml.repl to tree.internals;
     allocate opensysml.lsp to tree.internals;
     allocate opensysml.service to tree.internals;
+    allocate opensysml.stdio to tree.internals;
+    allocate opensysml.exporter to tree.internals;
+    allocate opensysml.migrator to tree.internals;
+    allocate opensysml.codegen to tree.internals;
+    allocate opensysml.documents.plans to tree.internals;
+    allocate opensysml.documents.markdown to tree.internals;
+    allocate opensysml.documents.html to tree.internals;
+    allocate opensysml.documents.pdf to tree.internals;
+    allocate opensysml.service.schema to tree.schema;
+    allocate opensysml.goClient to tree.clientLibraries;
     allocate opensysml.python to tree.clientLibraries;
+    allocate opensysml.node to tree.clientLibraries;
     allocate opensysml.rust to tree.clientLibraries;
+    allocate opensysml.java to tree.clientLibraries;
+    allocate opensysml.julia to tree.clientLibraries;
+    allocate opensysml.matlab to tree.clientLibraries;
     allocate opensysml.vscode to tree.editors;
+    allocate opensysml.cameo to tree.editors;
+    allocate opensysml.syson to tree.editors;
+    allocate opensysml.rejection to tree.tools;
+    allocate opensysml.differential to tree.tools;
+    allocate opensysml.xpect to tree.tools;
+    allocate opensysml.execution to tree.tools;
+    allocate opensysml.pssm to tree.tools;
+    allocate opensysml.fuml to tree.tools;
+    allocate opensysml.validation to tree.tools;
+    allocate opensysml.grammar to tree.tools;
+    allocate opensysml.counts to tree.tools;
+    allocate opensysml.snapshotGate to tree.tools;
+    allocate opensysml.suite to tree.tools;
 }

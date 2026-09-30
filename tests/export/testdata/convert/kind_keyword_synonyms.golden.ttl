@@ -9,6 +9,10 @@
 elmt:Synonyms
     a sysml:Package ;
     sysml:qualifiedName "Synonyms" ;
+    sysx:sourceLine "1"^^xsd:integer ;
+    sysx:sourceColumn "1"^^xsd:integer ;
+    sysx:sourceEndLine "23"^^xsd:integer ;
+    sysx:sourceEndColumn "2"^^xsd:integer ;
     sysml:elementId "Synonyms" ;
     sysx:memberIndex "0"^^xsd:integer ;
     sysx:sourceLanguage "sysml" ;
@@ -26,6 +30,10 @@ elmt:Synonyms
 elmt:Synonyms__Temperature
     a sysml:DataType ;
     sysml:qualifiedName "Synonyms::Temperature" ;
+    sysx:sourceLine "2"^^xsd:integer ;
+    sysx:sourceColumn "5"^^xsd:integer ;
+    sysx:sourceEndLine "2"^^xsd:integer ;
+    sysx:sourceEndColumn "26"^^xsd:integer ;
     sysml:elementId "Synonyms__Temperature" ;
     sysx:memberIndex "0"^^xsd:integer ;
     sysml:owningNamespace elmt:Synonyms ;
@@ -50,6 +58,10 @@ elmt:Synonyms__Temperature_om
 elmt:Synonyms__reading
     a sysml:AttributeUsage ;
     sysml:qualifiedName "Synonyms::reading" ;
+    sysx:sourceLine "3"^^xsd:integer ;
+    sysx:sourceColumn "5"^^xsd:integer ;
+    sysx:sourceEndLine "3"^^xsd:integer ;
+    sysx:sourceEndColumn "35"^^xsd:integer ;
     sysml:elementId "Synonyms__reading" ;
     sysx:memberIndex "1"^^xsd:integer ;
     sysml:owningNamespace elmt:Synonyms ;
@@ -78,6 +90,10 @@ elmt:Synonyms__reading_om
 elmt:Synonyms__Average
     a sysml:CalculationDefinition ;
     sysml:qualifiedName "Synonyms::Average" ;
+    sysx:sourceLine "4"^^xsd:integer ;
+    sysx:sourceColumn "5"^^xsd:integer ;
+    sysx:sourceEndLine "4"^^xsd:integer ;
+    sysx:sourceEndColumn "26"^^xsd:integer ;
     sysml:elementId "Synonyms__Average" ;
     sysx:memberIndex "2"^^xsd:integer ;
     sysml:owningNamespace elmt:Synonyms ;
@@ -102,6 +118,10 @@ elmt:Synonyms__Average_om
 elmt:Synonyms__base
     a sysml:OccurrenceUsage ;
     sysml:qualifiedName "Synonyms::base" ;
+    sysx:sourceLine "5"^^xsd:integer ;
+    sysx:sourceColumn "5"^^xsd:integer ;
+    sysx:sourceEndLine "5"^^xsd:integer ;
+    sysx:sourceEndColumn "21"^^xsd:integer ;
     sysml:elementId "Synonyms__base" ;
     sysx:memberIndex "3"^^xsd:integer ;
     sysml:owningNamespace elmt:Synonyms ;
@@ -125,6 +145,10 @@ elmt:Synonyms__base_om
 elmt:Synonyms__atStart
     a sysml:OccurrenceUsage ;
     sysml:qualifiedName "Synonyms::atStart" ;
+    sysx:sourceLine "6"^^xsd:integer ;
+    sysx:sourceColumn "5"^^xsd:integer ;
+    sysx:sourceEndLine "6"^^xsd:integer ;
+    sysx:sourceEndColumn "22"^^xsd:integer ;
     sysml:elementId "Synonyms__atStart" ;
     sysx:memberIndex "4"^^xsd:integer ;
     sysml:owningNamespace elmt:Synonyms ;
@@ -151,6 +175,10 @@ elmt:Synonyms__atStart_om
 elmt:Synonyms__during
     a sysml:OccurrenceUsage ;
     sysml:qualifiedName "Synonyms::during" ;
+    sysx:sourceLine "7"^^xsd:integer ;
+    sysx:sourceColumn "5"^^xsd:integer ;
+    sysx:sourceEndLine "7"^^xsd:integer ;
+    sysx:sourceEndColumn "22"^^xsd:integer ;
     sysml:elementId "Synonyms__during" ;
     sysx:memberIndex "5"^^xsd:integer ;
     sysml:owningNamespace elmt:Synonyms ;
@@ -177,6 +205,10 @@ elmt:Synonyms__during_om
 elmt:Synonyms__note
     a sysml:FlowUsage ;
     sysml:qualifiedName "Synonyms::note" ;
+    sysx:sourceLine "8"^^xsd:integer ;
+    sysx:sourceColumn "5"^^xsd:integer ;
+    sysx:sourceEndLine "8"^^xsd:integer ;
+    sysx:sourceEndColumn "18"^^xsd:integer ;
     sysml:elementId "Synonyms__note" ;
     sysx:memberIndex "6"^^xsd:integer ;
     sysml:owningNamespace elmt:Synonyms ;
@@ -200,6 +232,10 @@ elmt:Synonyms__note_om
 elmt:Synonyms___407
     a sysml:AllocationUsage ;
     sysml:qualifiedName "Synonyms::@7" ;
+    sysx:sourceLine "9"^^xsd:integer ;
+    sysx:sourceColumn "5"^^xsd:integer ;
+    sysx:sourceEndLine "9"^^xsd:integer ;
+    sysx:sourceEndColumn "30"^^xsd:integer ;
     sysml:elementId "Synonyms___407" ;
     sysx:memberIndex "7"^^xsd:integer ;
     sysml:owningNamespace elmt:Synonyms ;
@@ -322,6 +358,10 @@ expr:Synonyms___407_pend1_prs
 elmt:Synonyms__Drive
     a sysml:UseCaseDefinition ;
     sysml:qualifiedName "Synonyms::Drive" ;
+    sysx:sourceLine "10"^^xsd:integer ;
+    sysx:sourceColumn "5"^^xsd:integer ;
+    sysx:sourceEndLine "10"^^xsd:integer ;
+    sysx:sourceEndColumn "24"^^xsd:integer ;
     sysml:elementId "Synonyms__Drive" ;
     sysx:memberIndex "8"^^xsd:integer ;
     sysml:owningNamespace elmt:Synonyms ;
@@ -345,6 +385,10 @@ elmt:Synonyms__Drive_om
 elmt:Synonyms__Safe
     a sysml:ConstraintDefinition ;
     sysml:qualifiedName "Synonyms::Safe" ;
+    sysx:sourceLine "11"^^xsd:integer ;
+    sysx:sourceColumn "5"^^xsd:integer ;
+    sysx:sourceEndLine "11"^^xsd:integer ;
+    sysx:sourceEndColumn "25"^^xsd:integer ;
     sysml:elementId "Synonyms__Safe" ;
     sysx:memberIndex "9"^^xsd:integer ;
     sysml:owningNamespace elmt:Synonyms ;
@@ -368,6 +412,10 @@ elmt:Synonyms__Safe_om
 elmt:Synonyms__Idle
     a sysml:StateDefinition ;
     sysml:qualifiedName "Synonyms::Idle" ;
+    sysx:sourceLine "12"^^xsd:integer ;
+    sysx:sourceColumn "5"^^xsd:integer ;
+    sysx:sourceEndLine "12"^^xsd:integer ;
+    sysx:sourceEndColumn "20"^^xsd:integer ;
     sysml:elementId "Synonyms__Idle" ;
     sysx:memberIndex "10"^^xsd:integer ;
     sysml:owningNamespace elmt:Synonyms ;
@@ -391,6 +439,10 @@ elmt:Synonyms__Idle_om
 elmt:Synonyms__Vehicle
     a sysml:PartDefinition ;
     sysml:qualifiedName "Synonyms::Vehicle" ;
+    sysx:sourceLine "13"^^xsd:integer ;
+    sysx:sourceColumn "5"^^xsd:integer ;
+    sysx:sourceEndLine "17"^^xsd:integer ;
+    sysx:sourceEndColumn "6"^^xsd:integer ;
     sysml:elementId "Synonyms__Vehicle" ;
     sysx:memberIndex "11"^^xsd:integer ;
     sysml:owningNamespace elmt:Synonyms ;
@@ -425,6 +477,10 @@ elmt:Synonyms__Vehicle_om
 elmt:Synonyms__Vehicle___400
     a sysml:ExhibitStateUsage ;
     sysml:qualifiedName "Synonyms::Vehicle::@0" ;
+    sysx:sourceLine "14"^^xsd:integer ;
+    sysx:sourceColumn "9"^^xsd:integer ;
+    sysx:sourceEndLine "14"^^xsd:integer ;
+    sysx:sourceEndColumn "31"^^xsd:integer ;
     sysml:elementId "Synonyms__Vehicle___400" ;
     sysx:memberIndex "0"^^xsd:integer ;
     sysml:owningNamespace elmt:Synonyms__Vehicle ;
@@ -459,6 +515,10 @@ elmt:Synonyms__Vehicle___400_om
 elmt:Synonyms__Vehicle__safe
     a sysml:AssertConstraintUsage ;
     sysml:qualifiedName "Synonyms::Vehicle::safe" ;
+    sysx:sourceLine "15"^^xsd:integer ;
+    sysx:sourceColumn "9"^^xsd:integer ;
+    sysx:sourceEndLine "15"^^xsd:integer ;
+    sysx:sourceEndColumn "28"^^xsd:integer ;
     sysml:elementId "Synonyms__Vehicle__safe" ;
     sysx:memberIndex "1"^^xsd:integer ;
     sysml:owningNamespace elmt:Synonyms__Vehicle ;
@@ -489,6 +549,10 @@ elmt:Synonyms__Vehicle__safe_om
 elmt:Synonyms__Vehicle__alsoSafe
     a sysml:ConstraintUsage ;
     sysml:qualifiedName "Synonyms::Vehicle::alsoSafe" ;
+    sysx:sourceLine "16"^^xsd:integer ;
+    sysx:sourceColumn "9"^^xsd:integer ;
+    sysx:sourceEndLine "16"^^xsd:integer ;
+    sysx:sourceEndColumn "29"^^xsd:integer ;
     sysml:elementId "Synonyms__Vehicle__alsoSafe" ;
     sysx:memberIndex "2"^^xsd:integer ;
     sysml:owningNamespace elmt:Synonyms__Vehicle ;
@@ -519,6 +583,10 @@ elmt:Synonyms__Vehicle__alsoSafe_om
 elmt:Synonyms__AsTree
     a sysml:RenderingDefinition ;
     sysml:qualifiedName "Synonyms::AsTree" ;
+    sysx:sourceLine "18"^^xsd:integer ;
+    sysx:sourceColumn "5"^^xsd:integer ;
+    sysx:sourceEndLine "18"^^xsd:integer ;
+    sysx:sourceEndColumn "26"^^xsd:integer ;
     sysml:elementId "Synonyms__AsTree" ;
     sysx:memberIndex "12"^^xsd:integer ;
     sysml:owningNamespace elmt:Synonyms ;
@@ -542,6 +610,10 @@ elmt:Synonyms__AsTree_om
 elmt:Synonyms__Dashboard
     a sysml:ViewDefinition ;
     sysml:qualifiedName "Synonyms::Dashboard" ;
+    sysx:sourceLine "19"^^xsd:integer ;
+    sysx:sourceColumn "5"^^xsd:integer ;
+    sysx:sourceEndLine "22"^^xsd:integer ;
+    sysx:sourceEndColumn "6"^^xsd:integer ;
     sysml:elementId "Synonyms__Dashboard" ;
     sysx:memberIndex "13"^^xsd:integer ;
     sysml:owningNamespace elmt:Synonyms ;
@@ -576,6 +648,10 @@ elmt:Synonyms__Dashboard_om
 elmt:Synonyms__Dashboard___400
     a sysml:RenderingUsage ;
     sysml:qualifiedName "Synonyms::Dashboard::@0" ;
+    sysx:sourceLine "20"^^xsd:integer ;
+    sysx:sourceColumn "9"^^xsd:integer ;
+    sysx:sourceEndLine "20"^^xsd:integer ;
+    sysx:sourceEndColumn "24"^^xsd:integer ;
     sysml:elementId "Synonyms__Dashboard___400" ;
     sysx:memberIndex "0"^^xsd:integer ;
     sysml:owningNamespace elmt:Synonyms__Dashboard ;
@@ -606,6 +682,10 @@ elmt:Synonyms__Dashboard___400_om
 elmt:Synonyms__Dashboard___401
     a sysml:RenderingUsage ;
     sysml:qualifiedName "Synonyms::Dashboard::@1" ;
+    sysx:sourceLine "21"^^xsd:integer ;
+    sysx:sourceColumn "9"^^xsd:integer ;
+    sysx:sourceEndLine "21"^^xsd:integer ;
+    sysx:sourceEndColumn "35"^^xsd:integer ;
     sysml:elementId "Synonyms__Dashboard___401" ;
     sysx:memberIndex "1"^^xsd:integer ;
     sysml:owningNamespace elmt:Synonyms__Dashboard ;

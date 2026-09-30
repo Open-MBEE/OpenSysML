@@ -9,6 +9,10 @@
 elmt:ConnectorEnds
     a sysml:Package ;
     sysml:qualifiedName "ConnectorEnds" ;
+    sysx:sourceLine "1"^^xsd:integer ;
+    sysx:sourceColumn "1"^^xsd:integer ;
+    sysx:sourceEndLine "25"^^xsd:integer ;
+    sysx:sourceEndColumn "2"^^xsd:integer ;
     sysml:elementId "ConnectorEnds" ;
     sysx:memberIndex "0"^^xsd:integer ;
     sysx:sourceLanguage "kerml" ;
@@ -26,6 +30,10 @@ elmt:ConnectorEnds
 elmt:ConnectorEnds__Engine
     a sysml:ClassUsage ;
     sysml:qualifiedName "ConnectorEnds::Engine" ;
+    sysx:sourceLine "2"^^xsd:integer ;
+    sysx:sourceColumn "5"^^xsd:integer ;
+    sysx:sourceEndLine "2"^^xsd:integer ;
+    sysx:sourceEndColumn "18"^^xsd:integer ;
     sysml:elementId "ConnectorEnds__Engine" ;
     sysx:memberIndex "0"^^xsd:integer ;
     sysml:owningNamespace elmt:ConnectorEnds ;
@@ -49,6 +57,10 @@ elmt:ConnectorEnds__Engine_om
 elmt:ConnectorEnds__Tank
     a sysml:ClassUsage ;
     sysml:qualifiedName "ConnectorEnds::Tank" ;
+    sysx:sourceLine "3"^^xsd:integer ;
+    sysx:sourceColumn "5"^^xsd:integer ;
+    sysx:sourceEndLine "3"^^xsd:integer ;
+    sysx:sourceEndColumn "53"^^xsd:integer ;
     sysml:elementId "ConnectorEnds__Tank" ;
     sysx:memberIndex "1"^^xsd:integer ;
     sysml:owningNamespace elmt:ConnectorEnds ;
@@ -82,6 +94,10 @@ elmt:ConnectorEnds__Tank_om
 elmt:ConnectorEnds__Tank__main
     a sysml:AttributeUsage ;
     sysml:qualifiedName "ConnectorEnds::Tank::main" ;
+    sysx:sourceLine "3"^^xsd:integer ;
+    sysx:sourceColumn "18"^^xsd:integer ;
+    sysx:sourceEndLine "3"^^xsd:integer ;
+    sysx:sourceEndColumn "40"^^xsd:integer ;
     sysml:elementId "ConnectorEnds__Tank__main" ;
     sysx:memberIndex "0"^^xsd:integer ;
     sysml:owningNamespace elmt:ConnectorEnds__Tank ;
@@ -111,6 +127,10 @@ elmt:ConnectorEnds__Tank__main_om
 elmt:ConnectorEnds__Tank__x
     a sysml:AttributeUsage ;
     sysml:qualifiedName "ConnectorEnds::Tank::x" ;
+    sysx:sourceLine "3"^^xsd:integer ;
+    sysx:sourceColumn "41"^^xsd:integer ;
+    sysx:sourceEndLine "3"^^xsd:integer ;
+    sysx:sourceEndColumn "51"^^xsd:integer ;
     sysml:elementId "ConnectorEnds__Tank__x" ;
     sysx:memberIndex "1"^^xsd:integer ;
     sysml:owningNamespace elmt:ConnectorEnds__Tank ;
@@ -136,6 +156,10 @@ elmt:ConnectorEnds__Tank__x_om
 elmt:ConnectorEnds__Trigger
     a sysml:ClassUsage ;
     sysml:qualifiedName "ConnectorEnds::Trigger" ;
+    sysx:sourceLine "4"^^xsd:integer ;
+    sysx:sourceColumn "5"^^xsd:integer ;
+    sysx:sourceEndLine "4"^^xsd:integer ;
+    sysx:sourceEndColumn "19"^^xsd:integer ;
     sysml:elementId "ConnectorEnds__Trigger" ;
     sysx:memberIndex "2"^^xsd:integer ;
     sysml:owningNamespace elmt:ConnectorEnds ;
@@ -159,6 +183,10 @@ elmt:ConnectorEnds__Trigger_om
 elmt:ConnectorEnds__Vehicle
     a sysml:ClassUsage ;
     sysml:qualifiedName "ConnectorEnds::Vehicle" ;
+    sysx:sourceLine "6"^^xsd:integer ;
+    sysx:sourceColumn "5"^^xsd:integer ;
+    sysx:sourceEndLine "24"^^xsd:integer ;
+    sysx:sourceEndColumn "6"^^xsd:integer ;
     sysml:elementId "ConnectorEnds__Vehicle" ;
     sysx:memberIndex "3"^^xsd:integer ;
     sysml:owningNamespace elmt:ConnectorEnds ;
@@ -193,6 +221,10 @@ elmt:ConnectorEnds__Vehicle_om
 elmt:ConnectorEnds__Vehicle__eng
     a sysml:AttributeUsage ;
     sysml:qualifiedName "ConnectorEnds::Vehicle::eng" ;
+    sysx:sourceLine "7"^^xsd:integer ;
+    sysx:sourceColumn "9"^^xsd:integer ;
+    sysx:sourceEndLine "7"^^xsd:integer ;
+    sysx:sourceEndColumn "30"^^xsd:integer ;
     sysml:elementId "ConnectorEnds__Vehicle__eng" ;
     sysx:memberIndex "0"^^xsd:integer ;
     sysml:owningNamespace elmt:ConnectorEnds__Vehicle ;
@@ -223,6 +255,10 @@ elmt:ConnectorEnds__Vehicle__eng_om
 elmt:ConnectorEnds__Vehicle__tanks
     a sysml:AttributeUsage ;
     sysml:qualifiedName "ConnectorEnds::Vehicle::tanks" ;
+    sysx:sourceLine "8"^^xsd:integer ;
+    sysx:sourceColumn "9"^^xsd:integer ;
+    sysx:sourceEndLine "8"^^xsd:integer ;
+    sysx:sourceEndColumn "30"^^xsd:integer ;
     sysml:elementId "ConnectorEnds__Vehicle__tanks" ;
     sysx:memberIndex "1"^^xsd:integer ;
     sysml:owningNamespace elmt:ConnectorEnds__Vehicle ;
@@ -253,6 +289,10 @@ elmt:ConnectorEnds__Vehicle__tanks_om
 elmt:ConnectorEnds__Vehicle__a
     a sysml:AttributeUsage ;
     sysml:qualifiedName "ConnectorEnds::Vehicle::a" ;
+    sysx:sourceLine "9"^^xsd:integer ;
+    sysx:sourceColumn "9"^^xsd:integer ;
+    sysx:sourceEndLine "9"^^xsd:integer ;
+    sysx:sourceEndColumn "26"^^xsd:integer ;
     sysml:elementId "ConnectorEnds__Vehicle__a" ;
     sysx:memberIndex "2"^^xsd:integer ;
     sysml:owningNamespace elmt:ConnectorEnds__Vehicle ;
@@ -283,6 +323,10 @@ elmt:ConnectorEnds__Vehicle__a_om
 elmt:ConnectorEnds__Vehicle__b
     a sysml:AttributeUsage ;
     sysml:qualifiedName "ConnectorEnds::Vehicle::b" ;
+    sysx:sourceLine "10"^^xsd:integer ;
+    sysx:sourceColumn "9"^^xsd:integer ;
+    sysx:sourceEndLine "10"^^xsd:integer ;
+    sysx:sourceEndColumn "19"^^xsd:integer ;
     sysml:elementId "ConnectorEnds__Vehicle__b" ;
     sysx:memberIndex "3"^^xsd:integer ;
     sysml:owningNamespace elmt:ConnectorEnds__Vehicle ;
@@ -309,6 +353,10 @@ elmt:ConnectorEnds__Vehicle__b_om
 elmt:ConnectorEnds__Vehicle__trigger
     a sysml:AttributeUsage ;
     sysml:qualifiedName "ConnectorEnds::Vehicle::trigger" ;
+    sysx:sourceLine "11"^^xsd:integer ;
+    sysx:sourceColumn "9"^^xsd:integer ;
+    sysx:sourceEndLine "11"^^xsd:integer ;
+    sysx:sourceEndColumn "35"^^xsd:integer ;
     sysml:elementId "ConnectorEnds__Vehicle__trigger" ;
     sysx:memberIndex "4"^^xsd:integer ;
     sysml:owningNamespace elmt:ConnectorEnds__Vehicle ;
@@ -339,6 +387,10 @@ elmt:ConnectorEnds__Vehicle__trigger_om
 elmt:ConnectorEnds__Vehicle__transitionLink
     a sysml:AttributeUsage ;
     sysml:qualifiedName "ConnectorEnds::Vehicle::transitionLink" ;
+    sysx:sourceLine "12"^^xsd:integer ;
+    sysx:sourceColumn "9"^^xsd:integer ;
+    sysx:sourceEndLine "12"^^xsd:integer ;
+    sysx:sourceEndColumn "32"^^xsd:integer ;
     sysml:elementId "ConnectorEnds__Vehicle__transitionLink" ;
     sysx:memberIndex "5"^^xsd:integer ;
     sysml:owningNamespace elmt:ConnectorEnds__Vehicle ;
@@ -365,6 +417,10 @@ elmt:ConnectorEnds__Vehicle__transitionLink_om
 elmt:ConnectorEnds__Vehicle___406
     a sysml:Connector ;
     sysml:qualifiedName "ConnectorEnds::Vehicle::@6" ;
+    sysx:sourceLine "14"^^xsd:integer ;
+    sysx:sourceColumn "9"^^xsd:integer ;
+    sysx:sourceEndLine "14"^^xsd:integer ;
+    sysx:sourceEndColumn "37"^^xsd:integer ;
     sysml:elementId "ConnectorEnds__Vehicle___406" ;
     sysx:memberIndex "6"^^xsd:integer ;
     sysml:owningNamespace elmt:ConnectorEnds__Vehicle ;
@@ -523,6 +579,10 @@ expr:ConnectorEnds__Vehicle___406_pend1_prs
 elmt:ConnectorEnds__Vehicle___407
     a sysml:Connector ;
     sysml:qualifiedName "ConnectorEnds::Vehicle::@7" ;
+    sysx:sourceLine "15"^^xsd:integer ;
+    sysx:sourceColumn "9"^^xsd:integer ;
+    sysx:sourceEndLine "15"^^xsd:integer ;
+    sysx:sourceEndColumn "34"^^xsd:integer ;
     sysml:elementId "ConnectorEnds__Vehicle___407" ;
     sysx:memberIndex "7"^^xsd:integer ;
     sysml:owningNamespace elmt:ConnectorEnds__Vehicle ;
@@ -683,6 +743,10 @@ expr:ConnectorEnds__Vehicle___407_pend1_prs
 elmt:ConnectorEnds__Vehicle___408
     a sysml:Connector ;
     sysml:qualifiedName "ConnectorEnds::Vehicle::@8" ;
+    sysx:sourceLine "16"^^xsd:integer ;
+    sysx:sourceColumn "9"^^xsd:integer ;
+    sysx:sourceEndLine "16"^^xsd:integer ;
+    sysx:sourceEndColumn "52"^^xsd:integer ;
     sysml:elementId "ConnectorEnds__Vehicle___408" ;
     sysx:memberIndex "8"^^xsd:integer ;
     sysml:owningNamespace elmt:ConnectorEnds__Vehicle ;
@@ -952,6 +1016,10 @@ expr:ConnectorEnds__Vehicle___408_pend1_pupperBound_om
 elmt:ConnectorEnds__Vehicle___409
     a sysml:Connector ;
     sysml:qualifiedName "ConnectorEnds::Vehicle::@9" ;
+    sysx:sourceLine "17"^^xsd:integer ;
+    sysx:sourceColumn "9"^^xsd:integer ;
+    sysx:sourceEndLine "17"^^xsd:integer ;
+    sysx:sourceEndColumn "50"^^xsd:integer ;
     sysml:elementId "ConnectorEnds__Vehicle___409" ;
     sysx:memberIndex "9"^^xsd:integer ;
     sysml:owningNamespace elmt:ConnectorEnds__Vehicle ;
@@ -1113,6 +1181,10 @@ expr:ConnectorEnds__Vehicle___409_pend1_prs
 elmt:ConnectorEnds__Vehicle___4010
     a sysml:Connector ;
     sysml:qualifiedName "ConnectorEnds::Vehicle::@10" ;
+    sysx:sourceLine "18"^^xsd:integer ;
+    sysx:sourceColumn "9"^^xsd:integer ;
+    sysx:sourceEndLine "18"^^xsd:integer ;
+    sysx:sourceEndColumn "67"^^xsd:integer ;
     sysml:elementId "ConnectorEnds__Vehicle___4010" ;
     sysx:memberIndex "10"^^xsd:integer ;
     sysml:owningNamespace elmt:ConnectorEnds__Vehicle ;
@@ -1368,6 +1440,10 @@ expr:ConnectorEnds__Vehicle___4010_pend1_pupperBound_om
 elmt:ConnectorEnds__Vehicle__link
     a sysml:Connector ;
     sysml:qualifiedName "ConnectorEnds::Vehicle::link" ;
+    sysx:sourceLine "19"^^xsd:integer ;
+    sysx:sourceColumn "9"^^xsd:integer ;
+    sysx:sourceEndLine "19"^^xsd:integer ;
+    sysx:sourceEndColumn "47"^^xsd:integer ;
     sysml:elementId "ConnectorEnds__Vehicle__link" ;
     sysx:memberIndex "11"^^xsd:integer ;
     sysml:owningNamespace elmt:ConnectorEnds__Vehicle ;
@@ -1528,6 +1604,10 @@ expr:ConnectorEnds__Vehicle__link_pend1_prs
 elmt:ConnectorEnds__Vehicle___4012
     a sysml:Connector ;
     sysml:qualifiedName "ConnectorEnds::Vehicle::@12" ;
+    sysx:sourceLine "20"^^xsd:integer ;
+    sysx:sourceColumn "9"^^xsd:integer ;
+    sysx:sourceEndLine "20"^^xsd:integer ;
+    sysx:sourceEndColumn "46"^^xsd:integer ;
     sysml:elementId "ConnectorEnds__Vehicle___4012" ;
     sysx:memberIndex "12"^^xsd:integer ;
     sysml:owningNamespace elmt:ConnectorEnds__Vehicle ;
@@ -1688,6 +1768,10 @@ expr:ConnectorEnds__Vehicle___4012_pend1_prs
 elmt:ConnectorEnds__Vehicle___4013
     a sysml:Connector ;
     sysml:qualifiedName "ConnectorEnds::Vehicle::@13" ;
+    sysx:sourceLine "21"^^xsd:integer ;
+    sysx:sourceColumn "9"^^xsd:integer ;
+    sysx:sourceEndLine "21"^^xsd:integer ;
+    sysx:sourceEndColumn "41"^^xsd:integer ;
     sysml:elementId "ConnectorEnds__Vehicle___4013" ;
     sysx:memberIndex "13"^^xsd:integer ;
     sysml:owningNamespace elmt:ConnectorEnds__Vehicle ;
@@ -1847,6 +1931,10 @@ expr:ConnectorEnds__Vehicle___4013_pend1_prs
 elmt:ConnectorEnds__Vehicle___4014
     a sysml:Connector ;
     sysml:qualifiedName "ConnectorEnds::Vehicle::@14" ;
+    sysx:sourceLine "22"^^xsd:integer ;
+    sysx:sourceColumn "9"^^xsd:integer ;
+    sysx:sourceEndLine "22"^^xsd:integer ;
+    sysx:sourceEndColumn "42"^^xsd:integer ;
     sysml:elementId "ConnectorEnds__Vehicle___4014" ;
     sysx:memberIndex "14"^^xsd:integer ;
     sysml:owningNamespace elmt:ConnectorEnds__Vehicle ;
@@ -2006,6 +2094,10 @@ expr:ConnectorEnds__Vehicle___4014_pend1_prs
 elmt:ConnectorEnds__Vehicle___4015
     a sysml:Connector ;
     sysml:qualifiedName "ConnectorEnds::Vehicle::@15" ;
+    sysx:sourceLine "23"^^xsd:integer ;
+    sysx:sourceColumn "9"^^xsd:integer ;
+    sysx:sourceEndLine "23"^^xsd:integer ;
+    sysx:sourceEndColumn "46"^^xsd:integer ;
     sysml:elementId "ConnectorEnds__Vehicle___4015" ;
     sysx:memberIndex "15"^^xsd:integer ;
     sysml:owningNamespace elmt:ConnectorEnds__Vehicle ;

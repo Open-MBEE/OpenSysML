@@ -469,6 +469,19 @@ func isIndexProperty(iri string) bool {
 	return false
 }
 
+// IsSourceRangeProperty reports whether iri is one of the four integers that
+// place a declaration in its document: layout, which reading ignores.
+func IsSourceRangeProperty(iri string) bool {
+	if !strings.HasPrefix(iri, rdf.OpenSysML) {
+		return false
+	}
+	switch rdf.LocalName(iri) {
+	case xSourceLine, xSourceColumn, xSourceEndLine, xSourceEndColumn:
+		return true
+	}
+	return false
+}
+
 // termText spells a term as Turtle does, for a diagnostic.
 func termText(term rdf.Term) string {
 	if term.IsIRI() {
@@ -543,7 +556,7 @@ func literalDatatypes(metaclass, predicate string) []string {
 		}
 	}
 	switch {
-	case isIndexProperty(predicate):
+	case isIndexProperty(predicate), IsSourceRangeProperty(predicate):
 		return integerLiterals
 	case strings.HasPrefix(name, "is"), name == xHasBody, name == xDeclaredID, name == xHasEffect, name == xBracedEffect, name == xConjugatedTyping, name == xSourceMultiplicityBeforeThen:
 		return booleanLiterals
@@ -832,8 +845,23 @@ func (d *decoder) transparentRoot(el *element) bool {
 func (d *decoder) isMembership(subject rdf.Term) bool {
 	metaclass := d.metaclass(subject)
 	return metaclass != "" && (metaclass == mFeatureValue || metaclass == mParameterMembership ||
-		ontology.IsAncestorOrSelf(metaclass, mOwningMembership)) &&
+		ontology.IsAncestorOrSelf(metaclass, mOwningMembership) || d.prefixAnnotation(subject)) &&
 		!d.graph.HasProperty(subject, rdf.SysML+pQualifiedName)
+}
+
+// prefixAnnotation reports whether subject is the Annotation by which a
+// relationship owns its prefix metadata (SysML-textual-bnf PrefixMetadataAnnotation):
+// it states ownership as an OwningMembership does, through its related elements.
+func (d *decoder) prefixAnnotation(subject rdf.Term) bool {
+	if d.metaclass(subject) != mAnnotation {
+		return false
+	}
+	annotating, ok := d.graph.Object(subject, rdf.SysML+pAnnotatingElement)
+	if !ok || d.metaclass(annotating) != usageMetaclass[ast.UsageMetadata] {
+		return false
+	}
+	owned, ok := d.graph.Object(subject, rdf.SysML+pOwnedRelatedElement)
+	return ok && owned == annotating
 }
 
 // isNodeMembership identifies membership objects that own expression parts.
@@ -901,6 +929,18 @@ func (d *decoder) readMembership(subject rdf.Term) error {
 		return &UnsupportedError{
 			What: fmt.Sprintf("the membership <%s>", subject.Value),
 			Note: "a membership states the namespace it belongs to in sysml:membershipOwningNamespace and the element it owns in sysml:memberElement, and this one states one of them or neither",
+		}
+	}
+	if d.prefixAnnotation(subject) {
+		// A prefix annotates the relationship that owns it; one naming another
+		// element would be written as that owner's prefix and change meaning.
+		for _, annotated := range d.graph.Objects(subject, rdf.SysML+pAnnotatedElement) {
+			if annotated != owner {
+				return &UnsupportedError{
+					What: fmt.Sprintf("the annotation <%s>", subject.Value),
+					Note: fmt.Sprintf("it annotates <%s> but is owned by <%s>, and a `#` prefix annotates the element it is written on", annotated.Value, owner.Value),
+				}
+			}
 		}
 	}
 	m := membership{iri: subject.Value, owner: owner.Value, member: member.Value}
