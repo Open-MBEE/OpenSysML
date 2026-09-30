@@ -199,7 +199,7 @@ func ActionNodeOfBody(body *symbols.Scope, name string) (ast.Node, bool) {
 	if body == nil || name == "" {
 		return nil, false
 	}
-	if member, ok := body.LookupLocal(name); ok {
+	if member, ok := memberPastLabels(body, name); ok {
 		return member.Decl, isActionNode(member.Decl)
 	}
 	decl, _, found, _ := inheritedActionNode(body, name, nil, make(map[*symbols.Symbol]bool))
@@ -368,7 +368,7 @@ func FeatureSymbolInScope(scope *symbols.Scope, segments []string) (*symbols.Sym
 		return nil, false
 	}
 	for s := scope; s != nil; s = s.Parent() {
-		sym, ok := s.LookupLocal(segments[0])
+		sym, ok := memberPastLabels(s, segments[0])
 		if !ok {
 			sym, ok = inheritedFeature(s, segments[0], map[*symbols.Symbol]bool{})
 		}

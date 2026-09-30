@@ -160,3 +160,77 @@ func TestApplyEditsRefusesReferencesUnresolvedAfterTheWholeBatch(t *testing.T) {
 		})
 	}
 }
+
+// A reference is judged under the name the batch leaves it: a later operation
+// renaming what it names, or the declaration carrying it, does not unsettle
+// it, and a duplicate prefix is refused whatever its target is renamed to.
+func TestApplyEditsFollowsReferencesThroughLaterRenames(t *testing.T) {
+	srv := mustNewService(t, 10)
+	hash := mustParsedModel(t, srv, `package P {
+    metadata def Tag;
+    action def Base {
+        action g;
+    }
+    action def A :> Base {
+        first g;
+        action a;
+    }
+    part def Vehicle;
+}
+`)
+	accepted := []struct {
+		name string
+		ops  []*pb.EditOperation
+		want []string
+	}{
+		{
+			name: "metadata prefix then its definition renamed",
+			ops:  []*pb.EditOperation{addMetadataPrefixOp("P::Vehicle", "Tag"), renameOp("P::Tag", "Marker")},
+			want: []string{"metadata def Marker;", "#Marker part def Vehicle;"},
+		},
+		{
+			name: "metadata prefix then its target renamed",
+			ops:  []*pb.EditOperation{addMetadataPrefixOp("P::Vehicle", "Tag"), renameOp("P::Vehicle", "Car")},
+			want: []string{"#Tag part def Car;"},
+		},
+		{
+			name: "succession then the node it reaches renamed",
+			ops:  []*pb.EditOperation{addSequenceOp("P::A", "then", "a", "", "", "", ""), renameOp("P::A::a", "b")},
+			want: []string{"action b;", "then b;"},
+		},
+		{
+			name: "succession to an inherited node behind its first label",
+			ops:  []*pb.EditOperation{addSequenceOp("P::A", "then", "g", "", "", "", "")},
+			want: []string{"first g;", "then g;"},
+		},
+	}
+	for _, tt := range accepted {
+		t.Run(tt.name, func(t *testing.T) {
+			resp, err := srv.ApplyEdits(context.Background(), &pb.ApplyEditsRequest{ModelHash: hash, Operations: tt.ops})
+			if err != nil {
+				t.Fatalf("ApplyEdits: %v", err)
+			}
+			if resp.Error != "" {
+				t.Fatalf("ApplyEdits refused: %s (%s)", resp.Error, resp.Failure)
+			}
+			for _, want := range tt.want {
+				if !strings.Contains(resp.Content, want) {
+					t.Fatalf("result lacks %q:\n%s", want, resp.Content)
+				}
+			}
+		})
+	}
+
+	resp, err := srv.ApplyEdits(context.Background(), &pb.ApplyEditsRequest{ModelHash: hash, Operations: []*pb.EditOperation{
+		addMetadataPrefixOp("P::Vehicle", "Tag"),
+		addMetadataPrefixOp("P::Vehicle", "Tag"),
+		renameOp("P::Vehicle", "Car"),
+	}})
+	if err != nil {
+		t.Fatalf("ApplyEdits: %v", err)
+	}
+	if resp.Content != "" || resp.Failure != pb.EditFailure_EDIT_FAILURE_INVALID_VALUE ||
+		!strings.Contains(resp.Error, `"P::Vehicle" already carries #Tag`) {
+		t.Fatalf("duplicate prefix on a renamed target: response = %+v, want %s", resp, pb.EditFailure_EDIT_FAILURE_INVALID_VALUE)
+	}
+}

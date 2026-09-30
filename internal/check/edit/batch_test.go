@@ -234,3 +234,123 @@ func TestBatchNamesShadowInOperationOrder(t *testing.T) {
 		t.Fatalf("refusal = %s (%s), want %s", e.Failure, e.Message, FailureResultInvalid)
 	}
 }
+
+// A reference is judged under the name the batch leaves it: a later rename of
+// what it names, or of the declaration carrying it, rewrites the reference and
+// the check follows.
+func TestBatchFollowsReferencesThroughLaterRenames(t *testing.T) {
+	tests := []struct {
+		name string
+		ops  []Operation
+		want []string
+	}{
+		{
+			name: "metadata prefix then its definition renamed",
+			ops: []Operation{
+				AddMetadataPrefix("P::Vehicle", "Tag"),
+				Rename("P::Tag", "Marker"),
+			},
+			want: []string{"metadata def Marker;", "#Marker part def Vehicle;"},
+		},
+		{
+			name: "metadata prefix then its target renamed",
+			ops: []Operation{
+				AddMetadataPrefix("P::Vehicle", "Tag"),
+				Rename("P::Vehicle", "Car"),
+			},
+			want: []string{"#Tag part def Car;"},
+		},
+		{
+			name: "succession then the node it reaches renamed",
+			ops: []Operation{
+				AddThen("P::A", "a"),
+				Rename("P::A::a", "b"),
+			},
+			want: []string{"action b;", "then b;"},
+		},
+		{
+			name: "succession then its owner renamed",
+			ops: []Operation{
+				AddThen("P::A", "a"),
+				Rename("P::A", "B"),
+			},
+			want: []string{"action def B {", "then a;"},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := applyOps(t, forwardBatchModel, tt.ops...)
+			for _, want := range tt.want {
+				if !strings.Contains(got, want) {
+					t.Fatalf("result lacks %q:\n%s", want, got)
+				}
+			}
+		})
+	}
+
+	refusals := []struct {
+		name    string
+		ops     []Operation
+		want    Failure
+		index   int
+		message string
+	}{
+		{
+			name: "metadata prefix twice then its target renamed",
+			ops: []Operation{
+				AddMetadataPrefix("P::Vehicle", "Tag"),
+				AddMetadataPrefix("P::Vehicle", "Tag"),
+				Rename("P::Vehicle", "Car"),
+			},
+			want: FailureInvalidValue, index: 0,
+			message: `"P::Vehicle" already carries #Tag`,
+		},
+		{
+			name: "succession to nothing then its owner renamed",
+			ops: []Operation{
+				AddThen("P::A", "missing"),
+				Rename("P::A", "B"),
+			},
+			want: FailureUnknownTarget, index: 0,
+			message: `sequence node "missing" resolves to nothing visible from "P::A"`,
+		},
+	}
+	for _, tt := range refusals {
+		t.Run(tt.name, func(t *testing.T) {
+			res, err := Apply(loadContent(t, "batch.sysml", forwardBatchModel), tt.ops)
+			if res != nil {
+				t.Fatalf("refused batch returned content:\n%s", res.Content)
+			}
+			e := editError(t, err)
+			if e.Failure != tt.want || e.OperationIndex != tt.index || !strings.Contains(e.Message, tt.message) {
+				t.Fatalf("refusal = %s at %d (%s), want %s at %d containing %q",
+					e.Failure, e.OperationIndex, e.Message, tt.want, tt.index, tt.message)
+			}
+		})
+	}
+}
+
+// A `first g;` label borrows the name of the node it starts at, which the body
+// may inherit rather than declare; the label hides neither from a succession.
+func TestBatchSequenceReachesInheritedNodeBehindItsLabel(t *testing.T) {
+	src := `package P {
+    action def Base {
+        action g;
+    }
+    action def A :> Base {
+        first g;
+        action a;
+    }
+}
+`
+	got := applyOps(t, src, AddThen("P::A", "g"))
+	if !strings.Contains(got, "then g;") {
+		t.Fatalf("result lacks %q:\n%s", "then g;", got)
+	}
+	got = applyOps(t, src, AddThen("P::A", "g"), AddMember("P::Base", "action", "h"), AddThen("P::A", "h"))
+	for _, want := range []string{"then g;", "action h;", "then h;"} {
+		if !strings.Contains(got, want) {
+			t.Fatalf("result lacks %q:\n%s", want, got)
+		}
+	}
+}

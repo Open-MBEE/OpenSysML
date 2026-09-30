@@ -54,18 +54,11 @@ func (m Model) addMetadataPrefixSplice(i int, op Operation) (splice, error) {
 		}
 	}
 
-	typeName, ok := metadataQualifiedName(op.MetadataType)
-	if !ok {
+	if _, ok := metadataQualifiedName(op.MetadataType); !ok {
 		return splice{}, &Error{
 			Failure: FailureInvalidName, OperationIndex: i,
 			Message: fmt.Sprintf("metadata type %q is not a qualified name", op.MetadataType),
 		}
-	}
-	err = m.resolveLater(func(final Model) error {
-		return final.checkMetadataPrefixType(i, op, typeName)
-	})
-	if err != nil {
-		return splice{}, err
 	}
 
 	declSpan := sym.Decl.Span()
@@ -83,10 +76,10 @@ func (m Model) addMetadataPrefixSplice(i int, op Operation) (splice, error) {
 	if len(prefixes) > 0 {
 		last := prefixes[len(prefixes)-1]
 		insertion = m.tokenSpan(last.Span()).End()
-		return splice{
+		return m.deferPrefix(i, op, splice{
 			span: source.Span{Offset: insertion}, text: " #" + op.MetadataType,
 			opIndex: i, target: op.Target,
-		}, nil
+		}), nil
 	}
 	insertion, ok = metadataPrefixInsertion(m, sym.Decl)
 	if !ok {
@@ -95,64 +88,70 @@ func (m Model) addMetadataPrefixSplice(i int, op Operation) (splice, error) {
 			Message: fmt.Sprintf("%q has no prefix metadata insertion point", op.Target),
 		}
 	}
-	return splice{
+	return m.deferPrefix(i, op, splice{
 		span: source.Span{Offset: insertion}, text: "#" + op.MetadataType + " ",
 		opIndex: i, target: op.Target,
-	}, nil
+	}), nil
 }
 
-// checkMetadataPrefixType refuses op's metadata type unless, from Target's
-// declaration in m — the model with op's prefix written — it names a metadata
-// definition that only that one prefix of the target states. A target m no
-// longer declares leaves the verdict to validation.
-func (m Model) checkMetadataPrefixType(i int, op Operation, typeName *ast.QualifiedName) error {
-	sym, err := m.target(i, op)
-	if err != nil {
+// deferPrefix has the prefix sp writes judged against the model the batch leaves.
+func (m Model) deferPrefix(i int, op Operation, sp splice) splice {
+	m.resolveLater(sp, func(after Model, region source.Span) []deferredRef {
+		var refs []deferredRef
+		inspectWithin(after.Root, region, func(n ast.Node) {
+			if prefix, ok := n.(*ast.PrefixMetadata); ok && prefix.Type != nil && prefix.Type.Text() == op.MetadataType {
+				refs = append(refs, deferredRef{offset: prefix.Span().Offset, check: func(final Model, offset int) error {
+					return final.checkMetadataPrefix(i, op.Target, offset)
+				}})
+			}
+		})
+		return refs
+	})
+	return sp
+}
+
+// checkMetadataPrefix refuses the metadata prefix written at offset in m — the
+// model the batch leaves — unless it names a metadata definition, from the
+// declaration it prefixes, that no other prefix of that declaration names too;
+// a byte no prefix is written at any more leaves the verdict to validation.
+func (m Model) checkMetadataPrefix(i int, target string, offset int) error {
+	sym, prefix := m.metadataPrefixAt(offset)
+	if prefix == nil || prefix.Type == nil {
 		return nil
 	}
-	prefixes, _, ok := ast.DeclaredMetadata(sym.Decl)
-	if !ok {
-		return nil
-	}
+	name := prefix.Type.Text()
 	r, _ := m.resolver()
 	scope := r.PrefixScope(sym.OwnerScope, sym.Decl)
-	metadataType, resolved := r.ResolveQualified(scope, typeName)
-	if !resolved || metadataType == nil {
-		return &Error{
-			Failure: FailureInvalidValue, OperationIndex: i,
-			Message: fmt.Sprintf("metadata type %q does not resolve from %s", op.MetadataType, notationName(sym)),
-		}
+	metadataType, resolved := r.ResolveQualified(scope, prefix.Type)
+	if resolved && metadataType != nil {
+		metadataType, resolved = r.ResolveAliasTarget(metadataType)
 	}
-	metadataType, resolved = r.ResolveAliasTarget(metadataType)
 	if !resolved || metadataType == nil {
 		return &Error{
 			Failure: FailureInvalidValue, OperationIndex: i,
-			Message: fmt.Sprintf("metadata type %q does not resolve from %s", op.MetadataType, notationName(sym)),
+			Message: fmt.Sprintf("metadata type %q does not resolve from %s", name, notationName(sym)),
 		}
 	}
 	if metadataType.Kind != symbols.SymbolMetadataDef {
 		return &Error{
 			Failure: FailureInvalidValue, OperationIndex: i,
-			Message: fmt.Sprintf("%q is a %s, not a metadata definition", op.MetadataType, metadataType.Kind),
+			Message: fmt.Sprintf("%q is a %s, not a metadata definition", name, metadataType.Kind),
 		}
 	}
-	carried := 0
-	for _, prefix := range prefixes {
-		if prefix == nil || prefix.Type == nil {
+	prefixes, _, _ := ast.DeclaredMetadata(sym.Decl)
+	for _, other := range prefixes {
+		if other == nil || other == prefix || other.Type == nil {
 			continue
 		}
-		existingType, found := r.ResolveQualified(scope, prefix.Type)
-		if found && existingType != nil {
-			existingType, found = r.ResolveAliasTarget(existingType)
+		otherType, found := r.ResolveQualified(scope, other.Type)
+		if found && otherType != nil {
+			otherType, found = r.ResolveAliasTarget(otherType)
 		}
-		if found && existingType != nil && existingType == metadataType {
-			carried++
-		}
-	}
-	if carried > 1 {
-		return &Error{
-			Failure: FailureInvalidValue, OperationIndex: i,
-			Message: fmt.Sprintf("%q already carries #%s", op.Target, op.MetadataType),
+		if found && otherType == metadataType {
+			return &Error{
+				Failure: FailureInvalidValue, OperationIndex: i,
+				Message: fmt.Sprintf("%q already carries #%s", target, name),
+			}
 		}
 	}
 	return nil

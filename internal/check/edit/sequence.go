@@ -103,7 +103,35 @@ func (m Model) addSequenceSplice(i int, op Operation) (splice, error) {
 	} else {
 		ins = m.memberInsertion(owner, text)
 	}
-	return splice{span: ins.span, text: ins.text, opIndex: i, target: op.Owner}, nil
+	sp := splice{span: ins.span, text: ins.text, opIndex: i, target: op.Owner}
+	m.resolveLater(sp, func(after Model, region source.Span) []deferredRef {
+		var refs []deferredRef
+		inspectWithin(after.Root, region, func(n ast.Node) {
+			for _, qn := range successionEnds(n) {
+				refs = append(refs, deferredRef{offset: qn.Span().Offset, check: func(final Model, offset int) error {
+					return final.checkSuccessionEnd(i, op.Owner, offset)
+				}})
+			}
+		})
+		return refs
+	})
+	return sp, nil
+}
+
+// checkSuccessionEnd refuses the succession end written at offset in m — the
+// model the batch leaves — unless it names a node visible from the body it is
+// written in; a byte no end is written at any more leaves the verdict to
+// validation.
+func (m Model) checkSuccessionEnd(i int, owner string, offset int) error {
+	qn, scope := m.successionEndAt(offset)
+	if qn == nil || m.sequenceNodeVisible(scope, qn.Text()) {
+		return nil
+	}
+	return &Error{
+		Failure: FailureUnknownTarget, OperationIndex: i,
+		Message: fmt.Sprintf("sequence node %q resolves to nothing visible from %s",
+			qn.Text(), ownerName(owner)),
+	}
 }
 
 func (m Model) formatSequenceItem(i int, owner string, scope *symbols.Scope, localNames map[string]bool, op Operation, depth int, memberIndent, unit string) (string, error) {
@@ -128,7 +156,7 @@ func (m Model) formatSequenceItem(i int, owner string, scope *symbols.Scope, loc
 	if op.SequenceKeyword == "first" || op.SequenceKeyword == "then" ||
 		op.SequenceKeyword == "if" || op.SequenceKeyword == "else" {
 		if op.SequenceRef != "" {
-			return m.formatSequenceReference(i, owner, localNames, op)
+			return m.formatSequenceReference(i, owner, op)
 		}
 	}
 	if op.SequenceRef != "" {
@@ -152,7 +180,7 @@ func (m Model) formatSequenceItem(i int, owner string, scope *symbols.Scope, loc
 	return m.formatActionStatement(i, owner, scope, localNames, op, depth, memberIndent, unit)
 }
 
-func (m Model) formatSequenceReference(i int, owner string, localNames map[string]bool, op Operation) (string, error) {
+func (m Model) formatSequenceReference(i int, owner string, op Operation) (string, error) {
 	if op.SequenceRef == "" {
 		return "", sequenceError(i, "sequence reference is empty")
 	}
@@ -179,32 +207,6 @@ func (m Model) formatSequenceReference(i int, owner string, localNames map[strin
 	}
 	if _, err := checkFeatureReference(i, "sequence node", op.SequenceRef); err != nil {
 		return "", err
-	}
-	local := false
-	if !strings.HasPrefix(op.SequenceRef, "$::") {
-		if segments, ok := source.QualifiedNameSegments(op.SequenceRef); ok && len(segments) == 1 {
-			local = localNames[segments[0]]
-		}
-	}
-	if !local {
-		ref := op.SequenceRef
-		err := m.resolveLater(func(final Model) error {
-			_, scope, err := final.addOwner(owner)
-			if err != nil {
-				return nil
-			}
-			if final.sequenceNodeVisible(scope, ref) {
-				return nil
-			}
-			return &Error{
-				Failure: FailureUnknownTarget, OperationIndex: i,
-				Message: fmt.Sprintf("sequence node %q resolves to nothing visible from %s",
-					ref, ownerName(owner)),
-			}
-		})
-		if err != nil {
-			return "", err
-		}
 	}
 	switch op.SequenceKeyword {
 	case "first":
@@ -629,12 +631,12 @@ func (m Model) sequenceNodeVisible(scope *symbols.Scope, ref string) bool {
 		if segments[0] == "start" || segments[0] == "done" {
 			return true
 		}
-		if node, ok := resolve.ActionNodeOfBody(scope, segments[0]); ok && !isStartLabel(node) {
+		if _, ok := resolve.ActionNodeOfBody(scope, segments[0]); ok {
 			return true
 		}
 	}
-	sym, ok := resolve.FeatureSymbolInScope(scope, segments)
-	return ok && !isStartLabel(sym.Decl)
+	_, ok = resolve.FeatureSymbolInScope(scope, segments)
+	return ok
 }
 
 // sequenceSourceBefore reports whether a member a `then` sequences from is
