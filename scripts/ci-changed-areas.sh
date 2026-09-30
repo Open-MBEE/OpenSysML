@@ -52,7 +52,9 @@ emit() {
 emit go "$service"
 emit docs "$( { [[ "$service" = true ]] || matches "$docs_pattern"; } && echo true || echo false)"
 emit node "$( { [[ "$service" = true ]] || matches "$node_pattern"; } && echo true || echo false)"
-emit python "$( { [[ "$service" = true ]] || matches "$python_pattern"; } && echo true || echo false)"
+# The Node/Python version lockstep test lives in the Python suite, so the Node
+# manifest has to run it too.
+emit python "$( { [[ "$service" = true ]] || matches "$python_pattern" || matches '^client/node/package\.json$'; } && echo true || echo false)"
 emit java "$( { [[ "$service" = true ]] || matches "$java_pattern"; } && echo true || echo false)"
 emit rust "$( { [[ "$service" = true ]] || matches "$rust_pattern"; } && echo true || echo false)"
 emit julia "$( { [[ "$service" = true ]] || matches "$julia_pattern"; } && echo true || echo false)"
