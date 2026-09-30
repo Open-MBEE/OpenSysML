@@ -263,7 +263,19 @@ func featureOwnedByType(sym *symbols.Symbol) bool {
 // (SysML v2 §7.6.3): what its redefinition chain and the features it
 // subsets declare, the implicit [1..1] where it qualifies, else [0..*].
 func (m *Model) EffectiveParameterRange(sym *symbols.Symbol) Range {
-	return m.EffectiveParameterRangeAlong(m.ParameterRedefinitionChain(sym))
+	if sym == nil {
+		return UnboundedRange()
+	}
+	defer m.own(sym).LeaveDoc()
+	if cached, ok := m.paramRanges[sym]; ok {
+		return cached
+	}
+	r := m.EffectiveParameterRangeAlong(m.ParameterRedefinitionChain(sym))
+	if m.computingRedefinedFeatures == 0 {
+		journal(m, m.paramRanges, sym, sym.Decl)
+		m.paramRanges[sym] = r
+	}
+	return r
 }
 
 // EffectiveParameterRangeAlong is EffectiveParameterRange over an explicit

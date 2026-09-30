@@ -824,7 +824,7 @@ func (ctx *Context) bindCalcUsage(shape *calcShape, reader *EvalContext, args ca
 	// that first read, as an invoked def's does; the run's bindings then mirror
 	// into it through bindCalcParameters.
 	if occurrence != nil {
-		ec.occurrence, ec.thisOccurrence = occurrence.inst, occurrence.materializeOccurrence
+		ec.occurrence, ec.thisOccurrence = occurrence.inst, occurrence.thisOccurrence()
 	}
 
 	env := frame{vars: make(map[string]Value, len(shape.Params)), aliases: shape.Aliases, owner: shape, run: ctx.newRun()}
@@ -1155,7 +1155,7 @@ func (run *calcRun) bindingEnv(ctx *Context, owner *symbols.Symbol) *EvalContext
 		ec = run.outer.nestedEnv(scope)
 	}
 	if run.occurrence != nil {
-		ec.occurrence, ec.thisOccurrence = run.occurrence.inst, run.occurrence.materializeOccurrence
+		ec.occurrence, ec.thisOccurrence = run.occurrence.inst, run.occurrence.thisOccurrence()
 	}
 	ec.pushFrame(run.env)
 	if run.perf != nil {

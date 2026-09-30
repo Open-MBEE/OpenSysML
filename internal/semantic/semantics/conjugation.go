@@ -205,6 +205,10 @@ func (m *Model) PortFeatures(sym *symbols.Symbol) []PortFeature {
 	if sym == nil {
 		return nil
 	}
+	defer m.own(sym).LeaveDoc()
+	if cached, ok := m.portFeatures[sym]; ok {
+		return cached
+	}
 	var out []PortFeature
 	seenName := make(map[string]bool)
 	for _, typ := range m.conjugatedSupertypes(sym) {
@@ -228,6 +232,8 @@ func (m *Model) PortFeatures(sym *symbols.Symbol) []PortFeature {
 			seenName[name] = true
 		}
 	}
+	journal(m, m.portFeatures, sym, sym.Decl)
+	m.portFeatures[sym] = out
 	return out
 }
 
