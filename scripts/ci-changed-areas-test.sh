@@ -45,7 +45,8 @@ case_() {
 case_ docs-only docs docs/guide/index.md
 case_ changelog-only docs CHANGELOG.md
 case_ changelog-fragment docs changes/unreleased/repl-thing.added.md
-case_ java-only cameo,java client/java/opensysml-client/pom.xml
+case_ java-module cameo,java client/java/opensysml-client/pom.xml
+case_ java-manifest cameo,java,python client/java/pom.xml
 case_ node-only node client/node/src/node/binary.ts
 case_ node-manifest node,python client/node/package.json
 case_ python-only python client/python/opensysml/connection.py
@@ -62,7 +63,7 @@ case_ vscode-syntaxes cameo,docs,go,java,julia,matlab,node,python,rust,syson,vsc
 # Any markdown counts as documentation: the site links out to repository files.
 case_ man-page docs packaging/man/man1/sysml.1
 case_ two-client-readmes cameo,docs,java,node client/java/README.md client/node/README.md
-case_ two-clients cameo,java,node client/java/pom.xml client/node/tsconfig.json
+case_ two-clients cameo,java,node,python client/java/pom.xml client/node/tsconfig.json
 case_ go-source cameo,docs,go,java,julia,matlab,node,python,rust,syson,vscode internal/syntax/parser/parser.go
 case_ go-client cameo,docs,go,java,julia,matlab,node,python,rust,syson,vscode client/opensysml/client.go
 case_ release-digests cameo,docs,go,java,julia,matlab,node,python,rust,syson,vscode client/release-digests.json

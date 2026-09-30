@@ -11,9 +11,10 @@ publish must fail here rather than after the fact.
 
 Prints the version the tag names on success. With `--pre-release` it prints
 `yes`/`no` instead, which the job uses to route a pre-release tag to TestPyPI.
-With `--node` the version client/node/package.json declares is checked the same
-way and printed instead — the Node client is published from the same tag, at
-the SemVer spelling of the same version.
+With `--node` or `--java` the version client/node/package.json or
+client/java/pom.xml declares is checked the same way and printed instead — both
+clients are published from the same tag, at the SemVer spelling of the same
+version.
 
 The core tags are SemVer and the package version is PEP 440, so the tag is
 translated before the comparison: `v0.9.0-rc1` names `0.9.0rc1`. Only the SemVer
@@ -28,6 +29,7 @@ import json
 import os
 import re
 import sys
+import xml.etree.ElementTree as ET
 
 from packaging.version import InvalidVersion, Version
 
@@ -46,12 +48,11 @@ PEP_440_PHASE = {"alpha": "a", "beta": "b", "rc": "rc"}
 VERSION_FILE = os.path.join(
     os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "opensysml", "_version.py"
 )
-NODE_PACKAGE = os.path.join(
-    os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))),
-    "client",
-    "node",
-    "package.json",
+REPO_ROOT = os.path.dirname(
+    os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 )
+NODE_PACKAGE = os.path.join(REPO_ROOT, "client", "node", "package.json")
+JAVA_POM = os.path.join(REPO_ROOT, "client", "java", "pom.xml")
 
 
 class VersionError(Exception):
@@ -200,25 +201,106 @@ def node_version(declared=None, node=None, tag=None):
         VersionError: If the two files disagree, or the tag does not spell the
             SemVer version package.json declares
     """
-    declared = declared_version() if declared is None else declared
     node = node_declared_version() if node is None else node
-    translated = pep440_from_semver(
-        node, tag, what="client/node/package.json version"
+    return _client_version(
+        "client/node/package.json",
+        "package.json",
+        "npm",
+        "The Node client",
+        node,
+        declared,
+        tag,
+        'set "version" and every platform package in optionalDependencies to the '
+        "SemVer spelling of that version.",
     )
+
+
+def java_declared_version(pom=JAVA_POM):
+    """The version client/java/pom.xml declares.
+
+    Args:
+        pom (str): Path to client/java/pom.xml
+
+    Returns:
+        str: The declared version
+
+    Raises:
+        VersionError: If the pom declares no version of its own
+    """
+    project = ET.parse(pom).getroot()
+    version = project.findtext("{http://maven.apache.org/POM/4.0.0}version")
+    if version is None:
+        raise VersionError(f"{pom} declares no version")
+    return version
+
+
+def java_version(declared=None, java=None, tag=None):
+    """client/java/pom.xml's version, checked against _version.py and, when given, the tag.
+
+    Args:
+        declared (str, optional): Version opensysml/_version.py declares; read
+            when omitted
+        java (str, optional): Version client/java/pom.xml declares; read when
+            omitted
+        tag (str, optional): Core release tag the Maven publish runs from
+
+    Returns:
+        str: The Maven version to publish, as the pom declares
+
+    Raises:
+        VersionError: If the pom and _version.py disagree, or the tag does not
+            spell the Maven version the pom declares
+    """
+    java = java_declared_version() if java is None else java
+    return _client_version(
+        "client/java/pom.xml",
+        "the pom",
+        "Maven Central",
+        "The Java client",
+        java,
+        declared,
+        tag,
+        "set the parent pom's <version>, both modules' <parent><version>, and the "
+        "editors' references to the Maven spelling of that version.",
+    )
+
+
+def _client_version(what, file, registry, client_name, client, declared, tag, remedy):
+    """The lockstep check the published client manifests share.
+
+    Args:
+        what (str): Path naming the client manifest, for the messages
+        file (str): The manifest in short form, for the tag message
+        registry (str): The registry the client publishes to, for the tag message
+        client_name (str): The client, for the mismatch message
+        client (str): The version the manifest declares
+        declared (str, optional): Version opensysml/_version.py declares; read
+            when omitted
+        tag (str, optional): Core release tag the publish runs from
+        remedy (str): How to bring the manifest back in step, for the message
+
+    Returns:
+        str: The version the manifest declares
+
+    Raises:
+        VersionError: If the manifest and _version.py disagree, or the tag does
+            not spell the version the manifest declares
+    """
+    declared = declared_version() if declared is None else declared
+    translated = pep440_from_semver(client, tag, what=f"{what} version")
     if translated != declared:
         raise VersionError(
-            f"client/node/package.json declares {node!r} (PEP 440 {translated!r}), but "
-            f"client/python/opensysml/_version.py declares {declared!r}. The Node client is "
-            "released in lockstep with the core and the Python client: set \"version\" and every "
-            "platform package in optionalDependencies to the SemVer spelling of that version."
+            f"{what} declares {client!r} (PEP 440 {translated!r}), but "
+            f"client/python/opensysml/_version.py declares {declared!r}. {client_name} is "
+            "released in lockstep with the core and the Python client: " + remedy
         )
-    if tag and tag[len(TAG_PREFIX):] != node:
+    if tag and tag[len(TAG_PREFIX):] != client:
         raise VersionError(
-            f"Tag {tag!r} names npm version {tag[len(TAG_PREFIX):]!r}, but client/node/package.json "
-            f"declares {node!r}. npm publishes the version package.json declares, so the tag must "
-            "spell it exactly."
+            f"Tag {tag!r} names {registry} version {tag[len(TAG_PREFIX):]!r}, but {what} "
+            f"declares {client!r}. {registry} publishes the version {file} declares, so the "
+            "tag must spell it exactly."
         )
-    return node
+    return client
 
 
 def parse_version(version, what):
@@ -262,10 +344,16 @@ def main(argv=None):
         default=os.environ.get("CIRCLE_TAG", ""),
         help="release tag (default: $CIRCLE_TAG)",
     )
-    parser.add_argument(
+    clients = parser.add_mutually_exclusive_group()
+    clients.add_argument(
         "--node",
         action="store_true",
         help="check and print client/node/package.json's version instead",
+    )
+    clients.add_argument(
+        "--java",
+        action="store_true",
+        help="check and print client/java/pom.xml's version instead",
     )
     parser.add_argument(
         "--pre-release",
@@ -278,6 +366,8 @@ def main(argv=None):
         version = version_from_tag(args.tag)
         if args.node:
             version = node_version(declared=version, tag=args.tag)
+        elif args.java:
+            version = java_version(declared=version, tag=args.tag)
         pre_release = is_pre_release(version)
     except VersionError as e:
         print(f"error: {e}", file=sys.stderr)
