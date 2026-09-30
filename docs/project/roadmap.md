@@ -326,14 +326,15 @@ proof.
 ## R2 — the Node, Java and Rust clients are unpublished
 
 Each has a publish path and a worked example the tests run, and none has ever been
-published: the Node and Java clients now ship from the core `v*` tag's `release`
+published: all three now ship from the core `v*` tag's `release`
 workflow (`publish-npm`, with a granular npm token already in the `npm` context;
 `publish-maven`, with its credentials already set as project environment
-variables), and the Rust client goes to crates.io on `opensysml-rust-v*`. The
+variables; `publish-crates`, with the crates.io token as the
+`CARGO_REGISTRY_TOKEN` project environment variable, once set). The
 Java package name already moved to `org.openmbee.opensysml`, the DNS-verified
 namespace; what remains before a first publish is the `org.openmbee` namespace
-verification and the public key on a keyserver, if not yet done. These are
-account gates like R4, not engineering.
+verification, the public key on a keyserver and the crates.io token, if not yet
+done. These are account gates like R4, not engineering.
 
 ## R3 — Homebrew: install it on a real Mac
 

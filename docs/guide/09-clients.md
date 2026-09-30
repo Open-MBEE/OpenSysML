@@ -85,7 +85,7 @@ package Demo {
     opensysml = { git = "https://github.com/Open-MBEE/OpenSysML.git", branch = "main" }
     ```
 
-    Not published yet, so take it from git or a path. Rust 1.83 or later.
+    Published to crates.io with each core release (`opensysml = "0.9"`); take it from git or a path for a checkout. Rust 1.83 or later.
 
 === "Julia"
 
@@ -1539,8 +1539,8 @@ let built = model.instantiate("Demo::Car")?;
 The crate is blocking and pulls in no async runtime: every one of the service's RPCs is unary and the
 usual consumer talks to a local child that answers in milliseconds, so a private `tokio::Runtime`
 inside a library would cost every consumer something for little gain. Calling it from inside a
-runtime is fine, and a test pins that. It is not on crates.io yet, so take it from a path or from
-git; the minimum supported Rust version is 1.83.
+runtime is fine, and a test pins that. It is on crates.io as `opensysml`, published with each core release; take it from a path or from
+git for a checkout. The minimum supported Rust version is 1.83.
 
 `load`/`loads` connect and parse in one call; `Connection::private()`, `Connection::external(host,
 port)` and `Connection::connect()` (which honours `$OPENSYSML_SERVICE`) are the explicit forms.
