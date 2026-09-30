@@ -103,7 +103,47 @@ func (m Model) addSequenceSplice(i int, op Operation) (splice, error) {
 	} else {
 		ins = m.memberInsertion(owner, text)
 	}
-	return splice{span: ins.span, text: ins.text, opIndex: i, target: op.Owner}, nil
+	sp := splice{span: ins.span, text: ins.text, opIndex: i, target: op.Owner}
+	m.resolveLater(sp, func(after Model, region source.Span) []deferredRef {
+		var refs []deferredRef
+		inspectWithin(after.Root, region, func(n ast.Node) {
+			for _, qn := range successionEnds(n) {
+				refs = append(refs, deferredRef{offset: qn.Span().Offset, check: func(final Model, offset int) error {
+					return final.checkSuccessionEnd(i, op.Owner, offset)
+				}})
+			}
+		})
+		return refs
+	})
+	return sp, nil
+}
+
+// checkSuccessionEnd refuses the succession end written at offset in m — the
+// model the batch leaves — unless it names a node visible from the body it is
+// written in; a byte no end is written at any more leaves the verdict to
+// validation.
+func (m Model) checkSuccessionEnd(i int, owner string, offset int) error {
+	qn, scope := m.successionEndAt(offset)
+	if qn == nil {
+		return nil
+	}
+	ref := successionEndText(qn)
+	if m.sequenceNodeVisible(scope, ref) {
+		return nil
+	}
+	return &Error{
+		Failure: FailureUnknownTarget, OperationIndex: i,
+		Message: fmt.Sprintf("sequence node %q resolves to nothing visible from %s",
+			ref, ownerName(owner)),
+	}
+}
+
+// successionEndText is the end as written, its `$::` root included.
+func successionEndText(qn *ast.QualifiedName) string {
+	if qn.Global {
+		return "$::" + qn.Text()
+	}
+	return qn.Text()
 }
 
 // bodyLayout is the indentation of an action body: the indent of the owner's
@@ -134,7 +174,7 @@ func (m Model) formatSequenceItem(i int, owner string, scope *symbols.Scope, loc
 	if op.SequenceKeyword == "first" || op.SequenceKeyword == "then" ||
 		op.SequenceKeyword == "if" || op.SequenceKeyword == "else" {
 		if op.SequenceRef != "" {
-			return m.formatSequenceReference(i, owner, scope, localNames, op)
+			return m.formatSequenceReference(i, owner, op)
 		}
 	}
 	if op.SequenceRef != "" {
@@ -158,7 +198,7 @@ func (m Model) formatSequenceItem(i int, owner string, scope *symbols.Scope, loc
 	return m.formatActionStatement(i, owner, scope, localNames, op, depth, layout)
 }
 
-func (m Model) formatSequenceReference(i int, owner string, scope *symbols.Scope, localNames map[string]bool, op Operation) (string, error) {
+func (m Model) formatSequenceReference(i int, owner string, op Operation) (string, error) {
 	if op.SequenceRef == "" {
 		return "", sequenceError(i, "sequence reference is empty")
 	}
@@ -185,19 +225,6 @@ func (m Model) formatSequenceReference(i int, owner string, scope *symbols.Scope
 	}
 	if _, err := checkFeatureReference(i, "sequence node", op.SequenceRef); err != nil {
 		return "", err
-	}
-	local := false
-	if !strings.HasPrefix(op.SequenceRef, "$::") {
-		if segments, ok := source.QualifiedNameSegments(op.SequenceRef); ok && len(segments) == 1 {
-			local = localNames[segments[0]]
-		}
-	}
-	if !local && !m.sequenceNodeVisible(scope, op.SequenceRef) {
-		return "", &Error{
-			Failure: FailureUnknownTarget, OperationIndex: i,
-			Message: fmt.Sprintf("sequence node %q resolves to nothing visible from %s",
-				op.SequenceRef, ownerName(owner)),
-		}
 	}
 	switch op.SequenceKeyword {
 	case "first":
@@ -243,7 +270,7 @@ func (m Model) formatSequenceDeclaration(i int, owner string, scope *symbols.Sco
 			e.Message = fmt.Sprintf("member name %q is not an identifier", op.MemberName)
 			return "", e
 		}
-		if scope != nil && len(scope.LookupLocalAll(symbolName(op.MemberName))) > 0 {
+		if nameTaken(scope, op.MemberName) {
 			return "", &Error{
 				Failure: FailureMemberNameTaken, OperationIndex: i,
 				Message: fmt.Sprintf("%s already declares %q", ownerName(owner), op.MemberName),
@@ -671,8 +698,8 @@ func (m Model) sequenceNodeVisible(scope *symbols.Scope, ref string) bool {
 		qn := ast.QualifiedNameOf(segments...)
 		qn.Global = true
 		r, _ := m.resolver()
-		_, ok = r.ResolveQualified(scope, qn)
-		return ok
+		sym, ok := r.ResolveQualified(scope, qn)
+		return ok && !isStartLabel(sym.Decl)
 	}
 	segments, ok := source.QualifiedNameSegments(ref)
 	if !ok || len(segments) == 0 {

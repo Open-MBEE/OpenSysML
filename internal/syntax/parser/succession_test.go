@@ -586,3 +586,73 @@ func TestThenNodeKeywordWithABodyDeclaresTheNode(t *testing.T) {
 		})
 	}
 }
+
+// A control-node keyword followed by a name declares a node of that kind with
+// that name whether or not a member shares the keyword's name: the keyword
+// takes a UsageDeclaration (SysML.xtext:1664-1682) and names no ConnectorEnd
+// (SysML.xtext:1703 TargetSuccession), so only the bare `then fork;` can
+// reference the member. A multiplicity ahead of it is then the source end's.
+func TestThenNodeKeywordWithANameDeclaresTheNode(t *testing.T) {
+	tests := []struct {
+		name, src, node string
+	}{
+		{"fork", "action def A { action fork; action a; then fork F; }", "ForkNode"},
+		{"join", "action def A { action join; action a; then join F; }", "JoinNode"},
+		{"merge", "action def A { action merge; action a; then merge F; }", "MergeNode"},
+		{"decide", "action def A { action decide; action a; then decide F; }", "DecisionNode"},
+		{"fork after multiplicity", "action def A { action fork; action a; then [0..1] fork F; }", "ForkNode"},
+		{"fork with a short name", "action def A { action fork; action a; then fork <f> F; }", "ForkNode"},
+		{"fork named with a body", "action def A { action fork; action a; then fork F { action child; } }", "ForkNode"},
+		{"quoted member", "action def A { action 'fork'; action a; then fork F; }", "ForkNode"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			p := New(source.New(tt.name+".sysml", []byte(tt.src)))
+			root := p.ParseFile()
+			if len(p.Diagnostics) != 0 {
+				t.Fatalf("parse diagnostics: %v", p.Diagnostics)
+			}
+			dump := ast.Dump(root)
+			if !strings.Contains(dump, "("+tt.node+" name=\"F\"") {
+				t.Errorf("no %s named F was declared:\n%s", tt.node, dump)
+			}
+			if strings.Contains(dump, "(TargetMultiplicity") || strings.Contains(dump, `target="`+strings.ToLower(tt.node[:4])) {
+				t.Errorf("the `then` was read as a reference to the member sharing the keyword's name:\n%s", dump)
+			}
+		})
+	}
+}
+
+// Beside a member named after the keyword, `then fork F;` and its multiplicity
+// and body forms declare the node and the edge they declare in a body with no
+// such member; only the bare `then fork;` reads differently, referencing the member.
+func TestThenNamedNodeDeclarationIsTheSameBesideADeclaredMember(t *testing.T) {
+	const flow = "action a; then fork F; then [0..1] join J; then merge M { doc /* m */ } then decide D { action inner; } then fork <g> G;"
+	bodyDump := func(t *testing.T, src string) string {
+		t.Helper()
+		p := New(source.New("a.sysml", []byte(src)))
+		root := p.ParseFile()
+		if len(p.Diagnostics) != 0 {
+			t.Fatalf("parse diagnostics: %v", p.Diagnostics)
+		}
+		def := root.Members[0].(*ast.Membership).Member.(*ast.Definition)
+		var b strings.Builder
+		for _, m := range def.Members {
+			if u, ok := memberNode(m).(*ast.Usage); ok && actionNodeKeywords[u.Ident.Name] {
+				continue
+			}
+			b.WriteString(ast.Dump(m))
+		}
+		return b.String()
+	}
+	without := bodyDump(t, "action def A { "+flow+" }")
+	with := bodyDump(t, "action def A { action fork; action join; action merge; action decide; "+flow+" }")
+	if with != without {
+		t.Errorf("the members declared beside `action fork;` (and the other node words) differ from those declared without:\n--- without\n%s\n--- with\n%s", without, with)
+	}
+	for _, want := range []string{`(ForkNode name="F"`, `(JoinNode name="J"`, `(MergeNode name="M"`, `(DecisionNode name="D"`, `(ForkNode name="G"`} {
+		if !strings.Contains(without, want) {
+			t.Errorf("no %s declared:\n%s", want, without)
+		}
+	}
+}
