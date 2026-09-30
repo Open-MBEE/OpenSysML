@@ -2380,7 +2380,7 @@ func (e *ActionExecutor) stepNestedAction(tokenIdx int) error {
 				acceptedEventName(msg), msg.Payload)
 		}
 		if accept.ParamName != "" {
-			value, err := e.ctx.acceptedValue(&msg)
+			value, err := e.ctx.acceptedValueAs(&msg, accept.SignalType, accept.Scope)
 			if err != nil {
 				return fmt.Errorf("accept %s: %w", accept.ParamName, err)
 			}

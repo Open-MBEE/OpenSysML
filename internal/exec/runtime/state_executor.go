@@ -1962,8 +1962,8 @@ func (e *StateExecutor) bindTriggerArguments(trans *lower.Transition, event *Eve
 		return func() { /* nothing was bound */ }, nil
 	}
 	unbind := e.restoreData(trans.Accepted)
-	if _, ok := trans.Trigger.(*ast.AcceptEvent); ok {
-		return unbind, e.bindAcceptPayload(trans.Accepted[0], event)
+	if accept, ok := trans.Trigger.(*ast.AcceptEvent); ok {
+		return unbind, e.bindAcceptPayload(trans.Accepted[0], accept, trans.Scope, event)
 	}
 	callEvent, ok := trans.Trigger.(*ast.CallEvent)
 	if !ok {
@@ -1988,12 +1988,12 @@ func (e *StateExecutor) bindTriggerArguments(trans *lower.Transition, event *Eve
 // bindAcceptPayload binds the name an accept gave its payload
 // (`accept msg : Warning`) to the value the accepted occurrence carries, for the
 // transition's guard, effect and the behaviors its firing performs to read.
-func (e *StateExecutor) bindAcceptPayload(name string, event *Event) error {
+func (e *StateExecutor) bindAcceptPayload(name string, accept *ast.AcceptEvent, scope *symbols.Scope, event *Event) error {
 	msg, ok := event.Payload.(Message)
 	if !ok {
 		return fmt.Errorf("accept %s: event carries %T, not a message", name, event.Payload)
 	}
-	value, err := e.ctx.acceptedValue(&msg)
+	value, err := e.ctx.acceptedValueAs(&msg, ast.AsQualifiedName(accept.SignalType), scope)
 	if err != nil {
 		return fmt.Errorf("accept %s: %w", name, err)
 	}

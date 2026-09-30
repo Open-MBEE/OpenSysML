@@ -53,6 +53,12 @@ type Message struct {
 	Object      int64
 	PortID      int64
 	Delivery    DeliveryKind
+	// TypedByAccept marks a message queued by name alone from outside the model
+	// (QueuedEvent.Signal) that names no signal definition where its sender
+	// stands: the accept that takes it, matching it by name, types it by the
+	// definition the accept's own name denotes in the scope the accept is written
+	// in, so that its payload binds as a sent occurrence's does.
+	TypedByAccept bool
 	// Payload binds features of the message's type by name, as the send's arguments did.
 	Payload map[string]Value
 	// Value is the one value a send of an expression carries (`send 7`, `send d`),
@@ -1535,6 +1541,23 @@ func (ctx *Context) acceptedValue(msg *Message) (Value, error) {
 	}
 	msg.Value = &value
 	return value, nil
+}
+
+// acceptedValueAs is acceptedValue for the accept, typed as want in scope, that
+// took the message: a message left for the accept to type (TypedByAccept) is
+// typed by the definition want denotes there before its value is built; one
+// naming no signal definition even there is bound as it is.
+func (ctx *Context) acceptedValueAs(msg *Message, want *ast.QualifiedName, scope *symbols.Scope) (Value, error) {
+	if msg.TypedByAccept && msg.Signal == nil && msg.Value == nil && want != nil {
+		if sym := ctx.triggerType(scope, want); IsSignalDefinition(sym) {
+			typed, err := ctx.SignalMessage(sym, msg.Payload, nil)
+			if err != nil {
+				return Value{}, err
+			}
+			msg.Signal, msg.Payload = typed.Signal, typed.Payload
+		}
+	}
+	return ctx.acceptedValue(msg)
 }
 
 // materializeAccepted builds the occurrence an accept binds a typed message as.

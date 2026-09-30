@@ -183,35 +183,19 @@ func (e *StateExecutor) callTriggerOperations(trigger *ast.CallEvent) []*symbols
 	return named
 }
 
-// signalPayload builds the message a queued signal event carries: an occurrence
-// of the signal definition the name denotes where the machine's accepts are
-// written — its own body, the bodies of the definitions it inherits from, then
-// its owner's scope — so that an accept binding its payload (`accept kept : Ping`)
-// has a Ping to bind, as it has for a `send Ping` from the model, where the
-// machine alone imports Ping as much as where its owner sees it; a name no
-// signal definition resolves is matched by name alone, as `accept go` is.
+// signalPayload builds the message a queued signal event carries. The name is
+// what it denotes to the part exhibiting the machine, as a `send` written there:
+// an occurrence of that signal definition, which an accept binding its payload
+// (`accept kept : Ping`) has a Ping to bind from and a supertype accept takes by
+// conformance. A name the part sees no signal definition by is matched by name
+// alone, as `accept go` is, and typed by the accept that takes it, where that
+// accept's own scope — a machine's private import, say — declares the signal.
 func (e *StateExecutor) signalPayload(signal string, args map[string]Value) (Message, error) {
-	name := ast.QualifiedNameOf(strings.Split(signal, "::")...)
-	for _, scope := range e.signalScopes() {
-		if sym := e.ctx.resolveTypeRef(scope, name); IsSignalDefinition(sym) {
-			return e.ctx.SignalMessage(sym, args, nil)
-		}
+	sym := e.ctx.resolveTypeRef(DeclScope(e.callOwner()), ast.QualifiedNameOf(strings.Split(signal, "::")...))
+	if !IsSignalDefinition(sym) {
+		return Message{SignalType: signal, Payload: args, TypedByAccept: true}, nil
 	}
-	return Message{SignalType: signal, Payload: args}, nil
-}
-
-// signalScopes are the scopes a signal the machine accepts is named in, most
-// specific first: the machine's own body, each definition body its content is
-// inherited from, and the scope of the part exhibiting it.
-func (e *StateExecutor) signalScopes() []*symbols.Scope {
-	var scopes []*symbols.Scope
-	if e.graph != nil {
-		scopes = append(scopes, e.graph.Scope)
-		for _, in := range e.graph.Inherited() {
-			scopes = append(scopes, in.Body)
-		}
-	}
-	return append(scopes, DeclScope(e.callOwner()))
+	return e.ctx.SignalMessage(sym, args, nil)
 }
 
 // callPayload builds the call event's payload: the operation's declaration as a

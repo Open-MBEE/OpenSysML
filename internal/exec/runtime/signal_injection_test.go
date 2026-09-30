@@ -2015,11 +2015,12 @@ func TestAcceptTakingLeavesThePortUnmaterialized(t *testing.T) {
 	}
 }
 
-// A signal queued from outside the model is typed by the definition its name
-// denotes where the machine's accepts are written — here the machine's private
-// import, which the owning part never sees — so the transition's payload binds
-// and the accept loop of the standard deferred-signal encoding keeps the
-// occurrence, as they do for a `send Ping` from the model.
+// A signal queued from outside the model by a name the exhibiting part sees no
+// definition of is typed by the accept that takes it, as that accept's own scope
+// names it — here the machine's private import, which the owning part never
+// sees — so the transition's payload binds and the accept loop of the standard
+// deferred-signal encoding keeps the occurrence, as they do for a `send Ping`
+// from the model.
 func TestQueuedSignalIsTypedWhereTheAcceptIsWritten(t *testing.T) {
 	src := `
 		package Signals {
@@ -2084,5 +2085,52 @@ func TestQueuedSignalIsTypedWhereTheAcceptIsWritten(t *testing.T) {
 	}
 	if got := activeLeaf(exec); got != "done" {
 		t.Fatalf("state after Go = %s, want done", got)
+	}
+}
+
+// A signal queued from outside the model is what its name denotes to the
+// exhibiting part, as a `send` written there is: where the part sees a Ping, the
+// queued Ping is that one, and a transition the machine inherits, written
+// against it, takes it — even though the machine's own body imports another
+// Ping under the same name, which is not the one queued.
+func TestQueuedSignalIsWhatItsNameDenotesToTheExhibitingPart(t *testing.T) {
+	src := `
+		package Base {
+			attribute def Ping;
+			state def Machine {
+				entry; then idle;
+				state idle;
+				transition first idle accept Ping then done;
+				state done;
+			}
+		}
+		package Other {
+			attribute def Ping;
+		}
+		package Hosts {
+			private import Base::*;
+			state def Derived :> Machine {
+				private import Other::*;
+			}
+			part def Host { exhibit state m : Derived; }
+		}
+	`
+	idx, _, ctx := buildRuntimeWithLibraries(t, "hosts.sysml", parseAndBuild(t, src))
+	host, err := ctx.Instantiate(oneSymbol(t, idx, "Hosts::Host"))
+	if err != nil {
+		t.Fatalf("Instantiate: %v", err)
+	}
+	exec := host.behaviors[0].State
+	if err := exec.RunToCompletion(); err != nil {
+		t.Fatalf("enter idle: %v", err)
+	}
+	if err := exec.Enqueue(QueuedEvent{Signal: "Ping"}); err != nil {
+		t.Fatalf("queue Ping: %v", err)
+	}
+	if err := exec.RunToQuiescence(); err != nil {
+		t.Fatalf("take Ping: %v", err)
+	}
+	if got := activeLeaf(exec); got != "done" {
+		t.Fatalf("state after Ping = %s, want done: the inherited transition takes the Ping the host sees", got)
 	}
 }
