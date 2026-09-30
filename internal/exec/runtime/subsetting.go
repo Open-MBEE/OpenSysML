@@ -446,6 +446,16 @@ func (ctx *Context) implicitSubsettingNames(sym, owner *symbols.Symbol) []string
 // declaredSubsettedNames is subsettedNames without the implicit owner-context
 // subsettings, for readers that follow only declared edges.
 func (ctx *Context) declaredSubsettedNames(sym, owner *symbols.Symbol) []string {
+	key := featureOfType{feature: sym, owner: owner}
+	if names, ok := ctx.model.declaredSubsetted[key]; ok {
+		return names
+	}
+	names := ctx.collectDeclaredSubsettedNames(sym, owner)
+	ctx.model.declaredSubsetted[key] = names
+	return names
+}
+
+func (ctx *Context) collectDeclaredSubsettedNames(sym, owner *symbols.Symbol) []string {
 	names := ctx.subsettedNames(sym, owner)
 	implicit := ctx.implicitSubsettingNames(sym, owner)
 	if len(implicit) == 0 {
@@ -519,13 +529,13 @@ func (ctx *Context) subsettersOf(typ *symbols.Symbol, name string) []EffectiveFe
 // ErrCyclicFeatureValue rather than recursing until the step budget runs out.
 func (ctx *Context) subsettingContributions(inst *Instance, name string) ([]Value, error) {
 	var values []Value
-	seen := map[int64]bool{}
+	var seen map[int64]bool
 	err := ctx.eachSubsetterOf(inst, name, func(feat *EffectiveFeature) error {
 		sub, err := inst.GetFeatureValue(ctx, feat.Name)
 		if err != nil {
 			return err
 		}
-		values = appendUniqueInstances(values, elementsOf(sub.HeldValue()), seen)
+		values, seen = appendUniqueInstances(values, elementsOf(sub.HeldValue()), seen)
 		return nil
 	})
 	if err != nil {
@@ -540,14 +550,14 @@ func (ctx *Context) subsettingContributions(inst *Instance, name string) ([]Valu
 // openSubsettingContributions is subsettingContributions for a model-level read: an open
 // subsetter is not made up, contributing what it certainly holds and its fewest as atLeast.
 func (ctx *Context) openSubsettingContributions(inst *Instance, name string) (values []Value, atLeast int64, err error) {
-	seen := map[int64]bool{}
+	var seen map[int64]bool
 	err = ctx.eachSubsetterOf(inst, name, func(feat *EffectiveFeature) error {
 		sub, open, err := inst.openFeatureValue(ctx, feat.Name)
 		if err != nil {
 			return err
 		}
 		if !open.Stopped {
-			values = appendUniqueInstances(values, elementsOf(sub.HeldValue()), seen)
+			values, seen = appendUniqueInstances(values, elementsOf(sub.HeldValue()), seen)
 			return nil
 		}
 		values = append(values, open.Contributed...)
@@ -565,17 +575,21 @@ func (ctx *Context) openSubsettingContributions(inst *Instance, name string) (va
 
 // appendUniqueInstances appends els to out, dropping an object already seen:
 // a subsetted set holds each instance once, however many subsetting paths reach it.
-func appendUniqueInstances(out, els []Value, seen map[int64]bool) []Value {
+// The seen set is made on the first object and returned.
+func appendUniqueInstances(out, els []Value, seen map[int64]bool) ([]Value, map[int64]bool) {
 	for _, v := range els {
 		if v.Kind == ValInstance {
 			if seen[v.Instance] {
 				continue
 			}
+			if seen == nil {
+				seen = make(map[int64]bool)
+			}
 			seen[v.Instance] = true
 		}
 		out = append(out, v)
 	}
-	return out
+	return out, seen
 }
 
 // eachSubsetterOf reads each feature subsetting the named feature of inst through
