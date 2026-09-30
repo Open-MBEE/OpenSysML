@@ -34,14 +34,9 @@ It is fast. The public [Apollo 11 SysML v2 model](https://github.com/airbus/apol
 — 28 files, 7,200 lines — parses in **8 ms** (42 MB/s on one core) and loads, resolves and
 validates against the full standard library in **0.27 s**. The measurement and how to repeat
 it are in [performance](docs/internals/performance.md#a-real-model-apollo-11). The same model
-is where the runtime earns its keep: the pinned OMG pilot validator passes all 28 files without
-a finding, and OpenSysML's validation reports 2 warnings and no error, yet asked to *run* the
-model's delta-v, reliability and injection calculations, or to instantiate the mission
-individual that performs the top-level `PerformLunarMission` action, the runtime stops each one
-at a defect only execution reaches — an `e` that resolves to a valueless ISO 80000 quantity, a
-gravitational parameter typed as a force so the result is not a speed, three mission phases with
-no succession between them. Each is reproduced, command by command, in
-[the showcase's Apollo 11 section](examples/runtime-showcase/README.md#apollo-11).
+is where the runtime earns its keep: the pinned OMG pilot validator passes it without a finding
+and OpenSysML reports no error, yet its calculations and its mission action each stop at a
+defect only execution reaches — see [the showcase's Apollo 11 section](examples/runtime-showcase/README.md#apollo-11).
 
 The basis for these claims, and their limits, are documented in
 [spec compliance](docs/project/spec-compliance.md) and the
