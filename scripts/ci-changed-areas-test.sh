@@ -46,7 +46,8 @@ case_ docs-only docs docs/guide/index.md
 case_ changelog-only docs CHANGELOG.md
 case_ changelog-fragment docs changes/unreleased/repl-thing.added.md
 case_ java-only cameo,java client/java/opensysml-client/pom.xml
-case_ node-only node client/node/package.json
+case_ node-only node client/node/src/node/binary.ts
+case_ node-manifest node,python client/node/package.json
 case_ python-only python client/python/opensysml/connection.py
 case_ rust-only rust client/rust/opensysml/src/connection.rs
 case_ julia-only julia client/julia/OpenSysML/src/connection.jl
