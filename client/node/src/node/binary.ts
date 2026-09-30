@@ -533,13 +533,14 @@ export async function resolveBinary(options: DownloadOptions = {}): Promise<Bina
   }
   looked.push(`$${BINARY_ENV}`);
 
-  const packageName = options.platformPackage || platformPackage();
-  const packaged =
-    options.platformPackage === false ? undefined : fromPlatformPackage(packageName);
-  if (packaged !== undefined) {
-    return packaged;
+  if (options.platformPackage !== false) {
+    const packageName = options.platformPackage ?? platformPackage();
+    const packaged = fromPlatformPackage(packageName);
+    if (packaged !== undefined) {
+      return packaged;
+    }
+    looked.push(`the ${packageName} package`);
   }
-  looked.push(`the ${packageName} package`);
 
   const installed = await fromRelease(options);
   if (installed !== undefined) {
