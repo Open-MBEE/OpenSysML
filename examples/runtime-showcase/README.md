@@ -563,7 +563,7 @@ reliability budgets, and an individual `apollo11MissionIndividual` that
 performs the top-level `PerformLunarMission` action. The pinned OMG pilot
 validator passes it without a finding.
 [Loading it](../../docs/internals/performance.md#a-real-model-apollo-11) takes
-OpenSysML 0.43 s and reports 2 warnings and no error, both on this model's own
+OpenSysML 0.27 s and reports 2 warnings and no error, both on this model's own
 calculations: the unbound-parameter warning shown above, on a two-input
 `naturalLogarithm` called with one, and a gravitational parameter typed as a
 force.
