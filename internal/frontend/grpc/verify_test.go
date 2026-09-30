@@ -57,7 +57,7 @@ const verifyModelSource = `package Demo {
 		attribute :>> mass = 1200.0;
 	}
 
-	part analysis {
+	part 'analysis' {
 		assert satisfy massLimit by sedan;
 		assert satisfy massTiny by sedan;
 	}

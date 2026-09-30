@@ -363,7 +363,7 @@ func (mv *mover) reread() (*moved, error) {
 		return nil, err
 	}
 	model := reparseModel(m, edited)
-	if introduced := introduced(parseDiagnostics(m.ParseDiags), parseDiagnostics(model.ParseDiags)); len(introduced) > 0 {
+	if introduced := introduced(parser.AsDiagnostics(m.ParseDiags, nil), parser.AsDiagnostics(model.ParseDiags, nil)); len(introduced) > 0 {
 		return nil, &Error{
 			Failure:        FailureResultInvalid,
 			OperationIndex: mv.index,

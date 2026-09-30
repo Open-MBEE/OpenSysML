@@ -197,7 +197,7 @@ func TestGRPCAuthoringRobustness(t *testing.T) {
 	service := mustNewService(t, 10)
 	hash := mustParsedModel(t, service, `package Demo {
     part def Base;
-    part use : Base;
+    part 'use' : Base;
 }`)
 
 	t.Run("unknown_owner", func(t *testing.T) {

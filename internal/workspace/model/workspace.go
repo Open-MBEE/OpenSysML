@@ -14,6 +14,7 @@ import (
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/symbols"
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/ast"
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/diag"
+	"github.com/Open-MBEE/OpenSysML/internal/syntax/parser"
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/source"
 	"github.com/Open-MBEE/OpenSysML/internal/workspace/libs"
 )
@@ -606,27 +607,7 @@ func (w *Workspace) diagnosticsLocked(name string, doc *Document) []diag.Diagnos
 // and the batch only, so documents can be analyzed at once; the reads returned
 // are that context's (the shared one's are the resolver's, see ReadsOf).
 func (w *Workspace) analyze(name string, doc *Document, batch *passes.Batch) ([]diag.Diagnostic, *resolve.Reads) {
-	parseDiags := make([]diag.Diagnostic, 0, len(doc.ParseDiagnostics)+len(doc.ParseWarnings))
-	for _, pd := range doc.ParseDiagnostics {
-		parseDiags = append(parseDiags, diag.Diagnostic{
-			Severity: diag.SeverityError,
-			Span:     pd.Span,
-			Message:  pd.Message,
-			Code:     "syntax",
-			Source:   "syntax",
-			Fixes:    pd.Fixes,
-		})
-	}
-	for _, pw := range doc.ParseWarnings {
-		parseDiags = append(parseDiags, diag.Diagnostic{
-			Severity: diag.SeverityWarning,
-			Span:     pw.Span,
-			Message:  pw.Message,
-			Code:     pw.Code,
-			Source:   "syntax",
-			Fixes:    pw.Fixes,
-		})
-	}
+	parseDiags := parser.AsDiagnostics(doc.ParseDiagnostics, doc.ParseWarnings)
 	if batch != nil {
 		return passes.AnalyzeInBatch(name, source.KindOf(name), doc.AST, parseDiags, w.index, w.analysis, batch)
 	}

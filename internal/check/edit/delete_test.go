@@ -138,7 +138,7 @@ func TestDeleteCascadeRemovesTheReferringDeclarationOnly(t *testing.T) {
 		{
 			name: "namespace import",
 			src: "package P {\n    part def Base;\n}\n" +
-				"package Q {\n    import P::Base::*;\n    part keep;\n}\n",
+				"package Q {\n    private import P::Base::*;\n    part keep;\n}\n",
 			referrer: "import P::Base::* in Q",
 			want:     "package P {\n}\npackage Q {\n    part keep;\n}\n",
 		},
