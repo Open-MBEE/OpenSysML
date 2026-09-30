@@ -1,0 +1,71 @@
+(RootNamespace
+  (Membership visibility="default"
+    (Definition kind="action" abstract=false variation=false name="BesideMembersNamedAfterTheKeywords"
+      (Usage kind="action" name="a" ref=false direction="none" composite=false derived=false ordered=false nonunique=false)
+      (Usage kind="action" name="fork" ref=false direction="none" composite=false derived=false ordered=false nonunique=false)
+      (Usage kind="action" name="join" ref=false direction="none" composite=false derived=false ordered=false nonunique=false)
+      (Usage kind="action" name="merge" ref=false direction="none" composite=false derived=false ordered=false nonunique=false)
+      (Usage kind="action" name="decide" ref=false direction="none" composite=false derived=false ordered=false nonunique=false)
+      (Usage kind="action" name="done" ref=false direction="none" composite=false derived=false ordered=false nonunique=false)
+      (InitialNode name="start" successor="")
+      (SuccessionEdge source="start" target="a")
+      (ForkNode name="F")
+      (SuccessionEdge source="start" target="F")
+      (JoinNode name="J")
+      (SuccessionEdge source="F" target="J"
+        (Multiplicity range=true
+          (LiteralInteger value="0")
+          (LiteralInteger value="1")))
+      (MergeNode name="M"
+        (Membership visibility="default"
+          (Documentation locale="")))
+      (SuccessionEdge source="J" target="M")
+      (DecisionNode name="D")
+      (SuccessionEdge source="M" target="D")
+      (ForkNode name="G"
+        (Usage kind="action" name="inner" ref=false direction="none" composite=false derived=false ordered=false nonunique=false))
+      (SuccessionEdge source="D" target="G")
+      (ForkNode name=""
+        (Usage kind="action" name="anonymous" ref=false direction="none" composite=false derived=false ordered=false nonunique=false))
+      (SuccessionEdge source="G" target="@fork")
+      (SuccessionEdge source="@fork" target="fork")
+      (SuccessionEdge source="@fork" target="done")))
+  (Membership visibility="default"
+    (Definition kind="action" abstract=false variation=false name="WithoutSuchMembers"
+      (Usage kind="action" name="a" ref=false direction="none" composite=false derived=false ordered=false nonunique=false)
+      (InitialNode name="start" successor="")
+      (SuccessionEdge source="start" target="a")
+      (ForkNode name="F")
+      (SuccessionEdge source="start" target="F")
+      (JoinNode name="J")
+      (SuccessionEdge source="F" target="J"
+        (Multiplicity range=true
+          (LiteralInteger value="0")
+          (LiteralInteger value="1")))
+      (MergeNode name="M"
+        (Membership visibility="default"
+          (Documentation locale="")))
+      (SuccessionEdge source="J" target="M")
+      (DecisionNode name="D")
+      (SuccessionEdge source="M" target="D")
+      (ForkNode name="G"
+        (Usage kind="action" name="inner" ref=false direction="none" composite=false derived=false ordered=false nonunique=false))
+      (SuccessionEdge source="D" target="G")
+      (ForkNode name=""
+        (Usage kind="action" name="anonymous" ref=false direction="none" composite=false derived=false ordered=false nonunique=false))
+      (SuccessionEdge source="G" target="@fork")
+      (ForkNode name="")
+      (SuccessionEdge source="@fork" target="@fork")
+      (FinalNode)
+      (SuccessionEdge source="@fork" target="@done")))
+  (Membership visibility="default"
+    (Definition kind="action" abstract=false variation=false name="BesideAQuotedMember"
+      (Usage kind="action" name="a" ref=false direction="none" composite=false derived=false ordered=false nonunique=false)
+      (Usage kind="action" name="fork" ref=false direction="none" composite=false derived=false ordered=false nonunique=false)
+      (InitialNode name="start" successor="")
+      (SuccessionEdge source="start" target="a")
+      (ForkNode name="F")
+      (SuccessionEdge source="start" target="F")
+      (SuccessionEdge source="F" target="fork")
+      (FinalNode)
+      (SuccessionEdge source="F" target="@done"))))

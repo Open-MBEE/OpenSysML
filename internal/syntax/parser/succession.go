@@ -285,20 +285,12 @@ var actionNodeKeywords = map[string]bool{
 
 // namesEdgeEnd reports whether the keyword at token offset at, after `then` and
 // any multiplicity or prefix metadata, names an edge end rather than the kind of
-// a member being declared: `then <kw>;` and `then <kw> <name>;` are ambiguous,
-// and only a name this body already declares can be an end.
+// a member being declared. Only the bare `then <kw>;` is ambiguous, and only
+// when this body declares a member with that name; a name after the keyword
+// (`then fork F;`) declares a node of the keyword's kind (SysML.xtext:1664-1682
+// `'fork' UsageDeclaration?`), whatever the body declares.
 func (b *bodyBuilder) namesEdgeEnd(kw string, at int) bool {
-	if !b.declares(kw) {
-		return false
-	}
-	p := b.p
-	switch p.peekN(at + 1).Kind {
-	case lexer.Semicolon:
-		return true
-	case lexer.Identifier, lexer.Keyword, lexer.UnrestrictedName:
-		return p.peekN(at+2).Kind == lexer.Semicolon
-	}
-	return false
+	return b.p.peekN(at+1).Kind == lexer.Semicolon && b.declares(kw)
 }
 
 // declares reports whether a member of this body was declared with this name.
