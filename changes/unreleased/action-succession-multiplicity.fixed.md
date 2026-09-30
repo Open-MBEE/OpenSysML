@@ -1,1 +1,0 @@
-- **Explicit succession end multiplicities no longer produce the end-feature warning.** The warning is limited to source-end multiplicities on shorthand action-body successions, matching the ownership distinction in the model.

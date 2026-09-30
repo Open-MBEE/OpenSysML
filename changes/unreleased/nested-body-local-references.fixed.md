@@ -1,1 +1,0 @@
-- Resolve sequence references to declarations made earlier in the same action body without leaking names between sibling branches or out of their body.

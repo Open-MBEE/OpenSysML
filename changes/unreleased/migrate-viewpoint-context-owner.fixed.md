@@ -1,1 +1,0 @@
-- **The SysML v1 migrator preserves a context parameter specializing a viewpoint when its ports give an activity its context.** Nested calls bind it at their call sites instead of dropping the parameter. A viewpoint or view nested in a definition is reached through a context parameter typed by that definition, as `context.<viewpoint>.<port>`.
