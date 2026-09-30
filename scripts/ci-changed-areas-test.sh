@@ -56,8 +56,8 @@ case_ rust-lock python,rust client/rust/Cargo.lock
 case_ julia-only julia client/julia/OpenSysML/src/connection.jl
 case_ matlab-only matlab client/matlab/+opensysml/call.m
 case_ vscode-only vscode editors/vscode/package.json
-case_ cameo-only cameo editors/cameo/pom.xml
-case_ syson-only syson editors/syson/backend/pom.xml
+case_ cameo-manifest cameo,python editors/cameo/pom.xml
+case_ syson-backend-manifest python,syson editors/syson/backend/pom.xml
 case_ syson-readme docs,syson editors/syson/README.md
 # The grammar generator and its committed output are held together by a Go test.
 case_ vscode-grammar cameo,docs,go,java,julia,matlab,node,python,rust,syson,vscode editors/vscode/tools/gengrammar/grammar.go
