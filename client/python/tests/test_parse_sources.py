@@ -29,6 +29,7 @@ from opensysml.errors import (
     ModelFileNotFoundError,
     SymbolNotFoundError,
 )
+from opensysml.generate import generate_source
 from opensysml.model import Model
 from opensysml.proto import sysml_pb2, sysml_pb2_grpc
 from opensysml.sources import SourceDocument, source_documents
@@ -502,3 +503,14 @@ class TestParseSourcesAgainstRealService:
         finally:
             # monkeypatch puts the module back; only the connection needs closing.
             opensysml._default_connection.close()
+
+    def test_a_typed_module_is_generated_from_every_document(self):
+        """generate_source renders the definitions of each document, and a part
+        typed across documents is annotated with the other document's class."""
+        with Connection(auto_start=False) as conn:
+            model = conn.parse_sources([("lib.sysml", LIBRARY), ("top.sysml", TOP)])
+            source = generate_source(model, LIBRARY + TOP)
+
+        assert "class Engine(" in source
+        assert "class Car(" in source
+        assert '_t.feature_value(self, "engine", _t.as_typed(Engine))' in source
