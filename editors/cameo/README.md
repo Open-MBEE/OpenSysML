@@ -5,7 +5,7 @@
 Install the Java client and its dependencies before building the plugin:
 
 ```sh
-mvn -q -f client/java/pom.xml -pl opensysml-client -am install -DskipTests
+mvn -q -f client/java/pom.xml -pl :opensysml -am install -DskipTests
 mvn -f editors/cameo/pom.xml verify
 ```
 

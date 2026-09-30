@@ -1,4 +1,4 @@
-# opensysml-client (Java)
+# opensysml (Java)
 
 Java client for OpenSysML: parse, inspect and evaluate SysML v2 models over the
 `sysml-grpc` service, from inside a JVM host application it does not own — an
@@ -7,13 +7,13 @@ Eclipse-based tool, a Cameo plugin, a web service.
 ```xml
 <dependency>
   <groupId>org.openmbee</groupId>
-  <artifactId>opensysml-client</artifactId>
+  <artifactId>opensysml</artifactId>
   <version>0.9.1</version>
 </dependency>
 ```
 
 The version is the core release's — `v0.9.1` publishes
-`org.openmbee:opensysml-client:0.9.1` — once the first release is published.
+`org.openmbee:opensysml:0.9.1` — once the first release is published.
 Until then, build and install it into the local repository from a checkout:
 
 ```bash
@@ -449,7 +449,7 @@ mvn -f client/java/pom.xml test -Dopensysml.requireService=true   # CI: absence 
 ## Publishing
 
 Nothing has been published yet. The core `v*` tag's `release` workflow signs,
-uploads and publishes `org.openmbee:opensysml-client` and its `opensysml-parent`
+uploads and publishes `org.openmbee:opensysml` and its `opensysml-parent`
 pom to Maven Central at the core's version — the client is released in lockstep
 with the core, and `autoPublish` releases the validated deployment without a
 portal step. Building locally stays `mvn install` from a checkout. The

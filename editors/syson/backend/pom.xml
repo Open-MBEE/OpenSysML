@@ -16,7 +16,7 @@
     <dependencies>
         <dependency>
             <groupId>org.openmbee</groupId>
-            <artifactId>opensysml-client</artifactId>
+            <artifactId>opensysml</artifactId>
             <version>0.9.1</version>
         </dependency>
         <dependency>

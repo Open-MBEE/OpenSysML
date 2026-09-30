@@ -8,7 +8,7 @@ if [ -z "$CAMEO_HOME" ] || [ ! -d "$CAMEO_HOME" ]; then
 fi
 root=$(CDPATH= cd -- "$(dirname "$0")/.." && pwd)
 client_dir="$root/../../client/java"
-client_cp=$(mvn -q -f "$client_dir/pom.xml" -pl opensysml-client -am dependency:build-classpath -Dmdep.outputAbsoluteArtifactFilename=true -Dmdep.outputFile="$root/target/cameo-client.cp" >/dev/null && cat "$root/target/cameo-client.cp")
+client_cp=$(mvn -q -f "$client_dir/pom.xml" -pl :opensysml -am dependency:build-classpath -Dmdep.outputAbsoluteArtifactFilename=true -Dmdep.outputFile="$root/target/cameo-client.cp" >/dev/null && cat "$root/target/cameo-client.cp")
 cameo_cp=$(find "$CAMEO_HOME/lib" "$CAMEO_HOME/plugins" -name '*.jar' -print | tr '\n' ':')
 cp="${cameo_cp}${client_cp}"
 out=$(mktemp -d)

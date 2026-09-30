@@ -25,7 +25,7 @@
   <dependencies>
     <dependency>
       <groupId>org.openmbee</groupId>
-      <artifactId>opensysml-client</artifactId>
+      <artifactId>opensysml</artifactId>
       <version>${project.version}</version>
     </dependency>
     <!-- Scenario files are protobuf JSON, so the runner needs the JSON parser the
