@@ -27,15 +27,15 @@
         "name": "negative-corpus",
         "dir": "tools/referee/reject/testdata/negative",
         "origin": "ours",
-        "files": 310,
-        "digest": "sha256:a91ef00902ba0cf0b6586e7279985115d63dc547376386a990115989a4e147b6"
+        "files": 311,
+        "digest": "sha256:1e04904da93ab13cae7e0187a5932cfae9a223116b3294e0be6a1536f6e488e2"
       }
     ],
-    "recorded": "2026-09-29"
+    "recorded": "2026-09-30"
   },
   "totals": {
-    "cases": 310,
-    "bothReject": 301,
+    "cases": 311,
+    "bothReject": 302,
     "pilotOnlyRejects": 0,
     "oursOnlyRejects": 9,
     "bothAccept": 0
@@ -65,8 +65,8 @@
     },
     {
       "source": "semantic",
-      "cases": 158,
-      "bothReject": 149,
+      "cases": 159,
+      "bothReject": 150,
       "pilotOnlyRejects": 0,
       "oursOnlyRejects": 9,
       "bothAccept": 0
@@ -2010,6 +2010,15 @@
       "pilotErrors": 12
     },
     {
+      "path": "semantic/s101-allocation-ends-through-definition.sysml",
+      "source": "semantic",
+      "rule": "a connector's ends must be accessible from its featuring context; a package-level allocation has none, and `ToastBread::applyHeat` and `Toaster::heating` are features of the definitions, not of a usage the allocation can reach (KerML 8.3.4.1 validateConnectorTypeFeaturing; pilot validateConnectorTypeFeaturing).",
+      "mode": "default",
+      "bucket": "both-reject",
+      "oursErrors": 2,
+      "pilotErrors": 2
+    },
+    {
       "path": "semantic/s11-case-two-objectives.sysml",
       "source": "semantic",
       "rule": "A case usage may have at most one objective (SysML 7.21 Cases; pilot validateCaseUsageOnlyOneObjective).",
@@ -3017,8 +3026,8 @@
       }
     ],
     "totals": {
-      "cases": 310,
-      "bothReject": 301,
+      "cases": 311,
+      "bothReject": 302,
       "pilotOnlyRejects": 0,
       "oursOnlyRejects": 9,
       "bothAccept": 0
