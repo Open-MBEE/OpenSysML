@@ -285,15 +285,15 @@ var actionNodeKeywords = map[string]bool{
 
 // namesEdgeEnd reports whether the keyword at token offset at, after `then` and
 // any multiplicity or prefix metadata, names an edge end rather than the kind of
-// a member being declared: `then <kw>;`, `then <kw> { … }` and `then <kw> <name>;`
-// are ambiguous, and only a name this body already declares can be an end.
+// a member being declared: `then <kw>;` and `then <kw> <name>;` are ambiguous,
+// and only a name this body already declares can be an end.
 func (b *bodyBuilder) namesEdgeEnd(kw string, at int) bool {
 	if !b.declares(kw) {
 		return false
 	}
 	p := b.p
 	switch p.peekN(at + 1).Kind {
-	case lexer.Semicolon, lexer.LBrace:
+	case lexer.Semicolon:
 		return true
 	case lexer.Identifier, lexer.Keyword, lexer.UnrestrictedName:
 		return p.peekN(at+2).Kind == lexer.Semicolon

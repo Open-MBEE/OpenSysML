@@ -529,16 +529,15 @@ func TestSuppliedSuccessionEndsAreMarkedImplied(t *testing.T) {
 }
 
 // A `then` target that a bracketed multiplicity precedes may name a declared
-// member whose name is also a node word (`action fork; then [0..1] fork;`): the
-// succession references that member with a target multiplicity, and declares no
-// node of the keyword's kind.
+// member whose name is also a node word, as `then fork;` does: the succession
+// references that member with a target multiplicity and declares no node of the
+// keyword's kind. A node word followed by a body still declares the node.
 func TestThenTargetMultiplicityReferencesADeclaredNodeWordMember(t *testing.T) {
 	tests := []struct {
 		name, src, target, node string
 	}{
 		{"fork", "action def A { action a; action fork; then [0..1] fork; }", `target="fork"`, "ForkNode"},
 		{"done", "action def A { action a; action done; then [0..1] done; }", `target="done"`, "FinalNode"},
-		{"merge with body", "action def A { action a; action merge; then [1] merge { doc /* d */ } }", `target="merge"`, "MergeNode"},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -553,6 +552,36 @@ func TestThenTargetMultiplicityReferencesADeclaredNodeWordMember(t *testing.T) {
 			}
 			if strings.Contains(dump, tt.node) {
 				t.Errorf("a %s was declared for the referenced member:\n%s", tt.node, dump)
+			}
+		})
+	}
+}
+
+// A control-node keyword followed by a body declares an anonymous node with that
+// body whether or not a member shares the keyword's name (SysML.xtext:1664 MergeNode,
+// 1682 ForkNode: `'fork' UsageDeclaration? ActionBody`); a multiplicity ahead of
+// it is then the source end's, as for any member-attached `then`.
+func TestThenNodeKeywordWithABodyDeclaresTheNode(t *testing.T) {
+	tests := []struct {
+		name, src, node string
+	}{
+		{"fork", "action def A { action fork; action a; then fork { action child; } }", "ForkNode"},
+		{"fork after multiplicity", "action def A { action fork; action a; then [1] fork { action child; } }", "ForkNode"},
+		{"merge after multiplicity", "action def A { action merge; action a; then [0..1] merge { doc /* d */ } }", "MergeNode"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			p := New(source.New(tt.name+".sysml", []byte(tt.src)))
+			root := p.ParseFile()
+			if len(p.Diagnostics) != 0 {
+				t.Fatalf("parse diagnostics: %v", p.Diagnostics)
+			}
+			dump := ast.Dump(root)
+			if !strings.Contains(dump, tt.node) {
+				t.Errorf("no %s was declared:\n%s", tt.node, dump)
+			}
+			if strings.Contains(dump, "(TargetMultiplicity") || strings.Contains(dump, `target="`+strings.ToLower(tt.node[:4])) {
+				t.Errorf("the `then` was read as a reference to the member sharing the keyword's name:\n%s", dump)
 			}
 		})
 	}
