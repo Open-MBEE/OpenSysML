@@ -136,6 +136,7 @@ type bodyBuilder struct {
 	sourceSpan         source.Span
 	sourceNode         ast.Node
 	sourceMultiplicity *ast.Multiplicity
+	targetMultiplicity *ast.Multiplicity
 }
 
 func (p *Parser) newBodyBuilder() *bodyBuilder {
@@ -318,10 +319,15 @@ func (b *bodyBuilder) takeSuccession() {
 	if p.at(lexer.LBracket) {
 		multiplicity = p.parseMultiplicity()
 	}
+	// Before the member a `then` declares, `[m]` is the source end's
+	// multiplicity (SysML.xtext:887 EmptySuccession); before a reference it is
+	// the target end's crossing multiplicity (SysML.xtext:1705 TargetSuccession).
+	sourceMultiplicity, targetMultiplicity := multiplicity, (*ast.Multiplicity)(nil)
 	if w, ok := p.actionNodeWordAt(0); ok && w == "done" {
 		// `then done;` is a target succession to the done node, which the
 		// keyword opens rather than a member: neither offset is a member start.
 		p.attachedStarts = append(p.attachedStarts, tok.Span.Offset, p.peek().Span.Offset)
+		sourceMultiplicity, targetMultiplicity = nil, multiplicity
 	}
 	if b.pending {
 		p.error(tok.Span, "`then` cannot follow another `then`: a succession sequences two members, so each keyword needs a member between it and the next")
@@ -329,7 +335,7 @@ func (b *bodyBuilder) takeSuccession() {
 	}
 	b.pending, b.pendingAt, b.valid = true, tok.Span, true
 	b.source, b.sourceSpan, b.sourceNode = b.last, b.lastSpan, b.lastNode
-	b.sourceMultiplicity = multiplicity
+	b.sourceMultiplicity, b.targetMultiplicity = sourceMultiplicity, targetMultiplicity
 
 	// One diagnostic per keyword: the first thing wrong with it is enough to
 	// say why no succession was built.
@@ -405,9 +411,9 @@ func (b *bodyBuilder) add(m ast.Node) {
 	// it: record it before its source is bound, which clears the mark it is read by.
 	b.p.markAttached(m)
 	pending, at, valid := b.pending, b.pendingAt, b.valid
-	multiplicity := b.sourceMultiplicity
+	sourceMultiplicity, targetMultiplicity := b.sourceMultiplicity, b.targetMultiplicity
 	b.pending = false
-	b.sourceMultiplicity = nil
+	b.sourceMultiplicity, b.targetMultiplicity = nil, nil
 
 	// `then <target>;` leaves its source to the member before it, the same member
 	// a member-attached `then` sequences from, rather than to a consumer's guess.
@@ -436,7 +442,7 @@ func (b *bodyBuilder) add(m ast.Node) {
 		return
 	}
 	edge := synthesizeSuccession(b.source, b.sourceSpan, target, m.Span(), at)
-	edge.SourceMultiplicity = multiplicity
+	edge.SourceMultiplicity, edge.TargetMultiplicity = sourceMultiplicity, targetMultiplicity
 	if b.source == "" {
 		edge.Source, edge.SourceMember = nil, b.sourceNode
 	}
