@@ -328,6 +328,9 @@ func metaOut(out []string, quit bool, err error) metaResult {
 // metaSessionCommand runs a session-level command, reporting whether the
 // line named one.
 func (s *Session) metaSessionCommand(fields []string, line string) (metaResult, bool) {
+	if result, ok := s.metaCheckCommand(fields); ok {
+		return result, true
+	}
 	switch fields[0] {
 	case "%help":
 		return metaOut(helpText(), false, nil), true
@@ -392,18 +395,6 @@ func (s *Session) metaSessionCommand(fields []string, line string) (metaResult, 
 		return metaOut(s.doEngine(fields[1:]), false, nil), true
 	case "%tool":
 		return metaOut(s.doTool(strings.TrimSpace(strings.TrimPrefix(strings.TrimSpace(line), "%tool")))), true
-	case "%check-diverge":
-		return metaOut(s.doCheckDiverge(fields[1:]), false, nil), true
-	case "%check-property":
-		return metaOut(s.doCheckProperty(fields[1:]), false, nil), true
-	case "%check-input":
-		return metaOut(s.doCheckInput(fields[1:]), false, nil), true
-	case "%check-assume":
-		return metaOut(s.doCheckAssume(fields[1:]), false, nil), true
-	case "%check-witness":
-		return metaOut(s.doCheckWitness(fields[1:]), false, nil), true
-	case "%check-bounds":
-		return metaOut(s.doCheckBounds(fields[1:]), false, nil), true
 	case "%replay":
 		return metaOut(s.doReplay(fields[1:]), false, nil), true
 	case "%search":
@@ -424,6 +415,29 @@ func (s *Session) metaSessionCommand(fields []string, line string) (metaResult, 
 		return metaOut([]string{"goodbye"}, true, nil), true
 	}
 	return metaResult{}, false
+}
+
+// metaCheckCommand answers the %check-* commands, reporting false for any
+// other line.
+func (s *Session) metaCheckCommand(fields []string) (metaResult, bool) {
+	var check func([]string) []string
+	switch fields[0] {
+	case "%check-diverge":
+		check = s.doCheckDiverge
+	case "%check-property":
+		check = s.doCheckProperty
+	case "%check-input":
+		check = s.doCheckInput
+	case "%check-assume":
+		check = s.doCheckAssume
+	case "%check-witness":
+		check = s.doCheckWitness
+	case "%check-bounds":
+		check = s.doCheckBounds
+	default:
+		return metaResult{}, false
+	}
+	return metaOut(check(fields[1:]), false, nil), true
 }
 
 // doTrace answers %trace: an argument switches tracing on or off, and the

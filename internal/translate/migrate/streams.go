@@ -20,6 +20,8 @@ const (
 	streamsSource = "the diagrams' own symbol streams"
 )
 
+const pastedImage = "pasted image"
+
 // layoutSourceName words where v's geometry came from for its layout note.
 func (m *migration) layoutSourceName(src layoutSources) string {
 	switch {
@@ -310,7 +312,7 @@ func picturesClause(p *pictures, form viewForm) []string {
 				files = append(files, pic.location)
 			}
 		}
-		clause := plural(n, "pasted image") + " written as " + strings.Join(files, ", ")
+		clause := plural(n, pastedImage) + " written as " + strings.Join(files, ", ")
 		if !form.drawsPictures() {
 			clause += ", which a view rendered " + form.rendering + " does not draw"
 		}
@@ -321,14 +323,14 @@ func picturesClause(p *pictures, form viewForm) []string {
 				over = append(over, plural(under, "element symbol"))
 			}
 			if covered > 0 {
-				over = append(over, plural(covered, "pasted image"))
+				over = append(over, plural(covered, pastedImage))
 			}
-			clauses = append(clauses, plural(sandwiched, "pasted image")+" drawn under the "+strings.Join(over, " and ")+
+			clauses = append(clauses, plural(sandwiched, pastedImage)+" drawn under the "+strings.Join(over, " and ")+
 				" it lay over, since symbols drawn after it lie over it")
 		}
 	}
 	if n := len(p.lost); n > 0 {
-		clauses = append(clauses, plural(n, "pasted image")+" not written: "+strings.Join(p.lost, " and "))
+		clauses = append(clauses, plural(n, pastedImage)+" not written: "+strings.Join(p.lost, " and "))
 	}
 	return clauses
 }

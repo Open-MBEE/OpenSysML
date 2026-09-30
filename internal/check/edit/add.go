@@ -12,6 +12,17 @@ import (
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/source"
 )
 
+const (
+	kindIndividualDef       = "individual def"
+	kindAssertNot           = "assert not"
+	kindAssertConstraint    = "assert constraint"
+	kindAssertNotConstraint = "assert not constraint"
+	kindExhibitState        = "exhibit state"
+	kindEntryAction         = "entry action"
+	kindDoAction            = "do action"
+	kindExitAction          = "exit action"
+)
+
 type memberKind struct {
 	languages  map[source.Kind]bool
 	definition bool
@@ -36,7 +47,7 @@ var memberKinds = map[string]memberKind{
 	"port":                  {languages: sysmlOnly, typed: true},
 	"enum def":              {languages: sysmlOnly, definition: true},
 	"enum":                  {languages: sysmlOnly, typed: true},
-	"individual def":        {languages: sysmlOnly, definition: true},
+	kindIndividualDef:       {languages: sysmlOnly, definition: true},
 	"individual":            {languages: sysmlOnly, typed: true},
 	"metadata def":          {languages: sysmlOnly, definition: true},
 	"metadata":              {languages: sysmlOnly, typed: true},
@@ -55,14 +66,14 @@ var memberKinds = map[string]memberKind{
 	"perform action":        {languages: sysmlOnly, typed: true},
 	"perform":               {languages: sysmlOnly},
 	"assert":                {languages: sysmlOnly},
-	"assert not":            {languages: sysmlOnly},
-	"assert constraint":     {languages: sysmlOnly, typed: true, body: true},
-	"assert not constraint": {languages: sysmlOnly, typed: true, body: true},
-	"exhibit state":         {languages: sysmlOnly, typed: true},
+	kindAssertNot:           {languages: sysmlOnly},
+	kindAssertConstraint:    {languages: sysmlOnly, typed: true, body: true},
+	kindAssertNotConstraint: {languages: sysmlOnly, typed: true, body: true},
+	kindExhibitState:        {languages: sysmlOnly, typed: true},
 	"exhibit":               {languages: sysmlOnly},
-	"entry action":          {languages: sysmlOnly, typed: true},
-	"do action":             {languages: sysmlOnly, typed: true},
-	"exit action":           {languages: sysmlOnly, typed: true},
+	kindEntryAction:         {languages: sysmlOnly, typed: true},
+	kindDoAction:            {languages: sysmlOnly, typed: true},
+	kindExitAction:          {languages: sysmlOnly, typed: true},
 	"state def":             {languages: sysmlOnly, definition: true},
 	"state":                 {languages: sysmlOnly, typed: true},
 	"occurrence def":        {languages: sysmlOnly, definition: true},
@@ -186,7 +197,7 @@ func (m Model) addMemberSplice(i int, op Operation) (splice, error) {
 		}
 	}
 	referenceName := ""
-	assertReference := op.MemberKind == "assert" || op.MemberKind == "assert not"
+	assertReference := op.MemberKind == "assert" || op.MemberKind == kindAssertNot
 	if assertReference {
 		if _, err := checkFeatureReference(i, "asserted constraint", op.MemberName); err != nil {
 			return splice{}, err
@@ -205,11 +216,11 @@ func (m Model) addMemberSplice(i int, op Operation) (splice, error) {
 				Message: "an unnamed return parameter needs a type or multiplicity",
 			}
 		case op.MemberKind == "objective":
-		case (op.MemberKind == "constraint" || op.MemberKind == "assert constraint" ||
-			op.MemberKind == "assert not constraint") && (op.Type != "" || op.BodyExpression != ""):
+		case (op.MemberKind == "constraint" || op.MemberKind == kindAssertConstraint ||
+			op.MemberKind == kindAssertNotConstraint) && (op.Type != "" || op.BodyExpression != ""):
 		case op.MemberKind != "return" && op.MemberKind != "objective" && len(op.Redefines) == 0 &&
-			!((op.MemberKind == "constraint" || op.MemberKind == "assert constraint" ||
-				op.MemberKind == "assert not constraint") && (op.Type != "" || op.BodyExpression != "")):
+			!((op.MemberKind == "constraint" || op.MemberKind == kindAssertConstraint ||
+				op.MemberKind == kindAssertNotConstraint) && (op.Type != "" || op.BodyExpression != "")):
 			return splice{}, &Error{
 				Failure: FailureInvalidName, OperationIndex: i,
 				Message: "an empty member name requires redefines targets, kind return or objective, or a constraint kind with a type or body expression",
@@ -330,7 +341,7 @@ func (m Model) addMemberSplice(i int, op Operation) (splice, error) {
 	}
 	if len(op.Redefines) > 0 &&
 		(op.MemberKind == "metadata" || op.MemberKind == "perform" || op.MemberKind == "exhibit" ||
-			op.MemberKind == "assert" || op.MemberKind == "assert not") {
+			op.MemberKind == "assert" || op.MemberKind == kindAssertNot) {
 		return splice{}, &Error{
 			Failure: FailureIllegalKind, OperationIndex: i,
 			Message: fmt.Sprintf("kind %q cannot carry redefines targets", op.MemberKind),
@@ -374,7 +385,7 @@ func (m Model) addMemberSplice(i int, op Operation) (splice, error) {
 		}
 	}
 	switch op.MemberKind {
-	case "assert", "assert not", "assert constraint", "assert not constraint", "exhibit state", "exhibit":
+	case "assert", kindAssertNot, kindAssertConstraint, kindAssertNotConstraint, kindExhibitState, "exhibit":
 		if !parser.BodyAdmitsBehaviorUsage(owner) {
 			return splice{}, &Error{
 				Failure: FailureIllegalKind, OperationIndex: i,
@@ -382,7 +393,7 @@ func (m Model) addMemberSplice(i int, op Operation) (splice, error) {
 					op.MemberKind, ownerName(op.Owner)),
 			}
 		}
-	case "entry action", "do action", "exit action":
+	case kindEntryAction, kindDoAction, kindExitAction:
 		if !stateBodyOwner(owner) {
 			return splice{}, &Error{
 				Failure: FailureIllegalKind, OperationIndex: i,
@@ -441,22 +452,24 @@ func memberPrefixExcluded(kind string) bool {
 	switch kind {
 	case "package", "subject", "actor", "stakeholder", "objective",
 		"fork", "join", "merge", "decide", "metadata", "return",
-		"perform", "perform action", "assert", "assert not", "assert constraint", "assert not constraint",
-		"exhibit state", "exhibit", "entry action", "do action", "exit action":
+		"perform", "perform action", "assert", kindAssertNot, kindAssertConstraint, kindAssertNotConstraint,
+		kindExhibitState, "exhibit", kindEntryAction, kindDoAction, kindExitAction:
 		return true
 	default:
 		return false
 	}
 }
 
+const noResultRequirementBody = "a requirement body has no result expression; add a require constraint instead"
+
 var noResultBodyKinds = map[string]string{
-	"requirement def": "a requirement body has no result expression; add a require constraint instead",
-	"requirement":     "a requirement body has no result expression; add a require constraint instead",
-	"concern def":     "a requirement body has no result expression; add a require constraint instead",
-	"concern":         "a requirement body has no result expression; add a require constraint instead",
-	"viewpoint def":   "a requirement body has no result expression; add a require constraint instead",
-	"viewpoint":       "a requirement body has no result expression; add a require constraint instead",
-	"objective":       "a requirement body has no result expression; add a require constraint instead",
+	"requirement def": noResultRequirementBody,
+	"requirement":     noResultRequirementBody,
+	"concern def":     noResultRequirementBody,
+	"concern":         noResultRequirementBody,
+	"viewpoint def":   noResultRequirementBody,
+	"viewpoint":       noResultRequirementBody,
+	"objective":       noResultRequirementBody,
 }
 
 func (m Model) addOwner(fqn string) (ast.Node, *symbols.Scope, error) {
@@ -512,10 +525,10 @@ func writeMember(op Operation, kind memberKind, indent, unit, doc, docIndent str
 		metadata[i] = "#" + name
 	}
 	extensionKeyword := op.MemberKind == "ref" || op.MemberKind == "individual" ||
-		op.MemberKind == "individual def" || op.MemberKind == "subject" ||
+		op.MemberKind == kindIndividualDef || op.MemberKind == "subject" ||
 		op.MemberKind == "actor" || op.MemberKind == "stakeholder" ||
-		op.MemberKind == "objective" || op.MemberKind == "entry action" ||
-		op.MemberKind == "do action" || op.MemberKind == "exit action"
+		op.MemberKind == "objective" || op.MemberKind == kindEntryAction ||
+		op.MemberKind == kindDoAction || op.MemberKind == kindExitAction
 	if !extensionKeyword {
 		prefix = append(prefix, metadata...)
 	}
@@ -531,11 +544,11 @@ func writeMember(op Operation, kind memberKind, indent, unit, doc, docIndent str
 	case "individual", "subject", "actor", "stakeholder", "objective":
 		prefix = append(prefix, op.MemberKind)
 		prefix = append(prefix, metadata...)
-	case "individual def":
+	case kindIndividualDef:
 		prefix = append(prefix, "individual")
 		prefix = append(prefix, metadata...)
 		prefix = append(prefix, "def")
-	case "entry action", "do action", "exit action":
+	case kindEntryAction, kindDoAction, kindExitAction:
 		keyword, _, _ := strings.Cut(op.MemberKind, " ")
 		prefix = append(prefix, keyword)
 		prefix = append(prefix, metadata...)

@@ -1169,10 +1169,10 @@ func TestPositionalLookingNameAndUnnamedMemberRoundTrip(t *testing.T) {
 	part def X :> '@1';
 }`
 	graph := duplicateGraph(t, src, IDQualifiedName)
-	if got := elementSubjectsByQualifiedName(graph)["P::'@1'"]; got == "" {
+	if elementSubjectsByQualifiedName(graph)["P::'@1'"] == "" {
 		t.Fatal("the named positional-looking member lacks P::'@1'")
 	}
-	if got := elementSubjectsByQualifiedName(graph)["P::@1"]; got == "" {
+	if elementSubjectsByQualifiedName(graph)["P::@1"] == "" {
 		t.Fatal("the unnamed member lacks P::@1")
 	}
 

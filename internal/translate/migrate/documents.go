@@ -316,13 +316,14 @@ func (m *migration) placeParagraphs(sec *sectionPlan, groups [][]*sysmlv1.DocGen
 // paragraph follows the content instead, and why.
 func (m *migration) anchorPlace(sec *sectionPlan, p *sysmlv1.DocGenParagraph, unresolved int) (in *sectionPlan, at int, note string) {
 	tag := strconv.Quote(p.Predecessor)
+	anchor := "its anchor " + tag
 	follows := ", so the paragraph follows the section's generated content"
 	a := p.Anchor
 	switch {
 	case a == nil:
 		return nil, 0, "its predecessor tag " + tag + " names neither another paragraph of the view nor a figure" + follows
 	case a.Kind != sysmlv1.DiagramMainImage:
-		return nil, 0, "its anchor " + tag + " names an item of the kind " + a.Kind + ", which the migration does not place" + follows
+		return nil, 0, anchor + " names an item of the kind " + a.Kind + ", which the migration does not place" + follows
 	}
 	if in, f := m.findFigure(sec, a.Target); in != nil {
 		return in, f.at, ""
@@ -333,14 +334,14 @@ func (m *migration) anchorPlace(sec *sectionPlan, p *sysmlv1.DocGenParagraph, un
 	figures := m.figures(sec)
 	switch {
 	case len(figures) == 0:
-		return nil, 0, "its anchor " + tag + " names no diagram of the model, and the section draws no figure" + follows
+		return nil, 0, anchor + " names no diagram of the model, and the section draws no figure" + follows
 	case len(figures) > 1:
-		return nil, 0, "its anchor " + tag + " names no diagram of the model, and the section draws " + strconv.Itoa(len(figures)) + " figures" + follows
+		return nil, 0, anchor + " names no diagram of the model, and the section draws " + strconv.Itoa(len(figures)) + " figures" + follows
 	case unresolved > 1:
-		return nil, 0, "its anchor " + tag + " names no diagram of the model, as do " + strconv.Itoa(unresolved-1) + " other anchors in the section" + follows
+		return nil, 0, anchor + " names no diagram of the model, as do " + strconv.Itoa(unresolved-1) + " other anchors in the section" + follows
 	}
 	in, f := figures[0].in, figures[0].mark
-	return in, f.at, "its anchor " + tag + " names no diagram of the model; the paragraph is placed after the section's only figure, of the " + diagramKind(f.d) + " '" + f.d.Name + "'"
+	return in, f.at, anchor + " names no diagram of the model; the paragraph is placed after the section's only figure, of the " + diagramKind(f.d) + " '" + f.d.Name + "'"
 }
 
 // placedFigure is a figure mark with the section it is in.
@@ -393,7 +394,7 @@ func (m *migration) planMethod(dp *docPlan, sec *sectionPlan) {
 			sec.refused = "the viewpoint " + qualifiedName(v.Viewpoint) + "'s method is not migrated: " + v.MethodMalformed
 			m.report.Entries = append(m.report.Entries, *m.nodeEntry(v.Viewpoint, v.Viewpoint.Stereotype("Viewpoint"), Unmapped, sec.refused))
 		case v.ConformMalformed != "":
-			sec.refused = "the view " + qualifiedName(v.Class) + "'s conformance is not migrated: " + v.ConformMalformed
+			sec.refused = theView(v) + "'s conformance is not migrated: " + v.ConformMalformed
 			m.report.Entries = append(m.report.Entries, *m.nodeEntry(v.Class, viewApplication(v.Class), Unmapped, sec.refused))
 		case v.Viewpoint == nil:
 			m.defaultView(dp, sec)
@@ -411,6 +412,14 @@ func (m *migration) planMethod(dp *docPlan, sec *sectionPlan) {
 	c.run(steps)
 }
 
+// theView names a DocGen view in a note.
+func theView(v *sysmlv1.DocGenView) string { return "the view " + qualifiedName(v.Class) }
+
+// servedByViewEditor is the note for an image the migration cannot fetch.
+func servedByViewEditor(src string) string {
+	return strconv.Quote(src) + " is served by the View Editor; pass -image-base-url to show it"
+}
+
 // defaultView applies what DocGen does for a view with no Conform (MDK's
 // DocumentGenerator.parseView reads that relationship alone, not the «View»
 // stereotype's viewpoint tag): a view that is itself a diagram shows
@@ -419,7 +428,7 @@ func (m *migration) planMethod(dp *docPlan, sec *sectionPlan) {
 // nothing for an exposed element that is not a diagram.
 func (m *migration) defaultView(dp *docPlan, sec *sectionPlan) {
 	v := sec.v
-	origin := "the view " + qualifiedName(v.Class) + " conforms to no viewpoint, so DocGen's default behavior applies"
+	origin := theView(v) + " conforms to no viewpoint, so DocGen's default behavior applies"
 	f := figureOf{node: v.Class, app: viewApplication(v.Class), label: "«View» " + v.Class.Type, origin: origin}
 	if d := m.model.Diagram(v.Class.ID); d != nil {
 		f.title = strings.TrimSpace(d.Name)
@@ -498,11 +507,11 @@ func (m *migration) viewDocumentation(sec *sectionPlan) {
 // the view exposes, or the view itself when it exposes nothing.
 func (c *chain) start(v *sysmlv1.DocGenView) {
 	if len(v.Exposed) > 0 {
-		c.roots(v.Exposed, "the view "+qualifiedName(v.Class)+" exposes")
+		c.roots(v.Exposed, theView(v)+" exposes")
 		return
 	}
 	c.roots([]sysmlv1.ElementRef{{ID: v.Class.ID, Element: v.Class}}, "the view")
-	c.self = "the view " + qualifiedName(v.Class) + " exposes nothing, so its method works on the view itself"
+	c.self = theView(v) + " exposes nothing, so its method works on the view itself"
 }
 
 // collaboratorParagraph plans a paragraph the View Editor attached to a view:
@@ -561,7 +570,7 @@ func (m *migration) planImage(sec *sectionPlan, cp *contentPlan, p *sysmlv1.DocG
 	}
 	if location == "" {
 		if serverImagePath(src) && m.imageBase == nil {
-			reason = "the image " + strconv.Quote(src) + " is served by the View Editor; pass -image-base-url to show it"
+			reason = "the image " + servedByViewEditor(src)
 		} else if reason == "" {
 			reason = "the image paragraph's comment names no attached file"
 		}
@@ -704,7 +713,7 @@ func (m *migration) imageInBody(sec *sectionPlan, cp *contentPlan, node *sysmlv1
 	}
 	if !ok {
 		if serverImagePath(src) && m.imageBase == nil {
-			cp.notes = append(cp.notes, "the image "+strconv.Quote(src)+" is served by the View Editor; pass -image-base-url to show it")
+			cp.notes = append(cp.notes, "the image "+servedByViewEditor(src))
 		}
 		return false
 	}
@@ -2344,7 +2353,7 @@ func (m *migration) figure(dp *docPlan, sec *sectionPlan, f figureOf, d *sysmlv1
 			verdict = Mapped
 		}
 		if src, _, _ := firstImg(d.Documentation); src != "" && serverImagePath(src) && m.imageBase == nil {
-			note += "; the note's image " + strconv.Quote(src) + " is served by the View Editor; pass -image-base-url to show it"
+			note += "; the note's image " + servedByViewEditor(src)
 		}
 		if f.text != "" {
 			note += "; its caption stands alone"

@@ -70,9 +70,8 @@ class TestPerformedActionUnboundInput:
         assert isinstance(result, Quantity)
         assert result.magnitude == 200.0
         assert result.unit.text == "SI::s"
-        with pytest.raises(Exception) as excinfo:
+        with pytest.raises(Exception, match="(?i)unbound"):
             model.execute_action("P::ToastBread")
-        assert "unbound" in str(excinfo.value).lower()
 
     def test_kindless_parameter_is_a_reference_usage(self):
         """A parameter declared with no kind keyword is a referenceUsage."""

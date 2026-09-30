@@ -33,7 +33,7 @@ func TestInitializeReadsTheDisabledLints(t *testing.T) {
 			}); err != nil {
 				t.Fatal(err)
 			}
-			if got := len(ws.DisabledLints()); got != tc.want {
+			if len(ws.DisabledLints()) != tc.want {
 				t.Fatalf("disabled lints = %v, want %d", ws.DisabledLints(), tc.want)
 			}
 		})

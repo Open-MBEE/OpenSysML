@@ -770,7 +770,7 @@ func (r *Reply) readJSON(entry ToolEntry, source []byte) (map[string]runtime.Too
 		return nil, nil, toolFault(tool, runtime.ToolMalformed, "the reply is not one JSON value: %v", err)
 	}
 	var trailing json.RawMessage
-	if err := dec.Decode(&trailing); err != io.EOF {
+	if dec.Decode(&trailing) != io.EOF {
 		return nil, nil, toolFault(tool, runtime.ToolMalformed, "the reply is more than one JSON value")
 	}
 	if path, twice := repeatedKey(source); twice {

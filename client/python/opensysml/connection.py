@@ -2762,9 +2762,10 @@ class Connection:
     @staticmethod
     def _question_capabilities(question):
         """The capabilities a question needs of the service: none for evaluate."""
+        needed = []
         if _question_field(question):
-            return (CAPABILITY_VERIFICATION_QUESTIONS,)
-        return ()
+            needed.append(CAPABILITY_VERIFICATION_QUESTIONS)
+        return tuple(needed)
 
     def _capability_refusal(self, capabilities):
         """Translate a capability-gated UNIMPLEMENTED into the preflight error."""

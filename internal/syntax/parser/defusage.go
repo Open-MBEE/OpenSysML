@@ -4700,9 +4700,9 @@ func (p *Parser) parseMultiplicity() *ast.Multiplicity {
 		m.IsRange = true
 		m.Upper = p.parseMultiplicityBound()
 	}
-	close, ok := p.expect(lexer.RBracket, "expected ']' to close multiplicity")
+	closing, ok := p.expect(lexer.RBracket, "expected ']' to close multiplicity")
 	if ok {
-		m.NodeSpan = source.Span{Offset: start, Len: close.Span.End() - start}
+		m.NodeSpan = source.Span{Offset: start, Len: closing.Span.End() - start}
 	} else {
 		m.NodeSpan = p.spanFrom(start)
 	}

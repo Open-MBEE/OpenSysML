@@ -1081,7 +1081,12 @@ func (e *encoder) head(subject rdf.Term, h memberHead) {
 			e.graph.Add(subject, e.sysml(pOwningNamespace), ownerTerm)
 		}
 		_, crossing := node.(*ast.CrossFeatureMember)
-		membership = e.owningMembership(node, subject, ownerTerm, fqn, ast.IsExpression(node), e.variantMember(node, ownerTerm), crossing || h.typeFeature, h.membershipClass, h.membershipExtra)
+		role := membershipRole{
+			result:  ast.IsExpression(node),
+			variant: e.variantMember(node, ownerTerm),
+			plain:   crossing || h.typeFeature,
+		}
+		membership = e.owningMembership(node, subject, ownerTerm, fqn, role, h.membershipClass, h.membershipExtra)
 	}
 	if keyword := visibilityKeyword(visibility); keyword != "" {
 		// The membership states the visibility a member is declared with; a
@@ -1696,15 +1701,22 @@ func (e *encoder) localShape(node ast.Node) error {
 	return unsupported("only a namespace, type, feature, relationship or annotation declaration is mapped")
 }
 
+// membershipRole marks what a member is to its owner when that decides the
+// membership: result a body's result expression, which a
+// ResultExpressionMembership owns; variant a usage a VariantMembership owns;
+// plain a feature its type owns through a plain OwningMembership rather than a
+// FeatureMembership: an end's cross feature, or a KerML `member` feature.
+type membershipRole struct {
+	result, variant, plain bool
+}
+
 // owningMembership wires a member to its owner the way the abstract syntax does,
 // returning the membership minted between them, or the empty term when no
 // membership stands between the two. The API's payloads reach a member through
 // its membership, so a compact owner triple alone leaves a client walking down
-// from a root with nothing to follow. result marks a body's result expression,
-// which a ResultExpressionMembership owns; variant a usage a VariantMembership
-// owns; plain a feature its type owns through a plain OwningMembership rather
-// than a FeatureMembership: an end's cross feature, or a KerML `member` feature.
-func (e *encoder) owningMembership(node ast.Node, member, owner rdf.Term, memberFQN string, result, variant, plain bool, membershipClass string, membershipExtra func(rdf.Term)) rdf.Term {
+// from a root with nothing to follow.
+func (e *encoder) owningMembership(node ast.Node, member, owner rdf.Term, memberFQN string, role membershipRole, membershipClass string, membershipExtra func(rdf.Term)) rdf.Term {
+	result, variant, plain := role.result, role.variant, role.plain
 	ownerClass, memberClass := e.metaclassOf(owner), e.metaclassOf(member)
 	// A metadata usage annotates its owner through an OwningMembership whatever
 	// the owner is, a relationship included (SysML.xtext PrefixMetadataMember).

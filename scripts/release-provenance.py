@@ -33,7 +33,7 @@ PREDICATE_TYPE = "https://slsa.dev/provenance/v1"
 BUILD_TYPE = "https://github.com/Open-MBEE/OpenSysML/.circleci/build-release/v1"
 
 _MANIFEST_LINE = re.compile(r"^([0-9a-f]{64}) [ *](\S.*)$")
-_TAG = re.compile(r"^v[0-9]")
+_TAG = re.compile(r"^v\d", re.ASCII)
 _SHA1 = re.compile(r"^[0-9a-f]{40}$")
 
 REQUIRED_ENV = (

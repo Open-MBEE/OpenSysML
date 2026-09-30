@@ -17,6 +17,15 @@ const (
 	outsideMachine = " outside the machine, or one with no v2 form"
 )
 
+const (
+	transitionKeyword = "transition "
+	actionKeyword     = "action "
+)
+
+func theTransition(t *sysmlv1.Element) string { return "the transition " + describe(t) }
+
+func deferredBy(v *sysmlv1.Element) string { return "deferred by " + describe(v) }
+
 // extensionOnly is the note a strict migration reports for a construct whose
 // only v2 form is an OpenSysML extension.
 func (m *migration) extensionOnly(clause string) string {
@@ -717,7 +726,7 @@ func freshIn(used map[string]bool, base string) string {
 // transition out of `start`, which a view can route.
 func entryThen(entered bool, name, to string) string {
 	if name != "" {
-		return "transition " + writeName(name) + " first start then " + to + ";"
+		return transitionKeyword + writeName(name) + " first start then " + to + ";"
 	}
 	if entered {
 		return "then " + to + ";"
@@ -1220,9 +1229,9 @@ func (s *stateRegion) deferrals(v, do, exit *sysmlv1.Element) *deferrals {
 		s.routeDeferral(k)
 		always, contested := s.acceptsOutOf(v, sig)
 		if t, taken := s.takeRoutes(k, always); len(k.loops) == 0 {
-			note := "the transition " + describe(t) + " out of the state accepts the signal, which in v1 takes precedence over deferring it, so the state does not keep it; its @" + deferredEventFQN + " annotation records the deferral"
+			note := theTransition(t) + " out of the state accepts the signal, which in v1 takes precedence over deferring it, so the state does not keep it; its @" + deferredEventFQN + " annotation records the deferral"
 			s.m.add(d, Approximated, "", note)
-			s.m.add(ev, Approximated, "", "deferred by "+describe(v)+", which the state's @"+deferredEventFQN+" annotation records; the state does not keep the signal, the transition "+describe(t)+" accepting it")
+			s.m.add(ev, Approximated, "", deferredBy(v)+", which the state's @"+deferredEventFQN+" annotation records; the state does not keep the signal, the transition "+describe(t)+" accepting it")
 			continue
 		} else if taken != "" {
 			k.info = joinNotes(k.info, taken)
@@ -1252,18 +1261,18 @@ func (s *stateRegion) deferrals(v, do, exit *sysmlv1.Element) *deferrals {
 		}
 		if t := k.contested; t != nil {
 			if !s.m.acceptsGeneralOf(t, k.sig) {
-				note = joinNotes(note, "the transition "+describe(t)+" out of the state accepts a specialization of the signal, which in v1 takes precedence over deferring those occurrences; the standard leaves open which of the transition and the accept loop takes them, which the runtime settles for the transition when it can fire and the loop otherwise")
+				note = joinNotes(note, theTransition(t)+" out of the state accepts a specialization of the signal, which in v1 takes precedence over deferring those occurrences; the standard leaves open which of the transition and the accept loop takes them, which the runtime settles for the transition when it can fire and the loop otherwise")
 			} else if s.m.model.Ref(t, "source") != v {
-				note = joinNotes(note, "the transition "+describe(t)+" out of a substate accepts the signal too, which in v1 takes precedence over deferring it only while that substate is active; the standard leaves open which of the transition and the accept loop takes the signal, which the runtime settles for the transition when it can fire and the loop otherwise")
+				note = joinNotes(note, theTransition(t)+" out of a substate accepts the signal too, which in v1 takes precedence over deferring it only while that substate is active; the standard leaves open which of the transition and the accept loop takes the signal, which the runtime settles for the transition when it can fire and the loop otherwise")
 			} else {
-				note = joinNotes(note, "the transition "+describe(t)+" out of the state accepts the signal too, which in v1 takes precedence over deferring it only while its guard holds; the standard leaves open which of the transition and the accept loop takes the signal, which the runtime settles for the transition when its guard holds and the loop otherwise")
+				note = joinNotes(note, theTransition(t)+" out of the state accepts the signal too, which in v1 takes precedence over deferring it only while its guard holds; the standard leaves open which of the transition and the accept loop takes the signal, which the runtime settles for the transition when its guard holds and the loop otherwise")
 			}
 		}
 		if t, enclosing := s.outrankedBy(v, k.sig); t != nil {
 			if enclosing {
-				note = joinNotes(note, "the transition "+describe(t)+" out of the enclosing state "+describe(s.m.model.Ref(t, "source"))+" accepts the signal too, which in v1 the deferral takes precedence over while the state is active; the standard encoding cannot hold a signal back from a transition of an enclosing state, so that transition takes each occurrence it can fire on and the accept loop keeps the rest")
+				note = joinNotes(note, theTransition(t)+" out of the enclosing state "+describe(s.m.model.Ref(t, "source"))+" accepts the signal too, which in v1 the deferral takes precedence over while the state is active; the standard encoding cannot hold a signal back from a transition of an enclosing state, so that transition takes each occurrence it can fire on and the accept loop keeps the rest")
 			} else {
-				note = joinNotes(note, "the transition "+describe(t)+" out of "+describe(s.m.model.Ref(t, "source"))+", in a region beside the state's, accepts the signal too, which in v1 the deferral takes precedence over while the state is active; the standard encoding cannot hold a signal back from a transition of another region, so that transition fires on each occurrence it can, which the accept loop keeps as well")
+				note = joinNotes(note, theTransition(t)+" out of "+describe(s.m.model.Ref(t, "source"))+", in a region beside the state's, accepts the signal too, which in v1 the deferral takes precedence over while the state is active; the standard encoding cannot hold a signal back from a transition of another region, so that transition fires on each occurrence it can, which the accept loop keeps as well")
 			}
 		}
 		if t := k.completion; t != nil {
@@ -1273,7 +1282,7 @@ func (s *stateRegion) deferrals(v, do, exit *sysmlv1.Element) *deferrals {
 			note = joinNotes(note, "the internal transition "+describe(t)+" is written as a self transition, which exits and re-enters the state where v1 stayed in it: the exit action sends the kept occurrences to self, and the accept loop, started again, keeps them again unless a transition then accepts them")
 		}
 		s.m.add(k.trigger, Approximated, "", note)
-		s.m.add(k.event, Approximated, "", "deferred by "+describe(v)+" through the standard SysML v2 encoding, an accept loop keeping the signal while the state is active and an exit action sending it to self")
+		s.m.add(k.event, Approximated, "", deferredBy(v)+" through the standard SysML v2 encoding, an accept loop keeping the signal while the state is active and an exit action sending it to self")
 	}
 	return out
 }
@@ -1318,7 +1327,7 @@ func (s *stateRegion) foldDeferrals(v *sysmlv1.Element, d *deferrals) {
 		}
 		note := "kept by the accept loop of the deferral of " + qualifiedName(g.sig) + " in the same state, which accepts every occurrence of the signal too; a loop of its own would keep each occurrence twice"
 		s.m.add(k.trigger, Approximated, "", note)
-		s.m.add(k.event, Approximated, "", "deferred by "+describe(v)+" through the deferral of "+qualifiedName(g.sig)+", whose accept loop keeps every occurrence of the signal")
+		s.m.add(k.event, Approximated, "", deferredBy(v)+" through the deferral of "+qualifiedName(g.sig)+", whose accept loop keeps every occurrence of the signal")
 	}
 	d.kept = kept
 }
@@ -1459,7 +1468,7 @@ func (s *stateRegion) takeRoutes(k *deferral, always []*sysmlv1.Element) (taker 
 	if taker == nil || len(k.loops) == 0 {
 		return taker, ""
 	}
-	return taker, "the transition " + describe(taker) + " out of the state accepts the signal " + strings.Join(taken, " and ") + ", which in v1 takes precedence over deferring it, so no loop keeps it there"
+	return taker, theTransition(taker) + " out of the state accepts the signal " + strings.Join(taken, " and ") + ", which in v1 takes precedence over deferring it, so no loop keeps it there"
 }
 
 // containsElement reports whether es holds e.
@@ -1796,7 +1805,7 @@ func (s *stateRegion) deferredDo(v, do *sysmlv1.Element, d *deferrals) {
 		run, ran := "", false
 		if do != nil {
 			run = s.m.w.aside(func() {
-				ran = s.m.inlineBehaviorHeaded(doAction, "action "+writeName(d.run), do, v)
+				ran = s.m.inlineBehaviorHeaded(doAction, actionKeyword+writeName(d.run), do, v)
 			})
 		}
 		if ran || d.loopCount() > 1 {
@@ -1829,7 +1838,7 @@ func (s *stateRegion) deferredDo(v, do *sysmlv1.Element, d *deferrals) {
 					via = " via " + s.m.ownerPrefix(v) + writeName(s.m.nameFor(l.port))
 				}
 				receive, keep, payload := writeName(l.receive), writeName(l.keep), writeName(l.payload)
-				s.m.w.line("action " + receive + " accept " + payload + " : " + s.m.acceptSignalRef(k.sig, v, payload) + via + ";")
+				s.m.w.line(actionKeyword + receive + " accept " + payload + " : " + s.m.acceptSignalRef(k.sig, v, payload) + via + ";")
 				s.m.w.line("then action " + keep + " { assign " + writeName(k.buffer) + " := " + including + "(" + writeName(k.buffer) + ", " + receive + "." + payload + "); }")
 				s.m.w.line("then " + receive + ";")
 				s.m.w.madeUp(receive)
@@ -1846,7 +1855,7 @@ func (s *stateRegion) deferredDo(v, do *sysmlv1.Element, d *deferrals) {
 func (s *stateRegion) deferredExit(v, exit *sysmlv1.Element, d *deferrals) {
 	s.m.w.block(exitAction+" "+writeName(d.flush), func() {
 		prefix := ""
-		if exit != nil && s.m.inlineBehaviorHeaded(exitAction, "action "+writeName(d.exitRun), exit, v) {
+		if exit != nil && s.m.inlineBehaviorHeaded(exitAction, actionKeyword+writeName(d.exitRun), exit, v) {
 			s.m.madeUp(exit, d.exitRun)
 			prefix = "then "
 		}
@@ -2311,7 +2320,7 @@ func (s *stateRegion) transition(t *sysmlv1.Element) {
 	}
 	accepts, notes, info, written := s.transitionAccepts(t, triggers, eff, tgt, notes)
 	if len(triggers) > 0 && len(accepts) == 0 {
-		s.m.w.lines(commentLines("transition " + describe(t) + " from " + from + " to " + to + " not migrated — " + strings.Join(notes, "; ")))
+		s.m.w.lines(commentLines(transitionKeyword + describe(t) + " from " + from + " to " + to + " not migrated — " + strings.Join(notes, "; ")))
 		s.m.add(t, Unmapped, "", "every trigger is dropped, so the transition would fire at once: "+strings.Join(notes, "; "))
 		return
 	}
@@ -2514,7 +2523,7 @@ func (s *stateRegion) transitionAccepts(t *sysmlv1.Element, triggers []*sysmlv1.
 func (s *stateRegion) writeAccepts(t *sysmlv1.Element, accepts []acceptance, tname, guard string, eff *sysmlv1.Element, from, to string) {
 	s.m.wroteEdge(t, s.r, "transition", tname)
 	for i, accept := range accepts {
-		line := "transition "
+		line := transitionKeyword
 		if tname != "" {
 			n := tname
 			if i > 0 {
