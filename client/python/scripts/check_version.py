@@ -325,8 +325,8 @@ def rust_version(declared=None, rust=None, tag=None):
         declared,
         tag,
         "set [package] version in client/rust/opensysml/Cargo.toml to the "
-        "SemVer spelling of that version and run `cargo update -p opensysml "
-        "--offline` in client/rust.",
+        "SemVer spelling of that version and run `cargo update -p opensysml` in "
+        "client/rust.",
     )
 
 

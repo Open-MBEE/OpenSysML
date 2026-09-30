@@ -119,7 +119,7 @@ branch that moves the integration state onto `main`:
    (`opensysml.client.version`) and `editors/syson/backend/pom.xml` to the same
    spelling as package.json. `client/rust/opensysml/Cargo.toml` follows too:
    set `[package] version` to the same spelling and run
-   `cargo update -p opensysml --offline` in `client/rust` so the lockfile
+   `cargo update -p opensysml` in `client/rust` so the lockfile
    agrees. Anything else the release
    needs (a doc that names the version) lands here too; a feature does not. Check the wire compatibility
    against the released schema, not the branch's own source:
@@ -1360,8 +1360,8 @@ restrict it later, move it into a context restricted to a security group and
 add a `context:` line to the `publish-crates` entry in the `release` workflow
 (see [What the job needs](#what-the-job-needs) for how a restricted context is
 set up). A token can be given an expiry at creation; rotate it before one
-lapses — the job's credential check fails before anything is published when it
-has.
+lapses — crates.io refuses an expired token at the publish step, and nothing
+is published.
 
 ### The version
 
@@ -1371,7 +1371,7 @@ spelling package.json and the pom use (`0.9.1`; `0.9.0-rc.1` for `0.9.0rc1`).
 `check_version.py --rust` in `build-python-package` enforces the lockstep, and
 a pytest gate holds it on every commit — including `client/rust/Cargo.lock`,
 whose `opensysml` entry must name the same version (the checklist's
-`cargo update -p opensysml --offline` keeps it in step). crates.io publishes
+`cargo update -p opensysml` keeps it in step). crates.io publishes
 the version Cargo.toml declares, so the tag must spell it exactly.
 
 ### Why the core's tag
