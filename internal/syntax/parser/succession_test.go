@@ -527,3 +527,33 @@ func TestSuppliedSuccessionEndsAreMarkedImplied(t *testing.T) {
 			edges[1].SourceImplied, edges[1].TargetImplied)
 	}
 }
+
+// A `then` target that a bracketed multiplicity precedes may name a declared
+// member whose name is also a node word (`action fork; then [0..1] fork;`): the
+// succession references that member with a target multiplicity, and declares no
+// node of the keyword's kind.
+func TestThenTargetMultiplicityReferencesADeclaredNodeWordMember(t *testing.T) {
+	tests := []struct {
+		name, src, target, node string
+	}{
+		{"fork", "action def A { action a; action fork; then [0..1] fork; }", `target="fork"`, "ForkNode"},
+		{"done", "action def A { action a; action done; then [0..1] done; }", `target="done"`, "FinalNode"},
+		{"merge with body", "action def A { action a; action merge; then [1] merge { doc /* d */ } }", `target="merge"`, "MergeNode"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			p := New(source.New(tt.name+".sysml", []byte(tt.src)))
+			root := p.ParseFile()
+			if len(p.Diagnostics) != 0 {
+				t.Fatalf("parse diagnostics: %v", p.Diagnostics)
+			}
+			dump := ast.Dump(root)
+			if !strings.Contains(dump, tt.target) || !strings.Contains(dump, "(TargetMultiplicity") {
+				t.Errorf("the succession does not reference %s with a target multiplicity:\n%s", tt.target, dump)
+			}
+			if strings.Contains(dump, tt.node) {
+				t.Errorf("a %s was declared for the referenced member:\n%s", tt.node, dump)
+			}
+		})
+	}
+}

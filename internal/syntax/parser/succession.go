@@ -174,7 +174,7 @@ func (b *bodyBuilder) atSuccession() bool {
 	} else {
 		return false
 	}
-	if b.namesEdgeEnd(kw) {
+	if b.namesEdgeEnd(kw, nextAt) {
 		// `then done;`: a keyword this body declares a member with names an edge
 		// end, not the kind of a member being declared.
 		return false
@@ -283,19 +283,20 @@ var actionNodeKeywords = map[string]bool{
 	"done":      true,
 }
 
-// namesEdgeEnd reports whether a keyword after `then` names an edge end rather
-// than the kind of a member being declared: `then <kw>;` and `then <kw> <name>;`
+// namesEdgeEnd reports whether the keyword at token offset at, after `then` and
+// any multiplicity or prefix metadata, names an edge end rather than the kind of
+// a member being declared: `then <kw>;`, `then <kw> { … }` and `then <kw> <name>;`
 // are ambiguous, and only a name this body already declares can be an end.
-func (b *bodyBuilder) namesEdgeEnd(kw string) bool {
+func (b *bodyBuilder) namesEdgeEnd(kw string, at int) bool {
 	if !b.declares(kw) {
 		return false
 	}
 	p := b.p
-	switch p.peekN(2).Kind {
-	case lexer.Semicolon:
+	switch p.peekN(at + 1).Kind {
+	case lexer.Semicolon, lexer.LBrace:
 		return true
 	case lexer.Identifier, lexer.Keyword, lexer.UnrestrictedName:
-		return p.peekN(3).Kind == lexer.Semicolon
+		return p.peekN(at+2).Kind == lexer.Semicolon
 	}
 	return false
 }

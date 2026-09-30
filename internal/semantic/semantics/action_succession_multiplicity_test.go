@@ -44,3 +44,27 @@ func TestActionSuccessionTargetEndMultiplicity(t *testing.T) {
 		t.Fatalf("found %d target-end multiplicity edges, want 2", edges)
 	}
 }
+
+// `then [m] fork;` after `action fork;` reaches the declared member by name and
+// carries the multiplicity on that target end; no fork node is declared.
+func TestActionSuccessionTargetMultiplicityReachesADeclaredNodeWordMember(t *testing.T) {
+	m, root := buildModel(t, "action def A { action a; action fork; then [0..1] fork; }")
+	fork := sym(t, sym(t, root, "A").Scope, "fork")
+	var found bool
+	for _, succession := range m.ActionSuccessions(sym(t, root, "A")) {
+		edge, ok := succession.Decl.(*ast.SuccessionEdge)
+		if !ok || edge.TargetMultiplicity == nil {
+			continue
+		}
+		found = true
+		if succession.Target.Symbol != fork {
+			t.Errorf("target symbol = %v, want the declared action fork", succession.Target.Symbol)
+		}
+		if succession.Target.Multiplicity != edge.TargetMultiplicity {
+			t.Error("semantic target end did not retain the parsed multiplicity")
+		}
+	}
+	if !found {
+		t.Fatal("no succession with a target multiplicity")
+	}
+}
