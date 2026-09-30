@@ -630,10 +630,10 @@ func (ctx *Context) releaseInvocationFrame(frame *invocationFrame) {
 		clear(bindings)
 		slots.release()
 	}
-	frameBuf := frame.engine.frameBuf
+	frameBuf, thisOccurrence := frame.engine.frameBuf, frame.engine.thisOccurrence
 	clear(frameBuf)
 	*frame = invocationFrame{bindings: bindings, slots: slots}
-	frame.engine.frameBuf = frameBuf[:0]
+	frame.engine.frameBuf, frame.engine.thisOccurrence = frameBuf[:0], thisOccurrence
 	if len(ctx.freeInvocationFrames) < maxFreeInvocationFrames {
 		ctx.freeInvocationFrames = append(ctx.freeInvocationFrames, frame)
 	}
@@ -726,7 +726,7 @@ func (ctx *Context) invokeCalcShapeIn(shape *calcShape, args calcArgs, callerSco
 				ctx.endPerformanceLife(occurrence.inst)
 			}
 		}()
-		ec.thisOccurrence = occurrence.materializeOccurrence
+		ec.thisOccurrence = occurrence.thisOccurrence()
 	}
 
 	if ec.trace != nil {
@@ -858,7 +858,11 @@ func (ctx *Context) bindCalcParameters(
 func (ctx *Context) runCalcBody(shape *calcShape, frame *invocationFrame, callerScope *symbols.Scope, self *Instance, activation int64, enclosing []frame, occurrence *calcOccurrence) (Value, error) {
 	frame.host = calcStmtHost{ctx: ctx, shape: shape, self: self, occ: occurrence}
 	frame.env = stmtEnv{data: frame.locals(), enclosing: shape.bodyEnclosing(enclosing)}
-	frame.engine = stmtEngine{ctx: ctx, host: &frame.host, env: &frame.env, activation: activation, frameBuf: frame.engine.frameBuf}
+	thisOccurrence := frame.engine.thisOccurrence
+	if thisOccurrence == nil {
+		thisOccurrence = frame.host.materializeOccurrence
+	}
+	frame.engine = stmtEngine{ctx: ctx, host: &frame.host, env: &frame.env, activation: activation, frameBuf: frame.engine.frameBuf, thisOccurrence: thisOccurrence}
 	frame.host.attachPerformances(&frame.engine)
 	result, returned, err := runCalcSteps(&frame.engine, &frame.host, shape.Steps)
 	if err != nil {
