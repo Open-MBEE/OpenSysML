@@ -445,7 +445,8 @@ one alongside it).
    `opensysml-<x.y.z>-windows-amd64-signed.msi` listed in
    `SHA256SUMS-windows-signed.txt` when it is. A release with neither means the
    workflow failed (WiX, the Z3 download, ICE validation or the signing
-   request); re-run it after fixing the cause.
+   request); re-run it after fixing the cause — see the recovery path in
+   [The Windows installer](#the-windows-installer).
 
 9. **Render the Windows package-manager manifests** when a maintainer wants
    to (re)submit them externally. Nothing here submits anything:
@@ -677,7 +678,7 @@ the MSI cannot come out of the `cimg/go` release job. It is built by
   `publish-msi` job uploads it with `SHA256SUMS-windows-msi.txt` — after the
   same CircleCI gate the signing job uses, so the MSI never lands on a release
   CircleCI did not publish. Both jobs run on every tag and on
-  `workflow_dispatch` (which never publishes).
+  `workflow_dispatch` (which publishes only when its `tag` input names one).
 - **SignPath configured:** the `msi-signed` job rebuilds the MSI from the
   SignPath-signed executables, validates it, submits the MSI itself to SignPath
   under `SIGNPATH_MSI_ARTIFACT_CONFIGURATION_SLUG`, and `publish-signed`
@@ -685,6 +686,15 @@ the MSI cannot come out of the `cimg/go` release job. It is built by
   `SHA256SUMS-windows-signed.txt` with the other `-signed` assets. The unsigned
   MSI is then kept only as a workflow artifact, so a release never carries two
   installers whose contents differ only by signature.
+
+**Re-running it for an existing tag.** When the workflow failed on a tag —
+including at `git checkout`, since the Windows runners cannot check out a
+tracked path Windows forbids — fix the cause on a `hotfix/` branch to `main`,
+then re-run it against the tag with `gh workflow run release-windows.yml
+--ref main -f tag=v0.9.1`. The dispatch checks out and builds the tagged
+commit, the release gate still requires the tag to resolve to that commit, and
+`overwrite_files` touches only the MSI assets, so the CircleCI-published
+release and its assets are never rewritten.
 
 The trade-off is the one the `-signed` assets already make: the MSI is not in
 `SHA256SUMS.txt` or the cosign bundle, because those are produced by CircleCI

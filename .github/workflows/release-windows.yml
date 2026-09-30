@@ -27,6 +27,10 @@ on:
       - "v*"
   workflow_dispatch:
     inputs:
+      tag:
+        description: Existing release tag (vX.Y.Z) to build and publish the Windows assets for; leaves `version` unused
+        required: false
+        default: ''
       version:
         description: Version to stamp into the binaries (VERSION)
         required: true
@@ -57,11 +61,14 @@ jobs:
     timeout-minutes: 30
     outputs:
       version: ${{ steps.version.outputs.version }}
+      commit: ${{ steps.version.outputs.commit }}
       artifact-id: ${{ steps.upload.outputs.artifact-id }}
       sign: ${{ steps.gate.outputs.sign }}
     steps:
       - name: Check out repository
         uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
+        with:
+          ref: ${{ inputs.tag || github.ref }}
 
       - name: Set up Go
         uses: actions/setup-go@44694675825211faa026b3c33043df3e48a5fa00 # v6.0.0
@@ -74,10 +81,13 @@ jobs:
         env:
           REF_TYPE: ${{ github.ref_type }}
           REF_NAME: ${{ github.ref_name }}
+          INPUT_TAG: ${{ inputs.tag }}
           INPUT_VERSION: ${{ inputs.version }}
         run: |
           # Tag builds mirror CircleCI's VERSION=${CIRCLE_TAG}; dry runs take the input.
-          if [ "$REF_TYPE" = "tag" ]; then
+          if [ -n "$INPUT_TAG" ]; then
+            VERSION="$INPUT_TAG"
+          elif [ "$REF_TYPE" = "tag" ]; then
             VERSION="$REF_NAME"
           else
             VERSION="$INPUT_VERSION"
@@ -87,11 +97,12 @@ jobs:
             *) echo "Error: VERSION '$VERSION' must look like v<major>.<minor>.<patch>[-suffix]"; exit 1 ;;
           esac
           echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          echo "commit=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
 
       - name: Build sysml, sysml-lsp and sysml-grpc for windows/amd64
         env:
           VERSION: ${{ steps.version.outputs.version }}
-          COMMIT: ${{ github.sha }}
+          COMMIT: ${{ steps.version.outputs.commit }}
         run: |
           # Same derivation as the CircleCI release job, so both builds stamp
           # identical -ldflags and VERSIONINFO values for a tag.
@@ -162,6 +173,12 @@ jobs:
     steps:
       - name: Check out repository
         uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
+        with:
+          ref: ${{ inputs.tag || github.ref }}
+          # Testdata trees hold names Windows cannot check out; the MSI build only needs these.
+          sparse-checkout: |
+            packaging/msi
+            scripts
 
       - name: Download the unsigned binaries
         uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
@@ -198,7 +215,7 @@ jobs:
     # signed by `publish-signed` instead, never both.
     name: Publish the unsigned MSI
     needs: [build, msi]
-    if: github.ref_type == 'tag' && needs.build.outputs.sign != 'true'
+    if: (github.ref_type == 'tag' || inputs.tag != '') && needs.build.outputs.sign != 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 120
     permissions:
@@ -206,6 +223,8 @@ jobs:
     steps:
       - name: Check out repository
         uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
+        with:
+          ref: ${{ inputs.tag || github.ref }}
 
       - name: Download the unsigned MSI
         uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
@@ -218,7 +237,7 @@ jobs:
           GH_TOKEN: ${{ github.token }}
           GH_REPO: ${{ github.repository }}
           TAG: ${{ needs.build.outputs.version }}
-          COMMIT: ${{ github.sha }}
+          COMMIT: ${{ needs.build.outputs.commit }}
         run: scripts/wait-for-release-gate.sh "$TAG" "$COMMIT"
 
       - name: Upload the unsigned MSI to the GitHub Release
@@ -242,6 +261,8 @@ jobs:
     steps:
       - name: Check out repository
         uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
+        with:
+          ref: ${{ inputs.tag || github.ref }}
 
       - name: Set up Go
         uses: actions/setup-go@44694675825211faa026b3c33043df3e48a5fa00 # v6.0.0
@@ -250,12 +271,12 @@ jobs:
           cache: true
 
       - name: Wait for CircleCI to publish the gated release
-        if: github.ref_type == 'tag'
+        if: github.ref_type == 'tag' || inputs.tag != ''
         env:
           GH_TOKEN: ${{ github.token }}
           GH_REPO: ${{ github.repository }}
           TAG: ${{ needs.build.outputs.version }}
-          COMMIT: ${{ github.sha }}
+          COMMIT: ${{ needs.build.outputs.commit }}
         run: scripts/wait-for-release-gate.sh "$TAG" "$COMMIT"
 
       - name: Submit the signing request to SignPath
@@ -307,6 +328,12 @@ jobs:
     steps:
       - name: Check out repository
         uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
+        with:
+          ref: ${{ inputs.tag || github.ref }}
+          # Testdata trees hold names Windows cannot check out; the MSI build only needs these.
+          sparse-checkout: |
+            packaging/msi
+            scripts
 
       - name: Check the MSI artifact configuration is configured
         env:
@@ -426,7 +453,7 @@ jobs:
           if-no-files-found: error
 
       - name: Upload signed assets to the GitHub Release
-        if: github.ref_type == 'tag'
+        if: github.ref_type == 'tag' || inputs.tag != ''
         uses: softprops/action-gh-release@6cbd405e2c4e67a21c47fa9e383d020e4e28b836 # v2.3.3
         with:
           tag_name: ${{ needs.build.outputs.version }}
