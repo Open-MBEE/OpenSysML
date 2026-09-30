@@ -3,6 +3,12 @@ version: 2.1
 orbs:
   go: circleci/go@1.10.0
 
+parameters:
+  release_rehearsal:
+    type: boolean
+    default: false
+    description: Run the release workflow on a branch without publishing anything (docs/project/releasing.md).
+
 executors:
   go-executor:
     docker:
@@ -49,6 +55,47 @@ executors:
     resource_class: medium
 
 commands:
+  # In a rehearsal (the release_rehearsal pipeline parameter) CIRCLE_TAG is
+  # unset; this stands in for the tag the release steps read, before any of
+  # them runs. sed rather than python: the go and cibuilds images may lack it.
+  rehearsal-tag:
+    steps:
+      - when:
+          condition: << pipeline.parameters.release_rehearsal >>
+          steps:
+            - run:
+                name: "REHEARSAL: stand in for the release tag"
+                command: |
+                  version=$(sed -n 's/^VERSION *= *"\(.*\)" *$/\1/p' \
+                    client/python/opensysml/_version.py)
+                  # _version.py is PEP 440; the tag spells SemVer.
+                  case "$version" in
+                    *a[0-9]*) semver="${version%%a*}-alpha.${version##*a}" ;;
+                    *b[0-9]*) semver="${version%%b*}-beta.${version##*b}" ;;
+                    *rc[0-9]*) semver="${version%%rc*}-rc.${version##*rc}" ;;
+                    *) semver="$version" ;;
+                  esac
+                  if ! echo "$semver" | grep -Eq '^[0-9]+\.[0-9]+\.[0-9]+(-(alpha|beta|rc)\.[0-9]+)?$'; then
+                    echo "Error: VERSION '$version' is not a release or an a/b/rc"
+                    echo "pre-release; there is no SemVer tag spelling for it."
+                    exit 1
+                  fi
+                  echo "export CIRCLE_TAG=v${semver}" >> "$BASH_ENV"
+                  echo "REHEARSAL: standing in for tag v${semver} (no tag exists; nothing will be published)"
+
+  # Names the irreversible step a rehearsal leaves out.
+  rehearsal-skip:
+    parameters:
+      what:
+        type: string
+    steps:
+      - when:
+          condition: << pipeline.parameters.release_rehearsal >>
+          steps:
+            - run:
+                name: "REHEARSAL: skip << parameters.what >>"
+                command: 'echo "REHEARSAL: skipping << parameters.what >>"'
+
   # The solver is an external process: without one on PATH the
   # solver-dependent tests would skip rather than run.
   install-solvers:
@@ -1335,6 +1382,7 @@ jobs:
     executor: python-executor
     steps:
       - checkout
+      - rehearsal-tag
 
       - run:
           name: Install build tooling
@@ -1412,6 +1460,7 @@ jobs:
     executor: python-executor
     steps:
       - checkout
+      - rehearsal-tag
       - attach_workspace:
           at: .
 
@@ -1482,23 +1531,35 @@ jobs:
           name: Check the metadata (twine check --strict)
           command: python -m twine check --strict client/python/dist/*
 
-      - run:
-          name: Upload to the index
-          command: |
-            # The token is read straight into twine's environment: nothing here
-            # echoes it, and nothing in this job prints the environment.
-            export TWINE_USERNAME=__token__
-            if [ "$OPENSYSML_PRE_RELEASE" = "yes" ]; then
-              export TWINE_REPOSITORY_URL=https://test.pypi.org/legacy/
-              export TWINE_PASSWORD="$TEST_PYPI_API_TOKEN"
-              echo "Uploading opensysml ${OPENSYSML_VERSION} to TestPyPI"
-            else
-              export TWINE_PASSWORD="$PYPI_API_TOKEN"
-              echo "Uploading opensysml ${OPENSYSML_VERSION} to PyPI"
-            fi
-            # No --skip-existing: a version that appeared since the check above
-            # must fail the job rather than pass silently.
-            python -m twine upload client/python/dist/*
+      - unless:
+          condition: << pipeline.parameters.release_rehearsal >>
+          steps:
+            - run:
+                name: Upload to the index
+                command: |
+                  # The token is read straight into twine's environment: nothing here
+                  # echoes it, and nothing in this job prints the environment.
+                  export TWINE_USERNAME=__token__
+                  if [ "$OPENSYSML_PRE_RELEASE" = "yes" ]; then
+                    export TWINE_REPOSITORY_URL=https://test.pypi.org/legacy/
+                    export TWINE_PASSWORD="$TEST_PYPI_API_TOKEN"
+                    echo "Uploading opensysml ${OPENSYSML_VERSION} to TestPyPI"
+                  else
+                    export TWINE_PASSWORD="$PYPI_API_TOKEN"
+                    echo "Uploading opensysml ${OPENSYSML_VERSION} to PyPI"
+                  fi
+                  # No --skip-existing: a version that appeared since the check above
+                  # must fail the job rather than pass silently.
+                  python -m twine upload client/python/dist/*
+      - when:
+          condition: << pipeline.parameters.release_rehearsal >>
+          steps:
+            - run:
+                name: "REHEARSAL: no twine upload"
+                command: |
+                  echo "REHEARSAL: PyPI has no read-only token check; the token's presence was checked above."
+      - rehearsal-skip:
+          what: "twine upload"
 
   # Publishes packaging/pypi-pysysml on a `pysysml-v<version>` tag: the final
   # release of the pre-rename name, which raises on import to point at
@@ -1595,6 +1656,7 @@ jobs:
     executor: go-executor
     steps:
       - checkout
+      - rehearsal-tag
       - attach_workspace:
           at: .
       - go/load-cache
@@ -1717,83 +1779,88 @@ jobs:
               dist/sysml-lsp-linux-amd64 dist/sysml-lsp-linux-arm64 \
               dist/grpc/sysml-grpc-linux-amd64 dist/grpc/sysml-grpc-linux-arm64
 
-      # Signs the manifest keylessly: the certificate identity comes from this
-      # job's CircleCI OIDC token, so there is no signing key to store.
-      - run:
-          name: Sign the checksum manifest with cosign keyless
-          command: |
-            go install github.com/sigstore/cosign/v3/cmd/cosign@v3.0.3
-            export PATH="$(go env GOPATH)/bin:$PATH"
+      - unless:
+          condition: << pipeline.parameters.release_rehearsal >>
+          steps:
+            # Signs the manifest keylessly: the certificate identity comes from this
+            # job's CircleCI OIDC token, so there is no signing key to store.
+            - run:
+                name: Sign the checksum manifest with cosign keyless
+                command: |
+                  go install github.com/sigstore/cosign/v3/cmd/cosign@v3.0.3
+                  export PATH="$(go env GOPATH)/bin:$PATH"
 
-            # Fulcio requires the 'sigstore' audience, which the ambient
-            # $CIRCLE_OIDC_TOKEN_V2 does not carry.
-            SIGSTORE_ID_TOKEN="$(circleci run oidc get --claims '{"aud": "sigstore"}')"
-            export SIGSTORE_ID_TOKEN
+                  # Fulcio requires the 'sigstore' audience, which the ambient
+                  # $CIRCLE_OIDC_TOKEN_V2 does not carry.
+                  SIGSTORE_ID_TOKEN="$(circleci run oidc get --claims '{"aud": "sigstore"}')"
+                  export SIGSTORE_ID_TOKEN
 
-            cd dist
-            cosign sign-blob SHA256SUMS.txt \
-              --oidc-issuer "https://oidc.circleci.com/org/${CIRCLE_ORGANIZATION_ID}" \
-              --bundle SHA256SUMS.txt.bundle \
-              --use-signing-config=false \
-              --yes
+                  cd dist
+                  cosign sign-blob SHA256SUMS.txt \
+                    --oidc-issuer "https://oidc.circleci.com/org/${CIRCLE_ORGANIZATION_ID}" \
+                    --bundle SHA256SUMS.txt.bundle \
+                    --use-signing-config=false \
+                    --yes
 
-      # Fails the release rather than publish a signature the client's pinned
-      # identity would reject, and prints the identity that signed.
-      - run:
-          name: Verify the signature against the identity clients pin
-          command: |
-            export PATH="$(go env GOPATH)/bin:$PATH"
-            cd dist
-            cosign verify-blob SHA256SUMS.txt \
-              --bundle SHA256SUMS.txt.bundle \
-              --certificate-oidc-issuer "https://oidc.circleci.com/org/${CIRCLE_ORGANIZATION_ID}" \
-              --certificate-identity-regexp "^https://circleci\\.com/api/v2/projects/${CIRCLE_PROJECT_ID}/pipeline-definitions/[0-9a-f]{8}(-[0-9a-f]{4}){3}-[0-9a-f]{12}$"
-            echo "Signed by:"
-            jq -r '.verificationMaterial.certificate.rawBytes' SHA256SUMS.txt.bundle \
-              | base64 -d | openssl x509 -inform DER -noout -text \
-              | grep -A1 -E '1\.3\.6\.1\.4\.1\.57264\.1\.8:|URI:' || true
+            # Fails the release rather than publish a signature the client's pinned
+            # identity would reject, and prints the identity that signed.
+            - run:
+                name: Verify the signature against the identity clients pin
+                command: |
+                  export PATH="$(go env GOPATH)/bin:$PATH"
+                  cd dist
+                  cosign verify-blob SHA256SUMS.txt \
+                    --bundle SHA256SUMS.txt.bundle \
+                    --certificate-oidc-issuer "https://oidc.circleci.com/org/${CIRCLE_ORGANIZATION_ID}" \
+                    --certificate-identity-regexp "^https://circleci\\.com/api/v2/projects/${CIRCLE_PROJECT_ID}/pipeline-definitions/[0-9a-f]{8}(-[0-9a-f]{4}){3}-[0-9a-f]{12}$"
+                  echo "Signed by:"
+                  jq -r '.verificationMaterial.certificate.rawBytes' SHA256SUMS.txt.bundle \
+                    | base64 -d | openssl x509 -inform DER -noout -text \
+                    | grep -A1 -E '1\.3\.6\.1\.4\.1\.57264\.1\.8:|URI:' || true
 
-      # SLSA provenance over every artifact the manifest lists, signed under the
-      # same CircleCI identity as the manifest; the bundle carries the statement.
-      - run:
-          name: Attest the release's SLSA provenance with cosign keyless
-          command: |
-            export PATH="$(go env GOPATH)/bin:$PATH"
-            python3 scripts/release-provenance.py \
-              --manifest dist/SHA256SUMS.txt --out dist/provenance.intoto.json
-            SIGSTORE_ID_TOKEN="$(circleci run oidc get --claims '{"aud": "sigstore"}')"
-            export SIGSTORE_ID_TOKEN
+            # SLSA provenance over every artifact the manifest lists, signed under the
+            # same CircleCI identity as the manifest; the bundle carries the statement.
+            - run:
+                name: Attest the release's SLSA provenance with cosign keyless
+                command: |
+                  export PATH="$(go env GOPATH)/bin:$PATH"
+                  python3 scripts/release-provenance.py \
+                    --manifest dist/SHA256SUMS.txt --out dist/provenance.intoto.json
+                  SIGSTORE_ID_TOKEN="$(circleci run oidc get --claims '{"aud": "sigstore"}')"
+                  export SIGSTORE_ID_TOKEN
 
-            cd dist
-            cosign attest-blob SHA256SUMS.txt \
-              --statement provenance.intoto.json \
-              --type slsaprovenance1 \
-              --oidc-issuer "https://oidc.circleci.com/org/${CIRCLE_ORGANIZATION_ID}" \
-              --bundle provenance.intoto.json.bundle \
-              --use-signing-config=false \
-              --yes
+                  cd dist
+                  cosign attest-blob SHA256SUMS.txt \
+                    --statement provenance.intoto.json \
+                    --type slsaprovenance1 \
+                    --oidc-issuer "https://oidc.circleci.com/org/${CIRCLE_ORGANIZATION_ID}" \
+                    --bundle provenance.intoto.json.bundle \
+                    --use-signing-config=false \
+                    --yes
 
-      # Verifies the attestation against a published artifact, so a statement
-      # whose subjects do not name the release's bytes fails the release here.
-      - run:
-          name: Verify the provenance names the artifacts under the identity clients pin
-          command: |
-            export PATH="$(go env GOPATH)/bin:$PATH"
-            cd dist
-            for artifact in opensysml-linux-amd64.tar.gz grpc/sysml-grpc-linux-amd64 opensysml-*-py3-none-any.whl; do
-              cosign verify-blob-attestation "$artifact" \
-                --bundle provenance.intoto.json.bundle \
-                --type slsaprovenance1 \
-                --certificate-oidc-issuer "https://oidc.circleci.com/org/${CIRCLE_ORGANIZATION_ID}" \
-                --certificate-identity-regexp "^https://circleci\\.com/api/v2/projects/${CIRCLE_PROJECT_ID}/pipeline-definitions/[0-9a-f]{8}(-[0-9a-f]{4}){3}-[0-9a-f]{12}$"
-              echo "ok: provenance names $artifact"
-            done
-            # Every manifest line must be a subject, and nothing else may be.
-            diff <(sed 's/^\([0-9a-f]*\)  \(.*\)$/\2 \1/' SHA256SUMS.txt | sort) \
-                 <(jq -r '.dsseEnvelope.payload' provenance.intoto.json.bundle | base64 -d \
-                   | jq -r '.subject[] | "\(.name) \(.digest.sha256)"' | sort)
+            # Verifies the attestation against a published artifact, so a statement
+            # whose subjects do not name the release's bytes fails the release here.
+            - run:
+                name: Verify the provenance names the artifacts under the identity clients pin
+                command: |
+                  export PATH="$(go env GOPATH)/bin:$PATH"
+                  cd dist
+                  for artifact in opensysml-linux-amd64.tar.gz grpc/sysml-grpc-linux-amd64 opensysml-*-py3-none-any.whl; do
+                    cosign verify-blob-attestation "$artifact" \
+                      --bundle provenance.intoto.json.bundle \
+                      --type slsaprovenance1 \
+                      --certificate-oidc-issuer "https://oidc.circleci.com/org/${CIRCLE_ORGANIZATION_ID}" \
+                      --certificate-identity-regexp "^https://circleci\\.com/api/v2/projects/${CIRCLE_PROJECT_ID}/pipeline-definitions/[0-9a-f]{8}(-[0-9a-f]{4}){3}-[0-9a-f]{12}$"
+                    echo "ok: provenance names $artifact"
+                  done
+                  # Every manifest line must be a subject, and nothing else may be.
+                  diff <(sed 's/^\([0-9a-f]*\)  \(.*\)$/\2 \1/' SHA256SUMS.txt | sort) \
+                       <(jq -r '.dsseEnvelope.payload' provenance.intoto.json.bundle | base64 -d \
+                         | jq -r '.subject[] | "\(.name) \(.digest.sha256)"' | sort)
 
       
+      - rehearsal-skip:
+          what: "cosign keyless signing and attestation (they write to the public Rekor log)"
       # An artifact whose version disagrees with its tag looks identical on the
       # release page. The host-platform builds are asked what they report; the
       # cross-compiled ones cannot run here, so they are checked for the version
@@ -1870,6 +1937,7 @@ jobs:
     executor: node-executor
     steps:
       - checkout
+      - rehearsal-tag
 
       - attach_workspace:
           at: .
@@ -1970,20 +2038,35 @@ jobs:
             # A bad or expired token fails here, before the first publish.
             npm whoami
 
-      # No --provenance: the npm CLI only mints attestations on GitHub Actions and
-      # GitLab CI/CD, and it fails rather than publish unattested when asked here.
-      - run:
-          name: Publish the per-platform packages
-          command: |
-            for directory in client/node/packages/sysml-grpc-*; do
-              npm publish "$directory" --access public --tag "$NPM_DIST_TAG"
-            done
+      - unless:
+          condition: << pipeline.parameters.release_rehearsal >>
+          steps:
+            # No --provenance: the npm CLI only mints attestations on GitHub Actions and
+            # GitLab CI/CD, and it fails rather than publish unattested when asked here.
+            - run:
+                name: Publish the per-platform packages
+                command: |
+                  for directory in client/node/packages/sysml-grpc-*; do
+                    npm publish "$directory" --access public --tag "$NPM_DIST_TAG"
+                  done
 
-      - run:
-          name: Publish @openmbee/opensysml
-          command: |
-            cd client/node
-            npm publish --access public --tag "$NPM_DIST_TAG"
+            - run:
+                name: Publish @openmbee/opensysml
+                command: |
+                  cd client/node
+                  npm publish --access public --tag "$NPM_DIST_TAG"
+      - when:
+          condition: << pipeline.parameters.release_rehearsal >>
+          steps:
+            - run:
+                name: "REHEARSAL: pack every package"
+                command: |
+                  for directory in client/node/packages/sysml-grpc-*; do
+                    npm pack "$directory" --dry-run
+                  done
+                  (cd client/node && npm pack --dry-run)
+      - rehearsal-skip:
+          what: "npm publish"
 
   # Publishes org.openmbee:opensysml-client and its parent pom to Maven Central
   # from the core `v<version>` tag. Central has no trusted publishing, so a
@@ -1996,6 +2079,7 @@ jobs:
     executor: java-executor
     steps:
       - checkout
+      - rehearsal-tag
 
       - restore_cache:
           keys:
@@ -2091,15 +2175,47 @@ jobs:
               '</settings>' > ~/.m2/settings.xml
             chmod 600 ~/.m2/settings.xml
 
-      # java-test ran the suite on this revision in this workflow, so tests are
-      # skipped; -am brings the parent pom the client's pom names, which Central
-      # must hold too; opensysml-conformance is not published.
-      # Never run this step with -X/debug output; the settings interpolation would print the token.
-      - run:
-          name: Sign, upload and publish
-          command: |
-            MAVEN_GPG_PASSPHRASE="$GPG_PASSPHRASE" mvn -B -f client/java/pom.xml \
-              -Prelease deploy -pl opensysml-client -am -DskipTests
+      - unless:
+          condition: << pipeline.parameters.release_rehearsal >>
+          steps:
+            # java-test ran the suite on this revision in this workflow, so tests are
+            # skipped; -am brings the parent pom the client's pom names, which Central
+            # must hold too; opensysml-conformance is not published.
+            # Never run this step with -X/debug output; the settings interpolation would print the token.
+            - run:
+                name: Sign, upload and publish
+                command: |
+                  MAVEN_GPG_PASSPHRASE="$GPG_PASSPHRASE" mvn -B -f client/java/pom.xml \
+                    -Prelease deploy -pl opensysml-client -am -DskipTests
+      - when:
+          condition: << pipeline.parameters.release_rehearsal >>
+          steps:
+            - run:
+                name: "REHEARSAL: check the Central token"
+                command: |
+                  auth=$(printf '%s:%s' "$CENTRAL_TOKEN_USERNAME" "$CENTRAL_TOKEN_PASSWORD" | base64 -w0)
+                  code=$(curl -s -o /tmp/central.json -w '%{http_code}' \
+                    -H "Authorization: Bearer ${auth}" \
+                    "https://central.sonatype.com/api/v1/publisher/published?namespace=org.openmbee&name=opensysml-client&version=${JAVA_VERSION}")
+                  case "$code" in
+                    200) echo "ok: the portal token authenticates" ;;
+                    401|403)
+                      echo "Error: Central rejected the portal token (HTTP $code)."
+                      exit 1 ;;
+                    *)
+                      echo "Error: could not ask Central (HTTP $code); refusing rather than guessing."
+                      exit 1 ;;
+                  esac
+            - run:
+                name: "REHEARSAL: build and sign without deploying"
+                command: |
+                  # Never run this step with -X/debug output; the settings interpolation would print the token.
+                  MAVEN_GPG_PASSPHRASE="$GPG_PASSPHRASE" mvn -B -f client/java/pom.xml \
+                    -Prelease verify -pl opensysml-client -am -DskipTests
+                  ls client/java/opensysml-client/target/*.jar.asc > /dev/null
+                  ls client/java/*/target/*.pom.asc > /dev/null
+      - rehearsal-skip:
+          what: "mvn deploy (upload and publish to Central)"
 
   # Publishes the opensysml crate to crates.io from the core `v<version>` tag.
   # The token comes from the restricted 'crates.io' context. Everything that can fail runs
@@ -2109,6 +2225,7 @@ jobs:
     executor: rust-executor
     steps:
       - checkout
+      - rehearsal-tag
 
       - run:
           name: Resolve the version from the tag
@@ -2165,66 +2282,116 @@ jobs:
           command: |
             cargo package -p opensysml --manifest-path client/rust/Cargo.toml --locked
 
-      # The package step above already built and verified the crate; cargo
-      # reads CARGO_REGISTRY_TOKEN from the environment, so nothing is on disk.
-      - run:
-          name: Publish opensysml to crates.io
-          command: |
-            cargo publish -p opensysml --manifest-path client/rust/Cargo.toml \
-              --locked --no-verify
+      - unless:
+          condition: << pipeline.parameters.release_rehearsal >>
+          steps:
+            # The package step above already built and verified the crate; cargo
+            # reads CARGO_REGISTRY_TOKEN from the environment, so nothing is on disk.
+            - run:
+                name: Publish opensysml to crates.io
+                command: |
+                  cargo publish -p opensysml --manifest-path client/rust/Cargo.toml \
+                    --locked --no-verify
+      - when:
+          condition: << pipeline.parameters.release_rehearsal >>
+          steps:
+            - run:
+                name: "REHEARSAL: no cargo publish"
+                command: |
+                  echo "REHEARSAL: crates.io has no read-only token check (GET /api/v1/me accepts only a browser session); the token's presence was checked above."
+      - rehearsal-skip:
+          what: "cargo publish"
 
   publish-github-release:
     docker:
       - image: cibuilds/github:0.13
     steps:
+      # A rehearsal needs a checkout for _version.py; the tag path does not.
+      - when:
+          condition: << pipeline.parameters.release_rehearsal >>
+          steps:
+            - checkout
+            - rehearsal-tag
       - attach_workspace:
           at: .
       
-      - run:
-          name: Publish Release on GitHub
-          command: |
-            VERSION="${CIRCLE_TAG}"
-            if [ -z "$VERSION" ]; then
-              echo "Error: CIRCLE_TAG is empty"
-              exit 1
-            fi
-            echo "Publishing release $VERSION"
-            ls -la dist/
+      - unless:
+          condition: << pipeline.parameters.release_rehearsal >>
+          steps:
+            - run:
+                name: Publish Release on GitHub
+                command: |
+                  VERSION="${CIRCLE_TAG}"
+                  if [ -z "$VERSION" ]; then
+                    echo "Error: CIRCLE_TAG is empty"
+                    exit 1
+                  fi
+                  echo "Publishing release $VERSION"
+                  ls -la dist/
             
-            # Move only tarballs to a release directory
-            mkdir -p dist/release
-            mv dist/*.tar.gz dist/*.zip dist/release/ 2>/dev/null || true
-            # The opensysml wheel, the same bytes publish-pypi uploads.
-            mv dist/*.whl dist/release/
-            mv dist/grpc/* dist/release/
-            mv dist/SHA256SUMS.txt dist/release/
-            # The signature over that manifest, which the Python client verifies
-            # before it trusts a digest from it.
-            mv dist/SHA256SUMS.txt.bundle dist/release/
-            # The SLSA provenance statement over those assets and its signature.
-            mv dist/provenance.intoto.json dist/provenance.intoto.json.bundle dist/release/
-            echo "Release artifacts:"
-            ls -la dist/release/
+                  # Move only tarballs to a release directory
+                  mkdir -p dist/release
+                  mv dist/*.tar.gz dist/*.zip dist/release/ 2>/dev/null || true
+                  # The opensysml wheel, the same bytes publish-pypi uploads.
+                  mv dist/*.whl dist/release/
+                  mv dist/grpc/* dist/release/
+                  mv dist/SHA256SUMS.txt dist/release/
+                  # The signature over that manifest, which the Python client verifies
+                  # before it trusts a digest from it.
+                  mv dist/SHA256SUMS.txt.bundle dist/release/
+                  # The SLSA provenance statement over those assets and its signature.
+                  mv dist/provenance.intoto.json dist/provenance.intoto.json.bundle dist/release/
+                  echo "Release artifacts:"
+                  ls -la dist/release/
             
-            # Try different token variable names
-            TOKEN="${GITHUB_TOKEN:-${GH_TOKEN:-${CIRCLE_TOKEN}}}"
-            if [ -z "$TOKEN" ]; then
-              echo "Error: No GitHub token found. Tried GITHUB_TOKEN, GH_TOKEN, CIRCLE_TOKEN"
-              exit 1
-            fi
+                  # Try different token variable names
+                  TOKEN="${GITHUB_TOKEN:-${GH_TOKEN:-${CIRCLE_TOKEN}}}"
+                  if [ -z "$TOKEN" ]; then
+                    echo "Error: No GitHub token found. Tried GITHUB_TOKEN, GH_TOKEN, CIRCLE_TOKEN"
+                    exit 1
+                  fi
             
-            # '-replace' reuses an existing release and only re-uploads assets of
-            # the same name, so hand-written notes, title and prerelease/latest
-            # flags survive a re-run. Never '-delete': that is an alias of
-            # '-recreate', which deletes the release *and its tag* and creates an
-            # empty one. A tag with no release yet still gets one created here.
-            ghr -t "${TOKEN}" \
-                -u "${CIRCLE_PROJECT_USERNAME}" \
-                -r "${CIRCLE_PROJECT_REPONAME}" \
-                -c "${CIRCLE_SHA1}" \
-                -replace \
-                "${VERSION}" \
-                dist/release/
+                  # '-replace' reuses an existing release and only re-uploads assets of
+                  # the same name, so hand-written notes, title and prerelease/latest
+                  # flags survive a re-run. Never '-delete': that is an alias of
+                  # '-recreate', which deletes the release *and its tag* and creates an
+                  # empty one. A tag with no release yet still gets one created here.
+                  ghr -t "${TOKEN}" \
+                      -u "${CIRCLE_PROJECT_USERNAME}" \
+                      -r "${CIRCLE_PROJECT_REPONAME}" \
+                      -c "${CIRCLE_SHA1}" \
+                      -replace \
+                      "${VERSION}" \
+                      dist/release/
+      - when:
+          condition: << pipeline.parameters.release_rehearsal >>
+          steps:
+            - run:
+                name: "REHEARSAL: check the release assets and the GitHub token"
+                command: |
+                  ls dist/SHA256SUMS.txt > /dev/null
+                  set -- dist/opensysml-*-py3-none-any.whl
+                  if [ ! -f "$1" ] || [ $# -ne 1 ]; then
+                    echo "Error: expected exactly one dist/opensysml-*-py3-none-any.whl"
+                    exit 1
+                  fi
+                  ls dist/grpc/sysml-grpc-* > /dev/null
+                  ls -la dist dist/grpc
+                  TOKEN="${GITHUB_TOKEN:-${GH_TOKEN:-${CIRCLE_TOKEN}}}"
+                  if [ -z "$TOKEN" ]; then
+                    echo "Error: No GitHub token found. Tried GITHUB_TOKEN, GH_TOKEN, CIRCLE_TOKEN"
+                    exit 1
+                  fi
+                  code=$(curl -s -o /tmp/repo.json -w '%{http_code}' \
+                    -H "Authorization: Bearer ${TOKEN}" \
+                    "https://api.github.com/repos/${CIRCLE_PROJECT_USERNAME}/${CIRCLE_PROJECT_REPONAME}")
+                  if [ "$code" != "200" ] || ! grep -Eq '"push": *true' /tmp/repo.json; then
+                    echo "Error: the GitHub token cannot push releases (HTTP $code)."
+                    exit 1
+                  fi
+                  echo "ok: the release assets are present and the token can push releases"
+      - rehearsal-skip:
+          what: "ghr (the GitHub release)"
 
 workflows:
   version: 2
@@ -2297,13 +2464,18 @@ workflows:
   # Build and release on tags. The suite runs here too: a tag can point at any
   # commit, so a release is only published from a revision proven green. One tag
   # publishes the binaries and every published client, at the same version.
+  # Branch pushes are kept out by the `when` below, not by job filters, so a
+  # release_rehearsal run can run the same jobs on a branch; the jobs still
+  # need a tag filter, because CircleCI runs no job on a tag without one.
   release:
+    when:
+      or:
+        - << pipeline.parameters.release_rehearsal >>
+        - matches: {pattern: "^v.*", value: << pipeline.git.tag >>}
     jobs:
       - go-static:
           name: Go static checks
           filters: &release-tags
-            branches:
-              ignore: /.*/
             tags:
               only: /^v.*/
       - go-race-test:

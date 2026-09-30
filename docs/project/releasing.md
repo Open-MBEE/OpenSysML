@@ -90,6 +90,47 @@ Then check the release-facing text:
   to it, per CONTRIBUTING.md), and no compliance row claims more than the implementation does. Count first-level subtests:
   a case that registers sub-subtests, like `variant_connection_per_owner`, otherwise counts twice.
 
+### Rehearsing the release
+
+The `release` workflow also runs on a branch — `release/X.Y.Z` — when the
+boolean pipeline parameter `release_rehearsal` is true. Every job runs with
+every pre-upload check live: the suite, the version lockstep, the registry
+availability checks, the credential checks, the npm `whoami`, the GitHub and
+Central token probes, the GPG key import and test-sign, the npm packs,
+`cargo package` and the Maven build-and-sign. Only the irreversible commands
+are skipped: cosign keyless signing and attestation (which write to the public
+Rekor log), `ghr` (the GitHub release), `twine upload`, `npm publish`,
+`mvn deploy` and `cargo publish`. A rehearsal exports a stand-in `CIRCLE_TAG`
+from `_version.py` before any step reads it, so the version bumps must already
+be on the branch.
+
+Trigger it from the CircleCI UI with *Trigger pipeline*: choose the release
+branch for both the config and the checkout source, then add the boolean
+parameter `release_rehearsal` = true. Or by API:
+
+```bash
+curl -X POST "https://circleci.com/api/v2/project/<project-slug>/pipeline/run" \
+  -H "Circle-Token: $CCI_TOKEN" -H 'Content-Type: application/json' \
+  -d '{"definition_id": "<pipeline definition id>",
+       "config": {"branch": "release/X.Y.Z"},
+       "checkout": {"branch": "release/X.Y.Z"},
+       "parameters": {"release_rehearsal": true}}'
+```
+
+The project slug and the pipeline definition id are under *Project Settings →
+Project Setup*. Whoever triggers it must be authorized for all four contexts
+(`PyPI`, `npm`, `Maven Central`, `crates.io`), because the same jobs run with
+the same contexts. The built binaries are kept only as the pipeline's CircleCI
+artifacts; nothing reaches a registry or a GitHub release.
+
+A green rehearsal proves the tag will not fail on builds, tests, version
+lockstep, registry availability, credential presence, npm/Central/GitHub
+token auth, the GPG key and passphrase with real Maven signing, npm packing,
+or `cargo package`. It cannot prove the PyPI and crates.io token validity (no
+read-only check exists for either), cosign keyless signing (skipped because it
+writes to Rekor), the uploads themselves, Central publish permission beyond
+token auth, or a version someone publishes between the rehearsal and the tag.
+
 ## The release branch
 
 Day-to-day work merges into `develop`; `main` carries releases only (see
@@ -158,7 +199,8 @@ tag, merge back into `develop`.
 ## Tagging
 
 The tag is the version: CircleCI passes `CIRCLE_TAG` to the build as
-`VERSION`, so `sysml --version` reports it.
+`VERSION`, so `sysml --version` reports it. Rehearse first — see
+[Rehearsing the release](#rehearsing-the-release).
 
 ```bash
 git checkout main && git pull
