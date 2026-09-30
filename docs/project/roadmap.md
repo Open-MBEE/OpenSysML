@@ -328,13 +328,13 @@ proof.
 Each has a publish path and a worked example the tests run, and none has ever been
 published: all three now ship from the core `v*` tag's `release`
 workflow (`publish-npm`, with a granular npm token already in the `npm` context;
-`publish-maven`, with its credentials already set as project environment
-variables; `publish-crates`, with the crates.io token as the
-`CARGO_REGISTRY_TOKEN` project environment variable, once set). The
+`publish-maven`, with its credentials already in the `Maven Central` context;
+`publish-crates`, with the crates.io token in the `crates.io` context, all
+restricted to a security group). The
 Java package name already moved to `org.openmbee.opensysml`, the DNS-verified
 namespace; what remains before a first publish is the `org.openmbee` namespace
-verification, the public key on a keyserver and the crates.io token, if not yet
-done. These are account gates like R4, not engineering.
+verification and the public key on a keyserver, if not yet done. These are
+account gates like R4, not engineering.
 
 ## R3 — Homebrew: install it on a real Mac
 

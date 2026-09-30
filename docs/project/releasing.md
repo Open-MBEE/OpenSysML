@@ -1203,16 +1203,17 @@ tagged and is no longer used. **Nothing has been published yet.**
 
 ### What a maintainer must obtain first
 
-None of these can be provisioned from a checkout. The key and the token are
-**project environment variables** of the OpenSysML project (Project Settings →
-Environment Variables): `CENTRAL_TOKEN_USERNAME`, `CENTRAL_TOKEN_PASSWORD`,
-`GPG_PRIVATE_KEY` and `GPG_PASSPHRASE`. Unlike the PyPI and npm tokens they are
-not in a restricted context, so every job of the project can read them; to
-restrict them later, move them into a context restricted to a security group
-(see [what the job needs](#what-the-job-needs)) and add a `context:` line to
-the `publish-maven` entry in the `release` workflow. The signing key in place
-is a freshly generated one with a two-year expiry, so the rotation note below
-applies within two years.
+None of these can be provisioned from a checkout. The key and the token live
+in the restricted context **`Maven Central`** (Organization Settings →
+Contexts — a context reference is matched exactly, so the case has to match),
+which holds `CENTRAL_TOKEN_USERNAME`, `CENTRAL_TOKEN_PASSWORD`,
+`GPG_PRIVATE_KEY` and `GPG_PASSPHRASE`, set up like the PyPI and npm contexts
+(see [what the job needs](#what-the-job-needs)). Contexts restricted to a
+security group admit only their members, so whoever pushes the tag must be
+allowed to use all of them — `PyPI`, `npm`, `Maven Central` and `crates.io` —
+or the job fails as unauthorized before anything runs. The signing key in
+place is a freshly generated one with a two-year expiry, so the rotation note
+below applies within two years.
 
 1. **A verified namespace.** Register `org.openmbee` at
    [central.sonatype.com](https://central.sonatype.com/) → *Namespaces* → *Add
@@ -1228,7 +1229,7 @@ applies within two years.
    gpg --keyserver keys.openpgp.org --send-keys <KEY_ID>
    ```
 
-   The private key and its passphrase are the project variables
+   The private key and its passphrase are the context's
    `GPG_PRIVATE_KEY` (ASCII-armoured, `gpg --export-secret-keys --armor`) and
    `GPG_PASSPHRASE`.
    The job test-signs before anything uploads, so an expired key or a wrong
@@ -1238,9 +1239,9 @@ applies within two years.
    `GPG_PASSPHRASE` to match. Signatures already published stay verifiable.
 3. **Portal tokens.** Central portal → *View Account* → *Generate User Token*
    gives a username/password pair for a `<server>` with `<id>central`, the
-   project variables `CENTRAL_TOKEN_USERNAME`/`CENTRAL_TOKEN_PASSWORD`, written
+   context's `CENTRAL_TOKEN_USERNAME`/`CENTRAL_TOKEN_PASSWORD`, written
    into `~/.m2/settings.xml` by the job. A token can be revoked and regenerated
-   in the portal and then replaced in the project variables.
+   in the portal and then replaced in the context.
 
 ### The version
 
@@ -1352,14 +1353,12 @@ it followed are gone.
 ### What a maintainer must obtain first
 
 A crates.io API token with the publish-new/publish-update scopes — scoped to
-the `opensysml` crate alone once it exists — stored as the
-`CARGO_REGISTRY_TOKEN` **project environment variable** of the OpenSysML
-project (Project Settings → Environment Variables). Like the Maven credentials,
-it is not in a restricted context, so every job of the project can read it; to
-restrict it later, move it into a context restricted to a security group and
-add a `context:` line to the `publish-crates` entry in the `release` workflow
-(see [What the job needs](#what-the-job-needs) for how a restricted context is
-set up). A token can be given an expiry at creation; rotate it before one
+the `opensysml` crate alone once it exists — stored as `CARGO_REGISTRY_TOKEN`
+in the restricted context **`crates.io`** (Organization Settings → Contexts —
+the name is matched exactly, lower-case included), set up like the PyPI, npm
+and `Maven Central` contexts (see [what the job needs](#what-the-job-needs)).
+Whoever pushes the tag must be allowed to use all of them, as the Java section
+above notes. A token can be given an expiry at creation; rotate it before one
 lapses — crates.io refuses an expired token at the publish step, and nothing
 is published.
 
