@@ -733,6 +733,51 @@ func TestConvertImageSidecarIsTheModel(t *testing.T) {
 	}
 }
 
+// TestConvertModelOutputIsAnInput a model of several files is not written
+// over one of them, whether -o names the file or a link to it.
+func TestConvertModelOutputIsAnInput(t *testing.T) {
+	binary := buildCLI(t)
+	dir := t.TempDir()
+	a := filepath.Join(dir, "a.sysml")
+	b := filepath.Join(dir, "b.sysml")
+	sources := map[string]string{a: "package A;\n", b: "package B { import A::*; }\n"}
+	write := func(t *testing.T) {
+		for path, src := range sources {
+			if err := os.WriteFile(path, []byte(src), 0o644); err != nil {
+				t.Fatal(err)
+			}
+		}
+	}
+	write(t)
+	link := filepath.Join(dir, "link.sysml")
+	if err := os.Symlink(b, link); err != nil {
+		t.Skip(err)
+	}
+	for name, out := range map[string]string{"first input": a, "second input": b, "link to an input": link} {
+		t.Run(name, func(t *testing.T) {
+			write(t)
+			res := runCommand(t, exec.Command(binary, a, b, "-convert", "ttl", "-o", out))
+			if res.status == 0 || !strings.Contains(res.stderr, "would replace") {
+				t.Errorf("-o at an input's path: status %d, stderr:\n%s", res.status, res.stderr)
+			}
+			for path, src := range sources {
+				if got, err := os.ReadFile(path); err != nil || string(got) != src {
+					t.Errorf("%s was replaced (%v):\n%s", path, err, got)
+				}
+			}
+		})
+	}
+	write(t)
+	beside := filepath.Join(dir, "model.ttl")
+	res := runCommand(t, exec.Command(binary, a, b, "-convert", "ttl", "-o", beside))
+	if res.status != 0 {
+		t.Fatalf("-o beside the inputs: status %d, stderr:\n%s", res.status, res.stderr)
+	}
+	if _, err := os.Stat(beside); err != nil {
+		t.Error(err)
+	}
+}
+
 // TestConvertModelFailureKeepsImages a migration whose model cannot be saved
 // leaves the images beside the previous model as they were: the model and its
 // images are committed only once every one of them is written.
