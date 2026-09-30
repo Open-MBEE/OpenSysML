@@ -157,6 +157,7 @@ exclude_docs: |
   project/errata-overlay.md
   project/oosem-library.md
   project/mosa-library.md
+  project/statemachines-library.md
 
 nav:
   - Documentation: README.md

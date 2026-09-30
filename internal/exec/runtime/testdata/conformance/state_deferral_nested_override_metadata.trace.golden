@@ -1,0 +1,7 @@
+exit: inner
+enter: seen
+transition: inner -> seen (event: accept Continue)
+exit: seen
+exit: outer
+enter: done
+transition: seen -> done (event: accept Finish)

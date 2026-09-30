@@ -238,12 +238,12 @@ returned over the service yet.
 | State, composite State, Region | `state`; the regions of an orthogonal state are sub-states of a `parallel` state | mapped |
 | State with `submachine` | `state s : SubMachineDef;` — the referenced state machine's own `state def`, not inlined | mapped |
 | Pseudostate initial, FinalState | `entry; then s;`, `done` | mapped |
-| Pseudostate choice, junction | `junction x;` / `choice x;` — a transient node the guarded transitions leave at once | mapped; under `-strict`, refused as unmapped: `junction <name>;` / `choice <name>;` is an OpenSysML extension |
+| Pseudostate choice, junction | `#StateMachines::junction state x;` / `#StateMachines::choice state x;` — the StateMachines library's metadata spellings, which need the `private import StateMachines::*;` the migration writes into the enclosing package — a transient node the guarded transitions leave at once | mapped |
 | Pseudostate fork, join | `fork x;` / `join x;` — the transitions out of a fork enter the states of several regions of a `parallel` state, those into a join leave them | mapped |
-| Pseudostate shallowHistory, deepHistory | `history x;` / `deep history x;` in the composite state; a transition targeting it re-enters the substate (the innermost substates) active when the state was last left, the history's own outgoing transition being its default | mapped; under `-strict`, refused as unmapped: `history <name>;` / `deep history <name>;` is an OpenSysML extension |
+| Pseudostate shallowHistory, deepHistory | `#StateMachines::shallowHistory state x;` / `#StateMachines::deepHistory state x;` in the composite state; a transition targeting it re-enters the substate (the innermost substates) active when the state was last left, the history's own outgoing transition being its default | mapped |
 | Pseudostate entryPoint, exitPoint on a state machine | a `state` of the submachine's `state def`; a transition into an entry point continues by the entry point's own transition, a transition out of an exit point leaves the submachine state | mapped |
-| Pseudostate entryPoint on a composite State (`State.connectionPoint`) | `junction x;` of the state, a transition into it written `then Work.x` by path; the runtime runs the state's entry behavior, then the junction's outgoing transition, then the target's entries, in one run-to-completion step. One whose outgoing transitions each start a different orthogonal region is `fork x;`; one no transition leaves is the state's default entry, and the transition is written to the state | mapped; under `-strict`, the junction form is refused as unmapped: `junction <name>;` is an OpenSysML extension (the fork and default-entry forms are standard and stay) |
-| Pseudostate exitPoint on a composite State | `junction x;` of the state, a transition out of it written `first Work.x` by path; the runtime runs the transition into it (its source's exits, its effect), the state's exit behavior, then the outgoing transition. One reached from several orthogonal regions is `join x;`, left through when every region's transition has fired. A connection point a tool lists among a region's vertices belongs to the state all the same; a region listing nothing else is skipped, not written as a region of a `parallel` state | mapped; under `-strict`, the junction form is refused as unmapped: `junction <name>;` is an OpenSysML extension (the join form is standard and stays) |
+| Pseudostate entryPoint on a composite State (`State.connectionPoint`) | a `#StateMachines::junction state x;` of the state, a transition into it written `then Work.x` by path; the runtime runs the state's entry behavior, then the junction's outgoing transition, then the target's entries, in one run-to-completion step. One whose outgoing transitions each start a different orthogonal region is `fork x;`; one no transition leaves is the state's default entry, and the transition is written to the state | mapped |
+| Pseudostate exitPoint on a composite State | a `#StateMachines::junction state x;` of the state, a transition out of it written `first Work.x` by path; the runtime runs the transition into it (its source's exits, its effect), the state's exit behavior, then the outgoing transition. One reached from several orthogonal regions is `join x;`, left through when every region's transition has fired. A connection point a tool lists among a region's vertices belongs to the state all the same; a region listing nothing else is skipped, not written as a region of a `parallel` state | mapped |
 | Entry point leading straight to an exit point of the same state, back to the state itself, out of the state, into a history pseudostate or to no target, or whose outgoing transition has a trigger, or several of whose outgoing transitions start the same region; an exit point reached from outside its state, one no transition leaves or whose outgoing transition has a trigger, leads back to the state or into it, into a history pseudostate or to no target, or one several regions reach that is also reached twice from one region, from the state's own local transition, or from a pseudostate; a connection point route into a history pseudostate | refused with the shape named | unmapped |
 | Pseudostate exitPoint on a region, terminate | a transition into it is written to `done` | approximated |
 | ConnectionPointReference on a submachine state | the transition is written to `s.<entryPoint>` / from `s.<exitPoint>`, the submachine's state named by its path | mapped |
@@ -263,7 +263,7 @@ returned over the service yet.
 | State `deferrableTrigger` on a SignalEvent, the state having an unguarded completion transition | the annotation and a comment: the accept loop that would keep the signal never completes, so the completion transition would never fire | **unmapped** |
 | State `deferrableTrigger` on a SignalEvent, the state having an internal transition | the standard encoding; the self transition the internal one becomes exits and re-enters the state, so the exit action sends the kept occurrences to self and the restarted accept loop keeps them again | approximated (the note names the transition) |
 | State `deferrableTrigger` on a SignalEvent, the state having only guarded completion transitions | the standard encoding; the accept loop never completes, so the completion transition never fires and the state leaves by triggered transitions alone | approximated |
-| State `deferrableTrigger` on a SignalEvent a transition out of the state accepts without a guard, the transition leading into a `choice` or `junction` pseudostate, or into a vertex the migration refuses | only a transition the migration writes takes the signal: the default migration writes the pseudostate and the transition, so the transition wins as above; `-strict` refuses both, so the deferral keeps the route | approximated (the note names the transition where it wins) |
+| State `deferrableTrigger` on a SignalEvent a transition out of the state accepts without a guard, the transition leading into a `choice` or `junction` pseudostate, or into a vertex the migration refuses | only a transition the migration writes takes the signal: the migration writes the pseudostate and the transition in both modes, so the transition wins as above; a transition to a refused vertex takes none, so the deferral keeps the route | approximated (the note names the transition where it wins) |
 | Internal transition (`kind = internal`) | a self transition of the state; faithful when the state has no entry, exit or do behavior and no substates (re-entry is not observable), otherwise the exit and entry run where v1 stayed in the state; one without a trigger is a comment, as a self transition would fire again on every re-entry | mapped / approximated / **unmapped** |
 | `deferrableTrigger` on any other event | comment | **unmapped** — no v2 form |
 | State `stateInvariant` | comment in the state's body quoting the constraint; the state is written with a body so the comment has a place | **unmapped** — no v2 form |
@@ -1185,13 +1185,17 @@ innermost common ancestor and names the far end by its dotted path —
 the compound transition v1 meant, exiting and entering the enclosing states along the way; a
 local transition from a composite state into its own substate has no v2 form that stays inside
 the state, so it is written external and reported as running the exit and entry behaviors. The
-pseudostates are written as the v2 nodes of the same name: `junction`/`choice` for the guarded
-chains, `fork`/`join` to enter and leave the regions of an orthogonal state, `history`/`deep
-history` to re-enter what was active when the state was last left. An entry or exit point of a
+pseudostates are written as their StateMachines metadata spellings: `#StateMachines::junction
+state`/`#StateMachines::choice state` for the guarded chains, `fork`/`join` to enter and leave
+the regions of an orthogonal state, `#StateMachines::shallowHistory
+state`/`#StateMachines::deepHistory state` to re-enter what was active when the state was last
+left — qualified by the package name so a member named `junction` or `choice` cannot shadow
+the metadata, and `private import StateMachines::*;` is added to each package that holds one.
+An entry or exit point of a
 state machine is a `state` of its `state def` whose own transition continues into the machine,
 and a submachine state's connection point references address them by path,
 `then Cell.warmStart;` / `first Cell.spent then Idle;`. An entry or exit point of a composite
-state (UML `State.connectionPoint`) is a `junction` of that state — its transient node, so a
+state (UML `State.connectionPoint`) is a `#StateMachines::junction state` of that state — its transient node, so a
 transition in from outside, `then Work.start;`, runs the state's entry behavior, then the
 junction's own transition and the target's entries in the same step, and a transition out,
 `first Work.leave then Idle;`, runs the inner transition's exits and effect, the state's exit
@@ -1786,17 +1790,15 @@ without a model — is refused with an error naming the reason rather than migra
 
 A migration under `-strict` writes only notation a pinned SysML v2 production admits, so the
 output analyses clean under [strict conformance](../guide/03-command-line.md#strict-conformance)
-and carries nothing an interchange partner could not read: a construct whose only v2 form is an
-OpenSysML extension — a `choice`, `junction`, `shallowHistory` or `deepHistory` pseudostate,
-or an entry or exit point of a composite state that would be written as a junction — is
-refused and reported **unmapped** with the note `… is an OpenSysML extension with no SysML v2
-production, which a strict migration does not write`, and a transition to or from it is refused
-rather than written to an undeclared name. A `deferrableTrigger` is written in standard
-notation in both modes (next section); `-strict` changes only which transitions count as
-accepting the deferred signal, since a transition it refuses takes none. The standard forms
-stay: `fork`, `join`, an entry point's default entry and a machine's connection points are
-written as before. The default migration writes the pseudostate extensions, which the runtime
-executes and the validator reports as a warning.
+and carries nothing an interchange partner could not read. The `choice`, `junction`,
+`shallowHistory` and `deepHistory` pseudostates are written
+`#StateMachines::<kind> state x;` — qualified so a member named like the metadata cannot
+shadow it — with `private import StateMachines::*;` added to each package holding one,
+under `-strict` the same as by default, and a `deferrableTrigger` is written in the
+standard notation described under [Deferred signals](#deferred-signals) in both modes,
+its deferred signal named by the `@MigrationMetadata::DeferredEvent` annotation. What a
+strict migration still refuses is whatever has no standard v2 form at all; a transition to
+or from an unmapped vertex is refused rather than written to an undeclared name.
 
 To check strict output against the pinned pilot implementation, validate it together with the
 whole OpenSysML library directory, `.kerml` files included (`RandomFunctions`, which migrated

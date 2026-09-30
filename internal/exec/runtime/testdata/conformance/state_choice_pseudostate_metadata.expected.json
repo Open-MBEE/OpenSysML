@@ -1,0 +1,11 @@
+{
+	"type": "state",
+	"libraries": true,
+	"finalState": "done",
+	"outputs": {
+		"mode": {
+			"type": "String",
+			"value": "cooling"
+		}
+	}
+}

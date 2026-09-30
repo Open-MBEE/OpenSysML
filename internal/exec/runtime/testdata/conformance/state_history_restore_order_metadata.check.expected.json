@@ -1,0 +1,18 @@
+{
+	"verdict": "divergent",
+	"divergent": {
+		"log": [
+			"\"l2(entry) r2(entry) l2(exit) r2(exit) l2(entry) r2(entry) \"",
+			"\"l2(entry) r2(entry) l2(exit) r2(exit) r2(entry) l2(entry) \"",
+			"\"l2(entry) r2(entry) r2(exit) l2(exit) l2(entry) r2(entry) \"",
+			"\"l2(entry) r2(entry) r2(exit) l2(exit) r2(entry) l2(entry) \"",
+			"\"r2(entry) l2(entry) l2(exit) r2(exit) l2(entry) r2(entry) \"",
+			"\"r2(entry) l2(entry) l2(exit) r2(exit) r2(entry) l2(entry) \"",
+			"\"r2(entry) l2(entry) r2(exit) l2(exit) l2(entry) r2(entry) \"",
+			"\"r2(entry) l2(entry) r2(exit) l2(exit) r2(entry) l2(entry) \""
+		]
+	},
+	"agreed": {
+		"finalState": "l2+r2"
+	}
+}

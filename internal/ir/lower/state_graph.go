@@ -838,6 +838,22 @@ func collectVertices(graph *StateGraph, members []ast.Node, scope *symbols.Scope
 	}
 	for _, member := range members {
 		actual := unwrapMembership(member)
+		// A `#choice state`/history/junction usage is a pseudostate declared as
+		// metadata, never a region of a parallel body.
+		if usage, ok := actual.(*ast.Usage); ok {
+			if kind, annotated := graph.pseudostateKindOf(usage, scope); annotated {
+				ps := pseudostateFromUsage(usage, kind)
+				graph.copyInherited(ps, usage, scope)
+				graph.addPseudostate(ps, scope)
+				continue
+			}
+			if graph.deferredRefOf(usage, scope) {
+				// The machine's own body has no state to defer for: an event
+				// deferred there would be retained for the whole run and never
+				// redelivered.
+				return fmt.Errorf("defer must be declared inside a state, not in the state machine body")
+			}
+		}
 		if parallel && isParallelRegionMember(actual) {
 			continue
 		}
@@ -979,8 +995,20 @@ func (g *StateGraph) stateless(region *ast.StateRegion) bool {
 	if g.RegionState[region] == nil {
 		return false
 	}
+	scope := g.declaredIn[region]
 	for _, member := range region.States {
-		if isParallelRegionMember(unwrapMembership(member)) {
+		actual := unwrapMembership(member)
+		// A metadata pseudostate or deferred reference is no substate, however
+		// the usage carrying it is spelled.
+		if usage, ok := actual.(*ast.Usage); ok {
+			if _, annotated := g.pseudostateKindOf(usage, scope); annotated {
+				continue
+			}
+			if g.deferredRefOf(usage, scope) {
+				continue
+			}
+		}
+		if isParallelRegionMember(actual) {
 			return false
 		}
 	}
@@ -1033,6 +1061,19 @@ func collectRegionStates(graph *StateGraph, region *ast.StateRegion, parent *ast
 			state.NodeSpan = n.NodeSpan
 			graph.declOf[state] = n
 		case *ast.Usage:
+			if kind, annotated := graph.pseudostateKindOf(n, scope); annotated {
+				ps := pseudostateFromUsage(n, kind)
+				graph.copyInherited(ps, n, scope)
+				graph.addPseudostate(ps, scope)
+				if parent != nil {
+					graph.PseudostateOwner[ps] = parent
+				}
+				continue
+			}
+			if graph.deferredRefOf(n, scope) {
+				// A region is not a state: only a state can retain an event.
+				return fmt.Errorf("defer must be declared inside a state, not in a region body")
+			}
 			if IsTerminateUsage(n) {
 				graph.addTerminate(n, scope, parent)
 			}
@@ -1120,6 +1161,16 @@ func (g *StateGraph) parallelRegions(members []inheritedMember, parent *ast.Stat
 	regions := make([]*ast.StateRegion, 0)
 	for _, member := range members {
 		actual := unwrapMembership(member.node)
+		// A metadata pseudostate or deferred reference is owned by the parallel
+		// state itself; it is no region however the usage is spelled.
+		if usage, ok := actual.(*ast.Usage); ok {
+			if _, annotated := g.pseudostateKindOf(usage, member.scope); annotated {
+				continue
+			}
+			if g.deferredRefOf(usage, member.scope) {
+				continue
+			}
+		}
 		// Only state substates become regions; the members a parallel state may own
 		// itself are collected with the rest of its body.
 		if !isParallelRegionMember(actual) {
@@ -1565,7 +1616,7 @@ func lowerTransitionMember(graph *StateGraph, member *ast.TransitionMember, body
 			return nil, err
 		}
 		vertex, ok := graph.findVertex(decl)
-		if !ok || !IsStateSource(decl) {
+		if !ok || !IsStateSource(vertex) {
 			state := graph.findStateDecl(decl)
 			return nil, &TransitionSourceError{Source: decl, Region: state != nil && graph.HiddenRegionOf[state] != nil}
 		}
@@ -1932,7 +1983,25 @@ func collectSuccessionEdge(graph *StateGraph, n *ast.SuccessionEdge, body transi
 		return nil
 	}
 
-	// `succession first start then off;` out of a named entry action says the same.
+	// `entry; #deferred ref : Ping; then off;` sequences from the entry
+	// subaction the ref interrupts, as `entry; then off;` does.
+	if sourceVertex == nil {
+		if prev := graph.deferredChainSource(n, body, scope); prev != nil {
+			if isEntrySubaction(prev) {
+				if targetVertex == nil {
+					return nil
+				}
+				target, ok := targetVertex.(*ast.StateNode)
+				if !ok {
+					return &EntryTransitionTargetError{Target: targetVertex}
+				}
+				graph.addEntryTransition(entryOwner, &EntryTransition{Decl: n, Target: target, Scope: scope})
+				return nil
+			}
+			sourceVertex, _ = graph.findVertex(prev)
+		}
+	}
+
 	if sourceVertex == nil {
 		starts, err := graph.startsAt(n, nil, body, n.Source, n.Target)
 		if err != nil || starts {

@@ -1,0 +1,6 @@
+exit: start
+enter: working
+transition: start -> working
+exit: working
+enter: done
+transition: working -> done (event: accept Stop)
