@@ -731,7 +731,14 @@ func (d *decoder) build() ([]*element, error) {
 		order []*element
 		roots []*element
 	)
+	stubs, err := d.libraryStubs()
+	if err != nil {
+		return nil, err
+	}
 	for _, subject := range d.graph.Subjects() {
+		if stubs[subject.Value] {
+			continue
+		}
 		if d.isMembership(subject) {
 			if err := d.readMembership(subject); err != nil {
 				return nil, err
@@ -739,7 +746,7 @@ func (d *decoder) build() ([]*element, error) {
 		}
 	}
 	for _, subject := range d.graph.Subjects() {
-		if d.isMembership(subject) || d.isExpressionNode(subject) || d.isFilterPackageNode(subject) {
+		if stubs[subject.Value] || d.isMembership(subject) || d.isExpressionNode(subject) || d.isFilterPackageNode(subject) {
 			// A node of an expression graph belongs to the declaration that holds
 			// the expression, not to an element of its own; so does a filter package.
 			continue
@@ -1217,6 +1224,50 @@ func (d *decoder) referencedElement(iri string) (*element, error) {
 		}
 	}
 	return target, nil
+}
+
+// libraryStubs finds the subjects that name a standard library element the
+// graph references (sysml:isLibraryElement, and no owner in the graph): they
+// are references into the bundled library, not declarations, so they are not
+// written back. Each one's qualified name must be the one the library gives its
+// id, and a membership one must own such an element; a stub the library does
+// not know, or names otherwise, is refused rather than trusted.
+func (d *decoder) libraryStubs() (map[string]bool, error) {
+	stubs := map[string]bool{}
+	for _, subject := range d.graph.Subjects() {
+		if !LibraryReference(d.graph, subject) {
+			continue
+		}
+		id := rdf.LocalName(subject.Value)
+		if stated, ok := d.graph.Lexical(subject, rdf.SysML+pElementID); ok {
+			id = stated
+		}
+		if member, ok := d.graph.Object(subject, rdf.SysML+pMemberElement); ok {
+			if lexical, ok := d.graph.Lexical(member, rdf.SysML+pIsLibraryElement); !ok || lexical != "true" {
+				return nil, &UnsupportedError{
+					What: fmt.Sprintf("the library membership <%s>", subject.Value),
+					Note: "its memberElement is no library element, and a library membership owns one",
+				}
+			}
+			stubs[subject.Value] = true
+			continue
+		}
+		lib, ok := d.libraryElement(subject.Value, id)
+		if !ok {
+			return nil, &UnsupportedError{
+				What: fmt.Sprintf("the library element <%s>", subject.Value),
+				Note: fmt.Sprintf("it is marked sysml:isLibraryElement, but the bundled standard library has no element with id %q", id),
+			}
+		}
+		if stated, ok := d.graph.Lexical(subject, rdf.SysML+pQualifiedName); ok && stated != lib.qname {
+			return nil, &UnsupportedError{
+				What: fmt.Sprintf("the library element <%s>", subject.Value),
+				Note: fmt.Sprintf("the graph names it %s, but the bundled standard library gives id %q to %s", stated, id, lib.qname),
+			}
+		}
+		stubs[subject.Value] = true
+	}
+	return stubs, nil
 }
 
 // libraryElement is the standard library element whose normative id a reference

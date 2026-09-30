@@ -20,6 +20,7 @@ import (
 // Property names in the SysML vocabulary.
 const (
 	pDeclaredName      = "declaredName"
+	pIsLibraryElement  = "isLibraryElement"
 	pDeclaredShortName = "declaredShortName"
 	pQualifiedName     = "qualifiedName"
 	pElementID         = "elementId"
@@ -398,6 +399,7 @@ func (e *encoder) encodeDocument(root *ast.RootNamespace) error {
 	if e.idErr != nil {
 		return e.idErr
 	}
+	e.libraryNames()
 	e.sourceText()
 	if err := rdf.AnnotateCollections(e.graph); err != nil {
 		return err
@@ -483,6 +485,9 @@ func newEncoderOver(file *source.SourceFile, root *ast.RootNamespace, form IDFor
 }
 
 type encoder struct {
+	// libraryRefs are the standard library elements the document links to, by
+	// subject IRI, so the graph can name the ones it references.
+	libraryRefs map[string]libraryRef
 	// minted lists the subjects minted for this document's declarations, which a
 	// model of several documents checks no other document declares too.
 	minted []mintedSubject
@@ -646,6 +651,84 @@ func (e *encoder) importedMembership(name *ast.QualifiedName) rdf.Term {
 	return rdf.String(qualifiedText(name))
 }
 
+// libraryRef is a standard library element the document links to: its
+// declaration, qualified name and normative subject, and the subject of its
+// owning membership where the norm fixes one.
+type libraryRef struct {
+	node                ast.Node
+	fqn                 string
+	subject, membership rdf.Term
+}
+
+// libraryNames states, for each standard library element the graph references,
+// what the graph cannot otherwise say about it: its metaclass and qualified
+// name, marked isLibraryElement (KerML Element::isLibraryElement), so a reader
+// without the library can name what a normative id stands for. The library
+// itself is not exported: the element's members, relationships and owner stay
+// in the library. A library membership the graph references (an import of a
+// library member) is stated as the OwningMembership of that element.
+func (e *encoder) libraryNames() {
+	if len(e.libraryRefs) == 0 {
+		return
+	}
+	referenced := map[string]bool{}
+	for _, t := range e.graph.Triples() {
+		if t.Object.IsIRI() {
+			referenced[t.Object.Value] = true
+		}
+	}
+	subjects := make([]string, 0, len(e.libraryRefs))
+	for iri := range e.libraryRefs {
+		subjects = append(subjects, iri)
+	}
+	slices.Sort(subjects)
+	named := map[string]bool{}
+	// name states ref's element, reporting whether it is named in the graph.
+	name := func(ref libraryRef) bool {
+		if done, seen := named[ref.subject.Value]; seen {
+			return done
+		}
+		named[ref.subject.Value] = false
+		metaclass := declaredMetaclass(ref.node)
+		switch n := ref.node.(type) {
+		case *ast.Package:
+			// `standard library package` (KerML 1.0 § 8.3.4.13.3 LibraryPackage).
+			metaclass = mPackage
+			if n.IsLibrary {
+				metaclass = mLibraryPackage
+			}
+		case *ast.Alias:
+			// An alias is a Membership, which the graph names by the membership
+			// it is rather than as an element.
+			return false
+		}
+		if metaclass == "" {
+			return false
+		}
+		named[ref.subject.Value] = true
+		e.graph.Add(ref.subject, rdf.IRI(rdf.RDFType), e.sysml(metaclass))
+		e.graph.Add(ref.subject, e.sysml(pElementID), rdf.String(rdf.LocalName(ref.subject.Value)))
+		e.graph.Add(ref.subject, e.sysml(pQualifiedName), rdf.String(ref.fqn))
+		if declared, _ := declaredNameAndMembers(ref.node); declared != "" {
+			e.graph.Add(ref.subject, e.sysml(pDeclaredName), rdf.String(declared))
+		}
+		e.graph.Add(ref.subject, e.sysml(pIsLibraryElement), rdf.Bool(true))
+		return true
+	}
+	for _, iri := range subjects {
+		ref := e.libraryRefs[iri]
+		if referenced[iri] {
+			name(ref)
+		}
+		if ref.membership.Value != "" && referenced[ref.membership.Value] && name(ref) {
+			e.graph.Add(ref.membership, rdf.IRI(rdf.RDFType), e.sysml(mOwningMembership))
+			e.graph.Add(ref.membership, e.sysml(pElementID), rdf.String(rdf.LocalName(ref.membership.Value)))
+			e.graph.Add(ref.membership, e.sysml(pMemberElement), ref.subject)
+			e.graph.Add(ref.membership, e.sysml(pIsLibraryElement), rdf.Bool(true))
+		}
+	}
+}
+
 // claimLibrary reserves the IRIs of a library element the document links to,
 // and of its owning membership, so no element declared here lands on them.
 func (e *encoder) claimLibrary(node ast.Node, fqn string) {
@@ -656,6 +739,14 @@ func (e *encoder) claimLibrary(node ast.Node, fqn string) {
 			e.ids.owningMembershipOf(node, subject).Value, fqn + "'s owning membership",
 		})
 	}
+	if e.libraryRefs == nil {
+		e.libraryRefs = map[string]libraryRef{}
+	}
+	ref := libraryRef{node: node, fqn: fqn, subject: subject}
+	if e.ids.normativeMembership(node) {
+		ref.membership = e.ids.owningMembershipOf(node, subject)
+	}
+	e.libraryRefs[subject.Value] = ref
 	for _, c := range claims {
 		if prior, taken := e.claim(c.iri, c.standsFor); taken && e.idErr == nil {
 			e.idErr = &UnsupportedError{

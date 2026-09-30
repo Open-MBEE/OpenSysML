@@ -87,7 +87,7 @@ var libraryDone = ast.QualifiedNameOf("Actions", "Action", "done")
 
 // libraryReference is the subject of a standard library element named from
 // the global scope, or its name when no library is loaded.
-func (e *encoder) libraryReference(name *ast.QualifiedName) rdf.Term {
+func (e *encoder) LibraryReference(name *ast.QualifiedName) rdf.Term {
 	if decl, fqn, ok := e.linked(e.res.ResolveQualified(nil, name)); ok {
 		return e.ids.subjectForNode(decl, fqn)
 	}
@@ -138,7 +138,7 @@ func (e *encoder) encodeBehavior(node ast.Node, head func(rdf.Term), subject rdf
 		// `done;` is a Membership of the library's Actions::Action::done.
 		head(rdf.SysMLTerm(mMembership))
 		e.graph.Add(subject, e.sysx(xDeclaredKeyword), rdf.String("done"))
-		e.graph.Add(subject, e.sysml(pMemberElement), e.libraryReference(libraryDone))
+		e.graph.Add(subject, e.sysml(pMemberElement), e.LibraryReference(libraryDone))
 		return true, nil
 
 	case *ast.ForkNode:
@@ -232,7 +232,7 @@ func (e *encoder) encodeBehavior(node ast.Node, head func(rdf.Term), subject rdf
 			} else if _, done := n.TargetMember.(*ast.FinalNode); done {
 				// `then done;` targets the library's Actions::Action::done, the
 				// same end `succession first x then done;` states outright.
-				target.targetTerm = e.libraryReference(libraryDone)
+				target.targetTerm = e.LibraryReference(libraryDone)
 			} else if n.TargetMember != nil {
 				if fqn, ok := e.fqn[n.TargetMember]; ok {
 					target.targetTerm = e.ids.subjectForNode(n.TargetMember, fqn)
@@ -672,7 +672,7 @@ func (e *encoder) edgeEnds(subject rdf.Term, node ast.Node, owner string, src, t
 			if _, done := end.end.member.(*ast.FinalNode); done {
 				// `then done;` reaches the library's Actions::Action::done
 				// feature, which an explicit succession end names outright.
-				e.graph.Add(subject, e.sysml(end.feature), e.libraryReference(libraryDone))
+				e.graph.Add(subject, e.sysml(end.feature), e.LibraryReference(libraryDone))
 				continue
 			}
 			fqn, ok := e.fqn[end.end.member]

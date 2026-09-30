@@ -47,6 +47,11 @@ func countTable(t *testing.T, data []byte) map[string]int {
 	}
 	table := map[string]int{}
 	for _, object := range objects {
+		// A library element the export names (isLibraryElement) is a reference
+		// into the library, not an element of the model.
+		if object["isLibraryElement"] == true {
+			continue
+		}
 		if typ, ok := object["@type"].(string); ok {
 			table[typ]++
 		}

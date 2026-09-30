@@ -229,12 +229,23 @@ func unownedElements(graph *rdf.Graph) []rdf.Term {
 		if !strings.HasPrefix(subject.Value, rdf.Element) || !strings.HasPrefix(graph.Type(subject), rdf.SysML) {
 			continue
 		}
-		if hasOwner(graph, subject) {
+		// A library element the graph names is owned in the library, not
+		// here: the document's namespace does not take it.
+		if hasOwner(graph, subject) || LibraryReference(graph, subject) {
 			continue
 		}
 		roots = append(roots, subject)
 	}
 	return roots
+}
+
+// LibraryReference reports whether subject names a standard library element
+// (or its owning membership) the graph references rather than declares: marked
+// sysml:isLibraryElement, with no owner in the graph.
+func LibraryReference(graph *rdf.Graph, subject rdf.Term) bool {
+	lexical, ok := graph.Lexical(subject, rdf.SysML+pIsLibraryElement)
+	return ok && lexical == "true" && !hasOwner(graph, subject) &&
+		!graph.HasProperty(subject, rdf.SysML+pMembershipOwningNamespace)
 }
 
 func hasOwner(graph *rdf.Graph, subject rdf.Term) bool {

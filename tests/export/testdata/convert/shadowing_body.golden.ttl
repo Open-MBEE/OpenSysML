@@ -717,3 +717,17 @@ expr:ShadowBody__Sensor__highs_pvalue_pa0_presult_pa0_preferent
     sysml:memberElement "value" ;
     sysml:owner expr:ShadowBody__Sensor__highs_pvalue_pa0_presult_pa0 ;
     sysml:owningRelatedElement expr:ShadowBody__Sensor__highs_pvalue_pa0_presult_pa0 .
+
+<urn:sysmlv2:element:1ed3f10f-1391-5a27-a5bd-233a70b01328>
+    a sysml:LibraryPackage ;
+    sysml:elementId "1ed3f10f-1391-5a27-a5bd-233a70b01328" ;
+    sysml:qualifiedName "ControlFunctions" ;
+    sysml:declaredName "ControlFunctions" ;
+    sysml:isLibraryElement "true"^^xsd:boolean .
+
+elmt:d2b84130-4d51-5e96-9ce6-150b5bd9ff56
+    a sysml:Function ;
+    sysml:elementId "d2b84130-4d51-5e96-9ce6-150b5bd9ff56" ;
+    sysml:qualifiedName "ControlFunctions::select" ;
+    sysml:declaredName "select" ;
+    sysml:isLibraryElement "true"^^xsd:boolean .
