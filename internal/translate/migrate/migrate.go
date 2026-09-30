@@ -1296,43 +1296,13 @@ func (m *migration) generals(e *sysmlv1.Element, cat category) (string, string) 
 	var refs []string
 	var notes []string
 	for _, g := range e.Owned("generalization") {
-		target := m.model.Ref(g, "general")
-		if target == nil {
-			notes = append(notes, "a generalization refers to nothing in the document")
-			continue
+		ref, note := m.general(e, g, cat)
+		if ref != "" {
+			refs = append(refs, ref)
 		}
-		if sv := m.scalarValue(target); sv != "" {
-			refs = append(refs, scalarValuesPrefix+sv)
-			continue
+		if note != "" {
+			notes = append(notes, note)
 		}
-		if cat == catAttributeDef && m.quantityValueType(target) {
-			refs = append(refs, "ScalarValues::Real")
-			notes = append(notes, "the quantity value type "+qualifiedName(target)+" is written as ScalarValues::Real; its unit is not kept")
-			continue
-		}
-		if isMonteCarloAnalysis(target) {
-			notes = append(notes, m.monteCarloGeneralization(e))
-			continue
-		}
-		if target.IsProxy() || m.isLibrary(target) {
-			notes = append(notes, "generalization of library type "+qualifiedName(target)+" is not written")
-			continue
-		}
-		if cat == catView && m.conforms(g) {
-			// The view's body satisfies the viewpoint instead.
-			continue
-		}
-		if tc, _ := m.classify(target); tc != cat {
-			notes = append(notes, "generalization of "+qualifiedName(target)+" is not written: it becomes a "+tc.keyword()+", not a "+cat.keyword())
-			continue
-		}
-		if m.asUsage[target] {
-			if !m.asUsage[e] {
-				notes = append(notes, "generalization of "+qualifiedName(target)+" is not written: it is written as an action usage, which no definition specializes")
-			}
-			continue
-		}
-		refs = append(refs, m.ref(target, m.scope))
 	}
 	refs = append(refs, m.realizedGenerals(e, refs)...)
 	if cat == catAttributeDef && len(refs) == 0 && quantity(e) {
@@ -1340,24 +1310,67 @@ func (m *migration) generals(e *sysmlv1.Element, cat category) (string, string) 
 		notes = append(notes, "a value type with a unit or quantity kind and no base type is written as ScalarValues::Real")
 	}
 	if cat == catIndividualDef || cat == catValue {
-		var written []*sysmlv1.Element
-		if cat == catValue {
-			_, written, _ = m.instanceClassifiers(e)
-		} else {
-			var note string
-			_, written, note = m.individualClassifiers(e)
-			if note != "" {
-				notes = append(notes, note)
-			}
-		}
-		for _, c := range written {
-			refs = append(refs, m.ref(c, m.scope))
-		}
-		if d := m.dangling(e, "classifier"); d != "" {
-			notes = append(notes, d)
-		}
+		classified, classifiedNotes := m.instanceGenerals(e, cat)
+		refs = append(refs, classified...)
+		notes = append(notes, classifiedNotes...)
 	}
 	return strings.Join(refs, ", "), strings.Join(notes, "; ")
+}
+
+// general is the specialization one generalization of e is written as, and
+// the note on why it is written as it is or not at all.
+func (m *migration) general(e, g *sysmlv1.Element, cat category) (ref, note string) {
+	target := m.model.Ref(g, "general")
+	if target == nil {
+		return "", "a generalization refers to nothing in the document"
+	}
+	if sv := m.scalarValue(target); sv != "" {
+		return scalarValuesPrefix + sv, ""
+	}
+	if cat == catAttributeDef && m.quantityValueType(target) {
+		return "ScalarValues::Real", "the quantity value type " + qualifiedName(target) + " is written as ScalarValues::Real; its unit is not kept"
+	}
+	if isMonteCarloAnalysis(target) {
+		return "", m.monteCarloGeneralization(e)
+	}
+	if target.IsProxy() || m.isLibrary(target) {
+		return "", "generalization of library type " + qualifiedName(target) + " is not written"
+	}
+	if cat == catView && m.conforms(g) {
+		// The view's body satisfies the viewpoint instead.
+		return "", ""
+	}
+	if tc, _ := m.classify(target); tc != cat {
+		return "", "generalization of " + qualifiedName(target) + " is not written: it becomes a " + tc.keyword() + ", not a " + cat.keyword()
+	}
+	if m.asUsage[target] {
+		if !m.asUsage[e] {
+			return "", "generalization of " + qualifiedName(target) + " is not written: it is written as an action usage, which no definition specializes"
+		}
+		return "", ""
+	}
+	return m.ref(target, m.scope), ""
+}
+
+// instanceGenerals is the classifiers an individual def or value specializes.
+func (m *migration) instanceGenerals(e *sysmlv1.Element, cat category) (refs, notes []string) {
+	var written []*sysmlv1.Element
+	if cat == catValue {
+		_, written, _ = m.instanceClassifiers(e)
+	} else {
+		var note string
+		_, written, note = m.individualClassifiers(e)
+		if note != "" {
+			notes = append(notes, note)
+		}
+	}
+	for _, c := range written {
+		refs = append(refs, m.ref(c, m.scope))
+	}
+	if d := m.dangling(e, "classifier"); d != "" {
+		notes = append(notes, d)
+	}
+	return refs, notes
 }
 
 // dangling notes the references of e in the given roles that resolve to
@@ -2425,31 +2438,8 @@ func (m *migration) written(e *sysmlv1.Element) bool {
 	if m.isBuried(e) {
 		return false
 	}
-	switch e.Type {
-	case "Property", "Port", "EnumerationLiteral":
-		return m.written(e.Parent)
-	case "Parameter":
-		p := e.Parent
-		if p == nil || (p.Type != "Operation" && !isBehavior(p)) {
-			return false
-		}
-		return m.written(p) || inlinedBehavior(p) && hasActionForm(p)
-	case "Association":
-		// An anonymous association is a connection def only when it owns every
-		// end and is not written as an actor of a use case instead.
-		return e.Name != "" || m.actors[e] == nil && ownsEveryEnd(e, m.model.Refs(e, "memberEnd"))
-	case "Connector":
-		// A connector is a member of its owner only when named and its ends
-		// resolve; an anonymous `connect a to b;` and one bound into a
-		// MonteCarlo analysis def name nothing a view can expose.
-		if m.nameOf(e) == "" {
-			return false
-		}
-		if stat, _, _ := m.monteCarloEnd(e); stat != "" {
-			return false
-		}
-		_, note := m.connectorEnds(e, e.Parent)
-		return note == ""
+	if written, decided := m.memberWritten(e); decided {
+		return written
 	}
 	if act, _ := m.nodeGraph(e); act != nil {
 		return m.reaches(act)
@@ -2462,6 +2452,43 @@ func (m *migration) written(e *sysmlv1.Element) bool {
 	}
 	cat, _ := m.classify(e)
 	return cat.keyword() != ""
+}
+
+// memberWritten decides whether a feature, parameter, association or
+// connector becomes a v2 element that can be referred to; decided is false
+// for any other element.
+func (m *migration) memberWritten(e *sysmlv1.Element) (written, decided bool) {
+	switch e.Type {
+	case "Property", "Port", "EnumerationLiteral":
+		return m.written(e.Parent), true
+	case "Parameter":
+		p := e.Parent
+		if p == nil || (p.Type != "Operation" && !isBehavior(p)) {
+			return false, true
+		}
+		return m.written(p) || inlinedBehavior(p) && hasActionForm(p), true
+	case "Association":
+		// An anonymous association is a connection def only when it owns every
+		// end and is not written as an actor of a use case instead.
+		return e.Name != "" || m.actors[e] == nil && ownsEveryEnd(e, m.model.Refs(e, "memberEnd")), true
+	case "Connector":
+		return m.connectorWritten(e), true
+	}
+	return false, false
+}
+
+// connectorWritten reports a connector that is a member of its owner: named,
+// with ends that resolve; an anonymous `connect a to b;` and one bound into a
+// MonteCarlo analysis def name nothing a view can expose.
+func (m *migration) connectorWritten(e *sysmlv1.Element) bool {
+	if m.nameOf(e) == "" {
+		return false
+	}
+	if stat, _, _ := m.monteCarloEnd(e); stat != "" {
+		return false
+	}
+	_, note := m.connectorEnds(e, e.Parent)
+	return note == ""
 }
 
 // isBuried reports whether a package or classifier above e is left out of the

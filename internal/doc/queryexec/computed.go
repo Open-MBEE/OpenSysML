@@ -287,34 +287,48 @@ func (e *executor) rowMemberValues(
 		}
 	}
 	if isElement {
-		segments, ok := parseMemberPath(path)
-		if ok && len(segments) > 1 {
-			values, present, member, err := e.memberPathValues(sym, segments)
-			if err != nil {
-				return nil, e.unevaluable(expression, path, row, err)
-			}
-			if present {
-				tracker.record(path, true)
-				if member != nil {
-					rng := e.context.Model.GoverningMultiplicityOf(member)
-					if rng.Upper.Known && !rng.Upper.Infinite && int64(len(values)) > rng.Upper.Value {
-						failure := e.columnError(
-							ErrorColumnCardinality, column, row, expression.Origin(), "", strconv.Itoa(len(values)))
-						failure.Expected = multiplicityString(queryplan.Multiplicity{
-							Lower:         rng.Lower.Value,
-							Upper:         rng.Upper.Value,
-							UpperInfinite: rng.Upper.Infinite,
-							Known:         rng.Lower.Known && rng.Upper.Known,
-						})
-						return nil, failure
-					}
-				}
-				return values, nil
-			}
+		values, present, err := e.memberPathRowValues(expression, column, sym, row, path)
+		if err != nil {
+			return nil, err
+		}
+		if present {
+			tracker.record(path, true)
+			return values, nil
 		}
 	}
 	tracker.record(path, false)
 	return nil, nil
+}
+
+// memberPathRowValues walks a member path of two or more segments from an
+// element row, refusing more values than the member's multiplicity admits.
+func (e *executor) memberPathRowValues(expression queryplan.Expression, column string, sym *symbols.Symbol, row Value, path string) ([]Value, bool, error) {
+	segments, ok := parseMemberPath(path)
+	if !ok || len(segments) <= 1 {
+		return nil, false, nil
+	}
+	values, present, member, err := e.memberPathValues(sym, segments)
+	if err != nil {
+		return nil, false, e.unevaluable(expression, path, row, err)
+	}
+	if !present {
+		return nil, false, nil
+	}
+	if member != nil {
+		rng := e.context.Model.GoverningMultiplicityOf(member)
+		if rng.Upper.Known && !rng.Upper.Infinite && int64(len(values)) > rng.Upper.Value {
+			failure := e.columnError(
+				ErrorColumnCardinality, column, row, expression.Origin(), "", strconv.Itoa(len(values)))
+			failure.Expected = multiplicityString(queryplan.Multiplicity{
+				Lower:         rng.Lower.Value,
+				Upper:         rng.Upper.Value,
+				UpperInfinite: rng.Upper.Infinite,
+				Known:         rng.Lower.Known && rng.Upper.Known,
+			})
+			return nil, false, failure
+		}
+	}
+	return values, true, nil
 }
 
 // objectRowValues reads a declared or metaclass feature of an object row.

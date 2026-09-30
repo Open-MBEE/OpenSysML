@@ -20,6 +20,8 @@ const (
 	streamsSource = "the diagrams' own symbol streams"
 )
 
+const pastedImage = "pasted image"
+
 // layoutSourceName words where v's geometry came from for its layout note.
 func (m *migration) layoutSourceName(src layoutSources) string {
 	switch {
@@ -310,7 +312,7 @@ func picturesClause(p *pictures, form viewForm) []string {
 				files = append(files, pic.location)
 			}
 		}
-		clause := plural(n, "pasted image") + " written as " + strings.Join(files, ", ")
+		clause := plural(n, pastedImage) + " written as " + strings.Join(files, ", ")
 		if !form.drawsPictures() {
 			clause += ", which a view rendered " + form.rendering + " does not draw"
 		}
@@ -321,14 +323,14 @@ func picturesClause(p *pictures, form viewForm) []string {
 				over = append(over, plural(under, "element symbol"))
 			}
 			if covered > 0 {
-				over = append(over, plural(covered, "pasted image"))
+				over = append(over, plural(covered, pastedImage))
 			}
-			clauses = append(clauses, plural(sandwiched, "pasted image")+" drawn under the "+strings.Join(over, " and ")+
+			clauses = append(clauses, plural(sandwiched, pastedImage)+" drawn under the "+strings.Join(over, " and ")+
 				" it lay over, since symbols drawn after it lie over it")
 		}
 	}
 	if n := len(p.lost); n > 0 {
-		clauses = append(clauses, plural(n, "pasted image")+" not written: "+strings.Join(p.lost, " and "))
+		clauses = append(clauses, plural(n, pastedImage)+" not written: "+strings.Join(p.lost, " and "))
 	}
 	return clauses
 }
@@ -351,10 +353,60 @@ func (m *migration) viewDressing(v *view, form viewForm, prefix string, x exposu
 	if !d.Drawn {
 		return viewDressing{}
 	}
-	s := m.layoutSummary
-	var dress viewDressing
-	var styles, styled, notes, anchored, freed int
-	dropped := map[string]int{}
+	r := &dresser{m: m, v: v, prefix: prefix, x: x, refOf: refOf,
+		dropped: map[string]int{}, anchors: noteAnchors(d, m), styledRefs: map[string]bool{}}
+	pics := m.pastedPictures(d)
+	drawn := map[*sysmlv1.Symbol]bool{}
+	for _, p := range pics.drawn {
+		drawn[p.sym] = true
+		r.dress.lines = append(r.dress.lines, m.pictureLine(v.host, prefix, p, x))
+	}
+	for _, sym := range d.Symbols {
+		switch {
+		case sym.Hidden || sym.Class == "DiagramFrame" || sym.ElementID == d.ID || drawn[sym]:
+		case isNoteSymbol(sym, m):
+			r.note(sym)
+		case sym.Free():
+			if sym.Class != "NoteAnchor" && sym.Parent == nil {
+				r.dropped[sym.Class]++
+			}
+		default:
+			r.style(sym)
+		}
+	}
+	r.dress.pictures, r.dress.lost = len(pics.drawn), len(pics.lost)
+	if form.drawsPictures() {
+		r.dress.underlaid, _, _ = pics.underlaid()
+	} else {
+		r.dress.pictures, r.dress.undrawn = 0, r.dress.pictures
+	}
+	r.summarize(m.layoutSummary)
+	r.dress.notes = append(r.dress.notes, picturesClause(pics, form)...)
+	r.dress.notes = append(r.dress.notes, r.clauses()...)
+	return r.dress
+}
+
+// dresser accumulates a view's dressing and the counts its notes and the
+// layout summary report.
+type dresser struct {
+	m          *migration
+	v          *view
+	prefix     string
+	x          exposures
+	refOf      func(string) string
+	dress      viewDressing
+	styles     int
+	styled     int
+	notes      int
+	anchored   int
+	freed      int
+	dropped    map[string]int
+	anchors    map[*sysmlv1.Symbol][]string
+	styledRefs map[string]bool
+}
+
+// noteAnchors is, per note symbol, the elements the NoteAnchor paths tie it to.
+func noteAnchors(d *sysmlv1.Diagram, m *migration) map[*sysmlv1.Symbol][]string {
 	symbolOf := map[string]*sysmlv1.Symbol{}
 	for _, sym := range d.Symbols {
 		if sym.ID != "" {
@@ -377,106 +429,98 @@ func (m *migration) viewDressing(v *view, form viewForm, prefix string, x exposu
 			anchors[note] = append(anchors[note], target.ElementID)
 		}
 	}
-	pics := m.pastedPictures(d)
-	drawn := map[*sysmlv1.Symbol]bool{}
-	for _, p := range pics.drawn {
-		drawn[p.sym] = true
-		dress.lines = append(dress.lines, m.pictureLine(v.host, prefix, p, x))
+	return anchors
+}
+
+// note writes a bounded note symbol with text, anchored to the elements it refers to.
+func (r *dresser) note(sym *sysmlv1.Symbol) {
+	if sym.Bounds == nil {
+		return
 	}
-	styledRefs := map[string]bool{}
-	for _, sym := range d.Symbols {
-		switch {
-		case sym.Hidden || sym.Class == "DiagramFrame" || sym.ElementID == d.ID || drawn[sym]:
-		case isNoteSymbol(sym, m):
-			if sym.Bounds == nil {
-				continue
-			}
-			text := noteText(sym, m)
-			if text == "" {
-				continue
-			}
-			notes++
-			var refs []string
-			for _, id := range anchors[sym] {
-				if ref := refOf(id); ref != "" && !slices.Contains(refs, ref) {
-					refs = append(refs, ref)
-				}
-			}
-			body := m.noteBody(v.host, prefix, x, text, sym.Bounds)
-			if len(refs) == 0 {
-				if len(anchors[sym]) > 0 {
-					freed++
-				}
-				dress.lines = append(dress.lines, "@"+prefix+"Note "+body)
-				continue
-			}
-			anchored++
-			dress.lines = append(dress.lines, "metadata "+prefix+"Note about "+strings.Join(refs, ", ")+" "+body)
-		case sym.Free():
-			if sym.Class != "NoteAnchor" && sym.Parent == nil {
-				dropped[sym.Class]++
-			}
-		default:
-			if !styledSymbol(sym) {
-				continue
-			}
-			styles++
-			ref := refOf(sym.ElementID)
-			if ref == "" || styledRefs[ref] {
-				continue
-			}
-			styledRefs[ref] = true
-			styled++
-			if sym.Style.NoFill && sym.Style.Fill == "" {
-				s.Unsupported["USE_FILL_COLOR"]++
-			}
-			if line := m.styleLine(v.host, prefix, ref, sym.Style, x); line != "" {
-				dress.lines = append(dress.lines, line)
-			}
+	text := noteText(sym, r.m)
+	if text == "" {
+		return
+	}
+	r.notes++
+	var refs []string
+	for _, id := range r.anchors[sym] {
+		if ref := r.refOf(id); ref != "" && !slices.Contains(refs, ref) {
+			refs = append(refs, ref)
 		}
 	}
-	dress.pictures, dress.lost = len(pics.drawn), len(pics.lost)
-	if form.drawsPictures() {
-		dress.underlaid, _, _ = pics.underlaid()
-	} else {
-		dress.pictures, dress.undrawn = 0, dress.pictures
+	body := r.m.noteBody(r.v.host, r.prefix, r.x, text, sym.Bounds)
+	if len(refs) == 0 {
+		if len(r.anchors[sym]) > 0 {
+			r.freed++
+		}
+		r.dress.lines = append(r.dress.lines, "@"+r.prefix+"Note "+body)
+		return
 	}
-	s.Pictures += dress.pictures + dress.undrawn + dress.lost
-	s.PicturesWritten += dress.pictures
-	s.PicturesUnderlaid += dress.underlaid
-	s.PicturesUndrawn += dress.undrawn
-	s.Styles += styles
-	s.StylesWritten += styled
-	s.Notes += notes
-	s.NotesAnchored += anchored
-	s.NotesFreed += freed
-	for class, n := range dropped {
+	r.anchored++
+	r.dress.lines = append(r.dress.lines, "metadata "+r.prefix+"Note about "+strings.Join(refs, ", ")+" "+body)
+}
+
+// style writes the Style of a symbol drawn in its own look, once per element.
+func (r *dresser) style(sym *sysmlv1.Symbol) {
+	if !styledSymbol(sym) {
+		return
+	}
+	r.styles++
+	ref := r.refOf(sym.ElementID)
+	if ref == "" || r.styledRefs[ref] {
+		return
+	}
+	r.styledRefs[ref] = true
+	r.styled++
+	if sym.Style.NoFill && sym.Style.Fill == "" {
+		r.m.layoutSummary.Unsupported["USE_FILL_COLOR"]++
+	}
+	if line := r.m.styleLine(r.v.host, r.prefix, ref, sym.Style, r.x); line != "" {
+		r.dress.lines = append(r.dress.lines, line)
+	}
+}
+
+func (r *dresser) summarize(s *LayoutSummary) {
+	s.Pictures += r.dress.pictures + r.dress.undrawn + r.dress.lost
+	s.PicturesWritten += r.dress.pictures
+	s.PicturesUnderlaid += r.dress.underlaid
+	s.PicturesUndrawn += r.dress.undrawn
+	s.Styles += r.styles
+	s.StylesWritten += r.styled
+	s.Notes += r.notes
+	s.NotesAnchored += r.anchored
+	s.NotesFreed += r.freed
+	for class, n := range r.dropped {
 		s.Dropped[class] += n
 	}
-	dress.notes = append(dress.notes, picturesClause(pics, form)...)
-	if styles > 0 {
-		dress.notes = append(dress.notes, fmt.Sprintf("%d of %d symbols drawn in their own colours or font styled", styled, styles))
+}
+
+// clauses reports the styles, notes and free symbols the view dressed or left.
+func (r *dresser) clauses() []string {
+	var notes []string
+	if r.styles > 0 {
+		notes = append(notes, fmt.Sprintf("%d of %d symbols drawn in their own colours or font styled", r.styled, r.styles))
 	}
-	if notes > 0 {
-		clause := fmt.Sprintf("%d notes written, %d anchored", notes, anchored)
-		if freed > 0 {
-			clause += fmt.Sprintf(", %d left free of an anchor the view does not lay out", freed)
+	if r.notes > 0 {
+		clause := fmt.Sprintf("%d notes written, %d anchored", r.notes, r.anchored)
+		if r.freed > 0 {
+			clause += fmt.Sprintf(", %d left free of an anchor the view does not lay out", r.freed)
 		}
-		dress.notes = append(dress.notes, clause)
+		notes = append(notes, clause)
 	}
-	if len(dropped) > 0 {
-		classes := make([]string, 0, len(dropped))
-		for class := range dropped {
+	if len(r.dropped) > 0 {
+		classes := make([]string, 0, len(r.dropped))
+		for class := range r.dropped {
 			classes = append(classes, class)
 		}
 		sort.Strings(classes)
 		var parts []string
 		for _, class := range classes {
-			parts = append(parts, fmt.Sprintf("%d %s", dropped[class], class))
+			parts = append(parts, fmt.Sprintf("%d %s", r.dropped[class], class))
 		}
-		dress.notes = append(dress.notes, "free symbols not represented: "+strings.Join(parts, ", "))
+		notes = append(notes, "free symbols not represented: "+strings.Join(parts, ", "))
 	}
-	return dress
+	return notes
 }
 
 // notesShown reports whether d's stream draws el, a comment with a body, as a note

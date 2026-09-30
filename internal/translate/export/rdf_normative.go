@@ -26,6 +26,7 @@ const (
 	mSpecialization                    = "Specialization"
 	mRedefinition                      = "Redefinition"
 	mFlowEnd                           = "FlowEnd"
+	mPayloadFeature                    = "PayloadFeature"
 	mMultiplicityRange                 = "MultiplicityRange"
 	mMembership                        = "Membership"
 	mConjugatedPortDefinition          = "ConjugatedPortDefinition"

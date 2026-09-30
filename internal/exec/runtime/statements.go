@@ -199,22 +199,31 @@ type stmtEngine struct {
 	scratch EvalContext
 	// frameBuf is the frame stack scratch reads, rebuilt by every evalIn.
 	frameBuf []frame
+	// thisOccurrence is host.materializeOccurrence, bound once for every evalIn.
+	thisOccurrence func() (*Instance, error)
 }
 
 // newStmtEngineOver returns an engine running statements against data, which also
 // read outer value maps — the attributes of the enclosing states — innermost last.
 func newStmtEngineOver(ctx *Context, host stmtHost, data frame, outer []map[string]Value) *stmtEngine {
-	return &stmtEngine{ctx: ctx, host: host, env: &stmtEnv{data: data, outer: outer}, activation: ctx.newActivation()}
+	return &stmtEngine{
+		ctx:            ctx,
+		host:           host,
+		env:            &stmtEnv{data: data, outer: outer},
+		activation:     ctx.newActivation(),
+		thisOccurrence: host.materializeOccurrence,
+	}
 }
 
 // newStmtEngineIn returns an engine running statements against data, a frame
 // that shadows the enclosing frames its statements still read, outermost first.
 func newStmtEngineIn(ctx *Context, host stmtHost, data frame, enclosing []frame) *stmtEngine {
 	return &stmtEngine{
-		ctx:        ctx,
-		host:       host,
-		env:        &stmtEnv{data: data, enclosing: enclosing},
-		activation: ctx.newActivation(),
+		ctx:            ctx,
+		host:           host,
+		env:            &stmtEnv{data: data, enclosing: enclosing},
+		activation:     ctx.newActivation(),
+		thisOccurrence: host.materializeOccurrence,
 	}
 }
 
@@ -246,7 +255,7 @@ func (e *stmtEngine) evalIn(scope *symbols.Scope) *EvalContext {
 		scope:          scope,
 		self:           e.host.performer(),
 		occurrence:     e.host.occurrence(),
-		thisOccurrence: e.host.materializeOccurrence,
+		thisOccurrence: e.thisOccurrence,
 		frames:         frames,
 		trace:          e.ctx.trace,
 		inBehaviorBody: true,

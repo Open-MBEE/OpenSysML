@@ -280,7 +280,8 @@ make python-proto
 
 - `binary.py` — locates, downloads and checksum-verifies `sysml-grpc`
 - `connection.py` — gRPC channel, service lifecycle, ownership of services it started
-- `model.py` — a parsed model: root symbol and diagnostics
+- `model.py` — a parsed model: root symbol per document and diagnostics
+- `sources.py` — `SourceDocument`, the documents `parse_sources` parses together as one model
 - `symbol.py` — lazy symbol proxy, fetches children on demand
 - `instance.py` — instantiated object and its feature values
 - `conversion.py` — a written model, its formats (the SysML v1 names `xmi`, `uml` and `mdzip`

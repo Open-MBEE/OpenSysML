@@ -35,10 +35,7 @@ func TestAddTransitionOptionalClauses(t *testing.T) {
 		t.Run(test.name, func(t *testing.T) {
 			model := loadContent(t, "transition.sysml", transitionTestModel)
 			requireClean(t, model)
-			result := applyOne(t, model, AddTransition(
-				"P::S", "start", "idle", "toasting",
-				test.trigger, test.guard, test.effect, false,
-			))
+			result := applyOne(t, model, AddTransition("P::S", Transition{Name: "start", From: "idle", To: "toasting", Trigger: test.trigger, Guard: test.guard, Effect: test.effect}))
 			if !strings.Contains(string(result.Content), "transition start first idle "+test.want+" then toasting;") {
 				t.Fatalf("transition clauses missing:\n%s", result.Content)
 			}
@@ -49,18 +46,14 @@ func TestAddTransitionOptionalClauses(t *testing.T) {
 
 func TestAddTransitionRejectsRepeatedGuardText(t *testing.T) {
 	model := loadContent(t, "transition-repeated-guard.sysml", transitionTestModel)
-	addFailure(t, model, AddTransition(
-		"P::S", "start", "idle", "toasting", "", "true if false", "", false,
-	), FailureInvalidValue)
+	addFailure(t, model, AddTransition("P::S", Transition{Name: "start", From: "idle", To: "toasting", Guard: "true if false"}), FailureInvalidValue)
 }
 
 func TestAddTransitionAcceptsCompoundGuard(t *testing.T) {
 	model := loadContent(t, "transition-compound-guard.sysml",
 		"package P { state def S { attribute x : ScalarValues::Real; attribute y : ScalarValues::Real; state idle; state toasting; } }\n")
 	requireClean(t, model)
-	result := applyOne(t, model, AddTransition(
-		"P::S", "start", "idle", "toasting", "", "x > 0 and y < 1", "", false,
-	))
+	result := applyOne(t, model, AddTransition("P::S", Transition{Name: "start", From: "idle", To: "toasting", Guard: "x > 0 and y < 1"}))
 	if !strings.Contains(string(result.Content),
 		"transition start first idle if x > 0 and y < 1 then toasting;") {
 		t.Fatalf("compound guard missing:\n%s", result.Content)
@@ -72,9 +65,7 @@ func TestAddTransitionPreservesQuotedNames(t *testing.T) {
 	model := loadContent(t, "quoted-transition.sysml",
 		"state def S { state 'waiting room'; state done; }\n")
 	requireClean(t, model)
-	result := applyOne(t, model, AddTransition(
-		"S", "'to done'", "'waiting room'", "done", "", "", "", false,
-	))
+	result := applyOne(t, model, AddTransition("S", Transition{Name: "'to done'", From: "'waiting room'", To: "done"}))
 	if !strings.Contains(string(result.Content),
 		"transition 'to done' first 'waiting room' then done;") {
 		t.Fatalf("quoted transition missing:\n%s", result.Content)
@@ -86,7 +77,7 @@ func TestAddEntryTransition(t *testing.T) {
 	model := loadContent(t, "entry-transition.sysml",
 		"state def S { state idle; }\n")
 	requireClean(t, model)
-	result := applyOne(t, model, AddTransition("S", "", "", "idle", "", "", "", true))
+	result := applyOne(t, model, AddTransition("S", Transition{To: "idle", Initial: true}))
 	if !strings.Contains(string(result.Content), "entry; then idle;") {
 		t.Fatalf("entry transition missing:\n%s", result.Content)
 	}
@@ -105,10 +96,7 @@ func TestAddTransitionRefusesGrammarInjection(t *testing.T) {
 	} {
 		t.Run(test.name, func(t *testing.T) {
 			model := loadContent(t, "transition-injection.sysml", transitionTestModel)
-			addFailure(t, model, AddTransition(
-				"P::S", "", "idle", "toasting",
-				test.trigger, test.guard, "", false,
-			), FailureInvalidValue)
+			addFailure(t, model, AddTransition("P::S", Transition{From: "idle", To: "toasting", Trigger: test.trigger, Guard: test.guard}), FailureInvalidValue)
 		})
 	}
 }
@@ -118,9 +106,9 @@ func TestAddEntryTransitionRefusals(t *testing.T) {
 		name string
 		op   Operation
 	}{
-		{"name", AddTransition("S", "named", "", "idle", "", "", "", true)},
-		{"source", AddTransition("S", "", "idle", "idle", "", "", "", true)},
-		{"trigger", AddTransition("S", "", "", "idle", "CycleStart", "", "", true)},
+		{"name", AddTransition("S", Transition{Name: "named", To: "idle", Initial: true})},
+		{"source", AddTransition("S", Transition{From: "idle", To: "idle", Initial: true})},
+		{"trigger", AddTransition("S", Transition{To: "idle", Trigger: "CycleStart", Initial: true})},
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
@@ -131,35 +119,31 @@ func TestAddEntryTransitionRefusals(t *testing.T) {
 
 	model := loadContent(t, "second-entry.sysml",
 		"state def S { state idle; entry; then idle; }\n")
-	addFailure(t, model, AddTransition("S", "", "", "idle", "", "", "", true), FailureIllegalKind)
+	addFailure(t, model, AddTransition("S", Transition{To: "idle", Initial: true}), FailureIllegalKind)
 }
 
 func TestAddTransitionRequiresStateOwnerAndSysML(t *testing.T) {
 	model := loadContent(t, "transition-owner.sysml", "part def P;\n")
-	addFailure(t, model, AddTransition("P", "", "a", "b", "", "", "", false), FailureIllegalKind)
+	addFailure(t, model, AddTransition("P", Transition{From: "a", To: "b"}), FailureIllegalKind)
 
 	kerml := loadContent(t, "transition-owner.kerml", "package P;\n")
-	addFailure(t, kerml, AddTransition("", "", "a", "b", "", "", "", false), FailureIllegalKind)
+	addFailure(t, kerml, AddTransition("", Transition{From: "a", To: "b"}), FailureIllegalKind)
 }
 
 func TestAddTransitionUnknownTargetIsRefusedByAnalysis(t *testing.T) {
 	model := loadContent(t, "transition-unknown.sysml",
 		"state def S { state idle; }\n")
-	addFailure(t, model, AddTransition("S", "", "idle", "missing", "", "", "", false),
+	addFailure(t, model, AddTransition("S", Transition{From: "idle", To: "missing"}),
 		FailureResultInvalid)
 }
 
 func TestAddTransitionRejectsAnExistingName(t *testing.T) {
 	model := loadContent(t, "transition-name.sysml", transitionTestModel)
-	addFailure(t, model, AddTransition(
-		"P::S", "idle", "idle", "toasting", "", "", "", false,
-	), FailureMemberNameTaken)
+	addFailure(t, model, AddTransition("P::S", Transition{Name: "idle", From: "idle", To: "toasting"}), FailureMemberNameTaken)
 }
 
 func TestAddTransitionRejectsQuotedExistingName(t *testing.T) {
 	model := loadContent(t, "quoted-transition-name.sysml",
 		"state def S { state 'waiting room'; state idle; }\n")
-	addFailure(t, model, AddTransition(
-		"S", "'waiting room'", "idle", "idle", "", "", "", false,
-	), FailureMemberNameTaken)
+	addFailure(t, model, AddTransition("S", Transition{Name: "'waiting room'", From: "idle", To: "idle"}), FailureMemberNameTaken)
 }

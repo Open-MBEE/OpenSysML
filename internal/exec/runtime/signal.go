@@ -417,7 +417,7 @@ func (ctx *Context) postVia(ec *EvalContext, conns []lower.Connection, msg Messa
 	if err != nil {
 		return err
 	}
-	deliveries, own, err := ctx.viaRoutes(ec, conns, send, routed, holder, self, msg, receiver)
+	deliveries, own, err := ctx.viaRoutes(ec, conns, viaPath{send, routed, holder}, self, msg, receiver)
 	if err != nil {
 		return err
 	}
@@ -442,7 +442,15 @@ func (ctx *Context) postVia(ec *EvalContext, conns []lower.Connection, msg Messa
 // viaRoutes gathers the deliveries a `via` send reaches: the sender's own
 // connections, then the holder's performer connections and owner crossings. own
 // is how many of the first are the sender's, for the sender each copy leaves.
-func (ctx *Context) viaRoutes(ec *EvalContext, conns []lower.Connection, send, routed lower.Send, holder, self *Instance, msg Message, receiver string) ([]ownerDelivery, int, error) {
+// viaPath is the way out of a `via` send: the send as written, the same send
+// re-rooted at the holder of its port, and that holder.
+type viaPath struct {
+	send, routed lower.Send
+	holder       *Instance
+}
+
+func (ctx *Context) viaRoutes(ec *EvalContext, conns []lower.Connection, path viaPath, self *Instance, msg Message, receiver string) ([]ownerDelivery, int, error) {
+	send, routed, holder := path.send, path.routed, path.holder
 	typed := receiver != ""
 	own, outbound, typeMismatch, err := ctx.connectedDeliveries(
 		ec, ctx.realizedConnections(conns, self), self, send, msg, typed,

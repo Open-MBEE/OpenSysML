@@ -492,25 +492,7 @@ func (m *migration) classify(e *sysmlv1.Element) (category, string) {
 	case "Extension":
 		return catLibrary, "an extension binds a stereotype to the metaclass it extends; v2 metadata applies to any element"
 	case "Class", "Component":
-		switch {
-		case simulationConfig(e) != nil:
-			return catSimConfig, ""
-		case has(e, requirementStereotypes...):
-			return catRequirementDef, ""
-		case has(e, "ConstraintBlock"):
-			return catConstraintDef, ""
-		case has(e, "InterfaceBlock"):
-			return catPortDef, ""
-		case has(e, "Block"):
-			return catPartDef, ""
-		case has(e, "Stakeholder"):
-			return catPartDef, "a v1 «Stakeholder» is written as a part def"
-		case has(e, "View") || e.DocGenView():
-			return catView, ""
-		case has(e, "Viewpoint"):
-			return catViewpoint, ""
-		}
-		return catPartDef, "a plain UML class without «Block» is written as a part def"
+		return classifyClass(e)
 	case "Actor":
 		return catPartDef, "a UML actor is written as a part def"
 	case "AssociationClass":
@@ -531,32 +513,10 @@ func (m *migration) classify(e *sysmlv1.Element) (category, string) {
 	case "Interface":
 		return catPortDef, "a UML interface is written as a port def"
 	case "InstanceSpecification":
-		if has(e, "Unit", "QuantityKind") {
-			return catUnmapped, "units and quantity kinds are not migrated; use the SI and ISQ libraries"
-		}
-		if len(m.classifiersOf(e)) == 0 {
-			return catUnmapped, joinNotes("an instance specification without a classifier has no v2 form", m.snapshots[e].note)
-		}
-		occurrences, values, note := m.instanceClassifiers(e)
-		switch {
-		case len(occurrences) == 0 && len(values) == 0:
-			return catUnmapped, note
-		case len(occurrences) == 0:
-			return catValue, note
-		}
-		for _, v := range values {
-			note = joinNotes(note, classifierSubject+qualifiedName(v)+" is not written: an individual cannot specialize a value type")
-		}
-		return catIndividualDef, note
+		return m.classifyInstance(e)
 	case "Activity", "OpaqueBehavior", "Interaction", "StateMachine", "FunctionBehavior":
 		if has(e, "TestCase") {
-			if e.Type == "Interaction" {
-				if _, note := m.scenario(e, m.subjectName(e)); note != "" {
-					return catVerificationDef, "the test case's scenario is not migrated: " + note + "; only its verified requirements are"
-				}
-				return catVerificationDef, ""
-			}
-			return catVerificationDef, "the test case's behavior is not migrated; only its verified requirements are"
+			return m.classifyTestCase(e)
 		}
 		return m.classifyBehavior(e)
 	case "Operation":
@@ -571,6 +531,64 @@ func (m *migration) classify(e *sysmlv1.Element) (category, string) {
 		return catUnmapped, m.strayObservation(e)
 	}
 	return catUnmapped, "no v2 form for a UML " + e.Type
+}
+
+// classifyClass decides the definition a UML class or component becomes by
+// the SysML v1 stereotype it carries.
+func classifyClass(e *sysmlv1.Element) (category, string) {
+	switch {
+	case simulationConfig(e) != nil:
+		return catSimConfig, ""
+	case has(e, requirementStereotypes...):
+		return catRequirementDef, ""
+	case has(e, "ConstraintBlock"):
+		return catConstraintDef, ""
+	case has(e, "InterfaceBlock"):
+		return catPortDef, ""
+	case has(e, "Block"):
+		return catPartDef, ""
+	case has(e, "Stakeholder"):
+		return catPartDef, "a v1 «Stakeholder» is written as a part def"
+	case has(e, "View") || e.DocGenView():
+		return catView, ""
+	case has(e, "Viewpoint"):
+		return catViewpoint, ""
+	}
+	return catPartDef, "a plain UML class without «Block» is written as a part def"
+}
+
+// classifyInstance decides whether an instance specification becomes an
+// individual def, a value, or nothing.
+func (m *migration) classifyInstance(e *sysmlv1.Element) (category, string) {
+	if has(e, "Unit", "QuantityKind") {
+		return catUnmapped, "units and quantity kinds are not migrated; use the SI and ISQ libraries"
+	}
+	if len(m.classifiersOf(e)) == 0 {
+		return catUnmapped, joinNotes("an instance specification without a classifier has no v2 form", m.snapshots[e].note)
+	}
+	occurrences, values, note := m.instanceClassifiers(e)
+	switch {
+	case len(occurrences) == 0 && len(values) == 0:
+		return catUnmapped, note
+	case len(occurrences) == 0:
+		return catValue, note
+	}
+	for _, v := range values {
+		note = joinNotes(note, classifierSubject+qualifiedName(v)+" is not written: an individual cannot specialize a value type")
+	}
+	return catIndividualDef, note
+}
+
+// classifyTestCase decides a «TestCase» behavior: a verification def, whose
+// scenario is migrated only from an interaction the writer can read.
+func (m *migration) classifyTestCase(e *sysmlv1.Element) (category, string) {
+	if e.Type != "Interaction" {
+		return catVerificationDef, "the test case's behavior is not migrated; only its verified requirements are"
+	}
+	if _, note := m.scenario(e, m.subjectName(e)); note != "" {
+		return catVerificationDef, "the test case's scenario is not migrated: " + note + "; only its verified requirements are"
+	}
+	return catVerificationDef, ""
 }
 
 // kindOf names the v1 element as its author saw it: its classifying

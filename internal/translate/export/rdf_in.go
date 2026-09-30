@@ -759,10 +759,6 @@ type writing struct {
 // first: they are what tells an owned Expression from an expression node, and
 // what owns an element whose graph states ownership from the membership alone.
 func (d *decoder) build() ([]*element, error) {
-	var (
-		order []*element
-		roots []*element
-	)
 	for _, subject := range d.graph.Subjects() {
 		if d.isMembership(subject) {
 			if err := d.readMembership(subject); err != nil {
@@ -770,67 +766,25 @@ func (d *decoder) build() ([]*element, error) {
 			}
 		}
 	}
+	var order []*element
 	for _, subject := range d.graph.Subjects() {
 		if d.isMembership(subject) || d.isExpressionNode(subject) || d.isFilterPackageNode(subject) {
 			// A node of an expression graph belongs to the declaration that holds
 			// the expression, not to an element of its own; so does a filter package.
 			continue
 		}
-		metaclass := d.metaclass(subject)
-		if metaclass == "" {
-			return nil, &UnsupportedError{
-				What: fmt.Sprintf("the subject <%s>", subject.Value),
-				Note: "it has no rdf:type, so there is no way to tell what to write",
-			}
-		}
-		el := &element{
-			iri:         subject.Value,
-			metaclass:   metaclass,
-			memberIndex: intOf(d.graph, subject, rdf.OpenSysML+xMemberIndex),
-		}
-		el.trailing = !d.graph.HasProperty(subject, rdf.OpenSysML+xMemberIndex) && d.isResultExpression(el)
-		el.qname, _ = d.stringOf(el, rdf.SysML+pQualifiedName)
-		// The identity key. An old graph without sysml:elementId is keyed on
-		// the encoding of its name, which is what its IRIs carry.
-		if id, ok := d.stringOf(el, rdf.SysML+pElementID); ok {
-			el.elementID = id
-		} else {
-			el.elementID = rdf.EncodeElementID(el.qname)
-		}
-		el.declaredID = d.boolOf(el, rdf.OpenSysML+xDeclaredID)
-		el.projectID, _ = d.stringOf(el, rdf.OpenSysML+xProjectID)
-		el.branch, _ = d.stringOf(el, rdf.OpenSysML+xBranch)
-		el.org, _ = d.stringOf(el, rdf.OpenSysML+xOrg)
-		d.byIRI[el.iri] = el
-		if prior, seen := d.byID[el.elementID]; seen && prior != el {
-			d.dupID[el.elementID] = true
-		} else {
-			d.byID[el.elementID] = el
+		el, err := d.readElement(subject)
+		if err != nil {
+			return nil, err
 		}
 		order = append(order, el)
 	}
 	if err := d.checkMembershipEnds(); err != nil {
 		return nil, err
 	}
-	for _, el := range order {
-		parent, err := d.ownerOf(el)
-		if err != nil {
-			return nil, err
-		}
-		if parent != nil && d.transparentRoot(parent) {
-			parent = nil
-		}
-		if parent == nil {
-			roots = append(roots, el)
-			continue
-		}
-		el.owner = parent
-		parent.children = append(parent.children, el)
-		implied, err := d.normativeImplied(el, parent)
-		if err != nil {
-			return nil, err
-		}
-		el.implied = implied
+	roots, err := d.linkOwners(order)
+	if err != nil {
+		return nil, err
 	}
 	for _, el := range order {
 		if el.metaclass == mMembership || el.metaclass == mSuccession {
@@ -863,6 +817,68 @@ func (d *decoder) build() ([]*element, error) {
 		}
 	}
 	return kept, nil
+}
+
+// readElement reads a subject's identity into an element and indexes it.
+func (d *decoder) readElement(subject rdf.Term) (*element, error) {
+	metaclass := d.metaclass(subject)
+	if metaclass == "" {
+		return nil, &UnsupportedError{
+			What: fmt.Sprintf("the subject <%s>", subject.Value),
+			Note: "it has no rdf:type, so there is no way to tell what to write",
+		}
+	}
+	el := &element{
+		iri:         subject.Value,
+		metaclass:   metaclass,
+		memberIndex: intOf(d.graph, subject, rdf.OpenSysML+xMemberIndex),
+	}
+	el.trailing = !d.graph.HasProperty(subject, rdf.OpenSysML+xMemberIndex) && d.isResultExpression(el)
+	el.qname, _ = d.stringOf(el, rdf.SysML+pQualifiedName)
+	// The identity key. An old graph without sysml:elementId is keyed on
+	// the encoding of its name, which is what its IRIs carry.
+	if id, ok := d.stringOf(el, rdf.SysML+pElementID); ok {
+		el.elementID = id
+	} else {
+		el.elementID = rdf.EncodeElementID(el.qname)
+	}
+	el.declaredID = d.boolOf(el, rdf.OpenSysML+xDeclaredID)
+	el.projectID, _ = d.stringOf(el, rdf.OpenSysML+xProjectID)
+	el.branch, _ = d.stringOf(el, rdf.OpenSysML+xBranch)
+	el.org, _ = d.stringOf(el, rdf.OpenSysML+xOrg)
+	d.byIRI[el.iri] = el
+	if prior, seen := d.byID[el.elementID]; seen && prior != el {
+		d.dupID[el.elementID] = true
+	} else {
+		d.byID[el.elementID] = el
+	}
+	return el, nil
+}
+
+// linkOwners links each element to its owner, returning those with none.
+func (d *decoder) linkOwners(order []*element) ([]*element, error) {
+	var roots []*element
+	for _, el := range order {
+		parent, err := d.ownerOf(el)
+		if err != nil {
+			return nil, err
+		}
+		if parent != nil && d.transparentRoot(parent) {
+			parent = nil
+		}
+		if parent == nil {
+			roots = append(roots, el)
+			continue
+		}
+		el.owner = parent
+		parent.children = append(parent.children, el)
+		implied, err := d.normativeImplied(el, parent)
+		if err != nil {
+			return nil, err
+		}
+		el.implied = implied
+	}
+	return roots, nil
 }
 
 // transparentRoot reports whether el is a document wrapper no notation
@@ -1420,7 +1436,14 @@ func (d *decoder) printElement(b *strings.Builder, el *element, depth int) error
 	parallel := d.boolOf(el, rdf.SysML+"isParallel")
 	annotations := d.identityAnnotations(el)
 	if cross := d.ownedCrossFeature(el); cross != nil {
-		about, err := d.crossFeatureAnnotations(cross)
+		about, err := d.headFeatureAnnotations(cross, "cross feature")
+		if err != nil {
+			return err
+		}
+		annotations = append(annotations, about...)
+	}
+	if payload := d.flowPayload(el); payload != nil {
+		about, err := d.headFeatureAnnotations(payload, "payload")
 		if err != nil {
 			return err
 		}
@@ -1487,22 +1510,23 @@ func (d *decoder) identityAnnotations(el *element) []string {
 	return out
 }
 
-// crossFeatureAnnotations writes the identity of a cross feature written in its
-// end's head, which has no place for it, as `about` annotations in the end's body,
-// naming it by its name or, failing that, its short name.
-func (d *decoder) crossFeatureAnnotations(cross *element) ([]string, error) {
-	identity := d.identityOf(cross)
+// headFeatureAnnotations writes the identity of a feature written in its
+// owner's head, which has no place for it — an end's cross feature, a flow's
+// payload — as `about` annotations in the owner's body, naming it by its name
+// or, failing that, its short name. what names the feature in a refusal.
+func (d *decoder) headFeatureAnnotations(feature *element, what string) ([]string, error) {
+	identity := d.identityOf(feature)
 	if len(identity) == 0 {
 		return nil, nil
 	}
-	name, ok := d.stringOf(cross, rdf.SysML+pDeclaredName)
+	name, ok := d.stringOf(feature, rdf.SysML+pDeclaredName)
 	if !ok {
-		name, ok = d.stringOf(cross, rdf.SysML+pDeclaredShortName)
+		name, ok = d.stringOf(feature, rdf.SysML+pDeclaredShortName)
 	}
 	if !ok {
 		return nil, &UnsupportedError{
-			What: fmt.Sprintf("the cross feature <%s>", cross.iri),
-			Note: "its identity is annotated `about` it in the body of the end whose head writes it, and it declares no name for the annotation to say",
+			What: fmt.Sprintf("the %s <%s>", what, feature.iri),
+			Note: "its identity is annotated `about` it in the body of the element whose head writes it, and it declares no name for the annotation to say",
 		}
 	}
 	var out []string
@@ -2281,6 +2305,18 @@ func (d *decoder) usageHead(el *element, kind ast.UsageKind) (string, error) {
 	}
 	if hasValue {
 		head += " " + d.valueOperator(el) + " " + value
+	}
+	// A flow stating no ends still writes its payload after its declaration
+	// (SysML-textual-bnf FlowDeclaration, MessageDeclaration: `of` follows the
+	// value part); one with ends wrote it among them.
+	if !hasEnds && flowMetaclasses[el.metaclass] {
+		payload, err := d.payloadText(el)
+		if err != nil {
+			return "", err
+		}
+		if payload != "" {
+			head += " of " + payload
+		}
 	}
 	return head, nil
 }
@@ -3265,9 +3301,12 @@ func (d *decoder) unwrittenPrefix(el *element) error {
 // but the prefix annotations and the cross feature its head writes.
 func (d *decoder) bodyChildren(el *element) []*element {
 	cross := d.ownedCrossFeature(el)
+	// A flow's payload is written in its head, after `of`; any other payload
+	// feature stays a child, which has no notation and is refused.
+	payload := d.flowPayload(el)
 	var out []*element
 	for _, child := range el.children {
-		if child != cross && !child.implied && d.metadataSigil(child) != "#" {
+		if child != cross && child != payload && !child.implied && d.metadataSigil(child) != "#" {
 			out = append(out, child)
 		}
 	}
@@ -3293,7 +3332,7 @@ func (d *decoder) ownedCrossFeature(el *element) *element {
 
 // crossFeatureWords writes an end's cross feature after `end`: name, multiplicity
 // and specializations, typing spelled `typed by` since `:` there is the end's own.
-// Its identity goes in the end's body (crossFeatureAnnotations); a body of its own has no place.
+// Its identity goes in the end's body (headFeatureAnnotations); a body of its own has no place.
 func (d *decoder) crossFeatureWords(cross *element) ([]string, error) {
 	if len(d.bodyChildren(cross)) > 0 || d.boolOf(cross, rdf.OpenSysML+xHasBody) {
 		return nil, &UnsupportedError{

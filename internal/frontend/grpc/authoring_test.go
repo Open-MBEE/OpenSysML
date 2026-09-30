@@ -44,13 +44,8 @@ func addRequirementConstraintOp(owner, kind, expression, name string) *pb.EditOp
 	}}
 }
 
-func addTransitionOp(owner, name, source, target, trigger, guard, effect string, initial bool) *pb.EditOperation {
-	return &pb.EditOperation{Operation: &pb.EditOperation_AddTransition{
-		AddTransition: &pb.AddTransitionEdit{
-			Owner: owner, Name: name, Source: source, Target: target,
-			Trigger: trigger, Guard: guard, Effect: effect, Initial: initial,
-		},
-	}}
+func addTransitionOp(add *pb.AddTransitionEdit) *pb.EditOperation {
+	return &pb.EditOperation{Operation: &pb.EditOperation_AddTransition{AddTransition: add}}
 }
 
 func addVerifyOp(owner, requirement string) *pb.EditOperation {
@@ -427,7 +422,7 @@ func TestApplyEditsAddTransitionRequiresTransitionAuthoring(t *testing.T) {
 	_, err := srv.ApplyEdits(ctx, &pb.ApplyEditsRequest{
 		ModelHash: hash,
 		Operations: []*pb.EditOperation{
-			addTransitionOp("S", "", "", "idle", "", "", "", true),
+			addTransitionOp(&pb.AddTransitionEdit{Owner: "S", Target: "idle", Initial: true}),
 		},
 	})
 	if connect.CodeOf(err) != connect.CodeUnimplemented ||
@@ -612,7 +607,7 @@ func TestApplyEditsNewAuthoringOperationsRequireDedicatedCapabilities(t *testing
 		{
 			name:       "transition",
 			capability: CapabilityTransitionAuthoring,
-			operation:  addTransitionOp("Demo::S", "", "idle", "idle", "", "", "", false),
+			operation:  addTransitionOp(&pb.AddTransitionEdit{Owner: "Demo::S", Source: "idle", Target: "idle"}),
 		},
 		{
 			name:       "verification objective",
@@ -869,7 +864,7 @@ func TestApplyEditsReferenceAssertionsAndResultBodiesRoundTrip(t *testing.T) {
 	if got := strings.Count(added.Content, "assert c;"); got != 2 {
 		t.Errorf("assert c count = %d, want 2:\n%s", got, added.Content)
 	}
-	if reparsed := mustParsedModel(t, srv, added.Content); reparsed == "" {
+	if mustParsedModel(t, srv, added.Content) == "" {
 		t.Fatal("edited notation did not parse")
 	}
 }
@@ -946,7 +941,7 @@ func TestApplyEditsConstraintBodiesAndStateBehaviorRoundTrip(t *testing.T) {
 			t.Errorf("edited content missing %q:\n%s", want, added.Content)
 		}
 	}
-	if reparsed := mustParsedModel(t, srv, added.Content); reparsed == "" {
+	if mustParsedModel(t, srv, added.Content) == "" {
 		t.Fatal("edited notation did not parse")
 	}
 }

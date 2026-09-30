@@ -263,7 +263,19 @@ func featureOwnedByType(sym *symbols.Symbol) bool {
 // (SysML v2 §7.6.3): what its redefinition chain and the features it
 // subsets declare, the implicit [1..1] where it qualifies, else [0..*].
 func (m *Model) EffectiveParameterRange(sym *symbols.Symbol) Range {
-	return m.EffectiveParameterRangeAlong(m.ParameterRedefinitionChain(sym))
+	if sym == nil {
+		return UnboundedRange()
+	}
+	defer m.own(sym).LeaveDoc()
+	if cached, ok := m.paramRanges[sym]; ok {
+		return cached
+	}
+	r := m.EffectiveParameterRangeAlong(m.ParameterRedefinitionChain(sym))
+	if m.computingRedefinedFeatures == 0 {
+		journal(m, m.paramRanges, sym, sym.Decl)
+		m.paramRanges[sym] = r
+	}
+	return r
 }
 
 // EffectiveParameterRangeAlong is EffectiveParameterRange over an explicit
@@ -273,52 +285,67 @@ func (m *Model) EffectiveParameterRangeAlong(chain []*symbols.Symbol) Range {
 	if len(chain) == 0 {
 		return UnboundedRange()
 	}
-	next := make(map[*symbols.Symbol]*symbols.Symbol, len(chain))
+	w := &rangeWalk{m: m, next: make(map[*symbols.Symbol]*symbols.Symbol, len(chain)), visited: map[*symbols.Symbol]bool{}}
 	for i := 0; i+1 < len(chain); i++ {
-		next[chain[i]] = chain[i+1]
+		w.next[chain[i]] = chain[i+1]
 	}
-	visited := map[*symbols.Symbol]bool{}
-	var rangeOf func(p *symbols.Symbol) (Range, bool)
-	rangeOf = func(p *symbols.Symbol) (Range, bool) {
-		if visited[p] {
-			return Range{}, false
-		}
-		visited[p] = true
-		if r, ok := m.MultiplicityOf(p); ok {
-			return r, true
-		}
-		if m.ImplicitMultiplicityApplies(p) {
-			return AssumedRange(), true
-		}
-		var targets []*symbols.Symbol
-		for _, rel := range RelationshipsOf(p) {
-			if rel == nil || rel.Target == nil || (rel.Kind != ast.RelSubsets && rel.Kind != ast.RelRedefines) {
-				continue
-			}
-			if target := m.RelationshipTarget(p, rel); target != nil {
-				targets = append(targets, target)
-			}
-		}
-		if n, ok := next[p]; ok {
-			targets = append(targets, n)
-		}
-		var acc Range
-		found := false
-		for _, t := range targets {
-			if r, ok := rangeOf(t); ok {
-				if found {
-					acc = acc.Intersect(r)
-				} else {
-					acc, found = r, true
-				}
-			}
-		}
-		return acc, found
-	}
-	if r, ok := rangeOf(chain[0]); ok {
+	if r, ok := w.rangeOf(chain[0]); ok {
 		return r
 	}
 	return UnboundedRange()
+}
+
+// rangeWalk intersects the ranges along a redefinition chain and the features
+// each member subsets or redefines, each visited once.
+type rangeWalk struct {
+	m       *Model
+	next    map[*symbols.Symbol]*symbols.Symbol
+	visited map[*symbols.Symbol]bool
+}
+
+func (w *rangeWalk) rangeOf(p *symbols.Symbol) (Range, bool) {
+	if w.visited[p] {
+		return Range{}, false
+	}
+	w.visited[p] = true
+	if r, ok := w.m.MultiplicityOf(p); ok {
+		return r, true
+	}
+	if w.m.ImplicitMultiplicityApplies(p) {
+		return AssumedRange(), true
+	}
+	var acc Range
+	found := false
+	for _, t := range w.targets(p) {
+		r, ok := w.rangeOf(t)
+		if !ok {
+			continue
+		}
+		if found {
+			acc = acc.Intersect(r)
+		} else {
+			acc, found = r, true
+		}
+	}
+	return acc, found
+}
+
+// targets lists the features p's range is read from: those it subsets or
+// redefines, then the next of the chain.
+func (w *rangeWalk) targets(p *symbols.Symbol) []*symbols.Symbol {
+	var targets []*symbols.Symbol
+	for _, rel := range RelationshipsOf(p) {
+		if rel == nil || rel.Target == nil || (rel.Kind != ast.RelSubsets && rel.Kind != ast.RelRedefines) {
+			continue
+		}
+		if target := w.m.RelationshipTarget(p, rel); target != nil {
+			targets = append(targets, target)
+		}
+	}
+	if n, ok := w.next[p]; ok {
+		targets = append(targets, n)
+	}
+	return targets
 }
 
 // EffectiveMultiplicityOf returns the multiplicity governing a usage symbol: the

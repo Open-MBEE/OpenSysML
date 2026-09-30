@@ -250,6 +250,8 @@ func (r *Renderer) stateNode(state *ast.StateNode, graph *lower.StateGraph, mach
 	return node
 }
 
+const acceptPrefix = "accept "
+
 // bodyOwning is the body a state is declared in, as StateGraph.StartOf names it:
 // its region, else its parent state, else nil for the machine's own body.
 func bodyOwning(graph *lower.StateGraph, state *ast.StateNode) ast.Node {
@@ -381,7 +383,7 @@ func (r *Renderer) triggerLabel(doc string, trigger ast.Node) string {
 		}
 	case *ast.CallEvent:
 		if event.Operation != nil {
-			return "accept " + endName(event.Operation) + callParameters(event.Parameters)
+			return acceptPrefix + endName(event.Operation) + callParameters(event.Parameters)
 		}
 	}
 	if text := r.nodeText(doc, trigger); text != "" {
@@ -716,7 +718,7 @@ func (r *Renderer) acceptText(doc string, accept lower.Accept) string {
 	if accept.SignalType != nil {
 		return endName(accept.SignalType)
 	}
-	return strings.TrimPrefix(r.triggerLabel(doc, accept.Trigger), "accept ")
+	return strings.TrimPrefix(r.triggerLabel(doc, accept.Trigger), acceptPrefix)
 }
 
 // sendText is the message a body sends when the send is all the body does, and

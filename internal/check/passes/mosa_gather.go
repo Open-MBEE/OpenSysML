@@ -104,7 +104,7 @@ func (u *mosaUnion) regather(ctx *Context, g *Gathers, a *mosaAudit, doc string,
 	}
 }
 
-// Contributors implements kit.Contributing: the documents with any MOSA facts.
+// Contributors implements kit.ContributorNamer: the documents with any MOSA facts.
 func (u *mosaUnion) Contributors(name string) ([]string, bool) {
 	if !strings.HasPrefix(name, "\x00mosa/") {
 		return nil, false

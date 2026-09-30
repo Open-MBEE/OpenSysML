@@ -328,6 +328,9 @@ func metaOut(out []string, quit bool, err error) metaResult {
 // metaSessionCommand runs a session-level command, reporting whether the
 // line named one.
 func (s *Session) metaSessionCommand(fields []string, line string) (metaResult, bool) {
+	if result, ok := s.metaCheckCommand(fields); ok {
+		return result, true
+	}
 	switch fields[0] {
 	case "%help":
 		return metaOut(helpText(), false, nil), true
@@ -392,18 +395,6 @@ func (s *Session) metaSessionCommand(fields []string, line string) (metaResult, 
 		return metaOut(s.doEngine(fields[1:]), false, nil), true
 	case "%tool":
 		return metaOut(s.doTool(strings.TrimSpace(strings.TrimPrefix(strings.TrimSpace(line), "%tool")))), true
-	case "%check-diverge":
-		return metaOut(s.doCheckDiverge(fields[1:]), false, nil), true
-	case "%check-property":
-		return metaOut(s.doCheckProperty(fields[1:]), false, nil), true
-	case "%check-input":
-		return metaOut(s.doCheckInput(fields[1:]), false, nil), true
-	case "%check-assume":
-		return metaOut(s.doCheckAssume(fields[1:]), false, nil), true
-	case "%check-witness":
-		return metaOut(s.doCheckWitness(fields[1:]), false, nil), true
-	case "%check-bounds":
-		return metaOut(s.doCheckBounds(fields[1:]), false, nil), true
 	case "%replay":
 		return metaOut(s.doReplay(fields[1:]), false, nil), true
 	case "%search":
@@ -424,6 +415,29 @@ func (s *Session) metaSessionCommand(fields []string, line string) (metaResult, 
 		return metaOut([]string{"goodbye"}, true, nil), true
 	}
 	return metaResult{}, false
+}
+
+// metaCheckCommand answers the %check-* commands, reporting false for any
+// other line.
+func (s *Session) metaCheckCommand(fields []string) (metaResult, bool) {
+	var check func([]string) []string
+	switch fields[0] {
+	case "%check-diverge":
+		check = s.doCheckDiverge
+	case "%check-property":
+		check = s.doCheckProperty
+	case "%check-input":
+		check = s.doCheckInput
+	case "%check-assume":
+		check = s.doCheckAssume
+	case "%check-witness":
+		check = s.doCheckWitness
+	case "%check-bounds":
+		check = s.doCheckBounds
+	default:
+		return metaResult{}, false
+	}
+	return metaOut(check(fields[1:]), false, nil), true
 }
 
 // doTrace answers %trace: an argument switches tracing on or off, and the
@@ -1385,13 +1399,7 @@ func (w *featureValueWalk) rows(inst *runtime.Instance, indent string, depth int
 		// unread one shows as an unexpanded collection, as any feature the walk
 		// does not descend into does.
 		if w.ctx.ImpliedCollection(inst, of.Name) {
-			if fv := inst.FeatureValues[of.Name]; fv != nil && fv.Materialized {
-				lines = w.emit(lines, fmt.Sprintf("%s%s = %s", indent, of.Name, formatFeatureValue(w.ctx, fv)))
-			} else if held, elided := w.elided(feat, depth); elided {
-				lines = w.emit(lines, fmt.Sprintf("%s%s : %s (not expanded: %s)", indent, of.Name, held, w.elisionReason(depth)))
-			} else {
-				lines = w.emit(lines, fmt.Sprintf("%s%s = []", indent, of.Name))
-			}
+			lines = w.emit(lines, w.impliedCollectionLine(inst, of, indent, depth))
 			continue
 		}
 		// A state or action holds no value either; what it has is a run, or none,
@@ -1419,30 +1427,46 @@ func (w *featureValueWalk) rows(inst *runtime.Instance, indent string, depth int
 			continue
 		}
 		lines = w.emit(lines, fmt.Sprintf("%s%s = %s", indent, of.Name, formatFeatureValue(w.ctx, fv)))
-		// The object's remaining features keep a line each; a nested expansion
-		// spends only what is left beyond them.
-		reserved := len(features) - i - 1
-		for _, nested := range nestedInstances(w.ctx, fv) {
-			if w.listing[nested.ID] {
-				continue
-			}
-			if w.budget <= reserved {
-				lines = w.truncate(lines, indent+"  ")
-				break
-			}
-			w.budget -= reserved
-			w.onPath[nested.Type] = true
-			w.listing[nested.ID] = true
-			lines = append(lines, w.lines(nested, indent+"  ", depth+1)...)
-			delete(w.listing, nested.ID)
-			delete(w.onPath, nested.Type)
-			w.budget += reserved
-		}
+		lines = w.expandNested(lines, fv, indent, depth, len(features)-i-1)
 	}
 	if w.budget <= 0 && len(behaviors) > 0 {
 		return truncated(lines, "")
 	}
 	return append(append(lines, w.behaviorLines(inst, behaviors, indent, depth)...), connectors...)
+}
+
+// impliedCollectionLine is the row of a collection populated only through
+// subsetting implied by nesting: its value when read, else unexpanded or empty.
+func (w *featureValueWalk) impliedCollectionLine(inst *runtime.Instance, of runtime.ObjectFeature, indent string, depth int) string {
+	if fv := inst.FeatureValues[of.Name]; fv != nil && fv.Materialized {
+		return fmt.Sprintf("%s%s = %s", indent, of.Name, formatFeatureValue(w.ctx, fv))
+	}
+	if held, elided := w.elided(of.Feature, depth); elided {
+		return fmt.Sprintf("%s%s : %s (not expanded: %s)", indent, of.Name, held, w.elisionReason(depth))
+	}
+	return fmt.Sprintf("%s%s = []", indent, of.Name)
+}
+
+// expandNested lists the objects a feature value holds beneath its row. The
+// object's reserved remaining features keep a line each; a nested expansion
+// spends only what is left beyond them.
+func (w *featureValueWalk) expandNested(lines []string, fv *runtime.FeatureValue, indent string, depth, reserved int) []string {
+	for _, nested := range nestedInstances(w.ctx, fv) {
+		if w.listing[nested.ID] {
+			continue
+		}
+		if w.budget <= reserved {
+			return w.truncate(lines, indent+"  ")
+		}
+		w.budget -= reserved
+		w.onPath[nested.Type] = true
+		w.listing[nested.ID] = true
+		lines = append(lines, w.lines(nested, indent+"  ", depth+1)...)
+		delete(w.listing, nested.ID)
+		delete(w.onPath, nested.Type)
+		w.budget += reserved
+	}
+	return lines
 }
 
 // isBehaviorFeature reports whether a feature is a state or action usage — a

@@ -17,7 +17,7 @@ starts and stops on its own.
 They do not all cover the same ground. Go and Java expose every RPC the service offers —
 `parseSources`, `convert`, `applyEdits`, `runSweep`, `runDocumentQuery` and
 `renderDocument` beside the v1 surface and its execution, verification, calculation, analysis and
-query methods — and Python every one but `ParseSources`; Node and Rust cover
+query methods — and so does Python; Node and Rust cover
 that smaller v1 surface (parse, look up a symbol, evaluate, instantiate), and of
 those two only Node has an escape hatch to the rest, through the generated Connect client it
 exposes. Only Python and Go are published so far.
@@ -539,7 +539,23 @@ the default question. Support is advertised as `strict_conformance` in
 
 ### Models of several files
 
-`load` and `loads` each parse one document, and that document is the whole model: an import of a package another file declares does not resolve, and `load` refuses a directory. The service's `ParseSources` RPC (capability `parse_sources`) parses several documents as one model, so such an import is satisfied and diagnostics name the file they came from; [the Go](../reference/api.md), [Java](../reference/java-api.md) and [Julia](../reference/julia-api.md) clients wrap it, and the Python client does not yet. Until it does, concatenate the files into one `loads` call.
+`load` and `loads` each parse one document, and that document is the whole model: an import of a package another file declares does not resolve, and `load` refuses a directory. `Connection.parse_sources` (and `opensysml.parse_sources`) wraps the service's `ParseSources` RPC, which parses several documents as one model, so such an import is satisfied and each diagnostic names the document it came from. Each document is a path the service reads, a `(name, text)` pair of inline source reported under that name, or a `SourceDocument` — the explicit form, and how inline content is declared to be KerML:
+
+```python
+from opensysml import SourceDocument
+
+model = conn.parse_sources([
+    "models/base.sysml",                          # a file, named by its path
+    ("chapter.sysml", chapter_text),              # inline text, named for diagnostics
+    SourceDocument.inline("units.kerml", kerml_text, language="kerml"),
+], strict=True)
+
+model["Chapter::Car::engine"]      # typed by a definition base.sysml declares
+model.documents                    # ('models/base.sysml', 'chapter.sysml', 'units.kerml')
+[d.file for d in model.diagnostics]  # each names the document it came from
+```
+
+The model is the same `Model` that `load` returns: `strict` and `strict_conformance` mean what they mean for `loads`, `model.root` is the first document's root and `model.roots` has one per document, in order; `find`, `model[...]` and `opensysml.generate.generate_source` cover them all. The typed-class command line (`python -m opensysml.generate model.sysml`) still takes one source file; for a model of several documents call `generate_source(model, text)` from Python, where `text` is the source the module is stamped with. Two documents may not share a name — a `ValueError` before any call — and a file the service cannot read raises `ModelFileNotFoundError`. A service that predates the call raises `MissingCapabilityError`; support is advertised as `parse_sources` in `Connection.server_info().capabilities`. Notation conversion (`model.convert("sysml")`) is written for a model of one document and is refused for one of several; convert to a graph form (`"ttl"`, `"api-json"`) instead. [The Go](../reference/api.md), [Java](../reference/java-api.md) and [Julia](../reference/julia-api.md) clients wrap the same RPC.
 
 ### Inspecting symbols
 
@@ -1259,9 +1275,9 @@ would otherwise break.
 `AppliedEdit(operation_index, target, offset, length, old_text, new_text, document)` in source
 order, where `length == 0` marks a value added to a feature that had none before, and
 `result.documents` lists the edited notation per document as `EditedDocument(name, content)` —
-one entry, named as the model was loaded, for the one-document models this client loads. A model
-of several documents, parsed together through the service's `ParseSources`, is edited as one
-atomic batch and answers its rewritten documents there, with `str(result)` empty; see
+one entry, named as the model was loaded, for a model of one document. A model of several
+documents, parsed together with `parse_sources`, is edited as one atomic batch and answers its
+rewritten documents there, each under the name the parse gave it, with `str(result)` empty; see
 [the wire contract](../reference/wire-contract.md#applyedits-one-document-or-several).
 
 How editing works:

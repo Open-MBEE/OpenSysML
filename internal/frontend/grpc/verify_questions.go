@@ -2,8 +2,10 @@ package grpc
 
 import (
 	"context"
+	"fmt"
 	"math"
 	"math/big"
+	"strings"
 
 	"connectrpc.com/connect"
 	pb "github.com/Open-MBEE/OpenSysML/api/proto"
@@ -63,8 +65,17 @@ func owningElement(sym *symbols.Symbol) *symbols.Symbol {
 // verdict's status, a witnessed sat naming the violating or satisfying
 // assignment. A translation refusal is an undecided verdict, asked of no
 // engine.
-func (v *verifyContext) symbolicVerdict(ctx context.Context, question, kind string, sym *symbols.Symbol, element string, inst *runtime.Instance, queries []*solve.Query, terr error) (*pb.Verdict, error) {
-	verdict := v.verdict(kind, sym, element, inst, false, nil, analysis.Plan{})
+// verdictSubject is what a symbolic verdict judges: the verdict's kind, the
+// symbol and element text it is about, and the object it is asked of.
+type verdictSubject struct {
+	kind    string
+	sym     *symbols.Symbol
+	element string
+	inst    *runtime.Instance
+}
+
+func (v *verifyContext) symbolicVerdict(ctx context.Context, question string, subject verdictSubject, queries []*solve.Query, terr error) (*pb.Verdict, error) {
+	verdict := v.verdict(subject.kind, subject.sym, subject.element, subject.inst, false, nil, analysis.Plan{})
 	verdict.Question, verdict.Status = question, statusUndecided
 	verdict.FailureReason = pb.FailureReason_FAILURE_REASON_UNDECIDED
 	if terr != nil {
@@ -78,16 +89,25 @@ func (v *verifyContext) symbolicVerdict(ctx context.Context, question, kind stri
 		return verdict, nil
 	}
 	switch plan.Result.Claim {
-	case analysis.ClaimHolds:
-		verdict.Holds, verdict.Status = true, statusHolds
+	case analysis.ClaimHolds, analysis.ClaimUnsatisfiable:
+		// A proof over the assignments that read no unreadable feature is the
+		// evaluator's verdict only where no assignment the question is about
+		// reads one; a witness is one assignment, which the guards keep clear.
+		if err := v.unreached(ctx, queries); err != nil {
+			verdict.Error = err.Error()
+			break
+		}
+		if plan.Result.Claim == analysis.ClaimHolds {
+			verdict.Holds, verdict.Status = true, statusHolds
+		} else {
+			verdict.Status = statusUnsatisfiable
+		}
 	case analysis.ClaimViolated:
 		verdict.Status = statusViolated
 		verdict.Witness = v.witnessOf(plan, queries)
 	case analysis.ClaimSatisfiable:
 		verdict.Holds, verdict.Status = true, statusSatisfiable
 		verdict.Witness = v.witnessOf(plan, queries)
-	case analysis.ClaimUnsatisfiable:
-		verdict.Status = statusUnsatisfiable
 	default:
 		verdict.Error = plan.Result.Reason
 		if verdict.Error == "" {
@@ -98,6 +118,43 @@ func (v *verifyContext) symbolicVerdict(ctx context.Context, question, kind stri
 		verdict.FailureReason = pb.FailureReason_FAILURE_REASON_UNSPECIFIED
 	}
 	return verdict, nil
+}
+
+// unreached is nil when no assignment the queries are about reads a feature
+// whose value could not be read, and otherwise says which query reads which.
+func (v *verifyContext) unreached(ctx context.Context, queries []*solve.Query) error {
+	for _, q := range queries {
+		reached := q.Reached()
+		if reached == nil {
+			continue
+		}
+		plan, err := v.askSolvers(ctx, questionSatisfiable, []*solve.Query{reached})
+		if err != nil {
+			return err
+		}
+		switch plan.Result.Claim {
+		case analysis.ClaimUnsatisfiable:
+		case analysis.ClaimSatisfiable:
+			return q.ReachedError()
+		default:
+			reason := plan.Result.Reason
+			if reason == "" {
+				reason = "the engines decided nothing"
+			}
+			return fmt.Errorf("whether %s %s reads %s, whose value could not be read, was not decided: %s",
+				q.Kind, q.Element, unreadableNames(q), reason)
+		}
+	}
+	return nil
+}
+
+// unreadableNames lists the features a query guards the reads of.
+func unreadableNames(q *solve.Query) string {
+	names := make([]string, 0, len(q.Unreadable))
+	for _, u := range q.Unreadable {
+		names = append(names, u.Name)
+	}
+	return strings.Join(names, ", ")
 }
 
 // askSolvers puts the queries of a holds or satisfiable question to the
@@ -160,26 +217,38 @@ func (v *verifyContext) symbolicElement(ctx context.Context, question, kind stri
 	if terr == nil {
 		queries = []*solve.Query{q}
 	}
-	verdict, verr := v.symbolicVerdict(ctx, question, kind, sym, "", resolved, queries, terr)
+	verdict, verr := v.symbolicVerdict(ctx, question, verdictSubject{kind: kind, sym: sym, inst: resolved}, queries, terr)
 	return verdict, resolved, verr
 }
 
-// translatedQuestion refuses unreadable values a query reads, then translates
-// again with chain values read as its conditions would — values left free would
-// answer about assignments the model does not hold.
+// translatedQuestion guards or refuses the unreadable values a query reads, then
+// reads the values its chains name as its conditions would and translates again
+// with them fixed — values left free would answer about assignments the model
+// does not hold. A chain whose declared value does not evaluate is guarded or
+// refused as a direct read is, so it is never left free either.
 func (v *verifyContext) translatedQuestion(translate func(*runtime.Context, []solve.Pin) (*solve.Query, error), pins []solve.Pin, unfixed []solve.Unfixed, read solve.Reader, resolved *runtime.Instance) (*solve.Query, error) {
-	q, err := translate(v.runtime, pins)
+	guarded := func(pins []solve.Pin, unfixed []solve.Unfixed) (*solve.Query, error) {
+		q, err := translate(v.runtime, pins)
+		if err != nil {
+			return nil, err
+		}
+		if err := solve.UnfixedRead(v.runtime, q, unfixed); err != nil {
+			return nil, err
+		}
+		return q, nil
+	}
+	q, err := guarded(pins, unfixed)
 	if err != nil {
 		return nil, err
 	}
-	if err := solve.UnfixedRead(v.runtime, q, unfixed); err != nil {
-		return nil, err
+	chainPins, chainUnfixed := solve.ChainPins(v.runtime, q, read, resolved)
+	if len(chainPins) == 0 {
+		if err := solve.UnfixedRead(v.runtime, q, chainUnfixed); err != nil {
+			return nil, err
+		}
+		return q, nil
 	}
-	chainPins, err := solve.ChainPins(v.runtime, q, read, resolved)
-	if err != nil || len(chainPins) == 0 {
-		return q, err
-	}
-	return translate(v.runtime, append(pins, chainPins...))
+	return guarded(append(pins, chainPins...), append(unfixed, chainUnfixed...))
 }
 
 // proveConstraint answers a holds or satisfiable question about a constraint.
@@ -260,7 +329,7 @@ func (v *verifyContext) symbolicSatisfy(ctx context.Context, question string, a 
 	if terr == nil {
 		queries = []*solve.Query{q}
 	}
-	verdict, err := v.symbolicVerdict(ctx, question, verdictSatisfy, a.Symbol, a.Text(), resolved, queries, terr)
+	verdict, err := v.symbolicVerdict(ctx, question, verdictSubject{kind: verdictSatisfy, sym: a.Symbol, element: a.Text(), inst: resolved}, queries, terr)
 	if err != nil {
 		return nil, nil, err
 	}
