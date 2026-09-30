@@ -1354,6 +1354,9 @@ jobs:
             NPM_VERSION="$(python client/python/scripts/check_version.py --node)"
             JAVA_VERSION="$(python client/python/scripts/check_version.py --java)"
             RUST_VERSION="$(python client/python/scripts/check_version.py --rust)"
+            # Nothing publishes the editors, but their manifests carry the same
+            # version, so a tag fails here when one disagrees; no export needed.
+            python client/python/scripts/check_version.py --editors > /dev/null
             echo "export OPENSYSML_VERSION=${VERSION}" >> "$BASH_ENV"
             echo "export NPM_VERSION=${NPM_VERSION}" >> "$BASH_ENV"
             echo "export JAVA_VERSION=${JAVA_VERSION}" >> "$BASH_ENV"

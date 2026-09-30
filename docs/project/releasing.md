@@ -120,7 +120,16 @@ branch that moves the integration state onto `main`:
    spelling as package.json. `client/rust/opensysml/Cargo.toml` follows too:
    set `[package] version` to the same spelling and run
    `cargo update -p opensysml` in `client/rust` so the lockfile
-   agrees. Anything else the release
+   agrees. The editors carry the same spelling too, though nothing publishes them:
+   `"version"` in `editors/vscode/package.json` and
+   `editors/syson/frontend/package.json`, each lock regenerated with
+   `npm install --package-lock-only` in that directory; `<version>` in
+   `editors/cameo/pom.xml` and `editors/syson/pom.xml`; and `<parent><version>`
+   in their child poms (`editors/cameo/plugin`, `editors/cameo/tools`,
+   `editors/cameo/openapi-stubs`, `editors/cameo/dist`, `editors/syson/backend`
+   and `editors/syson/syson-api-stubs`). `check_version.py --editors` in
+   `build-python-package` fails the release early when any of them disagrees.
+   Anything else the release
    needs (a doc that names the version) lands here too; a feature does not. Check the wire compatibility
    against the released schema, not the branch's own source:
    `make proto-breaking BUF_BREAKING_REF=origin/main` (the default baseline is
@@ -167,7 +176,7 @@ Tags are matched by `/^v.*/` in `.circleci/config.yml`. A tag on a commit that
 fails the suite fails the release workflow before anything is published, and so
 does a tag whose version `client/python/opensysml/_version.py`,
 `client/node/package.json`, `client/java/pom.xml` or
-`client/rust/opensysml/Cargo.toml` does not declare.
+`client/rust/opensysml/Cargo.toml` or an editor manifest does not declare.
 
 ## What CircleCI publishes
 
@@ -1255,6 +1264,12 @@ and the client version the editors name (`opensysml.client.version` in
 disagree, and the pytest gate in `test_check_version.py` — including the test
 that every in-repo reference names the pom's version — runs on every PR that
 touches either file. The tag must spell the version exactly, `v` aside.
+
+The editors' own versions are in the same lockstep: every manifest
+`check_version.py --editors` reads — the VS Code and SysON frontend
+package.json files and their locks, the Cameo and SysON parent poms and their
+children's `<parent><version>` — carries the SemVer spelling, and the release
+fails early when one disagrees.
 
 ### Why the core's tag
 
