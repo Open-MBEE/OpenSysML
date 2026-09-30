@@ -124,5 +124,35 @@ public interface ConvertRequestOrBuilder extends
    */
   boolean getTolerateSyntaxErrors();
 
+  /**
+   * <pre>
+   * How derived element ids are spelled when notation is written as a graph
+   * ("ttl" or "api-json"), as `sysml -id` does: "qualified" (the default, each
+   * derived from its qualified name) or "uuid" (name-based uuids under each root
+   * package, the library convention). Declared and normative ids are unchanged.
+   * Empty is "qualified"; any other value, or one given for another direction,
+   * is INVALID_ARGUMENT.
+   * </pre>
+   *
+   * <code>string id_form = 7 [json_name = "idForm"];</code>
+   * @return The idForm.
+   */
+  java.lang.String getIdForm();
+  /**
+   * <pre>
+   * How derived element ids are spelled when notation is written as a graph
+   * ("ttl" or "api-json"), as `sysml -id` does: "qualified" (the default, each
+   * derived from its qualified name) or "uuid" (name-based uuids under each root
+   * package, the library convention). Declared and normative ids are unchanged.
+   * Empty is "qualified"; any other value, or one given for another direction,
+   * is INVALID_ARGUMENT.
+   * </pre>
+   *
+   * <code>string id_form = 7 [json_name = "idForm"];</code>
+   * @return The bytes for idForm.
+   */
+  com.google.protobuf.ByteString
+      getIdFormBytes();
+
   org.openmbee.opensysml.proto.ConvertRequest.SourceCase getSourceCase();
 }

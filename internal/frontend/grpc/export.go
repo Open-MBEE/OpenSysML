@@ -40,6 +40,10 @@ func (s *Service) Convert(ctx context.Context, req *pb.ConvertRequest) (*pb.Conv
 	if !to.Writable() {
 		return nil, statusError(connect.CodeInvalidArgument, (&convert.NotWritableError{Format: to}).Error())
 	}
+	opts, err := convertOptions(req.IdForm, from, to)
+	if err != nil {
+		return nil, err
+	}
 
 	resp := &pb.ConvertResponse{FromFormat: from.String(), ToFormat: to.String()}
 	// Marked on the response rather than left to the client to infer, so a caller
@@ -48,7 +52,7 @@ func (s *Service) Convert(ctx context.Context, req *pb.ConvertRequest) (*pb.Conv
 		resp.Experimental = true
 		resp.ExperimentalNotice = convert.Notice(from, to)
 	}
-	out, syntax, err := convertModel(name, data, from, to, req.TolerateSyntaxErrors)
+	out, syntax, err := convertModel(name, data, from, to, req.TolerateSyntaxErrors, opts)
 	if err != nil {
 		resp.Error = err.Error()
 		var broken *convert.SyntaxError
@@ -64,12 +68,31 @@ func (s *Service) Convert(ctx context.Context, req *pb.ConvertRequest) (*pb.Conv
 
 // convertModel runs the conversion, tolerating unreadable notation only when the
 // request asked for it.
-func convertModel(name string, data []byte, from, to convert.Format, tolerant bool) ([]byte, *convert.SyntaxError, error) {
+func convertModel(name string, data []byte, from, to convert.Format, tolerant bool, opts convert.Options) ([]byte, *convert.SyntaxError, error) {
 	if tolerant {
-		return convert.ConvertTolerant(name, data, from, to)
+		return convert.ConvertTolerantWith(name, data, from, to, opts)
 	}
-	out, err := convert.Convert(name, data, from, to)
+	out, err := convert.ConvertWith(name, data, from, to, opts)
 	return out, nil, err
+}
+
+// convertOptions reads id_form as `sysml -id` reads its argument: how derived
+// element ids are spelled when notation is written as a graph. It is refused
+// for any other direction, and for a value that names no id form.
+func convertOptions(idForm string, from, to convert.Format) (convert.Options, error) {
+	opts := convert.Options{}
+	if idForm == "" {
+		return opts, nil
+	}
+	if from != convert.FormatSysML || (to != convert.FormatTurtle && to != convert.FormatAPIJSON) {
+		return opts, statusError(connect.CodeInvalidArgument, "id_form applies to notation converted to ttl or api-json")
+	}
+	form, ok := export.ParseIDForm(idForm)
+	if !ok {
+		return opts, statusErrorf(connect.CodeInvalidArgument, "id_form wants qualified or uuid, not %q", idForm)
+	}
+	opts.ID = form
+	return opts, nil
 }
 
 // convertSource reads the model the request names, and the name to report it by.
@@ -182,6 +205,11 @@ func (s *Service) convertModelOfDocuments(req *pb.ConvertRequest) (*pb.ConvertRe
 			"notation is written for one document, and this model has %d; convert it to %s or %s, or convert each document",
 			len(cached.Documents), convert.FormatTurtle, convert.FormatAPIJSON)
 	}
+	// A model parsed from notation is converted to a graph, so id_form applies.
+	opts, err := convertOptions(req.IdForm, convert.FormatSysML, to)
+	if err != nil {
+		return nil, true, err
+	}
 	resp := &pb.ConvertResponse{FromFormat: convert.FormatSysML.String(), ToFormat: to.String()}
 	if convert.IsExperimental(convert.FormatSysML, to) {
 		resp.Experimental = true
@@ -204,7 +232,7 @@ func (s *Service) convertModelOfDocuments(req *pb.ConvertRequest) (*pb.ConvertRe
 		resp.Error = strings.Join(refused, "\n")
 		return resp, true, nil
 	}
-	graph, err := export.ModelToRDFWith(documents, export.IDQualifiedName)
+	graph, err := export.ModelToRDFWith(documents, opts.ID)
 	if err != nil {
 		resp.Error = err.Error()
 		return resp, true, nil
