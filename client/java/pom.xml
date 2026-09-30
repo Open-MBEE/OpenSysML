@@ -6,7 +6,7 @@
 
   <groupId>org.openmbee</groupId>
   <artifactId>opensysml-parent</artifactId>
-  <version>0.1.0-SNAPSHOT</version>
+  <version>0.9.0</version>
   <packaging>pom</packaging>
 
   <name>OpenSysML Java clients</name>
@@ -197,9 +197,11 @@
             <extensions>true</extensions>
             <configuration>
               <publishingServerId>central</publishingServerId>
-              <!-- The maintainer releases the deployment from the Central portal,
-                   so a `mvn deploy` never publishes on its own. -->
-              <autoPublish>false</autoPublish>
+              <!-- The release job publishes the validated deployment itself and
+                   waits until it is published, so a green job means the version
+                   is on Central. -->
+              <autoPublish>true</autoPublish>
+              <waitUntil>published</waitUntil>
             </configuration>
           </plugin>
         </plugins>

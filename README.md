@@ -419,15 +419,13 @@ Pre-built binaries for Linux, macOS, and Windows are available on the [Releases 
   the core's version — `v0.9.0` publishes `opensysml` 0.9.0 — so pinning one version
   (`pip install opensysml==0.9.0`, `OPENSYSML_GRPC_VERSION=v0.9.0`) gets the package and
   the `sysml-grpc` binary that were tested together
-- The Java client is not yet published: consume it with `mvn -f client/java/pom.xml install`. The
-  prerequisites a maintainer must obtain for a first Maven Central upload are listed in
-  [docs/project/releasing.md](docs/project/releasing.md)
+- The Java client is released by the same `v*` tag, which publishes
+  `org.openmbee:opensysml-client` to Maven Central at the core's version
 - The Node client is released by the same `v*` tag, which publishes
   `@openmbee/opensysml` and the five per-platform packages that carry the service binary
   at the core's version
-- The Rust client is not yet published to crates.io: use a path or Git dependency, and see
-  [client/rust/README.md](client/rust/README.md) and
-  [docs/project/releasing.md](docs/project/releasing.md) for the requirements of a first publish
+- The Rust client is released by the same `v*` tag, which publishes
+  `opensysml` to crates.io at the core's version
 - `client/opensysml`, the public Go API, requires no release of its own. It is part of this
   module, so a Go program pins it with `go get github.com/Open-MBEE/OpenSysML@v0.3.0`
 

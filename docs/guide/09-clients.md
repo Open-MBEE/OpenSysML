@@ -72,11 +72,11 @@ package Demo {
     <dependency>
       <groupId>org.openmbee</groupId>
       <artifactId>opensysml-client</artifactId>
-      <version>0.1.0-SNAPSHOT</version>
+      <version>0.9.0</version>
     </dependency>
     ```
 
-    Not published yet: `make build && mvn -f client/java/pom.xml install` from a checkout.
+    Once the first release is published — until then, `make build && mvn -f client/java/pom.xml install` from a checkout.
 
 === "Rust"
 
@@ -85,7 +85,7 @@ package Demo {
     opensysml = { git = "https://github.com/Open-MBEE/OpenSysML.git", branch = "main" }
     ```
 
-    Not published yet, so take it from git or a path. Rust 1.83 or later.
+    Published to crates.io with each core release (`opensysml = "0.9"`); take it from git or a path for a checkout. Rust 1.83 or later.
 
 === "Julia"
 
@@ -1519,8 +1519,10 @@ try (Connection connection = Connection.open()) {      // starts a private sysml
 The client is meant to live inside a JVM host application it does not own (an Eclipse-based tool,
 a Cameo plugin, a web service), so it is built for JDK 17 and its only compile-scope dependency is
 `protobuf-java`. The transport is `java.net.http.HttpClient` speaking Connect, which keeps gRPC's
-Netty out of a host that has its own. Nothing is published yet; `make build` followed by
-`mvn -f client/java/pom.xml install` puts it in your local repository.
+Netty out of a host that has its own. It publishes to Maven Central with each core
+release — `org.openmbee:opensysml-client` at the core's version — once the first
+release is out; until then, `make build` followed by `mvn -f client/java/pom.xml install`
+puts it in your local repository.
 
 Everything returned is immutable, and no protobuf message appears in the public API: `Value` is a
 sealed interface over records, so its variants are closed and enumerable, and `Symbol`, `Diagnostic`,
@@ -1560,8 +1562,8 @@ let built = model.instantiate("Demo::Car")?;
 The crate is blocking and pulls in no async runtime: every one of the service's RPCs is unary and the
 usual consumer talks to a local child that answers in milliseconds, so a private `tokio::Runtime`
 inside a library would cost every consumer something for little gain. Calling it from inside a
-runtime is fine, and a test pins that. It is not on crates.io yet, so take it from a path or from
-git; the minimum supported Rust version is 1.83.
+runtime is fine, and a test pins that. It is on crates.io as `opensysml`, published with each core release; take it from a path or from
+git for a checkout. The minimum supported Rust version is 1.83.
 
 `load`/`loads` connect and parse in one call; `Connection::private()`, `Connection::external(host,
 port)` and `Connection::connect()` (which honours `$OPENSYSML_SERVICE`) are the explicit forms.

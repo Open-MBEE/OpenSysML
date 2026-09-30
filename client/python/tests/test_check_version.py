@@ -2,6 +2,8 @@
 
 import importlib.util
 import pathlib
+import re
+import xml.etree.ElementTree as ET
 
 import pytest
 from packaging.version import Version
@@ -208,3 +210,166 @@ def test_main_prints_no_for_a_stable_npm_version(capsys):
     declared = check_version.node_declared_version()
     assert check_version.main(["--tag", f"v{declared}", "--node", "--pre-release"]) == 0
     assert capsys.readouterr().out.strip() == "no"
+
+
+def test_java_version_agrees_with_the_real_tree():
+    """client/java/pom.xml and _version.py must stay in lockstep on every commit."""
+    assert check_version.java_version() == check_version.java_declared_version()
+
+
+def test_java_version_accepts_a_matching_release():
+    assert (
+        check_version.java_version(declared="0.9.0", java="0.9.0", tag="v0.9.0") == "0.9.0"
+    )
+
+
+def test_java_version_accepts_a_matching_pre_release():
+    assert (
+        check_version.java_version(declared="0.9.0rc1", java="0.9.0-rc1", tag="v0.9.0-rc1")
+        == "0.9.0-rc1"
+    )
+
+
+def test_java_version_rejects_a_disagreeing_pom():
+    with pytest.raises(check_version.VersionError, match="client/java/pom.xml declares"):
+        check_version.java_version(declared="0.9.1", java="0.9.0")
+
+
+def test_java_version_rejects_a_tag_that_misspells_the_maven_version():
+    with pytest.raises(check_version.VersionError, match="must spell it exactly"):
+        check_version.java_version(declared="0.9.0rc1", java="0.9.0-rc1", tag="v0.9.0-rc.1")
+
+
+def test_java_version_rejects_a_snapshot_version():
+    with pytest.raises(check_version.VersionError, match="is not of the form"):
+        check_version.java_version(declared="0.9.0", java="0.9.0-SNAPSHOT")
+
+
+def test_java_declared_version_rejects_a_pom_without_own_version(tmp_path):
+    pom = tmp_path / "pom.xml"
+    pom.write_text(
+        "<project xmlns='http://maven.apache.org/POM/4.0.0'>"
+        "<parent><version>1.0</version></parent></project>\n",
+        encoding="utf-8",
+    )
+    with pytest.raises(check_version.VersionError, match="declares no version"):
+        check_version.java_declared_version(str(pom))
+
+
+def test_every_in_repo_reference_names_the_poms_version():
+    """The parent pom's version is the one the checkout's consumers must name."""
+    ns = "{http://maven.apache.org/POM/4.0.0}"
+    version = check_version.java_declared_version()
+    repo = pathlib.Path(check_version.REPO_ROOT)
+
+    for module in ["opensysml-client", "opensysml-conformance"]:
+        pom = ET.parse(repo / "client/java" / module / "pom.xml").getroot()
+        parent_version = pom.findtext(f"{ns}parent/{ns}version")
+        assert parent_version == version, module
+
+    cameo = ET.parse(repo / "editors/cameo/pom.xml").getroot()
+    assert cameo.findtext(f"{ns}properties/{ns}opensysml.client.version") == version
+
+    syson = ET.parse(repo / "editors/syson/backend/pom.xml").getroot()
+    for dep in syson.iter(f"{ns}dependency"):
+        if dep.findtext(f"{ns}artifactId") == "opensysml-client":
+            assert dep.findtext(f"{ns}version") == version
+            break
+    else:
+        pytest.fail("editors/syson/backend/pom.xml names no opensysml-client")
+
+
+def test_main_prints_the_maven_version_the_tag_names(capsys):
+    declared = check_version.java_declared_version()
+    assert check_version.main(["--tag", f"v{declared}", "--java"]) == 0
+    assert capsys.readouterr().out.strip() == declared
+
+
+def test_main_refuses_node_and_java_together():
+    with pytest.raises(SystemExit):
+        check_version.main(["--tag", "v0.9.0", "--node", "--java"])
+
+
+def test_rust_version_agrees_with_the_real_tree():
+    """client/rust/opensysml/Cargo.toml and _version.py must stay in lockstep on every commit."""
+    assert check_version.rust_version() == check_version.rust_declared_version()
+
+
+def test_rust_version_accepts_a_matching_release():
+    assert (
+        check_version.rust_version(declared="0.9.0", rust="0.9.0", tag="v0.9.0")
+        == "0.9.0"
+    )
+
+
+def test_rust_version_accepts_a_matching_pre_release():
+    assert (
+        check_version.rust_version(
+            declared="0.9.0rc1", rust="0.9.0-rc.1", tag="v0.9.0-rc.1"
+        )
+        == "0.9.0-rc.1"
+    )
+
+
+def test_rust_version_rejects_a_disagreeing_cargo_toml():
+    with pytest.raises(
+        check_version.VersionError, match="client/rust/opensysml/Cargo.toml declares"
+    ):
+        check_version.rust_version(declared="0.9.1", rust="0.9.0")
+
+
+def test_rust_version_rejects_a_tag_that_misspells_the_crate_version():
+    with pytest.raises(check_version.VersionError, match="must spell it exactly"):
+        check_version.rust_version(
+            declared="0.9.0rc1", rust="0.9.0-rc.1", tag="v0.9.0-rc1"
+        )
+
+
+def test_rust_declared_version_accepts_a_literal_string(tmp_path):
+    cargo = tmp_path / "Cargo.toml"
+    cargo.write_text("[package]\nname = 'x'\nversion = '0.9.0'\n", encoding="utf-8")
+    assert check_version.rust_declared_version(str(cargo)) == "0.9.0"
+
+
+def test_rust_declared_version_rejects_a_toml_without_a_package_version(tmp_path):
+    cargo = tmp_path / "Cargo.toml"
+    cargo.write_text(
+        '[package]\nname = "x"\n\n[dependencies]\nfoo = { version = "1.0" }\n',
+        encoding="utf-8",
+    )
+    with pytest.raises(
+        check_version.VersionError, match="declares no \\[package\\] version"
+    ):
+        check_version.rust_declared_version(str(cargo))
+
+
+def test_cargo_lock_names_the_cargo_tomls_version():
+    """Cargo.lock's opensysml entry must follow client/rust/opensysml/Cargo.toml."""
+    version = check_version.rust_declared_version()
+    lock = pathlib.Path(check_version.REPO_ROOT) / "client/rust/Cargo.lock"
+    lines = lock.read_text(encoding="utf-8").splitlines()
+    for i, line in enumerate(lines):
+        if line.strip() == 'name = "opensysml"':
+            for entry in lines[i + 1 :]:
+                if entry.startswith("["):
+                    break
+                match = re.match(r'^version = "(.+)"', entry)
+                if match:
+                    assert match[1] == version
+                    break
+            else:
+                pytest.fail("Cargo.lock's opensysml entry declares no version")
+            break
+    else:
+        pytest.fail("client/rust/Cargo.lock names no opensysml package")
+
+
+def test_main_prints_the_crates_version_the_tag_names(capsys):
+    declared = check_version.rust_declared_version()
+    assert check_version.main(["--tag", f"v{declared}", "--rust"]) == 0
+    assert capsys.readouterr().out.strip() == declared
+
+
+def test_main_refuses_rust_and_java_together():
+    with pytest.raises(SystemExit):
+        check_version.main(["--tag", "v0.9.0", "--rust", "--java"])

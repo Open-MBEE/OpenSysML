@@ -11,11 +11,13 @@ dependency footprint, service ownership and release verification are in
 <dependency>
   <groupId>org.openmbee</groupId>
   <artifactId>opensysml-client</artifactId>
-  <version>0.1.0-SNAPSHOT</version>
+  <version>0.9.0</version>
 </dependency>
 ```
 
-Nothing is published yet, so a checkout installs it: `make build` for the service
+The version is the core release's — a `v*` tag publishes
+`org.openmbee:opensysml-client` to Maven Central at that version — once the
+first release is out. Until then a checkout installs it: `make build` for the service
 binary the tests start, then `mvn -f client/java/pom.xml install`. The compiler
 release is **17**, the lowest baseline a realistic host — Eclipse 2023-03,
 IntelliJ 2023.2, Spring Boot 3 — can offer. The only compile-scope dependency is

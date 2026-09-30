@@ -11,9 +11,10 @@ publish must fail here rather than after the fact.
 
 Prints the version the tag names on success. With `--pre-release` it prints
 `yes`/`no` instead, which the job uses to route a pre-release tag to TestPyPI.
-With `--node` the version client/node/package.json declares is checked the same
-way and printed instead — the Node client is published from the same tag, at
-the SemVer spelling of the same version.
+With `--node`, `--java` or `--rust` the version client/node/package.json,
+client/java/pom.xml or client/rust/opensysml/Cargo.toml declares is checked
+the same way and printed instead — all three clients are published from the
+same tag, at the SemVer spelling of the same version.
 
 The core tags are SemVer and the package version is PEP 440, so the tag is
 translated before the comparison: `v0.9.0-rc1` names `0.9.0rc1`. Only the SemVer
@@ -28,6 +29,7 @@ import json
 import os
 import re
 import sys
+import xml.etree.ElementTree as ET
 
 from packaging.version import InvalidVersion, Version
 
@@ -46,12 +48,12 @@ PEP_440_PHASE = {"alpha": "a", "beta": "b", "rc": "rc"}
 VERSION_FILE = os.path.join(
     os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "opensysml", "_version.py"
 )
-NODE_PACKAGE = os.path.join(
-    os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))),
-    "client",
-    "node",
-    "package.json",
+REPO_ROOT = os.path.dirname(
+    os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 )
+NODE_PACKAGE = os.path.join(REPO_ROOT, "client", "node", "package.json")
+JAVA_POM = os.path.join(REPO_ROOT, "client", "java", "pom.xml")
+RUST_CARGO = os.path.join(REPO_ROOT, "client", "rust", "opensysml", "Cargo.toml")
 
 
 class VersionError(Exception):
@@ -200,25 +202,172 @@ def node_version(declared=None, node=None, tag=None):
         VersionError: If the two files disagree, or the tag does not spell the
             SemVer version package.json declares
     """
-    declared = declared_version() if declared is None else declared
     node = node_declared_version() if node is None else node
-    translated = pep440_from_semver(
-        node, tag, what="client/node/package.json version"
+    return _client_version(
+        "client/node/package.json",
+        "package.json",
+        "npm",
+        "The Node client",
+        node,
+        declared,
+        tag,
+        'set "version" and every platform package in optionalDependencies to the '
+        "SemVer spelling of that version.",
     )
+
+
+def java_declared_version(pom=JAVA_POM):
+    """The version client/java/pom.xml declares.
+
+    Args:
+        pom (str): Path to client/java/pom.xml
+
+    Returns:
+        str: The declared version
+
+    Raises:
+        VersionError: If the pom declares no version of its own
+    """
+    project = ET.parse(pom).getroot()
+    version = project.findtext("{http://maven.apache.org/POM/4.0.0}version")
+    if version is None:
+        raise VersionError(f"{pom} declares no version")
+    return version
+
+
+def java_version(declared=None, java=None, tag=None):
+    """client/java/pom.xml's version, checked against _version.py and, when given, the tag.
+
+    Args:
+        declared (str, optional): Version opensysml/_version.py declares; read
+            when omitted
+        java (str, optional): Version client/java/pom.xml declares; read when
+            omitted
+        tag (str, optional): Core release tag the Maven publish runs from
+
+    Returns:
+        str: The Maven version to publish, as the pom declares
+
+    Raises:
+        VersionError: If the pom and _version.py disagree, or the tag does not
+            spell the Maven version the pom declares
+    """
+    java = java_declared_version() if java is None else java
+    return _client_version(
+        "client/java/pom.xml",
+        "the pom",
+        "Maven Central",
+        "The Java client",
+        java,
+        declared,
+        tag,
+        "set the parent pom's <version>, both modules' <parent><version>, and the "
+        "editors' references to the Maven spelling of that version.",
+    )
+
+
+def rust_declared_version(cargo_toml=RUST_CARGO):
+    """The version client/rust/opensysml/Cargo.toml's [package] table declares.
+
+    A minimal line scan rather than a TOML parse, so the check needs no
+    tomllib (Python 3.10 is still supported).
+
+    Args:
+        cargo_toml (str): Path to client/rust/opensysml/Cargo.toml
+
+    Returns:
+        str: The declared version
+
+    Raises:
+        VersionError: If the [package] table declares no version
+    """
+    with open(cargo_toml, encoding="utf-8") as f:
+        lines = f.readlines()
+    try:
+        start = next(
+            i for i, line in enumerate(lines) if line.strip() == "[package]"
+        )
+    except StopIteration:
+        raise VersionError(f"{cargo_toml} declares no [package] version")
+    for line in lines[start + 1 :]:
+        if line.startswith("["):
+            break
+        match = re.match(
+            r"""^\s*version\s*=\s*(?:"([^"]+)"|'([^']+)')\s*(#.*)?$""", line
+        )
+        if match:
+            return match[1] or match[2]
+    raise VersionError(f"{cargo_toml} declares no [package] version")
+
+
+def rust_version(declared=None, rust=None, tag=None):
+    """client/rust/opensysml/Cargo.toml's version, checked against _version.py and, when given, the tag.
+
+    Args:
+        declared (str, optional): Version opensysml/_version.py declares; read
+            when omitted
+        rust (str, optional): Version client/rust/opensysml/Cargo.toml
+            declares; read when omitted
+        tag (str, optional): Core release tag the crates.io publish runs from
+
+    Returns:
+        str: The crates.io version to publish, as Cargo.toml declares
+
+    Raises:
+        VersionError: If the Cargo.toml and _version.py disagree, or the tag
+            does not spell the version Cargo.toml declares
+    """
+    rust = rust_declared_version() if rust is None else rust
+    return _client_version(
+        "client/rust/opensysml/Cargo.toml",
+        "Cargo.toml",
+        "crates.io",
+        "The Rust client",
+        rust,
+        declared,
+        tag,
+        "set [package] version in client/rust/opensysml/Cargo.toml to the "
+        "SemVer spelling of that version and run `cargo update -p opensysml` in "
+        "client/rust.",
+    )
+
+
+def _client_version(what, file, registry, client_name, client, declared, tag, remedy):
+    """The lockstep check the published client manifests share.
+
+    Args:
+        what (str): Path naming the client manifest, for the messages
+        file (str): The manifest in short form, for the tag message
+        registry (str): The registry the client publishes to, for the tag message
+        client_name (str): The client, for the mismatch message
+        client (str): The version the manifest declares
+        declared (str, optional): Version opensysml/_version.py declares; read
+            when omitted
+        tag (str, optional): Core release tag the publish runs from
+        remedy (str): How to bring the manifest back in step, for the message
+
+    Returns:
+        str: The version the manifest declares
+
+    Raises:
+        VersionError: If the manifest and _version.py disagree, or the tag does
+            not spell the version the manifest declares
+    """
+    declared = declared_version() if declared is None else declared
+    translated = pep440_from_semver(client, tag, what=f"{what} version")
     if translated != declared:
         raise VersionError(
-            f"client/node/package.json declares {node!r} (PEP 440 {translated!r}), but "
-            f"client/python/opensysml/_version.py declares {declared!r}. The Node client is "
-            "released in lockstep with the core and the Python client: set \"version\" and every "
-            "platform package in optionalDependencies to the SemVer spelling of that version."
+            f"{what} declares {client!r} (PEP 440 {translated!r}), but "
+            f"client/python/opensysml/_version.py declares {declared!r}. {client_name} is "
+            "released in lockstep with the core and the Python client: " + remedy
         )
-    if tag and tag[len(TAG_PREFIX):] != node:
+    if tag and tag[len(TAG_PREFIX):] != client:
         raise VersionError(
-            f"Tag {tag!r} names npm version {tag[len(TAG_PREFIX):]!r}, but client/node/package.json "
-            f"declares {node!r}. npm publishes the version package.json declares, so the tag must "
-            "spell it exactly."
+            f"Tag {tag!r} names {registry} version {tag[len(TAG_PREFIX):]!r}, but {what} "
+            f"declares {client!r}. {registry} publishes the version {file} declares, so the "
+            "tag must spell it exactly."
         )
-    return node
+    return client
 
 
 def parse_version(version, what):
@@ -262,10 +411,21 @@ def main(argv=None):
         default=os.environ.get("CIRCLE_TAG", ""),
         help="release tag (default: $CIRCLE_TAG)",
     )
-    parser.add_argument(
+    clients = parser.add_mutually_exclusive_group()
+    clients.add_argument(
         "--node",
         action="store_true",
         help="check and print client/node/package.json's version instead",
+    )
+    clients.add_argument(
+        "--java",
+        action="store_true",
+        help="check and print client/java/pom.xml's version instead",
+    )
+    clients.add_argument(
+        "--rust",
+        action="store_true",
+        help="check and print client/rust/opensysml/Cargo.toml's version instead",
     )
     parser.add_argument(
         "--pre-release",
@@ -278,6 +438,10 @@ def main(argv=None):
         version = version_from_tag(args.tag)
         if args.node:
             version = node_version(declared=version, tag=args.tag)
+        elif args.java:
+            version = java_version(declared=version, tag=args.tag)
+        elif args.rust:
+            version = rust_version(declared=version, tag=args.tag)
         pre_release = is_pre_release(version)
     except VersionError as e:
         print(f"error: {e}", file=sys.stderr)
