@@ -1378,12 +1378,28 @@ func (ctx *Context) messageMatches(m Message, want *ast.QualifiedName, scope *sy
 	if want == nil || len(want.Parts) == 0 {
 		return true
 	}
-	if m.Signal != nil && ctx.model.semantics != nil {
-		if wantSym := ctx.triggerType(scope, want); wantSym != nil {
-			return ctx.signalConforms(m.Signal, wantSym)
+	if ctx.model.semantics != nil {
+		if signal := ctx.messageSignal(m, scope); signal != nil {
+			if wantSym := ctx.triggerType(scope, want); wantSym != nil {
+				return ctx.signalConforms(signal, wantSym)
+			}
 		}
 	}
 	return m.SignalType == want.Parts[len(want.Parts)-1].Text
+}
+
+// messageSignal is the definition a message's type is known as to an accept
+// written in scope: the one its send resolved, or, for a message left for the
+// accept to type, the signal definition its name denotes in that scope; nil
+// where the type is a name alone.
+func (ctx *Context) messageSignal(m Message, scope *symbols.Scope) *symbols.Symbol {
+	if m.Signal != nil || !m.TypedByAccept {
+		return m.Signal
+	}
+	if sym := ctx.resolveTypeRef(scope, ast.QualifiedNameOf(strings.Split(m.SignalType, "::")...)); IsSignalDefinition(sym) {
+		return sym
+	}
+	return nil
 }
 
 // triggerTypeKey is a type reference as written in one scope; the model fixes what it denotes.
@@ -1545,11 +1561,19 @@ func (ctx *Context) acceptedValue(msg *Message) (Value, error) {
 
 // acceptedValueAs is acceptedValue for the accept, typed as want in scope, that
 // took the message: a message left for the accept to type (TypedByAccept) is
-// typed by the definition want denotes there before its value is built; one
-// naming no signal definition even there is bound as it is.
+// typed by the definition its own name denotes there — a subtype the accept
+// took by conformance stays that subtype — or, failing that, by the one want
+// denotes, before its value is built; one naming no signal definition even
+// there is bound as it is.
 func (ctx *Context) acceptedValueAs(msg *Message, want *ast.QualifiedName, scope *symbols.Scope) (Value, error) {
-	if msg.TypedByAccept && msg.Signal == nil && msg.Value == nil && want != nil {
-		if sym := ctx.triggerType(scope, want); IsSignalDefinition(sym) {
+	if msg.TypedByAccept && msg.Signal == nil && msg.Value == nil {
+		sym := ctx.messageSignal(*msg, scope)
+		if sym == nil && want != nil {
+			if w := ctx.triggerType(scope, want); IsSignalDefinition(w) {
+				sym = w
+			}
+		}
+		if sym != nil {
 			typed, err := ctx.SignalMessage(sym, msg.Payload, nil)
 			if err != nil {
 				return Value{}, err

@@ -2134,3 +2134,48 @@ func TestQueuedSignalIsWhatItsNameDenotesToTheExhibitingPart(t *testing.T) {
 		t.Fatalf("state after Ping = %s, want done: the inherited transition takes the Ping the host sees", got)
 	}
 }
+
+// A queued subtype the exhibiting part sees no definition of, but the machine's
+// own private import declares, satisfies an accept of its supertype by
+// conformance in the accept's scope, as a sent occurrence does, and binds as
+// the subtype it is.
+func TestQueuedSignalOnlyTheMachineSeesMatchesASupertypeAcceptByConformance(t *testing.T) {
+	src := `
+		package Signals {
+			attribute def Base;
+			attribute def Derived :> Base;
+		}
+		state def Worker {
+			private import Signals::*;
+			entry; then idle;
+			state idle;
+			transition first idle accept got : Base then done;
+			state done;
+		}
+		part def Host { exhibit state m : Worker; }
+	`
+	idx, _, ctx := buildRuntimeWithLibraries(t, "hosts.sysml", parseAndBuild(t, src))
+	host, err := ctx.Instantiate(oneSymbol(t, idx, "Host"))
+	if err != nil {
+		t.Fatalf("Instantiate: %v", err)
+	}
+	exec := host.behaviors[0].State
+	if err := exec.RunToCompletion(); err != nil {
+		t.Fatalf("enter idle: %v", err)
+	}
+	if err := exec.Enqueue(QueuedEvent{Signal: "Derived"}); err != nil {
+		t.Fatalf("queue Derived: %v", err)
+	}
+	if err := exec.RunToQuiescence(); err != nil {
+		t.Fatalf("take Derived: %v", err)
+	}
+	if got := activeLeaf(exec); got != "done" {
+		t.Fatalf("state after Derived = %s, want done: accept Base takes the Derived the machine's import declares", got)
+	}
+	if err := exec.Enqueue(QueuedEvent{Signal: "Unknown"}); err != nil {
+		t.Fatalf("queue Unknown: %v", err)
+	}
+	if err := exec.RunToQuiescence(); err != nil {
+		t.Fatalf("drop Unknown: %v", err)
+	}
+}
