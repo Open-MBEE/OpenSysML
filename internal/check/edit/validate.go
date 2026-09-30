@@ -110,6 +110,9 @@ func (m Model) validate(edited rewrites) error {
 		rr.before = errorsOnly(originalParse)
 		rereads = append(rereads, rr)
 	}
+	if err := m.settleDeferred(edited); err != nil {
+		return err
+	}
 	if m.NewIndex == nil {
 		return nil
 	}

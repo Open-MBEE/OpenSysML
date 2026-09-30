@@ -54,8 +54,6 @@ func (m Model) addMetadataPrefixSplice(i int, op Operation) (splice, error) {
 		}
 	}
 
-	r, _ := m.resolver()
-	scope := r.PrefixScope(sym.OwnerScope, sym.Decl)
 	typeName, ok := metadataQualifiedName(op.MetadataType)
 	if !ok {
 		return splice{}, &Error{
@@ -63,40 +61,11 @@ func (m Model) addMetadataPrefixSplice(i int, op Operation) (splice, error) {
 			Message: fmt.Sprintf("metadata type %q is not a qualified name", op.MetadataType),
 		}
 	}
-	metadataType, resolved := r.ResolveQualified(scope, typeName)
-	if !resolved || metadataType == nil {
-		return splice{}, &Error{
-			Failure: FailureInvalidValue, OperationIndex: i,
-			Message: fmt.Sprintf("metadata type %q does not resolve from %s", op.MetadataType, notationName(sym)),
-		}
-	}
-	metadataType, resolved = r.ResolveAliasTarget(metadataType)
-	if !resolved || metadataType == nil {
-		return splice{}, &Error{
-			Failure: FailureInvalidValue, OperationIndex: i,
-			Message: fmt.Sprintf("metadata type %q does not resolve from %s", op.MetadataType, notationName(sym)),
-		}
-	}
-	if metadataType.Kind != symbols.SymbolMetadataDef {
-		return splice{}, &Error{
-			Failure: FailureInvalidValue, OperationIndex: i,
-			Message: fmt.Sprintf("%q is a %s, not a metadata definition", op.MetadataType, metadataType.Kind),
-		}
-	}
-	for _, prefix := range prefixes {
-		if prefix == nil || prefix.Type == nil {
-			continue
-		}
-		existingType, found := r.ResolveQualified(scope, prefix.Type)
-		if found && existingType != nil {
-			existingType, found = r.ResolveAliasTarget(existingType)
-		}
-		if found && existingType != nil && existingType == metadataType {
-			return splice{}, &Error{
-				Failure: FailureInvalidValue, OperationIndex: i,
-				Message: fmt.Sprintf("%q already carries #%s", op.Target, op.MetadataType),
-			}
-		}
+	err = m.resolveLater(func(final Model) error {
+		return final.checkMetadataPrefixType(i, op, typeName)
+	})
+	if err != nil {
+		return splice{}, err
 	}
 
 	declSpan := sym.Decl.Span()
@@ -130,6 +99,63 @@ func (m Model) addMetadataPrefixSplice(i int, op Operation) (splice, error) {
 		span: source.Span{Offset: insertion}, text: "#" + op.MetadataType + " ",
 		opIndex: i, target: op.Target,
 	}, nil
+}
+
+// checkMetadataPrefixType refuses op's metadata type unless, from Target's
+// declaration in m — the model with op's prefix written — it names a metadata
+// definition that only that one prefix of the target states. A target m no
+// longer declares leaves the verdict to validation.
+func (m Model) checkMetadataPrefixType(i int, op Operation, typeName *ast.QualifiedName) error {
+	sym, err := m.target(i, op)
+	if err != nil {
+		return nil
+	}
+	prefixes, _, ok := ast.DeclaredMetadata(sym.Decl)
+	if !ok {
+		return nil
+	}
+	r, _ := m.resolver()
+	scope := r.PrefixScope(sym.OwnerScope, sym.Decl)
+	metadataType, resolved := r.ResolveQualified(scope, typeName)
+	if !resolved || metadataType == nil {
+		return &Error{
+			Failure: FailureInvalidValue, OperationIndex: i,
+			Message: fmt.Sprintf("metadata type %q does not resolve from %s", op.MetadataType, notationName(sym)),
+		}
+	}
+	metadataType, resolved = r.ResolveAliasTarget(metadataType)
+	if !resolved || metadataType == nil {
+		return &Error{
+			Failure: FailureInvalidValue, OperationIndex: i,
+			Message: fmt.Sprintf("metadata type %q does not resolve from %s", op.MetadataType, notationName(sym)),
+		}
+	}
+	if metadataType.Kind != symbols.SymbolMetadataDef {
+		return &Error{
+			Failure: FailureInvalidValue, OperationIndex: i,
+			Message: fmt.Sprintf("%q is a %s, not a metadata definition", op.MetadataType, metadataType.Kind),
+		}
+	}
+	carried := 0
+	for _, prefix := range prefixes {
+		if prefix == nil || prefix.Type == nil {
+			continue
+		}
+		existingType, found := r.ResolveQualified(scope, prefix.Type)
+		if found && existingType != nil {
+			existingType, found = r.ResolveAliasTarget(existingType)
+		}
+		if found && existingType != nil && existingType == metadataType {
+			carried++
+		}
+	}
+	if carried > 1 {
+		return &Error{
+			Failure: FailureInvalidValue, OperationIndex: i,
+			Message: fmt.Sprintf("%q already carries #%s", op.Target, op.MetadataType),
+		}
+	}
+	return nil
 }
 
 func metadataQualifiedName(text string) (*ast.QualifiedName, bool) {

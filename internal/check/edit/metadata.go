@@ -50,8 +50,7 @@ func (m Model) addMetadataSplice(i int, op Operation) (splice, error) {
 		e.OperationIndex = i
 		return splice{}, e
 	}
-	if op.MetadataName != "" && ownerScope != nil &&
-		len(ownerScope.LookupLocalAll(symbolName(op.MetadataName))) > 0 {
+	if op.MetadataName != "" && nameTaken(ownerScope, op.MetadataName) {
 		return splice{}, &Error{
 			Failure: FailureMemberNameTaken, OperationIndex: i,
 			Message: fmt.Sprintf("%s already declares %q", op.Owner, op.MetadataName),

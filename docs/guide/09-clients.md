@@ -1277,6 +1277,13 @@ How editing works:
   diagnostics explaining why, and nothing is returned, so the service never produces a file its
   parser cannot read. Errors the model already had are not blamed on the edit; only
   errors the edit introduces cause a refusal.
+- **A batch is resolved as a whole.** References are checked against the model as the whole
+  batch leaves it, so an operation may name a declaration a later operation of the same batch
+  adds — `add_then("P::A", action="g", type="GenerateHeat")` followed by
+  `add_action_def("P", name="GenerateHeat")` succeeds as the reverse order does. A reference
+  nothing in the batch declares is refused as it always was. Names, though, are taken in
+  operation order: a later operation asking for a name an earlier one declared is refused, and an
+  insertion anchor (`after=`) must name a member the model already has.
 
 Every refusal is a typed error, never a silent no-op:
 

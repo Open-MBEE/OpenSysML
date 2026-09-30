@@ -128,7 +128,7 @@ func (m Model) formatSequenceItem(i int, owner string, scope *symbols.Scope, loc
 	if op.SequenceKeyword == "first" || op.SequenceKeyword == "then" ||
 		op.SequenceKeyword == "if" || op.SequenceKeyword == "else" {
 		if op.SequenceRef != "" {
-			return m.formatSequenceReference(i, owner, scope, localNames, op)
+			return m.formatSequenceReference(i, owner, localNames, op)
 		}
 	}
 	if op.SequenceRef != "" {
@@ -152,7 +152,7 @@ func (m Model) formatSequenceItem(i int, owner string, scope *symbols.Scope, loc
 	return m.formatActionStatement(i, owner, scope, localNames, op, depth, memberIndent, unit)
 }
 
-func (m Model) formatSequenceReference(i int, owner string, scope *symbols.Scope, localNames map[string]bool, op Operation) (string, error) {
+func (m Model) formatSequenceReference(i int, owner string, localNames map[string]bool, op Operation) (string, error) {
 	if op.SequenceRef == "" {
 		return "", sequenceError(i, "sequence reference is empty")
 	}
@@ -186,11 +186,24 @@ func (m Model) formatSequenceReference(i int, owner string, scope *symbols.Scope
 			local = localNames[segments[0]]
 		}
 	}
-	if !local && !m.sequenceNodeVisible(scope, op.SequenceRef) {
-		return "", &Error{
-			Failure: FailureUnknownTarget, OperationIndex: i,
-			Message: fmt.Sprintf("sequence node %q resolves to nothing visible from %s",
-				op.SequenceRef, ownerName(owner)),
+	if !local {
+		ref := op.SequenceRef
+		err := m.resolveLater(func(final Model) error {
+			_, scope, err := final.addOwner(owner)
+			if err != nil {
+				return nil
+			}
+			if final.sequenceNodeVisible(scope, ref) {
+				return nil
+			}
+			return &Error{
+				Failure: FailureUnknownTarget, OperationIndex: i,
+				Message: fmt.Sprintf("sequence node %q resolves to nothing visible from %s",
+					ref, ownerName(owner)),
+			}
+		})
+		if err != nil {
+			return "", err
 		}
 	}
 	switch op.SequenceKeyword {
@@ -237,7 +250,7 @@ func (m Model) formatSequenceDeclaration(i int, owner string, scope *symbols.Sco
 			e.Message = fmt.Sprintf("member name %q is not an identifier", op.MemberName)
 			return "", e
 		}
-		if scope != nil && len(scope.LookupLocalAll(symbolName(op.MemberName))) > 0 {
+		if nameTaken(scope, op.MemberName) {
 			return "", &Error{
 				Failure: FailureMemberNameTaken, OperationIndex: i,
 				Message: fmt.Sprintf("%s already declares %q", ownerName(owner), op.MemberName),
@@ -605,8 +618,8 @@ func (m Model) sequenceNodeVisible(scope *symbols.Scope, ref string) bool {
 		qn := ast.QualifiedNameOf(segments...)
 		qn.Global = true
 		r, _ := m.resolver()
-		_, ok = r.ResolveQualified(scope, qn)
-		return ok
+		sym, ok := r.ResolveQualified(scope, qn)
+		return ok && !isStartLabel(sym.Decl)
 	}
 	segments, ok := source.QualifiedNameSegments(ref)
 	if !ok || len(segments) == 0 {
@@ -616,12 +629,12 @@ func (m Model) sequenceNodeVisible(scope *symbols.Scope, ref string) bool {
 		if segments[0] == "start" || segments[0] == "done" {
 			return true
 		}
-		if _, ok := resolve.ActionNodeOfBody(scope, segments[0]); ok {
+		if node, ok := resolve.ActionNodeOfBody(scope, segments[0]); ok && !isStartLabel(node) {
 			return true
 		}
 	}
-	_, ok = resolve.FeatureSymbolInScope(scope, segments)
-	return ok
+	sym, ok := resolve.FeatureSymbolInScope(scope, segments)
+	return ok && !isStartLabel(sym.Decl)
 }
 
 // sequenceSourceBefore reports whether a member a `then` sequences from is

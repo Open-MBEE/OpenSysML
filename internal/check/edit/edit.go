@@ -441,6 +441,45 @@ type Model struct {
 	Documents []string
 	// reindex is the one index an Apply call analyzes in, set by Apply.
 	reindex *reindexer
+	// deferred collects the checks of the Apply call that are settled against
+	// the model the whole batch leaves, set by Apply; nil settles each at once.
+	deferred *[]deferredCheck
+}
+
+// deferredCheck is a check of a reference an operation writes, run against
+// final, the model every operation of the batch has been applied to, so the
+// reference may name a declaration a later operation of the batch adds. It
+// answers the refusal the operation would have made had the reference been
+// checked against the model it was computed on.
+type deferredCheck func(final Model) error
+
+// resolveLater has check run once the batch is applied, or at once, against m
+// itself, outside an Apply call.
+func (m Model) resolveLater(check deferredCheck) error {
+	if m.deferred == nil {
+		return check(m)
+	}
+	*m.deferred = append(*m.deferred, check)
+	return nil
+}
+
+// settleDeferred runs the batch's deferred checks, in operation order, against
+// the model edited leaves; the first refusal is the batch's. The checks locate
+// the declarations they judge by name, so one whose declaration the batch has
+// since renamed, moved or deleted stands down and leaves the verdict to the
+// validation of the whole result.
+func (m Model) settleDeferred(edited rewrites) error {
+	if m.deferred == nil || len(*m.deferred) == 0 {
+		return nil
+	}
+	final := reparseModel(m, edited)
+	final.deferred = nil
+	for _, check := range *m.deferred {
+		if err := check(final); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 // Document is the source of another document of a Model's index, as Index was
@@ -584,6 +623,7 @@ func Apply(m Model, ops []Operation) (*Result, error) {
 		return nil, &Error{Failure: FailureNoOperations, Message: "no edit operations requested"}
 	}
 	m.reindex = newReindexer(m)
+	m.deferred = new([]deferredCheck)
 	if !needsSequential(ops) {
 		return applyBatch(m, ops)
 	}
@@ -735,6 +775,7 @@ func reparseModel(base Model, edited rewrites) Model {
 		Source: sf, Root: root, Index: idx,
 		ParseDiags: p.Diagnostics,
 		NewIndex:   base.NewIndex, Indexed: base.Indexed, Analysis: base.Analysis, Other: other, Documents: base.Documents, reindex: base.reindex,
+		deferred: base.deferred,
 	}
 }
 

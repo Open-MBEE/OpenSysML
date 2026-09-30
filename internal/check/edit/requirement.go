@@ -91,7 +91,7 @@ func (m Model) addRequirementConstraintSplice(i int, op Operation) (splice, erro
 			e.Message = fmt.Sprintf("constraint name %q is not an identifier", op.ConstraintName)
 			return splice{}, e
 		}
-		if ownerScope != nil && len(ownerScope.LookupLocalAll(symbolName(op.ConstraintName))) > 0 {
+		if nameTaken(ownerScope, op.ConstraintName) {
 			return splice{}, &Error{
 				Failure: FailureMemberNameTaken, OperationIndex: i,
 				Message: fmt.Sprintf("%s already declares %q", op.Owner, op.ConstraintName),

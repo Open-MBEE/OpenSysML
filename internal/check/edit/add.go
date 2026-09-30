@@ -416,7 +416,7 @@ func (m Model) addMemberSplice(i int, op Operation) (splice, error) {
 	} else if referenceName != "" {
 		takenName = referenceName
 	}
-	if takenName != "" && ownerScope != nil && len(ownerScope.LookupLocalAll(symbolName(takenName))) > 0 {
+	if takenName != "" && nameTaken(ownerScope, takenName) {
 		return splice{}, &Error{
 			Failure:        FailureMemberNameTaken,
 			OperationIndex: i,
@@ -457,6 +457,30 @@ var noResultBodyKinds = map[string]string{
 	"viewpoint def":   "a requirement body has no result expression; add a require constraint instead",
 	"viewpoint":       "a requirement body has no result expression; add a require constraint instead",
 	"objective":       "a requirement body has no result expression; add a require constraint instead",
+}
+
+// nameTaken reports whether scope declares a member named name. A `first x`
+// label borrows its name from the member it starts at and so takes none; a
+// body may sequence `first g;` before it declares g.
+func nameTaken(scope *symbols.Scope, name string) bool {
+	if scope == nil {
+		return false
+	}
+	for _, sym := range scope.LookupLocalAll(symbolName(name)) {
+		if !isStartLabel(sym.Decl) {
+			return true
+		}
+	}
+	return false
+}
+
+// isStartLabel reports whether decl is the `first x` of a body, which the index
+// registers under x as a label: it borrows the name of the member it starts at
+// and declares no node of its own, so it neither takes the name nor makes it
+// visible.
+func isStartLabel(decl ast.Node) bool {
+	_, label := decl.(*ast.InitialNode)
+	return label
 }
 
 func (m Model) addOwner(fqn string) (ast.Node, *symbols.Scope, error) {
