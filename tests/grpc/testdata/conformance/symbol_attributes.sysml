@@ -14,7 +14,7 @@ package demo {
 		attribute redefines mass = 1600.0 [SI::kg];
 		attribute wheels : Integer = 4;
 		attribute ratio : Real = 1.5 + 0.5;
-		attribute derived : Real = wheels * 2;
+		attribute 'derived' : Real = wheels * 2;
 		part engine : Engine;
 	}
 

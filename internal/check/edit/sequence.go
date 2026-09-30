@@ -645,7 +645,7 @@ func validateSourceMultiplicity(i int, keyword, multiplicity string) error {
 	p := parser.New(sf)
 	mult := p.ParseMultiplicity()
 	if len(p.Diagnostics) > 0 {
-		return refuse("does not parse as a multiplicity", parseDiagnostics(p.Diagnostics))
+		return refuse("does not parse as a multiplicity", parser.AsDiagnostics(p.Diagnostics, nil))
 	}
 	if mult == nil {
 		return refuse("does not parse as a multiplicity", []diag.Diagnostic{{

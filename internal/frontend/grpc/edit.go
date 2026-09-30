@@ -214,7 +214,7 @@ func (s *Service) editModel(cached *CachedModel, edited *CachedDocument) edit.Mo
 		Root:       edited.Root,
 		Index:      cached.Index,
 		ParseDiags: edited.ParseDiags,
-		SemDiags:   edited.PassesDiags,
+		SemDiags:   edited.Diagnostics,
 		Analysis:   passes.Options{Conformance: cached.Mode},
 		// The edited notation is analyzed in an index of its own, over the
 		// libraries and every document of the model the edit did not rewrite.
@@ -229,7 +229,7 @@ func (s *Service) editModel(cached *CachedModel, edited *CachedDocument) edit.Mo
 		Other: func(name string) (edit.Document, bool) {
 			for _, doc := range others {
 				if doc.Source.Name() == name {
-					return edit.Document{Source: doc.Source, ParseDiags: doc.ParseDiags, SemDiags: doc.PassesDiags}, true
+					return edit.Document{Source: doc.Source, ParseDiags: doc.ParseDiags, SemDiags: doc.Diagnostics}, true
 				}
 			}
 			return edit.Document{}, false
