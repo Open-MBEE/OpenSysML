@@ -30,7 +30,7 @@ func TestImagesResolveBesideTheSource(t *testing.T) {
 		{"plate", true, false, filepath.Join(model, "images", "mark.png")},
 		{"remote", false, true, ""},
 		{"spaced", true, false, filepath.Join(model, "images", "plate 3.png")},
-		{"tricky", true, false, filepath.Join(model, "images", "a) <b>.png")},
+		{"tricky", true, false, filepath.Join(model, "images", "a) (b).png")},
 	}
 	for i, tt := range tests {
 		image := images[i]
@@ -103,7 +103,7 @@ func TestBackendsWriteImagesRelativeToTheOutput(t *testing.T) {
 			t.Errorf("HTML lacks %s:\n%s", want, page)
 		}
 	}
-	for _, want := range []string{"![a brass survey mark](../model/images/mark.png)", "![](<../model/images/plate 3.png>)", "![odd name](<../model/images/a%29 %3Cb%3E.png>)"} {
+	for _, want := range []string{"![a brass survey mark](../model/images/mark.png)", "![](<../model/images/plate 3.png>)", "![odd name](<../model/images/a%29 %28b%29.png>)"} {
 		if !strings.Contains(markdown, want) {
 			t.Errorf("Markdown lacks %s:\n%s", want, markdown)
 		}
