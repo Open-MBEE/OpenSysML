@@ -242,6 +242,12 @@ func newDOTWriter(r *Rendering, options Options) *dotWriter {
 	w := &dotWriter{tree: r.Kind == KindTree, action: r.Kind == KindAction, clusters: map[string]bool{}, enclosing: map[string][]string{}, canvas: r.Canvas,
 		placement: placeRendering(r), drawn: map[string]bool{}, boxes: map[string]nodeBox{}, pins: map[string]nodeBox{}, ported: map[string]*Node{}, omitted: map[string]bool{},
 		fills: familyFills{palette: options.Palette, tree: r.Kind == KindTree}, skin: skin, pictures: r.Pictures}
+	w.sources = map[string]bool{}
+	for _, edge := range r.Edges {
+		if edge.FromPort != "" {
+			w.sources[edge.FromPort] = true
+		}
+	}
 	w.collectDrawn(r.Roots)
 	if w.placement.partial() && options.Unplaced != UnplacedStrip {
 		w.omitUnplaced(r.Roots)
@@ -425,6 +431,7 @@ type dotWriter struct {
 	b         strings.Builder
 	tree      bool                // containment as edges, not clusters
 	action    bool                // the pins name what a flow carries
+	sources   map[string]bool     // port IDs an edge leaves from
 	clusters  map[string]bool     // node IDs drawn as clusters
 	enclosing map[string][]string // node ID -> the cluster IDs around it
 	compound  bool                // an edge is clipped at a cluster

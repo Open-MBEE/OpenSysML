@@ -276,7 +276,9 @@ digraph "VehicleViews::vehicleView" {
   flow or binding end that names such a port — `heating.durationIn`, a chain over the part —
   ends at the pin (`Edge.FromPort`/`Edge.ToPort`; `featureWalk.endNode`, `memberEnd`), and one
   naming the part, or a feature of it that is no port, at the node. The pins are drawn as an
-  action's are: record cells or pinned squares in DOT, `port "name : Type"` elements of the
+  action's are: record cells or pinned squares in DOT — a port no route meets sitting below its
+  part when a connector leaves it and above when one reaches it (`portSide`), the way DOT ranks
+  the edge's ends, where a pin's direction places it — `port "name : Type"` elements of the
   part's `rectangle` in PlantUML with the connector between them (`n2.0 -[thickness=3]- n1.0`),
   a `port name : Type` line under the part and `part.port` edge ends in text, and lines of the
   part's label in Mermaid, whose flowchart has no port and whose edges stay at the parts.

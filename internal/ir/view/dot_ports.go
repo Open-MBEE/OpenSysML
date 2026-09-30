@@ -81,7 +81,7 @@ func (b nodeBox) holds(p Point) bool {
 
 // placePorts finds the box of every port of a boxed node, under it: a port a
 // route meets sits outside the border where the route ends, touching it; the
-// rest are spread along the top edge (the inputs) and the bottom (the outputs).
+// rest are spread along the top edge and the bottom, by portSide.
 func (w *dotWriter) placePorts(node *Node, ends map[string]Point) {
 	for _, child := range node.Children {
 		w.placePorts(child, ends)
@@ -94,11 +94,7 @@ func (w *dotWriter) placePorts(node *Node, ends map[string]Point) {
 	for _, port := range node.Ports {
 		end, ok := ends[port.ID]
 		if !ok {
-			side := 0
-			if port.Direction == PortOut {
-				side = 1
-			}
-			free[side] = append(free[side], port)
+			free[w.portSide(port)] = append(free[w.portSide(port)], port)
 			continue
 		}
 		w.pins[port.ID] = pinBox(box, end)
@@ -199,13 +195,27 @@ func (w *dotWriter) writePins(node *Node, indent string) {
 	}
 }
 
+// portSide is the side of its node a port no route meets sits on: 0 the top,
+// 1 the bottom. A pin's direction places it, an input above and an output
+// below. An interconnection's port has no direction, so its edges place it: a
+// port a connector leaves sits below and one it reaches above, the way DOT
+// ranks the ends of the edge, so the line runs between the parts and not
+// through one.
+func (w *dotWriter) portSide(port Port) int {
+	if port.Direction == PortOut || port.Direction == PortUndirected && w.sources[port.ID] {
+		return 1
+	}
+	return 0
+}
+
 // dotPortedLabel wraps a plain node's label in a table whose top row holds a
-// cell for each input port and whose bottom row one for each output, each a
-// small bordered square named in small type, so an edge can end at the cell.
+// cell for each port on the top side and whose bottom row one for each on the
+// bottom (portSide), each a small bordered square named in small type, so an
+// edge can end at the cell.
 func (w *dotWriter) dotPortedLabel(node *Node, label string) string {
 	var in, out []Port
 	for _, port := range node.Ports {
-		if port.Direction == PortOut {
+		if w.portSide(port) == 1 {
 			out = append(out, port)
 		} else {
 			in = append(in, port)

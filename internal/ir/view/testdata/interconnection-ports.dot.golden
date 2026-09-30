@@ -12,7 +12,7 @@ digraph "ToasterViews::toasterView" {
     penwidth=0.5;
     "n0" [shape=point, style=invis, width=0, height=0, label=""];
     "n1" [style="rounded,filled", label=<<table border="0" cellborder="0" cellspacing="0" cellpadding="2"><tr><td port="n1.0" border="1" fixedsize="true" width="10" height="10"></td><td align="left"><font point-size="8">durationIn : ~DurationPort</font></td></tr><tr><td colspan="2"><b>heating : HeatingSystem</b><br/><font point-size="10"><i>«part»</i></font></td></tr></table>>];
-    "n2" [style="rounded,filled", label=<<table border="0" cellborder="0" cellspacing="0" cellpadding="2"><tr><td port="n2.0" border="1" fixedsize="true" width="10" height="10"></td><td align="left"><font point-size="8">durationOut : DurationPort</font></td></tr><tr><td colspan="2"><b>control : ControlSystem</b><br/><font point-size="10"><i>«part»</i></font></td></tr></table>>];
+    "n2" [style="rounded,filled", label=<<table border="0" cellborder="0" cellspacing="0" cellpadding="2"><tr><td colspan="2"><b>control : ControlSystem</b><br/><font point-size="10"><i>«part»</i></font></td></tr><tr><td port="n2.0" border="1" fixedsize="true" width="10" height="10"></td><td align="left"><font point-size="8">durationOut : DurationPort</font></td></tr></table>>];
     "n3" [style="rounded,filled", label=<<b>chassis : Chassis</b><br/><font point-size="10"><i>«part»</i></font>>];
   }
   "n2":"n2.0" -> "n1":"n1.0" [label="durationInterface", arrowhead=none, penwidth=3];

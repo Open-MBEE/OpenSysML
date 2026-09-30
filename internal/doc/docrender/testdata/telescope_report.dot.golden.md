@@ -94,7 +94,7 @@ digraph "Observatory::interconnectView" {
     color=black;
     penwidth=0.5;
     "n0" [shape=point, style=invis, width=0, height=0, label=""];
-    "n1" [style="rounded,filled", label=<<table border="0" cellborder="0" cellspacing="0" cellpadding="2"><tr><td port="n1.0" border="1" fixedsize="true" width="10" height="10"></td><td align="left"><font point-size="8">output : DataPort</font></td></tr><tr><td colspan="2"><b>camera : Camera</b><br/><font point-size="10"><i>«part»</i></font></td></tr></table>>];
+    "n1" [style="rounded,filled", label=<<table border="0" cellborder="0" cellspacing="0" cellpadding="2"><tr><td colspan="2"><b>camera : Camera</b><br/><font point-size="10"><i>«part»</i></font></td></tr><tr><td port="n1.0" border="1" fixedsize="true" width="10" height="10"></td><td align="left"><font point-size="8">output : DataPort</font></td></tr></table>>];
     "n2" [style="rounded,filled", label=<<table border="0" cellborder="0" cellspacing="0" cellpadding="2"><tr><td port="n2.0" border="1" fixedsize="true" width="10" height="10"></td><td align="left"><font point-size="8">input : DataPort</font></td></tr><tr><td colspan="2"><b>recorder : Recorder</b><br/><font point-size="10"><i>«part»</i></font></td></tr></table>>];
   }
   "n1":"n1.0" -> "n2":"n2.0" [label="link", arrowhead=none, penwidth=3];
