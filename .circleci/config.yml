@@ -1349,11 +1349,13 @@ jobs:
             PRE_RELEASE="$(python client/python/scripts/check_version.py --pre-release)"
             # The Node client is published at the same version, so a
             # client/node/package.json that disagrees fails the release here,
-            # before anything is built.
+            # before anything is built; the Java client's pom the same.
             NPM_VERSION="$(python client/python/scripts/check_version.py --node)"
+            JAVA_VERSION="$(python client/python/scripts/check_version.py --java)"
             echo "export OPENSYSML_VERSION=${VERSION}" >> "$BASH_ENV"
             echo "export NPM_VERSION=${NPM_VERSION}" >> "$BASH_ENV"
-            echo "Building opensysml ${VERSION} (pre-release: ${PRE_RELEASE}, npm ${NPM_VERSION})"
+            echo "export JAVA_VERSION=${JAVA_VERSION}" >> "$BASH_ENV"
+            echo "Building opensysml ${VERSION} (pre-release: ${PRE_RELEASE}, npm ${NPM_VERSION}, maven ${JAVA_VERSION})"
 
       - run:
           name: Build the wheel and the sdist
@@ -1977,6 +1979,121 @@ jobs:
             cd client/node
             npm publish --access public --tag "$NPM_DIST_TAG"
 
+  # Publishes org.openmbee:opensysml-client and its parent pom to Maven Central
+  # from the core `v<version>` tag. Central has no trusted publishing, so a
+  # portal token and the release signing key come from the restricted
+  # `maven-central` context. Everything that can fail runs before the upload:
+  # the tag/version check, the Central availability check, the credentials, and
+  # a proof the signing key and passphrase work. The deploy auto-publishes the
+  # validated deployment and waits until it is published.
+  publish-maven:
+    executor: java-executor
+    steps:
+      - checkout
+
+      - restore_cache:
+          keys:
+            - maven-v1-{{ checksum "client/java/pom.xml" }}-{{ checksum "client/java/opensysml-client/pom.xml" }}-{{ checksum "client/java/opensysml-conformance/pom.xml" }}
+            - maven-v1-
+
+      - run:
+          name: Resolve the version from the tag
+          command: |
+            if [ -z "${CIRCLE_TAG}" ]; then
+              echo "Error: CIRCLE_TAG is empty; this job only runs on a core v* tag."
+              exit 1
+            fi
+            version=$(mvn -B -q -f client/java/pom.xml help:evaluate \
+              -Dexpression=project.version -DforceStdout)
+            # Central publishes the version the pom declares, so the tag must
+            # spell it exactly; build-python-package has already checked the pom
+            # against _version.py.
+            if [ "${CIRCLE_TAG}" != "v${version}" ]; then
+              echo "Error: tag ${CIRCLE_TAG} does not match client/java/pom.xml"
+              echo "version ${version}; the tag for it is v${version}. Nothing was published."
+              exit 1
+            fi
+            # Central has no test registry, so a pre-release (-rc1, -alpha.1…)
+            # is published as an ordinary, permanent version that Maven orders
+            # before the release; a snapshot is refused outright.
+            case "$version" in
+              *-SNAPSHOT)
+                echo "Error: ${version} is a snapshot; Central releases are immutable."
+                exit 1 ;;
+            esac
+            echo "export JAVA_VERSION=${version}" >> "$BASH_ENV"
+            echo "Publishing org.openmbee:opensysml-client:${version}"
+
+      - run:
+          name: Require the publishing credentials
+          command: |
+            # Names only, never values; the 'maven-central' context supplies them.
+            for name in CENTRAL_TOKEN_USERNAME CENTRAL_TOKEN_PASSWORD \
+                        GPG_PRIVATE_KEY GPG_PASSPHRASE; do
+              if [ -z "${!name:-}" ]; then
+                echo "Error: ${name} is not set; the restricted 'maven-central' context supplies it."
+                exit 1
+              fi
+            done
+
+      - run:
+          name: Refuse a version already on Central
+          command: |
+            for artifact in opensysml-parent opensysml-client; do
+              code=$(curl -s -o /dev/null -w '%{http_code}' \
+                "https://repo1.maven.org/maven2/org/openmbee/${artifact}/${JAVA_VERSION}/")
+              case "$code" in
+                200)
+                  echo "Error: org.openmbee:${artifact}:${JAVA_VERSION} is already on Central;"
+                  echo "a published version cannot be replaced. Cut the next core release."
+                  exit 1 ;;
+                404) ;;
+                *)
+                  echo "Error: could not ask Central (HTTP $code); refusing rather than guessing."
+                  exit 1 ;;
+              esac
+            done
+
+      - run:
+          name: Import the signing key
+          command: |
+            if ! command -v gpg > /dev/null; then
+              sudo apt-get update && sudo apt-get install -y gnupg
+            fi
+            printf '%s\n' "$GPG_PRIVATE_KEY" | gpg --batch --import
+            # Prove key and passphrase work before anything uploads: a clearsign
+            # with an expired key or a wrong passphrase fails here.
+            exec 3\<<<"$GPG_PASSPHRASE"
+            echo check | gpg --batch --pinentry-mode loopback \
+              --passphrase-fd 3 --clearsign > /dev/null
+            exec 3<&-
+
+      - run:
+          name: Write the Maven settings
+          command: |
+            mkdir -p ~/.m2
+            # Env interpolation keeps the portal token off disk.
+            printf '%s\n' \
+              '<settings>' \
+              '  <servers>' \
+              '    <server>' \
+              '      <id>central</id>' \
+              '      <username>${env.CENTRAL_TOKEN_USERNAME}</username>' \
+              '      <password>${env.CENTRAL_TOKEN_PASSWORD}</password>' \
+              '    </server>' \
+              '  </servers>' \
+              '</settings>' > ~/.m2/settings.xml
+            chmod 600 ~/.m2/settings.xml
+
+      # java-test ran the suite on this revision in this workflow, so tests are
+      # skipped; -am brings the parent pom the client's pom names, which Central
+      # must hold too; opensysml-conformance is not published.
+      - run:
+          name: Sign, upload and publish
+          command: |
+            MAVEN_GPG_PASSPHRASE="$GPG_PASSPHRASE" mvn -B -f client/java/pom.xml \
+              -Prelease deploy -pl opensysml-client -am -DskipTests
+
   publish-github-release:
     docker:
       - image: cibuilds/github:0.13
@@ -2100,7 +2217,7 @@ workflows:
 
   # Build and release on tags. The suite runs here too: a tag can point at any
   # commit, so a release is only published from a revision proven green. One tag
-  # publishes the binaries and both client packages, at the same version.
+  # publishes the binaries and every published client, at the same version.
   release:
     jobs:
       - go-static:
@@ -2134,6 +2251,11 @@ workflows:
           requires: *go-suite
           filters: *release-tags
 
+      - java-test:
+          name: Java client tests
+          requires: *go-suite
+          filters: *release-tags
+
       # Fails the release before anything is built when the tag does not name
       # the version client/python/opensysml/_version.py declares.
       - build-python-package:
@@ -2157,6 +2279,7 @@ workflows:
             - Build release artifacts
             - Python client tests
             - Node client tests
+            - Java client tests
           filters: *release-tags
 
       - publish-pypi:
@@ -2186,6 +2309,20 @@ workflows:
           requires:
             - Publish GitHub release
             - Node client tests
+          filters: *release-tags
+
+      - publish-maven:
+          name: Publish opensysml-client to Maven Central
+          # Last of all, with publish-pypi and publish-npm: Central versions are
+          # immutable, so it waits for the GitHub release. It is independent of
+          # them so neither registry refusing a re-run blocks the other.
+          # The organization context is named 'maven-central'; a context
+          # reference is matched exactly, so the case here has to match it.
+          context:
+            - maven-central
+          requires:
+            - Publish GitHub release
+            - Java client tests
           filters: *release-tags
 
   # Publishes the final release of the pre-rename PyPI name on a `pysysml-v*`
