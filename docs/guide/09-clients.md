@@ -72,11 +72,11 @@ package Demo {
     <dependency>
       <groupId>org.openmbee</groupId>
       <artifactId>opensysml-client</artifactId>
-      <version>0.1.0-SNAPSHOT</version>
+      <version>0.9.0</version>
     </dependency>
     ```
 
-    Not published yet: `make build && mvn -f client/java/pom.xml install` from a checkout.
+    Once the first release is published — until then, `make build && mvn -f client/java/pom.xml install` from a checkout.
 
 === "Rust"
 
@@ -1519,8 +1519,10 @@ try (Connection connection = Connection.open()) {      // starts a private sysml
 The client is meant to live inside a JVM host application it does not own (an Eclipse-based tool,
 a Cameo plugin, a web service), so it is built for JDK 17 and its only compile-scope dependency is
 `protobuf-java`. The transport is `java.net.http.HttpClient` speaking Connect, which keeps gRPC's
-Netty out of a host that has its own. Nothing is published yet; `make build` followed by
-`mvn -f client/java/pom.xml install` puts it in your local repository.
+Netty out of a host that has its own. It publishes to Maven Central with each core
+release — `org.openmbee:opensysml-client` at the core's version — once the first
+release is out; until then, `make build` followed by `mvn -f client/java/pom.xml install`
+puts it in your local repository.
 
 Everything returned is immutable, and no protobuf message appears in the public API: `Value` is a
 sealed interface over records, so its variants are closed and enumerable, and `Symbol`, `Diagnostic`,
