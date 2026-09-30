@@ -1,6 +1,6 @@
 # The Node/TypeScript client API
 
-This page covers what `@opensysml/client` exports, how its two entry points differ, and
+This page covers what `@openmbee/opensysml` exports, how its two entry points differ, and
 where its v1 surface stops. To choose between the clients, see
 [client libraries](clients.md); for a task-oriented walkthrough, see
 [guide chapter 9](../guide/09-clients.md#from-node-or-a-browser). The client's own
@@ -8,7 +8,7 @@ notes on packaging and its conformance run are in
 [client/node/README.md](../../client/node/README.md).
 
 ```bash
-npm install @opensysml/client        # once the first release is published
+npm install @openmbee/opensysml        # once the first release is published
 ```
 
 Nothing is published yet, so a checkout builds it: `npm install && npm run build`
@@ -18,8 +18,8 @@ in `client/node`.
 
 | import | reaches | private child service |
 | --- | --- | --- |
-| `@opensysml/client` | Node, over Connect with protobuf bodies | yes, by default |
-| `@opensysml/client/browser` | a page, over `fetch` (`@connectrpc/connect-web`) | no — a browser spawns nothing |
+| `@openmbee/opensysml` | Node, over Connect with protobuf bodies | yes, by default |
+| `@openmbee/opensysml/browser` | a page, over `fetch` (`@connectrpc/connect-web`) | no — a browser spawns nothing |
 
 Both re-export the isomorphic core; the browser entry point requires an
 `address`, since there is nothing to fall back to.
@@ -27,7 +27,7 @@ Both re-export the isomorphic core; the browser entry point requires an
 ## Opening a connection
 
 ```ts
-import { connect, load, loads } from "@opensysml/client";
+import { connect, load, loads } from "@openmbee/opensysml";
 
 await using connection = await connect();          // private child of this process
 const model = await connection.loads("package Demo { part def Car; }");
@@ -153,7 +153,7 @@ Clients negotiate on the capability names `GetServerInfo` reports, never on the
 version string:
 
 ```ts
-import { CAPABILITY_EVALUATE_SUBJECT } from "@opensysml/client";
+import { CAPABILITY_EVALUATE_SUBJECT } from "@openmbee/opensysml";
 
 if (connection.info.has(CAPABILITY_EVALUATE_SUBJECT)) {
   await model.eval("mass", { subject: "Demo::sedan" });
@@ -170,7 +170,7 @@ populated omit the fields they name rather than refusing the call.
 ## The service binary
 
 The binary comes from an optional per-platform npm package
-(`@opensysml/sysml-grpc-{linux-x64,linux-arm64,darwin-x64,darwin-arm64,win32-x64}`),
+(`@openmbee/opensysml-sysml-grpc-{linux-x64,linux-arm64,darwin-x64,darwin-arm64,win32-x64}`),
 selected by npm from its `os`/`cpu` metadata, with no postinstall script.
 Resolution order is `$OPENSYSML_BINARY`, that package,
 `~/.opensysml/bin/sysml-grpc` (the cache the Python, Java and Rust clients share),
@@ -193,7 +193,7 @@ process dies, `SIGKILL` included, and the child exits at end of file.
 ## In a browser
 
 ```ts
-import { connect } from "@opensysml/client/browser";
+import { connect } from "@openmbee/opensysml/browser";
 
 await using connection = await connect({ address: "https://sysml.example.com" });
 ```

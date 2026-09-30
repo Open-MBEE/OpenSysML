@@ -13,13 +13,16 @@ unless `client/python/opensysml/_version.py` declares that version — see
 version therefore gets the package and the `sysml-grpc` binary that were tested
 together.
 
+The same `v*` tag also publishes the Node client to npm as `@openmbee/opensysml`
+at the same version — see
+[Releasing @openmbee/opensysml to npm](#releasing-openmbeeopensysml-to-npm).
+
 A second tag, `pysysml-v*`, publishes the one-off final release of the client's
 pre-rename PyPI name — see [The final `pysysml` release](#the-final-pysysml-release).
 
 The other clients are released on tags of their own, and none of them has been
-published yet: [the Node client](#releasing-opensysmlclient-to-npm) on
-`client-node-v*`, [the Java client](#releasing-the-java-client-to-maven-central)
-on `opensysml-java-v*`, and [the Rust client](#releasing-the-rust-client-to-cratesio)
+published yet: [the Java client](#releasing-the-java-client-to-maven-central)
+on `opensysml-java-v*` and [the Rust client](#releasing-the-rust-client-to-cratesio)
 on `opensysml-rust-v*`. The public Go API in `client/opensysml` has no release of its
 own: it is part of this module, so the core's `v*` tag is what a Go program pins.
 
@@ -103,7 +106,12 @@ branch that moves the integration state onto `main`:
    deleted fragments. Set `VERSION` in `client/python/opensysml/_version.py` to `x.y.z` as
    well: the tag publishes `opensysml` at the core version, and the release workflow fails
    before building anything when the two disagree (see
-   [Releasing opensysml to PyPI](#releasing-opensysml-to-pypi)). Anything else the release
+   [Releasing opensysml to PyPI](#releasing-opensysml-to-pypi)). Also set `"version"` in
+   `client/node/package.json` — and the five platform packages in
+   `optionalDependencies` — to the SemVer spelling of the same version (`0.9.1`;
+   `0.9.0-rc.1` for `0.9.0rc1`), and run `npm install --package-lock-only` in
+   `client/node` so the lockfile agrees; the release workflow fails before
+   building anything when package.json disagrees. Anything else the release
    needs (a doc that names the version) lands here too; a feature does not. Check the wire compatibility
    against the released schema, not the branch's own source:
    `make proto-breaking BUF_BREAKING_REF=origin/main` (the default baseline is
@@ -148,7 +156,8 @@ to a fork builds a release nobody consumes.
 
 Tags are matched by `/^v.*/` in `.circleci/config.yml`. A tag on a commit that
 fails the suite fails the release workflow before anything is published, and so
-does a tag whose version `client/python/opensysml/_version.py` does not declare.
+does a tag whose version `client/python/opensysml/_version.py` or
+`client/node/package.json` does not declare.
 
 ## What CircleCI publishes
 
@@ -201,6 +210,13 @@ re-run of a published tag it fails by design while the GitHub assets are replace
 (see [What the jobs do, in order](#what-the-jobs-do-in-order)). Running it after
 the GitHub release means the package version never exists without the release
 it names; if the GitHub upload fails, nothing irreversible has happened yet.
+
+`publish-npm` runs beside it, also after the GitHub release and also not
+repeatable: npm never accepts a version twice. It publishes the five
+`@openmbee/opensysml-sysml-grpc-<os>-<cpu>` platform packages built from
+`build-release`'s `dist/grpc` binaries — the same bytes the release ships — and
+then the `@openmbee/opensysml` client (see
+[Releasing @openmbee/opensysml to npm](#releasing-openmbeeopensysml-to-npm)).
 
 Do not go back to `-delete`. It is an alias of `-recreate`: it deletes the
 existing release *and its tag* and creates an empty one, which wipes
@@ -269,7 +285,24 @@ one alongside it).
      "import opensysml; print(opensysml.__version__, opensysml.load('examples/state-machine-demo.sysml').diagnostics)"
    ```
 
-2. **Let the Homebrew tap pick the release up.** The tap repository
+2. **Verify the npm upload.** Check the registry sees all six packages at the
+   version and the right dist-tag:
+
+   ```bash
+   npm view @openmbee/opensysml@0.0.5 version dist-tags
+   ```
+
+   Then install it in a temp dir and load a model with `OPENSYSML_BINARY` unset,
+   so the per-platform package is what supplies the binary:
+
+   ```bash
+   mkdir /tmp/npm-verify && cd /tmp/npm-verify && npm init -y
+   npm install @openmbee/opensysml@0.0.5
+   node -e "import('@openmbee/opensysml').then(async m => {
+     const model = await m.loads('package V { }'); console.log('loaded'); })"
+   ```
+
+3. **Let the Homebrew tap pick the release up.** The tap repository
    `Open-MBEE/homebrew-tap` updates itself: a scheduled workflow there resolves
    the latest `Open-MBEE/OpenSysML` release, renders `Formula/opensysml.rb` from
    this repository's `scripts/render-homebrew-formula.sh` and formula template at
@@ -948,32 +981,33 @@ without breaking a pin that already names it), and cut the next core release —
 the package's version is the core's, so the fix is a patch tag, not a new
 `VERSION` alone. Deleting a release frees nothing: the version number stays used.
 
-## Releasing @opensysml/client to npm
+## Releasing @openmbee/opensysml to npm
 
-The Node client in `client/node/` is published to npm as `@opensysml/client` by
-the `release-node` workflow, which runs on a tag matching `/^client-node-v.*/` —
-for example `client-node-v0.1.0`. Nothing is published from a laptop, and a `v*`
-core release tag publishes no package. **Nothing has been published yet**: the
-first release needs the `@opensysml` scope to exist on npm, an automation token
-for it, and the `npm` context below.
+The Node client in `client/node/` is published to npm as `@openmbee/opensysml`
+by the `release` workflow's `publish-npm` job, from the same core `v<version>`
+tag that publishes the binaries and `opensysml` — at that version. No other tag
+publishes it; the `client-node-v*` path never ran and is no longer matched.
+**Nothing has been published yet** — the first core release after this is the
+first publish, and the `npm` context it needs is already in place (see
+[What the job needs](#what-the-job-needs-1)).
 
 ### Six packages, one tag
 
-`@opensysml/client` carries no binary. The service binary comes from one of five
+`@openmbee/opensysml` carries no binary. The service binary comes from one of five
 per-platform packages it names in `optionalDependencies`, which npm installs by
 matching their `os`/`cpu` metadata:
 
 | package | os | cpu |
 | --- | --- | --- |
-| `@opensysml/sysml-grpc-linux-x64` | linux | x64 |
-| `@opensysml/sysml-grpc-linux-arm64` | linux | arm64 |
-| `@opensysml/sysml-grpc-darwin-x64` | darwin | x64 |
-| `@opensysml/sysml-grpc-darwin-arm64` | darwin | arm64 |
-| `@opensysml/sysml-grpc-win32-x64` | win32 | x64 |
+| `@openmbee/opensysml-sysml-grpc-linux-x64` | linux | x64 |
+| `@openmbee/opensysml-sysml-grpc-linux-arm64` | linux | arm64 |
+| `@openmbee/opensysml-sysml-grpc-darwin-x64` | darwin | x64 |
+| `@openmbee/opensysml-sysml-grpc-darwin-arm64` | darwin | arm64 |
+| `@openmbee/opensysml-sysml-grpc-win32-x64` | win32 | x64 |
 
 All six share the version in `client/node/package.json`, because the
 `optionalDependencies` name that exact version. The platform packages are
-published first, so `@opensysml/client` is never on the registry naming a
+published first, so `@openmbee/opensysml` is never on the registry naming a
 version of them that is not. Where no package matches — a platform with no
 release build — the client falls back to `$OPENSYSML_BINARY`, a binary in
 `~/.opensysml/bin/`, a release download into that cache, `sysml-grpc` on
@@ -982,56 +1016,93 @@ the same shared cache and metadata, the same pinned digests, and the same
 signed-manifest verification, refusing a release it can neither pin nor verify.
 See `client/node/README.md`.
 
-`build-node-binaries` cross-compiles the five binaries from the tagged revision
-and writes a `.sha256` sidecar beside each; `npm run platform-packages` refuses
-to package a binary whose bytes disagree with its sidecar, or that has none. The
-bytes therefore never leave the pipeline that publishes them, which is the job
-the Python client's pinned digests do for a download. npm's `--provenance` is not
+### Where the binaries come from
+
+The five binaries are `build-release`'s `dist/grpc` output — the same bytes as
+the GitHub release and the signed `SHA256SUMS.txt`, persisted to the workspace
+the npm job attaches. `npm run platform-packages` refuses to package a binary
+whose bytes disagree with its `.sha256` sidecar, or that has none, so the
+packages can only carry what the release built. npm's `--provenance` is not
 used: the CLI mints attestations only on GitHub Actions and GitLab CI/CD.
 
-### Why its own tag
+### Why the core's tag
 
-The package resolves a service binary at run time rather than being lockstep
-with a core release, so a client-only fix should not wait for a core release,
-and a core release should not force an immutable npm version. An npm version can
-be deprecated or (within 72 hours, and only under conditions) unpublished, but
-never replaced — keeping that off the re-runnable `v*` path is deliberate. The
-Python client made the other choice (see [Why the same tag](#why-the-same-tag));
-nothing has been published from this path yet, so it can still follow.
+The client follows the Python client's choice (see
+[Why the same tag](#why-the-same-tag)): every npm version then has a core
+release of the same version tested with it in the same pipeline, and a caller
+pins one number — `npm install @openmbee/opensysml@0.9.1` gets the release's own
+binary via the platform package. The cost: a client-only fix is a core patch
+release. And since an npm publish is irreversible, the job runs last and refuses
+a version already on the registry, just like `publish-pypi`.
+
+### The version
+
+`client/node/package.json` follows `client/python/opensysml/_version.py` — the
+same version, spelled the SemVer way (`0.9.0-rc.1` for `0.9.0rc1`).
+`check_version.py --node` in `build-python-package` fails the release before
+anything is built when they disagree, and the pytest gate in
+`test_check_version.py` runs on every PR that touches either file. The tag must
+spell the SemVer version exactly, `v` aside.
+
+### Pre-releases
+
+A pre-release tag — the same one that sends `opensysml` to TestPyPI — publishes
+all six packages to the `next` dist-tag; `latest` is untouched. Install a
+pre-release with `@next` or the exact version.
 
 ### What the job needs
 
-1. The `@opensysml` **scope** on npm, with the publishing account a member of it.
-2. An **automation** access token for that account (npm → *Access Tokens* →
-   *Generate new token* → *Automation*, which bypasses 2FA for CI as a granular
-   token restricted to the `@opensysml` scope).
-3. A CircleCI **restricted context** named `npm` (Organization Settings →
-   Contexts) holding it as `NPM_TOKEN`, restricted to a security group so only
-   that group can run a job that reads it. A context reference is matched
-   exactly, so the name is lower-case in both places.
+Everything below is already in place; it is recorded so it can be re-created.
 
-### Releasing
+1. The **`@openmbee` scope** on npm, with the publishing account a member of the
+   org with publish rights on its packages. A new package under the scope is
+   created by its first `npm publish --access public`.
+2. A **granular access token** stored as `NPM_TOKEN` in the CircleCI restricted
+   context `npm` (lower-case, matched exactly, restricted to a security group).
+   The token was created on npmjs.com → *Access Tokens* → *Generate New Token*
+   → *Granular Access Token*, Packages and scopes: Read and write, restricted
+   to the `@openmbee` scope, **Bypass 2FA** enabled for non-interactive
+   publishing, no IP allowlist. (npm classic/automation tokens were revoked in
+   December 2025, and npm has no trusted publishing for CircleCI.)
+3. **Rotation is a standing task**: granular write tokens expire after at most
+   90 days, so before each release check its expiry and, if it has lapsed or
+   will soon, create a replacement the same way and update `NPM_TOKEN` in the
+   `npm` context. `publish-npm`'s `npm whoami` step fails before anything is
+   published when the token has expired.
 
-```bash
-# 1. Bump "version" in client/node/package.json, land it.
-# 2. Tag the version it declares.
-git tag client-node-v0.1.0
-git push origin client-node-v0.1.0
-```
+### What the job does, in order
 
-The job fails before publishing anything if the tag and
-`client/node/package.json` disagree, if any of the six versions is already on
-the registry, if the Go suite or the client's own gate (`node-test`: build,
-typecheck, lint, tests, conformance, and the mutation check that proves the
-conformance runner is not vacuous) fails, or if a binary's digest does not match
-its sidecar.
+`publish-npm` runs after `publish-github-release`, beside `publish-pypi`:
+
+1. Resolves the version: fails if the tag is not `v<version>` matching
+   `client/node/package.json`, picks the `latest`/`next` dist-tag from the
+   version, and lists the workspace binaries it will package.
+2. Requires `NPM_TOKEN` from the `npm` context.
+3. Refuses to run if any of the six packages is already on the registry at this
+   version (a publish cannot be repeated).
+4. Builds and tests the client against the release's linux binary (`npm ci`,
+   build, typecheck, lint, tests).
+5. Builds the five platform packages from `dist/grpc`, checking each binary
+   against its `.sha256` sidecar.
+6. Authenticates to npm and runs `npm whoami`, so an expired token fails before
+   the first publish.
+7. Publishes the five platform packages, then the client, on the resolved
+   dist-tag.
 
 ### If a publish goes wrong
 
-An npm version cannot be replaced. `npm deprecate '@opensysml/client@0.1.0' '...'`
-marks it, `npm unpublish` is possible only within 72 hours and only if nothing
-depends on it, and either way the version number stays used: bump
-`client/node/package.json` and tag again.
+`publish-npm` runs after `publish-github-release` and beside `publish-pypi`, so
+a failure there leaves the GitHub release and PyPI in place. Before the first
+`npm publish` — a version/tag mismatch, a missing or expired token, an `npm
+whoami`, build, test or digest failure — nothing is on npm: fix the cause (for
+example rotate the token in the context) and re-run only that job — *Rerun
+workflow from failed* — without repeating the rest of the workflow.
+
+After the first publish the version is used: the registry refusal makes a
+re-run fail by design, and a half-published set — some platform packages up,
+the client not — is not repaired by re-running. `npm deprecate` what went up
+(and `npm unpublish` within 72 hours only if nothing depends on it) and cut the
+next core patch release. Never remove the refusal to force a re-run through.
 
 ## The final `pysysml` release
 
@@ -1110,10 +1181,10 @@ None of these can be provisioned from a checkout:
 
 `client/java/pom.xml` declares the version once, and both modules inherit it
 from the parent. A release drops `-SNAPSHOT`, lands, and is tagged
-`opensysml-java-v<version>` — its own tag, for the reason the Node client has
-one: the client does not ship the service, so its version says nothing about
-which core release it runs against, and a Maven Central version can never be
-replaced, so it must not hang off a `v*` core tag that `ghr -replace` re-runs.
+`opensysml-java-v<version>` — its own tag: the client does not ship the
+service, so its version says nothing about which core release it runs against,
+and a Maven Central version can never be replaced, so it must not hang off a
+`v*` core tag that `ghr -replace` re-runs.
 
 Like the Python client, it downloads a `sysml-grpc` binary at runtime for
 whatever release the caller names (`ConnectionOptions.downloadVersion()`,

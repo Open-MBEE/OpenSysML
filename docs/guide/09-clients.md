@@ -10,7 +10,7 @@ starts and stops on its own.
 | --- | --- | --- | --- |
 | Go | `github.com/Open-MBEE/OpenSysML/client/opensysml` | in process, or Connect to a service | [Go packages](../reference/api.md) |
 | Python | `opensysml` | gRPC, to a private child service or a named one | [Python API](../reference/python-api.md) |
-| Node/TypeScript | `@opensysml/client` | Connect, from Node or from a browser page | [Node API](../reference/node-api.md) |
+| Node/TypeScript | `@openmbee/opensysml` | Connect, from Node or from a browser page | [Node API](../reference/node-api.md) |
 | Java | `org.openmbee:opensysml-client` | Connect, over the JDK's own HTTP client | [Java API](../reference/java-api.md) |
 | Rust | `opensysml` | Connect, blocking, with no async runtime | [Rust API](../reference/rust-api.md) |
 
@@ -62,7 +62,7 @@ package Demo {
 === "Node"
 
     ```bash
-    npm install @opensysml/client          # once the first release is published
+    npm install @openmbee/opensysml          # once the first release is published
     export OPENSYSML_GRPC_VERSION=latest
     ```
 
@@ -180,7 +180,7 @@ Existing `add_first` and `add_then` requests retain their original wire fields.
 === "Node"
 
     ```ts
-    import { load } from "@opensysml/client";
+    import { load } from "@openmbee/opensysml";
 
     await using model = await load("vehicle.sysml");
 
@@ -1431,7 +1431,7 @@ everything above.
 ## From Node or a browser
 
 ```ts
-import { loads } from "@opensysml/client";
+import { loads } from "@openmbee/opensysml";
 
 await using model = await loads(`package Demo {
   part def Wheel { attribute radius : ScalarValues::Real = 0.3; }
@@ -1444,7 +1444,7 @@ const tree = await model.instantiate("Demo::Car");
 tree.get("wheels");
 ```
 
-`@opensysml/client` is not published yet, so build it from a checkout: `npm install && npm run build`
+`@openmbee/opensysml` is not published yet, so build it from a checkout: `npm install && npm run build`
 in `client/node`. `loads` and `load` are the one-shot forms; `connect()` keeps a connection (and so
 a service and its parse cache) open across several models. Both a connection and a model are
 async-disposable, so `await using` closes them, and `close()` is the explicit form. Values arrive as
@@ -1456,7 +1456,7 @@ leaves open, with its `reason` and count bounds.
 The same package runs in a browser, from a second entry point that spawns nothing:
 
 ```ts
-import { connect } from "@opensysml/client/browser";
+import { connect } from "@openmbee/opensysml/browser";
 
 await using connection = await connect({ address: "https://sysml.example.com" });
 ```

@@ -9,7 +9,7 @@ its own, and [guide chapter 9](../guide/09-clients.md) walks through a task with
 |---|---|---|---|
 | **Go**, `client/opensysml` | in process; or Connect, to a service someone else runs | with the core (`v*` tags) | [Go packages](api.md) |
 | **Python**, `opensysml` | gRPC, to a private child service or a named service | PyPI, on the core `v*` tags, at the core's version | [Python API](python-api.md) |
-| **Node/TypeScript**, `@opensysml/client` | Connect, to a private child service, a named service, or one a browser page addresses | not yet | [Node API](node-api.md) |
+| **Node/TypeScript**, `@openmbee/opensysml` | Connect, to a private child service, a named service, or one a browser page addresses | not yet | [Node API](node-api.md) |
 | **Java**, `org.openmbee:opensysml-client` | Connect, over the JDK's own HTTP client | not yet | [Java API](java-api.md) |
 | **Rust**, `opensysml` | Connect, blocking, no async runtime | not yet | [Rust API](rust-api.md) |
 | **Julia**, `OpenSysML` | Connect-JSON, over `HTTP.jl` | not yet | [Julia API](julia-api.md) |
@@ -27,7 +27,7 @@ The protocols and what the service serves on a single port are described in
   code the program already links.
 - **In a notebook: Python.** `opensysml` adds generated typed classes, Jupyter display hooks and
   DataFrame integration to the full RPC surface.
-- **In a browser or a Node service: `@opensysml/client`.** No native addon, and the browser entry
+- **In a browser or a Node service: `@openmbee/opensysml`.** No native addon, and the browser entry
   point needs only `fetch` against a service that allows the page's origin.
 - **In a JVM host application the caller does not control (an Eclipse-based tool, a Cameo plugin,
   a web application): Java.** Its transport is `java.net.http.HttpClient`, so no gRPC, Netty or

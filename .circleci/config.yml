@@ -1347,8 +1347,13 @@ jobs:
             # package would publish, before anything is built.
             VERSION="$(python client/python/scripts/check_version.py)"
             PRE_RELEASE="$(python client/python/scripts/check_version.py --pre-release)"
+            # The Node client is published at the same version, so a
+            # client/node/package.json that disagrees fails the release here,
+            # before anything is built.
+            NPM_VERSION="$(python client/python/scripts/check_version.py --node)"
             echo "export OPENSYSML_VERSION=${VERSION}" >> "$BASH_ENV"
-            echo "Building opensysml ${VERSION} (pre-release: ${PRE_RELEASE})"
+            echo "export NPM_VERSION=${NPM_VERSION}" >> "$BASH_ENV"
+            echo "Building opensysml ${VERSION} (pre-release: ${PRE_RELEASE}, npm ${NPM_VERSION})"
 
       - run:
           name: Build the wheel and the sdist
@@ -1846,52 +1851,15 @@ jobs:
 
   # The five sysml-grpc binaries the per-platform npm packages carry, built from
   # the tagged revision in this pipeline so the published bytes never travel.
-  build-node-binaries:
-    executor: go-executor
-    steps:
-      - checkout
-      - go/load-cache
-      - go/mod-download
-
-      - run:
-          name: Cross-compile sysml-grpc and write its checksum sidecars
-          command: |
-            VERSION=${CIRCLE_TAG}
-            COMMIT=${CIRCLE_SHA1}
-            BUILD_TIME=$(date -u '+%Y-%m-%d_%H:%M:%S')
-            GO_VERSION=$(go version | awk '{print $3}')
-            mkdir -p dist/grpc
-            build() {
-              GOOS=$1 GOARCH=$2 make build-grpc VERSION="$VERSION" COMMIT="$COMMIT" \
-                BUILD_TIME="$BUILD_TIME" GO_VERSION="$GO_VERSION"
-              mv bin/sysml-grpc "dist/grpc/sysml-grpc-$1-$2$3"
-            }
-            build linux amd64 ""
-            build linux arm64 ""
-            build darwin amd64 ""
-            build darwin arm64 ""
-            build windows amd64 ".exe"
-            cd dist/grpc
-            for asset in sysml-grpc-*; do sha256sum "$asset" > "$asset.sha256"; done
-            cat ./*.sha256
-
-      - run:
-          name: Verify the Linux binaries are statically linked
-          command: scripts/check-static-binaries.sh dist/grpc/sysml-grpc-linux-*
-
-      - persist_to_workspace:
-          root: .
-          paths:
-            - dist/grpc
-
-  # Publishes @opensysml/client and its five per-platform packages on a
-  # `client-node-v<version>` tag. npm has no trusted publishing for CircleCI, so
-  # this authenticates with an automation token from the restricted `npm`
-  # context. Everything that can fail runs before the first publish: the
-  # tag/version check, the client's own gate, the digest check on every binary,
-  # and a refusal when the version is already published. The platform
-  # packages go first, because @opensysml/client's optionalDependencies name them
-  # at this exact version.
+  # Publishes @openmbee/opensysml and its five per-platform packages from the
+  # core `v<version>` tag, carrying the sysml-grpc binaries build-release
+  # published — the same bytes as the GitHub release. npm has no trusted
+  # publishing for CircleCI, so this authenticates with a granular token from
+  # the restricted `npm` context. Everything that can fail runs before the
+  # first publish: the tag/version check, the registry check, the token, the
+  # client's own gate, and the digest check on every binary. The platform
+  # packages go first, because the client's optionalDependencies name them at
+  # this exact version.
   publish-npm:
     executor: node-executor
     steps:
@@ -1901,26 +1869,70 @@ jobs:
           at: .
 
       - run:
-          name: Check the tag matches the package version
+          name: Resolve the version from the tag
           command: |
+            if [ -z "${CIRCLE_TAG}" ]; then
+              echo "Error: CIRCLE_TAG is empty; this job only runs on a core v* tag."
+              exit 1
+            fi
             version=$(node -p "require('./client/node/package.json').version")
-            expected="client-node-v${version}"
-            if [ "${CIRCLE_TAG}" != "$expected" ]; then
+            # npm publishes the version package.json declares, so the tag must
+            # spell it exactly; build-python-package has already checked
+            # package.json against _version.py.
+            if [ "${CIRCLE_TAG}" != "v${version}" ]; then
               echo "Error: tag ${CIRCLE_TAG} does not match client/node/package.json"
-              echo "version ${version}; the tag for it is ${expected}. Nothing was published."
+              echo "version ${version}; the tag for it is v${version}. Nothing was published."
+              exit 1
+            fi
+            # check_version.py admits only alpha/beta/rc suffixes, so a SemVer
+            # pre-release here is exactly a PEP 440 pre-release — the ones
+            # publish-pypi routes to TestPyPI. npm has no test registry, so a
+            # pre-release goes to the `next` dist-tag and `latest` is untouched.
+            case "$version" in
+              *-*) dist_tag=next ;;
+              *) dist_tag=latest ;;
+            esac
+            echo "export NPM_VERSION=${version}" >> "$BASH_ENV"
+            echo "export NPM_DIST_TAG=${dist_tag}" >> "$BASH_ENV"
+            echo "Publishing ${version} to the '${dist_tag}' dist-tag"
+            # Proves the workspace carries the release binaries and sidecars.
+            ls -l dist/grpc/sysml-grpc-*
+
+      - run:
+          name: Require the publishing token
+          command: |
+            # Checked early so a missing token fails before anything else;
+            # never echoed. The 'npm' context supplies it — see
+            # docs/project/releasing.md.
+            if [ -z "${NPM_TOKEN}" ]; then
+              echo "Error: NPM_TOKEN is not set; the restricted 'npm' context supplies it."
+              echo "See docs/project/releasing.md for how to provision it."
               exit 1
             fi
 
       - run:
           name: Refuse a version already on the registry
           command: |
-            version=$(node -p "require('./client/node/package.json').version")
-            for name in @opensysml/client @opensysml/sysml-grpc-linux-x64 \
-                        @opensysml/sysml-grpc-linux-arm64 @opensysml/sysml-grpc-darwin-x64 \
-                        @opensysml/sysml-grpc-darwin-arm64 @opensysml/sysml-grpc-win32-x64; do
-              if npm view "${name}@${version}" version > /dev/null 2>&1; then
-                echo "Error: ${name}@${version} is already published; a version cannot be"
-                echo "replaced. Bump client/node/package.json and tag again."
+            # The package names come from package.json, not a literal list:
+            # the client itself plus the optionalDependencies that carry the
+            # platform binaries. Anything but six means the manifest drifted.
+            names=$(node -e "
+              const pkg = require('./client/node/package.json');
+              const platforms = Object.keys(pkg.optionalDependencies || {})
+                .filter(n => n.startsWith(pkg.name + '-sysml-grpc-'));
+              console.log([pkg.name, ...platforms].join('\n'));
+            ")
+            count=$(echo "$names" | wc -l)
+            if [ "$count" -ne 6 ]; then
+              echo "Error: expected 6 packages to publish (client + 5 platform),"
+              echo "package.json yields $count:"
+              echo "$names"
+              exit 1
+            fi
+            echo "$names" | while read -r name; do
+              if npm view "${name}@${NPM_VERSION}" version > /dev/null 2>&1; then
+                echo "Error: ${name}@${NPM_VERSION} is already published; a version cannot be"
+                echo "replaced. Bump client/node/package.json and cut the next core release."
                 exit 1
               fi
             done
@@ -1940,17 +1952,17 @@ jobs:
       - run:
           name: Build the per-platform packages
           command: |
+            # These are build-release's bytes; the generator checks each one
+            # against its .sha256 sidecar before packaging it.
             cd client/node
             npm run platform-packages -- --binaries ../../dist/grpc
 
       - run:
           name: Authenticate to npm
           command: |
-            if [ -z "${NPM_TOKEN}" ]; then
-              echo "Error: NPM_TOKEN is not set; the 'npm' context supplies it."
-              exit 1
-            fi
             echo "//registry.npmjs.org/:_authToken=${NPM_TOKEN}" > ~/.npmrc
+            # A bad or expired token fails here, before the first publish.
+            npm whoami
 
       # No --provenance: the npm CLI only mints attestations on GitHub Actions and
       # GitLab CI/CD, and it fails rather than publish unattested when asked here.
@@ -1958,14 +1970,14 @@ jobs:
           name: Publish the per-platform packages
           command: |
             for directory in client/node/packages/sysml-grpc-*; do
-              npm publish "$directory" --access public
+              npm publish "$directory" --access public --tag "$NPM_DIST_TAG"
             done
 
       - run:
-          name: Publish @opensysml/client
+          name: Publish @openmbee/opensysml
           command: |
             cd client/node
-            npm publish --access public
+            npm publish --access public --tag "$NPM_DIST_TAG"
 
   publish-github-release:
     docker:
@@ -2090,7 +2102,7 @@ workflows:
 
   # Build and release on tags. The suite runs here too: a tag can point at any
   # commit, so a release is only published from a revision proven green. One tag
-  # publishes the binaries and the opensysml package, at the same version.
+  # publishes the binaries and both client packages, at the same version.
   release:
     jobs:
       - go-static:
@@ -2119,6 +2131,11 @@ workflows:
             - Go gates and binaries
           filters: *release-tags
 
+      - node-test:
+          name: Node client tests
+          requires: *go-suite
+          filters: *release-tags
+
       # Fails the release before anything is built when the tag does not name
       # the version client/python/opensysml/_version.py declares.
       - build-python-package:
@@ -2141,6 +2158,7 @@ workflows:
           requires:
             - Build release artifacts
             - Python client tests
+            - Node client tests
           filters: *release-tags
 
       - publish-pypi:
@@ -2157,54 +2175,20 @@ workflows:
             - Python client tests
           filters: *release-tags
 
-  # Publish the npm client on its own tag: the package resolves a service binary
-  # at run time, so a client fix should not need a core release and a core
-  # release should not need an npm publish. The binaries the platform packages
-  # carry are built here rather than downloaded from a release.
-  release-node:
-    jobs:
-      - go-static:
-          name: Go static checks
-          filters: &node-tags
-            branches:
-              ignore: /.*/
-            tags:
-              only: /^client-node-v.*/
-      - go-race-test:
-          name: Go race tests
-          filters: *node-tags
-      - go-coverage:
-          name: Go coverage profile
-          filters: *node-tags
-      - go-gates:
-          name: Go gates and binaries
-          filters: *node-tags
-
-      - node-test:
-          name: Node client tests
-          requires: *go-suite
-          filters: *node-tags
-
-      - build-node-binaries:
-          name: Build Node platform binaries
-          requires: *go-suite
-          filters: *node-tags
-
       - publish-npm:
-          name: Publish npm client
+          name: Publish opensysml to npm
+          # Last of all, with publish-pypi: the npm publish cannot be undone,
+          # so it waits for the GitHub release the version promises to exist.
+          # It is independent of publish-pypi so neither registry refusing a
+          # re-run blocks the other.
           # The organization context is named 'npm'; a context reference is
-          # matched exactly, so the case here has to match it. A publish cannot
-          # be taken back, so it runs last and only on a revision proven green.
+          # matched exactly, so the case here has to match it.
           context:
             - npm
           requires:
-            - Go static checks
-            - Go race tests
-            - Go coverage profile
-            - Go gates and binaries
+            - Publish GitHub release
             - Node client tests
-            - Build Node platform binaries
-          filters: *node-tags
+          filters: *release-tags
 
   # Publishes the final release of the pre-rename PyPI name on a `pysysml-v*`
   # tag. It is its own workflow because the artifact shares no code with the
