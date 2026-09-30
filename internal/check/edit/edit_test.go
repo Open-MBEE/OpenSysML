@@ -47,7 +47,7 @@ func loadContent(t *testing.T, name, content string) Model {
 	idx.AddDocument(name, root)
 	var sem []diag.Diagnostic
 	if len(p.Diagnostics) == 0 {
-		sem = passes.Analyze(name, root, nil, idx)
+		sem = passes.Analyze(name, root, parser.AsDiagnostics(p.Diagnostics, p.Warnings), idx)
 	}
 	return Model{
 		Source:     sf,
@@ -57,6 +57,14 @@ func loadContent(t *testing.T, name, content string) Model {
 		SemDiags:   sem,
 		NewIndex:   func() *symbols.Index { return libraryIndex(t) },
 	}
+}
+
+// parseGate is what the parse of sf reported, as every reader hands it to the
+// analysis: its errors and its warnings.
+func parseGate(sf *source.SourceFile) []diag.Diagnostic {
+	p := parser.New(sf)
+	p.ParseFile()
+	return parser.AsDiagnostics(p.Diagnostics, p.Warnings)
 }
 
 // loadWorkspace is loadContent with sibling workspace documents indexed beside
@@ -72,7 +80,7 @@ func loadWorkspace(t *testing.T, name, content string, siblings map[string]strin
 	m.Index.AddDocument(name, m.Root)
 	m.Index.ExpandWildcardImports()
 	if len(m.ParseDiags) == 0 {
-		m.SemDiags = passes.Analyze(name, m.Root, nil, m.Index)
+		m.SemDiags = passes.Analyze(name, m.Root, parseGate(m.Source), m.Index)
 	}
 	m.NewIndex = func() *symbols.Index {
 		idx := libraryIndex(t)
@@ -101,11 +109,11 @@ func loadEditableWorkspace(t *testing.T, name, content string, siblings map[stri
 	}
 	m.Index.ExpandWildcardImports()
 	if len(m.ParseDiags) == 0 {
-		m.SemDiags = passes.Analyze(name, m.Root, nil, m.Index)
+		m.SemDiags = passes.Analyze(name, m.Root, parseGate(m.Source), m.Index)
 	}
 	for sibling, doc := range others {
 		if len(doc.ParseDiags) == 0 {
-			doc.SemDiags = passes.Analyze(sibling, roots[sibling], nil, m.Index)
+			doc.SemDiags = passes.Analyze(sibling, roots[sibling], parseGate(doc.Source), m.Index)
 			others[sibling] = doc
 		}
 	}

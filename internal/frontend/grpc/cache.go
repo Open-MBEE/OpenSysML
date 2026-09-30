@@ -22,10 +22,15 @@ import (
 
 // CachedDocument is one parsed document of a model.
 type CachedDocument struct {
-	Root        *ast.RootNamespace
-	Source      *source.SourceFile  // For diagnostic line/col mapping
-	ParseDiags  []parser.Diagnostic // Parser diagnostics
-	PassesDiags []diag.Diagnostic   // Semantic pass diagnostics (name-resolution, type, constraint)
+	Root   *ast.RootNamespace
+	Source *source.SourceFile // For diagnostic line/col mapping
+	// ParseDiags are the parse's errors, for the consumers that refuse a
+	// document that did not parse.
+	ParseDiags []parser.Diagnostic
+	// Diagnostics are what the document reports, as the workspace reports a
+	// document's: the parse's errors and warnings as the passes present them,
+	// and the passes' own findings when the model parsed clean and was analyzed.
+	Diagnostics []diag.Diagnostic
 }
 
 // CachedModel holds parsed model data with semantic analysis results
