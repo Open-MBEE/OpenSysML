@@ -1388,7 +1388,14 @@ func (d *decoder) printElement(b *strings.Builder, el *element, depth int) error
 	parallel := d.boolOf(el, rdf.SysML+"isParallel")
 	annotations := d.identityAnnotations(el)
 	if cross := d.ownedCrossFeature(el); cross != nil {
-		about, err := d.crossFeatureAnnotations(cross)
+		about, err := d.headFeatureAnnotations(cross, "cross feature")
+		if err != nil {
+			return err
+		}
+		annotations = append(annotations, about...)
+	}
+	if payload := d.flowPayload(el); payload != nil {
+		about, err := d.headFeatureAnnotations(payload, "payload")
 		if err != nil {
 			return err
 		}
@@ -1455,22 +1462,23 @@ func (d *decoder) identityAnnotations(el *element) []string {
 	return out
 }
 
-// crossFeatureAnnotations writes the identity of a cross feature written in its
-// end's head, which has no place for it, as `about` annotations in the end's body,
-// naming it by its name or, failing that, its short name.
-func (d *decoder) crossFeatureAnnotations(cross *element) ([]string, error) {
-	identity := d.identityOf(cross)
+// headFeatureAnnotations writes the identity of a feature written in its
+// owner's head, which has no place for it — an end's cross feature, a flow's
+// payload — as `about` annotations in the owner's body, naming it by its name
+// or, failing that, its short name. what names the feature in a refusal.
+func (d *decoder) headFeatureAnnotations(feature *element, what string) ([]string, error) {
+	identity := d.identityOf(feature)
 	if len(identity) == 0 {
 		return nil, nil
 	}
-	name, ok := d.stringOf(cross, rdf.SysML+pDeclaredName)
+	name, ok := d.stringOf(feature, rdf.SysML+pDeclaredName)
 	if !ok {
-		name, ok = d.stringOf(cross, rdf.SysML+pDeclaredShortName)
+		name, ok = d.stringOf(feature, rdf.SysML+pDeclaredShortName)
 	}
 	if !ok {
 		return nil, &UnsupportedError{
-			What: fmt.Sprintf("the cross feature <%s>", cross.iri),
-			Note: "its identity is annotated `about` it in the body of the end whose head writes it, and it declares no name for the annotation to say",
+			What: fmt.Sprintf("the %s <%s>", what, feature.iri),
+			Note: "its identity is annotated `about` it in the body of the element whose head writes it, and it declares no name for the annotation to say",
 		}
 	}
 	var out []string
@@ -2249,6 +2257,18 @@ func (d *decoder) usageHead(el *element, kind ast.UsageKind) (string, error) {
 	}
 	if hasValue {
 		head += " " + d.valueOperator(el) + " " + value
+	}
+	// A flow stating no ends still writes its payload after its declaration
+	// (SysML-textual-bnf FlowDeclaration, MessageDeclaration: `of` follows the
+	// value part); one with ends wrote it among them.
+	if !hasEnds && flowMetaclasses[el.metaclass] {
+		payload, err := d.payloadText(el)
+		if err != nil {
+			return "", err
+		}
+		if payload != "" {
+			head += " of " + payload
+		}
 	}
 	return head, nil
 }
@@ -3233,9 +3253,12 @@ func (d *decoder) unwrittenPrefix(el *element) error {
 // but the prefix annotations and the cross feature its head writes.
 func (d *decoder) bodyChildren(el *element) []*element {
 	cross := d.ownedCrossFeature(el)
+	// A flow's payload is written in its head, after `of`; any other payload
+	// feature stays a child, which has no notation and is refused.
+	payload := d.flowPayload(el)
 	var out []*element
 	for _, child := range el.children {
-		if child != cross && !child.implied && d.metadataSigil(child) != "#" {
+		if child != cross && child != payload && !child.implied && d.metadataSigil(child) != "#" {
 			out = append(out, child)
 		}
 	}
@@ -3261,7 +3284,7 @@ func (d *decoder) ownedCrossFeature(el *element) *element {
 
 // crossFeatureWords writes an end's cross feature after `end`: name, multiplicity
 // and specializations, typing spelled `typed by` since `:` there is the end's own.
-// Its identity goes in the end's body (crossFeatureAnnotations); a body of its own has no place.
+// Its identity goes in the end's body (headFeatureAnnotations); a body of its own has no place.
 func (d *decoder) crossFeatureWords(cross *element) ([]string, error) {
 	if len(d.bodyChildren(cross)) > 0 || d.boolOf(cross, rdf.OpenSysML+xHasBody) {
 		return nil, &UnsupportedError{

@@ -385,6 +385,120 @@ func (d *decoder) endWords(el *element, form string, declared bool) (string, err
 	return endNotation{form: form, keyword: verb, ends: ends, payload: payload}.text()
 }
 
+// payloadText writes the payload a flow's head states after `of`, from the
+// PayloadFeature the flow owns (SysML-textual-bnf FlowPayloadFeatureMember):
+// `p : T[1] = v` for a declared one, `T[1]` for one that states only its type.
+// A graph written before the payload was a feature states it as the
+// expression sysx:payload instead, which is read as written; one stating both
+// is refused rather than one chosen.
+func (d *decoder) payloadText(el *element) (string, error) {
+	legacy, hasLegacy := d.stringOf(el, rdf.OpenSysML+xPayload)
+	payload := d.flowPayload(el)
+	if payload == nil {
+		for _, child := range el.children {
+			if child.metaclass == mPayloadFeature {
+				return "", &UnsupportedError{
+					What: fmt.Sprintf("the payload features of <%s>", el.iri),
+					Note: "a flow writes one payload after `of`, and only a flow has one",
+				}
+			}
+		}
+		return legacy, nil
+	}
+	if hasLegacy {
+		return "", &UnsupportedError{
+			What: fmt.Sprintf("the payload of <%s>", el.iri),
+			Note: "it states both a PayloadFeature and the earlier sysx:payload expression, and the head writes one payload",
+		}
+	}
+	// The payload is written inside the flow's head, where it has no body.
+	if len(d.bodyChildren(payload)) > 0 || d.boolOf(payload, rdf.OpenSysML+xHasBody) {
+		return "", &UnsupportedError{
+			What: fmt.Sprintf("the payload <%s>", payload.iri),
+			Note: "it owns members or states a body, and a payload written after `of` has no place for a body",
+		}
+	}
+	mult := d.multiplicityText(payload)
+	// `ordered` and `nonunique` follow the multiplicity of a declared payload
+	// (PayloadFeatureSpecializationPart's MultiplicityPart); `of T[1]` has none.
+	flags := ""
+	if d.boolOf(payload, rdf.SysML+"isOrdered") {
+		flags += " ordered"
+	}
+	if d.boolOf(payload, rdf.SysML+"isNonunique") {
+		flags += " nonunique"
+	}
+	words := d.identWords(payload)
+	typed, err := d.referenceList(payload, rdf.SysML+relationshipProperty[ast.RelTyping])
+	if err != nil {
+		return "", err
+	}
+	if len(words) == 0 {
+		rest, err := d.relationshipWords(payload, "", ast.RelTyping)
+		if err != nil {
+			return "", err
+		}
+		if _, valued := d.stringOf(payload, rdf.SysML+pValue); len(typed) != 1 || len(rest) > 0 || valued || flags != "" {
+			return "", &UnsupportedError{
+				What: fmt.Sprintf("the payload <%s>", payload.iri),
+				Note: "a payload with no name is written by its one type alone (SysML-textual-bnf PayloadFeature), so one that states anything else has no notation",
+			}
+		}
+		return typed[0] + mult, nil
+	}
+	// A named payload is written `p : T`, the one declared form the notation
+	// reads back as a declaration: `of p` alone, or `of p[1]`, reads as a
+	// payload typed by p (SysML-textual-bnf PayloadFeature).
+	if rest, err := d.relationshipWords(payload, "", ast.RelTyping); err != nil {
+		return "", err
+	} else if len(typed) != 1 || len(rest) > 0 {
+		return "", &UnsupportedError{
+			What: fmt.Sprintf("the payload <%s>", payload.iri),
+			Note: "a named payload is written `of <name> : <type>`, so one stating no single typing, or another specialization, has no notation that reads back as it",
+		}
+	}
+	mult += flags
+	relationships, err := d.relationshipWords(payload, mult)
+	if err != nil {
+		return "", err
+	}
+	words = append(words, relationships...)
+	if value, ok := d.stringOf(payload, rdf.SysML+pValue); ok {
+		words = append(words, d.valueOperator(payload), value)
+	}
+	return strings.Join(words, " "), nil
+}
+
+// flowPayload returns the PayloadFeature a flow's head writes after `of`: the
+// one a flow owns, or nil when el is no flow or owns none or several.
+func (d *decoder) flowPayload(el *element) *element {
+	if !flowMetaclasses[el.metaclass] {
+		return nil
+	}
+	var payload *element
+	for _, child := range el.children {
+		if child.metaclass != mPayloadFeature {
+			continue
+		}
+		if payload != nil {
+			return nil
+		}
+		payload = child
+	}
+	// A flow owns its payload through a FeatureMembership
+	// (FlowPayloadFeatureMember); one owned otherwise has no `of` notation.
+	if payload != nil {
+		if m, ok := d.owningMembership[payload.iri]; !ok || d.metaclass(rdf.IRI(m.iri)) != mFeatureMembership {
+			return nil
+		}
+	}
+	return payload
+}
+
+// flowMetaclasses are the usages whose head takes an `of` clause
+// (SysML-textual-bnf FlowDeclaration, MessageDeclaration).
+var flowMetaclasses = map[string]bool{"FlowUsage": true, "SuccessionFlowUsage": true}
+
 // relatedEnds reads the ends of a head in the order they are written, each
 // behind the multiplicity it states, with the payload of a flow kept apart: it
 // is written ahead of them, after `of`.
@@ -404,8 +518,24 @@ func (d *decoder) relatedEnds(el *element) (ends []string, payload string, err e
 				Note: "its standard sysml:connectorEnd and legacy sysx:relatedFeature shapes disagree",
 			}
 		}
-		payload, _ = d.stringOf(el, rdf.OpenSysML+xPayload)
-		return standard, payload, nil
+		payload, err = d.payloadText(el)
+		return standard, payload, err
+	}
+	// Legacy ends may state the payload as an end role, and the flow may state
+	// it again as sysx:payload or a PayloadFeature: each shape is read, and two
+	// that disagree are refused rather than one dropped.
+	stated, err := d.payloadText(el)
+	if err != nil {
+		return nil, "", err
+	}
+	switch {
+	case legacyPayload == "":
+		legacyPayload = stated
+	case stated != "" && stated != legacyPayload:
+		return nil, "", &UnsupportedError{
+			What: fmt.Sprintf("the payload of <%s>", el.iri),
+			Note: fmt.Sprintf("its legacy payload end says %q and the flow says %q, and the head writes one payload", legacyPayload, stated),
+		}
 	}
 	return legacy, legacyPayload, nil
 }

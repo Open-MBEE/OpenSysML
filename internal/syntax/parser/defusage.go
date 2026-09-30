@@ -4442,7 +4442,29 @@ func (p *Parser) atPayloadDeclaration() bool {
 	if !p.atName() {
 		return false
 	}
-	return p.peekN(p.pastBracketed(1)).Kind == lexer.Colon
+	// The multiplicity part may close with `ordered` and `nonunique`
+	// (MultiplicityPart) before the typing: `of p[1] ordered : T`.
+	at := p.pastBracketed(1)
+	for tok := p.peekN(at); tok.Kind == lexer.Keyword && (tok.KeywordID == "ordered" || tok.KeywordID == "nonunique"); tok = p.peekN(at) {
+		at++
+	}
+	return p.peekN(at).Kind == lexer.Colon
+}
+
+// parsePayloadFlags reads the `ordered` and `nonunique` of a declared payload's
+// multiplicity part onto it, each at most once.
+func (p *Parser) parsePayloadFlags(u *ast.Usage) {
+	for {
+		switch {
+		case p.atKeyword("ordered") && !u.IsOrdered:
+			u.IsOrdered = true
+		case p.atKeyword("nonunique") && !u.IsNonunique:
+			u.IsNonunique = true
+		default:
+			return
+		}
+		p.advance()
+	}
 }
 
 // parseFlowEnds parses an optional `of <payload>` followed by either
@@ -4467,11 +4489,14 @@ func (p *Parser) parseFlowEnds(u *ast.Usage) {
 			}
 			payloadUsage.Ident = p.parseIdentification()
 
-			// A PayloadFeatureSpecializationPart takes the multiplicity on either
-			// side of the typing (SysML.xtext:1309).
+			// A PayloadFeatureSpecializationPart takes the multiplicity part on
+			// either side of the typing (SysML-textual-bnf :859-862), and a
+			// multiplicity part is `[m]` with `ordered`/`nonunique` after it
+			// (MultiplicityPart, :496-500).
 			if p.at(lexer.LBracket) {
 				payloadUsage.Multiplicity = p.parseMultiplicity()
 			}
+			p.parsePayloadFlags(payloadUsage)
 
 			// Parse typing relationship
 			if p.accept2(lexer.Colon) {
@@ -4486,6 +4511,7 @@ func (p *Parser) parseFlowEnds(u *ast.Usage) {
 			if payloadUsage.Multiplicity == nil && p.at(lexer.LBracket) {
 				payloadUsage.Multiplicity = p.parseMultiplicity()
 			}
+			p.parsePayloadFlags(payloadUsage)
 
 			// Parse optional value assignment: = expr
 			if op, ok := p.accept(lexer.Eq); ok {
