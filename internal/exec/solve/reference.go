@@ -217,6 +217,7 @@ func (t *translator) variableOf(
 		return nil, err
 	}
 	v := t.declare(variableName(t, chain), sort, target, dimension)
+	t.read(v)
 	if v.Root == nil && v.Steps == nil {
 		for _, step := range chain {
 			if featureDecl(step) {
