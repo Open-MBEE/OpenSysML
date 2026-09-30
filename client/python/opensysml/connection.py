@@ -32,6 +32,7 @@ from opensysml.capabilities import (
     CAPABILITY_DOCUMENTATION_AUTHORING,
     CAPABILITY_COMMENT_AUTHORING,
     CAPABILITY_INLINE_LANGUAGE,
+    CAPABILITY_PARSE_SOURCES,
     CAPABILITY_STRICT_CONFORMANCE,
     CAPABILITY_COMPLEX_VALUES,
     CAPABILITY_CONVERT,
@@ -77,6 +78,7 @@ from opensysml.errors import (
     ConnectionError,
     ConversionError,
     ExecutionError,
+    ModelError,
     ModelFileNotFoundError,
     ModelNotFoundError,
     StaleServiceError,
@@ -87,6 +89,7 @@ from opensysml.errors import (
     translate_rpc_errors,
 )
 from opensysml.query import build_query, elements_of
+from opensysml.sources import source_documents
 from opensysml.values import (
     Array,
     Function,
@@ -908,6 +911,97 @@ class Connection:
         ):
             response = self._stub.ParseFile(request)
         model = Model(response, self)
+        if strict:
+            model.raise_for_errors()
+        return model
+
+    def parse_sources(self, documents, strict=False, strict_conformance=False):
+        """Parse several documents together as one model.
+
+        An import from one document into another resolves, and each
+        diagnostic names the document it came from, so a model written as
+        several files (chapters importing earlier chapters) is loaded as it
+        stands rather than concatenated into one string. Files are read on the
+        machine the service runs on, as :meth:`load` reads them.
+
+        Args:
+            documents (Sequence): The documents, in order. Each is a path
+                (``str`` or ``os.PathLike``) to a .sysml or .kerml file, a
+                ``(name, content)`` pair of inline source reported under that
+                name, or a :class:`~opensysml.sources.SourceDocument`, which is
+                also how inline content is declared to be KerML. Two documents
+                may not share a name.
+            strict (bool): Refuse a model the service reported errors for,
+                instead of returning one whose lookups fail later. The
+                :class:`~opensysml.errors.ModelError` raised carries the model,
+                so its diagnostics stay inspectable.
+            strict_conformance (bool): Ask whether the documents are conforming
+                SysML v2: notation only OpenSysML accepts is reported as an
+                error rather than a warning.
+
+        Returns:
+            Model: The model of all the documents, with one root per document
+            in :attr:`Model.roots` (the first as :attr:`Model.root`) and their
+            names in :attr:`Model.documents`
+
+        Raises:
+            ValueError: If there are no documents, two share a name, or one is
+                of none of the accepted forms
+            MissingCapabilityError: If the service predates ``parse_sources``,
+                or ``strict_conformance``/``inline_language`` when asked for
+            ModelFileNotFoundError: If the service cannot read a file
+            InvalidRequestError: If the service refuses the documents
+            ModelError: If the service could not parse the documents as a
+                model, or if strict and the model has error diagnostics
+            ServiceError: If the service fails the call for any other reason
+
+        Example:
+            >>> model = conn.parse_sources([
+            ...     ("lib.sysml", "package Lib { part def Engine; }"),
+            ...     ("top.sysml", "package Top { import Lib::*; part def Car { part e : Engine; } }"),
+            ... ])
+            >>> model.ok
+            True
+            >>> model["Lib::Engine"].name
+            'Engine'
+            >>> model.documents
+            ('lib.sysml', 'top.sysml')
+        """
+        sources = source_documents(documents)
+        info = self.server_info()
+        require(
+            info, CAPABILITY_PARSE_SOURCES, upgrade_remedy(CAPABILITY_PARSE_SOURCES)
+        )
+        capabilities = [CAPABILITY_PARSE_SOURCES]
+        if any(source.language is not None for source in sources):
+            require(
+                info,
+                CAPABILITY_INLINE_LANGUAGE,
+                upgrade_remedy(CAPABILITY_INLINE_LANGUAGE),
+            )
+            capabilities.append(CAPABILITY_INLINE_LANGUAGE)
+        self._require_strict_conformance(strict_conformance)
+        if strict_conformance:
+            capabilities.append(CAPABILITY_STRICT_CONFORMANCE)
+        request = sysml_pb2.ParseSourcesRequest(
+            documents=[source.to_pb() for source in sources],
+            strict_conformance=strict_conformance,
+        )
+        with translate_rpc_errors(
+            not_found=ModelFileNotFoundError,
+            unimplemented=self._capability_refusal(capabilities),
+        ):
+            response = self._stub.ParseSources(request)
+        if response.error:
+            raise ModelError(
+                response.error,
+                diagnostics=[Diagnostic(d) for d in response.diagnostics],
+            )
+        model = Model(
+            response,
+            self,
+            documents=[source.document_name for source in sources],
+        )
         if strict:
             model.raise_for_errors()
         return model
