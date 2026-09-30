@@ -176,6 +176,38 @@ func BodyScope(scope *symbols.Scope, decl ast.Node) *symbols.Scope {
 	return scope
 }
 
+// ScopedNode is a node of a document with the scope it is written in.
+type ScopedNode struct {
+	Scope *symbols.Scope
+	Node  ast.Node
+}
+
+// ScopedNodes lists what WalkScoped visits under root, in visiting order. The
+// list of the document ctx analyzes is kept on ctx for the passes that walk it
+// again; any other root is walked each time.
+func ScopedNodes(ctx *Context, root *symbols.Scope) []ScopedNode {
+	if root == nil {
+		return nil
+	}
+	own := ctx != nil && ctx.ownRoot() == root
+	if own {
+		if cached, ok := ctx.scopedNodes[root]; ok {
+			return cached
+		}
+	}
+	var out []ScopedNode
+	WalkScoped(root, func(scope *symbols.Scope, node ast.Node) {
+		out = append(out, ScopedNode{Scope: scope, Node: node})
+	})
+	if own {
+		if ctx.scopedNodes == nil {
+			ctx.scopedNodes = make(map[*symbols.Scope][]ScopedNode)
+		}
+		ctx.scopedNodes[root] = out
+	}
+	return out
+}
+
 // WalkScoped visits every node of the document whose scope tree root heads,
 // each with the scope it is written in: a node that declares a scope of its own
 // is visited in the enclosing one, and its descendants in its own.
