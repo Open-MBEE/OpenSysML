@@ -1783,64 +1783,14 @@ func (d *decoder) invocationText(node rdf.Term, in *element) (string, error) {
 // OwningMembership owning the chain feature. Both present, they must agree.
 func (d *decoder) calleeText(node rdf.Term, in *element) (string, bool, error) {
 	collapsed, hasCollapsed := d.graph.Object(node, rdf.SysML+pFunction)
-	var member rdf.Term
-	var chain rdf.Term
-	for _, relationship := range d.graph.Objects(node, rdf.SysML+pOwnedRelationship) {
-		switch d.metaclass(relationship) {
-		case mMembership:
-			if m, ok := d.graph.Object(relationship, rdf.SysML+pMemberElement); ok {
-				member = m
-			}
-		case mOwningMembership:
-			if m, ok := d.graph.Object(relationship, rdf.SysML+pMemberElement); ok {
-				if isChain, err := d.chainFeatureTerm(m); err != nil {
-					return "", false, err
-				} else if isChain {
-					chain = m
-				}
-			}
-		}
+	member, chain, err := d.calleeRelationships(node)
+	if err != nil {
+		return "", false, err
 	}
 	switch {
 	case chain.Value != "":
-		segments, err := d.chainSegments(chain)
-		if err != nil {
-			return "", false, err
-		}
-		var parts, spelled []string
-		for _, segment := range segments {
-			name, err := d.referenceName(segment, in)
-			if err != nil {
-				return "", false, err
-			}
-			parts = append(parts, name)
-			if segment.IsLiteral() {
-				name = segment.Value
-			}
-			spelled = append(spelled, name)
-		}
-		text := strings.Join(parts, ".")
-		if hasCollapsed {
-			name, err := d.referenceName(collapsed, in)
-			if err != nil {
-				return "", false, err
-			}
-			// The function is the chain's last feature when it resolves, else
-			// the whole chain's spelling; anything else names a second callee.
-			var agree bool
-			if collapsed.IsIRI() {
-				agree = len(segments) > 0 && segments[len(segments)-1] == collapsed
-			} else {
-				agree = collapsed.Value == strings.Join(spelled, ".")
-			}
-			if !agree {
-				return "", false, &UnsupportedError{
-					What: fmt.Sprintf("the expression <%s>", node.Value),
-					Note: fmt.Sprintf("its function is %s, but the chain feature it owns reaches %s, and the two statements cannot both hold", name, text),
-				}
-			}
-		}
-		return text, true, nil
+		text, err := d.chainCalleeText(node, chain, collapsed, hasCollapsed, in)
+		return text, err == nil, err
 	case member.Value != "" && hasCollapsed && member != collapsed:
 		return "", false, &UnsupportedError{
 			What: fmt.Sprintf("the expression <%s>", node.Value),
@@ -1854,6 +1804,74 @@ func (d *decoder) calleeText(node rdf.Term, in *element) (string, bool, error) {
 		return name, true, err
 	}
 	return "", false, nil
+}
+
+// calleeRelationships is the function a Membership the invocation owns names,
+// and the chain feature an OwningMembership it owns holds.
+func (d *decoder) calleeRelationships(node rdf.Term) (member, chain rdf.Term, err error) {
+	for _, relationship := range d.graph.Objects(node, rdf.SysML+pOwnedRelationship) {
+		m, ok := d.graph.Object(relationship, rdf.SysML+pMemberElement)
+		if !ok {
+			continue
+		}
+		switch d.metaclass(relationship) {
+		case mMembership:
+			member = m
+		case mOwningMembership:
+			isChain, err := d.chainFeatureTerm(m)
+			if err != nil {
+				return member, chain, err
+			}
+			if isChain {
+				chain = m
+			}
+		}
+	}
+	return member, chain, nil
+}
+
+// chainCalleeText spells the chain feature an invocation owns as its callee,
+// checked against the collapsed function when one is stated.
+func (d *decoder) chainCalleeText(node, chain, collapsed rdf.Term, hasCollapsed bool, in *element) (string, error) {
+	segments, err := d.chainSegments(chain)
+	if err != nil {
+		return "", err
+	}
+	var parts, spelled []string
+	for _, segment := range segments {
+		name, err := d.referenceName(segment, in)
+		if err != nil {
+			return "", err
+		}
+		parts = append(parts, name)
+		if segment.IsLiteral() {
+			name = segment.Value
+		}
+		spelled = append(spelled, name)
+	}
+	text := strings.Join(parts, ".")
+	if !hasCollapsed {
+		return text, nil
+	}
+	name, err := d.referenceName(collapsed, in)
+	if err != nil {
+		return "", err
+	}
+	// The function is the chain's last feature when it resolves, else
+	// the whole chain's spelling; anything else names a second callee.
+	var agree bool
+	if collapsed.IsIRI() {
+		agree = len(segments) > 0 && segments[len(segments)-1] == collapsed
+	} else {
+		agree = collapsed.Value == strings.Join(spelled, ".")
+	}
+	if !agree {
+		return "", &UnsupportedError{
+			What: fmt.Sprintf("the expression <%s>", node.Value),
+			Note: fmt.Sprintf("its function is %s, but the chain feature it owns reaches %s, and the two statements cannot both hold", name, text),
+		}
+	}
+	return text, nil
 }
 
 // expressionOperands rebuilds operands from parameter memberships, with legacy

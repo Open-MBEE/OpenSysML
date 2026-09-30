@@ -64,6 +64,7 @@ type Context struct {
 	gathers     *Gathers
 	symbolCache map[*symbols.Scope][]*symbols.Symbol
 	memberCache map[*symbols.Scope][]*symbols.Symbol
+	scopedNodes map[*symbols.Scope][]ScopedNode
 	newModel    func(*resolve.Resolver) *semantics.Model
 	// failures is where the tiers below the pass now running found blocking
 	// faults, so an element-scoped pass can gate itself per element.
@@ -156,6 +157,17 @@ func (c *Context) Resolver() *resolve.Resolver {
 		c.resolver = resolve.New(c.Index)
 	}
 	return c.resolver
+}
+
+// ownRoot is the root scope of the document c analyzes, read untracked so a
+// gather asking is not made to depend on the document; c lives for one analysis.
+func (c *Context) ownRoot() *symbols.Scope {
+	if c.Index == nil {
+		return nil
+	}
+	var root *symbols.Scope
+	c.Resolver().Untracked(func() { root = c.Index.DocumentRoot(c.Name) })
+	return root
 }
 
 // Model returns the shared semantic model (specialization graph, multiplicity,

@@ -87,7 +87,7 @@ func (m Model) addConnectionSplice(i int, op Operation) (splice, error) {
 		e.OperationIndex = i
 		return splice{}, e
 	}
-	if op.MemberName != "" && ownerScope != nil && len(ownerScope.LookupLocalAll(symbolName(op.MemberName))) > 0 {
+	if op.MemberName != "" && nameTaken(ownerScope, op.MemberName) {
 		return splice{}, &Error{
 			Failure:        FailureMemberNameTaken,
 			OperationIndex: i,
@@ -122,6 +122,7 @@ func checkEnd(i int, role, end string) error {
 // reference is of in the message, and returns its last name segment: the name
 // a usage referring to the feature takes.
 func checkFeatureReference(i int, what, ref string) (string, error) {
+	const notFeatureReference = "is not a feature reference"
 	refuse := func(reason string) error {
 		return &Error{
 			Failure:        FailureInvalidName,
@@ -139,7 +140,7 @@ func checkFeatureReference(i int, what, ref string) (string, error) {
 	last := ""
 	for tok := lx.Next(); tok.Kind != lexer.EOF; tok = lx.Next() {
 		if rooted && tok.Kind != lexer.ColonColon {
-			return "", refuse("is not a feature reference")
+			return "", refuse(notFeatureReference)
 		}
 		rooted = false
 		switch {
@@ -152,13 +153,13 @@ func checkFeatureReference(i int, what, ref string) (string, error) {
 			last = string(ref[tok.Span.Offset : tok.Span.Offset+tok.Span.Len])
 		case !wantName && (tok.Kind == lexer.Dot || tok.Kind == lexer.ColonColon):
 		default:
-			return "", refuse("is not a feature reference")
+			return "", refuse(notFeatureReference)
 		}
 		wantName = !wantName
 		first = false
 	}
 	if wantName || rooted {
-		return "", refuse("is not a feature reference")
+		return "", refuse(notFeatureReference)
 	}
 	return last, nil
 }

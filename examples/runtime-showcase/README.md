@@ -530,19 +530,25 @@ first run — is first taken by run 496:
 
 ```
 ? explored SpacecraftComms::SpacecraftVehicle::modes: 3 outcomes
-outcome                                                           | linearizations | witness
-------------------------------------------------------------------+----------------+---------
-finalState recharging+lowPower; visits notRecharging, waitingGSPing, (…) this.battery = 41; (…) this.data = 52224; (…) | 1   | entering modes: notRecharging(entry) first of waitingGSPing(entry), notRecharging(entry); (…) do round at t=79.0: transmitting first of transmitting, recharging; (…)
-finalState recharging+lowPower; visits waitingGSPing, notRecharging, (…) this.battery = 41; (…) this.data = 52224; (…) | 497 | entering modes: waitingGSPing(entry) first of waitingGSPing(entry), notRecharging(entry); (…) do round at t=79.0: transmitting first of transmitting, recharging; (…)
-finalState recharging+lowPower; visits waitingGSPing, notRecharging, (…) this.battery = 41; (…) this.data = 53248; (…) | 2   | entering modes: waitingGSPing(entry) first of waitingGSPing(entry), notRecharging(entry); (…) at t=79.0: dispatch accept BatteryLow first of do transmitting or recharging, dispatch accept BatteryLow
-incomplete: runs budget 500 hit after 500 runs
+outcome                                                           | linearizations | probability               | witness
+------------------------------------------------------------------+----------------+---------------------------+---------
+finalState recharging+lowPower; visits notRecharging, waitingGSPing, (…) this.battery = 41; (…) this.data = 52224; (…) | 1   | ≥ 4.661462957000129e-156  | entering modes: notRecharging(entry) first of waitingGSPing(entry), notRecharging(entry); (…) do round at t=79.0: transmitting first of transmitting, recharging; (…)
+finalState recharging+lowPower; visits waitingGSPing, notRecharging, (…) this.battery = 41; (…) this.data = 52224; (…) | 497 | ≥ 1.1840115910780328e-153 | entering modes: waitingGSPing(entry) first of waitingGSPing(entry), notRecharging(entry); (…) do round at t=79.0: transmitting first of transmitting, recharging; (…)
+finalState recharging+lowPower; visits waitingGSPing, notRecharging, (…) this.battery = 41; (…) this.data = 53248; (…) | 2   | ≥ 1.0997770908598577e-149 | entering modes: waitingGSPing(entry) first of waitingGSPing(entry), notRecharging(entry); (…) at t=79.0: dispatch accept BatteryLow first of do transmitting or recharging, dispatch accept BatteryLow
+incomplete: runs budget 500 hit after 500 runs; probabilities are lower bounds
+  standing: outcomes (observed: 500 linearizations, inputs as written, runs=500 (reached))
 ```
 
 The second row is the first run and the 496 that vary a choice the outcome
 does not turn on; the third is run 496 and one more that varies the next such
 draw to the same end; the first is the run that entered `notRecharging` before
 `waitingGSPing` — the order the two regions of `modes` are entered in is a
-recorded choice, told apart by the visits. The 39 outcome needs two of the
+recorded choice, told apart by the visits. The `probability` column is the
+share of all orders the listed linearizations account for, each order weighted
+as the product of its choices' shares; with 516 choices a run the shares are
+minute, and because the enumeration is incomplete they are lower bounds.
+
+The 39 outcome needs two of the
 first run's draws at t=79 varied together — the charge's wait ending and the
 charge landing before the drain — so none of the 517 runs that vary each
 choice once reaches it; `check` does. `incomplete` is honest: 500 runs do not
@@ -557,9 +563,10 @@ reliability budgets, and an individual `apollo11MissionIndividual` that
 performs the top-level `PerformLunarMission` action. The pinned OMG pilot
 validator passes it without a finding.
 [Loading it](../../docs/internals/performance.md#a-real-model-apollo-11) takes
-OpenSysML 0.43 s and reports 4 warnings and no error, three of them the
-unbound-parameter warning shown above, on this model's own calculations, and
-the fourth a gravitational parameter typed as a force.
+OpenSysML 0.27 s and reports 2 warnings and no error, both on this model's own
+calculations: the unbound-parameter warning shown above, on a two-input
+`naturalLogarithm` called with one, and a gravitational parameter typed as a
+force.
 
 ```bash
 git clone https://github.com/airbus/apollo-11-sysml-v2

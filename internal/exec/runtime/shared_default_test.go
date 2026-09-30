@@ -367,13 +367,13 @@ func TestSharedDefaultSurvivesHeldImage(t *testing.T) {
 	expect(t, ctx, fleet, "sats[2]", "total", "4")
 }
 
-func TestPathKeyDistinguishesDottedNames(t *testing.T) {
-	quoted, nested := pathKey([]string{"a.b"}), pathKey([]string{"a", "b"})
-	if quoted == nested {
-		t.Fatalf("pathKey conflates a quoted 'a.b' with the nested path a.b: %q", quoted)
+func TestHasPathDistinguishesDottedNames(t *testing.T) {
+	nested := [][]string{{"a", "b"}}
+	if hasPath(nested, []string{"a.b"}) {
+		t.Fatal("hasPath conflates a quoted 'a.b' with the nested path a.b")
 	}
-	if pathKey([]string{"a", "b"}) != nested {
-		t.Fatal("pathKey is not stable over equal paths")
+	if !hasPath(nested, []string{"a", "b"}) {
+		t.Fatal("hasPath misses an equal path")
 	}
 }
 
@@ -443,7 +443,7 @@ func TestExtentIsNotSharedBetweenOccurrences(t *testing.T) {
 	ctx.SetSharedDefaults(true)
 	defer ctx.ShareVerdicts()()
 	root := idx.DocumentRoot("<test>")
-	make := func(name string) *Instance {
+	instantiate := func(name string) *Instance {
 		inst, err := ctx.Instantiate(lookupOne(t, idx, name))
 		if err != nil {
 			t.Fatalf("instantiate %s: %v", name, err)
@@ -460,14 +460,14 @@ func TestExtentIsNotSharedBetweenOccurrences(t *testing.T) {
 		}
 		return report.Verdicts[0].Status.String()
 	}
-	make("test::Wheel")
-	first := make("test::Sat")
+	instantiate("test::Wheel")
+	first := instantiate("test::Sat")
 	expect(t, ctx, first, "", "wheelCount", "1")
 	if got := verdict(first); got != "violated" {
 		t.Errorf("enough on the first sat = %s, want violated", got)
 	}
-	make("test::Wheel")
-	second := make("test::Sat")
+	instantiate("test::Wheel")
+	second := instantiate("test::Sat")
 	expect(t, ctx, second, "", "wheelCount", "2")
 	if got := verdict(second); got != "holds" {
 		t.Errorf("enough on the second sat = %s, want holds", got)

@@ -57,4 +57,8 @@ case "$shard" in
       esac
     done <<<"$packages"
     ;;
+  *)
+    echo "error: scripts/race-shard.sh: unknown shard $shard" >&2
+    exit 2
+    ;;
 esac

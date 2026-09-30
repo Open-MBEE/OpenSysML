@@ -76,67 +76,23 @@ func (m *Model) implicitSubsettingFQN(sym *symbols.Symbol, usage *ast.Usage, own
 	if !ok {
 		return ""
 	}
+	if fqn := familyNestedFQN(kind, usage, owner, composite); fqn != "" {
+		return fqn
+	}
 	switch kind {
 	case ast.UsagePart, ast.UsageActor, ast.UsageStakeholder,
-		ast.UsageConnection, ast.UsageInterface, ast.UsageAllocation:
+		ast.UsageConnection, ast.UsageInterface, ast.UsageAllocation,
+		ast.UsageRendering, ast.UsageViewRendering, ast.UsageView:
 		return m.partNestedFQN(owner, composite, portion)
-	case ast.UsageItem:
-		if composite && ownerInItemFamily(owner) {
-			return "Items::Item::subitems"
-		}
+	case ast.UsageItem, ast.UsagePort, ast.UsageOccurrence, ast.UsageIndividual:
 		return m.occurrenceNestedFQN(owner, composite, portion, false)
-	case ast.UsageRendering, ast.UsageViewRendering:
-		if composite && ownerInRenderingFamily(owner) {
-			return "Views::Rendering::subrenderings"
-		}
-		return m.partNestedFQN(owner, composite, portion)
-	case ast.UsageView:
-		if composite && ownerInViewFamily(owner) {
-			return "Views::View::subviews"
-		}
-		return m.partNestedFQN(owner, composite, portion)
-	case ast.UsagePort:
-		if composite && ownerInPartFamily(owner) {
-			return "Parts::Part::ownedPorts"
-		}
-		if composite && ownerInPortFamily(owner) {
-			return "Ports::Port::subports"
-		}
-		return m.occurrenceNestedFQN(owner, composite, portion, false)
-	case ast.UsageAction:
-		if usage.IsPerformedAction() && ownerInPartFamily(owner) {
-			return "Parts::Part::performedActions"
-		}
-		return m.actionNestedFQN(owner, composite, portion)
-	case ast.UsageTransition, ast.UsageFlow:
+	case ast.UsageAction, ast.UsageTransition, ast.UsageFlow:
 		return m.actionNestedFQN(owner, composite, portion)
 	case ast.UsageState:
-		if usage != nil && usage.IsExhibitedState() && ownerInPartFamily(owner) {
-			return "Parts::Part::exhibitedStates"
-		}
 		return m.stateNestedFQN(owner, composite, portion)
 	case ast.UsageCalc:
 		return m.calcNestedFQN(owner, composite, portion)
-	case ast.UsageCase:
-		return m.caseNestedFQN(owner, composite, portion)
-	case ast.UsageAnalysisCase:
-		if composite && ownerInAnalysisCaseFamily(owner) {
-			return "AnalysisCases::AnalysisCase::subAnalysisCases"
-		}
-		return m.caseNestedFQN(owner, composite, portion)
-	case ast.UsageVerificationCase:
-		if composite && ownerInVerificationCaseFamily(owner) {
-			return "VerificationCases::VerificationCase::subVerificationCases"
-		}
-		return m.caseNestedFQN(owner, composite, portion)
-	case ast.UsageUseCase:
-		if ownerInUseCaseFamily(owner) &&
-			(usage.IsIncludedUseCase() || composite) {
-			if usage.IsIncludedUseCase() {
-				return "UseCases::UseCase::includedUseCases"
-			}
-			return "UseCases::UseCase::subUseCases"
-		}
+	case ast.UsageCase, ast.UsageAnalysisCase, ast.UsageVerificationCase, ast.UsageUseCase:
 		return m.caseNestedFQN(owner, composite, portion)
 	case ast.UsageConstraint:
 		if usage.IsRequirementConstraint() {
@@ -145,13 +101,66 @@ func (m *Model) implicitSubsettingFQN(sym *symbols.Symbol, usage *ast.Usage, own
 		return m.constraintNestedFQN(owner, composite, portion)
 	case ast.UsageRequirement, ast.UsageSatisfy, ast.UsageConcern, ast.UsageViewpoint:
 		return m.requirementNestedFQN(owner, composite, portion)
-	case ast.UsageOccurrence, ast.UsageIndividual:
-		return m.occurrenceNestedFQN(owner, composite, portion, false)
 	case ast.UsageStep:
 		if composite {
 			return m.stepNestedFQN(owner)
 		}
+	}
+	return ""
+}
+
+// familyNestedFQN is the feature a usage of one kind nested in an owner of its
+// own family subsets ahead of the general rule chains, "" when none applies.
+func familyNestedFQN(kind ast.UsageKind, usage *ast.Usage, owner *symbols.Symbol, composite bool) string {
+	switch kind {
+	case ast.UsageAction:
+		if usage.IsPerformedAction() && ownerInPartFamily(owner) {
+			return "Parts::Part::performedActions"
+		}
+	case ast.UsageState:
+		if usage != nil && usage.IsExhibitedState() && ownerInPartFamily(owner) {
+			return "Parts::Part::exhibitedStates"
+		}
+	case ast.UsageUseCase:
+		if ownerInUseCaseFamily(owner) && usage.IsIncludedUseCase() {
+			return "UseCases::UseCase::includedUseCases"
+		}
+	}
+	if !composite {
 		return ""
+	}
+	switch kind {
+	case ast.UsageItem:
+		if ownerInItemFamily(owner) {
+			return "Items::Item::subitems"
+		}
+	case ast.UsageRendering, ast.UsageViewRendering:
+		if ownerInRenderingFamily(owner) {
+			return "Views::Rendering::subrenderings"
+		}
+	case ast.UsageView:
+		if ownerInViewFamily(owner) {
+			return "Views::View::subviews"
+		}
+	case ast.UsagePort:
+		if ownerInPartFamily(owner) {
+			return "Parts::Part::ownedPorts"
+		}
+		if ownerInPortFamily(owner) {
+			return "Ports::Port::subports"
+		}
+	case ast.UsageAnalysisCase:
+		if ownerInAnalysisCaseFamily(owner) {
+			return "AnalysisCases::AnalysisCase::subAnalysisCases"
+		}
+	case ast.UsageVerificationCase:
+		if ownerInVerificationCaseFamily(owner) {
+			return "VerificationCases::VerificationCase::subVerificationCases"
+		}
+	case ast.UsageUseCase:
+		if ownerInUseCaseFamily(owner) {
+			return "UseCases::UseCase::subUseCases"
+		}
 	}
 	return ""
 }

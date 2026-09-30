@@ -1,7 +1,7 @@
 package runtime
 
 import (
-	"strconv"
+	"slices"
 	"strings"
 
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/symbols"
@@ -71,11 +71,13 @@ type sharedDefault struct {
 }
 
 // sharedRead is one feature value a derivation read, as a path from the object it was
-// read on: the feature's name, or what a shared value of that object read in turn. A
-// check may read a value not as declared; then the read carries the value as an input.
+// read on: the feature's name, or the shared record of a value of that object whose
+// own reads it read in turn. A check may read a value not as declared; then the read
+// carries the value as an input.
 type sharedRead struct {
 	inst   *Instance
 	path   []string
+	shared *sharedDefault
 	value  Value
 	valued bool
 }
@@ -128,7 +130,7 @@ func (ctx *Context) shapeOf(inst *Instance) *shapeNode {
 		return nil
 	}
 	for _, fv := range inst.FeatureValues {
-		if fv.Feature != nil && (fv.Feature.GovernedByChain || (fv.Feature.Symbol != nil && isChainHost(fv.Feature.Symbol))) {
+		if fv.Feature != nil && (fv.Feature.GovernedByChain || ctx.hostsChain(fv.Feature.Symbol)) {
 			return nil
 		}
 	}
@@ -144,7 +146,8 @@ func (ctx *Context) internShape(node shapeNode) *shapeNode {
 	if interned, ok := ctx.shapes[node]; ok {
 		return interned
 	}
-	interned := &node
+	interned := new(shapeNode)
+	*interned = node
 	ctx.shapes[node] = interned
 	return interned
 }
@@ -180,9 +183,17 @@ func shareable(val Value) bool {
 // hold: sharing is on, the feature holds one value its subsetters do not populate,
 // no binding or write determines it, and no behavior run makes the reads its own.
 func (ctx *Context) sharesDefault(inst *Instance, fv *FeatureValue) bool {
-	return ctx.sharing() && fv.Feature.Scalar() && !fv.Written && !fv.BindingDerived &&
-		ctx.behaviorRunDepth == 0 && !ctx.defaultYieldsToSubsetters(inst, fv.Feature) &&
-		ctx.shapeOf(inst) != nil
+	return ctx.sharedShape(inst, fv) != nil
+}
+
+// sharedShape is the shape fv's derived default on inst is shared under, nil when
+// sharesDefault does not hold.
+func (ctx *Context) sharedShape(inst *Instance, fv *FeatureValue) *shapeNode {
+	if !ctx.sharing() || !fv.Feature.Scalar() || fv.Written || fv.BindingDerived ||
+		ctx.behaviorRunDepth != 0 || ctx.defaultYieldsToSubsetters(inst, fv.Feature) {
+		return nil
+	}
+	return ctx.shapeOf(inst)
 }
 
 // beginTrace opens the observation of fv's derivation on inst.
@@ -275,9 +286,7 @@ func (ctx *Context) observeRead(inst *Instance, fv *FeatureValue) {
 			t.clean = false
 			continue
 		}
-		for _, path := range shared.paths {
-			t.reads = append(t.reads, sharedRead{inst: inst, path: path})
-		}
+		t.reads = append(t.reads, sharedRead{inst: inst, shared: shared})
 	}
 }
 
@@ -337,83 +346,181 @@ func (ctx *Context) singlyWithin(inst, root *Instance) bool {
 // with the value read; nil when a binding anywhere on the chain to a read could
 // determine it differently on another occurrence.
 func (ctx *Context) sharedPaths(root *Instance, reads []sharedRead) (paths [][]string, inputs []sharedInput) {
-	seen := make(map[string]bool, len(reads))
-	paths = make([][]string, 0, len(reads))
+	paths = make([][]string, 0, min(len(reads), 8))
+	ok := true
 	for _, read := range reads {
-		var above []string
-		for inst := read.inst; inst != root; {
-			owner, feature := inst.Owner()
-			above = append(above, feature)
-			inst = owner
-		}
-		path := make([]string, 0, len(above)+len(read.path))
-		for i := len(above) - 1; i >= 0; i-- {
-			path = append(path, above[i])
-		}
-		path = append(path, read.path...)
-		key := pathKey(path)
-		if seen[key] {
+		if read.shared == nil {
+			paths, inputs, ok = ctx.sharedPath(root, read.inst, read.path, read.value, read.valued, paths, inputs)
+			if !ok {
+				return nil, nil
+			}
 			continue
 		}
-		seen[key] = true
-		if ctx.bindingDeclaredFor(read.inst, strings.Join(read.path, ".")) {
-			return nil, nil
-		}
-		if read.valued {
-			inputs = append(inputs, sharedInput{path: path, value: read.value})
-		} else {
-			paths = append(paths, path)
+		for _, path := range read.shared.paths {
+			paths, inputs, ok = ctx.sharedPath(root, read.inst, path, Value{}, false, paths, inputs)
+			if !ok {
+				return nil, nil
+			}
 		}
 	}
 	return paths, inputs
 }
 
-// pathKey encodes a path so that no two segment sequences share a key: a quoted
-// feature name may itself contain the dot that separates segments.
-func pathKey(path []string) string {
-	var key strings.Builder
-	for _, segment := range path {
-		key.WriteString(strconv.Itoa(len(segment)))
-		key.WriteByte(':')
-		key.WriteString(segment)
+// sharedPath appends the read of path on inst to paths, or to inputs when it was
+// taken as an input, as a path from root, unless an equal path was appended already;
+// ok is false when a binding on the chain to the read could determine it differently.
+func (ctx *Context) sharedPath(root, inst *Instance, path []string, value Value, valued bool, paths [][]string, inputs []sharedInput) (_ [][]string, _ []sharedInput, ok bool) {
+	fromRoot := path
+	if inst != root {
+		var above [8]string
+		up := above[:0]
+		for cur := inst; cur != root; {
+			owner, feature := cur.Owner()
+			up = append(up, feature)
+			cur = owner
+		}
+		fromRoot = make([]string, 0, len(up)+len(path))
+		for i := len(up) - 1; i >= 0; i-- {
+			fromRoot = append(fromRoot, up[i])
+		}
+		fromRoot = append(fromRoot, path...)
 	}
-	return key.String()
+	if hasPath(paths, fromRoot) || hasInputPath(inputs, fromRoot) {
+		return paths, inputs, true
+	}
+	if ctx.bindingDeclaredFor(inst, strings.Join(path, ".")) {
+		return nil, nil, false
+	}
+	if valued {
+		return paths, append(inputs, sharedInput{path: fromRoot, value: value}), true
+	}
+	return append(paths, fromRoot), inputs, true
+}
+
+func hasPath(paths [][]string, path []string) bool {
+	for _, p := range paths {
+		if slices.Equal(p, path) {
+			return true
+		}
+	}
+	return false
+}
+
+func hasInputPath(inputs []sharedInput, path []string) bool {
+	for _, input := range inputs {
+		if slices.Equal(input.path, path) {
+			return true
+		}
+	}
+	return false
 }
 
 // bindingDeclaredFor reports whether any type on the chain holding inst declares a
-// binding for the named feature, as resolveBindings would find one.
+// binding for the named feature, as resolveBindings would find one. The path is
+// spelled from a type only when a binding of it starts at the same feature.
 func (ctx *Context) bindingDeclaredFor(inst *Instance, name string) bool {
-	path := name
+	var above [8]string
+	up := above[:0]
 	for current := inst; current != nil; {
-		if len(ctx.bindingsForFeature(current.Type, path)) != 0 {
-			return true
+		root := name
+		if len(up) != 0 {
+			root = up[len(up)-1]
 		}
-		for _, classifier := range current.classifiers {
-			if len(ctx.bindingsForFeature(classifier, path)) != 0 {
+		if ctx.bindingRootedAt(current, root) {
+			path := pathFrom(up, name)
+			if len(ctx.bindingsForFeature(current.Type, path)) != 0 {
 				return true
+			}
+			for _, classifier := range current.classifiers {
+				if len(ctx.bindingsForFeature(classifier, path)) != 0 {
+					return true
+				}
 			}
 		}
 		owner, ownerFeature := current.Owner()
 		if owner == nil || ownerFeature == "" {
 			return false
 		}
-		path = ownerFeature + "." + path
+		up = append(up, ownerFeature)
 		current = owner
 	}
 	return false
 }
 
+// bindingRootedAt reports whether the type of inst or any type it is classified
+// by declares a binding whose end path starts at the named feature.
+func (ctx *Context) bindingRootedAt(inst *Instance, name string) bool {
+	if ctx.bindingRoots(inst.Type)[bindingRoot(name)] {
+		return true
+	}
+	for _, classifier := range inst.classifiers {
+		if ctx.bindingRoots(classifier)[bindingRoot(name)] {
+			return true
+		}
+	}
+	return false
+}
+
+// bindingRoots returns the first segment of every binding end path a type
+// declares, memoized per type; a set of none is nil.
+func (ctx *Context) bindingRoots(typeSym *symbols.Symbol) map[string]bool {
+	if typeSym == nil {
+		return nil
+	}
+	if roots, ok := ctx.model.bindingRoots[typeSym]; ok {
+		return roots
+	}
+	var roots map[string]bool
+	for _, binding := range ctx.objectBindings(typeSym) {
+		for _, end := range binding.Ends {
+			if end.Path == "" {
+				continue
+			}
+			if roots == nil {
+				roots = make(map[string]bool)
+			}
+			roots[bindingRoot(end.Path)] = true
+		}
+	}
+	ctx.model.bindingRoots[typeSym] = roots
+	return roots
+}
+
+// bindingRoot is the first segment of a dotted binding end path.
+func bindingRoot(path string) string {
+	root, _, _ := strings.Cut(path, ".")
+	return root
+}
+
+// pathFrom spells name below the owner features up, innermost first, as a dotted path.
+func pathFrom(up []string, name string) string {
+	if len(up) == 0 {
+		return name
+	}
+	var path strings.Builder
+	for i := len(up) - 1; i >= 0; i-- {
+		path.WriteString(up[i])
+		path.WriteByte('.')
+	}
+	path.WriteString(name)
+	return path.String()
+}
+
 // shareDerived records val as the derived default of fv's feature for inst's shape,
 // when the derivation was clean and the value can be held by every occurrence.
 func (ctx *Context) shareDerived(inst *Instance, fv *FeatureValue, val Value, clean bool, reads []sharedRead) {
-	if !clean || !shareable(val) || !ctx.sharesDefault(inst, fv) {
+	if !clean || !shareable(val) {
+		return
+	}
+	shape := ctx.sharedShape(inst, fv)
+	if shape == nil {
 		return
 	}
 	paths, inputs := ctx.sharedPaths(inst, reads)
 	if paths == nil || len(inputs) != 0 {
 		return
 	}
-	key := sharedKey{shape: ctx.shapeOf(inst), feature: fv.Feature}
+	key := sharedKey{shape: shape, feature: fv.Feature}
 	if prior, ok := ctx.sharedDefaults[key]; ok {
 		ctx.noteProbeUndo(func() { ctx.sharedDefaults[key] = prior })
 	} else {
@@ -427,10 +534,11 @@ func (ctx *Context) shareDerived(inst *Instance, fv *FeatureValue, val Value, cl
 // as declared or not yet materialized. What it would have read is listed as read, and
 // what it did not materialize on the way is owed (see settleOwed).
 func (ctx *Context) takeShared(inst *Instance, fv *FeatureValue) bool {
-	if !ctx.sharesDefault(inst, fv) {
+	shape := ctx.sharedShape(inst, fv)
+	if shape == nil {
 		return false
 	}
-	shared, ok := ctx.sharedDefaults[sharedKey{shape: ctx.shapeOf(inst), feature: fv.Feature}]
+	shared, ok := ctx.sharedDefaults[sharedKey{shape: shape, feature: fv.Feature}]
 	if !ok {
 		return false
 	}

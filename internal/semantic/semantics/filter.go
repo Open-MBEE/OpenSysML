@@ -305,21 +305,23 @@ func UnevaluableClassification(reason string, span source.Span) error {
 	return &FilterError{Err: ErrFilterUnevaluable, Reason: reason, Span: span}
 }
 
+const singleFeatureFilter = "a filter condition reads a single feature of an annotation"
+
 // compileFeatureChain compiles the value of a feature of an annotation of the
 // candidate: `(as Safety).isMandatory` reads isMandatory from the candidate's
 // Safety annotation.
 func (m *Model) compileFeatureChain(scope *symbols.Scope, e *ast.FeatureChainExpr) *symbols.FilterPredicate {
 	span := spanOf(e)
 	if e.Member == nil {
-		return unsupported(span, "a filter condition reads a single feature of an annotation")
+		return unsupported(span, singleFeatureFilter)
 	}
 	if len(e.Member.Parts) != 1 {
 		switch r := chainRoot(e).(type) {
 		case *ast.CastExpr:
-			return unsupported(span, "a filter condition reads a single feature of an annotation")
+			return unsupported(span, singleFeatureFilter)
 		case *ast.OperatorExpr:
 			if r.Operator == ast.OpAs {
-				return unsupported(span, "a filter condition reads a single feature of an annotation")
+				return unsupported(span, singleFeatureFilter)
 			}
 		}
 		return m.compileChainRead(scope, e, span)

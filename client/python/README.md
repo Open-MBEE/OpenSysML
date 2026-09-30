@@ -123,7 +123,18 @@ for example `add_perform("Demo::Kitchen", "t.heat")` writes `perform t.heat;`.
 
 Use `opensysml.loads(text, language="kerml")` for inline KerML content.
 
-Each `load` or `loads` parses **one document as a model of its own**: a `private import Base::*;` in `chapter.sysml` does not resolve while `base.sysml` is only a neighbour on disk, and `load` refuses a directory. The service parses a model of several files as one with its `ParseSources` RPC (the `parse_sources` capability), which the Go (`ParseFiles`/`ParseDocuments`), Java (`parseSources`) and Julia (`parse_sources`) clients wrap; this client does not wrap it yet, so a multi-file model is loaded from Python by concatenating the files into one `loads` call. A root package named like a standard library package (`Base`, `Requirements`, …) is a separate hazard: from another document a qualified name starting with it resolves to the library, as the `library-root-name` warning says.
+Each `load` or `loads` parses **one document as a model of its own**: a `private import Base::*;` in `chapter.sysml` does not resolve while `base.sysml` is only a neighbour on disk, and `load` refuses a directory. `parse_sources` parses several documents as one model (the service's `ParseSources` RPC, the `parse_sources` capability), so the import resolves and each diagnostic names its document:
+
+```python
+model = opensysml.parse_sources([
+    "base.sysml",                       # a file the service reads
+    ("chapter.sysml", chapter_text),    # inline text under a name
+], strict=True)
+model["Chapter::Car"]                  # resolved across documents
+model.documents                        # ('base.sysml', 'chapter.sysml')
+```
+
+A root package named like a standard library package (`Base`, `Requirements`, …) is a separate hazard: from another document a qualified name starting with it resolves to the library, as the `library-root-name` warning says.
 
 Every call goes through the `sysml-grpc` service, which `opensysml` starts automatically from
 the first place it finds one; the guide below describes how to install it there.

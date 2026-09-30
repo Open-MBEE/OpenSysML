@@ -87,7 +87,7 @@ var libraryDone = ast.QualifiedNameOf("Actions", "Action", "done")
 
 // libraryReference is the subject of a standard library element named from
 // the global scope, or its name when no library is loaded.
-func (e *encoder) LibraryReference(name *ast.QualifiedName) rdf.Term {
+func (e *encoder) libraryReference(name *ast.QualifiedName) rdf.Term {
 	if decl, fqn, ok := e.linked(e.res.ResolveQualified(nil, name)); ok {
 		return e.ids.subjectForNode(decl, fqn)
 	}
@@ -99,46 +99,13 @@ func (e *encoder) LibraryReference(name *ast.QualifiedName) rdf.Term {
 func (e *encoder) encodeBehavior(node ast.Node, head func(rdf.Term), subject rdf.Term, fqn, owner string, index int) (bool, error) {
 	switch n := node.(type) {
 	case *ast.InitialNode:
-		// `first x;` is a Membership of the member the body starts at (SysML.xtext
-		// InitialNodeMember); `first x then y` the SuccessionAsUsage it sequences.
-		if qualifiedText(n.Successor) != "" {
-			head(rdf.SysMLTerm(mSuccession))
-		} else {
-			head(rdf.SysMLTerm(mMembership))
-		}
-		e.graph.Add(subject, e.sysx(xDeclaredKeyword), rdf.String("first"))
-		if n.Name() != "" {
-			start := rdf.Term(rdf.String(n.Name()))
-			if decl, fqn, ok := e.linked(e.res.InitialSymbol(n)); ok {
-				start = e.ids.subjectForNode(decl, fqn)
-			}
-			if qualifiedText(n.Successor) != "" {
-				e.graph.Add(subject, e.sysml(pSourceFeature), start)
-			} else {
-				e.graph.Add(subject, e.sysml(pMemberElement), start)
-			}
-		}
-		if err := e.expression(subject, e.sysx(xGuard), xGuard, owner, n.Guard); err != nil {
-			return true, err
-		}
-		if qualifiedText(n.Successor) != "" {
-			e.graph.Add(subject, e.sysml(pTargetFeature), e.edgeReference(n.Successor))
-		} else if n.Guard != nil {
-			return true, &UnsupportedError{
-				What: fmt.Sprintf("the guarded initial node at %s", e.where(n)),
-				Note: "it names no successor, so the branch its guard states cannot be written back",
-			}
-		}
-		if n.HasBody {
-			e.graph.Add(subject, e.sysx(xHasBody), rdf.Bool(true))
-		}
-		return true, e.encode(n.Members, fqn, subject)
+		return true, e.encodeInitialNode(n, head, subject, fqn, owner)
 
 	case *ast.FinalNode:
 		// `done;` is a Membership of the library's Actions::Action::done.
 		head(rdf.SysMLTerm(mMembership))
 		e.graph.Add(subject, e.sysx(xDeclaredKeyword), rdf.String("done"))
-		e.graph.Add(subject, e.sysml(pMemberElement), e.LibraryReference(libraryDone))
+		e.graph.Add(subject, e.sysml(pMemberElement), e.libraryReference(libraryDone))
 		return true, nil
 
 	case *ast.ForkNode:
@@ -162,23 +129,7 @@ func (e *encoder) encodeBehavior(node ast.Node, head func(rdf.Term), subject rdf
 		return true, nil
 
 	case *ast.ActionExecutionNode:
-		// `action [<name>] <ref>;` performs an action declared elsewhere;
-		// `action <name> { <expr> }` performs the expression it states.
-		head(rdf.OpenSysMLTerm(mActionExecution))
-		e.name(subject, n.Name)
-		switch {
-		case n.Expression != nil:
-			return true, e.expression(subject, e.sysx(xExpression), xExpression, owner, n.Expression)
-		case qualifiedText(n.ActionRef) != "":
-			e.graph.Add(subject, e.sysml(relationshipProperty[ast.RelReferences]),
-				e.reference(n.ActionRef))
-		default:
-			return true, &UnsupportedError{
-				What: fmt.Sprintf("the action node at %s", e.where(n)),
-				Note: "it states neither an action to perform nor an expression to evaluate",
-			}
-		}
-		return true, nil
+		return true, e.encodeActionExecution(n, head, subject, owner)
 
 	case *ast.PerformActionNode:
 		head(rdf.SysMLTerm(mPerform))
@@ -213,44 +164,7 @@ func (e *encoder) encodeBehavior(node ast.Node, head func(rdf.Term), subject rdf
 		return true, e.expression(subject, e.sysx(xExpression), xExpression, owner, n.Target)
 
 	case *ast.SuccessionEdge:
-		head(rdf.SysMLTerm(mSuccession))
-		implied := impliedSource(n, n.Source)
-		if n.SourceMultiplicity != nil && n.SourceMultiplicity.Span().Offset == n.Span().Offset {
-			e.graph.Add(subject, e.sysx(xSourceMultiplicityBeforeThen), rdf.Bool(true))
-		}
-		positionalSource := n.Source == nil && n.SourceMember != nil
-		if implied || positionalSource && n.SourceMultiplicity != nil {
-			// A `then` source reached by position needs a structural end to carry its
-			// multiplicity, even when the preceding member has no referenceable name.
-			e.graph.Add(subject, e.sysx(xEndForm), rdf.String(formThen))
-			if err := e.connectorEnd(subject, connectorEndSpec{owner: owner, slot: "end0", index: 0, ends: 2, empty: true, mult: n.SourceMultiplicity, noCollapse: true}); err != nil {
-				return true, err
-			}
-			target := connectorEndSpec{owner: owner, slot: "end1", index: 1, ends: 2, noCollapse: true}
-			if n.Target != nil {
-				target.target = n.Target
-			} else if _, done := n.TargetMember.(*ast.FinalNode); done {
-				// `then done;` targets the library's Actions::Action::done, the
-				// same end `succession first x then done;` states outright.
-				target.targetTerm = e.LibraryReference(libraryDone)
-			} else if n.TargetMember != nil {
-				if fqn, ok := e.fqn[n.TargetMember]; ok {
-					target.targetTerm = e.ids.subjectForNode(n.TargetMember, fqn)
-				}
-			}
-			if err := e.connectorEnd(subject, target); err != nil {
-				return true, err
-			}
-		}
-		if err := e.edgeEnds(subject, n, owner,
-			edgeEnd{name: n.Source, member: n.SourceMember, implied: implied, stands: e.preceding[n]},
-			edgeEnd{name: n.Target, member: n.TargetMember, implied: n.TargetImplied, stands: e.introduced[n]}); err != nil {
-			return true, err
-		}
-		if n.HasBody {
-			e.graph.Add(subject, e.sysx(xHasBody), rdf.Bool(true))
-		}
-		return true, e.encode(n.Members, fqn, subject)
+		return true, e.encodeSuccessionEdge(n, head, subject, fqn, owner)
 
 	case *ast.ControlFlowEdge:
 		// A guarded branch of a decision, or the `else` branch taken when no
@@ -328,6 +242,112 @@ func (e *encoder) encodeBehavior(node ast.Node, head func(rdf.Term), subject rdf
 		return true, e.encodeTransition(n, head, subject, fqn, owner)
 	}
 	return false, nil
+}
+
+// encodeInitialNode emits `first x;` — a Membership of the member the body
+// starts at (SysML.xtext InitialNodeMember) — or `first x then y`, the
+// SuccessionAsUsage it sequences.
+func (e *encoder) encodeInitialNode(n *ast.InitialNode, head func(rdf.Term), subject rdf.Term, fqn, owner string) error {
+	// `first x;` is a Membership of the member the body starts at (SysML.xtext
+	// InitialNodeMember); `first x then y` the SuccessionAsUsage it sequences.
+	if qualifiedText(n.Successor) != "" {
+		head(rdf.SysMLTerm(mSuccession))
+	} else {
+		head(rdf.SysMLTerm(mMembership))
+	}
+	e.graph.Add(subject, e.sysx(xDeclaredKeyword), rdf.String("first"))
+	if n.Name() != "" {
+		start := rdf.Term(rdf.String(n.Name()))
+		if decl, fqn, ok := e.linked(e.res.InitialSymbol(n)); ok {
+			start = e.ids.subjectForNode(decl, fqn)
+		}
+		if qualifiedText(n.Successor) != "" {
+			e.graph.Add(subject, e.sysml(pSourceFeature), start)
+		} else {
+			e.graph.Add(subject, e.sysml(pMemberElement), start)
+		}
+	}
+	if err := e.expression(subject, e.sysx(xGuard), xGuard, owner, n.Guard); err != nil {
+		return err
+	}
+	if qualifiedText(n.Successor) != "" {
+		e.graph.Add(subject, e.sysml(pTargetFeature), e.edgeReference(n.Successor))
+	} else if n.Guard != nil {
+		return &UnsupportedError{
+			What: fmt.Sprintf("the guarded initial node at %s", e.where(n)),
+			Note: "it names no successor, so the branch its guard states cannot be written back",
+		}
+	}
+	if n.HasBody {
+		e.graph.Add(subject, e.sysx(xHasBody), rdf.Bool(true))
+	}
+	return e.encode(n.Members, fqn, subject)
+}
+
+// encodeActionExecution emits `action [<name>] <ref>;`, performing an action
+// declared elsewhere, or `action <name> { <expr> }`, performing the
+// expression it states.
+func (e *encoder) encodeActionExecution(n *ast.ActionExecutionNode, head func(rdf.Term), subject rdf.Term, owner string) error {
+	// `action [<name>] <ref>;` performs an action declared elsewhere;
+	// `action <name> { <expr> }` performs the expression it states.
+	head(rdf.OpenSysMLTerm(mActionExecution))
+	e.name(subject, n.Name)
+	switch {
+	case n.Expression != nil:
+		return e.expression(subject, e.sysx(xExpression), xExpression, owner, n.Expression)
+	case qualifiedText(n.ActionRef) != "":
+		e.graph.Add(subject, e.sysml(relationshipProperty[ast.RelReferences]),
+			e.reference(n.ActionRef))
+	default:
+		return &UnsupportedError{
+			What: fmt.Sprintf("the action node at %s", e.where(n)),
+			Note: "it states neither an action to perform nor an expression to evaluate",
+		}
+	}
+	return nil
+}
+
+// encodeSuccessionEdge emits a `then` succession and the ends it is written between.
+func (e *encoder) encodeSuccessionEdge(n *ast.SuccessionEdge, head func(rdf.Term), subject rdf.Term, fqn, owner string) error {
+	head(rdf.SysMLTerm(mSuccession))
+	implied := impliedSource(n, n.Source)
+	if n.SourceMultiplicity != nil && n.SourceMultiplicity.Span().Offset == n.Span().Offset {
+		e.graph.Add(subject, e.sysx(xSourceMultiplicityBeforeThen), rdf.Bool(true))
+	}
+	positionalSource := n.Source == nil && n.SourceMember != nil
+	if implied || positionalSource && (n.SourceMultiplicity != nil || n.TargetMultiplicity != nil) {
+		// A `then` source reached by position needs a structural end to carry its
+		// multiplicity, even when the preceding member has no referenceable name;
+		// the target end carries the crossing multiplicity `then [m] b;` writes.
+		e.graph.Add(subject, e.sysx(xEndForm), rdf.String(formThen))
+		if err := e.connectorEnd(subject, connectorEndSpec{owner: owner, slot: "end0", index: 0, ends: 2, empty: true, mult: n.SourceMultiplicity, noCollapse: true}); err != nil {
+			return err
+		}
+		target := connectorEndSpec{owner: owner, slot: "end1", index: 1, ends: 2, mult: n.TargetMultiplicity, noCollapse: true}
+		if n.Target != nil {
+			target.target = n.Target
+		} else if _, done := n.TargetMember.(*ast.FinalNode); done {
+			// `then done;` targets the library's Actions::Action::done, the
+			// same end `succession first x then done;` states outright.
+			target.targetTerm = e.libraryReference(libraryDone)
+		} else if n.TargetMember != nil {
+			if fqn, ok := e.fqn[n.TargetMember]; ok {
+				target.targetTerm = e.ids.subjectForNode(n.TargetMember, fqn)
+			}
+		}
+		if err := e.connectorEnd(subject, target); err != nil {
+			return err
+		}
+	}
+	if err := e.edgeEnds(subject, n, owner,
+		edgeEnd{name: n.Source, member: n.SourceMember, implied: implied, stands: e.preceding[n]},
+		edgeEnd{name: n.Target, member: n.TargetMember, implied: n.TargetImplied, stands: e.introduced[n]}); err != nil {
+		return err
+	}
+	if n.HasBody {
+		e.graph.Add(subject, e.sysx(xHasBody), rdf.Bool(true))
+	}
+	return e.encode(n.Members, fqn, subject)
 }
 
 // encodeLoop emits a loop of an action body. Which conditions it carries is what
@@ -528,7 +548,7 @@ func (e *encoder) encodeTrigger(n *ast.TransitionMember, subject rdf.Term, fqn s
 	e.sourceRange(accepter, n.TriggerSpan)
 	e.graph.Add(accepter, e.sysml(pElementID), rdf.String(rdf.LocalName(accepter.Value)))
 	e.graph.Add(accepter, e.sysml(pOwningNamespace), subject)
-	e.owningMembership(stub, accepter, subject, accepterFQN, false, false, false, mTransitionFeatureMembership, func(membership rdf.Term) {
+	e.owningMembership(stub, accepter, subject, accepterFQN, membershipRole{}, mTransitionFeatureMembership, func(membership rdf.Term) {
 		e.graph.Add(membership, e.sysml(pKind), rdf.String("trigger"))
 		e.graph.Add(membership, e.sysml(pTransitionFeature), accepter)
 		e.graph.Add(subject, e.sysml(pTriggerAction), accepter)
@@ -672,7 +692,7 @@ func (e *encoder) edgeEnds(subject rdf.Term, node ast.Node, owner string, src, t
 			if _, done := end.end.member.(*ast.FinalNode); done {
 				// `then done;` reaches the library's Actions::Action::done
 				// feature, which an explicit succession end names outright.
-				e.graph.Add(subject, e.sysml(end.feature), e.LibraryReference(libraryDone))
+				e.graph.Add(subject, e.sysml(end.feature), e.libraryReference(libraryDone))
 				continue
 			}
 			fqn, ok := e.fqn[end.end.member]
@@ -1200,16 +1220,26 @@ func (d *decoder) successionHead(el *element) (string, error) {
 	return strings.Join(words, " "), nil
 }
 
+// thenSuccessionText writes `then <target>;` with the multiplicities its ends
+// carry: the source end's before or after `then`, the target end's crossing
+// multiplicity ahead of the target (`then [m] b;`).
 func (d *decoder) thenSuccessionText(target string, el *element) (string, error) {
 	prefix, err := d.positionalSuccessionPrefix(el)
 	if err != nil {
 		return "", err
 	}
+	multiplicity, err := d.positionalEndMultiplicity(el, true)
+	if err != nil {
+		return "", err
+	}
+	if multiplicity != "" {
+		target = multiplicity + " " + target
+	}
 	return prefix + target, nil
 }
 
 func (d *decoder) positionalSuccessionPrefix(el *element) (string, error) {
-	multiplicity, err := d.positionalSourceMultiplicity(el)
+	multiplicity, err := d.positionalEndMultiplicity(el, false)
 	if err != nil {
 		return "", err
 	}
@@ -1222,7 +1252,10 @@ func (d *decoder) positionalSuccessionPrefix(el *element) (string, error) {
 	return "then " + multiplicity + " ", nil
 }
 
-func (d *decoder) positionalSourceMultiplicity(el *element) (string, error) {
+// positionalEndMultiplicity is the multiplicity one end of a `then` succession
+// carries: the end that names its target when target is set, else the empty
+// source end.
+func (d *decoder) positionalEndMultiplicity(el *element, target bool) (string, error) {
 	ends := d.graph.Objects(rdf.IRI(el.iri), rdf.SysML+pConnectorEnd)
 	if len(ends) == 0 {
 		var err error
@@ -1235,7 +1268,7 @@ func (d *decoder) positionalSourceMultiplicity(el *element) (string, error) {
 		if err != nil {
 			return "", err
 		}
-		if hasTarget {
+		if hasTarget != target {
 			continue
 		}
 		return d.endMultiplicity(end, el)

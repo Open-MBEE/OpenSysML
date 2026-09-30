@@ -65,8 +65,17 @@ func owningElement(sym *symbols.Symbol) *symbols.Symbol {
 // verdict's status, a witnessed sat naming the violating or satisfying
 // assignment. A translation refusal is an undecided verdict, asked of no
 // engine.
-func (v *verifyContext) symbolicVerdict(ctx context.Context, question, kind string, sym *symbols.Symbol, element string, inst *runtime.Instance, queries []*solve.Query, terr error) (*pb.Verdict, error) {
-	verdict := v.verdict(kind, sym, element, inst, false, nil, analysis.Plan{})
+// verdictSubject is what a symbolic verdict judges: the verdict's kind, the
+// symbol and element text it is about, and the object it is asked of.
+type verdictSubject struct {
+	kind    string
+	sym     *symbols.Symbol
+	element string
+	inst    *runtime.Instance
+}
+
+func (v *verifyContext) symbolicVerdict(ctx context.Context, question string, subject verdictSubject, queries []*solve.Query, terr error) (*pb.Verdict, error) {
+	verdict := v.verdict(subject.kind, subject.sym, subject.element, subject.inst, false, nil, analysis.Plan{})
 	verdict.Question, verdict.Status = question, statusUndecided
 	verdict.FailureReason = pb.FailureReason_FAILURE_REASON_UNDECIDED
 	if terr != nil {
@@ -208,7 +217,7 @@ func (v *verifyContext) symbolicElement(ctx context.Context, question, kind stri
 	if terr == nil {
 		queries = []*solve.Query{q}
 	}
-	verdict, verr := v.symbolicVerdict(ctx, question, kind, sym, "", resolved, queries, terr)
+	verdict, verr := v.symbolicVerdict(ctx, question, verdictSubject{kind: kind, sym: sym, inst: resolved}, queries, terr)
 	return verdict, resolved, verr
 }
 
@@ -320,7 +329,7 @@ func (v *verifyContext) symbolicSatisfy(ctx context.Context, question string, a 
 	if terr == nil {
 		queries = []*solve.Query{q}
 	}
-	verdict, err := v.symbolicVerdict(ctx, question, verdictSatisfy, a.Symbol, a.Text(), resolved, queries, terr)
+	verdict, err := v.symbolicVerdict(ctx, question, verdictSubject{kind: verdictSatisfy, sym: a.Symbol, element: a.Text(), inst: resolved}, queries, terr)
 	if err != nil {
 		return nil, nil, err
 	}

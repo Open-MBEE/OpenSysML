@@ -9,6 +9,8 @@ import (
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/source"
 )
 
+const verifyKeyword = "verify "
+
 func (m Model) addVerifySplice(i int, op Operation) (splice, error) {
 	if m.Source.Kind() != source.KindSysML {
 		return splice{}, &Error{
@@ -29,7 +31,7 @@ func (m Model) addVerifySplice(i int, op Operation) (splice, error) {
 		if ownerSym.OwnerScope == nil || !passes.IsVerificationCase(ownerSym.OwnerScope.Owner()) {
 			return splice{}, verifyOwnerRefusal(i)
 		}
-		ins := m.memberInsertion(owner, "verify "+op.Requirement+";")
+		ins := m.memberInsertion(owner, verifyKeyword+op.Requirement+";")
 		return splice{span: ins.span, text: ins.text, opIndex: i, target: op.Owner}, nil
 	}
 	caseSym := ownerScope.Owner()
@@ -44,7 +46,7 @@ func (m Model) addVerifySplice(i int, op Operation) (splice, error) {
 	}
 	switch len(objectives) {
 	case 1:
-		ins := m.memberInsertion(unwrapMembership(objectives[0]), "verify "+op.Requirement+";")
+		ins := m.memberInsertion(unwrapMembership(objectives[0]), verifyKeyword+op.Requirement+";")
 		return splice{span: ins.span, text: ins.text, opIndex: i, target: op.Owner}, nil
 	case 0:
 		_, sem := m.resolver()
@@ -73,7 +75,7 @@ func (m Model) addVerifySplice(i int, op Operation) (splice, error) {
 			indentUnit = "    "
 		}
 	}
-	text := "objective {\n" + memberIndent + indentUnit + "verify " + op.Requirement +
+	text := "objective {\n" + memberIndent + indentUnit + verifyKeyword + op.Requirement +
 		";\n" + memberIndent + "}"
 	ins := m.memberInsertion(owner, text)
 	return splice{span: ins.span, text: ins.text, opIndex: i, target: op.Owner}, nil

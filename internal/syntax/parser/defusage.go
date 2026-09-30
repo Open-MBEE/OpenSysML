@@ -1853,48 +1853,33 @@ func (p *Parser) parseDefinition(start int, kind ast.DefinitionKind, keyword str
 	}
 	def.Relationships = p.parseRelationships(declClassifierDef)
 
-	// Dispatch to specialized body parsers based on kind
-	var members []ast.Node
-	var hasBody bool
 	defer p.pushBodyContext(defBodyContext(kind))()
-	switch kind {
+	def.Members, def.HasBody = p.parseDefinitionBody(def)
+	def.NodeSpan = p.spanFrom(start)
+	return def
+}
+
+// parseDefinitionBody parses a definition's body, or the `;` ending a bodiless
+// one, in the notation its kind declares members in.
+func (p *Parser) parseDefinitionBody(def *ast.Definition) ([]ast.Node, bool) {
+	switch def.Kind {
 	case ast.DefAction, ast.DefOccurrence:
 		// Action/occurrence def bodies: mixed (declarations + behavioral statements)
 		// Occurrence defs support temporal ordering of messages/events (interactions)
-		if p.accept2(lexer.Semicolon) {
-			hasBody = false
-		} else if p.expectBodyOrEnd("declaration") {
-			members = p.parseActionBodyMixed()
-			hasBody = true
-		}
+		return p.parseBodyOrSemicolon(p.parseActionBodyMixed)
 	case ast.DefCalc:
 		// Calculation def bodies: mixed (parameters + return statements)
-		if p.accept2(lexer.Semicolon) {
-			hasBody = false
-		} else if p.expectBodyOrEnd("declaration") {
-			members = p.parseCalcBody()
-			hasBody = true
-		}
+		return p.parseBodyOrSemicolon(p.parseCalcBody)
 	case ast.DefConstraint:
 		// Constraint def bodies: always use parseConstraintBody (handles assert/assume/bare expressions)
-		if p.accept2(lexer.Semicolon) {
-			hasBody = false
-		} else if p.expectBodyOrEnd("declaration") {
-			members = p.parseConstraintBody()
-			hasBody = true
-		}
+		return p.parseBodyOrSemicolon(p.parseConstraintBody)
 	case ast.DefRequirement, ast.DefConcern, ast.DefViewpoint:
 		// Requirement def bodies: a requirement member may appear anywhere in the
 		// body, not only first, so the whole body is parsed as a requirement body
 		// (which falls back to general body members). A concern definition is a
 		// requirement definition and a viewpoint definition a concern definition
 		// (SysML v2 §7.19), so all three carry require/assume/subject/actor.
-		if p.accept2(lexer.Semicolon) {
-			hasBody = false
-		} else if p.expectBodyOrEnd("declaration") {
-			members = p.parseRequirementBody()
-			hasBody = true
-		}
+		return p.parseBodyOrSemicolon(p.parseRequirementBody)
 	case ast.DefState:
 		// State def bodies are state bodies, like state usage bodies: what the
 		// first member happens to be does not change what the rest may be, and
@@ -1905,43 +1890,34 @@ func (p *Parser) parseDefinition(start int, kind ast.DefinitionKind, keyword str
 			def.IsParallel = true
 			p.advance()
 			if _, ok := p.expect(lexer.LBrace, "expected '{' after 'parallel'"); ok {
-				members = p.parseStateBody()
-				hasBody = true
+				return p.parseStateBody(), true
 			}
-			break
+			return nil, false
 		}
-		if p.accept2(lexer.Semicolon) {
-			hasBody = false
-		} else if p.expectBodyOrEnd("declaration") {
-			members = p.parseStateBody()
-			hasBody = true
-		}
+		return p.parseBodyOrSemicolon(p.parseStateBody)
 	case ast.DefCase, ast.DefAnalysisCase, ast.DefVerificationCase, ast.DefUseCase:
 		// Case bodies may end in a ResultExpressionMember (SysML.xtext
 		// CalculationBodyPart): `vehicle.mass` as the last member.
-		if p.accept2(lexer.Semicolon) {
-			hasBody = false
-		} else if p.expectBodyOrEnd("declaration") {
-			members = p.parseCaseBody()
-			hasBody = true
-		}
+		return p.parseBodyOrSemicolon(p.parseCaseBody)
 	case ast.DefEnumeration:
 		// Enumeration bodies hold EnumeratedValues, whose keyword and
 		// declaration are both optional (SysML.xtext EnumeratedValue): `= 60.0;`.
-		if p.accept2(lexer.Semicolon) {
-			hasBody = false
-		} else if p.expectBodyOrEnd("declaration") {
-			members = p.parseEnumBody(def)
-			hasBody = true
-		}
+		return p.parseBodyOrSemicolon(func() []ast.Node { return p.parseEnumBody(def) })
 	default:
-		members, hasBody = p.parseDefUsageBody()
+		return p.parseDefUsageBody()
 	}
+}
 
-	def.Members = members
-	def.HasBody = hasBody
-	def.NodeSpan = p.spanFrom(start)
-	return def
+// parseBodyOrSemicolon accepts the `;` of a bodiless declaration, else parses
+// the body that must follow with parseBody.
+func (p *Parser) parseBodyOrSemicolon(parseBody func() []ast.Node) ([]ast.Node, bool) {
+	if p.accept2(lexer.Semicolon) {
+		return nil, false
+	}
+	if p.expectBodyOrEnd("declaration") {
+		return parseBody(), true
+	}
+	return nil, false
 }
 
 // isKerMLClassifierDefinitionKeyword identifies keyword forms using KerML's
@@ -4442,7 +4418,29 @@ func (p *Parser) atPayloadDeclaration() bool {
 	if !p.atName() {
 		return false
 	}
-	return p.peekN(p.pastBracketed(1)).Kind == lexer.Colon
+	// The multiplicity part may close with `ordered` and `nonunique`
+	// (MultiplicityPart) before the typing: `of p[1] ordered : T`.
+	at := p.pastBracketed(1)
+	for tok := p.peekN(at); tok.Kind == lexer.Keyword && (tok.KeywordID == "ordered" || tok.KeywordID == "nonunique"); tok = p.peekN(at) {
+		at++
+	}
+	return p.peekN(at).Kind == lexer.Colon
+}
+
+// parsePayloadFlags reads the `ordered` and `nonunique` of a declared payload's
+// multiplicity part onto it, each at most once.
+func (p *Parser) parsePayloadFlags(u *ast.Usage) {
+	for {
+		switch {
+		case p.atKeyword("ordered") && !u.IsOrdered:
+			u.IsOrdered = true
+		case p.atKeyword("nonunique") && !u.IsNonunique:
+			u.IsNonunique = true
+		default:
+			return
+		}
+		p.advance()
+	}
 }
 
 // parseFlowEnds parses an optional `of <payload>` followed by either
@@ -4467,11 +4465,14 @@ func (p *Parser) parseFlowEnds(u *ast.Usage) {
 			}
 			payloadUsage.Ident = p.parseIdentification()
 
-			// A PayloadFeatureSpecializationPart takes the multiplicity on either
-			// side of the typing (SysML.xtext:1309).
+			// A PayloadFeatureSpecializationPart takes the multiplicity part on
+			// either side of the typing (SysML-textual-bnf :859-862), and a
+			// multiplicity part is `[m]` with `ordered`/`nonunique` after it
+			// (MultiplicityPart, :496-500).
 			if p.at(lexer.LBracket) {
 				payloadUsage.Multiplicity = p.parseMultiplicity()
 			}
+			p.parsePayloadFlags(payloadUsage)
 
 			// Parse typing relationship
 			if p.accept2(lexer.Colon) {
@@ -4486,6 +4487,7 @@ func (p *Parser) parseFlowEnds(u *ast.Usage) {
 			if payloadUsage.Multiplicity == nil && p.at(lexer.LBracket) {
 				payloadUsage.Multiplicity = p.parseMultiplicity()
 			}
+			p.parsePayloadFlags(payloadUsage)
 
 			// Parse optional value assignment: = expr
 			if op, ok := p.accept(lexer.Eq); ok {
@@ -4674,9 +4676,9 @@ func (p *Parser) parseMultiplicity() *ast.Multiplicity {
 		m.IsRange = true
 		m.Upper = p.parseMultiplicityBound()
 	}
-	close, ok := p.expect(lexer.RBracket, "expected ']' to close multiplicity")
+	closing, ok := p.expect(lexer.RBracket, "expected ']' to close multiplicity")
 	if ok {
-		m.NodeSpan = source.Span{Offset: start, Len: close.Span.End() - start}
+		m.NodeSpan = source.Span{Offset: start, Len: closing.Span.End() - start}
 	} else {
 		m.NodeSpan = p.spanFrom(start)
 	}

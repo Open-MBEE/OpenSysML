@@ -225,12 +225,21 @@ func AddRequirementConstraint(owner, kind, expression, name string) Operation {
 	}
 }
 
+// Transition describes the transition an AddTransition inserts: an entry
+// transition names its target alone; any other names its source and target,
+// and optionally a name, trigger, guard and effect.
+type Transition struct {
+	Name, From, To         string
+	Trigger, Guard, Effect string
+	Initial                bool
+}
+
 // AddTransition inserts a state transition, or an entry transition when initial.
-func AddTransition(owner, name, from, to, trigger, guard, effect string, initial bool) Operation {
+func AddTransition(owner string, t Transition) Operation {
 	return Operation{
-		Kind: OpAddTransition, Owner: owner, TransitionName: name,
-		TransitionSource: from, TransitionTarget: to, Trigger: trigger,
-		Guard: guard, Effect: effect, Initial: initial,
+		Kind: OpAddTransition, Owner: owner, TransitionName: t.Name,
+		TransitionSource: t.From, TransitionTarget: t.To, Trigger: t.Trigger,
+		Guard: t.Guard, Effect: t.Effect, Initial: t.Initial,
 	}
 }
 
@@ -441,6 +450,9 @@ type Model struct {
 	Documents []string
 	// reindex is the one index an Apply call analyzes in, set by Apply.
 	reindex *reindexer
+	// deferred are the references the Apply call's operations wrote that are
+	// judged against the model the whole batch leaves, set by Apply.
+	deferred *deferredRefs
 }
 
 // Document is the source of another document of a Model's index, as Index was
@@ -584,6 +596,7 @@ func Apply(m Model, ops []Operation) (*Result, error) {
 		return nil, &Error{Failure: FailureNoOperations, Message: "no edit operations requested"}
 	}
 	m.reindex = newReindexer(m)
+	m.deferred = new(deferredRefs)
 	if !needsSequential(ops) {
 		return applyBatch(m, ops)
 	}
@@ -599,10 +612,12 @@ func Apply(m Model, ops []Operation) (*Result, error) {
 		if err := current.rewrite(edited, splices); err != nil {
 			return nil, err
 		}
+		m.deferred.rebase(m.Source.Name(), splices)
 		if err := current.rebaseDeclarations(ops[i+1:], i+1, splices); err != nil {
 			return nil, err
 		}
 		current = reparseModel(m, edited)
+		m.deferred.locate(current)
 		if err := current.relocateDeclarations(ops[i+1:], i+1); err != nil {
 			return nil, err
 		}
@@ -735,6 +750,7 @@ func reparseModel(base Model, edited rewrites) Model {
 		Source: sf, Root: root, Index: idx,
 		ParseDiags: p.Diagnostics,
 		NewIndex:   base.NewIndex, Indexed: base.Indexed, Analysis: base.Analysis, Other: other, Documents: base.Documents, reindex: base.reindex,
+		deferred: base.deferred,
 	}
 }
 

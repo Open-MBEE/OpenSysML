@@ -58,7 +58,7 @@ func (m Model) addSequenceSplice(i int, op Operation) (splice, error) {
 	memberIndent := m.ownerMemberIndent(owner)
 	base := lineIndent(m.Source.Bytes(), owner.Span().Offset)
 	unit := strings.TrimPrefix(memberIndent, base)
-	text, err := m.formatSequenceItem(i, op.Owner, ownerScope, nil, op, 0, memberIndent, unit)
+	text, err := m.formatSequenceItem(i, op.Owner, ownerScope, nil, op, 0, bodyLayout{memberIndent, unit})
 	if err != nil {
 		return splice{}, err
 	}
@@ -103,10 +103,56 @@ func (m Model) addSequenceSplice(i int, op Operation) (splice, error) {
 	} else {
 		ins = m.memberInsertion(owner, text)
 	}
-	return splice{span: ins.span, text: ins.text, opIndex: i, target: op.Owner}, nil
+	sp := splice{span: ins.span, text: ins.text, opIndex: i, target: op.Owner}
+	m.resolveLater(sp, func(after Model, region source.Span) []deferredRef {
+		var refs []deferredRef
+		inspectWithin(after.Root, region, func(n ast.Node) {
+			for _, qn := range successionEnds(n) {
+				refs = append(refs, deferredRef{offset: qn.Span().Offset, check: func(final Model, offset int) error {
+					return final.checkSuccessionEnd(i, op.Owner, offset)
+				}})
+			}
+		})
+		return refs
+	})
+	return sp, nil
 }
 
-func (m Model) formatSequenceItem(i int, owner string, scope *symbols.Scope, localNames map[string]bool, op Operation, depth int, memberIndent, unit string) (string, error) {
+// checkSuccessionEnd refuses the succession end written at offset in m — the
+// model the batch leaves — unless it names a node visible from the body it is
+// written in; a byte no end is written at any more leaves the verdict to
+// validation.
+func (m Model) checkSuccessionEnd(i int, owner string, offset int) error {
+	qn, scope := m.successionEndAt(offset)
+	if qn == nil {
+		return nil
+	}
+	ref := successionEndText(qn)
+	if m.sequenceNodeVisible(scope, ref) {
+		return nil
+	}
+	return &Error{
+		Failure: FailureUnknownTarget, OperationIndex: i,
+		Message: fmt.Sprintf("sequence node %q resolves to nothing visible from %s",
+			ref, ownerName(owner)),
+	}
+}
+
+// successionEndText is the end as written, its `$::` root included.
+func successionEndText(qn *ast.QualifiedName) string {
+	if qn.Global {
+		return "$::" + qn.Text()
+	}
+	return qn.Text()
+}
+
+// bodyLayout is the indentation of an action body: the indent of the owner's
+// members and the unit each nesting level adds to it.
+type bodyLayout struct {
+	memberIndent, unit string
+}
+
+func (m Model) formatSequenceItem(i int, owner string, scope *symbols.Scope, localNames map[string]bool, op Operation, depth int, layout bodyLayout) (string, error) {
 	if op.Kind != OpAddSequence {
 		return "", sequenceError(i, "body items must be add-sequence operations")
 	}
@@ -128,7 +174,7 @@ func (m Model) formatSequenceItem(i int, owner string, scope *symbols.Scope, loc
 	if op.SequenceKeyword == "first" || op.SequenceKeyword == "then" ||
 		op.SequenceKeyword == "if" || op.SequenceKeyword == "else" {
 		if op.SequenceRef != "" {
-			return m.formatSequenceReference(i, owner, scope, localNames, op)
+			return m.formatSequenceReference(i, owner, op)
 		}
 	}
 	if op.SequenceRef != "" {
@@ -149,10 +195,10 @@ func (m Model) formatSequenceItem(i int, owner string, scope *symbols.Scope, loc
 	if _, ok := sequenceMemberKinds[op.MemberKind]; ok {
 		return m.formatSequenceDeclaration(i, owner, scope, op)
 	}
-	return m.formatActionStatement(i, owner, scope, localNames, op, depth, memberIndent, unit)
+	return m.formatActionStatement(i, owner, scope, localNames, op, depth, layout)
 }
 
-func (m Model) formatSequenceReference(i int, owner string, scope *symbols.Scope, localNames map[string]bool, op Operation) (string, error) {
+func (m Model) formatSequenceReference(i int, owner string, op Operation) (string, error) {
 	if op.SequenceRef == "" {
 		return "", sequenceError(i, "sequence reference is empty")
 	}
@@ -179,19 +225,6 @@ func (m Model) formatSequenceReference(i int, owner string, scope *symbols.Scope
 	}
 	if _, err := checkFeatureReference(i, "sequence node", op.SequenceRef); err != nil {
 		return "", err
-	}
-	local := false
-	if !strings.HasPrefix(op.SequenceRef, "$::") {
-		if segments, ok := source.QualifiedNameSegments(op.SequenceRef); ok && len(segments) == 1 {
-			local = localNames[segments[0]]
-		}
-	}
-	if !local && !m.sequenceNodeVisible(scope, op.SequenceRef) {
-		return "", &Error{
-			Failure: FailureUnknownTarget, OperationIndex: i,
-			Message: fmt.Sprintf("sequence node %q resolves to nothing visible from %s",
-				op.SequenceRef, ownerName(owner)),
-		}
 	}
 	switch op.SequenceKeyword {
 	case "first":
@@ -237,7 +270,7 @@ func (m Model) formatSequenceDeclaration(i int, owner string, scope *symbols.Sco
 			e.Message = fmt.Sprintf("member name %q is not an identifier", op.MemberName)
 			return "", e
 		}
-		if scope != nil && len(scope.LookupLocalAll(symbolName(op.MemberName))) > 0 {
+		if nameTaken(scope, op.MemberName) {
 			return "", &Error{
 				Failure: FailureMemberNameTaken, OperationIndex: i,
 				Message: fmt.Sprintf("%s already declares %q", ownerName(owner), op.MemberName),
@@ -258,7 +291,7 @@ func (m Model) formatSequenceDeclaration(i int, owner string, scope *symbols.Sco
 	return prefix + writeMember(member, memberKinds[op.MemberKind], "", "", "", ""), nil
 }
 
-func (m Model) formatActionStatement(i int, owner string, scope *symbols.Scope, localNames map[string]bool, op Operation, depth int, memberIndent, unit string) (string, error) {
+func (m Model) formatActionStatement(i int, owner string, scope *symbols.Scope, localNames map[string]bool, op Operation, depth int, layout bodyLayout) (string, error) {
 	if op.MemberName != "" {
 		return "", sequenceError(i, "action-body statement kinds do not admit member_name")
 	}
@@ -272,179 +305,239 @@ func (m Model) formatActionStatement(i int, owner string, scope *symbols.Scope, 
 			prefix += op.Multiplicity + " "
 		}
 	}
-	bodyText, err := m.formatNestedBody(i, owner, scope, localNames, op.SequenceBody, depth, memberIndent, unit)
+	bodyText, err := m.formatNestedBody(i, owner, scope, localNames, op.SequenceBody, depth, layout)
 	if err != nil {
 		return "", err
 	}
+	f := statementFormatter{m: m, i: i, owner: owner, scope: scope, localNames: localNames, op: op, depth: depth, layout: layout, body: bodyText}
 	var text string
 	switch op.MemberKind {
 	case "accept":
-		if op.SequenceParameter == "" {
-			return "", sequenceError(i, "accept requires a payload parameter")
-		}
-		if err := checkName(i, op.SequenceParameter); err != nil {
-			return "", err
-		}
-		if op.Type != "" {
-			if _, err := checkFeatureReference(i, "accept type", op.Type); err != nil {
-				return "", err
-			}
-		}
-		if op.SequenceVia != "" {
-			if err := m.checkExpression(i, "via port", owner, op.SequenceVia); err != nil {
-				return "", err
-			}
-		}
-		if err := noStatementFields(i, op, "accept", "type", "via", "parameter", "multiplicity"); err != nil {
-			return "", err
-		}
-		text = "accept " + op.SequenceParameter
-		if op.Type != "" {
-			text += " : " + op.Type
-		}
-		if op.SequenceVia != "" {
-			text += " via " + op.SequenceVia
-		}
-		text += ";"
+		text, err = f.accept()
 	case "send":
-		if op.SequenceValue == "" {
-			return "", sequenceError(i, "send requires a payload value")
-		}
-		if err := m.checkExpression(i, "send payload", owner, op.SequenceValue); err != nil {
-			return "", err
-		}
-		if op.SequenceVia != "" {
-			if err := m.checkExpression(i, "via port", owner, op.SequenceVia); err != nil {
-				return "", err
-			}
-		}
-		if op.SequenceTarget != "" {
-			if err := m.checkExpression(i, "send receiver", owner, op.SequenceTarget); err != nil {
-				return "", err
-			}
-		}
-		if err := noStatementFields(i, op, "send", "value", "target", "via", "multiplicity"); err != nil {
-			return "", err
-		}
-		text = "send " + op.SequenceValue
-		if op.SequenceVia != "" {
-			text += " via " + op.SequenceVia
-		}
-		if op.SequenceTarget != "" {
-			text += " to " + op.SequenceTarget
-		}
-		text += ";"
+		text, err = f.send()
 	case "assign":
-		if op.SequenceTarget == "" || op.SequenceValue == "" {
-			return "", sequenceError(i, "assign requires both target and value")
-		}
-		if _, err := checkFeatureReference(i, "assignment target", op.SequenceTarget); err != nil {
-			return "", err
-		}
-		if err := m.checkExpression(i, "assigned value", owner, op.SequenceValue); err != nil {
-			return "", err
-		}
-		if err := noStatementFields(i, op, "assign", "target", "value", "multiplicity"); err != nil {
-			return "", err
-		}
-		text = "assign " + op.SequenceTarget + " := " + op.SequenceValue + ";"
+		text, err = f.assign()
 	case "if":
-		if op.SequenceCondition == "" {
-			return "", sequenceError(i, "if requires a condition")
-		}
-		if err := m.checkExpression(i, "condition", owner, op.SequenceCondition); err != nil {
-			return "", err
-		}
-		text = "if " + op.SequenceCondition + bodyText
-		if len(op.SequenceElse) > 0 {
-			elseText, err := m.formatNestedBody(i, owner, scope, localNames, op.SequenceElse, depth, memberIndent, unit)
-			if err != nil {
-				return "", err
-			}
-			text += " else" + elseText
-		}
-		if err := noStatementFields(i, op, "if", "condition", "body", "else_body", "multiplicity"); err != nil {
-			return "", err
-		}
+		text, err = f.ifStatement()
 	case "while":
-		if op.SequenceCondition == "" {
-			return "", sequenceError(i, "while requires a condition")
-		}
-		if err := m.checkExpression(i, "loop condition", owner, op.SequenceCondition); err != nil {
-			return "", err
-		}
-		if op.SequenceUntil != "" {
-			if err := m.checkExpression(i, "until condition", owner, op.SequenceUntil); err != nil {
-				return "", err
-			}
-		}
-		text = "while " + op.SequenceCondition + bodyText
-		if op.SequenceUntil != "" {
-			text += " until " + op.SequenceUntil + ";"
-		}
-		if err := noStatementFields(i, op, "while", "condition", "body", "until", "multiplicity"); err != nil {
-			return "", err
-		}
+		text, err = f.while()
 	case "loop":
-		if op.SequenceCondition != "" {
-			return "", sequenceError(i, "loop does not take a condition")
-		}
-		if op.SequenceUntil != "" {
-			if err := m.checkExpression(i, "until condition", owner, op.SequenceUntil); err != nil {
-				return "", err
-			}
-		}
-		text = "loop" + bodyText
-		if op.SequenceUntil != "" {
-			text += " until " + op.SequenceUntil + ";"
-		}
-		if err := noStatementFields(i, op, "loop", "body", "until", "multiplicity"); err != nil {
-			return "", err
-		}
+		text, err = f.loop()
 	case "for":
-		if op.SequenceParameter == "" || op.SequenceValue == "" {
-			return "", sequenceError(i, "for requires a variable and collection")
-		}
-		if err := checkName(i, op.SequenceParameter); err != nil {
-			return "", err
-		}
-		if op.Type != "" {
-			if _, err := checkFeatureReference(i, "for variable type", op.Type); err != nil {
-				return "", err
-			}
-		}
-		if err := m.checkExpression(i, "for collection", owner, op.SequenceValue); err != nil {
-			return "", err
-		}
-		if err := noStatementFields(i, op, "for", "parameter", "type", "value", "body", "multiplicity"); err != nil {
-			return "", err
-		}
-		text = "for " + op.SequenceParameter
-		if op.Type != "" {
-			text += " : " + op.Type
-		}
-		text += " in " + op.SequenceValue + bodyText
+		text, err = f.forStatement()
 	case "terminate":
-		if op.SequenceValue != "" {
-			if err := m.checkExpression(i, "terminate occurrence", owner, op.SequenceValue); err != nil {
-				return "", err
-			}
-		}
-		if err := noStatementFields(i, op, "terminate", "value", "multiplicity"); err != nil {
-			return "", err
-		}
-		text = "terminate"
-		if op.SequenceValue != "" {
-			text += " " + op.SequenceValue
-		}
-		text += ";"
+		text, err = f.terminate()
 	default:
 		return "", sequenceError(i, fmt.Sprintf("member kind %q is not an action-body statement", op.MemberKind))
+	}
+	if err != nil {
+		return "", err
 	}
 	return prefix + text, nil
 }
 
-func (m Model) formatNestedBody(i int, owner string, scope *symbols.Scope, inheritedNames map[string]bool, body []Operation, depth int, memberIndent, unit string) (string, error) {
+// statementFormatter writes one action-body statement, its nested body already written.
+type statementFormatter struct {
+	m          Model
+	i          int
+	owner      string
+	scope      *symbols.Scope
+	localNames map[string]bool
+	op         Operation
+	depth      int
+	layout     bodyLayout
+	body       string
+}
+
+// expression checks an optional expression field, empty admitted.
+func (f statementFormatter) expression(role, expr string) error {
+	if expr == "" {
+		return nil
+	}
+	return f.m.checkExpression(f.i, role, f.owner, expr)
+}
+
+func (f statementFormatter) fields(kind string, allowed ...string) error {
+	return noStatementFields(f.i, f.op, kind, allowed...)
+}
+
+func (f statementFormatter) accept() (string, error) {
+	op := f.op
+	if op.SequenceParameter == "" {
+		return "", sequenceError(f.i, "accept requires a payload parameter")
+	}
+	if err := checkName(f.i, op.SequenceParameter); err != nil {
+		return "", err
+	}
+	if op.Type != "" {
+		if _, err := checkFeatureReference(f.i, "accept type", op.Type); err != nil {
+			return "", err
+		}
+	}
+	if err := f.expression("via port", op.SequenceVia); err != nil {
+		return "", err
+	}
+	if err := f.fields("accept", "type", "via", "parameter", "multiplicity"); err != nil {
+		return "", err
+	}
+	text := "accept " + op.SequenceParameter
+	if op.Type != "" {
+		text += " : " + op.Type
+	}
+	if op.SequenceVia != "" {
+		text += " via " + op.SequenceVia
+	}
+	return text + ";", nil
+}
+
+func (f statementFormatter) send() (string, error) {
+	op := f.op
+	if op.SequenceValue == "" {
+		return "", sequenceError(f.i, "send requires a payload value")
+	}
+	if err := f.expression("send payload", op.SequenceValue); err != nil {
+		return "", err
+	}
+	if err := f.expression("via port", op.SequenceVia); err != nil {
+		return "", err
+	}
+	if err := f.expression("send receiver", op.SequenceTarget); err != nil {
+		return "", err
+	}
+	if err := f.fields("send", "value", "target", "via", "multiplicity"); err != nil {
+		return "", err
+	}
+	text := "send " + op.SequenceValue
+	if op.SequenceVia != "" {
+		text += " via " + op.SequenceVia
+	}
+	if op.SequenceTarget != "" {
+		text += " to " + op.SequenceTarget
+	}
+	return text + ";", nil
+}
+
+func (f statementFormatter) assign() (string, error) {
+	op := f.op
+	if op.SequenceTarget == "" || op.SequenceValue == "" {
+		return "", sequenceError(f.i, "assign requires both target and value")
+	}
+	if _, err := checkFeatureReference(f.i, "assignment target", op.SequenceTarget); err != nil {
+		return "", err
+	}
+	if err := f.expression("assigned value", op.SequenceValue); err != nil {
+		return "", err
+	}
+	if err := f.fields("assign", "target", "value", "multiplicity"); err != nil {
+		return "", err
+	}
+	return "assign " + op.SequenceTarget + " := " + op.SequenceValue + ";", nil
+}
+
+func (f statementFormatter) ifStatement() (string, error) {
+	op := f.op
+	if op.SequenceCondition == "" {
+		return "", sequenceError(f.i, "if requires a condition")
+	}
+	if err := f.expression("condition", op.SequenceCondition); err != nil {
+		return "", err
+	}
+	text := "if " + op.SequenceCondition + f.body
+	if len(op.SequenceElse) > 0 {
+		elseText, err := f.m.formatNestedBody(f.i, f.owner, f.scope, f.localNames, op.SequenceElse, f.depth, f.layout)
+		if err != nil {
+			return "", err
+		}
+		text += " else" + elseText
+	}
+	if err := f.fields("if", "condition", "body", "else_body", "multiplicity"); err != nil {
+		return "", err
+	}
+	return text, nil
+}
+
+func (f statementFormatter) while() (string, error) {
+	op := f.op
+	if op.SequenceCondition == "" {
+		return "", sequenceError(f.i, "while requires a condition")
+	}
+	if err := f.expression("loop condition", op.SequenceCondition); err != nil {
+		return "", err
+	}
+	if err := f.expression("until condition", op.SequenceUntil); err != nil {
+		return "", err
+	}
+	text := "while " + op.SequenceCondition + f.body
+	if op.SequenceUntil != "" {
+		text += " until " + op.SequenceUntil + ";"
+	}
+	if err := f.fields("while", "condition", "body", "until", "multiplicity"); err != nil {
+		return "", err
+	}
+	return text, nil
+}
+
+func (f statementFormatter) loop() (string, error) {
+	op := f.op
+	if op.SequenceCondition != "" {
+		return "", sequenceError(f.i, "loop does not take a condition")
+	}
+	if err := f.expression("until condition", op.SequenceUntil); err != nil {
+		return "", err
+	}
+	text := "loop" + f.body
+	if op.SequenceUntil != "" {
+		text += " until " + op.SequenceUntil + ";"
+	}
+	if err := f.fields("loop", "body", "until", "multiplicity"); err != nil {
+		return "", err
+	}
+	return text, nil
+}
+
+func (f statementFormatter) forStatement() (string, error) {
+	op := f.op
+	if op.SequenceParameter == "" || op.SequenceValue == "" {
+		return "", sequenceError(f.i, "for requires a variable and collection")
+	}
+	if err := checkName(f.i, op.SequenceParameter); err != nil {
+		return "", err
+	}
+	if op.Type != "" {
+		if _, err := checkFeatureReference(f.i, "for variable type", op.Type); err != nil {
+			return "", err
+		}
+	}
+	if err := f.expression("for collection", op.SequenceValue); err != nil {
+		return "", err
+	}
+	if err := f.fields("for", "parameter", "type", "value", "body", "multiplicity"); err != nil {
+		return "", err
+	}
+	text := "for " + op.SequenceParameter
+	if op.Type != "" {
+		text += " : " + op.Type
+	}
+	return text + " in " + op.SequenceValue + f.body, nil
+}
+
+func (f statementFormatter) terminate() (string, error) {
+	op := f.op
+	if err := f.expression("terminate occurrence", op.SequenceValue); err != nil {
+		return "", err
+	}
+	if err := f.fields("terminate", "value", "multiplicity"); err != nil {
+		return "", err
+	}
+	text := "terminate"
+	if op.SequenceValue != "" {
+		text += " " + op.SequenceValue
+	}
+	return text + ";", nil
+}
+
+func (m Model) formatNestedBody(i int, owner string, scope *symbols.Scope, inheritedNames map[string]bool, body []Operation, depth int, layout bodyLayout) (string, error) {
 	if len(body) == 0 {
 		return " { }", nil
 	}
@@ -461,11 +554,11 @@ func (m Model) formatNestedBody(i int, owner string, scope *symbols.Scope, inher
 		if requiresSequenceSource(item.SequenceKeyword) && !hasSource {
 			return "", sequenceError(i, fmt.Sprintf("%q in a nested body has no earlier source item", item.SequenceKeyword))
 		}
-		formatted, err := m.formatSequenceItem(i, owner, scope, localNames, item, depth+1, memberIndent, unit)
+		formatted, err := m.formatSequenceItem(i, owner, scope, localNames, item, depth+1, layout)
 		if err != nil {
 			return "", err
 		}
-		lines = append(lines, memberIndent+strings.Repeat(unit, depth+1)+formatted)
+		lines = append(lines, layout.memberIndent+strings.Repeat(layout.unit, depth+1)+formatted)
 		if _, declaration := sequenceMemberKinds[item.MemberKind]; declaration && item.MemberName != "" {
 			localNames[symbolName(item.MemberName)] = true
 		}
@@ -473,7 +566,7 @@ func (m Model) formatNestedBody(i int, owner string, scope *symbols.Scope, inher
 			hasSource = true
 		}
 	}
-	return " {\n" + strings.Join(lines, "\n") + "\n" + memberIndent + strings.Repeat(unit, depth) + "}", nil
+	return " {\n" + strings.Join(lines, "\n") + "\n" + layout.memberIndent + strings.Repeat(layout.unit, depth) + "}", nil
 }
 
 func sequenceItemIsSource(op Operation) bool {
@@ -605,8 +698,8 @@ func (m Model) sequenceNodeVisible(scope *symbols.Scope, ref string) bool {
 		qn := ast.QualifiedNameOf(segments...)
 		qn.Global = true
 		r, _ := m.resolver()
-		_, ok = r.ResolveQualified(scope, qn)
-		return ok
+		sym, ok := r.ResolveQualified(scope, qn)
+		return ok && !isStartLabel(sym.Decl)
 	}
 	segments, ok := source.QualifiedNameSegments(ref)
 	if !ok || len(segments) == 0 {

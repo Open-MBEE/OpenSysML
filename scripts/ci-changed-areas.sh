@@ -52,7 +52,11 @@ emit() {
 emit go "$service"
 emit docs "$( { [[ "$service" = true ]] || matches "$docs_pattern"; } && echo true || echo false)"
 emit node "$( { [[ "$service" = true ]] || matches "$node_pattern"; } && echo true || echo false)"
-emit python "$( { [[ "$service" = true ]] || matches "$python_pattern"; } && echo true || echo false)"
+# The client-manifest/Python version lockstep tests live in the Python suite,
+# so the Node, Java and Rust manifests, every editor manifest
+# check_version.py --editors reads, and the editors' client references have
+# to run it too.
+emit python "$( { [[ "$service" = true ]] || matches "$python_pattern" || matches '^client/node/package\.json$' || matches '^client/java/pom\.xml$' || matches '^client/rust/opensysml/Cargo\.toml$' || matches '^client/rust/Cargo\.lock$' || matches '^editors/(cameo|syson(/backend)?)/pom\.xml$' || matches '^editors/(cameo/(plugin|tools|openapi-stubs|dist)|syson/syson-api-stubs)/pom\.xml$' || matches '^editors/(vscode|syson/frontend)/package(-lock)?\.json$'; } && echo true || echo false)"
 emit java "$( { [[ "$service" = true ]] || matches "$java_pattern"; } && echo true || echo false)"
 emit rust "$( { [[ "$service" = true ]] || matches "$rust_pattern"; } && echo true || echo false)"
 emit julia "$( { [[ "$service" = true ]] || matches "$julia_pattern"; } && echo true || echo false)"

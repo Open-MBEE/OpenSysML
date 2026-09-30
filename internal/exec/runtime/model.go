@@ -40,6 +40,11 @@ type Model struct {
 	resolver  *resolve.Resolver
 
 	features map[*symbols.Symbol][]EffectiveFeature
+	// declaresChains memoizes, by type, whether it or a member source of it
+	// declares a nested redefinition chain (see pendingNestedRedefinitions).
+	declaresChains map[*symbols.Symbol]bool
+	// chainHosts memoizes isChainHost by feature symbol (see hostsChain).
+	chainHosts map[*symbols.Symbol]bool
 
 	// arrayFeatures memoizes the declarations of Collections::Array's features
 	// by name; see arrayFeatureSymbols.
@@ -112,8 +117,10 @@ type Model struct {
 	// subsetters memoizes, per type, the features subsetting each named feature of it
 	// under any of its redefinition names; callers read the shared slice.
 	subsetters map[*symbols.Symbol]map[string][]EffectiveFeature
-	// subsetted memoizes subsettedNames per feature of a type; callers read the shared slice.
-	subsetted map[featureOfType][]string
+	// subsetted memoizes subsettedNames per feature of a type, declaredSubsetted
+	// declaredSubsettedNames; callers read the shared slices.
+	subsetted         map[featureOfType][]string
+	declaredSubsetted map[featureOfType][]string
 
 	// toolExecutions memoizes toolExecutionOf per action; toolUnits the units tool
 	// answers spell, per scope they are read in.
@@ -127,6 +134,7 @@ type Model struct {
 	// bindingIR memoizes binding connectors declared by each materialized
 	// object type, including bindings inherited from its supertypes.
 	bindingIR       map[*symbols.Symbol][]lower.Binding
+	bindingRoots    map[*symbols.Symbol]map[string]bool
 	bindingFeatures map[*symbols.Symbol]map[string][]lower.Binding
 
 	// classifierBehaviors memoizes the behaviors each type binds to its objects:
@@ -190,6 +198,8 @@ func NewModel(sem *semantics.Model, resolver *resolve.Resolver) *Model {
 		semantics:           sem,
 		resolver:            resolver,
 		features:            make(map[*symbols.Symbol][]EffectiveFeature),
+		declaresChains:      make(map[*symbols.Symbol]bool),
+		chainHosts:          make(map[*symbols.Symbol]bool),
 		denotedFeatures:     make(map[*symbols.Symbol]map[*symbols.Symbol]string),
 		holders:             make(map[*symbols.Symbol]map[string][]string),
 		returnedParams:      make(map[*calcShape]*returnedAnalysis),
@@ -208,10 +218,12 @@ func NewModel(sem *semantics.Model, resolver *resolve.Resolver) *Model {
 		redefGroups:         make(map[*symbols.Symbol][][]string),
 		subsetters:          make(map[*symbols.Symbol]map[string][]EffectiveFeature),
 		subsetted:           make(map[featureOfType][]string),
+		declaredSubsetted:   make(map[featureOfType][]string),
 		toolExecutions:      make(map[*symbols.Symbol]*toolExecution),
 		toolUnits:           make(map[toolUnitKey]semantics.Unit),
 		objectConns:         make(map[*symbols.Symbol][]lower.Connection),
 		bindingIR:           make(map[*symbols.Symbol][]lower.Binding),
+		bindingRoots:        make(map[*symbols.Symbol]map[string]bool),
 		bindingFeatures:     make(map[*symbols.Symbol]map[string][]lower.Binding),
 		classifierBehaviors: make(map[*symbols.Symbol][]classifierBehaviorDecl),
 		triggerTypes:        make(map[triggerTypeKey]*symbols.Symbol),

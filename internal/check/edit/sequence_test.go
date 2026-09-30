@@ -785,6 +785,15 @@ func TestAddSequenceGlobalReferenceAcrossDocuments(t *testing.T) {
 	if model.sequenceNodeVisible(scope, "$::Q::B::nope") {
 		t.Fatal("$::Q::B::nope resolved; want it unresolvable")
 	}
+	// The written end is judged with its root: the sibling document's member
+	// is reached, and the verdict on sequencing to it — it is no node of A's
+	// body — is validation's, not an unknown target's; a name nothing declares
+	// is refused as the `$::` name it was written as.
+	addFailure(t, model, AddThen("P::A", "$::Q::B::q"), FailureResultInvalid)
+	e := addFailure(t, model, AddThen("P::A", "$::Q::B::nope"), FailureUnknownTarget)
+	if !strings.Contains(e.Message, `"$::Q::B::nope"`) {
+		t.Fatalf("message = %q, want it to name $::Q::B::nope", e.Message)
+	}
 }
 
 func TestAddSequenceRefusals(t *testing.T) {

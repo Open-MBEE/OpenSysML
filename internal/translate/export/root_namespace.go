@@ -116,47 +116,17 @@ func withRootNamespace(graph *rdf.Graph) (*rdf.Graph, error) {
 func withoutRootNamespace(graph *rdf.Graph) *rdf.Graph {
 	dropped := map[string]bool{}
 	droppedMemberIndexes := map[string]bool{}
-	type rootIndex struct {
-		member rdf.Term
-		index  int
-	}
 	var indexes []rootIndex
 	for _, subject := range graph.Subjects() {
 		if !transparentRootSubject(graph, subject) {
 			continue
 		}
 		dropped[subject.Value] = true
-		members := rootNamespaceMembers(graph, subject)
-		indexed := 0
-		listed := make(map[string]bool, len(members))
-		for _, member := range members {
-			listed[member.Value] = true
-			if graph.HasProperty(member, rdf.OpenSysML+xMemberIndex) {
-				indexed++
-			}
-		}
-		if indexed > 0 && indexed < len(members) {
-			for i, member := range members {
-				indexes = append(indexes, rootIndex{member: member, index: i})
-				droppedMemberIndexes[member.Value] = true
-			}
-		} else if indexed == 0 {
-			var subjectOrder []rdf.Term
-			for _, candidate := range graph.Subjects() {
-				if listed[candidate.Value] {
-					subjectOrder = append(subjectOrder, candidate)
-				}
-			}
-			same := len(subjectOrder) == len(members)
-			for i := range subjectOrder {
-				if same && subjectOrder[i] != members[i] {
-					same = false
-				}
-			}
-			if !same {
-				for i, member := range members {
-					indexes = append(indexes, rootIndex{member: member, index: i})
-				}
+		restated, dropIndexes := rootMemberIndexes(graph, rootNamespaceMembers(graph, subject))
+		indexes = append(indexes, restated...)
+		if dropIndexes {
+			for _, index := range restated {
+				droppedMemberIndexes[index.member.Value] = true
 			}
 		}
 		for _, membership := range graph.Objects(subject, rdf.SysML+pOwnedRelationship) {
@@ -184,6 +154,63 @@ func withoutRootNamespace(graph *rdf.Graph) *rdf.Graph {
 		out.Add(index.member, rdf.OpenSysMLTerm(xMemberIndex), rdf.Int(index.index))
 	}
 	return out
+}
+
+type rootIndex struct {
+	member rdf.Term
+	index  int
+}
+
+// rootMemberIndexes is the member index each root member takes once the
+// wrapper's order is dropped, and whether the indexes the members state are
+// replaced: none when the members all state one, or state none and appear in
+// the wrapper's order already.
+func rootMemberIndexes(graph *rdf.Graph, members []rdf.Term) ([]rootIndex, bool) {
+	indexed := 0
+	listed := make(map[string]bool, len(members))
+	for _, member := range members {
+		listed[member.Value] = true
+		if graph.HasProperty(member, rdf.OpenSysML+xMemberIndex) {
+			indexed++
+		}
+	}
+	switch {
+	case indexed == len(members):
+		return nil, false
+	case indexed > 0:
+		return rootIndexesOf(members), true
+	case inSubjectOrder(graph, members, listed):
+		return nil, false
+	}
+	return rootIndexesOf(members), false
+}
+
+func rootIndexesOf(members []rdf.Term) []rootIndex {
+	indexes := make([]rootIndex, 0, len(members))
+	for i, member := range members {
+		indexes = append(indexes, rootIndex{member: member, index: i})
+	}
+	return indexes
+}
+
+// inSubjectOrder reports whether the graph lists the members as subjects in
+// the given order.
+func inSubjectOrder(graph *rdf.Graph, members []rdf.Term, listed map[string]bool) bool {
+	var subjectOrder []rdf.Term
+	for _, candidate := range graph.Subjects() {
+		if listed[candidate.Value] {
+			subjectOrder = append(subjectOrder, candidate)
+		}
+	}
+	if len(subjectOrder) != len(members) {
+		return false
+	}
+	for i := range subjectOrder {
+		if subjectOrder[i] != members[i] {
+			return false
+		}
+	}
+	return true
 }
 
 func rootNamespaceMembers(graph *rdf.Graph, namespace rdf.Term) []rdf.Term {

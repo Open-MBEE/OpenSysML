@@ -69,7 +69,7 @@ def test_missing_fmpy_names_the_extra(mocker):
 
 def test_scheduled_execution_is_refused():
     reply = fmi_runner.run(request(interface="scheduledExecution"))
-    assert "scheduled execution is not served by this runner" == reply["error"]
+    assert reply["error"] == "scheduled execution is not served by this runner"
 
 
 def test_fmpy_failure_is_an_error_reply(mocker):
@@ -208,5 +208,6 @@ def test_state_space_answers_arrays_for_real():
     )
     assert "error" not in reply
     y = reply["outputs"]["y"]
-    assert isinstance(y, list) and len(y) == 3
+    assert isinstance(y, list)
+    assert len(y) == 3
     assert all(isinstance(e, float) for e in y)

@@ -253,12 +253,14 @@ func (r *Renderer) stateNode(state *ast.StateNode, graph *lower.StateGraph, mach
 	return node
 }
 
+const acceptPrefix = "accept "
+
 // deferredLabel is a state's compartment line for the triggers it defers,
 // `defers Ping, Stop`, each by the name a transition accepts it under.
 func (r *Renderer) deferredLabel(doc string, triggers []ast.Node) string {
 	names := make([]string, 0, len(triggers))
 	for _, trigger := range triggers {
-		names = append(names, strings.TrimPrefix(r.triggerLabel(doc, trigger), "accept "))
+		names = append(names, strings.TrimPrefix(r.triggerLabel(doc, trigger), acceptPrefix))
 	}
 	return "defers " + strings.Join(names, ", ")
 }
@@ -394,7 +396,7 @@ func (r *Renderer) triggerLabel(doc string, trigger ast.Node) string {
 		}
 	case *ast.CallEvent:
 		if event.Operation != nil {
-			return "accept " + endName(event.Operation) + callParameters(event.Parameters)
+			return acceptPrefix + endName(event.Operation) + callParameters(event.Parameters)
 		}
 	}
 	if text := r.nodeText(doc, trigger); text != "" {
@@ -729,7 +731,7 @@ func (r *Renderer) acceptText(doc string, accept lower.Accept) string {
 	if accept.SignalType != nil {
 		return endName(accept.SignalType)
 	}
-	return strings.TrimPrefix(r.triggerLabel(doc, accept.Trigger), "accept ")
+	return strings.TrimPrefix(r.triggerLabel(doc, accept.Trigger), acceptPrefix)
 }
 
 // sendText is the message a body sends when the send is all the body does, and

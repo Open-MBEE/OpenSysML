@@ -24,6 +24,9 @@ func (ctx *Context) pendingNestedRedefinitions(owner *Instance, feature string) 
 	if owner == nil || feature == "" {
 		return nil
 	}
+	if len(owner.nested) == 0 && !ctx.declaresChains(owner.Type) && !slices.ContainsFunc(owner.classifiers, ctx.declaresChains) {
+		return nil
+	}
 	// A redefined member shares one feature value under every name it reads
 	// as, so a chain naming any of them applies to the member materialized here.
 	names := map[string]bool{feature: true}
@@ -57,64 +60,38 @@ func (ctx *Context) pendingNestedRedefinitions(owner *Instance, feature string) 
 	return out
 }
 
+// declaresChains reports whether typ or a member source of it declares a nested
+// redefinition chain reaching below its members, memoized by type.
+func (ctx *Context) declaresChains(typ *symbols.Symbol) bool {
+	if typ == nil {
+		return false
+	}
+	if declares, ok := ctx.model.declaresChains[typ]; ok {
+		return declares
+	}
+	declares := false
+	for _, src := range append([]*symbols.Symbol{typ}, ctx.model.semantics.MemberSources(typ)...) {
+		for _, nr := range ctx.model.semantics.NestedRedefinitionsOf(src) {
+			if len(nr.Path) > 1 {
+				declares = true
+			}
+		}
+	}
+	ctx.model.declaresChains[typ] = declares
+	return declares
+}
+
 // applyNestedRedefinitions applies the pending redefinitions to the shape of
 // the object being materialized as sym: a one-segment rest redefines that
 // feature of the object here, a longer one is carried on the object for its
 // members. It returns the effective features to use and the tails to carry.
 func (ctx *Context) applyNestedRedefinitions(sym *symbols.Symbol, features []EffectiveFeature, pending []pendingRedefinition) ([]EffectiveFeature, []pendingRedefinition) {
-	var carry []pendingRedefinition
-	var overrides map[string]*symbols.Symbol
-	for _, p := range pending {
-		if len(p.rest) == 0 {
-			continue
-		}
-		if len(p.rest) > 1 {
-			carry = append(carry, p)
-			continue
-		}
-		if overrides == nil {
-			overrides = make(map[string]*symbols.Symbol)
-		}
-		taken, ok := overrides[p.rest[0]]
-		if !ok {
-			overrides[p.rest[0]] = p.sym
-			continue
-		}
-		// A chain declared by a type specializing the earlier chain's context
-		// outranks it, as a nested redefining body in the subtype does; in one
-		// body the later declaration wins, as two same-named members do;
-		// unrelated contexts keep the first, the tails carried down first.
-		if ctx.chainOutranks(p.sym, taken) || ctx.redefinitionContext(p.sym) == ctx.redefinitionContext(taken) {
-			overrides[p.rest[0]] = p.sym
-		}
-	}
+	overrides, carry := ctx.splitRedefinitions(pending)
+	governed := ctx.governedByCarried(sym, features, carry)
 	cloned := false
-	governed := make(map[string]bool)
-	for _, p := range carry {
-		for i := range features {
-			if features[i].Name == p.rest[0] && features[i].DefaultValue != nil && valuedChain(p) && ctx.chainGovernsValue(p.sym, bindingDecl(&features[i])) {
-				governed[features[i].Name] = true
-			}
-		}
-	}
 	if len(governed) > 0 {
-		// A bound part's names read one feature value, so the chain governs
-		// the binding under each name its redefinition group gives it.
-		for _, group := range ctx.redefinitionGroups(sym) {
-			marks := false
-			for _, name := range group {
-				marks = marks || governed[name]
-			}
-			if marks {
-				for _, name := range group {
-					governed[name] = true
-				}
-			}
-		}
-		if !cloned {
-			features = slices.Clone(features)
-			cloned = true
-		}
+		features = slices.Clone(features)
+		cloned = true
 		for i := range features {
 			if governed[features[i].Name] {
 				features[i].GovernedByChain = true
@@ -139,6 +116,65 @@ func (ctx *Context) applyNestedRedefinitions(sym *symbols.Symbol, features []Eff
 		}
 	}
 	return features, carry
+}
+
+// splitRedefinitions sorts the pending redefinitions into the features they
+// override here, by name, and the longer chains carried on for the members.
+func (ctx *Context) splitRedefinitions(pending []pendingRedefinition) (overrides map[string]*symbols.Symbol, carry []pendingRedefinition) {
+	for _, p := range pending {
+		if len(p.rest) == 0 {
+			continue
+		}
+		if len(p.rest) > 1 {
+			carry = append(carry, p)
+			continue
+		}
+		if overrides == nil {
+			overrides = make(map[string]*symbols.Symbol)
+		}
+		taken, ok := overrides[p.rest[0]]
+		if !ok {
+			overrides[p.rest[0]] = p.sym
+			continue
+		}
+		// A chain declared by a type specializing the earlier chain's context
+		// outranks it, as a nested redefining body in the subtype does; in one
+		// body the later declaration wins, as two same-named members do;
+		// unrelated contexts keep the first, the tails carried down first.
+		if ctx.chainOutranks(p.sym, taken) || ctx.redefinitionContext(p.sym) == ctx.redefinitionContext(taken) {
+			overrides[p.rest[0]] = p.sym
+		}
+	}
+	return overrides, carry
+}
+
+// governedByCarried names the bound features whose binding a carried valued
+// chain governs; a bound part's names read one feature value, so the chain
+// governs the binding under each name its redefinition group gives it.
+func (ctx *Context) governedByCarried(sym *symbols.Symbol, features []EffectiveFeature, carry []pendingRedefinition) map[string]bool {
+	governed := make(map[string]bool)
+	for _, p := range carry {
+		for i := range features {
+			if features[i].Name == p.rest[0] && features[i].DefaultValue != nil && valuedChain(p) && ctx.chainGovernsValue(p.sym, bindingDecl(&features[i])) {
+				governed[features[i].Name] = true
+			}
+		}
+	}
+	if len(governed) == 0 {
+		return governed
+	}
+	for _, group := range ctx.redefinitionGroups(sym) {
+		marks := false
+		for _, name := range group {
+			marks = marks || governed[name]
+		}
+		if marks {
+			for _, name := range group {
+				governed[name] = true
+			}
+		}
+	}
+	return governed
 }
 
 // applyClassifierNestedRedefinitions applies the nested redefinitions typ and
@@ -304,6 +340,19 @@ func isChainHost(member *symbols.Symbol) bool {
 		}
 	}
 	return false
+}
+
+// hostsChain reports isChainHost(member), memoized by symbol.
+func (ctx *Context) hostsChain(member *symbols.Symbol) bool {
+	if member == nil {
+		return false
+	}
+	if hosts, ok := ctx.model.chainHosts[member]; ok {
+		return hosts
+	}
+	hosts := isChainHost(member)
+	ctx.model.chainHosts[member] = hosts
+	return hosts
 }
 
 // chainOutranks reports whether the chain next was declared by a context

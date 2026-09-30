@@ -247,7 +247,7 @@ func (u *Union) Regather(ctx *kit.Context, g *kit.Gathers, doc string, changed m
 	}
 }
 
-// Contributors implements kit.Contributing: a document's identity judgment
+// Contributors implements kit.ContributorNamer: a document's identity judgment
 // depends on the document and on every document contributing an identity, and
 // the judgments as a whole on the contributors alone.
 func (u *Union) Contributors(name string) ([]string, bool) {

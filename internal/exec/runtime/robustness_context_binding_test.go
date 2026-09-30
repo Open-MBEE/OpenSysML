@@ -42,8 +42,8 @@ func testRedefiningRefBindsUnrelatedInstance(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Instantiate: %v", err)
 	}
-	go_ := oneSymbol(t, idx, "test::Env::Go")
-	_, err = ctx.ExecuteActionPerformedBy(go_, inst, nil)
+	goAction := oneSymbol(t, idx, "test::Env::Go")
+	_, err = ctx.ExecuteActionPerformedBy(goAction, inst, nil)
 	if !errors.Is(err, ErrTypeMismatch) {
 		t.Fatalf("binding a Tank to context : Heater: %v, want ErrTypeMismatch", err)
 	}

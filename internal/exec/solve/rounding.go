@@ -204,7 +204,7 @@ type roundingRewrite struct {
 // sites replaced by their variables, literals by their float64 values. A nil e
 // is the unconstrained path of the first condition, and BoolTerm(false) the
 // path of an assertion the evaluator does not check in order.
-func (r *roundingRewrite) rewrite(t *Term, e *Term) *Term {
+func (r *roundingRewrite) rewrite(t, e *Term) *Term {
 	switch t.Op {
 	case OpReal:
 		return r.literal(t)
@@ -266,7 +266,7 @@ func (r *roundingRewrite) literal(t *Term) *Term {
 
 // ratio is a whole-number quotient's one site: the exact ratio of its integer
 // operands, whose widenings are not separate sites.
-func (r *roundingRewrite) ratio(t *Term, e *Term) *Term {
+func (r *roundingRewrite) ratio(t, e *Term) *Term {
 	left := t.Args[0]
 	right := t.Args[1]
 	if left.Op == OpToReal {
@@ -281,7 +281,7 @@ func (r *roundingRewrite) ratio(t *Term, e *Term) *Term {
 }
 
 // args rewrites a term's operands under the same evaluation condition.
-func (r *roundingRewrite) args(t *Term, e *Term) []*Term {
+func (r *roundingRewrite) args(t, e *Term) []*Term {
 	args := make([]*Term, len(t.Args))
 	for i, arg := range t.Args {
 		args[i] = r.rewrite(arg, e)
@@ -292,7 +292,7 @@ func (r *roundingRewrite) args(t *Term, e *Term) []*Term {
 // site returns the variable standing for the rewritten term's rounded result,
 // recording the exact value and the evaluation condition the site occurred
 // under; an already-seen subterm shares its site.
-func (r *roundingRewrite) site(term *Term, e *Term) *Term {
+func (r *roundingRewrite) site(term, e *Term) *Term {
 	key := writeTerm(term)
 	s, ok := r.sites[key]
 	if !ok {
@@ -310,7 +310,7 @@ func (r *roundingRewrite) site(term *Term, e *Term) *Term {
 
 // rebuild copies a term that is no site and rewrites nothing else, its operands
 // rewritten under the same evaluation condition.
-func (r *roundingRewrite) rebuild(t *Term, e *Term) *Term {
+func (r *roundingRewrite) rebuild(t, e *Term) *Term {
 	if len(t.Args) == 0 {
 		return t
 	}

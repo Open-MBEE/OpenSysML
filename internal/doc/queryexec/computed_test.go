@@ -307,11 +307,11 @@ func cellReals(t *testing.T, result *RowSet, column string) [][]float64 {
 	for _, row := range result.Rows() {
 		var reals []float64
 		for _, value := range row.Cells()[position].Values() {
-			real, ok := value.Real()
+			number, ok := value.Real()
 			if !ok {
 				t.Fatalf("%s cell = %+v, want reals", column, row.Cells()[position].Values())
 			}
-			reals = append(reals, real)
+			reals = append(reals, number)
 		}
 		out = append(out, reals)
 	}

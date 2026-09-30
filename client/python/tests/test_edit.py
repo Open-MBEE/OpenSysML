@@ -365,8 +365,9 @@ def test_calc_and_action_helpers_reject_invalid_parameter_shapes(
     method, argument, value
 ):
     editor = Editor("hash", None)
+    add = getattr(editor, method)
     with pytest.raises(TypeError, match=argument):
-        getattr(editor, method)("Demo", "Declaration", **{argument: value})
+        add("Demo", "Declaration", **{argument: value})
     assert len(editor) == 0
 
 
@@ -377,12 +378,11 @@ def test_calc_helpers_require_return_type_for_return_expression(method, return_t
     editor.add_member("Demo", "part", "existing")
     pending = editor.operations
 
+    add = getattr(editor, method)
     with pytest.raises(
         ValueError, match="^return_expression requires return_type$"
     ):
-        getattr(editor, method)(
-            "Demo", "C", return_type=return_type, return_expression="x * 2"
-        )
+        add("Demo", "C", return_type=return_type, return_expression="x * 2")
 
     assert editor.operations == pending
 
@@ -751,14 +751,12 @@ def test_new_add_member_expression_and_helper_arguments_are_checked():
     editor.add_calc_def("Demo", "D", return_type="Real", expression="x * 2")
     editor.add_calc("Demo", "c", return_type="Real", expression="x * 2")
     for method in ("add_calc", "add_calc_def"):
+        add = getattr(editor, method)
         with pytest.raises(
             ValueError,
             match="^expression and return_expression both bind the result; give one$",
         ):
-            getattr(editor, method)(
-                "Demo", "C", return_type="Real", return_expression="x",
-                expression="x * 2",
-            )
+            add("Demo", "C", return_type="Real", return_expression="x", expression="x * 2")
     with pytest.raises(TypeError, match="kind must be notation text, not int"):
         editor.add_state_action("Demo::S", 1, "a")
     with pytest.raises(ValueError, match="kind must be 'entry', 'do' or 'exit'"):
@@ -2435,12 +2433,15 @@ class TestEditRoundTripAgainstRealService:
         source = "package P {\n    private import ScalarValues::*;\n    part x;\n}\n"
         with Connection(port=real_service, auto_start=False) as conn:
             model = conn.load_from_content(source)
+            unknown_owner = model.edit().add_import("P::nope", "ScalarValues::*")
             with pytest.raises(OwnerNotFoundError):
-                model.edit().add_import("P::nope", "ScalarValues::*").apply()
+                unknown_owner.apply()
+            unresolved = model.edit().add_import("P", "Nope::*")
             with pytest.raises(EditResultError):
-                model.edit().add_import("P", "Nope::*").apply()
+                unresolved.apply()
+            repeated = model.edit().add_import("P", "ScalarValues::*")
             with pytest.raises(MemberNameTakenError):
-                model.edit().add_import("P", "ScalarValues::*").apply()
+                repeated.apply()
 
     def test_imports_author_typed_members_that_resolve_downstream(self, real_service):
         source = "package ToasterDemo { }\n"
@@ -2813,16 +2814,20 @@ class TestEditRoundTripAgainstRealService:
                 "        attribute m;\n    }\n}\n"
             )
             documented = conn.load_from_content(edited)
+            again = documented.edit().add_documentation("P::V", "Again.")
             with pytest.raises(MemberNameTakenError):
-                documented.edit().add_documentation("P::V", "Again.").apply()
+                again.apply()
             replaced = str(
                 documented.edit().add_documentation("P::V", "A car.", replace=True).apply()
             )
-            assert "doc /* A car.*/" in replaced and "A vehicle." not in replaced
+            assert "doc /* A car.*/" in replaced
+            assert "A vehicle." not in replaced
+            unterminated = model.edit().add_documentation("P::V", "ends */ early")
             with pytest.raises(InvalidEditError):
-                model.edit().add_documentation("P::V", "ends */ early").apply()
+                unterminated.apply()
+            missing = model.edit().add_documentation("P::W", "Nothing.")
             with pytest.raises(EditTargetError):
-                model.edit().add_documentation("P::W", "Nothing.").apply()
+                missing.apply()
 
     @pytest.mark.filterwarnings("ignore::opensysml.conversion.ExperimentalFeatureWarning")
     @pytest.mark.parametrize("body", [
@@ -2867,12 +2872,14 @@ class TestEditRoundTripAgainstRealService:
                 "    comment about V, P::W /* Both.*/\n}\ncomment /* File note.*/\n"
             )
             assert conn.load_from_content(edited).ok
+            dangling = conn.load_from_content(source).edit().add_comment(
+                "P", "Dangling.", about=["Nowhere"],
+            )
             with pytest.raises(EditResultError):
-                conn.load_from_content(source).edit().add_comment(
-                    "P", "Dangling.", about=["Nowhere"],
-                ).apply()
+                dangling.apply()
+            unterminated = conn.load_from_content(source).edit().add_comment("P", "ends */ early")
             with pytest.raises(InvalidEditError):
-                conn.load_from_content(source).edit().add_comment("P", "ends */ early").apply()
+                unterminated.apply()
 
     def test_a_note_survives_reparsing_and_later_edits(self, real_service):
         source = (
@@ -2902,8 +2909,9 @@ class TestEditRoundTripAgainstRealService:
                 "DimensionOneValue" in json.dumps(value)
                 for e in elements for key, value in e.items() if not key.startswith("sysx:")
             )
+            missing = model.edit().add_note("P::Nowhere", "text")
             with pytest.raises(EditTargetError):
-                model.edit().add_note("P::Nowhere", "text").apply()
+                missing.apply()
 
     def test_overlapping_edits_are_refused(self, real_service):
         with Connection(port=real_service, auto_start=False) as conn:
@@ -3008,9 +3016,12 @@ class TestEditRoundTripAgainstRealService:
             model = conn.load_from_content(
                 "action def A {\n    action a;\n}\npart def P;\n"
             )
+            not_an_action = model.edit().add_then("P", ref="done")
             with pytest.raises(IllegalMemberKindError):
-                model.edit().add_then("P", ref="done").apply()
+                not_an_action.apply()
+            unknown_ref = model.edit().add_then("A", ref="nosuch")
             with pytest.raises(EditTargetError):
-                model.edit().add_then("A", ref="nosuch").apply()
+                unknown_ref.apply()
+            not_a_statement = model.edit().add_then("A", action="b", kind="part")
             with pytest.raises(IllegalMemberKindError):
-                model.edit().add_then("A", action="b", kind="part").apply()
+                not_a_statement.apply()
