@@ -61,8 +61,7 @@ func (m Model) addTransitionSplice(i int, op Operation) (splice, error) {
 	if err := checkEnd(i, "source", op.TransitionSource); err != nil {
 		return splice{}, err
 	}
-	if op.TransitionName != "" && ownerScope != nil &&
-		len(ownerScope.LookupLocalAll(symbolName(op.TransitionName))) > 0 {
+	if op.TransitionName != "" && nameTaken(ownerScope, op.TransitionName) {
 		return splice{}, &Error{
 			Failure: FailureMemberNameTaken, OperationIndex: i,
 			Message: fmt.Sprintf("%s already declares %q", ownerName(op.Owner), op.TransitionName),
