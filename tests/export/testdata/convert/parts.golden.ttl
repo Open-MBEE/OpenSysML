@@ -230,3 +230,10 @@ elmt:Vehicles__Vehicle__engine_ft0
     sysml:owner elmt:Vehicles__Vehicle__engine ;
     sysml:relatedElement elmt:Vehicles__Vehicle__engine, elmt:Vehicles__Engine ;
     json:relatedElement "[{\"@id\":\"Vehicles__Vehicle__engine\"},{\"@id\":\"Vehicles__Engine\"}]" .
+
+<urn:sysmlv2:element:9cd0e404-efee-50e5-a59b-681065bd188c>
+    a sysml:AttributeDefinition ;
+    sysml:elementId "9cd0e404-efee-50e5-a59b-681065bd188c" ;
+    sysml:qualifiedName "ISQBase::MassValue" ;
+    sysml:declaredName "MassValue" ;
+    sysml:isLibraryElement "true"^^xsd:boolean .

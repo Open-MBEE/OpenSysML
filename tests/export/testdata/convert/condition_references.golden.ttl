@@ -2488,3 +2488,24 @@ expr:ConditionReferences__Rover__inv1___400_pa0_preferent
     sysml:memberElement elmt:ConditionReferences__Rover__ok ;
     sysml:owner expr:ConditionReferences__Rover__inv1___400_pa0 ;
     sysml:owningRelatedElement expr:ConditionReferences__Rover__inv1___400_pa0 .
+
+<urn:sysmlv2:element:14c0aa22-5489-59b5-b438-ded26e83ba31>
+    a sysml:DataType ;
+    sysml:elementId "14c0aa22-5489-59b5-b438-ded26e83ba31" ;
+    sysml:qualifiedName "ScalarValues::Real" ;
+    sysml:declaredName "Real" ;
+    sysml:isLibraryElement "true"^^xsd:boolean .
+
+<urn:sysmlv2:element:40bb440c-5036-58e1-8675-5afccb8b8f1d>
+    a sysml:LibraryPackage ;
+    sysml:elementId "40bb440c-5036-58e1-8675-5afccb8b8f1d" ;
+    sysml:qualifiedName "ScalarValues" ;
+    sysml:declaredName "ScalarValues" ;
+    sysml:isLibraryElement "true"^^xsd:boolean .
+
+elmt:d1e9242d-b2e3-5270-bf69-4f4fb0447193
+    a sysml:DataType ;
+    sysml:elementId "d1e9242d-b2e3-5270-bf69-4f4fb0447193" ;
+    sysml:qualifiedName "ScalarValues::Boolean" ;
+    sysml:declaredName "Boolean" ;
+    sysml:isLibraryElement "true"^^xsd:boolean .
