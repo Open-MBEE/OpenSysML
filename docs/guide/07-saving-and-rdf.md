@@ -112,6 +112,9 @@ passed inline, takes the same format names as `-from` and `-to`, and returns the
 with its formats, or an `error` together with the diagnostics that explain it.
 `tolerate_syntax_errors` writes notation despite syntax errors; it is rejected for any direction
 that builds a graph, where an unparsed declaration would be silently dropped.
+`id_form` spells derived element ids when notation is written as a graph, as `-id` does:
+`qualified` (the default) or `uuid`. It is rejected for any other direction, and for any other
+value.
 
 A response whose conversion used the RDF mapping sets `experimental` and `experimental_notice`,
 whether it succeeded or refused, so a client can learn the status from the response rather than

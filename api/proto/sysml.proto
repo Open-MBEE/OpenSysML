@@ -828,6 +828,13 @@ message ConvertRequest {
   // every other direction builds a graph, where unreadable declarations would
   // go missing silently.
   bool tolerate_syntax_errors = 5;
+  // How derived element ids are spelled when notation is written as a graph
+  // ("ttl" or "api-json"), as `sysml -id` does: "qualified" (the default, each
+  // derived from its qualified name) or "uuid" (name-based uuids under each root
+  // package, the library convention). Declared and normative ids are unchanged.
+  // Empty is "qualified"; any other value, or one given for another direction,
+  // is INVALID_ARGUMENT.
+  string id_form = 7;
 }
 
 // ConvertResponse contains the converted model.
