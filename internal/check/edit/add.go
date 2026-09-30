@@ -12,6 +12,17 @@ import (
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/source"
 )
 
+const (
+	kindIndividualDef       = "individual def"
+	kindAssertNot           = "assert not"
+	kindAssertConstraint    = "assert constraint"
+	kindAssertNotConstraint = "assert not constraint"
+	kindExhibitState        = "exhibit state"
+	kindEntryAction         = "entry action"
+	kindDoAction            = "do action"
+	kindExitAction          = "exit action"
+)
+
 type memberKind struct {
 	languages  map[source.Kind]bool
 	definition bool
@@ -36,7 +47,7 @@ var memberKinds = map[string]memberKind{
 	"port":                  {languages: sysmlOnly, typed: true},
 	"enum def":              {languages: sysmlOnly, definition: true},
 	"enum":                  {languages: sysmlOnly, typed: true},
-	"individual def":        {languages: sysmlOnly, definition: true},
+	kindIndividualDef:       {languages: sysmlOnly, definition: true},
 	"individual":            {languages: sysmlOnly, typed: true},
 	"metadata def":          {languages: sysmlOnly, definition: true},
 	"metadata":              {languages: sysmlOnly, typed: true},
@@ -55,14 +66,14 @@ var memberKinds = map[string]memberKind{
 	"perform action":        {languages: sysmlOnly, typed: true},
 	"perform":               {languages: sysmlOnly},
 	"assert":                {languages: sysmlOnly},
-	"assert not":            {languages: sysmlOnly},
-	"assert constraint":     {languages: sysmlOnly, typed: true, body: true},
-	"assert not constraint": {languages: sysmlOnly, typed: true, body: true},
-	"exhibit state":         {languages: sysmlOnly, typed: true},
+	kindAssertNot:           {languages: sysmlOnly},
+	kindAssertConstraint:    {languages: sysmlOnly, typed: true, body: true},
+	kindAssertNotConstraint: {languages: sysmlOnly, typed: true, body: true},
+	kindExhibitState:        {languages: sysmlOnly, typed: true},
 	"exhibit":               {languages: sysmlOnly},
-	"entry action":          {languages: sysmlOnly, typed: true},
-	"do action":             {languages: sysmlOnly, typed: true},
-	"exit action":           {languages: sysmlOnly, typed: true},
+	kindEntryAction:         {languages: sysmlOnly, typed: true},
+	kindDoAction:            {languages: sysmlOnly, typed: true},
+	kindExitAction:          {languages: sysmlOnly, typed: true},
 	"state def":             {languages: sysmlOnly, definition: true},
 	"state":                 {languages: sysmlOnly, typed: true},
 	"occurrence def":        {languages: sysmlOnly, definition: true},
@@ -146,206 +157,19 @@ func mapKeys[V any](m map[string]V) []string {
 }
 
 func (m Model) addMemberSplice(i int, op Operation) (splice, error) {
-	kind, ok := memberKinds[op.MemberKind]
-	if op.MemberKind == "" {
-		// An empty kind writes a directed usage with no kind keyword (`in x : T;`);
-		// it is a typed usage like `ref`, and SysML alone writes it.
-		kind, ok = memberKinds["ref"], true
+	kind, err := m.addMemberKind(i, op)
+	if err != nil {
+		return splice{}, err
 	}
-	if !ok || !kind.languages[m.Source.Kind()] {
-		return splice{}, &Error{
-			Failure:        FailureIllegalKind,
-			OperationIndex: i,
-			Message: fmt.Sprintf("kind %q is not legal in %s source %q",
-				op.MemberKind, m.Source.Kind(), m.Source.Name()),
-		}
+	referenceName, assertReference, err := checkMemberName(i, op)
+	if err != nil {
+		return splice{}, err
 	}
-	if op.MemberKind == "" && op.Direction == "" {
-		return splice{}, &Error{
-			Failure:        FailureIllegalKind,
-			OperationIndex: i,
-			Message:        "an empty member kind needs a direction (in, out or inout)",
-		}
+	if err := m.checkMemberValue(i, op, kind); err != nil {
+		return splice{}, err
 	}
-	if op.MemberKind == "" && op.IsAbstract {
-		return splice{}, &Error{
-			Failure:        FailureIllegalKind,
-			OperationIndex: i,
-			Message:        "an implicit directed usage cannot be abstract: `in abstract x` does not parse",
-		}
-	}
-	if op.MemberKind == "return" && len(op.MetadataPrefixes) > 0 {
-		return splice{}, &Error{
-			Failure: FailureIllegalKind, OperationIndex: i,
-			Message: "return parameters cannot carry prefix metadata",
-		}
-	}
-	for _, prefix := range op.MetadataPrefixes {
-		if err := checkQualifiedReference(i, "metadata prefix", prefix); err != nil {
-			return splice{}, err
-		}
-	}
-	referenceName := ""
-	assertReference := op.MemberKind == "assert" || op.MemberKind == "assert not"
-	if assertReference {
-		if _, err := checkFeatureReference(i, "asserted constraint", op.MemberName); err != nil {
-			return splice{}, err
-		}
-		if op.Value != "" {
-			return splice{}, &Error{
-				Failure: FailureIllegalKind, OperationIndex: i,
-				Message: fmt.Sprintf("kind %q cannot carry a value", op.MemberKind),
-			}
-		}
-	} else if op.MemberName == "" {
-		switch {
-		case op.MemberKind == "return" && op.Type == "" && op.Multiplicity == "":
-			return splice{}, &Error{
-				Failure: FailureIllegalKind, OperationIndex: i,
-				Message: "an unnamed return parameter needs a type or multiplicity",
-			}
-		case op.MemberKind == "objective":
-		case (op.MemberKind == "constraint" || op.MemberKind == "assert constraint" ||
-			op.MemberKind == "assert not constraint") && (op.Type != "" || op.BodyExpression != ""):
-		case op.MemberKind != "return" && op.MemberKind != "objective" && len(op.Redefines) == 0 &&
-			!((op.MemberKind == "constraint" || op.MemberKind == "assert constraint" ||
-				op.MemberKind == "assert not constraint") && (op.Type != "" || op.BodyExpression != "")):
-			return splice{}, &Error{
-				Failure: FailureInvalidName, OperationIndex: i,
-				Message: "an empty member name requires redefines targets, kind return or objective, or a constraint kind with a type or body expression",
-			}
-		}
-	} else if op.MemberKind == "perform" || op.MemberKind == "exhibit" {
-		role := "performed action"
-		if op.MemberKind == "exhibit" {
-			role = "exhibited state"
-		}
-		last, err := checkFeatureReference(i, role, op.MemberName)
-		if err != nil {
-			return splice{}, err
-		}
-		referenceName = last
-	} else if err := checkName(i, op.MemberName); err != nil {
-		e := err.(*Error)
-		e.Failure = FailureInvalidName
-		e.Message = fmt.Sprintf("member name %q is not an identifier", op.MemberName)
-		return splice{}, e
-	}
-	if op.MemberKind == "metadata" && op.Value != "" {
-		return splice{}, &Error{
-			Failure: FailureIllegalKind, OperationIndex: i,
-			Message: "kind \"metadata\" cannot carry a value",
-		}
-	}
-	if op.Value != "" {
-		valueOp := op
-		valueOp.Target = op.MemberName
-		if err := m.checkValue(i, valueOp); err != nil {
-			return splice{}, err
-		}
-	}
-	if op.BodyExpression != "" {
-		if !kind.body {
-			message := fmt.Sprintf("kind %q cannot state a body expression", op.MemberKind)
-			if refusal, ok := noResultBodyKinds[op.MemberKind]; ok {
-				message = fmt.Sprintf("kind %q cannot state a body expression: %s", op.MemberKind, refusal)
-			}
-			return splice{}, &Error{
-				Failure: FailureIllegalKind, OperationIndex: i,
-				Message: message,
-			}
-		}
-		target := op.MemberName
-		if target == "" {
-			target = op.Owner
-		}
-		if err := m.checkExpression(i, "body expression", target, op.BodyExpression); err != nil {
-			return splice{}, err
-		}
-	}
-	if op.IsDefault && (kind.definition || !kind.typed || memberPrefixExcluded(op.MemberKind)) {
-		return splice{}, &Error{
-			Failure: FailureIllegalKind, OperationIndex: i,
-			Message: fmt.Sprintf("kind %q cannot carry a default value", op.MemberKind),
-		}
-	}
-	if op.IsDefault && op.Value == "" {
-		return splice{}, &Error{
-			Failure: FailureInvalidValue, OperationIndex: i,
-			Message: "default requires a nonempty value expression",
-		}
-	}
-	if op.Direction != "" && op.Direction != "in" && op.Direction != "out" && op.Direction != "inout" {
-		return splice{}, &Error{
-			Failure: FailureInvalidValue, OperationIndex: i,
-			Message: fmt.Sprintf("direction %q is not in, out or inout", op.Direction),
-		}
-	}
-	if !kind.typed && op.Type != "" {
-		return splice{}, &Error{
-			Failure:        FailureIllegalKind,
-			OperationIndex: i,
-			Message:        fmt.Sprintf("kind %q cannot carry a typing target", op.MemberKind),
-		}
-	}
-	if !kind.typed && !kind.definition && (op.Multiplicity != "" || op.Value != "") {
-		return splice{}, &Error{
-			Failure:        FailureIllegalKind,
-			OperationIndex: i,
-			Message:        fmt.Sprintf("kind %q takes a name alone", op.MemberKind),
-		}
-	}
-	if kind.definition && op.Value != "" {
-		return splice{}, &Error{
-			Failure: FailureIllegalKind, OperationIndex: i,
-			Message: fmt.Sprintf("definition kind %q cannot carry a value", op.MemberKind),
-		}
-	}
-	if !kind.definition && len(op.Specializes) > 0 {
-		return splice{}, &Error{
-			Failure:        FailureIllegalKind,
-			OperationIndex: i,
-			Message:        fmt.Sprintf("kind %q is a usage and cannot carry specializes targets", op.MemberKind),
-		}
-	}
-	if op.IsAbstract && (op.MemberKind == "enum def" ||
-		(!kind.definition && (!kind.typed || memberPrefixExcluded(op.MemberKind)))) {
-		return splice{}, &Error{
-			Failure: FailureIllegalKind, OperationIndex: i,
-			Message: fmt.Sprintf("kind %q cannot be abstract", op.MemberKind),
-		}
-	}
-	if op.Direction != "" &&
-		(kind.definition || !kind.typed || memberPrefixExcluded(op.MemberKind)) {
-		return splice{}, &Error{
-			Failure: FailureIllegalKind, OperationIndex: i,
-			Message: fmt.Sprintf("kind %q cannot carry a direction", op.MemberKind),
-		}
-	}
-	if len(op.Redefines) > 0 && kind.definition {
-		return splice{}, &Error{
-			Failure: FailureIllegalKind, OperationIndex: i,
-			Message: fmt.Sprintf("definition kind %q cannot carry redefines targets; use specializes", op.MemberKind),
-		}
-	}
-	if len(op.Redefines) > 0 &&
-		(op.MemberKind == "metadata" || op.MemberKind == "perform" || op.MemberKind == "exhibit" ||
-			op.MemberKind == "assert" || op.MemberKind == "assert not") {
-		return splice{}, &Error{
-			Failure: FailureIllegalKind, OperationIndex: i,
-			Message: fmt.Sprintf("kind %q cannot carry redefines targets", op.MemberKind),
-		}
-	}
-	if op.MemberKind == "return" && (op.IsAbstract || op.Direction != "" || len(op.Redefines) > 0) {
-		return splice{}, &Error{
-			Failure: FailureIllegalKind, OperationIndex: i,
-			Message: "return parameters cannot be abstract, directional or redefining",
-		}
-	}
-	for _, target := range op.Redefines {
-		if err := checkEnd(i, "redefines", target); err != nil {
-			return splice{}, err
-		}
+	if err := checkMemberPrefixes(i, op, kind); err != nil {
+		return splice{}, err
 	}
 	owner, ownerScope, err := m.addOwner(op.Owner)
 	if err != nil {
@@ -353,62 +177,8 @@ func (m Model) addMemberSplice(i int, op Operation) (splice, error) {
 		e.OperationIndex = i
 		return splice{}, e
 	}
-	// An empty kind is admitted wherever an explicit directed usage is: the
-	// direction it writes is the member notation a plain `ref` spells anyway.
-	admitKind := op.MemberKind
-	if admitKind == "" {
-		admitKind = "ref"
-	}
-	if !parser.BodyAdmitsMember(owner, admitKind) {
-		return splice{}, &Error{
-			Failure:        FailureIllegalKind,
-			OperationIndex: i,
-			Message: fmt.Sprintf("kind %q is only declared in a %s body, which %s does not open",
-				admitKind, parser.MemberOwner(admitKind), ownerName(op.Owner)),
-		}
-	}
-	if op.MemberKind == "return" && !parser.BodyIsCalculation(owner) {
-		return splice{}, &Error{
-			Failure: FailureIllegalKind, OperationIndex: i,
-			Message: "return parameters are only admitted in calculation, constraint and case bodies",
-		}
-	}
-	switch op.MemberKind {
-	case "assert", "assert not", "assert constraint", "assert not constraint", "exhibit state", "exhibit":
-		if !parser.BodyAdmitsBehaviorUsage(owner) {
-			return splice{}, &Error{
-				Failure: FailureIllegalKind, OperationIndex: i,
-				Message: fmt.Sprintf("%s is not admitted in the body of %s",
-					op.MemberKind, ownerName(op.Owner)),
-			}
-		}
-	case "entry action", "do action", "exit action":
-		if !stateBodyOwner(owner) {
-			return splice{}, &Error{
-				Failure: FailureIllegalKind, OperationIndex: i,
-				Message: fmt.Sprintf("%s is only admitted in a state body, which %s does not open",
-					op.MemberKind, ownerName(op.Owner)),
-			}
-		}
-		if hasStateSubaction(owner, memberSubactionKind(op.MemberKind)) {
-			return splice{}, &Error{
-				Failure: FailureIllegalKind, OperationIndex: i,
-				Message: fmt.Sprintf("%s already has a %s action", ownerName(op.Owner), memberSubactionKind(op.MemberKind)),
-			}
-		}
-	}
-	if op.MemberKind == "return" {
-		for _, member := range ast.DeclMembers(owner) {
-			if membership, ok := member.(*ast.Membership); ok && membership != nil {
-				member = membership.Member
-			}
-			if usage, ok := member.(*ast.Usage); ok && usage.IsResult {
-				return splice{}, &Error{
-					Failure: FailureIllegalKind, OperationIndex: i,
-					Message: "a calculation, constraint or case body already has a return parameter",
-				}
-			}
-		}
+	if err := checkMemberOwner(i, op, owner); err != nil {
+		return splice{}, err
 	}
 	takenName := op.MemberName
 	if assertReference {
@@ -437,26 +207,237 @@ func (m Model) addMemberSplice(i int, op Operation) (splice, error) {
 	return splice{span: ins.span, text: ins.text, opIndex: i, target: op.Owner}, nil
 }
 
+func illegalKind(i int, message string) *Error {
+	return &Error{Failure: FailureIllegalKind, OperationIndex: i, Message: message}
+}
+
+// addMemberKind is the member kind the operation writes, checked legal in the
+// source's language with the prefixes it carries.
+func (m Model) addMemberKind(i int, op Operation) (memberKind, error) {
+	kind, ok := memberKinds[op.MemberKind]
+	if op.MemberKind == "" {
+		// An empty kind writes a directed usage with no kind keyword (`in x : T;`);
+		// it is a typed usage like `ref`, and SysML alone writes it.
+		kind, ok = memberKinds["ref"], true
+	}
+	if !ok || !kind.languages[m.Source.Kind()] {
+		return memberKind{}, illegalKind(i, fmt.Sprintf("kind %q is not legal in %s source %q",
+			op.MemberKind, m.Source.Kind(), m.Source.Name()))
+	}
+	if op.MemberKind == "" && op.Direction == "" {
+		return memberKind{}, illegalKind(i, "an empty member kind needs a direction (in, out or inout)")
+	}
+	if op.MemberKind == "" && op.IsAbstract {
+		return memberKind{}, illegalKind(i, "an implicit directed usage cannot be abstract: `in abstract x` does not parse")
+	}
+	if op.MemberKind == "return" && len(op.MetadataPrefixes) > 0 {
+		return memberKind{}, illegalKind(i, "return parameters cannot carry prefix metadata")
+	}
+	for _, prefix := range op.MetadataPrefixes {
+		if err := checkQualifiedReference(i, "metadata prefix", prefix); err != nil {
+			return memberKind{}, err
+		}
+	}
+	return kind, nil
+}
+
+// checkMemberName checks the member's name as its kind reads it: the asserted
+// constraint's reference, the performed action's or exhibited state's reference
+// (whose last segment is the name taken), an identifier, or none.
+func checkMemberName(i int, op Operation) (referenceName string, assertReference bool, err error) {
+	assertReference = op.MemberKind == "assert" || op.MemberKind == kindAssertNot
+	switch {
+	case assertReference:
+		if _, err := checkFeatureReference(i, "asserted constraint", op.MemberName); err != nil {
+			return "", true, err
+		}
+		if op.Value != "" {
+			return "", true, illegalKind(i, fmt.Sprintf("kind %q cannot carry a value", op.MemberKind))
+		}
+	case op.MemberName == "":
+		return "", false, checkUnnamedMember(i, op)
+	case op.MemberKind == "perform" || op.MemberKind == "exhibit":
+		role := "performed action"
+		if op.MemberKind == "exhibit" {
+			role = "exhibited state"
+		}
+		last, err := checkFeatureReference(i, role, op.MemberName)
+		if err != nil {
+			return "", false, err
+		}
+		referenceName = last
+	default:
+		if err := checkName(i, op.MemberName); err != nil {
+			e := err.(*Error)
+			e.Failure = FailureInvalidName
+			e.Message = fmt.Sprintf("member name %q is not an identifier", op.MemberName)
+			return "", false, e
+		}
+	}
+	return referenceName, assertReference, nil
+}
+
+// checkUnnamedMember admits an empty member name for a return parameter with
+// a type or multiplicity, an objective, a constraint kind with a type or body
+// expression, or a member with redefines targets.
+func checkUnnamedMember(i int, op Operation) error {
+	constraintKind := op.MemberKind == "constraint" || op.MemberKind == kindAssertConstraint || op.MemberKind == kindAssertNotConstraint
+	bodied := constraintKind && (op.Type != "" || op.BodyExpression != "")
+	switch {
+	case op.MemberKind == "return" && op.Type == "" && op.Multiplicity == "":
+		return illegalKind(i, "an unnamed return parameter needs a type or multiplicity")
+	case op.MemberKind == "objective", bodied:
+		return nil
+	case op.MemberKind != "return" && len(op.Redefines) == 0:
+		return &Error{
+			Failure: FailureInvalidName, OperationIndex: i,
+			Message: "an empty member name requires redefines targets, kind return or objective, or a constraint kind with a type or body expression",
+		}
+	}
+	return nil
+}
+
+// checkMemberValue checks the value and body expression the member states.
+func (m Model) checkMemberValue(i int, op Operation, kind memberKind) error {
+	if op.MemberKind == "metadata" && op.Value != "" {
+		return illegalKind(i, "kind \"metadata\" cannot carry a value")
+	}
+	if op.Value != "" {
+		valueOp := op
+		valueOp.Target = op.MemberName
+		if err := m.checkValue(i, valueOp); err != nil {
+			return err
+		}
+	}
+	if op.BodyExpression == "" {
+		return nil
+	}
+	if !kind.body {
+		message := fmt.Sprintf("kind %q cannot state a body expression", op.MemberKind)
+		if refusal, ok := noResultBodyKinds[op.MemberKind]; ok {
+			message = fmt.Sprintf("kind %q cannot state a body expression: %s", op.MemberKind, refusal)
+		}
+		return illegalKind(i, message)
+	}
+	target := op.MemberName
+	if target == "" {
+		target = op.Owner
+	}
+	return m.checkExpression(i, "body expression", target, op.BodyExpression)
+}
+
+// checkMemberPrefixes checks the prefixes, typing, multiplicity and
+// relationship targets the member carries against what its kind admits.
+func checkMemberPrefixes(i int, op Operation, kind memberKind) error {
+	prefixExcluded := kind.definition || !kind.typed || memberPrefixExcluded(op.MemberKind)
+	switch {
+	case op.IsDefault && prefixExcluded:
+		return illegalKind(i, fmt.Sprintf("kind %q cannot carry a default value", op.MemberKind))
+	case op.IsDefault && op.Value == "":
+		return &Error{Failure: FailureInvalidValue, OperationIndex: i, Message: "default requires a nonempty value expression"}
+	case op.Direction != "" && op.Direction != "in" && op.Direction != "out" && op.Direction != "inout":
+		return &Error{Failure: FailureInvalidValue, OperationIndex: i, Message: fmt.Sprintf("direction %q is not in, out or inout", op.Direction)}
+	case !kind.typed && op.Type != "":
+		return illegalKind(i, fmt.Sprintf("kind %q cannot carry a typing target", op.MemberKind))
+	case !kind.typed && !kind.definition && (op.Multiplicity != "" || op.Value != ""):
+		return illegalKind(i, fmt.Sprintf("kind %q takes a name alone", op.MemberKind))
+	case kind.definition && op.Value != "":
+		return illegalKind(i, fmt.Sprintf("definition kind %q cannot carry a value", op.MemberKind))
+	case !kind.definition && len(op.Specializes) > 0:
+		return illegalKind(i, fmt.Sprintf("kind %q is a usage and cannot carry specializes targets", op.MemberKind))
+	case op.IsAbstract && (op.MemberKind == "enum def" || (!kind.definition && (!kind.typed || memberPrefixExcluded(op.MemberKind)))):
+		return illegalKind(i, fmt.Sprintf("kind %q cannot be abstract", op.MemberKind))
+	case op.Direction != "" && prefixExcluded:
+		return illegalKind(i, fmt.Sprintf("kind %q cannot carry a direction", op.MemberKind))
+	case len(op.Redefines) > 0 && kind.definition:
+		return illegalKind(i, fmt.Sprintf("definition kind %q cannot carry redefines targets; use specializes", op.MemberKind))
+	case len(op.Redefines) > 0 && noRedefinesKinds[op.MemberKind]:
+		return illegalKind(i, fmt.Sprintf("kind %q cannot carry redefines targets", op.MemberKind))
+	case op.MemberKind == "return" && (op.IsAbstract || op.Direction != "" || len(op.Redefines) > 0):
+		return illegalKind(i, "return parameters cannot be abstract, directional or redefining")
+	}
+	for _, target := range op.Redefines {
+		if err := checkEnd(i, "redefines", target); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+var noRedefinesKinds = map[string]bool{
+	"metadata": true, "perform": true, "exhibit": true, "assert": true, kindAssertNot: true,
+}
+
+// checkMemberOwner checks that the owner's body admits the member's kind.
+func checkMemberOwner(i int, op Operation, owner ast.Node) error {
+	// An empty kind is admitted wherever an explicit directed usage is: the
+	// direction it writes is the member notation a plain `ref` spells anyway.
+	admitKind := op.MemberKind
+	if admitKind == "" {
+		admitKind = "ref"
+	}
+	if !parser.BodyAdmitsMember(owner, admitKind) {
+		return illegalKind(i, fmt.Sprintf("kind %q is only declared in a %s body, which %s does not open",
+			admitKind, parser.MemberOwner(admitKind), ownerName(op.Owner)))
+	}
+	switch op.MemberKind {
+	case "assert", kindAssertNot, kindAssertConstraint, kindAssertNotConstraint, kindExhibitState, "exhibit":
+		if !parser.BodyAdmitsBehaviorUsage(owner) {
+			return illegalKind(i, fmt.Sprintf("%s is not admitted in the body of %s", op.MemberKind, ownerName(op.Owner)))
+		}
+	case kindEntryAction, kindDoAction, kindExitAction:
+		if !stateBodyOwner(owner) {
+			return illegalKind(i, fmt.Sprintf("%s is only admitted in a state body, which %s does not open",
+				op.MemberKind, ownerName(op.Owner)))
+		}
+		if hasStateSubaction(owner, memberSubactionKind(op.MemberKind)) {
+			return illegalKind(i, fmt.Sprintf("%s already has a %s action", ownerName(op.Owner), memberSubactionKind(op.MemberKind)))
+		}
+	case "return":
+		if !parser.BodyIsCalculation(owner) {
+			return illegalKind(i, "return parameters are only admitted in calculation, constraint and case bodies")
+		}
+		if hasResultParameter(owner) {
+			return illegalKind(i, "a calculation, constraint or case body already has a return parameter")
+		}
+	}
+	return nil
+}
+
+func hasResultParameter(owner ast.Node) bool {
+	for _, member := range ast.DeclMembers(owner) {
+		if membership, ok := member.(*ast.Membership); ok && membership != nil {
+			member = membership.Member
+		}
+		if usage, ok := member.(*ast.Usage); ok && usage.IsResult {
+			return true
+		}
+	}
+	return false
+}
+
 func memberPrefixExcluded(kind string) bool {
 	switch kind {
 	case "package", "subject", "actor", "stakeholder", "objective",
 		"fork", "join", "merge", "decide", "metadata", "return",
-		"perform", "perform action", "assert", "assert not", "assert constraint", "assert not constraint",
-		"exhibit state", "exhibit", "entry action", "do action", "exit action":
+		"perform", "perform action", "assert", kindAssertNot, kindAssertConstraint, kindAssertNotConstraint,
+		kindExhibitState, "exhibit", kindEntryAction, kindDoAction, kindExitAction:
 		return true
 	default:
 		return false
 	}
 }
 
+const noResultRequirementBody = "a requirement body has no result expression; add a require constraint instead"
+
 var noResultBodyKinds = map[string]string{
-	"requirement def": "a requirement body has no result expression; add a require constraint instead",
-	"requirement":     "a requirement body has no result expression; add a require constraint instead",
-	"concern def":     "a requirement body has no result expression; add a require constraint instead",
-	"concern":         "a requirement body has no result expression; add a require constraint instead",
-	"viewpoint def":   "a requirement body has no result expression; add a require constraint instead",
-	"viewpoint":       "a requirement body has no result expression; add a require constraint instead",
-	"objective":       "a requirement body has no result expression; add a require constraint instead",
+	"requirement def": noResultRequirementBody,
+	"requirement":     noResultRequirementBody,
+	"concern def":     noResultRequirementBody,
+	"concern":         noResultRequirementBody,
+	"viewpoint def":   noResultRequirementBody,
+	"viewpoint":       noResultRequirementBody,
+	"objective":       noResultRequirementBody,
 }
 
 func (m Model) addOwner(fqn string) (ast.Node, *symbols.Scope, error) {
@@ -512,10 +493,10 @@ func writeMember(op Operation, kind memberKind, indent, unit, doc, docIndent str
 		metadata[i] = "#" + name
 	}
 	extensionKeyword := op.MemberKind == "ref" || op.MemberKind == "individual" ||
-		op.MemberKind == "individual def" || op.MemberKind == "subject" ||
+		op.MemberKind == kindIndividualDef || op.MemberKind == "subject" ||
 		op.MemberKind == "actor" || op.MemberKind == "stakeholder" ||
-		op.MemberKind == "objective" || op.MemberKind == "entry action" ||
-		op.MemberKind == "do action" || op.MemberKind == "exit action"
+		op.MemberKind == "objective" || op.MemberKind == kindEntryAction ||
+		op.MemberKind == kindDoAction || op.MemberKind == kindExitAction
 	if !extensionKeyword {
 		prefix = append(prefix, metadata...)
 	}
@@ -531,11 +512,11 @@ func writeMember(op Operation, kind memberKind, indent, unit, doc, docIndent str
 	case "individual", "subject", "actor", "stakeholder", "objective":
 		prefix = append(prefix, op.MemberKind)
 		prefix = append(prefix, metadata...)
-	case "individual def":
+	case kindIndividualDef:
 		prefix = append(prefix, "individual")
 		prefix = append(prefix, metadata...)
 		prefix = append(prefix, "def")
-	case "entry action", "do action", "exit action":
+	case kindEntryAction, kindDoAction, kindExitAction:
 		keyword, _, _ := strings.Cut(op.MemberKind, " ")
 		prefix = append(prefix, keyword)
 		prefix = append(prefix, metadata...)
@@ -756,66 +737,89 @@ func (m Model) memberInsertionBefore(offset int, text string) insertion {
 }
 
 func precedingFullLineTriviaStart(content []byte, lineStart int) int {
-	anchor := lineStart
-	inBlockComment := false
-	blockEndAnchor := lineStart
-	for anchor > 0 {
-		lineEnd := anchor - 1
+	s := triviaScan{anchor: lineStart, blockEndAnchor: lineStart}
+	for s.anchor > 0 {
+		lineEnd := s.anchor - 1
 		previousLine := lineEnd
 		for previousLine > 0 && content[previousLine-1] != '\n' {
 			previousLine--
 		}
 		line := strings.TrimSpace(string(content[previousLine:lineEnd]))
-		if inBlockComment {
-			if opening := strings.LastIndex(line, "/*"); opening >= 0 {
-				if strings.TrimSpace(line[:opening]) != "" {
-					anchor = blockEndAnchor
-					break
-				}
-				inBlockComment = false
-			} else if closing := strings.LastIndex(line, "*/"); closing >= 0 {
-				after := strings.TrimSpace(line[closing+2:])
-				if after != "" && !strings.HasPrefix(after, "//") {
-					anchor = blockEndAnchor
-					break
-				}
-			}
-			anchor = previousLine
-			continue
+		var more bool
+		if s.inBlockComment {
+			more = s.insideBlock(line, previousLine)
+		} else {
+			more = s.outsideBlock(line, previousLine)
 		}
-		if line == "" || strings.HasPrefix(line, "//") {
-			anchor = previousLine
-			continue
-		}
-		opening := strings.Index(line, "/*")
-		if opening >= 0 {
-			if strings.TrimSpace(line[:opening]) != "" {
-				break
-			}
-			closing := strings.Index(line[opening+2:], "*/")
-			if closing < 0 {
-				inBlockComment = true
-				blockEndAnchor = anchor
-				anchor = previousLine
-				continue
-			}
-			after := strings.TrimSpace(line[opening+closing+4:])
-			if after == "" || strings.HasPrefix(after, "//") {
-				anchor = previousLine
-				continue
-			}
+		if !more {
 			break
 		}
-		if closing := strings.LastIndex(line, "*/"); closing >= 0 &&
-			strings.TrimSpace(line[closing+2:]) == "" {
-			inBlockComment = true
-			blockEndAnchor = anchor
-			anchor = previousLine
-			continue
-		}
-		break
 	}
-	return anchor
+	return s.anchor
+}
+
+// triviaScan walks upward over the full-line comments and blank lines above a
+// member; anchor is the start of the trivia found so far.
+type triviaScan struct {
+	anchor         int
+	inBlockComment bool
+	blockEndAnchor int
+}
+
+// insideBlock reads a line while inside a block comment read from its end,
+// reporting whether the scan continues above it.
+func (s *triviaScan) insideBlock(line string, previousLine int) bool {
+	if opening := strings.LastIndex(line, "/*"); opening >= 0 {
+		if strings.TrimSpace(line[:opening]) != "" {
+			s.anchor = s.blockEndAnchor
+			return false
+		}
+		s.inBlockComment = false
+	} else if closing := strings.LastIndex(line, "*/"); closing >= 0 {
+		after := strings.TrimSpace(line[closing+2:])
+		if after != "" && !strings.HasPrefix(after, "//") {
+			s.anchor = s.blockEndAnchor
+			return false
+		}
+	}
+	s.anchor = previousLine
+	return true
+}
+
+// outsideBlock reads a line of code, comment or blank, reporting whether the
+// scan continues above it.
+func (s *triviaScan) outsideBlock(line string, previousLine int) bool {
+	if line == "" || strings.HasPrefix(line, "//") {
+		s.anchor = previousLine
+		return true
+	}
+	if opening := strings.Index(line, "/*"); opening >= 0 {
+		if strings.TrimSpace(line[:opening]) != "" {
+			return false
+		}
+		closing := strings.Index(line[opening+2:], "*/")
+		if closing < 0 {
+			s.enterBlock(previousLine)
+			return true
+		}
+		after := strings.TrimSpace(line[opening+closing+4:])
+		if after == "" || strings.HasPrefix(after, "//") {
+			s.anchor = previousLine
+			return true
+		}
+		return false
+	}
+	if closing := strings.LastIndex(line, "*/"); closing >= 0 && strings.TrimSpace(line[closing+2:]) == "" {
+		s.enterBlock(previousLine)
+		return true
+	}
+	return false
+}
+
+func (s *triviaScan) enterBlock(previousLine int) {
+	s.inBlockComment = true
+	s.blockEndAnchor = s.anchor
+	s.anchor = previousLine
 }
 
 func bodyInfo(node ast.Node) (source.Span, bool) {

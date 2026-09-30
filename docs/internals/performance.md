@@ -106,9 +106,9 @@ sysml -validate -memstats $(find apollo-11-sysml-v2 -name '*.sysml')
 | what | wall | allocated |
 | ---- | ---- | --------- |
 | parse all 28 files | **8.2 ms** | 4.9 MiB in 31 000 allocations |
-| `sysml -validate`: load the standard library, resolve, validate, report | **0.43 s** | 196 MiB in 1.39 million allocations, about 157 MiB taken from the OS |
+| `sysml -validate`: load the standard library, resolve, validate, report | **0.27 s** | 175 MiB in 1.11 million allocations, about 132 MiB taken from the OS |
 
-Parsing is about 2% of the whole run — 880 lines a millisecond, 42 MB/s —
+Parsing is about 3% of the whole run — 880 lines a millisecond, 42 MB/s —
 so the cost of loading a model is name resolution and validation, and that is
 where the work described in the rest of this page goes. The largest single share
 of the remainder is the lookups made through the model's wildcard imports of the
@@ -117,18 +117,26 @@ answered by name (below).
 
 ### What it reports
 
-The run reports **4 warnings and no error**, and every one of them is a finding
-about the model. Three of the warnings are calculation invocations that leave an
-input the calculation declares unbound, so the call cannot be evaluated — well-formed
-SysML v2 the reference validator also accepts, hence advisories rather than errors — all
-in `Analysis/CalculationsPackage.sysml`:
+The run reports **2 warnings and no error**, and both are findings about the
+model, in `Analysis/CalculationsPackage.sysml`. The first is a calculation
+invocation that leaves an input the calculation declares `[1]` unbound, so the
+call cannot be evaluated — well-formed SysML v2 the reference validator also
+accepts, hence an advisory rather than an error:
 
 | Line | Expression as published | Finding |
 |---|---|---|
 | 111 | `return deltaV :> ISQ::speed = isp * g0 * ln(m0 / mf);` | `ln` is the alias of `CoSMAQuantitiesAndUnitsPackage::naturalLogarithm`, declared `calc <ln> naturalLogarithm { in x: DataValue[1]; in y: DataValue[1]; return : DataValue[1]; }` — two inputs, one argument. A natural logarithm takes one argument; the second `in` is the slip |
-| 124 and 135 | `return deltaV :> ISQ::speed = calculateDeltaV(isp, initialMass, finalMass);` | `calculateDeltaV` declares `in isp`, `in g0`, `in m0`, `in mf` — four inputs, three arguments, so `g0` (standard gravity) is never supplied; bound by position, it is the last input, `mf`, that the warning names |
 
-The fourth is dimensional: `calculateLoiDeltaV` declares the Moon's gravitational parameter
+The model's `calculateDeltaV(isp, initialMass, finalMass)` at lines 124 and
+135 passes three arguments to a calculation with four inputs (`in isp`, `in g0`,
+`in m0`, `in mf`), so `g0` (standard gravity) is never supplied — but those
+inputs are written without a multiplicity, and a parameter with none takes its
+§7.6.3 effective multiplicity of `[0..*]`, which admits no value. Nothing is
+left unbound that the declaration requires, so the check has nothing to say
+there; running the calculation is what surfaces the omission (the
+[runtime showcase](../../examples/runtime-showcase/README.md#apollo-11) does).
+
+The second is dimensional: `calculateLoiDeltaV` declares the Moon's gravitational parameter
 `in mu_Moon :> ISQ::force`, so `v_inf^2 + 2*mu_Moon/r_periapsis` adds a
 velocity squared (L²·T⁻²) to a force over a length (M·T⁻²). A gravitational
 parameter is L³·T⁻².

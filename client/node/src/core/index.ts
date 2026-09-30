@@ -105,4 +105,5 @@ export type {
   VerdictSubject,
 } from "./values.js";
 export { baseUrl } from "./transport.js";
+export { PACKAGE_NAME, PLATFORM_PACKAGE_PREFIX } from "./package.js";
 export { SysMLService } from "../generated/sysml_pb.js";

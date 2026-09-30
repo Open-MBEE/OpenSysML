@@ -72,6 +72,9 @@ var derivedSatelliteMetaclasses = map[string]bool{
 	mConjugatedPortDefinition: true,
 	mMultiplicityRange:        true,
 	mMembership:               true,
+	// The Annotation a dependency owns its prefix metadata through, derived
+	// from that metadata usage's id plus AnnotationSuffix.
+	mAnnotation: true,
 }
 
 // relationshipSourceEnds are the properties of a materialized relationship
@@ -150,142 +153,192 @@ func (d *decoder) normativeImplied(el, parent *element) (bool, error) {
 // owner or naming a target the collapsed form never states is refused: the
 // notation would otherwise pick one of the two statements.
 func (d *decoder) impliedRelationship(el, parent *element) (bool, error) {
-	what := fmt.Sprintf("the %s <%s>", el.metaclass, el.iri)
-	stated := map[string]bool{}
-	literal := false
-	for _, kind := range collapsedKindsOf[el.metaclass] {
-		for _, object := range d.graph.Objects(rdf.IRI(parent.iri), rdf.SysML+relationshipProperty[kind]) {
-			stated[object.Value] = true
-			if !object.IsIRI() {
-				literal = true
-			}
-		}
-	}
-	actual := map[string]bool{}
-	actualIRI := map[string]bool{}
-	matched := 0
-	for _, object := range d.collapsedTargets(el) {
-		actual[object.Value] = true
-		actualIRI[object.Value] = object.IsIRI()
-	}
-	if conjugated := el.metaclass == mConjugatedPortTyping; len(stated) > 0 &&
+	r := d.impliedEnds(el, parent)
+	if conjugated := el.metaclass == mConjugatedPortTyping; len(r.stated) > 0 &&
 		conjugated != d.graph.BoolValue(rdf.IRI(parent.iri), rdf.OpenSysML+xConjugatedTyping) {
 		return false, &UnsupportedError{
-			What: what,
+			What: r.what,
 			Note: fmt.Sprintf("it and sysx:conjugatedTyping on <%s> disagree about whether the type is written `~P`, and writing the collapsed form would pick one of the two", parent.iri),
 		}
 	}
-	// An IRI end matches a literal collapsed target through its declared name.
-	literalName := func(value string) bool {
-		for _, property := range []string{pDeclaredName, pDeclaredShortName} {
-			for _, name := range d.graph.Objects(rdf.IRI(value), rdf.SysML+property) {
-				if stated[name.Value] {
-					return true
-				}
+	if len(r.actual) == 0 {
+		// An element with no ends cannot be checked against a literal target.
+		return r.literal, nil
+	}
+	matched := r.matched()
+	if matched == 0 {
+		implied, decided, err := d.unmatchedRelationship(r)
+		if decided || err != nil {
+			return implied, err
+		}
+	}
+	if matched != len(r.actual) {
+		return false, &UnsupportedError{
+			What: r.what,
+			Note: fmt.Sprintf("it names <%s>, which the collapsed properties of <%s> never state, and writing the collapsed form would drop it", strings.Join(r.unstated(), ">, <"), parent.iri),
+		}
+	}
+	return true, d.sourceEndsAgree(r)
+}
+
+// impliedEnds is what a candidate materialized relationship element
+// states against its parent's collapsed properties: the targets the parent
+// states (and whether any is a literal), and the ends the element names.
+type impliedEnds struct {
+	d          *decoder
+	el, parent *element
+	what       string
+	stated     map[string]bool
+	literal    bool
+	actual     map[string]bool
+	actualIRI  map[string]bool
+}
+
+func (d *decoder) impliedEnds(el, parent *element) *impliedEnds {
+	r := &impliedEnds{
+		d: d, el: el, parent: parent,
+		what:      fmt.Sprintf("the %s <%s>", el.metaclass, el.iri),
+		stated:    map[string]bool{},
+		actual:    map[string]bool{},
+		actualIRI: map[string]bool{},
+	}
+	for _, kind := range collapsedKindsOf[el.metaclass] {
+		for _, object := range d.graph.Objects(rdf.IRI(parent.iri), rdf.SysML+relationshipProperty[kind]) {
+			r.stated[object.Value] = true
+			if !object.IsIRI() {
+				r.literal = true
 			}
 		}
-		return false
 	}
-	for value := range actual {
-		if stated[value] || literalName(value) {
+	for _, object := range d.collapsedTargets(el) {
+		r.actual[object.Value] = true
+		r.actualIRI[object.Value] = object.IsIRI()
+	}
+	return r
+}
+
+// restates reports whether the parent states the end, by IRI or — an IRI end
+// matching a literal collapsed target — through its declared name.
+func (r *impliedEnds) restates(value string) bool {
+	if r.stated[value] {
+		return true
+	}
+	for _, property := range []string{pDeclaredName, pDeclaredShortName} {
+		for _, name := range r.d.graph.Objects(rdf.IRI(value), rdf.SysML+property) {
+			if r.stated[name.Value] {
+				return true
+			}
+		}
+	}
+	return false
+}
+
+func (r *impliedEnds) matched() int {
+	matched := 0
+	for value := range r.actual {
+		if r.restates(value) {
 			matched++
 		}
 	}
-	if len(actual) == 0 {
-		// An element with no ends cannot be checked against a literal target.
-		if literal {
-			return true, nil
-		}
-		return false, nil
-	}
-	if matched == 0 {
-		// A metadata usage's typing has its own check over the collapsed property.
-		if parent.metaclass == usageMetaclass[ast.UsageMetadata] {
-			if literal {
-				return true, nil
-			}
-			return false, nil
-		}
-		// Ends naming targets the parent states under other kinds are misassigned.
-		other := map[string]bool{}
-		for _, kind := range []ast.RelationshipKind{
-			ast.RelTyping, ast.RelSpecializes, ast.RelSubsets, ast.RelRedefines, ast.RelReferences,
-		} {
-			if slices.Contains(collapsedKindsOf[el.metaclass], kind) {
-				continue
-			}
-			for _, object := range d.graph.Objects(rdf.IRI(parent.iri), rdf.SysML+relationshipProperty[kind]) {
-				other[object.Value] = true
-			}
-		}
-		misassigned := len(actual) > 0
-		var moved []string
-		for value := range actual {
-			if !other[value] {
-				misassigned = false
-				break
-			}
-			moved = append(moved, value)
-		}
-		if misassigned {
-			sort.Strings(moved)
-			return false, &UnsupportedError{
-				What: what,
-				Note: fmt.Sprintf("it names <%s>, which the collapsed properties of <%s> state under a different relationship kind, and writing them would move the targets across kinds", strings.Join(moved, ">, <"), parent.iri),
-			}
-		}
-		// Restating none of the IRI targets, it is a foreign element.
-		if !literal {
-			return false, nil
-		}
-		// An unmatched named end is refused; an end the graph names nothing for
-		// (a legacy graph's bare uuid) cannot be checked and stays vacuous.
-		checkable := false
-		for value := range actual {
-			if stated[value] || literalName(value) {
-				continue
-			}
-			if !actualIRI[value] {
-				checkable = true
-				break
-			}
-			for _, property := range []string{pDeclaredName, pDeclaredShortName, pQualifiedName} {
-				if d.graph.HasProperty(rdf.IRI(value), rdf.SysML+property) {
-					checkable = true
-				}
-			}
-			if checkable {
-				break
-			}
-		}
-		if !checkable {
-			return true, nil
+	return matched
+}
+
+// unstated is the ends the parent's collapsed properties never state, sorted.
+func (r *impliedEnds) unstated() []string {
+	var targets []string
+	for value := range r.actual {
+		if !r.stated[value] {
+			targets = append(targets, value)
 		}
 	}
-	if matched != len(actual) {
-		var targets []string
-		for value := range actual {
-			if !stated[value] {
-				targets = append(targets, value)
-			}
-		}
-		sort.Strings(targets)
-		return false, &UnsupportedError{
-			What: what,
-			Note: fmt.Sprintf("it names <%s>, which the collapsed properties of <%s> never state, and writing the collapsed form would drop it", strings.Join(targets, ">, <"), parent.iri),
+	sort.Strings(targets)
+	return targets
+}
+
+// unmatchedRelationship decides an element none of whose ends the parent
+// states: a foreign element (false), one vacuously implied (true), or one
+// whose ends the parent states under other kinds (an error). It leaves the
+// decision open when a named end can still be checked against a literal.
+func (d *decoder) unmatchedRelationship(r *impliedEnds) (implied, decided bool, err error) {
+	// A metadata usage's typing has its own check over the collapsed property.
+	if r.parent.metaclass == usageMetaclass[ast.UsageMetadata] {
+		return r.literal, true, nil
+	}
+	if moved := d.misassignedTargets(r); len(moved) > 0 {
+		return false, true, &UnsupportedError{
+			What: r.what,
+			Note: fmt.Sprintf("it names <%s>, which the collapsed properties of <%s> state under a different relationship kind, and writing them would move the targets across kinds", strings.Join(moved, ">, <"), r.parent.iri),
 		}
 	}
+	// Restating none of the IRI targets, it is a foreign element.
+	if !r.literal {
+		return false, true, nil
+	}
+	// An unmatched named end is refused; an end the graph names nothing for
+	// (a legacy graph's bare uuid) cannot be checked and stays vacuous.
+	if !r.checkable() {
+		return true, true, nil
+	}
+	return false, false, nil
+}
+
+// misassignedTargets is the element's ends, sorted, when every one is a
+// target the parent states under a relationship kind other than the element's.
+func (d *decoder) misassignedTargets(r *impliedEnds) []string {
+	other := map[string]bool{}
+	for _, kind := range []ast.RelationshipKind{
+		ast.RelTyping, ast.RelSpecializes, ast.RelSubsets, ast.RelRedefines, ast.RelReferences,
+	} {
+		if slices.Contains(collapsedKindsOf[r.el.metaclass], kind) {
+			continue
+		}
+		for _, object := range d.graph.Objects(rdf.IRI(r.parent.iri), rdf.SysML+relationshipProperty[kind]) {
+			other[object.Value] = true
+		}
+	}
+	var moved []string
+	for value := range r.actual {
+		if !other[value] {
+			return nil
+		}
+		moved = append(moved, value)
+	}
+	sort.Strings(moved)
+	return moved
+}
+
+// checkable reports an unmatched end that can be checked: a literal end, or
+// an IRI end the graph names.
+func (r *impliedEnds) checkable() bool {
+	for value := range r.actual {
+		if r.restates(value) {
+			continue
+		}
+		if !r.actualIRI[value] {
+			return true
+		}
+		for _, property := range []string{pDeclaredName, pDeclaredShortName, pQualifiedName} {
+			if r.d.graph.HasProperty(rdf.IRI(value), rdf.SysML+property) {
+				return true
+			}
+		}
+	}
+	return false
+}
+
+// sourceEndsAgree refuses a source end naming anything but the owner.
+func (d *decoder) sourceEndsAgree(r *impliedEnds) error {
 	for _, property := range relationshipSourceEnds {
-		for _, object := range d.graph.Objects(rdf.IRI(el.iri), rdf.SysML+property) {
-			if object.Value != parent.iri {
-				return false, &UnsupportedError{
-					What: what,
-					Note: fmt.Sprintf("its %s is <%s> while its owner is <%s>, and writing the owner's collapsed form would pick one of the two", curie(rdf.SysML+property), object.Value, parent.iri),
+		for _, object := range d.graph.Objects(rdf.IRI(r.el.iri), rdf.SysML+property) {
+			if object.Value != r.parent.iri {
+				return &UnsupportedError{
+					What: r.what,
+					Note: fmt.Sprintf("its %s is <%s> while its owner is <%s>, and writing the owner's collapsed form would pick one of the two", curie(rdf.SysML+property), object.Value, r.parent.iri),
 				}
 			}
 		}
 	}
-	return true, nil
+	return nil
 }
 
 // verifyCovered checks the other half of the agreement: once a head carries
@@ -295,55 +348,15 @@ func (d *decoder) impliedRelationship(el, parent *element) (bool, error) {
 // materialized elements, as a graph from before their introduction does,
 // needs no coverage.
 func (d *decoder) verifyCovered(owner *element) error {
-	if owner.implied {
-		return nil
-	}
 	// A metadata usage's typing is ruled by its own check, which reads the
 	// collapsed property directly.
-	if owner.metaclass == usageMetaclass[ast.UsageMetadata] {
+	if owner.implied || owner.metaclass == usageMetaclass[ast.UsageMetadata] || !d.materializes(owner) {
 		return nil
 	}
-	materialized := false
+	stated := d.statedIRITargets(owner)
 	for _, child := range owner.children {
 		if child.implied && impliedRelationshipMetaclasses[child.metaclass] {
-			materialized = true
-			break
-		}
-	}
-	if !materialized {
-		return nil
-	}
-	stated := map[ast.RelationshipKind]map[string]bool{}
-	for _, kind := range []ast.RelationshipKind{
-		ast.RelTyping, ast.RelSpecializes, ast.RelSubsets, ast.RelRedefines, ast.RelReferences,
-	} {
-		for _, object := range d.graph.Objects(rdf.IRI(owner.iri), rdf.SysML+relationshipProperty[kind]) {
-			// A literal edge names its target, so no element covers it.
-			if object.IsIRI() {
-				if stated[kind] == nil {
-					stated[kind] = map[string]bool{}
-				}
-				stated[kind][object.Value] = true
-			}
-		}
-	}
-	for _, child := range owner.children {
-		if !child.implied || !impliedRelationshipMetaclasses[child.metaclass] {
-			continue
-		}
-		targets := map[string]bool{}
-		for _, object := range d.collapsedTargets(child) {
-			targets[object.Value] = true
-		}
-		// A child whose metaclass maps to more than one kind covers a target
-		// under one kind only: the first kind still stating it consumes it.
-		for _, kind := range collapsedKindsOf[child.metaclass] {
-			for value := range targets {
-				if stated[kind][value] {
-					delete(stated[kind], value)
-					delete(targets, value)
-				}
-			}
+			d.coverTargets(child, stated)
 		}
 	}
 	uncovered := map[string]bool{}
@@ -363,6 +376,55 @@ func (d *decoder) verifyCovered(owner *element) error {
 	return &UnsupportedError{
 		What: fmt.Sprintf("the collapsed properties of <%s>", owner.iri),
 		Note: fmt.Sprintf("they state <%s>, which no materialized relationship element carries, so writing them would assert a relationship the elements deny", strings.Join(missing, ">, <")),
+	}
+}
+
+// materializes reports whether the owner carries an implied relationship element.
+func (d *decoder) materializes(owner *element) bool {
+	for _, child := range owner.children {
+		if child.implied && impliedRelationshipMetaclasses[child.metaclass] {
+			return true
+		}
+	}
+	return false
+}
+
+// statedIRITargets is, per relationship kind, the IRI targets the owner's
+// collapsed properties state; a literal edge names its target, so no element
+// covers it.
+func (d *decoder) statedIRITargets(owner *element) map[ast.RelationshipKind]map[string]bool {
+	stated := map[ast.RelationshipKind]map[string]bool{}
+	for _, kind := range []ast.RelationshipKind{
+		ast.RelTyping, ast.RelSpecializes, ast.RelSubsets, ast.RelRedefines, ast.RelReferences,
+	} {
+		for _, object := range d.graph.Objects(rdf.IRI(owner.iri), rdf.SysML+relationshipProperty[kind]) {
+			if !object.IsIRI() {
+				continue
+			}
+			if stated[kind] == nil {
+				stated[kind] = map[string]bool{}
+			}
+			stated[kind][object.Value] = true
+		}
+	}
+	return stated
+}
+
+// coverTargets consumes the stated targets the child's ends cover. A child
+// whose metaclass maps to more than one kind covers a target under one kind
+// only: the first kind still stating it consumes it.
+func (d *decoder) coverTargets(child *element, stated map[ast.RelationshipKind]map[string]bool) {
+	targets := map[string]bool{}
+	for _, object := range d.collapsedTargets(child) {
+		targets[object.Value] = true
+	}
+	for _, kind := range collapsedKindsOf[child.metaclass] {
+		for value := range targets {
+			if stated[kind][value] {
+				delete(stated[kind], value)
+				delete(targets, value)
+			}
+		}
 	}
 }
 

@@ -85,7 +85,7 @@ def run(request: dict[str, Any]) -> dict[str, Any]:
             output=outputs or None,
             fmi_type=fmi_type,
         )
-    except Exception as e:  # noqa: BLE001 — every fmpy failure is a reply, not a crash
+    except Exception as e:  # noqa: BLE001  # every fmpy failure is a reply, not a crash
         return _error(str(e))
     types = _variable_types(fmpy, fmu)
     last = result[-1]
@@ -119,7 +119,7 @@ def main() -> int:
         return 2
     try:
         reply = run(request)
-    except Exception as e:  # noqa: BLE001 — a reply, never a traceback, on stdout
+    except Exception as e:  # noqa: BLE001  # a reply, never a traceback, on stdout
         print(f"{sys.argv[0]}: {e}", file=sys.stderr)
         reply = _error(str(e))
     print(json.dumps(reply))

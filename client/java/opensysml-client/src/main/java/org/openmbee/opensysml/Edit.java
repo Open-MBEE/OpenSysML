@@ -12,8 +12,16 @@ import java.util.Optional;
  */
 public sealed interface Edit {
 
-  private static void requireTarget(String target) {
+  private static void requireTarget(Object target) {
     Objects.requireNonNull(target, "target");
+  }
+
+  private static void requireOwner(Object owner) {
+    Objects.requireNonNull(owner, "owner");
+  }
+
+  private static void requireValue(Object value) {
+    Objects.requireNonNull(value, "value");
   }
 
   /**
@@ -35,7 +43,7 @@ public sealed interface Edit {
      */
     public SetValue {
       requireTarget(target);
-      Objects.requireNonNull(value, "value");
+      requireValue(value);
     }
   }
 
@@ -131,12 +139,12 @@ public sealed interface Edit {
      * @param specializes the specialization targets
      */
     public AddMember {
-      Objects.requireNonNull(owner, "owner");
+      requireOwner(owner);
       Objects.requireNonNull(kind, "kind");
       Objects.requireNonNull(name, "name");
       Objects.requireNonNull(type, "type");
       Objects.requireNonNull(multiplicity, "multiplicity");
-      Objects.requireNonNull(value, "value");
+      requireValue(value);
       specializes = List.copyOf(specializes);
       redefines = List.copyOf(redefines);
       Objects.requireNonNull(direction, "direction");
@@ -313,7 +321,7 @@ public sealed interface Edit {
       implements Edit {
 
     public AddComment {
-      Objects.requireNonNull(owner, "owner");
+      requireOwner(owner);
       Objects.requireNonNull(body, "body");
       Objects.requireNonNull(name, "name");
       about = List.copyOf(about);
@@ -365,7 +373,7 @@ public sealed interface Edit {
       implements Edit {
 
     public AddSatisfy {
-      Objects.requireNonNull(owner, "owner");
+      requireOwner(owner);
       Objects.requireNonNull(requirement, "requirement");
       Objects.requireNonNull(satisfyingFeature, "satisfyingFeature");
     }
@@ -393,7 +401,7 @@ public sealed interface Edit {
       implements Edit {
 
     public AddRequirementConstraint {
-      Objects.requireNonNull(owner, "owner");
+      requireOwner(owner);
       Objects.requireNonNull(kind, "kind");
       Objects.requireNonNull(expression, "expression");
       Objects.requireNonNull(name, "name");
@@ -421,10 +429,10 @@ public sealed interface Edit {
       implements Edit {
 
     public AddTransition {
-      Objects.requireNonNull(owner, "owner");
+      requireOwner(owner);
       Objects.requireNonNull(name, "name");
       Objects.requireNonNull(source, "source");
-      Objects.requireNonNull(target, "target");
+      requireTarget(target);
       Objects.requireNonNull(trigger, "trigger");
       Objects.requireNonNull(guard, "guard");
       Objects.requireNonNull(effect, "effect");
@@ -463,7 +471,7 @@ public sealed interface Edit {
   record AddVerify(String owner, String requirement) implements Edit {
 
     public AddVerify {
-      Objects.requireNonNull(owner, "owner");
+      requireOwner(owner);
       Objects.requireNonNull(requirement, "requirement");
     }
 
@@ -477,7 +485,7 @@ public sealed interface Edit {
 
     public MetadataValue {
       Objects.requireNonNull(feature, "feature");
-      Objects.requireNonNull(value, "value");
+      requireValue(value);
     }
   }
 
@@ -492,7 +500,7 @@ public sealed interface Edit {
       implements Edit {
 
     public AddMetadata {
-      Objects.requireNonNull(owner, "owner");
+      requireOwner(owner);
       Objects.requireNonNull(metadataType, "metadataType");
       Objects.requireNonNull(name, "name");
       about = List.copyOf(about);
@@ -572,7 +580,7 @@ public sealed interface Edit {
     }
 
     public AddSequence {
-      Objects.requireNonNull(owner, "owner");
+      requireOwner(owner);
       Objects.requireNonNull(keyword, "keyword");
       Objects.requireNonNull(ref, "ref");
       Objects.requireNonNull(memberKind, "memberKind");
@@ -580,8 +588,8 @@ public sealed interface Edit {
       Objects.requireNonNull(type, "type");
       Objects.requireNonNull(after, "after");
       Objects.requireNonNull(condition, "condition");
-      Objects.requireNonNull(value, "value");
-      Objects.requireNonNull(target, "target");
+      requireValue(value);
+      requireTarget(target);
       Objects.requireNonNull(via, "via");
       Objects.requireNonNull(until, "until");
       body = List.copyOf(Objects.requireNonNull(body, "body"));
@@ -735,9 +743,9 @@ public sealed interface Edit {
       implements Edit {
 
     public AddImport {
-      Objects.requireNonNull(owner, "owner");
+      requireOwner(owner);
       Objects.requireNonNull(visibility, "visibility");
-      Objects.requireNonNull(target, "target");
+      requireTarget(target);
       Objects.requireNonNull(filters, "filters");
       filters = List.copyOf(filters);
     }
@@ -793,7 +801,7 @@ public sealed interface Edit {
      * @param type optional typing target
      */
     public AddConnection {
-      Objects.requireNonNull(owner, "owner");
+      requireOwner(owner);
       Objects.requireNonNull(kind, "kind");
       Objects.requireNonNull(from, "from");
       Objects.requireNonNull(to, "to");
@@ -873,7 +881,7 @@ public sealed interface Edit {
      */
     public Move {
       requireTarget(target);
-      Objects.requireNonNull(owner, "owner");
+      requireOwner(owner);
     }
   }
 }

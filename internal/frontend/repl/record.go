@@ -412,26 +412,48 @@ func (s *Session) recordExisting(caseSym *symbols.Symbol, fqn, pkg string) (reco
 	if caseSym != nil {
 		short = caseSym.Name
 	}
-	// Candidate stems: the case's name, then each owner up the chain prefixed.
-	stems := []string{short}
-	if caseSym != nil {
-		var owners []string
-		for cur := caseSym.Owner(); cur != nil && cur.Name != ""; cur = cur.Owner() {
-			owners = append([]string{cur.Name}, owners...)
-			stems = append(stems, strings.Join(append(append([]string{}, owners...), short), "_"))
-		}
+	stems := recordStems(caseSym, short)
+	if err := s.recordDefinition(idx, &existing, stems, fqn, pkg); err != nil {
+		return existing, err
 	}
+	stem := existing.Stem
+	if stem == "" {
+		stem = short
+	}
+	existing.Taken = takenRecordNumbers(idx, pkg, stem)
+	return existing, nil
+}
+
+// recordStems lists the stems a case's records may be named from: the case's
+// name, then each owner up the chain prefixed.
+func recordStems(caseSym *symbols.Symbol, short string) []string {
+	stems := []string{short}
+	if caseSym == nil {
+		return stems
+	}
+	var owners []string
+	for cur := caseSym.Owner(); cur != nil && cur.Name != ""; cur = cur.Owner() {
+		owners = append([]string{cur.Name}, owners...)
+		stems = append(stems, strings.Join(append(append([]string{}, owners...), short), "_"))
+	}
+	return stems
+}
+
+// recordDefinition settles which stem the records take: the first whose
+// definition the package lacks, or whose definition is unowned or this case's
+// own, which is reused. A definition of another case's blocks the last stem.
+func (s *Session) recordDefinition(idx *symbols.Index, existing *record.Existing, stems []string, fqn, pkg string) error {
 	var sem *semantics.Model
 	for _, stem := range stems {
 		def := pkg + "::" + upperFirst(stem) + "Run"
 		defSyms := idx.LookupQualified(def)
 		if len(defSyms) == 0 {
 			existing.Stem = stem
-			break
+			return nil
 		}
 		runSyms := idx.LookupQualified("AnalysisRecords::AnalysisRun")
 		if len(runSyms) == 0 {
-			return existing, fmt.Errorf("the AnalysisRecords library is not loaded")
+			return fmt.Errorf("the AnalysisRecords library is not loaded")
 		}
 		if sem == nil {
 			resolver := resolve.New(idx)
@@ -439,45 +461,42 @@ func (s *Session) recordExisting(caseSym *symbols.Symbol, fqn, pkg string) (reco
 			resolver.SetModel(sem)
 		}
 		if !specializesOne(sem, defSyms[0], runSyms[0]) {
-			return existing, fmt.Errorf("%s is not an analysis record definition", def)
+			return fmt.Errorf("%s is not an analysis record definition", def)
 		}
 		owner := recordDefOwner(defSyms[0])
-		switch {
-		case owner == "" || owner == fqn:
-			// Unowned or this case's own: reused.
+		if owner == "" || owner == fqn {
 			existing.Definition = true
 			existing.Attributes = recordAttributes(idx, sem, defSyms[0])
 			existing.Stem = stem
-		default:
-			if stem == stems[len(stems)-1] {
-				return existing, fmt.Errorf("record definition %s belongs to %s; record into another package with `into`", def, owner)
-			}
+			return nil
 		}
-		if existing.Stem != "" {
-			break
+		if stem == stems[len(stems)-1] {
+			return fmt.Errorf("record definition %s belongs to %s; record into another package with `into`", def, owner)
 		}
 	}
-	stem := existing.Stem
-	if stem == "" {
-		stem = short
-	}
-	existing.Taken = map[int]bool{}
+	return nil
+}
+
+// takenRecordNumbers lists the numbers of the records named from stem the
+// package already holds.
+func takenRecordNumbers(idx *symbols.Index, pkg, stem string) map[int]bool {
+	taken := map[int]bool{}
+	prefix := stem + "_run"
 	for _, sym := range idx.LookupQualified(pkg) {
 		if sym.Scope == nil {
 			continue
 		}
-		prefix := stem + "_run"
 		for _, m := range sym.Scope.Members() {
 			tail, ok := strings.CutPrefix(m.Name, prefix)
 			if !ok {
 				continue
 			}
 			if n, err := strconv.Atoi(tail); err == nil {
-				existing.Taken[n] = true
+				taken[n] = true
 			}
 		}
 	}
-	return existing, nil
+	return taken
 }
 
 // recordDefOwner is the case a record definition's caseName marks it for,

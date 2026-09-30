@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/Open-MBEE/OpenSysML/internal/translate/export"
 	"github.com/Open-MBEE/OpenSysML/internal/translate/rdf"
 )
 
@@ -89,11 +90,14 @@ func mintedTerm(term rdf.Term, mints map[string]string) rdf.Term {
 		if minted, ok := mints[id]; ok {
 			return rdf.IRI(rdf.Element + minted)
 		}
-		// The only element-namespace satellite is the owning membership,
-		// derived by the exact suffix; any longer id is another element's.
-		if owner, ok := strings.CutSuffix(id, membershipSuffix); ok {
-			if minted, exists := mints[owner]; exists {
-				return rdf.IRI(rdf.Element + minted + membershipSuffix)
+		// The element-namespace satellites are the owning membership and a
+		// dependency prefix's annotation, each derived by its exact suffix;
+		// any longer id is another element's.
+		for _, suffix := range []string{membershipSuffix, export.AnnotationSuffix} {
+			if owner, ok := strings.CutSuffix(id, suffix); ok {
+				if minted, exists := mints[owner]; exists {
+					return rdf.IRI(rdf.Element + minted + suffix)
+				}
 			}
 		}
 	case strings.HasPrefix(term.Value, rdf.Expression):

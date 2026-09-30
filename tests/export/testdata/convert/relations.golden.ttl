@@ -8,6 +8,10 @@
 elmt:Relations
     a sysml:Package ;
     sysml:qualifiedName "Relations" ;
+    sysx:sourceLine "1"^^xsd:integer ;
+    sysx:sourceColumn "1"^^xsd:integer ;
+    sysx:sourceEndLine "10"^^xsd:integer ;
+    sysx:sourceEndColumn "2"^^xsd:integer ;
     sysml:elementId "Relations" ;
     sysx:memberIndex "0"^^xsd:integer ;
     sysx:sourceLanguage "sysml" ;
@@ -25,6 +29,10 @@ elmt:Relations
 elmt:Relations__Base
     a sysml:PartDefinition ;
     sysml:qualifiedName "Relations::Base" ;
+    sysx:sourceLine "2"^^xsd:integer ;
+    sysx:sourceColumn "5"^^xsd:integer ;
+    sysx:sourceEndLine "2"^^xsd:integer ;
+    sysx:sourceEndColumn "19"^^xsd:integer ;
     sysml:elementId "Relations__Base" ;
     sysx:memberIndex "0"^^xsd:integer ;
     sysml:owningNamespace elmt:Relations ;
@@ -48,6 +56,10 @@ elmt:Relations__Base_om
 elmt:Relations__Sub
     a sysml:PartDefinition ;
     sysml:qualifiedName "Relations::Sub" ;
+    sysx:sourceLine "3"^^xsd:integer ;
+    sysx:sourceColumn "5"^^xsd:integer ;
+    sysx:sourceEndLine "5"^^xsd:integer ;
+    sysx:sourceEndColumn "6"^^xsd:integer ;
     sysml:elementId "Relations__Sub" ;
     sysx:memberIndex "1"^^xsd:integer ;
     sysml:owningNamespace elmt:Relations ;
@@ -81,6 +93,10 @@ elmt:Relations__Sub_om
 elmt:Relations__Sub__b
     a sysml:PartUsage ;
     sysml:qualifiedName "Relations::Sub::b" ;
+    sysx:sourceLine "4"^^xsd:integer ;
+    sysx:sourceColumn "9"^^xsd:integer ;
+    sysx:sourceEndLine "4"^^xsd:integer ;
+    sysx:sourceEndColumn "23"^^xsd:integer ;
     sysml:elementId "Relations__Sub__b" ;
     sysx:memberIndex "0"^^xsd:integer ;
     sysml:owningNamespace elmt:Relations__Sub ;
@@ -110,6 +126,10 @@ elmt:Relations__Sub__b_om
 elmt:Relations__Other
     a sysml:PartDefinition ;
     sysml:qualifiedName "Relations::Other" ;
+    sysx:sourceLine "6"^^xsd:integer ;
+    sysx:sourceColumn "5"^^xsd:integer ;
+    sysx:sourceEndLine "9"^^xsd:integer ;
+    sysx:sourceEndColumn "6"^^xsd:integer ;
     sysml:elementId "Relations__Other" ;
     sysx:memberIndex "2"^^xsd:integer ;
     sysml:owningNamespace elmt:Relations ;
@@ -147,6 +167,10 @@ elmt:Relations__Other_om
 elmt:Relations__Other__r
     a sysml:PartUsage ;
     sysml:qualifiedName "Relations::Other::r" ;
+    sysx:sourceLine "7"^^xsd:integer ;
+    sysx:sourceColumn "9"^^xsd:integer ;
+    sysx:sourceEndLine "7"^^xsd:integer ;
+    sysx:sourceEndColumn "28"^^xsd:integer ;
     sysml:elementId "Relations__Other__r" ;
     sysx:memberIndex "0"^^xsd:integer ;
     sysml:owningNamespace elmt:Relations__Other ;
@@ -177,6 +201,10 @@ elmt:Relations__Other__r_om
 elmt:Relations__Other__s
     a sysml:PartUsage ;
     sysml:qualifiedName "Relations::Other::s" ;
+    sysx:sourceLine "8"^^xsd:integer ;
+    sysx:sourceColumn "9"^^xsd:integer ;
+    sysx:sourceEndLine "8"^^xsd:integer ;
+    sysx:sourceEndColumn "26"^^xsd:integer ;
     sysml:elementId "Relations__Other__s" ;
     sysx:memberIndex "1"^^xsd:integer ;
     sysml:owningNamespace elmt:Relations__Other ;

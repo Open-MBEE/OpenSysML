@@ -128,18 +128,31 @@ func TestMemberAttachedThenDesugars(t *testing.T) {
 	}
 }
 
-func TestSuccessionSourceMultiplicityForms(t *testing.T) {
+// The multiplicities a `then` succession may carry (SysML.xtext:887 EmptySuccession,
+// 1703-1706 TargetSuccession, 994 ConnectorEnd): `[m]` before `then`, or after it
+// ahead of a member the keyword declares, is the source end's; `[m]` ahead of a
+// reference is the target end's crossing multiplicity, as in `succession first a
+// then [m] b;`. Both may be written on one succession.
+func TestSuccessionEndMultiplicityForms(t *testing.T) {
 	tests := []struct {
-		name, body, multiplicity string
-		hasBody                  bool
+		name, body, source, target string
+		hasBody                    bool
 	}{
-		{"member attached", "then [0..1] action b;", "[0..1]", false},
-		{"reference target", "[*] then b;", "[*]", false},
-		{"reference target with body", "[1] then b { action c; }", "[1]", true},
+		{"source before member", "then [0..1] action b;", "[0..1]", "", false},
+		{"source before then", "[*] then b;", "[*]", "", false},
+		{"source before then with body", "[1] then b { action c; }", "[1]", "", true},
+		{"source before then done", "[0..1] then done;", "[0..1]", "", false},
+		{"target reference", "then [0..1] b;", "", "[0..1]", false},
+		{"target reference with body", "then [1] b { action c; }", "", "[1]", true},
+		{"target done", "then [0..1] done;", "", "[0..1]", false},
+		{"target done with body", "then [0..1] done { doc /* d */ }", "", "[0..1]", true},
+		{"both ends", "[1] then [0..1] b;", "[1]", "[0..1]", false},
+		{"both ends with body", "[1] then [0..1] b { action c; }", "[1]", "[0..1]", true},
+		{"both ends done", "[1] then [0..1] done;", "[1]", "[0..1]", false},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			src := "action def A { action a; " + tt.body + " }"
+			src := "action def A { action a; action b; " + tt.body + " }"
 			p := New(source.New("multiplicity.sysml", []byte(src)))
 			root := p.ParseFile()
 			if len(p.Diagnostics) != 0 {
@@ -165,17 +178,24 @@ func TestSuccessionSourceMultiplicityForms(t *testing.T) {
 				t.Fatalf("parsed %d succession edges, want one:\n%s", len(edges), ast.Dump(root))
 			}
 			edge := edges[0]
-			if edge.SourceMultiplicity == nil {
-				t.Fatal("source multiplicity was not recorded")
+			if got := multiplicityText(p, edge.SourceMultiplicity); got != tt.source {
+				t.Errorf("source multiplicity = %q, want %q", got, tt.source)
 			}
-			if got := p.src.Text(edge.SourceMultiplicity.Span()); got != tt.multiplicity {
-				t.Errorf("source multiplicity = %q, want %q", got, tt.multiplicity)
+			if got := multiplicityText(p, edge.TargetMultiplicity); got != tt.target {
+				t.Errorf("target multiplicity = %q, want %q", got, tt.target)
 			}
 			if edge.HasBody != tt.hasBody {
 				t.Errorf("HasBody = %t, want %t", edge.HasBody, tt.hasBody)
 			}
 		})
 	}
+}
+
+func multiplicityText(p *Parser, m *ast.Multiplicity) string {
+	if m == nil {
+		return ""
+	}
+	return p.src.Text(m.Span())
 }
 
 // A positional `then` sequences from the nearest feature before it (SysML v2
@@ -505,5 +525,64 @@ func TestSuppliedSuccessionEndsAreMarkedImplied(t *testing.T) {
 	if !edges[1].SourceImplied || !edges[1].TargetImplied {
 		t.Errorf("a member-attached `then` has source implied=%t target implied=%t, want both",
 			edges[1].SourceImplied, edges[1].TargetImplied)
+	}
+}
+
+// A `then` target that a bracketed multiplicity precedes may name a declared
+// member whose name is also a node word, as `then fork;` does: the succession
+// references that member with a target multiplicity and declares no node of the
+// keyword's kind. A node word followed by a body still declares the node.
+func TestThenTargetMultiplicityReferencesADeclaredNodeWordMember(t *testing.T) {
+	tests := []struct {
+		name, src, target, node string
+	}{
+		{"fork", "action def A { action a; action fork; then [0..1] fork; }", `target="fork"`, "ForkNode"},
+		{"done", "action def A { action a; action done; then [0..1] done; }", `target="done"`, "FinalNode"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			p := New(source.New(tt.name+".sysml", []byte(tt.src)))
+			root := p.ParseFile()
+			if len(p.Diagnostics) != 0 {
+				t.Fatalf("parse diagnostics: %v", p.Diagnostics)
+			}
+			dump := ast.Dump(root)
+			if !strings.Contains(dump, tt.target) || !strings.Contains(dump, "(TargetMultiplicity") {
+				t.Errorf("the succession does not reference %s with a target multiplicity:\n%s", tt.target, dump)
+			}
+			if strings.Contains(dump, tt.node) {
+				t.Errorf("a %s was declared for the referenced member:\n%s", tt.node, dump)
+			}
+		})
+	}
+}
+
+// A control-node keyword followed by a body declares an anonymous node with that
+// body whether or not a member shares the keyword's name (SysML.xtext:1664 MergeNode,
+// 1682 ForkNode: `'fork' UsageDeclaration? ActionBody`); a multiplicity ahead of
+// it is then the source end's, as for any member-attached `then`.
+func TestThenNodeKeywordWithABodyDeclaresTheNode(t *testing.T) {
+	tests := []struct {
+		name, src, node string
+	}{
+		{"fork", "action def A { action fork; action a; then fork { action child; } }", "ForkNode"},
+		{"fork after multiplicity", "action def A { action fork; action a; then [1] fork { action child; } }", "ForkNode"},
+		{"merge after multiplicity", "action def A { action merge; action a; then [0..1] merge { doc /* d */ } }", "MergeNode"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			p := New(source.New(tt.name+".sysml", []byte(tt.src)))
+			root := p.ParseFile()
+			if len(p.Diagnostics) != 0 {
+				t.Fatalf("parse diagnostics: %v", p.Diagnostics)
+			}
+			dump := ast.Dump(root)
+			if !strings.Contains(dump, tt.node) {
+				t.Errorf("no %s was declared:\n%s", tt.node, dump)
+			}
+			if strings.Contains(dump, "(TargetMultiplicity") || strings.Contains(dump, `target="`+strings.ToLower(tt.node[:4])) {
+				t.Errorf("the `then` was read as a reference to the member sharing the keyword's name:\n%s", dump)
+			}
+		})
 	}
 }

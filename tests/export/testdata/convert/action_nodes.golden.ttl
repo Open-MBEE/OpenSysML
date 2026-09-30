@@ -9,6 +9,10 @@
 elmt:ActionNodes
     a sysml:Package ;
     sysml:qualifiedName "ActionNodes" ;
+    sysx:sourceLine "1"^^xsd:integer ;
+    sysx:sourceColumn "1"^^xsd:integer ;
+    sysx:sourceEndLine "28"^^xsd:integer ;
+    sysx:sourceEndColumn "2"^^xsd:integer ;
     sysml:elementId "ActionNodes" ;
     sysx:memberIndex "0"^^xsd:integer ;
     sysx:sourceLanguage "sysml" ;
@@ -26,6 +30,10 @@ elmt:ActionNodes
 elmt:ActionNodes__Command
     a sysml:AttributeDefinition ;
     sysml:qualifiedName "ActionNodes::Command" ;
+    sysx:sourceLine "2"^^xsd:integer ;
+    sysx:sourceColumn "5"^^xsd:integer ;
+    sysx:sourceEndLine "2"^^xsd:integer ;
+    sysx:sourceEndColumn "27"^^xsd:integer ;
     sysml:elementId "ActionNodes__Command" ;
     sysx:memberIndex "0"^^xsd:integer ;
     sysml:owningNamespace elmt:ActionNodes ;
@@ -49,6 +57,10 @@ elmt:ActionNodes__Command_om
 elmt:ActionNodes__Radio
     a sysml:PortDefinition ;
     sysml:qualifiedName "ActionNodes::Radio" ;
+    sysx:sourceLine "3"^^xsd:integer ;
+    sysx:sourceColumn "5"^^xsd:integer ;
+    sysx:sourceEndLine "3"^^xsd:integer ;
+    sysx:sourceEndColumn "20"^^xsd:integer ;
     sysml:elementId "ActionNodes__Radio" ;
     sysx:memberIndex "1"^^xsd:integer ;
     sysml:owningNamespace elmt:ActionNodes ;
@@ -110,6 +122,10 @@ elmt:ActionNodes__Radio_conjugated_pc
 elmt:ActionNodes__Brake
     a sysml:ActionDefinition ;
     sysml:qualifiedName "ActionNodes::Brake" ;
+    sysx:sourceLine "4"^^xsd:integer ;
+    sysx:sourceColumn "5"^^xsd:integer ;
+    sysx:sourceEndLine "4"^^xsd:integer ;
+    sysx:sourceEndColumn "22"^^xsd:integer ;
     sysml:elementId "ActionNodes__Brake" ;
     sysx:memberIndex "2"^^xsd:integer ;
     sysml:owningNamespace elmt:ActionNodes ;
@@ -133,6 +149,10 @@ elmt:ActionNodes__Brake_om
 elmt:ActionNodes__Drive
     a sysml:ActionDefinition ;
     sysml:qualifiedName "ActionNodes::Drive" ;
+    sysx:sourceLine "5"^^xsd:integer ;
+    sysx:sourceColumn "5"^^xsd:integer ;
+    sysx:sourceEndLine "27"^^xsd:integer ;
+    sysx:sourceEndColumn "6"^^xsd:integer ;
     sysml:elementId "ActionNodes__Drive" ;
     sysx:memberIndex "3"^^xsd:integer ;
     sysml:owningNamespace elmt:ActionNodes ;
@@ -167,6 +187,10 @@ elmt:ActionNodes__Drive_om
 elmt:ActionNodes__Drive__speed
     a sysml:AttributeUsage ;
     sysml:qualifiedName "ActionNodes::Drive::speed" ;
+    sysx:sourceLine "6"^^xsd:integer ;
+    sysx:sourceColumn "9"^^xsd:integer ;
+    sysx:sourceEndLine "6"^^xsd:integer ;
+    sysx:sourceEndColumn "28"^^xsd:integer ;
     sysml:elementId "ActionNodes__Drive__speed" ;
     sysx:memberIndex "0"^^xsd:integer ;
     sysml:owningNamespace elmt:ActionNodes__Drive ;
@@ -193,6 +217,10 @@ elmt:ActionNodes__Drive__speed_om
 elmt:ActionNodes__Drive__log
     a sysml:AttributeUsage ;
     sysml:qualifiedName "ActionNodes::Drive::log" ;
+    sysx:sourceLine "7"^^xsd:integer ;
+    sysx:sourceColumn "9"^^xsd:integer ;
+    sysx:sourceEndLine "7"^^xsd:integer ;
+    sysx:sourceEndColumn "23"^^xsd:integer ;
     sysml:elementId "ActionNodes__Drive__log" ;
     sysx:memberIndex "1"^^xsd:integer ;
     sysml:owningNamespace elmt:ActionNodes__Drive ;
@@ -218,6 +246,10 @@ elmt:ActionNodes__Drive__log_om
 elmt:ActionNodes__Drive__antenna
     a sysml:PortUsage ;
     sysml:qualifiedName "ActionNodes::Drive::antenna" ;
+    sysx:sourceLine "8"^^xsd:integer ;
+    sysx:sourceColumn "9"^^xsd:integer ;
+    sysx:sourceEndLine "8"^^xsd:integer ;
+    sysx:sourceEndColumn "30"^^xsd:integer ;
     sysml:elementId "ActionNodes__Drive__antenna" ;
     sysx:memberIndex "2"^^xsd:integer ;
     sysml:owningNamespace elmt:ActionNodes__Drive ;
@@ -247,6 +279,10 @@ elmt:ActionNodes__Drive__antenna_om
 elmt:ActionNodes__Drive__Stop
     a sysml:ActionDefinition ;
     sysml:qualifiedName "ActionNodes::Drive::Stop" ;
+    sysx:sourceLine "9"^^xsd:integer ;
+    sysx:sourceColumn "9"^^xsd:integer ;
+    sysx:sourceEndLine "9"^^xsd:integer ;
+    sysx:sourceEndColumn "25"^^xsd:integer ;
     sysml:elementId "ActionNodes__Drive__Stop" ;
     sysx:memberIndex "3"^^xsd:integer ;
     sysml:owningNamespace elmt:ActionNodes__Drive ;
@@ -270,6 +306,10 @@ elmt:ActionNodes__Drive__Stop_om
 elmt:ActionNodes__Drive___404
     a sysml:Membership ;
     sysml:qualifiedName "ActionNodes::Drive::@4" ;
+    sysx:sourceLine "10"^^xsd:integer ;
+    sysx:sourceColumn "9"^^xsd:integer ;
+    sysx:sourceEndLine "10"^^xsd:integer ;
+    sysx:sourceEndColumn "21"^^xsd:integer ;
     sysml:elementId "ActionNodes__Drive___404" ;
     sysx:memberIndex "4"^^xsd:integer ;
     sysml:owningNamespace elmt:ActionNodes__Drive ;
@@ -283,6 +323,10 @@ elmt:ActionNodes__Drive___404
 elmt:ActionNodes__Drive__brake
     a sysml:ActionUsage ;
     sysml:qualifiedName "ActionNodes::Drive::brake" ;
+    sysx:sourceLine "11"^^xsd:integer ;
+    sysx:sourceColumn "9"^^xsd:integer ;
+    sysx:sourceEndLine "11"^^xsd:integer ;
+    sysx:sourceEndColumn "30"^^xsd:integer ;
     sysml:elementId "ActionNodes__Drive__brake" ;
     sysx:memberIndex "5"^^xsd:integer ;
     sysml:owningNamespace elmt:ActionNodes__Drive ;
@@ -312,6 +356,10 @@ elmt:ActionNodes__Drive__brake_om
 elmt:ActionNodes__Drive__split
     a sysml:ForkNode ;
     sysml:qualifiedName "ActionNodes::Drive::split" ;
+    sysx:sourceLine "12"^^xsd:integer ;
+    sysx:sourceColumn "9"^^xsd:integer ;
+    sysx:sourceEndLine "12"^^xsd:integer ;
+    sysx:sourceEndColumn "20"^^xsd:integer ;
     sysml:elementId "ActionNodes__Drive__split" ;
     sysx:memberIndex "6"^^xsd:integer ;
     sysml:owningNamespace elmt:ActionNodes__Drive ;
@@ -336,6 +384,10 @@ elmt:ActionNodes__Drive__split_om
 elmt:ActionNodes__Drive__sync
     a sysml:JoinNode ;
     sysml:qualifiedName "ActionNodes::Drive::sync" ;
+    sysx:sourceLine "13"^^xsd:integer ;
+    sysx:sourceColumn "9"^^xsd:integer ;
+    sysx:sourceEndLine "13"^^xsd:integer ;
+    sysx:sourceEndColumn "19"^^xsd:integer ;
     sysml:elementId "ActionNodes__Drive__sync" ;
     sysx:memberIndex "7"^^xsd:integer ;
     sysml:owningNamespace elmt:ActionNodes__Drive ;
@@ -360,6 +412,10 @@ elmt:ActionNodes__Drive__sync_om
 elmt:ActionNodes__Drive__gather
     a sysml:MergeNode ;
     sysml:qualifiedName "ActionNodes::Drive::gather" ;
+    sysx:sourceLine "14"^^xsd:integer ;
+    sysx:sourceColumn "9"^^xsd:integer ;
+    sysx:sourceEndLine "14"^^xsd:integer ;
+    sysx:sourceEndColumn "22"^^xsd:integer ;
     sysml:elementId "ActionNodes__Drive__gather" ;
     sysx:memberIndex "8"^^xsd:integer ;
     sysml:owningNamespace elmt:ActionNodes__Drive ;
@@ -384,6 +440,10 @@ elmt:ActionNodes__Drive__gather_om
 elmt:ActionNodes__Drive__pick
     a sysml:DecisionNode ;
     sysml:qualifiedName "ActionNodes::Drive::pick" ;
+    sysx:sourceLine "15"^^xsd:integer ;
+    sysx:sourceColumn "9"^^xsd:integer ;
+    sysx:sourceEndLine "15"^^xsd:integer ;
+    sysx:sourceEndColumn "21"^^xsd:integer ;
     sysml:elementId "ActionNodes__Drive__pick" ;
     sysx:memberIndex "9"^^xsd:integer ;
     sysml:owningNamespace elmt:ActionNodes__Drive ;
@@ -408,6 +468,10 @@ elmt:ActionNodes__Drive__pick_om
 elmt:ActionNodes__Drive___4010
     a sysml:PerformActionUsage ;
     sysml:qualifiedName "ActionNodes::Drive::@10" ;
+    sysx:sourceLine "16"^^xsd:integer ;
+    sysx:sourceColumn "9"^^xsd:integer ;
+    sysx:sourceEndLine "16"^^xsd:integer ;
+    sysx:sourceEndColumn "23"^^xsd:integer ;
     sysml:elementId "ActionNodes__Drive___4010" ;
     sysx:memberIndex "10"^^xsd:integer ;
     sysml:owningNamespace elmt:ActionNodes__Drive ;
@@ -438,6 +502,10 @@ elmt:ActionNodes__Drive___4010_om
 elmt:ActionNodes__Drive__Brake
     a sysml:ActionUsage ;
     sysml:qualifiedName "ActionNodes::Drive::Brake" ;
+    sysx:sourceLine "17"^^xsd:integer ;
+    sysx:sourceColumn "9"^^xsd:integer ;
+    sysx:sourceEndLine "17"^^xsd:integer ;
+    sysx:sourceEndColumn "22"^^xsd:integer ;
     sysml:elementId "ActionNodes__Drive__Brake" ;
     sysx:memberIndex "11"^^xsd:integer ;
     sysml:owningNamespace elmt:ActionNodes__Drive ;
@@ -463,6 +531,10 @@ elmt:ActionNodes__Drive__Brake_om
 elmt:ActionNodes__Drive___4012
     a sysml:AssignmentActionUsage ;
     sysml:qualifiedName "ActionNodes::Drive::@12" ;
+    sysx:sourceLine "18"^^xsd:integer ;
+    sysx:sourceColumn "9"^^xsd:integer ;
+    sysx:sourceEndLine "18"^^xsd:integer ;
+    sysx:sourceEndColumn "29"^^xsd:integer ;
     sysml:elementId "ActionNodes__Drive___4012" ;
     sysx:memberIndex "12"^^xsd:integer ;
     sysml:owningNamespace elmt:ActionNodes__Drive ;
@@ -587,6 +659,10 @@ expr:ActionNodes__Drive___4012_pvalue_om
 elmt:ActionNodes__Drive___4013
     a sysml:SendActionUsage ;
     sysml:qualifiedName "ActionNodes::Drive::@13" ;
+    sysx:sourceLine "19"^^xsd:integer ;
+    sysx:sourceColumn "9"^^xsd:integer ;
+    sysx:sourceEndLine "19"^^xsd:integer ;
+    sysx:sourceEndColumn "39"^^xsd:integer ;
     sysml:elementId "ActionNodes__Drive___4013" ;
     sysx:memberIndex "13"^^xsd:integer ;
     sysml:owningNamespace elmt:ActionNodes__Drive ;
@@ -715,6 +791,10 @@ expr:ActionNodes__Drive___4013_preceiver_om
 elmt:ActionNodes__Drive___4014
     a sysml:SendActionUsage ;
     sysml:qualifiedName "ActionNodes::Drive::@14" ;
+    sysx:sourceLine "20"^^xsd:integer ;
+    sysx:sourceColumn "9"^^xsd:integer ;
+    sysx:sourceEndLine "20"^^xsd:integer ;
+    sysx:sourceEndColumn "40"^^xsd:integer ;
     sysml:elementId "ActionNodes__Drive___4014" ;
     sysx:memberIndex "14"^^xsd:integer ;
     sysml:owningNamespace elmt:ActionNodes__Drive ;
@@ -844,6 +924,10 @@ expr:ActionNodes__Drive___4014_preceiver_om
 elmt:ActionNodes__Drive___4015
     a sysml:ActionUsage ;
     sysml:qualifiedName "ActionNodes::Drive::@15" ;
+    sysx:sourceLine "21"^^xsd:integer ;
+    sysx:sourceColumn "9"^^xsd:integer ;
+    sysx:sourceEndLine "21"^^xsd:integer ;
+    sysx:sourceEndColumn "31"^^xsd:integer ;
     sysml:elementId "ActionNodes__Drive___4015" ;
     sysx:memberIndex "15"^^xsd:integer ;
     sysml:owningNamespace elmt:ActionNodes__Drive ;
@@ -874,6 +958,10 @@ elmt:ActionNodes__Drive___4015_om
 elmt:ActionNodes__Drive___4015___400
     a sysml:ReferenceUsage ;
     sysml:qualifiedName "ActionNodes::Drive::@15::@0" ;
+    sysx:sourceLine "21"^^xsd:integer ;
+    sysx:sourceColumn "16"^^xsd:integer ;
+    sysx:sourceEndLine "21"^^xsd:integer ;
+    sysx:sourceEndColumn "30"^^xsd:integer ;
     sysml:elementId "ActionNodes__Drive___4015___400" ;
     sysx:memberIndex "0"^^xsd:integer ;
     sysml:owningNamespace elmt:ActionNodes__Drive___4015 ;
@@ -1199,6 +1287,10 @@ expr:ActionNodes__Drive___4015___400_pvalue_om
 elmt:ActionNodes__Drive___4016
     a sysml:TerminateActionUsage ;
     sysml:qualifiedName "ActionNodes::Drive::@16" ;
+    sysx:sourceLine "22"^^xsd:integer ;
+    sysx:sourceColumn "9"^^xsd:integer ;
+    sysx:sourceEndLine "22"^^xsd:integer ;
+    sysx:sourceEndColumn "19"^^xsd:integer ;
     sysml:elementId "ActionNodes__Drive___4016" ;
     sysx:memberIndex "16"^^xsd:integer ;
     sysml:owningNamespace elmt:ActionNodes__Drive ;
@@ -1220,6 +1312,10 @@ elmt:ActionNodes__Drive___4016_om
 elmt:ActionNodes__Drive___4017
     a sysml:TerminateActionUsage ;
     sysml:qualifiedName "ActionNodes::Drive::@17" ;
+    sysx:sourceLine "23"^^xsd:integer ;
+    sysx:sourceColumn "9"^^xsd:integer ;
+    sysx:sourceEndLine "23"^^xsd:integer ;
+    sysx:sourceEndColumn "25"^^xsd:integer ;
     sysml:elementId "ActionNodes__Drive___4017" ;
     sysx:memberIndex "17"^^xsd:integer ;
     sysml:owningNamespace elmt:ActionNodes__Drive ;
@@ -1290,6 +1386,10 @@ expr:ActionNodes__Drive___4017_pexpression_om
 elmt:ActionNodes__Drive___4018
     a sysml:Membership ;
     sysml:qualifiedName "ActionNodes::Drive::@18" ;
+    sysx:sourceLine "24"^^xsd:integer ;
+    sysx:sourceColumn "9"^^xsd:integer ;
+    sysx:sourceEndLine "24"^^xsd:integer ;
+    sysx:sourceEndColumn "14"^^xsd:integer ;
     sysml:elementId "ActionNodes__Drive___4018" ;
     sysx:memberIndex "18"^^xsd:integer ;
     sysml:owningNamespace elmt:ActionNodes__Drive ;
@@ -1303,6 +1403,10 @@ elmt:ActionNodes__Drive___4018
 elmt:ActionNodes__Drive___4019
     a sysml:SuccessionAsUsage ;
     sysml:qualifiedName "ActionNodes::Drive::@19" ;
+    sysx:sourceLine "25"^^xsd:integer ;
+    sysx:sourceColumn "9"^^xsd:integer ;
+    sysx:sourceEndLine "25"^^xsd:integer ;
+    sysx:sourceEndColumn "43"^^xsd:integer ;
     sysml:elementId "ActionNodes__Drive___4019" ;
     sysx:memberIndex "19"^^xsd:integer ;
     sysml:owningNamespace elmt:ActionNodes__Drive ;
@@ -1427,6 +1531,10 @@ expr:ActionNodes__Drive___4019_pend1_prs
 elmt:ActionNodes__Drive___4020
     a sysml:SuccessionAsUsage ;
     sysml:qualifiedName "ActionNodes::Drive::@20" ;
+    sysx:sourceLine "26"^^xsd:integer ;
+    sysx:sourceColumn "9"^^xsd:integer ;
+    sysx:sourceEndLine "26"^^xsd:integer ;
+    sysx:sourceEndColumn "42"^^xsd:integer ;
     sysml:elementId "ActionNodes__Drive___4020" ;
     sysx:memberIndex "20"^^xsd:integer ;
     sysml:owningNamespace elmt:ActionNodes__Drive ;

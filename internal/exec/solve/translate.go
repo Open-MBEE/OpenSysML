@@ -202,6 +202,15 @@ type translator struct {
 	// where a definedness assertion over the whole query would not be equivalent.
 	branched int
 
+	// path is the condition under which the evaluator evaluates the expression
+	// being translated — the operands a connective decided before reaching it,
+	// the branch a conditional selected, the required conditions before this
+	// one — or nil where it always does.
+	path *Term
+
+	// always marks the variables some reference reads unconditionally.
+	always map[*Var]bool
+
 	// machine asserts Integer arithmetic within int64, where the evaluator
 	// reports overflow: what a step of execution is defined under.
 	machine bool
@@ -258,6 +267,9 @@ func effectiveFeatures(ctx *runtime.Context, sym *symbols.Symbol) map[string]*sy
 func (t *translator) translate(conds []runtime.Condition) error {
 	var required []*Term
 	var labels []string
+	// The evaluator stops at the first required condition that does not hold,
+	// so a later condition is evaluated only where every earlier one held.
+	var before []*Term
 	for _, cond := range conds {
 		owner, span := conditionOrigin(cond)
 		t.condLabel = cond.Label()
@@ -265,9 +277,12 @@ func (t *translator) translate(conds []runtime.Condition) error {
 		if owner != nil {
 			t.condFile = owner.DocName
 		}
-		term, err := t.condition(cond)
+		term, err := t.under(conjunction(before), func() (*Term, error) { return t.condition(cond) })
 		if err != nil {
 			return err
+		}
+		if cond.Required {
+			before = append(before, term)
 		}
 		if (t.subject.Negated || t.subject.Violation) && cond.Required {
 			required = append(required, term)
@@ -640,7 +655,7 @@ func (t *translator) binaryBool(n *ast.OperatorExpr, scope *symbols.Scope, op Op
 	if err != nil {
 		return nil, err
 	}
-	right, err := t.operandOfSort(n, scope, 1, Bool)
+	right, err := t.under(reaches(op, left), func() (*Term, error) { return t.operandOfSort(n, scope, 1, Bool) })
 	if err != nil {
 		return nil, err
 	}
@@ -651,6 +666,66 @@ func (t *translator) binaryBool(n *ast.OperatorExpr, scope *symbols.Scope, op Op
 		return Or(left, right), nil
 	}
 	return Binary(op, Bool, left, right), nil
+}
+
+// reaches is the condition, given a connective's left operand, under which the
+// evaluator evaluates its right one, as evalLogical short-circuits: `and` and
+// `&` read it where the left holds, `or` and `|` where it does not, `implies`
+// where it holds; `xor` reads it always, which nil says.
+func reaches(op Op, left *Term) *Term {
+	switch op {
+	case OpAnd, OpImplies:
+		return left
+	case OpOr:
+		return Not(left)
+	}
+	return nil
+}
+
+// under translates with the evaluation condition narrowed by cond, nil narrowing
+// nothing, and restores the enclosing one after.
+func (t *translator) under(cond *Term, translate func() (*Term, error)) (*Term, error) {
+	outer := t.path
+	t.path = and(outer, cond)
+	defer func() { t.path = outer }()
+	return translate()
+}
+
+// conjunction is the conjunction of terms as an evaluation condition: nil for
+// none, which is no condition at all.
+func conjunction(terms []*Term) *Term {
+	if len(terms) == 0 {
+		return nil
+	}
+	return And(terms...)
+}
+
+// read records that the condition being translated reads v where the evaluator
+// reaches the reference: under the disjunction of the paths that reach one, or
+// unconditionally once any reference reads it on every path. The guards hoisted
+// so far are the ones the evaluator has checked by the first conditional
+// reference, in its left-to-right, condition-by-condition order.
+func (t *translator) read(v *Var) {
+	if t.always[v] {
+		return
+	}
+	if t.path == nil {
+		if t.always == nil {
+			t.always = map[*Var]bool{}
+		}
+		t.always[v] = true
+		v.Reached = nil
+		return
+	}
+	if v.Reached == nil {
+		v.Reached = t.path
+		v.Preceding = make([]*Term, 0, len(t.guards))
+		for _, g := range t.guards {
+			v.Preceding = append(v.Preceding, g.Term)
+		}
+		return
+	}
+	v.Reached = Or(v.Reached, t.path)
 }
 
 // equality translates `==` or `!=` between two values of the same sort.
@@ -884,11 +959,11 @@ func (t *translator) conditional(n *ast.OperatorExpr, scope *symbols.Scope) (*Te
 	}
 	t.branched++
 	defer func() { t.branched-- }()
-	then, err := t.expr(n.Operands[1], scope)
+	then, err := t.under(cond, func() (*Term, error) { return t.expr(n.Operands[1], scope) })
 	if err != nil {
 		return nil, err
 	}
-	otherwise, err := t.expr(n.Operands[2], scope)
+	otherwise, err := t.under(Not(cond), func() (*Term, error) { return t.expr(n.Operands[2], scope) })
 	if err != nil {
 		return nil, err
 	}

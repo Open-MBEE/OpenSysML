@@ -148,10 +148,10 @@ func (g *Gathers) Union(key string) Regatherer {
 	return g.unions[key]
 }
 
-// Contributing is a union that can name the workspace documents whose
+// ContributorNamer is a union that can name the workspace documents whose
 // contribution to it is not empty: the documents a judgment read by one of
 // its names depends on, for a record of that judgment's document to carry.
-type Contributing interface {
+type ContributorNamer interface {
 	// Contributors names the contributors of the union that answers name, or
 	// false when name is none of its.
 	Contributors(name string) ([]string, bool)
@@ -163,7 +163,7 @@ func (g *Gathers) Contributors(name string) ([]string, bool) {
 	g.mu.Lock()
 	defer g.mu.Unlock()
 	for _, key := range unionKeys(g.unions) {
-		if c, ok := g.unions[key].(Contributing); ok {
+		if c, ok := g.unions[key].(ContributorNamer); ok {
 			if docs, ok := c.Contributors(name); ok {
 				return slices.Sorted(slices.Values(docs)), true
 			}

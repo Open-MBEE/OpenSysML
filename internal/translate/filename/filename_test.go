@@ -19,7 +19,7 @@ func TestFitCutsAndTagsLongNames(t *testing.T) {
 	if len(got) != Max || !strings.HasSuffix(got, ".md") || !strings.Contains(got, "~") {
 		t.Errorf("Fit(long) = %q (%d bytes), want %d bytes, tagged, ending in .md", got, len(got), Max)
 	}
-	if other := Fit(long+"b", ".md", '.', false); other == got {
+	if Fit(long+"b", ".md", '.', false) == got {
 		t.Errorf("two long names sharing a prefix are both written to %q", got)
 	}
 	tagged := Fit("Report", ".md", '.', true)

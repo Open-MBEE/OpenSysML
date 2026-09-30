@@ -236,10 +236,7 @@ func (w *writer) captureAt(body func()) string {
 
 // aside renders what body writes, at the current level, without writing it.
 func (w *writer) aside(body func()) string {
-	w.buf()
-	w.open()
-	body()
-	return w.close()
+	return w.captureAt(body)
 }
 
 // indented writes body one level deeper, for a clause continued on the next lines.

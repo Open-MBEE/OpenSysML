@@ -98,7 +98,7 @@ func (u *oosemUnion) regather(ctx *Context, g *Gathers, a *oosemAudit, doc strin
 	}
 }
 
-// Contributors implements kit.Contributing: the documents with any OOSEM facts.
+// Contributors implements kit.ContributorNamer: the documents with any OOSEM facts.
 func (u *oosemUnion) Contributors(name string) ([]string, bool) {
 	if !strings.HasPrefix(name, "\x00oosem/") {
 		return nil, false

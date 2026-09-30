@@ -387,40 +387,43 @@ func (e toolEngine) replySource(ex *execution, process *composed) ([]byte, error
 	if err != nil {
 		rel = path
 	}
+	cannotRead := func(err error) *runtime.ToolError {
+		return &runtime.ToolError{Tool: tool, Kind: runtime.ToolMalformed, Detail: "cannot read " + rel + ": " + err.Error()}
+	}
 	info, err := os.Lstat(path)
 	switch {
 	case errors.Is(err, os.ErrNotExist):
 		return nil, &runtime.ToolError{Tool: tool, Kind: runtime.ToolMalformed, Detail: "wrote no file " + rel}
 	case err != nil:
-		return nil, &runtime.ToolError{Tool: tool, Kind: runtime.ToolMalformed, Detail: "cannot read " + rel + ": " + err.Error()}
+		return nil, cannotRead(err)
 	case !info.Mode().IsRegular():
 		return nil, &runtime.ToolError{Tool: tool, Kind: runtime.ToolMalformed, Detail: rel + " is not a regular file"}
 	}
 	// Symlinks among the path's ancestors may not lead out of {outputDir} either.
-	real, err := filepath.EvalSymlinks(path)
+	resolved, err := filepath.EvalSymlinks(path)
 	switch {
 	case errors.Is(err, os.ErrNotExist):
 		return nil, &runtime.ToolError{Tool: tool, Kind: runtime.ToolMalformed, Detail: "wrote no file " + rel}
 	case err != nil:
-		return nil, &runtime.ToolError{Tool: tool, Kind: runtime.ToolMalformed, Detail: "cannot read " + rel + ": " + err.Error()}
+		return nil, cannotRead(err)
 	}
 	realDir, err := filepath.EvalSymlinks(outputDir)
 	if err != nil {
 		realDir = outputDir
 	}
-	if !within(realDir, real) {
+	if !within(realDir, resolved) {
 		return nil, &runtime.ToolError{Tool: tool, Kind: runtime.ToolMalformed,
 			Detail: fmt.Sprintf("reply source %s escapes {outputDir}", path)}
 	}
 	f, err := os.Open(path) // #nosec G304 -- a file under the invocation's own directory
 	if err != nil {
-		return nil, &runtime.ToolError{Tool: tool, Kind: runtime.ToolMalformed, Detail: "cannot read " + rel + ": " + err.Error()}
+		return nil, cannotRead(err)
 	}
 	defer f.Close() // the read below is the only use; a close error cannot lose data
 	limit := e.outputLimit()
 	data, err := io.ReadAll(io.LimitReader(f, int64(limit)+1))
 	if err != nil {
-		return nil, &runtime.ToolError{Tool: tool, Kind: runtime.ToolMalformed, Detail: "cannot read " + rel + ": " + err.Error()}
+		return nil, cannotRead(err)
 	}
 	if len(data) > limit {
 		return nil, &runtime.ToolError{Tool: tool, Kind: runtime.ToolMalformed,

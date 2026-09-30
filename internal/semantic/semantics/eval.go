@@ -125,19 +125,19 @@ func (m *Model) SentScalarTypes(scope *symbols.Scope, node ast.Node) []string {
 		}
 		return nil
 	}
-	integer, real := ScalarTypeName(ValInt), ScalarTypeName(ValReal)
+	integerName, realName := ScalarTypeName(ValInt), ScalarTypeName(ValReal)
 	for _, scalar := range []struct{ fqn, name string }{
 		{fqnString, StringTypeName},
 		{FQNBoolean, ScalarTypeName(ValBool)},
-		{fqnInteger, integer},
-		{fqnReal, real},
+		{fqnInteger, integerName},
+		{fqnReal, realName},
 	} {
 		if c := m.ExprConformsToLibrary(scope, node, scalar.fqn); c.Known && c.Holds {
 			return []string{scalar.name}
 		}
 	}
 	if c := m.ExprConformsToLibrary(scope, node, fqnNumericalValue); c.Known && c.Holds {
-		return []string{integer, real}
+		return []string{integerName, realName}
 	}
 	return nil
 }

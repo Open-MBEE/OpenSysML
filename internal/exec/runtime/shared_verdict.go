@@ -17,7 +17,9 @@ import (
 // continues it.
 func (ctx *Context) ShareVerdicts() (done func()) {
 	if ctx.verdicts != nil {
-		return func() {}
+		return func() {
+			// The enclosing span owns the memo and ends the sharing itself.
+		}
 	}
 	ctx.verdicts = &verdictMemo{verdicts: make(map[verdictKey][]*sharedVerdict)}
 	return func() { ctx.verdicts = nil }

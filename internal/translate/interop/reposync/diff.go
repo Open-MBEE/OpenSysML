@@ -444,6 +444,13 @@ func mintable(view *subjectView) bool {
 	if view.qualifiedName == "" && export.DerivedSatellite(view.metaclass) {
 		return false
 	}
+	// A `#Tag` prefix is a metadata usage the notation writes as a bare name,
+	// with no body to declare an id in (SysML-textual-bnf PrefixMetadataUsage),
+	// so an id minted for it would be lost on the next export, and with it the
+	// ids of the membership or annotation derived from it.
+	if view.metaclass == "MetadataUsage" && slices.Contains(view.props[rdf.OpenSysML+"declaredKeyword"], `"#"`) {
+		return false
+	}
 	return true
 }
 

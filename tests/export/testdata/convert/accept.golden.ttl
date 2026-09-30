@@ -8,6 +8,10 @@
 elmt:Accepts
     a sysml:Package ;
     sysml:qualifiedName "Accepts" ;
+    sysx:sourceLine "1"^^xsd:integer ;
+    sysx:sourceColumn "1"^^xsd:integer ;
+    sysx:sourceEndLine "11"^^xsd:integer ;
+    sysx:sourceEndColumn "2"^^xsd:integer ;
     sysml:elementId "Accepts" ;
     sysx:memberIndex "0"^^xsd:integer ;
     sysx:sourceLanguage "sysml" ;
@@ -25,6 +29,10 @@ elmt:Accepts
 elmt:Accepts__Scene
     a sysml:ItemDefinition ;
     sysml:qualifiedName "Accepts::Scene" ;
+    sysx:sourceLine "2"^^xsd:integer ;
+    sysx:sourceColumn "5"^^xsd:integer ;
+    sysx:sourceEndLine "2"^^xsd:integer ;
+    sysx:sourceEndColumn "20"^^xsd:integer ;
     sysml:elementId "Accepts__Scene" ;
     sysx:memberIndex "0"^^xsd:integer ;
     sysml:owningNamespace elmt:Accepts ;
@@ -48,6 +56,10 @@ elmt:Accepts__Scene_om
 elmt:Accepts__Camera
     a sysml:PortDefinition ;
     sysml:qualifiedName "Accepts::Camera" ;
+    sysx:sourceLine "3"^^xsd:integer ;
+    sysx:sourceColumn "5"^^xsd:integer ;
+    sysx:sourceEndLine "3"^^xsd:integer ;
+    sysx:sourceEndColumn "21"^^xsd:integer ;
     sysml:elementId "Accepts__Camera" ;
     sysx:memberIndex "1"^^xsd:integer ;
     sysml:owningNamespace elmt:Accepts ;
@@ -109,6 +121,10 @@ elmt:Accepts__Camera_conjugated_pc
 elmt:Accepts__Observe
     a sysml:ActionDefinition ;
     sysml:qualifiedName "Accepts::Observe" ;
+    sysx:sourceLine "4"^^xsd:integer ;
+    sysx:sourceColumn "5"^^xsd:integer ;
+    sysx:sourceEndLine "6"^^xsd:integer ;
+    sysx:sourceEndColumn "6"^^xsd:integer ;
     sysml:elementId "Accepts__Observe" ;
     sysx:memberIndex "2"^^xsd:integer ;
     sysml:owningNamespace elmt:Accepts ;
@@ -138,6 +154,10 @@ elmt:Accepts__Observe_om
 elmt:Accepts__Observe__trigger
     a sysml:ActionUsage ;
     sysml:qualifiedName "Accepts::Observe::trigger" ;
+    sysx:sourceLine "5"^^xsd:integer ;
+    sysx:sourceColumn "9"^^xsd:integer ;
+    sysx:sourceEndLine "5"^^xsd:integer ;
+    sysx:sourceEndColumn "45"^^xsd:integer ;
     sysml:elementId "Accepts__Observe__trigger" ;
     sysx:memberIndex "0"^^xsd:integer ;
     sysml:owningNamespace elmt:Accepts__Observe ;
@@ -168,6 +188,10 @@ elmt:Accepts__Observe__trigger_om
 elmt:Accepts__Observe__trigger__scene
     a sysml:ReferenceUsage ;
     sysml:qualifiedName "Accepts::Observe::trigger::scene" ;
+    sysx:sourceLine "5"^^xsd:integer ;
+    sysx:sourceColumn "31"^^xsd:integer ;
+    sysx:sourceEndLine "5"^^xsd:integer ;
+    sysx:sourceEndColumn "44"^^xsd:integer ;
     sysml:elementId "Accepts__Observe__trigger__scene" ;
     sysx:memberIndex "0"^^xsd:integer ;
     sysml:owningNamespace elmt:Accepts__Observe__trigger ;
@@ -200,6 +224,10 @@ elmt:Accepts__Observe__trigger__scene_om
 elmt:Accepts__Watch
     a sysml:ActionDefinition ;
     sysml:qualifiedName "Accepts::Watch" ;
+    sysx:sourceLine "7"^^xsd:integer ;
+    sysx:sourceColumn "5"^^xsd:integer ;
+    sysx:sourceEndLine "10"^^xsd:integer ;
+    sysx:sourceEndColumn "6"^^xsd:integer ;
     sysml:elementId "Accepts__Watch" ;
     sysx:memberIndex "3"^^xsd:integer ;
     sysml:owningNamespace elmt:Accepts ;
@@ -234,6 +262,10 @@ elmt:Accepts__Watch_om
 elmt:Accepts__Watch__lens
     a sysml:PortUsage ;
     sysml:qualifiedName "Accepts::Watch::lens" ;
+    sysx:sourceLine "8"^^xsd:integer ;
+    sysx:sourceColumn "9"^^xsd:integer ;
+    sysx:sourceEndLine "8"^^xsd:integer ;
+    sysx:sourceEndColumn "28"^^xsd:integer ;
     sysml:elementId "Accepts__Watch__lens" ;
     sysx:memberIndex "0"^^xsd:integer ;
     sysml:owningNamespace elmt:Accepts__Watch ;
@@ -263,6 +295,10 @@ elmt:Accepts__Watch__lens_om
 elmt:Accepts__Watch__framed
     a sysml:ActionUsage ;
     sysml:qualifiedName "Accepts::Watch::framed" ;
+    sysx:sourceLine "9"^^xsd:integer ;
+    sysx:sourceColumn "9"^^xsd:integer ;
+    sysx:sourceEndLine "9"^^xsd:integer ;
+    sysx:sourceEndColumn "53"^^xsd:integer ;
     sysml:elementId "Accepts__Watch__framed" ;
     sysx:memberIndex "1"^^xsd:integer ;
     sysml:owningNamespace elmt:Accepts__Watch ;
@@ -294,6 +330,10 @@ elmt:Accepts__Watch__framed_om
 elmt:Accepts__Watch__framed__scene
     a sysml:ReferenceUsage ;
     sysml:qualifiedName "Accepts::Watch::framed::scene" ;
+    sysx:sourceLine "9"^^xsd:integer ;
+    sysx:sourceColumn "30"^^xsd:integer ;
+    sysx:sourceEndLine "9"^^xsd:integer ;
+    sysx:sourceEndColumn "43"^^xsd:integer ;
     sysml:elementId "Accepts__Watch__framed__scene" ;
     sysx:memberIndex "0"^^xsd:integer ;
     sysml:owningNamespace elmt:Accepts__Watch__framed ;

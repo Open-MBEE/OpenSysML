@@ -473,8 +473,11 @@ triples come); a set of classes with no such member is refused, naming the subje
   Safety about a, b;` or the prefix `#Safety part def P;` — is a
   `sysml:MetadataUsage` owned by the element it is written in or ahead of,
   through an `OwningMembership` (never a `FeatureMembership`: the annotation is
-  not a feature of what it annotates), even when that element is itself a
-  relationship such as a `dependency` or a `subject` membership. It carries
+  not a feature of what it annotates), a `subject` membership's included. A
+  `dependency`'s prefix (`#Safety dependency a to b;`) is the one exception, as
+  the grammar makes it (SysML-textual-bnf Dependency, PrefixMetadataAnnotation):
+  the dependency owns a `sysml:Annotation` whose `sysml:annotatingElement` is the
+  metadata usage and `sysml:annotatedElement` the dependency. It carries
   `sysml:type` for its metadata definition, one `sysml:annotatedElement` per
   `about` target, `sysx:hasBody`,
   and `sysx:declaredKeyword` `"@"` or `"#"` for the sigil it was written with
@@ -518,6 +521,7 @@ The `sysx:` properties:
 | `sysx:hasBody` | Distinguishes `part def A;` from `part def A { }`, which are different source and would otherwise convert back identically. Also marks an expression body node, so `{}` rebuilds from structure. |
 | `sysx:sourceText`, `sysx:sourceTail` | The element's lines as written, comments and blank lines included, which a conversion back to notation prefers while they still state what the graph states. An element with members carries the lines ahead of them as its text and those after them as its tail. See [Source text](#source-text). |
 | `sysx:sourceDocument` | On each root element of a model converted from several documents, the name of the document it was written in, since one graph no longer keeps the documents apart |
+| `sysx:sourceLine`, `sysx:sourceColumn`, `sysx:sourceEndLine`, `sysx:sourceEndColumn` | Where each declared element is written in its document: 1-based lines and columns (columns count bytes), the end exclusive, as a diagnostic's span gives them, trailing whitespace excluded. Layout like `sysx:sourceText`: reading the graph ignores them, and an element sharing a line with its owner, which has no `sysx:sourceText` of its own, still has them |
 | `sysx:sourceLanguage` | On each root element, the grammar the file was written in — `sysml` or `kerml` — so the text is read back under the grammar it was written under, and a flag the two grammars spell differently (`const` against `constant`, see the feature flags above) is written in that grammar. Absent for a buffer with no model extension (standard input, a REPL session), which the parser reads as SysML with KerML's `all` prefix. See [Source text](#source-text). |
 | `sysx:declaredKeyword` | The kind keyword as written, when it is one of the synonyms several keywords share (`datatype` and `attribute`, `function` and `calc`, KerML's `feature` and `attribute`, `snapshot` and `occurrence`), on a named declaration and on an anonymous one alike (`feature :>> x;`, `snapshot :>> start { … }`). The AST records one kind for all of them, so without this the notation would come back rewritten. Where the graph types the fact the keyword states — `sysml:portionKind` for `snapshot`/`timeslice`, the metaclass `sysml:EventOccurrenceUsage` for `event`, `sysml:AssertConstraintUsage` for `assert` — the typed fact is authoritative and this predicate only chooses between two spellings of it (`snapshot :>> start` against `snapshot occurrence :>> start`; `event m.start` against `event occurrence references m.start`; `assert c` against `assert constraint references c`); a keyword the typing contradicts (`snapshot` with `sysml:portionKind "timeslice"` or none, `event` on a `sysml:PartUsage`, `assert` on a `sysml:ConstraintUsage`) is refused rather than one of the two written. KerML's `feature` has no typed counterpart — an attribute usage is what the AST records for it and `sysx:sourceLanguage` does not decide between the two — so it is carried as this spelling alone. Also the keyword a constraint body's condition is stated with (`assert`, `assume`, or absent for a bare condition, which asserts implicitly), the `constraint` of an `assume`/`require` member that declares a constraint usage (so its `references C` is read as a specialization, where `require C` alone states the constraint the member refers to), and the sigil a metadata annotation was written with: `@` for a member (`@Safety;`), `#` for a prefix ahead of a declaration (`#Safety part def P;`), absent for the `metadata` keyword. |
 | `sysx:declaredPrefix` | The keyword qualifying the kind keyword after it — the `assume` of `assume constraint c : C`. It says what the declaration is for, and the AST kind alone does not carry it. The `assert` of `assert constraint c : C` is not written here: that usage is a `sysml:AssertConstraintUsage`, and the metaclass states it; a graph stating both with another prefix is refused. |
@@ -551,7 +555,6 @@ no property; they are annotations, not replacements for the standard shape:
 | `endVerb` | Preserve the noun-form head's explicit verb (`connect` or `from`), which the connector metaclass does not distinguish. |
 | `endReferencesKeyword` | Preserve whether a named end used the `references` keyword rather than `::>`, a notation choice not represented by the end's standard reference relationship. |
 | `sourceMember`, `targetMember` | Preserve the members named by positional `then` succession ends when no standard end name or resolvable element carries that notation. |
-| `payload` | Preserve a flow payload as an expression; the 202407 ontology table has no direct `payloadFeature` property for this graph shape. The metamodel models the payload as a feature/`ItemFlowEnd`, while this mapping keeps the payload expression rather than materializing that feature structure. |
 
 Every construct the metamodel has an element for is typed by that element,
 so a consumer reading `sysml:` terms alone sees the abstract syntax the pilot
@@ -1225,7 +1228,7 @@ the node, that name is used; the rest are `sysx:` terms, marked below.
 | `first x;` in an action body | `sysml:Membership` with `sysx:declaredKeyword "first"` | `sysml:memberElement` and `sysml:sourceFeature` (the member the flow starts at — a reference, not a name it declares), `sysx:hasBody` and the members of its body. Read, a `sysx:InitialNode` from an older graph is the same member |
 | `first x then y { … }` in an action body (the succession x → y, which marks no start) | `sysml:SuccessionAsUsage` with `sysx:declaredKeyword "first"` | `sysml:sourceFeature` (x, a reference), `sysml:targetFeature` (y), `sysx:guard`, `sysx:hasBody` and the members of its body |
 | `done;` written on its own | `sysml:Membership` with `sysx:declaredKeyword "done"` | `sysml:memberElement`, the library's `Actions::Action::done`. Read, a `sysx:FinalNode` from an older graph is the same member |
-| `then done;`, `then [m] done;`, `[m] then done;` | `sysml:SuccessionAsUsage` with `sysx:endForm "then"` | its target end's `ReferenceSubsetting` reaches the library's `Actions::Action::done` — `sysml:targetFeature` states the same — and no member is declared for the node. The source-end multiplicity is carried on the empty source connector end, including whether it preceded `then` in source text. Read, an older graph's `done` Membership targeted through `sysx:targetMember` writes back as `then done;` |
+| `then done;`, `[m] then done;`, `then [m] done;` | `sysml:SuccessionAsUsage` with `sysx:endForm "then"` | its target end's `ReferenceSubsetting` reaches the library's `Actions::Action::done` — `sysml:targetFeature` states the same — and no member is declared for the node. A source-end multiplicity (`[m] then`) is carried on the empty source connector end; a target-end crossing multiplicity (`then [m] done`) on the target connector end, as `succession first a then [m] done;` carries it. Read, an older graph's `done` Membership targeted through `sysx:targetMember` writes back as `then done;` |
 | `action a;`, `action a { x + 1 }` | `sysx:ActionExecutionNode` | `sysml:references` or `sysx:expression` |
 | `perform a;` | `sysml:PerformActionUsage` | `sysx:expression` (the action performed) |
 | `assign x := 1;` | `sysml:AssignmentActionUsage` | `sysx:target`, `sysml:value`, `sysx:assignmentOperator` when it is not `:=` |
@@ -1249,11 +1252,15 @@ These action-body forms also apply recursively inside their own bodies; a
 nested statement uses the same RDF mapping as a top-level body item. A
 succession source multiplicity is carried on the source connector end, including
 whether `[m]` preceded `then`; `sysx:sourceMultiplicityBeforeThen` preserves that
-spelling when `sysx:sourceText` is absent. These forms follow SysML.xtext:878, 887,
+spelling when `sysx:sourceText` is absent. The crossing multiplicity a `then`
+writes ahead of the target it references (`then [m] b;`, `then [m] b { … }`,
+`[m] then [n] b;`) is carried on the target connector end, the same end
+`succession first a then [m] b;` states. These forms follow SysML.xtext:878, 887,
 1607 ActionBodyParameter, 1442 AcceptNode, 1499 SendNode, 1535 AssignmentNode, 1596 IfNode,
 1615 WhileLoopNode, 1624 ForLoopNode, 1641 TerminateNode, 1703 TargetSuccession,
-1708 GuardedTargetSuccession, 1714 DefaultTargetSuccession and formal/2026-03-02. Both spellings round-trip in
-`export_test.go:TestActionSuccessionSourceMultiplicityRoundTripsWithoutSourceText`.
+1708 GuardedTargetSuccession, 1714 DefaultTargetSuccession and formal/2026-03-02. Every spelling round-trips in
+`export_test.go:TestActionSuccessionSourceMultiplicityRoundTripsWithoutSourceText` and
+`TestActionSuccessionTargetMultiplicityRoundTripsWithoutSourceText`.
 
 A state's members are held in the AST in one bucket per kind (entry, do, exit,
 defer, substates); they are written back in the order they were
@@ -1458,6 +1465,16 @@ lone name — and the end owns, through a `sysml:FeatureMembership`, a
 segment: `a.p.fuel` subsets the chain `a.p` and redefines `fuel`. Read back,
 the segments and the redefined feature are written as the one chain.
 
+A flow's `of` clause is a `sysml:PayloadFeature` the flow owns through a
+`sysml:FeatureMembership` (SysML-textual-bnf FlowPayloadFeatureMember). `of p : T`
+is that feature, named `p`, so `m.p` reaches it; `of T` and `of T[1]` state
+only its `FeatureTyping` and multiplicity, and the feature takes the flow's next
+position as its name (`…::@0` in a flow with no body members). Read back, the
+feature is written after `of`, not in the flow's body. 202407 names the
+metaclass `ItemFeature`. A graph written before this states the payload as the
+expression `sysx:payload` and still reads back with it; a flow stating both, or
+a `PayloadFeature` owned by anything but a flow, is refused.
+
 `sysml:connectorEnd` is ordered by its `json:connectorEnd` annotation. Each end
 is a `ReferenceUsage` with `sysml:isEnd` — a `PortUsage` for an `interface`'s
 end, whose grammar declares `InterfaceEnd returns SysML::PortUsage`
@@ -1548,8 +1565,8 @@ owns (KerML `OwnedFeatureChainMember`), the same element an end's carries.
 For a binary connector, `sysml:sourceFeature` and `sysml:targetFeature`
 identify the two related features; `sysml:relatedFeature` remains the
 collection-valued relation for every arity. These two predicates are not
-written for n-ary connectors. A flow's payload remains the `sysx:payload`
-expression, not an additional connector end. Transitions use
+written for n-ary connectors. A flow's payload is its `PayloadFeature`, not an
+additional connector end. Transitions use
 `sysml:source` and `sysml:target`; `sourceFeature` and `targetFeature` remain
 the legacy transition spelling accepted on import.
 
@@ -1630,7 +1647,8 @@ several lines, or with a note inside it, records its form like any other
 cannot rebuild carries no form and stays readable as text alone. Those are the heads that say
 more than their ends: an end that redefines, an inline payload declaration
 (`flow of x : P from a to b`), or a satisfy that declares a name of its own
-(`satisfy s : R by v`).
+(`satisfy s : R by v`). A payload declaration is still rebuilt from the graph
+alone, from the `PayloadFeature` the flow owns.
 Converting such an element from a graph that carries no `sysx:sourceText` is
 reported, not guessed. A graph that relates ends but gives no form at all is
 reported the same way (`export_test.go:TestEndsWithoutTheirFormAreReported`).

@@ -32,10 +32,10 @@ below is the shortest version.
 
 It is fast. The public [Apollo 11 SysML v2 model](https://github.com/airbus/apollo-11-sysml-v2)
 — 28 files, 7,200 lines — parses in **8 ms** (42 MB/s on one core) and loads, resolves and
-validates against the full standard library in **0.43 s**. The measurement and how to repeat
+validates against the full standard library in **0.27 s**. The measurement and how to repeat
 it are in [performance](docs/internals/performance.md#a-real-model-apollo-11). The same model
 is where the runtime earns its keep: the pinned OMG pilot validator passes all 28 files without
-a finding, and OpenSysML's validation reports 4 warnings and no error, yet asked to *run* the
+a finding, and OpenSysML's validation reports 2 warnings and no error, yet asked to *run* the
 model's delta-v, reliability and injection calculations, or to instantiate the mission
 individual that performs the top-level `PerformLunarMission` action, the runtime stops each one
 at a defect only execution reaches — an `e` that resolves to a valueless ISO 80000 quantity, a
@@ -261,7 +261,7 @@ SysML v2:
 - **Constraint Solving** *(experimental)* — In addition to evaluating what holds of an object, an external SMT solver determines whether a constraint, requirement or satisfaction assertion *can* hold, which conditions conflict when it cannot, which values would satisfy it, which variants a model permits, and what optimizes an `analysis def`'s objectives. The solver is optional and discovered at runtime. [The REPL command reference](docs/reference/repl-commands.md) documents each command, and [installing a solver](docs/guide/01-install.md#installing-a-solver-optional) describes how to obtain one. The design follows OpenMBEE's [HMF](https://github.com/hivecore-dev/hmf) (see [Acknowledgements](#acknowledgements)).
 - **Embeddable Go API** — `client/opensysml` is the public Go surface: parse, look up symbols, evaluate expressions and instantiate parts from Go code, answered in process by the engine the calling binary already links (no port, no child process and no serialization round trip), or over the Connect protocol against an externally hosted service. See [client/opensysml/README.md](client/opensysml/README.md).
 - **Python Client Library** — gRPC-based Python bindings for programmatic access: parse models, resolve symbols, evaluate expressions, instantiate parts, execute actions/state machines. Includes IPython display hooks for Jupyter notebooks and pandas DataFrame integration. Constraint, requirement, satisfaction and calc verdicts are available as RPCs (`verify_constraint`, `verify_requirement`, `verify_satisfaction`, `calc`).
-- **Node/TypeScript Client Library** — `@opensysml/client` for Node and the browser, over the Connect protocol with protobuf bodies: parse, evaluate, look up symbols and instantiate, with values as discriminated unions. No native addon and nothing downloaded at install time ([client/node/README.md](client/node/README.md)).
+- **Node/TypeScript Client Library** — `@openmbee/opensysml` for Node and the browser, over the Connect protocol with protobuf bodies: parse, evaluate, look up symbols and instantiate, with values as discriminated unions. No native addon and nothing downloaded at install time ([client/node/README.md](client/node/README.md)).
 - **Java Client Library** — `org.openmbee:opensysml-client` for a JVM host application it does not own, on the JDK's own `java.net.http.HttpClient`, so no gRPC, Netty or `tcnative` reaches the host ([client/java/README.md](client/java/README.md)).
 - **Rust Client Library** — A blocking client for the local `sysml-grpc` service, with no asynchronous runtime in its default dependency tree, available from the [Rust crate documentation](client/rust/README.md).
 - **Julia Client Package** — `OpenSysML`, a thin JSON-over-HTTP client (`HTTP.jl` + `JSON.jl` only) for Julia 1.10+: parse, evaluate, instantiate, execute and query, with `call` reaching the whole RPC surface ([client/julia/OpenSysML/README.md](client/julia/OpenSysML/README.md)).
@@ -382,7 +382,7 @@ github.com/Open-MBEE/OpenSysML
 │   └── frontend/           # protoconv, grpc, lsp, repl, stdiorpc, usage
 ├── client/opensysml/       # The public Go API (in-process and remote)
 ├── client/java/           # Java client (org.openmbee:opensysml-client)
-├── client/node/           # Node/TypeScript client (@opensysml/client)
+├── client/node/           # Node/TypeScript client (@openmbee/opensysml)
 ├── client/python/         # Python client bindings (opensysml)
 ├── client/rust/           # Rust client (opensysml) and its conformance runner
 ├── client/julia/          # Julia client package (OpenSysML) and its conformance runner
@@ -422,8 +422,9 @@ Pre-built binaries for Linux, macOS, and Windows are available on the [Releases 
 - The Java client is not yet published: consume it with `mvn -f client/java/pom.xml install`. The
   prerequisites a maintainer must obtain for a first Maven Central upload are listed in
   [docs/project/releasing.md](docs/project/releasing.md)
-- The Node client is released the same way on `client-node-v*`, which publishes
-  `@opensysml/client` and the five per-platform packages that carry the service binary
+- The Node client is released by the same `v*` tag, which publishes
+  `@openmbee/opensysml` and the five per-platform packages that carry the service binary
+  at the core's version
 - The Rust client is not yet published to crates.io: use a path or Git dependency, and see
   [client/rust/README.md](client/rust/README.md) and
   [docs/project/releasing.md](docs/project/releasing.md) for the requirements of a first publish
@@ -546,7 +547,7 @@ how to choose; [guide chapter 9](docs/guide/09-clients.md) works through each on
 |---|---|---|---|
 | Go, `client/opensysml` | in process, or Connect to a service | with the core (`v*` tags) | [Go packages](docs/reference/api.md) |
 | Python, `opensysml` | gRPC, to a private child service or a named one | PyPI, on the core `v*` tags, at the core's version | [Python API](docs/reference/python-api.md) |
-| Node/TypeScript, `@opensysml/client` | Connect, from Node or a browser page | not yet | [Node API](docs/reference/node-api.md) |
+| Node/TypeScript, `@openmbee/opensysml` | Connect, from Node or a browser page | not yet | [Node API](docs/reference/node-api.md) |
 | Java, `org.openmbee:opensysml-client` | Connect, over the JDK's own HTTP client | not yet | [Java API](docs/reference/java-api.md) |
 | Rust, `opensysml` | Connect, blocking, no async runtime | not yet | [Rust API](docs/reference/rust-api.md) |
 
@@ -594,12 +595,12 @@ Detailed installation and usage instructions are in
 
 ### Node/TypeScript
 
-**@opensysml/client** provides the same access over the Connect protocol, for Node and the
+**@openmbee/opensysml** provides the same access over the Connect protocol, for Node and the
 browser. It includes no native addon: installation is a standard registry fetch, and the service
 binary is supplied by a per-platform optional dependency.
 
 ```ts
-import { loads } from "@opensysml/client";
+import { loads } from "@openmbee/opensysml";
 
 await using model = await loads("part def Wheel { attribute radius : ScalarValues::Real = 0.3; }");
 const radius = await model.eval("0.3 * 2");

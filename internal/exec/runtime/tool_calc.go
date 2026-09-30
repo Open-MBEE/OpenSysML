@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"sort"
 
+	"github.com/Open-MBEE/OpenSysML/internal/semantic/semantics"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/symbols"
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/ast"
 )
@@ -38,40 +39,8 @@ func (ctx *Context) calcToolCall(shape *calcShape, scope *symbols.Scope, held fu
 		if param.Symbol.Name == "" {
 			continue
 		}
-		variable, named, err := ctx.toolVariableOf(param.Symbol)
-		if err != nil {
+		if err := ctx.addToolCallParameter(call, shape, param, namedBy, held); err != nil {
 			return nil, "", err
-		}
-		if !named {
-			continue
-		}
-		if other, taken := namedBy[variable]; taken {
-			return nil, "", &ToolError{Tool: tool, Kind: ToolAmbiguousVariable,
-				Detail: fmt.Sprintf("%s names both %s and %s of %s", variable, other, param.Symbol.Name, shape.Label)}
-		}
-		namedBy[variable] = param.Symbol.Name
-		name := param.Symbol.Name
-		reads := param.Direction == ast.DirIn || param.Direction == ast.DirInOut
-		writes := param.Direction == ast.DirOut || param.Direction == ast.DirInOut
-		if reads {
-			value, bound := held(name)
-			optional := ctx.model.semantics.OptionalParameter(param.Symbol)
-			if !bound && !optional {
-				return nil, "", fmt.Errorf("%w: %s: input parameter %s is bound by no argument",
-					ErrUnboundParameter, shape.Label, name)
-			}
-			// An optional input bound to null is omitted: nothing is sent for it,
-			// as an action's unbound optional sends none.
-			if bound && (value.Kind != ValNull || !optional) {
-				sent, err := toolInput(tool, param.Symbol, value)
-				if err != nil {
-					return nil, "", err
-				}
-				call.Inputs = append(call.Inputs, ToolInput{Variable: variable, Parameter: name, Value: sent})
-			}
-		}
-		if writes {
-			call.Outputs = append(call.Outputs, ToolOutput{Variable: variable, Parameter: name, Declared: param.Symbol})
 		}
 	}
 	var resultKey string
@@ -95,6 +64,46 @@ func (ctx *Context) calcToolCall(shape *calcShape, scope *symbols.Scope, held fu
 	sort.Slice(call.Inputs, func(i, j int) bool { return call.Inputs[i].Variable < call.Inputs[j].Variable })
 	sort.Slice(call.Outputs, func(i, j int) bool { return call.Outputs[i].Variable < call.Outputs[j].Variable })
 	return call, resultKey, nil
+}
+
+// addToolCallParameter adds a ToolVariable-named parameter to the call: an
+// input for the value held, an output for a parameter the tool writes.
+func (ctx *Context) addToolCallParameter(call *ToolCall, shape *calcShape, param semantics.BehaviorParameter, namedBy map[string]string, held func(param string) (Value, bool)) error {
+	tool := call.ToolName
+	variable, named, err := ctx.toolVariableOf(param.Symbol)
+	if err != nil {
+		return err
+	}
+	if !named {
+		return nil
+	}
+	if other, taken := namedBy[variable]; taken {
+		return &ToolError{Tool: tool, Kind: ToolAmbiguousVariable,
+			Detail: fmt.Sprintf("%s names both %s and %s of %s", variable, other, param.Symbol.Name, shape.Label)}
+	}
+	namedBy[variable] = param.Symbol.Name
+	name := param.Symbol.Name
+	if param.Direction == ast.DirIn || param.Direction == ast.DirInOut {
+		value, bound := held(name)
+		optional := ctx.model.semantics.OptionalParameter(param.Symbol)
+		if !bound && !optional {
+			return fmt.Errorf("%w: %s: input parameter %s is bound by no argument",
+				ErrUnboundParameter, shape.Label, name)
+		}
+		// An optional input bound to null is omitted: nothing is sent for it,
+		// as an action's unbound optional sends none.
+		if bound && (value.Kind != ValNull || !optional) {
+			sent, err := toolInput(tool, param.Symbol, value)
+			if err != nil {
+				return err
+			}
+			call.Inputs = append(call.Inputs, ToolInput{Variable: variable, Parameter: name, Value: sent})
+		}
+	}
+	if param.Direction == ast.DirOut || param.Direction == ast.DirInOut {
+		call.Outputs = append(call.Outputs, ToolOutput{Variable: variable, Parameter: name, Declared: param.Symbol})
+	}
+	return nil
 }
 
 // computeCalcByTool computes a tool-annotated calc: the tool shape.Tool names is invoked

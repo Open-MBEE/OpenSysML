@@ -73,7 +73,7 @@ func TestCommentTextRoundTrip(t *testing.T) {
 			if !ok {
 				t.Fatalf("CommentText(%q) refused", body)
 			}
-			if end := strings.Index(text[2:], "*/"); end != len(text)-4 {
+			if strings.Index(text[2:], "*/") != len(text)-4 {
 				t.Fatalf("CommentText(%q) = %q closes early", body, text)
 			}
 			if got := CommentBody(text); got != body {

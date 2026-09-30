@@ -41,7 +41,22 @@ Each of these is a model and a walkthrough of the commands that exercise it.
 | [expressions-demo.sysml](expressions-demo.sysml) | [EXPRESSIONS-DEMO.md](EXPRESSIONS-DEMO.md) | the expression forms worked through one payload: `as` casts that select rather than convert, `*` as the unbounded value, `.metadata` on an annotated part, calculations passed and invoked as function values, a `Set` with no order and no repeats, a rank-three tensor quantity indexed and scaled, and `collect`/`select`/`reduce` bodies typed by what they return |
 | [action-executor-demo.sysml](action-executor-demo.sysml) | [ACTION-EXECUTOR-DEMO.md](ACTION-EXECUTOR-DEMO.md) | executing actions, and stepping one in the REPL |
 | [self-model/](self-model/) | [self-model/README.md](self-model/README.md) | OpenSysML's own architecture in SysML v2: the analysis pipeline as parts, ports and item flows onto the Go packages that implement it, the validation tiers and the two execution engines as state machines, the [AGENTS.md](../AGENTS.md) architecture invariants as requirements the tool evaluates, and the views `make self-model` renders the architecture diagrams from |
+| [semantic-layer/demo.sysml](semantic-layer/demo.sysml) | [semantic-layer/README.md](semantic-layer/README.md) | the operators, feature chains and typing checks of the semantic layer, one attribute per case, evaluated in the REPL |
 | `parser_features_demo_*.sysml`/`.kerml` | [PARSER_FEATURES_DEMOS.md](PARSER_FEATURES_DEMOS.md) | the notation the parser accepts, feature by feature |
+
+The remaining models in this directory are the ones the guide walks through in
+place: [state-machine-demo.sysml](state-machine-demo.sysml),
+[combined-behavioral-demo.sysml](combined-behavioral-demo.sysml),
+[orthogonal-regions-demo.sysml](orthogonal-regions-demo.sysml) and
+[pseudostates-demo.sysml](pseudostates-demo.sysml) in
+[behavior](../docs/guide/06-behavior.md), [repl-behavioral-demo.sysml](repl-behavioral-demo.sysml)
+in [checking](../docs/guide/05-checking.md), and
+[rdf-interop-demo.sysml](rdf-interop-demo.sysml) — structure only, so it round-trips — in
+[saving and RDF](../docs/guide/07-saving-and-rdf.md).
+[phase-c-behavioral-bodies.sysml](phase-c-behavioral-bodies.sysml) exercises the
+calculation, constraint, requirement, action and state bodies the parser accepts, and
+[runtime-demo/](runtime-demo/) is a Go program (`go run ./examples/runtime-demo`) that
+drives the parser, resolver and runtime directly rather than through `sysml`.
 
 ## Other Examples
 

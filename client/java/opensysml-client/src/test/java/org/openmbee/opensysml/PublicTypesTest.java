@@ -696,19 +696,12 @@ class PublicTypesTest {
             new ConnectTransport("127.0.0.1:1", Encoding.PROTOBUF, Duration.ofSeconds(1)),
             new Capabilities("dev", java.util.Set.of(Capabilities.APPLY_EDITS, Capabilities.AUTHORING)))) {
       Model model = new Model(limited, "hash", List.of(), List.of());
+      List<Edit> edits =
+          List.of(
+              new Edit.AddConnection(
+                  "Demo::System", "allocation", "a", "b", Optional.empty(), Optional.empty()));
       CapabilityException refused =
-          assertThrows(
-              CapabilityException.class,
-              () ->
-                  model.applyEdits(
-                      List.of(
-                          new Edit.AddConnection(
-                              "Demo::System",
-                              "allocation",
-                              "a",
-                              "b",
-                              Optional.empty(),
-                              Optional.empty()))));
+          assertThrows(CapabilityException.class, () -> model.applyEdits(edits));
       assertEquals(Capabilities.CONNECTION_AUTHORING, refused.capability());
     }
   }
@@ -787,13 +780,9 @@ class PublicTypesTest {
             new Capabilities(
                 "dev", java.util.Set.of(Capabilities.APPLY_EDITS, Capabilities.AUTHORING)))) {
       Model model = new Model(limited, "hash", List.of(), List.of());
-      assertThrows(
-          TransportException.class,
-          () ->
-              model.applyEdits(
-                  List.of(
-                      Edit.AddMember.of("Demo", "constraint", "bounded")
-                          .withBodyExpression(""))));
+      List<Edit> edits =
+          List.of(Edit.AddMember.of("Demo", "constraint", "bounded").withBodyExpression(""));
+      assertThrows(TransportException.class, () -> model.applyEdits(edits));
     }
   }
 
@@ -816,12 +805,9 @@ class PublicTypesTest {
             new Capabilities(
                 "dev", java.util.Set.of(Capabilities.APPLY_EDITS, Capabilities.TRANSITION_AUTHORING)))) {
       Model model = new Model(limited, "hash", List.of(), List.of());
+      List<Edit> edits = List.of(Edit.AddTransition.of("Demo::S", "idle", "toasting"));
       CapabilityException refused =
-          assertThrows(
-              CapabilityException.class,
-              () ->
-                  model.applyEdits(
-                      List.of(Edit.AddTransition.of("Demo::S", "idle", "toasting"))));
+          assertThrows(CapabilityException.class, () -> model.applyEdits(edits));
       assertEquals(Capabilities.AUTHORING, refused.capability());
     }
   }
@@ -834,10 +820,9 @@ class PublicTypesTest {
             new Capabilities(
                 "dev", java.util.Set.of(Capabilities.APPLY_EDITS, Capabilities.SEQUENCE_AUTHORING)))) {
       Model model = new Model(limited, "hash", List.of(), List.of());
+      List<Edit> edits = List.of(Edit.AddSequence.then("Demo::A", "done"));
       CapabilityException refused =
-          assertThrows(
-              CapabilityException.class,
-              () -> model.applyEdits(List.of(Edit.AddSequence.then("Demo::A", "done"))));
+          assertThrows(CapabilityException.class, () -> model.applyEdits(edits));
       assertEquals(Capabilities.AUTHORING, refused.capability());
     }
   }
@@ -858,8 +843,9 @@ class PublicTypesTest {
           Edit.AddSequence.thenMember("Demo::A", "assign", "")
               .withTarget("x")
               .withValue("1");
+      List<Edit> edits = List.of(statement);
       CapabilityException refused =
-          assertThrows(CapabilityException.class, () -> model.applyEdits(List.of(statement)));
+          assertThrows(CapabilityException.class, () -> model.applyEdits(edits));
       assertEquals(Capabilities.ACTION_BODY_STATEMENT_AUTHORING, refused.capability());
     }
   }
@@ -872,12 +858,9 @@ class PublicTypesTest {
             new Capabilities(
                 "dev", java.util.Set.of(Capabilities.APPLY_EDITS, Capabilities.IMPORT_AUTHORING)))) {
       Model model = new Model(limited, "hash", List.of(), List.of());
+      List<Edit> edits = List.of(Edit.AddImport.of("Demo", "ScalarValues::*"));
       CapabilityException refused =
-          assertThrows(
-              CapabilityException.class,
-              () ->
-                  model.applyEdits(
-                      List.of(Edit.AddImport.of("Demo", "ScalarValues::*"))));
+          assertThrows(CapabilityException.class, () -> model.applyEdits(edits));
       assertEquals(Capabilities.AUTHORING, refused.capability());
     }
   }
@@ -889,8 +872,9 @@ class PublicTypesTest {
             new Capabilities(
                 "dev", java.util.Set.of(Capabilities.APPLY_EDITS, Capabilities.AUTHORING)))) {
       Model model = new Model(limited, "hash", List.of(), List.of());
+      List<Edit> edits = List.of(edit);
       CapabilityException refused =
-          assertThrows(CapabilityException.class, () -> model.applyEdits(List.of(edit)));
+          assertThrows(CapabilityException.class, () -> model.applyEdits(edits));
       assertEquals(capability, refused.capability());
     }
   }

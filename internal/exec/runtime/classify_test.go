@@ -2714,7 +2714,7 @@ func TestWriteToRestatedCollectionClassifies(t *testing.T) {
 	idx, _, ctx := buildRuntimeWithLibraries(t, "<test>", parseAndBuild(t, model))
 	vehicle := instantiateQualified(t, ctx, idx, "test::vehicle")
 	wheel := readInstance(t, ctx, vehicle, "wheels")
-	if fv := wheel.FeatureValues["tag"]; fv == nil {
+	if wheel.FeatureValues["tag"] == nil {
 		t.Fatalf("the wheel written into subparts has no tag feature; it was not classified by the restated collection")
 	}
 }

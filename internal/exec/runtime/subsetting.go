@@ -299,36 +299,14 @@ func (ctx *Context) redefinitionAliases(typ *symbols.Symbol, name string) map[st
 // of the value it inherits — and otherwise the most specific name.
 // Two names valued by one declaration are ErrConflictingRedefinition.
 func (ctx *Context) sharedRedefinitionName(inst *Instance, byName, canonicalByName map[string]*EffectiveFeature, names []string, overridden map[string]bool) (string, error) {
-	ordered := names
-	if len(overridden) > 0 {
-		ordered = make([]string, 0, 2*len(names))
-		for _, name := range names {
-			if overridden[name] {
-				ordered = append(ordered, name)
-			}
-		}
-		for _, name := range names {
-			if !overridden[name] {
-				ordered = append(ordered, name)
-			}
-		}
-	}
 	valued := ""
 	var valuedBy *symbols.Scope
-	for _, name := range ordered {
+	for _, name := range overriddenFirst(names, overridden) {
 		feat, ok := byName[name]
 		if !ok || feat.Symbol == nil {
 			continue
 		}
-		// The declaration a chain replaced still counts its value: two names
-		// one body values conflict however specifically each reads.
-		candidates := []*EffectiveFeature{feat}
-		if overridden[name] {
-			if canon := canonicalByName[name]; canon != nil && canon.Symbol != feat.Symbol {
-				candidates = []*EffectiveFeature{canon, feat}
-			}
-		}
-		for _, cand := range candidates {
+		for _, cand := range valueCandidates(name, feat, canonicalByName, overridden) {
 			if !ctx.declarationValues(cand) {
 				continue
 			}
@@ -346,6 +324,38 @@ func (ctx *Context) sharedRedefinitionName(inst *Instance, byName, canonicalByNa
 		return valued, nil
 	}
 	return names[0], nil
+}
+
+// overriddenFirst orders the names with the overridden ones first, each part
+// in the given order.
+func overriddenFirst(names []string, overridden map[string]bool) []string {
+	if len(overridden) == 0 {
+		return names
+	}
+	ordered := make([]string, 0, 2*len(names))
+	for _, name := range names {
+		if overridden[name] {
+			ordered = append(ordered, name)
+		}
+	}
+	for _, name := range names {
+		if !overridden[name] {
+			ordered = append(ordered, name)
+		}
+	}
+	return ordered
+}
+
+// valueCandidates lists the declarations whose value counts for a name: the
+// declaration a chain replaced still counts its value, so two names one body
+// values conflict however specifically each reads.
+func valueCandidates(name string, feat *EffectiveFeature, canonicalByName map[string]*EffectiveFeature, overridden map[string]bool) []*EffectiveFeature {
+	if overridden[name] {
+		if canon := canonicalByName[name]; canon != nil && canon.Symbol != feat.Symbol {
+			return []*EffectiveFeature{canon, feat}
+		}
+	}
+	return []*EffectiveFeature{feat}
 }
 
 // declarationValues reports whether a feature's own declaration values it: it
