@@ -4442,7 +4442,13 @@ func (p *Parser) atPayloadDeclaration() bool {
 	if !p.atName() {
 		return false
 	}
-	return p.peekN(p.pastBracketed(1)).Kind == lexer.Colon
+	// The multiplicity part may close with `ordered` and `nonunique`
+	// (MultiplicityPart) before the typing: `of p[1] ordered : T`.
+	at := p.pastBracketed(1)
+	for tok := p.peekN(at); tok.Kind == lexer.Keyword && (tok.KeywordID == "ordered" || tok.KeywordID == "nonunique"); tok = p.peekN(at) {
+		at++
+	}
+	return p.peekN(at).Kind == lexer.Colon
 }
 
 // parsePayloadFlags reads the `ordered` and `nonunique` of a declared payload's

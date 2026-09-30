@@ -774,7 +774,13 @@ func (e *encoder) collectPayload(node ast.Node, owner string) error {
 	if payload == nil {
 		return nil
 	}
-	fqn := qualify(owner, payload.Ident.Name, e.crossFeatureIndex(u))
+	index := e.crossFeatureIndex(u)
+	fqn := qualify(owner, payload.Ident.Name, index)
+	// A payload whose name a body member took first is identified by its
+	// position, as any member whose name is taken is.
+	if payload.Ident.Name != "" && e.declared[fqn] {
+		fqn = qualify(owner, "", index)
+	}
 	if e.declared[fqn] {
 		return &UnsupportedError{
 			What: fmt.Sprintf("the payload at %s", e.where(payload)),

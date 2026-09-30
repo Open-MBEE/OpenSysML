@@ -446,11 +446,18 @@ func (d *decoder) payloadText(el *element) (string, error) {
 		}
 		return typed[0] + mult, nil
 	}
-	mult += flags
-	if len(typed) == 0 && mult != "" {
-		words[len(words)-1] += mult
-		mult = ""
+	// A named payload is written `p : T`, the one declared form the notation
+	// reads back as a declaration: `of p` alone, or `of p[1]`, reads as a
+	// payload typed by p (SysML-textual-bnf PayloadFeature).
+	if rest, err := d.relationshipWords(payload, "", ast.RelTyping); err != nil {
+		return "", err
+	} else if len(typed) != 1 || len(rest) > 0 {
+		return "", &UnsupportedError{
+			What: fmt.Sprintf("the payload <%s>", payload.iri),
+			Note: "a named payload is written `of <name> : <type>`, so one stating no single typing, or another specialization, has no notation that reads back as it",
+		}
 	}
+	mult += flags
 	relationships, err := d.relationshipWords(payload, mult)
 	if err != nil {
 		return "", err

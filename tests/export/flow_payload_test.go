@@ -338,3 +338,112 @@ func TestPayloadIdentityAndMembership(t *testing.T) {
 		t.Errorf("a payload under an OwningMembership was written after `of`:\n%s", back)
 	}
 }
+
+// The multiplicity part of a declared payload may come before its typing, its
+// `ordered` included: `of p[*] ordered : Fuel` declares p, as `of p : Fuel[*]
+// ordered` does, and comes back in that second spelling.
+func TestPayloadMultiplicityPartBeforeTheTyping(t *testing.T) {
+	const model = `package Q {
+    item def Fuel;
+    part def A { out item i : Fuel[*]; }
+    part def B { in item j : Fuel[*]; }
+    part def Ctx {
+        part x : A;
+        part y : B;
+        flow of p[*] ordered : Fuel from x.i to y.j;
+    }
+}
+`
+	turtle, back := graphOnlyRoundTrip(t, "q.sysml", []byte(model))
+	if !strings.Contains(string(turtle), "elmt:Q__Ctx___402__p\n    a sysml:PayloadFeature ;") {
+		t.Errorf("p is not declared as the payload:\n%s", turtle)
+	}
+	if !strings.Contains(string(back), "flow of p : Fuel[*] ordered from x.i to y.j;") {
+		t.Errorf("the payload did not come back declared:\n%s", back)
+	}
+}
+
+// A named payload is written `of p : T`: one the graph gives no typing would
+// read back as a payload typed by p, so it is refused rather than renamed.
+func TestUntypedNamedPayloadIsRefused(t *testing.T) {
+	const model = `package U {
+    attribute def Prio;
+    part def A { out attribute i : Prio; }
+    part def B { in attribute j : Prio; }
+    part def Ctx {
+        part x : A;
+        part y : B;
+        flow m of cmd : Prio from x.i to y.j;
+    }
+}
+`
+	turtle, err := convert.Convert("u.sysml", []byte(model), convert.FormatSysML, convert.FormatTurtle)
+	if err != nil {
+		t.Fatal(err)
+	}
+	graph := withoutTyping(t, string(turtle), "U__Ctx__m__cmd")
+	if back, err := convert.Convert("p.ttl", withoutSourceText(t, []byte(graph)), convert.FormatTurtle, convert.FormatSysML); err == nil {
+		t.Errorf("an untyped named payload was converted:\n%s", back)
+	} else if !strings.Contains(err.Error(), "payload") {
+		t.Errorf("refused for another reason: %v", err)
+	}
+}
+
+// A payload named as a member of its flow's body is identified by its
+// position, as any member whose name a sibling took first is (the model is
+// one a validator refuses; conversion is structural, as for other duplicates).
+func TestPayloadNamedLikeABodyMemberConverts(t *testing.T) {
+	const model = `package D {
+    item def Fuel;
+    part def A { out item i : Fuel; }
+    part def B { in item j : Fuel; }
+    part def Ctx {
+        part x : A;
+        part y : B;
+        flow f of p : Fuel from x.i to y.j { attribute p : Fuel; }
+    }
+}
+`
+	out, err := convert.Convert("d.sysml", []byte(model), convert.FormatSysML, convert.FormatTurtle)
+	if err != nil {
+		t.Fatalf("a payload named like a body member was refused: %v", err)
+	}
+	for _, want := range []string{`sysml:qualifiedName "D::Ctx::f::p"`, `sysml:qualifiedName "D::Ctx::f::@1"`} {
+		if !strings.Contains(string(out), want) {
+			t.Errorf("the Turtle lacks %s:\n%s", want, out)
+		}
+	}
+}
+
+// withoutTyping removes the typing of the element id: its sysml:type, the
+// FeatureTyping it owns, and every triple naming that FeatureTyping.
+func withoutTyping(t *testing.T, turtle, id string) string {
+	t.Helper()
+	typing := "elmt:" + id + "_ft0"
+	blocks := strings.Split(turtle, "\n\n")
+	var kept []string
+	removed := false
+	for _, block := range blocks {
+		if strings.HasPrefix(block, typing+"\n") {
+			removed = true
+			continue
+		}
+		if strings.HasPrefix(block, "elmt:"+id+"\n") {
+			var lines []string
+			for _, line := range strings.Split(block, "\n") {
+				if strings.Contains(line, typing) || strings.HasPrefix(strings.TrimSpace(line), "sysml:type ") {
+					continue
+				}
+				lines = append(lines, line)
+			}
+			last := len(lines) - 1
+			lines[last] = strings.TrimSuffix(strings.TrimSuffix(lines[last], " ;"), " .") + " ."
+			block = strings.Join(lines, "\n")
+		}
+		kept = append(kept, block)
+	}
+	if !removed {
+		t.Fatalf("the graph states no %s", typing)
+	}
+	return strings.Join(kept, "\n\n")
+}
