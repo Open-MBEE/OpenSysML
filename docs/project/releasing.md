@@ -1281,8 +1281,10 @@ below applies within two years.
    ```
 
    The private key and its passphrase are the context's
-   `GPG_PRIVATE_KEY` (ASCII-armoured, `gpg --export-secret-keys --armor`) and
-   `GPG_PASSPHRASE`.
+   `GPG_PRIVATE_KEY` and `GPG_PASSPHRASE`. Store the key base64-encoded on one
+   line — `gpg --armor --export-secret-keys <KEY_ID> | base64 | tr -d '\n'` —
+   since the CircleCI UI drops newlines; the job also accepts the raw armored
+   block.
    The job test-signs before anything uploads, so an expired key or a wrong
    passphrase fails before anything reaches Central. A key approaching its
    expiry needs extending (`gpg --quick-set-expire`) and the public key
