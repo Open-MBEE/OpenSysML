@@ -239,7 +239,7 @@ func (w *dotWriter) dotBB(box nodeBox) string {
 // UnplacedStrip none is — and keeps the notes of the nodes left drawn.
 func newDOTWriter(r *Rendering, options Options) *dotWriter {
 	skin := skinOf(options.Style)
-	w := &dotWriter{tree: r.Kind == KindTree, clusters: map[string]bool{}, enclosing: map[string][]string{}, canvas: r.Canvas,
+	w := &dotWriter{tree: r.Kind == KindTree, action: r.Kind == KindAction, clusters: map[string]bool{}, enclosing: map[string][]string{}, canvas: r.Canvas,
 		placement: placeRendering(r), drawn: map[string]bool{}, boxes: map[string]nodeBox{}, pins: map[string]nodeBox{}, ported: map[string]*Node{}, omitted: map[string]bool{},
 		fills: familyFills{palette: options.Palette, tree: r.Kind == KindTree}, skin: skin, pictures: r.Pictures}
 	w.collectDrawn(r.Roots)
@@ -424,6 +424,7 @@ func (w *dotWriter) stripBox(node *Node, corner Point, across float64) nodeBox {
 type dotWriter struct {
 	b         strings.Builder
 	tree      bool                // containment as edges, not clusters
+	action    bool                // the pins name what a flow carries
 	clusters  map[string]bool     // node IDs drawn as clusters
 	enclosing map[string][]string // node ID -> the cluster IDs around it
 	compound  bool                // an edge is clipped at a cluster
@@ -1917,13 +1918,15 @@ func (b nodeBox) overlap(o nodeBox) float64 {
 	return w * h
 }
 
-// edgeText is the label an edge is drawn with: a flow at a pin is labelled by
-// its own name alone, the drawn pins naming what it carries; under Cameo's look
-// a transition reads `trigger [guard] / effect` with the `accept` keyword off
-// and every name bare, as Cameo writes it.
+// edgeText is the label an edge is drawn with: an action's flow at a pin is
+// labelled by its own name alone, the drawn pins naming what it carries, where
+// an interconnection's connector at a port keeps its label, the port naming
+// only where it attaches; under Cameo's look a transition reads
+// `trigger [guard] / effect` with the `accept` keyword off and every name bare,
+// as Cameo writes it.
 func (w *dotWriter) edgeText(edge Edge) string {
 	label := edge.Label
-	if edge.FromPort != "" || edge.ToPort != "" {
+	if w.action && (edge.FromPort != "" || edge.ToPort != "") {
 		label = edge.Name
 	}
 	if !w.skin.cameo {

@@ -151,7 +151,9 @@ func clusterTitleExtraLines(node *Node, labels labeller) int {
 
 // writeFlowchart writes the tree, interconnection and action renderings as a
 // Mermaid flowchart: a node with children is a subgraph, containment in a tree
-// is an edge, and every other edge is the one the rendering holds.
+// is an edge, and every other edge is the one the rendering holds. A flowchart
+// has no port, so an interconnection's ports are lines of their part's label
+// and its connectors end at the parts; an action's pins are its flows' labels.
 func (r *Rendering) writeFlowchart(b *strings.Builder, direction Direction, labels labeller) {
 	flow := "TD"
 	if r.Kind == KindInterconnection {
@@ -166,7 +168,7 @@ func (r *Rendering) writeFlowchart(b *strings.Builder, direction Direction, labe
 		return
 	}
 	for _, root := range r.Roots {
-		writeFlowchartNode(b, root, 1, r.Kind == KindTree, flow, labels)
+		writeFlowchartNode(b, root, 1, r.Kind == KindTree, r.Kind == KindInterconnection, flow, labels)
 	}
 	for _, edge := range r.Edges {
 		if edge.Label == "" {
@@ -219,16 +221,22 @@ func mermaidStyleCSS(style *Style) string {
 // node otherwise. containment adds an edge from a node to each of its children,
 // which is how a tree rendering shows what contains what. A subgraph restates the
 // flowchart's direction, which Mermaid does not apply inside one that states none.
-func writeFlowchartNode(b *strings.Builder, node *Node, depth int, containment bool, flow string, labels labeller) {
+func writeFlowchartNode(b *strings.Builder, node *Node, depth int, containment, ports bool, flow string, labels labeller) {
 	indent := strings.Repeat("  ", depth)
 	if len(node.Children) == 0 {
-		fmt.Fprintf(b, "%s%s[\"%s\"]\n", indent, node.ID, labels.mermaid(node))
+		label := labels.mermaid(node)
+		if ports {
+			for _, port := range node.Ports {
+				label += "<br>" + mermaidText("port "+port.label())
+			}
+		}
+		fmt.Fprintf(b, "%s%s[\"%s\"]\n", indent, node.ID, label)
 		return
 	}
 	if containment {
 		fmt.Fprintf(b, "%s%s[\"%s\"]\n", indent, node.ID, labels.mermaid(node))
 		for _, child := range node.Children {
-			writeFlowchartNode(b, child, depth, containment, flow, labels)
+			writeFlowchartNode(b, child, depth, containment, ports, flow, labels)
 			fmt.Fprintf(b, "%s%s --- %s\n", indent, node.ID, child.ID)
 		}
 		return
@@ -236,7 +244,7 @@ func writeFlowchartNode(b *strings.Builder, node *Node, depth int, containment b
 	fmt.Fprintf(b, "%ssubgraph %s [\"%s\"]\n", indent, node.ID, labels.mermaid(node))
 	fmt.Fprintf(b, "%s  direction %s\n", indent, flow)
 	for _, child := range node.Children {
-		writeFlowchartNode(b, child, depth+1, containment, flow, labels)
+		writeFlowchartNode(b, child, depth+1, containment, ports, flow, labels)
 	}
 	fmt.Fprintf(b, "%send\n", indent)
 }

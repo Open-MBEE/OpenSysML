@@ -1,0 +1,16 @@
+---
+config:
+  flowchart:
+    subGraphTitleMargin:
+      bottom: 24
+---
+%% ToasterViews::toasterView — interconnection rendering (render asInterconnectionDiagram)
+flowchart LR
+  subgraph n0 ["Toaster<br>«part def»"]
+    direction LR
+    n1["heating : HeatingSystem<br>«part»<br>port durationIn : ~DurationPort"]
+    n2["control : ControlSystem<br>«part»<br>port durationOut : DurationPort"]
+    n3["chassis : Chassis<br>«part»"]
+  end
+  n2 ---|"durationInterface"| n1
+  n2 -.->|"of Real"| n1

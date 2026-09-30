@@ -1,0 +1,54 @@
+@startuml
+' ToasterViews::toasterView — interconnection rendering (render asInterconnectionDiagram)
+<style>
+root {
+  BackGroundColor white
+  FontName SansSerif
+  FontSize 14
+  FontColor black
+  LineColor #181818
+  HorizontalAlignment left
+}
+element {
+  BackGroundColor white
+  LineColor #181818
+  LineThickness 0.5
+  RoundCorner 0
+  Shadowing 0.0
+}
+start, end, activityBar {
+  BackGroundColor black
+}
+arrow {
+  LineColor #181818
+  LineThickness 1
+  FontSize 13
+}
+note {
+  BackGroundColor #FEFFDD
+  FontSize 13
+}
+.usage {
+  RoundCorner 20
+}
+.package {
+  LineThickness 1.5
+}
+.region {
+  LineStyle 4
+}
+</style>
+skinparam wrapWidth 300
+hide stereotype
+rectangle "**Toaster**\n<size:10>//«part def»//</size>" as n0 <<part def>> {
+  rectangle "**heating : HeatingSystem**\n<size:10>//«part»//</size>" as n1 <<part>> <<usage>> {
+    port "durationIn : <U+007E>DurationPort" as n1.0
+  }
+  rectangle "**control : ControlSystem**\n<size:10>//«part»//</size>" as n2 <<part>> <<usage>> {
+    port "durationOut : DurationPort" as n2.0
+  }
+  rectangle "**chassis : Chassis**\n<size:10>//«part»//</size>" as n3 <<part>> <<usage>>
+}
+n2.0 -[thickness=3]- n1.0 : durationInterface
+n2.0 -[dashed]-> n1.0 : of Real
+@enduml

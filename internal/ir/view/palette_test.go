@@ -269,7 +269,7 @@ func TestFillsMatchDOT(t *testing.T) {
 // Fills gives every node the fill and border the PlantUML form of the same
 // rendering draws it with: a participant the fill alone, its border uncoloured.
 func TestFillsMatchPlantUML(t *testing.T) {
-	decorated := regexp.MustCompile(`^\s*\w+ ".*" as ([^ ]+)(?: <<[^>]*>>)* (#[0-9A-F]{6})(?:;line:([0-9A-F]{6}))?$`)
+	decorated := regexp.MustCompile(`^\s*\w+ ".*" as ([^ ]+)(?: <<[^>]*>>)* (#[0-9A-F]{6})(?:;line:([0-9A-F]{6}))?(?: \{)?$`)
 	sequences := 0
 	for _, tc := range plantumlGoldenCases {
 		if tc.name == "sequence-empty" {

@@ -47,12 +47,12 @@ func (r *Rendering) TextWidth(width int) string {
 	}
 	labels := map[string]string{}
 	for _, root := range r.Roots {
-		writeNodeText(&b, root, 0, labels)
+		writeNodeText(&b, root, 0, labels, r.Kind == KindInterconnection)
 	}
 	if len(r.Edges) > 0 {
 		fmt.Fprintf(&b, "\n%s:\n", edgeSectionName(r.Kind))
 		for _, edge := range r.Edges {
-			line := fmt.Sprintf("  %s %s %s", labels[edge.From], edgeArrow(edge.Kind), labels[edge.To])
+			line := fmt.Sprintf("  %s %s %s", endLabel(labels, edge.From, edge.FromPort), edgeArrow(edge.Kind), endLabel(labels, edge.To, edge.ToPort))
 			if edge.Label != "" {
 				line += ": " + edge.Label
 			}
@@ -137,9 +137,21 @@ func (r *Rendering) blankReason(form Form) string {
 	return fmt.Sprintf("the view shows %d picture(s), which the %s form does not draw", len(r.Pictures), form)
 }
 
+// endLabel is the label an edge names its end by: the node's, and the port's
+// under it — `part.port` — where the edge ends at a port the text writes.
+func endLabel(labels map[string]string, node, port string) string {
+	if label, ok := labels[port]; ok && port != "" {
+		return label
+	}
+	return labels[node]
+}
+
 // writeNodeText writes one node and its children, and records the label an edge
-// names the node by. A body's start is named by the body it starts.
-func writeNodeText(b *strings.Builder, node *Node, depth int, labels map[string]string) {
+// names the node by. A body's start is named by the body it starts. With ports,
+// the node's ports are written under it, each a line of its own, and recorded
+// as `node.port`; without, they are left to the edges' labels, which an
+// action's flows name their pins in.
+func writeNodeText(b *strings.Builder, node *Node, depth int, labels map[string]string, ports bool) {
 	labels[node.ID] = nodeLabel(node)
 	line := strings.Repeat("  ", depth) + node.Kind
 	if node.Name != "" {
@@ -161,8 +173,14 @@ func writeNodeText(b *strings.Builder, node *Node, depth int, labels map[string]
 		}
 	}
 	b.WriteString(line + "\n")
+	if ports {
+		for _, port := range node.Ports {
+			labels[port.ID] = labels[node.ID] + "." + port.Name
+			b.WriteString(strings.Repeat("  ", depth+1) + "port " + port.label() + "\n")
+		}
+	}
 	for _, child := range node.Children {
-		writeNodeText(b, child, depth+1, labels)
+		writeNodeText(b, child, depth+1, labels, ports)
 		if child.Kind == startKind {
 			labels[child.ID] = "start of " + labels[node.ID]
 		}

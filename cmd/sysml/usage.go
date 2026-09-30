@@ -615,7 +615,7 @@ func registerFlags(fs *flag.FlagSet) {
 	fs.StringVar(&compileTarget, "target", "c", "Backend -compile generates code for: c or go")
 	fs.BoolVar(&compileSource, "source", false, "With -compile, write the generated source to -o instead of building it")
 
-	fs.StringVar(&renderView, "render", "", "Render this view of the model instead of running it, in the form its render member states")
+	fs.StringVar(&renderView, "render", "", "Render this view of the model instead of running it, in the form its render member states; #<kind> renders every file loaded and #<kind>:<element> one element, kind being tree, interconnection, state, action, sequence or table, without a declared view")
 	fs.StringVar(&renderAllDir, "render-all", "", "Render every declared view into this directory")
 	fs.StringVar(&renderForm, "render-form", "", "Form -render or -render-all writes: text, mermaid, markdown, dot or plantuml; default from the destination for -render, each kind's machine form for -render-all")
 	fs.StringVar(&renderPalette, "render-palette", "", "Palette the dot or plantuml form fills nodes from, by keyword family: okabe-ito, tol-bright, tol-muted, tol-light, brewer-set2, brewer-dark2, viridis or cividis; default black and white")

@@ -214,8 +214,9 @@ func (w *plantumlWriter) writeClassNode(node *Node) {
 }
 
 // writeRectangleDiagram writes an interconnection as nested rectangles: a node
-// with children is a rectangle block holding them, a connection an undirected
-// heavy line, a flow a dashed arrow.
+// with children or ports is a rectangle block holding them, a port a `port` on
+// the rectangle's border, a connection an undirected heavy line, a flow a
+// dashed arrow, each ending at the port it names.
 func (w *plantumlWriter) writeRectangleDiagram(r *Rendering) {
 	if r.blank() {
 		fmt.Fprintf(&w.b, "rectangle %s as empty\n", plantumlQuote(r.blankReason(FormPlantUML)))
@@ -225,19 +226,31 @@ func (w *plantumlWriter) writeRectangleDiagram(r *Rendering) {
 		w.writeRectangleNode(root, 0)
 	}
 	for _, edge := range r.Edges {
-		w.writeEdge(edge)
+		w.writeArrow("", portOr(edge.FromPort, edge.From), portOr(edge.ToPort, edge.To), plantumlArrow(edge.Kind), edge.Label)
 	}
 }
 
-// writeRectangleNode writes one rectangle, a block of its children when it has any.
+// portOr is the alias an edge ends at: the port when it names one, else the node.
+func portOr(port, node string) string {
+	if port != "" {
+		return port
+	}
+	return node
+}
+
+// writeRectangleNode writes one rectangle, a block of its ports and children
+// when it has any.
 func (w *plantumlWriter) writeRectangleNode(node *Node, depth int) {
 	indent := strings.Repeat("  ", depth)
 	fmt.Fprintf(&w.b, "%srectangle %s as %s%s", indent, plantumlQuote(w.plantumlLabel(node)), node.ID, w.decoration(node))
-	if len(node.Children) == 0 {
+	if len(node.Children) == 0 && len(node.Ports) == 0 {
 		w.b.WriteString("\n")
 		return
 	}
 	w.b.WriteString(" {\n")
+	for _, port := range node.Ports {
+		fmt.Fprintf(&w.b, "%s  port %s as %s\n", indent, plantumlQuote(plantumlText(port.label())), port.ID)
+	}
 	for _, child := range node.Children {
 		w.writeRectangleNode(child, depth+1)
 	}

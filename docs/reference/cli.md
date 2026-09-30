@@ -464,8 +464,18 @@ diagram, a state machine, an action flow, a sequence diagram and a table. A geom
 recognized but not drawn. Pseudo-views let you render without declaring a view: `#tree` renders
 every file `-render` loaded (or every document loaded in the REPL), while `#tree:<name>`,
 `#interconnection:<name>`, `#state:<name>`, `#action:<name>`, `#sequence:<name>` and `#table:<name>`
-render the named element directly. Only the kinds this build produces are offered; newly supported
-kinds become pseudo-views automatically.
+render the named element directly (`-render '#interconnection:Plant::Loop'`, quoted for the shell).
+Only the kinds this build produces are offered; newly supported kinds become pseudo-views
+automatically.
+
+An interconnection draws the exposed parts, the ports on their borders, and the connectors between
+them. A part's ports are those its definition declares as well as any it declares itself — `part
+heating : HeatingSystem` shows the `durationIn : ~DurationPort` HeatingSystem declares, `~` marking a
+conjugated port — and a connection, interface, flow or binding whose end names a port
+(`connect control.durationOut to heating.durationIn`) is drawn to that port, not to the part. The
+text form writes each port as a `port` line under its part and an edge's ends as `part.port`; the
+library's own `ownedPorts`, `subports` and `interfacingPorts` are not drawn. A part whose definition
+declares no port is a plain node.
 
 ```bash
 # The ASCII text form a person reads, written to fit the terminal
@@ -609,7 +619,10 @@ written as entities; edge labels, identifiers and geometry stay double-quoted st
 Containment becomes a `subgraph "cluster_…"`, the flow direction becomes `rankdir`, and edges keep
 Mermaid's semantics: a connection is undirected (`arrowhead=none`), a flow is dashed, a transition
 or succession is a solid arrow drawn at the Pilot visualizer's thickness (`penwidth=3` for a
-connection). The drawing is in the Standard B&W style of the OMG SysML v2 Pilot Implementation's
+connection). A part's ports are drawn on it as small squares labelled `name : Type`, cells of an
+HTML-like record label in a laid-out diagram (`"n2":"n2.0" -> "n1":"n1.0"`) or pinned nodes on the
+part's border when the view positions it, and a connector at a port is drawn to the square. The
+drawing is in the Standard B&W style of the OMG SysML v2 Pilot Implementation's
 visualizer, after Hisashi Miyashita's `sysmlbw` PlantUML skin: Helvetica text, white fills, thin
 `#181818` lines, square definitions and rounded usages, a bold name over an italic `«keyword»`
 line, unfilled black-bordered clusters, and unnamed initial and final pseudo-states as the filled
@@ -624,8 +637,9 @@ visualizer draws with PlantUML — with the same header as `'` comments (`' <vie
 one `' not represented:` line per notice), the Pilot's B&W style inline as a `<style>` block plus
 `skinparam wrapWidth 300`, and one grammar per kind: a tree is a class diagram (`hide circle`,
 `hide empty members`, containment as `parent -- child` edges as the other forms draw it), an
-interconnection nested `rectangle` blocks with the Pilot's heavy `-[thickness=3]-` connectors and
-dashed `-[dashed]->` flows, a state rendering the `state` grammar with composite states, `[*] -->`
+interconnection nested `rectangle` blocks with a `port "name : Type"` element on the border of each
+part that has one, the Pilot's heavy `-[thickness=3]-` connectors and dashed `-[dashed]->` flows
+drawn between the ports they name (`n2.0 -[thickness=3]- n1.0`), a state rendering the `state` grammar with composite states, `[*] -->`
 starts and PlantUML's pseudostate stereotypes, an action rendering the state grammar too (PlantUML's
 activity syntax is procedural and cannot hold an arbitrary graph of successions and flows), and a
 sequence `participant`s and `->` messages one for one with the Mermaid form. Each node's keyword is

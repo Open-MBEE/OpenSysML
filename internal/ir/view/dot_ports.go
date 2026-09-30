@@ -187,7 +187,7 @@ func (w *dotWriter) writePins(node *Node, indent string) {
 		return
 	}
 	for _, port := range node.Ports {
-		attrs := []string{"shape=box", `label=""`, "xlabel=" + dotQuote(port.Name), "fontsize=" + strconv.Itoa(dotPinPts),
+		attrs := []string{"shape=box", `label=""`, "xlabel=" + dotQuote(port.label()), "fontsize=" + strconv.Itoa(dotPinPts),
 			"width=" + dotInches(dotPinSize), "height=" + dotInches(dotPinSize), "fixedsize=true"}
 		if w.skin.cameo {
 			attrs = append(attrs, "fillcolor="+dotQuote(cameoNoteFill), dotColorAttr(cameoActionLine))
@@ -238,7 +238,7 @@ func (w *dotWriter) dotPortRow(ports []Port) string {
 	var cells []string
 	for _, port := range ports {
 		cells = append(cells, fmt.Sprintf(`<td port=%s border="1" fixedsize="true" width="%d" height="%d"></td><td align="left">%s</td>`,
-			dotQuote(port.ID), dotPinSize-2, dotPinSize-2, w.labels.sized(w.labels.size(), dotPinPts, dotEscape(port.Name))))
+			dotQuote(port.ID), dotPinSize-2, dotPinSize-2, w.labels.sized(w.labels.size(), dotPinPts, dotEscape(port.label()))))
 	}
 	return "<tr>" + strings.Join(cells, "") + "</tr>"
 }

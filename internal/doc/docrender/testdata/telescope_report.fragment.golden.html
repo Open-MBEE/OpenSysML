@@ -208,8 +208,8 @@ config:
 flowchart LR
   subgraph n0 [&#34;imagingChain&lt;br&gt;«part»&#34;]
     direction LR
-    n1[&#34;camera : Camera&lt;br&gt;«part»&#34;]
-    n2[&#34;recorder : Recorder&lt;br&gt;«part»&#34;]
+    n1[&#34;camera : Camera&lt;br&gt;«part»&lt;br&gt;port output : DataPort&#34;]
+    n2[&#34;recorder : Recorder&lt;br&gt;«part»&lt;br&gt;port input : DataPort&#34;]
   end
   n1 ---|&#34;link&#34;| n2</pre>
 <figcaption class="sysml-caption">Imaging chain interconnection</figcaption>

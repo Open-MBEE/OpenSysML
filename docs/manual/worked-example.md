@@ -368,8 +368,8 @@ config:
 flowchart LR
   subgraph n0 ["imagingChain<br>«part»"]
     direction LR
-    n1["camera : Camera<br>«part»"]
-    n2["recorder : Recorder<br>«part»"]
+    n1["camera : Camera<br>«part»<br>port output : DataPort"]
+    n2["recorder : Recorder<br>«part»<br>port input : DataPort"]
   end
   n1 ---|"link"| n2
 ```

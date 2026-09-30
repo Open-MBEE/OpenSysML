@@ -124,10 +124,14 @@ note {
 skinparam wrapWidth 300
 hide stereotype
 rectangle "**imagingChain**\n<size:10>//«part»//</size>" as n0 <<part>> <<usage>> {
-  rectangle "**camera : Camera**\n<size:10>//«part»//</size>" as n1 <<part>> <<usage>>
-  rectangle "**recorder : Recorder**\n<size:10>//«part»//</size>" as n2 <<part>> <<usage>>
+  rectangle "**camera : Camera**\n<size:10>//«part»//</size>" as n1 <<part>> <<usage>> {
+    port "output : DataPort" as n1.0
+  }
+  rectangle "**recorder : Recorder**\n<size:10>//«part»//</size>" as n2 <<part>> <<usage>> {
+    port "input : DataPort" as n2.0
+  }
 }
-n1 -[thickness=3]- n2 : link
+n1.0 -[thickness=3]- n2.0 : link
 @enduml
 ```
 

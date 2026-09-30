@@ -540,8 +540,8 @@ config:
 flowchart LR
   subgraph n0 ["imagingChain<br>«part»"]
     direction LR
-    n1["camera : Camera<br>«part»"]
-    n2["recorder : Recorder<br>«part»"]
+    n1["camera : Camera<br>«part»<br>port output : DataPort"]
+    n2["recorder : Recorder<br>«part»<br>port input : DataPort"]
   end
   n1 ---|"link"| n2
 ```
@@ -567,10 +567,10 @@ digraph "Observatory::interconnectView" {
   subgraph "cluster_n0" {
     label=<<b>imagingChain</b><br/><font point-size="10">«part»</font>>;
     "n0" [shape=point, style=invis, width=0, height=0, label=""];
-    "n1" [label=<<b>camera : Camera</b><br/><font point-size="10">«part»</font>>];
-    "n2" [label=<<b>recorder : Recorder</b><br/><font point-size="10">«part»</font>>];
+    "n1" [label=<<table border="0" cellborder="0" cellspacing="0" cellpadding="2"><tr><td port="n1.0" border="1" fixedsize="true" width="10" height="10"></td><td align="left"><font point-size="8">output : DataPort</font></td></tr><tr><td colspan="2"><b>camera : Camera</b><br/><font point-size="10">«part»</font></td></tr></table>>];
+    "n2" [label=<<table border="0" cellborder="0" cellspacing="0" cellpadding="2"><tr><td port="n2.0" border="1" fixedsize="true" width="10" height="10"></td><td align="left"><font point-size="8">input : DataPort</font></td></tr><tr><td colspan="2"><b>recorder : Recorder</b><br/><font point-size="10">«part»</font></td></tr></table>>];
   }
-  "n1" -> "n2" [label="link", arrowhead=none];
+  "n1":"n1.0" -> "n2":"n2.0" [label="link", arrowhead=none, penwidth=3];
 }
 ```
 ```
@@ -601,10 +601,14 @@ PlantUML jar is needed to write it:
 skinparam wrapWidth 300
 hide stereotype
 rectangle "**imagingChain**\n<size:10>//«part»//</size>" as n0 <<part>> <<usage>> {
-  rectangle "**camera : Camera**\n<size:10>//«part»//</size>" as n1 <<part>> <<usage>>
-  rectangle "**recorder : Recorder**\n<size:10>//«part»//</size>" as n2 <<part>> <<usage>>
+  rectangle "**camera : Camera**\n<size:10>//«part»//</size>" as n1 <<part>> <<usage>> {
+    port "output : DataPort" as n1.0
+  }
+  rectangle "**recorder : Recorder**\n<size:10>//«part»//</size>" as n2 <<part>> <<usage>> {
+    port "input : DataPort" as n2.0
+  }
 }
-n1 -[thickness=3]- n2 : link
+n1.0 -[thickness=3]- n2.0 : link
 @enduml
 ```
 ```

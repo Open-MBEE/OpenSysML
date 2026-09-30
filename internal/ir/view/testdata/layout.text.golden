@@ -4,10 +4,12 @@ canvas size 1200×800 in px
 
 part def Plant::Loop
   part pump : Pump at (300, 40) collapsed
+    port outlet : FluidPort
   part tank : Tank at (500, 40) size 120×60
+    port inlet : FluidPort
 
 connections:
-  pump -- tank: supply via (400, 70) (450, 120) (500, 70)
+  pump.outlet -- tank.inlet: supply via (400, 70) (450, 120) (500, 70)
 
 notes:
   "always" on pump at (10, 90)

@@ -137,7 +137,8 @@ payload it carries, `out to in`, `of Water`; and a connection's the name, else t
 else the keyword. A flow between named pins also records the pins as its ends (`Edge.FromPort`,
 `Edge.ToPort`, the IDs of the nodes' `Ports`), so a writer that draws the pins on the action's
 border attaches the flow to them and leaves the `out to in` text off; a writer that does not
-keeps the text. A named edge with none of that — a completion transition, a plain succession, a
+keeps the text. An interconnection's connector at a port records the port the same way and keeps
+its label in every form, the port naming only where it attaches. A named edge with none of that — a completion transition, a plain succession, a
 binding — is labelled by its name, `'off then on'`. The rule holds for every kind and every name,
 whether the model's author gave it or the [v1 migration](../reference/sysml-v1-migration.md#edges-a-diagram-shows)
 spelled it from the ends: a triggered transition named `idle_to_moving` reads `accept Signal
@@ -265,6 +266,20 @@ digraph "VehicleViews::vehicleView" {
   the cell (`"n5":"n5.0"`). A pin is drawn with the square an interconnection's `port` usage is drawn
   as (`isPortKind`, `dotSymbolAttributes`); it differs in being a `Port` of its node, not a node
   of the rendering, so a pin is never a detached `note` and never a node a flow ends beside.
+- **Interconnection ports.** A part's node carries as its `Ports` the ports it has from its
+  definition and what that specializes without declaring them itself (`featureWalk.pinPorts`,
+  `Renderer.typedPorts` in `interconnection.go`: `Model.MembersOf` less the part's own members
+  and the library's `ownedPorts`, `subports` and `interfacingPorts`), each labelled `name : Type`
+  with the type as the notation writes it, `~T` for a conjugated port (`Port.Type`), and
+  `PortUndirected`, the port def's features carrying the directions. A port the part declares
+  itself, or a part def's own, stays a nested `port` node as before. A connector, interface,
+  flow or binding end that names such a port — `heating.durationIn`, a chain over the part —
+  ends at the pin (`Edge.FromPort`/`Edge.ToPort`; `featureWalk.endNode`, `memberEnd`), and one
+  naming the part, or a feature of it that is no port, at the node. The pins are drawn as an
+  action's are: record cells or pinned squares in DOT, `port "name : Type"` elements of the
+  part's `rectangle` in PlantUML with the connector between them (`n2.0 -[thickness=3]- n1.0`),
+  a `port name : Type` line under the part and `part.port` edge ends in text, and lines of the
+  part's label in Mermaid, whose flowchart has no port and whose edges stay at the parts.
 - **Edges.** The `EdgeKind` styles parallel the Mermaid arrows so the two forms read alike:
 
   | `EdgeKind` | Mermaid | DOT |
@@ -455,9 +470,11 @@ digraph "PlantViews::placedView" {
     bb="292,692,628,768";
     "n0" [shape=point, style=invis, width=0, height=0, label="", pos="460,730!", pin=true];
     "n1" [style="rounded,filled", label=<<b>pump : Pump</b><br/><font point-size="10"><i>«part»</i></font>>, pos="359,741.5!", pin=true, width=1.6388888888888888, height=0.5138888888888888, comment="collapsed"];
+    "n1.0" [shape=box, label="", xlabel="outlet : FluidPort", fontsize=8, width=0.16666666666666666, height=0.16666666666666666, fixedsize=true, pos="402,730!", pin=true];
     "n2" [style="rounded,filled", label=<<b>tank : Tank</b><br/><font point-size="10"><i>«part»</i></font>>, margin=0, pos="560,730!", pin=true, width=1.6666666666666667, height=0.8333333333333334, fixedsize=true];
+    "n2.0" [shape=box, label="", xlabel="inlet : FluidPort", fontsize=8, width=0.16666666666666666, height=0.16666666666666666, fixedsize=true, pos="494,730!", pin=true];
   }
-  "n1" -> "n2" [label="supply", arrowhead=none, penwidth=3, pos="400,730 400,730 450,680 450,680 450,680 500,730 500,730"];
+  "n1.0" -> "n2.0" [label="supply", arrowhead=none, penwidth=3, pos="400,730 400,730 450,680 450,680 450,680 500,730 500,730", lp="443.5,723.5"];
 }
 ```
 

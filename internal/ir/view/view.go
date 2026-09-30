@@ -220,13 +220,18 @@ type Node struct {
 }
 
 // Port is a feature drawn on a node's border: an input or output pin of an
-// action, which an object flow ends at.
+// action, which an object flow ends at, or a port a part has from its
+// definition, which a connector ends at.
 type Port struct {
 	// ID identifies the port within its rendering, and is what an edge names.
 	ID string
 	// Name is the pin's name, as the notation writes it.
 	Name string
-	// Direction is the pin's direction: `in`, `out` or `inout`.
+	// Type is the port's declared type as the notation writes it, `~T` for a
+	// conjugated one; empty for a pin, whose type the flow's label carries.
+	Type string
+	// Direction is the pin's direction: `in`, `out` or `inout`; PortUndirected
+	// for a part's port, whose features carry the directions.
 	Direction PortDirection
 	// Origin is where the pin was declared, the zero Origin for one with no
 	// locatable declaration.
@@ -243,17 +248,29 @@ const (
 	PortOut
 	// PortInOut does both.
 	PortInOut
+	// PortUndirected has no direction of its own: a part's port.
+	PortUndirected
 )
 
-// String writes a port direction as the notation does.
+// String writes a port direction as the notation does, "" for none.
 func (d PortDirection) String() string {
 	switch d {
 	case PortOut:
 		return "out"
 	case PortInOut:
 		return "inout"
+	case PortUndirected:
+		return ""
 	}
 	return "in"
+}
+
+// label is the text a port is drawn with: its name, and its type where it has one.
+func (p Port) label() string {
+	if p.Type == "" {
+		return p.Name
+	}
+	return p.Name + " : " + p.Type
 }
 
 // Edge joins two nodes of a rendering.

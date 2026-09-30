@@ -22,6 +22,7 @@ func TestGoldenDOT(t *testing.T) {
 	}{
 		{"tree", "tree.sysml", "VehicleViews::vehicleView", KindTree},
 		{"interconnection", "interconnection.sysml", "PlantViews::loopView", KindInterconnection},
+		{"interconnection-ports", "interconnection-ports.sysml", "ToasterViews::toasterView", KindInterconnection},
 		{"state", "state.sysml", "MachineViews::vehicleStates", KindState},
 		{"state-entry", "state-entry.sysml", "MachineViews::thermostat", KindState},
 		{"action", "action.sysml", "FlowViews::driveView", KindAction},
@@ -506,8 +507,12 @@ func TestDOTWritesTheGeometry(t *testing.T) {
 		`"n1" [style="rounded,filled", label=<<b><b>pump : Pump</b><br/><font point-size="10"><i>«part»</i></font></b>>, fillcolor="#FFE8BD", color="#333333", fontname="Arial", fontsize=11, pos="348,742!", pin=true, width=1.3333333333333333, height=0.5, comment="collapsed"];`,
 		// tank: top-left (500, 40), 120x60, so centre (560, 70) -> y 730 from a canvas 800 high.
 		`"n2" [style="rounded,filled", label=<<b>tank : Tank</b><br/><font point-size="10"><i>«part»</i></font>>, margin=0, pos="560,730!", pin=true, width=1.6666666666666667, height=0.8333333333333334, fixedsize=true];`,
+		// The ports the parts have from their definitions sit on the borders where
+		// the route meets them, and the route runs pin to pin.
+		`"n1.0" [shape=box, label="", xlabel="outlet : FluidPort", fontsize=8, width=0.16666666666666666, height=0.16666666666666666, fixedsize=true, pos="402,730!", pin=true];`,
+		`"n2.0" [shape=box, label="", xlabel="inlet : FluidPort", fontsize=8, width=0.16666666666666666, height=0.16666666666666666, fixedsize=true, pos="494,730!", pin=true];`,
 		// Headless, so no `e,` point; the label sits up and right of the first leg.
-		`"n1" -> "n2" [label="supply", arrowhead=none, penwidth=3, color="#0000FF", pos="400,730 400,730 450,680 450,680 450,680 500,730 500,730", lp="443.5,723.5"];`,
+		`"n1.0" -> "n2.0" [label="supply", arrowhead=none, penwidth=3, color="#0000FF", pos="400,730 400,730 450,680 450,680 450,680 500,730 500,730", lp="443.5,723.5"];`,
 	} {
 		if !strings.Contains(dot, want) {
 			t.Errorf("DOT lacks %q:\n%s", want, dot)
@@ -517,6 +522,8 @@ func TestDOTWritesTheGeometry(t *testing.T) {
 	// its head wrapped where eleven bold 14pt glyphs overrun the stated 100pt width,
 	// and tank, with none, takes the end of the inline route: its 118x37
 	// label-fitted box centred 59 back from (200, 45) along the route's last leg.
+	// The route starts at pump's centre, so its port sits on the nearest side,
+	// the top, and the route's first leg is moved to the pin's border.
 	plain, err := render(t, "layout.sysml", "PlantViews::plainView").DOT()
 	if err != nil {
 		t.Fatalf("DOT: %v", err)
@@ -527,7 +534,8 @@ func TestDOTWritesTheGeometry(t *testing.T) {
 		"  graph [fontname=\"Helvetica\", layout=neato, inputscale=72, dpi=72];\n",
 		`"n1" [style="rounded,filled", label=<<b>pump<br/>: Pump</b><br/><font point-size="10"><i>«part»</i></font>>, margin=0, fillcolor="#FFFFDC", pos="60,-45!", pin=true, width=1.3888888888888888, height=0.6944444444444444, fixedsize=true];`,
 		`"n2" [style="rounded,filled", label=<<b>tank : Tank</b><br/><font point-size="10"><i>«part»</i></font>>, pos="259,-45!", pin=true, width=1.6388888888888888, height=0.5138888888888888];`,
-		`pos="60,-45 60,-45 200,-45 200,-45"`,
+		`"n1.0" [shape=box, label="", xlabel="outlet : FluidPort", fontsize=8, width=0.16666666666666666, height=0.16666666666666666, fixedsize=true, pos="60,-14!", pin=true];`,
+		`"n1.0" -> "n2.0" [label="supply", arrowhead=none, penwidth=3, pos="66,-15.5 66,-15.5 200,-45 200,-45", lp="165,-33"];`,
 	} {
 		if !strings.Contains(plain, want) {
 			t.Errorf("plain DOT lacks %q:\n%s", want, plain)
