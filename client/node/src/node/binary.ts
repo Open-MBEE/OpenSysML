@@ -18,6 +18,7 @@ import {
   UnpinnedReleaseError,
   UnsignedReleaseError,
 } from "../core/errors.js";
+import { PLATFORM_PACKAGE_PREFIX } from "../core/package.js";
 import {
   BUNDLE_ASSET,
   MANIFEST_ASSET,
@@ -109,7 +110,7 @@ export function platformPackage(
   platform: string = process.platform,
   arch: string = process.arch,
 ): string {
-  return `@opensysml/sysml-grpc-${platform}-${arch}`;
+  return `${PLATFORM_PACKAGE_PREFIX}${platform}-${arch}`;
 }
 
 /** The binary's file name on this platform. */
