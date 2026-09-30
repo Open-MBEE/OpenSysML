@@ -79,9 +79,20 @@ func TestConvertModelOfSeveralDocumentsTakesIDForm(t *testing.T) {
 func TestConvertIDFormRefusals(t *testing.T) {
 	srv := mustNewService(t, 10)
 	defer srv.Close()
+	parsed, err := srv.ParseSources(context.Background(), &pb.ParseSourcesRequest{
+		Documents: inlineDocuments(
+			"lib.sysml", "package Lib { part def Engine; }\n",
+			"app.sysml", "package App { private import Lib::*; part e : Engine; }\n"),
+	})
+	if err != nil {
+		t.Fatalf("ParseSources: %v", err)
+	}
 	for name, req := range map[string]*pb.ConvertRequest{
 		"notation target": {Source: &pb.ConvertRequest_Content{Content: idFormModel}, FromFormat: "sysml", ToFormat: "sysml", IdForm: "uuid"},
-		"unknown form":    {Source: &pb.ConvertRequest_Content{Content: idFormModel}, FromFormat: "sysml", ToFormat: "api-json", IdForm: "guid"},
+		// Judged before the several-document model's notation refusal, so the
+		// same request is refused the same way for one document or several.
+		"notation target, several documents": {Source: &pb.ConvertRequest_ModelHash{ModelHash: parsed.ModelHash}, ToFormat: "sysml", IdForm: "uuid"},
+		"unknown form":                       {Source: &pb.ConvertRequest_Content{Content: idFormModel}, FromFormat: "sysml", ToFormat: "api-json", IdForm: "guid"},
 	} {
 		if _, err := srv.Convert(context.Background(), req); connect.CodeOf(err) != connect.CodeInvalidArgument {
 			t.Errorf("%s: err = %v, want INVALID_ARGUMENT", name, err)

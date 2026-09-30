@@ -200,15 +200,16 @@ func (s *Service) convertModelOfDocuments(req *pb.ConvertRequest) (*pb.ConvertRe
 			return nil, true, statusError(connect.CodeInvalidArgument, "a model parsed from several documents is notation; from_format must be empty or sysml")
 		}
 	}
+	// id_form is judged first, as for one document: one given for a notation
+	// target is INVALID_ARGUMENT, whatever else the model's target refuses.
+	opts, err := convertOptions(req.IdForm, convert.FormatSysML, to)
+	if err != nil {
+		return nil, true, err
+	}
 	if to != convert.FormatTurtle && to != convert.FormatAPIJSON {
 		return nil, true, statusErrorf(connect.CodeFailedPrecondition,
 			"notation is written for one document, and this model has %d; convert it to %s or %s, or convert each document",
 			len(cached.Documents), convert.FormatTurtle, convert.FormatAPIJSON)
-	}
-	// A model parsed from notation is converted to a graph, so id_form applies.
-	opts, err := convertOptions(req.IdForm, convert.FormatSysML, to)
-	if err != nil {
-		return nil, true, err
 	}
 	resp := &pb.ConvertResponse{FromFormat: convert.FormatSysML.String(), ToFormat: to.String()}
 	if convert.IsExperimental(convert.FormatSysML, to) {
