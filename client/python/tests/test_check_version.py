@@ -325,6 +325,12 @@ def test_rust_version_rejects_a_tag_that_misspells_the_crate_version():
         )
 
 
+def test_rust_declared_version_accepts_a_literal_string(tmp_path):
+    cargo = tmp_path / "Cargo.toml"
+    cargo.write_text("[package]\nname = 'x'\nversion = '0.9.0'\n", encoding="utf-8")
+    assert check_version.rust_declared_version(str(cargo)) == "0.9.0"
+
+
 def test_rust_declared_version_rejects_a_toml_without_a_package_version(tmp_path):
     cargo = tmp_path / "Cargo.toml"
     cargo.write_text(

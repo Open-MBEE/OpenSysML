@@ -292,9 +292,11 @@ def rust_declared_version(cargo_toml=RUST_CARGO):
     for line in lines[start + 1 :]:
         if line.startswith("["):
             break
-        match = re.match(r'^\s*version\s*=\s*"([^"]+)"\s*(#.*)?$', line)
+        match = re.match(
+            r"""^\s*version\s*=\s*(?:"([^"]+)"|'([^']+)')\s*(#.*)?$""", line
+        )
         if match:
-            return match[1]
+            return match[1] or match[2]
     raise VersionError(f"{cargo_toml} declares no [package] version")
 
 
