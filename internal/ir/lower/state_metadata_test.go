@@ -3,7 +3,6 @@ package lower
 import (
 	"errors"
 	"reflect"
-	"sort"
 	"testing"
 
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/resolve"
@@ -91,18 +90,6 @@ func TestMetadataPseudostatesMatchKeywordForms(t *testing.T) {
 			}
 		})
 	}
-}
-
-// entryTransitionShape lists the target names of a graph's entry transitions.
-func entryTransitionShape(g *StateGraph) []string {
-	var shape []string
-	for _, transitions := range g.EntryTransitions {
-		for _, tr := range transitions {
-			shape = append(shape, tr.Target.Name)
-		}
-	}
-	sort.Strings(shape)
-	return shape
 }
 
 // TestPseudostateMetadataRootedSpelling: `#$::StateMachines::choice` names the
