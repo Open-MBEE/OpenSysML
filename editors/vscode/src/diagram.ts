@@ -156,12 +156,13 @@ export class DiagramPanels implements vscode.Disposable {
         }
       }),
       vscode.window.registerWebviewPanelSerializer(PANEL_TYPE, {
-        deserializeWebviewPanel: async (panel, state: { uri?: string; view?: string } | undefined) => {
+        deserializeWebviewPanel: (panel, state: { uri?: string; view?: string } | undefined) => {
           if (!state?.uri) {
             panel.dispose();
-            return;
+          } else {
+            this.adopt(vscode.Uri.parse(state.uri), panel, state.view ?? "");
           }
-          this.adopt(vscode.Uri.parse(state.uri), panel, state.view ?? "");
+          return Promise.resolve();
         },
       }),
     );

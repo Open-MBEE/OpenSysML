@@ -348,15 +348,16 @@ class Symbol:
         """IPython rich display: formatted definition."""
         from html import escape
         
-        html = ['<div style="font-family: monospace; padding: 10px; border: 1px solid #ddd; background: #f9f9f9;">']
-        html.append(f'<h4 style="margin-top: 0;">{escape(self.name)}</h4>')
-        html.append(f'<p><strong>Kind:</strong> <code>{escape(self.kind)}</code></p>')
-        html.append(f'<p><strong>ID:</strong> <code>{escape(self.id)}</code></p>')
+        html = [
+            '<div style="font-family: monospace; padding: 10px; border: 1px solid #ddd; background: #f9f9f9;">',
+            f'<h4 style="margin-top: 0;">{escape(self.name)}</h4>',
+            f'<p><strong>Kind:</strong> <code>{escape(self.kind)}</code></p>',
+            f'<p><strong>ID:</strong> <code>{escape(self.id)}</code></p>',
+        ]
         
         # Show metadata if present
         if self.metadata:
-            html.append('<p><strong>Metadata:</strong></p>')
-            html.append('<ul style="margin: 5px 0;">')
+            html.extend(['<p><strong>Metadata:</strong></p>', '<ul style="margin: 5px 0;">'])
             for key, value in self.metadata.items():
                 html.append(f'<li><code>{escape(key)}</code>: {escape(str(value))}</li>')
             html.append('</ul>')
