@@ -703,16 +703,19 @@ func dumpBehavior(b *strings.Builder, n Node, depth int) bool {
 		// form or the parser desugared a member-attached keyword into it.
 		fmt.Fprintf(b, `(SuccessionEdge source=%q target=%q`,
 			successionEnd(v.Source, v.SourceMember), successionEnd(v.Target, v.TargetMember))
-		var children []Node
 		if v.SourceMultiplicity != nil {
-			children = append(children, v.SourceMultiplicity)
+			b.WriteString("\n")
+			dumpNode(b, v.SourceMultiplicity, depth+1)
 		}
-		children = append(children, v.Members...)
-		if len(children) > 0 {
-			writeChildren(b, depth, children)
-			return true
+		if v.TargetMultiplicity != nil {
+			// Labelled, since a target multiplicity beside a source one would
+			// otherwise read as a second source multiplicity.
+			b.WriteString("\n")
+			indent(b, depth+1)
+			b.WriteString(`(TargetMultiplicity`)
+			writeChildren(b, depth+1, []Node{v.TargetMultiplicity})
 		}
-		b.WriteString(`)`)
+		writeChildren(b, depth, v.Members)
 		return true
 	case *ControlFlowEdge:
 		// The branches of one decision differ only in their guard and in which

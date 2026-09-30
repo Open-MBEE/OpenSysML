@@ -66,9 +66,9 @@ afterEach(() => {
 });
 
 test("the platform package and file name follow npm's os/cpu names", () => {
-  assert.equal(platformPackage("linux", "x64"), "@opensysml/sysml-grpc-linux-x64");
-  assert.equal(platformPackage("darwin", "arm64"), "@opensysml/sysml-grpc-darwin-arm64");
-  assert.equal(platformPackage("win32", "x64"), "@opensysml/sysml-grpc-win32-x64");
+  assert.equal(platformPackage("linux", "x64"), "@openmbee/opensysml-sysml-grpc-linux-x64");
+  assert.equal(platformPackage("darwin", "arm64"), "@openmbee/opensysml-sysml-grpc-darwin-arm64");
+  assert.equal(platformPackage("win32", "x64"), "@openmbee/opensysml-sysml-grpc-win32-x64");
   assert.equal(binaryName("linux"), "sysml-grpc");
   assert.equal(binaryName("win32"), "sysml-grpc.exe");
 });
@@ -124,7 +124,7 @@ test("a binary on $PATH is used, and with nothing anywhere the error says so", a
   assert.ok(error instanceof BinaryNotFoundError);
   // The message must name every place looked, and how to ask for a download.
   assert.match(error.message, /OPENSYSML_BINARY/);
-  assert.match(error.message, /@opensysml\/sysml-grpc-/);
+  assert.match(error.message, /@openmbee\/opensysml-sysml-grpc-/);
   assert.match(error.message, new RegExp(empty.replaceAll(/[.*+?^${}()|[\]\\]/g, "\\$&")));
   assert.match(error.message, /OPENSYSML_GRPC_VERSION/);
   assert.doesNotMatch(error.message, /never downloads/);

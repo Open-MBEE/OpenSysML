@@ -91,6 +91,21 @@ func TestActionSuccessionSourceMultiplicity(t *testing.T) {
 	wantEndMultiplicity(t, got, []string{"[0..1]", "[*]"})
 }
 
+// A multiplicity ahead of a `then` target (`then [m] b;`) is the target end's
+// crossing multiplicity, as `succession first a then [m] b;` writes: no end
+// feature carries it, so only a source multiplicity beside it is reported.
+func TestActionSuccessionTargetMultiplicityIsNotAnEndMultiplicity(t *testing.T) {
+	const src = `action def A {
+		action a; action b; action c; action d;
+		then [0..1] b;
+		then [*] c { action nested; }
+		[0..1] then [2] d;
+		then [0..*] done;
+	}`
+	got := endMultiplicityTexts(t, constraintDiags(t, src), src)
+	wantEndMultiplicity(t, got, []string{"[0..1]"})
+}
+
 func TestNestedActionSuccessionSourceMultiplicity(t *testing.T) {
 	const src = `action def A {
 		action root;

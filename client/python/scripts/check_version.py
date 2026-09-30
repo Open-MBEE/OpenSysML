@@ -11,6 +11,9 @@ publish must fail here rather than after the fact.
 
 Prints the version the tag names on success. With `--pre-release` it prints
 `yes`/`no` instead, which the job uses to route a pre-release tag to TestPyPI.
+With `--node` the version client/node/package.json declares is checked the same
+way and printed instead — the Node client is published from the same tag, at
+the SemVer spelling of the same version.
 
 The core tags are SemVer and the package version is PEP 440, so the tag is
 translated before the comparison: `v0.9.0-rc1` names `0.9.0rc1`. Only the SemVer
@@ -21,6 +24,7 @@ What is printed is the declared version, which the built artifacts are named by.
 
 import argparse
 import ast
+import json
 import os
 import re
 import sys
@@ -41,6 +45,12 @@ PEP_440_PHASE = {"alpha": "a", "beta": "b", "rc": "rc"}
 
 VERSION_FILE = os.path.join(
     os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "opensysml", "_version.py"
+)
+NODE_PACKAGE = os.path.join(
+    os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))),
+    "client",
+    "node",
+    "package.json",
 )
 
 
@@ -121,12 +131,14 @@ def version_from_tag(tag, version=None):
     return declared
 
 
-def pep440_from_semver(semver, tag):
+def pep440_from_semver(semver, tag, what=None):
     """The canonical PEP 440 version a core tag's SemVer version denotes.
 
     Args:
         semver (str): The tag without its prefix, e.g. '0.9.0-rc1'
         tag (str): The tag, for the error message
+        what (str, optional): What the version came from, for the error
+            message; the tag is blamed when omitted
 
     Returns:
         str: The PEP 440 version, e.g. '0.9.0rc1'
@@ -138,13 +150,75 @@ def pep440_from_semver(semver, tag):
     """
     match = TAG_VERSION.match(semver)
     if match is None:
+        if what is None:
+            raise VersionError(
+                f"Tag {tag!r} is not a core release tag of the form {TAG_FORM}; only "
+                "those pre-release forms have one PEP 440 meaning for the package."
+            )
         raise VersionError(
-            f"Tag {tag!r} is not a core release tag of the form {TAG_FORM}; only "
+            f"{what} {semver!r} is not of the form {TAG_FORM[len(TAG_PREFIX):]}; only "
             "those pre-release forms have one PEP 440 meaning for the package."
         )
     if match["phase"] is None:
         return match["release"]
     return f"{match['release']}{PEP_440_PHASE[match['phase']]}{match['number']}"
+
+
+def node_declared_version(package_json=NODE_PACKAGE):
+    """The version declared in client/node/package.json.
+
+    Args:
+        package_json (str): Path to client/node/package.json
+
+    Returns:
+        str: The declared version
+
+    Raises:
+        VersionError: If the file declares no version string
+    """
+    with open(package_json, encoding="utf-8") as f:
+        version = json.load(f).get("version")
+    if not isinstance(version, str):
+        raise VersionError(f"{package_json} declares no version string")
+    return version
+
+
+def node_version(declared=None, node=None, tag=None):
+    """client/node/package.json's version, checked against _version.py and, when given, the tag.
+
+    Args:
+        declared (str, optional): Version opensysml/_version.py declares; read
+            when omitted
+        node (str, optional): Version client/node/package.json declares; read
+            when omitted
+        tag (str, optional): Core release tag the npm publish runs from
+
+    Returns:
+        str: The npm version to publish, as package.json declares
+
+    Raises:
+        VersionError: If the two files disagree, or the tag does not spell the
+            SemVer version package.json declares
+    """
+    declared = declared_version() if declared is None else declared
+    node = node_declared_version() if node is None else node
+    translated = pep440_from_semver(
+        node, tag, what="client/node/package.json version"
+    )
+    if translated != declared:
+        raise VersionError(
+            f"client/node/package.json declares {node!r} (PEP 440 {translated!r}), but "
+            f"client/python/opensysml/_version.py declares {declared!r}. The Node client is "
+            "released in lockstep with the core and the Python client: set \"version\" and every "
+            "platform package in optionalDependencies to the SemVer spelling of that version."
+        )
+    if tag and tag[len(TAG_PREFIX):] != node:
+        raise VersionError(
+            f"Tag {tag!r} names npm version {tag[len(TAG_PREFIX):]!r}, but client/node/package.json "
+            f"declares {node!r}. npm publishes the version package.json declares, so the tag must "
+            "spell it exactly."
+        )
+    return node
 
 
 def parse_version(version, what):
@@ -189,6 +263,11 @@ def main(argv=None):
         help="release tag (default: $CIRCLE_TAG)",
     )
     parser.add_argument(
+        "--node",
+        action="store_true",
+        help="check and print client/node/package.json's version instead",
+    )
+    parser.add_argument(
         "--pre-release",
         action="store_true",
         help="print yes/no for whether the tag names a pre-release",
@@ -197,6 +276,8 @@ def main(argv=None):
 
     try:
         version = version_from_tag(args.tag)
+        if args.node:
+            version = node_version(declared=version, tag=args.tag)
         pre_release = is_pre_release(version)
     except VersionError as e:
         print(f"error: {e}", file=sys.stderr)
