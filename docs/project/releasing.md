@@ -298,8 +298,11 @@ one alongside it).
    ```bash
    mkdir /tmp/npm-verify && cd /tmp/npm-verify && npm init -y
    npm install @openmbee/opensysml@0.0.5
-   node -e "import('@openmbee/opensysml').then(async m => {
-     const model = await m.loads('package V { }'); console.log('loaded'); })"
+   node --input-type=module -e "
+     import { loads } from '@openmbee/opensysml';
+     const model = await loads('package V { part def P; }');
+     console.log(model.diagnostics);
+     await model.close();"
    ```
 
 3. **Let the Homebrew tap pick the release up.** The tap repository
@@ -987,8 +990,8 @@ The Node client in `client/node/` is published to npm as `@openmbee/opensysml`
 by the `release` workflow's `publish-npm` job, from the same core `v<version>`
 tag that publishes the binaries and `opensysml` — at that version. No other tag
 publishes it; the `client-node-v*` path never ran and is no longer matched.
-**Nothing has been published yet** — the first core release after this is the
-first publish, and the `npm` context it needs is already in place (see
+**Nothing has been published yet** — the next core release is the first
+publish, and the `npm` context it needs is already in place (see
 [What the job needs](#what-the-job-needs-1)).
 
 ### Six packages, one tag

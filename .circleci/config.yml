@@ -1849,8 +1849,6 @@ jobs:
           paths:
             - dist
 
-  # The five sysml-grpc binaries the per-platform npm packages carry, built from
-  # the tagged revision in this pipeline so the published bytes never travel.
   # Publishes @openmbee/opensysml and its five per-platform packages from the
   # core `v<version>` tag, carrying the sysml-grpc binaries build-release
   # published — the same bytes as the GitHub release. npm has no trusted
@@ -1929,7 +1927,7 @@ jobs:
               echo "$names"
               exit 1
             fi
-            echo "$names" | while read -r name; do
+            for name in $names; do
               if npm view "${name}@${NPM_VERSION}" version > /dev/null 2>&1; then
                 echo "Error: ${name}@${NPM_VERSION} is already published; a version cannot be"
                 echo "replaced. Bump client/node/package.json and cut the next core release."
