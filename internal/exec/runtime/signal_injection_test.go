@@ -2014,3 +2014,75 @@ func TestAcceptTakingLeavesThePortUnmaterialized(t *testing.T) {
 		t.Errorf("%d objects after the preview, want the %d before it", got, objects)
 	}
 }
+
+// A signal queued from outside the model is typed by the definition its name
+// denotes where the machine's accepts are written — here the machine's private
+// import, which the owning part never sees — so the transition's payload binds
+// and the accept loop of the standard deferred-signal encoding keeps the
+// occurrence, as they do for a `send Ping` from the model.
+func TestQueuedSignalIsTypedWhereTheAcceptIsWritten(t *testing.T) {
+	src := `
+		package Signals {
+			attribute def Ping;
+			attribute def Go;
+		}
+		state def Worker {
+			private import Signals::*;
+			entry; then idle;
+			state idle;
+			transition first idle accept kept : Ping then busy;
+			state busy {
+				item deferred : Ping[*] ordered;
+				do action buffer {
+					first start then receive;
+					action receive accept kept : Ping;
+					then action keep { assign deferred := SequenceFunctions::including(deferred, receive.kept); }
+					then receive;
+				}
+				exit action flush {
+					for kept in deferred { send kept to self; }
+					then action clear { assign deferred := (); }
+				}
+			}
+			transition first busy accept Go then done;
+			state done;
+		}
+		part def Server { exhibit state worker : Worker; }
+	`
+	idx, _, ctx := buildRuntimeWithLibraries(t, "worker.sysml", parseAndBuild(t, src))
+	server, err := ctx.Instantiate(resolveSymbol(t, idx.DocumentRoot("worker.sysml"), "Server"))
+	if err != nil {
+		t.Fatalf("Instantiate: %v", err)
+	}
+	exec := server.behaviors[0].State
+	if err := exec.RunToCompletion(); err != nil {
+		t.Fatalf("enter idle: %v", err)
+	}
+	if err := exec.Enqueue(QueuedEvent{Signal: "Ping"}); err != nil {
+		t.Fatalf("queue Ping: %v", err)
+	}
+	if err := exec.RunToQuiescence(); err != nil {
+		t.Fatalf("take Ping in idle: %v", err)
+	}
+	if got := activeLeaf(exec); got != "busy" {
+		t.Fatalf("state after Ping = %s, want busy", got)
+	}
+	if err := exec.Enqueue(QueuedEvent{Signal: "Ping"}); err != nil {
+		t.Fatalf("queue a second Ping: %v", err)
+	}
+	if err := exec.RunToQuiescence(); err != nil {
+		t.Fatalf("keep Ping in busy: %v", err)
+	}
+	if kept := exec.StateData()["busy.deferred"]; sequenceLen(kept) != 1 {
+		t.Fatalf("Ping kept = %s; want the second Ping kept once", FormatValue(kept))
+	}
+	if err := exec.Enqueue(QueuedEvent{Signal: "Go"}); err != nil {
+		t.Fatalf("queue Go: %v", err)
+	}
+	if err := exec.RunToQuiescence(); err != nil {
+		t.Fatalf("leave busy: %v", err)
+	}
+	if got := activeLeaf(exec); got != "done" {
+		t.Fatalf("state after Go = %s, want done", got)
+	}
+}

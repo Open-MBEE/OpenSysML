@@ -164,11 +164,27 @@ func (e *emitter) nameVertices(regions []*Region) {
 
 // take claims base as an emitted name, suffixed while an earlier name has it.
 func (e *emitter) take(base string) string {
+	return e.takeAvoiding(base, nil)
+}
+
+// takeAvoiding is take, suffixing past the names in avoid as well.
+func (e *emitter) takeAvoiding(base string, avoid map[string]bool) string {
 	name := base
-	for n := 2; e.taken[name]; n++ {
+	for n := 2; e.taken[name] || avoid[name]; n++ {
 		name = fmt.Sprintf("%s_%d", base, n)
 	}
 	e.taken[name] = true
+	return name
+}
+
+// unshadowed suffixes base while it is a name in avoid: a generated member so
+// named would hide the signal from the references the encoding writes to it,
+// `accept kept : kept` binding the payload to its own name.
+func unshadowed(base string, avoid map[string]bool) string {
+	name := base
+	for n := 2; avoid[name]; n++ {
+		name = fmt.Sprintf("%s_%d", base, n)
+	}
 	return name
 }
 
@@ -522,14 +538,23 @@ func (e *emitter) stateBody(b *strings.Builder, depth int, name, path string, st
 	return nil
 }
 
+// keeping is a state's deferred-signal encoding with the name of the state's
+// own behavior nested in the encoding's actions.
+type keeping struct {
+	*deferred.Encoding
+	run string
+}
+
 // kept is the standard encoding of a state's deferred signals, nil when it
 // defers none: each is kept in an ordered buffer by an accept loop of the
 // state's do action and sent back to the machine by its exit action. The
 // buffer is an attribute, as the suite's signals are attribute definitions.
 // Triggers deferring one signal share its buffer and loop, as two loops would
-// keep each occurrence twice. A deferred call has no such spelling, the encoding keeping signals only,
-// nor has a deferral in a state an unguarded completion transition leaves.
-func (e *emitter) kept(state *Vertex, where string) (*deferred.Encoding, error) {
+// keep each occurrence twice. No name the encoding makes up is a kept signal's,
+// as the encoding refers to each signal from within the members it makes up. A
+// deferred call has no such spelling, the encoding keeping signals only, nor
+// has a deferral in a state an unguarded completion transition leaves.
+func (e *emitter) kept(state *Vertex, where string) (*keeping, error) {
 	if state == nil || len(state.Deferred) == 0 {
 		return nil, nil
 	}
@@ -556,24 +581,25 @@ func (e *emitter) kept(state *Vertex, where string) (*deferred.Encoding, error) 
 			base += identifier(name)
 			suffix = identifier(name)
 		}
+		payload := unshadowed(deferredPayload+suffix, seen)
 		enc.Signals = append(enc.Signals, deferred.Signal{
 			Ref:    spell(name),
 			Kind:   "attribute",
-			Buffer: e.take(base),
-			Item:   deferredPayload + suffix,
-			Clear:  "clear" + suffix,
+			Buffer: e.takeAvoiding(base, seen),
+			Item:   payload,
+			Clear:  unshadowed("clear"+suffix, seen),
 			Loops: []deferred.Loop{{
-				Receive: "receive" + suffix,
-				Keep:    "keep" + suffix,
-				Payload: deferredPayload + suffix,
+				Receive: unshadowed("receive"+suffix, seen),
+				Keep:    unshadowed("keep"+suffix, seen),
+				Payload: payload,
 				Accept:  spell(name),
 			}},
 		})
 	}
-	enc.Buffer = e.take("buffer")
-	enc.Flush = e.take("flush")
-	enc.Split = "split"
-	return enc, nil
+	enc.Buffer = e.takeAvoiding("buffer", seen)
+	enc.Flush = e.takeAvoiding("flush", seen)
+	enc.Split = unshadowed("split", seen)
+	return &keeping{Encoding: enc, run: unshadowed(keptRun, seen)}, nil
 }
 
 // deferredPayload is the base name of a generated accept's parameter and of a
@@ -587,14 +613,14 @@ const (
 // keptBehaviors writes a deferring state's do and exit actions: the encoding's,
 // the state's own do behavior forked beside the accept loops and its own exit
 // behavior run before the flush.
-func (e *emitter) keptBehaviors(w *indentWriter, kept *deferred.Encoding, state *Vertex, exit, where string) error {
+func (e *emitter) keptBehaviors(w *indentWriter, kept *keeping, state *Vertex, exit, where string) error {
 	var own func() deferred.Own
 	var err error
 	if state.Do != nil {
 		own = func() deferred.Own {
 			var text strings.Builder
-			err = e.doBody(&text, w.ind, "action "+keptRun, state.Do, where+" do")
-			return deferred.Own{Text: text.String(), Written: text.Len() > 0, Run: keptRun}
+			err = e.doBody(&text, w.ind, "action "+kept.run, state.Do, where+" do")
+			return deferred.Own{Text: text.String(), Written: text.Len() > 0, Run: kept.run}
 		}
 	}
 	kept.Do(w, own)
@@ -604,7 +630,7 @@ func (e *emitter) keptBehaviors(w *indentWriter, kept *deferred.Encoding, state 
 	var exitOwn func() deferred.Own
 	if exit != "" {
 		exitOwn = func() deferred.Own {
-			return deferred.Own{Text: w.ind + "action " + keptRun + exit + "\n", Written: true, Run: keptRun}
+			return deferred.Own{Text: w.ind + "action " + kept.run + exit + "\n", Written: true, Run: kept.run}
 		}
 	}
 	kept.Exit(w, exitOwn)

@@ -184,16 +184,34 @@ func (e *StateExecutor) callTriggerOperations(trigger *ast.CallEvent) []*symbols
 }
 
 // signalPayload builds the message a queued signal event carries: an occurrence
-// of the signal definition the name denotes where the machine's owner sees one,
-// so that an accept binding its payload (`accept kept : Ping`) has a Ping to
-// bind, as it has for a `send Ping` from the model; a name no signal definition
-// resolves is matched by name alone, as `accept go` is.
+// of the signal definition the name denotes where the machine's accepts are
+// written — its own body, the bodies of the definitions it inherits from, then
+// its owner's scope — so that an accept binding its payload (`accept kept : Ping`)
+// has a Ping to bind, as it has for a `send Ping` from the model, where the
+// machine alone imports Ping as much as where its owner sees it; a name no
+// signal definition resolves is matched by name alone, as `accept go` is.
 func (e *StateExecutor) signalPayload(signal string, args map[string]Value) (Message, error) {
-	sym := e.ctx.resolveTypeRef(DeclScope(e.callOwner()), ast.QualifiedNameOf(strings.Split(signal, "::")...))
-	if !IsSignalDefinition(sym) {
-		return Message{SignalType: signal, Payload: args}, nil
+	name := ast.QualifiedNameOf(strings.Split(signal, "::")...)
+	for _, scope := range e.signalScopes() {
+		if sym := e.ctx.resolveTypeRef(scope, name); IsSignalDefinition(sym) {
+			return e.ctx.SignalMessage(sym, args, nil)
+		}
 	}
-	return e.ctx.SignalMessage(sym, args, nil)
+	return Message{SignalType: signal, Payload: args}, nil
+}
+
+// signalScopes are the scopes a signal the machine accepts is named in, most
+// specific first: the machine's own body, each definition body its content is
+// inherited from, and the scope of the part exhibiting it.
+func (e *StateExecutor) signalScopes() []*symbols.Scope {
+	var scopes []*symbols.Scope
+	if e.graph != nil {
+		scopes = append(scopes, e.graph.Scope)
+		for _, in := range e.graph.Inherited() {
+			scopes = append(scopes, in.Body)
+		}
+	}
+	return append(scopes, DeclScope(e.callOwner()))
 }
 
 // callPayload builds the call event's payload: the operation's declaration as a

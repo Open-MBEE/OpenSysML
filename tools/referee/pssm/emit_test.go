@@ -571,3 +571,55 @@ func TestEmitSharesABufferAmongTriggersDeferringOneSignal(t *testing.T) {
 		t.Errorf("%s\n%s", strings.Join(problems, "\n"), m.Text)
 	}
 }
+
+// A kept signal named as the encoding names one of its own members — `kept`,
+// the payload an accept loop binds, or `buffer`, the do action keeping it — is
+// not hidden by that member: the made-up name steps aside, so the encoding's
+// references to the signal still name it.
+func TestEmitKeptSignalNamedAsAnEncodingMember(t *testing.T) {
+	for signal, wants := range map[string][]string{
+		"kept": {
+			"attribute deferred : kept[*] ordered;",
+			"action receive accept kept_2 : kept;",
+			"assign deferred := SequenceFunctions::including(deferred, receive.kept_2);",
+			"for kept_2 in deferred { send kept_2 to self; }",
+		},
+		"buffer": {
+			"attribute deferred : buffer[*] ordered;",
+			"do action buffer_2 {",
+			"action receive accept kept : buffer;",
+		},
+	} {
+		t.Run(signal, func(t *testing.T) {
+			src := machineSuite("", `
+          <subvertex xmi:type="uml:State" xmi:id="xD" name="D">
+            <deferrableTrigger xmi:type="uml:Trigger" xmi:id="xDt" event="evNamed"/>
+          </subvertex>
+          <transition xmi:type="uml:Transition" xmi:id="xT3" name="T3" source="xS1" target="xD">
+            <trigger xmi:type="uml:Trigger" xmi:id="xT3trig" event="evContinue"/>
+          </transition>`)
+			src = strings.Replace(src, fixtureEvents, fixtureEvents+`  <packagedElement xmi:type="uml:SignalEvent" xmi:id="evNamed" name="NamedEvent" signal="sigNamed"/>
+`, 1)
+			src = strings.Replace(src, `<packagedElement xmi:type="uml:Signal" xmi:id="sigStart" name="Start"/>`,
+				`<packagedElement xmi:type="uml:Signal" xmi:id="sigStart" name="Start"/>
+    <packagedElement xmi:type="uml:Signal" xmi:id="sigNamed" name="`+signal+`"/>`, 1)
+			s := readFixture(t, src)
+			noDiagnostics(t, s)
+			if len(s.Tests) != 1 {
+				t.Fatalf("tests = %d", len(s.Tests))
+			}
+			m, err := Emit(s, s.Tests[0])
+			if err != nil {
+				t.Fatal(err)
+			}
+			for _, want := range wants {
+				if !strings.Contains(m.Text, want) {
+					t.Errorf("model lacks %q:\n%s", want, m.Text)
+				}
+			}
+			if problems := Validate(m); len(problems) > 0 {
+				t.Errorf("%s\n%s", strings.Join(problems, "\n"), m.Text)
+			}
+		})
+	}
+}
