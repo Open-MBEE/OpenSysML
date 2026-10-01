@@ -1082,7 +1082,8 @@ other), while the counts at `t=4.0` and `t=5.0` are alone in their rounds.
 
 Fixture: `state_join_runs_every_incoming_effect` (golden, explored),
 `state_join_segment_fires_on_own_signal` (trace golden), and
-`state_join_segments_arrive_together_on_one_occurrence` (golden, explored).
+`state_join_segments_arrive_together_on_one_occurrence` and
+`state_join_segment_not_chosen_does_not_arrive` (golden, explored).
 
 ```
 Outer { exit { log += "outer(exit) " }
@@ -1104,8 +1105,11 @@ Derived constraints:
 - The library does not state that one segment's occurrence waits for another, or provide a
   succession connecting the segments across regions. The independent-occurrence join rule is
   therefore UML's extension reference, not a claim supplied by the KerML library: arrived
-  segments plus those enabled by the current occurrence complete the join only when all incoming
-  segments are covered.
+  segments plus those enabled by the current occurrence and chosen by their regions in that
+  dispatch complete the join only when all incoming segments are covered. A not-yet-arrived
+  segment fires only when its source is active, its trigger
+  takes the occurrence, its guard holds, and its region's dispatch chose that transition; a
+  competing or nested transition chosen by the region is not displaced by a sibling's join firing.
 - A substate's steps are enclosed in its owner's state performance and are "and hence happening
   during the state performance" (`StatePerformances.kerml`); the library orders the owner's
   middle steps before its exit with `private succession [*] middle then [1] exit;`. Thus the
@@ -1126,6 +1130,9 @@ occurrence firing both enabled segments in either `join sync` order, recording b
 Finish then fires the last segment, leaves the owner and runs the outgoing effect. Each segment's
 source exit and effect are one ordered unit, while arrivals are retained until the incoming set
 is complete.
+`state_join_segment_not_chosen_does_not_arrive` shows that Go fires A's segment while the middle
+region takes its nested `b1` transition; Finish records C, and the later Go fires B's segment and
+completes the join. The region's first dispatch does not also fire the unchosen B segment.
 
 ### A merge is re-entered on every traversal of a loop
 

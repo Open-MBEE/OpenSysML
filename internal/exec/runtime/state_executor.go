@@ -66,6 +66,8 @@ type StateExecutor struct {
 	// joinArrived holds the join segments that have fired and are waiting on
 	// their remaining incoming segments.
 	joinArrived map[*ast.PseudostateNode][]*lower.Transition
+	// joinChosen holds the incoming segments selected by the current dispatch.
+	joinChosen map[*ast.PseudostateNode]map[*lower.Transition]bool
 
 	// pendingCall is the synchronous Call the machine is running, if any.
 	pendingCall *pendingCall
@@ -1187,6 +1189,19 @@ func (e *StateExecutor) dispatchInOrder(
 	armed func(dispatchCandidate) (bool, error),
 	fire func(dispatchCandidate, *lower.Transition, []RunNote) (bool, error),
 ) (bool, error) {
+	chosen := make(map[*ast.PseudostateNode]map[*lower.Transition]bool)
+	for _, candidate := range candidates {
+		if join, ok := candidate.chosen.Target.(*ast.PseudostateNode); ok && join.Kind == ast.PseudostateJoin {
+			if chosen[join] == nil {
+				chosen[join] = make(map[*lower.Transition]bool)
+			}
+			chosen[join][candidate.chosen] = true
+		}
+	}
+	saved := e.joinChosen
+	e.joinChosen = chosen
+	defer func() { e.joinChosen = saved }()
+
 	acted := false
 	gone := func(candidate dispatchCandidate) bool { return !e.isActive(candidate.leaf) || e.state.Ended() }
 	// A guard that cannot be read is left to the firing, which reports the error.
@@ -1233,8 +1248,8 @@ func (e *StateExecutor) dispatchInOrder(
 	return acted, err
 }
 
-// joinFirings is the candidates with those meeting at one join reduced to the
-// first of them, which fires the join's every segment.
+// joinFirings keeps one candidate per join; that firing handles the segments
+// selected by the dispatch.
 func joinFirings(candidates []dispatchCandidate) []dispatchCandidate {
 	firings := make([]dispatchCandidate, 0, len(candidates))
 	joins := make(map[*ast.PseudostateNode]bool)
@@ -3232,8 +3247,9 @@ func cloneJoinArrivals(arrived map[*ast.PseudostateNode][]*lower.Transition) map
 	return cloned
 }
 
-// joinFiringNow returns the segments enabled by this occurrence and whether they
-// complete the join with the segments already arrived.
+// joinFiringNow returns segments enabled by this occurrence, restricted to their
+// regions' dispatch choices when a dispatch is active, and whether they complete
+// the join with the segments already arrived.
 func (e *StateExecutor) joinFiringNow(trans *lower.Transition, event *Event) ([]*lower.Transition, bool, error) {
 	join, ok := trans.Target.(*ast.PseudostateNode)
 	if !ok || join.Kind != ast.PseudostateJoin {
@@ -3254,6 +3270,9 @@ func (e *StateExecutor) joinFiringNow(trans *lower.Transition, event *Event) ([]
 			continue
 		}
 		if arrived[segment] {
+			continue
+		}
+		if e.joinChosen != nil && !e.joinChosen[join][segment] {
 			continue
 		}
 		source := segment.Source.(*ast.StateNode)

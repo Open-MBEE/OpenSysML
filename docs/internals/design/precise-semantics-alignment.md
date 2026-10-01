@@ -841,19 +841,21 @@ the owner's exit
 ([oracle](../../project/behavior-semantic-oracle.md#transitions-into-a-join-each-exits-its-source-and-runs-its-effect-before-the-owner-is-left-in-which-order-is-open)).
 *Runtime:* each segment into the join fires on its own occurrence, as PSSM's does.
 `state_executor.go:joinFiringNow` takes the segment being dispatched and every other segment not
-yet arrived whose source is active, whose trigger takes the same signal, call, timer expiry or
-change rise and whose guard holds — a completion segment fires only on its own completion, never
-pulled into another occurrence — and reports whether, with the segments already arrived, they
-complete the join. When they do not, `resolveRoute` ends the route at the join as an arrival, and
-`fireJoinTransition` fires every not-yet-arrived segment enabled by the occurrence in the
-`join <name>` order (`fireJoinIncoming`), exiting each source and running its effect, then records
-each among the join's arrivals (`joinArrived`), which snapshots, held images and the checker's
+yet arrived whose source is active, whose region's dispatch chose it, whose trigger takes the same
+signal, call, timer expiry or change rise and whose guard holds — a completion segment fires only
+on its own completion, never pulled into another occurrence — and reports whether, with the
+segments already arrived, they complete the join. When they do not, `resolveRoute` ends the route
+at the join as an arrival, and `fireJoinTransition` fires every not-yet-arrived segment enabled by
+the occurrence and chosen by its region's dispatch in the `join <name>` order (`fireJoinIncoming`),
+exiting each source and running its effect, then records each among the join's arrivals
+(`joinArrived`), which snapshots, held images and the checker's
 canonical state (`check_state.go`) carry. A region whose segment has arrived holds no active state but waits at the join, so it does
 not count its owner complete (`regionWaitingAtJoin`); an arrival is dropped when its region is
 entered again (`setRegionState`) or the owner is left by another transition
 (`clearJoinArrivalsOwnedBy`). When they do complete it, the route out of the join is resolved and
-must have a way through (SM32), and `fireJoinIncoming` fires the segments the occurrence enables
-one at a time, drawing the next from the scheduling policy as a `ChoiceRegionOrder` labelled `join <name>` (declaration order by default),
+must have a way through (SM32), and `fireJoinIncoming` fires the segments enabled by the occurrence
+and chosen by their regions in that dispatch, one at a time, drawing the next from the scheduling
+policy as a `ChoiceRegionOrder` labelled `join <name>` (declaration order by default),
 each with the arguments its own trigger takes from the occurrence bound (`fireJoinSegment`,
 `state_join_segment_reads_its_payload`), before the owner is exited and the outgoing segment
 followed. The owner and the region of it each segment leaves are the lowerer's `JoinPlan`, found
@@ -876,6 +878,7 @@ when the join does and none is an alternative to another (`lower/join_check.go`)
 `state_join_runs_every_incoming_effect` (both orders as `outcomes`, explored: the two completions
 follow the regions' entry order), `state_join_segment_fires_on_own_signal`,
 `state_join_segments_arrive_together_on_one_occurrence`,
+`state_join_segment_not_chosen_does_not_arrive`,
 `state_join_waits_for_every_segment_enabled`, `state_join_segment_trigger_unmatched` (each
 segment arrives on its own trigger), `state_join_time_segment_needs_same_occurrence`,
 `state_join_time_segments_expire_together`, `state_join_time_segments_expire_apart` (each expiry
