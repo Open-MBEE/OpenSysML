@@ -1629,7 +1629,8 @@ func (ctx *Context) performActionFrom(performed, action *symbols.Symbol, self *I
 func (ctx *Context) beginPerformed(performed, action *symbols.Symbol, self *Instance, inputs map[string]Value, top bool, listener *outputListener, start func(*ActionExecutor) error) (*ActionExecutor, error) {
 	exec, err := newActionExecutorOf(ctx, performed, action, self, nil)
 	if err != nil {
-		return nil, fmt.Errorf("create action executor: %w", err)
+		err = fmt.Errorf("create action executor: %w", err)
+		return nil, rootActionError(nil, err, top)
 	}
 	exec.beginsRun = top
 	if listener != nil {
@@ -1646,9 +1647,16 @@ func (ctx *Context) beginPerformed(performed, action *symbols.Symbol, self *Inst
 
 	if err := ctx.startAction(exec, start); err != nil {
 		ctx.clock.detach(exec)
-		return nil, err
+		return nil, rootActionError(exec, err, top)
 	}
 	return exec, nil
+}
+
+func rootActionError(exec *ActionExecutor, err error, top bool) error {
+	if !top || exec != nil && exec.tool != nil {
+		return err
+	}
+	return wrapSetupError(err)
 }
 
 // runPerformed runs a performance beginPerformed started to completion, after
@@ -1858,13 +1866,13 @@ func (ctx *Context) performState(stateMachine *symbols.Symbol, self *Instance, e
 		return nil, err
 	}
 	if exec == nil {
-		if exec, err = newStateExecutor(ctx, stateMachine, self); err != nil {
-			return nil, fmt.Errorf("create state executor: %w", err)
+		if exec, err = ctx.startStateRun(stateMachine, self, top); err != nil {
+			if exec != nil {
+				ctx.clock.detach(exec)
+			}
+			return nil, err
 		}
 		defer ctx.clock.detach(exec)
-		if err := exec.initialize(); err != nil {
-			return nil, fmt.Errorf("initialize state machine: %w", err)
-		}
 	}
 
 	// Inject external signal events. Each event name is treated as a signal type
@@ -1878,6 +1886,28 @@ func (ctx *Context) performState(stateMachine *symbols.Symbol, self *Instance, e
 	}
 	if err := ctx.followedWhole(top); err != nil {
 		return nil, err
+	}
+	return exec, nil
+}
+
+func (ctx *Context) startStateRun(stateMachine *symbols.Symbol, self *Instance, top bool) (*StateExecutor, error) {
+	exec, err := newStateExecutor(ctx, stateMachine, self)
+	if err != nil {
+		err = fmt.Errorf("create state executor: %w", err)
+		if top {
+			err = wrapSetupError(err)
+		}
+		return nil, err
+	}
+	if err := exec.checkStart(); err != nil {
+		err = fmt.Errorf("initialize state machine: %w", err)
+		if top {
+			err = wrapSetupError(err)
+		}
+		return exec, err
+	}
+	if err := exec.initialize(); err != nil {
+		return exec, fmt.Errorf("initialize state machine: %w", err)
 	}
 	return exec, nil
 }
@@ -1901,7 +1931,7 @@ func (ctx *Context) CreateActionExecutorFor(action *symbols.Symbol, self *Instan
 func (ctx *Context) CreateActionExecutorWithInputs(action *symbols.Symbol, self *Instance, inputs map[string]Value) (*ActionExecutor, error) {
 	exec, err := newActionExecutor(ctx, action, self)
 	if err != nil {
-		return nil, fmt.Errorf("create action executor: %w", err)
+		return nil, rootActionError(nil, fmt.Errorf("create action executor: %w", err), true)
 	}
 	exec.beginsRun = true
 	if len(inputs) > 0 {
@@ -1910,7 +1940,7 @@ func (ctx *Context) CreateActionExecutorWithInputs(action *symbols.Symbol, self 
 
 	if err := ctx.startAction(exec, (*ActionExecutor).initialize); err != nil {
 		exec.Release()
-		return nil, err
+		return nil, rootActionError(exec, err, true)
 	}
 
 	return exec, nil
@@ -1925,16 +1955,12 @@ func (ctx *Context) CreateStateExecutor(stateMachine *symbols.Symbol) (*StateExe
 // CreateStateExecutorFor creates a state executor for a machine performed by
 // self, without starting execution.
 func (ctx *Context) CreateStateExecutorFor(stateMachine *symbols.Symbol, self *Instance) (*StateExecutor, error) {
-	exec, err := newStateExecutor(ctx, stateMachine, self)
+	exec, err := ctx.startStateRun(stateMachine, self, true)
 	if err != nil {
-		return nil, fmt.Errorf("create state executor: %w", err)
+		if exec != nil {
+			exec.Release()
+		}
+		return nil, err
 	}
-
-	// Initialize (enters initial state, schedules initial events)
-	if err := exec.initialize(); err != nil {
-		exec.Release()
-		return nil, fmt.Errorf("initialize state machine: %w", err)
-	}
-
 	return exec, nil
 }

@@ -1,0 +1,29 @@
+{
+	"type": "action",
+	"evaluate": "test::mixed",
+	"libraries": true,
+	"outcomes": [
+		{
+			"outputs": {
+				"x": {"type": "Integer", "value": 1},
+				"y": {"type": "Integer", "value": 1}
+			},
+			"probabilityRange": [0.0, 0.3]
+		},
+		{
+			"outputs": {
+				"x": {"type": "Integer", "value": 1},
+				"y": {"type": "Integer", "value": 2}
+			},
+			"probabilityRange": [0.0, 0.7]
+		},
+		{
+			"outputs": {
+				"x": {"type": "Integer", "value": 2},
+				"y": {"type": "Integer", "value": 0}
+			},
+			"probabilityRange": [0.0, 1.0]
+		}
+	],
+	"admissible": "Exploration separates scheduler choices from model weights"
+}

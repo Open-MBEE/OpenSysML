@@ -90,7 +90,7 @@ public interface ExplorationStatusOrBuilder extends
 
   /**
    * <pre>
-   * True when the outcomes' probabilities are lower bounds: a budget kept some
+   * True when weighted probabilities are lower bounds: a budget kept some
    * linearizations unexplored.
    * </pre>
    *
@@ -98,4 +98,14 @@ public interface ExplorationStatusOrBuilder extends
    * @return The probabilitiesLowerBound.
    */
   boolean getProbabilitiesLowerBound();
+
+  /**
+   * <pre>
+   * How many linearizations ended in runtime-error outcomes.
+   * </pre>
+   *
+   * <code>int32 failed_linearizations = 7 [json_name = "failedLinearizations"];</code>
+   * @return The failedLinearizations.
+   */
+  int getFailedLinearizations();
 }

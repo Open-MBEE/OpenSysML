@@ -378,8 +378,16 @@ class RunAnalysisResponse(_message.Message):
     bounds: _containers.RepeatedCompositeFieldContainer[Bound]
     def __init__(self, outputs: _Optional[_Iterable[_Union[CalcOutput, _Mapping]]] = ..., verdicts: _Optional[_Iterable[_Union[Verdict, _Mapping]]] = ..., instances: _Optional[_Iterable[_Union[Instance, _Mapping]]] = ..., error: _Optional[str] = ..., diagnostics: _Optional[_Iterable[_Union[Diagnostic, _Mapping]]] = ..., failure_reason: _Optional[_Union[FailureReason, str]] = ..., verification_verdicts: _Optional[_Iterable[_Union[VerificationVerdict, _Mapping]]] = ..., outcomes: _Optional[_Iterable[_Union[Outcome, _Mapping]]] = ..., exploration: _Optional[_Union[ExplorationStatus, _Mapping]] = ..., evaluations: _Optional[_Iterable[_Union[CaseEvaluation, _Mapping]]] = ..., engine: _Optional[str] = ..., strength: _Optional[str] = ..., bounds: _Optional[_Iterable[_Union[Bound, _Mapping]]] = ...) -> None: ...
 
+class ProbabilityRange(_message.Message):
+    __slots__ = ("min", "max")
+    MIN_FIELD_NUMBER: _ClassVar[int]
+    MAX_FIELD_NUMBER: _ClassVar[int]
+    min: float
+    max: float
+    def __init__(self, min: _Optional[float] = ..., max: _Optional[float] = ...) -> None: ...
+
 class Outcome(_message.Message):
-    __slots__ = ("outputs", "final_state", "states_visited", "error", "linearizations", "witness", "diagnostics", "probability")
+    __slots__ = ("outputs", "final_state", "states_visited", "error", "linearizations", "witness", "diagnostics", "probability", "probability_range")
     class OutputsEntry(_message.Message):
         __slots__ = ("key", "value")
         KEY_FIELD_NUMBER: _ClassVar[int]
@@ -395,6 +403,7 @@ class Outcome(_message.Message):
     WITNESS_FIELD_NUMBER: _ClassVar[int]
     DIAGNOSTICS_FIELD_NUMBER: _ClassVar[int]
     PROBABILITY_FIELD_NUMBER: _ClassVar[int]
+    PROBABILITY_RANGE_FIELD_NUMBER: _ClassVar[int]
     outputs: _containers.MessageMap[str, Value]
     final_state: str
     states_visited: _containers.RepeatedScalarFieldContainer[str]
@@ -403,23 +412,26 @@ class Outcome(_message.Message):
     witness: _containers.RepeatedScalarFieldContainer[str]
     diagnostics: _containers.RepeatedCompositeFieldContainer[Diagnostic]
     probability: float
-    def __init__(self, outputs: _Optional[_Mapping[str, Value]] = ..., final_state: _Optional[str] = ..., states_visited: _Optional[_Iterable[str]] = ..., error: _Optional[str] = ..., linearizations: _Optional[int] = ..., witness: _Optional[_Iterable[str]] = ..., diagnostics: _Optional[_Iterable[_Union[Diagnostic, _Mapping]]] = ..., probability: _Optional[float] = ...) -> None: ...
+    probability_range: ProbabilityRange
+    def __init__(self, outputs: _Optional[_Mapping[str, Value]] = ..., final_state: _Optional[str] = ..., states_visited: _Optional[_Iterable[str]] = ..., error: _Optional[str] = ..., linearizations: _Optional[int] = ..., witness: _Optional[_Iterable[str]] = ..., diagnostics: _Optional[_Iterable[_Union[Diagnostic, _Mapping]]] = ..., probability: _Optional[float] = ..., probability_range: _Optional[_Union[ProbabilityRange, _Mapping]] = ...) -> None: ...
 
 class ExplorationStatus(_message.Message):
-    __slots__ = ("complete", "runs", "budgets_hit", "runs_budget", "depth_budget", "probabilities_lower_bound")
+    __slots__ = ("complete", "runs", "budgets_hit", "runs_budget", "depth_budget", "probabilities_lower_bound", "failed_linearizations")
     COMPLETE_FIELD_NUMBER: _ClassVar[int]
     RUNS_FIELD_NUMBER: _ClassVar[int]
     BUDGETS_HIT_FIELD_NUMBER: _ClassVar[int]
     RUNS_BUDGET_FIELD_NUMBER: _ClassVar[int]
     DEPTH_BUDGET_FIELD_NUMBER: _ClassVar[int]
     PROBABILITIES_LOWER_BOUND_FIELD_NUMBER: _ClassVar[int]
+    FAILED_LINEARIZATIONS_FIELD_NUMBER: _ClassVar[int]
     complete: bool
     runs: int
     budgets_hit: _containers.RepeatedScalarFieldContainer[str]
     runs_budget: int
     depth_budget: int
     probabilities_lower_bound: bool
-    def __init__(self, complete: _Optional[bool] = ..., runs: _Optional[int] = ..., budgets_hit: _Optional[_Iterable[str]] = ..., runs_budget: _Optional[int] = ..., depth_budget: _Optional[int] = ..., probabilities_lower_bound: _Optional[bool] = ...) -> None: ...
+    failed_linearizations: int
+    def __init__(self, complete: _Optional[bool] = ..., runs: _Optional[int] = ..., budgets_hit: _Optional[_Iterable[str]] = ..., runs_budget: _Optional[int] = ..., depth_budget: _Optional[int] = ..., probabilities_lower_bound: _Optional[bool] = ..., failed_linearizations: _Optional[int] = ...) -> None: ...
 
 class ListEnginesRequest(_message.Message):
     __slots__ = ()
