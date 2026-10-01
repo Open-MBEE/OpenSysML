@@ -470,6 +470,58 @@ func TestFirstThenOwnsItsConnectorEnds(t *testing.T) {
 	}
 }
 
+// A `first a then b` whose connector ends and sysml:sourceFeature/targetFeature
+// name different features is refused, with or without its source text: the
+// notation states each end once, so writing one would drop the other.
+func TestFirstThenWithDisagreeingEndsIsRefused(t *testing.T) {
+	src := "package P {\n    action def Step;\n    action def A {\n        action a : Step;\n        action b : Step;\n" +
+		"        action c : Step;\n        first a then b;\n    }\n}\n"
+	turtle, err := convert.Convert("m.sysml", []byte(src), convert.FormatSysML, convert.FormatTurtle)
+	if err != nil {
+		t.Fatalf("to turtle: %v", err)
+	}
+	const succession = "elmt:P__A___403"
+	// retarget rewrites b as c in the blocks whose subject edit selects.
+	retarget := func(graph string, edit func(subject string) bool) string {
+		blocks := strings.Split(graph, "\n\n")
+		for i, block := range blocks {
+			if subject, _, _ := strings.Cut(block, "\n"); edit(subject) {
+				block = strings.ReplaceAll(block, "elmt:P__A__b ", "elmt:P__A__c ")
+				blocks[i] = strings.ReplaceAll(block, `\"P__A__b\"`, `\"P__A__c\"`)
+			}
+		}
+		edited := strings.Join(blocks, "\n\n")
+		if edited == graph {
+			t.Fatalf("nothing was retargeted:\n%s", graph)
+		}
+		return edited
+	}
+	for _, tc := range []struct {
+		name string
+		edit func(subject string) bool
+		want string
+	}{
+		{"edited end", func(subject string) bool { return strings.HasPrefix(subject, "expr:P__A___403_pend1") }, "references <urn:sysmlv2:element:P__A__c> and its sysml:targetFeature is <urn:sysmlv2:element:P__A__b>"},
+		{"edited targetFeature", func(subject string) bool { return subject == succession }, "references <urn:sysmlv2:element:P__A__b> and its sysml:targetFeature is <urn:sysmlv2:element:P__A__c>"},
+	} {
+		for _, graph := range []struct {
+			name   string
+			turtle string
+		}{
+			{"with source text", string(turtle)},
+			{"graph only", string(withoutTriples(t, turtle, "sysx:sourceText"))},
+		} {
+			t.Run(tc.name+", "+graph.name, func(t *testing.T) {
+				_, err := convert.Convert("m.ttl", []byte(retarget(graph.turtle, tc.edit)), convert.FormatTurtle, convert.FormatSysML)
+				var unsupported *export.UnsupportedError
+				if !errors.As(err, &unsupported) || !strings.Contains(err.Error(), tc.want) {
+					t.Errorf("expected the disagreement to be refused with %q, got %v", tc.want, err)
+				}
+			})
+		}
+	}
+}
+
 // A member-attached `then done;` is one SuccessionAsUsage (SysML.xtext
 // TargetSuccessionMember): its target end's ReferenceSubsetting reaches the
 // library's Actions::Action::done, the same end `succession first x then done;`

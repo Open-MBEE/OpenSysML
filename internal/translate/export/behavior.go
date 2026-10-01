@@ -1146,9 +1146,47 @@ func (d *decoder) startOf(el *element) (rdf.Term, bool) {
 	return d.graph.Object(rdf.IRI(el.iri), rdf.SysML+pSourceFeature)
 }
 
+// initialEndsAgree refuses a `first a then b` whose connector ends and
+// sysml:sourceFeature/sysml:targetFeature name different features: the
+// notation states each end once, so writing one would drop the other.
+func (d *decoder) initialEndsAgree(el *element) error {
+	ends, err := d.standardEndFeatures(el)
+	if err != nil || len(ends) == 0 {
+		return err
+	}
+	subject := rdf.IRI(el.iri)
+	source, hasSource := d.graph.Object(subject, rdf.SysML+pSourceFeature)
+	target, hasTarget := d.graph.Object(subject, rdf.SysML+pTargetFeature)
+	if len(ends) != 2 || !hasSource || !hasTarget {
+		return &UnsupportedError{
+			What: fmt.Sprintf("the succession <%s>", el.iri),
+			Note: fmt.Sprintf("it owns %d connector ends and states sysml:sourceFeature %t and sysml:targetFeature %t, where `first a then b` relates two ends, its source and its target", len(ends), hasSource, hasTarget),
+		}
+	}
+	for i, want := range []rdf.Term{source, target} {
+		got, ok, err := d.standardEndTarget(ends[i], el)
+		if err != nil {
+			return err
+		}
+		// A literal names a feature the graph does not link, so it is no
+		// identity to compare with.
+		if ok && got != want && !got.IsLiteral() && !want.IsLiteral() {
+			property := []string{pSourceFeature, pTargetFeature}[i]
+			return &UnsupportedError{
+				What: fmt.Sprintf("the succession <%s>", el.iri),
+				Note: fmt.Sprintf("its connector end <%s> references <%s> and its sysml:%s is <%s>; the notation states the end once, so writing one would drop the other", ends[i].Value, got.Value, property, want.Value),
+			}
+		}
+	}
+	return nil
+}
+
 // initialNodeHead writes `first x [if g then y]`. The start is a member of
 // this body or a label, written by its own name: `first` takes no qualified name.
 func (d *decoder) initialNodeHead(el *element) (string, error) {
+	if err := d.initialEndsAgree(el); err != nil {
+		return "", err
+	}
 	words := []string{"first"}
 	if start, ok := d.startOf(el); ok {
 		name, target, err := d.memberName(start)
