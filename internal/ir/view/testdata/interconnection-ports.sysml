@@ -48,6 +48,7 @@ package ToasterDemo {
 
 package ToasterViews {
 	private import Views::*;
+	private import DiagramLayout::*;
 
 	view toasterView {
 		expose ToasterDemo::Toaster;
@@ -71,5 +72,14 @@ package ToasterViews {
 		expose ToasterDemo::Sensor;
 		expose ToasterDemo::Rig;
 		render asInterconnectionDiagram;
+	}
+
+	// Places heating and chassis alone: control, and the interface and flow at
+	// it, are left undrawn, and with them heating's pin they alone reached.
+	view placedView {
+		expose ToasterDemo::Toaster;
+		render asInterconnectionDiagram;
+		metadata Layout about ToasterDemo::Toaster::heating { x = 40; y = 40; }
+		metadata Layout about ToasterDemo::Toaster::chassis { x = 240; y = 40; }
 	}
 }

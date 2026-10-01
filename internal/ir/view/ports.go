@@ -88,14 +88,20 @@ type portView struct {
 	connected       map[string]bool
 }
 
-// portView is the ports the rendering draws under display.
-func (r *Rendering) portView(display Ports) portView {
+// portView is the ports the rendering draws under display, the minimal
+// display following the rendering's edges.
+func (r *Rendering) portView(display Ports) portView { return r.portViewOver(display, r.Edges) }
+
+// portViewOver is the ports the rendering draws under display when a form
+// draws edges alone of the rendering's: the minimal display follows those, so
+// no pin stands for a connector the form leaves out.
+func (r *Rendering) portViewOver(display Ports, edges []Edge) portView {
 	v := portView{interconnection: r.Kind == KindInterconnection, minimal: display != PortsFull && r.Kind.SupportsPorts()}
 	if !v.minimal {
 		return v
 	}
 	v.connected = map[string]bool{}
-	for _, edge := range r.Edges {
+	for _, edge := range edges {
 		if edge.FromPort != "" {
 			v.connected[edge.FromPort] = true
 		}

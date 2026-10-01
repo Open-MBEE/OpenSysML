@@ -239,12 +239,13 @@ func (w *dotWriter) dotBB(box nodeBox) string {
 // newDOTWriter is the writer for r with every node that has a box placed in
 // it, the clusters and the palette's families collected. A positioned drawing
 // omits the nodes it places nowhere before the labels are needed — under
-// UnplacedStrip none is — and keeps the notes of the nodes left drawn.
+// UnplacedStrip none is — and keeps the notes of the nodes left drawn and, under
+// the minimal display, the pins of the edges left drawn.
 func newDOTWriter(r *Rendering, options Options) *dotWriter {
 	skin := skinOf(options.Style)
 	w := &dotWriter{tree: r.Kind == KindTree, action: r.Kind == KindAction, clusters: map[string]bool{}, enclosing: map[string][]string{}, canvas: r.Canvas,
 		placement: placeRendering(r), drawn: map[string]bool{}, boxes: map[string]nodeBox{}, pins: map[string]nodeBox{}, ported: map[string]*Node{}, omitted: map[string]bool{},
-		ports: r.portView(options.Ports), fills: familyFills{palette: options.Palette, tree: r.Kind == KindTree}, skin: skin, pictures: r.Pictures}
+		fills: familyFills{palette: options.Palette, tree: r.Kind == KindTree}, skin: skin, pictures: r.Pictures}
 	w.sources = map[string]bool{}
 	for _, edge := range r.Edges {
 		if edge.FromPort != "" {
@@ -252,9 +253,12 @@ func newDOTWriter(r *Rendering, options Options) *dotWriter {
 		}
 	}
 	w.collectDrawn(r.Roots)
+	edges := r.Edges
 	if w.placement.partial() && options.Unplaced != UnplacedStrip {
 		w.omitUnplaced(r.Roots)
+		edges, _ = w.placement.keptEdges(r.Edges)
 	}
+	w.ports = r.portViewOver(options.Ports, edges)
 	w.labels = labelsOf(r.Roots, skin.cameo || w.placement.positioned(), w.omitted)
 	w.labels.skin = skin
 	w.placeNodes(r.Roots, r.Edges)

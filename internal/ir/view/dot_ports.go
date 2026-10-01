@@ -284,8 +284,10 @@ func (w *dotWriter) dotPinRow(ports []Port, columns int) string {
 	}
 	cells := []string{"<td></td>"}
 	for _, port := range ports {
-		cells = append(cells, fmt.Sprintf(`<td port=%s border="1" fixedsize="true" width="%d" height="%d" bgcolor=%s></td><td align="left">%s</td><td></td>`,
-			dotQuote(port.ID), dotPinSize-2, dotPinSize-2, dotQuote(w.pinFill()), w.labels.sized(w.labels.size(), dotPinPts, dotEscape(w.ports.pinLabel(port)))))
+		cells = append(cells,
+			fmt.Sprintf(`<td port=%s border="1" fixedsize="true" width="%d" height="%d" bgcolor=%s></td>`, dotQuote(port.ID), dotPinSize-2, dotPinSize-2, dotQuote(w.pinFill())),
+			fmt.Sprintf(`<td align="left">%s</td>`, w.labels.sized(w.labels.size(), dotPinPts, dotEscape(w.ports.pinLabel(port)))),
+			"<td></td>")
 	}
 	for len(cells) < columns {
 		cells = append(cells, "<td></td>")

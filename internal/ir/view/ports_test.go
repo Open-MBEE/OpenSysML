@@ -2,6 +2,8 @@ package view
 
 import (
 	"errors"
+	"regexp"
+	"strconv"
 	"strings"
 	"testing"
 )
@@ -169,5 +171,69 @@ func TestAnActionDrawsEveryPinWhateverTheDisplay(t *testing.T) {
 		if ports.minimal || len(ports.of(rendering.Roots[0])) != 2 || ports.pinLabel(rendering.Roots[0].Ports[0]) != "result : Real" {
 			t.Errorf("%s: an action's ports are %+v, want both, typed", display, ports.of(rendering.Roots[0]))
 		}
+	}
+}
+
+// The minimal display draws the pins of the edges the DOT form draws, not of
+// those it leaves out: a positioned drawing omits an unplaced part and the
+// connectors at it, so the placed part's port those alone reached is omitted
+// too, not left a pin nothing ends at; the strip, drawing every node, draws it.
+func TestTheMinimalDisplayFollowsTheEdgesDOTDraws(t *testing.T) {
+	rendering := render(t, "interconnection-ports.sysml", "ToasterViews::placedView")
+	omitted, err := rendering.DOTWith(Options{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, unwanted := range []string{"durationIn", "durationOut", "control", `port="n`} {
+		if strings.Contains(omitted, unwanted) {
+			t.Errorf("the omitted connectors' %s is drawn:\n%s", unwanted, omitted)
+		}
+	}
+	for _, want := range []string{"heating", "chassis", "1 node(s) without a position, left undrawn, and 2 edge(s) at them"} {
+		if !strings.Contains(omitted, want) {
+			t.Errorf("the drawing lacks %q:\n%s", want, omitted)
+		}
+	}
+	stripped, err := rendering.DOTWith(Options{Unplaced: UnplacedStrip})
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, want := range []string{`xlabel="durationIn"`, `xlabel="durationOut"`, `"n2.0" -> "n1.0" [label="durationInterface"`} {
+		if !strings.Contains(stripped, want) {
+			t.Errorf("the strip lacks %q:\n%s", want, stripped)
+		}
+	}
+}
+
+// A pinned node's table is as wide as its body: each pin row holds exactly the
+// cells the body spans, so the box runs the width of the node.
+func TestAPinnedDOTNodeSpansItsPinRows(t *testing.T) {
+	rendering := render(t, "interconnection-ports.sysml", "ToasterViews::toasterView")
+	source, err := rendering.DOTWith(Options{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	pinned := 0
+	for _, line := range strings.Split(source, "\n") {
+		if !strings.Contains(line, "shape=plain") {
+			continue
+		}
+		pinned++
+		span := regexp.MustCompile(`colspan="(\d+)"`).FindStringSubmatch(line)
+		if span == nil {
+			t.Fatalf("no body colspan in %s", line)
+		}
+		columns, _ := strconv.Atoi(span[1])
+		for _, row := range strings.Split(line, "<tr>")[1:] {
+			if !strings.Contains(row, "port=") {
+				continue
+			}
+			if cells := strings.Count(row, "<td"); cells != columns {
+				t.Errorf("a pin row of %d cells under a body spanning %d:\n%s", cells, columns, line)
+			}
+		}
+	}
+	if pinned != 2 {
+		t.Errorf("%d pinned nodes, want heating and control", pinned)
 	}
 }
