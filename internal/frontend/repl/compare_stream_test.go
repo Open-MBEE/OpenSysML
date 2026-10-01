@@ -4,7 +4,7 @@ import (
 	"reflect"
 	"testing"
 
-	"github.com/Open-MBEE/OpenSysML/internal/translate/simresults"
+	"github.com/Open-MBEE/OpenSysML/internal/exec/simresults"
 )
 
 // CompareResultsEach reports each verdict as it is decided, in the order

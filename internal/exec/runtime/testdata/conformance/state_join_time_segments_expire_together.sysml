@@ -1,7 +1,5 @@
-// Two time-triggered segments into a join whose timers are due at one instant:
-// their expiries are one occurrence for the join, whichever is dispatched
-// first, so the join fires, each segment's effect running before the owner is
-// left, in either order, and the other timer is withdrawn with its source.
+// Two timers due at one instant are dispatched as two occurrences: each segment
+// arrives on its own expiry, and the second completes the join.
 package Test {
 	private import ScalarValues::*;
 	private import SI::*;

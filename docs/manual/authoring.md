@@ -109,8 +109,13 @@ another document — by name: `ref redefines target = <block>`. The renderer
 gives the referenced block a stable HTML anchor derived from its named path —
 `<a id="breakdown"></a>` before the section above — and the `Ref` renders as
 a link to it. `text` is optional; it defaults to the target's title (for a
-section), caption (for a table or diagram) or name. A target that is neither
-a content block nor a document, or one without a stable name, is a typed
+section), caption (for a table or diagram) or name. A `Ref` may also name a
+model element outside every document — a usage by name (`telescope.mount`),
+any element through its metadata (`Mount.metadata`, the KerML way to refer to
+a definition or package as a value): it renders as the element's name, in
+HTML marked with the element's qualified name (`data-element`) and no link,
+since a rendered document has no page for it. A content block that is not a
+named member of a document, or a target without a stable name, is a typed
 planning error.
 
 ### Cross-document references

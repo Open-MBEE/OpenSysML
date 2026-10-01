@@ -218,7 +218,7 @@ its dependents drop their entries through `Index.TakeChanges` and
 every recorded document at once, parsing on the workers. Every public
 operation that needs a body hydrates before answering rather than returning
 `NeedsHydration`: opening a document in the editor (`Open`), building a
-runtime or debugger (`NewRuntime` and the debugger's private index hydrate
+runtime or debugger (`modelrt.New` and the debugger's private index hydrate
 everything recorded, since the runtime's model retains symbols and must never
 evaluate against a record), the reverse-reference index (`ReferencesTo`,
 `NameReferencesTo`, `RenameConflict`, and so the language server's references
@@ -283,7 +283,7 @@ production reader of `Symbol.Decl` under `internal/semantic`, `internal/check`,
    `symbols.ErrNeedsHydration` (`symbols.NeedsTree`, `symbols.NeedsHydration`
    with the document and the question) for a recorded document at the level
    that has no tree, and the workspace operation above them hydrates
-   (previous section): `Workspace.NewRuntime` hydrates every recorded
+   (previous section): `Workspace.Detach`, used by `modelrt.New`, hydrates every recorded
    document before its model is built, so the runtime never evaluates against
    a record; the reverse-reference index is built from the references a
    document's body writes, which its record does not carry, so

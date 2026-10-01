@@ -591,24 +591,20 @@ func TestExploreJunctionBranchBeyondWhichNoGuardHolds(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !x.Complete() || x.Runs != 2 {
-		t.Fatalf("status %q, want complete (2 runs)", x.Status())
+	if !x.Complete() || x.Runs != 1 {
+		t.Fatalf("status %q, want complete (1 run)", x.Status())
 	}
 	got := outcomeTexts(x)
-	if len(got) != 2 || got[1] != "finalState ready; visits idle, ready; level = 0" {
-		t.Fatalf("outcomes %v, want the dead end at stuck and ready", got)
-	}
-	if !strings.HasPrefix(got[0], "error: ") || !strings.HasSuffix(got[0], "fire transition out of idle: evaluate pseudostate: junction stuck: no guard evaluated to true") {
-		t.Fatalf("outcomes %v, want the first the dead end at stuck, met as the transition fires", got)
+	if len(got) != 1 || got[0] != "finalState ready; visits idle, ready; level = 0" {
+		t.Fatalf("outcomes %v, want the dead junction branch dropped and ready reached", got)
 	}
 	w := x.Outcomes[0].Witness
-	if len(w) != 1 || w[0].Kind != ChoiceTransition || w[0].Where != "junction split" || !strings.HasSuffix(w[0].Took, "->stuck") {
-		t.Fatalf("witness of the dead end %v, want the branch of junction split into stuck", w)
+	if len(w) != 0 {
+		t.Fatalf("witness %v, want no draw after the dead branch is dropped", w)
 	}
 }
 
-// The branch drawn noted a guard it could not read at a junction on its way
-// before it dead-ended: the run fails with the dead end and keeps the note.
+// A cyclic route remains drawable, and an unevaluable probed guard keeps its note.
 func TestJunctionBranchDeadEndKeepsItsNotes(t *testing.T) {
 	m := parseExploreModel(t, `package test {
 		state def Machine {
@@ -620,13 +616,12 @@ func TestJunctionBranchDeadEndKeepsItsNotes(t *testing.T) {
 			junction stuck;
 			state ready;
 			state other;
-			state never;
 			transition first idle accept go then split;
 			transition first split then nested;
 			transition first split then ready;
 			transition first nested if d == 0 then stuck;
 			transition first nested if 1 / d > 0 then other;
-			transition first stuck if d > 0 then never;
+			transition first stuck then stuck;
 		}
 	}`)
 	declared, err := ParseSchedulePolicy("declared")
@@ -649,8 +644,8 @@ func TestJunctionBranchDeadEndKeepsItsNotes(t *testing.T) {
 	}
 	exec.SendSignal("go", nil)
 	err = exec.RunToCompletion()
-	if err == nil || !strings.Contains(err.Error(), "junction stuck: no guard evaluated to true") {
-		t.Fatalf("RunToCompletion: %v, want the dead end at stuck", err)
+	if err == nil || !strings.Contains(err.Error(), "outgoing transitions form a cycle between pseudostates") {
+		t.Fatalf("RunToCompletion: %v, want the cycle at stuck", err)
 	}
 	var drew, noted bool
 	for _, n := range ctx.Notes() {

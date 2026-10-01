@@ -40,6 +40,7 @@ import (
 	"github.com/Open-MBEE/OpenSysML/internal/translate/interop/reposync"
 	"github.com/Open-MBEE/OpenSysML/internal/workspace/libs"
 	"github.com/Open-MBEE/OpenSysML/internal/workspace/model"
+	"github.com/Open-MBEE/OpenSysML/internal/workspace/modeldoc"
 )
 
 const selfModelDir = "self-model"
@@ -1369,7 +1370,7 @@ func TestSelfModelDocumentRenders(t *testing.T) {
 		ws.Open(name, content, 1)
 	}
 
-	markdown, err := ws.RenderDocumentMarkdown("OpenSysMLDocument::ArchitectureDocument", docrender.MarkdownOptions{})
+	markdown, err := modeldoc.RenderDocumentMarkdown(ws, "OpenSysMLDocument::ArchitectureDocument", docrender.MarkdownOptions{})
 	if err != nil {
 		t.Fatalf("render the architecture document: %v", err)
 	}

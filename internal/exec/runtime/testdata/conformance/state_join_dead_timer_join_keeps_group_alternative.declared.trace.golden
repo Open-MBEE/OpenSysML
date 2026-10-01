@@ -1,0 +1,13 @@
+choice events at t=1.0: time a 1->sync, time b 1->sync (unordered; dispatched time a 1->sync first)
+exit: a
+stmt assign log
+    eval feature log -> ""
+    eval literal "A-segment " -> "A-segment "
+  eval operator + -> "A-segment "
+exit: b
+stmt assign log
+    eval feature log -> "A-segment "
+    eval literal "fallback " -> "fallback "
+  eval operator + -> "A-segment fallback "
+enter: fallback
+transition: b -> fallback (event: time)

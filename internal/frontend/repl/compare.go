@@ -9,8 +9,8 @@ import (
 	"strings"
 
 	"github.com/Open-MBEE/OpenSysML/internal/exec/runtime"
+	"github.com/Open-MBEE/OpenSysML/internal/exec/simresults"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/semantics"
-	"github.com/Open-MBEE/OpenSysML/internal/translate/simresults"
 )
 
 // CompareOptions say how migrated run configurations are run beside the

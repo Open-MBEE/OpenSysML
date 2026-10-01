@@ -6,14 +6,8 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/Open-MBEE/OpenSysML/internal/translate/convert"
-	"github.com/Open-MBEE/OpenSysML/internal/translate/export"
+	"github.com/Open-MBEE/OpenSysML/internal/frontend/repl/replext"
 )
-
-// formatAdvice is the remedy for a save path whose format cannot be told. The
-// prompt has no format flag, so it names the file name remedy first and the
-// command line's flag alongside it, in the words the command line uses.
-const formatAdvice = convert.ExtensionAdvice + ", or pass -convert on the command line"
 
 // doSave writes the session's model to path. The format follows the file
 // extension: `.sysml`/`.kerml` writes the notation, `.ttl` writes RDF Turtle,
@@ -37,35 +31,11 @@ func (s *Session) doSave(path string) ([]string, bool, error) {
 		// Not a format complaint: the extension, if any, is beside the point.
 		return []string{fmt.Sprintf("error: %s is a directory: name the file to write inside it", path)}, false, nil
 	}
-	format, err := convert.FormatOfPath(path)
-	if err != nil {
-		return []string{"error: " + convert.Advise(err, formatAdvice).Error()}, false, nil
-	}
-	var lines []string
-	// Reported before the conversion, so a refused .ttl save carries it too.
-	if convert.IsExperimental(convert.FormatSysML, format) {
-		lines = append(lines, "note: "+convert.ExperimentalNotice)
-	}
-	// Diagnostics are positions in the session buffer, not in the file about to
-	// be written, so they are labelled as such.
-	out, syntax, err := convert.ConvertTolerant(sessionOrigin, []byte(src), convert.FormatSysML, format)
-	if err != nil {
-		return append(lines, "error: "+err.Error()), false, nil
-	}
-	if syntax != nil {
-		lines = append(lines, strings.Split("warning: "+syntax.Error(), "\n")...)
-		lines = append(lines, "warning: the file is saved as typed; fix these and save again")
-	}
-	// WriteFile's errors already name the path, so they are not prefixed again.
-	replaced, err := export.WriteFile(path, out)
+	lines, err := replext.Notation().Save(sessionOrigin, []byte(src), path)
 	if err != nil {
 		return nil, false, err
 	}
-	saved := fmt.Sprintf("saved %d bytes of %s to %s", len(out), format, path)
-	if replaced {
-		saved += " (replaced the existing file)"
-	}
-	return append(lines, saved), false, nil
+	return lines, false, nil
 }
 
 // expandHome expands a leading `~` or `~/` to the user's home directory, which

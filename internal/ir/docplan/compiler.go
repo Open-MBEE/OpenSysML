@@ -78,6 +78,7 @@ type refTarget struct {
 	document string
 	path     []string
 	label    string
+	element  string
 }
 
 // IsDocumentDefinition reports whether sym specializes DocumentQueries::Document.
@@ -782,8 +783,10 @@ func (c *compiler) resolveRefs(content []Content) error {
 			}
 			run.ref = append([]string(nil), target.path...)
 			run.refDocument = target.document
+			run.refElement = target.element
 			if run.text == "" {
 				run.text = target.label
+				run.defaultText = true
 			}
 		}
 		if err := c.resolveRefs(content[i].children); err != nil {
@@ -795,7 +798,7 @@ func (c *compiler) resolveRefs(content []Content) error {
 
 // crossDocumentTarget resolves a reference whose target lives outside the
 // planned document: another document definition's root or one of its named
-// content blocks.
+// content blocks, or a model element of neither, labelled by its name.
 func (c *compiler) crossDocumentTarget(run *Run) (refTarget, error) {
 	sym := run.refSym
 	if root, err := c.documentRootTarget(sym, run); root != nil || err != nil {
@@ -840,13 +843,16 @@ func (c *compiler) crossDocumentTarget(run *Run) (refTarget, error) {
 		}
 		node = owner
 	}
-	return refTarget{}, &Error{
-		Kind:     ErrorInvalidRefTarget,
-		Document: c.document,
-		Content:  symbols.FQNOf(sym),
-		Actual:   symbols.FQNOf(sym),
-		Origin:   run.origin,
+	if sym == nil || sym == c.entry || c.contentOwner(sym) != nil {
+		return refTarget{}, &Error{
+			Kind:     ErrorInvalidRefTarget,
+			Document: c.document,
+			Content:  symbols.FQNOf(sym),
+			Actual:   symbols.FQNOf(sym),
+			Origin:   run.origin,
+		}
 	}
+	return refTarget{element: symbols.FQNOf(sym), label: c.effectiveName(sym)}, nil
 }
 
 // documentRootTarget returns the document definition a reference names as a
@@ -1640,6 +1646,11 @@ func (c *compiler) namedTarget(
 		target := declaration.Value
 		if reference, ok := target.(*ast.FeatureReference); ok {
 			target = reference.Name
+		}
+		// `E.metadata` names the element E itself, a definition or package a
+		// feature reference cannot name.
+		if access, ok := target.(*ast.MetadataAccessExpr); ok && access.Ref != nil {
+			target = access.Ref
 		}
 		if chain, ok := target.(*ast.FeatureChainExpr); ok {
 			resolved, ok := c.resolver.ResolveTarget(candidate.OwnerScope, chain)

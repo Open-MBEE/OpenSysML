@@ -163,7 +163,7 @@ returned over the service yet.
 | «Refine» | `dependency` carrying `@ModelingMetadata::Refinement` | mapped |
 | «Trace», «Copy», other stereotyped dependencies | plain `dependency` with the stereotype as a comment; named relationships keep their name | approximated |
 | A user stereotype specializing a standard one («Org Requirement» :> «Requirement», or one specializing «Block», «ValueType», «Satisfy», «Verify», «Refine», «Trace», «DeriveReqt», «Allocate», …) | the standard stereotype's v2 form above, its tags read as the standard ones (`Id`, `Text`, …), plus a `@Profile::'Org Requirement' { … }` usage holding the user-added tags | as the standard form |
-| Comment, Documentation | `doc` (first) / `comment`, HTML tags stripped | mapped |
+| Comment, Documentation | `doc` (first) / `comment`, HTML tags stripped and the cross-references in it read as plain text ([below](#cross-references-in-documentation)) | mapped (approximated when a reference is dangling or stale) |
 | User profile | `package` holding its stereotypes and the enumerations and value types they use | mapped |
 | User stereotype | `metadata def`, `:>` the defs of the user stereotypes it specializes; tag definitions `attribute name : String|Integer|Real|Boolean|<enum def>` or `ref name` for element-typed ones, with the v1 multiplicity; `base_*` extension ends and the `Extension`s written as nothing | mapped (a general outside the document, or closing a cycle: approximated) |
 | User stereotype application, on an element, property or relationship the document defines the stereotype of | `@Profile::Name { tag = value; }` in the element's body (`@Profile::Name;` without tags); strings, numbers and booleans as literals, enumeration literals by name, element references by the written element's name — a definition cast to its metaclass, `owner = Acme meta SysML::PartDefinition;`, since a type is not a value a feature can hold, and an activity written as its block's action usage likewise, `runs = Ctl::run meta SysML::ActionUsage;` — HTML-bodied text as plain text; a tag the stereotype does not define, or a value not of the tag's type, a comment | mapped (a value kept as a comment: approximated) |
@@ -614,7 +614,8 @@ the class, as a `part def '<Name> Document' :> DocumentQueries::Document` whose 
 the view tree in declaration order, and each view's method is lowered into the section's
 content, so `-render-document` produces the document DocGen would have. A section opens, as
 DocGen prints it, with the view's own documentation as a `Paragraph` — the same comment its
-`view` carries as `doc`, tool HTML reduced to text — before its method's content, unless that
+`view` carries as `doc`, tool HTML lowered to text and [reference runs](#cross-references-in-documentation) —
+before its method's content, unless that
 comment is shown by one of the view's collaborator paragraphs, in which case it is written once, in
 that paragraph's place; a collaborator paragraph that cannot be shown (a malformed application) is
 refused as usual and does not hide the documentation. A view with no «Conform» gets
@@ -682,7 +683,7 @@ section, in the activity's order:
 | `CollectionAndFilterGroup`, `StructuredQuery` | the group's chain, inlined |
 | `TableStructure` with `TableAttributeColumn` (`Name`, `Documentation`), `TablePropertyColumn` (a value property of the rows' definition, or a requirement's `Id`/`Text`), `TableExpressionColumn` naming a bare query property | `part table : Table { attribute redefines caption = …; calc rows : …; }` over `Project(properties, columns = (Column(…)))`, the built-in properties first (a built-in column behind a value property is moved ahead of it with the note) and a value property captioned like a built-in property as `<caption> 2`; a requirement's `Id` is its `shortName` and its `Text` its `documentation`, where the migration writes them; `includeDoc` adds `documentation`; a `MonteCarloAnalysis` statistic column (`N`, `Mean`, `Deviation`, `OutOfSpec`) reads the statistic the row's nested analysis records, as `Column(name = "N", path = "'Monte Carlo'.runs")` and a sort on it as `OrderBy(property = "'Monte Carlo'.runs")`, when an instance the table lists records it — otherwise the column is omitted with the note saying so; a column beyond these — a property of a used project — is omitted with the note saying which, and a table with no writable column is refused. The caption is the table's title (`titles`, between `titlePrefix` and `titleSuffix`), and its `captions` text follows the table as a `Paragraph` unless `showCaptions` is false |
 | `BulletedList(orderedList, includeDoc)` | `part list : List { attribute redefines style = "number" / "bullet"; calc items : …; }`; `includeDoc` follows each item's name with its documentation |
-| `Paragraph(body)`; a «CollaboratorParagraph» reading the comment body | `part paragraph : Paragraph { attribute redefines text = "…"; }`, tool HTML reduced to text; a paragraph over the targets' documentation is `calc values : …` over `Project(properties = ("documentation"))`. A collaborator paragraph stands where its `siblingId` (else `parentId`) tag puts it: one naming another paragraph of the view follows that paragraph; one with no tag comes, as Cameo prints it, before the content the method generates; one naming the generated figure of a diagram, `Containment_DiagramMainImage__<id>`, follows the figure or table the section drew for that diagram, or the refusal standing where it would have been. An anchor of that form naming no diagram of the model (Collaborator writes publish-time ids) is placed after the section's only figure when it draws exactly one and no other anchor is as unresolved, the row saying so; otherwise, and for an anchor of another kind (`Containment_<Kind>__…`) or a tag naming nothing, the paragraph follows the generated content and its row names the anchor and why |
+| `Paragraph(body)`; a «CollaboratorParagraph» reading the comment body | `part paragraph : Paragraph { attribute redefines text = "…"; }`, tool HTML reduced to text; one whose HTML cross-references an element the export contains is written as runs instead, `part span : Span { attribute redefines text = "…"; } part 'ref' : Ref { ref redefines target = …; }` ([below](#cross-references-in-documentation)); a paragraph over the targets' documentation is `calc values : …` over `Project(properties = ("documentation"))`. A collaborator paragraph stands where its `siblingId` (else `parentId`) tag puts it: one naming another paragraph of the view follows that paragraph; one with no tag comes, as Cameo prints it, before the content the method generates; one naming the generated figure of a diagram, `Containment_DiagramMainImage__<id>`, follows the figure or table the section drew for that diagram, or the refusal standing where it would have been. An anchor of that form naming no diagram of the model (Collaborator writes publish-time ids) is placed after the section's only figure when it draws exactly one and no other anchor is as unresolved, the row saying so; otherwise, and for an anchor of another kind (`Containment_<Kind>__…`) or a tag naming nothing, the paragraph follows the generated content and its row names the anchor and why |
 | a «CollaboratorImageParagraph» — a comment stereotyped MagicDraw «AttachedFile», or one carrying an `<img>` | `part 'image N' : Image { attribute redefines location = "images/<file>"; attribute redefines caption = "<comment text>"; attribute redefines alt = "<file>"; }`, and the attached bytes are written beside the notation under `images/`, as the base of the file name with the suffix the bytes' content type calls for — `figure.txt` holding PNG bytes is `images/figure.png` (an `http(s)` source names the URL instead and writes no file; the comment body is the caption and an empty one is allowed). The attachment is found in the archive by the `ATTACHED_FILE` extension's stream id, then the `file` tag name or an entry with that base name; an image no archive entry holds keeps its caption as a paragraph, noted, and a captionless one is **unmapped** — the note names the file. A server-relative `src` (a path the View Editor serves) resolves against `-image-base-url`; without it the paragraph keeps its text with the same note saying so. Writing the files requires `-o`; `images/` beside the model is the migration's, so a re-run replaces the files it wrote before as it replaces the model, and a file of another name there is left alone — a run never writes over the model it is writing, the input, or its `-migration-report`/`-migration-results` files |
 | an `Image` step over a diagram that draws nothing, whose note (the diagram's own comment) holds an `<img>` | `part image : Image { attribute redefines location = <resolved src>; attribute redefines caption = <the figure's title>; attribute redefines alt = <img alt>; }` instead of leaving the figure out — approximated, since layout and free symbols drop; a note that says more than the title follows as the caption paragraph; the note's image not in the archive and not resolved against `-image-base-url` leaves the figure out with the same hint |
 | `Image` | one `part diagram : Diagram { attribute redefines caption = "<title>"; ref redefines source = <its view>; }` per diagram the chain collected (see below), captioned by its `titles` entry (else the diagram's name) between `titlePrefix` and `titleSuffix`, its `captions` entry following as a `Paragraph` unless `showCaptions` is false. A diagram that is a Cameo [table, matrix or relation map](#tables-matrices-and-relation-maps) is shown as DocGen shows it, as the table: `part table : Table { attribute redefines caption = "<title>"; calc rows : <its '… Rows' query>; }` over the query its definition already lowered, written once beside the view, never as a `Diagram` of the view rendered `asElementTable` (which a document would draw as a listing of the view's members); the step's row says the diagram is written as a Table over that query, and `-doc-number-figures` counts it among the tables. A table whose definition is refused (no query form) is refused in its place, the reason given, rather than drawn as that listing. A diagram written as a graph view — an activity diagram as an `ActionFlowView`, a state machine diagram as a `StateTransitionView` — is drawn like any other; one whose view renders as textual notation (a sequence diagram, whose Interaction is written as a scenario and not as the occurrence parts a `SequenceView` draws; an activity or state machine diagram whose behavior is not written as a definition) is refused with the reason, since a document draws no text view. A diagram that shows nothing — its tool lists no element and its stream draws nothing, or free symbols only (a diagram of pasted pictures draws them, so its figure is written) — would be an empty figure, so no `Diagram` is written for it: the step is reported mapped (approximated when the archive cannot tell what it shows) with the reason, and its caption stays as a paragraph, as DocGen shows it. An `Image` whose chain holds no diagram is mapped as drawing nothing, the note saying what the chain held instead |
@@ -770,6 +771,54 @@ with the qualified name of every candidate. A document that cannot be rendered d
 set: the others are written, a page stating the error stands in for it, and the run lists each
 such document and exits `3`.
 
+#### Cross-references in documentation
+
+MagicDraw and Cameo store an element's documentation as HTML, and two things in it refer to
+other elements: a hyperlink to a model element, `<a href="mdel://<xmi:id>">text</a>` (the
+text is what the element was called when the link was made, kept current by the tool), and a
+View Editor cross-reference, `<mms-cf mms-element-id="<id>" mms-cf-type="name|val|com">[cf:…]</mms-cf>`,
+whose body is the text the editor last cached for it. The editor's links to a view —
+`<mms-view-link data-mms-element-id="<id>">`, and a hyperlink to its own page for the view,
+whose URL names the view by `viewId=<id>` or `/views/<id>` — are hyperlinks to the view. All
+are resolved through the export —
+the id is the element's `xmi:id`, a diagram's included — before the HTML is reduced, so the
+prose reads as the tool printed it rather than as its markup:
+
+- In a document paragraph (a view's documentation, a `Paragraph` step, a collaborator paragraph),
+  each resolved reference is a `Ref` run between `Span` runs of the prose around it, in order.
+  Its target is the block of the same document standing for the element — the `Section` of a view,
+  the `Diagram`/`Image` of a diagram, the `Table` of a table — so the renderers label it `Section
+  N.N - Title`, `Figure N` or `Table N` and link it, as they do a native reference; a view or
+  diagram shown elsewhere is referenced as its own `view` and any other element by name, each
+  through its metadata (`E.metadata`, the form that names any element as a value), which
+  renders as the element's current name (in HTML with its qualified name on the link). A
+  hyperlink takes the label of the block it links, as Cameo's DocGen printed it; a `name`
+  cross-reference keeps the target's name as its text, linked to the block. `val` reads
+  the value of the slot or property, as the text of its literal at migration time; `com`
+  the target's own documentation (a comment's own body, when it names one), as text — the last two are approximated with a note saying so,
+  since the paragraph does not follow the value afterwards, and a `val` of a property holding no
+  value, or a `com` of an undocumented element, prints nothing. A `val` or `com` that reaches
+  back to the text being written — a value whose literal cites itself, two comments citing each
+  other's documentation — ends there, printing nothing for the turn back, noted. A reference to a
+  diagram no view is written for, and one the prose runs into with no space between
+  (`<a …>Mount</a>'s`, which the spaces joining a paragraph's runs would split), are written as
+  the target's name in the prose, noted on the paragraph. A paragraph with no resolved
+  reference is written as before, its `text` attribute.
+- Everywhere else — a `doc` comment, a requirement's `Text`, a stereotype tag, a note on a
+  diagram — a reference reads as the target's current name (`val` and `com` as above), as
+  Cameo prints it. A hyperlink whose text is not the target's current name is written with the
+  current name and the comment's row notes the text it carried.
+- A reference to an element the export does not contain — a View Editor table or figure that
+  was never in the model, a slot of a deleted instance, a link to a deleted element — is
+  dangling: an `<mms-cf>` prints nothing in a paragraph, as Cameo did, and its cached text with
+  the `[cf:…]` wrapper removed in plain text (the name it last had), while a hyperlink keeps its
+  text in both; each is noted on the comment's row (`names an element the export does not
+  contain: <id>`), which is approximated, so the ledger and not the prose carries the loss. No
+  `[cf:…]` is ever printed.
+- The spaces the dropped markup leaves (`the  Post  Segment-Exchange  Alignment  and/or`) are
+  collapsed in the same pass; the line breaks `</p>` and `<br>` stand for are kept. A body
+  with no markup is text as written, its spacing and tabs included.
+
 The mapping has been run over the XMI of the [OpenMBEE TMT SysML model](https://github.com/Open-MBEE/TMT-SysML-Model)
 (27 MB; 44,600 elements once the nodes and edges of its behaviors are counted): it writes 7 MB
 of notation that passes the gate below in a few seconds, and its Turtle in a few more. Five
@@ -848,7 +897,9 @@ integer, real or boolean literal, an enumeration literal by name, an element ref
 shortest name resolving where the usage sits — and a value that does not fit (an unknown
 literal, a reference to an element not written, a tag the stereotype does not define) is kept as
 a comment inside the usage, approximating the element with the reason. Rich text a tool stores
-as `<html><body>…</body></html>` becomes plain text, as a requirement's `Text` does.
+as `<html><body>…</body></html>` becomes plain text, as a requirement's `Text` does, its
+cross-references read as the names of their targets
+([Cross-references in documentation](#cross-references-in-documentation)).
 
 One tool stereotype is read as a type, not kept as a comment: MagicDraw's «typeModifier» on a
 property or parameter, whose tag spells a C-style shape after the type. `[]` on a feature
