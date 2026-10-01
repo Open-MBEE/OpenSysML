@@ -77,6 +77,7 @@ var packageLayer = map[string]string{
 	"internal/exec/analysis/enginewire": "exec",
 	"internal/exec/analysis/modelform":  "exec",
 	"internal/exec/analysis/record":     "exec",
+	"internal/exec/simresults":          "exec",
 	"internal/exec/engines":             "exec",
 	"internal/exec/fmi":                 "exec",
 	"internal/exec/hostcap":             "exec",
@@ -92,7 +93,6 @@ var packageLayer = map[string]string{
 	"internal/translate/migrate":          "translate",
 	"internal/translate/deferred":         "translate",
 	"internal/translate/mtip":             "translate",
-	"internal/translate/simresults":       "translate",
 	"internal/translate/xmi":              "translate",
 	"internal/translate/xmi/sysmlv1":      "translate",
 	"internal/translate/codegen":          "translate",
@@ -126,6 +126,13 @@ var packageLayer = map[string]string{
 	"cmd/sysml-grpc":              "frontend",
 	"cmd/sysml-lsp":               "frontend",
 	"cmd/sysml-engine":            "frontend",
+
+	"internal/frontend/repl/replext":               "frontend",
+	"internal/frontend/repl/replext/all":           "frontend",
+	"internal/frontend/repl/replext/graphviz":      "frontend",
+	"internal/frontend/repl/replext/instancegraph": "frontend",
+	"internal/frontend/repl/replext/notation":      "frontend",
+	"internal/frontend/repl/replext/positional":    "frontend",
 }
 
 // tolerated is the imports the layer table does not permit and that still

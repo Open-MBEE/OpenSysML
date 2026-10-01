@@ -7,9 +7,9 @@ import (
 	"strings"
 
 	"github.com/Open-MBEE/OpenSysML/internal/doc/docir"
-	"github.com/Open-MBEE/OpenSysML/internal/doc/docpdf"
 	"github.com/Open-MBEE/OpenSysML/internal/doc/docrender"
 	"github.com/Open-MBEE/OpenSysML/internal/doc/queryexec"
+	"github.com/Open-MBEE/OpenSysML/internal/frontend/repl/replext"
 	"github.com/Open-MBEE/OpenSysML/internal/ir/docplan"
 	"github.com/Open-MBEE/OpenSysML/internal/ir/view"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/semantics"
@@ -231,7 +231,7 @@ func (s *Session) doRenderDocument(invocation string) ([]string, bool, error) {
 	if len(fields) == 0 || len(fields) > 3 {
 		return []string{renderDocumentUsage}, false, nil
 	}
-	opts := docrender.MarkdownOptions{Drawer: docpdf.Graphviz{}}
+	opts := docrender.MarkdownOptions{Drawer: replext.Drawer(), WithoutGraphviz: replext.Drawer() == nil}
 	if len(fields) >= 2 {
 		opts.DiagramForm = view.Form(fields[1])
 		if !slices.Contains(view.DiagramForms(), opts.DiagramForm) {
