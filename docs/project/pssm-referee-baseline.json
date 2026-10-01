@@ -231,8 +231,6 @@
       "name": "Transition 019",
       "area": "Transition",
       "class": "extension",
-      "row": "SM34",
-      "rowKind": "differs, v2 silent",
       "bucket": "fail",
       "reasons": [
         "reached a trace the suite does not admit: S1.1(exit)::S2.1(exit)::T1.2(effect)::T2.2(effect)::T2.3(effect)::T1.3(effect)",
@@ -240,8 +238,7 @@
         "reached a trace the suite does not admit: S1.1(exit)::T1.2(effect)::S2.1(exit)::T2.2(effect)::T2.3(effect)::T1.3(effect)",
         "reached a trace the suite does not admit: S2.1(exit)::S1.1(exit)::T1.2(effect)::T2.2(effect)::T2.3(effect)::T1.3(effect)",
         "reached a trace the suite does not admit: S2.1(exit)::S1.1(exit)::T2.2(effect)::T1.2(effect)::T1.3(effect)::T2.3(effect)",
-        "reached a trace the suite does not admit: S2.1(exit)::T2.2(effect)::S1.1(exit)::T1.2(effect)::T1.3(effect)::T2.3(effect)",
-        "reports on SM34 (Join: where the owner is left): differs, v2 silent"
+        "reached a trace the suite does not admit: S2.1(exit)::T2.2(effect)::S1.1(exit)::T1.2(effect)::T1.3(effect)::T2.3(effect)"
       ],
       "expected": [
         "S1.1(exit)::S2.1(exit)::T1.2(effect)::T2.2(effect)::T1.3(effect)::T2.3(effect)",

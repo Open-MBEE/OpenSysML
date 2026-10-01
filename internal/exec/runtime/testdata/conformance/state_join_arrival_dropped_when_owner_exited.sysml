@@ -1,3 +1,4 @@
+// Oracle: Transitions into a join: each exits its source and runs its effect before the owner is left, in which order is open.
 package Test {
 	private import ScalarValues::*;
 	attribute def X;

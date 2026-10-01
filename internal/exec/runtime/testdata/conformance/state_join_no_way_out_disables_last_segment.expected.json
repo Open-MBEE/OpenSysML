@@ -17,5 +17,5 @@
       }
     }
   ],
-  "admissible": "Transitions into a join: each exits its source and runs its effect before the owner is left, in which order is open"
+  "admissible": "A junction with no way through: the transition is not enabled, and the occurrence is handled as unmatched"
 }

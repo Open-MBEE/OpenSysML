@@ -133,9 +133,12 @@ choice point at the junction the schedule policy draws and records only as the t
 (`settleDraws`), once the region order is drawn and the transition's own guard read again, so a
 candidate another region's reaction disarms draws nothing; the unguarded segments are the
 default when no guard holds — and goes on until the route reaches a state or a choice. The
-guards read the data as it stands before the incoming transition's effect; a junction none of
-whose guards holds fails the route, so the incoming transition does not fire (see the
-precise-semantics alignment note, SM29 and SM32).
+guards read the data as it stands before the incoming transition's effect. If no static
+branch is available, only `errNoWayThrough` leaves the compound transition unenabled before
+selection; the occurrence remains available to another enabled transition, deferral, or unmatched
+discard. A completion with no path is dropped. A history default route is checked this way only
+when the source is outside the history owner, because leaving the owner may record the history
+before its default route is read (see the precise-semantics alignment note, SM29 and SM32).
 
 **Choice evaluation** is dynamic. `followOut` leaves the route open at a choice. Firing
 (`travel`) then exits the states every branch of the open choice leaves — the source's ancestors
@@ -253,8 +256,11 @@ package JunctionTest {
 2. **Junction:**
    - Guards read before the incoming transition fires, in definition order; several holding is a
      recorded choice point, as at a choice
-   - No guard holding leaves the compound transition unenabled: the route fails, naming the
-     junction (`no guard evaluated to true`)
+   - No way through leaves the compound transition unenabled before selection, so the occurrence
+     is handled as unmatched: another enabled transition may take it, it may be deferred, or it
+     may be discarded; a completion with no way through is dropped
+   - Only `errNoWayThrough` disables; route cycles, unevaluable guards and binding failures remain
+     run errors, and static route checking stops at the first choice
 
 3. **Both:**
    - Cannot have entry/exit/do behaviors
@@ -307,10 +313,18 @@ must be unguarded and must target states in distinct orthogonal regions of one
 composite state; that composite state is entered and each region's active state
 becomes its branch target instead of the region's initial state.
 
-**Join** (`fireJoinTransition`): the transition only proceeds once the source
-state of every incoming branch is active. A branch that arrives early leaves its
-source state active and waits, so the join synchronizes the regions before the
-composite state is exited.
+**Join** (`fireJoinTransition`): each incoming segment fires on its own occurrence:
+its source exits, its effect runs, and the segment is recorded in `joinArrived`.
+The join completes when the arrived segments plus those enabled by the current
+occurrence cover every incoming segment and the outgoing route is available. The
+segments firing on that occurrence are drawn as `join <name>`; then arrivals
+clear, the owner is left after the last segment's effect, and the outgoing
+segment fires. A completion segment fires only on its own completion, a region
+waiting at a join does not complete its owner, and arrivals clear on region
+re-entry or when another transition leaves the owner. Snapshots, held images and
+the canonical check state preserve arrivals. PSSM instead leaves the owner
+before the last segment's effect; the runtime's ordering is the extension's
+reading in the alignment note, SM34.
 
 **History** (`ast.PseudostateShallowHistory`, `ast.PseudostateDeepHistory`) is
 owned by the composite state it restores — `lower.StateGraph.PseudostateOwner`

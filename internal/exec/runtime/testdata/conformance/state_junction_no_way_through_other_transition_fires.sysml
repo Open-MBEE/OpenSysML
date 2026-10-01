@@ -1,3 +1,4 @@
+// Oracle: A junction with no way through: the transition is not enabled, and the occurrence is handled as unmatched.
 package Test {
 	attribute def Start;
 

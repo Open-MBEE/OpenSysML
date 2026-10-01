@@ -64,11 +64,9 @@ var TestRows = map[string]string{
 	"Junction 002": "SM32",
 	"Junction 004": "SM32",
 	"Join003":      "SM32",
-	// Each segment into a join fires on its own occurrence and the join fires once
-	// every one has arrived; PSSM leaves the owner with the last source, before that
-	// segment's effect, the runtime after it.
-	"Join001":        "SM34",
-	"Transition 019": "SM34",
+	// Join001 measures owner-exit timing. Transition 019's remaining mismatch
+	// ties silent target-entry order to effects, not to when the owner is left.
+	"Join001": "SM34",
 }
 
 // RowOf is the note row a test reports on, if the table maps it.
