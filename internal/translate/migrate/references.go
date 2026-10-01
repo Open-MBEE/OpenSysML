@@ -310,8 +310,14 @@ func (m *migration) commentBody(c *sysmlv1.Element) string {
 }
 
 // paragraphProse plans a Paragraph's body: its text, and its runs when a
-// cross-reference in it is written as a reference.
-func (m *migration) paragraphProse(cp *contentPlan, body string) {
+// cross-reference in it is written as a reference. The comment the body is
+// read from, when it is one, is marked resolving meanwhile, so a reference
+// to its own documentation ends rather than repeating it.
+func (m *migration) paragraphProse(cp *contentPlan, body string, owner *sysmlv1.Element) {
+	if owner != nil {
+		m.resolving[owner.ID] = true
+		defer delete(m.resolving, owner.ID)
+	}
 	runs, notes := m.resolveProse(parseProse(body), true)
 	runs, glued := wordRefs(mergeText(runs))
 	cp.text = runsText(runs)

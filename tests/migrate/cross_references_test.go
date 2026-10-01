@@ -73,6 +73,7 @@ func TestMigratedCrossReferences(t *testing.T) {
 	wantOneNote(t, r, "_overview_doc", migrate.Approximated, "a cross-reference to the value of 'coating' has no text: it holds no value")
 	wantOneNote(t, r, "_overview_doc", migrate.Approximated, "the diagram 'Profile Diagram' it references is not written, so its name stands")
 	wantOneNote(t, r, "_overview_doc", migrate.Approximated, "the reference to 'Mount' runs into the word around it, so its name is written as text")
+	wantOneNote(t, r, "_overview_doc", migrate.Approximated, "a cross-reference to the documentation of (_overview_doc) refers back to the text being written, so nothing stands for it")
 	wantNote(t, r, "_cmt_mount", migrate.Approximated, "names an element the export does not contain: MMS_1461107722575_gone; its cached text 'Table 7-4' stands")
 	wantNote(t, r, "_req_point", migrate.Approximated, "a cross-reference to the value of an element names an element the export does not contain: MMS_1461107722575_slot; nothing stands for it")
 	for _, e := range entriesFor(r, "_overview_doc") {

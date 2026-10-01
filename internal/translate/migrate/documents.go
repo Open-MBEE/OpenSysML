@@ -501,7 +501,7 @@ func (m *migration) viewDocumentation(sec *sectionPlan) {
 		origin:        "the documentation of the view " + qualifiedName(v.Class),
 		documentation: true,
 	}
-	m.paragraphProse(cp, commentRawBody(c))
+	m.paragraphProse(cp, commentRawBody(c), c)
 	if !m.imageInBody(sec, cp, c, commentRawBody(c)) {
 		cp.name = sec.names.claim("paragraph")
 	}
@@ -530,7 +530,7 @@ func (m *migration) collaboratorParagraph(sec *sectionPlan, p *sysmlv1.DocGenPar
 	if p.Malformed != "" {
 		cp.refused = p.Malformed
 	} else if p.Comment != nil {
-		m.paragraphProse(cp, commentRawBody(p.Comment))
+		m.paragraphProse(cp, commentRawBody(p.Comment), p.Comment)
 	}
 	switch {
 	case cp.refused != "":
@@ -2269,7 +2269,7 @@ func (c *chain) paragraph(s *sysmlv1.DocGenStep) {
 	}
 	if raw := a.Tag("body"); raw != "" {
 		cp := &contentPlan{kind: "Paragraph", node: s.Node, label: "«Paragraph» " + s.Node.Type}
-		c.m.paragraphProse(cp, raw)
+		c.m.paragraphProse(cp, raw, nil)
 		if c.m.imageInBody(c.sec, cp, s.Node, raw) || cp.text != "" {
 			if cp.name == "" {
 				cp.name = c.sec.names.claim("paragraph")
