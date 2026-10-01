@@ -1778,12 +1778,18 @@ a condition are carried, each as the `sysx:` metaclass named above with its
 condition as `sysx:condition`: a constraint body's conditions (`assert`,
 `assume`, a bare condition, and the `not` of `assert not …` as
 `sysml:isNegated`), a nested `assert constraint [name] { … }`, a requirement's
-`assume`/`require` members in all three forms (an expression, the constraint
-they name, or a body) together with the declaration of the constraint usage they
-own — `sysml:declaredName`, its specializations, `sysml:lowerBound`/`upperBound`
+`assume`/`require` members in both forms (the constraint they name, or a
+`constraint` they declare, with or without a body) together with the declaration
+of the constraint usage they own — `sysml:declaredName`, its specializations, `sysml:lowerBound`/`upperBound`
 and `sysml:value` with its `default`/`:=` operator (`require #Goal constraint braked [1] = true;`) — and
 `subject s : X;` as the `sysml:SubjectMembership` it declares. The `assert` prefixing a named usage
-(`assert constraint c : C`) is carried as `sysx:declaredPrefix`. The conditions
+(`assert constraint c : C`) is carried as `sysx:declaredPrefix`. A member that
+names its constraint — bare or qualified (`assume c;`, `require P::c;`,
+`assert c;`) or by a feature chain (`require q.k;`) — is the reference form
+(SysML.xtext `RequirementConstraintUsage`, `AssertConstraintUsage`): the
+constraint usage owns a `sysml:ReferenceSubsetting` to the feature, or to the
+chain feature of `q.k`, and states no `sysx:condition`. A graph that states one
+inline is still read. The conditions
 themselves are notation, with the limits stated above. The keyword-less condition
 that closes a body is written bare, as a [result expression](#result-expressions)
 is, because a name alone before a `;` (`ready;`) declares a kind-less feature rather

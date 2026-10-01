@@ -1,6 +1,7 @@
 package export_test
 
 import (
+	"encoding/json"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -110,4 +111,89 @@ func diagnosticMessages(name string, notation []byte) []string {
 	}
 	sort.Strings(lines)
 	return lines
+}
+
+// A bare `assume c;`, `require q.k;` or `assert c;` is the reference form of its
+// constraint usage (RequirementConstraintUsage, AssertConstraintUsage): the
+// usage owns a ReferenceSubsetting to the feature it names, or to the chain of
+// features, rather than stating an expression.
+func TestBareConditionMembersOwnAReferenceSubsetting(t *testing.T) {
+	// A member named by reference subsetting takes the referenced feature's
+	// name, so the features named live outside the bodies naming them.
+	src := "package P {\n    constraint def C;\n    constraint c : C;\n    part def Q {\n        constraint k : C;\n    }\n" +
+		"    requirement def R {\n        subject q : Q;\n        assume c;\n        require q.k;\n    }\n" +
+		"    constraint def D {\n        assert c;\n    }\n}\n"
+	if diagnostics := diagnosticMessages("m.sysml", []byte(src)); len(diagnostics) > 0 {
+		t.Fatalf("the model should analyse clean:\n%s", strings.Join(diagnostics, "\n"))
+	}
+	turtle, err := convert.Convert("m.sysml", []byte(src), convert.FormatSysML, convert.FormatTurtle)
+	if err != nil {
+		t.Fatalf("to turtle: %v", err)
+	}
+	graph := string(turtle)
+	if strings.Contains(graph, "sysx:condition") {
+		t.Errorf("a bare condition member should state no expression:\n%s", graph)
+	}
+	for _, want := range []string{
+		"sysml:referencedFeature elmt:P__c",
+		"sysml:referencedFeature <urn:opensysml:expr:P__R___402_pchain0>",
+		"sysml:chainingFeature elmt:P__R__q, elmt:P__Q__k",
+	} {
+		if !strings.Contains(graph, want) {
+			t.Errorf("the graph should state %q:\n%s", want, graph)
+		}
+	}
+	if n := strings.Count(graph, "a sysml:ReferenceSubsetting"); n != 3 {
+		t.Errorf("each of the three members should own a ReferenceSubsetting, found %d:\n%s", n, graph)
+	}
+	back, err := convert.Convert("m.ttl", withoutSourceText(t, turtle), convert.FormatTurtle, convert.FormatSysML)
+	if err != nil {
+		t.Fatalf("back to notation from the mapping alone: %v\n%s", err, turtle)
+	}
+	if string(back) != src {
+		t.Fatalf("the notation changed\n--- want ---\n%s\n--- got ---\n%s", src, back)
+	}
+
+	doc, err := convert.Convert("m.sysml", []byte(src), convert.FormatSysML, convert.FormatAPIJSON)
+	if err != nil {
+		t.Fatalf("to api-json: %v", err)
+	}
+	var elements []map[string]any
+	if err := json.Unmarshal(doc, &elements); err != nil {
+		t.Fatal(err)
+	}
+	byID := map[string]map[string]any{}
+	for _, e := range elements {
+		id, _ := e["@id"].(string)
+		byID[id] = e
+	}
+	ref := func(v any) string {
+		id, _ := v.(map[string]any)["@id"].(string)
+		return id
+	}
+	members := 0
+	for _, e := range elements {
+		if e["@type"] != "RequirementConstraintMembership" && e["@type"] != "AssertConstraintUsage" {
+			continue
+		}
+		usage := e
+		if e["@type"] == "RequirementConstraintMembership" {
+			usage = byID[ref(e["ownedConstraint"])]
+		}
+		members++
+		subsetting := byID[ref(usage["ownedReferenceSubsetting"])]
+		if subsetting == nil || subsetting["@type"] != "ReferenceSubsetting" {
+			t.Errorf("%v: ownedReferenceSubsetting %v, want a ReferenceSubsetting in the output", usage["@id"], usage["ownedReferenceSubsetting"])
+			continue
+		}
+		if byID[ref(subsetting["referencedFeature"])] == nil {
+			t.Errorf("%v: referencedFeature %v is not in the output", subsetting["@id"], subsetting["referencedFeature"])
+		}
+	}
+	if members != 3 {
+		t.Errorf("want three condition members, found %d", members)
+	}
+	if _, err := convert.Convert("m.json", doc, convert.FormatAPIJSON, convert.FormatSysML); err != nil {
+		t.Errorf("the API JSON did not read back: %v", err)
+	}
 }
