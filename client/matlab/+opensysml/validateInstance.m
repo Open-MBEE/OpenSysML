@@ -15,18 +15,20 @@ function result = validateInstance(model, symbolId, varargin)
     if ~isempty(fieldOr(raw, 'error', ''))
         opensysml.internal.raiseFailure(raw.error, fieldOr(raw, 'failureReason', ''), diagnostics);
     end
-    instances = containers.Map('KeyType', 'char', 'ValueType', 'any');
+    instances = {};
+    instanceIndex = containers.Map('KeyType', 'char', 'ValueType', 'any');
     if isfield(raw, 'instances')
-        [~, instances] = opensysml.internal.decodeInstances(model.connection, raw.instances);
+        [instances, instanceIndex] = opensysml.internal.decodeInstances( ...
+            model.connection, raw.instances);
     end
     verifications = opensysml.internal.decodeVerificationVerdicts( ...
         fieldOr(raw, 'verificationVerdicts', {}));
     verdicts = opensysml.internal.decodeVerdicts(fieldOr(raw, 'verdicts', {}), ...
-        instances, diagnostics, verifications);
+        instanceIndex, diagnostics, verifications);
     summary = [];
     if isfield(raw, 'summary') && isstruct(raw.summary) && ~isempty(fieldnames(raw.summary))
-        item = opensysml.internal.decodeVerdicts(raw.summary, instances, ...
-            diagnostics, verifications);
+        item = opensysml.internal.decodeVerdicts(raw.summary, instanceIndex, ...
+            diagnostics, verifications, true);
         if ~isempty(item), summary = item{1}; end
     end
     result = opensysml.Validation(verdicts, summary, instances, diagnostics, ...

@@ -4,7 +4,8 @@ function out = decodeValues(x)
 
     if isstruct(x) && numel(x) == 1
         f = fieldnames(x);
-        if numel(f) == 1 && ismember(f{1}, opensysml.internal.valueArms())
+        if numel(f) == 1 && (ismember(f{1}, opensysml.internal.valueArms()) || ...
+                strcmp(f{1}, 'xFunction'))
             out = opensysml.decodeValue(x);
             return;
         end
@@ -19,6 +20,12 @@ function out = decodeValues(x)
         end
     elseif iscell(x)
         out = cellfun(@opensysml.internal.decodeValues, x, 'UniformOutput', false);
+    elseif isa(x, 'containers.Map')
+        out = x;
+        names = x.keys;
+        for i = 1:numel(names)
+            out(names{i}) = opensysml.internal.decodeValues(x(names{i}));
+        end
     else
         out = x;
     end

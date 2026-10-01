@@ -79,7 +79,7 @@ function val = decodeValueInner(v, resolveInstance)
         case 'measurementRef'
             m = v.measurementRef;
             unit = ''; if isfield(m, 'unit'), unit = m.unit; end
-            unitId = []; if isfield(m, 'unitId'), unitId = m.unitId; end
+            unitId = ''; if isfield(m, 'unitId'), unitId = m.unitId; end
             if isempty(unit) && isempty(unitId)
                 error('opensysml:decode', 'measurementRef carries neither unit nor unitId');
             end
@@ -92,8 +92,8 @@ function val = decodeValueInner(v, resolveInstance)
                 error('opensysml:decode', 'infinity arm does not carry true');
             end
             val = struct('infinity', true);
-        case 'function'
-            f = v.function;
+        case {'function', 'xFunction'}
+            f = v.(kind);
             calcId = '';
             if isfield(f, 'calcId'), calcId = f.calcId; end
             if isempty(calcId)

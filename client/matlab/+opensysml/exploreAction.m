@@ -25,9 +25,10 @@ end
 function encoded = encodeInputs(inputs, conn)
     encoded = struct();
     if isa(inputs, 'containers.Map')
-        names = inputs.keys;
+        [names, rawValues] = opensysml.internal.mapEntries(inputs);
+        encoded = containers.Map('KeyType', 'char', 'ValueType', 'any');
         for i = 1:numel(names)
-            encoded.(names{i}) = opensysml.encodeValue(inputs(names{i}), conn);
+            encoded(names{i}) = opensysml.encodeValue(rawValues{i}, conn);
         end
     elseif isstruct(inputs) && isscalar(inputs)
         names = fieldnames(inputs);

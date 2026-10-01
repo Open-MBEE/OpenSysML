@@ -36,7 +36,7 @@ function value = boundValue(parameter, item)
                 end
                 object = struct();
                 if isfield(item, 'id') && item.id ~= 0
-                    object.instanceId = sprintf('%d', int64(item.id));
+                    object.instanceId = signedInt64Text(parameter, item, item.id);
                 end
                 if isfield(item, 'path') && ~isempty(item.path), object.path = item.path; end
                 value = struct('object', object);
@@ -54,7 +54,7 @@ function value = boundValue(parameter, item)
     elseif ischar(item) || (isStringValue(item) && isscalar(item))
         value = struct('stringValue', char(item));
     elseif isnumeric(item) && isscalar(item) && isinteger(item) && ~islogical(item)
-        value = struct('intValue', sprintf('%d', int64(item)));
+        value = struct('intValue', signedInt64Text(parameter, item, item));
     elseif isnumeric(item) && isscalar(item) && isreal(item)
         value = struct('realValue', docReal(double(item)));
     elseif isstruct(item) && isfield(item, 'magnitude') && isfield(item, 'unit')
@@ -63,6 +63,26 @@ function value = boundValue(parameter, item)
     else
         documentError(parameter, item, ...
             'a binding is a str, int, float, bool, Quantity, ElementRef or ObjectRef');
+    end
+end
+
+function text = signedInt64Text(parameter, original, value)
+    if isa(value, 'uint64')
+        if value > uint64(intmax('int64'))
+            documentError(parameter, original, 'integer is outside the signed 64-bit range');
+        end
+        text = sprintf('%u', value);
+    elseif isinteger(value) && isscalar(value) && ~islogical(value)
+        text = sprintf('%d', int64(value));
+    elseif isnumeric(value) && isscalar(value) && isreal(value) && ...
+            isfinite(value) && fix(value) == value
+        limit = 9223372036854775808;
+        if value < -limit || value >= limit
+            documentError(parameter, original, 'integer is outside the signed 64-bit range');
+        end
+        text = sprintf('%d', int64(value));
+    else
+        documentError(parameter, original, 'integer is outside the signed 64-bit range');
     end
 end
 
@@ -78,8 +98,9 @@ function text = valueText(value)
     elseif isstruct(value) && isfield(value, 'type')
         if strcmp(value.type, 'element'), text = value.id;
         elseif strcmp(value.type, 'object')
-            if ~isempty(value.path), text = value.path;
-            else, text = ['#' sprintf('%d', value.id)];
+            if isfield(value, 'path') && ~isempty(value.path), text = value.path;
+            elseif isfield(value, 'id'), text = ['#' num2str(value.id)];
+            else, text = value.type;
             end
         else, text = value.type;
         end

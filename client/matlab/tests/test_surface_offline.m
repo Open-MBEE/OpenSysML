@@ -212,6 +212,101 @@ function test_surface_offline()
     assert_equal(validation.valid(), true, 'validation summary');
     assert_equal(logical(validation), true, 'validation logical value');
 
+    decoded = opensysml.internal.decodeJson('{"@id":"a","x":1}');
+    assert_equal(isa(decoded, 'containers.Map'), true, 'preserved JSON key map');
+    assert_equal(decoded('@id'), 'a', 'preserved @id key');
+    assert_equal(decoded('x'), 1, 'preserved map member');
+    decoded = opensysml.internal.decodeJson('{"this.isSolid":true}');
+    assert_equal(decoded('this.isSolid'), true, 'preserved dotted key');
+    unicodeKey = 'μ.member';
+    decoded = opensysml.internal.decodeJson(['{"' unicodeKey '":2}']);
+    assert_equal(decoded(unicodeKey), 2, 'preserved unicode key');
+    decoded = opensysml.internal.decodeJson('{"switch":1}');
+    assert_equal(decoded('switch'), 1, 'preserved keyword key');
+    longKey = repmat('k', 1, 70);
+    decoded = opensysml.internal.decodeJson(['{"' longKey '":3}']);
+    assert_equal(decoded(longKey), 3, 'preserved long key');
+    decoded = opensysml.internal.decodeJson('{"osk_x_1":"literal"}');
+    assert_equal(decoded('osk_x_1'), 'literal', 'preserved escape-prefix key');
+    decoded = opensysml.internal.decodeJson('{"@id":"a","xFunction":"literal"}');
+    assert_equal(decoded('xFunction'), 'literal', 'preserved xFunction map key');
+    decoded = opensysml.internal.decodeJson( ...
+        '{"items":[{"@id":"one","value":1},{"@id":"two","value":2}]}');
+    arrayItems = decoded.items;
+    if isstruct(arrayItems), arrayItems = num2cell(arrayItems); end
+    assert_equal(isa(arrayItems{1}, 'containers.Map'), true, 'escaped object array');
+    firstItem = arrayItems{1};
+    secondItem = arrayItems{2};
+    assert_equal(firstItem('@id'), 'one', 'first escaped array member');
+    assert_equal(secondItem('@id'), 'two', 'second escaped array member');
+    signedZeros = opensysml.internal.decodeJson( ...
+        '{"bare":-0,"decimal":-0.0,"exponent":-0e0,"text":"-0"}');
+    assert_equal(1 / signedZeros.bare == -Inf, true, 'bare negative zero');
+    assert_equal(1 / signedZeros.decimal == -Inf, true, 'decimal negative zero');
+    assert_equal(1 / signedZeros.exponent == -Inf, true, 'exponent negative zero');
+    assert_equal(signedZeros.text, '-0', 'negative zero text unchanged');
+    one = opensysml.internal.decodeJson('{"one":1e-0}');
+    assert_equal(one.one, 1, 'negative exponent zero remains part of number');
+    functionWire = opensysml.internal.decodeJson('{"function":{"calcId":"C"}}');
+    decodedFunction = opensysml.decodeValue(functionWire);
+    assert_equal(decodedFunction.calcId, 'C', 'reserved function value arm');
+
+    emptyType = opensysml.Symbol(struct('id', 'Demo::Empty', 'typeInfo', struct()), model);
+    assert_equal(isstruct(emptyType.typeFacts), true, 'present empty type facts');
+    assert_equal(isempty(fieldnames(emptyType.typeFacts)), true, 'empty type facts remain empty');
+    decodedMeasurement = opensysml.decodeValue( ...
+        struct('measurementRef', struct('unit', 'm/s', 'unitTerm', struct())));
+    assert_equal(decodedMeasurement.unitId, '', 'missing measurement reference unit id');
+    unavailable = opensysml.EngineInfo(struct('name', 'tool:fmi', ...
+        'unavailableReason', 'not installed'));
+    assert_equal(unavailable.ready, false, 'missing engine ready default');
+
+    lowerBinding = opensysml.buildDocumentBindings(struct('bound', intmin('int64')));
+    upperBinding = opensysml.buildDocumentBindings(struct('bound', intmax('int64')));
+    assert_equal(lowerBinding{1}.values{1}.intValue, '-9223372036854775808', ...
+        'document binding int64 minimum');
+    assert_equal(upperBinding{1}.values{1}.intValue, '9223372036854775807', ...
+        'document binding int64 maximum');
+    overflow = uint64(intmax('int64')) + uint64(1);
+    assert_error(@() opensysml.buildDocumentBindings(struct('bound', overflow)), ...
+        'opensysml:argument', 'document binding int64 overflow');
+    assert_error(@() opensysml.buildDocumentBindings(struct('bound', ...
+        struct('type', 'object', 'id', overflow))), ...
+        'opensysml:argument', 'object reference int64 overflow');
+    assert_error(@() opensysml.buildDocumentBindings(struct('bound', ...
+        struct('type', 'object', 'id', -2^63 - 2048))), ...
+        'opensysml:argument', 'object reference int64 underflow');
+    minimumWire = opensysml.encodeValue(intmin('int64'));
+    maximumWire = opensysml.encodeValue(intmax('int64'));
+    assert_equal(minimumWire.intValue, '-9223372036854775808', 'encoded int64 minimum');
+    assert_equal(maximumWire.intValue, '9223372036854775807', 'encoded int64 maximum');
+    assert_error(@() opensysml.encodeValue(overflow), ...
+        'opensysml:encode', 'encoded int64 overflow');
+    assert_error(@() opensysml.internal.encodeNamedArguments( ...
+        struct('overflow', overflow), conn), ...
+        'opensysml:encode', 'named argument int64 overflow');
+
+    verificationRecords = {struct('requirementId', 'R1'), ...
+        struct('requirementId', 'R2')};
+    summaryValues = opensysml.internal.decodeVerdicts( ...
+        struct('kind', 'validation', 'holds', true), [], {}, verificationRecords, true);
+    assertionValues = opensysml.internal.decodeVerdicts( ...
+        struct('requirementId', 'R1'), [], {}, verificationRecords);
+    assert_equal(numel(summaryValues{1}.verifications), 2, ...
+        'summary retains all verification verdicts');
+    assert_equal(numel(assertionValues{1}.verifications), 1, ...
+        'assertion filters verification verdicts');
+    validationInstances = {struct('id', int64(1)), struct('id', int64(2))};
+    validation = opensysml.Validation({}, summaryValues{1}, validationInstances, ...
+        {}, verificationRecords, false);
+    assert_equal(iscell(validation.instances), true, 'validation instances are ordered cells');
+    assert_equal(validation.instances{1}.id, int64(1), 'validation first instance order');
+    namedArguments = containers.Map('KeyType', 'char', 'ValueType', 'any');
+    namedArguments('this.isSolid') = int64(1);
+    encodedArguments = opensysml.internal.encodeNamedArguments(namedArguments, conn);
+    assert_equal(~isempty(strfind(jsonencode(encodedArguments), '"this.isSolid"')), ...
+        true, 'encode unusual named-argument key');
+
     assert_error(@() opensysml.convert(conn, 'sysml'), ...
         'opensysml:argument', 'convert without a source');
     assert_error(@() opensysml.convert(conn, 'sysml', ...
