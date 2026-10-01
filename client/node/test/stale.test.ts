@@ -2,6 +2,7 @@
 // capability it does not have, and the model's own error surface.
 
 import type { Transport } from "@connectrpc/connect";
+import { Code, ConnectError } from "@connectrpc/connect";
 import assert from "node:assert/strict";
 import { before, test } from "node:test";
 import { Connection } from "../src/core/connection.js";
@@ -50,6 +51,31 @@ test("a capability the service does not report is refused at connect", async () 
     () => connect({ address: service.address, requireCapabilities: ["never_a_capability"] }),
     MissingCapabilityError,
   );
+});
+
+test("serverInfo answers the degraded handshake of a service without GetServerInfo", async () => {
+  const transport = {
+    unary() {
+      return Promise.reject(
+        new ConnectError("unknown method GetServerInfo for service sysml.SysMLService", Code.Unimplemented),
+      );
+    },
+    stream() {
+      return Promise.reject(
+        new ConnectError("unknown method for service sysml.SysMLService", Code.Unimplemented),
+      );
+    },
+  } as unknown as Transport;
+  const connection = await Connection.open({
+    transport,
+    encoding: "protobuf",
+    backend: { origin: "the fake transport", release: () => Promise.resolve() },
+  });
+  assert.equal(connection.info.answered, false);
+  const info = await connection.serverInfo();
+  assert.equal(info.answered, false);
+  assert.equal(info.version, "");
+  assert.deepEqual([...info.capabilities], []);
 });
 
 test("a refused private connection does not keep the child", async () => {

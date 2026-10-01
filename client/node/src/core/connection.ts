@@ -64,8 +64,9 @@ import {
   type Verdict as PbVerdict,
   type VerificationVerdict as PbVerificationVerdict,
 } from "../generated/sysml_pb.js";
-import { callRpc, fromHandshakeError } from "./status.js";
-import { decodeDiagnostic, Instance, Model } from "./model.js";
+import { callRpc, fromHandshakeError, fromRpcError } from "./status.js";
+import { requireString } from "./arguments.js";
+import { decodeDiagnostic, Instance, Model, strictConformanceOf } from "./model.js";
 import type { ModelDiagnostic } from "./errors.js";
 import type { ParseOptions } from "./model.js";
 import { sourceDocuments, type Source } from "./sources.js";
@@ -1066,13 +1067,23 @@ export class Connection {
 
   /** Asks the service what it is and what it can do, again. */
   async serverInfo(): Promise<ServerInfo> {
-    const response = await callRpc(this.rpc.getServerInfo({}, this.callOptions()));
-    return new ServerInfo({
-      version: response.version,
-      capabilities: response.capabilities,
-      answered: true,
-      origin: this.backend.origin,
-    });
+    try {
+      const response = await this.rpc.getServerInfo({}, this.callOptions());
+      return new ServerInfo({
+        version: response.version,
+        capabilities: response.capabilities,
+        answered: true,
+        origin: this.backend.origin,
+      });
+    } catch (error) {
+      const connectError = ConnectError.from(error);
+      // A service too old to answer is reported the same way the handshake
+      // reports it: no version, no capabilities, unanswered.
+      if (connectError.code === Code.Unimplemented) {
+        return new ServerInfo({ version: "", capabilities: [], answered: false, origin: this.backend.origin });
+      }
+      throw fromRpcError(error);
+    }
   }
 
   /**
