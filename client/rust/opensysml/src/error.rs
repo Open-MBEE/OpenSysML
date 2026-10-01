@@ -4,6 +4,7 @@ use thiserror::Error;
 use crate::domain::Diagnostic;
 use crate::edit::EditError;
 use crate::results::AnalysisResult;
+use crate::wire::FailureReason;
 
 /// Canonical status names used by gRPC and Connect.
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
@@ -213,6 +214,8 @@ pub enum Error {
     Execution {
         /// The service's description of the failure.
         message: String,
+        /// The kind of failure the service classified it as.
+        reason: FailureReason,
         /// Diagnostics reported with it.
         diagnostics: Vec<Diagnostic>,
     },

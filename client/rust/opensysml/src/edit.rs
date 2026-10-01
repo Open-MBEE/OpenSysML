@@ -138,6 +138,34 @@ impl EditFailure {
         }
     }
 
+    /// The wire enum's number for it.
+    pub fn code(&self) -> i32 {
+        use wire::EditFailure as W;
+        let known = match self {
+            Self::Unspecified => W::Unspecified,
+            Self::NoOperations => W::NoOperations,
+            Self::UnknownTarget => W::UnknownTarget,
+            Self::AmbiguousTarget => W::AmbiguousTarget,
+            Self::NotValued => W::NotValued,
+            Self::InvalidValue => W::InvalidValue,
+            Self::InvalidName => W::InvalidName,
+            Self::NotNamed => W::NotNamed,
+            Self::RenameReferenced => W::RenameReferenced,
+            Self::OverlappingEdits => W::OverlappingEdits,
+            Self::ResultInvalid => W::ResultInvalid,
+            Self::OwnerUnknown => W::OwnerUnknown,
+            Self::OwnerNotNamespace => W::OwnerNotNamespace,
+            Self::IllegalKind => W::IllegalKind,
+            Self::MemberNameTaken => W::MemberNameTaken,
+            Self::DeleteReferenced => W::DeleteReferenced,
+            Self::OwnerInsideTarget => W::OwnerInsideTarget,
+            Self::MoveReferenced => W::MoveReferenced,
+            Self::ReferencedElsewhere => W::ReferencedElsewhere,
+            Self::Other(code) => return *code,
+        };
+        known as i32
+    }
+
     /// The wire enum's name for it, such as `EDIT_FAILURE_UNKNOWN_TARGET`.
     pub fn name(&self) -> String {
         let known = match self {
@@ -241,7 +269,11 @@ pub struct AppliedEdit {
 
 impl fmt::Display for AppliedEdit {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "{}: {:?} -> {:?}", self.target, self.old_text, self.new_text)
+        write!(
+            f,
+            "{}: {:?} -> {:?}",
+            self.target, self.old_text, self.new_text
+        )
     }
 }
 
@@ -263,9 +295,14 @@ pub struct EditResult {
     pub applied: Vec<AppliedEdit>,
     /// Every document of a model parsed from several, as the edit left it.
     pub documents: Vec<EditedDocument>,
+    wire: wire::ApplyEditsResponse,
 }
 
 impl EditResult {
+    /// The ApplyEdits response this was read from.
+    pub fn wire(&self) -> &wire::ApplyEditsResponse {
+        &self.wire
+    }
     /// Write the edited notation to `path`, exactly as the service returned it.
     pub fn write(&self, path: impl AsRef<Path>) -> Result<(), Error> {
         fs::write(path, self.content.as_bytes())?;
@@ -605,7 +642,12 @@ impl Body {
     }
 
     /// A bare action usage in the body.
-    pub fn add_action(&mut self, name: Option<&str>, type_name: Option<&str>, kind: Option<&str>) -> &mut Self {
+    pub fn add_action(
+        &mut self,
+        name: Option<&str>,
+        type_name: Option<&str>,
+        kind: Option<&str>,
+    ) -> &mut Self {
         let mut op = sequence("", "", kind.unwrap_or("action"));
         op.member_name = opt(name);
         op.r#type = opt(type_name);
@@ -644,7 +686,12 @@ impl Body {
     }
 
     /// `assign <target> := <value>;`
-    pub fn add_assign(&mut self, target: &str, value: &str, options: &StatementOptions) -> Result<&mut Self, Error> {
+    pub fn add_assign(
+        &mut self,
+        target: &str,
+        value: &str,
+        options: &StatementOptions,
+    ) -> Result<&mut Self, Error> {
         self.statement("assign", options, |op| {
             op.target = target.to_owned();
             op.value = value.to_owned();
@@ -682,7 +729,12 @@ impl Body {
     }
 
     /// `loop { ... } until <until>;`
-    pub fn add_loop(&mut self, body: &Body, until: Option<&str>, options: &StatementOptions) -> Result<&mut Self, Error> {
+    pub fn add_loop(
+        &mut self,
+        body: &Body,
+        until: Option<&str>,
+        options: &StatementOptions,
+    ) -> Result<&mut Self, Error> {
         self.statement("loop", options, |op| {
             op.until = opt(until);
             op.body = body.operations.clone();
@@ -707,7 +759,11 @@ impl Body {
     }
 
     /// `terminate <occurrence>;`
-    pub fn add_terminate(&mut self, occurrence: Option<&str>, options: &StatementOptions) -> Result<&mut Self, Error> {
+    pub fn add_terminate(
+        &mut self,
+        occurrence: Option<&str>,
+        options: &StatementOptions,
+    ) -> Result<&mut Self, Error> {
         self.statement("terminate", options, |op| op.value = opt(occurrence))
     }
 
@@ -758,6 +814,7 @@ fn then_step(owner: &str, step: ThenStep) -> wire::AddSequenceEdit {
 pub struct Editor {
     model_hash: String,
     connection: Connection,
+    document: String,
     operations: Vec<wire::EditOperation>,
 }
 
@@ -766,8 +823,28 @@ impl Editor {
         Self {
             model_hash,
             connection,
+            document: String::new(),
             operations: Vec::new(),
         }
+    }
+
+    /// Target the declarations of `document`, named as the parse named it; by default the
+    /// operations target the model's first document.
+    pub fn in_document(&mut self, document: impl Into<String>) -> &mut Self {
+        self.document = document.into();
+        self
+    }
+
+    /// The document the operations target; empty is the model's first.
+    pub fn document(&self) -> &str {
+        &self.document
+    }
+
+    /// Collect an operation as the wire carries it, for one no builder method spells; the
+    /// capabilities it needs are still required before the edit is sent.
+    pub fn add_operation(&mut self, operation: wire::EditOperation) -> &mut Self {
+        self.operations.push(operation);
+        self
     }
 
     /// The operations collected, as the wire carries them.
@@ -851,7 +928,12 @@ impl Editor {
     }
 
     /// Add a verification case's or requirement's objective; unnamed when `name` is `None`.
-    pub fn add_objective(&mut self, owner: impl AsRef<str>, name: Option<&str>, type_name: Option<&str>) -> &mut Self {
+    pub fn add_objective(
+        &mut self,
+        owner: impl AsRef<str>,
+        name: Option<&str>,
+        type_name: Option<&str>,
+    ) -> &mut Self {
         let options = MemberOptions {
             type_name: type_name.map(str::to_owned),
             ..Default::default()
@@ -868,7 +950,12 @@ impl Editor {
     }
 
     /// Add a metadata usage of `metadata_type` to `owner`.
-    pub fn add_metadata(&mut self, owner: impl AsRef<str>, metadata_type: &str, options: MetadataOptions) -> &mut Self {
+    pub fn add_metadata(
+        &mut self,
+        owner: impl AsRef<str>,
+        metadata_type: &str,
+        options: MetadataOptions,
+    ) -> &mut Self {
         self.push(Operation::AddMetadata(wire::AddMetadataEdit {
             owner: owner.as_ref().to_owned(),
             metadata_type: metadata_type.to_owned(),
@@ -884,7 +971,11 @@ impl Editor {
     }
 
     /// Prefix the declaration `target` with `#<metadata_type>`.
-    pub fn add_metadata_prefix(&mut self, target: impl AsRef<str>, metadata_type: &str) -> &mut Self {
+    pub fn add_metadata_prefix(
+        &mut self,
+        target: impl AsRef<str>,
+        metadata_type: &str,
+    ) -> &mut Self {
         self.push(Operation::AddMetadataPrefix(wire::AddMetadataPrefixEdit {
             target: target.as_ref().to_owned(),
             metadata_type: metadata_type.to_owned(),
@@ -892,7 +983,12 @@ impl Editor {
     }
 
     /// Add a `doc` comment to `target`.
-    pub fn add_documentation(&mut self, target: impl AsRef<str>, body: &str, options: DocumentationOptions) -> &mut Self {
+    pub fn add_documentation(
+        &mut self,
+        target: impl AsRef<str>,
+        body: &str,
+        options: DocumentationOptions,
+    ) -> &mut Self {
         self.push(Operation::AddDocumentation(wire::AddDocumentationEdit {
             target: target.as_ref().to_owned(),
             body: body.to_owned(),
@@ -903,7 +999,12 @@ impl Editor {
     }
 
     /// Add a `comment` to `owner`.
-    pub fn add_comment(&mut self, owner: impl AsRef<str>, body: &str, options: CommentOptions) -> &mut Self {
+    pub fn add_comment(
+        &mut self,
+        owner: impl AsRef<str>,
+        body: &str,
+        options: CommentOptions,
+    ) -> &mut Self {
         self.push(Operation::AddComment(wire::AddCommentEdit {
             owner: owner.as_ref().to_owned(),
             body: body.to_owned(),
@@ -927,7 +1028,12 @@ impl Editor {
     }
 
     /// Add `satisfy <requirement> by <feature>;` to `owner`.
-    pub fn add_satisfy(&mut self, owner: impl AsRef<str>, requirement: &str, options: SatisfyOptions) -> &mut Self {
+    pub fn add_satisfy(
+        &mut self,
+        owner: impl AsRef<str>,
+        requirement: &str,
+        options: SatisfyOptions,
+    ) -> &mut Self {
         self.push(Operation::AddSatisfy(wire::AddSatisfyEdit {
             owner: owner.as_ref().to_owned(),
             requirement: requirement.to_owned(),
@@ -945,21 +1051,33 @@ impl Editor {
         expression: &str,
         name: Option<&str>,
     ) -> &mut Self {
-        self.push(Operation::AddRequirementConstraint(wire::AddRequirementConstraintEdit {
-            owner: owner.as_ref().to_owned(),
-            kind: kind.to_owned(),
-            expression: expression.to_owned(),
-            name: opt(name),
-        }))
+        self.push(Operation::AddRequirementConstraint(
+            wire::AddRequirementConstraintEdit {
+                owner: owner.as_ref().to_owned(),
+                kind: kind.to_owned(),
+                expression: expression.to_owned(),
+                name: opt(name),
+            },
+        ))
     }
 
     /// Add `require constraint { <expression> }` to a requirement.
-    pub fn add_require_constraint(&mut self, owner: impl AsRef<str>, expression: &str, name: Option<&str>) -> &mut Self {
+    pub fn add_require_constraint(
+        &mut self,
+        owner: impl AsRef<str>,
+        expression: &str,
+        name: Option<&str>,
+    ) -> &mut Self {
         self.add_requirement_constraint(owner, "require", expression, name)
     }
 
     /// Add `assume constraint { <expression> }` to a requirement.
-    pub fn add_assume_constraint(&mut self, owner: impl AsRef<str>, expression: &str, name: Option<&str>) -> &mut Self {
+    pub fn add_assume_constraint(
+        &mut self,
+        owner: impl AsRef<str>,
+        expression: &str,
+        name: Option<&str>,
+    ) -> &mut Self {
         self.add_requirement_constraint(owner, "assume", expression, name)
     }
 
@@ -998,7 +1116,12 @@ impl Editor {
     }
 
     /// `first <ref>;` in an action's body.
-    pub fn add_first(&mut self, owner: impl AsRef<str>, reference: &str, after: Option<&str>) -> &mut Self {
+    pub fn add_first(
+        &mut self,
+        owner: impl AsRef<str>,
+        reference: &str,
+        after: Option<&str>,
+    ) -> &mut Self {
         let mut op = sequence(owner.as_ref(), "first", "");
         op.r#ref = reference.to_owned();
         op.after = opt(after);
@@ -1151,11 +1274,19 @@ impl Editor {
         occurrence: Option<&str>,
         options: &StatementOptions,
     ) -> Result<&mut Self, Error> {
-        self.statement(owner.as_ref(), "terminate", options, |op| op.value = opt(occurrence))
+        self.statement(owner.as_ref(), "terminate", options, |op| {
+            op.value = opt(occurrence)
+        })
     }
 
     /// `if <guard> then <ref>;`, one branch of a decision.
-    pub fn add_guarded_then(&mut self, owner: impl AsRef<str>, guard: &str, reference: &str, after: Option<&str>) -> &mut Self {
+    pub fn add_guarded_then(
+        &mut self,
+        owner: impl AsRef<str>,
+        guard: &str,
+        reference: &str,
+        after: Option<&str>,
+    ) -> &mut Self {
         let mut op = sequence(owner.as_ref(), "if", "");
         op.condition = guard.to_owned();
         op.r#ref = reference.to_owned();
@@ -1164,7 +1295,12 @@ impl Editor {
     }
 
     /// `else <ref>;`, a decision's default branch.
-    pub fn add_else(&mut self, owner: impl AsRef<str>, reference: &str, after: Option<&str>) -> &mut Self {
+    pub fn add_else(
+        &mut self,
+        owner: impl AsRef<str>,
+        reference: &str,
+        after: Option<&str>,
+    ) -> &mut Self {
         let mut op = sequence(owner.as_ref(), "else", "");
         op.r#ref = reference.to_owned();
         op.after = opt(after);
@@ -1172,7 +1308,12 @@ impl Editor {
     }
 
     /// Add an import of `target` to `owner`.
-    pub fn add_import(&mut self, owner: impl AsRef<str>, target: &str, options: ImportOptions) -> &mut Self {
+    pub fn add_import(
+        &mut self,
+        owner: impl AsRef<str>,
+        target: &str,
+        options: ImportOptions,
+    ) -> &mut Self {
         self.push(Operation::AddImport(wire::AddImportEdit {
             owner: owner.as_ref().to_owned(),
             visibility: options.visibility.unwrap_or_default(),
@@ -1203,17 +1344,35 @@ impl Editor {
     }
 
     /// Add an `allocation` between two ends.
-    pub fn add_allocation(&mut self, owner: impl AsRef<str>, from: &str, to: &str, options: ConnectionOptions) -> &mut Self {
+    pub fn add_allocation(
+        &mut self,
+        owner: impl AsRef<str>,
+        from: &str,
+        to: &str,
+        options: ConnectionOptions,
+    ) -> &mut Self {
         self.add_connection(owner, "allocation", from, to, options)
     }
 
     /// Add a `flow` between two ends.
-    pub fn add_flow(&mut self, owner: impl AsRef<str>, from: &str, to: &str, options: ConnectionOptions) -> &mut Self {
+    pub fn add_flow(
+        &mut self,
+        owner: impl AsRef<str>,
+        from: &str,
+        to: &str,
+        options: ConnectionOptions,
+    ) -> &mut Self {
         self.add_connection(owner, "flow", from, to, options)
     }
 
     /// Add a `succession` between two ends.
-    pub fn add_succession(&mut self, owner: impl AsRef<str>, from: &str, to: &str, options: ConnectionOptions) -> &mut Self {
+    pub fn add_succession(
+        &mut self,
+        owner: impl AsRef<str>,
+        from: &str,
+        to: &str,
+        options: ConnectionOptions,
+    ) -> &mut Self {
         self.add_connection(owner, "succession", from, to, options)
     }
 
@@ -1233,19 +1392,33 @@ impl Editor {
         };
         for (direction, pairs) in parameters {
             for (parameter, type_name) in *pairs {
-                self.add_parameter(&qualified, direction, parameter, None, MemberOptions::new().typed(type_name));
+                self.add_parameter(
+                    &qualified,
+                    direction,
+                    parameter,
+                    None,
+                    MemberOptions::new().typed(type_name),
+                );
             }
         }
         self
     }
 
-    fn calc(&mut self, owner: &str, kind: &str, name: &str, options: CalcOptions) -> Result<&mut Self, Error> {
+    fn calc(
+        &mut self,
+        owner: &str,
+        kind: &str,
+        name: &str,
+        options: CalcOptions,
+    ) -> Result<&mut Self, Error> {
         if options.expression.is_some() && options.return_expression.is_some() {
             return Err(Error::InvalidRequest(
                 "expression and return_expression both bind the result; give one".to_owned(),
             ));
         }
-        if options.return_expression.is_some() && options.return_type.as_deref().unwrap_or("").is_empty() {
+        if options.return_expression.is_some()
+            && options.return_type.as_deref().unwrap_or("").is_empty()
+        {
             return Err(Error::InvalidRequest(
                 "return_expression requires return_type".to_owned(),
             ));
@@ -1270,12 +1443,22 @@ impl Editor {
     }
 
     /// Add a `calc def` with its input parameters and return.
-    pub fn add_calc_def(&mut self, owner: impl AsRef<str>, name: &str, options: CalcOptions) -> Result<&mut Self, Error> {
+    pub fn add_calc_def(
+        &mut self,
+        owner: impl AsRef<str>,
+        name: &str,
+        options: CalcOptions,
+    ) -> Result<&mut Self, Error> {
         self.calc(owner.as_ref(), "calc def", name, options)
     }
 
     /// Add a `calc` usage with its input parameters and return.
-    pub fn add_calc(&mut self, owner: impl AsRef<str>, name: &str, options: CalcOptions) -> Result<&mut Self, Error> {
+    pub fn add_calc(
+        &mut self,
+        owner: impl AsRef<str>,
+        name: &str,
+        options: CalcOptions,
+    ) -> Result<&mut Self, Error> {
         self.calc(owner.as_ref(), "calc", name, options)
     }
 
@@ -1293,12 +1476,22 @@ impl Editor {
     }
 
     /// Add a `return` parameter; `name` may be empty.
-    pub fn add_return(&mut self, owner: impl AsRef<str>, name: &str, options: MemberOptions) -> &mut Self {
+    pub fn add_return(
+        &mut self,
+        owner: impl AsRef<str>,
+        name: &str,
+        options: MemberOptions,
+    ) -> &mut Self {
         self.add_member(owner, "return", name, options)
     }
 
     /// Add an `action def` with its parameters.
-    pub fn add_action_def(&mut self, owner: impl AsRef<str>, name: &str, options: ActionOptions) -> &mut Self {
+    pub fn add_action_def(
+        &mut self,
+        owner: impl AsRef<str>,
+        name: &str,
+        options: ActionOptions,
+    ) -> &mut Self {
         self.with_parameters(
             owner.as_ref(),
             "action def",
@@ -1309,7 +1502,12 @@ impl Editor {
     }
 
     /// Add an `action` usage with its parameters.
-    pub fn add_action(&mut self, owner: impl AsRef<str>, name: &str, options: ActionOptions) -> &mut Self {
+    pub fn add_action(
+        &mut self,
+        owner: impl AsRef<str>,
+        name: &str,
+        options: ActionOptions,
+    ) -> &mut Self {
         self.with_parameters(
             owner.as_ref(),
             "action",
@@ -1320,12 +1518,22 @@ impl Editor {
     }
 
     /// Add `perform action <name> : <type>;`.
-    pub fn add_perform_action(&mut self, owner: impl AsRef<str>, name: &str, options: MemberOptions) -> &mut Self {
+    pub fn add_perform_action(
+        &mut self,
+        owner: impl AsRef<str>,
+        name: &str,
+        options: MemberOptions,
+    ) -> &mut Self {
         self.add_member(owner, "perform action", name, options)
     }
 
     /// Add `perform <action>;`.
-    pub fn add_perform(&mut self, owner: impl AsRef<str>, action: &str, doc: Option<&str>) -> &mut Self {
+    pub fn add_perform(
+        &mut self,
+        owner: impl AsRef<str>,
+        action: &str,
+        doc: Option<&str>,
+    ) -> &mut Self {
         let options = MemberOptions {
             doc: doc.map(str::to_owned),
             ..Default::default()
@@ -1334,7 +1542,12 @@ impl Editor {
     }
 
     /// Add `exhibit state <name> : <type>;`.
-    pub fn add_exhibit_state(&mut self, owner: impl AsRef<str>, name: &str, type_name: Option<&str>) -> &mut Self {
+    pub fn add_exhibit_state(
+        &mut self,
+        owner: impl AsRef<str>,
+        name: &str,
+        type_name: Option<&str>,
+    ) -> &mut Self {
         let options = MemberOptions {
             type_name: type_name.map(str::to_owned),
             ..Default::default()
@@ -1385,7 +1598,12 @@ impl Editor {
     }
 
     /// Add `assert <ref>;` (or `assert not <ref>;`).
-    pub fn add_assert(&mut self, owner: impl AsRef<str>, reference: &str, negated: bool) -> &mut Self {
+    pub fn add_assert(
+        &mut self,
+        owner: impl AsRef<str>,
+        reference: &str,
+        negated: bool,
+    ) -> &mut Self {
         let kind = if negated { "assert not" } else { "assert" };
         self.add_member(owner, kind, reference, MemberOptions::new())
     }
@@ -1403,7 +1621,8 @@ impl Editor {
                 referrers: Vec::new(),
             })));
         }
-        self.connection.apply_edits(&self.model_hash, self.operations)
+        self.connection
+            .apply_edits(&self.model_hash, &self.document, self.operations)
     }
 }
 
@@ -1514,7 +1733,9 @@ impl<'a> EditCapabilities<'a> {
 
     pub(crate) fn read(&mut self, operation: &wire::EditOperation) -> Result<(), Error> {
         let Some(operation) = &operation.operation else {
-            return Err(Error::InvalidRequest("edit operation names no edit".to_owned()));
+            return Err(Error::InvalidRequest(
+                "edit operation names no edit".to_owned(),
+            ));
         };
         match operation {
             Operation::SetValue(_) | Operation::Rename(_) => Ok(()),
@@ -1582,7 +1803,8 @@ impl<'a> EditCapabilities<'a> {
         if !add.metadata_prefixes.is_empty() {
             self.require(&[CAPABILITY_METADATA_AUTHORING])?;
         }
-        if !add.body_expression.is_empty() || ASSERTED_CONSTRAINT_KINDS.contains(&add.kind.as_str()) {
+        if !add.body_expression.is_empty() || ASSERTED_CONSTRAINT_KINDS.contains(&add.kind.as_str())
+        {
             self.require(&[CAPABILITY_CONSTRAINT_BODY_AUTHORING])?;
         }
         if STATE_ACTION_KINDS.contains(&add.kind.as_str()) {
@@ -1636,11 +1858,16 @@ fn extended_sequence(add: &wire::AddSequenceEdit, depth: usize) -> Result<bool, 
 }
 
 pub(crate) fn edit_result_of(response: wire::ApplyEditsResponse) -> Result<EditResult, Error> {
+    let wire = response.clone();
     if !response.error.is_empty() {
         return Err(Error::Edit(Box::new(EditError {
             message: response.error,
             failure: EditFailure::from_wire(response.failure),
-            diagnostics: response.diagnostics.into_iter().map(Diagnostic::from).collect(),
+            diagnostics: response
+                .diagnostics
+                .into_iter()
+                .map(Diagnostic::from)
+                .collect(),
             referring_elements: response.referring_elements,
             referrers: response
                 .referrers
@@ -1675,5 +1902,6 @@ pub(crate) fn edit_result_of(response: wire::ApplyEditsResponse) -> Result<EditR
                 content: d.content,
             })
             .collect(),
+        wire,
     })
 }

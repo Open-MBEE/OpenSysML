@@ -11,11 +11,11 @@ use prost::Message;
 
 use crate::binary;
 use crate::capabilities::upgrade_remedy;
-use crate::edit::{edit_result_of, EditCapabilities, EditResult};
 use crate::domain::{
     Capabilities, EvalOptions, Evaluation, Instantiation, Language, Model, ParseOptions,
     ServerInfo, Symbol,
 };
+use crate::edit::{edit_result_of, EditCapabilities, EditResult};
 use crate::error::{Error, Status};
 use crate::wire;
 
@@ -126,10 +126,8 @@ impl Connection {
         options: &ParseOptions,
     ) -> Result<Model, Error> {
         if options.strict_conformance {
-            self.capabilities().require(
-                "strict_conformance",
-                "connect to a service advertising strict_conformance",
-            )?;
+            self.capabilities()
+                .require("strict_conformance", upgrade_remedy("strict_conformance"))?;
         }
         let request = wire::ParseFileRequest {
             language: options.language.as_str().to_owned(),
@@ -143,22 +141,18 @@ impl Connection {
         if !response.error.is_empty() {
             return Err(Error::Model(response.error));
         }
-        Model::from_wire(response, self.clone())
+        Model::from_wire(response, Some(path.as_ref().to_path_buf()), self.clone())
     }
 
     /// Parse inline content.
     pub fn parse_content(&self, content: &str, options: &ParseOptions) -> Result<Model, Error> {
         if options.strict_conformance {
-            self.capabilities().require(
-                "strict_conformance",
-                "connect to a service advertising strict_conformance",
-            )?;
+            self.capabilities()
+                .require("strict_conformance", upgrade_remedy("strict_conformance"))?;
         }
         if options.language == Language::Kerml {
-            self.capabilities().require(
-                "inline_language",
-                "connect to a service advertising inline_language",
-            )?;
+            self.capabilities()
+                .require("inline_language", upgrade_remedy("inline_language"))?;
         }
         let request = wire::ParseFileRequest {
             language: options.language.as_str().to_owned(),
@@ -172,7 +166,7 @@ impl Connection {
         if !response.error.is_empty() {
             return Err(Error::Model(response.error));
         }
-        Model::from_wire(response, self.clone())
+        Model::from_wire(response, None, self.clone())
     }
 
     /// Retrieve diagnostics for a model cached by the service.
@@ -241,10 +235,8 @@ impl Connection {
         options: &EvalOptions,
     ) -> Result<Evaluation, Error> {
         if options.subject.is_some() {
-            self.capabilities().require(
-                "evaluate_subject",
-                "connect to a service advertising evaluate_subject",
-            )?;
+            self.capabilities()
+                .require("evaluate_subject", upgrade_remedy("evaluate_subject"))?;
         }
         let response: wire::EvaluateResponse = self.rpc(
             "Evaluate",
@@ -291,6 +283,7 @@ impl Connection {
     pub fn apply_edits(
         &self,
         model_hash: &str,
+        document: &str,
         operations: Vec<wire::EditOperation>,
     ) -> Result<EditResult, Error> {
         let mut reader = EditCapabilities::new(self.capabilities())?;
@@ -301,8 +294,8 @@ impl Connection {
         let request = wire::ApplyEditsRequest {
             model_hash: model_hash.to_owned(),
             operations,
+            document: document.to_owned(),
             accept_documents: true,
-            ..Default::default()
         };
         let response = self.gated_rpc("ApplyEdits", request, &requested)?;
         edit_result_of(response)
@@ -337,7 +330,7 @@ impl Connection {
         }
     }
 
-    fn rpc<T, R>(&self, method: &str, request: T) -> Result<R, Error>
+    pub(crate) fn rpc<T, R>(&self, method: &str, request: T) -> Result<R, Error>
     where
         T: Message,
         R: Message + Default,

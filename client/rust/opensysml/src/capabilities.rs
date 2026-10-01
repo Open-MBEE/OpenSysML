@@ -13,6 +13,8 @@ pub const CAPABILITY_VERIFICATION: &str = "verification";
 pub const CAPABILITY_VERIFICATION_QUESTIONS: &str = "verification_questions";
 /// The `Query` RPC.
 pub const CAPABILITY_QUERY: &str = "query";
+/// OSLC Query 3.0 parameter text on the `Query` RPC.
+pub const CAPABILITY_OSLC_QUERY: &str = "oslc_query";
 /// The `RunDocumentQuery` RPC.
 pub const CAPABILITY_DOCUMENT_QUERY: &str = "document_query";
 /// The `RenderDocument` RPC, rendering Markdown.
@@ -105,6 +107,8 @@ pub const CAPABILITY_PERFORMER: &str = "performer";
 pub const CAPABILITY_FINAL_TIME: &str = "final_time";
 /// `ListEngines`, the `engine` selection and the standing reported on responses.
 pub const CAPABILITY_ENGINES: &str = "engines";
+/// The service runs the external engines its manifest names, rather than only listing them.
+pub const CAPABILITY_ENGINES_EXTERNAL: &str = "engines_external";
 /// A model-level result the model leaves open, as `Value.undetermined`.
 pub const CAPABILITY_UNDETERMINED_VALUE: &str = "undetermined_value";
 

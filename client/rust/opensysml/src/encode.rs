@@ -13,7 +13,10 @@ use crate::wire;
 const MAX_DEPTH: usize = 128;
 
 /// Encode `value` for a request, refusing one the service would misread or not read at all.
-pub(crate) fn value_to_wire(value: &Value, capabilities: &Capabilities) -> Result<wire::Value, Error> {
+pub(crate) fn value_to_wire(
+    value: &Value,
+    capabilities: &Capabilities,
+) -> Result<wire::Value, Error> {
     encode(value, capabilities, 0)
 }
 
@@ -71,13 +74,19 @@ fn encode(value: &Value, capabilities: &Capabilities, depth: usize) -> Result<wi
             require(capabilities, CAPABILITY_STRUCTURED_VALUES)?;
             kind(Kind::Array(wire::Array {
                 dimensions: array.dimensions().to_vec(),
-                elements: array.elements().iter().map(nested).collect::<Result<_, _>>()?,
+                elements: array
+                    .elements()
+                    .iter()
+                    .map(nested)
+                    .collect::<Result<_, _>>()?,
             }))
         }
         Value::Vector(vector) => {
             require(capabilities, CAPABILITY_STRUCTURED_VALUES)?;
             if vector.components.is_empty() {
-                return Err(Error::UnsupportedValue("vector has no components".to_owned()));
+                return Err(Error::UnsupportedValue(
+                    "vector has no components".to_owned(),
+                ));
             }
             kind(Kind::Vector(wire::Vector {
                 components: vector
@@ -116,7 +125,9 @@ fn encode(value: &Value, capabilities: &Capabilities, depth: usize) -> Result<wi
         Value::Function(function) => {
             require(capabilities, CAPABILITY_FUNCTION_VALUES)?;
             if function.calc_id.is_empty() {
-                return Err(Error::UnsupportedValue("function naming no calc".to_owned()));
+                return Err(Error::UnsupportedValue(
+                    "function naming no calc".to_owned(),
+                ));
             }
             if function.self_id == Some(0) {
                 return Err(Error::UnsupportedValue(
@@ -131,7 +142,11 @@ fn encode(value: &Value, capabilities: &Capabilities, depth: usize) -> Result<wi
         Value::Set(set) => {
             require(capabilities, CAPABILITY_SET_VALUES)?;
             kind(Kind::Set(wire::ValueSet {
-                elements: set.elements().iter().map(nested).collect::<Result<_, _>>()?,
+                elements: set
+                    .elements()
+                    .iter()
+                    .map(nested)
+                    .collect::<Result<_, _>>()?,
             }))
         }
         Value::TensorQuantity(tensor) => {

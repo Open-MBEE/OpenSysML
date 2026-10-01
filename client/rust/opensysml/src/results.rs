@@ -9,6 +9,7 @@ use crate::capabilities::{upgrade_remedy, CAPABILITY_FEATURE_VALUES};
 use crate::domain::{value_from_wire, Capabilities, Diagnostic, Instance, Value};
 use crate::error::Error;
 use crate::wire;
+use crate::wire::FailureReason;
 
 /// The engine selection every service reads as the strongest covering engine.
 pub const ENGINE_AUTO: &str = "auto";
@@ -177,6 +178,27 @@ pub struct EngineInfo {
     pub served: bool,
 }
 
+impl From<EngineInfo> for wire::EngineInfo {
+    fn from(info: EngineInfo) -> Self {
+        Self {
+            name: info.name,
+            authority: info.authority,
+            answers: info.answers,
+            bounds: info.bounds,
+            process: info.process,
+            process_found: info.process_found,
+            ready: info.ready,
+            unavailable: info.unavailable,
+            kind: info.kind,
+            protocol: info.protocol,
+            source: info.source,
+            command: info.command,
+            version: info.version,
+            served: info.served,
+        }
+    }
+}
+
 impl From<wire::EngineInfo> for EngineInfo {
     fn from(pb: wire::EngineInfo) -> Self {
         Self {
@@ -204,7 +226,12 @@ impl fmt::Display for EngineInfo {
         if !self.kind.is_empty() {
             write!(f, " [{}]", self.kind)?;
         }
-        write!(f, ": {}; answers {}", self.authority, self.answers.join(", "))?;
+        write!(
+            f,
+            ": {}; answers {}",
+            self.authority,
+            self.answers.join(", ")
+        )?;
         if self.ready {
             f.write_str("; ready")
         } else {
@@ -235,6 +262,18 @@ impl VerificationVerdict {
     }
 }
 
+impl From<VerificationVerdict> for wire::VerificationVerdict {
+    fn from(verdict: VerificationVerdict) -> Self {
+        Self {
+            case_id: verdict.case_id,
+            kind: verdict.kind,
+            detail: verdict.detail,
+            subcase: verdict.subcase,
+            requirement_id: verdict.requirement_id,
+        }
+    }
+}
+
 impl From<wire::VerificationVerdict> for VerificationVerdict {
     fn from(pb: wire::VerificationVerdict) -> Self {
         Self {
@@ -254,7 +293,11 @@ impl fmt::Display for VerificationVerdict {
             VERDICT_FAIL => "\u{2717}",
             _ => "?",
         };
-        write!(f, "{mark} verification {} verdict: {}", self.case_id, self.kind)?;
+        write!(
+            f,
+            "{mark} verification {} verdict: {}",
+            self.case_id, self.kind
+        )?;
         if self.subcase {
             f.write_str(" (subcase)")?;
         }
@@ -313,6 +356,8 @@ pub struct Verdict {
     pub verifications: Vec<VerificationVerdict>,
     /// Diagnostics the service reported.
     pub diagnostics: Vec<Diagnostic>,
+    /// What kind of failure [`Verdict::error`] is; unspecified when it is empty.
+    pub reason: FailureReason,
     instances: Arc<[Instance]>,
     wire: wire::Verdict,
 }
@@ -357,6 +402,7 @@ impl Verdict {
             standing: Standing::of(&pb.engine, &pb.strength, &pb.bounds),
             verifications,
             diagnostics: diagnostics.to_vec(),
+            reason: reason_of(pb.failure_reason),
             instances,
             wire: pb,
         })
@@ -392,6 +438,7 @@ impl Verdict {
         } else {
             Err(Error::Execution {
                 message: format!("{}: {}", self.named(), self.error),
+                reason: self.reason,
                 diagnostics: self.diagnostics.clone(),
             })
         }
@@ -428,7 +475,11 @@ impl fmt::Display for Verdict {
         } else if self.holds {
             write!(f, "\u{2713} {} holds{subject}", self.named())?;
         } else {
-            write!(f, "\u{2717} {} fails{subject}: condition evaluated to false", self.named())?;
+            write!(
+                f,
+                "\u{2717} {} fails{subject}: condition evaluated to false",
+                self.named()
+            )?;
             if !self.condition.is_empty() {
                 write!(f, ": {}", self.condition)?;
             }
@@ -454,9 +505,14 @@ pub struct Validation {
     /// What the bodies of the verification cases of the requirements met answered.
     pub verifications: Vec<VerificationVerdict>,
     instances: Arc<[Instance]>,
+    wire: wire::ValidateInstanceResponse,
 }
 
 impl Validation {
+    /// The ValidateInstance response this was read from.
+    pub fn wire(&self) -> &wire::ValidateInstanceResponse {
+        &self.wire
+    }
     /// Whether the object's own verdict holds: every assertion held and every object was reached.
     pub fn valid(&self) -> bool {
         self.summary
@@ -518,9 +574,10 @@ fn named_values(entries: &[wire::CalcOutput]) -> Result<Vec<NamedValue>, Error> 
     entries
         .iter()
         .map(|entry| {
-            let value = entry.value.clone().ok_or_else(|| {
-                Error::Decode(format!("output {} carries no value", entry.name))
-            })?;
+            let value = entry
+                .value
+                .clone()
+                .ok_or_else(|| Error::Decode(format!("output {} carries no value", entry.name)))?;
             Ok(NamedValue {
                 name: entry.name.clone(),
                 value: value_from_wire(value)?,
@@ -544,9 +601,14 @@ pub struct CalcResult {
     pub diagnostics: Vec<Diagnostic>,
     /// Who answered, how strongly, within what bounds.
     pub standing: Standing,
+    wire: wire::EvaluateCalcResponse,
 }
 
 impl CalcResult {
+    /// The EvaluateCalc response this was read from.
+    pub fn wire(&self) -> &wire::EvaluateCalcResponse {
+        &self.wire
+    }
     /// One output by name.
     pub fn output(&self, name: &str) -> Option<&Value> {
         find_named(&self.outputs, name)
@@ -636,9 +698,14 @@ pub struct AnalysisResult {
     /// Who answered, how strongly, within what bounds.
     pub standing: Standing,
     instances: Arc<[Instance]>,
+    wire: wire::RunAnalysisResponse,
 }
 
 impl AnalysisResult {
+    /// The RunAnalysis response this was read from.
+    pub fn wire(&self) -> &wire::RunAnalysisResponse {
+        &self.wire
+    }
     /// One output by name.
     pub fn output(&self, name: &str) -> Option<&Value> {
         find_named(&self.outputs, name)
@@ -713,9 +780,14 @@ pub struct SweepTable {
     /// Who answered, how strongly, within what bounds.
     pub standing: Standing,
     instances: Arc<[Instance]>,
+    wire: wire::RunSweepResponse,
 }
 
 impl SweepTable {
+    /// The RunSweep response this was read from.
+    pub fn wire(&self) -> &wire::RunSweepResponse {
+        &self.wire
+    }
     /// The runs that failed.
     pub fn failures(&self) -> impl Iterator<Item = &SweepRow> {
         self.rows.iter().filter(|r| r.failed())
@@ -791,6 +863,7 @@ impl Outcome {
         if self.failed() {
             Err(Error::Execution {
                 message: self.error.clone(),
+                reason: FailureReason::Unspecified,
                 diagnostics: self.diagnostics.clone(),
             })
         } else {
@@ -816,9 +889,14 @@ pub struct Exploration {
     pub depth_budget: i32,
     /// Whether the probabilities are lower bounds.
     pub probabilities_lower_bound: bool,
+    wire: ExploredResponse,
 }
 
 impl Exploration {
+    /// The explored run's response this was read from.
+    pub fn wire(&self) -> &ExploredResponse {
+        &self.wire
+    }
     /// Whether the exploration is complete and no run failed.
     pub fn succeeded(&self) -> bool {
         self.complete && !self.outcomes.iter().any(Outcome::failed)
@@ -853,9 +931,67 @@ impl Exploration {
         } else {
             Err(Error::Execution {
                 message: self.status(),
+                reason: FailureReason::Unspecified,
                 diagnostics: Vec::new(),
             })
         }
+    }
+}
+
+/// The response an exploration was read from.
+#[derive(Clone, Debug)]
+pub enum ExploredResponse {
+    /// An explored action.
+    Action(Box<wire::ExecuteActionResponse>),
+    /// An explored state machine.
+    State(Box<wire::ExecuteStateResponse>),
+    /// An explored analysis case.
+    Analysis(Box<wire::RunAnalysisResponse>),
+}
+
+/// Every satisfaction assertion's verdict, as `%satisfy` answers.
+#[derive(Clone, Debug)]
+pub struct Satisfaction {
+    /// One per assertion, in the model's order.
+    pub verdicts: Vec<Verdict>,
+    /// Diagnostics the service reported.
+    pub diagnostics: Vec<Diagnostic>,
+    /// What the bodies of the verification cases of the satisfied requirements answered.
+    pub verifications: Vec<VerificationVerdict>,
+    instances: Arc<[Instance]>,
+    wire: wire::VerifySatisfactionResponse,
+}
+
+impl Satisfaction {
+    /// Whether every assertion held.
+    pub fn holds(&self) -> bool {
+        self.verdicts.iter().all(|v| v.holds && v.error.is_empty())
+    }
+    /// The assertions that evaluated to false.
+    pub fn violated(&self) -> impl Iterator<Item = &Verdict> {
+        self.verdicts
+            .iter()
+            .filter(|v| !v.holds && v.error.is_empty())
+    }
+    /// The objects the verdicts are about.
+    pub fn instances(&self) -> &[Instance] {
+        &self.instances
+    }
+    /// The VerifySatisfaction response this was read from.
+    pub fn wire(&self) -> &wire::VerifySatisfactionResponse {
+        &self.wire
+    }
+}
+
+impl fmt::Display for Satisfaction {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        for (i, verdict) in self.verdicts.iter().enumerate() {
+            if i > 0 {
+                f.write_str("\n")?;
+            }
+            write!(f, "{verdict}")?;
+        }
+        Ok(())
     }
 }
 
@@ -870,6 +1006,14 @@ pub struct ActionRun {
     pub final_time: f64,
     /// Diagnostics the service reported.
     pub diagnostics: Vec<Diagnostic>,
+    pub(crate) wire: wire::ExecuteActionResponse,
+}
+
+impl ActionRun {
+    /// The ExecuteAction response this was read from.
+    pub fn wire(&self) -> &wire::ExecuteActionResponse {
+        &self.wire
+    }
 }
 
 /// What one run of a state machine produced.
@@ -883,6 +1027,14 @@ pub struct StateRun {
     pub final_time: f64,
     /// Diagnostics the service reported.
     pub diagnostics: Vec<Diagnostic>,
+    pub(crate) wire: wire::ExecuteStateResponse,
+}
+
+impl StateRun {
+    /// The ExecuteState response this was read from.
+    pub fn wire(&self) -> &wire::ExecuteStateResponse {
+        &self.wire
+    }
 }
 
 pub(crate) fn diagnostics_of(entries: &[wire::Diagnostic]) -> Vec<Diagnostic> {
@@ -899,9 +1051,15 @@ pub(crate) fn failure_of(message: &str, reason: i32, diagnostics: Vec<Diagnostic
     } else {
         Error::Execution {
             message: message.to_owned(),
+            reason: reason_of(reason),
             diagnostics,
         }
     }
+}
+
+/// The typed failure reason a wire enum value names; one this client does not know is unspecified.
+pub(crate) fn reason_of(reason: i32) -> FailureReason {
+    FailureReason::try_from(reason).unwrap_or(FailureReason::Unspecified)
 }
 
 pub(crate) fn instances_of(
@@ -932,7 +1090,11 @@ pub(crate) fn value_map(
 }
 
 fn verifications_of(entries: &[wire::VerificationVerdict]) -> Vec<VerificationVerdict> {
-    entries.iter().cloned().map(VerificationVerdict::from).collect()
+    entries
+        .iter()
+        .cloned()
+        .map(VerificationVerdict::from)
+        .collect()
 }
 
 fn verifications_for(all: &[VerificationVerdict], pb: &wire::Verdict) -> Vec<VerificationVerdict> {
@@ -967,6 +1129,7 @@ pub(crate) fn single_verdict(
     if !error.is_empty() {
         return Err(Error::Execution {
             message: error.to_owned(),
+            reason: FailureReason::Unspecified,
             diagnostics,
         });
     }
@@ -977,36 +1140,53 @@ pub(crate) fn single_verdict(
     Verdict::from_wire(pb, instances, &diagnostics, verifications)
 }
 
-pub(crate) fn satisfaction_verdicts(
+pub(crate) fn satisfaction_of(
     response: wire::VerifySatisfactionResponse,
     capabilities: &Capabilities,
-) -> Result<Vec<Verdict>, Error> {
+) -> Result<Satisfaction, Error> {
+    let wire = response.clone();
     let diagnostics = diagnostics_of(&response.diagnostics);
     if !response.error.is_empty() {
-        return Err(failure_of(&response.error, response.failure_reason, diagnostics));
+        return Err(failure_of(
+            &response.error,
+            response.failure_reason,
+            diagnostics,
+        ));
     }
     for pb in &response.verdicts {
         reject_wrong_kind(pb, &diagnostics)?;
     }
     let instances = instances_of(&response.instances, capabilities)?;
     let verifications = verifications_of(&response.verification_verdicts);
-    response
+    let verdicts = response
         .verdicts
         .into_iter()
         .map(|pb| {
             let own = verifications_for(&verifications, &pb);
             Verdict::from_wire(pb, instances.clone(), &diagnostics, own)
         })
-        .collect()
+        .collect::<Result<_, _>>()?;
+    Ok(Satisfaction {
+        verdicts,
+        diagnostics,
+        verifications,
+        instances,
+        wire,
+    })
 }
 
 pub(crate) fn validation_of(
     response: wire::ValidateInstanceResponse,
     capabilities: &Capabilities,
 ) -> Result<Validation, Error> {
+    let wire = response.clone();
     let diagnostics = diagnostics_of(&response.diagnostics);
     if !response.error.is_empty() {
-        return Err(failure_of(&response.error, response.failure_reason, diagnostics));
+        return Err(failure_of(
+            &response.error,
+            response.failure_reason,
+            diagnostics,
+        ));
     }
     let instances = instances_of(&response.instances, capabilities)?;
     let verifications = verifications_of(&response.verification_verdicts);
@@ -1029,13 +1209,19 @@ pub(crate) fn validation_of(
         diagnostics,
         verifications,
         instances,
+        wire,
     })
 }
 
 pub(crate) fn calc_of(response: wire::EvaluateCalcResponse) -> Result<CalcResult, Error> {
+    let wire = response.clone();
     let diagnostics = diagnostics_of(&response.diagnostics);
     if !response.error.is_empty() {
-        return Err(failure_of(&response.error, response.failure_reason, diagnostics));
+        return Err(failure_of(
+            &response.error,
+            response.failure_reason,
+            diagnostics,
+        ));
     }
     let outputs = named_values(&response.outputs)?;
     let value = if outputs.is_empty() {
@@ -1048,6 +1234,7 @@ pub(crate) fn calc_of(response: wire::EvaluateCalcResponse) -> Result<CalcResult
         outputs,
         diagnostics,
         standing: Standing::of(&response.engine, &response.strength, &response.bounds),
+        wire,
     })
 }
 
@@ -1055,13 +1242,18 @@ pub(crate) fn analysis_of(
     response: wire::RunAnalysisResponse,
     capabilities: &Capabilities,
 ) -> Result<AnalysisResult, Error> {
+    let wire = response.clone();
     let diagnostics = diagnostics_of(&response.diagnostics);
     let partial = !(response.outputs.is_empty()
         && response.verdicts.is_empty()
         && response.evaluations.is_empty()
         && response.instances.is_empty());
     if !response.error.is_empty() && !partial {
-        return Err(failure_of(&response.error, response.failure_reason, diagnostics));
+        return Err(failure_of(
+            &response.error,
+            response.failure_reason,
+            diagnostics,
+        ));
     }
     let instances = instances_of(&response.instances, capabilities)?;
     let verdicts = response
@@ -1077,6 +1269,7 @@ pub(crate) fn analysis_of(
         evaluations: evaluations(&response.evaluations)?,
         standing: Standing::of(&response.engine, &response.strength, &response.bounds),
         instances,
+        wire,
     };
     if response.error.is_empty() {
         Ok(result)
@@ -1092,9 +1285,14 @@ pub(crate) fn sweep_of(
     response: wire::RunSweepResponse,
     capabilities: &Capabilities,
 ) -> Result<SweepTable, Error> {
+    let wire = response.clone();
     let diagnostics = diagnostics_of(&response.diagnostics);
     if !response.error.is_empty() {
-        return Err(failure_of(&response.error, response.failure_reason, diagnostics));
+        return Err(failure_of(
+            &response.error,
+            response.failure_reason,
+            diagnostics,
+        ));
     }
     let instances = instances_of(&response.instances, capabilities)?;
     let rows = response
@@ -1123,33 +1321,43 @@ pub(crate) fn sweep_of(
         diagnostics,
         standing: Standing::of(&response.engine, &response.strength, &response.bounds),
         instances,
+        wire,
     })
 }
 
-pub(crate) fn exploration_of(
-    error: &str,
-    failure_reason: i32,
-    diagnostics: &[wire::Diagnostic],
-    outcomes: Vec<wire::Outcome>,
-    status: Option<wire::ExplorationStatus>,
-) -> Result<Exploration, Error> {
+pub(crate) fn exploration_of(response: ExploredResponse) -> Result<Exploration, Error> {
+    let (error, failure_reason, diagnostics, outcomes, status) = match &response {
+        ExploredResponse::Action(r) => (&r.error, 0, &r.diagnostics, &r.outcomes, &r.exploration),
+        ExploredResponse::State(r) => (&r.error, 0, &r.diagnostics, &r.outcomes, &r.exploration),
+        ExploredResponse::Analysis(r) => (
+            &r.error,
+            r.failure_reason,
+            &r.diagnostics,
+            &r.outcomes,
+            &r.exploration,
+        ),
+    };
     if !error.is_empty() {
-        return Err(failure_of(error, failure_reason, diagnostics_of(diagnostics)));
+        return Err(failure_of(
+            error,
+            failure_reason,
+            diagnostics_of(diagnostics),
+        ));
     }
-    let status = status.ok_or_else(|| {
+    let status = status.clone().ok_or_else(|| {
         Error::Decode("an explored run's response carries no exploration status".to_owned())
     })?;
     let outcomes = outcomes
-        .into_iter()
+        .iter()
         .map(|pb| {
             Ok(Outcome {
                 outputs: value_map(&pb.outputs)?,
-                final_state: pb.final_state,
-                states_visited: pb.states_visited,
-                error: pb.error,
+                final_state: pb.final_state.clone(),
+                states_visited: pb.states_visited.clone(),
+                error: pb.error.clone(),
                 linearizations: pb.linearizations,
                 probability: pb.probability,
-                witness: pb.witness,
+                witness: pb.witness.clone(),
                 diagnostics: diagnostics_of(&pb.diagnostics),
             })
         })
@@ -1162,5 +1370,6 @@ pub(crate) fn exploration_of(
         runs_budget: status.runs_budget,
         depth_budget: status.depth_budget,
         probabilities_lower_bound: status.probabilities_lower_bound,
+        wire: response,
     })
 }
