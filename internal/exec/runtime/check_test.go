@@ -677,8 +677,8 @@ func TestCheckPropertyOfThePerformerIsWitnessed(t *testing.T) {
 	}
 }
 
-// The failure modes of the robustness tests are violations on the schedule that
-// reaches them, each with its witness, not errors of the search.
+// Runtime failures after the root run starts are violations on the schedule
+// that reaches them, each with its witness.
 func TestCheckReportsFailuresAsViolations(t *testing.T) {
 	cases := []struct {
 		name, action, src string
@@ -711,16 +711,6 @@ func TestCheckReportsFailuresAsViolations(t *testing.T) {
 				then done;
 			}
 		}`, ViolationFailure, ErrUnboundParameter},
-		{"dangling succession", "outer", `package test {
-			action outer {
-				first leg;
-				action leg {
-					first a;
-					action a;
-					succession first a then missing;
-				}
-			}
-		}`, ViolationFailure, ErrInvalidActionFlow},
 		{"all guards false", "pick", `package test {
 			private import ScalarValues::*;
 			action pick {
@@ -765,6 +755,24 @@ func TestCheckReportsFailuresAsViolations(t *testing.T) {
 				t.Fatalf("replay of the schedule without its failure = %v, want a disagreement", err)
 			}
 		})
+	}
+}
+
+func TestCheckReturnsInvalidSubflowAsSetupFailure(t *testing.T) {
+	m := parseExploreModel(t, `package test {
+		action outer {
+			first leg;
+			action leg {
+				first a;
+				action a;
+				succession first a then missing;
+			}
+		}
+	}`)
+	_, err := Check(context.Background(), m.fresh, starterOf(m.action(t, "outer")), CheckBudget{}, reduced(), nil)
+	var setup *SetupError
+	if !errors.As(err, &setup) || !errors.Is(err, ErrInvalidActionFlow) {
+		t.Fatalf("check error = %v; want SetupError wrapping ErrInvalidActionFlow", err)
 	}
 }
 

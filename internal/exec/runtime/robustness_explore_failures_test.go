@@ -13,6 +13,9 @@ func TestRuntimeRobustnessExploreFailures(t *testing.T) {
 	t.Run("fresh context failure fails the exploration", testExploreFreshContextFailure)
 	t.Run("root action initialization failure is setup", testExploreActionInitializationFailureIsSetup)
 	t.Run("root state initialization failure is setup", testExploreStateInitializationFailureIsSetup)
+	t.Run("initial entry failure after a choice is a runtime outcome", testExploreInitialEntryFailureAfterChoiceIsRuntimeOutcome)
+	t.Run("deterministic entry failure is a runtime outcome", testExploreDeterministicEntryFailureIsRuntimeOutcome)
+	t.Run("tool performance failure is a runtime outcome", testExploreToolPerformanceFailureIsRuntimeOutcome)
 	t.Run("input binding failure is not setup", testExploreInputBindingFailureIsNotSetup)
 	t.Run("performer failure is not setup", testExplorePerformerFailureIsOutcome)
 	t.Run("decision failure is a runtime outcome", testExploreDecisionFailureIsOutcome)
@@ -27,18 +30,18 @@ func TestWrapSetupErrorPreservesInputAndPerformerErrors(t *testing.T) {
 		inputBindingError{Err: cause},
 		fmt.Errorf("performer failed: %w", ErrOccurrenceLifetime),
 	} {
-		wrapped := WrapSetupError(err)
+		wrapped := wrapSetupError(err)
 		var setup *SetupError
 		if errors.As(wrapped, &setup) {
-			t.Errorf("WrapSetupError(%v) = %v; want the run error unchanged", err, wrapped)
+			t.Errorf("wrapSetupError(%v) = %v; want the run error unchanged", err, wrapped)
 		}
 	}
 
 	cause = errors.New("executor initialization failed")
-	wrapped := WrapSetupError(cause)
+	wrapped := wrapSetupError(cause)
 	var setup *SetupError
 	if !errors.As(wrapped, &setup) || !errors.Is(wrapped, cause) || wrapped.Error() != cause.Error() {
-		t.Errorf("WrapSetupError(%v) = %v; want SetupError preserving the message and cause", cause, wrapped)
+		t.Errorf("wrapSetupError(%v) = %v; want SetupError preserving the message and cause", cause, wrapped)
 	}
 }
 
@@ -104,6 +107,128 @@ func testExploreStateInitializationFailureIsSetup(t *testing.T) {
 	}
 	if !errors.Is(err, ErrNoInitialState) {
 		t.Errorf("setup error = %v, want ErrNoInitialState", err)
+	}
+}
+
+func testExploreInitialEntryFailureAfterChoiceIsRuntimeOutcome(t *testing.T) {
+	m := parseLibraryModel(t, `package test {
+		private import ScalarValues::*;
+		action def Dec {
+			attribute x : Integer = 0;
+			first start;
+			then fork f;
+				then a;
+				then b;
+			action a { assign x := 1; }
+			action b { assign x := 2; }
+			succession a then j;
+			succession b then j;
+			join j;
+			then decide d;
+			if x == 1 then ok;
+			action ok { assign x := 5; }
+			then done;
+		}
+		state def Machine {
+			entry; then s;
+			state s { entry action e : Dec; }
+		}
+	}`)
+	sym := m.state(t, "Machine")
+	exploration, err := Explore(context.Background(), mustPolicy(t, "explore"), m.fresh, func(ctx *Context) (Outcome, error) {
+		return ctx.StateOutcomeWithEvents(sym, nil)
+	})
+	if err != nil {
+		t.Fatalf("Explore: %v; want entry failures as outcomes", err)
+	}
+	if exploration == nil || !exploration.Complete() || len(exploration.Outcomes) != 2 ||
+		exploration.FailedLinearizations() != 1 {
+		t.Fatalf("exploration = %v; want two complete outcomes with one failed linearization", exploration)
+	}
+	values, failures := 0, 0
+	for _, outcome := range exploration.Outcomes {
+		if outcome.Outcome.Err == nil {
+			values++
+			continue
+		}
+		failures += outcome.Linearizations
+		var setup *SetupError
+		if errors.As(outcome.Outcome.Err, &setup) {
+			t.Errorf("entry error outcome = %v; want a runtime error, not SetupError", outcome.Outcome.Err)
+		}
+		if !errors.Is(outcome.Outcome.Err, ErrNoEnabledSuccession) {
+			t.Errorf("entry error outcome = %v; want ErrNoEnabledSuccession", outcome.Outcome.Err)
+		}
+	}
+	if values != 1 || failures != 1 {
+		t.Errorf("exploration has %d value outcomes and %d failing linearizations; want 1 each", values, failures)
+	}
+}
+
+func testExploreDeterministicEntryFailureIsRuntimeOutcome(t *testing.T) {
+	m := parseLibraryModel(t, `package test {
+		private import ScalarValues::*;
+		action def AllFalse {
+			attribute x : Integer = 0;
+			first start;
+			then decide d;
+			if x == 1 then ok;
+			action ok { assign x := 5; }
+			then done;
+		}
+		state def Machine {
+			entry; then s;
+			state s { entry action e : AllFalse; }
+		}
+	}`)
+	sym := m.state(t, "Machine")
+	exploration, err := Explore(context.Background(), mustPolicy(t, "explore"), m.fresh, func(ctx *Context) (Outcome, error) {
+		return ctx.StateOutcomeWithEvents(sym, nil)
+	})
+	if err != nil {
+		t.Fatalf("Explore: %v; want the entry failure as an outcome", err)
+	}
+	if exploration == nil || !exploration.Complete() || len(exploration.Outcomes) != 1 ||
+		exploration.FailedLinearizations() != 1 {
+		t.Fatalf("exploration = %v; want one complete error outcome", exploration)
+	}
+	errOutcome := exploration.Outcomes[0].Outcome.Err
+	var setup *SetupError
+	if errOutcome == nil || errors.As(errOutcome, &setup) || !errors.Is(errOutcome, ErrNoEnabledSuccession) {
+		t.Fatalf("entry error outcome = %v; want ErrNoEnabledSuccession, not SetupError", errOutcome)
+	}
+}
+
+func testExploreToolPerformanceFailureIsRuntimeOutcome(t *testing.T) {
+	m := parseLibraryModel(t, `package test {
+		private import AnalysisTooling::*;
+		action def ToolAction {
+			metadata ToolExecution {
+				toolName = "Unregistered";
+				uri = "aserv://localhost/ToolAction";
+			}
+		}
+	}`)
+	sym := m.action(t, "ToolAction")
+	exploration, err := Explore(context.Background(), mustPolicy(t, "explore"), m.fresh, func(ctx *Context) (Outcome, error) {
+		exec, err := ctx.CreateActionExecutorFor(sym, nil)
+		if err != nil {
+			return Outcome{}, err
+		}
+		defer exec.Release()
+		return Outcome{}, errors.New("tool action unexpectedly succeeded")
+	})
+	if err != nil {
+		t.Fatalf("Explore: %v; want the tool performance failure as an outcome", err)
+	}
+	if exploration == nil || !exploration.Complete() || len(exploration.Outcomes) != 1 ||
+		exploration.FailedLinearizations() != 1 {
+		t.Fatalf("exploration = %v; want one complete error outcome", exploration)
+	}
+	errOutcome := exploration.Outcomes[0].Outcome.Err
+	var setup *SetupError
+	if errOutcome == nil || errors.As(errOutcome, &setup) || !errors.Is(errOutcome, ErrToolNotRegistered) {
+		t.Fatalf("tool error outcome = %v; want ErrToolNotRegistered, not SetupError", errOutcome)
 	}
 }
 

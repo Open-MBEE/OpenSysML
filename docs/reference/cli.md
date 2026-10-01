@@ -1420,10 +1420,11 @@ aRan = true; bRan = true; cRan = true; x = 3 | 2              | possible    | st
 complete (6 runs)
 ```
 
-A failure to create or initialize the root executor means no schedule ran: exploration fails
-without producing an outcome. A run that fails after it begins — a guard that divides by zero on
-one path, say — is an outcome of its own, rendered as `error: <message>`, not the end of the
-exploration; any runtime-error outcome makes the verdict fail, even for incomplete exploration.
+A root executor creation failure or a pure structural start-check failure before model behavior
+runs means no schedule ran: exploration fails without producing an outcome. A run that fails in
+an initial behavior or later — a guard that divides by zero on one path, say — is an outcome of
+its own, rendered as `error: <message>`, not the end of the exploration; any runtime-error outcome
+makes the verdict fail, even for incomplete exploration.
 A witness of `no choice points`
 marks the one outcome of a behavior with none. The rendering is canonical: the same model tables
 the same rows in the same order every time. An object a run holds is spelled by its type and

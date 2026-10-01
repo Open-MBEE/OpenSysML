@@ -192,11 +192,12 @@ alternative (the slot is narrowed, and a run that repeats one already made is no
 field and the Python client all reach it, and a REPL debugging session refuses it because it steps
 one run and cannot replay from the start.
 
-A failure before the root executor has been created and initialized is a `SetupError`: it fails
-the exploration and produces no outcome. Once the root run begins, a runtime failure is an
-outcome keyed by its error, distinct from successful outcomes; `FailedLinearizations` counts the
-runs represented by error outcomes. A complete exploration containing any such failure is
-observed, not proved.
+A root executor creation failure, or a pure structural start check that fails before any root
+model behavior runs, is a `SetupError`: it fails the exploration and produces no outcome. Errors
+from entry behaviors, entry guards, state entry actions, do-behaviors, completion, or later model
+behavior are runtime error outcomes, even when they occur during initialization;
+`FailedLinearizations` counts the runs represented by error outcomes. A complete exploration
+containing any such failure is observed, not proved.
 
 Outcome probabilities describe only the model's weighted draws. A run records a trie of choice
 prefixes; weighted nodes sum their children with normalized model weights, while scheduling

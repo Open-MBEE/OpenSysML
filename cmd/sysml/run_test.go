@@ -424,6 +424,31 @@ const partialFailureExploreModel = `package D {
 }
 `
 
+const initialEntryFailureExploreModel = `package Entry {
+  private import ScalarValues::*;
+  action def Dec {
+    attribute x : Integer = 0;
+    first start;
+    then fork f;
+      then a;
+      then b;
+    action a { assign x := 1; }
+    action b { assign x := 2; }
+    succession a then j;
+    succession b then j;
+    join j;
+    then decide d;
+    if x == 1 then ok;
+    action ok { assign x := 5; }
+    then done;
+  }
+  state def M {
+    entry; then s;
+    state s { entry action e : Dec; }
+  }
+}
+`
+
 const weightedProbabilityExploreModel = `package Weighted {
   private import ScalarValues::*;
   private import Stochastic::*;
@@ -661,6 +686,17 @@ func TestExplorePartialFailureFailsAndReportsTheFailedRun(t *testing.T) {
 	}
 	if errorsFound != 1 {
 		t.Errorf("JSON reports %d error outcomes, want one: %s", errorsFound, jsonResult.stdout)
+	}
+}
+
+func TestExploreInitialEntryFailureIsAnOutcome(t *testing.T) {
+	binary := buildCLI(t)
+	got := check(t, binary, initialEntryFailureExploreModel, "-state", "Entry::M", "-schedule", "explore")
+	if got.status != 1 ||
+		!strings.Contains(got.stdout, "✗ explored Entry::M: 2 outcomes (1 value, 1 error)") ||
+		!strings.Contains(got.stdout, "error:") ||
+		!strings.Contains(got.stdout, "1 of 2 linearizations failing") {
+		t.Fatalf("initial-entry failure report = %d:\n%s", got.status, got.output())
 	}
 }
 

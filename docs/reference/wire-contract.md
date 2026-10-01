@@ -1017,10 +1017,11 @@ of one that did, one entry per choice point spelling the alternatives and the on
 committed run made a weighted model choice, `probability_range` carries the outcome's minimum and
 maximum model-draw probability over schedulers; `probability` is the exact value when that range
 is exact and is zero otherwise. Scheduling choices have no probability. If no weighted choice
-occurred, neither field represents an outcome probability. A run failing after it starts is an
-error outcome; a failure to construct or initialize the root executor is instead returned in the
-response's error field, with no outcomes or exploration status. `diagnostics` is what that witness
-run noted, shaped as the single-run `diagnostics` above.
+occurred, neither field represents an outcome probability. A run failing after its initial model
+behavior begins is an error outcome; a root executor creation failure or a pure structural
+start-check failure before behavior runs is instead returned in the response's error field, with
+no outcomes or exploration status. `diagnostics` is what that witness run noted, shaped as the
+single-run `diagnostics` above.
 Outcomes are in canonical order — by outputs, sorted by name and value — so the same model
 answers the same list on every call (captured for `Test::tally` above and for `action race` with
 three branches `a`, `b`, `c` each assigning `winner`):

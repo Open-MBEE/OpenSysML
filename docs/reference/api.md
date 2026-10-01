@@ -37,10 +37,11 @@ default when none is given, or `explore:runs=N,depth=D` to set its budget — an
 `Exploration`, one `Outcome` per distinct result with the number of linearizations that reached
 it and one run's choices as its `Witness`. A committed weighted model choice gives each outcome a
 `ProbabilityRange` over schedulers; an unweighted exploration has no outcome probabilities.
-`FailedLinearizations` counts runs represented by error outcomes. A runtime failure after a run
-begins is an `Outcome` whose `Error` is set, not a failure of the call; a complete exploration
-with any such outcome is observed rather than proved. A failure to create or initialize the root
-executor is a failed call with no outcomes or `Exploration`. `Complete` and `BudgetsHit` report
+`FailedLinearizations` counts runs represented by error outcomes. A failure from initial model
+behavior or later is an `Outcome` whose `Error` is set, not a failure of the call; a complete
+exploration with any such outcome is observed rather than proved. A failure to create the root
+executor or pass a pure structural start check before model behavior runs is a failed call with no
+outcomes or `Exploration`. `Complete` and `BudgetsHit` report
 how the search ended, and `ProbabilitiesLowerBound` is true only for an incomplete weighted
 exploration (`Status()` renders it as the `sysml` command does). The two families refuse each
 other's policies with `CodeInvalidArgument`, and exploring requires the `schedule_explore`
@@ -666,8 +667,9 @@ Execution runtime (Tiers 1-5: instances, expressions, behaviors).
     an untried alternative at its end — the first run's choice points each varied once, earliest
     first, before any is varied twice. `run` performs one run and answers its `Outcome`; an error
     after the root run begins is the `Outcome.Err` of an outcome of its own, so a run some orders
-    fail is reported rather than ending the search. A `SetupError` from creating or initializing
-    the context's root executor fails the exploration without an outcome. A `stop` that ends between
+    fail is reported rather than ending the search. A `SetupError` from root executor creation or
+    a pure structural start check before model behavior runs fails the exploration without an
+    outcome; failures during initial behaviors are runtime outcomes. A `stop` that ends between
     runs ends the exploration with its error before
   the next context is built. A policy other than `explore` is `ErrNotExploring`; a replay that
   does not meet the choice points its prefix recorded is `ErrExplorationDiverged`, since the

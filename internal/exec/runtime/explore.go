@@ -39,9 +39,9 @@ type SetupError struct{ Err error }
 func (e *SetupError) Error() string { return e.Err.Error() }
 func (e *SetupError) Unwrap() error { return e.Err }
 
-// WrapSetupError classifies a root executor failure without reclassifying
+// wrapSetupError classifies a root executor failure without reclassifying
 // input-binding or performer-lifecycle errors as setup failures.
-func WrapSetupError(err error) error {
+func wrapSetupError(err error) error {
 	if err == nil {
 		return nil
 	}

@@ -777,9 +777,10 @@ table is followed by the trace of each outcome's witness run (`trace of outcome 
 `probability`, optional `probabilityRange`, `witness`) and `exploration` (`complete`, `runs`,
 `budgetsHit`, optional `failedLinearizations`, `probabilitiesLowerBound`) beside the table's lines.
 
-If the runtime context or root executor cannot be created or initialized, no schedule ran: the
-exploration fails with no outcome. A failure after the root run begins is instead an error outcome;
-any such outcome makes the verdict fail, even if the exploration is incomplete.
+If the runtime context or root executor cannot be created, or a pure structural start check fails
+before root model behavior runs, no schedule ran: the exploration fails with no outcome. Failures
+from entry behaviors, entry guards, state entry actions, do-behaviors, completion, or later are
+error outcomes; any such outcome makes the verdict fail, even if the exploration is incomplete.
 
 <a id="a-do-behavior-under-explore-and-check"></a>
 A state's `do` behavior is stepped the same way under `explore` and `check`: one token at a time —

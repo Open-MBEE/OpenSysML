@@ -4602,8 +4602,26 @@ func (e *StateExecutor) activeStates() []*ast.StateNode {
 	return nil
 }
 
+func (e *StateExecutor) checkStart() error {
+	if len(e.graph.TopRegions) == 0 {
+		if len(e.graph.StartOf(nil)) == 0 {
+			return fmt.Errorf("%w in state machine %s", ErrNoInitialState, e.stateMachine.Name)
+		}
+		return nil
+	}
+	for _, region := range e.graph.TopRegions {
+		if e.graph.RegionState[region] == nil && len(e.graph.StartOf(region)) == 0 {
+			return fmt.Errorf("region %s has no initial state", region.Name)
+		}
+	}
+	return nil
+}
+
 // initialize sets current state to initial state and enters it.
 func (e *StateExecutor) initialize() (err error) {
+	if err := e.checkStart(); err != nil {
+		return err
+	}
 	defer e.ctx.beginExecutorRun(&e.driven)()
 	defer e.completedWhole(&err)
 	defer e.unfireOnError(len(e.fired), &err)
@@ -4615,9 +4633,6 @@ func (e *StateExecutor) initialize() (err error) {
 	// A machine without orthogonal regions of its own starts in the state its
 	// body's entry transitions choose, then in that state's own start, and so on.
 	if len(e.graph.TopRegions) == 0 {
-		if len(e.graph.StartOf(nil)) == 0 {
-			return fmt.Errorf("%w in state machine %s", ErrNoInitialState, e.stateMachine.Name)
-		}
 		if err := e.enterMachine(); err != nil {
 			return fmt.Errorf("enter state machine: %w", err)
 		}

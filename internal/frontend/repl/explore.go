@@ -771,7 +771,7 @@ func freshAction(objects *freshObjects, sym *symbols.Symbol, name string, perfor
 	if exec == nil {
 		if exec, err = ctx.CreateActionExecutorFor(sym, self); err != nil {
 			err = fmt.Errorf("failed to create executor: %w", err)
-			return nil, "", runtime.WrapSetupError(err)
+			return nil, "", err
 		}
 	}
 	exec.SetTrace(ctx.Trace())
@@ -817,7 +817,7 @@ func freshMachine(objects *freshObjects, sym *symbols.Symbol, name string, perfo
 	if exec == nil {
 		if exec, err = ctx.CreateStateExecutorFor(sym, self); err != nil {
 			err = fmt.Errorf("failed to create executor: %w", err)
-			return nil, "", runtime.WrapSetupError(err)
+			return nil, "", err
 		}
 	}
 	exec.SetTrace(ctx.Trace())
