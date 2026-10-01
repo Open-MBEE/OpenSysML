@@ -440,7 +440,7 @@ var (
 	// ErrIntegerUnaddressable is returned when an Integer serves as a position,
 	// count or bound of something held, and is beyond the 64-bit range any of
 	// those can take: Integers are unbounded, what they address is not.
-	ErrIntegerUnaddressable = errors.New("integer beyond the addressable range")
+	ErrIntegerUnaddressable = semantics.ErrIntegerUnaddressable
 
 	// ErrBodyArity is returned when the body expression a collection operation
 	// is given declares a number of parameters the operation cannot call it

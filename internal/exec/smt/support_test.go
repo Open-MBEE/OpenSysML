@@ -4,6 +4,7 @@ import (
 	"errors"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/Open-MBEE/OpenSysML/internal/check/passes"
@@ -11,6 +12,7 @@ import (
 	"github.com/Open-MBEE/OpenSysML/internal/exec/solve"
 	"github.com/Open-MBEE/OpenSysML/internal/ir/lower"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/resolve"
+	"github.com/Open-MBEE/OpenSysML/internal/semantic/semantics"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/symbols"
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/parser"
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/source"
@@ -124,6 +126,35 @@ func TestAnalyzeRefusesRepeatedActionSteps(t *testing.T) {
 	}
 	if unsupported.Node != "a" || unsupported.Construct != "action step multiplicity [3]" {
 		t.Errorf("refusal names %q/%q, want node a, multiplicity [3]", unsupported.Node, unsupported.Construct)
+	}
+}
+
+func TestAnalyzeRefusesUnaddressableStepMultiplicityWithCause(t *testing.T) {
+	ctx, idx := fixture(t, "<test>", `
+		package test {
+			action def Huge {
+				first start then a;
+				action a[2**70];
+				then done;
+			}
+		}`)
+	matches := idx.LookupQualified("test::Huge")
+	if len(matches) != 1 {
+		t.Fatalf("test::Huge matched %d symbols, want one", len(matches))
+	}
+	graph, err := lower.ToActionGraph(matches[0].Decl, matches[0].Scope)
+	if err != nil {
+		t.Fatalf("lower: %v", err)
+	}
+	lower.StartFlow(graph)
+	_, err = Analyze(graph, ctx.Semantics(), 10)
+	var unsupported *UnsupportedError
+	if !errors.As(err, &unsupported) || !errors.Is(err, ErrNotEncoded) ||
+		!errors.Is(err, semantics.ErrIntegerUnaddressable) {
+		t.Fatalf("Analyze error = %v, want typed ErrNotEncoded and ErrIntegerUnaddressable", err)
+	}
+	if unsupported.Node != "a" || !strings.Contains(unsupported.Construct, "a") {
+		t.Errorf("refusal = %+v, want the action step a", unsupported)
 	}
 }
 

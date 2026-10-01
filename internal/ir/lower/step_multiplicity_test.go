@@ -3,9 +3,15 @@ package lower
 import (
 	"errors"
 	"fmt"
+	"strings"
 	"testing"
 
+	"github.com/Open-MBEE/OpenSysML/internal/semantic/resolve"
+	"github.com/Open-MBEE/OpenSysML/internal/semantic/semantics"
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/ast"
+	"github.com/Open-MBEE/OpenSysML/internal/syntax/parser"
+	"github.com/Open-MBEE/OpenSysML/internal/syntax/source"
+	"github.com/Open-MBEE/OpenSysML/internal/workspace/libs"
 )
 
 func TestActionGraphStepCountRequiresExactFiniteMultiplicity(t *testing.T) {
@@ -43,6 +49,115 @@ func TestActionGraphStepCountRequiresExactFiniteMultiplicity(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestActionGraphRejectsUnaddressableStepAndSuccessionBounds(t *testing.T) {
+	tests := []struct {
+		name            string
+		model           string
+		step            string
+		successionBound bool
+	}{
+		{
+			name: "single bound",
+			model: `action def A {
+				first start then a;
+				action a[2**70];
+				then done;
+			}`,
+			step: "a",
+		},
+		{
+			name: "equal range",
+			model: `action def A {
+				first start then a;
+				action a[2**70..2**70];
+				then done;
+			}`,
+			step: "a",
+		},
+		{
+			name: "upper range bound",
+			model: `action def A {
+				first start then a;
+				action a[1..2**70];
+				then done;
+			}`,
+			step: "a",
+		},
+		{
+			name: "named bound",
+			model: `action def A {
+				attribute n = 2**70;
+				first start then a;
+				action a[n];
+				then done;
+			}`,
+			step: "a",
+		},
+		{
+			name: "succession end",
+			model: `action def A {
+				action p;
+				action a[3];
+				succession first [1] p then [2**70] a;
+			}`,
+			step:            "a",
+			successionBound: true,
+		},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			graph, model := lowerStepMultiplicityModel(t, test.model)
+			var node ast.Node
+			for candidate := range graph.Multiplicities {
+				if getNodeName(candidate) == test.step {
+					node = candidate
+					break
+				}
+			}
+			if node == nil {
+				t.Fatalf("step %q not found in graph", test.step)
+			}
+			var err error
+			if test.successionBound {
+				err = graph.CheckStep(node, model)
+			} else {
+				_, err = graph.StepCount(node, model)
+			}
+			var stepErr *StepMultiplicityError
+			if !errors.As(err, &stepErr) || stepErr.Code != StepMultiplicityUnsupportedCode {
+				t.Fatalf("multiplicity error = %v, want %s", err, StepMultiplicityUnsupportedCode)
+			}
+			if !errors.Is(err, semantics.ErrIntegerUnaddressable) {
+				t.Errorf("multiplicity error = %v, want ErrIntegerUnaddressable", err)
+			}
+			if !strings.Contains(err.Error(), "1180591620717411303424") {
+				t.Errorf("multiplicity error = %q, want the exact bound", err)
+			}
+		})
+	}
+}
+
+func lowerStepMultiplicityModel(t *testing.T, text string) (*ActionGraph, *semantics.Model) {
+	t.Helper()
+	p := parser.New(source.New("<test>", []byte("package test {\n"+text+"\n}")))
+	file := p.ParseFile()
+	if len(p.Diagnostics) != 0 {
+		t.Fatalf("parse diagnostics: %+v", p.Diagnostics)
+	}
+	idx := libs.NewModelIndex()
+	idx.AddDocument("<test>", file)
+	idx.ExpandWildcardImports()
+	matches := idx.LookupQualified("test::A")
+	if len(matches) != 1 {
+		t.Fatalf("test::A matched %d symbols, want one", len(matches))
+	}
+	graph, err := ToActionGraph(matches[0].Decl, matches[0].Scope)
+	if err != nil {
+		t.Fatalf("lower test::A: %v", err)
+	}
+	return graph, semantics.NewModel(resolve.New(idx))
 }
 
 func TestActionGraphMultiplicityText(t *testing.T) {

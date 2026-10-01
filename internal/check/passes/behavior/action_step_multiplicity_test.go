@@ -215,6 +215,26 @@ func TestActionStepMultiplicityPassReportsRuntimeRefusals(t *testing.T) {
 	}
 }
 
+func TestActionStepMultiplicityPassReportsUnaddressableBoundAsUnsupported(t *testing.T) {
+	got := actionStepMultiplicityDiags(t, `package test {
+		action def A {
+			first start then a;
+			action a[2**70];
+			then done;
+		}
+	}`)
+	if len(got) != 1 {
+		t.Fatalf("diagnostics = %+v, want one action-step warning", got)
+	}
+	if got[0].Severity != diag.SeverityWarning || got[0].Source != "action-step-multiplicity" ||
+		got[0].Code != "action-step-multiplicity-unsupported" {
+		t.Fatalf("diagnostic = %+v, want action-step-multiplicity-unsupported warning", got[0])
+	}
+	if !strings.Contains(got[0].Message, "1180591620717411303424") {
+		t.Errorf("diagnostic message = %q, want the exact bound", got[0].Message)
+	}
+}
+
 func TestActionStepMultiplicityPassLeavesSupportedStepsAlone(t *testing.T) {
 	tests := []struct {
 		name, model string

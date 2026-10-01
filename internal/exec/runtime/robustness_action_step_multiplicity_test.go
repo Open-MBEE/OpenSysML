@@ -533,6 +533,34 @@ func TestRuntimeRobustnessActionStepMultiplicityOutcomes(t *testing.T) {
 		assertActionStepMultiplicityExploreOutcome(t, exploration, err)
 	})
 
+	t.Run("unaddressable top-level action explore", func(t *testing.T) {
+		m := parseLibraryModel(t, `package test {
+			action def Rep {
+				first start then a;
+				action a[2**70] { }
+				then done;
+			}
+		}`)
+		action := m.action(t, "Rep")
+		exploration, err := Explore(context.Background(), DefaultExploreSchedulePolicy, m.fresh, func(ctx *Context) (Outcome, error) {
+			return ctx.ActionOutcomePerformedBy(action, nil, nil)
+		})
+		if err != nil {
+			t.Fatalf("Explore error = %v, want the refusal as an outcome", err)
+		}
+		if exploration == nil || len(exploration.Outcomes) != 1 || exploration.FailedLinearizations() != 1 {
+			t.Fatalf("exploration = %v; want one error outcome and one failed linearization", exploration)
+		}
+		err = exploration.Outcomes[0].Outcome.Err
+		assertActionStepMultiplicityErrorIsNotSetup(t, err)
+		if !errors.Is(err, ErrIntegerUnaddressable) {
+			t.Errorf("outcome error = %v, want ErrIntegerUnaddressable", err)
+		}
+		if !strings.Contains(err.Error(), "1180591620717411303424") {
+			t.Errorf("outcome error = %q, want the exact bound", err)
+		}
+	})
+
 	t.Run("state entry behavior explore", func(t *testing.T) {
 		m := parseLibraryModel(t, `package test {
 			private import ScalarValues::*;

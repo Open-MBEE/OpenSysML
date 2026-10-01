@@ -28,6 +28,7 @@ type StepMultiplicityError struct {
 	Code         string
 	Reason       string
 	Declaration  ast.Node
+	Err          error
 }
 
 func (e *StepMultiplicityError) Error() string {
@@ -49,6 +50,13 @@ func (e *StepMultiplicityError) Error() string {
 	return fmt.Sprintf("action step %s%s: %s", step, multiplicity, reason)
 }
 
+func (e *StepMultiplicityError) Unwrap() error {
+	if e == nil {
+		return nil
+	}
+	return e.Err
+}
+
 // StepCount returns the fixed number of performances declared for node.
 // An absent declaration preserves the historical single-performance behavior.
 func (g *ActionGraph) StepCount(node ast.Node, model *semantics.Model) (int64, error) {
@@ -58,6 +66,9 @@ func (g *ActionGraph) StepCount(node ast.Node, model *semantics.Model) (int64, e
 	multiplicity := g.Multiplicities[node]
 	if multiplicity == nil {
 		return 1, nil
+	}
+	if err := g.unaddressableBoundError(node, multiplicity, g.nodeScope(node), model, nil); err != nil {
+		return 0, err
 	}
 	evaluator := model
 	if evaluator == nil {
@@ -225,6 +236,9 @@ func (g *ActionGraph) crossingRange(step, endpoint ast.Node, multiplicity *ast.M
 	if multiplicity == nil {
 		return crossingRange{}, nil
 	}
+	if err := g.unaddressableBoundError(step, multiplicity, g.Scope, model, multiplicity); err != nil {
+		return crossingRange{}, err
+	}
 	evaluator := model
 	if evaluator == nil {
 		evaluator = semantics.NewModel(nil)
@@ -241,6 +255,21 @@ func (g *ActionGraph) crossingRange(step, endpoint ast.Node, multiplicity *ast.M
 		upperInfinite: r.Upper.Infinite,
 		written:       true,
 	}, nil
+}
+
+func (g *ActionGraph) unaddressableBoundError(node ast.Node, multiplicity *ast.Multiplicity, scope *symbols.Scope, model *semantics.Model, declaration ast.Node) *StepMultiplicityError {
+	evaluator := model
+	if evaluator == nil {
+		evaluator = semantics.NewModel(nil)
+	}
+	value, ok := evaluator.UnaddressableBoundIn(scope, multiplicity)
+	if !ok {
+		return nil
+	}
+	err := g.stepError(node, model, StepMultiplicityUnsupportedCode,
+		fmt.Sprintf("bound %s is beyond the 64-bit range of a step count", value.FormatInt()), declaration)
+	err.Err = semantics.ErrIntegerUnaddressable
+	return err
 }
 
 func (g *ActionGraph) checkRepeatedPins(node ast.Node, model *semantics.Model) error {

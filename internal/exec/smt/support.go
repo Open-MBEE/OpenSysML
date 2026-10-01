@@ -152,11 +152,15 @@ func Analyze(graph *lower.ActionGraph, model *semantics.Model, k int) (*Flow, er
 					}
 					reason = "the SMT engine requires a fixed single-performance step"
 				}
-				return nil, &UnsupportedError{
+				unsupported := &UnsupportedError{
 					Node:      nodeLabel(node),
 					Construct: "action step multiplicity " + multiplicity,
 					Reason:    reason,
 				}
+				if errors.Is(err, semantics.ErrIntegerUnaddressable) {
+					return nil, fmt.Errorf("%w: %w", unsupported, err)
+				}
+				return nil, unsupported
 			}
 		}
 		if err := f.checkNode(node); err != nil {
