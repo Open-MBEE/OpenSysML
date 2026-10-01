@@ -79,7 +79,7 @@ package Referenced {
 				}
 
 				part photo : Image {
-					attribute redefines location = "images/mount.png";
+					attribute redefines location = "images/mark.png";
 					attribute redefines caption = "The mount, aligned";
 				}
 			}

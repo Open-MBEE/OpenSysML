@@ -24,4 +24,4 @@ The mount is aligned in [Alignment](#procedures-alignment) and listed in [Table 
 
 *Figure 1. The mount, aligned*
 
-![The mount, aligned](images/mount.png)
+![The mount, aligned](images/mark.png)
