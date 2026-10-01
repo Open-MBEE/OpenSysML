@@ -17,6 +17,7 @@ import (
 	"github.com/Open-MBEE/OpenSysML/internal/check/passes"
 	"github.com/Open-MBEE/OpenSysML/internal/exec/objref"
 	"github.com/Open-MBEE/OpenSysML/internal/exec/runtime"
+	"github.com/Open-MBEE/OpenSysML/internal/ir/view"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/resolve"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/symbols"
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/ast"
@@ -106,12 +107,30 @@ func (m *cachedModel) semantics() *runtime.Model {
 	}
 	resolver := resolve.New(m.Index)
 	sem := passes.NewTypedModel(resolver)
+	sem.SetSourceText(m.sourceText())
 	m.model = runtime.NewModel(sem, resolver)
 	m.model.SetExpressionParser(parser.ParseOneExpression)
 	for _, doc := range m.Documents {
 		m.model.RegisterSource(doc.Source)
 	}
 	return m.model
+}
+
+// sourceText reads notation from whichever of the model's documents a span
+// belongs to, and behind them from the library files its index holds, for the
+// documentation bodies and rendering labels read verbatim, as grpc's
+// CachedModel installs it. Nil when there are no sources and no library.
+func (m *cachedModel) sourceText() view.SourceText {
+	sources := make(map[string]*source.SourceFile, len(m.Documents))
+	for _, doc := range m.Documents {
+		if doc.Source != nil {
+			sources[doc.Source.Name()] = doc.Source
+		}
+	}
+	if len(sources) == 0 && m.Library == nil {
+		return nil
+	}
+	return source.TextOf(sources, libs.Text(m.Library))
 }
 
 // primary is the document the model is named by.
@@ -210,7 +229,15 @@ func (e *Engine) lib() (*symbols.Index, libs.Source) {
 // engine does not serve is refused Unimplemented, and a request that does not
 // decode InvalidArgument, matching what stdiorpc's DiscardUnknown decode means
 // by each.
-func (e *Engine) Call(ctx context.Context, method string, params []byte) ([]byte, error) {
+func (e *Engine) Call(ctx context.Context, method string, params []byte) (result []byte, err error) {
+	defer func() {
+		// A malformed request is InvalidArgument, but no bug of ours should
+		// take down the session hosting the engine.
+		if r := recover(); r != nil {
+			result = nil
+			err = &Error{Code: codeInternal, Message: fmt.Sprintf("internal error in %s: %v", method, r)}
+		}
+	}()
 	switch method {
 	case "ParseSources":
 		var req JParseSourcesRequest
@@ -287,6 +314,9 @@ func (e *Engine) parseSources(_ context.Context, req *JParseSourcesRequest) ([]b
 	inputs := make([]sourceInput, 0, len(req.Documents))
 	named := make(map[string]int, len(req.Documents))
 	for position, doc := range req.Documents {
+		if doc == nil {
+			return nil, statusErrorf(codeInvalidArgument, "document %d is null", position)
+		}
 		input, err := e.documentInput(doc, position)
 		if err != nil {
 			return nil, err

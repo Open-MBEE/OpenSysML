@@ -14,6 +14,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"math"
+	"sort"
 	"strconv"
 )
 
@@ -116,6 +117,46 @@ type JValue struct {
 	Undetermined   *JUndetermined   `json:"undetermined,omitempty"`
 }
 
+// UnmarshalJSON rejects a value setting two arms of the oneof, as protojson
+// rejects it: a request naming more than one arm is ambiguous, not a pick.
+func (v *JValue) UnmarshalJSON(data []byte) error {
+	type alias JValue
+	var a alias
+	if err := json.Unmarshal(data, &a); err != nil {
+		return err
+	}
+	*v = JValue(a)
+	return oneofArms("value", map[string]bool{
+		"intValue": v.IntValue != nil, "realValue": v.RealValue != nil,
+		"boolValue": v.BoolValue != nil, "stringValue": v.StringValue != nil,
+		"instanceId": v.InstanceId != nil, "sequence": v.Sequence != nil,
+		"null": v.Null != nil, "quantity": v.Quantity != nil,
+		"enumLiteral": v.EnumLiteral != nil, "unset": v.Unset != nil,
+		"complex": v.Complex != nil, "array": v.Array != nil,
+		"vector": v.Vector != nil, "vectorQuantity": v.VectorQuantity != nil,
+		"measurementRef": v.MeasurementRef != nil, "infinity": v.Infinity != nil,
+		"function": v.Function != nil, "set": v.Set != nil,
+		"tensorQuantity": v.TensorQuantity != nil, "metaobject": v.Metaobject != nil,
+		"undetermined": v.Undetermined != nil,
+	})
+}
+
+// oneofArms reports the first two arms set when more than one is, the
+// conflict protojson reports for a message's oneof written twice.
+func oneofArms(message string, arms map[string]bool) error {
+	var set []string
+	for name, present := range arms {
+		if present {
+			set = append(set, name)
+		}
+	}
+	if len(set) > 1 {
+		sort.Strings(set)
+		return fmt.Errorf("%s sets both %s and %s", message, set[0], set[1])
+	}
+	return nil
+}
+
 type JValueSequence struct {
 	Elements []*JValue `json:"elements,omitempty"`
 }
@@ -130,6 +171,19 @@ type JQuantity struct {
 	RealMagnitude *F64       `json:"realMagnitude,omitempty"`
 	Unit          string     `json:"unit,omitempty"`
 	UnitTerm      *JUnitTerm `json:"unitTerm,omitempty"`
+}
+
+// UnmarshalJSON rejects a quantity setting both magnitude arms of its oneof.
+func (q *JQuantity) UnmarshalJSON(data []byte) error {
+	type alias JQuantity
+	var a alias
+	if err := json.Unmarshal(data, &a); err != nil {
+		return err
+	}
+	*q = JQuantity(a)
+	return oneofArms("quantity", map[string]bool{
+		"intMagnitude": q.IntMagnitude != nil, "realMagnitude": q.RealMagnitude != nil,
+	})
 }
 
 type JUnitTerm struct {
@@ -238,6 +292,19 @@ type JSourceDocument struct {
 	Content  *string `json:"content,omitempty"`
 	Language string  `json:"language,omitempty"`
 	Name     string  `json:"name,omitempty"`
+}
+
+// UnmarshalJSON rejects a document naming both of its source arms.
+func (d *JSourceDocument) UnmarshalJSON(data []byte) error {
+	type alias JSourceDocument
+	var a alias
+	if err := json.Unmarshal(data, &a); err != nil {
+		return err
+	}
+	*d = JSourceDocument(a)
+	return oneofArms("source document", map[string]bool{
+		"filePath": d.FilePath != nil, "content": d.Content != nil,
+	})
 }
 
 // The request and response messages of the methods the engine serves.

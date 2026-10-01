@@ -314,6 +314,83 @@ func TestEngineWireParity(t *testing.T) {
 		t.Fatalf("grpc ExecuteState: %v", err)
 	}
 	equal("ExecuteState", stateParams, mustMarshal(t, stateRes))
+
+	// Malformed requests answer InvalidArgument rather than panicking the
+	// session: protojson rejects null elements and a oneof written twice.
+	for name, malformed := range map[string]struct{ method, params string }{
+		"a null document":           {"ParseSources", `{"documents":[null]}`},
+		"a dual-arm value":          {"ExecuteAction", fmt.Sprintf(`{"modelHash":%q,"actionSymbolId":"enginedemo::Double","inputs":{"x":{"intValue":"6","realValue":7}}}`, hash)},
+		"a dual-magnitude quantity": {"ExecuteAction", fmt.Sprintf(`{"modelHash":%q,"actionSymbolId":"enginedemo::Double","inputs":{"x":{"quantity":{"intMagnitude":"1","realMagnitude":2.0}}}}`, hash)},
+		"a dual-source document":    {"ParseSources", `{"documents":[{"name":"a.sysml","filePath":"a.sysml","content":"package a {}"}]}`},
+	} {
+		_, err := eng.Call(ctx, malformed.method, []byte(malformed.params))
+		var callErr *engine.Error
+		if !errors.As(err, &callErr) || callErr.Code != 3 {
+			t.Errorf("%s: Call error = %v, want InvalidArgument (3)", name, err)
+		}
+	}
+	// A null vector component is refused where the input is read — protojson
+	// itself rejects the request before grpc's ExecuteAction ever sees it, so
+	// there is no service answer to compare; the engine must simply not panic.
+	vectorParams := fmt.Sprintf(`{"modelHash":%q,"actionSymbolId":"enginedemo::Double","inputs":{"x":{"vector":{"components":[null]}}}}`, hash)
+	var vectorAnswer struct {
+		Error string `json:"error"`
+	}
+	if err := json.Unmarshal(mustCall(t, eng, "ExecuteAction", vectorParams), &vectorAnswer); err != nil {
+		t.Fatalf("decoding the null-component answer: %v", err)
+	}
+	if vectorAnswer.Error == "" {
+		t.Errorf("a null vector component answered no error")
+	}
+
+	// The engine still answers a normal request after the malformed ones.
+	mustCall(t, eng, "Evaluate", fmt.Sprintf(`{"modelHash":%q,"expression":"gatedemo::total"}`, hash))
+
+	// Documentation parity: the body of an element's doc comment, read
+	// reflectively, is the same string on both services.
+	docDoc := `package docdemo { part def Wheel { doc /* Turns. */ } }`
+	docJSON, err := json.Marshal(docDoc)
+	if err != nil {
+		t.Fatalf("encoding the doc fixture: %v", err)
+	}
+	docParams := fmt.Sprintf(`{"documents":[{"name":"docdemo.sysml","content":%s}]}`, docJSON)
+	docGrpc, err := svc.ParseSources(ctx, mustUnmarshal[pb.ParseSourcesRequest](t, docParams))
+	if err != nil {
+		t.Fatalf("grpc ParseSources of the doc fixture: %v", err)
+	}
+	var docEngine struct {
+		ModelHash string `json:"modelHash"`
+	}
+	if err := json.Unmarshal(mustCall(t, eng, "ParseSources", docParams), &docEngine); err != nil {
+		t.Fatalf("decoding the engine's doc ParseSources: %v", err)
+	}
+	if docGrpc.GetModelHash() != docEngine.ModelHash {
+		t.Fatalf("doc modelHash: grpc %s, engine %s", docGrpc.GetModelHash(), docEngine.ModelHash)
+	}
+	bodyParams := fmt.Sprintf(`{"modelHash":%q,"expression":"(docdemo::Wheel meta KerML::Element).documentation.body"}`,
+		docGrpc.GetModelHash())
+	bodyRes, err := svc.Evaluate(ctx, mustUnmarshal[pb.EvaluateRequest](t, bodyParams))
+	if err != nil {
+		t.Fatalf("grpc Evaluate of the documentation body: %v", err)
+	}
+	equal("Evaluate", bodyParams, mustMarshal(t, bodyRes))
+	var bodyAnswer struct {
+		Result struct {
+			Sequence struct {
+				Elements []struct {
+					StringValue string `json:"stringValue"`
+				} `json:"elements"`
+			} `json:"sequence"`
+		} `json:"result"`
+	}
+	if err := json.Unmarshal(mustCall(t, eng, "Evaluate", bodyParams), &bodyAnswer); err != nil {
+		t.Fatalf("decoding the documentation body answer: %v", err)
+	}
+	bodies := bodyAnswer.Result.Sequence.Elements
+	if len(bodies) != 1 || !strings.Contains(bodies[0].StringValue, "Turns.") {
+		t.Errorf("documentation.body answered %v, want one string carrying %q",
+			bodies, "Turns.")
+	}
 }
 
 // mustCall runs one engine call, failing on a refused one.

@@ -418,6 +418,8 @@ var (
 	errTensorShapeMismatch = errors.New("tensor components do not fill its dimensions")
 
 	errTensorComponentMissing = errors.New("tensor component carries no quantity")
+
+	errNullListElement = errors.New("null is not an element protojson accepts")
 )
 
 // protoToRuntimeValue converts a wire value to a runtime.Value in the model idx
@@ -442,7 +444,10 @@ func protoToRuntimeValue(rt *runtime.Context, pv *JValue, idx *symbols.Index, se
 		return metaobjectFromProto(pv.Metaobject, idx, sem)
 	case pv.Sequence != nil:
 		seq := runtime.NewSequence()
-		for _, elem := range pv.Sequence.Elements {
+		for i, elem := range pv.Sequence.Elements {
+			if elem == nil {
+				return runtime.Value{}, fmt.Errorf("%w: element %d", errNullListElement, i+1)
+			}
 			val, err := protoToRuntimeValue(rt, elem, idx, sem)
 			if err != nil {
 				return runtime.Value{}, err
@@ -538,6 +543,9 @@ func metaobjectFromProto(meta *JMetaobject, idx *symbols.Index, sem *semantics.M
 func protoToSet(rt *runtime.Context, ps *JValueSet, idx *symbols.Index, sem *semantics.Model) (runtime.Value, error) {
 	set := runtime.NewSetIn(rt)
 	for i, elem := range ps.Elements {
+		if elem == nil {
+			return runtime.Value{}, fmt.Errorf("%w: element %d", errNullListElement, i+1)
+		}
 		val, err := protoToRuntimeValue(rt, elem, idx, sem)
 		if err != nil {
 			return runtime.Value{}, err
@@ -588,7 +596,10 @@ func protoToArray(rt *runtime.Context, pa *JArray, idx *symbols.Index, sem *sema
 		return runtime.Value{}, err
 	}
 	elements := make([]runtime.Value, 0, len(pa.Elements))
-	for _, elem := range pa.Elements {
+	for i, elem := range pa.Elements {
+		if elem == nil {
+			return runtime.Value{}, fmt.Errorf("%w: element %d", errNullListElement, i+1)
+		}
 		val, err := protoToRuntimeValue(rt, elem, idx, sem)
 		if err != nil {
 			return runtime.Value{}, err
@@ -644,6 +655,9 @@ func protoToVector(pv *JVector) (runtime.Value, error) {
 
 // protoToNumber is the Integer or Real a value holds; any other arm is an error.
 func protoToNumber(pv *JValue) (semantics.Value, error) {
+	if pv == nil {
+		return semantics.Value{}, errVectorComponentNotNumeric
+	}
 	switch {
 	case pv.IntValue != nil:
 		return semantics.Value{Kind: semantics.ValInt, Int: int64(*pv.IntValue)}, nil
@@ -684,7 +698,7 @@ func protoToQuantity(pq *JQuantity, idx *symbols.Index, sem *semantics.Model) (r
 	if pq == nil {
 		return runtime.Value{Kind: runtime.ValNull}, nil
 	}
-	if (idx == nil || sem == nil) && len(pq.UnitTerm.Factors) > 0 {
+	if (idx == nil || sem == nil) && pq.UnitTerm != nil && len(pq.UnitTerm.Factors) > 0 {
 		return runtime.Value{}, fmt.Errorf("%w: %s", errQuantityNeedsIndex, pq.Unit)
 	}
 	if pq.UnitTerm == nil && pq.Unit != "" {
@@ -724,7 +738,7 @@ func protoToMeasurementRef(pm *JMeasurementRef, idx *symbols.Index, sem *semanti
 	if pm.Unit == "" && pm.UnitTerm == nil && pm.UnitId == "" {
 		return runtime.Value{}, errMeasurementRefEmpty
 	}
-	if (idx == nil || sem == nil) && (len(pm.UnitTerm.Factors) > 0 || pm.UnitId != "") {
+	if (idx == nil || sem == nil) && ((pm.UnitTerm != nil && len(pm.UnitTerm.Factors) > 0) || pm.UnitId != "") {
 		return runtime.Value{}, fmt.Errorf("%w: %s", errMeasurementRefNeedsIndex, pm.Unit)
 	}
 	if pm.UnitTerm == nil {
@@ -1114,7 +1128,10 @@ func protoToUnitTerm(pt *JUnitTerm, idx *symbols.Index, sem *semantics.Model) (s
 	}
 	term := semantics.UnitTerm{Scale: scale}
 	var pointOn *symbols.Symbol
-	for _, f := range pt.Factors {
+	for i, f := range pt.Factors {
+		if f == nil {
+			return semantics.UnitTerm{}, fmt.Errorf("%w: factor %d", errNullListElement, i+1)
+		}
 		// An empty name is a lookup of the document root, so it is rejected here
 		// rather than resolved to a symbol that measures nothing.
 		if f.UnitId == "" {
