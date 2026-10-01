@@ -18,7 +18,14 @@ function [status, contentType, bodyText] = post_matlab(url, requestJsonText, tim
         resp = req.send(url, HTTPOptions('ConvertResponse', false, 'ConnectTimeout', timeoutSec, ...
                                         'ResponseTimeout', timeoutSec));
     catch e
-        error('opensysml:transport', 'HTTP request failed: %s', e.message);
+        description = lower([e.identifier ' ' e.message]);
+        if ~isempty(strfind(description, 'timeout')) || ...
+                ~isempty(strfind(description, 'timed out'))
+            opensysml.internal.raise('opensysml:connect:serviceTimeout', ...
+                sprintf('HTTP request timed out: %s', e.message));
+        end
+        opensysml.internal.raise('opensysml:transport', ...
+            sprintf('HTTP request failed: %s', e.message));
     end
     status = double(resp.StatusCode);
     contentType = '';
@@ -44,12 +51,22 @@ function [status, contentType, bodyText] = post_curl(url, requestJsonText, timeo
     fwrite(fid, requestJsonText);
     fclose(fid);
     cleanup = onCleanup(@() delete(bodyFile));
-    cmd = sprintf(['curl -sS --max-time %d -X POST -H "Content-Type: application/json" ' ...
+    timeoutSec = max(double(timeoutSec), 0.001);
+    cmd = sprintf(['curl -sS --max-time %.3f -X POST -H "Content-Type: application/json" ' ...
                    '--data-binary @''%s'' -w "%s%%{http_code}\n%%{content_type}" ''%s'''], ...
-                  round(timeoutSec), bodyFile, marker, url);
+                  timeoutSec, bodyFile, marker, url);
     [rc, out] = system(cmd);
     if rc ~= 0
-        error('opensysml:transport', 'HTTP request failed: %s', strtrim(out));
+        idx = strfind(out, marker);
+        if ~isempty(idx), out = out(1:idx(1)-1); end
+        detail = strtrim(out);
+        if isempty(detail), detail = 'no answer'; end
+        if rc == 28
+            opensysml.internal.raise('opensysml:connect:serviceTimeout', ...
+                sprintf('HTTP request timed out after %.3f seconds: %s', timeoutSec, detail));
+        end
+        opensysml.internal.raise('opensysml:transport', ...
+            sprintf('HTTP request failed (curl exit %d): %s', rc, detail));
     end
     idx = strfind(out, marker);
     if isempty(idx)

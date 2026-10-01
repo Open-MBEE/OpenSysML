@@ -39,7 +39,7 @@ end
 
 function out = decode_body(bodyText, method, status)
     try
-        out = jsondecode(bodyText);
+        out = opensysml.internal.decodeJson(bodyText);
     catch
         opensysml.internal.raise('opensysml:transport', ...
             sprintf('%s answered HTTP %d with undecodable JSON', method, status), {}, ...

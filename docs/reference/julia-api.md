@@ -92,6 +92,9 @@ separate from `strict`. `parse_sources` preserves input order and accepts
 Model operations include `evaluate(model, expression; context, subject)`,
 `instantiate(model, symbol_id)`, `execute_action(model, symbol_id; inputs,
 schedule)`, and `execute_state(model, symbol_id; events, schedule)`.
+`execute_action` returns an `ActionOutputs` dictionary of output parameters;
+performer attributes are available separately as `performer`. `execute_state`
+returns a `StateRun` with `states_visited`, `final_context`, and `final_time`.
 `Instance`, `InstanceRef`, `TypeFacts`, `SymbolFacts`, `SymbolInfo`,
 `Multiplicity`, and `Diagnostic` carry decoded model and service results.
 

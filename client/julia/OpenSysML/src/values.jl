@@ -89,10 +89,10 @@ Quantity(magnitude::Bool, unit::AbstractString, term=nothing) =
     Quantity(Float64(magnitude), unit, term)
 Quantity(magnitude::Integer, unit::AbstractString, term=nothing) =
     Quantity(Int64(magnitude), String(unit), term === nothing ? nothing :
-             term isa Unit ? term : term isa AbstractDict ? Unit(unit, term) : error("invalid unit term"))
+             term isa Unit ? term : term isa AbstractDict ? Unit(unit, term) : throw(ArgumentError("invalid unit term")))
 Quantity(magnitude::AbstractFloat, unit::AbstractString, term=nothing) =
     Quantity(Float64(magnitude), String(unit), term === nothing ? nothing :
-             term isa Unit ? term : term isa AbstractDict ? Unit(unit, term) : error("invalid unit term"))
+             term isa Unit ? term : term isa AbstractDict ? Unit(unit, term) : throw(ArgumentError("invalid unit term")))
 struct EnumLiteral
     literal_id::String
     enumeration_id::String
@@ -127,7 +127,7 @@ end
 MeasurementRef(unit::AbstractString, unit_id=nothing, term=nothing) =
     MeasurementRef(String(unit), unit_id === nothing ? nothing : String(unit_id),
                    term === nothing ? nothing : term isa Unit ? term :
-                   term isa AbstractDict ? Unit(unit, term) : error("invalid unit term"))
+                   term isa AbstractDict ? Unit(unit, term) : throw(ArgumentError("invalid unit term")))
 function Base.:(==)(left::MeasurementRef, right::MeasurementRef)
     a = left.unit_term === nothing ? Unit(left.unit) : left.unit_term
     b = right.unit_term === nothing ? Unit(right.unit) : right.unit_term
@@ -363,11 +363,13 @@ end
 integer_arm(x::Integer, small::String, big::String) =
     typemin(Int64) <= x <= typemax(Int64) ? (small => string(Int64(x))) : (big => string(BigInt(x)))
 
+_unsupported_value(message) = throw(UnsupportedValueError(String(message)))
+
 function decode_quantity(q)
     magnitude = haskey(q, "intMagnitude") ? parse(Int64, q["intMagnitude"]) :
                 haskey(q, "bigIntMagnitude") ? parse_big_integer(q["bigIntMagnitude"]) :
                 haskey(q, "realMagnitude") ? asreal(q["realMagnitude"]) :
-                error("quantity carries neither intMagnitude nor realMagnitude")
+                _unsupported_value("quantity carries neither intMagnitude nor realMagnitude")
     term = get(q, "unitTerm", nothing)
     Quantity(magnitude, get(q, "unit", ""), term === nothing ? nothing : Unit(get(q, "unit", ""), term))
 end
@@ -387,7 +389,7 @@ function decode_value(v)
     haskey(v, "instanceId") && return InstanceRef(parse(Int64, v["instanceId"]))
     haskey(v, "sequence") && return decode_elements(v["sequence"], "elements")
     haskey(v, "null") && return isempty(v["null"]) ? nothing :
-        error("unsupported value: $(v["null"])")
+        throw(UnsupportedValueError(String(v["null"])))
     haskey(v, "unset") && return Unset()
     haskey(v, "quantity") && return decode_quantity(v["quantity"])
     haskey(v, "enumLiteral") && begin
@@ -402,10 +404,10 @@ function decode_value(v)
     haskey(v, "array") && begin
         a = v["array"]
         dims = Int64[parse(Int64, d) for d in get(a, "dimensions", Any[])]
-        any(<=(0), dims) && error("array dimension is not positive: $dims")
+        any(<=(0), dims) && _unsupported_value("array dimension is not positive: $dims")
         elements = decode_elements(a, "elements")
         prod(dims; init=1) == length(elements) ||
-            error("array has $(length(elements)) elements for dimensions $dims")
+            _unsupported_value("array has $(length(elements)) elements for dimensions $dims")
         return ArrayValue(dims, elements)
     end
     haskey(v, "vector") && begin
@@ -413,13 +415,13 @@ function decode_value(v)
             haskey(c, "intValue") && return parse(Int64, c["intValue"])
             haskey(c, "bigIntValue") && return parse_big_integer(c["bigIntValue"])
             haskey(c, "realValue") && return asreal(c["realValue"])
-            error("vector component is not an intValue or realValue: $(first(keys(c)))")
+            _unsupported_value("vector component is not an intValue or realValue: $(first(keys(c)))")
         end
         return VectorValue(Union{Int64,Float64}[c for c in components])
     end
     haskey(v, "vectorQuantity") && begin
         components = get(v["vectorQuantity"], "components", Any[])
-        isempty(components) && error("vectorQuantity has no components")
+        isempty(components) && _unsupported_value("vectorQuantity has no components")
         return VectorQuantity(Quantity[decode_quantity(c) for c in components])
     end
     haskey(v, "measurementRef") && begin
@@ -427,19 +429,19 @@ function decode_value(v)
         unit = get(m, "unit", "")
         unit_id = get(m, "unitId", nothing)
         (isempty(unit) && unit_id === nothing) &&
-            error("measurementRef carries neither unit nor unitId")
+            _unsupported_value("measurementRef carries neither unit nor unitId")
         (!isempty(unit) || unit_id !== nothing) && !haskey(m, "unitTerm") &&
-            error("measurementRef carries a unit without its unitTerm")
+            _unsupported_value("measurementRef carries a unit without its unitTerm")
         return MeasurementRef(unit, unit_id, Unit(unit, get(m, "unitTerm", Dict{String,Any}())))
     end
     haskey(v, "infinity") && begin
-        v["infinity"] === true || error("infinity arm does not carry true")
+        v["infinity"] === true || _unsupported_value("infinity arm does not carry true")
         return Infinity()
     end
     haskey(v, "function") && begin
         f = v["function"]
         calc_id = get(f, "calcId", "")
-        isempty(calc_id) && error("function carries no calcId")
+        isempty(calc_id) && _unsupported_value("function carries no calcId")
         self_id = get(f, "selfId", "0")
         self = self_id == "0" || self_id == 0 ? nothing : InstanceRef(parse(Int64, string(self_id)))
         return FunctionRef(calc_id, self)
@@ -447,23 +449,23 @@ function decode_value(v)
     haskey(v, "set") && begin
         elements = decode_elements(v["set"], "elements")
         for i in eachindex(elements), j in firstindex(elements):i-1
-            same_value(elements[i], elements[j]) && error("set lists a member more than once")
+            same_value(elements[i], elements[j]) && _unsupported_value("set lists a member more than once")
         end
         return Set(elements)
     end
     haskey(v, "tensorQuantity") && begin
         t = v["tensorQuantity"]
         dims = Int64[parse(Int64, d) for d in get(t, "dimensions", Any[])]
-        any(<=(0), dims) && error("tensorQuantity dimension is not positive: $dims")
+        any(<=(0), dims) && _unsupported_value("tensorQuantity dimension is not positive: $dims")
         components = [decode_quantity(c) for c in get(t, "components", Any[])]
         prod(dims; init=1) == length(components) ||
-            error("tensorQuantity has $(length(components)) components for dimensions $dims")
+            _unsupported_value("tensorQuantity has $(length(components)) components for dimensions $dims")
         return TensorQuantity(dims, components)
     end
     haskey(v, "metaobject") && begin
         m = v["metaobject"]
         element_id = get(m, "elementId", "")
-        isempty(element_id) && error("metaobject carries no elementId")
+        isempty(element_id) && _unsupported_value("metaobject carries no elementId")
         return Metaobject(element_id, get(m, "metaclassId", ""))
     end
     haskey(v, "undetermined") && begin
@@ -471,7 +473,14 @@ function decode_value(v)
         count = get(u, "count", Dict{String,Any}())
         return Undetermined(get(u, "reason", ""), get(count, "lower", ""), get(count, "upper", ""))
     end
-    error("unknown Value arm: $(first(keys(v)))")
+    arm = isempty(v) ? "<none>" : first(keys(v))
+    _unsupported_value("unknown Value arm: $(arm)")
+end
+
+function _json_real(value::Real)
+    number = Float64(value)
+    isnan(number) ? "NaN" : isinf(number) ? (number > 0 ? "Infinity" : "-Infinity") :
+    number
 end
 
 function encode_quantity(q::Quantity)
@@ -479,14 +488,14 @@ function encode_quantity(q::Quantity)
     if q.magnitude isa Integer
         push!(body, integer_arm(q.magnitude, "intMagnitude", "bigIntMagnitude"))
     else
-        body["realMagnitude"] = q.magnitude
+        body["realMagnitude"] = _json_real(Float64(q.magnitude))
     end
     isempty(q.unit) || (body["unit"] = q.unit)
     if q.unit_term !== nothing
         body["unitTerm"] = Dict{String,Any}(
-            "scaleNum" => q.unit_term.scale_num,
-            "scaleDen" => q.unit_term.scale_den,
-            "factors" => Any[Dict("unitId" => f.unit_id, "exponent" => f.exponent)
+            "scaleNum" => _json_real(q.unit_term.scale_num),
+            "scaleDen" => _json_real(q.unit_term.scale_den),
+            "factors" => Any[Dict("unitId" => f.unit_id, "exponent" => _json_real(f.exponent))
                              for f in q.unit_term.factors])
     end
     return body
@@ -497,20 +506,22 @@ function encode_value(x::Bool)
     Dict{String,Any}("boolValue" => x)
 end
 encode_value(x::Integer) = Dict{String,Any}(integer_arm(x, "intValue", "bigIntValue"))
-encode_value(x::AbstractFloat) = Dict{String,Any}("realValue" => Float64(x))
+encode_value(x::AbstractFloat) = Dict{String,Any}("realValue" => _json_real(x))
 encode_value(x::AbstractString) = Dict{String,Any}("stringValue" => String(x))
 encode_value(::Nothing) = Dict{String,Any}("null" => "")
 encode_value(x::Complex) =
-    Dict{String,Any}("complex" => Dict{String,Any}("real" => Float64(real(x)), "imaginary" => Float64(imag(x))))
+    Dict{String,Any}("complex" => Dict{String,Any}(
+        "real" => _json_real(Float64(real(x))),
+        "imaginary" => _json_real(Float64(imag(x)))))
 encode_value(x::InstanceRef) = Dict{String,Any}("instanceId" => string(x.id))
 function encode_value(ref::MeasurementRef)
     body = Dict{String,Any}("unit" => ref.unit)
     ref.unit_id === nothing || (body["unitId"] = ref.unit_id)
     if ref.unit_term !== nothing
         body["unitTerm"] = Dict{String,Any}(
-            "scaleNum" => ref.unit_term.scale_num,
-            "scaleDen" => ref.unit_term.scale_den,
-            "factors" => Any[Dict("unitId" => f.unit_id, "exponent" => f.exponent)
+            "scaleNum" => _json_real(ref.unit_term.scale_num),
+            "scaleDen" => _json_real(ref.unit_term.scale_den),
+            "factors" => Any[Dict("unitId" => f.unit_id, "exponent" => _json_real(f.exponent))
                              for f in ref.unit_term.factors])
     end
     Dict{String,Any}("measurementRef" => body)
@@ -533,12 +544,12 @@ encode_value(l::EnumLiteral) = begin
 end
 function encode_value(f::FunctionRef)
     f.self === nothing ||
-        error("a function read off an object cannot be sent: selfId names no instance in another call")
+        throw(ArgumentError("a function read off an object cannot be sent: selfId names no instance in another call"))
     Dict{String,Any}("function" => Dict{String,Any}("calcId" => f.calc_id))
 end
 encode_value(u::Undetermined) =
-    error("an undetermined value cannot be sent: $(u.reason)")
-encode_value(u::Unset) = error("an unset value cannot be sent")
+    throw(ArgumentError("an undetermined value cannot be sent: $(u.reason)"))
+encode_value(u::Unset) = throw(ArgumentError("an unset value cannot be sent"))
 encode_value(i::Infinity) = Dict{String,Any}("infinity" => true)
 encode_value(x::AbstractVector) =
     Dict{String,Any}("sequence" => Dict{String,Any}("elements" => Any[encode_value(e) for e in x]))
