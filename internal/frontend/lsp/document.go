@@ -4,6 +4,7 @@ import (
 	"github.com/Open-MBEE/OpenSysML/internal/doc/docpdf"
 	"github.com/Open-MBEE/OpenSysML/internal/doc/docrender"
 	"github.com/Open-MBEE/OpenSysML/internal/ir/view"
+	"github.com/Open-MBEE/OpenSysML/internal/workspace/modeldoc"
 )
 
 // The custom methods a document-preview client speaks, alongside the diagram
@@ -58,7 +59,7 @@ func (s *Server) Documents() *documentsResult {
 // evaluated and rendered as Markdown, or the typed error stopping it.
 func (s *Server) RenderDocument(params *renderDocumentParams) (*renderDocumentResult, error) {
 	opts := docrender.MarkdownOptions{DiagramForm: view.Form(params.DiagramForm), Drawer: docpdf.Graphviz{}}
-	markdown, err := s.ws.RenderDocumentMarkdown(params.Name, opts)
+	markdown, err := modeldoc.RenderDocumentMarkdown(s.ws, params.Name, opts)
 	if err != nil {
 		return nil, err
 	}

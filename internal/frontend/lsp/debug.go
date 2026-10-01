@@ -24,6 +24,7 @@ import (
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/parser"
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/source"
 	"github.com/Open-MBEE/OpenSysML/internal/workspace/model"
+	"github.com/Open-MBEE/OpenSysML/internal/workspace/modelrt"
 )
 
 // The debug service runs the behavior a rendering draws and reports where it
@@ -215,7 +216,7 @@ type debugSession struct {
 	viewText string
 
 	rt        *runtime.Context
-	runtime   *model.Runtime
+	runtime   *modelrt.Runtime
 	targetSym *symbols.Symbol
 	objectSym *symbols.Symbol
 	action    *runtime.ActionExecutor
@@ -353,7 +354,7 @@ func (s *Server) debugPrepare(params *debugStartParams) (*debugSession, error) {
 	var (
 		rendering *view.Rendering
 		snapshot  *model.Snapshot
-		rt        *model.Runtime
+		rt        *modelrt.Runtime
 		viewText  string
 	)
 	if err := s.ws.Read(func(r *model.Reading) (err error) {
@@ -363,7 +364,7 @@ func (s *Server) debugPrepare(params *debugStartParams) (*debugSession, error) {
 		if rendering.Kind != view.KindState && rendering.Kind != view.KindAction {
 			return debugInvalid(fmt.Errorf("%w: %s renders a %s, which no debugger drives", ErrDebugTarget, params.View, rendering.Kind))
 		}
-		if rt, err = r.NewRuntime(); err != nil {
+		if rt, err = modelrt.New(r); err != nil {
 			return err
 		}
 		viewText = r.DeclarationText(r.DeclaredView(name, params.View))

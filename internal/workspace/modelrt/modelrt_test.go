@@ -1,4 +1,4 @@
-package model
+package modelrt_test
 
 import (
 	"fmt"
@@ -10,17 +10,19 @@ import (
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/parser"
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/source"
 	"github.com/Open-MBEE/OpenSysML/internal/workspace/libs"
+	"github.com/Open-MBEE/OpenSysML/internal/workspace/model"
+	"github.com/Open-MBEE/OpenSysML/internal/workspace/modelrt"
 )
 
 // Named takes the document's own declaration, else the one workspace document's;
 // two declaring documents are an error naming both, none — or a library only — nil.
 func TestRuntimeNamedAcrossDocuments(t *testing.T) {
-	ws := NewWorkspace()
+	ws := model.NewWorkspace()
 	ws.Open("views.sysml", []byte("package Views { part def Local; }\n"), 1)
 	ws.Open("machines.sysml", []byte("package Machines { state def Ops; part def Local; }\n"), 1)
-	rt, err := ws.NewRuntime()
+	rt, err := modelrt.New(ws)
 	if err != nil {
-		t.Fatalf("NewRuntime: %v", err)
+		t.Fatalf("modelrt.New: %v", err)
 	}
 	if sym, err := rt.Named("views.sysml", "Machines::Ops"); err != nil || sym == nil || sym.DocName != "machines.sysml" {
 		t.Errorf("Named(views.sysml, Machines::Ops) = %v, %v; want the declaration in machines.sysml", sym, err)
@@ -36,8 +38,8 @@ func TestRuntimeNamedAcrossDocuments(t *testing.T) {
 	}
 
 	ws.Open("spare.sysml", []byte("package Machines { state def Ops; }\n"), 1)
-	if rt, err = ws.NewRuntime(); err != nil {
-		t.Fatalf("NewRuntime: %v", err)
+	if rt, err = modelrt.New(ws); err != nil {
+		t.Fatalf("modelrt.New: %v", err)
 	}
 	if sym, err := rt.Named("views.sysml", "Machines::Ops"); err == nil || sym != nil || !strings.Contains(err.Error(), "machines.sysml, spare.sysml") {
 		t.Errorf("Named(views.sysml, Machines::Ops) = %v, %v; want an error naming both documents", sym, err)
@@ -66,12 +68,12 @@ func TestNewRuntimeKeepsCallerIndexedDocuments(t *testing.T) {
 			shared := []byte("package Shared {\n    part def Chassis {\n        attribute mass = 42;\n    }\n}\n")
 			tc.idx.AddDocumentWithKind("shared.sysml", parser.New(source.New("shared.sysml", shared)).ParseFile(), source.KindSysML)
 			tc.idx.ExpandWildcardImports()
-			ws := NewWorkspaceWithIndex(tc.idx)
+			ws := model.NewWorkspaceWithIndex(tc.idx)
 			ws.Open("main.sysml", []byte("package Main {\n    part def Robot :> Lib::Base, Shared::Chassis;\n}\n"), 1)
 
-			rt, err := ws.NewRuntime()
+			rt, err := modelrt.New(ws)
 			if err != nil {
-				t.Fatalf("NewRuntime: %v", err)
+				t.Fatalf("modelrt.New: %v", err)
 			}
 			if rt.Declared("lib.sysml", "Lib::Base") == nil {
 				t.Fatal("runtime does not hold Lib::Base")

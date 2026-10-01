@@ -4,7 +4,6 @@ package engines
 
 import (
 	"github.com/Open-MBEE/OpenSysML/internal/exec/analysis"
-	"github.com/Open-MBEE/OpenSysML/internal/exec/fmi"
 	"github.com/Open-MBEE/OpenSysML/internal/exec/smt"
 )
 
@@ -43,7 +42,5 @@ func register(r *analysis.Registry) {
 	if err := r.Register(smt.New(nil)); err != nil {
 		panic(err)
 	}
-	if err := r.Register(fmi.New(nil)); err != nil {
-		panic(err)
-	}
+	registerFMI(r)
 }

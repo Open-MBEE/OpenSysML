@@ -1,4 +1,4 @@
-package model
+package modeldoc_test
 
 import (
 	"strings"
@@ -6,6 +6,7 @@ import (
 
 	"github.com/Open-MBEE/OpenSysML/internal/doc/docrender"
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/diag"
+	"github.com/Open-MBEE/OpenSysML/internal/workspace/modeldoc"
 )
 
 // libraryNotesModel renders the documentation of a standard-library element,
@@ -42,7 +43,7 @@ func TestRenderDocumentMarkdownReadsLibraryDocumentation(t *testing.T) {
 			t.Fatalf("model did not analyse cleanly: %v", d)
 		}
 	}
-	markdown, err := ws.RenderDocumentMarkdown("LibraryDocs::PartNotes", docrender.MarkdownOptions{})
+	markdown, err := modeldoc.RenderDocumentMarkdown(ws, "LibraryDocs::PartNotes", docrender.MarkdownOptions{})
 	if err != nil {
 		t.Fatalf("RenderDocumentMarkdown: %v", err)
 	}
