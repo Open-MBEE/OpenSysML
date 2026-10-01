@@ -23,6 +23,7 @@ import org.openmbee.opensysml.Value;
 import org.openmbee.opensysml.Diagnostic;
 import org.openmbee.opensysml.mdk.annotations.AnnotationPlanner;
 import org.openmbee.opensysml.mdk.annotations.Annotations;
+import org.openmbee.opensysml.mdk.docgen.DocGenExtensions;
 import org.openmbee.opensysml.mdk.engine.Engine;
 import org.openmbee.opensysml.mdk.engine.Operation;
 import org.openmbee.opensysml.mdk.engine.RunRequest;
@@ -33,7 +34,10 @@ import org.openmbee.opensysml.mdk.selection.SelectionResolver;
 import org.openmbee.opensysml.mdk.source.ModelSource;
 import org.openmbee.opensysml.mdk.ui.ResultsWindow;
 
-/** The "OpenSysML" context-menu group: one action per operation, offered for a single selected element. */
+/**
+ * The "OpenSysML" context-menu group: one action per operation, offered for a single selected
+ * element, plus the DocGen set-up action on the model root.
+ */
 public final class OperationActions implements BrowserContextAMConfigurator, DiagramContextAMConfigurator {
   private static final String CATEGORY_ID = "org.openmbee.opensysml";
 
@@ -70,13 +74,38 @@ public final class OperationActions implements BrowserContextAMConfigurator, Dia
     Project project = Application.getInstance().getProject();
     if (project == null) return;
     Optional<Selection> selection = resolver.resolve(project, selected);
-    if (selection.isEmpty()) return;
+    boolean root = selected == project.getPrimaryModel();
+    if (selection.isEmpty() && !root) return;
     MDActionsCategory category = new MDActionsCategory(CATEGORY_ID, "OpenSysML");
     category.setNested(true);
     for (Operation operation : Operation.values()) {
-      category.addAction(new OperationAction(operation, project, selection.get()));
+      if (selection.isPresent()) category.addAction(new OperationAction(operation, project, selection.get()));
     }
+    if (root) category.addAction(new InstallDocGenExtensionsAction(project));
     manager.addCategory(category);
+  }
+
+  /** Creates the «JavaExtension» stereotypes MDK DocGen needs to call the OpenSysML extension. */
+  private static final class InstallDocGenExtensionsAction extends MDAction {
+    private final Project project;
+
+    InstallDocGenExtensionsAction(Project project) {
+      super(CATEGORY_ID + ".docgen-extensions", "Add MDK DocGen extension stereotypes", null, null);
+      this.project = project;
+    }
+
+    @Override
+    public void actionPerformed(ActionEvent event) {
+      try {
+        JOptionPane.showMessageDialog(
+            Application.getInstance().getMainFrame(), DocGenExtensions.install(project).describe(),
+            "OpenSysML MDK: DocGen extensions", JOptionPane.INFORMATION_MESSAGE);
+      } catch (IllegalStateException failure) {
+        JOptionPane.showMessageDialog(
+            Application.getInstance().getMainFrame(), failure.getMessage(),
+            "OpenSysML MDK: DocGen extensions", JOptionPane.ERROR_MESSAGE);
+      }
+    }
   }
 
   private final class OperationAction extends MDAction {

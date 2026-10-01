@@ -9,4 +9,5 @@ public class Application {
   public Project getProject() { throw new UnsupportedOperationException("compile-only stub"); }
   public MainFrame getMainFrame() { throw new UnsupportedOperationException("compile-only stub"); }
   public ProjectsManager getProjectsManager() { throw new UnsupportedOperationException("compile-only stub"); }
+  public GUILog getGUILog() { throw new UnsupportedOperationException("compile-only stub"); }
 }

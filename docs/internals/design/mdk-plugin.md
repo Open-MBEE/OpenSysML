@@ -625,30 +625,35 @@ integration test against a licensed Cameo (§10.3) should convert the vendor's b
 
 ```
 editors/mdk/
-  README.md                       install, build, run-in-Cameo, licence-free CI
-  settings.gradle.kts / build.gradle.kts
-  plugin/                         the v1 path — compiles with --release 17 against the 2026x Refresh1
+  README.md                       build, licence-free CI, model paths, distribution, the DocGen bridge
+  pom.xml                         Maven reactor; Java 17; pins the OpenSysML client version
+  plugin/                         the plugin — compiles with --release 17 against the 2026x Refresh1
                                   OpenAPI, using only classes also present in 2024x Refresh3 (§1.1)
-    src/main/java/org/openmbee/opensysml/cameo/
-      OpenSysMLPlugin.java            Plugin: isSupported / init / close
-      Engine.java                     owns the two Connections (§3); binary resolution from the plugin dir
-      actions/                        Run, Verify, Sweep, ShowResults (MDAction subclasses)
-      configurators/                  Browser/Diagram/MainMenu configurators
-      export/                         Exporter: exportModule / saveProject → tmp .mdzip
-      identity/                       ElementMap: report id → Cameo element, target → candidate entries
-      results/                        ResultsWindow (ProjectWindow), Annotations, ValidationSuite bridge
-    src/main/resources/plugin.xml
-    src/main/resources/descriptor.xml  Resource Manager descriptor (templated at build)
-  plugin-v2/                      SysML v2 front end; needs the SysML v2 Plugin's jars (2026x line only)
-    src/main/java/.../v2/TextualExport.java   SysMLTextualNotationService bridge
+    src/main/java/org/openmbee/opensysml/mdk/
+      OpenSysMLPlugin.java            Plugin: isSupported / init / close; the docGen facade (§14)
+      actions/                        OperationActions configurator, one MDAction per Operation,
+                                      CalcArguments, the DocGen stereotype installer action
+      annotations/                    AnnotationPlanner / Annotations: results → validation annotations
+      bin/                            HostBinary: sysml-grpc resolution from the plugin directory
+      bridge/                         DocGenBridge: the facade's implementation (§14)
+      docgen/                         DocGenExtensions: creates the «JavaExtension» stereotypes
+      engine/                         Engine, Operation, RunRequest: the two Connections (§3)
+      identity/                       IdentityResolver: v2 qualified name → Cameo element
+      results/                        RunResult and the outcome/diagnostic model
+      selection/                      SelectionResolver, Selection: what was right-clicked
+      source/                         ModelSource: .mdzip export or v2 textual export
+      ui/                             ResultsWindow (ProjectWindow)
+  mdk-bridge/                     the DocGen «JavaExtension» queries MDK loads (§14); depends on
+                                  neither the client nor the plugin at run time
   openapi-stubs/                  compile-only stubs of the OpenAPI classes the plugin touches (§10.3)
-  bin/                            sysml-grpc-<os>-<arch>[.exe] staged at build; not committed
+  mdk-api-stubs/                  compile-only stubs of the MDK classes the bridge extends (§14)
+  tools/                          BinaryStager, PluginDescriptorWriter (build-time)
   dist/                           the Resource Manager .zip
 ```
 
-The plugin depends on `client/java/opensysml-client` as a project dependency (nothing is
-published yet, [`java-api.md`](../../reference/java-api.md)); the Gradle build includes it with
-`includeBuild("../../client/java")`.
+The plugin depends on the published `org.openmbee:opensysml` Java client
+([`java-api.md`](../../reference/java-api.md)) at the version `pom.xml` pins; the client is
+installed into the local repository first (`editors/mdk/README.md`).
 
 ### 10.2 Build
 
@@ -858,3 +863,84 @@ Each item says what is known, what is not, and what would settle it.
 - Whether `SysMLTextualNotationService.exportTextual` emits element identity beyond names (§8).
 - Windows pipe semantics of the child under Cameo's launcher and abnormal shutdown (§12.1).
 - Whether the vendor's licence permits an unattended CI seat (§10.3).
+
+## 14. The MDK DocGen bridge
+
+OpenMBEE's MDK ([Open-MBEE/mdk](https://github.com/Open-MBEE/mdk)) is the plugin a large share
+of Cameo users already run for MMS synchronisation and DocGen documents. OpenSysML MDK is
+positioned as its successor ([`docs/project/mdk-parity.md`](../../../project/mdk-parity.md)
+tracks the gap), and the first concrete step is to let an MDK document run OpenSysML.
+
+### 14.1 The hook MDK offers
+
+DocGen's `«JavaExtension»` stereotype (profile *SysML Extensions*, URI
+`http://openmbee.org/mdk/sysml-extensions`) tells DocGen to instantiate a Java class — named by
+the *applied stereotype's name* — as a `org.openmbee.mdk.model.Query`, call `setTargets`,
+`initialize`, then `visit(forViewEditor, outputDir)`, and splice the returned
+`DocumentElement`s into the document. The class is resolved with
+`Class.forName(name, true, MDKPlugin.extensionsClassloader)`, a `URLClassLoader` over every jar
+in `plugins/org.openmbee.mdk/extensions/` whose parent is MDK's own classloader. This is an
+extension point MDK ships for exactly this purpose, so no change to MDK is needed.
+
+### 14.2 Two plugins, two classloaders, one facade
+
+The extension classloader cannot see the OpenSysML plugin's jars (`ownClassloader="true"`,
+`class-lookup="LocalFirst"`, §2.3), and bundling the Java client, protobuf and the service into
+the bridge would mean a second service process and a second copy of every dependency. The
+bridge therefore stays small and calls back:
+
+```
+mdk-bridge (MDK's extension classloader)        plugin (its own classloader)
+  <Operation>Query.visit(…)
+    PluginLocator: PluginUtils.getPlugins()
+      → descriptor id org.openmbee.opensysml.mdk
+      → Method docGen(Element, String, String)  ──►  OpenSysMLPlugin.docGen
+                                                        DocGenBridge: SelectionResolver → Engine.run
+                                                        RunResult → Map<String,Object> (JDK types only)
+    BridgeResult.parse(map) ◄───────────────────────────┘
+    DocBookRenderer → DBParagraph / DBTable
+```
+
+Only Cameo OpenAPI types (`Element`) and JDK types (`String`, `Map`, `List`, `Long`) cross the
+boundary, both of which are loaded once, by Cameo's shared classloader, so no
+`ClassCastException` can arise. The facade is a single public method on the `Plugin` instance,
+found reflectively, so the bridge needs no compile-time dependency on the plugin and an older
+plugin without the method fails with a readable message rather than a `NoSuchMethodError`.
+
+Failure handling is per target: a target that is not an `Element`, an operation the plugin
+does not know, a service failure or a failed export each become one error paragraph; the rest
+of the document still generates. A result whose temporary export could not be removed carries
+an `export-cleanup` warning diagnostic, as the context-menu path does.
+
+### 14.3 The stereotypes
+
+MDK resolves the extension class from the applied stereotype's *name*, so the model needs one
+stereotype per operation, each specialising `«JavaExtension»`. Shipping them as a profile
+would pin a profile `.mdzip` into the distribution; instead the plugin creates them in the
+project on demand (*OpenSysML ▸ Add MDK DocGen extension stereotypes* on the model root):
+a package `OpenSysML MDK DocGen` under the primary model with stereotypes
+`org.openmbee.opensysml.mdk.docgen.{Instantiate,ExecuteAction,ExecuteState,Verify,EvaluateCalc,RunAnalysis}`,
+each extending `Activity` and `CallBehaviorAction` with a generalization to `«JavaExtension»`;
+`EvaluateCalc` adds a `String` tag `arguments`. The action is idempotent and runs inside one
+`SessionManager` session so it is a single undo step.
+
+### 14.4 Build and packaging
+
+The bridge compiles against `mdk-api-stubs`, compile-only copies of the six MDK classes it
+touches (`Query`, `DocGenElement`, `Generatable`, `DocumentElement`, `DBParagraph`, `DBText`,
+`DBTable`), written from MDK's `develop` source because MDK publishes no API artifact. As with
+the OpenAPI stubs (§10.3) only the members the bridge uses are declared, and they are never
+shipped. The distribution assembly adds the bridge jar at
+`plugins/org.openmbee.mdk/extensions/` with no transitive dependencies — the bridge has none at
+run time — and lists it in no `plugin.xml`, so Cameo without MDK never loads it.
+
+### 14.5 Unverified
+
+Everything above the unit tests is reasoned from MDK's source and the vendor's Javadoc, not
+run: no Cameo installation and no MDK installation were available. Specifically unverified are
+that MDK's `develop` `Query` API is what the next MDK release ships; that
+`PluginUtils.getPlugins()` returns the OpenSysML `Plugin` instance (rather than a proxy) so the
+reflective call reaches `docGen`; that the UML `String` type is at
+`UML Standard Profile::UML2 Metamodel::PrimitiveTypes::String` in 2026x (the installer leaves the
+`arguments` tag untyped and says so if not); and the DocBook rendering of the tables in View
+Editor as opposed to the PDF path.

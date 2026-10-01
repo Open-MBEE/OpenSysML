@@ -12,6 +12,15 @@
       </includes>
       <fileMode>0644</fileMode>
     </dependencySet>
+    <dependencySet>
+      <outputDirectory>plugins/org.openmbee.mdk/extensions</outputDirectory>
+      <useProjectArtifact>false</useProjectArtifact>
+      <useTransitiveDependencies>false</useTransitiveDependencies>
+      <includes>
+        <include>org.openmbee:opensysml-mdk-bridge</include>
+      </includes>
+      <fileMode>0644</fileMode>
+    </dependencySet>
   </dependencySets>
   <fileSets>
     <fileSet>

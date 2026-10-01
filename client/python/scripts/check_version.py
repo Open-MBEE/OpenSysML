@@ -71,6 +71,8 @@ EDITOR_MANIFESTS = (
     ("editors/mdk/plugin/pom.xml", "parent"),
     ("editors/mdk/tools/pom.xml", "parent"),
     ("editors/mdk/openapi-stubs/pom.xml", "parent"),
+    ("editors/mdk/mdk-api-stubs/pom.xml", "parent"),
+    ("editors/mdk/mdk-bridge/pom.xml", "parent"),
     ("editors/mdk/dist/pom.xml", "parent"),
     ("editors/syson/backend/pom.xml", "parent"),
     ("editors/syson/syson-api-stubs/pom.xml", "parent"),

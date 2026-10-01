@@ -1,5 +1,12 @@
 # OpenSysML MDK
 
+The Cameo Systems Modeler plugin that runs, verifies and analyzes a model with OpenSysML, and the
+successor to OpenMBEE's Model Development Kit (MDK) for SysML v2 work. Where MDK is still
+installed, the plugin also plugs OpenSysML into MDK's DocGen as a set of «JavaExtension»
+queries (see *MDK DocGen bridge* below). The capability-by-capability comparison with MDK, and
+the order the gaps are being closed in, is
+[`docs/project/mdk-parity.md`](../../docs/project/mdk-parity.md).
+
 ## Build
 
 Install the Java client and its dependencies before building the plugin:
@@ -24,8 +31,13 @@ CAMEO_HOME=/opt/Cameo editors/mdk/scripts/compile-against-cameo.sh
 
 ## Stubs
 
-`openapi-stubs` contains compile-only signatures for the Cameo 2026x OpenAPI. It is provided to
-the plugin build and is never included in the runtime jar or distribution.
+`openapi-stubs` contains compile-only signatures for the Cameo 2026x OpenAPI, written from the
+vendor's Javadoc. `mdk-api-stubs` does the same for the handful of MDK classes the bridge
+extends (`Query`, `DocGenElement`, `DocumentElement`, `DBParagraph`, `DBText`, `DBTable`), written
+from the `develop` branch of [Open-MBEE/mdk](https://github.com/Open-MBEE/mdk), which publishes no
+API artifact. Both are provided to the build only and are never included in a runtime jar or the
+distribution; a signature that drifts from the vendor's is caught by
+`scripts/compile-against-cameo.sh` on a licensed machine, not by CI.
 
 ## Model paths and identity
 
@@ -42,6 +54,36 @@ Each project has one OpenSysML results window. It displays operation metadata, o
 diagnostics, and state schedules. Result outcomes are mapped to Cameo annotations with passed,
 failed, and error severities; annotations from the prior application are removed before new ones
 are added.
+
+## MDK DocGen bridge
+
+MDK's DocGen loads «JavaExtension» queries from `plugins/org.openmbee.mdk/extensions/`, so the
+distribution drops `opensysml-mdk-bridge-<n>.jar` there and nothing extra needs installing. The
+bridge defines one `Query` per operation, in package `org.openmbee.opensysml.mdk.docgen`:
+`Instantiate`, `ExecuteAction`, `ExecuteState`, `Verify`, `EvaluateCalc` and `RunAnalysis`.
+
+To use one in a document:
+
+1. Make sure the project uses MDK's *SysML Extensions* profile, then right-click the model root
+   and choose *OpenSysML ▸ Add MDK DocGen extension stereotypes*. This creates, once, a package
+   `OpenSysML MDK DocGen` holding a stereotype per operation; each specialises MDK's
+   «JavaExtension» and is named after the class MDK must load
+   (e.g. `org.openmbee.opensysml.mdk.docgen.Verify`). `EvaluateCalc` carries an `arguments` tag,
+   a comma-separated argument list.
+2. In a viewpoint method, apply the stereotype to an activity (or to a call behavior action
+   whose behavior carries it) and feed it the elements to run on, exactly as for any other DocGen
+   query.
+
+For every target the generated section gets a one-line summary (operation, element, status,
+elapsed time, final time), a table of outcomes with their status, a table of diagnostics with
+their source locations, and the state schedule when the operation produced one. A target that
+fails to run yields an error paragraph in its place; the rest of the document is unaffected.
+
+The bridge jar lives in MDK's extension classloader and holds neither the Java client nor the
+service binary: it finds the OpenSysML plugin through Cameo's plugin registry and calls its one
+facade method, `OpenSysMLPlugin.docGen(Element, String, String)`, whose result is a map of JDK
+types. Only Cameo and JDK types cross between the two plugins, so the plugin keeps its own
+classloader and the bridge is inert — never loaded — when MDK is not installed.
 
 ## Distribution
 
@@ -63,12 +105,18 @@ plugins/org.openmbee.opensysml.mdk/plugin.xml
 plugins/org.openmbee.opensysml.mdk/opensysml-mdk-plugin-<n>.jar
 plugins/org.openmbee.opensysml.mdk/lib/*.jar
 plugins/org.openmbee.opensysml.mdk/bin/sysml-grpc-<os>-<arch>[.exe], DIGESTS
+plugins/org.openmbee.mdk/extensions/opensysml-mdk-bridge-<n>.jar
 data/resourcemanager/MDR_Plugin_OpenSysML_MDK_descriptor.xml
 ```
 
+The bridge jar is listed in no `plugin.xml`: MDK scans its `extensions/` directory itself, and
+Cameo ignores the directory when MDK is absent.
+
 ## Tests
 
-Run the compile-only suite with `mvn -f editors/mdk/pom.xml verify`. The service-backed tests
+Run the compile-only suite with `mvn -f editors/mdk/pom.xml verify`; it covers the plugin and
+the bridge (facade flattening, plugin lookup by descriptor id, DocBook rendering, per-target
+failure handling). The service-backed tests
 use the repository's `bin/sysml-grpc`; require that binary with:
 
 ```sh

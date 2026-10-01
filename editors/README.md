@@ -14,9 +14,11 @@ directory here with its own build.
   calc and Run analysis. A SysML v2 project is exported through the textual notation service; a
   SysML v1 project leaves as a `.mdzip` and is migrated through `Convert(xmi→sysml)`; either is
   parsed and run on `sysml-grpc` through the Java client. Outcomes, diagnostics, final time and
-  schedule land in a docking results window and as validation annotations on the Cameo elements.
+  schedule land in a docking results window and as validation annotations on the Cameo elements,
+  and — where MDK is installed — in DocGen documents through the bundled «JavaExtension» bridge.
   It builds against compile-only stubs of the OpenAPI, so no licence is needed in CI; the design
-  is in [`docs/internals/design/mdk-plugin.md`](../docs/internals/design/mdk-plugin.md).
+  is in [`docs/internals/design/mdk-plugin.md`](../docs/internals/design/mdk-plugin.md) and the
+  MDK gap matrix in [`docs/project/mdk-parity.md`](../docs/project/mdk-parity.md).
 <!-- mdk: end -->
 
 - **Eclipse SysON** (`syson/`) — a plugin with a backend adapter and frontend dialog for

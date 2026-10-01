@@ -379,6 +379,8 @@ _EDITOR_PARENTS = (
     "editors/mdk/plugin/pom.xml",
     "editors/mdk/tools/pom.xml",
     "editors/mdk/openapi-stubs/pom.xml",
+    "editors/mdk/mdk-api-stubs/pom.xml",
+    "editors/mdk/mdk-bridge/pom.xml",
     "editors/mdk/dist/pom.xml",
     "editors/syson/backend/pom.xml",
     "editors/syson/syson-api-stubs/pom.xml",

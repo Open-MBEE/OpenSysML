@@ -10,8 +10,10 @@
   <name>OpenSysML MDK</name>
   <modules>
     <module>openapi-stubs</module>
+    <module>mdk-api-stubs</module>
     <module>tools</module>
     <module>plugin</module>
+    <module>mdk-bridge</module>
     <module>dist</module>
   </modules>
   <properties>

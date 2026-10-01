@@ -5,4 +5,5 @@ import java.io.File;
 
 public class PluginDescriptor {
   public File getPluginDirectory() { throw new UnsupportedOperationException("compile-only stub"); }
+  public String getID() { throw new UnsupportedOperationException("compile-only stub"); }
 }

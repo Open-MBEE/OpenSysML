@@ -8,7 +8,7 @@
   </parent>
   <artifactId>opensysml-mdk-dist</artifactId>
   <packaging>pom</packaging>
-  <name>OpenSysML Cameo distribution</name>
+  <name>OpenSysML MDK distribution</name>
   <dependencies>
     <dependency>
       <groupId>org.openmbee</groupId>
@@ -18,6 +18,11 @@
     <dependency>
       <groupId>org.openmbee</groupId>
       <artifactId>opensysml-mdk-tools</artifactId>
+      <version>${project.version}</version>
+    </dependency>
+    <dependency>
+      <groupId>org.openmbee</groupId>
+      <artifactId>opensysml-mdk-bridge</artifactId>
       <version>${project.version}</version>
     </dependency>
   </dependencies>
@@ -38,7 +43,7 @@
                 <goals><goal>copy-dependencies</goal></goals>
                 <configuration>
                   <outputDirectory>${project.build.directory}/lib</outputDirectory>
-                  <excludeArtifactIds>opensysml-mdk-plugin,opensysml-mdk-tools</excludeArtifactIds>
+                  <excludeArtifactIds>opensysml-mdk-plugin,opensysml-mdk-tools,opensysml-mdk-bridge</excludeArtifactIds>
                   <excludeScope>provided</excludeScope>
                 </configuration>
               </execution>
