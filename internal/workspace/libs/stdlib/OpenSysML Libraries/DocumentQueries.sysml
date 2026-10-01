@@ -259,9 +259,10 @@ library package DocumentQueries {
 		attribute target : String[1];
 	}
 
-	/* Ref links to a named content block of this or another document, or to
-	 * another document itself; text defaults to the target's title, caption
-	 * or name. */
+	/* Ref links to a named content block of this or another document, to
+	 * another document itself, or to a model element outside every document
+	 * (a usage by name, any element as `E.metadata`); text defaults to the
+	 * target's title, caption or name. */
 	part def Ref :> Run {
 		attribute text : String[0..1];
 		ref target : Element[1];
