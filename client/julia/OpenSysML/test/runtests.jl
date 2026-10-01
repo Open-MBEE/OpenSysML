@@ -8,10 +8,27 @@ include(joinpath(@__DIR__, "..", "conformance", "compare.jl"))
 
 const FIXTURES = normpath(joinpath(@__DIR__, "..", "..", "..", "..", "conformance", "fixtures"))
 
-@testset "decode_value: the nineteen arms" begin
+@testset "decode_value: the twenty-two arms" begin
     @test decode_value(nothing) === missing
     @test decode_value(JSON.parse("""{"intValue":"9007199254740993"}""")) === Int64(9007199254740993)
     @test decode_value(JSON.parse("""{"intValue":"-9223372036854775808"}""")) === typemin(Int64)
+    @test decode_value(JSON.parse("""{"bigIntValue":"1180591620717411303424"}""")) == big(2)^70
+    @test decode_value(JSON.parse("""{"bigIntValue":"-9223372036854775809"}""")) isa BigInt
+    for wrong in ("", "-", "007", "+5", "9223372036854775807")
+        @test_throws ErrorException decode_value(Dict("bigIntValue" => wrong))
+    end
+    @test decode_value(JSON.parse("""{"quantity":{"bigIntMagnitude":"9223372036854775808","unit":"kg"}}""")).magnitude == big(2)^63
+    @test encode_value(big(2)^70) == Dict("bigIntValue" => "1180591620717411303424")
+    @test encode_value(big(7)) == Dict("intValue" => "7")
+    @test encode_value(Quantity(big(2)^63, "kg", nothing)) == Dict("quantity" => Dict("bigIntMagnitude" => "9223372036854775808", "unit" => "kg"))
+    wide = Quantity(big(2)^63, "kg", nothing)
+    for value in (big(2)^70, Any[1, Any[big(2)^70]], Set([big(2)^70]), wide,
+                  VectorQuantity([wide]), TensorQuantity([1], [wide]))
+        @test CAPABILITY_BIG_INT_VALUES in value_capabilities(value)
+    end
+    for value in (typemax(Int64), big(7), Quantity(5, "kg", nothing), true)
+        @test !(CAPABILITY_BIG_INT_VALUES in value_capabilities(value))
+    end
     @test decode_value(JSON.parse("""{"realValue":0.3333333333333333}""")) ≈ 1/3
     @test decode_value(JSON.parse("""{"realValue":20}""")) === 20.0
     @test decode_value(JSON.parse("""{"realValue":"NaN"}""")) |> isnan
@@ -139,14 +156,8 @@ end
     @test encode_value(typemin(Int64)) == Dict("intValue" => string(typemin(Int64)))
     @test encode_value(typemax(Int64)) == Dict("intValue" => string(typemax(Int64)))
     for value in (BigInt(typemax(Int64)) + 1, BigInt(typemin(Int64)) - 1)
-        failure = try
-            encode_value(value)
-            nothing
-        catch error
-            error
-        end
-        @test failure isa ArgumentError
-        @test sprint(showerror, failure) == "ArgumentError: Value out of range: $value"
+        @test encode_value(value) == Dict("bigIntValue" => string(value))
+        @test decode_value(encode_value(value)) == value
     end
     @test encode_value(EnumLiteral("E::a", "E", "a"))["enumLiteral"]["literalId"] == "E::a"
     for x in (Int64(4), 5.4, true, "x", nothing, complex(1.5, -2.0), Any[1, 2])

@@ -310,7 +310,7 @@ func exactCensusTerm(t *Term) bool {
 func exactFold(t *Term) (*big.Rat, bool) {
 	switch t.Op {
 	case OpInt:
-		return new(big.Rat).SetInt64(t.Int), true
+		return new(big.Rat).SetInt(t.IntBig()), true
 	case OpReal:
 		if _, exact := t.Real.Float64(); !exact {
 			return nil, false

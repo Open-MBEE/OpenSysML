@@ -51,7 +51,7 @@ library package OpenSysMLMathFunctions {
 		doc
 		/*
 		 * The least Integer not less than x, the counterpart of RealFunctions::floor.
-		 * Outside the Integer range for a whole x at or beyond 2^63, or below -2^63.
+		 * Exact for every finite x, however large; undefined for an infinite or NaN x.
 		 */
 		in x: Real[1]; return : Integer[1];
 	}
@@ -60,8 +60,7 @@ library package OpenSysMLMathFunctions {
 		doc
 		/*
 		 * The Integer quotient of x by y, the exact ratio truncated toward zero, so that
-		 * quotient(x, y) * y + x % y == x for every y other than 0. Undefined for y == 0,
-		 * and outside the Integer range for the one pair whose quotient is 2^63.
+		 * quotient(x, y) * y + x % y == x for every y other than 0. Undefined for y == 0.
 		 */
 		in x: Integer[1]; in y: Integer[1]; return : Integer[1];
 	}

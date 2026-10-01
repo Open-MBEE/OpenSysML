@@ -90,6 +90,7 @@ function _document_value(raw)
     haskey(raw, "elementId") && return ElementRef(String(raw["elementId"]), String(get(raw, "elementType", "")))
     haskey(raw, "stringValue") && return String(raw["stringValue"])
     haskey(raw, "intValue") && return parse(Int64, string(raw["intValue"]))
+    haskey(raw, "bigIntValue") && return parse_big_integer(string(raw["bigIntValue"]))
     haskey(raw, "realValue") && return asreal(raw["realValue"])
     haskey(raw, "boolValue") && return Bool(raw["boolValue"])
     haskey(raw, "infinity") && return Infinity()
@@ -178,14 +179,10 @@ function build_document_bindings(bindings=Dict())
             elseif value isa AbstractString
                 Dict{String,Any}("stringValue" => String(value))
             elseif value isa Integer
-                typemin(Int64) <= value <= typemax(Int64) ||
-                    throw(DocumentQueryError("binding $(repr(parameter)) cannot carry $(repr(value)): an int must fit in a signed 64-bit integer"))
-                Dict{String,Any}("intValue" => string(value))
+                Dict{String,Any}(integer_arm(value, "intValue", "bigIntValue"))
             elseif value isa AbstractFloat
                 Dict{String,Any}("realValue" => Float64(value))
             elseif value isa Quantity
-                value.magnitude isa Integer && !(typemin(Int64) <= value.magnitude <= typemax(Int64)) &&
-                    throw(DocumentQueryError("binding $(repr(parameter)) cannot carry $(repr(value)): an Integer magnitude must fit in a signed 64-bit integer"))
                 !isempty(value.unit) && value.unit_term === nothing &&
                     throw(DocumentQueryError("binding $(repr(parameter)) cannot carry $(repr(value)): a named unit needs its unit term"))
                 Dict{String,Any}("quantity" => encode_quantity(value))
@@ -204,12 +201,20 @@ function build_document_bindings(bindings=Dict())
     result
 end
 
+# Whether a wire binding sends an Integer beyond int64, which needs big_int_values.
+_binding_holds_big_int(binding) = any(binding["values"]) do value
+    haskey(value, "bigIntValue") ||
+        (haskey(value, "quantity") && haskey(value["quantity"], "bigIntMagnitude"))
+end
+
 """Run a document query with optional parameter bindings."""
 function run_document_query(model::Model, query_id::AbstractString; bindings=Dict())
     conn = model.connection
     require_capability(conn, CAPABILITY_DOCUMENT_QUERY)
+    wire = build_document_bindings(bindings)
+    any(_binding_holds_big_int, wire) && require_capability(conn, CAPABILITY_BIG_INT_VALUES)
     request = Dict{String,Any}("modelHash" => model.hash, "queryId" => String(query_id),
-        "bindings" => build_document_bindings(bindings))
+        "bindings" => wire)
     answer = _translate(; not_found=SymbolNotFoundError,
         capabilities=(CAPABILITY_DOCUMENT_QUERY,), connection=conn) do
         call(conn, "RunDocumentQuery", request)

@@ -112,7 +112,7 @@ func constValue(value semantics.Value) (Value, bool) {
 	case semantics.ValBool:
 		return BooleanValue(value.Bool), true
 	case semantics.ValInt:
-		return IntegerValue(value.Int), true
+		return IntegerOf(value), true
 	case semantics.ValReal:
 		return RealValue(value.Real), true
 	default:

@@ -374,7 +374,6 @@ func TestRuntimeRobustness(t *testing.T) {
 	t.Run("library_function_outside_its_domain", testLibraryFunctionOutsideItsDomain)
 	t.Run("library_function_wrong_arity", testLibraryFunctionWrongArity)
 	t.Run("extension_library_function_outside_its_domain", testExtensionLibraryFunctionOutsideItsDomain)
-	t.Run("exponentiation_integer_overflow", testExponentiationIntegerOverflow)
 	t.Run("quantity_incommensurable_comparison", testQuantityIncommensurableComparison)
 	t.Run("quantity_index_is_not_a_unit", testQuantityIndexIsNotAUnit)
 	t.Run("quantity_unit_shadowed_by_sibling", testQuantityUnitShadowedBySibling)
@@ -1709,7 +1708,7 @@ func testCoordinateFrameFailureModes(t *testing.T) {
 		{"frame whose mRefs are not one per stated dimension", `attribute bad : CoordinateFrame { :>> dimensions = 2; :>> mRefs = (m, m, m); }`,
 			"CoordinateFrame", "bad", ErrMultiplicityViolation, "bad states 3 mRefs for dimensions [2], whose flattenedSize is 2"},
 		{"frame whose dimensions overflow", `attribute bad : CoordinateFrame { :>> dimensions : Positive[2] = (4611686018427387904, 4); :>> mRefs = (m, m, m); }`,
-			"CoordinateFrame", "bad", semantics.ErrArithmeticOverflow, "bad: flattenedSize of dimensions [4611686018427387904, 4] exceeds the Integer range"},
+			"CoordinateFrame", "bad", ErrIntegerUnaddressable, "bad: flattenedSize of dimensions [4611686018427387904, 4] is 18446744073709551616"},
 		{"frame whose mRef is a number", `attribute bad : CoordinateFrame { :>> mRefs = (m, 2); }`,
 			"CoordinateFrame", "bad", ErrTypeMismatch, "bad.mRefs: type mismatch: cannot write 2 (an Integer) to a feature typed by ScalarMeasurementReference"},
 		{"vector short of an axis", ``,
@@ -2448,21 +2447,16 @@ func testNamedLibraryCallThatHasNoValue(t *testing.T) {
 		{`IntegerFunctions::ToInteger(" 7")`, ErrInvalidNotation},
 		{`RationalFunctions::ToRational("1/3")`, ErrInvalidNotation},
 		{`IntegerFunctions::ToInteger("2.0")`, ErrInvalidNotation},
-		{`IntegerFunctions::ToInteger("99999999999999999999")`, semantics.ErrArithmeticOverflow},
-		{`RealFunctions::ToInteger(1.0e300)`, semantics.ErrArithmeticOverflow},
 		{`BooleanFunctions::ToBoolean("yes")`, ErrInvalidNotation},
 		{`IntegerFunctions::ToNatural(-1)`, semantics.ErrArithmeticDomain},
 		{`NaturalFunctions::ToNatural("-1")`, semantics.ErrArithmeticDomain},
 		{`RealFunctions::ToReal(xs)`, ErrTypeMismatch},
 		{`RationalFunctions::gcd(1.5, 2)`, semantics.ErrArithmeticDomain},
 		{`RationalFunctions::gcd("1", 2)`, ErrTypeMismatch},
-		{`RationalFunctions::gcd(1.0e19, 1.0e19)`, semantics.ErrArithmeticOverflow},
 		{`RationalFunctions::rat(1, 0)`, ErrDivisionByZero},
 		{`RationalFunctions::rat(1.5, 3)`, ErrTypeMismatch},
 		{`RationalFunctions::rat(xs, 3)`, ErrTypeMismatch},
 		{`RationalFunctions::numer("0.5")`, ErrTypeMismatch},
-		{`RationalFunctions::numer(1.0e19)`, semantics.ErrArithmeticOverflow},
-		{`RationalFunctions::denom(0.0001)`, semantics.ErrArithmeticOverflow},
 		{`CollectionFunctions::'array#'(xs, (1, 1))`, ErrTypeMismatch},
 		{`OccurrenceFunctions::isDuring(xs)`, ErrMultiplicityViolation},
 		{`OccurrenceFunctions::isDuring(factor)`, ErrNotAnOccurrence},
@@ -2485,7 +2479,6 @@ func testNamedLibraryCallThatHasNoValue(t *testing.T) {
 		{`BooleanFunctions::'=='(true, 1)`, ErrTypeMismatch},
 		{`BaseFunctions::ToString(xs)`, ErrMultiplicityViolation},
 		{`IntegerFunctions::'%'(1, 0)`, ErrDivisionByZero},
-		{`IntegerFunctions::'*'(9223372036854775807, 2)`, semantics.ErrArithmeticOverflow},
 		{`RealFunctions::'**'(-8.0, 0.5)`, semantics.ErrArithmeticDomain},
 		{`ScalarFunctions::'<'("a", 1)`, ErrTypeMismatch},
 		{`BooleanFunctions::'xor'(true, 1)`, ErrTypeMismatch},
@@ -2513,7 +2506,6 @@ func testNamedLibraryCallThatHasNoValue(t *testing.T) {
 		{`NumericalFunctions::sum0(xs, 1)`, ErrTypeMismatch},
 		{`NumericalFunctions::product1(xs, 0)`, ErrTypeMismatch},
 		{`NumericalFunctions::sum0(flags, 0)`, ErrTypeMismatch},
-		{`NumericalFunctions::sum0((9223372036854775807, 1), 0)`, semantics.ErrArithmeticOverflow},
 		{`NumericalFunctions::sum0(xs)`, ErrCalcArity},
 	} {
 		got, err := evalCollectionExpr(t, tt.expr)
@@ -2674,8 +2666,8 @@ func testBaseIndexWithSeveralIndexes(t *testing.T) {
 		t.Errorf("Ragged = %v, want %v naming flattenedSize", err, ErrMultiplicityViolation)
 	}
 	err = calcErrorWithLibraries(t, src, "Vast", nil, 10000)
-	if !errors.Is(err, semantics.ErrArithmeticOverflow) || !strings.Contains(err.Error(), "flattenedSize") {
-		t.Errorf("Vast = %v, want %v naming flattenedSize", err, semantics.ErrArithmeticOverflow)
+	if !errors.Is(err, ErrIntegerUnaddressable) || !strings.Contains(err.Error(), "flattenedSize") || !strings.Contains(err.Error(), "18446744073709551616") {
+		t.Errorf("Vast = %v, want %v naming flattenedSize and its exact value", err, ErrIntegerUnaddressable)
 	}
 }
 
@@ -11051,33 +11043,6 @@ func testExtensionLibraryFunctionOutsideItsDomain(t *testing.T) {
 	got, err := ctx.InvokeCalc(sym, []Value{arg}, rootScope)
 	if !errors.Is(err, semantics.ErrArithmeticDomain) {
 		t.Fatalf("ln(0.0) = %+v, %v; want a domain error", got, err)
-	}
-}
-
-// testExponentiationIntegerOverflow: an exponentiation beyond the Integer range
-// is reported rather than wrapping.
-func testExponentiationIntegerOverflow(t *testing.T) {
-	src := `
-		package test {
-			calc power {
-				in b : Integer;
-				in e : Integer;
-				return : Integer = b ** e;
-			}
-		}
-	`
-	idx, _, ctx := buildRuntime(t, "<test>", parseAndBuild(t, src))
-	rootScope := idx.DocumentRoot("<test>")
-	sym := findSymbolByName(rootScope, "power", ast.DefCalc)
-	if sym == nil {
-		t.Fatal("power calc not found")
-	}
-
-	base := Value{Kind: ValConst, Const: semantics.Value{Kind: semantics.ValInt, Int: 1 << 40}}
-	exp := Value{Kind: ValConst, Const: semantics.Value{Kind: semantics.ValInt, Int: 3}}
-	got, err := ctx.InvokeCalc(sym, []Value{base, exp}, rootScope)
-	if !errors.Is(err, semantics.ErrArithmeticOverflow) {
-		t.Fatalf("(2**40) ** 3 = %+v, %v; want an overflow error", got, err)
 	}
 }
 

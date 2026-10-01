@@ -91,6 +91,27 @@ public sealed interface DocumentValue {
   record IntegerValue(long value) implements DocumentValue {}
 
   /**
+   * An integer beyond {@code long}; one within {@code long} is always an {@link IntegerValue}.
+   *
+   * @param value the integer, beyond {@code long}
+   */
+  record BigIntegerValue(java.math.BigInteger value) implements DocumentValue {
+    /**
+     * Creates an integer beyond {@code long}.
+     *
+     * @param value the integer, never {@code null}
+     * @throws IllegalArgumentException if the integer fits in a {@code long}
+     */
+    public BigIntegerValue {
+      Objects.requireNonNull(value, "value");
+      if (value.bitLength() < 64) {
+        throw new IllegalArgumentException(
+            value + " is within long, which IntegerValue carries");
+      }
+    }
+  }
+
+  /**
    * A real.
    *
    * @param value the real

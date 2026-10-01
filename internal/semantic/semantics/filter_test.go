@@ -138,6 +138,27 @@ func TestFilterFeatureComparison(t *testing.T) {
 	}
 }
 
+// An Integer beyond float64's exact range is compared with a Real exactly, in
+// either operand position, rather than rounded to the Real first.
+func TestFilterWideIntegerAgainstReal(t *testing.T) {
+	const src = `
+		metadata def Count { attribute n; }
+		part wide { @Count{n = 1180591620717411303425;} }
+		part exact { @Count{n = 1180591620717411303424;} }
+	`
+	cases := map[string][]bool{
+		"(as Count).n == 1180591620717411303424.0": {false, true},
+		"(as Count).n != 1180591620717411303424.0": {true, false},
+		"(as Count).n > 1180591620717411303424.0":  {true, false},
+		"(as Count).n <= 1180591620717411303424.0": {false, true},
+		"1180591620717411303424.0 < (as Count).n":  {true, false},
+		"1180591620717411303424.0 == (as Count).n": {false, true},
+	}
+	for cond, expect := range cases {
+		want(t, cond, selects(t, src, cond, "wide", "exact"), expect...)
+	}
+}
+
 // A guarded condition is decided by its guard where that settles it, so reading
 // a feature of an annotation an element does not carry is never reached.
 func TestFilterGuardShortCircuits(t *testing.T) {

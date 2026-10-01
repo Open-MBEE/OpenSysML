@@ -200,9 +200,10 @@ every call lands in `pilot-unevaluated` and the operator quotient agrees.
   exact for every finite double); an Integer is itself over `1`. So `numer(0.75) = 3`,
   `denom(0.75) = 4`, `numer(-0.75) = -3`, a whole value reads as `n/1` (`numer(2) = 2`,
   `denom(2.0) = 1`, `denom(0.0) = 1`), and `rat(numer(x), denom(x)) == x` holds exactly
-  for every finite `x` whose terms are Integers. A term past the Integer range — `denom(0.0001)` is `2^66`,
-  `numer(1.0e19)` — is `semantics.ErrArithmeticOverflow`; an infinity or NaN has no finite
-  ratio and is `semantics.ErrArithmeticDomain`.
+  for every finite `x` whose terms are Integers. A term beyond `int64` is the exact Integer it
+  is, KerML Integers being unbounded — `denom(0.0001)` is `2^66 = 73786976294838206464`,
+  `numer(1.0e19)` is `10000000000000000000`; an infinity or NaN has no finite ratio and is
+  `semantics.ErrArithmeticDomain`.
 
 **The binary64 consequence, stated plainly.** A Rational here holds the double nearest
 the value written, so `numer`/`denom` answer the terms of that double, not of the

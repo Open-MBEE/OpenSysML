@@ -193,7 +193,7 @@ reasoner; we apply the direct pairwise test as an advisory check.
 **Adjudicated divergence, kept as a warning.** `redefinition-type-mismatch` reports a redefinition
 typed by two unrelated types, because it is almost always a slip, but as a warning, so no model the
 specification admits is rejected. The two `Import3` `noErrors` rows in
-[pilot-xpect.md](pilot-xpect.md#noerrors--265-of-276-agree) closed with that severity; calling them
+[pilot-xpect.md](pilot-xpect.md#noerrors--262-of-276-agree) closed with that severity; calling them
 wording-only would have been false — the pilot emits nothing there. (The same check once caught the
 non-conforming individual redefinition in `Individuals Examples/AnalysisIndividualExample.sysml`,
 fixed upstream at `2026-07`.)

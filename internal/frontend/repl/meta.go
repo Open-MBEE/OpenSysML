@@ -1258,6 +1258,7 @@ func (s *Session) doBudget() []string {
 		fmt.Sprintf("  collection elements  %-10d %s", b.MaxElements, runtime.MaxElementsEnvVar),
 		fmt.Sprintf("  nested calc depth    %-10d %s", b.MaxCalcDepth, runtime.MaxCalcDepthEnvVar),
 		fmt.Sprintf("  sweep runs           %-10d %s", b.MaxSweepRuns, runtime.MaxSweepRunsEnvVar),
+		fmt.Sprintf("  integer bits         %-10d %s", b.MaxIntegerBits, runtime.MaxIntegerBitsEnvVar),
 	}
 }
 

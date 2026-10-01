@@ -26,10 +26,10 @@ pub mod wire {
 
 pub use connection::Connection;
 pub use domain::{
-    Array, Capabilities, Complex, Diagnostic, EnumLiteral, EvalOptions, Evaluation, FeatureValue,
-    Function, Instance, Instantiation, Language, Magnitude, MeasurementRef, Metaobject, Model,
-    ModelResponse, ParseOptions, Quantity, ServerInfo, Set, Span, Symbol, TensorQuantity,
-    Undetermined, UnitFactor, UnitTerm, Value, Vector, VectorQuantity,
+    Array, BigInteger, Capabilities, Complex, Diagnostic, EnumLiteral, EvalOptions, Evaluation,
+    FeatureValue, Function, Instance, Instantiation, Language, Magnitude, MeasurementRef,
+    Metaobject, Model, ModelResponse, ParseOptions, Quantity, ServerInfo, Set, Span, Symbol,
+    TensorQuantity, Undetermined, UnitFactor, UnitTerm, Value, Vector, VectorQuantity,
 };
 pub use error::{Error, Status};
 pub use wire::FailureReason;

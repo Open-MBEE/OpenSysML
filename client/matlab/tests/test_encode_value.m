@@ -3,6 +3,11 @@ function test_encode_value()
 
     assert_equal(opensysml.encodeValue(true), struct('boolValue', true), 'bool');
     assert_equal(opensysml.encodeValue(int64(7)), struct('intValue', '7'), 'int64');
+    big = struct('bigInteger', '1180591620717411303424');
+    assert_equal(opensysml.encodeValue(big), struct('bigIntValue', '1180591620717411303424'), 'bigInteger');
+    assert_equal(opensysml.decodeValue(opensysml.encodeValue(big)), big, 'bigInteger round trip');
+    q = opensysml.encodeValue(struct('magnitude', big, 'unit', 'kg', 'unitTerm', []));
+    assert_equal(q.quantity.bigIntMagnitude, '1180591620717411303424', 'quantity bigIntMagnitude');
     assert_equal(opensysml.encodeValue(1.5), struct('realValue', 1.5), 'real');
     assert_equal(opensysml.encodeValue('x'), struct('stringValue', 'x'), 'string');
     assert_equal(opensysml.encodeValue([]), struct('null', ''), 'null');

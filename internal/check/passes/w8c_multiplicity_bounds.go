@@ -57,7 +57,7 @@ func (c *multiplicityBoundsChecker) checkBound(scope *symbols.Scope, bound ast.N
 		return
 	}
 	if v, ok := c.model.EvalIn(scope, bound); ok {
-		if v.Kind == semantics.ValInfinity || (v.Kind == semantics.ValInt && v.Int >= 0) {
+		if v.Kind == semantics.ValInfinity || (v.Kind == semantics.ValInt && v.IntSign() >= 0) {
 			return
 		}
 		c.report(bound)

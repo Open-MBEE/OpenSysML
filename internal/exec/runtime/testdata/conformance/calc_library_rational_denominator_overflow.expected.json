@@ -1,5 +1,0 @@
-{
-  "libraries": true,
-  "type": "calc",
-  "error": "arithmetic overflow: denom(0.0001) is 73786976294838206464, which exceeds the Integer range"
-}

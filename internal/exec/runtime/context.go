@@ -165,6 +165,9 @@ type Context struct {
 	// maxSweepRuns bounds the runs one parameter sweep or sample asks for.
 	maxSweepRuns int64
 
+	// maxIntegerBits bounds the magnitude, in bits, of one Integer a run computes.
+	maxIntegerBits int64
+
 	// freeInvocationFrames are the frames of returned calc invocations, kept so a
 	// recursion reuses storage rather than allocating per call.
 	freeInvocationFrames []*invocationFrame
@@ -343,6 +346,7 @@ func NewContext(model *Model, maxSteps int64) *Context {
 		maxElements:    DefaultMaxElements,
 		maxCalcDepth:   DefaultMaxCalcDepth,
 		maxSweepRuns:   DefaultMaxSweepRuns,
+		maxIntegerBits: DefaultMaxIntegerBits,
 
 		occurrences:       make(map[*symbols.Symbol][]int64),
 		namespaceBindings: make(map[*symbols.Symbol]Value),

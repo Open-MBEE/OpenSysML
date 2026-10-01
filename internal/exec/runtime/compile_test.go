@@ -3,6 +3,7 @@ package runtime
 import (
 	"errors"
 	"math"
+	"math/big"
 	"strings"
 	"testing"
 
@@ -51,6 +52,7 @@ package test {
 	calc def Deep { in n : Integer; return : Integer = if n <= 0 ? 0 else 1 + Deep(n - 1); }
 	calc def Nested { in a : Integer; in b : Integer; return : Integer = Add(Mul(a, b), Sub(a, Fib(b))); }
 	calc def Tail { in a : Integer; in b : Integer; a * b + Fib(b) }
+	calc def NestedPow { in a : Integer; in b : Integer; return : Integer = Add(Pow(a, b), a); }
 	calc def TailNat { in a : Integer; return : Natural; a - 1 }
 
 	calc def Twice { in n : Integer; out a = n * 2; }
@@ -165,6 +167,17 @@ func wantOutcomeInt(t *testing.T, name string, got calcOutcome, want int64) {
 	}
 }
 
+// wantOutcomeDecimal fails unless got is the Integer the decimal text spells.
+func wantOutcomeDecimal(t *testing.T, name string, got calcOutcome, want string) {
+	t.Helper()
+	if got.err != nil {
+		t.Fatalf("%s: %v", name, got.err)
+	}
+	if got.value.Kind != ValConst || got.value.Const.Kind != semantics.ValInt || got.value.Const.FormatInt() != want {
+		t.Fatalf("%s = %s, want %s", name, FormatTraceValue(got.value), want)
+	}
+}
+
 func wantErrorIs(t *testing.T, name string, got calcOutcome, target error) {
 	t.Helper()
 	if !errors.Is(got.err, target) {
@@ -223,23 +236,31 @@ func TestCompiledCalcOperatorParity(t *testing.T) {
 	}
 }
 
+// An Integer past int64 is the same exact Integer in either tier, promoted on
+// the overflow the int64 fast path detects.
+func TestCompiledCalcPromotionParity(t *testing.T) {
+	wantOutcomeDecimal(t, "Add(max, 1)", wantSameOutcome(t, "Add", intArg(math.MaxInt64), intArg(1)), "9223372036854775808")
+	wantOutcomeDecimal(t, "Sub(min, 1)", wantSameOutcome(t, "Sub", intArg(math.MinInt64), intArg(1)), "-9223372036854775809")
+	wantOutcomeDecimal(t, "Neg(min)", wantSameOutcome(t, "Neg", intArg(math.MinInt64)), "9223372036854775808")
+	wantOutcomeDecimal(t, "Pow(2, 70)", wantSameOutcome(t, "Pow", intArg(2), intArg(70)), "1180591620717411303424")
+	wantOutcomeDecimal(t, "Nested(max, 3)", wantSameOutcome(t, "Nested", intArg(math.MaxInt64), intArg(3)), "36893488147419103226")
+	wantOutcomeDecimal(t, "Tail(max, 2)", wantSameOutcome(t, "Tail", intArg(math.MaxInt64), intArg(2)), "18446744073709551615")
+	wantOutcomeDecimal(t, "Mod(2**63, 7)", wantSameOutcome(t, "Mod", Value{Kind: ValConst, Const: semantics.BigIntValue(new(big.Int).Lsh(big.NewInt(1), 63))}, intArg(7)), "1")
+}
+
 // The errors a body raises keep their kind, their text and their calc frames.
 func TestCompiledCalcErrorParity(t *testing.T) {
-	overflow := wantSameOutcome(t, "Add", intArg(math.MaxInt64), intArg(1))
-	wantErrorIs(t, "Add", overflow, semantics.ErrArithmeticOverflow)
 	byZero := wantSameOutcome(t, "Mod", intArg(1), intArg(0))
 	wantErrorIs(t, "Mod", byZero, ErrDivisionByZero)
-	nested := wantSameOutcome(t, "Nested", intArg(math.MaxInt64), intArg(3))
-	wantErrorIs(t, "Nested", nested, semantics.ErrArithmeticOverflow)
-	if !strings.Contains(nested.err.Error(), "Mul") || !strings.Contains(nested.err.Error(), "Nested") {
-		t.Errorf("Nested error names neither frame: %v", nested.err)
+	tooLarge := wantSameOutcome(t, "NestedPow", intArg(2), intArg(semantics.DefaultMaxIntegerBits))
+	wantErrorIs(t, "NestedPow", tooLarge, ErrIntegerSizeLimit)
+	if !strings.Contains(tooLarge.err.Error(), "Pow") || !strings.Contains(tooLarge.err.Error(), "NestedPow") {
+		t.Errorf("NestedPow error names neither frame: %v", tooLarge.err)
 	}
 	negative := wantSameOutcome(t, "Natural1", intArg(0))
 	wantErrorIs(t, "Natural1", negative, ErrTypeMismatch)
 	tailNegative := wantSameOutcome(t, "TailNat", intArg(0))
 	wantErrorIs(t, "TailNat", tailNegative, ErrTypeMismatch)
-	tailOverflow := wantSameOutcome(t, "Tail", intArg(math.MaxInt64), intArg(2))
-	wantErrorIs(t, "Tail", tailOverflow, semantics.ErrArithmeticOverflow)
 	badArg := wantSameOutcome(t, "Natural1", intArg(-1))
 	wantErrorIs(t, "Natural1", badArg, ErrTypeMismatch)
 	wantOutcomeInt(t, "Positive1(2)", wantSameOutcome(t, "Positive1", intArg(2)), 1)

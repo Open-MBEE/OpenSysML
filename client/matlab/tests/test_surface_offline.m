@@ -58,6 +58,20 @@ function test_surface_offline()
     tensor = struct('dimensions', int64(2), 'components', {{quantity, quantity}});
     wire = opensysml.encodeValue(tensor, conn);
     assert_equal(isfield(wire, 'tensorQuantity'), true, 'tensor quantity arm');
+    wide = struct('bigInteger', '1180591620717411303424');
+    wideQuantity = struct('magnitude', wide, 'unit', 'kg');
+    for value = {wide, {int64(1), {wide}}, struct('set', {{wide}}), wideQuantity, ...
+            struct('components', {{wideQuantity}}), ...
+            struct('dimensions', int64(1), 'components', {{wideQuantity}})}
+        assert_error(@() opensysml.encodeValue(value{1}, conn), ...
+            'opensysml:missingCapability', 'Integer beyond int64 without big_int_values');
+    end
+    bigConn = opensysml.external('127.0.0.1:1');
+    bigConn.primeServerInfo(struct('version', 'test', 'capabilities', ...
+        {[capabilities, {'big_int_values'}]}));
+    wire = opensysml.encodeValue({int64(1), {wide}}, bigConn);
+    assert_equal(wire.sequence.elements{2}.sequence.elements{1}.bigIntValue, ...
+        '1180591620717411303424', 'nested Integer beyond int64 with big_int_values');
     assert_equal(opensysml.parseUint64('18446744073709551615'), ...
         intmax('uint64'), 'exact uint64 parsing');
 
@@ -181,6 +195,20 @@ function test_surface_offline()
     assert_equal(wireBindings{2}.values{1}.intValue, '3', 'integer binding');
     assert_equal(wireBindings{2}.values{2}.realValue, 4.5, 'real binding');
     assert_equal(wireBindings{2}.values{3}.boolValue, true, 'boolean binding');
+    wide = opensysml.buildDocumentBindings(struct('n', {{struct('bigInteger', '9223372036854775808')}}));
+    assert_equal(wide{1}.values{1}.bigIntValue, '9223372036854775808', 'Integer binding beyond int64');
+    decodedWide = opensysml.internal.decodeDocumentValue(struct('bigIntValue', '-1180591620717411303424'));
+    assert_equal(decodedWide.bigInteger, '-1180591620717411303424', 'document Integer beyond int64');
+    queryConn = opensysml.external('127.0.0.1:1');
+    queryConn.primeServerInfo(struct('version', 'test', 'capabilities', ...
+        {{'document_query'}}));
+    queryModel = opensysml.Model(queryConn, 'offline-hash', {});
+    wideBound = struct('bigInteger', '9223372036854775808');
+    for bound = {wideBound, struct('magnitude', wideBound, 'unit', '')}
+        assert_error(@() opensysml.runDocumentQuery(queryModel, 'Q::q', ...
+            'bindings', struct('n', {bound})), ...
+            'opensysml:missingCapability', 'document binding beyond int64 without big_int_values');
+    end
     assert_error(@() opensysml.buildDocumentBindings(struct('bad', {struct('type', 'verdict')})), ...
         'opensysml:argument', 'unsupported document binding');
 

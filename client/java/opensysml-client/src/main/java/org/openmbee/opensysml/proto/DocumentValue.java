@@ -68,6 +68,7 @@ private static final long serialVersionUID = 0L;
     OBJECT(10),
     STATE(11),
     EVENT(12),
+    BIG_INT_VALUE(13),
     KIND_NOT_SET(0);
     private final int value;
     private KindCase(int value) {
@@ -96,6 +97,7 @@ private static final long serialVersionUID = 0L;
         case 10: return OBJECT;
         case 11: return STATE;
         case 12: return EVENT;
+        case 13: return BIG_INT_VALUE;
         case 0: return KIND_NOT_SET;
         default: return null;
       }
@@ -526,6 +528,70 @@ private static final long serialVersionUID = 0L;
     return org.openmbee.opensysml.proto.DocumentEvent.getDefaultInstance();
   }
 
+  public static final int BIG_INT_VALUE_FIELD_NUMBER = 13;
+  /**
+   * <pre>
+   * An Integer beyond int64, in decimal, as Value.big_int_value.
+   * </pre>
+   *
+   * <code>string big_int_value = 13 [json_name = "bigIntValue"];</code>
+   * @return Whether the bigIntValue field is set.
+   */
+  public boolean hasBigIntValue() {
+    return kindCase_ == 13;
+  }
+  /**
+   * <pre>
+   * An Integer beyond int64, in decimal, as Value.big_int_value.
+   * </pre>
+   *
+   * <code>string big_int_value = 13 [json_name = "bigIntValue"];</code>
+   * @return The bigIntValue.
+   */
+  public java.lang.String getBigIntValue() {
+    java.lang.Object ref = "";
+    if (kindCase_ == 13) {
+      ref = kind_;
+    }
+    if (ref instanceof java.lang.String) {
+      return (java.lang.String) ref;
+    } else {
+      com.google.protobuf.ByteString bs = 
+          (com.google.protobuf.ByteString) ref;
+      java.lang.String s = bs.toStringUtf8();
+      if (kindCase_ == 13) {
+        kind_ = s;
+      }
+      return s;
+    }
+  }
+  /**
+   * <pre>
+   * An Integer beyond int64, in decimal, as Value.big_int_value.
+   * </pre>
+   *
+   * <code>string big_int_value = 13 [json_name = "bigIntValue"];</code>
+   * @return The bytes for bigIntValue.
+   */
+  public com.google.protobuf.ByteString
+      getBigIntValueBytes() {
+    java.lang.Object ref = "";
+    if (kindCase_ == 13) {
+      ref = kind_;
+    }
+    if (ref instanceof java.lang.String) {
+      com.google.protobuf.ByteString b = 
+          com.google.protobuf.ByteString.copyFromUtf8(
+              (java.lang.String) ref);
+      if (kindCase_ == 13) {
+        kind_ = b;
+      }
+      return b;
+    } else {
+      return (com.google.protobuf.ByteString) ref;
+    }
+  }
+
   public static final int ELEMENT_TYPE_FIELD_NUMBER = 7;
   @SuppressWarnings("serial")
   private volatile java.lang.Object elementType_ = "";
@@ -627,6 +693,9 @@ private static final long serialVersionUID = 0L;
     if (kindCase_ == 12) {
       output.writeMessage(12, (org.openmbee.opensysml.proto.DocumentEvent) kind_);
     }
+    if (kindCase_ == 13) {
+      com.google.protobuf.GeneratedMessage.writeString(output, 13, kind_);
+    }
     getUnknownFields().writeTo(output);
   }
 
@@ -684,6 +753,9 @@ private static final long serialVersionUID = 0L;
     if (kindCase_ == 12) {
       size += com.google.protobuf.CodedOutputStream
         .computeMessageSize(12, (org.openmbee.opensysml.proto.DocumentEvent) kind_);
+    }
+    if (kindCase_ == 13) {
+      size += com.google.protobuf.GeneratedMessage.computeStringSize(13, kind_);
     }
     size += getUnknownFields().getSerializedSize();
     memoizedSize = size;
@@ -749,6 +821,10 @@ private static final long serialVersionUID = 0L;
         if (!getEvent()
             .equals(other.getEvent())) return false;
         break;
+      case 13:
+        if (!getBigIntValue()
+            .equals(other.getBigIntValue())) return false;
+        break;
       case 0:
       default:
     }
@@ -813,6 +889,10 @@ private static final long serialVersionUID = 0L;
       case 12:
         hash = (37 * hash) + EVENT_FIELD_NUMBER;
         hash = (53 * hash) + getEvent().hashCode();
+        break;
+      case 13:
+        hash = (37 * hash) + BIG_INT_VALUE_FIELD_NUMBER;
+        hash = (53 * hash) + getBigIntValue().hashCode();
         break;
       case 0:
       default:
@@ -1007,7 +1087,7 @@ private static final long serialVersionUID = 0L;
 
     private void buildPartial0(org.openmbee.opensysml.proto.DocumentValue result) {
       int from_bitField0_ = bitField0_;
-      if (((from_bitField0_ & 0x00000800) != 0)) {
+      if (((from_bitField0_ & 0x00001000) != 0)) {
         result.elementType_ = elementType_;
       }
     }
@@ -1051,7 +1131,7 @@ private static final long serialVersionUID = 0L;
       if (other == org.openmbee.opensysml.proto.DocumentValue.getDefaultInstance()) return this;
       if (!other.getElementType().isEmpty()) {
         elementType_ = other.elementType_;
-        bitField0_ |= 0x00000800;
+        bitField0_ |= 0x00001000;
         onChanged();
       }
       switch (other.getKindCase()) {
@@ -1101,6 +1181,12 @@ private static final long serialVersionUID = 0L;
         }
         case EVENT: {
           mergeEvent(other.getEvent());
+          break;
+        }
+        case BIG_INT_VALUE: {
+          kindCase_ = 13;
+          kind_ = other.kind_;
+          onChanged();
           break;
         }
         case KIND_NOT_SET: {
@@ -1167,7 +1253,7 @@ private static final long serialVersionUID = 0L;
             } // case 48
             case 58: {
               elementType_ = input.readStringRequireUtf8();
-              bitField0_ |= 0x00000800;
+              bitField0_ |= 0x00001000;
               break;
             } // case 58
             case 66: {
@@ -1205,6 +1291,12 @@ private static final long serialVersionUID = 0L;
               kindCase_ = 12;
               break;
             } // case 98
+            case 106: {
+              java.lang.String s = input.readStringRequireUtf8();
+              kindCase_ = 13;
+              kind_ = s;
+              break;
+            } // case 106
             default: {
               if (!super.parseUnknownField(input, extensionRegistry, tag)) {
                 done = true; // was an endgroup tag
@@ -2505,6 +2597,123 @@ private static final long serialVersionUID = 0L;
       return eventBuilder_;
     }
 
+    /**
+     * <pre>
+     * An Integer beyond int64, in decimal, as Value.big_int_value.
+     * </pre>
+     *
+     * <code>string big_int_value = 13 [json_name = "bigIntValue"];</code>
+     * @return Whether the bigIntValue field is set.
+     */
+    @java.lang.Override
+    public boolean hasBigIntValue() {
+      return kindCase_ == 13;
+    }
+    /**
+     * <pre>
+     * An Integer beyond int64, in decimal, as Value.big_int_value.
+     * </pre>
+     *
+     * <code>string big_int_value = 13 [json_name = "bigIntValue"];</code>
+     * @return The bigIntValue.
+     */
+    @java.lang.Override
+    public java.lang.String getBigIntValue() {
+      java.lang.Object ref = "";
+      if (kindCase_ == 13) {
+        ref = kind_;
+      }
+      if (!(ref instanceof java.lang.String)) {
+        com.google.protobuf.ByteString bs =
+            (com.google.protobuf.ByteString) ref;
+        java.lang.String s = bs.toStringUtf8();
+        if (kindCase_ == 13) {
+          kind_ = s;
+        }
+        return s;
+      } else {
+        return (java.lang.String) ref;
+      }
+    }
+    /**
+     * <pre>
+     * An Integer beyond int64, in decimal, as Value.big_int_value.
+     * </pre>
+     *
+     * <code>string big_int_value = 13 [json_name = "bigIntValue"];</code>
+     * @return The bytes for bigIntValue.
+     */
+    @java.lang.Override
+    public com.google.protobuf.ByteString
+        getBigIntValueBytes() {
+      java.lang.Object ref = "";
+      if (kindCase_ == 13) {
+        ref = kind_;
+      }
+      if (ref instanceof String) {
+        com.google.protobuf.ByteString b = 
+            com.google.protobuf.ByteString.copyFromUtf8(
+                (java.lang.String) ref);
+        if (kindCase_ == 13) {
+          kind_ = b;
+        }
+        return b;
+      } else {
+        return (com.google.protobuf.ByteString) ref;
+      }
+    }
+    /**
+     * <pre>
+     * An Integer beyond int64, in decimal, as Value.big_int_value.
+     * </pre>
+     *
+     * <code>string big_int_value = 13 [json_name = "bigIntValue"];</code>
+     * @param value The bigIntValue to set.
+     * @return This builder for chaining.
+     */
+    public Builder setBigIntValue(
+        java.lang.String value) {
+      if (value == null) { throw new NullPointerException(); }
+      kindCase_ = 13;
+      kind_ = value;
+      onChanged();
+      return this;
+    }
+    /**
+     * <pre>
+     * An Integer beyond int64, in decimal, as Value.big_int_value.
+     * </pre>
+     *
+     * <code>string big_int_value = 13 [json_name = "bigIntValue"];</code>
+     * @return This builder for chaining.
+     */
+    public Builder clearBigIntValue() {
+      if (kindCase_ == 13) {
+        kindCase_ = 0;
+        kind_ = null;
+        onChanged();
+      }
+      return this;
+    }
+    /**
+     * <pre>
+     * An Integer beyond int64, in decimal, as Value.big_int_value.
+     * </pre>
+     *
+     * <code>string big_int_value = 13 [json_name = "bigIntValue"];</code>
+     * @param value The bytes for bigIntValue to set.
+     * @return This builder for chaining.
+     */
+    public Builder setBigIntValueBytes(
+        com.google.protobuf.ByteString value) {
+      if (value == null) { throw new NullPointerException(); }
+      checkByteStringIsUtf8(value);
+      kindCase_ = 13;
+      kind_ = value;
+      onChanged();
+      return this;
+    }
+
     private java.lang.Object elementType_ = "";
     /**
      * <pre>
@@ -2560,7 +2769,7 @@ private static final long serialVersionUID = 0L;
         java.lang.String value) {
       if (value == null) { throw new NullPointerException(); }
       elementType_ = value;
-      bitField0_ |= 0x00000800;
+      bitField0_ |= 0x00001000;
       onChanged();
       return this;
     }
@@ -2574,7 +2783,7 @@ private static final long serialVersionUID = 0L;
      */
     public Builder clearElementType() {
       elementType_ = getDefaultInstance().getElementType();
-      bitField0_ = (bitField0_ & ~0x00000800);
+      bitField0_ = (bitField0_ & ~0x00001000);
       onChanged();
       return this;
     }
@@ -2592,7 +2801,7 @@ private static final long serialVersionUID = 0L;
       if (value == null) { throw new NullPointerException(); }
       checkByteStringIsUtf8(value);
       elementType_ = value;
-      bitField0_ |= 0x00000800;
+      bitField0_ |= 0x00001000;
       onChanged();
       return this;
     }

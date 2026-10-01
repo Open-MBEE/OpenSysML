@@ -37,6 +37,7 @@ import {
   VectorSchema,
 } from "../generated/sysml_pb.js";
 import {
+  CAPABILITY_BIG_INT_VALUES,
   CAPABILITY_COMPLEX_VALUES,
   CAPABILITY_FUNCTION_VALUES,
   CAPABILITY_INFINITY_VALUE,
@@ -320,6 +321,8 @@ export function decodeValue(value: Value | undefined): SysMLValue {
   switch (kind.case) {
     case "intValue":
       return { kind: "int", value: kind.value };
+    case "bigIntValue":
+      return { kind: "int", value: decodeBigInteger(kind.value) };
     case "realValue":
       return { kind: "real", value: kind.value };
     case "complex":
@@ -384,7 +387,7 @@ export function decodeValue(value: Value | undefined): SysMLValue {
 export function encodeValue(value: SysMLValue): Value {
   switch (value.kind) {
     case "int":
-      return create(ValueSchema, { kind: { case: "intValue", value: value.value } });
+      return encodeMagnitude(value);
     case "real":
       return create(ValueSchema, { kind: { case: "realValue", value: value.value } });
     case "complex":
@@ -651,6 +654,9 @@ function decodeQuantity(quantity: Quantity): QuantityValue {
     case "intMagnitude":
       magnitude = { kind: "int", value: quantity.magnitude.value };
       break;
+    case "bigIntMagnitude":
+      magnitude = { kind: "int", value: decodeBigInteger(quantity.magnitude.value) };
+      break;
     case "realMagnitude":
       magnitude = { kind: "real", value: quantity.magnitude.value };
       break;
@@ -668,9 +674,11 @@ function decodeQuantity(quantity: Quantity): QuantityValue {
 function encodeQuantity(quantity: QuantityValue): Quantity {
   return create(QuantitySchema, {
     magnitude:
-      quantity.magnitude.kind === "int"
-        ? { case: "intMagnitude", value: quantity.magnitude.value }
-        : { case: "realMagnitude", value: quantity.magnitude.value },
+      quantity.magnitude.kind !== "int"
+        ? { case: "realMagnitude", value: quantity.magnitude.value }
+        : fitsInt64(quantity.magnitude.value)
+          ? { case: "intMagnitude", value: quantity.magnitude.value }
+          : { case: "bigIntMagnitude", value: quantity.magnitude.value.toString() },
     unit: quantity.unit,
     ...(quantity.unitTerm === undefined ? {} : { unitTerm: encodeUnitTerm(quantity.unitTerm) }),
   });
@@ -749,9 +757,28 @@ function formatUnitTerm(term: UnitFactorization): string {
 }
 
 function encodeMagnitude(magnitude: Magnitude): Value {
-  return magnitude.kind === "int"
+  if (magnitude.kind === "real") {
+    return create(ValueSchema, { kind: { case: "realValue", value: magnitude.value } });
+  }
+  return fitsInt64(magnitude.value)
     ? create(ValueSchema, { kind: { case: "intValue", value: magnitude.value } })
-    : create(ValueSchema, { kind: { case: "realValue", value: magnitude.value } });
+    : create(ValueSchema, { kind: { case: "bigIntValue", value: magnitude.value.toString() } });
+}
+
+const INT64_MIN = -(2n ** 63n);
+const INT64_MAX = 2n ** 63n - 1n;
+
+/** Whether an Integer travels as `int_value`; one beyond int64 travels as `big_int_value`. */
+export function fitsInt64(value: bigint): boolean {
+  return value >= INT64_MIN && value <= INT64_MAX;
+}
+
+/** Reads the decimal of a `big_int_value` or `big_int_magnitude`. */
+export function decodeBigInteger(text: string): bigint {
+  if (!/^-?[0-9]+$/.test(text)) {
+    throw new MalformedValueError(`a big Integer ${JSON.stringify(text)} is not decimal`);
+  }
+  return BigInt(text);
 }
 
 /** The flattened size the dimensions demand, refusing a dimension that is not positive. */
@@ -933,7 +960,7 @@ function numbersEqual(a: NumberValue, b: SysMLValue): boolean {
 
 // Whether r is exactly the integer n, never rounding n.
 function realIsInt(r: number, n: bigint): boolean {
-  return Number.isInteger(r) && r >= -(2 ** 63) && r < 2 ** 63 && BigInt(r) === n;
+  return Number.isInteger(r) && BigInt(r) === n;
 }
 
 function magnitudesEqual(a: Magnitude[], b: Magnitude[]): boolean {
@@ -1063,6 +1090,8 @@ function decodeVector(vector: Vector): Magnitude[] {
     switch (component.kind.case) {
       case "intValue":
         return { kind: "int", value: component.kind.value };
+      case "bigIntValue":
+        return { kind: "int", value: decodeBigInteger(component.kind.value) };
       case "realValue":
         return { kind: "real", value: component.kind.value };
       default:
@@ -1135,12 +1164,9 @@ export type ValueInput =
   | { kind: "set"; elements: readonly ValueInput[] }
   | ({ kind: "array"; elements: readonly ValueInput[] } & Omit<ArrayValue, "elements">);
 
-const INT64_MIN = -(1n << 63n);
-const INT64_MAX = (1n << 63n) - 1n;
-
-/** Refuses an integer outside int64, where the wire's `int` arm lives. */
+/** Refuses an instance or `self` id outside int64, the width of the wire's id fields. */
 function checkInt64(value: bigint): void {
-  if (value < INT64_MIN || value > INT64_MAX) {
+  if (!fitsInt64(value)) {
     throw new RangeError(`value out of range: ${value.toString()}`);
   }
 }
@@ -1166,7 +1192,6 @@ function normalizeInput(input: unknown): SysMLValue {
     case "boolean":
       return { kind: "boolean", value: input };
     case "bigint":
-      checkInt64(input);
       return { kind: "int", value: input };
     case "number":
       return { kind: "real", value: input };
@@ -1200,9 +1225,6 @@ function normalizeInput(input: unknown): SysMLValue {
         dimensions: value.dimensions,
         elements: value.elements.map(normalizeInput),
       };
-    case "int":
-      checkInt64(value.value);
-      return value;
     case "enum":
       return value.value.value === undefined
         ? value
@@ -1261,15 +1283,21 @@ export function requireInput(value: SysMLValue, info: ServerInfo): void {
   const require = (capability: string): void => {
     requireCapability(info, capability, upgradeRemedy(capability));
   };
+  const requireMagnitudes = (magnitudes: Magnitude[]): void => {
+    if (magnitudes.some((magnitude) => magnitude.kind === "int" && !fitsInt64(magnitude.value))) {
+      require(CAPABILITY_BIG_INT_VALUES);
+    }
+  };
   switch (value.kind) {
+    case "int":
+      requireMagnitudes([value]);
+      return;
     case "complex":
       require(CAPABILITY_COMPLEX_VALUES);
       return;
     case "quantity":
+      requireMagnitudes([value.magnitude]);
       checkReduction(`quantity in [${value.unit}]`, value.unit, value.unitTerm);
-      if (value.magnitude.kind === "int") {
-        checkInt64(value.magnitude.value);
-      }
       return;
     case "measurementRef": {
       require(CAPABILITY_MEASUREMENT_REFS);
@@ -1287,9 +1315,6 @@ export function requireInput(value: SysMLValue, info: ServerInfo): void {
       }
       return;
     }
-    case "int":
-      checkInt64(value.value);
-      return;
     case "instance":
       checkInt64(value.id);
       return;
@@ -1314,19 +1339,13 @@ export function requireInput(value: SysMLValue, info: ServerInfo): void {
       return;
     case "vector":
       require(CAPABILITY_STRUCTURED_VALUES);
-      value.components.forEach((component) => {
-        if (component.kind === "int") {
-          checkInt64(component.value);
-        }
-      });
+      requireMagnitudes(value.components);
       return;
     case "vectorQuantity":
       require(CAPABILITY_STRUCTURED_VALUES);
+      requireMagnitudes(value.components.map((component) => component.magnitude));
       value.components.forEach((component) => {
         checkReduction(`quantity in [${component.unit}]`, component.unit, component.unitTerm);
-        if (component.magnitude.kind === "int") {
-          checkInt64(component.magnitude.value);
-        }
       });
       return;
     case "set":
@@ -1337,11 +1356,9 @@ export function requireInput(value: SysMLValue, info: ServerInfo): void {
       return;
     case "tensorQuantity":
       require(CAPABILITY_TENSOR_VALUES);
+      requireMagnitudes(value.components.map((component) => component.magnitude));
       value.components.forEach((component) => {
         checkReduction(`quantity in [${component.unit}]`, component.unit, component.unitTerm);
-        if (component.magnitude.kind === "int") {
-          checkInt64(component.magnitude.value);
-        }
       });
       return;
     case "infinity":
