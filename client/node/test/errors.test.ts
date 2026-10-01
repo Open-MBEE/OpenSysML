@@ -10,6 +10,7 @@ import {
   SourceDocument,
   ModelNotFoundError,
   OpenSysMLError,
+  ServiceError,
   ServiceUnavailableError,
   SymbolNotFoundError,
   connect,
@@ -94,6 +95,18 @@ test("an RPC failure becomes the error its status names, and this client's error
   assert.ok(unavailable instanceof ServiceUnavailableError);
   assert.equal(unavailable.code, "UNAVAILABLE");
   assert.match(unavailable.message, /service unavailable: nothing there/);
+
+  // A rejected fetch — the browser's dead address, CORS refusal and mid-call
+  // loss — arrives as UNKNOWN carrying the TypeError as its cause; the shape,
+  // not the message, names an unreachable service. An UNKNOWN of another
+  // cause stays a plain ServiceError.
+  const refused = fromRpcError(ConnectError.from(new TypeError("Failed to fetch")));
+  assert.ok(refused instanceof ServiceUnavailableError);
+  assert.equal(refused.code, "UNKNOWN");
+  assert.match(refused.message, /service unavailable: Failed to fetch/);
+  const unknown = fromRpcError(new ConnectError("odd", Code.Unknown));
+  assert.ok(unknown instanceof ServiceError);
+  assert.ok(!(unknown instanceof ServiceUnavailableError));
 
   const file = fromRpcError(new ConnectError("file not found: /nope", Code.NotFound));
   assert.ok(file instanceof ModelFileNotFoundError);

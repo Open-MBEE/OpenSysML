@@ -1,5 +1,5 @@
 - **The Node client answers the degraded handshake on `serverInfo()` too.** A service without `GetServerInfo` — a release older than the handshake — now answers `{ version: "", capabilities: [] }` instead of throwing `UnsupportedOperationError`, as the Python client does.
-- **A dead service is a `ServiceUnavailableError`, not a bare `ServiceError`.** A refused connection or a service that died before answering now raises the dedicated subclass, keeping the `UNAVAILABLE` status code.
+- **A dead service is a `ServiceUnavailableError`, not a bare `ServiceError`.** A refused connection or a service that died before answering now raises the dedicated subclass, keeping the reported status code; a browser fetch that never answered — a dead address, a CORS refusal, a service gone mid-call — maps the same way through the `TypeError` cause the transport wraps as `UNKNOWN`.
 - **`strictConformance` is the documented parse option; `strict` is its deprecated alias.** Passing both with different values is refused on `load`/`loads`/`parseSources`; to raise on parse errors call `model.raiseForErrors()`.
 - **`load`/`loads` refuse an unknown `language` before the call**, with the same `RangeError` `SourceDocument` raises.
 - **`model.symbol("")` and `find("")` answer the model's root**, matching Python's `model.get("")`.

@@ -142,7 +142,7 @@ knowing its members.
 | error | what happened |
 | --- | --- |
 | `ServiceError` | the service could not be reached, started, or answered nothing usable |
-| `ServiceUnavailableError` | the service was unreachable, refused the stream, or died before answering |
+| `ServiceUnavailableError` | the service was unreachable, refused the stream, or died before answering; in a browser also a fetch that never answered (dead address, CORS refusal, mid-call loss), which arrives as `UNKNOWN` |
 | `ServiceStartError` | a private child failed to start, or died while it was needed |
 | `StaleServiceError` | the running service reports another version than `version` asked for |
 | `ClosedConnectionError` | the connection was closed and cannot be used again |

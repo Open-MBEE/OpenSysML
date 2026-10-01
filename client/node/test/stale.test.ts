@@ -211,3 +211,46 @@ test("a handshake the service cannot serve is a ServiceUnavailableError", async 
     },
   );
 });
+
+// A browser fetch that never answered — dead address, CORS refusal, or a
+// service killed mid-call — reaches the client as a TypeError, which the
+// transport wraps as UNKNOWN keeping the TypeError as the cause.
+test("a handshake rejected as a TypeError is a ServiceUnavailableError", async () => {
+  const transport = {
+    unary() {
+      return Promise.reject(new TypeError("Failed to fetch"));
+    },
+    stream() {
+      return Promise.reject(new TypeError("Failed to fetch"));
+    },
+  } as unknown as Transport;
+  const counting = countingBackend();
+  await assert.rejects(
+    Connection.open({ transport, backend: counting.backend, encoding: "protobuf" }),
+    (error: unknown) => {
+      assert.ok(error instanceof ServiceUnavailableError);
+      assert.equal(error.code, "UNKNOWN");
+      return true;
+    },
+  );
+  assert.equal(counting.releases(), 1);
+});
+
+test("a call rejected as a TypeError is a ServiceUnavailableError", async () => {
+  const connection = await Connection.open({
+    transport: fakeTransport({ version: "test", capabilities: [] }, () => {
+      throw new TypeError("Failed to fetch");
+    }),
+    backend: { origin: "the fake transport", release: () => Promise.resolve() },
+    encoding: "protobuf",
+  });
+  await assert.rejects(
+    () => connection.loads("package P {}"),
+    (error: unknown) => {
+      assert.ok(error instanceof ServiceUnavailableError);
+      assert.equal(error.code, "UNKNOWN");
+      return true;
+    },
+  );
+  await connection.close();
+});
