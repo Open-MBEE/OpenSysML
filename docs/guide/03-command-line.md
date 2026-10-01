@@ -203,51 +203,51 @@ a declaration in another resolves correctly.
 
 ## Strict conformance
 
-OpenSysML accepts several notations of its own that no SysML v2 production admits: `defer`, and
-the `choice`, `junction` and `history` pseudostates. These are deprecated spellings of
-what the `StateMachines` library states as metadata — `#deferred ref : Alarm;`,
-`#choice state pick;` and friends — reported as warnings that name the
-replacement, so a model that uses them still analyses cleanly. `-strict` promotes those warnings
+OpenSysML accepts several notations of its own that no SysML v2 production admits: the
+`choice`, `junction` and `history` pseudostates. These are deprecated spellings of
+what the `StateMachines` library states as metadata — `#choice state pick;` and
+friends — reported as warnings that name the replacement, so a model that uses them
+still analyses cleanly. `-strict` promotes those warnings
 to errors, which turns the run into a test of whether the file is conforming SysML v2. The flag
 applies to `-convert` from XMI too: a strict SysML v1 migration writes no extension notation
 at all — see [Portable output with `-strict`](../reference/sysml-v1-migration.md#portable-output-with--strict).
 
-The state machine below uses the `defer` extension so the difference is visible:
+The state machine below uses the `choice` extension so the difference is visible:
 
 ```sysml
 package M {
     attribute def Alarm;
     state monitor {
         entry; then off;
-        state off {
-            defer Alarm;
-        }
+        state off;
+        transition first off accept Alarm then pick;
+        choice pick;
+        transition first pick if true then warming;
         state warming;
         accept after 10 [SI::s] then done;
-        succession first off then warming;
     }
 }
 ```
 
 ```bash
 $ sysml -validate monitor.sysml; echo "exit=$?"
-monitor.sysml:6:13: warning: `defer Alarm;` is an OpenSysML extension; write `#deferred ref : Alarm;` (with `private import StateMachines::*;`)
-            defer Alarm;
-            ^~~~~
+monitor.sysml:7:9: warning: `choice pick;` is an OpenSysML extension; write `#choice state pick;` (with `private import StateMachines::*;`)
+        choice pick;
+        ^~~~~~
 ✓ package M
 ✓ monitor.sysml: no errors
 exit=0
 
 $ sysml -strict -validate monitor.sysml; echo "exit=$?"
-monitor.sysml:6:13: error: `defer Alarm;` is an OpenSysML extension; write `#deferred ref : Alarm;` (with `private import StateMachines::*;`)
-            defer Alarm;
-            ^~~~~
+monitor.sysml:7:9: error: `choice pick;` is an OpenSysML extension; write `#choice state pick;` (with `private import StateMachines::*;`)
+        choice pick;
+        ^~~~~~
 sysml: monitor.sysml did not analyse cleanly; no check was made
 exit=2
 ```
 
 A portable model writes the metadata spelling the finding names instead —
-`#deferred ref : Alarm;` for the `defer` above, once `private import StateMachines::*;`
+`#choice state pick;` for the `choice` above, once `private import StateMachines::*;`
 is added. `-strict` does not
 change what parses: the same file produces the same tree and the same findings in the same
 places. Only their severity changes, and with it the exit status and the tier gate. It is a
@@ -262,7 +262,7 @@ each extension is measured against. The same setting is available as `%strict` a
 ## Lints
 
 Two further warnings, `undeclared-signal` and `port-type-mismatch`, are *lints*: the model
-is valid SysML v2, but a `when <name>` or `defer <name>` that no declaration or `send`
+is valid SysML v2, but a `when <name>` that no declaration or `send`
 accounts for, or a connection between ports whose definitions are unrelated, is almost
 always a slip. `-strict` leaves them warnings, since they are not about notation.
 `-disable-lint <code>` switches one off (`%lint <code> off` at the prompt,

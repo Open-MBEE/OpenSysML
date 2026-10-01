@@ -217,8 +217,8 @@ graph carries, the form carries.
   `ObjectFlowForm` is `name`, `kind` — `streaming` for a plain `flow`, `succession` for a
   `succession flow` — `source`, `sourcePin`, `target`, `targetPin` and `decl`.
 - `states[]`, one `StateForm` per lowered state machine: `vertices` (the machine, its states
-  and pseudostates with `kind`, `parent`, `region`, `regions`, `entry`, `do`, `exit`,
-  `deferred`), `regions`, `transitions` (`source`, `target`, `trigger`, `guard`, `effect`,
+  and pseudostates with `kind`, `parent`, `region`, `regions`, `entry`, `do`, `exit`),
+  `regions`, `transitions` (`source`, `target`, `trigger`, `guard`, `effect`,
   `via`), `entryTransitions`, `connections`, `machine`, `initial`, `attributes`.
 
 Every element the lowering names carries its `span` (`document`, `offset`, `len`) into the

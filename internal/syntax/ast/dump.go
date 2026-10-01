@@ -683,10 +683,6 @@ func dumpBehavior(b *strings.Builder, n Node, depth int) bool {
 	case *PseudostateNode:
 		fmt.Fprintf(b, `(PseudostateNode kind=%q name=%q)`, v.Kind.String(), v.Name)
 		return true
-	case *DeferMember:
-		b.WriteString(`(DeferMember`)
-		writeChildren(b, depth, v.Triggers)
-		return true
 	case *EntryMember:
 		b.WriteString(`(EntryMember`)
 		writeChildren(b, depth, v.Actions)

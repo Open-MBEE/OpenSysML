@@ -101,21 +101,9 @@ func graphShape(g *lower.StateGraph) []string {
 		shape = append(shape, ps.Kind.String()+":"+ps.Name)
 	}
 	for _, s := range g.States {
-		shape = append(shape, "state:"+s.Name+":defer="+itoa(len(s.Defer)))
+		shape = append(shape, "state:"+s.Name)
 	}
 	return shape
-}
-
-func itoa(n int) string {
-	if n == 0 {
-		return "0"
-	}
-	d := []byte{}
-	for n > 0 {
-		d = append([]byte{byte('0' + n%10)}, d...)
-		n /= 10
-	}
-	return string(d)
 }
 
 // TestNotationFixRewritesOldSpellings: applying the fixes every old state
@@ -123,14 +111,9 @@ func itoa(n int) string {
 // nonstandard-notation diagnostic and lowers to the same graph.
 func TestNotationFixRewritesOldSpellings(t *testing.T) {
 	oldForm := `package P {
-	private import ScalarValues::*;
-	item def Ping;
-	action def setSpeed { attribute v : Integer; }
 	state def M {
 		entry; then a;
-		state a {
-			defer Ping, setSpeed(v);
-		}
+		state a;
 		choice pick; // the pick point
 		junction j;
 		state comp {
@@ -144,8 +127,8 @@ func TestNotationFixRewritesOldSpellings(t *testing.T) {
 
 	root, sf, diags := notationDiagnostics(t, "a.sysml", oldForm)
 	_ = root
-	if len(diags) != 5 {
-		t.Fatalf("got %d diagnostics %+v, want 5", len(diags), diags)
+	if len(diags) != 4 {
+		t.Fatalf("got %d diagnostics %+v, want 4", len(diags), diags)
 	}
 	for _, d := range diags {
 		if len(d.Fixes) == 0 {
@@ -161,7 +144,6 @@ func TestNotationFixRewritesOldSpellings(t *testing.T) {
 	for _, want := range []string{
 		"#choice state pick; // the pick point\n\t\t#junction state j;",
 		"#junction state j;\n\t\tstate comp {",
-		"#deferred ref : setSpeed;\n\t\t}",
 		"#shallowHistory state sh;\n\t\t#deepHistory state dh;\n\t}",
 	} {
 		if !strings.Contains(fixed, want) {
@@ -223,25 +205,22 @@ func TestNotationFixSkipsExistingImport(t *testing.T) {
 }
 
 // TestNotationFixQualifiesCollidingNames: when the member's name is the
-// annotation's own (`choice choice;`, `junction junction;`) or a deferred
-// signal is literally named `deferred`, the fix spells the metadata qualified
-// and adds no import — the qualified name resolves unshadowed on its own.
+// annotation's own (`choice choice;`, `junction junction;`), the fix spells
+// the metadata qualified and adds no import — the qualified name resolves
+// unshadowed on its own.
 func TestNotationFixQualifiesCollidingNames(t *testing.T) {
 	oldForm := `package P {
-	item def deferred;
 	state def M {
 		entry; then a;
-		state a {
-			defer deferred;
-		}
+		state a;
 		choice choice;
 		junction junction;
 	}
 }`
 
 	_, sf, diags := notationDiagnostics(t, "a.sysml", oldForm)
-	if len(diags) != 3 {
-		t.Fatalf("got %d diagnostics %+v, want 3", len(diags), diags)
+	if len(diags) != 2 {
+		t.Fatalf("got %d diagnostics %+v, want 2", len(diags), diags)
 	}
 	for _, d := range diags {
 		if len(d.Fixes) != 1 || len(d.Fixes[0].Edits) != 1 {
@@ -250,7 +229,6 @@ func TestNotationFixQualifiesCollidingNames(t *testing.T) {
 	}
 	fixed := applyFixes(t, sf.Bytes(), diags)
 	for _, want := range []string{
-		"#StateMachines::deferred ref : deferred;",
 		"#StateMachines::choice state choice;",
 		"#StateMachines::junction state junction;",
 	} {
@@ -281,27 +259,22 @@ func TestNotationFixQualifiesCollidingNames(t *testing.T) {
 }
 
 // TestNotationFixQuotesUnrestrictedNames: a name that writes as a quoted
-// unrestricted name stays quoted in the rewrite, both for a pseudostate's
-// name and for a deferred trigger's target.
+// unrestricted name stays quoted in the rewrite of a pseudostate's name.
 func TestNotationFixQuotesUnrestrictedNames(t *testing.T) {
 	oldForm := `package P {
-	item def 'Alert Event';
 	state def M {
 		entry; then a;
-		state a {
-			defer 'Alert Event';
-		}
+		state a;
 		choice 'pick point';
 	}
 }`
 
 	_, sf, diags := notationDiagnostics(t, "a.sysml", oldForm)
-	if len(diags) != 2 {
-		t.Fatalf("got %d diagnostics %+v, want 2", len(diags), diags)
+	if len(diags) != 1 {
+		t.Fatalf("got %d diagnostics %+v, want 1", len(diags), diags)
 	}
 	fixed := applyFixes(t, sf.Bytes(), diags)
 	for _, want := range []string{
-		"#deferred ref : 'Alert Event';",
 		"#choice state 'pick point';",
 	} {
 		if !strings.Contains(fixed, want) {
@@ -321,20 +294,16 @@ func TestNotationFixQuotesUnrestrictedNames(t *testing.T) {
 func TestNotationFixQualifiesShadowedAnnotations(t *testing.T) {
 	src := `package P {
 	item def choice;
-	attribute def deferred;
-	item def Ping;
 	state def M {
 		entry; then a;
-		state a {
-			defer Ping;
-		}
+		state a;
 		choice pick;
 	}
 }`
 
 	_, sf, diags := notationDiagnostics(t, "a.sysml", src)
-	if len(diags) != 2 {
-		t.Fatalf("got %d diagnostics %+v, want 2", len(diags), diags)
+	if len(diags) != 1 {
+		t.Fatalf("got %d diagnostics %+v, want 1", len(diags), diags)
 	}
 	for _, d := range diags {
 		if len(d.Fixes) != 1 || len(d.Fixes[0].Edits) != 1 {
@@ -343,7 +312,6 @@ func TestNotationFixQualifiesShadowedAnnotations(t *testing.T) {
 	}
 	fixed := applyFixes(t, sf.Bytes(), diags)
 	for _, want := range []string{
-		"#StateMachines::deferred ref : Ping;",
 		"#StateMachines::choice state pick;",
 	} {
 		if !strings.Contains(fixed, want) {
@@ -352,54 +320,6 @@ func TestNotationFixQualifiesShadowedAnnotations(t *testing.T) {
 	}
 	if strings.Contains(fixed, "import StateMachines") {
 		t.Fatalf("a qualified fix needs no import:\n%s", fixed)
-	}
-
-	_, _, fixedDiags := notationDiagnostics(t, "b.sysml", fixed)
-	if len(fixedDiags) != 0 {
-		t.Fatalf("fixed text still reports %+v:\n%s", fixedDiags, fixed)
-	}
-}
-
-// TestNotationFixMovesDeferOutOfAChain: a `defer` rewritten in place inside a
-// positional chain would leave `then` without a member it can sequence from,
-// so the fix deletes the defer member's line and writes the ref ahead of the
-// member the chain leaves.
-func TestNotationFixMovesDeferOutOfAChain(t *testing.T) {
-	src := `package P {
-	item def Ping;
-	state def M {
-		entry;
-		defer Ping;
-		then a;
-		state a;
-	}
-}`
-
-	_, sf, diags := notationDiagnostics(t, "a.sysml", src)
-	// The `then` after `defer` is itself an extension finding; the defer
-	// member's fix carries the delete and insert edits.
-	if len(diags) != 2 {
-		t.Fatalf("got %d diagnostics %+v, want 2", len(diags), diags)
-	}
-	var fixes int
-	for _, d := range diags {
-		fixes += len(d.Fixes)
-	}
-	if fixes != 1 {
-		t.Fatalf("got %d fixes, want the defer member's one: %+v", fixes, diags)
-	}
-	fixed := applyFixes(t, sf.Bytes(), diags)
-	for _, want := range []string{
-		"#deferred ref : Ping;\n\t\tentry;",
-		"entry;\n\t\tthen a;",
-		"private import StateMachines::*;",
-	} {
-		if !strings.Contains(fixed, want) {
-			t.Fatalf("fixed text lacks %q:\n%s", want, fixed)
-		}
-	}
-	if strings.Contains(fixed, "defer Ping;") {
-		t.Fatalf("the defer member was not deleted:\n%s", fixed)
 	}
 
 	_, _, fixedDiags := notationDiagnostics(t, "b.sysml", fixed)
@@ -447,8 +367,8 @@ package P {
 			if len(fixedDiags) != 0 {
 				t.Fatalf("fixed text still reports %+v:\n%s", fixedDiags, fixed)
 			}
-			if got := graphShape(stateGraphOf(t, "b.sysml", fixed, "M")); !reflect.DeepEqual(got, []string{"choice:pick", "state:a:defer=0"}) {
-				t.Fatalf("fixed text lowers to %v, want [choice:pick state:a:defer=0]", got)
+			if got := graphShape(stateGraphOf(t, "b.sysml", fixed, "M")); !reflect.DeepEqual(got, []string{"choice:pick", "state:a"}) {
+				t.Fatalf("fixed text lowers to %v, want [choice:pick state:a]", got)
 			}
 		})
 	}

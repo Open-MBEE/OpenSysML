@@ -321,25 +321,16 @@ func (l labeller) lines(node *Node) []string {
 }
 
 // cameoStateDetails splits a state's detail into Cameo's compartment lines, one
-// per behaviour and one per deferred trigger, `Ping / defer` as UML writes it,
-// and drops the `initial` marker the initial dot already draws. The detail is
-// split as notation, so a name quoting a comma stays one; the names are bare.
+// per behaviour, and drops the `initial` marker the initial dot already draws.
+// The detail is split as notation, so a name quoting a comma stays one; the
+// names are bare.
 func cameoStateDetails(detail string) []string {
 	var lines []string
-	deferring := false
 	for _, part := range splitNotation(detail, ", ") {
 		part = bareNames(part)
 		keyword := stateDetailKeyword(part)
-		if keyword {
-			deferring = false
-		}
 		switch {
 		case part == "initial":
-		case strings.HasPrefix(part, "defers "):
-			deferring = true
-			lines = append(lines, strings.TrimPrefix(part, "defers ")+" / defer")
-		case deferring:
-			lines = append(lines, part+" / defer")
 		case len(lines) > 0 && !keyword:
 			lines[len(lines)-1] += ", " + part
 		default:
@@ -377,7 +368,7 @@ func splitNotation(text, sep string) []string {
 func stateDetailKeyword(part string) bool {
 	word, _, _ := strings.Cut(part, " ")
 	switch word {
-	case "entry", "do", "exit", "defers":
+	case "entry", "do", "exit":
 		return true
 	}
 	return false

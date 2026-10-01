@@ -12,8 +12,8 @@ import (
 // specification accepts, each of which a surface can switch off by its code.
 const lintSource = "lint"
 
-// CodeUndeclaredSignal marks a `when <name>` or `defer <name>` naming no
-// declaration visible where it is written and no signal the model sends.
+// CodeUndeclaredSignal marks a `when <name>` naming no declaration visible
+// where it is written and no signal the model sends.
 const CodeUndeclaredSignal = "undeclared-signal"
 
 // CodePortTypeMismatch marks a connection, interface or flow between ports

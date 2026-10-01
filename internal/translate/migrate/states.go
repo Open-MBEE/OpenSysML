@@ -5,6 +5,7 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/Open-MBEE/OpenSysML/internal/translate/deferred"
 	"github.com/Open-MBEE/OpenSysML/internal/translate/xmi/sysmlv1"
 )
 
@@ -1804,12 +1805,8 @@ func (s *stateRegion) deferredHead(v *sysmlv1.Element, d *deferrals) {
 	for _, sig := range d.declared {
 		s.m.w.line("@" + prefix + deferredEventFQN + " { ref :>> signal : " + s.m.ref(sig, v) + "; }")
 	}
-	if !d.encoded() {
-		return
-	}
-	for _, k := range d.kept {
-		s.m.w.line("item " + writeName(k.buffer) + " : " + s.m.ref(k.sig, v) + "[*] ordered;")
-		s.m.w.madeUp(k.buffer)
+	if d.encoded() {
+		s.encoding(v, d).Items(encodingWriter{s.m.w})
 	}
 }
 
@@ -1817,78 +1814,85 @@ func (s *stateRegion) deferredHead(v *sysmlv1.Element, d *deferrals) {
 // generated flush loop's variable.
 const deferredPayload = "kept"
 
+// encoding spells a state's kept deferrals as the shared encoding writes them.
+func (s *stateRegion) encoding(v *sysmlv1.Element, d *deferrals) *deferred.Encoding {
+	e := &deferred.Encoding{
+		Buffer:    writeName(d.buffer),
+		Split:     d.split,
+		Flush:     writeName(d.flush),
+		Including: "SequenceFunctions::including",
+	}
+	if s.m.shadowsLibrary("SequenceFunctions", v) {
+		e.Including = "$::" + e.Including
+	}
+	for _, k := range d.kept {
+		sig := deferred.Signal{
+			Ref:    s.m.ref(k.sig, v),
+			Buffer: writeName(k.buffer),
+			Item:   writeName(k.item),
+			Clear:  k.clear,
+		}
+		for _, l := range k.loops {
+			loop := deferred.Loop{
+				Receive: writeName(l.receive),
+				Keep:    writeName(l.keep),
+				Payload: writeName(l.payload),
+			}
+			loop.Accept = s.m.acceptSignalRef(k.sig, v, loop.Payload)
+			if l.port != nil {
+				loop.Via = s.m.ownerPrefix(v) + writeName(s.m.nameFor(l.port))
+			}
+			sig.Loops = append(sig.Loops, loop)
+		}
+		e.Signals = append(e.Signals, sig)
+	}
+	return e
+}
+
 // deferredDo writes the do action that keeps each deferred signal while the
-// state is active: one endless accept loop per signal, run beside the state's
-// own do behavior when it has one.
+// state is active, the state's own do behavior run beside the accept loops
+// when it is written as an action.
 func (s *stateRegion) deferredDo(v, do *sysmlv1.Element, d *deferrals) {
-	s.m.w.block(doAction+" "+writeName(d.buffer), func() {
-		// The state's own do behavior is rendered first: only one that is
-		// written as an action gets a branch of the fork.
-		run, ran := "", false
-		if do != nil {
-			run = s.m.w.aside(func() {
-				ran = s.m.inlineBehaviorHeaded(doAction, actionKeyword+writeName(d.run), do, v)
-			})
+	var own func() deferred.Own
+	if do != nil {
+		own = func() deferred.Own {
+			return s.nested(doAction, d.run, do, v)
 		}
-		if ran || d.loopCount() > 1 {
-			s.m.w.line("first start then " + d.split + ";")
-			s.m.w.line("fork " + d.split + ";")
-			s.m.w.madeUp(d.split)
-			if ran {
-				s.m.w.line("then " + writeName(d.run) + ";")
-			}
-			for _, k := range d.kept {
-				for _, l := range k.loops {
-					s.m.w.line("then " + writeName(l.receive) + ";")
-				}
-			}
-		} else {
-			s.m.w.line("first start then " + writeName(d.kept[0].loops[0].receive) + ";")
-		}
-		_, _ = s.m.w.buf().WriteString(run)
-		if ran {
-			s.m.madeUp(do, d.run)
-		}
-		including := "SequenceFunctions::including"
-		if s.m.shadowsLibrary("SequenceFunctions", v) {
-			including = "$::" + including
-		}
-		for _, k := range d.kept {
-			for _, l := range k.loops {
-				via := ""
-				if l.port != nil {
-					via = " via " + s.m.ownerPrefix(v) + writeName(s.m.nameFor(l.port))
-				}
-				receive, keep, payload := writeName(l.receive), writeName(l.keep), writeName(l.payload)
-				s.m.w.line(actionKeyword + receive + " accept " + payload + " : " + s.m.acceptSignalRef(k.sig, v, payload) + via + ";")
-				s.m.w.line("then action " + keep + " { assign " + writeName(k.buffer) + " := " + including + "(" + writeName(k.buffer) + ", " + receive + "." + payload + "); }")
-				s.m.w.line("then " + receive + ";")
-				s.m.w.madeUp(receive)
-				s.m.w.madeUp(keep)
-			}
-		}
-	})
-	s.m.w.madeUp(d.buffer)
+	}
+	s.encoding(v, d).Do(encodingWriter{s.m.w}, own)
 }
 
 // deferredExit writes the exit action that sends each kept occurrence to the
-// state's own object once the state exits, after the state's own exit behavior,
-// and empties each buffer so a later visit replays only what it kept.
+// state's own object once the state exits, after the state's own exit behavior.
 func (s *stateRegion) deferredExit(v, exit *sysmlv1.Element, d *deferrals) {
-	s.m.w.block(exitAction+" "+writeName(d.flush), func() {
-		prefix := ""
-		if exit != nil && s.m.inlineBehaviorHeaded(exitAction, actionKeyword+writeName(d.exitRun), exit, v) {
-			s.m.madeUp(exit, d.exitRun)
-			prefix = "then "
+	var own func() deferred.Own
+	if exit != nil {
+		own = func() deferred.Own {
+			return s.nested(exitAction, d.exitRun, exit, v)
 		}
-		for _, k := range d.kept {
-			s.m.w.line(prefix + "for " + writeName(k.item) + " in " + writeName(k.buffer) + " { send " + writeName(k.item) + " to self; }")
-			s.m.w.line("then action " + k.clear + " { assign " + writeName(k.buffer) + " := (); }")
-			s.m.w.madeUp(k.clear)
-			prefix = "then "
-		}
+	}
+	s.encoding(v, d).Exit(encodingWriter{s.m.w}, own)
+}
+
+// encodingWriter writes the shared deferral encoding through the migration's writer.
+type encodingWriter struct{ w *writer }
+
+func (e encodingWriter) Line(s string)                    { e.w.line(s) }
+func (e encodingWriter) Block(header string, body func()) { e.w.block(header, body) }
+func (e encodingWriter) Raw(text string)                  { _, _ = e.w.buf().WriteString(text) }
+func (e encodingWriter) MadeUp(name string)               { e.w.madeUp(name) }
+
+// nested renders a state's own behavior as the action named run inside the
+// encoding's action, for the encoding to place.
+func (s *stateRegion) nested(kw, run string, b, v *sysmlv1.Element) deferred.Own {
+	own := deferred.Own{Run: writeName(run)}
+	own.Text = s.m.w.aside(func() {
+		own.Written = s.m.inlineBehaviorHeaded(kw, "action "+own.Run, b, v)
 	})
-	s.m.w.madeUp(d.flush)
+	if own.Written && s.m.synthesized[b] {
+		own.MadeUp = run
+	}
+	return own
 }
 
 // inheritedActionNamesSet is a fresh used-name set seeded with the members

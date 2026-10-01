@@ -162,9 +162,13 @@ func TestNegative(t *testing.T) {
 		{"allocate_def", "package q { allocate def D; }"},
 		{"message_payload_declaration_no_type", "message m of pay : from a to b;"},
 		{"message_payload_declaration_no_target", "message m of pay : T from a;"},
-		// `state s { defer ; }` and `state s { history ; }` are no longer malformed:
+		// `state s { defer ; }` and `state s { history ; }` are not malformed:
 		// neither word is a grammar literal, so each names a reference usage there
-		// (docs/reference/grammar/conformance-audit.md).
+		// (docs/reference/grammar/conformance-audit.md). `defer <event>;` is the
+		// removed OpenSysML deferral extension, reported as such.
+		{"defer_member_removed", "state s { defer Ping; }"},
+		{"defer_member_removed_list", "state s { defer Ping, setSpeed(value); }"},
+		{"defer_member_removed_in_def", "state def S { state busy { defer Ping; } }"},
 		{"defer_no_semicolon", "state s { defer Ping state t; }"},
 		{"defer_trailing_comma", "state s { defer Ping, ; }"},
 		{"deep_without_history", "state s { deep resume; }"},

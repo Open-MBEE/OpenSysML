@@ -1532,7 +1532,7 @@ checking have no SysML v2 spelling and are not OpenSysML gaps.
 **What it leaves.** The order the machine declares is enforced only for events a debugger injects
 directly (`StateExecutor.SendSignal` → dispatched, dropped, reported in `AdvanceReport.Dropped`;
 the REPL's `%send` refuses one by machine and state). A message a *model* sends that the active
-state neither accepts nor defers is not dropped: it waits on the context-wide bus and is taken by
+state does not accept is not dropped: it waits on the context-wide bus and is taken by
 the first later state that accepts it, so an out-of-order `Read` before `Open` is counted as if it
 had come after (the record's second probe: `reads = 2`, nothing reported). A machine exhibited by a
 **port definition** runs and answers the debugger's messages to the port object, but does not

@@ -232,9 +232,6 @@ func (s *stateSpeller) machine(e *StateExecutor) {
 			fmt.Fprintf(&s.out, " event{%s}", s.event(e, event))
 		}
 	}
-	for _, event := range e.deferred {
-		fmt.Fprintf(&s.out, " deferred{%s}", s.event(e, event))
-	}
 	for _, trans := range sortedTransitions(e.timerScheduled) {
 		fmt.Fprintf(&s.out, " timer{%s}", s.transition(e, trans))
 	}

@@ -3,8 +3,6 @@ package lower
 import (
 	"errors"
 	"reflect"
-	"sort"
-	"strings"
 	"testing"
 
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/resolve"
@@ -47,41 +45,8 @@ func pseudostateShape(g *StateGraph) []string {
 	return shape
 }
 
-func deferredShape(g *StateGraph) []string {
-	shape := make([]string, 0)
-	for _, s := range g.States {
-		for _, trigger := range s.Defer {
-			switch ev := trigger.(type) {
-			case *ast.AcceptEvent:
-				shape = append(shape, "accept:"+qualifiedNameText(ev.SignalType))
-			case *ast.CallEvent:
-				shape = append(shape, "call:"+qualifiedNameText(ev.Operation))
-			case *ast.QualifiedName:
-				shape = append(shape, "target:"+qualifiedNameText(ev))
-			case *ast.Usage:
-				shape = append(shape, "target:"+qualifiedNameText(typingTarget(ev)))
-			default:
-				shape = append(shape, reflect.TypeOf(trigger).String())
-			}
-		}
-	}
-	return shape
-}
-
-func qualifiedNameText(qn *ast.QualifiedName) string {
-	if qn == nil {
-		return ""
-	}
-	parts := make([]string, 0, len(qn.Parts))
-	for _, part := range qn.Parts {
-		parts = append(parts, part.Text)
-	}
-	return strings.Join(parts, "::")
-}
-
 // TestMetadataPseudostatesMatchKeywordForms: the metadata-spelled state
-// notation lowers to the same pseudostates and deferred triggers the keyword
-// spellings produce.
+// notation lowers to the same pseudostates the keyword spellings produce.
 func TestMetadataPseudostatesMatchKeywordForms(t *testing.T) {
 	cases := []struct {
 		name    string
@@ -109,24 +74,6 @@ func TestMetadataPseudostatesMatchKeywordForms(t *testing.T) {
 			old:  "state a { entry; then aa; state aa; } deep history h;",
 			new:  "state a { entry; then aa; state aa; } #deepHistory state h;",
 		},
-		{
-			name:    "deferred signal",
-			prelude: "item def Ping;",
-			old:     "state a { defer Ping; }",
-			new:     "state a { #deferred ref : Ping; }",
-		},
-		{
-			name:    "deferred call",
-			prelude: "private import ScalarValues::*; action def setSpeed { attribute v : Integer; }",
-			old:     "state a { defer setSpeed(v); }",
-			new:     "state a { #deferred ref : setSpeed; }",
-		},
-		{
-			name:    "named deferred ref",
-			prelude: "item def Ping;",
-			old:     "state a { defer Ping; }",
-			new:     "state a { #deferred ref p : Ping; }",
-		},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
@@ -141,42 +88,7 @@ func TestMetadataPseudostatesMatchKeywordForms(t *testing.T) {
 			if got, want := pseudostateShape(gNew), pseudostateShape(gOld); !reflect.DeepEqual(got, want) {
 				t.Errorf("pseudostates are %v, want %v", got, want)
 			}
-			if got, want := deferredShape(gNew), deferredShape(gOld); !reflect.DeepEqual(got, want) {
-				t.Errorf("deferred triggers are %v, want %v", got, want)
-			}
 		})
-	}
-}
-
-// entryTransitionShape lists the target names of a graph's entry transitions.
-func entryTransitionShape(g *StateGraph) []string {
-	var shape []string
-	for _, transitions := range g.EntryTransitions {
-		for _, tr := range transitions {
-			shape = append(shape, tr.Target.Name)
-		}
-	}
-	sort.Strings(shape)
-	return shape
-}
-
-// TestMetadataDeferredRefKeepsTheChainSource: a positional `then` after a
-// `#deferred ref` still leaves the member the ref interrupts — the entry
-// subaction here — as the `defer` spelling leaves it.
-func TestMetadataDeferredRefKeepsTheChainSource(t *testing.T) {
-	gOld, err := metadataStateGraph(t, "item def Ping;", "state o { entry; defer Ping; then a; state a; }")
-	if err != nil {
-		t.Fatalf("old form lowers: %v", err)
-	}
-	gNew, err := metadataStateGraph(t, "item def Ping;", "state o { entry; #deferred ref : Ping; then a; state a; }")
-	if err != nil {
-		t.Fatalf("new form lowers: %v", err)
-	}
-	if got, want := entryTransitionShape(gNew), entryTransitionShape(gOld); !reflect.DeepEqual(got, want) {
-		t.Errorf("entry transitions are %v, want %v", got, want)
-	}
-	if got := entryTransitionShape(gNew); !reflect.DeepEqual(got, []string{"a"}) {
-		t.Errorf("entry transitions are %v, want [a]", got)
 	}
 }
 
@@ -266,24 +178,5 @@ func TestMetadataLocalAliasSpelling(t *testing.T) {
 	}
 	if got := pseudostateShape(gNew); !reflect.DeepEqual(got, []string{"choice:pick"}) {
 		t.Fatalf("pseudostates are %v, want [choice:pick]", got)
-	}
-}
-
-func TestMetadataLocalAliasDeferred(t *testing.T) {
-	prelude := "item def Ping;"
-	gOld, err := metadataStateGraph(t, prelude, "entry; then a; state a { #deferred ref : Ping; }")
-	if err != nil {
-		t.Fatalf("direct form lowers: %v", err)
-	}
-	gNew, err := metadataStateGraph(t, prelude,
-		"entry; then a; state a { #localDeferred ref : Ping { alias localDeferred for StateMachines::DeferredMetadata; } }")
-	if err != nil {
-		t.Fatalf("alias form lowers: %v", err)
-	}
-	if got, want := deferredShape(gNew), deferredShape(gOld); !reflect.DeepEqual(got, want) {
-		t.Fatalf("deferrals are %v, want %v", got, want)
-	}
-	if len(deferredShape(gNew)) == 0 {
-		t.Fatal("the alias-spelled deferred ref records no deferral")
 	}
 }

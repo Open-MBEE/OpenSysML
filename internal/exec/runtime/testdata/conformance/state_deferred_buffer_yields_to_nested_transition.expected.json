@@ -1,0 +1,11 @@
+{
+  "type": "state",
+  "libraries": true,
+  "trace": true,
+  "events": [
+    {"signal": "Continue"},
+    {"signal": "Finish"}
+  ],
+  "finalState": "done",
+  "stateVisits": ["outer", "inner", "seen", "done"]
+}

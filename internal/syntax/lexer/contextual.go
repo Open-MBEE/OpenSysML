@@ -12,7 +12,7 @@ import (
 // never list them — reserving them would stop models naming features with them
 // — so editor surfaces that want them highlighted or offered read them here.
 var contextualWords = []string{
-	"chain", "choice", "deep", "defer", "done", "history",
+	"chain", "choice", "deep", "done", "history",
 	"junction", "shallow",
 }
 

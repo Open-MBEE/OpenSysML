@@ -415,11 +415,6 @@ func (c *refCollector) behaviorDecl(scope *symbols.Scope, decl ast.Node) bool {
 	case *ast.ExitMember:
 		c.walkMembers(scope, d.Actions)
 		return true
-	case *ast.DeferMember:
-		for _, trigger := range d.Triggers {
-			c.trigger(scope, trigger)
-		}
-		return true
 	case *ast.StateNode:
 		body := scope
 		if child := c.childScope(scope, d); child != nil {
@@ -531,8 +526,7 @@ func (c *refCollector) behaviorDecl(scope *symbols.Scope, decl ast.Node) bool {
 	}
 }
 
-// trigger collects the references a transition or deferred-event trigger
-// carries. Bare signal names and call event names are not model references
+// trigger collects the references a transition trigger carries. Bare signal names and call event names are not model references
 // (see resolve/document.go), so they are skipped here too.
 func (c *refCollector) trigger(scope *symbols.Scope, trigger ast.Node) {
 	switch t := trigger.(type) {

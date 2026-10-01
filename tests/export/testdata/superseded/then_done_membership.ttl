@@ -7718,16 +7718,16 @@ elmt:ThenAfterMembers__AfterDefer
     sysml:owningMembership elmt:ThenAfterMembers__AfterDefer_om ;
     sysml:declaredName "AfterDefer" ;
     sysx:hasBody "true"^^xsd:boolean ;
-    sysml:ownedMember elmt:ThenAfterMembers__AfterDefer__on, elmt:ThenAfterMembers__AfterDefer___401, elmt:ThenAfterMembers__AfterDefer__off, elmt:ThenAfterMembers__AfterDefer___403 ;
-    sysml:ownedMembership elmt:ThenAfterMembers__AfterDefer__on_om, elmt:ThenAfterMembers__AfterDefer___401_om, elmt:ThenAfterMembers__AfterDefer__off_om, elmt:ThenAfterMembers__AfterDefer___403_om ;
-    sysml:ownedRelationship elmt:ThenAfterMembers__AfterDefer__on_om, elmt:ThenAfterMembers__AfterDefer___401_om, elmt:ThenAfterMembers__AfterDefer__off_om, elmt:ThenAfterMembers__AfterDefer___403_om ;
+    sysml:ownedMember elmt:ThenAfterMembers__AfterDefer__on, elmt:ThenAfterMembers__AfterDefer__off, elmt:ThenAfterMembers__AfterDefer___403 ;
+    sysml:ownedMembership elmt:ThenAfterMembers__AfterDefer__on_om, elmt:ThenAfterMembers__AfterDefer__off_om, elmt:ThenAfterMembers__AfterDefer___403_om ;
+    sysml:ownedRelationship elmt:ThenAfterMembers__AfterDefer__on_om, elmt:ThenAfterMembers__AfterDefer__off_om, elmt:ThenAfterMembers__AfterDefer___403_om ;
     sysml:ownedFeature elmt:ThenAfterMembers__AfterDefer__on, elmt:ThenAfterMembers__AfterDefer__off, elmt:ThenAfterMembers__AfterDefer___403 ;
     sysml:ownedFeatureMembership elmt:ThenAfterMembers__AfterDefer__on_om, elmt:ThenAfterMembers__AfterDefer__off_om, elmt:ThenAfterMembers__AfterDefer___403_om ;
     sysx:sourceText "    state def AfterDefer {\n" ;
     sysx:sourceTail "    }\n" ;
-    json:ownedMember "[{\"@id\":\"ThenAfterMembers__AfterDefer__on\"},{\"@id\":\"ThenAfterMembers__AfterDefer___401\"},{\"@id\":\"ThenAfterMembers__AfterDefer__off\"},{\"@id\":\"ThenAfterMembers__AfterDefer___403\"}]" ;
-    json:ownedMembership "[{\"@id\":\"ThenAfterMembers__AfterDefer__on_om\"},{\"@id\":\"ThenAfterMembers__AfterDefer___401_om\"},{\"@id\":\"ThenAfterMembers__AfterDefer__off_om\"},{\"@id\":\"ThenAfterMembers__AfterDefer___403_om\"}]" ;
-    json:ownedRelationship "[{\"@id\":\"ThenAfterMembers__AfterDefer__on_om\"},{\"@id\":\"ThenAfterMembers__AfterDefer___401_om\"},{\"@id\":\"ThenAfterMembers__AfterDefer__off_om\"},{\"@id\":\"ThenAfterMembers__AfterDefer___403_om\"}]" ;
+    json:ownedMember "[{\"@id\":\"ThenAfterMembers__AfterDefer__on\"},{\"@id\":\"ThenAfterMembers__AfterDefer__off\"},{\"@id\":\"ThenAfterMembers__AfterDefer___403\"}]" ;
+    json:ownedMembership "[{\"@id\":\"ThenAfterMembers__AfterDefer__on_om\"},{\"@id\":\"ThenAfterMembers__AfterDefer__off_om\"},{\"@id\":\"ThenAfterMembers__AfterDefer___403_om\"}]" ;
+    json:ownedRelationship "[{\"@id\":\"ThenAfterMembers__AfterDefer__on_om\"},{\"@id\":\"ThenAfterMembers__AfterDefer__off_om\"},{\"@id\":\"ThenAfterMembers__AfterDefer___403_om\"}]" ;
     json:ownedFeature "[{\"@id\":\"ThenAfterMembers__AfterDefer__on\"},{\"@id\":\"ThenAfterMembers__AfterDefer__off\"},{\"@id\":\"ThenAfterMembers__AfterDefer___403\"}]" ;
     json:ownedFeatureMembership "[{\"@id\":\"ThenAfterMembers__AfterDefer__on_om\"},{\"@id\":\"ThenAfterMembers__AfterDefer__off_om\"},{\"@id\":\"ThenAfterMembers__AfterDefer___403_om\"}]" .
 
@@ -7765,28 +7765,6 @@ elmt:ThenAfterMembers__AfterDefer__on_om
     sysml:membershipOwningNamespace elmt:ThenAfterMembers__AfterDefer ;
     sysml:ownedMemberFeature elmt:ThenAfterMembers__AfterDefer__on ;
     sysml:owningType elmt:ThenAfterMembers__AfterDefer .
-
-elmt:ThenAfterMembers__AfterDefer___401
-    a sysx:DeferMember ;
-    sysml:qualifiedName "ThenAfterMembers::AfterDefer::@1" ;
-    sysml:elementId "ThenAfterMembers__AfterDefer___401" ;
-    sysx:memberIndex "1"^^xsd:integer ;
-    sysml:owningNamespace elmt:ThenAfterMembers__AfterDefer ;
-    sysml:owner elmt:ThenAfterMembers__AfterDefer ;
-    sysml:owningRelationship elmt:ThenAfterMembers__AfterDefer___401_om ;
-    sysml:owningMembership elmt:ThenAfterMembers__AfterDefer___401_om ;
-    sysx:deferredEvent "Ping" ;
-    sysx:sourceText "        defer Ping;\n" .
-
-elmt:ThenAfterMembers__AfterDefer___401_om
-    a sysml:OwningMembership ;
-    sysml:elementId "ThenAfterMembers__AfterDefer___401_om" ;
-    sysml:owner elmt:ThenAfterMembers__AfterDefer ;
-    sysml:memberElement elmt:ThenAfterMembers__AfterDefer___401 ;
-    sysml:ownedMemberElement elmt:ThenAfterMembers__AfterDefer___401 ;
-    sysml:ownedRelatedElement elmt:ThenAfterMembers__AfterDefer___401 ;
-    sysml:owningRelatedElement elmt:ThenAfterMembers__AfterDefer ;
-    sysml:membershipOwningNamespace elmt:ThenAfterMembers__AfterDefer .
 
 elmt:ThenAfterMembers__AfterDefer__off
     a sysml:StateUsage ;

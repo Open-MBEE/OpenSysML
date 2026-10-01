@@ -155,52 +155,6 @@ func TestCodeActionFiltersByRange(t *testing.T) {
 	}
 }
 
-// The notation rewrite sees the document text through the shared analysis
-// path, so a `defer` inside a positional chain is moved out of it: the member
-// line is deleted and the `#deferred ref` written before the member the chain
-// leaves.
-func TestCodeActionMovesDeferOutOfAChain(t *testing.T) {
-	const file = "/tmp/act_defer.sysml"
-	const src = "package P {\n    item def Ping;\n    state def M {\n        entry;\n        defer Ping;\n        then a;\n        state a;\n    }\n}\n"
-	acts := actionsFor(t, file, src, wholeFile)
-	var fix *protocol.CodeAction
-	for i := range acts {
-		if acts[i].Title == "Rewrite as standard `StateMachines` metadata notation" {
-			fix = &acts[i]
-		}
-	}
-	if fix == nil {
-		t.Fatalf("no notation rewrite in %+v", acts)
-	}
-	edits := fix.Edit.Changes[uri.File(file)]
-	if len(edits) != 3 {
-		t.Fatalf("rewrite edits = %v, want delete, insert and import", edits)
-	}
-	// Apply all of the action's edits, latest first.
-	applied := src
-	spans := make([]protocol.Range, len(edits))
-	for i, e := range edits {
-		spans[i] = e.Range
-	}
-	order := []int{0, 1, 2}
-	for i := 0; i < len(order); i++ {
-		for j := i + 1; j < len(order); j++ {
-			a := positionToOffset([]byte(applied), spans[order[i]].Start)
-			b := positionToOffset([]byte(applied), spans[order[j]].Start)
-			if a < b {
-				order[i], order[j] = order[j], order[i]
-			}
-		}
-	}
-	for _, i := range order {
-		applied = apply(t, applied, edits[i])
-	}
-	want := "package P {\n    private import StateMachines::*;\n    item def Ping;\n    state def M {\n        #deferred ref : Ping;\n        entry;\n        then a;\n        state a;\n    }\n}\n"
-	if applied != want {
-		t.Errorf("applied =\n%s\nwant\n%s", applied, want)
-	}
-}
-
 // A client asking only for kinds the server does not support gets nothing.
 func TestCodeActionHonoursOnlyFilter(t *testing.T) {
 	ws := model.NewWorkspace()

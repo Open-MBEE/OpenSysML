@@ -14,13 +14,10 @@ func TestWorkspaceStateGraphResolvesMetadata(t *testing.T) {
 	src := `package P {
 	private import StateMachines::*;
 	item def Go;
-	item def Ping;
 	state M {
 		entry; then idle;
 		state idle;
-		state a {
-			#StateMachines::deferred ref : Ping;
-		}
+		state a;
 		transition first idle accept Go then pick;
 		#StateMachines::choice state pick;
 		transition first pick if true then busy;
@@ -39,11 +36,8 @@ func TestWorkspaceStateGraphResolvesMetadata(t *testing.T) {
 	if !hasPseudostate(graph, "pick") {
 		t.Errorf("StateGraph lost the #choice pseudostate: %v", graph.Pseudostates)
 	}
-	if !hasDeferral(graph) {
-		t.Error("StateGraph recorded no deferral for the #deferred ref")
-	}
 
-	// The resolver-free entry point drops both, which is why Validate goes
+	// The resolver-free entry point drops it, which is why Validate goes
 	// through the workspace.
 	scope := syms[0].Scope
 	if scope == nil {
@@ -56,23 +50,11 @@ func TestWorkspaceStateGraphResolvesMetadata(t *testing.T) {
 	if hasPseudostate(plain, "pick") {
 		t.Error("ToStateGraph kept the #choice pseudostate without a resolver")
 	}
-	if hasDeferral(plain) {
-		t.Error("ToStateGraph recorded the #deferred ref without a resolver")
-	}
 }
 
 func hasPseudostate(g *lower.StateGraph, name string) bool {
 	for _, ps := range g.Pseudostates {
 		if ps.Name == name {
-			return true
-		}
-	}
-	return false
-}
-
-func hasDeferral(g *lower.StateGraph) bool {
-	for _, s := range g.States {
-		if len(s.Defer) > 0 {
 			return true
 		}
 	}

@@ -497,7 +497,7 @@ func TestContextualWordsAreIdentifiers(t *testing.T) {
 		"on", "var", "point", "chain",
 		// Words that are a literal in none of the pinned grammars: our own state
 		// and action notation (docs/reference/grammar/conformance-audit.md).
-		"choice", "deep", "defer", "done", "final", "history",
+		"choice", "deep", "done", "final", "history",
 		"initial", "junction", "region", "shallow",
 	} {
 		src := source.New("test", []byte(word))

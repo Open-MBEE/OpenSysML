@@ -68,15 +68,6 @@ func TestUndeclaredSignalLint(t *testing.T) {
 	part sender { action a { send new Start() to sender; } }
 	attribute def Start;
 }`, []string{"`when Strat` names no declaration", "did you mean Start"}},
-		{"defer names nothing", `package P {
-	state def Machine {
-		entry; then idle;
-		state idle { defer Pnig; }
-		state busy;
-		transition first idle when Ping then busy;
-	}
-	attribute def Ping;
-}`, []string{"`defer Pnig` names no declaration", "did you mean Ping"}},
 		{"suggests a sent signal", `package P {
 	state def Machine {
 		entry; then idle;
@@ -99,7 +90,7 @@ func TestUndeclaredSignalLintSilent(t *testing.T) {
 	attribute def Go;
 	state def Machine {
 		entry; then idle;
-		state idle { defer Go; }
+		state idle;
 		state busy;
 		transition first idle when Go then busy;
 	}
@@ -109,7 +100,7 @@ func TestUndeclaredSignalLintSilent(t *testing.T) {
 	private import Q::*;
 	state def Machine {
 		entry; then idle;
-		state idle { defer Kick; }
+		state idle;
 		state busy;
 		transition first idle when Kick then busy;
 	}

@@ -2,11 +2,10 @@ library package StateMachines {
 	doc
 	/*
 	 * NON-NORMATIVE OpenSysML vocabulary for state-machine notation the SysML v2
-	 * grammar has no production for: pseudostates and deferred events. Each gets a
-	 * definition specialising its native SysML type, a base usage, and a
-	 * semantic-metadata keyword applying both at once: `#choice state pick;`
-	 * declares a choice pseudostate, `#deferred ref : Ping;` an event the state
-	 * defers while it is active.
+	 * grammar has no production for: pseudostates. Each kind gets a definition
+	 * specialising its native SysML type, a base usage, and a semantic-metadata
+	 * keyword applying both at once: `#choice state pick;` declares a choice
+	 * pseudostate.
 	 */
 
 	private import Metaobjects::SemanticMetadata;
@@ -47,15 +46,8 @@ library package StateMachines {
 
 	abstract state deepHistoryPseudostates : DeepHistoryPseudostate[*] nonunique;
 
-	/* Deferred events */
-
-	abstract ref deferredEvents[*] nonunique {
-		doc /* The events a state retains while it is active rather than dropping,
-		 * delivered once a state that handles them is entered. */
-	}
-
 	/* Semantic metadata: the keywords spelling a state machine's transient
-	 * vertices and deferred events as annotations on its members. */
+	 * vertices as annotations on its members. */
 
 	metadata def <choice> ChoiceMetadata :> SemanticMetadata {
 		:> annotatedElement : SysML::StateUsage;
@@ -75,10 +67,5 @@ library package StateMachines {
 	metadata def <deepHistory> DeepHistoryMetadata :> SemanticMetadata {
 		:> annotatedElement : SysML::StateUsage;
 		:>> baseType = deepHistoryPseudostates meta SysML::Usage;
-	}
-
-	metadata def <deferred> DeferredMetadata :> SemanticMetadata {
-		:> annotatedElement : SysML::ReferenceUsage;
-		:>> baseType = deferredEvents meta SysML::Usage;
 	}
 }

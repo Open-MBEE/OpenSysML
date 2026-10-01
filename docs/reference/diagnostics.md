@@ -10,7 +10,7 @@ the exit status or blocks a check.
 
 | Code | Reported on | Tier |
 |------|-------------|------|
-| `undeclared-signal` | a transition's `when <name>` or a state's `defer <name>` whose name matches no declaration visible where it is written and no signal the model sends | name resolution |
+| `undeclared-signal` | a transition's `when <name>` whose name matches no declaration visible where it is written and no signal the model sends | name resolution |
 | `port-type-mismatch` | a `connect`, an interface usage or a `flow` joining two ports whose definitions are unrelated | constraint |
 
 ## Switching a lint off
@@ -29,13 +29,12 @@ with their codes; a client that does not want one drops the diagnostics carrying
 ## `undeclared-signal`
 
 OpenSysML accepts a signal trigger written without `accept` — `transition first a when Ping
-then b;` — and a deferred event, `defer Ping;`. Neither spelling is standard: the pinned
-pilot grammar admits `when` only as a change trigger over a Boolean expression inside an
-`accept` (`SysML.xtext:1483-1485`, `ChangeTriggerKind`) and has no `defer` literal at all
-([conformance audit](grammar/conformance-audit.md)). The name such a trigger carries names an
-event, not a model element: it is left unresolved, and at run time it matches a signal
-injected or sent by that name. A misspelled name therefore matches nothing and the transition
-never fires, silently.
+then b;`. The spelling is not standard: the pinned pilot grammar admits `when` only as a
+change trigger over a Boolean expression inside an `accept` (`SysML.xtext:1483-1485`,
+`ChangeTriggerKind`) ([conformance audit](grammar/conformance-audit.md)). The name such a
+trigger carries names an event, not a model element: it is left unresolved, and at run time it
+matches a signal injected or sent by that name. A misspelled name therefore matches nothing
+and the transition never fires, silently.
 
 The lint reports the name when all of the following hold:
 
