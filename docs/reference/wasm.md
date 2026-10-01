@@ -16,12 +16,12 @@ make build-wasm-wasip1   # or one
 make build-wasm-js
 ```
 
-The output is one directory per target, four commands each, stamped with the same version
+The output is one directory per target, six commands each, stamped with the same version
 information a native build carries:
 
 ```
-bin/wasm/wasip1/{sysml,sysml-lsp,sysml-grpc,sysml-engine,sysml-syntax}.wasm
-bin/wasm/js/{sysml,sysml-lsp,sysml-grpc,sysml-engine,sysml-syntax}.wasm
+bin/wasm/wasip1/{sysml,sysml-lsp,sysml-grpc,sysml-engine,sysml-syntax,sysml-core}.wasm
+bin/wasm/js/{sysml,sysml-lsp,sysml-grpc,sysml-engine,sysml-syntax,sysml-core}.wasm
 bin/wasm/js/wasm_exec.js      # the runtime a browser page includes
 ```
 
@@ -169,6 +169,33 @@ it reports no semantic diagnostics.
 
 Measured on a `go1.25` `js/wasm` build of this tree: about 5.0 MB of module,
 1.32 MB gzipped, 0.97 MB under Brotli.
+
+## The validation core
+
+`sysml-core` serves the model-validation surface of `sysml-grpc` without protobuf, Connect,
+or the execution runtime. It embeds the standard library, parses one or more SysML or KerML
+documents together, runs the validation passes on models that parse cleanly, and reports
+diagnostics and shared symbol facts.
+
+- `ParseSources` parses a set of inline or file-backed documents as one model and returns its
+  hash, one root per document, and diagnostics.
+- `ParseFile` parses a single inline document or file and returns its hash, root and diagnostics.
+- `GetDiagnostics` returns the parser and validation diagnostics for a cached model.
+- `GetSymbol` returns the symbol's type, multiplicity, specialization and attribute facts.
+
+The `js` build installs `globalThis.sysmlCore` with `version` and synchronous
+`call(method, paramsJSON)`, which returns the JSON-RPC envelope string. Passing `-stdio`
+selects the same sequential, `Content-Length`-framed JSON-RPC pipe used by the native and
+`wasip1` builds. Requests and responses use the lowerCamelCase protojson field names.
+
+The core does not execute models or serve conversion, query, document, verification or tool
+methods. Those execution methods belong to `sysml-engine`; every other unsupported method
+belongs to `sysml-grpc`. Such calls answer Unimplemented with that routing guidance rather
+than being silently ignored. File-backed requests still require the host to make the requested
+paths readable; the standard library itself is embedded.
+
+Measured on a `go1.25` `js/wasm` build: 20,606,216 raw bytes, 5,444,280 bytes with gzip
+`-9`, and 3,848,192 bytes with Brotli.
 
 ## What works
 

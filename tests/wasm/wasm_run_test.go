@@ -767,6 +767,9 @@ func TestWasmRuns(t *testing.T) {
 
 			// sysml-syntax's half: the same session shape over the syntactic RPCs.
 			syntaxSubtests(t, target, r, bins)
+
+			// sysml-core's half: validation RPCs with symbol facts, stdio and JS host.
+			coreSubtests(t, target, r, bins)
 		})
 	}
 }
