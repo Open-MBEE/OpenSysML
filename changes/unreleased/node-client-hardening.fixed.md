@@ -1,0 +1,11 @@
+- **The Node client answers the degraded handshake on `serverInfo()` too.** A service without `GetServerInfo` — a release older than the handshake — now answers `{ version: "", capabilities: [] }` instead of throwing `UnsupportedOperationError`, as the Python client does.
+- **A dead service is a `ServiceUnavailableError`, not a bare `ServiceError`.** A refused connection or a service that died before answering now raises the dedicated subclass, keeping the `UNAVAILABLE` status code.
+- **`strictConformance` is the documented parse option; `strict` is its deprecated alias.** Passing both with different values is refused on `load`/`loads`/`parseSources`; to raise on parse errors call `model.raiseForErrors()`.
+- **`load`/`loads` refuse an unknown `language` before the call**, with the same `RangeError` `SourceDocument` raises.
+- **`model.symbol("")` and `find("")` answer the model's root**, matching Python's `model.get("")`.
+- **A `query()` that asks for nothing answers every element**, as Python's does; an OSLC-only request still sends just `oslcQuery`.
+- **Non-string arguments are refused before any call.** `load`, `loads`, `parseSources` documents, `eval`, `symbol`, `symbolById`, `find` and `instantiate` raise a `TypeError` naming the parameter, and source text holding a lone UTF-16 surrogate raises a `RangeError`, instead of silently coercing or leaking an internal error.
+- **Value inputs accept what Python's client accepts and refuse what it refuses.** JavaScript arrays encode as sequences and `Set`s as sets, collection elements accept every input form, a bigint outside int64 is a `RangeError` at any depth, `unset` and foreign objects are refused, and a unit named without its reduction to base units is an `UnsupportedValueError` instead of a crash.
+- **A missed qualified lookup still names its near misses.** `symbol()` and `symbolById()` attach `suggestions` — scored against short and qualified names alike — so a missed `Demo::Vehicel` reports "did you mean" like a missed short name.
+- **A symbol's `multiplicity` answers `isOptional` and `isCollection`**, computed as Python's `Multiplicity` does.
+- **A verdict's `standing` answers `reported` and `reached`**, and `CalcResult`, `AnalysisResult`, `Validation` and `SweepTable` gain `strength` and `bounds` getters beside `engine`.

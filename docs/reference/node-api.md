@@ -125,7 +125,10 @@ model leaves without a value, the second an answer the model leaves open (read, 
 the third a field the answer did not carry. `SysMLVerdict`
 (`holds` / `fails` / `undecided`) and `FeatureValue` (`single` / `many` / `error`)
 are unions of the same shape; every verdict arm carries a `standing` (`engine`, `strength`,
-`bounds`), empty from a service without the `engines` capability. Integers are `bigint`,
+`bounds`, plus `reported` and `reached` — the bounds the engine stopped at),
+empty from a service without the `engines` capability; `CalcResult`,
+`AnalysisResult`, `Validation` and `SweepTable` read the same fields through
+`engine`, `strength` and `bounds` getters. Integers are `bigint`,
 because the service's `int64` does not fit a `number` and an exact comparison would
 otherwise be a lie. `decodeValue`, `decodeVerdict`, `decodeStanding` and `formatValue` are
 exported for a caller decoding a response it obtained itself.
@@ -138,6 +141,7 @@ knowing its members.
 | error | what happened |
 | --- | --- |
 | `ServiceError` | the service could not be reached, started, or answered nothing usable |
+| `ServiceUnavailableError` | the service was unreachable, refused the stream, or died before answering |
 | `ServiceStartError` | a private child failed to start, or died while it was needed |
 | `StaleServiceError` | the running service reports another version than `version` asked for |
 | `ClosedConnectionError` | the connection was closed and cannot be used again |
