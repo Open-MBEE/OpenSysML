@@ -1346,17 +1346,19 @@ func (l labeller) dotBox(node *Node) (width, height float64) {
 // dotLabelExtent is a label's text extent in points: its widest line by its
 // lines' summed heights, the head in bold glyphs and the keyword line at 10pt.
 func (l labeller) dotLabelExtent(node *Node) (width, height float64) {
-	head := len(l.headLines(node))
-	for i, line := range l.lines(node) {
-		size, glyph := l.sizeOf(node), dotGlyphEm
-		switch {
-		case i < head:
-			glyph = dotBoldGlyphEm
-		case i == head && l.keyworded(node):
-			size = l.keywordSize()
-		}
-		width = math.Max(width, float64(utf8.RuneCountInString(line))*size*glyph)
+	line := func(text string, size, glyph float64) {
+		width = math.Max(width, float64(utf8.RuneCountInString(text))*size*glyph)
 		height += size * dotLineEm
+	}
+	base := l.sizeOf(node)
+	if keyword := l.keyword(node); keyword != "" {
+		line(keyword, l.keywordSize(), dotGlyphEm)
+	}
+	for _, head := range l.headLines(node) {
+		line(head, base, dotBoldGlyphEm)
+	}
+	for _, detail := range l.details(node) {
+		line(detail, base, dotGlyphEm)
 	}
 	return width, height
 }
@@ -1435,26 +1437,29 @@ func (l labeller) dotFittedLabel(node *Node, width, height float64) string {
 
 // fitParts is a node's label fitted to a box, by part.
 func (l labeller) fitParts(node *Node, width, height float64) labelParts {
-	lines := l.lines(node)
 	base := l.sizeOf(node)
 	size, head, fits := dotFitText(l.headLines(node), true, width, height, base)
 	var parts labelParts
 	parts.head = l.sized(base, size, "<b>"+dotEscapeLines(head)+"</b>")
 	left := height - float64(len(head))*dotLineHeight(size)
-	for i := len(l.headLines(node)); fits && i < len(lines); i++ {
-		keyword := i == len(l.headLines(node)) && l.keyworded(node)
+	rest := l.details(node)
+	keyword := l.keyword(node)
+	if keyword != "" {
+		rest = append([]string{keyword}, rest...)
+	}
+	for i, line := range rest {
 		lineSize := size
-		if keyword {
+		if i == 0 && keyword != "" {
 			lineSize = math.Round(size * l.keywordSize() / base)
 		}
-		wrapped := dotWrap(lines[i], width, lineSize, false)
+		wrapped := dotWrap(line, width, lineSize, false)
 		used := float64(len(wrapped)) * dotLineHeight(lineSize)
-		if used > left || dotOverruns(wrapped, width, lineSize, false) {
+		if !fits || used > left || dotOverruns(wrapped, width, lineSize, false) {
 			break
 		}
 		left -= used
 		text := dotEscapeLines(wrapped)
-		if keyword {
+		if i == 0 && keyword != "" {
 			parts.keyword = l.sized(base, lineSize, l.keywordText(text))
 			continue
 		}
@@ -1466,15 +1471,11 @@ func (l labeller) fitParts(node *Node, width, height float64) labelParts {
 // compartmented reports whether a node's label is set in Cameo's compartment
 // table: when it has detail lines under its title.
 func (l labeller) compartmented(node *Node) bool {
-	details := len(l.lines(node)) - len(l.headLines(node))
-	if l.keyworded(node) {
-		details--
-	}
-	return l.skin.cameo && details > 0
+	return l.skin.cameo && len(l.details(node)) > 0
 }
 
-// labelParts is a node's label as HTML-like content, by part: the bold head,
-// the keyword line when the node has one, then its detail lines.
+// labelParts is a node's label as HTML-like content, by part: the keyword line
+// when the node has one, the bold head, then its detail lines.
 type labelParts struct {
 	head, keyword string
 	details       []string
@@ -1488,20 +1489,16 @@ func (l labeller) keywordText(text string) string {
 	return "<i>" + text + "</i>"
 }
 
-// assemble is the HTML-like label of the parts. The Pilot stacks head, keyword
-// and details; Cameo sets the keyword above the name and the details in a
-// compartment under a rule.
+// assemble is the HTML-like label of the parts, the keyword above the name as
+// the block notation's header stacks them. The Pilot sets the details under
+// the title line by line; Cameo sets them in a compartment under a rule.
 func (l labeller) assemble(parts labelParts) string {
-	if !l.skin.cameo {
-		lines := []string{parts.head}
-		if parts.keyword != "" {
-			lines = append(lines, parts.keyword)
-		}
-		return "<" + strings.Join(append(lines, parts.details...), "<br/>") + ">"
-	}
 	title := parts.head
 	if parts.keyword != "" {
 		title = parts.keyword + "<br/>" + title
+	}
+	if !l.skin.cameo {
+		return "<" + strings.Join(append([]string{title}, parts.details...), "<br/>") + ">"
 	}
 	if len(parts.details) == 0 {
 		return "<" + title + ">"
@@ -2203,17 +2200,15 @@ func routeMidpoint(route []Point) Point {
 const dotKeywordPointSize = 10
 
 // dotLabel is a node's label attribute, an HTML-like label for nodes and clusters
-// alike: the head in bold, the keyword line smaller and in italics, then the
-// notes, one line each. A state's name is bold too, where the Pilot's is plain:
+// alike: the keyword line smaller and in italics, the head in bold under it, then
+// the notes, one line each. A state's name is bold too, where the Pilot's is plain:
 // the label's extent estimate (dotLabelExtent) and the other forms are kept to.
 func (l labeller) dotLabel(node *Node) string {
-	head, rest := l.head(node), l.lines(node)[len(l.headLines(node)):]
-	parts := labelParts{head: "<b>" + dotEscape(head) + "</b>"}
-	if l.keyworded(node) {
-		parts.keyword = l.sized(l.sizeOf(node), l.keywordSize(), l.keywordText(dotEscape(rest[0])))
-		rest = rest[1:]
+	parts := labelParts{head: "<b>" + dotEscape(l.head(node)) + "</b>"}
+	if keyword := l.keyword(node); keyword != "" {
+		parts.keyword = l.sized(l.sizeOf(node), l.keywordSize(), l.keywordText(dotEscape(keyword)))
 	}
-	for _, line := range rest {
+	for _, line := range l.details(node) {
 		parts.details = append(parts.details, dotEscape(line))
 	}
 	return dotLabelAttribute(l.assemble(parts))
@@ -2227,11 +2222,7 @@ func (l labeller) dotFramedLabel(node *Node) string {
 	if node.Type != "" {
 		lines = append(lines, dotEscape(l.typeText(node)))
 	}
-	rest := l.lines(node)[len(l.headLines(node)):]
-	if l.keyworded(node) {
-		rest = rest[1:]
-	}
-	for _, line := range rest {
+	for _, line := range l.details(node) {
 		lines = append(lines, dotEscape(line))
 	}
 	if len(lines) == 0 {

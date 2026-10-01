@@ -57,8 +57,8 @@ func TestRenderWritesDotWhenAskedFor(t *testing.T) {
 		"// view: Demo::summary\n// kind: tree\n",
 		"// layout: dot\n",
 		`digraph "Demo::summary" {`,
-		`label=<<b>Vehicle</b><br/><font point-size="10"><i>«part def»</i></font>>`,
-		`label=<<b>summary::detail</b><br/><font point-size="10"><i>«view»</i></font>>`,
+		`label=<<font point-size="10"><i>«part def»</i></font><br/><b>Vehicle</b>>`,
+		`label=<<font point-size="10"><i>«view»</i></font><br/><b>summary::detail</b>>`,
 		`"n2" -> "n3" [arrowhead=none];`,
 	} {
 		if !strings.Contains(text, want) {
@@ -86,7 +86,7 @@ func TestRenderWritesPlantUMLWhenAskedFor(t *testing.T) {
 		"@startuml\n' Demo::summary — tree rendering",
 		"<style>\n",
 		"hide circle\n",
-		`class "**Vehicle**\n<size:10>//«part def»//</size>" as n0 <<part def>>`,
+		`class "<size:10>//«part def»//</size>\n**Vehicle**" as n0 <<part def>>`,
 		"n2 -- n3\n",
 		"@enduml",
 	} {
@@ -124,7 +124,7 @@ func TestRenderDotTakesAPalette(t *testing.T) {
 	text := strings.Join(out, "\n")
 	for _, want := range []string{
 		`digraph "Demo::summary" {`,
-		`"n0" [fillcolor="#E69F00", color="#E69F00", penwidth=1, label=<<b>Vehicle</b><br/><font point-size="10"><i>«part def»</i></font>>];`,
+		`"n0" [fillcolor="#E69F00", color="#E69F00", penwidth=1, label=<<font point-size="10"><i>«part def»</i></font><br/><b>Vehicle</b>>];`,
 	} {
 		if !strings.Contains(text, want) {
 			t.Errorf("%%render dot okabe-ito is missing %q:\n%s", want, text)

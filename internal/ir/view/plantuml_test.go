@@ -132,8 +132,8 @@ func TestPlantUMLTreeIsAClassDiagram(t *testing.T) {
 	}
 	for _, want := range []string{
 		"\nhide circle\nhide empty members\n",
-		"class \"**Vehicles::Vehicle**\\n<size:10>//«part def»//</size>\" as n0 <<part def>>\n",
-		"class \"**engine : Engine**\\n<size:10>//«part»//</size>\" as n1 <<part>> <<usage>>\nn0 -- n1\n",
+		"class \"<size:10>//«part def»//</size>\\n**Vehicles::Vehicle**\" as n0 <<part def>>\n",
+		"class \"<size:10>//«part»//</size>\\n**engine : Engine**\" as n1 <<part>> <<usage>>\nn0 -- n1\n",
 		"class \"**connect**\" as n3 <<connect>> <<usage>>\nn0 -- n3\n",
 	} {
 		if !strings.Contains(puml, want) {
@@ -151,7 +151,7 @@ func TestPlantUMLInterconnectionNestsRectangles(t *testing.T) {
 		t.Fatalf("PlantUML: %v", err)
 	}
 	for _, want := range []string{
-		"rectangle \"**Loop**\\n<size:10>//«part def»//</size>\" as n0 <<part def>> {\n  rectangle \"**pump : Pump**\\n<size:10>//«part»//</size>\" as n1 <<part>> <<usage>> {\n    port \"outlet : FluidPort\" as n1.0\n  }\n",
+		"rectangle \"<size:10>//«part def»//</size>\\n**Loop**\" as n0 <<part def>> {\n  rectangle \"<size:10>//«part»//</size>\\n**pump : Pump**\" as n1 <<part>> <<usage>> {\n    port \"outlet : FluidPort\" as n1.0\n  }\n",
 		"\n}\nn1.0 -[thickness=3]- n2.0 : supply\nn1 -[dashed]-> n2 : of Water\n@enduml\n",
 	} {
 		if !strings.Contains(puml, want) {
@@ -195,12 +195,12 @@ func TestPlantUMLActionUsesStateGrammar(t *testing.T) {
 	}
 	for _, want := range []string{
 		"\nhide empty description\n",
-		"state \"**Drive**\\n<size:10>//«action def»//</size>\" as n0 <<action def>> {\n",
+		"state \"<size:10>//«action def»//</size>\\n**Drive**\" as n0 <<action def>> {\n",
 		"  state \"**initial**\" as n1 <<start>>\n",
-		"  state \"**split**\\n<size:10>//«fork»//</size>\" as n8 <<fork>>\n",
+		"  state \"<size:10>//«fork»//</size>\\n**split**\" as n8 <<fork>>\n",
 		"  state \"**final**\" as n10 <<end>>\n",
-		"  state \"**check**\\n<size:10>//«decision»//</size>\" as n12 <<choice>>\n",
-		"  state \"**monitor**\\n<size:10>//«action»//</size>\\nown flow\" as n3 <<action>> <<usage>> {\n",
+		"  state \"<size:10>//«decision»//</size>\\n**check**\" as n12 <<choice>>\n",
+		"  state \"<size:10>//«action»//</size>\\n**monitor**\\nown flow\" as n3 <<action>> <<usage>> {\n",
 		"\nn2 -[dashed]-> n3 : torque to reading\n",
 		"\nn12 --> n10 : [speed <U+003E> 0]\n",
 		"\nn1 --> n8\n",
@@ -224,7 +224,7 @@ func TestPlantUMLSequenceDiagram(t *testing.T) {
 	}
 	for _, want := range []string{
 		"' not represented: message pending states no source and target; no message is drawn\n",
-		"participant \"**caller**\\n<size:10>//«part»//</size>\" as n0 <<part>> <<usage>>\nparticipant \"**callee**\\n<size:10>//«part»//</size>\" as n1 <<part>> <<usage>>\nn0 -> n0 : echo\nn0 -> n1 : of Ping\n@enduml\n",
+		"participant \"<size:10>//«part»//</size>\\n**caller**\" as n0 <<part>> <<usage>>\nparticipant \"<size:10>//«part»//</size>\\n**callee**\" as n1 <<part>> <<usage>>\nn0 -> n0 : echo\nn0 -> n1 : of Ping\n@enduml\n",
 	} {
 		if !strings.Contains(puml, want) {
 			t.Errorf("sequence PlantUML lacks %q:\n%s", want, puml)
@@ -472,7 +472,7 @@ func TestPlantUMLEscapesLabels(t *testing.T) {
 		}
 	}
 	node := &Node{ID: "n0", Kind: "part", Name: `q"uote`, Type: "T<x>", Detail: "own **flow**"}
-	label := `**q<U+0022>uote : T<U+003C>x<U+003E>**\n<size:10>//«part»//</size>\nown <U+002A><U+002A>flow<U+002A><U+002A>`
+	label := `<size:10>//«part»//</size>\n**q<U+0022>uote : T<U+003C>x<U+003E>**\nown <U+002A><U+002A>flow<U+002A><U+002A>`
 	if got := (&plantumlWriter{}).plantumlLabel(node); got != label {
 		t.Errorf("plantumlLabel = %q, want %q", got, label)
 	}
@@ -495,17 +495,17 @@ func TestPlantUMLLabelShape(t *testing.T) {
 		label string
 		decor string
 	}{
-		{&Node{Kind: "part def", Name: "Vehicles::Vehicle"}, `**Vehicles::Vehicle**\n<size:10>//«part def»//</size>`, " <<part def>>"},
-		{&Node{Kind: "part", Name: "engine", Type: "Engine"}, `**engine : Engine**\n<size:10>//«part»//</size>`, " <<part>> <<usage>>"},
+		{&Node{Kind: "part def", Name: "Vehicles::Vehicle"}, `<size:10>//«part def»//</size>\n**Vehicles::Vehicle**`, " <<part def>>"},
+		{&Node{Kind: "part", Name: "engine", Type: "Engine"}, `<size:10>//«part»//</size>\n**engine : Engine**`, " <<part>> <<usage>>"},
 		{&Node{Kind: "connect"}, `**connect**`, " <<connect>> <<usage>>"},
-		{&Node{Kind: "state", Name: "off", Detail: "initial"}, `**off**\n<size:10>//«state»//</size>\ninitial`, " <<state>> <<usage>>"},
-		{&Node{Kind: "fork", Name: "split"}, `**split**\n<size:10>//«fork»//</size>`, " <<fork>>"},
-		{&Node{Kind: "initial", Name: "start"}, `**start**\n<size:10>//«initial»//</size>`, " <<start>>"},
-		{&Node{Kind: "merge", Name: "m"}, `**m**\n<size:10>//«merge»//</size>`, " <<choice>>"},
-		{&Node{Kind: "deep history", Name: "h"}, `**h**\n<size:10>//«deep history»//</size>`, " <<history*>>"},
-		{&Node{Kind: "region", Name: "r"}, `**r**\n<size:10>//«region»//</size>`, " <<region>>"},
-		{&Node{Kind: "library package", Name: "P"}, `**P**\n<size:10>//«library package»//</size>`, " <<library package>> <<package>>"},
-		{&Node{Kind: "package", Name: "P"}, `**P**\n<size:10>//«package»//</size>`, " <<package>>"},
+		{&Node{Kind: "state", Name: "off", Detail: "initial"}, `<size:10>//«state»//</size>\n**off**\ninitial`, " <<state>> <<usage>>"},
+		{&Node{Kind: "fork", Name: "split"}, `<size:10>//«fork»//</size>\n**split**`, " <<fork>>"},
+		{&Node{Kind: "initial", Name: "start"}, `<size:10>//«initial»//</size>\n**start**`, " <<start>>"},
+		{&Node{Kind: "merge", Name: "m"}, `<size:10>//«merge»//</size>\n**m**`, " <<choice>>"},
+		{&Node{Kind: "deep history", Name: "h"}, `<size:10>//«deep history»//</size>\n**h**`, " <<history*>>"},
+		{&Node{Kind: "region", Name: "r"}, `<size:10>//«region»//</size>\n**r**`, " <<region>>"},
+		{&Node{Kind: "library package", Name: "P"}, `<size:10>//«library package»//</size>\n**P**`, " <<library package>> <<package>>"},
+		{&Node{Kind: "package", Name: "P"}, `<size:10>//«package»//</size>\n**P**`, " <<package>>"},
 	}
 	w := &plantumlWriter{}
 	for _, tc := range cases {

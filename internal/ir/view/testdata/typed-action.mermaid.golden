@@ -1,15 +1,16 @@
 ---
 config:
+  themeCSS: ".cluster-label .nodeLabel { text-align: center; }"
   flowchart:
     subGraphTitleMargin:
       bottom: 24
 ---
 %% TypedViews::cycleView — action rendering (view def ActionFlowView)
 flowchart TD
-  subgraph n0 ["run : Cycle<br>«action»"]
+  subgraph n0 ["«action»<br>run : Cycle"]
     direction TD
     n1["initial"]
-    n2["warm : Warm<br>«action»"]
+    n2["«action»<br>warm : Warm"]
     n3["final"]
   end
   n1 --> n2

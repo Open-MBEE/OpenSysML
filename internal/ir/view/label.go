@@ -300,24 +300,41 @@ func (l labeller) keyworded(node *Node) bool {
 	return keyworded(node)
 }
 
-// lines is a node's diagram label in the graphical notation's order: the
-// head, the keyword line when the node has one, then the notes. Every entry
-// is a single line: a name that escapes a line break heads several entries.
-func (l labeller) lines(node *Node) []string {
-	lines := l.headLines(node)
-	if l.keyworded(node) {
-		lines = append(lines, "«"+node.Kind+"»")
+// keyword is a node's keyword line, the kind in guillemets, or "" when the
+// skin writes none for it.
+func (l labeller) keyword(node *Node) string {
+	if !l.keyworded(node) {
+		return ""
 	}
+	return "«" + node.Kind + "»"
+}
+
+// details are the lines of a node's label after its title: its notes, one
+// entry a line.
+func (l labeller) details(node *Node) []string {
 	switch {
 	case node.Detail == "":
+		return nil
 	case l.skin.cameo && node.Kind == "state":
-		lines = append(lines, cameoStateDetails(node.Detail)...)
+		return cameoStateDetails(node.Detail)
 	case l.skin.cameo:
-		lines = append(lines, bareNames(node.Detail))
+		return []string{bareNames(node.Detail)}
 	default:
-		lines = append(lines, node.Detail)
+		return []string{node.Detail}
 	}
-	return lines
+}
+
+// lines is a node's diagram label in the order the block notation stacks a
+// header: the keyword line when the node has one, the head under it, then the
+// notes. Every entry is a single line: a name that escapes a line break heads
+// several entries.
+func (l labeller) lines(node *Node) []string {
+	var lines []string
+	if keyword := l.keyword(node); keyword != "" {
+		lines = append(lines, keyword)
+	}
+	lines = append(lines, l.headLines(node)...)
+	return append(lines, l.details(node)...)
 }
 
 // cameoStateDetails splits a state's detail into Cameo's compartment lines, one

@@ -133,8 +133,12 @@ func (r *Rendering) writeFlowchartFrontmatter(b *strings.Builder, labels labelle
 	if extra == 0 {
 		return
 	}
-	fmt.Fprintf(b, "---\nconfig:\n  flowchart:\n    subGraphTitleMargin:\n      bottom: %d\n---\n", extra*mermaidTitleLine)
+	fmt.Fprintf(b, "---\nconfig:\n  themeCSS: %q\n  flowchart:\n    subGraphTitleMargin:\n      bottom: %d\n---\n", mermaidTitleCSS, extra*mermaidTitleLine)
 }
+
+// mermaidTitleCSS centres the lines of a subgraph's title under one another:
+// Mermaid centres the title's block but sets its lines flush left.
+const mermaidTitleCSS = ".cluster-label .nodeLabel { text-align: center; }"
 
 // clusterTitleExtraLines is the most lines beyond the first spanned by the title
 // of node or of a cluster under it, a ported part being a cluster when ports asks.
@@ -260,7 +264,7 @@ func writeFlowchartNode(b *strings.Builder, node *Node, depth int, containment, 
 	fmt.Fprintf(b, "%s  direction %s\n", indent, flow)
 	if ports {
 		for _, port := range node.Ports {
-			fmt.Fprintf(b, "%s  %s[\"%s<br>«port»\"]\n", indent, port.ID, mermaidText(port.label()))
+			fmt.Fprintf(b, "%s  %s[\"«port»<br>%s\"]\n", indent, port.ID, mermaidText(port.label()))
 		}
 	}
 	for _, child := range node.Children {

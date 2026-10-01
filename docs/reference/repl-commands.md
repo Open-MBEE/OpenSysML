@@ -410,20 +410,20 @@ view Demo::summary::detail
 sysml> %render Demo::summary mermaid
 %% Demo::summary — tree rendering
 flowchart TD
-  n0["Vehicle<br>«part def»"]
-  n1["mass : Real<br>«attribute»"]
+  n0["«part def»<br>Vehicle"]
+  n1["«attribute»<br>mass : Real"]
   n0 --- n1
-  n2["wheel : Wheel<br>«part»"]
+  n2["«part»<br>wheel : Wheel"]
   n0 --- n2
-  n3["summary::detail<br>«view»"]
-  n4["Wheel<br>«part def»"]
-  n5["diameter : Real<br>«attribute»"]
+  n3["«view»<br>summary::detail"]
+  n4["«part def»<br>Wheel"]
+  n5["«attribute»<br>diameter : Real"]
   n4 --- n5
   n3 --- n4
 ```
 
-A diagram node's label leads with the element's name, ` : Type` after it for a typed usage, and
-puts the kind on the next line in guillemets; the text form keeps the keyword first, as the
+A diagram node's label leads with the kind in guillemets and puts the element's name on the next
+line, ` : Type` after it for a typed usage; the text form keeps the keyword first, as the
 notation declares it.
 
 A view that states `render asElementTable;`, or is typed by `StandardViewDefinitions::GridView`,
@@ -469,21 +469,21 @@ digraph "Demo::summary" {
   graph [fontname="Helvetica"];
   node [shape=box, style=filled, fillcolor=white, color="#181818", fontname="Helvetica", fontsize=14, penwidth=0.5];
   edge [color="#181818", fontname="Helvetica", fontsize=13, penwidth=1];
-  "n0" [label=<<b>Vehicle</b><br/><font point-size="10"><i>«part def»</i></font>>];
-  "n1" [style="rounded,filled", label=<<b>mass : Real</b><br/><font point-size="10"><i>«attribute»</i></font>>];
+  "n0" [label=<<font point-size="10"><i>«part def»</i></font><br/><b>Vehicle</b>>];
+  "n1" [style="rounded,filled", label=<<font point-size="10"><i>«attribute»</i></font><br/><b>mass : Real</b>>];
   "n0" -> "n1" [arrowhead=none];
-  "n2" [style="rounded,filled", label=<<b>wheel : Wheel</b><br/><font point-size="10"><i>«part»</i></font>>];
+  "n2" [style="rounded,filled", label=<<font point-size="10"><i>«part»</i></font><br/><b>wheel : Wheel</b>>];
   "n0" -> "n2" [arrowhead=none];
-  "n3" [style="rounded,filled", label=<<b>summary::detail</b><br/><font point-size="10"><i>«view»</i></font>>];
-  "n4" [label=<<b>Wheel</b><br/><font point-size="10"><i>«part def»</i></font>>];
-  "n5" [style="rounded,filled", label=<<b>diameter : Real</b><br/><font point-size="10"><i>«attribute»</i></font>>];
+  "n3" [style="rounded,filled", label=<<font point-size="10"><i>«view»</i></font><br/><b>summary::detail</b>>];
+  "n4" [label=<<font point-size="10"><i>«part def»</i></font><br/><b>Wheel</b>>];
+  "n5" [style="rounded,filled", label=<<font point-size="10"><i>«attribute»</i></font><br/><b>diameter : Real</b>>];
   "n4" -> "n5" [arrowhead=none];
   "n3" -> "n4" [arrowhead=none];
 }
 ```
 
 The drawing is the Standard B&W style of the SysML v2 Pilot visualizer — white fills, thin
-`#181818` lines, square definitions and rounded usages, a bold name over an italic keyword line
+`#181818` lines, square definitions and rounded usages, a bold name under an italic keyword line
 ([the translation](../project/view-rendering-forms.md#style)). A palette name after `dot` fills
 the nodes by keyword family, a `part def` and its `part` usages sharing a hue, with black text
 kept legible on every fill:
@@ -491,8 +491,8 @@ kept legible on every fill:
 ```text
 sysml> %render Demo::summary dot okabe-ito
 …
-  "n0" [fillcolor="#E69F00", color="#E69F00", penwidth=1, label=<<b>Vehicle</b><br/><font point-size="10"><i>«part def»</i></font>>];
-  "n1" [style="rounded,filled", fillcolor="#F9F4B3", color="#F0E442", penwidth=1, label=<<b>mass : Real</b><br/><font point-size="10"><i>«attribute»</i></font>>];
+  "n0" [fillcolor="#E69F00", color="#E69F00", penwidth=1, label=<<font point-size="10"><i>«part def»</i></font><br/><b>Vehicle</b>>];
+  "n1" [style="rounded,filled", fillcolor="#F9F4B3", color="#F0E442", penwidth=1, label=<<font point-size="10"><i>«attribute»</i></font><br/><b>mass : Real</b>>];
 …
 ```
 
@@ -535,8 +535,8 @@ skinparam wrapWidth 300
 hide stereotype
 hide circle
 hide empty members
-class "**Vehicle**\n<size:10>//«part def»//</size>" as n0 <<part def>>
-class "**mass : Real**\n<size:10>//«attribute»//</size>" as n1 <<attribute>> <<usage>>
+class "<size:10>//«part def»//</size>\n**Vehicle**" as n0 <<part def>>
+class "<size:10>//«attribute»//</size>\n**mass : Real**" as n1 <<attribute>> <<usage>>
 n0 -- n1
 …
 @enduml

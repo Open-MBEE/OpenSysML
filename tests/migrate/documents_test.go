@@ -436,7 +436,7 @@ func TestMigratedDocumentsRender(t *testing.T) {
 		"# Fleet Brief", "## Figures", "*Truck Structure*", "```mermaid", "The truck and what it hauls",
 		"## Fleet", "*Truck Structure*", "```mermaid", "The truck and what it hauls",
 		"*Parts Method Flow*", "```mermaid", "action rendering (render Views::asInterconnectionDiagram, view def ActionFlowView)",
-		"'Collect Owned Elements'<br>«action»", "'Filter By Metaclasses'<br>«action»", "'Sort By Name'<br>«action»",
+		"«action»<br>'Collect Owned Elements'", "«action»<br>'Filter By Metaclasses'", "«action»<br>'Sort By Name'",
 		"*Truck Internals*", "```mermaid", "axles",
 		"*Fleet Overview*", "```mermaid", "Requirements",
 		"## Gallery", "*Figure: Inside the truck*", "```mermaid", "axles",

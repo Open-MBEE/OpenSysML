@@ -94,9 +94,9 @@ func TestDOTPseudostateRules(t *testing.T) {
 		{"unnamed initial", &Node{ID: "n", Kind: "initial"}, `"n" [shape=circle, fillcolor=black, label="", width=0.2];`},
 		{"unnamed final", &Node{ID: "n", Kind: "final"}, `"n" [shape=doublecircle, fillcolor=black, label="", width=0.2];`},
 		{"named initial", &Node{ID: "n", Kind: "initial", Name: "go"},
-			`"n" [shape=circle, label=<<b>go</b><br/><font point-size="10"><i>«initial»</i></font>>];`},
+			`"n" [shape=circle, label=<<font point-size="10"><i>«initial»</i></font><br/><b>go</b>>];`},
 		{"named final", &Node{ID: "n", Kind: "final", Name: "done"},
-			`"n" [shape=doublecircle, label=<<b>done</b><br/><font point-size="10"><i>«final»</i></font>>];`},
+			`"n" [shape=doublecircle, label=<<font point-size="10"><i>«final»</i></font><br/><b>done</b>>];`},
 		{"start", &Node{ID: "n", Kind: startKind}, `"n" [shape=point, fillcolor=black, label=""];`},
 		{"placed unnamed initial", &Node{ID: "n", Kind: "initial", Geometry: &Geometry{X: 10, Y: 10, HasSize: true, Width: 36, Height: 36}},
 			`"n" [shape=circle, fillcolor=black, label="", pos="28,-28!", pin=true, width=0.5, height=0.5, fixedsize=true];`},
@@ -140,12 +140,12 @@ func TestDOTClusterBorders(t *testing.T) {
 		}
 		checkDOTSyntax(t, dot)
 		for _, want := range []string{
-			"  subgraph \"cluster_n0\" {\n    label=<<b>Pkg</b><br/><font point-size=\"10\"><i>«package»</i></font>>;\n    color=black;\n    penwidth=1.5;\n",
-			"    subgraph \"cluster_n1\" {\n      label=<<b>Def</b><br/><font point-size=\"10\"><i>«part def»</i></font>>;\n      color=black;\n      penwidth=0.5;\n",
-			"      subgraph \"cluster_n2\" {\n        label=<<b>usage</b><br/><font point-size=\"10\"><i>«part»</i></font>>;\n        color=black;\n        penwidth=0.5;\n",
-			"    subgraph \"cluster_n4\" {\n      label=<<b>Lib</b><br/><font point-size=\"10\"><i>«library package»</i></font>>;\n      color=black;\n      penwidth=1.5;\n",
-			"    subgraph \"cluster_n6\" {\n      label=<<b>r</b><br/><font point-size=\"10\"><i>«region»</i></font>>;\n      style=dashed;\n      color=black;\n      penwidth=0.5;\n",
-			"    subgraph \"cluster_n8\" {\n      label=<<b>body</b><br/><font point-size=\"10\"><i>«state»</i></font>>;\n      color=black;\n      penwidth=0.5;\n      bb=",
+			"  subgraph \"cluster_n0\" {\n    label=<<font point-size=\"10\"><i>«package»</i></font><br/><b>Pkg</b>>;\n    color=black;\n    penwidth=1.5;\n",
+			"    subgraph \"cluster_n1\" {\n      label=<<font point-size=\"10\"><i>«part def»</i></font><br/><b>Def</b>>;\n      color=black;\n      penwidth=0.5;\n",
+			"      subgraph \"cluster_n2\" {\n        label=<<font point-size=\"10\"><i>«part»</i></font><br/><b>usage</b>>;\n        color=black;\n        penwidth=0.5;\n",
+			"    subgraph \"cluster_n4\" {\n      label=<<font point-size=\"10\"><i>«library package»</i></font><br/><b>Lib</b>>;\n      color=black;\n      penwidth=1.5;\n",
+			"    subgraph \"cluster_n6\" {\n      label=<<font point-size=\"10\"><i>«region»</i></font><br/><b>r</b>>;\n      style=dashed;\n      color=black;\n      penwidth=0.5;\n",
+			"    subgraph \"cluster_n8\" {\n      label=<<font point-size=\"10\"><i>«state»</i></font><br/><b>body</b>>;\n      color=black;\n      penwidth=0.5;\n      bb=",
 		} {
 			if !strings.Contains(dot, want) {
 				t.Errorf("palette %q: DOT lacks %q:\n%s", palette, want, dot)
@@ -220,13 +220,13 @@ func TestDOTPaletteFills(t *testing.T) {
 	checkDOTSyntax(t, dot)
 	part, port, item, other := paletteColors[PaletteOkabeIto][0], paletteColors[PaletteOkabeIto][2], paletteColors[PaletteOkabeIto][1], paletteColors[PaletteOkabeIto][18%8]
 	for _, want := range []string{
-		`"n1" [style="rounded,filled", fillcolor="` + paletteFill(part, true) + `", color="` + part + `", penwidth=1, label=<<b>p</b><br/><font point-size="10"><i>«part»</i></font>>, margin=0, pos="60,-45!", pin=true, width=1.3888888888888888, height=0.6944444444444444, fixedsize=true];`,
+		`"n1" [style="rounded,filled", fillcolor="` + paletteFill(part, true) + `", color="` + part + `", penwidth=1, label=<<font point-size="10"><i>«part»</i></font><br/><b>p</b>>, margin=0, pos="60,-45!", pin=true, width=1.3888888888888888, height=0.6944444444444444, fixedsize=true];`,
 		`"n2" [style="rounded,filled", fillcolor="` + paletteFill(port, true) + `", color="` + port + `", penwidth=1, label=`,
 		`"n3" [fillcolor="` + item + `", color="` + item + `", penwidth=1, label=`,
 		`"n4" [shape=circle, fillcolor=black, label="", pos=`,
 		`"n5" [shape=point, fillcolor=black, label="", pos=`,
 		`"n6" [style="rounded,filled", fillcolor="` + paletteFill(other, true) + `", color="` + other + `", penwidth=1, label=`,
-		"    label=<<b>Def</b><br/><font point-size=\"10\"><i>«part def»</i></font>>;\n    color=black;\n    penwidth=0.5;\n",
+		"    label=<<font point-size=\"10\"><i>«part def»</i></font><br/><b>Def</b>>;\n    color=black;\n    penwidth=0.5;\n",
 		`"n1" -> "n2" [arrowhead=none, penwidth=3];`,
 	} {
 		if !strings.Contains(dot, want) {
@@ -359,7 +359,7 @@ func TestDOTEscapesNamesInStyledLabels(t *testing.T) {
 		t.Fatalf("DOT: %v", err)
 	}
 	checkDOTSyntax(t, dot)
-	want := `label=<<b>a &amp; b &lt;c&gt; &#34;d&#34; &#39;e&#39;<br/>f : T&lt;&#39;x&#39;&gt;</b><br/><font point-size="10"><i>«part»</i></font><br/>g &gt; h<br/>&#39;i&#39;>`
+	want := `label=<<font point-size="10"><i>«part»</i></font><br/><b>a &amp; b &lt;c&gt; &#34;d&#34; &#39;e&#39;<br/>f : T&lt;&#39;x&#39;&gt;</b><br/>g &gt; h<br/>&#39;i&#39;>`
 	if !strings.Contains(dot, want) {
 		t.Errorf("DOT lacks %q:\n%s", want, dot)
 	}

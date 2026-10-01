@@ -532,21 +532,22 @@ render as a fenced ` ```mermaid ` block:
 ```mermaid
 ---
 config:
+  themeCSS: ".cluster-label .nodeLabel { text-align: center; }"
   flowchart:
     subGraphTitleMargin:
       bottom: 24
 ---
 %% Observatory::interconnectView — interconnection rendering (render asInterconnectionDiagram)
 flowchart LR
-  subgraph n0 ["imagingChain<br>«part»"]
+  subgraph n0 ["«part»<br>imagingChain"]
     direction LR
-    subgraph n1 ["camera : Camera<br>«part»"]
+    subgraph n1 ["«part»<br>camera : Camera"]
       direction LR
-      n1.0["output : DataPort<br>«port»"]
+      n1.0["«port»<br>output : DataPort"]
     end
-    subgraph n2 ["recorder : Recorder<br>«part»"]
+    subgraph n2 ["«part»<br>recorder : Recorder"]
       direction LR
-      n2.0["input : DataPort<br>«port»"]
+      n2.0["«port»<br>input : DataPort"]
     end
   end
   n1.0 ---|"link"| n2.0
@@ -571,10 +572,10 @@ digraph "Observatory::interconnectView" {
   graph [rankdir=LR];
   node [shape=box];
   subgraph "cluster_n0" {
-    label=<<b>imagingChain</b><br/><font point-size="10">«part»</font>>;
+    label=<<font point-size="10">«part»</font><br/><b>imagingChain</b>>;
     "n0" [shape=point, style=invis, width=0, height=0, label=""];
-    "n1" [label=<<table border="0" cellborder="0" cellspacing="0" cellpadding="2"><tr><td colspan="2"><b>camera : Camera</b><br/><font point-size="10">«part»</font></td></tr><tr><td port="n1.0" border="1" fixedsize="true" width="10" height="10"></td><td align="left"><font point-size="8">output : DataPort</font></td></tr></table>>];
-    "n2" [label=<<table border="0" cellborder="0" cellspacing="0" cellpadding="2"><tr><td port="n2.0" border="1" fixedsize="true" width="10" height="10"></td><td align="left"><font point-size="8">input : DataPort</font></td></tr><tr><td colspan="2"><b>recorder : Recorder</b><br/><font point-size="10">«part»</font></td></tr></table>>];
+    "n1" [label=<<table border="0" cellborder="0" cellspacing="0" cellpadding="2"><tr><td colspan="2"><font point-size="10">«part»</font><br/><b>camera : Camera</b></td></tr><tr><td port="n1.0" border="1" fixedsize="true" width="10" height="10"></td><td align="left"><font point-size="8">output : DataPort</font></td></tr></table>>];
+    "n2" [label=<<table border="0" cellborder="0" cellspacing="0" cellpadding="2"><tr><td port="n2.0" border="1" fixedsize="true" width="10" height="10"></td><td align="left"><font point-size="8">input : DataPort</font></td></tr><tr><td colspan="2"><font point-size="10">«part»</font><br/><b>recorder : Recorder</b></td></tr></table>>];
   }
   "n1":"n1.0" -> "n2":"n2.0" [label="link", arrowhead=none, penwidth=3];
 }
@@ -606,11 +607,11 @@ PlantUML jar is needed to write it:
 </style>
 skinparam wrapWidth 300
 hide stereotype
-rectangle "**imagingChain**\n<size:10>//«part»//</size>" as n0 <<part>> <<usage>> {
-  rectangle "**camera : Camera**\n<size:10>//«part»//</size>" as n1 <<part>> <<usage>> {
+rectangle "<size:10>//«part»//</size>\n**imagingChain**" as n0 <<part>> <<usage>> {
+  rectangle "<size:10>//«part»//</size>\n**camera : Camera**" as n1 <<part>> <<usage>> {
     port "output : DataPort" as n1.0
   }
-  rectangle "**recorder : Recorder**\n<size:10>//«part»//</size>" as n2 <<part>> <<usage>> {
+  rectangle "<size:10>//«part»//</size>\n**recorder : Recorder**" as n2 <<part>> <<usage>> {
     port "input : DataPort" as n2.0
   }
 }

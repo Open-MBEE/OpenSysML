@@ -145,10 +145,10 @@ func TestDOTQuotesEveryIdentifierAndLabel(t *testing.T) {
 	checkDOTSyntax(t, dot)
 	for _, want := range []string{
 		`digraph "Odd::view \"quoted\" and \\backslashed" {`,
-		`"a\"b" [style="rounded,filled", label=<<b>say &#34;hi&#34;</b><br/><font point-size="10"><i>«part»</i></font><br/>C:\path>];`,
+		`"a\"b" [style="rounded,filled", label=<<font point-size="10"><i>«part»</i></font><br/><b>say &#34;hi&#34;</b><br/>C:\path>];`,
 		`subgraph "cluster_c\\d" {`,
-		`label=<<b>plain : A&lt;B&gt; &amp; C</b><br/><font point-size="10"><i>«part»</i></font>>;`,
-		`"e" [style="rounded,filled", label=<<b>line one<br/>line two</b><br/><font point-size="10"><i>«port»</i></font>>];`,
+		`label=<<font point-size="10"><i>«part»</i></font><br/><b>plain : A&lt;B&gt; &amp; C</b>>;`,
+		`"e" [style="rounded,filled", label=<<font point-size="10"><i>«port»</i></font><br/><b>line one<br/>line two</b>>];`,
 		`"a\"b" -> "e" [label="\"quoted\" \\ <label> & more", arrowhead=none, penwidth=3];`,
 	} {
 		if !strings.Contains(dot, want) {
@@ -172,23 +172,23 @@ func TestDOTLabelShape(t *testing.T) {
 		want string
 	}{
 		{"typed usage", &Node{Kind: "part", Name: "pump", Type: "Pump"},
-			`<<b>pump : Pump</b><br/><font point-size="10"><i>«part»</i></font>>`},
+			`<<font point-size="10"><i>«part»</i></font><br/><b>pump : Pump</b>>`},
 		{"untyped usage", &Node{Kind: "attribute", Name: "power"},
-			`<<b>power</b><br/><font point-size="10"><i>«attribute»</i></font>>`},
+			`<<font point-size="10"><i>«attribute»</i></font><br/><b>power</b>>`},
 		{"definition", &Node{Kind: "part def", Name: "Plant::Loop"},
-			`<<b>Plant::Loop</b><br/><font point-size="10"><i>«part def»</i></font>>`},
+			`<<font point-size="10"><i>«part def»</i></font><br/><b>Plant::Loop</b>>`},
 		{"name-less", &Node{Kind: "connect"}, `<<b>connect</b>>`},
-		{"name-less typed", &Node{Kind: "part", Type: "Pump"}, `<<b>: Pump</b><br/><font point-size="10"><i>«part»</i></font>>`},
+		{"name-less typed", &Node{Kind: "part", Type: "Pump"}, `<<font point-size="10"><i>«part»</i></font><br/><b>: Pump</b>>`},
 		{"synthesized name", &Node{Kind: "action", Name: "call", Type: "doTracking", NameSynthesized: true},
-			`<<b>: doTracking</b><br/><font point-size="10"><i>«action»</i></font>>`},
+			`<<font point-size="10"><i>«action»</i></font><br/><b>: doTracking</b>>`},
 		{"synthesized name, untyped", &Node{Kind: "action", Name: "stamp2", NameSynthesized: true}, `<<b>action</b>>`},
 		{"name-less with note", &Node{Kind: "connect", Detail: "already shown"}, `<<b>connect</b><br/>already shown>`},
 		{"notes", &Node{Kind: "part", Name: "sensor", Type: "Pump", Detail: "already shown as n1, collapsed"},
-			`<<b>sensor : Pump</b><br/><font point-size="10"><i>«part»</i></font><br/>already shown as n1, collapsed>`},
+			`<<font point-size="10"><i>«part»</i></font><br/><b>sensor : Pump</b><br/>already shown as n1, collapsed>`},
 		{"state note", &Node{Kind: "state", Name: "off", Detail: "initial"},
-			`<<b>off</b><br/><font point-size="10"><i>«state»</i></font><br/>initial>`},
+			`<<font point-size="10"><i>«state»</i></font><br/><b>off</b><br/>initial>`},
 		{"escaped", &Node{Kind: "part", Name: `a<b> & "c"`, Type: "T<U>", Detail: "x > y"},
-			`<<b>a&lt;b&gt; &amp; &#34;c&#34; : T&lt;U&gt;</b><br/><font point-size="10"><i>«part»</i></font><br/>x &gt; y>`},
+			`<<font point-size="10"><i>«part»</i></font><br/><b>a&lt;b&gt; &amp; &#34;c&#34; : T&lt;U&gt;</b><br/>x &gt; y>`},
 	}
 	for _, tc := range cases {
 		if got := (labeller{}).dotLabel(tc.node); got != "label="+tc.want {
@@ -252,21 +252,21 @@ digraph "Nested::view" {
   node [shape=box, style=filled, fillcolor=white, color="#181818", fontname="Helvetica", fontsize=14, penwidth=0.5];
   edge [color="#181818", fontname="Helvetica", fontsize=13, penwidth=1];
   subgraph "cluster_n0" {
-    label=<<b>Outer</b><br/><font point-size="10"><i>«part def»</i></font>>;
+    label=<<font point-size="10"><i>«part def»</i></font><br/><b>Outer</b>>;
     color=black;
     penwidth=0.5;
     "n0" [shape=point, style=invis, width=0, height=0, label=""];
     subgraph "cluster_n1" {
-      label=<<b>inner</b><br/><font point-size="10"><i>«part»</i></font>>;
+      label=<<font point-size="10"><i>«part»</i></font><br/><b>inner</b>>;
       color=black;
       penwidth=0.5;
       "n1" [shape=point, style=invis, width=0, height=0, label=""];
-      "n2" [style="rounded,filled", label=<<b>p</b><br/><font point-size="10"><i>«port»</i></font>>];
-      "n3" [style="rounded,filled", label=<<b>q</b><br/><font point-size="10"><i>«port»</i></font>>];
+      "n2" [style="rounded,filled", label=<<font point-size="10"><i>«port»</i></font><br/><b>p</b>>];
+      "n3" [style="rounded,filled", label=<<font point-size="10"><i>«port»</i></font><br/><b>q</b>>];
     }
-    "n4" [style="rounded,filled", label=<<b>leaf</b><br/><font point-size="10"><i>«part»</i></font>>];
+    "n4" [style="rounded,filled", label=<<font point-size="10"><i>«part»</i></font><br/><b>leaf</b>>];
   }
-  "n5" [label=<<b>Other</b><br/><font point-size="10"><i>«part def»</i></font>>];
+  "n5" [label=<<font point-size="10"><i>«part def»</i></font><br/><b>Other</b>>];
   "n4" -> "n1" [arrowhead=none, penwidth=3, lhead="cluster_n1"];
   "n1" -> "n5" [label="out", style=dashed, ltail="cluster_n1"];
   "n2" -> "n3" [arrowhead=none, penwidth=3];
@@ -388,9 +388,9 @@ func TestDOTStateShapesAndLabels(t *testing.T) {
 		t.Errorf("DOT draws %d start points, want %d:\n%s", got, starts, dot)
 	}
 	for _, want := range []string{
-		`[style="rounded,filled", label=<<b>heating</b><br/><font point-size="10"><i>«state»</i></font>>];`,
+		`[style="rounded,filled", label=<<font point-size="10"><i>«state»</i></font><br/><b>heating</b>>];`,
 		`subgraph "cluster_n6" {`,
-		`label=<<b>lights</b><br/><font point-size="10"><i>«region»</i></font>>;`,
+		`label=<<font point-size="10"><i>«region»</i></font><br/><b>lights</b>>;`,
 		`style=dashed;`,
 		`"n12" -> "n1" [label="[cold]"];`,
 		`"n12" -> "n2" [label="[not cold]", lhead="cluster_n2"];`,
@@ -422,9 +422,9 @@ func TestDOTStateShapesAndLabels(t *testing.T) {
 		t.Fatalf("DOT: %v", err)
 	}
 	for _, want := range []string{
-		`"a" [shape=doublecircle, label=<<b>done</b><br/><font point-size="10"><i>«final»</i></font>>];`,
-		`"b" [style="rounded,filled", label=<<b>off</b><br/><font point-size="10"><i>«state»</i></font><br/>initial>];`,
-		`"c" [shape=circle, label=<<b>go</b><br/><font point-size="10"><i>«initial»</i></font>>];`,
+		`"a" [shape=doublecircle, label=<<font point-size="10"><i>«final»</i></font><br/><b>done</b>>];`,
+		`"b" [style="rounded,filled", label=<<font point-size="10"><i>«state»</i></font><br/><b>off</b><br/>initial>];`,
+		`"c" [shape=circle, label=<<font point-size="10"><i>«initial»</i></font><br/><b>go</b>>];`,
 	} {
 		if !strings.Contains(dot, want) {
 			t.Errorf("DOT lacks %q:\n%s", want, dot)
@@ -504,9 +504,9 @@ func TestDOTWritesTheGeometry(t *testing.T) {
 		// pump: top-left (300, 40), no size, so the centre of a 96x36 box fitted to
 		// eleven glyphs at its Style's 11pt over a 10pt keyword line, stated but not
 		// fixed, collapsed.
-		`"n1" [style="rounded,filled", label=<<b><b>pump : Pump</b><br/><font point-size="10"><i>«part»</i></font></b>>, fillcolor="#FFE8BD", color="#333333", fontname="Arial", fontsize=11, pos="348,742!", pin=true, width=1.3333333333333333, height=0.5, comment="collapsed"];`,
+		`"n1" [style="rounded,filled", label=<<b><font point-size="10"><i>«part»</i></font><br/><b>pump : Pump</b></b>>, fillcolor="#FFE8BD", color="#333333", fontname="Arial", fontsize=11, pos="348,742!", pin=true, width=1.3333333333333333, height=0.5, comment="collapsed"];`,
 		// tank: top-left (500, 40), 120x60, so centre (560, 70) -> y 730 from a canvas 800 high.
-		`"n2" [style="rounded,filled", label=<<b>tank : Tank</b><br/><font point-size="10"><i>«part»</i></font>>, margin=0, pos="560,730!", pin=true, width=1.6666666666666667, height=0.8333333333333334, fixedsize=true];`,
+		`"n2" [style="rounded,filled", label=<<font point-size="10"><i>«part»</i></font><br/><b>tank : Tank</b>>, margin=0, pos="560,730!", pin=true, width=1.6666666666666667, height=0.8333333333333334, fixedsize=true];`,
 		// The ports the parts have from their definitions sit on the borders where
 		// the route meets them, and the route runs pin to pin.
 		`"n1.0" [shape=box, label="", xlabel="outlet : FluidPort", fontsize=8, width=0.16666666666666666, height=0.16666666666666666, fixedsize=true, pos="402,730!", pin=true];`,
@@ -532,8 +532,8 @@ func TestDOTWritesTheGeometry(t *testing.T) {
 	for _, want := range []string{
 		"// layout: neato -n2\ndigraph",
 		"  graph [fontname=\"Helvetica\", layout=neato, inputscale=72, dpi=72];\n",
-		`"n1" [style="rounded,filled", label=<<b>pump<br/>: Pump</b><br/><font point-size="10"><i>«part»</i></font>>, margin=0, fillcolor="#FFFFDC", pos="60,-45!", pin=true, width=1.3888888888888888, height=0.6944444444444444, fixedsize=true];`,
-		`"n2" [style="rounded,filled", label=<<b>tank : Tank</b><br/><font point-size="10"><i>«part»</i></font>>, pos="259,-45!", pin=true, width=1.6388888888888888, height=0.5138888888888888];`,
+		`"n1" [style="rounded,filled", label=<<font point-size="10"><i>«part»</i></font><br/><b>pump<br/>: Pump</b>>, margin=0, fillcolor="#FFFFDC", pos="60,-45!", pin=true, width=1.3888888888888888, height=0.6944444444444444, fixedsize=true];`,
+		`"n2" [style="rounded,filled", label=<<font point-size="10"><i>«part»</i></font><br/><b>tank : Tank</b>>, pos="259,-45!", pin=true, width=1.6388888888888888, height=0.5138888888888888];`,
 		`"n1.0" [shape=box, label="", xlabel="outlet : FluidPort", fontsize=8, width=0.16666666666666666, height=0.16666666666666666, fixedsize=true, pos="60,-14!", pin=true];`,
 		`"n1.0" -> "n2.0" [label="supply", arrowhead=none, penwidth=3, pos="66,-15.5 66,-15.5 200,-45 200,-45", lp="165,-33"];`,
 	} {
@@ -560,8 +560,8 @@ func TestDOTWritesTheGeometry(t *testing.T) {
 	for _, want := range []string{
 		"// layout: neato -n2\ndigraph",
 		// off: three lines, 14pt, 10pt and 14pt, so a 75x54 box from its top-left (0, 0).
-		`[style="rounded,filled", label=<<b>off</b><br/><font point-size="10"><i>«state»</i></font><br/>initial>, pos="37.5,-27!", pin=true, width=1.0416666666666667, height=0.75];`,
-		`[style="rounded,filled", label=<<b>on</b><br/><font point-size="10"><i>«state»</i></font>>, margin=0, fillcolor="#EBEBD7", pos="40,-120!", pin=true, width=1.1111111111111112, height=0.5555555555555556, fixedsize=true];`,
+		`[style="rounded,filled", label=<<font point-size="10"><i>«state»</i></font><br/><b>off</b><br/>initial>, pos="37.5,-27!", pin=true, width=1.0416666666666667, height=0.75];`,
+		`[style="rounded,filled", label=<<font point-size="10"><i>«state»</i></font><br/><b>on</b>>, margin=0, fillcolor="#EBEBD7", pos="40,-120!", pin=true, width=1.1111111111111112, height=0.5555555555555556, fixedsize=true];`,
 		`"n3" [shape=point, fillcolor=black, label="", pos="37.5,21.8!", pin=true];`,
 		`bb="-8,-148,88,31.6";`,
 		`"n3" -> "n1";`,
@@ -629,16 +629,16 @@ digraph "Pinned::view" {
     bb="10,180,210,280";
     comment="collapsed";
     "n0" [shape=point, style=invis, width=0, height=0, label="", pos="110,230!", pin=true];
-    "n1" [style="rounded,filled", label=<<b>a</b><br/><font point-size="10"><i>«part»</i></font>>, margin=0, pos="56,252!", pin=true, width=1, height=0.5, fixedsize=true];
-    "n2" [style="rounded,filled", label=<<b>b</b><br/><font point-size="10"><i>«part»</i></font>>, pos="147,251.5!", pin=true, width=0.75, height=0.5138888888888888];
+    "n1" [style="rounded,filled", label=<<font point-size="10"><i>«part»</i></font><br/><b>a</b>>, margin=0, pos="56,252!", pin=true, width=1, height=0.5, fixedsize=true];
+    "n2" [style="rounded,filled", label=<<font point-size="10"><i>«part»</i></font><br/><b>b</b>>, pos="147,251.5!", pin=true, width=0.75, height=0.5138888888888888];
   }
   subgraph "cluster_n3" {
-    label=<<b>Other</b><br/><font point-size="10"><i>«part def»</i></font>>;
+    label=<<font point-size="10"><i>«part def»</i></font><br/><b>Other</b>>;
     color=black;
     penwidth=0.5;
     bb="300,45,372,100";
     "n3" [shape=point, style=invis, width=0, height=0, label="", pos="336,72.5!", pin=true];
-    "n4" [style="rounded,filled", label=<<b>p</b><br/><font point-size="10"><i>«port»</i></font>>, pos="337,71.5!", pin=true, width=0.75, height=0.5138888888888888];
+    "n4" [style="rounded,filled", label=<<font point-size="10"><i>«port»</i></font><br/><b>p</b>>, pos="337,71.5!", pin=true, width=0.75, height=0.5138888888888888];
   }
   "n1" -> "n2" [arrowhead=none, penwidth=3, pos="92,252 92,252 120,252 120,252"];
   "n2" -> "n3" [style=dashed, lhead="cluster_n3"];
@@ -685,7 +685,7 @@ digraph "Pinned::view" {
 		"  graph [fontname=\"Helvetica\", layout=neato, inputscale=72, dpi=72];\n  node [shape=box, style=filled, fillcolor=white, color=\"#181818\", fontname=\"Helvetica\", fontsize=14, penwidth=0.5];\n  edge [color=\"#181818\", fontname=\"Helvetica\", fontsize=13, penwidth=1];\n  \"canvas:0\" [shape=point, style=invis, width=0, height=0, label=\"\", pos=\"0,300!\", pin=true];\n  \"canvas:1\" [shape=point, style=invis, width=0, height=0, label=\"\", pos=\"400,0!\", pin=true];\n  \"n0\"",
 		// Outer's box holds a's, 10px below its top: its title is fitted to that strip, at the top.
 		`"n0" [label=<<font point-size="8"><b>Outer</b></font>>, margin=0, labelloc=t, pos="110,230!", pin=true, width=2.7777777777777777, height=1.3888888888888888, fixedsize=true, comment="collapsed"];`,
-		`"n3" [label=<<b>Other</b><br/><font point-size="10"><i>«part def»</i></font>>, pos="338,81.5!", pin=true, width=1.0555555555555556, height=0.5138888888888888];`,
+		`"n3" [label=<<font point-size="10"><i>«part def»</i></font><br/><b>Other</b>>, pos="338,81.5!", pin=true, width=1.0555555555555556, height=0.5138888888888888];`,
 	} {
 		if !strings.Contains(dot, want) {
 			t.Errorf("tree DOT lacks %q:\n%s", want, dot)
@@ -709,7 +709,7 @@ digraph "Pinned::view" {
 	checkDOTSyntax(t, dot)
 	for _, want := range []string{
 		`"s" [shape=point, fillcolor=black, label="", pos="1.8,-1.8!", pin=true];`,
-		`"i" [shape=circle, label=<<b>go</b><br/><font point-size="10"><i>«initial»</i></font>>, pos="140,-40!", pin=true, width=1.1111111111111112, height=1.1111111111111112];`,
+		`"i" [shape=circle, label=<<font point-size="10"><i>«initial»</i></font><br/><b>go</b>>, pos="140,-40!", pin=true, width=1.1111111111111112, height=1.1111111111111112];`,
 		`"f" [shape=doublecircle, fillcolor=black, label="", xlabel="done", pos="205,-5!", pin=true, width=0.1388888888888889, height=0.1388888888888889, fixedsize=true];`,
 	} {
 		if !strings.Contains(dot, want) {
@@ -809,15 +809,15 @@ digraph "Routed::view" {
   "canvas:0" [shape=point, style=invis, width=0, height=0, label="", pos="0,326!", pin=true];
   "canvas:1" [shape=point, style=invis, width=0, height=0, label="", pos="250,0!", pin=true];
   subgraph "cluster_n0" {
-    label=<<b>SendAck</b><br/><font point-size="10"><i>«action def»</i></font>>;
+    label=<<font point-size="10"><i>«action def»</i></font><br/><b>SendAck</b>>;
     color=black;
     penwidth=0.5;
     bb="107.5,-31,208,361";
     "n0" [shape=point, style=invis, width=0, height=0, label="", pos="157.75,165!", pin=true];
-    "n1" [shape=circle, label=<<b>start</b><br/><font point-size="10"><i>«initial»</i></font>>, pos="160,313!", pin=true, width=1.1111111111111112, height=1.1111111111111112];
-    "n2" [style="rounded,filled", label=<<b>wait</b><br/><font point-size="10"><i>«action»</i></font>>, pos="160,215.5!", pin=true, width=0.8888888888888888, height=0.5138888888888888];
-    "n3" [style="rounded,filled", label=<<b>send</b><br/><font point-size="10"><i>«action»</i></font>>, margin=0, pos="160,106!", pin=true, width=1.1111111111111112, height=0.5555555555555556, fixedsize=true];
-    "n4" [shape=doublecircle, label=<<b>done</b><br/><font point-size="10"><i>«final»</i></font>>, pos="150,11.5!", pin=true, width=0.9583333333333334, height=0.9583333333333334];
+    "n1" [shape=circle, label=<<font point-size="10"><i>«initial»</i></font><br/><b>start</b>>, pos="160,313!", pin=true, width=1.1111111111111112, height=1.1111111111111112];
+    "n2" [style="rounded,filled", label=<<font point-size="10"><i>«action»</i></font><br/><b>wait</b>>, pos="160,215.5!", pin=true, width=0.8888888888888888, height=0.5138888888888888];
+    "n3" [style="rounded,filled", label=<<font point-size="10"><i>«action»</i></font><br/><b>send</b>>, margin=0, pos="160,106!", pin=true, width=1.1111111111111112, height=0.5555555555555556, fixedsize=true];
+    "n4" [shape=doublecircle, label=<<font point-size="10"><i>«final»</i></font><br/><b>done</b>>, pos="150,11.5!", pin=true, width=0.9583333333333334, height=0.9583333333333334];
   }
   "n1" -> "n2" [pos="e,160,234 160,273 160,273 160,244 160,244"];
   "n2" -> "n3" [pos="e,160,126 160,197 160,197 160,136 160,136"];
@@ -840,7 +840,7 @@ digraph "Routed::view" {
 	checkDOTSyntax(t, dot)
 	for _, want := range []string{
 		"// layout: neato -n2\n",
-		`"a" [style="rounded,filled", label=<<b>wait</b><br/><font point-size="10"><i>«action»</i></font>>, pos="81.5,-81.5!", pin=true, width=0.8888888888888888, height=0.5138888888888888];`,
+		`"a" [style="rounded,filled", label=<<font point-size="10"><i>«action»</i></font><br/><b>wait</b>>, pos="81.5,-81.5!", pin=true, width=0.8888888888888888, height=0.5138888888888888];`,
 		`"f" [shape=doublecircle, fillcolor=black, label="", pos="207.2,-137!", pin=true, width=0.2, height=0.2];`,
 	} {
 		if !strings.Contains(dot, want) {
@@ -856,7 +856,7 @@ digraph "Routed::view" {
 	}
 	checkDOTSyntax(t, dot)
 	if !strings.Contains(dot, "// not represented: route of n3->n4 is one waypoint, (150, 240); a line needs two\n// canvas: unit=px w=250 h=326\n// layout: neato -n2\n") ||
-		!strings.Contains(dot, `"n4" [shape=doublecircle, label=<<b>done</b><br/><font point-size="10"><i>«final»</i></font>>, pos="160,31.5!", pin=true, width=0.9583333333333334, height=0.9583333333333334];`) ||
+		!strings.Contains(dot, `"n4" [shape=doublecircle, label=<<font point-size="10"><i>«final»</i></font><br/><b>done</b>>, pos="160,31.5!", pin=true, width=0.9583333333333334, height=0.9583333333333334];`) ||
 		!strings.Contains(dot, `"n3" -> "n4";`) || strings.Contains(dot, "without a position") {
 		t.Errorf("one-waypoint DOT:\n%s", dot)
 	}
@@ -942,13 +942,13 @@ func TestDOTSettlesUnplacedNodes(t *testing.T) {
 		// spare: 63x37 from (0, 194), so its centre is (31.5, 212.5), y flipped
 		// against the 100-high canvas; the long name, 284 wide, would overrun 300
 		// beside it, so it heads the next row, 24 below.
-		`"loose" [style="rounded,filled", label=<<b>spare</b><br/><font point-size="10"><i>«part»</i></font>>, pos="31.5,-112.5!", pin=true, width=0.875, height=0.5138888888888888];`,
-		`"wide" [label=<<b>A rather long definition name</b><br/><font point-size="10"><i>«part def»</i></font>>, pos="142,-173.5!", pin=true, width=3.9444444444444446, height=0.5138888888888888];`,
+		`"loose" [style="rounded,filled", label=<<font point-size="10"><i>«part»</i></font><br/><b>spare</b>>, pos="31.5,-112.5!", pin=true, width=0.875, height=0.5138888888888888];`,
+		`"wide" [label=<<font point-size="10"><i>«part def»</i></font><br/><b>A rather long definition name</b>>, pos="142,-173.5!", pin=true, width=3.9444444444444446, height=0.5138888888888888];`,
 		// Group heads the third row at y=316: its title, then g1 and g2 side by
 		// side, a margin of 8 in from its box.
 		"    bb=\"0,-298,148,-216\";\n",
-		`"g1" [style="rounded,filled", label=<<b>g1</b><br/><font point-size="10"><i>«part»</i></font>>, pos="35,-271.5!", pin=true, width=0.75, height=0.5138888888888888];`,
-		`"g2" [style="rounded,filled", label=<<b>g2</b><br/><font point-size="10"><i>«part»</i></font>>, pos="113,-271.5!", pin=true, width=0.75, height=0.5138888888888888];`,
+		`"g1" [style="rounded,filled", label=<<font point-size="10"><i>«part»</i></font><br/><b>g1</b>>, pos="35,-271.5!", pin=true, width=0.75, height=0.5138888888888888];`,
+		`"g2" [style="rounded,filled", label=<<font point-size="10"><i>«part»</i></font><br/><b>g2</b>>, pos="113,-271.5!", pin=true, width=0.75, height=0.5138888888888888];`,
 		`"placed" -> "loose" [arrowhead=none, penwidth=3];`,
 		`"loose" -> "g1" [style=dashed];`,
 	} {
@@ -966,8 +966,8 @@ func TestDOTSettlesUnplacedNodes(t *testing.T) {
 	}
 	checkDOTSyntax(t, dot)
 	if strings.Contains(dot, "bb=") || !strings.Contains(dot, `"group" -> "g1" [arrowhead=none];`) ||
-		!strings.Contains(dot, `"group" [label=<<b>Group</b><br/><font point-size="10"><i>«part def»</i></font>>, pos="38,-234.5!", pin=true, width=1.0555555555555556, height=0.5138888888888888];`) ||
-		!strings.Contains(dot, `"g2" [style="rounded,filled", label=<<b>g2</b><br/><font point-size="10"><i>«part»</i></font>>, pos="205,-234.5!", pin=true, width=0.75, height=0.5138888888888888];`) {
+		!strings.Contains(dot, `"group" [label=<<font point-size="10"><i>«part def»</i></font><br/><b>Group</b>>, pos="38,-234.5!", pin=true, width=1.0555555555555556, height=0.5138888888888888];`) ||
+		!strings.Contains(dot, `"g2" [style="rounded,filled", label=<<font point-size="10"><i>«part»</i></font><br/><b>g2</b>>, pos="205,-234.5!", pin=true, width=0.75, height=0.5138888888888888];`) {
 		t.Errorf("tree strip DOT:\n%s", dot)
 	}
 	assertStripBelow(t, tree, 170)

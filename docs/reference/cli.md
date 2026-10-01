@@ -571,18 +571,18 @@ The forms a kind can be written in:
 | `dot` | `tree`, `interconnection`, `state`, `action` | Graphviz DOT, an alternative to Mermaid for Graphviz toolchains and layouts of large graphs |
 | `plantuml` | `tree`, `interconnection`, `state`, `action`, `sequence` | PlantUML in the Pilot visualizer's B&W style, for PlantUML toolchains; the one alternative form with a sequence grammar |
 
-A node's label follows the graphical notation's header: the element's name leads, with ` : Type`
-after it for a typed usage, the kind follows on its own line in guillemets, and any note (`initial`,
-`already shown`, `own flow`) comes after that. An anonymous element leads with its kind and has no
+A node's label follows the graphical notation's header: the kind leads on its own line in
+guillemets, the element's name follows, with ` : Type` after it for a typed usage, and any note
+(`initial`, `already shown`, `own flow`) comes after that. An anonymous element leads with its kind and has no
 keyword line. The text form keeps the notation's keyword-leading declaration order instead. One node
 in each form:
 
 | Form | `part pump : Pump` |
 | --- | --- |
 | `text` | `part pump : Pump` (a note in parentheses after it: `part sensor : Pump (already shown)`) |
-| `mermaid` | `n1["pump : Pump<br>«part»"]` — a flowchart node, a `state "…" as n1` and a `participant n1 as …` all break at `<br>` |
-| `dot` | `"n1" [label=<<b>pump : Pump</b><br/><font point-size="10">«part»</font>>];` — an HTML-like label, the name in bold and the keyword line at 10pt |
-| `plantuml` | `rectangle "**pump : Pump**\n<size:10>//«part»//</size>" as n1 <<part>> <<usage>>` — a creole label, the name in bold and the keyword line italic at 10pt; the stereotypes drive the style and are hidden |
+| `mermaid` | `n1["«part»<br>pump : Pump"]` — a flowchart node, a `state "…" as n1` and a `participant n1 as …` all break at `<br>` |
+| `dot` | `"n1" [label=<<font point-size="10">«part»</font><br/><b>pump : Pump</b>>];` — an HTML-like label, the keyword line at 10pt over the name in bold |
+| `plantuml` | `rectangle "<size:10>//«part»//</size>\n**pump : Pump**" as n1 <<part>> <<usage>>` — a creole label, the keyword line italic at 10pt over the name in bold; the stereotypes drive the style and are hidden |
 
 Every `subgraph` of a Mermaid flowchart opens on a `direction` statement restating the
 flowchart's, because Mermaid lays out a subgraph that states none without regard to the
@@ -596,13 +596,14 @@ extra line:
 ```
 ---
 config:
+  themeCSS: ".cluster-label .nodeLabel { text-align: center; }"
   flowchart:
     subGraphTitleMargin:
       bottom: 24
 ---
 %% Plant::loopView — interconnection rendering (render asInterconnectionDiagram)
 flowchart LR
-  subgraph n0 ["Loop<br>«part def»"]
+  subgraph n0 ["«part def»<br>Loop"]
     direction LR
   …
 ```

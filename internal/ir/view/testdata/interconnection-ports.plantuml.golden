@@ -40,14 +40,14 @@ note {
 </style>
 skinparam wrapWidth 300
 hide stereotype
-rectangle "**Toaster**\n<size:10>//«part def»//</size>" as n0 <<part def>> {
-  rectangle "**heating : HeatingSystem**\n<size:10>//«part»//</size>" as n1 <<part>> <<usage>> {
+rectangle "<size:10>//«part def»//</size>\n**Toaster**" as n0 <<part def>> {
+  rectangle "<size:10>//«part»//</size>\n**heating : HeatingSystem**" as n1 <<part>> <<usage>> {
     port "durationIn : <U+007E>DurationPort" as n1.0
   }
-  rectangle "**control : ControlSystem**\n<size:10>//«part»//</size>" as n2 <<part>> <<usage>> {
+  rectangle "<size:10>//«part»//</size>\n**control : ControlSystem**" as n2 <<part>> <<usage>> {
     port "durationOut : DurationPort" as n2.0
   }
-  rectangle "**chassis : Chassis**\n<size:10>//«part»//</size>" as n3 <<part>> <<usage>>
+  rectangle "<size:10>//«part»//</size>\n**chassis : Chassis**" as n3 <<part>> <<usage>>
 }
 n2.0 -[thickness=3]- n1.0 : durationInterface
 n2.0 -[dashed]-> n1.0 : of Real

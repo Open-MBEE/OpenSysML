@@ -33,7 +33,7 @@ func TestRenderWritesTheArtifactOnStdout(t *testing.T) {
 	if got.status != exitHolds {
 		t.Fatalf("exit status = %d, want %d\n%s", got.status, exitHolds, got.output())
 	}
-	for _, want := range []string{"flowchart TD", `"Vehicle<br>«part def»"`} {
+	for _, want := range []string{"flowchart TD", `"«part def»<br>Vehicle"`} {
 		if !strings.Contains(got.stdout, want) {
 			t.Errorf("stdout is missing %q:\n%s", want, got.stdout)
 		}
@@ -102,7 +102,7 @@ func TestRenderDotForm(t *testing.T) {
 	if got.status != exitHolds {
 		t.Fatalf("exit status = %d, want %d\n%s", got.status, exitHolds, got.output())
 	}
-	for _, want := range []string{"// view: Demo::overview", "// layout: dot", `digraph "Demo::overview" {`, `label=<<b>Vehicle</b><br/><font point-size="10"><i>«part def»</i></font>>`, `"n0" -> "n1" [arrowhead=none];`} {
+	for _, want := range []string{"// view: Demo::overview", "// layout: dot", `digraph "Demo::overview" {`, `label=<<font point-size="10"><i>«part def»</i></font><br/><b>Vehicle</b>>`, `"n0" -> "n1" [arrowhead=none];`} {
 		if !strings.Contains(got.stdout, want) {
 			t.Errorf("stdout is missing %q:\n%s", want, got.stdout)
 		}
@@ -152,7 +152,7 @@ func TestRenderPlantUMLForm(t *testing.T) {
 	if got.status != exitHolds {
 		t.Fatalf("exit status = %d, want %d\n%s", got.status, exitHolds, got.output())
 	}
-	for _, want := range []string{"@startuml\n' Demo::overview — tree rendering\n<style>", "skinparam wrapWidth 300", "hide circle", `class "**Vehicle**\n<size:10>//«part def»//</size>" as n0 <<part def>>`, `as n1 <<part>> <<usage>>`, "n0 -- n1\n@enduml\n"} {
+	for _, want := range []string{"@startuml\n' Demo::overview — tree rendering\n<style>", "skinparam wrapWidth 300", "hide circle", `class "<size:10>//«part def»//</size>\n**Vehicle**" as n0 <<part def>>`, `as n1 <<part>> <<usage>>`, "n0 -- n1\n@enduml\n"} {
 		if !strings.Contains(got.stdout, want) {
 			t.Errorf("stdout is missing %q:\n%s", want, got.stdout)
 		}
@@ -214,7 +214,7 @@ func TestRenderPalette(t *testing.T) {
 	if got.status != exitHolds {
 		t.Fatalf("exit status = %d, want %d\n%s", got.status, exitHolds, got.output())
 	}
-	for _, want := range []string{`digraph "Demo::overview" {`, `fillcolor="#E69F00", color="#E69F00", penwidth=1, label=<<b>Vehicle</b>`} {
+	for _, want := range []string{`digraph "Demo::overview" {`, `fillcolor="#E69F00", color="#E69F00", penwidth=1, label=<<font point-size="10"><i>«part def»</i></font><br/><b>Vehicle</b>`} {
 		if !strings.Contains(got.stdout, want) {
 			t.Errorf("stdout is missing %q:\n%s", want, got.stdout)
 		}
@@ -277,7 +277,7 @@ func TestRenderSeveralFiles(t *testing.T) {
 	if got.status != exitHolds {
 		t.Fatalf("exit status = %d, want %d\n%s", got.status, exitHolds, got.output())
 	}
-	for _, want := range []string{"flowchart TD", `"Vehicle<br>«part def»"`, "wheel"} {
+	for _, want := range []string{"flowchart TD", `"«part def»<br>Vehicle"`, "wheel"} {
 		if !strings.Contains(got.stdout, want) {
 			t.Errorf("stdout is missing %q:\n%s", want, got.stdout)
 		}

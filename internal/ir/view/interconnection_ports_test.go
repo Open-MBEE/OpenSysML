@@ -247,8 +247,8 @@ func TestACompositePartPinsItsPortsAndEndsItsBareEndsAtThem(t *testing.T) {
 	// The pins are nodes inside their parts' subgraphs and the edge runs between
 	// them, so it ends on no subgraph; the two-line titles need one line of margin.
 	for _, want := range []string{
-		"subgraph " + sensor.ID + " [\"sensor : Sensor<br>«part»\"]\n      direction LR\n      " + reading.ID + "[\"reading : DurationPort<br>«port»\"]\n",
-		"subgraph " + probe.ID + " [\"probe : HeatingSystem<br>«part»\"]\n        direction LR\n        " + in.ID + "[\"durationIn : ~DurationPort<br>«port»\"]\n      end\n",
+		"subgraph " + sensor.ID + " [\"«part»<br>sensor : Sensor\"]\n      direction LR\n      " + reading.ID + "[\"«port»<br>reading : DurationPort\"]\n",
+		"subgraph " + probe.ID + " [\"«part»<br>probe : HeatingSystem\"]\n        direction LR\n        " + in.ID + "[\"«port»<br>durationIn : ~DurationPort\"]\n      end\n",
 		"  " + reading.ID + " ---|\"feed\"| " + in.ID + "\n",
 		"    subGraphTitleMargin:\n      bottom: 24\n"} {
 		if !strings.Contains(mermaid, want) {

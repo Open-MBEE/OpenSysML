@@ -164,7 +164,7 @@ The result, for `{"view": "KitViews::widgetTree"}` over a document declaring
   "kind": "tree",
   "stated": "",
   "form": "mermaid",
-  "artifact": "%% KitViews::widgetTree — tree rendering\nflowchart TD\n  n0[\"Widget<br>«part def»\"]\n  n1[\"cog : Cog<br>«part»\"]\n  n0 --- n1\n  …",
+  "artifact": "%% KitViews::widgetTree — tree rendering\nflowchart TD\n  n0[\"«part def»<br>Widget\"]\n  n1[\"«part»<br>cog : Cog\"]\n  n0 --- n1\n  …",
   "nodes": [
     {
       "id": "n0",
@@ -765,7 +765,7 @@ editor: send `initialize`, then `textDocument/didOpen`, then:
 ← { "view": "", "kind": "tree",
     "stated": "no view declared; rendering /tmp/kit.sysml directly",
     "form": "mermaid",
-    "artifact": "%%  — tree rendering (no view declared; …)\nflowchart TD\n  n0[\"Widget<br>«part def»\"]\n…",
+    "artifact": "%%  — tree rendering (no view declared; …)\nflowchart TD\n  n0[\"«part def»<br>Widget\"]\n…",
     "nodes": [ … ], "edges": [ … ], "notices": [], "version": 1 }
 ```
 

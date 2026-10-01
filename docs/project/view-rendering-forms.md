@@ -56,18 +56,19 @@ and a document's `Diagram` block is refused at planning time.
 ## Node labels
 
 Every graphical form draws a node's label the way the graphical notation heads a compartment:
-the element's name first, the kind after it. A quoted name's escapes decode in the label — `\n`
+the kind in guillemets above the element's name, both centred. A quoted name's escapes decode in the label — `\n`
 a line break, `\t` a tab, `\'` a quote — the quotes themselves kept; `Node.Name`, the JSON and
 the text form keep the spelling. `label.go` composes the lines once, and each writer
 only joins them:
 
-1. the name, with ` : Type` after it for a typed usage (`pump : Pump`); a definition has just its
-   name; an anonymous element leads with its kind instead, or with ` : Type` alone when typed.
+1. the kind in guillemets, `«part»`, `«state def»` — left out when the name line is already the
+   kind;
+2. the name, with ` : Type` after it for a typed usage (`pump : Pump`); a definition has just its
+   name; an anonymous element heads with its kind instead, or with ` : Type` alone when typed.
    A name the model did not give is not shown and the node heads as an anonymous one: a name a
    [v1 migration](../reference/sysml-v1-migration.md) made up for an element its source left
    unnamed, which it marks with `MigrationMetadata::SynthesizedName`, and the language's own
    `start` and `done` of an action's flow (`Node.NameSynthesized`, `shown` in `label.go`);
-2. the kind in guillemets, `«part»`, `«state def»` — left out when line 1 is already the kind;
 3. the detail, when there is one.
 
 An action node whose name is not shown — one written with no name, or with one a migration made
@@ -116,14 +117,15 @@ Mermaid joins the lines with `<br>` in every grammar it writes — a flowchart n
 kinds draw the same flowchart labels. A flowchart reserves one line of height for a `subgraph`
 title and draws the first child over the rest, so a rendering whose cluster title spans several
 lines opens on a YAML frontmatter block, `config: flowchart: subGraphTitleMargin: bottom: <n>`,
-claiming 24px per extra line as the title's bottom margin (`writeFlowchartFrontmatter`); the
-block rides the text into every consumer, and a flowchart without such a cluster, a tree, a
+claiming 24px per extra line as the title's bottom margin, with a `themeCSS` rule centring the
+title's lines under one another, which Mermaid otherwise sets flush left inside the centred
+block (`writeFlowchartFrontmatter`, `mermaidTitleCSS`); the block rides the text into every consumer, and a flowchart without such a cluster, a tree, a
 state diagram and a sequence diagram carry none. Every `subgraph` opens on a `direction`
 statement restating the flowchart's own (`TD`, `LR` for an interconnection, or the one asked
 for), since Mermaid lays out a subgraph that states none without regard to the flowchart's;
 a tree draws containment as edges, not subgraphs, so it states none. DOT writes an HTML-like
-label, `label=<<b>pump : Pump</b><br/><font point-size="10">«part»</font>>`, the name in bold
-and the keyword line under the 14pt Graphviz draws the rest in; `&`, `<`, `>` and `"` in a name become entities so no name
+label, `label=<<font point-size="10">«part»</font><br/><b>pump : Pump</b>>`, the keyword line at
+10pt over the name in bold at the 14pt Graphviz draws the rest in; `&`, `<`, `>` and `"` in a name become entities so no name
 reads as markup. A cluster's label is the same string. The text form keeps the notation's
 declaration order, `part pump : Pump`, with a detail parenthesised after it. The declared type is
 a field of the node (`Node.Type`, `type` in the JSON), never parsed back out of the detail.
@@ -210,8 +212,8 @@ digraph "VehicleViews::vehicleView" {
   graph [fontname="Helvetica"];
   node [shape=box, style=filled, fillcolor=white, color="#181818", fontname="Helvetica", fontsize=14, penwidth=0.5];
   edge [color="#181818", fontname="Helvetica", fontsize=13, penwidth=1];
-  "n0" [label=<<b>Vehicles::Vehicle</b><br/><font point-size="10"><i>«part def»</i></font>>];
-  "n1" [style="rounded,filled", label=<<b>engine : Engine</b><br/><font point-size="10"><i>«part»</i></font>>];
+  "n0" [label=<<font point-size="10"><i>«part def»</i></font><br/><b>Vehicles::Vehicle</b>>];
+  "n1" [style="rounded,filled", label=<<font point-size="10"><i>«part»</i></font><br/><b>engine : Engine</b>>];
   "n0" -> "n1" [arrowhead=none];
 }
 ```
@@ -222,7 +224,7 @@ digraph "VehicleViews::vehicleView" {
 - **Graph.** `digraph "<view>"` (`digraph` alone for a pseudo-view), a `graph` statement with the
   font and `rankdir=<dir>` when a direction is asked for, the `node` and `edge` defaults of the
   [style](#style) below, and `compound=true` only when an edge ends at a cluster.
-- **Nodes.** A leaf is `"<id>" [label=<<b><head></b><br/><font point-size="10"><i>«<kind>»</i></font><br/><detail>>]`,
+- **Nodes.** A leaf is `"<id>" [label=<<font point-size="10"><i>«<kind>»</i></font><br/><b><head></b><br/><detail>>]`,
   the [label lines above](#node-labels) as an HTML-like string, the detail line omitted when
   empty; a usage adds `style="rounded,filled"` before its label. In an interconnection, state or
   action rendering a node with children is
@@ -282,7 +284,7 @@ digraph "VehicleViews::vehicleView" {
   part's `rectangle` in PlantUML with the connector between them (`n2.0 -[thickness=3]- n1.0`),
   a `port name : Type` line under the part and `part.port` edge ends in text, and in Mermaid,
   whose flowchart has no port element, a ported part is a `subgraph` holding one node per pin
-  (`n1.0["durationIn : ~DurationPort<br>«port»"]`) with the connector between the pins
+  (`n1.0["«port»<br>durationIn : ~DurationPort"]`) with the connector between the pins
   (`n2.0 ---|"durationInterface"| n1.0`), so no edge ends on a subgraph — which ELK, the layout
   the pinned `mermaid-cli` applies, refuses.
 - **Edges.** The `EdgeKind` styles parallel the Mermaid arrows so the two forms read alike:
@@ -469,14 +471,14 @@ digraph "PlantViews::placedView" {
   "canvas:0" [shape=point, style=invis, width=0, height=0, label="", pos="0,800!", pin=true];
   "canvas:1" [shape=point, style=invis, width=0, height=0, label="", pos="1200,0!", pin=true];
   subgraph "cluster_n0" {
-    label=<<b>Loop</b><br/><font point-size="10"><i>«part def»</i></font>>;
+    label=<<font point-size="10"><i>«part def»</i></font><br/><b>Loop</b>>;
     color=black;
     penwidth=0.5;
     bb="292,692,628,768";
     "n0" [shape=point, style=invis, width=0, height=0, label="", pos="460,730!", pin=true];
-    "n1" [style="rounded,filled", label=<<b>pump : Pump</b><br/><font point-size="10"><i>«part»</i></font>>, pos="359,741.5!", pin=true, width=1.6388888888888888, height=0.5138888888888888, comment="collapsed"];
+    "n1" [style="rounded,filled", label=<<font point-size="10"><i>«part»</i></font><br/><b>pump : Pump</b>>, pos="359,741.5!", pin=true, width=1.6388888888888888, height=0.5138888888888888, comment="collapsed"];
     "n1.0" [shape=box, label="", xlabel="outlet : FluidPort", fontsize=8, width=0.16666666666666666, height=0.16666666666666666, fixedsize=true, pos="402,730!", pin=true];
-    "n2" [style="rounded,filled", label=<<b>tank : Tank</b><br/><font point-size="10"><i>«part»</i></font>>, margin=0, pos="560,730!", pin=true, width=1.6666666666666667, height=0.8333333333333334, fixedsize=true];
+    "n2" [style="rounded,filled", label=<<font point-size="10"><i>«part»</i></font><br/><b>tank : Tank</b>>, margin=0, pos="560,730!", pin=true, width=1.6666666666666667, height=0.8333333333333334, fixedsize=true];
     "n2.0" [shape=box, label="", xlabel="inlet : FluidPort", fontsize=8, width=0.16666666666666666, height=0.16666666666666666, fixedsize=true, pos="494,730!", pin=true];
   }
   "n1.0" -> "n2.0" [label="supply", arrowhead=none, penwidth=3, pos="400,730 400,730 450,680 450,680 450,680 500,730 500,730", lp="443.5,723.5"];
@@ -641,8 +643,8 @@ skinparam wrapWidth 300
 hide stereotype
 hide circle
 hide empty members
-class "**Vehicles::Vehicle**\n<size:10>//«part def»//</size>" as n0 <<part def>>
-class "**engine : Engine**\n<size:10>//«part»//</size>" as n1 <<part>> <<usage>>
+class "<size:10>//«part def»//</size>\n**Vehicles::Vehicle**" as n0 <<part def>>
+class "<size:10>//«part»//</size>\n**engine : Engine**" as n1 <<part>> <<usage>>
 n0 -- n1
 @enduml
 ```
@@ -670,9 +672,9 @@ Every file has the same shape, in this order:
 **Aliases and labels.** Every node is declared as `<grammar> "<label>" as <id> <<stereotypes>>`.
 The rendering's node IDs are `n<i>` (and `empty` for an empty rendering), already word characters,
 so they are the PlantUML aliases unchanged and the mapping is the identity. The label is the
-[name-first lines](#node-labels) of `label.go`, joined with `\n` inside one double-quoted string:
-the name line in creole bold (`**…**`), the keyword line italic at 10 pt
-(`<size:10>//«part»//</size>`), the detail line plain. One helper, `plantumlText`, writes every
+[keyword-first lines](#node-labels) of `label.go`, joined with `\n` inside one double-quoted
+string: the keyword line italic at 10 pt (`<size:10>//«part»//</size>`), the name line under it in
+creole bold (`**…**`), the detail line plain. One helper, `plantumlText`, writes every
 label and edge label so PlantUML shows it as it is: `"`, `\`, `<`, `>` and the creole escape `~`
 become `<U+XXXX>` escapes, as does each character of a run creole would read as markup (`**`,
 `//`, `__`, `--`, `[[`, `]]`), and a newline becomes `\n`. The bare guillemets `«` `»` render as
@@ -684,7 +686,7 @@ themselves in the released jar and are written bare.
 definition and an orthogonal region carry no shape stereotype and keep the element rules. PlantUML
 would print every stereotype as its own `«…»` line above the name, which would put the keyword
 line twice on the node and the shape stereotype beside it, so the file says `hide stereotype`:
-**the label prints the guillemet line, PlantUML does not** — one keyword line, name first, as in
+**the label prints the guillemet line, PlantUML does not** — one keyword line, above the name, as in
 the Mermaid and DOT forms. The stereotypes still drive the style and the pseudostate shapes. A
 control node's stereotype stands alone (`<<start>>`, `<<fork>>`, …), since PlantUML draws the
 pseudostate shape only when nothing else is attached.

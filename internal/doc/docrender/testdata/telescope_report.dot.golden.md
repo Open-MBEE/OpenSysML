@@ -90,12 +90,12 @@ digraph "Observatory::interconnectView" {
   node [shape=box, style=filled, fillcolor=white, color="#181818", fontname="Helvetica", fontsize=14, penwidth=0.5];
   edge [color="#181818", fontname="Helvetica", fontsize=13, penwidth=1];
   subgraph "cluster_n0" {
-    label=<<b>imagingChain</b><br/><font point-size="10"><i>«part»</i></font>>;
+    label=<<font point-size="10"><i>«part»</i></font><br/><b>imagingChain</b>>;
     color=black;
     penwidth=0.5;
     "n0" [shape=point, style=invis, width=0, height=0, label=""];
-    "n1" [style="rounded,filled", label=<<table border="0" cellborder="0" cellspacing="0" cellpadding="2"><tr><td colspan="2"><b>camera : Camera</b><br/><font point-size="10"><i>«part»</i></font></td></tr><tr><td port="n1.0" border="1" fixedsize="true" width="10" height="10"></td><td align="left"><font point-size="8">output : DataPort</font></td></tr></table>>];
-    "n2" [style="rounded,filled", label=<<table border="0" cellborder="0" cellspacing="0" cellpadding="2"><tr><td port="n2.0" border="1" fixedsize="true" width="10" height="10"></td><td align="left"><font point-size="8">input : DataPort</font></td></tr><tr><td colspan="2"><b>recorder : Recorder</b><br/><font point-size="10"><i>«part»</i></font></td></tr></table>>];
+    "n1" [style="rounded,filled", label=<<table border="0" cellborder="0" cellspacing="0" cellpadding="2"><tr><td colspan="2"><font point-size="10"><i>«part»</i></font><br/><b>camera : Camera</b></td></tr><tr><td port="n1.0" border="1" fixedsize="true" width="10" height="10"></td><td align="left"><font point-size="8">output : DataPort</font></td></tr></table>>];
+    "n2" [style="rounded,filled", label=<<table border="0" cellborder="0" cellspacing="0" cellpadding="2"><tr><td port="n2.0" border="1" fixedsize="true" width="10" height="10"></td><td align="left"><font point-size="8">input : DataPort</font></td></tr><tr><td colspan="2"><font point-size="10"><i>«part»</i></font><br/><b>recorder : Recorder</b></td></tr></table>>];
   }
   "n1":"n1.0" -> "n2":"n2.0" [label="link", arrowhead=none, penwidth=3];
 }
@@ -112,13 +112,13 @@ digraph {
   node [shape=box, style=filled, fillcolor=white, color="#181818", fontname="Helvetica", fontsize=14, penwidth=0.5];
   edge [color="#181818", fontname="Helvetica", fontsize=13, penwidth=1];
   subgraph "cluster_n0" {
-    label=<<b>operatingStates : ObservatoryStates</b><br/><font point-size="10"><i>«state»</i></font>>;
+    label=<<font point-size="10"><i>«state»</i></font><br/><b>operatingStates : ObservatoryStates</b>>;
     color=black;
     penwidth=0.5;
     "n0" [shape=point, style=invis, width=0, height=0, label=""];
     "n3" [shape=point, fillcolor=black, label=""];
-    "n1" [style="rounded,filled", label=<<b>idle</b><br/><font point-size="10"><i>«state»</i></font><br/>initial>];
-    "n2" [style="rounded,filled", label=<<b>observing</b><br/><font point-size="10"><i>«state»</i></font>>];
+    "n1" [style="rounded,filled", label=<<font point-size="10"><i>«state»</i></font><br/><b>idle</b><br/>initial>];
+    "n2" [style="rounded,filled", label=<<font point-size="10"><i>«state»</i></font><br/><b>observing</b>>];
   }
   "n3" -> "n1";
   "n1" -> "n2";

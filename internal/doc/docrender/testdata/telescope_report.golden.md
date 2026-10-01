@@ -83,21 +83,22 @@ mount segmentControl
 ```mermaid
 ---
 config:
+  themeCSS: ".cluster-label .nodeLabel { text-align: center; }"
   flowchart:
     subGraphTitleMargin:
       bottom: 24
 ---
 %% Observatory::interconnectView — interconnection rendering (render asInterconnectionDiagram)
 flowchart LR
-  subgraph n0 ["imagingChain<br>«part»"]
+  subgraph n0 ["«part»<br>imagingChain"]
     direction LR
-    subgraph n1 ["camera : Camera<br>«part»"]
+    subgraph n1 ["«part»<br>camera : Camera"]
       direction LR
-      n1.0["output : DataPort<br>«port»"]
+      n1.0["«port»<br>output : DataPort"]
     end
-    subgraph n2 ["recorder : Recorder<br>«part»"]
+    subgraph n2 ["«part»<br>recorder : Recorder"]
       direction LR
-      n2.0["input : DataPort<br>«port»"]
+      n2.0["«port»<br>input : DataPort"]
     end
   end
   n1.0 ---|"link"| n2.0
@@ -109,9 +110,9 @@ flowchart LR
 %% state rendering (the diagram states kind "state")
 stateDiagram-v2
   direction LR
-  state "operatingStates : ObservatoryStates<br>«state»" as n0 {
-    state "idle<br>«state»<br>initial" as n1
-    state "observing<br>«state»" as n2
+  state "«state»<br>operatingStates : ObservatoryStates" as n0 {
+    state "«state»<br>idle<br>initial" as n1
+    state "«state»<br>observing" as n2
     [*] --> n1
   }
   n1 --> n2
