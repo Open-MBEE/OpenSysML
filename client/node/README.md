@@ -426,7 +426,7 @@ console.log(migration.report.summary);            // migrated 93 element(s): 77 
 for (const entry of migration.report.byVerdict("unmapped")) {
   console.log(`${entry.kind} ${entry.name}: ${entry.note}`);
 }
-await save(migration, "Model.sysml");             // and Model_images/… beside it
+await save(migration, "Model.sysml");             // and images/… beside it
 ```
 
 `save` refuses, with a `RangeError` and before writing anything, a path that is
