@@ -80,3 +80,19 @@ test("reported elements become records", async () => {
   assert.equal(typeof vehicle.asDict(), "object");
   assert.match(vehicle.toString(), /vehicle|PartUsage/);
 });
+
+test("a query that asks for nothing answers every element", async () => {
+  await using connection = await connect();
+  const model = await connection.loads(MODEL);
+  const everything = await model.query();
+  const vehicle = await model.symbol("Vehicle");
+  assert.ok(everything.some((element) => element.id === vehicle.id));
+});
+
+test("an OSLC-only query still sends just the OSLC text", async () => {
+  await using connection = await connect();
+  const model = await connection.loads(MODEL);
+  const elements = await model.query({ oslc: 'sysml:name="vehicle"' });
+  assert.ok(elements.length >= 1);
+  assert.ok(elements.some((element) => element.get("name") === "vehicle"));
+});

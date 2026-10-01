@@ -371,12 +371,12 @@ export class Connection {
         create(QueryRequestSchema, {
           modelHash,
           oslcQuery: options.oslc ?? "",
+          // An OSLC-only request sends just oslcQuery (the two are mutually
+          // exclusive); every other request sends a Query, empty when nothing
+          // was asked for, which answers every element.
           ...(options.query !== undefined
             ? { query: options.query }
-            : options.payload !== undefined ||
-                options.scope !== undefined ||
-                options.select !== undefined ||
-                options.where !== undefined
+            : options.oslc === undefined
               ? { query: buildQuery(options) }
               : {}),
         }),
