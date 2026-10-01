@@ -1,10 +1,11 @@
-package model
+package modeldoc_test
 
 import (
 	"regexp"
 	"testing"
 
 	"github.com/Open-MBEE/OpenSysML/internal/doc/docrender"
+	"github.com/Open-MBEE/OpenSysML/internal/workspace/modeldoc"
 )
 
 // caseCollidingDocumentModel declares two documents whose names meet letter
@@ -33,11 +34,11 @@ package Reports {
 // to, tag included, so a preview's links land on the set's files.
 func TestRenderDocumentMarkdownLinksSiblingsByPlannedFiles(t *testing.T) {
 	ws := openDoc(t, "reports.sysml", caseCollidingDocumentModel)
-	markdown, err := ws.RenderDocumentMarkdown("Reports::Weekly", docrender.MarkdownOptions{})
+	markdown, err := modeldoc.RenderDocumentMarkdown(ws, "Reports::Weekly", docrender.MarkdownOptions{})
 	if err != nil {
 		t.Fatalf("RenderDocumentMarkdown: %v", err)
 	}
-	files, err := DocumentFiles([]string{"Reports::Weekly", "Reports::WEEKLY"}, ".md")
+	files, err := modeldoc.DocumentFiles([]string{"Reports::Weekly", "Reports::WEEKLY"}, ".md")
 	if err != nil {
 		t.Fatalf("DocumentFiles: %v", err)
 	}
