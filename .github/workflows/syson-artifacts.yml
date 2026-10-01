@@ -20,7 +20,7 @@ jobs:
       - name: Build the service binary
         run: make build-grpc
 
-      # SysON 2026.9.0 runs on 21; the module compiles at release 17.
+      # SysON 2026.9.2 runs on 21; the module compiles at release 17.
       - name: Set up Java
         uses: actions/setup-java@v4
         with:
