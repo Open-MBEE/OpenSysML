@@ -428,6 +428,8 @@ throws nothing.
 | `SymbolNotFoundException` | a `ModelException` from `Model.lookup` naming the missing `name()` and near `suggestions()` |
 | `StaleServiceException` | a `ServiceStartException`: the service is not the release asked for |
 | `ModelException` | the call succeeded and the answer reports a model failure; `failureReason()` classifies it and `diagnostics()` carry what the service said |
+| `ConversionException` | a `ModelException` from a conversion the service could not write; its `diagnostics()` say why when the source did not parse |
+| `MigrationException` | a `ModelException` from a SysML v1 model the service could not migrate at all; an element it has no v2 form for is reported in the `MigrationReport`, not thrown |
 | `AnalysisException` | a `ModelException` from `runAnalysis` whose `partial()` holds what the run computed before it stopped |
 | `EditException` | a `ModelException` from `applyEdits` carrying the `EditFailure` kind and the `referrers` a refused edit named |
 | `TransportException` | HTTP or IO failure; the service was not reached or answered |

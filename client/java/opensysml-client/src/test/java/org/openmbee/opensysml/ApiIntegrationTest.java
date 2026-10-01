@@ -1166,6 +1166,13 @@ class ApiIntegrationTest {
             () -> connection.migrate("<xmi/>".getBytes(), "sysml", MigrationOptions.defaults()));
     assertEquals(StatusCode.INVALID_ARGUMENT, unnamed.status());
 
+    MigrationOptions asXmi = MigrationOptions.defaults().withFromFormat("xmi");
+    MigrationException unreadable =
+        assertThrows(
+            MigrationException.class,
+            () -> connection.migrate("<xmi/>".getBytes(), "sysml", asXmi));
+    assertFalse(unreadable.getMessage().isEmpty());
+
     ServiceException missing =
         assertThrows(
             ServiceException.class, () -> connection.migrateFile(v1Fixture("nonexistent.xmi"), "sysml"));
