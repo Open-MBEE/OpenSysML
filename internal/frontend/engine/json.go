@@ -95,6 +95,7 @@ func (v *F64) UnmarshalJSON(data []byte) error {
 // JValue is the Value message: a oneof, so exactly one arm is ever set.
 type JValue struct {
 	IntValue       *I64             `json:"intValue,omitempty"`
+	BigIntValue    *string          `json:"bigIntValue,omitempty"`
 	RealValue      *F64             `json:"realValue,omitempty"`
 	BoolValue      *bool            `json:"boolValue,omitempty"`
 	StringValue    *string          `json:"stringValue,omitempty"`
@@ -127,7 +128,8 @@ func (v *JValue) UnmarshalJSON(data []byte) error {
 	}
 	*v = JValue(a)
 	return oneofArms("value", map[string]bool{
-		"intValue": v.IntValue != nil, "realValue": v.RealValue != nil,
+		"intValue": v.IntValue != nil, "bigIntValue": v.BigIntValue != nil,
+		"realValue": v.RealValue != nil,
 		"boolValue": v.BoolValue != nil, "stringValue": v.StringValue != nil,
 		"instanceId": v.InstanceId != nil, "sequence": v.Sequence != nil,
 		"null": v.Null != nil, "quantity": v.Quantity != nil,
@@ -167,10 +169,11 @@ type JValueSet struct {
 
 // JQuantity is the Quantity message; Magnitude is its oneof.
 type JQuantity struct {
-	IntMagnitude  *I64       `json:"intMagnitude,omitempty"`
-	RealMagnitude *F64       `json:"realMagnitude,omitempty"`
-	Unit          string     `json:"unit,omitempty"`
-	UnitTerm      *JUnitTerm `json:"unitTerm,omitempty"`
+	IntMagnitude    *I64       `json:"intMagnitude,omitempty"`
+	RealMagnitude   *F64       `json:"realMagnitude,omitempty"`
+	Unit            string     `json:"unit,omitempty"`
+	UnitTerm        *JUnitTerm `json:"unitTerm,omitempty"`
+	BigIntMagnitude *string    `json:"bigIntMagnitude,omitempty"`
 }
 
 // UnmarshalJSON rejects a quantity setting both magnitude arms of its oneof.
@@ -183,6 +186,7 @@ func (q *JQuantity) UnmarshalJSON(data []byte) error {
 	*q = JQuantity(a)
 	return oneofArms("quantity", map[string]bool{
 		"intMagnitude": q.IntMagnitude != nil, "realMagnitude": q.RealMagnitude != nil,
+		"bigIntMagnitude": q.BigIntMagnitude != nil,
 	})
 }
 
