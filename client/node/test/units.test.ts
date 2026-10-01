@@ -531,3 +531,90 @@ test("a unit named without its reduction is refused before the call", () => {
   );
   assert.equal(ref.kind.case, "measurementRef");
 });
+
+test("an integer outside int64 is refused inside every wire position", () => {
+  const full = new ServerInfo({
+    version: "v",
+    capabilities: ["structured_values", "tensor_values", "function_values"],
+    answered: true,
+    origin: "test",
+  });
+  const out = 2n ** 63n;
+  const unitTerm = { scaleNum: 1, scaleDen: 1, factors: [{ unitId: "SI::kg", exponent: 1 }] };
+  for (const input of [
+    { kind: "quantity", magnitude: { kind: "int", value: out }, unit: "" },
+    {
+      kind: "vectorQuantity",
+      components: [{ magnitude: { kind: "int", value: out }, unit: "", unitTerm }],
+    },
+    {
+      kind: "tensorQuantity",
+      dimensions: [1n],
+      components: [{ magnitude: { kind: "int", value: out }, unit: "", unitTerm }],
+    },
+    { kind: "vector", components: [{ kind: "int", value: out }] },
+    [{ kind: "quantity", magnitude: { kind: "int", value: out }, unit: "" }],
+    { kind: "instance", id: out },
+    { kind: "function", calcId: "Demo::c", selfId: out },
+  ] as const) {
+    assert.throws(
+      () => toValue(input as never, full),
+      (error: unknown) => {
+        assert.ok(error instanceof RangeError);
+        assert.match((error).message, /value out of range/);
+        return true;
+      },
+    );
+  }
+});
+
+test("a measurement reference needs its reduction however the unit is named", () => {
+  const full = new ServerInfo({
+    version: "v",
+    capabilities: ["measurement_refs"],
+    answered: true,
+    origin: "test",
+  });
+  // An id-only reference has a unit but still no reduction to send.
+  assert.throws(
+    () =>
+      toValue(
+        { kind: "measurementRef", unit: "", unitId: "SI::metre" } as never,
+        full,
+      ),
+    (error: unknown) => {
+      assert.ok(error instanceof UnsupportedValueError);
+      assert.match(
+        (error).message,
+        /measurement reference SI::metre carries no reduction to base units/,
+      );
+      return true;
+    },
+  );
+});
+
+test("an array input refuses a shape its dimensions cannot fill before the call", async () => {
+  let calls = 0;
+  const connection = await fakeConnection(
+    ["verification", "structured_values"],
+    () => {
+      calls += 1;
+      return {};
+    },
+  );
+  await assert.rejects(
+    () =>
+      connection.calc("hash", "Demo::c", {
+        arguments: [
+          { kind: "array", dimensions: [2n, 2n], elements: [1n, 2n, 3n] } as never,
+        ],
+      }),
+    (error: unknown) => {
+      assert.ok(error instanceof MalformedValueError);
+      assert.match((error).message, /dimensions \(2, 2\) holds 3 element\(s\), want 4/);
+      return true;
+    },
+  );
+  assert.equal(calls, 0);
+  await connection.close();
+});

@@ -4,6 +4,7 @@ import assert from "node:assert/strict";
 import { before, test } from "node:test";
 import { QueryElement, connect } from "../src/node/index.js";
 import { useServiceBinary } from "./support/service.js";
+import { fakeConnection } from "./support/fake.js";
 
 before(() => {
   useServiceBinary();
@@ -95,4 +96,32 @@ test("an OSLC-only query still sends just the OSLC text", async () => {
   const elements = await model.query({ oslc: 'sysml:name="vehicle"' });
   assert.ok(elements.length >= 1);
   assert.ok(elements.some((element) => element.get("name") === "vehicle"));
+});
+
+// An empty oslc is no OSLC at all: a structured ask beside it sends its Query.
+test("an empty oslc still sends the structured query", async () => {
+  let seen: { oslcQuery?: string; query?: unknown } | undefined;
+  const connection = await fakeConnection(["query"], (method, input) => {
+    assert.equal(method, "Query");
+    seen = input as { oslcQuery?: string; query?: unknown };
+    return { elements: [] };
+  });
+  await connection.query("hash", {
+    oslc: "",
+    where: { "@type": "PrimitiveConstraint", operator: "=", property: "@type", value: ["PartUsage"] },
+  });
+  assert.equal(seen?.oslcQuery, "");
+  assert.ok(seen?.query !== undefined);
+  await connection.close();
+
+  let onlyOslc: { oslcQuery?: string; query?: unknown } | undefined;
+  const again = await fakeConnection(["query"], (method, input) => {
+    assert.equal(method, "Query");
+    onlyOslc = input as { oslcQuery?: string; query?: unknown };
+    return { elements: [] };
+  });
+  await again.query("hash", { oslc: 'sysml:name="vehicle"' });
+  assert.equal(onlyOslc?.oslcQuery, 'sysml:name="vehicle"');
+  assert.equal(onlyOslc?.query, undefined);
+  await again.close();
 });

@@ -1232,6 +1232,7 @@ function encodeInput(value: SysMLValue, info: ServerInfo): Value {
         },
       });
     case "array":
+      checkShape("an array", value.dimensions, value.elements.length);
       return create(ValueSchema, {
         kind: {
           case: "array",
@@ -1266,6 +1267,9 @@ export function requireInput(value: SysMLValue, info: ServerInfo): void {
       return;
     case "quantity":
       checkReduction(`quantity in [${value.unit}]`, value.unit, value.unitTerm);
+      if (value.magnitude.kind === "int") {
+        checkInt64(value.magnitude.value);
+      }
       return;
     case "measurementRef": {
       require(CAPABILITY_MEASUREMENT_REFS);
@@ -1273,15 +1277,21 @@ export function requireInput(value: SysMLValue, info: ServerInfo): void {
       if (value.unit === "" && (value.unitId ?? "") === "" && unitTerm === undefined) {
         throw new UnsupportedValueError("measurement reference naming no unit");
       }
-      checkReduction(
-        `measurement reference ${value.unit || value.unitId}`,
-        value.unit,
-        value.unitTerm,
-      );
+      // The wire needs the reduction on every reference, id-only ones too;
+      // encodeMeasurementRef reads unitTerm unconditionally.
+      if (unitTerm === undefined) {
+        throw new UnsupportedValueError(
+          `measurement reference ${value.unit || value.unitId} carries no reduction to base units, so the service cannot tell what it ` +
+            "measures: build it from a unit the service sent, or from one the model declares",
+        );
+      }
       return;
     }
     case "int":
       checkInt64(value.value);
+      return;
+    case "instance":
+      checkInt64(value.id);
       return;
     case "unset":
       throw new RangeError(
@@ -1289,6 +1299,9 @@ export function requireInput(value: SysMLValue, info: ServerInfo): void {
       );
     case "function":
       require(CAPABILITY_FUNCTION_VALUES);
+      if (value.selfId !== undefined) {
+        checkInt64(value.selfId);
+      }
       return;
     case "metaobject":
       require(CAPABILITY_METAOBJECT_VALUES);
@@ -1301,11 +1314,19 @@ export function requireInput(value: SysMLValue, info: ServerInfo): void {
       return;
     case "vector":
       require(CAPABILITY_STRUCTURED_VALUES);
+      value.components.forEach((component) => {
+        if (component.kind === "int") {
+          checkInt64(component.value);
+        }
+      });
       return;
     case "vectorQuantity":
       require(CAPABILITY_STRUCTURED_VALUES);
       value.components.forEach((component) => {
         checkReduction(`quantity in [${component.unit}]`, component.unit, component.unitTerm);
+        if (component.magnitude.kind === "int") {
+          checkInt64(component.magnitude.value);
+        }
       });
       return;
     case "set":
@@ -1318,6 +1339,9 @@ export function requireInput(value: SysMLValue, info: ServerInfo): void {
       require(CAPABILITY_TENSOR_VALUES);
       value.components.forEach((component) => {
         checkReduction(`quantity in [${component.unit}]`, component.unit, component.unitTerm);
+        if (component.magnitude.kind === "int") {
+          checkInt64(component.magnitude.value);
+        }
       });
       return;
     case "infinity":

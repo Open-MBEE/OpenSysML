@@ -374,10 +374,11 @@ export class Connection {
           oslcQuery: options.oslc ?? "",
           // An OSLC-only request sends just oslcQuery (the two are mutually
           // exclusive); every other request sends a Query, empty when nothing
-          // was asked for, which answers every element.
+          // was asked for, which answers every element. An empty oslc is no
+          // OSLC at all, so a structured ask beside it still sends its Query.
           ...(options.query !== undefined
             ? { query: options.query }
-            : options.oslc === undefined
+            : options.oslc === undefined || options.oslc === ""
               ? { query: buildQuery(options) }
               : {}),
         }),
