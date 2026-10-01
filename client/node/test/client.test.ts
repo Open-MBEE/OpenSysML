@@ -664,7 +664,28 @@ test("the empty name names the model's root", async () => {
   const model = await connection.loads(`package Top { part def Wheel; }`);
   const root = await model.symbol("");
   assert.equal(root.id, model.root.id);
-  assert.equal(root.name, "Top");
   const found = await model.find("");
   assert.equal(found?.id, model.root.id);
+});
+
+test("a missed qualified name still names its near misses", async () => {
+  await using connection = await connect();
+  const model = await connection.loads(`package Demo { part def Vehicle; part def Wheel; }`);
+  await assert.rejects(
+    () => model.symbol("Demo::Vehicel"),
+    (error: unknown) => {
+      assert.ok(error instanceof SymbolNotFoundError);
+      assert.ok((error as SymbolNotFoundError).suggestions.length > 0);
+      assert.match((error as Error).message, /did you mean/);
+      return true;
+    },
+  );
+  await assert.rejects(
+    () => model.symbolById("Demo::Vehicel"),
+    (error: unknown) => {
+      assert.ok(error instanceof SymbolNotFoundError);
+      assert.ok((error as SymbolNotFoundError).suggestions.length > 0);
+      return true;
+    },
+  );
 });

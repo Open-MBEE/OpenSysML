@@ -295,16 +295,32 @@ export class Model {
     if (name === "") {
       return this.parsed ? this.root : this.symbolById(name);
     }
-    if (this.looksQualified(name)) {
-      return this.symbolById(name);
-    }
-    // A short name is searched for from the root, which an adopted model has not
-    // got; the service resolves a name the model declares at its top level.
-    if (!this.parsed) {
-      return this.symbolById(name);
+    if (this.looksQualified(name) || !this.parsed) {
+      // A qualified name or a name on an adopted model is resolved by the
+      // service; one it cannot resolve is searched for, as Python's find does.
+      try {
+        return await this.symbolById(name);
+      } catch (error) {
+        if (!(error instanceof SymbolNotFoundError)) {
+          throw error;
+        }
+      }
+      const qualified = await this.find(name);
+      if (qualified !== undefined) {
+        return qualified;
+      }
+      throw new SymbolNotFoundError(name, await this.nearNames(name));
     }
     const found = await this.find(name);
     if (found === undefined) {
+      // A short name may still be one the service resolves directly, as an id.
+      try {
+        return await this.symbolById(name);
+      } catch (error) {
+        if (!(error instanceof SymbolNotFoundError)) {
+          throw error;
+        }
+      }
       throw new SymbolNotFoundError(name, await this.nearNames(name));
     }
     return found;
@@ -510,7 +526,7 @@ export class Model {
       ),
     );
     if (response.symbol === undefined) {
-      throw new SymbolNotFoundError(id);
+      throw new SymbolNotFoundError(id, await this.nearNames(id));
     }
     return new ModelSymbol(this.connection, this.hash, response.symbol);
   }
@@ -590,9 +606,16 @@ export class Model {
       if (symbol.name === "") {
         continue;
       }
-      const score = similarity(name.toLowerCase(), symbol.name.toLowerCase());
-      if (score >= NEAR_ENOUGH) {
-        scored.push({ id: symbol.id, score });
+      // A short name and a qualified one are both candidates, either being
+      // what a mistyped lookup may have meant.
+      for (const candidate of [symbol.name, symbol.id]) {
+        if (candidate === "") {
+          continue;
+        }
+        const score = similarity(name.toLowerCase(), candidate.toLowerCase());
+        if (score >= NEAR_ENOUGH) {
+          scored.push({ id: candidate, score });
+        }
       }
       seen += 1;
       if (seen === NEAR_SEARCH_LIMIT) {

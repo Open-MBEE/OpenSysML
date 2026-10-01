@@ -53,8 +53,8 @@ test("a lookup that fails names what it looked for and what the model has instea
   );
   assert.ok(error instanceof SymbolNotFoundError);
   assert.equal(error.symbolName, "Wheeel");
-  assert.equal(error.suggestions[0], "Sample::Wheel");
-  assert.match(error.message, /did you mean Sample::Wheel/);
+  assert.equal(error.suggestions[0], "Wheel");
+  assert.match(error.message, /did you mean Wheel/);
 });
 
 test("a qualified name the model has not got reports that name, not the service's text", async () => {
@@ -66,7 +66,8 @@ test("a qualified name the model has not got reports that name, not the service'
   );
   assert.ok(error instanceof SymbolNotFoundError);
   assert.equal(error.symbolName, "Sample::Nope");
-  assert.deepEqual(error.suggestions, []);
+  assert.deepEqual(error.suggestions, ["Sample::Wheel", "Sample::Car"]);
+  assert.match(error.message, /did you mean Sample::Wheel/);
 });
 
 test("options that are no options are refused before a service is started", async () => {
