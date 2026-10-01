@@ -1332,6 +1332,35 @@ public final class Model {
             .addAllOperations(Protos.edits(edits))
             .setAcceptDocuments(options.acceptDocuments());
     options.document().ifPresent(request::setDocument);
+    boolean adopted = roots.isEmpty() && documents.isEmpty();
+    Optional<Boolean> several =
+        adopted ? Optional.empty() : Optional.of(Math.max(roots.size(), documents.size()) > 1);
+    ApplyEditsResponse response;
+    if (adopted
+        && options.acceptDocuments()
+        && connection.capabilities().has(Capabilities.EDIT_DOCUMENTS)) {
+      try {
+        response = applyEdits(request.setAcceptDocuments(false));
+        several = Optional.of(false);
+      } catch (ServiceException refused) {
+        if (refused.status() != StatusCode.FAILED_PRECONDITION) {
+          throw refused;
+        }
+        response = applyEdits(request.setAcceptDocuments(true));
+        several = Optional.of(true);
+      }
+    } else {
+      response = applyEdits(request);
+    }
+    EditResult result = Protos.editResult(response);
+    if (several.isEmpty() || several.get() == result.severalDocuments()) {
+      return result;
+    }
+    return new EditResult(
+        result.content(), result.applied(), result.documents(), result.diagnostics(), several.get());
+  }
+
+  private ApplyEditsResponse applyEdits(ApplyEditsRequest.Builder request) {
     ApplyEditsResponse response =
         connection.call("ApplyEdits", request.build(), ApplyEditsResponse.getDefaultInstance());
     if (!response.getError().isEmpty()) {
@@ -1343,37 +1372,7 @@ public final class Model {
           response.getReferringElementsList(),
           Protos.referrers(response.getReferrersList()));
     }
-    EditResult result = Protos.editResult(response);
-    boolean several = severalDocuments(request, result);
-    if (several == result.severalDocuments()) {
-      return result;
-    }
-    return new EditResult(
-        result.content(), result.applied(), result.documents(), result.diagnostics(), several);
-  }
-
-  private boolean severalDocuments(ApplyEditsRequest.Builder request, EditResult result) {
-    if (!roots.isEmpty() || !documents.isEmpty()) {
-      return Math.max(roots.size(), documents.size()) > 1;
-    }
-    if (!request.getAcceptDocuments()
-        || !connection.capabilities().has(Capabilities.EDIT_DOCUMENTS)
-        || !result.content().isEmpty()
-        || result.severalDocuments()) {
-      return result.severalDocuments();
-    }
-    try {
-      connection.call(
-          "ApplyEdits",
-          request.setAcceptDocuments(false).build(),
-          ApplyEditsResponse.getDefaultInstance());
-      return false;
-    } catch (ServiceException refused) {
-      if (refused.status() == StatusCode.FAILED_PRECONDITION) {
-        return true;
-      }
-      throw refused;
-    }
+    return response;
   }
 
   /** The order the capabilities an edit request needs are checked in. */
