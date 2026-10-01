@@ -5,6 +5,7 @@ part def Executive {
         first start then idle;
         action idle {
             out z : ScalarValues::Real[1];
+            out y : ScalarValues::Real[1];
             assign tdiff := tdiff * 1;
         }
         first idle then clamp;
@@ -20,10 +21,30 @@ part def Executive {
             if w->SequenceFunctions::notEmpty() { assign tMax := w; }
             assign tdiff := tMax * 2;
         }
-        first settle then final;
+        first settle then pick;
+        action pick {
+            in w : ScalarValues::Real[0..1];
+            in v : ScalarValues::Real[0..1];
+            if w->SequenceFunctions::notEmpty() { assign tMax := w; }
+            if v->SequenceFunctions::notEmpty() { assign tMax := v; }
+            assign tdiff := tMax * 2;
+        }
+        first pick then early;
+        action early {
+            in w : ScalarValues::Real[0..1];
+            in v : ScalarValues::Real[0..1];
+            if w->SequenceFunctions::notEmpty() { assign tMax := w; }
+            assign tdiff := tMax * 2;
+            if v->SequenceFunctions::notEmpty() { assign tMax := v; }
+        }
+        first early then final;
         action final terminate;
         /* flow idle.z to clamp.w not written: the body of 'idle' never assigns idle.z */
         /* flow idle.z to settle.w not written: the body of 'idle' never assigns idle.z */
+        /* flow idle.z to pick.w not written: the body of 'idle' never assigns idle.z */
+        /* flow idle.y to pick.v not written: the body of 'idle' never assigns idle.y */
+        /* flow idle.z to early.w not written: the body of 'idle' never assigns idle.z */
+        /* flow idle.y to early.v not written: the body of 'idle' never assigns idle.y */
         metadata MigrationMetadata::SynthesizedName about final;
     }
 }

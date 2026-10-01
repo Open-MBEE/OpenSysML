@@ -331,18 +331,29 @@ func statementsIn(body string, d dialect, sc featureResolver) (lines, notes []st
 		p.notes = append(p.notes, unsetNote(d, p.unset))
 	}
 	if err == nil {
-		for _, name := range p.unsetIf {
-			p.notes = append(p.notes, unsetIfNote(d, name, p.guarded[name]))
+		for _, r := range p.unsetIf {
+			p.notes = append(p.notes, unsetIfNote(d, r.name, r.when))
 		}
 	}
 	return lines, p.notes, err
 }
 
 // unsetIfNote tells that the body reads name, which holds no value until
-// assigned, after assigning it only when the names it is read from hold one.
-func unsetIfNote(d dialect, name, when string) string {
+// assigned, after assigning it only when one of the guards, the names admitting
+// no value each assignment reads, holds a value.
+func unsetIfNote(d dialect, name string, guards []string) string {
+	var when, none string
+	switch len(guards) {
+	case 1:
+		when, none = guards[0], guards[0]+" holds none"
+	case 2:
+		when, none = guards[0]+" or "+guards[1], "neither "+guards[0]+" nor "+guards[1]+" holds one"
+	default:
+		all := strings.Join(guards[:len(guards)-1], ", ") + " or " + guards[len(guards)-1]
+		when, none = all, "none of "+all+" holds one"
+	}
 	note := name + " holds no initial value and is assigned only when " + when + " holds one, and the body reads it after, so a run in which " +
-		when + " holds none reaches the read unset and stops"
+		none + " reaches the read unset and stops"
 	if d == dialectScript {
 		note += "; the script would read an unset name as null, which its arithmetic takes as 0"
 	}
@@ -721,15 +732,22 @@ type opaqueParser struct {
 	i        int
 	d        dialect
 	sc       featureResolver
-	locals   map[string]local  // names a `var`, `let` or `const` declared
-	assigns  bool              // whether `=` assigns (a statement) rather than compares
-	absent   []string          // the names admitting no value the statement being read reads
-	assigned map[string]bool   // the features the statements so far assign on every path
-	guarded  map[string]string // the features assigned only when the names admitting no value they are read from hold one
-	unset    []string          // the features holding no initial value read before the body assigns them
-	unsetIf  []string          // the features holding no initial value read after only a guarded assignment
-	notes    []string          // notes on statements written otherwise than they read: guarded or left out
-	printed  int               // console prints left out
+	locals   map[string]local    // names a `var`, `let` or `const` declared
+	assigns  bool                // whether `=` assigns (a statement) rather than compares
+	absent   []string            // the names admitting no value the statement being read reads
+	assigned map[string]bool     // the features the statements so far assign on every path
+	guarded  map[string][]string // the features assigned only under guards, one per assignment: the names admitting no value it reads
+	unset    []string            // the features holding no initial value read before the body assigns them
+	unsetIf  []unsetRead         // the features holding no initial value read after only guarded assignments
+	notes    []string            // notes on statements written otherwise than they read: guarded or left out
+	printed  int                 // console prints left out
+}
+
+// unsetRead is a read of a feature holding no initial value after only guarded
+// assignments of it, under the guards made so far: it is unset when all fail.
+type unsetRead struct {
+	name string
+	when []string
 }
 
 func newOpaqueParser(body string, d dialect, sc featureResolver) (*opaqueParser, *refusal) {
@@ -737,7 +755,7 @@ func newOpaqueParser(body string, d dialect, sc featureResolver) (*opaqueParser,
 	if err != nil {
 		return nil, err
 	}
-	return &opaqueParser{toks: toks, d: d, sc: sc, locals: map[string]local{}, assigned: map[string]bool{}, guarded: map[string]string{}}, nil
+	return &opaqueParser{toks: toks, d: d, sc: sc, locals: map[string]local{}, assigned: map[string]bool{}, guarded: map[string][]string{}}, nil
 }
 
 // local is a name a declaration introduced: the scalar it holds and whether
@@ -1164,8 +1182,8 @@ func (p *opaqueParser) guardedAssign(target opaqueRef, value string) []string {
 		p.assigned[target.expr] = true
 		return []string{assign}
 	}
-	if _, ok := p.guarded[target.expr]; !ok && !p.assigned[target.expr] {
-		p.guarded[target.expr] = strings.Join(p.absent, " and ")
+	if !p.assigned[target.expr] {
+		p.guarded[target.expr] = append(p.guarded[target.expr], strings.Join(p.absent, " and "))
 	}
 	holds := make([]string, len(p.absent))
 	for i, name := range p.absent {
@@ -1625,9 +1643,9 @@ func (p *opaqueParser) readUnset(ref opaqueRef) {
 	if !ref.unset || p.assigned[ref.expr] {
 		return
 	}
-	if _, ok := p.guarded[ref.expr]; ok {
-		if !slices.Contains(p.unsetIf, ref.expr) {
-			p.unsetIf = append(p.unsetIf, ref.expr)
+	if guards, ok := p.guarded[ref.expr]; ok {
+		if !slices.ContainsFunc(p.unsetIf, func(r unsetRead) bool { return r.name == ref.expr }) {
+			p.unsetIf = append(p.unsetIf, unsetRead{name: ref.expr, when: slices.Clone(guards)})
 		}
 		return
 	}
