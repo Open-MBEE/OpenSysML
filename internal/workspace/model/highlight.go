@@ -5,13 +5,14 @@ import (
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/resolve"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/semantics"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/symbols"
+	"github.com/Open-MBEE/OpenSysML/internal/syntax/semtok"
 )
 
 // HighlightTokens returns the semantic tokens of a document, ordered by source
 // position, with the content they index; the workspace or bundled library
 // document is chosen under one lock, so neither an edit nor a close can split
 // or lose them. Nil for unknown documents.
-func (w *Workspace) HighlightTokens(name string) ([]byte, []highlight.Token) {
+func (w *Workspace) HighlightTokens(name string) ([]byte, []semtok.Token) {
 	w.mu.Lock()
 	defer w.mu.Unlock()
 	doc := w.docs[name]
@@ -23,7 +24,7 @@ func (w *Workspace) HighlightTokens(name string) ([]byte, []highlight.Token) {
 	if doc == nil {
 		return nil, nil
 	}
-	var out []highlight.Token
+	var out []semtok.Token
 	w.queryLocked(name, func(resolver *resolve.Resolver, _ *semantics.Model) {
 		out = highlight.Tokens(doc.Content, doc.AST, doc.Scope, resolution{r: resolver})
 	})

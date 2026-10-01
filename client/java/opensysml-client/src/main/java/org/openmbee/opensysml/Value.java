@@ -16,8 +16,31 @@ import java.util.Optional;
  */
 public sealed interface Value {
 
-  /** An {@code Integer} value. */
+  /** An {@code Integer} value within {@code long}. */
   record IntegerValue(long value) implements Value {}
+
+  /**
+   * An {@code Integer} value beyond {@code long}: KerML Integers are unbounded. An integer within
+   * {@code long} is always an {@link IntegerValue}, never this, so two integers are the same value
+   * exactly when their arms and values are.
+   *
+   * @param value the integer, beyond {@code long}
+   */
+  record BigIntegerValue(BigInteger value) implements Value {
+    /**
+     * Creates an integer value beyond {@code long}.
+     *
+     * @param value the integer, never {@code null}
+     * @throws IllegalArgumentException if the integer fits in a {@code long}
+     */
+    public BigIntegerValue {
+      Objects.requireNonNull(value, "value");
+      if (value.bitLength() < 64) {
+        throw new IllegalArgumentException(
+            value + " is within long, which IntegerValue carries");
+      }
+    }
+  }
 
   /** A {@code Real} value. */
   record RealValue(double value) implements Value {}
@@ -364,7 +387,8 @@ public sealed interface Value {
   }
 
   /**
-   * A vector of numbers, each an {@link IntegerValue} or a {@link RealValue} as the model computed
+   * A vector of numbers, each an {@link IntegerValue}, {@link BigIntegerValue} or {@link RealValue}
+   * as the model computed
    * it: one value, never a sequence of numbers.
    *
    * <p>Only a service advertising the {@code structured_values} capability reports one as itself
@@ -376,13 +400,16 @@ public sealed interface Value {
     /**
      * Creates a vector, copying the components.
      *
-     * @param components the components, each an {@link IntegerValue} or a {@link RealValue}
+     * @param components the components, each an {@link IntegerValue}, {@link BigIntegerValue} or
+     *     {@link RealValue}
      * @throws IllegalArgumentException if a component is not a number
      */
     public VectorValue {
       components = List.copyOf(components);
       for (Value component : components) {
-        if (!(component instanceof IntegerValue) && !(component instanceof RealValue)) {
+        if (!(component instanceof IntegerValue)
+            && !(component instanceof BigIntegerValue)
+            && !(component instanceof RealValue)) {
           throw new IllegalArgumentException(
               "vector component is not a number: " + component.getClass().getSimpleName());
         }
@@ -684,7 +711,10 @@ public sealed interface Value {
     if (isEmpty(this) || isEmpty(other)) {
       return isEmpty(this) && isEmpty(other);
     }
-    if (this instanceof IntegerValue || this instanceof RealValue || this instanceof ComplexValue) {
+    if (this instanceof IntegerValue
+        || this instanceof BigIntegerValue
+        || this instanceof RealValue
+        || this instanceof ComplexValue) {
       return numbersEqual(this, other);
     }
     if (this instanceof Sequence a && other instanceof Sequence b) {
@@ -748,9 +778,15 @@ public sealed interface Value {
     return x != null && y != null ? magnitudesEqual(x, y) : a.equals(b);
   }
 
-  /** A number's magnitude as a {@link Long} or {@link Double}; {@code null} off the real axis. */
+  /**
+   * A number's magnitude as a {@link Long}, {@link BigInteger} or {@link Double}; {@code null} off
+   * the real axis.
+   */
   private static Number onRealAxis(Value value) {
     if (value instanceof IntegerValue integer) {
+      return integer.value();
+    }
+    if (value instanceof BigIntegerValue integer) {
       return integer.value();
     }
     if (value instanceof RealValue real) {
@@ -763,6 +799,12 @@ public sealed interface Value {
   }
 
   private static boolean magnitudesEqual(Number a, Number b) {
+    if (a instanceof BigInteger x) {
+      return b instanceof BigInteger y ? x.equals(y) : b instanceof Double r && realIsBig(r, x);
+    }
+    if (b instanceof BigInteger) {
+      return magnitudesEqual(b, a);
+    }
     if (a instanceof Long x) {
       return b instanceof Long y ? x.longValue() == y : realIsLong(b.doubleValue(), x);
     }
@@ -772,6 +814,11 @@ public sealed interface Value {
   // Whether r is exactly the integer n, never rounding n.
   private static boolean realIsLong(double r, long n) {
     return r == Math.rint(r) && r >= -0x1p63 && r < 0x1p63 && (long) r == n;
+  }
+
+  // Whether r is exactly the integer n beyond a long.
+  private static boolean realIsBig(double r, BigInteger n) {
+    return !Double.isInfinite(r) && r == Math.rint(r) && Math.abs(r) >= 0x1p63 && wholeOf(r).equals(n);
   }
 
   private static boolean sameValues(List<Value> a, List<Value> b) {
@@ -831,13 +878,17 @@ public sealed interface Value {
    */
   private static BigInteger[] exactBaseMagnitude(Quantity quantity) {
     Quantity.UnitTerm term = quantity.reduction().get();
-    if (!(quantity.magnitude() instanceof Long magnitude)
+    if (!quantity.isIntegral()
         || !isWhole(term.scaleNumerator())
         || !isWhole(term.scaleDenominator())) {
       return new BigInteger[0];
     }
+    BigInteger magnitude =
+        quantity.magnitude() instanceof BigInteger big
+            ? big
+            : BigInteger.valueOf(quantity.magnitude().longValue());
     return new BigInteger[] {
-      BigInteger.valueOf(magnitude).multiply(wholeOf(term.scaleNumerator())),
+      magnitude.multiply(wholeOf(term.scaleNumerator())),
       wholeOf(term.scaleDenominator())
     };
   }
@@ -871,7 +922,8 @@ public sealed interface Value {
   }
 
   /**
-   * This value as a {@code double}, for the numeric arms.
+   * This value as a {@code double}, for the numeric arms; an integer beyond {@code long} is the
+   * nearest {@code double}, ties to even, and infinite only past the finite range.
    *
    * @return the magnitude of an integer, real or quantity value
    * @throws IllegalStateException if this value is not numeric
@@ -879,6 +931,9 @@ public sealed interface Value {
   default double asDouble() {
     if (this instanceof IntegerValue integer) {
       return integer.value();
+    }
+    if (this instanceof BigIntegerValue integer) {
+      return integer.value().doubleValue();
     }
     if (this instanceof RealValue real) {
       return real.value();

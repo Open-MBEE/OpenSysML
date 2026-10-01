@@ -92,7 +92,7 @@ func (ctx *Context) addQuantities(op ast.OperatorKind, left, right *Quantity) (V
 	}
 	switch {
 	case !lpoint && !rpoint:
-		return quantityResult(semantics.AddQuantities(op, *left, *right))
+		return quantityResult(semantics.AddQuantities(op, *left, *right, ctx.maxIntegerBits))
 	case lpoint && rpoint:
 		if op == ast.OpAdd {
 			return Value{}, ctx.pointError(operatorText(op), lscale,
@@ -121,7 +121,7 @@ func (ctx *Context) offsetPoint(op ast.OperatorKind, point *Quantity, scale *Coo
 		return Value{}, fmt.Errorf("%w; a point on %s moves by a magnitude in its unit %s",
 			err, ctx.describeScale(scale), scale.Scale.Unit)
 	}
-	num, err := semantics.MagnitudeArith(op, point.Num, inUnit.Num)
+	num, err := semantics.MagnitudeArith(op, point.Num, inUnit.Num, ctx.maxIntegerBits)
 	if err != nil {
 		return Value{}, err
 	}
@@ -141,7 +141,7 @@ func (ctx *Context) subtractPoints(left *Quantity, lscale *CoordinateFrame, righ
 	if err != nil {
 		return Value{}, err
 	}
-	num, err := semantics.MagnitudeArith(ast.OpSub, left.Num, onLeft.Num)
+	num, err := semantics.MagnitudeArith(ast.OpSub, left.Num, onLeft.Num, ctx.maxIntegerBits)
 	if err != nil {
 		return Value{}, err
 	}

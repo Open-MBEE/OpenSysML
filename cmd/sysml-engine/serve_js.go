@@ -4,17 +4,11 @@ package main
 
 import (
 	"context"
-	"encoding/json"
-	"errors"
-	"fmt"
 	"syscall/js"
 
 	"github.com/Open-MBEE/OpenSysML/internal/frontend/engine"
+	"github.com/Open-MBEE/OpenSysML/internal/frontend/jsonrpc"
 )
-
-// codeUnknown is the canonical status code an unclassified failure is answered
-// under, as connect.CodeOf maps a non-status error.
-const codeUnknown uint32 = 2
 
 // serve installs globalThis.sysmlEngine — call(method, paramsJSON) answering
 // the JSON-RPC response body, synchronous on the JS thread — and blocks
@@ -40,26 +34,8 @@ func serve(eng *engine.Engine, useStdio bool) int {
 			} else {
 				body, err = eng.Call(context.Background(), method, []byte(params))
 			}
-			if err != nil {
-				code, message := codeUnknown, err.Error()
-				var engErr *engine.Error
-				if errors.As(err, &engErr) {
-					code, message = engErr.Code, engErr.Message
-				}
-				return fmt.Sprintf(`{"jsonrpc":"2.0","id":null,"error":{"code":%d,"message":%s}}`,
-					code, jsString(message))
-			}
-			return fmt.Sprintf(`{"jsonrpc":"2.0","id":null,"result":%s}`, body)
+			return jsonrpc.Envelope(body, err)
 		}),
 	})
 	select {}
-}
-
-// jsString quotes a message for the JSON envelope it is written into.
-func jsString(s string) string {
-	out, err := json.Marshal(s)
-	if err != nil {
-		return `"error"`
-	}
-	return string(out)
 }

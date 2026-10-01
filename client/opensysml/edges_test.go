@@ -10,24 +10,40 @@ import (
 	"github.com/Open-MBEE/OpenSysML/client/opensysml"
 )
 
-// TestArithmeticOutsideItsRangeIsAFailureNotAWrappedValue: a caller reading
-// Int(-9223372036854775808) from a sum of positives has no way to tell it apart
-// from a computed value, so the range is reported instead.
-func TestArithmeticOutsideItsRangeIsAFailureNotAWrappedValue(t *testing.T) {
+// TestIntegerArithmeticBeyondInt64IsExact: KerML Integers are unbounded, so
+// a sum of positives past int64 is the BigInt it is, never a wrapped Int.
+func TestIntegerArithmeticBeyondInt64IsExact(t *testing.T) {
 	client := newClient(t)
 	model := parseVehicle(t, client)
 
-	for _, expression := range []string{
-		"9223372036854775807 + 1",
-		"-9223372036854775807 - 2",
-		"9223372036854775807 * 2",
-		"9223372036854775808",
-		"1e400",
+	for expression, want := range map[string]string{
+		"9223372036854775807 + 1":  "9223372036854775808",
+		"-9223372036854775807 - 2": "-9223372036854775809",
+		"9223372036854775807 * 2":  "18446744073709551614",
+		"9223372036854775808":      "9223372036854775808",
+		"2 ** 70":                  "1180591620717411303424",
 	} {
 		value, err := client.Evaluate(context.Background(), model, expression)
-		if !errors.Is(err, opensysml.ErrFailure) {
-			t.Errorf("Evaluate(%q) = %#v, %v; want a failure", expression, value, err)
+		got, ok := value.(opensysml.BigInt)
+		if err != nil || !ok || got.String() != want {
+			t.Errorf("Evaluate(%q) = %#v, %v; want BigInt %s", expression, value, err, want)
 		}
+	}
+	value, err := client.Evaluate(context.Background(), model, "(2 ** 70) / (2 ** 69) == 2")
+	if err != nil || value != opensysml.Bool(true) {
+		t.Errorf("Evaluate((2 ** 70) / (2 ** 69) == 2) = %#v, %v; want true", value, err)
+	}
+}
+
+// TestRealOutsideItsRangeIsAFailure: a Real no float64 holds is reported, not
+// read as an infinity.
+func TestRealOutsideItsRangeIsAFailure(t *testing.T) {
+	client := newClient(t)
+	model := parseVehicle(t, client)
+
+	value, err := client.Evaluate(context.Background(), model, "1e400")
+	if !errors.Is(err, opensysml.ErrFailure) {
+		t.Errorf("Evaluate(1e400) = %#v, %v; want a failure", value, err)
 	}
 }
 

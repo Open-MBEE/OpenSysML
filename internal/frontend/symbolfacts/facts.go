@@ -1,11 +1,9 @@
-package grpc
+package symbolfacts
 
 import (
 	"sync"
 
-	pb "github.com/Open-MBEE/OpenSysML/api/proto"
 	"github.com/Open-MBEE/OpenSysML/internal/check/passes"
-	"github.com/Open-MBEE/OpenSysML/internal/frontend/protoconv"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/resolve"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/semantics"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/symbols"
@@ -15,14 +13,14 @@ import (
 // fqnScalarQuantityValue is the library type every quantity value specializes.
 const fqnScalarQuantityValue = "Quantities::ScalarQuantityValue"
 
-// SymbolContext holds what converting a symbol to proto needs besides the
+// Context holds what converting a symbol to proto needs besides the
 // symbol: its index, and the resolver and semantic model that answer what its
 // declared names refer to. Their memoization is why it is shared per model.
 //
 // The resolver and semantic model memoize into plain maps, so a shared context
 // must be used by one goroutine at a time; Lock serializes concurrent
 // conversions of the same model.
-type SymbolContext struct {
+type Context struct {
 	mu sync.Mutex
 
 	Index     *symbols.Index
@@ -30,9 +28,17 @@ type SymbolContext struct {
 	Semantics *semantics.Model
 }
 
+// NewContext builds a conversion context over a symbol index.
+func NewContext(idx *symbols.Index) *Context {
+	resolver := resolve.New(idx)
+	sem := passes.NewTypedModel(resolver)
+	resolver.SetModel(sem)
+	return &Context{Index: idx, Resolver: resolver, Semantics: sem}
+}
+
 // Lock takes exclusive use of the context's resolver and semantic model, and
 // returns the function releasing it.
-func (sc *SymbolContext) Lock() func() {
+func (sc *Context) Lock() func() {
 	sc.mu.Lock()
 	// Resolution during conversion is speculative: a name that does not resolve
 	// is reported as unresolved type facts, not as a model diagnostic. Dropping
@@ -47,12 +53,116 @@ func (sc *SymbolContext) Lock() func() {
 	}
 }
 
-// NewSymbolContext builds a conversion context over a symbol index.
-func NewSymbolContext(idx *symbols.Index) *SymbolContext {
-	resolver := resolve.New(idx)
-	sem := passes.NewTypedModel(resolver)
-	resolver.SetModel(sem)
-	return &SymbolContext{Index: idx, Resolver: resolver, Semantics: sem}
+// Info contains protobuf-independent facts about a symbol.
+type Info struct {
+	Id                        string
+	Name                      string
+	Kind                      string
+	Metadata                  map[string]string
+	ChildIds                  []string
+	TypeInfo                  *TypeInfo
+	Multiplicity              *Multiplicity
+	Specializations           []*Specialization
+	Attributes                []*Attribute
+	WithheldLibraryAttributes int32
+}
+
+// TypeInfo describes a symbol's declared, resolved and primitive type.
+type TypeInfo struct {
+	Declared        string
+	ResolvedId      string
+	ResolvedKind    string
+	Primitive       string
+	PrimitiveSource string
+	Quantity        bool
+	Unit            string
+}
+
+// Multiplicity contains the lower and upper bounds of a symbol's multiplicity.
+type Multiplicity struct {
+	Lower string
+	Upper string
+}
+
+// Specialization describes a declared generalization relationship.
+type Specialization struct {
+	Kind       string
+	Declared   string
+	TargetId   string
+	TargetKind string
+}
+
+// Attribute contains a symbol's attribute declaration facts.
+type Attribute struct {
+	Name  string
+	Type  string
+	Unit  string
+	Value *Value
+}
+
+// Value contains either a string value or an evaluated semantic constant.
+type Value struct {
+	String *string
+	Const  *semantics.Value
+}
+
+// Of derives the plain-Go facts associated with a symbol.
+func Of(sym *symbols.Symbol, sc *Context) *Info {
+	defer sc.Lock()()
+	idx := sc.Index
+	info := &Info{
+		Id:       idx.GetFQN(sym), // Fully qualified name
+		Name:     sym.Name,
+		Kind:     sym.Kind.String(),
+		Metadata: make(map[string]string),
+	}
+	// Extract metadata from AST node
+	extractMetadata(sym, info.Metadata)
+	// Add visibility to metadata
+	info.Metadata["visibility"] = visibilityToString(sym.Visibility)
+	if sym.Scope != nil {
+		// Collect child IDs
+		info.ChildIds = collectChildIDs(sym.Scope, idx)
+	}
+	// Static type facts: the resolved type, the declared multiplicity and every
+	// generalization edge. These are what a client needs to reconstruct the
+	// element's type without re-deriving it from the metadata strings.
+	info.TypeInfo = sc.typeInfoOf(sym)
+	info.Multiplicity = sc.multiplicityOf(sym)
+	info.Specializations = sc.specializationsOf(sym)
+	// The attributes the element has, own and inherited, with their resolved
+	// types and constant default values.
+	info.Attributes, info.WithheldLibraryAttributes = sc.attributesOf(sym)
+	return info
+}
+
+// Root is one document's root namespace: the index's own root symbol for
+// it, else the document's root scope described as one, which is what a document
+// declaring no root symbol has.
+func Root(sc *Context, rootScope *symbols.Scope) *Info {
+	for _, sym := range sc.Index.LookupQualified("") { // Root has empty name
+		if sym.Scope == rootScope {
+			return Of(sym, sc)
+		}
+	}
+	if rootScope == nil {
+		return nil
+	}
+	info := &Info{
+		Kind:     "RootNamespace",
+		Metadata: make(map[string]string),
+	}
+	info.ChildIds = collectChildIDs(rootScope, sc.Index)
+	return info
+}
+
+// collectChildIDs extracts child symbol FQNs from a scope
+func collectChildIDs(scope *symbols.Scope, idx *symbols.Index) []string {
+	var ids []string
+	for _, sym := range scope.AllMembers() {
+		ids = append(ids, idx.GetFQN(sym))
+	}
+	return ids
 }
 
 // relationshipKindName maps a generalization relationship to the name the wire
@@ -91,8 +201,8 @@ func relationshipName(rel *ast.Relationship) *ast.QualifiedName {
 
 // specializationsOf reports every generalization edge a symbol declares, in
 // declaration order, with each target resolved.
-func (sc *SymbolContext) specializationsOf(sym *symbols.Symbol) []*pb.Specialization {
-	var out []*pb.Specialization
+func (sc *Context) specializationsOf(sym *symbols.Symbol) []*Specialization {
+	var out []*Specialization
 	for _, rel := range semantics.RelationshipsOf(sym) {
 		kind := relationshipKindName(rel.Kind)
 		if kind == "" {
@@ -102,10 +212,7 @@ func (sc *SymbolContext) specializationsOf(sym *symbols.Symbol) []*pb.Specializa
 		if qn == nil {
 			continue
 		}
-		spec := &pb.Specialization{
-			Kind:     kind,
-			Declared: qn.Text(),
-		}
+		spec := &Specialization{Kind: kind, Declared: qn.Text()}
 		if target := sc.resolveFrom(sym, qn); target != nil {
 			spec.TargetId = sc.Index.GetFQN(target)
 			spec.TargetKind = target.Kind.String()
@@ -117,7 +224,7 @@ func (sc *SymbolContext) specializationsOf(sym *symbols.Symbol) []*pb.Specializa
 
 // resolveFrom resolves a qualified name written in sym's declaration,
 // following an alias to what it names.
-func (sc *SymbolContext) resolveFrom(sym *symbols.Symbol, qn *ast.QualifiedName) *symbols.Symbol {
+func (sc *Context) resolveFrom(sym *symbols.Symbol, qn *ast.QualifiedName) *symbols.Symbol {
 	target, ok := sc.Resolver.ResolveQualified(sym.OwnerScope, qn)
 	if !ok || target == nil {
 		return nil
@@ -130,20 +237,17 @@ func (sc *SymbolContext) resolveFrom(sym *symbols.Symbol, qn *ast.QualifiedName)
 
 // multiplicityOf reports the multiplicity a symbol declares, or nil when it
 // declares none. An unevaluable bound is reported empty rather than guessed at.
-func (sc *SymbolContext) multiplicityOf(sym *symbols.Symbol) *pb.MultiplicityInfo {
+func (sc *Context) multiplicityOf(sym *symbols.Symbol) *Multiplicity {
 	rng, ok := sc.Semantics.MultiplicityOf(sym)
 	if !ok {
 		return nil
 	}
-	return &pb.MultiplicityInfo{
-		Lower: protoconv.BoundText(rng.Lower),
-		Upper: protoconv.BoundText(rng.Upper),
-	}
+	return &Multiplicity{Lower: BoundText(rng.Lower), Upper: BoundText(rng.Upper)}
 }
 
 // typeInfoOf derives the static type facts of a def or usage. Anything the
 // model cannot derive is left empty rather than guessed at.
-func (sc *SymbolContext) typeInfoOf(sym *symbols.Symbol) *pb.TypeInfo {
+func (sc *Context) typeInfoOf(sym *symbols.Symbol) *TypeInfo {
 	switch decl := sym.Decl.(type) {
 	case *ast.Usage:
 		return sc.usageTypeInfo(sym, decl)
@@ -156,8 +260,8 @@ func (sc *SymbolContext) typeInfoOf(sym *symbols.Symbol) *pb.TypeInfo {
 
 // usageTypeInfo derives the type facts of a usage. An untyped usage still has a
 // primitive when its default value determines one, reported as inferred.
-func (sc *SymbolContext) usageTypeInfo(sym *symbols.Symbol, decl *ast.Usage) *pb.TypeInfo {
-	info := &pb.TypeInfo{}
+func (sc *Context) usageTypeInfo(sym *symbols.Symbol, decl *ast.Usage) *TypeInfo {
+	info := &TypeInfo{}
 
 	// Declared type: the first typing relationship, which is the usage's own
 	// type. Subsetting and redefinition are reported as specializations.
@@ -186,15 +290,14 @@ func (sc *SymbolContext) usageTypeInfo(sym *symbols.Symbol, decl *ast.Usage) *pb
 		info.Primitive = prim
 		info.PrimitiveSource = "value"
 	}
-
 	sc.markQuantity(sym, info, decl.Value)
 	return info
 }
 
 // definitionTypeInfo derives the type facts of a definition: the library scalar
 // it classifies as, and whether it is a quantity value type.
-func (sc *SymbolContext) definitionTypeInfo(sym *symbols.Symbol) *pb.TypeInfo {
-	info := &pb.TypeInfo{}
+func (sc *Context) definitionTypeInfo(sym *symbols.Symbol) *TypeInfo {
+	info := &TypeInfo{}
 	if prim := sc.Semantics.PrimTypeOf(sym); prim != semantics.PrimUnknown {
 		info.Primitive = prim.String()
 		info.PrimitiveSource = "declared"
@@ -205,7 +308,7 @@ func (sc *SymbolContext) definitionTypeInfo(sym *symbols.Symbol) *pb.TypeInfo {
 
 // markQuantity records that an element's values carry a measurement unit: its
 // type is a quantity value type, or its default value names a unit.
-func (sc *SymbolContext) markQuantity(sym *symbols.Symbol, info *pb.TypeInfo, value ast.Node) {
+func (sc *Context) markQuantity(sym *symbols.Symbol, info *TypeInfo, value ast.Node) {
 	if idx, ok := value.(*ast.IndexExpr); ok && idx.Bracket {
 		if _, err := sc.Semantics.UnitTermOfExpr(sym.OwnerScope, idx.Index); err == nil {
 			info.Quantity = true
@@ -228,7 +331,7 @@ func (sc *SymbolContext) markQuantity(sym *symbols.Symbol, info *pb.TypeInfo, va
 
 // libSymbol looks up a library element by qualified name, uniquely or not at
 // all: an ambiguous name is no evidence of the library's element.
-func (sc *SymbolContext) libSymbol(fqn string) *symbols.Symbol {
+func (sc *Context) libSymbol(fqn string) *symbols.Symbol {
 	matches := sc.Index.LookupQualified(fqn)
 	if len(matches) != 1 {
 		return nil

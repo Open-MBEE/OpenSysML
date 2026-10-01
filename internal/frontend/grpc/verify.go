@@ -11,6 +11,7 @@ import (
 	"github.com/Open-MBEE/OpenSysML/internal/exec/objref"
 	"github.com/Open-MBEE/OpenSysML/internal/exec/runtime"
 	"github.com/Open-MBEE/OpenSysML/internal/frontend/protoconv"
+	"github.com/Open-MBEE/OpenSysML/internal/frontend/symbolfacts"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/semantics"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/symbols"
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/ast"
@@ -88,7 +89,7 @@ func (v *verifyContext) sem() *semantics.Model { return v.runtime.Semantics() }
 
 // lookup resolves an FQN to the symbol it names.
 func (v *verifyContext) lookup(symbolID string) (*symbols.Symbol, error) {
-	syms := lookupNamed(v.cached.Index, symbolID)
+	syms := symbolfacts.LookupNamed(v.cached.Index, symbolID)
 	if len(syms) == 0 {
 		return nil, fmt.Errorf("symbol not found: %s", symbolID)
 	}
@@ -149,11 +150,11 @@ func (v *verifyContext) objectAt(role, path string) (*runtime.Instance, error) {
 	}
 	for i := objref.Head(ref.Segments); i > 0; i-- {
 		name := objref.JoinTyped(ref.Segments[:i])
-		syms := lookupNamed(v.cached.Index, name)
+		syms := symbolfacts.LookupNamed(v.cached.Index, name)
 		if len(syms) == 0 {
 			continue
 		}
-		if i > 1 && len(lookupNamed(v.cached.Index, objref.DeclaredRun(ref.Segments[:i]))) == 0 {
+		if i > 1 && len(symbolfacts.LookupNamed(v.cached.Index, objref.DeclaredRun(ref.Segments[:i]))) == 0 {
 			continue
 		}
 		if objref.IsNamespace(syms[0]) {

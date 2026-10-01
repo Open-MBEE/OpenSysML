@@ -208,6 +208,15 @@ func integerValue(n int64) Value {
 	return Value{Kind: ValConst, Const: semantics.Value{Kind: semantics.ValInt, Int: n}}
 }
 
+// addressableInteger is the Integer v as a position or count, refused with
+// ErrIntegerUnaddressable when it is beyond int64.
+func addressableInteger(name, param string, v semantics.Value) (int64, error) {
+	if n, ok := v.Int64(); ok {
+		return n, nil
+	}
+	return 0, fmt.Errorf("%w: %s parameter %q is %s", ErrIntegerUnaddressable, name, param, v.FormatInt())
+}
+
 // nullValue is the empty result of an operation declared `Anything[0..1]` —
 // head, last and `#` of a sequence that has no such element.
 func nullValue() Value { return Value{Kind: ValNull} }
@@ -220,8 +229,25 @@ func indexOf(op string, val Value) (int64, error) {
 		if index, ok := val.Const.WholeNumber(); ok {
 			return index, nil
 		}
+		if n, ok := wholeBeyondInt64(val.Const); ok {
+			return 0, fmt.Errorf("%w: %s: index %s addresses no position", ErrIndexOutOfRange, op, n.FormatInt())
+		}
 	}
 	return 0, fmt.Errorf("%w: %s requires an Integer index, got %s", ErrTypeMismatch, op, describeValue(val))
+}
+
+// wholeBeyondInt64 is the whole number v is, an Integer or a Real, where it is
+// beyond int64.
+func wholeBeyondInt64(v semantics.Value) (semantics.Value, bool) {
+	switch v.Kind {
+	case semantics.ValInt:
+		return v, v.IsBigInt()
+	case semantics.ValReal:
+		if n, ok := semantics.IntegerOfReal(v.Real); ok && n.IsBigInt() {
+			return n, true
+		}
+	}
+	return semantics.Value{}, false
 }
 
 // fixedIndex is indexOf for an index argument the model determines; an open one is unread.
@@ -1489,7 +1515,15 @@ func (ctx *Context) aggregate(op string, args []Value, operator ast.OperatorKind
 		if elem.Kind != ValConst || !elem.Const.IsNumeric() {
 			return Value{}, fmt.Errorf("%w: %s requires numeric elements, got %s", ErrTypeMismatch, op, describeValue(elem))
 		}
-		next, err := foldNumeric(op, operator, acc, elem.Const)
+		if a, ok := acc.Int64(); ok && operator == ast.OpAdd {
+			if b, ok := elem.Const.Int64(); ok {
+				if sum := a + b; (sum^a)&(sum^b) >= 0 {
+					acc = semantics.IntValue(sum)
+					continue
+				}
+			}
+		}
+		next, err := foldNumeric(op, operator, acc, elem.Const, ctx.maxIntegerBits)
 		if err != nil {
 			return Value{}, err
 		}
@@ -1545,24 +1579,14 @@ func (ctx *Context) aggregateQuantities(op string, elements []Value, operator as
 }
 
 // foldNumeric applies one step of an aggregation, keeping Integer arithmetic
-// exact where both operands are Integers and reporting a result outside the
-// Integer range rather than wrapping it.
-func foldNumeric(op string, operator ast.OperatorKind, acc, elem semantics.Value) (semantics.Value, error) {
+// exact where both operands are Integers, refused only beyond maxBits.
+func foldNumeric(op string, operator ast.OperatorKind, acc, elem semantics.Value, maxBits int64) (semantics.Value, error) {
 	if acc.Kind == semantics.ValInt && elem.Kind == semantics.ValInt {
-		var result int64
-		switch operator {
-		case ast.OpAdd:
-			result = acc.Int + elem.Int
-			if (elem.Int > 0 && result < acc.Int) || (elem.Int < 0 && result > acc.Int) {
-				return semantics.Value{}, fmt.Errorf("%w: %s exceeds the Integer range", semantics.ErrArithmeticOverflow, op)
-			}
-		case ast.OpMul:
-			result = acc.Int * elem.Int
-			if acc.Int != 0 && (result/acc.Int != elem.Int || (acc.Int == -1 && elem.Int == math.MinInt64)) {
-				return semantics.Value{}, fmt.Errorf("%w: %s exceeds the Integer range", semantics.ErrArithmeticOverflow, op)
-			}
+		res, err := semantics.IntArith(operator, acc, elem, maxBits)
+		if err != nil {
+			return semantics.Value{}, fmt.Errorf("%s: %w", op, integerSizeHint(err))
 		}
-		return semantics.Value{Kind: semantics.ValInt, Int: result}, nil
+		return res, nil
 	}
 	// An infinity has no place in a sum or a product of measured values: the
 	// aggregation would answer an infinity for every element that follows.

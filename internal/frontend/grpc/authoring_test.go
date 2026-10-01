@@ -1257,8 +1257,8 @@ func TestGetServerInfoAuthoringCapabilities(t *testing.T) {
 			t.Errorf("capabilities = %v, want %q", info.Capabilities, capability)
 		}
 	}
-	if got := info.Capabilities[len(info.Capabilities)-1]; got != CapabilityActionBodyStatementAuthoring {
-		t.Errorf("last capability = %q, want %q", got, CapabilityActionBodyStatementAuthoring)
+	if got := info.Capabilities[slices.Index(info.Capabilities, CapabilityActionBodyStatementAuthoring)-1]; got != CapabilityCommentAuthoring {
+		t.Errorf("capability before %q = %q, want %q", CapabilityActionBodyStatementAuthoring, got, CapabilityCommentAuthoring)
 	}
 }
 

@@ -11,7 +11,7 @@ import (
 
 const compileModel = `package Compiled {
     private import ScalarValues::*;
-    calc def Fib { in n : Integer; return : Integer = if n < 2 ? n else Fib(n - 1) + Fib(n - 2); }
+    calc def Fib { in n : Real; return : Real = if n < 2.0 ? n else Fib(n - 1.0) + Fib(n - 2.0); }
 }
 `
 

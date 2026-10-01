@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"math"
 	"slices"
-	"strconv"
 	"strings"
 
 	"github.com/Open-MBEE/OpenSysML/internal/ir/lower"
@@ -453,19 +452,17 @@ func (ctx *Context) EvalWithScopeOn(node ast.Node, scope *symbols.Scope, self *I
 	return NewEvalContextIn(ctx, scope, self).Eval(node)
 }
 
-// evalLiteralInteger evaluates an integer literal, reporting one outside the
-// Integer range rather than clamping it.
+// evalLiteralInteger evaluates an integer literal, of any magnitude: KerML's
+// Integer is the mathematical integers.
 func (ec *EvalContext) evalLiteralInteger(n *ast.LiteralInteger) (Value, error) {
 	val, ok := ec.ctx.model.integerLiterals[n]
 	if !ok {
-		var err error
-		if val, err = strconv.ParseInt(n.Value, 10, 64); err != nil {
-			return Value{}, fmt.Errorf("%w: literal %s is outside the Integer range",
-				semantics.ErrArithmeticOverflow, n.Value)
+		if val, ok = semantics.ParseInteger(n.Value); !ok {
+			return Value{}, fmt.Errorf("%w: literal %s is no Integer", ErrTypeMismatch, n.Value)
 		}
 		ec.ctx.model.integerLiterals[n] = val
 	}
-	return Value{Kind: ValConst, Const: semantics.Value{Kind: semantics.ValInt, Int: val}}, nil
+	return Value{Kind: ValConst, Const: val}, nil
 }
 
 // evalLiteralReal evaluates a real literal, reporting one outside the Real
@@ -1668,7 +1665,7 @@ var unimplementedOperators = map[ast.OperatorKind]string{
 // an operand that depends on a parameter does not make the operator fail.
 func (ec *EvalContext) evalOperator(n *ast.OperatorExpr) (Value, error) {
 	// Try constant folding first
-	if semVal, ok := ec.ctx.model.semantics.Eval(n); ok {
+	if semVal, ok := ec.ctx.model.semantics.EvalWithin(n, ec.ctx.maxIntegerBits); ok {
 		return Value{Kind: ValConst, Const: semVal}, nil
 	}
 
@@ -2222,7 +2219,7 @@ func (ctx *Context) arithmeticValues(op ast.OperatorKind, left, right Value, spa
 		}
 	}
 
-	res, err := constArithmetic(op, left.Const, right.Const)
+	res, err := constArithmetic(op, left.Const, right.Const, ctx.maxIntegerBits)
 	if err != nil {
 		return Value{}, err
 	}
@@ -2248,8 +2245,9 @@ func definiteArithmeticError(op ast.OperatorKind, left, right Value) error {
 
 // constArithmetic is arithmetic over two scalar constants, the core the
 // evaluator and the compiled calc tier share so both report the same results
-// and the same errors.
-func constArithmetic(op ast.OperatorKind, left, right semantics.Value) (semantics.Value, error) {
+// and the same errors. An Integer result is exact, refused only when it would
+// need more than maxBits.
+func constArithmetic(op ast.OperatorKind, left, right semantics.Value, maxBits int64) (semantics.Value, error) {
 	// The unbounded `*` is no number: arithmetic over it is refused rather than
 	// answered with a finite result or an infinity.
 	if left.IsUnbounded() || right.IsUnbounded() {
@@ -2260,34 +2258,30 @@ func constArithmetic(op ast.OperatorKind, left, right semantics.Value) (semantic
 	// Exponentiation shares the folder's implementation, so a folded and an
 	// evaluated `**` agree; the folder declines where this reports the error.
 	if op == ast.OpPow {
-		return semantics.Pow(left, right)
+		res, err := semantics.Pow(left, right, maxBits)
+		return res, integerSizeHint(err)
 	}
 
-	// Integer arithmetic: an out-of-range result is reported, not wrapped.
+	// Integer arithmetic is exact, in int64 while the result fits it.
 	if left.Kind == semantics.ValInt && right.Kind == semantics.ValInt {
-		// A quotient is a Rational: the exact ratio, rounded once to float64 so
-		// operands beyond 2^53 are not rounded before dividing.
-		if op == ast.OpDiv {
-			q, ok := semantics.IntQuotient(left.Int, right.Int)
+		switch op {
+		case ast.OpDiv:
+			// A quotient is a Rational: the exact ratio, rounded once to float64
+			// so operands beyond 2^53 are not rounded before dividing.
+			q, ok := semantics.IntQuotient(left, right)
 			if !ok {
 				return semantics.Value{}, ErrDivisionByZero
 			}
-			return semantics.Value{Kind: semantics.ValReal, Real: q}, nil
-		}
-		var result int64
-		switch op {
-		case ast.OpAdd, ast.OpSub, ast.OpMul:
-			var ok bool
-			if result, ok = semantics.IntArith(op, left.Int, right.Int); !ok {
-				return semantics.Value{}, semantics.IntegerOverflow(op, left.Int, right.Int)
-			}
+			return semantics.RealResult(q)
 		case ast.OpMod:
-			if right.Int == 0 {
+			r, ok := semantics.IntRem(left, right)
+			if !ok {
 				return semantics.Value{}, ErrDivisionByZero
 			}
-			result = left.Int % right.Int
+			return r, nil
 		}
-		return semantics.Value{Kind: semantics.ValInt, Int: result}, nil
+		res, err := semantics.IntArith(op, left, right, maxBits)
+		return res, integerSizeHint(err)
 	}
 
 	// Real arithmetic (coerce int to real if needed)
@@ -2318,12 +2312,10 @@ func constArithmetic(op ast.OperatorKind, left, right semantics.Value) (semantic
 	return semantics.RealResult(result)
 }
 
-// toReal converts a semantics.Value to float64.
+// toReal converts a semantics.Value to float64, an Integer rounding to the
+// nearest.
 func toReal(v semantics.Value) float64 {
-	if v.Kind == semantics.ValInt {
-		return float64(v.Int)
-	}
-	return v.Real
+	return v.AsReal()
 }
 
 // evalEquality evaluates equality operators (==, !=).
@@ -2547,18 +2539,21 @@ func constComparison(op ast.OperatorKind, left, right semantics.Value) (bool, er
 
 	// Compare integers
 	if left.Kind == semantics.ValInt && right.Kind == semantics.ValInt {
-		switch op {
-		case ast.OpLt:
-			return left.Int < right.Int, nil
-		case ast.OpLe:
-			return left.Int <= right.Int, nil
-		case ast.OpGt:
-			return left.Int > right.Int, nil
-		case ast.OpGe:
-			return left.Int >= right.Int, nil
-		default:
+		res, ok := semantics.OrderSatisfies(op, semantics.CompareInt(left, right))
+		if !ok {
 			return false, fmt.Errorf("unknown comparison operator: %v", op)
 		}
+		return res, nil
+	}
+
+	// An Integer orders against a Real exactly, neither rounded to the other.
+	if left.Kind == semantics.ValInt && right.Kind == semantics.ValReal && !math.IsNaN(right.Real) {
+		res, _ := semantics.OrderSatisfies(op, semantics.CompareIntReal(left, right.Real))
+		return res, nil
+	}
+	if left.Kind == semantics.ValReal && right.Kind == semantics.ValInt && !math.IsNaN(left.Real) {
+		res, _ := semantics.OrderSatisfies(op, -semantics.CompareIntReal(right, left.Real))
+		return res, nil
 	}
 
 	// Compare reals (coerce int to real)
@@ -2743,19 +2738,6 @@ func (ec *EvalContext) evalUnary(n *ast.OperatorExpr) (Value, error) {
 		return Value{}, fmt.Errorf("unary operator requires 1 operand, got %d", len(n.Operands))
 	}
 
-	// The least Integer is the one literal whose magnitude alone is outside the
-	// range, so its sign is read together with it; every other operand is
-	// evaluated as usual.
-	if n.Operator == ast.OpNeg {
-		if lit, ok := n.Operands[0].(*ast.LiteralInteger); ok {
-			if _, err := strconv.ParseInt(lit.Value, 10, 64); err != nil {
-				if val, err := strconv.ParseInt("-"+lit.Value, 10, 64); err == nil {
-					return Value{Kind: ValConst, Const: semantics.Value{Kind: semantics.ValInt, Int: val}}, nil
-				}
-			}
-		}
-	}
-
 	operand, err := ec.valueOperand(n.Operands[0])
 	if err != nil {
 		return Value{}, err
@@ -2821,10 +2803,6 @@ func constUnary(op ast.OperatorKind, operand semantics.Value) (semantics.Value, 
 			return semantics.Value{}, fmt.Errorf("%w: logical not requires bool operand, got %s", ErrTypeMismatch, semantics.FormatConst(operand))
 		}
 		return semantics.Value{Kind: semantics.ValBool, Bool: !operand.Bool}, nil
-	}
-	if op == ast.OpNeg && operand.Kind == semantics.ValInt && operand.Int == math.MinInt64 {
-		return semantics.Value{}, fmt.Errorf("%w: -(%d) exceeds the Integer range",
-			semantics.ErrArithmeticOverflow, operand.Int)
 	}
 	result, ok := semantics.EvalUnary(op, operand)
 	if !ok {
@@ -3411,7 +3389,7 @@ func spelledPrim(elements []Value) semantics.PrimType {
 	common := semantics.PrimUnknown
 	for i, el := range elements {
 		prim := representationPrim(el)
-		if prim == semantics.PrimInteger && el.Const.Int >= 0 {
+		if prim == semantics.PrimInteger && el.Const.IntSign() >= 0 {
 			prim = semantics.PrimNatural
 		}
 		switch {

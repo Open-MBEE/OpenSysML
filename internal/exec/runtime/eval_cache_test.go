@@ -21,8 +21,9 @@ func parseExpr(t *testing.T, src string) ast.Node {
 }
 
 // TestRepeatedLiteralEvaluationAnswersAlike: a literal evaluated again in one
-// context, memoized or not, answers the same value, and one outside its range
-// reports the same error each time rather than a cached success.
+// context, memoized or not, answers the same value, one beyond int64 included,
+// and one outside its range reports the same error each time rather than a
+// cached success.
 func TestRepeatedLiteralEvaluationAnswersAlike(t *testing.T) {
 	model, resolver, _ := parseAndBuildModel(t, sumModel)
 	ctx := NewContext(typedModel(model, resolver), 1000)
@@ -33,17 +34,18 @@ func TestRepeatedLiteralEvaluationAnswersAlike(t *testing.T) {
 	}{
 		{"42", semantics.Value{Kind: semantics.ValInt, Int: 42}},
 		{"2.5", semantics.Value{Kind: semantics.ValReal, Real: 2.5}},
+		{"9223372036854775808", bigConst(t, "9223372036854775808").Const},
 	} {
 		expr := parseExpr(t, tc.src)
 		for i := 0; i < 3; i++ {
 			got, err := ctx.Eval(expr)
-			if err != nil || got.Kind != ValConst || got.Const != tc.want {
+			if err != nil || got.Kind != ValConst || got.Const.Kind != tc.want.Kind || !got.Const.Equal(tc.want) {
 				t.Fatalf("eval %d of %s = %+v, %v; want %+v", i, tc.src, got, err, tc.want)
 			}
 		}
 	}
 
-	for _, src := range []string{"9223372036854775808", "1e400"} {
+	for _, src := range []string{"1e400", "-1e400"} {
 		expr := parseExpr(t, src)
 		var first string
 		for i := 0; i < 3; i++ {
@@ -94,7 +96,7 @@ func TestNestedInvocationArgumentsStayDistinct(t *testing.T) {
 		}
 	}
 
-	failing := parseExpr(t, "sub(fib(5), 9223372036854775808)")
+	failing := parseExpr(t, "sub(fib(5), 1e400)")
 	if _, err := ec.Eval(failing); !errors.Is(err, semantics.ErrArithmeticOverflow) {
 		t.Fatalf("eval of a failing second argument: err = %v; want ErrArithmeticOverflow", err)
 	}
@@ -150,7 +152,7 @@ func TestRepeatedInvocationEvaluationAnswersAlike(t *testing.T) {
 
 	// An argument that fails is reported before the target is judged, so a
 	// resolved and an unresolved call alike answer with the argument's error.
-	for _, src := range []string{"twice(9223372036854775808)", "nowhere(9223372036854775808)"} {
+	for _, src := range []string{"twice(1e400)", "nowhere(1e400)"} {
 		expr := parseExpr(t, src)
 		for i := 0; i < 2; i++ {
 			if _, err := ec.Eval(expr); !errors.Is(err, semantics.ErrArithmeticOverflow) {

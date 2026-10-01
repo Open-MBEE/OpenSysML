@@ -288,7 +288,7 @@ func (s *Session) queryValues(ctx *runtime.Context, value runtime.Value) ([]quer
 	case runtime.ValConst:
 		switch value.Const.Kind {
 		case semantics.ValInt:
-			return []queryexec.Value{queryexec.IntegerValue(value.Const.Int)}, nil
+			return []queryexec.Value{queryexec.IntegerOf(value.Const)}, nil
 		case semantics.ValReal:
 			return []queryexec.Value{queryexec.RealValue(value.Const.Real)}, nil
 		case semantics.ValBool:

@@ -2090,20 +2090,27 @@ func lookupBehavioralSymbol(scope *symbols.Scope, defKind ast.DefinitionKind, us
 	return nil
 }
 
+// expectedInteger reads an expected Integer: a whole JSON number, or a decimal
+// string for one of any magnitude, whose digits no float64 rounds.
+func expectedInteger(v any) (semantics.Value, bool) {
+	switch v := v.(type) {
+	case float64:
+		return semantics.IntegerOfReal(v)
+	case string:
+		return semantics.ParseInteger(v)
+	}
+	return semantics.Value{}, false
+}
+
 // expectedToRuntimeValue converts ExpectedValue to runtime Value
 func expectedToRuntimeValue(t *testing.T, ev ExpectedValue) Value {
 	switch ev.Type {
 	case "Integer":
-		var intVal int64
-		switch v := ev.Value.(type) {
-		case float64:
-			intVal = int64(v)
-		case int64:
-			intVal = v
-		default:
-			t.Fatalf("invalid Integer value type: %T", ev.Value)
+		n, ok := expectedInteger(ev.Value)
+		if !ok {
+			t.Fatalf("invalid Integer value %v (%T)", ev.Value, ev.Value)
 		}
-		return Value{Kind: ValConst, Const: semantics.Value{Kind: semantics.ValInt, Int: intVal}}
+		return Value{Kind: ValConst, Const: n}
 	case "Real":
 		if v, ok := ev.Value.(float64); ok {
 			return Value{Kind: ValConst, Const: semantics.Value{Kind: semantics.ValReal, Real: v}}
@@ -2237,9 +2244,13 @@ func validateValue(t reporter, ctx *Context, name string, expected ExpectedValue
 			t.Errorf("%s: type = %v (Const.Kind=%v), want Integer", name, actual.Kind, actual.Const.Kind)
 			return
 		}
-		want := int64(expected.Value.(float64))
-		if actual.Const.Int != want {
-			t.Errorf("%s: value = %d, want %d", name, actual.Const.Int, want)
+		want, ok := expectedInteger(expected.Value)
+		if !ok {
+			t.Errorf("%s: invalid Integer value %v (%T)", name, expected.Value, expected.Value)
+			return
+		}
+		if !actual.Const.Equal(want) {
+			t.Errorf("%s: value = %s, want %s", name, actual.Const.FormatInt(), want.FormatInt())
 		}
 	case "Real":
 		if actual.Kind != ValConst || actual.Const.Kind != semantics.ValReal {

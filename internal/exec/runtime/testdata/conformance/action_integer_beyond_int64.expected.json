@@ -1,0 +1,14 @@
+{
+  "type": "action",
+  "evaluate": "test::Unbounded",
+  "outputs": {
+    "sum": {"type": "Integer", "value": "9223372036854775808"},
+    "sumIsNext": {"type": "Boolean", "value": true},
+    "power": {"type": "Integer", "value": "1180591620717411303424"},
+    "ratioIsTwo": {"type": "Boolean", "value": true},
+    "remainder": {"type": "Integer", "value": 2},
+    "literal": {"type": "Integer", "value": "123456789012345678901234567890"},
+    "demoted": {"type": "Integer", "value": 1},
+    "product": {"type": "Integer", "value": "15241578753238836750495351562536198787501905199875019052100"}
+  }
+}

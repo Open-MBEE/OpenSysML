@@ -6,7 +6,7 @@ import (
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/resolve"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/symbols"
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/ast"
-	"github.com/Open-MBEE/OpenSysML/internal/syntax/lexer"
+	"github.com/Open-MBEE/OpenSysML/internal/syntax/semtok"
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/source"
 )
 
@@ -20,69 +20,23 @@ type SegmentResolver interface {
 
 // Tokens classifies a document into semantic tokens ordered by position and free
 // of overlap, from the lexer, the symbol table and the resolver.
-func Tokens(content []byte, root *ast.RootNamespace, scope *symbols.Scope, res SegmentResolver) []Token {
+func Tokens(content []byte, root *ast.RootNamespace, scope *symbols.Scope, res SegmentResolver) []semtok.Token {
 	var (
-		semantic []Token
-		lexical  = lexicalTokens(content)
+		semantic []semtok.Token
+		lexical  = semtok.Lexical(content, source.KindSysML)
 	)
 	semantic = append(semantic, declarationTokens(scope)...)
 	semantic = append(semantic, referenceTokens(root, scope, res)...)
 	return merge(semantic, lexical)
 }
 
-// lexicalTokens classifies keywords, comments and literals, read from the same
-// lexer the parser uses rather than recognized again.
-func lexicalTokens(content []byte) []Token {
-	if len(content) == 0 {
-		return nil
-	}
-	lx := lexer.New(source.New("", content))
-	var out []Token
-	for {
-		tok := lx.Next()
-		if tok.Kind == lexer.EOF {
-			return out
-		}
-		var class Class
-		switch tok.Kind {
-		case lexer.Keyword:
-			class = ClassKeyword
-		case lexer.SLNote, lexer.MLNote, lexer.RegularComment:
-			class = ClassComment
-		case lexer.String:
-			class = ClassString
-		case lexer.Decimal, lexer.Real:
-			class = ClassNumber
-		default:
-			continue
-		}
-		if sp := trimEOL(content, tok.Span); sp.Len > 0 {
-			out = append(out, Token{Span: sp, Class: class})
-		}
-	}
-}
-
-// trimEOL drops the line terminator a line comment's span ends with, which is
-// not part of what is highlighted.
-func trimEOL(content []byte, sp source.Span) source.Span {
-	for sp.Len > 0 {
-		switch content[sp.End()-1] {
-		case '\n', '\r':
-			sp.Len--
-		default:
-			return sp
-		}
-	}
-	return sp
-}
-
 // declarationTokens classifies the declared name of every symbol in a document's
 // scope tree.
-func declarationTokens(scope *symbols.Scope) []Token {
+func declarationTokens(scope *symbols.Scope) []semtok.Token {
 	if scope == nil {
 		return nil
 	}
-	var out []Token
+	var out []semtok.Token
 	var walk func(*symbols.Scope)
 	walk = func(s *symbols.Scope) {
 		for _, sym := range s.AllMembers() {
@@ -92,7 +46,7 @@ func declarationTokens(scope *symbols.Scope) []Token {
 				continue
 			}
 			class, mods := classify(sym)
-			out = append(out, Token{Span: sym.NameSpan, Class: class, Modifiers: mods})
+			out = append(out, semtok.Token{Span: sym.NameSpan, Class: class, Modifiers: mods})
 		}
 		for _, child := range s.Children() {
 			walk(child)
@@ -104,11 +58,11 @@ func declarationTokens(scope *symbols.Scope) []Token {
 
 // referenceTokens classifies each segment of every reference as what it denotes.
 // An unresolved segment yields no token; it carries a diagnostic instead.
-func referenceTokens(root *ast.RootNamespace, scope *symbols.Scope, res SegmentResolver) []Token {
+func referenceTokens(root *ast.RootNamespace, scope *symbols.Scope, res SegmentResolver) []semtok.Token {
 	if res == nil {
 		return nil
 	}
-	var out []Token
+	var out []semtok.Token
 	for _, ref := range resolve.References(root, scope) {
 		if ref.QN == nil {
 			continue
@@ -119,7 +73,7 @@ func referenceTokens(root *ast.RootNamespace, scope *symbols.Scope, res SegmentR
 				continue
 			}
 			class, mods := referenceClass(syms[i])
-			out = append(out, Token{Span: part.Span, Class: class, Modifiers: mods})
+			out = append(out, semtok.Token{Span: part.Span, Class: class, Modifiers: mods})
 		}
 	}
 	return out
@@ -127,9 +81,9 @@ func referenceTokens(root *ast.RootNamespace, scope *symbols.Scope, res SegmentR
 
 // merge orders tokens by position and drops overlaps, semantics winning: a name
 // spelled as an unrestricted name or a keyword is highlighted for what it means.
-func merge(semantic, lexical []Token) []Token {
+func merge(semantic, lexical []semtok.Token) []semtok.Token {
 	type entry struct {
-		tok      Token
+		tok      semtok.Token
 		semantic bool
 	}
 	all := make([]entry, 0, len(semantic)+len(lexical))
@@ -150,7 +104,7 @@ func merge(semantic, lexical []Token) []Token {
 			return a.Len > b.Len
 		}
 	})
-	out := make([]Token, 0, len(all))
+	out := make([]semtok.Token, 0, len(all))
 	end := 0
 	for _, e := range all {
 		if e.tok.Span.Offset < end {

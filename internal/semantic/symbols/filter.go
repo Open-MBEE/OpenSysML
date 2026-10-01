@@ -3,6 +3,7 @@ package symbols
 import (
 	"fmt"
 	"maps"
+	"math/big"
 	"slices"
 
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/ast"
@@ -147,9 +148,11 @@ const (
 // FilterValue is a constant a filter predicate yields or compares: a literal, or
 // the element an enumeration-literal reference names.
 type FilterValue struct {
-	Kind     FilterValueKind
-	Bool     bool
+	Kind FilterValueKind
+	Bool bool
+	// Int is a FilterValueInt within int64; BigInt holds one beyond it, with Int zero.
 	Int      int64
+	BigInt   *big.Int
 	Real     float64
 	Str      string
 	RefFQN   string

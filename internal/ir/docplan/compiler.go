@@ -2032,8 +2032,8 @@ func (c *compiler) bindingValue(
 		}
 		return BindingValue{kind: BindingString, text: text, origin: origin}, nil
 	case *ast.LiteralInteger:
-		integer, err := strconv.ParseInt(expression.Value, 10, 64)
-		if err != nil {
+		integer, ok := semantics.ParseInteger(expression.Value)
+		if !ok {
 			return BindingValue{}, c.unsupportedBinding(content, member, entry, parameter)
 		}
 		return BindingValue{kind: BindingInteger, integer: integer, origin: origin}, nil
@@ -2070,8 +2070,8 @@ func (c *compiler) signedBinding(
 	}
 	switch operand := expression.Operands[0].(type) {
 	case *ast.LiteralInteger:
-		integer, err := strconv.ParseInt(sign+operand.Value, 10, 64)
-		if err != nil {
+		integer, ok := semantics.ParseInteger(sign + operand.Value)
+		if !ok {
 			return BindingValue{}, c.unsupportedBinding(content, member, entry, parameter)
 		}
 		return BindingValue{kind: BindingInteger, integer: integer, origin: origin}, nil
