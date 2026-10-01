@@ -221,7 +221,8 @@ model behavior runs, is a `SetupError`: it fails the exploration and produces no
 from entry behaviors, entry guards, state entry actions, do-behaviors, completion, or later model
 behavior are runtime error outcomes, even when they occur during initialization;
 `FailedLinearizations` counts the runs represented by error outcomes. A complete exploration
-containing any such failure is observed, not proved.
+containing any such failure is observed, not proved. Action-step-multiplicity refusals occur when
+the step is reached, so they are runtime error outcomes, never a `SetupError`.
 
 Outcome probabilities describe only the model's weighted draws. A run records a trie of choice
 prefixes; weighted nodes sum their children with normalized model weights, while scheduling

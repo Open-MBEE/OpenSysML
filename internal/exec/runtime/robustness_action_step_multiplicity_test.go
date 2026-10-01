@@ -516,3 +516,103 @@ func TestActionStepMultiplicityExploreOmitsRepeatedLocals(t *testing.T) {
 		t.Errorf("exploration did not reach expected outcomes: %v", want)
 	}
 }
+
+func TestRuntimeRobustnessActionStepMultiplicityOutcomes(t *testing.T) {
+	t.Run("top-level action explore", func(t *testing.T) {
+		m := parseLibraryModel(t, `package test {
+			action def Rep {
+				first start then a;
+				action a[0..*];
+				then done;
+			}
+		}`)
+		action := m.action(t, "Rep")
+		exploration, err := Explore(context.Background(), DefaultExploreSchedulePolicy, m.fresh, func(ctx *Context) (Outcome, error) {
+			return ctx.ActionOutcomePerformedBy(action, nil, nil)
+		})
+		assertActionStepMultiplicityExploreOutcome(t, exploration, err)
+	})
+
+	t.Run("state entry behavior explore", func(t *testing.T) {
+		m := parseLibraryModel(t, `package test {
+			private import ScalarValues::*;
+			state def Machine {
+				attribute entries : Integer = 0;
+				entry; then active;
+				state active {
+					entry action e[2] { assign entries := entries + 1; }
+				}
+			}
+		}`)
+		machine := m.state(t, "Machine")
+		exploration, err := Explore(context.Background(), DefaultExploreSchedulePolicy, m.fresh, func(ctx *Context) (Outcome, error) {
+			return ctx.StateOutcomeWithEvents(machine, nil)
+		})
+		assertActionStepMultiplicityExploreOutcome(t, exploration, err)
+	})
+
+	t.Run("part-level performed behavior explore", func(t *testing.T) {
+		m := parseLibraryModel(t, `package test {
+			action def Act { }
+			part def Host {
+				perform action p[2] : Act;
+			}
+		}`)
+		host := findSymbolByName(m.idx.DocumentRoot(m.path), "Host", ast.DefPart)
+		if host == nil {
+			t.Fatal("part Host not found")
+		}
+		exploration, err := Explore(context.Background(), DefaultExploreSchedulePolicy, m.fresh, func(ctx *Context) (Outcome, error) {
+			_, err := ctx.Instantiate(host)
+			return Outcome{}, err
+		})
+		assertActionStepMultiplicityExploreOutcome(t, exploration, err)
+	})
+
+	t.Run("check", func(t *testing.T) {
+		m := parseLibraryModel(t, `package test {
+			action def Rep {
+				first start then a;
+				action a[0..*];
+				then done;
+			}
+		}`)
+		report, err := Check(context.Background(), m.fresh, starterOf(m.action(t, "Rep")), CheckBudget{}, CheckOptions{}, nil)
+		if err != nil {
+			assertActionStepMultiplicityErrorIsNotSetup(t, err)
+			return
+		}
+		if report == nil {
+			t.Fatal("Check returned neither an error nor a report")
+		}
+		for _, violation := range report.Violations {
+			if violation.Kind == ViolationFailure && errors.Is(violation.Err, ErrActionStepMultiplicity) {
+				assertActionStepMultiplicityErrorIsNotSetup(t, violation.Err)
+				return
+			}
+		}
+		t.Fatalf("check report = %v, want an action-step-multiplicity failure violation", report)
+	})
+}
+
+func assertActionStepMultiplicityExploreOutcome(t *testing.T, exploration *Exploration, err error) {
+	t.Helper()
+	if err != nil {
+		t.Fatalf("Explore error = %v, want the refusal as an outcome", err)
+	}
+	if exploration == nil || len(exploration.Outcomes) != 1 || exploration.FailedLinearizations() != 1 {
+		t.Fatalf("exploration = %v; want one error outcome and one failed linearization", exploration)
+	}
+	assertActionStepMultiplicityErrorIsNotSetup(t, exploration.Outcomes[0].Outcome.Err)
+}
+
+func assertActionStepMultiplicityErrorIsNotSetup(t *testing.T, err error) {
+	t.Helper()
+	if !errors.Is(err, ErrActionStepMultiplicity) {
+		t.Fatalf("error = %v, want ErrActionStepMultiplicity", err)
+	}
+	var setup *SetupError
+	if errors.As(err, &setup) {
+		t.Fatalf("error = %v, want a runtime refusal, not SetupError", err)
+	}
+}
