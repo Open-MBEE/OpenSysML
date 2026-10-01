@@ -138,6 +138,7 @@ returned over the service yet.
 | Anonymous association owning every end | a named `connection def` | approximated |
 | Value property | `attribute`, with multiplicity and default | mapped |
 | Composite part property | `part` | mapped |
+| Property with `isOrdered` / `isUnique="false"` | `ordered` / `nonunique` after the multiplicity — except `nonunique` on a usage that must be unique: one that implicitly subsets a unique library feature (a composite `part` or `item` in a part or item, `Items::Item::subparts`/`subitems`; a composite `action` in an action, `Actions::Action::subactions`, or in a part, `Parts::Part::ownedActions`; likewise `substates`, `subcalculations`, `subcases`, `ownedPorts`, `suboccurrences`…), or that redefines or subsets a feature written unique. The target is the one `ImplicitSubsettings` gives the written usage, its uniqueness read from the bundled library, so an `attribute` (`Base::dataValues`) and a `ref part` (no implicit subsetting) keep `nonunique`. The modifier is dropped and the entry notes which unique feature forbade it | mapped; approximated when `nonunique` is dropped ("nonunique is not written: …") |
 | Reference property (no aggregation) | `ref part` | mapped |
 | Undirected part or item property of an «InterfaceBlock» | `ref part` / `ref item`; a port owns no composite parts | approximated |
 | Shared aggregation | `ref part` | approximated |
@@ -852,7 +853,8 @@ as `<html><body>…</body></html>` becomes plain text, as a requirement's `Text`
 One tool stereotype is read as a type, not kept as a comment: MagicDraw's «typeModifier» on a
 property or parameter, whose tag spells a C-style shape after the type. `[]` on a feature
 whose declared multiplicity is `[1]` or absent writes `[0..*] ordered nonunique`, and `[n]`
-writes `[n] ordered nonunique`, so the feature is the sequence the tool meant; `*` (and `&`)
+writes `[n] ordered nonunique`, so the feature is the sequence the tool meant — `ordered`
+alone, with the drop noted, on a usage that must be unique (the `isUnique` row); `*` (and `&`)
 on a part or item property held by value writes it `ref`, a reference rather than a
 containment. A shape with no v2 form is kept as the applied-stereotype comment with the reason
 in the report: `[][]`, `[n*m]` and other two-dimensional shapes (a multiplicity has one

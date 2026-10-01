@@ -1967,7 +1967,7 @@ func (m *migration) associationEnd(e, end *sysmlv1.Element) {
 		decl += m.typing(t) + typ
 	}
 	mult, mnote := m.multiplicity(end)
-	decl += mult + collection(end) + ";"
+	decl += mult + collection(end, false) + ";"
 	tnote = joinNotes(tnote, mnote)
 	m.w.line(decl)
 	m.madeUp(end, writeName(endName))
@@ -2143,13 +2143,17 @@ func (m *migration) feature(p *sysmlv1.Element) {
 	ind, indNote := m.typingIndividual(p, kw)
 	m.featureTyping(&b, p, ind, payload, typ)
 	mult, mnote := m.multiplicity(p)
-	if shape := tm.shape(); shape != "" {
+	unique := m.writtenUnique(p, kw, prefix, dir, ownerCat)
+	if shape := tm.shape(unique != ""); shape != "" {
 		mult, mnote = shape, ""
 	} else {
-		mult = shaped(mult, p, param || dir != "")
+		mult = shaped(mult, p, param || dir != "", unique != "")
 	}
 	b.WriteString(mult)
 	note = joinNotes(joinNotes(note, mnote), tm.note())
+	if unique != "" && (p.Attrs["isUnique"] == "false" || tm.shape(false) != "") {
+		note = joinNotes(note, "nonunique is not written: "+unique)
+	}
 	note = m.featureRedefinitions(&b, p, note)
 	note = m.featureShadow(&b, p, kw, note)
 	note = joinNotes(note, m.dangling(p, "redefinedProperty", "subsettedProperty"))
@@ -2285,8 +2289,7 @@ func (m *migration) featureModifiers(b *strings.Builder, p *sysmlv1.Element, own
 			b.WriteString("constant ")
 		}
 	}
-	if ownerCat == catPortDef && dir == "" && prefix == "" && (kw == "item" || kw == "part") {
-		// An interface block's usages other than ports must not be composite.
+	if interfaceReference(ownerCat, kw, dir, prefix) {
 		prefix = "ref "
 		note = joinNotes(note, "the undirected "+kw+" of an interface block is written as a reference")
 	}
@@ -2712,32 +2715,33 @@ func (m *migration) declaredMultiplicity(p *sysmlv1.Element) (string, string) {
 // modifiers after it. A v1 parameter writing no multiplicity means a single
 // value, where §7.6.3 gives a bare v2 parameter [0..*], so a parameter states
 // the one it meant before any modifier.
-func shaped(mult string, p *sysmlv1.Element, parameter bool) string {
+func shaped(mult string, p *sysmlv1.Element, parameter, unique bool) string {
 	if mult == "" && parameter {
 		mult = "[1]"
 	}
-	return mult + collection(p)
+	return mult + collection(p, unique)
 }
 
 // parameterShape is the multiplicity a redeclaration of parameter p writes:
 // the one p's own declaration does, so the callee's range carries over rather
 // than a bare parameter's [0..*].
 func (m *migration) parameterShape(p *sysmlv1.Element) string {
-	if shape := m.typeModifier(p).shape(); shape != "" {
+	if shape := m.typeModifier(p).shape(false); shape != "" {
 		return shape
 	}
 	mult, _ := m.multiplicity(p)
-	return shaped(mult, p, true)
+	return shaped(mult, p, true, false)
 }
 
 // collection writes the ordered and nonunique modifiers of a property; UML and
 // v2 share the defaults (unordered, unique), so only a departure is written.
-func collection(p *sysmlv1.Element) string {
+// A usage that must be unique (writtenUnique) is written without nonunique.
+func collection(p *sysmlv1.Element, unique bool) string {
 	s := ""
 	if p.Attrs["isOrdered"] == "true" {
 		s += " ordered"
 	}
-	if p.Attrs["isUnique"] == "false" {
+	if p.Attrs["isUnique"] == "false" && !unique {
 		s += " nonunique"
 	}
 	return s
