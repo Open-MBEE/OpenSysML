@@ -218,7 +218,7 @@ func (ec *EvalContext) valueOfFilterValue(fv symbols.FilterValue) (Value, error)
 	case symbols.FilterValueBool:
 		return boolValue(fv.Bool), nil
 	case symbols.FilterValueInt:
-		return Value{Kind: ValConst, Const: semantics.Value{Kind: semantics.ValInt, Int: fv.Int}}, nil
+		return Value{Kind: ValConst, Const: semantics.FilterInteger(fv)}, nil
 	case symbols.FilterValueReal:
 		return realConst(fv.Real), nil
 	case symbols.FilterValueString:

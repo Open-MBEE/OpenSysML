@@ -1,0 +1,68 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<xmi:XMI xmi:version="2.5.1" xmlns:xmi="http://www.omg.org/spec/XMI/20131001"
+         xmlns:uml="http://www.omg.org/spec/UML/20161101"
+         xmlns:sysml="http://www.omg.org/spec/SysML/20181001/SysML"
+         xmlns:SimulationProfile="http://www.magicdraw.com/schemas/SimulationProfile.xmi">
+  <uml:Model xmi:type="uml:Model" xmi:id="_m" name="Model">
+    <packagedElement xmi:type="uml:Class" xmi:id="_config" name="Timing"/>
+    <packagedElement xmi:type="uml:Class" xmi:id="_exec" name="Executive">
+      <ownedAttribute xmi:type="uml:Property" xmi:id="_t0" name="t0"><type xmi:type="uml:PrimitiveType" href="http://www.omg.org/spec/UML/20131001/PrimitiveTypes.xmi#Real"/></ownedAttribute>
+      <ownedAttribute xmi:type="uml:Property" xmi:id="_tdiff" name="tdiff"><type xmi:type="uml:PrimitiveType" href="http://www.omg.org/spec/UML/20131001/PrimitiveTypes.xmi#Real"/></ownedAttribute>
+      <ownedAttribute xmi:type="uml:Property" xmi:id="_tStep" name="tStep"><type xmi:type="uml:PrimitiveType" href="http://www.omg.org/spec/UML/20131001/PrimitiveTypes.xmi#Real"/>
+        <defaultValue xmi:type="uml:LiteralReal" xmi:id="_tStep0" value="0.0"/>
+      </ownedAttribute>
+      <ownedAttribute xmi:type="uml:Property" xmi:id="_steps" name="steps"><type xmi:type="uml:PrimitiveType" href="http://www.omg.org/spec/UML/20131001/PrimitiveTypes.xmi#Integer"/>
+        <defaultValue xmi:type="uml:LiteralInteger" xmi:id="_steps0" value="0"/>
+      </ownedAttribute>
+      <ownedBehavior xmi:type="uml:StateMachine" xmi:id="_sm" name="Executive Behavior">
+        <region xmi:type="uml:Region" xmi:id="_r">
+          <subvertex xmi:type="uml:Pseudostate" xmi:id="_init" kind="initial"/>
+          <subvertex xmi:type="uml:State" xmi:id="_aligning" name="Aligning"/>
+          <subvertex xmi:type="uml:State" xmi:id="_phasing" name="Phasing"/>
+          <subvertex xmi:type="uml:State" xmi:id="_counting" name="Counting"/>
+          <subvertex xmi:type="uml:State" xmi:id="_idle" name="Idle"/>
+          <transition xmi:type="uml:Transition" xmi:id="_tStart" source="_init" target="_aligning">
+            <effect xmi:type="uml:OpaqueBehavior" xmi:id="_stamp" name="stamp">
+              <language>JavaScript</language>
+              <body>t0 = simtime;</body>
+            </effect>
+          </transition>
+          <transition xmi:type="uml:Transition" xmi:id="_tAligned" source="_aligning" target="_phasing">
+            <trigger xmi:type="uml:Trigger" xmi:id="_trAligned" event="_afterAligning"/>
+            <effect xmi:type="uml:OpaqueBehavior" xmi:id="_diffTime" name="diffTime">
+              <language>JavaScript</language>
+              <body>t1 = simtime;
+tdiffOld = tdiff;
+tdiff = t1 - t0;
+tStep = tdiff - tdiffOld;</body>
+            </effect>
+          </transition>
+          <transition xmi:type="uml:Transition" xmi:id="_tPhased" source="_phasing" target="_counting">
+            <trigger xmi:type="uml:Trigger" xmi:id="_trPhased" event="_afterPhasing"/>
+            <effect xmi:type="uml:OpaqueBehavior" xmi:id="_reset" name="reset">
+              <language>JavaScript</language>
+              <body>tdiff = 0;
+tStep = tdiff + steps;</body>
+            </effect>
+          </transition>
+          <transition xmi:type="uml:Transition" xmi:id="_tCounted" source="_counting" target="_idle">
+            <effect xmi:type="uml:OpaqueBehavior" xmi:id="_count" name="count">
+              <language>JavaScript</language>
+              <body>steps++;
+tdiff += steps;</body>
+            </effect>
+          </transition>
+        </region>
+      </ownedBehavior>
+    </packagedElement>
+    <packagedElement xmi:type="uml:TimeEvent" xmi:id="_afterAligning" isRelative="true">
+      <when xmi:type="uml:TimeExpression" xmi:id="_afterAligningW"><expr xmi:type="uml:LiteralString" xmi:id="_afterAligningV" value="3 s"/></when>
+    </packagedElement>
+    <packagedElement xmi:type="uml:TimeEvent" xmi:id="_afterPhasing" isRelative="true">
+      <when xmi:type="uml:TimeExpression" xmi:id="_afterPhasingW"><expr xmi:type="uml:LiteralString" xmi:id="_afterPhasingV" value="2 s"/></when>
+    </packagedElement>
+  </uml:Model>
+
+  <sysml:Block xmi:id="_s1" base_Class="_exec"/>
+  <SimulationProfile:SimulationConfig xmi:id="_s2" base_Class="_config" timeVariableName="simtime" executionTarget="_exec"/>
+</xmi:XMI>

@@ -200,17 +200,20 @@ func naturalDivision(name string, ctx *Context, args []Value) (Value, error) {
 		}
 		return undeterminedResult(args...), nil
 	}
-	x, y := args[0].Const.Int, args[1].Const.Int
-	if y == 0 {
-		return Value{}, fmt.Errorf("%w: function %s: %d / 0", ErrDivisionByZero, name, x)
+	x, y := args[0].Const, args[1].Const
+	rem, ok := semantics.IntRem(x, y)
+	if !ok {
+		return Value{}, fmt.Errorf("%w: function %s: %s / 0", ErrDivisionByZero, name, x.FormatInt())
 	}
-	if x%y != 0 {
+	if rem.IntSign() != 0 {
+		q, _ := semantics.IntQuotient(x, y)
 		return Value{}, fmt.Errorf(
-			"%w: function %s has no Natural result for %d / %d; the quotient is %s",
-			semantics.ErrArithmeticDomain, name, x, y, semantics.FormatReal(float64(x)/float64(y)),
+			"%w: function %s has no Natural result for %s / %s; the quotient is %s",
+			semantics.ErrArithmeticDomain, name, x.FormatInt(), y.FormatInt(), semantics.FormatReal(q),
 		)
 	}
-	return integerValue(x / y), nil
+	q, _ := semantics.IntDivTrunc(x, y)
+	return Value{Kind: ValConst, Const: q}, nil
 }
 
 // comparisonForm is `'<'`, `'<='`, `'>'` and `'>='` as functions.
@@ -421,8 +424,8 @@ func naturalOperand(ctx *Context, name, param string, val Value) (Value, error) 
 	if _, err := integerOperand(ctx, name, param, val); err != nil {
 		return Value{}, err
 	}
-	if val.Const.Int < 0 {
-		return Value{}, fmt.Errorf("%w: function %s parameter %q requires a Natural value, got %d", ErrTypeMismatch, name, param, val.Const.Int)
+	if val.Const.IntSign() < 0 {
+		return Value{}, fmt.Errorf("%w: function %s parameter %q requires a Natural value, got %s", ErrTypeMismatch, name, param, val.Const.FormatInt())
 	}
 	return val, nil
 }

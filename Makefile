@@ -70,10 +70,10 @@ TOOLS_DIR := tools
 
 # The commands whose manual pages are generated and shipped, in section 1.
 COMMANDS := sysml sysml-lsp sysml-grpc
-# sysml-engine is WebAssembly-only: it serves the execution RPCs over JSON so a
-# browser client needs no protobuf, and stays out of the native build, release
-# and manual pages.
-WASM_COMMANDS := $(COMMANDS) sysml-engine
+# sysml-engine, sysml-syntax and sysml-core are WebAssembly-only: they serve the
+# execution, syntactic and validation RPCs over JSON so a browser client needs no
+# protobuf, and stay out of the native build, release and manual pages.
+WASM_COMMANDS := $(COMMANDS) sysml-engine sysml-syntax sysml-core
 MAN_DIR := packaging/man/man1
 MAN_PAGES := $(addprefix $(MAN_DIR)/,$(addsuffix .1,$(COMMANDS)))
 

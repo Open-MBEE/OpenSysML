@@ -1,0 +1,36 @@
+# SysML v1 to v2 migration report: script_guarded_reads.xmi
+# migrated 30 element(s): 14 mapped, 16 approximated, 0 unmapped (0 skipped as profile, library or notation-only content, 0 as model elements nothing refers to)
+
+## approximated (16)
+ObjectFlow	Executive::Cap::<ObjectFlow>	_o1	(the flow is kept as a comment: the body of 'idle' never assigns 'z', so no value leaves it)
+ObjectFlow	Executive::Cap::<ObjectFlow>	_o2	(the flow is kept as a comment: the body of 'idle' never assigns 'z', so no value leaves it)
+ObjectFlow	Executive::Cap::<ObjectFlow>	_o3	(the flow is kept as a comment: the body of 'idle' never assigns 'z', so no value leaves it)
+ObjectFlow	Executive::Cap::<ObjectFlow>	_o4	(the flow is kept as a comment: the body of 'idle' never assigns 'y', so no value leaves it)
+ObjectFlow	Executive::Cap::<ObjectFlow>	_o5	(the flow is kept as a comment: the body of 'idle' never assigns 'z', so no value leaves it)
+ObjectFlow	Executive::Cap::<ObjectFlow>	_o6	(the flow is kept as a comment: the body of 'idle' never assigns 'y', so no value leaves it)
+OpaqueAction	Executive::Cap::clamp	_clamp	-> clamp	(the JavaScript body is translated to v2; tMax must hold a value, so it is assigned only when w, which may hold none, holds one; tMax holds no initial value and is assigned only when w holds one, and the body reads it after, so a run in which w holds none reaches the read unset and stops; the script would read an unset name as null, which its arithmetic takes as 0)
+InputPin	Executive::Cap::clamp::w	_clampw	-> Executive::cap::clamp.w	(it is declared admitting no value: 'idle', which feeds it, produces no value)
+OpaqueAction	Executive::Cap::early	_early	-> early	(the JavaScript body is translated to v2; tMax must hold a value, so it is assigned only when w, which may hold none, holds one; tMax must hold a value, so it is assigned only when v, which may hold none, holds one; tMax holds no initial value and is assigned only when w holds one, and the body reads it after, so a run in which w holds none reaches the read unset and stops; the script would read an unset name as null, which its arithmetic takes as 0)
+InputPin	Executive::Cap::early::v	_earlyv	-> Executive::cap::early.v	(it is declared admitting no value: 'idle', which feeds it, produces no value)
+InputPin	Executive::Cap::early::w	_earlyw	-> Executive::cap::early.w	(it is declared admitting no value: 'idle', which feeds it, produces no value)
+OpaqueAction	Executive::Cap::pick	_pick	-> pick	(the JavaScript body is translated to v2; tMax must hold a value, so it is assigned only when w, which may hold none, holds one; tMax must hold a value, so it is assigned only when v, which may hold none, holds one; tMax holds no initial value and is assigned only when w or v holds one, and the body reads it after, so a run in which neither w nor v holds one reaches the read unset and stops; the script would read an unset name as null, which its arithmetic takes as 0)
+InputPin	Executive::Cap::pick::v	_pickv	-> Executive::cap::pick.v	(it is declared admitting no value: 'idle', which feeds it, produces no value)
+InputPin	Executive::Cap::pick::w	_pickw	-> Executive::cap::pick.w	(it is declared admitting no value: 'idle', which feeds it, produces no value)
+OpaqueAction	Executive::Cap::settle	_settle	-> settle	(the JavaScript body is translated to v2; tMax must hold a value, so it is assigned only when w, which may hold none, holds one)
+InputPin	Executive::Cap::settle::w	_settlew	-> Executive::cap::settle.w	(it is declared admitting no value: 'idle', which feeds it, produces no value)
+
+## mapped (14)
+«Block» Class	Executive	_exec	-> Executive
+Activity	Executive::Cap	_cap	-> Executive::cap	(written as an action usage of Executive, which a call on an object performs, so its body runs on the object and reaches its features)
+ActivityFinalNode	Executive::Cap::<ActivityFinalNode>	_final	-> final
+ControlFlow	Executive::Cap::<ControlFlow>	_c2
+ControlFlow	Executive::Cap::<ControlFlow>	_c3
+ControlFlow	Executive::Cap::<ControlFlow>	_c4
+ControlFlow	Executive::Cap::<ControlFlow>	_c5
+InitialNode	Executive::Cap::<InitialNode>	_init	-> start
+OpaqueAction	Executive::Cap::idle	_idle	-> idle	(the JavaScript body is translated to v2)
+OutputPin	Executive::Cap::idle::y	_idley	-> Executive::cap::idle.y
+OutputPin	Executive::Cap::idle::z	_idlez	-> Executive::cap::idle.z
+Property	Executive::tMax	_tMax	-> Executive::tMax
+Property	Executive::tdiff	_tdiff	-> Executive::tdiff
+Model	Model	_m	(the root model's members are written at the top level)

@@ -705,11 +705,11 @@ func (r *Reply) readExitCode(ex *execution) map[string]runtime.ToolValue {
 func typeText(text string, t ValueType) (runtime.ToolValue, error) {
 	switch t {
 	case TypeInteger:
-		i, err := strconv.ParseInt(text, 10, 64)
-		if err != nil {
+		i, ok := semantics.ParseInteger(text)
+		if !ok {
 			return runtime.ToolValue{}, fmt.Errorf("%s is not an integer", text)
 		}
-		return runtime.ToolValue{Value: semantics.Value{Kind: semantics.ValInt, Int: i}}, nil
+		return runtime.ToolValue{Value: i}, nil
 	case TypeReal:
 		f, err := strconv.ParseFloat(text, 64)
 		if err != nil {
@@ -730,8 +730,8 @@ func typeText(text string, t ValueType) (runtime.ToolValue, error) {
 	case TypeString:
 		return runtime.ToolValue{Text: text}, nil
 	}
-	if i, err := strconv.ParseInt(text, 10, 64); err == nil {
-		return runtime.ToolValue{Value: semantics.Value{Kind: semantics.ValInt, Int: i}}, nil
+	if i, ok := semantics.ParseInteger(text); ok {
+		return runtime.ToolValue{Value: i}, nil
 	}
 	f, err := strconv.ParseFloat(text, 64)
 	if err != nil {
@@ -912,8 +912,8 @@ func jsonScalar(o *ReplyOutput, v any) (runtime.ToolValue, string, error) {
 			return runtime.ToolValue{}, "", errors.New("number where string expected")
 		}
 		var held semantics.Value
-		if i, err := strconv.ParseInt(value.String(), 10, 64); err == nil {
-			held = semantics.Value{Kind: semantics.ValInt, Int: i}
+		if i, ok := semantics.ParseInteger(value.String()); ok {
+			held = i
 		} else {
 			f, err := strconv.ParseFloat(value.String(), 64)
 			if err != nil || math.IsInf(f, 0) || math.IsNaN(f) {
@@ -928,7 +928,7 @@ func jsonScalar(o *ReplyOutput, v any) (runtime.ToolValue, string, error) {
 			}
 		case TypeReal:
 			if held.Kind == semantics.ValInt {
-				held = semantics.Value{Kind: semantics.ValReal, Real: float64(held.Int)}
+				held = semantics.Value{Kind: semantics.ValReal, Real: held.AsReal()}
 			}
 		}
 		return runtime.ToolValue{Value: held}, "number", nil

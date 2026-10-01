@@ -1566,6 +1566,9 @@ public final class Model {
                     .setParameter(parameter)
                     .addAllValues(
                         values.stream().map(Protos::proto).toList())));
+    if (request.getBindingsList().stream().anyMatch(Protos::holdsBigInt)) {
+      connection.capabilities().require(Capabilities.BIG_INT_VALUES);
+    }
     RunDocumentQueryResponse response =
         connection.call(
             "RunDocumentQuery", request.build(), RunDocumentQueryResponse.getDefaultInstance());

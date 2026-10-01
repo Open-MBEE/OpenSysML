@@ -46,6 +46,22 @@ func TestConversionFunctionValues(t *testing.T) {
 		{"BooleanFunctions::ToBoolean", []Value{NewStringValue("false")}, constBool(false)},
 		{"IntegerFunctions::ToInteger", []Value{NewStringValue("7")}, constInt(7)},
 		{"IntegerFunctions::ToInteger", []Value{NewStringValue("-9223372036854775808")}, constInt(math.MinInt64)},
+		{"IntegerFunctions::ToInteger", []Value{NewStringValue("9223372036854775808")}, bigConst(t, "9223372036854775808")},
+		{"IntegerFunctions::ToInteger", []Value{NewStringValue("-99999999999999999999")}, bigConst(t, "-99999999999999999999")},
+		{"RealFunctions::ToInteger", []Value{constReal(1e19)}, bigConst(t, "10000000000000000000")},
+		{"RationalFunctions::gcd", []Value{constInt(math.MinInt64), constInt(0)}, bigConst(t, "9223372036854775808")},
+		{"RationalFunctions::gcd", []Value{constInt(math.MinInt64), constInt(math.MinInt64)}, bigConst(t, "9223372036854775808")},
+		{"RationalFunctions::gcd", []Value{constReal(math.Ldexp(1, 63)), constReal(0)}, bigConst(t, "9223372036854775808")},
+		{"RationalFunctions::gcd", []Value{constReal(1e19), constReal(1e19)}, bigConst(t, "10000000000000000000")},
+		{"RationalFunctions::gcd", []Value{constReal(-1e300), constInt(math.MinInt64)}, bigConst(t, "9223372036854775808")},
+		{"RationalFunctions::gcd", []Value{bigConst(t, "1180591620717411303424"), bigConst(t, "-590295810358705651712")}, bigConst(t, "590295810358705651712")},
+		{"RationalFunctions::numer", []Value{constReal(1e19)}, bigConst(t, "10000000000000000000")},
+		{"RationalFunctions::numer", []Value{constReal(math.Ldexp(1, 63))}, bigConst(t, "9223372036854775808")},
+		{"RationalFunctions::denom", []Value{constReal(math.Ldexp(1, -63))}, bigConst(t, "9223372036854775808")},
+		{"RationalFunctions::denom", []Value{constReal(0.0001)}, bigConst(t, "73786976294838206464")},
+		{"RationalFunctions::denom", []Value{constReal(math.SmallestNonzeroFloat64)}, Value{Kind: ValConst, Const: semantics.BigIntValue(new(big.Int).Lsh(big.NewInt(1), 1074))}},
+		{"RationalFunctions::numer", []Value{bigConst(t, "-1180591620717411303424")}, bigConst(t, "-1180591620717411303424")},
+		{"RationalFunctions::denom", []Value{bigConst(t, "1180591620717411303424")}, constInt(1)},
 		{"NaturalFunctions::ToNatural", []Value{NewStringValue("0")}, constInt(0)},
 		{"RealFunctions::ToReal", []Value{NewStringValue("1.5")}, constReal(1.5)},
 		{"RealFunctions::ToReal", []Value{NewStringValue("-2")}, constReal(-2)},
@@ -137,14 +153,18 @@ func TestConversionFunctionValues(t *testing.T) {
 }
 
 // rat(numer(x), denom(x)) is x for every finite Rational whose exact terms are
-// Integers: the terms are the ratio x holds, and rat rounds that ratio to x.
+// Integers: the terms are the ratio x holds, of any magnitude, and rat rounds
+// that ratio to x. An Integer x beyond 2^53 that no Real holds exactly is
+// left out: rat answers the Real nearest it, which compares unequal to it.
 func TestRationalTermsRoundTrip(t *testing.T) {
 	for _, x := range []Value{
 		constReal(0), constReal(math.Copysign(0, -1)), constReal(1), constReal(-1), constReal(2), constReal(-7),
 		constReal(0.75), constReal(-0.75), constReal(1.5), constReal(0.1), constReal(-0.1), constReal(1.0 / 3.0),
 		constReal(0.1 + 0.2), constReal(1e18), constReal(-9.2e18), constReal(math.Pi), constReal(math.Ldexp(1, -62)),
 		constReal(math.Nextafter(1, 2)), constReal(123456789.125),
-		constInt(0), constInt(1), constInt(-5), constInt(math.MaxInt64), constInt(math.MinInt64),
+		constReal(1e300), constReal(math.SmallestNonzeroFloat64), constReal(math.Ldexp(1, 63)),
+		constInt(0), constInt(1), constInt(-5), constInt(math.MaxInt64 - 1023), constInt(math.MinInt64),
+		bigConst(t, "1180591620717411303424"),
 	} {
 		numer, err := applyLibrary(t, "RationalFunctions::numer", x)
 		if err != nil {
@@ -154,10 +174,10 @@ func TestRationalTermsRoundTrip(t *testing.T) {
 		if err != nil {
 			t.Fatalf("denom(%s) = error %v", FormatValue(x), err)
 		}
-		if numer.Const.Kind != semantics.ValInt || denom.Const.Kind != semantics.ValInt || denom.Const.Int < 1 {
+		if numer.Const.Kind != semantics.ValInt || denom.Const.Kind != semantics.ValInt || denom.Const.IntSign() < 1 {
 			t.Fatalf("numer(%s), denom(%s) = %s, %s, want Integers with a positive denominator", FormatValue(x), FormatValue(x), FormatValue(numer), FormatValue(denom))
 		}
-		if new(big.Int).GCD(nil, nil, new(big.Int).Abs(big.NewInt(numer.Const.Int)), big.NewInt(denom.Const.Int)).Cmp(big.NewInt(1)) != 0 {
+		if new(big.Int).GCD(nil, nil, new(big.Int).Abs(numer.Const.BigInt()), denom.Const.BigInt()).Cmp(big.NewInt(1)) != 0 {
 			t.Fatalf("numer(%s)/denom(%s) = %s/%s is not in lowest terms", FormatValue(x), FormatValue(x), FormatValue(numer), FormatValue(denom))
 		}
 		back, err := applyLibrary(t, "RationalFunctions::rat", numer, denom)
@@ -208,7 +228,6 @@ func TestConversionFunctionErrors(t *testing.T) {
 		{"IntegerFunctions::ToInteger", []Value{NewStringValue(" 7")}, ErrInvalidNotation},
 		{"IntegerFunctions::ToInteger", []Value{NewStringValue("7\n")}, ErrInvalidNotation},
 		{"NaturalFunctions::ToNatural", []Value{NewStringValue(" 0 ")}, ErrInvalidNotation},
-		{"IntegerFunctions::ToInteger", []Value{NewStringValue("9223372036854775808")}, semantics.ErrArithmeticOverflow},
 		{"IntegerFunctions::ToInteger", []Value{constInt(7)}, ErrTypeMismatch},
 		{"NaturalFunctions::ToNatural", []Value{NewStringValue("-3")}, semantics.ErrArithmeticDomain},
 		{"NaturalFunctions::ToNatural", []Value{NewStringValue("three")}, ErrInvalidNotation},
@@ -230,7 +249,6 @@ func TestConversionFunctionErrors(t *testing.T) {
 		{"RationalFunctions::ToRational", []Value{NewStringValue("1e-400")}, semantics.ErrArithmeticOverflow},
 		{"RealFunctions::ToReal", []Value{constReal(1)}, ErrTypeMismatch},
 		{"RationalFunctions::ToRational", []Value{NewStringValue("1/3")}, ErrInvalidNotation},
-		{"RealFunctions::ToInteger", []Value{constReal(1e19)}, semantics.ErrArithmeticOverflow},
 		{"RealFunctions::ToInteger", []Value{NewStringValue("1")}, ErrTypeMismatch},
 		{"RealFunctions::re", []Value{NewStringValue("1")}, ErrTypeMismatch},
 		{"NaturalFunctions::ToString", []Value{constInt(-1)}, ErrTypeMismatch},
@@ -239,11 +257,6 @@ func TestConversionFunctionErrors(t *testing.T) {
 		{"BaseFunctions::ToString", []Value{{Kind: ValInstance, Instance: 3}}, ErrTypeMismatch},
 		{"BaseFunctions::ToString", []Value{cx(1, 1)}, ErrUnevaluableLibraryFunction},
 		{"RationalFunctions::gcd", []Value{constReal(0.5), constInt(2)}, semantics.ErrArithmeticDomain},
-		{"RationalFunctions::gcd", []Value{constInt(math.MinInt64), constInt(0)}, semantics.ErrArithmeticOverflow},
-		{"RationalFunctions::gcd", []Value{constInt(math.MinInt64), constInt(math.MinInt64)}, semantics.ErrArithmeticOverflow},
-		{"RationalFunctions::gcd", []Value{constReal(math.Ldexp(1, 63)), constReal(0)}, semantics.ErrArithmeticOverflow},
-		{"RationalFunctions::gcd", []Value{constReal(1e19), constReal(1e19)}, semantics.ErrArithmeticOverflow},
-		{"RationalFunctions::gcd", []Value{constReal(-1e300), constInt(math.MinInt64)}, semantics.ErrArithmeticOverflow},
 		{"RationalFunctions::gcd", []Value{constReal(math.Inf(1)), constInt(2)}, semantics.ErrArithmeticDomain},
 		{"RationalFunctions::rat", []Value{constInt(1), constInt(0)}, ErrDivisionByZero},
 		{"RationalFunctions::rat", []Value{constInt(0), constInt(0)}, ErrDivisionByZero},
@@ -252,11 +265,6 @@ func TestConversionFunctionErrors(t *testing.T) {
 		{"RationalFunctions::rat", []Value{NewStringValue("1"), constInt(3)}, ErrTypeMismatch},
 		{"RationalFunctions::numer", []Value{NewStringValue("0.5")}, ErrTypeMismatch},
 		{"RationalFunctions::denom", []Value{constSequence(1, 2)}, ErrTypeMismatch},
-		{"RationalFunctions::numer", []Value{constReal(1e19)}, semantics.ErrArithmeticOverflow},
-		{"RationalFunctions::numer", []Value{constReal(math.Ldexp(1, 63))}, semantics.ErrArithmeticOverflow},
-		{"RationalFunctions::denom", []Value{constReal(math.Ldexp(1, -63))}, semantics.ErrArithmeticOverflow},
-		{"RationalFunctions::denom", []Value{constReal(0.0001)}, semantics.ErrArithmeticOverflow},
-		{"RationalFunctions::denom", []Value{constReal(math.SmallestNonzeroFloat64)}, semantics.ErrArithmeticOverflow},
 		{"RationalFunctions::numer", []Value{constReal(math.Inf(1))}, semantics.ErrArithmeticDomain},
 		{"RationalFunctions::denom", []Value{constReal(math.NaN())}, semantics.ErrArithmeticDomain},
 	}

@@ -215,7 +215,7 @@ func (r *roundingRewrite) rewrite(t, e *Term) *Term {
 	case OpToReal:
 		arg := r.rewrite(t.Args[0], e)
 		if arg.Op == OpInt {
-			return r.literal(RealTerm(new(big.Rat).SetInt64(arg.Int)))
+			return r.literal(RealTerm(new(big.Rat).SetInt(arg.IntBig())))
 		}
 		return r.site(&Term{Op: OpToReal, Sort: Real, Args: []*Term{arg}}, e)
 	case OpNeg:

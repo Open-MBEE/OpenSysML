@@ -314,7 +314,11 @@ func TestRejectsNonXMI(t *testing.T) {
 var constructFixtures = []string{
 	"docgen_columns",
 	"plant_states",
+	"instant_waits",
+	"script_guarded_reads",
+	"ui_stimuli",
 	"transition_relocation",
+	"orthogonal_initials",
 	"station_points",
 	"submachine_params",
 	"operation_extra_params",

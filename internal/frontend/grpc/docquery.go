@@ -3,6 +3,7 @@ package grpc
 import (
 	"context"
 	"errors"
+	"slices"
 
 	"connectrpc.com/connect"
 	pb "github.com/Open-MBEE/OpenSysML/api/proto"
@@ -10,6 +11,7 @@ import (
 	"github.com/Open-MBEE/OpenSysML/internal/doc/docrender"
 	"github.com/Open-MBEE/OpenSysML/internal/doc/queryexec"
 	"github.com/Open-MBEE/OpenSysML/internal/frontend/protoconv"
+	"github.com/Open-MBEE/OpenSysML/internal/frontend/symbolfacts"
 	"github.com/Open-MBEE/OpenSysML/internal/ir/docplan"
 	"github.com/Open-MBEE/OpenSysML/internal/ir/queryplan"
 	"github.com/Open-MBEE/OpenSysML/internal/ir/view"
@@ -52,6 +54,11 @@ func (s *Service) RunDocumentQuery(ctx context.Context, req *pb.RunDocumentQuery
 	if err != nil {
 		return nil, documentStatus(err)
 	}
+	if slices.ContainsFunc(req.Bindings, bindingHoldsBigInt) {
+		if err := s.requireCapability(CapabilityBigIntValues); err != nil {
+			return nil, err
+		}
+	}
 	bindings, err := documentBindings(qctx.Index, qctx.Model, held, req.Bindings)
 	if err != nil {
 		return nil, err
@@ -60,7 +67,24 @@ func (s *Service) RunDocumentQuery(ctx context.Context, req *pb.RunDocumentQuery
 	if err != nil {
 		return nil, held.documentStatus(err)
 	}
-	return rowSetResponse(qctx.Index, result), nil
+	response := rowSetResponse(qctx.Index, result)
+	if !s.capabilities.has(CapabilityBigIntValues) && slices.ContainsFunc(response.Rows, rowHoldsBigInt) {
+		// DocumentValue has no unsupported arm to stand in for a wide Integer.
+		return nil, statusErrorf(connect.CodeUnimplemented,
+			"capability %q is unavailable: query %s answers an Integer beyond int64", CapabilityBigIntValues, req.QueryId)
+	}
+	return response, nil
+}
+
+func bindingHoldsBigInt(binding *pb.DocumentQueryBinding) bool {
+	return slices.ContainsFunc(binding.GetValues(), protoconv.DocumentValueHoldsBigInt)
+}
+
+func rowHoldsBigInt(row *pb.DocumentQueryRow) bool {
+	return protoconv.DocumentValueHoldsBigInt(row.GetElement()) ||
+		slices.ContainsFunc(row.GetCells(), func(cell *pb.DocumentQueryCell) bool {
+			return slices.ContainsFunc(cell.GetValues(), protoconv.DocumentValueHoldsBigInt)
+		})
 }
 
 // Forms RenderDocument renders, named as the CLI's -doc-form names them.
@@ -143,7 +167,7 @@ func (s *Service) RenderDocument(ctx context.Context, req *pb.RenderDocumentRequ
 // documentSymbol resolves the query or document a request names, failing with
 // NOT_FOUND when the model does not declare it.
 func documentSymbol(idx *symbols.Index, id string) (*symbols.Symbol, error) {
-	syms := lookupNamed(idx, id)
+	syms := symbolfacts.LookupNamed(idx, id)
 	if len(syms) == 0 {
 		return nil, statusErrorf(connect.CodeNotFound, "symbol not found: %s", id)
 	}
@@ -184,7 +208,7 @@ func boundValue(idx *symbols.Index, sem *semantics.Model, held *heldObjects, par
 		}
 		return queryexec.ObjectValue(inst, label), nil
 	case *pb.DocumentValue_ElementId:
-		syms := lookupNamed(idx, kind.ElementId)
+		syms := symbolfacts.LookupNamed(idx, kind.ElementId)
 		if len(syms) == 0 {
 			return queryexec.Value{}, statusErrorf(connect.CodeInvalidArgument,
 				"binding %s names an element the model does not have: %q", parameter, kind.ElementId)
@@ -194,6 +218,12 @@ func boundValue(idx *symbols.Index, sem *semantics.Model, held *heldObjects, par
 		return queryexec.StringValue(kind.StringValue), nil
 	case *pb.DocumentValue_IntValue:
 		return queryexec.IntegerValue(kind.IntValue), nil
+	case *pb.DocumentValue_BigIntValue:
+		integer, err := protoconv.ProtoToBigInteger(kind.BigIntValue)
+		if err != nil {
+			return queryexec.Value{}, statusErrorf(connect.CodeInvalidArgument, "binding %s: %v", parameter, err)
+		}
+		return queryexec.IntegerOf(integer), nil
 	case *pb.DocumentValue_RealValue:
 		return queryexec.RealValue(kind.RealValue), nil
 	case *pb.DocumentValue_BoolValue:
@@ -282,8 +312,11 @@ func documentValue(idx *symbols.Index, value queryexec.Value) *pb.DocumentValue 
 		text, _ := value.String()
 		return &pb.DocumentValue{Kind: &pb.DocumentValue_StringValue{StringValue: text}}
 	case queryexec.ValueInteger:
-		integer, _ := value.Integer()
-		return &pb.DocumentValue{Kind: &pb.DocumentValue_IntValue{IntValue: integer}}
+		integer, _ := value.IntegerConst()
+		if n, fits := integer.Int64(); fits {
+			return &pb.DocumentValue{Kind: &pb.DocumentValue_IntValue{IntValue: n}}
+		}
+		return &pb.DocumentValue{Kind: &pb.DocumentValue_BigIntValue{BigIntValue: integer.FormatInt()}}
 	case queryexec.ValueReal:
 		realVal, _ := value.Real()
 		return &pb.DocumentValue{Kind: &pb.DocumentValue_RealValue{RealValue: realVal}}

@@ -14,9 +14,20 @@ function result = runDocumentQuery(model, queryId, varargin)
         end
     end
     model.connection.require('document_query');
+    wire = opensysml.buildDocumentBindings(bindings);
+    if any(cellfun(@bindingHoldsBigInt, wire))
+        model.connection.require('big_int_values');
+    end
     request = struct('modelHash', model.hash, 'queryId', char(queryId), ...
-        'bindings', {opensysml.buildDocumentBindings(bindings)});
+        'bindings', {wire});
     answer = opensysml.call(model.connection, 'RunDocumentQuery', request, ...
         {'document_query'});
     result = opensysml.internal.decodeDocumentResult(answer);
+end
+
+function wide = bindingHoldsBigInt(binding)
+%BINDINGHOLDSBIGINT Whether a wire binding sends an Integer beyond int64.
+    wide = any(cellfun(@(value) isfield(value, 'bigIntValue') || ...
+        (isfield(value, 'quantity') && isfield(value.quantity, 'bigIntMagnitude')), ...
+        binding.values));
 end

@@ -176,6 +176,7 @@ func TestToolOutputSequenceCountsAgainstTheElementBudget(t *testing.T) {
 		MaxSteps: DefaultMaxSteps, MaxActionSteps: DefaultMaxActionSteps,
 		MaxStateEvents: DefaultMaxStateEvents, MaxDoSteps: DefaultMaxDoSteps,
 		MaxElements: 2, MaxCalcDepth: DefaultMaxCalcDepth, MaxSweepRuns: DefaultMaxSweepRuns,
+		MaxIntegerBits: DefaultMaxIntegerBits,
 	}); err != nil {
 		t.Fatalf("SetBudgets: %v", err)
 	}

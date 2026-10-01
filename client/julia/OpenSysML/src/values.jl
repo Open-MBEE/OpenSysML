@@ -81,7 +81,7 @@ Base.string(unit::Unit) = isempty(unit.text) ? reduction(unit) : unit.text
 
 """A numeric magnitude associated with a named unit and optional reduction."""
 struct Quantity
-    magnitude::Union{Int64,Float64}
+    magnitude::Union{Int64,BigInt,Float64}
     unit::String
     unit_term::Union{Nothing,Unit}
 end
@@ -335,7 +335,7 @@ function asreal(x)
 end
 
 const VALUE_ARMS = Set([
-    "intValue", "realValue", "boolValue", "stringValue", "instanceId", "sequence",
+    "intValue", "bigIntValue", "realValue", "boolValue", "stringValue", "instanceId", "sequence",
     "null", "unset", "quantity", "enumLiteral", "complex", "array", "vector",
     "vectorQuantity", "measurementRef", "infinity", "function", "set",
     "tensorQuantity", "metaobject", "undetermined",
@@ -350,10 +350,24 @@ function is_value_object(value)
     return true
 end
 
+# The Integer beyond Int64 a bigIntValue spells: canonical decimal digits, an
+# optional `-` and no leading zero. One within Int64 travels as intValue.
+function parse_big_integer(digits::AbstractString)
+    occursin(r"^-?[1-9][0-9]*$", digits) || error("not the decimal digits of an integer: $(repr(digits))")
+    n = parse(BigInt, digits)
+    typemin(Int64) <= n <= typemax(Int64) && error("$digits is within Int64, which intValue carries")
+    return n
+end
+
+# An Integer on the wire: intValue within Int64, bigIntValue beyond it.
+integer_arm(x::Integer, small::String, big::String) =
+    typemin(Int64) <= x <= typemax(Int64) ? (small => string(Int64(x))) : (big => string(BigInt(x)))
+
 _unsupported_value(message) = throw(UnsupportedValueError(String(message)))
 
 function decode_quantity(q)
     magnitude = haskey(q, "intMagnitude") ? parse(Int64, q["intMagnitude"]) :
+                haskey(q, "bigIntMagnitude") ? parse_big_integer(q["bigIntMagnitude"]) :
                 haskey(q, "realMagnitude") ? asreal(q["realMagnitude"]) :
                 _unsupported_value("quantity carries neither intMagnitude nor realMagnitude")
     term = get(q, "unitTerm", nothing)
@@ -368,6 +382,7 @@ end
 function decode_value(v)
     v === nothing && return missing
     haskey(v, "intValue") && return parse(Int64, v["intValue"])
+    haskey(v, "bigIntValue") && return parse_big_integer(v["bigIntValue"])
     haskey(v, "realValue") && return asreal(v["realValue"])
     haskey(v, "boolValue") && return v["boolValue"]::Bool
     haskey(v, "stringValue") && return v["stringValue"]::String
@@ -398,6 +413,7 @@ function decode_value(v)
     haskey(v, "vector") && begin
         components = map(get(v["vector"], "components", Any[])) do c
             haskey(c, "intValue") && return parse(Int64, c["intValue"])
+            haskey(c, "bigIntValue") && return parse_big_integer(c["bigIntValue"])
             haskey(c, "realValue") && return asreal(c["realValue"])
             _unsupported_value("vector component is not an intValue or realValue: $(first(keys(c)))")
         end
@@ -469,8 +485,8 @@ end
 
 function encode_quantity(q::Quantity)
     body = Dict{String,Any}()
-    if q.magnitude isa Int64
-        body["intMagnitude"] = string(q.magnitude)
+    if q.magnitude isa Integer
+        push!(body, integer_arm(q.magnitude, "intMagnitude", "bigIntMagnitude"))
     else
         body["realMagnitude"] = _json_real(Float64(q.magnitude))
     end
@@ -489,12 +505,7 @@ end
 function encode_value(x::Bool)
     Dict{String,Any}("boolValue" => x)
 end
-function encode_value(x::Integer)
-    value = BigInt(x)
-    typemin(Int64) <= value <= typemax(Int64) ||
-        throw(ArgumentError("Value out of range: $x"))
-    Dict{String,Any}("intValue" => string(x))
-end
+encode_value(x::Integer) = Dict{String,Any}(integer_arm(x, "intValue", "bigIntValue"))
 encode_value(x::AbstractFloat) = Dict{String,Any}("realValue" => _json_real(x))
 encode_value(x::AbstractString) = Dict{String,Any}("stringValue" => String(x))
 encode_value(::Nothing) = Dict{String,Any}("null" => "")
@@ -623,7 +634,11 @@ end
 function value_capabilities(value)
     capabilities = Set{String}()
     function visit(item)
-        if item isa Complex
+        if item isa Integer && !(item isa Bool)
+            typemin(Int64) <= item <= typemax(Int64) || push!(capabilities, CAPABILITY_BIG_INT_VALUES)
+        elseif item isa Quantity
+            visit(item.magnitude)
+        elseif item isa Complex
             push!(capabilities, CAPABILITY_COMPLEX_VALUES)
         elseif item isa MeasurementRef
             push!(capabilities, CAPABILITY_MEASUREMENT_REFS)
@@ -635,6 +650,7 @@ function value_capabilities(value)
         elseif item isa TensorQuantity
             push!(capabilities, CAPABILITY_TENSOR_VALUES)
             push!(capabilities, CAPABILITY_STRUCTURED_VALUES)
+            foreach(visit, item.components)
         elseif item isa Union{ArrayValue,VectorValue,VectorQuantity}
             push!(capabilities, CAPABILITY_STRUCTURED_VALUES)
             item isa ArrayValue && foreach(visit, item.elements)

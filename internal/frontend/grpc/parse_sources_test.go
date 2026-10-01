@@ -7,6 +7,7 @@ import (
 
 	"connectrpc.com/connect"
 	pb "github.com/Open-MBEE/OpenSysML/api/proto"
+	"github.com/Open-MBEE/OpenSysML/internal/frontend/symbolfacts"
 )
 
 const (
@@ -60,7 +61,7 @@ func TestParseSourcesResolvesBetweenDocuments(t *testing.T) {
 	if len(cached.DocumentRoots()) != 2 {
 		t.Errorf("document roots = %d, want 2", len(cached.DocumentRoots()))
 	}
-	if syms := lookupNamed(cached.Index, "Lib::Engine"); len(syms) == 0 {
+	if syms := symbolfacts.LookupNamed(cached.Index, "Lib::Engine"); len(syms) == 0 {
 		t.Error("the library document's symbol is not in the model's index")
 	}
 }
@@ -185,7 +186,7 @@ func TestAReexportBetweenDocumentsIsIndexed(t *testing.T) {
 	if !ok {
 		t.Fatal("the model was not cached")
 	}
-	if syms := lookupNamed(cached.Index, "EngineFacade::Engine"); len(syms) == 0 {
+	if syms := symbolfacts.LookupNamed(cached.Index, "EngineFacade::Engine"); len(syms) == 0 {
 		t.Error("the name EngineFacade re-exports is not in the model's index")
 	}
 }

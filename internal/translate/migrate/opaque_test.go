@@ -18,9 +18,12 @@ func (s fakeScope) feature(path []string, write bool) (opaqueRef, *refusal) {
 	if name == "clock" && write {
 		return opaqueRef{}, &refusal{kind: refusedConstruct, token: name, why: "the simulation clock is read, never assigned"}
 	}
+	if name == "secret" {
+		return opaqueRef{}, &refusal{kind: refusedName, token: name, why: "it is private to Vault"}
+	}
 	ref, ok := s[name]
 	if !ok {
-		return opaqueRef{}, &refusal{kind: refusedName, token: name, why: "nothing is called " + name}
+		return opaqueRef{}, &refusal{kind: refusedName, token: name, why: "nothing is called " + name, unknown: true}
 	}
 	return ref, nil
 }
@@ -269,6 +272,11 @@ func TestTranslateStatements(t *testing.T) {
 		{"Java", "System.out.println(tcs.name.equals(name)); i = 2", []string{"assign this.i := 2;"}},
 		{"Java", "var s = name; System.out.println(s.equals(\"a\")); i = 2", []string{"attribute s : ScalarValues::String;", "assign s := this.name;", "assign this.i := 2;"}},
 		{"JavaScript", "print(new); i = 2", []string{"assign this.i := 2;"}},
+		{"JavaScript", "told = t\nt = clock - t0; t0 = t - told", []string{
+			"attribute told : ScalarValues::Real;", "assign told := this.t;",
+			"assign this.t := " + clockRead + " - this.t0;", "assign this.t0 := this.t - told;"}},
+		{"JavaScript", "n = i + 1; n = n * 2; i = n", []string{
+			"attribute n : ScalarValues::Integer;", "assign n := this.i + 1;", "assign n := n * 2;", "assign this.i := n;"}},
 	}
 	for _, c := range cases {
 		got, _, err := translateStatements(c.body, c.lang, testScope)
@@ -301,6 +309,44 @@ func TestTranslateStatementsNotesConsolePrints(t *testing.T) {
 	}
 	if _, notes, err = translateStatements("i = 1", "JavaScript", testScope); err != nil || len(notes) != 0 {
 		t.Errorf("a body without a print: notes %q, refusal %v", notes, err)
+	}
+}
+
+// A script's assignment to a name nothing bears creates the name, so it is
+// declared a local attribute of the action and the note says so; a name known
+// but not readable there stays refused, as the name is to read before it is
+// assigned, to assign in a Java body, or to declare twice.
+func TestTranslateStatementsDeclareAnUndeclaredNameAssigned(t *testing.T) {
+	_, notes, err := translateStatements("told = t; t = told", "JavaScript", testScope)
+	if err != nil {
+		t.Fatalf("refused: %s", err.note())
+	}
+	want := []string{"told is declared nowhere, so it is declared a local attribute of the action: a script's assignment to an undeclared name creates it"}
+	if strings.Join(notes, "\n") != strings.Join(want, "\n") {
+		t.Errorf("notes:\n got  %q\n want %q", notes, want)
+	}
+	for _, c := range []struct {
+		lang, body  string
+		kind        refusalKind
+		token, want string
+	}{
+		{"Java", "told = t", refusedName, "told", "nothing is called told"},
+		{"JavaScript", "secret = t", refusedName, "secret", "it is private to Vault"},
+		{"JavaScript", "told = told + 1", refusedName, "told", "nothing is called told"},
+		{"JavaScript", "told += 1", refusedName, "told", "nothing is called told"},
+		{"JavaScript", "t = told", refusedName, "told", "nothing is called told"},
+		{"JavaScript", "told = tank", refusedType, "told =", "the value is a Tank, not a scalar a local attribute holds"},
+		{"JavaScript", "start = 1", refusedConstruct, "start =", "start is a member every action has"},
+		{"JavaScript", "told = t; var told = t", refusedConstruct, "var told", "told is declared again"},
+	} {
+		_, _, err := translateStatements(c.body, c.lang, testScope)
+		if err == nil {
+			t.Errorf("%s %q: translated", c.lang, c.body)
+			continue
+		}
+		if err.kind != c.kind || err.token != c.token || err.why != c.want {
+			t.Errorf("%s %q: refused %d at %q: %s; want %d at %q: %s", c.lang, c.body, err.kind, err.token, err.why, c.kind, c.token, c.want)
+		}
 	}
 }
 

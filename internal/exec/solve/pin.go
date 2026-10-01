@@ -491,13 +491,13 @@ func (t *translator) pinConst(p Pin, v *Var, text string) (*Term, error) {
 	case c.Kind == semantics.ValBool && v.Sort.Kind == SortBool:
 		return BoolTerm(c.Bool), nil
 	case c.Kind == semantics.ValInt && v.Sort.Kind == SortInt:
-		return IntTerm(c.Int), nil
+		return BigIntTerm(c.BigInt()), nil
 	case c.Kind == semantics.ValInt && v.Sort.Kind == SortReal:
 		if v.Dimension != "" {
 			return nil, t.pinRefusal(p, v, text,
 				msgValuesMeasuredIn+v.Dimension+", and a bare number states no unit")
 		}
-		return RealTerm(new(big.Rat).SetInt64(c.Int)), nil
+		return RealTerm(new(big.Rat).SetInt(c.BigInt())), nil
 	case c.Kind == semantics.ValReal && v.Sort.Kind == SortReal:
 		if v.Dimension != "" {
 			return nil, t.pinRefusal(p, v, text,
@@ -637,7 +637,7 @@ func pinText(t *translator, val runtime.Value) string {
 func constText(c semantics.Value) string {
 	switch c.Kind {
 	case semantics.ValInt:
-		return strconv.FormatInt(c.Int, 10)
+		return c.FormatInt()
 	case semantics.ValReal:
 		return strconv.FormatFloat(c.Real, 'g', -1, 64)
 	case semantics.ValBool:
@@ -653,7 +653,7 @@ func constText(c semantics.Value) string {
 func ratOfConst(c semantics.Value) (*big.Rat, bool) {
 	switch c.Kind {
 	case semantics.ValInt:
-		return new(big.Rat).SetInt64(c.Int), true
+		return new(big.Rat).SetInt(c.BigInt()), true
 	case semantics.ValReal:
 		return ratOfFloat(c.Real)
 	}

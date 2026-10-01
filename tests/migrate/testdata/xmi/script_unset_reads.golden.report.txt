@@ -1,0 +1,32 @@
+# SysML v1 to v2 migration report: script_unset_reads.xmi
+# migrated 26 element(s): 21 mapped, 5 approximated, 0 unmapped (0 skipped as profile, library or notation-only content, 0 as model elements nothing refers to)
+
+## approximated (5)
+OpaqueBehavior	Executive::Executive Behavior::<Region>::<Transition>::count	_count	-> Executive::'Executive Behavior'::unnamed4::count	(the JavaScript body is translated to v2; context.tdiff holds no initial value and the body reads it before assigning it, so a run reaching the read first stops; the script would read an unset name as null, which its arithmetic takes as 0; the JavaScript body is written as v2 assignments)
+OpaqueBehavior	Executive::Executive Behavior::<Region>::<Transition>::diffTime	_diffTime	-> Executive::'Executive Behavior'::unnamed2::diffTime	(the JavaScript body is translated to v2; the clock variable simtime, named by the configuration Timing, reads the local clock; t1 is declared nowhere, so it is declared a local attribute of the action: a script's assignment to an undeclared name creates it; tdiffOld is declared nowhere, so it is declared a local attribute of the action: a script's assignment to an undeclared name creates it; context.tdiff and context.t0 hold no initial value and the body reads them before assigning them, so a run reaching the read first stops; the script would read an unset name as null, which its arithmetic takes as 0; the JavaScript body is written as v2 assignments)
+OpaqueBehavior	Executive::Executive Behavior::<Region>::<Transition>::reset	_reset	-> Executive::'Executive Behavior'::unnamed3::reset	(the JavaScript body is translated to v2; the JavaScript body is written as v2 assignments)
+OpaqueBehavior	Executive::Executive Behavior::<Region>::<Transition>::stamp	_stamp	-> Executive::'Executive Behavior'::unnamed::stamp	(the JavaScript body is translated to v2; the clock variable simtime, named by the configuration Timing, reads the local clock; the JavaScript body is written as v2 assignments)
+«SimulationConfig» Class	Timing	_config	-> Timing	(neither Executive nor any general of it has a classifier behavior, so the configuration only holds 'Executive')
+
+## mapped (21)
+TimeEvent	<TimeEvent>	_afterAligning	(written where a trigger refers to it, as accept after 3.0 [SI::s])
+TimeEvent	<TimeEvent>	_afterPhasing	(written where a trigger refers to it, as accept after 2.0 [SI::s])
+«Block» Class	Executive	_exec	-> Executive
+StateMachine	Executive::Executive Behavior	_sm	-> Executive::'Executive Behavior'	(acts on its owner Executive, which it takes as its parameter context, since its this is the def's own occurrence)
+Region	Executive::Executive Behavior::<Region>	_r	(the one region is written as the body of its owner)
+Pseudostate	Executive::Executive Behavior::<Region>::<Pseudostate>	_init	(written as the entry of the region)
+Transition	Executive::Executive Behavior::<Region>::<Transition>	_tStart
+Transition	Executive::Executive Behavior::<Region>::<Transition>	_tAligned
+Transition	Executive::Executive Behavior::<Region>::<Transition>	_tPhased
+Transition	Executive::Executive Behavior::<Region>::<Transition>	_tCounted
+Trigger	Executive::Executive Behavior::<Region>::<Transition>::<Trigger>	_trAligned
+Trigger	Executive::Executive Behavior::<Region>::<Transition>::<Trigger>	_trPhased
+State	Executive::Executive Behavior::<Region>::Aligning	_aligning	-> Aligning
+State	Executive::Executive Behavior::<Region>::Counting	_counting	-> Counting
+State	Executive::Executive Behavior::<Region>::Idle	_idle	-> Idle
+State	Executive::Executive Behavior::<Region>::Phasing	_phasing	-> Phasing
+Property	Executive::steps	_steps	-> Executive::steps
+Property	Executive::t0	_t0	-> Executive::t0
+Property	Executive::tStep	_tStep	-> Executive::tStep
+Property	Executive::tdiff	_tdiff	-> Executive::tdiff
+Model	Model	_m	(the root model's members are written at the top level)
