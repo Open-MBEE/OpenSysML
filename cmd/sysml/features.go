@@ -288,3 +288,53 @@ func mentionsFlag(text, name string) bool {
 func isFlagByte(b byte) bool {
 	return b == '-' || b == '_' || 'a' <= b && b <= 'z' || 'A' <= b && b <= 'Z' || '0' <= b && b <= '9'
 }
+
+// fromUsage is -from's usage, naming the formats this build reads.
+func fromUsage() string {
+	text := "Input format for -convert: sysml, kerml, ttl, turtle, rdf, api-json"
+	if fmiFeature.linked {
+		text += ", fmu for a Functional Mock-up Unit to import"
+	}
+	if v1Feature.linked {
+		text += ", or xmi, uml or mdzip for a SysML v1 model to migrate (experimental)"
+	}
+	return text + "; default the input's extension"
+}
+
+// outputUsage is -output's usage, naming the modes this build writes.
+func outputUsage() string {
+	modes := "-convert, -render or -render-document"
+	if codegenFeature.linked {
+		modes = "-convert, -compile, -render or -render-document"
+	}
+	text := "Write what " + modes + " produces to this file instead of stdout"
+	if syncFeature.linked {
+		text += "; with -convert ttl, a Flexo branch URL pushes the graph to the branch"
+	}
+	return text
+}
+
+// docFormUsage is -doc-form's usage, naming the forms this build writes.
+func docFormUsage() string {
+	if docpdfFeature.linked {
+		return "Form the documents are written in: markdown (default), html or pdf, which drives an external converter"
+	}
+	return "Form the documents are written in: markdown, the only form this build writes"
+}
+
+// docNumberFiguresUsage is -doc-number-figures' usage in this build.
+func docNumberFiguresUsage() string {
+	if docpdfFeature.linked {
+		return "Number the figures and tables in their captions, Figure 1. and Table 1. in document order (markdown, html or pdf)"
+	}
+	return "Number the figures and tables in their captions, Figure 1. and Table 1. in document order"
+}
+
+// convertUsage is -convert's usage, naming the inputs this build reads.
+func convertUsage() string {
+	text := "Convert the model to this format instead of running it: sysml, kerml, ttl, turtle, rdf or api-json (RDF and the API element form are experimental)"
+	if syncFeature.linked {
+		text += ". The input may be a Flexo branch URL (host[:port][/base]/projects/{p}/branches/{b} of the FLEXO_SYSMLV2_URL endpoint, or flexo://{p}/{b}), read as its RDF graph"
+	}
+	return text
+}
