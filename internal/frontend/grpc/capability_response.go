@@ -7,12 +7,21 @@ import (
 	pb "github.com/Open-MBEE/OpenSysML/api/proto"
 	"github.com/Open-MBEE/OpenSysML/internal/exec/runtime"
 	"github.com/Open-MBEE/OpenSysML/internal/frontend/protoconv"
+	"github.com/Open-MBEE/OpenSysML/internal/frontend/symbolfacts"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/semantics"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/symbols"
 )
 
-func (s *Service) symbolToProto(sym *symbols.Symbol, sc *SymbolContext) *pb.SymbolInfo {
+func (s *Service) symbolToProto(sym *symbols.Symbol, sc *symbolfacts.Context) *pb.SymbolInfo {
 	info := SymbolToProtoIn(sym, sc)
+	return s.filterSymbolInfo(info)
+}
+
+func (s *Service) symbolInfoToProto(info *symbolfacts.Info, idx *symbols.Index) *pb.SymbolInfo {
+	return s.filterSymbolInfo(infoToProto(info, idx))
+}
+
+func (s *Service) filterSymbolInfo(info *pb.SymbolInfo) *pb.SymbolInfo {
 	if !s.capabilities.has(CapabilityTypeFacts) {
 		info.TypeInfo = nil
 		info.Multiplicity = nil
