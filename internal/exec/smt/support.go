@@ -7,6 +7,7 @@ import (
 
 	"github.com/Open-MBEE/OpenSysML/internal/exec/analysis"
 	"github.com/Open-MBEE/OpenSysML/internal/ir/lower"
+	"github.com/Open-MBEE/OpenSysML/internal/semantic/semantics"
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/ast"
 )
 
@@ -111,7 +112,7 @@ type BodyLoop struct {
 
 // Analyze numbers the flow for an encoding of k moves, refusing with a typed
 // error a flow the stage does not encode or the interpreter would not run.
-func Analyze(graph *lower.ActionGraph, k int) (*Flow, error) {
+func Analyze(graph *lower.ActionGraph, model *semantics.Model, k int) (*Flow, error) {
 	if graph == nil {
 		return nil, &FlowError{Reason: "no action flow"}
 	}
@@ -140,9 +141,9 @@ func Analyze(graph *lower.ActionGraph, k int) (*Flow, error) {
 	}
 	for _, node := range f.Nodes {
 		if frame := f.FrameOf[node]; frame != nil && frame.Graph.Multiplicities[node] != nil {
-			count, err := frame.Graph.StepCount(node, nil)
+			count, err := frame.Graph.StepCount(node, model)
 			if err != nil || count != 1 {
-				multiplicity := frame.Graph.MultiplicityText(node, nil)
+				multiplicity := frame.Graph.MultiplicityText(node, model)
 				reason := "the SMT engine does not encode a step performed " + fmt.Sprint(count) + " times"
 				if err != nil {
 					var stepErr *lower.StepMultiplicityError

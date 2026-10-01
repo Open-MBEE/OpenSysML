@@ -15,9 +15,10 @@ import (
 // Token represents a control token in action execution. It carries no values of
 // its own: the action's features are one space every token shares (see ActionExecutor.Data).
 type Token struct {
-	ID         int64    // Unique token ID
-	Location   ast.Node // Current node position
-	repetition int64    // Nonzero when this token is one performance of a repeated step.
+	ID              int64    // Unique token ID
+	Location        ast.Node // Current node position
+	repetition      int64    // Nonzero when this token is one performance of a repeated step.
+	repetitionGroup repetitionGroupID
 
 	// Via is the succession the token travelled to reach Location; the zero edge for a
 	// token no succession delivered (a flow's first, or the one a synchronized node performs with).

@@ -14,10 +14,11 @@ import (
 
 func TestRuntimeRobustnessActionStepMultiplicity(t *testing.T) {
 	tests := []struct {
-		name, model, step, multiplicity, code string
-		state                                 bool
-		instantiate                           bool
-		inputs                                map[string]Value
+		name, model, step, multiplicity, code, reason string
+		wantRun                                       bool
+		state                                         bool
+		instantiate                                   bool
+		inputs                                        map[string]Value
 	}{
 		{
 			name: "zero-or-more", step: "a", multiplicity: "[0..*]",
@@ -80,6 +81,28 @@ func TestRuntimeRobustnessActionStepMultiplicity(t *testing.T) {
 					action p;
 					action a[3];
 					succession first [1] p then [1] a;
+				}
+			}`,
+		},
+		{
+			name: "single-count-written-end-excludes-count", step: "a", multiplicity: "[1]",
+			code: lower.StepOrderUnsatisfiableCode,
+			model: `package test {
+				action def A {
+					action p;
+					action a[1];
+					succession first [2] p then [1] a;
+				}
+			}`,
+		},
+		{
+			name: "single-count-written-ends-run", wantRun: true, step: "a", multiplicity: "[1]",
+			model: `package test {
+				action def A {
+					action p[1];
+					action a[1];
+					succession first [1] p then [1] a;
+					then done;
 				}
 			}`,
 		},
@@ -216,6 +239,116 @@ func TestRuntimeRobustnessActionStepMultiplicity(t *testing.T) {
 			}`,
 		},
 		{
+			name: "do-two", step: "tick", multiplicity: "[2]",
+			code:  lower.StepMultiplicityUnsupportedCode,
+			state: true,
+			model: `package test {
+				private import ScalarValues::*;
+				state def Machine {
+					attribute c : Integer = 0;
+					entry; then active;
+					state active {
+						do action tick[2] { assign c := c + 1; }
+					}
+				}
+			}`,
+		},
+		{
+			name: "bodiless-do-two", step: "tick", multiplicity: "[2]",
+			code:  lower.StepMultiplicityUnsupportedCode,
+			state: true,
+			model: `package test {
+				state def Machine {
+					entry; then active;
+					state active { do action tick[2]; }
+				}
+			}`,
+		},
+		{
+			name: "while-block-three", step: "tick", multiplicity: "[3]",
+			code:   lower.StepMultiplicityUnsupportedCode,
+			reason: "a step inside a loop or conditional body is performed once per pass; repeated or zero counts are not executed there",
+			model: `package test {
+				private import ScalarValues::*;
+				action def A {
+					first start then worker;
+					action worker {
+						attribute i : Integer = 0;
+						while i < 1 {
+							action tick[3] { }
+							assign i := i + 1;
+						}
+					}
+					then done;
+				}
+			}`,
+		},
+		{
+			name: "while-block-zero", step: "tick", multiplicity: "[0]",
+			code:   lower.StepMultiplicityUnsupportedCode,
+			reason: "a step inside a loop or conditional body is performed once per pass; repeated or zero counts are not executed there",
+			model: `package test {
+				private import ScalarValues::*;
+				action def A {
+					first start then worker;
+					action worker {
+						attribute i : Integer = 0;
+						while i < 1 {
+							action tick[0] { }
+							assign i := i + 1;
+						}
+					}
+					then done;
+				}
+			}`,
+		},
+		{
+			name: "if-block-three", step: "tick", multiplicity: "[3]",
+			code:   lower.StepMultiplicityUnsupportedCode,
+			reason: "a step inside a loop or conditional body is performed once per pass; repeated or zero counts are not executed there",
+			model: `package test {
+				action def A {
+					first start then worker;
+					action worker {
+						if true {
+							action tick[3] { }
+						}
+					}
+					then done;
+				}
+			}`,
+		},
+		{
+			name: "if-block-zero", step: "tick", multiplicity: "[0]",
+			code:   lower.StepMultiplicityUnsupportedCode,
+			reason: "a step inside a loop or conditional body is performed once per pass; repeated or zero counts are not executed there",
+			model: `package test {
+				action def A {
+					first start then worker;
+					action worker {
+						if true {
+							action tick[0] { }
+						}
+					}
+					then done;
+				}
+			}`,
+		},
+		{
+			name: "if-block-one", step: "tick", multiplicity: "[1]", wantRun: true,
+			model: `package test {
+				action def A {
+					first start then worker;
+					action worker {
+						if true {
+							action tick[1] { }
+						}
+					}
+					then done;
+				}
+			}`,
+		},
+		{
 			name: "part-level performed action", step: "run", multiplicity: "[2]",
 			code:        lower.StepMultiplicityUnsupportedCode,
 			instantiate: true,
@@ -251,6 +384,12 @@ func TestRuntimeRobustnessActionStepMultiplicity(t *testing.T) {
 				}
 				_, err = ctx.ExecuteActionWithInputs(symbol, test.inputs)
 			}
+			if test.wantRun {
+				if err != nil {
+					t.Fatalf("execution error = %v, want action to run", err)
+				}
+				return
+			}
 			if !errors.Is(err, ErrActionStepMultiplicity) {
 				t.Fatalf("execution error = %v, want ErrActionStepMultiplicity", err)
 			}
@@ -263,6 +402,9 @@ func TestRuntimeRobustnessActionStepMultiplicity(t *testing.T) {
 			}
 			if !strings.Contains(err.Error(), test.step) || !strings.Contains(err.Error(), test.multiplicity) {
 				t.Errorf("execution error = %q, want step %q and multiplicity %q", err, test.step, test.multiplicity)
+			}
+			if test.reason != "" && !strings.Contains(err.Error(), test.reason) {
+				t.Errorf("execution error = %q, want reason %q", err, test.reason)
 			}
 		})
 	}

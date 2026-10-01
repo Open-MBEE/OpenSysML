@@ -17,7 +17,10 @@ type stepMultiplicityResult struct {
 	err   error
 }
 
+type repetitionGroupID int64
+
 type stepRepetition struct {
+	node      ast.Node
 	remaining int64
 	live      []*actionFrame
 }
@@ -37,7 +40,7 @@ func (e *ActionExecutor) stepMultiplicity(graph *lower.ActionGraph, node ast.Nod
 		return result.count, result.err
 	}
 	count, err := graph.StepCount(node, e.ctx.Semantics())
-	if err == nil && count != 1 {
+	if err == nil {
 		err = graph.CheckStep(node, e.ctx.Semantics())
 	}
 	if err != nil {
@@ -55,18 +58,25 @@ func (e *ActionExecutor) splitRepeatedStep(tokenIdx int, count int64, node ast.N
 	}
 	token := e.tokens[tokenIdx]
 	frame := token.frame
-	if frame.repeats == nil {
-		frame.repeats = make(map[ast.Node]*stepRepetition)
+	if e.nextRepetitionID == 0 {
+		e.nextRepetitionID = 1
 	}
-	frame.repeats[node] = &stepRepetition{remaining: count}
+	group := e.nextRepetitionID
+	e.nextRepetitionID++
+	if frame.repeats == nil {
+		frame.repeats = make(map[repetitionGroupID]*stepRepetition)
+	}
+	frame.repeats[group] = &stepRepetition{node: node, remaining: count}
 	for repetition := int64(1); repetition <= count; repetition++ {
 		if repetition == 1 {
 			e.tokens[tokenIdx].repetition = repetition
+			e.tokens[tokenIdx].repetitionGroup = group
 			continue
 		}
 		next := token
 		next.ID = e.nextTokenID
 		next.repetition = repetition
+		next.repetitionGroup = group
 		next.body = nil
 		next.Wait = nil
 		e.nextTokenID++
@@ -102,7 +112,8 @@ func (e *ActionExecutor) trackRepeated(tokenID int64, perf *actionFrame) {
 		return
 	}
 	perf.repetition = token.repetition
-	if state := token.frame.repeats[perf.node]; state != nil {
+	perf.repetitionGroup = token.repetitionGroup
+	if state := token.frame.repeats[token.repetitionGroup]; state != nil {
 		state.live = append(state.live, perf)
 	}
 }

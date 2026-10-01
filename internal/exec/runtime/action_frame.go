@@ -80,10 +80,11 @@ type actionFrame struct {
 	// live counts the tokens still running in this performance's flow, which a
 	// fork inside it raises and a join or a retiring token lowers.
 	live int
-	// repeats holds the barrier and live performances of each repeated node.
-	repeats map[ast.Node]*stepRepetition
+	// repeats holds each arrival's barrier and live performances of a repeated node.
+	repeats map[repetitionGroupID]*stepRepetition
 	// repetition is the instance index when this frame is a repeated step.
-	repetition int64
+	repetition      int64
+	repetitionGroup repetitionGroupID
 	// multiplicities are action-node declarations of a state behavior frame.
 	multiplicities map[ast.Node]*ast.Multiplicity
 	// inBody marks a flow a body statement runs to completion (runSubflow) rather

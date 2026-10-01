@@ -49,12 +49,13 @@ type ActionExecutor struct {
 	stepCounts map[stepMultiplicityKey]stepMultiplicityResult
 	// features are the attributes and parameters the performance holds: those the
 	// graph declares, then the inherited ones none of them redefines.
-	features    []lower.Attribute
-	tokens      []Token
-	state       ExecutionState
-	nextTokenID int64
-	stepCount   int // Current step number for tracing
-	breakpoints map[string]bool
+	features         []lower.Attribute
+	tokens           []Token
+	state            ExecutionState
+	nextTokenID      int64
+	nextRepetitionID repetitionGroupID
+	stepCount        int // Current step number for tracing
+	breakpoints      map[string]bool
 	// breakpointNodes are the nodes a run stops at by identity, each in one nested flow.
 	breakpointNodes []NodeBreakpoint
 	// firedBreakpoints records the token visits a breakpoint already stopped on.
@@ -218,18 +219,19 @@ func newActionExecutorOn(
 	self, occurrence *Instance,
 ) *ActionExecutor {
 	exec := &ActionExecutor{
-		performances: performances{ctx: ctx, self: self, behavior: action, occurrence: occurrence},
-		action:       action,
-		performed:    performed,
-		tool:         tool,
-		dynamicsKind: ctx.stateSpaceKindOf(action),
-		occurrence:   occurrence,
-		graph:        graph,
-		stepCounts:   make(map[stepMultiplicityKey]stepMultiplicityResult),
-		tokens:       make([]Token, 0),
-		state:        StateReady,
-		nextTokenID:  1,
-		breakpoints:  make(map[string]bool),
+		performances:     performances{ctx: ctx, self: self, behavior: action, occurrence: occurrence},
+		action:           action,
+		performed:        performed,
+		tool:             tool,
+		dynamicsKind:     ctx.stateSpaceKindOf(action),
+		occurrence:       occurrence,
+		graph:            graph,
+		stepCounts:       make(map[stepMultiplicityKey]stepMultiplicityResult),
+		tokens:           make([]Token, 0),
+		state:            StateReady,
+		nextTokenID:      1,
+		nextRepetitionID: 1,
+		breakpoints:      make(map[string]bool),
 
 		firedBreakpoints: make(map[breakpointVisit]bool),
 	}
@@ -1638,7 +1640,10 @@ func (e *ActionExecutor) synchronize(tokenIdx int) (int, bool) {
 		e.removeToken(idx)
 	}
 	token.frame.live -= len(consumed) - 1
-	e.tokens = append(e.tokens, Token{ID: e.nextTokenID, Location: token.Location, moved: e.sweep, frame: token.frame})
+	e.tokens = append(e.tokens, Token{
+		ID: e.nextTokenID, Location: token.Location, repetition: token.repetition,
+		repetitionGroup: token.repetitionGroup, moved: e.sweep, frame: token.frame,
+	})
 	e.nextTokenID++
 	return len(e.tokens) - 1, true
 }
@@ -2434,18 +2439,21 @@ func (e *ActionExecutor) completeNode(tokenIdx int, perf *actionFrame) error {
 	frame := e.tokens[tokenIdx].frame
 	node := perf.node
 	if e.tokens[tokenIdx].repetition > 0 {
-		state := frame.repeats[node]
-		if state == nil || state.remaining <= 0 {
+		group := e.tokens[tokenIdx].repetitionGroup
+		state := frame.repeats[group]
+		if state == nil || state.node != node || state.remaining <= 0 {
 			return fmt.Errorf("action node %s completed without its repetition barrier", ActionNodeName(node))
 		}
 		state.remaining--
 		state.live = slices.DeleteFunc(state.live, func(live *actionFrame) bool { return live == perf })
 		if state.remaining > 0 {
 			e.tokens[tokenIdx].repetition = 0
+			e.tokens[tokenIdx].repetitionGroup = 0
 			return e.retireToken(tokenIdx)
 		}
-		delete(frame.repeats, node)
+		delete(frame.repeats, group)
 		e.tokens[tokenIdx].repetition = 0
+		e.tokens[tokenIdx].repetitionGroup = 0
 	}
 
 	// Advance to a succession its guard, where it carries one, leaves enabled.

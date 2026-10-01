@@ -26,7 +26,7 @@ func actionStepMultiplicityDiags(t *testing.T, text string) []diag.Diagnostic {
 
 func TestActionStepMultiplicityPassReportsRuntimeRefusals(t *testing.T) {
 	tests := []struct {
-		name, code, model, step, multiplicity string
+		name, code, model, step, multiplicity, reason string
 	}{
 		{
 			name: "unbounded count",
@@ -59,6 +59,16 @@ func TestActionStepMultiplicityPassReportsRuntimeRefusals(t *testing.T) {
 			step: "a", multiplicity: "[3]",
 		},
 		{
+			name: "written ends exclude single-count step",
+			code: "action-step-order-unsatisfiable",
+			model: `action def A {
+				action p;
+				action a[1];
+				succession first [2] p then [1] a;
+			}`,
+			step: "a", multiplicity: "[1]",
+		},
+		{
 			name: "guarded edge",
 			code: "action-step-multiplicity-unsupported",
 			model: `action def A {
@@ -86,6 +96,73 @@ func TestActionStepMultiplicityPassReportsRuntimeRefusals(t *testing.T) {
 				succession first a if true then done;
 			}`,
 			step: "a", multiplicity: "[3]",
+		},
+		{
+			name: "while block ignores repeated count",
+			code: "action-step-multiplicity-unsupported",
+			model: `package P {
+				private import ScalarValues::*;
+				action def A {
+					first start then worker;
+					action worker {
+						attribute i : Integer = 0;
+						while i < 1 {
+							action tick[3] { }
+							assign i := i + 1;
+						}
+					}
+					then done;
+				}
+			}`,
+			step: "tick", multiplicity: "[3]",
+			reason: "a step inside a loop or conditional body is performed once per pass; repeated or zero counts are not executed there",
+		},
+		{
+			name: "while block ignores zero count",
+			code: "action-step-multiplicity-unsupported",
+			model: `action def A {
+				first start then worker;
+				action worker {
+					attribute i : Integer = 0;
+					while i < 1 {
+						action tick[0] { }
+						assign i := i + 1;
+					}
+				}
+				then done;
+			}`,
+			step: "tick", multiplicity: "[0]",
+			reason: "a step inside a loop or conditional body is performed once per pass; repeated or zero counts are not executed there",
+		},
+		{
+			name: "if block ignores repeated count",
+			code: "action-step-multiplicity-unsupported",
+			model: `action def A {
+				first start then worker;
+				action worker {
+					if true {
+						action tick[3] { }
+					}
+				}
+				then done;
+			}`,
+			step: "tick", multiplicity: "[3]",
+			reason: "a step inside a loop or conditional body is performed once per pass; repeated or zero counts are not executed there",
+		},
+		{
+			name: "if block ignores zero count",
+			code: "action-step-multiplicity-unsupported",
+			model: `action def A {
+				first start then worker;
+				action worker {
+					if true {
+						action tick[0] { }
+					}
+				}
+				then done;
+			}`,
+			step: "tick", multiplicity: "[0]",
+			reason: "a step inside a loop or conditional body is performed once per pass; repeated or zero counts are not executed there",
 		},
 		{
 			name: "unevaluable succession-end count",
@@ -131,6 +208,9 @@ func TestActionStepMultiplicityPassReportsRuntimeRefusals(t *testing.T) {
 			if !strings.Contains(d.Message, test.step) || !strings.Contains(d.Message, test.multiplicity) {
 				t.Errorf("message = %q, want step %q and multiplicity %q", d.Message, test.step, test.multiplicity)
 			}
+			if test.reason != "" && !strings.Contains(d.Message, test.reason) {
+				t.Errorf("message = %q, want reason %q", d.Message, test.reason)
+			}
 		})
 	}
 }
@@ -152,6 +232,27 @@ func TestActionStepMultiplicityPassLeavesSupportedStepsAlone(t *testing.T) {
 			model: `action def A {
 				first start then a;
 				action a[1];
+				then done;
+			}`,
+		},
+		{
+			name: "written ends accept single-count succession",
+			model: `action def A {
+				action p[1];
+				action a[1];
+				succession first [1] p then [1] a;
+				then done;
+			}`,
+		},
+		{
+			name: "single-count action in conditional block",
+			model: `action def A {
+				first start then worker;
+				action worker {
+					if true {
+						action tick[1] { }
+					}
+				}
 				then done;
 			}`,
 		},
@@ -242,6 +343,24 @@ func TestActionStepMultiplicityPassChecksStateBehaviorAndPartPerformance(t *test
 			step: "enter",
 		},
 		{
+			name: "state do multiplicity",
+			model: `state def Machine {
+				state active {
+					do action tick[2] { }
+				}
+			}`,
+			step: "tick",
+		},
+		{
+			name: "bodiless state do multiplicity",
+			model: `state def Machine {
+				state active {
+					do action tick[2];
+				}
+			}`,
+			step: "tick",
+		},
+		{
 			name: "part-level performed action multiplicity",
 			model: `package P {
 				action def Act { }
@@ -286,5 +405,61 @@ func TestActionStepMultiplicityPassChecksStateBehaviorAndPartPerformance(t *test
 				t.Errorf("message = %q, want step %s[2]", got[0].Message, test.step)
 			}
 		})
+	}
+}
+
+func TestActionStepMultiplicityPassSkipsElementsWithLowerTierFailures(t *testing.T) {
+	text := `package P {
+		private import ScalarValues::*;
+		action def Broken {
+			attribute total : Integer = 0;
+			first start then a;
+			action a[3] { attribute x : Integer = 1; }
+			then q;
+			action q {
+				assign total := a.x;
+				assign missing := 1;
+			}
+			then done;
+		}
+		action def Independent {
+			attribute total : Integer = 0;
+			first start then a;
+			action a[3] { attribute x : Integer = 1; }
+			then q;
+			action q { assign total := a.x; }
+			then done;
+		}
+	}`
+	sf := source.New("t.sysml", []byte(text))
+	p := parser.New(sf)
+	root := p.ParseFile()
+	if len(p.Diagnostics) != 0 {
+		t.Fatalf("unexpected parse diagnostics: %+v", p.Diagnostics)
+	}
+	ctx := passes.NewContext("t.sysml", newTestIndexFromDoc("t.sysml", root), nil)
+	registry := passes.NewRegistry()
+	registry.Register(passes.NameResolutionPass{})
+	registry.Register(behavior.ActionStepMultiplicityPass{})
+	got := registry.Run(ctx, "t.sysml", root)
+
+	var lowerErrors, multiplicityWarnings []diag.Diagnostic
+	for _, d := range got {
+		switch {
+		case d.Severity == diag.SeverityError:
+			lowerErrors = append(lowerErrors, d)
+		case d.Source == "action-step-multiplicity":
+			multiplicityWarnings = append(multiplicityWarnings, d)
+		}
+	}
+	if len(lowerErrors) == 0 {
+		t.Fatalf("diagnostics = %+v, want a lower-tier failure in Broken", got)
+	}
+	if len(multiplicityWarnings) != 1 {
+		t.Fatalf("multiplicity warnings = %+v, want only the independent element's warning; all diagnostics: %+v", multiplicityWarnings, got)
+	}
+	independent := strings.Index(text, "action def Independent")
+	if multiplicityWarnings[0].Span.Offset < independent {
+		t.Fatalf("multiplicity warning = %+v, want it in Independent after offset %d", multiplicityWarnings[0], independent)
 	}
 }

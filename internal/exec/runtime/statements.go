@@ -560,6 +560,22 @@ func (e *stmtEngine) block(block lower.Block) (stmtFlow, error) {
 // of it is an action node rather than a statement: the host's where the body
 // states its successions, else its nodes one after another.
 func (e *stmtEngine) runBlock(block lower.Block) (stmtFlow, error) {
+	if e.restrictedBlockFlow(block) {
+		for _, node := range block.Graph.Nodes {
+			if block.Graph.Multiplicities[node] == nil {
+				continue
+			}
+			count, err := block.Graph.StepCount(node, e.ctx.Semantics())
+			if err != nil {
+				return flowNext, fmt.Errorf("%w: %w", ErrActionStepMultiplicity, err)
+			}
+			if count != 1 {
+				return flowNext, fmt.Errorf("%w: %w", ErrActionStepMultiplicity, block.Graph.StepError(
+					node, e.ctx.Semantics(), lower.StepMultiplicityUnsupportedCode,
+					"a step inside a loop or conditional body is performed once per pass; repeated or zero counts are not executed there", nil))
+			}
+		}
+	}
 	switch {
 	case block.Graph == nil:
 		return e.run(block.Statements)
@@ -569,6 +585,18 @@ func (e *stmtEngine) runBlock(block lower.Block) (stmtFlow, error) {
 		return e.host.runBlockFlow(e, block)
 	}
 	return e.blockFlow(block)
+}
+
+func (e *stmtEngine) restrictedBlockFlow(block lower.Block) bool {
+	if block.Graph == nil {
+		return false
+	}
+	switch block.Node.(type) {
+	case *ast.WhileLoopActionNode, *ast.IfBranchNode:
+		return true
+	default:
+		return false
+	}
 }
 
 // flowNodeFrame is the node of a block's flow a body paused at.

@@ -53,21 +53,8 @@ func (e *StateExecutor) executeBehaviors(behaviors []lower.StateBehavior) error 
 // waiting on the clock is an error; a do behavior runs as a doRun instead) and
 // reports a run a `terminate` of the behavior's own performance ended.
 func (e *StateExecutor) executeBehavior(behavior lower.StateBehavior) (bool, error) {
-	if behavior.Multiplicity != nil {
-		graph := &lower.ActionGraph{
-			Scope:          behavior.Scope,
-			Multiplicities: map[ast.Node]*ast.Multiplicity{behavior.Node: behavior.Multiplicity},
-			Scopes:         map[ast.Node]*symbols.Scope{behavior.Node: behavior.Scope},
-		}
-		count, err := graph.StepCount(behavior.Node, e.ctx.Semantics())
-		if err != nil {
-			return false, fmt.Errorf("%w: %w", ErrActionStepMultiplicity, err)
-		}
-		if count != 1 {
-			return false, fmt.Errorf("%w: %w", ErrActionStepMultiplicity, graph.StepError(
-				behavior.Node, e.ctx.Semantics(), lower.StepMultiplicityUnsupportedCode,
-				"the state entry, do, and exit performances have multiplicity [1]", nil))
-		}
+	if err := e.validateBehaviorMultiplicity(behavior); err != nil {
+		return false, err
 	}
 	if len(behavior.Body) == 0 {
 		return false, nil
@@ -78,6 +65,26 @@ func (e *StateExecutor) executeBehavior(behavior lower.StateBehavior) (bool, err
 		return false, err
 	}
 	return host.terminated, nil
+}
+
+func (e *StateExecutor) validateBehaviorMultiplicity(behavior lower.StateBehavior) error {
+	if behavior.Multiplicity != nil {
+		graph := &lower.ActionGraph{
+			Scope:          behavior.Scope,
+			Multiplicities: map[ast.Node]*ast.Multiplicity{behavior.Node: behavior.Multiplicity},
+			Scopes:         map[ast.Node]*symbols.Scope{behavior.Node: behavior.Scope},
+		}
+		count, err := graph.StepCount(behavior.Node, e.ctx.Semantics())
+		if err != nil {
+			return fmt.Errorf("%w: %w", ErrActionStepMultiplicity, err)
+		}
+		if count != 1 {
+			return fmt.Errorf("%w: %w", ErrActionStepMultiplicity, graph.StepError(
+				behavior.Node, e.ctx.Semantics(), lower.StepMultiplicityUnsupportedCode,
+				"the state entry, do, and exit performances have multiplicity [1]", nil))
+		}
+	}
+	return nil
 }
 
 // endedBefore reports whether a `terminate` ended behavior's block already: the

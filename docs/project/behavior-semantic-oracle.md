@@ -234,6 +234,9 @@ Derived constraints:
   `[n]`, `[n..n]`, or named exact bounds that evaluate to an exact count perform `n` times;
   `[0]` performs no body, trace event, flow or data transfer. Other ranges and bounds the model
   cannot evaluate do not identify a fixed number and are refused.
+- An action usage in a loop or conditional block flow is performed once per pass. Repetition in
+  those statement-engine flows is out of scope: exact counts other than `[1]`, including `[0]`,
+  are refused with `action-step-multiplicity-unsupported` rather than being expanded.
 - `Occurrences.kerml` `HappensBefore` orders whole source performances before whole target
   performances. A repeated node therefore needs every incident edge to admit and force its
   complete count. The accepted fixtures use explicitly written end multiplicities: `[1] p` to

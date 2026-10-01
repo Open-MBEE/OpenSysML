@@ -436,6 +436,7 @@ type actionCapture struct {
 	tokens            []Token
 	state             ExecutionState
 	nextTokenID       int64
+	nextRepetitionID  repetitionGroupID
 	stepCount         int
 	sweep, sweeps     uint64
 	pausedAt          breakpointStop
@@ -461,7 +462,8 @@ type actionCapture struct {
 func (e *ActionExecutor) capture() actionCapture {
 	c := actionCapture{
 		exec: e, tokens: slices.Clone(e.tokens), state: e.state,
-		nextTokenID: e.nextTokenID, stepCount: e.stepCount, sweep: e.sweep, sweeps: e.sweeps,
+		nextTokenID: e.nextTokenID, nextRepetitionID: e.nextRepetitionID,
+		stepCount: e.stepCount, sweep: e.sweep, sweeps: e.sweeps,
 		pausedAt: e.pausedAt, released: e.released, pauses: e.pauses,
 		steps: e.steps, stepsSpent: e.stepsSpent, inRun: e.inRun, held: e.held, moved: e.moved, awaiting: e.awaiting,
 		outputListeners:  slices.Clone(e.outputListeners),
@@ -480,7 +482,8 @@ func (e *ActionExecutor) capture() actionCapture {
 func (c actionCapture) restore() {
 	e := c.exec
 	e.tokens = slices.Clone(c.tokens)
-	e.state, e.nextTokenID, e.stepCount, e.sweep, e.sweeps = c.state, c.nextTokenID, c.stepCount, c.sweep, c.sweeps
+	e.state, e.nextTokenID, e.nextRepetitionID, e.stepCount, e.sweep, e.sweeps =
+		c.state, c.nextTokenID, c.nextRepetitionID, c.stepCount, c.sweep, c.sweeps
 	e.pausedAt, e.released, e.pauses = c.pausedAt, c.released, c.pauses
 	e.steps, e.stepsSpent, e.inRun, e.held = c.steps, c.stepsSpent, c.inRun, c.held
 	e.moved, e.awaiting = c.moved, c.awaiting
@@ -583,16 +586,16 @@ func (c frameCapture) restore() {
 	perf.nodes = slices.Clone(c.saved.nodes)
 }
 
-func cloneStepRepetitions(repeats map[ast.Node]*stepRepetition) map[ast.Node]*stepRepetition {
+func cloneStepRepetitions(repeats map[repetitionGroupID]*stepRepetition) map[repetitionGroupID]*stepRepetition {
 	if repeats == nil {
 		return nil
 	}
-	cloned := make(map[ast.Node]*stepRepetition, len(repeats))
-	for node, state := range repeats {
+	cloned := make(map[repetitionGroupID]*stepRepetition, len(repeats))
+	for group, state := range repeats {
 		if state == nil {
 			continue
 		}
-		cloned[node] = &stepRepetition{remaining: state.remaining, live: slices.Clone(state.live)}
+		cloned[group] = &stepRepetition{node: state.node, remaining: state.remaining, live: slices.Clone(state.live)}
 	}
 	return cloned
 }

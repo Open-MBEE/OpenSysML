@@ -34,6 +34,7 @@ type imagedAction struct {
 	tokenFrames       []int
 	state             ExecutionState
 	nextTokenID       int64
+	nextRepetitionID  repetitionGroupID
 	stepCount         int
 	sweep, sweeps     uint64
 	inputs            map[string]Value
@@ -62,13 +63,14 @@ type imagedFrame struct {
 	data       map[string]Value
 	outer      []imagedOuter
 	subactions map[ast.Node]int
-	repeats    map[ast.Node]imagedRepetition
+	repeats    map[repetitionGroupID]imagedRepetition
 	pending    map[ast.Node]map[string][]Value
 	staged     map[ast.Node]map[string][]imagedStaged
 	nested     map[ast.Node][]nestedDelivery
 }
 
 type imagedRepetition struct {
+	node      ast.Node
 	remaining int64
 	live      []int
 }
@@ -167,7 +169,8 @@ func (t *imaging) actionExecutor(e *ActionExecutor) (*imagedAction, error) {
 	frames := e.reachableFrames()
 	at := func(perf *actionFrame) int { return slices.Index(frames, perf) }
 	img := &imagedAction{
-		graph: e.graph, state: e.state, nextTokenID: e.nextTokenID, stepCount: e.stepCount,
+		graph: e.graph, state: e.state, nextTokenID: e.nextTokenID,
+		nextRepetitionID: e.nextRepetitionID, stepCount: e.stepCount,
 		sweep: e.sweep, sweeps: e.sweeps, pausedAt: e.pausedAt, released: e.released,
 		pauses: e.pauses, steps: e.steps, stepsSpent: e.stepsSpent, inRun: e.inRun, moved: e.moved,
 		awaiting:         at(e.awaiting),
@@ -253,13 +256,13 @@ func (t *imaging) frame(perf *actionFrame, at func(*actionFrame) int) (imagedFra
 		}
 	}
 	if perf.repeats != nil {
-		f.repeats = make(map[ast.Node]imagedRepetition, len(perf.repeats))
-		for node, state := range perf.repeats {
-			repeated := imagedRepetition{remaining: state.remaining, live: make([]int, 0, len(state.live))}
+		f.repeats = make(map[repetitionGroupID]imagedRepetition, len(perf.repeats))
+		for group, state := range perf.repeats {
+			repeated := imagedRepetition{node: state.node, remaining: state.remaining, live: make([]int, 0, len(state.live))}
 			for _, live := range state.live {
 				repeated.live = append(repeated.live, at(live))
 			}
-			f.repeats[node] = repeated
+			f.repeats[group] = repeated
 		}
 	}
 	if err := t.nestedValues(perf.pending); err != nil {
@@ -554,7 +557,8 @@ func (m *materializing) actionExecutor(e *ActionExecutor, img *imagedAction) err
 		copied.frame = frameAt(img.tokenFrames[i])
 		e.tokens = append(e.tokens, copied)
 	}
-	e.state, e.nextTokenID, e.stepCount, e.sweep, e.sweeps = img.state, img.nextTokenID, img.stepCount, img.sweep, img.sweeps
+	e.state, e.nextTokenID, e.nextRepetitionID, e.stepCount, e.sweep, e.sweeps =
+		img.state, img.nextTokenID, img.nextRepetitionID, img.stepCount, img.sweep, img.sweeps
 	e.pausedAt, e.released, e.pauses = img.pausedAt, img.released, img.pauses
 	e.steps, e.stepsSpent, e.inRun, e.moved = img.steps, img.stepsSpent, img.inRun, img.moved
 	e.awaiting = frameAt(img.awaiting)
@@ -623,13 +627,13 @@ func (m *materializing) frame(perf *actionFrame, img imagedFrame, frameAt func(i
 		}
 	}
 	if img.repeats != nil {
-		perf.repeats = make(map[ast.Node]*stepRepetition, len(img.repeats))
-		for node, repeated := range img.repeats {
-			state := &stepRepetition{remaining: repeated.remaining, live: make([]*actionFrame, 0, len(repeated.live))}
+		perf.repeats = make(map[repetitionGroupID]*stepRepetition, len(img.repeats))
+		for group, repeated := range img.repeats {
+			state := &stepRepetition{node: repeated.node, remaining: repeated.remaining, live: make([]*actionFrame, 0, len(repeated.live))}
 			for _, at := range repeated.live {
 				state.live = append(state.live, frameAt(at))
 			}
-			perf.repeats[node] = state
+			perf.repeats[group] = state
 		}
 	}
 	if err := m.pending(perf, img.pending); err != nil {

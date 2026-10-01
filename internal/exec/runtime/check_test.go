@@ -149,6 +149,29 @@ func TestCheckJoinWaitsForSlowestBranch(t *testing.T) {
 	}
 }
 
+func TestCheckConcurrentRepeatedArrivalsCompleteAsOneOutcome(t *testing.T) {
+	src, err := os.ReadFile(filepath.Join("testdata", "conformance", "action_step_multiplicity_concurrent_arrivals.sysml"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	m := parseLibraryModel(t, string(src))
+	for _, opts := range []CheckOptions{reduced(), unreduced()} {
+		report := checkModel(t, m, "ConcurrentArrivals", CheckBudget{}, opts)
+		if report.Verdict != CheckExhaustive {
+			t.Fatalf("reduce=%v: verdict %s, violations %v", opts.Reduce, report.Status(), report.Violations)
+		}
+		if len(report.Finals) != 1 {
+			t.Fatalf("reduce=%v: %d finals, want one: %+v", opts.Reduce, len(report.Finals), report.Finals)
+		}
+		if got := report.Finals[0].Values["c"]; got != "4" {
+			t.Fatalf("reduce=%v: c = %q, want 4", opts.Reduce, got)
+		}
+		if strings.HasPrefix(report.Finals[0].Outcome, "error:") {
+			t.Fatalf("reduce=%v: final outcome %q is an error", opts.Reduce, report.Finals[0].Outcome)
+		}
+	}
+}
+
 // The oracle: two branches writing one feature leave it with either value;
 // the flags each branch sets alone do not diverge.
 func TestCheckForkBranchesWriteOneFeatureDiverge(t *testing.T) {

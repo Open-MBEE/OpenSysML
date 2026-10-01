@@ -92,8 +92,27 @@ func (g *ActionGraph) CheckStep(node ast.Node, model *semantics.Model) error {
 		return nil
 	}
 	count, err := g.StepCount(node, model)
-	if err != nil || count == 1 {
+	if err != nil {
 		return err
+	}
+	if count == 1 {
+		for _, edge := range g.Incoming(node) {
+			if edge.SourceMultiplicity == nil && edge.TargetMultiplicity == nil {
+				continue
+			}
+			if err := g.checkRepeatedEdgeOrder(node, edge, count, model); err != nil {
+				return err
+			}
+		}
+		for _, edge := range g.Edges[node] {
+			if edge.SourceMultiplicity == nil && edge.TargetMultiplicity == nil {
+				continue
+			}
+			if err := g.checkRepeatedEdgeOrder(node, edge, count, model); err != nil {
+				return err
+			}
+		}
+		return nil
 	}
 	if err := g.checkRepeatedPins(node, model); err != nil {
 		return err
@@ -135,6 +154,10 @@ func (g *ActionGraph) checkRepeatedEdge(node ast.Node, edge ActionEdge, count in
 		}
 		return g.stepError(node, model, StepMultiplicityUnsupportedCode, reason, edge.Decl)
 	}
+	return g.checkRepeatedEdgeOrder(node, edge, count, model)
+}
+
+func (g *ActionGraph) checkRepeatedEdgeOrder(node ast.Node, edge ActionEdge, count int64, model *semantics.Model) error {
 	if isStartNode(edge.Source) || isDoneNode(edge.Target) {
 		return nil
 	}

@@ -28,21 +28,23 @@ func (ActionStepMultiplicityPass) Run(ctx *kit.Context, name string, root *ast.R
 		return nil
 	}
 	c := &actionStepMultiplicityChecker{
-		ctx:      ctx,
-		model:    ctx.Model(),
-		visited:  make(map[*lower.ActionGraph]bool),
-		reported: make(map[ast.Node]map[string]bool),
+		ctx:            ctx,
+		model:          ctx.Model(),
+		visited:        make(map[*lower.ActionGraph]bool),
+		reported:       make(map[ast.Node]map[string]bool),
+		blockFlowSteps: make(map[ast.Node]bool),
 	}
 	c.walk(scope, root.Members)
 	return c.diags
 }
 
 type actionStepMultiplicityChecker struct {
-	ctx      *kit.Context
-	model    *semantics.Model
-	visited  map[*lower.ActionGraph]bool
-	reported map[ast.Node]map[string]bool
-	diags    []diag.Diagnostic
+	ctx            *kit.Context
+	model          *semantics.Model
+	visited        map[*lower.ActionGraph]bool
+	reported       map[ast.Node]map[string]bool
+	blockFlowSteps map[ast.Node]bool
+	diags          []diag.Diagnostic
 }
 
 func (c *actionStepMultiplicityChecker) walk(scope *symbols.Scope, members []ast.Node) {
@@ -60,6 +62,9 @@ func (c *actionStepMultiplicityChecker) walkNode(scope *symbols.Scope, decl ast.
 		c.walk(child, n.Members)
 	case *ast.Definition:
 		if n.Kind == ast.DefAction {
+			if c.ctx.DownstreamOfFailure(n) {
+				return
+			}
 			c.checkAction(n, child)
 		}
 		c.walk(child, n.Members)
@@ -67,10 +72,16 @@ func (c *actionStepMultiplicityChecker) walkNode(scope *symbols.Scope, decl ast.
 		if classifierBehaviorScope(scope) {
 			if behavior, ok := lower.ClassifierBehaviorOf(n); ok &&
 				behavior.Kind == lower.PerformedAction && behavior.Decl.Multiplicity != nil {
+				if c.ctx.DownstreamOfFailure(behavior.Decl) {
+					return
+				}
 				c.checkDeclaredMultiplicity(behavior.Decl, child)
 			}
 		}
 		if n.Kind == ast.UsageAction {
+			if c.ctx.DownstreamOfFailure(n) {
+				return
+			}
 			c.checkAction(n, child)
 		}
 		c.walk(child, n.Members)
@@ -86,6 +97,9 @@ func (c *actionStepMultiplicityChecker) walkNode(scope *symbols.Scope, decl ast.
 		c.checkBehaviors(n.Actions, child)
 		c.walk(child, n.Actions)
 	case *ast.StateNode:
+		if c.ctx.DownstreamOfFailure(n) {
+			return
+		}
 		c.walk(child, n.Entry)
 		c.walk(child, n.Do)
 		c.walk(child, n.Exit)
@@ -136,6 +150,9 @@ func classifierBehaviorScope(scope *symbols.Scope) bool {
 }
 
 func (c *actionStepMultiplicityChecker) checkAction(decl ast.Node, scope *symbols.Scope) {
+	if c.ctx.DownstreamOfFailure(decl) {
+		return
+	}
 	graph, err := lower.ToActionGraphWith(decl, scope, c.ctx.Resolver())
 	if err != nil {
 		return
@@ -155,6 +172,9 @@ func (c *actionStepMultiplicityChecker) checkBehaviors(actions []ast.Node, scope
 }
 
 func (c *actionStepMultiplicityChecker) checkDeclaredMultiplicity(node ast.Node, scope *symbols.Scope) {
+	if c.ctx.DownstreamOfFailure(node) {
+		return
+	}
 	usage, ok := node.(*ast.Usage)
 	if !ok || usage.Multiplicity == nil {
 		return
@@ -180,6 +200,7 @@ func (c *actionStepMultiplicityChecker) checkStatementGraphs(statement lower.Sta
 	switch s := statement.(type) {
 	case lower.Block:
 		if s.Graph != nil {
+			c.checkBlockFlowSteps(s)
 			c.checkGraph(s.Graph)
 		}
 		for _, nested := range s.Statements {
@@ -195,13 +216,45 @@ func (c *actionStepMultiplicityChecker) checkStatementGraphs(statement lower.Sta
 	}
 }
 
+func (c *actionStepMultiplicityChecker) checkBlockFlowSteps(block lower.Block) {
+	switch block.Node.(type) {
+	case *ast.WhileLoopActionNode, *ast.IfBranchNode:
+	default:
+		return
+	}
+	for _, node := range block.Graph.Nodes {
+		if c.ctx.DownstreamOfFailure(node) {
+			continue
+		}
+		if block.Graph.Multiplicities[node] == nil {
+			continue
+		}
+		count, err := block.Graph.StepCount(node, c.model)
+		if err != nil {
+			c.blockFlowSteps[node] = true
+			c.report(block.Graph, err)
+			continue
+		}
+		if count == 1 {
+			continue
+		}
+		c.blockFlowSteps[node] = true
+		c.report(block.Graph, block.Graph.StepError(
+			node, c.model, lower.StepMultiplicityUnsupportedCode,
+			"a step inside a loop or conditional body is performed once per pass; repeated or zero counts are not executed there", nil))
+	}
+}
+
 func (c *actionStepMultiplicityChecker) checkGraph(graph *lower.ActionGraph) {
 	if graph == nil || c.visited[graph] {
 		return
 	}
 	c.visited[graph] = true
 	for _, node := range graph.Nodes {
-		if graph.Multiplicities[node] == nil {
+		if c.ctx.DownstreamOfFailure(node) {
+			continue
+		}
+		if graph.Multiplicities[node] == nil || c.blockFlowSteps[node] {
 			continue
 		}
 		if err := graph.CheckStep(node, c.model); err != nil {

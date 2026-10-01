@@ -22,7 +22,7 @@ source `action-step-multiplicity`; they are not lints and cannot be disabled wit
 | Code | Reported when |
 |------|---------------|
 | `action-step-multiplicity-not-fixed` | An action-step or written succession-end multiplicity does not evaluate to a fixed exact count |
-| `action-step-multiplicity-unsupported` | A repeated or zero-count step has an unsupported control-node, guard, pin, binding, connection, external-feature-read, state-behavior, or part-level performed-action interaction |
+| `action-step-multiplicity-unsupported` | A repeated or zero-count step has an unsupported control-node, guard, pin, binding, connection, external-feature-read, state-behavior, part-level performed-action, or loop/conditional block-flow interaction |
 | `action-step-order-unsatisfiable` | A succession end forces an endpoint count that it does not admit |
 | `action-step-order-open` | The declared or defaulted succession ends do not force the endpoint counts under both readings of an unwritten end |
 

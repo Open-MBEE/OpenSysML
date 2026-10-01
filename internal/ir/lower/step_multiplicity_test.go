@@ -123,6 +123,13 @@ func TestActionGraphCheckStepSuccessions(t *testing.T) {
 			wantCode:           StepOrderUnsatisfiableCode,
 		},
 		{
+			name:               "written ends exclude single-count step",
+			stepCount:          1,
+			sourceMultiplicity: stepTestMultiplicity("2", "", false),
+			targetMultiplicity: stepTestMultiplicity("1", "", false),
+			wantCode:           StepOrderUnsatisfiableCode,
+		},
+		{
 			name:               "the exact-one default excludes the source count",
 			stepCount:          3,
 			repeatedIsSource:   true,
@@ -132,6 +139,8 @@ func TestActionGraphCheckStepSuccessions(t *testing.T) {
 		},
 		{name: "guarded edge is unsupported", stepCount: 3, guard: &ast.LiteralBool{Value: true}, wantCode: StepMultiplicityUnsupportedCode},
 		{name: "control node adjacency is unsupported", stepCount: 3, repeatedIsSource: true, control: true, wantCode: StepMultiplicityUnsupportedCode},
+		{name: "guarded edge at single count is unchanged", stepCount: 1, guard: &ast.LiteralBool{Value: true}},
+		{name: "control adjacency at single count is unchanged", stepCount: 1, repeatedIsSource: true, control: true},
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {

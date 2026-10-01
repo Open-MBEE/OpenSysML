@@ -3897,13 +3897,22 @@ func (e *StateExecutor) runDoRound() (int, error) {
 // stepDoAction performs one action of a do behavior: the behavior under way goes
 // on as told, else the next behavior begins.
 func (e *StateExecutor) stepDoAction(act *doAction, goOn func(*doRun) (*doRun, error)) error {
+	run := act.run
+	var behavior lower.StateBehavior
+	if run == nil {
+		behavior = act.pending[0]
+	} else {
+		behavior = run.host.behavior
+	}
+	if err := e.validateBehaviorMultiplicity(behavior); err != nil {
+		return fmt.Errorf("do action in state %s: %w", act.state.Name, err)
+	}
+
 	e.moved = true
 	if e.trace() != nil {
 		e.trace().RecordDoStep(e.traceOrigin(), act.state.Name)
 	}
-	run := act.run
 	if run == nil {
-		behavior := act.pending[0]
 		act.pending = act.pending[1:]
 		if run = e.newDoRun(behavior, act.firing); run == nil {
 			return nil
