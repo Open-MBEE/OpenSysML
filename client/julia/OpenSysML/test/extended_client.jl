@@ -427,12 +427,25 @@ end
                 @test instance.type_symbol_id == "Test::SimplePart"
                 @test instance.graph[instance.id] === instance
 
-                coordinate_path = joinpath(@__DIR__, "..", "..", "..", "..", "examples",
-                    "pilot-corpora", "sysml-examples", "Vehicle Example",
-                    "SysML v2 Spec Annex A SimpleVehicleModel.sysml")
-                coordinate_model = parse_file(conn, coordinate_path)
+                coordinate_model = parse_source(conn, """
+                    package CoordinateFrameExample {
+                        private import ISQ::*;
+                        private import SI::*;
+                        private import ISQSpaceTime::*;
+                        private import MeasurementReferences::*;
+                        part def Context {
+                            attribute spatialCF : CartesianSpatial3dCoordinateFrame[1] {
+                                :>> mRefs = (m, m, m);
+                            }
+                            attribute velocityCF : CartesianVelocity3dCoordinateFrame[1] =
+                                spatialCF / s;
+                            attribute accelarationCF : CartesianAcceleration3dCoordinateFrame[1] =
+                                velocityCF / s;
+                        }
+                    }
+                """)
                 coordinate_instance = instantiate(coordinate_model,
-                    "SimpleVehicleModel::Definitions::GenericContext::Context")
+                    "CoordinateFrameExample::Context")
                 coordinate_value = features(coordinate_instance)["accelarationCF"]
                 @test coordinate_value isa FeatureValueError
                 @test coordinate_value.message ==
