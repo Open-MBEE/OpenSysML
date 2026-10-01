@@ -16,6 +16,10 @@ import (
 // a product from exhausting memory or time instead of reporting.
 const DefaultMaxIntegerBits int64 = 1 << 20
 
+// MinMaxIntegerBits is the least Integer size budget: every int64 fits within
+// it, so machine-word arithmetic never consults the budget.
+const MinMaxIntegerBits int64 = 64
+
 // ErrIntegerSizeLimit reports an Integer result whose magnitude would need more
 // bits than the evaluation's Integer size budget allows.
 var ErrIntegerSizeLimit = errors.New("integer size limit exceeded")

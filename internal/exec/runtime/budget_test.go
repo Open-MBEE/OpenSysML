@@ -44,6 +44,10 @@ func TestBudgetFromValue(t *testing.T) {
 				tt.want = v.ceiling
 				tt.value = strconv.FormatInt(v.ceiling, 10)
 			}
+			if tt.want > 0 && tt.want < v.floor {
+				tt.want = v.floor
+				tt.value = strconv.FormatInt(v.floor, 10)
+			}
 			t.Run(v.env+"/"+tt.name, func(t *testing.T) {
 				got, err := budgetFromValue(v, tt.value)
 				if tt.errContains != "" {
@@ -75,6 +79,18 @@ func TestBudgetFromValue(t *testing.T) {
 				}
 				if got != want {
 					t.Errorf("budgetFromValue(%q) = %d, want %d", tt.value, got, want)
+				}
+			})
+		}
+		if v.floor > 0 {
+			t.Run(v.env+"/below_the_floor", func(t *testing.T) {
+				raw := strconv.FormatInt(v.floor-1, 10)
+				got, err := budgetFromValue(v, raw)
+				if err == nil {
+					t.Fatalf("budgetFromValue(%q) = %d, want an error", raw, got)
+				}
+				if !strings.Contains(err.Error(), fmt.Sprintf("must be at least %d", v.floor)) {
+					t.Errorf("error %q does not report the floor %d", err, v.floor)
 				}
 			})
 		}
@@ -123,6 +139,24 @@ func TestBudgetsFromLookup(t *testing.T) {
 			if got != want {
 				t.Errorf("%s: got %+v, want %+v", v.env, got, want)
 			}
+		}
+	})
+
+	t.Run("integer_bits_below_a_machine_word", func(t *testing.T) {
+		lookup := func(bits string) func(string) string {
+			return func(name string) string {
+				if name == MaxIntegerBitsEnvVar {
+					return bits
+				}
+				return ""
+			}
+		}
+		if got, err := budgetsFromLookup(lookup("63")); err == nil || !strings.Contains(err.Error(), "at least 64") {
+			t.Errorf("OPENSYSML_MAX_INTEGER_BITS=63 gave %+v, %v; want a refusal naming the 64-bit floor", got, err)
+		}
+		got, err := budgetsFromLookup(lookup("64"))
+		if err != nil || got.MaxIntegerBits != 64 {
+			t.Errorf("OPENSYSML_MAX_INTEGER_BITS=64 gave %+v, %v; want a 64-bit budget", got, err)
 		}
 	})
 
@@ -246,6 +280,7 @@ func TestSetBudgets(t *testing.T) {
 		{MaxSteps: 1, MaxActionSteps: 1, MaxStateEvents: 1, MaxDoSteps: 1, MaxElements: 1, MaxCalcDepth: MaxCalcDepthCeiling + 1, MaxSweepRuns: 1, MaxIntegerBits: 1},
 		{MaxSteps: 1, MaxActionSteps: 1, MaxStateEvents: 1, MaxDoSteps: 1, MaxElements: 1, MaxCalcDepth: 1, MaxSweepRuns: 0, MaxIntegerBits: 1},
 		{MaxSteps: 1, MaxActionSteps: 1, MaxStateEvents: 1, MaxDoSteps: 1, MaxElements: 1, MaxCalcDepth: 1, MaxSweepRuns: 1, MaxIntegerBits: 0},
+		{MaxSteps: 1, MaxActionSteps: 1, MaxStateEvents: 1, MaxDoSteps: 1, MaxElements: 1, MaxCalcDepth: 1, MaxSweepRuns: 1, MaxIntegerBits: MinMaxIntegerBits - 1},
 		{},
 	} {
 		if err := ctx.SetBudgets(bad); err == nil {

@@ -425,6 +425,10 @@ func sysmlReadMaxIntegerBits() {
 		fmt.Fprintf(os.Stderr, "OPENSYSML_MAX_INTEGER_BITS=%q must be greater than zero: the budget is what stops a runaway run (default %d)\n", raw, sysmlDefaultMaxIntegerBits)
 		os.Exit(2)
 	}
+	if n < sysmlMinMaxIntegerBits {
+		fmt.Fprintf(os.Stderr, "OPENSYSML_MAX_INTEGER_BITS=%q must be at least %d: every machine-word Integer fits within it (default %d)\n", raw, sysmlMinMaxIntegerBits, sysmlDefaultMaxIntegerBits)
+		os.Exit(2)
+	}
 	sysmlMaxIntegerBits = n
 }
 
@@ -537,7 +541,7 @@ func EmitGo(w io.Writer, p *Program) error {
 	e := &goEmitter{w: w, collections: p.Collections}
 	e.raw(goPrelude)
 	e.raw(fmt.Sprintf("const sysmlMaxCalcDepth = %d\n\n", runtime.DefaultMaxCalcDepth))
-	e.raw(fmt.Sprintf("const sysmlDefaultMaxIntegerBits = %d\n\n", runtime.DefaultMaxIntegerBits))
+	e.raw(fmt.Sprintf("const sysmlDefaultMaxIntegerBits = %d\n\nconst sysmlMinMaxIntegerBits = %d\n\n", runtime.DefaultMaxIntegerBits, runtime.MinMaxIntegerBits))
 	if p.Collections {
 		e.raw(fmt.Sprintf("const sysmlDefaultMaxElements = %d\n", runtime.DefaultMaxElements))
 		e.raw(goSeqPrelude)

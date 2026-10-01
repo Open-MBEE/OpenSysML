@@ -993,7 +993,8 @@ of its own with its own budgets. Default 1000.
 .B OPENSYSML_MAX_INTEGER_BITS
 Bits the magnitude of one Integer a run computes may take; Integers are
 otherwise unbounded, and a result past it, such as a large power, is refused
-before it is computed. Default 1048576.
+before it is computed. At least 64, so every machine\-word Integer fits;
+default 1048576.
 .TP
 .B OPENSYSML_JOBS
 Runs of one check that may go concurrently \(em the linearizations of an
