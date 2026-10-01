@@ -22,6 +22,8 @@ import org.openmbee.opensysml.ExecutionOptions;
 import org.openmbee.opensysml.Exploration;
 import org.openmbee.opensysml.Instantiation;
 import org.openmbee.opensysml.Language;
+import org.openmbee.opensysml.Migration;
+import org.openmbee.opensysml.MigrationOptions;
 import org.openmbee.opensysml.Model;
 import org.openmbee.opensysml.ModelException;
 import org.openmbee.opensysml.ParseOptions;
@@ -61,6 +63,8 @@ import org.openmbee.opensysml.proto.GetSymbolRequest;
 import org.openmbee.opensysml.proto.InstantiateRequest;
 import org.openmbee.opensysml.proto.InstantiateResponse;
 import org.openmbee.opensysml.proto.ListEnginesRequest;
+import org.openmbee.opensysml.proto.MigrateRequest;
+import org.openmbee.opensysml.proto.MigrateResponse;
 import org.openmbee.opensysml.proto.ListEnginesResponse;
 import org.openmbee.opensysml.proto.ParseFileRequest;
 import org.openmbee.opensysml.proto.ParseFileResponse;
@@ -117,6 +121,7 @@ final class Api {
   private static final String RPC_PARSE_FILE = "ParseFile";
   private static final String RPC_PARSE_SOURCES = "ParseSources";
   private static final String RPC_CONVERT = "Convert";
+  private static final String RPC_MIGRATE = "Migrate";
   private static final String RPC_APPLY_EDITS = "ApplyEdits";
   private static final String RPC_QUERY = "Query";
   private static final String RPC_RUN_ANALYSIS = "RunAnalysis";
@@ -149,6 +154,7 @@ final class Api {
           RPC_QUERY,
           RPC_PARSE_SOURCES,
           RPC_CONVERT,
+          RPC_MIGRATE,
           RPC_APPLY_EDITS,
           RPC_RUN_SWEEP,
           RPC_RUN_DOCUMENT_QUERY,
@@ -198,6 +204,7 @@ final class Api {
       case RPC_QUERY -> QueryRequest.newBuilder();
       case RPC_PARSE_SOURCES -> ParseSourcesRequest.newBuilder();
       case RPC_CONVERT -> ConvertRequest.newBuilder();
+      case RPC_MIGRATE -> MigrateRequest.newBuilder();
       case RPC_APPLY_EDITS -> ApplyEditsRequest.newBuilder();
       case RPC_RUN_SWEEP -> RunSweepRequest.newBuilder();
       case RPC_RUN_DOCUMENT_QUERY -> RunDocumentQueryRequest.newBuilder();
@@ -252,6 +259,7 @@ final class Api {
             case RPC_QUERY -> query((QueryRequest) request);
             case RPC_PARSE_SOURCES -> parseSources((ParseSourcesRequest) request);
             case RPC_CONVERT -> convert((ConvertRequest) request);
+            case RPC_MIGRATE -> migrate((MigrateRequest) request);
             case RPC_APPLY_EDITS -> applyEdits((ApplyEditsRequest) request);
             case RPC_RUN_SWEEP -> runSweep((RunSweepRequest) request);
             case RPC_RUN_DOCUMENT_QUERY ->
@@ -680,6 +688,40 @@ final class Api {
           .setError(e.getMessage())
           .addAllDiagnostics(Rendering.diagnostics(e.diagnostics()))
           .build();
+    }
+  }
+
+  private MigrateResponse migrate(MigrateRequest request) {
+    MigrationOptions options =
+        MigrationOptions.defaults()
+            .withReport(request.getReport())
+            .withResults(request.getResults())
+            .withImageBaseUrl(request.getImageBaseUrl())
+            .withStrict(request.getStrict());
+    if (!request.getFromFormat().isEmpty()) {
+      options = options.withFromFormat(request.getFromFormat());
+    }
+    options =
+        switch (request.getLayoutCase()) {
+          case LAYOUT_PATH -> options.withLayoutFile(Path.of(request.getLayoutPath()));
+          case LAYOUT_CONTENT -> options.withLayoutContent(request.getLayoutContent());
+          case LAYOUT_NOT_SET -> options;
+        };
+    try {
+      MigrationOptions chosen = options;
+      Migration migration =
+          switch (request.getSourceCase()) {
+            case FILE_PATH ->
+                connection.migrateFile(Path.of(request.getFilePath()), request.getToFormat(), chosen);
+            case CONTENT ->
+                connection.migrate(request.getContent().toByteArray(), request.getToFormat(), chosen);
+            case SOURCE_NOT_SET ->
+                throw new Unsupported(
+                    "the public API always names a source, so it cannot send a request naming none");
+          };
+      return Rendering.migration(migration);
+    } catch (ModelException e) {
+      return MigrateResponse.newBuilder().setError(e.getMessage()).build();
     }
   }
 

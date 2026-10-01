@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"encoding/base64"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -258,9 +259,14 @@ func (r *runner) request(scenario *Scenario, modelHash string) (protoreflect.Mes
 	return message, nil
 }
 
-var fixtureRef = regexp.MustCompile(`^\$\{fixture:([^}]+)\}$`)
+var (
+	fixtureRef       = regexp.MustCompile(`^\$\{fixture:([^}]+)\}$`)
+	fixtureBase64Ref = regexp.MustCompile(`^\$\{fixture_base64:([^}]+)\}$`)
+)
 
-// resolve replaces "${model_hash}" and "${fixture:<path>}" in a request.
+// resolve replaces "${model_hash}", "${fixture:<path>}" and
+// "${fixture_base64:<path>}" in a request; the last is a fixture's bytes as
+// protobuf-JSON carries a bytes field.
 func (r *runner) resolve(tree any, modelHash string) (any, error) {
 	switch node := tree.(type) {
 	case map[string]any:
@@ -290,6 +296,13 @@ func (r *runner) resolve(tree any, modelHash string) (any, error) {
 		}
 		if match := fixtureRef.FindStringSubmatch(node); match != nil {
 			return r.fixture(match[1])
+		}
+		if match := fixtureBase64Ref.FindStringSubmatch(node); match != nil {
+			data, err := r.fixture(match[1])
+			if err != nil {
+				return nil, err
+			}
+			return base64.StdEncoding.EncodeToString([]byte(data)), nil
 		}
 		return node, nil
 	default:

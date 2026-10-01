@@ -202,21 +202,38 @@ for _, doc := range result.Documents {
 `Convert`, `ConvertFile` and `ConvertSource` write a model out in another `Format`: `FormatSysML`
 (aliases `FormatKerML`, `FormatText`), `FormatTTL` (`FormatTurtle`, `FormatRDF`) or `FormatAPIJSON`
 (`FormatJSON`). `ConvertFile` infers the source format from the extension unless `WithFromFormat`
-names it, and `ConvertSource` requires it. A SysML v1 model — UML XMI, an Eclipse UML2 `.uml` file
-or a `.mdzip` archive — is `FormatXMI`, an input only: `ConvertFile(ctx, "Model.xmi", FormatSysML)`
-migrates it to v2 notation, `FormatTTL` to RDF, and asking to write `FormatXMI` is
-`CodeInvalidArgument`. The `Conversion` reports the canonical `From` and `To`, and `Experimental`
-with its `ExperimentalNotice` when either side is RDF or the API's JSON form or the source is v1,
-all of which are experimental mappings. The service does not return the migration report the `sysml`
-command writes with `-migration-report`; what the migration covers is in
-[sysml-v1-migration.md](sysml-v1-migration.md).
+names it, and `ConvertSource` requires it. The `Conversion` reports the canonical `From` and `To`,
+and `Experimental` with its `ExperimentalNotice` when either side is RDF or the API's JSON form,
+both experimental mappings.
+
+A SysML v1 model — UML XMI, an Eclipse UML2 `.uml` file or a `.mdzip` archive, `FormatXMI` with
+the aliases `FormatUML` and `FormatMDZip` — is **migrated, not converted**: a conversion is
+lossless, and a migration accounts for every v1 element as mapped, approximated, unmapped or
+skipped. `ConvertFile(ctx, "Model.xmi", …)`, or `WithFromFormat(FormatXMI)` on any source, is
+`CodeInvalidArgument` with the message that says so and names `MigrateFile`. `MigrateFile` and
+`MigrateSource` migrate it to `FormatSysML` or `FormatTTL` (asking to write `FormatXMI` is
+`CodeInvalidArgument`, since a v2 model has no v1 form); `MigrateSource` takes bytes, since a
+`.mdzip` archive is binary, and needs `WithV1Format`. The `Migration` carries the `Content`, the
+canonical formats, `ExperimentalNotice` — every migration is experimental — and a `Report` whose
+`Summary` and `Mapped`, `Approximated`, `Unmapped` and `Skipped` counts are always filled;
+`WithMigrationReport()` adds every element's `Entries` and the `Text` that `sysml
+-migration-report` writes, `WithMigrationResults()` the `Results` sidecar `-migration-results`
+writes, `WithLayoutFile`/`WithLayout` an MTIP export laying out the migrated views,
+`WithImageBaseURL` the server a comment's relative image is resolved against, and `WithStrict()`
+the portable output of `-strict`. Image files the migration extracts come back as `Files`, path
+to bytes. What the migration covers is in [sysml-v1-migration.md](sysml-v1-migration.md).
 
 ```go
-conversion, err := client.ConvertFile(ctx, "Vehicle.mdzip", opensysml.FormatSysML)
-if conversion.Experimental {
-	log.Println(conversion.ExperimentalNotice)
+migration, err := client.MigrateFile(ctx, "Vehicle.mdzip", opensysml.FormatSysML,
+	opensysml.WithMigrationReport())
+log.Println(migration.ExperimentalNotice)
+log.Println(migration.Report.Summary)
+for _, entry := range migration.Report.Entries {
+	if entry.Verdict == "unmapped" {
+		log.Printf("%s %s: %s", entry.Kind, entry.Name, entry.Note)
+	}
 }
-os.WriteFile("Vehicle.sysml", []byte(conversion.Content), 0o644)
+os.WriteFile("Vehicle.sysml", []byte(migration.Content), 0o644)
 ```
 
 Its errors, ownership rules, capability negotiation and v1 boundary are in

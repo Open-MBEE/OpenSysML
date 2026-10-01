@@ -43,6 +43,8 @@ export const CAPABILITY_INLINE_LANGUAGE = "inline_language";
 export const CAPABILITY_STRICT_CONFORMANCE = "strict_conformance";
 /** The `Convert` RPC. Not used by this version; see the README. */
 export const CAPABILITY_CONVERT = "convert";
+/** The `Migrate` RPC, which migrates a SysML v1 model. Not used by this version; see the README. */
+export const CAPABILITY_MIGRATE = "migrate";
 /** The verification RPCs. Not used by this version; see the README. */
 export const CAPABILITY_VERIFICATION = "verification";
 /** What the body of a verification case answered, as `verification_verdicts`. */

@@ -52,7 +52,7 @@ evaluation and instantiation. The following are deliberately **not** in v1, in b
 rather than half-implemented in some:
 
 - the edit API (`ApplyEdits`) and generated model-ergonomics types;
-- RDF conversion (`Convert`);
+- RDF conversion (`Convert`) and SysML v1 migration (`Migrate`);
 - verification (`VerifyConstraint`, `VerifyRequirement`, `VerifySatisfaction`, `ValidateInstance`),
   `EvaluateCalc` and `RunAnalysis`, with `ListEngines` and the `engine` selection they take;
 - behaviour execution (`ExecuteAction`, `ExecuteState`);
@@ -62,8 +62,9 @@ rather than half-implemented in some:
 The Java client covers the whole service surface, as typed immutable results:
 
 - the v1 calls — parsing, diagnostics, symbol lookup, evaluation and instantiation — plus
-  `parseSources` for a model of several documents and `convert`/`convertFile`/`Model.convert`
-  for conversion between notations;
+  `parseSources` for a model of several documents, `convert`/`convertFile`/`Model.convert`
+  for conversion between notations and `migrate`/`migrateFile` for migrating a SysML v1 model
+  with its element-by-element report;
 - verification (`VerifyConstraint`, `VerifyRequirement`, `VerifySatisfaction`, `ValidateInstance`),
   keeping a false verdict as an answer rather than a failure;
 - `EvaluateCalc` and `RunAnalysis`, with `ListEngines` and the `engine` selection they take, and

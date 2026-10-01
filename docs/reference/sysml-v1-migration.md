@@ -6,30 +6,45 @@ The migration is **experimental**. It covers the structural, requirement, constr
 allocation and behavioral content listed under [Mapping](#mapping), reports every element
 it approximates or leaves behind, and refuses input it cannot read; units are not migrated
 yet, and what a v1 element is written as may change between releases
-without a compatibility path. Every run says so: `sysml -convert` prints `note:` to stderr,
-`ConvertResponse` carries `experimental` and `experimental_notice` (the Python client raises
+without a compatibility path. Every run says so: `sysml -migrate` prints `note:` to stderr,
+`MigrateResponse` carries `experimental` and `experimental_notice` (the Python client raises
 an `ExperimentalFeatureWarning`), and the wording lives once, in `export.MigrationNotice`.
 
-`sysml Model.xmi -convert sysml` reads a SysML v1 model as UML XMI — the open OMG interchange
-format every v1 tool exports — and writes it as SysML v2 textual notation. `-convert ttl` writes the same model as
-RDF, through [the RDF mapping](rdf-mapping.md). Every run also produces a **migration report**
-that accounts for every v1 element: what it became, or why it did not.
+A SysML v1 model is **migrated, not converted**. A conversion is lossless — notation written
+back is the same model — and a migration is not: every v1 element lands in the report as
+**mapped** (a faithful v2 form), **approximated** (the nearest v2 form, with the difference
+noted), **unmapped** (no v2 form; left out and reported) or **skipped** (profile, library and
+notation-only content, and elements nothing refers to). So the verb is its own: `sysml
+Model.xmi -migrate sysml` reads a SysML v1 model as UML XMI — the open OMG interchange format
+every v1 tool exports — and writes it as SysML v2 textual notation. `-migrate ttl` writes the
+same model as RDF, through [the RDF mapping](rdf-mapping.md). Every run also produces the
+**migration report** that accounts for every v1 element: what it became, or why it did not.
 
 ```bash
-sysml Model.xmi   -convert sysml -o Model.sysml -migration-report Model.report.txt
-sysml Model.uml   -convert ttl   -o Model.ttl   -migration-report Model.report.json
-sysml Model.mdzip -convert sysml -o Model.sysml
-sysml export.xml  -convert sysml -from xmi
+sysml Model.xmi   -migrate sysml -o Model.sysml -migration-report Model.report.txt
+sysml Model.uml   -migrate ttl   -o Model.ttl   -migration-report Model.report.json
+sysml Model.mdzip -migrate sysml -o Model.sysml
+sysml export.xml  -migrate sysml -from xmi
 ```
 
 The input format is inferred from the `.xmi`, `.uml` and `.mdzip` extensions; any other name
-needs `-from xmi` (`uml` and `mdzip` are accepted as synonyms). XMI is read only — `-convert xmi` is refused,
+needs `-from xmi` (`uml` and `mdzip` are accepted as synonyms). XMI is read only — `-migrate xmi` is refused,
 since v2 has no v1 form — and it is never loaded into the REPL, an `-eval` or a check directly:
-migrate first, then work with the notation.
+migrate first, then work with the notation. `-convert` refuses a v1 model, whether `-from` or the
+extension names it, with the help that says so:
 
-The same conversion is available over gRPC (`Convert` with `from_format: "xmi"`, or a
-`file_path` ending in `.xmi`/`.uml`/`.mdzip`) and so from every client library; the report is not
-returned over the service yet.
+```text
+sysml: Model.mdzip is a SysML v1 model, which is migrated, not converted: every element is mapped, approximated or left unmapped and reported element by element; write `sysml Model.mdzip -migrate sysml -o Model.sysml -migration-report Model.report.txt`
+```
+
+and `-migrate` refuses v2 input the same way, pointing at `-convert`. The companion flags —
+`-migration-report`, `-migration-results`, `-layout`, `-image-base-url` and `-strict` — accompany
+`-migrate`.
+
+The same migration is available over gRPC (`Migrate`, with `from_format: "xmi"`, `"uml"` or
+`"mdzip"`, or a `file_path` ending in `.xmi`/`.uml`/`.mdzip`) and so from every client library,
+the report, the results index, an MTIP layout and the image files with it; `Convert` refuses a v1
+model with the same help. See [wire-contract.md](wire-contract.md#migration-migrate).
 
 ## Input
 
@@ -1628,7 +1643,7 @@ action def 'Group 0' {
   unrelated blocks, is unmapped with the reason), and indexed per configuration — a snapshot
   classified by the target's classifier, a general or a special of it, not one classified by a
   sibling special sharing only a general with it, which is of a run on another kind — in the JSON sidecar
-  `-convert sysml … -migration-results results.json` writes beside the notation:
+  `-migrate sysml … -migration-results results.json` writes beside the notation:
 
   ```json
   {"source": "model.xmi", "configurations": [

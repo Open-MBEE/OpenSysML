@@ -33,8 +33,17 @@ service SysMLService {
 
   // Convert a model between the representations OpenSysML writes — SysML
   // textual notation and RDF Turtle — so a client can write a model back out
-  // rather than only read it. Reported as the "convert" capability.
+  // rather than only read it. A SysML v1 model is refused: it is migrated, not
+  // converted (Migrate). Reported as the "convert" capability.
   rpc Convert(ConvertRequest) returns (ConvertResponse);
+
+  // Migrate a SysML v1 model — UML XMI with the SysML profile applied, an
+  // Eclipse UML2 .uml file or a Cameo/MagicDraw .mdzip archive — to SysML v2,
+  // written in one of the representations Convert writes. Migration is not a
+  // lossless conversion: every v1 element is mapped, approximated or left
+  // unmapped, and the response's report says which, element by element.
+  // Reported as the "migrate" capability.
+  rpc Migrate(MigrateRequest) returns (MigrateResponse);
 
   // Apply edits to a parsed model's own source and return the edited notation,
   // so a client can change a model and write it back with its comments and
@@ -814,11 +823,12 @@ message ConvertRequest {
     string content = 2;
     string model_hash = 6;
   }
-  // "sysml", "kerml", "text", "ttl", "turtle", "rdf", "api-json" or "json", or
-  // "xmi", "uml" or "mdzip" for a SysML v1 model, which is read and migrated to
-  // v2 and never written. Empty infers from file_path's extension, and is
-  // notation for a model_hash, since that is what parse reads; inline content
-  // has neither, so it must say.
+  // "sysml", "kerml", "text", "ttl", "turtle", "rdf", "api-json" or "json".
+  // Empty infers from file_path's extension, and is notation for a model_hash,
+  // since that is what parse reads; inline content has neither, so it must say.
+  // A SysML v1 model ("xmi", "uml" or "mdzip", named or inferred from the
+  // extension) is INVALID_ARGUMENT, pointing at Migrate: a v1 model is
+  // migrated, element by element and reported, not converted.
   string from_format = 3;
   // Format to write, named as in from_format; the v1 names are refused, since
   // a v2 model has no v1 form. Empty is rejected.
@@ -851,13 +861,127 @@ message ConvertResponse {
   // Set when either format is RDF or the API's JSON element form, whose
   // mapping is experimental: it covers model structure and the behavior its
   // bodies state, refuses what it cannot write back, and its vocabulary may
-  // change without a compatibility path. Also set when the source is SysML v1,
-  // whose migration is experimental in the same sense. Notation to notation is
-  // stable and leaves this unset.
+  // change without a compatibility path. Notation to notation is stable and
+  // leaves this unset.
   bool experimental = 6;
   // What is experimental about the conversion, in the wording every surface
   // reports it in. Empty when experimental is false.
   string experimental_notice = 7;
+}
+
+// MigrateRequest asks for a SysML v1 model migrated to v2. The source is a
+// file_path the service reads, or the document carried inline as content —
+// bytes, since a .mdzip archive is binary. There is no model_hash form: parse
+// reads v2 notation, and a v1 model is never parsed.
+message MigrateRequest {
+  oneof source {
+    string file_path = 1;
+    bytes content = 2;
+  }
+  // "xmi" (UML XMI 2.5.1 with the SysML profile applied), "uml" (an Eclipse
+  // UML2 file) or "mdzip" (a Cameo/MagicDraw archive). Empty infers from
+  // file_path's extension; inline content has none, so it must say. A v2
+  // format is INVALID_ARGUMENT, pointing at Convert.
+  string from_format = 3;
+  // Format to write: "sysml", "kerml", "text", "ttl", "turtle", "rdf",
+  // "api-json" or "json", as Convert names them. The v1 names are refused,
+  // since a v2 model has no v1 form. Empty is rejected.
+  string to_format = 4;
+  // Carry every element's verdict in the response's report, as the command's
+  // -migration-report writes it. The report's summary and counts are carried
+  // whether or not this is set.
+  bool report = 5;
+  // Carry the result snapshots the v1 tool stored with the model, indexed as
+  // the command's -migration-results writes them, so the migrated runs can be
+  // compared with the tool's (`sysml -compare-results`).
+  bool results = 6;
+  // An MTIP export of the model's diagrams (Model_mtip.xml), laying the
+  // migrated views out as the v1 tool drew them: a path the service reads, or
+  // the document itself.
+  oneof layout {
+    string layout_path = 7;
+    string layout_content = 8;
+  }
+  // Absolute http(s) URL that a server-relative image reference in a v1
+  // comment (<img src="/projects/…">) is resolved against.
+  string image_base_url = 9;
+  // Write only notation a pinned SysML v2 production admits: a construct whose
+  // only v2 form is an OpenSysML extension (a deferred event, a choice,
+  // junction or history pseudostate) is reported unmapped instead of written.
+  bool strict = 10;
+}
+
+// MigrateResponse carries the migrated model and the account of what the
+// migration did with every v1 element.
+message MigrateResponse {
+  string content = 1;
+  // Formats used, canonical ("xmi" for every v1 form), so a caller that let
+  // from_format be inferred learns what it was inferred as.
+  string from_format = 2;
+  string to_format = 3;
+  string error = 4;  // non-empty if the migration failed; content is unset
+  // Always set: migration is experimental, in the sense Convert's
+  // experimental says, and experimental_notice says so in the wording every
+  // surface reports it in.
+  bool experimental = 5;
+  string experimental_notice = 6;
+  // What the migration did, element by element. Its entries are carried when
+  // the request set report; its summary and counts always.
+  MigrationReport report = 7;
+  // The result snapshots the v1 tool stored, as the JSON `sysml
+  // -compare-results` reads, when the request set results and the model
+  // holds any.
+  string results = 8;
+  // Image files the migrated model refers to by relative path (a picture a v1
+  // comment embeds), to be written beside it.
+  repeated MigrationFile files = 9;
+}
+
+// MigrationReport accounts for every element of a SysML v1 model: mapped to a
+// v2 counterpart that states the same thing, approximated by a v2 form that
+// loses or restates part of what v1 said, left unmapped and recorded as a
+// comment where it stood, or skipped as a profile, library or notation-only
+// element nothing in the model refers to.
+message MigrationReport {
+  // The v1 document migrated, and the tool that exported it when it said.
+  string source = 1;
+  string exporter = 2;
+  // The one-line account the command prints after migrating.
+  string summary = 3;
+  int32 mapped = 4;
+  int32 approximated = 5;
+  int32 unmapped = 6;
+  int32 skipped = 7;
+  // Every element's verdict, when the request asked for the report; empty
+  // otherwise, the counts above standing in.
+  repeated MigrationEntry entries = 8;
+  // The report as the command's -migration-report writes it to a text file,
+  // when the request asked for the report: the entries grouped by verdict,
+  // the elements that need attention first, with the layout account.
+  string text = 9;
+}
+
+// MigrationEntry is the verdict on one SysML v1 element.
+message MigrationEntry {
+  // The element's xmi:id, the handle a v1 tool addresses it by.
+  string id = 1;
+  // The element as modeled: its stereotype when one classifies it («Block»,
+  // «Requirement»), else its UML metaclass; and its qualified name in v1.
+  string kind = 2;
+  string name = 3;
+  // The v2 declaration written for it, a qualified name with its keyword, or
+  // empty when nothing was.
+  string target = 4;
+  // "mapped", "approximated", "unmapped" or "skipped".
+  string verdict = 5;
+  // Why it was approximated, left unmapped or skipped.
+  string note = 6;
+}
+
+// MigrationFile is a file the migrated model refers to, named relative to it.
+message MigrationFile {
+  string path = 1;
+  bytes content = 2;
 }
 
 // ApplyEditsRequest asks for a model's source with edits applied to it. The

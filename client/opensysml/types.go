@@ -13,6 +13,7 @@ import (
 const (
 	CapabilityTypeFacts                      = sysmlgrpc.CapabilityTypeFacts
 	CapabilityConvert                        = sysmlgrpc.CapabilityConvert
+	CapabilityMigrate                        = sysmlgrpc.CapabilityMigrate
 	CapabilityVerification                   = sysmlgrpc.CapabilityVerification
 	CapabilityVerificationQuestions          = sysmlgrpc.CapabilityVerificationQuestions
 	CapabilityQuery                          = sysmlgrpc.CapabilityQuery

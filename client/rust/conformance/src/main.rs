@@ -10,6 +10,7 @@ use std::path::{Path, PathBuf};
 use std::process::{Child, Command, Stdio};
 use std::time::Instant;
 
+use base64::prelude::*;
 use compare::{compare, label_instance_ids, status_matches};
 use normalize::normalize;
 use opensysml::{Connection, Error, EvalOptions, Language, Model, ParseOptions, Status};
@@ -656,6 +657,13 @@ fn resolve_placeholders(
             let path = fixture_path(fixtures, name)?;
             *text = fs::read_to_string(&path)
                 .map_err(|error| format!("reading fixture {name}: {error}"))?;
+        }
+        Value::String(text) if text.starts_with("${fixture_base64:") && text.ends_with('}') => {
+            let name = &text[17..text.len() - 1];
+            let path = fixture_path(fixtures, name)?;
+            let bytes =
+                fs::read(&path).map_err(|error| format!("reading fixture {name}: {error}"))?;
+            *text = BASE64_STANDARD.encode(bytes);
         }
         _ => {}
     }

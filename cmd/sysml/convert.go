@@ -66,7 +66,7 @@ func runMigrateExit(files []string) int {
 }
 
 func runMigrate(files []string) (int, error) {
-	to, err := parseTargetFormat(migrateFormat)
+	to, err := parseTargetFormat(migrateFormat, "-migrate")
 	if err != nil {
 		return 0, err
 	}
@@ -169,7 +169,7 @@ func inputLabel(input string) string {
 }
 
 func runConvert(files []string) (int, error) {
-	to, err := parseTargetFormat(convertFormat)
+	to, err := parseTargetFormat(convertFormat, "-convert")
 	if err != nil {
 		return 0, err
 	}
@@ -823,15 +823,16 @@ func resolvePath(path string) (string, error) {
 	return "", fmt.Errorf("%s: too many levels of symbolic links", path)
 }
 
-// parseTargetFormat resolves the -convert value, explaining the flag when a file
-// name was passed where a format belongs — the spelling this flag used to take.
-func parseTargetFormat(value string) (convert.Format, error) {
+// parseTargetFormat resolves the value of flag (-convert or -migrate),
+// explaining the flag when a file name was passed where a format belongs — the
+// spelling -convert used to take.
+func parseTargetFormat(value, flag string) (convert.Format, error) {
 	f, err := convert.ParseFormat(value)
 	if err != nil && namesAFile(value) {
-		return 0, fmt.Errorf("%w; -convert names the format to convert to, so write `sysml %s -convert ttl`", err, value)
+		return 0, fmt.Errorf("%w; %s names the format to write, so write `sysml %s %s ttl`", err, flag, value, flag)
 	}
 	if err == nil && !f.Writable() {
-		return 0, &convert.NotWritableError{Format: f}
+		return 0, &convert.NotWritableError{Format: f, Migrating: flag == "-migrate"}
 	}
 	return f, err
 }

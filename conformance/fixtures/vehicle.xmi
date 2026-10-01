@@ -1,0 +1,256 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<xmi:XMI xmi:version="2.5.1"
+         xmlns:xmi="http://www.omg.org/spec/XMI/20131001"
+         xmlns:uml="http://www.omg.org/spec/UML/20161101"
+         xmlns:sysml="http://www.omg.org/spec/SysML/20181001/SysML"
+         xmlns:StandardProfile="http://www.omg.org/spec/UML/20161101/StandardProfile"
+         xmlns:Safety="http://example.com/profiles/Safety">
+  <xmi:Documentation exporter="Example UML Tool" exporterVersion="1.0"/>
+  <uml:Model xmi:type="uml:Model" xmi:id="_model" name="Model">
+    <ownedComment xmi:type="uml:Comment" xmi:id="_cmt_model" body="Author: demo team&#10;Created: 2026-09-05&#10;">
+      <annotatedElement xmi:idref="_model"/>
+    </ownedComment>
+    <packagedElement xmi:type="uml:Package" xmi:id="_pkg_design" name="Vehicle Design">
+      <ownedComment xmi:type="uml:Comment" xmi:id="_cmt_pkg" body="&lt;html&gt;&lt;body&gt;&lt;p&gt;Structural model of the &lt;b&gt;demo&lt;/b&gt; vehicle.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;">
+        <annotatedElement xmi:idref="_pkg_design"/>
+      </ownedComment>
+      <packagedElement xmi:type="uml:Package" xmi:id="_pkg_types" name="Value Types">
+        <packagedElement xmi:type="uml:DataType" xmi:id="_vt_mass" name="Mass">
+          <generalization xmi:type="uml:Generalization" xmi:id="_gen_mass">
+            <general href="http://www.omg.org/spec/SysML/20181001/SysML.xmi#Real"/>
+          </generalization>
+        </packagedElement>
+        <packagedElement xmi:type="uml:DataType" xmi:id="_vt_speed" name="Speed">
+          <generalization xmi:type="uml:Generalization" xmi:id="_gen_speed" general="_vt_mass"/>
+        </packagedElement>
+        <packagedElement xmi:type="uml:InstanceSpecification" xmi:id="_unit_kg" name="kilogram" classifier="_vt_unit_cls"/>
+        <packagedElement xmi:type="uml:InstanceSpecification" xmi:id="_qk_mass" name="mass" classifier="_vt_qk_cls"/>
+        <packagedElement xmi:type="uml:Enumeration" xmi:id="_enum_color" name="Color">
+          <ownedLiteral xmi:type="uml:EnumerationLiteral" xmi:id="_lit_red" name="red"/>
+          <ownedLiteral xmi:type="uml:EnumerationLiteral" xmi:id="_lit_green" name="green"/>
+          <ownedLiteral xmi:type="uml:EnumerationLiteral" xmi:id="_lit_blue" name="blue"/>
+        </packagedElement>
+        <packagedElement xmi:type="uml:Signal" xmi:id="_sig_start" name="StartSignal">
+          <ownedAttribute xmi:type="uml:Property" xmi:id="_sig_start_key" name="key">
+            <type href="http://www.omg.org/spec/UML/20161101/PrimitiveTypes.xmi#Integer"/>
+          </ownedAttribute>
+        </packagedElement>
+      </packagedElement>
+      <packagedElement xmi:type="uml:Package" xmi:id="_pkg_interfaces" name="Interfaces">
+        <packagedElement xmi:type="uml:Class" xmi:id="_ib_fuel" name="FuelInterface">
+          <ownedAttribute xmi:type="uml:Property" xmi:id="_fp_fuel" name="fuel" type="_blk_fuel"/>
+          <ownedAttribute xmi:type="uml:Property" xmi:id="_fp_rate" name="rate" type="_vt_speed"/>
+        </packagedElement>
+        <packagedElement xmi:type="uml:Class" xmi:id="_blk_fuel" name="Fuel"/>
+      </packagedElement>
+      <packagedElement xmi:type="uml:Class" xmi:id="_blk_vehicle" name="Vehicle">
+        <ownedComment xmi:type="uml:Comment" xmi:id="_cmt_vehicle" body="A road vehicle. Mass is limited by the mass requirement.">
+          <annotatedElement xmi:idref="_blk_vehicle"/>
+        </ownedComment>
+        <ownedComment xmi:type="uml:Comment" xmi:id="_cmt_vehicle_2" body="Second note on the vehicle.">
+          <annotatedElement xmi:idref="_blk_vehicle"/>
+        </ownedComment>
+        <generalization xmi:type="uml:Generalization" xmi:id="_gen_vehicle" general="_blk_system"/>
+        <ownedAttribute xmi:type="uml:Property" xmi:id="_prop_mass" name="mass" visibility="public" type="_vt_mass">
+          <defaultValue xmi:type="uml:LiteralReal" xmi:id="_dv_mass" value="1200.0"/>
+        </ownedAttribute>
+        <ownedAttribute xmi:type="uml:Property" xmi:id="_prop_color" name="color" visibility="public" type="_enum_color">
+          <defaultValue xmi:type="uml:InstanceValue" xmi:id="_dv_color" instance="_lit_red"/>
+        </ownedAttribute>
+        <ownedAttribute xmi:type="uml:Property" xmi:id="_prop_name" name="vehicle name" visibility="public">
+          <type href="http://www.omg.org/spec/UML/20161101/PrimitiveTypes.xmi#String"/>
+          <defaultValue xmi:type="uml:LiteralString" xmi:id="_dv_name" value="the &quot;demo&quot; car"/>
+        </ownedAttribute>
+        <ownedAttribute xmi:type="uml:Property" xmi:id="_prop_isElectric" name="isElectric" isReadOnly="true">
+          <type href="http://www.omg.org/spec/UML/20161101/PrimitiveTypes.xmi#Boolean"/>
+          <defaultValue xmi:type="uml:LiteralBoolean" xmi:id="_dv_electric" value="false"/>
+        </ownedAttribute>
+        <ownedAttribute xmi:type="uml:Property" xmi:id="_prop_total" name="totalMass" isDerived="true" type="_vt_mass">
+          <defaultValue xmi:type="uml:OpaqueExpression" xmi:id="_dv_total">
+            <body>mass + engine.mass</body>
+            <language>SysML</language>
+          </defaultValue>
+        </ownedAttribute>
+        <ownedAttribute xmi:type="uml:Property" xmi:id="_prop_engine" name="engine" visibility="public" type="_blk_engine" aggregation="composite" association="_assoc_vehicle_engine">
+          <lowerValue xmi:type="uml:LiteralInteger" xmi:id="_lv_engine" value="1"/>
+          <upperValue xmi:type="uml:LiteralUnlimitedNatural" xmi:id="_uv_engine" value="2"/>
+        </ownedAttribute>
+        <ownedAttribute xmi:type="uml:Property" xmi:id="_prop_wheels" name="wheels" type="_blk_wheel" aggregation="composite" association="_assoc_vehicle_wheel">
+          <lowerValue xmi:type="uml:LiteralInteger" xmi:id="_lv_wheels" value="4"/>
+          <upperValue xmi:type="uml:LiteralUnlimitedNatural" xmi:id="_uv_wheels" value="*"/>
+        </ownedAttribute>
+        <ownedAttribute xmi:type="uml:Property" xmi:id="_prop_driver" name="driver" type="_actor_driver" association="_assoc_vehicle_driver">
+          <lowerValue xmi:type="uml:LiteralInteger" xmi:id="_lv_driver" value="0"/>
+          <upperValue xmi:type="uml:LiteralUnlimitedNatural" xmi:id="_uv_driver" value="1"/>
+        </ownedAttribute>
+        <ownedAttribute xmi:type="uml:Property" xmi:id="_prop_charger" name="sharedCharger" visibility="private" type="_blk_engine" aggregation="shared"/>
+        <ownedAttribute xmi:type="uml:Property" xmi:id="_prop_limit" name="massLimit" type="_cb_masslimit" aggregation="composite"/>
+        <ownedAttribute xmi:type="uml:Port" xmi:id="_port_fuelIn" name="fuelIn" type="_ib_fuel" aggregation="composite" isConjugated="true"/>
+        <ownedAttribute xmi:type="uml:Port" xmi:id="_port_speedOut" name="speedOut" type="_vt_speed" aggregation="composite"/>
+        <ownedAttribute xmi:type="uml:Port" xmi:id="_port_untyped" name="diag" aggregation="composite"/>
+        <ownedConnector xmi:type="uml:Connector" xmi:id="_conn_fuel" name="fuel line">
+          <end xmi:type="uml:ConnectorEnd" xmi:id="_ce_fuel_1" role="_port_fuelIn"/>
+          <end xmi:type="uml:ConnectorEnd" xmi:id="_ce_fuel_2" role="_port_engine_fuel" partWithPort="_prop_engine"/>
+        </ownedConnector>
+        <ownedConnector xmi:type="uml:Connector" xmi:id="_conn_bind" kind="assembly">
+          <end xmi:type="uml:ConnectorEnd" xmi:id="_ce_bind_1" role="_prop_mass"/>
+          <end xmi:type="uml:ConnectorEnd" xmi:id="_ce_bind_2" role="_cp_m" partWithPort="_prop_limit"/>
+        </ownedConnector>
+        <ownedConnector xmi:type="uml:Connector" xmi:id="_conn_nested">
+          <end xmi:type="uml:ConnectorEnd" xmi:id="_ce_nested_1" role="_port_speedOut"/>
+          <end xmi:type="uml:ConnectorEnd" xmi:id="_ce_nested_2" role="_port_piston_p"/>
+        </ownedConnector>
+        <ownedOperation xmi:type="uml:Operation" xmi:id="_op_start" name="start">
+          <ownedParameter xmi:type="uml:Parameter" xmi:id="_par_start" name="key" direction="in">
+            <type href="http://www.omg.org/spec/UML/20161101/PrimitiveTypes.xmi#Integer"/>
+          </ownedParameter>
+        </ownedOperation>
+        <ownedBehavior xmi:type="uml:StateMachine" xmi:id="_sm_vehicle" name="Vehicle States">
+          <region xmi:type="uml:Region" xmi:id="_reg_1" name="">
+            <subvertex xmi:type="uml:State" xmi:id="_st_off" name="Off"/>
+          </region>
+        </ownedBehavior>
+        <ownedRule xmi:type="uml:Constraint" xmi:id="_rule_positive" name="positive mass" constrainedElement="_blk_vehicle">
+          <specification xmi:type="uml:OpaqueExpression" xmi:id="_rule_positive_spec">
+            <body>mass &gt; 0</body>
+            <language>English</language>
+          </specification>
+        </ownedRule>
+        <nestedClassifier xmi:type="uml:Class" xmi:id="_blk_chassis" name="Chassis">
+          <ownedAttribute xmi:type="uml:Property" xmi:id="_prop_chassis_mass" name="mass" type="_vt_mass"/>
+        </nestedClassifier>
+      </packagedElement>
+      <packagedElement xmi:type="uml:Class" xmi:id="_blk_system" name="System" isAbstract="true"/>
+      <packagedElement xmi:type="uml:Class" xmi:id="_blk_engine" name="Engine">
+        <ownedAttribute xmi:type="uml:Property" xmi:id="_prop_engine_mass" name="mass" type="_vt_mass"/>
+        <ownedAttribute xmi:type="uml:Property" xmi:id="_prop_piston" name="piston" type="_blk_piston" aggregation="composite"/>
+        <ownedAttribute xmi:type="uml:Port" xmi:id="_port_engine_fuel" name="fuelPort" type="_ib_fuel" aggregation="composite"/>
+        <ownedAttribute xmi:type="uml:Port" xmi:id="_port_speedIn" name="speedIn" type="_vt_speed" aggregation="composite"/>
+      </packagedElement>
+      <packagedElement xmi:type="uml:Class" xmi:id="_blk_piston" name="Piston">
+        <ownedAttribute xmi:type="uml:Port" xmi:id="_port_piston_p" name="p" type="_vt_speed" aggregation="composite"/>
+      </packagedElement>
+      <packagedElement xmi:type="uml:Class" xmi:id="_blk_wheel" name="Wheel"/>
+      <packagedElement xmi:type="uml:Class" xmi:id="_blk_ev" name="Electric Vehicle">
+        <generalization xmi:type="uml:Generalization" xmi:id="_gen_ev" general="_blk_vehicle"/>
+        <ownedAttribute xmi:type="uml:Property" xmi:id="_prop_ev_engine" name="engine" type="_blk_motor" aggregation="composite" redefinedProperty="_prop_engine"/>
+        <ownedAttribute xmi:type="uml:Property" xmi:id="_prop_ev_spare" name="spare" type="_blk_wheel" aggregation="composite" subsettedProperty="_prop_wheels"/>
+      </packagedElement>
+      <packagedElement xmi:type="uml:Class" xmi:id="_blk_motor" name="Motor">
+        <generalization xmi:type="uml:Generalization" xmi:id="_gen_motor" general="_blk_engine"/>
+      </packagedElement>
+      <packagedElement xmi:type="uml:Actor" xmi:id="_actor_driver" name="Driver"/>
+      <packagedElement xmi:type="uml:Class" xmi:id="_plain_helper" name="Helper"/>
+      <packagedElement xmi:type="uml:Association" xmi:id="_assoc_vehicle_engine" memberEnd="_prop_engine _ae_vehicle_1">
+        <ownedEnd xmi:type="uml:Property" xmi:id="_ae_vehicle_1" type="_blk_vehicle" association="_assoc_vehicle_engine"/>
+      </packagedElement>
+      <packagedElement xmi:type="uml:Association" xmi:id="_assoc_vehicle_wheel" memberEnd="_prop_wheels _ae_vehicle_2">
+        <ownedEnd xmi:type="uml:Property" xmi:id="_ae_vehicle_2" type="_blk_vehicle" association="_assoc_vehicle_wheel"/>
+      </packagedElement>
+      <packagedElement xmi:type="uml:Association" xmi:id="_assoc_vehicle_driver" name="Drives" memberEnd="_prop_driver _ae_vehicle_3">
+        <ownedEnd xmi:type="uml:Property" xmi:id="_ae_vehicle_3" name="vehicle" type="_blk_vehicle" association="_assoc_vehicle_driver"/>
+      </packagedElement>
+      <packagedElement xmi:type="uml:Class" xmi:id="_cb_masslimit" name="MassLimit">
+        <ownedAttribute xmi:type="uml:Property" xmi:id="_cp_m" name="m" type="_vt_mass"/>
+        <ownedAttribute xmi:type="uml:Property" xmi:id="_cp_limit" name="limit" type="_vt_mass"/>
+        <ownedRule xmi:type="uml:Constraint" xmi:id="_cb_rule" constrainedElement="_cb_masslimit">
+          <specification xmi:type="uml:OpaqueExpression" xmi:id="_cb_spec">
+            <body>m &lt; limit</body>
+            <language>English</language>
+          </specification>
+        </ownedRule>
+      </packagedElement>
+      <packagedElement xmi:type="uml:InformationFlow" xmi:id="_if_fuel" informationSource="_port_fuelIn" informationTarget="_port_engine_fuel" conveyed="_blk_fuel" realizingConnector="_conn_fuel"/>
+      <packagedElement xmi:type="uml:InstanceSpecification" xmi:id="_inst_mycar" name="myCar" classifier="_blk_vehicle">
+        <slot xmi:type="uml:Slot" xmi:id="_slot_mass" definingFeature="_prop_mass">
+          <value xmi:type="uml:LiteralReal" xmi:id="_slot_mass_v" value="1350.5"/>
+        </slot>
+        <slot xmi:type="uml:Slot" xmi:id="_slot_color" definingFeature="_prop_color">
+          <value xmi:type="uml:InstanceValue" xmi:id="_slot_color_v" instance="_lit_blue"/>
+        </slot>
+      </packagedElement>
+      <packagedElement xmi:type="uml:Activity" xmi:id="_act_drive" name="Drive"/>
+    </packagedElement>
+    <packagedElement xmi:type="uml:Package" xmi:id="_pkg_reqs" name="Requirements">
+      <packagedElement xmi:type="uml:Class" xmi:id="_req_mass" name="Mass Requirement">
+        <nestedClassifier xmi:type="uml:Class" xmi:id="_req_mass_1" name="Chassis Mass"/>
+      </packagedElement>
+      <packagedElement xmi:type="uml:Class" xmi:id="_req_speed" name="Speed Requirement"/>
+      <packagedElement xmi:type="uml:Class" xmi:id="_req_derived" name="Engine Mass Requirement"/>
+      <packagedElement xmi:type="uml:Abstraction" xmi:id="_dep_satisfy" client="_blk_vehicle" supplier="_req_mass"/>
+      <packagedElement xmi:type="uml:Abstraction" xmi:id="_dep_satisfy_prop" client="_prop_engine" supplier="_req_derived"/>
+      <packagedElement xmi:type="uml:Abstraction" xmi:id="_dep_derive" client="_req_derived" supplier="_req_mass"/>
+      <packagedElement xmi:type="uml:Abstraction" xmi:id="_dep_verify" client="_tc_mass" supplier="_req_mass"/>
+      <packagedElement xmi:type="uml:Abstraction" xmi:id="_dep_verify_block" client="_blk_engine" supplier="_req_derived"/>
+      <packagedElement xmi:type="uml:Abstraction" xmi:id="_dep_refine" client="_act_drive" supplier="_req_speed"/>
+      <packagedElement xmi:type="uml:Abstraction" xmi:id="_dep_trace" client="_req_speed" supplier="_blk_engine"/>
+      <packagedElement xmi:type="uml:Abstraction" xmi:id="_dep_allocate" client="_act_drive" supplier="_blk_engine"/>
+      <packagedElement xmi:type="uml:Abstraction" xmi:id="_dep_allocate_blocks" client="_blk_motor" supplier="_blk_engine"/>
+      <packagedElement xmi:type="uml:Dependency" xmi:id="_dep_plain" client="_blk_wheel" supplier="_blk_engine"/>
+      <packagedElement xmi:type="uml:Activity" xmi:id="_tc_mass" name="Mass Test"/>
+    </packagedElement>
+    <packagedElement xmi:type="uml:Package" xmi:id="_pkg_unused" name="Empty Package"/>
+    <profileApplication xmi:type="uml:ProfileApplication" xmi:id="_pa_sysml">
+      <appliedProfile href="http://www.omg.org/spec/SysML/20181001/SysML.xmi#_0"/>
+    </profileApplication>
+    <xmi:Extension extender="Example UML Tool 1.0">
+      <modelExtension>
+        <ownedDiagram xmi:type="uml:Diagram" xmi:id="_diag_bdd" name="Vehicle BDD"/>
+      </modelExtension>
+    </xmi:Extension>
+  </uml:Model>
+  <uml:Package xmi:type="uml:Package" xmi:id="_lib_sysml" name="SysML">
+    <packagedElement xmi:type="uml:Package" xmi:id="_lib_types" name="Libraries">
+      <packagedElement xmi:type="uml:Package" xmi:id="_lib_pvt" name="PrimitiveValueTypes">
+        <packagedElement xmi:type="uml:DataType" xmi:id="_vt_unit_cls" name="Unit"/>
+        <packagedElement xmi:type="uml:DataType" xmi:id="_vt_qk_cls" name="QuantityKind"/>
+      </packagedElement>
+    </packagedElement>
+  </uml:Package>
+  <sysml:Block xmi:id="_st_vehicle" base_Class="_blk_vehicle" isEncapsulated="true"/>
+  <sysml:Block xmi:id="_st_system" base_Class="_blk_system"/>
+  <sysml:Block xmi:id="_st_engine" base_Class="_blk_engine"/>
+  <sysml:Block xmi:id="_st_piston" base_Class="_blk_piston"/>
+  <sysml:Block xmi:id="_st_wheel" base_Class="_blk_wheel"/>
+  <sysml:Block xmi:id="_st_ev" base_Class="_blk_ev"/>
+  <sysml:Block xmi:id="_st_motor" base_Class="_blk_motor"/>
+  <sysml:Block xmi:id="_st_fuel" base_Class="_blk_fuel"/>
+  <sysml:Block xmi:id="_st_chassis" base_Class="_blk_chassis"/>
+  <sysml:InterfaceBlock xmi:id="_st_ib_fuel" base_Class="_ib_fuel"/>
+  <sysml:FlowProperty xmi:id="_st_fp_fuel" base_Property="_fp_fuel" direction="in"/>
+  <sysml:FlowProperty xmi:id="_st_fp_rate" base_Property="_fp_rate" direction="out"/>
+  <sysml:ValueType xmi:id="_st_vt_mass" base_DataType="_vt_mass" unit="_unit_kg" quantityKind="_qk_mass"/>
+  <sysml:ValueType xmi:id="_st_vt_speed" base_DataType="_vt_speed"/>
+  <sysml:Unit xmi:id="_st_unit_kg" base_InstanceSpecification="_unit_kg" symbol="kg" quantityKind="_qk_mass"/>
+  <sysml:QuantityKind xmi:id="_st_qk_mass" base_InstanceSpecification="_qk_mass"/>
+  <sysml:ConstraintBlock xmi:id="_st_cb" base_Class="_cb_masslimit"/>
+  <sysml:ProxyPort xmi:id="_st_pp_fuelIn" base_Port="_port_fuelIn"/>
+  <sysml:ProxyPort xmi:id="_st_pp_engine_fuel" base_Port="_port_engine_fuel"/>
+  <sysml:FlowPort xmi:id="_st_fp_speedOut" base_Port="_port_speedOut" direction="out"/>
+  <sysml:FlowPort xmi:id="_st_fp_speedIn" base_Port="_port_speedIn" direction="in"/>
+  <sysml:FlowPort xmi:id="_st_fp_piston" base_Port="_port_piston_p" direction="in"/>
+  <sysml:FullPort xmi:id="_st_full_diag" base_Port="_port_untyped"/>
+  <sysml:BindingConnector xmi:id="_st_bind" base_Connector="_conn_bind"/>
+  <sysml:NestedConnectorEnd xmi:id="_st_nce" base_ConnectorEnd="_ce_nested_2">
+    <propertyPath xmi:idref="_prop_engine"/>
+    <propertyPath xmi:idref="_prop_piston"/>
+  </sysml:NestedConnectorEnd>
+  <sysml:ItemFlow xmi:id="_st_if" base_InformationFlow="_if_fuel"/>
+  <sysml:Requirement xmi:id="_st_req_mass" base_Class="_req_mass" id="R1" text="The vehicle shall have a mass of less than 1500 kg."/>
+  <sysml:Requirement xmi:id="_st_req_mass_1" base_Class="_req_mass_1" id="R1.1">
+    <text>The chassis shall have a mass of less than 400 kg.</text>
+  </sysml:Requirement>
+  <sysml:Requirement xmi:id="_st_req_speed" base_Class="_req_speed" Id="R2" Text="The vehicle shall reach 100 km/h &quot;quickly&quot;."/>
+  <sysml:Requirement xmi:id="_st_req_derived" base_Class="_req_derived" id="R1.2" text="The engine shall have a mass of less than 300 kg."/>
+  <sysml:Satisfy xmi:id="_st_satisfy" base_Abstraction="_dep_satisfy"/>
+  <sysml:Satisfy xmi:id="_st_satisfy_prop" base_Abstraction="_dep_satisfy_prop"/>
+  <sysml:DeriveReqt xmi:id="_st_derive" base_Abstraction="_dep_derive"/>
+  <sysml:Verify xmi:id="_st_verify" base_Abstraction="_dep_verify"/>
+  <sysml:Verify xmi:id="_st_verify_block" base_Abstraction="_dep_verify_block"/>
+  <sysml:Refine xmi:id="_st_refine" base_Abstraction="_dep_refine"/>
+  <StandardProfile:Trace xmi:id="_st_trace" base_Abstraction="_dep_trace"/>
+  <sysml:Allocate xmi:id="_st_allocate" base_Abstraction="_dep_allocate"/>
+  <sysml:Allocate xmi:id="_st_allocate_blocks" base_Abstraction="_dep_allocate_blocks"/>
+  <sysml:TestCase xmi:id="_st_tc" base_Behavior="_tc_mass"/>
+  <Safety:Critical xmi:id="_st_critical" base_Class="_blk_engine" level="high"/>
+</xmi:XMI>

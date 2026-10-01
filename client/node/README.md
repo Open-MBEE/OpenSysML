@@ -369,7 +369,7 @@ above. Deliberately **not** in v1, rather than half-implemented:
 
 - generated model-ergonomics types (`python -m opensysml.generate`'s equivalent);
 - the edit API (`ApplyEdits`);
-- RDF conversion (`Convert`);
+- RDF conversion (`Convert`) and SysML v1 migration (`Migrate`);
 - verification helpers (`VerifyConstraint`, `VerifyRequirement`,
   `VerifySatisfaction`);
 - `Query`, `GetDiagnostics`, `EvaluateCalc`, `RunAnalysis`, `ExecuteAction`, `ExecuteState`.

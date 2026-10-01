@@ -151,7 +151,7 @@ The live tests start a private child from `$OPENSYSML_GRPC_BINARY` or
 
 No protobuf bodies (JSON only — the measurable difference is
 `docs/internals/design/transport-evaluation.md`'s), no binary download, and no
-typed wrappers past the operations above: `ApplyEdits`, `Convert`, the
+typed wrappers past the operations above: `ApplyEdits`, `Convert`, `Migrate`, the
 verification calls, `EvaluateCalc`, `RunAnalysis`, `RunSweep`, `RunDocumentQuery`
 and `RenderDocument` are all reachable through `call` with the request spelled
 as in the wire contract, answered as the plain record the wire gives.

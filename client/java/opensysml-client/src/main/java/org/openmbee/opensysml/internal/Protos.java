@@ -21,6 +21,9 @@ import org.openmbee.opensysml.Exploration;
 import org.openmbee.opensysml.FailureReason;
 import org.openmbee.opensysml.Instance;
 import org.openmbee.opensysml.Instantiation;
+import org.openmbee.opensysml.Migration;
+import org.openmbee.opensysml.MigrationEntry;
+import org.openmbee.opensysml.MigrationReport;
 import org.openmbee.opensysml.Outcome;
 import org.openmbee.opensysml.Quantity;
 import org.openmbee.opensysml.Query;
@@ -54,6 +57,8 @@ import org.openmbee.opensysml.proto.ExecuteStateResponse;
 import org.openmbee.opensysml.proto.ExplorationStatus;
 import org.openmbee.opensysml.proto.FeatureValue;
 import org.openmbee.opensysml.proto.InstantiateResponse;
+import org.openmbee.opensysml.proto.MigrateResponse;
+import org.openmbee.opensysml.proto.MigrationFile;
 import org.openmbee.opensysml.proto.MultiplicityInfo;
 import org.openmbee.opensysml.proto.PrimitiveConstraint;
 import org.openmbee.opensysml.proto.PrimitiveOperator;
@@ -1218,6 +1223,52 @@ public final class Protos {
         diagnostics(response.getDiagnosticsList()),
         response.getExperimental(),
         response.getExperimentalNotice());
+  }
+
+  /**
+   * A migration's answer.
+   *
+   * @param response the generated answer
+   * @return the public migration
+   */
+  public static Migration migration(MigrateResponse response) {
+    Map<String, byte[]> files = new LinkedHashMap<>();
+    for (MigrationFile file : response.getFilesList()) {
+      files.put(file.getPath(), file.getContent().toByteArray());
+    }
+    return new Migration(
+        response.getContent(),
+        response.getFromFormat(),
+        response.getToFormat(),
+        response.getExperimentalNotice(),
+        migrationReport(response.getReport()),
+        response.getResults(),
+        files);
+  }
+
+  private static MigrationReport migrationReport(
+      org.openmbee.opensysml.proto.MigrationReport report) {
+    List<MigrationEntry> entries = new ArrayList<>();
+    for (org.openmbee.opensysml.proto.MigrationEntry entry : report.getEntriesList()) {
+      entries.add(
+          new MigrationEntry(
+              entry.getId(),
+              entry.getKind(),
+              entry.getName(),
+              entry.getTarget(),
+              entry.getVerdict(),
+              entry.getNote()));
+    }
+    return new MigrationReport(
+        report.getSource(),
+        report.getExporter(),
+        report.getSummary(),
+        report.getMapped(),
+        report.getApproximated(),
+        report.getUnmapped(),
+        report.getSkipped(),
+        entries,
+        report.getText());
   }
 
   /**

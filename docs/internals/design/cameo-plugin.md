@@ -3,7 +3,7 @@
 **Date:** 2026-09-20
 **Status:** Discovery and design — nothing under `editors/cameo/` exists yet
 **Scope:** a future `editors/cameo/` plugin; the Java client (`client/java/opensysml-client`);
-`Convert` from XMI (`internal/translate/xmi`, `internal/translate/migrate`); the results a
+`Migrate` (`internal/translate/xmi`, `internal/translate/migrate`); the results a
 Cameo user sees on their own elements
 
 ---
@@ -542,7 +542,7 @@ SysML 1.6 profile itself (`https://www.omg.org/spec/SysML/20181001/SysML.xmi`; a
 user model, included as the only OMG XMI artifact that resolved). For each:
 
 ```bash
-bin/sysml <model> -convert sysml -o <out>.sysml -migration-report <out>.report.json
+bin/sysml <model> -migrate sysml -o <out>.sysml -migration-report <out>.report.json
 bin/sysml <out>.sysml -validate
 ```
 

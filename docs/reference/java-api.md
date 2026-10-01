@@ -40,7 +40,8 @@ try (Connection connection = Connection.open()) {          // private child serv
 | `load(Path)`, `load(Path, ParseOptions)` | parses a file the service can read |
 | `parse(String)`, `parse(String, ParseOptions)` | parses inline content |
 | `parseSources(List<SourceDocument>)`, `parseSources(List, ParseOptions)` | parses several documents as one model |
-| `convert(String content, String toFormat[, ConversionOptions])`, `convertFile(Path, ...)` | translates source between notations (`sysml`, `kerml`, `ttl`, `api-json`, `xmi`) |
+| `convert(String content, String toFormat[, ConversionOptions])`, `convertFile(Path, ...)` | translates source between notations (`sysml`, `kerml`, `ttl`, `api-json`); refuses a SysML v1 model, which is migrated |
+| `migrate(byte[] content, String toFormat, MigrationOptions)`, `migrateFile(Path, String[, MigrationOptions])` | migrates a SysML v1 model (`xmi`, `uml`, `mdzip`) to v2, answering a `Migration` with its element-by-element `MigrationReport` |
 | `model(String modelHash)` | adopts a model the service already holds |
 | `capabilities()` | what `GetServerInfo` reported, asked once at open |
 | `listEngines()` | the analysis engines the service can put a question to, as `EngineInfo` |
@@ -226,6 +227,32 @@ answer a `Conversion` (`content`, the resolved `fromFormat`/`toFormat`,
 parsed model itself. `ConversionOptions` carries a `fromFormat` (else the service
 sniffs it) and `tolerateSyntaxErrors` — without it, a syntax error throws a
 `ModelException` carrying the diagnostics rather than converting anyway.
+
+A SysML v1 model — UML XMI, an Eclipse UML2 `.uml` file or a `.mdzip` archive — is **migrated,
+not converted**: `convert`/`convertFile` refuse it with a `ServiceException` of
+`INVALID_ARGUMENT` whose message says so and names `migrate`, since a migration is ledgered
+rather than lossless. `Connection.migrate(byte[] content, String toFormat, MigrationOptions)` and
+`migrateFile(Path, String[, MigrationOptions])` answer a `Migration` (`content`, the canonical
+`fromFormat`/`toFormat`, `experimentalNotice`, the `report`, the `results` index and the image
+`files`). `MigrationReport` always carries the `summary` and the `mapped`, `approximated`,
+`unmapped` and `skipped` counts; `MigrationOptions.withReport(true)` adds every element's
+`MigrationEntry` (`byVerdict("unmapped")` selects them) and the `text` the `sysml
+-migration-report` flag writes. The other options are the command's companion flags:
+`withFromFormat` (inline content must name `xmi`, `uml` or `mdzip`), `withResults`,
+`withLayoutFile`/`withLayoutContent` for an MTIP export, `withImageBaseUrl` and `withStrict`.
+Inline content is `byte[]`, since a `.mdzip` archive is binary.
+
+```java
+Migration migration =
+    connection.migrateFile(
+        Path.of("Vehicle.mdzip"), "sysml", MigrationOptions.defaults().withReport(true));
+Files.writeString(Path.of("Vehicle.sysml"), migration.content());
+MigrationReport report = migration.report();
+System.err.println(report.summary());
+for (MigrationEntry left : report.byVerdict("unmapped")) {
+  System.err.println(left.name() + ": " + left.note());
+}
+```
 
 ### Edits
 
