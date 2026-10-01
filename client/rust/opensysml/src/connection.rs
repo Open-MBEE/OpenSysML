@@ -10,10 +10,12 @@ use std::time::{Duration, Instant};
 use prost::Message;
 
 use crate::binary;
+use crate::capabilities::{upgrade_remedy, CAPABILITY_EDIT_DOCUMENTS, CAPABILITY_FEATURE_VALUES};
 use crate::domain::{
     Capabilities, EvalOptions, Evaluation, Instantiation, Language, Model, ParseOptions,
     ServerInfo, Symbol,
 };
+use crate::edit::{edit_result_of, EditCapabilities, EditResult};
 use crate::error::{Error, Status};
 use crate::wire;
 
@@ -58,13 +60,13 @@ pub(crate) struct ConnectionInner {
 }
 
 impl Connection {
-    /// Start or join the process-wide private sysml-grpc child.
+    /// Start or join the process-wide private sysml-grpc child; one that has exited is replaced.
     pub fn private() -> Result<Self, Error> {
         let private = {
             let mut registry = private_service()
                 .lock()
                 .unwrap_or_else(PoisonError::into_inner);
-            if let Some(existing) = registry.upgrade() {
+            if let Some(existing) = registry.upgrade().filter(|service| service.running()) {
                 existing
             } else {
                 let started = Arc::new(PrivateService::start()?);
@@ -124,13 +126,10 @@ impl Connection {
         options: &ParseOptions,
     ) -> Result<Model, Error> {
         if options.strict_conformance {
-            self.capabilities().require(
-                "strict_conformance",
-                "connect to a service advertising strict_conformance",
-            )?;
+            self.capabilities()
+                .require("strict_conformance", upgrade_remedy("strict_conformance"))?;
         }
         let request = wire::ParseFileRequest {
-            language: options.language.as_str().to_owned(),
             strict_conformance: options.strict_conformance,
             source: Some(wire::parse_file_request::Source::FilePath(
                 path.as_ref().to_string_lossy().into_owned(),
@@ -141,25 +140,26 @@ impl Connection {
         if !response.error.is_empty() {
             return Err(Error::Model(response.error));
         }
-        Model::from_wire(response, self.clone())
+        Model::from_wire(response, Some(path.as_ref().to_path_buf()), self.clone())
     }
 
     /// Parse inline content.
     pub fn parse_content(&self, content: &str, options: &ParseOptions) -> Result<Model, Error> {
         if options.strict_conformance {
-            self.capabilities().require(
-                "strict_conformance",
-                "connect to a service advertising strict_conformance",
-            )?;
+            self.capabilities()
+                .require("strict_conformance", upgrade_remedy("strict_conformance"))?;
         }
-        if options.language == Language::Kerml {
-            self.capabilities().require(
-                "inline_language",
-                "connect to a service advertising inline_language",
-            )?;
-        }
+        // An empty language is SysML to every service, including one without `inline_language`.
+        let language = match options.language {
+            Language::Sysml => "",
+            Language::Kerml => {
+                self.capabilities()
+                    .require("inline_language", upgrade_remedy("inline_language"))?;
+                "kerml"
+            }
+        };
         let request = wire::ParseFileRequest {
-            language: options.language.as_str().to_owned(),
+            language: language.to_owned(),
             strict_conformance: options.strict_conformance,
             source: Some(wire::parse_file_request::Source::Content(
                 content.to_owned(),
@@ -170,7 +170,7 @@ impl Connection {
         if !response.error.is_empty() {
             return Err(Error::Model(response.error));
         }
-        Model::from_wire(response, self.clone())
+        Model::from_wire(response, None, self.clone())
     }
 
     /// Retrieve diagnostics for a model cached by the service.
@@ -239,10 +239,8 @@ impl Connection {
         options: &EvalOptions,
     ) -> Result<Evaluation, Error> {
         if options.subject.is_some() {
-            self.capabilities().require(
-                "evaluate_subject",
-                "connect to a service advertising evaluate_subject",
-            )?;
+            self.capabilities()
+                .require("evaluate_subject", upgrade_remedy("evaluate_subject"))?;
         }
         let response: wire::EvaluateResponse = self.rpc(
             "Evaluate",
@@ -269,6 +267,10 @@ impl Connection {
         model_hash: &str,
         symbol_id: &str,
     ) -> Result<Instantiation, Error> {
+        self.capabilities().require(
+            CAPABILITY_FEATURE_VALUES,
+            upgrade_remedy(CAPABILITY_FEATURE_VALUES),
+        )?;
         let response: wire::InstantiateResponse = self.rpc(
             "Instantiate",
             wire::InstantiateRequest {
@@ -282,7 +284,68 @@ impl Connection {
         Instantiation::from_wire(response)
     }
 
-    fn rpc<T, R>(&self, method: &str, request: T) -> Result<R, Error>
+    /// Apply wire edit operations to a loaded model, as an [`crate::Editor`] collects them.
+    ///
+    /// Each capability an operation needs is required before anything is sent; a service
+    /// refusal of the edit is [`Error::Edit`].
+    pub fn apply_edits(
+        &self,
+        model_hash: &str,
+        document: &str,
+        operations: Vec<wire::EditOperation>,
+    ) -> Result<EditResult, Error> {
+        let mut reader = EditCapabilities::new(self.capabilities())?;
+        for operation in &operations {
+            reader.read(operation)?;
+        }
+        let mut requested = reader.finish()?;
+        if !document.is_empty() {
+            self.capabilities().require(
+                CAPABILITY_EDIT_DOCUMENTS,
+                upgrade_remedy(CAPABILITY_EDIT_DOCUMENTS),
+            )?;
+            requested.push(CAPABILITY_EDIT_DOCUMENTS);
+        }
+        let request = wire::ApplyEditsRequest {
+            model_hash: model_hash.to_owned(),
+            operations,
+            document: document.to_owned(),
+            accept_documents: true,
+        };
+        let response = self.gated_rpc("ApplyEdits", request, &requested)?;
+        edit_result_of(response, self.capabilities().has(CAPABILITY_EDIT_DOCUMENTS))
+    }
+
+    /// Call `method`, reading an `UNIMPLEMENTED` refusal as the first of `capabilities` it names.
+    pub(crate) fn gated_rpc<T, R>(
+        &self,
+        method: &str,
+        request: T,
+        capabilities: &[&str],
+    ) -> Result<R, Error>
+    where
+        T: Message,
+        R: Message + Default,
+    {
+        match self.rpc(method, request) {
+            Err(Error::Service {
+                status: Status::Unimplemented,
+                message,
+            }) if !capabilities.is_empty() => {
+                let capability = capabilities
+                    .iter()
+                    .find(|name| message.contains(**name))
+                    .unwrap_or(&capabilities[0]);
+                Err(Error::MissingCapability {
+                    capability: (*capability).to_owned(),
+                    remedy: upgrade_remedy(capability),
+                })
+            }
+            other => other,
+        }
+    }
+
+    pub(crate) fn rpc<T, R>(&self, method: &str, request: T) -> Result<R, Error>
     where
         T: Message,
         R: Message + Default,
@@ -511,6 +574,16 @@ impl PrivateService {
             .lock()
             .unwrap_or_else(PoisonError::into_inner)
             .id()
+    }
+
+    fn running(&self) -> bool {
+        matches!(
+            self.process
+                .lock()
+                .unwrap_or_else(PoisonError::into_inner)
+                .try_wait(),
+            Ok(None)
+        )
     }
 }
 

@@ -28,7 +28,7 @@
         "dir": "tools/referee/reject/testdata/negative",
         "origin": "ours",
         "files": 311,
-        "digest": "sha256:1e04904da93ab13cae7e0187a5932cfae9a223116b3294e0be6a1536f6e488e2"
+        "digest": "sha256:e0e4dd77f66dfb82065cedbd25cff02c06b3044274e048e1cf65090c3ed3f46d"
       }
     ],
     "recorded": "2026-09-30"
@@ -41,9 +41,7 @@
     "bothAccept": 0
   },
   "strictOnlyAgreements": [
-    "extensions/x05-defer-member.sysml",
     "extensions/x06-history-member.sysml",
-    "extensions/x08-require-outside-requirement-body.sysml",
     "extensions/x09-expose-in-view-def-body.sysml"
   ],
   "sources": [
@@ -128,12 +126,13 @@
     {
       "path": "extensions/x05-defer-member.sysml",
       "source": "extensions",
-      "rule": "'defer' is an OpenSysML invention; the pinned StateBodyItem has no event deferral (SysML.xtext StateBodyItem).",
+      "rule": "'defer' was an OpenSysML extension, since removed; the pinned StateBodyItem has no event deferral (SysML.xtext StateBodyItem).",
       "mode": "strict",
       "bucket": "both-reject",
       "oursErrors": 1,
       "pilotErrors": 4,
-      "defaultBucket": "pilot-only-rejects"
+      "defaultBucket": "both-reject",
+      "defaultErrors": 1
     },
     {
       "path": "extensions/x06-history-member.sysml",
@@ -164,7 +163,8 @@
       "bucket": "both-reject",
       "oursErrors": 1,
       "pilotErrors": 2,
-      "defaultBucket": "pilot-only-rejects"
+      "defaultBucket": "both-reject",
+      "defaultErrors": 1
     },
     {
       "path": "extensions/x09-expose-in-view-def-body.sysml",

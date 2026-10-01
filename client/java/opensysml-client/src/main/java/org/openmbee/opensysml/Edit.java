@@ -619,6 +619,93 @@ public sealed interface Edit {
           Optional.of(kind), Optional.of(name), Optional.empty(), Optional.empty());
     }
 
+    /** A {@code then accept <payload>;} statement; {@link #withType}, {@link #withVia} add. */
+    public static AddSequence accept(String owner, String payload) {
+      return statement(owner, "accept").withParameter(payload);
+    }
+
+    /** A {@code then send <payload>;} statement; {@link #withTarget} names its receiver. */
+    public static AddSequence send(String owner, String payload) {
+      return statement(owner, "send").withValue(payload);
+    }
+
+    /** A {@code then assign <target> := <value>;} statement. */
+    public static AddSequence assign(String owner, String target, String value) {
+      return statement(owner, "assign").withTarget(target).withValue(value);
+    }
+
+    /** A {@code then if <condition> { <body> }} statement; {@link #withElseBody} adds else. */
+    public static AddSequence ifNode(String owner, String condition, List<AddSequence> body) {
+      return statement(owner, "if").withCondition(condition).withBody(body);
+    }
+
+    /** A {@code then while <condition> { <body> }} statement; {@link #withUntil} adds until. */
+    public static AddSequence whileLoop(String owner, String condition, List<AddSequence> body) {
+      return statement(owner, "while").withCondition(condition).withBody(body);
+    }
+
+    /** A {@code then loop { <body> }} statement; {@link #withUntil} adds until. */
+    public static AddSequence loop(String owner, List<AddSequence> body) {
+      return statement(owner, "loop").withBody(body);
+    }
+
+    /** A {@code then for <variable> in <collection> { <body> }} statement. */
+    public static AddSequence forLoop(
+        String owner, String variable, String collection, List<AddSequence> body) {
+      return statement(owner, "for").withParameter(variable).withValue(collection).withBody(body);
+    }
+
+    /** A {@code then terminate;} statement; {@link #withValue} names the occurrence. */
+    public static AddSequence terminate(String owner) {
+      return statement(owner, "terminate");
+    }
+
+    /** A {@code <kind> <name>;} body item without {@code then}, such as an action node. */
+    public static AddSequence node(String owner, String kind, String name) {
+      return new AddSequence(
+          owner, "", Optional.empty(),
+          Optional.of(kind), Optional.of(name), Optional.empty(), Optional.empty());
+    }
+
+    /** An {@code if <guard> then <ref>;} guarded succession. */
+    public static AddSequence guardedThen(String owner, String guard, String ref) {
+      return new AddSequence(
+              owner, "if", Optional.of(ref),
+              Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty())
+          .withCondition(guard);
+    }
+
+    /** An {@code else <ref>;} succession closing a run of guarded ones. */
+    public static AddSequence elseThen(String owner, String ref) {
+      return new AddSequence(
+          owner, "else", Optional.of(ref),
+          Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty());
+    }
+
+    private static AddSequence statement(String owner, String kind) {
+      return new AddSequence(
+          owner, "then", Optional.empty(),
+          Optional.of(kind), Optional.empty(), Optional.empty(), Optional.empty());
+    }
+
+    /**
+     * The same statement without its {@code then} prefix, as the first item of a body is written.
+     *
+     * @return the statement
+     * @throws IllegalStateException if it is not a {@code then} item or carries a multiplicity
+     */
+    public AddSequence withoutThen() {
+      if (!keyword.equals("then")) {
+        throw new IllegalStateException("only a then item can drop its then");
+      }
+      if (multiplicity.isPresent()) {
+        throw new IllegalStateException("a source multiplicity is written with then");
+      }
+      return new AddSequence(
+          owner, "", ref, memberKind, memberName, type, after,
+          condition, value, target, via, until, body, elseBody, multiplicity, parameter);
+    }
+
     public AddSequence withRef(String ref) {
       if (memberKind.isPresent() || memberName.isPresent() || type.isPresent()
           || hasActionBodyFields()) {

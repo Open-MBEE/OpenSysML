@@ -105,11 +105,6 @@ func (e *StateExecutor) pollChangeEvents() (bool, error) {
 	if err != nil {
 		return fired, err
 	}
-	if fired {
-		// The configuration changed, so a state left by this step no longer holds
-		// back the events it deferred.
-		e.recallDeferredEvents()
-	}
 	consumed := e.consumeRise(poll)
 	// A firing that ended the machine leaves nothing waiting on a condition.
 	if e.state.Ended() {
@@ -369,11 +364,6 @@ func (e *StateExecutor) SuspendReason() string {
 	}
 	if due, waiting := e.NextWait(); waiting {
 		reason = fmt.Sprintf("waiting on the clock: the next timer is due at t=%s (advance the clock to reach it)", semantics.FormatReal(due))
-	}
-	// An event the active states still defer cannot be dispatched here, but it is
-	// not gone either, so a stalled machine reports it rather than losing it.
-	if held := len(e.deferred); held > 0 {
-		reason += fmt.Sprintf("; %d event(s) still deferred by the active states", held)
 	}
 	return reason
 }

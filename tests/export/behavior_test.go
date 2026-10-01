@@ -81,7 +81,7 @@ func TestStateMachineMetaclasses(t *testing.T) {
 	turtle := toTurtle(t, filepath.Join("testdata", "convert", "state_machine.sysml"))
 	for _, want := range []string{
 		"sysml:StateUsage", "sysml:StateSubactionMembership", "sysml:TransitionUsage",
-		"sysx:Pseudostate", "sysx:DeferMember",
+		"sysx:Pseudostate",
 		"sysx:subactionKind", "sysml:triggerAction", "sysml:AcceptActionUsage",
 		"sysml:payloadParameter", `sysml:kind "trigger"`, "sysx:guard",
 		"sysml:source", "sysml:target",
@@ -154,8 +154,6 @@ func TestStateMembersRoundTrip(t *testing.T) {
 		"anonymous action":     "entry action {\n            perform Warm;\n        }",
 		"do action":            "do action running : Warm;",
 		"exit action":          "exit perform Warm;",
-		"defer":                "defer sig;",
-		"defer several":        "defer sig, other;",
 		"choice":               "choice pick;",
 		"junction":             "junction meet;",
 		"fork pseudostate":     "fork split;",
@@ -167,7 +165,7 @@ func TestStateMembersRoundTrip(t *testing.T) {
 		"nested transition":    "state working {\n            state a;\n            transition first a then a;\n        }",
 		"nested substates":     "state working {\n            state first_gear;\n            state second_gear;\n        }",
 		"nested regions":       "state working parallel {\n            state left {\n                state stopped;\n            }\n            state right {\n                state moving;\n            }\n        }",
-		"nested full body":     "state working {\n            entry perform Warm;\n            do action spin : Warm;\n            exit perform Warm;\n            defer sig;\n            state deeper;\n        }",
+		"nested full body":     "state working {\n            entry perform Warm;\n            do action spin : Warm;\n            exit perform Warm;\n            state deeper;\n        }",
 		"unordered subactions": "state working {\n            do action spin : Warm;\n            entry perform Warm;\n        }",
 		"transition first":     "transition first idle then idle;",
 		"named transition":     "transition go first idle then idle;",
@@ -752,10 +750,10 @@ func TestThenIsRefusedWhenTheGraphSequencesFromANonFeature(t *testing.T) {
 	}
 }
 
-// A state's deferral is no feature: a `then` after it sequences from the state
-// before, and a graph that sequences from the deferral itself is refused.
-func TestThenIsRefusedWhenTheGraphSequencesFromADeferral(t *testing.T) {
-	src := "package P {\n    state def S {\n        state x;\n        state a;\n        defer Ping;\n        then state b;\n    }\n}\n"
+// A comment in a state body is no feature: a `then` after it sequences from the
+// state before, and a graph that sequences from the comment itself is refused.
+func TestThenIsRefusedWhenTheGraphSequencesFromAStateBodyComment(t *testing.T) {
+	src := "package P {\n    state def S {\n        state x;\n        state a;\n        comment /* a precedes b */\n        then state b;\n    }\n}\n"
 	turtle, err := convert.Convert("m.sysml", []byte(src), convert.FormatSysML, convert.FormatTurtle)
 	if err != nil {
 		t.Fatalf("to turtle: %v", err)
@@ -772,8 +770,8 @@ func TestThenIsRefusedWhenTheGraphSequencesFromADeferral(t *testing.T) {
 		t.Fatalf("the notation changed\n--- want ---\n%s\n--- got ---\n%s", src, back)
 	}
 	for name, source := range map[string]string{
-		"an earlier state":            "elmt:P__S__x",
-		"the deferral written before": "elmt:P__S___402",
+		"an earlier state":           "elmt:P__S__x",
+		"the comment written before": "elmt:P__S___402",
 	} {
 		t.Run(name, func(t *testing.T) {
 			checkThenIsRefusedWithSource(t, turtle, stated, source)

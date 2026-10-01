@@ -1,0 +1,17 @@
+do: outer
+stmt action body
+enter action node: state behavior buffer
+exit: inner
+enter: seen
+transition: inner -> seen (event: accept Continue)
+exit: seen
+exit: outer (exit action)
+stmt action body
+enter action node: state behavior flush
+  stmt for kept
+    eval feature deferred -> ()
+  stmt assign deferred
+    eval null -> null
+leave action node: state behavior flush
+enter: done
+transition: seen -> done (event: accept Finish)

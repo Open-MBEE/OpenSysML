@@ -156,7 +156,7 @@ branch that moves the integration state onto `main`:
    `client/node` so the lockfile agrees; the release workflow fails before
    building anything when package.json disagrees. `client/java/pom.xml` follows
    the same version too: set the parent pom's `<version>`, both modules'
-   `<parent><version>`, and the client version in `editors/cameo/pom.xml`
+   `<parent><version>`, and the client version in `editors/mdk/pom.xml`
    (`opensysml.client.version`) and `editors/syson/backend/pom.xml` to the same
    spelling as package.json. `client/rust/opensysml/Cargo.toml` follows too:
    set `[package] version` to the same spelling and run
@@ -165,9 +165,9 @@ branch that moves the integration state onto `main`:
    `"version"` in `editors/vscode/package.json` and
    `editors/syson/frontend/package.json`, each lock regenerated with
    `npm install --package-lock-only` in that directory; `<version>` in
-   `editors/cameo/pom.xml` and `editors/syson/pom.xml`; and `<parent><version>`
-   in their child poms (`editors/cameo/plugin`, `editors/cameo/tools`,
-   `editors/cameo/openapi-stubs`, `editors/cameo/dist`, `editors/syson/backend`
+   `editors/mdk/pom.xml` and `editors/syson/pom.xml`; and `<parent><version>`
+   in their child poms (`editors/mdk/plugin`, `editors/mdk/tools`,
+   `editors/mdk/openapi-stubs`, `editors/mdk/dist`, `editors/syson/backend`
    and `editors/syson/syson-api-stubs`). `check_version.py --editors` in
    `build-python-package` fails the release early when any of them disagrees.
    Anything else the release
@@ -1315,7 +1315,7 @@ below applies within two years.
 version, spelled the Maven way, which is the SemVer spelling (`0.9.0-rc1` for
 `0.9.0rc1`): the parent pom's `<version>`, both modules' `<parent><version>`,
 and the client version the editors name (`opensysml.client.version` in
-`editors/cameo/pom.xml`, the `opensysml` dependency in
+`editors/mdk/pom.xml`, the `opensysml` dependency in
 `editors/syson/backend/pom.xml`). `check_version.py --java` in
 `build-python-package` fails the release before anything is built when they
 disagree, and the pytest gate in `test_check_version.py` — including the test

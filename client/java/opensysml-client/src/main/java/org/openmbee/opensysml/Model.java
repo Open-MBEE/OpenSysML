@@ -37,12 +37,20 @@ import org.openmbee.opensysml.proto.VerifyRequirementRequest;
 import org.openmbee.opensysml.proto.VerifyRequirementResponse;
 import org.openmbee.opensysml.proto.VerifySatisfactionRequest;
 import org.openmbee.opensysml.proto.VerifySatisfactionResponse;
+import java.nio.file.Path;
+import java.util.ArrayDeque;
+import java.util.ArrayList;
+import java.util.Comparator;
+import java.util.HashMap;
 import java.util.HashSet;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
+import java.util.function.Predicate;
+import java.util.TreeSet;
 
 /**
  * A model the service has parsed, named by the hash every later call carries.
@@ -64,7 +72,8 @@ import java.util.Set;
  * #convert(String, ConversionOptions)} rewrites it in another format, {@link #runSweep(String,
  * List, SweepOptions)} runs a case, a verification or an analysis once per combination of its
  * swept parameters, {@link #runDocumentQuery(String, Map)} projects its elements through a
- * document query, and {@link #renderDocument(String)} renders a Markdown view over it. An
+ * document query, and {@link #renderDocument(String, DocumentForm)} renders a Markdown or HTML
+ * view over it. An
  * apply-edits refusal is an {@link EditException}, a {@link ModelException} carrying the refusal's
  * {@link EditFailure} and referrers.
  *
@@ -78,15 +87,28 @@ public final class Model {
   private static final String NAME_SUBJECT_SYMBOL_ID = "subjectSymbolId";
   private static final String NAME_SYMBOL_ID = "symbolId";
   private static final String NAME_OPTIONS = "options";
+  private static final String PROPERTY_ID = "@id";
+  private static final String PROPERTY_NAME = "name";
+  private static final String PROPERTY_OWNER = "owner";
 
   private final Connection connection;
   private final String hash;
   private final List<Symbol> roots;
   private final List<Diagnostic> parseDiagnostics;
+  private final List<String> documents;
   private final Optional<String> engine;
 
   Model(Connection connection, String hash, List<Symbol> roots, List<Diagnostic> parseDiagnostics) {
-    this(connection, hash, roots, parseDiagnostics, Optional.empty());
+    this(connection, hash, roots, parseDiagnostics, List.of(), Optional.empty());
+  }
+
+  Model(
+      Connection connection,
+      String hash,
+      List<Symbol> roots,
+      List<Diagnostic> parseDiagnostics,
+      List<String> documents) {
+    this(connection, hash, roots, parseDiagnostics, documents, Optional.empty());
   }
 
   private Model(
@@ -94,11 +116,13 @@ public final class Model {
       String hash,
       List<Symbol> roots,
       List<Diagnostic> parseDiagnostics,
+      List<String> documents,
       Optional<String> engine) {
     this.connection = connection;
     this.hash = hash;
     this.roots = List.copyOf(roots);
     this.parseDiagnostics = List.copyOf(parseDiagnostics);
+    this.documents = List.copyOf(documents);
     this.engine = engine;
   }
 
@@ -152,6 +176,61 @@ public final class Model {
   }
 
   /**
+   * The name of each document, in document order, as diagnostics report it: each path or name a
+   * {@link Connection#parseSources(List)} model was given, the path a loaded file was read from,
+   * none for inline notation or a model addressed by hash alone.
+   *
+   * @return the document names
+   */
+  public List<String> documents() {
+    return documents;
+  }
+
+  /**
+   * The error-severity diagnostics of the parse, which are what makes a model unusable.
+   *
+   * @return the errors among {@link #parseDiagnostics()}, in report order
+   */
+  public List<Diagnostic> errors() {
+    return parseDiagnostics.stream()
+        .filter(diagnostic -> diagnostic.severity() == Diagnostic.Severity.ERROR)
+        .toList();
+  }
+
+  /**
+   * Whether the parse reported no errors. A model with errors is still navigable, but its symbols
+   * may be missing or unresolved, so check this before treating it as the model that was written.
+   *
+   * @return {@code true} when no parse diagnostic has error severity
+   */
+  public boolean ok() {
+    return errors().isEmpty();
+  }
+
+  /**
+   * Requires a parse without errors, for chaining onto a load.
+   *
+   * @return this model
+   * @throws ModelException if the parse reported errors; it carries them as its diagnostics
+   */
+  public Model requireNoErrors() {
+    List<Diagnostic> errors = errors();
+    if (errors.isEmpty()) {
+      return this;
+    }
+    String where = documents.size() == 1 ? documents.get(0) : "the model";
+    StringBuilder summary = new StringBuilder();
+    for (int i = 0; i < Math.min(3, errors.size()); i++) {
+      summary.append(i == 0 ? "" : "; ").append(errors.get(i).message());
+    }
+    if (errors.size() > 3) {
+      summary.append("; ... and ").append(errors.size() - 3).append(" more");
+    }
+    throw new ModelException(
+        where + " has " + errors.size() + " error(s): " + summary, errors);
+  }
+
+  /**
    * The engine this model's verifications, calculations and analyses are put to.
    *
    * @return the engine, absent when the service chooses
@@ -180,7 +259,7 @@ public final class Model {
     if (engine.equals(EXPLORE)) {
       connection.capabilities().require(Capabilities.SCHEDULE_EXPLORE);
     }
-    return new Model(connection, hash, roots, parseDiagnostics, Optional.of(engine));
+    return new Model(connection, hash, roots, parseDiagnostics, documents, Optional.of(engine));
   }
 
   /**
@@ -232,6 +311,209 @@ public final class Model {
         ? Optional.of(Protos.symbol(response.getSymbol()))
         : Optional.empty();
   }
+  /**
+   * A symbol by short name or qualified name, answered from the service's index.
+   *
+   * <p>A symbol's own {@link Symbol#id()} is accepted as well as its short name. Several symbols
+   * may share a short name: the outermost wins, and among those the one declared first. A name
+   * declared in the model wins over a library symbol whose id it is.
+   *
+   * @param name a short name ({@code "Vehicle"}) or a qualified one ({@code "Demo::Vehicle"})
+   * @return the symbol, or empty
+   * @throws CapabilityException if the model has no roots to walk, as an adopted one, and the
+   *     service lacks {@code query}
+   * @throws ServiceException if the service does not hold this model
+   */
+  public Optional<Symbol> find(String name) {
+    Objects.requireNonNull(name, "name");
+    for (Symbol root : roots) {
+      if (root.name().equals(name) || root.id().equals(name)) {
+        return Optional.of(root);
+      }
+    }
+    if (name.contains("::")) {
+      Optional<Symbol> byId = symbolWithId(name);
+      return byId.isPresent() ? byId : symbolNamed(name);
+    }
+    Optional<Symbol> named = symbolNamed(name);
+    return named.isPresent() ? named : symbolWithId(name);
+  }
+
+  /**
+   * A symbol by its {@link Symbol#id()} only, absent when no symbol carries that id.
+   *
+   * @param id a qualified name
+   * @return the symbol, or empty
+   * @throws ServiceException if the service does not hold this model
+   */
+  public Optional<Symbol> get(String id) {
+    Objects.requireNonNull(id, "id");
+    for (Symbol root : roots) {
+      if (root.id().equals(id)) {
+        return Optional.of(root);
+      }
+    }
+    return symbolWithId(id);
+  }
+
+  /**
+   * The raising counterpart of {@link #find(String)}.
+   *
+   * @param name a short name or a qualified one
+   * @return the symbol
+   * @throws SymbolNotFoundException if the model declares no such symbol, naming near names
+   * @throws ServiceException if the service does not hold this model
+   */
+  public Symbol lookup(String name) {
+    return find(name).orElseThrow(() -> new SymbolNotFoundException(name, nearNames(name)));
+  }
+
+  /**
+   * Whether a short name or qualified name names a symbol in this model.
+   *
+   * @param name a short name or a qualified one
+   * @return {@code true} when {@link #find(String)} finds it
+   * @throws ServiceException if the service does not hold this model
+   */
+  public boolean contains(String name) {
+    return find(name).isPresent();
+  }
+
+  private List<String> nearNames(String name) {
+    Map<String, String> declared = new LinkedHashMap<>();
+    if (connection.capabilities().has(Capabilities.QUERY)) {
+      for (QueryElement element : query(Query.all().withSelect(List.of(PROPERTY_NAME)))) {
+        declared.put(element.id(), element.properties().getOrDefault(PROPERTY_NAME, ""));
+      }
+    } else {
+      walk(symbol -> {
+        declared.put(symbol.id(), symbol.name());
+        return false;
+      });
+    }
+    List<String> candidates = new ArrayList<>();
+    declared.forEach(
+        (id, shortName) -> {
+          if (!shortName.isEmpty()) {
+            candidates.add(shortName);
+          }
+          if (!id.isEmpty() && !id.equals(shortName)) {
+            candidates.add(id);
+          }
+        });
+    return NearNames.closest(name, candidates, 3);
+  }
+
+  private Optional<Symbol> symbolWithId(String id) {
+    return findSymbol(id).filter(symbol -> symbol.id().equals(id));
+  }
+
+  private Optional<Symbol> symbolNamed(String name) {
+    if (!connection.capabilities().has(Capabilities.QUERY)) {
+      return walkTo(name);
+    }
+    List<QueryElement> named = queryProperty(PROPERTY_NAME, List.of(name));
+    List<String> ids = new ArrayList<>(named.stream().map(QueryElement::id).toList());
+    if (ids.size() > 1) {
+      Map<String, Integer> depth = depths(named);
+      ids.sort(Comparator.comparing(depth::get));
+    }
+    if (!ok()) {
+      Optional<Symbol> walked = walkTo(name);
+      if (walked.isPresent()) {
+        return walked;
+      }
+    }
+    for (String id : ids) {
+      Optional<Symbol> symbol = symbolWithId(id);
+      if (symbol.isPresent()) {
+        return symbol;
+      }
+    }
+    return Optional.empty();
+  }
+
+  private List<QueryElement> queryProperty(String property, List<String> values) {
+    return query(
+        Query.all()
+            .withSelect(List.of(PROPERTY_OWNER))
+            .where(Condition.equalTo(property, values)));
+  }
+
+  private Map<String, Integer> depths(List<QueryElement> elements) {
+    Map<String, String> owner = new HashMap<>();
+    roots.forEach(root -> owner.put(root.id(), ""));
+    elements.forEach(e -> owner.put(e.id(), e.properties().getOrDefault(PROPERTY_OWNER, "")));
+    Set<String> unknown = unknownOwners(owner);
+    while (!unknown.isEmpty()) {
+      for (QueryElement element : queryProperty(PROPERTY_ID, new ArrayList<>(new TreeSet<>(unknown)))) {
+        owner.put(element.id(), element.properties().getOrDefault(PROPERTY_OWNER, ""));
+      }
+      unknown.forEach(id -> owner.putIfAbsent(id, ""));
+      unknown = unknownOwners(owner);
+    }
+    Set<String> rootIds = new HashSet<>();
+    roots.forEach(root -> rootIds.add(root.id()));
+    Map<String, Integer> depth = new HashMap<>();
+    for (QueryElement element : elements) {
+      String id = element.id();
+      int hops = 0;
+      while (!owner.getOrDefault(id, "").isEmpty()) {
+        id = owner.get(id);
+        hops++;
+      }
+      depth.put(element.id(), rootIds.contains(id) ? hops : hops + 1);
+    }
+    return depth;
+  }
+
+  private static Set<String> unknownOwners(Map<String, String> owner) {
+    Set<String> unknown = new HashSet<>();
+    for (String id : owner.values()) {
+      if (!id.isEmpty() && !owner.containsKey(id)) {
+        unknown.add(id);
+      }
+    }
+    return unknown;
+  }
+
+  private Optional<Symbol> walkTo(String name) {
+    Symbol[] found = new Symbol[1];
+    walk(
+        symbol -> {
+          if (symbol.name().equals(name)) {
+            found[0] = symbol;
+            return true;
+          }
+          return false;
+        });
+    return Optional.ofNullable(found[0]);
+  }
+
+  private void walk(Predicate<Symbol> stop) {
+    if (roots.isEmpty()) {
+      connection.capabilities().require(Capabilities.QUERY);
+    }
+    ArrayDeque<Symbol> queue = new ArrayDeque<>(roots);
+    Set<String> seen = new HashSet<>();
+    while (!queue.isEmpty()) {
+      Symbol current = queue.removeFirst();
+      for (String childId : current.childIds()) {
+        if (!seen.add(childId)) {
+          continue;
+        }
+        Optional<Symbol> child = findSymbol(childId);
+        if (child.isEmpty()) {
+          continue;
+        }
+        if (stop.test(child.get())) {
+          return;
+        }
+        queue.addLast(child.get());
+      }
+    }
+  }
+
 
   /**
    * Evaluates an expression against the model's declarations.
@@ -914,7 +1196,7 @@ public final class Model {
    * @param toFormat the format to write, named as the service names formats ({@code "sysml"},
    *     {@code "kerml"}, {@code "ttl"}, {@code "api-json"}, …)
    * @return the conversion, carrying the text and the formats used
-   * @throws ModelException if the conversion failed; its diagnostics say why
+   * @throws ConversionException if the conversion failed; its diagnostics say why
    * @throws ServiceException if the service does not hold this model
    * @throws CapabilityException if the service does not advertise {@code convert}
    */
@@ -928,7 +1210,7 @@ public final class Model {
    * @param toFormat the format to write
    * @param options the source format and whether unreadable notation is written back anyway
    * @return the conversion, carrying the text and the formats used
-   * @throws ModelException if the conversion failed; its diagnostics say why
+   * @throws ConversionException if the conversion failed; its diagnostics say why
    * @throws ServiceException if the service does not hold this model
    * @throws CapabilityException if the service does not advertise {@code convert}
    */
@@ -942,10 +1224,53 @@ public final class Model {
             .setToFormat(toFormat)
             .setTolerateSyntaxErrors(options.tolerateSyntaxErrors());
     options.fromFormat().ifPresent(request::setFromFormat);
+    options.idForm().ifPresent(request::setIdForm);
     ConvertResponse response =
         connection.call("Convert", request.build(), ConvertResponse.getDefaultInstance());
-    failed(response.getError(), FailureReason.UNSPECIFIED, response.getDiagnosticsList());
+    if (!response.getError().isEmpty()) {
+      throw new ConversionException(
+          response.getError(), Protos.diagnostics(response.getDiagnosticsList()));
+    }
     return Protos.conversion(response);
+  }
+
+  /**
+   * Writes the model to a file, in the format its extension names ({@link Conversion#formatOf}).
+   *
+   * @param path the file, created or truncated
+   * @return the conversion that was written
+   * @throws IllegalArgumentException if the extension names no format
+   * @throws ConversionException if the model could not be written in that format
+   * @throws java.io.UncheckedIOException if the file cannot be written
+   */
+  public Conversion save(Path path) {
+    return save(path, Conversion.formatOf(path), ConversionOptions.defaults());
+  }
+
+  /**
+   * Writes the model to a file in a named format, with options.
+   *
+   * @param path the file, created or truncated
+   * @param toFormat the format to write
+   * @param options the conversion options
+   * @return the conversion that was written
+   * @throws ConversionException if the model could not be written in that format
+   * @throws java.io.UncheckedIOException if the file cannot be written
+   */
+  public Conversion save(Path path, String toFormat, ConversionOptions options) {
+    Objects.requireNonNull(path, "path");
+    Conversion conversion = convert(toFormat, options);
+    conversion.write(path);
+    return conversion;
+  }
+
+  /**
+   * Starts an edit of this model, applied in one call by {@link Editor#apply()}.
+   *
+   * @return an empty editor
+   */
+  public Editor edit() {
+    return new Editor(this);
   }
 
   /**
@@ -1010,6 +1335,35 @@ public final class Model {
             .addAllOperations(Protos.edits(edits))
             .setAcceptDocuments(options.acceptDocuments());
     options.document().ifPresent(request::setDocument);
+    boolean adopted = roots.isEmpty() && documents.isEmpty();
+    Optional<Boolean> several =
+        adopted ? Optional.empty() : Optional.of(Math.max(roots.size(), documents.size()) > 1);
+    ApplyEditsResponse response;
+    if (adopted
+        && options.acceptDocuments()
+        && connection.capabilities().has(Capabilities.EDIT_DOCUMENTS)) {
+      try {
+        response = applyEdits(request.setAcceptDocuments(false));
+        several = Optional.of(false);
+      } catch (ServiceException refused) {
+        if (refused.status() != StatusCode.FAILED_PRECONDITION) {
+          throw refused;
+        }
+        response = applyEdits(request.setAcceptDocuments(true));
+        several = Optional.of(true);
+      }
+    } else {
+      response = applyEdits(request);
+    }
+    EditResult result = Protos.editResult(response);
+    if (several.isEmpty() || several.get() == result.severalDocuments()) {
+      return result;
+    }
+    return new EditResult(
+        result.content(), result.applied(), result.documents(), result.diagnostics(), several.get());
+  }
+
+  private ApplyEditsResponse applyEdits(ApplyEditsRequest.Builder request) {
     ApplyEditsResponse response =
         connection.call("ApplyEdits", request.build(), ApplyEditsResponse.getDefaultInstance());
     if (!response.getError().isEmpty()) {
@@ -1021,7 +1375,7 @@ public final class Model {
           response.getReferringElementsList(),
           Protos.referrers(response.getReferrersList()));
     }
-    return Protos.editResult(response);
+    return response;
   }
 
   /** The order the capabilities an edit request needs are checked in. */
@@ -1227,17 +1581,37 @@ public final class Model {
    * @throws CapabilityException if the service does not advertise {@code render_document}
    */
   public RenderedDocument renderDocument(String documentId) {
+    return renderDocument(documentId, DocumentForm.MARKDOWN);
+  }
+
+  /**
+   * Renders a document declared in the model to Markdown or HTML.
+   *
+   * @param documentId qualified name of the document
+   * @param form the form to render it in
+   * @return the rendered document, byte-for-byte what the command line writes in that form
+   * @throws ServiceException if the model declares no such document or it declares something else
+   * @throws CapabilityException if the service does not advertise {@code render_document}, or
+   *     {@code render_document_html} when HTML is asked for
+   */
+  public RenderedDocument renderDocument(String documentId, DocumentForm form) {
     Objects.requireNonNull(documentId, "documentId");
+    Objects.requireNonNull(form, "form");
     connection.capabilities().require(Capabilities.RENDER_DOCUMENT);
+    if (form == DocumentForm.HTML) {
+      connection.capabilities().require(Capabilities.RENDER_DOCUMENT_HTML);
+    }
     RenderDocumentResponse response =
         connection.call(
             "RenderDocument",
             RenderDocumentRequest.newBuilder()
                 .setModelHash(hash)
                 .setDocumentId(documentId)
+                .setForm(form == DocumentForm.MARKDOWN ? "" : form.wireName())
                 .build(),
             RenderDocumentResponse.getDefaultInstance());
-    return new RenderedDocument(response.getMarkdown());
+    return new RenderedDocument(
+        form, form == DocumentForm.HTML ? response.getHtml() : response.getMarkdown());
   }
 
   private String schedule(ExecutionOptions options, boolean explore) {

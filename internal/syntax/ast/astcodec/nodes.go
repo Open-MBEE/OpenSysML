@@ -28,7 +28,6 @@ const (
 	kindControlFlowEdge
 	kindCrossFeatureMember
 	kindDecisionNode
-	kindDeferMember
 	kindDefinition
 	kindDependency
 	kindDoMember
@@ -130,8 +129,6 @@ func kindOf(node ast.Node) (kind, bool) {
 		return kindCrossFeatureMember, n != nil
 	case *ast.DecisionNode:
 		return kindDecisionNode, n != nil
-	case *ast.DeferMember:
-		return kindDeferMember, n != nil
 	case *ast.Definition:
 		return kindDefinition, n != nil
 	case *ast.Dependency:
@@ -342,11 +339,6 @@ func alloc(k kind, count int, out []ast.Node) []ast.Node {
 		}
 	case kindDecisionNode:
 		block := make([]ast.DecisionNode, count)
-		for i := range block {
-			out = append(out, &block[i])
-		}
-	case kindDeferMember:
-		block := make([]ast.DeferMember, count)
 		for i := range block {
 			out = append(out, &block[i])
 		}
@@ -766,9 +758,6 @@ func (e *Encoder) encodeFields(node ast.Node) {
 		e.nodes(n.Members)
 		e.w.Bool(n.HasBody)
 		e.prefixes(n.Prefixes)
-	case *ast.DeferMember:
-		e.base(&n.NodeBase)
-		e.nodes(n.Triggers)
 	case *ast.Definition:
 		e.base(&n.NodeBase)
 		e.prefixes(n.Prefixes)
@@ -1027,7 +1016,6 @@ func (e *Encoder) encodeFields(node ast.Node) {
 		e.nodes(n.Entry)
 		e.nodes(n.Do)
 		e.nodes(n.Exit)
-		e.nodes(n.Defer)
 		e.nodes(n.Substates)
 		e.regions(n.Regions)
 	case *ast.StateRegion:
@@ -1276,9 +1264,6 @@ func (d *Decoder) decodeFields(node ast.Node) {
 		n.Members = d.nodes()
 		n.HasBody = d.r.Bool()
 		n.Prefixes = d.prefixes()
-	case *ast.DeferMember:
-		d.base(&n.NodeBase)
-		n.Triggers = d.nodes()
 	case *ast.Definition:
 		d.base(&n.NodeBase)
 		n.Prefixes = d.prefixes()
@@ -1537,7 +1522,6 @@ func (d *Decoder) decodeFields(node ast.Node) {
 		n.Entry = d.nodes()
 		n.Do = d.nodes()
 		n.Exit = d.nodes()
-		n.Defer = d.nodes()
 		n.Substates = d.nodes()
 		n.Regions = d.regions()
 	case *ast.StateRegion:

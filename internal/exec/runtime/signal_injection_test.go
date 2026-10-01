@@ -60,7 +60,7 @@ func TestSignalMessageDrivesTheExhibitedMachine(t *testing.T) {
 	if accepted, err := exec.AcceptsMessage(msg); err != nil || !accepted {
 		t.Fatalf("AcceptsMessage(go) = %v, %v; want the lamp in off to accept it", accepted, err)
 	}
-	if d, err := exec.Decide(msg); err != nil || len(d.Fires) != 1 || d.Fires[0] != "transition off_on" || d.Deferred {
+	if d, err := exec.Decide(msg); err != nil || len(d.Fires) != 1 || d.Fires[0] != "transition off_on" {
 		t.Errorf("Decide(go) = %+v, %v; want off_on firing", d, err)
 	}
 	ctx.PostMessage(msg)
@@ -73,7 +73,7 @@ func TestSignalMessageDrivesTheExhibitedMachine(t *testing.T) {
 	if got := activeLeaf(exec); got != "on" {
 		t.Fatalf("state after go = %s, want on", got)
 	}
-	if d, ok := exec.LastDispatch(); !ok || !d.Fired || d.Deferred {
+	if d, ok := exec.LastDispatch(); !ok || !d.Fired {
 		t.Errorf("LastDispatch after go = %+v, %v; want the signal fired on", d, ok)
 	}
 
@@ -116,8 +116,8 @@ func TestSignalMessageDrivesTheExhibitedMachine(t *testing.T) {
 	if err := exec.ProcessNextEvent(); err != nil {
 		t.Fatalf("ProcessNextEvent(Dim 0): %v", err)
 	}
-	if d, ok := exec.LastDispatch(); !ok || d.Fired || d.Deferred {
-		t.Errorf("LastDispatch after a guarded-out Dim = %+v, %v; want dispatched, not fired, not deferred", d, ok)
+	if d, ok := exec.LastDispatch(); !ok || d.Fired {
+		t.Errorf("LastDispatch after a guarded-out Dim = %+v, %v; want dispatched, not fired", d, ok)
 	} else if p, isMsg := d.Event.Payload.(Message); !isMsg || p.SignalType != "Dim" {
 		t.Errorf("LastDispatch carries %T %+v, want the Dim message", d.Event.Payload, d.Event.Payload)
 	}
@@ -387,18 +387,32 @@ func TestSignalIdentityCrossesScopeTrees(t *testing.T) {
 	}
 }
 
-// A message on the bus that the active configuration defers, accepting it
-// nowhere, is the machine's to take: Decide reports it deferred, the step
-// dispatching it holds it, and it fires once a state accepting it is reached.
-// One neither accepted nor deferred is left on the bus.
-func TestPostedMessageTheActiveStateDefersIsHeld(t *testing.T) {
+// A message on the bus that the active configuration keeps through the standard
+// deferred-signal encoding, the accept loop of busy's do action taking it into an
+// ordered buffer, is the machine's to take: Decide reports the do behavior
+// resumed, the step dispatching it keeps it, and once busy is left its exit
+// action sends it to self, so it fires where a state accepts it. One neither
+// accepted nor kept is left on the bus.
+func TestPostedMessageTheActiveStateKeepsIsResent(t *testing.T) {
 	src := `
 		attribute def Ping;
 		attribute def Go;
 		attribute def Noise;
 		state def Worker {
 			entry; then busy;
-			state busy { defer Ping; }
+			state busy {
+				item deferred : Ping[*] ordered;
+				do action buffer {
+					first start then receive;
+					action receive accept kept : Ping;
+					then action keep { assign deferred := SequenceFunctions::including(deferred, receive.kept); }
+					then receive;
+				}
+				exit action flush {
+					for kept in deferred { send kept to self; }
+					then action clear { assign deferred := (); }
+				}
+			}
 			transition first busy accept Go then ready;
 			state ready;
 			transition first ready accept Ping then finished;
@@ -413,13 +427,16 @@ func TestPostedMessageTheActiveStateDefersIsHeld(t *testing.T) {
 		t.Fatalf("Instantiate: %v", err)
 	}
 	exec := server.behaviors[0].State
+	if err := exec.RunToCompletion(); err != nil {
+		t.Fatalf("enter busy: %v", err)
+	}
 
 	noise, err := ctx.SignalMessage(resolveSymbol(t, root, "Noise"), nil, server)
 	if err != nil {
 		t.Fatalf("SignalMessage(Noise): %v", err)
 	}
 	if accepted, err := exec.AcceptsMessage(noise); err != nil || accepted {
-		t.Errorf("AcceptsMessage(Noise) = %v, %v; want it refused in busy, which neither accepts nor defers it", accepted, err)
+		t.Errorf("AcceptsMessage(Noise) = %v, %v; want it refused in busy, which neither accepts nor keeps it", accepted, err)
 	}
 
 	ping, err := ctx.SignalMessage(resolveSymbol(t, root, "Ping"), nil, server)
@@ -427,10 +444,10 @@ func TestPostedMessageTheActiveStateDefersIsHeld(t *testing.T) {
 		t.Fatalf("SignalMessage(Ping): %v", err)
 	}
 	if accepted, err := exec.AcceptsMessage(ping); err != nil || !accepted {
-		t.Fatalf("AcceptsMessage(Ping) = %v, %v; want Ping, deferred in busy, taken", accepted, err)
+		t.Fatalf("AcceptsMessage(Ping) = %v, %v; want Ping, kept in busy, taken", accepted, err)
 	}
-	if d, err := exec.Decide(ping); err != nil || !d.Deferred || len(d.Fires) != 0 {
-		t.Errorf("Decide(Ping) = %+v, %v; want deferred and nothing firing", d, err)
+	if d, err := exec.Decide(ping); err != nil || len(d.Fires) != 0 || len(d.Resumes) != 1 {
+		t.Errorf("Decide(Ping) = %+v, %v; want only busy's do behavior resumed", d, err)
 	}
 	ctx.PostMessage(ping)
 	if !exec.HasPendingSignal() {
@@ -439,14 +456,17 @@ func TestPostedMessageTheActiveStateDefersIsHeld(t *testing.T) {
 	if err := exec.ProcessNextEvent(); err != nil {
 		t.Fatalf("ProcessNextEvent(Ping): %v", err)
 	}
+	if err := exec.RunToCompletion(); err != nil {
+		t.Fatalf("keep Ping: %v", err)
+	}
 	if got := activeLeaf(exec); got != "busy" {
-		t.Fatalf("state after a deferred Ping = %s, want busy", got)
+		t.Fatalf("state after a kept Ping = %s, want busy", got)
 	}
-	if d, ok := exec.LastDispatch(); !ok || d.Fired || !d.Deferred {
-		t.Errorf("LastDispatch after Ping = %+v, %v; want deferred", d, ok)
+	if d, ok := exec.LastDispatch(); !ok || d.Fired || len(d.Resumed) != 1 {
+		t.Errorf("LastDispatch after Ping = %+v, %v; want the do behavior resumed", d, ok)
 	}
-	if held := exec.DeferredEvents(); len(held) != 1 || len(ctx.PendingMessages()) != 0 {
-		t.Fatalf("Ping held = %d, on the bus = %d; want held once and off the bus", len(held), len(ctx.PendingMessages()))
+	if kept := exec.StateData()["busy.deferred"]; sequenceLen(kept) != 1 || len(ctx.PendingMessages()) != 0 {
+		t.Fatalf("Ping kept = %s, on the bus = %d; want kept once and off the bus", FormatValue(kept), len(ctx.PendingMessages()))
 	}
 
 	goMsg, err := ctx.SignalMessage(resolveSymbol(t, root, "Go"), nil, server)
@@ -460,14 +480,14 @@ func TestPostedMessageTheActiveStateDefersIsHeld(t *testing.T) {
 	if got := activeLeaf(exec); got != "ready" {
 		t.Fatalf("state after Go = %s, want ready", got)
 	}
-	if held := exec.DeferredEvents(); len(held) != 0 || exec.EventQueue().Len() != 1 {
-		t.Fatalf("after leaving busy: held = %d, queued = %d; want Ping recalled to the queue", len(held), exec.EventQueue().Len())
+	if kept := exec.StateData()["busy.deferred"]; sequenceLen(kept) != 0 || len(ctx.PendingMessages()) != 1 {
+		t.Fatalf("after leaving busy: kept = %s, on the bus = %d; want the Ping resent to self", FormatValue(kept), len(ctx.PendingMessages()))
 	}
 	if err := exec.ProcessNextEvent(); err != nil {
-		t.Fatalf("ProcessNextEvent(recalled Ping): %v", err)
+		t.Fatalf("ProcessNextEvent(resent Ping): %v", err)
 	}
 	if got := activeLeaf(exec); got != "finished" {
-		t.Fatalf("state after the recalled Ping = %s, want finished", got)
+		t.Fatalf("state after the resent Ping = %s, want finished", got)
 	}
 }
 
@@ -529,8 +549,8 @@ func TestTimerUnderFalseGuardIsNotReportedFired(t *testing.T) {
 			if !ok || d.Event.Type != EventTime {
 				t.Fatalf("LastDispatch = %+v, %v; want the timer dispatched", d, ok)
 			}
-			if d.Fired || d.Deferred {
-				t.Errorf("LastDispatch = %+v; want neither fired nor deferred", d)
+			if d.Fired {
+				t.Errorf("LastDispatch = %+v; want not fired", d)
 			}
 		})
 	}
@@ -615,57 +635,58 @@ func TestDecideLeavesNoBehaviorAGuardMaterializes(t *testing.T) {
 	}
 }
 
-// A message routed to a port of the machine is deferred as one addressed to the
-// machine is: busy defers Ping, which arrives at inPort while busy is active
-// and no transition accepts it there, so the machine takes and holds it; once a
-// timer moves it to ready the held Ping is recalled and taken via inPort.
-func TestPortRoutedMessageTheActiveStateDefersIsHeld(t *testing.T) {
+// A message routed to a port of the machine is kept as one addressed to the
+// machine is: busy's do action accepts Ping via inPort into its buffer while
+// busy is active and no transition accepts it there, so the machine takes and
+// keeps it; once a timer moves it to ready, busy's exit action sends the kept
+// Ping to self, and ready takes it.
+func TestPortRoutedMessageTheActiveStateKeepsIsResent(t *testing.T) {
 	src := `
 		private import SI::*;
 		item def Ping;
 		port def PingPort { in item ping : Ping; }
-		state Radio {
+		part def Radio {
 			port outPort : PingPort;
 			port inPort : PingPort;
 			connect outPort to inPort;
-			entry; then busy;
-			state busy {
-				defer Ping;
-				entry send Ping() via outPort;
+			exhibit state life {
+				entry; then busy;
+				state busy {
+					item deferred : Ping[*] ordered;
+					entry send Ping() via outPort;
+					do action buffer {
+						first start then receive;
+						action receive accept kept : Ping via inPort;
+						then action keep { assign deferred := SequenceFunctions::including(deferred, receive.kept); }
+						then receive;
+					}
+					exit action flush {
+						for kept in deferred { send kept to self; }
+						then action clear { assign deferred := (); }
+					}
+				}
+				transition first busy accept after 5 [s] then ready;
+				state ready;
+				transition first ready accept Ping then finished;
+				state finished;
 			}
-			transition first busy accept after 5 [s] then ready;
-			state ready;
-			transition first ready accept Ping via inPort then finished;
-			state finished;
 		}
 	`
 	idx, _, ctx := buildRuntimeWithLibraries(t, "radio.sysml", parseAndBuild(t, src))
 	root := idx.DocumentRoot("radio.sysml")
-	exec, err := newStateExecutor(ctx, resolveSymbol(t, root, "Radio"), nil)
+	radio, err := ctx.Instantiate(resolveSymbol(t, root, "Radio"))
 	if err != nil {
-		t.Fatalf("newStateExecutor: %v", err)
+		t.Fatalf("Instantiate: %v", err)
 	}
-	if err := exec.initialize(); err != nil {
-		t.Fatalf("initialize: %v", err)
-	}
-	pending := ctx.PendingMessages()
-	if len(pending) != 1 || pending[0].Port != "inPort" {
-		t.Fatalf("after entering busy, on the bus: %+v; want Ping routed to inPort", pending)
-	}
-	if accepted, err := exec.AcceptsMessage(pending[0]); err != nil || !accepted {
-		t.Fatalf("AcceptsMessage(Ping at inPort) = %v, %v; want it taken, deferred in busy", accepted, err)
-	}
-	if d, err := exec.Decide(pending[0]); err != nil || !d.Deferred || len(d.Fires) != 0 {
-		t.Errorf("Decide(Ping via inPort) = %+v, %v; want deferred and nothing firing", d, err)
-	}
-	if err := exec.ProcessNextEvent(); err != nil {
-		t.Fatalf("ProcessNextEvent(Ping): %v", err)
+	exec := radio.behaviors[0].State
+	if err := exec.RunToQuiescence(); err != nil {
+		t.Fatalf("enter busy: %v", err)
 	}
 	if got := activeLeaf(exec); got != "busy" {
-		t.Fatalf("state after a deferred Ping = %s, want busy", got)
+		t.Fatalf("state after a kept Ping = %s, want busy", got)
 	}
-	if held := exec.DeferredEvents(); len(held) != 1 || len(ctx.PendingMessages()) != 0 {
-		t.Fatalf("Ping held = %d, on the bus = %d; want held once and off the bus", len(held), len(ctx.PendingMessages()))
+	if kept := exec.StateData()["busy.deferred"]; sequenceLen(kept) != 1 || len(ctx.PendingMessages()) != 0 {
+		t.Fatalf("Ping kept = %s, on the bus = %d; want the Ping routed to inPort kept once and off the bus", FormatValue(kept), len(ctx.PendingMessages()))
 	}
 	if err := exec.ProcessNextEvent(); err != nil {
 		t.Fatalf("ProcessNextEvent(timer): %v", err)
@@ -673,14 +694,14 @@ func TestPortRoutedMessageTheActiveStateDefersIsHeld(t *testing.T) {
 	if got := activeLeaf(exec); got != "ready" {
 		t.Fatalf("state after the timer = %s, want ready", got)
 	}
-	if held := exec.DeferredEvents(); len(held) != 0 || exec.EventQueue().Len() != 1 {
-		t.Fatalf("after leaving busy: held = %d, queued = %d; want Ping recalled to the queue", len(held), exec.EventQueue().Len())
+	if kept := exec.StateData()["busy.deferred"]; sequenceLen(kept) != 0 || len(ctx.PendingMessages()) != 1 {
+		t.Fatalf("after leaving busy: kept = %s, on the bus = %d; want the Ping resent to self", FormatValue(kept), len(ctx.PendingMessages()))
 	}
 	if err := exec.ProcessNextEvent(); err != nil {
-		t.Fatalf("ProcessNextEvent(recalled Ping): %v", err)
+		t.Fatalf("ProcessNextEvent(resent Ping): %v", err)
 	}
 	if got := activeLeaf(exec); got != "finished" {
-		t.Fatalf("state after the recalled Ping = %s, want finished", got)
+		t.Fatalf("state after the resent Ping = %s, want finished", got)
 	}
 }
 
@@ -975,16 +996,29 @@ func TestSignalGoesToTheSiblingMachineThatFiresOnIt(t *testing.T) {
 	}
 }
 
-// A state that only defers a message takes it without any transition being
-// triggered by it, which the two previews tell apart.
-func TestADeferringMachineTakesWhatNoTransitionIsTriggeredBy(t *testing.T) {
+// A state that only keeps a message, through the accept loop of its do action,
+// takes it without any transition being triggered by it, which the two previews
+// tell apart.
+func TestAKeepingMachineTakesWhatNoTransitionIsTriggeredBy(t *testing.T) {
 	src := `
 		attribute def Ping;
 		attribute def Go;
 		part def Holder {
 			exhibit state main {
 				entry; then busy;
-				state busy { defer Ping; }
+				state busy {
+					item deferred : Ping[*] ordered;
+					do action buffer {
+						first start then receive;
+						action receive accept kept : Ping;
+						then action keep { assign deferred := SequenceFunctions::including(deferred, receive.kept); }
+						then receive;
+					}
+					exit action flush {
+						for kept in deferred { send kept to self; }
+						then action clear { assign deferred := (); }
+					}
+				}
 				transition first busy accept Go then ready;
 				state ready;
 				transition first ready accept Ping then done;
@@ -1004,19 +1038,22 @@ func TestADeferringMachineTakesWhatNoTransitionIsTriggeredBy(t *testing.T) {
 		t.Fatalf("holder exhibits %d machines; want main", len(machines))
 	}
 	main := machines[0].State
+	if err := main.RunToCompletion(); err != nil {
+		t.Fatalf("enter busy: %v", err)
+	}
 	ping, err := ctx.SignalMessage(resolveSymbol(t, root, "Ping"), nil, holder)
 	if err != nil {
 		t.Fatalf("SignalMessage(Ping): %v", err)
 	}
 	if takes, err := main.TakesMessage(ping); err != nil || !takes {
-		t.Fatalf("main.TakesMessage(Ping) in busy = %v, %v; want true, busy defers it", takes, err)
+		t.Fatalf("main.TakesMessage(Ping) in busy = %v, %v; want true, busy keeps it", takes, err)
 	}
 	if triggered, err := main.TriggeredBy(ping); err != nil || triggered {
-		t.Fatalf("main.TriggeredBy(Ping) in busy = %v, %v; want false, busy only defers it", triggered, err)
+		t.Fatalf("main.TriggeredBy(Ping) in busy = %v, %v; want false, busy only keeps it", triggered, err)
 	}
 	decision, err := main.Decide(ping)
-	if err != nil || !decision.Deferred || len(decision.Fires) != 0 {
-		t.Fatalf("main.Decide(Ping) in busy = %+v, %v; want deferred and nothing fired", decision, err)
+	if err != nil || len(decision.Fires) != 0 || len(decision.Resumes) != 1 {
+		t.Fatalf("main.Decide(Ping) in busy = %+v, %v; want only the do behavior resumed and nothing fired", decision, err)
 	}
 }
 
@@ -1442,7 +1479,7 @@ func TestStartLeavesAMessageInFlightToTheDriverSteppingItsMachine(t *testing.T) 
 		t.Fatalf("ProcessNextEvent(Poke): %v", err)
 	}
 	d, ok := gate.State.LastDispatch()
-	if !ok || d.Fired || d.Deferred {
+	if !ok || d.Fired {
 		t.Errorf("last dispatch = %+v, %v; want Poke dispatched, firing nothing", d, ok)
 	}
 	if msg, isSignal := d.Event.Payload.(Message); !isSignal || msg.SignalType != "Poke" {
@@ -1975,5 +2012,170 @@ func TestAcceptTakingLeavesThePortUnmaterialized(t *testing.T) {
 	}
 	if got := len(ctx.instances); got != objects {
 		t.Errorf("%d objects after the preview, want the %d before it", got, objects)
+	}
+}
+
+// A signal queued from outside the model by a name the exhibiting part sees no
+// definition of is typed by the accept that takes it, as that accept's own scope
+// names it — here the machine's private import, which the owning part never
+// sees — so the transition's payload binds and the accept loop of the standard
+// deferred-signal encoding keeps the occurrence, as they do for a `send Ping`
+// from the model.
+func TestQueuedSignalIsTypedWhereTheAcceptIsWritten(t *testing.T) {
+	src := `
+		package Signals {
+			attribute def Ping;
+			attribute def Go;
+		}
+		state def Worker {
+			private import Signals::*;
+			entry; then idle;
+			state idle;
+			transition first idle accept kept : Ping then busy;
+			state busy {
+				item deferred : Ping[*] ordered;
+				do action buffer {
+					first start then receive;
+					action receive accept kept : Ping;
+					then action keep { assign deferred := SequenceFunctions::including(deferred, receive.kept); }
+					then receive;
+				}
+				exit action flush {
+					for kept in deferred { send kept to self; }
+					then action clear { assign deferred := (); }
+				}
+			}
+			transition first busy accept Go then done;
+			state done;
+		}
+		part def Server { exhibit state worker : Worker; }
+	`
+	idx, _, ctx := buildRuntimeWithLibraries(t, "worker.sysml", parseAndBuild(t, src))
+	server, err := ctx.Instantiate(resolveSymbol(t, idx.DocumentRoot("worker.sysml"), "Server"))
+	if err != nil {
+		t.Fatalf("Instantiate: %v", err)
+	}
+	exec := server.behaviors[0].State
+	if err := exec.RunToCompletion(); err != nil {
+		t.Fatalf("enter idle: %v", err)
+	}
+	if err := exec.Enqueue(QueuedEvent{Signal: "Ping"}); err != nil {
+		t.Fatalf("queue Ping: %v", err)
+	}
+	if err := exec.RunToQuiescence(); err != nil {
+		t.Fatalf("take Ping in idle: %v", err)
+	}
+	if got := activeLeaf(exec); got != "busy" {
+		t.Fatalf("state after Ping = %s, want busy", got)
+	}
+	if err := exec.Enqueue(QueuedEvent{Signal: "Ping"}); err != nil {
+		t.Fatalf("queue a second Ping: %v", err)
+	}
+	if err := exec.RunToQuiescence(); err != nil {
+		t.Fatalf("keep Ping in busy: %v", err)
+	}
+	if kept := exec.StateData()["busy.deferred"]; sequenceLen(kept) != 1 {
+		t.Fatalf("Ping kept = %s; want the second Ping kept once", FormatValue(kept))
+	}
+	if err := exec.Enqueue(QueuedEvent{Signal: "Go"}); err != nil {
+		t.Fatalf("queue Go: %v", err)
+	}
+	if err := exec.RunToQuiescence(); err != nil {
+		t.Fatalf("leave busy: %v", err)
+	}
+	if got := activeLeaf(exec); got != "done" {
+		t.Fatalf("state after Go = %s, want done", got)
+	}
+}
+
+// A signal queued from outside the model is what its name denotes to the
+// exhibiting part, as a `send` written there is: where the part sees a Ping, the
+// queued Ping is that one, and a transition the machine inherits, written
+// against it, takes it — even though the machine's own body imports another
+// Ping under the same name, which is not the one queued.
+func TestQueuedSignalIsWhatItsNameDenotesToTheExhibitingPart(t *testing.T) {
+	src := `
+		package Base {
+			attribute def Ping;
+			state def Machine {
+				entry; then idle;
+				state idle;
+				transition first idle accept Ping then done;
+				state done;
+			}
+		}
+		package Other {
+			attribute def Ping;
+		}
+		package Hosts {
+			private import Base::*;
+			state def Derived :> Machine {
+				private import Other::*;
+			}
+			part def Host { exhibit state m : Derived; }
+		}
+	`
+	idx, _, ctx := buildRuntimeWithLibraries(t, "hosts.sysml", parseAndBuild(t, src))
+	host, err := ctx.Instantiate(oneSymbol(t, idx, "Hosts::Host"))
+	if err != nil {
+		t.Fatalf("Instantiate: %v", err)
+	}
+	exec := host.behaviors[0].State
+	if err := exec.RunToCompletion(); err != nil {
+		t.Fatalf("enter idle: %v", err)
+	}
+	if err := exec.Enqueue(QueuedEvent{Signal: "Ping"}); err != nil {
+		t.Fatalf("queue Ping: %v", err)
+	}
+	if err := exec.RunToQuiescence(); err != nil {
+		t.Fatalf("take Ping: %v", err)
+	}
+	if got := activeLeaf(exec); got != "done" {
+		t.Fatalf("state after Ping = %s, want done: the inherited transition takes the Ping the host sees", got)
+	}
+}
+
+// A queued subtype the exhibiting part sees no definition of, but the machine's
+// own private import declares, satisfies an accept of its supertype by
+// conformance in the accept's scope, as a sent occurrence does, and binds as
+// the subtype it is.
+func TestQueuedSignalOnlyTheMachineSeesMatchesASupertypeAcceptByConformance(t *testing.T) {
+	src := `
+		package Signals {
+			attribute def Base;
+			attribute def Derived :> Base;
+		}
+		state def Worker {
+			private import Signals::*;
+			entry; then idle;
+			state idle;
+			transition first idle accept got : Base then done;
+			state done;
+		}
+		part def Host { exhibit state m : Worker; }
+	`
+	idx, _, ctx := buildRuntimeWithLibraries(t, "hosts.sysml", parseAndBuild(t, src))
+	host, err := ctx.Instantiate(oneSymbol(t, idx, "Host"))
+	if err != nil {
+		t.Fatalf("Instantiate: %v", err)
+	}
+	exec := host.behaviors[0].State
+	if err := exec.RunToCompletion(); err != nil {
+		t.Fatalf("enter idle: %v", err)
+	}
+	if err := exec.Enqueue(QueuedEvent{Signal: "Derived"}); err != nil {
+		t.Fatalf("queue Derived: %v", err)
+	}
+	if err := exec.RunToQuiescence(); err != nil {
+		t.Fatalf("take Derived: %v", err)
+	}
+	if got := activeLeaf(exec); got != "done" {
+		t.Fatalf("state after Derived = %s, want done: accept Base takes the Derived the machine's import declares", got)
+	}
+	if err := exec.Enqueue(QueuedEvent{Signal: "Unknown"}); err != nil {
+		t.Fatalf("queue Unknown: %v", err)
+	}
+	if err := exec.RunToQuiescence(); err != nil {
+		t.Fatalf("drop Unknown: %v", err)
 	}
 }

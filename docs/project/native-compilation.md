@@ -333,11 +333,11 @@ sysml system.sysml -compile Vehicle::Sim -o sim         # a part, action, state 
 | `constraint`, `assert constraint` | Boolean functions, evaluated at the points the interpreter checks, with the interpreter's verdicts (`true`/`false`/unresolved) |
 | `requirement`, `satisfy` | one record per requirement: `assume` gates `require`, nested requirements roll up, `satisfy … by P` specializes the predicates to `P`'s struct; a `--verify` report per assertion |
 | `action` | the `ActionGraph`: straight-line code where token flow is deterministic, a scheduler loop where fork/join/accept make it concurrent |
-| `state` | the `StateGraph` as an event loop: dispatch on state × trigger, guards and effects inlined, `defer` as a per-state mask, routing pseudostates as edges |
+| `state` | the `StateGraph` as an event loop: dispatch on state × trigger, guards and effects inlined, routing pseudostates as edges |
 | `document def`, `view def` | the `docplan` and its `queryplan` programs emitted as code over the compiled structs; output is Markdown or the `docir` tree; PDF remains the external converter's job |
 | Library functions (OMG `RealFunctions`, `TrigFunctions`, `CollectionFunctions`; OpenSysML `OpenSysMLMathFunctions`) | a precompiled runtime (`libm` / Go `math`) with the interpreter's domain and arity errors, not re-lowered per model |
 | `metadata`, `IdentityMetadata` | constant tables, so a compiled program still reports identities and tags |
-| Extension notations (`defer`, `choice`, `junction`, `history`) | already lowered into the `StateGraph`; compile as any other vertex or edge. `-strict` gates them before codegen, as today |
+| Extension notations (`choice`, `junction`, `history`) | already lowered into the `StateGraph`; compile as any other vertex or edge. `-strict` gates them before codegen, as today |
 
 Interpreter-only, refused by the compiler with a named error: SMT-backed satisfiability
 (`internal/exec/solve`), REPL introspection and `%trace`, instance adoption across edits, the
@@ -410,9 +410,9 @@ action conformance corpus and golden traces match; deadlock and unbound-paramete
 cases give the same typed errors.
 
 **Phase 6 — State machines.**
-IR: `StateGraph` → `Machine{States, Regions, Transitions, Deferred}`; the emitted event loop
+IR: `StateGraph` → `Machine{States, Regions, Transitions}`; the emitted event loop
 dispatches on `(state, trigger)`, evaluates guards, runs exit/effect/entry in the interpreter's
-order, tracks history and deferral, and reports quiescence. `--step` and `--until` drive it.
+order, tracks history, and reports quiescence. `--step` and `--until` drive it.
 Exit: the state conformance corpus, golden traces and the pseudostate robustness cases match; a
 long-run simulation benchmark (events/second) joins the checkpoint.
 

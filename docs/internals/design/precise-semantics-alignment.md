@@ -121,9 +121,9 @@ which of the unaccepted transfers are never to be accepted (dispatched)"; `State
 gives a `StatePerformance` `acceptable`, `accepted [0..1]` and `deferrable`. *Runtime:* each
 `StateExecutor` owns an `eventQueue` (a heap, `executor_common.go:eventHeap`) fed by
 `SendSignal` and by the object's message bus, and `state_executor.go:runStep` dequeues one
-occurrence per step; an occurrence no active state accepts or defers is dropped
-(`state_undeferred_event`, `TestUndeferredEventIsDroppedWhereNoTransitionHandlesIt` in
-`state_deferred_test.go`). Delivery from a sibling behavior to a waiting machine:
+occurrence per step; an occurrence no active state accepts is dropped
+(conformance `state_undeferred_event`,
+`state_composite_transition_test.go:TestUndeferredEventIsDroppedWhereNoTransitionHandlesIt`). Delivery from a sibling behavior to a waiting machine:
 `classifier_behavior_test.go:TestStateDoBehaviorAwaitingAMessageIsWokenByASibling`. **agrees.**
 
 **SM2. The run-to-completion step.** PSSM §8.5.4: the state-machine configuration "changes during a
@@ -175,8 +175,9 @@ includes(t1.endShot.successors, t2.endShot)`", the transfer that ended earlier i
 *Runtime:* `executor_common.go:eventHeap.Less` orders by timestamp, then completion before ordinary
 at one timestamp, then by arrival ID; because a run drains the current instant before the clock
 moves (`runCounting`, SM41), ties on the timestamp are the rule and the order is completion first,
-then arrival. `TestDeferredEventsKeepTheirArrivalOrder`, `TestRecalledEventPrecedesLaterArrivals`
-(`state_deferred_test.go`), `signal_injection_test.go:TestRunToCompletionTakesAPendingSignalBeforeALaterTimer`.
+then arrival; a replayed occurrence is a fresh arrival and queues behind what is already there
+(conformance `state_deferred_signal_kept_and_replayed`),
+`signal_injection_test.go:TestRunToCompletionTakesAPendingSignalBeforeALaterTimer`.
 No fixture on `develop` isolates the completion-before-signal tie; `eventHeap.Less` is the
 whole rule and [bounded model checking](bounded-model-checking.md) records it as the queue's
 invariant. **agrees.**
@@ -186,8 +187,7 @@ activation defers an occurrence when some active state declares a `deferrableTri
 *and* "there is no Transition with a higher priority and able to react to the EventOccurrence in
 the active StateMachineConfiguration"; the occurrence is moved to the `deferredEventPool` and
 returns to the regular pool when the deferring state leaves the configuration. *v2/KerML:* SysML v2
-§7.18 has no production for deferral (the grammar page of this project records `defer` as an
-extension); the library has `StatePerformance::deferrable: Transfer[0..*] subsets acceptable` —
+§7.18 has no production for deferral; the library has `StatePerformance::deferrable: Transfer[0..*] subsets acceptable` —
 transfers that "can be considered for acceptance more than once" — and the `isDispatch`
 invariant's `includes(oSP.deferrable, accableT)` clause, and says nothing about priority between
 a deferral and a transition. *Runtime:* `state_executor.go:dispatchEvent` defers only when no
@@ -199,6 +199,16 @@ defers it. `state_deferred_event`, `TestDeferredEventIsDeliveredAfterLeavingTheD
 `TestEventBlockedByAGuardIsStillDeferred` (a guard that fails does not consume, so the occurrence
 is deferred). **agrees** on the mechanism;
 the priority rule is SM7.
+*Since removed:* the `defer <event>;` state member was this project's extension and is gone with
+`defersEvent`, `recallDeferredEvents` and the rest of the runtime's deferral machinery. A
+deferred signal is written in standard notation — an ordered buffer, a do action whose accept
+loop keeps each occurrence while the state is active, an exit action that sends each kept
+occurrence to `self` (`docs/reference/sysml-v1-migration.md`, *Deferred signals*) — and runs on
+the ordinary do-behavior and `send` machinery; `state_deferred_signal_kept_and_replayed` and
+`state_guard_reads_deferred_payload` pin it. The mechanism still **agrees** for a signal: the
+occurrence is kept while the state is active and dispatched once it is left. A deferred operation
+call has no standard spelling (the buffer holds signals), which the PSSM referee classifies
+`not-expressible`.
 
 **SM6. Order of released deferred events.** PSSM §8.4: released occurrences "are placed in that pool
 after all existing CompletionEventOccurrences, but before any other EventOccurrence already in the
@@ -208,6 +218,13 @@ end, i.e. ahead of later arrivals. *Runtime:* `recallDeferredEvents` re-stamps a
 occurrence with the current clock time but keeps its arrival ID, so `eventHeap.Less` places it
 behind completion events at that instant and ahead of every later arrival, in its original order.
 `TestRecalledEventPrecedesLaterArrivals`, `TestDeferredEventsKeepTheirArrivalOrder`. **agrees.**
+*Since removed:* with the extension gone, a kept occurrence is re-sent to `self` as the state is
+left, an ordinary send that lands behind every occurrence already pooled — the ones that arrived
+meanwhile and the ones the state's own exit behavior sent — and the kept occurrences of one
+signal replay in their arrival order but different signals in the order the flush names them,
+not in one pooled order. **differs, v2 differs**: the standard encoding has no way to place a
+re-sent occurrence ahead of the pool, and this project no longer has a rule of its own to put
+there. *Deferred 001* and *Deferred 005* report on this row (`docs/project/pssm-referee.md`).
 
 **SM7. Deferral against a transition elsewhere in the configuration.** PSSM §8.5.5 condition 2
 above, read with §8.5.2 ("transition priorities, which are relative to the level of nesting of
@@ -247,6 +264,18 @@ by `state_deferral_outranks_sibling_region` (*Deferred 004-A*),
 `TestTransitionNestedInTheDeferringStateOverridesDeferral`,
 `TestDeferralInEachRegionMustBeOverriddenForTheEventToFire` and
 `TestDeferredEventIsDeliveredAfterLeavingTheDeferringState` in `state_deferred_test.go`.
+*Since removed:* that decision went with the extension. `deferralOutranks`, `deferringStates`
+and the fixtures above are gone; under the standard encoding the accept loop is a do behavior
+and gets no priority, so a transition in an enclosing state or a sibling region that accepts the
+signal fires whenever it is enabled, and only a transition nested in the buffering state consumes
+the occurrence ahead of it because it is nearer the leaf (SM4). Pinned by
+`state_deferred_buffer_yields_to_enclosing_transition`,
+`state_deferred_buffer_yields_to_sibling_region_transition`,
+`state_deferred_buffer_nested_yields_to_sibling_region_transition` and
+`state_deferred_buffer_yields_to_nested_transition`. **differs, v2 silent**, and the rule is not
+this project's to choose any more: PSSM's priority has no standard SysML v2 spelling, which
+`docs/project/spec-compliance.md` records as a known loss. *Deferred 003*, *004 A* and *004 B*
+report on this row.
 
 #### Completion events and completion transitions
 
@@ -443,7 +472,7 @@ accepter registration"): a do activity's `accept` is registered as an event acce
 StateMachine that invoked it to accept EventOccurrences dispatched from the same eventPool", and
 fUML §8.8.2.11 `ObjectActivation::dispatchNextEvent` dispatches an occurrence "to exactly one of
 those waiting accepters", chosen by the `ChoiceStrategy`; two rules give the do activity the
-occurrence when the machine would defer it. *v2/KerML:* `Performances.kerml` gives every
+occurrence when the machine would have deferred it under the extension. *v2/KerML:* `Performances.kerml` gives every
 performance its own `dispatchScope` (SM3), so a do sub-performance and the enclosing state
 performance are separate scopes and nothing in `StatePerformances.kerml` says one transfer may
 reach only one of them. *Runtime:* `broadcastEvent` computes the selected transitions first, then
@@ -1563,7 +1592,7 @@ which supersede the hand count this section was first written with — the moves
 | Completion transition | `transition first s then t` / `succession first s then t` with no accepter (§7.18.3) | standard |
 | Orthogonal regions | `parallel` states (§7.18.1) | standard |
 | Call event trigger | `accept op(args)` on an operation invocation, as `state_call_trigger` spells it | standard, with the caller-return caveat of A14 |
-| Deferrable trigger | `defer Sig;` — this project's extension | extension |
+| Deferrable trigger | the standard encoding: `item deferred : Sig[*] ordered;`, a do action whose accept loop keeps each occurrence, an exit action that sends each kept occurrence to `self` (`docs/reference/sysml-v1-migration.md`, *Deferred signals*); the `defer Sig;` extension this row once named is removed | standard for a signal; a deferred operation call, and a deferral in a state an unguarded completion transition leaves, have no spelling |
 | Fork, join, junction, choice, shallow and deep history pseudostates | State-body `fork`/`join`/`junction`/`choice`/`history`/`deep history` — this project's extensions | extension |
 | Terminate pseudostate | A terminate action usage in the region, `action t terminate;`, that a transition ends at with `then t` (§7.18.3; SM38) | standard |
 | Entry point, exit point (connection points and connection point references) | none in standard notation. The migrator's reading, established since this table was drawn: a composite state's entry or exit point is a `junction` of that state (a `fork`/`join` when its transitions each start, or come from, a different orthogonal region), reached by path — `then Work::start;`, `first Work::leave then Idle;` — so the runtime runs the state's entry behavior before the junction's outgoing transition, and the transition into the junction before the state's exit behavior, the order UML §14.2.3.4.5 and PSSM §8.5 give connection points; see [sysml-v1-migration.md](../../reference/sysml-v1-migration.md#behaviors). The referee's classifier still counts the construct here, so the table below is unchanged until the referee is rewired onto the migrator | no spelling (referee); extension (migrator) |
@@ -1603,17 +1632,18 @@ area:
 | Final | 1 | 1 | 0 | 0 |
 | Terminate | 3 | 3 | 0 | 0 |
 | History | 8 | 0 | 8 | 0 |
-| Deferred | 10 | 0 | 10 | 0 |
+| Deferred | 10 | 6 | 0 | 4 |
 | Redefinition | 6 | 0 | 0 | 6 |
 | Standalone | 3 | 1 | 0 | 2 |
 | Other | 1 | 0 | 0 | 1 |
-| **Total** | **103** | **41** | **32** | **30** |
+| **Total** | **103** | **47** | **22** | **34** |
 
-Of the 29 with no v2 spelling, 14 use an entry point, 12 an exit point, 9 a local transition, 2
-an internal transition and 6 the redefinition machinery (several use more than one). Of the
-expressible tests, 20 use orthogonal regions, 9 a do activity, 9 deferral, 8
-history, 6 a junction, 4 a choice and 5 a fork or join; seven (*Event 019-A* to *019-E*,
-*Deferred 007*, *Standalone 003*) have a call event the tester calls synchronously, five of
+Of the 33 with no v2 spelling, 14 use an entry point, 12 an exit point, 9 a local transition, 2
+an internal transition, 6 the redefinition machinery, 1 a deferred operation call and 3 a
+deferral in a state an unguarded completion transition leaves (several use more than one). Of
+the expressible tests, 20 use orthogonal regions, 9 a do activity, 6 deferral, 8
+history, 6 a junction, 4 a choice and 5 a fork or join; six (*Event 019-A* to *019-E*,
+*Standalone 003*) have a call event the tester calls synchronously, five of
 them tracing after it and four of those its result. Three with a call event (*Event 019-B*,
 *019-C*) or a signal (*Event 017-B*) have an exit behavior that reads the leaving transition's
 data.
@@ -1939,9 +1969,9 @@ arrives while the first state defers it, `AnotherSignal` moves the machine to th
 recalled `Continue` fires its transition ahead of the later `Pending`, and the third state's
 completion transition ends the machine with `Pending` never dispatched. The expected trace is the
 first state's exit segment, the second's entry, the recalled transition's effect and the third's
-entry, in that order. Written by hand from the figure with this project's `defer`, the states
-and transitions renamed for the translation (`deferring`, `released`, `last`; `recall`,
-`lapsed`):
+entry, in that order. Written by hand from the figure in the standard deferred-signal encoding,
+the states and transitions renamed for the translation (`deferring`, `released`, `last`;
+`recall`, `lapsed`):
 
 ```sysml
 package Deferred001 {
@@ -1953,8 +1983,18 @@ package Deferred001 {
         entry; then wait;
         state wait;
         state deferring {
-            defer Continue;
-            exit action { assign log := log + "deferring(exit)::"; }
+            attribute deferred : Continue[*] ordered;
+            do action buffer {
+                first start then receive;
+                action receive accept kept : Continue;
+                then action keep { assign deferred := SequenceFunctions::including(deferred, receive.kept); }
+                then receive;
+            }
+            exit action flush {
+                action run { assign log := log + "deferring(exit)::"; }
+                then for kept in deferred { send kept to self; }
+                then action clear { assign deferred := (); }
+            }
         }
         state released {
             entry action { assign log := log + "released(entry)::"; }
@@ -1976,9 +2016,13 @@ package Deferred001 {
 
 The case's `events` would list `Start`, `Continue`, `AnotherSignal`, `Pending` and its `slots`
 the expected `log`, `deferring(exit)::released(entry)::recall(effect)::last(entry)`. Every step
-of it lands on an **agrees** row (SM4 dispatch order, SM5 deferral, SM6 recall order, SM8/SM10
-completion ahead of `Pending`), which is exactly why a pass would corroborate but not adjudicate: v2 and PSSM say the same thing here. The example is prose,
-not a fixture, and whether the runtime passes it is not asserted.
+of it but one lands on an **agrees** row (SM4 dispatch order, SM5 deferral, SM8/SM10
+completion ahead of `Pending`); the one is SM6, where the kept `Continue`, re-sent to `self` as
+`deferring` is left, lands behind the `Pending` already pooled and `lapsed` fires instead of
+`recall`. That is the movement the referee records for this test (`differs-by-design` on SM6),
+and the example shows why a pass would only have corroborated: where v2 and PSSM say the same
+thing the run agrees, and where the encoding cannot say what PSSM says it does not. The example
+is prose, not a fixture.
 
 *Transition 011-D* (PSSM §9.3.3.7, Figure 9.17) is the other kind: a *local* transition out of
 a composite state to one of its own exit points, whose purpose is "to demonstrate that, when a local
@@ -2017,8 +2061,9 @@ Track E of the roadmap, on its acceptance gate, and on what a user would see.
 - **Scope.** Nine rows. For each, decide between the runtime's rule and PSSM's, record the
   decision in the row and in `docs/project/spec-compliance.md`, and implement the changes that
   fall out. The map suggests the split: **adopt PSSM** on SM7 (deferral outranks a transition in
-  an enclosing state or a sibling region — the runtime's rule makes `defer` ineffective whenever
-  any other region reacts, which defeats the purpose of the extension) and SM28 (an empty history
+  an enclosing state or a sibling region — the runtime's rule made the deferral extension
+  ineffective whenever any other region reacted, which defeated its purpose; the extension and
+  the decision have since been removed together, see the row) and SM28 (an empty history
   with no default falls back to the region's initial transition — a refusal serves no v2 rule,
   and UML is the extension's reference); **keep ours, and say so** on SM30 and SM32 (the
   runtime's static evaluation of choice and junction guards is one rule for both vertices and is
@@ -2043,8 +2088,8 @@ Track E of the roadmap, on its acceptance gate, and on what a user would see.
   `TestEventConsumedByAnotherRegionIsNotDeferred` pins, and that test is rewritten *with* the
   decision, not deleted), the spec-compliance row updated, and the semantic-map row here gaining
   a "*Decided:*" sentence.
-- **User-visible change.** Two models behave differently: one with `defer` beside a reacting
-  sibling region, and one entering an unvisited `history` without a default transition (a run
+- **User-visible change.** Two models behave differently: one deferring a signal beside a
+  reacting sibling region, and one entering an unvisited `history` without a default transition (a run
   that failed now proceeds). Nothing else moves.
 
 ### (b) Also build the referee harness as an advisory, opt-in gate
@@ -2114,11 +2159,11 @@ Track E of the roadmap, on its acceptance gate, and on what a user would see.
 - **Scope.** Leave the ten `differs, v2 silent` rows as they are, this note as the record
   that they were examined, and the three gaps to Track E.
 - **Dependencies, gate, user-visible change.** None.
-- **What it leaves.** SM7 — a `defer` that any sibling region's reaction overrides — is a rule
+- **What it leaves.** SM7 — a deferral that any sibling region's reaction overrides — is a rule
   this project chose without the alternative in view; it stays chosen. SM28 stays a run failure
   where UML, the extension's own reference, proceeds. The architecture's fallback clause ("UML
   2.5.1 where v2 has no production and the library no performance") would then be applied to the
-  *existence* of `history`, `fork`, `join`, `choice`, `junction` and `defer` but not to their
+  *existence* of `history`, `fork`, `join`, `choice`, `junction` and the deferral member but not to their
   *semantics* on these rows, which is a harder position to defend than either (a) or (d)'s
   simplicity suggests.
 
@@ -2512,12 +2557,13 @@ Addressed to the maintainers; each gives the options and the lean.
    exit actions wrote.
 3. **SM7 — does a deferral outrank a transition in a sibling region?** *Options:* (i) adopt
    PSSM: only a more deeply nested transition overrides a deferral; (ii) keep the runtime's rule
-   and document it as the meaning of `defer` in this project. *Lean:* (i), for the reason given
-   under option (a); it rewrites `TestEventConsumedByAnotherRegionIsNotDeferred`'s expectation,
-   which is the decision's cost and should be made knowingly. *Decided:* (i); see SM7. That test
-   is now `TestDeferralOutranksASiblingRegionsTransition`, pinning the sibling's transition
-   waiting for the release. With two orthogonal regions each deferring, every deferring state must
-   be overridden for the occurrence to fire.
+   and document it as the meaning of the deferral extension in this project. *Lean:* (i), for
+   the reason given under option (a); it rewrites
+   `TestEventConsumedByAnotherRegionIsNotDeferred`'s expectation, which is the decision's cost
+   and should be made knowingly. *Decided:* (i); see SM7 — and *since undone with the
+   extension*: the deferral member is removed, the standard encoding gives a buffering state no
+   priority, and the fixtures that pinned (i) are replaced by ones pinning the sibling's
+   transition firing.
 4. **SM28 — empty history with no default transition.** *Options:* (i) adopt PSSM: perform the
    region's default entry; (ii) keep the run failure. *Lean:* (i); the failure protects no v2
    rule, and UML is the extension's stated reference. *Decided:* (i); see SM28. The run failure

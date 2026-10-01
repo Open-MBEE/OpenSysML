@@ -278,37 +278,35 @@ func (s *Session) Transitions(object InstanceID) (transitions []Transition, err 
 
 // Acceptance is what dispatching a signal to an object would do now, read from
 // the machines dispatch would let take it, as Advance does: a machine yields a
-// signal it would only drop to a sibling that would fire on or defer it. Where
+// signal it would only drop to a sibling that would fire on it. Where
 // several would take it, the schedule's due order decides which consumes it.
 type Acceptance struct {
 	// Accepted reports whether a transition out of an active state of a taking
 	// machine is triggered by the signal, whatever its guard. A signal only
-	// deferred, or only resuming a do behavior, is not Accepted.
+	// resuming a do behavior is not Accepted.
 	Accepted bool
 	// Fires lists the transitions that would fire, taking machine by taking
 	// machine in exhibit order, each machine's in the order they would.
 	Fires []Transition
-	// Deferred reports whether the active state defers the signal.
-	Deferred bool
-	// Resumes names the states a deferred signal would resume.
+	// Resumes names the states whose do behavior the signal would resume.
 	Resumes []string
 }
 
 // Enabled reports whether the machine would do something with the signal: a
-// transition fires, or the signal is deferred or resumes a state. An accepted
+// transition fires, or the signal resumes a state. An accepted
 // signal that is not enabled is one whose every transition's guard is false.
 func (a *Acceptance) Enabled() bool {
-	return a != nil && (len(a.Fires) > 0 || a.Deferred || len(a.Resumes) > 0)
+	return a != nil && (len(a.Fires) > 0 || len(a.Resumes) > 0)
 }
 
 // Taken reports whether a machine would take the signal at all, whether to
-// fire, defer, resume, or drop it because every guard is false.
+// fire, resume, or drop it because every guard is false.
 func (a *Acceptance) Taken() bool {
 	return a != nil && (a.Accepted || a.Enabled())
 }
 
 func acceptanceFromFact(a *sysmlgrpc.SessionAcceptance) *Acceptance {
-	out := &Acceptance{Accepted: a.Accepted, Deferred: a.Deferred, Resumes: append([]string(nil), a.Resumes...)}
+	out := &Acceptance{Accepted: a.Accepted, Resumes: append([]string(nil), a.Resumes...)}
 	for _, t := range a.Fires {
 		out.Fires = append(out.Fires, transitionFromFact(t))
 	}

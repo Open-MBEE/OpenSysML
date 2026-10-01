@@ -9,6 +9,7 @@ import (
 	"go.lsp.dev/protocol"
 	"go.lsp.dev/uri"
 
+	"github.com/Open-MBEE/OpenSysML/internal/syntax/diag"
 	"github.com/Open-MBEE/OpenSysML/internal/workspace/model"
 )
 
@@ -137,6 +138,42 @@ func TestPublishDiagnosticsReportsBareImportAsError(t *testing.T) {
 	}
 	if d.Range != want {
 		t.Errorf("range = %v, want %v (the `import` keyword)", d.Range, want)
+	}
+}
+
+// The removed `defer <event>;` state member reaches the editor as one error
+// carrying the parser's stable code, in either conformance mode, and the rest
+// of the state body is still analysed.
+func TestPublishDiagnosticsReportsRemovedDeferNotation(t *testing.T) {
+	for _, mode := range []diag.ConformanceMode{diag.ConformanceDefault, diag.ConformanceStrict} {
+		ws := model.NewWorkspace(model.WithConformanceMode(mode))
+		s := NewServer(ws)
+		fc := &fakeClient{}
+		s.client = fc
+
+		name := "legacy.sysml"
+		ws.Open(name, []byte("package P {\n    attribute def Alarm;\n    state def S {\n        state a {\n            defer Alarm;\n        }\n        state b;\n    }\n}\n"), 1)
+		s.publishDiagnostics(context.Background(), name)
+
+		published := fc.all()
+		if len(published) != 1 || len(published[0].Diagnostics) != 1 {
+			t.Fatalf("%v: published = %v, want one diagnostic", mode, published)
+		}
+		d := published[0].Diagnostics[0]
+		if d.Severity != protocol.DiagnosticSeverityError {
+			t.Errorf("%v: severity = %v, want %v", mode, d.Severity, protocol.DiagnosticSeverityError)
+		}
+		if d.Code != "defer-notation-removed" {
+			t.Errorf("%v: code = %v, want %q", mode, d.Code, "defer-notation-removed")
+		}
+		if d.Range.Start != (protocol.Position{Line: 4, Character: 12}) {
+			t.Errorf("%v: range = %v, want the `defer` keyword at 4:12", mode, d.Range)
+		}
+		for _, want := range []string{"extension was removed", "ordered", "exit action", "sysml-v1-migration.md"} {
+			if !strings.Contains(d.Message, want) {
+				t.Errorf("%v: message %q lacks %q", mode, d.Message, want)
+			}
+		}
 	}
 }
 

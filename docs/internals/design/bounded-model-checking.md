@@ -248,11 +248,9 @@ At each state the checker enumerates the **enabled moves**:
   junction contributes no move: its branch is settled before the transition fires, from the
   state the dispatch starts in, and is part of the transition's enabledness (a junction with no
   enabled branch means the transition is not enabled).
-- **Not moves**: deferral is determined by the configuration — a state that defers the
-  occurrence holds it back from every transition not nested in it, and the occurrence is either
-  consumed by a nested transition or deferred (`deferralOutranks`) — and a composite state's
-  completion is a completion event queued at the current instant as a leaf's is, ordered by the
-  same `eventHeap` rule. Both are read from the state, not drawn.
+- **Not a move**: a composite state's completion is a completion event queued at the current
+  instant as a leaf's is, ordered by the same `eventHeap` rule. It is read from the state, not
+  drawn.
 
 ### The properties
 
@@ -622,7 +620,7 @@ Each stage leaves `main` green, ships behind its own flag, and is useful on its 
    `-json`'s `outcomes[]` spelling each behavior's observables under its name; `%engine check`
    with `%state`, `%advance` and `RunFor`; an external engine's schedule is replayed over the
    same invocation. Test layers 3–8 for states: the `.check.expected.json` oracles beside every
-   state and clock case that leaves an order open and one decided case each for deferral,
+   state and clock case that leaves an order open and one decided case each for
    composite completion and a junction, the dependence corpus of machines reduced against
    unreduced, the state-count ratchet, the re-arming timer with and without a horizon, corpus-wide
    witness replay, the robustness `state_*` failures as violations and a missing initial state

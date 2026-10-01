@@ -1,17 +1,20 @@
 package main
 
-import "testing"
+import (
+	"strings"
+	"testing"
+)
 
 // extensionModel uses OpenSysML notation no SysML v2 production admits.
 const extensionModel = `package Mission {
     attribute def Alarm;
     state def Monitor {
         entry; then off;
-        state off {
-            defer Alarm;
-        }
+        state off;
+        choice evaluate;
         state on;
-        transition first off accept Alarm then on;
+        transition first off accept Alarm then evaluate;
+        transition first evaluate then on;
     }
 }
 `
@@ -39,7 +42,6 @@ func TestStateBodyExtensionsAreReportedByDefault(t *testing.T) {
 	for _, tc := range []struct{ file, old, replacement string }{
 		{"x02-choice-pseudostate.sysml", "`choice evaluate;`", "`#choice state evaluate;`"},
 		{"x03-junction-pseudostate.sysml", "`junction route;`", "`#junction state route;`"},
-		{"x05-defer-member.sysml", "`defer Ping;`", "`#deferred ref : Ping;`"},
 		{"x06-history-member.sysml", "`history resume;`", "`#shallowHistory state resume;`"},
 	} {
 		want := tc.old + " is an OpenSysML extension; write " + tc.replacement
@@ -50,6 +52,22 @@ func TestStateBodyExtensionsAreReportedByDefault(t *testing.T) {
 		strict := checkPaths(t, binary, "-validate", "-strict", corpus+tc.file)
 		wantReport(t, strict, 2, "error: "+want)
 		rejectReport(t, strict, "warning: "+want)
+	}
+}
+
+// The removed `defer <event>;` member is a parse error in either mode, reported
+// once with the standard encoding that replaces it.
+func TestRemovedDeferMemberIsAnErrorInEitherMode(t *testing.T) {
+	binary := buildCLI(t)
+	const file = "../../tools/referee/reject/testdata/negative/extensions/x05-defer-member.sysml"
+	const want = "error: the OpenSysML `defer <event>;` extension was removed"
+	for _, args := range [][]string{{"-validate"}, {"-validate", "-strict"}} {
+		got := checkPaths(t, binary, append(args, file)...)
+		wantReport(t, got, 2, want, "ordered", "exit action", "did not analyse cleanly")
+		rejectReport(t, got, "warning:", "is an OpenSysML extension with no SysML v2 production")
+		if n := strings.Count(got.output(), want); n != 1 {
+			t.Errorf("%v: the removed notation reported %d times, want once:\n%s", args, n, got.output())
+		}
 	}
 }
 

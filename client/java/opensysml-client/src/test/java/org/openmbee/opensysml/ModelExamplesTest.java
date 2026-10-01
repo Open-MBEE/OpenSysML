@@ -128,6 +128,27 @@ class ModelExamplesTest {
   }
 
   @Test
+  void aValueTheWireCannotCarryIsAnUnsupportedNullNamingIt() {
+    Model model =
+        connection.parse(
+            """
+            package G {
+              private import SI::*;
+              private import MeasurementReferences::*;
+              part def Body {
+                attribute datum : CartesianSpatial3dCoordinateFrame[1] { :>> mRefs = (mm, mm, mm); }
+              }
+            }
+            """);
+    Value datum = model.evalInContext("datum", "G::Body");
+    assertEquals(
+        new Value.NullValue("unsupported: coordinate frame datum [mm, mm, mm]"), datum);
+    assertTrue(((Value.NullValue) datum).isUnsupported());
+    assertFalse(new Value.NullValue().sameValue(datum));
+    assertFalse(((Value.NullValue) model.eval("null")).isUnsupported());
+  }
+
+  @Test
   void aFeatureThatHoldsNoValueIsUnsetRatherThanAbsentOrNull() {
     Model model = connection.parse(UNSET);
     assertTrue(connection.capabilities().has(Capabilities.UNSET_VALUE));
@@ -341,7 +362,7 @@ class ModelExamplesTest {
       for (String id : List.of("Kinds::Tank", "Kinds::tank", "Kinds::Color", "Kinds::Total")) {
         assertEquals(viaProtobuf.symbol(id), viaJson.symbol(id), id);
       }
-      for (String expression : List.of("2 + 2", "1.0 / 3.0", "9223372036854775807", "(1, 2)", "null", "\"é\\t\"")) {
+      for (String expression : List.of("2 + 2", "1.0 / 3.0", "-0.0", "(1.0, -0.0)", "9223372036854775807", "(1, 2)", "null", "\"é\\t\"")) {
         assertEquals(viaProtobuf.eval(expression), viaJson.eval(expression), expression);
       }
       assertEquals(

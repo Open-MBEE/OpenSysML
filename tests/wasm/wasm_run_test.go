@@ -88,10 +88,11 @@ func childEnv(t *testing.T) []string {
 
 // runner starts a built binary the way its target's runtime runs it.
 type runner struct {
-	target wasmTarget
-	prefix []string // node and the runtime script, ahead of the binary
-	env    []string // the environment the runtime gets
-	stdin  stdinMode
+	target  wasmTarget
+	prefix  []string // node and the runtime script, ahead of the binary
+	env     []string // the environment the runtime gets
+	stdin   stdinMode
+	timeout time.Duration // how long a run may take before it is a hang
 }
 
 // newRunner is the Node-backed runner for the target: wasip1 through the WASI
@@ -107,10 +108,11 @@ func newRunner(t *testing.T, target wasmTarget) runner {
 	switch target.goos {
 	case "wasip1":
 		return runner{
-			target: target,
-			prefix: []string{node, "--no-warnings", fixture(t, "wasi.mjs")},
-			env:    childEnv(t),
-			stdin:  stdinFile,
+			target:  target,
+			prefix:  []string{node, "--no-warnings", fixture(t, "wasi.mjs")},
+			env:     childEnv(t),
+			stdin:   stdinFile,
+			timeout: runTimeout,
 		}
 	case "js":
 		script := wasmExecNode()
@@ -124,29 +126,136 @@ func newRunner(t *testing.T, target wasmTarget) runner {
 		}
 		return runner{
 			target: target,
-			// Avoid a Node process.exit deadlock: a background Sparkplug compile can wait on GC the
-			// exiting main thread never runs.
-			prefix: []string{node, "--stack-size=8192", "--no-concurrent-sparkplug", script},
+			// Node exits by joining V8's worker threads, and a worker still compiling
+			// (Sparkplug, Maglev) can wait for a GC the exiting main thread never
+			// runs: the exit deadlocks. --single-threaded keeps every compile and GC
+			// task on the main thread, so there is no worker for the exit to wait on.
+			prefix: []string{node, "--stack-size=8192", "--single-threaded", script},
 			// childEnv is deliberately small: wasm_exec.js writes argv and the
 			// environment into linear memory at a fixed offset and stops at
 			// wasmMinDataAddr, leaving about 8 KiB for the two together, so a full CI
 			// environment overflows it and the runtime dies before main.
-			env:   childEnv(t),
-			stdin: stdinPipe,
+			env:     childEnv(t),
+			stdin:   stdinPipe,
+			timeout: runTimeout,
 		}
 	}
 	t.Fatalf("unknown WebAssembly target %q", target.goos)
 	return runner{}
 }
 
+// withEnv is the runner with variables added to its environment; a variable set
+// here wins over the same one inherited.
+func (r runner) withEnv(vars ...string) runner {
+	r.env = append(append([]string{}, r.env...), vars...)
+	return r
+}
+
 // command builds the process for the binary and its arguments, under the runner's
-// runtime and environment.
-func (r runner) command(ctx context.Context, binary string, args ...string) *exec.Cmd {
+// runtime and environment, and arms its deadline.
+func (r runner) command(binary string, args ...string) (*exec.Cmd, *watch, context.CancelFunc) {
+	ctx, cancel := context.WithTimeout(context.Background(), r.timeout)
 	full := append(append([]string{}, r.prefix[1:]...), binary)
 	full = append(full, args...)
 	cmd := exec.CommandContext(ctx, r.prefix[0], full...)
 	cmd.Env = r.env
-	return cmd
+	return cmd, arm(cmd, r.timeout), cancel
+}
+
+// watch is a command's deadline, armed to explain a hang: when the deadline passes
+// it reads the process's state from /proc before killing it, so the failure says
+// how long the process ran, what it was, what its threads were doing and what it
+// wrote — the state a hang cannot be explained without.
+type watch struct {
+	cmd     *exec.Cmd
+	timeout time.Duration
+	started time.Time
+
+	mu    sync.Mutex
+	ended time.Time // when the deadline killed the process; zero while it runs
+	state string    // the /proc snapshot the deadline took
+}
+
+// arm wires the watch into the command: os/exec calls Cancel from its own goroutine
+// when the deadline passes, so the snapshot is taken under a lock the report takes
+// too. A process that leaves a pipe open past its own death — a child it started —
+// is given WaitDelay to drain, then the pipe is closed rather than waited on forever.
+func arm(cmd *exec.Cmd, timeout time.Duration) *watch {
+	w := &watch{cmd: cmd, timeout: timeout, started: time.Now()}
+	cmd.Cancel = func() error {
+		w.mu.Lock()
+		w.ended = time.Now()
+		w.state = processState(cmd.Process.Pid)
+		w.mu.Unlock()
+		return cmd.Process.Kill()
+	}
+	cmd.WaitDelay = 10 * time.Second
+	return w
+}
+
+// hangError is a run the deadline ended: a hang is a broken build, not a slow one.
+// Its message is the whole report.
+type hangError struct {
+	report string
+}
+
+func (e *hangError) Error() string { return e.report }
+
+// hang is the error for a run the deadline ended, or nil when the process ended
+// itself. output is what the process wrote before the deadline.
+func (w *watch) hang(output string) error {
+	w.mu.Lock()
+	defer w.mu.Unlock()
+	if w.ended.IsZero() {
+		return nil
+	}
+	return &hangError{report: fmt.Sprintf("no answer within %s — a build that hangs here is a failure\n"+
+		"elapsed: %s\ncommand: %s\nprocess at the deadline:\n%soutput so far:\n%s",
+		w.timeout, w.ended.Sub(w.started).Round(time.Millisecond), strings.Join(w.cmd.Args, " "), w.state, output)}
+}
+
+// processState is what /proc says of a live process: its scheduling state, resident
+// and peak memory, and every thread's name, state and the kernel function it is
+// waiting in. A deadlocked exit shows as a main thread and a worker both waiting.
+func processState(pid int) string {
+	dir := filepath.Join("/proc", strconv.Itoa(pid))
+	status, err := os.ReadFile(filepath.Join(dir, "status"))
+	if err != nil {
+		return fmt.Sprintf("  (unavailable: %v)\n", err)
+	}
+	var b strings.Builder
+	for _, line := range strings.Split(string(status), "\n") {
+		switch key, _, _ := strings.Cut(line, ":"); key {
+		case "State", "VmRSS", "VmHWM", "VmSwap", "Threads":
+			fmt.Fprintf(&b, "  %s\n", strings.Join(strings.Fields(line), " "))
+		}
+	}
+	tasks, _ := filepath.Glob(filepath.Join(dir, "task", "*"))
+	for _, task := range tasks {
+		fmt.Fprintf(&b, "  thread %s %q %s %s\n", filepath.Base(task),
+			procFile(task, "comm"), threadState(procFile(task, "stat")), procFile(task, "wchan"))
+	}
+	return b.String()
+}
+
+// procFile is a /proc file's contents, or "?" for one that vanished with its thread.
+func procFile(dir, name string) string {
+	data, err := os.ReadFile(filepath.Join(dir, name))
+	if err != nil {
+		return "?"
+	}
+	return strings.TrimSpace(string(data))
+}
+
+// threadState is the state letter of a /proc/<pid>/task/<tid>/stat line, the field
+// after the parenthesized command name.
+func threadState(stat string) string {
+	_, rest, ok := strings.Cut(stat, ") ")
+	if !ok {
+		return "?"
+	}
+	state, _, _ := strings.Cut(rest, " ")
+	return state
 }
 
 // result is a run that finished: its output and its exit status.
@@ -164,85 +273,73 @@ func (r runner) check(t *testing.T, res result) {
 	}
 }
 
-// exitCode reads the status of a finished run, failing the test when the deadline
-// is what ended it: a hang is a broken build, not a slow one.
-func exitCode(t *testing.T, ctx context.Context, err error, output string) int {
-	t.Helper()
-	if ctx.Err() == context.DeadlineExceeded {
-		t.Fatalf("no answer within %s — a build that hangs here is a failure:\n%s", runTimeout, output)
-	}
-	if err == nil {
-		return 0
+// complete runs the binary on stdin to its end and returns what it wrote and its
+// status. The error is a *hangError when the deadline ended the run, else what kept
+// the process from running at all; a status other than zero is a result, not an error.
+func (r runner) complete(stdin io.Reader, binary string, args ...string) (result, error) {
+	cmd, w, cancel := r.command(binary, args...)
+	defer cancel()
+	var out bytes.Buffer
+	cmd.Stdout = &out
+	cmd.Stderr = &out
+	cmd.Stdin = stdin
+	err := cmd.Run()
+	res := result{output: out.String()}
+	if hang := w.hang(res.output); hang != nil {
+		return res, hang
 	}
 	var exit *exec.ExitError
-	if errors.As(err, &exit) {
-		return exit.ExitCode()
+	switch {
+	case err == nil:
+	case errors.As(err, &exit):
+		res.code = exit.ExitCode()
+	default:
+		return res, fmt.Errorf("running the process: %v\n%s", err, res.output)
 	}
-	t.Fatalf("running the process: %v\n%s", err, output)
-	return -1
+	return res, nil
 }
 
 // run completes a process that reads no input, returning its output and status.
 func (r runner) run(t *testing.T, binary string, args ...string) result {
 	t.Helper()
-	ctx, cancel := context.WithTimeout(context.Background(), runTimeout)
-	defer cancel()
-	cmd := r.command(ctx, binary, args...)
-	var out bytes.Buffer
-	cmd.Stdout = &out
-	cmd.Stderr = &out
+	var stdin io.Reader
 	if r.stdin == stdinFile {
 		// An empty regular file, not a closed pipe: Node's WASI answers a pipe with
 		// nothing ready by EAGAIN, where a file answers end of input.
-		cmd.Stdin = emptyFile(t)
+		stdin = emptyFile(t)
 	}
-	err := cmd.Run()
-	res := result{output: out.String(), code: exitCode(t, ctx, err, out.String())}
-	r.check(t, res)
-	return res
+	res, err := r.complete(stdin, binary, args...)
+	return r.finish(t, res, err)
 }
 
 // runWithInput completes a process fed lines — a file of them on a file-driven
 // target, the lines themselves on a pipe-driven one — and returns what it wrote.
 func (r runner) runWithInput(t *testing.T, binary string, lines string, args ...string) result {
 	t.Helper()
-	ctx, cancel := context.WithTimeout(context.Background(), runTimeout)
-	defer cancel()
-	cmd := r.command(ctx, binary, args...)
-	var out bytes.Buffer
-	cmd.Stdout = &out
-	cmd.Stderr = &out
-	var err error
-	switch r.stdin {
-	case stdinFile:
+	var stdin io.Reader = strings.NewReader(lines)
+	if r.stdin == stdinFile {
 		path := filepath.Join(t.TempDir(), "stdin")
-		if writeErr := os.WriteFile(path, []byte(lines), 0o600); writeErr != nil {
-			t.Fatalf("writing the input: %v", writeErr)
-		}
-		file, openErr := os.Open(path)
-		if openErr != nil {
-			t.Fatalf("opening the input: %v", openErr)
-		}
-		defer func() { _ = file.Close() }()
-		cmd.Stdin = file
-		err = cmd.Run()
-	case stdinPipe:
-		var stdin io.WriteCloser
-		if stdin, err = cmd.StdinPipe(); err != nil {
-			t.Fatalf("piping standard input: %v", err)
-		}
-		if err = cmd.Start(); err != nil {
-			t.Fatalf("starting the process: %v", err)
-		}
-		if _, err = io.WriteString(stdin, lines); err != nil {
+		if err := os.WriteFile(path, []byte(lines), 0o600); err != nil {
 			t.Fatalf("writing the input: %v", err)
 		}
-		if err = stdin.Close(); err != nil {
-			t.Fatalf("ending the input: %v", err)
+		file, err := os.Open(path)
+		if err != nil {
+			t.Fatalf("opening the input: %v", err)
 		}
-		err = cmd.Wait()
+		defer func() { _ = file.Close() }()
+		stdin = file
 	}
-	res := result{output: out.String(), code: exitCode(t, ctx, err, out.String())}
+	res, err := r.complete(stdin, binary, args...)
+	return r.finish(t, res, err)
+}
+
+// finish fails the test on a run that did not end itself and applies the invariant
+// every run must hold to one that did.
+func (r runner) finish(t *testing.T, res result, err error) result {
+	t.Helper()
+	if err != nil {
+		t.Fatal(err)
+	}
 	r.check(t, res)
 	return res
 }
@@ -293,6 +390,7 @@ type session struct {
 	t      *testing.T
 	target wasmTarget
 	cmd    *exec.Cmd
+	watch  *watch
 	cancel context.CancelFunc
 	stdin  io.WriteCloser
 	stdout *bufio.Reader
@@ -308,8 +406,7 @@ func (r runner) start(t *testing.T, binary string, args ...string) *session {
 	if r.stdin != stdinPipe {
 		t.Fatalf("%s is driven with files, and a session needs a pipe it can block on", r.target.name)
 	}
-	ctx, cancel := context.WithTimeout(context.Background(), runTimeout)
-	cmd := r.command(ctx, binary, args...)
+	cmd, w, cancel := r.command(binary, args...)
 	stdin, err := cmd.StdinPipe()
 	if err != nil {
 		cancel()
@@ -330,6 +427,7 @@ func (r runner) start(t *testing.T, binary string, args ...string) *session {
 		t:      t,
 		target: r.target,
 		cmd:    cmd,
+		watch:  w,
 		cancel: cancel,
 		stdin:  stdin,
 		stdout: bufio.NewReader(stdout),
@@ -373,13 +471,24 @@ func (s *session) readFrame() string {
 	select {
 	case got := <-read:
 		if got.err != nil {
-			s.t.Fatalf("reading a frame: %v\nstderr:\n%s", got.err, s.stderr.String())
+			s.fail(fmt.Sprintf("reading a frame: %v", got.err))
 		}
 		return string(got.body)
-	case <-time.After(runTimeout):
-		s.t.Fatalf("no frame within %s\nstderr:\n%s", runTimeout, s.stderr.String())
+	case <-time.After(s.watch.timeout):
+		s.fail(fmt.Sprintf("no frame within %s", s.watch.timeout))
 	}
 	return ""
+}
+
+// fail ends the test on what stopped the session: the deadline's report when the
+// deadline killed the process — a frame that never comes ends in the deadline, and
+// the report says what the process was doing — else the reason and standard error.
+func (s *session) fail(reason string) {
+	s.t.Helper()
+	if hang := s.watch.hang(s.stderr.String()); hang != nil {
+		s.t.Fatal(hang)
+	}
+	s.t.Fatalf("%s\nstderr:\n%s", reason, s.stderr.String())
 }
 
 // frame reads one frame off r: headers each a line, a blank line, then the body the
@@ -435,11 +544,11 @@ func (s *session) wait() {
 		if err != nil {
 			var exit *exec.ExitError
 			if !errors.As(err, &exit) || exit.ExitCode() != 0 {
-				s.t.Fatalf("the process ended: %v\nstderr:\n%s", err, s.stderr.String())
+				s.fail(fmt.Sprintf("the process ended: %v", err))
 			}
 		}
-	case <-time.After(runTimeout):
-		s.t.Fatalf("no exit within %s\nstderr:\n%s", runTimeout, s.stderr.String())
+	case <-time.After(s.watch.timeout):
+		s.fail(fmt.Sprintf("no exit within %s", s.watch.timeout))
 	}
 	s.check()
 }
@@ -535,21 +644,10 @@ func TestWasmRuns(t *testing.T) {
 				// copied out of the working directory first, because sysml refuses a
 				// manifest under the workspace it reads models from: a manifest comes
 				// from the environment, never from a workspace or a model.
-				ctx, cancel := context.WithTimeout(context.Background(), runTimeout)
-				defer cancel()
-				cmd := r.command(ctx, bins["sysml"], "-engines")
-				cmd.Env = append(append([]string{}, r.env...),
+				got := r.withEnv(
 					"OPENSYSML_TOOLS="+manifestDir(t, "tools"),
-					"OPENSYSML_ENGINES="+manifestDir(t, "engines"))
-				if r.stdin == stdinFile {
-					cmd.Stdin = emptyFile(t)
-				}
-				var out bytes.Buffer
-				cmd.Stdout = &out
-				cmd.Stderr = &out
-				err := cmd.Run()
-				got := result{output: out.String(), code: exitCode(t, ctx, err, out.String())}
-				r.check(t, got)
+					"OPENSYSML_ENGINES="+manifestDir(t, "engines"),
+				).run(t, bins["sysml"], "-engines")
 				if got.code != 0 {
 					t.Errorf("sysml -engines exited %d:\n%s", got.code, got.output)
 				}
@@ -661,6 +759,11 @@ func TestWasmRuns(t *testing.T) {
 					s.wait()
 				})
 			}
+
+			// sysml-engine's half of the run gate: a stdio session doing real work
+			// on both targets, and on js the globalThis host surface plus the size
+			// budget that surface exists to keep.
+			engineSubtests(t, target, r, bins)
 		})
 	}
 }

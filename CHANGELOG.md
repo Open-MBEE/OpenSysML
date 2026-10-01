@@ -557,7 +557,7 @@ release is described in [docs/project/releasing.md](docs/project/releasing.md).
 
 - **The checker warns (`undefined-operator`) on every use of the unary `~` operator.** KerML 1.0 §8.2.5.8.1 leaves `~` abstract and undefined, asking a tool for exactly this warning; the runtime keeps refusing it with a typed error, and the design record `docs/project/bitwise-complement.md` explains why no value is given.
 
-- **A design note for a Cameo Systems Modeler plugin** (`docs/internals/design/cameo-plugin.md`).
+- **A design note for a Cameo Systems Modeler plugin** (now `docs/internals/design/mdk-plugin.md`).
   It answers, from the vendor's public documentation and Javadoc, how a plugin for Cameo 2026x
   Refresh1 (bundled JDK 21; 2024x Refresh3 on JDK 17 as the minimum) is declared, loaded and
   distributed; where it contributes browser and

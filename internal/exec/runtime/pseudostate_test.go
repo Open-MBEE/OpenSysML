@@ -199,8 +199,8 @@ func TestJoinBranchArrivingFirstFiresNothing(t *testing.T) {
 	if err := exec.ProcessNextEvent(); err != nil {
 		t.Fatalf("ProcessNextEvent(Go): %v", err)
 	}
-	if d, ok := exec.LastDispatch(); !ok || d.Fired || d.Deferred {
-		t.Errorf("LastDispatch after Go = %+v, %v; want dispatched, neither fired nor deferred", d, ok)
+	if d, ok := exec.LastDispatch(); !ok || d.Fired {
+		t.Errorf("LastDispatch after Go = %+v, %v; want dispatched, not fired", d, ok)
 	}
 	if got := activeStateNames(exec); got != "a|b0" {
 		t.Fatalf("configuration after Go = %s, want a|b0", got)
@@ -219,8 +219,8 @@ func TestJoinBranchArrivingFirstFiresNothing(t *testing.T) {
 	if err := exec.ProcessNextEvent(); err != nil {
 		t.Fatalf("ProcessNextEvent(completion of b): %v", err)
 	}
-	if d, ok := exec.LastDispatch(); !ok || d.Fired || d.Deferred {
-		t.Errorf("LastDispatch after b completed = %+v, %v; want dispatched, neither fired nor deferred: a's segment waits for Go", d, ok)
+	if d, ok := exec.LastDispatch(); !ok || d.Fired {
+		t.Errorf("LastDispatch after b completed = %+v, %v; want dispatched, not fired: a's segment waits for Go", d, ok)
 	}
 	if got := activeStateNames(exec); got != "a|b" {
 		t.Fatalf("configuration after b completed = %s, want a|b", got)
@@ -397,8 +397,8 @@ func TestJoinCompletionSegmentWaitsForItsSourcesDoBehavior(t *testing.T) {
 	if err := exec.ProcessNextEvent(); err != nil {
 		t.Fatalf("ProcessNextEvent(Go): %v", err)
 	}
-	if d, ok := exec.LastDispatch(); !ok || d.Fired || d.Deferred {
-		t.Errorf("LastDispatch after Go = %+v, %v; want dispatched, neither fired nor deferred", d, ok)
+	if d, ok := exec.LastDispatch(); !ok || d.Fired {
+		t.Errorf("LastDispatch after Go = %+v, %v; want dispatched, not fired", d, ok)
 	}
 	if got := activeStateNames(exec); got != "a|b" {
 		t.Fatalf("configuration after Go = %s, want a|b", got)
@@ -414,8 +414,8 @@ func TestJoinCompletionSegmentWaitsForItsSourcesDoBehavior(t *testing.T) {
 	if err := exec.ProcessNextEvent(); err != nil {
 		t.Fatalf("ProcessNextEvent(completion of b): %v", err)
 	}
-	if d, ok := exec.LastDispatch(); !ok || d.Fired || d.Deferred {
-		t.Errorf("LastDispatch after b completed = %+v, %v; want dispatched, neither fired nor deferred: a's segment waits for Go", d, ok)
+	if d, ok := exec.LastDispatch(); !ok || d.Fired {
+		t.Errorf("LastDispatch after b completed = %+v, %v; want dispatched, not fired: a's segment waits for Go", d, ok)
 	}
 	if got := activeStateNames(exec); got != "a|b" {
 		t.Fatalf("configuration after b completed = %s, want a|b", got)

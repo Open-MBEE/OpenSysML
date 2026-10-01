@@ -1,7 +1,15 @@
 package org.openmbee.opensysml;
 
+import java.io.IOException;
+import java.io.UncheckedIOException;
+import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.util.List;
+import java.util.Locale;
+import java.util.Map;
 import java.util.Objects;
+import java.util.TreeSet;
 
 /**
  * A model written out in one of the formats the service writes.
@@ -41,5 +49,64 @@ public record Conversion(
     Objects.requireNonNull(toFormat, "toFormat");
     diagnostics = List.copyOf(diagnostics);
     Objects.requireNonNull(experimentalNotice, "experimentalNotice");
+  }
+
+  private static final Map<String, String> EXTENSIONS =
+      Map.of(
+          ".sysml", "sysml",
+          ".kerml", "sysml",
+          ".ttl", "ttl",
+          ".turtle", "ttl",
+          ".json", "api-json");
+
+  /**
+   * The format to write a file as, from its extension.
+   *
+   * @param path the file
+   * @return {@code "sysml"} for {@code .sysml} and {@code .kerml}, {@code "ttl"} for {@code .ttl}
+   *     and {@code .turtle}, {@code "api-json"} for {@code .json}
+   * @throws IllegalArgumentException if the extension names no format this client writes
+   */
+  public static String formatOf(Path path) {
+    Objects.requireNonNull(path, "path");
+    Path name = path.getFileName();
+    String file = name == null ? "" : name.toString();
+    int dot = file.lastIndexOf('.');
+    String extension = dot <= 0 ? "" : file.substring(dot).toLowerCase(Locale.ROOT);
+    String format = EXTENSIONS.get(extension);
+    if (format == null) {
+      throw new IllegalArgumentException(
+          "cannot tell the format to write "
+              + path
+              + " as: expected one of "
+              + new TreeSet<>(EXTENSIONS.keySet())
+              + ", or name the format explicitly");
+    }
+    return format;
+  }
+
+  /**
+   * Writes the converted model to a file, byte-for-byte as the service returned it.
+   *
+   * @param path the file, created or truncated
+   * @return {@code path}, for chaining
+   * @throws UncheckedIOException if the file cannot be written
+   */
+  public Path write(Path path) {
+    return writeContent(content, path);
+  }
+
+  static Path writeContent(String content, Path path) {
+    Objects.requireNonNull(path, "path");
+    try {
+      return Files.writeString(path, content, StandardCharsets.UTF_8);
+    } catch (IOException e) {
+      throw new UncheckedIOException(e);
+    }
+  }
+
+  @Override
+  public String toString() {
+    return content;
   }
 }

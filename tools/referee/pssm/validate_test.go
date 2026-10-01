@@ -7,8 +7,8 @@ import (
 
 // TestValidateMetadataStateMachine: a machine spelled with the StateMachines
 // metadata the migrator emits validates and lowers cleanly — the lowering runs
-// through the workspace resolver, or every pseudostate and deferred ref the
-// annotations declare is silently dropped from the graph.
+// through the workspace resolver, or every pseudostate the annotations declare
+// is silently dropped from the graph.
 func TestValidateMetadataStateMachine(t *testing.T) {
 	m := &Model{
 		Name:      "MetadataMachine.sysml",
@@ -16,13 +16,10 @@ func TestValidateMetadataStateMachine(t *testing.T) {
 		Text: `package MetadataMachine {
 	private import StateMachines::*;
 	item def Go;
-	item def Ping;
 	state M {
 		entry; then idle;
 		state idle;
-		state a {
-			#StateMachines::deferred ref : Ping;
-		}
+		state a;
 		transition first idle accept Go then pick;
 		#StateMachines::choice state pick;
 		transition first pick if true then busy;

@@ -48,7 +48,7 @@ record it under "Constraints the pilot declares but does not enforce" in
 
 The baseline is the default `auto` policy: the `extensions/` cases are judged under strict
 conformance (OpenSysML notation the reference rejects as a syntax error), everything else in the
-default mode. The report names each case's mode and lists the four strict-only agreements
+default mode. The report names each case's mode and lists the three strict-only agreements
 separately, so a strict agreement never reads as a default one.
 
 ```bash

@@ -55,12 +55,16 @@ compare-and-set `close()`.
 `ConnectionOptions.builder()` covers `service(host, port)`, `autoStart(false)` to
 require a service someone else runs, `isolatedService(true)` for a child that is
 not shared, `encoding(Encoding.JSON)` for bodies `curl` can read,
-`requestTimeout`/`startupTimeout`, and the binary controls `binaryPath`,
+`requestTimeout`/`startupTimeout`, `requireCapabilities(...)` to refuse at open a
+service that lacks what the caller needs, and the binary controls `binaryPath`,
 `expectedBinarySha256`, `downloadVersion`, `githubRepo` and
 `allowUnpinnedDownload`. Each has an environment form —
 `OPENSYSML_SERVICE`, `OPENSYSML_GRPC_BINARY`, `OPENSYSML_GRPC_VERSION`,
 `OPENSYSML_GITHUB_REPO`, `OPENSYSML_ALLOW_UNPINNED_DOWNLOAD` — named as constants
-on `ConnectionOptions`.
+on `ConnectionOptions`. A connection asked for a release — `downloadVersion` or
+`$OPENSYSML_GRPC_VERSION`, `"latest"` resolved once — refuses at open a service
+that reports another version with `StaleServiceException`, whose `reason()` and
+`remedy()` say what was found and how to reach the release asked for.
 
 One private child is started **per classloader**, so an Eclipse plugin, a web
 application and a copy shaded inside a third library each own one, while every
@@ -80,6 +84,14 @@ model.roots();                                  // one Symbol per document; empt
 
 Symbol vehicle = model.symbol("Demo::Vehicle"); // throws if the model has no such symbol
 model.findSymbol("Demo::Vehicle");              // Optional, for a name that may be absent
+model.find("Vehicle");                          // Optional, by short name or qualified id
+model.get("Demo::Vehicle");                     // Optional, by qualified id only
+model.lookup("Vehicle");                        // throws SymbolNotFoundException with suggestions
+model.contains("Vehicle");                      // whether find answers
+model.documents();                              // the document names it was parsed from
+model.ok();                                     // no error among parseDiagnostics()
+model.errors();                                 // the error diagnostics
+model.requireNoErrors();                        // the model itself, or a ModelException naming the errors
 
 Value sum = model.eval("1 + 2 * 3");                        // Value.IntegerValue[value=7]
 Value here = model.evalInContext("radius", "Demo::Wheel");  // resolved in a scope
@@ -224,8 +236,15 @@ model.roots();   // one Symbol per document, in request order
 answer a `Conversion` (`content`, the resolved `fromFormat`/`toFormat`,
 `experimental`/`experimentalNotice`, `diagnostics`); `Model.convert` converts the
 parsed model itself. `ConversionOptions` carries a `fromFormat` (else the service
-sniffs it) and `tolerateSyntaxErrors` — without it, a syntax error throws a
-`ModelException` carrying the diagnostics rather than converting anyway.
+sniffs it), `tolerateSyntaxErrors` — without it, a syntax error throws a
+`ModelException` carrying the diagnostics rather than converting anyway — and
+`idForm` (`ID_FORM_QUALIFIED`, the default, or `ID_FORM_UUID`) for the derived
+element ids of a graph notation (`ttl`, `api-json`). `Conversion.write(Path)`
+saves the content as UTF-8, `Conversion.formatOf(Path)` names a notation by its
+extension, and `EditResult.save(Path)` writes a one-document edit and refuses one whose
+`severalDocuments()` is set, whose text is in `documents()` alone; a model
+adopted by hash first edits without reading documents, which the service refuses
+for a model of several, and only then with them.
 
 ### Edits
 
@@ -250,6 +269,33 @@ document. A batch the service refuses — an unknown target, a delete of an
 element still referred to — throws `EditException`, a `ModelException` whose
 `failure()` is an `EditFailure` (`UNKNOWN_TARGET`, `TARGET_REFERRED`, …) and
 whose `referringElements()`/`referrers()` name the references that refused it.
+
+`Model.edit()` returns an `Editor`, a fluent builder over the same `Edit`
+records that is applied once:
+
+```java
+EditResult result = model.edit()
+    .setValue("Demo::sc::unitMass", "1050.0[SI::kg]")
+    .addPart("Demo::Vehicle", "engine", m -> m.withType("Engine"))
+    .addRequireConstraint("Demo::R", "mass < 2000")
+    .addDocumentation("Demo::Vehicle", "The vehicle under study.")
+    .addIf("Demo::Drive", "speed > 0",
+        new Editor.Body().addAssign("distance", "distance + speed"),
+        new Editor.Body().addTerminate())
+    .apply();
+```
+
+Its `add*` shorthands name the declaration kinds (`addPackage`, `addPartDef`,
+`addAttribute`, `addActionDef`/`addCalcDef` with `Editor.Parameter`s,
+`addConstraint`, `addRequirement`, `addState`, …), the relationships
+(`addSatisfy`, `addVerify`, `addObjective`, `addTransition`, `addConnection`,
+`addAllocation`, `addFlow`, `addSuccession`, `addImport`), the annotations
+(`addMetadata`, `addMetadataPrefix`, `addDocumentation`, `addComment`, `addNote`)
+and the action-body statements (`addFirst`, `addThen`, `addAccept`, `addSend`,
+`addAssign`, `addIf`, `addWhile`, `addLoop`, `addFor`, `addTerminate`,
+`addGuardedThen`, `addElse`); an `Editor.Body` collects nested statements, the
+first written without `then`. `add(Edit)` takes any record, `edits()` shows the
+batch, and each gated kind is checked against the capabilities before the call.
 
 ### Parameter sweeps
 
@@ -283,6 +329,8 @@ for (DocumentRow row : table.rows()) {
 }
 RenderedDocument page = model.renderDocument("Observatory::MassReport");
 page.markdown();             // the rendered notation
+RenderedDocument html = model.renderDocument("Observatory::MassReport", DocumentForm.HTML);
+html.html();                 // the same document as HTML
 ```
 
 `DocumentValue` is sealed over `ElementRef`, `ObjectRef` (an `Instance` plus its
@@ -292,7 +340,8 @@ native document's cells and bindings speak. A `DocumentRow` carries its subject
 whichever kind it is — `element()` for an element row, `verdict()`/
 `state()`/`event()`/`object()` as `Optional`s for the typed rows — beside the
 cells. `runDocumentQuery` needs the `document_query` capability and
-`renderDocument` the `render_document` capability; an unknown query or document
+`renderDocument` the `render_document` capability, and `render_document_html`
+besides for `DocumentForm.HTML`; an unknown query or document
 id is a `ServiceException` `NOT_FOUND`.
 
 ## Values and the rest of the domain
@@ -348,11 +397,14 @@ throws nothing.
 | exception | what happened |
 | --- | --- |
 | `ServiceException` | the call was refused, carrying a `StatusCode` (`NOT_FOUND`, …) |
+| `ModelNotFoundException` / `ModelFileNotFoundException` | a `ServiceException` `NOT_FOUND`: the service holds no model of that hash, or cannot read the named file |
+| `SymbolNotFoundException` | a `ModelException` from `Model.lookup` naming the missing `name()` and near `suggestions()` |
+| `StaleServiceException` | a `ServiceStartException`: the service is not the release asked for |
 | `ModelException` | the call succeeded and the answer reports a model failure; `failureReason()` classifies it and `diagnostics()` carry what the service said |
 | `AnalysisException` | a `ModelException` from `runAnalysis` whose `partial()` holds what the run computed before it stopped |
 | `EditException` | a `ModelException` from `applyEdits` carrying the `EditFailure` kind and the `referrers` a refused edit named |
 | `TransportException` | HTTP or IO failure; the service was not reached or answered |
-| `CapabilityException` | the service does not advertise a capability the call needs |
+| `CapabilityException` | the service does not advertise a capability the call needs; `remedy()` says how to reach one that does |
 | `ServiceStartException` | no binary, a digest mismatch, or a child that would not start |
 | `ChecksumMismatchException` | a binary's bytes are not the digest required of them |
 | `UnpinnedReleaseException` / `UnsignedReleaseException` / `ManifestSignatureException` | nothing pins the release, nothing signs it, or a signature does not verify |
@@ -367,7 +419,7 @@ and `verifyConstraint` returns it.
 `Connection.open` calls `GetServerInfo` once and keeps what it reported.
 Negotiation is on the advertised **names** — the constants on `Capabilities`, such
 as `EVALUATE_SUBJECT`, `FEATURE_VALUES`, `STRICT_CONFORMANCE`, `INLINE_LANGUAGE`,
-`PARSE_SOURCES`, `DOCUMENT_QUERY`, `RENDER_DOCUMENT` —
+`PARSE_SOURCES`, `DOCUMENT_QUERY`, `RENDER_DOCUMENT`, `RENDER_DOCUMENT_HTML` —
 never on the version string:
 
 ```java

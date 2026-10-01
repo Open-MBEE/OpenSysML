@@ -445,6 +445,12 @@ type Guard struct {
 	Type     string
 }
 
+// unconditional reports whether the guard never holds the transition back:
+// none, a literal true or an else.
+func (g *Guard) unconditional() bool {
+	return g == nil || g.Kind == GuardElse || g.Kind == GuardLiteral && g.Literal
+}
+
 // Describe spells the guard for a diagnostic or report.
 func (g *Guard) Describe() string {
 	switch {
