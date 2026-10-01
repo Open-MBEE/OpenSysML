@@ -1259,7 +1259,7 @@ func (e *ActionExecutor) materializeOccurrence() (*Instance, error) {
 	}
 	for _, attr := range e.features {
 		if value, held := e.root.data[e.root.key(attr.Name)]; held {
-			if err := inst.SetFeatureValue(e.ctx, attr.Name, value); err != nil {
+			if err := inst.BindFeatureValue(e.ctx, attr.Name, value); err != nil {
 				return nil, fmt.Errorf("%w: seed %s of object #%d: %w",
 					ErrActionPerformanceOccurrence, attr.Name, inst.ID, err)
 			}
@@ -1292,7 +1292,7 @@ func (e *ActionExecutor) mirrorOccurrence(name string, value Value) (Value, erro
 	if e.occurrence == nil || !e.declaresAttribute(name) {
 		return value, nil
 	}
-	if err := e.occurrence.SetFeatureValue(e.ctx, name, value); err != nil {
+	if err := e.occurrence.BindFeatureValue(e.ctx, name, value); err != nil {
 		return value, fmt.Errorf("%w: write %s of object #%d: %w",
 			ErrActionPerformanceOccurrence, name, e.occurrence.ID, err)
 	}
@@ -2384,6 +2384,12 @@ func (e *ActionExecutor) stepNestedAction(tokenIdx int) error {
 			if err != nil {
 				return fmt.Errorf("accept %s: %w", accept.ParamName, err)
 			}
+			if token.frame == e.root && e.declaresAttribute(accept.ParamName) {
+				what := func() string { return "accept " + accept.ParamName }
+				if err := e.ctx.checkMutable(e.root.scope, what, accept.ParamName); err != nil {
+					return err
+				}
+			}
 			// The payload is a feature of the flow the accept sits in, which the
 			// nodes after it read by its name.
 			if err := e.setFrameFeature(token.frame, accept.ParamName, value); err != nil {
@@ -2782,9 +2788,22 @@ func (e *performances) applyDataFlows(
 	return nil
 }
 
+// checkFlowTarget refuses a flow into a constant or derived feature: the pin of
+// the target it performs, else the frame's own feature it names.
+func (e *performances) checkFlowTarget(frame *actionFrame, graph *lower.ActionGraph, flow lower.ObjectFlow) error {
+	scope := frame.scope
+	if _, performs := flow.Target.(*ast.Usage); performs {
+		scope = graph.Scopes[flow.Target]
+	}
+	return e.ctx.checkMutable(scope, func() string { return flowDescription(flow) }, flow.TargetPin)
+}
+
 // deliverFlow puts a flow's payload where its target reads it: at the pin of a
 // target performing in a frame of its own, else in the flow's own features.
 func (e *performances) deliverFlow(frame *actionFrame, graph *lower.ActionGraph, flow lower.ObjectFlow, value Value) error {
+	if err := e.checkFlowTarget(frame, graph, flow); err != nil {
+		return err
+	}
 	if _, performs := flow.Target.(*ast.Usage); performs {
 		if err := e.deliver(frame, graph, flow.Target, nil, flow.TargetPin, value); err != nil {
 			return fmt.Errorf("%s: %w", flowDescription(flow), err)

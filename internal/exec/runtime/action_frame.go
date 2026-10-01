@@ -929,6 +929,9 @@ func (e *performances) streamFlow(
 	if _, performs := flow.Target.(*ast.Usage); !performs {
 		return e.deliverFlow(frame, graph, flow, value)
 	}
+	if err := e.checkFlowTarget(frame, graph, flow); err != nil {
+		return err
+	}
 	ongoing := e.flow.ongoing(frame, flow.Target)
 	if len(ongoing) == 0 {
 		pins, err := e.nodePins(graph, flow.Target)
@@ -1296,7 +1299,7 @@ func (e *performances) writeQualifiedEnd(end boundEnd, value Value) error {
 	target := ec.self
 	switch {
 	case target != nil && ec.ctx.isOrSpecializes(target.Type, end.OtherOwner) && target.FeatureValues[end.OtherFeature] != nil:
-		if err := target.SetFeatureValue(e.ctx, end.OtherFeature, value); err != nil {
+		if err := target.BindFeatureValue(e.ctx, end.OtherFeature, value); err != nil {
 			return boundEndError(end, err)
 		}
 		e.ctx.noteObjectWrite(target, end.OtherFeature, value)

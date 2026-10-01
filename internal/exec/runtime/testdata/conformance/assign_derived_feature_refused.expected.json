@@ -1,0 +1,4 @@
+{
+	"type": "action",
+	"error": "assignment to twice: feature is read-only: twice is derived: its values are determined by the model, not written"
+}

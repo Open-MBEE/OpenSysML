@@ -474,7 +474,7 @@ func (e *StateExecutor) materializeOccurrence() (*Instance, error) {
 	}
 	for _, attr := range e.graph.Attributes {
 		if value, held := e.stateData[attr.Name]; held {
-			if err := inst.SetFeatureValue(e.ctx, attr.Name, value); err != nil {
+			if err := inst.BindFeatureValue(e.ctx, attr.Name, value); err != nil {
 				return nil, fmt.Errorf("%w: seed %s of object #%d: %w",
 					ErrStatePerformanceOccurrence, attr.Name, inst.ID, err)
 			}
@@ -492,7 +492,7 @@ func (e *StateExecutor) mirrorOccurrence(name string, value Value) (Value, error
 	if e.occurrence == nil || !e.declaresAttribute(name) {
 		return value, nil
 	}
-	if err := e.occurrence.SetFeatureValue(e.ctx, name, value); err != nil {
+	if err := e.occurrence.BindFeatureValue(e.ctx, name, value); err != nil {
 		return value, fmt.Errorf("%w: write %s of object #%d: %w",
 			ErrStatePerformanceOccurrence, name, e.occurrence.ID, err)
 	}
@@ -2012,6 +2012,11 @@ func (e *StateExecutor) bindAcceptPayload(name string, accept *ast.AcceptEvent, 
 	value, err := e.ctx.acceptedValueAs(&msg, ast.AsQualifiedName(accept.SignalType), scope)
 	if err != nil {
 		return fmt.Errorf("accept %s: %w", name, err)
+	}
+	if e.declaresAttribute(name) {
+		if err := e.ctx.checkMutable(e.graph.Scope, func() string { return "accept " + name }, name); err != nil {
+			return err
+		}
 	}
 	event.Payload = msg
 	e.bindData(name, value)

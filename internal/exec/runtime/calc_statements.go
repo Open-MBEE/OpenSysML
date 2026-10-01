@@ -174,14 +174,14 @@ func calcFeatureWriter(ctx *Context, shape *calcShape, occ *calcOccurrence) func
 		if _, ok := occ.inst.FeatureValues[name]; !ok {
 			return nil
 		}
-		return occ.inst.SetFeatureValue(ctx, name, value)
+		return occ.inst.BindFeatureValue(ctx, name, value)
 	}
 }
 
 func (h *calcStmtHost) mirrorOccurrence(name string, value Value) error {
 	if h.occ != nil && h.occ.inst != nil {
 		if _, ok := h.occ.inst.FeatureValues[name]; ok {
-			return h.occ.inst.SetFeatureValue(h.ctx, name, value)
+			return h.occ.inst.BindFeatureValue(h.ctx, name, value)
 		}
 	}
 	return nil

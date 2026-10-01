@@ -162,6 +162,16 @@ func (c *assignmentReferentChecker) check(scope *symbols.Scope, assignment *ast.
 			"assignment-referent")
 		return
 	}
+	// A constant feature keeps one value over its featuring occurrence's
+	// lifetime and a derived one has the values the model determines (KerML 1.0
+	// Feature::isConstant, Feature::isDerived), restrictions a redefining or
+	// subsetting feature inherits; neither is written by an assignment.
+	if ro := c.model.FeatureReadOnly(referent); ro.Kind != semantics.Writable {
+		c.report(span, fmt.Sprintf("Assignment target %s.",
+			semantics.ReadOnlyViolation(targetText(assignment.Target), referent, ro)),
+			"assignment-referent-read-only")
+		return
+	}
 	if c.referentMayTimeVary(referent) {
 		return
 	}
