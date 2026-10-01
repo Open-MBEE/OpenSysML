@@ -113,6 +113,7 @@ into the parts it holds (`car.fl.hub`, `#3.fl`, `car.wheels[2]`).
 | **Control** | |
 | `%quit` | Exit the REPL |
 | `Tab` | Complete meta commands, symbol names (after `%print`, `%instantiate`, `%features` …; a name that needs quoting is offered in quotes, `Q::'the ra` completing to `Q::'the rack'`), object references where a command takes one (`#` offers the ids there are; `car.` offers the object-holding features of `car` — the same ones a path may pass through — a multi-valued one as `car.wheels[1]`, `car.wheels[2]` …; completing reads and materializes nothing, so a part no command has reached yet is offered by type, and only the elements reading it would hold: those the features subsetting it contribute, then anonymous ones up to its lower bound — so an optional part (`spare : Wheel[0..1]`) or an abstract one, which hold only what subsets them, is offered only once something does), the form after `%render <name>` and the palette after `%render <name> dot`, and file paths after `%load` and `%save` |
+| `Ctrl-C` | Discard the line being typed, and any continuation buffered before it; at an empty `sysml>` prompt, exit REPL |
 | `Ctrl-D` | Exit REPL |
 
 The five solving commands (`%check`, `%explain`, `%solve`, `%configure`, `%optimize`) follow the
