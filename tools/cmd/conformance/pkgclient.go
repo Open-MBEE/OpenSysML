@@ -697,6 +697,7 @@ func (c *pkgClient) migrate(ctx context.Context, request protoreflect.Message) (
 		Results:            migration.Results,
 	}
 	if report := migration.Report; report != nil {
+		// #nosec G115 -- the counts came off the wire as int32.
 		response.Report = &pb.MigrationReport{
 			Source:       report.Source,
 			Exporter:     report.Exporter,
