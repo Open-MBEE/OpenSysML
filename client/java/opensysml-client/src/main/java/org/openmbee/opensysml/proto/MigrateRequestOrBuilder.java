@@ -170,8 +170,9 @@ public interface MigrateRequestOrBuilder extends
 
   /**
    * <pre>
-   * Fail the migration on the first element it cannot map faithfully, rather
-   * than approximating it and saying so in the report.
+   * Write only notation a pinned SysML v2 production admits: a construct whose
+   * only v2 form is an OpenSysML extension (a deferred event, a choice,
+   * junction or history pseudostate) is reported unmapped instead of written.
    * </pre>
    *
    * <code>bool strict = 10 [json_name = "strict"];</code>

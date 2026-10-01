@@ -1049,8 +1049,9 @@ pub struct MigrateRequest {
     /// comment (<img src="/projects/…">) is resolved against.
     #[prost(string, tag="9")]
     pub image_base_url: ::prost::alloc::string::String,
-    /// Fail the migration on the first element it cannot map faithfully, rather
-    /// than approximating it and saying so in the report.
+    /// Write only notation a pinned SysML v2 production admits: a construct whose
+    /// only v2 form is an OpenSysML extension (a deferred event, a choice,
+    /// junction or history pseudostate) is reported unmapped instead of written.
     #[prost(bool, tag="10")]
     pub strict: bool,
     #[prost(oneof="migrate_request::Source", tags="1, 2")]

@@ -4188,8 +4188,9 @@ type MigrateRequest struct {
 	// Absolute http(s) URL that a server-relative image reference in a v1
 	// comment (<img src="/projects/…">) is resolved against.
 	ImageBaseUrl string `protobuf:"bytes,9,opt,name=image_base_url,json=imageBaseUrl,proto3" json:"image_base_url,omitempty"`
-	// Fail the migration on the first element it cannot map faithfully, rather
-	// than approximating it and saying so in the report.
+	// Write only notation a pinned SysML v2 production admits: a construct whose
+	// only v2 form is an OpenSysML extension (a deferred event, a choice,
+	// junction or history pseudostate) is reported unmapped instead of written.
 	Strict        bool `protobuf:"varint,10,opt,name=strict,proto3" json:"strict,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
