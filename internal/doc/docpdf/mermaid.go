@@ -49,6 +49,11 @@ func configFor(source string) mermaidConfig {
 }
 
 func (m *mermaidRasterizer) draw(dir, source, output string) error {
+	cwd, err := os.Getwd()
+	if err != nil {
+		return err
+	}
+	source = view.InlineMermaidImages(source, cwd)
 	base := strings.TrimSuffix(output, ".svg")
 	input, config := base+".mmd", base+".json"
 	if err := os.WriteFile(filepath.Join(dir, input), []byte(source+"\n"), 0o600); err != nil {

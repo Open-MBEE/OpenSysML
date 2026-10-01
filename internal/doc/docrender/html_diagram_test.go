@@ -1,7 +1,12 @@
 package docrender
 
 import (
+	"bytes"
 	"errors"
+	"image"
+	"image/png"
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 
@@ -25,6 +30,31 @@ func renderedFigureOptions(t *testing.T, caption string, rendering *view.Renderi
 		t.Fatalf("writeFigure: %v", err)
 	}
 	return w.b.String()
+}
+
+func TestHTMLDiagramMermaidInlinesLocalPictures(t *testing.T) {
+	dir := t.TempDir()
+	var data bytes.Buffer
+	if err := png.Encode(&data, image.NewRGBA(image.Rect(0, 0, 2, 2))); err != nil {
+		t.Fatal(err)
+	}
+	path := filepath.Join(dir, "picture.png")
+	if err := os.WriteFile(path, data.Bytes(), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	rendering := &view.Rendering{
+		Kind:  view.KindTree,
+		Roots: []*view.Node{{ID: "n", Kind: "part", Name: "pictured"}},
+		Pictures: []view.Picture{{
+			Location: path,
+			Width:    20,
+			Height:   20,
+		}},
+	}
+	got := renderedFigure(t, "", rendering, "")
+	if !strings.Contains(got, "data:image/png;base64,") || strings.Contains(got, path) {
+		t.Errorf("local picture was not inlined into Mermaid source:\n%s", got)
+	}
 }
 
 // TestHTMLDiagramMermaidKinds checks every graph-shaped kind is Mermaid source
@@ -72,6 +102,10 @@ func TestHTMLDiagramDotForm(t *testing.T) {
 	}
 	if strings.Contains(renderedFigureForm(t, "", graphRendering(view.KindTree), "", view.FormDot), "data-palette") {
 		t.Errorf("an unfilled figure carries a palette attribute")
+	}
+	mermaid := renderedFigureOptions(t, "", graphRendering(view.KindTree), view.Options{Palette: view.PaletteOkabeIto}, view.FormMermaid)
+	if !strings.Contains(mermaid, `data-palette="okabe-ito"`) || !strings.Contains(mermaid, "classDef palette0 ") {
+		t.Errorf("Mermaid palette not carried into the figure:\n%s", mermaid)
 	}
 	w := &htmlWriter{forms: DiagramOptions{Form: view.FormDot}}
 	var typed *Error

@@ -72,8 +72,8 @@ func TestMermaidSubgraphsRestateDirection(t *testing.T) {
 			t.Errorf("%q: no flowchart %s:\n%s", tc.options.Direction, tc.flow, got)
 		}
 		for _, line := range []string{
-			"  subgraph n0 [\"Drive<br>«action def»\"]\n    direction " + tc.flow + "\n",
-			"    subgraph n1 [\"monitor<br>«action»\"]\n      direction " + tc.flow + "\n",
+			"  subgraph n0 [\"`**Drive**\n*«action def»*`\"]\n    direction " + tc.flow + "\n",
+			"    subgraph n1 [\"`**monitor**\n*«action»*`\"]\n      direction " + tc.flow + "\n",
 		} {
 			if !strings.Contains(got, line) {
 				t.Errorf("%q: subgraph lacks %q:\n%s", tc.options.Direction, line, got)
@@ -84,12 +84,12 @@ func TestMermaidSubgraphsRestateDirection(t *testing.T) {
 		}
 	}
 	interconnection := &Rendering{Kind: KindInterconnection, Roots: rendering.Roots}
-	if got := interconnection.Mermaid(); !strings.Contains(got, "flowchart LR\n  subgraph n0 [\"Drive<br>«action def»\"]\n    direction LR\n") {
+	if got := interconnection.Mermaid(); !strings.Contains(got, "flowchart LR\n  subgraph n0 [\"`**Drive**\n*«action def»*`\"]\n    direction LR\n") {
 		t.Errorf("interconnection subgraph does not restate LR:\n%s", got)
 	}
 	tree := &Rendering{Kind: KindTree, Roots: rendering.Roots}
-	if got := tree.Mermaid(); strings.Contains(got, "direction") {
-		t.Errorf("a tree draws no subgraph, so states no direction:\n%s", got)
+	if got := tree.Mermaid(); !strings.Contains(got, "flowchart TD\n") || strings.Count(got, "direction ") != 2 {
+		t.Errorf("tree subgraphs do not restate their direction:\n%s", got)
 	}
 }
 

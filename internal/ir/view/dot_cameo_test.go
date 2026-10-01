@@ -35,7 +35,7 @@ func TestDrawingStyles(t *testing.T) {
 		t.Errorf("error = %q, want %q", err, want)
 	}
 	for _, form := range Forms() {
-		if got := form.TakesStyle(); got != (form == FormDot) {
+		if got := form.TakesStyle(); got != (form == FormDot || form == FormMermaid) {
 			t.Errorf("%s.TakesStyle() = %v", form, got)
 		}
 	}
@@ -275,8 +275,8 @@ func TestNotesAcrossForms(t *testing.T) {
 	}
 	notice := "not represented: 4 note(s); the dot form draws notes"
 	mermaid, plantuml := rendering.Mermaid(), rendering.Text()
-	if !strings.Contains(mermaid, "%% "+notice) {
-		t.Errorf("Mermaid drops the notes silently:\n%s", mermaid)
+	if !strings.Contains(mermaid, "note0@{ shape: notch-rect") || strings.Contains(mermaid, "not represented: 4 note(s)") {
+		t.Errorf("Mermaid does not draw the notes faithfully:\n%s", mermaid)
 	}
 	if puml, _ := rendering.PlantUML(); !strings.Contains(puml, "' "+notice) {
 		t.Errorf("PlantUML drops the notes silently:\n%s", puml)
@@ -284,14 +284,19 @@ func TestNotesAcrossForms(t *testing.T) {
 	if !strings.Contains(plantuml, "notes:\n  \"always\" on pump at (10, 90)\n  \"anchored\" on tank at (650, 40) size 100×30\n  \"check pressure\" on pump -> tank at (420, 140)\n  \"free\" at (0, 700)\n") {
 		t.Errorf("text lacks the notes:\n%s", plantuml)
 	}
-	for _, form := range []Form{FormMermaid, FormPlantUML} {
-		out, err := rendering.WriteWith(form, Options{Style: StyleCameo})
-		if err != nil {
-			t.Fatalf("%s: %v", form, err)
-		}
-		if !strings.Contains(out, "not represented: style cameo; only the DOT form draws a diagram in a style") {
-			t.Errorf("%s takes the cameo style silently:\n%s", form, out)
-		}
+	mermaid, err = rendering.WriteWith(FormMermaid, Options{Style: StyleCameo})
+	if err != nil {
+		t.Fatalf("mermaid: %v", err)
+	}
+	if strings.Contains(mermaid, "not represented: style cameo") {
+		t.Errorf("Mermaid does not draw Cameo style:\n%s", mermaid)
+	}
+	puml, err := rendering.WriteWith(FormPlantUML, Options{Style: StyleCameo})
+	if err != nil {
+		t.Fatalf("plantuml: %v", err)
+	}
+	if !strings.Contains(puml, "not represented: style cameo; only the DOT and Mermaid forms draw a diagram in a style") {
+		t.Errorf("PlantUML does not note the unsupported style:\n%s", puml)
 	}
 }
 

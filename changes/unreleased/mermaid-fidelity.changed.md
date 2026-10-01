@@ -1,0 +1,1 @@
+- **Mermaid diagrams now preserve more rendering detail.** Flowchart shapes, labels, notes, ports, pictures, palettes and styles are drawn where Mermaid supports them; document backends inline local images, and unsupported details receive notices.

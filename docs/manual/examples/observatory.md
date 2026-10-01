@@ -59,42 +59,159 @@ Subsystems at or above 10 kg:
 ```mermaid
 ---
 config:
+  theme: base
+  themeVariables:
+    fontFamily: "Helvetica, Arial, sans-serif"
+    fontSize: "14px"
+    primaryColor: "#FFFFFF"
+    secondaryColor: "#FFFFFF"
+    tertiaryColor: "#FFFFFF"
+    background: "#FFFFFF"
+    clusterBkg: "#FFFFFF"
+    edgeLabelBackground: "#FFFFFF"
+    primaryBorderColor: "#181818"
+    lineColor: "#181818"
+    clusterBorder: "#181818"
+    noteBorderColor: "#181818"
+    primaryTextColor: "#000000"
+    textColor: "#000000"
+    noteTextColor: "#000000"
+    noteBkgColor: "#FEFFDD"
+    stateBkg: "#FFFFFF"
+    stateBorder: "#181818"
+    stateLabelColor: "#000000"
+    compositeBackground: "#FFFFFF"
+    compositeBorder: "#181818"
+    compositeTitleBackground: "#FFFFFF"
+    compositeTitleBorder: "#181818"
+    actorBkg: "#FFFFFF"
+    actorBorder: "#181818"
+    actorTextColor: "#000000"
+    signalColor: "#181818"
+    signalTextColor: "#000000"
+    labelBoxBkgColor: "#FFFFFF"
+    labelBoxBorderColor: "#181818"
+    labelTextColor: "#000000"
+    actorLineColor: "#181818"
+    loopTextColor: "#000000"
+    activationBorderColor: "#181818"
+    activationBkgColor: "#FFFFFF"
+    sequenceNumberColor: "#000000"
+    transitionColor: "#181818"
+    transitionLabelColor: "#000000"
+    labelBackgroundColor: "#FFFFFF"
+    specialStateColor: "#181818"
   flowchart:
     subGraphTitleMargin:
       bottom: 24
 ---
 %% Observatory::interconnectView — interconnection rendering (render asInterconnectionDiagram)
 flowchart LR
-  subgraph n0 ["imagingChain<br>«part»"]
+  subgraph n0 ["`**imagingChain**
+*«part»*`"]
     direction LR
-    n1["camera : Camera<br>«part»"]
-    n2["recorder : Recorder<br>«part»"]
+    n1("`**camera : Camera**
+*«part»*`")
+    n2("`**recorder : Recorder**
+*«part»*`")
   end
-  n1 ---|"link"| n2
+  n1 ===|"link"| n2
+  linkStyle 0 stroke-width:3px
 ```
 
 *Telescope part tree, left to right*
 
 ```mermaid
+---
+config:
+  theme: base
+  themeVariables:
+    fontFamily: "Helvetica, Arial, sans-serif"
+    fontSize: "14px"
+    primaryColor: "#FFFFFF"
+    secondaryColor: "#FFFFFF"
+    tertiaryColor: "#FFFFFF"
+    background: "#FFFFFF"
+    clusterBkg: "#FFFFFF"
+    edgeLabelBackground: "#FFFFFF"
+    primaryBorderColor: "#181818"
+    lineColor: "#181818"
+    clusterBorder: "#181818"
+    noteBorderColor: "#181818"
+    primaryTextColor: "#000000"
+    textColor: "#000000"
+    noteTextColor: "#000000"
+    noteBkgColor: "#FEFFDD"
+    stateBkg: "#FFFFFF"
+    stateBorder: "#181818"
+    stateLabelColor: "#000000"
+    compositeBackground: "#FFFFFF"
+    compositeBorder: "#181818"
+    compositeTitleBackground: "#FFFFFF"
+    compositeTitleBorder: "#181818"
+    actorBkg: "#FFFFFF"
+    actorBorder: "#181818"
+    actorTextColor: "#000000"
+    signalColor: "#181818"
+    signalTextColor: "#000000"
+    labelBoxBkgColor: "#FFFFFF"
+    labelBoxBorderColor: "#181818"
+    labelTextColor: "#000000"
+    actorLineColor: "#181818"
+    loopTextColor: "#000000"
+    activationBorderColor: "#181818"
+    activationBkgColor: "#FFFFFF"
+    sequenceNumberColor: "#000000"
+    transitionColor: "#181818"
+    transitionLabelColor: "#000000"
+    labelBackgroundColor: "#FFFFFF"
+    specialStateColor: "#181818"
+  flowchart:
+    subGraphTitleMargin:
+      bottom: 24
+---
 %% tree rendering (the diagram states kind "tree")
 flowchart LR
-  n0["telescope<br>«part»"]
-  n1["optics : Subsystem<br>«part»"]
-  n2["mass<br>«attribute»"]
-  n1 --- n2
-  n3["zone<br>«attribute»"]
-  n1 --- n3
+  subgraph n0 ["`**telescope**
+*«part»*`"]
+    direction LR
+    subgraph n1 ["`**optics : Subsystem**
+*«part»*`"]
+      direction LR
+      mermaid_anchor_n1((" "))
+      n2("`**mass**
+*«attribute»*`")
+      n3("`**zone**
+*«attribute»*`")
+  mermaid_anchor_n1 --- n2
+  mermaid_anchor_n1 --- n3
+    end
+    subgraph n4 ["`**segmentControl : Subsystem**
+*«part»*`"]
+      direction LR
+      mermaid_anchor_n4((" "))
+      n5("`**mass**
+*«attribute»*`")
+      n6("`**zone**
+*«attribute»*`")
+  mermaid_anchor_n4 --- n5
+  mermaid_anchor_n4 --- n6
+    end
+    subgraph n7 ["`**mount : Subsystem**
+*«part»*`"]
+      direction LR
+      mermaid_anchor_n7((" "))
+      n8("`**mass**
+*«attribute»*`")
+      n9("`**zone**
+*«attribute»*`")
+  mermaid_anchor_n7 --- n8
+  mermaid_anchor_n7 --- n9
+    end
+  end
   n0 --- n1
-  n4["segmentControl : Subsystem<br>«part»"]
-  n5["mass<br>«attribute»"]
-  n4 --- n5
-  n6["zone<br>«attribute»"]
-  n4 --- n6
   n0 --- n4
-  n7["mount : Subsystem<br>«part»"]
-  n8["mass<br>«attribute»"]
-  n7 --- n8
-  n9["zone<br>«attribute»"]
-  n7 --- n9
   n0 --- n7
+  classDef treeAnchor fill:transparent,stroke:transparent,color:transparent
+  class mermaid_anchor_n1,mermaid_anchor_n4,mermaid_anchor_n7 treeAnchor
 ```

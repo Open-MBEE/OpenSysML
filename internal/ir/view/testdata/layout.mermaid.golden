@@ -1,21 +1,74 @@
 ---
 config:
+  theme: base
+  themeVariables:
+    fontFamily: "Helvetica, Arial, sans-serif"
+    fontSize: "14px"
+    primaryColor: "#FFFFFF"
+    secondaryColor: "#FFFFFF"
+    tertiaryColor: "#FFFFFF"
+    background: "#FFFFFF"
+    clusterBkg: "#FFFFFF"
+    edgeLabelBackground: "#FFFFFF"
+    primaryBorderColor: "#181818"
+    lineColor: "#181818"
+    clusterBorder: "#181818"
+    noteBorderColor: "#181818"
+    primaryTextColor: "#000000"
+    textColor: "#000000"
+    noteTextColor: "#000000"
+    noteBkgColor: "#FEFFDD"
+    stateBkg: "#FFFFFF"
+    stateBorder: "#181818"
+    stateLabelColor: "#000000"
+    compositeBackground: "#FFFFFF"
+    compositeBorder: "#181818"
+    compositeTitleBackground: "#FFFFFF"
+    compositeTitleBorder: "#181818"
+    actorBkg: "#FFFFFF"
+    actorBorder: "#181818"
+    actorTextColor: "#000000"
+    signalColor: "#181818"
+    signalTextColor: "#000000"
+    labelBoxBkgColor: "#FFFFFF"
+    labelBoxBorderColor: "#181818"
+    labelTextColor: "#000000"
+    actorLineColor: "#181818"
+    loopTextColor: "#000000"
+    activationBorderColor: "#181818"
+    activationBkgColor: "#FFFFFF"
+    sequenceNumberColor: "#000000"
+    transitionColor: "#181818"
+    transitionLabelColor: "#000000"
+    labelBackgroundColor: "#FFFFFF"
+    specialStateColor: "#181818"
   flowchart:
     subGraphTitleMargin:
       bottom: 24
 ---
 %% PlantViews::placedView — interconnection rendering (render asInterconnectionDiagram)
-%% not represented: 1 styled node(s) and 1 styled edge(s); a node's font and an edge's Style are not drawn; the dot form draws every Style
-%% not represented: 4 note(s); the dot form draws notes
 %% canvas: unit=px w=1200 h=800
 %% layout: n1 x=300 y=40 collapsed
 %% layout: n2 x=500 y=40 w=120 h=60
 %% route: n1->n2 400,70 450,120 500,70
 flowchart LR
-  subgraph n0 ["Loop<br>«part def»"]
+  subgraph n0 ["`**Loop**
+*«part def»*`"]
     direction LR
-    n1["pump : Pump<br>«part»"]
-    n2["tank : Tank<br>«part»"]
+    n1("`**pump : Pump**
+*«part»*`")
+    n2("`**tank : Tank**
+*«part»*`")
   end
-  n1 ---|"supply"| n2
-  style n1 fill:#FFE8BD,stroke:#333333
+  note0@{ shape: notch-rect, label: "always" }
+  note1@{ shape: notch-rect, label: "anchored" }
+  note2@{ shape: notch-rect, label: "check pressure" }
+  note3@{ shape: notch-rect, label: "free" }
+  n1 ===|"supply"| n2
+  note0 -.- n1
+  note1 -.- n2
+  note2 -.- n1
+  style n1 fill:#FFE8BD,stroke:#333333,font-family:Arial,font-size:11px,font-weight:bold
+  classDef note fill:#FEFFDD,stroke:#181818
+  class note0,note1,note2,note3 note
+  linkStyle 0 stroke:#0000FF,stroke-width:3px

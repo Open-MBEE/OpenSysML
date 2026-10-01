@@ -1,16 +1,80 @@
+---
+config:
+  theme: base
+  themeVariables:
+    fontFamily: "Helvetica, Arial, sans-serif"
+    fontSize: "14px"
+    primaryColor: "#FFFFFF"
+    secondaryColor: "#FFFFFF"
+    tertiaryColor: "#FFFFFF"
+    background: "#FFFFFF"
+    clusterBkg: "#FFFFFF"
+    edgeLabelBackground: "#FFFFFF"
+    primaryBorderColor: "#181818"
+    lineColor: "#181818"
+    clusterBorder: "#181818"
+    noteBorderColor: "#181818"
+    primaryTextColor: "#000000"
+    textColor: "#000000"
+    noteTextColor: "#000000"
+    noteBkgColor: "#FEFFDD"
+    stateBkg: "#FFFFFF"
+    stateBorder: "#181818"
+    stateLabelColor: "#000000"
+    compositeBackground: "#FFFFFF"
+    compositeBorder: "#181818"
+    compositeTitleBackground: "#FFFFFF"
+    compositeTitleBorder: "#181818"
+    actorBkg: "#FFFFFF"
+    actorBorder: "#181818"
+    actorTextColor: "#000000"
+    signalColor: "#181818"
+    signalTextColor: "#000000"
+    labelBoxBkgColor: "#FFFFFF"
+    labelBoxBorderColor: "#181818"
+    labelTextColor: "#000000"
+    actorLineColor: "#181818"
+    loopTextColor: "#000000"
+    activationBorderColor: "#181818"
+    activationBkgColor: "#FFFFFF"
+    sequenceNumberColor: "#000000"
+    transitionColor: "#181818"
+    transitionLabelColor: "#000000"
+    labelBackgroundColor: "#FFFFFF"
+    specialStateColor: "#181818"
+  flowchart:
+    subGraphTitleMargin:
+      bottom: 24
+---
 %% VehicleViews::vehicleView — tree rendering
 flowchart TD
-  n0["Vehicles::Vehicle<br>«part def»"]
-  n1["engine : Engine<br>«part»"]
+  subgraph n0 ["`**Vehicles::Vehicle**
+*«part def»*`"]
+    direction TD
+    n1("`**engine : Engine**
+*«part»*`")
+    n2("`**wheels : Wheel**
+*«part»*`")
+    n3("`**connect**`")
+  end
   n0 --- n1
-  n2["wheels : Wheel<br>«part»"]
   n0 --- n2
-  n3["connect"]
   n0 --- n3
-  n4["VehicleViews::vehicleView::engineSubview<br>«view»"]
-  n5["Vehicles::Engine<br>«part def»"]
-  n6["power<br>«attribute»"]
-  n5 --- n6
-  n7["cylinder : Cylinder<br>«part»"]
-  n5 --- n7
+  subgraph n4 ["`**VehicleViews::vehicleView::engineSubview**
+*«view»*`"]
+    direction TD
+    subgraph n5 ["`**Vehicles::Engine**
+*«part def»*`"]
+      direction TD
+      mermaid_anchor_n5((" "))
+      n6("`**power**
+*«attribute»*`")
+      n7("`**cylinder : Cylinder**
+*«part»*`")
+  mermaid_anchor_n5 --- n6
+  mermaid_anchor_n5 --- n7
+    end
+  end
   n4 --- n5
+  classDef treeAnchor fill:transparent,stroke:transparent,color:transparent
+  class mermaid_anchor_n5 treeAnchor

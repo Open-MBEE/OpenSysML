@@ -33,7 +33,7 @@ func TestRenderWritesTheArtifactOnStdout(t *testing.T) {
 	if got.status != exitHolds {
 		t.Fatalf("exit status = %d, want %d\n%s", got.status, exitHolds, got.output())
 	}
-	for _, want := range []string{"flowchart TD", `"Vehicle<br>«part def»"`} {
+	for _, want := range []string{"flowchart TD", "**Vehicle**\n*«part def»*"} {
 		if !strings.Contains(got.stdout, want) {
 			t.Errorf("stdout is missing %q:\n%s", want, got.stdout)
 		}
@@ -204,8 +204,7 @@ func TestRenderPlantUMLForm(t *testing.T) {
 	}
 }
 
-// -render-palette fills the DOT form's nodes from a named palette, is noted as
-// not represented by the Mermaid form, and is refused with the palettes there
+// -render-palette fills DOT and Mermaid nodes from a named palette and is refused with the palettes there
 // are when it names none of them.
 func TestRenderPalette(t *testing.T) {
 	binary := buildCLI(t)
@@ -221,11 +220,11 @@ func TestRenderPalette(t *testing.T) {
 	}
 
 	mermaid := runStreams(t, binary, renderModel, "-render", "Demo::overview", "-render-form", "mermaid", "-render-palette", "viridis")
-	if mermaid.status != exitHolds || !strings.Contains(mermaid.stdout, "%% not represented: palette viridis; only the DOT and PlantUML forms fill nodes by keyword family") {
+	if mermaid.status != exitHolds || !strings.Contains(mermaid.stdout, "classDef palette0 fill:#") {
 		t.Errorf("Mermaid with a palette = %d\n%s", mermaid.status, mermaid.output())
 	}
-	if strings.Contains(mermaid.stdout, "fillcolor") || strings.Contains(mermaid.stdout, "style n0") {
-		t.Errorf("Mermaid is themed by the palette:\n%s", mermaid.stdout)
+	if strings.Contains(mermaid.stdout, "not represented: palette") {
+		t.Errorf("Mermaid did not apply the palette:\n%s", mermaid.stdout)
 	}
 
 	unknown := runStreams(t, binary, renderModel, "-render", "Demo::overview", "-render-form", "dot", "-render-palette", "rainbow")
@@ -237,7 +236,7 @@ func TestRenderPalette(t *testing.T) {
 	}
 
 	alone := runStreams(t, binary, renderModel, "-render-palette", "okabe-ito")
-	if alone.status != 2 || !strings.Contains(alone.stderr, "-render-palette is the palette -render or -render-all fills DOT or PlantUML with") {
+	if alone.status != 2 || !strings.Contains(alone.stderr, "-render-palette is the palette -render or -render-all fills DOT, Mermaid or PlantUML with") {
 		t.Errorf("a palette without a view = %d\n%s", alone.status, alone.output())
 	}
 
@@ -277,7 +276,7 @@ func TestRenderSeveralFiles(t *testing.T) {
 	if got.status != exitHolds {
 		t.Fatalf("exit status = %d, want %d\n%s", got.status, exitHolds, got.output())
 	}
-	for _, want := range []string{"flowchart TD", `"Vehicle<br>«part def»"`, "wheel"} {
+	for _, want := range []string{"flowchart TD", "**Vehicle**\n*«part def»*", "wheel"} {
 		if !strings.Contains(got.stdout, want) {
 			t.Errorf("stdout is missing %q:\n%s", want, got.stdout)
 		}

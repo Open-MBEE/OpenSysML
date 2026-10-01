@@ -1,31 +1,85 @@
 ---
 config:
+  theme: base
+  themeVariables:
+    fontFamily: "Helvetica, Arial, sans-serif"
+    fontSize: "14px"
+    primaryColor: "#FFFFFF"
+    secondaryColor: "#FFFFFF"
+    tertiaryColor: "#FFFFFF"
+    background: "#FFFFFF"
+    clusterBkg: "#FFFFFF"
+    edgeLabelBackground: "#FFFFFF"
+    primaryBorderColor: "#181818"
+    lineColor: "#181818"
+    clusterBorder: "#181818"
+    noteBorderColor: "#181818"
+    primaryTextColor: "#000000"
+    textColor: "#000000"
+    noteTextColor: "#000000"
+    noteBkgColor: "#FEFFDD"
+    stateBkg: "#FFFFFF"
+    stateBorder: "#181818"
+    stateLabelColor: "#000000"
+    compositeBackground: "#FFFFFF"
+    compositeBorder: "#181818"
+    compositeTitleBackground: "#FFFFFF"
+    compositeTitleBorder: "#181818"
+    actorBkg: "#FFFFFF"
+    actorBorder: "#181818"
+    actorTextColor: "#000000"
+    signalColor: "#181818"
+    signalTextColor: "#000000"
+    labelBoxBkgColor: "#FFFFFF"
+    labelBoxBorderColor: "#181818"
+    labelTextColor: "#000000"
+    actorLineColor: "#181818"
+    loopTextColor: "#000000"
+    activationBorderColor: "#181818"
+    activationBkgColor: "#FFFFFF"
+    sequenceNumberColor: "#000000"
+    transitionColor: "#181818"
+    transitionLabelColor: "#000000"
+    labelBackgroundColor: "#FFFFFF"
+    specialStateColor: "#181818"
   flowchart:
     subGraphTitleMargin:
       bottom: 48
 ---
 %% FlowViews::driveView — action rendering (render asInterconnectionDiagram, view def ActionFlowView)
+%% not represented: 2 fork/join name(s) (split, sync); Mermaid's fork bar draws no label
 flowchart TD
-  subgraph n0 ["Drive<br>«action def»"]
+  subgraph n0 ["`**Drive**
+*«action def»*`"]
     direction TD
-    n1["initial"]
-    n2["provide : Provide<br>«action»"]
-    subgraph n3 ["monitor<br>«action»<br>own flow"]
+    n1@{ shape: sm-circ, label: "" }
+    subgraph n2 ["`**provide : Provide**
+*«action»*`"]
       direction TD
-      n5["initial"]
-      n6["record<br>«action»"]
+      n2_p1["torque"]
     end
-    n7["tally<br>«action»"]
-    n8["split<br>«fork»"]
-    n9["sync<br>«join»"]
-    n10["final"]
-    n11["park<br>«action»"]
-    n12["check<br>«decision»"]
+    subgraph n3 ["`**monitor**
+*«action»*
+own flow`"]
+      direction TD
+      n5@{ shape: sm-circ, label: "" }
+      n6("`**record**
+*«action»*`")
+    end
+    n7("`**tally**
+*«action»*`")
+    n8@{ shape: fork, label: "split" }
+    n9@{ shape: fork, label: "sync" }
+    n10@{ shape: fr-circ, label: "" }
+    n11("`**park**
+*«action»*`")
+    n12{"`**check**
+*«decision»*`"}
   end
   n5 --> n6
   n1 --> n8
   n2 --> n9
-  n2 -.->|"torque to reading"| n3
+  n2_p1 -.->|"torque to reading"| n3_p0
   n3 --> n9
   n7 --> n9
   n8 --> n2
@@ -35,3 +89,5 @@ flowchart TD
   n11 --> n10
   n12 -->|"[speed #gt; 0]"| n10
   n12 --> n11
+  classDef control fill:#181818,stroke:#181818
+  class n1,n5,n8,n9 control

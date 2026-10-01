@@ -27,8 +27,7 @@ import (
 )
 
 // renderUsage is how %render is written: a view, the form to write it in, text
-// when none is named, then the palette the DOT and PlantUML forms fill nodes
-// from and the drawing style the DOT form draws in, in either order.
+// when none is named, then the palette and style options the form draws.
 const renderUsage = "usage: %render <name> [text|mermaid|markdown|dot|plantuml [palette] [pilot|cameo]]"
 
 // isMeta reports whether a trimmed input line is a meta command.
@@ -480,7 +479,7 @@ func (s *Session) metaRender(args []string) ([]string, bool, error) {
 			continue
 		}
 		if !form.TakesPalette() {
-			return []string{fmt.Sprintf("a palette fills the dot and plantuml forms only, not %s; %s", form, renderUsage)}, false, nil
+			return []string{fmt.Sprintf("a palette fills the dot, mermaid and plantuml forms only, not %s; %s", form, renderUsage)}, false, nil
 		}
 		palette, ok := view.ParsePalette(word)
 		if !ok {

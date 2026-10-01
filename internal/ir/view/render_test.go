@@ -377,8 +377,13 @@ func TestBehaviorRenderingsCarryTheDeclaredType(t *testing.T) {
 			t.Errorf("%s: text lacks %q:\n%s", tc.view, tc.kind+" "+head, text)
 		}
 		head := tc.label + " : " + tc.typ
-		if mermaid := rendering.Mermaid(); !strings.Contains(mermaid, head+"<br>«"+tc.kind+"»") {
-			t.Errorf("%s: Mermaid lacks %q:\n%s", tc.view, head+"<br>«"+tc.kind+"»", mermaid)
+		mermaid := rendering.Mermaid()
+		label := "**" + head + "**\n*«" + tc.kind + "»*"
+		if rendering.Kind == KindState {
+			label = head + "<br>«" + tc.kind + "»"
+		}
+		if !strings.Contains(mermaid, label) {
+			t.Errorf("%s: Mermaid lacks the label for %q:\n%s", tc.view, head, mermaid)
 		}
 		dot, err := rendering.Write(FormDot)
 		if err != nil {
@@ -419,8 +424,8 @@ func TestDeclaredTypesAreSpelledAsWritten(t *testing.T) {
 	}
 	mermaid := rendering.Mermaid()
 	for _, want := range []string{
-		"[\"Rig<br>«part def»\"]", "[\"plug : ~Link<br>«port»\"]", "[\"base : Mount, Cart<br>«part»\"]",
-		"[\"root : Mount<br>«part»\"]", "[\"mirrored : ~'Frame *rail*'<br>«port»\"]",
+		"**Rig**\n*«part def»*`", "plug : ~Link<br>«port»", "**base : Mount, Cart**\n*«part»*`",
+		"**root : Mount**\n*«part»*`", "mirrored : ~'Frame *rail*'<br>«port»",
 	} {
 		if !strings.Contains(mermaid, want) {
 			t.Errorf("Mermaid lacks %q:\n%s", want, mermaid)
@@ -658,19 +663,33 @@ func TestRenderingReportsWhatItCannotRepresent(t *testing.T) {
 	}
 }
 
-// A Mermaid label carries no character that would break the diagram: the only
-// markup in it is the `<br>` between its lines.
+// Mermaid labels keep Markdown-safe flowchart text in Markdown and escape
+// unsafe text into the plain-label form.
 func TestMermaidLabelsAreEscaped(t *testing.T) {
 	mermaid := render(t, "action.sysml", "FlowViews::driveView").Mermaid()
-	for _, line := range strings.Split(mermaid, "\n") {
-		if strings.HasPrefix(line, "%%") {
+	lines := strings.Split(mermaid, "\n")
+	for i := 0; i < len(lines); i++ {
+		start := strings.Index(lines[i], `["`)
+		end := `"]`
+		if start < 0 {
+			start = strings.Index(lines[i], `("`)
+			end = `")`
+		}
+		if start < 0 {
 			continue
 		}
-		if i := strings.Index(line, "[\""); i >= 0 {
-			label := line[i+2 : strings.LastIndex(line, "\"")]
+		label := lines[i][start+2:]
+		for !strings.Contains(label, end) && i+1 < len(lines) {
+			i++
+			label += "\n" + lines[i]
+		}
+		if close := strings.LastIndex(label, end); close >= 0 {
+			label = label[:close]
 			if strings.ContainsAny(strings.ReplaceAll(label, "<br>", ""), "\"<>") {
-				t.Errorf("unescaped label %q in %q", label, line)
+				t.Errorf("unescaped label %q", label)
 			}
+		} else {
+			t.Errorf("unterminated Mermaid label %q", label)
 		}
 	}
 	node := &Node{Kind: "part", Name: `a<b> "c" #d`, Type: "T<U>", Detail: "x; y"}

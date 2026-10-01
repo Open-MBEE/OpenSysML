@@ -378,22 +378,113 @@
 <figure class="sysml-diagram" data-content="diagram" data-name="imaging" data-view="Observatory::interconnectView" data-diagram-kind="interconnection">
 <pre class="mermaid">---
 config:
+  theme: base
+  themeVariables:
+    fontFamily: &#34;Helvetica, Arial, sans-serif&#34;
+    fontSize: &#34;14px&#34;
+    primaryColor: &#34;#FFFFFF&#34;
+    secondaryColor: &#34;#FFFFFF&#34;
+    tertiaryColor: &#34;#FFFFFF&#34;
+    background: &#34;#FFFFFF&#34;
+    clusterBkg: &#34;#FFFFFF&#34;
+    edgeLabelBackground: &#34;#FFFFFF&#34;
+    primaryBorderColor: &#34;#181818&#34;
+    lineColor: &#34;#181818&#34;
+    clusterBorder: &#34;#181818&#34;
+    noteBorderColor: &#34;#181818&#34;
+    primaryTextColor: &#34;#000000&#34;
+    textColor: &#34;#000000&#34;
+    noteTextColor: &#34;#000000&#34;
+    noteBkgColor: &#34;#FEFFDD&#34;
+    stateBkg: &#34;#FFFFFF&#34;
+    stateBorder: &#34;#181818&#34;
+    stateLabelColor: &#34;#000000&#34;
+    compositeBackground: &#34;#FFFFFF&#34;
+    compositeBorder: &#34;#181818&#34;
+    compositeTitleBackground: &#34;#FFFFFF&#34;
+    compositeTitleBorder: &#34;#181818&#34;
+    actorBkg: &#34;#FFFFFF&#34;
+    actorBorder: &#34;#181818&#34;
+    actorTextColor: &#34;#000000&#34;
+    signalColor: &#34;#181818&#34;
+    signalTextColor: &#34;#000000&#34;
+    labelBoxBkgColor: &#34;#FFFFFF&#34;
+    labelBoxBorderColor: &#34;#181818&#34;
+    labelTextColor: &#34;#000000&#34;
+    actorLineColor: &#34;#181818&#34;
+    loopTextColor: &#34;#000000&#34;
+    activationBorderColor: &#34;#181818&#34;
+    activationBkgColor: &#34;#FFFFFF&#34;
+    sequenceNumberColor: &#34;#000000&#34;
+    transitionColor: &#34;#181818&#34;
+    transitionLabelColor: &#34;#000000&#34;
+    labelBackgroundColor: &#34;#FFFFFF&#34;
+    specialStateColor: &#34;#181818&#34;
   flowchart:
     subGraphTitleMargin:
       bottom: 24
 ---
 %% Observatory::interconnectView — interconnection rendering (render asInterconnectionDiagram)
 flowchart LR
-  subgraph n0 [&#34;imagingChain&lt;br&gt;«part»&#34;]
+  subgraph n0 [&#34;`**imagingChain**
+*«part»*`&#34;]
     direction LR
-    n1[&#34;camera : Camera&lt;br&gt;«part»&#34;]
-    n2[&#34;recorder : Recorder&lt;br&gt;«part»&#34;]
+    n1(&#34;`**camera : Camera**
+*«part»*`&#34;)
+    n2(&#34;`**recorder : Recorder**
+*«part»*`&#34;)
   end
-  n1 ---|&#34;link&#34;| n2</pre>
+  n1 ===|&#34;link&#34;| n2
+  linkStyle 0 stroke-width:3px</pre>
 <figcaption class="sysml-caption">Imaging chain interconnection</figcaption>
 </figure>
 <figure class="sysml-diagram" data-content="diagram" data-name="states" data-diagram-kind="state" data-direction="LR">
-<pre class="mermaid">%% state rendering (the diagram states kind &#34;state&#34;)
+<pre class="mermaid">---
+config:
+  theme: base
+  themeVariables:
+    fontFamily: &#34;Helvetica, Arial, sans-serif&#34;
+    fontSize: &#34;14px&#34;
+    primaryColor: &#34;#FFFFFF&#34;
+    secondaryColor: &#34;#FFFFFF&#34;
+    tertiaryColor: &#34;#FFFFFF&#34;
+    background: &#34;#FFFFFF&#34;
+    clusterBkg: &#34;#FFFFFF&#34;
+    edgeLabelBackground: &#34;#FFFFFF&#34;
+    primaryBorderColor: &#34;#181818&#34;
+    lineColor: &#34;#181818&#34;
+    clusterBorder: &#34;#181818&#34;
+    noteBorderColor: &#34;#181818&#34;
+    primaryTextColor: &#34;#000000&#34;
+    textColor: &#34;#000000&#34;
+    noteTextColor: &#34;#000000&#34;
+    noteBkgColor: &#34;#FEFFDD&#34;
+    stateBkg: &#34;#FFFFFF&#34;
+    stateBorder: &#34;#181818&#34;
+    stateLabelColor: &#34;#000000&#34;
+    compositeBackground: &#34;#FFFFFF&#34;
+    compositeBorder: &#34;#181818&#34;
+    compositeTitleBackground: &#34;#FFFFFF&#34;
+    compositeTitleBorder: &#34;#181818&#34;
+    actorBkg: &#34;#FFFFFF&#34;
+    actorBorder: &#34;#181818&#34;
+    actorTextColor: &#34;#000000&#34;
+    signalColor: &#34;#181818&#34;
+    signalTextColor: &#34;#000000&#34;
+    labelBoxBkgColor: &#34;#FFFFFF&#34;
+    labelBoxBorderColor: &#34;#181818&#34;
+    labelTextColor: &#34;#000000&#34;
+    actorLineColor: &#34;#181818&#34;
+    loopTextColor: &#34;#000000&#34;
+    activationBorderColor: &#34;#181818&#34;
+    activationBkgColor: &#34;#FFFFFF&#34;
+    sequenceNumberColor: &#34;#000000&#34;
+    transitionColor: &#34;#181818&#34;
+    transitionLabelColor: &#34;#000000&#34;
+    labelBackgroundColor: &#34;#FFFFFF&#34;
+    specialStateColor: &#34;#181818&#34;
+---
+%% state rendering (the diagram states kind &#34;state&#34;)
 stateDiagram-v2
   direction LR
   state &#34;operatingStates : ObservatoryStates&lt;br&gt;«state»&#34; as n0 {

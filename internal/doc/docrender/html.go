@@ -6,6 +6,7 @@ import (
 	"html"
 	"io/fs"
 	"math"
+	"os"
 	"sort"
 	"strconv"
 	"strings"
@@ -1127,11 +1128,24 @@ func (w *htmlWriter) writeFigure(id, name string, caption caption, rendering *vi
 	}
 	var source, fallback string
 	var form view.Form
+	mermaidSource := false
 	if rendering.Kind != view.KindTable {
 		var err error
 		form, fallback = w.forms.formFor(rendering)
 		if source, err = diagramSource(name, rendering, options, form); err != nil {
 			return err
+		}
+		if form == view.FormMermaid && w.diagramSVG() == "" && w.diagramImage() == "" {
+			cwd, err := os.Getwd()
+			if err != nil {
+				return err
+			}
+			source = view.InlineMermaidImages(source, cwd)
+			if !view.MermaidFits(source) {
+				textSize, edges := view.MermaidSize(source)
+				return &Error{Kind: ErrorOversizedDiagram, Content: name, DiagramForm: form, TextSize: textSize, Edges: edges}
+			}
+			mermaidSource = true
 		}
 	}
 	w.b.WriteString("<figure class=\"sysml-diagram\"" + attr("id", id) + " data-content=\"diagram\"" +
@@ -1156,11 +1170,11 @@ func (w *htmlWriter) writeFigure(id, name string, caption caption, rendering *vi
 		w.b.WriteString("<img" + attr("src", w.diagramImage()) + attr("alt", alt) + ">\n")
 		w.diagrams++
 	default:
-		w.b.WriteString("<pre" + attr("class", string(form)) + ">" + html.EscapeString(source) + "</pre>\n")
-		w.diagrams++
-		if form == view.FormMermaid {
+		if mermaidSource {
 			w.mermaid = append(w.mermaid, source)
 		}
+		w.b.WriteString("<pre" + attr("class", string(form)) + ">" + html.EscapeString(source) + "</pre>\n")
+		w.diagrams++
 	}
 	if caption.String() != "" {
 		w.b.WriteString(figcaption(captionMarkup(caption)))

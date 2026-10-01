@@ -374,7 +374,7 @@ func runCLI() int {
 		return 2
 	}
 	if renderPalette != "" && renderView == "" && renderAllDir == "" {
-		fmt.Fprintln(os.Stderr, "sysml: -render-palette is the palette -render or -render-all fills DOT or PlantUML with; name the view to render with -render or a directory with -render-all")
+		fmt.Fprintln(os.Stderr, "sysml: -render-palette is the palette -render or -render-all fills DOT, Mermaid or PlantUML with; name the view to render with -render or a directory with -render-all")
 		return 2
 	}
 	if renderUnplaced != "" && renderView == "" && renderAllDir == "" && renderDoc == "" && renderDocsDir == "" {
@@ -382,7 +382,7 @@ func runCLI() int {
 		return 2
 	}
 	if renderStyle != "" && renderView == "" && renderAllDir == "" && renderDoc == "" && renderDocsDir == "" {
-		fmt.Fprintln(os.Stderr, "sysml: -render-style is the drawing style of a DOT drawing; name what to render with -render, -render-all, -render-document or -render-documents")
+		fmt.Fprintln(os.Stderr, "sysml: -render-style is the drawing style of a DOT or Mermaid diagram; name what to render with -render, -render-all, -render-document or -render-documents")
 		return 2
 	}
 

@@ -61,6 +61,7 @@ var packageLayer = map[string]string{
 	"internal/ir/queryplan": "ir",
 	"internal/ir/docplan":   "ir",
 	"internal/ir/view":      "ir",
+	"internal/ir/imagefile": "ir",
 
 	"internal/check/passes":          "check",
 	"internal/check/passes/kit":      "check",

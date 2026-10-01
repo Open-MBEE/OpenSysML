@@ -363,9 +363,9 @@ func doc() usage.Doc {
 				usage.Ex("sysml model.sysml -render Views::vehicleView -render-form markdown", ""),
 				usage.Ex("sysml model.sysml -render Views::vehicleView -o view.mmd", ""),
 				usage.Ex("sysml model.sysml -render Views::vehicleView -render-form dot", ""),
-				usage.Ex("sysml model.sysml -render Views::vehicleView -render-form dot -render-palette okabe-ito", ""),
+				usage.Ex("sysml model.sysml -render Views::vehicleView -render-form mermaid -render-palette okabe-ito", ""),
 				usage.Ex("sysml model.sysml -render Views::vehicleView -render-form dot -render-unplaced strip", "unpositioned nodes in a strip below"),
-				usage.Ex("sysml model.sysml -render Views::vehicleView -render-form dot -render-style cameo", "drawn as Cameo draws it"),
+				usage.Ex("sysml model.sysml -render Views::vehicleView -render-form mermaid -render-style cameo", "drawn in Mermaid's Cameo approximation"),
 				usage.Ex("sysml model.sysml -render Views::vehicleView -render-form plantuml -o view.puml", ""),
 				usage.Ex("sysml types.sysml model.sysml -render Views::vehicleView", "several files, loaded as one model"),
 				usage.Ex("sysml model.sysml -render-all rendered", ""),
@@ -388,10 +388,10 @@ func doc() usage.Doc {
 					"-render-form plantuml, which also writes a sequence rendering; neither " +
 					"Graphviz nor PlantUML is needed to write them. Both are drawn in the " +
 					"black-and-white style of the SysML v2 Pilot visualizer; -render-palette " +
-					"fills their nodes by keyword family from a colourblind-safe palette " +
+					"fills the DOT, Mermaid and PlantUML nodes by keyword family from a colourblind-safe palette " +
 					"(okabe-ito, tol-bright, tol-muted, tol-light, brewer-set2, brewer-dark2, " +
 					"viridis or cividis), keeping black text legible on every fill. " +
-					"-render-style names the look the DOT form draws in: pilot (default), " +
+					"-render-style names the look the DOT and Mermaid forms draw in: pilot (default), " +
 					"the Pilot visualizer's, or cameo, the look of Cameo Systems Modeler — a " +
 					"diagram frame with a header tab, Arial text, gradient fills, compartments " +
 					"and the UML pseudo-state symbols — for a diagram migrated from Cameo " +
@@ -618,8 +618,8 @@ func registerFlags(fs *flag.FlagSet) {
 	fs.StringVar(&renderView, "render", "", "Render this view of the model instead of running it, in the form its render member states")
 	fs.StringVar(&renderAllDir, "render-all", "", "Render every declared view into this directory")
 	fs.StringVar(&renderForm, "render-form", "", "Form -render or -render-all writes: text, mermaid, markdown, dot or plantuml; default from the destination for -render, each kind's machine form for -render-all")
-	fs.StringVar(&renderPalette, "render-palette", "", "Palette the dot or plantuml form fills nodes from, by keyword family: okabe-ito, tol-bright, tol-muted, tol-light, brewer-set2, brewer-dark2, viridis or cividis; default black and white")
-	fs.StringVar(&renderStyle, "render-style", "", "Drawing style of the dot form: pilot (default), the Pilot visualizer's black and white, or cameo, the look of Cameo Systems Modeler; applies to -render, -render-all and document diagrams")
+	fs.StringVar(&renderPalette, "render-palette", "", "Palette the dot, mermaid or plantuml form fills nodes from, by keyword family: okabe-ito, tol-bright, tol-muted, tol-light, brewer-set2, brewer-dark2, viridis or cividis; default black and white")
+	fs.StringVar(&renderStyle, "render-style", "", "Drawing style of the dot or mermaid form: pilot (default), the Pilot visualizer's black and white, or cameo, the look of Cameo Systems Modeler; applies to -render, -render-all and document diagrams")
 	fs.StringVar(&renderUnplaced, "render-unplaced", "", "Where a graph form of a view some Layout positions puts the nodes none does: omit (default) leaves them undrawn in every form, strip draws them, in rows below the dot drawing; applies to -render, -render-all and document diagrams")
 
 	fs.StringVar(&renderDoc, "render-document", "", "Compile this document definition, run its queries and write the rendered document")

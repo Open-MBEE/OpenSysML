@@ -315,19 +315,19 @@ func TestDOTRefusesAnUnregisteredPalette(t *testing.T) {
 	}
 }
 
-// The Mermaid form notes a palette it cannot draw; the text and Markdown forms
-// take none and say nothing; a palette never changes the DOT header.
+// Mermaid draws a palette with classes; the text and Markdown forms take none
+// and say nothing; a palette never changes the DOT header.
 func TestPaletteOnOtherForms(t *testing.T) {
 	rendering := render(t, "state.sysml", "MachineViews::vehicleStates")
 	mermaid, err := rendering.WriteWith(FormMermaid, Options{Palette: PaletteBrewerSet2})
 	if err != nil {
 		t.Fatalf("mermaid: %v", err)
 	}
-	if !strings.Contains(mermaid, "%% not represented: palette brewer-set2; only the DOT and PlantUML forms fill nodes by keyword family\n") {
-		t.Errorf("Mermaid does not note the palette:\n%s", mermaid)
+	if !strings.Contains(mermaid, "classDef palette0 ") || strings.Contains(mermaid, "not represented: palette") {
+		t.Errorf("Mermaid does not draw the palette:\n%s", mermaid)
 	}
-	if strings.Contains(mermaid, "fill:") || strings.Contains(mermaid, "classDef") || strings.Contains(mermaid, "theme") {
-		t.Errorf("Mermaid is themed by the palette:\n%s", mermaid)
+	if !strings.Contains(mermaid, "fill:") || !strings.Contains(mermaid, "theme: base") {
+		t.Errorf("Mermaid is missing its palette or theme:\n%s", mermaid)
 	}
 	if plain := rendering.Mermaid(); strings.Contains(plain, "palette") {
 		t.Errorf("Mermaid notes a palette none was asked for:\n%s", plain)

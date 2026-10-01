@@ -9,7 +9,7 @@ import (
 	"strings"
 )
 
-// Palette names the set of fill colours the DOT and PlantUML forms colour nodes
+// Palette names the set of fill colours the DOT, Mermaid and PlantUML forms colour nodes
 // with, one per keyword family (part, item, port, …, see paletteFamilies). The empty
 // Palette is the black-and-white default; every named one is colourblind-safe.
 type Palette string
@@ -93,11 +93,11 @@ func (p Palette) check() error {
 // paletteNotice is the notice a form that draws no palette writes for one asked
 // for, so the request is not dropped silently.
 func paletteNotice(palette Palette) string {
-	return fmt.Sprintf("palette %s; only the DOT and PlantUML forms fill nodes by keyword family", palette)
+	return fmt.Sprintf("palette %s; only the DOT, Mermaid and PlantUML forms fill nodes by keyword family", palette)
 }
 
 // paletteForms are the forms that fill nodes from a palette.
-var paletteForms = []Form{FormDot, FormPlantUML}
+var paletteForms = []Form{FormDot, FormMermaid, FormPlantUML}
 
 // SupportsPalette reports whether a rendering of the kind is drawn as nodes a
 // palette can fill: the kinds a form that fills nodes is written for.
@@ -183,7 +183,7 @@ type Fill struct {
 	Border string
 }
 
-// Fills is the fill each node takes under the palette, by node ID, as the DOT and PlantUML
+// Fills is the fill each node takes under the palette, by node ID, as the DOT, Mermaid and PlantUML
 // forms fill it; a node left black and white, and every node under no palette, is absent.
 func (r *Rendering) Fills(palette Palette) (map[string]Fill, error) {
 	if err := palette.check(); err != nil {

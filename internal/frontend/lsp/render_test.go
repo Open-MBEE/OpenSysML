@@ -721,8 +721,8 @@ func TestRenderFillsFromThePaletteAsked(t *testing.T) {
 	if err := json.Unmarshal(raw, &out); err != nil {
 		t.Fatalf("decode render result: %v", err)
 	}
-	if !strings.Contains(out.Artifact, "%% not represented: palette viridis; only the DOT and PlantUML forms fill nodes by keyword family") {
-		t.Errorf("Mermaid does not note the palette:\n%s", out.Artifact)
+	if !strings.Contains(out.Artifact, "classDef palette0 fill:#") || strings.Contains(out.Artifact, "not represented: palette") {
+		t.Errorf("Mermaid does not draw the palette:\n%s", out.Artifact)
 	}
 	_, err = call(t, s, MethodRender, &renderParams{
 		TextDocument: protocol.TextDocumentIdentifier{URI: docURI},
@@ -1063,7 +1063,7 @@ func TestRenderSnapshotsOneDocumentRevision(t *testing.T) {
 
 // A drawing style in the request draws the DOT artifact in it and is named in
 // the result, the default pilot when none is asked; the styles are advertised
-// in initialize; Mermaid notes the style it does not draw; a style there is
+// in initialize; Mermaid draws the style too; a style there is
 // none of is refused by name. A node's own Style annotation reaches the client
 // and wins over the palette's fill and border.
 func TestRenderDrawsInTheStyleAsked(t *testing.T) {
@@ -1113,8 +1113,9 @@ package StyledViews {
 		t.Errorf("default style %q; the pilot artifact differs from the default or frames the diagram:\n%s", plain.Style, plain.Artifact)
 	}
 	mermaid := render(t, "KitViews::widgetTree", "mermaid", "cameo", "")
-	if !strings.Contains(mermaid.Artifact, "%% not represented: style cameo; only the DOT form draws a diagram in a style") {
-		t.Errorf("Mermaid does not note the style:\n%s", mermaid.Artifact)
+	if !strings.Contains(mermaid.Artifact, "fontFamily: \"Arial, Helvetica, sans-serif\"") ||
+		strings.Contains(mermaid.Artifact, "not represented: style cameo") {
+		t.Errorf("Mermaid does not draw the style:\n%s", mermaid.Artifact)
 	}
 	_, err = call(t, s, MethodRender, &renderParams{
 		TextDocument: protocol.TextDocumentIdentifier{URI: docURI},

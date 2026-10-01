@@ -1,8 +1,16 @@
 package view
 
 import (
+	"encoding/base64"
 	"fmt"
+	"os"
+	"path/filepath"
+	"regexp"
 	"strings"
+	"unicode"
+	"unicode/utf8"
+
+	"github.com/Open-MBEE/OpenSysML/internal/ir/imagefile"
 )
 
 // Mermaid is the default machine-readable form of a rendering: a Mermaid
@@ -24,16 +32,17 @@ func (r *Rendering) Mermaid() string {
 // MermaidWith is the Mermaid form written with options. It is drawn in the
 // stated direction: a flowchart flows that way, and a state diagram states it
 // as a `direction` statement. The empty direction keeps each kind's default,
-// and a kind no direction applies to ignores it. A palette is not drawn,
-// Mermaid having no fill per node kind, and is noted as not represented. A
-// rendering some Layout positions draws the nodes the DOT form draws: the placed
-// ones, and the unplaced ones too under UnplacedStrip.
+// and a kind no direction applies to ignores it. A palette fills nodes by
+// keyword family, and a Cameo style draws its representable colours. A rendering
+// some Layout positions draws the nodes the DOT form draws: the placed ones,
+// and the unplaced ones too under UnplacedStrip.
 func (r *Rendering) MermaidWith(options Options) string {
 	r = r.settleUnplaced(options.Unplaced, FormMermaid)
 	direction := options.Direction
 	var b strings.Builder
 	labels := labelsOf(r.Roots, false, nil)
-	r.writeFlowchartFrontmatter(&b, labels)
+	labels.skin = skinOf(options.Style)
+	r.writeFlowchartFrontmatter(&b, labels, options)
 	if r.View == "" {
 		fmt.Fprintf(&b, "%%%% %s rendering", r.Kind)
 	} else {
@@ -43,29 +52,273 @@ func (r *Rendering) MermaidWith(options Options) string {
 		fmt.Fprintf(&b, " (%s)", r.Stated)
 	}
 	b.WriteString("\n")
+	if options.Style == StyleCameo {
+		b.WriteString("%% style cameo\n")
+	}
 	for _, notice := range r.Notices {
 		fmt.Fprintf(&b, "%%%% not represented: %s\n", notice)
 	}
+	var fills familyFills
 	if options.Palette != "" {
-		fmt.Fprintf(&b, "%%%% not represented: %s\n", paletteNotice(options.Palette))
+		fills = familyFills{palette: options.Palette, tree: r.Kind == KindTree}
+		for _, root := range r.Roots {
+			fills.collect(root)
+		}
 	}
-	if options.Style != "" && options.Style != StylePilot {
-		fmt.Fprintf(&b, "%%%% not represented: %s\n", styleNotice(options.Style))
-	}
-	for _, notice := range r.visualNotices(noFontOrEdgeStyle, true) {
+	for _, notice := range r.mermaidNotices(options) {
 		fmt.Fprintf(&b, "%%%% not represented: %s\n", notice)
 	}
 	r.writeGeometryComments(&b, "%%")
+	if r.Kind != KindState && r.Kind != KindSequence {
+		for i, picture := range r.Pictures {
+			if _, _, ok := mermaidPictureSource(picture); !ok {
+				continue
+			}
+			fmt.Fprintf(&b, "%%%% layout: picture%d x=%s y=%s w=%s h=%s", i,
+				formatCoord(picture.X), formatCoord(picture.Y), formatCoord(picture.Width), formatCoord(picture.Height))
+			if picture.Above {
+				b.WriteString(" above")
+			}
+			b.WriteString("\n")
+		}
+	}
 	switch r.Kind {
 	case KindState:
-		r.writeStateDiagram(&b, direction, labels)
-		return b.String()
+		r.writeStateDiagram(&b, direction, labels, options, fills)
 	case KindSequence:
-		r.writeSequenceDiagram(&b, labels)
-		return b.String()
+		r.writeSequenceDiagram(&b, labels, options)
+	default:
+		r.writeFlowchart(&b, direction, labels, options, fills)
 	}
-	r.writeFlowchart(&b, direction, labels)
 	return b.String()
+}
+
+func (r *Rendering) mermaidNotices(options Options) []string {
+	var notices []string
+	nodeFonts, edgeFonts, unsupportedStyles := r.mermaidUnrepresentedStyleCounts()
+	if nodeFonts > 0 {
+		notices = append(notices, fmt.Sprintf("%d node font style(s) not represented", nodeFonts))
+	}
+	if edgeFonts > 0 {
+		notices = append(notices, fmt.Sprintf("%d edge font style(s) not represented", edgeFonts))
+	}
+	if unsupportedStyles > 0 {
+		notices = append(notices, fmt.Sprintf("%d style field(s) not represented", unsupportedStyles))
+	}
+	if options.Style == StyleCameo {
+		if options.Palette == "" && r.hasCameoGradient() {
+			notices = append(notices, "Cameo gradients are drawn flat")
+		}
+		if r.Kind != KindSequence {
+			notices = append(notices, "Mermaid has no diagram frame with header tab")
+		}
+	}
+	if names := r.namedForks(); len(names) > 0 {
+		notices = append(notices, fmt.Sprintf("%d fork/join name(s) (%s); Mermaid's fork bar draws no label",
+			len(names), strings.Join(names, ", ")))
+	}
+	if r.Kind == KindSequence && options.Palette != "" {
+		notices = append(notices, fmt.Sprintf("palette %s; Mermaid's sequence diagram cannot fill individual participants (the PlantUML form fills them)", options.Palette))
+	}
+	switch r.Kind {
+	case KindState:
+		unsupported := 0
+		for _, note := range r.Notes {
+			if note.Anchor == "" || !r.hasState(note.Anchor) {
+				unsupported++
+			}
+		}
+		if unsupported > 0 {
+			notices = append(notices, fmt.Sprintf("%d note(s) not drawn: Mermaid state notes need an anchor to a declared state; free, edge-anchored and pseudostate notes have none", unsupported))
+		}
+		if count := r.crossBodyFinalTransitions(); count > 0 {
+			notices = append(notices, fmt.Sprintf("%d transition(s) into a final cross state bodies; Mermaid keeps those final states explicit", count))
+		}
+	case KindSequence:
+		free := 0
+		unsupported := 0
+		for _, note := range r.Notes {
+			if note.EdgeFrom != "" {
+				if !r.hasSequenceParticipant(note.EdgeFrom) || !r.hasSequenceParticipant(note.EdgeTo) {
+					unsupported++
+				}
+			} else if note.Anchor != "" {
+				if !r.hasSequenceParticipant(note.Anchor) {
+					unsupported++
+				}
+			} else {
+				free++
+			}
+		}
+		if free > 0 {
+			notices = append(notices, fmt.Sprintf("%d free note(s) not drawn: Mermaid sequence notes need a participant or message anchor", free))
+		}
+		if unsupported > 0 {
+			notices = append(notices, fmt.Sprintf("%d note(s) not drawn: Mermaid sequence notes need declared participant anchors", unsupported))
+		}
+	default:
+		unsupported := 0
+		for _, note := range r.Notes {
+			anchor := note.Anchor
+			if anchor == "" {
+				anchor = note.EdgeFrom
+			}
+			if anchor != "" && !r.hasNode(anchor) {
+				unsupported++
+			}
+		}
+		if unsupported > 0 {
+			notices = append(notices, fmt.Sprintf("%d note anchor(s) not represented: Mermaid flowchart notes need a drawn node", unsupported))
+		}
+	}
+	if r.Kind == KindState || r.Kind == KindSequence {
+		if len(r.Pictures) > 0 {
+			notices = append(notices, pictureNotice(r.Pictures, fmt.Sprintf("a %s diagram draws no picture", r.Kind)))
+		}
+	} else {
+		type pictureGroup struct {
+			reason   string
+			pictures []Picture
+		}
+		var undrawn []pictureGroup
+		for _, picture := range r.Pictures {
+			if _, reason, ok := mermaidPictureSource(picture); !ok {
+				found := false
+				for i := range undrawn {
+					if undrawn[i].reason == reason {
+						undrawn[i].pictures = append(undrawn[i].pictures, picture)
+						found = true
+						break
+					}
+				}
+				if !found {
+					undrawn = append(undrawn, pictureGroup{reason: reason, pictures: []Picture{picture}})
+				}
+			}
+		}
+		for _, group := range undrawn {
+			notices = append(notices, pictureNotice(group.pictures, group.reason))
+		}
+	}
+	if options.Style != "" && options.Style != StylePilot && options.Style != StyleCameo {
+		notices = append(notices, styleNotice(options.Style))
+	}
+	return notices
+}
+
+func (r *Rendering) namedForks() []string {
+	var names []string
+	var walk func(*Node)
+	walk = func(node *Node) {
+		if isBarKind(node.Kind) && !node.NameSynthesized && node.Name != "" {
+			names = append(names, node.Name)
+		}
+		for _, child := range node.Children {
+			walk(child)
+		}
+	}
+	for _, root := range r.Roots {
+		walk(root)
+	}
+	return names
+}
+
+func (r *Rendering) mermaidUnrepresentedStyleCounts() (nodeFonts, edgeFonts, fields int) {
+	fontStyle := func(style *Style) bool {
+		return style.Font != "" || style.FontSize > 0 || style.Bold || style.Italic
+	}
+	unsupportedColors := func(style *Style) int {
+		count := 0
+		for _, value := range []string{style.Fill, style.Line, style.Text} {
+			if value != "" {
+				count++
+			}
+		}
+		return count
+	}
+	var walk func(*Node)
+	walk = func(node *Node) {
+		if node.Style != nil {
+			if r.Kind == KindSequence && fontStyle(node.Style) ||
+				node.Style.Font != "" && !mermaidFontFamily(node.Style.Font) {
+				nodeFonts++
+			}
+			if r.Kind == KindSequence {
+				fields += unsupportedColors(node.Style)
+			}
+		}
+		for _, child := range node.Children {
+			walk(child)
+		}
+	}
+	for _, root := range r.Roots {
+		walk(root)
+	}
+	for _, edge := range r.Edges {
+		if edge.Style == nil {
+			continue
+		}
+		if r.Kind == KindState || r.Kind == KindSequence {
+			if fontStyle(edge.Style) {
+				edgeFonts++
+			}
+			fields += unsupportedColors(edge.Style)
+		} else if edge.Style.Font != "" && !mermaidFontFamily(edge.Style.Font) {
+			edgeFonts++
+		}
+		if edge.Style.Fill != "" && r.Kind != KindState && r.Kind != KindSequence {
+			fields++
+		}
+	}
+	return
+}
+
+func (r *Rendering) hasCameoGradient() bool {
+	found := false
+	var walk func(*Node)
+	walk = func(node *Node) {
+		if len(node.Children) == 0 || isMermaidDiamond(node.Kind) {
+			fill, _ := cameoFill(node.Kind)
+			found = found || strings.Contains(fill, ":")
+		}
+		for _, child := range node.Children {
+			walk(child)
+		}
+	}
+	for _, root := range r.Roots {
+		walk(root)
+	}
+	return found
+}
+
+func (r *Rendering) hasState(id string) bool {
+	var walk func(*Node) bool
+	walk = func(node *Node) bool {
+		if node.ID == id && node.Kind == "state" {
+			return true
+		}
+		for _, child := range node.Children {
+			if walk(child) {
+				return true
+			}
+		}
+		return false
+	}
+	for _, root := range r.Roots {
+		if walk(root) {
+			return true
+		}
+	}
+	return false
+}
+
+func (r *Rendering) hasSequenceParticipant(id string) bool {
+	for _, node := range r.Roots {
+		if node.ID == id {
+			return true
+		}
+	}
+	return false
 }
 
 // writeGeometryComments writes the canvas, node placements and edge routes as
@@ -121,19 +374,73 @@ const mermaidTitleLine = 24
 
 // writeFlowchartFrontmatter reserves, as a subgraph title's bottom margin, the
 // height Mermaid leaves out for a title beyond its first line; none is needed otherwise.
-func (r *Rendering) writeFlowchartFrontmatter(b *strings.Builder, labels labeller) {
-	switch r.Kind {
-	case KindTree, KindState, KindSequence:
-		return
-	}
+func (r *Rendering) writeFlowchartFrontmatter(b *strings.Builder, labels labeller, options Options) {
 	extra := 0
-	for _, root := range r.Roots {
-		extra = max(extra, clusterTitleExtraLines(root, labels))
+	if r.Kind != KindState && r.Kind != KindSequence {
+		for _, root := range r.Roots {
+			extra = max(extra, clusterTitleExtraLines(root, labels))
+		}
 	}
-	if extra == 0 {
-		return
+	font, size := "Helvetica, Arial, sans-serif", "14px"
+	primary, primaryBorder, text, line, clusterBorder, noteFill, noteBorder := "#FFFFFF", "#181818", "#000000", "#181818", "#181818", "#FEFFDD", "#181818"
+	if options.Style == StyleCameo {
+		font, size = "Arial, Helvetica, sans-serif", "11px"
+		primary = strings.SplitN(cameoBlockFill, ":", 2)[0]
+		primaryBorder, text, line, clusterBorder, noteFill, noteBorder = cameoBlockLine, cameoTextColor, cameoEdgeColor, cameoFrameColor, cameoNoteFill, cameoLineColor
 	}
-	fmt.Fprintf(b, "---\nconfig:\n  flowchart:\n    subGraphTitleMargin:\n      bottom: %d\n---\n", extra*mermaidTitleLine)
+	fmt.Fprintf(b, `---
+config:
+  theme: base
+  themeVariables:
+    fontFamily: %q
+    fontSize: %q
+    primaryColor: %q
+    secondaryColor: %q
+    tertiaryColor: %q
+    background: %q
+    clusterBkg: %q
+    edgeLabelBackground: %q
+    primaryBorderColor: %q
+    lineColor: %q
+    clusterBorder: %q
+    noteBorderColor: %q
+    primaryTextColor: %q
+    textColor: %q
+    noteTextColor: %q
+    noteBkgColor: %q
+    stateBkg: "#FFFFFF"
+    stateBorder: "#181818"
+    stateLabelColor: "#000000"
+    compositeBackground: "#FFFFFF"
+    compositeBorder: "#181818"
+    compositeTitleBackground: "#FFFFFF"
+    compositeTitleBorder: "#181818"
+    actorBkg: %q
+    actorBorder: %q
+    actorTextColor: %q
+    signalColor: %q
+    signalTextColor: %q
+    labelBoxBkgColor: %q
+    labelBoxBorderColor: %q
+    labelTextColor: %q
+    actorLineColor: %q
+    loopTextColor: %q
+    activationBorderColor: %q
+    activationBkgColor: %q
+    sequenceNumberColor: %q
+    transitionColor: %q
+    transitionLabelColor: %q
+    labelBackgroundColor: %q
+    specialStateColor: %q
+`, font, size, primary,
+		"#FFFFFF", "#FFFFFF", "#FFFFFF", "#FFFFFF", "#FFFFFF",
+		primaryBorder, line, clusterBorder, noteBorder, text, text, text, noteFill,
+		primary, primaryBorder, text, line, text, primary, primaryBorder, text,
+		line, text, line, primary, text, line, text, primary, line)
+	if extra > 0 {
+		fmt.Fprintf(b, "  flowchart:\n    subGraphTitleMargin:\n      bottom: %d\n", extra*mermaidTitleLine)
+	}
+	b.WriteString("---\n")
 }
 
 // clusterTitleExtraLines is the most lines beyond the first spanned by the
@@ -152,7 +459,53 @@ func clusterTitleExtraLines(node *Node, labels labeller) int {
 // writeFlowchart writes the tree, interconnection and action renderings as a
 // Mermaid flowchart: a node with children is a subgraph, containment in a tree
 // is an edge, and every other edge is the one the rendering holds.
-func (r *Rendering) writeFlowchart(b *strings.Builder, direction Direction, labels labeller) {
+type mermaidFlowWriter struct {
+	b           *strings.Builder
+	links       int
+	linkStyles  map[int]string
+	treeAnchors []string
+	cameo       bool
+}
+
+func (w *mermaidFlowWriter) edge(from, arrow, label, to string, style *Style, kind EdgeKind) {
+	i := w.links
+	w.links++
+	if label == "" {
+		fmt.Fprintf(w.b, "  %s %s %s\n", from, arrow, to)
+	} else {
+		fmt.Fprintf(w.b, "  %s %s|\"%s\"| %s\n", from, arrow, mermaidText(label), to)
+	}
+	var props []string
+	if style != nil {
+		if style.Line != "" {
+			props = append(props, "stroke:"+style.Line)
+		}
+		if style.Text != "" {
+			props = append(props, "color:"+style.Text)
+		}
+		if mermaidFontFamily(style.Font) {
+			props = append(props, "font-family:"+style.Font)
+		}
+		if style.FontSize > 0 {
+			props = append(props, fmt.Sprintf("font-size:%gpx", style.FontSize))
+		}
+		if style.Bold {
+			props = append(props, "font-weight:bold")
+		}
+		if style.Italic {
+			props = append(props, "font-style:italic")
+		}
+	}
+	if kind == EdgeConnection && !w.cameo {
+		props = append(props, "stroke-width:3px")
+	}
+	if len(props) > 0 {
+		w.linkStyles[i] = strings.Join(props, ",")
+	}
+}
+
+func (r *Rendering) writeFlowchart(b *strings.Builder, direction Direction, labels labeller, options Options, fills familyFills) {
+	w := &mermaidFlowWriter{b: b, linkStyles: map[int]string{}, cameo: options.Style == StyleCameo}
 	flow := "TD"
 	if r.Kind == KindInterconnection {
 		flow = "LR"
@@ -161,43 +514,159 @@ func (r *Rendering) writeFlowchart(b *strings.Builder, direction Direction, labe
 		flow = string(direction)
 	}
 	fmt.Fprintf(b, "flowchart %s\n", flow)
-	if r.blank() {
+	ports := r.usedPorts()
+	if r.blank() && len(r.Pictures) == 0 {
 		fmt.Fprintf(b, "  empty[\"%s\"]\n", mermaidText(r.blankReason(FormMermaid)))
-		return
+	} else {
+		for _, root := range r.Roots {
+			r.writeFlowchartNode(w, root, 1, r.Kind == KindTree, flow, labels, options, fills, ports)
+		}
 	}
-	for _, root := range r.Roots {
-		writeFlowchartNode(b, root, 1, r.Kind == KindTree, flow, labels)
-	}
+	r.writeNotes(b, labels, options)
+	r.writePictures(b)
+	portEnds := r.portEnds(ports)
 	for _, edge := range r.Edges {
-		if edge.Label == "" {
-			fmt.Fprintf(b, "  %s %s %s\n", edge.From, mermaidArrow(edge.Kind), edge.To)
-			continue
+		from, to := edge.From, edge.To
+		if end := portEnds[edge.FromPort]; end != "" {
+			from = end
 		}
-		fmt.Fprintf(b, "  %s %s|\"%s\"| %s\n", edge.From, mermaidArrow(edge.Kind), mermaidText(edge.Label), edge.To)
+		if end := portEnds[edge.ToPort]; end != "" {
+			to = end
+		}
+		w.edge(from, mermaidArrow(edge.Kind), edge.Label, to, edge.Style, edge.Kind)
+	}
+	for i, note := range r.Notes {
+		anchor := note.Anchor
+		if anchor == "" {
+			anchor = note.EdgeFrom
+		}
+		if id := noteGroupIDs(r.Notes)[i]; anchor != "" && r.hasNode(anchor) {
+			w.edge(id, "-.-", "", anchor, nil, EdgeTransition)
+		}
+	}
+	r.writeMermaidStyles(b, fills, options, false)
+	if len(w.treeAnchors) > 0 {
+		b.WriteString("  classDef treeAnchor fill:transparent,stroke:transparent,color:transparent\n")
+		fmt.Fprintf(b, "  class %s treeAnchor\n", strings.Join(w.treeAnchors, ","))
+	}
+	if len(r.Notes) > 0 {
+		if options.Style == StyleCameo {
+			fmt.Fprintf(b, "  classDef note fill:%s,stroke:%s\n", cameoNoteFill, cameoLineColor)
+		} else {
+			b.WriteString("  classDef note fill:#FEFFDD,stroke:#181818\n")
+		}
+		fmt.Fprintf(b, "  class %s note\n", strings.Join(uniqueNoteGroupIDs(r.Notes), ","))
+	}
+	for i := 0; i < w.links; i++ {
+		if style := w.linkStyles[i]; style != "" {
+			fmt.Fprintf(b, "  linkStyle %d %s\n", i, style)
+		}
+	}
+}
+
+func (r *Rendering) writeMermaidStyles(b *strings.Builder, fills familyFills, options Options, state bool) {
+	type assignment struct{ class, css string }
+	var definitions []assignment
+	pairs := map[string]string{}
+	classIDs := map[string][]string{}
+	next := 0
+	control := false
+	var walk func(*Node)
+	walk = func(node *Node) {
+		if !state && isMermaidControlNode(node.Kind) {
+			control = true
+		}
+		var css string
+		if fills.filled(node) {
+			fill, border := fills.fill(node), fills.color(node)
+			css = "fill:" + fill + ",stroke:" + border
+		} else if options.Style == StyleCameo && (len(node.Children) == 0 || isMermaidDiamond(node.Kind)) && !isMermaidControl(node.Kind) {
+			fill, border := cameoFill(node.Kind)
+			css = "fill:" + strings.SplitN(fill, ":", 2)[0] + ",stroke:" + border
+		} else if options.Style == StyleCameo && isMermaidDiamond(node.Kind) {
+			fill, border := cameoFill(node.Kind)
+			css = "fill:" + strings.SplitN(fill, ":", 2)[0] + ",stroke:" + border
+		}
+		if css != "" {
+			class, ok := pairs[css]
+			if !ok {
+				pairs[css] = fmt.Sprintf("palette%d", next)
+				class = pairs[css]
+				next++
+				definitions = append(definitions, assignment{class: class, css: css})
+			}
+			classIDs[class] = append(classIDs[class], node.ID)
+		}
+		for _, child := range node.Children {
+			walk(child)
+		}
 	}
 	for _, root := range r.Roots {
-		writeMermaidStyles(b, root, false)
+		walk(root)
 	}
-}
-
-// writeMermaidStyles writes the colours a Style gives node and the nodes under
-// it: a flowchart's `style` statement, a state diagram's `classDef` and
-// `class` pair. A Style's font, and an edge's Style, Mermaid has no statement for.
-func writeMermaidStyles(b *strings.Builder, node *Node, state bool) {
-	if css := mermaidStyleCSS(node.Style); css != "" {
-		if state {
-			fmt.Fprintf(b, "  classDef style_%s %s\n  class %s style_%s\n", node.ID, css, node.ID, node.ID)
-		} else {
-			fmt.Fprintf(b, "  style %s %s\n", node.ID, css)
+	if control && !state {
+		b.WriteString("  classDef control fill:#181818,stroke:#181818\n")
+	}
+	for _, item := range definitions {
+		fmt.Fprintf(b, "  classDef %s %s\n", item.class, item.css)
+	}
+	for _, item := range definitions {
+		if ids := classIDs[item.class]; len(ids) > 0 {
+			fmt.Fprintf(b, "  class %s %s\n", strings.Join(ids, ","), item.class)
 		}
 	}
-	for _, child := range node.Children {
-		writeMermaidStyles(b, child, state)
+	var writeStyles func(*Node)
+	writeStyles = func(node *Node) {
+		if node.Style != nil {
+			if styleCSS := mermaidStyleCSS(node.Style); styleCSS != "" {
+				if state {
+					fmt.Fprintf(b, "  classDef style_%s %s\n  class %s style_%s\n", node.ID, styleCSS, node.ID, node.ID)
+				} else {
+					fmt.Fprintf(b, "  style %s %s\n", node.ID, styleCSS)
+				}
+			}
+		}
+		for _, child := range node.Children {
+			writeStyles(child)
+		}
+	}
+	if control && !state {
+		var ids []string
+		var find func(*Node)
+		find = func(node *Node) {
+			if isMermaidControl(node.Kind) && (node.Kind == startKind || node.Kind == "initial" || isBarKind(node.Kind)) {
+				ids = append(ids, node.ID)
+			}
+			for _, child := range node.Children {
+				find(child)
+			}
+		}
+		for _, root := range r.Roots {
+			find(root)
+		}
+		if len(ids) > 0 {
+			fmt.Fprintf(b, "  class %s control\n", strings.Join(ids, ","))
+		}
+	}
+	for _, root := range r.Roots {
+		writeStyles(root)
 	}
 }
 
-// mermaidStyleCSS is a Style's colours as Mermaid's comma-separated CSS:
-// the fill, the stroke and the text colour; empty when the Style sets none.
+func isMermaidControlNode(kind string) bool {
+	return kind == startKind || kind == "initial" || kind == "fork" || kind == "join"
+}
+
+func isMermaidDiamond(kind string) bool {
+	return kind == "decision" || kind == "merge" || kind == "choice"
+}
+
+func isMermaidControl(kind string) bool {
+	return isMermaidControlNode(kind) || kind == "final" || kind == terminateKind ||
+		kind == "junction" || isHistoryKind(kind) || isMermaidDiamond(kind)
+}
+
+// mermaidStyleCSS is a Style's fields as Mermaid's comma-separated CSS.
 func mermaidStyleCSS(style *Style) string {
 	if style == nil {
 		return ""
@@ -212,38 +681,349 @@ func mermaidStyleCSS(style *Style) string {
 	if style.Text != "" {
 		props = append(props, "color:"+style.Text)
 	}
+	if mermaidFontFamily(style.Font) {
+		props = append(props, "font-family:"+style.Font)
+	}
+	if style.FontSize > 0 {
+		props = append(props, fmt.Sprintf("font-size:%gpx", style.FontSize))
+	}
+	if style.Bold {
+		props = append(props, "font-weight:bold")
+	}
+	if style.Italic {
+		props = append(props, "font-style:italic")
+	}
 	return strings.Join(props, ",")
 }
 
-// writeFlowchartNode writes one node: a subgraph when it holds others, a plain
-// node otherwise. containment adds an edge from a node to each of its children,
-// which is how a tree rendering shows what contains what. A subgraph restates the
-// flowchart's direction, which Mermaid does not apply inside one that states none.
-func writeFlowchartNode(b *strings.Builder, node *Node, depth int, containment bool, flow string, labels labeller) {
-	indent := strings.Repeat("  ", depth)
-	if len(node.Children) == 0 {
-		fmt.Fprintf(b, "%s%s[\"%s\"]\n", indent, node.ID, labels.mermaid(node))
-		return
+func mermaidFontFamily(font string) bool {
+	if strings.TrimSpace(font) == "" {
+		return false
 	}
-	if containment {
-		fmt.Fprintf(b, "%s%s[\"%s\"]\n", indent, node.ID, labels.mermaid(node))
-		for _, child := range node.Children {
-			writeFlowchartNode(b, child, depth, containment, flow, labels)
-			fmt.Fprintf(b, "%s%s --- %s\n", indent, node.ID, child.ID)
+	for _, r := range font {
+		if !unicode.IsLetter(r) && !unicode.IsDigit(r) && r != ' ' && r != '-' && r != '_' {
+			return false
 		}
+	}
+	return true
+}
+
+// writeFlowchartNode writes a subgraph when a node holds others. Nested tree
+// links use invisible anchors because Mermaid 11.16 cannot route from a cluster.
+func (r *Rendering) writeFlowchartNode(w *mermaidFlowWriter, node *Node, depth int, containment bool, flow string, labels labeller, options Options, fills familyFills, used map[string]map[string]bool) {
+	indent := strings.Repeat("  ", depth)
+	if len(node.Children) == 0 && !r.hasUsedPorts(node, used) {
+		fmt.Fprintf(w.b, "%s%s%s\n", indent, node.ID, mermaidNodeShape(node, labels, options))
 		return
 	}
-	fmt.Fprintf(b, "%ssubgraph %s [\"%s\"]\n", indent, node.ID, labels.mermaid(node))
-	fmt.Fprintf(b, "%s  direction %s\n", indent, flow)
-	for _, child := range node.Children {
-		writeFlowchartNode(b, child, depth+1, containment, flow, labels)
+	fmt.Fprintf(w.b, "%ssubgraph %s [%s]\n", indent, node.ID, mermaidNodeLabel(node, labels, options))
+	fmt.Fprintf(w.b, "%s  direction %s\n", indent, flow)
+	anchor := ""
+	if containment && depth > 1 && len(node.Children) > 0 {
+		anchor = "mermaid_anchor_" + node.ID
+		w.treeAnchors = append(w.treeAnchors, anchor)
+		fmt.Fprintf(w.b, "%s  %s((\" \"))\n", indent, anchor)
 	}
-	fmt.Fprintf(b, "%send\n", indent)
+	if r.hasUsedPorts(node, used) {
+		for j, port := range node.Ports {
+			if !used[node.ID][port.ID] {
+				continue
+			}
+			fmt.Fprintf(w.b, "%s  %s_p%d[\"%s\"]\n", indent, node.ID, j, mermaidText(port.Name))
+		}
+	}
+	for _, child := range node.Children {
+		r.writeFlowchartNode(w, child, depth+1, containment, flow, labels, options, fills, used)
+	}
+	if containment && anchor != "" {
+		for _, child := range node.Children {
+			w.edge(anchor, "---", "", child.ID, nil, EdgeBinding)
+		}
+	}
+	fmt.Fprintf(w.b, "%send\n", indent)
+	if containment && anchor == "" {
+		for _, child := range node.Children {
+			w.edge(node.ID, "---", "", child.ID, nil, EdgeBinding)
+		}
+	}
+}
+
+func mermaidNodeShape(node *Node, labels labeller, options Options) string {
+	switch node.Kind {
+	case startKind, "initial":
+		return `@{ shape: sm-circ, label: "" }`
+	case "final", terminateKind:
+		return `@{ shape: fr-circ, label: "" }`
+	case "junction":
+		return `@{ shape: f-circ, label: "" }`
+	case "fork", "join":
+		name := ""
+		if !node.NameSynthesized {
+			name = mermaidText(node.Name)
+		}
+		return fmt.Sprintf("@{ shape: fork, label: %q }", name)
+	case "decision", "merge", "choice":
+		name := ""
+		if !node.NameSynthesized {
+			name = mermaidNodeLabel(node, labels, options)
+		} else {
+			name = `" "`
+		}
+		return "{" + name + "}"
+	case shallowHistoryKind:
+		return `(("H"))`
+	case deepHistoryKind:
+		return `(("H*"))`
+	}
+	rounded := true
+	if options.Style == StyleCameo {
+		rounded = cameoRounded(node.Kind)
+	} else {
+		rounded = plantumlShapeStereotype(node) == plantumlUsageStereotype
+	}
+	if rounded {
+		return "(" + mermaidNodeLabel(node, labels, options) + ")"
+	}
+	return "[" + mermaidNodeLabel(node, labels, options) + "]"
+}
+
+func mermaidNodeLabel(node *Node, labels labeller, options Options) string {
+	lines := labels.lines(node)
+	for _, line := range lines {
+		if !mermaidMarkdownSafe(line) {
+			return `"` + labels.mermaid(node) + `"`
+		}
+	}
+	head := labels.headLines(node)
+	markdown := make([]string, 0, len(lines))
+	for _, line := range head {
+		markdown = append(markdown, "**"+line+"**")
+	}
+	next := len(head)
+	if labels.keyworded(node) {
+		markdown = append(markdown, "*«"+node.Kind+"»*")
+		next++
+	}
+	markdown = append(markdown, lines[next:]...)
+	return `"` + "`" + strings.Join(markdown, "\n") + "`" + `"`
+}
+
+var mermaidMultiplicity = regexp.MustCompile(`\[[0-9.*]*\]`)
+
+func mermaidMarkdownSafe(line string) bool {
+	if strings.ContainsAny(line, "`\"<>\\#&~|") || strings.Contains(line, "](") {
+		return false
+	}
+	multiplicities := mermaidMultiplicity.ReplaceAllString(line, "")
+	if strings.Contains(multiplicities, "*") {
+		return false
+	}
+	for i, r := range line {
+		if r == '_' {
+			before, after := runeAt(line, i, -1), runeAt(line, i, 1)
+			if !unicode.IsLetter(before) && !unicode.IsDigit(before) ||
+				!unicode.IsLetter(after) && !unicode.IsDigit(after) {
+				return false
+			}
+		}
+	}
+	trimmed := strings.TrimSpace(line)
+	if strings.HasPrefix(trimmed, "-") || strings.HasPrefix(trimmed, "+") || strings.HasPrefix(trimmed, "=") {
+		return false
+	}
+	if len(trimmed) >= 2 && trimmed[0] >= '0' && trimmed[0] <= '9' {
+		for i := 1; i < len(trimmed); i++ {
+			if trimmed[i] == '.' || trimmed[i] == ')' {
+				return false
+			}
+			if trimmed[i] < '0' || trimmed[i] > '9' {
+				break
+			}
+		}
+	}
+	return true
+}
+
+func runeAt(text string, index, direction int) rune {
+	if direction < 0 {
+		for i := index - 1; i >= 0; i-- {
+			if text[i]&0xc0 != 0x80 {
+				r, _ := utf8.DecodeRuneInString(text[i:])
+				return r
+			}
+		}
+		return 0
+	}
+	for i := index + 1; i < len(text); i++ {
+		if text[i]&0xc0 != 0x80 {
+			r, _ := utf8.DecodeRuneInString(text[i:])
+			return r
+		}
+	}
+	return 0
+}
+
+func (r *Rendering) usedPorts() map[string]map[string]bool {
+	used := map[string]map[string]bool{}
+	if r.Kind != KindAction && r.Kind != KindInterconnection {
+		return used
+	}
+	for _, edge := range r.Edges {
+		for _, endpoint := range []struct{ owner, port string }{
+			{owner: edge.From, port: edge.FromPort},
+			{owner: edge.To, port: edge.ToPort},
+		} {
+			owner, port := endpoint.owner, endpoint.port
+			if port == "" {
+				continue
+			}
+			if used[owner] == nil {
+				used[owner] = map[string]bool{}
+			}
+			used[owner][port] = true
+		}
+	}
+	return used
+}
+
+func (r *Rendering) hasUsedPorts(node *Node, used map[string]map[string]bool) bool {
+	return len(node.Children) == 0 && len(used[node.ID]) > 0
+}
+
+func (r *Rendering) portEnds(used map[string]map[string]bool) map[string]string {
+	ends := map[string]string{}
+	var walk func(*Node)
+	walk = func(node *Node) {
+		for i, port := range node.Ports {
+			if used[node.ID][port.ID] {
+				ends[port.ID] = fmt.Sprintf("%s_p%d", node.ID, i)
+			}
+		}
+		for _, child := range node.Children {
+			walk(child)
+		}
+	}
+	for _, root := range r.Roots {
+		walk(root)
+	}
+	return ends
+}
+
+func (r *Rendering) writeNotes(b *strings.Builder, _ labeller, _ Options) {
+	for i := range r.Notes {
+		if noteGroupIndex(r.Notes, i) != i {
+			continue
+		}
+		var lines []string
+		for j, member := range r.Notes {
+			if noteGroupIndex(r.Notes, j) == i {
+				for _, line := range strings.Split(member.Text, "\n") {
+					lines = append(lines, mermaidText(line))
+				}
+			}
+		}
+		fmt.Fprintf(b, "  note%d@{ shape: notch-rect, label: %q }\n", i, strings.Join(lines, "<br>"))
+	}
+}
+
+func noteGroupIDs(notes []Note) []string {
+	ids := make([]string, len(notes))
+	for i := range notes {
+		ids[i] = fmt.Sprintf("note%d", noteGroupIndex(notes, i))
+	}
+	return ids
+}
+
+func uniqueNoteGroupIDs(notes []Note) []string {
+	seen := map[string]bool{}
+	var ids []string
+	for _, id := range noteGroupIDs(notes) {
+		if !seen[id] {
+			seen[id] = true
+			ids = append(ids, id)
+		}
+	}
+	return ids
+}
+
+func noteGroupIndex(notes []Note, index int) int {
+	origin := notes[index].Origin
+	if !origin.Located() {
+		return index
+	}
+	for i := 0; i < index; i++ {
+		if notes[i].Origin.Located() && notes[i].Origin == origin {
+			return i
+		}
+	}
+	return index
+}
+
+func (r *Rendering) hasNode(id string) bool {
+	var walk func(*Node) bool
+	walk = func(node *Node) bool {
+		if node.ID == id {
+			return true
+		}
+		for _, child := range node.Children {
+			if walk(child) {
+				return true
+			}
+		}
+		return false
+	}
+	for _, root := range r.Roots {
+		if walk(root) {
+			return true
+		}
+	}
+	return false
+}
+
+func (r *Rendering) writePictures(b *strings.Builder) {
+	for i, picture := range r.Pictures {
+		src, _, ok := mermaidPictureSource(picture)
+		if !ok {
+			continue
+		}
+		fmt.Fprintf(b, "  picture%d@{ img: %q, label: %q, w: %s, h: %s }\n",
+			i, src, mermaidText(picture.Alt), formatCoord(picture.Width), formatCoord(picture.Height))
+	}
+}
+
+func mermaidPictureSource(picture Picture) (string, string, bool) {
+	src := picture.Location
+	if strings.Contains(src, "://") || strings.HasPrefix(src, "data:") {
+		if strings.ContainsAny(src, "\"\r\n") {
+			return "", "the source cannot be represented", false
+		}
+		return src, "", true
+	}
+	path := picture.Path()
+	info, err := os.Stat(path)
+	if err != nil {
+		return "", "the file does not read", false
+	}
+	if !info.Mode().IsRegular() {
+		return "", "the file is not a regular image", false
+	}
+	src = filepath.ToSlash(path)
+	if strings.ContainsAny(src, "\"\r\n") {
+		return "", "the source cannot be represented", false
+	}
+	data, err := os.ReadFile(path) // #nosec G304 -- Mermaid pictures are intentionally loaded from their declared path.
+	if err != nil {
+		return "", "the file does not read", false
+	}
+	if imagefile.ContentType(data) == "" {
+		return "", "the image type is not supported", false
+	}
+	return src, "", true
 }
 
 // writeStateDiagram writes a state rendering as a Mermaid state diagram: bodies
 // are composite states, entry transitions leave the `[*]` marker of their body.
-func (r *Rendering) writeStateDiagram(b *strings.Builder, direction Direction, labels labeller) {
+func (r *Rendering) writeStateDiagram(b *strings.Builder, direction Direction, labels labeller, options Options, fills familyFills) {
 	b.WriteString("stateDiagram-v2\n")
 	if direction != "" {
 		fmt.Fprintf(b, "  direction %s\n", direction)
@@ -255,26 +1035,68 @@ func (r *Rendering) writeStateDiagram(b *strings.Builder, direction Direction, l
 		return
 	}
 	starts := map[string][]Edge{}
+	parent := map[string]string{}
+	kinds := map[string]string{}
+	var index func(*Node, string)
+	index = func(node *Node, owner string) {
+		parent[node.ID] = owner
+		kinds[node.ID] = node.Kind
+		for _, child := range node.Children {
+			index(child, node.ID)
+		}
+	}
 	for _, root := range r.Roots {
 		collectStarts(root, starts)
+		index(root, "")
 	}
 	for _, edge := range r.Edges {
 		if _, ok := starts[edge.From]; ok {
 			starts[edge.From] = append(starts[edge.From], edge)
 		}
 	}
+	stateFinalEdges := map[string][]Edge{}
+	crossBodyFinals := map[string]bool{}
+	for _, edge := range r.Edges {
+		if kinds[edge.To] != "final" {
+			continue
+		}
+		if parent[edge.From] == parent[edge.To] {
+			stateFinalEdges[parent[edge.To]] = append(stateFinalEdges[parent[edge.To]], edge)
+		} else {
+			crossBodyFinals[edge.To] = true
+		}
+	}
+	convertedFinals := map[string]bool{}
+	for _, edges := range stateFinalEdges {
+		for _, edge := range edges {
+			if !crossBodyFinals[edge.To] {
+				convertedFinals[edge.To] = true
+			}
+		}
+	}
 	for _, root := range r.Roots {
-		writeStateNode(b, root, 1, starts, labels)
+		if convertedFinals[root.ID] {
+			continue
+		}
+		r.writeStateNode(b, root, 1, starts, stateFinalEdges, convertedFinals, parent, kinds, labels)
+	}
+	for _, edge := range stateFinalEdges[""] {
+		from := edge.From
+		if kinds[from] == startKind {
+			from = "[*]"
+		}
+		writeStateEdge(b, from, "[*]", edge.Label, 1)
 	}
 	for _, edge := range r.Edges {
 		if _, ok := starts[edge.From]; ok {
 			continue
 		}
+		if kinds[edge.To] == "final" && parent[edge.From] == parent[edge.To] {
+			continue
+		}
 		writeStateEdge(b, edge.From, edge.To, edge.Label, 1)
 	}
-	for _, root := range r.Roots {
-		writeMermaidStyles(b, root, true)
-	}
+	r.writeMermaidStyles(b, fills, options, true)
 }
 
 // collectStarts records the start node of each body under node, to gather the
@@ -301,7 +1123,8 @@ func writeStateEdge(b *strings.Builder, from, to, label string, depth int) {
 // writeSequenceDiagram writes a sequence rendering as a Mermaid sequence
 // diagram: one participant per lifeline, declared before the messages, then the
 // messages in the order the rendering settled on.
-func (r *Rendering) writeSequenceDiagram(b *strings.Builder, labels labeller) {
+func (r *Rendering) writeSequenceDiagram(b *strings.Builder, labels labeller, options Options) {
+	_ = options
 	b.WriteString("sequenceDiagram\n")
 	if r.blank() {
 		// A sequence diagram carries no free text, so the reason is a
@@ -312,37 +1135,218 @@ func (r *Rendering) writeSequenceDiagram(b *strings.Builder, labels labeller) {
 	for _, node := range r.Roots {
 		fmt.Fprintf(b, "  participant %s as %s\n", node.ID, labels.mermaid(node))
 	}
+	r.writeSequenceNotes(b)
+	writtenNotes := map[int]bool{}
 	for _, edge := range r.Edges {
 		// The colon is part of the message syntax; only the text after it is left
 		// off when the message carries none.
 		if edge.Label == "" {
 			fmt.Fprintf(b, "  %s->>%s:\n", edge.From, edge.To)
-			continue
+		} else {
+			fmt.Fprintf(b, "  %s->>%s: %s\n", edge.From, edge.To, mermaidText(edge.Label))
 		}
-		fmt.Fprintf(b, "  %s->>%s: %s\n", edge.From, edge.To, mermaidText(edge.Label))
+		for i, note := range r.Notes {
+			if note.EdgeFrom == "" || writtenNotes[i] {
+				continue
+			}
+			if (edge.From == note.EdgeFrom && edge.To == note.EdgeTo) ||
+				(edge.From == note.EdgeTo && edge.To == note.EdgeFrom) {
+				r.writeSequenceNote(b, note)
+				writtenNotes[i] = true
+			}
+		}
+	}
+	for i, note := range r.Notes {
+		if note.EdgeFrom != "" && !writtenNotes[i] {
+			r.writeSequenceNote(b, note)
+		}
 	}
 }
 
 // writeStateNode writes one state and its substates. A body's start is the `[*]`
 // marker inside that state, so its edges are written there after the substates.
-func writeStateNode(b *strings.Builder, node *Node, depth int, starts map[string][]Edge, labels labeller) {
+func (r *Rendering) writeStateNode(b *strings.Builder, node *Node, depth int, starts, finalEdges map[string][]Edge, convertedFinals map[string]bool, parents, kinds map[string]string, labels labeller) {
 	indent := strings.Repeat("  ", depth)
 	if len(node.Children) == 0 {
-		fmt.Fprintf(b, "%sstate \"%s\" as %s\n", indent, labels.mermaid(node), node.ID)
+		r.writeStateDeclaration(b, node, indent, labels)
+		r.writeStateNotes(b, node.ID, depth)
 		return
 	}
 	fmt.Fprintf(b, "%sstate \"%s\" as %s {\n", indent, labels.mermaid(node), node.ID)
 	for _, child := range node.Children {
-		if child.Kind != startKind {
-			writeStateNode(b, child, depth+1, starts, labels)
+		if child.Kind != startKind && !convertedFinals[child.ID] {
+			r.writeStateNode(b, child, depth+1, starts, finalEdges, convertedFinals, parents, kinds, labels)
 		}
 	}
 	for _, child := range node.Children {
 		for _, edge := range starts[child.ID] {
+			if kinds[edge.To] == "final" && parents[edge.From] == parents[edge.To] {
+				continue
+			}
 			writeStateEdge(b, "[*]", edge.To, edge.Label, depth+1)
 		}
 	}
+	for _, edge := range finalEdges[node.ID] {
+		from := edge.From
+		if _, ok := starts[from]; ok {
+			from = "[*]"
+		}
+		writeStateEdge(b, from, "[*]", edge.Label, depth+1)
+	}
 	fmt.Fprintf(b, "%s}\n", indent)
+	r.writeStateNotes(b, node.ID, depth)
+}
+
+func (r *Rendering) crossBodyFinalTransitions() int {
+	parent := map[string]string{}
+	kinds := map[string]string{}
+	var walk func(*Node, string)
+	walk = func(node *Node, owner string) {
+		parent[node.ID], kinds[node.ID] = owner, node.Kind
+		for _, child := range node.Children {
+			walk(child, node.ID)
+		}
+	}
+	for _, root := range r.Roots {
+		walk(root, "")
+	}
+	count := 0
+	for _, edge := range r.Edges {
+		if kinds[edge.To] == "final" && parent[edge.From] != parent[edge.To] {
+			count++
+		}
+	}
+	return count
+}
+
+func (r *Rendering) writeStateDeclaration(b *strings.Builder, node *Node, indent string, labels labeller) {
+	switch node.Kind {
+	case "fork", "join", "decision", "merge", "choice", "junction":
+		kind := node.Kind
+		if kind == "decision" || kind == "merge" || kind == "junction" {
+			kind = "choice"
+		}
+		fmt.Fprintf(b, "%sstate %s <<%s>>\n", indent, node.ID, kind)
+	case shallowHistoryKind, deepHistoryKind:
+		label := "H"
+		if node.Kind == deepHistoryKind {
+			label = "H*"
+		}
+		fmt.Fprintf(b, "%sstate %q as %s\n", indent, label, node.ID)
+	default:
+		fmt.Fprintf(b, "%sstate \"%s\" as %s\n", indent, labels.mermaid(node), node.ID)
+	}
+}
+
+func (r *Rendering) writeStateNotes(b *strings.Builder, anchor string, depth int) {
+	for _, note := range r.Notes {
+		if note.Anchor != anchor || !r.hasState(anchor) {
+			continue
+		}
+		fmt.Fprintf(b, "%snote right of %s\n", strings.Repeat("  ", depth+1), anchor)
+		for _, line := range strings.Split(note.Text, "\n") {
+			fmt.Fprintf(b, "%s  %s\n", strings.Repeat("  ", depth+1), mermaidText(line))
+		}
+		fmt.Fprintf(b, "%send note\n", strings.Repeat("  ", depth+1))
+	}
+}
+
+func (r *Rendering) writeSequenceNotes(b *strings.Builder) {
+	for _, note := range r.Notes {
+		if note.Anchor != "" && note.EdgeFrom == "" && r.hasSequenceParticipant(note.Anchor) {
+			r.writeSequenceNote(b, note)
+		}
+	}
+}
+
+func (r *Rendering) writeSequenceNote(b *strings.Builder, note Note) {
+	lines := strings.Split(note.Text, "\n")
+	for i, line := range lines {
+		lines[i] = mermaidText(line)
+	}
+	text := strings.Join(lines, "<br>")
+	if note.EdgeFrom != "" {
+		if !r.hasSequenceParticipant(note.EdgeFrom) || !r.hasSequenceParticipant(note.EdgeTo) {
+			return
+		}
+		fmt.Fprintf(b, "  Note over %s,%s: %s\n", note.EdgeFrom, note.EdgeTo, text)
+		return
+	}
+	if note.Anchor != "" {
+		fmt.Fprintf(b, "  Note over %s: %s\n", note.Anchor, text)
+	}
+}
+
+// InlineMermaidImages embeds each readable local flowchart image in source.
+// base is the working directory used to resolve relative image paths.
+func InlineMermaidImages(source, base string) string {
+	lines := strings.Split(source, "\n")
+	image := regexp.MustCompile(`^\s*picture[0-9]+@\{[^}\r\n]*img:\s*"([^"\r\n]*)"`)
+	size := len(source)
+	var notices []string
+	drop := func(index int, location, reason string) {
+		old := lines[index]
+		lines[index] = ""
+		notice := fmt.Sprintf("%%%% not represented: picture %s not drawn; %s", location, reason)
+		notices = append(notices, notice)
+		size += len(notice) + 1 - len(old)
+	}
+	for i, line := range lines {
+		match := image.FindStringSubmatchIndex(line)
+		if match == nil {
+			continue
+		}
+		location := line[match[2]:match[3]]
+		if strings.Contains(location, "://") || strings.HasPrefix(location, "data:") {
+			continue
+		}
+		path := location
+		if !filepath.IsAbs(path) {
+			path = filepath.Join(base, filepath.FromSlash(path))
+		}
+		data, err := os.ReadFile(path) // #nosec G304 -- Mermaid pictures are intentionally loaded from their declared path.
+		if err != nil {
+			drop(i, location, "the file does not read")
+			continue
+		}
+		contentType := imagefile.ContentType(data)
+		if contentType == "" {
+			drop(i, location, "the file is not a supported image")
+			continue
+		}
+		uri := "data:" + contentType + ";base64," + base64.StdEncoding.EncodeToString(data)
+		replaced := line[:match[2]] + uri + line[match[3]:]
+		delta := len(replaced) - len(line)
+		if size+delta+1 > MermaidTextCeiling {
+			drop(i, location, "inlining would exceed Mermaid's text ceiling")
+			continue
+		}
+		lines[i] = replaced
+		size += delta
+	}
+	if len(notices) == 0 {
+		return strings.Join(lines, "\n")
+	}
+	headerEnd := 0
+	start := 0
+	if len(lines) > 0 && strings.TrimSpace(lines[0]) == "---" {
+		for i := 1; i < len(lines); i++ {
+			if strings.TrimSpace(lines[i]) == "---" {
+				start, headerEnd = i+1, i+1
+				break
+			}
+		}
+	}
+	for i := start; i < len(lines); i++ {
+		trimmed := strings.TrimSpace(lines[i])
+		if trimmed == "" || strings.HasPrefix(trimmed, "%%") {
+			headerEnd = i + 1
+			continue
+		}
+		break
+	}
+	lines = append(lines[:headerEnd], append(notices, lines[headerEnd:]...)...)
+	return strings.Join(lines, "\n")
 }
 
 // mermaid is a node's label ready to embed: its lines escaped and joined with
@@ -359,7 +1363,7 @@ func (l labeller) mermaid(node *Node) string {
 func mermaidArrow(kind EdgeKind) string {
 	switch kind {
 	case EdgeConnection, EdgeBinding:
-		return "---"
+		return "==="
 	case EdgeFlow:
 		return "-.->"
 	}
@@ -392,12 +1396,27 @@ func MermaidSize(source string) (textSize, edges int) {
 // comment declares none.
 func mermaidEdges(source string) int {
 	edges := 0
-	for _, line := range strings.Split(source, "\n") {
+	lines := strings.Split(source, "\n")
+	frontmatter := len(lines) > 0 && strings.TrimSpace(lines[0]) == "---"
+	inFrontmatter, inQuote := frontmatter, false
+	frontmatterStarted := false
+	for _, line := range lines {
 		line = strings.TrimSpace(line)
+		if inFrontmatter {
+			if line == "---" {
+				if frontmatterStarted {
+					inFrontmatter = false
+				} else {
+					frontmatterStarted = true
+				}
+			}
+			continue
+		}
 		if strings.HasPrefix(line, "%%") {
 			continue
 		}
-		if declaresEdge(unquoted(line)) {
+		statement := unquotedState(line, &inQuote)
+		if declaresEdge(statement) {
 			edges++
 		}
 	}
@@ -411,7 +1430,7 @@ func declaresEdge(statement string) bool {
 	if strings.Contains(statement, "->>") {
 		return true
 	}
-	for _, arrow := range []string{"-->", "---", "-.->"} {
+	for _, arrow := range []string{"-->", "---", "-.->", "-.-", "==="} {
 		if strings.Contains(statement, " "+arrow+" ") || strings.Contains(statement, " "+arrow+"|") {
 			return true
 		}
@@ -419,13 +1438,13 @@ func declaresEdge(statement string) bool {
 	return false
 }
 
-// unquoted is a statement without its quoted labels; mermaidText writes a quote
-// inside one as an entity.
-func unquoted(statement string) string {
+func unquotedState(statement string, inQuote *bool) string {
 	var b strings.Builder
-	for i, part := range strings.Split(statement, "\"") {
-		if i%2 == 0 {
-			b.WriteString(part)
+	for _, r := range statement {
+		if r == '"' {
+			*inQuote = !*inQuote
+		} else if !*inQuote {
+			b.WriteRune(r)
 		}
 	}
 	return b.String()

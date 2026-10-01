@@ -42,11 +42,24 @@ config:
     transitionLabelColor: "#000000"
     labelBackgroundColor: "#FFFFFF"
     specialStateColor: "#181818"
+  flowchart:
+    subGraphTitleMargin:
+      bottom: 24
 ---
-%% OrderingViews::deadlockView — sequence rendering (view def SequenceView)
-%% not represented: successions form a cycle (answering, heard to sent); the messages are shown in declaration order
-sequenceDiagram
-  participant n0 as near<br>«part»
-  participant n1 as far<br>«part»
-  n0->>n1: ask
-  n1->>n0: reply
+%% PlantViews::loopView — interconnection rendering (render asInterconnectionDiagram)
+flowchart LR
+  subgraph n0 ["`**Loop**
+*«part def»*`"]
+    direction LR
+    n1("`**pump : Pump**
+*«part»*`")
+    n2("`**tank : Tank**
+*«part»*`")
+    n3("`**sensor : Pump**
+*«part»*`")
+  end
+  n1 ===|"supply"| n2
+  n1 -.->|"of Water"| n2
+  classDef palette0 fill:#F5D999,stroke:#E69F00
+  class n1,n2,n3 palette0
+  linkStyle 0 stroke-width:3px

@@ -257,7 +257,7 @@ func TestPlantUMLFormSupport(t *testing.T) {
 		if got := kind.SupportsForm(FormPlantUML); got != want {
 			t.Errorf("%s.SupportsForm(plantuml) = %v, want %v", kind, got, want)
 		}
-		if got := kind.SupportsPalette(); got != (kind.SupportsForm(FormDot) || kind.SupportsForm(FormPlantUML)) {
+		if got := kind.SupportsPalette(); got != (kind.SupportsForm(FormDot) || kind.SupportsForm(FormMermaid) || kind.SupportsForm(FormPlantUML)) {
 			t.Errorf("%s.SupportsPalette() = %v", kind, got)
 		}
 		if kind.MachineForm() == FormPlantUML {
@@ -273,8 +273,8 @@ func TestPlantUMLFormSupport(t *testing.T) {
 	if got := KindSequence.SupportedForms(); fmt.Sprint(got) != "[text mermaid plantuml]" {
 		t.Errorf("sequence forms = %v", got)
 	}
-	if !FormPlantUML.TakesPalette() || !FormDot.TakesPalette() || FormMermaid.TakesPalette() {
-		t.Error("TakesPalette: want dot and plantuml alone")
+	if !FormPlantUML.TakesPalette() || !FormDot.TakesPalette() || !FormMermaid.TakesPalette() {
+		t.Error("TakesPalette: want dot, mermaid and plantuml")
 	}
 	unsupported := []*Rendering{
 		render(t, "table.sysml", "TableViews::partsTable"),

@@ -512,15 +512,14 @@ part structure : Diagram {
   sequence diagram is a typed error.
 - `palette` — `"okabe-ito"`, `"tol-bright"`, `"tol-muted"`, `"tol-light"`,
   `"brewer-set2"`, `"brewer-dark2"`, `"viridis"` or `"cividis"` — is accepted
-  only by kinds that have a DOT or PlantUML form (tree, interconnection,
-  state, action, sequence). When the document is rendered with DOT or
-  PlantUML diagrams, the diagram's nodes are filled by keyword family from
-  that colourblind-safe palette, a `part def` and its `part` usages sharing a
-  hue, with black text kept legible on every fill
-  ([the palettes](../project/view-rendering-forms.md#palettes)); with Mermaid
-  diagrams the palette is noted as not represented, and the HTML figure
-  carries it as `data-palette` either way. Any other name, or a palette on a
-  table diagram, is a typed error.
+  for graph-shaped kinds (tree, interconnection, state, action, sequence).
+  Mermaid, DOT and PlantUML fill applicable nodes by keyword family from that
+  colourblind-safe palette, a `part def` and its `part` usages sharing a hue,
+  with black text kept legible on every fill
+  ([the palettes](../project/view-rendering-forms.md#palettes)). Mermaid
+  sequence diagrams note that individual participants cannot be filled; HTML
+  figures carry the palette as `data-palette`. Any other name, or a palette on
+  a table diagram, is a typed error.
 
 A diagram block states *what* is drawn, not the notation it is written in:
 that is a choice made when the document is rendered. By default most kinds

@@ -62,7 +62,7 @@ func TestDocumentDiagramsTakeADrawingStyle(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if styled == plain || !strings.Contains(styled, "style cameo; only the DOT form draws a diagram in a style") {
+	if styled == plain || !strings.Contains(styled, "%% style cameo") {
 		t.Errorf("a Mermaid figure under a style says it draws none:\n%s", styled)
 	}
 

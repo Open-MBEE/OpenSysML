@@ -101,8 +101,7 @@ func renderForms() []string {
 	return out
 }
 
-// renderPalettes are the palettes %render fills the dot form from and the
-// styles it draws in, as the arguments after the form spell them.
+// renderPalettes are the palette and style values %render accepts after a form.
 func renderPalettes() []string {
 	out := make([]string, 0, len(view.Palettes())+len(view.DrawingStyles()))
 	for _, palette := range view.Palettes() {

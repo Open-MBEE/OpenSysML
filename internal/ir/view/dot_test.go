@@ -351,8 +351,9 @@ func TestDOTEdgeKinds(t *testing.T) {
 		}
 		// Mermaid draws the same distinction: a line, a dashed arrow, an arrow.
 		arrow := mermaidArrow(kind)
+		undirected := arrow == "---" || arrow == "==="
 		switch {
-		case strings.Contains(want, "arrowhead=none") != (arrow == "---"):
+		case strings.Contains(want, "arrowhead=none") != undirected:
 			t.Errorf("%s: DOT arrowhead and Mermaid arrow %q disagree", kind, arrow)
 		case strings.Contains(want, "dashed") != strings.Contains(arrow, "."):
 			t.Errorf("%s: DOT style and Mermaid arrow %q disagree", kind, arrow)
