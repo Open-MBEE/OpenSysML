@@ -1316,6 +1316,9 @@ class ApiIntegrationTest {
     ModelNotFoundException model =
         assertThrows(ModelNotFoundException.class, () -> evicted.eval("1 + 1"));
     assertEquals(StatusCode.NOT_FOUND, model.status());
+    assertThrows(ModelNotFoundException.class, () -> evicted.convert("sysml"));
+    assertThrows(
+        ModelNotFoundException.class, () -> evicted.edit().addPart("A", "b").apply());
     ModelFileNotFoundException file =
         assertThrows(
             ModelFileNotFoundException.class,
