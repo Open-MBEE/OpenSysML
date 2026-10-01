@@ -1,5 +1,6 @@
 const CAPABILITY_TYPE_FACTS = "type_facts"
 const CAPABILITY_CONVERT = "convert"
+const CAPABILITY_MIGRATE = "migrate"
 const CAPABILITY_VERIFICATION = "verification"
 const CAPABILITY_VERIFICATION_QUESTIONS = "verification_questions"
 const CAPABILITY_QUERY = "query"

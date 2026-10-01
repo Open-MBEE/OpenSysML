@@ -209,6 +209,16 @@ pub enum Error {
         /// Diagnostics behind the failure, when the source could not be read.
         diagnostics: Vec<Diagnostic>,
     },
+    /// The service could not read the SysML v1 model it was asked to migrate.
+    #[error("migration failed: {message}")]
+    Migration {
+        /// The service's description of the failure.
+        message: String,
+    },
+    /// A migration could not be written where it was asked to: the destination names the v1
+    /// model it came from, or an image of it would land outside the model's directory.
+    #[error("refusing to write the migration: {0}")]
+    Unwritable(String),
     /// A runtime operation (execution, verification, calculation, analysis) could not be answered.
     #[error("execution failed: {message}")]
     Execution {

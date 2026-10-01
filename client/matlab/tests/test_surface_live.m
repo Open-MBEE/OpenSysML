@@ -60,6 +60,27 @@ function test_surface_live()
     warningState = warning;
     warning('off', 'opensysml:experimental');
     warningCleanup = onCleanup(@() warning(warningState));
+    vehicle = fullfile(fixtures, 'vehicle.xmi');
+    assert_error(@() opensysml.convert(conn, 'sysml', 'filePath', vehicle), ...
+        'opensysml:argument', 'convert refuses a v1 model');
+    migrated = opensysml.migrate(conn, 'sysml', 'filePath', vehicle, 'report', true);
+    assert_equal(~isempty(strfind(migrated.content, 'part def Vehicle')), true, 'migrate');
+    assert_equal(migrated.fromFormat, 'xmi', 'migrate from format');
+    assert_equal([migrated.report.mapped, migrated.report.approximated, ...
+        migrated.report.unmapped, migrated.report.skipped], [77 13 3 2], 'migration counts');
+    assert_equal(numel(migrated.report.entries), 95, 'migration entries');
+    assert_equal(numel(migrated.byVerdict('unmapped')), 3, 'migration unmapped entries');
+    assert_equal(migrated.sourcePath, opensysml.internal.absolutePath(vehicle), 'migration source path');
+    fid = fopen(vehicle, 'rb'); vehicleBytes = fread(fid, Inf, 'uint8=>uint8')'; fclose(fid);
+    inlineMigration = opensysml.migrate(conn, 'ttl', 'content', vehicleBytes, 'fromFormat', ' XMI ');
+    assert_equal(inlineMigration.toFormat, 'ttl', 'inline migration to Turtle');
+    assert_equal(inlineMigration.report.mapped, 77, 'inline migration counts');
+    assert_equal(isempty(inlineMigration.report.entries), true, 'inline migration summary only');
+    assert_equal(isempty(inlineMigration.sourcePath), true, 'inline migration has no source path');
+    migratedPath = [tempname '.sysml'];
+    migrated.write(migratedPath);
+    migratedCleanup = onCleanup(@() delete(migratedPath));
+    assert_equal(fileread(migratedPath), migrated.content, 'migration written');
     simple.toTurtle();
     simple.toApiJson();
     clear warningCleanup;

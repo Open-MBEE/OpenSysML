@@ -156,6 +156,17 @@ functions request a single run.
 `Conversion` has `content`, `fromFormat`, `toFormat`, `diagnostics`, and
 `write(path)`. `EditResult` also supports `save(path)`.
 
+A SysML v1 model (`.mdzip`, `.xmi`, `.uml`) is migrated, not converted:
+`opensysml.convert` refuses it, and `opensysml.migrate(conn, toFormat,
+'filePath', path, 'report', true)` — or `'content', bytes, 'fromFormat',
+'mdzip'` for an archive carried inline — returns a `Migration` with
+`content`, `report` (the `mapped`, `approximated`, `unmapped` and `skipped`
+counts, every element's entry with `report`, selected by `byVerdict`),
+`results`, the image `files`, `sourcePath`, and `write(path)`, which puts the
+images beside the model and refuses to overwrite the v1 model or to write
+outside the model's directory. The options are `fromFormat`, `report`,
+`results`, `layoutPath` or `layoutContent`, `imageBaseUrl` and `strict`.
+
 ## Queries and documents
 
 `model.query('oslc.where=...')` sends an OSLC query. For the standard
@@ -220,8 +231,8 @@ are raised as ordinary errors.
 | `opensysml:connect:<kind>` | Connect status such as `modelNotFound`, `symbolNotFound`, `modelFileNotFound`, `invalidRequest`, `unavailable`, `serviceTimeout`, or `unsupportedOperation`. |
 | `opensysml:missingCapability` | Required service capability is not advertised. |
 | `opensysml:staleService` | Service version or required capability set does not match the requested requirements. |
-| `opensysml:diagnostics:<kind>` | Model, conversion, execution, verification or edit failure. Edit failures use `opensysml:diagnostics:edit:<failure>`. |
-| `opensysml:experimental` | Warning emitted for experimental RDF conversion. |
+| `opensysml:diagnostics:<kind>` | Model, conversion, migration, execution, verification or edit failure. Edit failures use `opensysml:diagnostics:edit:<failure>`. |
+| `opensysml:experimental` | Warning emitted for experimental RDF conversion and for SysML v1 migration. |
 
 `opensysml.lastError()` returns the most recently raised error record:
 `identifier`, `message`, `diagnostics`, and structured `details` such as

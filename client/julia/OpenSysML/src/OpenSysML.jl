@@ -1,5 +1,6 @@
 module OpenSysML
 
+using Base64
 using HTTP
 using JSON
 using SHA
@@ -17,7 +18,7 @@ export Connection, Model, Diagnostic, Instance, InstanceRef, Quantity,
        ExecutionFailure, WrongKindError, ModelError,
        ServiceCallError, ModelNotFoundError, ModelFileNotFoundError, InvalidRequestError,
        ServiceTimeoutError, UnsupportedOperationError, ServiceUnavailableError,
-       ConversionError, MissingCapabilityError, StaleServiceError, SymbolNotFoundError,
+       ConversionError, MigrationError, MissingCapabilityError, StaleServiceError, SymbolNotFoundError,
        ChecksumMismatchError, UnpinnedReleaseError,
        QueryError, DocumentQueryError, UnsupportedValueError, FeatureValueError,
        TypeMismatchError, InstanceTypeError, IncommensurableUnitsError,
@@ -39,6 +40,9 @@ export Connection, Model, Diagnostic, Instance, InstanceRef, Quantity,
        raise_for_error, raise_for_incomplete, Conversion,
        convert_file, convert_source, convert_model, to_sysml, to_turtle,
        to_api_json, save, format_of_path,
+       Migration, MigrationReport, MigrationEntry, migrate_file, migrate_source, by_verdict,
+       is_v1, path_is_v1, MIGRATED_NOT_CONVERTED, MIGRATION_NOTICE, V1_FORMATS,
+       VERDICT_MAPPED, VERDICT_APPROXIMATED, VERDICT_UNMAPPED, VERDICT_SKIPPED,
        ElementRef, ObjectRef, DocumentVerdict, DocumentState, DocumentEvent,
        DocumentRow, DocumentQueryResult, build_document_bindings,
        run_document_query, render_document, Editor, Body, operations, applied, AppliedEdit,
@@ -64,6 +68,7 @@ include("verdict.jl")
 include("verification.jl")
 include("document.jl")
 include("conversion.jl")
+include("migration.jl")
 include("authoring.jl")
 include("exploration.jl")
 
@@ -88,7 +93,7 @@ for operation in (
 end
 
 for capability in (
-    :CAPABILITY_TYPE_FACTS, :CAPABILITY_CONVERT, :CAPABILITY_VERIFICATION,
+    :CAPABILITY_TYPE_FACTS, :CAPABILITY_CONVERT, :CAPABILITY_MIGRATE, :CAPABILITY_VERIFICATION,
     :CAPABILITY_VERIFICATION_QUESTIONS, :CAPABILITY_QUERY, :CAPABILITY_OSLC_QUERY,
     :CAPABILITY_DOCUMENT_QUERY,
     :CAPABILITY_RENDER_DOCUMENT, :CAPABILITY_RENDER_DOCUMENT_HTML, :CAPABILITY_ENUM_VALUES,

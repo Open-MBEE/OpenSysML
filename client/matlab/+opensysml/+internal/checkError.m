@@ -25,6 +25,8 @@ function answer = checkError(answer, method, details)
             identifier = 'opensysml:diagnostics:model';
         elseif strcmp(method, 'Convert')
             identifier = 'opensysml:diagnostics:conversion';
+        elseif strcmp(method, 'Migrate')
+            identifier = 'opensysml:diagnostics:migration';
         end
         opensysml.internal.raise(identifier, text, diags, details);
     end

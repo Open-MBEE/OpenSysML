@@ -149,7 +149,7 @@ that needs a capability the service does not have is refused with
 local error naming what to install instead of a transport round trip.
 Capabilities that only describe how a response is populated omit the fields they
 name rather than refusing the call. Every typed call requires the capability of
-its RPC (`parse_sources`, `convert`, `query`, `oslc_query`, `document_query`,
+its RPC (`parse_sources`, `convert`, `migrate`, `query`, `oslc_query`, `document_query`,
 `render_document`, `verification`, `engines`, `apply_edits`, ...) and those of
 the options it is given: `strict_conformance`, `inline_language`,
 `evaluate_subject`, a named engine or question, an exploring schedule, a
@@ -212,7 +212,8 @@ model:
 | Call | RPC | Answer |
 |---|---|---|
 | `parse_file`, `parse_content`, `parse_sources(&[SourceDocument], &SourcesOptions)` | `ParseFile`, `ParseSources` | `Model`; `documents()` names each document parsed together |
-| `convert(to_format, &ConvertSource, &ConvertOptions)`, `Model::{to_sysml, to_turtle, to_api_json, save}` | `Convert` | `Conversion`, with `experimental_notice`; `IdForm` spells derived ids |
+| `convert(to_format, &ConvertSource, &ConvertOptions)`, `Model::{to_sysml, to_turtle, to_api_json, save}` | `Convert` | `Conversion`, with `experimental_notice`; `IdForm` spells derived ids; a SysML v1 model is refused — it is migrated, not converted |
+| `migrate(to_format, &MigrateSource, &MigrateOptions)` | `Migrate` | `Migration`: the notation or Turtle a `.mdzip`, `.xmi` or `.uml` model became, its `MigrationReport` (every element mapped, approximated, unmapped or skipped), the image files `write(path)` puts beside the model, and the `experimental_notice` |
 | `query(&Query)`, `query_oslc(text)` | `Query` | `Vec<QueryElement>`; `Query` is built with `scope`, `select`, `filter` and `Constraint` |
 | `run_document_query(id, bindings)`, `render_document(id, DocumentForm)` | `RunDocumentQuery`, `RenderDocument` | typed `DocumentQueryResult` rows; Markdown or HTML |
 | `execute_action`, `execute_state`, `explore_action`, `explore_state`, `explore_analysis` | `ExecuteAction`, `ExecuteState`, `RunAnalysis` | `ActionRun`, `StateRun`, `Exploration` (`Outcome`s, `complete`) |

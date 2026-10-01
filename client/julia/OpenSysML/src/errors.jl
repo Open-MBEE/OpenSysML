@@ -102,6 +102,12 @@ end
 ModelError(message, diagnostics=Diagnostic[]; model=nothing) =
     ModelError(String(message), Diagnostic[d for d in diagnostics], model)
 
+"""The service could not read the SysML v1 model it was asked to migrate."""
+struct MigrationError <: OpenSysMLError
+    message::String
+end
+Base.showerror(io::IO, e::MigrationError) = print(io, "MigrationError: ", e.message)
+
 struct ConversionError <: DiagnosticError
     message::String
     diagnostics::Vector{Diagnostic}

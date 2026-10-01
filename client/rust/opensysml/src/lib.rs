@@ -11,6 +11,7 @@ mod domain;
 mod edit;
 mod encode;
 mod error;
+mod migration;
 mod model;
 mod operations;
 mod query;
@@ -48,6 +49,11 @@ pub use edit::{
     DocumentationOptions, EditError, EditFailure, EditResult, EditedDocument, Editor,
     ImportOptions, MemberOptions, MetadataOptions, Referrer, SatisfyOptions, StateActionKind,
     StatementOptions, ThenStep, TransitionOptions,
+};
+pub use migration::{
+    is_v1, path_is_v1, Layout, MigrateOptions, MigrateSource, Migration, MigrationEntry,
+    MigrationReport, MIGRATED_NOT_CONVERTED, MIGRATION_NOTICE, V1_FORMATS, VERDICT_APPROXIMATED,
+    VERDICT_MAPPED, VERDICT_SKIPPED, VERDICT_UNMAPPED,
 };
 pub use operations::{
     AnalysisOptions, RunOptions, SourcesOptions, SweepOptions, VerifyOptions, SCHEDULE_EXPLORE,

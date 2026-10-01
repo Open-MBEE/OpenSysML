@@ -6,6 +6,8 @@ use crate::binary::Downloader;
 pub const CAPABILITY_TYPE_FACTS: &str = "type_facts";
 /// The `Convert` RPC, writing a model out as notation, Turtle or API JSON.
 pub const CAPABILITY_CONVERT: &str = "convert";
+/// The `Migrate` RPC, migrating a SysML v1 model to notation or Turtle with its report.
+pub const CAPABILITY_MIGRATE: &str = "migrate";
 /// `VerifyConstraint`, `VerifyRequirement`, `VerifySatisfaction`, `ValidateInstance`,
 /// `EvaluateCalc`, `RunAnalysis` and `RunSweep`.
 pub const CAPABILITY_VERIFICATION: &str = "verification";

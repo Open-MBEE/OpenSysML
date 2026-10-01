@@ -15,9 +15,10 @@ use compare::{compare, label_instance_ids, status_matches};
 use normalize::normalize;
 use opensysml::{
     wire, AnalysisOptions, Connection, ConvertOptions, ConvertSource, DocumentForm, DocumentValue,
-    EditError, Error, EvalOptions, ExploredResponse, FailureReason, IdForm, Language, Model,
-    ModelResponse, ParseOptions, Query, RunOptions, SourceDocument, SourcesOptions, Status,
-    SweepOptions, SweepRange, Value as SysmlValue, VerifyOptions,
+    EditError, Error, EvalOptions, ExploredResponse, FailureReason, IdForm, Language, Layout,
+    MigrateOptions, MigrateSource, Model, ModelResponse, ParseOptions, Query, RunOptions,
+    SourceDocument, SourcesOptions, Status, SweepOptions, SweepRange, Value as SysmlValue,
+    VerifyOptions,
 };
 use prost::Message;
 use prost_reflect::{DescriptorPool, DeserializeOptions, DynamicMessage, SerializeOptions};
@@ -414,6 +415,7 @@ impl Runner {
             "Instantiate" => self.instantiate(request, model),
             "ParseSources" => self.parse_sources(request),
             "Convert" => self.convert(request),
+            "Migrate" => self.migrate(request),
             "ApplyEdits" => self.apply_edits(request, model),
             "Query" => self.query(request),
             "RunDocumentQuery" => self.run_document_query(request),
@@ -653,6 +655,46 @@ impl Runner {
                 ),
                 Err(answer) => answer,
             },
+        }
+    }
+
+    fn migrate(&self, request: &DynamicMessage) -> Answer {
+        let request: wire::MigrateRequest = match decode(request) {
+            Ok(request) => request,
+            Err(answer) => return answer,
+        };
+        use wire::migrate_request::{Layout as WireLayout, Source as Kind};
+        let source = match request.source {
+            Some(Kind::FilePath(path)) => MigrateSource::File(PathBuf::from(path)),
+            Some(Kind::Content(content)) => MigrateSource::Content(content),
+            None => return Answer::Unrepresentable("Migrate with no source".to_owned()),
+        };
+        let options = MigrateOptions {
+            from_format: request.from_format,
+            report: request.report,
+            results: request.results,
+            layout: request.layout.map(|layout| match layout {
+                WireLayout::LayoutPath(path) => Layout::Path(PathBuf::from(path)),
+                WireLayout::LayoutContent(content) => Layout::Content(content),
+            }),
+            image_base_url: request.image_base_url,
+            strict: request.strict,
+        };
+        match self
+            .connection
+            .migrate(&request.to_format, &source, &options)
+        {
+            Ok(migration) => {
+                Answer::Response(self.wire_json("sysml.MigrateResponse", migration.wire()))
+            }
+            Err(Error::Migration { message }) => self.in_band(
+                "sysml.MigrateResponse",
+                &wire::MigrateResponse {
+                    error: message,
+                    ..Default::default()
+                },
+            ),
+            Err(error) => classify_error(error),
         }
     }
 
