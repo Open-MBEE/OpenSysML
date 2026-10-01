@@ -7,6 +7,10 @@ import (
 	"slices"
 	"strings"
 
+	"github.com/Open-MBEE/OpenSysML/internal/frontend/repl"
+	"github.com/Open-MBEE/OpenSysML/internal/semantic/resolve"
+	"github.com/Open-MBEE/OpenSysML/internal/semantic/semantics"
+	"github.com/Open-MBEE/OpenSysML/internal/semantic/symbols"
 	"github.com/Open-MBEE/OpenSysML/internal/translate/codegen"
 )
 
@@ -31,7 +35,7 @@ func runCompile(files []string) error {
 	if report.Errors {
 		return fmt.Errorf("%s did not analyse cleanly; nothing was compiled", strings.Join(files, ", "))
 	}
-	program, err := sess.CompileCalc(compileCalc)
+	program, err := repl.CompileCalc(sess, compileCalc, compileProgram)
 	if err != nil {
 		return err
 	}
@@ -43,4 +47,9 @@ func runCompile(files []string) error {
 		return os.WriteFile(outputPath, src, 0o600)
 	}
 	return codegen.Build(program, target, outputPath)
+}
+
+// compileProgram compiles entry and every calc it invokes to the codegen IR.
+func compileProgram(model *semantics.Model, resolver *resolve.Resolver, entry *symbols.Symbol) (*codegen.Program, error) {
+	return codegen.New(model, resolver).Compile(entry)
 }

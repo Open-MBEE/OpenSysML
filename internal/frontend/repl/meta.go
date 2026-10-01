@@ -13,6 +13,7 @@ import (
 	"github.com/Open-MBEE/OpenSysML/internal/exec/analysis"
 	"github.com/Open-MBEE/OpenSysML/internal/exec/objref"
 	"github.com/Open-MBEE/OpenSysML/internal/exec/runtime"
+	"github.com/Open-MBEE/OpenSysML/internal/frontend/repl/replext"
 	"github.com/Open-MBEE/OpenSysML/internal/frontend/usage"
 	"github.com/Open-MBEE/OpenSysML/internal/ir/lower"
 	"github.com/Open-MBEE/OpenSysML/internal/ir/view"
@@ -152,16 +153,25 @@ type metaCommand struct {
 	desc  string
 	group string // help heading this command is listed under
 	alias bool   // an alternative spelling, dispatched but not listed
+	// linked reports whether the build links the feature serving the command;
+	// nil for one the core serves.
+	linked func() bool
 }
+
+// served reports whether the build serves c.
+func (c metaCommand) served() bool { return c.linked == nil || c.linked() }
+
+func notationLinked() bool   { return replext.Notation() != nil }
+func positionalLinked() bool { return replext.Positional() != nil }
 
 var metaCommandTable = []metaCommand{
 	{name: "%help", group: groupSession, desc: "show this help"},
 	{name: "%list", group: groupSession, desc: "list current session declarations"},
 	{name: "%clear", group: groupSession, desc: "reset the session"},
 	{name: "%load", group: groupSession, args: "<path>...", desc: "submit the contents of files, directories or globs"},
-	{name: "%print", group: groupSession, args: "[name]", desc: "print the session model as SysML notation, or just the named element"},
-	{name: "%save", group: groupSession, args: "<file>", desc: "write the session model to a file (.sysml notation, or .ttl/.json RDF — experimental)"},
-	{name: cmdQuery, group: groupSession, args: "<oslc-query>", desc: "identify model elements using OSLC Query text"},
+	{name: "%print", group: groupSession, args: "[name]", desc: "print the session model as SysML notation, or just the named element", linked: notationLinked},
+	{name: "%save", group: groupSession, args: "<file>", desc: "write the session model to a file (.sysml notation, or .ttl/.json RDF — experimental)", linked: notationLinked},
+	{name: cmdQuery, group: groupSession, args: "<oslc-query>", desc: "identify model elements using OSLC Query text", linked: positionalLinked},
 	{name: "%quit", group: groupSession, desc: "exit the REPL (also %exit)"},
 	{name: "%exit", group: groupSession, desc: "exit the REPL", alias: true},
 
@@ -240,7 +250,7 @@ func helpText() []string {
 	}
 	group := ""
 	for _, c := range metaCommandTable {
-		if c.alias {
+		if c.alias || !c.served() {
 			continue
 		}
 		if c.group != group {
@@ -283,7 +293,9 @@ func helpEntry(c metaCommand) []string {
 func metaCommands() []string {
 	out := make([]string, 0, len(metaCommandTable))
 	for _, c := range metaCommandTable {
-		out = append(out, c.name)
+		if c.served() {
+			out = append(out, c.name)
+		}
 	}
 	return out
 }
@@ -302,6 +314,9 @@ func (s *Session) runMeta(line string) (out []string, quit bool, err error) {
 	fields := parseArgs(strings.TrimSpace(line))
 	if len(fields) == 0 {
 		return nil, false, nil
+	}
+	if i := slices.IndexFunc(metaCommandTable, func(c metaCommand) bool { return c.name == fields[0] }); i >= 0 && !metaCommandTable[i].served() {
+		return []string{unknownCommandLine(fields[0])}, false, nil
 	}
 	for _, run := range []func([]string, string) (metaResult, bool){
 		s.metaSessionCommand, s.metaModelCommand, s.metaDebugCommand,
