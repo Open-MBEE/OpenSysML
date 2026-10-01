@@ -188,10 +188,15 @@ _UNRESOLVED = object()
 #: Naming one here is the opt-in for a caller who cannot pass host and port.
 SERVICE_ENV = 'OPENSYSML_SERVICE'
 
-#: Options of every channel this client opens: only identity, so no service
-#: compresses a response, which grpcio can hand to the parser still compressed.
+#: Options of every channel this client opens: only identity compression, so
+#: no service compresses a response, which grpcio can hand to the parser still
+#: compressed; and no bound on a message's size, since a migrated project's
+#: notation, report and images run to tens of megabytes where grpcio's default
+#: stops at four.
 CHANNEL_OPTIONS = (
     ('grpc.compression_enabled_algorithms_bitset', 1 << grpc.Compression.NoCompression),
+    ('grpc.max_receive_message_length', -1),
+    ('grpc.max_send_message_length', -1),
 )
 
 #: Seconds a private child is given to report the address it bound.

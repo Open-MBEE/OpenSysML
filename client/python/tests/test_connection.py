@@ -390,3 +390,11 @@ def test_auto_start_disabled(private_child):
     with Connection(auto_start=False) as conn:
         assert conn._private is None
         assert conn.port == 50051
+
+
+def test_channel_options_bound_no_message_size():
+    """A migrated project's answer runs to tens of megabytes; grpcio's default
+    receive bound of four would refuse it."""
+    options = dict(CHANNEL_OPTIONS)
+    assert options['grpc.max_receive_message_length'] == -1
+    assert options['grpc.max_send_message_length'] == -1
