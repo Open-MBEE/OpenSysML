@@ -17,9 +17,7 @@ starts and stops on its own.
 They do not all cover the same ground. Go and Java expose every RPC the service offers —
 `parseSources`, `convert`, `applyEdits`, `runSweep`, `runDocumentQuery` and
 `renderDocument` beside the v1 surface and its execution, verification, calculation, analysis and
-query methods — and so do Python and Rust; Node covers
-that smaller v1 surface (parse, look up a symbol, evaluate, instantiate), with an escape hatch to
-the rest through the generated Connect client it exposes. Only Python and Go are published so far.
+query methods — and so do Python, Node and Rust. Only Python and Go are published so far.
 [Client libraries](../reference/clients.md) lays out what each covers and how to choose;
 [the troubleshooting chapter](10-troubleshooting.md) covers runs that stop short.
 
@@ -1492,11 +1490,13 @@ await using connection = await connect({ address: "https://sysml.example.com" })
 That needs a service that allows the page's exact origin (`sysml-grpc -cors-allowed-origins
 https://app.example.com`, never `*`), and TLS if an HTTPS page is to reach it at all.
 
-The ergonomic layer covers `GetServerInfo`, `ParseFile`, `GetSymbol`, `Evaluate` and `Instantiate`;
-`connection.rpc` is the generated Connect client and reaches everything else — the `schedule`
-field of `ExecuteActionRequest`, `ExecuteStateRequest` and `RunAnalysisRequest` and the `outcomes`
-and `exploration` an `"explore"` schedule answers with are read there, as the [wire
-contract](../reference/wire-contract.md) spells them; the ergonomic layer has no method for them.
+The ergonomic layer covers every RPC the service offers — parse, diagnostics, symbol
+lookup, evaluate, instantiate, and equally `parseSources`, `convert`, `query`,
+`runDocumentQuery`, `renderDocument`, `executeAction`/`executeState`, the `explore*` forms for
+the `"explore"` schedule and its `outcomes`/`exploration`, the `verify*`/`runAnalysis`/`runSweep`
+calls, `listEngines`, and `model.edit()`/`connection.applyEdits` for source-preserving edits —
+as the [wire contract](../reference/wire-contract.md) spells them; `connection.rpc` is the
+generated Connect client, for anything not wrapped.
 [The Node API reference](../reference/node-api.md) documents the exports, the errors and the binary
 resolution.
 

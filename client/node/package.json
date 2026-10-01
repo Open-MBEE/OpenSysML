@@ -31,6 +31,9 @@
       "default": "./dist/browser/index.js"
     }
   },
+  "bin": {
+    "opensysml-generate": "dist/node/generate-cli.js"
+  },
   "files": [
     "dist",
     "README.md",
