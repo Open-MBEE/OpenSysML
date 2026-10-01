@@ -658,3 +658,59 @@ function firstLine(child: ReturnType<typeof spawn>): Promise<string> {
     });
   });
 }
+
+test("the empty name names the model's root", async () => {
+  await using connection = await connect();
+  const model = await connection.loads(`package Top { part def Wheel; }`);
+  const root = await model.symbol("");
+  assert.equal(root.id, model.root.id);
+  const found = await model.find("");
+  assert.equal(found?.id, model.root.id);
+});
+
+test("a missed qualified name still names its near misses", async () => {
+  await using connection = await connect();
+  const model = await connection.loads(`package Demo { part def Vehicle; part def Wheel; }`);
+  await assert.rejects(
+    () => model.symbol("Demo::Vehicel"),
+    (error: unknown) => {
+      assert.ok(error instanceof SymbolNotFoundError);
+      assert.ok((error).suggestions.length > 0);
+      assert.match((error as Error).message, /did you mean/);
+      return true;
+    },
+  );
+  // symbolById stays the single call it promises: no suggestions, no walk.
+  await assert.rejects(
+    () => model.symbolById("Demo::Vehicel"),
+    (error: unknown) => {
+      assert.ok(error instanceof SymbolNotFoundError);
+      assert.deepEqual(error.suggestions, []);
+      return true;
+    },
+  );
+});
+
+test("a multiplicity answers isOptional and isCollection as Python's does", async () => {
+  await using connection = await connect();
+  const model = await connection.loads(`package Demo {
+    part def Car {
+      part wheels : Wheel[4];
+      part spare : Wheel[0..1];
+      part extras : Wheel[*];
+    }
+    part def Wheel;
+  }`);
+  const wheels = (await model.symbol("Demo::Car::wheels")).multiplicity;
+  assert.ok(wheels !== undefined);
+  assert.equal(wheels.isOptional, false);
+  assert.equal(wheels.isCollection, true);
+  const spare = (await model.symbol("Demo::Car::spare")).multiplicity;
+  assert.ok(spare !== undefined);
+  assert.equal(spare.isOptional, true);
+  assert.equal(spare.isCollection, false);
+  const extras = (await model.symbol("Demo::Car::extras")).multiplicity;
+  assert.ok(extras !== undefined);
+  assert.equal(extras.isOptional, true);
+  assert.equal(extras.isCollection, true);
+});
