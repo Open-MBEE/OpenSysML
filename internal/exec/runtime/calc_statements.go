@@ -329,6 +329,12 @@ func (h *calcStmtHost) assignAround(name string, value Value) (bool, error) {
 
 // returnAround writes a returned output as assignAround does: a case has no caller to keep it for.
 func (h *calcStmtHost) returnAround(name string, value Value) (bool, error) {
+	if h.declaredOutput(name) || h.env.data.has(name) {
+		what := func() string { return fmt.Sprintf("%s: output %s returned", h.describe(), name) }
+		if err := h.ctx.checkMutable(h.shape.bodyScope(), what, name); err != nil {
+			return true, err
+		}
+	}
 	return h.assignAround(name, value)
 }
 

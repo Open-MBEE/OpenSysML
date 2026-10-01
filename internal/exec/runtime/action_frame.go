@@ -440,7 +440,7 @@ func (e *performances) endPerformance(perf *actionFrame) error {
 		if !ok {
 			continue
 		}
-		if _, err := e.assignEnclosingBy(perf, name, value, e.owner.returnAround); err != nil {
+		if _, err := e.returnEnclosing(perf, name, value, e.owner.returnAround); err != nil {
 			return err
 		}
 	}
@@ -975,6 +975,20 @@ func (e *performances) streamFlow(
 // around perf that holds it, else to what is around the root, reporting whether one did.
 func (e *performances) assignEnclosing(perf *actionFrame, name string, value Value) (bool, error) {
 	return e.assignEnclosingBy(perf, name, value, e.owner.assignAround)
+}
+
+// returnEnclosing is assignEnclosingBy for an output perf returns, refused where
+// the enclosing feature is read-only: its occurrence is already under way.
+func (e *performances) returnEnclosing(
+	perf *actionFrame, name string, value Value, around func(string, Value) (bool, error),
+) (bool, error) {
+	if local, holder, ok := enclosingHolder(perf, name); ok && local == nil {
+		what := func() string { return fmt.Sprintf("%s: output %s returned", perf.describe(), name) }
+		if err := e.ctx.checkMutable(holder.scope, what, name); err != nil {
+			return true, err
+		}
+	}
+	return e.assignEnclosingBy(perf, name, value, around)
 }
 
 // assignEnclosingBy is assignEnclosing writing past the root through around.

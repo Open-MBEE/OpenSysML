@@ -32,11 +32,14 @@ const readOnlyFeatureFixture = `package test {
 		action def SetCount { first w; action w { assign count := 4; } }
 		action def SetTaggedId { first w; action w { assign tagged.id := 2; } }
 		action def SetTaggedScaled { first w; action w { assign tagged.scaled := 2; } }
+		action def Raise { out limit : Integer; first w; action w { assign limit := 7; } }
+		action def ReturnLimit { constant attribute limit : Integer = 5; first r; action r : Raise; }
 		action setLimit : SetLimit;
 		action setTwice : SetTwice;
 		action setCount : SetCount;
 		action setTaggedId : SetTaggedId;
 		action setTaggedScaled : SetTaggedScaled;
+		action returnLimit : ReturnLimit;
 	}
 	part probe : Probe;
 }`
@@ -131,6 +134,10 @@ func TestRuntimeRobustnessReadOnlyFeatureWrites(t *testing.T) {
 		if got := held(t, ctx, tagged(t, ctx, self), "scaled"); got != 40 {
 			t.Errorf("tagged.scaled = %d after the refused write, want 40", got)
 		}
+	})
+	t.Run("output_returned_into_a_constant_is_refused", func(t *testing.T) {
+		_, _, run := setup(t)
+		requireRefused(t, run("returnLimit"), "output limit returned", "limit is constant")
 	})
 	t.Run("set_feature_value_refuses_a_read_only_feature", func(t *testing.T) {
 		ctx, self, _ := setup(t)

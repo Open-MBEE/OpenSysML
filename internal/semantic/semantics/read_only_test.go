@@ -16,6 +16,8 @@ func TestFeatureReadOnly(t *testing.T) {
 		attribute s :> k;
 		attribute ds :> d;
 	}
+	action def Gen { in constant attribute limit; }
+	action def Spec :> Gen { in attribute cap; }
 	part def Cyc {
 		attribute a :> b;
 		attribute b :> a;
@@ -36,6 +38,8 @@ func TestFeatureReadOnly(t *testing.T) {
 		// Subsetting a derived feature makes the subsetting one's values a subset
 		// of them, not values the model determines, so it stays writable.
 		{"P::Sub::ds", Writable, ""},
+		// A parameter implicitly redefines the general behavior's one at its position.
+		{"P::Spec::cap", ReadOnlyConstant, "P::Gen::limit"},
 		{"P::Cyc::a", Writable, ""},
 	}
 	for _, tt := range tests {

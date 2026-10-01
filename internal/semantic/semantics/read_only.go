@@ -66,15 +66,36 @@ func (m *Model) FeatureReadOnly(sym *symbols.Symbol) ReadOnly {
 	return ro
 }
 
-// declaredDerived reports whether sym's own declaration says `derived`.
-func declaredDerived(sym *symbols.Symbol) bool {
+// featureModifiers are the modifiers sym's declaration, or its interface record,
+// states; ok is false for a symbol that declares no feature.
+func featureModifiers(sym *symbols.Symbol) (mods symbols.Modifiers, ok bool) {
+	set := func(on bool, mod symbols.Modifiers) {
+		if on {
+			mods |= mod
+		}
+	}
 	switch d := sym.Decl.(type) {
 	case *ast.Usage:
-		return d.IsDerived
+		set(d.IsConstant, symbols.ModConstant)
+		set(d.IsVariable, symbols.ModVariable)
+		set(d.IsDerived, symbols.ModDerived)
+		return mods, true
 	case *ast.CrossFeatureMember:
-		return d.IsDerived
+		set(d.IsConstant, symbols.ModConstant)
+		set(d.IsVariable, symbols.ModVariable)
+		set(d.IsDerived, symbols.ModDerived)
+		return mods, true
 	}
-	return false
+	if sym.Recorded() && (sym.Facts.Node == symbols.NodeUsage || sym.Facts.Node == symbols.NodeCrossFeature) {
+		return sym.Facts.Modifiers, true
+	}
+	return 0, false
+}
+
+// declaredDerived reports whether sym's own declaration says `derived`.
+func declaredDerived(sym *symbols.Symbol) bool {
+	mods, ok := featureModifiers(sym)
+	return ok && mods.Has(symbols.ModDerived)
 }
 
 // derivedDeclaration is the feature along sym's redefinition chain declared
@@ -97,34 +118,44 @@ func (m *Model) derivedDeclaration(sym *symbols.Symbol, path map[*symbols.Symbol
 	return nil
 }
 
-// constantDeclaration is the feature sym is constant by — itself, or one it
-// subsets or redefines — or nil. A feature declared variable is not constant by
-// inheritance; seen guards against cyclic subsetting.
+// constantDeclaration is the feature sym is constant by — itself, or one it subsets
+// or (implicitly) redefines — or nil; a variable feature inherits no constancy.
 func (m *Model) constantDeclaration(sym *symbols.Symbol, seen map[*symbols.Symbol]bool) *symbols.Symbol {
-	traits, ok := featureTraitsOf(sym)
+	mods, ok := featureModifiers(sym)
 	if !ok {
 		return nil
 	}
-	if traits.IsConstant {
+	if mods.Has(symbols.ModConstant) {
 		return sym
 	}
-	if traits.IsVariable || seen[sym] {
+	if mods.Has(symbols.ModVariable) || seen[sym] {
 		return nil
 	}
 	seen[sym] = true
-	for _, rel := range RelationshipsOf(sym) {
-		if rel == nil || rel.Target == nil || (rel.Kind != ast.RelSubsets && rel.Kind != ast.RelRedefines) {
-			continue
-		}
-		next := m.conformanceTarget(sym, rel)
-		if next == nil || next == sym {
-			continue
-		}
+	for _, next := range m.constancyGenerals(sym) {
 		if found := m.constantDeclaration(next, seen); found != nil {
 			return found
 		}
 	}
 	return nil
+}
+
+// constancyGenerals are the features sym's constancy is inherited from: those it
+// subsets, as declared or recorded, and those it explicitly or implicitly redefines.
+func (m *Model) constancyGenerals(sym *symbols.Symbol) []*symbols.Symbol {
+	var out []*symbols.Symbol
+	if sym.Recorded() {
+		out = m.recordedElements(sym, sym.RecordedRelationships(ast.RelSubsets))
+	}
+	for _, rel := range RelationshipsOf(sym) {
+		if rel == nil || rel.Target == nil || rel.Kind != ast.RelSubsets {
+			continue
+		}
+		if next := m.conformanceTarget(sym, rel); next != nil && next != sym {
+			out = append(out, next)
+		}
+	}
+	return append(out, m.directRedefinedFeatures(sym)...)
 }
 
 // ReadOnlyViolation words a write to the read-only feature text names, for the
