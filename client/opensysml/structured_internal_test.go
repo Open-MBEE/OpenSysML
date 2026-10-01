@@ -75,7 +75,7 @@ func TestMalformedStructuredAnswersAreNullsNamingTheFault(t *testing.T) {
 		"too many elements":        {array([]int64{2}, one, one, one), "do not fill"},
 		"rank 0 without one":       {array(nil), "do not fill"},
 		"rank 0 with two":          {array(nil, one, one), "do not fill"},
-		"overflowing shape":        {array([]int64{1 << 40, 1 << 40}, one), "exceeds the Integer range"},
+		"overflowing shape":        {array([]int64{1 << 40, 1 << 40}, one), "beyond the addressable range"},
 		"non-numeric vector":       {&pb.Value{Kind: &pb.Value_Vector{Vector: &pb.Vector{Components: []*pb.Value{one, text}}}}, "non-numeric"},
 		"empty vector quantity":    {vectorQuantity(), "without components"},
 		"magnitude-less component": {vectorQuantity(metre, noMagnitude), "without a magnitude"},

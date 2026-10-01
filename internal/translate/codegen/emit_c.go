@@ -51,24 +51,24 @@ static inline void sysml_leave(void) { sysml_depth--; }
 
 static inline sysml_int sysml_add(sysml_int a, sysml_int b) {
 	sysml_int r;
-	if (__builtin_expect(__builtin_add_overflow(a, b, &r), 0)) sysml_fail("arithmetic overflow: + exceeds the Integer range");
+	if (__builtin_expect(__builtin_add_overflow(a, b, &r), 0)) sysml_fail("arithmetic overflow: + leaves int64, which a C program holds");
 	return r;
 }
 
 static inline sysml_int sysml_sub(sysml_int a, sysml_int b) {
 	sysml_int r;
-	if (__builtin_expect(__builtin_sub_overflow(a, b, &r), 0)) sysml_fail("arithmetic overflow: - exceeds the Integer range");
+	if (__builtin_expect(__builtin_sub_overflow(a, b, &r), 0)) sysml_fail("arithmetic overflow: - leaves int64, which a C program holds");
 	return r;
 }
 
 static inline sysml_int sysml_mul(sysml_int a, sysml_int b) {
 	sysml_int r;
-	if (__builtin_expect(__builtin_mul_overflow(a, b, &r), 0)) sysml_fail("arithmetic overflow: * exceeds the Integer range");
+	if (__builtin_expect(__builtin_mul_overflow(a, b, &r), 0)) sysml_fail("arithmetic overflow: * leaves int64, which a C program holds");
 	return r;
 }
 
 static inline sysml_int sysml_neg(sysml_int a) {
-	if (__builtin_expect(a == INT64_MIN, 0)) sysml_fail("arithmetic overflow: negation exceeds the Integer range");
+	if (__builtin_expect(a == INT64_MIN, 0)) sysml_fail("arithmetic overflow: negation leaves int64, which a C program holds");
 	return -a;
 }
 
@@ -114,6 +114,16 @@ static inline sysml_int sysml_at_least(sysml_int v, sysml_int lo, const char *ty
 	return v;
 }
 
+/* Orders the Integer a against the non-NaN Real r exactly, neither rounded to the other. */
+static inline int sysml_cmp_ir(sysml_int a, sysml_real r) {
+	if (r >= 9223372036854775808.0) return -1;
+	if (r < -9223372036854775808.0) return 1;
+	sysml_real t = trunc(r);
+	sysml_int w = (sysml_int)t;
+	if (a != w) return a < w ? -1 : 1;
+	return r > t ? -1 : (r < t ? 1 : 0);
+}
+
 static inline sysml_real sysml_finite(sysml_real r) {
 	if (__builtin_expect(!isfinite(r), 0)) sysml_fail("arithmetic overflow: result is not a finite Real");
 	return r;
@@ -130,12 +140,12 @@ static inline sysml_real sysml_lib_real(sysml_real r) {
 
 static inline sysml_int sysml_lib_int(sysml_real x) {
 	if (__builtin_expect(isnan(x), 0)) sysml_fail("arithmetic domain error: argument outside the function's domain");
-	if (__builtin_expect(!(x < 9223372036854775808.0 && x >= -9223372036854775808.0), 0)) sysml_fail("arithmetic overflow: result exceeds the Integer range");
+	if (__builtin_expect(!(x < 9223372036854775808.0 && x >= -9223372036854775808.0), 0)) sysml_fail("arithmetic overflow: result leaves int64, which a C program holds");
 	return (sysml_int)x;
 }
 
 static inline sysml_int sysml_iabs(sysml_int a) {
-	if (__builtin_expect(a == INT64_MIN, 0)) sysml_fail("arithmetic overflow: abs exceeds the Integer range");
+	if (__builtin_expect(a == INT64_MIN, 0)) sysml_fail("arithmetic overflow: abs leaves int64, which a C program holds");
 	return a < 0 ? -a : a;
 }
 
@@ -204,11 +214,11 @@ static sysml_int sysml_ipow(sysml_int a, sysml_int n) {
 	sysml_int res = 1;
 	while (n > 0) {
 		if (n & 1) {
-			if (__builtin_mul_overflow(res, a, &res)) sysml_fail("arithmetic overflow: ** exceeds the Integer range");
+			if (__builtin_mul_overflow(res, a, &res)) sysml_fail("arithmetic overflow: ** leaves int64, which a C program holds");
 		}
 		n >>= 1;
 		if (n == 0) break;
-		if (__builtin_mul_overflow(a, a, &a)) sysml_fail("arithmetic overflow: ** exceeds the Integer range");
+		if (__builtin_mul_overflow(a, a, &a)) sysml_fail("arithmetic overflow: ** leaves int64, which a C program holds");
 	}
 	return res;
 }
@@ -343,8 +353,12 @@ static sysml_int sysml_parse_int(const char *s, const char *name) {
 	char *end;
 	errno = 0;
 	long long v = strtoll(s, &end, 10);
-	if (*s == 0 || *end != 0 || errno != 0) {
+	if (*s == 0 || *end != 0) {
 		fprintf(stderr, "argument %s: %s is not an Integer\n", name, s);
+		exit(2);
+	}
+	if (errno != 0) {
+		fprintf(stderr, "argument %s: %s is beyond int64, the Integers a compiled C program holds\n", name, s);
 		exit(2);
 	}
 	return v;
@@ -402,6 +416,9 @@ static sysml_bool sysml_parse_bool(const char *s, const char *name) {
 // EmitC writes program as a self-contained C translation unit, with a main that
 // reads argv and prints the result when withMain is set (errors: status 1, stderr).
 func EmitC(w io.Writer, p *Program, withMain bool) error {
+	if err := cIntegerRefusal(p); err != nil {
+		return err
+	}
 	e := &cEmitter{w: w}
 	e.collections = p.Collections
 	e.raw(fmt.Sprintf("#define SYSML_MAX_CALC_DEPTH %d\n", runtime.DefaultMaxCalcDepth))
@@ -819,6 +836,16 @@ func (e *cEmitter) unary(x Unary) string {
 }
 
 func (e *cEmitter) binary(x Binary) string {
+	if i, ok := widenedInt(x.L); ok && isComparison(x.Op) && !isWidenedInt(x.R) {
+		return e.sequenced([]Expr{i, x.R}, func(v []string) string {
+			return fmt.Sprintf("(sysml_cmp_ir(%s, %s) %s 0)", v[0], v[1], cOperator(x.Op))
+		})
+	}
+	if i, ok := widenedInt(x.R); ok && isComparison(x.Op) && !isWidenedInt(x.L) {
+		return e.sequenced([]Expr{x.L, i}, func(v []string) string {
+			return fmt.Sprintf("(-sysml_cmp_ir(%s, %s) %s 0)", v[1], v[0], cOperator(x.Op))
+		})
+	}
 	switch x.Op {
 	case ast.OpAnd, ast.OpConditionalAnd:
 		return fmt.Sprintf("(%s && %s)", e.expr(x.L), e.expr(x.R))

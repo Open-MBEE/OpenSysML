@@ -65,9 +65,6 @@ const (
 	OpIte
 	// OpToReal widens an integer term to a real one.
 	OpToReal
-	// OpInt64 is whether an integer term lies within int64, one argument: where
-	// the evaluator computes it without reporting overflow.
-	OpInt64
 )
 
 // smtOps names the SMT-LIB operator each compound term is written with.
@@ -97,8 +94,12 @@ type Term struct {
 	// Bool holds an OpBool literal.
 	Bool bool
 
-	// Int holds an OpInt literal.
+	// Int holds an OpInt literal within int64.
 	Int int64
+
+	// Big holds an OpInt literal beyond int64, Int then being zero; IntBig
+	// reads either.
+	Big *big.Int
 
 	// Real holds an OpReal literal as an exact rational.
 	Real *big.Rat
@@ -126,6 +127,22 @@ func BoolTerm(b bool) *Term { return &Term{Op: OpBool, Sort: Bool, Bool: b} }
 
 // IntTerm returns an integer literal.
 func IntTerm(i int64) *Term { return &Term{Op: OpInt, Sort: Int, Int: i} }
+
+// BigIntTerm returns the integer literal b, which the term then owns.
+func BigIntTerm(b *big.Int) *Term {
+	if b.IsInt64() {
+		return IntTerm(b.Int64())
+	}
+	return &Term{Op: OpInt, Sort: Int, Big: b}
+}
+
+// IntBig is an OpInt literal's value, which the caller must not modify.
+func (t *Term) IntBig() *big.Int {
+	if t.Big != nil {
+		return t.Big
+	}
+	return big.NewInt(t.Int)
+}
 
 // RealTerm returns a real literal, held as the exact rational given.
 func RealTerm(r *big.Rat) *Term { return &Term{Op: OpReal, Sort: Real, Real: new(big.Rat).Set(r)} }
@@ -199,13 +216,10 @@ func ToReal(arg *Term) *Term {
 		return arg
 	}
 	if arg.Op == OpInt {
-		return RealTerm(new(big.Rat).SetInt64(arg.Int))
+		return RealTerm(new(big.Rat).SetInt(arg.IntBig()))
 	}
 	return &Term{Op: OpToReal, Sort: Real, Args: []*Term{arg}}
 }
-
-// Int64 returns whether an integer term lies within int64.
-func Int64(arg *Term) *Term { return &Term{Op: OpInt64, Sort: Bool, Args: []*Term{arg}} }
 
 // TruncDiv returns integer division truncating toward zero:
 // `ite(a >= 0, div(a, b), -div(-a, b))`. TruncRem builds the remainder from it.

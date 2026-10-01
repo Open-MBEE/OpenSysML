@@ -3,6 +3,8 @@ package semantics
 import (
 	"errors"
 	"fmt"
+	"math"
+	"math/big"
 	"strings"
 
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/symbols"
@@ -739,6 +741,18 @@ func (m *Model) evalComparison(p *symbols.FilterPredicate, cand *symbols.Symbol)
 	if left.Kind == symbols.FilterValueQuantity || right.Kind == symbols.FilterValueQuantity {
 		return m.compareQuantityValues(p, left, right)
 	}
+	if order, ok := exactFilterOrder(left, right); ok {
+		var holds bool
+		switch p.Op {
+		case symbols.FilterEq:
+			holds = order == 0
+		case symbols.FilterNeq:
+			holds = order != 0
+		default:
+			holds, _ = OrderSatisfies(filterOrderOp(p.Op), order)
+		}
+		return boolValue(holds), nil
+	}
 	l, lok := numericValue(left)
 	r, rok := numericValue(right)
 	if !lok || !rok {
@@ -1227,10 +1241,34 @@ func binaryFilterOp(op ast.OperatorKind) symbols.FilterOp {
 	}
 }
 
+// FilterInteger is the Integer a FilterValueInt holds.
+func FilterInteger(v symbols.FilterValue) Value {
+	if v.BigInt != nil {
+		return BigIntValue(new(big.Int).Set(v.BigInt))
+	}
+	return IntValue(v.Int)
+}
+
+// filterOrderOp is the ordering operator a filter comparison applies.
+func filterOrderOp(op symbols.FilterOp) ast.OperatorKind {
+	switch op {
+	case symbols.FilterLt:
+		return ast.OpLt
+	case symbols.FilterLe:
+		return ast.OpLe
+	case symbols.FilterGt:
+		return ast.OpGt
+	}
+	return ast.OpGe
+}
+
 // constValue converts a folded constant to the form a filter predicate holds.
 func constValue(v Value) symbols.FilterValue {
 	switch v.Kind {
 	case ValInt:
+		if v.IsBigInt() {
+			return symbols.FilterValue{Kind: symbols.FilterValueInt, BigInt: v.BigInt()}
+		}
 		return symbols.FilterValue{Kind: symbols.FilterValueInt, Int: v.Int}
 	case ValReal:
 		return symbols.FilterValue{Kind: symbols.FilterValueReal, Real: v.Real}
@@ -1280,12 +1318,26 @@ func emptyValue() symbols.FilterValue {
 	return symbols.FilterValue{Kind: symbols.FilterValueEmpty}
 }
 
+// exactFilterOrder orders two Integers, or an Integer and a non-NaN Real,
+// without rounding either: -1, 0 or 1, and whether it applies.
+func exactFilterOrder(left, right symbols.FilterValue) (int, bool) {
+	switch {
+	case left.Kind == symbols.FilterValueInt && right.Kind == symbols.FilterValueInt:
+		return CompareInt(FilterInteger(left), FilterInteger(right)), true
+	case left.Kind == symbols.FilterValueInt && right.Kind == symbols.FilterValueReal && !math.IsNaN(right.Real):
+		return CompareIntReal(FilterInteger(left), right.Real), true
+	case left.Kind == symbols.FilterValueReal && right.Kind == symbols.FilterValueInt && !math.IsNaN(left.Real):
+		return -CompareIntReal(FilterInteger(right), left.Real), true
+	}
+	return 0, false
+}
+
 // numericValue returns a value as a float64 for comparison, and whether it is a
 // number at all.
 func numericValue(v symbols.FilterValue) (float64, bool) {
 	switch v.Kind {
 	case symbols.FilterValueInt:
-		return float64(v.Int), true
+		return FilterInteger(v).AsReal(), true
 	case symbols.FilterValueReal:
 		return v.Real, true
 	default:

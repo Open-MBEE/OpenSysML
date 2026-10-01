@@ -34,6 +34,35 @@ public interface QuantityOrBuilder extends
 
   /**
    * <pre>
+   * An Integer magnitude beyond int64, in decimal, as Value.big_int_value.
+   * </pre>
+   *
+   * <code>string big_int_magnitude = 5 [json_name = "bigIntMagnitude"];</code>
+   * @return Whether the bigIntMagnitude field is set.
+   */
+  boolean hasBigIntMagnitude();
+  /**
+   * <pre>
+   * An Integer magnitude beyond int64, in decimal, as Value.big_int_value.
+   * </pre>
+   *
+   * <code>string big_int_magnitude = 5 [json_name = "bigIntMagnitude"];</code>
+   * @return The bigIntMagnitude.
+   */
+  java.lang.String getBigIntMagnitude();
+  /**
+   * <pre>
+   * An Integer magnitude beyond int64, in decimal, as Value.big_int_value.
+   * </pre>
+   *
+   * <code>string big_int_magnitude = 5 [json_name = "bigIntMagnitude"];</code>
+   * @return The bytes for bigIntMagnitude.
+   */
+  com.google.protobuf.ByteString
+      getBigIntMagnitudeBytes();
+
+  /**
+   * <pre>
    * Unit as written ("km/h") or as an operation composed it ("m/s"); empty for
    * one never written down, described by unit_term alone.
    * </pre>

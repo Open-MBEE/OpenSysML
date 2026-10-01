@@ -5,8 +5,6 @@ import (
 	"math"
 	"strings"
 	"testing"
-
-	"github.com/Open-MBEE/OpenSysML/internal/semantic/semantics"
 )
 
 // TestArrayAtRowMajor: one-based indexes address the row-major element, the
@@ -53,8 +51,9 @@ func TestArrayAtReportsRankAndRange(t *testing.T) {
 }
 
 // TestArrayOverflowIsTyped: a shape whose flattened size, or an index whose
-// row-major offset, does not fit an Integer is ErrArithmeticOverflow, never a
-// wrapped size or a negative offset.
+// row-major offset, is beyond int64 addresses nothing and is
+// ErrIntegerUnaddressable naming its exact value, never a wrapped size or a
+// negative offset.
 func TestArrayOverflowIsTyped(t *testing.T) {
 	huge := int64(1) << 61
 	if _, ok := flattenedSize([]int64{huge, 4}); ok {
@@ -63,8 +62,8 @@ func TestArrayOverflowIsTyped(t *testing.T) {
 	if size, ok := flattenedSize([]int64{huge, 3}); !ok || size != 3*huge {
 		t.Errorf("flattenedSize(2^61, 3) = %d, %v; want 3 * 2^61", size, ok)
 	}
-	if _, err := arrayOf("test", []int64{huge, 4}, nil); !errors.Is(err, semantics.ErrArithmeticOverflow) || !strings.Contains(err.Error(), "flattenedSize") {
-		t.Errorf("arrayOf(2^61, 4) = %v, want %v naming flattenedSize", err, semantics.ErrArithmeticOverflow)
+	if _, err := arrayOf("test", []int64{huge, 4}, nil); !errors.Is(err, ErrIntegerUnaddressable) || !strings.Contains(err.Error(), "flattenedSize of dimensions [2305843009213693952, 4] is 9223372036854775808") {
+		t.Errorf("arrayOf(2^61, 4) = %v, want %v naming the exact flattenedSize", err, ErrIntegerUnaddressable)
 	}
 
 	// The far corner of a shape whose size fits, and the one past it whose
@@ -78,8 +77,8 @@ func TestArrayOverflowIsTyped(t *testing.T) {
 	}
 	// A shape built around arrayOf reports the offset rather than wrapping it.
 	vast := NewArrayValue([]int64{huge, 5}, nil).Array()
-	if _, err := vast.at("test", []int64{huge, 5}); !errors.Is(err, semantics.ErrArithmeticOverflow) || !strings.Contains(err.Error(), "row-major offset") {
-		t.Errorf("at(2^61, 5) = %v, want %v naming the row-major offset", err, semantics.ErrArithmeticOverflow)
+	if _, err := vast.at("test", []int64{huge, 5}); !errors.Is(err, ErrIntegerUnaddressable) || !strings.Contains(err.Error(), "is 11529215046068469760") {
+		t.Errorf("at(2^61, 5) = %v, want %v naming the exact size", err, ErrIntegerUnaddressable)
 	}
 	if _, ok := rowMajorOffset(math.MaxInt64, 1, 1); ok {
 		t.Errorf("rowMajorOffset(MaxInt64, 1, 1) fits, want overflow on the addition")

@@ -290,7 +290,7 @@ func better(obj Objective, value *Term) *Term {
 // being integers.
 func ratTerm(sort Sort, rat *big.Rat) *Term {
 	if sort.Kind == SortInt && rat.IsInt() {
-		return IntTerm(rat.Num().Int64())
+		return BigIntTerm(new(big.Int).Set(rat.Num()))
 	}
 	return RealTerm(new(big.Rat).Set(rat))
 }

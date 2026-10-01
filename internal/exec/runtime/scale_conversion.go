@@ -162,7 +162,7 @@ func (ctx *Context) mappingAnchor(name string, scale *CoordinateFrame) (*scaleAn
 		return nil, fmt.Errorf("%w: %s: its quantityValueMapping maps %s to %s: %w",
 			ErrIncommensurableUnits, name, m.Mapped.String(), m.Reference.String(), err)
 	}
-	num, err := semantics.MagnitudeArith(ast.OpSub, m.Reference.Num, mappedOnSource.Num)
+	num, err := semantics.MagnitudeArith(ast.OpSub, m.Reference.Num, mappedOnSource.Num, ctx.maxIntegerBits)
 	if err != nil {
 		return nil, err
 	}
@@ -223,7 +223,7 @@ func (ctx *Context) toRatioReference(q Quantity) (Quantity, error) {
 		if err != nil {
 			return Quantity{}, fmt.Errorf("%w: %s: its unit %s: %w", ErrIncommensurableUnits, ctx.scaleName(scale), scale.Scale.Unit, err)
 		}
-		num, err := semantics.MagnitudeArith(ast.OpAdd, onSource.Num, anchor.origin.Num)
+		num, err := semantics.MagnitudeArith(ast.OpAdd, onSource.Num, anchor.origin.Num, ctx.maxIntegerBits)
 		if err != nil {
 			return Quantity{}, err
 		}
@@ -249,7 +249,7 @@ func (ctx *Context) onScale(q Quantity, scale *CoordinateFrame) (Quantity, error
 	if err != nil {
 		return Quantity{}, err
 	}
-	diff, err := semantics.MagnitudeArith(ast.OpSub, onSource.Num, anchor.origin.Num)
+	diff, err := semantics.MagnitudeArith(ast.OpSub, onSource.Num, anchor.origin.Num, ctx.maxIntegerBits)
 	if err != nil {
 		return Quantity{}, err
 	}

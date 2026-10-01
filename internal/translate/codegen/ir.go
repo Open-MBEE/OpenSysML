@@ -2,7 +2,11 @@
 // see docs/project/native-compilation.md for the subset and its semantics.
 package codegen
 
-import "github.com/Open-MBEE/OpenSysML/internal/syntax/ast"
+import (
+	"math/big"
+
+	"github.com/Open-MBEE/OpenSysML/internal/syntax/ast"
+)
 
 // Type is a type of the compiled subset: a scalar, or a collection of scalars.
 // A collection value is the interpreter's dynamic view of a multi-valued
@@ -11,7 +15,7 @@ type Type int
 
 const (
 	TypeInvalid Type = iota
-	TypeInt          // Integer and its subtypes, int64 with reported overflow
+	TypeInt          // Integer and its subtypes, unbounded (int64 until a result leaves it)
 	TypeReal         // Real and Rational, IEEE 754 binary64
 	TypeBool
 	TypeNull    // `null` before context fixes its collection type
@@ -140,8 +144,12 @@ type Expr interface {
 	Type() Type
 }
 
-// IntLit, RealLit and BoolLit are literals.
-type IntLit struct{ Value int64 }
+// IntLit, RealLit and BoolLit are literals. An IntLit beyond int64 holds its
+// value in Big, Value then being zero.
+type IntLit struct {
+	Value int64
+	Big   *big.Int
+}
 type RealLit struct{ Value float64 }
 type BoolLit struct{ Value bool }
 

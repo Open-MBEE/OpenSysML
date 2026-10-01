@@ -101,7 +101,7 @@ func integerToString(name string, _ *Context, args []Value) (Value, error) {
 	if err != nil {
 		return Value{}, err
 	}
-	return NewStringValue(strconv.FormatInt(x, 10)), nil
+	return NewStringValue(x.FormatInt()), nil
 }
 
 // naturalToString is NaturalFunctions::ToString over a Natural argument.
@@ -110,7 +110,7 @@ func naturalToString(name string, _ *Context, args []Value) (Value, error) {
 	if err != nil {
 		return Value{}, err
 	}
-	return NewStringValue(strconv.FormatInt(x, 10)), nil
+	return NewStringValue(x.FormatInt()), nil
 }
 
 // numberToString is RealFunctions::ToString and RationalFunctions::ToString:
@@ -140,7 +140,7 @@ func stringToBoolean(name string, _ *Context, args []Value) (Value, error) {
 }
 
 // stringToInteger is IntegerFunctions::ToInteger over decimal digits with an
-// optional sign; a value outside the Integer range overflows.
+// optional sign, of any magnitude.
 func stringToInteger(name string, _ *Context, args []Value) (Value, error) {
 	s, err := stringArg(name, "x", args[0])
 	if err != nil {
@@ -150,7 +150,7 @@ func stringToInteger(name string, _ *Context, args []Value) (Value, error) {
 	if err != nil {
 		return Value{}, err
 	}
-	return integerValue(x), nil
+	return Value{Kind: ValConst, Const: x}, nil
 }
 
 // stringToNatural is NaturalFunctions::ToNatural: an Integer notation whose
@@ -241,14 +241,8 @@ func realZero(name string, _ *Context, args []Value) (Value, error) {
 func rationalGCD(args []semantics.Value) (semantics.Value, error) {
 	x, _ := wholeInteger(args[0])
 	y, _ := wholeInteger(args[1])
-	// Exact over any whole operand, so MinInt64 and whole Reals past the Integer
-	// range are divisors like any other; only the result must be an Integer.
-	gcd := new(big.Int).GCD(nil, nil, x.Abs(x), y.Abs(y))
-	if !gcd.IsInt64() {
-		return semantics.Value{}, fmt.Errorf("%w: gcd(%s, %s) exceeds the Integer range",
-			semantics.ErrArithmeticOverflow, semantics.FormatConst(args[0]), semantics.FormatConst(args[1]))
-	}
-	return semantics.Value{Kind: semantics.ValInt, Int: gcd.Int64()}, nil
+	// Exact over any whole operand, Integers and whole Reals of any magnitude.
+	return semantics.BigIntValue(new(big.Int).GCD(nil, nil, x.Abs(x), y.Abs(y))), nil
 }
 
 // wholeDomain is the domain of gcd's parameters: any Integer, or a Real with no
@@ -265,7 +259,7 @@ func denominatorDomain(v semantics.Value) error {
 	if err := integerDomain(v); err != nil {
 		return err
 	}
-	if v.Int == 0 {
+	if v.IntSign() == 0 {
 		return ErrDivisionByZero
 	}
 	return nil
@@ -274,8 +268,8 @@ func denominatorDomain(v semantics.Value) error {
 // integersToRational is RationalFunctions::rat: numer/denum rounded once to the
 // float64 a Rational is here, exactly as `/` computes it.
 func integersToRational(args []semantics.Value) (semantics.Value, error) {
-	q, _ := semantics.IntQuotient(args[0].Int, args[1].Int)
-	return semantics.Value{Kind: semantics.ValReal, Real: q}, nil
+	q, _ := semantics.IntQuotient(args[0], args[1])
+	return semantics.RealResult(q)
 }
 
 // rationalNumerator is RationalFunctions::numer, the numerator of the ratio in
@@ -291,20 +285,15 @@ func rationalDenominator(args []semantics.Value) (semantics.Value, error) {
 }
 
 // exactRationalTerm reads one term of the exact ratio x holds: an Integer is
-// itself over 1, a float64 the dyadic ratio its bits denote; overflow is reported.
+// itself over 1, a float64 the dyadic ratio its bits denote.
 func exactRationalTerm(fn string, x semantics.Value, term func(*big.Rat) *big.Int) (semantics.Value, error) {
 	var ratio *big.Rat
 	if x.Kind == semantics.ValInt {
-		ratio = new(big.Rat).SetInt64(x.Int)
+		ratio = new(big.Rat).SetInt(x.BigInt())
 	} else if ratio = new(big.Rat).SetFloat64(x.Real); ratio == nil {
 		return semantics.Value{}, fmt.Errorf("%w: %s(%s) has no finite ratio", semantics.ErrArithmeticDomain, fn, semantics.FormatConst(x))
 	}
-	result := term(ratio)
-	if !result.IsInt64() {
-		return semantics.Value{}, fmt.Errorf("%w: %s(%s) is %s, which exceeds the Integer range",
-			semantics.ErrArithmeticOverflow, fn, semantics.FormatConst(x), result)
-	}
-	return semantics.Value{Kind: semantics.ValInt, Int: result.Int64()}, nil
+	return semantics.BigIntValue(new(big.Int).Set(term(ratio))), nil
 }
 
 // wholeInteger is the exact integer a whole numeric value holds: any Integer,
@@ -312,7 +301,7 @@ func exactRationalTerm(fn string, x semantics.Value, term func(*big.Rat) *big.In
 func wholeInteger(v semantics.Value) (*big.Int, bool) {
 	switch v.Kind {
 	case semantics.ValInt:
-		return big.NewInt(v.Int), true
+		return v.BigInt(), true
 	case semantics.ValReal:
 		if math.IsInf(v.Real, 0) || math.IsNaN(v.Real) || v.Real != math.Trunc(v.Real) {
 			return nil, false
@@ -323,17 +312,14 @@ func wholeInteger(v semantics.Value) (*big.Int, bool) {
 	return nil, false
 }
 
-// parseInteger reads decimal Integer notation, reporting anything else as an
-// invalid notation for the named type and an out-of-range value as overflow.
-func parseInteger(name, s, typeName string) (int64, error) {
-	x, err := strconv.ParseInt(s, 10, 64)
-	if err == nil {
-		return x, nil
+// parseInteger reads decimal Integer notation of any magnitude, reporting
+// anything else as an invalid notation for the named type.
+func parseInteger(name, s, typeName string) (semantics.Value, error) {
+	x, ok := semantics.ParseInteger(s)
+	if !ok {
+		return semantics.Value{}, invalidNotation(name, s, typeName)
 	}
-	if errors.Is(err, strconv.ErrRange) {
-		return 0, fmt.Errorf("%w: function %s: %s exceeds the Integer range", semantics.ErrArithmeticOverflow, name, s)
-	}
-	return 0, invalidNotation(name, s, typeName)
+	return x, nil
 }
 
 // parseReal reads decimal Real notation into a finite Real, reporting any
@@ -356,11 +342,11 @@ func invalidNotation(name, s, typeName string) error {
 }
 
 // naturalValue wraps a non-negative Integer as a Natural.
-func naturalValue(name string, x int64) (Value, error) {
-	if x < 0 {
-		return Value{}, fmt.Errorf("%w: function %s: no Natural equals %d", semantics.ErrArithmeticDomain, name, x)
+func naturalValue(name string, x semantics.Value) (Value, error) {
+	if x.IntSign() < 0 {
+		return Value{}, fmt.Errorf("%w: function %s: no Natural equals %s", semantics.ErrArithmeticDomain, name, x.FormatInt())
 	}
-	return integerValue(x), nil
+	return Value{Kind: ValConst, Const: x}, nil
 }
 
 // booleanArg reads a Boolean parameter.
@@ -388,27 +374,27 @@ func numericArg(name, param string, val Value) (semantics.Value, error) {
 }
 
 // integerArg reads an Integer parameter; a Real does not conform to it.
-func integerArg(name, param string, val Value) (int64, error) {
+func integerArg(name, param string, val Value) (semantics.Value, error) {
 	val = soleElement(val)
 	if val.Kind != ValConst || val.Const.Kind != semantics.ValInt {
-		return 0, fmt.Errorf(
+		return semantics.Value{}, fmt.Errorf(
 			"%w: function %s parameter %q requires an Integer value, got %s",
 			ErrTypeMismatch, name, param, describeOperand(val),
 		)
 	}
-	return val.Const.Int, nil
+	return val.Const, nil
 }
 
 // naturalArg reads a Natural parameter: an Integer that is not negative.
-func naturalArg(name, param string, val Value) (int64, error) {
+func naturalArg(name, param string, val Value) (semantics.Value, error) {
 	x, err := integerArg(name, param, val)
 	if err != nil {
-		return 0, err
+		return semantics.Value{}, err
 	}
-	if x < 0 {
-		return 0, fmt.Errorf(
-			"%w: function %s parameter %q requires a Natural value, got %d",
-			ErrTypeMismatch, name, param, x,
+	if x.IntSign() < 0 {
+		return semantics.Value{}, fmt.Errorf(
+			"%w: function %s parameter %q requires a Natural value, got %s",
+			ErrTypeMismatch, name, param, x.FormatInt(),
 		)
 	}
 	return x, nil

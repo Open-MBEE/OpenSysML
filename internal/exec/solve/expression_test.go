@@ -3,7 +3,6 @@ package solve
 import (
 	"context"
 	"errors"
-	"fmt"
 	"slices"
 	"strings"
 	"testing"
@@ -71,8 +70,8 @@ func TestTranslatorReadsFeaturesAsOneVariableEach(t *testing.T) {
 	if err != nil {
 		t.Fatalf("translate the sum: %v", err)
 	}
-	if !sum.Term.Sort.Equal(Int) || len(sum.Defined) != 2 {
-		t.Fatalf("the sum is %s with %d side conditions, want Int within int64 for the product and the sum",
+	if !sum.Term.Sort.Equal(Int) || len(sum.Defined) != 0 {
+		t.Fatalf("the sum is %s with %d side conditions, want an unbounded Int with none",
 			sum.Term.Sort.Name, len(sum.Defined))
 	}
 	flag, err := x.Boolean(assigns[1].Value, assigns[1].Scope, "assign done")
@@ -145,10 +144,11 @@ func TestTranslatorReportsDefinednessPerExpression(t *testing.T) {
 	}
 }
 
-// TestTranslatorDefinesIntegerArithmeticWithinInt64: a sum, difference,
-// product or negation of Integers is defined where its result is an int64, as
-// the evaluator reports overflow; a Real one and a literal carry no such condition.
-func TestTranslatorDefinesIntegerArithmeticWithinInt64(t *testing.T) {
+// TestTranslatorLeavesIntegerArithmeticUnbounded: KerML Integers are the
+// mathematical integers, which SMT's Int already is, so Integer arithmetic in a
+// step of execution translates with no range side condition; a literal beyond
+// int64 is the Integer it spells.
+func TestTranslatorLeavesIntegerArithmeticUnbounded(t *testing.T) {
 	x, _, body := actionBody(t, `
 		package test {
 			private import ScalarValues::*;
@@ -163,42 +163,33 @@ func TestTranslatorDefinesIntegerArithmeticWithinInt64(t *testing.T) {
 					assign a := -a;
 					assign a := 5;
 					assign r := r + 1.0;
+					assign a := a + 9223372036854775808;
 				}
 			}
 		}`, "test::Arith")
 	assigns := assignments(body)
-	if len(assigns) != 6 {
-		t.Fatalf("lowered %d assignments, want 6", len(assigns))
+	if len(assigns) != 7 {
+		t.Fatalf("lowered %d assignments, want 7", len(assigns))
 	}
-	const within = "(<= (- 9223372036854775808) %s 9223372036854775807)"
 	want := []string{
 		"(+ |test::Arith::a| |test::Arith::b|)",
 		"(- |test::Arith::a| |test::Arith::b|)",
 		"(* |test::Arith::a| |test::Arith::b|)",
 		"(- |test::Arith::a|)",
+		"5",
+		"(+ |test::Arith::r| 1.0)",
+		"(+ |test::Arith::a| 9223372036854775808)",
 	}
 	for i, result := range want {
-		expr, err := x.Expression(assigns[i].Value, assigns[i].Scope, "assign a")
-		if err != nil {
-			t.Fatalf("translate assignment %d: %v", i, err)
-		}
-		if len(expr.Defined) != 1 {
-			t.Fatalf("assignment %d carries %d side conditions, want the int64 range", i, len(expr.Defined))
-		}
-		if expr.Defined[0].Op != OpInt64 {
-			t.Errorf("assignment %d is defined by %v, want OpInt64", i, expr.Defined[0].Op)
-		}
-		if got := writeTerm(expr.Defined[0]); got != fmt.Sprintf(within, result) {
-			t.Errorf("assignment %d is defined where %s", i, got)
-		}
-	}
-	for i := 4; i < 6; i++ {
 		expr, err := x.Expression(assigns[i].Value, assigns[i].Scope, "assign")
 		if err != nil {
 			t.Fatalf("translate assignment %d: %v", i, err)
 		}
 		if len(expr.Defined) != 0 {
 			t.Errorf("assignment %d carries %d side conditions, want none", i, len(expr.Defined))
+		}
+		if got := writeTerm(expr.Term); got != result {
+			t.Errorf("assignment %d translates to %s, want %s", i, got, result)
 		}
 	}
 }
@@ -460,14 +451,18 @@ func renderDecoded(v ModelValue) string {
 }
 
 // TestDecodedValueDeniesItself: the literal a decoded value denotes is what a
-// blocking clause writes, and an integer no literal holds is reported.
+// blocking clause writes, an Integer beyond int64 included.
 func TestDecodedValueDeniesItself(t *testing.T) {
 	wide, err := DecodeValue(Assignment{Var: &Var{Name: "i", Sort: Int}, Raw: "18446744073709551616"})
 	if err != nil {
 		t.Fatalf("decode: %v", err)
 	}
-	if _, err := wide.Literal(Int); err == nil || !strings.Contains(err.Error(), "outside the Integer range") {
-		t.Fatalf("a literal for a wide integer: %v, want a range error", err)
+	wideLiteral, err := wide.Literal(Int)
+	if err != nil {
+		t.Fatalf("a literal for a wide integer: %v", err)
+	}
+	if got := wideLiteral.IntBig().String(); wideLiteral.Op != OpInt || got != "18446744073709551616" {
+		t.Fatalf("a literal for a wide integer = %s, want 18446744073709551616", got)
 	}
 	third, err := DecodeValue(Assignment{Var: &Var{Name: "r", Sort: Real}, Raw: "(/ 1.0 3.0)"})
 	if err != nil {
