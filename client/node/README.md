@@ -242,6 +242,21 @@ try {
 }
 ```
 
+The wider surface adds its own:
+
+| error | what happened |
+| --- | --- |
+| `StaleServiceError` | the running service reports another version than `version` asked for |
+| `ExecutionError` | an execution the service ran failed; carries `diagnostics` |
+| `WrongKindError` | a verification or analysis named a symbol of another kind |
+| `AnalysisRunError` | an analysis run failed before it could report |
+| `ConversionError` | the service could not write the notation asked for |
+| `UnsupportedValueError` | the service sent a value this version of the client cannot decode |
+| `QueryError` | a `Query` failed in-band |
+| `DocumentQueryError` | a `runDocumentQuery` failed in-band |
+| `EditError` | an edit was refused — `failure` names which, and the subclasses (`NoEditsError`, `EditTargetError`, `InvalidEditError`, `IllegalMemberKindError`, `RenameReferencedError`, `OverlappingEditsError`, `EditResultError`, `OwnerNotFoundError`, `OwnerNotNamespaceError`, `MemberNameTakenError`, `DeleteReferencedError`, `OwnerInsideTargetError`, `MoveReferencedError`, `ReferencedElsewhereError`) catch one kind of refusal |
+| `TypeMismatchError` / `InstanceTypeError` / `FeatureValueError` | a typed view read a feature of another kind, an instance of another type, or a slot that is an error |
+
 Source that does not parse is not a failure: `load`/`loads` return a model whose
 `hasErrors` is true and whose `diagnostics` say where. Each `ModelDiagnostic` has
 `severity`, `message`, `code` and an optional location; branch on `code`
@@ -361,21 +376,191 @@ install @openmbee/opensysml` must not need `buf`, Go or a network fetch of a
 plugin, and a published tarball has to contain the compiled output. CI runs
 `make proto-ts` and fails on any diff, so committed and generated cannot drift.
 
-## What v1 does not do
+## Several documents
 
-This client covers `GetServerInfo`, `ParseFile`, `GetSymbol`, `Evaluate` and
-`Instantiate` — connection, lifecycle, capability negotiation, and the five RPCs
-above. Deliberately **not** in v1, rather than half-implemented:
+`connection.parseSources` parses several documents as one model — files the
+service reads, or inline content named for its diagnostics:
 
-- generated model-ergonomics types (`python -m opensysml.generate`'s equivalent);
-- the edit API (`ApplyEdits`);
-- RDF conversion (`Convert`);
-- verification helpers (`VerifyConstraint`, `VerifyRequirement`,
-  `VerifySatisfaction`);
-- `Query`, `GetDiagnostics`, `EvaluateCalc`, `RunAnalysis`, `ExecuteAction`, `ExecuteState`.
+```ts
+import { SourceDocument } from "@openmbee/opensysml";
 
-`connection.rpc` is the escape hatch: it is the generated Connect client, so any
-RPC not covered here can still be called, without the ergonomic layer.
+const model = await connection.parseSources([
+  SourceDocument.file("library.sysml"),
+  SourceDocument.inline("user.sysml", "package User { import Library::*; }"),
+]);
+model.documents;   // the names the parse gave them, in order
+model.roots;       // one root symbol per document
+```
+
+## Conversion and save
+
+`connection.convert` writes a model, a file or source out in another notation —
+`"sysml"`, `"kerml"`, `"turtle"`, `"api-json"` — and `save` writes the result to
+a path, converting when needed:
+
+```ts
+import { save } from "@openmbee/opensysml";
+
+const rdf = await connection.convert("turtle", { modelHash: model.hash });
+await save(model, "out.ttl");            // format comes from the extension
+await save(rdf, "copy.ttl");             // a Conversion writes what it holds
+```
+
+An experimental conversion emits a warning (`process.emitWarning`) rather than
+failing, and reports it through `Conversion.experimentalNotice`.
+
+## Query and documents
+
+```ts
+const elements = await model.query({ oslc: "sysml:name = \"Wheel\"" });
+const rows = await model.runDocumentQuery("Observatory::PartsList", {
+  subject: new ElementRef("Demo::sedan"),
+});
+const markdown = await model.renderDocument("Observatory::Overview");
+```
+
+`query` also takes a structured form (`payload`/`scope`/`select`/`where`, or a
+wire `query`), never both a structured form and `oslc`. A binding value is an
+`ElementRef`, an `ObjectRef`, a primitive or a quantity; `runDocumentQuery`
+answers the typed `DocumentQueryResult` — `rows` of `DocumentValue`s, the schema
+the query declared — and `renderDocument` answers Markdown, or HTML with
+`{ form: "html" }`.
+
+## Execution and exploration
+
+```ts
+const result = await model.executeAction("Demo::Drive", {
+  inputs: { distance: 120 },
+});
+const state = await model.executeState("Demo::Ignition");
+```
+
+`executeAction` and `executeState` answer the run — `outputs`, `events`, the
+`trace` of each step — and refuse `schedule: "explore"`, because an exploration
+is not a run: `exploreAction`, `exploreState` and `exploreAnalysis` answer an
+`Exploration` (`outcomes`, `runs`, `budgetsHit`) instead. `{ schedule: "explore" }`
+is their default; any other schedule there is refused the same way. A
+`performer` names the engine a run is handed to, where the service schedules.
+
+## Verification, analysis and sweep
+
+```ts
+const verdict = await model.verifyConstraint("Demo::MassBudget", {
+  subject: "Demo::sedan",
+  question: "worst-case",
+});
+verdict.verdict.kind;                    // "holds" | "fails" | "undecided"
+await model.satisfied();                 // every asserted satisfy holds
+
+const validation = await model.validateInstance("Demo::sedan");
+const computed = await model.calc("Demo::TotalMass", { arguments: [2] });
+const analysis = await model.runAnalysis("Demo::TradeStudy", { subject: "Demo::sedan" });
+const table = await model.runSweep("Demo::TradeStudy", {
+  power: [{ kind: "int", value: 100n }, { kind: "int", value: 300n }, { kind: "int", value: 50n }],
+}, { samples: 25, seed: 7 });
+```
+
+A verification raises `WrongKindError` for a symbol of another kind and keeps a
+`fails` or `undecided` verdict as an answer rather than a failure.
+`runAnalysis` answers the run's `outputs`, `verdicts`, `instances` and
+`diagnostics` — a failed analysis still answers what it completed.
+`runSweep` takes a `Record` of `parameter → [from, to]` or `[from, to, step]`
+ranges and answers the `SweepTable` of rows, each carrying its own error when a
+run fails.
+
+## Engines
+
+```ts
+for (const engine of await connection.listEngines()) {
+  engine.name; engine.authority;           // what it answers: verification, analysis, ...
+}
+```
+
+`engine` selects one on the calls above (`verifyConstraint`, `validateInstance`,
+`calc`, `runAnalysis`, `verifySatisfaction`), and `explainVerdict` /
+`explainStanding` say how a verdict was reached — the engine and the strength of
+its evidence (`observed`, `witnessed`, `bounded`, `proved`).
+
+## Authoring
+
+`model.edit()` starts a batch of source-preserving edits, applied atomically:
+
+```ts
+const editor = model.edit();
+editor.addItemDef("Car", "Demo");
+editor.rename("Demo::Wheel", "Tire");
+const applied = await editor.apply();
+applied.documents;      // every document the batch rewrote, by parse name
+```
+
+Every `add*` of the Python client is here — `addPackage` … `addRequirement`,
+`addCalcDef`, `addParameter`, `addPerformAction`, `addStateAction`,
+`addAssertConstraint`, `addTransition`, `addImport`, `addDocumentation`,
+`addMetadata`, `addVerify`, `addObjective`, `addSatisfy`, plus `setValue`,
+`rename`, `delete(target, { cascade })` and `move(target, owner)` — and
+`Body` builds guarded then/else and nested if/while/for blocks for action
+bodies. Edits are validated eagerly (a `RangeError` or `TypeError` at the
+`add*` call, not at `apply()`) and capability-gated per operation and per
+field. `connection.applyEdits(modelHash, operations)` is the low-level form,
+taking wire `EditOperation` messages.
+
+An edit the service refuses raises the typed error for the failure —
+`EditTargetError`, `RenameReferencedError`, `DeleteReferencedError`,
+`MemberNameTakenError`, `OwnerNotFoundError`, `OverlappingEditsError` and the
+rest of the `EditError` family, each carrying `failure`, `diagnostics`,
+`referringElements` and structured `referrers`.
+
+## Service version and required capabilities
+
+`connect()` negotiates what the service must be, beside what it must advertise:
+
+```ts
+await using connection = await connect({
+  version: "0.9",
+  requireCapabilities: [CAPABILITY_VERIFY, CAPABILITY_DOCUMENT_QUERY],
+});
+```
+
+A running service that reports another version is a `StaleServiceError`
+naming the required and reported versions — the remedy is to point at a service
+of the required version, or accept what is running by omitting `version`
+(`$OPENSYSML_VERSION` is the environment form). A service missing a required
+capability is likewise refused at connect, rather than at the first gated call.
+
+## Typed module generation
+
+`opensysml-generate` writes a TypeScript module of typed views over a model's
+definitions — `Vehicle`, `SportsCar` — so `model.instantiate` reads as
+`vehicle.wheels`, with each feature's declared type, instead of
+`tree.get("wheels")`:
+
+```bash
+npx opensysml-generate model.sysml -o src/vehicle_types.ts
+npx opensysml-generate model.sysml --check -o src/vehicle_types.ts   # fails when stale
+```
+
+```ts
+import { Vehicle } from "./vehicle_types.js";
+const vehicle = Vehicle.fromInstance(await model.instantiate("Demo::Car"), tree.byId);
+vehicle.wheels;                    // readonly Instance[], typed
+vehicle.mass;                      // Quantity | undefined, as declared
+```
+
+A class `extends` its first base, declares the features of the rest as getters
+so every inherited feature stays reachable, and `fromInstance` accepts
+subtypes; a feature of another kind raises `TypeMismatchError` or
+`InstanceTypeError`. The module is stamped with a hash of the source text, and
+`--check` regenerates on drift. Generated code imports only from
+`@openmbee/opensysml` and runs under the browser entry point too.
+
+## What this client does not do
+
+- `save` writes a single document's content; a multi-document `EditResult`
+  (`applied`/`documents` rather than one `content`) is written by the caller,
+  per `EditedDocument`.
+- `connection.rpc` remains the escape hatch for anything not wrapped: it is the
+  generated Connect client, and `SysMLService` is exported for a caller
+  building its own.
 
 ## Examples
 
@@ -400,9 +585,12 @@ npm run example 03        # one, by number or name
 ## Conformance
 
 The suite in `conformance/` is the service contract, and this client runs it
-**through its public API** — `load`/`loads`, `eval`, `symbol`, `instantiate` —
-not through the generated stubs. A scenario whose RPC v1 does not cover is
-skipped with a reason, and the report has the same shape `tools/cmd/conformance` emits:
+**through its public API** — `load`/`loads`, `parseSources`, `eval`, `symbol`,
+`instantiate`, `executeAction`, `convert`, `applyEdits`, `verifyConstraint`,
+`query`, `runDocumentQuery`, `renderDocument`, `runAnalysis`, `runSweep`,
+`listEngines` — not through the generated stubs. The only scenarios skipped are
+the ones whose request the public API refuses eagerly rather than asking the
+service, and the report has the same shape `tools/cmd/conformance` emits:
 
 ```bash
 npm run conformance -- --allow-skips --report report.json
@@ -410,14 +598,16 @@ npm run conformance -- --allow-skips --report report.json
 
 | protocol | ran | passed | failed | skipped |
 | --- | --: | --: | --: | --: |
-| `grpc` | 59 | 23 | 0 | 36 |
-| `connect` | 59 | 23 | 0 | 36 |
-| `connect-json` | 59 | 23 | 0 | 36 |
-| **total** | **177** | **69** | **0** | **108** |
+| `grpc` | 151 | 148 | 0 | 3 |
+| `connect` | 151 | 148 | 0 | 3 |
+| `connect-json` | 151 | 148 | 0 | 3 |
+| **total** | **453** | **444** | **0** | **9** |
 
-The 36 skips per protocol are 35 scenarios for the 10 RPCs listed above plus one
-the public API cannot express: a `ParseFile` naming no source, since `load` and
-`loads` always name one. Every skip carries its reason in the report.
+The 3 skips per protocol are the requests the public API cannot express because
+it validates them before calling: a `ParseFile` naming no source (`load` and
+`loads` always name one), a `ParseSources` naming no document and a
+`ParseSources` naming two documents alike (`parseSources` refuses both). Every
+skip carries its reason in the report.
 
 **The runner is not vacuous.** `--mutate <name>` corrupts a response on its way
 through the client, and each mutation makes at least one scenario fail:
