@@ -28,11 +28,17 @@ package Referenced {
 				part alignment : Ref {
 					ref redefines target = procedures.alignment;
 				}
-				part and : Span {
+				part conjunction : Span {
 					attribute redefines text = "and listed in";
 				}
 				part parts : Ref {
 					ref redefines target = procedures.alignment.parts;
+				}
+				part shown : Span {
+					attribute redefines text = "and shown in";
+				}
+				part photo : Ref {
+					ref redefines target = procedures.alignment.photo;
 				}
 				part open : Span {
 					attribute redefines text = "(";
@@ -70,6 +76,11 @@ package Referenced {
 					calc rows : Parts {
 						in root = telescope;
 					}
+				}
+
+				part photo : Image {
+					attribute redefines location = "images/mount.png";
+					attribute redefines caption = "The mount, aligned";
 				}
 			}
 		}
