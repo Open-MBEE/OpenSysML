@@ -2162,6 +2162,10 @@ func (m *migration) writeInlineBody(kw string, b, owner *sysmlv1.Element, header
 			m.add(b, Approximated, m.v2Name(b), joinNotes(note, "none of its "+count(total, "action")+" is migrated, so it runs nothing"))
 			return true
 		}
+		if wait := m.instantWaitNote(kw, b, owner); wait != "" {
+			m.add(b, Approximated, m.v2Name(b), joinNotes(note, wait))
+			return true
+		}
 		m.add(b, Mapped, m.v2Name(b), note)
 		return true
 	case "OpaqueBehavior", "FunctionBehavior":
@@ -2240,6 +2244,9 @@ func (m *migration) referencedBehavior(kw, head string, b, owner *sysmlv1.Elemen
 	}
 	m.w.line(line)
 	m.downgrade(b, note)
+	if wait := m.instantWaitNote(kw, b, owner); wait != "" {
+		m.add(owner, Approximated, "", "its "+kw+" "+qualifiedName(b)+": "+wait)
+	}
 	return true
 }
 
@@ -2696,6 +2703,9 @@ func (s *stateRegion) transitionAccepts(t *sysmlv1.Element, triggers []*sysmlv1.
 			info = append(info, rinfo)
 		}
 		note = joinNotes(note, rnote)
+		if ev := s.m.model.Ref(tr, "event"); ev != nil && ev.Type == "SignalEvent" {
+			note = joinNotes(note, s.m.unsentNote(s.m.model.Ref(ev, "signal")))
+		}
 		s.m.add(tr, verdictFor(note), "", joinNotes(note, rinfo))
 		accepts = append(accepts, routes...)
 	}

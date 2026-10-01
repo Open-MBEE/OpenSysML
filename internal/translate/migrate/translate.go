@@ -128,7 +128,15 @@ func (s *bodyScope) feature(path []string, write bool) (opaqueRef, *refusal) {
 		object:   m.nonScalar(m.typedAs(f)),
 		plural:   plural || manyValued(f),
 		optional: m.lacksValue(f),
+		unset:    !plural && m.unsetFeature(f),
 	}, nil
+}
+
+// unsetFeature reports whether f is a scalar property holding no value until
+// assigned: one declaring neither a default nor that it admits none.
+func (m *migration) unsetFeature(f *sysmlv1.Element) bool {
+	return f.Type == "Property" && !manyValued(f) && !m.lacksValue(f) &&
+		firstOwned(f, "defaultValue") == nil && m.scalarBase(m.typedAs(f)) != ""
 }
 
 // featureAnchor is what a dotted name's first step resolved to — the object and
@@ -224,7 +232,8 @@ func (s *bodyScope) scopeAnchor(path []string, write bool) featureAnchor {
 			why: "it is private to " + qualifiedName(hidden.Parent)}}
 	case f == nil:
 		return featureAnchor{refusal: &refusal{kind: refusedName, token: name,
-			why: joinNotes("nothing visible from "+qualifiedName(s.scope)+" is called "+name, s.clash)}}
+			why:     joinNotes("nothing visible from "+qualifiedName(s.scope)+" is called "+name, s.clash),
+			unknown: s.clash == "" && !m.laneKnows(s.lane, name)}}
 	case f.Type != "Property" && f.Type != "Port" && f.Type != "Parameter":
 		return featureAnchor{refusal: &refusal{kind: refusedName, token: name,
 			why: "it is " + kindOf(f) + " " + qualifiedName(f) + ", not a feature a body reads"}}

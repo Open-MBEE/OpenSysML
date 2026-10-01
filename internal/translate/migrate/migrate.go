@@ -157,6 +157,7 @@ func FromModelOptions(name string, model *sysmlv1.Model, opts Options) *Result {
 		opUsage:           map[*sysmlv1.Element]string{},
 		deciding:          map[*sysmlv1.Element]bool{},
 		bounded:           map[*sysmlv1.Element][]*sysmlv1.Element{},
+		senders:           senders{actions: map[*sysmlv1.Element]bool{}, buttons: map[*sysmlv1.Element]int{}},
 		allocated:         map[*sysmlv1.Element][]*sysmlv1.Element{},
 		triggered:         map[*sysmlv1.Element]bool{},
 		snapshots:         map[*sysmlv1.Element]snapshotTyping{},
@@ -386,6 +387,8 @@ type migration struct {
 	deciding map[*sysmlv1.Element]bool
 	// bounded lists the duration constraints constraining each element.
 	bounded map[*sysmlv1.Element][]*sysmlv1.Element
+	// senders indexes what posts each signal.
+	senders senders
 	// allocated lists the suppliers of the «Allocate» dependencies each element is client of.
 	allocated map[*sysmlv1.Element][]*sysmlv1.Element
 	// triggered holds each event some trigger refers to, which is reported where it is.
@@ -631,6 +634,7 @@ func (m *migration) prepare() {
 	var walk func(e *sysmlv1.Element)
 	walk = func(e *sysmlv1.Element) {
 		m.distinguish(e)
+		m.recordSender(e)
 		if e.Parent == nil {
 			m.avoidLibraryRoots(e)
 		}
