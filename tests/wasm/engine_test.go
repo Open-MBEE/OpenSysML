@@ -17,6 +17,7 @@ import (
 	pb "github.com/Open-MBEE/OpenSysML/api/proto"
 	"github.com/Open-MBEE/OpenSysML/internal/frontend/engine"
 	sysmlgrpc "github.com/Open-MBEE/OpenSysML/internal/frontend/grpc"
+	"github.com/Open-MBEE/OpenSysML/internal/frontend/jsonrpc"
 	"google.golang.org/protobuf/encoding/protojson"
 	"google.golang.org/protobuf/proto"
 )
@@ -340,7 +341,7 @@ func TestEngineWireParity(t *testing.T) {
 		"a dual-width Integer":      {"ExecuteAction", fmt.Sprintf(`{"modelHash":%q,"actionSymbolId":"enginedemo::Double","inputs":{"x":{"intValue":"6","bigIntValue":"9223372036854775808"}}}`, hash)},
 	} {
 		_, err := eng.Call(ctx, malformed.method, []byte(malformed.params))
-		var callErr *engine.Error
+		var callErr *jsonrpc.Error
 		if !errors.As(err, &callErr) || callErr.Code != 3 {
 			t.Errorf("%s: Call error = %v, want InvalidArgument (3)", name, err)
 		}

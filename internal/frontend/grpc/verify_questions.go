@@ -12,6 +12,7 @@ import (
 	"github.com/Open-MBEE/OpenSysML/internal/exec/analysis"
 	"github.com/Open-MBEE/OpenSysML/internal/exec/runtime"
 	"github.com/Open-MBEE/OpenSysML/internal/exec/solve"
+	"github.com/Open-MBEE/OpenSysML/internal/frontend/symbolfacts"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/semantics"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/symbols"
 )
@@ -399,7 +400,7 @@ func (v *verifyContext) witnessValue(value solve.ModelValue) (runtime.Value, boo
 	case solve.SortString:
 		return runtime.NewStringValue(value.Text), true
 	case solve.SortDatatype:
-		syms := lookupNamed(v.cached.Index, value.Text)
+		syms := symbolfacts.LookupNamed(v.cached.Index, value.Text)
 		if len(syms) == 1 {
 			return runtime.NewEnumLiteral(syms[0]), true
 		}
