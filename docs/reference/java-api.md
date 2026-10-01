@@ -242,7 +242,8 @@ sniffs it), `tolerateSyntaxErrors` — without it, a syntax error throws a
 element ids of a graph notation (`ttl`, `api-json`). `Conversion.write(Path)`
 saves the content as UTF-8, `Conversion.formatOf(Path)` names a notation by its
 extension, and `EditResult.save(Path)` writes a one-document edit and refuses one whose
-`severalDocuments()` is set, whose text is in `documents()` alone.
+`severalDocuments()` is set, whose text is in `documents()` alone; a model
+adopted by hash asks the service when the answer alone cannot tell.
 
 ### Edits
 

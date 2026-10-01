@@ -1344,11 +1344,36 @@ public final class Model {
           Protos.referrers(response.getReferrersList()));
     }
     EditResult result = Protos.editResult(response);
-    if (documents.size() > 1 && !result.severalDocuments()) {
-      return new EditResult(
-          result.content(), result.applied(), result.documents(), result.diagnostics(), true);
+    boolean several = severalDocuments(request, result);
+    if (several == result.severalDocuments()) {
+      return result;
     }
-    return result;
+    return new EditResult(
+        result.content(), result.applied(), result.documents(), result.diagnostics(), several);
+  }
+
+  private boolean severalDocuments(ApplyEditsRequest.Builder request, EditResult result) {
+    if (!roots.isEmpty() || !documents.isEmpty()) {
+      return Math.max(roots.size(), documents.size()) > 1;
+    }
+    if (!request.getAcceptDocuments()
+        || !connection.capabilities().has(Capabilities.EDIT_DOCUMENTS)
+        || !result.content().isEmpty()
+        || result.severalDocuments()) {
+      return result.severalDocuments();
+    }
+    try {
+      connection.call(
+          "ApplyEdits",
+          request.setAcceptDocuments(false).build(),
+          ApplyEditsResponse.getDefaultInstance());
+      return false;
+    } catch (ServiceException refused) {
+      if (refused.status() == StatusCode.FAILED_PRECONDITION) {
+        return true;
+      }
+      throw refused;
+    }
   }
 
   /** The order the capabilities an edit request needs are checked in. */

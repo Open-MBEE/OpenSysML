@@ -1219,6 +1219,33 @@ class ApiIntegrationTest {
   }
 
   @Test
+  void anAdoptedModelKnowsWhetherAnEmptiedEditHasSeveralDocuments(
+      @org.junit.jupiter.api.io.TempDir Path dir) throws Exception {
+    Model several =
+        connection.model(
+            connection
+                .parseSources(
+                    List.of(
+                        SourceDocument.inline("a.sysml", "package A { part def P; }"),
+                        SourceDocument.inline("b.sysml", "package B;")))
+                .hash());
+    EditResult refused =
+        several
+            .edit()
+            .delete("B")
+            .apply(EditOptions.defaults().withDocument("b.sysml"));
+    assertTrue(refused.severalDocuments());
+    Path target = Files.writeString(dir.resolve("kept.sysml"), "kept");
+    assertThrows(IllegalStateException.class, () -> refused.save(target));
+    assertEquals("kept", Files.readString(target));
+
+    Model sole = connection.model(connection.parse("part def Gone;").hash());
+    EditResult emptied = sole.edit().delete("Gone").apply();
+    assertFalse(emptied.severalDocuments());
+    assertEquals(emptied.content(), Files.readString(emptied.save(target)));
+  }
+
+  @Test
   void anEditorAppliesActionBodyStatementsOnce() {
     Model model = connection.load(fixture("apply_edits_action_body.sysml"));
     Editor editor =
