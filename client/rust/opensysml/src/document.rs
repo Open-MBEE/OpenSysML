@@ -2,7 +2,7 @@
 
 use std::fmt;
 
-use crate::domain::{quantity_from_wire, Quantity};
+use crate::domain::{quantity_from_wire, BigInteger, Quantity};
 use crate::encode::quantity_to_wire;
 use crate::error::Error;
 use crate::wire;
@@ -171,6 +171,8 @@ pub enum DocumentValue {
     Text(String),
     /// An integer.
     Integer(i64),
+    /// An Integer beyond `i64`.
+    BigInteger(BigInteger),
     /// A real number.
     Real(f64),
     /// A boolean.
@@ -194,6 +196,7 @@ impl fmt::Display for DocumentValue {
             Self::Object(v) => v.fmt(f),
             Self::Text(v) => f.write_str(v),
             Self::Integer(v) => v.fmt(f),
+            Self::BigInteger(v) => v.fmt(f),
             Self::Real(v) => v.fmt(f),
             Self::Boolean(v) => v.fmt(f),
             Self::Quantity(v) => v.fmt(f),
@@ -288,6 +291,7 @@ fn bound_value(parameter: &str, value: &DocumentValue) -> Result<wire::DocumentV
         }
         DocumentValue::Text(text) => Kind::StringValue(text.clone()),
         DocumentValue::Integer(v) => Kind::IntValue(*v),
+        DocumentValue::BigInteger(v) => Kind::BigIntValue(v.as_str().to_owned()),
         DocumentValue::Real(v) => Kind::RealValue(*v),
         DocumentValue::Boolean(v) => Kind::BoolValue(*v),
         DocumentValue::Quantity(quantity) => {
@@ -424,6 +428,7 @@ fn value_of(value: wire::DocumentValue) -> Result<DocumentValue, Error> {
         Some(Kind::ElementId(id)) => DocumentValue::Element(ElementRef { id, element_type }),
         Some(Kind::StringValue(v)) => DocumentValue::Text(v),
         Some(Kind::IntValue(v)) => DocumentValue::Integer(v),
+        Some(Kind::BigIntValue(v)) => DocumentValue::BigInteger(BigInteger::parse(&v)?),
         Some(Kind::RealValue(v)) => DocumentValue::Real(v),
         Some(Kind::BoolValue(v)) => DocumentValue::Boolean(v),
         Some(Kind::Infinity(true)) => DocumentValue::Infinity,
@@ -512,6 +517,21 @@ mod tests {
         .unwrap();
         assert_eq!(bound[0].parameter, "x");
         assert_eq!(bound[0].values.len(), 4);
+    }
+
+    #[test]
+    fn a_wide_integer_crosses_as_big_int_value() {
+        use wire::document_value::Kind;
+        let wide = BigInteger::parse("1180591620717411303424").unwrap();
+        let bound =
+            bindings_to_wire(&[("n", vec![DocumentValue::BigInteger(wide.clone())])]).unwrap();
+        assert_eq!(
+            bound[0].values[0].kind,
+            Some(Kind::BigIntValue("1180591620717411303424".to_owned()))
+        );
+        let read = DocumentValue::try_from(bound[0].values[0].clone()).unwrap();
+        assert_eq!(read, DocumentValue::BigInteger(wide));
+        assert_eq!(read.to_string(), "1180591620717411303424");
     }
 
     #[test]

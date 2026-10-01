@@ -268,6 +268,7 @@ impl fmt::Display for Magnitude {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             Self::Integer(n) => n.fmt(f),
+            Self::BigInteger(n) => n.fmt(f),
             Self::Real(r) => r.fmt(f),
         }
     }

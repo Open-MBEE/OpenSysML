@@ -90,6 +90,7 @@ function _document_value(raw)
     haskey(raw, "elementId") && return ElementRef(String(raw["elementId"]), String(get(raw, "elementType", "")))
     haskey(raw, "stringValue") && return String(raw["stringValue"])
     haskey(raw, "intValue") && return parse(Int64, string(raw["intValue"]))
+    haskey(raw, "bigIntValue") && return parse_big_integer(string(raw["bigIntValue"]))
     haskey(raw, "realValue") && return asreal(raw["realValue"])
     haskey(raw, "boolValue") && return Bool(raw["boolValue"])
     haskey(raw, "infinity") && return Infinity()
@@ -178,14 +179,10 @@ function build_document_bindings(bindings=Dict())
             elseif value isa AbstractString
                 Dict{String,Any}("stringValue" => String(value))
             elseif value isa Integer
-                typemin(Int64) <= value <= typemax(Int64) ||
-                    throw(DocumentQueryError("binding $(repr(parameter)) cannot carry $(repr(value)): an int must fit in a signed 64-bit integer"))
-                Dict{String,Any}("intValue" => string(value))
+                Dict{String,Any}(integer_arm(value, "intValue", "bigIntValue"))
             elseif value isa AbstractFloat
                 Dict{String,Any}("realValue" => Float64(value))
             elseif value isa Quantity
-                value.magnitude isa Integer && !(typemin(Int64) <= value.magnitude <= typemax(Int64)) &&
-                    throw(DocumentQueryError("binding $(repr(parameter)) cannot carry $(repr(value)): an Integer magnitude must fit in a signed 64-bit integer"))
                 !isempty(value.unit) && value.unit_term === nothing &&
                     throw(DocumentQueryError("binding $(repr(parameter)) cannot carry $(repr(value)): a named unit needs its unit term"))
                 Dict{String,Any}("quantity" => encode_quantity(value))

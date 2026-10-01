@@ -38,6 +38,7 @@ fn encode(value: &Value, capabilities: &Capabilities, depth: usize) -> Result<wi
     let nested = |item: &Value| encode(item, capabilities, depth + 1);
     Ok(match value {
         Value::Integer(v) => kind(Kind::IntValue(*v)),
+        Value::BigInteger(v) => kind(Kind::BigIntValue(v.as_str().to_owned())),
         Value::Real(v) => kind(Kind::RealValue(*v)),
         Value::Boolean(v) => kind(Kind::BoolValue(*v)),
         Value::Text(v) => kind(Kind::StringValue(v.clone())),
@@ -94,9 +95,10 @@ fn encode(value: &Value, capabilities: &Capabilities, depth: usize) -> Result<wi
                     .components
                     .iter()
                     .map(|component| {
-                        kind(match *component {
-                            Magnitude::Integer(v) => Kind::IntValue(v),
-                            Magnitude::Real(v) => Kind::RealValue(v),
+                        kind(match component {
+                            Magnitude::Integer(v) => Kind::IntValue(*v),
+                            Magnitude::BigInteger(v) => Kind::BigIntValue(v.as_str().to_owned()),
+                            Magnitude::Real(v) => Kind::RealValue(*v),
                         })
                     })
                     .collect(),
@@ -234,9 +236,12 @@ pub(crate) fn quantity_to_wire(q: &Quantity) -> Result<wire::Quantity, Error> {
     Ok(wire::Quantity {
         unit: q.unit.clone(),
         unit_term,
-        magnitude: Some(match q.magnitude {
-            Magnitude::Integer(v) => wire::quantity::Magnitude::IntMagnitude(v),
-            Magnitude::Real(v) => wire::quantity::Magnitude::RealMagnitude(v),
+        magnitude: Some(match &q.magnitude {
+            Magnitude::Integer(v) => wire::quantity::Magnitude::IntMagnitude(*v),
+            Magnitude::BigInteger(v) => {
+                wire::quantity::Magnitude::BigIntMagnitude(v.as_str().to_owned())
+            }
+            Magnitude::Real(v) => wire::quantity::Magnitude::RealMagnitude(*v),
         }),
     })
 }
