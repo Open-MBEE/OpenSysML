@@ -56,18 +56,16 @@ func (m *migration) resolveRef(r proseRun, inline bool) (docRun, string) {
 		return m.danglingRef(r, inline)
 	}
 	switch r.cf {
-	case cfValue, cfDoc:
+	case cfValue:
 		if m.resolving[r.id] {
-			return docRun{}, "a cross-reference to the " + cfWhat(r.cf) + " of " + refTarget(e, d) + " refers back to the text being written, so nothing stands for it"
+			return docRun{}, "a cross-reference to the value of " + refTarget(e, d) + " refers back to the text being written, so nothing stands for it"
 		}
 		m.resolving[r.id] = true
 		defer delete(m.resolving, r.id)
-		var text, note string
-		if r.cf == cfValue {
-			text, note = m.valueText(e, d)
-		} else {
-			text, note = m.documentationText(e, d)
-		}
+		text, note := m.valueText(e, d)
+		return docRun{text: text}, note
+	case cfDoc:
+		text, note := m.documentationText(r.id, e, d)
 		return docRun{text: text}, note
 	}
 	name := refName(e, d)
@@ -215,15 +213,20 @@ func (m *migration) literalText(v, f, scope *sysmlv1.Element) (string, []string,
 	return expr, nil, ok
 }
 
-// documentationText is the text of a reference to an element's
+// documentationText is the text of a reference, by id, to an element's
 // documentation: its doc comment's text — the first comment of its own with
-// any, as docComment finds it — or a comment's own body. The reference's id
-// is marked resolving by the caller; the comment is checked before it is
-// read, since a reference to the element it documents reaches it while it
-// is being written.
-func (m *migration) documentationText(e *sysmlv1.Element, d *sysmlv1.Diagram) (string, string) {
+// any, as docComment finds it — or a comment's own body. A comment being
+// written is marked resolving while it is, so one reached again, by the
+// element it documents or by itself, ends the reference; a diagram's
+// documentation, which no comment holds, is marked by the diagram's id.
+func (m *migration) documentationText(id string, e *sysmlv1.Element, d *sysmlv1.Diagram) (string, string) {
 	const subject = "a cross-reference to the documentation of "
 	if d != nil {
+		if m.resolving[id] {
+			return "", subject + refTarget(e, d) + " refers back to the text being written, so nothing stands for it"
+		}
+		m.resolving[id] = true
+		defer delete(m.resolving, id)
 		text := m.proseText(d.Documentation, nil)
 		if text == "" {
 			return "", subject + refTarget(e, d) + " has no text: the diagram has no documentation"

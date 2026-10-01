@@ -53,10 +53,12 @@ func TestMigratedCrossReferences(t *testing.T) {
 	wantLine(t, r.Notation, "doc /* The Mount shall point within of the target. */")
 
 	// A reference to documentation or a value that reaches back to the text
-	// being written ends there, noted; a slot without a defining feature reads
-	// its value and is described as itself.
-	wantLine(t, r.Notation, "doc /* Tracks with the Images for the ., labelled Label:, set to . */")
-	wantLine(t, r.Notation, "doc /* Images for the Tracks with the , labelled Label:, set to .. */")
+	// being written ends there, noted; one to a comment itself reads its body;
+	// a slot without a defining feature reads its value and is described as
+	// itself.
+	wantLine(t, r.Notation, "doc /* Tracks with the Images for the . Gathers the light., labelled Label:, set to . */")
+	wantLine(t, r.Notation, "doc /* Images for the Tracks with the , labelled Label:, set to .. Gathers the light. */")
+	wantOneNote(t, r, "_cmt_camera", migrate.Approximated, "a cross-reference to the documentation of (_cmt_optics) is written as its text at migration time")
 	wantOneNote(t, r, "_cmt_guider", migrate.Approximated, "a cross-reference to the documentation of 'Camera' is written as its text at migration time")
 	wantOneNote(t, r, "_cmt_guider", migrate.Approximated, "a cross-reference to the value of (_slot_orphan) is written as the text of its value at migration time; a cross-reference to the value of (_slot_orphan) refers back to the text being written, so nothing stands for it")
 	wantOneNote(t, r, "_cmt_guider", migrate.Approximated, "a cross-reference to the value of (_slot_bare) has no text: it holds no value")

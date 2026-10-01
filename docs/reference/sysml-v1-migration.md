@@ -794,7 +794,7 @@ prose reads as the tool printed it rather than as its markup:
   hyperlink takes the label of the block it links, as Cameo's DocGen printed it; a `name`
   cross-reference keeps the target's name as its text, linked to the block. `val` reads
   the value of the slot or property, as the text of its literal at migration time; `com`
-  the target's own documentation, as text — the last two are approximated with a note saying so,
+  the target's own documentation (a comment's own body, when it names one), as text — the last two are approximated with a note saying so,
   since the paragraph does not follow the value afterwards, and a `val` of a property holding no
   value, or a `com` of an undocumented element, prints nothing. A `val` or `com` that reaches
   back to the text being written — a value whose literal cites itself, two comments citing each

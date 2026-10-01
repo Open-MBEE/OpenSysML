@@ -27,7 +27,8 @@
       <packagedElement xmi:type="uml:Class" xmi:id="_req_point" name="Pointing">
         <ownedComment xmi:type="uml:Comment" xmi:id="_cmt_point" annotatedElement="_req_point" body="The &lt;mms-cf mms-cf-type=&quot;name&quot; mms-element-id=&quot;_blk_mount&quot; class=&quot;mceNonEditable&quot;&gt;[cf:Mount.name]&lt;/mms-cf&gt; shall point within &lt;mms-cf mms-cf-type=&quot;val&quot; mms-element-id=&quot;MMS_1461107722575_slot&quot; class=&quot;mceNonEditable&quot;&gt;[cf:.val]&lt;/mms-cf&gt; of the target."/>
       </packagedElement>
-      <!-- Two documentation references that cite each other, and two slots
+      <!-- Two documentation references that cite each other, one naming a
+           comment itself, and two slots
            the export gives no defining feature, one holding a literal that
            cites its own value: a reference ends where it reaches back, and a
            slot without a feature reads as itself. -->
@@ -35,7 +36,7 @@
         <ownedComment xmi:type="uml:Comment" xmi:id="_cmt_guider" annotatedElement="_blk_guider" body="&lt;p&gt;Tracks with the &lt;mms-cf mms-cf-type=&quot;com&quot; mms-element-id=&quot;_blk_camera&quot;&gt;[cf:Camera.com]&lt;/mms-cf&gt;, labelled &lt;mms-cf mms-cf-type=&quot;val&quot; mms-element-id=&quot;_slot_orphan&quot;&gt;[cf:.val]&lt;/mms-cf&gt;, set to &lt;mms-cf mms-cf-type=&quot;val&quot; mms-element-id=&quot;_slot_bare&quot;&gt;[cf:.val]&lt;/mms-cf&gt;.&lt;/p&gt;"/>
       </packagedElement>
       <packagedElement xmi:type="uml:Class" xmi:id="_blk_camera" name="Camera">
-        <ownedComment xmi:type="uml:Comment" xmi:id="_cmt_camera" annotatedElement="_blk_camera" body="&lt;p&gt;Images for the &lt;mms-cf mms-cf-type=&quot;com&quot; mms-element-id=&quot;_blk_guider&quot;&gt;[cf:Guider.com]&lt;/mms-cf&gt;.&lt;/p&gt;"/>
+        <ownedComment xmi:type="uml:Comment" xmi:id="_cmt_camera" annotatedElement="_blk_camera" body="&lt;p&gt;Images for the &lt;mms-cf mms-cf-type=&quot;com&quot; mms-element-id=&quot;_blk_guider&quot;&gt;[cf:Guider.com]&lt;/mms-cf&gt;. &lt;mms-cf mms-cf-type=&quot;com&quot; mms-element-id=&quot;_cmt_optics&quot;&gt;[cf:.com]&lt;/mms-cf&gt;&lt;/p&gt;"/>
       </packagedElement>
       <packagedElement xmi:type="uml:InstanceSpecification" xmi:id="_inst_guider" name="guider1" classifier="_blk_guider">
         <slot xmi:type="uml:Slot" xmi:id="_slot_orphan">
