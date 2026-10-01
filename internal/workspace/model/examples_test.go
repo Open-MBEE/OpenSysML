@@ -16,7 +16,12 @@ const examplesDir = "../../../examples"
 // report errors, keyed by path with the reason. README and the guide point new
 // users at examples/, so an example that does not analyse cleanly is a bug
 // unless it is listed here on purpose.
-var examplesKnownFailures = map[string]string{}
+var examplesKnownFailures = map[string]string{
+	// MessageChannel's two messages are declared nonunique, but a message in a
+	// part implicitly subsets the unique Parts::Part::ownedActions, which
+	// validateSubsettingUniquenessConformance forbids of a nonunique feature.
+	"parser_features_demo_messages_events.sysml": "a nonunique message implicitly subsets the unique Part::ownedActions (subsetting-uniqueness-conformance)",
+}
 
 // Every example the repository ships must analyse cleanly, so the CLI's
 // -validate exit status stays meaningful for the files the docs point at.
