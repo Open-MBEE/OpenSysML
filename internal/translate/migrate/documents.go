@@ -762,7 +762,7 @@ func (m *migration) archivedImage(named, name string, c *sysmlv1.Element) (data 
 	}
 	ct = imagefile.ContentType(data)
 	if ct == "" {
-		return nil, "", "", named + " is not an image (content type " + imagefile.Described(data) + ")"
+		return nil, "", "", named + " is not an image (content type " + describedImageContentType(data) + ")"
 	}
 	return data, entry, ct, ""
 }

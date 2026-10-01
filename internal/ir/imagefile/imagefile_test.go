@@ -1,7 +1,6 @@
 package imagefile
 
 import (
-	"strings"
 	"testing"
 )
 
@@ -36,18 +35,6 @@ func TestContentTypeReadsTheSignature(t *testing.T) {
 		if got := ContentType([]byte(c.data)); got != c.want {
 			t.Errorf("%s: ContentType = %q, want %q", c.name, got, c.want)
 		}
-	}
-	if d := Described([]byte("just words")); d != "text/plain; charset=utf-8" {
-		t.Errorf("Described = %q", d)
-	}
-	if d := Described([]byte(icon)); d != "image/x-icon" {
-		t.Errorf("Described icon = %q", d)
-	}
-	if d := Described([]byte(`<?xml version="1.0"?><doc/>`)); d != "text/xml; charset=utf-8; no SVG document: a <doc> document" {
-		t.Errorf("Described xml = %q", d)
-	}
-	if d := Described([]byte(`<svg xmlns="http://www.w3.org/2000/svg"><rect>`)); !strings.HasSuffix(d, "; no SVG document: XML syntax error on line 1: unexpected EOF") {
-		t.Errorf("Described unclosed = %q", d)
 	}
 }
 
