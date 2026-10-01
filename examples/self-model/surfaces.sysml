@@ -196,7 +196,7 @@ package OpenSysMLSurfaces {
     }
 
     part def CameoPlugin :> ToolIntegration {
-        attribute :>> goPackage = "editors/cameo";
+        attribute :>> goPackage = "editors/mdk";
     }
 
     part def SysonIntegration :> ToolIntegration {
