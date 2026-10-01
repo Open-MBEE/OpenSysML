@@ -1652,12 +1652,7 @@ func (e *encoder) encodeMember(h memberHead, owner string) error {
 			e.graph.Add(subject, e.sysx(xDeclaredKeyword), rdf.String("assume"))
 		}
 		e.flags(subject, []boolProperty{{"isNegated", n.IsNegated}})
-		reference, _ := n.Expression.(*ast.QualifiedName)
-		var expr ast.Node
-		if reference == nil {
-			expr = n.Expression
-		}
-		return e.condition(subject, fqn, within, expr, reference, n.Body != nil, n.Body)
+		return e.condition(subject, fqn, within, n.Expression, nil, n.Body != nil, n.Body)
 
 	case *ast.AssumeMember:
 		// An `assume` member owns its constraint usage through a
@@ -2019,6 +2014,13 @@ func isRelationship(metaclass string) bool {
 // expression, a reference to the constraint it states (`require R { … }`), or a
 // nested constraint stating its conditions in a body.
 func (e *encoder) condition(subject rdf.Term, fqn, owner string, expr ast.Node, ref *ast.QualifiedName, hasBody bool, body []ast.Node) error {
+	// A bare name or feature chain (`require c;`, `assume q.k;`) is the
+	// reference form: the constraint usage owns a ReferenceSubsetting to the
+	// feature it names (RequirementConstraintUsage, AssertConstraintUsage).
+	if target := conditionReference(expr); target != nil {
+		e.relationships(subject, owner, []*ast.Relationship{{Kind: ast.RelReferences, Target: target}})
+		expr = nil
+	}
 	if expr != nil {
 		return e.expression(subject, e.sysx(xCondition), xCondition, owner, expr)
 	}
@@ -2027,6 +2029,22 @@ func (e *encoder) condition(subject rdf.Term, fqn, owner string, expr ast.Node, 
 	}
 	e.graph.Add(subject, e.sysx(xHasBody), rdf.Bool(hasBody))
 	return e.encode(body, fqn, subject)
+}
+
+// conditionReference is the feature a bare condition names, as a relationship
+// target: a qualified name or a chain of them; nil for any other expression.
+func conditionReference(expr ast.Node) ast.Node {
+	switch x := expr.(type) {
+	case *ast.QualifiedName:
+		return x
+	case *ast.FeatureReference:
+		return conditionReference(x.Name)
+	case *ast.FeatureChainExpr:
+		if x.Member != nil && conditionReference(x.Operand) != nil {
+			return x
+		}
+	}
+	return nil
 }
 
 // requirementConditionDecl is the head an `assume`/`require` member declares
