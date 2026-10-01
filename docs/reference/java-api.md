@@ -241,7 +241,8 @@ sniffs it), `tolerateSyntaxErrors` — without it, a syntax error throws a
 `idForm` (`ID_FORM_QUALIFIED`, the default, or `ID_FORM_UUID`) for the derived
 element ids of a graph notation (`ttl`, `api-json`). `Conversion.write(Path)`
 saves the content as UTF-8, `Conversion.formatOf(Path)` names a notation by its
-extension, and `EditResult.save(Path)` writes a one-document edit.
+extension, and `EditResult.save(Path)` writes a one-document edit and refuses one whose
+`severalDocuments()` is set, whose text is in `documents()` alone.
 
 ### Edits
 
