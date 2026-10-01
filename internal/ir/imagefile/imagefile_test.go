@@ -15,9 +15,11 @@ func TestContentTypeReadsTheSignature(t *testing.T) {
 	}{
 		{"png", "\x89PNG\r\n\x1a\n\x00\x00\x00\rIHDR", "image/png"},
 		{"jpeg", "\xff\xd8\xff\xe0\x00\x10JFIF", "image/jpeg"},
+		{"gif87a", "GIF87a\x01\x00\x01\x00", "image/gif"},
 		{"gif", "GIF89a\x01\x00\x01\x00", "image/gif"},
 		{"bmp", "BM\x36\x00\x00\x00\x00\x00", "image/bmp"},
-		{"webp", "RIFF\x24\x00\x00\x00WEBPVP8 ", "image/webp"},
+		{"webp without VP", "RIFF\x24\x00\x00\x00WEBP", ""},
+		{"webp VP8", "RIFF\x24\x00\x00\x00WEBPVP8 ", "image/webp"},
 		{"svg", `<svg xmlns="http://www.w3.org/2000/svg"/>`, "image/svg+xml"},
 		{"svg with prolog", "  <?xml version=\"1.0\"?>\n<svg xmlns=\"http://www.w3.org/2000/svg\"><rect/></svg>", "image/svg+xml"},
 		{"svg with a comment first", `<!-- drawn --><svg xmlns="http://www.w3.org/2000/svg"/>`, "image/svg+xml"},

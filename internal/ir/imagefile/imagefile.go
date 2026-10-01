@@ -39,7 +39,7 @@ func signedContentType(data []byte) string {
 		return "image/gif"
 	case bytes.HasPrefix(data, []byte("BM")):
 		return "image/bmp"
-	case len(data) >= 12 && bytes.Equal(data[:4], []byte("RIFF")) && bytes.Equal(data[8:12], []byte("WEBP")):
+	case len(data) >= 14 && bytes.Equal(data[:4], []byte("RIFF")) && bytes.Equal(data[8:14], []byte("WEBPVP")):
 		return "image/webp"
 	default:
 		return ""
