@@ -34,9 +34,9 @@ The protocols and what the service serves on a single port are described in
   `tcnative` dependency reaches the host application.
 - **In a Rust program: `opensysml`.** Blocking, with no asynchronous runtime in its default
   dependency tree, and safe to call from inside one.
-- **In a Julia session or script: `OpenSysML`.** A thin JSON-over-HTTP client — `HTTP.jl` and
-  `JSON.jl` are its only dependencies — that parses, evaluates, instantiates, executes and
-  queries, with `call` as the escape hatch for anything not wrapped.
+- **In a Julia session or script: `OpenSysML`.** A JSON-over-HTTP client — `HTTP.jl` and
+  `JSON.jl` are its only dependencies — with capability-aware parsing, values and units,
+  verification, analysis, queries, conversion, authoring, and generated typed wrappers.
 - **In MATLAB or GNU Octave: `+opensysml`.** The same thin client for the environments a
   modeler already runs; Octave 7+ is the tested path.
 
@@ -98,8 +98,8 @@ scenario,
 which of these gaps a skip belongs to, so a shrinking surface cannot pass quietly.
 
 The Go and Java APIs cover all of them except the generated model-ergonomics types: they read
-models through
-`Symbol`, `Instance` and `Value` instead.
+models through `Symbol`, `Instance` and `Value` instead. Julia generates typed wrapper modules
+locally from parsed model facts and source text.
 
 ## Two lifecycle modes, and one guarantee
 
@@ -109,7 +109,8 @@ kernel assigned from the child's first line of stdout. No port is chosen, probed
 processes starting at once cannot collide, and a service left listening by someone else is never
 adopted. The child is shared within a scope, and so is its parse cache: per interpreter in
 Python, per thread in Node, per classloader in Java (`isolatedService(true)` opts out), per
-process in Rust. `client/opensysml` starts nothing, because in process there is nothing to start.
+process in Rust. Each Julia `private()` connection owns its child rather than sharing one
+process-wide. `client/opensysml` starts nothing, because in process there is nothing to start.
 
 Connecting to a service the client did not start is always explicit, through an address argument or
 `$OPENSYSML_SERVICE`, and closing such a connection disconnects and does nothing further.
@@ -122,10 +123,11 @@ behavior with a test that kills its own parent process and asserts the service i
 
 ## Protobuf bodies, and JSON for debugging
 
-Every client sends protobuf bodies by default and offers JSON for `curl`-based debugging. This
-reflects a measurement rather than a preference: a 468 KB response costs about 6.5 ms with
-a protobuf body against about 42 ms with JSON, and the difference is `protojson` and `json_format`
-CPU time rather than bytes on the wire. See [service transports](service-transports.md).
+Go, Python, Node, Java, and Rust send protobuf bodies by default and offer JSON for `curl`-based
+debugging. Julia and MATLAB use Connect-JSON. This reflects a measurement rather than a preference:
+a 468 KB response costs about 6.5 ms with a protobuf body against about 42 ms with JSON, and the
+difference is `protojson` and `json_format` CPU time rather than bytes on the wire. See
+[service transports](service-transports.md).
 
 ## Runtime integrations
 
@@ -142,16 +144,18 @@ be one runs the conformance scenarios below through its own API.
 
 ## Providing the service binary
 
-Only the Python and Node clients download a binary, and both pin a SHA-256 per release asset and
-verify the release's sigstore-signed manifest before they do. The others look for one that is
-already installed, and the lookup order is the same everywhere:
-`$OPENSYSML_GRPC_BINARY` (`$OPENSYSML_BINARY` in the Node and Python clients) first, then
-`~/.opensysml/bin/sysml-grpc` (where a verified download puts it), then `PATH`. The Node client
-also checks its per-platform npm package, whose tarball npm verifies, with no postinstall script;
-that package is preferred over a download, which happens only when no package matches the platform.
-The Java client additionally verifies a digest the caller pins with `expectedBinarySha256`.
+The Python, Node, and Julia clients can download a binary. Each pins a SHA-256 per release asset;
+Python and Node also verify the release's sigstore-signed manifest, while Julia does not implement
+Sigstore verification. The other clients look for an installed binary. Lookup uses the configured
+binary variable (`$OPENSYSML_BINARY` or `$OPENSYSML_GRPC_BINARY`), then
+`~/.opensysml/bin/sysml-grpc` (where a verified download puts it), then `PATH`. Julia downloads
+only when `$OPENSYSML_GRPC_VERSION` or `version=` asks for a release. The Node client also checks
+its per-platform npm package, whose tarball npm verifies, with no postinstall script; that package
+is preferred over a download, which happens only when no package matches the platform. The Java
+client additionally verifies a digest the caller pins with `expectedBinarySha256`.
 
-If no binary can be found, the result is an error naming every way to supply one, not a download.
+If no binary can be found and no download was requested, the result is an error naming ways to
+supply one.
 
 ## Every client runs the same conformance suite
 
