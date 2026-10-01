@@ -164,7 +164,7 @@ func (sc *Context) attributeValue(sym *symbols.Symbol) (*Value, string) {
 	}
 
 	if str, isStr := node.(*ast.LiteralString); isStr {
-		value := source.StringValue(str.Value)
+		value := unquote(str.Value)
 		return &Value{String: &value}, unit
 	}
 	val, ok := sc.Semantics.Eval(node)
@@ -179,4 +179,10 @@ func (sc *Context) attributeValue(sym *symbols.Symbol) (*Value, string) {
 func writesValue(sym *symbols.Symbol) bool {
 	decl, ok := sym.Decl.(*ast.Usage)
 	return ok && decl.Value != nil
+}
+
+// unquote reads the text a string literal spells, so a reported attribute value
+// is the same string evaluating the literal answers.
+func unquote(s string) string {
+	return source.StringValue(s)
 }

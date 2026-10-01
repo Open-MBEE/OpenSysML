@@ -9,12 +9,12 @@ import (
 	"maps"
 	"math"
 	"slices"
+	"strconv"
 	"strings"
 
 	pb "github.com/Open-MBEE/OpenSysML/api/proto"
 	"github.com/Open-MBEE/OpenSysML/internal/exec/objref"
 	"github.com/Open-MBEE/OpenSysML/internal/exec/runtime"
-	"github.com/Open-MBEE/OpenSysML/internal/frontend/symbolfacts"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/semantics"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/symbols"
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/ast"
@@ -24,7 +24,13 @@ import (
 
 // BoundText renders a multiplicity bound; an unevaluable one renders empty.
 func BoundText(b semantics.Bound) string {
-	return symbolfacts.BoundText(b)
+	if !b.Known {
+		return ""
+	}
+	if b.Infinite {
+		return "*"
+	}
+	return strconv.FormatInt(b.Value, 10)
 }
 
 // ValueToProto converts runtime.Value to protobuf Value. An enumeration literal

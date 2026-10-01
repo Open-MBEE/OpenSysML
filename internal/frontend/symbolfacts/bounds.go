@@ -6,7 +6,7 @@ import (
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/semantics"
 )
 
-// BoundText formats a semantic bound as a decimal value, *, or an empty string.
+// BoundText renders a multiplicity bound; an unevaluable one renders empty.
 func BoundText(b semantics.Bound) string {
 	if !b.Known {
 		return ""

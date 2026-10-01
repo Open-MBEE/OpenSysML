@@ -9,7 +9,11 @@ import (
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/source"
 )
 
-// LookupNamed resolves a name, preferring model symbols to library symbols.
+// LookupNamed resolves a symbol ID written in either spelling: the quoted,
+// notation-legal form a model author writes ('My Pkg'::Car), or the unquoted
+// spelling the index records (My Pkg::Car), which keeps working as it did.
+// Model elements come before library homonyms: an ID naming both denotes the
+// model's own element, which is what the client asked about.
 func LookupNamed(idx *symbols.Index, id string) []*symbols.Symbol {
 	if syms := idx.LookupQualified(id); len(syms) > 0 {
 		return modelFirst(idx, syms)
@@ -20,6 +24,8 @@ func LookupNamed(idx *symbols.Index, id string) []*symbols.Symbol {
 	return nil
 }
 
+// modelFirst reorders matches so the ones the model declares precede the ones
+// standard-library content declares, each group keeping its index order.
 func modelFirst(idx *symbols.Index, syms []*symbols.Symbol) []*symbols.Symbol {
 	out := make([]*symbols.Symbol, 0, len(syms))
 	var lib []*symbols.Symbol
@@ -33,7 +39,9 @@ func modelFirst(idx *symbols.Index, syms []*symbols.Symbol) []*symbols.Symbol {
 	return append(out, lib...)
 }
 
-// UnquotedName removes notation quoting from a qualified name.
+// UnquotedName is the name a notation-legal qualified name states, with the
+// quoting of its unrestricted segments removed, or false for an ID the notation
+// does not read as one whole name.
 func UnquotedName(id string) (string, bool) {
 	if id == "" {
 		return "", false
