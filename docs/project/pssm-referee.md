@@ -16,10 +16,9 @@ it, exactly as the [pilot corpora](pilot-corpora.md) ratchet and the
 has a defensible SysML v2 mapping, provides a second opinion on the tool-choice rows, and is
 never evidence of SysML v2 conformance. The suite is a UML artefact; where SysML v2 or the
 Kernel Semantic Library say otherwise, the runtime follows them and the disagreement is
-recorded as v2's, not as a failure. Used this way the suite is a second opinion on the ten
-*differs, v2 silent* rows of the alignment note and a regression oracle for the rows on which
-UML and v2 agree; it is never a conformance statement about SysML v2. The tool's `-h` opens with
-that sentence.
+recorded as v2's, not as a failure. A test mapped to an `agrees` row or a *differs, v2 silent*
+row remains `fail` when its traces differ; only an explicit *differs because v2 differs* row
+can assign `differs-by-design`. The tool's `-h` opens with that sentence.
 
 ## The suite, pinned
 
@@ -223,16 +222,17 @@ lists say which failures are second opinions on a tool choice. Of the six *diffe
 differs* rows, only SM15 (a do activity and the machine competing for one occurrence) is
 reached by an expressible test; SM36 and SM37 (local and internal transitions) have no
 spelling and their tests are not expressible, and A12, C6 and C9 are action and composite-structure
-rows no state-machine test exercises. Of the ten *differs, v2 silent* rows, six are reached
-by expressible tests and cited below: SM7, SM11, SM28 and SM30 by passes, since the rules the
-note decided on them landed, and SM32 and SM34 by failures, the second opinions the suite
-gives on those two tool choices; SM9 (when a completion guard is read) no failing test
-reaches, and SM45 (destroying a performing object), C3 (multi-valued connector ends) and C8 (a
-send with no receiver) are not state-machine rows and no test in the suite reaches them.
+rows no state-machine test exercises. SM11, SM28, SM30 and SM32 are now `agrees` rows: their
+PSSM decisions are implemented. Junction 002 and Junction 004 still fail while citing SM32,
+because an `agrees` citation does not change a trace mismatch's bucket. SM34 remains
+*differs, v2 silent*, narrowed to when the join owner is left and cited by Join001. SM9 (when a
+completion guard is read) no failing test reaches, and SM45 (destroying a performing object),
+C3 (multi-valued connector ends) and C8 (a send with no receiver) are not state-machine rows
+and no test in the suite reaches them.
 
 ## Baseline
 
-Recorded **2026-09-28** on develop commit **`074aceb88`** with deferred signals written in the
+Recorded **2026-10-01** on develop commit **`deca2b0389f796b02fa1c30a387617d0613a034c`** with deferred signals written in the
 standard buffer / accept-loop / exit-flush encoding the migrator writes (the `defer` state member,
 an OpenSysML extension, and the runtime's deferral machinery are removed), with entry, do and effect behaviors
 bound to the triggering event's data, exit behaviors to the leaving transition's payload, the
@@ -251,18 +251,43 @@ the segment-effect fix (finding 10) described below, and with every remaining fa
 attributed, as
 `docs/project/pssm-referee-baseline.json`; regenerate with `go run -C tools ./cmd/pssm-referee -update`,
 check with `-check`. The counts are the gate; the rows are for whoever adjudicates a moved count.
-The figures below are as measured when this record was last updated and are not the current
-baseline — `go run -C tools ./cmd/pssm-referee` prints the current ones.
+The regenerated JSON and the bucket figures below are the current baseline.
 
 | Bucket | Tests |
 |---|---:|
-| `pass` | 52 |
-| `fail` | 12 |
+| `pass` | 53 |
+| `fail` | 11 |
 | `not-expressible` | 34 |
 | `differs-by-design` | 5 |
 | **Total** | **103** |
 
 ### Movements since the previous baseline
+
+The current baseline records **53 `pass`**, **11 `fail`**, **34 `not-expressible`** and **5
+`differs-by-design`** tests, from 52 / 12 / 34 / 5. The count change is *Join003*, which moved
+from `fail` to `pass`: its first completion segment now arrives on its own occurrence, and the
+second is not enabled because the join's only way out is guarded false.
+
+*Junction 002* and *Junction 004* no longer fail at runtime with “no guard evaluated to true”.
+Both junctions lie after the helper start state emitted by `emit.go:startTarget`. Under SysML v2
+§7.18.3 an entry transition has no effect and targets a state, so the transition disabled by the
+runtime is that state's completion, not the compound transition whose target PSSM evaluates
+statically. They remain `fail` with reached-but-not-admitted traces and cite SM32 as `agrees`;
+the helper-state shape is finding 11 and open decision 8.
+
+*Join001* remains `fail`: its reasons include the difference over when the join owner is left
+(SM34) and the suite's malformed second registered trace ([the suite defect](omg-issues.md#pssm-join-001-admits-a-malformed-trace)).
+*Transition 019* no longer cites SM34. Its six reason lines are reached traces where silent target
+state entry order and the `T*.3` effects differ: the completion pool follows the entry order of
+`S1_S1_2`/`S1_S2_2` (finding 11), while the suite ties those effects to the order of the
+`T*.2` effects. *Junction 005* is unchanged; it remains `fail` on admitted orders it does not
+reach, attributed to finding 11.
+
+SM11, SM28, SM30 and SM32 are now `agrees` rows because their PSSM decisions are implemented.
+A failure that cites an `agrees` row remains in `fail`; *Junction 002* and *Junction 004* are
+examples.
+
+### Movements before that
 
 Nine tests moved since the previous baseline (develop `e3d17f5e5`, 2026-09-22): `pass` 60 → 52,
 `not-expressible` 30 → 34 and `differs-by-design` 1 → 5; `fail` stays at 12 with every reason
@@ -568,7 +593,7 @@ on what remains missing.
 No count moved between the baseline of develop `bcc6b13e0` (with the junction
 branch-choice fix, 2026-09-15) and the one that followed it (develop `46828f14f`, 2026-09-16).
 The baseline file changed all the same: the adjudication of
-the fourteen failures it left unattributed ([below](#fail-12)) added four tests to the
+the fourteen failures it left unattributed ([below](#fail-11)) added four tests to the
 committed table — *Junction 004* and *Join003* on SM32, *Join001* and *Transition 019* on
 SM34, both *differs, v2 silent* rows — so their rows now carry the row and its verdict, and
 their reasons the *reports on* line. All four stay `fail`, as a test mapped to a tool-choice
@@ -715,7 +740,7 @@ short trace to a budget exhaustion: with SM11 its `S1` now completes and fires `
 history, and the history-record timing of finding 7 makes that re-enter `S1.1` without end. The
 remaining failures' reasons are byte-identical to the previous baseline's.
 
-### `pass` (52)
+### `pass` (53)
 
 Behavior 001, Behavior 002, Behavior 003 A, Behavior 003 B, Transition 001, Transition 007, Transition 011 C,
 Transition 015, Transition 016, Transition 020, Transition 022, Event 001, Event 002, Event 008, Event 009,
@@ -723,7 +748,7 @@ Event 010, Event 015, Event 016 A (reports on SM11), Event 016 B, Event 017 A, E
 Event 019 B, Event 019 C, Event 019 D, Event 019 E, Entering 004,
 Entering 005, Exiting 001, Exiting 003, Exiting 005, Fork 002, Choice 001 and Choice 002 (report on SM30), Choice 003,
 Choice 004, Final001 (reports on SM11), Deferred 002, History 001-A, History 001-B,
-History 001-D, History 002-A, History 002-C (reports on SM28), History 002-D, Join002, Junction 001,
+History 001-D, History 002-A, History 002-C (reports on SM28), History 002-D, Join002, Join003, Junction 001,
 Junction 003, Standalone 003, Terminate 001, Terminate 002.
 
 ### `differs-by-design` (5)
@@ -736,27 +761,23 @@ Junction 003, Standalone 003, Terminate 001, Terminate 002.
 | Deferred 004 A | SM7 | `S1.1(exit)::T1.2(effect)::S2.1(exit)::T2.2(effect)::S1(exit)::T4(effect)` — the sibling region's `T2.2` fires on `Continue` at once; PSSM holds it until `S1.1` releases the occurrence |
 | Deferred 004 B | SM7 | `S1.1.1(exit)::T1.1.2(effect)::S1.1(exit)::S2.1(exit)::T2.2(effect)::S1(exit)` — the same with the deferring state nested one level deeper than the sibling's transition |
 
-### `fail` (12)
+### `fail` (11)
 
-Every failure is attributed. Five cite a *differs, v2 silent* row of the alignment note through
-the committed table: the suite's second opinion on a tool choice, which the row records and the
-test does not overturn. Six cite a finding recorded [below](#findings-about-our-own-conformance)
-and in the alignment note: three a translation limit adjudicated under
-finding 11 (*Entering 010*, *Entering 011*, *Junction 005*), three a defect of the suite's
-recorded in [`omg-issues.md`](omg-issues.md) (*Transition 017*, *History 001-C*, *History 002-B*);
-one, *Exiting 002*, cites a defect of the suite's alone (the trailing table names it). None is a
-translation defect: each translated model was read against the test's UML, and every construct
+Every failure is accounted for. Three cite a note row, six cite a finding recorded
+[below](#findings-about-our-own-conformance), and two additional failures are described after
+those tables: *Transition 019* (silent target-state entry order versus effect order) and
+*Exiting 002* (a suite defect). The failures citing a note row or finding are second opinions on
+the referenced rule or finding; those citations do not themselves determine the bucket. None is
+a translation defect: each translated model was read against the test's UML, and every construct
 the test uses reaches the run.
 
-#### Citing a note row (5)
+#### Citing a note row (3)
 
 | Test | Row | What the run shows |
 |---|---|---|
-| Junction 002 | SM32 | run error: no outgoing guard of the junction holds; PSSM disables the compound transition and admits `T3(effect)` |
-| Junction 004 | SM32 | run error: `junction S1_Junction1_2: no guard evaluated to true` — the junction on the default entry of `S1`'s second region, both of whose outgoing guards are false; PSSM's static evaluation disables the transition into `S1` as a whole, `S1` is never entered and the next occurrence fires `T3` from the source, admitting `T3(effect)`. The same rule as *Junction 002*'s, one region further in; the emitter carries both guards as `false` faithfully |
-| Join003 | SM32 | run error: `join Join1: no guard evaluated to true` — the join's only outgoing transition is guarded `value < 10` with `value` `15`; the runtime fires the join's segments together once both sources are active (SM34) and fails resolving the way out. PSSM fires the first completion transition into the join alone (a segment may end at a join, whose completion is waited for) and disables the second, whose entering the join would need a way through, so `S1` stays active for `T5`; admits `T1.2(effect)::T5(effect)` and `T1.4(effect)::T5(effect)`. SM32's rule at a join's way out |
-| Join001 | SM34 | reached `S1.1(exit)::T2.3(effect)::S2.1(exit)::T2.4(effect)::S1(exit)` and its mirror, `S1(exit)` after the last incoming segment's effect; PSSM admits `S1.1(exit)::T2.3(effect)::S2.1(exit)::S1(exit)::T2.4(effect)` and its mirror, `S1` left with the last source, before that segment's effect. The row records the runtime's place for the owner's exit — after every incoming effect, the library reading of the oracle's join section — and the test's own prose expected execution puts `S1(exit)` there too; its assertion does not |
-| Transition 019 | SM34 | reached every one of the six admitted traces — the two regions' exits and effects in every order the library admits, a firing not atomic against its sibling's — and six more: each of those orders continued with the join's segments `T1.3` and `T2.3` in the order opposite to the regions' firing order, `S1.1(exit)::S2.1(exit)::T1.2(effect)::T2.2(effect)::T2.3(effect)::T1.3(effect)` among them. PSSM fires each completion transition into `Join1` when its source's completion is dispatched, so their order follows the sources'; the runtime holds them until the join is ready and draws the order (the row). Only the row remains |
+| Junction 002 | SM32 | Reaches `S1(entry)` while PSSM admits `T3(effect)`. The junction is after the helper start state, so the disabled transition is that state's completion (finding 11, open decision 8). The trace mismatch remains `fail` although SM32 is now `agrees` |
+| Junction 004 | SM32 | Reaches `S1(entry)::T1.3(effect)::S1.2(exit)` while PSSM admits `T3(effect)`. As in *Junction 002*, the junction is after the helper start state, so the disabled transition is that state's completion (finding 11, open decision 8); the SM32 citation is `agrees`, but the trace mismatch remains `fail` |
+| Join001 | SM34 | The run leaves `S1` after the last incoming effect, where PSSM leaves it before that effect. Its second registered trace is malformed: it names nonexistent `S1.2`, repeats `T2.4` and omits `T2.3` ([suite defect](omg-issues.md#pssm-join-001-admits-a-malformed-trace)) |
 
 #### Citing a finding (6)
 
@@ -776,6 +797,12 @@ quoted and the number given. The full sets are in the baseline file.
 
 Every reason in full — each extra trace, each missing trace, each error — is in the baseline
 file's `reasons`.
+
+The two other failures do not cite a note row or one of the six findings above. *Transition 019*
+reaches all six admitted traces plus six reached-but-not-admitted orderings where silent
+target-state entries and the `T*.3` effects occur in different orders; the completion pool
+follows entry order. *Exiting 002* remains a failure on the suite's unregistered ordering, as
+described in the suite-defect record below.
 
 ### `not-expressible` (34)
 
@@ -1028,8 +1055,8 @@ detail. By root cause:
 | A transition into an active ancestor re-entered it | runtime defect, SM35 (fixed) | Transition 011 C | `pass` |
 | Several completion transitions out of one state were not one choice | runtime defect, SM19 (fixed) | Event 015 | `pass` |
 | A guard whose behavior acts on the model | translation defect, the classifier (a construct with no translation) | Choice 005 | `not-expressible` |
-| A junction or join with no way through | missing alignment text, SM32 (*differs, v2 silent*) | Junction 004, Join003 | `fail`, citing SM32 |
-| The order of a join's segments | missing alignment text, SM34 (*differs, v2 silent*) | Transition 019 (finding 9's part closed) | `fail`, citing SM34 |
+| A junction or join with no way through | formerly missing alignment text; SM32 is now decided and implemented (`agrees`) | Junction 004, Join003 | Join003 `pass`; Junction 004 remains `fail` on the translated helper-state trace mismatch while citing SM32 as `agrees` |
+| When the join owner is left | SM34 remains *differs, v2 silent*: PSSM leaves it before the final segment effect, the runtime after | Join001; Transition 019 (its remaining ordering mismatch is not SM34) | Join001 remains `fail`, citing SM34; Transition 019 remains `fail` on silent target-entry/effect ordering without an SM34 citation |
 | Region entry, exit and firing-unit order is not a recorded choice | runtime gap, finding 9 (fixed at these sites) | Exiting 001, Exiting 003 | `pass` |
 | A do step against the dispatch at the head of the pool is not a recorded choice | runtime gap, finding 9 (fixed at this site, at do-action granularity) | Behavior 003 A | `pass` |
 | A do activity's first segment registered as always before the next dispatch | suite defect (the suite admits both orders elsewhere) | Exiting 002 | `fail`, citing the defect |

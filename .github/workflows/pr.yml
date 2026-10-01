@@ -53,7 +53,7 @@ jobs:
       julia: ${{ steps.areas.outputs.julia }}
       matlab: ${{ steps.areas.outputs.matlab }}
       vscode: ${{ steps.areas.outputs.vscode }}
-      cameo: ${{ steps.areas.outputs.cameo }}
+      mdk: ${{ steps.areas.outputs.mdk }}
       syson: ${{ steps.areas.outputs.syson }}
     steps:
       - name: Check out repository
@@ -407,6 +407,11 @@ jobs:
           go vet ./...
           go vet -C tools ./...
 
+      - name: Vet and test the production sysml build (-tags sysml_prod)
+        run: |
+          go vet -tags sysml_prod ./cmd/sysml/... ./internal/frontend/repl/...
+          go test -count=1 -tags sysml_prod ./cmd/sysml -run TestProdBuild
+
       - name: Run static analysis (staticcheck + gosec)
         run: make lint
 
@@ -653,7 +658,7 @@ jobs:
       needs.changes.outputs.rust == 'true' ||
       needs.changes.outputs.julia == 'true' ||
       needs.changes.outputs.matlab == 'true' ||
-      needs.changes.outputs.cameo == 'true' ||
+      needs.changes.outputs.mdk == 'true' ||
       needs.changes.outputs.syson == 'true'
     runs-on: ubuntu-latest
     permissions:
@@ -702,7 +707,7 @@ jobs:
     needs:
       - changes
       - build
-      - cameo-plugin
+      - mdk-plugin
       - conformance-pkg
       - docs
       - java-test
@@ -727,7 +732,7 @@ jobs:
         env:
           CHANGES_RESULT: ${{ needs.changes.result }}
           BUILD_RESULT: ${{ needs.build.result }}
-          CAMEO_PLUGIN_RESULT: ${{ needs.cameo-plugin.result }}
+          MDK_PLUGIN_RESULT: ${{ needs.mdk-plugin.result }}
           CONFORMANCE_PKG_RESULT: ${{ needs.conformance-pkg.result }}
           DOCS_RESULT: ${{ needs.docs.result }}
           JAVA_TEST_RESULT: ${{ needs.java-test.result }}
@@ -747,7 +752,7 @@ jobs:
           ok() { [ "$1" = success ] || [ "$1" = skipped ]; }
           if [ "$CHANGES_RESULT" != success ] ||
              ! ok "$BUILD_RESULT" ||
-             ! ok "$CAMEO_PLUGIN_RESULT" ||
+             ! ok "$MDK_PLUGIN_RESULT" ||
              ! ok "$CONFORMANCE_PKG_RESULT" ||
              ! ok "$DOCS_RESULT" ||
              ! ok "$JAVA_TEST_RESULT" ||
@@ -765,7 +770,7 @@ jobs:
              ! ok "$WASM_GATE_RESULT"; then
             echo "changes=$CHANGES_RESULT"
             echo "build=$BUILD_RESULT"
-            echo "cameo-plugin=$CAMEO_PLUGIN_RESULT"
+            echo "mdk-plugin=$MDK_PLUGIN_RESULT"
             echo "conformance-pkg=$CONFORMANCE_PKG_RESULT"
             echo "docs=$DOCS_RESULT"
             echo "java-test=$JAVA_TEST_RESULT"
@@ -889,10 +894,10 @@ jobs:
           path: editors/vscode/opensysml-sysml.vsix
           if-no-files-found: error
 
-  cameo-plugin:
-    name: Cameo plugin
+  mdk-plugin:
+    name: OpenSysML MDK plugin
     needs: [changes, build]
-    if: needs.changes.outputs.cameo == 'true'
+    if: needs.changes.outputs.mdk == 'true'
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -921,7 +926,7 @@ jobs:
       # Compiles against the compile-only OpenAPI stubs and runs the unit tests plus
       # the pipeline test against the freshly built service.
       - name: Build and test the plugin
-        run: mvn -B -f editors/cameo/pom.xml verify -Dopensysml.requireService=true
+        run: mvn -B -f editors/mdk/pom.xml verify -Dopensysml.requireService=true
 
   docs:
     name: Documentation site
@@ -1042,11 +1047,20 @@ jobs:
           npm run typecheck
           npm run lint
 
+      # The verification tests ask the service solver-backed questions; the
+      # solver is an external process the service finds on PATH.
+      - name: Install Z3
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y z3
+          z3 --version
+
       - name: Run the tests
         working-directory: client/node
         run: npm test
 
-      # --allow-skips because v1 covers 5 of the 15 RPCs; the skipped count is
+      # --allow-skips because three scenarios ask for a request the client's
+      # public API refuses before asking the service; the skipped count is
       # reported and the artifact records which scenarios they were.
       - name: Run the conformance suite through the client
         working-directory: client/node

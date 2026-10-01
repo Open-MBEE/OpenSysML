@@ -47,14 +47,18 @@ CURRENT = (
 SCHEDULE_ONLY = (CAPABILITY_FEATURE_VALUES, CAPABILITY_VERIFICATION, CAPABILITY_SCHEDULE)
 
 
-def outcome_pb(winner, linearizations, witness, error=""):
-    return sysml_pb2.Outcome(
+def outcome_pb(winner, linearizations, witness, error="", probability_range=None):
+    outcome = sysml_pb2.Outcome(
         outputs={"winner": sysml_pb2.Value(int_value=winner)} if not error else {},
         linearizations=linearizations,
-        probability=0.0,
         witness=witness,
         error=error,
     )
+    if probability_range is not None:
+        outcome.probability_range.CopyFrom(
+            sysml_pb2.ProbabilityRange(min=probability_range[0], max=probability_range[1])
+        )
+    return outcome
 
 
 def test_an_explored_action_answers_with_every_outcome_and_the_status():
@@ -76,7 +80,8 @@ def test_an_explored_action_answers_with_every_outcome_and_the_status():
     assert isinstance(exploration, Exploration)
     assert [o.outputs["winner"] for o in exploration] == [1, 2]
     assert [o.linearizations for o in exploration] == [3, 3]
-    assert [o.probability for o in exploration] == [0.0, 0.0]
+    assert [o.probability for o in exploration] == [None, None]
+    assert [o.probability_range for o in exploration] == [None, None]
     assert exploration.outcomes[0].witness == ["step 3: 3@left first of 2@right, 3@left"]
     assert exploration.complete
     assert exploration.status == "complete (2 runs)"
@@ -95,7 +100,7 @@ def test_a_budget_hit_is_incomplete_and_named_never_an_error():
         ],
         exploration=sysml_pb2.ExplorationStatus(
             complete=False, runs=1, budgets_hit=["runs"], runs_budget=1,
-            depth_budget=64, probabilities_lower_bound=True
+            depth_budget=64, probabilities_lower_bound=False
         ),
     )
     conn = make_connection(stub, CURRENT)
@@ -106,11 +111,8 @@ def test_a_budget_hit_is_incomplete_and_named_never_an_error():
 
     assert not exploration.complete
     assert exploration.budgets_hit == ["runs"]
-    assert exploration.probabilities_lower_bound
-    assert exploration.status == (
-        "incomplete: runs budget 1 hit after 1 runs; "
-        "probabilities are lower bounds"
-    )
+    assert not exploration.probabilities_lower_bound
+    assert exploration.status == "incomplete: runs budget 1 hit after 1 runs"
     assert not bool(exploration)
     outcome = exploration.outcomes[0]
     assert outcome.final_state == "low"
@@ -128,13 +130,16 @@ def test_a_failed_run_is_an_outcome_of_its_own():
             outcome_pb(0, 1, ["step 2: 3@risky first of 2@safe, 3@risky"],
                        error="action execution failed: division by zero"),
         ],
-        exploration=sysml_pb2.ExplorationStatus(complete=True, runs=2),
+        exploration=sysml_pb2.ExplorationStatus(
+            complete=True, runs=2, failed_linearizations=1
+        ),
     )
     conn = make_connection(stub, CURRENT)
 
     exploration = conn.explore_action("M::divide", "hash")
 
     assert exploration.complete
+    assert exploration.failed_linearizations == 1
     assert not bool(exploration)
     failed = exploration.outcomes[1]
     assert failed.failed
@@ -250,13 +255,37 @@ def test_a_single_run_schedule_still_needs_only_schedule():
 def test_an_outcome_renders_its_observables_sorted():
     outcome = Outcome(
         {"b": 2, "a": 1}, final_state="", states_visited=[], error="",
-        linearizations=4, probability=0.25, witness=["x"], diagnostics=[],
+        linearizations=4, probability=0.25, probability_range=(0.25, 0.25),
+        witness=["x"], diagnostics=[],
     )
     assert str(outcome) == "a = 1; b = 2"
     assert "linearizations=4" in repr(outcome)
     empty = Outcome({}, "", [], "", 1, [], [])
     assert str(empty) == "no outputs"
-    assert empty.probability == 0.0
+    assert empty.probability is None
+
+
+def test_weighted_probability_range_is_preserved():
+    stub = Mock()
+    stub.ExecuteAction.return_value = sysml_pb2.ExecuteActionResponse(
+        outcomes=[
+            outcome_pb(1, 1, ["weighted"], probability_range=(0.0, 0.3)),
+        ],
+        exploration=sysml_pb2.ExplorationStatus(
+            complete=False, runs=1, budgets_hit=["runs"], runs_budget=1,
+            depth_budget=64, probabilities_lower_bound=True
+        ),
+    )
+    conn = make_connection(stub, CURRENT)
+
+    exploration = conn.explore_action("M::weighted", "hash")
+
+    assert exploration.outcomes[0].probability is None
+    assert exploration.outcomes[0].probability_range == (0.0, 0.3)
+    assert exploration.probabilities_lower_bound
+    assert exploration.status == (
+        "incomplete: runs budget 1 hit after 1 runs; probabilities are lower bounds"
+    )
 
 
 EXPLORE_MODEL = """
@@ -365,10 +394,9 @@ class TestExploreAgainstTheService:
     def test_a_runs_budget_of_one_is_incomplete(self):
         exploration = self.model.explore_action("Sched::race", schedule="explore:runs=1")
         assert len(exploration) == 1
-        assert exploration.status == (
-            "incomplete: runs budget 1 hit after 1 runs; "
-            "probabilities are lower bounds"
-        )
+        assert exploration.status == "incomplete: runs budget 1 hit after 1 runs"
+        assert not exploration.probabilities_lower_bound
+        assert exploration.failed_linearizations == 0
 
     def test_the_same_model_explores_to_the_same_table(self):
         first = str(self.model.explore_action("Sched::race"))

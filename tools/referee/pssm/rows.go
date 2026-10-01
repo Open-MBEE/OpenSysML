@@ -10,6 +10,9 @@ const (
 	// RowToolChoice: the note's "differs, v2 silent" — v2 says nothing, the
 	// runtime chose, and the test is a second opinion on that choice.
 	RowToolChoice RowKind = "differs, v2 silent"
+	// RowAgrees is the note's "agrees" — decided for, or always matching,
+	// PSSM's rule; a failing test reporting on it stays `fail`.
+	RowAgrees RowKind = "agrees"
 )
 
 // Row is one row of the alignment note a test's requirement lands on.
@@ -24,19 +27,18 @@ type Row struct {
 var Rows = map[string]Row{
 	"SM6":  {"SM6", RowDiffersByDesign, "Order of a kept signal's replay against occurrences already pooled"},
 	"SM7":  {"SM7", RowDiffersByDesign, "Deferral against a transition elsewhere in the configuration"},
-	"SM11": {"SM11", RowToolChoice, "What the completion of a composite state completes"},
+	"SM11": {"SM11", RowAgrees, "What the completion of a composite state completes"},
 	"SM15": {"SM15", RowDiffersByDesign, "A do activity and the machine competing for one occurrence"},
-	"SM28": {"SM28", RowToolChoice, "History with nothing to restore"},
-	"SM30": {"SM30", RowToolChoice, "Choice: guards read on arrival"},
-	"SM32": {"SM32", RowToolChoice, "Junction or join with no path through"},
-	"SM34": {"SM34", RowToolChoice, "Join"},
+	"SM28": {"SM28", RowAgrees, "History with nothing to restore"},
+	"SM30": {"SM30", RowAgrees, "Choice: guards read on arrival"},
+	"SM32": {"SM32", RowAgrees, "Junction or join with no path through"},
+	"SM34": {"SM34", RowToolChoice, "Join: where the owner is left"},
 }
 
 // TestRows maps a test to the note row its requirement lands on. It is written
-// by hand from the note, never inferred from a run: a mapped test that fails is
-// `differs-by-design` when its row is v2's verdict and stays `fail` when the
-// row is a tool choice, with the row cited either way; a mapped test that passes
-// is a `pass` reporting on the row.
+// by hand from the note, never inferred from a run: a mapped failure stays
+// `fail` for an agrees or tool-choice row, and moves only for a v2-difference
+// row; every mapped result cites its row.
 var TestRows = map[string]string{
 	// The deferring state's exit action sends each kept occurrence to self, so
 	// it arrives behind what the pool already holds; PSSM releases it ahead.
@@ -57,15 +59,14 @@ var TestRows = map[string]string{
 	// A choice's guards read what the incoming transition's effect wrote.
 	"Choice 001": "SM30",
 	"Choice 002": "SM30",
-	// A junction none of whose outgoing guards holds disables the whole compound
-	// transition, wherever on the path it lies (a sibling region's entry, a join's exit).
+	// A junction or a join's way out none of whose outgoing guards holds disables the
+	// compound transition before it is selected, wherever on the path it lies (a sibling region's entry, a join's exit).
 	"Junction 002": "SM32",
 	"Junction 004": "SM32",
 	"Join003":      "SM32",
-	// A join's segments fire together, in a drawn order, and the owner is left after
-	// the last; PSSM fires each on its own occurrence and leaves the owner before it.
-	"Join001":        "SM34",
-	"Transition 019": "SM34",
+	// Join001 measures owner-exit timing. Transition 019's remaining mismatch
+	// ties silent target-entry order to effects, not to when the owner is left.
+	"Join001": "SM34",
 }
 
 // RowOf is the note row a test reports on, if the table maps it.

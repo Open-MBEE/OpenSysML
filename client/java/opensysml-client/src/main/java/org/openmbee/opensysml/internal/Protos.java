@@ -110,7 +110,7 @@ public final class Protos {
       case STRING_VALUE -> Optional.of(new Value.StringValue(value.getStringValue()));
       case INSTANCE_ID -> Optional.of(new Value.InstanceReference(value.getInstanceId()));
       case SEQUENCE -> Optional.of(sequence(value));
-      case NULL -> Optional.of(new Value.NullValue());
+      case NULL -> Optional.of(new Value.NullValue(value.getNull()));
       case QUANTITY -> Optional.of(new Value.QuantityValue(quantity(value.getQuantity())));
       case ENUM_LITERAL -> Optional.of(new Value.EnumerationValue(literal(value.getEnumLiteral())));
       case UNSET -> Optional.of(new Value.UnsetValue());
@@ -482,8 +482,8 @@ public final class Protos {
       ValueSequence.Builder elements = ValueSequence.newBuilder();
       sequence.elements().forEach(element -> elements.addElements(proto(element)));
       builder.setSequence(elements);
-    } else if (value instanceof Value.NullValue) {
-      builder.setNull("");
+    } else if (value instanceof Value.NullValue nul) {
+      builder.setNull(nul.unsupported());
     } else if (value instanceof Value.UnsetValue) {
       builder.setUnset(true);
     } else if (value instanceof Value.UndeterminedValue undetermined) {
@@ -964,6 +964,12 @@ public final class Protos {
               present(outcome.getError()),
               outcome.getLinearizations(),
               outcome.getProbability(),
+              outcome.hasProbabilityRange()
+                  ? Optional.of(
+                      new org.openmbee.opensysml.ProbabilityRange(
+                          outcome.getProbabilityRange().getMin(),
+                          outcome.getProbabilityRange().getMax()))
+                  : Optional.empty(),
               outcome.getWitnessList(),
               diagnostics(outcome.getDiagnosticsList())));
     }
@@ -974,6 +980,7 @@ public final class Protos {
         status.getBudgetsHitList(),
         status.getRunsBudget(),
         status.getDepthBudget(),
+        status.getFailedLinearizations(),
         status.getProbabilitiesLowerBound());
   }
 

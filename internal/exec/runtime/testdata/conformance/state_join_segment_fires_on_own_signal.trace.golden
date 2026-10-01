@@ -1,0 +1,32 @@
+exit: a (exit action)
+stmt action body
+  stmt assign log
+      eval feature log -> ""
+      eval literal "X-exit " -> "X-exit "
+    eval operator + -> "X-exit "
+stmt assign log
+    eval feature log -> "X-exit "
+    eval literal "X-effect " -> "X-effect "
+  eval operator + -> "X-exit X-effect "
+exit: b (exit action)
+stmt action body
+  stmt assign log
+      eval feature log -> "X-exit X-effect "
+      eval literal "Y-exit " -> "Y-exit "
+    eval operator + -> "X-exit X-effect Y-exit "
+stmt assign log
+    eval feature log -> "X-exit X-effect Y-exit "
+    eval literal "Y-effect " -> "Y-effect "
+  eval operator + -> "X-exit X-effect Y-exit Y-effect "
+exit: S1 (exit action)
+stmt action body
+  stmt assign log
+      eval feature log -> "X-exit X-effect Y-exit Y-effect "
+      eval literal "owner-exit " -> "owner-exit "
+    eval operator + -> "X-exit X-effect Y-exit Y-effect owner-exit "
+stmt assign log
+    eval feature log -> "X-exit X-effect Y-exit Y-effect owner-exit "
+    eval literal "out" -> "out"
+  eval operator + -> "X-exit X-effect Y-exit Y-effect owner-exit out"
+enter: done
+transition: S1 -> done (event: accept Y)

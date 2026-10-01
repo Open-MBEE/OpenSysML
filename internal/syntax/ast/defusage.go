@@ -509,8 +509,18 @@ func (u *Usage) IsPerformedAction() bool {
 
 // IsVariantReference reports a bare `variant x;` (SysML.xtext VariantReference),
 // a reference to an existing feature rather than a declaration of a new one.
+// A VariantReference takes no usage prefix: `variant ref x;` declares the
+// reference usage x (SysML-textual-bnf VariantUsageElement → ReferenceUsage).
 func (u *Usage) IsVariantReference() bool {
-	return u.IsVariant && u.Keyword == "variant"
+	return u.IsVariant && u.Keyword == "variant" && !u.hasUsagePrefix()
+}
+
+// hasUsagePrefix reports a usage prefix written ahead of the declaration: a
+// direction or one of the modifiers SysML-textual-bnf UsagePrefix spells.
+func (u *Usage) hasUsagePrefix() bool {
+	return u.Direction != DirNone || u.IsAbstract || u.IsVariation || u.IsReference ||
+		u.IsVariable || u.IsEnd || u.IsChain || u.IsConstant || u.IsEvent || u.IsIndividual ||
+		u.Portion != PortionNone || u.IsPortion || u.IsComposite || u.IsDerived
 }
 
 // IsStateAction reports whether the usage is a state's `entry a;`, `do a;` or

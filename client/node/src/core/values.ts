@@ -36,7 +36,20 @@ import {
   VectorQuantitySchema,
   VectorSchema,
 } from "../generated/sysml_pb.js";
-import { MalformedValueError, type FailureCause } from "./errors.js";
+import {
+  CAPABILITY_COMPLEX_VALUES,
+  CAPABILITY_FUNCTION_VALUES,
+  CAPABILITY_INFINITY_VALUE,
+  CAPABILITY_MEASUREMENT_REFS,
+  CAPABILITY_METAOBJECT_VALUES,
+  CAPABILITY_SET_VALUES,
+  CAPABILITY_STRUCTURED_VALUES,
+  CAPABILITY_TENSOR_VALUES,
+  requireCapability,
+  upgradeRemedy,
+  type ServerInfo,
+} from "./capabilities.js";
+import { MalformedValueError, UnsupportedValueError, type FailureCause } from "./errors.js";
 
 /** A quantity's magnitude: an integer or a real, never both. */
 export type Magnitude = { kind: "int"; value: bigint } | { kind: "real"; value: number };
@@ -180,9 +193,9 @@ export type SysMLValue =
   | { kind: "infinity" }
   | { kind: "absent" };
 
-/** What a verification answered about. Kept for the verification RPCs of a later version. */
+/** What a verification answered about. */
 export interface VerdictSubject {
-  /** "constraint", "requirement" or "satisfy". */
+  /** "constraint", "requirement", "satisfy", "objective", "assertion" or "object". */
   kind: string;
   /** FQN of the verified element; empty for an anonymous satisfy assertion. */
   elementId: string;
@@ -191,6 +204,36 @@ export interface VerdictSubject {
   /** The instance verified against, when there was one. */
   instanceId?: bigint;
   instanceTypeId?: string;
+  /** FQN of the requirement a "satisfy" verdict asserts satisfied; empty for every other kind. */
+  requirementId?: string;
+  /** Where the object this verdict is about sits in a validated one (`engine.injector`, `wheels[2]`). */
+  instancePath?: string;
+}
+
+/** One feature's value in the assignment witnessing a verdict. */
+export interface WitnessAssignment {
+  /** The qualified feature name, chain steps appended with '.'. */
+  feature: string;
+  /** The value the evaluator replayed for the feature. */
+  value: SysMLValue;
+  /** The base units the magnitude is expressed in; empty for a value that has none. */
+  unit: string;
+  /** The solver's exact value as text. */
+  exact: string;
+}
+
+/** What the body of a verification case answered when it ran. */
+export interface VerificationVerdict {
+  /** FQN of the verification case that ran. */
+  caseId: string;
+  /** The VerdictKind the body produced: "pass", "fail", "inconclusive" or "error". */
+  kind: string;
+  /** Why an inconclusive body decided nothing, or the error that stopped the run. */
+  detail: string;
+  /** Whether this is the verdict of a case performed by another. */
+  subcase: boolean;
+  /** FQN of the requirement this verdict was reported for; empty for a case run for itself. */
+  requirementId: string;
 }
 
 /** One limit an engine ran under, and whether the run stopped at it. */
@@ -213,22 +256,49 @@ export interface VerdictStanding {
   /** "not covered", "observed", "witnessed", "bounded" or "proved". */
   strength: string;
   bounds: VerdictBound[];
+  /** Whether the service reported a standing at all. */
+  reported: boolean;
+  /** The bounds the engine stopped at. */
+  reached: VerdictBound[];
 }
 
 /**
  * One verification's answer. `undecided` is the service reporting it could not
  * answer, which a `holds: false` alone does not distinguish. Every arm carries
- * the `standing` its evidence rests on.
+ * the `standing` its evidence rests on, the `question` asked and the `status`
+ * the service answered with, the `witness` assignment when the answer carries
+ * one, and the `verifications` the requirement's verification cases produced.
  */
 export type SysMLVerdict =
-  | { kind: "holds"; subject: VerdictSubject; standing: VerdictStanding }
-  | { kind: "fails"; subject: VerdictSubject; condition: string; standing: VerdictStanding }
+  | {
+      kind: "holds";
+      subject: VerdictSubject;
+      standing: VerdictStanding;
+      question: string;
+      status: string;
+      witness: WitnessAssignment[];
+      verifications: VerificationVerdict[];
+    }
+  | {
+      kind: "fails";
+      subject: VerdictSubject;
+      condition: string;
+      standing: VerdictStanding;
+      question: string;
+      status: string;
+      witness: WitnessAssignment[];
+      verifications: VerificationVerdict[];
+    }
   | {
       kind: "undecided";
       subject: VerdictSubject;
       error: string;
       cause: FailureCause;
       standing: VerdictStanding;
+      question: string;
+      status: string;
+      witness: WitnessAssignment[];
+      verifications: VerificationVerdict[];
     };
 
 /**
@@ -410,15 +480,26 @@ export function encodeValue(value: SysMLValue): Value {
 }
 
 /** Decodes a `sysml.Verdict` into the union. */
-export function decodeVerdict(verdict: Verdict): SysMLVerdict {
+export function decodeVerdict(
+  verdict: Verdict,
+  verifications: readonly VerificationVerdict[] = [],
+): SysMLVerdict {
   const subject: VerdictSubject = {
     kind: verdict.kind,
     elementId: verdict.elementId,
     element: verdict.element,
     ...(verdict.instanceId === 0n ? {} : { instanceId: verdict.instanceId }),
     ...(verdict.instanceTypeId === "" ? {} : { instanceTypeId: verdict.instanceTypeId }),
+    ...(verdict.requirementId === "" ? {} : { requirementId: verdict.requirementId }),
+    ...(verdict.instancePath === "" ? {} : { instancePath: verdict.instancePath }),
   };
   const standing = decodeStanding(verdict);
+  const witness = verdict.witness.map((assignment) => ({
+    feature: assignment.feature,
+    value: decodeValue(assignment.value),
+    unit: assignment.unit,
+    exact: assignment.exact,
+  }));
   if (verdict.error !== "") {
     return {
       kind: "undecided",
@@ -426,11 +507,32 @@ export function decodeVerdict(verdict: Verdict): SysMLVerdict {
       error: verdict.error,
       cause: failureCause(verdict.failureReason),
       standing,
+      question: verdict.question,
+      status: verdict.status,
+      witness,
+      verifications: [...verifications],
     };
   }
   return verdict.holds
-    ? { kind: "holds", subject, standing }
-    : { kind: "fails", subject, condition: verdict.condition, standing };
+    ? {
+        kind: "holds",
+        subject,
+        standing,
+        question: verdict.question,
+        status: verdict.status,
+        witness,
+        verifications: [...verifications],
+      }
+    : {
+        kind: "fails",
+        subject,
+        condition: verdict.condition,
+        standing,
+        question: verdict.question,
+        status: verdict.status,
+        witness,
+        verifications: [...verifications],
+      };
 }
 
 /** Reads the standing fields the `engines` capability adds to a verdict. */
@@ -439,10 +541,13 @@ export function decodeStanding(verdict: {
   strength: string;
   bounds: Bound[];
 }): VerdictStanding {
+  const bounds = verdict.bounds.map((b) => ({ name: b.name, limit: b.limit, reached: b.reached }));
   return {
     engine: verdict.engine,
     strength: verdict.strength,
-    bounds: verdict.bounds.map((b) => ({ name: b.name, limit: b.limit, reached: b.reached })),
+    bounds,
+    reported: verdict.strength !== "",
+    reached: bounds.filter((bound) => bound.reached),
   };
 }
 
@@ -1009,4 +1114,268 @@ function encodeEnumLiteral(literal: EnumValue): EnumLiteral {
     enumerationId: literal.enumerationId,
     value: literal.value === undefined ? undefined : encodeValue(literal.value),
   });
+}
+
+/** What a caller may pass as an argument or input to a run. A wire `Value`
+ * passes through untouched, which is how a caller sends a shape the typing
+ * layer would normalize away — including one the service is meant to refuse.
+ * A JavaScript array encodes as a sequence and a `Set` as a set, as Python's
+ * list and set do; collection elements accept every input form, not only
+ * `SysMLValue`s. */
+export type ValueInput =
+  | SysMLValue
+  | Value
+  | boolean
+  | string
+  | bigint
+  | number
+  | readonly ValueInput[]
+  | ReadonlySet<ValueInput>
+  | { kind: "sequence"; elements: readonly ValueInput[] }
+  | { kind: "set"; elements: readonly ValueInput[] }
+  | ({ kind: "array"; elements: readonly ValueInput[] } & Omit<ArrayValue, "elements">);
+
+const INT64_MIN = -(1n << 63n);
+const INT64_MAX = (1n << 63n) - 1n;
+
+/** Refuses an integer outside int64, where the wire's `int` arm lives. */
+function checkInt64(value: bigint): void {
+  if (value < INT64_MIN || value > INT64_MAX) {
+    throw new RangeError(`value out of range: ${value.toString()}`);
+  }
+}
+
+/**
+ * Encodes a caller-facing value for the wire, requiring of `info` each
+ * capability a value kind needs before the call is sent — exactly the checks
+ * Python's `Connection._python_to_value` makes. A `SysMLValue` encodes as
+ * itself; a boolean, string, bigint and number encode as the scalar arms; a
+ * JavaScript array and `Set` encode as a sequence and a set.
+ */
+export function toValue(input: ValueInput, info: ServerInfo): Value {
+  const probe: unknown = input;
+  if (typeof probe === "object" && probe !== null && "$typeName" in probe) {
+    return probe as Value;
+  }
+  return encodeInput(normalizeInput(input), info);
+}
+
+/** The `SysMLValue` one input names, collection elements converted the same way. */
+function normalizeInput(input: unknown): SysMLValue {
+  switch (typeof input) {
+    case "boolean":
+      return { kind: "boolean", value: input };
+    case "bigint":
+      checkInt64(input);
+      return { kind: "int", value: input };
+    case "number":
+      return { kind: "real", value: input };
+    case "string":
+      return { kind: "string", value: input };
+    case "undefined":
+      throw new RangeError("unsupported input type: undefined");
+    case "function":
+    case "symbol":
+    case "object":
+      break;
+  }
+  if (input === null) {
+    return { kind: "null", reason: "" };
+  }
+  if (Array.isArray(input)) {
+    return { kind: "sequence", elements: input.map(normalizeInput) };
+  }
+  if (input instanceof Set) {
+    return { kind: "set", elements: [...input].map(normalizeInput) };
+  }
+  const value = input as SysMLValue;
+  switch (value.kind) {
+    case "sequence":
+      return { kind: "sequence", elements: value.elements.map(normalizeInput) };
+    case "set":
+      return { kind: "set", elements: value.elements.map(normalizeInput) };
+    case "array":
+      return {
+        kind: "array",
+        dimensions: value.dimensions,
+        elements: value.elements.map(normalizeInput),
+      };
+    case "int":
+      checkInt64(value.value);
+      return value;
+    case "enum":
+      return value.value.value === undefined
+        ? value
+        : { kind: "enum", value: { ...value.value, value: normalizeInput(value.value.value) } };
+    case "unset":
+      throw new RangeError(
+        "an unset value cannot be sent as an input; it is a value the service answers, not one it takes",
+      );
+    default:
+      if (typeof (value as { kind?: unknown }).kind === "string") {
+        return value;
+      }
+      throw new RangeError(`unsupported input type: ${typeof input}`);
+  }
+}
+
+function encodeInput(value: SysMLValue, info: ServerInfo): Value {
+  requireInput(value, info);
+  switch (value.kind) {
+    case "sequence":
+      return create(ValueSchema, {
+        kind: {
+          case: "sequence",
+          value: create(ValueSequenceSchema, {
+            elements: value.elements.map((element) => encodeInput(element, info)),
+          }),
+        },
+      });
+    case "array":
+      checkShape("an array", value.dimensions, value.elements.length);
+      return create(ValueSchema, {
+        kind: {
+          case: "array",
+          value: create(ArraySchema, {
+            dimensions: value.dimensions,
+            elements: value.elements.map((element) => encodeInput(element, info)),
+          }),
+        },
+      });
+    case "set":
+      return create(ValueSchema, {
+        kind: {
+          case: "set",
+          value: create(ValueSetSchema, {
+            elements: uniqueMembers(value.elements).map((element) => encodeInput(element, info)),
+          }),
+        },
+      });
+    default:
+      return encodeValue(value);
+  }
+}
+
+/** The capabilities one input value needs of the service that will decode it. */
+export function requireInput(value: SysMLValue, info: ServerInfo): void {
+  const require = (capability: string): void => {
+    requireCapability(info, capability, upgradeRemedy(capability));
+  };
+  switch (value.kind) {
+    case "complex":
+      require(CAPABILITY_COMPLEX_VALUES);
+      return;
+    case "quantity":
+      checkReduction(`quantity in [${value.unit}]`, value.unit, value.unitTerm);
+      if (value.magnitude.kind === "int") {
+        checkInt64(value.magnitude.value);
+      }
+      return;
+    case "measurementRef": {
+      require(CAPABILITY_MEASUREMENT_REFS);
+      const unitTerm: unknown = value.unitTerm;
+      if (value.unit === "" && (value.unitId ?? "") === "" && unitTerm === undefined) {
+        throw new UnsupportedValueError("measurement reference naming no unit");
+      }
+      // The wire needs the reduction on every reference, id-only ones too;
+      // encodeMeasurementRef reads unitTerm unconditionally.
+      if (unitTerm === undefined) {
+        throw new UnsupportedValueError(
+          `measurement reference ${value.unit || value.unitId} carries no reduction to base units, so the service cannot tell what it ` +
+            "measures: build it from a unit the service sent, or from one the model declares",
+        );
+      }
+      return;
+    }
+    case "int":
+      checkInt64(value.value);
+      return;
+    case "instance":
+      checkInt64(value.id);
+      return;
+    case "unset":
+      throw new RangeError(
+        "an unset value cannot be sent as an input; it is a value the service answers, not one it takes",
+      );
+    case "function":
+      require(CAPABILITY_FUNCTION_VALUES);
+      if (value.selfId !== undefined) {
+        checkInt64(value.selfId);
+      }
+      return;
+    case "metaobject":
+      require(CAPABILITY_METAOBJECT_VALUES);
+      return;
+    case "array":
+      require(CAPABILITY_STRUCTURED_VALUES);
+      value.elements.forEach((element) => {
+        requireInput(element, info);
+      });
+      return;
+    case "vector":
+      require(CAPABILITY_STRUCTURED_VALUES);
+      value.components.forEach((component) => {
+        if (component.kind === "int") {
+          checkInt64(component.value);
+        }
+      });
+      return;
+    case "vectorQuantity":
+      require(CAPABILITY_STRUCTURED_VALUES);
+      value.components.forEach((component) => {
+        checkReduction(`quantity in [${component.unit}]`, component.unit, component.unitTerm);
+        if (component.magnitude.kind === "int") {
+          checkInt64(component.magnitude.value);
+        }
+      });
+      return;
+    case "set":
+      require(CAPABILITY_SET_VALUES);
+      value.elements.forEach((element) => {
+        requireInput(element, info);
+      });
+      return;
+    case "tensorQuantity":
+      require(CAPABILITY_TENSOR_VALUES);
+      value.components.forEach((component) => {
+        checkReduction(`quantity in [${component.unit}]`, component.unit, component.unitTerm);
+        if (component.magnitude.kind === "int") {
+          checkInt64(component.magnitude.value);
+        }
+      });
+      return;
+    case "infinity":
+      require(CAPABILITY_INFINITY_VALUE);
+      return;
+    case "enum":
+      if (value.value.value !== undefined) {
+        requireInput(value.value.value, info);
+      }
+      return;
+    case "sequence":
+      value.elements.forEach((element) => {
+        requireInput(element, info);
+      });
+      return;
+    default:
+      return;
+  }
+}
+
+/**
+ * Refuses a unit named without its reduction to base units — the service
+ * decides commensurability over the reduction and rejects a unit sent without
+ * one; an unnamed unit means dimension one and carries none.
+ */
+function checkReduction(
+  what: string,
+  unit: string,
+  unitTerm: UnitFactorization | undefined,
+): void {
+  if (unit !== "" && unitTerm === undefined) {
+    throw new UnsupportedValueError(
+      `${what} carries no reduction to base units, so the service cannot tell what it ` +
+        "measures: build it from a unit the service sent, or from one the model declares",
+    );
+  }
 }

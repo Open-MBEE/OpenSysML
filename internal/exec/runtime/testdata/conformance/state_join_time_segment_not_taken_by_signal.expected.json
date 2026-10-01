@@ -3,18 +3,18 @@
   "libraries": true,
   "trace": true,
   "outcomes": [
-    {
-      "finalState": "a1+b1+c2+d2",
-      "outputs": {
-        "log": {"type": "String", "value": "c d "}
-      }
-    },
-    {
-      "finalState": "a1+b1+c2+d2",
-      "outputs": {
-        "log": {"type": "String", "value": "d c "}
-      }
-    }
+    {"finalState": "done", "outputs": {"log": {"type": "String", "value": "b c a sync"}}},
+    {"finalState": "done", "outputs": {"log": {"type": "String", "value": "b c d a sync"}}},
+    {"finalState": "done", "outputs": {"log": {"type": "String", "value": "b d c a sync"}}},
+    {"finalState": "done", "outputs": {"log": {"type": "String", "value": "c a b sync"}}},
+    {"finalState": "done", "outputs": {"log": {"type": "String", "value": "c a d b sync"}}},
+    {"finalState": "done", "outputs": {"log": {"type": "String", "value": "c b a sync"}}},
+    {"finalState": "done", "outputs": {"log": {"type": "String", "value": "c b d a sync"}}},
+    {"finalState": "done", "outputs": {"log": {"type": "String", "value": "c d a b sync"}}},
+    {"finalState": "done", "outputs": {"log": {"type": "String", "value": "c d b a sync"}}},
+    {"finalState": "done", "outputs": {"log": {"type": "String", "value": "d b c a sync"}}},
+    {"finalState": "done", "outputs": {"log": {"type": "String", "value": "d c a b sync"}}},
+    {"finalState": "done", "outputs": {"log": {"type": "String", "value": "d c b a sync"}}}
   ],
   "admissible": "Two time events due at one instant: each dispatches, in which order is open"
 }

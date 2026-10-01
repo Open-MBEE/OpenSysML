@@ -47,12 +47,17 @@ type wanted struct {
 	segments map[segmentKey]bool
 	// starts holds the member each `first` names, keyed by the initial node.
 	starts map[string]string
+	// variants holds the feature each `variant x;` names, keyed by the variant.
+	variants map[string]string
 }
 
 type wantedReference struct {
 	qualified, written string
 	// count is how many times the rendering wrote the reference.
 	count int
+	// qualifiedOnly holds a reference only a qualified name may spell: the
+	// one-segment spelling reads back as a declared name (`variant x;`).
+	qualifiedOnly bool
 }
 
 func newWanted() *wanted {
@@ -60,11 +65,12 @@ func newWanted() *wanted {
 		references: map[nameKey]wantedReference{},
 		segments:   map[segmentKey]bool{},
 		starts:     map[string]string{},
+		variants:   map[string]string{},
 	}
 }
 
 func (w *wanted) empty() bool {
-	return len(w.references) == 0 && len(w.segments) == 0 && len(w.starts) == 0
+	return len(w.references) == 0 && len(w.segments) == 0 && len(w.starts) == 0 && len(w.variants) == 0
 }
 
 // chooseNames reads a rendering as the language name says, in the place of the
@@ -153,6 +159,9 @@ func chooseNames(name, library string, text []byte, want *wanted, previous *name
 	if err := e.checkStarts(want.starts, declared); err != nil {
 		return nil, false, err
 	}
+	if err := e.checkVariants(want.variants, declared); err != nil {
+		return nil, false, err
+	}
 	for key := range want.references {
 		if _, ok := occurrences[key]; !ok {
 			// A reference written but never read back cannot be checked to reach
@@ -170,6 +179,9 @@ func chooseNames(name, library string, text []byte, want *wanted, previous *name
 		}
 		ref := want.references[key]
 		spellings := referenceSpellings(ref.qualified)
+		if ref.qualifiedOnly {
+			spellings = qualifiedSpellings(spellings)
+		}
 		if previous != nil {
 			spellings = fromWritten(spellings, ref.written)
 		}
@@ -434,6 +446,17 @@ func segmentSpellings(name, target string) []string {
 
 // fromWritten is spellings from the one written on: kept first, then only the
 // longer ones, so a choice checked in its own rendering never shortens again.
+// qualifiedSpellings are the spellings of more than one segment.
+func qualifiedSpellings(spellings []string) []string {
+	var out []string
+	for _, spelling := range spellings {
+		if len(identitySegments(strings.TrimPrefix(spelling, "$::"))) > 1 || strings.HasPrefix(spelling, "$::") {
+			out = append(out, spelling)
+		}
+	}
+	return out
+}
+
 func fromWritten(spellings []string, written string) []string {
 	for i, spelling := range spellings {
 		if spelling == written {
@@ -516,6 +539,30 @@ func (e *encoder) checkStarts(starts map[string]string, declared map[string]ast.
 		return &UnsupportedError{
 			What: fmt.Sprintf("the initial node %s", fqn),
 			Note: fmt.Sprintf("`first %s` does not name %s in the body it is written in, so the notation cannot state it", nameText(initial.Name()), target),
+		}
+	}
+	return nil
+}
+
+// checkVariants refuses a `variant x;` written for a variant whose x does not
+// reach, from the variation, the feature the variant references.
+func (e *encoder) checkVariants(variants map[string]string, declared map[string]ast.Node) error {
+	for fqn, target := range variants {
+		usage, ok := declared[fqn].(*ast.Usage)
+		if !ok || !usage.IsVariantReference() || referencesFeature(usage) {
+			return &UnsupportedError{
+				What: fmt.Sprintf("the variant %s", fqn),
+				Note: "the notation written for it does not read back as a variant reference, so the feature it names cannot be checked",
+			}
+		}
+		if sym := e.ids.declSym[usage]; sym != nil {
+			if _, reached, ok := e.linked(e.ids.model.ReferencedFeature(sym), true); ok && reached == target {
+				continue
+			}
+		}
+		return &UnsupportedError{
+			What: fmt.Sprintf("the variant %s", fqn),
+			Note: fmt.Sprintf("`variant %s` does not name %s from the variation it is written in, so the notation cannot state it", nameText(usage.Ident.Name), target),
 		}
 	}
 	return nil

@@ -479,3 +479,35 @@ func TestMarkdownImageReportGolden(t *testing.T) {
 		t.Errorf("rendered Markdown differs from %s (run with -update after intentional changes)\ngot:\n%s", golden, got)
 	}
 }
+
+// TestMarkdownReferencedReportGolden locks how references read in Markdown: a
+// numbered table by its number, a section by its title (Markdown numbers no
+// headings), an element outside every document by its name without a link,
+// and punctuation bound to the reference beside it.
+func TestMarkdownReferencedReportGolden(t *testing.T) {
+	document := fixtureDocument(t, filepath.Join("testdata", "referenced_report.sysml"), "Referenced::ReferencedReport")
+	got, err := Markdown(document, MarkdownOptions{NumberFigures: true})
+	if err != nil {
+		t.Fatalf("render: %v", err)
+	}
+	golden := filepath.Join("testdata", "referenced_report.golden.md")
+	if *update {
+		if err := os.WriteFile(golden, []byte(got), 0o644); err != nil {
+			t.Fatalf("update golden: %v", err)
+		}
+	}
+	want, err := os.ReadFile(golden)
+	if err != nil {
+		t.Fatalf("read golden (run with -update to create): %v", err)
+	}
+	if got != string(want) {
+		t.Errorf("rendered Markdown differs from %s (run with -update after intentional changes)\ngot:\n%s", golden, got)
+	}
+	plain, err := Markdown(document, MarkdownOptions{})
+	if err != nil {
+		t.Fatalf("render unnumbered: %v", err)
+	}
+	if !strings.Contains(plain, "[Parts aligned](#procedures-alignment-parts)") || strings.Contains(plain, "Table 1") {
+		t.Errorf("an unnumbered table is referenced by its caption:\n%s", plain)
+	}
+}

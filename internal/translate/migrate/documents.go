@@ -30,6 +30,8 @@ type docPlan struct {
 	// refused records the steps ledgered unmapped in this document by id and
 	// note, so a looping node's passes report a step they share once.
 	refused map[string]bool
+	// target is the definition's qualified name, under which its blocks are named.
+	target string
 }
 
 // anchor is a Document's reference usage of a definition, through which a
@@ -126,6 +128,9 @@ type contentPlan struct {
 	source  *view
 	anchor  *anchor
 	section *sectionPlan
+	// runs are a Paragraph's text runs, when a cross-reference in its body
+	// is written as a reference; nil for a Paragraph of text alone.
+	runs []docRun
 	// diagram is the diagram a figure stands for, drawn, left out or refused,
 	// so a paragraph anchored to the figure finds its place.
 	diagram *sysmlv1.Diagram
@@ -496,10 +501,10 @@ func (m *migration) viewDocumentation(sec *sectionPlan) {
 		kind:          "Paragraph",
 		node:          c,
 		label:         "Comment",
-		text:          commentBody(c),
 		origin:        "the documentation of the view " + qualifiedName(v.Class),
 		documentation: true,
 	}
+	m.paragraphProse(cp, commentRawBody(c), c)
 	if !m.imageInBody(sec, cp, c, commentRawBody(c)) {
 		cp.name = sec.names.claim("paragraph")
 	}
@@ -528,7 +533,7 @@ func (m *migration) collaboratorParagraph(sec *sectionPlan, p *sysmlv1.DocGenPar
 	if p.Malformed != "" {
 		cp.refused = p.Malformed
 	} else if p.Comment != nil {
-		cp.text = commentBody(p.Comment)
+		m.paragraphProse(cp, commentRawBody(p.Comment), p.Comment)
 	}
 	switch {
 	case cp.refused != "":
@@ -2224,7 +2229,7 @@ func (c *chain) captionText(s *sysmlv1.DocGenStep, i int) string {
 	if i >= len(captions) {
 		return ""
 	}
-	return commentText(captions[i])
+	return c.m.proseText(captions[i], s.Node)
 }
 
 // captionParagraph plans the Paragraph holding a block's caption, which a
@@ -2500,7 +2505,8 @@ func (c *chain) paragraph(s *sysmlv1.DocGenStep) {
 		return
 	}
 	if raw := a.Tag("body"); raw != "" {
-		cp := &contentPlan{kind: "Paragraph", node: s.Node, label: "«Paragraph» " + s.Node.Type, text: commentText(raw)}
+		cp := &contentPlan{kind: "Paragraph", node: s.Node, label: "«Paragraph» " + s.Node.Type}
+		c.m.paragraphProse(cp, raw, nil)
 		if c.m.imageInBody(c.sec, cp, s.Node, raw) || cp.text != "" {
 			if cp.name == "" {
 				cp.name = c.sec.names.claim("paragraph")
@@ -2671,10 +2677,11 @@ func (m *migration) refuseFigure(sec *sectionPlan, f figureOf, d *sysmlv1.Diagra
 
 // captionParagraph plans the Paragraph holding a figure's caption, which a
 // document prints under the figure; note says whose caption it is.
-func (m *migration) captionParagraph(sec *sectionPlan, f figureOf, note, text string) {
+func (m *migration) captionParagraph(sec *sectionPlan, f figureOf, note, text string) *contentPlan {
 	cp := &contentPlan{kind: "Paragraph", node: f.node, app: f.app, label: f.label, text: text, origin: joinNotes(f.origin, note)}
 	cp.name = sec.names.claim("paragraph")
 	sec.content = append(sec.content, cp)
+	return cp
 }
 
 // noteImage plans a figure's Image block when the empty diagram's note holds
@@ -2699,8 +2706,9 @@ func (m *migration) noteImage(sec *sectionPlan, f figureOf, d *sysmlv1.Diagram) 
 		cp.alt = cp.caption
 	}
 	sec.content = append(sec.content, cp)
-	if text := commentText(d.Documentation); text != "" && !captionCovers(cp.caption, text) {
-		m.captionParagraph(sec, f, "the paragraph is the note the figure's image carries", text)
+	if text, notes := m.proseNoted(d.Documentation); text != "" && !captionCovers(cp.caption, text) {
+		note := m.captionParagraph(sec, f, "the paragraph is the note the figure's image carries", text)
+		note.notes = append(note.notes, notes...)
 	}
 	if f.text != "" {
 		m.captionParagraph(sec, f, "the paragraph is the Diagram's caption", f.text)
@@ -2802,6 +2810,7 @@ func (m *migration) writeDocument(dp *docPlan) {
 	m.writeQueries(dp.root, m.queryPrefix(dp.host))
 	var notes []string
 	target := m.qualified(append(m.segments(dp.host), dp.root.name))
+	dp.target = target
 	m.inside(blockNames("Document", dp.root.names), func() {
 		m.w.block("part def "+writeName(dp.root.name)+" :> "+m.queryPrefix(dp.host)+"Document", func() {
 			m.w.line(titleRedefines + stringLiteral(dp.root.title) + ";")
@@ -2871,6 +2880,9 @@ var libraryMembers = map[string][]string{
 	"Document":  {"title"},
 	"Section":   {"title"},
 	"Paragraph": {"text", "values"},
+	"Span":      {"text", "style"},
+	"Link":      {"text", "target"},
+	"Ref":       {"text", "target"},
 	"Table":     {"caption", "groupBy", "rows"},
 	"List":      {"style", "items"},
 	"Diagram":   {"caption", "kind", "direction", "palette", "source"},
@@ -2934,9 +2946,12 @@ func (m *migration) writeBlock(dp *docPlan, cp *contentPlan, path string) []stri
 		return append(notes, cp.notes...)
 	case "Paragraph":
 		m.blockPart(dp.host, cp.name, "Paragraph", nil, func() {
-			if cp.query != "" {
+			switch {
+			case cp.query != "":
 				m.w.line("calc values : " + m.siblingRef(dp.host, cp.query) + ";")
-			} else {
+			case len(cp.runs) > 0:
+				m.writeRuns(dp, cp)
+			default:
 				m.w.line("attribute redefines text = " + stringLiteral(cp.text) + ";")
 			}
 		})
@@ -3055,9 +3070,10 @@ func (m *migration) blockEntry(cp *contentPlan) *Entry {
 }
 
 // reportBlock records a written block. A documentation Paragraph joins the
-// comment's own entry, since the comment is one source element; where the view
-// is placed again, the further paragraph is noted on it. Every other block is a
-// row of its own.
+// comment's own entry, since the comment is one source element — note by
+// note, as the comment's other renderings may have noted the same already;
+// where the view is placed again, the further paragraph is noted on it. Every
+// other block is a row of its own.
 func (m *migration) reportBlock(cp *contentPlan) {
 	e := m.blockEntry(cp)
 	if !cp.documentation {
@@ -3066,8 +3082,12 @@ func (m *migration) reportBlock(cp *contentPlan) {
 	}
 	if i, ok := m.indexed[cp.node.ID]; ok {
 		if t := m.report.Entries[i].Target; t != "" && t != e.Target {
-			e.Note = "also written as " + e.Target
+			m.add(cp.node, e.Verdict, e.Target, "also written as "+e.Target)
+			return
 		}
 	}
-	m.add(cp.node, e.Verdict, e.Target, e.Note)
+	m.add(cp.node, e.Verdict, e.Target, cp.origin)
+	for _, n := range cp.notes {
+		m.annotate(cp.node, n, e.Verdict == Approximated)
+	}
 }

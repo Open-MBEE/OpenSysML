@@ -139,9 +139,9 @@ func TestCompileCrossDocumentRefToNestedBlock(t *testing.T) {
 	}
 }
 
-// TestCompileCrossDocumentRefErrors checks references to unknown names and to
-// elements that are neither content blocks nor documents fail with typed,
-// located errors.
+// TestCompileCrossDocumentRefErrors checks references to unknown names, to a
+// document's own root and to members of a document that are not content
+// blocks fail with typed, located errors.
 func TestCompileCrossDocumentRefErrors(t *testing.T) {
 	cases := []struct {
 		name   string
@@ -149,7 +149,7 @@ func TestCompileCrossDocumentRefErrors(t *testing.T) {
 		kind   ErrorKind
 	}{
 		{"unknown", "Appendix::missing", ErrorUnknownRefTarget},
-		{"not content", "Loose", ErrorInvalidRefTarget},
+		{"not content", "Appendix::tables::body::lead", ErrorInvalidRefTarget},
 		{"own root", "Report", ErrorInvalidRefTarget},
 	}
 	for _, tc := range cases {
@@ -160,12 +160,11 @@ func TestCompileCrossDocumentRefErrors(t *testing.T) {
 					part tables : Section {
 						attribute redefines title = "Detail Tables";
 						part body : Paragraph {
-							attribute redefines text = "detail";
+							part lead : Span {
+								attribute redefines text = "detail";
+							}
 						}
 					}
-				}
-				part Loose : Paragraph {
-					attribute redefines text = "unowned";
 				}
 				part def Report :> Document {
 					attribute redefines title = "Report";
@@ -185,6 +184,56 @@ func TestCompileCrossDocumentRefErrors(t *testing.T) {
 				t.Error("error has no origin")
 			}
 		})
+	}
+}
+
+// TestCompileRefToElement checks a reference to a model element outside every
+// document resolves to the element, labelled by its name when the run states
+// no text, with neither a content path nor a document.
+func TestCompileRefToElement(t *testing.T) {
+	fixture := loadPlanningFixture(t, `
+		part def Mount;
+		part telescope;
+		part Loose : Paragraph {
+			attribute redefines text = "unowned";
+		}
+		part def Report :> Document {
+			attribute redefines title = "Report";
+			part intro : Paragraph {
+				part see : Ref {
+					ref redefines target = telescope;
+				}
+				part kind : Ref {
+					ref redefines target = Mount.metadata;
+				}
+				part named : Ref {
+					attribute redefines text = "the loose paragraph";
+					ref redefines target = Loose;
+				}
+			}
+		}
+	`)
+	plan := fixture.mustCompile(t, "Report")
+	runs := plan.Content()[0].Runs()
+	if len(runs) != 3 {
+		t.Fatalf("runs = %d, want 3", len(runs))
+	}
+	for i, want := range []struct {
+		element, text string
+		defaulted     bool
+	}{
+		{"Observatory::telescope", "telescope", true},
+		{"Observatory::Mount", "Mount", true},
+		{"Observatory::Loose", "the loose paragraph", false},
+	} {
+		run := runs[i]
+		if run.RefElement() != want.element || run.Text() != want.text || run.TextDefaulted() != want.defaulted {
+			t.Errorf("run %d = element %q, text %q, defaulted %v; want %q, %q, %v",
+				i, run.RefElement(), run.Text(), run.TextDefaulted(), want.element, want.text, want.defaulted)
+		}
+		if len(run.RefPath()) != 0 || run.RefDocument() != "" {
+			t.Errorf("run %d has path %v and document %q, want neither", i, run.RefPath(), run.RefDocument())
+		}
 	}
 }
 

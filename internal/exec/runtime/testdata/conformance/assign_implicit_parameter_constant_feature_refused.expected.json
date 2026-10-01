@@ -1,0 +1,5 @@
+{
+	"type": "action",
+	"evaluate": "test::tune",
+	"error": "assignment to cap: feature is read-only: cap is constant by Gen::limit, which it redefines or subsets"
+}

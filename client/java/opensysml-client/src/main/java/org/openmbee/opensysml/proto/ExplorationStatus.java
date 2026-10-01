@@ -164,7 +164,7 @@ private static final long serialVersionUID = 0L;
   private boolean probabilitiesLowerBound_ = false;
   /**
    * <pre>
-   * True when the outcomes' probabilities are lower bounds: a budget kept some
+   * True when weighted probabilities are lower bounds: a budget kept some
    * linearizations unexplored.
    * </pre>
    *
@@ -174,6 +174,21 @@ private static final long serialVersionUID = 0L;
   @java.lang.Override
   public boolean getProbabilitiesLowerBound() {
     return probabilitiesLowerBound_;
+  }
+
+  public static final int FAILED_LINEARIZATIONS_FIELD_NUMBER = 7;
+  private int failedLinearizations_ = 0;
+  /**
+   * <pre>
+   * How many linearizations ended in runtime-error outcomes.
+   * </pre>
+   *
+   * <code>int32 failed_linearizations = 7 [json_name = "failedLinearizations"];</code>
+   * @return The failedLinearizations.
+   */
+  @java.lang.Override
+  public int getFailedLinearizations() {
+    return failedLinearizations_;
   }
 
   private byte memoizedIsInitialized = -1;
@@ -207,6 +222,9 @@ private static final long serialVersionUID = 0L;
     }
     if (probabilitiesLowerBound_ != false) {
       output.writeBool(6, probabilitiesLowerBound_);
+    }
+    if (failedLinearizations_ != 0) {
+      output.writeInt32(7, failedLinearizations_);
     }
     getUnknownFields().writeTo(output);
   }
@@ -245,6 +263,10 @@ private static final long serialVersionUID = 0L;
       size += com.google.protobuf.CodedOutputStream
         .computeBoolSize(6, probabilitiesLowerBound_);
     }
+    if (failedLinearizations_ != 0) {
+      size += com.google.protobuf.CodedOutputStream
+        .computeInt32Size(7, failedLinearizations_);
+    }
     size += getUnknownFields().getSerializedSize();
     memoizedSize = size;
     return size;
@@ -272,6 +294,8 @@ private static final long serialVersionUID = 0L;
         != other.getDepthBudget()) return false;
     if (getProbabilitiesLowerBound()
         != other.getProbabilitiesLowerBound()) return false;
+    if (getFailedLinearizations()
+        != other.getFailedLinearizations()) return false;
     if (!getUnknownFields().equals(other.getUnknownFields())) return false;
     return true;
   }
@@ -299,6 +323,8 @@ private static final long serialVersionUID = 0L;
     hash = (37 * hash) + PROBABILITIES_LOWER_BOUND_FIELD_NUMBER;
     hash = (53 * hash) + com.google.protobuf.Internal.hashBoolean(
         getProbabilitiesLowerBound());
+    hash = (37 * hash) + FAILED_LINEARIZATIONS_FIELD_NUMBER;
+    hash = (53 * hash) + getFailedLinearizations();
     hash = (29 * hash) + getUnknownFields().hashCode();
     memoizedHashCode = hash;
     return hash;
@@ -442,6 +468,7 @@ private static final long serialVersionUID = 0L;
       runsBudget_ = 0;
       depthBudget_ = 0;
       probabilitiesLowerBound_ = false;
+      failedLinearizations_ = 0;
       return this;
     }
 
@@ -494,6 +521,9 @@ private static final long serialVersionUID = 0L;
       if (((from_bitField0_ & 0x00000020) != 0)) {
         result.probabilitiesLowerBound_ = probabilitiesLowerBound_;
       }
+      if (((from_bitField0_ & 0x00000040) != 0)) {
+        result.failedLinearizations_ = failedLinearizations_;
+      }
     }
 
     @java.lang.Override
@@ -532,6 +562,9 @@ private static final long serialVersionUID = 0L;
       }
       if (other.getProbabilitiesLowerBound() != false) {
         setProbabilitiesLowerBound(other.getProbabilitiesLowerBound());
+      }
+      if (other.getFailedLinearizations() != 0) {
+        setFailedLinearizations(other.getFailedLinearizations());
       }
       this.mergeUnknownFields(other.getUnknownFields());
       onChanged();
@@ -590,6 +623,11 @@ private static final long serialVersionUID = 0L;
               bitField0_ |= 0x00000020;
               break;
             } // case 48
+            case 56: {
+              failedLinearizations_ = input.readInt32();
+              bitField0_ |= 0x00000040;
+              break;
+            } // case 56
             default: {
               if (!super.parseUnknownField(input, extensionRegistry, tag)) {
                 done = true; // was an endgroup tag
@@ -924,7 +962,7 @@ private static final long serialVersionUID = 0L;
     private boolean probabilitiesLowerBound_ ;
     /**
      * <pre>
-     * True when the outcomes' probabilities are lower bounds: a budget kept some
+     * True when weighted probabilities are lower bounds: a budget kept some
      * linearizations unexplored.
      * </pre>
      *
@@ -937,7 +975,7 @@ private static final long serialVersionUID = 0L;
     }
     /**
      * <pre>
-     * True when the outcomes' probabilities are lower bounds: a budget kept some
+     * True when weighted probabilities are lower bounds: a budget kept some
      * linearizations unexplored.
      * </pre>
      *
@@ -954,7 +992,7 @@ private static final long serialVersionUID = 0L;
     }
     /**
      * <pre>
-     * True when the outcomes' probabilities are lower bounds: a budget kept some
+     * True when weighted probabilities are lower bounds: a budget kept some
      * linearizations unexplored.
      * </pre>
      *
@@ -964,6 +1002,50 @@ private static final long serialVersionUID = 0L;
     public Builder clearProbabilitiesLowerBound() {
       bitField0_ = (bitField0_ & ~0x00000020);
       probabilitiesLowerBound_ = false;
+      onChanged();
+      return this;
+    }
+
+    private int failedLinearizations_ ;
+    /**
+     * <pre>
+     * How many linearizations ended in runtime-error outcomes.
+     * </pre>
+     *
+     * <code>int32 failed_linearizations = 7 [json_name = "failedLinearizations"];</code>
+     * @return The failedLinearizations.
+     */
+    @java.lang.Override
+    public int getFailedLinearizations() {
+      return failedLinearizations_;
+    }
+    /**
+     * <pre>
+     * How many linearizations ended in runtime-error outcomes.
+     * </pre>
+     *
+     * <code>int32 failed_linearizations = 7 [json_name = "failedLinearizations"];</code>
+     * @param value The failedLinearizations to set.
+     * @return This builder for chaining.
+     */
+    public Builder setFailedLinearizations(int value) {
+
+      failedLinearizations_ = value;
+      bitField0_ |= 0x00000040;
+      onChanged();
+      return this;
+    }
+    /**
+     * <pre>
+     * How many linearizations ended in runtime-error outcomes.
+     * </pre>
+     *
+     * <code>int32 failed_linearizations = 7 [json_name = "failedLinearizations"];</code>
+     * @return This builder for chaining.
+     */
+    public Builder clearFailedLinearizations() {
+      bitField0_ = (bitField0_ & ~0x00000040);
+      failedLinearizations_ = 0;
       onChanged();
       return this;
     }

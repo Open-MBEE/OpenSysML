@@ -570,6 +570,12 @@ func (s *Session) checkCondition(name string) (*symbols.Symbol, conditionCheck, 
 // checkStoppedVerdict reports a check that answered nothing: a refusal, a fault,
 // or the plan's clock ending, with what the search reached before it stopped.
 func checkStoppedVerdict(subject, label string, err error) Verdict {
+	var setup *runtime.SetupError
+	if errors.As(err, &setup) {
+		return Verdict{Subject: subject, Status: VerdictFails, Lines: []string{
+			fmt.Sprintf("✗ %s: no linearization ran: %s", label, err),
+		}}
+	}
 	var stopped *runtime.CheckStopped
 	if errors.As(err, &stopped) {
 		return Verdict{Subject: subject, Status: VerdictUnresolved, Lines: []string{

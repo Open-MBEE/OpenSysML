@@ -195,8 +195,8 @@ package OpenSysMLSurfaces {
         port serviceClient : RequestPort;
     }
 
-    part def CameoPlugin :> ToolIntegration {
-        attribute :>> goPackage = "editors/cameo";
+    part def OpenSysMLMDK :> ToolIntegration {
+        attribute :>> goPackage = "editors/mdk";
     }
 
     part def SysonIntegration :> ToolIntegration {
@@ -379,7 +379,7 @@ package OpenSysMLSurfaces {
         attribute :>> goPackage = "internal/translate/migrate";
         attribute reader : String = "internal/translate/xmi/sysmlv1";
         attribute layoutSource : String = "internal/translate/mtip";
-        attribute resultsSchema : String = "internal/translate/simresults";
+        attribute resultsSchema : String = "internal/exec/simresults";
         attribute reportFlag : String = "-migration-report";
         attribute resultsFlag : String = "-migration-results";
         attribute layoutFlag : String = "-layout";
@@ -632,7 +632,7 @@ package OpenSysMLSurfaces {
         part julia : JuliaClient;
         part matlab : MatlabClient;
         part vscode : VsCodeExtension;
-        part cameo : CameoPlugin;
+        part mdk : OpenSysMLMDK;
         part syson : SysonIntegration;
 
         part exporter : Exporter;
@@ -671,7 +671,7 @@ package OpenSysMLSurfaces {
         connection juliaCalls : ArtifactChannel connect julia.service to service.pipeline;
         connection matlabCalls : ArtifactChannel connect matlab.service to service.pipeline;
         connection editorSpeaksLsp : ArtifactChannel connect vscode.languageClient to lsp.pipeline;
-        connection cameoUsesJava : ArtifactChannel connect cameo.serviceClient to java.service;
+        connection mdkUsesJava : ArtifactChannel connect mdk.serviceClient to java.service;
         connection sysonUsesJava : ArtifactChannel connect syson.serviceClient to java.service;
 
         connection documentsRead : ArtifactChannel connect pipeline.textIn to documents.modelIn;

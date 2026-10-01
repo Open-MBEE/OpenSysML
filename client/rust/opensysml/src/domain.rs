@@ -1,5 +1,6 @@
 use std::collections::HashMap;
 use std::fmt;
+use std::path::{Path, PathBuf};
 use std::sync::Arc;
 
 use crate::{error::Error, wire, Connection};
@@ -155,6 +156,15 @@ impl From<wire::Diagnostic> for Diagnostic {
     }
 }
 
+impl fmt::Display for Diagnostic {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        if let Some(span) = &self.span {
+            write!(f, "{}:{}:{}: ", span.file, span.start_line, span.start_col)?;
+        }
+        write!(f, "{}: {}", self.severity, self.message)
+    }
+}
+
 impl Diagnostic {
     /// The response this was built from; for conformance tooling and debugging.
     pub fn wire(&self) -> &wire::Diagnostic {
@@ -202,10 +212,29 @@ pub struct Quantity {
     pub unit_term: Option<UnitTerm>,
 }
 
+impl fmt::Display for Magnitude {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Self::Integer(n) => n.fmt(f),
+            Self::Real(r) => r.fmt(f),
+        }
+    }
+}
+
+impl fmt::Display for Quantity {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        if self.unit.is_empty() {
+            self.magnitude.fmt(f)
+        } else {
+            write!(f, "{} [{}]", self.magnitude, self.unit)
+        }
+    }
+}
+
 /// A complex number in rectangular form: one value, never two reals.
 ///
 /// A service advertising `complex_values` sends one as itself; an older one
-/// sends an unsupported [`Value::Null`] in its place.
+/// sends an unsupported null, read as [`Error::UnsupportedValue`], in its place.
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct Complex {
     /// Real part.
@@ -246,7 +275,7 @@ pub struct EnumLiteral {
 /// A rank-0 array holds exactly one element. An element is any [`Value`], a
 /// nested array or a quantity included. A service advertising
 /// `structured_values` sends one as itself; an older one sends an unsupported
-/// [`Value::Null`] in its place.
+/// null, read as [`Error::UnsupportedValue`], in its place.
 #[derive(Clone, Debug, PartialEq)]
 pub struct Array {
     dimensions: Vec<i64>,
@@ -296,7 +325,7 @@ impl Array {
 /// one value, never a sequence of numbers.
 ///
 /// A service advertising `structured_values` sends one as itself; an older
-/// one sends an unsupported [`Value::Null`] in its place.
+/// one sends an unsupported null, read as [`Error::UnsupportedValue`], in its place.
 #[derive(Clone, Debug, PartialEq)]
 pub struct Vector {
     /// The components, in order.
@@ -315,7 +344,7 @@ impl Vector {
 /// need not.
 ///
 /// A service advertising `structured_values` sends one as itself; an older
-/// one sends an unsupported [`Value::Null`] in its place.
+/// one sends an unsupported null, read as [`Error::UnsupportedValue`], in its place.
 #[derive(Clone, Debug, PartialEq)]
 pub struct VectorQuantity {
     components: Vec<Quantity>,
@@ -358,7 +387,8 @@ impl VectorQuantity {
 /// then strings, and so on), each exactly once; two sets are equal when they
 /// hold the same members whatever the order, judged by
 /// [`Value::same_value`]. A service advertising `set_values` sends one as
-/// itself; an older one sends an unsupported [`Value::Null`] in its place.
+/// itself; an older one sends an unsupported null, read as
+/// [`Error::UnsupportedValue`], in its place.
 #[derive(Clone, Debug)]
 pub struct Set {
     elements: Vec<Value>,
@@ -411,7 +441,7 @@ impl PartialEq for Set {
 ///
 /// A rank-one tensor stays a tensor, distinct from a [`VectorQuantity`]. A
 /// service advertising `tensor_values` sends one as itself; an older one
-/// sends an unsupported [`Value::Null`] in its place.
+/// sends an unsupported null, read as [`Error::UnsupportedValue`], in its place.
 #[derive(Clone, Debug, PartialEq)]
 pub struct TensorQuantity {
     dimensions: Vec<i64>,
@@ -504,7 +534,7 @@ fn row_major(dimensions: &[i64], index: &[i64]) -> Option<usize> {
 /// or `m / s` as an operation composed it.
 ///
 /// A service advertising `measurement_refs` sends one as itself; an older one
-/// sends an unsupported [`Value::Null`] in its place.
+/// sends an unsupported null, read as [`Error::UnsupportedValue`], in its place.
 #[derive(Clone, Debug, PartialEq)]
 pub struct MeasurementRef {
     /// Unit as written by the model (`km`), empty for one never written down.
@@ -522,7 +552,7 @@ pub struct MeasurementRef {
 /// It is the declaration it is a value of, which is its identity: two functions
 /// are equal exactly when both fields are. A function closing over the bindings
 /// of the behavior body it is declared in has no wire form; the service sends
-/// it as an unsupported [`Value::Null`], as does a service without
+/// it as an unsupported null, read as [`Error::UnsupportedValue`], as does a service without
 /// `function_values` for every function.
 #[derive(Clone, Debug, PartialEq, Eq, Hash)]
 pub struct Function {
@@ -542,7 +572,7 @@ pub struct Function {
 /// are equal exactly when `element_id` is, whatever type each was cast to. Its
 /// features (`declaredName`, `ownedFeature`, ...) are read in the model, not
 /// carried. A service without `metaobject_values` sends an unsupported
-/// [`Value::Null`] in its place.
+/// null, read as [`Error::UnsupportedValue`], in its place.
 #[derive(Clone, Debug, Eq)]
 pub struct Metaobject {
     /// FQN of the element reflected on (`Vehicle::seatBelt`).
@@ -823,6 +853,14 @@ fn components_equal(a: &[Quantity], b: &[Quantity]) -> bool {
     a.len() == b.len() && a.iter().zip(b).all(|(x, y)| quantities_equal(x, y))
 }
 
+impl TryFrom<wire::Value> for Value {
+    type Error = Error;
+
+    fn try_from(value: wire::Value) -> Result<Self, Error> {
+        value_from_wire(value)
+    }
+}
+
 pub(crate) fn value_from_wire(value: wire::Value) -> Result<Value, Error> {
     let Some(kind) = value.kind else {
         return Err(Error::Decode("Value has no kind".to_owned()));
@@ -843,6 +881,9 @@ pub(crate) fn value_from_wire(value: wire::Value) -> Result<Value, Error> {
                 .map(value_from_wire)
                 .collect::<Result<_, _>>()?,
         )),
+        wire::value::Kind::Null(reason) if !reason.is_empty() => {
+            Err(Error::UnsupportedValue(reason))
+        }
         wire::value::Kind::Null(_) => Ok(Value::Null),
         wire::value::Kind::Quantity(v) => Ok(Value::Quantity(quantity_from_wire(v)?)),
         wire::value::Kind::Array(v) => Ok(Value::Array(Array::new(
@@ -1002,7 +1043,7 @@ fn unit_term_from_wire(term: wire::UnitTerm) -> UnitTerm {
     }
 }
 
-fn quantity_from_wire(v: wire::Quantity) -> Result<Quantity, Error> {
+pub(crate) fn quantity_from_wire(v: wire::Quantity) -> Result<Quantity, Error> {
     let magnitude = match v.magnitude {
         Some(wire::quantity::Magnitude::IntMagnitude(value)) => Magnitude::Integer(value),
         Some(wire::quantity::Magnitude::RealMagnitude(value)) => Magnitude::Real(value),
@@ -1052,18 +1093,26 @@ impl Symbol {
     pub fn kind(&self) -> &str {
         &self.wire.kind
     }
-    /// Child symbols, fetched lazily from the service.
+    /// Hash of the model the symbol belongs to.
+    pub fn model_hash(&self) -> &str {
+        &self.model_hash
+    }
+    pub(crate) fn connection(&self) -> Connection {
+        Connection {
+            inner: self.connection.clone(),
+        }
+    }
+    /// Child symbols, fetched lazily from the service; one it cannot resolve is left out.
     pub fn children(&self) -> Result<Vec<Symbol>, Error> {
-        self.wire
-            .child_ids
-            .iter()
-            .map(|id| {
-                Connection {
-                    inner: self.connection.clone(),
-                }
-                .get_symbol(&self.model_hash, id)
-            })
-            .collect()
+        let mut children = Vec::with_capacity(self.wire.child_ids.len());
+        for id in &self.wire.child_ids {
+            match self.connection().get_symbol(&self.model_hash, id) {
+                Ok(child) => children.push(child),
+                Err(Error::Model(_)) => {}
+                Err(error) => return Err(error),
+            }
+        }
+        Ok(children)
     }
 }
 
@@ -1114,21 +1163,35 @@ pub struct FeatureValue {
     wire: wire::FeatureValue,
     value: Option<Value>,
     values: Vec<Value>,
+    unsupported: Option<String>,
 }
 
 impl FeatureValue {
     fn from_wire(wire: wire::FeatureValue) -> Result<Self, Error> {
-        let value = wire.value.clone().map(value_from_wire).transpose()?;
-        let values = wire
-            .values
-            .iter()
-            .cloned()
+        let decoded = wire
+            .value
+            .clone()
             .map(value_from_wire)
-            .collect::<Result<_, _>>()?;
+            .transpose()
+            .and_then(|value| {
+                let values = wire
+                    .values
+                    .iter()
+                    .cloned()
+                    .map(value_from_wire)
+                    .collect::<Result<Vec<_>, _>>()?;
+                Ok((value, values))
+            });
+        let ((value, values), unsupported) = match decoded {
+            Ok(decoded) => (decoded, None),
+            Err(Error::UnsupportedValue(reason)) => ((None, Vec::new()), Some(reason)),
+            Err(error) => return Err(error),
+        };
         Ok(Self {
             wire,
             value,
             values,
+            unsupported,
         })
     }
 
@@ -1152,9 +1215,11 @@ impl FeatureValue {
     pub fn materialized(&self) -> bool {
         self.wire.materialized
     }
-    /// In-band evaluation error for this feature.
+    /// In-band evaluation error for this feature, or why its value could not be sent.
     pub fn error(&self) -> Option<&str> {
-        (!self.wire.error.is_empty()).then_some(self.wire.error.as_str())
+        (!self.wire.error.is_empty())
+            .then_some(self.wire.error.as_str())
+            .or(self.unsupported.as_deref())
     }
 }
 
@@ -1186,64 +1251,166 @@ impl Evaluation {
     }
 }
 
+/// What the service answered a model was parsed with; for conformance tooling and debugging.
+#[derive(Clone, Debug)]
+pub enum ModelResponse {
+    /// A single file or inline content, parsed by `ParseFile`.
+    File(Box<wire::ParseFileResponse>),
+    /// Several documents, parsed by `ParseSources`.
+    Sources(wire::ParseSourcesResponse),
+    /// A handle for a hash obtained elsewhere; nothing was parsed.
+    Hash,
+}
+
 /// A parsed model.
 #[derive(Clone, Debug)]
 pub struct Model {
-    wire: wire::ParseFileResponse,
-    root: Option<Symbol>,
+    response: ModelResponse,
+    hash: String,
+    roots: Vec<Symbol>,
+    documents: Vec<String>,
+    source_path: Option<PathBuf>,
     diagnostics: Vec<Diagnostic>,
-    connection: Connection,
+    pub(crate) connection: Connection,
 }
 
 impl Model {
     pub(crate) fn from_wire(
         wire: wire::ParseFileResponse,
+        source_path: Option<PathBuf>,
         connection: Connection,
     ) -> Result<Self, Error> {
-        let root = wire.root.clone().map(|root_wire| {
-            Symbol::new(root_wire, connection.inner.clone(), wire.model_hash.clone())
-        });
-        let diagnostics = wire
-            .diagnostics
+        let roots = wire
+            .root
+            .clone()
+            .map(|root| Symbol::new(root, connection.inner.clone(), wire.model_hash.clone()))
+            .into_iter()
+            .collect();
+        let documents = source_path
             .iter()
-            .cloned()
-            .map(Diagnostic::from)
+            .map(|path| path.to_string_lossy().into_owned())
             .collect();
         Ok(Self {
-            wire,
-            root,
-            diagnostics,
+            hash: wire.model_hash.clone(),
+            diagnostics: wire
+                .diagnostics
+                .iter()
+                .cloned()
+                .map(Diagnostic::from)
+                .collect(),
+            response: ModelResponse::File(Box::new(wire)),
+            roots,
+            documents,
+            source_path,
             connection,
         })
     }
 
+    pub(crate) fn from_sources(
+        wire: wire::ParseSourcesResponse,
+        documents: Vec<String>,
+        connection: Connection,
+    ) -> Self {
+        let roots = wire
+            .roots
+            .iter()
+            .cloned()
+            .map(|root| Symbol::new(root, connection.inner.clone(), wire.model_hash.clone()))
+            .collect();
+        Self {
+            hash: wire.model_hash.clone(),
+            diagnostics: wire
+                .diagnostics
+                .iter()
+                .cloned()
+                .map(Diagnostic::from)
+                .collect(),
+            response: ModelResponse::Sources(wire),
+            roots,
+            documents,
+            source_path: None,
+            connection,
+        }
+    }
+
     pub(crate) fn from_hash(hash: &str, connection: Connection) -> Self {
         Self {
-            wire: wire::ParseFileResponse {
-                model_hash: hash.to_owned(),
-                ..Default::default()
-            },
-            root: None,
+            response: ModelResponse::Hash,
+            hash: hash.to_owned(),
+            roots: Vec::new(),
+            documents: Vec::new(),
+            source_path: None,
             diagnostics: Vec::new(),
             connection,
         }
     }
 
     /// The response this was built from; for conformance tooling and debugging.
-    pub fn wire(&self) -> &wire::ParseFileResponse {
-        &self.wire
+    pub fn wire(&self) -> &ModelResponse {
+        &self.response
     }
     /// Content hash used by subsequent service requests.
     pub fn hash(&self) -> &str {
-        &self.wire.model_hash
+        &self.hash
+    }
+    /// The connection the model is held by.
+    pub fn connection(&self) -> &Connection {
+        &self.connection
     }
     /// Diagnostics in service order.
     pub fn diagnostics(&self) -> &[Diagnostic] {
         &self.diagnostics
     }
-    /// Root namespace symbol, if this handle includes one.
+    /// The diagnostics of `error` severity.
+    pub fn errors(&self) -> Vec<&Diagnostic> {
+        self.diagnostics
+            .iter()
+            .filter(|d| d.severity.eq_ignore_ascii_case("error"))
+            .collect()
+    }
+    /// Whether the service reported no error for the model.
+    pub fn ok(&self) -> bool {
+        self.errors().is_empty()
+    }
+    /// The model itself when it has no error, else [`Error::ModelErrors`] carrying them.
+    pub fn require_ok(&self) -> Result<&Self, Error> {
+        let errors = self.errors();
+        if errors.is_empty() {
+            return Ok(self);
+        }
+        let mut summary = errors
+            .iter()
+            .take(3)
+            .map(|d| d.to_string())
+            .collect::<Vec<_>>()
+            .join("; ");
+        if errors.len() > 3 {
+            summary.push_str(&format!("; ... and {} more", errors.len() - 3));
+        }
+        let place = self
+            .source_path
+            .as_ref()
+            .map_or_else(|| "the model".to_owned(), |p| p.display().to_string());
+        Err(Error::ModelErrors {
+            message: format!("{place} has {} error(s): {summary}", errors.len()),
+            diagnostics: errors.into_iter().cloned().collect(),
+        })
+    }
+    /// The first root namespace symbol, if this handle includes one.
     pub fn root(&self) -> Option<&Symbol> {
-        self.root.as_ref()
+        self.roots.first()
+    }
+    /// One root namespace per document parsed, in document order.
+    pub fn roots(&self) -> &[Symbol] {
+        &self.roots
+    }
+    /// The names of the documents the model was parsed from, in order.
+    pub fn documents(&self) -> &[String] {
+        &self.documents
+    }
+    /// The file the model was parsed from, when it was one file.
+    pub fn source_path(&self) -> Option<&Path> {
+        self.source_path.as_deref()
     }
     /// Evaluate an expression and return its domain value.
     pub fn eval(&self, expr: &str) -> Result<Value, Error> {
@@ -1396,6 +1563,46 @@ mod tests {
                 imaginary: 0.0
             }),
             Value::Real(1.5)
+        );
+    }
+
+    #[test]
+    fn a_null_naming_a_reason_is_an_unsupported_value_not_null() {
+        let null = |reason: &str| wire::Value {
+            kind: Some(wire::value::Kind::Null(reason.to_owned())),
+        };
+        assert_eq!(value_from_wire(null("")).ok(), Some(Value::Null));
+        assert!(matches!(
+            value_from_wire(null("coordinate frame datum")),
+            Err(Error::UnsupportedValue(reason)) if reason == "coordinate frame datum"
+        ));
+
+        let feature = |value| wire::FeatureValue {
+            value: Some(value),
+            materialized: true,
+            ..Default::default()
+        };
+        let instance = Instance::from_wire(wire::Instance {
+            id: 1,
+            feature_values: [
+                ("datum".to_owned(), feature(null("coordinate frame datum"))),
+                (
+                    "mass".to_owned(),
+                    feature(wire::Value {
+                        kind: Some(wire::value::Kind::IntValue(3)),
+                    }),
+                ),
+            ]
+            .into(),
+            ..Default::default()
+        })
+        .expect("one unsendable feature leaves the instance readable");
+        let datum = instance.feature("datum").expect("datum is reported");
+        assert_eq!(datum.value(), None);
+        assert_eq!(datum.error(), Some("coordinate frame datum"));
+        assert_eq!(
+            instance.feature("mass").and_then(FeatureValue::value),
+            Some(&Value::Integer(3))
         );
     }
 

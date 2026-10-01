@@ -2,6 +2,7 @@ package org.openmbee.opensysml;
 
 import java.util.Objects;
 import java.util.Set;
+import java.util.TreeSet;
 
 /**
  * What a running service says it can do.
@@ -147,6 +148,9 @@ public final class Capabilities {
   /** The {@code RenderDocument} RPC renders a named document to Markdown. */
   public static final String RENDER_DOCUMENT = "render_document";
 
+  /** The {@code RenderDocument} RPC also renders a named document to HTML. */
+  public static final String RENDER_DOCUMENT_HTML = "render_document_html";
+
   /** A parse can judge the source as conforming SysML v2. */
   public static final String STRICT_CONFORMANCE = "strict_conformance";
 
@@ -218,13 +222,35 @@ public final class Capabilities {
    */
   public void require(String capability) {
     if (!has(capability)) {
+      String remedy = upgradeRemedy(capability);
       throw new CapabilityException(
           capability,
           "the service does not advertise the "
               + capability
-              + " capability; it advertises "
-              + names);
+              + " capability, which this operation requires; it advertises "
+              + new TreeSet<>(names)
+              + "\n  service: sysml-grpc "
+              + (serviceVersion.isEmpty() ? "(version unknown)" : serviceVersion)
+              + "\n  fix:     "
+              + remedy,
+          remedy);
     }
+  }
+
+  /**
+   * How to reach a service that advertises a capability: a release that has it, or a local build.
+   *
+   * @param capability the capability name
+   * @return the remedy text
+   */
+  public static String upgradeRemedy(String capability) {
+    Objects.requireNonNull(capability, "capability");
+    return "run a sysml-grpc whose GetServerInfo reports '"
+        + capability
+        + "': set $"
+        + ConnectionOptions.VERSION_ENV
+        + " (or ConnectionOptions.downloadVersion) to a release that has it, or build one with"
+        + " `make build-grpc` and name it with ConnectionOptions.binaryPath";
   }
 
   @Override

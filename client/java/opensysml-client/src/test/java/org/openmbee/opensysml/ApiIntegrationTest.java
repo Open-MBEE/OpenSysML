@@ -1055,10 +1055,14 @@ class ApiIntegrationTest {
   void convertOfUnreadableNotationIsAModelFailure() throws Exception {
     String source = Files.readString(fixture("syntax_error.sysml"));
     ConversionOptions convertOptions = ConversionOptions.defaults().withFromFormat("sysml");
-    ModelException failed =
+    ConversionException failed =
         assertThrows(
-            ModelException.class, () -> connection.convert(source, "sysml", convertOptions));
+            ConversionException.class, () -> connection.convert(source, "sysml", convertOptions));
     assertFalse(failed.diagnostics().isEmpty());
+    Model broken = connection.parse(source);
+    ConversionException fromModel =
+        assertThrows(ConversionException.class, () -> broken.convert("sysml"));
+    assertFalse(fromModel.diagnostics().isEmpty());
   }
 
   @Test
@@ -1148,5 +1152,206 @@ class ApiIntegrationTest {
         assertThrows(
             ServiceException.class, () -> model.renderDocument("Observatory::NoSuchDocument"));
     assertEquals(StatusCode.NOT_FOUND, refused.status());
+  }
+
+  @Test
+  void renderDocumentRendersHtmlWhenAskedFor() {
+    Model model = connection.load(fixture("document.sysml"));
+    RenderedDocument rendered = model.renderDocument("Observatory::MassReport", DocumentForm.HTML);
+    assertEquals(DocumentForm.HTML, rendered.form());
+    assertTrue(rendered.html().contains("<h1"), rendered.html());
+    assertTrue(rendered.html().contains("Telescope Mass Report"));
+    assertEquals("", rendered.markdown());
+  }
+
+  @Test
+  void convertSpellsDerivedIdsInTheFormAskedFor() {
+    String source = "package P { part def A; part a : A; }\n";
+    ConversionOptions options = ConversionOptions.defaults().withFromFormat("sysml");
+    Conversion qualified = connection.convert(source, "api-json", options);
+    Conversion uuid =
+        connection.convert(
+            source, "api-json", options.withIdForm(ConversionOptions.ID_FORM_UUID));
+    assertTrue(qualified.content().contains("\"P__a\""), qualified.content());
+    assertFalse(uuid.content().contains("\"P__a\""), uuid.content());
+    assertEquals(
+        qualified.content(),
+        connection
+            .convert(source, "api-json", options.withIdForm(ConversionOptions.ID_FORM_QUALIFIED))
+            .content());
+    ServiceException refused =
+        assertThrows(
+            ServiceException.class,
+            () -> connection.convert(source, "api-json", options.withIdForm("short")));
+    assertEquals(StatusCode.INVALID_ARGUMENT, refused.status());
+  }
+
+  @Test
+  void aConversionAndAnEditResultWriteTheirContent(@org.junit.jupiter.api.io.TempDir Path dir)
+      throws Exception {
+    Model model = connection.load(fixture("vehicle.sysml"));
+    Path written = model.convert("sysml").write(dir.resolve("vehicle.sysml"));
+    assertEquals(model.convert("sysml").content(), Files.readString(written));
+    EditResult result =
+        connection
+            .load(fixture("editable.sysml"))
+            .edit()
+            .setValue("Demo::SC::unitMass", "1050.0[SI::kg]")
+            .apply();
+    Path saved = result.save(dir.resolve("edited.sysml"));
+    assertEquals(result.content(), Files.readString(saved));
+    assertTrue(connection.load(saved).ok());
+  }
+
+  @Test
+  void anEmptiedDocumentOfSeveralIsNotSavedAsOneFile(@org.junit.jupiter.api.io.TempDir Path dir) throws Exception {
+    Model model =
+        connection.parseSources(
+            List.of(
+                SourceDocument.inline("a.sysml", "package A { part def P; }"),
+                SourceDocument.inline("b.sysml", "package B;")));
+    EditResult result =
+        model
+            .edit()
+            .delete("B")
+            .apply(EditOptions.defaults().withAcceptDocuments(true).withDocument("b.sysml"));
+    assertTrue(result.severalDocuments());
+    assertEquals("", result.content());
+    Path target = Files.writeString(dir.resolve("kept.sysml"), "kept");
+    assertThrows(IllegalStateException.class, () -> result.save(target));
+    assertEquals("kept", Files.readString(target));
+  }
+
+  @Test
+  void anAdoptedModelKnowsWhetherAnEmptiedEditHasSeveralDocuments(
+      @org.junit.jupiter.api.io.TempDir Path dir) throws Exception {
+    Model several =
+        connection.model(
+            connection
+                .parseSources(
+                    List.of(
+                        SourceDocument.inline("a.sysml", "package A { part def P; }"),
+                        SourceDocument.inline("b.sysml", "package B;")))
+                .hash());
+    EditResult refused =
+        several
+            .edit()
+            .delete("B")
+            .apply(EditOptions.defaults().withDocument("b.sysml"));
+    assertTrue(refused.severalDocuments());
+    Path target = Files.writeString(dir.resolve("kept.sysml"), "kept");
+    assertThrows(IllegalStateException.class, () -> refused.save(target));
+    assertEquals("kept", Files.readString(target));
+
+    Model sole = connection.model(connection.parse("part def Gone;").hash());
+    EditResult emptied = sole.edit().delete("Gone").apply();
+    assertFalse(emptied.severalDocuments());
+    assertEquals(emptied.content(), Files.readString(emptied.save(target)));
+  }
+
+  @Test
+  void anEditorAppliesActionBodyStatementsOnce() {
+    Model model = connection.load(fixture("apply_edits_action_body.sysml"));
+    Editor editor =
+        model
+            .edit()
+            .addIf(
+                "A",
+                "x < 3",
+                new Editor.Body().addAssign("x", "x + 1"),
+                new Editor.Body().addTerminate());
+    EditResult result = editor.apply();
+    assertTrue(result.content().contains("if x < 3"), result.content());
+    assertTrue(result.content().contains("assign x := x + 1"), result.content());
+    assertTrue(result.content().contains("terminate"), result.content());
+    assertTrue(editor.applied());
+    assertThrows(IllegalStateException.class, editor::apply);
+    assertThrows(IllegalStateException.class, () -> editor.addTerminate("A"));
+  }
+
+  @Test
+  void anEmptyEditorIsRefusedByTheService() {
+    Model model = connection.load(fixture("editable.sysml"));
+    EditException refused = assertThrows(EditException.class, () -> model.edit().apply());
+    assertEquals(EditFailure.NO_OPERATIONS, refused.failure());
+  }
+
+  @Test
+  void lookupsFindByShortNameOrIdAndNameWhatIsMissing() {
+    Model model = connection.parse(VEHICLE);
+    assertEquals("Demo::Vehicle", model.find("Vehicle").orElseThrow().id());
+    assertEquals("Demo::Vehicle", model.find("Demo::Vehicle").orElseThrow().id());
+    assertEquals("Demo::Vehicle::engine", model.lookup("engine").id());
+    assertTrue(model.find("Nope").isEmpty());
+    assertTrue(model.get("Vehicle").isEmpty());
+    assertEquals("Demo::Engine", model.get("Demo::Engine").orElseThrow().id());
+    assertTrue(model.contains("Engine"));
+    assertFalse(model.contains("Nope"));
+    SymbolNotFoundException missing =
+        assertThrows(SymbolNotFoundException.class, () -> model.lookup("Vehicel"));
+    assertEquals("Vehicel", missing.name());
+    assertTrue(missing.suggestions().contains("Vehicle"), missing.suggestions().toString());
+  }
+
+  @Test
+  void aModelNamesItsDocumentsAndRefusesToPassWithErrors() {
+    Path broken = fixture("syntax_error.sysml");
+    Model model = connection.load(broken);
+    assertEquals(List.of(broken.toString()), model.documents());
+    assertFalse(model.ok());
+    assertFalse(model.errors().isEmpty());
+    ModelException refused = assertThrows(ModelException.class, model::requireNoErrors);
+    assertTrue(refused.getMessage().startsWith(broken.toString()), refused.getMessage());
+    Model clean = connection.load(fixture("vehicle.sysml"));
+    assertEquals(clean, clean.requireNoErrors());
+    assertEquals(
+        List.of("a.sysml", "b.sysml"),
+        connection
+            .parseSources(
+                List.of(
+                    SourceDocument.inline("a.sysml", "package A;"),
+                    SourceDocument.inline("b.sysml", "package B;")))
+            .documents());
+  }
+
+  @Test
+  void notFoundRefusalsAreTyped() {
+    Model evicted = new Model(connection, "no-such-hash", List.of(), List.of());
+    ModelNotFoundException model =
+        assertThrows(ModelNotFoundException.class, () -> evicted.eval("1 + 1"));
+    assertEquals(StatusCode.NOT_FOUND, model.status());
+    assertThrows(ModelNotFoundException.class, () -> evicted.convert("sysml"));
+    assertThrows(
+        ModelNotFoundException.class, () -> evicted.edit().addPart("A", "b").apply());
+    ModelFileNotFoundException file =
+        assertThrows(
+            ModelFileNotFoundException.class,
+            () -> connection.load(Path.of("/no/such/model.sysml")));
+    assertEquals(StatusCode.NOT_FOUND, file.status());
+  }
+
+  @Test
+  void aConnectionRefusesAServiceLackingARequiredCapability() {
+    ConnectionOptions options =
+        ServiceBinary.options()
+            .requireCapabilities(Capabilities.QUERY, "no_such_capability")
+            .build();
+    CapabilityException refused =
+        assertThrows(CapabilityException.class, () -> Connection.open(options));
+    assertEquals("no_such_capability", refused.capability());
+    try (Connection checked =
+        Connection.open(
+            ServiceBinary.options().requireCapabilities(List.of(Capabilities.QUERY)).build())) {
+      assertTrue(checked.capabilities().has(Capabilities.QUERY));
+    }
+  }
+
+  @Test
+  void aConnectionRefusesAServiceThatIsNotTheReleaseAskedFor() {
+    ConnectionOptions options = ServiceBinary.options().downloadVersion("v0.0.1").build();
+    StaleServiceException stale =
+        assertThrows(StaleServiceException.class, () -> Connection.open(options));
+    assertTrue(stale.reason().contains("v0.0.1"), stale.reason());
+    assertEquals(connection.capabilities().serviceVersion(), stale.serviceVersion());
   }
 }

@@ -431,7 +431,7 @@ package OpenSysMLCodebase {
     allocate opensysml.julia to tree.clientLibraries;
     allocate opensysml.matlab to tree.clientLibraries;
     allocate opensysml.vscode to tree.editors;
-    allocate opensysml.cameo to tree.editors;
+    allocate opensysml.mdk to tree.editors;
     allocate opensysml.syson to tree.editors;
     allocate opensysml.rejection to tree.tools;
     allocate opensysml.differential to tree.tools;
