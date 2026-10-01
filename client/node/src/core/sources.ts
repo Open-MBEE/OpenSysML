@@ -9,6 +9,13 @@ import { SourceDocumentSchema } from "../generated/sysml_pb.js";
 /** Languages inline content may be declared in. */
 export const LANGUAGES = ["sysml", "kerml"] as const;
 
+/** Refuses a `language` option that names no language, before any call. */
+export function requireLanguage(language: string): void {
+  if (!LANGUAGES.includes(language as "sysml" | "kerml")) {
+    throw new RangeError(`language must be "sysml" or "kerml", got "${language}"`);
+  }
+}
+
 /** One document of a model parsed from several. Build with `file` or `inline`. */
 export class SourceDocument {
   /** File the service reads; its extension says which notation it is. */
@@ -61,8 +68,8 @@ export class SourceDocument {
           "inline content needs a name; diagnostics report it under that name",
         );
       }
-      if (init.language !== undefined && !LANGUAGES.includes(init.language as "sysml" | "kerml")) {
-        throw new RangeError("language must be 'sysml' or 'kerml'");
+      if (init.language !== undefined) {
+        requireLanguage(init.language);
       }
     }
     this.path = init.path;

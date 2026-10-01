@@ -7,6 +7,7 @@ import { tmpdir } from "node:os";
 import { before, test } from "node:test";
 import {
   ModelFileNotFoundError,
+  SourceDocument,
   ModelNotFoundError,
   OpenSysMLError,
   ServiceError,
@@ -102,4 +103,24 @@ test("an RPC failure becomes the error its status names, and this client's error
 
   const own = new SymbolNotFoundError("Wheel");
   assert.equal(fromRpcError(own), own);
+});
+
+test("a language that is neither sysml nor kerml is refused before the call", async () => {
+  await using connection = await connect();
+  await assert.rejects(
+    () => connection.loads("package P {}", { language: "vhdl" }),
+    (error: unknown) => {
+      assert.ok(error instanceof RangeError);
+      assert.match((error).message, /language must be "sysml" or "kerml", got "vhdl"/);
+      return true;
+    },
+  );
+  assert.throws(
+    () => SourceDocument.inline("p", "package P {}", { language: "ada" }),
+    (error: unknown) => {
+      assert.ok(error instanceof RangeError);
+      assert.match((error).message, /language must be "sysml" or "kerml", got "ada"/);
+      return true;
+    },
+  );
 });

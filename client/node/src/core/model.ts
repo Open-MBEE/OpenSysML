@@ -10,6 +10,7 @@ import {
 } from "./capabilities.js";
 import type { Connection } from "./connection.js";
 import { EvaluationError, OpenSysMLError, ParseError, SymbolNotFoundError } from "./errors.js";
+import { requireLanguage } from "./sources.js";
 import type { ModelDiagnostic } from "./errors.js";
 import type { Conversion } from "./conversion.js";
 import type { QueryForm, QueryElement, QueryPayload } from "./query.js";
@@ -210,6 +211,7 @@ export class Model {
     ownsConnection = false,
   ): Promise<Model> {
     if (options.language !== undefined) {
+      requireLanguage(options.language);
       requireCapability(connection.info, CAPABILITY_INLINE_LANGUAGE, upgradeRemedy(CAPABILITY_INLINE_LANGUAGE));
     }
     const strictConformance = strictConformanceOf(options);
