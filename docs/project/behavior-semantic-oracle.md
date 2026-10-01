@@ -1111,11 +1111,13 @@ Derived constraints:
   takes the occurrence, its guard holds, and its region's dispatch chose that transition; a
   competing or nested transition chosen by the region is not displaced by a sibling's join firing.
 - At selection, probes count only the candidate segment plus prior arrivals, and check the way
-  out only if they complete the join. In signal/change dispatches, firing checks completion
-  through same-occurrence peers against the segments their regions chose; if the route is dead,
-  none fire. Outside-dispatch firing counts every enabled peer, so same-instant timer expiries
-  remain one occurrence. `state_join_peer_not_chosen_does_not_block_arrival` and
-  `state_join_time_segments_expire_together` pin these distinctions.
+  out only if they complete the join. In signal/change dispatches, same-occurrence peers count
+  only when their regions chose them; firing checks completion against those peers, and a dead
+  route fires none. Timer expiries are separate occurrences even when due at the same instant;
+  a dead completing segment is not enabled, leaving its timer group's alternatives available.
+  `state_join_peer_not_chosen_does_not_block_arrival`,
+  `state_join_time_segments_expire_together` and
+  `state_join_dead_timer_join_keeps_group_alternative` pin these distinctions.
 - A substate's steps are enclosed in its owner's state performance and are "and hence happening
   during the state performance" (`StatePerformances.kerml`); the library orders the owner's
   middle steps before its exit with `private succession [*] middle then [1] exit;`. Thus the
@@ -1141,6 +1143,17 @@ region takes its nested `b1` transition; Finish records C, and the later Go fire
 completes the join. `state_join_peer_not_chosen_does_not_block_arrival` shows that an unchosen
 peer cannot make a dead way out disable A when A would arrive alone. The region's first dispatch
 does not also fire the unchosen B segment.
+
+### Same-instant timer expiries are separate join occurrences
+
+Each queued timer expiry is its own occurrence, even when several timers are due at the same
+instant. Selection checks a segment with only the arrivals already recorded: an incomplete
+segment arrives on its own expiry, while a later expiry completes the join. If that completion
+has no way out, its segment is disabled and the other transitions in its source's timer group
+remain available. If B's expiry is dispatched before A's, B's group can choose either its
+incomplete join segment or its alternative. `state_join_time_segments_expire_together` pins the
+separate arrivals; `state_join_dead_timer_join_keeps_group_alternative` pins the dead-exit
+alternative and its admissible outcomes.
 
 ### A merge is re-entered on every traversal of a loop
 

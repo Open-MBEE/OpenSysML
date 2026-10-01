@@ -68,8 +68,6 @@ type StateExecutor struct {
 	joinArrived map[*ast.PseudostateNode][]*lower.Transition
 	// joinChosen holds the incoming segments selected by the current dispatch.
 	joinChosen map[*ast.PseudostateNode]map[*lower.Transition]bool
-	// joinProbing marks route resolution where same-occurrence peers are unknown.
-	joinProbing bool
 
 	// pendingCall is the synchronous Call the machine is running, if any.
 	pendingCall *pendingCall
@@ -1345,12 +1343,7 @@ func (e *StateExecutor) chooseTransitions(candidates []dispatchCandidate, event 
 			return nil, err
 		}
 		var route route
-		func() {
-			saved := e.joinProbing
-			e.joinProbing = true
-			defer func() { e.joinProbing = saved }()
-			route, err = e.resolveRouteFor(candidate.chosen, event)
-		}()
+		route, err = e.resolveRouteFor(candidate.chosen, event)
 		if err != nil {
 			return nil, fmt.Errorf("transition out of %s: %w", candidate.source.Name, err)
 		}
@@ -1604,7 +1597,6 @@ func (e *StateExecutor) resolveAndFire(source *ast.StateNode, trans *lower.Trans
 	r, err := e.resolveRouteFor(trans, event)
 	if err != nil {
 		if errors.Is(err, errNoWayThrough) {
-			e.discardDeadJoinTimerPeers(trans, event)
 			return false, nil
 		}
 		return false, err
@@ -1614,41 +1606,6 @@ func (e *StateExecutor) resolveAndFire(source *ast.StateNode, trans *lower.Trans
 	}
 	defer e.taking(trans, notes)()
 	return e.fireTransition(trans, r)
-}
-
-func (e *StateExecutor) discardDeadJoinTimerPeers(trans *lower.Transition, event *Event) {
-	if event == nil || !isTimerExpiry(*event) {
-		return
-	}
-	join, ok := trans.Target.(*ast.PseudostateNode)
-	if !ok || join.Kind != ast.PseudostateJoin {
-		return
-	}
-	firingNow, completes, err := e.joinFiringNow(trans, event)
-	if err != nil || !completes {
-		return
-	}
-	for _, segment := range firingNow {
-		if segment == trans {
-			continue
-		}
-		timer, running := e.eventQueue.TimerOf(segment)
-		if !running || timer.Timestamp > event.Timestamp {
-			continue
-		}
-		if _, ok := e.eventQueue.Take(timer.ID); !ok {
-			continue
-		}
-		source, ok := segment.Source.(*ast.StateNode)
-		if !ok {
-			continue
-		}
-		for _, groupMember := range e.graph.Transitions[source] {
-			if sameTimerGroup(groupMember, segment) {
-				delete(e.timerScheduled, groupMember)
-			}
-		}
-	}
 }
 
 // chooseCompletion resolves which completion transition out of source fires on
@@ -3318,7 +3275,7 @@ func (e *StateExecutor) joinFiringNow(trans *lower.Transition, event *Event) ([]
 		if arrived[segment] {
 			continue
 		}
-		if e.joinProbing || (e.joinChosen != nil && !e.joinChosen[join][segment]) {
+		if !e.joinChosen[join][segment] {
 			continue
 		}
 		source := segment.Source.(*ast.StateNode)
@@ -3350,10 +3307,7 @@ func (e *StateExecutor) joinFiringNow(trans *lower.Transition, event *Event) ([]
 }
 
 // segmentTakes reports whether a join segment's trigger takes the dispatched
-// occurrence. Each timer is its own occurrence, so a time-triggered segment takes
-// another timer's expiry while its own timer is due: the expiries at one instant
-// are one occurrence for the join, which a signal, call or completion dispatched
-// then is not.
+// occurrence. Timer expiries are separate occurrences, even when due at one instant.
 func (e *StateExecutor) segmentTakes(segment *lower.Transition, event *Event) (bool, error) {
 	if event == nil {
 		return false, nil
@@ -3363,11 +3317,7 @@ func (e *StateExecutor) segmentTakes(segment *lower.Transition, event *Event) (b
 		return ok && poll.condition[segment] && !e.changeFired[segment], nil
 	}
 	if _, isTime := segment.Trigger.(*ast.TimeEvent); isTime {
-		if !isTimerExpiry(*event) {
-			return false, nil
-		}
-		timer, running := e.eventQueue.TimerOf(segment)
-		return running && timer.Timestamp <= event.Timestamp, nil
+		return false, nil
 	}
 	return e.matchesEvent(segment, event)
 }

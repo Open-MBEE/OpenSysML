@@ -4,6 +4,8 @@ import (
 	"errors"
 	"strings"
 	"testing"
+
+	"github.com/Open-MBEE/OpenSysML/internal/syntax/ast"
 )
 
 func TestRuntimeRobustnessJunctionJoin(t *testing.T) {
@@ -170,7 +172,7 @@ func TestRuntimeRobustnessJunctionJoin(t *testing.T) {
 		}
 	})
 
-	t.Run("dead_same_instant_timer_join_does_not_fire_segments", func(t *testing.T) {
+	t.Run("dead_timer_join_exit_disables_completing_segment", func(t *testing.T) {
 		exec := stateExecutorForSource(t, "Machine", `package test {
 			state Machine {
 				attribute open : Boolean = false;
@@ -195,13 +197,29 @@ func TestRuntimeRobustnessJunctionJoin(t *testing.T) {
 		if _, err := exec.ctx.Advance(2); err != nil {
 			t.Fatalf("Advance(2) = %v, want no error", err)
 		}
-		for _, name := range []string{"first", "second"} {
-			if state := stateNamed(t, exec, name); !exec.inActiveConfiguration(state) {
-				t.Errorf("state %s is not active after the dead timer join route", name)
+		var sync *ast.PseudostateNode
+		for _, transitions := range exec.graph.Transitions {
+			for _, transition := range transitions {
+				join, ok := transition.Target.(*ast.PseudostateNode)
+				if ok && join.Kind == ast.PseudostateJoin && join.Name == "sync" {
+					sync = join
+				}
 			}
 		}
-		if len(exec.joinArrived) != 0 {
-			t.Fatalf("join arrivals after dead timer join route = %v, want none", exec.joinArrived)
+		if sync == nil {
+			t.Fatal("sync join not found")
+		}
+		if got := len(exec.joinArrived[sync]); got != 1 {
+			t.Fatalf("sync arrivals after first timer expiry = %d, want 1", got)
+		}
+		activeSources := 0
+		for _, name := range []string{"first", "second"} {
+			if state := stateNamed(t, exec, name); exec.inActiveConfiguration(state) {
+				activeSources++
+			}
+		}
+		if activeSources != 1 {
+			t.Fatalf("active join-segment sources = %d, want exactly one", activeSources)
 		}
 	})
 }

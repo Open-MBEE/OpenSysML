@@ -1,1 +1,1 @@
-- **Check join exits against the firing context.** Selection excludes hypothetical peers, dispatches count only chosen segments, and simultaneous timer expiries still synchronize as one occurrence.
+- Check a join's way out against prior arrivals and the segments chosen in the current signal/change dispatch. Timer expiries are separate occurrences even when due together, so a dead completing segment leaves its source's other timer-group alternatives available.

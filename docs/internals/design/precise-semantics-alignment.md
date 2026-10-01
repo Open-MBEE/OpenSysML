@@ -786,11 +786,13 @@ no way through is dropped from the junction's draw, and a single branch left is 
 one; a route with no way through leaves the transition not enabled, so the occurrence goes to
 another enabled transition, is deferred if deferrable, or is discarded with the unmatched-event
 note, and a completion with none is dropped as one whose guard is false. For a join, selection
-probes count only the candidate and prior arrivals; signal/change dispatches check peer completion
-at firing against the segments their regions chose, while outside-dispatch firing counts every
-enabled peer. A dead join route fires none, and same-instant timer expiries remain one
-occurrence (`state_join_peer_not_chosen_does_not_block_arrival`,
-`state_join_time_segments_expire_together`). A transition into a
+probes count only the candidate and prior arrivals; signal/change dispatches count same-occurrence
+peers only when their regions chose them, and firing checks completion against those peers. If the
+route is dead, none fire. Timer expiries are separate occurrences even when due together; a dead
+completing timer segment is not enabled, leaving its source's timer-group alternatives available
+(`state_join_peer_not_chosen_does_not_block_arrival`,
+`state_join_time_segments_expire_together`,
+`state_join_dead_timer_join_keeps_group_alternative`). A transition into a
 history with nothing recorded is disabled when the history's default transition has no way
 through and the transition's source lies outside the history's owner; from within, the exit
 writes the record the history then reads (finding 7), so the default is not consulted before
@@ -849,12 +851,15 @@ the owner's exit
 yet arrived whose source is active, whose region's dispatch chose it, whose trigger takes the same
 signal, call, timer expiry or change rise and whose guard holds — a completion segment fires only
 on its own completion, never pulled into another occurrence — and reports whether, with the
-segments already arrived, they complete the join. At selection, only the candidate and prior
-arrivals count toward checking the way out. In signal/change dispatches, `fireJoinTransition`
-re-resolves peer completion at firing against the segments their regions chose; if the route is
-dead, none fire. Outside such a dispatch, enabled peers count when firing, so same-instant timer
-expiries remain one occurrence (`state_join_peer_not_chosen_does_not_block_arrival`,
-`state_join_time_segments_expire_together`). When they do not, `resolveRoute` ends the route
+segments already arrived, they complete the join. At selection, including for each time expiry,
+only the candidate and prior arrivals count toward checking the way out. In signal/change
+dispatches, `fireJoinTransition` checks completion at firing against same-occurrence peers their
+regions chose; if the route is dead, none fire. Timer expiries are separate occurrences even at
+the same instant, so a dead completing segment leaves its source's timer-group alternatives
+available (`state_join_peer_not_chosen_does_not_block_arrival`,
+`state_join_time_segments_expire_together`,
+`state_join_dead_timer_join_keeps_group_alternative`). If those segments do not complete the join,
+`resolveRoute` ends the route
 at the join as an arrival, and `fireJoinTransition` fires every not-yet-arrived segment enabled by
 the occurrence and chosen by its region's dispatch in the `join <name>` order (`fireJoinIncoming`),
 exiting each source and running its effect, then records each among the join's arrivals
