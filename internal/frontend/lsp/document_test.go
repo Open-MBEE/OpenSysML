@@ -503,7 +503,7 @@ const diagramDocumentModel = `package Imaging {
 func TestRenderDocumentDiagramForm(t *testing.T) {
 	ws, s, _ := openDocumentModel(t)
 	ws.Open(uri.File("/tmp/imaging.sysml").Filename(), []byte(diagramDocumentModel), 1)
-	mermaidHeader := "---\nconfig:\n  theme: base\n"
+	mermaidHeader := "---\nconfig:\n  fontFamily: \"Helvetica, Arial, sans-serif\"\n  theme: base\n"
 	cases := map[string]struct{ fence, header string }{
 		"":         {"```mermaid\n", mermaidHeader},
 		"mermaid":  {"```mermaid\n", mermaidHeader},

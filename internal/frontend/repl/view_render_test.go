@@ -39,7 +39,7 @@ func TestRenderWritesMermaidWhenAskedFor(t *testing.T) {
 		t.Fatal(err)
 	}
 	text := strings.Join(out, "\n")
-	if !strings.HasPrefix(text, "---\nconfig:\n  theme: base\n") ||
+	if !strings.HasPrefix(text, "---\nconfig:\n  fontFamily: \"Helvetica, Arial, sans-serif\"\n  theme: base\n") ||
 		!strings.Contains(text, "%% Demo::summary") || !strings.Contains(text, "flowchart TD") {
 		t.Errorf("%%render mermaid = %q, want a Mermaid flowchart", text)
 	}
