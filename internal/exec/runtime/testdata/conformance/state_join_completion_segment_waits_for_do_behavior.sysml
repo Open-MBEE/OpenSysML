@@ -1,7 +1,5 @@
-// A completion segment into a join is enabled once its source has completed,
-// its do behavior finished included: a Go arriving while b1's body still waits
-// for a Tick does not fire the join, and neither does b1's completion alone; the
-// Go that comes once b1 has completed does.
+// A segment fires on its own occurrence and waits: Go records a's arrival while
+// b's do behavior waits, then b's completion finishes the join after Tick.
 package Test {
 	private import ScalarValues::*;
 

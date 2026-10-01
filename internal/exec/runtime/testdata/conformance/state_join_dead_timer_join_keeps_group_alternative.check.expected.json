@@ -1,0 +1,11 @@
+{
+	"verdict": "divergent",
+	"divergent": {
+		"finalState": ["a", "fallback"],
+		"log": [
+			"\"A-segment fallback \"",
+			"\"B-segment \"",
+			"\"fallback A-segment \""
+		]
+	}
+}

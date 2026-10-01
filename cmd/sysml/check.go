@@ -12,8 +12,8 @@ import (
 
 	"github.com/Open-MBEE/OpenSysML/internal/exec/analysis"
 	"github.com/Open-MBEE/OpenSysML/internal/exec/runtime"
+	"github.com/Open-MBEE/OpenSysML/internal/exec/simresults"
 	"github.com/Open-MBEE/OpenSysML/internal/frontend/repl"
-	"github.com/Open-MBEE/OpenSysML/internal/translate/simresults"
 )
 
 // checks are the model checks and runs named on the command line, in the order

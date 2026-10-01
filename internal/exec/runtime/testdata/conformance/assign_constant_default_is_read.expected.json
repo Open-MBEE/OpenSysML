@@ -1,0 +1,7 @@
+{
+	"type": "action",
+	"outputs": {
+		"limit": {"type": "Integer", "value": 5},
+		"next": {"type": "Integer", "value": 6}
+	}
+}

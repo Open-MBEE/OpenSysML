@@ -128,7 +128,7 @@ bounds associated with an answer.
 | Result class | Contents and helpers |
 | --- | --- |
 | `Verdict` | Outcome fields including `holds`, condition, witness, error, engine and diagnostics; `explain()`, `raiseForError()`, and logical conversion. |
-| `Validation` | Verdicts, summary, instances, diagnostics and verifications; `valid()`, `violated()`, `undecided()`, `raiseForError()`, and `explain()`. |
+| `Validation` | Verdicts, summary, ordered instance cells in service order, diagnostics and verifications; `valid()`, `violated()`, `undecided()`, `raiseForError()`, and `explain()`. |
 | `CalcResult` | `value`, `outputs`, diagnostics and `Standing`; character conversion formats the computed result. |
 | `AnalysisResult` | Outputs, verdicts, instances, verifications, evaluations and standing; `selected()`, `satisfied()`, and `explain()`. |
 | `SweepTable` | Rows, parameters, sampling metadata, instances, diagnostics and standing; `failures()` selects failed rows. |

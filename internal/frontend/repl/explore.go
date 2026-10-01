@@ -55,9 +55,7 @@ type VerdictOutcome struct {
 	// Error is what stopped the runs reaching this outcome, empty for one they completed.
 	Error          string
 	Linearizations int
-	// Probability is the share of the schedule space reaching the outcome, a
-	// lower bound while the exploration is incomplete.
-	Probability float64
+	Probability    *runtime.ProbabilityRange
 	// Witness is one run's choice sequence, a choice per entry in run order.
 	Witness []string
 }
@@ -65,8 +63,9 @@ type VerdictOutcome struct {
 // VerdictExploration is how an exploration ended: whether every linearization
 // within the budget was run, and which budget stopped it when not.
 type VerdictExploration struct {
-	Complete bool
-	Runs     int
+	Complete             bool
+	Runs                 int
+	FailedLinearizations int
 	// BudgetsHit names the budgets hit, `runs` before `depth`; none when complete.
 	BudgetsHit []string
 	// ProbabilitiesBounded reports the outcomes' probabilities are lower bounds.
@@ -110,6 +109,12 @@ func (s *Session) exploreVerdict(subject string, run func(*runtime.Context) (run
 	plan, err := s.explore(subject, policy, selection, model, run)
 	s.state.Lock()
 	if err != nil {
+		var setup *runtime.SetupError
+		if errors.As(err, &setup) {
+			return standing(Verdict{Subject: subject, Status: VerdictFails, Lines: []string{
+				fmt.Sprintf("✗ %s: no linearization ran: %s", subject, err),
+			}}, &plan)
+		}
 		return standing(unresolvedVerdict(subject, err.Error()), &plan)
 	}
 	return standing(explorationVerdict(subject, plan.Result.Exploration()), &plan)
@@ -160,7 +165,7 @@ func witnessTrace(o runtime.ExploredOutcome) []string {
 }
 
 // explorationVerdict tables one row per distinct outcome, then how it ended;
-// a failed run or a budget hit leaves it unresolved.
+// a failed run fails the exploration, and a budget hit leaves it unresolved.
 func explorationVerdict(subject string, x *runtime.Exploration) Verdict {
 	if x == nil {
 		return unresolvedVerdict(subject, "exploration of "+subject+" reached no outcome")
@@ -169,6 +174,11 @@ func explorationVerdict(subject string, x *runtime.Exploration) Verdict {
 	if !x.Complete() {
 		status = VerdictUnresolved
 	}
+	failedLinearizations := x.FailedLinearizations()
+	if failedLinearizations > 0 {
+		status = VerdictFails
+	}
+	errorOutcomes, valueOutcomes := 0, 0
 	outcomes := make([]VerdictOutcome, 0, len(x.Outcomes))
 	cells := [][]string{{"outcome", "linearizations", "probability", "witness"}}
 	bounded := x.ProbabilitiesBounded()
@@ -176,16 +186,24 @@ func explorationVerdict(subject string, x *runtime.Exploration) Verdict {
 		vo := VerdictOutcome{Linearizations: o.Linearizations, Probability: o.Probability}
 		if o.Outcome.Err != nil {
 			vo.Error = o.Outcome.Err.Error()
-			status = VerdictUnresolved
+			errorOutcomes++
 		} else {
 			vo.Values = outcomeValues(o.Outcome)
+			valueOutcomes++
 		}
 		for _, c := range o.Witness {
 			vo.Witness = append(vo.Witness, c.String())
 		}
-		probability := runtime.FormatWeight(o.Probability)
-		if bounded {
-			probability = "≥ " + probability
+		probability := "possible"
+		if o.Probability != nil {
+			if o.Probability.Exact() {
+				probability = runtime.FormatWeight(o.Probability.Min)
+			} else {
+				probability = runtime.FormatWeight(o.Probability.Min) + ".." + runtime.FormatWeight(o.Probability.Max)
+			}
+			if bounded {
+				probability = "≥ " + probability
+			}
 		}
 		outcomes = append(outcomes, vo)
 		cells = append(cells, []string{
@@ -196,10 +214,23 @@ func explorationVerdict(subject string, x *runtime.Exploration) Verdict {
 		})
 	}
 	mark := "✓"
-	if status != VerdictHolds {
+	if status == VerdictFails {
+		mark = "✗"
+	} else if status != VerdictHolds {
 		mark = "?"
 	}
-	lines := []string{fmt.Sprintf("%s explored %s: %s", mark, subject, countOf(len(x.Outcomes), "outcome", "outcomes"))}
+	header := fmt.Sprintf("%s explored %s: %s", mark, subject, countOf(len(x.Outcomes), "outcome", "outcomes"))
+	if errorOutcomes > 0 {
+		totalLinearizations := 0
+		for _, outcome := range x.Outcomes {
+			totalLinearizations += outcome.Linearizations
+		}
+		header = fmt.Sprintf("%s explored %s: %s (%s, %s), %d of %d %s failing",
+			mark, subject, countOf(len(x.Outcomes), "outcome", "outcomes"),
+			countOf(valueOutcomes, "value", "values"), countOf(errorOutcomes, "error", "errors"),
+			failedLinearizations, totalLinearizations, plural(totalLinearizations, "linearization", "linearizations"))
+	}
+	lines := []string{header}
 	lines = append(lines, tableLines(cells)...)
 	lines = append(lines, x.Status())
 	for i, o := range x.Outcomes {
@@ -220,6 +251,7 @@ func explorationVerdict(subject string, x *runtime.Exploration) Verdict {
 		Exploration: &VerdictExploration{
 			Complete:             x.Complete(),
 			Runs:                 x.Runs,
+			FailedLinearizations: failedLinearizations,
 			BudgetsHit:           x.BudgetsHit,
 			ProbabilitiesBounded: x.ProbabilitiesBounded(),
 		},
@@ -738,7 +770,8 @@ func freshAction(objects *freshObjects, sym *symbols.Symbol, name string, perfor
 	}
 	if exec == nil {
 		if exec, err = ctx.CreateActionExecutorFor(sym, self); err != nil {
-			return nil, "", fmt.Errorf("failed to create executor: %w", err)
+			err = fmt.Errorf("failed to create executor: %w", err)
+			return nil, "", err
 		}
 	}
 	exec.SetTrace(ctx.Trace())
@@ -783,7 +816,8 @@ func freshMachine(objects *freshObjects, sym *symbols.Symbol, name string, perfo
 	}
 	if exec == nil {
 		if exec, err = ctx.CreateStateExecutorFor(sym, self); err != nil {
-			return nil, "", fmt.Errorf("failed to create executor: %w", err)
+			err = fmt.Errorf("failed to create executor: %w", err)
+			return nil, "", err
 		}
 	}
 	exec.SetTrace(ctx.Trace())

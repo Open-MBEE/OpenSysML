@@ -1997,17 +1997,25 @@ class Connection:
             runs_budget=status.runs_budget,
             depth_budget=status.depth_budget,
             probabilities_lower_bound=status.probabilities_lower_bound,
+            failed_linearizations=status.failed_linearizations,
         )
 
     def _outcome_of(self, pb):
         """Read one wire outcome, an unsupported value kept as its error."""
+        probability_range = None
+        probability = None
+        if pb.HasField("probability_range"):
+            probability_range = (pb.probability_range.min, pb.probability_range.max)
+            if pb.probability_range.max - pb.probability_range.min <= 1e-12:
+                probability = pb.probability_range.min
         return Outcome(
             self._values_to_python(pb.outputs),
             final_state=pb.final_state,
             states_visited=pb.states_visited,
             error=pb.error,
             linearizations=pb.linearizations,
-            probability=pb.probability,
+            probability=probability,
+            probability_range=probability_range,
             witness=pb.witness,
             diagnostics=[Diagnostic(d) for d in pb.diagnostics],
         )

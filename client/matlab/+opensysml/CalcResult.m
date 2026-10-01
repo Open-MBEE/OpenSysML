@@ -25,13 +25,13 @@ classdef CalcResult
         end
 
         function text = char(obj)
-            if isempty(fieldnames(obj.outputs))
+            [names, values] = opensysml.internal.mapEntries(obj.outputs);
+            if isempty(names)
                 text = valueText(obj.value);
             else
-                names = fieldnames(obj.outputs);
                 lines = cell(1, numel(names));
                 for i = 1:numel(names)
-                    lines{i} = sprintf('%s = %s', names{i}, valueText(obj.outputs.(names{i})));
+                    lines{i} = sprintf('%s = %s', names{i}, valueText(values{i}));
                 end
                 text = strjoin(lines, ', ');
             end

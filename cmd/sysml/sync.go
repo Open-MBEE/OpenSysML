@@ -1,8 +1,11 @@
+//go:build !sysml_prod && !sysml_nosync
+
 package main
 
 import (
 	"context"
 	"errors"
+	"flag"
 	"fmt"
 	"io"
 	"os"
@@ -17,6 +20,21 @@ import (
 	"github.com/Open-MBEE/OpenSysML/internal/translate/rdf"
 	"github.com/Open-MBEE/OpenSysML/internal/workspace/project"
 )
+
+// syncTokenEnv is the variable the help names for the repository's bearer token.
+const syncTokenEnv = flexo.EnvToken
+
+func init() {
+	syncFeature.link(func(fs *flag.FlagSet) {
+		fs.StringVar(&syncDiffWith, "sync-diff", "", "Show the change set between the model and this repository — a graph file (.ttl) or a SysML v2 API endpoint URL — and exit; never writes")
+		fs.StringVar(&syncApplyTo, "sync-apply", "", "Apply the change set to the model's project branch at this SysML v2 API endpoint URL, then record the commit in the sync state")
+		fs.StringVar(&syncBase, "sync-base", "", "Repository graph at the last-seen commit; with it, repository changes since then surface as conflicts")
+		fs.StringVar(&syncState, "sync-state", "", "Sync state file recording project, branch and last-seen commit; default <model>.sync.json beside the model")
+		fs.BoolVar(&syncConfirmDeletes, "sync-confirm-deletes", false, "Confirm repository-side deletes; without it the diff reports them but applying is refused")
+		fs.BoolVar(&syncMintIDs, "sync-mint-ids", false, "Mint a UUID for each unannotated element being created, so the repository can address it stably")
+		fs.StringVar(&syncAnnotate, "sync-annotate", "", "Write the model to this file with each minted id declared as an @ElementId annotation (needs -sync-mint-ids)")
+	})
+}
 
 // runSyncDiff reports the identity-keyed change set against a graph file or a
 // live endpoint on stdout, and never writes to a repository.

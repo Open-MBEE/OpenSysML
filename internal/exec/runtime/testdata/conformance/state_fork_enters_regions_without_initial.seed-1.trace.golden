@@ -36,7 +36,6 @@ stmt action body
       eval literal "b(entry) " -> "b(entry) "
     eval operator + -> "T1(effect) T1.2(effect) T1.1(effect) work(entry) a(entry) b(entry) "
 transition: idle -> split
-choice join sync: states a, b react (unordered; took a first)
 exit: a (exit action)
 stmt action body
   stmt assign log

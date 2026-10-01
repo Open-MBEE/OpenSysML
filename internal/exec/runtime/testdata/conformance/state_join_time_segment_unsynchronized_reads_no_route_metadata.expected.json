@@ -4,8 +4,8 @@
   "events": [
     {"signal": "Go"}
   ],
-  "finalState": "a1+b1",
+  "finalState": "a1",
   "outputs": {
-    "log": {"type": "String", "value": ""}
+    "log": {"type": "String", "value": "b "}
   }
 }

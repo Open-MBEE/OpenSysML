@@ -98,15 +98,31 @@ func (e *StateExecutor) activeLeavesBelow(state *ast.StateNode) []*ast.StateNode
 		return []*ast.StateNode{state}
 	}
 	leaves := make([]*ast.StateNode, 0, len(regions))
+	waiting := false
+	for _, region := range regions {
+		if _, active := e.activeConfig.regionStates[region]; !active && e.regionWaitingAtJoin(region) {
+			waiting = true
+			break
+		}
+	}
 	for _, region := range regions {
 		active, ok := e.activeConfig.regionStates[region]
-		if !ok || active == state {
-			if !ok {
-				return []*ast.StateNode{state}
+		if !ok {
+			if waiting {
+				continue
 			}
+			return []*ast.StateNode{state}
+		}
+		if active == state {
 			continue
 		}
 		leaves = append(leaves, e.activeLeavesBelow(active)...)
+	}
+	if len(leaves) == 0 && waiting {
+		return nil
+	}
+	if len(leaves) == 0 {
+		return []*ast.StateNode{state}
 	}
 	return leaves
 }
@@ -304,7 +320,7 @@ func (e *StateExecutor) moveBetweenRegions(
 	}
 	// The region's own entry is recorded before entering, so a state entered
 	// inside it is not mistaken for the single active state of a simple machine.
-	e.activeConfig.regionStates[targetRegion] = leaf
+	e.setRegionState(targetRegion, leaf)
 	// The target's own entry transitions may start it in a nested state, which
 	// then is the deepest state the region keeps active.
 	_, deepest, err := e.enterToward(keep, target, nil)
@@ -313,7 +329,7 @@ func (e *StateExecutor) moveBetweenRegions(
 	}
 	if branch, ok := e.branchesTo(nil, deepest)[targetRegion]; ok {
 		leaf = branch
-		e.activeConfig.regionStates[targetRegion] = leaf
+		e.setRegionState(targetRegion, leaf)
 	}
 
 	if err := e.scheduleFromEntered(leaf); err != nil {
@@ -404,7 +420,7 @@ func (e *StateExecutor) leaveRegion(region *ast.StateRegion, trans *lower.Transi
 		if err := e.exitRegionTo(region, nil); err != nil {
 			return err
 		}
-		e.activeConfig.regionStates[region] = owner
+		e.setRegionState(region, owner)
 	}
 	if err := e.exitRegionOwnerTo(owner, lca); err != nil {
 		return err
@@ -413,7 +429,7 @@ func (e *StateExecutor) leaveRegion(region *ast.StateRegion, trans *lower.Transi
 		if declaring := e.declaringRegion(between[len(between)-1]); declaring != nil {
 			// The region completed: its history keeps no state to restore.
 			e.forgetRegionHistory(declaring)
-			e.activeConfig.regionStates[declaring] = target
+			e.setRegionState(declaring, target)
 		}
 	}
 	if err := e.runEffects(effects, e.descendantChain(lca, target)); err != nil {
@@ -489,7 +505,7 @@ func (e *StateExecutor) enterOutside(trans *lower.Transition, source, lca, targe
 	// of them becomes the machine's single active state.
 	onPath := e.branchesTo(nil, deepest)
 	for region, leaf := range onPath {
-		e.activeConfig.regionStates[region] = leaf
+		e.setRegionState(region, leaf)
 	}
 	if len(onPath) == 0 && len(e.activeConfig.regionStates) == 0 {
 		e.activeConfig.simpleState = deepest

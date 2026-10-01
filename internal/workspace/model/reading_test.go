@@ -21,12 +21,12 @@ package MachineViews {
 `
 
 // A reading answers for one generation of the documents: the rendering, the
-// runtime and the declarations it hands out are of the same documents, and an
-// edit moves the workspace to a generation the reading's runtime is not of.
+// detached model and the declarations it hands out are of the same documents,
+// and an edit moves the workspace to a generation the reading's model is not of.
 func TestReadingIsOfOneGeneration(t *testing.T) {
 	ws := openDoc(t, "m.sysml", readingModel)
 	before := ws.Generation()
-	var rt *Runtime
+	var rt *Detached
 	err := ws.Read(func(r *Reading) error {
 		if r.Generation() != before {
 			t.Errorf("reading is of generation %d, want %d", r.Generation(), before)
@@ -38,11 +38,11 @@ func TestReadingIsOfOneGeneration(t *testing.T) {
 		if snapshot.Rendered.Version != 1 || rendering == nil {
 			t.Errorf("rendering of version %d, want 1", snapshot.Rendered.Version)
 		}
-		if rt, err = r.NewRuntime(); err != nil {
+		if rt, err = r.Detach(); err != nil {
 			return err
 		}
 		if rt.Generation() != r.Generation() {
-			t.Errorf("runtime of generation %d, reading of %d", rt.Generation(), r.Generation())
+			t.Errorf("detached model of generation %d, reading of %d", rt.Generation(), r.Generation())
 		}
 		target := r.Declared("m.sysml", "Machines::Ops")
 		if target == nil {
@@ -79,9 +79,9 @@ func TestReadingIsOfOneGeneration(t *testing.T) {
 	// still tells the documents apart.
 	ws.Update("m.sysml", []byte(strings.Replace(readingModel, "state busy;", "state lazy;", 1)), 2)
 	if ws.Generation() == rt.Generation() {
-		t.Errorf("the workspace is still at the runtime's generation %d after an edit", rt.Generation())
+		t.Errorf("the workspace is still at the detached model's generation %d after an edit", rt.Generation())
 	}
 	if v, _ := rt.Version("m.sysml"); v != 1 {
-		t.Errorf("runtime is of version %d after the edit, want 1", v)
+		t.Errorf("detached model is of version %d after the edit, want 1", v)
 	}
 }

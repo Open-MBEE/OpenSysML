@@ -368,11 +368,13 @@ func TestCompositeStateConnectionPointsKeepTheUMLOrder(t *testing.T) {
 
 	// The entry point Both of the orthogonal Sync starts both regions at once
 	// after Sync's entry; each region then leaves through the exit point Gather,
-	// which joins them: both exits and effects, Sync's exit, then the transition out.
+	// which joins them: each completion is its own step, so one region's exit and
+	// effect, then the other's, Sync's exit, then the transition out.
 	four := station()
 	drive("Split", "Idle -> Both")
 	current("A1 | B1")
 	trace(four, "313335")
+	meta(t, s, "%step")
 	meta(t, s, "%step")
 	current("Idle")
 	trace(four, "313335343736383246")
@@ -383,6 +385,7 @@ func TestCompositeStateConnectionPointsKeepTheUMLOrder(t *testing.T) {
 	drive("Pair", "Idle -> Sync")
 	current("A0 | B0")
 	drive("Bump", "A0 -> A1 and transition B0 -> B1")
+	meta(t, s, "%step")
 	meta(t, s, "%step")
 	current("Idle")
 	trace(five, "313335343736383246")
@@ -548,8 +551,9 @@ func TestPseudostatesNamedLikeMembersAreDistinguished(t *testing.T) {
 	wantNote(t, r, "_chist", migrate.Approximated, "written as checkpoint 2 since a sibling is also named checkpoint")
 	wantNote(t, r, "_cdeep", migrate.Approximated, "written as deepest 2 since a sibling is also named deepest")
 
-	// The renamed fork enters both regions; the join, history and anonymous
-	// fork bring the machine round to them again.
+	// The renamed fork enters both regions. Each completion into the renamed join
+	// is its own occurrence: A1's segment arrives alone, and B1's would complete
+	// the join, whose way out into a history the runtime does not support.
 	s := session(t, r)
 	meta(t, s, "%instantiate Press")
 	meta(t, s, "%state Press::Cycle")
@@ -559,9 +563,11 @@ func TestPseudostatesNamedLikeMembersAreDistinguished(t *testing.T) {
 		t.Errorf("the renamed fork did not enter both regions:\n%s", out)
 	}
 	meta(t, s, "%step")
-	meta(t, s, "%step")
-	if out := meta(t, s, "%current"); !strings.Contains(out, "A1") || !strings.Contains(out, "B1") {
-		t.Errorf("the join, history and second fork did not re-enter both regions:\n%s", out)
+	if out := meta(t, s, "%current"); !strings.Contains(out, "Current state: B1\n") {
+		t.Errorf("A1's segment did not arrive at the renamed join alone:\n%s", out)
+	}
+	if out := meta(t, s, "%step"); !strings.Contains(out, "join gather 2: a transition into shallow history checkpoint 2 is not supported") {
+		t.Errorf("completing the renamed join did not report its unsupported way out:\n%s", out)
 	}
 }
 

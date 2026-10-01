@@ -282,22 +282,14 @@ func TestCheckHorizonLeavesAnAcceptFedPastIt(t *testing.T) {
 	}
 }
 
-// A machine's failure modes are violations on the schedule reaching them, each
-// with its witness, as an action's are; a machine that cannot initialize fails
-// the start, a violation before any move.
+// Failures during state execution are violations on the schedule reaching them,
+// each with its witness.
 func TestCheckReportsStateFailuresAsViolations(t *testing.T) {
 	cases := []struct {
 		name, src string
 		err       error
 		depth     int
 	}{
-		{"no initial state", `package test {
-			state Machine {
-				state idle;
-				state busy;
-				transition first idle then busy;
-			}
-		}`, ErrNoInitialState, 0},
 		{"choice without a branch", `package test {
 			private import ScalarValues::*;
 			state Machine {
@@ -349,6 +341,22 @@ func TestCheckReportsStateFailuresAsViolations(t *testing.T) {
 				t.Fatalf("the replay ends with %v, want %v", r.Err, c.err)
 			}
 		})
+	}
+}
+
+func TestCheckReturnsNoInitialStateAsSetupFailure(t *testing.T) {
+	m := parseExploreModel(t, `package test {
+		state Machine {
+			state idle;
+			state busy;
+			transition first idle then busy;
+		}
+	}`)
+	start := stateStarterOf(m.state(t, "Machine"), Horizon{})
+	report, err := Check(context.Background(), m.fresh, start, CheckBudget{}, reduced(), nil)
+	var setup *SetupError
+	if !errors.As(err, &setup) || !errors.Is(err, ErrNoInitialState) || report != nil {
+		t.Fatalf("check report = %v, error = %v; want SetupError wrapping ErrNoInitialState and no report", report, err)
 	}
 }
 

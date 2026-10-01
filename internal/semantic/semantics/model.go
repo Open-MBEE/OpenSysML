@@ -123,6 +123,8 @@ type Model struct {
 	computingRedefinedFeatures int
 	// unique memoizes each feature's effective uniqueness (see uniqueness.go).
 	unique map[*symbols.Symbol]bool
+	// readOnly memoizes FeatureReadOnly (see read_only.go).
+	readOnly map[*symbols.Symbol]ReadOnly
 	// paramRanges memoizes EffectiveParameterRange (see multiplicity.go).
 	paramRanges map[*symbols.Symbol]Range
 	// ctorSlots memoizes each type's constructible features (see shape.go).
@@ -197,6 +199,7 @@ func NewModel(resolver *resolve.Resolver) *Model {
 		redefClosure:          make(map[*symbols.Symbol]map[*symbols.Symbol]bool),
 		computingRedefClosure: make(map[*symbols.Symbol]bool),
 		unique:                make(map[*symbols.Symbol]bool),
+		readOnly:              make(map[*symbols.Symbol]ReadOnly),
 		paramRanges:           make(map[*symbols.Symbol]Range),
 		ctorSlots:             make(map[*symbols.Symbol]constructorSlots),
 		members:               make(map[memberKey][]*symbols.Symbol),

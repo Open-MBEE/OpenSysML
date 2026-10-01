@@ -1,0 +1,13 @@
+{
+  "type": "state",
+  "libraries": true,
+  "trace": true,
+  "events": [
+    {"signal": "X"},
+    {"signal": "Y"}
+  ],
+  "finalState": "done",
+  "outputs": {
+    "log": {"type": "String", "value": "X-exit X-effect Y-exit Y-effect owner-exit out"}
+  }
+}

@@ -7,14 +7,15 @@ import (
 	"strings"
 
 	"github.com/Open-MBEE/OpenSysML/internal/doc/docir"
-	"github.com/Open-MBEE/OpenSysML/internal/doc/docpdf"
 	"github.com/Open-MBEE/OpenSysML/internal/doc/docrender"
 	"github.com/Open-MBEE/OpenSysML/internal/doc/queryexec"
+	"github.com/Open-MBEE/OpenSysML/internal/frontend/repl/replext"
 	"github.com/Open-MBEE/OpenSysML/internal/ir/docplan"
 	"github.com/Open-MBEE/OpenSysML/internal/ir/view"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/semantics"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/symbols"
 	"github.com/Open-MBEE/OpenSysML/internal/workspace/model"
+	"github.com/Open-MBEE/OpenSysML/internal/workspace/modeldoc"
 )
 
 // renderDocumentUsage is what %render-document accepts: a document's name,
@@ -97,7 +98,7 @@ func (s *Session) evaluateDocument(invocation, extension string) (*docir.Documen
 		for _, sibling := range s.documentSymbols(idx, sem) {
 			names = append(names, symbols.FQNOf(sibling))
 		}
-		if files, err = model.DocumentFiles(names, extension); err != nil {
+		if files, err = modeldoc.DocumentFiles(names, extension); err != nil {
 			return nil, nil, err
 		}
 	}
@@ -160,7 +161,7 @@ func (s *Session) renderDocumentSet(
 	for _, sym := range syms {
 		names = append(names, symbols.FQNOf(sym))
 	}
-	files, err := model.DocumentFiles(names, extension)
+	files, err := modeldoc.DocumentFiles(names, extension)
 	if err != nil {
 		return nil, err
 	}
@@ -231,7 +232,7 @@ func (s *Session) doRenderDocument(invocation string) ([]string, bool, error) {
 	if len(fields) == 0 || len(fields) > 3 {
 		return []string{renderDocumentUsage}, false, nil
 	}
-	opts := docrender.MarkdownOptions{Drawer: docpdf.Graphviz{}}
+	opts := docrender.MarkdownOptions{Drawer: replext.Drawer(), WithoutGraphviz: replext.Drawer() == nil}
 	if len(fields) >= 2 {
 		opts.DiagramForm = view.Form(fields[1])
 		if !slices.Contains(view.DiagramForms(), opts.DiagramForm) {

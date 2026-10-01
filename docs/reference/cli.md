@@ -1433,28 +1433,31 @@ is up is the run's error, as it is undecided under one policy.
 Runs that agree on what the harness compares — an action's outputs; a state machine's final state,
 the states it visited and its context's values; an analysis case's outputs and verdicts — are one
 *outcome*. The report is one row per distinct outcome, sorted by the outcome's rendering, with the
-number of linearizations that reached it, its *probability* and the choice sequence of one
-witness run, then a status line. A linearization's probability is the product of the shares its
-choice points resolved with: a [`@Probability`-weighted](../guide/06-behavior.md#when-a-model-states-its-own-odds) pick its stated weight's
-share of the weights drawn over, an unweighted one the uniform share `seed:<n>` takes each
-alternative with — so the column is the model's own probability where every choice point is
-weighted, and otherwise assumes the open scheduling choices are taken uniformly at random. The
-column sums to `1` over a complete exploration:
+number of linearizations that reached it, its model-draw probability when one exists, and the
+choice sequence of one witness run, then a status line. Scheduling choices have no probability,
+so outcomes without a weighted model choice say `possible`. When weighted choices occur, each
+outcome reports its minimum and maximum probability over schedulers; a range that collapses to
+one value is exact. Random-function draws remain fixed by the model seed and are not enumerated,
+so these probabilities are conditional on those draws:
 
 ```bash
 $ sysml -schedule explore -action test::race three-writers.sysml
 ✓ package test
 ✓ explored test::race: 3 outcomes
-outcome                                      | linearizations | probability        | witness
----------------------------------------------+----------------+--------------------+------------------------------------------------------------------
-aRan = true; bRan = true; cRan = true; x = 1 | 2              | 0.3333333333333333 | step 3: 3@b first of 2@a, 3@b, 4@c; step 4: 4@c first of 2@a, 4@c
-aRan = true; bRan = true; cRan = true; x = 2 | 2              | 0.3333333333333333 | step 3: 2@a first of 2@a, 3@b, 4@c; step 4: 4@c first of 3@b, 4@c
-aRan = true; bRan = true; cRan = true; x = 3 | 2              | 0.3333333333333333 | step 3: 2@a first of 2@a, 3@b, 4@c; step 4: 3@b first of 3@b, 4@c
+outcome                                      | linearizations | probability | witness
+---------------------------------------------+----------------+-------------+------------------------------------------------------------------
+aRan = true; bRan = true; cRan = true; x = 1 | 2              | possible    | step 3: 3@b first of 2@a, 3@b, 4@c; step 4: 4@c first of 2@a, 4@c
+aRan = true; bRan = true; cRan = true; x = 2 | 2              | possible    | step 3: 2@a first of 2@a, 3@b, 4@c; step 4: 4@c first of 3@b, 4@c
+aRan = true; bRan = true; cRan = true; x = 3 | 2              | possible    | step 3: 2@a first of 2@a, 3@b, 4@c; step 4: 3@b first of 3@b, 4@c
 complete (6 runs)
 ```
 
-A run that fails — a guard that divides by zero on one path, say — is an outcome of its own,
-rendered as `error: <message>`, not the end of the exploration; a witness of `no choice points`
+A root executor creation failure or a pure structural start-check failure before model behavior
+runs means no schedule ran: exploration fails without producing an outcome. A run that fails in
+an initial behavior or later — a guard that divides by zero on one path, say — is an outcome of
+its own, rendered as `error: <message>`, not the end of the exploration; any runtime-error outcome
+makes the verdict fail, even for incomplete exploration.
+A witness of `no choice points`
 marks the one outcome of a behavior with none. The rendering is canonical: the same model tables
 the same rows in the same order every time. An object a run holds is spelled by its type and
 feature values — `lead = test::Rover#1{id = 2}`, a repeat of the same object `#1` — never by the
@@ -1464,10 +1467,11 @@ and two runs binding different objects under one id are two.
 **Budget.** `explore` alone runs at most 1024 runs and resolves at most 64 choice points per run;
 `explore:runs=N`, `explore:depth=D` and `explore:runs=N,depth=D` (in either order) set them. `N`
 is a decimal integer of at least 1 and `D` of at least 0. Hitting either budget is never silent:
-the status line becomes `incomplete: <budget> budget <limit> hit after N runs; probabilities are
-lower bounds` (naming both budgets, `runs` then `depth`, when both were hit), the probability column
-reads `≥` what an exhaustive search would reach, the outcomes reached so far are still tabled, the
-check is reported `?` rather than `✓`, and the exit status is `2` — the exploration could not answer
+the status line becomes `incomplete: <budget> budget <limit> hit after N runs` (naming both
+budgets, `runs` then `depth`, when both were hit); only an incomplete exploration with a weighted
+model choice adds `; probabilities are lower bounds` and prefixes numeric probability cells with
+`≥`. The outcomes reached so far are still tabled, the check is reported `?` rather than `✓`, and
+the exit status is `2` — the exploration could not answer
 whether other outcomes exist. `explore:depth=0` therefore explores a behavior with a choice point in one
 run and reports `incomplete: depth budget 0 hit after 1 runs`. A choice point met past `depth`
 takes its first alternative in every run and is never varied, however many runs remain: a run of
@@ -1482,17 +1486,43 @@ outcome is what distinguishes the outcomes and the full set would repeat every p
 replay.
 
 With `-json` the check carries the rows as `outcomes` — each with its `values`, `linearizations`,
-`probability` (the sum of the shares of the linearizations reaching it), `witness` (one choice per
-entry, in run order) and, for a failed run, its `error` — and how the exploration ended as
-`exploration` (`complete`, `runs`, `budgetsHit`), `probabilitiesLowerBound` added and true when the
-search was cut short:
+optional exact `probability`, optional `probabilityRange` (`min`, `max`), `witness` (one choice
+per entry, in run order) and, for a failed run, its `error` — and how the exploration ended as
+`exploration` (`complete`, `runs`, `budgetsHit`, optional `failedLinearizations`,
+`probabilitiesLowerBound`):
 
 ```json
-{"checks": [{"subject": "Mission::race", "status": "unresolved",
-  "outcomes": [{"values": [{"name": "x", "value": "2"}], "linearizations": 1,
-                "probability": 0.16666666666666666,
-                "witness": ["step 3: 2@left first of 2@left, 3@right"]}],
-  "exploration": {"complete": false, "runs": 1, "budgetsHit": ["runs"], "probabilitiesLowerBound": true}}]}
+{
+  "status": "unresolved",
+  "exit": 2,
+  "checks": [
+    {
+      "subject": "test::race",
+      "status": "unresolved",
+      "outcomes": [
+        {
+          "values": [
+            { "name": "aRan", "value": "true" },
+            { "name": "bRan", "value": "true" },
+            { "name": "cRan", "value": "true" },
+            { "name": "x", "value": "3" }
+          ],
+          "linearizations": 1,
+          "witness": [
+            "step 3: 2@a first of 2@a, 3@b, 4@c",
+            "step 4: 3@b first of 2@a, 3@b, 4@c"
+          ]
+        }
+      ],
+      "exploration": {
+        "complete": false,
+        "runs": 1,
+        "budgetsHit": ["runs"],
+        "probabilitiesLowerBound": false
+      }
+    }
+  ]
+}
 ```
 
 The REPL's `%schedule` refuses `explore`, since its `%action` and `%state` debuggers step one run

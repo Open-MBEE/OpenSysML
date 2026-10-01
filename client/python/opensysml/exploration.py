@@ -5,8 +5,10 @@ order, two guards holding at once, two transitions enabled by one event — has 
 choice point wherever the executor picked. Under ``explore`` the service replays
 the behavior from the start once per linearization, within a budget of runs and
 of choice points per run, and answers with every distinct :class:`Outcome` the
-runs reached rather than with one run's result. Hitting a budget makes the
-:class:`Exploration` incomplete, naming the budget; it is never an error.
+runs reached rather than with one run's result. A failure to create or initialize
+the root executor is an error with no outcomes; a failure after a run begins is
+an error outcome. Hitting a budget makes the :class:`Exploration` incomplete,
+naming the budget; it is never an error.
 """
 
 from opensysml.errors import ExecutionError
@@ -28,9 +30,11 @@ class Outcome:
         states_visited (list[str]): The states a state machine entered, in order
         error (str): Why the run failed; empty for a run that completed
         linearizations (int): How many of the explored orders reached this outcome
-        probability (float): Share of the explored orders' likelihood reaching
-            this outcome, from the model's ``@Probability`` weights (uniform for
-            unweighted picks); a lower bound while the exploration is incomplete
+        probability (float | None): Exact probability from the model's weighted
+            draws, or ``None`` when this exploration made no weighted choice or
+            the probability differs by scheduler
+        probability_range (tuple[float, float] | None): Minimum and maximum
+            model-draw probability over schedulers, when weighted
         witness (list[str]): The choices one run reaching it made, in run order;
             empty when the behavior had no choice point
         diagnostics (list[Diagnostic]): What the witness run reported, its choice
@@ -38,13 +42,15 @@ class Outcome:
     """
 
     def __init__(self, outputs, final_state, states_visited, error,
-                 linearizations, witness, diagnostics, probability=0.0):
+                 linearizations, witness, diagnostics, probability=None,
+                 probability_range=None):
         self.outputs = dict(outputs or {})
         self.final_state = final_state
         self.states_visited = list(states_visited or [])
         self.error = error
         self.linearizations = linearizations
         self.probability = probability
+        self.probability_range = probability_range
         self.witness = list(witness or [])
         self.diagnostics = list(diagnostics or [])
 
@@ -90,12 +96,15 @@ class Exploration:
             ``"depth"`` — empty when it is complete
         runs_budget (int): The most runs the exploration would make
         depth_budget (int): The most choice points one run would resolve
-        probabilities_lower_bound (bool): Whether the outcomes' probabilities
-            are lower bounds — a budget kept some orders unexplored
+        failed_linearizations (int): Runs whose outcomes carry runtime errors
+        probabilities_lower_bound (bool): Whether weighted model probabilities
+            are lower bounds — the exploration is incomplete and a budget kept
+            some orders unexplored
     """
 
     def __init__(self, outcomes, complete, runs, budgets_hit, runs_budget,
-                 depth_budget, probabilities_lower_bound=False):
+                 depth_budget, probabilities_lower_bound=False,
+                 failed_linearizations=0):
         self.outcomes = list(outcomes or [])
         self.complete = complete
         self.runs = runs
@@ -103,6 +112,7 @@ class Exploration:
         self.runs_budget = runs_budget
         self.depth_budget = depth_budget
         self.probabilities_lower_bound = probabilities_lower_bound
+        self.failed_linearizations = failed_linearizations
 
     def __iter__(self):
         return iter(self.outcomes)
@@ -123,7 +133,10 @@ class Exploration:
             f"{budget} budget {self.depth_budget if budget == 'depth' else self.runs_budget}"
             for budget in self.budgets_hit
         )
-        return f"incomplete: {named} hit after {self.runs} runs; probabilities are lower bounds"
+        status = f"incomplete: {named} hit after {self.runs} runs"
+        if self.probabilities_lower_bound:
+            status += "; probabilities are lower bounds"
+        return status
 
     def raise_for_incomplete(self):
         """Raise an :class:`~opensysml.errors.ExecutionError` unless every linearization was run."""

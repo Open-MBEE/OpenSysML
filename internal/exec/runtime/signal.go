@@ -1630,7 +1630,7 @@ func (ctx *Context) materializeMessage(msg Message) (Value, error) {
 			}
 			written[fv] = name
 		}
-		if err := inst.SetFeatureValue(ctx, name, msg.Payload[name]); err != nil {
+		if err := inst.BindFeatureValue(ctx, name, msg.Payload[name]); err != nil {
 			ctx.abandonInstancesSince(mark)
 			return Value{}, err
 		}

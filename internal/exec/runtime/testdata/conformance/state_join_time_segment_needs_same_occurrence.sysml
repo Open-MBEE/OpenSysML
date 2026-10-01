@@ -1,7 +1,5 @@
-// A join fires on one occurrence enabling every segment into it, a timer's
-// expiry included: the time-triggered segment holds the join while the other
-// segment waits for a signal, and the signal holds it while the other waits
-// for the clock. Neither segment's effect runs.
+// A timer-triggered segment fires at its expiry and waits at the join; a later
+// signal-triggered segment completes the join on its own occurrence.
 package Test {
 	private import ScalarValues::*;
 	private import SI::*;

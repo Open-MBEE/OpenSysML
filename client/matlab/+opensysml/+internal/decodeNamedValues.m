@@ -2,20 +2,21 @@ function values = decodeNamedValues(raw, conn, asMap)
 %DECODENAMEDVALUES Decode a map of wire Values without dropping bad arms.
 
     if nargin < 3, asMap = false; end
-    if asMap
+    [names, rawValues] = opensysml.internal.mapEntries(raw);
+    useMap = asMap || isa(raw, 'containers.Map') || ...
+        any(~cellfun(@isvarname, names));
+    if useMap
         values = containers.Map('KeyType', 'char', 'ValueType', 'any');
     else
         values = struct();
     end
-    if isempty(raw), return; end
-    names = fieldnames(raw);
     for i = 1:numel(names)
         try
-            value = opensysml.decodeValue(raw.(names{i}));
+            value = opensysml.decodeValue(rawValues{i});
         catch e
             value = e;
         end
-        if asMap
+        if useMap
             values(names{i}) = value;
         else
             values.(names{i}) = value;
