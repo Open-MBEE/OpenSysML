@@ -4,6 +4,8 @@ import (
 	"errors"
 	"slices"
 	"testing"
+
+	"github.com/Open-MBEE/OpenSysML/internal/semantic/semantics"
 )
 
 const navigationBody = `
@@ -284,5 +286,32 @@ calc def Q :> Query {
 	}
 	if got := cellStrings(t, result, "Named"); !slices.EqualFunc(got, [][]string{{"Frame"}, nil, {"rx", "tx"}, nil}, slices.Equal) {
 		t.Fatalf("Named cells = %v", got)
+	}
+}
+
+// Two Integers beyond int64 are equal by magnitude, each evaluation holding
+// its own big integer, and differ from the Integer one away.
+func TestValuesEqualComparesWideIntegersByMagnitude(t *testing.T) {
+	wide := func(text string) Value {
+		t.Helper()
+		integer, ok := semantics.ParseInteger(text)
+		if !ok {
+			t.Fatalf("ParseInteger(%q) failed", text)
+		}
+		return IntegerOf(integer)
+	}
+	left, right := wide("9223372036854775808"), wide("9223372036854775808")
+	if !valuesEqual(left, right) {
+		t.Fatalf("valuesEqual(%v, %v) = false, want equal wide Integers", left, right)
+	}
+	if valuesEqual(left, wide("9223372036854775809")) {
+		t.Fatal("valuesEqual holds for wide Integers one apart")
+	}
+	if !valuesEqual(IntegerValue(7), wide("7")) {
+		t.Fatal("valuesEqual(7, 7) = false across int64 and parsed Integers")
+	}
+	kept := distinctValues([]Value{left, right, wide("9223372036854775809"), wide("9223372036854775808")})
+	if len(kept) != 2 {
+		t.Fatalf("distinctValues kept %d wide Integers, want 2", len(kept))
 	}
 }

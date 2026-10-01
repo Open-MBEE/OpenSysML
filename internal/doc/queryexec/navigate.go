@@ -444,7 +444,7 @@ func valuesEqual(left, right Value) bool {
 	}
 	if arithmeticKind(left.Kind()) && arithmeticKind(right.Kind()) {
 		if left.Kind() == ValueInteger && right.Kind() == ValueInteger {
-			return left.integer == right.integer
+			return left.integer.Equal(right.integer)
 		}
 		return realOperand(left) == realOperand(right)
 	}
