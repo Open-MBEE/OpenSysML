@@ -299,14 +299,17 @@ func TestExploreReportsTransitionProbabilities(t *testing.T) {
 		t.Fatalf("explore: %v, %v", x, err)
 	}
 	probs := map[string]float64{}
+	total := 0.0
 	for _, o := range x.Outcomes {
-		probs[o.Outcome.FinalState] += o.Probability
+		probability := exactExploredProbability(t, o)
+		probs[o.Outcome.FinalState] += probability
+		total += probability
 	}
 	if math.Abs(probs["b"]-0.3) > 1e-9 || math.Abs(probs["c"]-0.7) > 1e-9 {
 		t.Errorf("probabilities %v, want b=0.3, c=0.7", probs)
 	}
-	if p := x.Probability(); math.Abs(p-1) > 1e-9 || x.ProbabilitiesBounded() {
-		t.Errorf("a complete exploration covers %v, want 1 exact", p)
+	if math.Abs(total-1) > 1e-9 || x.ProbabilitiesBounded() {
+		t.Errorf("a complete exploration's model probabilities sum to %v, want 1 exact", total)
 	}
 }
 
@@ -427,14 +430,17 @@ func TestExploreWeighsTransitionsByTriggerArguments(t *testing.T) {
 		t.Fatal(err)
 	}
 	probs := make(map[string]float64)
+	total := 0.0
 	for _, o := range x.Outcomes {
-		probs[o.Outcome.FinalState] = o.Probability
+		probability := exactExploredProbability(t, o)
+		probs[o.Outcome.FinalState] = probability
+		total += probability
 	}
 	if math.Abs(probs["b"]-0.25) > 1e-9 || math.Abs(probs["c"]-0.75) > 1e-9 {
 		t.Errorf("probabilities %v, want b=0.25 c=0.75 from the call's priority", probs)
 	}
-	if math.Abs(x.Probability()-1) > 1e-9 || x.ProbabilitiesBounded() {
-		t.Errorf("a complete exploration's probabilities sum to %v, want 1 unbounded", x.Probability())
+	if math.Abs(total-1) > 1e-9 || x.ProbabilitiesBounded() {
+		t.Errorf("a complete exploration's model probabilities sum to %v, want 1 unbounded", total)
 	}
 }
 
@@ -470,11 +476,17 @@ func TestExploreWeighsTimedTransitionsAsOneOccurrence(t *testing.T) {
 		t.Fatalf("explore: %v, %v", x, err)
 	}
 	probs := map[string]float64{}
+	total := 0.0
 	for _, o := range x.Outcomes {
-		probs[o.Outcome.FinalState] += o.Probability
+		probability := exactExploredProbability(t, o)
+		probs[o.Outcome.FinalState] += probability
+		total += probability
 	}
 	if math.Abs(probs["b"]-0.9) > 1e-9 || math.Abs(probs["c"]-0.1) > 1e-9 {
 		t.Errorf("probabilities %v, want b=0.9, c=0.1", probs)
+	}
+	if math.Abs(total-1) > 1e-9 {
+		t.Errorf("model probabilities sum to %v, want 1", total)
 	}
 }
 
