@@ -247,6 +247,15 @@ function test_surface_offline()
     assert_equal(signedZeros.text, '-0', 'negative zero text unchanged');
     one = opensysml.internal.decodeJson('{"one":1e-0}');
     assert_equal(one.one, 1, 'negative exponent zero remains part of number');
+    escapedText = 'quoted " text with \ slash';
+    decodedText = opensysml.internal.decodeJson(jsonencode( ...
+        struct('content', escapedText)));
+    assert_equal(decodedText.content, escapedText, 'escaped text token');
+    largeText = repmat('x', 1, 12 * 1024 * 1024);
+    decodedLarge = opensysml.internal.decodeJson(jsonencode( ...
+        struct('content', largeText)));
+    assert_equal(numel(decodedLarge.content), numel(largeText), ...
+        'large JSON string token');
     functionWire = opensysml.internal.decodeJson('{"function":{"calcId":"C"}}');
     decodedFunction = opensysml.decodeValue(functionWire);
     assert_equal(decodedFunction.calcId, 'C', 'reserved function value arm');

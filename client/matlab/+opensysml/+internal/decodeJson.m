@@ -1,15 +1,37 @@
 function value = decodeJson(text)
 %DECODEJSON Decode JSON while preserving object keys MATLAB cannot name.
 
-    [starts, ends, matches] = regexp(text, '"(?:[^"\\]|\\.)*"', ...
-        'start', 'end', 'match');
+    quotePositions = strfind(text, '"');
     originals = {};
-    parts = {};
+    editStarts = [];
+    editEnds = [];
+    editText = {};
     last = 1;
-    for i = 1:numel(matches)
-        parts{end+1} = rewriteNegativeZero(text(last:starts(i)-1));
-        token = matches{i};
-        next = ends(i) + 1;
+    quoteIndex = 1;
+    while quoteIndex <= numel(quotePositions)
+        start = quotePositions(quoteIndex);
+        closeIndex = quoteIndex + 1;
+        while closeIndex <= numel(quotePositions)
+            finish = quotePositions(closeIndex);
+            slashCount = 0;
+            previous = finish - 1;
+            while previous >= start + 1 && text(previous) == '\'
+                slashCount = slashCount + 1;
+                previous = previous - 1;
+            end
+            if mod(slashCount, 2) == 0, break; end
+            closeIndex = closeIndex + 1;
+        end
+        if closeIndex > numel(quotePositions), break; end
+        token = text(start:finish);
+        prefix = text(last:start-1);
+        rewrittenPrefix = rewriteNegativeZero(prefix);
+        if ~strcmp(rewrittenPrefix, prefix)
+            editStarts(end+1) = last;
+            editEnds(end+1) = start - 1;
+            editText{end+1} = rewrittenPrefix;
+        end
+        next = finish + 1;
         while next <= numel(text) && isspace(text(next)), next = next + 1; end
         if next <= numel(text) && text(next) == ':'
             key = jsondecode(token);
@@ -21,15 +43,36 @@ function value = decodeJson(text)
                     originals{end+1} = key;
                     index = numel(originals);
                 end
-                token = sprintf('"osk_x_%d"', index);
+                editStarts(end+1) = start;
+                editEnds(end+1) = finish;
+                editText{end+1} = sprintf('"osk_x_%d"', index);
             end
         end
-        parts{end+1} = token;
-        last = ends(i) + 1;
+        last = finish + 1;
+        quoteIndex = closeIndex + 1;
     end
-    parts{end+1} = rewriteNegativeZero(text(last:end));
-    rewritten = [parts{:}];
-    value = jsondecode(rewritten);
+    suffix = text(last:end);
+    rewrittenSuffix = rewriteNegativeZero(suffix);
+    if ~strcmp(rewrittenSuffix, suffix)
+        editStarts(end+1) = last;
+        editEnds(end+1) = numel(text);
+        editText{end+1} = rewrittenSuffix;
+    end
+    if isempty(editStarts)
+        value = jsondecode(text);
+    else
+        parts = {};
+        cursor = 1;
+        for i = 1:numel(editStarts)
+            if editStarts(i) > cursor
+                parts{end+1} = text(cursor:editStarts(i)-1);
+            end
+            parts{end+1} = editText{i};
+            cursor = editEnds(i) + 1;
+        end
+        if cursor <= numel(text), parts{end+1} = text(cursor:end); end
+        value = jsondecode([parts{:}]);
+    end
     if ~isempty(originals)
         value = restoreKeys(value, originals);
     end
