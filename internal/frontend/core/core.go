@@ -41,10 +41,9 @@ type sourceInput struct {
 }
 
 type cachedDocument struct {
-	root              *ast.RootNamespace
-	source            *source.SourceFile
-	parserDiagnostics []parser.Diagnostic
-	diagnostics       []diag.Diagnostic
+	root        *ast.RootNamespace
+	source      *source.SourceFile
+	diagnostics []diag.Diagnostic
 }
 
 type cachedModel struct {
@@ -253,10 +252,9 @@ func (c *Core) parseModel(inputs []sourceInput, mode diag.ConformanceMode) (stri
 			parsedClean = false
 		}
 		documents = append(documents, &cachedDocument{
-			root:              root,
-			source:            src,
-			parserDiagnostics: p.Diagnostics,
-			diagnostics:       parser.AsDiagnostics(p.Diagnostics, p.Warnings),
+			root:        root,
+			source:      src,
+			diagnostics: parser.AsDiagnostics(p.Diagnostics, p.Warnings),
 		})
 	}
 	index.ExpandWildcardImports()
@@ -354,12 +352,8 @@ func (m *cachedModel) symbolContext() *symbolfacts.Context {
 func modelDiagnostics(model *cachedModel) []*JDiagnostic {
 	var diagnostics []*JDiagnostic
 	for _, document := range model.documents {
-		for i, d := range document.diagnostics {
-			if i < len(document.parserDiagnostics) {
-				diagnostics = append(diagnostics, fsyntax.ParserDiagnostic(document.parserDiagnostics[i], document.source))
-			} else {
-				diagnostics = append(diagnostics, fsyntax.FromDiag(d, document.source))
-			}
+		for _, d := range document.diagnostics {
+			diagnostics = append(diagnostics, fsyntax.FromDiag(d, document.source))
 		}
 	}
 	return diagnostics

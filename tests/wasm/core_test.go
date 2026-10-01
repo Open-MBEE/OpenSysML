@@ -449,11 +449,7 @@ func TestCoreDependencies(t *testing.T) {
 			if err != nil {
 				t.Fatalf("go list -deps for %s: %v\n%s", target.name, err, output)
 			}
-			if target.goos == "js" {
-				if err := os.WriteFile("/tmp/sysml-core-deps.txt", output, 0o600); err != nil {
-					t.Fatalf("saving JS dependency list: %v", err)
-				}
-			}
+			t.Logf("%s deps of ./cmd/sysml-core:\n%s", target.name, output)
 			deps := make(map[string]bool)
 			for _, dependency := range strings.Fields(string(output)) {
 				deps[dependency] = true
