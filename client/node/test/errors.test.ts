@@ -18,6 +18,7 @@ import {
 } from "../src/node/index.js";
 import { Code, ConnectError } from "@connectrpc/connect";
 import { SAMPLE, useServiceBinary } from "./support/service.js";
+import { fakeConnection } from "./support/fake.js";
 
 before(() => {
   useServiceBinary();
@@ -123,4 +124,41 @@ test("a language that is neither sysml nor kerml is refused before the call", as
       return true;
     },
   );
+});
+
+// A missed qualified lookup walks the model twice — once to find, once to
+// score near names — and no more: symbolById() alone walks nothing.
+test("a qualified miss searches for near names exactly once", async () => {
+  let getSymbolCalls = 0;
+  const bare = (id: string, name: string) => ({
+    id,
+    name,
+    kind: "PartUsage",
+    metadata: {},
+    childIds: [],
+    attributes: [],
+    specializations: [],
+    withheldLibraryAttributes: 0,
+  });
+  await using connection = await fakeConnection([], (method, input) => {
+    if (method === "ParseFile") {
+      return {
+        modelHash: "fake",
+        diagnostics: [],
+        error: "",
+        root: { ...bare("", ""), kind: "RootNamespace", childIds: ["Demo::a", "Demo::b"] },
+      };
+    }
+    if (method === "GetSymbol") {
+      getSymbolCalls += 1;
+      const id = (input as { symbolId: string }).symbolId;
+      return id === "Demo::a" || id === "Demo::b" ? { symbol: bare(id, id.split("::")[1] ?? id) } : {};
+    }
+    throw new Error(`the fake service answers nothing for ${method}`);
+  });
+  const model = await connection.loads("package Demo {}");
+  await assert.rejects(() => model.symbol("Demo::Vehicel"), SymbolNotFoundError);
+  // One miss through symbolById, then two walks of two children — the find
+  // pass and the near-names pass — not a third walk inside symbolById.
+  assert.equal(getSymbolCalls, 5);
 });

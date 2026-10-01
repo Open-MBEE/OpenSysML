@@ -680,11 +680,12 @@ test("a missed qualified name still names its near misses", async () => {
       return true;
     },
   );
+  // symbolById stays the single call it promises: no suggestions, no walk.
   await assert.rejects(
     () => model.symbolById("Demo::Vehicel"),
     (error: unknown) => {
       assert.ok(error instanceof SymbolNotFoundError);
-      assert.ok((error).suggestions.length > 0);
+      assert.deepEqual(error.suggestions, []);
       return true;
     },
   );

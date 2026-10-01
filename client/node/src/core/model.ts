@@ -558,7 +558,10 @@ export class Model {
       ),
     );
     if (response.symbol === undefined) {
-      throw new SymbolNotFoundError(id, await this.nearNames(id));
+      // symbolById is the single call node-api.md promises: a miss throws with
+      // no suggestions and no walk, as Python's _symbol_by_id returns None.
+      // symbol() computes near names itself, once per miss.
+      throw new SymbolNotFoundError(id);
     }
     return new ModelSymbol(this.connection, this.hash, response.symbol);
   }

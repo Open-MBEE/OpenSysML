@@ -79,8 +79,9 @@ tree.byId(id);                               // any object the instantiation pro
 hash pass between processes; an adopted model has no root symbol, so symbols are
 looked up by qualified name, and the service answers `NOT_FOUND` once it has
 evicted the model. `symbol()` searches breadth-first when given a short name and
-raises `SymbolNotFoundError` naming near misses; `symbolById()` is the single call
-for a name the service can resolve directly.
+raises `SymbolNotFoundError` naming near misses for any name the model has not
+got; `symbolById()` is the single call for a name the service can resolve
+directly, reporting a miss with no suggestions.
 
 `ParseOptions` are `language` (`"sysml"` or `"kerml"`, for inline content) and
 `strictConformance`; both are capability-gated, and the client checks before it
