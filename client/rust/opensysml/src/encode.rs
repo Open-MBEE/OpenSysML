@@ -84,11 +84,6 @@ fn encode(value: &Value, capabilities: &Capabilities, depth: usize) -> Result<wi
         }
         Value::Vector(vector) => {
             require(capabilities, CAPABILITY_STRUCTURED_VALUES)?;
-            if vector.components.is_empty() {
-                return Err(Error::UnsupportedValue(
-                    "vector has no components".to_owned(),
-                ));
-            }
             kind(Kind::Vector(wire::Vector {
                 components: vector
                     .components
@@ -468,9 +463,18 @@ mod tests {
             name: "red".to_owned(),
             value: None,
         }));
-        refused(&Value::Vector(Vector {
-            components: Vec::new(),
-        }));
+    }
+
+    #[test]
+    fn an_empty_vector_is_sent() {
+        assert_eq!(
+            sent(&Value::Vector(Vector {
+                components: Vec::new()
+            })),
+            Kind::Vector(wire::Vector {
+                components: Vec::new()
+            })
+        );
     }
 
     #[test]
