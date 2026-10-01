@@ -1,6 +1,7 @@
 package export_test
 
 import (
+	"encoding/json"
 	"strings"
 	"testing"
 
@@ -144,4 +145,106 @@ func TestNestedEnumerationVariationRoundTrips(t *testing.T) {
     enum def Wide :> Box::Size;
 }
 `)
+}
+
+// variantReferenceModel names existing features as variants, by a lone name, a
+// qualified name and a feature chain; B declares a second e1 for the refusal.
+const variantReferenceModel = "package P {\n    part def E;\n    part def B {\n        part e1 : E;\n    }\n    part def Q {\n        part k : E;\n    }\n" +
+	"    part q : Q;\n    part e1 : E;\n    part e2 : E;\n    variation part def V {\n        variant e1;\n        variant P::e2;\n        variant q.k;\n    }\n}\n"
+
+// A bare `variant x;` is a VariantReference (SysML-textual-bnf :343-345): a
+// ReferenceUsage whose owned ReferenceSubsetting references the feature x names
+// outside the variation, or the chain of features, declaring no name of its own.
+func TestVariantReferenceOwnsAReferenceSubsetting(t *testing.T) {
+	if diagnostics := diagnosticMessages("m.sysml", []byte(variantReferenceModel)); len(diagnostics) > 0 {
+		t.Fatalf("the model should analyse clean:\n%s", strings.Join(diagnostics, "\n"))
+	}
+	turtle, err := convert.Convert("m.sysml", []byte(variantReferenceModel), convert.FormatSysML, convert.FormatTurtle)
+	if err != nil {
+		t.Fatalf("to turtle: %v", err)
+	}
+	graph := string(turtle)
+	for _, want := range []string{
+		"elmt:P__V__e1\n    a sysml:ReferenceUsage",
+		"sysml:referencedFeature elmt:P__e1",
+		"sysml:referencedFeature elmt:P__e2",
+		"sysml:chainingFeature elmt:P__q, elmt:P__Q__k",
+	} {
+		if !strings.Contains(graph, want) {
+			t.Errorf("the graph should state %q:\n%s", want, graph)
+		}
+	}
+	for _, block := range strings.Split(graph, "\n\n") {
+		if strings.HasPrefix(block, "elmt:P__V_") && !strings.HasPrefix(block, "elmt:P__V__e1_") &&
+			(strings.Contains(block, "a sysml:PartUsage") || strings.Contains(block, "sysml:declaredName")) {
+			t.Errorf("a variant reference should declare no usage or name of its own:\n%s", block)
+		}
+	}
+	if n := strings.Count(graph, "a sysml:ReferenceSubsetting"); n != 3 {
+		t.Errorf("each of the three variants should own a ReferenceSubsetting, found %d:\n%s", n, graph)
+	}
+	back, err := convert.Convert("m.ttl", withoutSourceText(t, turtle), convert.FormatTurtle, convert.FormatSysML)
+	if err != nil {
+		t.Fatalf("back to notation from the mapping alone: %v\n%s", err, turtle)
+	}
+	if string(back) != variantReferenceModel {
+		t.Fatalf("the notation changed\n--- want ---\n%s\n--- got ---\n%s", variantReferenceModel, back)
+	}
+
+	doc, err := convert.Convert("m.sysml", []byte(variantReferenceModel), convert.FormatSysML, convert.FormatAPIJSON)
+	if err != nil {
+		t.Fatalf("to api-json: %v", err)
+	}
+	var elements []map[string]any
+	if err := json.Unmarshal(doc, &elements); err != nil {
+		t.Fatal(err)
+	}
+	byID := map[string]map[string]any{}
+	for _, e := range elements {
+		id, _ := e["@id"].(string)
+		byID[id] = e
+	}
+	ref := func(v any) string {
+		id, _ := v.(map[string]any)["@id"].(string)
+		return id
+	}
+	variants := 0
+	for _, e := range elements {
+		if e["@type"] != "VariantMembership" {
+			continue
+		}
+		variants++
+		usage := byID[ref(e["ownedVariantUsage"])]
+		if usage["@type"] != "ReferenceUsage" || usage["declaredName"] != nil {
+			t.Errorf("%v: a %v declaring %v, want an unnamed ReferenceUsage", usage["@id"], usage["@type"], usage["declaredName"])
+		}
+		subsetting := byID[ref(usage["ownedReferenceSubsetting"])]
+		if subsetting == nil || byID[ref(subsetting["referencedFeature"])] == nil {
+			t.Errorf("%v: ownedReferenceSubsetting %v does not reference a feature in the output", usage["@id"], usage["ownedReferenceSubsetting"])
+		}
+	}
+	if variants != 3 {
+		t.Errorf("want three variant memberships, found %d", variants)
+	}
+	if _, err := convert.Convert("m.json", doc, convert.FormatAPIJSON, convert.FormatSysML); err != nil {
+		t.Errorf("the API JSON did not read back: %v", err)
+	}
+
+	// A variant referencing a feature its name does not reach from the
+	// variation is refused rather than written as `variant e1;` naming another.
+	blocks := strings.Split(string(withoutSourceText(t, turtle)), "\n\n")
+	for i, block := range blocks {
+		if strings.HasPrefix(block, "elmt:P__V__e1\n") || strings.HasPrefix(block, "elmt:P__V__e1_rs\n") {
+			block = strings.ReplaceAll(block, "elmt:P__e1 ", "elmt:P__B__e1 ")
+			blocks[i] = strings.ReplaceAll(block, `\"P__e1\"`, `\"P__B__e1\"`)
+		}
+	}
+	retargeted := strings.Join(blocks, "\n\n")
+	if !strings.Contains(retargeted, "sysml:references elmt:P__B__e1 ;") {
+		t.Fatalf("the variant was not retargeted:\n%s", retargeted)
+	}
+	if _, err := convert.Convert("m.ttl", []byte(retargeted), convert.FormatTurtle, convert.FormatSysML); err == nil ||
+		!strings.Contains(err.Error(), "`variant e1` does not name P::B::e1") {
+		t.Errorf("expected the retargeted variant to be refused, got %v", err)
+	}
 }

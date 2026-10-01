@@ -1,6 +1,7 @@
 package parser
 
 import (
+	"strings"
 	"testing"
 
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/ast"
@@ -121,6 +122,43 @@ func TestParseVariantWithKindKeyword(t *testing.T) {
 			}
 			if usage.Kind != tt.kind {
 				t.Errorf("%s has kind %v, want %v", tt.src, usage.Kind, tt.kind)
+			}
+		})
+	}
+}
+
+// `variant P::x;` and `variant a.b;` are VariantReferences whose
+// OwnedReferenceSubsetting is a qualified name or a feature chain
+// (SysML-textual-bnf :343-345, :463-466): no identification spells either, so
+// the usage declares no name and references the feature, as `perform` does.
+func TestParseVariantReferenceByQualifiedNameOrChain(t *testing.T) {
+	for _, tt := range []struct{ ref, target string }{
+		{"P::x", "P::x"},
+		{"$::P::x", "$::P::x"},
+		{"a.b", "a.b"},
+	} {
+		t.Run(tt.ref, func(t *testing.T) {
+			src := "package P { variation part def C { variant " + tt.ref + " { } } }"
+			p := New(source.New("test.sysml", []byte(src)))
+			root := p.ParseFile()
+			if len(p.Diagnostics) > 0 {
+				t.Fatalf("parse errors: %v", p.Diagnostics)
+			}
+			pkg := root.Members[0].(*ast.Membership).Member.(*ast.Package)
+			def := pkg.Members[0].(*ast.Membership).Member.(*ast.Definition)
+			usage, ok := def.Members[0].(*ast.Membership).Member.(*ast.Usage)
+			if !ok {
+				t.Fatalf("parsed to %T, want a usage", def.Members[0].(*ast.Membership).Member)
+			}
+			if !usage.IsVariantReference() || usage.Ident.Declared() || !usage.HasBody {
+				t.Errorf("variant reference %+v: want an unnamed variant reference with a body", usage)
+			}
+			ref := usage.ReferenceSubsetting()
+			if ref == nil {
+				t.Fatalf("no reference subsetting among %v", usage.Relationships)
+			}
+			if got := strings.ReplaceAll(src[ref.Target.Span().Offset:ref.Target.Span().End()], " ", ""); got != tt.target {
+				t.Errorf("references %q, want %q", got, tt.target)
 			}
 		})
 	}

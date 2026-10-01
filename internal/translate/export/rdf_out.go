@@ -1375,11 +1375,20 @@ func (e *encoder) encodeMember(h memberHead, owner string) error {
 			}
 		}
 		implicitTarget := e.implicitMetadataBodyTarget(inBody, n)
+		variantTarget := e.variantReferenceTarget(n)
+		variantReference := variantTarget.Value != "" || n.IsVariantReference() && referencesFeature(n)
+		if variantReference {
+			// A bare `variant x;` is a VariantReference (SysML-textual-bnf
+			// :343-345): a ReferenceUsage subsetting the feature x names, which
+			// names it, rather than a new usage declaring x.
+			metaclass = mReferenceUsage
+		}
 		head(rdf.SysMLTerm(metaclass))
 		if !shorthandRelationship(n) {
-			if implicitTarget.Value != "" {
+			if implicitTarget.Value != "" || variantReference {
 				// A metadata body's `name = …` redefines the metadata
-				// definition's feature of that name; it declares none.
+				// definition's feature of that name, and a `variant x;`
+				// references x; neither declares a name.
 				if n.Ident.ShortName != "" {
 					e.graph.Add(subject, e.sysml(pDeclaredShortName), rdf.String(n.Ident.ShortName))
 				}
@@ -1477,6 +1486,9 @@ func (e *encoder) encodeMember(h memberHead, owner string) error {
 		if implicitTarget.Value != "" {
 			e.graph.Add(subject, e.sysml(relationshipProperty[ast.RelRedefines]), implicitTarget)
 			e.graph.Add(subject, e.sysx(xImplicitRedefinition), rdf.Bool(true))
+		}
+		if variantTarget.Value != "" {
+			e.graph.Add(subject, e.sysml(relationshipProperty[ast.RelReferences]), variantTarget)
 		}
 		if err := e.featureValue(subject, within, n.Value, n.ValueIsDefault, n.ValueIsInitial); err != nil {
 			return err
@@ -2476,6 +2488,31 @@ func (e *encoder) implicitMetadataBodyTarget(inBody bool, n *ast.Usage) rdf.Term
 	if target == nil || target == sym {
 		return rdf.Term{}
 	}
+	return e.symbolTerm(target)
+}
+
+// variantReferenceTarget is the term of the feature a bare `variant x;` names,
+// the like-named feature visible outside the variation, or the zero term when n
+// is no such reference, x names nothing, or n states its reference itself
+// (`variant P::x;`, `variant a.b;`).
+func (e *encoder) variantReferenceTarget(n *ast.Usage) rdf.Term {
+	if !n.IsVariantReference() || referencesFeature(n) {
+		return rdf.Term{}
+	}
+	sym := e.ids.declSym[n]
+	if sym == nil {
+		return rdf.Term{}
+	}
+	target := e.ids.model.ReferencedFeature(sym)
+	if target == nil || target == sym {
+		return rdf.Term{}
+	}
+	return e.symbolTerm(target)
+}
+
+// symbolTerm is the term of the element a resolved symbol declares, or the zero
+// term when it has none the graph can name.
+func (e *encoder) symbolTerm(target *symbols.Symbol) rdf.Term {
 	if decl, fqn, ok := e.linked(target, true); ok {
 		return e.ids.subjectForNode(decl, fqn)
 	}
