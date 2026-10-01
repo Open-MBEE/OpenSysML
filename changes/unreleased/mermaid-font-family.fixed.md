@@ -1,1 +1,0 @@
-- **Set Mermaid's configured diagram font.** Mermaid now receives the selected Pilot or Cameo font through top-level config so SVG diagram labels use the intended typeface.

@@ -1,1 +1,0 @@
-- **Correct Mermaid flowcharts around trees, ports, subgraphs and notes, and use grammar-scoped theme variables and filled start symbols.** Avoids detached cluster links, stray port nodes and malformed quoted labels while keeping tree containment as plain edges.
