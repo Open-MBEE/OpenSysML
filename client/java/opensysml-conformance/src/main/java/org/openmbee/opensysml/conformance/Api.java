@@ -14,6 +14,7 @@ import org.openmbee.opensysml.Conversion;
 import org.openmbee.opensysml.ConversionOptions;
 import org.openmbee.opensysml.DocumentQueryResult;
 import org.openmbee.opensysml.DocumentValue;
+import org.openmbee.opensysml.DocumentForm;
 import org.openmbee.opensysml.Edit;
 import org.openmbee.opensysml.EditException;
 import org.openmbee.opensysml.EditOptions;
@@ -659,6 +660,9 @@ final class Api {
     if (!request.getFromFormat().isEmpty()) {
       options = options.withFromFormat(request.getFromFormat());
     }
+    if (!request.getIdForm().isEmpty()) {
+      options = options.withIdForm(request.getIdForm());
+    }
     try {
       Conversion conversion =
           switch (request.getSourceCase()) {
@@ -974,8 +978,15 @@ final class Api {
 
   private RenderDocumentResponse renderDocument(RenderDocumentRequest request) {
     Model model = connection.model(request.getModelHash());
-    RenderedDocument rendered = model.renderDocument(request.getDocumentId());
-    return RenderDocumentResponse.newBuilder().setMarkdown(rendered.markdown()).build();
+    RenderedDocument rendered =
+        model.renderDocument(request.getDocumentId(), DocumentForm.fromWireName(request.getForm()));
+    RenderDocumentResponse.Builder response = RenderDocumentResponse.newBuilder();
+    if (rendered.form() == DocumentForm.HTML) {
+      response.setHtml(rendered.content());
+    } else {
+      response.setMarkdown(rendered.content());
+    }
+    return response.build();
   }
 
   private QueryResponse query(QueryRequest request) {

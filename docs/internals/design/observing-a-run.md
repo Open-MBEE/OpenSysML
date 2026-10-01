@@ -39,7 +39,7 @@ program chooses. That is the shape every downstream use has:
 - **Animation.** Highlight the active states on the state diagram, the live action nodes on the
   action diagram, the attribute values in the part tree, as the run moves — in the VS Code
   panel ([visual modeling](vscode-visual-modeling.md)), in a SysON or Cameo canvas
-  ([syson-plugin](syson-plugin.md), [cameo-plugin](cameo-plugin.md)), in a notebook.
+  ([syson-plugin](syson-plugin.md), [mdk-plugin](mdk-plugin.md)), in a notebook.
 - **Collection.** Record every transition with its instant and payload, every assignment, into
   a table a script analyzes afterward; or a subset of them, chosen by kind and by element.
 - **Steering.** Pause at a state or a node, inspect, inject a signal, resume — the debugger a

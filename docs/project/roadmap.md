@@ -1,25 +1,22 @@
 # OpenSysML — Roadmap
 
-Baseline: `v0.8.0` (`238aed650`, `Merge pull request #277 from Open-MBEE/release/0.8.0`,
-2026-09-13), verified locally with Go 1.25.0. The newest tag on `Open-MBEE/OpenSysML` is the patch
-`v0.8.1` (`e0ea34616`, `Merge pull request #347 from Open-MBEE/release/0.8.1`, 2026-09-16), cut
-from `v0.8.0` by cherry-pick and carrying bug fixes alone, so it moves no item and `v0.8.0` stays
-the baseline the statuses are read against; before them `v0.7.0` (`e0fbfea5b`, 2026-09-09) and
-`v0.6.0` (`30f103bb9`, 2026-09-07). The integration branch `develop` (`857dd48b0`, #517) carries
-216 pull requests past `v0.8.0` (#364 folded `v0.8.1` back into it) and nothing else is counted
-ahead of it: every status below is what the tag carries unless the text names one of those as
-having moved it — #267, #289 and #293 (Q2), #359 (Q1's page and Q3), #263 (A7), #286 (the release
-fold-back), #291 (the generated test figures), #292 (L7), #296 (A4), #335 and #352 (E1), #466 and
-#479 (a braced state block as one action), #362 (E2), #465 (E4), #468 (dynamic objects), #344
-(modeled randomness beside A3), #356 (W3's rasterization and export), #358 (the PDF path onto the
-HTML backend, under "Proposed"), #300 and #316 (the large-model design and its first step, under
-"Proposed"), #319, #321, #334 and #413 (the fUML referee for actions and its emitter, under
-"Proposed"), #350 (R4's installer wizard), #304 (the errata overlay over the bundled library, under
-"Upstream follow-through"), and the state-executor fixes and findings the PSSM referee adjudicated
-(#295, #297, #311, #313–#315, #317, #318, #322, #326, #336, #342, #384, #438, #486, #490, #513;
-Track E) — and
-the pull requests open against `develop` at this baseline are named where they touch a roadmap
-item.
+Baseline: `v0.9.1` (`b9de3b070`, `Merge pull request #614 from Open-MBEE/release/0.9.1`,
+2026-09-30), verified locally with Go 1.25.0. Before it `v0.9.0` (`ee54ea03e`, `Merge pull
+request #570 from Open-MBEE/hotfix/release-sdist-glob`, 2026-09-24 — the release pull request #564
+and the hotfix that matched the Python source distribution by its version-led name), then `v0.8.1`
+(`e0ea34616`, 2026-09-16, a cherry-picked patch), `v0.8.0` (`238aed650`, 2026-09-13) and `v0.7.0`
+(`e0fbfea5b`, 2026-09-09). `v0.9.0` carried 267 pull requests merged after `v0.8.0` and `v0.9.1`
+139 more, so every item the previous refresh called *landed, unreleased* is now in a tag. The
+integration branch `develop` (`deca2b038`, #694) carries nine pull requests past `v0.9.1` and
+nothing else is counted ahead of it: #754 (the fold-back of `main`, the tag and the Windows
+release fixes merged to `main` after it), #639 (pseudostates and deferred events as standard
+metadata), #694 (the `defer` state-body extension removed), #746 (a converted model names the
+standard-library elements it references), #749 (`Convert` takes the id form), #750 (a connector
+end naming a definition's feature by qualified name refused), #751 (the parser's warnings over
+gRPC), #755 (the WebAssembly gate run single-threaded) and #756 (`MeasurementReferences::one` as
+the identity of the quantity arithmetic). Every status below is what `v0.9.1` carries unless the
+text names one of those; the pull requests open against `develop`, and the work being implemented
+that has no pull request yet, are named where they touch a roadmap item.
 Read `AGENTS.md` first; it governs everything below.
 
 > **Labels.** This is an engineering record. The RDF items keep the `D` numbers (`D1`, `D2`,
@@ -44,153 +41,99 @@ Read `AGENTS.md` first; it governs everything below.
 > pull request yet. *Not started* means exactly that. A status is taken from the pull request
 > itself, never from a branch name or a commit message.
 
-`v0.8.0` (`238aed650`, 2026-09-13) follows `v0.7.0` (`e0fbfea5b`, 2026-09-09) and `v0.6.0`
-(`30f103bb9`, 2026-09-07); `v0.8.1` (`e0ea34616`, 2026-09-16) is the patch cut from it, whose
-`CHANGELOG.md` **0.8.1** section lists the fixes it carries and nothing else. `v0.8.0`'s
-CircleCI `release` workflow succeeded: the release carries `sysml`, `sysml-lsp` and `sysml-grpc` for five platforms,
-the Homebrew bundles, the cosign-signed manifest and — for the second release running — the
-Windows installer `opensysml-0.8.0-windows-amd64.msi` (R4). The Python client's `opensysml-v0.5.0`
-tag points at the same commit and PyPI serves `opensysml` 0.5.0 from it — its `release-python`
-workflow failed twice in `Go coverage profile` and passed when rerun, so the post-tag checks in
-`docs/project/releasing.md` are all met and nothing of the release step is left.
-`CHANGELOG.md`'s **0.8.0** section is the tag's content (#268 and #277 folded it), its **0.7.0**
-section is `v0.7.0`'s (#145, #154, #159), and `changes/unreleased/` on `develop` holds the
-fragments of the pull requests merged after the tags alone, #286 and #364 having carried the
-fold-backs of `v0.8.0` and `v0.8.1`.
+`v0.9.1`'s release carries `sysml`, `sysml-lsp` and `sysml-grpc` for five platforms, the
+Homebrew bundles, the cosign-signed manifest, the SLSA provenance attestation over the manifest's
+artifacts (`provenance.intoto.json` and its bundle, #606) and the Windows installer
+`opensysml-0.9.1-windows-amd64.msi` (R4), as `v0.9.0` carried the same set less the provenance.
+Since #338 the Python client is published from the core `v*` tag at the core version, so PyPI
+serves `opensysml` 0.9.0 and 0.9.1 beside the older client-tagged 0.3.1–0.5.0; and since #735
+and #739 the same tag publishes the Node and Rust clients, so npm serves `@openmbee/opensysml`
+0.9.1 and crates.io `opensysml` 0.9.1, each the package's first published version (R2).
+`CHANGELOG.md`'s **0.9.1** and **0.9.0** sections are the tags' content, and `changes/unreleased/`
+on `develop` holds the fragments of the nine pull requests merged after `v0.9.1` alone.
 Between releases `.github/workflows/nightly.yml` publishes the newest green `develop` as the
-prerelease `nightly` (#284), so an item landed after the tag is unreleased but not unbuilt.
+prerelease `nightly` (#284), with the VS Code extension as a `.vsix` beside it (#371), so an item
+landed after the tag is unreleased but not unbuilt.
 Since `v0.7.0` the repository works git-flow: `develop` is the integration branch, `main`
 receives only `release/x.y.z` and `hotfix/` pull requests (#151), and the roadmap's baseline is
 therefore the tag rather than `main`'s head.
 Everything in "Release follow-through" is maintainer- or account-gated; everything after it is
 ordinary engineering work.
 
-**What closed between `v0.6.0` and `v0.7.0`** — 50 merged pull requests (#110–#161, less #143
-and #160, which were closed unmerged), in `CHANGELOG.md`'s 0.7.0 section for the detail, listed
-here because each retires or narrows a roadmap line. The tracks below carry the detail and what each pull
-request deliberately leaves.
+**What closed between `v0.8.0` and `v0.9.0`** — 267 merged pull requests, in `CHANGELOG.md`'s
+0.9.0 section for the detail, listed here because each retires or narrows a roadmap line. The
+tracks below carry the detail and what each pull request deliberately leaves.
 
-- *Executor.* A node several successions reach performs once, after one token per succession,
-  and a join one of whose successions can deliver nothing deadlocks instead of firing on a count
-  (#116, closes F1 and F2); a merge is one performance per arrival, so a loop through a merge runs
-  to its exit (#120, closes F3); a breakpoint on a synchronized node pauses once and a step moves
-  each token at most once (#119); a via-less `accept` on a transition no longer takes a transfer
-  addressed to a port (#126); a paused `%action`/`%state` run resumes with its own budgets, choice
-  points and memo rather than another run's (#130); a long race-instrumented run no longer grows
-  step by step (#146); a sourceless transition leaves the state declared before it, the guarded
-  entry transition chooses by its guards, and a machine's own `entry`/`do`/`exit` run for every
-  machine (#155, #161). `known_failures.txt` is empty.
-- *Multiple valid executions.* A conformance case lists the outcomes the library admits and a
-  `.trace.order` file states a partial order on its trace (#110, closes S1); every choice the
-  library leaves open is reported as a `choice` trace line, a diagnostic and a REPL summary (#123,
-  closes S2); the scheduling policy is selectable — `reverse` the default, `declared`, `seed:<n>`
-  — on the CLI, in the REPL, on the wire and as a conformance-case pin (#125, closes S3); `explore`
-  runs every linearization one token per step and tables the distinct outcomes, and the harness
-  explores every case that lists `outcomes` (#134, #153, closes S4); the order two regions react
-  to one event in is a choice point under every policy and `seed:<n>` varies it (#141); the
-  oracle, the compliance record, the behavior guide and a design note state which orders are open
-  and how each is checked (#138, #150).
-- *Expressions and values.* `x as T` evaluates as classification, including composed types (#115,
-  closes X3); `*` is a value and `elem.metadata` reads an element's metadata (#113, closes X4); a
-  calc is a value — passed, returned, read off a part, applied through a `calc`-typed parameter —
-  and crosses the wire as `Value.function` (#122, closes X6); `Collections::Set` is held as a set
-  and tensor quantities take any rank, both crossing gRPC whole (#121, closes X7's value half); a
-  collection operation's static type follows its body's result (#112, closes X8's typing half); a
-  wire `Diagnostic` carries its `code` (#124); a worked example of the expression forms (#147).
-- *Analysis.* A verification case runs and reports its body's verdict beside requirement
-  satisfaction, and its objective checks the case's subject (#117, #156, closes A6); `-sweep`,
-  `-samples -seed`, `%sweep`, `%samples`, `RunSweep` and `run_sweep` run a case or a calc once per
-  value, typed by the parameter they bind, and table the rows (#118, #157, closes A3); a
-  `TradeStudy` runs as the library writes it and reports each evaluation, with `%optimize`
-  refusing an objective bound to the case's own calc (#133, closes A2); one simulation clock owned
-  by the runtime context, `accept after`/`at` in action bodies, `Context.Advance`, the `due order`
-  choice point and `final_time` on the wire (#136, closes A5); a worked walkthrough of analysis
-  cases under `examples/analysis-demo` (#148).
-- *Wire and clients.* Every value kind above crosses gRPC/Connect under its own capability
-  (`infinity_value`, `function_values`, `set_values`, `tensor_values`, `verification_verdicts`,
-  `case_evaluations`, `schedule`, `schedule_explore`, `final_time`, `diagnostic_codes`), read by
-  the Go, Python, Node, Rust and Java clients; the Go and Python clients add sweeps, exploration,
-  evaluations and the schedule option (#113, #117, #118, #121, #122, #124, #125, #133, #134, #136).
-- *Release, CI and records.* The Windows MSI builds again on the GitHub runners and `v0.7.0` was
-  the first release to publish one (#127, R4); pull requests run GitHub Actions only while CircleCI
-  runs on `main` and tags, as four jobs under the plan's time limit, with the wire-compatibility
-  baseline the merge's own parent or the previous tag (#108, #132); development moved to a
-  `develop` integration branch (#151); the coverage the SonarCloud scan reads measures every suite
-  the checks run (#142) and the findings are cleared (#109, #139); loading a large model merges
-  the library's member set once rather than per declaration (#114); the pre-1.0 rule for which
-  version segment a release bumps is stated in `CONTRIBUTING.md` (#131); the bounded-model-checking
-  design record (#135, #158) and the bindings track below (#140) are written; the roadmap was
-  refreshed to the `v0.6.0` baseline and then swept for what landed after it (#111, #149); and
-  the repository's agent skills were extended (#128, #129, #137, #144, #152).
+- *Execution.* Track E completed: `terminate` in a body (#335, #352, E1), interrupting an ongoing
+  performance (#362, E2), streaming flows (#465, E4), dynamic object creation and destruction
+  (#468), an addressed send to the object its receiver yields (#491, #492, E7), the
+  run-to-completion redefinitions (#493, E8), and a braced state block read as one action (#466,
+  #479). The state-executor fixes the PSSM referee adjudicated (#295, #297, #311, #313–#315,
+  #317, #318, #322, #326, #336, #342, #456, #494, #527) and the region-order choice points
+  (#384, #438, #513, #525) moved its baseline to 60 `pass` of 103; the fUML referee for actions
+  and its emitter landed (#319, #321, #334, #413).
+- *Queries and analysis.* Q2's query side (#267, #289, #293), Q3 and the page telling the query
+  kinds apart (#359, #373), closing Track Q, with coverage, set and derivation operations beside
+  it (#365, #366, #368); A7 (#263) and A4 (#296), closing Track A, and modeled randomness beside
+  A3 (#344); L7's measured table (#292), closing Track L.
+- *Interchange and migration.* D1 and D2 in one change (#509), D7's reference links and concrete
+  metaclasses (#507), the API element form as the `api-json` format (#523, D11) and its normative
+  element families (#539, #545, #550, #559); SysML v1 behavior migrated to executable actions and
+  states (#378, #382, #383, #385, #481, #485, #487, #488), views, use cases and profiles (#514,
+  #515, #516), every diagram as a view (#524) laid out from an MTIP export with `-layout` (#538,
+  #546), Cameo tables and DocGen documents as document queries (#533, #553), and the migration
+  documented across the API, the guide and D13 (#531).
+- *Diagrams and editing.* W3's PDF rasterization and export of both forms (#356); the VS Code
+  panel runs the behavior it draws (#294), opens several views (#349), lays unplaced nodes out
+  with ELK (#535) and draws in the pilot's style (#390); diagram layout written into the document
+  declaring its holder (#307); positioned labels fitted and symbol kinds drawn as their notation
+  (#560).
+- *Package layering.* Track P landed whole but P7: the tests tree (#392, #395, #397, #401, #427),
+  the tools module (#394, #400, #404), the folds and helper homes (#411, #415, #417–#420, #422,
+  #426, #430, #431), the runtime-free translation layer and the shared XMI reader (#412, #421,
+  #423), the clients under `client/` (#435), the layer directories (#440–#449) and P7's design
+  record (#451).
+- *Scaling, release and site.* The large-model design and its first step, the persistent
+  semantic model (#300, #316, over #299's stress workload); the nightly snapshot (#284, #371); the
+  Python client on the core tag (#338); the MSI's setup wizard (#350, R4); the test-suite figures
+  counted when the site is built (#291, #345); the browser build of the Legend of the Red Dragon
+  model (#357).
 
-**What closed between `v0.7.0` and `v0.8.0`** — 113 merged pull requests (#162–#279, less #216
-and #232, which were closed unmerged, and #263, #267 and #278, which merged to `develop` after the
-tag), in `CHANGELOG.md`'s 0.8.0 section for the detail, grouped as the paragraph above is.
+**What closed between `v0.9.0` and `v0.9.1`** — 139 merged pull requests, in `CHANGELOG.md`'s
+0.9.1 section for the detail, grouped as the paragraph above is.
 
-- *Analysis framework and engines.* Every analysis question goes through one framework
-  (`internal/exec/analysis`, #172, #162): each plan runs on a resolver and semantic model of its own
-  (#180), runs and sweep rows go in parallel under `-jobs` with the same answer whatever the count
-  (#190, #193), a sweep over a held object runs on the object as the session holds it (#215), every
-  verdict states its standing and the engines can be listed and chosen (#182), an action annotated
-  `ToolExecution` runs through an external tool (#189), and an engine is a directory of executables
-  speaking over standard input, bounded by `OPENSYSML_TOOL_MAX_OUTPUT` (#235; design note #171).
-- *Model checking.* An SMT model checker for actions on concrete inputs (#185), over free inputs
-  (#233), deciding whether the schedule decides a feature under its own solver budget (#262,
-  #279), reading timed accepts, messages and nested flows (#260); `-engine check` searches every schedule of an action, of a state
-  machine, and of the two together, with static reduction and time ties (#192, #244); the
-  `replay:<file>` scheduling policy replays a witness, including a clock-retried step (#258); the
-  OMG PSSM state-machine suite runs as an advisory referee (#230); the bounded model checker's
-  independence relation counts message order (the design note, #217's companion).
-- *Expressions and values.* The extent operator `all T` evaluates, statically `T[0..*]`, over the
-  whole model, and a namespace-level usage of several occurrences denotes its objects (#211, #238,
-  #239, closes X5 and the expression half of Q2); `x meta T` evaluates and `x.metadata` ends with
-  the reflective metaobject, which crosses gRPC (#212); a `[0..*]` feature holding one value
-  denotes that value wherever one value is expected, including through a feature chain, so
-  `interpolateLinear` runs (#164, closes X2 and unblocks L7); function values compile natively in
-  C and Go (#165, retiring the compiler's function-value refusal); a literal's direct type is its
-  `ScalarValues` definition, scale arithmetic agrees with the library, a computed quantity is
-  reported in its dimension's coherent unit, and classification against an enumeration is decided
-  by its values (#205, #191, #179, #208, #177); a bare feature reference is typed statically by
-  the feature it names, a computed value is judged against a scalar-typed feature, and an argument
-  of unknown type keeps every overload (#213, #237, #241); a multi-valued feature not declared
-  `nonunique` refuses a repeated value (#178).
-- *Executor.* A deferred event outranks an enclosing transition, a history with nothing to
-  restore performs the ordinary entry, a composite's completion fires its own completion
-  transitions, and a `choice` reads its guards after the incoming effect (#228); a `do` behavior
-  may be a full action that waits on the clock (#181); a body paused mid-statement is state a
-  snapshot captures, and the runtime's `Context` is a shared `Model` plus a run's own state
-  (#187, #259); `first a then b;` in action and state bodies is the succession it names, with
-  feature-chain ends (#269, #270, #274); `%send` reaches an object whose performed action waits
-  at an `accept` (#271); `entry point`/`exit point` — an extension with no SysML v2 notation —
-  are gone (#184).
-- *Diagrams and documents.* A view renders as Graphviz DOT with the `dot` form, in the pilot
-  visualizer's Standard B&W style with an optional colourblind-safe palette, and a document
-  renders its diagrams as DOT on request (#222, #248, closes W1 and W3's DOT half); a view renders
-  as PlantUML with the `plantuml` form and a document as PlantUML on request (#264, closes W2 and
-  W3's PlantUML half); a model can say where a view draws its elements and every rendering carries
-  it, validated by `-validate` (#227); node labels lead with the name (#243); `sysml -render`
-  accepts several files as one model (#167).
-- *Editing.* The VS Code diagram panel is an editable canvas: an **Add…** menu, connection edits,
-  a dragged node's position written back, **Move to…** across namespaces, and rename or delete
-  following references into the other documents of the model, all through the
-  `opensysml/applyModelEdit` LSP request over `internal/check/edit` (#247, #261, #265, #266).
-- *Library and identity.* Named standard-library elements carry the normative element ids the
-  KerML and SysML specifications assign, and a copy of a library file rooted at the library's
-  packages converts as the library (#245, #276, #278 — the last past the tag); a `MOSA` library
-  and its openness checks (#200); every bundled library file converts back from its graph without
-  source text (#272).
-- *Records, corpora and site.* The pinned OMG pilot implementation is release `2026-08` (#224);
-  the precise-semantics alignment note (#217), the embedded-target design note (#226), the
-  runtime showcase under `examples/runtime-showcase/` (#225), the architecture self-model's
-  analysis flows (#194, #201), the execution-semantics vocabulary (#183) and the landing page's
-  carousel (#203); SysML v1 migration reads the open model formats tool-neutrally (#188); the
-  Python client answers `Model.find`, `Model.get` and indexing from the model (#207); the
-  SonarCloud findings are cleared on each pass (#196–#199, #242, #253, #257, #275); the roadmap
-  gained D12, Track W (#195) and A7 (#214) along the way; and `main` was merged back into `develop`
-  after `v0.7.0` (#202).
+- *Language integrations.* Thin Julia and MATLAB/Octave clients (#591, I3's first two packages);
+  the Node, Java and Rust clients published from the core tag (#735, #738, #739, R2) and the
+  editor versions locked to the core version (#745); a no-publish release rehearsal (#743) and the
+  SLSA provenance attestation (#606).
+- *Authoring.* The behavioral-editing proposal (#574) landed as operations on
+  `opensysml/applyModelEdit` and the clients' `ApplyEdits`: connections (#609), member modifiers,
+  satisfy usages and requirement constraints (#611), state transitions with trigger, guard and
+  effect, substates and behavior parameters (#616), perform-action members (#659), imports
+  (#677), constraint bodies, assert constraints, exhibited states and state subactions (#678),
+  documentation (#679), action-body sequencing (#680), verification objectives and metadata usages
+  (#681), reference assertions and result expressions (#690), comments and notes (#698), and
+  action-body statements, guarded successions and source multiplicity (#700).
+- *Scaling.* The large-model design's next steps: a load parsed, indexed and validated on a pool
+  of workers (#312), each loaded file a workspace document of its own (#309), the satellite
+  network generated as a fleet of occurrences (#308), closed documents held as interface records
+  (#621) that hydrate and demote and are written from every analysis (#637), and the 0.9.1
+  satisfaction, gRPC, migration and lint regressions attributed and fixed (#742).
+- *Interchange and migration.* The normative export series — verify memberships, flow ends,
+  message ends, payload features, owned annotations, transition triggers as metamodel structure,
+  source ranges, positional identities (#655, #668, #682, #689, #691, #692, #705, #707, #708,
+  #715–#717) — and the API element form written in half the time (#656); conforming SysML v2
+  only under `-strict` (#625) and deferred signals written in standard SysML v2 in every mode
+  (#632, #669), with the migration's accessibility and context fixes (#628, #629, #635, #665,
+  #670–#675).
+- *Diagrams, documents and targets.* Cameo behaviour notation for action and state views (#623),
+  containment edges kept off compartment rows (#589), pictures pasted onto Cameo diagrams (#588),
+  every migrated document rendered (#568, #571, #612, #622); the WebAssembly build target (#583,
+  #640); a constraint asked whether it holds for all values or is satisfiable (#685, #712).
 
-The previous baselines' retirements — native compilation's first phase, the wire contract, L3–L6,
-the nested-action frames, D3, Q4, the changelog fragments, the census and its gate, the
+The previous baselines' retirements — the `v0.6.0`–`v0.8.0` closures recorded in
+`CHANGELOG.md`'s 0.7.0 and 0.8.0 sections, native compilation's first phase, the wire contract,
+L3–L6, the nested-action frames, D3, Q4, the changelog fragments, the census and its gate, the
 enumeration rules (#907, #909) — stay retired and are not repeated.
 
 ## Where the repository stands
@@ -198,87 +141,59 @@ enumeration rules (#907, #909) — stay retired and are not repeated.
 Full gate green: `gofmt -l .` empty, `go build ./...`, `go vet ./...`, `go test ./...`, and the
 corpus gates run locally clean at the baseline, with the pilot material re-fetched at its pin
 (`./scripts/download-pilot-corpora.sh`, `./scripts/download-pilot-xpect.sh`). A stale local copy
-of the pilot corpora fails `cmd/pilot-diff`, `cmd/pilot-xpect` and the `TestPilotCorpora` gate
-with a provenance message naming the drift; that is the gate working, not a regression — re-fetch
-before re-recording anything.
+of the pilot corpora fails `tools/cmd/pilot-diff`, `tools/cmd/pilot-xpect` and the
+`TestPilotCorpora` gate with a provenance message naming the drift; that is the gate working, not
+a regression — re-fetch before re-recording anything.
 
-| Gate | Count at `v0.8.0` (`238aed650`, 2026-09-13, Go 1.25.0); the `v0.7.0` figure in brackets where it moved |
+| Gate | Count at `v0.9.1` (`b9de3b070`, 2026-09-30, Go 1.25.0); the `v0.8.0` figure in brackets where it moved |
 |---|---|
 | OMG training corpus | **100/100 clean** — asserted, not ratcheted: no file reports a semantic error |
-| OMG pilot corpora (ratchet) | 213 files; 7 report a diagnostic [6], each adjudicated in [pilot-corpora.md](pilot-corpora.md) and [omg-issues.md](omg-issues.md) |
-| Stdlib parser conformance | 100/100 clean — 94 vendored OMG files and 6 non-normative OpenSysML extensions |
-| Execution conformance cases | 894 under `TestExecutionConformance`, all run and pass, none skipped [770] |
-| Known execution-conformance failures | **0** — `known_failures.txt` holds no case: "every derived case passes" |
-| Cases admitting several outcomes | 26 `.expected.json` files list `outcomes`, each citing its derivation in the behavior semantic oracle; the harness explores every one of them under `explore` [19] |
-| Trace partial orders | 8 `.trace.order` files, each a set of `a < b` lines the recorded trace must satisfy [5] |
-| Golden execution traces | 276 `.trace.golden` files: 230 under the default schedule (`TestExecutionTrace`, one per case) and 46 per-policy goldens (`<case>.declared`, `<case>.seed-1`) [216: 182 and 34] |
-| Runtime robustness cases | 459 first-level subtests of `TestRuntimeRobustness` [369] |
-| gRPC conformance fixtures / robustness cases | 15 / 8 (`TestGRPCConformance`, `TestGRPCRobustness`; the authoring service adds 2 robustness cases of its own) |
-| Golden AST fixtures | 205 (`TestGolden`: 177 SysML, 28 KerML) [197: 171 SysML, 26 KerML] |
-| Negative parser subtests | 252 first-level subtests of `TestNegative` (396 across the `TestNegative*` functions, 454 across every `*Negative*` parser test) [249: 338 and 396] |
-| Rejection oracle | 306 self-authored invalid models: 293 both reject by default and 297 when we are asked strictly, 4 the pilot alone by default and none strictly, 9 ours alone [285: 273 and 276, 3 the pilot alone] (the control-node rules the pilot leaves unimplemented and a non-Boolean succession guard) |
-| Validation census | 162 of 217 named constraints reported (156 faithful, 6 approximate), 1 not implemented, 1 deliberate, 53 unknown |
-| RDF corpus round trip | 353 of 353 models stable, none refused [346] |
-| API element form corpus round trip | 354 of 356 models stable, 2 respelled reals, none refused |
+| OMG pilot corpora (ratchet) | 213 files; 9 report a diagnostic [7] — 2 of 58 KerML examples, 7 of 99 SysML examples, 0 of 56 validation files — each adjudicated in [pilot-corpora.md](pilot-corpora.md) and [omg-issues.md](omg-issues.md) |
+| Stdlib parser conformance | 106/106 clean — 94 vendored OMG files and 12 non-normative OpenSysML extensions [100/100: 94 and 6] |
+| Execution conformance cases | 1224, all run and pass, none skipped [894] |
+| Known execution-conformance failures | **0** — `known_failures.txt` holds no case |
+| Cases admitting several outcomes | 92 `.expected.json` files list `outcomes`, each citing its derivation in the behavior semantic oracle; the harness explores every one of them under `explore` [26] |
+| Trace partial orders | 8 `.trace.order` files, each a set of `a < b` lines the recorded trace must satisfy |
+| Golden execution traces | 554 `.trace.golden` files: 388 under the default schedule and 166 per-policy goldens (`<case>.declared`, `<case>.seed-<n>`) [276: 230 and 46] |
+| Runtime robustness cases | 794 first-level subtests across the `TestRuntimeRobustness*` functions [459 of the one function] |
+| gRPC conformance fixtures / robustness cases | 33 / 13 (`TestGRPCConformance`, first-level subtests across the `TestGRPCRobustness*` functions) [15 / 8] |
+| Golden AST fixtures | 227 (`TestGolden`: 199 SysML, 28 KerML) [205: 177 and 28] |
+| Negative parser subtests | 277 first-level subtests of `TestNegative` (432 across the `TestNegative*` functions, 490 across every `*Negative*` parser test) [252: 396 and 454] |
+| Rejection oracle | 310 self-authored invalid models: 297 both reject by default and 301 when we are asked strictly, 4 the pilot alone by default and none strictly, 9 ours alone [306: 293 and 297] (the control-node rules the pilot leaves unimplemented and a non-Boolean succession guard) |
+| Validation census | 164 of 217 named constraints reported (158 faithful, 6 approximate), 0 not implemented, 1 deliberate, 52 unknown [162: 156 and 6; 1 not implemented, 53 unknown] |
+| PSSM referee (advisory) | 103 tests: 60 `pass`, 12 `fail`, 30 `not-expressible`, 1 `differs-by-design` |
+| fUML referee (advisory) | 55 activities: 23 `pass`, 0 `fail`, 28 `not-expressible`, 4 `differs-by-design` |
+| RDF corpus round trip | 358 models: 351 stable, 7 whitespace-only, none graph-diff or refused [353 of 353 stable] |
+| API element form corpus round trip | 358 models: 349 stable, 7 whitespace-only, 2 graph-diff (a `.1` real respelled `0.1`), none refused [354 of 356 stable] |
 
 The pilot differential, the Xpect oracle, the scope oracle and the rejection oracle are the
 external conformance statement, and their figures are generated into `README.md` by `make
 docs-counts` from the committed baselines; they are not repeated here.
 
-The test-suite figures above are counted from `go test -v` at the tag. The other surfaces that
-repeat them (`README.md`, `docs/project/spec-compliance.md`, `docs/internals/architecture.md`)
-were typed in by hand at the tag and lagged it — last recounted at `074f9c4b7` (#245), they read
-889 conformance cases where the tag has 894. Since #291, on `develop` after the tag, they are
-generated: `tools/cmd/doc-counts` counts the conformance cases, golden ASTs, golden traces, negative
-parser subtests, runtime and gRPC robustness cases and top-level `Test` functions from the tree
-the way the gates enumerate them (the conformance cases through `tests/fixtures`, which the
-runtime and gRPC conformance tests read too), `make docs-counts` writes them into marker blocks
-beside the refereed pilot figures, and `go run -C tools ./cmd/doc-counts -check` fails in CI when a block
-and the tree disagree, so the surfaces cannot drift from the gate table again. They have since
-left git altogether: the site build counts them into the compliance map's test inventory
-(`scripts/mkdocs_suite_figures.py` over `go run -C tools ./cmd/doc-counts -site-blocks`), the committed
-pages name what is counted without a figure, and a branch adding a test rewrites no shared line.
-The tests-and-subtests total of a run, which only a run can state, is no longer quoted anywhere. At
-`develop`'s head the blocks read 1013 conformance cases, 307 default and 80 per-policy trace
-goldens, 493 runtime robustness cases, 21 gRPC conformance and 8 gRPC robustness cases, 208 golden
-ASTs and 252 negative subtests; the growth over the table is fixtures landed after the tag, all
-unreleased. The robustness cases are counted across the `TestRuntimeRobustness*` and
-`TestGRPCRobustness*` functions since #345 registered them per feature, so the table's
-single-function figure and the block's are the same census under two spellings. The rejection-
-oracle row follows the committed baselines and did not move between `074f9c4b7` and the tag. At
-`develop`'s head, the validation census has moved to **163 of 217 reported —
-157 faithful, 6 approximate, 0 not implemented, 1 deliberate, 53 unknown**, and the RDF corpus
-round trip has moved to **356 of 356 models stable**. The API element-form round trip at the
-same head is **354 of 356 models stable**, with 2 graph-diff cases.
+The test-suite figures in the table are what `go run -C tools ./cmd/doc-counts -site-blocks`
+counts from the `v0.9.1` tree, the way the gates enumerate them. No committed page carries them:
+since #291 and #345 the site build counts them into the compliance map's test inventory
+(`scripts/mkdocs_suite_figures.py`), the committed pages name what is counted without a figure,
+and a branch adding a test rewrites no shared line. The same run reads 10,698 top-level `Test`
+functions across the module, 1,737 of them in `internal/exec/runtime` and 424 in
+`internal/frontend/lsp`. The README's prose figure for the standard library still reads 105 of
+105 with 11 extensions; the tag bundles 106 files, 12 of them OpenSysML's, and `develop` 107
+with 13 — the parser gate reads every one clean, and the prose is the line that lags.
 
-Statement coverage, re-measured with `go test -cover ./...` at this baseline with the corpora
-present. It counts only each package's own tests, which understates a package consumed by others
-(`internal/syntax/ast` is exercised by every parser test; `internal/translate/codegen`'s differential
-runs from `internal/frontend/repl`). It is not the figure the SonarCloud scan reads: since #142 `make
-coverage` also builds the `sysml`, `sysml-grpc` and `sysml-lsp` binaries instrumented and folds
-the counters their test runs write into `coverage.txt`, so the scan's per-package figures for the
-command packages are higher than these.
+At `develop`'s head three of the gates read differently from the tag, each by a pull request
+named above: the rejection oracle has 311 models with one more both-reject case, and the PSSM
+referee reads 52 `pass` / 12 `fail` / 34 `not-expressible` / 5 `differs-by-design` because #694
+removed the `defer` extension and the referee now writes a deferred signal the way the SysML v1
+migrator does, its eight movements adjudicated in [pssm-referee.md](pssm-referee.md); the
+census, the corpus round trips and the fUML referee did not move.
 
-| Package | Coverage | Package | Coverage |
-|---|---|---|---|
-| `internal/core/quickfix` | 100.0% | `internal/semantic/symbols` | 84.7% |
-| `internal/core/conformance` | 100.0% | `internal/exec/solve` | 84.3% |
-| `internal/syntax/ast/astcodec` | 99.5% | `client/opensysml` | 84.2% |
-| `internal/syntax/format` | 97.2% | `internal/semantic/identity` | 83.5% |
-| `internal/doc/docrender` | 94.4% | `internal/workspace/project` | 81.0% |
-| `internal/translate/rdf/ontology` | 92.1% | `internal/doc/queryexec` | 80.9% |
-| `internal/frontend/grpc` | 90.9% | `internal/semantic/resolve` | 76.3% |
-| `internal/workspace/libs` | 90.0% | `internal/semantic/query` | 73.2% |
-| `internal/check/passes` | 89.9% | `internal/workspace/model` | 73.0% |
-| `internal/syntax/parser` | 89.8% | `internal/ir/lower` | 71.3% |
-| `internal/translate/export` | 89.3% | `cmd/sysml-lsp` | 70.0% |
-| `internal/translate/migrate` | 89.1% | `internal/semantic/semantics` | 64.3% |
-| `internal/frontend/lsp` | 88.3% | `cmd/pilot-exec-diff` | 41.6% (the pilot-evaluator half is gated) |
-| `internal/frontend/repl` | 88.2% | `internal/translate/interop/flexo` | 39.5% (the live-stack half is gated) |
-| `internal/exec/runtime` | 88.1% | `cmd/sysml-grpc` | 38.7% |
-| `internal/translate/rdf` | 87.1% | `internal/syntax/ast` | 21.8% |
-| `internal/ir/queryplan` | 85.6% | `cmd/sysml` | 17.8% |
-| `internal/doc/docir` | 85.6% | `internal/translate/codegen` | 1.9% |
+Statement coverage is no longer tabulated here. The previous baseline's table counted only each
+package's own tests, and since P2 moved the parser, corpus and gRPC suites under `tests/` that
+figure understates exactly the packages those suites exercise (`internal/syntax/parser`,
+`internal/translate/export`, `internal/frontend/grpc`), so its movements would read as
+regressions that are not. The figure that means something is the one `make coverage` folds for
+the SonarCloud scan: it builds the `sysml`, `sysml-grpc` and `sysml-lsp` binaries instrumented
+and counts every suite the checks run (#142).
 
 The corpus gate needs the corpus (`./scripts/download-training-examples.sh`) and never
 re-baseline `internal/workspace/model/testdata/training_examples_expected.txt`: adjudicate each
@@ -300,41 +215,42 @@ previous release tag on a tag build, so the verdict cannot change with what merg
 
 # Release follow-through
 
-Tagging a core release, publishing the Python client and the Homebrew bump are all proven paths:
-`v0.8.0` is tagged and its `release` workflow completed with the full archive set, as `v0.7.0`,
-`v0.6.0`, `v0.4.2` and `v0.4.3` did before it; `opensysml-v0.5.0`, tagged with `v0.8.0`, uploaded
-the client to PyPI as `opensysml-v0.4.0` did before it (its `release-python` workflow needed a
-rerun after two `Go coverage profile` failures, and passed); and the tap
-`Open-MBEE/homebrew-tap` bumps itself from its own scheduled workflow on
+Tagging a core release, publishing the clients and the Homebrew bump are all proven paths:
+`v0.9.1` is tagged and its release published the full archive set, the MSI and the provenance,
+as `v0.9.0`, `v0.8.0`, `v0.7.0` and `v0.6.0` did before it; the same tag published the Python
+client to PyPI, as it has since #338, and the Node and Rust clients to npm and crates.io for the
+first time; and the tap `Open-MBEE/homebrew-tap` bumps itself from its own scheduled workflow on
 each tag, rendering the formula from this repository's `scripts/render-homebrew-formula.sh` and
-template. The procedure and its post-tag verification are in `docs/project/releasing.md`.
+template. Setting the CircleCI pipeline parameter `release_rehearsal` (#743) runs the release
+workflow on a `release/X.Y.Z` branch with every irreversible step skipped, so a tag cannot fail on what a rehearsal
+already ran. The procedure and its post-tag verification are in `docs/project/releasing.md`.
 
 ## R1 — the changelog agrees with the tags (done)
 
 `CHANGELOG.md`'s **0.4.3** section holds what `99e02003` shipped (#877), its **0.5.0** section
 what `0fdeb11e` shipped (#894), its **0.5.1** section what `d7b3eb45` shipped, its **0.6.0**
 section what `30f103bb9` shipped (#988), its **0.7.0** section what `e0fbfea5b` shipped (#145,
-#154, #159) and its **0.8.0** section what `238aed650` shipped (#268, #277), each dated to its
+#154, #159), its **0.8.0** section what `238aed650` shipped (#268, #277), and its **0.9.0** and
+**0.9.1** sections what `ee54ea03e` (#564) and `b9de3b070` (#614) shipped, each dated to its
 tag; **Unreleased** is empty in the file because since #852 a change adds a fragment under
 `changes/unreleased/` instead, and `python3 scripts/changelog.py release X.Y.Z` folds the
 fragments in at release time (`releasing.md`). The 0.5.0 fold was the first release cut that way
 and every release since followed it; under git-flow the fold rides the `release/x.y.z` pull
 request into `main` and returns to `develop` with the back-merge (#202 after `v0.7.0`, #286
-after `v0.8.0`). Nothing remains here; the item is kept because the folds are the procedure's
+after `v0.8.0`, #364 after `v0.8.1`, #754 after `v0.9.1`). Nothing remains here; the item is kept because the folds are the procedure's
 proof.
 
-## R2 — the Node, Java and Rust clients are unpublished
+## R2 — the Node, Java and Rust clients are published from the core tag
 
-Each has a publish path and a worked example the tests run, and none has ever been
-published: all three now ship from the core `v*` tag's `release`
-workflow (`publish-npm`, with a granular npm token already in the `npm` context;
-`publish-maven`, with its credentials already in the `Maven Central` context;
-`publish-crates`, with the crates.io token in the `crates.io` context, all
-restricted to a security group). The
-Java package name already moved to `org.openmbee.opensysml`, the DNS-verified
-namespace; what remains before a first publish is the `org.openmbee` namespace
-verification and the public key on a keyserver, if not yet done. These are
-account gates like R4, not engineering.
+All three ship from the core `v*` tag's `release` workflow (`publish-npm`, `publish-maven` and
+`publish-crates`, each in its own restricted context), and `v0.9.1` was the first tag to run
+them (#735, #738, #739): npm serves `@openmbee/opensysml` 0.9.1 and crates.io `opensysml` 0.9.1,
+each the package's only version. The Java client's Maven Central coordinates are
+`org.openmbee:opensysml` (`releasing.md`); the registry's search answered this refresh with a
+rate-limit refusal, so its 0.9.1 artifact is not confirmed here and is the one post-tag check of
+the item to re-read. The editor packages are locked to the core version (#745). What remains
+beside that check is publishing the Julia, MATLAB and (once it exists) R packages — the Julia
+General registry, File Exchange, CRAN — which is account-gated in the same way and goes with I3.
 
 ## R3 — Homebrew: install it on a real Mac
 
@@ -376,11 +292,10 @@ with the Z3 solver as an optional feature pinned by hash, published unsigned as
 `opensysml-<x.y.z>-windows-amd64.msi`. `v0.6.0` shipped no `.msi`: its `msi` job failed with
 `error: C:\Program is required`, because the script read the `wix` command from the `WIX`
 environment variable, which the preinstalled WiX v3 on `windows-latest` exports as its
-installation directory. #127 renamed the override to `WIX_CMD`, and `v0.7.0` and `v0.8.0` each
-published their `.msi`. Those two ran as Windows Installer's bare progress window; #350, on
-`develop` after the tag, gives the MSI a setup wizard — destination folder, the gRPC service
-and Z3 as selectable components, a confirmation and a completion page, repair and remove on a
-second run — so the next tag's `.msi` is the first a user is walked through.
+installation directory. #127 renamed the override to `WIX_CMD`, and every release since `v0.7.0`
+has published its `.msi`. `v0.9.0`'s was the first with a setup wizard (#350) — destination
+folder, the gRPC service and Z3 as selectable components, a confirmation and a completion page,
+repair and remove on a second run — rather than Windows Installer's bare progress window.
 Once SignPath is configured it is rebuilt from the signed executables and itself signed as
 `*-signed.msi` (Z3 stays unsigned by SignPath's terms). Scoop,
 winget and MSYS2 manifests that depend on Z3 rather than bundle it are maintained as templates
@@ -390,8 +305,10 @@ Z3 package to depend on). Procedure: `docs/project/releasing.md`, "The Windows i
 
 ## R5 — the VS Code extension is not released
 
-`editors/vscode` builds only as a PR CI artifact: no `.vsix` is attached to a release and there
-is no marketplace or Open VSX listing, so a user cannot install it without building it. The
+`editors/vscode` builds as a PR CI artifact and, since #371, as a `.vsix` on the `nightly`
+prerelease; no `.vsix` is attached to a tagged release and there is no marketplace or Open VSX
+listing, so a user installs it from the nightly or by building it. Its version is locked to the
+core version since #745. The
 client works against the shipped `sysml-lsp` (`--stdio` is accepted and `shutdown`/`exit` are
 honoured). What remains is packaging and publishing: `vsce package` in the release workflow, a
 `.vsix` on the release, and (for the marketplace) a publisher account and a PAT in CI — the same
@@ -405,8 +322,8 @@ Filed and waiting on the other side: the identity-annotation enhancement against
 cross-subsetting validator throw (`#794`). Drafted and waiting on a maintainer to authorise
 posting: the three dimensional-analysis errata in the pilot's example corpus, the question about
 the `queryx/failing` Xpect fixtures, the unenforced control-node constraints, and the nine
-dimension defects in the published `SI.sysml` and `USCustomaryUnits.sysml` — which #304, on
-`develop` after the tag, put under the declared errata overlay, so the bundled library reads with
+dimension defects in the published `SI.sysml` and `USCustomaryUnits.sysml` — which #304 (in
+`v0.9.0`) put under the declared errata overlay, so the bundled library reads with
 the three that have one correction applied and the six that do not documented, the vendored bytes
 untouched. All are in [omg-issues.md](omg-issues.md), body and status; none needs code here until
 an answer arrives.
@@ -483,7 +400,7 @@ under L5 reaches the scalar overload. On an ill-formed model the runtime package
 the checker about a named argument it cannot place (#904, #908): the label is kept as written and
 refused as `ErrUnknownParameter` rather than bound by its last segment.
 
-## L7 — the analysis libraries run in part, measured (landed, unreleased)
+## L7 — the analysis libraries run in part, measured (landed)
 
 What runs at this baseline, against `bin/sysml`: a domain library's calc executes from its own
 text as a model's does (#133), so `SampledFunctions::Sample(Sq, (1.0, 2.0, 3.0))` with `Sq` a
@@ -506,7 +423,7 @@ evaluates over lifetimes (#884), the 0.6.0 release added the tensor quantity, co
 and measurement-scale values the measurement reference libraries declare, and #121 added the set
 kind and tensor quantities of any rank, so no value kind the analysis libraries declare is
 missing. The *measured per-library conformance table* — package → declarations → evaluated →
-refused by name → wrong — **landed** in #292 on `develop` after the tag, so the library's status
+refused by name → wrong — **landed** in #292 (`v0.9.0`), so the library's status
 stops being anecdotal: `TestAnalysisLibraryCensus` (`internal/exec/runtime`) enumerates every
 public callable declaration of the six packages, invokes each through the runtime against a
 representative model and records whether the value passed its check, which typed error refused
@@ -522,7 +439,7 @@ specializes them, and `Integrate`, the two event definitions and `StateSpaceDyna
 have no body of their own to run), and `AnalysisTooling` declares nothing callable. Nothing is
 left in the track; a verdict that moves is adjudicated in the change that moves it.
 
-## L8 — the Geometry domain library's derived shapes (landed, unreleased)
+## L8 — the Geometry domain library's derived shapes (landed, #505)
 
 `ShapeItems` defines a shape's faces, edges and vertices through `bind` connectors with
 multiplicities, and what those determine now evaluates. A `Box` answers `faces` (six), the
@@ -625,10 +542,10 @@ drops what those items carry. Every surface says so (`convert.ExperimentalNotice
 it to stable is re-measuring the harness once those land, not a documentation change.
 
 Measured by the per-file ratchet at this baseline (`TestCorpusRoundTrip`,
-`internal/translate/export/testdata/corpus_roundtrip_expected.txt`), **all 353 models under
+`internal/translate/export/testdata/corpus_roundtrip_expected.txt`), **all 358 models under
 `examples/` convert** (the training corpus, the three pilot corpora and this repository's own
-demos), every one round-tripping `notation → RDF → notation → RDF` byte-identically; there is no
-whitespace-only, graph-diff, unwritable, unparseable or refused verdict left — each file is
+demos): 351 round-trip `notation → RDF → notation → RDF` byte-identically and 7 differ only in
+whitespace, with no graph-diff, unwritable, unparseable or refused verdict left — each file is
 pinned, so a movement in any direction has to be adjudicated
 ([rdf-corpus-roundtrip.md](rdf-corpus-roundtrip.md)). A model the mapping cannot write back is
 still refused rather than converted lossily; the corpus simply no longer contains one. The
@@ -986,9 +903,10 @@ What landed:
    [the RDF mapping](../reference/rdf-mapping.md), *The API element form*.
 2. **The ratchet.** `TestCorpusAPIJSONRoundTrip` pins notation → `api-json` → notation →
    `api-json` per file over every model under `examples/`, sharing the Turtle gate's walk,
-   verdicts and policy ([rdf-corpus-roundtrip.md](rdf-corpus-roundtrip.md)); CI runs both. The
-   baseline is 354 of 356 `stable`, the other two `graph-diff` because JSON respells a `.1` real
-   as `0.1` — the one place the two forms' verdicts differ. Adjudicating it found and fixed two
+   verdicts and policy ([rdf-corpus-roundtrip.md](rdf-corpus-roundtrip.md)); CI runs both. At
+   `v0.9.1` it reads 349 of 358 `stable`, 7 whitespace-only as in the Turtle gate, and 2
+   `graph-diff` because JSON respells a `.1` real as `0.1` — the one place the two forms'
+   verdicts differ (354 of 356 `stable` at `v0.8.0`). Adjudicating it found and fixed two
    reader defects at their root: a name literal on a property the encoder never writes expression
    text on was read as expression text, and a real spelled `.1` was refused rather than respelled.
 3. **The live measurement.** `TestFlexoInterop` gained an `api-json-commit` side that posts the
@@ -1106,6 +1024,14 @@ its own pull request:
    become subject to the compatibility path that lifting the experimental notice promises, and
    the notice is removed from every surface at once (`convert.IsExperimental`, the Python warning,
    the Go `Conversion`).
+
+Items 1–4 are **not started** at `v0.9.1`; what the migration gained in `v0.9.0` and `v0.9.1`
+(every diagram as a view, the `-layout` augment, Cameo tables and documents, conforming SysML v2
+under `-strict`, standard deferred signals) widened the mapping rather than closing one of them.
+In progress beside them, with no pull request yet: the SysML v1 reading moves to its own verb,
+`-migrate`, leaving `-convert` to the format conversions. Open against `develop`: #763 (draft,
+an initial written into an orthogonal region as that region's entry); and, against the export
+rather than the migration, #761 (`first a then b` owning its connector ends).
 
 Independent of D1, D2 and D7, which concern the RDF form the migrated model may be written into,
 not the migration.
@@ -1326,10 +1252,11 @@ unit, a conditional `when`) instead of running them (#833, #871); `send` argumen
 and `send new Def(args)` constructs the message it sends (#838, #875); and a message through a
 binding connector at a boundary port routes in both directions (#839).
 
-Since the tag, on `develop`, the state-executor fixes adjudicated in the PSSM referee
+Between `v0.8.0` and `v0.9.1` the state-executor fixes adjudicated in the PSSM referee
 ([pssm-referee.md](pssm-referee.md)) moved its baseline from 36 `pass` / 23 `fail` /
 39 `not-expressible` / 3 `terminate-gap` / 2 `differs-by-design` at the tag to 56 `pass` /
-13 `fail` / 33 `not-expressible` / 1 `differs-by-design` of the suite's 103 tests, pinned in
+13 `fail` / 33 `not-expressible` / 1 `differs-by-design` of the suite's 103 tests, and then to
+the 60 `pass` / 12 `fail` / 30 `not-expressible` / 1 `differs-by-design` `v0.9.1` pins in
 `docs/project/pssm-referee-baseline.json`. The first eight moved it to 45 `pass`, the 3
 `terminate-gap` tests (E1's) and 2 `differs-by-design` unchanged: a fork may enter orthogonal
 regions that have no initial state (#297); a transition from a substate into its enclosing
@@ -1355,14 +1282,15 @@ parameters bind to the triggering event's data and a behavior producing the oper
 is an `action def` with `out` parameters (#490) — giving the 56 / 13 / 33 / 1 above. The
 do-step draw is at the grain of one token move of the do flow (#513) but is drawn only once a
 region-entry move has settled, so a due `do` step is not yet drawn against a sibling region's
-remaining entry units — the one reason *Terminate 002* keeps, which #525 (open against
-`develop`) addresses ([region-order-scheduling.md](../internals/design/region-order-scheduling.md)).
-Every remaining `fail` is attributed in [pssm-referee.md](pssm-referee.md): five to a *differs,
-v2 silent* row of the alignment note; seven to a finding of the record — *Terminate 002*'s one
-missing trace, the
-runtime's last open gap there; *Entering 010*, *Entering 011* and *Junction 005* a translation
-limit; *Transition 017*, *History 001-C* and *History 002-B* defects of the suite recorded in
-[omg-issues.md](omg-issues.md) — and *Exiting 002* to a defect of the suite alone. The
+remaining entry units; #525 draws it there, and *Terminate 002* passes
+([region-order-scheduling.md](../internals/design/region-order-scheduling.md)).
+Every remaining `fail` at `v0.9.1` is attributed in [pssm-referee.md](pssm-referee.md): five to
+a *differs, v2 silent* row of the alignment note; six to a finding of the record — *Entering
+010*, *Entering 011* and *Junction 005* a translation limit; *Transition 017*, *History 001-C*
+and *History 002-B* defects of the suite recorded in [omg-issues.md](omg-issues.md) — and
+*Exiting 002* to a defect of the suite alone; none is a runtime gap. On `develop`, #694 removed
+the `defer` state-body extension and the referee now writes a deferred signal as the SysML v1
+migrator does, which reads 52 / 12 / 34 / 5, each movement adjudicated on the same page. The
 object-model item E7 waits on also landed: a run creates
 objects by `new T(…)` and destroys them by `destroy`, a context holds several objects of one
 usage, and a destroyed object is released from `all T` with the behaviors it performed
@@ -1883,7 +1811,7 @@ and components, and no `sysx:` term beyond what every other expression already u
 natively — `sysml -compile` refuses a calc that uses one with a typed error naming the type
 (confirmed at this baseline). Still last in the track, and now only that half.
 
-## X8 — static element types through collection bodies (landed), and the two harnesses (open)
+## X8 — static element types through collection bodies (landed), and the two harnesses (not started)
 
 The typing half **landed** in #112: a collection operation's static type follows what its
 declaration hands through, not the element type of the collection — `xs->collect { in x : C;
@@ -1898,7 +1826,7 @@ accepted where it was refused; `xs.?{…}` types as `xs->select {…}` does, and
 types share their nearest common supertype. (#903 had made the typer terminate on the Apollo 11
 mass rollup without changing what it answered; this changes the answer.)
 
-The two harness halves are **open, unchanged since `v0.6.0`**. Interpreted and compiled
+The two harness halves are **not started**: nothing has moved them since `v0.6.0`. Interpreted and compiled
 evaluation are held equal by one differential over the compiled subset; the pilot differential
 (`cmd/pilot-exec-diff`) still needs its normalization of numeric spellings and an adjudication
 file the harness reads to say why each remaining disagreement is ours or the pilot's — the
@@ -1906,8 +1834,9 @@ adjudications live in prose in `pilot-execution-referee.md`, and what `cmd/pilot
 gained since `v0.6.0` is cases (#115's five casts, #235's stdin-fed engines), not the
 normalization; and the RDF expression trees have no round trip of their own — a tree is written,
 read and rewritten only as part of a whole model, `internal/translate/export` having gained #121's set
-and tensor values, the canonical predicate order (#166) and the library copies' normative identity
-(#276) but no tree-level harness. Two hygiene items that make every X change measurable; do them
+and tensor values, the canonical predicate order (#166), the library copies' normative identity
+(#276) and #504's contract for set and rank-n tensor trees (X7) but no harness over every tree
+form. Two hygiene items that make every X change measurable; do them
 first when the track is next picked up.
 
 ---
@@ -1942,13 +1871,13 @@ chapters carry the runtime side of the document query: a parameter bound to a he
 `data-verdict` and `data-path` attributes the HTML carries. Each later item points at that page
 rather than re-explaining the boundary.
 
-## Q2 — a runtime population: `all T`, and predicates over instances (landed; the query side unreleased)
+## Q2 — a runtime population: `all T`, and predicates over instances (landed)
 
 `all Vehicle` (every object typed by `Vehicle` in the session), and the collection operations over
 it — `all Vehicle->select { in v; v.mass > 1000 [kg] }` — are the expression form of a runtime
 query, and that half **landed** with X5 (#211, #238, #239) in the tag: the extent is a value,
 statically `T[0..*]`, the collection operations run over it, and it is taken over the whole loaded
-model. The query side **landed** in #267, on `develop` after the tag: a document query's rows may
+model. The query side **landed** in #267 (`v0.9.0`): a document query's rows may
 be the objects a session holds (`queryexec.ValueObject`, a `*runtime.Instance` under the path the
 session reaches it by), every operation that takes an element row takes an object row and reads
 what it holds now — `OwnedElements`/`Descendants`/`Ancestors` walk the objects held and holding,
@@ -1988,8 +1917,8 @@ so.
 `t = 1 [s]` and `t = 2.5 [s]`?" — the state executor and the trace had the answers
 (`StateExecutor.ActiveStates`, the event log `-trace` prints) and no query read them. Q3 is a
 runtime query vocabulary over current state and over the trace as a time-ordered relation, with the
-same filter forms as Q2, so the trace stops being something one reads by eye. **Landed** in #359 on
-`develop` after the tag, as three operations of `DocumentQueries` beside Q2's `Objects` and
+same filter forms as Q2, so the trace stops being something one reads by eye. **Landed** in #359
+(`v0.9.0`), as three operations of `DocumentQueries` beside Q2's `Objects` and
 `Verdicts`. `States(source)` answers **state rows**: one per active leaf of each source object's
 machine, every orthogonal region included, with the object, the `machine`, the leaf's `name`, its
 dotted `statePath` under the machine, the `region` it is active in and the `enclosing` composite
@@ -2115,7 +2044,7 @@ in the Python client. A run that fails is a row carrying its error, not the end 
 no step, a step of zero or of the wrong sign, a parameter the target does not declare or the
 arguments already bind, and a distribution asked for by name (only the uniform draw exists) are
 typed refusals. Orchestration over A1 with no new semantics, as planned; a document query over the
-table is Track Q's. #344, on `develop` after the tag, adds what the item left out: a model states
+table is Track Q's. #344 (`v0.9.0`) adds what the item left out: a model states
 its own odds through two non-normative libraries (`Stochastic::Probability` weighting the
 successions out of a decision, validated at lowering; `RandomFunctions` for `uniform`,
 `uniformInteger`, `triangular` and `normal`), on a random stream of its own apart from the
@@ -2124,12 +2053,12 @@ token-shuffle stream, every draw recorded in the witness so `%replay` reproduces
 observable's min, mean, max, percentiles and histogram. The scheduling choice points stay
 unweighted and `explore` still enumerates weighted branches as a set.
 
-## A4 — continuous time: a state-space runner (landed, unreleased)
+## A4 — continuous time: a state-space runner (landed)
 
 `StateSpaceRepresentation` declares the protocol (a state vector, its derivative, an output) and
 at the tag nothing integrates it: no time-stepping runner, no integrator (the RK4 lunar-descent
 conformance case is a calc that hand-rolls its stages), no zero-crossing detection to hand an
-event to a state machine. **Landed** in #296 on `develop` after the tag, on A5's clock. An action
+event to a state machine. **Landed** in #296 (`v0.9.0`), on A5's clock. An action
 specializing `ContinuousStateSpaceDynamics` or `DiscreteStateSpaceDynamics` runs as a fixed-step
 state-space simulation: the bundled `StateSpaceIntegration` library adds `FixedStepDynamics`
 (`timeStep`, an optional `stopTime`, the `time` the run writes), the integrators `Euler` and `RK4`
@@ -2191,9 +2120,9 @@ unchanged. Over gRPC the verdicts are `verification_verdicts` fields under the
 `Verifications`/`verifications`. What it leaves, by design: a case performed as a step of another
 is reported on its own, marked as a subcase, since the library states no roll-up.
 
-## A7 — an object validates as a whole: every assertion it carries, in one verdict (landed, unreleased)
+## A7 — an object validates as a whole: every assertion it carries, in one verdict (landed)
 
-**Landed** in #263, on `develop` after the tag, as written below. `runtime.Context.ValidateObject`
+**Landed** in #263 (`v0.9.0`), as written below. `runtime.Context.ValidateObject`
 walks an object's part tree — the composite features `Instantiate` materialized, collections
 included, one-based paths such as `wheels[2]` — and reports one `ObjectVerdict` per (assertion,
 carrier): the asserted constraints and invariants the carrier's type declares or inherits, the
@@ -2260,13 +2189,13 @@ against the code and the corpus (#900, whose gate now also checks that the funct
 exists and that each cited case belongs to its row). With #900 the census read **148 of 217
 reported — 137 faithful, 11 approximate — 6 not implemented, 0 deliberate, 0 known failure and 63
 unknown**, against 143 / 133 / 10 / 68 at the tag; the adjudication of the unknown KerML rows then
-moved it to 156 reported, and the census now reads **163 of 217 reported — 157 faithful, 6
-approximate, 0 not implemented, 1 deliberate, 0 known failure and 53 unknown**, with the last
+moved it to 156 reported, and at `v0.9.1` the census reads **164 of 217 reported — 158 faithful,
+6 approximate, 0 not implemented, 1 deliberate, 0 known failure and 52 unknown**, with the last
 not-implemented row, `validateFeatureMultiplicityDomain`, now landed and each remaining unknown row
 citing why the pilot never reports it.
-The oracle at the other end agrees: of 285
-self-authored invalid models, the pinned pilot and we both reject 276 (3 of them only in strict
-mode, by design), the pilot alone rejects 0, and of the 9 only we reject eight are control-node
+The oracle at the other end agrees: of 310
+self-authored invalid models, the pinned pilot and we both reject 301 (4 of them only in strict
+mode, by design), the pilot alone rejects 0 strictly, and of the 9 only we reject eight are control-node
 succession rules the pinned pilot leaves unimplemented and one is a non-Boolean guard on an action
 body's succession that the pilot's check leaves silent once the library types the guard
 ([pilot-rejection.md](pilot-rejection.md)). Everything the previous baselines listed as open here
@@ -2290,10 +2219,11 @@ has landed:
 - **Adjudicated as not a defect**: the inherited-name warning beside a typing error stays (#837);
   the pilot reports both.
 
-**What remains is the census's own tail**, and it is the whole of the track: the 1 row marked *not
-implemented* and the 53 marked *unknown* — a row is unknown when neither a pass nor a negative case
-can be pointed at for the pilot's name, which is a gap in evidence before it is a gap in checking.
-The order is the same as before: take the 1, then work the 53 down by writing the pilot-refereed
+**What remains is the census's own tail**, and it is the whole of the track: the 52 rows marked
+*unknown* — a row is unknown when neither a pass nor a negative case can be pointed at for the
+pilot's name, which is a gap in evidence before it is a gap in checking. No row is marked *not
+implemented* any more. #748 (open) makes an implicit subsetting's conformance a checked rule.
+The order is the same as before: work the 52 down by writing the pilot-refereed
 negative case first and implementing the rule only where the case shows we accept what the pilot
 rejects; each change moves exactly its census row and `make docs-counts` regenerates the summary.
 The 6 *approximate* rows (a check under our own wording that covers the pilot's constraint
@@ -2306,12 +2236,21 @@ wording is aligned.
 
 `sysml-grpc` speaks gRPC, Connect and Connect-JSON over one port, with optional TLS, exact-origin
 CORS, a health port and stdio; there are clients in Go (the public API), Python (`opensysml` on
-PyPI), Node, Java and Rust, each with a worked tour. Verified at this baseline against the rebuilt
-binary: plain HTTP/1.1 + JSON reaches every method (`ParseSources` takes `documents`, not
-`sources`; `Evaluate` on `2 * 1500` answered `{"result":{"realValue":3000}}`), which means MATLAB,
-R, Julia and C can integrate *today* with their HTTP and JSON libraries and no generated code. What
-is missing is the contract that makes such a client correct rather than lucky, and a thin package
-per language so nobody re-derives it.
+PyPI), Node (`@openmbee/opensysml` on npm), Java (`org.openmbee:opensysml`), Rust (`opensysml` on
+crates.io), Julia and MATLAB/Octave, each with a worked tour. Plain HTTP/1.1 + JSON reaches every
+method (`ParseSources` takes `documents`, not `sources`; `Evaluate` on `2 * 1500` answers
+`{"result":{"realValue":3000}}`), which is how the Julia and MATLAB packages integrate with no
+generated code, and how R and C can. What is missing is the R package and the C client, and a
+statement of how much of the Python client's surface each of the others carries.
+
+**Client parity (in progress).** The Python client grew past the others in `v0.9.0` and `v0.9.1`
+— the model-edit operations, the verification and coverage calls, the conversion and identity
+options — and bringing each other client to the same service surface is being worked one client
+at a time. Java's is **open** (#762); Node's, Rust's, Julia's and MATLAB's are **in progress**
+with no pull request yet. The Python-only conveniences built on the Go client (typed class
+generation, the FMI runner, the release-digest check) are judged per client rather than ported by
+default, and the Go API is the parity's reference rather than a target, since the Python service
+calls are built on it.
 
 ## I1 — the wire contract, written down
 
@@ -2331,8 +2270,12 @@ in the track reads from it.
 ## I2 — shared conformance fixtures for handwritten clients
 
 One directory of request/response pairs — every `Value` arm, a diagnostic, a Connect error, a
-behavior call, a document query — that the five existing clients and any new one replay, so "the
-client decodes the contract" is a test and not a claim. Depends on I1; small.
+behavior call, a document query — that the existing clients and any new one replay, so "the
+client decodes the contract" is a test and not a claim. **Landed:** `conformance/` is that
+directory (15 scenario files over its `fixtures/`), and the Go API (`make conformance-pkg`), Node,
+Java, Rust, Julia and MATLAB runners replay it and write the shared report format, each in CI.
+The Python client is the one that does not replay it; its tests are its own. Bringing it under
+the same runner is the item's remainder, and an R package starts from it.
 
 ## I3 — thin R, Julia and MATLAB packages
 
@@ -2342,14 +2285,15 @@ surface diagnostics as the language's errors. Each ships with the I2 fixtures as
 page on starting `sysml-grpc` (binary provisioning from the release, the flags, TLS, the health
 check).
 
-The Julia and MATLAB packages are **landed but unreleased** on `develop`: `client/julia/OpenSysML`
+The Julia and MATLAB packages are **landed** (#591, in `v0.9.1`): `client/julia/OpenSysML`
 (JSON over HTTP.jl + JSON.jl, Julia >= 1.10) and `client/matlab` (`+opensysml`, MATLAB R2019b+ and
 GNU Octave 7+, the Octave path over curl since an Octave built without Java (the snap and the
 CI build) cannot spawn a private child). Both drive every conformance
 scenario through the public `call`/`callRaw` and write the shared report
 format; `make conformance-julia` and `make conformance-matlab` run them, and CI has
-a `julia-client` and a `matlab-client` job. The R package is **not started**. Publishing (CRAN,
-the Julia registry, File Exchange) is account-gated and goes with R2.
+a `julia-client` and a `matlab-client` job. Neither is published to its registry. The R package
+is **not started**. Publishing (CRAN, the Julia registry, File Exchange) is account-gated and goes
+with R2.
 
 ## I4 — a C client, and the C ABI
 
@@ -2370,7 +2314,8 @@ against a service that is *not* this repository's Go binary, so a second impleme
 conformant it is. Two changes make the suite that statement. First, an `-address` mode that
 speaks to a service already listening rather than spawning one, reporting the capabilities it
 advertised and skipping by `requires_capabilities` exactly as the client runs do (`-allow-skips`
-already decides whether a skip is a pass). Second, a wider corpus: the thirteen scenario files
+already decides whether a skip is a pass) — not started: the MATLAB runner's own `--address`
+mode is the client side of the same idea. Second, a wider corpus: the fifteen scenario files
 cover one or two calls per RPC, which is enough to prove a client decodes the answer and far too
 little to prove a kernel computes it. The execution conformance cases under
 `internal/exec/runtime/testdata/conformance/` — a model, a call, an expected result — are the same
@@ -2551,7 +2496,7 @@ writer has a stable URL for an `Origin`.
 `-render-form`, `%render`, the `opensysml/render` request (the VS Code panel keeps Mermaid, which
 it can draw in-process, and offers the others as *save as*), and the document renderer. **Landed**
 — for `dot` with W1, for `plantuml` with W2, and the PDF rasterization and the panel's export in
-#356 on `develop` after the tag: `-render-form dot|plantuml`
+#356 (`v0.9.0`): `-render-form dot|plantuml`
 (`-render-all` writes `.dot` and `.puml` files), `%render <name> dot|plantuml [palette]`,
 `"form"` on `opensysml/render`, and `-diagram-form dot|plantuml` on `-render-document`
 (`%render-document <name> dot|plantuml`, `diagramForm` on `opensysml/renderDocument`), which
@@ -2569,9 +2514,14 @@ draws Mermaid through `mmdc`: optional tools located by environment variable, a 
 source under a notice when its tool is absent, the tests skipping with the reason where the tool
 is missing and CI's `pdf-toolchain` job running them with the toolchain installed and reading
 the rendered PDFs back (#477). The VS Code panel's *export* picks among the forms the server
-advertises, so `dot` and `plantuml` are saved as `.dot` and `.puml` beside Mermaid. Still open
-in the track is what [W1](#w1--a-dot-form) and [W2](#w2--a-plantuml-form) list as writer
-changes: richer node shapes and compartments in both writers.
+advertises, so `dot` and `plantuml` are saved as `.dot` and `.puml` beside Mermaid. What
+[W1](#w1--a-dot-form) and [W2](#w2--a-plantuml-form) listed as writer changes — richer node
+shapes and compartments — landed with the view work rather than as items of their own: symbol
+kinds drawn as their notation and labels fitted to a stated box (#560, `v0.9.0`), containment
+kept off compartment rows (#589) and Cameo behaviour notation for action and state views in the
+DOT writer (#623), both `v0.9.1`, as [view-rendering-forms.md](view-rendering-forms.md) records
+row by row. Open against `develop`: #757, a part's typed ports drawn on the interconnection view
+with connectors ended at them. Nothing else is open in the track.
 
 W1 landed first, being the smaller grammar and the one Graphviz-based pipelines want; W2 followed
 over the same node kinds and the sequence; W3 landed with each. Independent of every other track:
@@ -2648,9 +2598,9 @@ what M2 needs.
 
 # Proposed
 
-Five pieces of work proposed outside the tracks. The first two are landed on `develop` after
-the tag; the third has its design and first step landed and three pull requests open; the fourth
-is landed; the fifth is not started.
+Five pieces of work proposed outside the tracks. The first two landed in `v0.9.0`; the third
+has its design and three of its four steps landed; the fourth landed in `v0.9.0`; the fifth
+landed in `v0.9.1` but for in-place rewriting.
 
 **The PDF path onto the HTML backend (landed, #358).** The backend
 [html-document-backend.md](html-document-backend.md) designs is implemented: `docrender.HTML`
@@ -2674,7 +2624,7 @@ established that the pinned pilot evaluates model-level expressions and nothing 
 implementation adjudicates actions or state machines. Widening that referee means finding one,
 not more harness work. For state machines the OMG PSSM suite is that referee (#230, advisory);
 for actions the fUML reference implementation is, in three changes modelled on the PSSM referee
-and all on `develop` after the tag: #319 provisions the pinned implementation and commits what
+and all in `v0.9.0`: #319 provisions the pinned implementation and commits what
 it computes over its own test models, #321 reads and classifies the activities, and #334
 translates every expressible one to a `fuml::<Activity>` action definition by rule, runs it
 under every schedule the explorer reaches and requires the values left in its output parameters
@@ -2695,7 +2645,7 @@ own, a start passing arguments, an edge weight other than 1, an object-flow cycl
 control nodes.
 
 **Scaling to very large models.** [large-model-scaling-design.md](large-model-scaling-design.md)
-(#300, on `develop` after the tag) starts from the satellite-network stress test's profiles
+(#300, `v0.9.0`) starts from the satellite-network stress test's profiles
 ([satellite-network-stress-test.md](satellite-network-stress-test.md), #299: about 55 µs and
 8.5 KB per element to load, 16 µs per element in the workspace per keystroke) and separates the
 four costs a model of millions of elements pays — per element once, per workspace per edit, per
@@ -2710,10 +2660,17 @@ unoptimized path and the measurement that decides it. The first **landed** in #3
 each analysis read, and drops on an edit only the edited document's frame and its dependents',
 `TestIncrementalEqualsFresh` replaying edit sequences against a fresh workspace (a two-line edit
 beside 512 satellites from 861 ms and 327 MiB to 8.7 ms and 2.0 MiB; a one-shot `-validate` about
-a sixth slower for the recording it never uses). Open against `develop` on the same design: #312
-(a load's files parsed, indexed and validated on a pool of workers), #309 (the REPL analyzing
-each loaded file as a document of its own) and #308 (the satellite network generated as a fleet
-of occurrences). Independent of every track above; the design's own sequence orders it.
+a sixth slower for the recording it never uses). `v0.9.1` carries the next two: parallel batch
+analysis (#312, a load's files parsed, indexed and validated on a pool of workers, with #309 the
+REPL analyzing each loaded file as a document of its own), and interface records (#621, a closed
+document held as the record of what it declares, hydrated to a tree when opened or queried and
+demoted when closed, written from every analysis by #637). #308 generates the satellite network
+as a fleet of occurrences, the workload the fourth step is measured on; the fourth itself — one
+definition with many occurrences in the runtime, with sparse per-occurrence values — is **not
+started**. Beside the design and in progress with no pull request yet: measuring what the
+WebAssembly build (#583) carries, about 78 MB raw and 17.7 MB gzipped, and what a
+production/development split of its build tags would leave out. Independent of every track
+above; the design's own sequence orders it.
 
 **An MTIP export as an optional layout augment to a SysML v1 migration (landed).** A
 Cameo/MagicDraw export migrates through `sysml <model>.mdzip -convert sysml`
@@ -2747,30 +2704,24 @@ name of their own outside their body — naming them so a view can expose (and s
 is a separate migration item. Builds on #524's view usages and the landed `DiagramLayout`
 library; independent of every track.
 
-**Behavioral editing through the diagram (not started).** The `opensysml/applyModelEdit`
-request over `internal/check/edit` writes the *structure* of a behavior: `addMember` declares a
-`state`, `action`, `fork`, `join`, `merge` or `decision` in a body, `addConnection` writes a
-`transition` or `succession` between two drawn nodes, and `rename`, `setValue`, `move`,
-`delete`, `setLayout` and `setRoute` apply to them as to any member. What no operation writes
-is the text a behavior's semantics live in — a transition's `accept` trigger, `if` guard and
-`do` effect; an action's parameters and the `flow`s and `bind`s between their pins; a state's
-`entry`, `do` and `exit` actions — so a state or action diagram drawn from the lowered
-`StateGraph`/`ActionGraph` can be arranged and extended from the canvas but its behavior still
-has to be typed in the source. The proposal is a family of operations in `internal/check/edit`
-that rewrite exactly those clauses of an existing declaration with the same source-preserving
-discipline the existing operations keep (only the bytes the parse says carry the clause are
-replaced; the result is re-parsed and re-analyzed before it is handed back, and refused when it
-would not read): setting or clearing a transition's trigger, guard and effect; adding, retyping
-and removing an action's `in`/`out`/`inout` parameters; writing a `flow` or `bind` between two
-pins as `addConnection` writes a `succession`; and a state's entry/do/exit action. Each is one
-`kind` on `opensysml/applyModelEdit`, one row in [the LSP reference](../reference/lsp.md), one
-menu action in the VS Code panel, and — since the lowering is what the diagram draws — one
-round trip the lowering tests already cover: the edited text lowers to the graph the canvas
-asked for. Builds on the landed edit operations and the state and action renderings;
-independent of every track, and the prerequisite for any diagram-first authoring of behaviors,
-in the VS Code panel or in a standalone desktop editor over the same request.
+**Behavioral editing through the diagram (landed in `v0.9.1`; in-place rewriting not
+started).** Proposed in #574: before it `opensysml/applyModelEdit` over `internal/check/edit`
+wrote the *structure* of a behavior — states, actions and control nodes as members, transitions
+and successions as connections — but none of the text its semantics live in. `v0.9.1` writes
+that text, each as one operation with the same source-preserving discipline (only the bytes the
+parse says carry the clause are written; the result is re-parsed and re-analyzed and refused
+when it would not read): a transition with its `accept` trigger, `if` guard and `do` effect,
+substates and an action's `in`/`out`/`inout` parameters (#616); `flow` and `binding` between
+pins as `addConnection` writes a `succession` (#609); a state's `entry`, `do` and `exit` actions
+(#678); action-body sequencing, statements and guarded successions (#680, #700); and perform,
+exhibit, satisfy, verify, constraint, import, documentation, comment and metadata members
+(#611, #659, #677, #679, #681, #690, #698). What the proposal named and no operation does is
+rewriting a clause of an *existing* declaration in place — setting or clearing a transition's
+trigger, guard or effect, retyping or removing a parameter — which today is a `delete` and a
+re-add. That remainder is **not started**; it is one `kind` per clause on the same request and
+independent of every track.
 
-# Track P — package layering (earmarked for 0.9.0)
+# Track P — package layering (landed in 0.9.0 but P7)
 
 The module is one Go module of 72 packages under `internal/`, 49 of them under `internal/core/`.
 The import graph is acyclic, as Go requires, but it is not layered: the runtime imports the
@@ -2782,9 +2733,9 @@ be built, tested and reasoned about without the layers above them, whether or no
 separately. It was deliberately **not started** before the 0.9.0 cycle: the moves touch files
 every open pull request touches, so the track waited for the pull requests open against
 `develop` at this baseline to land, with the small items first and the two large ones last; the
-tooling module (P3) and the small moves (P1) are in, the tests tree (P2) is scheduled. The
-figures below are the baseline the track started from. Measured at `develop` `530c04667`
-(#354), non-test lines and `go list` import edges; the
+track then landed whole in `v0.9.0` — P1 through P6 — and P7's design record with it (#451),
+leaving P7's implementation. The figures below are the baseline the track started from.
+Measured at `develop` `530c04667` (#354), non-test lines and `go list` import edges; the
 binary, test and directory figures below at `develop` `206760826` (#384), where the module has
 70 packages under `internal/`.
 
@@ -3006,7 +2957,7 @@ The layering test beside `TestNoProductionCodeImportsTesting` pins the layer tab
 removed edges, alongside per-edge tests of the runtime's parser and typer seams, `protoconv`'s
 dependencies and the conversion entry point's ownership of migration.
 
-## P2 — the tests tree (in review)
+## P2 — the tests tree (landed)
 
 `tests/` at the repository root holds the black-box suites, one package per suite, each with its
 fixtures beside it (#392, #397, #395, #401): `TestNoProductionCodeImportsTesting` (`tests/hygiene`,
@@ -3045,7 +2996,7 @@ belong to white-box drivers, so they sit beside them — a fixture moves with it
 own. Of the support packages the plan named, `doccountstest` went to `tools/census/doccounts`
 with its owner, as P3 records, and `fixtures` to `tests/fixtures` under P4.
 
-## P3 — the tooling module (landed, unreleased)
+## P3 — the tooling module (landed)
 
 The eleven unreleased `cmd/` programs and the packages only they link — `baseline`, `junit`,
 `fuml`, `pssm`, `xmi`, `doccounts`, `core/libs/gensnapshot`, `core/rdf/ontology/gen` — are in
@@ -3103,7 +3054,7 @@ under `internal/` 95 → 100 — the five new packages and nothing else; 82 non-
 package become 71 in the root, 5 in `kit`, 4 in `behavior` and 3 in each of `document`, `diagram`
 and `identity`.
 
-## P4 — one-file packages and shared helpers (in review)
+## P4 — one-file packages and shared helpers (landed)
 
 The helpers first, one pull request per family, each deleting every copy and routing the
 callers to one home: `ast.QualifiedName.Text` and `ast.DeclMembers` (#411);
@@ -3163,9 +3114,9 @@ The pull requests land in this order, each cut from the one before it except whe
 #411 → #415 → #418 → #419 → #430 → #431 → #420 → #426 → #427 → #422, and then this
 document's update; #417 is cut from `develop` and merges anywhere in the sequence.
 
-## P5 — a runtime-free translation module (in review)
+## P5 — a runtime-free translation module (landed)
 
-Three pull requests, each stacked on the one before:
+Three pull requests, each stacked on the one before (#412, #421, #423, all `v0.9.0`):
 
 1. `analysis → export`: the `graphs:1` and `sources` forms an external engine receives —
    `GraphsVersion`, `Graphs`, `GraphsOf`, `MarshalGraphs`, `Sources`, `SourcesOf` and their
@@ -3221,209 +3172,138 @@ creates a layer between the syntax tree and the instances; it is feature-sized w
 
 Two orders, because there are two kinds of item. The **track-local** orders say where to start
 inside a track; the **cross-cutting** order says which tracks' first items go first when a session
-must choose. The order agreed at the `v0.6.0` baseline had F and S first and A6/X6/A2 second, and
-owed X2's chain-read half; all of it landed and `v0.7.0` and `v0.8.0` shipped it, so both orders
-below are rewritten again around what remains. Of the 215 pull requests merged to `develop`
-after the tag, these move a roadmap item and are named where they do: #267, #289 and #293 (Q2,
-now closed), #359 (Q1's page and Q3, closing Track Q), #263 (A7), #286 and #364 (the release
-fold-backs), #291 (the generated test figures), #292 (L7, closing Track L), #296 (A4, closing
-Track A), #335 and #352 (E1), #466 and #479 (a braced state block as one action), #362 (E2),
-#465 (E4), #468 (E7's dynamic objects), #344 (modeled randomness beside A3), #356 (W3's
-rasterization and export), #358 (the PDF path onto the HTML backend), #300 and #316 (the
-large-model design and its first step), #319, #321, #334 and #413 (the fUML referee for actions
-and its emitter), #350 (R4's installer wizard), #304 (the errata overlay, under "Upstream
-follow-through") and the state-executor fixes and findings the PSSM referee adjudicated,
-#384, #438 and #513 (the region-order choice points) among them (Track E). Open against
-`develop` and touching an item: #308, #309 and #312 (the large-model design's next steps), #531
-(the SysML v1 migration documented across the API, the guide and **D13**, superseding #327) and #525 (*Terminate
-002*'s do step against a sibling region's entry units). `release/0.8.1` (#347) is tagged
-`v0.8.1` and folded back.
+must choose. The order agreed at the `v0.8.0` baseline had Track I's packages first, D2 and D1,
+X8's harnesses, Track B and the embedded target after them; D2 and D1 landed (#509), Track I's
+Julia and MATLAB packages landed (#591), and `v0.9.0` and `v0.9.1` shipped both, so both orders
+below are rewritten around what remains.
 
-## What `v0.7.0` and `v0.8.0` released
+Pull requests open against `develop` and touching an item, as the tracks name them: #762 (the
+Java client's parity, Track I); #763 (draft, the migration's orthogonal initial, D13); #761 (the
+export's succession ends, Track D); #757 (typed ports on the interconnection view, Track W);
+#748 (an implicit subsetting's conformance, Track V); #747 (a query reporting the `elementId`
+that `Convert` writes); #759 (the Cameo plugin renamed
+OpenSysML MDK and bridged into MDK's DocGen, beside the MTIP augment); and #483 (the SysON
+plugin aligned with its real 2026.9.2 artifacts, R5's editor packaging). In progress with no
+pull request yet: the Node, Rust, Julia and MATLAB clients' parity (Track I), the SysML v1
+reading's own `-migrate` verb (D13), and the WebAssembly build's size (the large-model design's
+neighbour).
 
-Everything the previous baseline listed as unreleased is in a tag, and the two releases since then
-carried more than that list. By track, with the pull requests the tracks cite:
+## What `v0.9.0` and `v0.9.1` released
 
-- **Track F** — closed: F1 and F2 (#116), F3 (#120); `known_failures.txt` is empty. #119 moved the
-  synchronized step boundary the debugger stops at.
-- **Track S** — landed: S1 (#110), S2 (#123), S3 (#125), S4 (#134); #141 made region order a
-  choice point, #138 wrote the guide.
-- **Track X** — landed: X2 in full (#164 closed the chain-read half), X3 (#115), X4 (#113), X5
-  (#211, #238, #239), X6 (#122), X7's values (#121), X8's typing (#112); the `meta` cast (#212)
-  and static expression typing landed beside them.
-- **Track A** — landed: A6 (#117), A3 (#118), A2 (#133), A5 (#136); A7 (#263) and A4 (#296) are
-  on `develop` after the tag, and the track is closed; #344 added modeled randomness and Monte
-  Carlo runs beside A3 there too.
-- **Track Q** — landed: Q4 (#849), Q2's expression half (X5); Q2's query side (#267, #289, #293)
-  is on `develop` after the tag and closes Q2.
-- **Track L** — landed: L3–L6; L7's measured table (#292) is on `develop` after the tag and
-  closes the track.
-- **Track W** — landed: W1 (`dot`), W2 (`plantuml`) and W3's plumbing for both; W3's PDF
-  rasterization of both forms and the panel's export of them are on `develop` after the tag
-  (#356). The VS Code diagram panel also grew there without touching a form item: it runs the
-  behavior it draws through the language server's `opensysml/debug/*` requests (#294), opens a
-  document's several views (#349) and opens on demand (#348), writes layout into the document
-  that declares the element across the workspace (#307), and reparents by drag (#305).
-- **Track E** — complete: E1 landed; E2 landed; E3 closed by record; E4 landed; E5 closed by
-  record; E6 landed; E7 landed; E8 landed; E9 landed; E10 landed. E3's record
-  ([expansion-regions.md](expansion-regions.md)) closes the parallel per-element form because the
-  iterative form is `for`; E5's record closes protocol state machines because they are not a
-  SysML v2 construct; the exception-handlers record ([exception-handlers.md](exception-handlers.md))
-  closes the compliance mapping's last UML-referenced action item the same way, leaving its
-  *Implementable But Not Yet Done* list empty.
-- **Track D** — D1, D2, D7, D9 (branch read and whole-graph push), D11 and D12 are done.
-  D3's Flexo harness is measured at 505 of 582 properties delivered. D8's ontology profile and
-  D10's write-through remain open; D13 (the SysML v1 migration's remaining items) is written.
-- **Release follow-through** — R4's Windows installer is published by `v0.7.0` and `v0.8.0`
-  alike; the release procedure runs git-flow (#151); `opensysml` 0.5.0 is on PyPI; the
-  test-suite figures are generated and gated (#291, on `develop` after the tag).
+Everything the previous baseline listed as unreleased is in a tag. By track, with the pull
+requests the tracks cite; the two closed-work summaries at the top of the page list the rest.
+
+- **Track E** — complete since `v0.9.0`: E1 (#335, #352), E2 (#362), E4 (#465), E7 (#468, #491,
+  #492), E8 (#493) landed; E3 and E5 closed by record. The PSSM referee reads 60 `pass` / 12
+  `fail` / 30 `not-expressible` / 1 `differs-by-design` at `v0.9.1`, every `fail` attributed and
+  none a runtime gap; #525 drew *Terminate 002*'s last trace.
+- **Track Q** — complete: Q2's query side (#267, #289, #293) and Q3 (#359), `v0.9.0`.
+- **Track A** — complete: A7 (#263) and A4 (#296), with modeled randomness beside A3 (#344),
+  `v0.9.0`.
+- **Track L** — complete: L7 (#292) and L8 (#505), `v0.9.0`.
+- **Track D** — D1 and D2 (#509), D7's reference links (#507), D11 (#523) and its normative
+  families (#539, #545, #550, #559) in `v0.9.0`; the normative export series (#655, #668, #682,
+  #689, #691, #692, #705, #707, #708, #715–#717) in `v0.9.1`. D3's Flexo harness reads 505 of 582 properties delivered; D8, D10 and D13 remain.
+- **Track W** — W3's rasterization and export (#356) and the richer DOT and PlantUML shapes and
+  compartments (#560, #589, #623).
+- **Track I** — the Julia and MATLAB/Octave packages (#591), and the Node, Java and Rust clients
+  published from the core tag (#735, #738, #739).
+- **Track P** — P1–P6 and P7's design record (#451), `v0.9.0`.
+- **Proposed** — the PDF path onto the HTML backend (#358), the fUML referee (#319, #321, #334,
+  #413), the MTIP layout augment (#538, #546), the large-model design's first three steps (#316,
+  #312, #309, #621, #637) and behavioral editing's insertion operations (#609, #611, #616, #659, #677–#681,
+  #690, #698, #700).
+- **Release follow-through** — R2's three registries (#735, #738, #739), R4's wizard (#350), the
+  rehearsal (#743) and the provenance attestation (#606).
 
 ## What remains open
 
-The open items, by track, with the item that gates each where one does. Everything not named here
-is landed or is a track the previous baseline left as it stands (D, N, M, I, V, B, R2–R5);
-Tracks F, S, L and A are closed.
+The open items, by track, with the item that gates each where one does. Tracks F, S, E, L, Q, A
+and P (but P7) are closed.
 
-- **Track E** — complete: E1 landed; E2 landed; E3 closed by record; E4 landed; E5 closed by
-  record; E6 landed; E7 landed; E8 landed; E9 landed; E10 landed; exception handlers closed by
-  record. Optional runtime follow-ups are not SysML v2 specification gaps. The
-  PSSM referee's 13 `fail` tests are the state side's measurement, every one attributed
-  ([pssm-referee.md](pssm-referee.md)): five cite a *differs, v2 silent* alignment row; three
-  (*Entering 010*, *Entering 011*, *Junction 005*) a translation limit of the referee's; four
-  (*Transition 017*, *History 001-C*, *History 002-B*, *Exiting 002*) a defect of the suite
-  recorded in [omg-issues.md](omg-issues.md); and *Terminate 002* the runtime's one open gap in
-  the region-order work — a due `do` step is not drawn against a sibling region's remaining
-  entry units — which #525 (open) addresses.
-- **Track Q** — complete: Q1 is written, Q2 and Q4 are done, and Q3 landed in #359 on `develop`
-  after the tag.
-- **Track X** — X7's native layout for sets and tensors; X8's two harness
-  halves (pilot-differential numeric normalization with an adjudication file, and a standalone
-  RDF expression-tree round trip).
-- **Track W** — richer DOT/PlantUML node shapes and compartments; W3's rasterization and export
-  landed in #356.
-- **Release follow-through** — R2, R3, R5 (account- and hardware-gated), and nothing else: the
-  `v0.8.0` post-tag checks are met and the test figures are generated.
-- **Tracks N, M, I, V, B** — as the tracks state them; nothing in them moved since `v0.6.0`
-  except the four `Value` arms Track I's clients carry (#113, #121, #122). Track D's current
-  status is stated above.
-- **Proposed** — scaling to very large models (the design and its first step landed, #300 and
-  #316; #308, #309, #312 open). The PDF path onto the HTML backend (#358) and the fUML referee
-  for actions with its emitter (#319, #321, #334, #413; the `not-expressible` rows left are typed
-  refusals recorded in [fuml-referee.md](fuml-referee.md)) are landed; the order of orthogonal
-  regions is a recorded choice point (#384, #438, #513), with *Terminate 002*'s one trace left
-  to #525. An MTIP export as an optional `-layout` augment to a SysML v1 migration, writing the
-  tool's diagram geometry into the migrated views as `DiagramLayout` metadata, is landed and
-  gated on a real model/MTIP pair; naming activity and state nodes so a view can expose them is
-  the open follow-up.
+- **Track I** — the R package (I3, not started); the C client (I4, not started); the Python
+  client under the shared conformance runner (I2's remainder); I5's `-address` mode and generated
+  kernel scenarios (not started); and client parity, Java open (#762) and the other four in
+  progress.
+- **Track X** — X8's two harness halves (not started) and X7's native layout for sets and
+  tensors.
+- **Track D** — D8's ontology profile, D10's write-through, D13's four items (not started; #763
+  open, the `-migrate` verb in progress); #761 open against the export.
+- **Track V** — the census's 52 *unknown* rows; #748 open.
+- **Track W** — #757 open, nothing else.
+- **Tracks N, M, B** — as the tracks state them; nothing in them moved since `v0.8.0`.
+- **Release follow-through** — R2's Maven Central check and the Julia, MATLAB and R registries;
+  R3 and R5, account- and hardware-gated; #483 open against the SysON packaging.
+- **Proposed** — the large-model design's fourth step (one definition with many occurrences, not
+  started); behavioral editing's in-place rewriting (not started); naming activity and state
+  nodes so a migrated view can expose them (the MTIP augment's follow-up).
 
 ## Cross-cutting order
 
-The release housekeeping the previous order opened with is done — #286 folded `main` back into
-`develop`, PyPI serves the Python client's 0.5.0 — and its steps 2 (L7, #292), 3 (D2 and D1,
-#509), 4's first half (Q2, #293) and 5 (A4, #296) landed on `develop`, so the order is shorter
-by four.
+The previous order's step 1 is half done — the Julia and MATLAB packages landed — and its D2 and
+D1 step landed in #509, so the order opens with what Track I has left and the client work that
+is already moving.
 
-**Track E** — complete: E1, E2, E4, E6, E7, E8, E9 and E10 landed; E3 and E5 closed by
-design record. Its remaining design notes do not add an open Track E item.
-
-**Track Q** — complete: Q3 (#359) landed on `develop` after the tag, on A5's clock and Q2's
-object rows; Q1, the page that says which query is which, is written in the document-generation
-manual; #267, #289 and #293 closed Q2; Q4 (#849) landed independently ahead of them.
-
-1. **I2, I3, then I4's client** — the shared fixtures, the thin R, Julia and MATLAB packages, the
-   C client, each derived from the wire contract (I1, landed in #848); the C *ABI* half of I4 is
-   not here — it is step 7.
-3. ~~**D2 and D1** — Flexo: the standard vocabulary for expression trees and end structure (the
-   collection JSON annotations, D3.4, landed in #850; the branch read and the authenticated
-   whole-graph push, D9.1 and D9.2, landed with `-convert` over a branch URL).~~ **Landed in
-   #509;** the live-stack harness was re-recorded at 505/582 properties, so the order is shorter
-   by one more step.
-4. **X8's harness halves, then X7's native layout** — normalization and adjudication in
-   the pilot differential and a standalone RDF expression-tree round trip, so every later
+1. **Track I: client parity, then I3's R package, then I4's client** — parity first because it
+   is in flight in every client but Python and Go and an R package written now would start
+   behind it; then the R package, replaying `conformance/` as Julia and MATLAB do (the Python
+   client joining the shared runner on the way, I2's remainder); then the C client over
+   `libcurl`. The C *ABI* half of I4 is not here — it is step 6.
+2. **X8's harness halves, then X7's native layout** — normalization and adjudication in the
+   pilot differential and a round trip over every RDF expression-tree form, so every later
    expression item is measured; the set and tensor native layouts when something needs them.
-5. **B1, then B2** — the binding vocabulary, then the provider contract in the runtime and Go
-   API. The two items depend on nothing outstanding (the wire contract is landed, the dispatch and
-   materialization seams exist) and touch only the metadata library, one pass and the runtime's
-   dispatch, so they can run beside steps 3 and 4; B2 drains events into loops that carry the
-   clock (A5) and the choice points (S2). **B3** follows the transport decision, **I5** goes with
-   step 3 since it is built from the same fixtures, and **B4**/**B5** come whenever a model needs
-   them.
-6. **M1, then M2 (with N2.6)** — the closed behavior IR, then the state and action C backend over
+3. **D13, then D8** — the migration's units, its report on the wire (a Track I wire change, so
+   after step 1's parity has settled the clients' surface) and stable re-migration identity,
+   then the measurement that lifts its notice; the ontology profile once D1 and D2's standard
+   vocabulary is what it profiles.
+4. **B1, then B2** — the binding vocabulary, then the provider contract in the runtime and Go
+   API. Neither depends on anything outstanding and both touch only the metadata library, one
+   pass and the runtime's dispatch, so they can run beside steps 1–3; B1 needs its design record
+   before code. **B3** follows the transport decision, **I5** goes with step 1 since it is built
+   from the same scenarios, and **B4**/**B5** come whenever a model needs them.
+5. **M1, then M2 (with N2.6)** — the closed behavior IR, then the state and action C backend over
    static tables. Embedded behavior compilation depends on the closed IR; the native track's
    action and state phases start from the same IR rather than a second one. M3 and M5 prove it;
    M6 last.
-7. **The shared C ABI** — N2.4 / I4 / M4 designed once, after N2.2 (the budget) is decided and
+6. **The shared C ABI** — N2.4 / I4 / M4 designed once, after N2.2 (the budget) is decided and
    after M1 fixes what an embedded entry point looks like, so a stable native/embedded calling
    contract exists to design against rather than three.
 
-Beside the order, whenever a session has room: Track V's census rows (53 *unknown*), Track W's
-remaining writer work, and the large-model design's next steps in its own sequence (#308, #309
-and #312 are the open ones). One release is behind and one in view. `release/0.8.1` (#347) was
-a patch cut from `v0.8.0` by cherry-pick, carrying the bug fixes since the tag and the three VS
-Code extension fixes, and deliberately none of the state-executor series or the features; it is
-tagged `v0.8.1`, moved no roadmap item, and #364 folded `main` back into `develop` as after
-`v0.8.0`. The next cut from `develop` carries everything else that landed since the tag — Q1,
-Q2 and Q3 closing Track Q, L7, A4, E1 and E2, E4's streaming flows, E7's dynamic objects, the
-generated figures, modeled randomness, the fUML referee and its emitter, the region-order
-choice points and the state-executor fixes, W3's rasterization and export, the PDF path onto
-the HTML backend and the workspace's persistent semantic model — and by `CONTRIBUTING.md` §
-Versioning it bumps the minor segment, not the patch: features are patch material there, but
-#302 refuses a construct `v0.8.0` accepted (a body inside a nested definition reaching the
-enclosing definition's features by their bare names, now `Must be an accessible feature`), the
-completion, junction, join and region-order fixes (#313, #318, #317, #384, #438) add `choice`
-lines to the traces of models that exercise them, E1 makes a `terminate` statement that
-`v0.8.0` ran as an empty action end its performance, E2 leaves the rest of an inline `do` body
-unrun when the state is left, #479 reads a braced state block as one action and refuses the
-older shape of its Turtle graph, and #359's `-run-query` runs after the run rather than on the
-initial state. The decision is the release checklist's, recorded there.
+Beside the order, whenever a session has room: Track V's 52 *unknown* rows, the large-model
+design's fourth step, behavioral editing's in-place rewriting, and the open pull requests above
+to review. The next release cuts from `develop`, which carries #694's removal of the `defer`
+state-body extension — a construct `v0.9.1` accepts and the next tag refuses — so by
+`CONTRIBUTING.md` § Versioning it bumps the minor segment; the decision is the release
+checklist's, recorded there.
 
 ## Track-local orders
 
-- **Release follow-through.** **R1** is done. **R2**–**R5** as the accounts and hardware appear:
-  publisher tokens for npm, Maven Central and crates.io, a real Mac for the tap, an Apple Developer
-  and an OV/EV certificate to sign with, and a marketplace publisher for the extension. None gates
-  the others or anything below; **R4**'s Windows installer is proven by two tagged releases. The
-  engineering item that sat beside them — the test-suite figures in `README.md` and
-  `spec-compliance.md`, hand-typed and lagging the gate table — is closed by #291 on `develop`:
-  `tools/cmd/doc-counts` generates and checks them as it does the pilot figures.
-- **Track L.** L3–L6 landed (#830, #821, #818, #825/#861) and L7 in #292 on `develop` after the
-  tag. Nothing remains in the track; its census moves with the runtime, adjudicated per change.
+- **Release follow-through.** **R1** is done; **R2**'s three registries are live from the core
+  tag, with Maven Central's 0.9.1 artifact to confirm and the Julia, MATLAB and R registries to
+  come with I3; **R3** and **R5** as a real Mac, an Apple Developer and an OV/EV certificate, and
+  a marketplace publisher appear; **R4** is proven by every tag since `v0.7.0`. None gates the
+  others or anything below.
+- **Track L.** L3–L8 landed. Nothing remains in the track; its census moves with the runtime,
+  adjudicated per change.
 - **Track N.** N2.1 (records and enums) first, since compiling an analysis case and the
   differential's record and constructor coverage both need it; decide N2.2 (the budget) before
   N2.4; N2.3 tracks L4 package by package; N2.6's actions and states are Track M's M1/M2.
-- **Track D.** The RDF ratchet is 356/356 stable with no refusal left; the API element-form
-  ratchet is 354/356 with 2 graph-diff cases. **D1** and **D2** are done: expression trees use
-  standard ownership and operator vocabulary, and connector ends use `ReferenceSubsetting`;
-  **D8**'s ontology-profile gate is therefore open. **D7**, **D9.1**, **D9.2**, **D11** and
-  **D12** are done; **D8** and **D10** remain; **D13** (the SysML v1 migration's units, its
-  report on the wire and its experimental notice) in the order it lists.
-- **Track F.** Closed. F1 and F2 landed together (#116) as the token-per-succession model, F3
-  (#120) as the per-traversal merge on top of it; `known_failures.txt` has no line left to delete.
-- **Track S.** Landed in the order agreed: S1 (#110), S2 (#123), S3 (#125), S4 (#134); #141 added
-  the region-order choice point afterwards. Nothing remains in the track.
-- **Track E.** Eligible — step 1 above. **E1** (termination of an ongoing performance, which
-  **E2** and **E4** build on) is landed; the order is **E2**; **E4** is landed; **E6** is landed;
-  **E3**'s record is landed and closes the item; **E5**'s record is landed and closes the item,
-  its optional follow-up waiting on a model that needs it; **E7** is landed; **E8** is landed: effective run-to-completion values and scopes are lowered and entry-step
-  scheduling is exposed to execution, checking, exploration and replay; **E1**, **E9** and **E10** are landed; no work follows E3.
-- **Track X.** X2, X3, X4, X5, X6, X7's values and X8's typing landed (#164, #115, #113, #211,
-  #122, #121, #112). What is left, in order: X8's harness halves (normalization and adjudication
-  in the pilot differential, a standalone RDF expression-tree round trip) so every later X item is
-  measured; X7's native layout for sets and tensors last, when something needs them — step 5
-  above.
-- **Track A.** A6, A2, A3 and A5 landed (#117, #133, #118, #136); A7 (#263) and A4 (#296) landed
-  on `develop` after the tag, A7's carrier walk shared with Q2's query side (#267), and #344 gave
-  A3's Monte Carlo the modeled randomness it had refused by name. Nothing remains in the track.
-- **Track Q.** Q4 is done; Q2's expression half landed with X5 and its query side in #267, #289
-  and #293 on `develop` after the tag, which closes Q2; Q1 is written; Q3 landed in #359. Nothing
-  remains in the track.
-- **Track V.** Everything queued has landed (#822, #900, #831, #817, the rule pull requests, #811
-  reconciled with #907, #909); work the census's 53 *unknown* rows, negative case first, each
-  change moving its row.
-- **Track B.** B1, B2, then B3 — step 6 above; nothing holds B1 or B2 back; B4's file and HTTP
-  providers whenever asked, its Flexo provider unblocked now that D9.2 is landed; B5 with Q1.
-- **Track W.** W1 (`dot`), W2 (`plantuml`) and W3 have landed, W3's PDF rasterization and
-  panel export in #356 on `develop` after the tag. What is left — richer node shapes and
-  compartments in both writers — is independent of every other track and runs beside any step
-  above.
-- **Track I, M.** Entirely given by the cross-cutting order above.
+- **Track D.** The RDF ratchet is 351 of 358 stable with 7 whitespace-only and no refusal; the
+  API element-form ratchet is 349 of 358 with 2 graph-diff cases. **D1**, **D2**, **D7**,
+  **D9.1**, **D9.2**, **D11** and **D12** are done; **D8** and **D10** remain; **D13** in the
+  order it lists — step 3 above.
+- **Track F, S, E.** Closed. `known_failures.txt` has no line; the region-order choice points
+  are recorded; E3 and E5 are closed by record and no work follows them.
+- **Track X.** X2–X6, X7's values and X8's typing landed. What is left, in order: X8's harness
+  halves so every later X item is measured, then X7's native layout — step 2 above.
+- **Track A, Q.** Closed: A7 and A4, Q2's query side and Q3 all landed in `v0.9.0`.
+- **Track V.** Work the census's 52 *unknown* rows, negative case first, each change moving its
+  row; #748 is open.
+- **Track I.** Client parity (#762 open; Node, Rust, Julia and MATLAB in progress), then the R
+  package, then the C client — step 1 above; I5 beside them.
+- **Track B.** B1, B2, then B3 — step 4 above; B4's file and HTTP providers whenever asked, its
+  Flexo provider unblocked since D9.2 landed; B5 with Q1.
+- **Track W.** #757 (open). Nothing else is open in the track.
+- **Track P.** P7's implementation, last, when the graph the layering test guards is otherwise
+  clean; its design record is #451.
+- **Track M.** Entirely given by the cross-cutting order above.

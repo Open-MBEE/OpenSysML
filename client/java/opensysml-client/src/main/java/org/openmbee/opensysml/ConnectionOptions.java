@@ -2,8 +2,12 @@ package org.openmbee.opensysml;
 
 import java.nio.file.Path;
 import java.time.Duration;
+import java.util.Collection;
+import java.util.LinkedHashSet;
+import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.Set;
 
 /**
  * How a {@link Connection} reaches a service: private child by default, an external service when
@@ -43,6 +47,7 @@ public final class ConnectionOptions {
   private final Duration requestTimeout;
   private final Duration startupTimeout;
   private final boolean isolatedService;
+  private final Set<String> requiredCapabilities;
 
   private ConnectionOptions(Builder builder) {
     this.host = Optional.ofNullable(builder.host);
@@ -57,6 +62,7 @@ public final class ConnectionOptions {
     this.requestTimeout = builder.requestTimeout;
     this.startupTimeout = builder.startupTimeout;
     this.isolatedService = builder.isolatedService;
+    this.requiredCapabilities = Set.copyOf(builder.requiredCapabilities);
   }
 
   /**
@@ -188,6 +194,16 @@ public final class ConnectionOptions {
     return isolatedService;
   }
 
+  /**
+   * The capabilities the service must advertise, checked once when the connection opens rather
+   * than at the first call that needs one.
+   *
+   * @return the capability names
+   */
+  public Set<String> requiredCapabilities() {
+    return requiredCapabilities;
+  }
+
   /** Builds {@link ConnectionOptions}. */
   public static final class Builder {
 
@@ -203,6 +219,7 @@ public final class ConnectionOptions {
     private Duration requestTimeout = Duration.ofSeconds(60);
     private Duration startupTimeout = Duration.ofSeconds(30);
     private boolean isolatedService;
+    private final Set<String> requiredCapabilities = new LinkedHashSet<>();
 
     private Builder() {}
 
@@ -352,6 +369,31 @@ public final class ConnectionOptions {
     public Builder isolatedService(boolean isolatedService) {
       this.isolatedService = isolatedService;
       return this;
+    }
+
+    /**
+     * Capabilities the service must advertise, so a service without one is refused when the
+     * connection opens, as a {@link CapabilityException}, instead of at the first call needing it.
+     *
+     * @param capabilities capability names, as {@link Capabilities} names them
+     * @return this builder
+     */
+    public Builder requireCapabilities(Collection<String> capabilities) {
+      for (String capability : Objects.requireNonNull(capabilities, "capabilities")) {
+        requiredCapabilities.add(Objects.requireNonNull(capability, "capability"));
+      }
+      return this;
+    }
+
+    /**
+     * Capabilities the service must advertise.
+     *
+     * @param capabilities capability names
+     * @return this builder
+     * @see #requireCapabilities(Collection)
+     */
+    public Builder requireCapabilities(String... capabilities) {
+      return requireCapabilities(List.of(capabilities));
     }
 
     /**

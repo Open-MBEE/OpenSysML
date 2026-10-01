@@ -1313,6 +1313,15 @@ jobs:
             cd client/node
             npm run lint
 
+      # The verification tests ask the service solver-backed questions; the
+      # solver is an external process the service finds on PATH.
+      - run:
+          name: Install Z3
+          command: |
+            sudo apt-get update
+            sudo apt-get install -y z3
+            z3 --version
+
       - run:
           name: Run the tests
           command: |
@@ -1327,8 +1336,11 @@ jobs:
           paths:
             - coverage-node.lcov
 
-      # --allow-skips because v1 covers 5 of the 15 RPCs; the skipped count is
-      # reported and the artifact records which scenarios they were.
+      # --allow-skips because three scenarios (parse/naming_no_source_is_invalid,
+      # parse_sources/naming_no_document_is_invalid and
+      # parse_sources/two_documents_of_one_name_are_invalid) ask for a request
+      # the client's public API refuses before asking the service; the skipped
+      # count is reported and the artifact records which scenarios they were.
       - run:
           name: Run the conformance suite through the client
           command: |
