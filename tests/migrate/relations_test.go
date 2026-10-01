@@ -1151,8 +1151,20 @@ func TestCollectionModifiersAreWritten(t *testing.T) {
 			t.Errorf("%s entries = %+v", id, es)
 		}
 	}
-	if diags := errors(t, "t.sysml", r.Notation); len(diags) > 0 {
-		t.Errorf("%v", diags)
+	// The v1 composite `n` is isUnique=false, and is written as it is: a
+	// composite part in a part implicitly subsets the unique Item::subitems,
+	// which uniqueness conformance forbids of a nonunique feature, so the
+	// written model's one finding is that, at `n`.
+	found := errors(t, "t.sysml", r.Notation)
+	if len(found) != 1 {
+		t.Errorf("want the one uniqueness finding at n, got %v", found)
+	}
+	for _, d := range found {
+		text := string(r.Notation)
+		line := strings.Split(text, "\n")[strings.Count(text[:d.Span.Offset], "\n")]
+		if d.Code != "subsetting-uniqueness-conformance" || !strings.Contains(line, "part n : A[2] nonunique;") {
+			t.Errorf("%v", d)
+		}
 	}
 	ttl, err := convert.Convert("t.sysml", r.Notation, convert.FormatSysML, convert.FormatTurtle)
 	if err != nil {
