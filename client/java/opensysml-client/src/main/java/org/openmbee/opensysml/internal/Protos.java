@@ -969,6 +969,12 @@ public final class Protos {
               present(outcome.getError()),
               outcome.getLinearizations(),
               outcome.getProbability(),
+              outcome.hasProbabilityRange()
+                  ? Optional.of(
+                      new org.openmbee.opensysml.ProbabilityRange(
+                          outcome.getProbabilityRange().getMin(),
+                          outcome.getProbabilityRange().getMax()))
+                  : Optional.empty(),
               outcome.getWitnessList(),
               diagnostics(outcome.getDiagnosticsList())));
     }
@@ -979,6 +985,7 @@ public final class Protos {
         status.getBudgetsHitList(),
         status.getRunsBudget(),
         status.getDepthBudget(),
+        status.getFailedLinearizations(),
         status.getProbabilitiesLowerBound());
   }
 

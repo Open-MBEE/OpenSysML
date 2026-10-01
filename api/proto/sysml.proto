@@ -497,6 +497,13 @@ message RunAnalysisResponse {
   repeated Bound bounds = 13;
 }
 
+// ProbabilityRange is the model-draw probability of an outcome, bounded by the
+// least and greatest probabilities over schedulers resolving scheduling choices.
+message ProbabilityRange {
+  double min = 1;
+  double max = 2;
+}
+
 // Outcome is one distinct outcome an exploration reached: the observables a
 // conformance case compares, how many linearizations reached it, and the choice
 // sequence of one run that did. Two runs agreeing on their observables are one
@@ -521,9 +528,11 @@ message Outcome {
   // it could not evaluate, as RunAnalysisResponse.diagnostics reports them for
   // one run.
   repeated Diagnostic diagnostics = 7;
-  // The probability of the linearizations reaching this outcome, as explore
-  // computes it; a lower bound when the exploration is incomplete.
+  // The exact model-draw probability when probability_range is exact; zero otherwise.
   double probability = 8;
+  // Present when the exploration made a weighted choice. Bounds probabilities
+  // over schedulers, not shares of the enumerated schedules.
+  ProbabilityRange probability_range = 9;
 }
 
 // ExplorationStatus is how an exploration ended: whether every linearization
@@ -539,9 +548,11 @@ message ExplorationStatus {
   // one run may resolve before the rest take their first alternative.
   int32 runs_budget = 4;
   int32 depth_budget = 5;
-  // True when the outcomes' probabilities are lower bounds: a budget kept some
+  // True when weighted probabilities are lower bounds: a budget kept some
   // linearizations unexplored.
   bool probabilities_lower_bound = 6;
+  // How many linearizations ended in runtime-error outcomes.
+  int32 failed_linearizations = 7;
 }
 
 // ListEnginesRequest asks for the analysis engines registered in this build.

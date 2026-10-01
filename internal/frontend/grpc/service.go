@@ -1097,6 +1097,9 @@ func (s *Service) ExecuteAction(ctx context.Context, req *pb.ExecuteActionReques
 		if err != nil {
 			return nil, err
 		}
+		if x.setupErr != nil {
+			return &pb.ExecuteActionResponse{Error: x.setupErr.Error()}, nil
+		}
 		return &pb.ExecuteActionResponse{Outcomes: x.outcomes, Exploration: x.status}, nil
 	}
 	if err := runtimeCtx.SetSchedule(schedule); err != nil {
@@ -1186,6 +1189,9 @@ func (s *Service) ExecuteState(ctx context.Context, req *pb.ExecuteStateRequest)
 		})
 		if err != nil {
 			return nil, err
+		}
+		if x.setupErr != nil {
+			return &pb.ExecuteStateResponse{Error: x.setupErr.Error()}, nil
 		}
 		return &pb.ExecuteStateResponse{Outcomes: x.outcomes, Exploration: x.status}, nil
 	}
