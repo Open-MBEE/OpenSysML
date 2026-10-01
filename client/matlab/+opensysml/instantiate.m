@@ -1,32 +1,28 @@
 function inst = instantiate(model, typeId)
-%INSTANTIATE An Instance record: id (int64), type_symbol_id, feature_values
-%(containers.Map name -> decoded Value); a failed feature carries its error text.
+%INSTANTIATE Build an instance and its reachable feature-value graph.
 
     answer = opensysml.internal.checkError(opensysml.call(model.connection, 'Instantiate', ...
         struct('modelHash', model.hash, 'symbolId', char(typeId))), 'Instantiate');
     if ~isfield(answer, 'instance')
-        error('opensysml:diagnostics', 'Instantiate carried no instance');
+        opensysml.internal.raise('opensysml:diagnostics:execution', ...
+            'Instantiate carried no instance');
     end
-    raw = answer.instance;
-    values = containers.Map();
-    if isfield(raw, 'featureValues')
-        fv = raw.featureValues;
-        names = fieldnames(fv);
-        for i = 1:numel(names)
-            entry = fv.(names{i});
-            if isfield(entry, 'value')
-                values(names{i}) = opensysml.decodeValue(entry.value);
-            elseif isfield(entry, 'values')
-                elems = entry.values;
-                if isstruct(elems), elems = num2cell(elems); end
-                if ~iscell(elems), elems = num2cell(elems); end
-                values(names{i}) = cellfun(@opensysml.decodeValue, elems, 'UniformOutput', false);
-            elseif isfield(entry, 'error')
-                values(names{i}) = entry.error;
-            end
-        end
+    graph = {};
+    if isfield(answer, 'instances'), graph = answer.instances; end
+    [decoded, instances] = opensysml.internal.decodeInstances(model.connection, graph);
+    id = opensysml.parseInt64(answer.instance.id);
+    key = sprintf('%d', id);
+    if isKey(instances, key)
+        inst = instances(key);
+    else
+        [decoded, instances] = opensysml.internal.decodeInstances(model.connection, answer.instance);
+        inst = decoded{1};
     end
-    inst = struct('id', opensysml.parseInt64(raw.id), ...
-                  'type_symbol_id', raw.typeSymbolId, ...
-                  'feature_values', values);
+    inst.instances = instances;
+    if ~isfield(inst, 'feature_values')
+        inst.feature_values = containers.Map('KeyType', 'char', 'ValueType', 'any');
+    end
+    if ~isKey(instances, key)
+        instances(key) = inst;
+    end
 end
