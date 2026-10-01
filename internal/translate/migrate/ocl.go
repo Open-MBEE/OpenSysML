@@ -331,12 +331,6 @@ func (n *oclNode) uncast() *oclNode {
 	return n
 }
 
-// isVariable tells whether n reads the variable name, through casts.
-func (n *oclNode) isVariable(name string) bool {
-	n = n.uncast()
-	return n.kind == oclVariable && n.name == name
-}
-
 // path reads n as a navigation chain v.a.b from the variable v, through casts;
 // ok is false when n is anything else.
 func (n *oclNode) path() (variable string, members []string, ok bool) {
