@@ -194,8 +194,8 @@ belongs to `sysml-grpc`. Such calls answer Unimplemented with that routing guida
 than being silently ignored. File-backed requests still require the host to make the requested
 paths readable; the standard library itself is embedded.
 
-Measured on a `go1.25` `js/wasm` build: 20,606,216 raw bytes, 5,444,280 bytes with gzip
-`-9`, and 3,848,192 bytes with Brotli.
+Measured on a `go1.25` `js/wasm` build: 20,601,256 raw bytes, 5,444,030 bytes with gzip
+`-9`, and 3,843,951 bytes with Brotli.
 
 ## What works
 
