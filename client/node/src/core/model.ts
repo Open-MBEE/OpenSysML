@@ -69,7 +69,30 @@ export interface ParseOptions {
   /** Language of inline content ("sysml" or "kerml"); requires `inline_language`. */
   language?: string;
   /** Reject the OpenSysML notation extensions; requires `strict_conformance`. */
+  strictConformance?: boolean;
+  /**
+   * @deprecated Use `strictConformance`; `strict` is its alias. Passing both
+   * with different values is refused.
+   */
   strict?: boolean;
+}
+
+/** Resolves `strictConformance` and its `strict` alias; differing values refuse. */
+export function strictConformanceOf(options: {
+  strict?: boolean;
+  strictConformance?: boolean;
+}): boolean | undefined {
+  if (
+    options.strict !== undefined &&
+    options.strictConformance !== undefined &&
+    options.strict !== options.strictConformance
+  ) {
+    throw new RangeError(
+      `strict (${options.strict}) and strictConformance (${options.strictConformance}) disagree; ` +
+        "pass only strictConformance",
+    );
+  }
+  return options.strictConformance ?? options.strict;
 }
 
 /** Where an expression is evaluated. */
@@ -189,7 +212,8 @@ export class Model {
     if (options.language !== undefined) {
       requireCapability(connection.info, CAPABILITY_INLINE_LANGUAGE, upgradeRemedy(CAPABILITY_INLINE_LANGUAGE));
     }
-    if (options.strict === true) {
+    const strictConformance = strictConformanceOf(options);
+    if (strictConformance === true) {
       requireCapability(
         connection.info,
         CAPABILITY_STRICT_CONFORMANCE,
@@ -201,7 +225,7 @@ export class Model {
         {
           source: source.source,
           ...(options.language === undefined ? {} : { language: options.language }),
-          ...(options.strict === undefined ? {} : { strictConformance: options.strict }),
+          ...(strictConformance === undefined ? {} : { strictConformance }),
         },
         connection.callOptions(),
       ),

@@ -83,7 +83,10 @@ raises `SymbolNotFoundError` naming near misses; `symbolById()` is the single ca
 for a name the service can resolve directly.
 
 `ParseOptions` are `language` (`"sysml"` or `"kerml"`, for inline content) and
-`strict`; both are capability-gated, and the client checks before it calls.
+`strictConformance`; both are capability-gated, and the client checks before it
+calls. `strict` remains as a deprecated alias of `strictConformance`; passing
+both with different values is refused. To raise on parse errors, call
+`model.raiseForErrors()` on the returned model.
 
 ## Values are discriminated unions
 

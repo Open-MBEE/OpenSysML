@@ -259,10 +259,7 @@ export class Connection {
   }
 
   /** Parses several documents together as one model, one root per document. */
-  async parseSources(
-    documents: readonly Source[],
-    options: { strict?: boolean; strictConformance?: boolean } = {},
-  ): Promise<Model> {
+  async parseSources(documents: readonly Source[], options: ParseOptions = {}): Promise<Model> {
     const sources = sourceDocuments(documents);
     requireCapability(this.info, CAPABILITY_PARSE_SOURCES, upgradeRemedy(CAPABILITY_PARSE_SOURCES));
     const capabilities = [CAPABILITY_PARSE_SOURCES];
@@ -274,7 +271,8 @@ export class Connection {
       );
       capabilities.push(CAPABILITY_INLINE_LANGUAGE);
     }
-    if (options.strictConformance === true) {
+    const strictConformance = strictConformanceOf(options);
+    if (strictConformance === true) {
       this.requireStrictConformance();
       capabilities.push(CAPABILITY_STRICT_CONFORMANCE);
     }
@@ -282,7 +280,7 @@ export class Connection {
       this.rpc.parseSources(
         create(ParseSourcesRequestSchema, {
           documents: sources.map((source) => source.toPb()),
-          strictConformance: options.strictConformance === true,
+          strictConformance: strictConformance === true,
         }),
         this.callOptions(),
       ),
@@ -293,13 +291,9 @@ export class Connection {
     if (response.error !== "") {
       throw new ParseError(response.error, diagnostics);
     }
-    const model = Model.fromRoots(this, response.modelHash, response.roots, diagnostics, {
+    return Model.fromRoots(this, response.modelHash, response.roots, diagnostics, {
       documents: sources.map((source) => source.documentName),
     });
-    if (options.strict === true) {
-      model.raiseForErrors();
-    }
-    return model;
   }
 
   /**
