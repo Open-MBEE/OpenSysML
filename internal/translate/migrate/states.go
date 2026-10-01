@@ -2704,7 +2704,7 @@ func (s *stateRegion) transitionAccepts(t *sysmlv1.Element, triggers []*sysmlv1.
 		}
 		note = joinNotes(note, rnote)
 		if ev := s.m.model.Ref(tr, "event"); ev != nil && ev.Type == "SignalEvent" {
-			note = joinNotes(note, s.m.unsentNote(s.m.model.Ref(ev, "signal")))
+			s.m.uiAccept(s.m.model.Ref(ev, "signal"), tr)
 		}
 		s.m.add(tr, verdictFor(note), "", joinNotes(note, rinfo))
 		accepts = append(accepts, routes...)

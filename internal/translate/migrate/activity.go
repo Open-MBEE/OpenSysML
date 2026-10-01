@@ -840,24 +840,53 @@ func (a *activity) waitFor(e *sysmlv1.Element) (string, bool) {
 	if len(dcs) == 0 {
 		return "", false
 	}
-	dc := dcs[0]
 	for _, other := range dcs[1:] {
-		a.m.add(other, Unmapped, "", "a second duration constraint on "+describe(e)+"; only "+describe(dc)+" is written as its wait")
+		a.m.add(other, Unmapped, "", "a second duration constraint on "+describe(e)+"; only "+describe(dcs[0])+" is written as its wait")
 	}
+	w := a.m.waitOf(e)
+	switch {
+	case w.ok:
+		a.m.add(w.dc, Approximated, a.m.v2Name(a.def), w.note)
+		return w.expr, true
+	case w.noInterval:
+		a.m.unmapped(w.dc, w.why)
+	default:
+		a.unmappedWait(w.dc, e, w.why)
+	}
+	return "", false
+}
+
+// wait is what the duration constraint dc on an element is written as: the
+// delay before the element in seconds with the note on it when ok, else why
+// none is written — the constraint has no interval, or its bounds admit no one wait.
+type wait struct {
+	dc         *sysmlv1.Element
+	expr, note string
+	why        string
+	ok         bool
+	noInterval bool
+}
+
+// waitOf decides the wait the first duration constraint on e is written as; a
+// zero wait when e has none. The decision is shared by the writer and by the
+// search for the clock waits of a behavior performed at an instant.
+func (m *migration) waitOf(e *sysmlv1.Element) wait {
+	dcs := m.bounded[e]
+	if len(dcs) == 0 {
+		return wait{}
+	}
+	dc := dcs[0]
 	spec := firstOwned(dc, "specification")
 	if spec == nil || spec.Type != "DurationInterval" && spec.Type != "Interval" {
-		a.m.unmapped(dc, "the duration constraint has no interval")
-		return "", false
+		return wait{dc: dc, why: "the duration constraint has no interval", noInterval: true}
 	}
-	lo, lok, lnote := a.m.durationExpr(a.m.model.Ref(spec, "min"), e)
-	hi, hok, hnote := a.m.durationExpr(a.m.model.Ref(spec, "max"), e)
-	if bound, bnote, ok := a.m.singleValue(spec, lo, lok, hok); ok {
-		a.m.add(dc, Approximated, a.m.v2Name(a.def), joinNotes(bnote, "so the wait is a fixed "+bound+" s before "+describe(e)))
-		return inSeconds(bound), true
+	lo, lok, lnote := m.durationExpr(m.model.Ref(spec, "min"), e)
+	hi, hok, hnote := m.durationExpr(m.model.Ref(spec, "max"), e)
+	if bound, bnote, ok := m.singleValue(spec, lo, lok, hok); ok {
+		return wait{dc: dc, expr: inSeconds(bound), note: joinNotes(bnote, "so the wait is a fixed "+bound+" s before "+describe(e)), ok: true}
 	}
 	if !lok || !hok {
-		a.unmappedWait(dc, e, a.m.openInterval(spec, lo, lok, lnote, hi, hok, hnote))
-		return "", false
+		return wait{dc: dc, why: m.openInterval(spec, lo, lok, lnote, hi, hok, hnote)}
 	}
 	note := joinNotes(lnote, hnote)
 	var expr string
@@ -865,8 +894,7 @@ func (a *activity) waitFor(e *sysmlv1.Element) (string, bool) {
 	hf, herr := strconv.ParseFloat(hi, 64)
 	switch {
 	case lerr == nil && herr == nil && lf > hf:
-		a.unmappedWait(dc, e, "the interval's min "+lo+" exceeds its max "+hi)
-		return "", false
+		return wait{dc: dc, why: "the interval's min " + lo + " exceeds its max " + hi}
 	case lo == hi:
 		expr = lo
 		note = joinNotes(note, "written as a fixed wait of "+lo+" s before "+describe(e))
@@ -874,8 +902,7 @@ func (a *activity) waitFor(e *sysmlv1.Element) (string, bool) {
 		expr = "RandomFunctions::uniform(" + lo + ", " + hi + ")"
 		note = joinNotes(note, "written as a wait drawn uniformly over ["+lo+", "+hi+"] s before "+describe(e)+"; a tool's fixed min or max mode is a run setting, not the model's")
 	}
-	a.m.add(dc, Approximated, a.m.v2Name(a.def), note)
-	return inSeconds(expr), true
+	return wait{dc: dc, expr: inSeconds(expr), note: note, ok: true}
 }
 
 func (a *activity) unmappedWait(dc, e *sysmlv1.Element, note string) {
@@ -2405,11 +2432,11 @@ func (a *activity) sendSignal(n *sysmlv1.Element, name string) {
 			path, hasPath := a.portPath(port)
 			switch {
 			case !a.m.written(port):
-				note = "the port " + qualifiedName(port) + " has no v2 declaration; the signal is sent to the sender"
+				note = joinNotes(note, "the port "+qualifiedName(port)+" has no v2 declaration; the signal is sent to the sender")
 			case hasPath:
 				line += " via " + a.m.respellThis(a.self()+"."+path, a.act)
 			default:
-				note = "the port " + qualifiedName(port) + " is no port of the object the sender acts on; the signal is sent to the sender"
+				note = joinNotes(note, "the port "+qualifiedName(port)+" is no port of the object the sender acts on; the signal is sent to the sender")
 			}
 		} else if t := firstOwned(n, "target"); t != nil {
 			obj, _, ok := a.objectOf(t)
@@ -2424,6 +2451,7 @@ func (a *activity) sendSignal(n *sysmlv1.Element, name string) {
 			}
 		}
 		a.m.w.line(line + ";")
+		a.m.senders.sent[sig] = true
 	})
 	a.m.add(n, verdictFor(note), name, note)
 }
@@ -2486,7 +2514,7 @@ func (a *activity) trigger(t, n *sysmlv1.Element) (clause, note string, ok bool)
 		tnote := ""
 		if sig := a.m.model.Ref(ev, "signal"); ev.Type == "SignalEvent" && sig != nil {
 			clause, tnote = a.m.actionRoute(clause, t, a.selfType(), a.act, a.viaPrefix(), sig)
-			tnote = joinNotes(tnote, a.m.unsentNote(sig))
+			a.m.uiAccept(sig, t, n)
 			if len(n.Owned("result")) > 0 {
 				a.payload[n.Owned("result")[0]] = sig
 			}

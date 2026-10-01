@@ -1,6 +1,13 @@
 item def 'Cmd On';
 item def 'Cmd Off';
+item def 'Cmd Hold';
 part def Stimulus {
+    action def Hold {
+        /* duration constraint on 'Hold' not migrated — the interval has no max, so the interval is open above and no one wait of at least 1.0 s stands for it */
+        first start then final;
+        action final terminate;
+        metadata MigrationMetadata::SynthesizedName about final;
+    }
     action def 'Send Ack On' {
         first start then wait;
         action wait accept after RandomFunctions::uniform(1.0, 3.0) [SI::s];
@@ -59,6 +66,19 @@ part def Stimulus {
                 metadata MigrationMetadata::SynthesizedName about call, final;
             }
             then On;
+        transition first Standby accept 'Cmd Hold'
+            do action 'Send Ack Hold' {
+                first start then call;
+                action call : Hold;
+                first call then someday;
+                action someday {
+                    /* not migrated: AcceptEventAction 'someday' — the time event's time is not written: the instant "someday" is neither a number with a time unit nor an expression: names someday, which nothing visible from Stimulus::Stimulus Behavior::<Region>::<Transition>::Send Ack Hold is called */
+                }
+                first someday then final;
+                action final terminate;
+                metadata MigrationMetadata::SynthesizedName about call, final;
+            }
+            then Standby;
         transition first On accept 'Cmd Off'
             do action 'Send Ack Off' {
                 first start then call;

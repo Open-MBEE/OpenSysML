@@ -23,7 +23,23 @@
         <expr xmi:type="uml:Duration" xmi:id="_hiD"><expr xmi:type="uml:LiteralString" xmi:id="_hiV" value="3 s"/></expr>
       </when>
     </packagedElement>
+    <packagedElement xmi:type="uml:SignalEvent" xmi:id="_cmdHoldEv" signal="_cmdHold"/>
+    <packagedElement xmi:type="uml:Signal" xmi:id="_cmdHold" name="Cmd Hold"/>
+    <!-- An absolute time event whose time names nothing: its accept is a placeholder, not a wait. -->
+    <packagedElement xmi:type="uml:TimeEvent" xmi:id="_someday">
+      <when xmi:type="uml:TimeExpression" xmi:id="_somedayW"><expr xmi:type="uml:LiteralString" xmi:id="_somedayV" value="someday"/></when>
+    </packagedElement>
     <packagedElement xmi:type="uml:Class" xmi:id="_stim" name="Stimulus" classifierBehavior="_sm">
+      <!-- Called by the transition effect Send Ack Hold: bounded by an interval open above, which no one wait stands for. -->
+      <ownedBehavior xmi:type="uml:Activity" xmi:id="_hold" name="Hold">
+        <node xmi:type="uml:InitialNode" xmi:id="_holdInit"/>
+        <node xmi:type="uml:ActivityFinalNode" xmi:id="_holdFinal"/>
+        <edge xmi:type="uml:ControlFlow" xmi:id="_holdE1" source="_holdInit" target="_holdFinal"/>
+        <ownedRule xmi:type="uml:DurationConstraint" xmi:id="_dtHold" name="dtHold">
+          <constrainedElement xmi:idref="_hold"/>
+          <specification xmi:type="uml:DurationInterval" xmi:id="_dtHoldI" min="_loD"/>
+        </ownedRule>
+      </ownedBehavior>
       <!-- Called by the transition effect: the call it makes is bounded by a duration constraint. -->
       <ownedBehavior xmi:type="uml:Activity" xmi:id="_ackOn" name="Send Ack On">
         <node xmi:type="uml:InitialNode" xmi:id="_ackInit"/>
@@ -91,6 +107,20 @@
               <node xmi:type="uml:ActivityFinalNode" xmi:id="_saFinal"/>
               <edge xmi:type="uml:ControlFlow" xmi:id="_saE1" source="_saInit" target="_saCall"/>
               <edge xmi:type="uml:ControlFlow" xmi:id="_saE2" source="_saCall" target="_saFinal"/>
+            </effect>
+          </transition>
+          <transition xmi:type="uml:Transition" xmi:id="_tHold" source="_standby" target="_standby">
+            <trigger xmi:type="uml:Trigger" xmi:id="_trHold" event="_cmdHoldEv"/>
+            <effect xmi:type="uml:Activity" xmi:id="_sendAckHold" name="Send Ack Hold">
+              <node xmi:type="uml:InitialNode" xmi:id="_sahInit"/>
+              <node xmi:type="uml:CallBehaviorAction" xmi:id="_sahCall" behavior="_hold"/>
+              <node xmi:type="uml:AcceptEventAction" xmi:id="_sahWait" name="someday">
+                <trigger xmi:type="uml:Trigger" xmi:id="_sahTr" event="_someday"/>
+              </node>
+              <node xmi:type="uml:ActivityFinalNode" xmi:id="_sahFinal"/>
+              <edge xmi:type="uml:ControlFlow" xmi:id="_sahE1" source="_sahInit" target="_sahCall"/>
+              <edge xmi:type="uml:ControlFlow" xmi:id="_sahE2" source="_sahCall" target="_sahWait"/>
+              <edge xmi:type="uml:ControlFlow" xmi:id="_sahE3" source="_sahWait" target="_sahFinal"/>
             </effect>
           </transition>
           <transition xmi:type="uml:Transition" xmi:id="_tOff" source="_on" target="_standby">

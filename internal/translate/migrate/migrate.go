@@ -157,7 +157,7 @@ func FromModelOptions(name string, model *sysmlv1.Model, opts Options) *Result {
 		opUsage:           map[*sysmlv1.Element]string{},
 		deciding:          map[*sysmlv1.Element]bool{},
 		bounded:           map[*sysmlv1.Element][]*sysmlv1.Element{},
-		senders:           senders{actions: map[*sysmlv1.Element]bool{}, buttons: map[*sysmlv1.Element]int{}},
+		senders:           senders{sent: map[*sysmlv1.Element]bool{}, buttons: map[*sysmlv1.Element]int{}},
 		allocated:         map[*sysmlv1.Element][]*sysmlv1.Element{},
 		triggered:         map[*sysmlv1.Element]bool{},
 		snapshots:         map[*sysmlv1.Element]snapshotTyping{},
@@ -259,6 +259,7 @@ func FromModelOptions(name string, model *sysmlv1.Model, opts Options) *Result {
 	m.views(nil)
 	m.flushFlows()
 	m.placeholderEnds()
+	m.uiOnlyAccepts()
 	m.unwrittenEvents()
 	m.w.fill()
 	m.diagrams()

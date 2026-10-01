@@ -12,7 +12,10 @@ import (
 // clock — by a duration constraint on itself or one of its nodes, a call of an
 // activity or an operation whose method has one, or an accept of a time event —
 // is ledgered as an approximation naming the wait: a run stops there. A do
-// activity may wait, and gets no such note.
+// activity may wait, and gets no such note. Nor does a behavior whose only
+// waits the writer leaves as placeholders — a time event whose time it cannot
+// spell, a duration constraint whose interval no one wait stands for — since
+// nothing written waits.
 func TestInstantBehaviorsWaitingForTheClockAreLedgered(t *testing.T) {
 	r := migrateXMI(t, "instant_waits")
 	wantClean(t, "t.sysml", r)
@@ -24,6 +27,13 @@ func TestInstantBehaviorsWaitingForTheClockAreLedgered(t *testing.T) {
 	for _, e := range entriesFor(r, "_blink") {
 		if strings.Contains(e.Note, "waits for the clock") {
 			t.Errorf("the do action Blink is noted as waiting for the clock: %s", e.Note)
+		}
+	}
+	wantNote(t, r, "_sahWait", migrate.Approximated, "the time event's time is not written")
+	wantNote(t, r, "_dtHold", migrate.Unmapped, "the interval has no max, so the interval is open above")
+	for _, e := range entriesFor(r, "_sendAckHold") {
+		if strings.Contains(e.Note, "waits for the clock") {
+			t.Errorf("the transition effect Send Ack Hold, whose waits are placeholders, is noted as waiting for the clock: %s", e.Note)
 		}
 	}
 }

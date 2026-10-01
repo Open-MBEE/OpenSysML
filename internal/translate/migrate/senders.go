@@ -1,27 +1,33 @@
 package migrate
 
 import (
+	"sort"
 	"strings"
 
 	"github.com/Open-MBEE/OpenSysML/internal/translate/xmi/sysmlv1"
 )
 
-// senders indexes what posts each signal: the send and broadcast actions of the
-// model, and the signal instances of the tool's UI prototype, which a button
-// posts when it is pressed in the tool and the migration does not write.
+// senders indexes what posts each signal: the send actions the migration
+// wrote, and the signal instances of the tool's UI prototype, which a button
+// posts when it is pressed in the tool and the migration does not write. The
+// accepts of a signal a button posts are noted once every send is written, since
+// a send action is a sender only when it is written, not refused as a placeholder.
 type senders struct {
-	actions map[*sysmlv1.Element]bool
+	sent    map[*sysmlv1.Element]bool
 	buttons map[*sysmlv1.Element]int
+	accepts []uiAccept
 }
 
-// recordSender notes e as a sender of a signal, when it is one.
+// uiAccept is an accept of sig: the elements reported for it, which are noted
+// when no send action of the document turns out to send sig.
+type uiAccept struct {
+	sig *sysmlv1.Element
+	of  []*sysmlv1.Element
+}
+
+// recordSender notes e as a button of the tool's UI prototype posting a signal,
+// when it is one.
 func (m *migration) recordSender(e *sysmlv1.Element) {
-	switch e.Type {
-	case "SendSignalAction", "BroadcastSignalAction":
-		if sig := m.model.Ref(e, "signal"); sig != nil {
-			m.senders.actions[sig] = true
-		}
-	}
 	for _, s := range e.Stereotypes {
 		if !simulationProvenance.applies(s, "SignalInstance") {
 			continue
@@ -34,26 +40,75 @@ func (m *migration) recordSender(e *sysmlv1.Element) {
 	}
 }
 
-// unsentNote says that the tool's UI prototype is what posts sig: no send action
-// of the document sends it, only a button of the prototype, which the migration
-// does not write, so an accept of it waits for a message nothing in the model
-// posts. "" when a send action names it or nothing at all does: a signal nothing
-// posts arrives from outside the model, in the tool and here alike.
-func (m *migration) unsentNote(sig *sysmlv1.Element) string {
-	if sig == nil || m.senders.buttons[sig] == 0 || m.sentByAction(sig) {
-		return ""
+// uiAccept records that the elements of are an accept of sig, to be noted by
+// uiOnlyAccepts when a button of the tool's UI prototype posts sig or a signal
+// specializing it and no send action is written for either.
+func (m *migration) uiAccept(sig *sysmlv1.Element, of ...*sysmlv1.Element) {
+	if sig == nil {
+		return
 	}
-	return "no send action of the document sends " + describe(sig) + ", which only " + count(m.senders.buttons[sig], "button") +
+	if n, _ := m.buttonsPosting(sig); n > 0 {
+		m.senders.accepts = append(m.senders.accepts, uiAccept{sig: sig, of: of})
+	}
+}
+
+// uiOnlyAccepts notes, once every send action is written, each recorded accept
+// whose signal only the tool's UI prototype posts.
+func (m *migration) uiOnlyAccepts() {
+	for _, acc := range m.senders.accepts {
+		if m.sentByAction(acc.sig) {
+			continue
+		}
+		note := m.unsentNote(acc.sig)
+		for _, e := range acc.of {
+			m.annotate(e, note, true)
+		}
+	}
+}
+
+// unsentNote says that the tool's UI prototype is what posts sig: no send action
+// of the document sends it or a signal specializing it, only a button of the
+// prototype, which the migration does not write, so an accept of it waits for a
+// message nothing in the model posts. A signal nothing posts arrives from outside
+// the model, in the tool and here alike, and gets no note.
+func (m *migration) unsentNote(sig *sysmlv1.Element) string {
+	n, special := m.buttonsPosting(sig)
+	what := describe(sig)
+	if len(special) > 0 {
+		names := make([]string, len(special))
+		for i, s := range special {
+			names[i] = describe(s)
+		}
+		what += " or a signal specializing it (" + strings.Join(names, ", ") + ")"
+	}
+	return "no send action of the document sends " + what + ", which only " + count(n, "button") +
 		" of the tool's UI prototype posts, which the migration does not write; an accept of it waits for a message nothing in the model posts"
 }
 
-// sentByAction reports whether a send action of the model sends sig or a
+// buttonsPosting counts the buttons of the tool's UI prototype posting sig or a
+// signal specializing it, which an accept of sig takes too, and lists those
+// specializing signals by id.
+func (m *migration) buttonsPosting(sig *sysmlv1.Element) (n int, special []*sysmlv1.Element) {
+	for posted, buttons := range m.senders.buttons {
+		switch {
+		case posted == sig:
+			n += buttons
+		case m.inherits(posted, sig):
+			n += buttons
+			special = append(special, posted)
+		}
+	}
+	sort.Slice(special, func(i, j int) bool { return special[i].ID < special[j].ID })
+	return n, special
+}
+
+// sentByAction reports whether a send action the migration wrote sends sig or a
 // signal specializing it, either of which an accept of sig takes.
 func (m *migration) sentByAction(sig *sysmlv1.Element) bool {
-	if m.senders.actions[sig] {
+	if m.senders.sent[sig] {
 		return true
 	}
-	for sent := range m.senders.actions {
+	for sent := range m.senders.sent {
 		if m.inherits(sent, sig) {
 			return true
 		}
@@ -94,8 +149,9 @@ func uiFrameName(e *sysmlv1.Element) string {
 
 // clockWait names the first wait on the clock the behavior b, or a behavior an
 // action of it calls, is written with: a duration constraint bounding it or one
-// of its nodes, written as a wait before it, or an accept of a time event. ""
-// when none.
+// of its nodes, written as a wait before it, or an accept of a time event that is
+// written. "" when none: a bound or a trigger the writer leaves as a placeholder
+// is no wait.
 func (m *migration) clockWait(b *sysmlv1.Element) string {
 	return m.clockWaitIn(b, map[*sysmlv1.Element]bool{})
 }
@@ -105,8 +161,8 @@ func (m *migration) clockWaitIn(b *sysmlv1.Element, seen map[*sysmlv1.Element]bo
 		return ""
 	}
 	seen[b] = true
-	if dc := m.waitBound(b); dc != nil {
-		return "the duration constraint " + describe(dc) + " on " + describe(b)
+	if w := m.waitOf(b); w.ok {
+		return "the duration constraint " + describe(w.dc) + " on " + describe(b)
 	}
 	found := ""
 	m.walkActions(b, func(n *sysmlv1.Element) {
@@ -115,35 +171,47 @@ func (m *migration) clockWaitIn(b *sysmlv1.Element, seen map[*sysmlv1.Element]bo
 		}
 		switch n.Type {
 		case "AcceptEventAction":
-			for _, t := range n.Owned("trigger") {
-				if ev := m.model.Ref(t, "event"); ev != nil && ev.Type == "TimeEvent" {
-					found = "the accept of a time event " + describe(n) + " in " + describe(b)
-					return
-				}
+			if m.acceptsTime(n) {
+				found = "the accept of a time event " + describe(n) + " in " + describe(b)
+				return
 			}
 		case "CallBehaviorAction":
-			found = m.clockWaitIn(m.model.Ref(n, "behavior"), seen)
+			found = m.calledWait(m.model.Ref(n, "behavior"), seen)
 		case "CallOperationAction":
 			if op := m.model.Ref(n, "operation"); op != nil {
-				found = m.clockWaitIn(m.bodyMethod(op), seen)
+				found = m.calledWait(m.bodyMethod(op), seen)
 			}
 		}
-		if dc := m.waitBound(n); found == "" && dc != nil {
-			found = "the duration constraint " + describe(dc) + " on " + describe(n) + " in " + describe(b)
+		if w := m.waitOf(n); found == "" && w.ok {
+			found = "the duration constraint " + describe(w.dc) + " on " + describe(n) + " in " + describe(b)
 		}
 	})
 	return found
 }
 
-// waitBound is the duration constraint on e that is written as a wait before
-// it — the first with an interval, as waitFor writes it; nil when none is.
-func (m *migration) waitBound(e *sysmlv1.Element) *sysmlv1.Element {
-	for _, dc := range m.bounded[e] {
-		if spec := firstOwned(dc, "specification"); spec != nil && (spec.Type == "DurationInterval" || spec.Type == "Interval") {
-			return dc
-		}
+// calledWait is the clock wait of a called behavior, which a call performs only
+// when the behavior has a v2 declaration; a call of one without is a placeholder.
+func (m *migration) calledWait(b *sysmlv1.Element, seen map[*sysmlv1.Element]bool) string {
+	if !m.written(b) {
+		return ""
 	}
-	return nil
+	return m.clockWaitIn(b, seen)
+}
+
+// acceptsTime reports whether the accept action n is written accepting a time
+// event: its first trigger, the one written, names a time event whose time the
+// writer spells.
+func (m *migration) acceptsTime(n *sysmlv1.Element) bool {
+	triggers := n.Owned("trigger")
+	if len(triggers) == 0 {
+		return false
+	}
+	ev := m.model.Ref(triggers[0], "event")
+	if ev == nil || ev.Type != "TimeEvent" {
+		return false
+	}
+	_, _, ok := m.acceptClause(ev, n.Parent, "")
+	return ok
 }
 
 // instantWaitNote says that a behavior performed at an instant — a state's entry
