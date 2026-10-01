@@ -868,7 +868,7 @@ Each item says what is known, what is not, and what would settle it.
 
 OpenMBEE's MDK ([Open-MBEE/mdk](https://github.com/Open-MBEE/mdk)) is the plugin a large share
 of Cameo users already run for MMS synchronisation and DocGen documents. OpenSysML MDK is
-positioned as its successor ([`docs/project/mdk-parity.md`](../../../project/mdk-parity.md)
+positioned as its successor ([`docs/project/mdk-parity.md`](../../project/mdk-parity.md)
 tracks the gap), and the first concrete step is to let an MDK document run OpenSysML.
 
 ### 14.1 The hook MDK offers
