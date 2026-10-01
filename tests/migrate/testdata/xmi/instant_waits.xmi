@@ -1,0 +1,83 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<xmi:XMI xmi:version="2.5.1" xmlns:xmi="http://www.omg.org/spec/XMI/20131001"
+         xmlns:uml="http://www.omg.org/spec/UML/20161101"
+         xmlns:sysml="http://www.omg.org/spec/SysML/20181001/SysML">
+  <uml:Model xmi:type="uml:Model" xmi:id="_m" name="Model">
+    <packagedElement xmi:type="uml:Signal" xmi:id="_cmdOn" name="Cmd On"/>
+    <packagedElement xmi:type="uml:Signal" xmi:id="_cmdOff" name="Cmd Off"/>
+    <packagedElement xmi:type="uml:SignalEvent" xmi:id="_cmdOnEv" signal="_cmdOn"/>
+    <packagedElement xmi:type="uml:SignalEvent" xmi:id="_cmdOffEv" signal="_cmdOff"/>
+    <packagedElement xmi:type="uml:TimeEvent" xmi:id="_warmed" isRelative="true">
+      <when xmi:type="uml:TimeExpression" xmi:id="_warmedW"><expr xmi:type="uml:LiteralString" xmi:id="_warmedV" value="2 s"/></when>
+    </packagedElement>
+    <packagedElement xmi:type="uml:TimeEvent" xmi:id="_blinked" isRelative="true">
+      <when xmi:type="uml:TimeExpression" xmi:id="_blinkedW"><expr xmi:type="uml:LiteralString" xmi:id="_blinkedV" value="1 s"/></when>
+    </packagedElement>
+    <packagedElement xmi:type="uml:TimeEvent" xmi:id="_lo">
+      <when xmi:type="uml:TimeExpression" xmi:id="_loW">
+        <expr xmi:type="uml:Duration" xmi:id="_loD"><expr xmi:type="uml:LiteralString" xmi:id="_loV" value="1 s"/></expr>
+      </when>
+    </packagedElement>
+    <packagedElement xmi:type="uml:TimeEvent" xmi:id="_hi">
+      <when xmi:type="uml:TimeExpression" xmi:id="_hiW">
+        <expr xmi:type="uml:Duration" xmi:id="_hiD"><expr xmi:type="uml:LiteralString" xmi:id="_hiV" value="3 s"/></expr>
+      </when>
+    </packagedElement>
+    <packagedElement xmi:type="uml:Class" xmi:id="_stim" name="Stimulus" classifierBehavior="_sm">
+      <!-- Called by the transition effect: the call it makes is bounded by a duration constraint. -->
+      <ownedBehavior xmi:type="uml:Activity" xmi:id="_ackOn" name="Send Ack On">
+        <node xmi:type="uml:InitialNode" xmi:id="_ackInit"/>
+        <node xmi:type="uml:CallBehaviorAction" xmi:id="_turnOn" name="Turn On"/>
+        <node xmi:type="uml:ActivityFinalNode" xmi:id="_ackFinal"/>
+        <edge xmi:type="uml:ControlFlow" xmi:id="_ackE1" source="_ackInit" target="_turnOn"/>
+        <edge xmi:type="uml:ControlFlow" xmi:id="_ackE2" source="_turnOn" target="_ackFinal"/>
+        <ownedRule xmi:type="uml:DurationConstraint" xmi:id="_dtOn" name="dtOn">
+          <constrainedElement xmi:idref="_turnOn"/>
+          <specification xmi:type="uml:DurationInterval" xmi:id="_dtOnI" min="_loD" max="_hiD"/>
+        </ownedRule>
+      </ownedBehavior>
+      <!-- The entry of On: an accept of a time event. -->
+      <ownedBehavior xmi:type="uml:Activity" xmi:id="_warm" name="Warm Up">
+        <node xmi:type="uml:InitialNode" xmi:id="_warmInit"/>
+        <node xmi:type="uml:AcceptEventAction" xmi:id="_warmWait" name="warmed">
+          <trigger xmi:type="uml:Trigger" xmi:id="_warmTr" event="_warmed"/>
+        </node>
+        <node xmi:type="uml:ActivityFinalNode" xmi:id="_warmFinal"/>
+        <edge xmi:type="uml:ControlFlow" xmi:id="_warmE1" source="_warmInit" target="_warmWait"/>
+        <edge xmi:type="uml:ControlFlow" xmi:id="_warmE2" source="_warmWait" target="_warmFinal"/>
+      </ownedBehavior>
+      <!-- The do activity of On: the same accept, which a do activity may make. -->
+      <ownedBehavior xmi:type="uml:Activity" xmi:id="_blink" name="Blink">
+        <node xmi:type="uml:InitialNode" xmi:id="_blinkInit"/>
+        <node xmi:type="uml:AcceptEventAction" xmi:id="_blinkWait" name="blinked">
+          <trigger xmi:type="uml:Trigger" xmi:id="_blinkTr" event="_blinked"/>
+        </node>
+        <node xmi:type="uml:ActivityFinalNode" xmi:id="_blinkFinal"/>
+        <edge xmi:type="uml:ControlFlow" xmi:id="_blinkE1" source="_blinkInit" target="_blinkWait"/>
+        <edge xmi:type="uml:ControlFlow" xmi:id="_blinkE2" source="_blinkWait" target="_blinkFinal"/>
+      </ownedBehavior>
+      <ownedBehavior xmi:type="uml:StateMachine" xmi:id="_sm" name="Stimulus Behavior">
+        <region xmi:type="uml:Region" xmi:id="_r">
+          <subvertex xmi:type="uml:Pseudostate" xmi:id="_init" kind="initial"/>
+          <subvertex xmi:type="uml:State" xmi:id="_standby" name="Standby"/>
+          <subvertex xmi:type="uml:State" xmi:id="_on" name="On" entry="_warm" doActivity="_blink"/>
+          <transition xmi:type="uml:Transition" xmi:id="_tStart" source="_init" target="_standby"/>
+          <transition xmi:type="uml:Transition" xmi:id="_tOn" source="_standby" target="_on">
+            <trigger xmi:type="uml:Trigger" xmi:id="_trOn" event="_cmdOnEv"/>
+            <effect xmi:type="uml:Activity" xmi:id="_sendAck" name="Send Ack">
+              <node xmi:type="uml:InitialNode" xmi:id="_saInit"/>
+              <node xmi:type="uml:CallBehaviorAction" xmi:id="_saCall" behavior="_ackOn"/>
+              <node xmi:type="uml:ActivityFinalNode" xmi:id="_saFinal"/>
+              <edge xmi:type="uml:ControlFlow" xmi:id="_saE1" source="_saInit" target="_saCall"/>
+              <edge xmi:type="uml:ControlFlow" xmi:id="_saE2" source="_saCall" target="_saFinal"/>
+            </effect>
+          </transition>
+          <transition xmi:type="uml:Transition" xmi:id="_tOff" source="_on" target="_standby">
+            <trigger xmi:type="uml:Trigger" xmi:id="_trOff" event="_cmdOffEv"/>
+          </transition>
+        </region>
+      </ownedBehavior>
+    </packagedElement>
+  </uml:Model>
+  <sysml:Block xmi:id="_s1" base_Class="_stim"/>
+</xmi:XMI>

@@ -158,3 +158,80 @@ func TestDirectedOrderedPropertyKeepsItsDeclaredMultiplicity(t *testing.T) {
 		wantLine(t, r.Notation, line)
 	}
 }
+
+// The result of a structural feature read keeps the multiplicity its v1 pin
+// declares: a read of a collection whose result pin admits none or many is
+// [0..*], one of an optional feature [0..1], and a pin declaring no bounds
+// takes the [1] a v1 pin means.
+const readResultBounds = `
+    <packagedElement xmi:type="uml:Class" xmi:id="_entry" name="Entry"/>
+    <packagedElement xmi:type="uml:Class" xmi:id="_table" name="Table">
+      <ownedAttribute xmi:type="uml:Property" xmi:id="_entries" name="entries" type="_entry" aggregation="composite">
+        <lowerValue xmi:type="uml:LiteralInteger" xmi:id="_entriesL" value="0"/>
+        <upperValue xmi:type="uml:LiteralUnlimitedNatural" xmi:id="_entriesU" value="*"/>
+      </ownedAttribute>
+      <ownedAttribute xmi:type="uml:Property" xmi:id="_primary" name="primary" type="_entry" aggregation="composite">
+        <lowerValue xmi:type="uml:LiteralInteger" xmi:id="_primaryL" value="0"/>
+        <upperValue xmi:type="uml:LiteralUnlimitedNatural" xmi:id="_primaryU" value="1"/>
+      </ownedAttribute>
+      <ownedAttribute xmi:type="uml:Property" xmi:id="_label" name="label">
+        <type xmi:type="uml:PrimitiveType" href="http://www.omg.org/spec/UML/20131001/PrimitiveTypes.xmi#String"/>
+        <defaultValue xmi:type="uml:LiteralString" xmi:id="_label0" value="t"/>
+      </ownedAttribute>
+      <ownedBehavior xmi:type="uml:Activity" xmi:id="_lookup" name="Lookup">
+        <ownedParameter xmi:type="uml:Parameter" xmi:id="_pEntries" name="found" direction="out" type="_entry">
+          <lowerValue xmi:type="uml:LiteralInteger" xmi:id="_pEntriesL" value="0"/>
+          <upperValue xmi:type="uml:LiteralUnlimitedNatural" xmi:id="_pEntriesU" value="*"/>
+        </ownedParameter>
+        <ownedParameter xmi:type="uml:Parameter" xmi:id="_pPrimary" name="first" direction="out" type="_entry">
+          <lowerValue xmi:type="uml:LiteralInteger" xmi:id="_pPrimaryL" value="0"/>
+          <upperValue xmi:type="uml:LiteralUnlimitedNatural" xmi:id="_pPrimaryU" value="1"/>
+        </ownedParameter>
+        <ownedParameter xmi:type="uml:Parameter" xmi:id="_pLabel" name="named" direction="out">
+          <type xmi:type="uml:PrimitiveType" href="http://www.omg.org/spec/UML/20131001/PrimitiveTypes.xmi#String"/>
+        </ownedParameter>
+        <node xmi:type="uml:ActivityParameterNode" xmi:id="_nEntries" name="found" parameter="_pEntries"/>
+        <node xmi:type="uml:ActivityParameterNode" xmi:id="_nPrimary" name="first" parameter="_pPrimary"/>
+        <node xmi:type="uml:ActivityParameterNode" xmi:id="_nLabel" name="named" parameter="_pLabel"/>
+        <node xmi:type="uml:InitialNode" xmi:id="_initial"/>
+        <node xmi:type="uml:ReadStructuralFeatureAction" xmi:id="_readEntries" name="read entries" structuralFeature="_entries">
+          <result xmi:type="uml:OutputPin" xmi:id="_rEntries" name="result" type="_entry">
+            <lowerValue xmi:type="uml:LiteralInteger" xmi:id="_rEntriesL" value="0"/>
+            <upperValue xmi:type="uml:LiteralUnlimitedNatural" xmi:id="_rEntriesU" value="*"/>
+          </result>
+        </node>
+        <node xmi:type="uml:ReadStructuralFeatureAction" xmi:id="_readPrimary" name="read primary" structuralFeature="_primary">
+          <result xmi:type="uml:OutputPin" xmi:id="_rPrimary" name="result" type="_entry">
+            <lowerValue xmi:type="uml:LiteralInteger" xmi:id="_rPrimaryL" value="0"/>
+            <upperValue xmi:type="uml:LiteralUnlimitedNatural" xmi:id="_rPrimaryU" value="1"/>
+          </result>
+        </node>
+        <node xmi:type="uml:ReadStructuralFeatureAction" xmi:id="_readLabel" name="read label" structuralFeature="_label">
+          <result xmi:type="uml:OutputPin" xmi:id="_rLabel" name="result"/>
+        </node>
+        <node xmi:type="uml:ActivityFinalNode" xmi:id="_final"/>
+        <edge xmi:type="uml:ControlFlow" xmi:id="_c1" source="_initial" target="_readEntries"/>
+        <edge xmi:type="uml:ControlFlow" xmi:id="_c2" source="_readEntries" target="_readPrimary"/>
+        <edge xmi:type="uml:ControlFlow" xmi:id="_c3" source="_readPrimary" target="_readLabel"/>
+        <edge xmi:type="uml:ControlFlow" xmi:id="_c4" source="_readLabel" target="_final"/>
+        <edge xmi:type="uml:ObjectFlow" xmi:id="_o1" source="_rEntries" target="_nEntries"/>
+        <edge xmi:type="uml:ObjectFlow" xmi:id="_o2" source="_rPrimary" target="_nPrimary"/>
+        <edge xmi:type="uml:ObjectFlow" xmi:id="_o3" source="_rLabel" target="_nLabel"/>
+      </ownedBehavior>
+    </packagedElement>`
+
+const readResultBoundsApps = `
+  <sysml:Block xmi:id="_s1" base_Class="_entry"/>
+  <sysml:Block xmi:id="_s2" base_Class="_table"/>`
+
+func TestReadFeatureResultsKeepTheirDeclaredMultiplicity(t *testing.T) {
+	r := migrateDocument(t, readResultBounds, readResultBoundsApps)
+	for _, line := range []string{
+		"out result[0..*] = entries;",
+		"out result[0..1] = primary;",
+		"out result[1] = label;",
+	} {
+		wantLine(t, r.Notation, line)
+	}
+	wantClean(t, "t.sysml", r)
+}

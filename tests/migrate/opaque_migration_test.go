@@ -459,7 +459,7 @@ func TestNonScalarFeaturesAndScriptLiterals(t *testing.T) {
 	wantNoLine(t, r.Notation, "attribute top : ScalarValues::Real default = cells.reading;")
 	wantClean(t, "t.sysml", r)
 	wantNote(t, r, "_smile", migrate.Mapped, "the JavaScript body is translated to v2")
-	wantNote(t, r, "_same", migrate.Mapped, "the Java body is translated to v2")
+	wantNote(t, r, "_same", migrate.Approximated, "the Java body is translated to v2; label holds no initial value and the body reads it before assigning it, so a run reaching the read first stops")
 	wantNote(t, r, "_widen", migrate.Mapped, "the JavaScript body is translated to v2")
 	wantNote(t, r, "_shown", migrate.Mapped, "the JavaScript body is translated to v2")
 	wantNote(t, r, "_latch", migrate.Mapped, "the JavaScript body is translated to v2")

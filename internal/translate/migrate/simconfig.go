@@ -327,6 +327,11 @@ func (m *migration) configurationSettings(s *sysmlv1.Stereotype) (settings confi
 		notes = append(notes, simConfig+a.tag+" = "+strings.Join(vs, ", ")+" has no v2 form: "+a.means)
 		unread = append(unread, a.tag+" = "+strings.Join(vs, ", "))
 	}
+	if ui := s.Tags["UI"]; len(ui) > 0 {
+		recorded["UI"] = true
+		notes = append(notes, m.uiNote(ui))
+		unread = append(unread, "UI = "+strings.Join(m.tagValues(ui), ", "))
+	}
 	for tag, vs := range s.Tags {
 		if !recorded[tag] {
 			unread = append(unread, tag+" = "+strings.Join(m.tagValues(vs), ", "))

@@ -36,6 +36,9 @@ type refusal struct {
 	kind  refusalKind
 	token string
 	why   string
+	// unknown marks a refused name nothing bears at all: no feature, member, pin,
+	// lane feature or clock variable, as against one known but not readable there.
+	unknown bool
 }
 
 // note spells the refusal for a report entry or a comment.
@@ -96,6 +99,7 @@ type opaqueRef struct {
 	object   []string
 	plural   bool
 	optional bool   // the feature is declared admitting no value
+	unset    bool   // the feature holds no value until assigned: a property with no default
 	loose    int    // the precedence of expr's outermost operator; 0 when expr is atomic
 	lit      string // the literal kind when expr is one literal
 }
@@ -323,7 +327,34 @@ func statementsIn(body string, d dialect, sc featureResolver) (lines, notes []st
 		return nil, nil, err
 	}
 	lines, err = p.statements()
+	if err == nil && len(p.unset) > 0 {
+		p.notes = append(p.notes, unsetNote(d, p.unset))
+	}
 	return lines, p.notes, err
+}
+
+// unsetNote tells that the body reads names, which hold no value until assigned,
+// before it assigns them: in v2 the read stops a run reaching it first, where a
+// script's engine hands the script null and its arithmetic takes 0.
+func unsetNote(d dialect, names []string) string {
+	note := strings.Join(names, " and ") + " hold"
+	if len(names) == 1 {
+		note += "s"
+	}
+	note += " no initial value and the body reads " + pronoun(names) + " before assigning " + pronoun(names) +
+		", so a run reaching the read first stops"
+	if d == dialectScript {
+		note += "; the script would read an unset name as null, which its arithmetic takes as 0"
+	}
+	return note
+}
+
+// pronoun is `it` for one name, `them` for several.
+func pronoun(names []string) string {
+	if len(names) == 1 {
+		return "it"
+	}
+	return "them"
 }
 
 // anyScope answers every name with an unknown type, so a body's shape is judged
@@ -670,15 +701,17 @@ func lexNumber(s string) (text, rest string) {
 // opaqueParser reads a token stream as the subset's statements and expressions,
 // writing v2 as it goes.
 type opaqueParser struct {
-	toks    []token
-	i       int
-	d       dialect
-	sc      featureResolver
-	locals  map[string]local // names a `var`, `let` or `const` declared
-	assigns bool             // whether `=` assigns (a statement) rather than compares
-	absent  []string         // the names admitting no value the statement being read reads
-	notes   []string         // notes on statements written otherwise than they read: guarded or left out
-	printed int              // console prints left out
+	toks     []token
+	i        int
+	d        dialect
+	sc       featureResolver
+	locals   map[string]local // names a `var`, `let` or `const` declared
+	assigns  bool             // whether `=` assigns (a statement) rather than compares
+	absent   []string         // the names admitting no value the statement being read reads
+	assigned map[string]bool  // the features the statements so far assign
+	unset    []string         // the features holding no initial value read before the body assigns them
+	notes    []string         // notes on statements written otherwise than they read: guarded or left out
+	printed  int              // console prints left out
 }
 
 func newOpaqueParser(body string, d dialect, sc featureResolver) (*opaqueParser, *refusal) {
@@ -686,7 +719,7 @@ func newOpaqueParser(body string, d dialect, sc featureResolver) (*opaqueParser,
 	if err != nil {
 		return nil, err
 	}
-	return &opaqueParser{toks: toks, d: d, sc: sc, locals: map[string]local{}}, nil
+	return &opaqueParser{toks: toks, d: d, sc: sc, locals: map[string]local{}, assigned: map[string]bool{}}, nil
 }
 
 // local is a name a declaration introduced: the scalar it holds and whether
@@ -972,7 +1005,8 @@ func (p *opaqueParser) declaration() ([]string, *refusal) {
 	if !p.next(true).isPunct("=") {
 		return nil, &refusal{kind: refusedConstruct, token: kw.text + " " + name.text, why: "only a declaration of one name with an initial value is translated"}
 	}
-	if err := p.declarable(kw.text, name.text); err != nil {
+	token := kw.text + " " + name.text
+	if err := p.declarable(token, name.text); err != nil {
 		return nil, err
 	}
 	value, err := p.expr()
@@ -980,17 +1014,42 @@ func (p *opaqueParser) declaration() ([]string, *refusal) {
 		return nil, err
 	}
 	if p.peek(false).isPunct(",") {
-		return nil, &refusal{kind: refusedConstruct, token: kw.text + " " + name.text, why: "only a declaration of one name is translated"}
+		return nil, &refusal{kind: refusedConstruct, token: token, why: "only a declaration of one name is translated"}
 	}
+	return p.declareLocal(token, name.text, value, kw.text == "const")
+}
+
+// implicitDeclaration reads `x = e`, x a name declared nowhere, as a script's
+// engine does: the assignment creates x, here a local attribute of the action.
+func (p *opaqueParser) implicitDeclaration(name string) ([]string, *refusal) {
+	token := name + " ="
+	if err := p.declarable(token, name); err != nil {
+		return nil, err
+	}
+	value, err := p.expr()
+	if err != nil {
+		return nil, err
+	}
+	lines, err := p.declareLocal(token, name, value, false)
+	if err != nil {
+		return nil, err
+	}
+	p.notes = append(p.notes, name+" is declared nowhere, so it is declared a local attribute of the action: a script's assignment to an undeclared name creates it")
+	return lines, nil
+}
+
+// declareLocal declares name a local attribute of the action, of the scalar
+// type value holds, and assigns it value.
+func (p *opaqueParser) declareLocal(token, name string, value translated, constant bool) ([]string, *refusal) {
 	if value.scalar == "" || value.plural {
 		why := "the type the declaration holds cannot be told from its value"
 		if value.held() != "" {
 			why = "the value is a " + value.held() + ", not a scalar a local attribute holds"
 		}
-		return nil, &refusal{kind: refusedType, token: kw.text + " " + name.text, why: why}
+		return nil, &refusal{kind: refusedType, token: token, why: why}
 	}
-	p.locals[name.text] = local{scalar: value.scalar, constant: kw.text == "const", optional: len(p.absent) > 0}
-	target := writeName(name.text)
+	p.locals[name] = local{scalar: value.scalar, constant: constant, optional: len(p.absent) > 0}
+	target := writeName(name)
 	mult := ""
 	if len(p.absent) > 0 {
 		mult = "[0..1]"
@@ -1001,11 +1060,11 @@ func (p *opaqueParser) declaration() ([]string, *refusal) {
 	}, nil
 }
 
-// declarable refuses a declaration whose name the action body already has: a
-// local declared before, a member every action inherits, or a feature the
-// scope reads by that name, which a second declaration would make ambiguous.
-func (p *opaqueParser) declarable(kw, name string) *refusal {
-	token := kw + " " + name
+// declarable refuses a declaration, read at token, whose name the action body
+// already has: a local declared before, a member every action inherits, or a
+// feature the scope reads by that name, which a second declaration would make
+// ambiguous.
+func (p *opaqueParser) declarable(token, name string) *refusal {
 	if _, ok := p.locals[name]; ok {
 		return &refusal{kind: refusedConstruct, token: token, why: name + " is declared again"}
 	}
@@ -1038,13 +1097,21 @@ func (p *opaqueParser) step(path []string, op string) ([]string, *refusal) {
 	if held := target.value().held(); held != "" && !isNumeric(target.scalar) {
 		return nil, &refusal{kind: refusedType, token: strings.Join(path, ".") + op, why: "a " + held + " is not counted"}
 	}
+	p.readUnset(target)
+	p.assigned[target.expr] = true
 	return []string{assignKw + target.expr + " := " + target.expr + " " + op[:1] + " 1;"}, nil
 }
 
-// assignment writes `x = e` or `x op= e` as an assignment.
+// assignment writes `x = e` or `x op= e` as an assignment. In a script, `x = e`
+// to a name nothing bears declares x (p.implicitDeclaration); a name known but
+// not readable there stays refused, as it does in Java, which declares every
+// variable.
 func (p *opaqueParser) assignment(path []string, op string) ([]string, *refusal) {
 	target, err := p.target(path)
 	if err != nil {
+		if p.d == dialectScript && op == "=" && len(path) == 1 && err.kind == refusedName && err.unknown {
+			return p.implicitDeclaration(path[0])
+		}
 		return nil, err
 	}
 	value, err := p.expr()
@@ -1054,6 +1121,7 @@ func (p *opaqueParser) assignment(path []string, op string) ([]string, *refusal)
 	name := strings.Join(path, ".")
 	held := target.value()
 	if op != "=" {
+		p.readUnset(target)
 		if err := numbersAt(name+" "+op, held, value); err != nil {
 			return nil, err
 		}
@@ -1067,6 +1135,7 @@ func (p *opaqueParser) assignment(path []string, op string) ([]string, *refusal)
 	if held.held() != "" && value.held() != "" && !assignableTo(held, value) {
 		return nil, &refusal{kind: refusedType, token: name + " " + op, why: "a " + value.held() + " is assigned to the " + held.held() + " " + name + " holds"}
 	}
+	p.assigned[target.expr] = true
 	return p.guardedAssign(target, spellFor(target.scalar, value)), nil
 }
 
@@ -1525,7 +1594,15 @@ func (p *opaqueParser) name(path []string) (translated, *refusal) {
 		return translated{}, err
 	}
 	p.readAbsent(ref.expr, ref.optional)
+	p.readUnset(ref)
 	return ref.value(), nil
+}
+
+// readUnset records that the body reads ref before assigning it, when it holds no initial value.
+func (p *opaqueParser) readUnset(ref opaqueRef) {
+	if ref.unset && !p.assigned[ref.expr] && !slices.Contains(p.unset, ref.expr) {
+		p.unset = append(p.unset, ref.expr)
+	}
 }
 
 // readAbsent records that the statement reads name, when it admits no value.
