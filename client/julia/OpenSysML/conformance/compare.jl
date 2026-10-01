@@ -147,7 +147,7 @@ function _label_ids!(value, labels)
 end
 
 function _is_absolute_path(s::AbstractString)
-    startswith(s, '/') || (length(s) > 2 && s[2] == ':' && s[3] == '\\')
+    startswith(s, '/') || occursin(r"^[A-Za-z]:\\", s)
 end
 
 function _zero_self_id(v)
