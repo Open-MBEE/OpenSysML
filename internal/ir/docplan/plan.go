@@ -61,7 +61,8 @@ func ValidRunStyle(style RunStyle) bool {
 }
 
 // Run is one planned inline run: a styled span, a link, or a reference to
-// a content block of this or another document, or another document's root.
+// a content block of this or another document, another document's root, or
+// a model element outside every document.
 type Run struct {
 	kind        RunKind
 	text        string
@@ -71,6 +72,8 @@ type Run struct {
 	refRoot     *symbols.Symbol
 	ref         []string
 	refDocument string
+	refElement  string
+	defaultText bool
 	origin      symbols.Origin
 }
 
@@ -95,6 +98,15 @@ func (r Run) RefPath() []string { return append([]string(nil), r.ref...) }
 // RefDocument returns the fully-qualified name of the document a reference
 // run targets, or "" when it targets the document being planned.
 func (r Run) RefDocument() string { return r.refDocument }
+
+// RefElement returns the fully-qualified name of the model element a
+// reference run targets when that is neither a content block nor a document,
+// or "" when it is one.
+func (r Run) RefElement() string { return r.refElement }
+
+// TextDefaulted reports whether a reference run's text is its target's label,
+// the run stating none.
+func (r Run) TextDefaulted() bool { return r.defaultText }
 
 // Origin returns the source declaration behind the run.
 func (r Run) Origin() symbols.Origin { return r.origin }

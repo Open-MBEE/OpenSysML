@@ -178,6 +178,7 @@ func FromModelOptions(name string, model *sysmlv1.Model, opts Options) *Result {
 		files:             map[string][]byte{},
 		fileContents:      map[string]string{},
 		pending:           map[*sysmlv1.Element]*pendingNotes{},
+		resolving:         map[string]bool{},
 		regionUsed:        map[*sysmlv1.Element]map[string]bool{},
 		stateUsed:         map[*sysmlv1.Element]map[string]bool{},
 		nestedIn:          map[*sysmlv1.Element]string{},
@@ -446,6 +447,10 @@ type migration struct {
 	verdicts map[*sysmlv1.Element]Verdict
 	// pending holds the notes on elements annotated before their report entry exists.
 	pending map[*sysmlv1.Element]*pendingNotes
+	// resolving marks the ids whose value or documentation a cross-reference
+	// is being resolved to, and the comments being written, so a reference
+	// that reaches back to one of them ends.
+	resolving map[string]bool
 	// files are the images written beside the notation by relative path;
 	// fileContents deduplicates them by content, imagesWritten counts them.
 	files         map[string][]byte
@@ -557,7 +562,9 @@ func (m *migration) add(e *sysmlv1.Element, v Verdict, target, note string) {
 	if p, ok := m.pending[e]; ok {
 		delete(m.pending, e)
 		for _, n := range p.notes {
-			note = joinNotes(note, n)
+			if !strings.Contains(note, n) {
+				note = joinNotes(note, n)
+			}
 		}
 		if p.approximate && v == Mapped {
 			v = Approximated
@@ -1211,7 +1218,7 @@ func (m *migration) classifierHeader(e *sysmlv1.Element, cat category, name stri
 	}
 	b.WriteByte(' ')
 	if cat == catRequirementDef {
-		if id := requirementID(e); id != "" {
+		if id := m.requirementID(e); id != "" {
 			b.WriteString("<" + writeName(id) + "> ")
 		}
 	}
@@ -1436,8 +1443,8 @@ func joinNotes(a, b string) string {
 
 // requirementID reads the requirement's id tag in the profile's spelling or
 // the capitalized one some tools write, as one line of plain text.
-func requirementID(e *sysmlv1.Element) string {
-	return strings.Join(strings.Fields(commentText(requirementTag(e, "Id", "id", "ID"))), " ")
+func (m *migration) requirementID(e *sysmlv1.Element) string {
+	return strings.Join(strings.Fields(m.proseText(requirementTag(e, "Id", "id", "ID"), e)), " ")
 }
 
 func requirementText(e *sysmlv1.Element) string {
@@ -1486,7 +1493,7 @@ func (m *migration) requirementBody(e *sysmlv1.Element) {
 	m.scope = e
 	text := requirementText(e)
 	if text != "" {
-		m.w.lines(prefixFirst("doc ", commentLines(commentText(text))))
+		m.w.lines(prefixFirst("doc ", commentLines(m.proseText(text, e))))
 	}
 	m.writeComments(e, text == "")
 	for _, c := range e.Children {
@@ -3542,7 +3549,7 @@ func (m *migration) writeComments(e *sysmlv1.Element, first bool) {
 		}
 		about := m.model.Refs(c, "annotatedElement")
 		missing := m.dangling(c, "annotatedElement")
-		text := commentBody(c)
+		text := m.commentBody(c)
 		if text == "" {
 			m.add(c, Skipped, "", "empty comment")
 			continue
@@ -3565,7 +3572,7 @@ func (m *migration) writeComments(e *sysmlv1.Element, first bool) {
 // annotates nothing but e and frames no concern; nil when there is none.
 func (m *migration) docComment(e *sysmlv1.Element) *sysmlv1.Element {
 	for _, c := range e.Owned("ownedComment") {
-		if !m.framed[c] && commentBody(c) != "" && !m.annotatesOthers(c, e) {
+		if !m.framed[c] && m.commentBody(c) != "" && !m.annotatesOthers(c, e) {
 			return c
 		}
 	}
@@ -3591,11 +3598,11 @@ func (m *migration) documentation(e *sysmlv1.Element) string {
 	}
 	if cat, _ := m.classify(e); cat == catRequirementDef {
 		if text := requirementText(e); text != "" {
-			return commentText(text)
+			return m.proseText(text, e)
 		}
 	}
 	if c := m.docComment(e); c != nil {
-		return commentBody(c)
+		return m.commentBody(c)
 	}
 	return m.viewpointDoc(e)
 }
@@ -3624,20 +3631,9 @@ func (m *migration) commentAbout(c *sysmlv1.Element, about []*sysmlv1.Element, t
 	m.add(c, verdictFor(note), "", note)
 }
 
-// commentBody reads a comment's text, from its body attribute or child element.
-func commentBody(c *sysmlv1.Element) string {
-	if text := commentText(c.Attrs["body"]); text != "" {
-		return text
-	}
-	if o := firstOwned(c, "body"); o != nil {
-		return commentText(strings.TrimSpace(o.Text))
-	}
-	return ""
-}
-
 // comment writes a comment found outside the ownedComment role.
 func (m *migration) comment(c *sysmlv1.Element) {
-	text := commentBody(c)
+	text := m.commentBody(c)
 	if text == "" {
 		m.add(c, Skipped, "", "empty comment")
 		return
