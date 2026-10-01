@@ -102,8 +102,7 @@ public final class DocGenExtensions {
     ElementsFactory factory = project.getElementsFactory();
     ModelElementsManager elements = ModelElementsManager.getInstance();
     Package root = project.getPrimaryModel();
-    Profile container = child(root, PROFILE_NAME).filter(Profile.class::isInstance).map(Profile.class::cast)
-        .orElse(null);
+    Profile container = child(root, Profile.class, PROFILE_NAME).orElse(null);
     if (container == null) {
       container = factory.createProfileInstance();
       container.setName(PROFILE_NAME);
@@ -123,7 +122,7 @@ public final class DocGenExtensions {
     }
     for (Operation operation : Operation.values()) {
       String name = stereotypeName(operation);
-      if (child(container, name).isPresent()) {
+      if (child(container, Stereotype.class, name).isPresent()) {
         existing.add("«" + name + "»");
         continue;
       }
@@ -147,9 +146,12 @@ public final class DocGenExtensions {
     return new Report(created, existing, notes);
   }
 
-  private static Optional<Element> child(Element owner, String name) {
+  /** The owned element of {@code type} named {@code name}, skipping same-named elements of other kinds. */
+  private static <T extends NamedElement> Optional<T> child(Element owner, Class<T> type, String name) {
     for (Element candidate : owner.getOwnedElement()) {
-      if (candidate instanceof NamedElement named && name.equals(named.getName())) return Optional.of(candidate);
+      if (type.isInstance(candidate) && name.equals(((NamedElement) candidate).getName())) {
+        return Optional.of(type.cast(candidate));
+      }
     }
     return Optional.empty();
   }
