@@ -1196,7 +1196,7 @@ public final class Model {
    * @param toFormat the format to write, named as the service names formats ({@code "sysml"},
    *     {@code "kerml"}, {@code "ttl"}, {@code "api-json"}, …)
    * @return the conversion, carrying the text and the formats used
-   * @throws ModelException if the conversion failed; its diagnostics say why
+   * @throws ConversionException if the conversion failed; its diagnostics say why
    * @throws ServiceException if the service does not hold this model
    * @throws CapabilityException if the service does not advertise {@code convert}
    */
@@ -1210,7 +1210,7 @@ public final class Model {
    * @param toFormat the format to write
    * @param options the source format and whether unreadable notation is written back anyway
    * @return the conversion, carrying the text and the formats used
-   * @throws ModelException if the conversion failed; its diagnostics say why
+   * @throws ConversionException if the conversion failed; its diagnostics say why
    * @throws ServiceException if the service does not hold this model
    * @throws CapabilityException if the service does not advertise {@code convert}
    */
@@ -1227,7 +1227,10 @@ public final class Model {
     options.idForm().ifPresent(request::setIdForm);
     ConvertResponse response =
         connection.call("Convert", request.build(), ConvertResponse.getDefaultInstance());
-    failed(response.getError(), FailureReason.UNSPECIFIED, response.getDiagnosticsList());
+    if (!response.getError().isEmpty()) {
+      throw new ConversionException(
+          response.getError(), Protos.diagnostics(response.getDiagnosticsList()));
+    }
     return Protos.conversion(response);
   }
 
@@ -1237,7 +1240,7 @@ public final class Model {
    * @param path the file, created or truncated
    * @return the conversion that was written
    * @throws IllegalArgumentException if the extension names no format
-   * @throws ModelException if the model could not be written in that format
+   * @throws ConversionException if the model could not be written in that format
    * @throws java.io.UncheckedIOException if the file cannot be written
    */
   public Conversion save(Path path) {
@@ -1251,7 +1254,7 @@ public final class Model {
    * @param toFormat the format to write
    * @param options the conversion options
    * @return the conversion that was written
-   * @throws ModelException if the model could not be written in that format
+   * @throws ConversionException if the model could not be written in that format
    * @throws java.io.UncheckedIOException if the file cannot be written
    */
   public Conversion save(Path path, String toFormat, ConversionOptions options) {

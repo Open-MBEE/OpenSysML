@@ -291,4 +291,21 @@ class EditorTest {
     assertInstanceOf(ModelException.class, missing);
     assertEquals(0.75, NearNames.ratio("abcd", "bcde"), 1e-9);
   }
+
+  @Test
+  void nearNamesScoreEachCandidateAgainstTheWordAsDifflibDoes() {
+    assertEquals(List.of(), NearNames.closest("Vehicel", List.of("vehicleSignal"), 3));
+    assertEquals(
+        List.of("VehicleStates"),
+        NearNames.closest(
+            "Vehicel", List.of("VehicleOnSignal", "VehicleOffSignal", "VehicleStates"), 3));
+  }
+
+  @Test
+  void nearNamesSuggestEachNameOnceAndStillUpToTheLimit() {
+    assertEquals(
+        List.of("Vehicle", "Vehicles", "vehicle"),
+        NearNames.closest(
+            "Vehicel", List.of("Vehicle", "Vehicles", "Vehicle", "Vehicle", "vehicle"), 3));
+  }
 }

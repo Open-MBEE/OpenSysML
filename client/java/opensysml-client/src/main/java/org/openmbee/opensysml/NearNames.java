@@ -2,6 +2,7 @@ package org.openmbee.opensysml;
 
 import java.util.ArrayList;
 import java.util.Comparator;
+import java.util.LinkedHashSet;
 import java.util.List;
 
 /** Ranks candidate names by Ratcliff/Obershelp similarity, as Python's difflib does. */
@@ -14,8 +15,8 @@ final class NearNames {
   static List<String> closest(String word, List<String> candidates, int limit) {
     record Scored(double score, String name) {}
     List<Scored> scored = new ArrayList<>();
-    for (String candidate : candidates) {
-      double score = ratio(word, candidate);
+    for (String candidate : new LinkedHashSet<>(candidates)) {
+      double score = ratio(candidate, word);
       if (score >= CUTOFF) {
         scored.add(new Scored(score, candidate));
       }
@@ -24,7 +25,7 @@ final class NearNames {
         Comparator.comparingDouble(Scored::score)
             .thenComparing(Scored::name)
             .reversed());
-    return scored.stream().limit(limit).map(Scored::name).distinct().toList();
+    return scored.stream().limit(limit).map(Scored::name).toList();
   }
 
   static double ratio(String a, String b) {
