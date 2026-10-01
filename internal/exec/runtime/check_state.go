@@ -265,6 +265,29 @@ func (s *stateSpeller) machine(e *StateExecutor) {
 		}
 		s.out.WriteString("}")
 	}
+	for _, join := range e.graph.Pseudostates {
+		arrived := e.joinArrived[join]
+		if len(arrived) == 0 {
+			continue
+		}
+		fmt.Fprintf(&s.out, " arrived{%s: ", join.Name)
+		first := true
+		for _, segment := range e.joinIncoming(join) {
+			if !slices.Contains(arrived, segment) {
+				continue
+			}
+			if !first {
+				s.out.WriteString(", ")
+			}
+			first = false
+			name := segment.Name
+			if name == "" {
+				name = StateVertexName(segment.Source)
+			}
+			s.out.WriteString(name)
+		}
+		s.out.WriteString("}")
+	}
 	fmt.Fprintf(&s.out, " data{%s}", s.values(e.stateData))
 	for _, state := range sortedStates(e.stateAttrs) {
 		fmt.Fprintf(&s.out, " attrs{%s: %s}", e.statePath(state), s.values(e.stateAttrs[state]))

@@ -659,6 +659,7 @@ type stateCapture struct {
 	pausedAt           ast.Node
 	completionDue      bool
 	history            map[*ast.StateNode]historyRecord
+	joinArrived        map[*ast.PseudostateNode][]*lower.Transition
 	lastDispatch       *Dispatch
 	lastEventAt        float64
 	doActions          []doActionCapture
@@ -681,6 +682,11 @@ type stateCapture struct {
 	// activeAtEntry records states active before the captured entry unit.
 	activeAtEntry map[*ast.StateNode]bool
 	pendingCall   *pendingCall
+}
+
+// captureJoinArrivals copies each join's ordered arrivals for a snapshot.
+func captureJoinArrivals(arrived map[*ast.PseudostateNode][]*lower.Transition) map[*ast.PseudostateNode][]*lower.Transition {
+	return cloneJoinArrivals(arrived)
 }
 
 // doActionCapture is one do action's progress: the behaviors it has still to run,
@@ -710,6 +716,7 @@ func (e *StateExecutor) capture() stateCapture {
 		pausedAt:           e.pausedAt,
 		completionDue:      e.completionDue,
 		history:            make(map[*ast.StateNode]historyRecord, len(e.history)),
+		joinArrived:        captureJoinArrivals(e.joinArrived),
 		lastDispatch:       cloneDispatch(e.lastDispatch),
 		lastEventAt:        e.lastEventAt,
 		machineExited:      e.machineExited,
@@ -760,6 +767,7 @@ func (c stateCapture) restore() {
 	e.stateVisits, e.stateStack = slices.Clone(c.stateVisits), slices.Clone(c.stateStack)
 	e.fired, e.firedBase = slices.Clone(c.fired), c.firedBase
 	e.breakpointHit, e.pausedAt, e.completionDue = c.breakpointHit, c.pausedAt, c.completionDue
+	e.joinArrived = cloneJoinArrivals(c.joinArrived)
 	if e.history != nil {
 		clear(e.history)
 		for node, record := range c.history {

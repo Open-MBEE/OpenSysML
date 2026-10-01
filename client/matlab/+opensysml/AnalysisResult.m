@@ -49,9 +49,9 @@ classdef AnalysisResult
 
         function text = explain(obj)
             lines = {};
-            names = fieldnames(obj.outputs);
+            [names, values] = opensysml.internal.mapEntries(obj.outputs);
             for i = 1:numel(names)
-                lines{end+1} = sprintf('%s = %s', names{i}, valueText(obj.outputs.(names{i})));
+                lines{end+1} = sprintf('%s = %s', names{i}, valueText(values{i}));
             end
             for i = 1:numel(obj.verdicts), lines{end+1} = obj.verdicts{i}.explain(); end
             for i = 1:numel(obj.verifications)

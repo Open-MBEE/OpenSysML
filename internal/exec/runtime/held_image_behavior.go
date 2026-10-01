@@ -112,6 +112,7 @@ type imagedState struct {
 	pausedAt           ast.Node
 	completionDue      bool
 	history            map[*ast.StateNode]historyRecord
+	joinArrived        map[*ast.PseudostateNode][]*lower.Transition
 	lastDispatch       *Dispatch
 	lastEventAt        float64
 	doActions          []doActionCapture
@@ -361,6 +362,7 @@ func (t *imaging) stateExecutor(e *StateExecutor) (*imagedState, error) {
 		pausedAt:           e.pausedAt,
 		completionDue:      e.completionDue,
 		history:            make(map[*ast.StateNode]historyRecord, len(e.history)),
+		joinArrived:        cloneJoinArrivals(e.joinArrived),
 		lastDispatch:       cloneDispatch(e.lastDispatch),
 		lastEventAt:        e.lastEventAt,
 		machineExited:      e.machineExited,
@@ -725,6 +727,7 @@ func (m *materializing) stateExecutor(e *StateExecutor, img *imagedState) error 
 		e.breakpointNodes = make(map[ast.Node]bool)
 	}
 	e.breakpointHit, e.pausedAt, e.completionDue = img.breakpointHit, img.pausedAt, img.completionDue
+	e.joinArrived = cloneJoinArrivals(img.joinArrived)
 	for node, record := range img.history {
 		e.history[node] = &historyRecord{child: record.child, regions: maps.Clone(record.regions)}
 	}

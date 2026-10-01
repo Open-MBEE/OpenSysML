@@ -14,6 +14,7 @@ import (
 const exploreSource = scheduleSource + `
 package Explored {
 	private import ScalarValues::*;
+	private import Stochastic::*;
 
 	action three {
 		attribute winner : Integer = 0;
@@ -63,6 +64,17 @@ package Explored {
 		succession first sync then divide;
 		succession first divide then done;
 	}
+	action weighted {
+		attribute selected : Integer = 0;
+		first start;
+		then decide select;
+		first select then one { @Probability { p = 0.3; } }
+		first select then two { @Probability { p = 0.7; } }
+		action one { assign selected := 1; }
+		then done;
+		action two { assign selected := 2; }
+		then done;
+	}
 }`
 
 func winners(t *testing.T, exploration *opensysml.Exploration) string {
@@ -98,9 +110,15 @@ func TestExploreActionReportsEveryOutcome(t *testing.T) {
 		if len(outcome.Witness) != 2 || !strings.HasPrefix(outcome.Witness[0], "step 3: ") {
 			t.Errorf("winner %d witness = %q, want two token choices", winner(t, outcome.Outputs), outcome.Witness)
 		}
+		if outcome.ProbabilityRange != nil || outcome.Probability != 0 {
+			t.Errorf("unweighted outcome carries probability: %+v", outcome)
+		}
 		if outcome.Failed() {
 			t.Errorf("winner %d failed: %s", winner(t, outcome.Outputs), outcome.Error)
 		}
+	}
+	if exploration.FailedLinearizations != 0 || exploration.ProbabilitiesLowerBound {
+		t.Errorf("unweighted exploration carries failure/probability bounds: %+v", exploration)
 	}
 
 	again, err := client.ExploreAction(ctx, model, "Explored::three", nil, opensysml.WithSchedule("explore"))
@@ -139,9 +157,9 @@ func TestExploringUnderABudgetIsIncomplete(t *testing.T) {
 	model := parse(t, client, exploreSource)
 
 	for _, test := range []struct{ schedule, hit, status string }{
-		{"explore:runs=2", "runs", "incomplete: runs budget 2 hit after 2 runs; probabilities are lower bounds"},
-		{"explore:depth=1", "depth", "incomplete: depth budget 1 hit after 3 runs; probabilities are lower bounds"},
-		{"explore:depth=1,runs=1", "runs,depth", "incomplete: runs budget 1 and depth budget 1 hit after 1 runs; probabilities are lower bounds"},
+		{"explore:runs=2", "runs", "incomplete: runs budget 2 hit after 2 runs"},
+		{"explore:depth=1", "depth", "incomplete: depth budget 1 hit after 3 runs"},
+		{"explore:depth=1,runs=1", "runs,depth", "incomplete: runs budget 1 and depth budget 1 hit after 1 runs"},
 	} {
 		exploration, err := client.ExploreAction(ctx, model, "Explored::three", nil, opensysml.WithSchedule(test.schedule))
 		if err != nil {
@@ -156,8 +174,7 @@ func TestExploringUnderABudgetIsIncomplete(t *testing.T) {
 	}
 }
 
-// A run that fails under some orders is an outcome of its own, not a failure
-// of the exploration.
+// A runtime failure under some orders is a distinct error outcome.
 func TestARunThatFailsIsAnOutcome(t *testing.T) {
 	client := newClient(t)
 	model := parse(t, client, exploreSource)
@@ -169,11 +186,15 @@ func TestARunThatFailsIsAnOutcome(t *testing.T) {
 	if len(exploration.Outcomes) != 2 {
 		t.Fatalf("outcomes = %+v, want a failing one and a completing one", exploration.Outcomes)
 	}
+	if exploration.FailedLinearizations != 1 {
+		t.Errorf("failed linearizations = %d, want 1", exploration.FailedLinearizations)
+	}
 	var failed, completed int
 	for _, outcome := range exploration.Outcomes {
 		if outcome.Failed() {
 			failed++
-			if !strings.Contains(outcome.Error, "division by zero") || len(outcome.Outputs) != 0 {
+			if !strings.Contains(outcome.Error, "division by zero") || len(outcome.Outputs) != 0 ||
+				outcome.ProbabilityRange != nil || outcome.Probability != 0 {
 				t.Errorf("failing outcome = %+v, want division by zero with no outputs", outcome)
 			}
 		} else {
@@ -185,6 +206,26 @@ func TestARunThatFailsIsAnOutcome(t *testing.T) {
 	}
 	if failed != 1 || completed != 1 {
 		t.Errorf("%d failing and %d completing outcomes, want one each", failed, completed)
+	}
+}
+
+func TestExplorePreservesWeightedProbabilityRanges(t *testing.T) {
+	client := newClient(t)
+	model := parse(t, client, exploreSource)
+	exploration, err := client.ExploreAction(context.Background(), model, "Explored::weighted", nil)
+	if err != nil {
+		t.Fatalf("ExploreAction: %v", err)
+	}
+	if len(exploration.Outcomes) != 2 {
+		t.Fatalf("outcomes = %+v, want two weighted branches", exploration.Outcomes)
+	}
+	for i, want := range []float64{0.3, 0.7} {
+		outcome := exploration.Outcomes[i]
+		if outcome.ProbabilityRange == nil || !outcome.ProbabilityRange.Exact() ||
+			outcome.ProbabilityRange.Min != want || outcome.ProbabilityRange.Max != want ||
+			outcome.Probability != want {
+			t.Errorf("outcome %d = %+v, want exact probability %v", i, outcome, want)
+		}
 	}
 }
 

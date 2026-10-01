@@ -525,6 +525,12 @@ func (h *stateStmtHost) assignAround(name string, value Value) (bool, error) {
 // returnAround writes a returned output as assignAround does and keeps it for the
 // caller when a call event's transition is firing.
 func (h *stateStmtHost) returnAround(name string, value Value) (bool, error) {
+	if _, scope, ok := h.exec.stateAttributeValues(h.behavior.Owner, name); ok {
+		what := func() string { return fmt.Sprintf("%s: output %s returned", h.describe(), name) }
+		if err := h.exec.ctx.checkMutable(scope, what, name); err != nil {
+			return true, err
+		}
+	}
 	h.exec.recordCallOutput(name, value)
 	return h.assignAround(name, value)
 }

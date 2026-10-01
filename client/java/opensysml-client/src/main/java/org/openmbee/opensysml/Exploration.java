@@ -14,8 +14,9 @@ import java.util.List;
  *     it completed
  * @param runsBudget the most runs the search would make
  * @param depthBudget the most choice points one run would resolve
- * @param probabilitiesLowerBound whether the outcomes' probabilities are lower bounds: a
- *     budget kept some orders unexplored
+ * @param failedLinearizations the runs whose outcomes carry runtime errors
+ * @param probabilitiesLowerBound whether weighted probabilities are lower bounds: a budget kept
+ *     some orders unexplored
  */
 public record Exploration(
     List<Outcome> outcomes,
@@ -24,6 +25,7 @@ public record Exploration(
     List<String> budgetsHit,
     int runsBudget,
     int depthBudget,
+    int failedLinearizations,
     boolean probabilitiesLowerBound) {
 
   /**
@@ -35,6 +37,7 @@ public record Exploration(
    * @param budgetsHit the budgets that ended it
    * @param runsBudget the run budget
    * @param depthBudget the depth budget
+   * @param failedLinearizations the failed runs
    * @param probabilitiesLowerBound whether the probabilities are lower bounds
    */
   public Exploration {
@@ -61,6 +64,7 @@ public record Exploration(
         + String.join(" and ", named)
         + " hit after "
         + runs
-        + " runs; probabilities are lower bounds";
+        + " runs"
+        + (probabilitiesLowerBound ? "; probabilities are lower bounds" : "");
   }
 }

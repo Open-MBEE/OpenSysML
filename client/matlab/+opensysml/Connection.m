@@ -13,6 +13,9 @@ classdef Connection < handle
         expectedVersion = ''
         expectedCapabilities = {}
     end
+    properties (SetAccess = private)
+        closed = false
+    end
     properties (Access = private)
         info = struct()          % cached GetServerInfo answer
         infoSet = false
@@ -72,6 +75,8 @@ classdef Connection < handle
         end
 
         function close(conn)
+            if conn.closed, return; end
+            conn.closed = true;
             if ~isempty(conn.childStdin)
                 try, conn.childStdin.close(); catch, end
             end

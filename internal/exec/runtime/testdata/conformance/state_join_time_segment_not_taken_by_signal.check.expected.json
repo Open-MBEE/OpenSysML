@@ -1,5 +1,18 @@
 {
 	"verdict": "divergent",
-	"divergent": {"log": ["\"c d \"", "\"d c \""]},
-	"agreed": {"finalState": "a1+b1+c2+d2"}
+	"divergent": {"log": [
+		"\"b c a sync\"",
+		"\"b c d a sync\"",
+		"\"b d c a sync\"",
+		"\"c a b sync\"",
+		"\"c a d b sync\"",
+		"\"c b a sync\"",
+		"\"c b d a sync\"",
+		"\"c d a b sync\"",
+		"\"c d b a sync\"",
+		"\"d b c a sync\"",
+		"\"d c a b sync\"",
+		"\"d c b a sync\""
+	]},
+	"agreed": {"finalState": "done"}
 }

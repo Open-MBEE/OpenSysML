@@ -66,7 +66,7 @@ func (e *StateExecutor) pollChangeEvents() (bool, error) {
 		return false, err
 	}
 
-	candidates, err := e.chooseTransitions(selected, nil)
+	candidates, err := e.chooseTransitions(selected, occurrence)
 	if err != nil {
 		e.changeWaits = poll.waits
 		return false, err
@@ -263,10 +263,8 @@ func (e *StateExecutor) changeConditionHolds(changeEvent *ast.ChangeEvent, trans
 }
 
 // risenChangeTransitions returns the positions of the state's change-triggered
-// transitions whose condition has risen and whose guard does not block them,
-// several enabled at once being a choice point. A blocked one stays armed for the
-// next poll. One into a join the occurrence does not fire whole is not enabled,
-// as a signal-triggered one is not, so nothing past the join is resolved.
+// transitions whose condition has risen, whose guard holds and whose route has a
+// static way through, several enabled at once being a choice point.
 func (e *StateExecutor) risenChangeTransitions(state *ast.StateNode, poll *changePoll, occurrence *Event) ([]int, []RunNote, error) {
 	var enabled []int
 	var notes []RunNote
@@ -276,11 +274,7 @@ func (e *StateExecutor) risenChangeTransitions(state *ast.StateNode, poll *chang
 			continue
 		}
 		if poll.condition[trans] && !e.changeFired[trans] && poll.guard[trans] {
-			ready, err := e.joinSynchronized(trans, occurrence)
-			if err != nil {
-				return nil, nil, err
-			}
-			if ready {
+			if e.routeAvailable(trans, occurrence) {
 				enabled = append(enabled, i)
 			}
 		}
