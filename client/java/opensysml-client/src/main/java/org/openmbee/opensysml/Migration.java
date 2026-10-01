@@ -1,5 +1,6 @@
 package org.openmbee.opensysml;
 
+import java.util.Collections;
 import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.Objects;
@@ -50,8 +51,23 @@ public record Migration(
     Objects.requireNonNull(experimentalNotice, "experimentalNotice");
     Objects.requireNonNull(report, "report");
     Objects.requireNonNull(results, "results");
+    files = copyOf(files);
+  }
+
+  /**
+   * The image files, copied: altering a returned array leaves the migration's own as the service
+   * wrote it.
+   *
+   * @return the files by relative path, unmodifiable
+   */
+  @Override
+  public Map<String, byte[]> files() {
+    return copyOf(files);
+  }
+
+  private static Map<String, byte[]> copyOf(Map<String, byte[]> files) {
     Map<String, byte[]> copied = new LinkedHashMap<>();
     files.forEach((path, data) -> copied.put(path, data.clone()));
-    files = java.util.Collections.unmodifiableMap(copied);
+    return Collections.unmodifiableMap(copied);
   }
 }

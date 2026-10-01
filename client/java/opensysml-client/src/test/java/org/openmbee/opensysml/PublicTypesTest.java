@@ -947,6 +947,9 @@ class PublicTypesTest {
         new Migration("part def A;", "xmi", "sysml", "experimental", report, "", files);
     png[0] = 0;
     assertEquals((byte) 0x89, migration.files().get("images/a.png")[0], "files are copied");
+    migration.files().get("images/a.png")[0] = 0;
+    assertEquals(
+        (byte) 0x89, migration.files().get("images/a.png")[0], "files are copied on the way out");
     assertThrows(
         UnsupportedOperationException.class, () -> migration.files().put("other", new byte[0]));
     assertEquals(report, migration.report());
