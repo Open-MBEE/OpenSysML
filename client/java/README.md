@@ -39,6 +39,14 @@ try (Connection connection = Connection.open()) {      // starts a private sysml
       Query.all().where(Condition.equalTo("@type", List.of("PartUsage"))));
 
   connection.capabilities().require(Capabilities.FEATURE_VALUES);
+
+  EditResult edited = model.edit()                     // a fluent builder over Edit records
+      .setValue("Demo::sc::unitMass", "1050.0[SI::kg]")
+      .addPart("Demo::Vehicle", "engine", m -> m.withType("Engine"))
+      .apply();
+  edited.save(Path.of("model.sysml"));
+  Symbol engine = model.lookup("engine");              // SymbolNotFoundException suggests near names
+  model.requireNoErrors();                             // ModelException naming the parse errors
 }
 ```
 
@@ -54,11 +62,11 @@ verification (`Verification`, `Satisfaction`, `Validation`, each over `Verdict`s
 `VerificationVerdict`s), calculation and analysis (`Calculation`, `Analysis` of
 `CaseEvaluation`s, with the engine `Standing`), query (`Query`, `Condition`,
 `QueryElement`), conversion (`Conversion`), editing (`Edit`, `EditResult`,
-`AppliedEdit`, `EditedDocument`, `Referrer`), sweeps (`Sweep` of `SweepRow`s),
+`AppliedEdit`, `EditedDocument`, `Referrer`; `Editor` and `Editor.Body` build a batch), sweeps (`Sweep` of `SweepRow`s),
 documents (`DocumentValue`, `DocumentRow`, `DocumentQueryResult`,
-`RenderedDocument`) and `EngineInfo`. `SourceDocument` names a document a
+`RenderedDocument` in a `DocumentForm`, Markdown or HTML) and `EngineInfo`. `SourceDocument` names a document a
 `parseSources` call reads; `Edit` is sealed over `SetValue`, `Rename`,
-`AddMember`, `AddConnection`, `Delete` and `Move`. Every RPC the service offers is a method.
+`AddMember`, `AddConnection`, `AddSequence`, `Delete`, `Move` and the other authoring kinds. Every RPC the service offers is a method.
 No generated protobuf message or builder appears in the public API. A `Diagnostic`
 is `(severity, message, code, span)`; `code()` is the identifier to branch on
 (`"syntax"`, a validation code such as `"unresolved"`, `"choice-point"`,
@@ -75,11 +83,14 @@ call, and `AutoCloseable`'s `close()` here throws nothing.
 | exception              | what happened                                                     |
 | ---------------------- | ----------------------------------------------------------------- |
 | `ServiceException`     | the call was refused, with a `StatusCode` (`NOT_FOUND`, …)         |
+| `ModelNotFoundException` / `ModelFileNotFoundException` | a `NOT_FOUND` `ServiceException`: no model of that hash, or an unreadable file |
+| `SymbolNotFoundException` | a `ModelException` from `Model.lookup` with the `name()` and near `suggestions()` |
+| `StaleServiceException` | a `ServiceStartException`: the service reports another release than the one asked for |
 | `ModelException`       | the call succeeded and the answer reports a model failure; `failureReason()` classifies it |
 | `AnalysisException`    | a `ModelException` from `runAnalysis` whose `partial()` holds what the run computed before it stopped |
 | `EditException`        | a `ModelException` from `applyEdits` whose `failure()` names the `EditFailure` kind and whose `referringElements()`/`referrers()` name what a refused delete or move is referenced from |
 | `TransportException`   | HTTP or IO failure; the service was not reached or answered. `UNAVAILABLE`, except `DEADLINE_EXCEEDED` for a call that outlived its `requestTimeout` |
-| `CapabilityException`  | the service does not advertise a capability the call needs         |
+| `CapabilityException`  | the service does not advertise a capability the call needs; `remedy()` says how to reach one that does |
 | `ServiceStartException`| no binary, a digest mismatch, or a child that would not start      |
 | `ChecksumMismatchException` | a binary's bytes are not the digest required of them ([the service binary](#the-service-binary)) |
 
@@ -327,13 +338,21 @@ that relied on failure alone would silently read an answer computed without
 them. That is why `Model.evalWithSubject` checks before it calls: a
 `CapabilityException` names the missing capability and the service that lacks
 it, before a round trip.
+`ConnectionOptions.builder().requireCapabilities(...)` checks a list at open
+instead, and a connection asked for a release (`downloadVersion` or
+`$OPENSYSML_GRPC_VERSION`) refuses a service reporting another version with
+`StaleServiceException`.
 
 ## What the client does not do
 
 Deliberately out of scope, rather than half-implemented: **generated
-model-ergonomics types** — no code generation from a model into Java classes.
-Every RPC the service serves is a public method; what remains outside is only a
-surface that would be generated per model rather than part of the client.
+model-ergonomics types** — no code generation from a model into Java classes
+(the Python client's `opensysml.generate` writes Python modules; a Java host
+reads the same answers through `Symbol` and `Value`), and **no FMI runner** (the
+Python `opensysml.fmi_runner` is the process the service's `tool:fmi` engine starts
+through `$OPENSYSML_FMI_RUNNER`, built on `fmpy`; it is a separate program, not a client call). Every RPC the service serves is a public method;
+what remains outside is only a surface that would be generated per model rather
+than part of the client.
 
 ## Generated messages
 

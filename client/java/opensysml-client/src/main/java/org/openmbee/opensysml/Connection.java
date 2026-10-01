@@ -1,6 +1,7 @@
 package org.openmbee.opensysml;
 
 import com.google.protobuf.Message;
+import org.openmbee.opensysml.internal.BinaryDownloader;
 import org.openmbee.opensysml.internal.ConnectTransport;
 import org.openmbee.opensysml.internal.PrivateService;
 import org.openmbee.opensysml.internal.Protos;
@@ -21,6 +22,7 @@ import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
+import java.util.TreeSet;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 /**
@@ -59,6 +61,7 @@ public final class Connection implements AutoCloseable {
   private final Optional<PrivateService> ownedService;
   private final Capabilities capabilities;
   private final AtomicBoolean closed = new AtomicBoolean();
+  private boolean answeredServerInfo = true;
 
   private Connection(
       ConnectTransport transport, String address, Optional<PrivateService> ownedService) {
@@ -100,12 +103,14 @@ public final class Connection implements AutoCloseable {
       String address = external.get();
       ConnectTransport transport =
           new ConnectTransport(address, options.encoding(), options.requestTimeout());
+      Connection connection;
       try {
-        return new Connection(transport, address, Optional.empty());
+        connection = new Connection(transport, address, Optional.empty());
       } catch (RuntimeException e) {
         transport.close();
         throw e;
       }
+      return connection.checked(options);
     }
     if (!options.autoStart()) {
       throw new ServiceStartException(
@@ -116,13 +121,79 @@ public final class Connection implements AutoCloseable {
     PrivateService service = ServiceRegistry.acquire(options);
     ConnectTransport transport =
         new ConnectTransport(service.address(), options.encoding(), options.requestTimeout());
+    Connection connection;
     try {
-      return new Connection(transport, service.address(), Optional.of(service));
+      connection = new Connection(transport, service.address(), Optional.of(service));
     } catch (RuntimeException e) {
       transport.close();
       ServiceRegistry.release(service);
       throw e;
     }
+    return connection.checked(options);
+  }
+
+  private Connection checked(ConnectionOptions options) {
+    try {
+      requiredRelease(options).ifPresent(this::requireRelease);
+      new TreeSet<>(options.requiredCapabilities()).forEach(capabilities::require);
+      return this;
+    } catch (RuntimeException e) {
+      close();
+      throw e;
+    }
+  }
+
+  private static Optional<String> requiredRelease(ConnectionOptions options) {
+    Optional<String> asked = BinaryDownloader.versionAskedFor(options);
+    if (asked.isEmpty() || !asked.get().equals("latest")) {
+      return asked;
+    }
+    try {
+      return Optional.of(
+          BinaryDownloader.production()
+              .resolveLatestVersion(BinaryDownloader.githubRepo(options)));
+    } catch (ServiceStartException e) {
+      return Optional.empty();
+    }
+  }
+
+  private void requireRelease(String release) {
+    String reason;
+    if (!answeredServerInfo) {
+      reason =
+          "it did not answer GetServerInfo, so it cannot be shown to be the "
+              + release
+              + " that was asked for";
+    } else if (!capabilities.serviceVersion().equals(release)) {
+      reason =
+          "it reports version "
+              + (capabilities.serviceVersion().isEmpty()
+                  ? "unknown"
+                  : capabilities.serviceVersion())
+              + ", but "
+              + release
+              + " was asked for";
+    } else {
+      return;
+    }
+    String remedy =
+        ownedService.isPresent()
+            ? "the binary this client started, "
+                + ownedService.get().binary()
+                + ", is not "
+                + release
+                + ": make that release available (its download is cached under"
+                + " ~/.opensysml/bin), or accept what is installed by naming no"
+                + " ConnectionOptions.downloadVersion and unsetting $"
+                + ConnectionOptions.VERSION_ENV
+            : "stop the service listening on "
+                + address
+                + " yourself and let this client start a "
+                + release
+                + " one, or accept what is running by naming no"
+                + " ConnectionOptions.downloadVersion and unsetting $"
+                + ConnectionOptions.VERSION_ENV;
+    throw new StaleServiceException(address, reason, remedy, capabilities.serviceVersion());
   }
 
   /**
@@ -196,7 +267,8 @@ public final class Connection implements AutoCloseable {
    */
   public Model load(Path file) {
     Objects.requireNonNull(file, "file");
-    return parsed(ParseFileRequest.newBuilder().setFilePath(file.toString()).build());
+    return parsed(
+        ParseFileRequest.newBuilder().setFilePath(file.toString()).build(), List.of(file.toString()));
   }
 
   /**
@@ -208,7 +280,8 @@ public final class Connection implements AutoCloseable {
    */
   public Model load(Path file, ParseOptions options) {
     Objects.requireNonNull(file, "file");
-    return parsed(request(options).setFilePath(file.toString()).build());
+    return parsed(
+        request(options).setFilePath(file.toString()).build(), List.of(file.toString()));
   }
 
   /**
@@ -220,7 +293,7 @@ public final class Connection implements AutoCloseable {
    */
   public Model parse(String content) {
     Objects.requireNonNull(content, NAME_CONTENT);
-    return parsed(ParseFileRequest.newBuilder().setContent(content).build());
+    return parsed(ParseFileRequest.newBuilder().setContent(content).build(), List.of());
   }
 
   /**
@@ -232,7 +305,7 @@ public final class Connection implements AutoCloseable {
    */
   public Model parse(String content, ParseOptions options) {
     Objects.requireNonNull(content, NAME_CONTENT);
-    return parsed(request(options).setContent(content).build());
+    return parsed(request(options).setContent(content).build(), List.of());
   }
 
   /**
@@ -276,11 +349,13 @@ public final class Connection implements AutoCloseable {
     }
     ParseSourcesRequest.Builder request =
         ParseSourcesRequest.newBuilder().setStrictConformance(options.strictConformance());
+    List<String> names = new java.util.ArrayList<>(documents.size());
     for (SourceDocument document : documents) {
       if (document.language().isPresent()) {
         capabilities.require(Capabilities.INLINE_LANGUAGE);
       }
       request.addDocuments(Protos.proto(document));
+      names.add(document.file().map(Path::toString).orElseGet(() -> document.name().orElse("")));
     }
     ParseSourcesResponse response =
         call("ParseSources", request.build(), ParseSourcesResponse.getDefaultInstance());
@@ -292,7 +367,7 @@ public final class Connection implements AutoCloseable {
     for (org.openmbee.opensysml.proto.SymbolInfo root : response.getRootsList()) {
       roots.add(Protos.symbol(root));
     }
-    return new Model(this, response.getModelHash(), roots, diagnostics);
+    return new Model(this, response.getModelHash(), roots, diagnostics, names);
   }
 
   /**
@@ -405,7 +480,7 @@ public final class Connection implements AutoCloseable {
     return transport.call(method, request, responseDefault);
   }
 
-  private Model parsed(ParseFileRequest request) {
+  private Model parsed(ParseFileRequest request, List<String> documents) {
     if (request.getStrictConformance()) {
       capabilities.require(Capabilities.STRICT_CONFORMANCE);
     }
@@ -416,7 +491,7 @@ public final class Connection implements AutoCloseable {
     }
     List<Symbol> roots =
         response.hasRoot() ? List.of(Protos.symbol(response.getRoot())) : List.of();
-    return new Model(this, response.getModelHash(), roots, diagnostics);
+    return new Model(this, response.getModelHash(), roots, diagnostics, documents);
   }
 
   private Conversion converted(
@@ -426,6 +501,7 @@ public final class Connection implements AutoCloseable {
     capabilities.require(Capabilities.CONVERT);
     request.setToFormat(toFormat).setTolerateSyntaxErrors(options.tolerateSyntaxErrors());
     options.fromFormat().ifPresent(request::setFromFormat);
+    options.idForm().ifPresent(request::setIdForm);
     ConvertResponse response =
         call("Convert", request.build(), ConvertResponse.getDefaultInstance());
     List<Diagnostic> diagnostics = Protos.diagnostics(response.getDiagnosticsList());
@@ -443,11 +519,20 @@ public final class Connection implements AutoCloseable {
   }
 
   private Capabilities readCapabilities() {
-    ServerInfoResponse info =
-        transport.call(
-            "GetServerInfo",
-            ServerInfoRequest.getDefaultInstance(),
-            ServerInfoResponse.getDefaultInstance());
+    ServerInfoResponse info;
+    try {
+      info =
+          transport.call(
+              "GetServerInfo",
+              ServerInfoRequest.getDefaultInstance(),
+              ServerInfoResponse.getDefaultInstance());
+    } catch (ServiceException e) {
+      if (e.status() != StatusCode.UNIMPLEMENTED) {
+        throw e;
+      }
+      answeredServerInfo = false;
+      return new Capabilities("", Set.of());
+    }
     Set<String> names = new LinkedHashSet<>(info.getCapabilitiesList());
     return new Capabilities(info.getVersion(), names);
   }

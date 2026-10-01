@@ -1,5 +1,6 @@
 package org.openmbee.opensysml;
 
+import java.nio.file.Path;
 import java.util.List;
 import java.util.Objects;
 
@@ -34,5 +35,21 @@ public record EditResult(
     applied = List.copyOf(applied);
     documents = List.copyOf(documents);
     diagnostics = List.copyOf(diagnostics);
+  }
+
+  /**
+   * Writes the edited notation of a single-document model to a file.
+   *
+   * @param path the file, created or truncated
+   * @return {@code path}, for chaining
+   * @throws java.io.UncheckedIOException if the file cannot be written
+   */
+  public Path save(Path path) {
+    return Conversion.writeContent(content, path);
+  }
+
+  @Override
+  public String toString() {
+    return content;
   }
 }
