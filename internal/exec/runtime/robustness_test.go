@@ -56,15 +56,12 @@ func TestRuntimeRobustness(t *testing.T) {
 	t.Run("state_do_body_dangling_succession", testStateDoBodyDanglingSuccession)
 	t.Run("state_do_body_first_then_undefined", testStateDoBodyFirstThenUndefined)
 	t.Run("state_do_body_flow_without_start", testStateDoBodyFlowWithoutStart)
-	t.Run("state_do_body_flow_with_two_starts", testStateDoBodyFlowWithTwoStarts)
 	t.Run("state_do_body_starts_at_its_unpreceded_step", testStateDoBodyStartsAtItsUnprecededStep)
 	t.Run("action_flow_starts_at_its_unpreceded_step", testActionFlowStartsAtItsUnprecededStep)
-	t.Run("action_flow_with_two_starts", testActionFlowWithTwoStarts)
 	t.Run("action_flow_cycle_without_start", testActionFlowCycleWithoutStart)
 	t.Run("state_do_body_nested_node_dangling_succession", testStateDoBodyNestedNodeDanglingSuccession)
 	t.Run("state_do_body_nested_node_starts_at_its_unpreceded_step", testStateDoBodyNestedNodeStartsAtItsUnprecededStep)
 	t.Run("action_nested_node_starts_at_its_unpreceded_step", testActionNestedNodeStartsAtItsUnprecededStep)
-	t.Run("action_nested_node_with_two_starts", testActionNestedNodeWithTwoStarts)
 	t.Run("state_entry_body_dangling_succession", testStateEntryBodyDanglingSuccession)
 	t.Run("state_do_body_accept_waits_for_the_message", testStateDoBodyAcceptWaitsForTheMessage)
 	t.Run("state_do_body_accept_is_decided_for_a_send", testStateDoBodyAcceptIsDecidedForASend)
@@ -280,7 +277,6 @@ func TestRuntimeRobustness(t *testing.T) {
 	t.Run("non_terminating_loop_performing_an_action", testNonTerminatingLoopPerformingAnAction)
 	t.Run("for_over_a_value_no_expression_makes_iterable", testForOverAValueNoExpressionMakesIterable)
 	t.Run("for_over_a_scalar", testForOverAScalar)
-	t.Run("statement_directly_in_an_action_body", testStatementDirectlyInAnActionBody)
 	t.Run("flow_end_naming_no_node", testFlowEndNamingNoNode)
 	t.Run("flow_naming_no_pin", testFlowNamingNoPin)
 	t.Run("accept_payload_without_a_value", testAcceptPayloadWithoutAValue)
@@ -6584,14 +6580,14 @@ func testRegionPseudostateCycle(t *testing.T) {
 }
 
 // testDeadlockJoinStarvation: join awaiting token that never arrives. `stranded`
-// has no incoming edge, so the join has two incoming edges but can only ever be
-// reached by one token.
+// is a reference no succession leads to, so nothing performs it: the join has two
+// incoming edges but can only ever be reached by one token.
 func testDeadlockJoinStarvation(t *testing.T) {
 	src := `
 		package test {
 			action starve {
 				first start;
-				action stranded;
+				ref action stranded;
 				join sync;
 				done;
 				succession first start then sync;
@@ -6623,7 +6619,7 @@ func testDeadlockJoinStarvation(t *testing.T) {
 
 // testDeadlockJoinSameSuccessionTwice: two tokens reach the join over the one
 // succession from the merge; they do not stand in for the succession from
-// `stranded`, which no token can travel, so the join never fires.
+// `stranded`, a reference nothing performs, so the join never fires.
 func testDeadlockJoinSameSuccessionTwice(t *testing.T) {
 	src := `
 		package test {
@@ -6633,7 +6629,7 @@ func testDeadlockJoinSameSuccessionTwice(t *testing.T) {
 				action a;
 				action b;
 				merge m;
-				action stranded;
+				ref action stranded;
 				join sync;
 				done;
 				succession first start then split;
@@ -9819,46 +9815,6 @@ func testForOverAScalar(t *testing.T) {
 	}
 	if !strings.Contains(err.Error(), "an Integer is not one") {
 		t.Errorf("error does not name the value it was given: %v", err)
-	}
-}
-
-// testStatementDirectlyInAnActionBody: a statement written among the action's
-// own members has no name a succession can reach, so it is reported rather than
-// ignored.
-func testStatementDirectlyInAnActionBody(t *testing.T) {
-	cases := map[string]string{
-		"while":      "while total < 5 { assign total := total + 1; }",
-		"if":         "if total < 5 { assign total := total + 1; }",
-		"assignment": "assign total := total + 1;",
-	}
-
-	for name, stmt := range cases {
-		t.Run(name, func(t *testing.T) {
-			src := `
-				package test {
-					action counter {
-						attribute total : Integer = 0;
-						first start;
-						` + stmt + `
-						done;
-						succession first start then done;
-					}
-				}
-			`
-			idx, _, ctx := buildRuntime(t, "<test>", parseAndBuild(t, src))
-			sym := findSymbolByName(idx.DocumentRoot("<test>"), "counter", ast.DefAction)
-			if sym == nil {
-				t.Fatal("action counter not found")
-			}
-
-			_, err := ctx.ExecuteAction(sym)
-			if err == nil {
-				t.Fatalf("expected a top-level %s to be reported", name)
-			}
-			if !strings.Contains(err.Error(), "no position in the token flow") {
-				t.Errorf("error does not explain why the statement cannot run: %v", err)
-			}
-		})
 	}
 }
 
@@ -13635,7 +13591,7 @@ func testNestedFlowThatCannotProgress(t *testing.T) {
 				action leg {
 					first s;
 					action s;
-					action stranded;
+					ref action stranded;
 					join sync;
 					done;
 					succession first s then sync;
@@ -13744,7 +13700,8 @@ func testNodePinOfANodeNotYetPerformed(t *testing.T) {
 
 // testNodeOutputBoundToANestedNodeThatNeverRuns: a node's output bound to a pin of one
 // of its own nested nodes takes its value as that node ends, so where the nested node
-// never runs the output is unvalued when its node ends, and reported so.
+// never runs — a reference no succession leads to — the output is unvalued when its
+// node ends, and reported so.
 func testNodeOutputBoundToANestedNodeThatNeverRuns(t *testing.T) {
 	src := `
 		package test {
@@ -13754,7 +13711,7 @@ func testNodeOutputBoundToANestedNodeThatNeverRuns(t *testing.T) {
 				first start;
 				then action leg {
 					out v : Integer[1];
-					action inner { out v : Integer[1]; assign v := 1; }
+					ref action inner { out v : Integer[1]; assign v := 1; }
 					first start;
 					then action own { assign legV := 0; }
 					then done;
@@ -14405,30 +14362,6 @@ func testStateDoBodyFlowWithoutStart(t *testing.T) {
 	}
 }
 
-// testStateDoBodyFlowWithTwoStarts: successions leaving two nodes unpreceded
-// state no start either; the error names both and what would state one.
-func testStateDoBodyFlowWithTwoStarts(t *testing.T) {
-	exec := stateWithDoBody(t, `
-		action a { assign total := total + 1; }
-		action b { assign total := total + 1; }
-		action c { assign total := total + 1; }
-		succession first a then c;
-		succession first b then c;
-	`)
-	err := exec.RunToCompletion()
-	if !errors.Is(err, ErrInvalidActionFlow) {
-		t.Fatalf("expected ErrInvalidActionFlow, got: %v", err)
-	}
-	for _, want := range []string{"no node starts the flow", `"a"`, `"b"`, "'first'"} {
-		if !strings.Contains(err.Error(), want) {
-			t.Errorf("error %q does not contain %q", err, want)
-		}
-	}
-	if total := exec.StateData()["total"]; !valueEqual(total, integerValue(0)) {
-		t.Errorf("total = %v, want 0: no node of the body must run", total)
-	}
-}
-
 // testStateDoBodyStartsAtItsUnprecededStep: a do body written in declaration
 // order, with no `first`, starts at the one node no succession leads to.
 func testStateDoBodyStartsAtItsUnprecededStep(t *testing.T) {
@@ -14459,30 +14392,6 @@ func testActionFlowStartsAtItsUnprecededStep(t *testing.T) {
 		t.Fatalf("run: %v", err)
 	}
 	assertIntOutput(t, outputs, "total", 20)
-}
-
-// testActionFlowWithTwoStarts: an action whose successions leave two nodes
-// unpreceded is an invalid flow at initialization, not a bodiless action.
-func testActionFlowWithTwoStarts(t *testing.T) {
-	_, err := executeActionSource(t, "Count", `package P {
-		private import ScalarValues::*;
-		action def Count {
-			attribute total : Integer = 0;
-			action a { assign total := total + 1; }
-			action b { assign total := total + 1; }
-			action c { assign total := total + 1; }
-			succession first a then c;
-			succession first b then c;
-		}
-	}`)
-	if !errors.Is(err, ErrInvalidActionFlow) {
-		t.Fatalf("expected ErrInvalidActionFlow, got: %v", err)
-	}
-	for _, want := range []string{"no initial node found in action Count", `"a"`, `"b"`, "'first'"} {
-		if !strings.Contains(err.Error(), want) {
-			t.Errorf("error %q does not contain %q", err, want)
-		}
-	}
 }
 
 // testActionFlowCycleWithoutStart: successions closing a cycle over every node
@@ -14569,30 +14478,6 @@ func testActionNestedNodeStartsAtItsUnprecededStep(t *testing.T) {
 		t.Fatalf("run: %v", err)
 	}
 	assertIntOutput(t, outputs, "total", 20)
-}
-
-// testActionNestedNodeWithTwoStarts: a nested flow leaving two nodes unpreceded
-// states no start, and is an invalid flow at initialization naming the node.
-func testActionNestedNodeWithTwoStarts(t *testing.T) {
-	_, err := executeActionSource(t, "Count", `package P {
-		private import ScalarValues::*;
-		action def Count {
-			attribute total : Integer = 0;
-			action inner {
-				action a { assign total := total + 1; }
-				action b { assign total := total + 1; }
-				action c { assign total := total + 1; }
-				succession first a then c;
-				succession first b then c;
-			}
-		}
-	}`)
-	if !errors.Is(err, ErrInvalidActionFlow) {
-		t.Fatalf("expected ErrInvalidActionFlow, got: %v", err)
-	}
-	if !strings.Contains(err.Error(), "no initial node found in action node inner") {
-		t.Errorf("error %q does not name the node without a start", err)
-	}
 }
 
 // testStateEntryBodyDanglingSuccession: an inline entry body's flow is built the

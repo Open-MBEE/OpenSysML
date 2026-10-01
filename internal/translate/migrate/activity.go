@@ -830,7 +830,7 @@ func (a *activity) starvation(n *sysmlv1.Element) {
 	case a.fed[pin]:
 		why = "only parameters taking no value flow into it"
 	}
-	a.m.add(n, Approximated, "", "the action never fires: its input pin "+describe(pin)+" must hold a value, but "+why+"; no succession leads to it or leaves it, where v1 would wait on it forever")
+	a.m.add(n, Approximated, "", "the action never fires: its input pin "+describe(pin)+" must hold a value, but "+why+"; no succession leads to it or leaves it, where v1 would wait on it forever, and it is written as a reference action usage, which the activity does not perform")
 }
 
 // waitFor writes the delay a duration constraint on e stands for: a fixed
@@ -1429,8 +1429,19 @@ func (a *activity) leadIn(n *sysmlv1.Element, into string) {
 	}
 }
 
-// declareNode writes the declaration of n itself, named name.
+// declareNode writes the declaration of n itself, named name. An action v1
+// never fires is written referential: as a composite action usage no succession
+// reaches it would be a subaction performed with the activity (Actions::subactions).
 func (a *activity) declareNode(n *sysmlv1.Element, name string) {
+	if a.starved[n] != nil {
+		a.m.w.prefixed("ref ", actionKw, func() { a.declareKind(n, name) })
+		return
+	}
+	a.declareKind(n, name)
+}
+
+// declareKind writes the declaration of n by its kind.
+func (a *activity) declareKind(n *sysmlv1.Element, name string) {
 	switch n.Type {
 	case "ActivityFinalNode":
 		a.m.w.line(actionKw + name + " terminate;")

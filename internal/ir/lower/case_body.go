@@ -132,27 +132,25 @@ func stepName(node ast.Node) string {
 }
 
 // StartFlow gives a flow performed whole — a case body's, a state behavior's, an
-// action's — that no `first` starts its one unpreceded step to begin at; where
-// none is found the graph keeps no start, and running it reports why.
+// action's — the nodes its performance starts at: the ordered part's start, where
+// no `first` states one its one unpreceded step, and every composite subaction no
+// succession leads to as a concurrent start (startsConcurrently). Where nothing
+// can start a flow stating steps, the graph keeps no start and running it
+// reports why (FlowStartError).
 func StartFlow(graph *ActionGraph) {
-	if graph.Initial != nil {
-		return
+	if graph.Initial == nil {
+		if start, err := CaseFlowStart(graph); err == nil {
+			graph.Initial = start
+		}
 	}
-	if start, err := CaseFlowStart(graph); err == nil {
-		graph.Initial = start
-	}
+	graph.Concurrent = unorderedSubactions(graph)
 }
 
 // CaseFlowStart finds the step a flow starts at where no `first` or start node
 // states one: the single step no succession leads to. Two such steps leave the
 // start unstated, and none is a cycle; either is reported.
 func CaseFlowStart(graph *ActionGraph) (ast.Node, error) {
-	preceded := make(map[ast.Node]bool, len(graph.Nodes))
-	for _, edges := range graph.Edges {
-		for _, edge := range edges {
-			preceded[edge.Target] = true
-		}
-	}
+	preceded := precededNodes(graph)
 	var starts []ast.Node
 	for _, node := range graph.Nodes {
 		if _, final := node.(*ast.FinalNode); !final && !preceded[node] {

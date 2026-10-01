@@ -168,6 +168,10 @@ func (f *Flow) number(fr *Frame) error {
 	if graph == nil || graph.Initial == nil {
 		return &FlowError{Node: nodeLabel(fr.Node), Reason: "the flow has no initial node"}
 	}
+	if len(graph.Concurrent) > 0 {
+		return &UnsupportedError{Node: nodeLabel(graph.Concurrent[0]), Construct: "unordered subaction",
+			Reason: "a subaction no succession reaches starts with its owner; the encoding seeds one start"}
+	}
 	fr.Index = len(f.Frames)
 	f.Frames = append(f.Frames, fr)
 	prefix := fr.path()

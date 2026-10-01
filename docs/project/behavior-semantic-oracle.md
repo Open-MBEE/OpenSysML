@@ -71,6 +71,9 @@ derivation fixes is met — not whether the golden is the only correct trace.
 | Where | Text | Used for |
 |-------|------|----------|
 | `Occurrences.kerml` `HappensBefore` | "the earlierOccurrence happening completely before the laterOccurrence … no snapshot of the earlierOccurrence happens at the same time as any snapshot of the laterOccurrence" | Every succession orders the whole source performance (its body included) before the whole target performance |
+| `Performances.kerml` `Performance::enclosedPerformances`, `subperformances` | `step enclosedPerformances: Performance[0..*] subsets performances, timeEnclosedOccurrences` — "timeEnclosedOccurrences of this Performance that are also Performances"; `composite step subperformances: Performance[0..*] subsets enclosedPerformances, suboccurrences` — "enclosedPerformances that are composite" | A composite step's performances start no earlier and end no later than the performance owning them, whether or not a succession orders them |
+| `Occurrences.kerml` `Occurrence::timeEnclosedOccurrences` | "Occurrences that start no earlier than and end no later than this occurrence" | The owner's performance ends only after every subperformance has; its own successors follow them all |
+| `Actions.sysml` `Action::subactions` | `action subactions: Action[0..*] :> actions, subperformances` — "The subperformances of this Action that are Actions" | Every composite action usage of an action (a `send`, `accept`, `assign`, `if`, `while` or `for` among them) is one of its subperformances; a `ref` action usage is not composite and is not one |
 | `Actions.sysml` `ControlAction` | `bind start = done` — "A ControlAction is instantaneous" | A control node adds no duration; its successor may start as soon as its predecessors end |
 | `Actions.sysml` `ForkAction` | "Fork behavior results from requiring that the target multiplicity of all outgoing succession connectors be 1..1" | Each fork performance is followed by exactly one performance of every target |
 | `Actions.sysml` `JoinAction` | "Join behavior results from requiring that the source multiplicity of all incoming succession connectors be 1..1" | Each join performance follows exactly one performance of every source, one per incoming succession |
@@ -328,6 +331,53 @@ last, giving `x = 1`). Exploration is what makes the set checkable: `explore` re
 along every choice sequence and must reach each of the three outcomes and no other, in six runs.
 The first pick among three tokens and the next among the two left are two choice points in
 consecutive steps, so a linearization is a sequence of two choices, not one choice among six.
+
+### Subactions no succession orders: each is performed during the owner, in which order is open
+
+Fixtures: `action_unordered_subactions_write_conflict` (golden, explored), with
+`action_unordered_subactions`, `action_unordered_beside_first`, `action_unordered_nested_subactions`,
+`action_unordered_statements`, `action_unordered_send_accept`, `action_unordered_reference_not_performed`,
+`action_unordered_accept_holds_owner`, `action_unordered_send_to_receiver`,
+`action_body_flow_unordered_statement` and `state_do_body_unordered_statement` (each one outcome).
+
+```
+race { a { c := 1 }   b { c := 2 } }        -- no succession, no `first`
+```
+
+Derived constraints:
+
+- `a` and `b` are composite action usages of `race`, so each is one of its `subactions`
+  (`Actions.sysml`), hence a `subperformance` and an `enclosedPerformance` of it
+  (`Performances.kerml`): each is performed exactly once per performance of `race` (KerML 1.0
+  §7.4.5), starting no earlier and ending no later than it (`timeEnclosedOccurrences`).
+- `race` therefore ends only after both have; a succession out of `race`, its `done` and the
+  reading of its outputs come after both writes. A `first`-rooted flow beside them
+  (`action_unordered_beside_first`) is one more part of the same performance, and the owner ends
+  after it and after them.
+- A statement written among the action's members (`send`, `accept`, `assign`, `if`, `while`,
+  `for`) is an action usage like `a` and is performed the same way; an accept among them holds
+  the owner open until its transfer arrives (`AcceptPerformance`), and with none to arrive the
+  owner never ends (`action_unordered_accept_holds_owner`, an accept deadlock).
+- A `ref` action usage is referential, not composite, so it is no `subperformance` and is not
+  performed (`action_unordered_reference_not_performed`); so is a `perform`, an event occurrence
+  usage, which is referential (`validateEventOccurrenceUsageIsReference`), and an abstract usage.
+- The same holds for the flow a nested action node or a state's entry, do or exit body states
+  (`action_unordered_nested_subactions`, `state_do_body_unordered_statement`).
+
+Open: the order of `a` against `b`. No `HappensBefore` links them, so both linearizations are
+valid; with `c := c + 1` and `c := c + 10` they agree on `c = 11` (`action_unordered_subactions`),
+with `c := 1` and `c := 2` the write that stands is open.
+
+Pinned outcome: the admissible set `{c = 1, c = 2}`, stated as `outcomes` citing this section;
+exploration reaches both and no other, one linearization each. The executor performs each such
+subaction as a token started with the owner's performance (`ActionGraph.Concurrent`, lowered by
+`StartFlow`), so its interleavings are the same choice points fork branches are. The exact golden
+records the default schedule.
+
+Not covered: a nested action node whose members are only statements, and a loop, branch or
+behavior body stating no flow, run their statements and nodes in declaration order, as they did
+before; the library orders them no more than it orders `a` and `b`, so that order is the
+executor's choice, recorded in [spec compliance](spec-compliance.md).
 
 ### A write between two nodes of a concurrent branch: three orders, three outcomes
 

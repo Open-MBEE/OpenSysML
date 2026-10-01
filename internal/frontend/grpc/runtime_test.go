@@ -2,6 +2,7 @@ package grpc
 
 import (
 	"context"
+	"strings"
 	"testing"
 
 	pb "github.com/Open-MBEE/OpenSysML/api/proto"
@@ -179,7 +180,7 @@ func TestInstantiate_SymbolNotFound(t *testing.T) {
 	}
 }
 
-// TestExecuteAction_EmptyAction verifies ExecuteAction RPC on a minimal action
+// TestExecuteAction_EmptyAction verifies ExecuteAction RPC completes a minimal action
 func TestExecuteAction_EmptyAction(t *testing.T) {
 	srv := mustNewService(t, 10)
 
@@ -214,9 +215,43 @@ package Test {
 		t.Fatalf("ExecuteAction failed: %v", err)
 	}
 
-	// Empty action should fail at initialize() with "no initial node" per AGENTS.md §4
-	if execResp.Error == "" {
-		t.Error("expected error for empty action (no initial node)")
+	// An action with no subactions performs none and completes (Actions::subactions).
+	if execResp.Error != "" {
+		t.Errorf("empty action failed: %s", execResp.Error)
+	}
+}
+
+// TestExecuteAction_NoStart verifies an action whose successions cycle over every
+// step reports no initial node from initialize().
+func TestExecuteAction_NoStart(t *testing.T) {
+	srv := mustNewService(t, 10)
+	content := `
+package Test {
+  action def CycleAction {
+    action a;
+    action b;
+    first a then b;
+    first b then a;
+  }
+}
+`
+	parseResp, err := srv.ParseFile(context.Background(), &pb.ParseFileRequest{
+		Source:      &pb.ParseFileRequest_Content{Content: content},
+		ContentHash: "test-execute-action-no-start",
+	})
+	if err != nil {
+		t.Fatalf("ParseFile failed: %v", err)
+	}
+	execResp, err := srv.ExecuteAction(context.Background(), &pb.ExecuteActionRequest{
+		ModelHash:      parseResp.ModelHash,
+		ActionSymbolId: "Test::CycleAction",
+		Inputs:         make(map[string]*pb.Value),
+	})
+	if err != nil {
+		t.Fatalf("ExecuteAction failed: %v", err)
+	}
+	if !strings.Contains(execResp.Error, "no initial node") {
+		t.Errorf("error = %q, want it to report no initial node", execResp.Error)
 	}
 }
 

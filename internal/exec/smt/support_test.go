@@ -241,6 +241,22 @@ func TestAnalyzeRefusesNoInitial(t *testing.T) {
 	}
 }
 
+// TestAnalyzeRefusesUnorderedSubactions: a subaction no succession reaches
+// starts with its owner beside the initial node; the encoding seeds a single
+// start, so it refuses the flow as not encoded rather than drop that subaction.
+func TestAnalyzeRefusesUnorderedSubactions(t *testing.T) {
+	graph := conformanceAction(t, "action_unordered_beside_first.sysml", "test::host")
+	lower.StartFlow(graph)
+	_, err := Analyze(graph, 10)
+	var unsupported *UnsupportedError
+	if !errors.As(err, &unsupported) || !errors.Is(err, ErrNotEncoded) {
+		t.Fatalf("Analyze: got %v, want an UnsupportedError", err)
+	}
+	if unsupported.Node != "side" || unsupported.Construct != "unordered subaction" {
+		t.Errorf("refusal names %q/%q, want node side, construct unordered subaction", unsupported.Node, unsupported.Construct)
+	}
+}
+
 // TestSortsNameEveryNodeEdgeAndSlot: the finite sorts carry one constructor per
 // node plus Absent, per succession plus none, per slot plus stutter.
 func TestSortsNameEveryNodeEdgeAndSlot(t *testing.T) {

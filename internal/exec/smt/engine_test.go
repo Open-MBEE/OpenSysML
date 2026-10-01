@@ -225,7 +225,7 @@ func TestEngineDecidesDeadlock(t *testing.T) {
 	src := `package test {
 	action def Stuck {
 		first start;
-		action stranded;
+		ref action stranded;
 		join j;
 		done;
 		succession first start then j;

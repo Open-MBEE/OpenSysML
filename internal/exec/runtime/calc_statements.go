@@ -352,18 +352,13 @@ func (h *calcStmtHost) runFlow(block lower.Block) (stmtFlow, error) {
 		return flowNext, fmt.Errorf("%w: %s: a flow of steps in a body is not executable",
 			ErrStatementNotExecutable, h.describe())
 	}
-	if block.Graph.Initial == nil {
-		reason := "no step starts the flow"
-		if _, err := lower.CaseFlowStart(block.Graph); err != nil {
-			reason = err.Error()
-		}
-		return flowNext, fmt.Errorf("%w: %s: %s", ErrInvalidActionFlow, h.describe(), reason)
+	if err := lower.FlowStartError(block.Graph); err != nil {
+		return flowNext, fmt.Errorf("%w: %s: %w", ErrInvalidActionFlow, h.describe(), err)
 	}
 	root := h.flow.root
 	h.flow.graph = block.Graph
 	root.graph = block.Graph
 	root.connections = block.Graph.Connections
-	root.live = 1
 	if err := h.flow.runSubflow(root); err != nil {
 		return flowNext, err
 	}

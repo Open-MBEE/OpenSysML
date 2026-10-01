@@ -1,0 +1,7 @@
+stmt assign c
+  eval literal 1 -> 1
+stmt assign c
+  eval literal 2 -> 2
+choice step 1: writes c := 1 by token 1, c := 2 by token 2 (unordered; c := 2 by token 2 stood)
+choice step 1: tokens 1@a, 2@b (unordered; took 1@a first)
+step 1: no active tokens
