@@ -44,6 +44,7 @@ func (m *Model) ConformanceViolations(sym *symbols.Symbol) []ConformanceViolatio
 		return nil
 	}
 	var out []ConformanceViolation
+	written := map[*symbols.Symbol]bool{}
 	for _, rel := range RelationshipsOf(sym) {
 		if rel == nil || rel.Target == nil {
 			continue
@@ -55,11 +56,22 @@ func (m *Model) ConformanceViolations(sym *symbols.Symbol) []ConformanceViolatio
 		if target == nil || target == sym {
 			continue
 		}
+		written[target] = true
 		ref := ast.Node(rel.Target)
 		if rel.Kind == ast.RelRedefines {
 			out = append(out, m.directionViolations(sym, traits, target, ref)...)
 		}
 		out = append(out, m.restrictionViolations(sym, traits, target, ref)...)
+	}
+	// A subsetting the feature has implicitly — a composite action in an
+	// action one of its `subactions` — is a Subsetting all the same, and the
+	// uniqueness and constancy conformance constraints hold of it as of a
+	// written one. Nothing is written to point at, so the declaration is.
+	for _, target := range m.ImplicitSubsettings(sym) {
+		if target == nil || target == sym || written[target] {
+			continue
+		}
+		out = append(out, m.restrictionViolations(sym, traits, target, sym.Decl)...)
 	}
 	// A parameter redefines the parameter at its position implicitly, and the
 	// direction it declares must be the redefined one's (KerML 7.4.7.2).
@@ -112,8 +124,7 @@ func (m *Model) directionViolations(sym *symbols.Symbol, traits featureTraits,
 // variable where the target is constant (KerML 8.3.3.3).
 func (m *Model) restrictionViolations(sym *symbols.Symbol, traits featureTraits,
 	target *symbols.Symbol, ref ast.Node) []ConformanceViolation {
-	targetTraits, ok := featureTraitsOf(target)
-	if !ok {
+	if _, ok := featureTraitsOf(target); !ok {
 		return nil
 	}
 	var out []ConformanceViolation
@@ -122,43 +133,12 @@ func (m *Model) restrictionViolations(sym *symbols.Symbol, traits featureTraits,
 			Kind: ViolationUniqueness, Feature: sym, Target: target, Ref: ref,
 		})
 	}
-	if traits.IsVariable && m.isConstantFeature(target, targetTraits, map[*symbols.Symbol]bool{}) {
+	if traits.IsVariable && m.constantDeclaration(target, map[*symbols.Symbol]bool{}) != nil {
 		out = append(out, ConformanceViolation{
 			Kind: ViolationConstancy, Feature: sym, Target: target, Ref: ref,
 		})
 	}
 	return out
-}
-
-// isConstantFeature reports whether target is constant, declared so or through a
-// feature it subsets or redefines: constancy is inherited by restriction.
-// seen guards against cyclic subsetting.
-func (m *Model) isConstantFeature(target *symbols.Symbol, traits featureTraits,
-	seen map[*symbols.Symbol]bool) bool {
-	if traits.IsConstant {
-		return true
-	}
-	if traits.IsVariable || seen[target] {
-		return false
-	}
-	seen[target] = true
-	for _, rel := range RelationshipsOf(target) {
-		if rel == nil || rel.Target == nil {
-			continue
-		}
-		if rel.Kind != ast.RelSubsets && rel.Kind != ast.RelRedefines {
-			continue
-		}
-		next := m.conformanceTarget(target, rel)
-		if next == nil || next == target {
-			continue
-		}
-		nextTraits, ok := featureTraitsOf(next)
-		if ok && m.isConstantFeature(next, nextTraits, seen) {
-			return true
-		}
-	}
-	return false
 }
 
 // directionThrough returns the direction feature has as seen through owner:

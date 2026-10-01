@@ -86,9 +86,8 @@ func testJunctionOfTheLeftStateLeadingIntoHistory(t *testing.T) {
 	}
 }
 
-// testJunctionOfTheLeftStateWhoseEveryBranchIsClosed: a junction's guards are
-// read before the compound transition fires; when none holds the run fails at
-// the junction before any exit or effect runs.
+// testJunctionOfTheLeftStateWhoseEveryBranchIsClosed: a transition whose route
+// is statically closed is disabled before any exit or effect runs.
 func testJunctionOfTheLeftStateWhoseEveryBranchIsClosed(t *testing.T) {
 	exec := stateExecutorForSource(t, "Machine", `package test {
 		private import ScalarValues::*;
@@ -108,11 +107,21 @@ func testJunctionOfTheLeftStateWhoseEveryBranchIsClosed(t *testing.T) {
 			transition first S1::XP if x == 1 then S2;
 		}
 	}`)
-	err := runRouteToError(t, exec)
-	if !strings.Contains(err.Error(), "junction XP: no guard evaluated to true") {
-		t.Errorf("expected the error to name the junction, got %v", err)
+	if err := exec.initialize(); err != nil {
+		t.Fatalf("initialize: %v", err)
+	}
+	exec.SendSignal("Go", nil)
+	if err := exec.RunToCompletion(); err != nil {
+		t.Fatalf("RunToCompletion: %v", err)
+	}
+	activeA := false
+	for _, state := range exec.ActiveStates() {
+		activeA = activeA || state.Name == "A"
+	}
+	if !activeA {
+		t.Errorf("active states = %v, want A to remain active", exec.ActiveStates())
 	}
 	if log := FormatValue(exec.StateData()["log"]); log != `""` {
-		t.Errorf("log is %s, want empty: nothing is left when no branch out of the junction holds", log)
+		t.Errorf("log is %s, want empty: disabled transition runs no exit or effect", log)
 	}
 }

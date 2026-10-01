@@ -764,7 +764,7 @@ func (ctx *Context) calcOccurrenceMaterializer(shape *calcShape, locals frame, a
 		}
 		for _, name := range shape.ParamNames {
 			if value, held := locals.lookup(name); held {
-				if err := inst.SetFeatureValue(ctx, name, value); err != nil {
+				if err := inst.BindFeatureValue(ctx, name, value); err != nil {
 					return nil, fmt.Errorf("%w: seed %s of object #%d: %w",
 						ErrActionPerformanceOccurrence, name, inst.ID, err)
 				}
@@ -849,7 +849,7 @@ func (ctx *Context) bindCalcParameters(
 		if occurrence != nil && occurrence.inst != nil {
 			// A parameter default read `this` earlier, so the occurrence exists
 			// and needs this binding like a run's later defaults do.
-			if err := occurrence.inst.SetFeatureValue(ctx, param.Name, value); err != nil {
+			if err := occurrence.inst.BindFeatureValue(ctx, param.Name, value); err != nil {
 				return fmt.Errorf("%w: bind %s of object #%d: %w",
 					ErrActionPerformanceOccurrence, param.Name, occurrence.inst.ID, err)
 			}

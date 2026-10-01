@@ -1,0 +1,4 @@
+eval literal false -> false
+exit: wait
+enter: live
+transition: wait -> live (event: accept Start)

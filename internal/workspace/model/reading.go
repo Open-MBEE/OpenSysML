@@ -4,6 +4,8 @@ import (
 	"strings"
 
 	"github.com/Open-MBEE/OpenSysML/internal/ir/view"
+	"github.com/Open-MBEE/OpenSysML/internal/semantic/resolve"
+	"github.com/Open-MBEE/OpenSysML/internal/semantic/semantics"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/symbols"
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/lexer"
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/source"
@@ -33,6 +35,17 @@ func (w *Workspace) Generation() uint64 {
 
 // Generation is the workspace's generation as read.
 func (r *Reading) Generation() uint64 { return r.w.generation }
+
+// Index is the workspace's index as read.
+func (r *Reading) Index() *symbols.Index { return r.w.index }
+
+// Query runs fn with the shared semantics, as a query of doc reads them.
+func (r *Reading) Query(doc string, fn func(*resolve.Resolver, *semantics.Model)) {
+	r.w.queryLocked(doc, fn)
+}
+
+// SourceText is the text of the documents and the library files behind them.
+func (r *Reading) SourceText() view.SourceText { return r.w.sourceText() }
 
 // Document is the held document name, nil for one the workspace does not hold.
 func (r *Reading) Document(name string) *Document { return r.w.docs[name] }
@@ -97,7 +110,7 @@ func (r *Reading) RenderView(doc, fqn string) (*view.Rendering, *Snapshot, error
 	return r.w.renderViewLocked(doc, fqn)
 }
 
-// NewRuntime is Workspace.NewRuntime over the documents as read.
-func (r *Reading) NewRuntime() (*Runtime, error) {
-	return r.w.newRuntimeLocked()
+// Detach is Workspace.Detach over the documents as read.
+func (r *Reading) Detach() (*Detached, error) {
+	return r.w.detachLocked()
 }

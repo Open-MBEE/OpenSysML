@@ -296,7 +296,7 @@ source → lexer → parser → AST → symbol index → resolve → passes
   the do action's accept loop, the exit action's flush — is lowered by `internal/translate/deferred`,
   which the PSSM referee shares with it. A hygiene test pins `export` free of `migrate` and the entry point as the
   only package besides the CLI (which prints the migration report) that imports it. The result
-  sidecar a migration writes (`-migration-results`) has its schema in `internal/translate/simresults`,
+  sidecar a migration writes (`-migration-results`) has its schema in `internal/exec/simresults`,
   which the migrator fills and the comparison (`repl`, `-compare-results`) reads without the migrator.
 
 ---

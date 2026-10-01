@@ -1,0 +1,7 @@
+{
+	"verdict": "divergent",
+	"divergent": {
+		"x": ["1", "2"],
+		"y": ["0", "1", "2"]
+	}
+}

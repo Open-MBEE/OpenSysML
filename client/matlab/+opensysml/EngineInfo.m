@@ -8,7 +8,7 @@ classdef EngineInfo
         bounds = {}
         process = ''
         processFound = ''
-        ready = true
+        ready = false
         unavailable = ''
         kind = ''
         protocol = ''
@@ -29,7 +29,7 @@ classdef EngineInfo
             end
             obj.answers = asCells(fieldOr(raw, 'answers', {}));
             obj.bounds = asCells(fieldOr(raw, 'bounds', {}));
-            obj.ready = logical(fieldOr(raw, 'ready', true));
+            obj.ready = logical(fieldOr(raw, 'ready', false));
             obj.served = logical(fieldOr(raw, 'served', false));
         end
 

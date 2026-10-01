@@ -3,7 +3,7 @@ package migrate
 import (
 	"strconv"
 
-	"github.com/Open-MBEE/OpenSysML/internal/translate/simresults"
+	"github.com/Open-MBEE/OpenSysML/internal/exec/simresults"
 	"github.com/Open-MBEE/OpenSysML/internal/translate/xmi/sysmlv1"
 )
 

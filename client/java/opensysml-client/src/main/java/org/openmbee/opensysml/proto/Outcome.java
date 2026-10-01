@@ -69,6 +69,7 @@ private static final long serialVersionUID = 0L;
             org.openmbee.opensysml.proto.Outcome.class, org.openmbee.opensysml.proto.Outcome.Builder.class);
   }
 
+  private int bitField0_;
   public static final int OUTPUTS_FIELD_NUMBER = 1;
   private static final class OutputsDefaultEntryHolder {
     static final com.google.protobuf.MapEntry<
@@ -452,8 +453,7 @@ org.openmbee.opensysml.proto.Value defaultValue) {
   private double probability_ = 0D;
   /**
    * <pre>
-   * The probability of the linearizations reaching this outcome, as explore
-   * computes it; a lower bound when the exploration is incomplete.
+   * The exact model-draw probability when probability_range is exact; zero otherwise.
    * </pre>
    *
    * <code>double probability = 8 [json_name = "probability"];</code>
@@ -462,6 +462,47 @@ org.openmbee.opensysml.proto.Value defaultValue) {
   @java.lang.Override
   public double getProbability() {
     return probability_;
+  }
+
+  public static final int PROBABILITY_RANGE_FIELD_NUMBER = 9;
+  private org.openmbee.opensysml.proto.ProbabilityRange probabilityRange_;
+  /**
+   * <pre>
+   * Present when the exploration made a weighted choice. Bounds probabilities
+   * over schedulers, not shares of the enumerated schedules.
+   * </pre>
+   *
+   * <code>.sysml.ProbabilityRange probability_range = 9 [json_name = "probabilityRange"];</code>
+   * @return Whether the probabilityRange field is set.
+   */
+  @java.lang.Override
+  public boolean hasProbabilityRange() {
+    return ((bitField0_ & 0x00000001) != 0);
+  }
+  /**
+   * <pre>
+   * Present when the exploration made a weighted choice. Bounds probabilities
+   * over schedulers, not shares of the enumerated schedules.
+   * </pre>
+   *
+   * <code>.sysml.ProbabilityRange probability_range = 9 [json_name = "probabilityRange"];</code>
+   * @return The probabilityRange.
+   */
+  @java.lang.Override
+  public org.openmbee.opensysml.proto.ProbabilityRange getProbabilityRange() {
+    return probabilityRange_ == null ? org.openmbee.opensysml.proto.ProbabilityRange.getDefaultInstance() : probabilityRange_;
+  }
+  /**
+   * <pre>
+   * Present when the exploration made a weighted choice. Bounds probabilities
+   * over schedulers, not shares of the enumerated schedules.
+   * </pre>
+   *
+   * <code>.sysml.ProbabilityRange probability_range = 9 [json_name = "probabilityRange"];</code>
+   */
+  @java.lang.Override
+  public org.openmbee.opensysml.proto.ProbabilityRangeOrBuilder getProbabilityRangeOrBuilder() {
+    return probabilityRange_ == null ? org.openmbee.opensysml.proto.ProbabilityRange.getDefaultInstance() : probabilityRange_;
   }
 
   private byte memoizedIsInitialized = -1;
@@ -504,6 +545,9 @@ org.openmbee.opensysml.proto.Value defaultValue) {
     }
     if (java.lang.Double.doubleToRawLongBits(probability_) != 0) {
       output.writeDouble(8, probability_);
+    }
+    if (((bitField0_ & 0x00000001) != 0)) {
+      output.writeMessage(9, getProbabilityRange());
     }
     getUnknownFields().writeTo(output);
   }
@@ -558,6 +602,10 @@ org.openmbee.opensysml.proto.Value defaultValue) {
       size += com.google.protobuf.CodedOutputStream
         .computeDoubleSize(8, probability_);
     }
+    if (((bitField0_ & 0x00000001) != 0)) {
+      size += com.google.protobuf.CodedOutputStream
+        .computeMessageSize(9, getProbabilityRange());
+    }
     size += getUnknownFields().getSerializedSize();
     memoizedSize = size;
     return size;
@@ -590,6 +638,11 @@ org.openmbee.opensysml.proto.Value defaultValue) {
     if (java.lang.Double.doubleToLongBits(getProbability())
         != java.lang.Double.doubleToLongBits(
             other.getProbability())) return false;
+    if (hasProbabilityRange() != other.hasProbabilityRange()) return false;
+    if (hasProbabilityRange()) {
+      if (!getProbabilityRange()
+          .equals(other.getProbabilityRange())) return false;
+    }
     if (!getUnknownFields().equals(other.getUnknownFields())) return false;
     return true;
   }
@@ -626,6 +679,10 @@ org.openmbee.opensysml.proto.Value defaultValue) {
     hash = (37 * hash) + PROBABILITY_FIELD_NUMBER;
     hash = (53 * hash) + com.google.protobuf.Internal.hashLong(
         java.lang.Double.doubleToLongBits(getProbability()));
+    if (hasProbabilityRange()) {
+      hash = (37 * hash) + PROBABILITY_RANGE_FIELD_NUMBER;
+      hash = (53 * hash) + getProbabilityRange().hashCode();
+    }
     hash = (29 * hash) + getUnknownFields().hashCode();
     memoizedHashCode = hash;
     return hash;
@@ -774,13 +831,20 @@ org.openmbee.opensysml.proto.Value defaultValue) {
 
     // Construct using org.openmbee.opensysml.proto.Outcome.newBuilder()
     private Builder() {
-
+      maybeForceBuilderInitialization();
     }
 
     private Builder(
         com.google.protobuf.GeneratedMessage.BuilderParent parent) {
       super(parent);
-
+      maybeForceBuilderInitialization();
+    }
+    private void maybeForceBuilderInitialization() {
+      if (com.google.protobuf.GeneratedMessage
+              .alwaysUseFieldBuilders) {
+        internalGetDiagnosticsFieldBuilder();
+        internalGetProbabilityRangeFieldBuilder();
+      }
     }
     @java.lang.Override
     public Builder clear() {
@@ -802,6 +866,11 @@ org.openmbee.opensysml.proto.Value defaultValue) {
       }
       bitField0_ = (bitField0_ & ~0x00000040);
       probability_ = 0D;
+      probabilityRange_ = null;
+      if (probabilityRangeBuilder_ != null) {
+        probabilityRangeBuilder_.dispose();
+        probabilityRangeBuilder_ = null;
+      }
       return this;
     }
 
@@ -871,6 +940,14 @@ org.openmbee.opensysml.proto.Value defaultValue) {
       if (((from_bitField0_ & 0x00000080) != 0)) {
         result.probability_ = probability_;
       }
+      int to_bitField0_ = 0;
+      if (((from_bitField0_ & 0x00000100) != 0)) {
+        result.probabilityRange_ = probabilityRangeBuilder_ == null
+            ? probabilityRange_
+            : probabilityRangeBuilder_.build();
+        to_bitField0_ |= 0x00000001;
+      }
+      result.bitField0_ |= to_bitField0_;
     }
 
     @java.lang.Override
@@ -949,6 +1026,9 @@ org.openmbee.opensysml.proto.Value defaultValue) {
       }
       if (java.lang.Double.doubleToRawLongBits(other.getProbability()) != 0) {
         setProbability(other.getProbability());
+      }
+      if (other.hasProbabilityRange()) {
+        mergeProbabilityRange(other.getProbabilityRange());
       }
       this.mergeUnknownFields(other.getUnknownFields());
       onChanged();
@@ -1030,6 +1110,13 @@ org.openmbee.opensysml.proto.Value defaultValue) {
               bitField0_ |= 0x00000080;
               break;
             } // case 65
+            case 74: {
+              input.readMessage(
+                  internalGetProbabilityRangeFieldBuilder().getBuilder(),
+                  extensionRegistry);
+              bitField0_ |= 0x00000100;
+              break;
+            } // case 74
             default: {
               if (!super.parseUnknownField(input, extensionRegistry, tag)) {
                 done = true; // was an endgroup tag
@@ -2102,8 +2189,7 @@ org.openmbee.opensysml.proto.Value defaultValue) {
     private double probability_ ;
     /**
      * <pre>
-     * The probability of the linearizations reaching this outcome, as explore
-     * computes it; a lower bound when the exploration is incomplete.
+     * The exact model-draw probability when probability_range is exact; zero otherwise.
      * </pre>
      *
      * <code>double probability = 8 [json_name = "probability"];</code>
@@ -2115,8 +2201,7 @@ org.openmbee.opensysml.proto.Value defaultValue) {
     }
     /**
      * <pre>
-     * The probability of the linearizations reaching this outcome, as explore
-     * computes it; a lower bound when the exploration is incomplete.
+     * The exact model-draw probability when probability_range is exact; zero otherwise.
      * </pre>
      *
      * <code>double probability = 8 [json_name = "probability"];</code>
@@ -2132,8 +2217,7 @@ org.openmbee.opensysml.proto.Value defaultValue) {
     }
     /**
      * <pre>
-     * The probability of the linearizations reaching this outcome, as explore
-     * computes it; a lower bound when the exploration is incomplete.
+     * The exact model-draw probability when probability_range is exact; zero otherwise.
      * </pre>
      *
      * <code>double probability = 8 [json_name = "probability"];</code>
@@ -2144,6 +2228,172 @@ org.openmbee.opensysml.proto.Value defaultValue) {
       probability_ = 0D;
       onChanged();
       return this;
+    }
+
+    private org.openmbee.opensysml.proto.ProbabilityRange probabilityRange_;
+    private com.google.protobuf.SingleFieldBuilder<
+        org.openmbee.opensysml.proto.ProbabilityRange, org.openmbee.opensysml.proto.ProbabilityRange.Builder, org.openmbee.opensysml.proto.ProbabilityRangeOrBuilder> probabilityRangeBuilder_;
+    /**
+     * <pre>
+     * Present when the exploration made a weighted choice. Bounds probabilities
+     * over schedulers, not shares of the enumerated schedules.
+     * </pre>
+     *
+     * <code>.sysml.ProbabilityRange probability_range = 9 [json_name = "probabilityRange"];</code>
+     * @return Whether the probabilityRange field is set.
+     */
+    public boolean hasProbabilityRange() {
+      return ((bitField0_ & 0x00000100) != 0);
+    }
+    /**
+     * <pre>
+     * Present when the exploration made a weighted choice. Bounds probabilities
+     * over schedulers, not shares of the enumerated schedules.
+     * </pre>
+     *
+     * <code>.sysml.ProbabilityRange probability_range = 9 [json_name = "probabilityRange"];</code>
+     * @return The probabilityRange.
+     */
+    public org.openmbee.opensysml.proto.ProbabilityRange getProbabilityRange() {
+      if (probabilityRangeBuilder_ == null) {
+        return probabilityRange_ == null ? org.openmbee.opensysml.proto.ProbabilityRange.getDefaultInstance() : probabilityRange_;
+      } else {
+        return probabilityRangeBuilder_.getMessage();
+      }
+    }
+    /**
+     * <pre>
+     * Present when the exploration made a weighted choice. Bounds probabilities
+     * over schedulers, not shares of the enumerated schedules.
+     * </pre>
+     *
+     * <code>.sysml.ProbabilityRange probability_range = 9 [json_name = "probabilityRange"];</code>
+     */
+    public Builder setProbabilityRange(org.openmbee.opensysml.proto.ProbabilityRange value) {
+      if (probabilityRangeBuilder_ == null) {
+        if (value == null) {
+          throw new NullPointerException();
+        }
+        probabilityRange_ = value;
+      } else {
+        probabilityRangeBuilder_.setMessage(value);
+      }
+      bitField0_ |= 0x00000100;
+      onChanged();
+      return this;
+    }
+    /**
+     * <pre>
+     * Present when the exploration made a weighted choice. Bounds probabilities
+     * over schedulers, not shares of the enumerated schedules.
+     * </pre>
+     *
+     * <code>.sysml.ProbabilityRange probability_range = 9 [json_name = "probabilityRange"];</code>
+     */
+    public Builder setProbabilityRange(
+        org.openmbee.opensysml.proto.ProbabilityRange.Builder builderForValue) {
+      if (probabilityRangeBuilder_ == null) {
+        probabilityRange_ = builderForValue.build();
+      } else {
+        probabilityRangeBuilder_.setMessage(builderForValue.build());
+      }
+      bitField0_ |= 0x00000100;
+      onChanged();
+      return this;
+    }
+    /**
+     * <pre>
+     * Present when the exploration made a weighted choice. Bounds probabilities
+     * over schedulers, not shares of the enumerated schedules.
+     * </pre>
+     *
+     * <code>.sysml.ProbabilityRange probability_range = 9 [json_name = "probabilityRange"];</code>
+     */
+    public Builder mergeProbabilityRange(org.openmbee.opensysml.proto.ProbabilityRange value) {
+      if (probabilityRangeBuilder_ == null) {
+        if (((bitField0_ & 0x00000100) != 0) &&
+          probabilityRange_ != null &&
+          probabilityRange_ != org.openmbee.opensysml.proto.ProbabilityRange.getDefaultInstance()) {
+          getProbabilityRangeBuilder().mergeFrom(value);
+        } else {
+          probabilityRange_ = value;
+        }
+      } else {
+        probabilityRangeBuilder_.mergeFrom(value);
+      }
+      if (probabilityRange_ != null) {
+        bitField0_ |= 0x00000100;
+        onChanged();
+      }
+      return this;
+    }
+    /**
+     * <pre>
+     * Present when the exploration made a weighted choice. Bounds probabilities
+     * over schedulers, not shares of the enumerated schedules.
+     * </pre>
+     *
+     * <code>.sysml.ProbabilityRange probability_range = 9 [json_name = "probabilityRange"];</code>
+     */
+    public Builder clearProbabilityRange() {
+      bitField0_ = (bitField0_ & ~0x00000100);
+      probabilityRange_ = null;
+      if (probabilityRangeBuilder_ != null) {
+        probabilityRangeBuilder_.dispose();
+        probabilityRangeBuilder_ = null;
+      }
+      onChanged();
+      return this;
+    }
+    /**
+     * <pre>
+     * Present when the exploration made a weighted choice. Bounds probabilities
+     * over schedulers, not shares of the enumerated schedules.
+     * </pre>
+     *
+     * <code>.sysml.ProbabilityRange probability_range = 9 [json_name = "probabilityRange"];</code>
+     */
+    public org.openmbee.opensysml.proto.ProbabilityRange.Builder getProbabilityRangeBuilder() {
+      bitField0_ |= 0x00000100;
+      onChanged();
+      return internalGetProbabilityRangeFieldBuilder().getBuilder();
+    }
+    /**
+     * <pre>
+     * Present when the exploration made a weighted choice. Bounds probabilities
+     * over schedulers, not shares of the enumerated schedules.
+     * </pre>
+     *
+     * <code>.sysml.ProbabilityRange probability_range = 9 [json_name = "probabilityRange"];</code>
+     */
+    public org.openmbee.opensysml.proto.ProbabilityRangeOrBuilder getProbabilityRangeOrBuilder() {
+      if (probabilityRangeBuilder_ != null) {
+        return probabilityRangeBuilder_.getMessageOrBuilder();
+      } else {
+        return probabilityRange_ == null ?
+            org.openmbee.opensysml.proto.ProbabilityRange.getDefaultInstance() : probabilityRange_;
+      }
+    }
+    /**
+     * <pre>
+     * Present when the exploration made a weighted choice. Bounds probabilities
+     * over schedulers, not shares of the enumerated schedules.
+     * </pre>
+     *
+     * <code>.sysml.ProbabilityRange probability_range = 9 [json_name = "probabilityRange"];</code>
+     */
+    private com.google.protobuf.SingleFieldBuilder<
+        org.openmbee.opensysml.proto.ProbabilityRange, org.openmbee.opensysml.proto.ProbabilityRange.Builder, org.openmbee.opensysml.proto.ProbabilityRangeOrBuilder> 
+        internalGetProbabilityRangeFieldBuilder() {
+      if (probabilityRangeBuilder_ == null) {
+        probabilityRangeBuilder_ = new com.google.protobuf.SingleFieldBuilder<
+            org.openmbee.opensysml.proto.ProbabilityRange, org.openmbee.opensysml.proto.ProbabilityRange.Builder, org.openmbee.opensysml.proto.ProbabilityRangeOrBuilder>(
+                getProbabilityRange(),
+                getParentForChildren(),
+                isClean());
+        probabilityRange_ = null;
+      }
+      return probabilityRangeBuilder_;
     }
 
     // @@protoc_insertion_point(builder_scope:sysml.Outcome)

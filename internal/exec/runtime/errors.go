@@ -11,6 +11,9 @@ import (
 )
 
 var (
+	// errNoWayThrough marks a compound route with no statically enabled path.
+	errNoWayThrough = errors.New("no way through")
+
 	// ErrStepLimitExceeded is returned when the evaluation step counter exceeds maxSteps.
 	ErrStepLimitExceeded = errors.New("evaluation step limit exceeded")
 
@@ -483,6 +486,13 @@ var (
 	// ErrClockNotAssignable is returned when an assignment targets a Clock's
 	// currentTime: the run advances it, so no statement writes it.
 	ErrClockNotAssignable = errors.New("a clock's currentTime advances with the run and is not assigned")
+
+	// ErrReadOnlyFeature is returned when a behavior writes a feature declared
+	// `constant` or `derived`, or redefining or subsetting one that is, once its
+	// featuring occurrence is initialized: a constant feature keeps its value over
+	// that occurrence's lifetime and a derived one has the values the model
+	// determines, so neither is written. The feature keeps the value it held.
+	ErrReadOnlyFeature = errors.New("feature is read-only")
 
 	// ErrNoSubject is returned when the feature a satisfaction assertion names
 	// with `by` cannot supply a subject: it resolves to nothing, or no object of

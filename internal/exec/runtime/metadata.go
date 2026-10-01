@@ -152,7 +152,7 @@ func (ec *EvalContext) bindMetadataFeatures(typ *symbols.Symbol, inst *Instance,
 			if err != nil {
 				return fmt.Errorf("metadata %s: %s: %w", name, binding.Feature, err)
 			}
-			if err := inst.SetFeatureValue(ctx, binding.Feature, val); err != nil {
+			if err := inst.BindFeatureValue(ctx, binding.Feature, val); err != nil {
 				return fmt.Errorf("metadata %s: %w", name, err)
 			}
 		}

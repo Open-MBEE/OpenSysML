@@ -1,0 +1,9 @@
+{
+  "type": "state",
+  "trace": true,
+  "events": [{"signal": "Go"}, {"signal": "Continue"}],
+  "finalState": "done",
+  "outputs": {
+    "log": {"type": "String", "value": "started continued"}
+  }
+}

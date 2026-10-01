@@ -1,0 +1,1 @@
+- **Uniqueness and constancy conformance hold of an implicit subsetting.** `action def A { action b[*] nonunique; }` was accepted, though `b` implicitly subsets the unique `Actions::Action::subactions`; only a written `:>`/`:>>` was checked. The feature the usage implicitly subsets is now checked as a written one is, and the finding is reported at the declaration, once (#726).

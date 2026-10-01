@@ -31,7 +31,7 @@ classdef Symbol < handle
             obj.name = fieldOr(record, 'name', '');
             obj.kind = fieldOr(record, 'kind', '');
             obj.metadata = metadataMap(fieldOr(record, 'metadata', struct()));
-            if isfield(record, 'typeInfo') && ~isempty(fieldnames(record.typeInfo))
+            if isfield(record, 'typeInfo')
                 obj.typeFacts = record.typeInfo;
             end
             if isfield(record, 'multiplicity') && ~isempty(fieldnames(record.multiplicity))
@@ -161,7 +161,10 @@ end
 function symbol = fetchSymbol(model, id)
     symbol = [];
     try
-        raw = opensysml.symbol(model, id);
+        raw = opensysml.call(model.connection, 'GetSymbol', ...
+            struct('modelHash', model.hash, 'symbolId', id));
+        if isfield(raw, 'error') && ~isempty(raw.error), return; end
+        if isfield(raw, 'symbol'), raw = raw.symbol; end
         symbol = opensysml.Symbol(raw, model);
     catch e
         if ~strcmp(e.identifier, 'opensysml:connect:symbolNotFound'), rethrow(e); end
@@ -171,10 +174,8 @@ end
 function map = metadataMap(raw)
     if isa(raw, 'containers.Map'), map = raw; return; end
     map = containers.Map('KeyType', 'char', 'ValueType', 'any');
-    if isstruct(raw)
-        names = fieldnames(raw);
-        for i = 1:numel(names), map(names{i}) = raw.(names{i}); end
-    end
+    [names, values] = opensysml.internal.mapEntries(raw);
+    for i = 1:numel(names), map(names{i}) = values{i}; end
 end
 
 function multiplicity = multiplicityOf(raw)

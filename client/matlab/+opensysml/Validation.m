@@ -4,7 +4,7 @@ classdef Validation
     properties
         verdicts = {}
         summary = []
-        instances
+        instances = {}
         diagnostics = {}
         verifications = {}
         bounded = false
@@ -21,7 +21,7 @@ classdef Validation
             if nargin < 6, bounded = false; end
             obj.verdicts = toCells(verdicts);
             obj.summary = summary;
-            obj.instances = instanceMap(instances);
+            obj.instances = toCells(instances);
             obj.diagnostics = toCells(diagnostics);
             obj.verifications = toCells(verifications);
             obj.bounded = logical(bounded);
@@ -74,14 +74,5 @@ function cells = toCells(raw)
     elseif iscell(raw), cells = raw(:)';
     elseif isstruct(raw), cells = num2cell(raw(:)');
     else, cells = {raw};
-    end
-end
-
-function map = instanceMap(raw)
-    if isa(raw, 'containers.Map'), map = raw; return; end
-    map = containers.Map('KeyType', 'char', 'ValueType', 'any');
-    if isstruct(raw)
-        fields = fieldnames(raw);
-        for i = 1:numel(fields), map(fields{i}) = raw.(fields{i}); end
     end
 end
