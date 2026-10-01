@@ -155,12 +155,11 @@ classdef Model < handle
             if ~isempty(strfind(name, '::'))
                 result = findById(m, name);
                 if ~isempty(result), return; end
+                result = symbolNamed(m, name);
+            else
+                result = symbolNamed(m, name);
+                if isempty(result), result = findById(m, name); end
             end
-            result = symbolNamed(m, name);
-        end
-
-        function result = lookup(m, name)
-            result = m.find(name);
         end
 
         function value = evaluate(m, expression, varargin)
@@ -263,21 +262,20 @@ function result = symbolNamed(model, name)
         result = walkNamed(model, name);
         return;
     end
-    payload = struct('type', 'PrimitiveConstraint', 'operator', '=', ...
-        'property', 'name', 'value', name);
-    matches = opensysml.query(model, 'where', payload, 'select', {'owner'});
-    if ~model.ok()
-        result = walkNamed(model, name);
-        return;
-    end
-    if isempty(matches), return; end
-    ordered = model.walk();
+    matches = queryOwner(model, 'name', name);
     candidateIds = cellfun(@(item) item.id, matches, 'UniformOutput', false);
-    for i = 1:numel(ordered)
-        if any(strcmp(candidateIds, ordered{i}.id))
-            result = findById(model, ordered{i}.id);
-            return;
-        end
+    candidateDepths = [];
+    if numel(candidateIds) > 1 || (~isempty(candidateIds) && ~model.ok())
+        candidateDepths = ownerDepths(model, matches);
+        [~, order] = sortrows([candidateDepths(:), (1:numel(candidateIds))']);
+        candidateIds = candidateIds(order(:)');
+        candidateDepths = candidateDepths(order(:)');
+    end
+    if ~model.ok()
+        depth = Inf;
+        if ~isempty(candidateIds), depth = candidateDepths(1); end
+        result = walkNamed(model, name, depth);
+        if ~isempty(result), return; end
     end
     for i = 1:numel(candidateIds)
         result = findById(model, candidateIds{i});
@@ -285,9 +283,72 @@ function result = symbolNamed(model, name)
     end
 end
 
-function result = walkNamed(model, name)
+function matches = queryOwner(model, property, value)
+    payload = struct('type', 'PrimitiveConstraint', 'operator', '=', ...
+        'property', property, 'value', {value});
+    matches = opensysml.query(model, 'where', payload, 'select', {'owner'});
+end
+
+function depths = ownerDepths(model, elements)
+    owners = containers.Map('KeyType', 'char', 'ValueType', 'char');
+    rootIds = cell(1, numel(model.roots));
+    for i = 1:numel(model.roots)
+        rootIds{i} = model.roots{i}.id;
+        owners(rootIds{i}) = '';
+    end
+    for i = 1:numel(elements)
+        owners(elements{i}.id) = queryProperty(elements{i}, 'owner');
+    end
+    unknown = unknownOwners(owners);
+    while ~isempty(unknown)
+        parents = queryOwner(model, '@id', sort(unknown));
+        for i = 1:numel(parents)
+            owners(parents{i}.id) = queryProperty(parents{i}, 'owner');
+        end
+        for i = 1:numel(unknown)
+            if ~isKey(owners, unknown{i}), owners(unknown{i}) = ''; end
+        end
+        unknown = unknownOwners(owners);
+    end
+    depths = zeros(1, numel(elements));
+    for i = 1:numel(elements)
+        id = elements{i}.id;
+        hops = 0;
+        while isKey(owners, id) && ~isempty(owners(id))
+            id = owners(id);
+            hops = hops + 1;
+        end
+        if ~any(strcmp(rootIds, id)), hops = hops + 1; end
+        depths(i) = hops;
+    end
+end
+
+function values = unknownOwners(owners)
+    values = {};
+    names = keys(owners);
+    for i = 1:numel(names)
+        parent = owners(names{i});
+        if ~isempty(parent) && ~isKey(owners, parent)
+            values{end+1} = parent;
+        end
+    end
+end
+
+function value = queryProperty(element, name)
+    value = '';
+    if isfield(element, 'properties') && isa(element.properties, 'containers.Map') && ...
+            isKey(element.properties, name)
+        raw = element.properties(name);
+        if ischar(raw), value = raw;
+        elseif iscell(raw) && numel(raw) == 1 && ischar(raw{1}), value = raw{1};
+        end
+    end
+end
+
+function result = walkNamed(model, name, depth)
+    if nargin < 3, depth = Inf; end
     result = [];
-    values = model.walk();
+    values = model.walk(depth);
     for i = 1:numel(values)
         if strcmp(values{i}.name, name), result = values{i}; return; end
     end

@@ -27,7 +27,9 @@ function conn = private(varargin)
     if isempty(binary), binary = opensysml.resolveBinary(); end
     if ~exist('java.lang.ProcessBuilder', 'class') && ~isJavaAvailable()
         opensysml.internal.raise('opensysml:transport', ['a private service needs java.lang.ProcessBuilder; ' ...
-            'this interpreter was built without Java — start a service yourself and use opensysml.external(address)']);
+            'this interpreter was built without Java ' ...
+            opensysml.internal.unicodeChar(8212) ...
+            ' start a service yourself and use opensysml.external(address)']);
     end
     args = javaObject('java.util.ArrayList');
     args.add(javaObject('java.lang.String', binary));

@@ -4,7 +4,7 @@ function answer = executeAction(model, actionId, varargin)
     options = opensysml.internal.nameValueOptions(struct( ...
         'inputs', struct(), 'schedule', '', 'performer', ''), varargin, 'executeAction');
     schedule = char(options.schedule);
-    rejectExplore(schedule, 'explore_action');
+    rejectExplore(schedule, 'opensysml.exploreAction');
     capabilities = opensysml.internal.runCapabilities(model.connection, schedule, options.performer);
     request = struct('modelHash', model.hash, 'actionSymbolId', char(actionId), ...
         'inputs', encodeInputs(options.inputs, model.connection));

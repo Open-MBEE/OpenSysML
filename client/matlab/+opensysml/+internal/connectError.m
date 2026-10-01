@@ -35,7 +35,8 @@ function connectError(code, message, status, method, conn, capabilities, request
             if ~isempty(capability)
                 details.capability = capability;
                 identifier = 'opensysml:missingCapability';
-                message = missingCapabilityMessage(conn, capability);
+                message = opensysml.internal.missingCapabilityMessage( ...
+                    capability, conn.describe());
             else
                 identifier = 'opensysml:connect:unsupportedOperation';
             end
@@ -69,13 +70,6 @@ function capability = refusedCapability(message, capabilities)
     else
         capability = capabilities{1};
     end
-end
-
-function message = missingCapabilityMessage(conn, capability)
-    message = sprintf(['the sysml-grpc service does not support the ''%s'' capability, which this operation requires.\n' ...
-        '  service: %s\n' ...
-        '  fix:     run a sysml-grpc whose GetServerInfo reports ''%s'': build one with `make build-grpc` and start it yourself, or point $OPENSYSML_GRPC_BINARY at a release that has it'], ...
-        capability, conn.describe(), capability);
 end
 
 function origin = serviceOrigin(conn)

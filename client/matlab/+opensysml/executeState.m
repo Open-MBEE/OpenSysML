@@ -4,7 +4,7 @@ function answer = executeState(model, stateId, varargin)
     options = opensysml.internal.nameValueOptions(struct( ...
         'events', {{}}, 'schedule', '', 'performer', ''), varargin, 'executeState');
     schedule = char(options.schedule);
-    rejectExplore(schedule, 'explore_state');
+    rejectExplore(schedule, 'opensysml.exploreState');
     capabilities = opensysml.internal.runCapabilities(model.connection, schedule, options.performer);
     events = toTextCells(options.events);
     request = struct('modelHash', model.hash, ...

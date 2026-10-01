@@ -77,15 +77,18 @@ classdef Verdict
             if ~isempty(obj.error)
                 text = sprintf('? %s%s: %s', named, subject, obj.error);
             elseif obj.holds
-                text = sprintf('✓ %s holds%s', named, subject);
+                text = sprintf('%s %s holds%s', ...
+                    opensysml.internal.unicodeChar(10003), named, subject);
             elseif isempty(obj.condition)
-                text = sprintf('✗ %s fails%s: condition evaluated to false', named, subject);
+                text = sprintf('%s %s fails%s: condition evaluated to false', ...
+                    opensysml.internal.unicodeChar(10007), named, subject);
             else
-                text = sprintf('✗ %s fails%s: condition evaluated to false: %s', ...
-                    named, subject, obj.condition);
+                text = sprintf('%s %s fails%s: condition evaluated to false: %s', ...
+                    opensysml.internal.unicodeChar(10007), named, subject, obj.condition);
             end
             if obj.standing.reported()
-                text = [text ' — ' obj.standing.explain()];
+                text = [text ' ' opensysml.internal.unicodeChar(8212) ...
+                    ' ' obj.standing.explain()];
             end
         end
 

@@ -25,10 +25,12 @@ classdef Conversion
             obj.experimentalNotice = experimentalNotice;
             if obj.experimental
                 if isempty(obj.experimentalNotice)
-                    obj.experimentalNotice = ['RDF conversion — Turtle and the API''s JSON element form alike — is ' ...
+                    dash = opensysml.internal.unicodeChar(8212);
+                    section = opensysml.internal.unicodeChar(167);
+                    obj.experimentalNotice = ['RDF conversion ' dash ' Turtle and the API''s JSON element form alike ' dash ' is ' ...
                         'experimental: the mapping covers model structure and the behavior its bodies state, ' ...
                         'refuses what it cannot write back, and its vocabulary may change without a ' ...
-                        'compatibility path; see docs/reference/rdf-mapping.md § Status'];
+                        'compatibility path; see docs/reference/rdf-mapping.md ' section ' Status'];
                 end
                 warning('opensysml:experimental', '%s', obj.experimentalNotice);
             end

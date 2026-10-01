@@ -58,7 +58,7 @@ classdef Connection < handle
         function require(conn, capability)
             if ~conn.hasCapability(capability)
                 service = conn.describeFromInfo();
-                message = missingCapabilityMessage(capability, service);
+                message = opensysml.internal.missingCapabilityMessage(capability, service);
                 opensysml.internal.raise('opensysml:missingCapability', message, {}, ...
                     struct('capability', capability, 'service', service));
             end
@@ -164,11 +164,4 @@ function values = toCellstr(values)
     end
     if ~iscell(values), values = cellstr(values); end
     values = cellfun(@char, values, 'UniformOutput', false);
-end
-
-function message = missingCapabilityMessage(capability, service)
-    remedy = sprintf(['run a sysml-grpc whose GetServerInfo reports ''%s'': build one with `make build-grpc` and start it yourself, ' ...
-        'or point $OPENSYSML_GRPC_BINARY at a release that has it'], capability);
-    message = sprintf(['the sysml-grpc service does not support the ''%s'' capability, which this operation requires.\n' ...
-        '  service: %s\n  fix:     %s'], capability, service, remedy);
 end

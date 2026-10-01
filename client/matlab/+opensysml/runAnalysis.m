@@ -6,10 +6,10 @@ function result = runAnalysis(model, symbolId, varargin)
         'schedule', '', 'engine', ''), varargin, 'runAnalysis');
     schedule = char(options.schedule);
     engineOption = char(options.engine);
-    rejectExplore(schedule, 'explore_analysis');
+    rejectExplore(schedule, 'opensysml.exploreAnalysis');
     if strcmp(engineOption, 'explore')
         opensysml.internal.raise('opensysml:argument', ...
-            'engine ''explore'' answers with every outcome, not one run''s result: use explore_analysis');
+            'engine ''explore'' answers with every outcome, not one run''s result: use opensysml.exploreAnalysis');
     end
     model.connection.require('verification');
     scheduleCapabilities = opensysml.internal.runCapabilities(model.connection, schedule, '');
