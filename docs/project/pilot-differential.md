@@ -693,7 +693,7 @@ so the expression has no value. It is **ours, one-sided by design**: the operand
 unchanged, and the round only lets it see a parameter it could not type before. Recorded in the
 pilot-corpora ratchet (`Expressions.kerml` 0 → 2) and here; the Xpect harness moves one row, the
 file's `noErrors` (1268 agree / 57 disagree → 1267 / 58), recorded in
-[pilot-xpect.md](pilot-xpect.md#noerrors--265-of-276-agree).
+[pilot-xpect.md](pilot-xpect.md#noerrors--262-of-276-agree).
 
 | Count | Before | Now |
 |---|---:|---:|
